@@ -15,9 +15,12 @@ from nioh3_scroll_editor.updater import (
     UpdateManifest,
     check_for_update,
     download_update,
+    ensure_managed_install,
     prepare_managed_update_script,
+    validate_managed_install,
 )
 from nioh3_scroll_editor.version import APP_ID
+from tools.build_update_manifest import build_manifest
 
 
 class MemoryResponse(io.BytesIO):
@@ -89,6 +92,37 @@ class UpdaterTests(unittest.TestCase):
                 open_url=lambda _url, _timeout: MemoryResponse(payload),
             )
 
+    def test_release_manifest_builder_matches_runtime_verifier(self) -> None:
+        private_key = Ed25519PrivateKey.generate()
+        private_value = base64.b64encode(
+            private_key.private_bytes_raw()
+        ).decode("ascii")
+        public_value = base64.b64encode(
+            private_key.public_key().public_bytes_raw()
+        ).decode("ascii")
+        with tempfile.TemporaryDirectory() as directory:
+            asset = Path(directory) / "Nioh3ScrollGenerator.exe"
+            asset.write_bytes(b"signed release executable")
+            value = build_manifest(
+                version="1.2.0",
+                asset=asset,
+                asset_url="https://example.invalid/releases/v1.2.0/Nioh3ScrollGenerator.exe",
+                notes="Release notes",
+                private_key_base64=private_value,
+                published_at_utc="2026-08-29T00:00:00Z",
+            )
+            payload = json.dumps(value).encode("utf-8")
+
+            result = check_for_update(
+                "1.1.9",
+                "https://example.invalid/latest.json",
+                public_value,
+                open_url=lambda _url, _timeout: MemoryResponse(payload),
+            )
+
+            self.assertTrue(result.update_available)
+            self.assertEqual(result.manifest.asset_sha256, hashlib.sha256(asset.read_bytes()).hexdigest().upper())
+
     def test_download_requires_exact_signed_size_and_hash(self) -> None:
         asset = b"signed executable bytes"
         value, _public_key = self._signed_manifest(asset)
@@ -147,6 +181,7 @@ class UpdaterTests(unittest.TestCase):
                     {
                         "schema": 1,
                         "app_id": APP_ID,
+                        "channel": "stable",
                         "executable": executable.name,
                     }
                 ),
@@ -162,6 +197,35 @@ class UpdaterTests(unittest.TestCase):
             self.assertIn("Get-FileHash -LiteralPath", text)
             self.assertIn("Move-Item -LiteralPath", text)
             self.assertNotIn(str(executable), text)
+
+    def test_portable_executable_self_enrollment_is_exact_and_idempotent(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            executable = Path(directory) / "Nioh3ScrollGenerator.exe"
+            executable.write_bytes(b"portable executable")
+
+            marker = ensure_managed_install(executable)
+            original_marker = marker.read_bytes()
+
+            self.assertEqual(validate_managed_install(executable), executable.resolve())
+            self.assertEqual(ensure_managed_install(executable), marker)
+            self.assertEqual(marker.read_bytes(), original_marker)
+            value = json.loads(marker.read_text(encoding="utf-8"))
+            self.assertEqual(value["channel"], "stable")
+            self.assertEqual(value["executable"], executable.name)
+
+    def test_self_enrollment_never_overwrites_an_invalid_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            executable = Path(directory) / "Nioh3ScrollGenerator.exe"
+            executable.write_bytes(b"portable executable")
+            marker = executable.parent / MANAGED_INSTALL_MARKER
+            marker.write_text('{"app_id":"another-application"}', encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "another application"):
+                ensure_managed_install(executable)
+            self.assertEqual(
+                marker.read_text(encoding="utf-8"),
+                '{"app_id":"another-application"}',
+            )
 
 
 if __name__ == "__main__":

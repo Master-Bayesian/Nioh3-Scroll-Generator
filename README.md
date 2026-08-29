@@ -25,7 +25,7 @@
 - 新增、修改、删除和恢复前自动备份；写档采用源文件哈希门禁、校验和修复、加密回读验证。
 - 自动备份浏览、恢复、移入 Windows 回收站，以及打开备份/存档目录。
 - 可选 CUDA Seed 加速；没有兼容 NVIDIA 环境时自动回退到 CPU。
-- 签名更新客户端已实现；正式更新公钥发布前保持 fail-closed，不接受未签名更新。
+- 签名自动更新已启用：仅接受官方 Ed25519 签名清单，并复核 EXE 的 SHA-256、精确大小和发布版本。
 
 ### 运行源码
 
@@ -99,7 +99,7 @@ The application has two explicit product areas. `搜索合法绘卷` solves or d
 
 The local editor also includes an automatic-backup browser. It lists the account, operation reason, file count, and recorded main-save SHA-256; restores always checkpoint the current main, game-backup, and system-save files first. Application-owned backup directories can be moved to the Windows recycle bin, and both the backup and current save directories have explicit open-folder actions.
 
-The update client is implemented fail-closed. It accepts only an HTTPS release manifest authenticated by the embedded Ed25519 public key, validates the signed asset name, size, and SHA-256, and replaces only the executable named by an application-owned managed-install marker. It waits for active generation or save transactions before offering restart. The repository release URL is configured, but the development checkout intentionally leaves the release public key empty until the signed release workflow is activated; no unsigned fallback exists.
+The signed update channel is active. It accepts only an HTTPS release manifest authenticated by the embedded Ed25519 public key, validates the signed asset name, size, and SHA-256, and replaces only the running executable named by an application-owned managed-install marker in the same directory. It waits for active generation or save transactions before offering restart. The signing private key is stored only as a GitHub Actions secret; no unsigned fallback exists.
 
 Playthrough selection uses the recovered record type instead of the failed synthetic progression-selector wrapper: playthrough 1 is `0x1E82`, playthrough 2 is `0x516D`, playthrough 3 is `0xE604`, and the latent playthrough 4/5 types are `0xDD82`/`0xD523`. Playthroughs 4 and 5 are not accessible in PC v2.00.02 and are expected to arrive with DLC2. Their selectors remain read-only research options: forced native output proves that latent contexts exist, not that the eventual DLC algorithms or protocol will be identical.
 

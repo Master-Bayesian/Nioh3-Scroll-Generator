@@ -114,6 +114,7 @@ from .updater import (
     UpdateCheckResult,
     check_for_update,
     download_update,
+    ensure_managed_install,
     launch_managed_update,
     prepare_managed_update_script,
 )
@@ -678,6 +679,7 @@ class ScrollEditorApp:
         self.worker: threading.Thread | None = None
         self.update_worker: threading.Thread | None = None
         self.pending_update: DownloadedUpdate | None = None
+        self.update_setup_error: str | None = None
         self.cancel_event = threading.Event()
         self.candidates: list[ScrollCandidate] = []
         self.active_criteria: SearchCriteria | None = None
@@ -833,6 +835,11 @@ class ScrollEditorApp:
         startup_trace("save discovery completed")
         self.root.after(100, self._poll_events)
         if UPDATE_MANIFEST_URL and UPDATE_PUBLIC_KEY_BASE64:
+            if getattr(sys, "frozen", False):
+                try:
+                    ensure_managed_install(Path(sys.executable))
+                except Exception as error:
+                    self.update_setup_error = str(error)
             self.root.after(1500, lambda: self._check_for_updates(manual=False))
 
     def _configure_theme(self) -> None:
@@ -1612,6 +1619,14 @@ class ScrollEditorApp:
                 messagebox.showinfo(
                     "更新通道尚未启用",
                     "当前开发版尚未绑定正式 GitHub Releases 地址和发布公钥。",
+                )
+            return
+        if self.update_setup_error:
+            if manual:
+                messagebox.showerror(
+                    "无法启用自动更新",
+                    "当前 EXE 所在目录无法建立受管理更新标记。请把 EXE 放到有写入权限的"
+                    f"普通文件夹后重新启动。\n\n{self.update_setup_error}",
                 )
             return
         if self.update_worker and self.update_worker.is_alive():

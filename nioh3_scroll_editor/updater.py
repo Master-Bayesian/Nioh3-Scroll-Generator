@@ -24,6 +24,8 @@ from .version import APP_ID
 MAX_MANIFEST_BYTES = 128 * 1024
 MAX_UPDATE_BYTES = 128 * 1024 * 1024
 MANAGED_INSTALL_MARKER = ".nioh3-scroll-generator-managed-install.json"
+MANAGED_INSTALL_SCHEMA = 1
+MANAGED_INSTALL_CHANNEL = "stable"
 _RELEASE_VERSION = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 _SHA256 = re.compile(r"^[0-9A-Fa-f]{64}$")
 
@@ -235,6 +237,35 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest().upper()
 
 
+def ensure_managed_install(executable: Path) -> Path:
+    """Enroll one portable executable as the only managed update target."""
+
+    supplied = executable.absolute()
+    if supplied.is_symlink() or not supplied.is_file():
+        raise RuntimeError("automatic installation requires a regular executable file")
+    target = supplied.resolve()
+    marker = target.parent / MANAGED_INSTALL_MARKER
+    if marker.exists():
+        validate_managed_install(target)
+        return marker
+    value = {
+        "schema": MANAGED_INSTALL_SCHEMA,
+        "app_id": APP_ID,
+        "channel": MANAGED_INSTALL_CHANNEL,
+        "executable": target.name,
+    }
+    temporary = marker.with_name(f"{marker.name}.{os.getpid()}.tmp")
+    try:
+        with temporary.open("x", encoding="utf-8", newline="\n") as stream:
+            json.dump(value, stream, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+            stream.write("\n")
+        os.replace(temporary, marker)
+    finally:
+        temporary.unlink(missing_ok=True)
+    validate_managed_install(target)
+    return marker
+
+
 def validate_managed_install(executable: Path) -> Path:
     target = executable.resolve()
     marker = target.parent / MANAGED_INSTALL_MARKER
@@ -246,6 +277,10 @@ def validate_managed_install(executable: Path) -> Path:
         raise RuntimeError("managed installation marker is invalid") from error
     if not isinstance(value, dict) or value.get("app_id") != APP_ID:
         raise RuntimeError("managed installation marker belongs to another application")
+    if value.get("schema") != MANAGED_INSTALL_SCHEMA:
+        raise RuntimeError("managed installation marker uses an unsupported schema")
+    if value.get("channel") != MANAGED_INSTALL_CHANNEL:
+        raise RuntimeError("managed installation marker uses an unsupported channel")
     if value.get("executable") != target.name:
         raise RuntimeError("managed installation marker does not match this executable")
     return target
