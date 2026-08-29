@@ -18,13 +18,16 @@
 
 - 中文桌面界面，包含“搜索合法绘卷”和“本地绘卷编辑”两个工作区。
 - 指定 Seed、稀有度和绘卷类型后直接生成并预览完整绘卷。
-- 在一个全局搜索框中选择最终态可达词条；第一项自动作为主词条，其余最多五项作为无序必需副词条，可拖动换序或逐项移除。
-- 联立筛选主词条、多个无序副词条、可选或任意恩宠、地形、敌人，以及“任意数值/精确数值变体”的特殊规则。
+- 在一个全局搜索框中选择最终态逐项可达词条；前 1–3 项可作为“任一命中”的主词条候选，也可不限制主词条，其余项目作为无序必需副词条。
+- 每个普通词条可独立要求任意数值、抽取百分位 ≥80、≥90 或最高 100；特殊规则同样支持任意/精确原生变体。
+- 联立筛选主词条候选、多个无序副词条、可选或不限制恩宠、地形、敌人及多条特殊规则，并在搜索前检查槽位、冲突组和类别容量。
+- 候选结果边找到边显示且不会抢走当前选择；支持按主词条数值、总抽取百分位或 Seed 排序，并可多选对比。
 - 三周目稀有度 3、4 的游戏关闭状态离线生成与精确验证；稀有度 5 研究实现保留，但不再出现在正式用户入口。
 - 自动发现 Steam 存档，不在界面或报告中写死用户目录。
 - 新增、修改、删除和恢复前自动备份；写档采用源文件哈希门禁、校验和修复、加密回读验证。
 - 自动备份浏览、恢复、移入 Windows 回收站，以及打开备份/存档目录。
 - 可选 CUDA Seed 加速；没有兼容 NVIDIA 环境时自动回退到 CPU。
+- 自动发现游戏 EXE 并验证 PC v2.00.02 文件版本；明确检测到未验证的新游戏版本时拒绝用旧离线数据生成，等待应用更新。
 - 签名自动更新已启用：仅接受官方 Ed25519 签名清单，并复核 EXE 的 SHA-256、精确大小和发布版本。
 
 ### 运行源码
@@ -93,7 +96,7 @@ py -3.12 -m PyInstaller --clean --noconfirm packaging\Nioh3ScrollGenerator.spec
 
 ## Beta application
 
-The Chinese beta is named `仁王3绘卷生成器`. Its effect selector is derived from the captured native final-effect tables for the current playthrough and rarity, rather than a hand-maintained 40-effect list. One global search feeds an ordered target list: the first item is primary and up to five later items are unordered required secondaries. It supports an optional exact Grace filter, expandable exact-value special-rule variants, exact Seed construction/replay, direct generation from a supplied Seed, streaming candidate previews, raw value inspection, and guarded insertion of certified complete records into the next fully zeroed slot. Save discovery is automatic. The product UI contains no numeric seed-range scan.
+The Chinese beta is named `仁王3绘卷生成器`. Its effect selector is derived from captured native final-effect tables for the current playthrough and rarity rather than a hand-maintained list. The first one to three ordered selections can form an OR-set of primary candidates, or the primary can remain unconstrained; later selections are unordered required secondaries. Every selected ordinary effect can require any roll, percentile 80+, percentile 90+, or the exact maximum. The solver preflights slot count, conflict groups, and category capacity before opening a Seed family. It also supports an optional exact Grace filter, multi-select exact-value special rules, direct generation from a supplied Seed, stable streaming previews, sortable and side-by-side candidate comparison, and guarded insertion into the next fully zeroed slot. Save discovery is automatic. The product UI contains no numeric seed-range scan.
 
 The application has two explicit product areas. `搜索合法绘卷` solves or directly generates canonical records from scroll type, rarity, and Seed, so recipient-side regeneration remains consistent. `本地绘卷编辑` lists the fixed physical inventory slots and can directly edit effect IDs, values, prefix, metadata, and tails or clear whole records. Local edits are intentionally marked non-propagating because the exchange protocol does not transmit effect slots. Both local editing and deletion use the same automatic-backup, exact-original, checksum, encryption-roundtrip, and source-hash transaction gates as canonical installation.
 
@@ -129,6 +132,12 @@ supports either an exact Grace constraint or an unconstrained Grace slot.
 Rarity 4 can also constrain a Grace: its stage-one slot 5 starts with a Grace
 candidate, then exact finalizer replay accepts only records where that Grace
 survives instead of being replaced by an ordinary completed effect.
+Rarity-4 execution applies the exact CUDA/CPU primary prefilter and cheap
+auxiliary filters before invoking the full finalizer whenever that ordering is
+semantically safe. Cumulative intersection counts are reported in the actual
+optimized filter order. On the controlled Grace `0x71F6` + primary `0xB613` +
+secondary `0x23E8` benchmark, six exact results dropped from roughly 15 seconds
+to 0.88 seconds on the development machine without changing accepted records.
 The recovered RVA `0x571478` value formula and canonical slot serialization are
 also evaluated from the captured tables. The final certification corpus contains
 10,000 deterministic natural Seeds for every certified rarity. Rarity 3 and 4

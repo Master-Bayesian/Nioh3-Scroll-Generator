@@ -1,17 +1,19 @@
-# 仁王3绘卷生成器 Beta v0.5.4
+# 仁王3绘卷生成器 Beta v0.5.5
 
-这是首次启用签名自动更新的引导版本。安装此版本后，应用可以从官方 GitHub Releases 自动升级到后续版本。
+本版本重做了组合合法性说明、R4 求解顺序、数值条件和候选比较体验。已安装 v0.5.4 的用户可以通过应用内签名更新直接升级。
 
-- 修复 Seed `91104224` 等候选中已知词条只显示编号的问题。
-- 词条选择、目标组合和预览使用完整原生最终态词条目录。
-- 修复三周目稀有度 4 候选写入时初始化记录与预览不一致的问题。
-- 特殊规则改为普通点击即可多选；每条规则保留完整名称与精确数值变体，并可逐项删除或一键清空。
-- 根据游戏开发方即将修复神宝绘卷传播问题的公告，正式入口暂时移除稀有度 5 搜索、生成和写入。
-- 简化教程，并将标题界面确认框移到“添加到存档”按钮旁。
-- 启用 Ed25519 签名、SHA-256 和精确文件大小校验的自动更新。
-
-首次使用自动更新前，需要手动下载并运行这份重新发布的 v0.5.4。此前没有内置发布公钥的旧 EXE 无法自动获得本版本。
+- 搜索前检查普通副词条槽位数量、原生冲突组、类别容量、未知词条和零权重上下文；无解组合立即说明原因。
+- 普通词条目录明确标注为“逐项可生成”，不再暗示任意组合都合法。找到 Seed 后才显示“完整离线重放验证”。
+- 支持 1–3 个主词条候选（任一命中），也支持完全不限制主词条、只要求副词条。
+- 每个普通词条可选择任意数值、抽取百分位 ≥80、≥90 或最高 100；数值条件进入精确 Seed 求解和交集统计。
+- R4 联立求解把 CUDA/CPU 主词条批量预筛和便宜的辅助条件放在 finalizer 之前；受控三条件基准约从 15 秒降到 0.88 秒。
+- “不限制恩宠”明确允许 R4 finalizer 保留恩宠或将其替换成普通词条；指定恩宠仍要求完成后真实保留。
+- 流式结果不再抢走正在查看的候选；候选摘要增加副词条、全部规则、敌人和数值信息，并支持排序及多选对比。
+- 词条列表增加键盘可操作的上下移动按钮，窗口尺寸不再强制大于较小显示器的可用区域。
+- 自动检测已安装游戏文件版本；明确发现未验证的新版本时拒绝使用旧离线生成数据，并提示先更新应用。
+- 已知 Seed 单点生成不再被上方筛选条件或无解组合误拦截。
+- 教程和中英文 README 已同步更新。
 
 ---
 
-This is the bootstrap release for the signed desktop update channel. Install this rebuilt v0.5.4 once; future releases can then be installed automatically after Ed25519 signature, SHA-256, and exact-size verification.
+This release adds structural feasibility preflight, primary OR-candidates, per-effect roll thresholds, optimized R4 filtering, stable streaming selection, sortable side-by-side candidate comparison, installed-game version gating, and updated bilingual documentation. Existing v0.5.4 installations can upgrade through the signed in-app updater.

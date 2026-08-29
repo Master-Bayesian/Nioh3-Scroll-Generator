@@ -19,6 +19,7 @@ from nioh3_scroll_editor.effect_seed_solver import (
     iter_effect_seed_candidates,
     merge_intersection_reports,
     validate_effect_request_feasibility,
+    _verify_effect_sequence,
 )
 from nioh3_scroll_editor.grace_map import load_grace_output_map
 from nioh3_scroll_editor.joint_solver import U16Runs
@@ -210,6 +211,124 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         self.assertIn(0x23E8, {effect.effect_id for effect in result.secondaries})
         self.assertEqual(result.grace.effect_id, 0x71F6)
 
+    def test_rarity3_rejects_more_than_three_required_secondaries(self) -> None:
+        request = EffectSeedRequest(
+            playthrough=3,
+            rarity=3,
+            required_secondary_ids=frozenset((0x774F, 0x28D1, 0x4647, 0xDAC2)),
+        )
+        with self.assertRaisesRegex(ValueError, "最多只有 3 个普通副词条槽"):
+            validate_effect_request_feasibility(request)
+
+    def test_rarity4_grace_reserves_the_fifth_slot(self) -> None:
+        request = EffectSeedRequest(
+            playthrough=3,
+            rarity=4,
+            grace_effect_id=0x71F6,
+            required_secondary_ids=frozenset((0x774F, 0x28D1, 0x4647, 0xDAC2)),
+        )
+        with self.assertRaisesRegex(ValueError, "最多只有 3 个普通副词条槽"):
+            validate_effect_request_feasibility(request)
+
+    def test_rarity4_without_grace_accepts_four_compatible_secondaries(self) -> None:
+        validate_effect_request_feasibility(
+            EffectSeedRequest(
+                playthrough=3,
+                rarity=4,
+                required_secondary_ids=frozenset(
+                    (0x774F, 0x28D1, 0x4647, 0xDAC2)
+                ),
+            )
+        )
+
+    def test_rejects_native_conflict_groups_before_search(self) -> None:
+        request = EffectSeedRequest(
+            playthrough=3,
+            rarity=4,
+            primary_effect_ids=frozenset((0x4647,)),
+            required_secondary_ids=frozenset((0x600F,)),
+        )
+        with self.assertRaisesRegex(ValueError, "原生冲突组"):
+            validate_effect_request_feasibility(request)
+
+    def test_rejects_unknown_effect_before_search(self) -> None:
+        with self.assertRaisesRegex(ValueError, "不在当前原生参数表"):
+            validate_effect_request_feasibility(
+                EffectSeedRequest(
+                    playthrough=3,
+                    rarity=4,
+                    primary_effect_ids=frozenset((0xDEADBEEF,)),
+                )
+            )
+
+    def test_exact_replay_enforces_selected_effect_roll_threshold(self) -> None:
+        from nioh3_scroll_editor.effect_sequence import (
+            generate_ng3_rarity5_effect_sequence,
+        )
+
+        sequence = generate_ng3_rarity5_effect_sequence(1)
+        effect_id = sequence.primary.effect_id
+        minimum = sequence.primary.roll_percent
+        accepted = _verify_effect_sequence(
+            1,
+            EffectSeedRequest(
+                playthrough=3,
+                rarity=5,
+                primary_effect_ids=frozenset((effect_id,)),
+                minimum_roll_percent_by_effect_id=((effect_id, minimum),),
+            ),
+            generate_ng3_rarity5_effect_sequence,
+        )
+        rejected = _verify_effect_sequence(
+            1,
+            EffectSeedRequest(
+                playthrough=3,
+                rarity=5,
+                primary_effect_ids=frozenset((effect_id,)),
+                minimum_roll_percent_by_effect_id=(
+                    (effect_id, min(100, minimum + 1)),
+                ),
+            ),
+            generate_ng3_rarity5_effect_sequence,
+        )
+
+        self.assertIsNotNone(accepted)
+        if minimum < 100:
+            self.assertIsNone(rejected)
+
+    def test_roll_threshold_for_an_unused_primary_alternative_is_not_required(self) -> None:
+        from nioh3_scroll_editor.effect_sequence import (
+            generate_ng3_rarity5_effect_sequence,
+        )
+
+        sequence = generate_ng3_rarity5_effect_sequence(1)
+        actual_primary = sequence.primary.effect_id
+        ordinary_ids = {
+            effect.effect_id for effect in (sequence.primary, *sequence.secondaries)
+        }
+        unused_alternative = next(
+            effect_id
+            for effect_id in (0x774F, 0x28D1, 0x4647, 0xDAC2)
+            if effect_id not in ordinary_ids
+        )
+        result = _verify_effect_sequence(
+            1,
+            EffectSeedRequest(
+                playthrough=3,
+                rarity=5,
+                primary_effect_ids=frozenset(
+                    (actual_primary, unused_alternative)
+                ),
+                minimum_roll_percent_by_effect_id=(
+                    (actual_primary, sequence.primary.roll_percent),
+                    (unused_alternative, 100),
+                ),
+            ),
+            generate_ng3_rarity5_effect_sequence,
+        )
+
+        self.assertIsNotNone(result)
+
     def test_duplicate_promoted_effect_can_be_satisfied_by_actual_primary(self) -> None:
         validate_effect_request_feasibility(
             EffectSeedRequest(
@@ -230,7 +349,7 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
             playthrough=3,
             rarity=5,
             grace_effect_id=GRACE,
-            primary_effect_ids=frozenset((0xDEADBEEF,)),
+            primary_effect_ids=frozenset((0x774F,)),
         )
         page = collect_effect_seed_page(
             request,
@@ -349,7 +468,7 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
             playthrough=3,
             rarity=5,
             grace_effect_id=GRACE,
-            primary_effect_ids=frozenset((0xDEADBEEF,)),
+            primary_effect_ids=frozenset((0x774F,)),
         )
         first = collect_effect_seed_page(
             request,

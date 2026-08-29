@@ -23,7 +23,10 @@ from .auxiliary_generation import (
 )
 from .grace_map import GraceOutputMap, first_u16_ranges_for_grace
 from .effect_sequence import EffectSequenceResult, GeneratedEffect
-from .effect_generation_tables import load_default_effect_generation_tables
+from .effect_generation_tables import (
+    SCROLL_RECORD_TYPES,
+    load_default_effect_generation_tables,
+)
 from .joint_solver import (
     DrawConstraint,
     SeedSolution,
@@ -51,6 +54,7 @@ class EffectSeedRequest:
     required_secondary_ids: frozenset[int] = frozenset()
     grace_effect_id: int | None = None
     auxiliary_criteria: AuxiliarySearchCriteria = AuxiliarySearchCriteria()
+    minimum_roll_percent_by_effect_id: tuple[tuple[int, int], ...] = ()
     natural_only: bool = True
 
     def __post_init__(self) -> None:
@@ -63,6 +67,15 @@ class EffectSeedRequest:
             effect_ids |= frozenset((self.grace_effect_id,))
         if any(not 0 <= effect_id <= 0xFFFFFFFF for effect_id in effect_ids):
             raise ValueError("effect IDs must fit in uint32")
+        seen_roll_effect_ids: set[int] = set()
+        for effect_id, minimum_roll in self.minimum_roll_percent_by_effect_id:
+            if effect_id in seen_roll_effect_ids:
+                raise ValueError("roll constraints must contain unique effect IDs")
+            seen_roll_effect_ids.add(effect_id)
+            if effect_id not in effect_ids:
+                raise ValueError("roll constraints require a selected effect ID")
+            if not 0 <= minimum_roll <= 100:
+                raise ValueError("minimum roll percent must be in 0..100")
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,18 +144,105 @@ CandidateFoundCallback = Callable[[EffectSeedCandidate], None]
 
 
 def validate_effect_request_feasibility(request: EffectSeedRequest) -> None:
-    """Reject role combinations that the native rarity-5 layout cannot encode.
+    """Reject combinations that cannot fit the native PC v2.00.02 layout.
 
-    PC v2.00.02 rarity 5 performs exactly one promotion trial. Effects whose
-    table row requires normalization flag 0x08 can therefore occupy only that
-    single promoted slot, which becomes the primary effect. A duplicated
-    primary/secondary UI choice remains valid because the actual primary can
-    satisfy that explicitly duplicated requirement.
+    This is a structural preflight, not a claim that every request that passes
+    has a solution. It catches deterministic failures before a Seed family is
+    opened: slot count, unavailable table rows, effect conflicts and category
+    capacity. Path-dependent weighted lotteries are still decided by exact
+    replay.
     """
+
+    tables = load_default_effect_generation_tables()
+    record_type = SCROLL_RECORD_TYPES[request.playthrough - 1]
+
+    max_secondaries = {
+        3: 3,
+        4: 3 if request.grace_effect_id is not None else 4,
+        5: 4,
+    }.get(request.rarity)
+    if max_secondaries is None:
+        return
+
+    primary_options: tuple[int | None, ...] = (
+        tuple(sorted(request.primary_effect_ids))
+        if request.primary_effect_ids
+        else (None,)
+    )
+    capacities = tables.category_capacities(
+        record_type=record_type,
+        rarity=request.rarity,
+    )
+
+    def validate_option(primary_id: int | None) -> str | None:
+        effective_secondaries = (
+            effective_required_secondary_ids(
+                primary_id=primary_id,
+                primary_effect_ids=request.primary_effect_ids,
+                required_secondary_ids=request.required_secondary_ids,
+            )
+            if primary_id is not None
+            else request.required_secondary_ids
+        )
+        if len(effective_secondaries) > max_secondaries:
+            return (
+                f"需要 {len(effective_secondaries)} 个副词条，但当前结构最多只有 "
+                f"{max_secondaries} 个普通副词条槽"
+            )
+
+        ordinary_ids = set(effective_secondaries)
+        if primary_id is not None:
+            ordinary_ids.add(primary_id)
+        all_ids = set(ordinary_ids)
+        if request.grace_effect_id is not None:
+            all_ids.add(request.grace_effect_id)
+
+        for effect_id in sorted(all_ids):
+            definition = tables.effects_by_id.get(effect_id)
+            if definition is None:
+                return f"词条 0x{effect_id:04X} 不在当前原生参数表中"
+            if effect_id in ordinary_ids:
+                if not tables.candidate_context_allowed(
+                    effect_id,
+                    record_type=record_type,
+                ):
+                    return f"词条 0x{effect_id:04X} 在当前绘卷类型中不可生成"
+                if not tables.native_effect_weight(
+                    effect_id,
+                    record_type=record_type,
+                    rarity=request.rarity,
+                    playthrough=request.playthrough,
+                ):
+                    return f"词条 0x{effect_id:04X} 在当前周目/稀有度权重为 0"
+
+        ordered_ids = sorted(all_ids)
+        for index, left_id in enumerate(ordered_ids):
+            for right_id in ordered_ids[index + 1 :]:
+                if tables.effects_conflict(left_id, right_id):
+                    return (
+                        f"词条 0x{left_id:04X} 与 0x{right_id:04X} "
+                        "属于原生冲突组，不能同时出现"
+                    )
+
+        category_counts = [0] * len(capacities)
+        for effect_id in ordinary_ids:
+            category = tables.group_for_effect(effect_id).category_key
+            category_counts[category] += 1
+        for category, count in enumerate(category_counts):
+            if count > capacities[category]:
+                return (
+                    f"类别 0x{category:02X} 需要 {count} 个槽位，"
+                    f"原生容量只有 {capacities[category]}"
+                )
+        return None
+
+    option_errors = tuple(validate_option(primary_id) for primary_id in primary_options)
+    if option_errors and all(error is not None for error in option_errors):
+        detail = next(error for error in option_errors if error is not None)
+        raise ValueError(f"所选词条组合在原生生成结构中无解：{detail}。")
 
     if request.rarity != 5 or not request.required_secondary_ids:
         return
-    tables = load_default_effect_generation_tables()
     promoted_only = frozenset(
         effect_id
         for effect_id in request.required_secondary_ids
@@ -261,20 +361,19 @@ class _IntersectionCounter:
         self.grace_requires_replay = (
             request.rarity == 4 and request.grace_effect_id is not None
         )
+        self.optional_primary_value_ids = (
+            request.primary_effect_ids - request.required_secondary_ids
+        )
 
     @staticmethod
     def _build_specs(request: EffectSeedRequest) -> tuple[_IntersectionStageSpec, ...]:
         specs: list[_IntersectionStageSpec] = []
-        if request.grace_effect_id is not None:
+        if request.grace_effect_id is not None and request.rarity != 4:
             specs.append(_IntersectionStageSpec("grace", (request.grace_effect_id,)))
         if request.primary_effect_ids:
             specs.append(
                 _IntersectionStageSpec("primary", tuple(sorted(request.primary_effect_ids)))
             )
-        specs.extend(
-            _IntersectionStageSpec("secondary", (effect_id,))
-            for effect_id in sorted(request.required_secondary_ids)
-        )
         criteria = request.auxiliary_criteria
         specs.extend(
             _IntersectionStageSpec("terrain", (key,))
@@ -306,6 +405,19 @@ class _IntersectionCounter:
         specs.extend(
             _IntersectionStageSpec("enemy", tuple(sorted(group)))
             for group in criteria.required_enemy_lookup_key_groups
+        )
+        if request.grace_effect_id is not None and request.rarity == 4:
+            specs.append(_IntersectionStageSpec("grace", (request.grace_effect_id,)))
+        specs.extend(
+            _IntersectionStageSpec("secondary", (effect_id,))
+            for effect_id in sorted(request.required_secondary_ids)
+        )
+        specs.extend(
+            _IntersectionStageSpec("value", (effect_id, minimum_roll))
+            for effect_id, minimum_roll in sorted(
+                request.minimum_roll_percent_by_effect_id
+            )
+            if minimum_roll > 0
         )
         return tuple(specs)
 
@@ -351,6 +463,29 @@ class _IntersectionCounter:
             if spec.kind != "secondary":
                 continue
             if spec.values[0] not in secondary_effect_ids:
+                return False
+            self.counts[index] += 1
+        return True
+
+    def accept_values(self, result: EffectSequenceResult) -> bool:
+        ordinary = (result.primary, *result.secondaries)
+        for index, spec in enumerate(self.specs):
+            if spec.kind != "value":
+                continue
+            effect_id, minimum_roll = spec.values
+            matching = tuple(
+                effect
+                for effect in ordinary
+                if effect.effect_id == effect_id
+            )
+            if not matching and effect_id in self.optional_primary_value_ids:
+                self.counts[index] += 1
+                continue
+            if not any(
+                effect.effect_id == effect_id
+                and effect.roll_percent >= minimum_roll
+                for effect in matching
+            ):
                 return False
             self.counts[index] += 1
         return True
@@ -584,6 +719,24 @@ def _verify_effect_sequence(
         )
     ):
         return None
+    if request.minimum_roll_percent_by_effect_id:
+        ordinary = (result.primary, *result.secondaries)
+        for effect_id, minimum_roll in request.minimum_roll_percent_by_effect_id:
+            matching = tuple(
+                effect for effect in ordinary if effect.effect_id == effect_id
+            )
+            if (
+                not matching
+                and effect_id in request.primary_effect_ids
+                and effect_id not in request.required_secondary_ids
+            ):
+                continue
+            if not any(
+                effect.effect_id == effect_id
+                and effect.roll_percent >= minimum_roll
+                for effect in matching
+            ):
+                return None
     return result
 
 
@@ -639,6 +792,13 @@ def iter_effect_seed_candidates(
         raise OfflineEffectReplayUnavailable(
             "secondary effects are path-dependent and require the offline final-record generator"
         )
+    if (
+        request.minimum_roll_percent_by_effect_id
+        and effect_sequence_generator is None
+    ):
+        raise OfflineEffectReplayUnavailable(
+            "roll constraints require an exact effect-sequence generator"
+        )
     constraints = fixed_draw_constraints(
         request,
         grace_mapping=grace_mapping,
@@ -673,14 +833,6 @@ def iter_effect_seed_candidates(
                 )
             _intersection_counter.observe_fixed_seed(solution.pivot_trial)
             effect_sequence = None
-            if _intersection_counter.grace_requires_replay:
-                effect_sequence = _generate_effect_sequence_checked(
-                    solution.seed,
-                    request,
-                    effect_sequence_generator,
-                )
-                if not _intersection_counter.accept_grace(effect_sequence):
-                    continue
             has_primary_fast_path = request.primary_effect_ids and (
                 prefetched_primary_effect_id is not None
                 or primary_effect_id_batch_generator is not None
@@ -699,35 +851,15 @@ def iter_effect_seed_candidates(
                 )
                 if not _intersection_counter.accept_primary(primary_effect_id):
                     continue
-                if request.required_secondary_ids:
-                    if effect_sequence is None:
-                        effect_sequence = _generate_effect_sequence_checked(
-                            solution.seed,
-                            request,
-                            effect_sequence_generator,
-                        )
-                    if effect_sequence.primary.effect_id != primary_effect_id:
-                        raise AssertionError(
-                            "primary batch path disagreed with the exact effect sequence"
-                        )
-                    if not _intersection_counter.accept_secondaries(
-                        frozenset(
-                            effect.effect_id for effect in effect_sequence.secondaries
-                        )
-                    ):
-                        continue
-            elif request.primary_effect_ids or request.required_secondary_ids:
+            elif request.primary_effect_ids:
                 if effect_sequence is None:
                     effect_sequence = _generate_effect_sequence_checked(
                         solution.seed,
                         request,
                         effect_sequence_generator,
                     )
-                if not _intersection_counter.accept_effects(
-                    primary_effect_id=effect_sequence.primary.effect_id,
-                    secondary_effect_ids=frozenset(
-                        effect.effect_id for effect in effect_sequence.secondaries
-                    ),
+                if not _intersection_counter.accept_primary(
+                    effect_sequence.primary.effect_id
                 ):
                     continue
 
@@ -761,6 +893,19 @@ def iter_effect_seed_candidates(
                     raise AssertionError(
                         "primary fast path disagreed with the exact effect sequence"
                     )
+            if _intersection_counter.grace_requires_replay:
+                if not _intersection_counter.accept_grace(effect_sequence):
+                    continue
+            if request.required_secondary_ids:
+                if not _intersection_counter.accept_secondaries(
+                    frozenset(
+                        effect.effect_id for effect in effect_sequence.secondaries
+                    )
+                ):
+                    continue
+            if request.minimum_roll_percent_by_effect_id:
+                if not _intersection_counter.accept_values(effect_sequence):
+                    continue
             _intersection_counter.record_complete_match()
             yield EffectSeedCandidate(
                 seed=solution.seed,

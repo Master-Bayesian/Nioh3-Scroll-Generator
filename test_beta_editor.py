@@ -260,6 +260,28 @@ class BetaEditorTests(unittest.TestCase):
         self.assertEqual(result.intersection_report.stages[0].kind, "grace")
         self.assertEqual(result.intersection_report.stages[0].count, 3)
 
+    def test_rarity4_joint_search_reports_the_optimized_filter_order(self) -> None:
+        result = collect_offline_ng3_search_batch(
+            EffectSeedRequest(
+                playthrough=3,
+                rarity=4,
+                grace_effect_id=0x71F6,
+                primary_effect_ids=frozenset((0xB613,)),
+                required_secondary_ids=frozenset((0x23E8,)),
+            ),
+            grace_mapping=load_grace_output_map(rarity=4),
+            level=180,
+            result_count=1,
+            max_trials_per_batch=250_000,
+        )
+
+        self.assertEqual(len(result.candidates), 1)
+        assert result.intersection_report is not None
+        self.assertEqual(
+            tuple(stage.kind for stage in result.intersection_report.stages),
+            ("primary", "grace", "secondary"),
+        )
+
     def test_ng3_rarity345_use_game_closed_ui_path(self) -> None:
         base = (
             frozenset(),
