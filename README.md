@@ -20,7 +20,7 @@
 - 指定 Seed、稀有度和绘卷类型后直接生成并预览完整绘卷。
 - 在一个全局搜索框中选择最终态可达词条；第一项自动作为主词条，其余最多五项作为无序必需副词条，可拖动换序或逐项移除。
 - 联立筛选主词条、多个无序副词条、可选或任意恩宠、地形、敌人，以及“任意数值/精确数值变体”的特殊规则。
-- 三周目稀有度 3、4、5 的游戏关闭状态离线生成与精确验证。
+- 三周目稀有度 3、4 的游戏关闭状态离线生成与精确验证；稀有度 5 研究实现保留，但不再出现在正式用户入口。
 - 自动发现 Steam 存档，不在界面或报告中写死用户目录。
 - 新增、修改、删除和恢复前自动备份；写档采用源文件哈希门禁、校验和修复、加密回读验证。
 - 自动备份浏览、恢复、移入 Windows 回收站，以及打开备份/存档目录。
@@ -47,7 +47,7 @@ py -3.12 -m PyInstaller --clean --noconfirm packaging\Nioh3ScrollGenerator.spec
 
 ### 验收边界
 
-本地显示正常、校验和正确或离线字节一致，都不能单独证明绘卷可传播。最终传播验收仍要求第二账号通过正常联机流程实际收到 canonical 绘卷。当前三周目稀有度 5 已有接收方验收；稀有度 3、4 已完成原生 parity，但仍保留第二账号传播验收标记。
+本地显示正常、校验和正确或离线字节一致，都不能单独证明绘卷可传播。最终传播验收仍要求第二账号通过正常联机流程实际收到 canonical 绘卷。稀有度 3、4 已完成原生 parity，但仍保留第二账号传播验收标记。由于游戏开发方已预告修复神宝绘卷传播问题，正式产品入口暂不提供稀有度 5。
 
 ### 作者与联系
 
@@ -103,7 +103,7 @@ The signed update channel is active. It accepts only an HTTPS release manifest a
 
 Playthrough selection uses the recovered record type instead of the failed synthetic progression-selector wrapper: playthrough 1 is `0x1E82`, playthrough 2 is `0x516D`, playthrough 3 is `0xE604`, and the latent playthrough 4/5 types are `0xDD82`/`0xD523`. Playthroughs 4 and 5 are not accessible in PC v2.00.02 and are expected to arrive with DLC2. Their selectors remain read-only research options: forced native output proves that latent contexts exist, not that the eventual DLC algorithms or protocol will be identical.
 
-Native record materialization outside certified contexts requires Nioh 3 v2.00.02 to remain at the title screen and offline. The application checks the generator machine-code signature before calling it. NG3 rarity 3, 4, and 5 now have game-closed effect and auxiliary generators that do not read a save or connect to the game. The rarity-3 and rarity-4 paths each passed 10,000 deterministic random-Seed comparisons against live native generation with zero stable-record mismatches. The rarity-5 path passed 10,000 complete `0xE8` comparisons and has also been accepted by a recipient account. Latent NG4/NG5 rarity-5 contexts can run game-closed after one complete Grace map has been captured and cached for the exact selected-save fingerprint; these unreleased-context paths remain read-only and non-installable. The UI binds certified NG3 previews to the current save template and allocates a fresh internal serial only when the user requests installation. Save installation creates a backup, repairs the checksum, performs an encryption/decryption roundtrip, and refuses installation if the live save changes during preparation.
+Native record materialization outside certified contexts requires Nioh 3 v2.00.02 to remain at the title screen. The application checks the generator machine-code signature before calling it. NG3 rarity 3 and 4 have game-closed effect and auxiliary generators that do not read a save or connect to the game. Both paths passed 10,000 deterministic random-Seed comparisons against live native generation with zero stable-record mismatches. The historical rarity-5 research backend and latent NG4/NG5 captures remain in the test tree, but they are not exposed by the product UI. The UI binds certified NG3 previews to the current save template and allocates a fresh internal serial only when the user requests installation. Save installation creates a backup, repairs the checksum, performs an encryption/decryption roundtrip, and refuses installation if the live save changes during preparation.
 
 ### NG3 rarity-3/4/5 game-closed effect and auxiliary solver
 

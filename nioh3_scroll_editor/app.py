@@ -12,7 +12,7 @@ import traceback
 import webbrowser
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Mapping
 from tkinter import (
     BOTH,
     Canvas,
@@ -151,6 +151,7 @@ PLAYTHROUGH_BY_LABEL = {
 }
 NO_GRACE_FILTER_LABEL = "任意恩宠（不筛选）"
 NO_TERRAIN_FILTER_LABEL = "任意地形影响（不筛选）"
+PRODUCT_RARITIES = (3, 4)
 SearchCriteria = tuple[
     frozenset[int],
     frozenset[int],
@@ -181,6 +182,30 @@ class RuleFilterOption:
     keys: frozenset[int]
     exact: bool
     label: str
+
+
+def special_rule_variant_label(name: str, key: int, value_text: str) -> str:
+    """Keep the rule name visible when an exact value variant is selected."""
+
+    return f"{name}：{value_text}  [0x{key:04X}]"
+
+
+def toggle_rule_filter_option(
+    selected_tokens: set[str],
+    token: str,
+    family_by_token: Mapping[str, frozenset[str]],
+) -> set[str]:
+    """Toggle one rule while preserving selections from other rule families."""
+
+    family = family_by_token.get(token)
+    if family is None:
+        raise KeyError(token)
+    updated = set(selected_tokens)
+    already_selected = token in updated
+    updated.difference_update(family)
+    if not already_selected:
+        updated.add(token)
+    return updated
 
 
 def collect_offline_rarity5_search_batch(
@@ -510,7 +535,7 @@ QUICK_START_TEXT = """仁王3绘卷生成器 - 快速上手
 
 提示
 - “任意恩宠”表示不限制恩宠。
-- 特殊规则可以展开并选择具体数值变体。
+- 特殊规则可以直接点击多选；展开后可选择具体数值变体。已选项会集中显示，可逐项 × 删除或一键清空。
 - 不确定技术参数时保持默认值即可。
 """
 
@@ -520,7 +545,7 @@ FEATURE_GUIDE_TEXT = """按功能使用
 一、搜索并添加可以传播的合法绘卷
 1. 选择周目与稀有度。
 2. 在目标组合中搜索词条，双击加入。第一项是主词条，其余是副词条。
-3. 恩宠、地形、敌人和特殊规则都可以单独限制；不需要限制时选择“任意”或“不筛选”。
+3. 恩宠、地形、敌人和特殊规则都可以单独限制；特殊规则直接点击即可添加多条，不需要按 Ctrl。
 4. 点击“计算候选 Seed”，结果会实时加入候选列表。
 5. 比较词条、数值、敌人和规则。满意后让游戏回到标题界面，勾选添加按钮左侧的确认框并写入。
 
@@ -540,8 +565,11 @@ FAQ_TEXT = """常见问题
 为什么添加按钮要求确认标题界面？
 游戏在关卡或据点中可能把内存里的旧存档再次写回。添加前回到标题界面即可；不需要退出游戏，也不需要断开网络。未勾选时点击添加，程序会再次询问并可直接继续。
 
-为什么稀有度 5 的两个“深奥”组合会直接提示无解？
-稀有度 5 只有一个升格/深奥槽，而且它会成为主词条。因此“心之深奥”为主词条时，“刚之深奥”不能同时作为副词条。稀有度 4 的完成器可以产生第二个升格词条，所以同一组合在稀有度 4 可以成立。
+为什么界面只提供稀有度 3 和 4？
+游戏开发方已预告将修复神宝绘卷传播问题，因此正式入口暂不再提供稀有度 5 的搜索、生成和写入。已经完成的研究代码仍保留用于回归，不作为用户功能。
+
+如何选择或取消多个特殊规则？
+直接点击规则即可逐条加入，不需要按 Ctrl。同一规则可以选择“任意变体”或一个精确数值变体；精确变体始终连同规则名称显示。已选规则下方可逐项点击 × 删除，也可以点击“清空已选规则”。未选择任何规则就表示不筛选。
 
 目标组合是不是完整词条表？
 目标组合显示当前周目与稀有度能够合法生成的全部最终绘卷词条；恩宠在独立下拉框中选择。程序内还包含 3609 项原生名称目录，用于结果预览和本地编辑。不会把装备专属、生成阶段临时代码混进合法绘卷筛选池。
@@ -569,8 +597,8 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 
 一、准备
 1. 本工具仅支持《仁王3》PC v2.00.02。
-2. 三周目稀有度3、4、5的 Seed 求解、单点预览和完整记录构造均可离线完成，不需要启动游戏或读取存档。
-3. 稀有度3、4各通过10,000个原生随机Seed的稳定完整记录对照；稀有度5通过10,000个完整0xE8记录对照，并已由第二账号完成传播验收。
+2. 正式入口提供三周目稀有度3、4的 Seed 求解、单点预览和完整记录构造，均可离线完成，不需要启动游戏或读取存档。
+3. 稀有度3、4各通过10,000个原生随机Seed的稳定完整记录对照。
 4. 其他周目需要原生生成或准备写档时，让游戏返回标题界面，不需要关闭游戏或断开网络。
 5. 启动生成器。程序会自动搜索存档；写档前需要选择账户，并勾选添加按钮左侧的标题界面确认框。
 
@@ -578,7 +606,6 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 1. 使用顶部的统一搜索框查找当前周目与稀有度下可生成的最终词条；双击或点击“添加选中词条”加入目标组合。
 2. 已选列表的第一项是主词条，其余最多五项是必需副词条。拖动可调整顺序，点击每行右侧的 × 可直接移除。不添加词条表示不筛选主、副词条。
 3. 恩宠使用独立下拉菜单筛选，不与普通词条混用。
-   - 稀有度 5：第 6 槽是独立恩宠槽；可指定恩宠，也可选择“任意恩宠”。
    - 稀有度 4：第 5 槽先生成恩宠候选；完整 finalizer 可能保留该恩宠，也可能将它替换成普通词条。指定恩宠时只返回完成后仍保留该恩宠的最终记录。
    - 稀有度 3：第 5 槽固定为成长状态“未完成的杰作（画龙点睛）”，不作为普通副词条或可选恩宠。
 4. 主、副词条都可以用中文名称、十六进制 ID 或小端字节搜索。
@@ -586,14 +613,14 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 6. 旧版用同 Seed 的 R4 中间结果预测“画龙点睛恩宠”的路径已停用；R3 与 R4 现在分别运行各自经过原生对照的完整离线算法。
 7. 稀有度和绘卷类型都会影响词条生成结果。周目选择会改用类型表中的 record type：一周目 0x1E82、二周目 0x516D、三周目 0xE604、四周目 0xDD82、五周目 0xD523。
 8. 一、二周目没有三周目的恩宠槽；求解时必须至少选择一个主词条，程序直接求逆主词条 draw 1，再原生验证多个副词条。
-9. 三周目稀有度4、5均可指定恩宠；稀有度4必须经过完整 finalizer 重放确认恩宠没有被替换。
+9. 三周目稀有度4可指定恩宠，并必须经过完整 finalizer 重放确认恩宠没有被替换。
 10. 等级、推荐等级和转手次数不直接参与副词条抽样；它们放在“绘卷属性”区域统一设置。
-11. 地形影响可单选；特殊规则和出现敌人可多选为必含条件。特殊规则父项表示任意数值变体，展开后可精确选择 +50%、+65%、+80% 等原生变体。三类结果都由同一 Seed 和周目通过离线复现的游戏算法生成，返回候选必须同时满足这些条件。
+11. 地形影响可单选；特殊规则和出现敌人可多选为必含条件。特殊规则直接点击即可加入多条，不需要按 Ctrl；父项表示任意数值变体，展开后可精确选择 +50%、+65%、+80% 等原生变体。每个精确变体都会保留规则名称，已选项可逐项 × 删除或一键清空。
 12. 地形、规则和敌人名称来自游戏当前版本的简中、日文、英文原生文本目录，不使用机器翻译；未知键会保留十六进制编号。
 13. 四、五周目预计由 DLC2 开放，v2.00.02 当前无法正常进入。0xDD82/0xD523 仅证明游戏文件中存在潜在生成上下文，不证明未来 DLC 的最终算法；目前只允许研究预览，禁止写档和传播声明。
 
 三、联立求解 Seed
-1. 当前 Beta 只提供约束求解，不提供界面上的连续 Seed 扫描。一、二周目必须选择主词条；三周目至少选择一项词条、恩宠或辅助条件，稀有度5不强制限制恩宠。
+1. 当前 Beta 只提供约束求解，不提供界面上的连续 Seed 扫描。一、二周目必须选择主词条；三周目至少选择一项词条、恩宠或辅助条件。
 2. 指定恩宠时先数学求逆对应的完整 Seed 集合；稀有度4还会逐个重放 finalizer，只接受最终仍保留所选恩宠的记录。未指定恩宠的稀有度3、4从完整自然 Seed 数学族按批构造候选，并用 CUDA 批量预筛主词条。所有路径最终都离线重放权重池、冲突、晋升、重试、数值和规范化逻辑。
 3. 主词条和多个指定副词条都在完整 Seed 重放结果上检查；不指定时可直接比较返回候选中的实际词条。
 4. 地形、敌人和特殊规则同样由 Seed 离线生成并联合过滤；结构上不可能共存的敌人组合会在求解前直接报无解。
@@ -603,16 +630,16 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 
 四、已知 Seed 单点生成
 1. 先选择绘卷类型/周目和稀有度，再在独立的“已知 Seed 单点生成”输入框填写 Seed，点击“生成并查看该 Seed”。五种绘卷类型分别是 0x1E82、0x516D、0xE604、0xDD82、0xD523。
-2. 直接生成不会应用上方的筛选；三周目稀有度3、4、5均离线展示精确词条序列、抽取百分位和完整辅助结果，其他上下文使用游戏原生生成器。
+2. 直接生成不会应用上方的筛选；三周目稀有度3、4均离线展示精确词条序列、抽取百分位和完整辅助结果，其他上下文使用游戏原生生成器。
 3. 单点生成输入和上方联立求解互不影响，可用于核对任意已知 Seed。
 4. 当前词条池内的 ID 显示中文名称；未知 ID 暂时显示十六进制编号。
 
 五、查看计算结果
-1. 每批返回多张匹配结果。三周目稀有度3、4、5离线预览显示全部最终词条的抽取百分位、原始数值、prefix、metadata 和 tail；完整记录生成均已通过各10,000个原生向量的稳定字节校验，可以在安装时安全物化。
+1. 每批返回多张匹配结果。三周目稀有度3、4离线预览显示全部最终词条的抽取百分位、原始数值、prefix、metadata 和 tail；完整记录生成均已通过各10,000个原生向量的稳定字节校验，可以在安装时安全物化。
 2. 计算下一批时此前结果会保留，方便直接比较副词条及数值。
 
 六、添加到存档
-1. 三周目稀有度3、4、5离线候选会在点击安装后才重新读取当前存档，绑定来源字段并分配新的内部序号；其他未通过完整记录门禁的预览仍禁止写入。
+1. 三周目稀有度3、4离线候选会在点击安装后才重新读取当前存档，绑定来源字段并分配新的内部序号；其他未通过完整记录门禁的预览仍禁止写入。
 2. 每次添加前，程序都会自动备份主存档、游戏备份存档和系统存档。
 3. 新绘卷只会写入最后一个已占用绘卷之后的下一个全零栏位，不会覆盖已有绘卷。
 4. 写入后会修复校验和，并完成加密与精确回读验证。
@@ -712,6 +739,9 @@ class ScrollEditorApp:
         ] = []
         self.rule_option_by_token: dict[str, RuleFilterOption] = {}
         for name, keys in rule_groups.items():
+            keys = frozenset(key for key in keys if key != 0)
+            if not keys:
+                continue
             group_token = f"any:{min(keys):04X}"
             group_option = RuleFilterOption(
                 token=group_token,
@@ -730,7 +760,7 @@ class ScrollEditorApp:
                         name=name,
                         keys=frozenset((key,)),
                         exact=True,
-                        label=f"{value_text}  [0x{key:04X}]",
+                        label=special_rule_variant_label(name, key, value_text),
                     )
                 )
             variants.sort(key=lambda option: (option.label.casefold(), option.token))
@@ -742,6 +772,11 @@ class ScrollEditorApp:
         self.rule_group_options.sort(
             key=lambda item: (item[0].name.casefold(), item[0].token)
         )
+        self.rule_family_by_token: dict[str, frozenset[str]] = {}
+        for group, variants in self.rule_group_options:
+            family = frozenset((group.token, *(option.token for option in variants)))
+            for token in family:
+                self.rule_family_by_token[token] = family
         self.visible_rule_tokens: set[str] = set()
         self.enemy_search = StringVar(value="")
         self.selected_enemy_text = StringVar(value="要求包含：无（不筛选）")
@@ -766,7 +801,7 @@ class ScrollEditorApp:
         self.save_choices: dict[str, Path] = {}
         self.save_account = StringVar(value="正在自动搜索存档……")
         self.title_ack = BooleanVar(value=False)
-        self.rarity = StringVar(value="5")
+        self.rarity = StringVar(value="4")
         self.playthrough = StringVar(value=PLAYTHROUGH_LABELS[2])
         self.effect_search = StringVar(value="")
         self.selected_effect_ids: list[int] = []
@@ -1201,7 +1236,7 @@ class ScrollEditorApp:
         ttk.Label(
             warning,
             text=(
-                "三周目稀有度3、4、5的 Seed 求解与预览可完全离线运行，不需要启动游戏或读取存档。"
+                "三周目稀有度3、4的 Seed 求解与预览可完全离线运行，不需要启动游戏或读取存档。"
                 "其他周目、完整记录生成和写档仍只支持《仁王3》v2.00.02；写档前请让游戏回到标题界面。"
             ),
             foreground="#E0A15E",
@@ -1315,7 +1350,16 @@ class ScrollEditorApp:
 
         rarity_frame = ttk.LabelFrame(selector, text="影响词条生成", padding=8)
         rarity_frame.pack(fill="x", pady=(10, 0))
-        self._entry_row(rarity_frame, "稀有度", self.rarity, 8)
+        rarity_row = ttk.Frame(rarity_frame)
+        rarity_row.pack(fill="x", pady=1)
+        ttk.Label(rarity_row, text="稀有度", width=12).pack(side=LEFT)
+        ttk.Combobox(
+            rarity_row,
+            textvariable=self.rarity,
+            values=tuple(str(value) for value in PRODUCT_RARITIES),
+            state="readonly",
+            width=12,
+        ).pack(side=RIGHT)
         playthrough_row = ttk.Frame(rarity_frame)
         playthrough_row.pack(fill="x", pady=1)
         ttk.Label(playthrough_row, text="绘卷类型/周目", width=12).pack(side=LEFT)
@@ -1377,7 +1421,14 @@ class ScrollEditorApp:
 
         rule_frame = ttk.Frame(auxiliary)
         rule_frame.pack(fill="x", pady=(10, 0))
-        ttk.Label(rule_frame, text="特殊规则必含（可多选）").pack(anchor="w")
+        rule_header = ttk.Frame(rule_frame)
+        rule_header.pack(fill="x")
+        ttk.Label(rule_header, text="特殊规则必含（点击即可多选）").pack(side=LEFT)
+        ttk.Button(
+            rule_header,
+            text="清空已选规则",
+            command=self._clear_rule_selection,
+        ).pack(side=RIGHT)
         ttk.Entry(rule_frame, textvariable=self.rule_search).pack(fill="x", pady=(4, 2))
         rule_list_frame = ttk.Frame(rule_frame)
         rule_list_frame.pack(fill="x")
@@ -1393,10 +1444,15 @@ class ScrollEditorApp:
         self.rule_tree.configure(yscrollcommand=rule_scrollbar.set)
         self.rule_tree.pack(side=LEFT, fill="x", expand=True)
         rule_scrollbar.pack(side=RIGHT, fill="y")
-        self.rule_tree.bind("<<TreeviewSelect>>", self._on_rule_select)
+        self.rule_tree.bind("<Button-1>", self._on_rule_click)
+        self.rule_tree.bind("<space>", self._toggle_focused_rule)
+        self.rule_tree.bind("<Return>", self._toggle_focused_rule)
         self.rule_search.trace_add("write", self._filter_rules)
         self._populate_rule_tree()
         ttk.Label(rule_frame, textvariable=self.selected_rule_text).pack(anchor="w")
+        self.selected_rule_chips = ttk.Frame(rule_frame)
+        self.selected_rule_chips.pack(fill="x", pady=(3, 0))
+        self._update_rule_summary()
 
         enemy_frame = ttk.Frame(auxiliary)
         enemy_frame.pack(fill="x", pady=(10, 0))
@@ -2525,29 +2581,6 @@ class ScrollEditorApp:
                 self.visible_rule_tokens.add(option.token)
         self._restore_rule_selection()
 
-    def _sync_rule_selection(self) -> None:
-        if not hasattr(self, "rule_tree"):
-            return
-        current_visible = set(self.rule_tree.selection())
-        selected_visible = set(current_visible)
-        previous = set(self.selected_rule_option_ids)
-        for group, variants in self.rule_group_options:
-            exact_tokens = {option.token for option in variants}
-            selected_exact = selected_visible.intersection(exact_tokens)
-            if group.token not in selected_visible or not selected_exact:
-                continue
-            newly_selected = selected_visible - previous
-            if group.token in newly_selected:
-                selected_visible.difference_update(exact_tokens)
-            else:
-                selected_visible.discard(group.token)
-        self.selected_rule_option_ids = (
-            self.selected_rule_option_ids - self.visible_rule_tokens
-        ) | selected_visible
-        if selected_visible != current_visible:
-            self.rule_tree.selection_set(tuple(selected_visible))
-        self._update_rule_summary()
-
     def _restore_rule_selection(self) -> None:
         if not hasattr(self, "rule_tree"):
             return
@@ -2559,21 +2592,72 @@ class ScrollEditorApp:
         self.rule_tree.selection_set(visible_selected)
 
     def _update_rule_summary(self) -> None:
-        labels = [
-            self.rule_option_by_token[token].label
-            for token in sorted(self.selected_rule_option_ids)
-        ]
+        options = sorted(
+            (
+                self.rule_option_by_token[token]
+                for token in self.selected_rule_option_ids
+            ),
+            key=lambda option: (option.name.casefold(), option.label.casefold()),
+        )
+        labels = [option.label for option in options]
         summary = "、".join(labels[:3])
         if len(labels) > 3:
             summary += f" 等{len(labels)}项"
-        self.selected_rule_text.set("特殊规则必须包含：" + (summary or "无"))
+        self.selected_rule_text.set(
+            "特殊规则必须包含：" + (summary or "未选择（不筛选）")
+        )
+        if not hasattr(self, "selected_rule_chips"):
+            return
+        for child in self.selected_rule_chips.winfo_children():
+            child.destroy()
+        for option in options:
+            ttk.Button(
+                self.selected_rule_chips,
+                text=f"{option.label}  ×",
+                command=lambda token=option.token: self._remove_rule_selection(token),
+            ).pack(fill="x", pady=1)
 
-    def _on_rule_select(self, _event: object | None = None) -> None:
-        self._sync_rule_selection()
+    def _toggle_rule_selection(self, token: str) -> None:
+        self.selected_rule_option_ids = toggle_rule_filter_option(
+            self.selected_rule_option_ids,
+            token,
+            self.rule_family_by_token,
+        )
+        self._restore_rule_selection()
+        self._update_rule_summary()
         self._mark_intersection_stale()
 
+    def _remove_rule_selection(self, token: str) -> None:
+        self.selected_rule_option_ids.discard(token)
+        self._restore_rule_selection()
+        self._update_rule_summary()
+        self._mark_intersection_stale()
+
+    def _clear_rule_selection(self) -> None:
+        self.selected_rule_option_ids.clear()
+        self._restore_rule_selection()
+        self._update_rule_summary()
+        self._mark_intersection_stale()
+
+    def _on_rule_click(self, event: object) -> str | None:
+        x = int(getattr(event, "x"))
+        y = int(getattr(event, "y"))
+        token = self.rule_tree.identify_row(y)
+        if not token:
+            return None
+        if "indicator" in self.rule_tree.identify_element(x, y):
+            return None
+        self.rule_tree.focus(token)
+        self._toggle_rule_selection(token)
+        return "break"
+
+    def _toggle_focused_rule(self, _event: object | None = None) -> str:
+        token = self.rule_tree.focus()
+        if token:
+            self._toggle_rule_selection(token)
+        return "break"
+
     def _filter_rules(self, *_args: object) -> None:
-        self._sync_rule_selection()
         self._populate_rule_tree()
 
     def _sync_enemy_selection(self) -> None:
@@ -2701,7 +2785,7 @@ class ScrollEditorApp:
         except ValueError:
             return
         playthrough = PLAYTHROUGH_BY_LABEL.get(self.playthrough.get())
-        if playthrough is None or rarity not in (3, 4, 5):
+        if playthrough is None or rarity not in PRODUCT_RARITIES:
             return
         catalog = searchable_scroll_effect_definitions(playthrough, rarity)
         available_ids = {effect.effect_id for effect in catalog}
@@ -2882,7 +2966,6 @@ class ScrollEditorApp:
 
     def _parse_criteria(self) -> SearchCriteria:
         self._sync_effect_roles()
-        self._sync_rule_selection()
         self._sync_enemy_selection()
         primary = frozenset(self.selected_primary_ids)
         required_secondary_ids = frozenset(self.selected_secondary_ids)
@@ -3019,8 +3102,8 @@ class ScrollEditorApp:
         if self.playthrough.get() not in PLAYTHROUGH_BY_LABEL:
             raise ValueError("请选择有效的周目")
         playthrough = PLAYTHROUGH_BY_LABEL[self.playthrough.get()]
-        if rarity not in (3, 4, 5):
-            raise ValueError("绘卷仅支持稀有度3、4、5；原生生成器会把0、1、2统一规范化为3")
+        if rarity not in PRODUCT_RARITIES:
+            raise ValueError("当前正式入口仅提供稀有度3、4绘卷")
         if not 0 <= level <= 65535 or not 0 <= recommended <= 65535:
             raise ValueError("等级必须在 0 到 65535 之间")
         return rarity, level, recommended, playthrough

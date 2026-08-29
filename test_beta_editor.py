@@ -30,6 +30,7 @@ from nioh3_scroll_editor.effect_sequence import (
 from nioh3_scroll_editor.app import (
     FAQ_TEXT,
     FEATURE_GUIDE_TEXT,
+    PRODUCT_RARITIES,
     QUICK_START_TEXT,
     TITLE_SCREEN_ACK_TEXT,
     TITLE_SCREEN_PROMPT_TEXT,
@@ -38,6 +39,8 @@ from nioh3_scroll_editor.app import (
     collect_offline_rarity5_search_batch,
     is_cached_game_closed_effect_context,
     is_game_closed_effect_context,
+    special_rule_variant_label,
+    toggle_rule_filter_option,
     user_facing_error_message,
 )
 from nioh3_scroll_editor.grace_map import GraceOutputMap, GraceRange, load_grace_output_map
@@ -124,6 +127,33 @@ class BetaEditorTests(unittest.TestCase):
         self.assertIn("搜索并添加可以传播的合法绘卷", FEATURE_GUIDE_TEXT)
         self.assertIn("不需要断开网络", FAQ_TEXT)
         self.assertIn("3609 项原生名称目录", FAQ_TEXT)
+
+    def test_product_ui_exposes_only_supported_rarities(self) -> None:
+        self.assertEqual(PRODUCT_RARITIES, (3, 4))
+        self.assertIn("暂不再提供稀有度 5", FAQ_TEXT)
+
+    def test_special_rule_selection_preserves_other_rule_families(self) -> None:
+        head_family = frozenset(("any:head", "exact:head:65", "exact:head:80"))
+        grace_family = frozenset(("any:grace", "exact:grace:30"))
+        families = {
+            token: family
+            for family in (head_family, grace_family)
+            for token in family
+        }
+
+        selected = toggle_rule_filter_option(set(), "exact:head:80", families)
+        selected = toggle_rule_filter_option(selected, "exact:grace:30", families)
+
+        self.assertEqual(selected, {"exact:head:80", "exact:grace:30"})
+        selected = toggle_rule_filter_option(selected, "any:head", families)
+        self.assertEqual(selected, {"any:head", "exact:grace:30"})
+        selected = toggle_rule_filter_option(selected, "any:head", families)
+        self.assertEqual(selected, {"exact:grace:30"})
+
+    def test_exact_special_rule_variant_keeps_rule_name(self) -> None:
+        label = special_rule_variant_label("一难横行（头部防具）", 0x598F, "+80%")
+        self.assertIn("一难横行（头部防具）", label)
+        self.assertIn("+80%", label)
 
     def test_title_screen_confirmation_does_not_require_disconnection(self) -> None:
         self.assertEqual(TITLE_SCREEN_ACK_TEXT, "我确认游戏当前位于标题界面")
