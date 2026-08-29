@@ -12,6 +12,7 @@ from nioh3_scroll_editor.catalog import (
     R4_SLOT5_EFFECTS,
     contextual_effect_name,
     effect_name,
+    native_effect_definitions,
     searchable_scroll_effect_definitions,
     target_effects_for_rarity,
 )
@@ -27,6 +28,8 @@ from nioh3_scroll_editor.effect_sequence import (
     generate_ng3_rarity5_effect_sequence,
 )
 from nioh3_scroll_editor.app import (
+    FAQ_TEXT,
+    FEATURE_GUIDE_TEXT,
     QUICK_START_TEXT,
     TITLE_SCREEN_ACK_TEXT,
     TITLE_SCREEN_PROMPT_TEXT,
@@ -118,6 +121,9 @@ class BetaEditorTests(unittest.TestCase):
             self.assertIn(phrase, QUICK_START_TEXT)
         for technical_term in ("LCG", "draw-1", "前像"):
             self.assertNotIn(technical_term, QUICK_START_TEXT)
+        self.assertIn("搜索并添加可以传播的合法绘卷", FEATURE_GUIDE_TEXT)
+        self.assertIn("不需要断开网络", FAQ_TEXT)
+        self.assertIn("3609 项原生名称目录", FAQ_TEXT)
 
     def test_title_screen_confirmation_does_not_require_disconnection(self) -> None:
         self.assertEqual(TITLE_SCREEN_ACK_TEXT, "我确认游戏当前位于标题界面")
@@ -161,9 +167,24 @@ class BetaEditorTests(unittest.TestCase):
         self.assertIn(0xFBEE, ids)
         self.assertIn(0xAE5A, ids)
         self.assertIn(0xDFF0, ids)
+        self.assertIn(0xD495, ids)
+        self.assertIn(0x34F3, ids)
+        self.assertIn(0x28C4, ids)
         self.assertNotIn(0xBABD, ids)
         self.assertNotIn(0x0001, ids)
         self.assertTrue(all(effect.name != "未知词条" for effect in effects))
+
+    def test_full_native_catalog_always_resolves_known_preview_names(self) -> None:
+        catalog = native_effect_definitions()
+        self.assertEqual(len(catalog), 3609)
+        unresolved = [
+            effect.effect_id
+            for effect in catalog
+            if contextual_effect_name(effect.effect_id, rarity=5, slot=2).startswith(
+                "编号 "
+            )
+        ]
+        self.assertEqual(unresolved, [])
 
     def test_any_grace_search_streams_each_exact_candidate(self) -> None:
         streamed = []

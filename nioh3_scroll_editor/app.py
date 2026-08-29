@@ -514,6 +514,45 @@ QUICK_START_TEXT = """仁王3绘卷生成器 - 快速上手
 """
 
 
+FEATURE_GUIDE_TEXT = """按功能使用
+
+一、搜索并添加可以传播的合法绘卷
+1. 选择周目与稀有度。
+2. 在目标组合中搜索词条，双击加入。第一项是主词条，其余是副词条。
+3. 恩宠、地形、敌人和特殊规则都可以单独限制；不需要限制时选择“任意”或“不筛选”。
+4. 点击“计算候选 Seed”，结果会实时加入候选列表。
+5. 比较词条、数值、敌人和规则。满意后让游戏回到标题界面，勾选添加按钮左侧的确认框并写入。
+
+二、查看一个已知 Seed
+填写 Seed、周目和稀有度，点击“生成并查看该 Seed”。这里不会应用目标组合中的筛选条件。
+
+三、直接修改本地绘卷
+切换到“本地绘卷编辑”，读取存档后选择绘卷与槽位。该功能适合只在本机使用的自定义词条；传播后接收方会按 Seed 重新生成。
+
+四、备份与恢复
+每次新增、修改、删除或恢复前，程序都会自动建立备份。可以在本地编辑页查看、恢复、删除备份，或打开备份文件夹。
+"""
+
+
+FAQ_TEXT = """常见问题
+
+为什么添加按钮要求确认标题界面？
+游戏在关卡或据点中可能把内存里的旧存档再次写回。添加前回到标题界面即可；不需要退出游戏，也不需要断开网络。未勾选时点击添加，程序会再次询问并可直接继续。
+
+为什么稀有度 5 的两个“深奥”组合会直接提示无解？
+稀有度 5 只有一个升格/深奥槽，而且它会成为主词条。因此“心之深奥”为主词条时，“刚之深奥”不能同时作为副词条。稀有度 4 的完成器可以产生第二个升格词条，所以同一组合在稀有度 4 可以成立。
+
+目标组合是不是完整词条表？
+目标组合显示当前周目与稀有度能够合法生成的全部最终绘卷词条；恩宠在独立下拉框中选择。程序内还包含 3609 项原生名称目录，用于结果预览和本地编辑。不会把装备专属、生成阶段临时代码混进合法绘卷筛选池。
+
+为什么有时仍显示十六进制编号？
+当前版本已知的原生名称都会显示。只有游戏目录本身没有对应文本、或正在研究尚未确认的上下文时才保留十六进制编号，不会猜测名称。
+
+本地直接修改的词条能传播吗？
+通常不能。联机传播发送 Seed、稀有度等 canonical 字段，接收方会自行重建词条。要传播自定义结果，请使用“搜索合法绘卷”找到天然生成目标组合的 Seed。
+"""
+
+
 def user_facing_error_message(details: object) -> str:
     """Return the actionable final exception message without Python prefixes."""
 
@@ -736,6 +775,15 @@ class ScrollEditorApp:
             effect.effect_id: effect for effect in self.search_effect_catalog
         }
         self.effect_visible = list(self.search_effect_catalog)
+        self.effect_catalog_summary = StringVar(
+            value=(
+                f"当前上下文完整合法词条池：{len(self.search_effect_catalog)} 项；"
+                "恩宠在下方单独选择"
+            )
+        )
+        self.effect_result_summary = StringVar(
+            value=f"显示 {len(self.effect_visible)} / {len(self.search_effect_catalog)} 项"
+        )
         self._dragged_effect_id: int | None = None
         self.grace_filter = StringVar(value=NO_GRACE_FILTER_LABEL)
         self.grace_search_hint = StringVar()
@@ -1208,7 +1256,7 @@ class ScrollEditorApp:
         selector.pack(fill="x")
         ttk.Label(
             selector,
-            text="搜索当前周目与稀有度下可生成的全部最终词条",
+            textvariable=self.effect_catalog_summary,
         ).pack(anchor="w")
         effect_search_row = ttk.Frame(selector)
         effect_search_row.pack(fill="x", pady=(5, 3))
@@ -1243,6 +1291,11 @@ class ScrollEditorApp:
             lambda _event: self._add_selected_effect_result(),
         )
         self._populate_effect_result_list()
+        ttk.Label(
+            selector,
+            textvariable=self.effect_result_summary,
+            foreground=self.colors["muted"],
+        ).pack(anchor="w", pady=(3, 0))
 
         ttk.Separator(selector).pack(fill="x", pady=9)
         ttk.Label(
@@ -2293,6 +2346,10 @@ class ScrollEditorApp:
             self.effect_result_list.insert(END, effect.label)
         if self.effect_visible:
             self.effect_result_list.selection_set(0)
+        if hasattr(self, "effect_result_summary"):
+            self.effect_result_summary.set(
+                f"显示 {len(self.effect_visible)} / {len(self.search_effect_catalog)} 项"
+            )
 
     def _filter_effect_catalog(self, *_args: object) -> None:
         self.effect_visible = [
@@ -2564,10 +2621,36 @@ class ScrollEditorApp:
             text.pack(side=LEFT, fill=BOTH, expand=True)
             scrollbar.pack(side=RIGHT, fill="y")
             text.insert("1.0", content)
+            text.tag_configure(
+                "tutorial_title",
+                font=("Microsoft YaHei UI", 16, "bold"),
+                foreground=self.colors["accent"],
+                spacing3=10,
+            )
+            text.tag_configure(
+                "tutorial_heading",
+                font=("Microsoft YaHei UI", 11, "bold"),
+                foreground=self.colors["text"],
+                spacing1=10,
+                spacing3=4,
+            )
+            text.tag_add("tutorial_title", "1.0", "1.end")
+            for line_number, line in enumerate(content.splitlines(), start=1):
+                stripped = line.strip()
+                if stripped.startswith(
+                    ("一、", "二、", "三、", "四、", "五、", "六、", "七、", "八、", "九、")
+                ) or (stripped.endswith("？") and not stripped[:1].isdigit()):
+                    text.tag_add(
+                        "tutorial_heading",
+                        f"{line_number}.0",
+                        f"{line_number}.end",
+                    )
             text.configure(state=DISABLED)
 
-        add_page("快速上手", QUICK_START_TEXT)
-        add_page("详细说明", TUTORIAL_TEXT)
+        add_page("5步上手", QUICK_START_TEXT)
+        add_page("按功能使用", FEATURE_GUIDE_TEXT)
+        add_page("常见问题", FAQ_TEXT)
+        add_page("技术说明", TUTORIAL_TEXT)
 
     def _refresh_saves(self) -> None:
         paths = discover_save_paths()
@@ -2608,6 +2691,9 @@ class ScrollEditorApp:
         catalog = searchable_scroll_effect_definitions(playthrough, rarity)
         available_ids = {effect.effect_id for effect in catalog}
         self.search_effect_catalog = catalog
+        self.effect_catalog_summary.set(
+            f"当前上下文完整合法词条池：{len(catalog)} 项；恩宠在下方单独选择"
+        )
         self.search_effect_by_id = {effect.effect_id: effect for effect in catalog}
         self.selected_effect_ids = [
             effect_id
