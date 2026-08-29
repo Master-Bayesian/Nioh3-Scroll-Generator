@@ -11,6 +11,7 @@ from nioh3_scroll_editor.catalog import (
     R4_SLOT5_EFFECTS,
     contextual_effect_name,
     effect_name,
+    searchable_scroll_effect_definitions,
     target_effects_for_rarity,
 )
 from nioh3_scroll_editor.models import (
@@ -22,11 +23,12 @@ from nioh3_scroll_editor.models import (
 from nioh3_scroll_editor.effect_seed_solver import EffectSeedRequest
 from nioh3_scroll_editor.effect_sequence import generate_ng3_rarity5_effect_sequence
 from nioh3_scroll_editor.app import (
+    collect_offline_ng3_search_batch,
     collect_offline_rarity5_search_batch,
     is_cached_game_closed_effect_context,
     is_game_closed_effect_context,
 )
-from nioh3_scroll_editor.grace_map import GraceOutputMap, GraceRange
+from nioh3_scroll_editor.grace_map import GraceOutputMap, GraceRange, load_grace_output_map
 from nioh3_scroll_editor.native import (
     ASSEMBLE_SCROLL_RVA,
     GENERATE_EFFECTS_RVA,
@@ -89,6 +91,35 @@ def make_record(
 
 
 class BetaEditorTests(unittest.TestCase):
+    def test_searchable_pool_uses_native_final_effect_context(self) -> None:
+        effects = searchable_scroll_effect_definitions(3, 5)
+        ids = {effect.effect_id for effect in effects}
+
+        self.assertEqual(len(effects), 50)
+        self.assertEqual(len(ids), len(effects))
+        self.assertIn(0xFBEE, ids)
+        self.assertIn(0xAE5A, ids)
+        self.assertIn(0xDFF0, ids)
+        self.assertNotIn(0xBABD, ids)
+        self.assertNotIn(0x0001, ids)
+        self.assertTrue(all(effect.name != "未知词条" for effect in effects))
+
+    def test_any_grace_search_streams_each_exact_candidate(self) -> None:
+        streamed = []
+        result = collect_offline_ng3_search_batch(
+            EffectSeedRequest(playthrough=3, rarity=5),
+            grace_mapping=load_grace_output_map(rarity=5),
+            level=180,
+            result_count=2,
+            max_trials_per_batch=4,
+            candidate_found=streamed.append,
+        )
+
+        self.assertTrue(result.streamed)
+        self.assertEqual(tuple(streamed), result.candidates)
+        self.assertEqual(len(result.candidates), 2)
+        self.assertTrue(all(candidate.rarity == 5 for candidate in streamed))
+
     def test_ng3_rarity345_use_game_closed_ui_path(self) -> None:
         base = (
             frozenset(),

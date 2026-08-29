@@ -4,6 +4,7 @@ import json
 import locale as _locale
 import os
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 
@@ -267,6 +268,63 @@ def native_effect_definitions() -> tuple[EffectDefinition, ...]:
         EffectDefinition(effect_id, _native_name_for_effect(effect_id) or "未知词条")
         for effect_id in sorted(_NATIVE_NAMES_BY_EFFECT)
     )
+
+
+@lru_cache(maxsize=32)
+def searchable_scroll_effect_definitions(
+    playthrough: int,
+    rarity: int,
+) -> tuple[EffectDefinition, ...]:
+    """Return final ordinary effects reachable in one captured scroll context.
+
+    This is intentionally derived from the native generation tables rather
+    than the historical hand-maintained Beta list.  Stage-one tokens are not
+    eligible because they fail the final candidate-context and weight gates.
+    """
+
+    if not 1 <= playthrough <= 5:
+        raise ValueError("playthrough must be in 1..5")
+    if rarity not in (3, 4, 5):
+        raise ValueError("scroll rarity must be 3, 4, or 5")
+
+    from .effect_generation_tables import (
+        SCROLL_RECORD_TYPES,
+        load_default_effect_generation_tables,
+    )
+
+    tables = load_default_effect_generation_tables()
+    record_type = SCROLL_RECORD_TYPES[playthrough - 1]
+    capacities = tables.category_capacities(
+        record_type=record_type,
+        rarity=rarity,
+    )
+    reachable: list[EffectDefinition] = []
+    for native_effect in tables.effects_by_id.values():
+        if native_effect.row_index == 0:
+            continue
+        if not tables.candidate_context_allowed(
+            native_effect.effect_id,
+            record_type=record_type,
+        ):
+            continue
+        category_key = tables.groups_by_key[native_effect.group_key].category_key
+        if not 0 <= category_key < len(capacities) or capacities[category_key] == 0:
+            continue
+        if not tables.native_effect_weight(
+            native_effect.effect_id,
+            record_type=record_type,
+            rarity=rarity,
+            playthrough=playthrough,
+            restricted_destination_slot=False,
+        ):
+            continue
+        reachable.append(
+            EffectDefinition(
+                native_effect.effect_id,
+                _native_name_for_effect(native_effect.effect_id) or "未知词条",
+            )
+        )
+    return tuple(sorted(reachable, key=lambda item: (item.name.casefold(), item.effect_id)))
 
 
 def contextual_effect_name(

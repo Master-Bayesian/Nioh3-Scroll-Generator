@@ -122,13 +122,14 @@ PrimaryEffectIdGenerator = Callable[[int], int]
 PrimaryEffectIdBatchGenerator = Callable[[tuple[int, ...]], tuple[int, ...]]
 IntersectionProgressCallback = Callable[[EffectSeedIntersectionReport], None]
 CancellationCheck = Callable[[], bool]
+CandidateFoundCallback = Callable[[EffectSeedCandidate], None]
 
 
 def _iter_solution_primary_ids(
     solutions: Iterator[SeedSolution],
     batch_generator: PrimaryEffectIdBatchGenerator | None,
     *,
-    batch_size: int = 16_384,
+    batch_size: int = 65_536,
 ) -> Iterator[tuple[SeedSolution, int | None]]:
     """Attach prefetched primary IDs without materializing a whole family."""
 
@@ -786,6 +787,7 @@ def collect_effect_seed_page(
     max_trials: int | None = None,
     intersection_progress: IntersectionProgressCallback | None = None,
     intersection_progress_interval: int = 4096,
+    candidate_found: CandidateFoundCallback | None = None,
     cancelled: CancellationCheck | None = None,
 ) -> EffectSeedPage:
     """Collect a bounded, non-overlapping page from the exact candidate stream."""
@@ -843,6 +845,8 @@ def collect_effect_seed_page(
     collected: list[EffectSeedCandidate] = []
     for candidate in iterator:
         collected.append(candidate)
+        if candidate_found is not None:
+            candidate_found(candidate)
         if len(collected) == page_size:
             break
     candidates = tuple(collected)
@@ -887,6 +891,7 @@ __all__ = [
     "EffectSeedRequest",
     "EffectSequenceGenerator",
     "FinalRecordGenerator",
+    "CandidateFoundCallback",
     "IntersectionProgressCallback",
     "PrimaryEffectIdGenerator",
     "PrimaryEffectIdBatchGenerator",

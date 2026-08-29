@@ -17,6 +17,7 @@ from nioh3_scroll_editor.effect_sequence import (
     generate_ng3_rarity5_primary_effect_id,
     generate_ng3_rarity5_primary_effect_ids,
     generate_ng3_rarity5_effect_sequence,
+    generate_rarity5_any_grace_primary_effect_ids,
     generate_rarity5_grace_effect_sequence,
     generate_rarity5_grace_primary_effect_id,
     generate_rarity5_grace_primary_effect_ids,
@@ -45,6 +46,19 @@ VECTORS = json.loads(
 
 
 class Ng3Rarity5EffectSequenceTests(unittest.TestCase):
+    def test_any_grace_primary_batch_matches_full_sequence(self) -> None:
+        seeds = (0, 1, 2, 241719428, 0xFFFFFFFF)
+        self.assertEqual(
+            generate_rarity5_any_grace_primary_effect_ids(
+                seeds,
+                playthrough=3,
+            ),
+            tuple(
+                generate_ng3_rarity5_effect_sequence(seed).primary.effect_id
+                for seed in seeds
+            ),
+        )
+
     def test_challenge_attempt_count_matches_native_vectors(self) -> None:
         self.assertEqual(generate_challenge_attempt_count(1), 4)
         self.assertEqual(generate_challenge_attempt_count(0x0FFFFFFF), 7)

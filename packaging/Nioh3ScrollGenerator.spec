@@ -10,6 +10,7 @@ a = Analysis(
     ],
     datas=[
         ("..\\nioh3_scroll_editor\\data", "nioh3_scroll_editor\\data"),
+        ("..\\assets", "assets"),
     ],
     hiddenimports=[],
     hookspath=[],
@@ -40,4 +41,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon="..\\assets\\nioh3-scroll-generator.ico",
 )

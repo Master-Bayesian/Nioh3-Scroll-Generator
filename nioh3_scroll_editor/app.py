@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import faulthandler
 import hashlib
 import queue
 import struct
@@ -25,6 +26,7 @@ from tkinter import (
     Text,
     Tk,
     Toplevel,
+    PhotoImage,
     messagebox,
 )
 from tkinter import ttk
@@ -35,18 +37,21 @@ from .auxiliary_generation import (
     TERRAIN_DISPLAY_SPECIAL_KEYS,
     AuxiliarySearchCriteria,
     SpecialRuleEntryResult,
+    describe_special_rule,
     generate_complete_auxiliary,
+    load_default_auxiliary_generation_tables,
 )
 from .auxiliary_feasibility import EnemyKeyRequirement, analyze_enemy_feasibility
 from .catalog import (
-    BETA_EFFECTS,
     EFFECT_BY_ID,
     contextual_effect_name,
     effect_name,
     native_effect_definitions,
+    searchable_scroll_effect_definitions,
     target_effects_for_rarity,
 )
 from .effect_seed_solver import (
+    EffectSeedCandidate,
     EffectSeedIntersectionReport,
     EffectSeedRequest,
     IntersectionStageCount,
@@ -57,6 +62,7 @@ from .effect_sequence import (
     generate_ng3_certified_effect_sequence,
     generate_ng3_rarity34_primary_effect_ids,
     generate_ng3_rarity5_effect_sequence,
+    generate_rarity5_any_grace_primary_effect_ids,
     generate_rarity5_grace_effect_sequence,
     generate_rarity5_grace_primary_effect_id,
     generate_rarity5_grace_primary_effect_ids,
@@ -98,7 +104,10 @@ from .savegame import (
     move_backup_to_recycle_bin,
     patch_local_scroll_record,
 )
-from .seed_accelerator import cuda_seed_acceleration_available
+from .seed_accelerator import (
+    cuda_seed_acceleration_available,
+    last_seed_acceleration_backend,
+)
 from .updater import (
     DownloadedUpdate,
     UpdateCheckResult,
@@ -118,6 +127,12 @@ from .version import (
 
 
 RESEARCH_MODE = os.environ.get("NIOH3_SCROLL_RESEARCH_MODE", "").strip() == "1"
+STARTUP_TRACE = os.environ.get("NIOH3_SCROLL_STARTUP_TRACE", "").strip() == "1"
+
+
+def startup_trace(message: str) -> None:
+    if STARTUP_TRACE:
+        print(f"[startup] {message}", flush=True)
 
 
 PLAYTHROUGH_CURRENT_LABEL = "当前周目"
@@ -132,7 +147,7 @@ PLAYTHROUGH_BY_LABEL = {
     label: index
     for index, label in enumerate(PLAYTHROUGH_LABELS, start=1)
 }
-NO_GRACE_FILTER_LABEL = "任意特殊结果（不筛选）"
+NO_GRACE_FILTER_LABEL = "任意恩宠（不筛选）"
 NO_TERRAIN_FILTER_LABEL = "任意地形影响（不筛选）"
 SearchCriteria = tuple[
     frozenset[int],
@@ -152,6 +167,18 @@ class SearchBatchResult:
     requested_count: int
     next_start_after_trial: int | None = None
     intersection_report: EffectSeedIntersectionReport | None = None
+    streamed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class RuleFilterOption:
+    """One selectable special-rule group or exact native value variant."""
+
+    token: str
+    name: str
+    keys: frozenset[int]
+    exact: bool
+    label: str
 
 
 def collect_offline_rarity5_search_batch(
@@ -163,17 +190,39 @@ def collect_offline_rarity5_search_batch(
     max_trials_per_batch: int,
     start_after_trial: int = 0,
     intersection_progress: Callable[[EffectSeedIntersectionReport], None] | None = None,
+    candidate_found: Callable[[ScrollCandidate], None] | None = None,
     cancelled: Callable[[], bool] | None = None,
 ) -> SearchBatchResult:
     """Run one exact NG3-NG5 rarity-5 search without a game process."""
 
     if request.playthrough not in (3, 4, 5) or request.rarity != 5:
         raise ValueError("offline Grace search requires NG3-NG5 rarity 5")
-    if request.grace_effect_id is None:
-        raise ValueError("offline Grace search requires one special result")
     completed_reports: list[EffectSeedIntersectionReport] = []
     matches = []
+    materialized_by_trial: dict[int, ScrollCandidate] = {}
     active_cursor = start_after_trial
+
+    def materialize_match(match: EffectSeedCandidate) -> ScrollCandidate:
+        cached = materialized_by_trial.get(match.pivot_trial)
+        if cached is not None:
+            return cached
+        if match.effect_sequence is None:
+            raise RuntimeError("offline solver returned no effect sequence")
+        auxiliary = match.auxiliary or generate_complete_auxiliary(
+            match.seed,
+            request.playthrough,
+        )
+        candidate = ScrollCandidate.from_effect_sequence(
+            match.effect_sequence,
+            auxiliary=auxiliary,
+            joint_search_trial=match.pivot_trial,
+        )
+        materialized_by_trial[match.pivot_trial] = candidate
+        return candidate
+
+    def emit_match(match: EffectSeedCandidate) -> None:
+        if candidate_found is not None:
+            candidate_found(materialize_match(match))
     while len(matches) < result_count and not (cancelled is not None and cancelled()):
 
         def report_progress(update: EffectSeedIntersectionReport) -> None:
@@ -206,10 +255,18 @@ def collect_offline_rarity5_search_batch(
                     grace_id=request.grace_effect_id,
                     grace_mapping=grace_mapping,
                 )
+                if request.grace_effect_id is not None
+                else generate_rarity5_any_grace_primary_effect_ids(
+                    seeds,
+                    playthrough=request.playthrough,
+                    grace_mapping=grace_mapping,
+                )
             ),
+            allow_full_seed_family=request.grace_effect_id is None,
             start_after_trial=active_cursor,
             max_trials=max_trials_per_batch,
             intersection_progress=report_progress,
+            candidate_found=emit_match,
             cancelled=cancelled,
         )
         matches.extend(page.candidates)
@@ -231,19 +288,7 @@ def collect_offline_rarity5_search_batch(
 
     candidates: list[ScrollCandidate] = []
     for match in matches:
-        if match.effect_sequence is None:
-            raise RuntimeError("offline solver returned no effect sequence")
-        auxiliary = match.auxiliary or generate_complete_auxiliary(
-            match.seed,
-            request.playthrough,
-        )
-        candidates.append(
-            ScrollCandidate.from_effect_sequence(
-                match.effect_sequence,
-                auxiliary=auxiliary,
-                joint_search_trial=match.pivot_trial,
-            )
-        )
+        candidates.append(materialize_match(match))
     combined_report = (
         merge_intersection_reports(tuple(completed_reports))
         if completed_reports
@@ -254,6 +299,7 @@ def collect_offline_rarity5_search_batch(
         result_count,
         next_start_after_trial=active_cursor,
         intersection_report=combined_report,
+        streamed=candidate_found is not None,
     )
 
 
@@ -266,6 +312,7 @@ def collect_offline_ng3_search_batch(
     max_trials_per_batch: int,
     start_after_trial: int = 0,
     intersection_progress: Callable[[EffectSeedIntersectionReport], None] | None = None,
+    candidate_found: Callable[[ScrollCandidate], None] | None = None,
     cancelled: Callable[[], bool] | None = None,
 ) -> SearchBatchResult:
     """Run one certified NG3 rarity-3/4/5 search without a game or save."""
@@ -283,6 +330,7 @@ def collect_offline_ng3_search_batch(
             max_trials_per_batch=max_trials_per_batch,
             start_after_trial=start_after_trial,
             intersection_progress=intersection_progress,
+            candidate_found=candidate_found,
             cancelled=cancelled,
         )
     if request.grace_effect_id is not None:
@@ -290,7 +338,27 @@ def collect_offline_ng3_search_batch(
 
     completed_reports: list[EffectSeedIntersectionReport] = []
     matches = []
+    materialized_by_trial: dict[int, ScrollCandidate] = {}
     active_cursor = start_after_trial
+
+    def materialize_match(match: EffectSeedCandidate) -> ScrollCandidate:
+        cached = materialized_by_trial.get(match.pivot_trial)
+        if cached is not None:
+            return cached
+        if match.effect_sequence is None:
+            raise RuntimeError("offline NG3 solver returned no effect sequence")
+        auxiliary = match.auxiliary or generate_complete_auxiliary(match.seed, 3)
+        candidate = ScrollCandidate.from_effect_sequence(
+            match.effect_sequence,
+            auxiliary=auxiliary,
+            joint_search_trial=match.pivot_trial,
+        )
+        materialized_by_trial[match.pivot_trial] = candidate
+        return candidate
+
+    def emit_match(match: EffectSeedCandidate) -> None:
+        if candidate_found is not None:
+            candidate_found(materialize_match(match))
     while len(matches) < result_count and not (cancelled is not None and cancelled()):
 
         def report_progress(update: EffectSeedIntersectionReport) -> None:
@@ -317,6 +385,7 @@ def collect_offline_ng3_search_batch(
             start_after_trial=active_cursor,
             max_trials=max_trials_per_batch,
             intersection_progress=report_progress,
+            candidate_found=emit_match,
             cancelled=cancelled,
         )
         matches.extend(page.candidates)
@@ -338,16 +407,7 @@ def collect_offline_ng3_search_batch(
 
     candidates: list[ScrollCandidate] = []
     for match in matches:
-        if match.effect_sequence is None:
-            raise RuntimeError("offline NG3 solver returned no effect sequence")
-        auxiliary = match.auxiliary or generate_complete_auxiliary(match.seed, 3)
-        candidates.append(
-            ScrollCandidate.from_effect_sequence(
-                match.effect_sequence,
-                auxiliary=auxiliary,
-                joint_search_trial=match.pivot_trial,
-            )
-        )
+        candidates.append(materialize_match(match))
     combined_report = (
         merge_intersection_reports(tuple(completed_reports))
         if completed_reports
@@ -358,6 +418,7 @@ def collect_offline_ng3_search_batch(
         result_count,
         next_start_after_trial=active_cursor,
         intersection_report=combined_report,
+        streamed=candidate_found is not None,
     )
 
 
@@ -377,7 +438,6 @@ def is_cached_game_closed_effect_context(criteria: SearchCriteria) -> bool:
     return (
         criteria[-1] in (4, 5)
         and criteria[3] == 5
-        and criteria[2] is not None
     )
 
 
@@ -431,10 +491,10 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 5. 启动生成器。程序会自动搜索存档；只有原生生成或写档才需要选择账户并勾选标题界面安全确认。
 
 二、设置目标组合
-1. 主词条可多选，实际主词条命中所选候选池中的任意一个即可；不选表示不筛选。
-2. 副词条可多选为必含条件。通常实际绘卷的普通副词条必须包含所有选中项；但如果某个词条同时在左侧主词条候选池和右侧副词条必含池中被选中，并且它实际成为主词条，则主词条本身视为满足这一项，右侧只要求其余选中词条出现在普通副词条中。例如左右都选 A/B/C，可接受 A+(B,C)、B+(A,C)、C+(A,B) 等排列。不选表示不筛选。
-3. 特殊结果使用独立下拉菜单筛选，不再混入主、副词条候选池。
-   - 稀有度 5：第 6 槽是独立恩宠槽，可按恩宠筛选。
+1. 使用顶部的统一搜索框查找当前周目与稀有度下可生成的最终词条；双击或点击“添加选中词条”加入目标组合。
+2. 已选列表的第一项是主词条，其余最多五项是必需副词条。拖动可调整顺序，点击每行右侧的 × 可直接移除。不添加词条表示不筛选主、副词条。
+3. 恩宠使用独立下拉菜单筛选，不与普通词条混用。
+   - 稀有度 5：第 6 槽是独立恩宠槽；可指定恩宠，也可选择“任意恩宠”。
    - 稀有度 4：没有独立恩宠槽；程序离线执行完整 finalizer，第 5 槽按最终普通效果处理。
    - 稀有度 3：第 5 槽固定为成长状态“未完成的杰作（画龙点睛）”，不作为普通副词条或可选恩宠。
 4. 主、副词条都可以用中文名称、十六进制 ID 或小端字节搜索。
@@ -444,18 +504,18 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 8. 一、二周目没有三周目的恩宠槽；求解时必须至少选择一个主词条，程序直接求逆主词条 draw 1，再原生验证多个副词条。
 9. 三周目稀有度3、4可按主词条、副词条、地形、敌人和特殊规则求解；稀有度5还可指定恩宠。
 10. 等级、推荐等级和转手次数不直接参与副词条抽样；它们放在“绘卷属性”区域统一设置。
-11. 地形影响可单选；特殊规则和出现敌人可多选为必含条件。三类结果都由同一 Seed 和周目通过离线复现的游戏算法生成，返回候选必须同时满足这些条件。
+11. 地形影响可单选；特殊规则和出现敌人可多选为必含条件。特殊规则父项表示任意数值变体，展开后可精确选择 +50%、+65%、+80% 等原生变体。三类结果都由同一 Seed 和周目通过离线复现的游戏算法生成，返回候选必须同时满足这些条件。
 12. 地形、规则和敌人名称来自游戏当前版本的简中、日文、英文原生文本目录，不使用机器翻译；未知键会保留十六进制编号。
 13. 四、五周目预计由 DLC2 开放，v2.00.02 当前无法正常进入。0xDD82/0xD523 仅证明游戏文件中存在潜在生成上下文，不证明未来 DLC 的最终算法；目前只允许研究预览，禁止写档和传播声明。
 
 三、联立求解 Seed
-1. 当前 Beta 只提供约束求解，不提供界面上的连续 Seed 扫描。一、二周目必须选择主词条；三周目稀有度3、4至少选择一项词条或辅助条件，稀有度5必须选择恩宠。
-2. 稀有度5先数学求逆恩宠对应的完整 Seed 集合；稀有度3、4从完整自然Seed数学族按批构造候选，并用CUDA主词条预筛。三条路径最终都离线重放权重池、冲突、晋升、重试、数值和规范化逻辑。
+1. 当前 Beta 只提供约束求解，不提供界面上的连续 Seed 扫描。一、二周目必须选择主词条；三周目至少选择一项词条、恩宠或辅助条件，稀有度5不强制限制恩宠。
+2. 指定恩宠时先数学求逆对应的完整 Seed 集合；任意恩宠与稀有度3、4从完整自然 Seed 数学族按批构造候选，并用 CUDA 批量预筛主词条。所有路径最终都离线重放权重池、冲突、晋升、重试、数值和规范化逻辑。
 3. 主词条和多个指定副词条都在完整 Seed 重放结果上检查；不指定时可直接比较返回候选中的实际词条。
 4. 地形、敌人和特殊规则同样由 Seed 离线生成并联合过滤；结构上不可能共存的敌人组合会在求解前直接报无解。
 5. “候选数量”决定一次返回多少张可比较绘卷；“单批数学游标数”只是每个计算块的大小，不是总搜索上限。程序会自动继续后续块，直到得到所需数量、完整数学族耗尽或用户取消。
 6. 支持 NVIDIA CUDA 时，数学候选构造会自动使用显卡；没有 CUDA 时回退到原生 CPU。无论使用哪种加速，候选最后都由完整离线生成器精确验证。
-7. 点击“计算候选 Seed”会批量返回完整匹配；需要更多结果时点击“计算下一批候选”，程序从精确数学游标继续，不会重复以前的候选。
+7. 点击“计算候选 Seed”后，每找到一张完整匹配就会立刻加入下方列表；需要更多结果时点击“计算下一批候选”，程序从精确数学游标继续，不会重复以前的候选。
 
 四、已知 Seed 单点生成
 1. 先选择绘卷类型/周目和稀有度，再在独立的“已知 Seed 单点生成”输入框填写 Seed，点击“生成并查看该 Seed”。五种绘卷类型分别是 0x1E82、0x516D、0xE604、0xDD82、0xD523。
@@ -507,12 +567,23 @@ def application_root() -> Path:
 
 class ScrollEditorApp:
     def __init__(self, root: Tk) -> None:
+        startup_trace("ScrollEditorApp initialization started")
         self.root = root
         mode_suffix = "研究模式" if RESEARCH_MODE else "安全模式"
         self.root.title(f"仁王3绘卷生成器 Beta（{mode_suffix}）")
-        self.root.geometry("1440x960")
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        window_width = min(1680, max(1360, screen_width - 120))
+        window_height = min(1040, max(840, screen_height - 100))
+        window_x = max(0, (screen_width - window_width) // 2)
+        window_y = max(0, (screen_height - window_height) // 2)
+        self.root.geometry(
+            f"{window_width}x{window_height}+{window_x}+{window_y}"
+        )
         self.root.minsize(1280, 800)
         self._configure_theme()
+        self._configure_window_icon()
+        startup_trace("theme and icon configured")
 
         self.events: queue.Queue[tuple[str, object]] = queue.Queue()
         self.worker: threading.Thread | None = None
@@ -523,11 +594,13 @@ class ScrollEditorApp:
         self.active_criteria: SearchCriteria | None = None
         self.last_search_seed: int | None = None
         self.last_joint_trial = 0
+        self.active_streamed_count = 0
         self.primary_map_cache: dict[
             tuple[str, int, int, int], PrimaryOutputMap | PrimaryFirstDrawOutputMap
         ] = {}
         self.grace_map_cache: dict[tuple[str, int, int], GraceOutputMap] = {}
         self.auxiliary_names = load_auxiliary_name_catalog("zh-CN")
+        startup_trace("auxiliary name catalog loaded")
         terrain_effect_keys = {
             TERRAIN_DISPLAY_CRUCIBLE_KEY,
             *TERRAIN_DISPLAY_SPECIAL_KEYS.values(),
@@ -539,23 +612,46 @@ class ScrollEditorApp:
         self.terrain_filter = StringVar(value=NO_TERRAIN_FILTER_LABEL)
         self.rule_search = StringVar(value="")
         self.selected_rule_text = StringVar(value="要求包含：无（不筛选）")
-        self.selected_rule_keys: set[int] = set()
+        self.selected_rule_option_ids: set[str] = set()
         rule_groups = self.auxiliary_names.special_rule_key_groups()
-        self.rule_key_groups = {min(keys): keys for keys in rule_groups.values()}
-        self.rule_options = [
-            (
-                min(keys),
-                f"{name} "
-                + (
-                    f"[0x{min(keys):04X}]"
-                    if len(keys) == 1
-                    else f"[{len(keys)} 个原生变体]"
-                ),
+        rule_tables = load_default_auxiliary_generation_tables()
+        startup_trace("auxiliary generation tables loaded")
+        self.rule_group_options: list[
+            tuple[RuleFilterOption, tuple[RuleFilterOption, ...]]
+        ] = []
+        self.rule_option_by_token: dict[str, RuleFilterOption] = {}
+        for name, keys in rule_groups.items():
+            group_token = f"any:{min(keys):04X}"
+            group_option = RuleFilterOption(
+                token=group_token,
+                name=name,
+                keys=keys,
+                exact=False,
+                label=f"{name}（任意变体）",
             )
-            for name, keys in rule_groups.items()
-        ]
-        self.rule_options.sort(key=lambda item: (item[1].casefold(), item[0]))
-        self.rule_visible = list(self.rule_options)
+            variants: list[RuleFilterOption] = []
+            for key in sorted(keys):
+                detail = describe_special_rule(key, tables=rule_tables)
+                value_text = format_special_rule_value(detail) or "具体变体"
+                variants.append(
+                    RuleFilterOption(
+                        token=f"exact:{key:04X}",
+                        name=name,
+                        keys=frozenset((key,)),
+                        exact=True,
+                        label=f"{value_text}  [0x{key:04X}]",
+                    )
+                )
+            variants.sort(key=lambda option: (option.label.casefold(), option.token))
+            self.rule_group_options.append((group_option, tuple(variants)))
+            self.rule_option_by_token[group_token] = group_option
+            self.rule_option_by_token.update(
+                (option.token, option) for option in variants
+            )
+        self.rule_group_options.sort(
+            key=lambda item: (item[0].name.casefold(), item[0].token)
+        )
+        self.visible_rule_tokens: set[str] = set()
         self.enemy_search = StringVar(value="")
         self.selected_enemy_text = StringVar(value="要求包含：无（不筛选）")
         self.selected_enemy_keys: set[int] = set()
@@ -579,14 +675,18 @@ class ScrollEditorApp:
         self.save_choices: dict[str, Path] = {}
         self.save_account = StringVar(value="正在自动搜索存档……")
         self.title_ack = BooleanVar(value=False)
-        self.primary_search = StringVar(value="")
-        self.selected_primary_text = StringVar(value="已选择：无（不筛选）")
+        self.rarity = StringVar(value="5")
+        self.playthrough = StringVar(value=PLAYTHROUGH_LABELS[2])
+        self.effect_search = StringVar(value="")
+        self.selected_effect_ids: list[int] = []
         self.selected_primary_ids: set[int] = set()
-        self.primary_visible = list(BETA_EFFECTS)
-        self.secondary_search = StringVar(value="")
-        self.selected_secondary_text = StringVar(value="要求包含：无（不筛选）")
         self.selected_secondary_ids: set[int] = set()
-        self.secondary_visible = list(BETA_EFFECTS)
+        self.search_effect_catalog = searchable_scroll_effect_definitions(3, 5)
+        self.search_effect_by_id = {
+            effect.effect_id: effect for effect in self.search_effect_catalog
+        }
+        self.effect_visible = list(self.search_effect_catalog)
+        self._dragged_effect_id: int | None = None
         self.grace_filter = StringVar(value=NO_GRACE_FILTER_LABEL)
         self.grace_search_hint = StringVar()
         self.calculation_mode_hint = StringVar()
@@ -597,8 +697,6 @@ class ScrollEditorApp:
         self.direct_seed = StringVar(value="0")
         self.max_seeds = StringVar(value="1000000")
         self.result_count = StringVar(value="20")
-        self.rarity = StringVar(value="5")
-        self.playthrough = StringVar(value=PLAYTHROUGH_LABELS[2])
         self.level = StringVar(value="180")
         self.recommended = StringVar(value="183")
         self.transfer_count = StringVar(value="0")
@@ -627,11 +725,14 @@ class ScrollEditorApp:
         self.terrain_filter.trace_add("write", self._mark_intersection_stale)
         self.rarity.trace_add("write", self._on_rarity_changed)
         self.playthrough.trace_add("write", self._on_playthrough_changed)
+        self.effect_search.trace_add("write", self._filter_effect_catalog)
         self.local_effect_search.trace_add("write", self._filter_local_effect_catalog)
         self._build_ui()
+        startup_trace("user interface built")
         self._update_grace_search_hint()
         self._update_calculation_controls()
         self._refresh_saves()
+        startup_trace("save discovery completed")
         self.root.after(100, self._poll_events)
         if UPDATE_MANIFEST_URL and UPDATE_PUBLIC_KEY_BASE64:
             self.root.after(1500, lambda: self._check_for_updates(manual=False))
@@ -671,6 +772,23 @@ class ScrollEditorApp:
         self.style.configure("Header.TFrame", background="#0E1012")
         self.style.configure("TLabel", background=self.colors["surface"], foreground=self.colors["text"])
         self.style.configure("Surface.TLabel", background=self.colors["surface"], foreground=self.colors["text"])
+        self.style.configure(
+            "SelectedEffect.TFrame",
+            background=self.colors["raised"],
+            bordercolor=self.colors["border"],
+            relief="solid",
+        )
+        self.style.configure(
+            "SelectedEffect.TLabel",
+            background=self.colors["raised"],
+            foreground=self.colors["text"],
+        )
+        self.style.configure(
+            "SelectedEffectRole.TLabel",
+            background=self.colors["selected"],
+            foreground="#FFFFFF",
+            font=("Microsoft YaHei UI", 9, "bold"),
+        )
         self.style.configure(
             "Title.TLabel",
             background="#0E1012",
@@ -819,6 +937,22 @@ class ScrollEditorApp:
         self.style.layout("Main.TNotebook.Tab", [])
         self.style.configure("Main.TNotebook", background=self.colors["canvas"], borderwidth=0)
 
+    def _configure_window_icon(self) -> None:
+        """Apply the bundled multi-resolution icon to the window and taskbar."""
+
+        assets = application_root() / "assets"
+        png_path = assets / "nioh3-scroll-generator-icon.png"
+        ico_path = assets / "nioh3-scroll-generator.ico"
+        try:
+            if png_path.is_file():
+                self._window_icon_photo = PhotoImage(file=str(png_path))
+                self.root.iconphoto(True, self._window_icon_photo)
+            if ico_path.is_file():
+                self.root.iconbitmap(default=str(ico_path))
+        except Exception:
+            # An icon failure must never prevent save recovery or editor startup.
+            self._window_icon_photo = None
+
     def _build_ui(self) -> None:
         shell = ttk.Frame(self.root)
         shell.pack(fill=BOTH, expand=True)
@@ -831,7 +965,11 @@ class ScrollEditorApp:
         )
         ttk.Label(
             header,
-            text="●  离线生成内核 · 已验证",
+            text=(
+                "●  CUDA 并行预筛 · CPU 精确重放"
+                if cuda_seed_acceleration_available()
+                else "●  原生 CPU 预筛 · 精确重放"
+            ),
             style="Ready.TLabel",
         ).pack(side=LEFT)
         self.update_button = ttk.Button(
@@ -911,16 +1049,17 @@ class ScrollEditorApp:
 
         workspace = ttk.Panedwindow(outer, orient="horizontal")
         workspace.pack(fill=BOTH, expand=True)
-        filter_host = ttk.Frame(workspace, width=340)
+        filter_host = ttk.Frame(workspace, width=500)
         results_column = ttk.Frame(workspace)
         workspace.add(filter_host, weight=0)
         workspace.add(results_column, weight=1)
+        self.root.after_idle(lambda: workspace.sashpos(0, 500))
 
         filter_canvas = Canvas(
             filter_host,
             background=self.colors["surface"],
             highlightthickness=0,
-            width=330,
+            width=488,
         )
         filter_scrollbar = ttk.Scrollbar(
             filter_host,
@@ -949,70 +1088,52 @@ class ScrollEditorApp:
 
         selector = ttk.LabelFrame(filter_column, text="目标组合", padding=10)
         selector.pack(fill="x")
-        primary_frame = ttk.Frame(selector)
-        primary_frame.pack(fill="x")
-        ttk.Label(primary_frame, text="主词条候选池（多选；任一命中）").pack(anchor="w")
-        primary_search_row = ttk.Frame(primary_frame)
-        primary_search_row.pack(fill="x", pady=(4, 2))
-        ttk.Label(primary_search_row, text="搜索名称/ID：").pack(side=LEFT)
-        ttk.Entry(primary_search_row, textvariable=self.primary_search, width=25).pack(
-            side=LEFT, fill="x", expand=True
-        )
-        primary_list_frame = ttk.Frame(primary_frame)
-        primary_list_frame.pack(fill="x")
-        self.primary_list = Listbox(
-            primary_list_frame,
-            selectmode="multiple",
-            exportselection=False,
-            height=4,
-        )
-        for effect in BETA_EFFECTS:
-            self.primary_list.insert(END, effect.label)
-        primary_scrollbar = ttk.Scrollbar(
-            primary_list_frame, orient="vertical", command=self.primary_list.yview
-        )
-        self.primary_list.configure(yscrollcommand=primary_scrollbar.set)
-        self.primary_list.pack(side=LEFT, fill="x", expand=True)
-        primary_scrollbar.pack(side=RIGHT, fill="y")
-        self.primary_list.bind("<<ListboxSelect>>", self._on_primary_select)
-        self.primary_search.trace_add("write", self._filter_primary)
-        ttk.Label(primary_frame, textvariable=self.selected_primary_text).pack(
-            anchor="w", pady=(3, 0)
-        )
-
-        secondary_frame = ttk.Frame(selector)
-        secondary_frame.pack(fill="x", pady=(10, 0))
         ttk.Label(
-            secondary_frame,
-            text="副词条必含条件（与左侧重叠项若成为主词条，则视为已满足）",
+            selector,
+            text="搜索当前周目与稀有度下可生成的全部最终词条",
         ).pack(anchor="w")
-        secondary_search_row = ttk.Frame(secondary_frame)
-        secondary_search_row.pack(fill="x", pady=(4, 2))
-        ttk.Label(secondary_search_row, text="搜索名称/ID：").pack(side=LEFT)
-        ttk.Entry(secondary_search_row, textvariable=self.secondary_search).pack(
+        effect_search_row = ttk.Frame(selector)
+        effect_search_row.pack(fill="x", pady=(5, 3))
+        ttk.Entry(effect_search_row, textvariable=self.effect_search).pack(
             side=LEFT, fill="x", expand=True
         )
-        list_frame = ttk.Frame(secondary_frame)
-        list_frame.pack(fill="x")
-        self.secondary_list = Listbox(
-            list_frame,
-            selectmode="multiple",
+        self.add_effect_button = ttk.Button(
+            effect_search_row,
+            text="添加选中词条",
+            command=self._add_selected_effect_result,
+        )
+        self.add_effect_button.pack(side=RIGHT, padx=(6, 0))
+
+        effect_result_frame = ttk.Frame(selector)
+        effect_result_frame.pack(fill="x")
+        self.effect_result_list = Listbox(
+            effect_result_frame,
+            selectmode="browse",
             exportselection=False,
-            height=4,
+            height=9,
         )
-        for effect in BETA_EFFECTS:
-            self.secondary_list.insert(END, effect.label)
-        secondary_scrollbar = ttk.Scrollbar(
-            list_frame, orient="vertical", command=self.secondary_list.yview
+        effect_result_scrollbar = ttk.Scrollbar(
+            effect_result_frame,
+            orient="vertical",
+            command=self.effect_result_list.yview,
         )
-        self.secondary_list.configure(yscrollcommand=secondary_scrollbar.set)
-        self.secondary_list.pack(side=LEFT, fill="x", expand=True)
-        secondary_scrollbar.pack(side=RIGHT, fill="y")
-        self.secondary_list.bind("<<ListboxSelect>>", self._on_secondary_select)
-        self.secondary_search.trace_add("write", self._filter_secondary)
-        ttk.Label(secondary_frame, textvariable=self.selected_secondary_text).pack(
-            anchor="w", pady=(3, 0)
+        self.effect_result_list.configure(yscrollcommand=effect_result_scrollbar.set)
+        self.effect_result_list.pack(side=LEFT, fill="x", expand=True)
+        effect_result_scrollbar.pack(side=RIGHT, fill="y")
+        self.effect_result_list.bind(
+            "<Double-Button-1>",
+            lambda _event: self._add_selected_effect_result(),
         )
+        self._populate_effect_result_list()
+
+        ttk.Separator(selector).pack(fill="x", pady=9)
+        ttk.Label(
+            selector,
+            text="已选词条（第一项是主词条，其余是必需副词条；可拖动换序）",
+        ).pack(anchor="w")
+        self.selected_effects_frame = ttk.Frame(selector)
+        self.selected_effects_frame.pack(fill="x", pady=(5, 0))
+        self._render_selected_effects()
 
         rarity_frame = ttk.LabelFrame(selector, text="影响词条生成", padding=8)
         rarity_frame.pack(fill="x", pady=(10, 0))
@@ -1029,7 +1150,7 @@ class ScrollEditorApp:
         ).pack(side=RIGHT)
         grace_row = ttk.Frame(rarity_frame)
         grace_row.pack(fill="x", pady=1)
-        ttk.Label(grace_row, text="特殊结果筛选", width=12).pack(side=LEFT)
+        ttk.Label(grace_row, text="恩宠筛选", width=12).pack(side=LEFT)
         self.grace_combo = ttk.Combobox(
             grace_row,
             textvariable=self.grace_filter,
@@ -1050,9 +1171,9 @@ class ScrollEditorApp:
             filter_column, text="绘卷属性（不影响词条组合）", padding=8
         )
         properties.pack(fill="x", pady=(8, 0))
-        self._inline_entry(properties, "等级", self.level, 10)
-        self._inline_entry(properties, "推荐等级", self.recommended, 10)
-        self._inline_entry(properties, "转手次数", self.transfer_count, 14)
+        self._entry_row(properties, "等级", self.level, 14)
+        self._entry_row(properties, "推荐等级", self.recommended, 14)
+        self._entry_row(properties, "转手次数", self.transfer_count, 14)
 
         auxiliary = ttk.LabelFrame(
             filter_column,
@@ -1082,22 +1203,21 @@ class ScrollEditorApp:
         ttk.Entry(rule_frame, textvariable=self.rule_search).pack(fill="x", pady=(4, 2))
         rule_list_frame = ttk.Frame(rule_frame)
         rule_list_frame.pack(fill="x")
-        self.rule_list = Listbox(
+        self.rule_tree = ttk.Treeview(
             rule_list_frame,
-            selectmode="multiple",
-            exportselection=False,
-            height=3,
+            show="tree",
+            selectmode="extended",
+            height=5,
         )
-        for _key, label in self.rule_visible:
-            self.rule_list.insert(END, label)
         rule_scrollbar = ttk.Scrollbar(
-            rule_list_frame, orient="vertical", command=self.rule_list.yview
+            rule_list_frame, orient="vertical", command=self.rule_tree.yview
         )
-        self.rule_list.configure(yscrollcommand=rule_scrollbar.set)
-        self.rule_list.pack(side=LEFT, fill="x", expand=True)
+        self.rule_tree.configure(yscrollcommand=rule_scrollbar.set)
+        self.rule_tree.pack(side=LEFT, fill="x", expand=True)
         rule_scrollbar.pack(side=RIGHT, fill="y")
-        self.rule_list.bind("<<ListboxSelect>>", self._on_rule_select)
+        self.rule_tree.bind("<<TreeviewSelect>>", self._on_rule_select)
         self.rule_search.trace_add("write", self._filter_rules)
+        self._populate_rule_tree()
         ttk.Label(rule_frame, textvariable=self.selected_rule_text).pack(anchor="w")
 
         enemy_frame = ttk.Frame(auxiliary)
@@ -1110,7 +1230,7 @@ class ScrollEditorApp:
             enemy_list_frame,
             selectmode="multiple",
             exportselection=False,
-            height=3,
+            height=5,
         )
         for _key, label in self.enemy_visible:
             self.enemy_list.insert(END, label)
@@ -2039,90 +2159,128 @@ class ScrollEditorApp:
         )
         return any(normalized in value.casefold() for value in searchable)
 
-    def _filter_primary(self, *_args: object) -> None:
-        self._sync_primary_selection()
-        self.primary_visible = [
-            effect for effect in BETA_EFFECTS
-            if self._effect_matches(effect, self.primary_search.get())
-        ]
-        self.primary_list.delete(0, END)
-        for effect in self.primary_visible:
-            self.primary_list.insert(END, effect.label)
-        self._restore_primary_selection()
-        self._update_primary_summary()
+    def _populate_effect_result_list(self) -> None:
+        if not hasattr(self, "effect_result_list"):
+            return
+        self.effect_result_list.delete(0, END)
+        for effect in self.effect_visible:
+            self.effect_result_list.insert(END, effect.label)
+        if self.effect_visible:
+            self.effect_result_list.selection_set(0)
 
-    def _sync_primary_selection(self) -> None:
-        visible_ids = {effect.effect_id for effect in self.primary_visible}
-        selected_visible = {
-            self.primary_visible[index].effect_id
-            for index in self.primary_list.curselection()
-        }
+    def _filter_effect_catalog(self, *_args: object) -> None:
+        self.effect_visible = [
+            effect
+            for effect in self.search_effect_catalog
+            if self._effect_matches(effect, self.effect_search.get())
+        ]
+        self._populate_effect_result_list()
+
+    def _sync_effect_roles(self) -> None:
         self.selected_primary_ids = (
-            self.selected_primary_ids - visible_ids
-        ) | selected_visible
-        self._update_primary_summary()
-
-    def _restore_primary_selection(self) -> None:
-        self.primary_list.selection_clear(0, END)
-        for index, effect in enumerate(self.primary_visible):
-            if effect.effect_id in self.selected_primary_ids:
-                self.primary_list.selection_set(index)
-
-    def _update_primary_summary(self) -> None:
-        names = [
-            effect.name for effect in BETA_EFFECTS
-            if effect.effect_id in self.selected_primary_ids
-        ]
-        self.selected_primary_text.set(
-            "主词条候选：" + ("、".join(names) if names else "任意")
+            {self.selected_effect_ids[0]} if self.selected_effect_ids else set()
         )
+        self.selected_secondary_ids = set(self.selected_effect_ids[1:])
 
-    def _on_primary_select(self, _event: object | None = None) -> None:
-        self._sync_primary_selection()
+    def _add_selected_effect_result(self) -> None:
+        selection = self.effect_result_list.curselection()
+        if not selection:
+            self.status.set("请先从搜索结果中选择一个词条。")
+            return
+        effect_id = self.effect_visible[selection[0]].effect_id
+        if effect_id in self.selected_effect_ids:
+            self.status.set("该词条已在目标组合中。")
+            return
+        if len(self.selected_effect_ids) >= 6:
+            self.status.set("目标组合最多包含 1 个主词条和 5 个副词条。")
+            return
+        self.selected_effect_ids.append(effect_id)
+        self._sync_effect_roles()
+        self._render_selected_effects()
         self._mark_intersection_stale()
         self._update_calculation_controls()
 
-    def _sync_secondary_selection(self, *, show_error: bool = True) -> bool:
-        visible_ids = {effect.effect_id for effect in self.secondary_visible}
-        selected_visible = {
-            self.secondary_visible[index].effect_id
-            for index in self.secondary_list.curselection()
-        }
-        proposed = (self.selected_secondary_ids - visible_ids) | selected_visible
-        self.selected_secondary_ids = proposed
-        self._update_secondary_summary()
-        return True
-
-    def _restore_secondary_selection(self) -> None:
-        self.secondary_list.selection_clear(0, END)
-        for index, effect in enumerate(self.secondary_visible):
-            if effect.effect_id in self.selected_secondary_ids:
-                self.secondary_list.selection_set(index)
-
-    def _update_secondary_summary(self) -> None:
-        names = [
-            effect.name for effect in BETA_EFFECTS
-            if effect.effect_id in self.selected_secondary_ids
-        ]
-        self.selected_secondary_text.set(
-            "副词条必须包含：" + ("、".join(names) if names else "无")
-        )
-
-    def _on_secondary_select(self, _event: object | None = None) -> None:
-        self._sync_secondary_selection()
+    def _remove_selected_effect(self, effect_id: int) -> None:
+        try:
+            self.selected_effect_ids.remove(effect_id)
+        except ValueError:
+            return
+        self._sync_effect_roles()
+        self._render_selected_effects()
         self._mark_intersection_stale()
+        self._update_calculation_controls()
 
-    def _filter_secondary(self, *_args: object) -> None:
-        self._sync_secondary_selection(show_error=False)
-        self.secondary_visible = [
-            effect for effect in BETA_EFFECTS
-            if self._effect_matches(effect, self.secondary_search.get())
-        ]
-        self.secondary_list.delete(0, END)
-        for effect in self.secondary_visible:
-            self.secondary_list.insert(END, effect.label)
-        self._restore_secondary_selection()
-        self._update_secondary_summary()
+    def _start_effect_drag(self, effect_id: int) -> None:
+        self._dragged_effect_id = effect_id
+
+    def _finish_effect_drag(self, _event: object | None = None) -> None:
+        effect_id = self._dragged_effect_id
+        self._dragged_effect_id = None
+        if effect_id is None or effect_id not in self.selected_effect_ids:
+            return
+        pointer_y = self.root.winfo_pointery()
+        target_index = len(self._selected_effect_row_widgets) - 1
+        for index, row in enumerate(self._selected_effect_row_widgets):
+            midpoint = row.winfo_rooty() + row.winfo_height() // 2
+            if pointer_y < midpoint:
+                target_index = index
+                break
+        source_index = self.selected_effect_ids.index(effect_id)
+        if source_index == target_index:
+            return
+        self.selected_effect_ids.pop(source_index)
+        self.selected_effect_ids.insert(target_index, effect_id)
+        self._sync_effect_roles()
+        self._render_selected_effects()
+        self._mark_intersection_stale()
+        self._update_calculation_controls()
+
+    def _render_selected_effects(self) -> None:
+        if not hasattr(self, "selected_effects_frame"):
+            return
+        for child in self.selected_effects_frame.winfo_children():
+            child.destroy()
+        self._selected_effect_row_widgets: list[ttk.Frame] = []
+        if not self.selected_effect_ids:
+            ttk.Label(
+                self.selected_effects_frame,
+                text="尚未添加词条；不指定主词条时可仅用恩宠或辅助条件求解。",
+                foreground=self.colors["muted"],
+                wraplength=430,
+            ).pack(anchor="w")
+            return
+        for index, effect_id in enumerate(self.selected_effect_ids):
+            effect = self.search_effect_by_id[effect_id]
+            row = ttk.Frame(self.selected_effects_frame, style="SelectedEffect.TFrame")
+            row.pack(fill="x", pady=2)
+            self._selected_effect_row_widgets.append(row)
+            role = "主" if index == 0 else "副"
+            role_label = ttk.Label(
+                row,
+                text=f"{role} {index + 1}",
+                style="SelectedEffectRole.TLabel",
+                width=5,
+                anchor="center",
+            )
+            role_label.pack(side=LEFT, padx=(6, 8), pady=5)
+            name_label = ttk.Label(
+                row,
+                text=f"{effect.name}  [{effect.hex_id}]",
+                style="SelectedEffect.TLabel",
+            )
+            name_label.pack(side=LEFT, fill="x", expand=True, pady=5)
+            ttk.Button(
+                row,
+                text="×",
+                width=3,
+                command=lambda value=effect_id: self._remove_selected_effect(value),
+            ).pack(side=RIGHT, padx=4, pady=2)
+            for widget in (row, role_label, name_label):
+                widget.bind(
+                    "<ButtonPress-1>",
+                    lambda _event, value=effect_id: self._start_effect_drag(value),
+                )
+                widget.bind("<ButtonRelease-1>", self._finish_effect_drag)
 
     @staticmethod
     def _key_option_matches(option: tuple[int, str], query: str) -> bool:
@@ -2133,27 +2291,79 @@ class ScrollEditorApp:
         searchable = (label, f"0x{key:X}", f"{key:X}")
         return any(normalized in value.casefold() for value in searchable)
 
+    def _populate_rule_tree(self) -> None:
+        if not hasattr(self, "rule_tree"):
+            return
+        query = self.rule_search.get().strip().casefold()
+        self.rule_tree.delete(*self.rule_tree.get_children())
+        self.visible_rule_tokens.clear()
+        for group, variants in self.rule_group_options:
+            group_matches = not query or query in group.name.casefold()
+            matched_variants = tuple(
+                option
+                for option in variants
+                if not query
+                or query in option.label.casefold()
+                or query in option.name.casefold()
+            )
+            if not group_matches and not matched_variants:
+                continue
+            shown_variants = variants if group_matches else matched_variants
+            self.rule_tree.insert(
+                "",
+                END,
+                iid=group.token,
+                text=group.label,
+                open=bool(query),
+            )
+            self.visible_rule_tokens.add(group.token)
+            for option in shown_variants:
+                self.rule_tree.insert(
+                    group.token,
+                    END,
+                    iid=option.token,
+                    text=option.label,
+                )
+                self.visible_rule_tokens.add(option.token)
+        self._restore_rule_selection()
+
     def _sync_rule_selection(self) -> None:
-        visible_keys = {key for key, _label in self.rule_visible}
-        selected_visible = {
-            self.rule_visible[index][0] for index in self.rule_list.curselection()
-        }
-        self.selected_rule_keys = (
-            self.selected_rule_keys - visible_keys
+        if not hasattr(self, "rule_tree"):
+            return
+        current_visible = set(self.rule_tree.selection())
+        selected_visible = set(current_visible)
+        previous = set(self.selected_rule_option_ids)
+        for group, variants in self.rule_group_options:
+            exact_tokens = {option.token for option in variants}
+            selected_exact = selected_visible.intersection(exact_tokens)
+            if group.token not in selected_visible or not selected_exact:
+                continue
+            newly_selected = selected_visible - previous
+            if group.token in newly_selected:
+                selected_visible.difference_update(exact_tokens)
+            else:
+                selected_visible.discard(group.token)
+        self.selected_rule_option_ids = (
+            self.selected_rule_option_ids - self.visible_rule_tokens
         ) | selected_visible
+        if selected_visible != current_visible:
+            self.rule_tree.selection_set(tuple(selected_visible))
         self._update_rule_summary()
 
     def _restore_rule_selection(self) -> None:
-        self.rule_list.selection_clear(0, END)
-        for index, (key, _label) in enumerate(self.rule_visible):
-            if key in self.selected_rule_keys:
-                self.rule_list.selection_set(index)
+        if not hasattr(self, "rule_tree"):
+            return
+        visible_selected = tuple(
+            token
+            for token in self.selected_rule_option_ids
+            if token in self.visible_rule_tokens
+        )
+        self.rule_tree.selection_set(visible_selected)
 
     def _update_rule_summary(self) -> None:
         labels = [
-            label.rsplit(" [", 1)[0]
-            for key, label in self.rule_options
-            if key in self.selected_rule_keys
+            self.rule_option_by_token[token].label
+            for token in sorted(self.selected_rule_option_ids)
         ]
         summary = "、".join(labels[:3])
         if len(labels) > 3:
@@ -2166,15 +2376,7 @@ class ScrollEditorApp:
 
     def _filter_rules(self, *_args: object) -> None:
         self._sync_rule_selection()
-        self.rule_visible = [
-            option
-            for option in self.rule_options
-            if self._key_option_matches(option, self.rule_search.get())
-        ]
-        self.rule_list.delete(0, END)
-        for _key, label in self.rule_visible:
-            self.rule_list.insert(END, label)
-        self._restore_rule_selection()
+        self._populate_rule_tree()
 
     def _sync_enemy_selection(self) -> None:
         visible_keys = {key for key, _label in self.enemy_visible}
@@ -2262,13 +2464,36 @@ class ScrollEditorApp:
             raise FileNotFoundError("未找到可用的《仁王3》存档，请点击“重新搜索”")
         return path
 
+    def _refresh_effect_catalog_values(self) -> None:
+        try:
+            rarity = int(self.rarity.get(), 0)
+        except ValueError:
+            return
+        playthrough = PLAYTHROUGH_BY_LABEL.get(self.playthrough.get())
+        if playthrough is None or rarity not in (3, 4, 5):
+            return
+        catalog = searchable_scroll_effect_definitions(playthrough, rarity)
+        available_ids = {effect.effect_id for effect in catalog}
+        self.search_effect_catalog = catalog
+        self.search_effect_by_id = {effect.effect_id: effect for effect in catalog}
+        self.selected_effect_ids = [
+            effect_id
+            for effect_id in self.selected_effect_ids
+            if effect_id in available_ids
+        ]
+        self._sync_effect_roles()
+        self._filter_effect_catalog()
+        self._render_selected_effects()
+
     def _on_rarity_changed(self, *_: object) -> None:
+        self._refresh_effect_catalog_values()
         self._refresh_special_filter_values()
         self._update_grace_search_hint()
         self._mark_intersection_stale()
         self._update_calculation_controls()
 
     def _on_playthrough_changed(self, *_: object) -> None:
+        self._refresh_effect_catalog_values()
         self._refresh_special_filter_values()
         self._update_grace_search_hint()
         self._mark_intersection_stale()
@@ -2350,28 +2575,23 @@ class ScrollEditorApp:
         playthrough = PLAYTHROUGH_BY_LABEL.get(self.playthrough.get())
         has_special = self.grace_filter.get() != NO_GRACE_FILTER_LABEL
         grace_mode = has_special and rarity == 5 and playthrough in (3, 4, 5)
-        certified_rarity34_mode = playthrough == 3 and rarity in (3, 4)
+        certified_ng3_mode = playthrough == 3 and rarity in (3, 4, 5)
         primary_only_mode = (
             playthrough in (1, 2)
             and rarity in (3, 4, 5)
             and bool(self.selected_primary_ids)
         )
-        inverse_mode = grace_mode or primary_only_mode or certified_rarity34_mode
+        inverse_mode = grace_mode or primary_only_mode or certified_ng3_mode
         joint_mode = grace_mode and rarity == 5 and bool(self.selected_primary_ids)
 
-        if certified_rarity34_mode:
+        if certified_ng3_mode:
             self.calculation_mode_hint.set(
-                "离线精确求解：CUDA 遍历完整自然 Seed 数学游标并批量筛主词条，"
-                "再重放完整词条、地形、敌人与特殊规则；游标可无重复续算至穷尽。"
-            )
-        elif playthrough == 3 and rarity == 5 and grace_mode:
-            self.calculation_mode_hint.set(
-                "离线精确求解：恩宠数学求逆 + 完整 Seed 词条序列重放 + "
-                "地形/敌人/特殊规则联合过滤；无需游戏和存档。"
+                "离线精确求解：CUDA 分块构造 Seed 前像并批量预筛主词条，"
+                "再由 CPU 精确重放完整词条、地形、敌人与特殊规则；恩宠可指定或任意。"
             )
         elif joint_mode:
             self.calculation_mode_hint.set(
-                "实验联立：先限制特殊结果，再由游戏原生生成器复核主词条和多个副词条。"
+                "实验联立：先限制恩宠，再由游戏原生生成器复核主词条和多个副词条。"
             )
         elif inverse_mode:
             if primary_only_mode:
@@ -2380,13 +2600,13 @@ class ScrollEditorApp:
                 )
             else:
                 self.calculation_mode_hint.set(
-                    "约束求解：先求逆特殊结果对应的 Seed 集合，再原生验证主词条和副词条。"
+                    "约束求解：先求逆恩宠对应的 Seed 集合，再原生验证主词条和副词条。"
                 )
         else:
             requirement = (
                 "请选择至少一个主词条作为可逆约束"
                 if playthrough in (1, 2)
-                else "请选择一个特殊结果作为可逆约束"
+                else "请选择至少一个词条或辅助条件"
             )
             self.calculation_mode_hint.set(
                 f"{requirement}；本版本不提供无约束 Seed 遍历。"
@@ -2421,8 +2641,7 @@ class ScrollEditorApp:
             self.grace_filter.set(NO_GRACE_FILTER_LABEL)
 
     def _parse_criteria(self) -> SearchCriteria:
-        self._sync_primary_selection()
-        self._sync_secondary_selection()
+        self._sync_effect_roles()
         self._sync_rule_selection()
         self._sync_enemy_selection()
         primary = frozenset(self.selected_primary_ids)
@@ -2434,19 +2653,19 @@ class ScrollEditorApp:
         elif grace_label in self.special_id_by_label:
             grace_effect_id = self.special_id_by_label[grace_label]
         else:
-            raise ValueError("请选择当前稀有度下有效的特殊结果筛选项")
+            raise ValueError("请选择当前稀有度下有效的恩宠")
         if grace_effect_id is not None:
             if rarity != 5:
-                raise ValueError("当前只有稀有度5具备独立且可筛选的恩宠/特殊结果槽")
+                raise ValueError("当前只有稀有度5具备独立且可筛选的恩宠槽")
             if playthrough not in (3, 4, 5):
-                raise ValueError("特殊结果筛选仅适用于三至五周目绘卷")
+                raise ValueError("恩宠筛选仅适用于三至五周目绘卷")
             if playthrough == 3:
                 mapping = load_grace_output_map(rarity=5)
                 try:
                     first_u16_ranges_for_grace(grace_effect_id, mapping)
                 except ValueError as error:
                     raise ValueError(
-                        f"所选特殊结果 0x{grace_effect_id:04X} 不存在于稀有度5的已测映射中"
+                        f"所选恩宠 0x{grace_effect_id:04X} 不存在于稀有度5的已测映射中"
                     ) from error
         terrain_label = self.terrain_filter.get()
         if terrain_label == NO_TERRAIN_FILTER_LABEL:
@@ -2458,7 +2677,8 @@ class ScrollEditorApp:
         auxiliary_criteria = AuxiliarySearchCriteria(
             required_terrain_effect_keys=terrain_effects,
             required_special_rule_key_groups=tuple(
-                self.rule_key_groups[key] for key in sorted(self.selected_rule_keys)
+                self.rule_option_by_token[token].keys
+                for token in sorted(self.selected_rule_option_ids)
             ),
             required_enemy_lookup_key_groups=tuple(
                 self.enemy_key_groups[key] for key in sorted(self.selected_enemy_keys)
@@ -2516,16 +2736,18 @@ class ScrollEditorApp:
                         "稀有度4已离线复现完整完成态；第5槽按最终词条处理，不再显示中间结果码。"
                     )
                 else:
-                    self.grace_search_hint.set("稀有度5请选择一个恩宠/特殊结果后联立求解。")
+                    self.grace_search_hint.set(
+                        "稀有度5可指定恩宠，也可选择任意恩宠后仅按词条、敌人、规则和地形求解。"
+                    )
             else:
                 self.grace_search_hint.set(
-                    "四、五周目尚未开放，仅供潜在 record type 只读研究；请选择一个特殊结果。"
+                    "四、五周目尚未开放，仅供潜在 record type 只读研究；恩宠可指定或任意。"
                 )
             return
         try:
             rarity = int(self.rarity.get(), 0)
         except ValueError:
-            self.grace_search_hint.set("已选特殊结果：请先填写有效稀有度。")
+            self.grace_search_hint.set("已选恩宠：请先填写有效稀有度。")
             return
         if rarity == 5:
             playthrough = PLAYTHROUGH_BY_LABEL.get(self.playthrough.get())
@@ -2540,7 +2762,7 @@ class ScrollEditorApp:
                     "之后仅作离线预览；不开放写档或传播声明。"
                 )
         else:
-            self.grace_search_hint.set("已选特殊结果：当前仅支持稀有度5。")
+            self.grace_search_hint.set("已选恩宠：当前仅支持稀有度5。")
 
     def _parse_generation_fields(self) -> tuple[int, int, int, int | None]:
         rarity = int(self.rarity.get(), 0)
@@ -2595,18 +2817,17 @@ class ScrollEditorApp:
             ) = criteria
             if playthrough in (1, 2) and not primary:
                 raise ValueError("一、二周目联立求解必须至少选择一个主词条")
-            if playthrough == 3 and rarity == 5 and grace is None:
-                raise ValueError("三周目稀有度5联立求解必须选择一个恩宠/特殊结果")
             if (
                 playthrough == 3
-                and rarity in (3, 4)
+                and rarity in (3, 4, 5)
                 and not primary
                 and not secondary
+                and grace is None
                 and auxiliary_criteria.is_empty
             ):
-                raise ValueError("稀有度3/4请至少选择一个主词条、副词条、地形、敌人或特殊规则条件")
-            if playthrough in (4, 5) and grace is None:
-                raise ValueError("四、五周目研究求解必须选择一个特殊结果")
+                raise ValueError(
+                    "请至少选择一个主词条、副词条、恩宠、地形、敌人或特殊规则条件"
+                )
             result_count, max_seeds = self._parse_search_limits()
         except Exception as error:
             messagebox.showerror("计算条件无效", str(error))
@@ -2642,6 +2863,7 @@ class ScrollEditorApp:
         if self.worker and self.worker.is_alive():
             return
         self.cancel_event.clear()
+        self.active_streamed_count = 0
         self._set_busy(True)
         selected_playthrough = playthrough_label(playthrough)
         native_ready = self.title_ack.get()
@@ -2712,7 +2934,7 @@ class ScrollEditorApp:
                         return
                     if not native_ready:
                         raise ValueError(
-                            f"尚无{selected_playthrough}的完整特殊结果映射缓存；"
+                            f"尚无{selected_playthrough}的完整恩宠映射缓存；"
                             "请启动游戏并回到标题界面，勾选确认后先执行一次求解以建立缓存"
                         )
                 template = inventory.template_record_for_playthrough(playthrough)
@@ -2767,8 +2989,6 @@ class ScrollEditorApp:
             ) = current
             if playthrough in (1, 2) and not primary:
                 raise ValueError("一、二周目联立求解必须至少选择一个主词条")
-            if playthrough in (3, 4, 5) and grace is None:
-                raise ValueError("三至五周目联立求解必须选择一个特殊结果")
             result_count, max_seeds = self._parse_search_limits()
         except Exception as error:
             messagebox.showerror("计算条件无效", str(error))
@@ -2809,6 +3029,7 @@ class ScrollEditorApp:
         if self.worker and self.worker.is_alive():
             return
         self.cancel_event.clear()
+        self.active_streamed_count = 0
         self._set_busy(True)
         selected_playthrough = playthrough_label(criteria[-1])
         grace_effect_id = criteria[2]
@@ -2855,7 +3076,7 @@ class ScrollEditorApp:
             if grace_start_after_seed is None:
                 self.status.set("稀有度4：正在按R4 first-u16映射数学限定非最终结果码……")
             else:
-                self.status.set("稀有度4：正从上一特殊结果候选继续计算 Seed……")
+                self.status.set("稀有度4：正从上一完成态候选继续计算 Seed……")
         else:
             if joint_mode and joint_start_after_trial > 0:
                 self.status.set("正在从上一计算游标继续求下一组 Seed……")
@@ -2939,13 +3160,14 @@ class ScrollEditorApp:
                         max_trials_per_batch=max_seeds,
                         start_after_trial=joint_start_after_trial,
                         intersection_progress=intersection_progress,
+                        candidate_found=lambda candidate: self.events.put(
+                            ("candidate_found", candidate)
+                        ),
                         cancelled=self.cancel_event.is_set,
                     )
                     self.events.put(("search_complete", result))
                     return
                 if offline_grace_mapping is not None:
-                    if grace_effect_id is None:
-                        raise ValueError("离线求解必须选择一个特殊结果")
                     request = EffectSeedRequest(
                         playthrough=playthrough,
                         rarity=5,
@@ -2968,13 +3190,16 @@ class ScrollEditorApp:
                         max_trials_per_batch=max_seeds,
                         start_after_trial=joint_start_after_trial,
                         intersection_progress=intersection_progress,
+                        candidate_found=lambda candidate: self.events.put(
+                            ("candidate_found", candidate)
+                        ),
                         cancelled=self.cancel_event.is_set,
                     )
                     self.events.put(("search_complete", result))
                     return
                 if is_cached_game_closed_effect_context(criteria) and not native_ready:
                     raise ValueError(
-                        f"尚无{selected_playthrough}的完整特殊结果映射缓存；"
+                        f"尚无{selected_playthrough}的完整恩宠映射缓存；"
                         "请启动游戏并回到标题界面，勾选确认后执行一次求解以建立缓存"
                     )
                 if save_path is None:
@@ -2998,7 +3223,7 @@ class ScrollEditorApp:
                     primary_output_map = None
                     primary_first_output_map = None
                     grace_output_map = None
-                    if grace_effect_id is not None:
+                    if rarity == 5 and playthrough in (3, 4, 5):
                         if playthrough in (4, 5):
                             grace_key = (save_fingerprint, playthrough, rarity)
                             grace_output_map = self.grace_map_cache.get(grace_key)
@@ -3034,22 +3259,22 @@ class ScrollEditorApp:
                                     context_fingerprint=save_fingerprint,
                                 )
                             self.grace_map_cache[grace_key] = grace_output_map
-                            try:
-                                first_u16_ranges_for_grace(
-                                    grace_effect_id, grace_output_map
-                                )
-                            except ValueError as error:
-                                raise ValueError(
-                                    f"所选特殊结果 0x{grace_effect_id:04X} "
-                                    f"不在{playthrough}周目原生结果池中"
-                                ) from error
+                            if grace_effect_id is not None:
+                                try:
+                                    first_u16_ranges_for_grace(
+                                        grace_effect_id, grace_output_map
+                                    )
+                                except ValueError as error:
+                                    raise ValueError(
+                                        f"所选恩宠 0x{grace_effect_id:04X} "
+                                        f"不在{playthrough}周目原生结果池中"
+                                    ) from error
                         else:
                             map_rarity = 4 if rarity == 3 else rarity
                             grace_output_map = load_grace_output_map(rarity=map_rarity)
                     if (
                         playthrough in (4, 5)
                         and rarity == 5
-                        and grace_effect_id is not None
                     ):
                         if grace_output_map is None:
                             raise RuntimeError("native Grace-map capture returned no mapping")
@@ -3079,6 +3304,9 @@ class ScrollEditorApp:
                             max_trials_per_batch=max_seeds,
                             start_after_trial=joint_start_after_trial,
                             intersection_progress=captured_intersection_progress,
+                            candidate_found=lambda candidate: self.events.put(
+                                ("candidate_found", candidate)
+                            ),
                             cancelled=self.cancel_event.is_set,
                         )
                         self.events.put(("search_complete", result))
@@ -3208,6 +3436,7 @@ class ScrollEditorApp:
                         candidate = replace(candidate, playthrough=playthrough)
                         candidate = self._attach_auxiliary(candidate, playthrough)
                         candidates.append(candidate)
+                        self.events.put(("candidate_found", candidate))
                         if uses_primary_map:
                             if (
                                 candidate.joint_search_trial is None
@@ -3220,7 +3449,11 @@ class ScrollEditorApp:
                 self.events.put(
                     (
                         "search_complete",
-                        SearchBatchResult(tuple(candidates), result_count),
+                        SearchBatchResult(
+                            tuple(candidates),
+                            result_count,
+                            streamed=True,
+                        ),
                     )
                 )
             except Exception:
@@ -3242,7 +3475,7 @@ class ScrollEditorApp:
         has_ng3_rarity34_constraint = bool(
             self.selected_primary_ids
             or self.selected_secondary_ids
-            or self.selected_rule_keys
+            or self.selected_rule_option_ids
             or self.selected_enemy_keys
             or self.terrain_filter.get() != NO_TERRAIN_FILTER_LABEL
         )
@@ -3250,14 +3483,13 @@ class ScrollEditorApp:
             (
                 playthrough == 3
                 and (
-                    (rarity == 5 and self.grace_filter.get() != NO_GRACE_FILTER_LABEL)
-                    or (rarity in (3, 4) and has_ng3_rarity34_constraint)
+                    self.grace_filter.get() != NO_GRACE_FILTER_LABEL
+                    or has_ng3_rarity34_constraint
                 )
             )
             or (
                 playthrough in (4, 5)
                 and rarity == 5
-                and self.grace_filter.get() != NO_GRACE_FILTER_LABEL
             )
             or (playthrough in (1, 2) and bool(self.selected_primary_ids))
         )
@@ -3305,7 +3537,7 @@ class ScrollEditorApp:
                     update = payload
                     assert isinstance(update, GraceMapProgress)
                     self.status.set(
-                        "实验模式：正在建立所选四/五周目类型的特殊结果映射："
+                        "实验模式：正在建立所选四/五周目类型的恩宠映射："
                         f"{update.mapped_buckets:,} / {update.total_buckets:,}"
                     )
                 elif event == "intersection_progress":
@@ -3313,6 +3545,18 @@ class ScrollEditorApp:
                     assert isinstance(update, EffectSeedIntersectionReport)
                     self.intersection_summary.set(
                         self._format_intersection_report(update)
+                    )
+                elif event == "candidate_found":
+                    candidate = payload
+                    assert isinstance(candidate, ScrollCandidate)
+                    self._append_candidate(candidate)
+                    self.active_streamed_count += 1
+                    self.install_button.configure(state="disabled")
+                    backend = last_seed_acceleration_backend()
+                    backend_text = "CUDA" if backend == "cuda" else "CPU"
+                    self.status.set(
+                        f"已实时找到 {self.active_streamed_count} 个匹配 Seed；"
+                        f"{backend_text} 预筛后正在继续精确验证……"
                     )
                 elif event == "search_complete":
                     self._set_busy(False)
@@ -3334,16 +3578,23 @@ class ScrollEditorApp:
                         else:
                             self.status.set("本次计算/验证预算内没有匹配 Seed，或者任务已取消。")
                     else:
-                        for candidate in payload.candidates:
-                            self._append_candidate(candidate)
+                        if not payload.streamed:
+                            for candidate in payload.candidates:
+                                self._append_candidate(candidate)
                         last_candidate = payload.candidates[-1]
                         self.last_search_seed = last_candidate.seed
                         if payload.next_start_after_trial is None:
                             self.last_joint_trial = last_candidate.joint_search_trial or 0
                         self.next_button.configure(state="normal")
+                        backend = last_seed_acceleration_backend()
+                        backend_text = {
+                            "cuda": "CUDA",
+                            "native_cpu": "原生 CPU",
+                            "python": "Python CPU",
+                        }.get(backend, "CPU")
                         self.status.set(
-                            f"本批已计算 {len(payload.candidates)} / {payload.requested_count} 个匹配 Seed；"
-                            "可逐张比较，或继续计算下一批。"
+                            f"本批已找到 {len(payload.candidates)} / {payload.requested_count} 个匹配 Seed；"
+                            f"预筛后端：{backend_text}。可逐张比较，或继续计算下一批。"
                         )
                 elif event == "generate_complete":
                     self._set_busy(False)
@@ -3486,7 +3737,7 @@ class ScrollEditorApp:
             elif candidate.rarity == 3 and effect.slot == 5:
                 role = "成长/画龙点睛"
             elif candidate.rarity == 5 and effect.slot == 6:
-                role = "恩宠/特殊结果"
+                role = "恩宠"
             else:
                 role = "副词条"
             if candidate.record_stage is CandidateRecordStage.EFFECT_SEQUENCE_ONLY:
@@ -3719,11 +3970,17 @@ class ScrollEditorApp:
 
 
 def main() -> int:
+    if STARTUP_TRACE:
+        faulthandler.enable()
+        faulthandler.dump_traceback_later(10, repeat=True)
+        startup_trace("process entry")
     root = Tk()
+    startup_trace("Tk root created")
     try:
         ttk.Style(root).theme_use("vista")
     except Exception:
         pass
     ScrollEditorApp(root)
+    startup_trace("entering Tk main loop")
     root.mainloop()
     return 0

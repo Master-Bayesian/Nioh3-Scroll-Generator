@@ -911,6 +911,45 @@ def generate_rarity5_grace_primary_effect_ids(
     )
 
 
+def generate_rarity5_any_grace_primary_effect_ids(
+    seeds: tuple[int, ...],
+    *,
+    playthrough: int,
+    grace_mapping: GraceOutputMap | None = None,
+) -> tuple[int, ...]:
+    """Return exact primary IDs for a batch without constraining its Grace.
+
+    Seeds are grouped by their native draw-1 Grace. Each group then uses the
+    existing CUDA-capable fixed-Grace kernel, preserving exact game behavior
+    while allowing product searches whose Grace filter is set to any.
+    """
+
+    if not seeds:
+        return ()
+    if grace_mapping is None:
+        if playthrough != 3:
+            raise ValueError("NG4/NG5 primary generation requires a captured Grace map")
+        grace_mapping = load_grace_output_map(rarity=RARITY_DIVINE)
+    _validate_grace_mapping(grace_mapping, playthrough=playthrough)
+    grouped: dict[int, list[tuple[int, int]]] = {}
+    for index, seed in enumerate(seeds):
+        rng = Lcg32(seed)
+        grace_id = grace_id_for_first_u16(rng.next_u16(), grace_mapping)
+        grouped.setdefault(grace_id, []).append((index, seed))
+    output = [0] * len(seeds)
+    for grace_id, indexed_seeds in grouped.items():
+        group_seeds = tuple(seed for _index, seed in indexed_seeds)
+        generated = generate_rarity5_grace_primary_effect_ids(
+            group_seeds,
+            playthrough=playthrough,
+            grace_id=grace_id,
+            grace_mapping=grace_mapping,
+        )
+        for (index, _seed), effect_id in zip(indexed_seeds, generated, strict=True):
+            output[index] = effect_id
+    return tuple(output)
+
+
 def generate_ng3_rarity5_primary_effect_ids(
     seeds: tuple[int, ...],
     *,
@@ -1420,6 +1459,7 @@ __all__ = [
     "generate_ng3_rarity4_stage_one_effect_sequence",
     "generate_ng3_certified_effect_sequence",
     "generate_rarity5_grace_effect_sequence",
+    "generate_rarity5_any_grace_primary_effect_ids",
     "generate_rarity5_grace_primary_effect_id",
     "generate_rarity5_grace_primary_effect_ids",
     "materialize_ng3_rarity5_record",

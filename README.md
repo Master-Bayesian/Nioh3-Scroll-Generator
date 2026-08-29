@@ -18,7 +18,8 @@
 
 - 中文桌面界面，包含“搜索合法绘卷”和“本地绘卷编辑”两个工作区。
 - 指定 Seed、稀有度和绘卷类型后直接生成并预览完整绘卷。
-- 联立筛选主词条、多个无序副词条、恩宠/特殊结果、地形、敌人和特殊规则。
+- 在一个全局搜索框中选择最终态可达词条；第一项自动作为主词条，其余最多五项作为无序必需副词条，可拖动换序或逐项移除。
+- 联立筛选主词条、多个无序副词条、可选或任意恩宠、地形、敌人，以及“任意数值/精确数值变体”的特殊规则。
 - 三周目稀有度 3、4、5 的游戏关闭状态离线生成与精确验证。
 - 自动发现 Steam 存档，不在界面或报告中写死用户目录。
 - 新增、修改、删除和恢复前自动备份；写档采用源文件哈希门禁、校验和修复、加密回读验证。
@@ -92,7 +93,7 @@ py -3.12 -m PyInstaller --clean --noconfirm packaging\Nioh3ScrollGenerator.spec
 
 ## Beta application
 
-The Chinese beta is named `仁王3绘卷生成器`. It supports a curated 40-effect catalog, an optional primary-effect filter, up to five unordered required secondary effects, searchable effect selectors, exact Seed construction/replay, direct generation from a supplied Seed, raw candidate value inspection, and guarded insertion of certified complete records into the next fully zeroed slot. Save discovery is automatic. The product UI contains no numeric seed-range scan.
+The Chinese beta is named `仁王3绘卷生成器`. Its effect selector is derived from the captured native final-effect tables for the current playthrough and rarity, rather than a hand-maintained 40-effect list. One global search feeds an ordered target list: the first item is primary and up to five later items are unordered required secondaries. It supports an optional exact Grace filter, expandable exact-value special-rule variants, exact Seed construction/replay, direct generation from a supplied Seed, streaming candidate previews, raw value inspection, and guarded insertion of certified complete records into the next fully zeroed slot. Save discovery is automatic. The product UI contains no numeric seed-range scan.
 
 The application has two explicit product areas. `搜索合法绘卷` solves or directly generates canonical records from scroll type, rarity, and Seed, so recipient-side regeneration remains consistent. `本地绘卷编辑` lists the fixed physical inventory slots and can directly edit effect IDs, values, prefix, metadata, and tails or clear whole records. Local edits are intentionally marked non-propagating because the exchange protocol does not transmit effect slots. Both local editing and deletion use the same automatic-backup, exact-original, checksum, encryption-roundtrip, and source-hash transaction gates as canonical installation.
 
@@ -124,7 +125,7 @@ and `264410626` are a regression vector: both share draw-2 high16 `0` and Grace
 
 The game-closed solver supports primary, multiple required secondary, terrain,
 enemy, and special-rule constraints without a running game or save. Rarity 5
-also supports an exact Grace constraint.
+supports either an exact Grace constraint or an unconstrained Grace slot.
 The recovered RVA `0x571478` value formula and canonical slot serialization are
 also evaluated from the captured tables. The final certification corpus contains
 10,000 deterministic natural Seeds for every certified rarity. Rarity 3 and 4
@@ -137,7 +138,7 @@ When `bin/nioh3_seed_accelerator.dll` is present, pivot-family construction,
 natural-ID filtering, and exact NG3 primary-effect batches run through CUDA on
 supported NVIDIA hardware and fall back to native CPU code otherwise. Pivot
 calls are hard-chunked to at most 1,000,000 mathematical trials and primary
-calls to 16,384 surviving Seeds so no full candidate family is materialized in
+calls to 65,536 surviving Seeds so no full candidate family is materialized in
 memory. Exact effect and auxiliary replay remains the final acceptance filter,
 so acceleration cannot admit an unverified candidate.
 
