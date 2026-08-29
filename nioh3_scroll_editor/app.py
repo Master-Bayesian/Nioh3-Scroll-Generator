@@ -333,8 +333,11 @@ def collect_offline_ng3_search_batch(
             candidate_found=candidate_found,
             cancelled=cancelled,
         )
-    if request.grace_effect_id is not None:
-        raise ValueError("rarity-3/4 has no certified fixed Grace result filter")
+    if request.rarity == 3 and request.grace_effect_id is not None:
+        raise ValueError("rarity-3 has no selectable final Grace")
+    if request.rarity == 4 and request.grace_effect_id is not None:
+        if grace_mapping is None or grace_mapping.rarity != 4:
+            raise ValueError("rarity-4 final Grace filtering requires the R4 draw-1 map")
 
     completed_reports: list[EffectSeedIntersectionReport] = []
     matches = []
@@ -370,6 +373,7 @@ def collect_offline_ng3_search_batch(
         page = collect_effect_seed_page(
             request,
             page_size=result_count - len(matches),
+            grace_mapping=grace_mapping,
             effect_sequence_generator=lambda seed: generate_ng3_certified_effect_sequence(
                 seed,
                 rarity=request.rarity,
@@ -381,7 +385,7 @@ def collect_offline_ng3_search_batch(
                     rarity=request.rarity,
                 )
             ),
-            allow_full_seed_family=True,
+            allow_full_seed_family=request.grace_effect_id is None,
             start_after_trial=active_cursor,
             max_trials=max_trials_per_batch,
             intersection_progress=report_progress,
@@ -495,14 +499,14 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 2. 已选列表的第一项是主词条，其余最多五项是必需副词条。拖动可调整顺序，点击每行右侧的 × 可直接移除。不添加词条表示不筛选主、副词条。
 3. 恩宠使用独立下拉菜单筛选，不与普通词条混用。
    - 稀有度 5：第 6 槽是独立恩宠槽；可指定恩宠，也可选择“任意恩宠”。
-   - 稀有度 4：没有独立恩宠槽；程序离线执行完整 finalizer，第 5 槽按最终普通效果处理。
+   - 稀有度 4：第 5 槽先生成恩宠候选；完整 finalizer 可能保留该恩宠，也可能将它替换成普通词条。指定恩宠时只返回完成后仍保留该恩宠的最终记录。
    - 稀有度 3：第 5 槽固定为成长状态“未完成的杰作（画龙点睛）”，不作为普通副词条或可选恩宠。
 4. 主、副词条都可以用中文名称、十六进制 ID 或小端字节搜索。
 5. ID 0x0001 会显示为“未完成的杰作（画龙点睛）”；目前合法游戏状态中只确认稀有度 3 会出现该词条。它不作为普通副词条候选供直接拼接。
 6. 旧版用同 Seed 的 R4 中间结果预测“画龙点睛恩宠”的路径已停用；R3 与 R4 现在分别运行各自经过原生对照的完整离线算法。
 7. 稀有度和绘卷类型都会影响词条生成结果。周目选择会改用类型表中的 record type：一周目 0x1E82、二周目 0x516D、三周目 0xE604、四周目 0xDD82、五周目 0xD523。
 8. 一、二周目没有三周目的恩宠槽；求解时必须至少选择一个主词条，程序直接求逆主词条 draw 1，再原生验证多个副词条。
-9. 三周目稀有度3、4可按主词条、副词条、地形、敌人和特殊规则求解；稀有度5还可指定恩宠。
+9. 三周目稀有度4、5均可指定恩宠；稀有度4必须经过完整 finalizer 重放确认恩宠没有被替换。
 10. 等级、推荐等级和转手次数不直接参与副词条抽样；它们放在“绘卷属性”区域统一设置。
 11. 地形影响可单选；特殊规则和出现敌人可多选为必含条件。特殊规则父项表示任意数值变体，展开后可精确选择 +50%、+65%、+80% 等原生变体。三类结果都由同一 Seed 和周目通过离线复现的游戏算法生成，返回候选必须同时满足这些条件。
 12. 地形、规则和敌人名称来自游戏当前版本的简中、日文、英文原生文本目录，不使用机器翻译；未知键会保留十六进制编号。
@@ -510,7 +514,7 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 
 三、联立求解 Seed
 1. 当前 Beta 只提供约束求解，不提供界面上的连续 Seed 扫描。一、二周目必须选择主词条；三周目至少选择一项词条、恩宠或辅助条件，稀有度5不强制限制恩宠。
-2. 指定恩宠时先数学求逆对应的完整 Seed 集合；任意恩宠与稀有度3、4从完整自然 Seed 数学族按批构造候选，并用 CUDA 批量预筛主词条。所有路径最终都离线重放权重池、冲突、晋升、重试、数值和规范化逻辑。
+2. 指定恩宠时先数学求逆对应的完整 Seed 集合；稀有度4还会逐个重放 finalizer，只接受最终仍保留所选恩宠的记录。未指定恩宠的稀有度3、4从完整自然 Seed 数学族按批构造候选，并用 CUDA 批量预筛主词条。所有路径最终都离线重放权重池、冲突、晋升、重试、数值和规范化逻辑。
 3. 主词条和多个指定副词条都在完整 Seed 重放结果上检查；不指定时可直接比较返回候选中的实际词条。
 4. 地形、敌人和特殊规则同样由 Seed 离线生成并联合过滤；结构上不可能共存的敌人组合会在求解前直接报无解。
 5. “候选数量”决定一次返回多少张可比较绘卷；“单批数学游标数”只是每个计算块的大小，不是总搜索上限。程序会自动继续后续块，直到得到所需数量、完整数学族耗尽或用户取消。
@@ -2001,7 +2005,7 @@ class ScrollEditorApp:
         for index, effect in enumerate(entry.candidate.effects):
             if index == 0:
                 role = "主词条"
-            elif entry.rarity == 5 and index == 5:
+            elif entry.candidate.grace_slot_index == index:
                 role = "恩宠"
             elif entry.rarity == 3 and index == 4:
                 role = "成长槽"
@@ -2574,7 +2578,10 @@ class ScrollEditorApp:
             rarity = -1
         playthrough = PLAYTHROUGH_BY_LABEL.get(self.playthrough.get())
         has_special = self.grace_filter.get() != NO_GRACE_FILTER_LABEL
-        grace_mode = has_special and rarity == 5 and playthrough in (3, 4, 5)
+        grace_mode = has_special and (
+            (rarity == 4 and playthrough == 3)
+            or (rarity == 5 and playthrough in (3, 4, 5))
+        )
         certified_ng3_mode = playthrough == 3 and rarity in (3, 4, 5)
         primary_only_mode = (
             playthrough in (1, 2)
@@ -2582,7 +2589,7 @@ class ScrollEditorApp:
             and bool(self.selected_primary_ids)
         )
         inverse_mode = grace_mode or primary_only_mode or certified_ng3_mode
-        joint_mode = grace_mode and rarity == 5 and bool(self.selected_primary_ids)
+        joint_mode = grace_mode and bool(self.selected_primary_ids)
 
         if certified_ng3_mode:
             self.calculation_mode_hint.set(
@@ -2629,7 +2636,10 @@ class ScrollEditorApp:
                 rarity,
                 include_transient_stage_one=RESEARCH_MODE,
             )
-            if playthrough in (3, 4, 5) and rarity == 5
+            if (
+                (rarity == 4 and playthrough == 3)
+                or (rarity == 5 and playthrough in (3, 4, 5))
+            )
             else ()
         )
         self.special_id_by_label = {effect.label: effect.effect_id for effect in effects}
@@ -2655,17 +2665,19 @@ class ScrollEditorApp:
         else:
             raise ValueError("请选择当前稀有度下有效的恩宠")
         if grace_effect_id is not None:
-            if rarity != 5:
-                raise ValueError("当前只有稀有度5具备独立且可筛选的恩宠槽")
+            if rarity not in (4, 5):
+                raise ValueError("只有稀有度4和5具备可筛选的最终恩宠结果")
             if playthrough not in (3, 4, 5):
                 raise ValueError("恩宠筛选仅适用于三至五周目绘卷")
+            if rarity == 4 and playthrough != 3:
+                raise ValueError("稀有度4恩宠 finalizer 当前只完成三周目离线认证")
             if playthrough == 3:
-                mapping = load_grace_output_map(rarity=5)
+                mapping = load_grace_output_map(rarity=rarity)
                 try:
                     first_u16_ranges_for_grace(grace_effect_id, mapping)
                 except ValueError as error:
                     raise ValueError(
-                        f"所选恩宠 0x{grace_effect_id:04X} 不存在于稀有度5的已测映射中"
+                        f"所选恩宠 0x{grace_effect_id:04X} 不存在于稀有度{rarity}的已测映射中"
                     ) from error
         terrain_label = self.terrain_filter.get()
         if terrain_label == NO_TERRAIN_FILTER_LABEL:
@@ -2733,7 +2745,8 @@ class ScrollEditorApp:
                     )
                 elif rarity == 4:
                     self.grace_search_hint.set(
-                        "稀有度4已离线复现完整完成态；第5槽按最终词条处理，不再显示中间结果码。"
+                        "稀有度4的第5槽可能保留为最终恩宠，也可能被 finalizer 替换为普通词条；"
+                        "不指定恩宠时两种合法结果都会保留。"
                     )
                 else:
                     self.grace_search_hint.set(
@@ -2749,9 +2762,14 @@ class ScrollEditorApp:
         except ValueError:
             self.grace_search_hint.set("已选恩宠：请先填写有效稀有度。")
             return
-        if rarity == 5:
+        if rarity in (4, 5):
             playthrough = PLAYTHROUGH_BY_LABEL.get(self.playthrough.get())
-            if playthrough == 3:
+            if rarity == 4 and playthrough == 3:
+                self.grace_search_hint.set(
+                    "三周目稀有度4：先求逆恩宠 draw-1 前像，再离线重放完整 finalizer；"
+                    "只有最终第5槽仍是所选恩宠的 Seed 才会进入结果。"
+                )
+            elif playthrough == 3:
                 self.grace_search_hint.set(
                     "三周目稀有度5：离线求逆恩宠 Seed 集合，再精确重放主词条、副词条、"
                     "地形、敌人与特殊规则；无需启动游戏或读取存档。"
@@ -2762,7 +2780,7 @@ class ScrollEditorApp:
                     "之后仅作离线预览；不开放写档或传播声明。"
                 )
         else:
-            self.grace_search_hint.set("已选恩宠：当前仅支持稀有度5。")
+            self.grace_search_hint.set("已选恩宠：当前仅支持稀有度4或5。")
 
     def _parse_generation_fields(self) -> tuple[int, int, int, int | None]:
         rarity = int(self.rarity.get(), 0)
@@ -3042,7 +3060,7 @@ class ScrollEditorApp:
             and bool(criteria[0])
         )
         joint_mode = (
-            grace_effect_id is not None and rarity == 5 and bool(criteria[0])
+            grace_effect_id is not None and rarity in (4, 5) and bool(criteria[0])
         ) or primary_only_mode
         if is_game_closed_effect_context(criteria) or is_cached_game_closed_effect_context(
             criteria
@@ -3108,8 +3126,8 @@ class ScrollEditorApp:
                 inventory = None
                 save_fingerprint = None
                 offline_grace_mapping = None
-                if is_game_closed_effect_context(criteria) and rarity == 5:
-                    offline_grace_mapping = load_grace_output_map(rarity=5)
+                if is_game_closed_effect_context(criteria) and rarity in (4, 5):
+                    offline_grace_mapping = load_grace_output_map(rarity=rarity)
                 elif is_cached_game_closed_effect_context(criteria):
                     if save_path is None:
                         raise RuntimeError("cached offline solving requires a selected save")
@@ -3698,8 +3716,8 @@ class ScrollEditorApp:
         self.candidates.append(candidate)
         candidate_playthrough = playthrough_label(candidate.playthrough)
         parts = [f"主：{candidate.display_name(candidate.primary)}"]
-        if candidate.rarity == 5 and len(candidate.effects) >= 6:
-            parts.append(f"特殊：{candidate.display_name(candidate.effects[5])}")
+        if candidate.grace is not None:
+            parts.append(f"恩宠：{candidate.display_name(candidate.grace)}")
         if candidate.auxiliary is not None:
             terrain_names = [
                 self.auxiliary_names.terrain_effect_name(key)
@@ -3736,7 +3754,7 @@ class ScrollEditorApp:
                 role = "主词条"
             elif candidate.rarity == 3 and effect.slot == 5:
                 role = "成长/画龙点睛"
-            elif candidate.rarity == 5 and effect.slot == 6:
+            elif candidate.grace_slot_index == effect.slot - 1:
                 role = "恩宠"
             else:
                 role = "副词条"

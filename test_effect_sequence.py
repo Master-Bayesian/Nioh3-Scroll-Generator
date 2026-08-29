@@ -340,10 +340,16 @@ class Ng3Rarity3EffectSequenceTests(unittest.TestCase):
         self.assertTrue(result.terminal_is_special)
         self.assertNotIn(result.effects[-1], result.secondaries)
 
-    def test_rarity4_final_slots_are_all_normal_effects(self) -> None:
-        result = generate_ng3_rarity4_final_effect_sequence(183696634, level=180)
-        self.assertFalse(result.terminal_is_special)
-        self.assertEqual(len(result.secondaries), len(result.effects) - 1)
+    def test_rarity4_finalizer_can_replace_or_preserve_terminal_grace(self) -> None:
+        replaced = generate_ng3_rarity4_final_effect_sequence(183696634, level=180)
+        self.assertFalse(replaced.terminal_is_special)
+        self.assertEqual(replaced.effects[-1].effect_id, 0xAE5A)
+        self.assertEqual(len(replaced.secondaries), len(replaced.effects) - 1)
+
+        retained = generate_ng3_rarity4_final_effect_sequence(2965, level=180)
+        self.assertTrue(retained.terminal_is_special)
+        self.assertEqual(retained.grace.effect_id, 0xCE68)
+        self.assertNotIn(retained.grace, retained.secondaries)
 
     def test_certified_materializer_preserves_preview_for_rarity345(self) -> None:
         template = self.VECTOR

@@ -219,6 +219,13 @@ R5_GRACE_IDS: tuple[int, ...] = (
 )
 R4_SLOT5_OUTPUT_IDS: tuple[int, ...] = OBSERVED_GRACE_IDS
 
+# Rarity-4 stage one writes one of these IDs into physical slot 5.  The
+# completion finalizer may replace that slot with an ordinary completed effect,
+# but when it completes an earlier slot (or finds no acceptable replacement),
+# slot 5 survives as a real final Grace.  Keep the stage-one namespace separate
+# from this final-record presentation list even though the raw IDs coincide.
+R4_FINAL_GRACE_IDS: tuple[int, ...] = R4_SLOT5_OUTPUT_IDS
+
 R5_GRACE_EFFECTS: tuple[EffectDefinition, ...] = tuple(
     EffectDefinition(
         effect_id,
@@ -230,6 +237,15 @@ R5_GRACE_EFFECTS: tuple[EffectDefinition, ...] = tuple(
 # Backwards-compatible export.  It now intentionally means R5 Grace choices
 # only; R4 slot-5 values are context tokens, not globally named Grace IDs.
 GRACE_EFFECTS = R5_GRACE_EFFECTS
+
+R4_FINAL_GRACE_EFFECTS: tuple[EffectDefinition, ...] = tuple(
+    EffectDefinition(
+        effect_id,
+        _native_name_for_effect(effect_id)
+        or _GRACE_NAMES.get(effect_id, "未命名恩宠"),
+    )
+    for effect_id in R4_FINAL_GRACE_IDS
+)
 
 
 R4_SLOT5_EFFECTS: tuple[EffectDefinition, ...] = tuple(
@@ -251,7 +267,12 @@ SPECIAL_EFFECTS: tuple[EffectDefinition, ...] = (
 # namespace across rarity and slot roles.
 EFFECT_BY_ID = {
     effect.effect_id: effect
-    for effect in (*BETA_EFFECTS, *R5_GRACE_EFFECTS, *SPECIAL_EFFECTS)
+    for effect in (
+        *BETA_EFFECTS,
+        *R4_FINAL_GRACE_EFFECTS,
+        *R5_GRACE_EFFECTS,
+        *SPECIAL_EFFECTS,
+    )
 }
 ORDINARY_EFFECT_BY_ID = {effect.effect_id: effect for effect in BETA_EFFECTS}
 
@@ -341,6 +362,11 @@ def contextual_effect_name(
         if effect_id == 0xFFFFFFFF:
             return "空"
         return f"R4生成阶段结果码 0x{effect_id:04X}（非最终词条）"
+    if rarity == 4 and slot == 5 and effect_id in R4_FINAL_GRACE_IDS:
+        return _native_name_for_effect(effect_id) or _GRACE_NAMES.get(
+            effect_id,
+            f"R4恩宠 0x{effect_id:04X}（名称待验证）",
+        )
     if rarity == 5 and slot == 6:
         known = _GRACE_NAMES.get(effect_id)
         if known:
@@ -372,12 +398,16 @@ def target_effects_for_rarity(
 ) -> tuple[EffectDefinition, ...]:
     """Return context-correct special-output choices.
 
-    Rarity-3/4 slot-5 values are transient stage-one result codes. They are
-    hidden in normal product mode and exposed only by an explicit research
-    opt-in. Rarity-5 slot 6 is the verified canonical Grace context.
+    Rarity-4 slot 5 starts as a stage-one result code.  The finalizer may
+    replace it with an ordinary effect or preserve it as a final Grace, so the
+    product selector exposes the verified final Grace names while exact replay
+    decides whether the selected Grace survived.  Rarity-5 slot 6 is always the
+    canonical Grace context.
     """
     if rarity == 5:
         return R5_GRACE_EFFECTS
-    if include_transient_stage_one and rarity in (3, 4):
+    if rarity == 4:
+        return R4_FINAL_GRACE_EFFECTS
+    if include_transient_stage_one and rarity == 3:
         return R4_SLOT5_EFFECTS
     return ()

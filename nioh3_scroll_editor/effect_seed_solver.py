@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from itertools import islice
 from typing import Callable, Iterator
 
-from emaki_exchange import EFFECT_START, EFFECT_STRIDE, SCROLL_RECORD_SIZE
+from emaki_exchange import SCROLL_RECORD_SIZE
 
 from .auxiliary_generation import (
     AuxiliarySearchCriteria,
@@ -212,6 +212,9 @@ class _IntersectionCounter:
         self.inspected_through_trial = start_after_trial
         self.specs = self._build_specs(request)
         self.counts = [0] * len(self.specs)
+        self.grace_requires_replay = (
+            request.rarity == 4 and request.grace_effect_id is not None
+        )
 
     @staticmethod
     def _build_specs(request: EffectSeedRequest) -> tuple[_IntersectionStageSpec, ...]:
@@ -263,10 +266,30 @@ class _IntersectionCounter:
     def observe_fixed_seed(self, pivot_trial: int) -> None:
         self.fixed_seed_count += 1
         self.inspected_through_trial = max(self.inspected_through_trial, pivot_trial)
-        if self.specs and self.specs[0].kind == "grace":
+        if (
+            self.specs
+            and self.specs[0].kind == "grace"
+            and not self.grace_requires_replay
+        ):
             self.counts[0] += 1
         if self.progress and self.fixed_seed_count % self.progress_interval == 0:
             self.progress(self.snapshot(exhausted_family=False))
+
+    def accept_grace(self, result: EffectSequenceResult) -> bool:
+        """Count the final R4 Grace after exact finalizer replay."""
+
+        if not self.grace_requires_replay:
+            return True
+        spec_index = next(
+            index for index, spec in enumerate(self.specs) if spec.kind == "grace"
+        )
+        if (
+            not result.terminal_is_special
+            or result.grace.effect_id not in self.specs[spec_index].values
+        ):
+            return False
+        self.counts[spec_index] += 1
+        return True
 
     def accept_primary(self, primary_effect_id: int) -> bool:
         for index, spec in enumerate(self.specs):
@@ -478,9 +501,11 @@ def _verify_final_record(
     if request.grace_effect_id is not None:
         if grace_slot is None or not 1 <= grace_slot <= 7:
             raise ValueError("Grace verification requires a valid effect slot")
-        offset = EFFECT_START + (grace_slot - 1) * EFFECT_STRIDE + 4
-        actual_grace = int.from_bytes(record[offset : offset + 4], "little")
-        if actual_grace != request.grace_effect_id:
+        if (
+            candidate.grace_slot_index != grace_slot - 1
+            or candidate.grace is None
+            or candidate.grace.effect_id != request.grace_effect_id
+        ):
             return None
     return candidate
 
@@ -507,7 +532,10 @@ def _verify_effect_sequence(
         return None
     if (
         request.grace_effect_id is not None
-        and result.grace.effect_id != request.grace_effect_id
+        and (
+            not result.terminal_is_special
+            or result.grace.effect_id != request.grace_effect_id
+        )
     ):
         return None
     return result
@@ -527,7 +555,11 @@ def _generate_effect_sequence_checked(
         raise ValueError("offline effect-sequence generator changed the request context")
     if (
         request.grace_effect_id is not None
-        and result.grace.effect_id != request.grace_effect_id
+        and request.rarity == 5
+        and (
+            not result.terminal_is_special
+            or result.grace.effect_id != request.grace_effect_id
+        )
     ):
         raise ValueError("fixed Grace inverse produced a mismatched exact replay")
     return result
@@ -594,6 +626,14 @@ def iter_effect_seed_candidates(
                 )
             _intersection_counter.observe_fixed_seed(solution.pivot_trial)
             effect_sequence = None
+            if _intersection_counter.grace_requires_replay:
+                effect_sequence = _generate_effect_sequence_checked(
+                    solution.seed,
+                    request,
+                    effect_sequence_generator,
+                )
+                if not _intersection_counter.accept_grace(effect_sequence):
+                    continue
             has_primary_fast_path = request.primary_effect_ids and (
                 prefetched_primary_effect_id is not None
                 or primary_effect_id_batch_generator is not None
@@ -613,11 +653,12 @@ def iter_effect_seed_candidates(
                 if not _intersection_counter.accept_primary(primary_effect_id):
                     continue
                 if request.required_secondary_ids:
-                    effect_sequence = _generate_effect_sequence_checked(
-                        solution.seed,
-                        request,
-                        effect_sequence_generator,
-                    )
+                    if effect_sequence is None:
+                        effect_sequence = _generate_effect_sequence_checked(
+                            solution.seed,
+                            request,
+                            effect_sequence_generator,
+                        )
                     if effect_sequence.primary.effect_id != primary_effect_id:
                         raise AssertionError(
                             "primary batch path disagreed with the exact effect sequence"
@@ -629,11 +670,12 @@ def iter_effect_seed_candidates(
                     ):
                         continue
             elif request.primary_effect_ids or request.required_secondary_ids:
-                effect_sequence = _generate_effect_sequence_checked(
-                    solution.seed,
-                    request,
-                    effect_sequence_generator,
-                )
+                if effect_sequence is None:
+                    effect_sequence = _generate_effect_sequence_checked(
+                        solution.seed,
+                        request,
+                        effect_sequence_generator,
+                    )
                 if not _intersection_counter.accept_effects(
                     primary_effect_id=effect_sequence.primary.effect_id,
                     secondary_effect_ids=frozenset(
@@ -685,7 +727,9 @@ def iter_effect_seed_candidates(
         candidate = None
         effect_sequence = None
         has_effect_replay_filter = bool(
-            request.primary_effect_ids or request.required_secondary_ids
+            request.primary_effect_ids
+            or request.required_secondary_ids
+            or request.grace_effect_id is not None
         )
         used_primary_fast_path = False
         # Primary/secondary filters are usually much more selective and cheaper

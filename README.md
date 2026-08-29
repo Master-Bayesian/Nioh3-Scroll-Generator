@@ -126,6 +126,9 @@ and `264410626` are a regression vector: both share draw-2 high16 `0` and Grace
 The game-closed solver supports primary, multiple required secondary, terrain,
 enemy, and special-rule constraints without a running game or save. Rarity 5
 supports either an exact Grace constraint or an unconstrained Grace slot.
+Rarity 4 can also constrain a Grace: its stage-one slot 5 starts with a Grace
+candidate, then exact finalizer replay accepts only records where that Grace
+survives instead of being replaced by an ordinary completed effect.
 The recovered RVA `0x571478` value formula and canonical slot serialization are
 also evaluated from the captured tables. The final certification corpus contains
 10,000 deterministic natural Seeds for every certified rarity. Rarity 3 and 4

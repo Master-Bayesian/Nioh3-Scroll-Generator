@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from emaki_exchange import EFFECT_COUNT, EFFECT_START, EFFECT_STRIDE, SCROLL_RECORD_SIZE
 
-from .catalog import contextual_effect_name, effect_name
+from .catalog import R4_FINAL_GRACE_IDS, contextual_effect_name, effect_name
 
 if TYPE_CHECKING:
     from .auxiliary_generation import CompleteAuxiliaryResult
@@ -73,18 +73,41 @@ class ScrollCandidate:
         return self.effects[0]
 
     @property
+    def grace_slot_index(self) -> int | None:
+        """Return the zero-based canonical Grace slot, when one survives."""
+
+        if self.rarity == 5 and len(self.effects) >= 6:
+            return 5
+        if (
+            self.rarity == 4
+            and len(self.effects) >= 5
+            and self.effects[4].effect_id in R4_FINAL_GRACE_IDS
+            and ((self.effects[4].metadata >> 16) & 0x02)
+        ):
+            return 4
+        return None
+
+    @property
+    def grace(self) -> ScrollEffect | None:
+        index = self.grace_slot_index
+        return self.effects[index] if index is not None else None
+
+    @property
     def secondaries(self) -> tuple[ScrollEffect, ...]:
         """Return ordinary secondary effects only.
 
-        Rarity-5 slot 6 is Grace, while rarity-3/4 stage-one slot 5 is a
-        transient special/finalization token. Neither may satisfy an ordinary
-        secondary requirement.
+        Rarity-5 slot 6 is always Grace.  Rarity-4 final slot 5 is Grace when
+        its stage-one Grace survives finalization, but is an ordinary secondary
+        when the finalizer replaces that slot.  Stage-one special slots never
+        satisfy an ordinary secondary requirement.
         """
         if (
             self.record_stage is CandidateRecordStage.NATIVE_STAGE_ONE
             and self.rarity in (3, 4)
         ):
             stop = 4  # slots 2..4
+        elif self.grace_slot_index == 4:
+            stop = 4  # slots 2..4; retained final Grace is physical slot 5
         elif self.rarity == 5:
             stop = 5  # slots 2..5; slot 6 is Grace
         else:

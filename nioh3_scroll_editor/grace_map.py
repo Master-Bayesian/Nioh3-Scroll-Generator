@@ -4,7 +4,10 @@ Historical function/class names still use ``Grace`` for compatibility, but the
 measured namespaces are context-specific:
 - PC 2.00.02, E604 rarity 5, current loaded progression, slot 6: verified Grace context.
 - PC 2.00.02, E604 rarity 4, current loaded progression, slot 5: separately
-  measured raw-output context. Its complete native name table is still pending.
+  measured stage-one Grace context.  The finalizer can preserve this slot as a
+  final Grace or replace it with an ordinary completed effect, so the map is a
+  safe inverse prefilter but final R4 Grace searches still require exact
+  finalizer replay.
 
 Seed 183696634 proved that the R4 map is a stage-one code map rather than a
 final-effect name map. Its installed candidate contained slot-5 0xBABD, while

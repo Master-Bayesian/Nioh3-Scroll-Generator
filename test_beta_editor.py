@@ -8,6 +8,7 @@ from emaki_exchange import SCROLL_RECORD_SIZE, USER_SAVE_SIZE, write_account_id
 from nioh3_scroll_editor.catalog import (
     BETA_EFFECTS,
     GRACE_EFFECTS,
+    R4_FINAL_GRACE_EFFECTS,
     R4_SLOT5_EFFECTS,
     contextual_effect_name,
     effect_name,
@@ -120,6 +121,34 @@ class BetaEditorTests(unittest.TestCase):
         self.assertEqual(len(result.candidates), 2)
         self.assertTrue(all(candidate.rarity == 5 for candidate in streamed))
 
+    def test_rarity4_exact_grace_filter_replays_finalizer(self) -> None:
+        result = collect_offline_ng3_search_batch(
+            EffectSeedRequest(
+                playthrough=3,
+                rarity=4,
+                grace_effect_id=0xCE68,
+            ),
+            grace_mapping=load_grace_output_map(rarity=4),
+            level=180,
+            result_count=3,
+            max_trials_per_batch=64,
+        )
+
+        self.assertEqual(len(result.candidates), 3)
+        self.assertTrue(all(candidate.grace is not None for candidate in result.candidates))
+        self.assertTrue(
+            all(candidate.grace.effect_id == 0xCE68 for candidate in result.candidates)
+        )
+        self.assertTrue(
+            all(
+                0xCE68 not in {effect.effect_id for effect in candidate.secondaries}
+                for candidate in result.candidates
+            )
+        )
+        self.assertIsNotNone(result.intersection_report)
+        self.assertEqual(result.intersection_report.stages[0].kind, "grace")
+        self.assertEqual(result.intersection_report.stages[0].count, 3)
+
     def test_ng3_rarity345_use_game_closed_ui_path(self) -> None:
         base = (
             frozenset(),
@@ -181,12 +210,13 @@ class BetaEditorTests(unittest.TestCase):
         self.assertTrue(candidate.can_materialize_for_install)
         self.assertIsNone(candidate.install_blocker)
 
-    def test_r4_transient_special_choices_are_hidden_by_default(self) -> None:
-        self.assertEqual(target_effects_for_rarity(4), ())
+    def test_r4_final_graces_are_selectable_without_exposing_stage_tokens(self) -> None:
+        self.assertEqual(target_effects_for_rarity(4), R4_FINAL_GRACE_EFFECTS)
         self.assertEqual(
             target_effects_for_rarity(4, include_transient_stage_one=True),
-            R4_SLOT5_EFFECTS,
+            R4_FINAL_GRACE_EFFECTS,
         )
+        self.assertTrue(all("非最终词条" not in effect.name for effect in R4_FINAL_GRACE_EFFECTS))
 
     def test_every_r4_stage_one_candidate_is_install_blocked(self) -> None:
         record = bytearray(

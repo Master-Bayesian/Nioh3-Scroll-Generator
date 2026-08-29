@@ -1365,7 +1365,12 @@ def materialize_ng3_rarity4_final_record(
         level=level,
         effect_count=5,
         final_rng_state=final_state,
-        terminal_is_special=False,
+        # R4 stage one reserves physical slot 5 for a Grace candidate.  The
+        # completion loop can finish any earlier ordinary slot; in that case
+        # the terminal Grace survives into the canonical final record.  Only
+        # an accepted completion at zero-based index 4 replaces it with an
+        # ordinary effect.
+        terminal_is_special=completed.accepted_index != 4,
     )
     return completed.record, final_sequence
 
