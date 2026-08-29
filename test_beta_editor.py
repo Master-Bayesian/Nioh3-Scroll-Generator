@@ -24,6 +24,7 @@ from nioh3_scroll_editor.models import (
 from nioh3_scroll_editor.effect_seed_solver import EffectSeedRequest
 from nioh3_scroll_editor.effect_sequence import generate_ng3_rarity5_effect_sequence
 from nioh3_scroll_editor.app import (
+    application_title,
     collect_offline_ng3_search_batch,
     collect_offline_rarity5_search_batch,
     is_cached_game_closed_effect_context,
@@ -92,6 +93,14 @@ def make_record(
 
 
 class BetaEditorTests(unittest.TestCase):
+    def test_normal_title_does_not_expose_internal_safety_mode(self) -> None:
+        self.assertEqual(application_title(research_mode=False), "仁王3绘卷生成器 Beta")
+        self.assertEqual(
+            application_title(research_mode=True),
+            "仁王3绘卷生成器 Beta（研究模式）",
+        )
+        self.assertNotIn("安全", application_title(research_mode=False))
+
     def test_searchable_pool_uses_native_final_effect_context(self) -> None:
         effects = searchable_scroll_effect_definitions(3, 5)
         ids = {effect.effect_id for effect in effects}

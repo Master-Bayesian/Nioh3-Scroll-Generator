@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ctypes
 import os
 import faulthandler
 import hashlib
@@ -569,12 +570,18 @@ def application_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
+def application_title(*, research_mode: bool = RESEARCH_MODE) -> str:
+    """Return the user-facing title without internal safety terminology."""
+
+    suffix = "（研究模式）" if research_mode else ""
+    return f"仁王3绘卷生成器 Beta{suffix}"
+
+
 class ScrollEditorApp:
     def __init__(self, root: Tk) -> None:
         startup_trace("ScrollEditorApp initialization started")
         self.root = root
-        mode_suffix = "研究模式" if RESEARCH_MODE else "安全模式"
-        self.root.title(f"仁王3绘卷生成器 Beta（{mode_suffix}）")
+        self.root.title(application_title())
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
         window_width = min(1680, max(1360, screen_width - 120))
@@ -942,20 +949,94 @@ class ScrollEditorApp:
         self.style.configure("Main.TNotebook", background=self.colors["canvas"], borderwidth=0)
 
     def _configure_window_icon(self) -> None:
-        """Apply the bundled multi-resolution icon to the window and taskbar."""
+        """Apply the bundled icon and native dark Windows title bar."""
 
         assets = application_root() / "assets"
         png_path = assets / "nioh3-scroll-generator-icon.png"
         ico_path = assets / "nioh3-scroll-generator.ico"
+        self._window_icon_photo = None
+        self._window_icon_handles: tuple[int, ...] = ()
         try:
             if png_path.is_file():
                 self._window_icon_photo = PhotoImage(file=str(png_path))
                 self.root.iconphoto(True, self._window_icon_photo)
-            if ico_path.is_file():
-                self.root.iconbitmap(default=str(ico_path))
         except Exception:
-            # An icon failure must never prevent save recovery or editor startup.
-            self._window_icon_photo = None
+            pass
+        try:
+            if ico_path.is_file():
+                self.root.iconbitmap(str(ico_path))
+        except Exception:
+            pass
+        if os.name == "nt":
+            self.root.after_idle(lambda: self._configure_windows_chrome(ico_path))
+
+    def _configure_windows_chrome(self, ico_path: Path) -> None:
+        """Set native HWND icons and dark caption while retaining system chrome."""
+
+        try:
+            user32 = ctypes.windll.user32
+            root_hwnd = int(self.root.winfo_id())
+            get_parent = user32.GetParent
+            get_parent.restype = ctypes.c_void_p
+            get_parent.argtypes = (ctypes.c_void_p,)
+            parent_hwnd = int(get_parent(ctypes.c_void_p(root_hwnd)) or 0)
+            hwnds = tuple(dict.fromkeys(hwnd for hwnd in (root_hwnd, parent_hwnd) if hwnd))
+
+            enabled = ctypes.c_int(1)
+            for hwnd in hwnds:
+                try:
+                    ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                        ctypes.c_void_p(hwnd),
+                        20,  # DWMWA_USE_IMMERSIVE_DARK_MODE
+                        ctypes.byref(enabled),
+                        ctypes.sizeof(enabled),
+                    )
+                except Exception:
+                    pass
+
+            if not ico_path.is_file():
+                return
+            load_image = user32.LoadImageW
+            load_image.restype = ctypes.c_void_p
+            load_image.argtypes = (
+                ctypes.c_void_p,
+                ctypes.c_wchar_p,
+                ctypes.c_uint,
+                ctypes.c_int,
+                ctypes.c_int,
+                ctypes.c_uint,
+            )
+            icon_handles = tuple(
+                int(handle)
+                for handle in (
+                    load_image(None, str(ico_path), 1, 32, 32, 0x10),
+                    load_image(None, str(ico_path), 1, 16, 16, 0x10),
+                )
+                if handle
+            )
+            if not icon_handles:
+                return
+            large_icon = icon_handles[0]
+            small_icon = icon_handles[-1]
+            send_message = user32.SendMessageW
+            send_message.restype = ctypes.c_ssize_t
+            send_message.argtypes = (
+                ctypes.c_void_p,
+                ctypes.c_uint,
+                ctypes.c_size_t,
+                ctypes.c_ssize_t,
+            )
+            for hwnd in hwnds:
+                send_message(
+                    ctypes.c_void_p(hwnd), 0x0080, 1, large_icon
+                )  # WM_SETICON/ICON_BIG
+                send_message(
+                    ctypes.c_void_p(hwnd), 0x0080, 0, small_icon
+                )  # WM_SETICON/ICON_SMALL
+            self._window_icon_handles = icon_handles
+        except Exception:
+            # Window decoration must never block save recovery or editor startup.
+            return
 
     def _build_ui(self) -> None:
         shell = ttk.Frame(self.root)
