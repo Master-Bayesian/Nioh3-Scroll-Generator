@@ -24,6 +24,7 @@ from nioh3_scroll_editor.effect_sequence import (
     materialize_ng3_rarity3_record,
     materialize_ng3_certified_record,
     materialize_ng3_rarity5_record,
+    predict_ng3_rarity4_final_grace,
     serialize_ng3_rarity3_effect_slots,
     serialize_rarity5_grace_effect_slots,
     serialize_ng3_rarity5_effect_slots,
@@ -350,6 +351,25 @@ class Ng3Rarity3EffectSequenceTests(unittest.TestCase):
         self.assertTrue(retained.terminal_is_special)
         self.assertEqual(retained.grace.effect_id, 0xCE68)
         self.assertNotIn(retained.grace, retained.secondaries)
+
+    def test_rarity4_final_grace_prediction_explains_both_outcomes(self) -> None:
+        replaced = predict_ng3_rarity4_final_grace(183696634, level=180)
+        self.assertEqual(replaced.first_draw_u16, 6247)
+        self.assertEqual(replaced.stage_one_grace_id, 0xBABD)
+        self.assertIsNone(replaced.final_grace_id)
+        self.assertIsNone(replaced.final_grace_slot_index)
+        self.assertEqual(replaced.accepted_index, 4)
+        self.assertTrue(replaced.replaced)
+        self.assertFalse(replaced.retained)
+        self.assertEqual(replaced.final_effect_ids[4], 0xAE5A)
+
+        retained = predict_ng3_rarity4_final_grace(2965, level=180)
+        self.assertEqual(retained.stage_one_grace_id, 0xCE68)
+        self.assertEqual(retained.final_grace_id, 0xCE68)
+        self.assertEqual(retained.final_grace_slot_index, 4)
+        self.assertNotEqual(retained.accepted_index, 4)
+        self.assertTrue(retained.retained)
+        self.assertFalse(retained.replaced)
 
     def test_certified_materializer_preserves_preview_for_rarity345(self) -> None:
         template = self.VECTOR

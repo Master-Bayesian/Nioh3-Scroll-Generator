@@ -113,6 +113,35 @@ class EffectSequenceResult:
         return self.effects[-1]
 
 
+@dataclass(frozen=True, slots=True)
+class Rarity4GracePrediction:
+    """Exact final Grace disposition for one NG3 rarity-4 Seed.
+
+    Rarity 4 first assigns a Grace to physical effect slot 5. The completion
+    finalizer can preserve that slot or replace it with an ordinary effect; it
+    cannot draw a different Grace from its candidate pool in PC v2.00.02.
+    """
+
+    seed: int
+    first_draw_u16: int
+    stage_one_grace_id: int
+    final_grace_id: int | None
+    final_grace_slot_index: int | None
+    accepted_index: int | None
+    attempted_indexes: tuple[int, ...]
+    selected_effect_ids: tuple[int | None, ...]
+    stage_one_effect_ids: tuple[int, ...]
+    final_effect_ids: tuple[int, ...]
+
+    @property
+    def retained(self) -> bool:
+        return self.final_grace_id == self.stage_one_grace_id
+
+    @property
+    def replaced(self) -> bool:
+        return self.final_grace_id is None
+
+
 def _validate_grace_mapping(
     mapping: GraceOutputMap,
     *,
@@ -1405,6 +1434,110 @@ def generate_ng3_rarity4_final_effect_sequence(
     return result
 
 
+def predict_ng3_rarity4_final_grace(
+    seed: int,
+    *,
+    level: int = 180,
+    tables: EffectGenerationTableIndex | None = None,
+    special_mapping: GraceOutputMap | None = None,
+) -> Rarity4GracePrediction:
+    """Predict the final NG3 rarity-4 Grace exactly without a game process.
+
+    The draw-1 map identifies the stage-one Grace. Exact finalizer replay then
+    determines whether completion accepts physical slot 5 and replaces that
+    Grace. The current native table excludes every mapped Grace ID from the
+    finalizer's ordinary candidate namespace, so a final Grace can only be the
+    original stage-one Grace or absent.
+    """
+
+    if tables is None:
+        tables = load_default_effect_generation_tables()
+    if special_mapping is None:
+        special_mapping = load_grace_output_map(rarity=RARITY_FINALIZABLE)
+    _validate_rarity4_stage_mapping(special_mapping)
+
+    first_draw_rng = Lcg32(seed)
+    first_draw_u16 = first_draw_rng.next_u16()
+    template = bytearray(SCROLL_RECORD_SIZE)
+    struct.pack_into("<H", template, 0x00, NG3_RECORD_TYPE)
+    stage_one, stage_sequence = materialize_ng3_rarity4_stage_one_record(
+        bytes(template),
+        seed=seed,
+        level=level,
+        recommended_level=0,
+        transfer_count=0,
+        generation_serial=0,
+        tables=tables,
+        special_mapping=special_mapping,
+    )
+
+    from .r4_finalizer_engine import (
+        R4FinalizerEngine,
+        load_default_r4_finalizer_engine,
+    )
+
+    default_tables = load_default_effect_generation_tables()
+    finalizer = (
+        load_default_r4_finalizer_engine()
+        if tables is default_tables
+        else R4FinalizerEngine(tables=tables)
+    )
+    completion = finalizer.finalize_completion(stage_one)
+    effect_count = len(stage_sequence.effects)
+    stage_effect_ids = tuple(effect.effect_id for effect in stage_sequence.effects)
+    final_effect_ids = tuple(
+        struct.unpack_from(
+            "<I",
+            completion.record,
+            EFFECT_START + index * EFFECT_STRIDE + 0x04,
+        )[0]
+        for index in range(effect_count)
+    )
+    stage_grace_id = stage_sequence.grace.effect_id
+    mapped_grace_ids = frozenset(
+        entry.grace_id for entry in special_mapping.ranges
+    )
+    final_grace_indexes = tuple(
+        index
+        for index, effect_id in enumerate(final_effect_ids)
+        if effect_id in mapped_grace_ids
+    )
+    if len(final_grace_indexes) > 1:
+        raise AssertionError("rarity-4 finalizer produced multiple Grace slots")
+    final_grace_slot_index = (
+        final_grace_indexes[0] if final_grace_indexes else None
+    )
+    final_grace_id = (
+        final_effect_ids[final_grace_slot_index]
+        if final_grace_slot_index is not None
+        else None
+    )
+    expected_final_grace_id = (
+        None if completion.accepted_index == 4 else stage_grace_id
+    )
+    if final_grace_id != expected_final_grace_id:
+        raise AssertionError(
+            "rarity-4 finalizer violated the certified Grace preservation invariant"
+        )
+
+    return Rarity4GracePrediction(
+        seed=seed,
+        first_draw_u16=first_draw_u16,
+        stage_one_grace_id=stage_grace_id,
+        final_grace_id=final_grace_id,
+        final_grace_slot_index=final_grace_slot_index,
+        accepted_index=completion.accepted_index,
+        attempted_indexes=tuple(
+            attempt.target_index for attempt in completion.attempts
+        ),
+        selected_effect_ids=tuple(
+            attempt.selected_effect_id for attempt in completion.attempts
+        ),
+        stage_one_effect_ids=stage_effect_ids,
+        final_effect_ids=final_effect_ids,
+    )
+
+
 def generate_ng3_certified_effect_sequence(
     seed: int,
     *,
@@ -1454,6 +1587,7 @@ __all__ = [
     "EffectSequenceGenerationError",
     "EffectSequenceResult",
     "GeneratedEffect",
+    "Rarity4GracePrediction",
     "NG3_RECORD_TYPE",
     "RARITY_GROWING",
     "RARITY_FINALIZABLE",
@@ -1468,6 +1602,7 @@ __all__ = [
     "generate_ng3_rarity34_primary_effect_ids",
     "generate_ng3_rarity4_final_effect_sequence",
     "generate_ng3_rarity4_stage_one_effect_sequence",
+    "predict_ng3_rarity4_final_grace",
     "generate_ng3_certified_effect_sequence",
     "generate_rarity5_grace_effect_sequence",
     "generate_rarity5_any_grace_primary_effect_ids",

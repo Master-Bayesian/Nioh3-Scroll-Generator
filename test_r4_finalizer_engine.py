@@ -11,6 +11,7 @@ from nioh3_scroll_editor.effect_sequence import (
     serialize_ng3_rarity4_stage_one_effect_slots,
 )
 from nioh3_scroll_editor.r4_finalizer_engine import R4FinalizerEngine
+from nioh3_scroll_editor.grace_map import load_grace_output_map
 
 
 ROOT = Path(__file__).resolve().parent
@@ -128,6 +129,45 @@ class R4FinalizerEngineTests(unittest.TestCase):
         stage[0x30] = 3
         with self.assertRaisesRegex(ValueError, "rarity 4"):
             self.engine.finalize_completion(bytes(stage))
+
+    def test_finalizer_candidate_namespace_excludes_every_r4_grace(self) -> None:
+        mapping = load_grace_output_map(rarity=4)
+        grace_ids = frozenset(entry.grace_id for entry in mapping.ranges)
+        self.assertEqual(len(grace_ids), 21)
+        for effect_id in grace_ids:
+            self.assertFalse(
+                self.engine.tables.candidate_context_allowed(
+                    effect_id,
+                    record_type=0xE604,
+                ),
+                f"0x{effect_id:04X}",
+            )
+
+    def test_native_corpus_final_grace_is_preserved_or_removed_only(self) -> None:
+        mapping = load_grace_output_map(rarity=4)
+        grace_ids = frozenset(entry.grace_id for entry in mapping.ranges)
+        checked = 0
+        for corpus_root in CORPUS_ROOTS:
+            for stage_path in sorted(corpus_root.glob("*_stage.bin")):
+                stage = stage_path.read_bytes()
+                result = self.engine.finalize_completion(stage)
+                stage_grace_id = int.from_bytes(stage[0x98:0x9C], "little")
+                final_effect_ids = tuple(
+                    int.from_bytes(
+                        result.record[0x38 + index * 0x18 : 0x3C + index * 0x18],
+                        "little",
+                    )
+                    for index in range(5)
+                )
+                final_grace_ids = tuple(
+                    effect_id
+                    for effect_id in final_effect_ids
+                    if effect_id in grace_ids
+                )
+                expected = () if result.accepted_index == 4 else (stage_grace_id,)
+                self.assertEqual(final_grace_ids, expected, stage_path.name)
+                checked += 1
+        self.assertEqual(checked, 10)
 
 
 if __name__ == "__main__":
