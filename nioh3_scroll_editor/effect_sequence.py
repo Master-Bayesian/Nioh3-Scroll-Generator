@@ -1205,6 +1205,12 @@ def materialize_ng3_rarity4_stage_one_record(
         special_mapping=special_mapping,
     )
     record = bytearray(template)
+    # +0x0C is the R4 completion salt, not a lineage field. Existing completed
+    # scrolls can carry a non-zero value here; inheriting it from the donor
+    # template changes the finalizer RNG stream and makes installation disagree
+    # with the game-closed preview. A newly generated stage-one record starts
+    # with the canonical zero salt used by the native receive path.
+    struct.pack_into("<H", record, 0x0C, 0)
     struct.pack_into("<H", record, 0x06, level)
     struct.pack_into("<H", record, 0x08, level)
     struct.pack_into("<H", record, 0x10, recommended_level)

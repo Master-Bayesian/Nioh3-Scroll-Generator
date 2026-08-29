@@ -22,13 +22,20 @@ from nioh3_scroll_editor.models import (
     candidate_matches,
 )
 from nioh3_scroll_editor.effect_seed_solver import EffectSeedRequest
-from nioh3_scroll_editor.effect_sequence import generate_ng3_rarity5_effect_sequence
+from nioh3_scroll_editor.effect_sequence import (
+    generate_ng3_certified_effect_sequence,
+    generate_ng3_rarity5_effect_sequence,
+)
 from nioh3_scroll_editor.app import (
+    QUICK_START_TEXT,
+    TITLE_SCREEN_ACK_TEXT,
+    TITLE_SCREEN_PROMPT_TEXT,
     application_title,
     collect_offline_ng3_search_batch,
     collect_offline_rarity5_search_batch,
     is_cached_game_closed_effect_context,
     is_game_closed_effect_context,
+    user_facing_error_message,
 )
 from nioh3_scroll_editor.grace_map import GraceOutputMap, GraceRange, load_grace_output_map
 from nioh3_scroll_editor.native import (
@@ -100,6 +107,50 @@ class BetaEditorTests(unittest.TestCase):
             "仁王3绘卷生成器 Beta（研究模式）",
         )
         self.assertNotIn("安全", application_title(research_mode=False))
+
+    def test_quick_start_leads_with_product_actions(self) -> None:
+        for phrase in (
+            "搜索所有词条",
+            "计算候选 Seed",
+            "回到标题界面",
+            "自动备份",
+        ):
+            self.assertIn(phrase, QUICK_START_TEXT)
+        for technical_term in ("LCG", "draw-1", "前像"):
+            self.assertNotIn(technical_term, QUICK_START_TEXT)
+
+    def test_title_screen_confirmation_does_not_require_disconnection(self) -> None:
+        self.assertEqual(TITLE_SCREEN_ACK_TEXT, "我确认游戏当前位于标题界面")
+        self.assertIn("不需要断开网络", TITLE_SCREEN_PROMPT_TEXT)
+        self.assertNotIn("离线状态", TITLE_SCREEN_PROMPT_TEXT)
+
+    def test_error_dialog_hides_internal_python_exception_prefix(self) -> None:
+        self.assertEqual(
+            user_facing_error_message(
+                "Traceback (most recent call last):\n"
+                "RuntimeError: 安装时物化记录与求解器预览不一致，已拒绝写入"
+            ),
+            "安装时物化记录与求解器预览不一致，已拒绝写入",
+        )
+
+    def test_seed_91104224_uses_full_native_name_catalog(self) -> None:
+        candidate = ScrollCandidate.from_effect_sequence(
+            generate_ng3_certified_effect_sequence(91_104_224, rarity=4)
+        )
+        self.assertEqual(
+            [effect.effect_id for effect in candidate.effects],
+            [0xD495, 0x34F3, 0x28C4, 0x2B06, 0xCE68],
+        )
+        self.assertEqual(
+            [candidate.display_name(effect) for effect in candidate.effects],
+            [
+                "属性攻击伤害",
+                "防御时的属性攻击伤害降低",
+                "绝妙追杀",
+                "咒之深奥",
+                "素盏呜尊的恩宠",
+            ],
+        )
 
     def test_searchable_pool_uses_native_final_effect_context(self) -> None:
         effects = searchable_scroll_effect_definitions(3, 5)
@@ -770,6 +821,35 @@ class BetaEditorTests(unittest.TestCase):
             [effect.effect_id for effect in preview.effects],
         )
         self.assertEqual(next_generation_serial(inventory), 41)
+
+    def test_rarity4_materialization_clears_donor_completion_salt(self) -> None:
+        account = TEST_ACCOUNT_ID
+        save_path = Path(f"C:/dummy/{account}/SAVEDATA00/SAVEDATA.BIN")
+        save = bytearray(USER_SAVE_SIZE)
+        save[:6] = b"RNNUSR"
+        template = bytearray(make_record(seed=241719428, account_id=account))
+        struct.pack_into("<H", template, 0, 0xE604)
+        struct.pack_into("<H", template, 0x0C, 0xFFFF)
+        struct.pack_into("<I", template, 0x28, 40)
+        save[SCROLL_GROUP_OFFSET:SCROLL_GROUP_OFFSET + SCROLL_RECORD_SIZE] = template
+        inventory = SaveInventory.load(save_path, bytes(save))
+        preview = ScrollCandidate.from_effect_sequence(
+            generate_ng3_certified_effect_sequence(47_878_870, rarity=4, level=180)
+        )
+
+        materialized = materialize_effect_sequence_candidate(
+            inventory,
+            preview,
+            level=180,
+            recommended_level=183,
+            transfer_count=0,
+        )
+
+        self.assertEqual(struct.unpack_from("<H", materialized.record, 0x0C)[0], 0)
+        self.assertEqual(
+            [effect.effect_id for effect in materialized.effects[:5]],
+            [effect.effect_id for effect in preview.effects],
+        )
 
     def test_contextual_babd_experiment_changes_only_controlled_fields(self) -> None:
         account = TEST_ACCOUNT_ID

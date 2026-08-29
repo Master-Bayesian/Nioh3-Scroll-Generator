@@ -388,6 +388,9 @@ def contextual_effect_name(
         return special.name
     if effect_id == 0xFFFFFFFF:
         return "空"
+    native_name = _native_name_for_effect(effect_id)
+    if native_name:
+        return native_name
     return f"编号 0x{effect_id:08X}"
 
 

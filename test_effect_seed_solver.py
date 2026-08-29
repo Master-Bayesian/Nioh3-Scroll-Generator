@@ -18,6 +18,7 @@ from nioh3_scroll_editor.effect_seed_solver import (
     collect_effect_seed_page,
     iter_effect_seed_candidates,
     merge_intersection_reports,
+    validate_effect_request_feasibility,
 )
 from nioh3_scroll_editor.grace_map import load_grace_output_map
 from nioh3_scroll_editor.joint_solver import U16Runs
@@ -179,6 +180,45 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
                 page_size=0,
                 grace_mapping=self.grace_mapping,
             )
+
+    def test_rarity5_rejects_second_promoted_only_effect_immediately(self) -> None:
+        request = EffectSeedRequest(
+            playthrough=3,
+            rarity=5,
+            grace_effect_id=0x71F6,
+            primary_effect_ids=frozenset((0xB613,)),
+            required_secondary_ids=frozenset((0x23E8,)),
+        )
+        with self.assertRaisesRegex(ValueError, "只有一个升格/深奥槽"):
+            validate_effect_request_feasibility(request)
+
+    def test_rarity4_allows_two_promoted_effects_after_finalization(self) -> None:
+        request = EffectSeedRequest(
+            playthrough=3,
+            rarity=4,
+            grace_effect_id=0x71F6,
+            primary_effect_ids=frozenset((0xB613,)),
+            required_secondary_ids=frozenset((0x23E8,)),
+        )
+        validate_effect_request_feasibility(request)
+        from nioh3_scroll_editor.effect_sequence import (
+            generate_ng3_certified_effect_sequence,
+        )
+
+        result = generate_ng3_certified_effect_sequence(76_732_971, rarity=4)
+        self.assertEqual(result.primary.effect_id, 0xB613)
+        self.assertIn(0x23E8, {effect.effect_id for effect in result.secondaries})
+        self.assertEqual(result.grace.effect_id, 0x71F6)
+
+    def test_duplicate_promoted_effect_can_be_satisfied_by_actual_primary(self) -> None:
+        validate_effect_request_feasibility(
+            EffectSeedRequest(
+                playthrough=3,
+                rarity=5,
+                primary_effect_ids=frozenset((0x23E8,)),
+                required_secondary_ids=frozenset((0x23E8,)),
+            )
+        )
 
     def test_budget_exhaustion_advances_cursor_even_without_a_match(self) -> None:
         from nioh3_scroll_editor.effect_sequence import (

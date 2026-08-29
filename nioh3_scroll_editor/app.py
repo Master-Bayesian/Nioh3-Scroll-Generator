@@ -486,14 +486,53 @@ def format_special_rule_value(entry: SpecialRuleEntryResult) -> str:
     return ""
 
 
+TITLE_SCREEN_ACK_TEXT = "我确认游戏当前位于标题界面"
+TITLE_SCREEN_PROMPT_TEXT = (
+    "写入存档前，请先让《仁王3》回到标题界面，避免游戏随后用内存中的旧状态覆盖修改。\n\n"
+    "游戏不需要退出，也不需要断开网络。现在已经位于标题界面吗？"
+)
+
+QUICK_START_TEXT = """仁王3绘卷生成器 - 快速上手
+
+搜索合法绘卷
+1. 选择周目和稀有度。
+2. 在“搜索所有词条”中输入名称并添加目标词条。第一项是主词条，其余是副词条；拖动可更换主词条，点击 × 可删除。
+3. 按需选择恩宠、地形、敌人和特殊规则；不限制的项目保持“任意”或“不筛选”。
+4. 点击“计算候选 Seed”。符合条件的结果会边找到边显示。
+5. 选择候选查看完整词条与数值。满意后先让游戏回到标题界面，勾选添加按钮左侧的确认框，再添加到存档。程序会自动备份。
+
+已知 Seed
+填写 Seed、周目和稀有度，再点击“生成并查看该 Seed”。该功能不应用上方筛选条件。
+
+本地绘卷编辑
+用于直接修改已有绘卷。修改只影响本机显示，通常不能传播给其他玩家。
+
+提示
+- “任意恩宠”表示不限制恩宠。
+- 特殊规则可以展开并选择具体数值变体。
+- 不确定技术参数时保持默认值即可。
+"""
+
+
+def user_facing_error_message(details: object) -> str:
+    """Return the actionable final exception message without Python prefixes."""
+
+    text = str(details).strip()
+    final_line = text.splitlines()[-1] if text else "未知错误"
+    for prefix in ("ValueError: ", "RuntimeError: ", "FileNotFoundError: "):
+        if final_line.startswith(prefix):
+            return final_line[len(prefix):]
+    return final_line
+
+
 TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 
 一、准备
 1. 本工具仅支持《仁王3》PC v2.00.02。
 2. 三周目稀有度3、4、5的 Seed 求解、单点预览和完整记录构造均可离线完成，不需要启动游戏或读取存档。
 3. 稀有度3、4各通过10,000个原生随机Seed的稳定完整记录对照；稀有度5通过10,000个完整0xE8记录对照，并已由第二账号完成传播验收。
-4. 其他周目需要原生生成或准备写档时，让游戏返回标题界面并保持离线，不需要关闭游戏。
-5. 启动生成器。程序会自动搜索存档；只有原生生成或写档才需要选择账户并勾选标题界面安全确认。
+4. 其他周目需要原生生成或准备写档时，让游戏返回标题界面，不需要关闭游戏或断开网络。
+5. 启动生成器。程序会自动搜索存档；写档前需要选择账户，并勾选添加按钮左侧的标题界面确认框。
 
 二、设置目标组合
 1. 使用顶部的统一搜索框查找当前周目与稀有度下可生成的最终词条；双击或点击“添加选中词条”加入目标组合。
@@ -1102,23 +1141,17 @@ class ScrollEditorApp:
         outer = ttk.Frame(self.search_tab, padding=12)
         outer.pack(fill=BOTH, expand=True)
 
-        warning = ttk.LabelFrame(outer, text="安全确认", padding=10)
+        warning = ttk.LabelFrame(outer, text="使用说明", padding=10)
         warning.pack(fill="x")
         ttk.Label(
             warning,
             text=(
                 "三周目稀有度3、4、5的 Seed 求解与预览可完全离线运行，不需要启动游戏或读取存档。"
-                "其他周目、完整记录生成和写档仍只支持《仁王3》v2.00.02，且游戏必须停留在标题界面并保持离线。"
+                "其他周目、完整记录生成和写档仍只支持《仁王3》v2.00.02；写档前请让游戏回到标题界面。"
             ),
             foreground="#E0A15E",
             wraplength=1000,
         ).pack(anchor="w")
-        ttk.Checkbutton(
-            warning,
-            text="需要原生生成或写档时，我确认游戏当前位于标题界面并处于离线状态",
-            variable=self.title_ack,
-        ).pack(anchor="w", pady=(6, 0))
-
         save_row = ttk.Frame(outer, padding=(0, 10, 0, 6))
         save_row.pack(fill="x")
         ttk.Label(save_row, text="存档账户：").pack(side=LEFT)
@@ -1463,6 +1496,11 @@ class ScrollEditorApp:
 
         install = ttk.Frame(results_column, padding=(0, 10, 0, 0))
         install.pack(side="bottom", fill="x", before=candidate_frame)
+        ttk.Checkbutton(
+            install,
+            text=TITLE_SCREEN_ACK_TEXT,
+            variable=self.title_ack,
+        ).pack(side=LEFT, padx=(12, 8))
         self.install_button = ttk.Button(
             install,
             text="把选中的候选添加到存档",
@@ -1470,7 +1508,7 @@ class ScrollEditorApp:
             state="disabled",
             style="Accent.TButton",
         )
-        self.install_button.pack(side=LEFT, padx=(12, 4))
+        self.install_button.pack(side=LEFT, padx=(0, 4))
         ttk.Label(
             install,
             text="添加到最后一张绘卷后的下一个全零栏位，不会覆盖现有绘卷。",
@@ -1620,7 +1658,7 @@ class ScrollEditorApp:
         ).pack(anchor="w")
         ttk.Checkbutton(
             warning,
-            text="我确认游戏当前位于标题界面并处于离线状态",
+            text=TITLE_SCREEN_ACK_TEXT,
             variable=self.title_ack,
         ).pack(anchor="w", pady=(6, 0))
 
@@ -1923,8 +1961,7 @@ class ScrollEditorApp:
         if len(selected) != 1:
             messagebox.showerror("请选择一个备份", "恢复时必须且只能选择一个备份")
             return
-        if not self.title_ack.get():
-            messagebox.showerror("尚未确认标题界面", "请先确认游戏位于标题界面并处于离线状态")
+        if not self._confirm_title_screen_if_needed("恢复备份"):
             return
         entry = selected[0]
         if not messagebox.askyesno(
@@ -2022,7 +2059,7 @@ class ScrollEditorApp:
         return parsed
 
     def _local_installer(self) -> SaveInstaller:
-        save_path = self._require_ready()
+        save_path = self._selected_save_path()
         project_root = application_root()
         return SaveInstaller(
             save_path=save_path,
@@ -2158,6 +2195,8 @@ class ScrollEditorApp:
         if replacement == entry.record:
             messagebox.showinfo("没有变化", "当前字段与存档记录完全相同")
             return
+        if not self._confirm_title_screen_if_needed("修改本地绘卷"):
+            return
         if not messagebox.askyesno(
             "确认本地修改",
             f"确定修改栏位 {entry.slot_index} 的第 {effect_index + 1} 个词条吗？\n\n"
@@ -2199,6 +2238,8 @@ class ScrollEditorApp:
         selected = self._selected_local_entries()
         if not selected:
             messagebox.showerror("未选择绘卷", "请先选择至少一张要删除的绘卷")
+            return
+        if not self._confirm_title_screen_if_needed("删除本地绘卷"):
             return
         slot_text = ", ".join(str(entry.slot_index) for entry in selected)
         if not messagebox.askyesno(
@@ -2511,15 +2552,22 @@ class ScrollEditorApp:
         window.title("仁王3绘卷生成器 - 使用教程")
         window.geometry("780x650")
         window.transient(self.root)
-        frame = ttk.Frame(window, padding=12)
-        frame.pack(fill=BOTH, expand=True)
-        text = Text(frame, wrap=WORD, padx=12, pady=12)
-        scrollbar = ttk.Scrollbar(frame, orient="vertical", command=text.yview)
-        text.configure(yscrollcommand=scrollbar.set)
-        text.pack(side=LEFT, fill=BOTH, expand=True)
-        scrollbar.pack(side=RIGHT, fill="y")
-        text.insert("1.0", TUTORIAL_TEXT)
-        text.configure(state=DISABLED)
+        notebook = ttk.Notebook(window)
+        notebook.pack(fill=BOTH, expand=True, padx=12, pady=12)
+
+        def add_page(label: str, content: str) -> None:
+            frame = ttk.Frame(notebook, padding=8)
+            notebook.add(frame, text=label)
+            text = Text(frame, wrap=WORD, padx=12, pady=12)
+            scrollbar = ttk.Scrollbar(frame, orient="vertical", command=text.yview)
+            text.configure(yscrollcommand=scrollbar.set)
+            text.pack(side=LEFT, fill=BOTH, expand=True)
+            scrollbar.pack(side=RIGHT, fill="y")
+            text.insert("1.0", content)
+            text.configure(state=DISABLED)
+
+        add_page("快速上手", QUICK_START_TEXT)
+        add_page("详细说明", TUTORIAL_TEXT)
 
     def _refresh_saves(self) -> None:
         paths = discover_save_paths()
@@ -2878,8 +2926,19 @@ class ScrollEditorApp:
 
     def _require_ready(self) -> Path:
         if not self.title_ack.get():
-            raise ValueError("请先确认游戏位于标题界面并处于离线状态")
+            raise ValueError("请先确认游戏位于标题界面")
         return self._selected_save_path()
+
+    def _confirm_title_screen_if_needed(self, action: str) -> bool:
+        if self.title_ack.get():
+            return True
+        confirmed = messagebox.askyesno(
+            f"{action}前确认",
+            TITLE_SCREEN_PROMPT_TEXT,
+        )
+        if confirmed:
+            self.title_ack.set(True)
+        return confirmed
 
     def _search_save_path(self, criteria: SearchCriteria) -> Path | None:
         if is_game_closed_effect_context(criteria):
@@ -3752,9 +3811,11 @@ class ScrollEditorApp:
                 elif event == "error":
                     self._set_busy(False)
                     details = str(payload)
-                    self.status.set("操作失败；未完成存档写入。")
-                    final_line = details.strip().splitlines()[-1] if details.strip() else "未知错误"
-                    messagebox.showerror("操作失败", final_line)
+                    self.status.set("操作失败；存档未被修改。")
+                    messagebox.showerror(
+                        "操作失败",
+                        user_facing_error_message(details),
+                    )
         except queue.Empty:
             pass
         self.root.after(100, self._poll_events)
@@ -4006,6 +4067,8 @@ class ScrollEditorApp:
     def _install_selected(self) -> None:
         selection = self.candidate_list.curselection()
         if not selection:
+            return
+        if not self._confirm_title_screen_if_needed("添加绘卷"):
             return
         try:
             save_path = self._require_ready()

@@ -23,6 +23,7 @@ from .auxiliary_generation import (
 )
 from .grace_map import GraceOutputMap, first_u16_ranges_for_grace
 from .effect_sequence import EffectSequenceResult, GeneratedEffect
+from .effect_generation_tables import load_default_effect_generation_tables
 from .joint_solver import (
     DrawConstraint,
     SeedSolution,
@@ -30,7 +31,11 @@ from .joint_solver import (
     choose_pivot,
     iter_constraint_intersection,
 )
-from .models import ScrollCandidate, candidate_matches
+from .models import (
+    ScrollCandidate,
+    candidate_matches,
+    effective_required_secondary_ids,
+)
 from .primary_map import PrimaryFirstDrawOutputMap, PrimaryOutputMap
 
 
@@ -123,6 +128,47 @@ PrimaryEffectIdBatchGenerator = Callable[[tuple[int, ...]], tuple[int, ...]]
 IntersectionProgressCallback = Callable[[EffectSeedIntersectionReport], None]
 CancellationCheck = Callable[[], bool]
 CandidateFoundCallback = Callable[[EffectSeedCandidate], None]
+
+
+def validate_effect_request_feasibility(request: EffectSeedRequest) -> None:
+    """Reject role combinations that the native rarity-5 layout cannot encode.
+
+    PC v2.00.02 rarity 5 performs exactly one promotion trial. Effects whose
+    table row requires normalization flag 0x08 can therefore occupy only that
+    single promoted slot, which becomes the primary effect. A duplicated
+    primary/secondary UI choice remains valid because the actual primary can
+    satisfy that explicitly duplicated requirement.
+    """
+
+    if request.rarity != 5 or not request.required_secondary_ids:
+        return
+    tables = load_default_effect_generation_tables()
+    promoted_only = frozenset(
+        effect_id
+        for effect_id in request.required_secondary_ids
+        if (
+            (definition := tables.effects_by_id.get(effect_id)) is not None
+            and bool(definition.normalization_flags & 0x08)
+        )
+    )
+    if not promoted_only:
+        return
+
+    for primary_id in request.primary_effect_ids:
+        effective_required = effective_required_secondary_ids(
+            primary_id=primary_id,
+            primary_effect_ids=request.primary_effect_ids,
+            required_secondary_ids=request.required_secondary_ids,
+        )
+        if promoted_only.isdisjoint(effective_required):
+            return
+
+    formatted = "、".join(f"0x{effect_id:04X}" for effect_id in sorted(promoted_only))
+    raise ValueError(
+        "稀有度5只有一个升格/深奥槽，该槽会成为主词条；"
+        f"所选副词条 {formatted} 只能出现在这个槽位，无法同时作为副词条生成。"
+        "稀有度4的完成器可以产生第二个升格词条，因此两种稀有度的结果不同。"
+    )
 
 
 def _iter_solution_primary_ids(
@@ -584,6 +630,7 @@ def iter_effect_seed_candidates(
 ) -> Iterator[EffectSeedCandidate]:
     """Yield exact Seed candidates without connecting to a game process."""
 
+    validate_effect_request_feasibility(request)
     if (
         request.required_secondary_ids
         and final_record_generator is None
@@ -840,6 +887,7 @@ def collect_effect_seed_page(
         raise ValueError("page_size must be positive")
     if start_after_trial < 0:
         raise ValueError("start_after_trial cannot be negative")
+    validate_effect_request_feasibility(request)
     constraints = fixed_draw_constraints(
         request,
         grace_mapping=grace_mapping,
@@ -946,4 +994,5 @@ __all__ = [
     "fixed_draw_constraints",
     "iter_effect_seed_candidates",
     "merge_intersection_reports",
+    "validate_effect_request_feasibility",
 ]
