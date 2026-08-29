@@ -1,0 +1,40 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-tests:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Build save-data helper without debug path metadata
+        run: >-
+          msbuild third_party\nioh_savefile_decrypt\Nioh_Savefile_decrypt.vcxproj
+          -nologo -m -verbosity:minimal
+          -property:Configuration=Release
+          -property:Platform=x64
+          -property:GenerateDebugInformation=false
+          -property:DebugSymbols=false
+          -property:DebugType=None
+
+      - name: Compile Python sources
+        run: python -m compileall -q nioh3_scroll_editor launch_editor.py emaki_exchange.py nioh3_seed_math.py scroll_lab.py
+
+      - name: Run test suite
+        run: python -m unittest discover -v

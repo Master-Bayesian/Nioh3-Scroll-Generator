@@ -1,0 +1,323 @@
+{
+  "schema": "nioh3-r4-finalizer-resource/v1",
+  "game_version": "PC v2.00.02",
+  "source": {
+    "capture_schema": "nioh3-r4-finalizer-runtime-tables/v1",
+    "capture_manifest_sha256": "E2A67A0D28B6D149CFFB6718A33D73B2919CEF767AA973C3E8C55BAE130BE736",
+    "captured_at_utc": "2026-08-27T19:04:19.694194+00:00",
+    "locale": "zh-CN",
+    "effective_playthrough": 3,
+    "pe": {
+      "machine": "0x8664",
+      "section_count": 8,
+      "timestamp": "0x6A858AEF",
+      "optional_header_magic": "0x020B",
+      "size_of_image": 86978560
+    }
+  },
+  "code_identity": {
+    "signatures": {
+      "per_effect_finalizer": {
+        "rva": "0x1109270",
+        "expected": "48 89 5C 24 20 55 56 57 41 54 41 55 41 56 41 57",
+        "actual": "48 89 5C 24 20 55 56 57 41 54 41 55 41 56 41 57",
+        "matches": true
+      },
+      "effect_lookup": {
+        "rva": "0x577808",
+        "expected": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57",
+        "actual": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57",
+        "matches": true
+      },
+      "wrapper": {
+        "rva": "0x22799A8",
+        "expected": "40 53 55 56 57 41 54 41 55 41 56 41 57",
+        "actual": "40 53 55 56 57 41 54 41 55 41 56 41 57",
+        "matches": true
+      }
+    },
+    "ranges": [
+      {
+        "name": "completion_loop",
+        "begin_rva": "0x10280BD",
+        "end_rva": "0x1028274",
+        "size": 439,
+        "sha256": "8F9E36B939D8CF84219DB554CF16D2F325156D0A146E53AEED40D6424972A120"
+      },
+      {
+        "name": "per_effect_finalizer",
+        "begin_rva": "0x1109270",
+        "end_rva": "0x110A5C9",
+        "size": 4953,
+        "sha256": "DE88C4C1ED3EE604383A2B5B717632052CCF9B213D1C23D4349F67F370E546D1"
+      },
+      {
+        "name": "finalizer_wrapper",
+        "begin_rva": "0x22799A8",
+        "end_rva": "0x2279AC1",
+        "size": 281,
+        "sha256": "0064E2FD0CAF3DDDE1353ABD97D48D5CF459CA5F66026DBF0BC379D1BD5EFF2A"
+      },
+      {
+        "name": "category_allocator",
+        "begin_rva": "0x3DADC4",
+        "end_rva": "0x3DB074",
+        "size": 688,
+        "sha256": "929FBEE97736232DC165FBBFBBEC196792D451E498B27E295971BBAA4595D267"
+      },
+      {
+        "name": "effect_weight",
+        "begin_rva": "0x57896C",
+        "end_rva": "0x578AFA",
+        "size": 398,
+        "sha256": "E97044CC66807597F4D78D7AFB9D1C2FA1AEA761E717856D0DE6139B13078C1E"
+      },
+      {
+        "name": "normalize_slot",
+        "begin_rva": "0x5712D8",
+        "end_rva": "0x57143A",
+        "size": 354,
+        "sha256": "CBD1C4731BE603BC67775D660C605961A766F6AD3B8D7CABEF7263B7C36C7618"
+      },
+      {
+        "name": "bonus_count",
+        "begin_rva": "0x5715FC",
+        "end_rva": "0x571683",
+        "size": 135,
+        "sha256": "F46E8EDD226B9A5FACCD702F1DA321D1E359B074EF15413B85CA1FB18A518917"
+      },
+      {
+        "name": "lcg",
+        "begin_rva": "0x30DCD4",
+        "end_rva": "0x30DD45",
+        "size": 113,
+        "sha256": "26AC6A3B7735E8E88E6844CB7EC776ADCE6641B2C269A384411BFC603F99F7FD"
+      }
+    ]
+  },
+  "float_constants": {
+    "one_over_65536": {
+      "bits": "0x37800000",
+      "value": 1.52587890625e-05
+    },
+    "hundred": {
+      "bits": "0x42C80000",
+      "value": 100.0
+    },
+    "forty_six": {
+      "bits": "0x42380000",
+      "value": 46.0
+    },
+    "twenty": {
+      "bits": "0x41A00000",
+      "value": 20.0
+    },
+    "one_over_100": {
+      "bits": "0x3C23D70A",
+      "value": 0.009999999776482582
+    },
+    "one_over_1000": {
+      "bits": "0x3A83126F",
+      "value": 0.0010000000474974513
+    }
+  },
+  "tables": [
+    {
+      "name": "item",
+      "purpose": "record-type/item rows",
+      "row_size": 416,
+      "row_count": 3362,
+      "file": {
+        "filename": "tables/item.bin",
+        "size": 1398600,
+        "sha256": "1CDAEF2A12D88A602F5B1E5E4198A042C8D8BC1C25AC23A0309C5A05FEC21938"
+      }
+    },
+    {
+      "name": "effect_group",
+      "purpose": "prefix, category, text ID, conflicts",
+      "row_size": 112,
+      "row_count": 1152,
+      "file": {
+        "filename": "tables/effect_group.bin",
+        "size": 129032,
+        "sha256": "331E0320DA0A4E552684962CAC56D2B70EDDE063B568F62468450E51EC802629"
+      }
+    },
+    {
+      "name": "category",
+      "purpose": "category capacity and category lottery",
+      "row_size": 108,
+      "row_count": 17,
+      "file": {
+        "filename": "tables/category.bin",
+        "size": 1844,
+        "sha256": "D241B12AD80D134EEFD79E497DA888B547CA5D1C3913B6230D67EB652BF433D7"
+      }
+    },
+    {
+      "name": "category_count_multiplier",
+      "purpose": "category-count multipliers",
+      "row_size": 32,
+      "row_count": 6,
+      "file": {
+        "filename": "tables/category_count_multiplier.bin",
+        "size": 200,
+        "sha256": "B2E7FD2ACEAE4B499CFD4C86C851DAA1EF784801EBEA108C63619527F95E7CA2"
+      }
+    },
+    {
+      "name": "level_curve",
+      "purpose": "numeric effect level curves",
+      "row_size": 10,
+      "row_count": 501,
+      "file": {
+        "filename": "tables/level_curve.bin",
+        "size": 5018,
+        "sha256": "E5E098E176C1F299C8A53B7388C02CF26D02EDFFAABF1CA366783E13DDAC9921"
+      }
+    },
+    {
+      "name": "effect",
+      "purpose": "effect candidates, weights and formulas",
+      "row_size": 216,
+      "row_count": 3609,
+      "file": {
+        "filename": "tables/effect.bin",
+        "size": 779552,
+        "sha256": "D25D988C5C2A39D079B3D02933EAF6292421B92C5B84F5BF097AC1B8B8792912"
+      }
+    },
+    {
+      "name": "optional_multiplier",
+      "purpose": "keyed scalar/count multipliers",
+      "row_size": 32,
+      "row_count": 2951,
+      "file": {
+        "filename": "tables/optional_multiplier.bin",
+        "size": 94440,
+        "sha256": "5B5B3D90D506FB24390A7114F552E2B5382F6231EC0AEF8BBE6C8CA1187A9252"
+      }
+    },
+    {
+      "name": "rarity_roll",
+      "purpose": "numeric roll min/max by rarity",
+      "row_size": 248,
+      "row_count": 6,
+      "file": {
+        "filename": "tables/rarity_roll.bin",
+        "size": 1496,
+        "sha256": "EE21D1749973973FCDA962C13F18FD9C874260DD12F4EE47D66DE2CE4772796F"
+      }
+    },
+    {
+      "name": "special_context",
+      "purpose": "context rows used by special weight columns",
+      "row_size": 48,
+      "row_count": 7,
+      "file": {
+        "filename": "tables/special_context.bin",
+        "size": 344,
+        "sha256": "E5588CEBA9C7AFB5F251EDDD018FF7DC3CF735C78323E174249AF0432FAEB94C"
+      }
+    }
+  ],
+  "bonus_curve": {
+    "row_size": 88,
+    "entry_count": 662,
+    "unique_row_count": 662,
+    "invalid_row_index": 4294967295,
+    "rows_file": {
+      "filename": "bonus_curve/rows.bin",
+      "size": 58256,
+      "sha256": "7F489037FCB47F5ACA7F1EACD5182E896F0E4061971811DE94E44ACF26DC774E"
+    },
+    "index_file": {
+      "filename": "bonus_curve/index.bin",
+      "size": 2648,
+      "sha256": "5641EECCEC693E2251152B26E5156EE8E18B73D39DE607C5656DD8BF2E1702AE"
+    }
+  },
+  "playthrough": {
+    "selector_min": 1,
+    "selector_max": 5,
+    "values_per_selector": 4,
+    "file": {
+      "filename": "globals/playthrough_progress.bin",
+      "size": 80,
+      "sha256": "8D79225D565B912127C0AAEAA8B7C41FED83CE54C74D1304F2130BE961E7E698"
+    }
+  },
+  "mode_gate_bytes": [
+    0,
+    0,
+    0
+  ],
+  "files": [
+    {
+      "filename": "tables/item.bin",
+      "size": 1398600,
+      "sha256": "1CDAEF2A12D88A602F5B1E5E4198A042C8D8BC1C25AC23A0309C5A05FEC21938"
+    },
+    {
+      "filename": "tables/effect_group.bin",
+      "size": 129032,
+      "sha256": "331E0320DA0A4E552684962CAC56D2B70EDDE063B568F62468450E51EC802629"
+    },
+    {
+      "filename": "tables/category.bin",
+      "size": 1844,
+      "sha256": "D241B12AD80D134EEFD79E497DA888B547CA5D1C3913B6230D67EB652BF433D7"
+    },
+    {
+      "filename": "tables/category_count_multiplier.bin",
+      "size": 200,
+      "sha256": "B2E7FD2ACEAE4B499CFD4C86C851DAA1EF784801EBEA108C63619527F95E7CA2"
+    },
+    {
+      "filename": "tables/level_curve.bin",
+      "size": 5018,
+      "sha256": "E5E098E176C1F299C8A53B7388C02CF26D02EDFFAABF1CA366783E13DDAC9921"
+    },
+    {
+      "filename": "tables/effect.bin",
+      "size": 779552,
+      "sha256": "D25D988C5C2A39D079B3D02933EAF6292421B92C5B84F5BF097AC1B8B8792912"
+    },
+    {
+      "filename": "tables/optional_multiplier.bin",
+      "size": 94440,
+      "sha256": "5B5B3D90D506FB24390A7114F552E2B5382F6231EC0AEF8BBE6C8CA1187A9252"
+    },
+    {
+      "filename": "tables/rarity_roll.bin",
+      "size": 1496,
+      "sha256": "EE21D1749973973FCDA962C13F18FD9C874260DD12F4EE47D66DE2CE4772796F"
+    },
+    {
+      "filename": "tables/special_context.bin",
+      "size": 344,
+      "sha256": "E5588CEBA9C7AFB5F251EDDD018FF7DC3CF735C78323E174249AF0432FAEB94C"
+    },
+    {
+      "filename": "bonus_curve/rows.bin",
+      "size": 58256,
+      "sha256": "7F489037FCB47F5ACA7F1EACD5182E896F0E4061971811DE94E44ACF26DC774E"
+    },
+    {
+      "filename": "bonus_curve/index.bin",
+      "size": 2648,
+      "sha256": "5641EECCEC693E2251152B26E5156EE8E18B73D39DE607C5656DD8BF2E1702AE"
+    },
+    {
+      "filename": "globals/playthrough_progress.bin",
+      "size": 80,
+      "sha256": "8D79225D565B912127C0AAEAA8B7C41FED83CE54C74D1304F2130BE961E7E698"
+    }
+  ],
+  "safety": {
+    "process_specific_metadata_omitted": true,
+    "runtime_references_omitted": true,
+    "source_payloads_scanned": 12
+  }
+}

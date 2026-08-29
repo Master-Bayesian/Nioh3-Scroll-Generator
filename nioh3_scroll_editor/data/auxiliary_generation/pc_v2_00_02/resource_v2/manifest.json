@@ -1,0 +1,57 @@
+{
+  "schema": "nioh3-auxiliary-generation-resource/v2",
+  "game_version": "PC v2.00.02",
+  "source": {
+    "capture_schema": "nioh3-r4-finalizer-runtime-tables/v1",
+    "capture_manifest_sha256": "2F85F53C3CD9DF88F780D8ABCC8271FAE4BFC7EB7BB41B3286A111958D171E11",
+    "effective_playthrough": 3
+  },
+  "tables": {
+    "auxiliary_terrain": {
+      "row_size": 52,
+      "row_count": 20,
+      "file": {
+        "filename": "tables/auxiliary_terrain.bin",
+        "size": 1048,
+        "sha256": "9B7739ED461FD8B6AD82B433655D89D26C073ABB6B14D1C7509868B95AA2F755"
+      },
+      "keys_file": {
+        "filename": "tables/auxiliary_terrain_keys.bin",
+        "size": 40,
+        "sha256": "113B908CC56930E25EDCEE77EC9856C5CB54F772459ABF34747883022E0BBE68"
+      }
+    },
+    "scroll_special_rule": {
+      "row_size": 56,
+      "row_count": 301,
+      "file": {
+        "filename": "tables/scroll_special_rule.bin",
+        "size": 16864,
+        "sha256": "E9EB646565CD5BDB24F0D284968BA0D2A5B67A35FB1196C29753C80F2405E46E"
+      },
+      "keys_file": {
+        "filename": "tables/scroll_special_rule_keys.bin",
+        "size": 602,
+        "sha256": "B21DE29E75EF2D3965C3EB1552B4DF75F2E85117AD7BDD92FF8FBF34635A07D0"
+      }
+    },
+    "auxiliary_rule_conflict": {
+      "row_size": 24,
+      "row_count": 29,
+      "file": {
+        "filename": "tables/auxiliary_rule_conflict.bin",
+        "size": 704,
+        "sha256": "DC17F1A2E2B3653DDDEFEC830308CE51E51E1428127248AF98354693D79F5E63"
+      },
+      "keys_file": {
+        "filename": "tables/auxiliary_rule_conflict_keys.bin",
+        "size": 58,
+        "sha256": "48D74AD8DF5584E155E5FC3EE669F97CE71BA7D11FEF3893B98FA3AAC42D0641"
+      }
+    }
+  },
+  "safety": {
+    "process_specific_metadata_omitted": true,
+    "runtime_pointers_omitted": true
+  }
+}

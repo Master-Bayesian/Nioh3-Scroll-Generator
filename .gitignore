@@ -1,0 +1,47 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.venv/
+venv/
+
+# Private research and local build state
+captures/
+deliverables/
+experiments/
+audit/
+external/
+.tools/
+.build/
+.tmp/
+.work/
+
+# User saves and local game/runtime captures
+SAVEDATA*
+plain.bin
+*.plain.BIN
+*.dmp
+*.dump
+*.CT
+*.zip
+*.7z
+
+# Signing material and generated update payloads
+*.key
+*.pem
+latest.json
+updates/
+
+# Keep only reviewed public research sources from the internal research tree
+research/*
+!research/EFFECT_CATALOG_CAPTURE_METHOD.md
+!research/EFFECT_GENERATION_TABLE_INDEX.md
+!research/EFFECT_SEED_SOLVER.md
+!research/P1_AUXILIARY_DYNAMIC_CAPTURE_METHOD.md
+!research/build_seed_accelerator.ps1
+!research/dump_effect_catalog_current_locale.py
+!research/native_seed_accelerator.cu
+!research/probe_scroll_auxiliary_text_catalog.py
+!research/solve_effect_seed.py
+!research/test_vectors/
+!research/test_vectors/r4_seed_183696634_records_sanitized.json

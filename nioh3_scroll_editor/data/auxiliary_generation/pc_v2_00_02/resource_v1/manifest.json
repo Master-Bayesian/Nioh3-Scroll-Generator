@@ -1,0 +1,30 @@
+{
+  "schema": "nioh3-auxiliary-generation-resource/v1",
+  "game_version": "PC v2.00.02",
+  "source": {
+    "capture_schema": "nioh3-r4-finalizer-runtime-tables/v1",
+    "capture_manifest_sha256": "6B19F23DCF02EF1CC8708D6A0C26E755193F17F2B8B35F8ADD2735F7C1E2428B",
+    "effective_playthrough": 3
+  },
+  "terrain_table": {
+    "row_size": 52,
+    "row_count": 20,
+    "file": {
+      "filename": "tables/terrain.bin",
+      "size": 1048,
+      "sha256": "9B7739ED461FD8B6AD82B433655D89D26C073ABB6B14D1C7509868B95AA2F755"
+    }
+  },
+  "terrain_keys": {
+    "count": 20,
+    "file": {
+      "filename": "tables/terrain_keys.bin",
+      "size": 40,
+      "sha256": "113B908CC56930E25EDCEE77EC9856C5CB54F772459ABF34747883022E0BBE68"
+    }
+  },
+  "safety": {
+    "process_specific_metadata_omitted": true,
+    "runtime_pointers_omitted": true
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "format": "nioh3-grace-first-u16-map-v2",
+  "game_version": "2.00.02",
+  "context": {
+    "record_type": "0xE604",
+    "rarity": 5,
+    "playthrough": "current-loaded-state",
+    "effect_slot": 6
+  },
+  "rng": {
+    "multiplier": "0x00010DCD",
+    "increment": 1,
+    "inverse_multiplier": "0xA5E2A705",
+    "output": "next_state >> 16"
+  },
+  "ranges": [
+    {
+      "start": 0,
+      "end": 5963,
+      "grace_id": "0x6553"
+    },
+    {
+      "start": 5964,
+      "end": 11920,
+      "grace_id": "0xCE68"
+    },
+    {
+      "start": 11921,
+      "end": 17877,
+      "grace_id": "0xBABD"
+    },
+    {
+      "start": 17878,
+      "end": 23835,
+      "grace_id": "0xEEEA"
+    },
+    {
+      "start": 23836,
+      "end": 29792,
+      "grace_id": "0x16E2"
+    },
+    {
+      "start": 29793,
+      "end": 35749,
+      "grace_id": "0x4192"
+    },
+    {
+      "start": 35750,
+      "end": 41706,
+      "grace_id": "0x47EC"
+    },
+    {
+      "start": 41707,
+      "end": 47664,
+      "grace_id": "0x4FE4"
+    },
+    {
+      "start": 47665,
+      "end": 53621,
+      "grace_id": "0xEB61"
+    },
+    {
+      "start": 53622,
+      "end": 59578,
+      "grace_id": "0x7ECE"
+    },
+    {
+      "start": 59579,
+      "end": 65535,
+      "grace_id": "0x71F6"
+    }
+  ],
+  "counts": {
+    "0x16E2": 5957,
+    "0x4192": 5957,
+    "0x47EC": 5957,
+    "0x4FE4": 5958,
+    "0x6553": 5964,
+    "0x71F6": 5957,
+    "0x7ECE": 5957,
+    "0xBABD": 5957,
+    "0xCE68": 5957,
+    "0xEB61": 5957,
+    "0xEEEA": 5958
+  }
+}

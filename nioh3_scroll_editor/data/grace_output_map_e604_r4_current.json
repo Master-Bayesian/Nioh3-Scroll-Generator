@@ -1,0 +1,155 @@
+{
+  "format": "nioh3-grace-first-u16-map-v2",
+  "game_version": "2.00.02",
+  "context": {
+    "record_type": "0xE604",
+    "rarity": 4,
+    "playthrough": "current-loaded-state",
+    "effect_slot": 5
+  },
+  "rng": {
+    "multiplier": "0x00010DCD",
+    "increment": 1,
+    "inverse_multiplier": "0xA5E2A705",
+    "output": "next_state >> 16"
+  },
+  "ranges": [
+    {
+      "start": 0,
+      "end": 3123,
+      "grace_id": "0x6553"
+    },
+    {
+      "start": 3124,
+      "end": 6244,
+      "grace_id": "0xCE68"
+    },
+    {
+      "start": 6245,
+      "end": 9364,
+      "grace_id": "0xBABD"
+    },
+    {
+      "start": 9365,
+      "end": 12485,
+      "grace_id": "0xEEEA"
+    },
+    {
+      "start": 12486,
+      "end": 15606,
+      "grace_id": "0x16E2"
+    },
+    {
+      "start": 15607,
+      "end": 18726,
+      "grace_id": "0x4192"
+    },
+    {
+      "start": 18727,
+      "end": 21847,
+      "grace_id": "0x47EC"
+    },
+    {
+      "start": 21848,
+      "end": 24968,
+      "grace_id": "0x4FE4"
+    },
+    {
+      "start": 24969,
+      "end": 28088,
+      "grace_id": "0xEB61"
+    },
+    {
+      "start": 28089,
+      "end": 31209,
+      "grace_id": "0x23E5"
+    },
+    {
+      "start": 31210,
+      "end": 34329,
+      "grace_id": "0x2AE6"
+    },
+    {
+      "start": 34330,
+      "end": 37450,
+      "grace_id": "0x8CCC"
+    },
+    {
+      "start": 37451,
+      "end": 40571,
+      "grace_id": "0xB24F"
+    },
+    {
+      "start": 40572,
+      "end": 43691,
+      "grace_id": "0x5012"
+    },
+    {
+      "start": 43692,
+      "end": 46812,
+      "grace_id": "0x7BEA"
+    },
+    {
+      "start": 46813,
+      "end": 49932,
+      "grace_id": "0x590C"
+    },
+    {
+      "start": 49933,
+      "end": 53053,
+      "grace_id": "0x4FA3"
+    },
+    {
+      "start": 53054,
+      "end": 56174,
+      "grace_id": "0xB1E9"
+    },
+    {
+      "start": 56175,
+      "end": 59294,
+      "grace_id": "0xE8EB"
+    },
+    {
+      "start": 59295,
+      "end": 62415,
+      "grace_id": "0x7ECE"
+    },
+    {
+      "start": 62416,
+      "end": 65535,
+      "grace_id": "0x71F6"
+    }
+  ],
+  "counts": {
+    "0x6553": 3124,
+    "0xCE68": 3121,
+    "0xBABD": 3120,
+    "0xEEEA": 3121,
+    "0x16E2": 3121,
+    "0x4192": 3120,
+    "0x47EC": 3121,
+    "0x4FE4": 3121,
+    "0xEB61": 3120,
+    "0x23E5": 3121,
+    "0x2AE6": 3120,
+    "0x8CCC": 3121,
+    "0xB24F": 3121,
+    "0x5012": 3120,
+    "0x7BEA": 3121,
+    "0x590C": 3120,
+    "0x4FA3": 3121,
+    "0xB1E9": 3121,
+    "0xE8EB": 3120,
+    "0x7ECE": 3121,
+    "0x71F6": 3120
+  },
+  "provenance": {
+    "source_format": "nioh3-grace-first-u16-map-r4-v1",
+    "probe_count": 65536,
+    "all_first_u16_covered": true,
+    "distinct_effect_count": 21,
+    "measured_rarity": 4,
+    "measured_effect_slot": 5,
+    "note": "record_type E604 is the generator context used by the current project; the original probe report did not serialize record_type."
+  }
+}

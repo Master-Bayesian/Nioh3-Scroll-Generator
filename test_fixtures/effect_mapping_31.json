@@ -1,0 +1,170 @@
+{
+  "source": "User-supplied in-game UI mappings, 2026-08-26",
+  "byte_order": "little-endian uint32",
+  "records": [
+    {
+      "bytes": "FC 2E",
+      "effect_id": "0x2EFC",
+      "name": "远距离伤害"
+    },
+    {
+      "bytes": "3D 9A",
+      "effect_id": "0x9A3D",
+      "name": "强攻击精力消耗降低"
+    },
+    {
+      "bytes": "3D A7",
+      "effect_id": "0xA73D",
+      "name": "体力"
+    },
+    {
+      "bytes": "E3 6C",
+      "effect_id": "0x6CE3",
+      "name": "不消耗使役符"
+    },
+    {
+      "bytes": "EB 6B",
+      "effect_id": "0x6BEB",
+      "name": "近距离攻击精力伤害"
+    },
+    {
+      "bytes": "53 EA",
+      "effect_id": "0xEA53",
+      "name": "坚忍度"
+    },
+    {
+      "bytes": "2D 51",
+      "effect_id": "0x512D",
+      "name": "精髓并存武士"
+    },
+    {
+      "bytes": "99 74",
+      "effect_id": "0x7499",
+      "name": "对人战术"
+    },
+    {
+      "bytes": "7A 3E",
+      "effect_id": "0x3E7A",
+      "name": "精力恢复速度"
+    },
+    {
+      "bytes": "2B B8",
+      "effect_id": "0xB82B",
+      "name": "敌人精力耗尽时赋予受到伤害增加"
+    },
+    {
+      "bytes": "0A D4",
+      "effect_id": "0xD40A",
+      "name": "近距离攻击精力消耗降低"
+    },
+    {
+      "bytes": "2B 6E",
+      "effect_id": "0x6E2B",
+      "name": "不消耗仙药"
+    },
+    {
+      "bytes": "51 BC",
+      "effect_id": "0xBC51",
+      "name": "精华槽增加量"
+    },
+    {
+      "bytes": "8E 3A",
+      "effect_id": "0x3A8E",
+      "name": "武技精力伤害"
+    },
+    {
+      "bytes": "1A CE",
+      "effect_id": "0xCE1A",
+      "name": "武技伤害"
+    },
+    {
+      "bytes": "41 3F",
+      "effect_id": "0x3F41",
+      "name": "属性攻击伤害降低"
+    },
+    {
+      "bytes": "3B 58",
+      "effect_id": "0x583B",
+      "name": "负面效果持续时间缩短"
+    },
+    {
+      "bytes": "5A AE",
+      "effect_id": "0xAE5A",
+      "name": "技之深奥"
+    },
+    {
+      "bytes": "A7 A0",
+      "effect_id": "0xA0A7",
+      "name": "近距离攻击打倒敌人时恢复体力"
+    },
+    {
+      "bytes": "97 EF",
+      "effect_id": "0xEF97",
+      "name": "速攻击伤害"
+    },
+    {
+      "bytes": "D1 28",
+      "effect_id": "0x28D1",
+      "name": "九十九化身持续时间延长"
+    },
+    {
+      "bytes": "AC 5C",
+      "effect_id": "0x5CAC",
+      "name": "闪避动作精力消耗降低"
+    },
+    {
+      "bytes": "55 13",
+      "effect_id": "0x1355",
+      "name": "灵力增加量"
+    },
+    {
+      "bytes": "11 D4",
+      "effect_id": "0xD411",
+      "name": "冲刺精力消耗降低"
+    },
+    {
+      "bytes": "AF 6A",
+      "effect_id": "0x6AAF",
+      "name": "智之深奥"
+    },
+    {
+      "bytes": "EE FB 00 00",
+      "effect_id": "0xFBEE",
+      "name": "防御精力消耗降低",
+      "status": "confirmed_from_full_ng3_records"
+    },
+    {
+      "bytes": "C2 DA",
+      "effect_id": "0xDAC2",
+      "name": "体之深奥"
+    },
+    {
+      "bytes": "E8 23",
+      "effect_id": "0x23E8",
+      "name": "刚之深奥"
+    },
+    {
+      "bytes": "0F 60",
+      "effect_id": "0x600F",
+      "name": "伤害反映（阴阳术术力）"
+    },
+    {
+      "bytes": "84 81",
+      "effect_id": "0x8184",
+      "name": "装备品掉落率"
+    },
+    {
+      "bytes": "20 DB",
+      "effect_id": "0xDB20",
+      "name": "近距离攻击伤害"
+    }
+  ],
+  "existing_id_audit": {
+    "same_name": [
+      "0xA73D",
+      "0x583B"
+    ],
+    "different_name_conflicts": [],
+    "resolution": "Resolved from the supplied full NG3 save records: 0xFBEE has prefix 0x4843 and numeric values 53..57 matching 防御精力消耗降低; 0xDFF0 and 0x23E8 are the distinct final IDs for 武之深奥 and 刚之深奥."
+  }
+}
