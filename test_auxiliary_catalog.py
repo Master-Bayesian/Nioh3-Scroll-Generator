@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import unittest
+import struct
 
 from nioh3_scroll_editor.auxiliary_catalog import load_auxiliary_name_catalog
 from nioh3_scroll_editor.auxiliary_generation import (
+    legal_special_rule_keys,
     load_default_auxiliary_generation_tables,
 )
+from nioh3_scroll_editor.grace_map import load_grace_output_map
 
 
 class AuxiliaryNameCatalogTests(unittest.TestCase):
@@ -84,6 +87,73 @@ class AuxiliaryNameCatalogTests(unittest.TestCase):
         groups = catalog.special_rule_key_groups()
         self.assertIn("一难横行（足部防具）", groups)
         self.assertGreater(len(groups["一难横行（足部防具）"]), 1)
+
+    def test_priority_drop_rule_resolves_native_grace_name(self) -> None:
+        catalog = load_auxiliary_name_catalog("zh-CN")
+        self.assertEqual(
+            catalog.special_rule_name(0xCF88),
+            "优先掉落率上升（毘沙门天的恩宠）",
+        )
+
+    def test_auto_activation_rule_resolves_known_item_name(self) -> None:
+        catalog = load_auxiliary_name_catalog("zh-CN")
+        self.assertEqual(catalog.special_rule_name(0xCED9), "自动发动（粹然符）")
+
+    def test_parameterized_rule_names_never_collapse_to_empty_parentheses(self) -> None:
+        catalog = load_auxiliary_name_catalog("zh-CN")
+        names = [
+            catalog.special_rule_name(int(key, 16))
+            for key, entry in catalog.special_rules.items()
+            if "{" in str(entry.get("name", ""))
+        ]
+        self.assertNotIn("自动发动（）", names)
+        self.assertTrue(all("{" not in name for name in names))
+
+    def test_product_rule_groups_exclude_disabled_native_rows(self) -> None:
+        tables = load_default_auxiliary_generation_tables()
+        legal = legal_special_rule_keys(3, tables=tables)
+        catalog = load_auxiliary_name_catalog("zh-CN")
+        exposed = frozenset(
+            key
+            for keys in catalog.special_rule_key_groups(allowed_keys=legal).values()
+            for key in keys
+        )
+        self.assertEqual(exposed, legal)
+        self.assertEqual(len(legal), 277)
+        self.assertTrue({0xE7F5, 0x1BD2, 0x39A6}.isdisjoint(exposed))
+
+    def test_legal_auto_activation_names_use_chinese_or_mark_unknown(self) -> None:
+        tables = load_default_auxiliary_generation_tables()
+        legal = legal_special_rule_keys(3, tables=tables)
+        catalog = load_auxiliary_name_catalog("zh-CN")
+        names = {
+            catalog.special_rule_name(key)
+            for key in legal
+            if "自动发动" in catalog.special_rule_name(key)
+        }
+        self.assertFalse(any("Talisman" in name for name in names))
+        self.assertFalse(any("item 0x" in name for name in names))
+        self.assertIn(
+            "自动发动（未识别阴阳术（原生编号 0x3011，可生成））",
+            names,
+        )
+
+    def test_priority_drop_table_omits_only_shinatsuhiko_from_rarity4_map(self) -> None:
+        tables = load_default_auxiliary_generation_tables()
+        legal = legal_special_rule_keys(3, tables=tables)
+        priority_graces = {
+            struct.unpack_from("<H", row, 0x32)[0]
+            for key, row in zip(
+                tables.special_rule_keys_by_row,
+                tables.special_rules.rows(),
+                strict=True,
+            )
+            if key in legal and struct.unpack_from("<H", row, 0x32)[0]
+        }
+        rarity4_graces = {
+            entry.grace_id for entry in load_grace_output_map(rarity=4).ranges
+        }
+        self.assertEqual(rarity4_graces - priority_graces, {0x4192})
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ secondary requests fail closed.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from itertools import islice
+from itertools import islice, product
 from typing import Callable, Iterator
 
 from emaki_exchange import SCROLL_RECORD_SIZE
@@ -19,7 +19,10 @@ from .auxiliary_generation import (
     AuxiliarySearchCriteria,
     CompleteAuxiliaryResult,
     generate_complete_auxiliary,
+    generate_enemy_match_masks_batch,
     generate_matching_auxiliary,
+    generate_terrain_row_indices_batch,
+    terrain_row_matches_criteria,
 )
 from .grace_map import GraceOutputMap, first_u16_ranges_for_grace
 from .effect_sequence import EffectSequenceResult, GeneratedEffect
@@ -52,6 +55,7 @@ class EffectSeedRequest:
     rarity: int
     primary_effect_ids: frozenset[int] = frozenset()
     required_secondary_ids: frozenset[int] = frozenset()
+    required_secondary_id_groups: tuple[frozenset[int], ...] = ()
     grace_effect_id: int | None = None
     auxiliary_criteria: AuxiliarySearchCriteria = AuxiliarySearchCriteria()
     minimum_roll_percent_by_effect_id: tuple[tuple[int, int], ...] = ()
@@ -62,7 +66,23 @@ class EffectSeedRequest:
             raise ValueError("playthrough must be in 1..5")
         if not 0 <= self.rarity <= 5:
             raise ValueError("rarity must be in 0..5")
-        effect_ids = self.primary_effect_ids | self.required_secondary_ids
+        if any(not group for group in self.required_secondary_id_groups):
+            raise ValueError("secondary any-of groups cannot be empty")
+        grouped_ids: set[int] = set()
+        for group in self.required_secondary_id_groups:
+            overlap = grouped_ids.intersection(group)
+            if overlap:
+                raise ValueError("secondary any-of groups must not overlap")
+            grouped_ids.update(group)
+        if grouped_ids.intersection(self.required_secondary_ids):
+            raise ValueError(
+                "a secondary effect cannot be both mandatory and in an any-of group"
+            )
+        effect_ids = (
+            self.primary_effect_ids
+            | self.required_secondary_ids
+            | frozenset(grouped_ids)
+        )
         if self.grace_effect_id is not None:
             effect_ids |= frozenset((self.grace_effect_id,))
         if any(not 0 <= effect_id <= 0xFFFFFFFF for effect_id in effect_ids):
@@ -74,6 +94,10 @@ class EffectSeedRequest:
             seen_roll_effect_ids.add(effect_id)
             if effect_id not in effect_ids:
                 raise ValueError("roll constraints require a selected effect ID")
+            if effect_id in grouped_ids:
+                raise ValueError(
+                    "secondary any-of groups currently require arbitrary values"
+                )
             if not 0 <= minimum_roll <= 100:
                 raise ValueError("minimum roll percent must be in 0..100")
 
@@ -141,6 +165,7 @@ PrimaryEffectIdBatchGenerator = Callable[[tuple[int, ...]], tuple[int, ...]]
 IntersectionProgressCallback = Callable[[EffectSeedIntersectionReport], None]
 CancellationCheck = Callable[[], bool]
 CandidateFoundCallback = Callable[[EffectSeedCandidate], None]
+PivotSeedCollector = Callable[..., tuple[tuple[int, int], ...] | None]
 
 
 def validate_effect_request_feasibility(request: EffectSeedRequest) -> None:
@@ -174,8 +199,11 @@ def validate_effect_request_feasibility(request: EffectSeedRequest) -> None:
         rarity=request.rarity,
     )
 
-    def validate_option(primary_id: int | None) -> str | None:
-        effective_secondaries = (
+    def validate_option(
+        primary_id: int | None,
+        grouped_choices: tuple[int, ...],
+    ) -> str | None:
+        effective_secondaries = set(
             effective_required_secondary_ids(
                 primary_id=primary_id,
                 primary_effect_ids=request.primary_effect_ids,
@@ -184,6 +212,12 @@ def validate_effect_request_feasibility(request: EffectSeedRequest) -> None:
             if primary_id is not None
             else request.required_secondary_ids
         )
+        effective_secondaries.update(grouped_choices)
+        if primary_id is not None and not request.primary_effect_ids:
+            # With an unconstrained primary, every selected ordinary effect
+            # means "must appear somewhere".  One of those selections may
+            # legally occupy the actual primary slot.
+            effective_secondaries.discard(primary_id)
         if len(effective_secondaries) > max_secondaries:
             return (
                 f"需要 {len(effective_secondaries)} 个副词条，但当前结构最多只有 "
@@ -215,6 +249,24 @@ def validate_effect_request_feasibility(request: EffectSeedRequest) -> None:
                 ):
                     return f"词条 0x{effect_id:04X} 在当前周目/稀有度权重为 0"
 
+        if request.rarity == 5:
+            promoted_only = tuple(
+                effect_id
+                for effect_id in sorted(effective_secondaries)
+                if (
+                    (definition := tables.effects_by_id.get(effect_id)) is not None
+                    and bool(definition.normalization_flags & 0x08)
+                )
+            )
+            if promoted_only:
+                formatted = "、".join(
+                    f"0x{effect_id:04X}" for effect_id in promoted_only
+                )
+                return (
+                    "稀有度5只有一个升格/深奥槽，该槽会成为主词条；"
+                    f"所选副词条 {formatted} 只能出现在这个槽位"
+                )
+
         ordered_ids = sorted(all_ids)
         for index, left_id in enumerate(ordered_ids):
             for right_id in ordered_ids[index + 1 :]:
@@ -236,61 +288,130 @@ def validate_effect_request_feasibility(request: EffectSeedRequest) -> None:
                 )
         return None
 
-    option_errors = tuple(validate_option(primary_id) for primary_id in primary_options)
+    grouped_choice_sets: tuple[tuple[int, ...], ...] = (
+        tuple(product(*(tuple(sorted(group)) for group in request.required_secondary_id_groups)))
+        if request.required_secondary_id_groups
+        else ((),)
+    )
+    option_errors: list[str | None] = []
+    for grouped_choices in grouped_choice_sets:
+        if request.primary_effect_ids:
+            option_primary_ids = primary_options
+        else:
+            required_anywhere = tuple(
+                sorted(set(request.required_secondary_ids).union(grouped_choices))
+            )
+            # None represents an unselected primary.  The remaining choices
+            # cover every selected effect that could instead consume it.
+            option_primary_ids = (None, *required_anywhere)
+        option_errors.extend(
+            validate_option(primary_id, grouped_choices)
+            for primary_id in option_primary_ids
+        )
     if option_errors and all(error is not None for error in option_errors):
         detail = next(error for error in option_errors if error is not None)
         raise ValueError(f"所选词条组合在原生生成结构中无解：{detail}。")
 
-    if request.rarity != 5 or not request.required_secondary_ids:
-        return
-    promoted_only = frozenset(
-        effect_id
-        for effect_id in request.required_secondary_ids
-        if (
-            (definition := tables.effects_by_id.get(effect_id)) is not None
-            and bool(definition.normalization_flags & 0x08)
-        )
-    )
-    if not promoted_only:
-        return
+    return
 
-    for primary_id in request.primary_effect_ids:
-        effective_required = effective_required_secondary_ids(
-            primary_id=primary_id,
-            primary_effect_ids=request.primary_effect_ids,
-            required_secondary_ids=request.required_secondary_ids,
-        )
-        if promoted_only.isdisjoint(effective_required):
-            return
 
-    formatted = "、".join(f"0x{effect_id:04X}" for effect_id in sorted(promoted_only))
-    raise ValueError(
-        "稀有度5只有一个升格/深奥槽，该槽会成为主词条；"
-        f"所选副词条 {formatted} 只能出现在这个槽位，无法同时作为副词条生成。"
-        "稀有度4的完成器可以产生第二个升格词条，因此两种稀有度的结果不同。"
+def _has_terrain_constraints(criteria: AuxiliarySearchCriteria) -> bool:
+    return bool(
+        criteria.required_terrain_effect_keys
+        or criteria.required_terrain_effect_key_groups
+        or criteria.terrain_row_indices
     )
 
 
-def _iter_solution_primary_ids(
+def _enemy_constraint_group_count(criteria: AuxiliarySearchCriteria) -> int:
+    return (
+        len(criteria.required_enemy_lookup_keys)
+        + len(criteria.required_enemy_lookup_key_groups)
+    )
+
+
+def _iter_solution_prefetch(
     solutions: Iterator[SeedSolution],
     batch_generator: PrimaryEffectIdBatchGenerator | None,
+    primary_effect_ids: frozenset[int],
+    terrain_criteria: AuxiliarySearchCriteria,
+    playthrough: int,
     *,
     batch_size: int = 65_536,
-) -> Iterator[tuple[SeedSolution, int | None]]:
-    """Attach prefetched primary IDs without materializing a whole family."""
+) -> Iterator[tuple[SeedSolution, int | None, int | None, int | None]]:
+    """Attach native primary, terrain, and enemy results to a Seed stream."""
 
-    if batch_generator is None:
+    enemy_group_count = _enemy_constraint_group_count(terrain_criteria)
+    prefetch_terrain = _has_terrain_constraints(terrain_criteria) or bool(
+        enemy_group_count
+    )
+    if batch_generator is None and not prefetch_terrain:
         for solution in solutions:
-            yield solution, None
+            yield solution, None, None, None
         return
     while True:
         batch = tuple(islice(solutions, batch_size))
         if not batch:
             return
-        effect_ids = batch_generator(tuple(solution.seed for solution in batch))
-        if len(effect_ids) != len(batch):
-            raise ValueError("primary batch generator returned the wrong result count")
-        yield from zip(batch, effect_ids, strict=True)
+        seeds = tuple(solution.seed for solution in batch)
+        effect_ids: tuple[int | None, ...]
+        if batch_generator is None:
+            effect_ids = (None,) * len(batch)
+        else:
+            generated_ids = batch_generator(seeds)
+            if len(generated_ids) != len(batch):
+                raise ValueError("primary batch generator returned the wrong result count")
+            effect_ids = tuple(generated_ids)
+        terrain_rows: tuple[int | None, ...]
+        if prefetch_terrain:
+            generated_rows = generate_terrain_row_indices_batch(seeds)
+            if len(generated_rows) != len(batch):
+                raise ValueError("terrain batch generator returned the wrong result count")
+            terrain_rows = tuple(generated_rows)
+        else:
+            terrain_rows = (None,) * len(batch)
+        enemy_masks: tuple[int | None, ...]
+        if enemy_group_count:
+            if any(row is None for row in terrain_rows):
+                raise AssertionError("native enemy matching requires terrain rows")
+            eligible_indices = tuple(
+                index
+                for index, (effect_id, terrain_row) in enumerate(
+                    zip(effect_ids, terrain_rows, strict=True)
+                )
+                if (
+                    (not primary_effect_ids or effect_id in primary_effect_ids)
+                    and (
+                        not _has_terrain_constraints(terrain_criteria)
+                        or terrain_row_matches_criteria(
+                            int(terrain_row),
+                            terrain_criteria,
+                        )
+                    )
+                )
+            )
+            scattered_masks: list[int | None] = [None] * len(batch)
+            if eligible_indices:
+                generated_masks = generate_enemy_match_masks_batch(
+                    tuple(seeds[index] for index in eligible_indices),
+                    tuple(int(terrain_rows[index]) for index in eligible_indices),
+                    playthrough,
+                    criteria=terrain_criteria,
+                )
+                if len(generated_masks) != len(eligible_indices):
+                    raise ValueError(
+                        "enemy batch generator returned the wrong result count"
+                    )
+                for index, mask in zip(
+                    eligible_indices,
+                    generated_masks,
+                    strict=True,
+                ):
+                    scattered_masks[index] = mask
+            enemy_masks = tuple(scattered_masks)
+        else:
+            enemy_masks = (None,) * len(batch)
+        yield from zip(batch, effect_ids, terrain_rows, enemy_masks, strict=True)
 
 
 def merge_intersection_reports(
@@ -361,6 +482,7 @@ class _IntersectionCounter:
         self.grace_requires_replay = (
             request.rarity == 4 and request.grace_effect_id is not None
         )
+        self.primary_is_unconstrained = not request.primary_effect_ids
         self.optional_primary_value_ids = (
             request.primary_effect_ids - request.required_secondary_ids
         )
@@ -391,14 +513,6 @@ class _IntersectionCounter:
                 )
             )
         specs.extend(
-            _IntersectionStageSpec("rule", (key,))
-            for key in sorted(criteria.required_special_rule_keys)
-        )
-        specs.extend(
-            _IntersectionStageSpec("rule", tuple(sorted(group)))
-            for group in criteria.required_special_rule_key_groups
-        )
-        specs.extend(
             _IntersectionStageSpec("enemy", (key,))
             for key in sorted(criteria.required_enemy_lookup_keys)
         )
@@ -406,11 +520,27 @@ class _IntersectionCounter:
             _IntersectionStageSpec("enemy", tuple(sorted(group)))
             for group in criteria.required_enemy_lookup_key_groups
         )
+        specs.extend(
+            _IntersectionStageSpec("rule", (key,))
+            for key in sorted(criteria.required_special_rule_keys)
+        )
+        specs.extend(
+            _IntersectionStageSpec("rule", tuple(sorted(group)))
+            for group in criteria.required_special_rule_key_groups
+        )
         if request.grace_effect_id is not None and request.rarity == 4:
             specs.append(_IntersectionStageSpec("grace", (request.grace_effect_id,)))
+        ordinary_kind = "ordinary" if not request.primary_effect_ids else "secondary"
+        ordinary_any_kind = (
+            "ordinary_any" if not request.primary_effect_ids else "secondary_any"
+        )
         specs.extend(
-            _IntersectionStageSpec("secondary", (effect_id,))
+            _IntersectionStageSpec(ordinary_kind, (effect_id,))
             for effect_id in sorted(request.required_secondary_ids)
+        )
+        specs.extend(
+            _IntersectionStageSpec(ordinary_any_kind, tuple(sorted(group)))
+            for group in request.required_secondary_id_groups
         )
         specs.extend(
             _IntersectionStageSpec("value", (effect_id, minimum_roll))
@@ -458,11 +588,28 @@ class _IntersectionCounter:
             self.counts[index] += 1
         return True
 
-    def accept_secondaries(self, secondary_effect_ids: frozenset[int]) -> bool:
+    def accept_secondaries(
+        self,
+        secondary_effect_ids: frozenset[int],
+        *,
+        primary_effect_id: int | None = None,
+    ) -> bool:
+        ordinary_effect_ids = set(secondary_effect_ids)
+        if self.primary_is_unconstrained and primary_effect_id is not None:
+            ordinary_effect_ids.add(primary_effect_id)
         for index, spec in enumerate(self.specs):
-            if spec.kind != "secondary":
+            if spec.kind not in (
+                "secondary",
+                "secondary_any",
+                "ordinary",
+                "ordinary_any",
+            ):
                 continue
-            if spec.values[0] not in secondary_effect_ids:
+            if spec.kind in ("secondary", "ordinary") and spec.values[0] not in ordinary_effect_ids:
+                return False
+            if spec.kind in ("secondary_any", "ordinary_any") and not ordinary_effect_ids.intersection(
+                spec.values
+            ):
                 return False
             self.counts[index] += 1
         return True
@@ -497,7 +644,8 @@ class _IntersectionCounter:
         secondary_effect_ids: frozenset[int],
     ) -> bool:
         return self.accept_primary(primary_effect_id) and self.accept_secondaries(
-            secondary_effect_ids
+            secondary_effect_ids,
+            primary_effect_id=primary_effect_id,
         )
 
     def accept_auxiliary(self, result: CompleteAuxiliaryResult) -> bool:
@@ -523,6 +671,69 @@ class _IntersectionCounter:
                 return False
             self.counts[index] += 1
         return True
+
+    def accept_auxiliary_stage(self, kind: str, result: object) -> bool:
+        """Count one native auxiliary stage in its actual execution order."""
+
+        if kind == "terrain":
+            terrain = result
+            terrain_keys = frozenset(terrain.display_effect_keys)
+            for index, spec in enumerate(self.specs):
+                if spec.kind == "terrain":
+                    accepted = bool(terrain_keys.intersection(spec.values))
+                elif spec.kind == "terrain_row":
+                    accepted = terrain.selected_row_index in spec.values
+                else:
+                    continue
+                if not accepted:
+                    return False
+                self.counts[index] += 1
+            return True
+        if kind == "enemy":
+            enemies = result
+            enemy_keys = frozenset(
+                entry.lookup_key
+                for group in enemies.groups
+                for entry in group.entries
+            )
+            for index, spec in enumerate(self.specs):
+                if spec.kind != "enemy":
+                    continue
+                if not enemy_keys.intersection(spec.values):
+                    return False
+                self.counts[index] += 1
+            return True
+        if kind == "rule":
+            special_rules = result
+            rule_keys = frozenset(key for key in special_rules.keys if key)
+            for index, spec in enumerate(self.specs):
+                if spec.kind != "rule":
+                    continue
+                if not rule_keys.intersection(spec.values):
+                    return False
+                self.counts[index] += 1
+            return True
+        raise ValueError(f"unknown auxiliary stage: {kind}")
+
+    def accept_prefetched_enemy_mask(self, matched_mask: int) -> bool:
+        """Count native-batched enemy groups in the same order as the UI."""
+
+        group_index = 0
+        for index, spec in enumerate(self.specs):
+            if spec.kind != "enemy":
+                continue
+            if (matched_mask & (1 << group_index)) == 0:
+                return False
+            self.counts[index] += 1
+            group_index += 1
+        return True
+
+    def accept_prefetched_terrain(self) -> None:
+        """Count a terrain row after the complete native terrain gate passed."""
+
+        for index, spec in enumerate(self.specs):
+            if spec.kind in ("terrain", "terrain_row"):
+                self.counts[index] += 1
 
     def record_complete_match(self) -> None:
         self.complete_match_count += 1
@@ -677,6 +888,7 @@ def _verify_final_record(
         candidate,
         primary_effect_ids=request.primary_effect_ids,
         required_secondary_ids=request.required_secondary_ids,
+        required_secondary_id_groups=request.required_secondary_id_groups,
     ):
         return None
     if request.grace_effect_id is not None:
@@ -709,7 +921,15 @@ def _verify_effect_sequence(
     actual_secondary_ids = frozenset(
         effect.effect_id for effect in result.secondaries
     )
-    if not request.required_secondary_ids.issubset(actual_secondary_ids):
+    ordinary_match_ids = set(actual_secondary_ids)
+    if not request.primary_effect_ids:
+        ordinary_match_ids.add(result.primary.effect_id)
+    if not request.required_secondary_ids.issubset(ordinary_match_ids):
+        return None
+    if any(
+        not group.intersection(ordinary_match_ids)
+        for group in request.required_secondary_id_groups
+    ):
         return None
     if (
         request.grace_effect_id is not None
@@ -780,12 +1000,14 @@ def iter_effect_seed_candidates(
     max_trials: int | None = None,
     _intersection_counter: _IntersectionCounter | None = None,
     cancelled: CancellationCheck | None = None,
+    pivot_seed_collector: PivotSeedCollector | None = None,
+    pivot_seed_collector_chunk_trials: int = 1_000_000,
 ) -> Iterator[EffectSeedCandidate]:
     """Yield exact Seed candidates without connecting to a game process."""
 
     validate_effect_request_feasibility(request)
     if (
-        request.required_secondary_ids
+        (request.required_secondary_ids or request.required_secondary_id_groups)
         and final_record_generator is None
         and effect_sequence_generator is None
     ):
@@ -816,13 +1038,23 @@ def iter_effect_seed_candidates(
         natural_only=request.natural_only,
         start_after_trial=start_after_trial,
         max_trials=max_trials,
+        pivot_seed_collector=pivot_seed_collector,
+        pivot_seed_collector_chunk_trials=pivot_seed_collector_chunk_trials,
     )
     grace_slot = grace_mapping.effect_slot if grace_mapping is not None else None
     fixed_draws = tuple((constraint.name, constraint.draw_index) for constraint in constraints)
     batch_primary = primary_effect_id_batch_generator if request.primary_effect_ids else None
-    for solution, prefetched_primary_effect_id in _iter_solution_primary_ids(
+    for (
+        solution,
+        prefetched_primary_effect_id,
+        prefetched_terrain_row,
+        prefetched_enemy_mask,
+    ) in _iter_solution_prefetch(
         solutions,
         batch_primary,
+        request.primary_effect_ids,
+        request.auxiliary_criteria,
+        request.playthrough,
     ):
         if cancelled is not None and cancelled():
             break
@@ -865,6 +1097,20 @@ def iter_effect_seed_candidates(
 
             auxiliary = None
             if not request.auxiliary_criteria.is_empty:
+                if prefetched_terrain_row is not None:
+                    if not terrain_row_matches_criteria(
+                        prefetched_terrain_row,
+                        request.auxiliary_criteria,
+                    ):
+                        continue
+                    _intersection_counter.accept_prefetched_terrain()
+                if (
+                    prefetched_enemy_mask is not None
+                    and not _intersection_counter.accept_prefetched_enemy_mask(
+                        prefetched_enemy_mask
+                    )
+                ):
+                    continue
                 # Terrain is independent and substantially cheaper than enemy
                 # and rule generation. Reject terrain misses before building
                 # the remaining auxiliary record while preserving exact
@@ -872,11 +1118,19 @@ def iter_effect_seed_candidates(
                 auxiliary = generate_matching_auxiliary(
                     solution.seed,
                     request.playthrough,
-                    criteria=_terrain_only_criteria(request.auxiliary_criteria),
+                    criteria=request.auxiliary_criteria,
+                    stage_acceptor=(
+                        lambda kind, result: (
+                            True
+                            if (
+                                (kind == "terrain" and prefetched_terrain_row is not None)
+                                or (kind == "enemy" and prefetched_enemy_mask is not None)
+                            )
+                            else _intersection_counter.accept_auxiliary_stage(kind, result)
+                        )
+                    ),
                 )
                 if auxiliary is None:
-                    continue
-                if not _intersection_counter.accept_auxiliary(auxiliary):
                     continue
 
             if effect_sequence is None:
@@ -896,11 +1150,12 @@ def iter_effect_seed_candidates(
             if _intersection_counter.grace_requires_replay:
                 if not _intersection_counter.accept_grace(effect_sequence):
                     continue
-            if request.required_secondary_ids:
+            if request.required_secondary_ids or request.required_secondary_id_groups:
                 if not _intersection_counter.accept_secondaries(
                     frozenset(
                         effect.effect_id for effect in effect_sequence.secondaries
-                    )
+                    ),
+                    primary_effect_id=effect_sequence.primary.effect_id,
                 ):
                     continue
             if request.minimum_roll_percent_by_effect_id:
@@ -921,6 +1176,7 @@ def iter_effect_seed_candidates(
         has_effect_replay_filter = bool(
             request.primary_effect_ids
             or request.required_secondary_ids
+            or request.required_secondary_id_groups
             or request.grace_effect_id is not None
         )
         used_primary_fast_path = False
@@ -931,6 +1187,7 @@ def iter_effect_seed_candidates(
         if (
             request.primary_effect_ids
             and not request.required_secondary_ids
+            and not request.required_secondary_id_groups
             and (
                 prefetched_primary_effect_id is not None
                 or primary_effect_id_batch_generator is not None
@@ -970,6 +1227,21 @@ def iter_effect_seed_candidates(
                     continue
         auxiliary = None
         if not request.auxiliary_criteria.is_empty:
+            if (
+                prefetched_terrain_row is not None
+                and not terrain_row_matches_criteria(
+                    prefetched_terrain_row,
+                    request.auxiliary_criteria,
+                )
+            ):
+                continue
+            if prefetched_enemy_mask is not None:
+                enemy_group_count = _enemy_constraint_group_count(
+                    request.auxiliary_criteria
+                )
+                target_enemy_mask = (1 << enemy_group_count) - 1
+                if prefetched_enemy_mask != target_enemy_mask:
+                    continue
             auxiliary = generate_matching_auxiliary(
                 solution.seed,
                 request.playthrough,
@@ -1025,6 +1297,8 @@ def collect_effect_seed_page(
     intersection_progress_interval: int = 4096,
     candidate_found: CandidateFoundCallback | None = None,
     cancelled: CancellationCheck | None = None,
+    pivot_seed_collector: PivotSeedCollector | None = None,
+    pivot_seed_collector_chunk_trials: int = 1_000_000,
 ) -> EffectSeedPage:
     """Collect a bounded, non-overlapping page from the exact candidate stream."""
 
@@ -1078,6 +1352,8 @@ def collect_effect_seed_page(
         max_trials=max_trials,
         _intersection_counter=counter,
         cancelled=cancelled,
+        pivot_seed_collector=pivot_seed_collector,
+        pivot_seed_collector_chunk_trials=pivot_seed_collector_chunk_trials,
     )
     collected: list[EffectSeedCandidate] = []
     for candidate in iterator:

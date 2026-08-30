@@ -11,6 +11,9 @@ from typing import Any, Mapping
 
 AUXILIARY_NAME_SCHEMA = "nioh3-scroll-auxiliary-names/v1"
 DEFAULT_AUXILIARY_NAME_ROOT = Path(__file__).resolve().parent / "data" / "auxiliary_names"
+DEFAULT_SPECIAL_RULE_ITEM_NAMES = (
+    Path(__file__).resolve().parent / "data" / "special_rule_item_names.json"
+)
 
 
 def _hex_key(value: int, width: int) -> str:
@@ -23,6 +26,54 @@ class AuxiliaryNameCatalog:
     terrain: Mapping[str, Mapping[str, Any]]
     special_rules: Mapping[str, Mapping[str, Any]]
     enemies: Mapping[str, Mapping[str, Any]]
+
+    def _special_rule_qualifier(self, key: int) -> str | None:
+        from .auxiliary_generation import describe_special_rule
+        from .catalog import native_effect_name
+
+        try:
+            detail = describe_special_rule(key)
+        except (OSError, RuntimeError, ValueError):
+            return None
+        qualifier_key = detail.qualifier_key
+        if qualifier_key is None:
+            return None
+        if detail.qualifier_kind == "effect":
+            return native_effect_name(qualifier_key, self.locale)
+        if detail.qualifier_kind == "enemy":
+            return self.enemy_name(qualifier_key)
+        if detail.qualifier_kind == "item":
+            names = _load_special_rule_item_names().get(qualifier_key, {})
+            exact = names.get(self.locale)
+            if exact:
+                return exact
+            language = self.locale.split("-", 1)[0]
+            same_language = next(
+                (
+                    name
+                    for locale, name in names.items()
+                    if locale.split("-", 1)[0] == language
+                ),
+                None,
+            )
+            if same_language:
+                return same_language
+            if self.locale.startswith("zh"):
+                return f"未识别阴阳术（原生编号 0x{qualifier_key:04X}，可生成）"
+            return names.get("en-US") or f"item 0x{qualifier_key:04X}"
+        return None
+
+    @staticmethod
+    def _render_rule_name(name: str, qualifier: str | None) -> str:
+        try:
+            rendered = name.format(qualifier or "", "")
+        except (IndexError, KeyError, ValueError):
+            rendered = (
+                name.replace("{0}", qualifier or "")
+                .replace("{1}", "")
+                .replace("{}", "")
+            )
+        return " ".join(rendered.split())
 
     def terrain_name(self, row_index: int) -> str:
         entry = self.terrain.get(str(row_index))
@@ -42,9 +93,22 @@ class AuxiliaryNameCatalog:
             return "None"
         entry = self.special_rules.get(_hex_key(key, 4))
         if entry:
-            name = entry.get("display_name") or entry.get("name")
-            if name:
-                return str(name)
+            raw_name = str(entry.get("name") or "").strip()
+            qualifier = str(entry.get("qualifier") or "").strip()
+            if not qualifier:
+                qualifier = self._special_rule_qualifier(key) or ""
+            if (
+                not qualifier
+                and str(entry.get("name_text_id", "")).casefold() == "0x034ba650"
+            ):
+                qualifier = f"0x{key:04X}"
+            if raw_name:
+                rendered = self._render_rule_name(raw_name, qualifier)
+                if rendered:
+                    return rendered
+            display_name = str(entry.get("display_name") or "").strip()
+            if display_name:
+                return display_name
         return f"Unknown rule 0x{key:04X}"
 
     def enemy_name(self, lookup_key: int) -> str:
@@ -65,14 +129,21 @@ class AuxiliaryNameCatalog:
             if str(entry.get("name", "")).strip().casefold() == wanted
         )
 
-    def special_rule_key_groups(self) -> Mapping[str, frozenset[int]]:
-        """Group every native rule key by its localized displayed meaning."""
+    def special_rule_key_groups(
+        self,
+        *,
+        allowed_keys: frozenset[int] | None = None,
+    ) -> Mapping[str, frozenset[int]]:
+        """Group native rule keys by localized meaning and legality context."""
 
         grouped: dict[str, set[int]] = {}
-        for key, entry in self.special_rules.items():
-            name = str(entry.get("display_name") or entry.get("name") or "").strip()
+        for key in self.special_rules:
+            numeric_key = int(key, 16)
+            if allowed_keys is not None and numeric_key not in allowed_keys:
+                continue
+            name = self.special_rule_name(numeric_key).strip()
             if name:
-                grouped.setdefault(name, set()).add(int(key, 16))
+                grouped.setdefault(name, set()).add(numeric_key)
         return {
             name: frozenset(keys)
             for name, keys in sorted(grouped.items(), key=lambda item: item[0].casefold())
@@ -104,6 +175,32 @@ def _load_one(path: Path) -> AuxiliaryNameCatalog:
     )
 
 
+@lru_cache(maxsize=1)
+def _load_special_rule_item_names() -> dict[int, dict[str, str]]:
+    try:
+        payload = json.loads(DEFAULT_SPECIAL_RULE_ITEM_NAMES.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return {}
+    if payload.get("schema") != "nioh3-special-rule-item-names/v1":
+        return {}
+    result: dict[int, dict[str, str]] = {}
+    for raw_key, raw_names in payload.get("items", {}).items():
+        try:
+            key = int(str(raw_key), 0)
+        except ValueError:
+            continue
+        if not isinstance(raw_names, dict):
+            continue
+        names = {
+            str(locale): str(name).strip()
+            for locale, name in raw_names.items()
+            if str(name).strip()
+        }
+        if names:
+            result[key] = names
+    return result
+
+
 @lru_cache(maxsize=None)
 def load_auxiliary_name_catalog(
     locale: str = "zh-CN",
@@ -126,5 +223,6 @@ __all__ = [
     "AUXILIARY_NAME_SCHEMA",
     "AuxiliaryNameCatalog",
     "DEFAULT_AUXILIARY_NAME_ROOT",
+    "DEFAULT_SPECIAL_RULE_ITEM_NAMES",
     "load_auxiliary_name_catalog",
 ]

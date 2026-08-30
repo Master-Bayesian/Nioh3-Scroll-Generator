@@ -1009,7 +1009,8 @@ def _candidate_matches_scan_filters(
     playthrough: int | None,
     primary_effect_ids: frozenset[int],
     required_secondary_ids: frozenset[int],
-    grace_effect_id: int | None,
+    required_secondary_id_groups: tuple[frozenset[int], ...] = (),
+    grace_effect_id: int | None = None,
     grace_effect_slot: int = 6,
     required_slot5_effect_id: int | None = None,
     auxiliary_criteria: AuxiliarySearchCriteria | None = None,
@@ -1053,7 +1054,7 @@ def _candidate_matches_scan_filters(
         primary_effect_ids=primary_effect_ids,
         required_secondary_ids=required_secondary_ids,
     )
-    if effective_required_secondary:
+    if effective_required_secondary or required_secondary_id_groups:
         # When slot 5 is reserved for the growing effect / rarity-4 Grace, only
         # slots 2-4 are ordinary secondary slots.  Otherwise preserve the
         # established rarity-derived ordinary-slot bounds.
@@ -1067,6 +1068,14 @@ def _candidate_matches_scan_filters(
             for index in range(1, secondary_stop)
         }
         if not effective_required_secondary.issubset(secondary_ids):
+            return None
+        ordinary_match_ids = set(secondary_ids)
+        if not primary_effect_ids:
+            ordinary_match_ids.add(primary_id)
+        if any(
+            not group.intersection(ordinary_match_ids)
+            for group in required_secondary_id_groups
+        ):
             return None
     if auxiliary_criteria is not None and not auxiliary_criteria.is_empty:
         if playthrough is None:
@@ -1131,6 +1140,7 @@ def scan_next_candidate(
     start_seed: int,
     primary_effect_ids: frozenset[int],
     required_secondary_ids: frozenset[int],
+    required_secondary_id_groups: tuple[frozenset[int], ...] = (),
     grace_effect_id: int | None = None,
     rarity: int = 5,
     level: int = 180,
@@ -1248,6 +1258,7 @@ def scan_next_candidate(
                     playthrough=playthrough,
                     primary_effect_ids=primary_effect_ids,
                     required_secondary_ids=required_secondary_ids,
+                    required_secondary_id_groups=required_secondary_id_groups,
                     grace_effect_id=None,
                     auxiliary_criteria=None,
                 )
@@ -1337,6 +1348,7 @@ def scan_next_candidate(
                     playthrough=playthrough,
                     primary_effect_ids=primary_effect_ids,
                     required_secondary_ids=required_secondary_ids,
+                    required_secondary_id_groups=required_secondary_id_groups,
                     grace_effect_id=grace_effect_id,
                     grace_effect_slot=mapping.effect_slot,
                     auxiliary_criteria=None,
@@ -1404,6 +1416,7 @@ def scan_next_candidate(
                         playthrough=playthrough,
                         primary_effect_ids=primary_effect_ids,
                         required_secondary_ids=required_secondary_ids,
+                        required_secondary_id_groups=required_secondary_id_groups,
                         grace_effect_id=grace_effect_id,
                         grace_effect_slot=mapping.effect_slot,
                         auxiliary_criteria=auxiliary_criteria,
@@ -1427,6 +1440,7 @@ def scan_next_candidate(
                         playthrough=playthrough,
                         primary_effect_ids=primary_effect_ids,
                         required_secondary_ids=required_secondary_ids,
+                        required_secondary_id_groups=required_secondary_id_groups,
                         grace_effect_id=None,
                         required_slot5_effect_id=0x0001,
                         auxiliary_criteria=auxiliary_criteria,
@@ -1500,6 +1514,7 @@ def scan_next_candidate(
                         playthrough=playthrough,
                         primary_effect_ids=primary_effect_ids,
                         required_secondary_ids=required_secondary_ids,
+                        required_secondary_id_groups=required_secondary_id_groups,
                         grace_effect_id=grace_effect_id,
                         grace_effect_slot=grace_slot,
                         auxiliary_criteria=auxiliary_criteria,
@@ -1514,6 +1529,7 @@ def scan_next_candidate(
                         playthrough=playthrough,
                         primary_effect_ids=primary_effect_ids,
                         required_secondary_ids=required_secondary_ids,
+                        required_secondary_id_groups=required_secondary_id_groups,
                         grace_effect_id=None,
                         required_slot5_effect_id=0x0001,
                         auxiliary_criteria=auxiliary_criteria,
@@ -1567,6 +1583,7 @@ def scan_next_candidate(
                 playthrough=playthrough,
                 primary_effect_ids=primary_effect_ids,
                 required_secondary_ids=required_secondary_ids,
+                required_secondary_id_groups=required_secondary_id_groups,
                 grace_effect_id=None,
                 auxiliary_criteria=auxiliary_criteria,
             )

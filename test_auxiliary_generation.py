@@ -24,11 +24,17 @@ from nioh3_scroll_editor.auxiliary_generation import (
     generate_class1_enemies,
     generate_class2_enemies,
     generate_complete_auxiliary,
+    generate_enemy_match_masks_batch,
     generate_matching_auxiliary,
     generate_special_rules,
     generate_terrain,
+    generate_terrain_row_indices_batch,
     load_default_auxiliary_generation_tables,
     load_enemy_parameter_gate_capture,
+)
+from nioh3_scroll_editor.auxiliary_feasibility import (
+    SpecialRuleKeyRequirement,
+    analyze_special_rule_feasibility,
 )
 from nioh3_scroll_editor.r4_table_bundle import FixedStrideTable
 
@@ -211,6 +217,70 @@ class AuxiliaryDescriptorFlagsTests(unittest.TestCase):
 
 
 class SpecialRuleTests(unittest.TestCase):
+    def test_structural_preflight_accepts_reported_rare_rule_pair(self) -> None:
+        report = analyze_special_rule_feasibility(
+            (
+                SpecialRuleKeyRequirement("Cursed Cavalcade", frozenset((0x2FEA,))),
+                SpecialRuleKeyRequirement("Tsukuyomi drop", frozenset((0x7EF1,))),
+            ),
+            playthrough=3,
+        )
+        self.assertTrue(report.possible)
+        self.assertIsNotNone(report.witness_budget)
+        self.assertTrue({0x2FEA, 0x7EF1}.issubset(report.witness_keys))
+
+    def test_structural_preflight_rejects_native_conflict_group(self) -> None:
+        report = analyze_special_rule_feasibility(
+            (
+                SpecialRuleKeyRequirement("left", frozenset((0x6171,))),
+                SpecialRuleKeyRequirement("right", frozenset((0xED18,))),
+            ),
+            playthrough=3,
+        )
+        self.assertFalse(report.possible)
+        self.assertEqual(report.failure_code, "conflict")
+        self.assertEqual(
+            report.universally_conflicting_pairs,
+            (("left", "right"),),
+        )
+
+    def test_structural_preflight_rejects_zero_weight_for_playthrough(self) -> None:
+        report = analyze_special_rule_feasibility(
+            (SpecialRuleKeyRequirement("R3-only rule", frozenset((0x2FEA,))),),
+            playthrough=5,
+        )
+        self.assertFalse(report.possible)
+        self.assertEqual(report.failure_code, "unavailable")
+
+    def test_structural_preflight_accepts_native_generated_rule_sets(self) -> None:
+        tables = load_default_auxiliary_generation_tables()
+        observed: set[tuple[int, ...]] = set()
+        for seed in range(256):
+            keys = tuple(
+                key
+                for key in generate_special_rules(
+                    seed,
+                    3,
+                    tables=tables,
+                ).keys
+                if key
+            )
+            if not keys or keys in observed:
+                continue
+            observed.add(keys)
+            report = analyze_special_rule_feasibility(
+                tuple(
+                    SpecialRuleKeyRequirement(
+                        f"0x{key:04X}",
+                        frozenset((key,)),
+                    )
+                    for key in keys
+                ),
+                playthrough=3,
+                tables=tables,
+            )
+            self.assertTrue(report.possible, keys)
+
     def test_seed_183696634_native_rule_vector(self) -> None:
         tables = load_default_auxiliary_generation_tables()
         result = generate_special_rules(
@@ -526,6 +596,45 @@ class Class2EnemyTests(unittest.TestCase):
 
 
 class CompleteAuxiliaryTests(unittest.TestCase):
+    def test_native_enemy_constraint_masks_match_exact_python_replay(self) -> None:
+        seeds = tuple(range(1, 513))
+        terrain_rows = generate_terrain_row_indices_batch(seeds)
+        criteria = AuxiliarySearchCriteria(
+            required_enemy_lookup_keys=frozenset((0xD35E1, 0x40A3B)),
+            required_enemy_lookup_key_groups=(
+                frozenset((0xF3566, 0xD0779, 0xC0618)),
+                frozenset((0x3EC8A, 0xBC496, 0x82783, 0x782F6)),
+            ),
+        )
+        condition_groups = (
+            frozenset((0x40A3B,)),
+            frozenset((0xD35E1,)),
+            *criteria.required_enemy_lookup_key_groups,
+        )
+
+        for playthrough in (1, 2, 3, 4):
+            with self.subTest(playthrough=playthrough):
+                actual_masks = generate_enemy_match_masks_batch(
+                    seeds,
+                    terrain_rows,
+                    playthrough,
+                    criteria=criteria,
+                )
+                expected_masks = []
+                for seed in seeds:
+                    generated = generate_complete_auxiliary(seed, playthrough)
+                    actual_keys = frozenset(
+                        entry.lookup_key
+                        for group in generated.enemies.groups
+                        for entry in group.entries
+                    )
+                    mask = 0
+                    for index, group in enumerate(condition_groups):
+                        if group.intersection(actual_keys):
+                            mask |= 1 << index
+                    expected_masks.append(mask)
+                self.assertEqual(actual_masks, tuple(expected_masks))
+
     def test_class0_enemy_scratch_key_changes_native_rule_result(self) -> None:
         result = generate_complete_auxiliary(1665, 3)
         self.assertEqual(result.mode.branch_class, 0)

@@ -4,6 +4,7 @@ import hashlib
 import ctypes
 import json
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -35,6 +36,41 @@ SCROLL_GROUP_OFFSET = 0x176CCE
 # at 0x18D74E: (0x18D74E - 0x176CCE) / 0xE8 == 400 records.  Never scan beyond
 # that boundary; doing so would treat unrelated save data as scroll slots.
 SCROLL_SLOT_COUNT = 400
+
+
+def scroll_slot_is_empty(record: bytes) -> bool:
+    """Return the native free-slot state for one fixed inventory record.
+
+    Deletion clears the record type at +0x00 but can leave stale bytes in the
+    remainder of the 0xE8-byte slot. Requiring every byte to be zero therefore
+    undercounts capacity after normal in-game deletion.
+    """
+
+    if len(record) != SCROLL_RECORD_SIZE:
+        raise ValueError("scroll slot record must be exactly 0xE8 bytes")
+    return struct.unpack_from("<H", record, 0)[0] == 0
+
+
+def _clear_native_free_scroll_slot(data: bytes, record_offset: int) -> bytes:
+    """Normalize one native free slot before the strict insert helper runs.
+
+    The standalone insert helper intentionally accepts only an all-zero
+    destination.  Normal game deletion can leave stale payload bytes behind a
+    zero record type, so the save transaction clears exactly the already
+    verified free slot before replacing the complete 0xE8-byte record.
+    """
+
+    end = record_offset + SCROLL_RECORD_SIZE
+    if record_offset < 0 or end > len(data):
+        raise ValueError("scroll slot lies outside the save")
+    existing = data[record_offset:end]
+    if not scroll_slot_is_empty(existing):
+        raise RuntimeError("目标绘卷栏位已占用，已拒绝写入")
+    if not any(existing):
+        return data
+    cleared = bytearray(data)
+    cleared[record_offset:end] = bytes(SCROLL_RECORD_SIZE)
+    return bytes(cleared)
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,12 +185,39 @@ def create_backup_directory(state_root: Path) -> Path:
     raise RuntimeError("同一秒内创建的备份过多，无法分配安全目录")
 
 
+SAVE_SLOT_DIRECTORY_PATTERN = re.compile(r"^SAVEDATA(?P<index>\d{2})$")
+
+
+def save_slot_index_from_path(path: Path) -> int:
+    """Return the zero-based in-game character-save slot for one save path."""
+
+    match = SAVE_SLOT_DIRECTORY_PATTERN.fullmatch(path.parent.name)
+    if match is None:
+        raise ValueError("无法从存档路径识别游戏存档栏位")
+    return int(match.group("index"), 10)
+
+
 def discover_save_paths() -> list[Path]:
     local_app_data = Path(os.environ.get("LOCALAPPDATA", ""))
     root = local_app_data / "KoeiTecmo" / "NIOH3" / "Savedata"
     if not root.is_dir():
         return []
-    return sorted(root.glob("*/SAVEDATA00/SAVEDATA.BIN"))
+    discovered: list[Path] = []
+    for candidate in root.glob("*/SAVEDATA??/SAVEDATA.BIN"):
+        try:
+            save_slot_index_from_path(candidate)
+            int(candidate.parents[1].name)
+        except (ValueError, IndexError):
+            continue
+        if candidate.is_file():
+            discovered.append(candidate)
+    return sorted(
+        discovered,
+        key=lambda path: (
+            int(path.parents[1].name),
+            save_slot_index_from_path(path),
+        ),
+    )
 
 
 def account_id_from_save_path(path: Path) -> int:
@@ -257,7 +320,7 @@ class SaveInventory:
         for slot_index in range(SCROLL_SLOT_COUNT):
             record_offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
             record = self.decrypted[record_offset:record_offset + SCROLL_RECORD_SIZE]
-            if not any(record):
+            if scroll_slot_is_empty(record):
                 continue
             record_type = struct.unpack_from("<H", record, 0)[0]
             playthrough = TYPE_TO_CATEGORY.get(record_type)
@@ -320,7 +383,7 @@ class SaveInventory:
             record = decrypted[offset:offset + SCROLL_RECORD_SIZE]
             if len(record) != SCROLL_RECORD_SIZE:
                 raise ValueError("该存档版本中的绘卷区域与 v2.00.02 不匹配")
-            if not any(record):
+            if scroll_slot_is_empty(record):
                 empty_slots.append(index)
                 continue
             occupied_slots.append(index)
@@ -382,9 +445,16 @@ class SaveInventory:
                 write_account_id(rebound, account_id)
                 selected = bytes(rebound)
             template_records.append((record_type, selected))
-        next_slot_index = max(occupied_slots) + 1 if occupied_slots else 0
-        if next_slot_index >= SCROLL_SLOT_COUNT:
-            next_slot_index = None
+        # Prefer the first all-zero slot after the current tail, matching the
+        # game's append behavior.  If a deletion left a hole before the tail,
+        # or a malformed/non-scroll record occupies the last physical slot,
+        # reuse the first all-zero hole instead of incorrectly reporting that
+        # the 400-slot inventory is full.
+        occupied_tail = max(occupied_slots) if occupied_slots else -1
+        next_slot_index = next(
+            (index for index in empty_slots if index > occupied_tail),
+            empty_slots[0] if empty_slots else None,
+        )
         return cls(
             save_path=save_path,
             decrypted=decrypted,
@@ -413,7 +483,7 @@ def next_generation_serial(inventory: SaveInventory) -> int:
     for slot_index in range(SCROLL_SLOT_COUNT):
         offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
         record = inventory.decrypted[offset:offset + SCROLL_RECORD_SIZE]
-        if not any(record):
+        if scroll_slot_is_empty(record):
             continue
         record_type = struct.unpack_from("<H", record, 0)[0]
         if TYPE_TO_CATEGORY.get(record_type, 0) > 0:
@@ -1011,18 +1081,19 @@ class SaveInstaller:
             inventory = SaveInventory.load(self.save_path, decrypted_path.read_bytes())
             first_slot = inventory.next_slot_index
             if first_slot is None:
-                raise RuntimeError("绘卷栏位已满，无法添加实验记录")
+                raise RuntimeError("400 个绘卷栏位均已占用，无法添加实验记录")
             slot_indices = tuple(range(first_slot, first_slot + len(records)))
             if slot_indices[-1] >= SCROLL_SLOT_COUNT:
                 raise RuntimeError("没有足够的连续栏位添加全部实验记录")
             if any(index not in inventory.empty_slots for index in slot_indices):
-                raise RuntimeError("目标连续栏位中存在非全零记录，已拒绝写入")
+                raise RuntimeError("目标连续栏位中存在已占用记录，已拒绝写入")
 
             edited = inventory.decrypted
             insert_reports: list[dict[str, object]] = []
             record_offsets: list[int] = []
             for slot_index, record in zip(slot_indices, records, strict=True):
                 record_offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
+                edited = _clear_native_free_scroll_slot(edited, record_offset)
                 edited, insert_report = insert_scroll_record(
                     edited,
                     record_offset=record_offset,
@@ -1134,15 +1205,19 @@ class SaveInstaller:
             inventory = SaveInventory.load(self.save_path, decrypted_path.read_bytes())
             slot_index = inventory.next_slot_index
             if slot_index is None:
-                raise RuntimeError("绘卷栏位已满，无法添加到下一个栏位")
+                raise RuntimeError("400 个绘卷栏位均已占用，无法添加新绘卷")
             if slot_index not in inventory.empty_slots:
-                raise RuntimeError("下一个绘卷栏位不是全零状态，已拒绝写入")
+                raise RuntimeError("下一个绘卷栏位已占用，已拒绝写入")
             record_offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
             record = prepare_candidate_for_install(
                 candidate_record, transfer_count=transfer_count
             )
-            edited, insert_report = insert_scroll_record(
+            normalized = _clear_native_free_scroll_slot(
                 inventory.decrypted,
+                record_offset,
+            )
+            edited, insert_report = insert_scroll_record(
+                normalized,
                 record_offset=record_offset,
                 record=record,
             )

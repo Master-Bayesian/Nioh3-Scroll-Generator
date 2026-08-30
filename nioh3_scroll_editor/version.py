@@ -1,6 +1,6 @@
 """Application version and embedded release-channel configuration."""
 
-APP_VERSION = "0.5.5"
+APP_VERSION = "0.6.1"
 APP_ID = "nioh3-scroll-generator"
 APP_AUTHORS = ("MasterBayesian", "Saber_Li")
 CONTACT_QQ_GROUP = "1106302479"

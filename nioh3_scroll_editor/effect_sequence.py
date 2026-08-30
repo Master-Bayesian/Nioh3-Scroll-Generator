@@ -8,9 +8,11 @@ attempt count, and template-bound complete 0xE8 materialization.
 
 from __future__ import annotations
 
+from array import array
 from dataclasses import dataclass
 from functools import lru_cache
 import struct
+import sys
 
 from emaki_exchange import CATEGORY_TO_TYPE, EFFECT_START, EFFECT_STRIDE, SCROLL_RECORD_SIZE
 
@@ -25,8 +27,11 @@ from .grace_map import (
 )
 from .r4_finalizer_reference import Lcg32
 from .seed_accelerator import (
+    build_weighted_effect_lookup_native,
+    collect_ng3_r4_primary_pivot_seeds_native,
     generate_ng3_context_primary_effect_ids_native,
     generate_ng3_primary_effect_ids_native,
+    generate_ng3_r4_multi_context_primary_effect_ids_native,
 )
 from nioh3_seed_math import game_random_int_from_u16
 
@@ -662,6 +667,9 @@ def _default_primary_effect_lookup(
     """Map every possible native u16 lottery draw to its exact effect ID."""
 
     pool = _default_primary_pool(grace_id, promoted, record_type, playthrough)
+    native = build_weighted_effect_lookup_native(pool)
+    if native is not None:
+        return native
     total = sum(weight for _effect_id, weight in pool) & 0xFFFFFFFF
     upper_count = (total + 1) & 0xFFFFFFFF
     if upper_count == 0:
@@ -733,6 +741,9 @@ def _ng3_rarity34_primary_lookup(
     promoted: bool,
 ) -> tuple[int, ...]:
     pool = _ng3_rarity34_primary_pool(rarity, special_id, promoted)
+    native = build_weighted_effect_lookup_native(pool)
+    if native is not None:
+        return native
     total = sum(weight for _effect_id, weight in pool) & 0xFFFFFFFF
     upper_count = (total + 1) & 0xFFFFFFFF
     if upper_count == 0:
@@ -750,6 +761,79 @@ def _ng3_rarity34_primary_lookup(
                 "native rarity-3/4 primary weighted lottery had no winner"
             )
     return tuple(output)
+
+
+@lru_cache(maxsize=8)
+def _ng3_r4_multi_primary_configuration(
+    special_mapping: GraceOutputMap,
+) -> tuple[bytes, int, bytes, bytes]:
+    """Build one compact native configuration for every R4 special context."""
+
+    _validate_rarity4_stage_mapping(special_mapping)
+    special_ids = tuple(dict.fromkeys(entry.grace_id for entry in special_mapping.ranges))
+    if not special_ids or len(special_ids) > 0x100:
+        raise EffectSequenceGenerationError("R4 special context count is invalid")
+    context_indexes = {special_id: index for index, special_id in enumerate(special_ids)}
+    context_by_first_u16 = bytearray(0x10000)
+    for entry in special_mapping.ranges:
+        context_by_first_u16[entry.start : entry.end + 1] = bytes(
+            (context_indexes[entry.grace_id],)
+        ) * (entry.end - entry.start + 1)
+
+    normal_lookups = array("I")
+    promoted_lookups = array("I")
+    for special_id in special_ids:
+        normal_lookups.extend(
+            _ng3_rarity34_primary_lookup(RARITY_FINALIZABLE, special_id, False)
+        )
+        promoted_lookups.extend(
+            _ng3_rarity34_primary_lookup(RARITY_FINALIZABLE, special_id, True)
+        )
+    if normal_lookups.itemsize != 4 or promoted_lookups.itemsize != 4:
+        raise RuntimeError("native uint32 lookup arrays require four-byte elements")
+    if sys.byteorder != "little":
+        normal_lookups.byteswap()
+        promoted_lookups.byteswap()
+    return (
+        bytes(context_by_first_u16),
+        len(special_ids),
+        normal_lookups.tobytes(),
+        promoted_lookups.tobytes(),
+    )
+
+
+def collect_ng3_r4_primary_pivot_seeds(
+    values: tuple[int, ...],
+    *,
+    start_index: int,
+    stop_index: int,
+    low16_stride: int,
+    primary_effect_ids: frozenset[int],
+    special_mapping: GraceOutputMap | None = None,
+) -> tuple[tuple[int, int], ...] | None:
+    """CUDA-compact one R4 pivot chunk before Python exact replay."""
+
+    if special_mapping is None:
+        special_mapping = load_grace_output_map(rarity=RARITY_FINALIZABLE)
+    (
+        context_by_first_u16,
+        context_count,
+        normal_lookups,
+        promoted_lookups,
+    ) = _ng3_r4_multi_primary_configuration(special_mapping)
+    return collect_ng3_r4_primary_pivot_seeds_native(
+        values,
+        start_index=start_index,
+        stop_index=stop_index,
+        low16_stride=low16_stride,
+        allowed_effect_ids=primary_effect_ids,
+        context_by_first_u16=context_by_first_u16,
+        context_count=context_count,
+        normal_lookups=normal_lookups,
+        promoted_lookups=promoted_lookups,
+        promotion_success_lookup=_promotion_success_lookup(30),
+        random7_lookup=_random_int_u8_lookup(7),
+    )
 
 
 def generate_ng3_rarity34_primary_effect_ids(
@@ -777,6 +861,23 @@ def generate_ng3_rarity34_primary_effect_ids(
         if special_mapping is None:
             special_mapping = load_grace_output_map(rarity=RARITY_FINALIZABLE)
         _validate_rarity4_stage_mapping(special_mapping)
+        (
+            context_by_first_u16,
+            context_count,
+            normal_lookups,
+            promoted_lookups,
+        ) = _ng3_r4_multi_primary_configuration(special_mapping)
+        generated = generate_ng3_r4_multi_context_primary_effect_ids_native(
+            seeds,
+            context_by_first_u16=context_by_first_u16,
+            context_count=context_count,
+            normal_lookups=normal_lookups,
+            promoted_lookups=promoted_lookups,
+            promotion_success_lookup=_promotion_success_lookup(30),
+            random7_lookup=_random_int_u8_lookup(7),
+        )
+        if generated is not None:
+            return generated
         grouped = {}
         for index, seed in enumerate(seeds):
             rng = Lcg32(seed)
@@ -1594,6 +1695,7 @@ __all__ = [
     "RARITY_DIVINE",
     "derive_challenge_count_seed",
     "generate_challenge_attempt_count",
+    "collect_ng3_r4_primary_pivot_seeds",
     "generate_ng3_rarity5_effect_sequence",
     "generate_ng3_rarity5_primary_effect",
     "generate_ng3_rarity5_primary_effect_id",

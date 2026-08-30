@@ -256,11 +256,14 @@ def effective_required_secondary_ids(
     that one duplicated requirement; the remaining selected effects must still
     appear in ordinary secondary slots.
 
-    This exemption applies only to an explicit overlap between the two pools.
-    If the primary pool is empty, selecting A/B/C only on the secondary side
-    still requires all three to be actual secondaries.
+    When the primary pool is unconstrained, the user's ordinary-effect
+    selections mean "must appear in any ordinary slot".  In that mode the
+    actual primary is allowed to satisfy one selected requirement as well.
     """
-    if primary_id in primary_effect_ids and primary_id in required_secondary_ids:
+    if (
+        primary_id in required_secondary_ids
+        and (not primary_effect_ids or primary_id in primary_effect_ids)
+    ):
         return required_secondary_ids - frozenset((primary_id,))
     return required_secondary_ids
 
@@ -270,17 +273,25 @@ def candidate_matches(
     *,
     primary_effect_ids: frozenset[int],
     required_secondary_ids: frozenset[int],
+    required_secondary_id_groups: tuple[frozenset[int], ...] = (),
 ) -> bool:
     primary_id = candidate.primary.effect_id
     if primary_effect_ids and primary_id not in primary_effect_ids:
         return False
-    actual = {effect.effect_id for effect in candidate.secondaries}
+    actual_secondaries = {effect.effect_id for effect in candidate.secondaries}
     effective_required = effective_required_secondary_ids(
         primary_id=primary_id,
         primary_effect_ids=primary_effect_ids,
         required_secondary_ids=required_secondary_ids,
     )
-    return not effective_required or effective_required.issubset(actual)
+    if effective_required and not effective_required.issubset(actual_secondaries):
+        return False
+    group_slots = set(actual_secondaries)
+    if not primary_effect_ids:
+        group_slots.add(primary_id)
+    return all(
+        group.intersection(group_slots) for group in required_secondary_id_groups
+    )
 
 
 def candidate_has_expected_effect_count(candidate: ScrollCandidate, rarity: int) -> bool:

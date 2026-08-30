@@ -1,0 +1,201 @@
+{
+  "schema": "nioh3-scroll-knowledge-catalog-manifest/v1",
+  "game_version": "PC v2.00.02",
+  "catalogs": {
+    "final_effects": {
+      "path": "nioh3_scroll_editor/data/effect_names_multilingual.json",
+      "size": 2451933,
+      "sha256": "28C4779F1A6BDCF7BEF484C3F017C09D8E82135296B41BAA56479CABFD45D3C9",
+      "schema": "nioh3-effect-localization-catalog/v1",
+      "effect_count": 3609,
+      "locales": [
+        "en-US",
+        "ja-JP",
+        "zh-CN"
+      ],
+      "resolved_names": {
+        "en-US": 3604,
+        "ja-JP": 3609,
+        "zh-CN": 3609
+      },
+      "context_rule": "Final-record names are indexed by stable text ID. Rarity-4 native-stage-one slot-5 result codes are not assigned these names."
+    },
+    "auxiliary_names": {
+      "zh-CN": {
+        "path": "nioh3_scroll_editor/data/auxiliary_names/zh-CN.json",
+        "size": 422967,
+        "sha256": "D9274762DDA3891B3862872FA2F3ADA4FCE936AA519A1BA77E9569D803567F14",
+        "schema": "nioh3-scroll-auxiliary-names/v1",
+        "coverage": {
+          "terrain_rows": 238,
+          "special_rule_keys": 301,
+          "enemy_lookup_keys": 960
+        },
+        "resolved_names": {
+          "terrain": 199,
+          "special_rules": 301,
+          "enemies": 960
+        },
+        "provenance": "native_localization_pool"
+      },
+      "ja-JP": {
+        "path": "nioh3_scroll_editor/data/auxiliary_names/ja-JP.json",
+        "size": 473969,
+        "sha256": "5BBEF32A5F5C26DE930818626E1866953464D386845460441FBD343343D3BEDF",
+        "schema": "nioh3-scroll-auxiliary-names/v1",
+        "coverage": {
+          "terrain_rows": 238,
+          "special_rule_keys": 301,
+          "enemy_lookup_keys": 960
+        },
+        "resolved_names": {
+          "terrain": 199,
+          "special_rules": 300,
+          "enemies": 960
+        },
+        "provenance": "native_localization_pool"
+      },
+      "en-US": {
+        "path": "nioh3_scroll_editor/data/auxiliary_names/en-US.json",
+        "size": 437266,
+        "sha256": "849D60EB0A7BD4F1DA5ED422CE895C23F9DF5CF443F538D479B07CA1F301CC8A",
+        "schema": "nioh3-scroll-auxiliary-names/v1",
+        "coverage": {
+          "terrain_rows": 238,
+          "special_rule_keys": 301,
+          "enemy_lookup_keys": 960
+        },
+        "resolved_names": {
+          "terrain": 199,
+          "special_rules": 300,
+          "enemies": 960
+        },
+        "provenance": "native_localization_pool"
+      }
+    },
+    "enemy_roles": {
+      "schema": "nioh3-scroll-enemy-role-catalog/v1",
+      "candidate_rows": 487,
+      "role_counts": {
+        "0": 156,
+        "1": 124,
+        "2": 92,
+        "3": 31,
+        "4": 41,
+        "5": 43
+      },
+      "files": {
+        "json": {
+          "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-roles.json",
+          "size": 800227,
+          "sha256": "836899AFD9888F2242B7E7A2765E010CC75E3786B7D00AA8F0FF32D4C2212099"
+        },
+        "csv": {
+          "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-roles.csv",
+          "size": 93600,
+          "sha256": "B5FFACAC67E2586093FAD4C135CE15C4DC9ACD6599716E3463531E60CDAFFDE5"
+        },
+        "md": {
+          "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-roles.md",
+          "size": 19405,
+          "sha256": "8DCED298991AFE08496BE22EC442882F11A219D64D1D2D1E92F262284F1C0783"
+        }
+      },
+      "source_table": {
+        "path": "nioh3_scroll_editor/data/auxiliary_generation/pc_v2_00_02/resource_v3/tables/auxiliary_enemy_candidate.bin",
+        "sha256": "EFB0672B86A5F87D419D752E3B2FD75A51F5182CC1F809705C1627B0D4E9785D",
+        "row_size": 28,
+        "row_count": 487,
+        "parameter_manager_offset": "0xA80"
+      }
+    },
+    "enemy_combinations": {
+      "schema": "nioh3-scroll-enemy-combination-catalog/v1",
+      "display_entries": 142,
+      "unavailable_display_entries": 69,
+      "recovered_branch_classes": [
+        0,
+        1,
+        2
+      ],
+      "family_counts": {
+        "O": 64,
+        "A": 40,
+        "B": 37,
+        "A/B": 1
+      },
+      "files": {
+        "json": {
+          "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-combinations.json",
+          "size": 152255,
+          "sha256": "173FFBF66DECD9E6D5CC185173E34D33A1EAE478C27C144AE659AE2D1C5E9D4F"
+        },
+        "csv": {
+          "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-combinations.csv",
+          "size": 39525,
+          "sha256": "975F0FA5FB896B9BFA95C61606F82B1DF7C474D4BF0D6CA4EBE35B10DA263246"
+        },
+        "md": {
+          "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-combinations.md",
+          "size": 22581,
+          "sha256": "B30F7E5AB5BDBA8C2923F14C8583ACB2581C90DA8ED94F5AB40BAED4C3710D0E"
+        }
+      },
+      "player_guide_zh_CN": {
+        "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-combinations.zh-CN.md",
+        "size": 18698,
+        "sha256": "58411A87212A8FAF81ABCBD3993805805496ACCEE217DBCDED23E28523298C43"
+      },
+      "unavailable_file": {
+        "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-unavailable.csv",
+        "size": 7492,
+        "sha256": "783752375166AD88CE4F4E8FAB4AFBFCFDB6EDCC0674B1CB2C238AB1D45B9451"
+      },
+      "legality_boundary": {
+        "structurally_impossible": "No branch class can assign a permitted native role to every requested enemy. No Seed can satisfy the combination on this path.",
+        "structurally_compatible": "At least one branch class survives role-family checks. This does not prove that a Seed exists because playthrough, terrain, parameter gates, budgets, linked groups, and RNG still apply.",
+        "proven_legal": "Exact forward replay produced a final enemy list containing all requested enemies under the selected playthrough and terrain."
+      }
+    }
+  },
+  "machine_resources": {
+    "recommended_level_curve": {
+      "path": "nioh3_scroll_editor/data/recommended_level_curve.json",
+      "size": 1462,
+      "sha256": "70577AF01B8AE7B74189CB6090441E81D19D18A888F5E76E0AD37DC392EFF62B"
+    },
+    "effect_finalizer": {
+      "path": "nioh3_scroll_editor/data/r4_finalizer/pc_v2_00_02/resource_v1/manifest.json",
+      "size": 9724,
+      "sha256": "DA95392EB39B3050D2C27884B2E46F7F0C5BA51C819DE6094059D1EC0577CDCE"
+    },
+    "auxiliary_generation": {
+      "path": "nioh3_scroll_editor/data/auxiliary_generation/pc_v2_00_02/resource_v3/manifest.json",
+      "size": 2774,
+      "sha256": "1E4D89C1B89B4B05BF4E51973E181330ABD814C9DFC1AF730156484D8C6F7B94"
+    },
+    "grace_r4_stage_one": {
+      "path": "nioh3_scroll_editor/data/grace_output_map_e604_r4_current.json",
+      "size": 2886,
+      "sha256": "BE55FA6A9544C0D1A7439F95A9EB5E99A75D2810D891CFE5610663612D1B8708",
+      "status": "stage-one exact partition; final R4 Grace requires finalizer replay"
+    },
+    "grace_r5_research": {
+      "path": "nioh3_scroll_editor/data/grace_output_map_e604_r5_current.json",
+      "size": 1581,
+      "sha256": "8B006AA0D26E6C2D33DE249122E78473766CDB049540358A7524EE8C5385B290",
+      "status": "technically parity-backed; product hidden; legacy current filename and incomplete map capture provenance"
+    },
+    "special_rule_item_names": {
+      "path": "nioh3_scroll_editor/data/special_rule_item_names.json",
+      "size": 2542,
+      "sha256": "09C307F7665661CCD4ADA83D6F381D7BE89E38BE4A75D1D56B63C90456F5BA60"
+    }
+  },
+  "rules": {
+    "version_scoped": true,
+    "unknown_names_remain_numeric": true,
+    "stage_one_tokens_are_not_final_effect_names": true,
+    "display_name_does_not_imply_single_enemy_role": true
+  }
+}

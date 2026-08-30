@@ -37,11 +37,19 @@ from nioh3_scroll_editor.app import (
     application_title,
     collect_offline_ng3_search_batch,
     collect_offline_rarity5_search_batch,
+    copy_text_to_clipboard,
     is_cached_game_closed_effect_context,
     is_game_closed_effect_context,
+    legal_enemy_display_groups,
+    partition_grouped_selections,
+    requirement_mode_group_index,
     special_rule_variant_label,
     toggle_rule_filter_option,
     user_facing_error_message,
+)
+from nioh3_scroll_editor.auxiliary_catalog import load_auxiliary_name_catalog
+from nioh3_scroll_editor.auxiliary_generation import (
+    load_default_auxiliary_generation_tables,
 )
 from nioh3_scroll_editor.grace_map import GraceOutputMap, GraceRange, load_grace_output_map
 from nioh3_scroll_editor.native import (
@@ -106,6 +114,51 @@ def make_record(
 
 
 class BetaEditorTests(unittest.TestCase):
+    def test_grouped_selections_preserve_and_or_semantics(self) -> None:
+        mandatory, groups = partition_grouped_selections(
+            {10, 20, 30, 40},
+            {20: 2, 30: 1, 40: 2},
+        )
+        self.assertEqual(mandatory, (10,))
+        self.assertEqual(groups, (frozenset((30,)), frozenset((20, 40))))
+        self.assertEqual(requirement_mode_group_index("必含"), 0)
+        self.assertEqual(requirement_mode_group_index("任一组 3"), 3)
+
+    def test_player_enemy_options_exclude_localization_only_names(self) -> None:
+        catalog = load_auxiliary_name_catalog("zh-CN")
+        tables = load_default_auxiliary_generation_tables()
+        candidate_keys = {
+            struct.unpack_from("<I", row, 0x04)[0]
+            for row in tables.enemy_candidates.rows()
+        }
+        groups = legal_enemy_display_groups(
+            catalog.enemy_key_groups(),
+            candidate_keys,
+        )
+        self.assertEqual(len(groups), 142)
+        self.assertTrue(all(keys.issubset(candidate_keys) for keys in groups.values()))
+
+    def test_qq_group_copy_uses_non_modal_system_clipboard_path(self) -> None:
+        class FakeRoot:
+            def __init__(self) -> None:
+                self.value = "old"
+                self.updated = False
+
+            def clipboard_clear(self) -> None:
+                self.value = ""
+
+            def clipboard_append(self, value: str) -> None:
+                self.value += value
+
+            def update_idletasks(self) -> None:
+                self.updated = True
+
+        root = FakeRoot()
+        copy_text_to_clipboard(root, "  1106302479  ")
+
+        self.assertEqual(root.value, "1106302479")
+        self.assertTrue(root.updated)
+
     def test_normal_title_does_not_expose_internal_safety_mode(self) -> None:
         self.assertEqual(application_title(research_mode=False), "仁王3绘卷生成器 Beta")
         self.assertEqual(
@@ -127,6 +180,8 @@ class BetaEditorTests(unittest.TestCase):
         self.assertIn("搜索并添加可以传播的合法绘卷", FEATURE_GUIDE_TEXT)
         self.assertIn("不需要断开网络", FAQ_TEXT)
         self.assertIn("3609 项原生名称目录", FAQ_TEXT)
+        self.assertIn("它不负责设置挑战敌人等级", FAQ_TEXT)
+        self.assertIn("敌人/Boss 等级按该最终值执行", FAQ_TEXT)
 
     def test_product_ui_exposes_only_supported_rarities(self) -> None:
         self.assertEqual(PRODUCT_RARITIES, (3, 4))
@@ -530,7 +585,7 @@ class BetaEditorTests(unittest.TestCase):
             0xA73D: "体力", 0x6CE3: "不消耗使役符",
             0x6BEB: "近距离攻击精力伤害", 0xEA53: "坚忍度",
             0x512D: "精髓并存（武士）", 0x7499: "对人战术",
-            0x3E7A: "精力恢复速度", 0xB82B: "敌人精力耗尽时赋予^09~BUFF~{}^09~~",
+            0x3E7A: "精力恢复速度", 0xB82B: "敌人精力耗尽时赋予受到伤害增加",
             0xD40A: "近距离攻击的精力消耗降低", 0x6E2B: "不消耗仙药",
             0xBC51: "精华槽增加量", 0x3A8E: "武技精力伤害",
             0xCE1A: "武技伤害", 0x3F41: "属性攻击伤害降低",
@@ -546,6 +601,15 @@ class BetaEditorTests(unittest.TestCase):
         for effect_id, name in expected.items():
             with self.subTest(effect_id=f"{effect_id:#06x}"):
                 self.assertEqual(effect_name(effect_id), name)
+        searchable = {
+            effect.effect_id: effect.name
+            for effect in searchable_scroll_effect_definitions(3, 4)
+        }
+        self.assertEqual(
+            searchable[0xB82B],
+            "敌人精力耗尽时赋予受到伤害增加",
+        )
+        self.assertNotIn("BUFF", searchable[0xB82B])
 
     def test_fbee_conflict_is_resolved_from_full_ng3_records(self) -> None:
         audit_path = Path(__file__).parent / "test_fixtures" / "effect_mapping_31.json"
@@ -566,6 +630,25 @@ class BetaEditorTests(unittest.TestCase):
                 candidate,
                 primary_effect_ids=frozenset((0x47BC, 0x8613)),
                 required_secondary_ids=actual_secondaries | frozenset((0xDFF0,)),
+            )
+        )
+        self.assertTrue(
+            candidate_matches(
+                candidate,
+                primary_effect_ids=frozenset((0x47BC,)),
+                required_secondary_ids=frozenset(),
+                required_secondary_id_groups=(
+                    frozenset((0xDFF0, 0xA051)),
+                    frozenset((0x190A, 0xBABD)),
+                ),
+            )
+        )
+        self.assertFalse(
+            candidate_matches(
+                candidate,
+                primary_effect_ids=frozenset((0x47BC,)),
+                required_secondary_ids=frozenset(),
+                required_secondary_id_groups=(frozenset((0xDFF0, 0xBABD)),),
             )
         )
         self.assertFalse(
@@ -622,18 +705,32 @@ class BetaEditorTests(unittest.TestCase):
             )
         )
 
-    def test_secondary_only_selection_does_not_gain_primary_exemption(self) -> None:
-        # If A/B/C were selected only on the right, A being the actual primary
-        # must NOT satisfy the right-side A requirement.
+    def test_unconstrained_primary_allows_any_ordinary_slot(self) -> None:
+        # With no explicit primary target, A/B/C mean "appear in any ordinary
+        # slot".  The actual primary may therefore satisfy A.
         a, b, c = 0x47BC, 0x4647, 0xA051
         candidate = ScrollCandidate.from_record(
             make_record(effects=(a, b, c, 0x190A, 0x2B06, 0xB613))
         )
-        self.assertFalse(
+        self.assertTrue(
             candidate_matches(
                 candidate,
                 primary_effect_ids=frozenset(),
                 required_secondary_ids=frozenset((a, b, c)),
+            )
+        )
+
+    def test_unconstrained_primary_can_satisfy_an_any_group(self) -> None:
+        a, b = 0x47BC, 0xDFF0
+        candidate = ScrollCandidate.from_record(
+            make_record(effects=(a, 0x4647, 0xA051, 0x190A, 0x2B06, 0xB613))
+        )
+        self.assertTrue(
+            candidate_matches(
+                candidate,
+                primary_effect_ids=frozenset(),
+                required_secondary_ids=frozenset(),
+                required_secondary_id_groups=(frozenset((a, b)),),
             )
         )
 
@@ -855,6 +952,64 @@ class BetaEditorTests(unittest.TestCase):
         self.assertNotIn(2, inventory.empty_slots)
         self.assertIn(3, inventory.empty_slots)
         self.assertEqual(inventory.next_slot_index, 3)
+
+    def test_inventory_reuses_zero_hole_before_an_occupied_tail_slot(self) -> None:
+        account = TEST_ACCOUNT_ID
+        save_path = Path(f"C:/dummy/{account}/SAVEDATA00/SAVEDATA.BIN")
+        save = bytearray(USER_SAVE_SIZE)
+        save[:6] = b"RNNUSR"
+        template = make_record(account_id=account)
+        for slot_index in range(164):
+            offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
+            save[offset : offset + SCROLL_RECORD_SIZE] = template
+        # Reproduce the false-full condition: an unrelated or malformed record
+        # at the physical tail must not hide the 235 all-zero slots before it.
+        tail = SCROLL_GROUP_OFFSET + 399 * SCROLL_RECORD_SIZE
+        save[tail] = 1
+
+        inventory = SaveInventory.load(save_path, bytes(save))
+
+        self.assertEqual(len(inventory.scroll_entries()), 164)
+        self.assertEqual(len(inventory.empty_slots), 235)
+        self.assertEqual(inventory.next_slot_index, 164)
+
+    def test_inventory_treats_type_zero_stale_records_as_free_slots(self) -> None:
+        account = TEST_ACCOUNT_ID
+        save_path = Path(f"C:/dummy/{account}/SAVEDATA00/SAVEDATA.BIN")
+        save = bytearray(USER_SAVE_SIZE)
+        save[:6] = b"RNNUSR"
+        template = make_record(account_id=account)
+        for slot_index in range(164):
+            offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
+            save[offset : offset + SCROLL_RECORD_SIZE] = template
+        for slot_index in range(164, 400):
+            offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
+            # Native deletion/free state: type is zero while stale payload
+            # bytes remain. The old all-zero test falsely reported full here.
+            save[offset + 2] = 0xA5
+            save[offset + 0x20] = slot_index & 0xFF
+
+        inventory = SaveInventory.load(save_path, bytes(save))
+
+        self.assertEqual(len(inventory.scroll_entries()), 164)
+        self.assertEqual(len(inventory.empty_slots), 236)
+        self.assertEqual(inventory.next_slot_index, 164)
+
+    def test_inventory_reports_full_only_when_all_400_slots_are_nonzero(self) -> None:
+        account = TEST_ACCOUNT_ID
+        save_path = Path(f"C:/dummy/{account}/SAVEDATA00/SAVEDATA.BIN")
+        save = bytearray(USER_SAVE_SIZE)
+        save[:6] = b"RNNUSR"
+        template = make_record(account_id=account)
+        for slot_index in range(400):
+            offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
+            save[offset : offset + SCROLL_RECORD_SIZE] = template
+
+        inventory = SaveInventory.load(save_path, bytes(save))
+
+        self.assertEqual(len(inventory.scroll_entries()), 400)
+        self.assertEqual(inventory.empty_slots, ())
+        self.assertIsNone(inventory.next_slot_index)
 
     def test_transfer_count_edit_does_not_change_effects(self) -> None:
         record = make_record()
@@ -1105,7 +1260,7 @@ class BetaEditorTests(unittest.TestCase):
         self.assertEqual(entries[0].record_offset, SCROLL_GROUP_OFFSET + 2 * SCROLL_RECORD_SIZE)
         self.assertEqual(entries[0].candidate.primary.effect_id, 0x47BC)
 
-    def test_nonzero_type_zero_record_is_visible_but_never_a_scroll_template(self) -> None:
+    def test_nonzero_type_zero_record_is_a_native_free_slot(self) -> None:
         account = TEST_ACCOUNT_ID
         save_path = Path(f"C:/dummy/{account}/SAVEDATA00/SAVEDATA.BIN")
         decrypted = bytearray(USER_SAVE_SIZE)
@@ -1121,14 +1276,13 @@ class BetaEditorTests(unittest.TestCase):
         inventory = SaveInventory.load(save_path, bytes(decrypted))
         entries = inventory.scroll_entries(include_unmapped=True)
 
-        self.assertEqual(tuple(entry.slot_index for entry in entries), (0, 1))
-        self.assertEqual(entries[1].record_type, 0)
-        self.assertIsNone(entries[1].playthrough)
-        self.assertFalse(entries[1].is_mapped_scroll)
+        self.assertEqual(tuple(entry.slot_index for entry in entries), (0,))
         self.assertEqual(
             tuple(entry.slot_index for entry in inventory.scroll_entries()),
             (0,),
         )
+        self.assertIn(1, inventory.empty_slots)
+        self.assertEqual(inventory.next_slot_index, 1)
         self.assertEqual(
             tuple(record_type for record_type, _record in inventory.template_records),
             (0xE604,),
@@ -1390,6 +1544,10 @@ class BetaEditorTests(unittest.TestCase):
             decrypted[
                 SCROLL_GROUP_OFFSET:SCROLL_GROUP_OFFSET + SCROLL_RECORD_SIZE
             ] = original
+            # Match the game's deleted-slot state: type zero with stale bytes.
+            stale_free_slot = SCROLL_GROUP_OFFSET + SCROLL_RECORD_SIZE
+            decrypted[stale_free_slot + 2] = 0xA5
+            struct.pack_into("<I", decrypted, stale_free_slot + 0x20, 0xDEADBEEF)
             encrypted = b"ENC" + bytes(decrypted)
             save_path.write_bytes(encrypted)
             backup_path.write_bytes(b"game backup")

@@ -1,6 +1,27 @@
-# 仁王3绘卷生成器 Beta v0.5.5
+# 仁王3绘卷生成器 Beta v0.6.1
 
-本版本重做了组合合法性说明、R4 求解顺序、数值条件和候选比较体验。已安装 v0.5.4 的用户可以通过应用内签名更新直接升级。
+本版本把耗时最高的地形与完整敌人生成筛选迁移到原生 CUDA/C++ 批处理，并补齐通用合法性门禁、特殊规则与阴阳术中文目录。
+
+- CUDA 现在批量预筛 Seed、主词条、地形和三类完整敌人生成路径；没有 CUDA 时使用同一原生实现的 CPU 回退。
+- 用户反馈规模的 2,200,000 数学游标联合条件基准，在本机从长时间等待降至约 0.86 秒；特殊规则和完整词条仍由 CPU 精确重放，结果语义未放宽。
+- 新增 1–4 周目、2,048 个确定 Seed 的原生敌人筛选与 Python 精确生成逐项一致回归。
+- 特殊规则只展示 PC v2.00.02 当前周目有权重且可生成的原生行；三周目 301 行中展示 277 行，24 行禁用证据不会再误导用户。
+- “自动发动”补齐已知阴阳术简体中文名称；唯一仍未解析的合法 item 0x3011 会明确标注“原生编号、可生成”，不再裸显英文或 `item 0x...`。
+- 已确认“优先掉落率上升”原生表只缺志那都彦（0x4192）：它是游戏参数表本身没有对应规则行，不是 UI 丢失，软件不会伪造无解选项。
+- 新增通用特殊规则结构门禁：直接读取原生行启用状态、周目权重、冲突组、三个槽位、正负成本、剩余预算和第三槽替换规则；结构无解的任意组合会在搜索前立即拒绝，不使用按组合维护的黑名单。
+- 通过结构门禁的组合仍由通用精确求解器处理；完整 Seed 空间穷尽且交集为 0 时，界面会明确证明“不存在共同 Seed”，未检查到 100% 时不会把暂时未找到误报为无解。
+
+- 可选择同一 Steam 账户下的游戏存档 1/2/3，不再固定写入第一个角色存档。
+- 修复绘卷未满却提前报满：现在按游戏实际删除语义（记录类型为 0）识别带残留字节的空闲栏位，只有 400 个栏位全部占用时才报满。
+- 优先掉落率、自动发动等参数化特殊规则显示具体恩宠或阴阳术名称；敌人和规则的同名原生变体不再丢失。
+- 特殊规则支持多选、逐项取消、一键清空和“任意一难横行”；敌人也支持一键清空。
+- 应用数据目录可以自行选择；自动备份、缓存和更新下载会写入所选目录。
+- 推荐等级输入实时换算为游戏最终显示等级和预计 Boss 等级，并提供轻松刷取与最高挑战快捷值。v2.00.02 会把内部值限制到 156–1400，再经原生 42 节点曲线换算；1500 最终等同 1400→700。
+- 绘卷属性说明已拆清：绘卷等级对应详情页左上角 Lv. 并参与词条数值，可传播范围为 0–180；推荐等级换算后的最终值用于挑战敌人/Boss 等级。
+- 搜索结果改为逐张即时显示；高频进度会自动合并，预览最多保留 200 张，取消搜索会丢弃尚未渲染的积压事件，较慢电脑不再因消息队列失控而长时间无法响应。
+- 主界面QQ群号旁新增“复制群号”按钮；成功或失败只在按钮和状态栏反馈，不弹出需要手动关闭的窗口。
+- 小窗口下使用滚动布局，关键清空与添加按钮不再因窗口压缩而消失。
+- 快速教程改为操作优先，详细算法保留在进阶说明中。
 
 - 搜索前检查普通副词条槽位数量、原生冲突组、类别容量、未知词条和零权重上下文；无解组合立即说明原因。
 - 普通词条目录明确标注为“逐项可生成”，不再暗示任意组合都合法。找到 Seed 后才显示“完整离线重放验证”。
@@ -16,4 +37,4 @@
 
 ---
 
-This release adds structural feasibility preflight, primary OR-candidates, per-effect roll thresholds, optimized R4 filtering, stable streaming selection, sortable side-by-side candidate comparison, installed-game version gating, and updated bilingual documentation. Existing v0.5.4 installations can upgrade through the signed in-app updater.
+Version 0.6.1 moves terrain and complete enemy-path filtering into exact CUDA/C++ batches, adds generic native-table feasibility gates, filters the special-rule catalog by playthrough legality, resolves known automatic-activation item names in Simplified Chinese, and fixes false full-inventory detection for native deleted slots.

@@ -16,7 +16,7 @@ from pathlib import Path
 import shutil
 import struct
 import tempfile
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from .r4_finalizer_reference import Lcg32, f32, f32_mul, f32_sub
 from .r4_finalizer_resource import (
@@ -25,6 +25,10 @@ from .r4_finalizer_resource import (
 )
 from .r4_table_bundle import FixedStrideTable
 from .r4_table_bundle import R4FinalizerTableBundle
+from .seed_accelerator import (
+    generate_terrain_row_indices_native,
+    match_enemy_constraints_native,
+)
 
 
 AUXILIARY_MODE_SEED_MASK_LOW = 0x01E3C78F
@@ -923,6 +927,263 @@ def generate_terrain(
     )
 
 
+@lru_cache(maxsize=2)
+def _terrain_batch_configuration(
+    *,
+    verify: bool = True,
+) -> tuple[int, tuple[int, ...], int]:
+    """Return immutable native inputs for batched terrain-row generation."""
+
+    tables = load_default_auxiliary_generation_tables(verify=verify)
+    resource = load_default_r4_finalizer_resource()
+    optional_table = resource.table("optional_multiplier")
+    _, threshold_row = _find_optional_multiplier_row(
+        optional_table,
+        AUXILIARY_MODE_THRESHOLD_KEY,
+    )
+    threshold_base = struct.unpack_from("<i", threshold_row, 0x10)[0]
+    threshold_scale = struct.unpack_from("<f", threshold_row, 0x18)[0]
+    threshold = int(f32_mul(threshold_base, threshold_scale))
+    filtered_rows = tuple(
+        index
+        for index, row in enumerate(tables.terrain.rows())
+        if not (row[0x2E] & 0x02)
+    )
+    if not filtered_rows:
+        raise AuxiliaryGenerationError("native filtered terrain pool is empty")
+    for row_index, row in enumerate(tables.terrain.rows()):
+        if row[0x30] != (tables.terrain_keys_by_row[row_index] & 0xFF):
+            raise AuxiliaryGenerationError(
+                "terrain row value differs between filtered and full native pools"
+            )
+    return threshold, filtered_rows, tables.terrain.row_count
+
+
+def generate_terrain_row_indices_batch(
+    displayed_seeds: Sequence[int],
+    *,
+    tables: AuxiliaryGenerationTables | None = None,
+    resource: R4FinalizerResourceBundle | None = None,
+) -> tuple[int, ...]:
+    """Generate exact terrain row indices in a native/CUDA batch when possible."""
+
+    seeds = tuple(int(seed) & 0xFFFFFFFF for seed in displayed_seeds)
+    if not seeds:
+        return ()
+    if tables is None and resource is None:
+        threshold, filtered_rows, terrain_row_count = _terrain_batch_configuration()
+        native = generate_terrain_row_indices_native(
+            seeds,
+            mode_threshold=threshold,
+            filtered_row_indices=filtered_rows,
+            terrain_row_count=terrain_row_count,
+        )
+        if native is not None:
+            return native
+        tables = load_default_auxiliary_generation_tables()
+        resource = load_default_r4_finalizer_resource()
+    else:
+        if tables is None:
+            tables = load_default_auxiliary_generation_tables()
+        if resource is None:
+            resource = load_default_r4_finalizer_resource()
+
+    return tuple(
+        generate_terrain(
+            seed,
+            generate_auxiliary_mode(seed, resource=resource).value,
+            tables=tables,
+            resource=resource,
+        ).selected_row_index
+        for seed in seeds
+    )
+
+
+def terrain_row_matches_criteria(
+    row_index: int,
+    criteria: AuxiliarySearchCriteria,
+    *,
+    tables: AuxiliaryGenerationTables | None = None,
+) -> bool:
+    """Apply only UI-visible terrain constraints to a prefetched native row."""
+
+    if tables is None:
+        tables = load_default_auxiliary_generation_tables()
+    if not 0 <= row_index < tables.terrain.row_count:
+        raise IndexError(row_index)
+    row = tables.terrain.row(row_index)
+    display_effect_keys: list[int] = []
+    if struct.unpack_from("<H", row, 0x2C)[0] != 0:
+        display_effect_keys.append(TERRAIN_DISPLAY_CRUCIBLE_KEY)
+    value = tables.terrain_keys_by_row[row_index] & 0xFF
+    special_key = TERRAIN_DISPLAY_SPECIAL_KEYS.get(value)
+    if special_key is not None:
+        display_effect_keys.append(special_key)
+    actual = frozenset(display_effect_keys)
+    if not criteria.required_terrain_effect_keys.issubset(actual):
+        return False
+    if any(
+        not group.intersection(actual)
+        for group in criteria.required_terrain_effect_key_groups
+    ):
+        return False
+    return not criteria.terrain_row_indices or row_index in criteria.terrain_row_indices
+
+
+@lru_cache(maxsize=1)
+def _enemy_batch_configuration() -> tuple[
+    int,
+    tuple[int, int, int],
+    int,
+    int,
+    int,
+    bytes,
+    bytes,
+    bytes,
+]:
+    """Pack immutable PC v2.00.02 enemy inputs for the native matcher."""
+
+    tables = load_default_auxiliary_generation_tables()
+    resource = load_default_r4_finalizer_resource()
+    if tables.enemy_candidates is None or tables.special_context is None:
+        raise AuxiliaryGenerationError("enemy generation tables are unavailable")
+    optional = resource.table("optional_multiplier")
+    mode_threshold = _optional_multiplier_threshold(
+        optional,
+        AUXILIARY_MODE_THRESHOLD_KEY,
+    )
+    descriptor_thresholds = tuple(
+        _optional_multiplier_threshold(optional, key)
+        for key in AUXILIARY_DESCRIPTOR_THRESHOLD_KEYS
+    )
+    selector_threshold = _optional_multiplier_threshold(
+        optional,
+        AUXILIARY_DESCRIPTOR_SELECTOR_KEY,
+    )
+    role_five_threshold = _optional_multiplier_threshold(optional, 0xCEFC)
+    selector_values = frozenset(
+        row[0x19] for row in tables.enemy_candidates.rows() if row[0x19]
+    )
+    if len(selector_values) != 1:
+        raise AuxiliaryGenerationError(
+            "native enemy matcher requires one stable descriptor selector"
+        )
+    selector_value = next(iter(selector_values))
+    packed_enemy_rows = bytearray()
+    for row in tables.enemy_candidates.rows():
+        lookup_key = struct.unpack_from("<I", row, 0x04)[0]
+        packed_enemy_rows.extend(
+            struct.pack(
+                "<IfHH6B",
+                lookup_key,
+                struct.unpack_from("<f", row, 0x0C)[0],
+                struct.unpack_from("<H", row, 0x12)[0],
+                struct.unpack_from("<H", row, 0x14)[0],
+                row[0x16],
+                row[0x18],
+                row[0x19],
+                row[0x1A],
+                row[0x1B],
+                tables.enemy_param_type_by_key.get(lookup_key, 0xFF),
+            )
+        )
+    packed_terrains = b"".join(
+        struct.pack(
+            "<HHB",
+            struct.unpack_from("<H", row, 0x2C)[0],
+            struct.unpack_from("<H", row, 0x2E)[0],
+            row[0x31],
+        )
+        for row in tables.terrain.rows()
+    )
+    packed_contexts = b"".join(
+        struct.pack(
+            "<BB5f",
+            row[0x28],
+            row[0x29],
+            *struct.unpack_from("<5f", row, 0x04),
+        )
+        for row in tables.special_context.rows()
+    )
+    return (
+        mode_threshold,
+        (
+            int(descriptor_thresholds[0]),
+            int(descriptor_thresholds[1]),
+            int(descriptor_thresholds[2]),
+        ),
+        selector_threshold,
+        role_five_threshold,
+        selector_value,
+        bytes(packed_enemy_rows),
+        packed_terrains,
+        packed_contexts,
+    )
+
+
+def generate_enemy_match_masks_batch(
+    displayed_seeds: Sequence[int],
+    terrain_row_indices: Sequence[int],
+    playthrough: int,
+    *,
+    criteria: AuxiliarySearchCriteria,
+) -> tuple[int, ...]:
+    """Return one bit mask for every requested enemy condition group."""
+
+    seeds = tuple(int(seed) & 0xFFFFFFFF for seed in displayed_seeds)
+    terrain_rows = tuple(int(row) for row in terrain_row_indices)
+    if len(seeds) != len(terrain_rows):
+        raise ValueError("enemy matcher requires one terrain row per Seed")
+    groups = tuple(
+        (frozenset((key,)) for key in sorted(criteria.required_enemy_lookup_keys))
+    ) + tuple(criteria.required_enemy_lookup_key_groups)
+    if not groups:
+        return (0,) * len(seeds)
+    if not seeds:
+        return ()
+    (
+        mode_threshold,
+        descriptor_thresholds,
+        selector_threshold,
+        role_five_threshold,
+        selector_value,
+        packed_enemy_rows,
+        packed_terrains,
+        packed_contexts,
+    ) = _enemy_batch_configuration()
+    native = match_enemy_constraints_native(
+        seeds,
+        terrain_rows,
+        playthrough=playthrough,
+        mode_threshold=mode_threshold,
+        descriptor_thresholds=descriptor_thresholds,
+        selector_threshold=selector_threshold,
+        role_five_threshold=role_five_threshold,
+        selector_value=selector_value,
+        enemy_rows=packed_enemy_rows,
+        terrains=packed_terrains,
+        contexts=packed_contexts,
+        criterion_groups=groups,
+    )
+    if native is not None:
+        return native
+
+    output: list[int] = []
+    for seed in seeds:
+        auxiliary = generate_complete_auxiliary(seed, playthrough)
+        actual = frozenset(
+            entry.lookup_key
+            for group in auxiliary.enemies.groups
+            for entry in group.entries
+        )
+        mask = 0
+        for index, group in enumerate(groups):
+            if group.intersection(actual):
+                mask |= 1 << index
+        output.append(mask)
+    return tuple(output)
+
+
 def derive_enemy_seed(displayed_seed: int) -> int:
     """Reproduce the 28-bit scoped seed installed at RVA 0x10295B4..0x10295D7."""
 
@@ -1614,6 +1875,37 @@ def _rule_weight(row: bytes, playthrough: int) -> int:
     return struct.unpack_from("<H", row, 0x20 + playthrough * 2)[0]
 
 
+def legal_special_rule_keys(
+    playthrough: int,
+    *,
+    tables: AuxiliaryGenerationTables | None = None,
+) -> frozenset[int]:
+    """Return rule keys that the native generator can actually select.
+
+    The captured table includes disabled placeholders and rows whose weight is
+    zero for a given playthrough.  Those rows remain useful research evidence,
+    but exposing them in the product picker would promise an impossible result.
+    """
+
+    if not 1 <= playthrough <= 5:
+        raise ValueError("playthrough must be in 1..5")
+    if tables is None:
+        tables = load_default_auxiliary_generation_tables()
+    if tables.special_rules is None:
+        raise AuxiliaryGenerationError("special-rule table is unavailable")
+    if len(tables.special_rule_keys_by_row) != tables.special_rules.row_count:
+        raise AuxiliaryGenerationError("special-rule key index does not match row count")
+    return frozenset(
+        key
+        for key, row in zip(
+            tables.special_rule_keys_by_row,
+            tables.special_rules.rows(),
+            strict=True,
+        )
+        if (row[0x36] & 0x01) and _rule_weight(row, playthrough) > 0
+    )
+
+
 def _rule_rows_conflict(
     current: bytes,
     previous: bytes,
@@ -1896,6 +2188,7 @@ def generate_matching_auxiliary(
     caller_option: int = 0,
     tables: AuxiliaryGenerationTables | None = None,
     resource: R4FinalizerResourceBundle | None = None,
+    stage_acceptor: Callable[[str, object], bool] | None = None,
 ) -> CompleteAuxiliaryResult | None:
     """Generate auxiliary output with exact component-level early rejection.
 
@@ -1918,7 +2211,10 @@ def generate_matching_auxiliary(
         tables=tables,
         resource=resource,
     )
-    if not criteria.matches_terrain(terrain):
+    if stage_acceptor is not None:
+        if not stage_acceptor("terrain", terrain):
+            return None
+    elif not criteria.matches_terrain(terrain):
         return None
     descriptor = generate_auxiliary_descriptor_flags(
         displayed_seed,
@@ -1961,7 +2257,10 @@ def generate_matching_auxiliary(
         raise AuxiliaryGenerationError(
             f"unsupported auxiliary branch class {mode.branch_class}"
         )
-    if not criteria.matches_enemies(enemies):
+    if stage_acceptor is not None:
+        if not stage_acceptor("enemy", enemies):
+            return None
+    elif not criteria.matches_enemies(enemies):
         return None
 
     scratch_rule_keys = tuple(
@@ -1976,7 +2275,10 @@ def generate_matching_auxiliary(
         scratch_rule_keys,
         tables=tables,
     )
-    if not criteria.matches_special_rules(special_rules):
+    if stage_acceptor is not None:
+        if not stage_acceptor("rule", special_rules):
+            return None
+    elif not criteria.matches_special_rules(special_rules):
         return None
     return CompleteAuxiliaryResult(
         mode=mode,
@@ -2049,9 +2351,13 @@ __all__ = [
     "generate_class1_enemies",
     "generate_class2_enemies",
     "generate_complete_auxiliary",
+    "generate_enemy_match_masks_batch",
     "generate_matching_auxiliary",
     "generate_special_rules",
     "generate_terrain",
+    "generate_terrain_row_indices_batch",
+    "legal_special_rule_keys",
     "load_default_auxiliary_generation_tables",
     "load_enemy_parameter_gate_capture",
+    "terrain_row_matches_criteria",
 ]

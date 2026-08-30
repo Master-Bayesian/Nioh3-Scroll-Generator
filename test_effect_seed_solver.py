@@ -211,35 +211,49 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         self.assertIn(0x23E8, {effect.effect_id for effect in result.secondaries})
         self.assertEqual(result.grace.effect_id, 0x71F6)
 
-    def test_rarity3_rejects_more_than_three_required_secondaries(self) -> None:
+    def test_rarity3_unconstrained_primary_accepts_four_ordinary_effects(self) -> None:
         request = EffectSeedRequest(
             playthrough=3,
             rarity=3,
-            required_secondary_ids=frozenset((0x774F, 0x28D1, 0x4647, 0xDAC2)),
+            required_secondary_ids=frozenset((0xEA74, 0x4035, 0x9A3D, 0x2EFC)),
         )
-        with self.assertRaisesRegex(ValueError, "最多只有 3 个普通副词条槽"):
-            validate_effect_request_feasibility(request)
+        validate_effect_request_feasibility(request)
 
-    def test_rarity4_grace_reserves_the_fifth_slot(self) -> None:
+    def test_rarity4_grace_allows_one_selected_effect_to_be_primary(self) -> None:
         request = EffectSeedRequest(
             playthrough=3,
             rarity=4,
             grace_effect_id=0x71F6,
-            required_secondary_ids=frozenset((0x774F, 0x28D1, 0x4647, 0xDAC2)),
+            required_secondary_ids=frozenset((0xB613, 0x23E8, 0x34F3, 0x600F)),
         )
-        with self.assertRaisesRegex(ValueError, "最多只有 3 个普通副词条槽"):
-            validate_effect_request_feasibility(request)
+        validate_effect_request_feasibility(request)
 
-    def test_rarity4_without_grace_accepts_four_compatible_secondaries(self) -> None:
+    def test_rarity4_without_grace_accepts_five_ordinary_effects(self) -> None:
         validate_effect_request_feasibility(
             EffectSeedRequest(
                 playthrough=3,
                 rarity=4,
                 required_secondary_ids=frozenset(
-                    (0x774F, 0x28D1, 0x4647, 0xDAC2)
+                    (0xB613, 0x4647, 0xD411, 0x3F41, 0x6AAF)
                 ),
             )
         )
+
+    def test_exact_replay_unconstrained_primary_matches_any_ordinary_slot(self) -> None:
+        from nioh3_scroll_editor.effect_sequence import (
+            generate_ng3_certified_effect_sequence,
+        )
+
+        result = _verify_effect_sequence(
+            1,
+            EffectSeedRequest(
+                playthrough=3,
+                rarity=3,
+                required_secondary_ids=frozenset((0xEA74, 0x4035, 0x9A3D, 0x2EFC)),
+            ),
+            lambda seed: generate_ng3_certified_effect_sequence(seed, rarity=3),
+        )
+        self.assertIsNotNone(result)
 
     def test_rejects_native_conflict_groups_before_search(self) -> None:
         request = EffectSeedRequest(
@@ -540,6 +554,67 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         assert candidate.record is not None
         self.assertEqual(candidate.record.seed, candidate.seed)
         self.assertIn(SECONDARY, {effect.effect_id for effect in candidate.record.secondaries})
+
+    def test_secondary_any_group_accepts_one_exact_replay_member(self) -> None:
+        request = EffectSeedRequest(
+            playthrough=3,
+            rarity=5,
+            grace_effect_id=GRACE,
+            primary_effect_ids=frozenset((PRIMARY,)),
+            required_secondary_id_groups=(
+                frozenset((0xDB20, SECONDARY)),
+            ),
+        )
+        candidate = next(
+            iter_effect_seed_candidates(
+                request,
+                grace_mapping=self.grace_mapping,
+                primary_mapping=self.primary_mapping,
+                final_record_generator=make_final_record,
+                max_trials=32,
+            )
+        )
+        self.assertIsNotNone(candidate.record)
+
+    def test_secondary_any_group_rejects_replay_with_no_member(self) -> None:
+        request = EffectSeedRequest(
+            playthrough=3,
+            rarity=5,
+            grace_effect_id=GRACE,
+            primary_effect_ids=frozenset((PRIMARY,)),
+            required_secondary_id_groups=(
+                frozenset((0xDB20, 0xD40A)),
+            ),
+        )
+        candidate = next(
+            iter_effect_seed_candidates(
+                request,
+                grace_mapping=self.grace_mapping,
+                primary_mapping=self.primary_mapping,
+                final_record_generator=make_final_record,
+                max_trials=32,
+            ),
+            None,
+        )
+        self.assertIsNone(candidate)
+
+    def test_secondary_any_groups_reject_overlap_and_value_thresholds(self) -> None:
+        with self.assertRaisesRegex(ValueError, "must not overlap"):
+            EffectSeedRequest(
+                playthrough=3,
+                rarity=4,
+                required_secondary_id_groups=(
+                    frozenset((SECONDARY, 0x2B06)),
+                    frozenset((SECONDARY, 0xA051)),
+                ),
+            )
+        with self.assertRaisesRegex(ValueError, "arbitrary values"):
+            EffectSeedRequest(
+                playthrough=3,
+                rarity=4,
+                required_secondary_id_groups=(frozenset((SECONDARY, 0x2B06)),),
+                minimum_roll_percent_by_effect_id=((SECONDARY, 80),),
+            )
 
     def test_secondary_constraints_use_exact_ng3_effect_sequence(self) -> None:
         from nioh3_scroll_editor.effect_sequence import (

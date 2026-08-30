@@ -14,6 +14,7 @@ from emaki_exchange import (
 from .savegame import (
     SCROLL_GROUP_OFFSET,
     SCROLL_SLOT_COUNT,
+    scroll_slot_is_empty,
     SaveInventory,
     next_generation_serial,
 )
@@ -149,7 +150,7 @@ def _occupied_records(inventory: SaveInventory):
     for slot in range(SCROLL_SLOT_COUNT):
         start = SCROLL_GROUP_OFFSET + slot * SCROLL_RECORD_SIZE
         record = inventory.decrypted[start:start + SCROLL_RECORD_SIZE]
-        if any(record):
+        if not scroll_slot_is_empty(record):
             yield slot, record
 
 

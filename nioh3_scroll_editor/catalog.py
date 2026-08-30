@@ -121,16 +121,22 @@ def _load_multilingual_effect_names() -> dict[int, dict[str, str]]:
 
 _NATIVE_NAMES_BY_EFFECT = _load_multilingual_effect_names()
 _PREFERRED_EFFECT_LOCALE = _preferred_effect_locale()
+_CURATED_EFFECT_NAMES = {
+    effect.effect_id: effect.name for effect in BETA_EFFECTS
+}
 
 
-def _native_name_for_effect(effect_id: int) -> str | None:
+def native_effect_name(effect_id: int, locale: str | None = None) -> str | None:
+    """Return one native final-effect name for the requested locale."""
+
     names = _NATIVE_NAMES_BY_EFFECT.get(effect_id)
     if not names:
         return None
-    exact = names.get(_PREFERRED_EFFECT_LOCALE)
+    preferred_locale = _normalize_locale_tag(locale or _PREFERRED_EFFECT_LOCALE)
+    exact = names.get(preferred_locale)
     if exact:
         return exact
-    language = _PREFERRED_EFFECT_LOCALE.split("-", 1)[0]
+    language = preferred_locale.split("-", 1)[0]
     same_language = next(
         (
             name
@@ -144,12 +150,31 @@ def _native_name_for_effect(effect_id: int) -> str | None:
     return names.get("zh-CN") or names.get("en-US") or next(iter(names.values()))
 
 
+def _native_name_for_effect(effect_id: int) -> str | None:
+    return native_effect_name(effect_id)
+
+
+def _player_ready_effect_name(effect_id: int) -> str | None:
+    name = _native_name_for_effect(effect_id)
+    if not name:
+        return _CURATED_EFFECT_NAMES.get(effect_id)
+    # Native strings that contain format tokens are sentence templates, not
+    # player-ready effect names.  Their arguments live in separate parameter
+    # rows.  Never expose raw control markup such as
+    # ``^09~BUFF~{}^09~~`` in the product UI; use a verified contextual
+    # fallback when one exists and otherwise keep the effect unnamed.
+    unresolved_markers = ("{}", "~BUFF~", "~DEBUFF~", "^09", "\ufffd")
+    if any(marker in name for marker in unresolved_markers):
+        return _CURATED_EFFECT_NAMES.get(effect_id) or name
+    return name
+
+
 # Native-resolver names take precedence for final effects only. Stage-one
 # token rendering is handled separately by contextual_effect_name().
 BETA_EFFECTS = tuple(
     EffectDefinition(
         effect.effect_id,
-        _native_name_for_effect(effect.effect_id) or effect.name,
+        _player_ready_effect_name(effect.effect_id) or effect.name,
     )
     for effect in BETA_EFFECTS
 )
@@ -342,7 +367,7 @@ def searchable_scroll_effect_definitions(
         reachable.append(
             EffectDefinition(
                 native_effect.effect_id,
-                _native_name_for_effect(native_effect.effect_id) or "未知词条",
+                _player_ready_effect_name(native_effect.effect_id) or "未知词条",
             )
         )
     return tuple(sorted(reachable, key=lambda item: (item.name.casefold(), item.effect_id)))

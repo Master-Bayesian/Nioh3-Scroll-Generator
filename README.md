@@ -26,7 +26,7 @@
 - 自动发现 Steam 存档，不在界面或报告中写死用户目录。
 - 新增、修改、删除和恢复前自动备份；写档采用源文件哈希门禁、校验和修复、加密回读验证。
 - 自动备份浏览、恢复、移入 Windows 回收站，以及打开备份/存档目录。
-- 可选 CUDA Seed 加速；没有兼容 NVIDIA 环境时自动回退到 CPU。
+- CUDA 批量预筛 Seed、主词条、地形和完整敌人路径；没有兼容 NVIDIA 环境时自动回退到同一原生实现的 CPU 路径。特殊规则与完整词条仍对幸存候选执行精确重放。
 - 自动发现游戏 EXE 并验证 PC v2.00.02 文件版本；明确检测到未验证的新游戏版本时拒绝用旧离线数据生成，等待应用更新。
 - 签名自动更新已启用：仅接受官方 Ed25519 签名清单，并复核 EXE 的 SHA-256、精确大小和发布版本。
 
@@ -51,6 +51,10 @@ py -3.12 -m PyInstaller --clean --noconfirm packaging\Nioh3ScrollGenerator.spec
 ### 验收边界
 
 本地显示正常、校验和正确或离线字节一致，都不能单独证明绘卷可传播。最终传播验收仍要求第二账号通过正常联机流程实际收到 canonical 绘卷。稀有度 3、4 已完成原生 parity，但仍保留第二账号传播验收标记。由于游戏开发方已预告修复神宝绘卷传播问题，正式产品入口暂不提供稀有度 5。
+
+### 逆向知识库
+
+版本化的生成算法、Seed 求解边界、敌人 role 表、等级语义、存档与传播协议，以及三语原生编号目录统一从 [工程知识库](docs/knowledge/INDEX.md) 进入；玩家可直接查看 [敌人组合速查表](docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-combinations.md)。知识库会明确区分原生字节一致、控制流证据、实机观察、推断和未知项，旧版本结论不会静默覆盖新版本。
 
 ### 作者与联系
 
@@ -79,6 +83,11 @@ This repository contains two deliberately separated Nioh 3 workflows. The canoni
 The propagation protocol and required save fields are mapped for PC v2.00.02. Recipient-side effects are generated from the canonical item type, rarity, and random seed; visible effect slots are not transmitted. The generator therefore solves RNG constraints and reconstructs canonical game output instead of writing selected effect IDs directly. Contexts not yet reproduced offline still use the native game generator as an oracle.
 
 The acceptance test is intentionally strict: a second account must obtain the produced scroll through the normal in-game propagation path. Loading it on the edited account is only an offline validity check.
+
+Versioned reverse-engineering conclusions, Seed-solving boundaries, enemy role
+tables, level semantics, save/network formats, and trilingual native-key
+catalogs are indexed in the [engineering knowledge base](docs/knowledge/INDEX.md),
+with a direct [player enemy-combination guide](docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-combinations.md).
 
 ### Run from source
 

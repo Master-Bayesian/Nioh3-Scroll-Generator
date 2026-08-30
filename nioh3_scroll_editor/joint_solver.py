@@ -10,7 +10,7 @@ other fixed draws are checked against the same seed.
 
 from dataclasses import dataclass
 from math import gcd
-from typing import Iterable, Iterator, Sequence
+from typing import Callable, Iterable, Iterator, Sequence
 
 from nioh3_seed_math import (
     is_natural_scroll_id,
@@ -21,6 +21,7 @@ from .seed_accelerator import collect_natural_pivot_seeds
 
 
 NATIVE_ACCELERATOR_CHUNK_TRIALS = 1_000_000
+PivotSeedCollector = Callable[..., tuple[tuple[int, int], ...] | None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,6 +133,8 @@ def iter_constraint_intersection(
     max_trials: int | None = None,
     low16_stride: int = 0x9E37,
     use_native_acceleration: bool = True,
+    pivot_seed_collector: PivotSeedCollector | None = None,
+    pivot_seed_collector_chunk_trials: int = NATIVE_ACCELERATOR_CHUNK_TRIALS,
 ) -> Iterator[SeedSolution]:
     """Yield exact intersections with an O(1) resumable pivot cursor.
 
@@ -151,6 +154,8 @@ def iter_constraint_intersection(
         raise ValueError("max_trials must be positive when supplied")
     if not 1 <= low16_stride <= 0xFFFF or low16_stride % 2 == 0:
         raise ValueError("low16_stride must be an odd uint16")
+    if pivot_seed_collector_chunk_trials <= 0:
+        raise ValueError("pivot collector chunk size must be positive")
 
     pivot = choose_pivot(constraints)
     others = tuple(item for item in constraints if item is not pivot)
@@ -165,16 +170,26 @@ def iter_constraint_intersection(
         native_was_available = False
         chunk_start = first_index
         while chunk_start < stop_index:
+            chunk_trials = (
+                pivot_seed_collector_chunk_trials
+                if pivot_seed_collector is not None
+                else NATIVE_ACCELERATOR_CHUNK_TRIALS
+            )
             chunk_stop = min(
                 stop_index,
-                chunk_start + NATIVE_ACCELERATOR_CHUNK_TRIALS,
+                chunk_start + chunk_trials,
             )
-            accelerated = collect_natural_pivot_seeds(
+            collector = pivot_seed_collector or collect_natural_pivot_seeds
+            accelerated = collector(
                 values,
                 start_index=chunk_start,
                 stop_index=chunk_stop,
                 low16_stride=low16_stride,
-                draw_index=pivot.draw_index,
+                **(
+                    {"draw_index": pivot.draw_index}
+                    if pivot_seed_collector is None
+                    else {}
+                ),
             )
             if accelerated is None:
                 break

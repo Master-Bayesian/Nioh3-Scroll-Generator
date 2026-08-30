@@ -1,0 +1,6525 @@
+{
+  "schema": "nioh3-scroll-enemy-combination-catalog/v1",
+  "game_version": "PC v2.00.02",
+  "scope": {
+    "caller_option": 0,
+    "normal_ui_path": true,
+    "recovered_branch_classes": [
+      0,
+      1,
+      2
+    ],
+    "mode_row_count": 7,
+    "display_entry_count": 142,
+    "unavailable_display_entry_count": 69,
+    "native_localization_display_entry_count": 211,
+    "candidate_row_count": 487,
+    "locales": [
+      "zh-CN",
+      "ja-JP",
+      "en-US"
+    ]
+  },
+  "meaning_of_legality": {
+    "structurally_impossible": "No branch class can assign a permitted native role to every requested enemy. No Seed can satisfy the combination on this path.",
+    "structurally_compatible": "At least one branch class survives role-family checks. This does not prove that a Seed exists because playthrough, terrain, parameter gates, budgets, linked groups, and RNG still apply.",
+    "proven_legal": "Exact forward replay produced a final enemy list containing all requested enemies under the selected playthrough and terrain."
+  },
+  "family_definitions": {
+    "O": {
+      "title": "Ordinary pool O (native roles 0-3)",
+      "display_entry_count": 64,
+      "rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    "A": {
+      "title": "Dedicated pool A (native role 4)",
+      "display_entry_count": 40,
+      "rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    "B": {
+      "title": "Dedicated pool B (native role 5)",
+      "display_entry_count": 37,
+      "rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    "A/B": {
+      "title": "Dedicated pool A/B alternative (native roles 4 and 5)",
+      "display_entry_count": 1,
+      "rule": "This display name has distinct native candidates in both dedicated pools. Treat it as A in class 0 or as the one B requirement in class 1."
+    }
+  },
+  "branch_classes": {
+    "0": {
+      "approximate_natural_probability": 0.4,
+      "allowed_roles": [
+        4,
+        5
+      ],
+      "modes": [
+        "0x57",
+        "0x6F"
+      ],
+      "active_group_budgets": [
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4,
+          4
+        ]
+      ],
+      "structural_test": "Every requirement has a role in {4, 5}, no more than three requirements are selected, and no more than two are role-4-only.",
+      "notes": "All role-4/role-5 candidates cost 4, so each budget-4 group contains exactly one entry. The highest active group uses role 5 when available; lower groups choose role 4 at about 20% or role 5 at about 80% before later eligibility gates."
+    },
+    "1": {
+      "approximate_natural_probability": 0.4,
+      "ordinary_roles": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "highest_group_role": 5,
+      "maximum_requested_role5_assignments": 1,
+      "modes": [
+        "0x4C",
+        "0x7D"
+      ],
+      "active_group_budgets": [
+        [
+          3,
+          3,
+          4
+        ],
+        [
+          3,
+          3,
+          4,
+          4
+        ]
+      ],
+      "structural_test": "Assign every requirement to an ordinary role or role 5, with at most one requirement assigned to role 5."
+    },
+    "2": {
+      "approximate_natural_probability": 0.2,
+      "allowed_roles": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "modes": [
+        "0x48",
+        "0x8E",
+        "0x62"
+      ],
+      "active_group_budgets": [
+        [
+          3,
+          3,
+          4
+        ],
+        [
+          3,
+          3,
+          4,
+          4
+        ],
+        [
+          3,
+          3,
+          4,
+          4,
+          5
+        ]
+      ],
+      "structural_test": "Every requirement has at least one role in {0, 1, 2, 3}."
+    }
+  },
+  "quick_decision_table": [
+    {
+      "requirements": "O only",
+      "structural_result": "compatible",
+      "viable_classes": [
+        1,
+        2
+      ]
+    },
+    {
+      "requirements": "One to three A/B-family requirements, with at most two A-only",
+      "structural_result": "compatible",
+      "viable_classes": [
+        0
+      ],
+      "note": "A single B or A/B requirement may also fit class 1."
+    },
+    {
+      "requirements": "Three A-only requirements",
+      "structural_result": "impossible",
+      "viable_classes": []
+    },
+    {
+      "requirements": "Four or more A/B-family requirements",
+      "structural_result": "impossible",
+      "viable_classes": []
+    },
+    {
+      "requirements": "O plus exactly one B or A/B requirement",
+      "structural_result": "compatible",
+      "viable_classes": [
+        1
+      ]
+    },
+    {
+      "requirements": "O plus two or more B-assigned requirements",
+      "structural_result": "impossible",
+      "viable_classes": []
+    },
+    {
+      "requirements": "O plus any A-only requirement",
+      "structural_result": "impossible",
+      "viable_classes": []
+    }
+  ],
+  "worked_examples": [
+    {
+      "requested_names_zh_CN": [
+        "一目连",
+        "德川国松",
+        "德川庆喜"
+      ],
+      "role_choices": [
+        [
+          1
+        ],
+        [
+          5
+        ],
+        [
+          5
+        ]
+      ],
+      "viable_classes": [],
+      "result": "structurally_impossible",
+      "reason": "Class 0 excludes Ichimokuren; class 1 permits only one role-5 requirement; class 2 excludes both Tokugawa candidates."
+    }
+  ],
+  "decision_algorithm": [
+    "Resolve each selected display name to all candidate rows enabled for the chosen playthrough.",
+    "Collect the possible native roles for each requirement; never collapse a display name to one global role.",
+    "Evaluate class 0, class 1, and class 2 using the structural tests above.",
+    "If no class survives, reject the request as structurally impossible before scanning Seeds.",
+    "If a class survives, apply playthrough, terrain, descriptor, parameter, budget, linked-group, and duplicate gates.",
+    "Only an exact full forward replay that contains every requested enemy proves a Seed legal."
+  ],
+  "display_entries": [
+    {
+      "names": {
+        "zh-CN": "一反木棉",
+        "ja-JP": "一反木綿",
+        "en-US": "Flying Bolt"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000A1E6C"
+      ],
+      "candidate_rows": [
+        361
+      ],
+      "costs": [
+        1.5
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "一目连",
+        "ja-JP": "一目連",
+        "en-US": "Ichimokuren"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0006DE91"
+      ],
+      "candidate_rows": [
+        292
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "乌鸦天狗",
+        "ja-JP": "烏天狗",
+        "en-US": "Karasu Tengu"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0003D18B",
+        "0x000ED0D6"
+      ],
+      "candidate_rows": [
+        331,
+        482
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 2,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "亡骸武者",
+        "ja-JP": "骸武者",
+        "en-US": "Skeleton Warrior"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        1,
+        2
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00028204",
+        "0x0003B38C",
+        "0x0005040C",
+        "0x00056793",
+        "0x0006A2C9",
+        "0x000892BB",
+        "0x0008BC99",
+        "0x000BCC5B",
+        "0x000CB09A",
+        "0x000CD93B",
+        "0x000E3769",
+        "0x000ED6B1"
+      ],
+      "candidate_rows": [
+        310,
+        311,
+        312,
+        313,
+        314,
+        315,
+        316,
+        317,
+        318,
+        319,
+        320,
+        321
+      ],
+      "costs": [
+        1.0,
+        2.0
+      ],
+      "candidate_count": 12,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "人鱼",
+        "ja-JP": "人魚",
+        "en-US": "Mermaid"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000C18A9"
+      ],
+      "candidate_rows": [
+        280
+      ],
+      "costs": [
+        1.5
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "以津真天",
+        "ja-JP": "以津真天",
+        "en-US": "Itsumade"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00031F5A",
+        "0x00069D5B"
+      ],
+      "candidate_rows": [
+        355,
+        484
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 2,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "冰柱女",
+        "ja-JP": "つらら女",
+        "en-US": "Tsurara-onna"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0007F476"
+      ],
+      "candidate_rows": [
+        304
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "叛军浪士",
+        "ja-JP": "反乱軍浪士",
+        "en-US": "Rebel Ronin"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00006354",
+        "0x00009A4B",
+        "0x0000BBA9",
+        "0x00013234",
+        "0x00017C40",
+        "0x0001E160",
+        "0x0002298C",
+        "0x00033200",
+        "0x0004CEE0",
+        "0x0004D32A",
+        "0x0004F957",
+        "0x000562F0",
+        "0x00059ABC",
+        "0x0005F336",
+        "0x00062DB2",
+        "0x00064CE7",
+        "0x00067DD2",
+        "0x00089477",
+        "0x00089E82",
+        "0x0008CB62",
+        "0x0008F61C",
+        "0x00097017",
+        "0x000A2213",
+        "0x000AA721",
+        "0x000AC4C4",
+        "0x000B2BEA",
+        "0x000BFCD8",
+        "0x000C2B8E",
+        "0x000CC558",
+        "0x000D2EDC",
+        "0x000DEB5D",
+        "0x000EEC01"
+      ],
+      "candidate_rows": [
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110,
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        117,
+        118
+      ],
+      "costs": [
+        1.0,
+        2.0
+      ],
+      "candidate_count": 32,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "古笼火",
+        "ja-JP": "古籠火",
+        "en-US": "Koroka"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0006C300",
+        "0x0008BC34"
+      ],
+      "candidate_rows": [
+        359,
+        485
+      ],
+      "costs": [
+        1.5
+      ],
+      "candidate_count": 2,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "地狱蜂",
+        "ja-JP": "地獄蜂",
+        "en-US": "Crucible Wasp"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00041F70",
+        "0x00053CC1",
+        "0x000D6D7F"
+      ],
+      "candidate_rows": [
+        277,
+        278,
+        279
+      ],
+      "costs": [
+        1.0
+      ],
+      "candidate_count": 3,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "垢尝",
+        "ja-JP": "垢嘗",
+        "en-US": "Akaname"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00056F1F"
+      ],
+      "candidate_rows": [
+        303
+      ],
+      "costs": [
+        1.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "外道兵",
+        "ja-JP": "外道兵",
+        "en-US": "Aberrant Soldier"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        2
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000087F5",
+        "0x0002C560",
+        "0x0002DF3B",
+        "0x0002E19A",
+        "0x0004A551",
+        "0x0004A640",
+        "0x0005410A",
+        "0x00054F6F",
+        "0x00068029",
+        "0x0006AD14",
+        "0x0007BD90",
+        "0x000AE8E8",
+        "0x000BD464",
+        "0x000C05A4",
+        "0x000D61F1",
+        "0x000DE7CB",
+        "0x000E0650",
+        "0x000F3526"
+      ],
+      "candidate_rows": [
+        370,
+        371,
+        372,
+        373,
+        374,
+        375,
+        376,
+        377,
+        378,
+        379,
+        380,
+        381,
+        382,
+        383,
+        384,
+        385,
+        386,
+        387
+      ],
+      "costs": [
+        1.5
+      ],
+      "candidate_count": 18,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "夜叉",
+        "ja-JP": "夜叉",
+        "en-US": "Yasha"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00088F10"
+      ],
+      "candidate_rows": [
+        369
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "夜行兵",
+        "ja-JP": "夜行兵",
+        "en-US": "Yagyo Soldier"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0002D571",
+        "0x0003EFC9",
+        "0x000545A1",
+        "0x000ACB89"
+      ],
+      "candidate_rows": [
+        271,
+        272,
+        273,
+        480
+      ],
+      "costs": [
+        2.0,
+        3.0
+      ],
+      "candidate_count": 4,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "妖蟹",
+        "ja-JP": "化け蟹",
+        "en-US": "Bakegani"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00001AB5",
+        "0x000061EB",
+        "0x0000CB88",
+        "0x0003B1B8",
+        "0x0004CF03",
+        "0x00073BAB",
+        "0x000A8833",
+        "0x000C3FF5"
+      ],
+      "candidate_rows": [
+        335,
+        336,
+        337,
+        338,
+        339,
+        340,
+        341,
+        342
+      ],
+      "costs": [
+        1.0,
+        3.0
+      ],
+      "candidate_count": 8,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "妖鬼",
+        "ja-JP": "妖鬼",
+        "en-US": "Yoki"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0002E05C",
+        "0x000F3EB0"
+      ],
+      "candidate_rows": [
+        305,
+        306
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 2,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "姑获鸟",
+        "ja-JP": "姑獲鳥",
+        "en-US": "Ubume"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00068CA6"
+      ],
+      "candidate_rows": [
+        360
+      ],
+      "costs": [
+        2.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "子泣爷爷",
+        "ja-JP": "子泣き爺",
+        "en-US": "Konaki-Jiji"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000EE98E"
+      ],
+      "candidate_rows": [
+        356
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "小海坊主",
+        "ja-JP": "小海坊主",
+        "en-US": "Lesser Umi-bozu"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0001B70C",
+        "0x000ECDB4"
+      ],
+      "candidate_rows": [
+        329,
+        330
+      ],
+      "costs": [
+        1.5
+      ],
+      "candidate_count": 2,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "山姥",
+        "ja-JP": "山姥",
+        "en-US": "Yamanba"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000D2B55"
+      ],
+      "candidate_rows": [
+        357
+      ],
+      "costs": [
+        1.5
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "山彦",
+        "ja-JP": "やまびこ",
+        "en-US": "Yamabiko"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        2
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000481B0",
+        "0x000DEE24"
+      ],
+      "candidate_rows": [
+        274,
+        275
+      ],
+      "costs": [
+        1.5
+      ],
+      "candidate_count": 2,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "山狗",
+        "ja-JP": "山狗",
+        "en-US": "Yamainu"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000643F5"
+      ],
+      "candidate_rows": [
+        267
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "幕府兵",
+        "ja-JP": "幕府兵士",
+        "en-US": "Shogunate Soldier"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00000A49",
+        "0x0001E927",
+        "0x0002F4E8",
+        "0x0003D866",
+        "0x0004030D",
+        "0x00042335",
+        "0x000567D9",
+        "0x0006673E",
+        "0x0007B7FD",
+        "0x0007FE51",
+        "0x00084550",
+        "0x0009C127",
+        "0x000AF0CB",
+        "0x000B17EF",
+        "0x000B28B2",
+        "0x000B444D",
+        "0x000C784C",
+        "0x000CD008",
+        "0x000DEC05",
+        "0x000E4C3D",
+        "0x000E9105",
+        "0x000E937E"
+      ],
+      "candidate_rows": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37
+      ],
+      "costs": [
+        1.0,
+        2.0
+      ],
+      "candidate_count": 22,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "幽鬼",
+        "ja-JP": "幽鬼",
+        "en-US": "Grudge Spirit"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00077FDE"
+      ],
+      "candidate_rows": [
+        301
+      ],
+      "costs": [
+        0.5
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "忍者",
+        "ja-JP": "忍者",
+        "en-US": "Ninja"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00002EEE",
+        "0x000293AD",
+        "0x000376AB",
+        "0x0004D880",
+        "0x0008146A",
+        "0x0009DD3B",
+        "0x000E3778",
+        "0x000E88CF"
+      ],
+      "candidate_rows": [
+        156,
+        157,
+        158,
+        159,
+        160,
+        161,
+        162,
+        163
+      ],
+      "costs": [
+        1.5
+      ],
+      "candidate_count": 8,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "忍者妖鬼",
+        "ja-JP": "忍者妖鬼",
+        "en-US": "Ninja Yoki"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1,
+        3
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0005DB6E",
+        "0x000816E0",
+        "0x00091E1A"
+      ],
+      "candidate_rows": [
+        307,
+        308,
+        309
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 3,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "撒沙婆婆",
+        "ja-JP": "砂かけ婆",
+        "en-US": "Sunakake-baba"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000AA34F"
+      ],
+      "candidate_rows": [
+        276
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "敷次郎",
+        "ja-JP": "敷次郎",
+        "en-US": "Dweller"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        1,
+        2
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00062699",
+        "0x00082783",
+        "0x000E2E6D"
+      ],
+      "candidate_rows": [
+        322,
+        323,
+        324
+      ],
+      "costs": [
+        1.0,
+        2.0
+      ],
+      "candidate_count": 3,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "新选组队士",
+        "ja-JP": "新選組隊士",
+        "en-US": "Shinsengumi Member"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0000A4C3",
+        "0x0001367D",
+        "0x00017D62",
+        "0x0001F5CD",
+        "0x000274AF",
+        "0x0002953C",
+        "0x00051150",
+        "0x0005B9BD",
+        "0x000769D2",
+        "0x00080174",
+        "0x00091E01",
+        "0x000987EF",
+        "0x000C3309",
+        "0x000F203D",
+        "0x000F281F"
+      ],
+      "candidate_rows": [
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52
+      ],
+      "costs": [
+        1.0,
+        2.0
+      ],
+      "candidate_count": 15,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "旗本武士",
+        "ja-JP": "旗本",
+        "en-US": "Vassal"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00003A9B",
+        "0x00004143",
+        "0x000062BB",
+        "0x0000971F",
+        "0x000178D1",
+        "0x00026F2B",
+        "0x00028658",
+        "0x00029202",
+        "0x00038869",
+        "0x0003B29F",
+        "0x0004D493",
+        "0x00056DC1",
+        "0x00058EF8",
+        "0x00079974",
+        "0x000968CC",
+        "0x000A4267",
+        "0x000AE324",
+        "0x000B3B92",
+        "0x000BA5BA",
+        "0x000CBA8B",
+        "0x000E2398",
+        "0x000F3DCB"
+      ],
+      "candidate_rows": [
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74
+      ],
+      "costs": [
+        1.0,
+        2.0
+      ],
+      "candidate_count": 22,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "朱盆",
+        "ja-JP": "朱の盆",
+        "en-US": "Shunobon"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        2
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000300B8",
+        "0x00053347",
+        "0x0005E52D",
+        "0x00060E01",
+        "0x00097AD6",
+        "0x000A697F",
+        "0x000DF255",
+        "0x000E0BB4"
+      ],
+      "candidate_rows": [
+        284,
+        285,
+        286,
+        287,
+        288,
+        289,
+        290,
+        291
+      ],
+      "costs": [
+        1.0
+      ],
+      "candidate_count": 8,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "棘饿鬼",
+        "ja-JP": "茨餓鬼",
+        "en-US": "Thorned Gaki"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        2
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000144D6",
+        "0x0002CD16",
+        "0x00099C30",
+        "0x000BF939"
+      ],
+      "candidate_rows": [
+        296,
+        297,
+        298,
+        299
+      ],
+      "costs": [
+        1.0,
+        1.5
+      ],
+      "candidate_count": 4,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "武田士兵",
+        "ja-JP": "武田兵士",
+        "en-US": "Takeda Soldier"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000010A6",
+        "0x0000645D",
+        "0x0000659C",
+        "0x0000ABB5",
+        "0x00014916",
+        "0x000157E8",
+        "0x00015F4F",
+        "0x00025080",
+        "0x0002ADEE",
+        "0x0004027F",
+        "0x00045389",
+        "0x00046086",
+        "0x0004CD69",
+        "0x0004E9BB",
+        "0x000538F8",
+        "0x0005A605",
+        "0x0005DEAF",
+        "0x00067405",
+        "0x00068DB9",
+        "0x00068E9D",
+        "0x0006EA62",
+        "0x00078067",
+        "0x00081C1A",
+        "0x00083666",
+        "0x00093457",
+        "0x00094B8D",
+        "0x000B1078",
+        "0x000B2C5F",
+        "0x000C1AB4",
+        "0x000CB4AC",
+        "0x000D5745",
+        "0x000E566E",
+        "0x000E69D7",
+        "0x000E9919",
+        "0x000ECE6E",
+        "0x000EF0A6",
+        "0x000F1629"
+      ],
+      "candidate_rows": [
+        194,
+        195,
+        196,
+        197,
+        198,
+        199,
+        200,
+        201,
+        202,
+        203,
+        204,
+        205,
+        206,
+        207,
+        208,
+        209,
+        210,
+        211,
+        212,
+        213,
+        214,
+        215,
+        216,
+        217,
+        218,
+        219,
+        220,
+        221,
+        222,
+        223,
+        224,
+        225,
+        226,
+        227,
+        228,
+        229,
+        230
+      ],
+      "costs": [
+        1.0,
+        2.0
+      ],
+      "candidate_count": 37,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "河童",
+        "ja-JP": "河童",
+        "en-US": "Kappa"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0002F535",
+        "0x00046F7D"
+      ],
+      "candidate_rows": [
+        471,
+        472
+      ],
+      "costs": [
+        1.5
+      ],
+      "candidate_count": 2,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "油伞妖",
+        "ja-JP": "唐傘お化け",
+        "en-US": "Karakasa Umbrella"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0000665C",
+        "0x0006B55E"
+      ],
+      "candidate_rows": [
+        362,
+        363
+      ],
+      "costs": [
+        1.5
+      ],
+      "candidate_count": 2,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "濡女",
+        "ja-JP": "濡れ女",
+        "en-US": "Nure-onna"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000D5AE8"
+      ],
+      "candidate_rows": [
+        343
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "炼金术师",
+        "ja-JP": "錬金術師",
+        "en-US": "Alchemist"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        1,
+        3
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00001806",
+        "0x0000F8CD",
+        "0x00031286",
+        "0x0005DDE9",
+        "0x0006CC44",
+        "0x000AECC1",
+        "0x000C2ED1",
+        "0x000CA99B",
+        "0x000D7523",
+        "0x000DFA7D",
+        "0x000E45F1",
+        "0x000E9611"
+      ],
+      "candidate_rows": [
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86
+      ],
+      "costs": [
+        1.0,
+        2.0
+      ],
+      "candidate_count": 12,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "狂骨",
+        "ja-JP": "狂骨",
+        "en-US": "Kyokotsu"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00083085"
+      ],
+      "candidate_rows": [
+        302
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "独眼小僧",
+        "ja-JP": "一つ目小僧",
+        "en-US": "One-eyed Imp"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00001E3E",
+        "0x00056628",
+        "0x000573CF",
+        "0x0009FA05"
+      ],
+      "candidate_rows": [
+        345,
+        346,
+        347,
+        348
+      ],
+      "costs": [
+        2.0
+      ],
+      "candidate_count": 4,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "独眼鬼",
+        "ja-JP": "一つ目鬼",
+        "en-US": "One-eyed Oni"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1,
+        3
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0003B86E",
+        "0x00075D9B"
+      ],
+      "candidate_rows": [
+        349,
+        351
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 2,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "独脚踏鞴",
+        "ja-JP": "一本だたら",
+        "en-US": "Ippon-Datara"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00006CD3",
+        "0x000561AC",
+        "0x000D1662"
+      ],
+      "candidate_rows": [
+        333,
+        334,
+        483
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 3,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "狱卒鬼",
+        "ja-JP": "獄卒鬼",
+        "en-US": "Jailer Oni"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        1,
+        2
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0001A2E6",
+        "0x000232D5",
+        "0x00026C12",
+        "0x0003CF7D",
+        "0x00099943",
+        "0x000A6DDA",
+        "0x000B77A6",
+        "0x000BC496",
+        "0x000C0618",
+        "0x000D0779",
+        "0x000E1ABA",
+        "0x000E6F42",
+        "0x000E8E25",
+        "0x000F3566"
+      ],
+      "candidate_rows": [
+        253,
+        254,
+        255,
+        256,
+        257,
+        258,
+        259,
+        260,
+        261,
+        262,
+        263,
+        264,
+        265,
+        266
+      ],
+      "costs": [
+        1.0,
+        1.5,
+        3.0
+      ],
+      "candidate_count": 14,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "猥裸",
+        "ja-JP": "わいら",
+        "en-US": "Waira"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0001C4B5"
+      ],
+      "candidate_rows": [
+        358
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "猿鬼",
+        "ja-JP": "猿鬼",
+        "en-US": "Enki"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0001AA93"
+      ],
+      "candidate_rows": [
+        344
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "盗贼",
+        "ja-JP": "賊",
+        "en-US": "Outlaw"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        2
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00015F5F",
+        "0x0002A8E0",
+        "0x00032352",
+        "0x00033599",
+        "0x0003ADE7",
+        "0x00046B29",
+        "0x000560BB",
+        "0x0009AB7E",
+        "0x000A308E",
+        "0x000B319D",
+        "0x000B3C30",
+        "0x000BD71E",
+        "0x000C1BCB",
+        "0x000D4C14",
+        "0x000D7FCB",
+        "0x000DB7A5"
+      ],
+      "candidate_rows": [
+        119,
+        120,
+        121,
+        122,
+        123,
+        124,
+        125,
+        126,
+        127,
+        128,
+        129,
+        130,
+        131,
+        132,
+        133,
+        134
+      ],
+      "costs": [
+        1.0
+      ],
+      "candidate_count": 16,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "祸津武士",
+        "ja-JP": "禍ツ武者",
+        "en-US": "Magatsu Warrior"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0006CAA5"
+      ],
+      "candidate_rows": [
+        364
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "肉瘤怪",
+        "ja-JP": "ぬっぺふほふ",
+        "en-US": "Nuppeppo"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000DCB98"
+      ],
+      "candidate_rows": [
+        368
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "蛤蟆附身",
+        "ja-JP": "蝦蟇憑き",
+        "en-US": "Gamatsuki"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000D1F46"
+      ],
+      "candidate_rows": [
+        475
+      ],
+      "costs": [
+        1.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "蜘蛛",
+        "ja-JP": "蜘蛛",
+        "en-US": "Spider"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00004388",
+        "0x000810E4",
+        "0x000BC877"
+      ],
+      "candidate_rows": [
+        365,
+        366,
+        367
+      ],
+      "costs": [
+        1.0,
+        2.0
+      ],
+      "candidate_count": 3,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "见越入道",
+        "ja-JP": "見越し入道",
+        "en-US": "Mikoshi Nyudo"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0003EC8A",
+        "0x000594DC",
+        "0x0006F167",
+        "0x00091574",
+        "0x00091A67",
+        "0x000BADDA"
+      ],
+      "candidate_rows": [
+        281,
+        282,
+        283,
+        477,
+        478,
+        479
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 6,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "赤河童",
+        "ja-JP": "赤河童",
+        "en-US": "Red Kappa"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00027DBB",
+        "0x0006314C"
+      ],
+      "candidate_rows": [
+        473,
+        474
+      ],
+      "costs": [
+        1.5
+      ],
+      "candidate_count": 2,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "轮入道",
+        "ja-JP": "輪入道",
+        "en-US": "Wheelmonk"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000705DD"
+      ],
+      "candidate_rows": [
+        332
+      ],
+      "costs": [
+        2.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "邪马台国兵",
+        "ja-JP": "邪馬台国兵士",
+        "en-US": "Yamatai Soldier"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00018153",
+        "0x00018995",
+        "0x0002B2FE",
+        "0x0002C4D2",
+        "0x00049FE8",
+        "0x00057799",
+        "0x0005D272",
+        "0x0005EFD6",
+        "0x00060C91",
+        "0x000651FC",
+        "0x00066D81",
+        "0x0006A31C",
+        "0x0007F4E0",
+        "0x0008A965",
+        "0x00096602",
+        "0x000A1235"
+      ],
+      "candidate_rows": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "costs": [
+        1.0,
+        2.0
+      ],
+      "candidate_count": 16,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "野槌",
+        "ja-JP": "野槌",
+        "en-US": "Nozuchi"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0004A66A",
+        "0x0008BE37"
+      ],
+      "candidate_rows": [
+        269,
+        270
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 2,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "野武士",
+        "ja-JP": "野武士",
+        "en-US": "Rogue"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0000BB7D",
+        "0x0000DE8C",
+        "0x0001091E",
+        "0x0001DF33",
+        "0x0002E7A5",
+        "0x00041889",
+        "0x00041BA8",
+        "0x00044443",
+        "0x0004AC17",
+        "0x0005432C",
+        "0x0006D1D2",
+        "0x00074C54",
+        "0x000751E6",
+        "0x00085AE5",
+        "0x0009742B",
+        "0x000A4F31",
+        "0x000AC522",
+        "0x000C8B29",
+        "0x000C8C02",
+        "0x000D7383",
+        "0x000F345E"
+      ],
+      "candidate_rows": [
+        135,
+        136,
+        137,
+        138,
+        139,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145,
+        146,
+        147,
+        148,
+        149,
+        150,
+        151,
+        152,
+        153,
+        154,
+        155
+      ],
+      "costs": [
+        1.0
+      ],
+      "candidate_count": 21,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "铁鼠",
+        "ja-JP": "鉄鼠",
+        "en-US": "Tesso"
+      },
+      "player_family": "O",
+      "native_roles": [
+        2
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00017C7B"
+      ],
+      "candidate_rows": [
+        388
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "镰仓武士",
+        "ja-JP": "鎌倉武士",
+        "en-US": "Kamakura Warrior"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00002551",
+        "0x00006C34",
+        "0x000244A5",
+        "0x0002BE81",
+        "0x0002EE71",
+        "0x00043B3D",
+        "0x0004B993",
+        "0x0004F412",
+        "0x0006FABC",
+        "0x000751E9",
+        "0x000772C8",
+        "0x0007D73F",
+        "0x000842C3",
+        "0x0008511D",
+        "0x0008C268",
+        "0x0009CCAF",
+        "0x000A8006",
+        "0x000C4D54",
+        "0x000CCA01",
+        "0x000CECC8",
+        "0x000D4695",
+        "0x000DCAC9"
+      ],
+      "candidate_rows": [
+        231,
+        232,
+        233,
+        234,
+        235,
+        236,
+        237,
+        238,
+        239,
+        240,
+        241,
+        242,
+        243,
+        244,
+        245,
+        246,
+        247,
+        248,
+        249,
+        250,
+        251,
+        252
+      ],
+      "costs": [
+        1.0,
+        2.0
+      ],
+      "candidate_count": 22,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "防人",
+        "ja-JP": "防人",
+        "en-US": "Sentry"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0000FCD2",
+        "0x00043182"
+      ],
+      "candidate_rows": [
+        353,
+        354
+      ],
+      "costs": [
+        2.0,
+        3.0
+      ],
+      "candidate_count": 2,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "阴阳师",
+        "ja-JP": "陰陽師",
+        "en-US": "Onmyo Mage"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        2
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00000C7F",
+        "0x0000EAEC",
+        "0x0002BF39",
+        "0x0002CB8A",
+        "0x0002DF11",
+        "0x0002EFD5",
+        "0x000301F3",
+        "0x00037137",
+        "0x0003BA6D",
+        "0x00044A5E",
+        "0x0005CB58",
+        "0x00061495",
+        "0x0006343B",
+        "0x00065C72",
+        "0x00073C48",
+        "0x00074AF0",
+        "0x0007B808",
+        "0x0007E550",
+        "0x0008C207",
+        "0x00099051",
+        "0x000A2ADA",
+        "0x000A793F",
+        "0x000B52BF",
+        "0x000CBE74",
+        "0x000D09E6",
+        "0x000D1C92",
+        "0x000D733D",
+        "0x000DBBF9",
+        "0x000E4A28",
+        "0x000E9039"
+      ],
+      "candidate_rows": [
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175,
+        176,
+        177,
+        178,
+        179,
+        180,
+        181,
+        182,
+        183,
+        184,
+        185,
+        186,
+        187,
+        188,
+        189,
+        190,
+        191,
+        192,
+        193
+      ],
+      "costs": [
+        1.0,
+        1.5
+      ],
+      "candidate_count": 30,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "雪入道",
+        "ja-JP": "雪入道",
+        "en-US": "Snowclops"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1,
+        3
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0003063C",
+        "0x000D4C73"
+      ],
+      "candidate_rows": [
+        350,
+        352
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 2,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "雷兽",
+        "ja-JP": "雷獣",
+        "en-US": "Raiju"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0005A056"
+      ],
+      "candidate_rows": [
+        268
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "饿鬼",
+        "ja-JP": "餓鬼",
+        "en-US": "Gaki"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0,
+        2
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00000F02",
+        "0x0009DB37",
+        "0x000F0DC3"
+      ],
+      "candidate_rows": [
+        293,
+        294,
+        295
+      ],
+      "costs": [
+        1.0,
+        2.0
+      ],
+      "candidate_count": 3,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "饿鬼大将",
+        "ja-JP": "餓鬼大将",
+        "en-US": "Gaki Chief"
+      },
+      "player_family": "O",
+      "native_roles": [
+        1
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0002298A",
+        "0x00081B05"
+      ],
+      "candidate_rows": [
+        300,
+        481
+      ],
+      "costs": [
+        3.0
+      ],
+      "candidate_count": 2,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "鬼火",
+        "ja-JP": "鬼火",
+        "en-US": "Oni-bi"
+      },
+      "player_family": "O",
+      "native_roles": [
+        0
+      ],
+      "viable_classes_for_single_requirement": [
+        1,
+        2
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00022F7C",
+        "0x0008D221",
+        "0x000D651D",
+        "0x000E55D2"
+      ],
+      "candidate_rows": [
+        325,
+        326,
+        327,
+        328
+      ],
+      "costs": [
+        1.0
+      ],
+      "candidate_count": 4,
+      "family_rule": "Structurally available to classes 1 and 2. It can coexist with other O requirements, or with at most one requirement assigned to B in class 1."
+    },
+    {
+      "names": {
+        "zh-CN": "中根正盛",
+        "ja-JP": "中根正盛",
+        "en-US": "Nakane Masamori"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000BB2B0"
+      ],
+      "candidate_rows": [
+        434
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "丸桥忠弥",
+        "ja-JP": "丸橋忠弥",
+        "en-US": "Marubashi Chuya"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0005D299"
+      ],
+      "candidate_rows": [
+        427
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "亲鸾",
+        "ja-JP": "親鸞",
+        "en-US": "Shinran"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000C36C2"
+      ],
+      "candidate_rows": [
+        407
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "伊东一刀斋",
+        "ja-JP": "伊東一刀斎",
+        "en-US": "Ito Ittosai"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0007D28D"
+      ],
+      "candidate_rows": [
+        398
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "传林坊赖庆",
+        "ja-JP": "伝林坊頼慶",
+        "en-US": "Denrinbo Raikei"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000ED856"
+      ],
+      "candidate_rows": [
+        435
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "内藤昌丰",
+        "ja-JP": "内藤昌豊",
+        "en-US": "Naito Masatoyo"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0007A8F3"
+      ],
+      "candidate_rows": [
+        412
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "前田光高",
+        "ja-JP": "前田光高",
+        "en-US": "Maeda Mitsutaka"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0000FD3A"
+      ],
+      "candidate_rows": [
+        432
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "千眼方术士",
+        "ja-JP": "千眼の方術士",
+        "en-US": "All-Seeing Mage"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00018A22"
+      ],
+      "candidate_rows": [
+        440
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "土方岁三",
+        "ja-JP": "土方歳三",
+        "en-US": "Hijikata Toshizo"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000367F5"
+      ],
+      "candidate_rows": [
+        414
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "太原雪斋",
+        "ja-JP": "太原雪斎",
+        "en-US": "Taigen Sessai"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00030852"
+      ],
+      "candidate_rows": [
+        400
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "山田真龙轩",
+        "ja-JP": "山田真龍軒",
+        "en-US": "Yamada Shinryuken"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00095C9D"
+      ],
+      "candidate_rows": [
+        430
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "巴御前",
+        "ja-JP": "巴御前",
+        "en-US": "Tomoe Gozen"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0008F3DB"
+      ],
+      "candidate_rows": [
+        405
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "异想的贝伦加莉亚",
+        "ja-JP": "奇想のベレンゲラ",
+        "en-US": "Berenguela the Whimsical"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0003C00F"
+      ],
+      "candidate_rows": [
+        437
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "怨嗟武人",
+        "ja-JP": "怨嗟の武人",
+        "en-US": "Aggrieved Warrior"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0002E4BB"
+      ],
+      "candidate_rows": [
+        413
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "斋藤一",
+        "ja-JP": "斎藤一",
+        "en-US": "Saito Hajime"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000B6202"
+      ],
+      "candidate_rows": [
+        416
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "斩鬼武士",
+        "ja-JP": "鬼斬りの武者",
+        "en-US": "Demon Slayer"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0008A628"
+      ],
+      "candidate_rows": [
+        406
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "新选组·服部武雄",
+        "ja-JP": "新選組・服部武雄",
+        "en-US": "Shinsengumi Member Hattori Takeo"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0003AA61"
+      ],
+      "candidate_rows": [
+        441
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "杉谷善住坊",
+        "ja-JP": "杉谷善住坊",
+        "en-US": "Sugitani Zenjubo"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0004E7C0"
+      ],
+      "candidate_rows": [
+        399
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "毛利玄达",
+        "ja-JP": "毛利玄達",
+        "en-US": "Mori Gentatsu"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00098E97"
+      ],
+      "candidate_rows": [
+        431
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "永仓新八",
+        "ja-JP": "永倉新八",
+        "en-US": "Nagakura Shinpachi"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00096029"
+      ],
+      "candidate_rows": [
+        417
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "河原十郎兵卫",
+        "ja-JP": "河原十郎兵衛",
+        "en-US": "Kawara Jurobei"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000930FE"
+      ],
+      "candidate_rows": [
+        433
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "泽村保佑",
+        "ja-JP": "沢村保祐",
+        "en-US": "Sawamura Yasusuke"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000A797A"
+      ],
+      "candidate_rows": [
+        402
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "灵窟修验者",
+        "ja-JP": "霊窟の修験者",
+        "en-US": "Cavern Ascetic"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000CED7D"
+      ],
+      "candidate_rows": [
+        423
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "炼造武士",
+        "ja-JP": "錬造武者",
+        "en-US": "Fabricated Warrior"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00030EDD"
+      ],
+      "candidate_rows": [
+        476
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "熊谷直义",
+        "ja-JP": "熊谷直義",
+        "en-US": "Kumagai Naoyoshi"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00076A6F"
+      ],
+      "candidate_rows": [
+        436
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "田鹤夫人",
+        "ja-JP": "お田鶴の方",
+        "en-US": "Otazu no Kata"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000206C8"
+      ],
+      "candidate_rows": [
+        424
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "石川五右卫门",
+        "ja-JP": "石川五右衛門",
+        "en-US": "Ishikawa Goemon"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000519EE"
+      ],
+      "candidate_rows": [
+        401
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "碓井贞光",
+        "ja-JP": "碓井貞光",
+        "en-US": "Usui Sadamitsu"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00046364"
+      ],
+      "candidate_rows": [
+        425
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "穴山信君",
+        "ja-JP": "穴山信君",
+        "en-US": "Anayama Nobutada"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000EFF45"
+      ],
+      "candidate_rows": [
+        410
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "穴泽盛秀",
+        "ja-JP": "穴澤盛秀",
+        "en-US": "Anazawa Morihide"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00009553"
+      ],
+      "candidate_rows": [
+        429
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "绿影剑鬼",
+        "ja-JP": "緑影の剣鬼",
+        "en-US": "Green Shadow's Blade"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000C46FF"
+      ],
+      "candidate_rows": [
+        438
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "肉户景俊",
+        "ja-JP": "宍戸景俊",
+        "en-US": "Shishido Kagetoshi"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000EC041"
+      ],
+      "candidate_rows": [
+        404
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "荒木又右卫门",
+        "ja-JP": "荒木又右衛門",
+        "en-US": "Araki Mataemon"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0000EBDF"
+      ],
+      "candidate_rows": [
+        428
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "血烟阿银",
+        "ja-JP": "血煙お銀",
+        "en-US": "Blood-Spurting Ogin"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0004CC1C"
+      ],
+      "candidate_rows": [
+        439
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "近藤勇",
+        "ja-JP": "近藤勇",
+        "en-US": "Kondo Isami"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0001F6E5"
+      ],
+      "candidate_rows": [
+        415
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "那须与一",
+        "ja-JP": "那須与一",
+        "en-US": "Nasu no Yoichi"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00039B5F"
+      ],
+      "candidate_rows": [
+        408
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "风魔小太郎",
+        "ja-JP": "風魔小太郎",
+        "en-US": "Fuma Kotaro"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000C9D7F"
+      ],
+      "candidate_rows": [
+        397
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "高坂昌信",
+        "ja-JP": "高坂昌信",
+        "en-US": "Kosaka Masanobu"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000431DA"
+      ],
+      "candidate_rows": [
+        411
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "高岛秋帆",
+        "ja-JP": "高島秋帆",
+        "en-US": "Takashima Shuhan"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000801A9"
+      ],
+      "candidate_rows": [
+        403
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "高桥泥舟",
+        "ja-JP": "高橋泥舟",
+        "en-US": "Takahashi Deishu"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000E80BD"
+      ],
+      "candidate_rows": [
+        409
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
+        "zh-CN": "两面宿傩",
+        "ja-JP": "両面宿儺",
+        "en-US": "Ryomen Sukuna"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0006E1BC"
+      ],
+      "candidate_rows": [
+        465
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "傲岸鬼",
+        "ja-JP": "傲岸鬼",
+        "en-US": "Demon of Pride"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000C5F3E"
+      ],
+      "candidate_rows": [
+        454
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "冒疾鬼",
+        "ja-JP": "冒疾鬼",
+        "en-US": "Demon of Envy"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000BB028"
+      ],
+      "candidate_rows": [
+        455
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "冲田总司",
+        "ja-JP": "沖田総司",
+        "en-US": "Okita Soji"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000D9195"
+      ],
+      "candidate_rows": [
+        393
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "大天狗",
+        "ja-JP": "大天狗",
+        "en-US": "Great Tengu"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00041DB6"
+      ],
+      "candidate_rows": [
+        446
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "大蛤蟆",
+        "ja-JP": "大蝦蟇",
+        "en-US": "Giant Toad"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00033773"
+      ],
+      "candidate_rows": [
+        470
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "女郎蜘蛛",
+        "ja-JP": "女郎蜘蛛",
+        "en-US": "Joro-gumo"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00017AD0"
+      ],
+      "candidate_rows": [
+        466
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "山县昌景",
+        "ja-JP": "山県昌景",
+        "en-US": "Yamagata Masakage"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0004B03B",
+        "0x00092063"
+      ],
+      "candidate_rows": [
+        390,
+        444
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 2,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "德川国松",
+        "ja-JP": "徳川国松",
+        "en-US": "Tokugawa Kunimatsu"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000F1A7F"
+      ],
+      "candidate_rows": [
+        394
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "德川庆喜",
+        "ja-JP": "徳川慶喜",
+        "en-US": "Tokugawa Yoshinobu"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00041A50"
+      ],
+      "candidate_rows": [
+        451
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "怨灵鬼",
+        "ja-JP": "怨霊鬼",
+        "en-US": "Onryoki"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00040A3B"
+      ],
+      "candidate_rows": [
+        469
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "惧鬼",
+        "ja-JP": "おとろし",
+        "en-US": "Otoroshi"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0005AAF9"
+      ],
+      "candidate_rows": [
+        448
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "执心鬼",
+        "ja-JP": "執心鬼",
+        "en-US": "Demon of Obsession"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0007C995"
+      ],
+      "candidate_rows": [
+        456
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "斋藤福",
+        "ja-JP": "斎藤福",
+        "en-US": "Saito Fuku"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000A3F52"
+      ],
+      "candidate_rows": [
+        420
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "服部半藏",
+        "ja-JP": "服部半蔵",
+        "en-US": "Hattori Hanzo"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000202A7",
+        "0x000D35E1"
+      ],
+      "candidate_rows": [
+        419,
+        422
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 2,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "本多忠胜",
+        "ja-JP": "本多忠勝",
+        "en-US": "Honda Tadakatsu"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000F0361"
+      ],
+      "candidate_rows": [
+        421
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "柳生十兵卫",
+        "ja-JP": "柳生十兵衛",
+        "en-US": "Yagyu Jubei"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00064B4D"
+      ],
+      "candidate_rows": [
+        396
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "柳生宗矩",
+        "ja-JP": "柳生宗矩",
+        "en-US": "Yagyu Munenori"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000BD9D5"
+      ],
+      "candidate_rows": [
+        418
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "梶原景时",
+        "ja-JP": "梶原景時",
+        "en-US": "Kajiwara Kagetoki"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000B0DAA"
+      ],
+      "candidate_rows": [
+        391
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "武田信玄",
+        "ja-JP": "武田信玄",
+        "en-US": "Takeda Shingen"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0000A5D2",
+        "0x00071ED1"
+      ],
+      "candidate_rows": [
+        389,
+        445
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 2,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "比留呼",
+        "ja-JP": "比留呼",
+        "en-US": "Hiruko"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0004ACDF",
+        "0x00093F79",
+        "0x000B605B"
+      ],
+      "candidate_rows": [
+        395,
+        452,
+        453
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 3,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "涂佛",
+        "ja-JP": "塗仏",
+        "en-US": "Nuribotoke"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0005FEA7"
+      ],
+      "candidate_rows": [
+        450
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "源赖朝",
+        "ja-JP": "源頼朝",
+        "en-US": "Minamoto no Yoritomo"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00003EE6"
+      ],
+      "candidate_rows": [
+        447
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "火车",
+        "ja-JP": "火車",
+        "en-US": "Kasha"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000CA888"
+      ],
+      "candidate_rows": [
+        467
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "烟烟罗",
+        "ja-JP": "煙々羅",
+        "en-US": "Enenra"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000774DF"
+      ],
+      "candidate_rows": [
+        464
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "牛头鬼",
+        "ja-JP": "牛頭鬼",
+        "en-US": "Gozuki"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000A263C"
+      ],
+      "candidate_rows": [
+        461
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "由井正雪",
+        "ja-JP": "由井正雪",
+        "en-US": "Yui Shosetsu"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00068AF1"
+      ],
+      "candidate_rows": [
+        458
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "茨木童子",
+        "ja-JP": "茨木童子",
+        "en-US": "Ibaraki Doji"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000DA5FE"
+      ],
+      "candidate_rows": [
+        449
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "草薙",
+        "ja-JP": "草薙",
+        "en-US": "Kusanagi"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000A0477"
+      ],
+      "candidate_rows": [
+        457
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "蛇骨婆",
+        "ja-JP": "蛇骨婆",
+        "en-US": "Jakotsu-baba"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000E7450"
+      ],
+      "candidate_rows": [
+        442
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "血刀修罗",
+        "ja-JP": "血刀修羅",
+        "en-US": "Bloodedge Demon"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00003921"
+      ],
+      "candidate_rows": [
+        486
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "镰鼬",
+        "ja-JP": "鎌鼬",
+        "en-US": "Kamaitachi"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000C76B4"
+      ],
+      "candidate_rows": [
+        462
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "阴摩罗鬼",
+        "ja-JP": "陰摩羅鬼",
+        "en-US": "Onmoraki"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000C327F"
+      ],
+      "candidate_rows": [
+        468
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "飞缘魔",
+        "ja-JP": "飛縁魔",
+        "en-US": "Hino-enma"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000147F1"
+      ],
+      "candidate_rows": [
+        463
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "马场信春",
+        "ja-JP": "馬場信春",
+        "en-US": "Baba Nobuharu"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00075E4F"
+      ],
+      "candidate_rows": [
+        443
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "马头鬼",
+        "ja-JP": "馬頭鬼",
+        "en-US": "Mezuki"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000782F6"
+      ],
+      "candidate_rows": [
+        460
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "高杉晋作",
+        "ja-JP": "高杉晋作",
+        "en-US": "Takasugi Shinsaku"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000BE2C7"
+      ],
+      "candidate_rows": [
+        392
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "金井半兵卫",
+        "ja-JP": "金井半兵衛",
+        "en-US": "Kanai Hanbei"
+      },
+      "player_family": "A/B",
+      "native_roles": [
+        4,
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0000F9CA",
+        "0x000179F7"
+      ],
+      "candidate_rows": [
+        426,
+        459
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 2,
+      "family_rule": "This display name has distinct native candidates in both dedicated pools. Treat it as A in class 0 or as the one B requirement in class 1."
+    }
+  ],
+  "unavailable_display_entries": [
+    {
+      "names": {
+        "zh-CN": "三味长老",
+        "ja-JP": "三味長老",
+        "en-US": "Shami-choro"
+      },
+      "localization_lookup_keys": [
+        "0x000193E0",
+        "0x000CBD68"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "丛云",
+        "ja-JP": "叢雲",
+        "en-US": "Murakumo"
+      },
+      "localization_lookup_keys": [
+        "0x00032C34",
+        "0x000391C7",
+        "0x00061572",
+        "0x00071047"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "中根正照",
+        "ja-JP": "中根正照",
+        "en-US": "Nakane Masateru"
+      },
+      "localization_lookup_keys": [
+        "0x000059A2"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "井伊直虎",
+        "ja-JP": "井伊直虎",
+        "en-US": "Ii Naotora"
+      },
+      "localization_lookup_keys": [
+        "0x000ED0AE"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "凤",
+        "ja-JP": "鳳",
+        "en-US": "Ho"
+      },
+      "localization_lookup_keys": [
+        "0x00018D7E"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "凤凰",
+        "ja-JP": "鳳凰",
+        "en-US": "Ho-oh"
+      },
+      "localization_lookup_keys": [
+        "0x00093BCA",
+        "0x000CAAB1"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "凰",
+        "ja-JP": "凰",
+        "en-US": "Oh"
+      },
+      "localization_lookup_keys": [
+        "0x00065136",
+        "0x000E4337"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "刚拳外法师",
+        "ja-JP": "剛拳の外法師",
+        "en-US": "Iron-Fisted Rogue"
+      },
+      "localization_lookup_keys": [
+        "0x000BCB9B"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "刻耳柏洛斯",
+        "ja-JP": "ケルベロス",
+        "en-US": "Cerberus"
+      },
+      "localization_lookup_keys": [
+        "0x0001ADFD"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "千千古",
+        "ja-JP": "千々古",
+        "en-US": "Chijiko"
+      },
+      "localization_lookup_keys": [
+        "0x00077202",
+        "0x0008BBB0"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "卑弥呼",
+        "ja-JP": "卑弥呼",
+        "en-US": "Himiko"
+      },
+      "localization_lookup_keys": [
+        "0x000C1F31",
+        "0x000CC0BD"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "善擦",
+        "ja-JP": "すねこすり",
+        "en-US": "Scampuss"
+      },
+      "localization_lookup_keys": [
+        "0x0000F389",
+        "0x0001CAD4",
+        "0x0002C211",
+        "0x00037570",
+        "0x0004A5C9",
+        "0x0005CAAE",
+        "0x00065F34",
+        "0x00069D9E",
+        "0x00070843",
+        "0x00077796",
+        "0x00079D35",
+        "0x0007FCB2",
+        "0x00083C55",
+        "0x0008E4E7",
+        "0x00092A81",
+        "0x000A67E0",
+        "0x000BA825",
+        "0x000BFF6D",
+        "0x000CC577",
+        "0x000D0B5F",
+        "0x000E6165"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "喽啰A",
+        "ja-JP": "雑魚A",
+        "en-US": "Enemy A"
+      },
+      "localization_lookup_keys": [
+        "0x00000B0E",
+        "0x000043F5",
+        "0x00004485",
+        "0x0000E9B2",
+        "0x0000E9EE",
+        "0x00011BEE",
+        "0x000243CC",
+        "0x0002B711",
+        "0x00032A95",
+        "0x0003C3D6",
+        "0x000447FB",
+        "0x000454A7",
+        "0x0005348E",
+        "0x0005455D",
+        "0x00055ED2",
+        "0x0005C63C",
+        "0x00060648",
+        "0x000664AD",
+        "0x00066822",
+        "0x0006856E",
+        "0x0006B8DA",
+        "0x0006E39E",
+        "0x0007C533",
+        "0x0008ACF0",
+        "0x0008C2E0",
+        "0x000902AA",
+        "0x00096C9D",
+        "0x0009F258",
+        "0x000A14A1",
+        "0x000A30B4",
+        "0x000AAD98",
+        "0x000AC3A6",
+        "0x000AD80E",
+        "0x000B01D2",
+        "0x000B28A0",
+        "0x000B4473",
+        "0x000C1FC3",
+        "0x000C4EF0",
+        "0x000CB4B9",
+        "0x000D4531",
+        "0x000E1F5E",
+        "0x000E32A7"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "大冈源三郎",
+        "ja-JP": "大岡源三郎",
+        "en-US": "Ooka Genzaburo"
+      },
+      "localization_lookup_keys": [
+        "0x0003DDDF",
+        "0x000561A0"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "大太法师",
+        "ja-JP": "ダイダラボッチ",
+        "en-US": "Daidara Bocchi"
+      },
+      "localization_lookup_keys": [
+        "0x0005367E",
+        "0x00061863",
+        "0x000EBEBE"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "天眼孔雀",
+        "ja-JP": "天眼孔雀",
+        "en-US": "Tengen Kujaku"
+      },
+      "localization_lookup_keys": [
+        "0x000CA622"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "尸狂",
+        "ja-JP": "屍狂い",
+        "en-US": "Revenant"
+      },
+      "localization_lookup_keys": [
+        "0x00036585",
+        "0x0007DD0F"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "德川光圀",
+        "ja-JP": "徳川光圀",
+        "en-US": "Tokugawa Mitsukuni"
+      },
+      "localization_lookup_keys": [
+        "0x00028C12"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "德川兵",
+        "ja-JP": "徳川兵士",
+        "en-US": "Tokugawa Soldier"
+      },
+      "localization_lookup_keys": [
+        "0x00007363",
+        "0x000276B3",
+        "0x0002C002",
+        "0x0002FBA3",
+        "0x00037C8D",
+        "0x00037D5A",
+        "0x0003C3A5",
+        "0x0003D099",
+        "0x000467AC",
+        "0x0004D191",
+        "0x00057887",
+        "0x0007260A",
+        "0x0007F98F",
+        "0x00085902",
+        "0x00097791",
+        "0x0009BBE3",
+        "0x000A06DF",
+        "0x000A5F42",
+        "0x000A6984",
+        "0x000B133C",
+        "0x000C475E",
+        "0x000C8152",
+        "0x000D8409",
+        "0x000E5530",
+        "0x000EDB21",
+        "0x000F19A7"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "德川士兵",
+        "ja-JP": "徳川兵士",
+        "en-US": "Tokugawa Soldier"
+      },
+      "localization_lookup_keys": [
+        "0x00022704",
+        "0x000E5239"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "德川家康",
+        "ja-JP": "徳川家康",
+        "en-US": "Tokugawa Ieyasu"
+      },
+      "localization_lookup_keys": [
+        "0x0008707C"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "忍犬",
+        "ja-JP": "忍犬",
+        "en-US": "Ninken"
+      },
+      "localization_lookup_keys": [
+        "0x0001955D",
+        "0x000BE49F",
+        "0x000CBEA3"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "成釜狸",
+        "ja-JP": "成釜狸",
+        "en-US": "Narikama Tanuki"
+      },
+      "localization_lookup_keys": [
+        "0x0005569F"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "托马斯·哥拉巴",
+        "ja-JP": "トーマス・グラバー",
+        "en-US": "Thomas Glover"
+      },
+      "localization_lookup_keys": [
+        "0x000C9CB2"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "木灵",
+        "ja-JP": "木霊",
+        "en-US": "Kodama"
+      },
+      "localization_lookup_keys": [
+        "0x000A12F3",
+        "0x000E7421"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "松平信纲",
+        "ja-JP": "松平信綱",
+        "en-US": "Matsudaira Nobutsuna"
+      },
+      "localization_lookup_keys": [
+        "0x000B9D8E"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "松永久秀",
+        "ja-JP": "松永久秀",
+        "en-US": "Matsunaga Hisahide"
+      },
+      "localization_lookup_keys": [
+        "0x000E70F9"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "楠本稻",
+        "ja-JP": "楠本イネ",
+        "en-US": "Kusumoto Ine"
+      },
+      "localization_lookup_keys": [
+        "0x000B5AF6"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "榊原康政",
+        "ja-JP": "榊原康政",
+        "en-US": "Sakakibara Yasumasa"
+      },
+      "localization_lookup_keys": [
+        "0x0006F210"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "武士",
+        "ja-JP": "武士",
+        "en-US": "Warrior"
+      },
+      "localization_lookup_keys": [
+        "0x0003CDAD",
+        "0x000ACF61"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "泥墙",
+        "ja-JP": "ぬりかべ",
+        "en-US": "Nurikabe"
+      },
+      "localization_lookup_keys": [
+        "0x000014AE",
+        "0x000ABFA0"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "源义经",
+        "ja-JP": "源義経",
+        "en-US": "Minamoto no Yoshitsune"
+      },
+      "localization_lookup_keys": [
+        "0x00025BEB",
+        "0x0002F9FC",
+        "0x00074C70",
+        "0x000B0A83"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "潜影仁之丞",
+        "ja-JP": "影潜り仁之丞",
+        "en-US": "Jinnosuke the Shadow Slicer"
+      },
+      "localization_lookup_keys": [
+        "0x000231FB",
+        "0x000416E0"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "焰虎",
+        "ja-JP": "焔虎",
+        "en-US": "Enko"
+      },
+      "localization_lookup_keys": [
+        "0x0008E155",
+        "0x000DD6B9"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "狗宾",
+        "ja-JP": "狗賓",
+        "en-US": "Guhin"
+      },
+      "localization_lookup_keys": [
+        "0x00035908",
+        "0x000DD6F3"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "狱卒鬼（业风）",
+        "ja-JP": "獄卒鬼（業風）",
+        "en-US": "Jailer Oni (Hell Wind)"
+      },
+      "localization_lookup_keys": [
+        "0x0005D5B8"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "狱卒鬼（八寒）",
+        "ja-JP": "獄卒鬼（八寒）",
+        "en-US": "Jailer Oni (Cold Hells)"
+      },
+      "localization_lookup_keys": [
+        "0x000F2527"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "狱卒鬼（焦热）",
+        "ja-JP": "獄卒鬼（焦熱）",
+        "en-US": "Jailer Oni (Hellfire)"
+      },
+      "localization_lookup_keys": [
+        "0x0001361D"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "狱卒鬼（针山）",
+        "ja-JP": "獄卒鬼（針山）",
+        "en-US": "Jailer Oni (Needle)"
+      },
+      "localization_lookup_keys": [
+        "0x000304FC"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "猫又",
+        "ja-JP": "猫又",
+        "en-US": "Nekomata"
+      },
+      "localization_lookup_keys": [
+        "0x000EDFE5"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "玛丽亚",
+        "ja-JP": "マリア",
+        "en-US": "Maria"
+      },
+      "localization_lookup_keys": [
+        "0x00010948"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "琵琶牧牧",
+        "ja-JP": "琵琶牧々",
+        "en-US": "Biwa Boku-boku"
+      },
+      "localization_lookup_keys": [
+        "0x0000E5FA",
+        "0x0006C4A1",
+        "0x00078575",
+        "0x0008DA21",
+        "0x000A5493",
+        "0x000CC94A",
+        "0x000DCDAB"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "神秘忍者",
+        "ja-JP": "謎の忍",
+        "en-US": "Mysterious Ninja"
+      },
+      "localization_lookup_keys": [
+        "0x000CB875"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "神秘武士",
+        "ja-JP": "謎のサムライ",
+        "en-US": "Mysterious Samurai"
+      },
+      "localization_lookup_keys": [
+        "0x0001AB11"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "神鹿",
+        "ja-JP": "神鹿",
+        "en-US": "Shin-Roku"
+      },
+      "localization_lookup_keys": [
+        "0x00074C7F"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "祟枭",
+        "ja-JP": "たたりもっけ",
+        "en-US": "Tatarimokke"
+      },
+      "localization_lookup_keys": [
+        "0x00059534"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "空亡",
+        "ja-JP": "空亡",
+        "en-US": "Death Veil"
+      },
+      "localization_lookup_keys": [
+        "0x0000B9FD",
+        "0x00085134",
+        "0x000AB760",
+        "0x000AFF10",
+        "0x000DFDEA"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "红衣女子",
+        "ja-JP": "赤い衣の女性",
+        "en-US": "Red-clothed Maiden"
+      },
+      "localization_lookup_keys": [
+        "0x000B95D9"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "罗德里戈",
+        "ja-JP": "ロドリゴ",
+        "en-US": "Rodrigo"
+      },
+      "localization_lookup_keys": [
+        "0x00008019"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "胧车",
+        "ja-JP": "朧車",
+        "en-US": "Oboroguruma"
+      },
+      "localization_lookup_keys": [
+        "0x00011DD8",
+        "0x0005D627"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "蔓铠忍鬼",
+        "ja-JP": "蔓鎧の忍鬼",
+        "en-US": "Rattan-Clad Ninja Oni"
+      },
+      "localization_lookup_keys": [
+        "0x0009178F",
+        "0x000BC12A"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "藤堂平助",
+        "ja-JP": "藤堂平助",
+        "en-US": "Todo Heisuke"
+      },
+      "localization_lookup_keys": [
+        "0x00094465"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "虎御前",
+        "ja-JP": "虎御前",
+        "en-US": "Tora Gozen"
+      },
+      "localization_lookup_keys": [
+        "0x00071E11",
+        "0x000F0B85"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "西乡隆盛",
+        "ja-JP": "西郷隆盛",
+        "en-US": "Saigo Takamori"
+      },
+      "localization_lookup_keys": [
+        "0x000206B3"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "豪枪武士",
+        "ja-JP": "豪槍の侍",
+        "en-US": "Robust Spear Samurai"
+      },
+      "localization_lookup_keys": [
+        "0x0004E677",
+        "0x000E3621"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "貉",
+        "ja-JP": "ムジナ",
+        "en-US": "Mujina"
+      },
+      "localization_lookup_keys": [
+        "0x00037111",
+        "0x0008D11D",
+        "0x000AB90E"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "酒井忠次",
+        "ja-JP": "酒井忠次",
+        "en-US": "Sakai Tadatsugu"
+      },
+      "localization_lookup_keys": [
+        "0x000D9E64"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "野狗",
+        "ja-JP": "野犬",
+        "en-US": "Wild Dog"
+      },
+      "localization_lookup_keys": [
+        "0x000E1BBF"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "金刚狮子",
+        "ja-JP": "金剛獅子",
+        "en-US": "Kongojishi"
+      },
+      "localization_lookup_keys": [
+        "0x0003F452",
+        "0x000CA212",
+        "0x000D4EAD"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "金虎鲸",
+        "ja-JP": "金鯱",
+        "en-US": "Golden Shachi"
+      },
+      "localization_lookup_keys": [
+        "0x000AC351",
+        "0x000BADD7"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "静御前",
+        "ja-JP": "静御前",
+        "en-US": "Shizuka Gozen"
+      },
+      "localization_lookup_keys": [
+        "0x00019CD7"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "鞍马天狗",
+        "ja-JP": "鞍馬天狗",
+        "en-US": "Kurama Tengu"
+      },
+      "localization_lookup_keys": [
+        "0x0003E333"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "鬼火（水）",
+        "ja-JP": "鬼火（水）",
+        "en-US": "Maelstrom Oni-bi"
+      },
+      "localization_lookup_keys": [
+        "0x000A2ACB"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "鬼火（火）",
+        "ja-JP": "鬼火（火）",
+        "en-US": "Infernal Oni-bi"
+      },
+      "localization_lookup_keys": [
+        "0x000ED8E5"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "鬼火（雷）",
+        "ja-JP": "鬼火（雷）",
+        "en-US": "Thunderstorm Oni-bi"
+      },
+      "localization_lookup_keys": [
+        "0x000CEF83"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "鬼火（风）",
+        "ja-JP": "鬼火（風）",
+        "en-US": "Galestorm Oni-bi"
+      },
+      "localization_lookup_keys": [
+        "0x0003D384"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "魑魅",
+        "ja-JP": "魑魅",
+        "en-US": "Sudama"
+      },
+      "localization_lookup_keys": [
+        "0x00007B82",
+        "0x00037D60",
+        "0x000D53AF"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "龙麻吕",
+        "ja-JP": "竜麻呂",
+        "en-US": "Tatsumaro"
+      },
+      "localization_lookup_keys": [
+        "0x00029A0F",
+        "0x000AC3B0"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    },
+    {
+      "names": {
+        "zh-CN": "？？？",
+        "ja-JP": "？？？",
+        "en-US": "???"
+      },
+      "localization_lookup_keys": [
+        "0x0001A244"
+      ],
+      "availability": "not_in_native_scroll_candidate_table"
+    }
+  ],
+  "source_role_catalog": {
+    "schema": "nioh3-scroll-enemy-role-catalog/v1",
+    "candidate_table": {
+      "path": "nioh3_scroll_editor/data/auxiliary_generation/pc_v2_00_02/resource_v3/tables/auxiliary_enemy_candidate.bin",
+      "sha256": "EFB0672B86A5F87D419D752E3B2FD75A51F5182CC1F809705C1627B0D4E9785D",
+      "row_size": 28,
+      "row_count": 487,
+      "parameter_manager_offset": "0xA80"
+    },
+    "special_context_table": {
+      "path": "nioh3_scroll_editor/data/auxiliary_generation/pc_v2_00_02/resource_v3/tables/special_context.bin",
+      "sha256": "E5588CEBA9C7AFB5F251EDDD018FF7DC3CF735C78323E174249AF0432FAEB94C",
+      "row_size": 48,
+      "row_count": 7
+    }
+  }
+}

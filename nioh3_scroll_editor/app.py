@@ -28,6 +28,7 @@ from tkinter import (
     Tk,
     Toplevel,
     PhotoImage,
+    filedialog,
     messagebox,
 )
 from tkinter import ttk
@@ -40,9 +41,16 @@ from .auxiliary_generation import (
     SpecialRuleEntryResult,
     describe_special_rule,
     generate_complete_auxiliary,
+    legal_special_rule_keys,
     load_default_auxiliary_generation_tables,
 )
-from .auxiliary_feasibility import EnemyKeyRequirement, analyze_enemy_feasibility
+from .auxiliary_feasibility import (
+    EnemyKeyRequirement,
+    SpecialRuleKeyRequirement,
+    analyze_enemy_feasibility,
+    analyze_special_rule_feasibility,
+)
+from .app_settings import default_state_root, load_app_settings, save_data_root
 from .catalog import (
     EFFECT_BY_ID,
     contextual_effect_name,
@@ -61,6 +69,7 @@ from .effect_seed_solver import (
     validate_effect_request_feasibility,
 )
 from .effect_sequence import (
+    collect_ng3_r4_primary_pivot_seeds,
     generate_ng3_certified_effect_sequence,
     generate_ng3_rarity34_primary_effect_ids,
     generate_ng3_rarity5_effect_sequence,
@@ -94,6 +103,8 @@ from .primary_map import (
     load_primary_map,
     save_primary_map,
 )
+from .recommended_level import predict_recommended_level
+from .search_event_buffer import MAX_PREVIEW_CANDIDATES, SearchEventBuffer
 from .savegame import (
     BackupEntry,
     LocalEffectEdit,
@@ -106,6 +117,7 @@ from .savegame import (
     list_backup_entries,
     move_backup_to_recycle_bin,
     patch_local_scroll_record,
+    save_slot_index_from_path,
 )
 from .seed_accelerator import (
     cuda_seed_acceleration_available,
@@ -161,6 +173,13 @@ EFFECT_ROLL_FILTERS = (
     ("最高（抽取百分位 100）", 100),
 )
 EFFECT_ROLL_BY_LABEL = dict(EFFECT_ROLL_FILTERS)
+REQUIREMENT_MODE_OPTIONS = (
+    "必含",
+    "任一组 1",
+    "任一组 2",
+    "任一组 3",
+    "任一组 4",
+)
 SearchCriteria = tuple[
     frozenset[int],
     frozenset[int],
@@ -171,6 +190,7 @@ SearchCriteria = tuple[
     AuxiliarySearchCriteria,
     int | None,
     tuple[tuple[int, int], ...],
+    tuple[frozenset[int], ...],
 ]
 
 
@@ -192,6 +212,50 @@ class RuleFilterOption:
     keys: frozenset[int]
     exact: bool
     label: str
+
+
+def partition_grouped_selections(
+    selected_ids: set[int],
+    any_group_by_id: Mapping[int, int],
+) -> tuple[tuple[int, ...], tuple[frozenset[int], ...]]:
+    """Split mandatory selections from user-defined any-of groups."""
+
+    mandatory: list[int] = []
+    groups: dict[int, set[int]] = {}
+    for selected_id in sorted(selected_ids):
+        group_index = any_group_by_id.get(selected_id, 0)
+        if group_index <= 0:
+            mandatory.append(selected_id)
+            continue
+        groups.setdefault(group_index, set()).add(selected_id)
+    return (
+        tuple(mandatory),
+        tuple(frozenset(groups[index]) for index in sorted(groups)),
+    )
+
+
+def requirement_mode_group_index(label: str) -> int:
+    """Return zero for mandatory mode or the selected any-of group index."""
+
+    if label == REQUIREMENT_MODE_OPTIONS[0]:
+        return 0
+    try:
+        return int(label.rsplit(" ", 1)[1], 10)
+    except (IndexError, ValueError) as error:
+        raise ValueError(f"unknown requirement mode: {label}") from error
+
+
+def legal_enemy_display_groups(
+    enemy_groups: Mapping[str, frozenset[int]],
+    legal_lookup_keys: set[int],
+) -> dict[str, frozenset[int]]:
+    """Keep only localized identities backed by native scroll candidates."""
+
+    return {
+        name: legal_keys
+        for name, keys in enemy_groups.items()
+        if (legal_keys := frozenset(keys).intersection(legal_lookup_keys))
+    }
 
 
 def special_rule_variant_label(name: str, key: int, value_text: str) -> str:
@@ -428,6 +492,23 @@ def collect_offline_ng3_search_batch(
             intersection_progress=report_progress,
             candidate_found=emit_match,
             cancelled=cancelled,
+            pivot_seed_collector=(
+                (
+                    lambda values, start_index, stop_index, low16_stride: (
+                        collect_ng3_r4_primary_pivot_seeds(
+                            values,
+                            start_index=start_index,
+                            stop_index=stop_index,
+                            low16_stride=low16_stride,
+                            primary_effect_ids=request.primary_effect_ids,
+                            special_mapping=grace_mapping,
+                        )
+                    )
+                )
+                if request.rarity == 4 and request.primary_effect_ids
+                else None
+            ),
+            pivot_seed_collector_chunk_trials=50_000_000,
         )
         matches.extend(page.candidates)
         if page.intersection_report is not None:
@@ -465,6 +546,17 @@ def collect_offline_ng3_search_batch(
 
 def playthrough_label(playthrough: int | None) -> str:
     return PLAYTHROUGH_CURRENT_LABEL if playthrough is None else PLAYTHROUGH_LABELS[playthrough - 1]
+
+
+def copy_text_to_clipboard(root: Tk, text: str) -> None:
+    """Replace the system clipboard with one non-empty text value."""
+
+    value = text.strip()
+    if not value:
+        raise ValueError("clipboard text cannot be empty")
+    root.clipboard_clear()
+    root.clipboard_append(value)
+    root.update_idletasks()
 
 
 def is_game_closed_effect_context(criteria: SearchCriteria) -> bool:
@@ -532,10 +624,11 @@ QUICK_START_TEXT = """仁王3绘卷生成器 - 快速上手
 
 搜索合法绘卷
 1. 选择周目和稀有度。
-2. 在“搜索所有词条”中输入名称并添加目标词条。默认第一项是主词条；可把主词条候选数设为 2 或 3（任一命中），也可勾选“主词条不限”。拖动或点击上下箭头可换序，点击 × 可删除。每项右侧可选任意、≥80、≥90或最高数值。
-3. 按需选择恩宠、地形、敌人和特殊规则；不限制的项目保持“不限制”。稀有度4不限制恩宠时，结果可能保留恩宠，也可能最终没有恩宠。
-4. 点击“计算候选 Seed”。符合条件的结果会边找到边显示。
-5. 选择候选查看完整词条与数值。满意后先让游戏回到标题界面，勾选添加按钮左侧的确认框，再添加到存档。程序会自动备份。
+2. 在“搜索所有词条”中输入名称并添加目标词条。默认第一项是主词条；可把主词条候选数设为 2 或 3（任一命中）。勾选“主词条不限”后，所选普通词条只要出现在主词条或副词条任一位置即可。普通词条可设为“必含”或放进同一个“任一组”；同组命中任意一个即可。拖动或点击上下箭头可换序，点击 × 可删除。
+3. 按需选择恩宠、地形、敌人和特殊规则；敌人也可设为“必含”或“任一组”。列表只提供原生绘卷候选表中真实可生成的敌人名称。稀有度4不限制恩宠时，结果可能保留恩宠，也可能最终没有恩宠。
+4. “绘卷等级”是详情页左上角的 Lv.，并参与词条数值计算；PC v2.00.02 的可传播有效上限是 180，它不控制敌人等级。“推荐等级（内部）”会换算成挑战中实际采用的敌人/Boss 等级；数值越低越适合快速刷取，越高越适合挑战。
+5. 点击“计算候选 Seed”。符合条件的结果会边找到边显示。
+6. 选择候选查看完整词条与数值。满意后，在顶部选择正确的 Steam 账户和“游戏存档 1/2/3”栏位，再让游戏回到标题界面、勾选添加按钮左侧的确认框并添加。程序会自动备份。
 
 已知 Seed
 填写 Seed、周目和稀有度，再点击“生成并查看该 Seed”。该功能不应用上方筛选条件。
@@ -545,7 +638,11 @@ QUICK_START_TEXT = """仁王3绘卷生成器 - 快速上手
 
 提示
 - “不限制恩宠”表示不把恩宠作为条件；稀有度4结果可能保留恩宠，也可能被完成器替换为普通词条。
-- 特殊规则可以直接点击多选；展开后可选择具体数值变体。已选项会集中显示，可逐项 × 删除或一键清空。
+- 特殊规则可以直接点击多选；展开后可选择具体数值变体。“任意一难横行”表示命中任一装备类型和数值即可。已选项会集中显示，可逐项 × 删除或一键清空。
+- 多个“必含”是 AND；放进同一个“任一组”的副词条或敌人是 OR。任一组按任意数值匹配；要限制数值时请改回“必含”。
+- 主词条和副词条的数值分别独立抽取；主词条不保证更高，同名副词条也可能得到更高数值。
+- “自动发动”会显示能识别到的具体阴阳术；“优先掉落率上升”会显示对应恩宠，不再使用空括号。
+- 特殊规则列表只展示当前原生参数表中有权重、可生成的条目。若游戏表里没有某项规则，软件不会伪造一个看似可选但永远无解的条件。
 - 不确定技术参数时保持默认值即可。
 """
 
@@ -554,10 +651,10 @@ FEATURE_GUIDE_TEXT = """按功能使用
 
 一、搜索并添加可以传播的合法绘卷
 1. 选择周目与稀有度。
-2. 在目标组合中搜索词条，双击加入。默认第一项是主词条；主词条候选数可设为 2 或 3，表示任一命中。若只要求某个副词条而不限制主词条，勾选“主词条不限”。每项可独立设置最低抽取百分位。
-3. 恩宠、地形、敌人和特殊规则都可以单独限制；特殊规则直接点击即可添加多条，不需要按 Ctrl。
+2. 在目标组合中搜索词条，双击加入。默认第一项是主词条；主词条候选数可设为 2 或 3，表示任一命中。勾选“主词条不限”后，所有已选普通词条都只要求出现在主词条或副词条任一位置，不会被强制当成副词条。普通词条可设为必含，或把多个可接受结果放入同一个任一组。
+3. 恩宠、地形、敌人和特殊规则都可以单独限制；敌人下方会集中显示已选项，可逐项 × 删除，并可把多个可接受敌人放入同一个任一组。特殊规则直接点击即可添加多条，不需要按 Ctrl。
 4. 点击“计算候选 Seed”，结果会实时加入候选列表。
-5. 比较词条、数值、敌人和规则。满意后让游戏回到标题界面，勾选添加按钮左侧的确认框并写入。
+5. 比较词条、数值、敌人和规则。满意后选择正确的游戏存档栏位，让游戏回到标题界面，勾选添加按钮左侧的确认框并写入。
 
 二、查看一个已知 Seed
 填写 Seed、周目和稀有度，点击“生成并查看该 Seed”。这里不会应用目标组合中的筛选条件。
@@ -566,7 +663,7 @@ FEATURE_GUIDE_TEXT = """按功能使用
 切换到“本地绘卷编辑”，读取存档后选择绘卷与槽位。该功能适合只在本机使用的自定义词条；传播后接收方会按 Seed 重新生成。
 
 四、备份与恢复
-每次新增、修改、删除或恢复前，程序都会自动建立备份。可以在本地编辑页查看、恢复、删除备份，或打开备份文件夹。
+每次新增、修改、删除或恢复前，程序都会自动建立备份。可以在本地编辑页查看、恢复、删除备份，或打开备份文件夹；“更改目录”可以指定以后保存备份、缓存和更新下载的位置。
 """
 
 
@@ -575,8 +672,17 @@ FAQ_TEXT = """常见问题
 为什么添加按钮要求确认标题界面？
 游戏在关卡或据点中可能把内存里的旧存档再次写回。添加前回到标题界面即可；不需要退出游戏，也不需要断开网络。未勾选时点击添加，程序会再次询问并可直接继续。
 
+为什么明明有绘卷，却提示没有可用模板？
+同一 Steam 账户可以有多个游戏角色存档。请在顶部下拉框中选择实际解锁了绘卷功能的“游戏存档 1/2/3”，而不是只看 Steam ID。程序不会再固定使用游戏存档 1。
+
 为什么界面只提供稀有度 3 和 4？
 游戏开发方已预告将修复神宝绘卷传播问题，因此正式入口暂不再提供稀有度 5 的搜索、生成和写入。已经完成的研究代码仍保留用于回归，不作为用户功能。
+
+为什么推荐等级填 1500，游戏里只显示 700？
+输入值不是游戏最终显示的等级。v2.00.02 会先把内部值限制到 156–1400，再经过原生 42 节点等级曲线换算；因此 1500 会先按 1400 处理，最终显示 700。挑战中的敌人/Boss 等级跟随这个最终推荐等级，而不是绘卷左上角的 Lv.。想轻松刷取就使用较低的最终值，想挑战就使用较高的最终值；继续填写超过 1400 的数值不会再提高难度。
+
+绘卷等级和推荐等级有什么区别？
+“绘卷等级”是详情页左上角的 Lv.，参与词条数值规范化和联机传播字段；PC v2.00.02 会把有效等级限制到最高 180。它不负责设置挑战敌人等级。“推荐等级”是内部难度输入，经过原生等级曲线后得到界面显示值，挑战中的敌人/Boss 等级按该最终值执行。
 
 如何选择或取消多个特殊规则？
 直接点击规则即可逐条加入，不需要按 Ctrl。同一规则可以选择“任意变体”或一个精确数值变体；精确变体始终连同规则名称显示。已选规则下方可逐项点击 × 删除，也可以点击“清空已选规则”。未选择任何规则就表示不筛选。
@@ -586,6 +692,9 @@ FAQ_TEXT = """常见问题
 
 为什么有时仍显示十六进制编号？
 当前版本已知的原生名称都会显示。只有游戏目录本身没有对应文本、或正在研究尚未确认的上下文时才保留十六进制编号，不会猜测名称。
+
+为什么“优先掉落率上升”里没有志那都彦？
+PC v2.00.02 的原生优先掉落规则表只有 20 种恩宠、每种 3 个数值变体。稀有度4最终恩宠池中的志那都彦（0x4192）是唯一没有对应规则行的恩宠，因此不是搜索框漏掉，而是当前游戏版本本身不能生成这条优先掉落规则。软件不会加入必定无解的假选项。
 
 本地直接修改的词条能传播吗？
 通常不能。联机传播发送 Seed、稀有度等 canonical 字段，接收方会自行重建词条。要传播自定义结果，请使用“搜索合法绘卷”找到天然生成目标组合的 Seed。
@@ -610,31 +719,31 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 2. 正式入口提供三周目稀有度3、4的 Seed 求解、单点预览和完整记录构造，均可离线完成，不需要启动游戏或读取存档。
 3. 稀有度3、4各通过10,000个原生随机Seed的稳定完整记录对照。
 4. 其他周目需要原生生成或准备写档时，让游戏返回标题界面，不需要关闭游戏或断开网络。
-5. 启动生成器。程序会自动搜索存档；写档前需要选择账户，并勾选添加按钮左侧的标题界面确认框。
+5. 启动生成器。程序会自动搜索同一账户下的全部游戏角色存档；写档前需要选择正确的“游戏存档 1/2/3”，并勾选添加按钮左侧的标题界面确认框。
 
 二、设置目标组合
 1. 使用顶部的统一搜索框查找当前周目与稀有度下可生成的最终词条；双击或点击“添加选中词条”加入目标组合。
-2. 默认第一项是主词条；“主词条候选数”可设为 1、2 或 3，前 N 项任一命中即可，其余是必需副词条。也可勾选“主词条不限”，让全部已选项只作为副词条条件。拖动或点击上下箭头可调整顺序，点击 × 可移除。稀有度3最多有3个普通副词条；稀有度4指定恩宠时最多3个，不限制恩宠时最多4个。
+2. 默认第一项是主词条；“主词条候选数”可设为 1、2 或 3，前 N 项任一命中即可，其余为副词条条件。普通词条可保持“必含”，也可把多个可接受词条放入同一个“任一组”；组内任一命中即可，不同组之间仍需同时满足。任一组按任意数值匹配，数值门槛只用于必含项。勾选“主词条不限”后，全部已选普通词条都可由主词条或副词条任一槽满足。拖动或点击上下箭头可调整顺序，点击 × 可移除。
 3. 恩宠使用独立下拉菜单筛选，不与普通词条混用。普通词条列表只表示逐项可达；软件会在计算前检查槽位、冲突组和类别容量，只有找到 Seed 后才确认整个组合合法。
    - 稀有度 4：第 5 槽先生成恩宠候选；完整 finalizer 可能保留该恩宠，也可能将它替换成普通词条。指定恩宠时只返回完成后仍保留该恩宠的最终记录。
    - 稀有度 3：第 5 槽固定为成长状态“未完成的杰作（画龙点睛）”，不作为普通副词条或可选恩宠。
-4. 主、副词条都可以用中文名称、十六进制 ID 或小端字节搜索。每项右侧可设置“任意数值”、抽取百分位≥80、≥90或最高100；该条件参与精确 Seed 求解，不是只排序结果。
+4. 主、副词条的数值分别独立抽取，主词条数值不固定，也不保证高于同名副词条。两者都可以用中文名称、十六进制 ID 或小端字节搜索；每个必含项右侧可设置“任意数值”、抽取百分位≥80、≥90或最高100，该条件参与精确 Seed 求解，不是只排序结果。
 5. ID 0x0001 会显示为“未完成的杰作（画龙点睛）”；目前合法游戏状态中只确认稀有度 3 会出现该词条。它不作为普通副词条候选供直接拼接。
 6. 旧版用同 Seed 的 R4 中间结果预测“画龙点睛恩宠”的路径已停用；R3 与 R4 现在分别运行各自经过原生对照的完整离线算法。
 7. 稀有度和绘卷类型都会影响词条生成结果。周目选择会改用类型表中的 record type：一周目 0x1E82、二周目 0x516D、三周目 0xE604、四周目 0xDD82、五周目 0xD523。
 8. 一、二周目没有三周目的恩宠槽；求解时必须至少选择一个主词条，程序直接求逆主词条 draw 1，再原生验证多个副词条。
 9. 三周目稀有度4可指定恩宠，并必须经过完整 finalizer 重放确认恩宠没有被替换。
-10. 等级、推荐等级和转手次数不直接参与副词条抽样；它们放在“绘卷属性”区域统一设置。
-11. 地形影响可单选；特殊规则和出现敌人可多选为必含条件。特殊规则直接点击即可加入多条，不需要按 Ctrl；父项表示任意数值变体，展开后可精确选择 +50%、+65%、+80% 等原生变体。每个精确变体都会保留规则名称，已选项可逐项 × 删除或一键清空。
-12. 地形、规则和敌人名称来自游戏当前版本的简中、日文、英文原生文本目录，不使用机器翻译；未知键会保留十六进制编号。
+10. 等级、推荐等级和转手次数不直接参与副词条抽样；它们放在“绘卷属性”区域统一设置。“绘卷等级”对应详情页左上角的 Lv.，参与词条数值规范化；PC v2.00.02 的可传播有效范围是 0–180，超过 180 也只会按 180 传播，它不控制敌人等级。推荐等级输入会先限制到内部值 156–1400，再经过游戏原生 42 节点曲线换算为挑战中的最终敌人/Boss 等级；内部值 183 对应 160，181 对应 159，1400 或更高对应上限 700。
+11. 地形影响可单选；特殊规则和出现敌人可多选为必含条件。特殊规则直接点击即可加入多条，不需要按 Ctrl；父项表示任意数值变体，展开后可精确选择 +50%、+65%、+80% 等原生变体。“任意一难横行”会把全部装备类型和数值作为一个“任一命中”条件，而不是要求它们同时出现。每个精确变体都会保留规则名称，已选项可逐项 × 删除或一键清空；敌人也有独立的一键清空按钮。
+12. 地形、规则和敌人名称来自游戏当前版本的简中、日文、英文原生文本目录，不使用机器翻译。特殊规则只显示原生表中当前周目有权重的合法行；仍未解析出具体阴阳术名称的合法键会明确标成“未识别阴阳术（原生编号……，可生成）”，不会只显示英文或裸编号。
 13. 四、五周目预计由 DLC2 开放，v2.00.02 当前无法正常进入。0xDD82/0xD523 仅证明游戏文件中存在潜在生成上下文，不证明未来 DLC 的最终算法；目前只允许研究预览，禁止写档和传播声明。
 
 三、联立求解 Seed
 1. 当前 Beta 只提供约束求解，不提供界面上的连续 Seed 扫描。一、二周目必须选择主词条；三周目至少选择一项词条、恩宠或辅助条件。
-2. 指定恩宠时先数学求逆对应的完整 Seed 集合；稀有度4还会逐个重放 finalizer，只接受最终仍保留所选恩宠的记录。未指定恩宠的稀有度3、4从完整自然 Seed 数学族按批构造候选，并用 CUDA 批量预筛主词条。所有路径最终都离线重放权重池、冲突、晋升、重试、数值和规范化逻辑。
-3. 主词条候选、多个指定副词条和每项数值门槛都在完整 Seed 重放结果上检查；不指定时可直接比较返回候选中的实际词条。
-4. 地形、敌人和特殊规则同样由 Seed 离线生成并联合过滤；结构上不可能共存的敌人组合会在求解前直接报无解。
-5. “候选数量”决定一次返回多少张可比较绘卷；“单批数学游标数”只是每个计算块的大小，不是总搜索上限。程序会自动继续后续块，直到得到所需数量、完整数学族耗尽或用户取消。
+2. 指定恩宠时先数学求逆对应的完整 Seed 集合；稀有度4还会逐个重放 finalizer，只接受最终仍保留所选恩宠的记录。未指定恩宠的稀有度3、4从完整自然 Seed 数学族按批构造候选，并用 CUDA 批量预筛主词条、地形和敌人。CPU 只对幸存候选精确重放特殊规则与完整词条；所有结果仍会经过权重池、冲突、晋升、重试、数值和规范化验证。
+3. 主词条候选、多个必含副词条、副词条任一组和必含项数值门槛都在完整 Seed 重放结果上检查；不指定时可直接比较返回候选中的实际词条。
+4. 地形、敌人和特殊规则同样由 Seed 离线生成并联合过滤。敌人列表只展示原生绘卷候选表中的合法名称；多个必含敌人是 AND，同一个任一组中的敌人是 OR。结构上不可能共存的组合会在求解前直接报无解。
+5. “候选数量”决定一次返回多少张可比较绘卷（1–200）。每找到一张就会立即加入预览，不必等整轮完成；进度更新会自动合并，避免较慢电脑因界面消息堆积而失去响应。“单批数学游标数”只是每个计算块的大小，不是总搜索上限。程序会自动继续后续块，直到得到所需数量、完整数学族耗尽或用户取消。
 6. 支持 NVIDIA CUDA 时，数学候选构造会自动使用显卡；没有 CUDA 时回退到原生 CPU。无论使用哪种加速，候选最后都由完整离线生成器精确验证。
 7. 点击“计算候选 Seed”后，每找到一张完整匹配就会立刻加入下方列表；需要更多结果时点击“计算下一批候选”，程序从精确数学游标继续，不会重复以前的候选。
 
@@ -651,7 +760,7 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 六、添加到存档
 1. 三周目稀有度3、4离线候选会在点击安装后才重新读取当前存档，绑定来源字段并分配新的内部序号；其他未通过完整记录门禁的预览仍禁止写入。
 2. 每次添加前，程序都会自动备份主存档、游戏备份存档和系统存档。
-3. 新绘卷只会写入最后一个已占用绘卷之后的下一个全零栏位，不会覆盖已有绘卷。
+3. 顶部下拉框会分别列出 Steam 账户和游戏存档栏位；新绘卷只写入所选角色存档中最后一个已占用绘卷之后的下一个全零栏位，不会覆盖已有绘卷。
 4. 写入后会修复校验和，并完成加密与精确回读验证。
 
 七、本地绘卷编辑
@@ -664,6 +773,7 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 1. 本地编辑页下方会列出本程序创建的备份，包括时间、账户、操作原因和主存档 SHA-256。
 2. 恢复备份前，程序会先把当前主存档、游戏备份和系统存档保存成一个新的恢复点，再按备份中实际包含的文件恢复。
 3. 删除自动备份使用 Windows 回收站，不会永久删除；也可以直接打开备份文件夹或当前账户的存档文件夹。
+4. “更改目录”可选择以后保存备份、求解缓存和更新下载的位置。更改后不会擅自移动或删除旧目录中的文件。
 
 九、软件更新
 1. 正式发布版会在启动后后台检查签名更新，也可以点击标题栏右侧的“检查更新”。
@@ -671,11 +781,13 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 3. 更新只会替换带有本程序受管理安装标记的当前 EXE；便携开发版和其他目录中的旧文件不会被自动删除。
 4. 若正在计算或执行存档事务，已下载更新会等待该事务结束后才询问安装和重启。
 
-备份位置：%LOCALAPPDATA%\\Nioh3ScrollGenerator\\backups
+默认数据位置：%LOCALAPPDATA%\\Nioh3ScrollGenerator（可在应用内更改）
 
 作者：{' & '.join(APP_AUTHORS)}
 联系QQ群：{CONTACT_QQ_GROUP}
 GitHub：{PROJECT_GITHUB_URL}
+
+主界面右下角提供“复制群号”按钮，可直接把QQ群号写入系统剪贴板。
 """
 
 
@@ -715,7 +827,13 @@ class ScrollEditorApp:
         self._configure_window_icon()
         startup_trace("theme and icon configured")
 
+        self.app_settings = load_app_settings(fallback_root=application_root())
+        self.state_root = self.app_settings.data_root
+        self.data_directory_text = StringVar(value=str(self.state_root))
+
         self.events: queue.Queue[tuple[str, object]] = queue.Queue()
+        self.search_events = SearchEventBuffer()
+        self.active_search_run_id = 0
         self.worker: threading.Thread | None = None
         self.update_worker: threading.Thread | None = None
         self.pending_update: DownloadedUpdate | None = None
@@ -744,8 +862,10 @@ class ScrollEditorApp:
         self.rule_search = StringVar(value="")
         self.selected_rule_text = StringVar(value="要求包含：无（不筛选）")
         self.selected_rule_option_ids: set[str] = set()
-        rule_groups = self.auxiliary_names.special_rule_key_groups()
         rule_tables = load_default_auxiliary_generation_tables()
+        rule_groups = self.auxiliary_names.special_rule_key_groups(
+            allowed_keys=legal_special_rule_keys(3, tables=rule_tables),
+        )
         startup_trace("auxiliary generation tables loaded")
         self.rule_group_options: list[
             tuple[RuleFilterOption, tuple[RuleFilterOption, ...]]
@@ -782,6 +902,23 @@ class ScrollEditorApp:
             self.rule_option_by_token.update(
                 (option.token, option) for option in variants
             )
+        one_difficulty_keys = frozenset(
+            key
+            for name, keys in rule_groups.items()
+            if name.startswith("一难横行（")
+            for key in keys
+            if key != 0
+        )
+        if one_difficulty_keys:
+            any_one_difficulty = RuleFilterOption(
+                token="family:any-one-difficulty",
+                name="任意一难横行",
+                keys=one_difficulty_keys,
+                exact=False,
+                label="任意一难横行（任一类型/数值）",
+            )
+            self.rule_group_options.append((any_one_difficulty, ()))
+            self.rule_option_by_token[any_one_difficulty.token] = any_one_difficulty
         self.rule_group_options.sort(
             key=lambda item: (item[0].name.casefold(), item[0].token)
         )
@@ -794,8 +931,22 @@ class ScrollEditorApp:
         self.enemy_search = StringVar(value="")
         self.selected_enemy_text = StringVar(value="要求包含：无（不筛选）")
         self.selected_enemy_keys: set[int] = set()
+        self.selected_enemy_any_group_by_key: dict[int, int] = {}
         enemy_groups = self.auxiliary_names.enemy_key_groups()
-        self.enemy_key_groups = {min(keys): keys for keys in enemy_groups.values()}
+        legal_enemy_keys = {
+            struct.unpack_from("<I", row, 0x04)[0]
+            for row in rule_tables.enemy_candidates.rows()
+        }
+        legal_enemy_groups = legal_enemy_display_groups(
+            enemy_groups,
+            legal_enemy_keys,
+        )
+        self.enemy_key_groups = {
+            min(keys): keys for keys in legal_enemy_groups.values()
+        }
+        self.enemy_name_by_key = {
+            min(keys): name for name, keys in legal_enemy_groups.items()
+        }
         self.enemy_options = [
             (
                 min(keys),
@@ -806,7 +957,7 @@ class ScrollEditorApp:
                     else f"[{len(keys)} 个原生变体]"
                 ),
             )
-            for name, keys in enemy_groups.items()
+            for name, keys in legal_enemy_groups.items()
         ]
         self.enemy_options.sort(key=lambda item: (item[1].casefold(), item[0]))
         self.enemy_visible = list(self.enemy_options)
@@ -821,6 +972,7 @@ class ScrollEditorApp:
         self.primary_candidate_count = StringVar(value="1")
         self.selected_effect_ids: list[int] = []
         self.selected_effect_min_rolls: dict[int, int] = {}
+        self.selected_effect_any_group_by_id: dict[int, int] = {}
         self.selected_primary_ids: set[int] = set()
         self.selected_secondary_ids: set[int] = set()
         self.search_effect_catalog = searchable_scroll_effect_definitions(3, 5)
@@ -830,7 +982,7 @@ class ScrollEditorApp:
         self.effect_visible = list(self.search_effect_catalog)
         self.effect_catalog_summary = StringVar(
             value=(
-                f"当前上下文逐项可生成词条：{len(self.search_effect_catalog)} 项；"
+                f"当前周目与稀有度下可生成的普通词条：{len(self.search_effect_catalog)} 项；"
                 "组合是否合法将在下方预检"
             )
         )
@@ -852,6 +1004,7 @@ class ScrollEditorApp:
         self.candidate_sort = StringVar(value="发现顺序")
         self.level = StringVar(value="180")
         self.recommended = StringVar(value="183")
+        self.recommended_level_hint = StringVar()
         self.transfer_count = StringVar(value="0")
         self.status = StringVar(value="就绪")
         self.game_compatibility = detect_game_compatibility()
@@ -885,12 +1038,14 @@ class ScrollEditorApp:
         self.terrain_filter.trace_add("write", self._mark_intersection_stale)
         self.rarity.trace_add("write", self._on_rarity_changed)
         self.playthrough.trace_add("write", self._on_playthrough_changed)
+        self.recommended.trace_add("write", self._update_recommended_level_hint)
         self.effect_search.trace_add("write", self._filter_effect_catalog)
         self.local_effect_search.trace_add("write", self._filter_local_effect_catalog)
         self._build_ui()
         startup_trace("user interface built")
         self._update_grace_search_hint()
         self._update_calculation_controls()
+        self._update_recommended_level_hint()
         self._refresh_saves()
         startup_trace("save discovery completed")
         self.root.after(100, self._poll_events)
@@ -1205,7 +1360,7 @@ class ScrollEditorApp:
         ttk.Label(
             header,
             text=(
-                "●  CUDA 并行预筛 · CPU 精确重放"
+                "●  CUDA Seed/主词条/地形/敌人预筛 · CPU 规则与完整词条重放"
                 if cuda_seed_acceleration_available()
                 else "●  原生 CPU 预筛 · 精确重放"
             ),
@@ -1283,12 +1438,12 @@ class ScrollEditorApp:
         ).pack(anchor="w", pady=(4, 0))
         save_row = ttk.Frame(outer, padding=(0, 10, 0, 6))
         save_row.pack(fill="x")
-        ttk.Label(save_row, text="存档账户：").pack(side=LEFT)
+        ttk.Label(save_row, text="账户与游戏存档栏位：").pack(side=LEFT)
         self.save_combo = ttk.Combobox(
             save_row,
             textvariable=self.save_account,
             state="readonly",
-            width=38,
+            width=54,
         )
         self.save_combo.pack(side=LEFT, padx=8)
         ttk.Button(save_row, text="使用教程", command=self._show_tutorial).pack(side=RIGHT)
@@ -1296,23 +1451,44 @@ class ScrollEditorApp:
 
         workspace = ttk.Panedwindow(outer, orient="horizontal")
         workspace.pack(fill=BOTH, expand=True)
-        filter_host = ttk.Frame(workspace, width=500)
+        filter_host = ttk.Frame(workspace, width=430)
         results_column = ttk.Frame(workspace)
         workspace.add(filter_host, weight=0)
         workspace.add(results_column, weight=1)
-        self.root.after_idle(lambda: workspace.sashpos(0, 500))
+        self.root.after_idle(lambda: workspace.sashpos(0, 430))
 
         filter_canvas = Canvas(
             filter_host,
             background=self.colors["surface"],
             highlightthickness=0,
-            width=488,
+            width=418,
         )
         filter_scrollbar = ttk.Scrollbar(
             filter_host,
             orient="vertical",
-            command=filter_canvas.yview,
         )
+        scroll_state: dict[str, object] = {"after": None, "args": None}
+
+        def apply_filter_scroll() -> None:
+            scroll_state["after"] = None
+            args = scroll_state["args"]
+            if not isinstance(args, tuple):
+                return
+            filter_canvas.yview(*args)
+            # Embedded ttk windows need an explicit idle repaint on Windows;
+            # otherwise rapid thumb dragging can leave stale child-window
+            # pixels behind the canvas viewport.
+            filter_canvas.update_idletasks()
+
+        def request_filter_scroll(*args: str) -> None:
+            scroll_state["args"] = args
+            if scroll_state["after"] is None:
+                scroll_state["after"] = filter_canvas.after(
+                    16,
+                    apply_filter_scroll,
+                )
+
+        filter_scrollbar.configure(command=request_filter_scroll)
         filter_canvas.configure(yscrollcommand=filter_scrollbar.set)
         filter_canvas.pack(side=LEFT, fill=BOTH, expand=True)
         filter_scrollbar.pack(side=RIGHT, fill="y")
@@ -1322,15 +1498,45 @@ class ScrollEditorApp:
             window=filter_column,
             anchor="nw",
         )
-        filter_column.bind(
-            "<Configure>",
-            lambda _event: filter_canvas.configure(
-                scrollregion=filter_canvas.bbox("all")
-            ),
-        )
-        filter_canvas.bind(
-            "<Configure>",
-            lambda event: filter_canvas.itemconfigure(filter_window, width=event.width),
+        layout_state: dict[str, object] = {
+            "region_after": None,
+            "width_after": None,
+            "width": 0,
+        }
+
+        def apply_filter_scrollregion() -> None:
+            layout_state["region_after"] = None
+            bounds = filter_canvas.bbox("all")
+            if bounds is not None:
+                filter_canvas.configure(scrollregion=bounds)
+
+        def request_filter_scrollregion(_event: object | None = None) -> None:
+            if layout_state["region_after"] is None:
+                layout_state["region_after"] = filter_canvas.after(
+                    24,
+                    apply_filter_scrollregion,
+                )
+
+        def apply_filter_width() -> None:
+            layout_state["width_after"] = None
+            width = int(layout_state["width"])
+            if width > 0:
+                filter_canvas.itemconfigure(filter_window, width=width)
+            request_filter_scrollregion()
+
+        def request_filter_width(event: object) -> None:
+            layout_state["width"] = int(event.width)
+            if layout_state["width_after"] is None:
+                layout_state["width_after"] = filter_canvas.after(
+                    24,
+                    apply_filter_width,
+                )
+
+        filter_column.bind("<Configure>", request_filter_scrollregion)
+        filter_canvas.bind("<Configure>", request_filter_width)
+        filter_scrollbar.bind(
+            "<ButtonRelease-1>",
+            lambda _event: filter_canvas.after_idle(filter_canvas.update_idletasks),
         )
 
         selector = ttk.LabelFrame(filter_column, text="目标组合", padding=10)
@@ -1379,13 +1585,20 @@ class ScrollEditorApp:
         ).pack(anchor="w", pady=(3, 0))
 
         ttk.Separator(selector).pack(fill="x", pady=9)
+        selected_effect_header = ttk.Frame(selector)
+        selected_effect_header.pack(fill="x")
         ttk.Label(
-            selector,
-            text="已选词条（默认第一项是主词条，其余是必需副词条）",
-        ).pack(anchor="w")
+            selected_effect_header,
+            text="已选普通词条（不限主词条时，主、副任一位置均可满足）",
+        ).pack(side=LEFT, fill="x", expand=True)
+        ttk.Button(
+            selected_effect_header,
+            text="清空词条",
+            command=self._clear_selected_effects,
+        ).pack(side=RIGHT)
         ttk.Checkbutton(
             selector,
-            text="主词条不限：下方所有已选词条都必须作为副词条出现",
+            text="主词条不限：下方词条可出现在主词条或副词条任一位置",
             variable=self.primary_unconstrained,
         ).pack(anchor="w", pady=(4, 0))
         primary_mode_row = ttk.Frame(selector)
@@ -1400,9 +1613,15 @@ class ScrollEditorApp:
         ).pack(side=LEFT, padx=(6, 8))
         ttk.Label(
             primary_mode_row,
-            text="前 N 项任一命中即可；拖动或用箭头调整角色",
+            text="指定主词条时前 N 项任一命中；不限时忽略顺序",
             foreground=self.colors["muted"],
         ).pack(side=LEFT)
+        ttk.Label(
+            selector,
+            text="数值：主、副词条分别独立抽取；主词条不固定，也可能低于同名副词条。",
+            foreground=self.colors["muted"],
+            wraplength=430,
+        ).pack(anchor="w", pady=(4, 0))
         self.selected_effects_frame = ttk.Frame(selector)
         self.selected_effects_frame.pack(fill="x", pady=(5, 0))
         self._render_selected_effects()
@@ -1458,8 +1677,37 @@ class ScrollEditorApp:
             filter_column, text="绘卷属性（不影响词条组合）", padding=8
         )
         properties.pack(fill="x", pady=(8, 0))
-        self._entry_row(properties, "等级", self.level, 14)
-        self._entry_row(properties, "推荐等级", self.recommended, 14)
+        self._entry_row(properties, "绘卷等级", self.level, 14)
+        ttk.Label(
+            properties,
+            text=(
+                "详情页左上角 Lv.；参与词条数值。PC v2.00.02 可传播范围 0–180，"
+                "不控制敌人等级。"
+            ),
+            foreground=self.colors["muted"],
+            wraplength=290,
+            justify="left",
+        ).pack(anchor="w", pady=(2, 4))
+        self._entry_row(properties, "推荐等级（内部）", self.recommended, 14)
+        ttk.Label(
+            properties,
+            textvariable=self.recommended_level_hint,
+            foreground="#E0B45B",
+            wraplength=290,
+            justify="left",
+        ).pack(anchor="w", pady=(4, 2))
+        recommended_presets = ttk.Frame(properties)
+        recommended_presets.pack(fill="x", pady=(0, 3))
+        ttk.Button(
+            recommended_presets,
+            text="轻松刷取 156→142",
+            command=lambda: self.recommended.set("156"),
+        ).pack(side=LEFT, fill="x", expand=True, padx=(0, 3))
+        ttk.Button(
+            recommended_presets,
+            text="最高挑战 1400→700",
+            command=lambda: self.recommended.set("1400"),
+        ).pack(side=LEFT, fill="x", expand=True, padx=(3, 0))
         self._entry_row(properties, "转手次数", self.transfer_count, 14)
 
         auxiliary = ttk.LabelFrame(
@@ -1521,7 +1769,17 @@ class ScrollEditorApp:
 
         enemy_frame = ttk.Frame(auxiliary)
         enemy_frame.pack(fill="x", pady=(10, 0))
-        ttk.Label(enemy_frame, text="出现敌人必含（可多选）").pack(anchor="w")
+        enemy_header = ttk.Frame(enemy_frame)
+        enemy_header.pack(fill="x")
+        ttk.Label(
+            enemy_header,
+            text="出现敌人条件（仅显示合法候选；可设必含或任一组）",
+        ).pack(side=LEFT)
+        ttk.Button(
+            enemy_header,
+            text="清空已选敌人",
+            command=self._clear_enemy_selection,
+        ).pack(side=RIGHT)
         ttk.Entry(enemy_frame, textvariable=self.enemy_search).pack(fill="x", pady=(4, 2))
         enemy_list_frame = ttk.Frame(enemy_frame)
         enemy_list_frame.pack(fill="x")
@@ -1542,6 +1800,9 @@ class ScrollEditorApp:
         self.enemy_list.bind("<<ListboxSelect>>", self._on_enemy_select)
         self.enemy_search.trace_add("write", self._filter_enemies)
         ttk.Label(enemy_frame, textvariable=self.selected_enemy_text).pack(anchor="w")
+        self.selected_enemy_chips = ttk.Frame(enemy_frame)
+        self.selected_enemy_chips.pack(fill="x", pady=(3, 0))
+        self._update_enemy_summary()
 
         ttk.Label(
             filter_column,
@@ -1578,7 +1839,9 @@ class ScrollEditorApp:
         ).pack(anchor="w", pady=(0, 6))
         search_controls = ttk.Frame(calculation)
         search_controls.pack(fill="x")
-        ttk.Label(search_controls, text="候选数量").pack(side=LEFT, padx=(0, 4))
+        ttk.Label(search_controls, text="候选数量（1–200，逐个显示）").pack(
+            side=LEFT, padx=(0, 4)
+        )
         ttk.Entry(
             search_controls, textvariable=self.result_count, width=7
         ).pack(side=LEFT, padx=(0, 12))
@@ -1746,11 +2009,33 @@ class ScrollEditorApp:
             text="GitHub",
             command=self._open_project_github,
         ).pack(side=RIGHT, padx=(6, 18), pady=4)
+        self.copy_qq_button = ttk.Button(
+            footer,
+            text=f"QQ群 {CONTACT_QQ_GROUP} · 复制",
+            command=self._copy_qq_group,
+        )
+        self.copy_qq_button.pack(side=RIGHT, padx=(6, 0), pady=4)
         ttk.Label(
             footer,
-            text=f"作者：{' & '.join(APP_AUTHORS)}    QQ群：{CONTACT_QQ_GROUP}",
+            text=f"作者：{' & '.join(APP_AUTHORS)}",
             style="Footer.TLabel",
         ).pack(side=RIGHT, padx=(8, 0))
+
+    def _copy_qq_group(self) -> None:
+        try:
+            copy_text_to_clipboard(self.root, CONTACT_QQ_GROUP)
+        except Exception as error:
+            self.copy_qq_button.configure(text="复制失败")
+            self.status.set(f"群号复制失败：{error}")
+        else:
+            self.copy_qq_button.configure(text="已复制")
+            self.status.set(f"QQ群 {CONTACT_QQ_GROUP} 已复制到剪贴板。")
+        self.root.after(
+            1800,
+            lambda: self.copy_qq_button.configure(
+                text=f"QQ群 {CONTACT_QQ_GROUP} · 复制"
+            ),
+        )
 
     def _open_project_github(self) -> None:
         if not PROJECT_GITHUB_URL:
@@ -1890,12 +2175,12 @@ class ScrollEditorApp:
 
         controls = ttk.Frame(outer, padding=(0, 8, 0, 8))
         controls.pack(fill="x")
-        ttk.Label(controls, text="存档账户：").pack(side=LEFT)
+        ttk.Label(controls, text="账户与游戏存档栏位：").pack(side=LEFT)
         self.local_save_combo = ttk.Combobox(
             controls,
             textvariable=self.save_account,
             state="readonly",
-            width=34,
+            width=48,
         )
         self.local_save_combo.pack(side=LEFT, padx=(4, 8))
         ttk.Button(
@@ -2061,11 +2346,32 @@ class ScrollEditorApp:
             style="Danger.TButton",
         ).pack(side=LEFT, padx=(8, 0))
 
-        backup_frame = ttk.LabelFrame(outer, text="自动备份", padding=8)
+        backup_frame = ttk.LabelFrame(outer, text="自动备份与数据目录", padding=8)
         backup_frame.pack(fill="x", pady=(8, 0))
+        data_directory_row = ttk.Frame(backup_frame)
+        data_directory_row.pack(fill="x", pady=(0, 6))
+        ttk.Label(data_directory_row, text="数据目录：").pack(side=LEFT)
+        ttk.Label(
+            data_directory_row,
+            textvariable=self.data_directory_text,
+            foreground=self.colors["muted"],
+        ).pack(side=LEFT, fill="x", expand=True, padx=(4, 8))
+        ttk.Button(
+            data_directory_row,
+            text="更改目录",
+            command=self._choose_data_directory,
+        ).pack(side=RIGHT)
+        ttk.Button(
+            data_directory_row,
+            text="恢复默认",
+            command=self._reset_data_directory,
+        ).pack(side=RIGHT, padx=(0, 6))
+
+        backup_body = ttk.Frame(backup_frame)
+        backup_body.pack(fill="x")
         backup_columns = ("time", "account", "action", "files", "hash")
         self.backup_tree = ttk.Treeview(
-            backup_frame,
+            backup_body,
             columns=backup_columns,
             show="headings",
             selectmode="extended",
@@ -2093,7 +2399,7 @@ class ScrollEditorApp:
                 anchor="w",
             )
         backup_scrollbar = ttk.Scrollbar(
-            backup_frame,
+            backup_body,
             orient="vertical",
             command=self.backup_tree.yview,
         )
@@ -2101,7 +2407,7 @@ class ScrollEditorApp:
         self.backup_tree.pack(side=LEFT, fill="x", expand=True)
         backup_scrollbar.pack(side=LEFT, fill="y")
 
-        backup_actions = ttk.Frame(backup_frame)
+        backup_actions = ttk.Frame(backup_body)
         backup_actions.pack(side=RIGHT, fill="y", padx=(8, 0))
         ttk.Button(
             backup_actions,
@@ -2131,10 +2437,36 @@ class ScrollEditorApp:
             command=self._open_save_folder,
         ).pack(fill="x", pady=(4, 0))
 
-    @staticmethod
-    def _backup_state_root() -> Path:
-        project_root = application_root()
-        return Path(os.environ.get("LOCALAPPDATA", project_root)) / "Nioh3ScrollGenerator"
+    def _backup_state_root(self) -> Path:
+        return self.state_root
+
+    def _set_data_directory(self, directory: Path) -> None:
+        settings = save_data_root(directory, fallback_root=application_root())
+        self.app_settings = settings
+        self.state_root = settings.data_root
+        self.data_directory_text.set(str(self.state_root))
+        self._refresh_backups()
+        self.status.set(f"后续备份、缓存和更新文件将保存到：{self.state_root}")
+
+    def _choose_data_directory(self) -> None:
+        selected = filedialog.askdirectory(
+            parent=self.root,
+            title="选择仁王3绘卷生成器数据目录",
+            initialdir=str(self.state_root),
+            mustexist=False,
+        )
+        if not selected:
+            return
+        try:
+            self._set_data_directory(Path(selected))
+        except Exception as error:
+            messagebox.showerror("无法更改数据目录", str(error))
+
+    def _reset_data_directory(self) -> None:
+        try:
+            self._set_data_directory(default_state_root(fallback_root=application_root()))
+        except Exception as error:
+            messagebox.showerror("无法恢复默认数据目录", str(error))
 
     @staticmethod
     def _backup_action_label(action: str) -> str:
@@ -2547,21 +2879,24 @@ class ScrollEditorApp:
             self.selected_secondary_ids = set(
                 self.selected_effect_ids[primary_count:]
             )
+        for effect_id in tuple(self.selected_effect_any_group_by_id):
+            if effect_id not in self.selected_secondary_ids:
+                self.selected_effect_any_group_by_id.pop(effect_id, None)
 
     def _max_selected_effect_count(self) -> int:
-        try:
-            rarity = int(self.rarity.get(), 0)
-        except ValueError:
-            rarity = 4
-        grace_is_required = self.grace_filter.get() != NO_GRACE_FILTER_LABEL
-        max_secondaries = 3 if rarity == 3 or grace_is_required else 4
-        try:
-            primary_count = max(1, int(self.primary_candidate_count.get(), 10))
-        except ValueError:
-            primary_count = 1
-        return max_secondaries + (
-            0 if self.primary_unconstrained.get() else primary_count
+        # Alternatives inside one any-of group consume one logical requirement,
+        # not one native slot each. Structural preflight validates the actual
+        # mandatory group count; this is only a bounded UI-list guard.
+        return 24
+
+    def _secondary_effect_requirements(
+        self,
+    ) -> tuple[frozenset[int], tuple[frozenset[int], ...]]:
+        mandatory, groups = partition_grouped_selections(
+            self.selected_secondary_ids,
+            self.selected_effect_any_group_by_id,
         )
+        return frozenset(mandatory), groups
 
     def _on_primary_mode_changed(self, *_args: object) -> None:
         self._sync_effect_roles()
@@ -2580,11 +2915,15 @@ class ScrollEditorApp:
             if playthrough is None or rarity not in PRODUCT_RARITIES:
                 raise ValueError("请先选择有效的周目和稀有度")
             grace_id = self.special_id_by_label.get(self.grace_filter.get())
+            required_secondary_ids, required_secondary_id_groups = (
+                self._secondary_effect_requirements()
+            )
             request = EffectSeedRequest(
                 playthrough=playthrough,
                 rarity=rarity,
                 primary_effect_ids=frozenset(self.selected_primary_ids),
-                required_secondary_ids=frozenset(self.selected_secondary_ids),
+                required_secondary_ids=required_secondary_ids,
+                required_secondary_id_groups=required_secondary_id_groups,
                 grace_effect_id=grace_id,
                 minimum_roll_percent_by_effect_id=tuple(
                     sorted(self.selected_effect_min_rolls.items())
@@ -2612,10 +2951,9 @@ class ScrollEditorApp:
             return
         max_count = self._max_selected_effect_count()
         if len(self.selected_effect_ids) >= max_count:
-            role_text = "必需副词条" if self.primary_unconstrained.get() else "词条"
             self.status.set(
-                f"当前稀有度/恩宠结构最多选择 {max_count} 个{role_text}；"
-                "继续添加在原生结构中必定无解。"
+                f"目标组合界面最多保留 {max_count} 个词条选项；"
+                "请先删除不需要的候选或缩小任一组。"
             )
             return
         self.selected_effect_ids.append(effect_id)
@@ -2631,6 +2969,17 @@ class ScrollEditorApp:
         except ValueError:
             return
         self.selected_effect_min_rolls.pop(effect_id, None)
+        self.selected_effect_any_group_by_id.pop(effect_id, None)
+        self._sync_effect_roles()
+        self._render_selected_effects()
+        self._refresh_combination_status()
+        self._mark_intersection_stale()
+        self._update_calculation_controls()
+
+    def _clear_selected_effects(self) -> None:
+        self.selected_effect_ids.clear()
+        self.selected_effect_min_rolls.clear()
+        self.selected_effect_any_group_by_id.clear()
         self._sync_effect_roles()
         self._render_selected_effects()
         self._refresh_combination_status()
@@ -2647,6 +2996,18 @@ class ScrollEditorApp:
             self.selected_effect_min_rolls.pop(effect_id, None)
         self._mark_intersection_stale()
         self._refresh_combination_status()
+
+    def _set_effect_requirement_mode(self, effect_id: int, label: str) -> None:
+        group_index = requirement_mode_group_index(label)
+        if group_index:
+            self.selected_effect_any_group_by_id[effect_id] = group_index
+            self.selected_effect_min_rolls.pop(effect_id, None)
+        else:
+            self.selected_effect_any_group_by_id.pop(effect_id, None)
+        self._render_selected_effects()
+        self._refresh_combination_status()
+        self._mark_intersection_stale()
+        self._update_calculation_controls()
 
     def _start_effect_drag(self, effect_id: int) -> None:
         self._dragged_effect_id = effect_id
@@ -2716,25 +3077,68 @@ class ScrollEditorApp:
                 primary_count = max(1, int(self.primary_candidate_count.get(), 10))
             except ValueError:
                 primary_count = 1
+            primary_is_unconstrained = self.primary_unconstrained.get()
             role = (
-                "副"
-                if self.primary_unconstrained.get()
+                "任意槽"
+                if primary_is_unconstrained
                 else ("主候选" if index < primary_count else "副")
             )
+            supports_requirement_mode = primary_is_unconstrained or role == "副"
+            group_index = self.selected_effect_any_group_by_id.get(effect_id, 0)
+            if supports_requirement_mode:
+                role_prefix = "任意槽" if primary_is_unconstrained else "副"
+                role = (
+                    f"{role_prefix}·必含"
+                    if not group_index
+                    else f"{role_prefix}·任一{group_index}"
+                )
+            row.columnconfigure(1, weight=1, minsize=80)
             role_label = ttk.Label(
                 row,
                 text=f"{role} {index + 1}",
                 style="SelectedEffectRole.TLabel",
-                width=7,
+                width=11,
                 anchor="center",
             )
-            role_label.pack(side=LEFT, padx=(6, 8), pady=5)
+            role_label.grid(row=0, column=0, padx=(6, 8), pady=5, sticky="w")
             name_label = ttk.Label(
                 row,
                 text=f"{effect.name}  [{effect.hex_id}]",
                 style="SelectedEffect.TLabel",
+                width=28,
+                anchor="w",
             )
-            name_label.pack(side=LEFT, fill="x", expand=True, pady=5)
+            name_label.grid(row=0, column=1, pady=5, sticky="ew")
+            ttk.Button(
+                row,
+                text="×",
+                width=3,
+                command=lambda value=effect_id: self._remove_selected_effect(value),
+            ).grid(row=0, column=2, padx=4, pady=2)
+
+            option_row = ttk.Frame(row, style="SelectedEffect.TFrame")
+            option_row.grid(
+                row=1,
+                column=0,
+                columnspan=3,
+                padx=(8, 4),
+                pady=(0, 4),
+                sticky="ew",
+            )
+            ttk.Button(
+                option_row,
+                text="↑",
+                width=3,
+                state="normal" if index > 0 else "disabled",
+                command=lambda value=effect_id: self._move_selected_effect(value, -1),
+            ).pack(side=LEFT, padx=(0, 1), pady=2)
+            ttk.Button(
+                option_row,
+                text="↓",
+                width=3,
+                state="normal" if index < len(self.selected_effect_ids) - 1 else "disabled",
+                command=lambda value=effect_id: self._move_selected_effect(value, 1),
+            ).pack(side=LEFT, padx=(0, 4), pady=2)
             roll_label = next(
                 label
                 for label, minimum in EFFECT_ROLL_FILTERS
@@ -2742,11 +3146,11 @@ class ScrollEditorApp:
             )
             roll_variable = StringVar(value=roll_label)
             roll_combo = ttk.Combobox(
-                row,
+                option_row,
                 textvariable=roll_variable,
                 values=tuple(label for label, _minimum in EFFECT_ROLL_FILTERS),
-                state="readonly",
-                width=24,
+                state="readonly" if not group_index else "disabled",
+                width=22,
             )
             roll_combo.pack(side=RIGHT, padx=(4, 0), pady=2)
             roll_combo.bind(
@@ -2755,26 +3159,28 @@ class ScrollEditorApp:
                     self._set_effect_minimum_roll(value, variable.get())
                 ),
             )
-            ttk.Button(
-                row,
-                text="×",
-                width=3,
-                command=lambda value=effect_id: self._remove_selected_effect(value),
-            ).pack(side=RIGHT, padx=4, pady=2)
-            ttk.Button(
-                row,
-                text="↓",
-                width=3,
-                state="normal" if index < len(self.selected_effect_ids) - 1 else "disabled",
-                command=lambda value=effect_id: self._move_selected_effect(value, 1),
-            ).pack(side=RIGHT, padx=(1, 0), pady=2)
-            ttk.Button(
-                row,
-                text="↑",
-                width=3,
-                state="normal" if index > 0 else "disabled",
-                command=lambda value=effect_id: self._move_selected_effect(value, -1),
-            ).pack(side=RIGHT, padx=(4, 0), pady=2)
+            if supports_requirement_mode:
+                mode_variable = StringVar(
+                    value=(
+                        REQUIREMENT_MODE_OPTIONS[0]
+                        if not group_index
+                        else f"任一组 {group_index}"
+                    )
+                )
+                mode_combo = ttk.Combobox(
+                    option_row,
+                    textvariable=mode_variable,
+                    values=REQUIREMENT_MODE_OPTIONS,
+                    state="readonly",
+                    width=9,
+                )
+                mode_combo.pack(side=RIGHT, padx=(4, 0), pady=2)
+                mode_combo.bind(
+                    "<<ComboboxSelected>>",
+                    lambda _event, value=effect_id, variable=mode_variable: (
+                        self._set_effect_requirement_mode(value, variable.get())
+                    ),
+                )
             for widget in (row, role_label, name_label):
                 widget.bind(
                     "<ButtonPress-1>",
@@ -2914,6 +3320,9 @@ class ScrollEditorApp:
         self.selected_enemy_keys = (
             self.selected_enemy_keys - visible_keys
         ) | selected_visible
+        for key in tuple(self.selected_enemy_any_group_by_key):
+            if key not in self.selected_enemy_keys:
+                self.selected_enemy_any_group_by_key.pop(key, None)
         self._update_enemy_summary()
 
     def _restore_enemy_selection(self) -> None:
@@ -2931,10 +3340,78 @@ class ScrollEditorApp:
         summary = "、".join(labels[:3])
         if len(labels) > 3:
             summary += f" 等{len(labels)}项"
-        self.selected_enemy_text.set("出现敌人必须包含：" + (summary or "无"))
+        self.selected_enemy_text.set(
+            "已选敌人条件："
+            + (summary or "无（不筛选）")
+            + ("；可在下方设置必含/任一组" if summary else "")
+        )
+        if not hasattr(self, "selected_enemy_chips"):
+            return
+        for child in self.selected_enemy_chips.winfo_children():
+            child.destroy()
+        for key in sorted(
+            self.selected_enemy_keys,
+            key=lambda selected_key: self.enemy_name_by_key[selected_key].casefold(),
+        ):
+            row = ttk.Frame(self.selected_enemy_chips)
+            row.pack(fill="x", pady=1)
+            ttk.Label(row, text=self.enemy_name_by_key[key]).pack(
+                side=LEFT, fill="x", expand=True
+            )
+            group_index = self.selected_enemy_any_group_by_key.get(key, 0)
+            mode_variable = StringVar(
+                value=(
+                    REQUIREMENT_MODE_OPTIONS[0]
+                    if not group_index
+                    else f"任一组 {group_index}"
+                )
+            )
+            mode_combo = ttk.Combobox(
+                row,
+                textvariable=mode_variable,
+                values=REQUIREMENT_MODE_OPTIONS,
+                state="readonly",
+                width=9,
+            )
+            mode_combo.pack(side=RIGHT, padx=(4, 0))
+            mode_combo.bind(
+                "<<ComboboxSelected>>",
+                lambda _event, value=key, variable=mode_variable: (
+                    self._set_enemy_requirement_mode(value, variable.get())
+                ),
+            )
+            ttk.Button(
+                row,
+                text="×",
+                width=3,
+                command=lambda value=key: self._remove_enemy_selection(value),
+            ).pack(side=RIGHT, padx=4)
+
+    def _set_enemy_requirement_mode(self, key: int, label: str) -> None:
+        group_index = requirement_mode_group_index(label)
+        if group_index:
+            self.selected_enemy_any_group_by_key[key] = group_index
+        else:
+            self.selected_enemy_any_group_by_key.pop(key, None)
+        self._update_enemy_summary()
+        self._mark_intersection_stale()
+
+    def _remove_enemy_selection(self, key: int) -> None:
+        self.selected_enemy_keys.discard(key)
+        self.selected_enemy_any_group_by_key.pop(key, None)
+        self._restore_enemy_selection()
+        self._update_enemy_summary()
+        self._mark_intersection_stale()
 
     def _on_enemy_select(self, _event: object | None = None) -> None:
         self._sync_enemy_selection()
+        self._mark_intersection_stale()
+
+    def _clear_enemy_selection(self) -> None:
+        self.selected_enemy_keys.clear()
+        self.selected_enemy_any_group_by_key.clear()
+        self._restore_enemy_selection()
+        self._update_enemy_summary()
         self._mark_intersection_stale()
 
     def _filter_enemies(self, *_args: object) -> None:
@@ -3003,17 +3480,28 @@ class ScrollEditorApp:
         for path in paths:
             try:
                 account_id = path.parents[1].name
-            except IndexError:
+                slot_number = save_slot_index_from_path(path) + 1
+            except (IndexError, ValueError):
                 continue
-            choices[f"Steam ID：{account_id}"] = path
+            choices[
+                f"Steam ID：{account_id} · 游戏存档 {slot_number}（{path.parent.name}）"
+            ] = path
+        previous_path = self.save_choices.get(self.save_account.get())
         self.save_choices = choices
         labels = list(choices)
         self.save_combo.configure(values=labels)
         if hasattr(self, "local_save_combo"):
             self.local_save_combo.configure(values=labels)
         if labels:
-            self.save_account.set(labels[0])
-            self.status.set(f"已自动找到 {len(labels)} 个存档账户")
+            selected_label = next(
+                (label for label, path in choices.items() if path == previous_path),
+                labels[0],
+            )
+            self.save_account.set(selected_label)
+            account_count = len({path.parents[1].name for path in choices.values()})
+            self.status.set(
+                f"已找到 {account_count} 个 Steam 账户、{len(labels)} 个游戏存档栏位"
+            )
         else:
             self.save_account.set("未找到《仁王3》存档")
             self.status.set("未找到存档；请先在游戏中建立存档后重新搜索")
@@ -3037,7 +3525,7 @@ class ScrollEditorApp:
         available_ids = {effect.effect_id for effect in catalog}
         self.search_effect_catalog = catalog
         self.effect_catalog_summary.set(
-            f"当前上下文逐项可生成词条：{len(catalog)} 项；"
+            f"当前周目与稀有度下可生成的普通词条：{len(catalog)} 项；"
             "组合是否合法将在下方预检"
         )
         self.search_effect_by_id = {effect.effect_id: effect for effect in catalog}
@@ -3084,7 +3572,14 @@ class ScrollEditorApp:
         return " / ".join(unique)
 
     def _intersection_stage_label(self, stage: IntersectionStageCount) -> str:
-        if stage.kind in {"grace", "primary", "secondary"}:
+        if stage.kind in {
+            "grace",
+            "primary",
+            "secondary",
+            "secondary_any",
+            "ordinary",
+            "ordinary_any",
+        }:
             names = [
                 f"{effect_name(value)} [0x{value:04X}]"
                 for value in stage.values
@@ -3093,6 +3588,9 @@ class ScrollEditorApp:
                 "grace": "恩宠",
                 "primary": "主词条",
                 "secondary": "副词条",
+                "secondary_any": "副词条任一组",
+                "ordinary": "普通词条（主/副任意位置）",
+                "ordinary_any": "普通词条任一组（主/副任意位置）",
             }[stage.kind]
             return f"{role} {self._deduplicate_names(names)}"
         if stage.kind == "value":
@@ -3131,10 +3629,17 @@ class ScrollEditorApp:
         if report.is_global_total:
             scope = "完整 Seed 空间精确总数"
         else:
+            inspected = max(
+                0,
+                report.inspected_through_trial - report.start_after_trial,
+            )
+            total = max(1, report.family_size - report.start_after_trial)
+            percent = min(100.0, inspected * 100.0 / total)
             scope = (
                 "当前已检查范围"
                 f"（数学游标 {report.start_after_trial:,} → "
-                f"{report.inspected_through_trial:,} / {report.family_size:,}）"
+                f"{report.inspected_through_trial:,} / {report.family_size:,}，"
+                f"{percent:.2f}%）"
             )
         parts = [
             f"{self._intersection_stage_label(stage)}：{stage.count:,}"
@@ -3142,7 +3647,32 @@ class ScrollEditorApp:
         ]
         if not parts:
             parts.append(f"固定前像：{report.fixed_seed_count:,}")
-        return "交集数量｜" + scope + "：\n" + "  →  ".join(parts)
+        if report.is_global_total and report.complete_match_count == 0:
+            conclusion = (
+                "\n结论：完整 Seed 空间已穷尽，所选条件不存在共同 Seed。"
+            )
+        elif report.complete_match_count:
+            conclusion = (
+                f"\n已确认 {report.complete_match_count:,} 个完整匹配结果。"
+            )
+        else:
+            nonzero_counts = [stage.count for stage in report.stages if stage.count]
+            prefix_count = nonzero_counts[-1] if nonzero_counts else 0
+            if prefix_count <= 10:
+                evidence = (
+                    f"目前只有 {prefix_count:,} 个候选到达最后一个非零筛选层，"
+                    "样本仍很少。"
+                )
+            else:
+                evidence = f"最后一个非零筛选层目前有 {prefix_count:,} 个候选。"
+            conclusion = (
+                "\n尚未证明无解：" + evidence +
+                "只有检查达到 100% 且最终交集仍为 0，才能断定不存在；"
+                "可继续搜索或减少条件。"
+            )
+        return (
+            "交集数量｜" + scope + "：\n" + "  →  ".join(parts) + conclusion
+        )
 
     def _update_calculation_controls(self, *_: object) -> None:
         if not hasattr(self, "find_button"):
@@ -3168,8 +3698,9 @@ class ScrollEditorApp:
 
         if certified_ng3_mode:
             self.calculation_mode_hint.set(
-                "离线精确求解：CUDA 分块构造 Seed 前像并批量预筛主词条，"
-                "再由 CPU 精确重放完整词条、地形、敌人与特殊规则；恩宠可指定或任意。"
+                "离线精确求解：CUDA 分块构造 Seed 前像，并批量预筛主词条、"
+                "地形与敌人；CPU 只重放幸存候选的特殊规则和完整词条。"
+                "恩宠可指定或任意。"
             )
         elif joint_mode:
             self.calculation_mode_hint.set(
@@ -3229,7 +3760,9 @@ class ScrollEditorApp:
         self._sync_effect_roles()
         self._sync_enemy_selection()
         primary = frozenset(self.selected_primary_ids)
-        required_secondary_ids = frozenset(self.selected_secondary_ids)
+        required_secondary_ids, required_secondary_id_groups = (
+            self._secondary_effect_requirements()
+        )
         rarity, level, recommended, playthrough = self._parse_generation_fields()
         grace_label = self.grace_filter.get()
         if grace_label == NO_GRACE_FILTER_LABEL:
@@ -3260,30 +3793,79 @@ class ScrollEditorApp:
             terrain_effects = frozenset((self.terrain_effect_by_label[terrain_label],))
         else:
             raise ValueError("请选择有效的地形影响筛选项")
+        mandatory_enemy_keys, enemy_any_groups = partition_grouped_selections(
+            self.selected_enemy_keys,
+            self.selected_enemy_any_group_by_key,
+        )
+        enemy_lookup_key_groups = tuple(
+            self.enemy_key_groups[key] for key in mandatory_enemy_keys
+        ) + tuple(
+            frozenset().union(
+                *(self.enemy_key_groups[key] for key in display_key_group)
+            )
+            for display_key_group in enemy_any_groups
+        )
         auxiliary_criteria = AuxiliarySearchCriteria(
             required_terrain_effect_keys=terrain_effects,
             required_special_rule_key_groups=tuple(
                 self.rule_option_by_token[token].keys
                 for token in sorted(self.selected_rule_option_ids)
             ),
-            required_enemy_lookup_key_groups=tuple(
-                self.enemy_key_groups[key] for key in sorted(self.selected_enemy_keys)
-            ),
+            required_enemy_lookup_key_groups=enemy_lookup_key_groups,
         )
+        selected_rule_options = tuple(
+            self.rule_option_by_token[token]
+            for token in sorted(self.selected_rule_option_ids)
+        )
+        if selected_rule_options:
+            rule_feasibility = analyze_special_rule_feasibility(
+                tuple(
+                    SpecialRuleKeyRequirement(option.label, option.keys)
+                    for option in selected_rule_options
+                ),
+                playthrough=playthrough,
+            )
+            if not rule_feasibility.possible:
+                if rule_feasibility.unavailable_labels:
+                    detail = "、".join(rule_feasibility.unavailable_labels)
+                    explanation = f"{detail} 在当前周目已禁用或原生权重为 0"
+                elif rule_feasibility.universally_conflicting_pairs:
+                    detail = "；".join(
+                        f"{left} 与 {right}"
+                        for left, right in rule_feasibility.universally_conflicting_pairs
+                    )
+                    explanation = f"{detail} 属于原生冲突组，不能同时出现"
+                else:
+                    explanation = (
+                        "原生生成器只有三个规则槽，且第二、第三槽必须按正负成本、"
+                        "剩余预算和第三槽最大绝对成本规则依次配平；所选组合不存在"
+                        "任何合法顺序"
+                    )
+                raise ValueError(
+                    f"所选特殊规则组合在原生生成结构中无解：{explanation}。"
+                )
         if self.selected_enemy_keys:
-            enemy_requirements = tuple(
+            mandatory_requirements = tuple(
                 EnemyKeyRequirement(
-                    next(
-                        label.rsplit(" [", 1)[0]
-                        for option_key, label in self.enemy_options
-                        if option_key == key
-                    ),
+                    self.enemy_name_by_key[key],
                     self.enemy_key_groups[key],
                 )
-                for key in sorted(self.selected_enemy_keys)
+                for key in mandatory_enemy_keys
+            )
+            grouped_requirements = tuple(
+                EnemyKeyRequirement(
+                    "任一组："
+                    + " / ".join(
+                        self.enemy_name_by_key[key] for key in sorted(display_key_group)
+                    ),
+                    frozenset().union(
+                        *(self.enemy_key_groups[key] for key in display_key_group)
+                    ),
+                )
+                for display_key_group in enemy_any_groups
             )
             feasibility = analyze_enemy_feasibility(
-                enemy_requirements,
+                mandatory_requirements + grouped_requirements,
                 playthrough=playthrough,
             )
             if not feasibility.possible:
@@ -3295,6 +3877,7 @@ class ScrollEditorApp:
                 rarity=rarity,
                 primary_effect_ids=primary,
                 required_secondary_ids=required_secondary_ids,
+                required_secondary_id_groups=required_secondary_id_groups,
                 grace_effect_id=grace_effect_id,
                 auxiliary_criteria=auxiliary_criteria,
                 minimum_roll_percent_by_effect_id=tuple(
@@ -3312,6 +3895,7 @@ class ScrollEditorApp:
             auxiliary_criteria,
             playthrough,
             tuple(sorted(self.selected_effect_min_rolls.items())),
+            required_secondary_id_groups,
         )
 
     def _update_grace_search_hint(self, *_: object) -> None:
@@ -3370,6 +3954,28 @@ class ScrollEditorApp:
         else:
             self.grace_search_hint.set("已选恩宠：当前仅支持稀有度4或5。")
 
+    def _update_recommended_level_hint(self, *_: object) -> None:
+        if not hasattr(self, "recommended_level_hint"):
+            return
+        try:
+            requested = int(self.recommended.get(), 0)
+        except ValueError:
+            self.recommended_level_hint.set("请输入有效整数以预览最终推荐等级。")
+            return
+        if not 0 <= requested <= 0xFFFF:
+            self.recommended_level_hint.set("推荐等级内部值必须在 0–65535 之间。")
+            return
+        prediction = predict_recommended_level(requested)
+        clamp_note = (
+            f"；输入将按 {prediction.canonical_internal_level} 处理"
+            if prediction.was_clamped
+            else ""
+        )
+        self.recommended_level_hint.set(
+            f"实际推荐等级 / 敌人·Boss 等级：{prediction.displayed_level}{clamp_note}。"
+            "较低适合快速刷取，较高适合挑战；有效内部范围 156–1400。"
+        )
+
     def _parse_generation_fields(self) -> tuple[int, int, int, int | None]:
         self._ensure_supported_game_version()
         rarity = int(self.rarity.get(), 0)
@@ -3380,8 +3986,11 @@ class ScrollEditorApp:
         playthrough = PLAYTHROUGH_BY_LABEL[self.playthrough.get()]
         if rarity not in PRODUCT_RARITIES:
             raise ValueError("当前正式入口仅提供稀有度3、4绘卷")
-        if not 0 <= level <= 65535 or not 0 <= recommended <= 65535:
-            raise ValueError("等级必须在 0 到 65535 之间")
+        if not 0 <= level <= 180:
+            raise ValueError("PC v2.00.02 的可传播绘卷等级必须在 0 到 180 之间")
+        if not 0 <= recommended <= 65535:
+            raise ValueError("推荐等级内部值必须在 0 到 65535 之间")
+        recommended = predict_recommended_level(recommended).canonical_internal_level
         return rarity, level, recommended, playthrough
 
     def _ensure_supported_game_version(self) -> None:
@@ -3417,8 +4026,10 @@ class ScrollEditorApp:
 
     def _parse_search_limits(self) -> tuple[int, int]:
         result_count = int(self.result_count.get(), 0)
-        if not 1 <= result_count <= 200:
-            raise ValueError("候选数量必须在 1 到 200 之间")
+        if not 1 <= result_count <= MAX_PREVIEW_CANDIDATES:
+            raise ValueError(
+                f"候选数量必须在 1 到 {MAX_PREVIEW_CANDIDATES} 之间"
+            )
         max_seeds = int(self.max_seeds.get(), 0)
         if not 1 <= max_seeds <= 0x100000000:
             raise ValueError("最大候选验证数必须在 1 到 4294967296 之间")
@@ -3438,6 +4049,7 @@ class ScrollEditorApp:
                 auxiliary_criteria,
                 playthrough,
                 _minimum_rolls,
+                secondary_any_groups,
             ) = criteria
             if playthrough in (1, 2) and not primary:
                 raise ValueError("一、二周目联立求解必须至少选择一个主词条")
@@ -3446,6 +4058,7 @@ class ScrollEditorApp:
                 and rarity in (3, 4, 5)
                 and not primary
                 and not secondary
+                and not secondary_any_groups
                 and grace is None
                 and auxiliary_criteria.is_empty
             ):
@@ -3480,6 +4093,7 @@ class ScrollEditorApp:
                 AuxiliarySearchCriteria(),
                 playthrough,
                 (),
+                (),
             )
             (
                 _primary,
@@ -3491,6 +4105,7 @@ class ScrollEditorApp:
                 _auxiliary_criteria,
                 playthrough,
                 _minimum_rolls,
+                _secondary_any_groups,
             ) = criteria
             save_path = self._search_save_path(criteria)
         except Exception as error:
@@ -3535,7 +4150,7 @@ class ScrollEditorApp:
                     raise RuntimeError("native generation requires a selected save")
                 project_root = application_root()
                 crypto = SaveCrypto(default_crypto_tool(project_root))
-                state_root = Path(os.environ.get("LOCALAPPDATA", project_root)) / "Nioh3ScrollGenerator"
+                state_root = self._backup_state_root()
                 installer = SaveInstaller(save_path=save_path, crypto=crypto, state_root=state_root)
                 inventory = installer.capture_inventory()
                 save_fingerprint = hashlib.sha256(inventory.decrypted).hexdigest()
@@ -3623,6 +4238,7 @@ class ScrollEditorApp:
                 _auxiliary_criteria,
                 playthrough,
                 _minimum_rolls,
+                _secondary_any_groups,
             ) = current
             if playthrough in (1, 2) and not primary:
                 raise ValueError("一、二周目联立求解必须至少选择一个主词条")
@@ -3665,7 +4281,17 @@ class ScrollEditorApp:
     ) -> None:
         if self.worker and self.worker.is_alive():
             return
+        available_preview_slots = MAX_PREVIEW_CANDIDATES - len(self.candidates)
+        if available_preview_slots <= 0:
+            self.status.set(
+                f"预览区已达到 {MAX_PREVIEW_CANDIDATES} 张上限；"
+                "请先删除部分候选或清空预览。"
+            )
+            return
+        result_count = min(result_count, available_preview_slots)
         self.cancel_event.clear()
+        search_run_id = self.search_events.begin(result_count)
+        self.active_search_run_id = search_run_id
         self.active_streamed_count = 0
         self._set_busy(True)
         selected_playthrough = playthrough_label(criteria[7])
@@ -3736,12 +4362,10 @@ class ScrollEditorApp:
                     auxiliary_criteria,
                     playthrough,
                     minimum_rolls,
+                    required_secondary_id_groups,
                 ) = criteria
                 project_root = application_root()
-                state_root = (
-                    Path(os.environ.get("LOCALAPPDATA", project_root))
-                    / "Nioh3ScrollGenerator"
-                )
+                state_root = self._backup_state_root()
                 installer = None
                 inventory = None
                 save_fingerprint = None
@@ -3781,6 +4405,7 @@ class ScrollEditorApp:
                         rarity=rarity,
                         primary_effect_ids=primary,
                         required_secondary_ids=required_secondary_ids,
+                        required_secondary_id_groups=required_secondary_id_groups,
                         grace_effect_id=grace_effect_id,
                         auxiliary_criteria=auxiliary_criteria,
                         minimum_roll_percent_by_effect_id=minimum_rolls,
@@ -3789,7 +4414,9 @@ class ScrollEditorApp:
                     def intersection_progress(
                         update: EffectSeedIntersectionReport,
                     ) -> None:
-                        self.events.put(("intersection_progress", update))
+                        self.search_events.publish_progress(
+                            search_run_id, "intersection_progress", update
+                        )
 
                     result = collect_offline_ng3_search_batch(
                         request,
@@ -3799,12 +4426,17 @@ class ScrollEditorApp:
                         max_trials_per_batch=max_seeds,
                         start_after_trial=joint_start_after_trial,
                         intersection_progress=intersection_progress,
-                        candidate_found=lambda candidate: self.events.put(
-                            ("candidate_found", candidate)
+                        candidate_found=lambda candidate: self.search_events.publish_candidate(
+                            search_run_id, candidate
                         ),
-                        cancelled=self.cancel_event.is_set,
+                        cancelled=lambda: (
+                            self.cancel_event.is_set()
+                            or self.search_events.is_cancelled(search_run_id)
+                        ),
                     )
-                    self.events.put(("search_complete", result))
+                    self.search_events.publish_terminal(
+                        search_run_id, "search_complete", result
+                    )
                     return
                 if offline_grace_mapping is not None:
                     request = EffectSeedRequest(
@@ -3812,6 +4444,7 @@ class ScrollEditorApp:
                         rarity=5,
                         primary_effect_ids=primary,
                         required_secondary_ids=required_secondary_ids,
+                        required_secondary_id_groups=required_secondary_id_groups,
                         grace_effect_id=grace_effect_id,
                         auxiliary_criteria=auxiliary_criteria,
                         minimum_roll_percent_by_effect_id=minimum_rolls,
@@ -3820,7 +4453,9 @@ class ScrollEditorApp:
                     def intersection_progress(
                         update: EffectSeedIntersectionReport,
                     ) -> None:
-                        self.events.put(("intersection_progress", update))
+                        self.search_events.publish_progress(
+                            search_run_id, "intersection_progress", update
+                        )
 
                     result = collect_offline_rarity5_search_batch(
                         request,
@@ -3830,12 +4465,17 @@ class ScrollEditorApp:
                         max_trials_per_batch=max_seeds,
                         start_after_trial=joint_start_after_trial,
                         intersection_progress=intersection_progress,
-                        candidate_found=lambda candidate: self.events.put(
-                            ("candidate_found", candidate)
+                        candidate_found=lambda candidate: self.search_events.publish_candidate(
+                            search_run_id, candidate
                         ),
-                        cancelled=self.cancel_event.is_set,
+                        cancelled=lambda: (
+                            self.cancel_event.is_set()
+                            or self.search_events.is_cancelled(search_run_id)
+                        ),
                     )
-                    self.events.put(("search_complete", result))
+                    self.search_events.publish_terminal(
+                        search_run_id, "search_complete", result
+                    )
                     return
                 if is_cached_game_closed_effect_context(criteria) and not native_ready:
                     raise ValueError(
@@ -3857,7 +4497,9 @@ class ScrollEditorApp:
                 template = inventory.template_record_for_playthrough(playthrough)
 
                 def progress(update: ScanProgress) -> None:
-                    self.events.put(("progress", update))
+                    self.search_events.publish_progress(
+                        search_run_id, "progress", update
+                    )
 
                 with NativeBatchOracle(max_batch_size=2048) as oracle:
                     primary_output_map = None
@@ -3881,7 +4523,9 @@ class ScrollEditorApp:
                             if grace_output_map is None:
 
                                 def grace_map_progress(update: GraceMapProgress) -> None:
-                                    self.events.put(("grace_map_progress", update))
+                                    self.search_events.publish_progress(
+                                        search_run_id, "grace_map_progress", update
+                                    )
 
                                 grace_output_map = build_live_grace_output_map(
                                     oracle,
@@ -3923,6 +4567,7 @@ class ScrollEditorApp:
                             rarity=5,
                             primary_effect_ids=primary,
                             required_secondary_ids=required_secondary_ids,
+                            required_secondary_id_groups=required_secondary_id_groups,
                             grace_effect_id=grace_effect_id,
                             auxiliary_criteria=auxiliary_criteria,
                             minimum_roll_percent_by_effect_id=minimum_rolls,
@@ -3931,7 +4576,9 @@ class ScrollEditorApp:
                         def captured_intersection_progress(
                             update: EffectSeedIntersectionReport,
                         ) -> None:
-                            self.events.put(("intersection_progress", update))
+                            self.search_events.publish_progress(
+                                search_run_id, "intersection_progress", update
+                            )
 
                         # The native process is needed only to capture the map.
                         # Release its handle and remote scratch allocation before
@@ -3945,12 +4592,17 @@ class ScrollEditorApp:
                             max_trials_per_batch=max_seeds,
                             start_after_trial=joint_start_after_trial,
                             intersection_progress=captured_intersection_progress,
-                            candidate_found=lambda candidate: self.events.put(
-                                ("candidate_found", candidate)
+                            candidate_found=lambda candidate: self.search_events.publish_candidate(
+                                search_run_id, candidate
                             ),
-                            cancelled=self.cancel_event.is_set,
+                            cancelled=lambda: (
+                                self.cancel_event.is_set()
+                                or self.search_events.is_cancelled(search_run_id)
+                            ),
                         )
-                        self.events.put(("search_complete", result))
+                        self.search_events.publish_terminal(
+                            search_run_id, "search_complete", result
+                        )
                         return
                     if grace_effect_id is not None and rarity == 5 and primary:
                         map_key = (save_fingerprint, playthrough, grace_effect_id, rarity)
@@ -3975,7 +4627,9 @@ class ScrollEditorApp:
                             assert grace_output_map is not None
 
                             def map_progress(update: PrimaryMapProgress) -> None:
-                                self.events.put(("map_progress", update))
+                                self.search_events.publish_progress(
+                                    search_run_id, "map_progress", update
+                                )
 
                             primary_output_map = build_primary_output_map(
                                 oracle,
@@ -4016,7 +4670,9 @@ class ScrollEditorApp:
                         if primary_first_output_map is None:
 
                             def map_progress(update: PrimaryMapProgress) -> None:
-                                self.events.put(("map_progress", update))
+                                self.search_events.publish_progress(
+                                    search_run_id, "map_progress", update
+                                )
 
                             primary_first_output_map = build_primary_first_draw_output_map(
                                 oracle,
@@ -4040,6 +4696,7 @@ class ScrollEditorApp:
                         "start_seed": 0,
                         "primary_effect_ids": primary,
                         "required_secondary_ids": required_secondary_ids,
+                        "required_secondary_id_groups": required_secondary_id_groups,
                         "grace_effect_id": grace_effect_id,
                         "rarity": rarity,
                         "level": level,
@@ -4077,7 +4734,7 @@ class ScrollEditorApp:
                         candidate = replace(candidate, playthrough=playthrough)
                         candidate = self._attach_auxiliary(candidate, playthrough)
                         candidates.append(candidate)
-                        self.events.put(("candidate_found", candidate))
+                        self.search_events.publish_candidate(search_run_id, candidate)
                         if uses_primary_map:
                             if (
                                 candidate.joint_search_trial is None
@@ -4087,25 +4744,29 @@ class ScrollEditorApp:
                             active_joint_cursor = candidate.joint_search_trial
                         else:
                             active_grace_cursor = candidate.seed
-                self.events.put(
-                    (
-                        "search_complete",
-                        SearchBatchResult(
-                            tuple(candidates),
-                            result_count,
-                            streamed=True,
-                        ),
-                    )
+                self.search_events.publish_terminal(
+                    search_run_id,
+                    "search_complete",
+                    SearchBatchResult(
+                        tuple(candidates),
+                        result_count,
+                        streamed=True,
+                    ),
                 )
             except Exception:
-                self.events.put(("error", traceback.format_exc()))
+                self.search_events.publish_terminal(
+                    search_run_id, "search_error", traceback.format_exc()
+                )
 
         self.worker = threading.Thread(target=work, daemon=True)
         self.worker.start()
 
     def _cancel(self) -> None:
         self.cancel_event.set()
-        self.status.set("已请求取消，正在等待当前批次结束……")
+        self.search_events.cancel(self.active_search_run_id)
+        self.status.set(
+            "已请求取消；正在停止当前计算，未显示的积压结果已丢弃……"
+        )
 
     def _set_busy(self, busy: bool) -> None:
         try:
@@ -4157,9 +4818,105 @@ class ScrollEditorApp:
             state="disabled" if busy or not self.candidate_list.curselection() else "normal"
         )
 
+    def _apply_search_event(self, event: str, payload: object) -> None:
+        if event == "progress":
+            update = payload
+            assert isinstance(update, ScanProgress)
+            self.status.set(
+                f"已原生验证 {update.scanned:,} 个候选；当前 Seed {update.current_seed}"
+            )
+        elif event == "map_progress":
+            update = payload
+            assert isinstance(update, PrimaryMapProgress)
+            self.status.set(
+                "正在建立所选周目的主词条抽取映射："
+                f"{update.mapped_buckets:,} / {update.total_buckets:,}"
+            )
+        elif event == "grace_map_progress":
+            update = payload
+            assert isinstance(update, GraceMapProgress)
+            self.status.set(
+                "实验模式：正在建立所选四/五周目类型的恩宠映射："
+                f"{update.mapped_buckets:,} / {update.total_buckets:,}"
+            )
+        elif event == "intersection_progress":
+            update = payload
+            assert isinstance(update, EffectSeedIntersectionReport)
+            self.intersection_summary.set(self._format_intersection_report(update))
+        elif event == "candidate_found":
+            candidate = payload
+            assert isinstance(candidate, ScrollCandidate)
+            if not self._append_candidate(candidate):
+                return
+            self.active_streamed_count += 1
+            self.install_button.configure(state="disabled")
+            backend = last_seed_acceleration_backend()
+            backend_text = "CUDA" if backend == "cuda" else "CPU"
+            self.status.set(
+                f"已实时找到 {self.active_streamed_count} 个匹配 Seed；"
+                f"{backend_text} 预筛后正在继续精确验证……"
+            )
+        elif event == "search_complete":
+            self._set_busy(False)
+            assert isinstance(payload, SearchBatchResult)
+            if payload.intersection_report is not None:
+                self.intersection_summary.set(
+                    self._format_intersection_report(payload.intersection_report)
+                )
+            if payload.next_start_after_trial is not None:
+                self.last_joint_trial = payload.next_start_after_trial
+            if payload.candidates:
+                last_candidate = payload.candidates[-1]
+                self.last_search_seed = last_candidate.seed
+                if payload.next_start_after_trial is None:
+                    self.last_joint_trial = last_candidate.joint_search_trial or 0
+                self.next_button.configure(state="normal")
+            if self.cancel_event.is_set():
+                self.status.set(
+                    f"搜索已取消；预览区保留 {len(self.candidates)} 个已显示候选。"
+                )
+                return
+            if not payload.candidates:
+                if payload.next_start_after_trial is not None:
+                    self.next_button.configure(state="normal")
+                    self.status.set(
+                        "本次候选预算内没有匹配 Seed；可从当前数学游标继续下一批。"
+                    )
+                else:
+                    self.status.set("本次计算/验证预算内没有匹配 Seed。")
+                return
+            if not payload.streamed:
+                for candidate in payload.candidates:
+                    self._append_candidate(candidate)
+            backend = last_seed_acceleration_backend()
+            backend_text = {
+                "cuda": "CUDA",
+                "native_cpu": "原生 CPU",
+                "python": "Python CPU",
+            }.get(backend, "CPU")
+            self.status.set(
+                f"本批已找到 {len(payload.candidates)} / {payload.requested_count} 个匹配 Seed；"
+                f"预筛后端：{backend_text}。可逐张比较，或继续计算下一批。"
+            )
+        elif event == "search_error":
+            self._set_busy(False)
+            details = str(payload)
+            self.status.set("搜索失败；存档未被修改。")
+            messagebox.showerror(
+                "搜索失败",
+                user_facing_error_message(details),
+            )
+
     def _poll_events(self) -> None:
         try:
-            while True:
+            # Search candidates are intentionally handled before coalesced
+            # progress updates so every match becomes visible promptly.
+            for event, payload in self.search_events.drain(max_events=8):
+                self._apply_search_event(event, payload)
+
+            # Never monopolize Tk's event loop while background work is noisy.
+            # Returning frequently keeps Cancel and window controls responsive.
+            for _ in range(32):
                 event, payload = self.events.get_nowait()
                 if event == "progress":
                     update = payload
@@ -4301,7 +5058,8 @@ class ScrollEditorApp:
                     )
         except queue.Empty:
             pass
-        self.root.after(100, self._poll_events)
+        poll_delay_ms = 16 if self.search_events.has_pending() else 100
+        self.root.after(poll_delay_ms, self._poll_events)
 
     def _show_selected_candidate(self, _event: object | None = None) -> None:
         selection = self.candidate_list.curselection()
@@ -4517,7 +5275,13 @@ class ScrollEditorApp:
         candidate: ScrollCandidate,
         *,
         validates_combination: bool = True,
-    ) -> None:
+    ) -> bool:
+        if len(self.candidates) >= MAX_PREVIEW_CANDIDATES:
+            self.status.set(
+                f"预览区已达到 {MAX_PREVIEW_CANDIDATES} 张上限；"
+                "请先删除部分候选或清空预览。"
+            )
+            return False
         had_selection = bool(self.candidate_list.curselection())
         self.candidates.append(candidate)
         if self.candidate_sort.get() == "发现顺序":
@@ -4536,6 +5300,7 @@ class ScrollEditorApp:
             self.combination_status.set(
                 f"组合状态：已找到 {len(self.candidates)} 个经完整离线重放验证的合法 Seed。"
             )
+        return True
 
     def _show_candidate(self, candidate: ScrollCandidate) -> None:
         self._clear_details()
@@ -4727,12 +5492,15 @@ class ScrollEditorApp:
             level = int(self.level.get(), 0)
             recommended_level = int(self.recommended.get(), 0)
             transfer_count = int(self.transfer_count.get(), 0)
-            if not 0 <= level <= 0xFFFF:
-                raise ValueError("等级必须在 0 到 65535 之间")
+            if not 0 <= level <= 180:
+                raise ValueError("PC v2.00.02 的可传播绘卷等级必须在 0 到 180 之间")
             if not 0 <= recommended_level <= 0xFFFF:
                 raise ValueError("推荐等级必须在 0 到 65535 之间")
             if not 0 <= transfer_count <= 0xFFFFFFFF:
                 raise ValueError("转手次数必须在 0 到 4294967295 之间")
+            recommended_level = predict_recommended_level(
+                recommended_level
+            ).canonical_internal_level
         except Exception as error:
             messagebox.showerror("写入参数无效", str(error))
             return
