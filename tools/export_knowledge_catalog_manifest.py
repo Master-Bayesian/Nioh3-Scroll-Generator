@@ -20,12 +20,18 @@ DEFAULT_OUTPUT = (
 )
 
 
+CANONICAL_TEXT_SUFFIXES = frozenset((".csv", ".json", ".md", ".py", ".yaml", ".yml"))
+
+
+def _canonical_file_bytes(path: Path) -> bytes:
+    data = path.read_bytes()
+    if path.suffix.casefold() in CANONICAL_TEXT_SUFFIXES:
+        data = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return data
+
+
 def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest().upper()
+    return hashlib.sha256(_canonical_file_bytes(path)).hexdigest().upper()
 
 
 def _relative(path: Path) -> str:
@@ -33,10 +39,11 @@ def _relative(path: Path) -> str:
 
 
 def _file_entry(path: Path) -> dict[str, object]:
+    canonical = _canonical_file_bytes(path)
     return {
         "path": _relative(path),
-        "size": path.stat().st_size,
-        "sha256": _sha256(path),
+        "size": len(canonical),
+        "sha256": hashlib.sha256(canonical).hexdigest().upper(),
     }
 
 

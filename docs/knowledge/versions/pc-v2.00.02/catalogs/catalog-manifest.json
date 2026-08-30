@@ -4,8 +4,8 @@
   "catalogs": {
     "final_effects": {
       "path": "nioh3_scroll_editor/data/effect_names_multilingual.json",
-      "size": 2451933,
-      "sha256": "28C4779F1A6BDCF7BEF484C3F017C09D8E82135296B41BAA56479CABFD45D3C9",
+      "size": 2368933,
+      "sha256": "8722645E97C50A3CA305353056FB22C307B3BB038388D08EF41EA98561362CAB",
       "schema": "nioh3-effect-localization-catalog/v1",
       "effect_count": 3609,
       "locales": [
@@ -23,8 +23,8 @@
     "auxiliary_names": {
       "zh-CN": {
         "path": "nioh3_scroll_editor/data/auxiliary_names/zh-CN.json",
-        "size": 422967,
-        "sha256": "D9274762DDA3891B3862872FA2F3ADA4FCE936AA519A1BA77E9569D803567F14",
+        "size": 410233,
+        "sha256": "1F9EEC0DD7870F6BC03004E30F630A1A213E1641435D4838CE87CAB2E9695E55",
         "schema": "nioh3-scroll-auxiliary-names/v1",
         "coverage": {
           "terrain_rows": 238,
@@ -40,8 +40,8 @@
       },
       "ja-JP": {
         "path": "nioh3_scroll_editor/data/auxiliary_names/ja-JP.json",
-        "size": 473969,
-        "sha256": "5BBEF32A5F5C26DE930818626E1866953464D386845460441FBD343343D3BEDF",
+        "size": 461235,
+        "sha256": "4E81FFF80F8249B8921C53625350EAF7B472FA881BA8DA8250550F02E56B0A7B",
         "schema": "nioh3-scroll-auxiliary-names/v1",
         "coverage": {
           "terrain_rows": 238,
@@ -57,8 +57,8 @@
       },
       "en-US": {
         "path": "nioh3_scroll_editor/data/auxiliary_names/en-US.json",
-        "size": 437266,
-        "sha256": "849D60EB0A7BD4F1DA5ED422CE895C23F9DF5CF443F538D479B07CA1F301CC8A",
+        "size": 424532,
+        "sha256": "44ABBD00338F22BF8469772CFEF2467E06FA931ABB3DACE60E9B3FD194C5CC66",
         "schema": "nioh3-scroll-auxiliary-names/v1",
         "coverage": {
           "terrain_rows": 238,
@@ -88,7 +88,7 @@
         "json": {
           "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-roles.json",
           "size": 770939,
-          "sha256": "A13C624C04840B531AD056BC6772B9FE7AEA7217FFDE8AD9DE3DD7D9ECB83E5C"
+          "sha256": "9756BFC4DC9219C0152D0B3612AD686C2233D8A1D5DE29396B4B0643B7E4B260"
         },
         "csv": {
           "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-roles.csv",
@@ -166,13 +166,13 @@
     },
     "effect_finalizer": {
       "path": "nioh3_scroll_editor/data/r4_finalizer/pc_v2_00_02/resource_v1/manifest.json",
-      "size": 9724,
-      "sha256": "DA95392EB39B3050D2C27884B2E46F7F0C5BA51C819DE6094059D1EC0577CDCE"
+      "size": 9401,
+      "sha256": "3E9E51FB2A983280B4FEEA13DB9D841E1DF1EB7CDA295685FD335520A3FF3F1F"
     },
     "auxiliary_generation": {
       "path": "nioh3_scroll_editor/data/auxiliary_generation/pc_v2_00_02/resource_v3/manifest.json",
-      "size": 2774,
-      "sha256": "1E4D89C1B89B4B05BF4E51973E181330ABD814C9DFC1AF730156484D8C6F7B94"
+      "size": 2690,
+      "sha256": "CC061EC15BBF7B704081BAFCF17E3CD21D91F76D60708419459D8FB23DE35C74"
     },
     "grace_r4_stage_one": {
       "path": "nioh3_scroll_editor/data/grace_output_map_e604_r4_current.json",
@@ -182,8 +182,8 @@
     },
     "grace_r5_research": {
       "path": "nioh3_scroll_editor/data/grace_output_map_e604_r5_current.json",
-      "size": 1581,
-      "sha256": "8B006AA0D26E6C2D33DE249122E78473766CDB049540358A7524EE8C5385B290",
+      "size": 1499,
+      "sha256": "EE20CCAE93B4607B0E29911DEAF2C3F710B980416BB4C35A84BD00306F9E6A8A",
       "status": "technically parity-backed; product hidden; legacy current filename and incomplete map capture provenance"
     },
     "special_rule_item_names": {

@@ -28,15 +28,15 @@
     "localization_catalogs": {
       "zh-CN": {
         "path": "nioh3_scroll_editor/data/auxiliary_names/zh-CN.json",
-        "sha256": "D9274762DDA3891B3862872FA2F3ADA4FCE936AA519A1BA77E9569D803567F14"
+        "sha256": "1F9EEC0DD7870F6BC03004E30F630A1A213E1641435D4838CE87CAB2E9695E55"
       },
       "ja-JP": {
         "path": "nioh3_scroll_editor/data/auxiliary_names/ja-JP.json",
-        "sha256": "5BBEF32A5F5C26DE930818626E1866953464D386845460441FBD343343D3BEDF"
+        "sha256": "4E81FFF80F8249B8921C53625350EAF7B472FA881BA8DA8250550F02E56B0A7B"
       },
       "en-US": {
         "path": "nioh3_scroll_editor/data/auxiliary_names/en-US.json",
-        "sha256": "849D60EB0A7BD4F1DA5ED422CE895C23F9DF5CF443F538D479B07CA1F301CC8A"
+        "sha256": "44ABBD00338F22BF8469772CFEF2467E06FA931ABB3DACE60E9B3FD194C5CC66"
       }
     }
   },

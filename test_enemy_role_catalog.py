@@ -5,13 +5,18 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from tools.export_enemy_role_catalog import DEFAULT_OUTPUT_ROOT, export
+from tools.export_enemy_role_catalog import (
+    DEFAULT_OUTPUT_ROOT,
+    _sha256 as role_catalog_source_sha256,
+    export,
+)
 from tools.export_enemy_combination_guide import (
     build_combination_payload,
     export as export_enemy_combinations,
 )
 from tools.export_knowledge_catalog_manifest import (
     DEFAULT_OUTPUT as DEFAULT_KNOWLEDGE_MANIFEST,
+    _sha256 as knowledge_catalog_source_sha256,
     export as export_knowledge_manifest,
 )
 from nioh3_scroll_editor.auxiliary_feasibility import (
@@ -39,6 +44,23 @@ class EnemyRoleCatalogTests(unittest.TestCase):
             self.payload["source"]["candidate_table"]["sha256"],
             "EFB0672B86A5F87D419D752E3B2FD75A51F5182CC1F809705C1627B0D4E9785D",
         )
+
+    def test_text_source_fingerprints_ignore_platform_newlines(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            lf_path = root / "lf.json"
+            crlf_path = root / "crlf.json"
+            lf_path.write_bytes(b'{\n  "value": 1\n}\n')
+            crlf_path.write_bytes(b'{\r\n  "value": 1\r\n}\r\n')
+
+            self.assertEqual(
+                role_catalog_source_sha256(lf_path),
+                role_catalog_source_sha256(crlf_path),
+            )
+            self.assertEqual(
+                knowledge_catalog_source_sha256(lf_path),
+                knowledge_catalog_source_sha256(crlf_path),
+            )
 
     def test_impossible_combination_roles_are_preserved(self) -> None:
         rows_by_key = {row["lookup_key"]: row for row in self.payload["rows"]}
