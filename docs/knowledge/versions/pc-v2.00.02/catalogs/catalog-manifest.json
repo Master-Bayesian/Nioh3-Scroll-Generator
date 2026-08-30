@@ -87,18 +87,18 @@
       "files": {
         "json": {
           "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-roles.json",
-          "size": 800227,
-          "sha256": "836899AFD9888F2242B7E7A2765E010CC75E3786B7D00AA8F0FF32D4C2212099"
+          "size": 770939,
+          "sha256": "A13C624C04840B531AD056BC6772B9FE7AEA7217FFDE8AD9DE3DD7D9ECB83E5C"
         },
         "csv": {
           "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-roles.csv",
-          "size": 93600,
-          "sha256": "B5FFACAC67E2586093FAD4C135CE15C4DC9ACD6599716E3463531E60CDAFFDE5"
+          "size": 93112,
+          "sha256": "9DF130F6AC8EA5DFEC2F8E33A628676B46B4193294DD7B9696B4CB20A73EFFC1"
         },
         "md": {
           "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-roles.md",
-          "size": 19405,
-          "sha256": "8DCED298991AFE08496BE22EC442882F11A219D64D1D2D1E92F262284F1C0783"
+          "size": 19188,
+          "sha256": "C398D7B0A32CD96B6C7ACD4DB8BE042B917AF81F4183BAAAE69427BB8B630A44"
         }
       },
       "source_table": {
@@ -127,29 +127,29 @@
       "files": {
         "json": {
           "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-combinations.json",
-          "size": 152255,
-          "sha256": "173FFBF66DECD9E6D5CC185173E34D33A1EAE478C27C144AE659AE2D1C5E9D4F"
+          "size": 145730,
+          "sha256": "62E2F22FCA660C651A9D5DF18972812CDD8A4FA6DED9E3C13B43236B1035D175"
         },
         "csv": {
           "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-combinations.csv",
-          "size": 39525,
-          "sha256": "975F0FA5FB896B9BFA95C61606F82B1DF7C474D4BF0D6CA4EBE35B10DA263246"
+          "size": 39382,
+          "sha256": "35CECA0583A6196DC630801E6EB300FD1EF304046C58C6F9EF32D670320B0B7F"
         },
         "md": {
           "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-combinations.md",
-          "size": 22581,
-          "sha256": "B30F7E5AB5BDBA8C2923F14C8583ACB2581C90DA8ED94F5AB40BAED4C3710D0E"
+          "size": 22264,
+          "sha256": "6895BE023FF7FEBFA3A3B24D9EAFC8A3A311D8D2C41B69FBDAF34CBE3122EEE2"
         }
       },
       "player_guide_zh_CN": {
         "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-combinations.zh-CN.md",
-        "size": 18698,
-        "sha256": "58411A87212A8FAF81ABCBD3993805805496ACCEE217DBCDED23E28523298C43"
+        "size": 18398,
+        "sha256": "EF172DFAAC08DF98C4921AF8DA20C8B973B6720886599A02896865A7159A88EA"
       },
       "unavailable_file": {
         "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-unavailable.csv",
-        "size": 7492,
-        "sha256": "783752375166AD88CE4F4E8FAB4AFBFCFDB6EDCC0674B1CB2C238AB1D45B9451"
+        "size": 7422,
+        "sha256": "E78FECA3A4423CB798464D8F68B031FA5765942FC991F41B948AC61EC847E738"
       },
       "legality_boundary": {
         "structurally_impossible": "No branch class can assign a permitted native role to every requested enemy. No Seed can satisfy the combination on this path.",

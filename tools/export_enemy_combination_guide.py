@@ -326,6 +326,7 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
 
 
@@ -345,7 +346,7 @@ def _write_csv(path: Path, entries: list[dict[str, Any]]) -> None:
         "family_rule",
     )
     with path.open("w", encoding="utf-8-sig", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=fields)
+        writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         for entry in entries:
             writer.writerow(
@@ -379,7 +380,7 @@ def _write_unavailable_csv(path: Path, entries: list[dict[str, Any]]) -> None:
         "localization_lookup_keys",
     )
     with path.open("w", encoding="utf-8-sig", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=fields)
+        writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         for entry in entries:
             writer.writerow(
@@ -526,7 +527,11 @@ def _write_markdown(path: Path, payload: dict[str, Any]) -> None:
             "This guide is a structural preflight backed by the native candidate and special-context tables plus recovered class control flow. It does not replace exact Seed replay. A future executable version must receive a new versioned guide even if the localized names appear unchanged.",
         ]
     )
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    path.write_text(
+        "\n".join(lines) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def _write_chinese_markdown(path: Path, payload: dict[str, Any]) -> None:
@@ -652,7 +657,11 @@ def _write_chinese_markdown(path: Path, payload: dict[str, Any]) -> None:
             "本指南的结构判断来自原生候选表、special-context 表和已恢复的 Class 控制流。它不是 Seed 存在性证明，也不能替代精确回放。游戏版本更新后，即使显示名称不变，也必须重新验证候选表与生成逻辑。",
         ]
     )
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    path.write_text(
+        "\n".join(lines) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def export(output_root: Path) -> dict[str, Any]:

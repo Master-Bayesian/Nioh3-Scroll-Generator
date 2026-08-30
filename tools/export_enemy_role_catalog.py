@@ -276,6 +276,7 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
 
 
@@ -300,7 +301,7 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "raw_row_hex",
     )
     with path.open("w", encoding="utf-8-sig", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=fields)
+        writer = csv.DictWriter(stream, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow(
@@ -383,7 +384,11 @@ def _write_markdown(path: Path, payload: dict[str, Any]) -> None:
         lines.append(
             f"| {role} | {zh_name} | {ja_name} | {en_name} | {references} |"
         )
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    path.write_text(
+        "\n".join(lines) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def export(output_root: Path) -> dict[str, Any]:

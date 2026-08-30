@@ -193,6 +193,7 @@ def export(output: Path) -> dict[str, object]:
     output.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
+        newline="\n",
     )
     return manifest
 
