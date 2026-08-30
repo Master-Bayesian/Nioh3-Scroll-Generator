@@ -15,6 +15,7 @@ mistaken for stronger evidence than the files actually contain.
 | Enemy role structure | versioned `enemy-roles.json`, native table SHA, class control flow, and `test_effect_seed_solver.py` | Complete 487-row table; two process captures produced the same row hash. |
 | Recommended display curve | `recommended_level_curve.json` plus native callers | Exact internal-to-display conversion. No closed consumer from challenge descriptor to AI combat level. |
 | Exchange tuple | `emaki_exchange.py` plus receive/send disassembly | Effect slots absent; receiver rebuilds canonical effects. Final propagation still needs a second account. |
+| Scroll inventory-instance key | `audit/save/inventory-key-collision-20260830.json` plus `test_beta_editor.py` | Two private support saves had no native duplicate `+0x1C` keys; only raw-appended records collided with their donor. A two-key-only repair restored both hidden records in game. |
 
 The 10,000-Seed parity files are real native/offline aggregate results, not
 10,000 retained pairs of raw records. Do not describe them as a forensic raw

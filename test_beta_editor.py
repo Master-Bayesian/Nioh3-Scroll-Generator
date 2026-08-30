@@ -1568,6 +1568,7 @@ class BetaEditorTests(unittest.TestCase):
                 struct.unpack_from("<I", installed, second + 0x20)[0], 114514
             )
             self.assertEqual(struct.unpack_from("<I", installed, second + 0xDC)[0], 7)
+            self.assertEqual(struct.unpack_from("<I", installed, second + 0x1C)[0], 1)
             self.assertEqual(result.slot_index, 1)
             self.assertTrue((result.backup_directory / "SAVEDATA.BIN").is_file())
             self.assertTrue((result.backup_directory / "BACKUP.BIN").is_file())
@@ -1577,6 +1578,119 @@ class BetaEditorTests(unittest.TestCase):
             self.assertNotIn("save_path", report)
             rendered = json.dumps(report)
             self.assertNotIn(str(root), rendered)
+
+    def test_install_replaces_colliding_template_inventory_key(self) -> None:
+        class FakeCrypto:
+            @staticmethod
+            def decrypt(source: Path, output: Path) -> None:
+                encrypted = source.read_bytes()
+                if not encrypted.startswith(b"ENC"):
+                    raise AssertionError("expected fake encrypted input")
+                output.write_bytes(encrypted[3:])
+
+            @staticmethod
+            def encrypt(source: Path, output: Path) -> None:
+                output.write_bytes(b"ENC" + source.read_bytes())
+
+        account = TEST_ACCOUNT_ID
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            save_directory = root / str(account) / "SAVEDATA00"
+            save_directory.mkdir(parents=True)
+            save_path = save_directory / "SAVEDATA.BIN"
+            decrypted = bytearray(USER_SAVE_SIZE)
+            decrypted[:6] = b"RNNUSR"
+            template = bytearray(make_record(seed=1, account_id=account))
+            struct.pack_into("<I", template, 0x1C, 0x8AC9)
+            second = bytearray(make_record(seed=2, account_id=account))
+            struct.pack_into("<I", second, 0x1C, 0xA0E0)
+            decrypted[
+                SCROLL_GROUP_OFFSET:SCROLL_GROUP_OFFSET + SCROLL_RECORD_SIZE
+            ] = template
+            second_offset = SCROLL_GROUP_OFFSET + SCROLL_RECORD_SIZE
+            decrypted[second_offset:second_offset + SCROLL_RECORD_SIZE] = second
+            save_path.write_bytes(b"ENC" + bytes(decrypted))
+            installer = SaveInstaller(
+                save_path=save_path,
+                crypto=FakeCrypto(),
+                state_root=root / "state",
+            )
+            candidate = bytearray(make_record(seed=3, account_id=account))
+            struct.pack_into("<I", candidate, 0x1C, 0x8AC9)
+
+            result = installer.install(bytes(candidate), transfer_count=0)
+
+            installed = save_path.read_bytes()[3:]
+            target_offset = SCROLL_GROUP_OFFSET + 2 * SCROLL_RECORD_SIZE
+            self.assertEqual(result.slot_index, 2)
+            self.assertEqual(
+                struct.unpack_from("<I", installed, target_offset + 0x1C)[0],
+                0xA0E1,
+            )
+            report = json.loads(result.report_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["inventory_key"], 0xA0E1)
+            self.assertEqual(report["inventory_key_hex"], "0xa0e1")
+
+    def test_install_repairs_existing_duplicate_inventory_keys(self) -> None:
+        class FakeCrypto:
+            @staticmethod
+            def decrypt(source: Path, output: Path) -> None:
+                encrypted = source.read_bytes()
+                if not encrypted.startswith(b"ENC"):
+                    raise AssertionError("expected fake encrypted input")
+                output.write_bytes(encrypted[3:])
+
+            @staticmethod
+            def encrypt(source: Path, output: Path) -> None:
+                output.write_bytes(b"ENC" + source.read_bytes())
+
+        account = TEST_ACCOUNT_ID
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            save_directory = root / str(account) / "SAVEDATA00"
+            save_directory.mkdir(parents=True)
+            save_path = save_directory / "SAVEDATA.BIN"
+            decrypted = bytearray(USER_SAVE_SIZE)
+            decrypted[:6] = b"RNNUSR"
+            for slot_index, seed in enumerate((1, 2)):
+                record = bytearray(make_record(seed=seed, account_id=account))
+                struct.pack_into("<I", record, 0x1C, 0x8AC9)
+                offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
+                decrypted[offset:offset + SCROLL_RECORD_SIZE] = record
+            save_path.write_bytes(b"ENC" + bytes(decrypted))
+            installer = SaveInstaller(
+                save_path=save_path,
+                crypto=FakeCrypto(),
+                state_root=root / "state",
+            )
+            candidate = bytearray(make_record(seed=3, account_id=account))
+            struct.pack_into("<I", candidate, 0x1C, 0x8AC9)
+
+            result = installer.install(bytes(candidate), transfer_count=0)
+
+            installed = save_path.read_bytes()[3:]
+            keys = [
+                struct.unpack_from(
+                    "<I",
+                    installed,
+                    SCROLL_GROUP_OFFSET
+                    + slot_index * SCROLL_RECORD_SIZE
+                    + 0x1C,
+                )[0]
+                for slot_index in range(3)
+            ]
+            self.assertEqual(keys, [0x8AC9, 0x8ACA, 0x8ACB])
+            report = json.loads(result.report_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                report["inventory_key_repairs"],
+                [
+                    {
+                        "slot_index": 1,
+                        "old_inventory_key": 0x8AC9,
+                        "new_inventory_key": 0x8ACA,
+                    }
+                ],
+            )
 
     def test_install_effect_sequence_candidate_materializes_inside_hash_gate(self) -> None:
         class FakeCrypto:

@@ -65,6 +65,7 @@ The current executable specification is `emaki_exchange.py`.
 | `+0x06,+0x08` | scroll item level mirrors |
 | `+0x0F` | packed flag source |
 | `+0x10,+0x12` | recommended internal level mirrors |
+| `+0x1C` | nonzero uint16 inventory-instance key; unique across occupied scroll slots |
 | `+0x20` | random Seed / displayed scroll ID |
 | `+0x30,+0x31` | rarity mirrors |
 | `+0x34` | first effect slot; seven slots, stride `0x18` |
@@ -90,6 +91,12 @@ and `+0x14`.
   play but are explicitly non-propagating.
 - Every write transaction backs up the save, repairs checksum, verifies an
   encrypt/decrypt roundtrip, and refuses the write if the source hash changed.
+- Every newly inserted record receives a fresh `+0x1C` inventory-instance key.
+  Copying the donor key can make the raw record visible to a slot scanner while
+  the game omits it or associates its UI entry with another item. Native
+  drop/pickup assigns a fresh key and repairs the symptom.
+- Existing duplicate keys are repaired transactionally: the first record keeps
+  its key and later collisions receive unused nonzero uint16 values.
 - Two-account receipt remains the final propagation acceptance test. Offline
   parity and local display are not substitutes.
 

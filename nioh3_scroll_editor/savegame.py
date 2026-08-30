@@ -36,6 +36,8 @@ SCROLL_GROUP_OFFSET = 0x176CCE
 # at 0x18D74E: (0x18D74E - 0x176CCE) / 0xE8 == 400 records.  Never scan beyond
 # that boundary; doing so would treat unrelated save data as scroll slots.
 SCROLL_SLOT_COUNT = 400
+SCROLL_INVENTORY_KEY_OFFSET = 0x1C
+SCROLL_INVENTORY_KEY_MAX = 0xFFFF
 
 
 def scroll_slot_is_empty(record: bytes) -> bool:
@@ -71,6 +73,115 @@ def _clear_native_free_scroll_slot(data: bytes, record_offset: int) -> bytes:
     cleared = bytearray(data)
     cleared[record_offset:end] = bytes(SCROLL_RECORD_SIZE)
     return bytes(cleared)
+
+
+def allocate_scroll_inventory_keys(
+    decrypted: bytes,
+    count: int,
+) -> tuple[int, ...]:
+    """Allocate nonzero uint16 keys for newly installed scroll instances.
+
+    Native PC v2.00.02 saves store a distinct nonzero uint16 value at record
+    offset +0x1C for every occupied scroll slot. Copying this template-lineage
+    field makes the application see the raw record while the game drops the
+    colliding instance from its inventory index. Allocate fresh values across
+    the complete fixed scroll array before inserting any records.
+    """
+
+    if count < 0:
+        raise ValueError("inventory-key count cannot be negative")
+    if count == 0:
+        return ()
+    require_decrypted_user_save(decrypted)
+    used: set[int] = set()
+    for slot_index in range(SCROLL_SLOT_COUNT):
+        record_offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
+        record = decrypted[record_offset:record_offset + SCROLL_RECORD_SIZE]
+        if scroll_slot_is_empty(record):
+            continue
+        value = struct.unpack_from("<I", record, SCROLL_INVENTORY_KEY_OFFSET)[0]
+        if 1 <= value <= SCROLL_INVENTORY_KEY_MAX:
+            used.add(value)
+    if count > SCROLL_INVENTORY_KEY_MAX - len(used):
+        raise RuntimeError("绘卷实例键空间不足，无法安全添加新记录")
+
+    start = (max(used) + 1) if used else 1
+    allocated: list[int] = []
+    for step in range(SCROLL_INVENTORY_KEY_MAX):
+        value = ((start - 1 + step) % SCROLL_INVENTORY_KEY_MAX) + 1
+        if value in used:
+            continue
+        used.add(value)
+        allocated.append(value)
+        if len(allocated) == count:
+            return tuple(allocated)
+    raise RuntimeError("无法为新增绘卷分配唯一实例键")
+
+
+def write_scroll_inventory_key(record: bytes, inventory_key: int) -> bytes:
+    """Return one complete record with a validated native inventory key."""
+
+    if len(record) != SCROLL_RECORD_SIZE:
+        raise ValueError("候选绘卷记录必须为 0xE8 字节")
+    if not 1 <= inventory_key <= SCROLL_INVENTORY_KEY_MAX:
+        raise ValueError("绘卷实例键必须是非零 uint16")
+    output = bytearray(record)
+    struct.pack_into("<I", output, SCROLL_INVENTORY_KEY_OFFSET, inventory_key)
+    return bytes(output)
+
+
+def repair_duplicate_scroll_inventory_keys(
+    decrypted: bytes,
+) -> tuple[bytes, tuple[dict[str, int], ...]]:
+    """Repair later occupied records that reuse an earlier inventory key.
+
+    The first record retains its native key. Each later collision receives a
+    fresh value, preserving record order and every unrelated byte.
+    """
+
+    require_decrypted_user_save(decrypted)
+    seen: set[int] = set()
+    duplicate_slots: list[tuple[int, int]] = []
+    for slot_index in range(SCROLL_SLOT_COUNT):
+        record_offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
+        record = decrypted[record_offset:record_offset + SCROLL_RECORD_SIZE]
+        if scroll_slot_is_empty(record):
+            continue
+        record_type = struct.unpack_from("<H", record, 0)[0]
+        is_scroll = TYPE_TO_CATEGORY.get(record_type, 0) > 0
+        value = struct.unpack_from("<I", record, SCROLL_INVENTORY_KEY_OFFSET)[0]
+        if not 1 <= value <= SCROLL_INVENTORY_KEY_MAX:
+            continue
+        if value in seen and is_scroll:
+            duplicate_slots.append((slot_index, value))
+        else:
+            seen.add(value)
+    if not duplicate_slots:
+        return decrypted, ()
+
+    replacements = allocate_scroll_inventory_keys(decrypted, len(duplicate_slots))
+    output = bytearray(decrypted)
+    repairs: list[dict[str, int]] = []
+    for (slot_index, old_value), new_value in zip(
+        duplicate_slots,
+        replacements,
+        strict=True,
+    ):
+        record_offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
+        struct.pack_into(
+            "<I",
+            output,
+            record_offset + SCROLL_INVENTORY_KEY_OFFSET,
+            new_value,
+        )
+        repairs.append(
+            {
+                "slot_index": slot_index,
+                "old_inventory_key": old_value,
+                "new_inventory_key": new_value,
+            }
+        )
+    return bytes(output), tuple(repairs)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1079,6 +1190,11 @@ class SaveInstaller:
             verification_path = work / "verification.bin"
             self.crypto.decrypt(self.save_path, decrypted_path)
             inventory = SaveInventory.load(self.save_path, decrypted_path.read_bytes())
+            normalized_decrypted, inventory_key_repairs = (
+                repair_duplicate_scroll_inventory_keys(inventory.decrypted)
+            )
+            if inventory_key_repairs:
+                inventory = SaveInventory.load(self.save_path, normalized_decrypted)
             first_slot = inventory.next_slot_index
             if first_slot is None:
                 raise RuntimeError("400 个绘卷栏位均已占用，无法添加实验记录")
@@ -1088,10 +1204,23 @@ class SaveInstaller:
             if any(index not in inventory.empty_slots for index in slot_indices):
                 raise RuntimeError("目标连续栏位中存在已占用记录，已拒绝写入")
 
+            inventory_keys = allocate_scroll_inventory_keys(
+                inventory.decrypted,
+                len(records),
+            )
+            installed_records = tuple(
+                write_scroll_inventory_key(record, inventory_key)
+                for record, inventory_key in zip(records, inventory_keys, strict=True)
+            )
+
             edited = inventory.decrypted
             insert_reports: list[dict[str, object]] = []
             record_offsets: list[int] = []
-            for slot_index, record in zip(slot_indices, records, strict=True):
+            for slot_index, record in zip(
+                slot_indices,
+                installed_records,
+                strict=True,
+            ):
                 record_offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
                 edited = _clear_native_free_scroll_slot(edited, record_offset)
                 edited, insert_report = insert_scroll_record(
@@ -1131,7 +1260,12 @@ class SaveInstaller:
             "slot_indices": list(slot_indices),
             "record_offsets": record_offsets,
             "record_offsets_hex": [hex(offset) for offset in record_offsets],
-            "records": [describe_record_for_report(record) for record in records],
+            "inventory_keys": list(inventory_keys),
+            "inventory_keys_hex": [hex(value) for value in inventory_keys],
+            "inventory_key_repairs": list(inventory_key_repairs),
+            "records": [
+                describe_record_for_report(record) for record in installed_records
+            ],
             "inserts": insert_reports,
             "backup_files": copied,
             "metadata": metadata or {},
@@ -1203,6 +1337,11 @@ class SaveInstaller:
             verification_path = work / "verification.bin"
             self.crypto.decrypt(self.save_path, decrypted_path)
             inventory = SaveInventory.load(self.save_path, decrypted_path.read_bytes())
+            normalized_decrypted, inventory_key_repairs = (
+                repair_duplicate_scroll_inventory_keys(inventory.decrypted)
+            )
+            if inventory_key_repairs:
+                inventory = SaveInventory.load(self.save_path, normalized_decrypted)
             slot_index = inventory.next_slot_index
             if slot_index is None:
                 raise RuntimeError("400 个绘卷栏位均已占用，无法添加新绘卷")
@@ -1212,6 +1351,11 @@ class SaveInstaller:
             record = prepare_candidate_for_install(
                 candidate_record, transfer_count=transfer_count
             )
+            inventory_key = allocate_scroll_inventory_keys(
+                inventory.decrypted,
+                1,
+            )[0]
+            record = write_scroll_inventory_key(record, inventory_key)
             normalized = _clear_native_free_scroll_slot(
                 inventory.decrypted,
                 record_offset,
@@ -1249,6 +1393,9 @@ class SaveInstaller:
             "slot_index": slot_index,
             "record_offset": record_offset,
             "record_offset_hex": hex(record_offset),
+            "inventory_key": inventory_key,
+            "inventory_key_hex": hex(inventory_key),
+            "inventory_key_repairs": list(inventory_key_repairs),
             "candidate": describe_record_for_report(record),
             "insert": insert_report,
             "backup_files": copied,

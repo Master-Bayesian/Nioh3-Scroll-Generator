@@ -1,0 +1,36 @@
+{
+  "schema": "nioh3-scroll-inventory-key-evidence/v1",
+  "game_version": "PC v2.00.02",
+  "field": {
+    "record_offset_hex": "0x1C",
+    "storage": "uint32",
+    "observed_native_domain": "nonzero uint16",
+    "scope": "occupied records in the fixed 400-slot scroll inventory"
+  },
+  "support_cases": [
+    {
+      "name": "misclassified-ui-entry",
+      "occupied_records": 173,
+      "donor_slot": 81,
+      "colliding_appended_slots": [172, 173, 174, 175],
+      "duplicated_key_hex": "0x5C07",
+      "symptom": "record rendered as equipment but remained playable as a scroll",
+      "native_drop_pickup_repaired_symptom": true
+    },
+    {
+      "name": "hidden-from-game-inventory",
+      "occupied_records": 112,
+      "donor_slot": 0,
+      "colliding_appended_slots": [134, 135],
+      "duplicated_key_hex": "0x8AC9",
+      "symptom": "records were visible to the application scanner but absent in game",
+      "controlled_replacements_hex": {
+        "134": "0xA0E1",
+        "135": "0xA0E2"
+      },
+      "controlled_changes": "two uint16 key values plus save checksum",
+      "in_game_acceptance": "both records became visible"
+    }
+  ],
+  "product_rule": "Preserve the first occupied instance of a key, repair later collisions, and assign every new record a fresh nonzero uint16 key."
+}
