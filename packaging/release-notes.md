@@ -1,20 +1,25 @@
-# 仁王3绘卷生成器 Beta v0.6.2
+# 仁王3绘卷生成器 Beta v0.6.3
 
-本版本修复应用新增绘卷可能在游戏内消失，或暂时显示成装备名称的问题。
+本版本完成不受原生生成规则限制的本地绘卷词条修改器。
 
-- 新增绘卷不再继承 donor 模板的 `+0x1C` 库存实例键；写入时会在完整 400 栏绘卷数组中分配新的非零唯一键。
-- 写档事务会检测已有的重复实例键，保留第一条记录并为后续冲突记录重新分配唯一键，同时在安装报告中记录修复栏位及新旧值。
-- 两份独立用户存档证明了同一根因的两种表现：游戏完全隐藏新增绘卷，或把它暂时关联成装备显示；原生丢弃/拾取流程重新分配实例键后，两种现象都会恢复。
-- 受控诊断存档只修改两个冲突实例键及 checksum 后，原本在游戏中不可见的两张绘卷立即恢复显示。
-- 新增单张安装、批量安装、已有冲突迁移和加密回读回归；完整测试套件共 324 项，全部通过。
+- 选择一张绘卷后同时显示七个物理词条槽，可连续修改多个槽并一次性保存。
+- 每个槽可直接修改词条 ID 与 raw 数值；当前槽还能修改 prefix、metadata、tail 0 和 tail 1。
+- 完整原生词条目录会同步所选词条的 ID、group prefix 与类别字段，减少只改 ID 导致显示异常的情况；同步后所有 raw 字段仍可手动覆盖。
+- 明确允许重复词条、冲突词条、主副槽混放、未知 ID、任意 uint32 数值，以及与当前 Seed、稀有度或原生生成规则不一致的组合。
+- 切换绘卷时会保护未保存草稿；支持逐槽清空和放弃整张绘卷的未保存修改。
+- 所有变化在一个写档事务中提交，继续保留自动备份、源记录一致性、校验和、加密回读与源文件哈希门禁。
+- 本地自由修改不会改变传播用的 canonical Seed/稀有度，接收方重新生成后通常不会保留这些改动。
 
 ---
 
-# Nioh 3 Scroll Generator Beta v0.6.2
+# Nioh 3 Scroll Generator Beta v0.6.3
 
-This release fixes newly installed scrolls that could disappear from the game inventory or temporarily render as equipment.
+This release completes the unrestricted local effect editor.
 
-- New records now receive a fresh nonzero `+0x1C` inventory-instance key instead of inheriting the donor template's key.
-- Save transactions repair existing duplicate keys by preserving the first record and assigning fresh keys to later collisions, with every repair recorded in the install report.
-- Two independent support saves reproduced different symptoms of the same collision. A controlled save changing only the two colliding keys and checksum restored both hidden records in game.
-- The complete 324-test suite passes, including single install, batch install, collision migration, backup, checksum, and encrypted roundtrip coverage.
+- Selecting a scroll exposes all seven physical effect slots, allowing several slots to be edited and saved in one transaction.
+- Every slot accepts a direct effect ID and raw value; the active slot also exposes prefix, metadata, tail 0, and tail 1.
+- The complete native catalog can synchronize the selected effect ID, group prefix, and category field while keeping every raw field manually overridable.
+- Duplicate or conflicting effects, primary/secondary role mixing, unknown IDs, arbitrary uint32 values, and combinations unrelated to the current Seed, rarity, or native generation rules are explicitly permitted.
+- Unsaved drafts are protected when switching scrolls, with per-slot clearing and whole-draft discard actions.
+- Batch saves retain automatic backups, exact-original checks, checksum repair, encrypted readback, and source-file hash gates.
+- Local edits do not change the canonical propagation tuple and normally disappear when another player regenerates the scroll.

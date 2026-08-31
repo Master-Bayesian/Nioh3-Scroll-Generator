@@ -12,11 +12,12 @@
 `仁王3绘卷生成器` 是一款面向 PC 版《仁王3》的绘卷生成与本地编辑工具。项目将两类操作明确分开：
 
 - **搜索合法绘卷**：根据绘卷类型、稀有度、主词条、恩宠、地形、敌人和特殊规则联立求解 Seed，再使用离线复现的游戏生成逻辑构造完整绘卷。接收方会按照相同 canonical 字段重新生成，因此这种结果具备正常传播的技术基础。
-- **本地绘卷编辑**：直接修改现有绘卷的词条 ID、数值、prefix、metadata 和 tail，或清空指定物理栏位。此类修改只影响本机显示，通常不会传播。
+- **本地绘卷编辑**：同时查看并自由修改现有绘卷的七个词条槽，包括 ID、数值、prefix、metadata 和 tail，或清空指定物理栏位。允许重复、冲突、主副槽混放、未知 ID、任意 raw 值和不符合原生生成规则的组合；此类修改只供本机使用，通常不会传播。
 
 ### 当前功能
 
 - 中文桌面界面，包含“搜索合法绘卷”和“本地绘卷编辑”两个工作区。
+- 七槽本地草稿编辑器：完整官方词条目录可同步 ID、prefix 与类别，也可逐字段输入任意 uint32；一次事务保存所有改动，不做 Seed、稀有度、冲突或槽位合法性限制。
 - 指定 Seed、稀有度和绘卷类型后直接生成并预览完整绘卷。
 - 在一个全局搜索框中选择最终态逐项可达词条；前 1–3 项可作为“任一命中”的主词条候选，也可不限制主词条，其余项目作为无序必需副词条。
 - 每个普通词条可独立要求任意数值、抽取百分位 ≥80、≥90 或最高 100；特殊规则同样支持任意/精确原生变体。
@@ -107,7 +108,7 @@ py -3.12 -m PyInstaller --clean --noconfirm packaging\Nioh3ScrollGenerator.spec
 
 The Chinese beta is named `仁王3绘卷生成器`. Its effect selector is derived from captured native final-effect tables for the current playthrough and rarity rather than a hand-maintained list. The first one to three ordered selections can form an OR-set of primary candidates, or the primary can remain unconstrained; later selections are unordered required secondaries. Every selected ordinary effect can require any roll, percentile 80+, percentile 90+, or the exact maximum. The solver preflights slot count, conflict groups, and category capacity before opening a Seed family. It also supports an optional exact Grace filter, multi-select exact-value special rules, direct generation from a supplied Seed, stable streaming previews, sortable and side-by-side candidate comparison, and guarded insertion into the next fully zeroed slot. Save discovery is automatic. The product UI contains no numeric seed-range scan.
 
-The application has two explicit product areas. `搜索合法绘卷` solves or directly generates canonical records from scroll type, rarity, and Seed, so recipient-side regeneration remains consistent. `本地绘卷编辑` lists the fixed physical inventory slots and can directly edit effect IDs, values, prefix, metadata, and tails or clear whole records. Local edits are intentionally marked non-propagating because the exchange protocol does not transmit effect slots. Both local editing and deletion use the same automatic-backup, exact-original, checksum, encryption-roundtrip, and source-hash transaction gates as canonical installation.
+The application has two explicit product areas. `搜索合法绘卷` solves or directly generates canonical records from scroll type, rarity, and Seed, so recipient-side regeneration remains consistent. `本地绘卷编辑` exposes all seven physical effect slots as one draft and can directly edit every ID, value, prefix, metadata, and tail field or clear whole records. It intentionally permits duplicate or conflicting effects, primary/secondary role mixing, unknown IDs, arbitrary uint32 values, and combinations unrelated to the canonical Seed or rarity. A catalog choice can synchronize an effect's native ID, group prefix, and category, while every raw field remains manually overridable. Local edits are intentionally marked non-propagating because the exchange protocol does not transmit effect slots. Batch editing and deletion use the same automatic-backup, exact-original, checksum, encryption-roundtrip, and source-hash transaction gates as canonical installation.
 
 The local editor also includes an automatic-backup browser. It lists the account, operation reason, file count, and recorded main-save SHA-256; restores always checkpoint the current main, game-backup, and system-save files first. Application-owned backup directories can be moved to the Windows recycle bin, and both the backup and current save directories have explicit open-folder actions.
 

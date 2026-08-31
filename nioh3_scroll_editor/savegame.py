@@ -224,6 +224,108 @@ class LocalEffectEdit:
                 raise ValueError(f"{name} must fit in uint32")
 
 
+@dataclass(frozen=True, slots=True)
+class LocalEffectSlotFields:
+    """Editable raw fields for one local-only effect slot."""
+
+    slot_index: int
+    effect_id: int
+    value: int
+    prefix: int
+    metadata: int
+    tail_0: int
+    tail_1: int
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.slot_index < 7:
+            raise ValueError("effect slot index must be in 0..6")
+        for name in (
+            "effect_id",
+            "value",
+            "prefix",
+            "metadata",
+            "tail_0",
+            "tail_1",
+        ):
+            if not 0 <= getattr(self, name) <= 0xFFFFFFFF:
+                raise ValueError(f"{name} must fit in uint32")
+
+    def as_edit(self) -> LocalEffectEdit:
+        return LocalEffectEdit(
+            slot_index=self.slot_index,
+            effect_id=self.effect_id,
+            value=self.value,
+            prefix=self.prefix,
+            metadata=self.metadata,
+            tail_0=self.tail_0,
+            tail_1=self.tail_1,
+        )
+
+
+def read_local_effect_slots(record: bytes) -> tuple[LocalEffectSlotFields, ...]:
+    """Parse all seven editable slots without applying generation semantics."""
+
+    if len(record) != SCROLL_RECORD_SIZE:
+        raise ValueError("record must be exactly 0xE8 bytes")
+    result: list[LocalEffectSlotFields] = []
+    for slot_index in range(7):
+        base = 0x34 + slot_index * 0x18
+        prefix, effect_id, value, metadata, tail_0, tail_1 = struct.unpack_from(
+            "<6I",
+            record,
+            base,
+        )
+        result.append(
+            LocalEffectSlotFields(
+                slot_index=slot_index,
+                effect_id=effect_id,
+                value=value,
+                prefix=prefix,
+                metadata=metadata,
+                tail_0=tail_0,
+                tail_1=tail_1,
+            )
+        )
+    return tuple(result)
+
+
+def retarget_local_effect_identity(
+    fields: LocalEffectSlotFields,
+    *,
+    effect_id: int,
+    group_key: int,
+    category_key: int,
+) -> LocalEffectSlotFields:
+    """Retarget identity fields while preserving value, roll, role, and tails.
+
+    This helper does not validate slot roles, duplicate groups, conflicts,
+    rarity, or Seed consistency.  It only keeps the chosen native effect ID,
+    group prefix, and category byte internally aligned.  Users may still
+    override every resulting raw field before saving.
+    """
+
+    for name, value in (
+        ("effect_id", effect_id),
+        ("group_key", group_key),
+        ("category_key", category_key),
+    ):
+        if not 0 <= value <= 0xFFFFFFFF:
+            raise ValueError(f"{name} must fit in uint32")
+    if category_key > 0x3F:
+        raise ValueError("category_key must fit in the native six-bit field")
+    category_and_role = ((fields.metadata >> 8) & 0xC0) | category_key
+    metadata = (fields.metadata & 0xFFFF00FF) | (category_and_role << 8)
+    return LocalEffectSlotFields(
+        slot_index=fields.slot_index,
+        effect_id=effect_id,
+        value=fields.value,
+        prefix=group_key,
+        metadata=metadata,
+        tail_0=fields.tail_0,
+        tail_1=fields.tail_1,
+    )
+
+
 def patch_local_scroll_record(
     record: bytes,
     edits: Sequence[LocalEffectEdit],

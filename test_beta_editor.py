@@ -27,6 +27,9 @@ from nioh3_scroll_editor.effect_sequence import (
     generate_ng3_certified_effect_sequence,
     generate_ng3_rarity5_effect_sequence,
 )
+from nioh3_scroll_editor.effect_generation_tables import (
+    load_default_effect_generation_tables,
+)
 from nioh3_scroll_editor.app import (
     FAQ_TEXT,
     FEATURE_GUIDE_TEXT,
@@ -70,6 +73,7 @@ from nioh3_scroll_editor.native import (
 from nioh3_scroll_editor.savegame import (
     BackupEntry,
     LocalEffectEdit,
+    LocalEffectSlotFields,
     SCROLL_GROUP_OFFSET,
     SaveInstaller,
     SaveInventory,
@@ -78,6 +82,8 @@ from nioh3_scroll_editor.savegame import (
     next_generation_serial,
     patch_local_scroll_record,
     prepare_candidate_for_install,
+    read_local_effect_slots,
+    retarget_local_effect_identity,
 )
 from nioh3_scroll_editor.experiments import (
     CONTEXTUAL_TEST_EFFECT_ID,
@@ -1310,6 +1316,94 @@ class BetaEditorTests(unittest.TestCase):
         self.assertEqual(struct.unpack_from("<I", replacement, 0x3C)[0], 114514)
         self.assertEqual(struct.unpack_from("<I", replacement, 0x9C)[0], 0xFFFFFFFE)
         self.assertEqual(replacement[:0x34], original[:0x34])
+
+    def test_local_effect_slots_roundtrip_all_raw_fields(self) -> None:
+        original = bytearray(make_record(seed=101))
+        for slot_index in range(7):
+            struct.pack_into(
+                "<6I",
+                original,
+                0x34 + slot_index * 0x18,
+                0x10000000 + slot_index,
+                0x20000000 + slot_index,
+                0x30000000 + slot_index,
+                0x40000000 + slot_index,
+                0x50000000 + slot_index,
+                0x60000000 + slot_index,
+            )
+
+        fields = read_local_effect_slots(bytes(original))
+        replacement = patch_local_scroll_record(
+            bytes(original),
+            tuple(slot.as_edit() for slot in fields),
+        )
+
+        self.assertEqual(len(fields), 7)
+        self.assertEqual(fields[0].prefix, 0x10000000)
+        self.assertEqual(fields[6].effect_id, 0x20000006)
+        self.assertEqual(fields[4].tail_1, 0x60000004)
+        self.assertEqual(replacement, bytes(original))
+
+    def test_unrestricted_local_effect_patch_accepts_duplicates_and_unknown_ids(self) -> None:
+        original = make_record(seed=101)
+        replacement = patch_local_scroll_record(
+            original,
+            (
+                LocalEffectEdit(
+                    slot_index=0,
+                    effect_id=0xDEADBEEF,
+                    value=0xFFFFFFFF,
+                    prefix=0xCAFEBABE,
+                    metadata=0xA5A5A5A5,
+                    tail_0=0x12345678,
+                    tail_1=0x87654321,
+                ),
+                LocalEffectEdit(slot_index=1, effect_id=0xDEADBEEF),
+                LocalEffectEdit(slot_index=2, effect_id=0xDEADBEEF),
+            ),
+        )
+        fields = read_local_effect_slots(replacement)
+
+        self.assertEqual(
+            tuple(fields[index].effect_id for index in range(3)),
+            (0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF),
+        )
+        self.assertEqual(fields[0].value, 0xFFFFFFFF)
+        self.assertEqual(fields[0].prefix, 0xCAFEBABE)
+        self.assertEqual(fields[0].metadata, 0xA5A5A5A5)
+        self.assertEqual(fields[0].tail_0, 0x12345678)
+        self.assertEqual(fields[0].tail_1, 0x87654321)
+        self.assertEqual(replacement[:0x34], original[:0x34])
+
+    def test_catalog_retarget_preserves_value_role_roll_and_tails(self) -> None:
+        tables = load_default_effect_generation_tables()
+        definition = tables.effect(0xDAC2)
+        group = tables.group_for_effect(0xDAC2)
+        original = LocalEffectSlotFields(
+            slot_index=3,
+            effect_id=0x190A,
+            value=0x12345678,
+            prefix=0x11111111,
+            metadata=0xBEEF_D37A,
+            tail_0=0x22222222,
+            tail_1=0x33333333,
+        )
+
+        retargeted = retarget_local_effect_identity(
+            original,
+            effect_id=definition.effect_id,
+            group_key=definition.group_key,
+            category_key=group.category_key,
+        )
+
+        expected_category_and_role = (0xD3 & 0xC0) | group.category_key
+        self.assertEqual(retargeted.effect_id, 0xDAC2)
+        self.assertEqual(retargeted.prefix, definition.group_key)
+        self.assertEqual((retargeted.metadata >> 8) & 0xFF, expected_category_and_role)
+        self.assertEqual(retargeted.metadata & 0xFFFF00FF, original.metadata & 0xFFFF00FF)
+        self.assertEqual(retargeted.value, original.value)
+        self.assertEqual(retargeted.tail_0, original.tail_0)
+        self.assertEqual(retargeted.tail_1, original.tail_1)
 
     def test_delete_many_clears_records_without_compacting_neighbors(self) -> None:
         class FakeCrypto:

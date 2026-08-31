@@ -68,6 +68,7 @@ from .effect_seed_solver import (
     merge_intersection_reports,
     validate_effect_request_feasibility,
 )
+from .effect_generation_tables import load_default_effect_generation_tables
 from .effect_sequence import (
     collect_ng3_r4_primary_pivot_seeds,
     generate_ng3_certified_effect_sequence,
@@ -108,6 +109,7 @@ from .search_event_buffer import MAX_PREVIEW_CANDIDATES, SearchEventBuffer
 from .savegame import (
     BackupEntry,
     LocalEffectEdit,
+    LocalEffectSlotFields,
     SaveCrypto,
     SaveInstaller,
     SaveInventory,
@@ -117,6 +119,8 @@ from .savegame import (
     list_backup_entries,
     move_backup_to_recycle_bin,
     patch_local_scroll_record,
+    read_local_effect_slots,
+    retarget_local_effect_identity,
     save_slot_index_from_path,
 )
 from .seed_accelerator import (
@@ -634,7 +638,7 @@ QUICK_START_TEXT = """仁王3绘卷生成器 - 快速上手
 填写 Seed、周目和稀有度，再点击“生成并查看该 Seed”。该功能不应用上方筛选条件。
 
 本地绘卷编辑
-用于直接修改已有绘卷。修改只影响本机显示，通常不能传播给其他玩家。
+用于直接修改已有绘卷。选择一张绘卷后，七个槽的 ID 和数值会同时显示；可用完整目录替换当前槽，也可直接输入任意 raw 字段。允许重复、冲突、未知 ID 和不符合原生生成规则的组合，最后一次性保存全部变化。修改只供本机使用，通常不能传播给其他玩家。
 
 提示
 - “不限制恩宠”表示不把恩宠作为条件；稀有度4结果可能保留恩宠，也可能被完成器替换为普通词条。
@@ -660,7 +664,7 @@ FEATURE_GUIDE_TEXT = """按功能使用
 填写 Seed、周目和稀有度，点击“生成并查看该 Seed”。这里不会应用目标组合中的筛选条件。
 
 三、直接修改本地绘卷
-切换到“本地绘卷编辑”，读取存档后选择绘卷与槽位。该功能适合只在本机使用的自定义词条；传播后接收方会按 Seed 重新生成。
+切换到“本地绘卷编辑”，读取存档并选择一张绘卷。七个物理槽会同时显示，可逐槽修改 ID 和数值；选中某槽后还能修改 prefix、metadata 和两个 tail。目录选择会同步该词条的 ID、prefix 与类别，手动输入则允许任意 uint32。程序不会阻止重复、冲突、主副槽混放、未知 ID 或其他非法组合，最后点击“一次性保存全部变化”。该功能只供本机自定义；传播后接收方会按 Seed 重新生成。
 
 四、备份与恢复
 每次新增、修改、删除或恢复前，程序都会自动建立备份。可以在本地编辑页查看、恢复、删除备份，或打开备份文件夹；“更改目录”可以指定以后保存备份、缓存和更新下载的位置。
@@ -765,9 +769,10 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 
 七、本地绘卷编辑
 1. 切换到“本地绘卷编辑”页，读取当前存档后可按物理栏位查看已有绘卷和全部七个词条槽。
-2. 可以从完整官方词条目录选择 ID，也可以直接输入 raw ID、数值、prefix、metadata 和 tail。
-3. 本地修改不会改变传播用的 canonical Seed/稀有度；接收方会重新生成，因此不会保留这些本地词条。
-4. 删除绘卷会完整清零选中栏位，不移动或压缩其他栏位。编辑和删除前都会自动备份。
+2. 七个槽的 ID 和数值可同时编辑；点击槽按钮后可从完整官方词条目录替换，也可直接输入 raw ID、数值、prefix、metadata 和 tail。目录替换会同步该词条自身的 prefix 与类别，其他原始字段仍可继续手动覆盖。
+3. 这是不受限制的本地修改：允许重复词条、冲突词条、主副槽混放、未知 ID、任意 uint32 数值和不符合当前稀有度/Seed 的组合。程序只检查字段能否写入，不做合法性修正。确认后会在同一个事务中一次保存所有变化。
+4. 本地修改不会改变传播用的 canonical Seed/稀有度；接收方会重新生成，因此不会保留这些本地词条。
+5. 删除绘卷会完整清零选中栏位，不移动或压缩其他栏位。编辑和删除前都会自动备份。
 
 八、自动备份管理
 1. 本地编辑页下方会列出本程序创建的备份，包括时间、账户、操作原因和主存档 SHA-256。
@@ -1016,18 +1021,28 @@ class ScrollEditorApp:
         self.local_entry_by_iid: dict[str, ScrollInventoryEntry] = {}
         self.backup_entries: list[BackupEntry] = []
         self.backup_entry_by_iid: dict[str, BackupEntry] = {}
+        self.local_effect_tables = load_default_effect_generation_tables()
         self.local_effect_catalog = native_effect_definitions()
         self.local_effect_label_to_id = {
             effect.label: effect.effect_id for effect in self.local_effect_catalog
         }
+        self.local_effect_name_by_id = {
+            effect.effect_id: effect.name for effect in self.local_effect_catalog
+        }
         self.local_effect_search = StringVar(value="")
         self.local_effect_choice = StringVar(value="")
-        self.local_effect_id = StringVar(value="")
-        self.local_effect_value = StringVar(value="")
+        self.local_slot_effect_ids = [StringVar(value="") for _ in range(7)]
+        self.local_slot_effect_values = [StringVar(value="") for _ in range(7)]
+        self.local_slot_effect_names = [StringVar(value="未读取") for _ in range(7)]
+        self.local_active_slot_text = StringVar(value="当前槽：未选择")
         self.local_effect_prefix = StringVar(value="")
         self.local_effect_metadata = StringVar(value="")
         self.local_effect_tail_0 = StringVar(value="")
         self.local_effect_tail_1 = StringVar(value="")
+        self.local_draft_entry: ScrollInventoryEntry | None = None
+        self.local_draft_slots: list[LocalEffectSlotFields] = []
+        self.local_active_slot_index: int | None = None
+        self.local_selection_guard = False
 
         self.grace_filter.trace_add("write", self._update_grace_search_hint)
         self.grace_filter.trace_add("write", self._update_calculation_controls)
@@ -1148,6 +1163,18 @@ class ScrollEditorApp:
             focusthickness=1,
             focuscolor=self.colors["blue"],
             padding=(10, 6),
+        )
+        self.style.configure(
+            "Compact.TButton",
+            background=self.colors["raised"],
+            foreground=self.colors["text"],
+            bordercolor=self.colors["border"],
+            padding=(6, 3),
+        )
+        self.style.map(
+            "Compact.TButton",
+            background=[("active", "#22282E"), ("disabled", "#15181B")],
+            foreground=[("disabled", "#666B70")],
         )
         self.style.map(
             "TButton",
@@ -2161,8 +2188,9 @@ class ScrollEditorApp:
         ttk.Label(
             warning,
             text=(
-                "这里直接修改存档中的最终词条槽。修改结果可在本机使用，"
-                "但传播时接收方会根据稀有度和 Seed 重新生成，不会保留这些改动。"
+                "这里是完全自由的本地词条修改器：不会检查组合是否合法，也不会按 Seed "
+                "重新生成。修改结果可在本机使用，但传播时接收方会根据稀有度和 Seed "
+                "重新生成，不会保留这些改动。"
             ),
             foreground="#FF8585",
             wraplength=1080,
@@ -2198,11 +2226,9 @@ class ScrollEditorApp:
         panes = ttk.Panedwindow(outer, orient="horizontal")
         panes.pack(fill=BOTH, expand=True)
         inventory_frame = ttk.LabelFrame(panes, text="当前存档绘卷", padding=8)
-        effect_frame = ttk.LabelFrame(panes, text="词条槽", padding=8)
-        editor_frame = ttk.LabelFrame(panes, text="本地字段编辑", padding=8)
+        editor_frame = ttk.LabelFrame(panes, text="七槽自由修改", padding=8)
         panes.add(inventory_frame, weight=2)
-        panes.add(effect_frame, weight=3)
-        panes.add(editor_frame, weight=3)
+        panes.add(editor_frame, weight=5)
 
         inventory_columns = (
             "slot",
@@ -2255,95 +2281,135 @@ class ScrollEditorApp:
             self._show_local_scroll_effects,
         )
 
-        effect_columns = ("slot", "role", "name", "id", "value")
-        self.local_effect_tree = ttk.Treeview(
-            effect_frame,
-            columns=effect_columns,
-            show="headings",
-            selectmode="browse",
-            height=11,
-        )
-        effect_headings = {
-            "slot": "槽",
-            "role": "角色",
-            "name": "词条",
-            "id": "ID",
-            "value": "数值",
-        }
-        effect_widths = {
-            "slot": 42,
-            "role": 64,
-            "name": 190,
-            "id": 82,
-            "value": 86,
-        }
-        for column in effect_columns:
-            self.local_effect_tree.heading(column, text=effect_headings[column])
-            self.local_effect_tree.column(
-                column,
-                width=effect_widths[column],
-                anchor="w",
-            )
-        effect_scrollbar = ttk.Scrollbar(
-            effect_frame,
-            orient="vertical",
-            command=self.local_effect_tree.yview,
-        )
-        self.local_effect_tree.configure(yscrollcommand=effect_scrollbar.set)
-        self.local_effect_tree.pack(side=LEFT, fill=BOTH, expand=True)
-        effect_scrollbar.pack(side=RIGHT, fill="y")
-        self.local_effect_tree.bind("<<TreeviewSelect>>", self._show_local_effect_fields)
-
-        ttk.Label(editor_frame, text="搜索官方词条目录").pack(anchor="w")
-        ttk.Entry(editor_frame, textvariable=self.local_effect_search).pack(
-            fill="x",
-            pady=(2, 4),
-        )
-        self.local_effect_combo = ttk.Combobox(
+        ttk.Label(
             editor_frame,
+            text=(
+                "七个物理槽都可直接修改；允许重复词条、冲突词条、主副槽混放、"
+                "未知 ID 和任意 uint32 数值。这里只检查字段格式，不检查 Seed、"
+                "稀有度、恩宠或原生生成合法性。"
+            ),
+            foreground="#FFB35C",
+            wraplength=1040,
+        ).pack(anchor="w", pady=(0, 6))
+
+        draft_header = ttk.Frame(editor_frame)
+        draft_header.pack(fill="x")
+        ttk.Label(draft_header, text="槽", width=7).pack(side=LEFT)
+        ttk.Label(draft_header, text="当前名称", width=34).pack(side=LEFT)
+        ttk.Label(draft_header, text="词条 ID", width=16).pack(side=LEFT)
+        ttk.Label(draft_header, text="数值 raw", width=14).pack(side=LEFT)
+        ttk.Label(draft_header, text="操作").pack(side=LEFT)
+
+        self.local_slot_rows: list[ttk.Frame] = []
+        for slot_index in range(7):
+            row = ttk.Frame(editor_frame, padding=(0, 2))
+            row.pack(fill="x")
+            self.local_slot_rows.append(row)
+            ttk.Button(
+                row,
+                text=f"槽 {slot_index + 1}",
+                width=7,
+                command=lambda index=slot_index: self._activate_local_effect_slot(index),
+                style="Compact.TButton",
+            ).pack(side=LEFT)
+            ttk.Label(
+                row,
+                textvariable=self.local_slot_effect_names[slot_index],
+                width=34,
+            ).pack(side=LEFT, padx=(4, 0))
+            id_entry = ttk.Entry(
+                row,
+                textvariable=self.local_slot_effect_ids[slot_index],
+                width=16,
+            )
+            id_entry.pack(side=LEFT, padx=(4, 0))
+            id_entry.bind(
+                "<FocusOut>",
+                lambda _event, index=slot_index: self._refresh_local_draft_name(index),
+            )
+            id_entry.bind(
+                "<Return>",
+                lambda _event, index=slot_index: self._refresh_local_draft_name(index),
+            )
+            ttk.Entry(
+                row,
+                textvariable=self.local_slot_effect_values[slot_index],
+                width=14,
+            ).pack(side=LEFT, padx=(4, 0))
+            ttk.Button(
+                row,
+                text="清空槽",
+                command=lambda index=slot_index: self._clear_local_effect_slot(index),
+                style="Compact.TButton",
+            ).pack(side=LEFT, padx=(6, 0))
+
+        catalog_frame = ttk.LabelFrame(
+            editor_frame,
+            text="完整原生词条目录（选择后立即应用）",
+            padding=7,
+        )
+        catalog_frame.pack(fill="x", pady=(8, 0))
+        catalog_top = ttk.Frame(catalog_frame)
+        catalog_top.pack(fill="x")
+        ttk.Label(
+            catalog_top,
+            textvariable=self.local_active_slot_text,
+            foreground=self.colors["gold"],
+        ).pack(side=LEFT)
+        ttk.Label(catalog_top, text="搜索：").pack(side=LEFT, padx=(14, 3))
+        ttk.Entry(
+            catalog_top,
+            textvariable=self.local_effect_search,
+            width=28,
+        ).pack(side=LEFT, fill="x", expand=True)
+        self.local_effect_combo = ttk.Combobox(
+            catalog_frame,
             textvariable=self.local_effect_choice,
             state="readonly",
             values=tuple(effect.label for effect in self.local_effect_catalog),
         )
-        self.local_effect_combo.pack(fill="x")
-        self.local_effect_combo.bind("<<ComboboxSelected>>", self._choose_local_effect)
+        self.local_effect_combo.pack(fill="x", pady=(5, 0))
+        self.local_effect_combo.bind(
+            "<<ComboboxSelected>>",
+            self._choose_local_effect,
+        )
 
+        advanced_frame = ttk.LabelFrame(editor_frame, text="当前槽高级原始字段", padding=7)
+        advanced_frame.pack(fill="x", pady=(8, 0))
         field_rows = (
-            ("词条 ID", self.local_effect_id),
-            ("数值 raw", self.local_effect_value),
             ("prefix", self.local_effect_prefix),
             ("metadata", self.local_effect_metadata),
             ("tail 0", self.local_effect_tail_0),
             ("tail 1", self.local_effect_tail_1),
         )
         for label, variable in field_rows:
-            row = ttk.Frame(editor_frame)
-            row.pack(fill="x", pady=2)
+            row = ttk.Frame(advanced_frame)
+            row.pack(side=LEFT, fill="x", expand=True, padx=(0, 6))
             ttk.Label(row, text=label, width=11).pack(side=LEFT)
             ttk.Entry(row, textvariable=variable).pack(side=LEFT, fill="x", expand=True)
 
         ttk.Label(
             editor_frame,
             text=(
-                "只改词条 ID 和数值即可；其余高级字段默认保留。"
-                "支持十进制和 0x 十六进制。"
+                "手动输入 ID 时高级字段保持原值；使用目录按钮会匹配该词条自身的"
+                " prefix/类别，但仍不会检查整张绘卷是否合法。所有字段都支持十进制"
+                "或 0x 十六进制，最后一次性写入。"
             ),
             foreground=self.colors["muted"],
-            wraplength=330,
+            wraplength=1040,
         ).pack(anchor="w", pady=(8, 6))
         button_row = ttk.Frame(editor_frame)
         button_row.pack(fill="x")
         ttk.Button(
             button_row,
-            text="保存本地修改",
-            command=self._save_local_effect_edit,
+            text="一次性保存全部变化",
+            command=self._save_local_effect_edits,
             style="Accent.TButton",
         ).pack(side=LEFT)
         ttk.Button(
             button_row,
-            text="清空该词条槽",
-            command=self._clear_local_effect_slot,
-            style="Danger.TButton",
+            text="放弃未保存修改",
+            command=self._discard_local_effect_draft,
         ).pack(side=LEFT, padx=(8, 0))
 
         backup_frame = ttk.LabelFrame(outer, text="自动备份与数据目录", padding=8)
@@ -2351,21 +2417,56 @@ class ScrollEditorApp:
         data_directory_row = ttk.Frame(backup_frame)
         data_directory_row.pack(fill="x", pady=(0, 6))
         ttk.Label(data_directory_row, text="数据目录：").pack(side=LEFT)
+        backup_actions = ttk.Frame(data_directory_row)
+        self.local_backup_actions = backup_actions
+        backup_actions.pack(side=RIGHT)
+        ttk.Button(
+            backup_actions,
+            text="刷新备份",
+            command=self._refresh_backups,
+            style="Compact.TButton",
+        ).pack(side=LEFT)
+        ttk.Button(
+            backup_actions,
+            text="恢复选中",
+            command=self._restore_selected_backup,
+            style="Compact.TButton",
+        ).pack(side=LEFT, padx=(4, 0))
+        ttk.Button(
+            backup_actions,
+            text="移入回收站",
+            command=self._recycle_selected_backups,
+            style="Compact.TButton",
+        ).pack(side=LEFT, padx=(4, 0))
+        ttk.Button(
+            backup_actions,
+            text="打开备份目录",
+            command=self._open_backup_folder,
+            style="Compact.TButton",
+        ).pack(side=LEFT, padx=(4, 0))
+        ttk.Button(
+            backup_actions,
+            text="打开存档目录",
+            command=self._open_save_folder,
+            style="Compact.TButton",
+        ).pack(side=LEFT, padx=(4, 0))
+        ttk.Button(
+            backup_actions,
+            text="恢复默认目录",
+            command=self._reset_data_directory,
+            style="Compact.TButton",
+        ).pack(side=LEFT, padx=(4, 0))
+        ttk.Button(
+            backup_actions,
+            text="更改目录",
+            command=self._choose_data_directory,
+            style="Compact.TButton",
+        ).pack(side=LEFT, padx=(4, 0))
         ttk.Label(
             data_directory_row,
             textvariable=self.data_directory_text,
             foreground=self.colors["muted"],
         ).pack(side=LEFT, fill="x", expand=True, padx=(4, 8))
-        ttk.Button(
-            data_directory_row,
-            text="更改目录",
-            command=self._choose_data_directory,
-        ).pack(side=RIGHT)
-        ttk.Button(
-            data_directory_row,
-            text="恢复默认",
-            command=self._reset_data_directory,
-        ).pack(side=RIGHT, padx=(0, 6))
 
         backup_body = ttk.Frame(backup_frame)
         backup_body.pack(fill="x")
@@ -2375,7 +2476,7 @@ class ScrollEditorApp:
             columns=backup_columns,
             show="headings",
             selectmode="extended",
-            height=4,
+            height=3,
         )
         backup_headings = {
             "time": "时间（UTC）",
@@ -2405,37 +2506,8 @@ class ScrollEditorApp:
         )
         self.backup_tree.configure(yscrollcommand=backup_scrollbar.set)
         self.backup_tree.pack(side=LEFT, fill="x", expand=True)
-        backup_scrollbar.pack(side=LEFT, fill="y")
+        backup_scrollbar.pack(side=RIGHT, fill="y")
 
-        backup_actions = ttk.Frame(backup_body)
-        backup_actions.pack(side=RIGHT, fill="y", padx=(8, 0))
-        ttk.Button(
-            backup_actions,
-            text="刷新备份",
-            command=self._refresh_backups,
-        ).pack(fill="x")
-        ttk.Button(
-            backup_actions,
-            text="恢复选中备份",
-            command=self._restore_selected_backup,
-            style="Accent.TButton",
-        ).pack(fill="x", pady=(4, 0))
-        ttk.Button(
-            backup_actions,
-            text="移入回收站",
-            command=self._recycle_selected_backups,
-            style="Danger.TButton",
-        ).pack(fill="x", pady=(4, 0))
-        ttk.Button(
-            backup_actions,
-            text="打开备份文件夹",
-            command=self._open_backup_folder,
-        ).pack(fill="x", pady=(4, 0))
-        ttk.Button(
-            backup_actions,
-            text="打开存档文件夹",
-            command=self._open_save_folder,
-        ).pack(fill="x", pady=(4, 0))
 
     def _backup_state_root(self) -> Path:
         return self.state_root
@@ -2597,9 +2669,7 @@ class ScrollEditorApp:
             self.local_effect_choice.set("")
 
     def _choose_local_effect(self, _event: object | None = None) -> None:
-        effect_id = self.local_effect_label_to_id.get(self.local_effect_choice.get())
-        if effect_id is not None:
-            self.local_effect_id.set(f"0x{effect_id:08X}")
+        self._apply_local_catalog_effect()
 
     @staticmethod
     def _parse_local_u32(value: str, field_name: str) -> int:
@@ -2625,21 +2695,19 @@ class ScrollEditorApp:
             state_root=self._backup_state_root(),
         )
 
-    def _refresh_local_inventory(self) -> None:
+    def _refresh_local_inventory(self, *, select_slot_index: int | None = None) -> None:
         try:
             inventory = self._local_installer().capture_inventory()
         except Exception as error:
             messagebox.showerror("读取绘卷失败", str(error))
             return
+        self._reset_local_effect_draft_view()
         self.local_inventory = inventory
         self.local_entries = list(inventory.scroll_entries())
         self.local_entry_by_iid.clear()
         scroll_items = self.local_scroll_tree.get_children()
         if scroll_items:
             self.local_scroll_tree.delete(*scroll_items)
-        effect_items = self.local_effect_tree.get_children()
-        if effect_items:
-            self.local_effect_tree.delete(*effect_items)
         for entry in self.local_entries:
             iid = f"slot-{entry.slot_index}"
             self.local_entry_by_iid[iid] = entry
@@ -2661,6 +2729,13 @@ class ScrollEditorApp:
                     entry.transfer_count,
                 ),
             )
+        if select_slot_index is not None:
+            selected_iid = f"slot-{select_slot_index}"
+            if selected_iid in self.local_entry_by_iid:
+                self.local_scroll_tree.selection_set(selected_iid)
+                self.local_scroll_tree.focus(selected_iid)
+                self.local_scroll_tree.see(selected_iid)
+                self._show_local_scroll_effects()
         self.status.set(f"已读取 {len(self.local_entries)} 个占用绘卷栏位")
 
     def _selected_local_entries(self) -> tuple[ScrollInventoryEntry, ...]:
@@ -2671,94 +2746,246 @@ class ScrollEditorApp:
         )
 
     def _show_local_scroll_effects(self, _event: object | None = None) -> None:
+        if self.local_selection_guard:
+            return
         selected = self._selected_local_entries()
-        effect_items = self.local_effect_tree.get_children()
-        if effect_items:
-            self.local_effect_tree.delete(*effect_items)
-        if not selected:
-            return
-        entry = selected[0]
-        for index, effect in enumerate(entry.candidate.effects):
-            if index == 0:
-                role = "主词条"
-            elif entry.candidate.grace_slot_index == index:
-                role = "恩宠"
-            elif entry.rarity == 3 and index == 4:
-                role = "成长槽"
-            else:
-                role = "副词条"
-            self.local_effect_tree.insert(
-                "",
-                END,
-                iid=f"effect-{index}",
-                values=(
-                    index + 1,
-                    role,
-                    entry.candidate.display_name(effect),
-                    f"0x{effect.effect_id:08X}",
-                    f"0x{effect.value:08X}",
-                ),
+        next_entry = selected[0] if len(selected) == 1 else None
+        if (
+            self.local_draft_entry is not None
+            and (
+                next_entry is None
+                or next_entry.slot_index != self.local_draft_entry.slot_index
             )
-
-    def _selected_local_effect(self) -> tuple[ScrollInventoryEntry, int] | None:
-        entries = self._selected_local_entries()
-        effect_selection = self.local_effect_tree.selection()
-        if len(entries) != 1 or not effect_selection:
-            return None
-        try:
-            effect_index = int(effect_selection[0].split("-", 1)[1])
-        except (IndexError, ValueError):
-            return None
-        return entries[0], effect_index
-
-    def _show_local_effect_fields(self, _event: object | None = None) -> None:
-        selected = self._selected_local_effect()
-        if selected is None:
+            and self._local_effect_draft_is_dirty()
+        ):
+            if not messagebox.askyesno(
+                "放弃未保存修改",
+                "当前绘卷还有未保存的本地词条修改。确定放弃并切换选择吗？",
+            ):
+                current_iid = f"slot-{self.local_draft_entry.slot_index}"
+                self.local_selection_guard = True
+                try:
+                    self.local_scroll_tree.selection_set(current_iid)
+                    self.local_scroll_tree.focus(current_iid)
+                finally:
+                    self.local_selection_guard = False
+                return
+        if next_entry is None:
+            self._reset_local_effect_draft_view()
             return
-        entry, effect_index = selected
-        offset = 0x34 + effect_index * 0x18
-        prefix, effect_id, value, metadata, tail_0, tail_1 = struct.unpack_from(
-            "<6I",
-            entry.record,
-            offset,
+        self._load_local_effect_draft(next_entry)
+
+    def _reset_local_effect_draft_view(self) -> None:
+        self.local_draft_entry = None
+        self.local_draft_slots = []
+        self.local_active_slot_index = None
+        self.local_active_slot_text.set("当前槽：未选择")
+        self.local_effect_choice.set("")
+        for slot_index in range(7):
+            self.local_slot_effect_ids[slot_index].set("")
+            self.local_slot_effect_values[slot_index].set("")
+            self.local_slot_effect_names[slot_index].set("未读取")
+        for variable in (
+            self.local_effect_prefix,
+            self.local_effect_metadata,
+            self.local_effect_tail_0,
+            self.local_effect_tail_1,
+        ):
+            variable.set("")
+
+    def _local_effect_name(self, effect_id: int) -> str:
+        if effect_id == 0xFFFFFFFF:
+            return "空"
+        return self.local_effect_name_by_id.get(
+            effect_id,
+            f"自定义 / 未命名 [0x{effect_id:08X}]",
         )
-        self.local_effect_id.set(f"0x{effect_id:08X}")
-        self.local_effect_value.set(f"0x{value:08X}")
-        self.local_effect_prefix.set(f"0x{prefix:08X}")
-        self.local_effect_metadata.set(f"0x{metadata:08X}")
-        self.local_effect_tail_0.set(f"0x{tail_0:08X}")
-        self.local_effect_tail_1.set(f"0x{tail_1:08X}")
+
+    def _load_local_effect_draft(self, entry: ScrollInventoryEntry) -> None:
+        self.local_draft_entry = entry
+        self.local_draft_slots = list(read_local_effect_slots(entry.record))
+        for fields in self.local_draft_slots:
+            self.local_slot_effect_ids[fields.slot_index].set(
+                f"0x{fields.effect_id:08X}"
+            )
+            self.local_slot_effect_values[fields.slot_index].set(str(fields.value))
+            self.local_slot_effect_names[fields.slot_index].set(
+                self._local_effect_name(fields.effect_id)
+            )
+        self.local_active_slot_index = None
+        self._activate_local_effect_slot(0)
+
+    def _refresh_local_draft_name(self, slot_index: int) -> None:
+        try:
+            effect_id = self._parse_local_u32(
+                self.local_slot_effect_ids[slot_index].get(),
+                f"槽 {slot_index + 1} 词条 ID",
+            )
+        except (TypeError, ValueError):
+            self.local_slot_effect_names[slot_index].set("ID 格式有误")
+            return
+        self.local_slot_effect_names[slot_index].set(
+            self._local_effect_name(effect_id)
+        )
+
+    def _flush_local_advanced_fields(self) -> None:
+        slot_index = self.local_active_slot_index
+        if slot_index is None or not self.local_draft_slots:
+            return
+        current = self.local_draft_slots[slot_index]
+        self.local_draft_slots[slot_index] = replace(
+            current,
+            prefix=self._parse_local_u32(self.local_effect_prefix.get(), "prefix"),
+            metadata=self._parse_local_u32(
+                self.local_effect_metadata.get(),
+                "metadata",
+            ),
+            tail_0=self._parse_local_u32(self.local_effect_tail_0.get(), "tail 0"),
+            tail_1=self._parse_local_u32(self.local_effect_tail_1.get(), "tail 1"),
+        )
+
+    def _activate_local_effect_slot(self, slot_index: int) -> None:
+        if not self.local_draft_slots:
+            messagebox.showerror("未选择绘卷", "请先读取并选择一张绘卷")
+            return
+        if not 0 <= slot_index < len(self.local_draft_slots):
+            raise IndexError(slot_index)
+        try:
+            self._flush_local_advanced_fields()
+        except Exception as error:
+            messagebox.showerror("高级字段格式无效", str(error))
+            return
+        self.local_active_slot_index = slot_index
+        fields = self.local_draft_slots[slot_index]
+        self.local_active_slot_text.set(f"当前槽：{slot_index + 1}")
+        self.local_effect_prefix.set(f"0x{fields.prefix:08X}")
+        self.local_effect_metadata.set(f"0x{fields.metadata:08X}")
+        self.local_effect_tail_0.set(f"0x{fields.tail_0:08X}")
+        self.local_effect_tail_1.set(f"0x{fields.tail_1:08X}")
         self.local_effect_choice.set("")
 
-    def _save_local_effect_edit(self) -> None:
-        selected = self._selected_local_effect()
-        if selected is None:
-            messagebox.showerror("未选择词条", "请先选择一张绘卷和一个词条槽")
+    def _apply_local_catalog_effect(self) -> None:
+        slot_index = self.local_active_slot_index
+        if slot_index is None or not self.local_draft_slots:
+            messagebox.showerror("未选择词条槽", "请先选择一张绘卷和目标槽")
             return
-        entry, effect_index = selected
+        effect_id = self.local_effect_label_to_id.get(self.local_effect_choice.get())
+        if effect_id is None:
+            return
         try:
-            edit = LocalEffectEdit(
-                slot_index=effect_index,
-                effect_id=self._parse_local_u32(self.local_effect_id.get(), "词条 ID"),
-                value=self._parse_local_u32(self.local_effect_value.get(), "数值"),
-                prefix=self._parse_local_u32(self.local_effect_prefix.get(), "prefix"),
-                metadata=self._parse_local_u32(self.local_effect_metadata.get(), "metadata"),
-                tail_0=self._parse_local_u32(self.local_effect_tail_0.get(), "tail 0"),
-                tail_1=self._parse_local_u32(self.local_effect_tail_1.get(), "tail 1"),
+            self._flush_local_advanced_fields()
+            definition = self.local_effect_tables.effect(effect_id)
+            group = self.local_effect_tables.group_for_effect(effect_id)
+            fields = retarget_local_effect_identity(
+                self.local_draft_slots[slot_index],
+                effect_id=effect_id,
+                group_key=definition.group_key,
+                category_key=group.category_key,
             )
-            replacement = patch_local_scroll_record(entry.record, (edit,))
+            self.local_draft_slots[slot_index] = fields
+        except Exception as error:
+            messagebox.showerror("无法应用目录词条", str(error))
+            return
+        self.local_slot_effect_ids[slot_index].set(f"0x{effect_id:08X}")
+        self.local_slot_effect_names[slot_index].set(self._local_effect_name(effect_id))
+        self.local_effect_prefix.set(f"0x{fields.prefix:08X}")
+        self.local_effect_metadata.set(f"0x{fields.metadata:08X}")
+        self.status.set(
+            f"已把目录词条写入草稿槽 {slot_index + 1}；尚未修改存档"
+        )
+
+    def _clear_local_effect_slot(self, slot_index: int | None = None) -> None:
+        if slot_index is None:
+            slot_index = self.local_active_slot_index
+        if slot_index is None or not self.local_draft_slots:
+            messagebox.showerror("未选择词条槽", "请先选择一张绘卷和目标槽")
+            return
+        try:
+            self._flush_local_advanced_fields()
+        except Exception as error:
+            messagebox.showerror("高级字段格式无效", str(error))
+            return
+        self.local_draft_slots[slot_index] = LocalEffectSlotFields(
+            slot_index=slot_index,
+            effect_id=0xFFFFFFFF,
+            value=0,
+            prefix=0,
+            metadata=0,
+            tail_0=0,
+            tail_1=0,
+        )
+        self.local_slot_effect_ids[slot_index].set("0xFFFFFFFF")
+        self.local_slot_effect_values[slot_index].set("0")
+        self.local_slot_effect_names[slot_index].set("空")
+        self.local_active_slot_index = None
+        self._activate_local_effect_slot(slot_index)
+
+    def _build_local_effect_draft_record(self) -> bytes:
+        if self.local_draft_entry is None or len(self.local_draft_slots) != 7:
+            raise ValueError("请先读取并选择一张绘卷")
+        self._flush_local_advanced_fields()
+        edits: list[LocalEffectEdit] = []
+        updated_slots: list[LocalEffectSlotFields] = []
+        for slot_index, base_fields in enumerate(self.local_draft_slots):
+            fields = replace(
+                base_fields,
+                effect_id=self._parse_local_u32(
+                    self.local_slot_effect_ids[slot_index].get(),
+                    f"槽 {slot_index + 1} 词条 ID",
+                ),
+                value=self._parse_local_u32(
+                    self.local_slot_effect_values[slot_index].get(),
+                    f"槽 {slot_index + 1} 数值",
+                ),
+            )
+            updated_slots.append(fields)
+            edits.append(fields.as_edit())
+        self.local_draft_slots = updated_slots
+        return patch_local_scroll_record(self.local_draft_entry.record, edits)
+
+    def _local_effect_draft_is_dirty(self) -> bool:
+        if self.local_draft_entry is None:
+            return False
+        try:
+            return self._build_local_effect_draft_record() != self.local_draft_entry.record
+        except Exception:
+            return True
+
+    def _discard_local_effect_draft(self) -> None:
+        if self.local_draft_entry is None:
+            messagebox.showerror("未选择绘卷", "当前没有可放弃的修改")
+            return
+        entry = self.local_draft_entry
+        self._load_local_effect_draft(entry)
+        self.status.set(f"已放弃栏位 {entry.slot_index} 的未保存修改")
+
+    def _save_local_effect_edits(self) -> None:
+        entry = self.local_draft_entry
+        if entry is None:
+            messagebox.showerror("未选择绘卷", "请先选择一张绘卷")
+            return
+        try:
+            replacement = self._build_local_effect_draft_record()
         except Exception as error:
             messagebox.showerror("本地编辑字段无效", str(error))
             return
-        if replacement == entry.record:
-            messagebox.showinfo("没有变化", "当前字段与存档记录完全相同")
+        changed_slots = [
+            slot_index + 1
+            for slot_index in range(7)
+            if entry.record[0x34 + slot_index * 0x18:0x4C + slot_index * 0x18]
+            != replacement[0x34 + slot_index * 0x18:0x4C + slot_index * 0x18]
+        ]
+        if not changed_slots:
+            messagebox.showinfo("没有变化", "七个词条槽与当前存档完全相同")
             return
-        if not self._confirm_title_screen_if_needed("修改本地绘卷"):
+        if not self._confirm_title_screen_if_needed("自由修改本地绘卷"):
             return
         if not messagebox.askyesno(
-            "确认本地修改",
-            f"确定修改栏位 {entry.slot_index} 的第 {effect_index + 1} 个词条吗？\n\n"
-            "该修改只在本机存档生效，传播后接收方不会保留。写入前会自动备份。",
+            "确认自由修改",
+            f"将一次性修改栏位 {entry.slot_index} 的槽："
+            f"{', '.join(str(value) for value in changed_slots)}。\n\n"
+            "程序不会检查重复、冲突、槽位角色、数值合理性或 Seed 一致性。"
+            "这些修改只供本机使用，传播后不会保留；写入前会自动备份。",
         ):
             return
         try:
@@ -2767,30 +2994,22 @@ class ScrollEditorApp:
                 action="local-effect-edit",
                 metadata={
                     "local_only": True,
-                    "effect_slot": effect_index,
+                    "unrestricted_effect_edit": True,
+                    "legality_validation": False,
+                    "effect_slots": changed_slots,
                     "seed": entry.seed,
                 },
             )
         except Exception as error:
             messagebox.showerror("本地修改失败", str(error))
             return
-        self.status.set(
-            f"已修改栏位 {entry.slot_index}；备份：{result.backup_directory.name}"
-        )
+        self.local_draft_entry = None
         self._refresh_backups()
-        self._refresh_local_inventory()
-
-    def _clear_local_effect_slot(self) -> None:
-        selected = self._selected_local_effect()
-        if selected is None:
-            messagebox.showerror("未选择词条", "请先选择一张绘卷和一个词条槽")
-            return
-        self.local_effect_id.set("0xFFFFFFFF")
-        self.local_effect_value.set("0")
-        self.local_effect_prefix.set("0")
-        self.local_effect_metadata.set("0")
-        self.local_effect_tail_0.set("0")
-        self.local_effect_tail_1.set("0")
+        self._refresh_local_inventory(select_slot_index=entry.slot_index)
+        self.status.set(
+            f"已自由修改栏位 {entry.slot_index} 的 {len(changed_slots)} 个槽；"
+            f"备份：{result.backup_directory.name}"
+        )
 
     def _delete_local_scrolls(self) -> None:
         selected = self._selected_local_entries()
