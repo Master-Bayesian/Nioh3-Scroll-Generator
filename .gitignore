@@ -41,6 +41,12 @@ research/*
 !research/build_seed_accelerator.ps1
 !research/dump_effect_catalog_current_locale.py
 !research/native_seed_accelerator.cu
+!research/analyze_scroll_reroll_capture.py
+!research/benchmark_effect_preimage.py
+!research/build_effect_preimage_accelerator.ps1
+!research/capture_scroll_reroll_ce.lua
+!research/native_effect_preimage_accelerator.cpp
+!research/predict_scroll_rerolls.py
 !research/probe_scroll_auxiliary_text_catalog.py
 !research/solve_effect_seed.py
 !research/verify_reported_rare_combination.py

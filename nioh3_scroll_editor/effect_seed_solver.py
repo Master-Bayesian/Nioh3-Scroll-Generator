@@ -199,6 +199,18 @@ def validate_effect_request_feasibility(request: EffectSeedRequest) -> None:
         rarity=request.rarity,
     )
 
+    def effect_label(effect_id: int) -> str:
+        # Import locally so the low-level solver stays independent from UI
+        # catalog initialization until a human-readable error is required.
+        from .catalog import contextual_effect_name
+
+        name = contextual_effect_name(
+            effect_id,
+            rarity=request.rarity,
+            slot=1,
+        )
+        return f"{name} [0x{effect_id:04X}]"
+
     def validate_option(
         primary_id: int | None,
         grouped_choices: tuple[int, ...],
@@ -260,7 +272,7 @@ def validate_effect_request_feasibility(request: EffectSeedRequest) -> None:
             )
             if promoted_only:
                 formatted = "、".join(
-                    f"0x{effect_id:04X}" for effect_id in promoted_only
+                    effect_label(effect_id) for effect_id in promoted_only
                 )
                 return (
                     "稀有度5只有一个升格/深奥槽，该槽会成为主词条；"
@@ -272,7 +284,7 @@ def validate_effect_request_feasibility(request: EffectSeedRequest) -> None:
             for right_id in ordered_ids[index + 1 :]:
                 if tables.effects_conflict(left_id, right_id):
                     return (
-                        f"词条 0x{left_id:04X} 与 0x{right_id:04X} "
+                        f"{effect_label(left_id)} 与 {effect_label(right_id)} "
                         "属于原生冲突组，不能同时出现"
                     )
 
@@ -282,9 +294,21 @@ def validate_effect_request_feasibility(request: EffectSeedRequest) -> None:
             category_counts[category] += 1
         for category, count in enumerate(category_counts):
             if count > capacities[category]:
+                category_effect_ids = tuple(
+                    sorted(
+                        effect_id
+                        for effect_id in ordinary_ids
+                        if tables.group_for_effect(effect_id).category_key == category
+                    )
+                )
+                selected_labels = "、".join(
+                    effect_label(effect_id) for effect_id in category_effect_ids
+                )
+                excess = count - capacities[category]
                 return (
-                    f"类别 0x{category:02X} 需要 {count} 个槽位，"
-                    f"原生容量只有 {capacities[category]}"
+                    f"以下已选词条共用原生类别 0x{category:02X}："
+                    f"{selected_labels}。该类别最多容纳 {capacities[category]} 个，"
+                    f"当前选择了 {count} 个；请至少移除 {excess} 个"
                 )
         return None
 

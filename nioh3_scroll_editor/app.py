@@ -41,6 +41,7 @@ from .auxiliary_generation import (
     SpecialRuleEntryResult,
     describe_special_rule,
     generate_complete_auxiliary,
+    generate_matching_auxiliary,
     legal_special_rule_keys,
     load_default_auxiliary_generation_tables,
 )
@@ -50,7 +51,14 @@ from .auxiliary_feasibility import (
     analyze_enemy_feasibility,
     analyze_special_rule_feasibility,
 )
-from .app_settings import default_state_root, load_app_settings, save_data_root
+from .app_settings import (
+    UPDATE_CHANNEL_BETA,
+    UPDATE_CHANNEL_STABLE,
+    default_state_root,
+    load_app_settings,
+    save_data_root,
+    save_update_channel,
+)
 from .catalog import (
     EFFECT_BY_ID,
     contextual_effect_name,
@@ -69,6 +77,13 @@ from .effect_seed_solver import (
     validate_effect_request_feasibility,
 )
 from .effect_generation_tables import load_default_effect_generation_tables
+from .effect_path_inverse import FullCompositionRequest
+from .effect_preimage_accelerator import (
+    d3d11_effect_acceleration_available,
+    last_effect_preimage_backend,
+    reset_effect_preimage_backend,
+)
+from .effect_preimage_search import collect_full_composition_preimage_page
 from .effect_sequence import (
     collect_ng3_r4_primary_pivot_seeds,
     generate_ng3_certified_effect_sequence,
@@ -143,6 +158,7 @@ from .version import (
     PROJECT_GITHUB_URL,
     UPDATE_MANIFEST_URL,
     UPDATE_PUBLIC_KEY_BASE64,
+    UPDATE_RELEASES_API_URL,
 )
 
 
@@ -153,6 +169,21 @@ STARTUP_TRACE = os.environ.get("NIOH3_SCROLL_STARTUP_TRACE", "").strip() == "1"
 def startup_trace(message: str) -> None:
     if STARTUP_TRACE:
         print(f"[startup] {message}", flush=True)
+
+
+def search_backend_display_name() -> str:
+    preimage = last_effect_preimage_backend()
+    if preimage != "not_used":
+        return {
+            "d3d11_amd": "DirectCompute（AMD）",
+            "d3d11_nvidia": "DirectCompute（NVIDIA）",
+            "d3d11_intel": "DirectCompute（Intel）",
+        }.get(preimage, "DirectCompute")
+    return {
+        "cuda": "CUDA",
+        "native_cpu": "原生 CPU",
+        "python": "Python CPU",
+    }.get(last_seed_acceleration_backend(), "CPU")
 
 
 PLAYTHROUGH_CURRENT_LABEL = "当前周目"
@@ -169,7 +200,7 @@ PLAYTHROUGH_BY_LABEL = {
 }
 NO_GRACE_FILTER_LABEL = "不限制恩宠（允许最终无恩宠）"
 NO_TERRAIN_FILTER_LABEL = "任意地形影响（不筛选）"
-PRODUCT_RARITIES = (3, 4)
+PRODUCT_RARITIES = (3, 4, 5)
 EFFECT_ROLL_FILTERS = (
     ("任意数值", 0),
     ("较高（抽取百分位 ≥ 80）", 80),
@@ -249,6 +280,140 @@ def requirement_mode_group_index(label: str) -> int:
         raise ValueError(f"unknown requirement mode: {label}") from error
 
 
+def _complete_preimage_request(
+    request: EffectSeedRequest,
+) -> FullCompositionRequest | None:
+    """Return the exact complete-composition fast path when it is safe."""
+
+    if len(request.primary_effect_ids) != 1:
+        return None
+    if request.required_secondary_id_groups:
+        return None
+    expected_secondaries = {3: 3, 5: 4}.get(request.rarity)
+    if expected_secondaries is None:
+        # R4 final records are produced by a separate completion pass. Its
+        # stage-one inverse cannot be treated as a final-record inverse.
+        return None
+    if len(request.required_secondary_ids) != expected_secondaries:
+        return None
+    if request.rarity == 3 and request.grace_effect_id is not None:
+        return None
+    if request.rarity == 5 and request.grace_effect_id is None:
+        return None
+    return FullCompositionRequest(
+        rarity=request.rarity,
+        primary_effect_id=next(iter(request.primary_effect_ids)),
+        secondary_effect_ids=tuple(sorted(request.required_secondary_ids)),
+        stage_special_effect_id=request.grace_effect_id,
+        natural_only=request.natural_only,
+        playthrough=request.playthrough,
+    )
+
+
+def _sequence_satisfies_roll_filters(
+    sequence,
+    minimum_rolls: tuple[tuple[int, int], ...],
+) -> bool:
+    ordinary = (sequence.primary, *sequence.secondaries)
+    return all(
+        any(
+            effect.effect_id == effect_id and effect.roll_percent >= minimum_roll
+            for effect in ordinary
+        )
+        for effect_id, minimum_roll in minimum_rolls
+    )
+
+
+def collect_offline_complete_preimage_search_batch(
+    request: EffectSeedRequest,
+    *,
+    grace_mapping: GraceOutputMap | None,
+    level: int,
+    result_count: int,
+    max_trials_per_batch: int,
+    start_after_trial: int = 0,
+    candidate_found: Callable[[ScrollCandidate], None] | None = None,
+    cancelled: Callable[[], bool] | None = None,
+) -> SearchBatchResult | None:
+    """Use the path inverse when the user specified every ordinary slot."""
+
+    inverse_request = _complete_preimage_request(request)
+    if inverse_request is None or not d3d11_effect_acceleration_available():
+        return None
+    active_cursor = start_after_trial
+    budget_stop = start_after_trial + max_trials_per_batch
+    candidates: list[ScrollCandidate] = []
+    exhausted = False
+    while (
+        len(candidates) < result_count
+        and active_cursor < budget_stop
+        and not exhausted
+        and not (cancelled is not None and cancelled())
+    ):
+        page = collect_full_composition_preimage_page(
+            inverse_request,
+            page_size=max(64, (result_count - len(candidates)) * 8),
+            special_mapping=grace_mapping,
+            start_after_trial=active_cursor,
+            max_trials=budget_stop - active_cursor,
+            cancelled=cancelled,
+        )
+        if page is None:
+            return None
+        previous_cursor = active_cursor
+        active_cursor = page.next_start_after_trial
+        exhausted = page.exhausted_family
+        for match in page.matches:
+            if cancelled is not None and cancelled():
+                active_cursor = match.pivot_trial - 1
+                break
+            sequence = (
+                generate_ng3_certified_effect_sequence(
+                    match.seed,
+                    rarity=request.rarity,
+                    level=level,
+                )
+                if request.playthrough == 3
+                else generate_rarity5_grace_effect_sequence(
+                    match.seed,
+                    playthrough=request.playthrough,
+                    level=level,
+                    grace_mapping=grace_mapping,
+                )
+            )
+            if not _sequence_satisfies_roll_filters(
+                sequence,
+                request.minimum_roll_percent_by_effect_id,
+            ):
+                continue
+            auxiliary = generate_matching_auxiliary(
+                match.seed,
+                request.playthrough,
+                criteria=request.auxiliary_criteria,
+            )
+            if auxiliary is None:
+                continue
+            candidate = ScrollCandidate.from_effect_sequence(
+                sequence,
+                auxiliary=auxiliary,
+                joint_search_trial=match.pivot_trial,
+            )
+            candidates.append(candidate)
+            if candidate_found is not None:
+                candidate_found(candidate)
+            if len(candidates) >= result_count:
+                active_cursor = match.pivot_trial
+                break
+        if active_cursor <= previous_cursor:
+            break
+    return SearchBatchResult(
+        candidates=tuple(candidates),
+        requested_count=result_count,
+        next_start_after_trial=active_cursor,
+        streamed=candidate_found is not None,
+    )
+
+
 def legal_enemy_display_groups(
     enemy_groups: Mapping[str, frozenset[int]],
     legal_lookup_keys: set[int],
@@ -300,8 +465,21 @@ def collect_offline_rarity5_search_batch(
 ) -> SearchBatchResult:
     """Run one exact NG3-NG5 rarity-5 search without a game process."""
 
+    reset_effect_preimage_backend()
     if request.playthrough not in (3, 4, 5) or request.rarity != 5:
         raise ValueError("offline Grace search requires NG3-NG5 rarity 5")
+    accelerated = collect_offline_complete_preimage_search_batch(
+        request,
+        grace_mapping=grace_mapping,
+        level=level,
+        result_count=result_count,
+        max_trials_per_batch=max_trials_per_batch,
+        start_after_trial=start_after_trial,
+        candidate_found=candidate_found,
+        cancelled=cancelled,
+    )
+    if accelerated is not None:
+        return accelerated
     completed_reports: list[EffectSeedIntersectionReport] = []
     matches = []
     materialized_by_trial: dict[int, ScrollCandidate] = {}
@@ -422,6 +600,7 @@ def collect_offline_ng3_search_batch(
 ) -> SearchBatchResult:
     """Run one certified NG3 rarity-3/4/5 search without a game or save."""
 
+    reset_effect_preimage_backend()
     if request.playthrough != 3 or request.rarity not in (3, 4, 5):
         raise ValueError("offline NG3 search requires playthrough 3 and rarity 3, 4, or 5")
     if request.rarity == 5:
@@ -443,6 +622,18 @@ def collect_offline_ng3_search_batch(
     if request.rarity == 4 and request.grace_effect_id is not None:
         if grace_mapping is None or grace_mapping.rarity != 4:
             raise ValueError("rarity-4 final Grace filtering requires the R4 draw-1 map")
+    accelerated = collect_offline_complete_preimage_search_batch(
+        request,
+        grace_mapping=grace_mapping,
+        level=level,
+        result_count=result_count,
+        max_trials_per_batch=max_trials_per_batch,
+        start_after_trial=start_after_trial,
+        candidate_found=candidate_found,
+        cancelled=cancelled,
+    )
+    if accelerated is not None:
+        return accelerated
 
     completed_reports: list[EffectSeedIntersectionReport] = []
     matches = []
@@ -679,8 +870,8 @@ FAQ_TEXT = """常见问题
 为什么明明有绘卷，却提示没有可用模板？
 同一 Steam 账户可以有多个游戏角色存档。请在顶部下拉框中选择实际解锁了绘卷功能的“游戏存档 1/2/3”，而不是只看 Steam ID。程序不会再固定使用游戏存档 1。
 
-为什么界面只提供稀有度 3 和 4？
-游戏开发方已预告将修复神宝绘卷传播问题，因此正式入口暂不再提供稀有度 5 的搜索、生成和写入。已经完成的研究代码仍保留用于回归，不作为用户功能。
+为什么仍然提供稀有度 5？
+绘卷原生稀有度为 3、4、5，三种都保留搜索、已知 Seed 生成和写入能力。稀有度 5 的传播行为可能随游戏后续修复而变化，因此它的产品优先级较低；程序仍按已验证的 PC v2.00.02 参数表生成，并在游戏版本不匹配时停止写入，而不是删除这一类绘卷。
 
 为什么推荐等级填 1500，游戏里只显示 700？
 输入值不是游戏最终显示的等级。v2.00.02 会先把内部值限制到 156–1400，再经过原生 42 节点等级曲线换算；因此 1500 会先按 1400 处理，最终显示 700。挑战中的敌人/Boss 等级跟随这个最终推荐等级，而不是绘卷左上角的 Lv.。想轻松刷取就使用较低的最终值，想挑战就使用较高的最终值；继续填写超过 1400 的数值不会再提高难度。
@@ -698,7 +889,7 @@ FAQ_TEXT = """常见问题
 当前版本已知的原生名称都会显示。只有游戏目录本身没有对应文本、或正在研究尚未确认的上下文时才保留十六进制编号，不会猜测名称。
 
 为什么“优先掉落率上升”里没有志那都彦？
-PC v2.00.02 的原生优先掉落规则表只有 20 种恩宠、每种 3 个数值变体。稀有度4最终恩宠池中的志那都彦（0x4192）是唯一没有对应规则行的恩宠，因此不是搜索框漏掉，而是当前游戏版本本身不能生成这条优先掉落规则。软件不会加入必定无解的假选项。
+“恩宠筛选”下拉框可以正常选择志那都彦的恩宠（0x4192）。缺少它的是另一项功能：“特殊规则 → 优先掉落率上升”。PC v2.00.02 的原生优先掉落规则表只有 20 种恩宠、每种 3 个数值变体；志那都彦是唯一没有对应规则行的恩宠，因此游戏当前版本不能生成“优先掉落率上升（志那都彦）”。软件不会把必定无解的特殊规则伪装成候选。
 
 本地直接修改的词条能传播吗？
 通常不能。联机传播发送 Seed、稀有度等 canonical 字段，接收方会自行重建词条。要传播自定义结果，请使用“搜索合法绘卷”找到天然生成目标组合的 Seed。
@@ -716,12 +907,12 @@ def user_facing_error_message(details: object) -> str:
     return final_line
 
 
-TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
+TUTORIAL_TEXT = f"""仁王3绘卷生成器使用教程
 
 一、准备
 1. 本工具仅支持《仁王3》PC v2.00.02。
-2. 正式入口提供三周目稀有度3、4的 Seed 求解、单点预览和完整记录构造，均可离线完成，不需要启动游戏或读取存档。
-3. 稀有度3、4各通过10,000个原生随机Seed的稳定完整记录对照。
+2. 正式入口提供三周目稀有度3、4、5的 Seed 求解、单点预览和完整记录构造，均可离线完成，不需要启动游戏或读取存档。
+3. 稀有度3、4、5均使用经过原生对照的完整生成路径；所有候选还会在返回前执行精确完整记录重放。
 4. 其他周目需要原生生成或准备写档时，让游戏返回标题界面，不需要关闭游戏或断开网络。
 5. 启动生成器。程序会自动搜索同一账户下的全部游戏角色存档；写档前需要选择正确的“游戏存档 1/2/3”，并勾选添加按钮左侧的标题界面确认框。
 
@@ -743,8 +934,8 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 13. 四、五周目预计由 DLC2 开放，v2.00.02 当前无法正常进入。0xDD82/0xD523 仅证明游戏文件中存在潜在生成上下文，不证明未来 DLC 的最终算法；目前只允许研究预览，禁止写档和传播声明。
 
 三、联立求解 Seed
-1. 当前 Beta 只提供约束求解，不提供界面上的连续 Seed 扫描。一、二周目必须选择主词条；三周目至少选择一项词条、恩宠或辅助条件。
-2. 指定恩宠时先数学求逆对应的完整 Seed 集合；稀有度4还会逐个重放 finalizer，只接受最终仍保留所选恩宠的记录。未指定恩宠的稀有度3、4从完整自然 Seed 数学族按批构造候选，并用 CUDA 批量预筛主词条、地形和敌人。CPU 只对幸存候选精确重放特殊规则与完整词条；所有结果仍会经过权重池、冲突、晋升、重试、数值和规范化验证。
+1. 当前版本提供约束求解，不提供界面上的连续 Seed 扫描。一、二周目必须选择主词条；三周目至少选择一项词条、恩宠或辅助条件。
+2. 指定恩宠时先数学求逆对应的完整 Seed 集合；稀有度4还会逐个重放 finalizer，只接受最终仍保留所选恩宠的记录。数学候选按批构造，并优先使用可用的 DirectCompute/CUDA 原生加速路径；CPU 只对幸存候选精确重放特殊规则与完整词条。所有结果仍会经过权重池、冲突、晋升、重试、数值和规范化验证。
 3. 主词条候选、多个必含副词条、副词条任一组和必含项数值门槛都在完整 Seed 重放结果上检查；不指定时可直接比较返回候选中的实际词条。
 4. 地形、敌人和特殊规则同样由 Seed 离线生成并联合过滤。敌人列表只展示原生绘卷候选表中的合法名称；多个必含敌人是 AND，同一个任一组中的敌人是 OR。结构上不可能共存的组合会在求解前直接报无解。
 5. “候选数量”决定一次返回多少张可比较绘卷（1–200）。每找到一张就会立即加入预览，不必等整轮完成；进度更新会自动合并，避免较慢电脑因界面消息堆积而失去响应。“单批数学游标数”只是每个计算块的大小，不是总搜索上限。程序会自动继续后续块，直到得到所需数量、完整数学族耗尽或用户取消。
@@ -753,16 +944,16 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 
 四、已知 Seed 单点生成
 1. 先选择绘卷类型/周目和稀有度，再在独立的“已知 Seed 单点生成”输入框填写 Seed，点击“生成并查看该 Seed”。五种绘卷类型分别是 0x1E82、0x516D、0xE604、0xDD82、0xD523。
-2. 直接生成不会应用上方的筛选；三周目稀有度3、4均离线展示精确词条序列、抽取百分位和完整辅助结果，其他上下文使用游戏原生生成器。
+2. 直接生成不会应用上方的筛选；三周目稀有度3、4、5均离线展示精确词条序列、抽取百分位和完整辅助结果，其他上下文使用游戏原生生成器。
 3. 单点生成输入和上方联立求解互不影响，可用于核对任意已知 Seed。
 4. 当前词条池内的 ID 显示中文名称；未知 ID 暂时显示十六进制编号。
 
 五、查看计算结果
-1. 每批返回多张匹配结果。三周目稀有度3、4离线预览显示全部最终词条的抽取百分位、原始数值、prefix、metadata 和 tail；完整记录生成均已通过各10,000个原生向量的稳定字节校验，可以在安装时安全物化。
+1. 每批返回多张匹配结果。三周目稀有度3、4、5离线预览显示全部最终词条的抽取百分位、原始数值、prefix、metadata 和 tail；完整记录会经过相应的原生对照路径和精确重放门禁，只有最终记录才能安装。
 2. 计算下一批时此前结果会保留，且不会抢走当前正在查看的候选。候选可按主词条数值、总抽取百分位或 Seed 排序；多选后可打开对比表。
 
 六、添加到存档
-1. 三周目稀有度3、4离线候选会在点击安装后才重新读取当前存档，绑定来源字段并分配新的内部序号；其他未通过完整记录门禁的预览仍禁止写入。
+1. 三周目稀有度3、4、5离线候选会在点击安装后才重新读取当前存档，绑定来源字段并分配新的全存档唯一实例键；其他未通过完整记录门禁的预览仍禁止写入。
 2. 每次添加前，程序都会自动备份主存档、游戏备份存档和系统存档。
 3. 顶部下拉框会分别列出 Steam 账户和游戏存档栏位；新绘卷只写入所选角色存档中最后一个已占用绘卷之后的下一个全零栏位，不会覆盖已有绘卷。
 4. 写入后会修复校验和，并完成加密与精确回读验证。
@@ -782,9 +973,10 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器 Beta 使用教程
 
 九、软件更新
 1. 正式发布版会在启动后后台检查签名更新，也可以点击标题栏右侧的“检查更新”。
-2. 更新清单使用 Ed25519 签名，下载文件必须同时通过签名清单中的大小和 SHA-256 校验。
-3. 更新只会替换带有本程序受管理安装标记的当前 EXE；便携开发版和其他目录中的旧文件不会被自动删除。
-4. 若正在计算或执行存档事务，已下载更新会等待该事务结束后才询问安装和重启。
+2. 默认只接收正式版；主动勾选“接收 Beta”后，会同时比较 GitHub 正式 Release 和 prerelease，并选择版本号更新的一项。取消勾选即可回到正式通道。
+3. 更新清单使用 Ed25519 签名，下载文件必须同时通过签名清单中的大小和 SHA-256 校验。
+4. 更新只会替换带有本程序受管理安装标记的当前 EXE；便携开发版和其他目录中的旧文件不会被自动删除。
+5. 若正在计算或执行存档事务，已下载更新会等待该事务结束后才询问安装和重启。
 
 默认数据位置：%LOCALAPPDATA%\\Nioh3ScrollGenerator（可在应用内更改）
 
@@ -807,7 +999,7 @@ def application_title(*, research_mode: bool = RESEARCH_MODE) -> str:
     """Return the user-facing title without internal safety terminology."""
 
     suffix = "（研究模式）" if research_mode else ""
-    return f"仁王3绘卷生成器 Beta{suffix}"
+    return f"仁王3绘卷生成器{suffix}"
 
 
 class ScrollEditorApp:
@@ -835,6 +1027,9 @@ class ScrollEditorApp:
         self.app_settings = load_app_settings(fallback_root=application_root())
         self.state_root = self.app_settings.data_root
         self.data_directory_text = StringVar(value=str(self.state_root))
+        self.receive_beta_updates = BooleanVar(
+            value=self.app_settings.update_channel == UPDATE_CHANNEL_BETA
+        )
 
         self.events: queue.Queue[tuple[str, object]] = queue.Queue()
         self.search_events = SearchEventBuffer()
@@ -1057,6 +1252,7 @@ class ScrollEditorApp:
         self.effect_search.trace_add("write", self._filter_effect_catalog)
         self.local_effect_search.trace_add("write", self._filter_local_effect_catalog)
         self._build_ui()
+        self.receive_beta_updates.trace_add("write", self._on_update_channel_changed)
         startup_trace("user interface built")
         self._update_grace_search_hint()
         self._update_calculation_controls()
@@ -1399,6 +1595,12 @@ class ScrollEditorApp:
             command=self._check_for_updates,
         )
         self.update_button.pack(side=RIGHT, padx=14, pady=9)
+        self.beta_update_toggle = ttk.Checkbutton(
+            header,
+            text="接收 Beta",
+            variable=self.receive_beta_updates,
+        )
+        self.beta_update_toggle.pack(side=RIGHT, padx=(8, 0), pady=9)
 
         body = ttk.Frame(shell)
         body.pack(fill=BOTH, expand=True)
@@ -1443,7 +1645,7 @@ class ScrollEditorApp:
         ttk.Label(
             warning,
             text=(
-                "三周目稀有度3、4的 Seed 求解与预览可完全离线运行，不需要启动游戏或读取存档。"
+                "三周目稀有度3、4、5的 Seed 求解与预览可完全离线运行，不需要启动游戏或读取存档。"
                 "其他周目、完整记录生成和写档仍只支持《仁王3》v2.00.02；写档前请让游戏回到标题界面。"
             ),
             foreground="#E0A15E",
@@ -2101,8 +2303,17 @@ class ScrollEditorApp:
             return
         if self.update_worker and self.update_worker.is_alive():
             return
+        update_channel = (
+            UPDATE_CHANNEL_BETA
+            if self.receive_beta_updates.get()
+            else UPDATE_CHANNEL_STABLE
+        )
         self.update_button.configure(state="disabled")
-        self.status.set("正在检查签名更新清单……")
+        self.status.set(
+            "正在检查正式版与 Beta 签名更新……"
+            if update_channel == UPDATE_CHANNEL_BETA
+            else "正在检查正式版签名更新……"
+        )
 
         def work() -> None:
             try:
@@ -2110,6 +2321,8 @@ class ScrollEditorApp:
                     APP_VERSION,
                     UPDATE_MANIFEST_URL,
                     UPDATE_PUBLIC_KEY_BASE64,
+                    channel=update_channel,
+                    releases_api_url=UPDATE_RELEASES_API_URL,
                 )
                 self.events.put(("update_check_complete", (result, manual)))
             except Exception:
@@ -2117,6 +2330,26 @@ class ScrollEditorApp:
 
         self.update_worker = threading.Thread(target=work, daemon=True)
         self.update_worker.start()
+
+    def _on_update_channel_changed(self, *_: object) -> None:
+        channel = (
+            UPDATE_CHANNEL_BETA
+            if self.receive_beta_updates.get()
+            else UPDATE_CHANNEL_STABLE
+        )
+        try:
+            self.app_settings = save_update_channel(
+                channel,
+                fallback_root=application_root(),
+            )
+        except Exception as error:
+            self.status.set(f"无法保存更新通道选择：{error}")
+            return
+        self.status.set(
+            "已选择 Beta 更新通道；仍会优先采用版本号更新的正式版。"
+            if channel == UPDATE_CHANNEL_BETA
+            else "已切换为仅接收正式版更新。"
+        )
 
     def _download_available_update(self, result: UpdateCheckResult) -> None:
         self.update_button.configure(state="disabled")
@@ -4204,7 +4437,7 @@ class ScrollEditorApp:
             raise ValueError("请选择有效的周目")
         playthrough = PLAYTHROUGH_BY_LABEL[self.playthrough.get()]
         if rarity not in PRODUCT_RARITIES:
-            raise ValueError("当前正式入口仅提供稀有度3、4绘卷")
+            raise ValueError("当前正式入口仅提供原生绘卷稀有度3、4、5")
         if not 0 <= level <= 180:
             raise ValueError("PC v2.00.02 的可传播绘卷等级必须在 0 到 180 之间")
         if not 0 <= recommended <= 65535:
@@ -5069,8 +5302,7 @@ class ScrollEditorApp:
                 return
             self.active_streamed_count += 1
             self.install_button.configure(state="disabled")
-            backend = last_seed_acceleration_backend()
-            backend_text = "CUDA" if backend == "cuda" else "CPU"
+            backend_text = search_backend_display_name()
             self.status.set(
                 f"已实时找到 {self.active_streamed_count} 个匹配 Seed；"
                 f"{backend_text} 预筛后正在继续精确验证……"
@@ -5107,12 +5339,7 @@ class ScrollEditorApp:
             if not payload.streamed:
                 for candidate in payload.candidates:
                     self._append_candidate(candidate)
-            backend = last_seed_acceleration_backend()
-            backend_text = {
-                "cuda": "CUDA",
-                "native_cpu": "原生 CPU",
-                "python": "Python CPU",
-            }.get(backend, "CPU")
+            backend_text = search_backend_display_name()
             self.status.set(
                 f"本批已找到 {len(payload.candidates)} / {payload.requested_count} 个匹配 Seed；"
                 f"预筛后端：{backend_text}。可逐张比较，或继续计算下一批。"
@@ -5169,8 +5396,7 @@ class ScrollEditorApp:
                     self._append_candidate(candidate)
                     self.active_streamed_count += 1
                     self.install_button.configure(state="disabled")
-                    backend = last_seed_acceleration_backend()
-                    backend_text = "CUDA" if backend == "cuda" else "CPU"
+                    backend_text = search_backend_display_name()
                     self.status.set(
                         f"已实时找到 {self.active_streamed_count} 个匹配 Seed；"
                         f"{backend_text} 预筛后正在继续精确验证……"
@@ -5203,12 +5429,7 @@ class ScrollEditorApp:
                         if payload.next_start_after_trial is None:
                             self.last_joint_trial = last_candidate.joint_search_trial or 0
                         self.next_button.configure(state="normal")
-                        backend = last_seed_acceleration_backend()
-                        backend_text = {
-                            "cuda": "CUDA",
-                            "native_cpu": "原生 CPU",
-                            "python": "Python CPU",
-                        }.get(backend, "CPU")
+                        backend_text = search_backend_display_name()
                         self.status.set(
                             f"本批已找到 {len(payload.candidates)} / {payload.requested_count} 个匹配 Seed；"
                             f"预筛后端：{backend_text}。可逐张比较，或继续计算下一批。"
@@ -5240,10 +5461,16 @@ class ScrollEditorApp:
                     assert isinstance(result, UpdateCheckResult)
                     if result.update_available:
                         notes = result.manifest.notes.strip() or "未提供更新说明。"
+                        channel_name = (
+                            "正式版 + Beta"
+                            if result.channel == UPDATE_CHANNEL_BETA
+                            else "仅正式版"
+                        )
                         if messagebox.askyesno(
                             "发现新版本",
                             f"当前版本：{result.current_version}\n"
                             f"最新版本：{result.manifest.version}\n\n"
+                            f"更新通道：{channel_name}\n\n"
                             f"{notes}\n\n下载并验证该更新吗？",
                         ):
                             self._download_available_update(result)

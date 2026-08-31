@@ -17,12 +17,16 @@ import tempfile
 SETTINGS_SCHEMA = "nioh3-scroll-generator-settings/v1"
 SETTINGS_FILENAME = "settings.json"
 ENV_DATA_ROOT = "NIOH3_SCROLL_DATA_ROOT"
+UPDATE_CHANNEL_STABLE = "stable"
+UPDATE_CHANNEL_BETA = "beta"
+UPDATE_CHANNELS = frozenset((UPDATE_CHANNEL_STABLE, UPDATE_CHANNEL_BETA))
 
 
 @dataclass(frozen=True, slots=True)
 class AppSettings:
     data_root: Path
     settings_path: Path
+    update_channel: str = UPDATE_CHANNEL_STABLE
 
 
 def default_state_root(*, fallback_root: Path) -> Path:
@@ -47,32 +51,34 @@ def _validated_data_root(value: object) -> Path:
     return resolved
 
 
-def load_app_settings(*, fallback_root: Path) -> AppSettings:
-    pointer_path = settings_path(fallback_root=fallback_root)
-    environment_override = os.environ.get(ENV_DATA_ROOT, "").strip()
-    if environment_override:
-        data_root = _validated_data_root(environment_override)
-        return AppSettings(data_root=data_root, settings_path=pointer_path)
-
-    default_root = default_state_root(fallback_root=fallback_root)
-    try:
-        payload = json.loads(pointer_path.read_text(encoding="utf-8"))
-        if payload.get("schema") != SETTINGS_SCHEMA:
-            raise ValueError("unsupported settings schema")
-        data_root = _validated_data_root(payload.get("data_root"))
-    except (OSError, ValueError, TypeError, json.JSONDecodeError):
-        data_root = default_root
-    return AppSettings(data_root=data_root, settings_path=pointer_path)
+def _validated_update_channel(value: object) -> str:
+    channel = str(value or UPDATE_CHANNEL_STABLE).strip().lower()
+    if channel not in UPDATE_CHANNELS:
+        raise ValueError("unsupported update channel")
+    return channel
 
 
-def save_data_root(data_root: Path, *, fallback_root: Path) -> AppSettings:
+def _read_pointer_payload(pointer_path: Path) -> dict[str, object]:
+    payload = json.loads(pointer_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or payload.get("schema") != SETTINGS_SCHEMA:
+        raise ValueError("unsupported settings schema")
+    return payload
+
+
+def _write_settings(
+    *,
+    data_root: Path,
+    update_channel: str,
+    pointer_path: Path,
+) -> AppSettings:
     resolved = _validated_data_root(str(data_root))
+    channel = _validated_update_channel(update_channel)
     resolved.mkdir(parents=True, exist_ok=True)
-    pointer_path = settings_path(fallback_root=fallback_root)
     pointer_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "schema": SETTINGS_SCHEMA,
         "data_root": str(resolved),
+        "update_channel": channel,
     }
     encoded = (json.dumps(payload, ensure_ascii=False, indent=2) + "\n").encode(
         "utf-8"
@@ -94,7 +100,59 @@ def save_data_root(data_root: Path, *, fallback_root: Path) -> AppSettings:
     finally:
         if temporary_path is not None and temporary_path.exists():
             temporary_path.unlink()
-    return AppSettings(data_root=resolved, settings_path=pointer_path)
+    return AppSettings(
+        data_root=resolved,
+        settings_path=pointer_path,
+        update_channel=channel,
+    )
+
+
+def load_app_settings(*, fallback_root: Path) -> AppSettings:
+    pointer_path = settings_path(fallback_root=fallback_root)
+    payload: dict[str, object] = {}
+    try:
+        payload = _read_pointer_payload(pointer_path)
+        update_channel = _validated_update_channel(payload.get("update_channel"))
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        update_channel = UPDATE_CHANNEL_STABLE
+    environment_override = os.environ.get(ENV_DATA_ROOT, "").strip()
+    if environment_override:
+        data_root = _validated_data_root(environment_override)
+        return AppSettings(
+            data_root=data_root,
+            settings_path=pointer_path,
+            update_channel=update_channel,
+        )
+
+    default_root = default_state_root(fallback_root=fallback_root)
+    try:
+        data_root = _validated_data_root(payload.get("data_root"))
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        data_root = default_root
+    return AppSettings(
+        data_root=data_root,
+        settings_path=pointer_path,
+        update_channel=update_channel,
+    )
+
+
+def save_data_root(data_root: Path, *, fallback_root: Path) -> AppSettings:
+    current = load_app_settings(fallback_root=fallback_root)
+    pointer_path = settings_path(fallback_root=fallback_root)
+    return _write_settings(
+        data_root=data_root,
+        update_channel=current.update_channel,
+        pointer_path=pointer_path,
+    )
+
+
+def save_update_channel(channel: str, *, fallback_root: Path) -> AppSettings:
+    current = load_app_settings(fallback_root=fallback_root)
+    return _write_settings(
+        data_root=current.data_root,
+        update_channel=channel,
+        pointer_path=current.settings_path,
+    )
 
 
 __all__ = [
@@ -102,8 +160,12 @@ __all__ = [
     "ENV_DATA_ROOT",
     "SETTINGS_FILENAME",
     "SETTINGS_SCHEMA",
+    "UPDATE_CHANNEL_BETA",
+    "UPDATE_CHANNEL_STABLE",
+    "UPDATE_CHANNELS",
     "default_state_root",
     "load_app_settings",
     "save_data_root",
+    "save_update_channel",
     "settings_path",
 ]

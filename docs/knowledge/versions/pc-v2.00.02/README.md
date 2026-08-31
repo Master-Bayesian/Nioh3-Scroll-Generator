@@ -17,16 +17,20 @@ scroll UI path (`caller_option = 0`).
 | Scroll item level | `native-control-flow` | Drives effect value normalization and outbound effective level; no proven challenge-level consumer. |
 | Exchange payload | `native-control-flow` | Compact canonical tuple recovered; effect slots are absent from the message. |
 | Save transactions | executable specification | v2.00.02 `RNNUSR` layout, checksum/encryption roundtrip, source-hash gate. |
+| Reroll candidate pools | `native-static-candidate` | Candidate builder, RNG seed, counter transitions, weighted sampling, and five-choice deduplication recovered; live native vector parity still required. |
 | Playthroughs 4 and 5 | latent research only | Record types exist, but the content is not released and eventual DLC behavior is unknown. |
 
 ## Documents
 
+- [Current project status and remaining work](project-status.md)
 - [中文版玩家敌人组合指南](catalogs/enemy-combinations.zh-CN.md)
 - [Player enemy-combination guide](catalogs/enemy-combinations.md)
 - [Enemy roles and class constraints](enemy-generation.md)
 - [Scroll level and recommended level](levels.md)
 - [词条、恩宠与 Seed 求解（中文版）](effect-and-seed-solving.zh-CN.md)
 - [Effects, Grace, and Seed solving](effect-and-seed-solving.md)
+- [Consolidated scroll legality rules](scroll-legality.md)
+- [Scroll reroll candidate generation](reroll-generation.md)
 - [Save record and propagation protocol](save-and-propagation.md)
 - [Versioned catalogs](catalogs/README.md)
 - [Evidence and supersession register](evidence-register.md)

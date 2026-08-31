@@ -166,10 +166,10 @@ class BetaEditorTests(unittest.TestCase):
         self.assertTrue(root.updated)
 
     def test_normal_title_does_not_expose_internal_safety_mode(self) -> None:
-        self.assertEqual(application_title(research_mode=False), "仁王3绘卷生成器 Beta")
+        self.assertEqual(application_title(research_mode=False), "仁王3绘卷生成器")
         self.assertEqual(
             application_title(research_mode=True),
-            "仁王3绘卷生成器 Beta（研究模式）",
+            "仁王3绘卷生成器（研究模式）",
         )
         self.assertNotIn("安全", application_title(research_mode=False))
 
@@ -190,8 +190,8 @@ class BetaEditorTests(unittest.TestCase):
         self.assertIn("敌人/Boss 等级按该最终值执行", FAQ_TEXT)
 
     def test_product_ui_exposes_only_supported_rarities(self) -> None:
-        self.assertEqual(PRODUCT_RARITIES, (3, 4))
-        self.assertIn("暂不再提供稀有度 5", FAQ_TEXT)
+        self.assertEqual(PRODUCT_RARITIES, (3, 4, 5))
+        self.assertIn("三种都保留搜索", FAQ_TEXT)
 
     def test_special_rule_selection_preserves_other_rule_families(self) -> None:
         head_family = frozenset(("any:head", "exact:head:65", "exact:head:80"))
@@ -410,6 +410,14 @@ class BetaEditorTests(unittest.TestCase):
             target_effects_for_rarity(4, include_transient_stage_one=True),
             R4_FINAL_GRACE_EFFECTS,
         )
+
+    def test_shinatsuhiko_is_named_and_selectable_for_rarity_four_and_five(self) -> None:
+        for rarity in (4, 5):
+            choices = {
+                effect.effect_id: effect.name
+                for effect in target_effects_for_rarity(rarity)
+            }
+            self.assertEqual(choices[0x4192], "志那都彦的恩宠")
         self.assertTrue(all("非最终词条" not in effect.name for effect in R4_FINAL_GRACE_EFFECTS))
 
     def test_every_r4_stage_one_candidate_is_install_blocked(self) -> None:
@@ -1662,7 +1670,9 @@ class BetaEditorTests(unittest.TestCase):
                 struct.unpack_from("<I", installed, second + 0x20)[0], 114514
             )
             self.assertEqual(struct.unpack_from("<I", installed, second + 0xDC)[0], 7)
-            self.assertEqual(struct.unpack_from("<I", installed, second + 0x1C)[0], 1)
+            # Allocation skips every save-wide four-byte collision, including
+            # conservative false positives from unrelated small scalars.
+            self.assertEqual(struct.unpack_from("<I", installed, second + 0x1C)[0], 7)
             self.assertEqual(result.slot_index, 1)
             self.assertTrue((result.backup_directory / "SAVEDATA.BIN").is_file())
             self.assertTrue((result.backup_directory / "BACKUP.BIN").is_file())
@@ -1725,6 +1735,139 @@ class BetaEditorTests(unittest.TestCase):
             self.assertEqual(report["inventory_key"], 0xA0E1)
             self.assertEqual(report["inventory_key_hex"], "0xa0e1")
 
+    def test_install_avoids_equipment_key_collision_outside_scroll_array(self) -> None:
+        class FakeCrypto:
+            @staticmethod
+            def decrypt(source: Path, output: Path) -> None:
+                encrypted = source.read_bytes()
+                if not encrypted.startswith(b"ENC"):
+                    raise AssertionError("expected fake encrypted input")
+                output.write_bytes(encrypted[3:])
+
+            @staticmethod
+            def encrypt(source: Path, output: Path) -> None:
+                output.write_bytes(b"ENC" + source.read_bytes())
+
+        account = TEST_ACCOUNT_ID
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            save_directory = root / str(account) / "SAVEDATA00"
+            save_directory.mkdir(parents=True)
+            save_path = save_directory / "SAVEDATA.BIN"
+            decrypted = bytearray(USER_SAVE_SIZE)
+            decrypted[:6] = b"RNNUSR"
+            first = bytearray(make_record(seed=1, account_id=account))
+            struct.pack_into("<I", first, 0x1C, 0x8AC9)
+            second = bytearray(make_record(seed=2, account_id=account))
+            struct.pack_into("<I", second, 0x1C, 0xA0E0)
+            decrypted[
+                SCROLL_GROUP_OFFSET:SCROLL_GROUP_OFFSET + SCROLL_RECORD_SIZE
+            ] = first
+            second_offset = SCROLL_GROUP_OFFSET + SCROLL_RECORD_SIZE
+            decrypted[second_offset:second_offset + SCROLL_RECORD_SIZE] = second
+            # FB-016: the same four-byte instance key can belong to an
+            # equipment record in a different, unaligned save array.
+            external_key_offset = SCROLL_GROUP_OFFSET - 0x101
+            external_record_offset = external_key_offset - 0x1C
+            struct.pack_into("<H", decrypted, external_record_offset, 0xD782)
+            struct.pack_into("<H", decrypted, external_record_offset + 0x02, 0xD782)
+            struct.pack_into("<H", decrypted, external_record_offset + 0x04, 1)
+            struct.pack_into("<H", decrypted, external_record_offset + 0x06, 150)
+            struct.pack_into("<H", decrypted, external_record_offset + 0x08, 150)
+            struct.pack_into("<I", decrypted, external_key_offset, 0xA0E1)
+            save_path.write_bytes(b"ENC" + bytes(decrypted))
+
+            installer = SaveInstaller(
+                save_path=save_path,
+                crypto=FakeCrypto(),
+                state_root=root / "state",
+            )
+            candidate = make_record(seed=3, account_id=account)
+            result = installer.install(candidate, transfer_count=0)
+
+            installed = save_path.read_bytes()[3:]
+            target_offset = SCROLL_GROUP_OFFSET + 2 * SCROLL_RECORD_SIZE
+            self.assertEqual(result.slot_index, 2)
+            self.assertEqual(
+                struct.unpack_from("<I", installed, target_offset + 0x1C)[0],
+                0xA0E2,
+            )
+            report = json.loads(result.report_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["inventory_key"], 0xA0E2)
+
+    def test_install_repairs_existing_scroll_key_colliding_with_equipment(self) -> None:
+        class FakeCrypto:
+            @staticmethod
+            def decrypt(source: Path, output: Path) -> None:
+                encrypted = source.read_bytes()
+                if not encrypted.startswith(b"ENC"):
+                    raise AssertionError("expected fake encrypted input")
+                output.write_bytes(encrypted[3:])
+
+            @staticmethod
+            def encrypt(source: Path, output: Path) -> None:
+                output.write_bytes(b"ENC" + source.read_bytes())
+
+        account = TEST_ACCOUNT_ID
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            save_directory = root / str(account) / "SAVEDATA00"
+            save_directory.mkdir(parents=True)
+            save_path = save_directory / "SAVEDATA.BIN"
+            decrypted = bytearray(USER_SAVE_SIZE)
+            decrypted[:6] = b"RNNUSR"
+            first = bytearray(make_record(seed=1, account_id=account))
+            struct.pack_into("<I", first, 0x1C, 0x8AC9)
+            affected = bytearray(make_record(seed=2, account_id=account))
+            struct.pack_into("<I", affected, 0x1C, 0xA0E1)
+            decrypted[
+                SCROLL_GROUP_OFFSET:SCROLL_GROUP_OFFSET + SCROLL_RECORD_SIZE
+            ] = first
+            affected_offset = SCROLL_GROUP_OFFSET + SCROLL_RECORD_SIZE
+            decrypted[affected_offset:affected_offset + SCROLL_RECORD_SIZE] = affected
+            external_key_offset = SCROLL_GROUP_OFFSET - 0x101
+            external_record_offset = external_key_offset - 0x1C
+            struct.pack_into("<H", decrypted, external_record_offset, 0xD782)
+            struct.pack_into("<H", decrypted, external_record_offset + 0x02, 0xD782)
+            struct.pack_into("<H", decrypted, external_record_offset + 0x04, 1)
+            struct.pack_into("<H", decrypted, external_record_offset + 0x06, 150)
+            struct.pack_into("<H", decrypted, external_record_offset + 0x08, 150)
+            struct.pack_into("<I", decrypted, external_key_offset, 0xA0E1)
+            save_path.write_bytes(b"ENC" + bytes(decrypted))
+
+            installer = SaveInstaller(
+                save_path=save_path,
+                crypto=FakeCrypto(),
+                state_root=root / "state",
+            )
+            result = installer.install(
+                make_record(seed=3, account_id=account),
+                transfer_count=0,
+            )
+
+            installed = save_path.read_bytes()[3:]
+            inserted_offset = SCROLL_GROUP_OFFSET + 2 * SCROLL_RECORD_SIZE
+            self.assertEqual(
+                struct.unpack_from("<I", installed, affected_offset + 0x1C)[0],
+                0xA0E2,
+            )
+            self.assertEqual(
+                struct.unpack_from("<I", installed, inserted_offset + 0x1C)[0],
+                0xA0E3,
+            )
+            report = json.loads(result.report_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                report["inventory_key_repairs"],
+                [
+                    {
+                        "slot_index": 1,
+                        "old_inventory_key": 0xA0E1,
+                        "new_inventory_key": 0xA0E2,
+                        "reason": "non_scroll_item_key_collision",
+                    }
+                ],
+            )
+
     def test_install_repairs_existing_duplicate_inventory_keys(self) -> None:
         class FakeCrypto:
             @staticmethod
@@ -1782,6 +1925,7 @@ class BetaEditorTests(unittest.TestCase):
                         "slot_index": 1,
                         "old_inventory_key": 0x8AC9,
                         "new_inventory_key": 0x8ACA,
+                        "reason": "duplicate_scroll_key",
                     }
                 ],
             )

@@ -265,6 +265,22 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "原生冲突组"):
             validate_effect_request_feasibility(request)
 
+    def test_category_capacity_error_names_every_conflicting_selection(self) -> None:
+        request = EffectSeedRequest(
+            playthrough=3,
+            rarity=4,
+            primary_effect_ids=frozenset((0xCE1A,)),
+            required_secondary_ids=frozenset((0xB82B,)),
+        )
+        with self.assertRaises(ValueError) as captured:
+            validate_effect_request_feasibility(request)
+        message = str(captured.exception)
+        self.assertIn("原生类别 0x03", message)
+        self.assertIn("武技伤害 [0xCE1A]", message)
+        self.assertIn("敌人精力耗尽时赋予受到伤害增加 [0xB82B]", message)
+        self.assertIn("最多容纳 1 个", message)
+        self.assertIn("请至少移除 1 个", message)
+
     def test_rejects_unknown_effect_before_search(self) -> None:
         with self.assertRaisesRegex(ValueError, "不在当前原生参数表"):
             validate_effect_request_feasibility(

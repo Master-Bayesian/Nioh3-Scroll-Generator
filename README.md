@@ -23,13 +23,13 @@
 - 每个普通词条可独立要求任意数值、抽取百分位 ≥80、≥90 或最高 100；特殊规则同样支持任意/精确原生变体。
 - 联立筛选主词条候选、多个无序副词条、可选或不限制恩宠、地形、敌人及多条特殊规则，并在搜索前检查槽位、冲突组和类别容量。
 - 候选结果边找到边显示且不会抢走当前选择；支持按主词条数值、总抽取百分位或 Seed 排序，并可多选对比。
-- 三周目稀有度 3、4 的游戏关闭状态离线生成与精确验证；稀有度 5 研究实现保留，但不再出现在正式用户入口。
+- 三周目稀有度 3、4、5 的游戏关闭状态离线生成与精确验证；三种稀有度均保留在正式用户入口，稀有度 5 的传播用途优先级较低，但不会删除其搜索、生成和本地使用能力。
 - 自动发现 Steam 存档，不在界面或报告中写死用户目录。
 - 新增、修改、删除和恢复前自动备份；写档采用源文件哈希门禁、校验和修复、加密回读验证。
 - 自动备份浏览、恢复、移入 Windows 回收站，以及打开备份/存档目录。
 - CUDA 批量预筛 Seed、主词条、地形和完整敌人路径；没有兼容 NVIDIA 环境时自动回退到同一原生实现的 CPU 路径。特殊规则与完整词条仍对幸存候选执行精确重放。
 - 自动发现游戏 EXE 并验证 PC v2.00.02 文件版本；明确检测到未验证的新游戏版本时拒绝用旧离线数据生成，等待应用更新。
-- 签名自动更新已启用：仅接受官方 Ed25519 签名清单，并复核 EXE 的 SHA-256、精确大小和发布版本。
+- 签名自动更新已启用：默认仅接收正式版，用户可主动选择 Beta；两条通道都只接受官方 Ed25519 签名清单，并复核 EXE 的 SHA-256、精确大小和发布版本。
 
 ### 运行源码
 
@@ -51,7 +51,7 @@ py -3.12 -m PyInstaller --clean --noconfirm packaging\Nioh3ScrollGenerator.spec
 
 ### 验收边界
 
-本地显示正常、校验和正确或离线字节一致，都不能单独证明绘卷可传播。最终传播验收仍要求第二账号通过正常联机流程实际收到 canonical 绘卷。稀有度 3、4 已完成原生 parity，但仍保留第二账号传播验收标记。由于游戏开发方已预告修复神宝绘卷传播问题，正式产品入口暂不提供稀有度 5。
+本地显示正常、校验和正确或离线字节一致，都不能单独证明绘卷可传播。最终传播验收仍要求第二账号通过正常联机流程实际收到 canonical 绘卷。稀有度 3、4、5 均保留在产品中并使用完整离线生成复核；稀有度 5 的传播价值可能随游戏开发方后续修复而变化，但这不是删除本地生成与研究能力的理由。
 
 ### 逆向知识库
 
@@ -104,7 +104,7 @@ py -3.12 -m pip install -r requirements-dev.txt
 py -3.12 -m PyInstaller --clean --noconfirm packaging\Nioh3ScrollGenerator.spec
 ```
 
-## Beta application
+## Application
 
 The Chinese beta is named `仁王3绘卷生成器`. Its effect selector is derived from captured native final-effect tables for the current playthrough and rarity rather than a hand-maintained list. The first one to three ordered selections can form an OR-set of primary candidates, or the primary can remain unconstrained; later selections are unordered required secondaries. Every selected ordinary effect can require any roll, percentile 80+, percentile 90+, or the exact maximum. The solver preflights slot count, conflict groups, and category capacity before opening a Seed family. It also supports an optional exact Grace filter, multi-select exact-value special rules, direct generation from a supplied Seed, stable streaming previews, sortable and side-by-side candidate comparison, and guarded insertion into the next fully zeroed slot. Save discovery is automatic. The product UI contains no numeric seed-range scan.
 
@@ -112,11 +112,11 @@ The application has two explicit product areas. `搜索合法绘卷` solves or d
 
 The local editor also includes an automatic-backup browser. It lists the account, operation reason, file count, and recorded main-save SHA-256; restores always checkpoint the current main, game-backup, and system-save files first. Application-owned backup directories can be moved to the Windows recycle bin, and both the backup and current save directories have explicit open-folder actions.
 
-The signed update channel is active. It accepts only an HTTPS release manifest authenticated by the embedded Ed25519 public key, validates the signed asset name, size, and SHA-256, and replaces only the running executable named by an application-owned managed-install marker in the same directory. It waits for active generation or save transactions before offering restart. The signing private key is stored only as a GitHub Actions secret; no unsigned fallback exists.
+The signed update channel is active. Stable is the default and uses GitHub's latest non-prerelease Release. Users may opt into Beta in the application header; that channel compares the newest GitHub prerelease with the newest stable release and offers whichever signed semantic version is newer. Every path accepts only an HTTPS release manifest authenticated by the embedded Ed25519 public key, validates the signed asset name, size, and SHA-256, and replaces only the running executable named by an application-owned managed-install marker in the same directory. It waits for active generation or save transactions before offering restart. The signing private key is stored only as a GitHub Actions secret; no unsigned fallback exists.
 
 Playthrough selection uses the recovered record type instead of the failed synthetic progression-selector wrapper: playthrough 1 is `0x1E82`, playthrough 2 is `0x516D`, playthrough 3 is `0xE604`, and the latent playthrough 4/5 types are `0xDD82`/`0xD523`. Playthroughs 4 and 5 are not accessible in PC v2.00.02 and are expected to arrive with DLC2. Their selectors remain read-only research options: forced native output proves that latent contexts exist, not that the eventual DLC algorithms or protocol will be identical.
 
-Native record materialization outside certified contexts requires Nioh 3 v2.00.02 to remain at the title screen. The application checks the generator machine-code signature before calling it. NG3 rarity 3 and 4 have game-closed effect and auxiliary generators that do not read a save or connect to the game. Both paths passed 10,000 deterministic random-Seed comparisons against live native generation with zero stable-record mismatches. The historical rarity-5 research backend and latent NG4/NG5 captures remain in the test tree, but they are not exposed by the product UI. The UI binds certified NG3 previews to the current save template and allocates a fresh internal serial only when the user requests installation. Save installation creates a backup, repairs the checksum, performs an encryption/decryption roundtrip, and refuses installation if the live save changes during preparation.
+Native record materialization outside certified contexts requires Nioh 3 v2.00.02 to remain at the title screen. The application checks the generator machine-code signature before calling it. NG3 rarities 3, 4, and 5 have game-closed effect and auxiliary generators that do not read a save or connect to the game. The parity corpus includes 10,000 deterministic random-Seed comparisons for each supported effect path with zero stable-record mismatches. Latent NG4/NG5 record types remain research contexts until DLC2 behavior is available. The UI binds certified NG3 previews to the current save template and allocates a fresh save-wide item-instance key only when the user requests installation. Save installation creates a backup, repairs existing strict item-key collisions, repairs the checksum, performs an encryption/decryption roundtrip, and refuses installation if the live save changes during preparation.
 
 ### NG3 rarity-3/4/5 game-closed effect and auxiliary solver
 

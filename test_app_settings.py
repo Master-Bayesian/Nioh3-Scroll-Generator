@@ -8,9 +8,12 @@ from unittest.mock import patch
 from nioh3_scroll_editor.app_settings import (
     ENV_DATA_ROOT,
     SETTINGS_SCHEMA,
+    UPDATE_CHANNEL_BETA,
+    UPDATE_CHANNEL_STABLE,
     default_state_root,
     load_app_settings,
     save_data_root,
+    save_update_channel,
     settings_path,
 )
 
@@ -38,7 +41,47 @@ class AppSettingsTests(unittest.TestCase):
             payload = json.loads(saved.settings_path.read_text(encoding="utf-8"))
             self.assertEqual(payload["schema"], SETTINGS_SCHEMA)
             self.assertEqual(Path(payload["data_root"]), selected.resolve())
+            self.assertEqual(payload["update_channel"], UPDATE_CHANNEL_STABLE)
             self.assertFalse(any(saved.settings_path.parent.glob("*.tmp")))
+
+    def test_beta_update_preference_survives_data_root_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = root / "first-data"
+            second = root / "second-data"
+            with patch.dict(os.environ, {"LOCALAPPDATA": str(root)}, clear=False):
+                save_data_root(first, fallback_root=root / "fallback")
+                selected = save_update_channel(
+                    UPDATE_CHANNEL_BETA,
+                    fallback_root=root / "fallback",
+                )
+                moved = save_data_root(second, fallback_root=root / "fallback")
+                loaded = load_app_settings(fallback_root=root / "fallback")
+
+            self.assertEqual(selected.update_channel, UPDATE_CHANNEL_BETA)
+            self.assertEqual(moved.update_channel, UPDATE_CHANNEL_BETA)
+            self.assertEqual(loaded.update_channel, UPDATE_CHANNEL_BETA)
+            self.assertEqual(loaded.data_root, second.resolve())
+
+    def test_invalid_update_channel_fails_closed_to_stable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch.dict(os.environ, {"LOCALAPPDATA": str(root)}, clear=False):
+                pointer = settings_path(fallback_root=root / "fallback")
+                pointer.parent.mkdir(parents=True)
+                pointer.write_text(
+                    json.dumps(
+                        {
+                            "schema": SETTINGS_SCHEMA,
+                            "data_root": str(root / "selected"),
+                            "update_channel": "nightly",
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                loaded = load_app_settings(fallback_root=root / "fallback")
+
+            self.assertEqual(loaded.update_channel, UPDATE_CHANNEL_STABLE)
 
     def test_invalid_pointer_fails_closed_to_default(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

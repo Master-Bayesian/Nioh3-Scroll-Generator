@@ -79,13 +79,18 @@ def allocate_scroll_inventory_keys(
     decrypted: bytes,
     count: int,
 ) -> tuple[int, ...]:
-    """Allocate nonzero uint16 keys for newly installed scroll instances.
+    """Allocate globally unused nonzero uint16 item-instance keys.
 
-    Native PC v2.00.02 saves store a distinct nonzero uint16 value at record
-    offset +0x1C for every occupied scroll slot. Copying this template-lineage
-    field makes the application see the raw record while the game drops the
-    colliding instance from its inventory index. Allocate fresh values across
-    the complete fixed scroll array before inserting any records.
+    Native PC v2.00.02 uses the value stored at scroll record ``+0x1C`` as a
+    save-wide item-instance key.  It is not scoped to the 400-record scroll
+    array: an otherwise canonical scroll can be rendered as an equipment item
+    when this value collides with an equipment record elsewhere in the save.
+
+    The complete layout of every item array is not needed for safe allocation.
+    A candidate key is accepted only when its four-byte little-endian encoding
+    does not occur anywhere in the decrypted save.  This deliberately
+    over-approximates the native key namespace: an unrelated matching scalar
+    can make us skip a value, but can never make us reuse a live item key.
     """
 
     if count < 0:
@@ -93,7 +98,7 @@ def allocate_scroll_inventory_keys(
     if count == 0:
         return ()
     require_decrypted_user_save(decrypted)
-    used: set[int] = set()
+    scroll_keys: set[int] = set()
     for slot_index in range(SCROLL_SLOT_COUNT):
         record_offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
         record = decrypted[record_offset:record_offset + SCROLL_RECORD_SIZE]
@@ -101,17 +106,18 @@ def allocate_scroll_inventory_keys(
             continue
         value = struct.unpack_from("<I", record, SCROLL_INVENTORY_KEY_OFFSET)[0]
         if 1 <= value <= SCROLL_INVENTORY_KEY_MAX:
-            used.add(value)
-    if count > SCROLL_INVENTORY_KEY_MAX - len(used):
+            scroll_keys.add(value)
+    if count > SCROLL_INVENTORY_KEY_MAX - len(scroll_keys):
         raise RuntimeError("绘卷实例键空间不足，无法安全添加新记录")
 
-    start = (max(used) + 1) if used else 1
+    start = (max(scroll_keys) + 1) if scroll_keys else 1
     allocated: list[int] = []
     for step in range(SCROLL_INVENTORY_KEY_MAX):
         value = ((start - 1 + step) % SCROLL_INVENTORY_KEY_MAX) + 1
-        if value in used:
+        if value in scroll_keys or value in allocated:
             continue
-        used.add(value)
+        if struct.pack("<I", value) in decrypted:
+            continue
         allocated.append(value)
         if len(allocated) == count:
             return tuple(allocated)
@@ -130,18 +136,47 @@ def write_scroll_inventory_key(record: bytes, inventory_key: int) -> bytes:
     return bytes(output)
 
 
+def _looks_like_non_scroll_item_key(decrypted: bytes, key_offset: int) -> bool:
+    """Return whether ``key_offset`` has the captured non-scroll item header.
+
+    FB-016 supplied a canonical scroll whose key also appeared at ``+0x1C``
+    of an equipment record.  Non-scroll item records in that evidence mirror
+    their type at ``+0x00/+0x02`` and level at ``+0x06/+0x08``.  Keep this
+    predicate intentionally strict: conservative allocation can skip any
+    four-byte collision, but automatic repair must not rewrite a valid scroll
+    merely because the same scalar occurs in unrelated save data.
+    """
+
+    record_offset = key_offset - SCROLL_INVENTORY_KEY_OFFSET
+    if record_offset < 0 or record_offset + 0x20 > len(decrypted):
+        return False
+    record_type = struct.unpack_from("<H", decrypted, record_offset)[0]
+    mirrored_type = struct.unpack_from("<H", decrypted, record_offset + 0x02)[0]
+    item_count = struct.unpack_from("<H", decrypted, record_offset + 0x04)[0]
+    level = struct.unpack_from("<H", decrypted, record_offset + 0x06)[0]
+    mirrored_level = struct.unpack_from("<H", decrypted, record_offset + 0x08)[0]
+    return (
+        record_type != 0
+        and record_type == mirrored_type
+        and TYPE_TO_CATEGORY.get(record_type, 0) == 0
+        and item_count == 1
+        and level == mirrored_level
+    )
+
+
 def repair_duplicate_scroll_inventory_keys(
     decrypted: bytes,
-) -> tuple[bytes, tuple[dict[str, int], ...]]:
-    """Repair later occupied records that reuse an earlier inventory key.
+) -> tuple[bytes, tuple[dict[str, int | str], ...]]:
+    """Repair scroll keys colliding anywhere in the decrypted save.
 
-    The first record retains its native key. Each later collision receives a
-    fresh value, preserving record order and every unrelated byte.
+    Scroll-only duplicates keep their first occurrence and repair later ones.
+    If the same four-byte key also appears outside the scroll-key fields, every
+    scroll using it is repaired because the external item may own the native
+    inventory index entry.  Record order and every unrelated byte are kept.
     """
 
     require_decrypted_user_save(decrypted)
-    seen: set[int] = set()
-    duplicate_slots: list[tuple[int, int]] = []
+    key_slots: dict[int, list[tuple[int, int]]] = {}
     for slot_index in range(SCROLL_SLOT_COUNT):
         record_offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
         record = decrypted[record_offset:record_offset + SCROLL_RECORD_SIZE]
@@ -152,18 +187,45 @@ def repair_duplicate_scroll_inventory_keys(
         value = struct.unpack_from("<I", record, SCROLL_INVENTORY_KEY_OFFSET)[0]
         if not 1 <= value <= SCROLL_INVENTORY_KEY_MAX:
             continue
-        if value in seen and is_scroll:
-            duplicate_slots.append((slot_index, value))
+        if is_scroll:
+            key_offset = record_offset + SCROLL_INVENTORY_KEY_OFFSET
+            key_slots.setdefault(value, []).append((slot_index, key_offset))
+
+    repair_slots: list[tuple[int, int, str]] = []
+    for value, slots in key_slots.items():
+        encoded = struct.pack("<I", value)
+        own_offsets = {key_offset for _, key_offset in slots}
+        search_offset = 0
+        has_external_collision = False
+        while True:
+            occurrence = decrypted.find(encoded, search_offset)
+            if occurrence < 0:
+                break
+            if (
+                occurrence not in own_offsets
+                and _looks_like_non_scroll_item_key(decrypted, occurrence)
+            ):
+                has_external_collision = True
+                break
+            search_offset = occurrence + 1
+        if has_external_collision:
+            repair_slots.extend(
+                (slot_index, value, "non_scroll_item_key_collision")
+                for slot_index, _ in slots
+            )
         else:
-            seen.add(value)
-    if not duplicate_slots:
+            repair_slots.extend(
+                (slot_index, value, "duplicate_scroll_key")
+                for slot_index, _ in slots[1:]
+            )
+    if not repair_slots:
         return decrypted, ()
 
-    replacements = allocate_scroll_inventory_keys(decrypted, len(duplicate_slots))
+    replacements = allocate_scroll_inventory_keys(decrypted, len(repair_slots))
     output = bytearray(decrypted)
-    repairs: list[dict[str, int]] = []
-    for (slot_index, old_value), new_value in zip(
-        duplicate_slots,
+    repairs: list[dict[str, int | str]] = []
+    for (slot_index, old_value, reason), new_value in zip(
+        repair_slots,
         replacements,
         strict=True,
     ):
@@ -179,6 +241,7 @@ def repair_duplicate_scroll_inventory_keys(
                 "slot_index": slot_index,
                 "old_inventory_key": old_value,
                 "new_inventory_key": new_value,
+                "reason": reason,
             }
         )
     return bytes(output), tuple(repairs)

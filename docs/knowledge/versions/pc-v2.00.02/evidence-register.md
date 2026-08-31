@@ -14,8 +14,10 @@ mistaken for stronger evidence than the files actually contain.
 | Complete auxiliary parity | `audit/p1_static/COMPLETE_AUXILIARY_PARITY_20260829.md` | All three class branches and 22 native vectors; strongest for third playthrough and `caller_option = 0`. |
 | Enemy role structure | versioned `enemy-roles.json`, native table SHA, class control flow, and `test_effect_seed_solver.py` | Complete 487-row table; two process captures produced the same row hash. |
 | Recommended display curve | `recommended_level_curve.json` plus native callers | Exact internal-to-display conversion. No closed consumer from challenge descriptor to AI combat level. |
+| Save-wide item-instance key | `deliverables/fb014-fb016-20260831/FB016_SAVE_AUDIT.json` | Controlled save evidence: canonical scroll key `50409` collided with a structured non-scroll item record and caused equipment rendering. |
 | Exchange tuple | `emaki_exchange.py` plus receive/send disassembly | Effect slots absent; receiver rebuilds canonical effects. Final propagation still needs a second account. |
 | Scroll inventory-instance key | `audit/save/inventory-key-collision-20260830.json` plus `test_beta_editor.py` | Two private support saves had no native duplicate `+0x1C` keys; only raw-appended records collided with their donor. A two-key-only repair restored both hidden records in game. |
+| Reroll candidate builder | `reroll_effect_helper_callers_20260831.json`, `reroll_state_functions_20260831.json`, `reroll.py`, and `test_reroll.py` | Static control flow closes Seed+counter RNG, legal pool, five draws, and counter mutations. No retained live candidate vector yet; one per-save group eligibility set remains to be inferred by controlled capture. |
 
 The 10,000-Seed parity files are real native/offline aggregate results, not
 10,000 retained pairs of raw records. Do not describe them as a forensic raw
@@ -41,3 +43,5 @@ corpus. The smaller R4 fixture set is the portable byte corpus.
   combat level.
 - A complete confidence-annotated schema for every byte in the `0xE8` record.
 - Signed, independently replayable raw 10,000-pair parity corpora.
+- Live native reroll candidate vectors covering initial display, manual refresh,
+  accepted choice, multiple rarities, and the save-scoped group eligibility gate.

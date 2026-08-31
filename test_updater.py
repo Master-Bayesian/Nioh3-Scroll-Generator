@@ -17,8 +17,10 @@ from nioh3_scroll_editor.updater import (
     download_update,
     ensure_managed_install,
     prepare_managed_update_script,
+    release_version_tuple,
     validate_managed_install,
 )
+from nioh3_scroll_editor.app_settings import UPDATE_CHANNEL_BETA
 from nioh3_scroll_editor.version import APP_ID
 from tools.build_update_manifest import build_manifest
 
@@ -33,8 +35,13 @@ class MemoryResponse(io.BytesIO):
 
 class UpdaterTests(unittest.TestCase):
     @staticmethod
-    def _signed_manifest(asset: bytes, version: str = "1.2.0") -> tuple[dict[str, object], str]:
-        private_key = Ed25519PrivateKey.generate()
+    def _signed_manifest(
+        asset: bytes,
+        version: str = "1.2.0",
+        *,
+        private_key: Ed25519PrivateKey | None = None,
+    ) -> tuple[dict[str, object], str]:
+        private_key = private_key or Ed25519PrivateKey.generate()
         public_key = private_key.public_key().public_bytes(
             encoding=serialization.Encoding.Raw,
             format=serialization.PublicFormat.Raw,
@@ -64,6 +71,118 @@ class UpdaterTests(unittest.TestCase):
             "signature": base64.b64encode(signature).decode("ascii"),
         }
         return value, base64.b64encode(public_key).decode("ascii")
+
+    def test_release_version_order_includes_beta_rc_and_stable(self) -> None:
+        self.assertLess(
+            release_version_tuple("1.2.0-beta.1"),
+            release_version_tuple("1.2.0-beta.2"),
+        )
+        self.assertLess(
+            release_version_tuple("1.2.0-beta.9"),
+            release_version_tuple("1.2.0-rc.1"),
+        )
+        self.assertLess(
+            release_version_tuple("1.2.0-rc.2"),
+            release_version_tuple("1.2.0"),
+        )
+        self.assertLess(
+            release_version_tuple("1.2.0"),
+            release_version_tuple("1.2.1-beta.1"),
+        )
+
+    def test_beta_channel_selects_newest_signed_prerelease(self) -> None:
+        private_key = Ed25519PrivateKey.generate()
+        stable_value, public_key = self._signed_manifest(
+            b"stable",
+            "1.2.0",
+            private_key=private_key,
+        )
+        beta_value, _ = self._signed_manifest(
+            b"beta",
+            "1.3.0-beta.2",
+            private_key=private_key,
+        )
+        release_index = [
+            {
+                "draft": False,
+                "prerelease": True,
+                "tag_name": "v1.3.0-beta.2",
+                "assets": [
+                    {
+                        "name": "latest.json",
+                        "browser_download_url": "https://example.invalid/beta.json",
+                    }
+                ],
+            }
+        ]
+        payload_by_url = {
+            "https://example.invalid/stable.json": json.dumps(stable_value).encode(),
+            "https://api.github.com/repos/example/releases?per_page=20": json.dumps(
+                release_index
+            ).encode(),
+            "https://example.invalid/beta.json": json.dumps(beta_value).encode(),
+        }
+
+        result = check_for_update(
+            "1.2.0",
+            "https://example.invalid/stable.json",
+            public_key,
+            channel=UPDATE_CHANNEL_BETA,
+            releases_api_url=(
+                "https://api.github.com/repos/example/releases?per_page=20"
+            ),
+            open_url=lambda url, _timeout: MemoryResponse(payload_by_url[url]),
+        )
+
+        self.assertTrue(result.update_available)
+        self.assertEqual(result.channel, UPDATE_CHANNEL_BETA)
+        self.assertEqual(result.manifest.version, "1.3.0-beta.2")
+
+    def test_beta_channel_prefers_newer_stable_release(self) -> None:
+        private_key = Ed25519PrivateKey.generate()
+        stable_value, public_key = self._signed_manifest(
+            b"stable",
+            "1.3.0",
+            private_key=private_key,
+        )
+        beta_value, _ = self._signed_manifest(
+            b"beta",
+            "1.3.0-beta.2",
+            private_key=private_key,
+        )
+        release_index = [
+            {
+                "draft": False,
+                "prerelease": True,
+                "tag_name": "v1.3.0-beta.2",
+                "assets": [
+                    {
+                        "name": "latest.json",
+                        "browser_download_url": "https://example.invalid/beta.json",
+                    }
+                ],
+            }
+        ]
+        payload_by_url = {
+            "https://example.invalid/stable.json": json.dumps(stable_value).encode(),
+            "https://api.github.com/repos/example/releases?per_page=20": json.dumps(
+                release_index
+            ).encode(),
+            "https://example.invalid/beta.json": json.dumps(beta_value).encode(),
+        }
+
+        result = check_for_update(
+            "1.2.9",
+            "https://example.invalid/stable.json",
+            public_key,
+            channel=UPDATE_CHANNEL_BETA,
+            releases_api_url=(
+                "https://api.github.com/repos/example/releases?per_page=20"
+            ),
+            open_url=lambda url, _timeout: MemoryResponse(payload_by_url[url]),
+        )
+
+        self.assertEqual(result.manifest.version, "1.3.0")
 
     def test_signed_manifest_check_detects_newer_release(self) -> None:
         value, public_key = self._signed_manifest(b"release")

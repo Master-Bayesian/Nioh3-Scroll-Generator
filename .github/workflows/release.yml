@@ -60,6 +60,7 @@ jobs:
         with:
           body_path: packaging/release-notes.md
           fail_on_unmatched_files: true
+          prerelease: ${{ contains(steps.version.outputs.value, '-') }}
           files: |
             dist/Nioh3ScrollGenerator.exe
             dist/latest.json

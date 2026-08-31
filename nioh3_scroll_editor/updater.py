@@ -18,15 +18,20 @@ from urllib.parse import urlparse
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from .app_settings import UPDATE_CHANNEL_BETA, UPDATE_CHANNEL_STABLE, UPDATE_CHANNELS
 from .version import APP_ID
 
 
 MAX_MANIFEST_BYTES = 128 * 1024
+MAX_RELEASE_INDEX_BYTES = 512 * 1024
 MAX_UPDATE_BYTES = 128 * 1024 * 1024
 MANAGED_INSTALL_MARKER = ".nioh3-scroll-generator-managed-install.json"
 MANAGED_INSTALL_SCHEMA = 1
 MANAGED_INSTALL_CHANNEL = "stable"
-_RELEASE_VERSION = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+_RELEASE_VERSION = re.compile(
+    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"(?:-(beta|rc)\.(0|[1-9]\d*))?$"
+)
 _SHA256 = re.compile(r"^[0-9A-Fa-f]{64}$")
 
 
@@ -105,6 +110,7 @@ class UpdateCheckResult:
     current_version: str
     manifest: UpdateManifest
     update_available: bool
+    channel: str = UPDATE_CHANNEL_STABLE
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,11 +119,26 @@ class DownloadedUpdate:
     path: Path
 
 
-def release_version_tuple(value: str) -> tuple[int, int, int]:
+def release_version_tuple(value: str) -> tuple[int, int, int, int, int]:
     match = _RELEASE_VERSION.fullmatch(value)
     if match is None:
-        raise ValueError("release version must use major.minor.patch")
-    return tuple(int(part) for part in match.groups())
+        raise ValueError(
+            "release version must use major.minor.patch or "
+            "major.minor.patch-beta.N/rc.N"
+        )
+    major, minor, patch, prerelease_kind, prerelease_number = match.groups()
+    stage = {
+        "beta": 0,
+        "rc": 1,
+        None: 2,
+    }[prerelease_kind]
+    return (
+        int(major),
+        int(minor),
+        int(patch),
+        stage,
+        int(prerelease_number or 0),
+    )
 
 
 def verify_manifest_signature(manifest: UpdateManifest, public_key_base64: str) -> None:
@@ -168,22 +189,119 @@ def fetch_update_manifest(
     return manifest
 
 
+def fetch_latest_prerelease_manifest(
+    releases_api_url: str,
+    public_key_base64: str,
+    *,
+    timeout: float = 10.0,
+    open_url: Callable[[str, float], BinaryIO] = _default_open_url,
+) -> UpdateManifest | None:
+    """Return the newest signed manifest from a GitHub prerelease.
+
+    GitHub's ``releases/latest`` route intentionally excludes prereleases. The
+    beta channel therefore resolves one manifest through the Releases API, but
+    still trusts only the Ed25519-signed manifest and its exact asset hash.
+    """
+
+    parsed_url = urlparse(releases_api_url)
+    if parsed_url.scheme != "https" or parsed_url.netloc != "api.github.com":
+        raise ValueError("prerelease discovery must use the GitHub HTTPS API")
+    with open_url(releases_api_url, timeout) as response:
+        raw = response.read(MAX_RELEASE_INDEX_BYTES + 1)
+    if len(raw) > MAX_RELEASE_INDEX_BYTES:
+        raise ValueError("GitHub release index is too large")
+    try:
+        releases = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError("GitHub release index is not valid UTF-8 JSON") from error
+    if not isinstance(releases, list):
+        raise ValueError("GitHub release index is not a list")
+
+    candidates: list[tuple[tuple[int, int, int, int, int], str, str]] = []
+    for release in releases:
+        if (
+            not isinstance(release, dict)
+            or release.get("draft") is True
+            or release.get("prerelease") is not True
+        ):
+            continue
+        tag_name = str(release.get("tag_name", ""))
+        version = tag_name[1:] if tag_name.startswith("v") else tag_name
+        try:
+            version_key = release_version_tuple(version)
+        except ValueError:
+            continue
+        assets = release.get("assets")
+        if not isinstance(assets, list):
+            continue
+        manifest_url = ""
+        for preferred_name in ("beta.json", "latest.json"):
+            matching = next(
+                (
+                    asset
+                    for asset in assets
+                    if isinstance(asset, dict)
+                    and asset.get("name") == preferred_name
+                ),
+                None,
+            )
+            if matching is not None:
+                manifest_url = str(matching.get("browser_download_url", ""))
+                break
+        if manifest_url:
+            candidates.append((version_key, version, manifest_url))
+    if not candidates:
+        return None
+
+    _version_key, tagged_version, manifest_url = max(candidates)
+    manifest = fetch_update_manifest(
+        manifest_url,
+        public_key_base64,
+        timeout=timeout,
+        open_url=open_url,
+    )
+    if manifest.version != tagged_version:
+        raise ValueError("signed beta manifest version does not match its release tag")
+    return manifest
+
+
 def check_for_update(
     current_version: str,
     manifest_url: str,
     public_key_base64: str,
+    *,
+    channel: str = UPDATE_CHANNEL_STABLE,
+    releases_api_url: str | None = None,
     **fetch_options: object,
 ) -> UpdateCheckResult:
     current = release_version_tuple(current_version)
-    manifest = fetch_update_manifest(
+    if channel not in UPDATE_CHANNELS:
+        raise ValueError("unsupported update channel")
+    stable_manifest = fetch_update_manifest(
         manifest_url,
         public_key_base64,
         **fetch_options,
     )
+    manifest = stable_manifest
+    if channel == UPDATE_CHANNEL_BETA:
+        if not releases_api_url:
+            raise ValueError("beta update channel has no GitHub Releases API URL")
+        prerelease_manifest = fetch_latest_prerelease_manifest(
+            releases_api_url,
+            public_key_base64,
+            **fetch_options,
+        )
+        if (
+            prerelease_manifest is not None
+            and release_version_tuple(prerelease_manifest.version)
+            > release_version_tuple(stable_manifest.version)
+        ):
+            manifest = prerelease_manifest
     return UpdateCheckResult(
         current_version=current_version,
         manifest=manifest,
         update_available=release_version_tuple(manifest.version) > current,
+        channel=channel,
     )
 
 

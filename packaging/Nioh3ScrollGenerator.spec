@@ -7,6 +7,7 @@ a = Analysis(
     binaries=[
         ("..\\bin\\Nioh_Savefile_decrypt.exe", "bin"),
         ("..\\bin\\nioh3_seed_accelerator.dll", "bin"),
+        ("..\\bin\\nioh3_effect_preimage_accelerator.dll", "bin"),
     ],
     datas=[
         ("..\\nioh3_scroll_editor\\data", "nioh3_scroll_editor\\data"),
