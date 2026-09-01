@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import base64
+import ctypes
 import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import threading
+import time
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,6 +37,9 @@ _RELEASE_VERSION = re.compile(
     r"(?:-(beta|rc)\.(0|[1-9]\d*))?$"
 )
 _SHA256 = re.compile(r"^[0-9A-Fa-f]{64}$")
+APPLY_UPDATE_SWITCH = "--apply-managed-update"
+POST_UPDATE_CLEANUP_SWITCH = "--post-update-cleanup"
+UPDATE_REPLACE_TIMEOUT_SECONDS = 45.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -404,6 +411,218 @@ def validate_managed_install(executable: Path) -> Path:
     return target
 
 
+def validate_downloaded_update(
+    downloaded: DownloadedUpdate,
+    *,
+    current_executable: Path,
+    state_root: Path,
+) -> tuple[Path, Path]:
+    """Validate the managed target and the signed executable cached for it."""
+
+    target = validate_managed_install(current_executable)
+    update_root = (state_root.resolve() / "updates").resolve()
+    source = downloaded.path.resolve()
+    if update_root not in source.parents or not source.is_file():
+        raise ValueError("downloaded update is outside the managed update cache")
+    if source.name != downloaded.manifest.asset_name:
+        raise ValueError("downloaded update file name does not match the signed manifest")
+    if source.stat().st_size != downloaded.manifest.asset_size:
+        raise RuntimeError("downloaded update size changed after verification")
+    if _sha256_file(source) != downloaded.manifest.asset_sha256:
+        raise RuntimeError("downloaded update changed after verification")
+    if source == target:
+        raise ValueError("downloaded update cannot be the running managed executable")
+    return source, target
+
+
+def _wait_for_process_exit(process_id: int, timeout: float) -> None:
+    """Wait for one process without requiring optional process libraries."""
+
+    if process_id <= 0 or process_id == os.getpid():
+        raise ValueError("old process ID is invalid")
+    if os.name == "nt":
+        synchronize = 0x00100000
+        wait_timeout = 0x00000102
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+        kernel32.OpenProcess.restype = ctypes.c_void_p
+        kernel32.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        kernel32.WaitForSingleObject.restype = ctypes.c_uint32
+        kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+        handle = kernel32.OpenProcess(synchronize, False, process_id)
+        if not handle:
+            return
+        try:
+            result = kernel32.WaitForSingleObject(handle, max(1, int(timeout * 1000)))
+        finally:
+            kernel32.CloseHandle(handle)
+        if result == wait_timeout:
+            raise TimeoutError("the previous application process did not exit")
+        return
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            os.kill(process_id, 0)
+        except ProcessLookupError:
+            return
+        time.sleep(0.05)
+    raise TimeoutError("the previous application process did not exit")
+
+
+def apply_managed_update(
+    *,
+    source: Path,
+    target: Path,
+    state_root: Path,
+    expected_sha256: str,
+    expected_size: int,
+    old_process_id: int,
+    timeout: float = UPDATE_REPLACE_TIMEOUT_SECONDS,
+    wait_for_exit: Callable[[int, float], None] = _wait_for_process_exit,
+    replace_file: Callable[[Path, Path], None] = os.replace,
+    start_process: Callable[..., object] = subprocess.Popen,
+) -> None:
+    """Apply a verified update from the new executable's helper mode."""
+
+    source = source.resolve()
+    target = validate_managed_install(target)
+    update_root = (state_root.resolve() / "updates").resolve()
+    if update_root not in source.parents or not source.is_file():
+        raise ValueError("update helper source is outside the managed update cache")
+    if source == target:
+        raise ValueError("update helper cannot replace its own running file")
+    if not _SHA256.fullmatch(expected_sha256):
+        raise ValueError("update helper SHA-256 is invalid")
+    if source.stat().st_size != expected_size:
+        raise RuntimeError("update helper source size does not match the manifest")
+    if _sha256_file(source) != expected_sha256.upper():
+        raise RuntimeError("update helper source hash does not match the manifest")
+
+    wait_for_exit(old_process_id, timeout)
+    staged = target.with_name(f"{target.name}.{os.getpid()}.new")
+    staged.unlink(missing_ok=True)
+    try:
+        shutil.copyfile(source, staged)
+        if staged.stat().st_size != expected_size:
+            raise RuntimeError("staged update size does not match the manifest")
+        if _sha256_file(staged) != expected_sha256.upper():
+            raise RuntimeError("staged update hash does not match the manifest")
+
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                replace_file(staged, target)
+                break
+            except (OSError, PermissionError):
+                if time.monotonic() >= deadline:
+                    raise TimeoutError(
+                        "the previous executable remained locked during replacement"
+                    )
+                time.sleep(0.10)
+        if _sha256_file(target) != expected_sha256.upper():
+            raise RuntimeError("installed update hash does not match the manifest")
+        start_process(
+            [
+                str(target),
+                POST_UPDATE_CLEANUP_SWITCH,
+                "--source",
+                str(source),
+                "--state-root",
+                str(state_root.resolve()),
+            ],
+            close_fds=True,
+        )
+    finally:
+        staged.unlink(missing_ok=True)
+
+
+def cleanup_downloaded_update(
+    source: Path,
+    state_root: Path,
+    *,
+    timeout: float = UPDATE_REPLACE_TIMEOUT_SECONDS,
+) -> None:
+    """Remove the helper executable after its PyInstaller parent releases it."""
+
+    source = source.resolve()
+    update_root = (state_root.resolve() / "updates").resolve()
+    if update_root not in source.parents:
+        raise ValueError("post-update cleanup source is outside the update cache")
+    deadline = time.monotonic() + timeout
+    while source.exists():
+        try:
+            source.unlink()
+        except OSError:
+            if time.monotonic() >= deadline:
+                return
+            time.sleep(0.10)
+    for directory in (source.parent, update_root):
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
+
+
+def _show_update_helper_error(message: str) -> None:
+    if os.name == "nt":
+        ctypes.windll.user32.MessageBoxW(
+            None,
+            f"自动更新失败，旧版本仍可继续使用。\n\n{message}",
+            "仁王3绘卷生成器更新失败",
+            0x10,
+        )
+
+
+def handle_update_command_line(arguments: list[str] | None = None) -> int | None:
+    """Handle updater-only startup modes before the desktop UI is imported."""
+
+    args = list(sys.argv[1:] if arguments is None else arguments)
+    if not args:
+        return None
+    mode = args[0]
+    if mode not in (APPLY_UPDATE_SWITCH, POST_UPDATE_CLEANUP_SWITCH):
+        return None
+
+    def option(name: str) -> str:
+        try:
+            index = args.index(name)
+            value = args[index + 1]
+        except (ValueError, IndexError) as error:
+            raise ValueError(f"missing updater option {name}") from error
+        return value
+
+    if mode == POST_UPDATE_CLEANUP_SWITCH:
+        source = Path(option("--source"))
+        state_root = Path(option("--state-root"))
+        threading.Thread(
+            target=cleanup_downloaded_update,
+            args=(source, state_root),
+            daemon=True,
+        ).start()
+        return None
+
+    target = Path(option("--target"))
+    try:
+        apply_managed_update(
+            source=Path(sys.executable),
+            target=target,
+            state_root=Path(option("--state-root")),
+            expected_sha256=option("--sha256"),
+            expected_size=int(option("--size"), 10),
+            old_process_id=int(option("--old-process-id"), 10),
+        )
+    except Exception as error:
+        _show_update_helper_error(str(error))
+        try:
+            if target.is_file():
+                subprocess.Popen([str(target)], close_fds=True)
+        except OSError:
+            pass
+        return 1
+    return 0
+
+
 def prepare_managed_update_script(
     downloaded: DownloadedUpdate,
     *,
@@ -446,13 +665,17 @@ Remove-Item -LiteralPath $PSCommandPath -Force
 
 
 def launch_managed_update(
-    script: Path,
     downloaded: DownloadedUpdate,
     *,
-    current_executable: Path | None = None,
+    current_executable: Path,
+    state_root: Path,
     process_id: int | None = None,
 ) -> None:
-    target = validate_managed_install(current_executable or Path(sys.executable))
+    source, target = validate_downloaded_update(
+        downloaded,
+        current_executable=current_executable,
+        state_root=state_root,
+    )
     creation_flags = (
         getattr(subprocess, "DETACHED_PROCESS", 0)
         | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
@@ -460,21 +683,18 @@ def launch_managed_update(
     )
     subprocess.Popen(
         [
-            "powershell.exe",
-            "-NoProfile",
-            "-NonInteractive",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            str(script.resolve()),
-            "-ProcessId",
+            str(source),
+            APPLY_UPDATE_SWITCH,
+            "--old-process-id",
             str(process_id or os.getpid()),
-            "-Source",
-            str(downloaded.path.resolve()),
-            "-Target",
+            "--target",
             str(target),
-            "-Sha256",
+            "--state-root",
+            str(state_root.resolve()),
+            "--sha256",
             downloaded.manifest.asset_sha256,
+            "--size",
+            str(downloaded.manifest.asset_size),
         ],
         close_fds=True,
         creationflags=creation_flags,

@@ -37,6 +37,7 @@ from .auxiliary_catalog import AuxiliaryNameCatalog, load_auxiliary_name_catalog
 from .auxiliary_generation import (
     TERRAIN_DISPLAY_CRUCIBLE_KEY,
     TERRAIN_DISPLAY_SPECIAL_KEYS,
+    AuxiliaryGenerationTables,
     AuxiliarySearchCriteria,
     CompleteAuxiliaryResult,
     SpecialRuleEntryResult,
@@ -159,7 +160,7 @@ from .updater import (
     download_update,
     ensure_managed_install,
     launch_managed_update,
-    prepare_managed_update_script,
+    validate_downloaded_update,
 )
 from .version import (
     APP_AUTHORS,
@@ -174,6 +175,12 @@ from .version import (
 
 RESEARCH_MODE = os.environ.get("NIOH3_SCROLL_RESEARCH_MODE", "").strip() == "1"
 STARTUP_TRACE = os.environ.get("NIOH3_SCROLL_STARTUP_TRACE", "").strip() == "1"
+
+DEFAULT_WINDOW_MAX_WIDTH = 2040
+DEFAULT_WINDOW_MAX_HEIGHT = 1160
+DEFAULT_WINDOW_HORIZONTAL_MARGIN = 40
+DEFAULT_FILTER_PANE_FALLBACK_WIDTH = 860
+DEFAULT_RESULTS_PANE_MIN_WIDTH = 620
 
 
 def startup_trace(message: str) -> None:
@@ -474,6 +481,89 @@ def enemy_tier_columns(tier: str) -> tuple[str, ...]:
     if tier in (ENEMY_TIER_LOW, ENEMY_TIER_MIDDLE, ENEMY_TIER_HIGH):
         return (tier,)
     raise ValueError(f"unsupported enemy tier {tier!r}")
+
+
+def enemy_tiers_are_compatible(slot_tier: str, candidate_tier: str) -> bool:
+    """Return whether a key-only override can reuse one native enemy slot."""
+
+    return bool(
+        set(enemy_tier_columns(slot_tier))
+        & set(enemy_tier_columns(candidate_tier))
+    )
+
+
+def filter_runtime_labels(values: Iterable[str], query: str) -> tuple[str, ...]:
+    """Filter runtime picker labels using a visible name or hexadecimal ID."""
+
+    normalized = query.strip().casefold()
+    if not normalized:
+        return tuple(values)
+    return tuple(value for value in values if normalized in value.casefold())
+
+
+def format_runtime_enemy_slot_summary(native_tiers: Iterable[str]) -> str:
+    """Explain that the runtime editor reuses, rather than creates, enemy slots."""
+
+    tiers = tuple(native_tiers)
+    counts = {
+        tier: tiers.count(tier)
+        for tier in (
+            ENEMY_TIER_LOW,
+            ENEMY_TIER_MIDDLE,
+            ENEMY_TIER_HIGH,
+            ENEMY_TIER_MIDDLE_HIGH,
+        )
+    }
+    parts = [
+        f"{ENEMY_TIER_LABELS[tier]}×{count}"
+        for tier, count in counts.items()
+        if count
+    ]
+    return (
+        f"当前 Seed 可复用槽位：{'、'.join(parts) or '无'}。"
+        "未出现的档位不是漏项；临时覆盖只能重用现有槽位，不能新增中手或高手槽。"
+    )
+
+
+def build_runtime_terrain_options(
+    tables: AuxiliaryGenerationTables,
+    names: AuxiliaryNameCatalog,
+) -> dict[str, int]:
+    """Build runtime terrain labels from player-visible display effects."""
+
+    options: dict[str, int] = {}
+    seen_values: set[int] = set()
+    for row_index, row in enumerate(tables.terrain.rows()):
+        terrain_value = row[0x30]
+        if terrain_value in seen_values:
+            continue
+        seen_values.add(terrain_value)
+
+        display_keys: list[int] = []
+        if struct.unpack_from("<H", row, 0x2C)[0] != 0:
+            display_keys.append(TERRAIN_DISPLAY_CRUCIBLE_KEY)
+        special_key = TERRAIN_DISPLAY_SPECIAL_KEYS.get(terrain_value)
+        if special_key is not None:
+            display_keys.append(special_key)
+
+        display_names = []
+        for key in display_keys:
+            display_name = names.terrain_effect_name(key)
+            if key == 0x039F:
+                display_name = f"{display_name}（俗称污血）"
+            display_names.append(display_name)
+        visible_name = " / ".join(display_names) if display_names else "无地形影响"
+
+        parameter_name = names.terrain_name(row_index)
+        parameter_note = ""
+        if not parameter_name.startswith("Unknown terrain row") and not any(
+            parameter_name in display_name for display_name in display_names
+        ):
+            parameter_note = f"；原生参数：{parameter_name}"
+        options[
+            f"{visible_name}{parameter_note} [terrain 0x{terrain_value:02X}]"
+        ] = terrain_value
+    return options
 
 
 def special_rule_variant_label(name: str, key: int, value_text: str) -> str:
@@ -986,7 +1076,7 @@ QUICK_START_TEXT = """仁王3绘卷生成器 - 快速上手
 填写 Seed、周目和稀有度，再点击“生成并查看该 Seed”。该功能不应用上方筛选条件。
 
 本地绘卷编辑
-用于直接修改已有绘卷。选择一张绘卷后，可修改 Seed、周目、稀有度、绘卷等级、推荐等级和转手次数；七个词条槽可完全自由修改并写入存档。敌人、地形与特殊规则可按 Seed 预览，也可临时覆盖当前游戏进程，允许重复敌人等非法体验组合；临时覆盖不会写入存档，停止覆盖或重启游戏后会恢复。
+用于直接修改已有绘卷。选择一张绘卷后，可修改 Seed、周目、稀有度、绘卷等级、推荐等级和转手次数；七个词条槽可完全自由修改并写入存档。敌人、地形与特殊规则可按 Seed 预览，也可临时覆盖当前游戏进程；敌人允许在原生同档位槽内重复，跨低手／中手／高手档位替换会被游戏丢弃，因此程序会拒绝。临时覆盖不会写入存档，停止覆盖或重启游戏后会恢复。
 
 提示
 - “不限制恩宠”表示不把恩宠作为条件；稀有度4结果可能保留恩宠，也可能被完成器替换为普通词条。
@@ -1118,7 +1208,7 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器使用教程
 七、本地绘卷编辑
 1. 切换到“本地绘卷编辑”页，读取当前存档后可按物理栏位查看已有绘卷和全部七个词条槽。
 2. Seed、周目、稀有度、绘卷等级、推荐等级和转手次数都可编辑。敌人、地形和特殊规则不是 0xE8 记录里的独立字段；界面会先显示 Seed 派生的原生结果。
-3. 点击“临时自定义敌人 / 地形 / 特殊规则”可以覆盖当前游戏进程。敌人允许重复，但只能复用该 Seed 已分配的原生组数；应用后在游戏中切换到其他绘卷再切回。临时覆盖不会写入存档，停止覆盖、关闭软件、重启游戏或重新生成后都会恢复。
+3. 点击“临时自定义敌人 / 地形 / 特殊规则”可以覆盖当前游戏进程。敌人允许在同档位槽内重复，但只能复用该 Seed 已分配的原生组数；跨低手／中手／高手档位替换会被游戏丢弃，程序会明确拒绝。应用后在游戏中切换到其他绘卷再切回，并等待状态显示至少命中 1 次后再进本。临时覆盖不会写入存档，停止覆盖、关闭软件、重启游戏或重新生成后都会恢复。
 4. 七个槽的 ID 和数值可同时编辑；点击槽按钮后可从完整官方词条目录替换，也可直接输入 raw ID、数值、prefix、metadata 和 tail。目录替换会同步该词条自身的 prefix 与类别，其他原始字段仍可继续手动覆盖。数值提示会显示当前词条、稀有度和等级下可验证的原生 raw 集合，但仍允许任意 uint32。
 5. 这是不受限制的本地词条修改：允许重复词条、冲突词条、主副槽混放、未知 ID、任意 uint32 数值和不符合当前稀有度/Seed 的组合。程序只检查字段能否写入，不做合法性修正。确认后会在同一个事务中一次保存所有变化。
 6. 周目、稀有度和 Seed 是传播用 canonical 字段；接收方会按这些字段重新生成，因此不会保留自由修改的词条槽或临时辅助覆盖。删除绘卷会完整清零选中栏位，不移动或压缩其他栏位。编辑和删除前都会自动备份。
@@ -1134,7 +1224,7 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器使用教程
 2. 默认只接收正式版；主动勾选“接收 Beta”后，会同时比较 GitHub 正式 Release 和 prerelease，并选择版本号更新的一项。取消勾选即可回到正式通道。
 3. 更新清单使用 Ed25519 签名，下载文件必须同时通过签名清单中的大小和 SHA-256 校验。
 4. 更新只会替换带有本程序受管理安装标记的当前 EXE；便携开发版和其他目录中的旧文件不会被自动删除。
-5. 若正在计算或执行存档事务，已下载更新会等待该事务结束后才询问安装和重启。
+5. 用户确认一次更新后，程序会下载并验证新版；若正在计算或执行存档事务，会等待事务结束，再安全退出旧版、替换原位置 EXE、自动启动新版并清理下载缓存。
 
 默认数据位置：%LOCALAPPDATA%\\Nioh3ScrollGenerator（可在应用内更改）
 
@@ -1160,6 +1250,54 @@ def application_title(*, research_mode: bool = RESEARCH_MODE) -> str:
     return f"仁王3绘卷生成器{suffix}"
 
 
+def default_window_dimensions(
+    screen_width: int,
+    screen_height: int,
+) -> tuple[int, int]:
+    """Return a taskbar-safe default size that uses modern desktop width."""
+
+    return (
+        min(
+            DEFAULT_WINDOW_MAX_WIDTH,
+            max(800, screen_width - DEFAULT_WINDOW_HORIZONTAL_MARGIN),
+        ),
+        min(DEFAULT_WINDOW_MAX_HEIGHT, max(680, screen_height - 80)),
+    )
+
+
+def initial_search_filter_width(workspace_width: int) -> int:
+    """Reserve a useful result pane while giving filters most initial space."""
+
+    if workspace_width <= 1:
+        return DEFAULT_FILTER_PANE_FALLBACK_WIDTH
+    reserved_results = min(
+        DEFAULT_RESULTS_PANE_MIN_WIDTH,
+        max(360, workspace_width // 2),
+    )
+    maximum = max(420, workspace_width - reserved_results)
+    return min(DEFAULT_FILTER_PANE_FALLBACK_WIDTH, maximum)
+
+
+def centered_child_geometry(
+    *,
+    parent_x: int,
+    parent_y: int,
+    parent_width: int,
+    parent_height: int,
+    child_width: int,
+    child_height: int,
+    screen_width: int,
+    screen_height: int,
+) -> str:
+    """Center a child over its parent while keeping it on the desktop."""
+
+    x = parent_x + max(0, (parent_width - child_width) // 2)
+    y = parent_y + max(0, (parent_height - child_height) // 2)
+    x = min(max(0, x), max(0, screen_width - child_width))
+    y = min(max(0, y), max(0, screen_height - child_height))
+    return f"{child_width}x{child_height}+{x}+{y}"
+
+
 class ScrollEditorApp:
     def __init__(self, root: Tk) -> None:
         startup_trace("ScrollEditorApp initialization started")
@@ -1167,16 +1305,18 @@ class ScrollEditorApp:
         self.root.title(application_title())
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
-        window_width = min(1680, max(800, screen_width - 40))
-        window_height = min(1040, max(680, screen_height - 80))
+        window_width, window_height = default_window_dimensions(
+            screen_width,
+            screen_height,
+        )
         window_x = max(0, (screen_width - window_width) // 2)
         window_y = max(0, (screen_height - window_height) // 2)
         self.root.geometry(
             f"{window_width}x{window_height}+{window_x}+{window_y}"
         )
         self.root.minsize(
-            min(1100, window_width),
-            min(720, window_height),
+            min(1280, window_width),
+            min(760, window_height),
         )
         self._configure_theme()
         self._configure_window_icon()
@@ -1355,24 +1495,28 @@ class ScrollEditorApp:
             label: key for key, label in self.enemy_options
         }
 
+        self.runtime_enemy_roles_by_key = {
+            key: frozenset(candidate_roles_by_key[key])
+            for key in sorted(legal_enemy_keys)
+        }
+        self.runtime_enemy_tier_by_key = {
+            key: classify_enemy_roles(roles)
+            for key, roles in self.runtime_enemy_roles_by_key.items()
+        }
         self.runtime_enemy_label_to_key = {
-            f"{self.auxiliary_names.enemy_name(key)} [0x{key:08X}]": key
+            (
+                f"[{ENEMY_TIER_LABELS[self.runtime_enemy_tier_by_key[key]]}] "
+                f"{self.auxiliary_names.enemy_name(key)} [0x{key:08X}]"
+            ): key
             for key in sorted(legal_enemy_keys)
         }
         self.runtime_enemy_labels = tuple(
             sorted(self.runtime_enemy_label_to_key, key=str.casefold)
         )
-        terrain_label_to_value: dict[str, int] = {}
-        seen_terrain_values: set[int] = set()
-        for row_index, row in enumerate(rule_tables.terrain.rows()):
-            terrain_value = row[0x30]
-            if terrain_value in seen_terrain_values:
-                continue
-            seen_terrain_values.add(terrain_value)
-            terrain_label_to_value[
-                f"{self.auxiliary_names.terrain_name(row_index)} "
-                f"[terrain 0x{terrain_value:02X}]"
-            ] = terrain_value
+        terrain_label_to_value = build_runtime_terrain_options(
+            rule_tables,
+            self.auxiliary_names,
+        )
         self.runtime_terrain_label_to_value = terrain_label_to_value
         self.runtime_terrain_labels = tuple(
             sorted(terrain_label_to_value, key=str.casefold)
@@ -1831,6 +1975,54 @@ class ScrollEditorApp:
             # Window decoration must never block save recovery or editor startup.
             return
 
+    def _configure_toplevel_chrome(self, window: Toplevel) -> None:
+        """Apply the application icon and dark native caption to one dialog."""
+
+        window.configure(background=self.colors["canvas"])
+        try:
+            if self._window_icon_photo is not None:
+                window.iconphoto(False, self._window_icon_photo)
+        except Exception:
+            pass
+        ico_path = application_root() / "assets" / "nioh3-scroll-generator.ico"
+        try:
+            if ico_path.is_file():
+                window.iconbitmap(str(ico_path))
+        except Exception:
+            pass
+        if os.name == "nt":
+            window.after_idle(lambda: self._configure_windows_dark_caption(window))
+
+    @staticmethod
+    def _configure_windows_dark_caption(window: Toplevel) -> None:
+        """Request Windows immersive-dark mode for a mapped Tk toplevel."""
+
+        try:
+            user32 = ctypes.windll.user32
+            child_hwnd = int(window.winfo_id())
+            get_parent = user32.GetParent
+            get_parent.restype = ctypes.c_void_p
+            get_parent.argtypes = (ctypes.c_void_p,)
+            parent_hwnd = int(get_parent(ctypes.c_void_p(child_hwnd)) or 0)
+            enabled = ctypes.c_int(1)
+            hwnds = tuple(
+                dict.fromkeys(
+                    value for value in (child_hwnd, parent_hwnd) if value
+                )
+            )
+            for hwnd in hwnds:
+                for attribute in (20, 19):
+                    result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                        ctypes.c_void_p(hwnd),
+                        attribute,
+                        ctypes.byref(enabled),
+                        ctypes.sizeof(enabled),
+                    )
+                    if result == 0:
+                        break
+        except Exception:
+            return
+
     def _build_ui(self) -> None:
         shell = ttk.Frame(self.root)
         shell.pack(fill=BOTH, expand=True)
@@ -1941,17 +2133,34 @@ class ScrollEditorApp:
 
         workspace = ttk.Panedwindow(outer, orient="horizontal")
         workspace.pack(fill=BOTH, expand=True)
-        filter_host = ttk.Frame(workspace, width=430)
-        results_column = ttk.Frame(workspace)
+        self.search_workspace = workspace
+        filter_host = ttk.Frame(
+            workspace,
+            width=DEFAULT_FILTER_PANE_FALLBACK_WIDTH,
+        )
+        self.search_filter_host = filter_host
+        results_column = ttk.Frame(
+            workspace,
+            width=DEFAULT_RESULTS_PANE_MIN_WIDTH,
+        )
+        self.search_results_column = results_column
         workspace.add(filter_host, weight=0)
         workspace.add(results_column, weight=1)
-        self.root.after_idle(lambda: workspace.sashpos(0, 430))
+
+        def set_initial_workspace_split() -> None:
+            workspace.update_idletasks()
+            workspace.sashpos(
+                0,
+                initial_search_filter_width(workspace.winfo_width()),
+            )
+
+        self.root.after_idle(set_initial_workspace_split)
 
         filter_canvas = Canvas(
             filter_host,
             background=self.colors["surface"],
             highlightthickness=0,
-            width=418,
+            width=DEFAULT_FILTER_PANE_FALLBACK_WIDTH - 12,
         )
         filter_scrollbar = ttk.Scrollbar(
             filter_host,
@@ -2264,17 +2473,21 @@ class ScrollEditorApp:
         ttk.Label(
             enemy_header,
             text="出现敌人条件（选择表示必须出现；不会限制其他敌人）",
-        ).pack(side=LEFT)
-        ttk.Button(
-            enemy_header,
+        ).pack(anchor="w")
+        enemy_actions = ttk.Frame(enemy_frame)
+        enemy_actions.pack(fill="x", pady=(4, 2))
+        self.clear_enemy_button = ttk.Button(
+            enemy_actions,
             text="清空已选敌人",
             command=self._clear_enemy_selection,
-        ).pack(side=RIGHT)
-        ttk.Button(
-            enemy_header,
+        )
+        self.clear_enemy_button.pack(side=RIGHT)
+        self.enemy_combination_guide_button = ttk.Button(
+            enemy_actions,
             text="合法组合一览",
             command=self._show_enemy_combination_guide,
-        ).pack(side=RIGHT, padx=(0, 6))
+        )
+        self.enemy_combination_guide_button.pack(side=RIGHT, padx=(0, 6))
         ttk.Label(
             enemy_frame,
             text=(
@@ -2704,7 +2917,7 @@ class ScrollEditorApp:
         self.pending_update = None
         self.update_button.configure(state="normal")
         try:
-            script = prepare_managed_update_script(
+            validate_downloaded_update(
                 downloaded,
                 current_executable=Path(sys.executable),
                 state_root=self._backup_state_root(),
@@ -2717,21 +2930,22 @@ class ScrollEditorApp:
                 f"无法自动替换。\n\n{error}\n\n文件：{downloaded.path}",
             )
             return
-        if not messagebox.askyesno(
-            "安装更新并重启",
-            f"版本 {downloaded.manifest.version} 已通过 Ed25519 签名和 SHA-256 验证。\n\n"
-            "现在关闭应用、替换受管理安装目录中的旧版本并重启吗？",
-        ):
-            self.status.set(f"版本 {downloaded.manifest.version} 已下载，等待安装。")
-            return
         if not self._stop_local_runtime_override():
             self.status.set("临时绘卷覆盖尚未安全移除，已取消本次自动重启。")
             return
-        launch_managed_update(
-            script,
-            downloaded,
-            current_executable=Path(sys.executable),
-        )
+        try:
+            launch_managed_update(
+                downloaded,
+                current_executable=Path(sys.executable),
+                state_root=self._backup_state_root(),
+            )
+        except Exception as error:
+            self.status.set("无法启动新版更新器；当前版本未关闭。")
+            messagebox.showerror(
+                "无法启动自动更新",
+                f"新版已下载并验证，但更新器无法启动。\n\n{error}\n\n文件：{downloaded.path}",
+            )
+            return
         self.root.destroy()
 
     def _offer_pending_update(self) -> None:
@@ -3479,6 +3693,10 @@ class ScrollEditorApp:
             messagebox.showerror("无法生成原生辅助内容", str(error))
             return
         native_groups = auxiliary.enemies.groups
+        native_group_tiers = tuple(
+            classify_enemy_roles(entry.role for entry in group.entries)
+            for group in native_groups
+        )
         maximum_groups = min(len(native_groups), 8)
         if maximum_groups == 0:
             messagebox.showerror(
@@ -3497,7 +3715,19 @@ class ScrollEditorApp:
 
         dialog = Toplevel(self.root)
         dialog.title("临时自定义绘卷体验")
-        dialog.geometry("900x760")
+        self._configure_toplevel_chrome(dialog)
+        dialog.geometry(
+            centered_child_geometry(
+                parent_x=self.root.winfo_rootx(),
+                parent_y=self.root.winfo_rooty(),
+                parent_width=self.root.winfo_width(),
+                parent_height=self.root.winfo_height(),
+                child_width=900,
+                child_height=760,
+                screen_width=self.root.winfo_screenwidth(),
+                screen_height=self.root.winfo_screenheight(),
+            )
+        )
         dialog.minsize(760, 620)
         dialog.transient(self.root)
 
@@ -3569,10 +3799,16 @@ class ScrollEditorApp:
 
         enemy_frame = ttk.LabelFrame(
             outer,
-            text="敌人组（允许重复；每组使用一个敌人）",
+            text="当前 Seed 可复用敌人槽（允许同档位重复）",
             padding=8,
         )
         enemy_frame.pack(fill="x", pady=(0, 8))
+        ttk.Label(
+            enemy_frame,
+            text=format_runtime_enemy_slot_summary(native_group_tiers),
+            foreground=self.colors["muted"],
+            wraplength=850,
+        ).pack(anchor="w", pady=(0, 6))
         enemy_top = ttk.Frame(enemy_frame)
         enemy_top.pack(fill="x")
         ttk.Checkbutton(
@@ -3598,11 +3834,30 @@ class ScrollEditorApp:
         ).pack(side=LEFT)
         ttk.Label(
             enemy_top,
-            text="不能超过该 Seed 已分配的原生组数；下拉框可直接输入关键词",
+            text="不能超过该 Seed 已分配的原生组数",
             foreground=self.colors["muted"],
         ).pack(side=LEFT, padx=(10, 0))
 
+        enemy_search = StringVar(value="")
+        enemy_search_status = StringVar(
+            value=f"全部 {len(self.runtime_enemy_labels)} 项"
+        )
+        enemy_search_row = ttk.Frame(enemy_frame)
+        enemy_search_row.pack(fill="x", pady=(6, 2))
+        ttk.Label(enemy_search_row, text="搜索敌人", width=9).pack(side=LEFT)
+        ttk.Entry(enemy_search_row, textvariable=enemy_search).pack(
+            side=LEFT,
+            fill="x",
+            expand=True,
+        )
+        ttk.Label(
+            enemy_search_row,
+            textvariable=enemy_search_status,
+            foreground=self.colors["muted"],
+        ).pack(side=LEFT, padx=(8, 0))
+
         enemy_choices: list[StringVar] = []
+        enemy_combos: list[ttk.Combobox] = []
         fallback_enemy_label = self.runtime_enemy_labels[0]
         for group_index in range(maximum_groups):
             if group_index < len(initial_enemy_keys):
@@ -3617,12 +3872,30 @@ class ScrollEditorApp:
             enemy_choices.append(variable)
             row = ttk.Frame(enemy_frame)
             row.pack(fill="x", pady=(4, 0))
-            ttk.Label(row, text=f"第 {group_index + 1} 组", width=9).pack(side=LEFT)
-            searchable_combobox(
+            native_tier_label = ENEMY_TIER_LABELS[native_group_tiers[group_index]]
+            ttk.Label(
+                row,
+                text=f"第 {group_index + 1} 组（{native_tier_label}槽）",
+                width=17,
+            ).pack(side=LEFT)
+            combo = searchable_combobox(
                 row,
                 variable,
                 self.runtime_enemy_labels,
-            ).pack(side=LEFT, fill="x", expand=True)
+            )
+            combo.pack(side=LEFT, fill="x", expand=True)
+            enemy_combos.append(combo)
+
+        def filter_enemy_combos(*_args: object) -> None:
+            visible = filter_runtime_labels(
+                self.runtime_enemy_labels,
+                enemy_search.get(),
+            )
+            for combo in enemy_combos:
+                combo.configure(values=visible)
+            enemy_search_status.set(f"找到 {len(visible)} 项")
+
+        enemy_search.trace_add("write", filter_enemy_combos)
 
         terrain_frame = ttk.LabelFrame(outer, text="地形", padding=8)
         terrain_frame.pack(fill="x", pady=(0, 8))
@@ -3682,8 +3955,9 @@ class ScrollEditorApp:
         ttk.Label(
             outer,
             text=(
-                "应用后请在游戏里切换到另一张绘卷，再切回目标绘卷；进入挑战时同一"
-                "覆盖会再次命中。软件关闭时会先尝试安全移除 Hook。"
+                "应用后必须先在游戏里切换到另一张绘卷，再切回目标绘卷，并确认主界面"
+                "状态变为“已命中 1 次”或更多；命中仍为 0 时直接进本不会改变敌人。"
+                "当前 Hook 只能可靠替换同档位敌人，跨档位会被游戏丢弃。"
             ),
             foreground="#FFB35C",
             wraplength=850,
@@ -3708,6 +3982,22 @@ class ScrollEditorApp:
                             enemy_choices[:requested_groups]
                         )
                     )
+                    incompatible_groups = []
+                    for group_index, enemy_key in enumerate(enemy_keys):
+                        slot_tier = native_group_tiers[group_index]
+                        candidate_tier = self.runtime_enemy_tier_by_key[enemy_key]
+                        if not enemy_tiers_are_compatible(slot_tier, candidate_tier):
+                            incompatible_groups.append(
+                                f"第 {group_index + 1} 组是"
+                                f"{ENEMY_TIER_LABELS[slot_tier]}槽，但选择了"
+                                f"{ENEMY_TIER_LABELS[candidate_tier]}敌人"
+                            )
+                    if incompatible_groups:
+                        raise ValueError(
+                            "当前 Key 覆盖无法进行跨档位替换，游戏会丢弃敌人：\n"
+                            + "\n".join(incompatible_groups)
+                            + "\n请为每组选择标签相同的敌人；同档位内仍允许重复。"
+                        )
                 special_rule_keys = (
                     tuple(
                         self._resolve_runtime_value(
@@ -3744,8 +4034,8 @@ class ScrollEditorApp:
                 return
             self.local_runtime_override_session = session
             self.local_runtime_override_status.set(
-                f"临时覆盖已启用：Seed {profile.seed}；切换绘卷后生效，"
-                "停止或重启会恢复"
+                f"临时覆盖已启用：Seed {profile.seed}；尚未命中（0 次）。"
+                "先切换到另一张绘卷再切回，命中前不要进本"
             )
             self.status.set(
                 f"已启用 Seed {profile.seed} 的临时敌人/地形/规则覆盖"
@@ -3786,8 +4076,15 @@ class ScrollEditorApp:
             )
             return
         self.local_runtime_override_status.set(
-            f"临时覆盖已启用：Seed {session.profile.seed}；"
-            f"已命中 {hit_count} 次；停止或重启会恢复"
+            (
+                f"临时覆盖已启用：Seed {session.profile.seed}；尚未命中（0 次）。"
+                "先切换到另一张绘卷再切回，命中前不要进本"
+                if hit_count == 0
+                else (
+                    f"临时覆盖已启用：Seed {session.profile.seed}；"
+                    f"已命中 {hit_count} 次，可以进入挑战；停止或重启会恢复"
+                )
+            )
         )
         self.root.after(
             500,
@@ -4934,15 +5231,39 @@ class ScrollEditorApp:
     def _show_enemy_combination_guide(self) -> None:
         window = Toplevel(self.root)
         window.title("敌人合法组合一览")
-        window.geometry("680x540")
+        self._configure_toplevel_chrome(window)
+        window.geometry(
+            centered_child_geometry(
+                parent_x=self.root.winfo_rootx(),
+                parent_y=self.root.winfo_rooty(),
+                parent_width=self.root.winfo_width(),
+                parent_height=self.root.winfo_height(),
+                child_width=680,
+                child_height=540,
+                screen_width=self.root.winfo_screenwidth(),
+                screen_height=self.root.winfo_screenheight(),
+            )
+        )
         window.minsize(560, 420)
         window.transient(self.root)
-        body = Text(window, wrap=WORD, padx=14, pady=12)
-        body.pack(fill=BOTH, expand=True, padx=10, pady=(10, 6))
+        shell = ttk.Frame(window, padding=10)
+        shell.pack(fill=BOTH, expand=True)
+        body = Text(
+            shell,
+            wrap=WORD,
+            padx=14,
+            pady=12,
+            background=self.colors["surface"],
+            foreground=self.colors["text"],
+            borderwidth=0,
+            highlightthickness=1,
+            highlightbackground=self.colors["border"],
+        )
+        body.pack(fill=BOTH, expand=True)
         body.insert("1.0", ENEMY_COMBINATION_GUIDE_TEXT)
         body.configure(state=DISABLED)
-        ttk.Button(window, text="关闭", command=window.destroy).pack(
-            pady=(0, 10)
+        ttk.Button(shell, text="关闭", command=window.destroy).pack(
+            pady=(8, 0)
         )
 
     def _show_tutorial(self) -> None:
@@ -5277,7 +5598,6 @@ class ScrollEditorApp:
 
     def _parse_criteria(self) -> SearchCriteria:
         self._sync_effect_roles()
-        self._sync_enemy_selection()
         primary = frozenset(self.selected_primary_ids)
         required_secondary_ids, required_secondary_id_groups = (
             self._secondary_effect_requirements()
@@ -6538,7 +6858,7 @@ class ScrollEditorApp:
                             f"当前版本：{result.current_version}\n"
                             f"最新版本：{result.manifest.version}\n\n"
                             f"更新通道：{channel_name}\n\n"
-                            f"{notes}\n\n下载并验证该更新吗？",
+                            f"{notes}\n\n下载并验证后，自动安装并重启到新版本吗？",
                         ):
                             self._download_available_update(result)
                         else:

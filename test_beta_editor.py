@@ -45,15 +45,22 @@ from nioh3_scroll_editor.app import (
     application_title,
     collect_offline_ng3_search_batch,
     collect_offline_rarity5_search_batch,
+    build_runtime_terrain_options,
     classify_enemy_roles,
+    centered_child_geometry,
     copy_text_to_clipboard,
+    default_window_dimensions,
     format_local_auxiliary_preview,
+    initial_search_filter_width,
     is_cached_game_closed_effect_context,
     is_game_closed_effect_context,
     legal_enemy_display_groups,
     local_effect_raw_value_hint,
     partition_grouped_selections,
     enemy_tier_columns,
+    enemy_tiers_are_compatible,
+    filter_runtime_labels,
+    format_runtime_enemy_slot_summary,
     requirement_mode_group_index,
     special_rule_variant_label,
     toggle_rule_filter_option,
@@ -139,6 +146,46 @@ def make_record(
 
 
 class BetaEditorTests(unittest.TestCase):
+    def test_default_window_uses_available_desktop_width(self) -> None:
+        self.assertEqual(default_window_dimensions(1920, 1080), (1880, 1000))
+        self.assertEqual(default_window_dimensions(2560, 1440), (2040, 1160))
+        self.assertEqual(default_window_dimensions(1366, 768), (1326, 688))
+
+    def test_initial_search_split_prioritizes_filter_controls(self) -> None:
+        self.assertEqual(initial_search_filter_width(1820), 860)
+        self.assertEqual(initial_search_filter_width(1660), 860)
+        self.assertEqual(initial_search_filter_width(1440), 820)
+        self.assertEqual(initial_search_filter_width(1100), 550)
+        self.assertEqual(initial_search_filter_width(0), 860)
+
+    def test_child_dialog_is_centered_and_screen_bounded(self) -> None:
+        self.assertEqual(
+            centered_child_geometry(
+                parent_x=163,
+                parent_y=107,
+                parent_width=2043,
+                parent_height=1165,
+                child_width=680,
+                child_height=540,
+                screen_width=2560,
+                screen_height=1440,
+            ),
+            "680x540+844+419",
+        )
+        self.assertEqual(
+            centered_child_geometry(
+                parent_x=1200,
+                parent_y=700,
+                parent_width=900,
+                parent_height=700,
+                child_width=680,
+                child_height=540,
+                screen_width=1600,
+                screen_height=900,
+            ),
+            "680x540+920+360",
+        )
+
     def test_grouped_selections_preserve_and_or_semantics(self) -> None:
         mandatory, groups = partition_grouped_selections(
             {10, 20, 30, 40},
@@ -177,6 +224,48 @@ class BetaEditorTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             classify_enemy_roles((1, 4))
+
+    def test_runtime_enemy_override_requires_a_compatible_native_tier(self) -> None:
+        self.assertTrue(enemy_tiers_are_compatible(ENEMY_TIER_LOW, ENEMY_TIER_LOW))
+        self.assertTrue(
+            enemy_tiers_are_compatible(
+                ENEMY_TIER_MIDDLE,
+                ENEMY_TIER_MIDDLE_HIGH,
+            )
+        )
+        self.assertFalse(
+            enemy_tiers_are_compatible(ENEMY_TIER_LOW, ENEMY_TIER_HIGH)
+        )
+
+    def test_runtime_enemy_search_filters_name_and_hex_id(self) -> None:
+        values = (
+            "[低手] 一目连 [0x0005AAF9]",
+            "[高手] 高杉晋作 [0x000BE2C7]",
+        )
+        self.assertEqual(filter_runtime_labels(values, "一目连"), values[:1])
+        self.assertEqual(filter_runtime_labels(values, "be2c7"), values[1:])
+        self.assertEqual(filter_runtime_labels(values, ""), values)
+
+    def test_runtime_enemy_slot_summary_explains_missing_tiers(self) -> None:
+        summary = format_runtime_enemy_slot_summary(
+            (ENEMY_TIER_LOW, ENEMY_TIER_LOW, ENEMY_TIER_HIGH)
+        )
+        self.assertIn("低手×2", summary)
+        self.assertIn("高手×1", summary)
+        self.assertIn("未出现的档位不是漏项", summary)
+        self.assertNotIn("中手×", summary)
+
+    def test_runtime_terrain_options_use_player_visible_names(self) -> None:
+        catalog = load_auxiliary_name_catalog("zh-CN")
+        tables = load_default_auxiliary_generation_tables()
+        options = build_runtime_terrain_options(tables, catalog)
+        label_by_value = {value: label for label, value in options.items()}
+
+        self.assertTrue(label_by_value[0x74].startswith("地狱"))
+        self.assertIn("瘴血", label_by_value[0x08])
+        self.assertIn("污血", label_by_value[0x08])
+        self.assertTrue(label_by_value[0xA3].startswith("无地形影响"))
+        self.assertIn("原生参数：造成伤害减少", label_by_value[0xA3])
 
     def test_enemy_combination_guide_describes_complete_group_structures(self) -> None:
         for structure in (

@@ -26,7 +26,7 @@ only after its tag completes the signed Windows release workflow.
 | --- | --- | --- |
 | AMD optimization | D3D11 compute backend and AMD adapter selection are implemented; an AMD integrated GPU passed local parity | Run correctness, throughput, cancellation, and memory-pressure tests on at least one AMD discrete GPU. Integrated-GPU evidence is not a discrete-GPU performance claim. |
 | Unrestricted auxiliary editing | Included experimentally in v0.6.5; live hook installation/removal passed | Complete application-owned detail/challenge acceptance for terrain and ordered rules. The UI explicitly states that these fields are not saved and will revert. |
-| Search UX/performance | Results stream incrementally, event queues are bounded, structural preflight exists, and native/GPU preimages reduce the domain | Re-test low-end-machine responsiveness and the remaining Tk resize/scroll repaint lag with the packaged build. |
+| Search UX/performance | Results stream incrementally, event queues are bounded, structural preflight exists, and native/GPU preimages reduce the domain | v0.6.5 widens the default filter pane and prevents enemy-action clipping. Replace the Tk frontend in v0.7 to address resize, sash-drag, and scroll repaint latency instead of extending the current workaround stack. |
 | Special-rule localization | Legal native rows are filtered and most automatic-activation items are localized | Native item key `0x3011` remains unresolved and must stay visibly marked rather than guessed. |
 
 ## Not complete

@@ -5,17 +5,23 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from nioh3_scroll_editor.updater import (
     MANAGED_INSTALL_MARKER,
+    POST_UPDATE_CLEANUP_SWITCH,
+    APPLY_UPDATE_SWITCH,
     DownloadedUpdate,
     UpdateManifest,
+    apply_managed_update,
     check_for_update,
+    cleanup_downloaded_update,
     download_update,
     ensure_managed_install,
+    launch_managed_update,
     prepare_managed_update_script,
     release_version_tuple,
     validate_managed_install,
@@ -316,6 +322,77 @@ class UpdaterTests(unittest.TestCase):
             self.assertIn("Get-FileHash -LiteralPath", text)
             self.assertIn("Move-Item -LiteralPath", text)
             self.assertNotIn(str(executable), text)
+
+    def test_new_executable_helper_replaces_restarts_and_cleans_cache(self) -> None:
+        asset = b"new executable helper"
+        value, _public_key = self._signed_manifest(asset)
+        manifest = UpdateManifest.from_mapping(value)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state_root = root / "state"
+            source = state_root / "updates" / manifest.version / manifest.asset_name
+            source.parent.mkdir(parents=True)
+            source.write_bytes(asset)
+            install_root = root / "managed"
+            install_root.mkdir()
+            target = install_root / manifest.asset_name
+            target.write_bytes(b"old executable")
+            ensure_managed_install(target)
+            started: list[list[str]] = []
+            waited: list[tuple[int, float]] = []
+
+            apply_managed_update(
+                source=source,
+                target=target,
+                state_root=state_root,
+                expected_sha256=manifest.asset_sha256,
+                expected_size=manifest.asset_size,
+                old_process_id=12345,
+                wait_for_exit=lambda process_id, timeout: waited.append(
+                    (process_id, timeout)
+                ),
+                start_process=lambda command, **_kwargs: started.append(command),
+            )
+
+            self.assertEqual(waited[0][0], 12345)
+            self.assertEqual(target.read_bytes(), asset)
+            self.assertEqual(started[0][0], str(target.resolve()))
+            self.assertIn(POST_UPDATE_CLEANUP_SWITCH, started[0])
+            self.assertTrue(source.is_file())
+
+            cleanup_downloaded_update(source, state_root, timeout=0.1)
+            self.assertFalse(source.exists())
+            self.assertFalse(source.parent.exists())
+
+    def test_managed_update_launches_downloaded_executable_not_powershell(self) -> None:
+        asset = b"new executable helper"
+        value, _public_key = self._signed_manifest(asset)
+        manifest = UpdateManifest.from_mapping(value)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state_root = root / "state"
+            source = state_root / "updates" / manifest.version / manifest.asset_name
+            source.parent.mkdir(parents=True)
+            source.write_bytes(asset)
+            target = root / "managed" / manifest.asset_name
+            target.parent.mkdir()
+            target.write_bytes(b"old executable")
+            ensure_managed_install(target)
+            downloaded = DownloadedUpdate(manifest=manifest, path=source)
+
+            with patch("nioh3_scroll_editor.updater.subprocess.Popen") as popen:
+                launch_managed_update(
+                    downloaded,
+                    current_executable=target,
+                    state_root=state_root,
+                    process_id=54321,
+                )
+
+            command = popen.call_args.args[0]
+            self.assertEqual(command[0], str(source.resolve()))
+            self.assertEqual(command[1], APPLY_UPDATE_SWITCH)
+            self.assertIn("54321", command)
+            self.assertNotIn("powershell.exe", command)
 
     def test_portable_executable_self_enrollment_is_exact_and_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
