@@ -402,11 +402,13 @@ def collect_fixed_draw_pivot_seeds_d3d11(
 
 
 def last_effect_preimage_backend() -> str:
+    if _last_d3d11_vendor_id is None:
+        return "not_used"
     return {
         AMD_VENDOR_ID: "d3d11_amd",
         NVIDIA_VENDOR_ID: "d3d11_nvidia",
         INTEL_VENDOR_ID: "d3d11_intel",
-    }.get(_last_d3d11_vendor_id, "not_used")
+    }.get(_last_d3d11_vendor_id, "d3d11_other")
 
 
 def reset_effect_preimage_backend() -> None:

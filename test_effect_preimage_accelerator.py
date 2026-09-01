@@ -31,6 +31,7 @@ from nioh3_scroll_editor.effect_preimage_accelerator import (
     plan_trial_for_seed,
     reset_effect_preimage_backend,
 )
+import nioh3_scroll_editor.effect_preimage_accelerator as preimage_accelerator
 from nioh3_scroll_editor.effect_sequence import generate_ng3_rarity5_effect_sequence
 from nioh3_scroll_editor.grace_map import load_grace_output_map
 from nioh3_scroll_editor.joint_solver import _permuted_values, choose_pivot
@@ -93,6 +94,14 @@ class EffectPreimageAcceleratorTests(unittest.TestCase):
         self.assertIsNotNone(matches)
         assert matches is not None
         self.assertIn((seed, pivot_low16 + 1), matches)
+
+    def test_unknown_hardware_vendor_still_reports_directcompute(self) -> None:
+        original = preimage_accelerator._last_d3d11_vendor_id
+        try:
+            preimage_accelerator._last_d3d11_vendor_id = 0x1414
+            self.assertEqual(last_effect_preimage_backend(), "d3d11_other")
+        finally:
+            preimage_accelerator._last_d3d11_vendor_id = original
 
     def test_generic_effect_solver_automatically_uses_directcompute(self) -> None:
         if not d3d11_effect_acceleration_available():
