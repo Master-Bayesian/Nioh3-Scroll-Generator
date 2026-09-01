@@ -14,9 +14,9 @@ from emaki_exchange import (
 from .savegame import (
     SCROLL_GROUP_OFFSET,
     SCROLL_SLOT_COUNT,
-    scroll_slot_is_empty,
     SaveInventory,
-    next_generation_serial,
+    allocate_scroll_generation_serials,
+    scroll_slot_is_empty,
 )
 
 
@@ -181,12 +181,18 @@ def select_contextual_experiment_template(inventory: SaveInventory) -> tuple[int
 
 def build_contextual_babd_experiment(inventory: SaveInventory) -> ContextualSlotExperiment:
     template_slot, template = select_contextual_experiment_template(inventory)
-    serial_start = next_generation_serial(inventory)
+    generation_serials = allocate_scroll_generation_serials(
+        inventory.decrypted,
+        len(CONTEXTUAL_TEST_SLOTS),
+    )
     records: list[ContextualSlotExperimentRecord] = []
-    for index, target_slot in enumerate(CONTEXTUAL_TEST_SLOTS):
+    for target_slot, generation_serial in zip(
+        CONTEXTUAL_TEST_SLOTS,
+        generation_serials,
+        strict=True,
+    ):
         record = bytearray(template)
         original_effect_id = _effect_id(record, target_slot)
-        generation_serial = serial_start + index
         transfer_count = target_slot
         struct.pack_into("<I", record, _effect_id_offset(target_slot), CONTEXTUAL_TEST_EFFECT_ID)
         struct.pack_into("<I", record, 0x28, generation_serial)

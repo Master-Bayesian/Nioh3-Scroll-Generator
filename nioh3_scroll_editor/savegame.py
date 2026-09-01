@@ -38,6 +38,8 @@ SCROLL_GROUP_OFFSET = 0x176CCE
 SCROLL_SLOT_COUNT = 400
 SCROLL_INVENTORY_KEY_OFFSET = 0x1C
 SCROLL_INVENTORY_KEY_MAX = 0xFFFF
+SCROLL_GENERATION_SERIAL_OFFSET = 0x28
+SCROLL_GENERATION_SERIAL_MAX = 0xFFFFFFFC
 
 
 def scroll_slot_is_empty(record: bytes) -> bool:
@@ -79,18 +81,13 @@ def allocate_scroll_inventory_keys(
     decrypted: bytes,
     count: int,
 ) -> tuple[int, ...]:
-    """Allocate globally unused nonzero uint16 item-instance keys.
+    """Allocate conservative globally unused values for scroll ``+0x1C``.
 
-    Native PC v2.00.02 uses the value stored at scroll record ``+0x1C`` as a
-    save-wide item-instance key.  It is not scoped to the 400-record scroll
-    array: an otherwise canonical scroll can be rendered as an equipment item
-    when this value collides with an equipment record elsewhere in the save.
-
-    The complete layout of every item array is not needed for safe allocation.
-    A candidate key is accepted only when its four-byte little-endian encoding
-    does not occur anywhere in the decrypted save.  This deliberately
-    over-approximates the native key namespace: an unrelated matching scalar
-    can make us skip a value, but can never make us reuse a live item key.
+    The exact semantics of this field remain unproven.  New records keep the
+    existing conservative allocation policy, but existing records are never
+    rewritten solely because the same scalar appears elsewhere in the save.
+    Live FB-016 testing specifically disproved ``+0x1C`` as the cause of the
+    equipment-rendering defect.
     """
 
     if count < 0:
@@ -136,19 +133,79 @@ def write_scroll_inventory_key(record: bytes, inventory_key: int) -> bytes:
     return bytes(output)
 
 
-def _looks_like_non_scroll_item_key(decrypted: bytes, key_offset: int) -> bool:
-    """Return whether ``key_offset`` has the captured non-scroll item header.
+def allocate_scroll_generation_serials(
+    decrypted: bytes,
+    count: int,
+) -> tuple[int, ...]:
+    """Allocate save-wide unique values for scroll record ``+0x28``.
 
-    FB-016 supplied a canonical scroll whose key also appeared at ``+0x1C``
-    of an equipment record.  Non-scroll item records in that evidence mirror
-    their type at ``+0x00/+0x02`` and level at ``+0x06/+0x08``.  Keep this
-    predicate intentionally strict: conservative allocation can skip any
-    four-byte collision, but automatic repair must not rewrite a valid scroll
-    merely because the same scalar occurs in unrelated save data.
+    Live FB-016 testing proved that ``+0x28`` shares one identity namespace
+    with non-scroll inventory records.  The previous allocator considered only
+    scroll records, so ``max(scroll serial) + 1`` could reuse an equipment
+    serial and make the new scroll render as that equipment item.
+
+    Start after the largest scroll serial to preserve the existing behavior,
+    then reject values already used by a scroll or by a captured native
+    equipment record.  The equipment predicate is intentionally strict so an
+    unrelated scalar does not perturb the native serial sequence.
     """
 
-    record_offset = key_offset - SCROLL_INVENTORY_KEY_OFFSET
-    if record_offset < 0 or record_offset + 0x20 > len(decrypted):
+    if count < 0:
+        raise ValueError("generation-serial count cannot be negative")
+    if count == 0:
+        return ()
+    require_decrypted_user_save(decrypted)
+    serials: list[int] = []
+    for slot_index in range(SCROLL_SLOT_COUNT):
+        record_offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
+        record = decrypted[record_offset:record_offset + SCROLL_RECORD_SIZE]
+        if scroll_slot_is_empty(record):
+            continue
+        record_type = struct.unpack_from("<H", record, 0)[0]
+        if TYPE_TO_CATEGORY.get(record_type, 0) > 0:
+            serials.append(
+                struct.unpack_from("<I", record, SCROLL_GENERATION_SERIAL_OFFSET)[0]
+            )
+
+    occupied = set(serials)
+    occupied.update(_non_scroll_item_generation_serials(decrypted))
+    start = (max(serials) + 1) if serials else 1
+    if start > SCROLL_GENERATION_SERIAL_MAX:
+        raise RuntimeError("绘卷内部序号接近 uint32 上限，无法安全分配新记录")
+    allocated: list[int] = []
+    for value in range(start, SCROLL_GENERATION_SERIAL_MAX + 1):
+        if value in occupied or value in allocated:
+            continue
+        allocated.append(value)
+        if len(allocated) == count:
+            return tuple(allocated)
+    raise RuntimeError("无法为新增绘卷分配全局唯一内部序号")
+
+
+def write_scroll_generation_serial(record: bytes, generation_serial: int) -> bytes:
+    """Return one complete record with a validated generation serial."""
+
+    if len(record) != SCROLL_RECORD_SIZE:
+        raise ValueError("候选绘卷记录必须为 0xE8 字节")
+    if not 1 <= generation_serial <= SCROLL_GENERATION_SERIAL_MAX:
+        raise ValueError("绘卷内部序号必须是受支持的非零 uint32")
+    output = bytearray(record)
+    struct.pack_into(
+        "<I",
+        output,
+        SCROLL_GENERATION_SERIAL_OFFSET,
+        generation_serial,
+    )
+    return bytes(output)
+
+
+def _looks_like_non_scroll_item_record(
+    decrypted: bytes,
+    record_offset: int,
+) -> bool:
+    """Return whether ``record_offset`` has the captured equipment header."""
+
+    if record_offset < 0 or record_offset + 0x2C > len(decrypted):
         return False
     record_type = struct.unpack_from("<H", decrypted, record_offset)[0]
     mirrored_type = struct.unpack_from("<H", decrypted, record_offset + 0x02)[0]
@@ -164,19 +221,42 @@ def _looks_like_non_scroll_item_key(decrypted: bytes, key_offset: int) -> bool:
     )
 
 
-def repair_duplicate_scroll_inventory_keys(
+def _non_scroll_item_generation_serials(decrypted: bytes) -> tuple[int, ...]:
+    """Return captured non-scroll item serials stored at record ``+0x28``."""
+
+    serials: list[int] = []
+    search_offset = 4
+    item_count_marker = b"\x01\x00"
+    while True:
+        count_offset = decrypted.find(item_count_marker, search_offset)
+        if count_offset < 0:
+            break
+        record_offset = count_offset - 4
+        if _looks_like_non_scroll_item_record(decrypted, record_offset):
+            value = struct.unpack_from(
+                "<I",
+                decrypted,
+                record_offset + SCROLL_GENERATION_SERIAL_OFFSET,
+            )[0]
+            if 1 <= value <= SCROLL_GENERATION_SERIAL_MAX:
+                serials.append(value)
+        search_offset = count_offset + 1
+    return tuple(serials)
+
+
+def repair_duplicate_scroll_generation_serials(
     decrypted: bytes,
 ) -> tuple[bytes, tuple[dict[str, int | str], ...]]:
-    """Repair scroll keys colliding anywhere in the decrypted save.
+    """Repair scroll ``+0x28`` collisions proven to alias equipment records.
 
-    Scroll-only duplicates keep their first occurrence and repair later ones.
-    If the same four-byte key also appears outside the scroll-key fields, every
-    scroll using it is repaired because the external item may own the native
-    inventory index entry.  Record order and every unrelated byte are kept.
+    Scroll-only duplicates keep their first occurrence.  If the same serial is
+    present at ``+0x28`` of a captured non-scroll item header, every affected
+    scroll is assigned a new save-wide unique serial.  This is the exact state
+    transition validated against the FB-016 save in game.
     """
 
     require_decrypted_user_save(decrypted)
-    key_slots: dict[int, list[tuple[int, int]]] = {}
+    serial_slots: dict[int, list[tuple[int, int]]] = {}
     for slot_index in range(SCROLL_SLOT_COUNT):
         record_offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
         record = decrypted[record_offset:record_offset + SCROLL_RECORD_SIZE]
@@ -184,17 +264,17 @@ def repair_duplicate_scroll_inventory_keys(
             continue
         record_type = struct.unpack_from("<H", record, 0)[0]
         is_scroll = TYPE_TO_CATEGORY.get(record_type, 0) > 0
-        value = struct.unpack_from("<I", record, SCROLL_INVENTORY_KEY_OFFSET)[0]
-        if not 1 <= value <= SCROLL_INVENTORY_KEY_MAX:
+        value = struct.unpack_from("<I", record, SCROLL_GENERATION_SERIAL_OFFSET)[0]
+        if not 1 <= value <= SCROLL_GENERATION_SERIAL_MAX:
             continue
         if is_scroll:
-            key_offset = record_offset + SCROLL_INVENTORY_KEY_OFFSET
-            key_slots.setdefault(value, []).append((slot_index, key_offset))
+            serial_offset = record_offset + SCROLL_GENERATION_SERIAL_OFFSET
+            serial_slots.setdefault(value, []).append((slot_index, serial_offset))
 
     repair_slots: list[tuple[int, int, str]] = []
-    for value, slots in key_slots.items():
+    for value, slots in serial_slots.items():
         encoded = struct.pack("<I", value)
-        own_offsets = {key_offset for _, key_offset in slots}
+        own_offsets = {serial_offset for _, serial_offset in slots}
         search_offset = 0
         has_external_collision = False
         while True:
@@ -203,25 +283,28 @@ def repair_duplicate_scroll_inventory_keys(
                 break
             if (
                 occurrence not in own_offsets
-                and _looks_like_non_scroll_item_key(decrypted, occurrence)
+                and _looks_like_non_scroll_item_record(
+                    decrypted,
+                    occurrence - SCROLL_GENERATION_SERIAL_OFFSET,
+                )
             ):
                 has_external_collision = True
                 break
             search_offset = occurrence + 1
         if has_external_collision:
             repair_slots.extend(
-                (slot_index, value, "non_scroll_item_key_collision")
+                (slot_index, value, "non_scroll_item_generation_serial_collision")
                 for slot_index, _ in slots
             )
         else:
             repair_slots.extend(
-                (slot_index, value, "duplicate_scroll_key")
+                (slot_index, value, "duplicate_scroll_generation_serial")
                 for slot_index, _ in slots[1:]
             )
     if not repair_slots:
         return decrypted, ()
 
-    replacements = allocate_scroll_inventory_keys(decrypted, len(repair_slots))
+    replacements = allocate_scroll_generation_serials(decrypted, len(repair_slots))
     output = bytearray(decrypted)
     repairs: list[dict[str, int | str]] = []
     for (slot_index, old_value, reason), new_value in zip(
@@ -233,14 +316,14 @@ def repair_duplicate_scroll_inventory_keys(
         struct.pack_into(
             "<I",
             output,
-            record_offset + SCROLL_INVENTORY_KEY_OFFSET,
+            record_offset + SCROLL_GENERATION_SERIAL_OFFSET,
             new_value,
         )
         repairs.append(
             {
                 "slot_index": slot_index,
-                "old_inventory_key": old_value,
-                "new_inventory_key": new_value,
+                "old_generation_serial": old_value,
+                "new_generation_serial": new_value,
                 "reason": reason,
             }
         )
@@ -843,23 +926,9 @@ def prepare_candidate_for_install(record: bytes, *, transfer_count: int) -> byte
 
 
 def next_generation_serial(inventory: SaveInventory) -> int:
-    """Allocate the next canonical per-record serial from the current save."""
+    """Allocate the next save-wide unique per-record serial."""
 
-    serials: list[int] = []
-    for slot_index in range(SCROLL_SLOT_COUNT):
-        offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
-        record = inventory.decrypted[offset:offset + SCROLL_RECORD_SIZE]
-        if scroll_slot_is_empty(record):
-            continue
-        record_type = struct.unpack_from("<H", record, 0)[0]
-        if TYPE_TO_CATEGORY.get(record_type, 0) > 0:
-            serials.append(struct.unpack_from("<I", record, 0x28)[0])
-    if not serials:
-        return 1
-    maximum = max(serials)
-    if maximum >= 0xFFFFFFFC:
-        raise RuntimeError("绘卷内部序号接近 uint32 上限，无法安全分配新记录")
-    return maximum + 1
+    return allocate_scroll_generation_serials(inventory.decrypted, 1)[0]
 
 
 def materialize_effect_sequence_candidate(
@@ -1445,11 +1514,12 @@ class SaveInstaller:
             verification_path = work / "verification.bin"
             self.crypto.decrypt(self.save_path, decrypted_path)
             inventory = SaveInventory.load(self.save_path, decrypted_path.read_bytes())
-            normalized_decrypted, inventory_key_repairs = (
-                repair_duplicate_scroll_inventory_keys(inventory.decrypted)
+            normalized_decrypted, generation_serial_repairs = (
+                repair_duplicate_scroll_generation_serials(inventory.decrypted)
             )
-            if inventory_key_repairs:
+            if generation_serial_repairs:
                 inventory = SaveInventory.load(self.save_path, normalized_decrypted)
+            inventory_key_repairs: tuple[dict[str, int | str], ...] = ()
             first_slot = inventory.next_slot_index
             if first_slot is None:
                 raise RuntimeError("400 个绘卷栏位均已占用，无法添加实验记录")
@@ -1463,9 +1533,21 @@ class SaveInstaller:
                 inventory.decrypted,
                 len(records),
             )
+            generation_serials = allocate_scroll_generation_serials(
+                inventory.decrypted,
+                len(records),
+            )
             installed_records = tuple(
-                write_scroll_inventory_key(record, inventory_key)
-                for record, inventory_key in zip(records, inventory_keys, strict=True)
+                write_scroll_generation_serial(
+                    write_scroll_inventory_key(record, inventory_key),
+                    generation_serial,
+                )
+                for record, inventory_key, generation_serial in zip(
+                    records,
+                    inventory_keys,
+                    generation_serials,
+                    strict=True,
+                )
             )
 
             edited = inventory.decrypted
@@ -1518,6 +1600,9 @@ class SaveInstaller:
             "inventory_keys": list(inventory_keys),
             "inventory_keys_hex": [hex(value) for value in inventory_keys],
             "inventory_key_repairs": list(inventory_key_repairs),
+            "generation_serials": list(generation_serials),
+            "generation_serials_hex": [hex(value) for value in generation_serials],
+            "generation_serial_repairs": list(generation_serial_repairs),
             "records": [
                 describe_record_for_report(record) for record in installed_records
             ],
@@ -1592,11 +1677,12 @@ class SaveInstaller:
             verification_path = work / "verification.bin"
             self.crypto.decrypt(self.save_path, decrypted_path)
             inventory = SaveInventory.load(self.save_path, decrypted_path.read_bytes())
-            normalized_decrypted, inventory_key_repairs = (
-                repair_duplicate_scroll_inventory_keys(inventory.decrypted)
+            normalized_decrypted, generation_serial_repairs = (
+                repair_duplicate_scroll_generation_serials(inventory.decrypted)
             )
-            if inventory_key_repairs:
+            if generation_serial_repairs:
                 inventory = SaveInventory.load(self.save_path, normalized_decrypted)
+            inventory_key_repairs: tuple[dict[str, int | str], ...] = ()
             slot_index = inventory.next_slot_index
             if slot_index is None:
                 raise RuntimeError("400 个绘卷栏位均已占用，无法添加新绘卷")
@@ -1610,7 +1696,12 @@ class SaveInstaller:
                 inventory.decrypted,
                 1,
             )[0]
+            generation_serial = allocate_scroll_generation_serials(
+                inventory.decrypted,
+                1,
+            )[0]
             record = write_scroll_inventory_key(record, inventory_key)
+            record = write_scroll_generation_serial(record, generation_serial)
             normalized = _clear_native_free_scroll_slot(
                 inventory.decrypted,
                 record_offset,
@@ -1651,6 +1742,9 @@ class SaveInstaller:
             "inventory_key": inventory_key,
             "inventory_key_hex": hex(inventory_key),
             "inventory_key_repairs": list(inventory_key_repairs),
+            "generation_serial": generation_serial,
+            "generation_serial_hex": hex(generation_serial),
+            "generation_serial_repairs": list(generation_serial_repairs),
             "candidate": describe_record_for_report(record),
             "insert": insert_report,
             "backup_files": copied,

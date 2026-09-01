@@ -30,6 +30,10 @@ from .effect_generation_tables import (
     SCROLL_RECORD_TYPES,
     load_default_effect_generation_tables,
 )
+from .effect_preimage_accelerator import (
+    collect_fixed_draw_pivot_seeds_d3d11,
+    d3d11_effect_acceleration_available,
+)
 from .joint_solver import (
     DrawConstraint,
     SeedSolution,
@@ -1026,6 +1030,7 @@ def iter_effect_seed_candidates(
     cancelled: CancellationCheck | None = None,
     pivot_seed_collector: PivotSeedCollector | None = None,
     pivot_seed_collector_chunk_trials: int = 1_000_000,
+    prefer_d3d11_fixed_draw: bool = False,
 ) -> Iterator[EffectSeedCandidate]:
     """Yield exact Seed candidates without connecting to a game process."""
 
@@ -1057,6 +1062,42 @@ def iter_effect_seed_candidates(
         ),
         allow_full_seed_family=allow_full_seed_family,
     )
+    pivot_seed_collector_uses_pivot_major_order = False
+    if (
+        pivot_seed_collector is None
+        and prefer_d3d11_fixed_draw
+        and request.natural_only
+        and d3d11_effect_acceleration_available()
+    ):
+        pivot = choose_pivot(constraints)
+        other_constraints = tuple(
+            (constraint.draw_index, constraint.allowed_u16.runs)
+            for constraint in constraints
+            if constraint is not pivot
+        )
+
+        def collect_fixed_draw_pivot_seeds(
+            values: tuple[int, ...],
+            *,
+            start_index: int,
+            stop_index: int,
+            low16_stride: int,
+        ) -> tuple[tuple[int, int], ...] | None:
+            return collect_fixed_draw_pivot_seeds_d3d11(
+                values,
+                start_index=start_index,
+                stop_index=stop_index,
+                low16_stride=low16_stride,
+                pivot_draw_index=pivot.draw_index,
+                other_constraints=other_constraints,
+            )
+
+        pivot_seed_collector = collect_fixed_draw_pivot_seeds
+        pivot_seed_collector_chunk_trials = min(
+            pivot_seed_collector_chunk_trials,
+            1_000_000,
+        )
+        pivot_seed_collector_uses_pivot_major_order = True
     solutions: Iterator[SeedSolution] = iter_constraint_intersection(
         constraints,
         natural_only=request.natural_only,
@@ -1064,6 +1105,9 @@ def iter_effect_seed_candidates(
         max_trials=max_trials,
         pivot_seed_collector=pivot_seed_collector,
         pivot_seed_collector_chunk_trials=pivot_seed_collector_chunk_trials,
+        pivot_seed_collector_uses_pivot_major_order=(
+            pivot_seed_collector_uses_pivot_major_order
+        ),
     )
     grace_slot = grace_mapping.effect_slot if grace_mapping is not None else None
     fixed_draws = tuple((constraint.name, constraint.draw_index) for constraint in constraints)
@@ -1323,6 +1367,7 @@ def collect_effect_seed_page(
     cancelled: CancellationCheck | None = None,
     pivot_seed_collector: PivotSeedCollector | None = None,
     pivot_seed_collector_chunk_trials: int = 1_000_000,
+    prefer_d3d11_fixed_draw: bool = False,
 ) -> EffectSeedPage:
     """Collect a bounded, non-overlapping page from the exact candidate stream."""
 
@@ -1378,6 +1423,7 @@ def collect_effect_seed_page(
         cancelled=cancelled,
         pivot_seed_collector=pivot_seed_collector,
         pivot_seed_collector_chunk_trials=pivot_seed_collector_chunk_trials,
+        prefer_d3d11_fixed_draw=prefer_d3d11_fixed_draw,
     )
     collected: list[EffectSeedCandidate] = []
     for candidate in iterator:

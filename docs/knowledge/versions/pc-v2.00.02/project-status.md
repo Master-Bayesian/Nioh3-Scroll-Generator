@@ -2,7 +2,7 @@
 
 ## Public baseline
 
-This status ships with the v0.6.5 source tag. The GitHub Release is published
+This status ships with the v0.6.6 source tag. The GitHub Release is published
 only after its tag completes the signed Windows release workflow.
 
 ## Completed in the current working tree
@@ -18,7 +18,9 @@ only after its tag completes the signed Windows release workflow.
 | Local header editing | Included in v0.6.5 | Mapped type/playthrough, mirrored level, mirrored recommended level, Seed, mirrored rarity, transfer count, and all seven unrestricted effect slots are written in one backup-gated transaction. Terrain, grouped enemies, and ordered special rules are previewed from Seed plus playthrough. |
 | Player enemy tiers | Included in v0.6.5 | All 142 native display identities are separated into low/middle/high generation-pool columns; the read-only guide lists the ten real group structures and keeps must-contain semantics distinct from a complete composition. |
 | Stable/Beta update selection | Included in v0.6.4 | Stable uses GitHub `releases/latest`; opt-in Beta compares the latest signed prerelease and stable release. |
-| FB-014/015/016 | Included in v0.6.4 | Shinatsuhiko Grace naming, human-readable category errors, and save-wide item-instance-key collision repair have regression coverage. |
+| FB-014/015 | Included in v0.6.4 | Shinatsuhiko Grace naming and human-readable category errors have regression coverage. |
+| FB-016 | Corrected in v0.6.6 | Live testing disproved the earlier `+0x1C` hypothesis and proved a `+0x28` generation-serial collision with an equipment record. New installs allocate against native equipment serials, and affected scrolls are repaired before insertion. |
+| Combined terrain filtering | Included in v0.6.6 | Search accepts multiple required visible terrain effects, preflights the native-row intersection, and preserves both display effects in previews. Runtime editing exposes exact `0x08` Crucible/Foulblooded and `0x2D` Crucible/Fire presets. |
 
 ## Partially complete
 
@@ -26,7 +28,7 @@ only after its tag completes the signed Windows release workflow.
 | --- | --- | --- |
 | AMD optimization | D3D11 compute backend and AMD adapter selection are implemented; an AMD integrated GPU passed local parity | Run correctness, throughput, cancellation, and memory-pressure tests on at least one AMD discrete GPU. Integrated-GPU evidence is not a discrete-GPU performance claim. |
 | Unrestricted auxiliary editing | Included experimentally in v0.6.5; live hook installation/removal passed | Complete application-owned detail/challenge acceptance for terrain and ordered rules. The UI explicitly states that these fields are not saved and will revert. |
-| Search UX/performance | Results stream incrementally, event queues are bounded, structural preflight exists, and native/GPU preimages reduce the domain | v0.6.5 widens the default filter pane and prevents enemy-action clipping. Replace the Tk frontend in v0.7 to address resize, sash-drag, and scroll repaint latency instead of extending the current workaround stack. |
+| Search UX/performance | Results stream incrementally, event queues are bounded, structural preflight exists, complete unrestricted-primary R4 requests use the Pro inverse, and generic fixed-draw construction prefers DirectCompute | Replace the Tk frontend in v0.7 to address resize, sash-drag, and scroll repaint latency instead of extending the current workaround stack. |
 | Special-rule localization | Legal native rows are filtered and most automatic-activation items are localized | Native item key `0x3011` remains unresolved and must stay visibly marked rather than guessed. |
 
 ## Not complete
@@ -65,8 +67,9 @@ practical persistence design rather than pretending the canonical record can
 store illegal auxiliary fields. Product integration still requires a clean
 process-start/process-exit safety test and fail-closed game-version gating.
 
-Version 0.6.5 includes the bounded temporary variant of that design as an
-explicitly experimental feature. It matches one displayed Seed, verifies the exact v2.00.02 hook bytes,
+Version 0.6.6 retains the bounded temporary variant of that design, adds exact
+native combined-terrain presets, and keeps it explicitly experimental. It
+matches one displayed Seed, verifies the exact v2.00.02 hook bytes,
 reuses only native enemy-vector capacity, and can overwrite repeated enemy
 groups, terrain, and three ordered special-rule keys. The application restores
 the original instruction when the user stops the override or closes the app;

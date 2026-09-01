@@ -1007,6 +1007,24 @@ def terrain_row_matches_criteria(
 ) -> bool:
     """Apply only UI-visible terrain constraints to a prefetched native row."""
 
+    actual = terrain_display_effect_keys_for_row(row_index, tables=tables)
+    if not criteria.required_terrain_effect_keys.issubset(actual):
+        return False
+    if any(
+        not group.intersection(actual)
+        for group in criteria.required_terrain_effect_key_groups
+    ):
+        return False
+    return not criteria.terrain_row_indices or row_index in criteria.terrain_row_indices
+
+
+def terrain_display_effect_keys_for_row(
+    row_index: int,
+    *,
+    tables: AuxiliaryGenerationTables | None = None,
+) -> frozenset[int]:
+    """Return every player-visible terrain effect emitted by one native row."""
+
     if tables is None:
         tables = load_default_auxiliary_generation_tables()
     if not 0 <= row_index < tables.terrain.row_count:
@@ -1019,15 +1037,25 @@ def terrain_row_matches_criteria(
     special_key = TERRAIN_DISPLAY_SPECIAL_KEYS.get(value)
     if special_key is not None:
         display_effect_keys.append(special_key)
-    actual = frozenset(display_effect_keys)
-    if not criteria.required_terrain_effect_keys.issubset(actual):
-        return False
-    if any(
-        not group.intersection(actual)
-        for group in criteria.required_terrain_effect_key_groups
-    ):
-        return False
-    return not criteria.terrain_row_indices or row_index in criteria.terrain_row_indices
+    return frozenset(display_effect_keys)
+
+
+def terrain_rows_containing_effects(
+    required_effect_keys: frozenset[int],
+    *,
+    tables: AuxiliaryGenerationTables | None = None,
+) -> tuple[int, ...]:
+    """Return native terrain rows containing all requested display effects."""
+
+    if tables is None:
+        tables = load_default_auxiliary_generation_tables()
+    return tuple(
+        row_index
+        for row_index in range(tables.terrain.row_count)
+        if required_effect_keys.issubset(
+            terrain_display_effect_keys_for_row(row_index, tables=tables)
+        )
+    )
 
 
 @lru_cache(maxsize=1)
@@ -2359,5 +2387,7 @@ __all__ = [
     "legal_special_rule_keys",
     "load_default_auxiliary_generation_tables",
     "load_enemy_parameter_gate_capture",
+    "terrain_display_effect_keys_for_row",
     "terrain_row_matches_criteria",
+    "terrain_rows_containing_effects",
 ]

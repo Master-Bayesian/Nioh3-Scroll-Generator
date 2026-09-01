@@ -5,7 +5,7 @@ import unittest
 
 from emaki_exchange import EFFECT_START, EFFECT_STRIDE, SCROLL_RECORD_SIZE, account_id_from_record
 from nioh3_scroll_editor.auxiliary_generation import AuxiliarySearchCriteria
-from nioh3_seed_math import state_after_draw_from_seed
+from nioh3_seed_math import LCG_INCREMENT, LCG_MULTIPLIER, state_after_draw_from_seed
 from nioh3_scroll_editor.grace_map import load_grace_output_map
 from nioh3_scroll_editor.joint_solver import (
     DrawConstraint,
@@ -209,6 +209,42 @@ class JointSolverTests(unittest.TestCase):
         self.assertNotEqual(resumed.seed, initial.seed)
         self.assertTrue(first.matches(resumed.seed))
         self.assertTrue(second.matches(resumed.seed))
+
+    def test_pivot_major_collector_reports_exact_state_metadata(self) -> None:
+        constraint = DrawConstraint(
+            "first",
+            1,
+            U16Runs.from_ranges(((100, 101),)),
+        )
+        target_state = (100 << 16) | 123
+        target_seed = (
+            (target_state - LCG_INCREMENT)
+            * pow(LCG_MULTIPLIER, -1, 1 << 32)
+        ) & 0xFFFFFFFF
+
+        def collector(
+            values: tuple[int, ...],
+            *,
+            start_index: int,
+            stop_index: int,
+            low16_stride: int,
+        ) -> tuple[tuple[int, int], ...]:
+            del values, start_index, stop_index, low16_stride
+            return ((target_seed, 124),)
+
+        solutions = tuple(
+            iter_constraint_intersection(
+                (constraint,),
+                natural_only=True,
+                start_after_trial=0,
+                max_trials=256,
+                pivot_seed_collector=collector,
+                pivot_seed_collector_uses_pivot_major_order=True,
+            )
+        )
+        self.assertEqual(len(solutions), 1)
+        self.assertEqual(solutions[0].pivot_u16, 100)
+        self.assertEqual(solutions[0].pivot_state_low16, 123)
 
     def test_complete_grace_primary_and_multi_secondary_search(self) -> None:
         first = scan_next_candidate(

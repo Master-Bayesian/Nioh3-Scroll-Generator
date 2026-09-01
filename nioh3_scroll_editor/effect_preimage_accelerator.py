@@ -18,7 +18,14 @@ import sys
 
 from nioh3_seed_math import LCG_INCREMENT, LCG_MULTIPLIER
 
-from .effect_path_inverse import CompiledEffectPlan, U16Run
+from .effect_path_inverse import (
+    CompiledEffectPath,
+    CompiledEffectPlan,
+    FullCompositionRequest,
+    LotteryConstraint,
+    U16Run,
+    lcg_affine_for_draw,
+)
 
 
 ERROR_RESULT = 0xFFFFFFFFFFFFFFFF
@@ -302,6 +309,98 @@ def collect_effect_preimage_matches_d3d11(
     )
 
 
+def collect_fixed_draw_pivot_seeds_d3d11(
+    pivot_values: tuple[int, ...],
+    *,
+    start_index: int,
+    stop_index: int,
+    low16_stride: int,
+    pivot_draw_index: int,
+    other_constraints: tuple[
+        tuple[int, tuple[tuple[int, int], ...]], ...
+    ] = (),
+) -> tuple[tuple[int, int], ...] | None:
+    """Return natural Seeds for one generic fixed-draw family through D3D11.
+
+    The returned one-based cursor uses pivot-value-major order.  It is an
+    opaque product cursor and intentionally differs from the legacy native
+    CPU/CUDA low16-major cursor.
+    """
+
+    del low16_stride
+    if not pivot_values:
+        raise ValueError("fixed-draw pivot values cannot be empty")
+    if any(not 0 <= value <= 0xFFFF for value in pivot_values):
+        raise ValueError("fixed-draw pivot values must fit in uint16")
+    family_size = len(pivot_values) * 0x10000
+    if not 0 <= start_index <= stop_index <= family_size:
+        raise ValueError("invalid fixed-draw pivot range")
+    if stop_index - start_index > 1_000_000:
+        raise ValueError("fixed-draw DirectCompute chunks cannot exceed 1,000,000 trials")
+
+    constraints = tuple(
+        LotteryConstraint(
+            source_slot=0,
+            draw_index=draw_index,
+            effect_id=0,
+            candidate_count=0,
+            total_weight=0,
+            allowed_u16=tuple(U16Run(start, end) for start, end in runs),
+        )
+        for draw_index, runs in other_constraints
+    )
+    if not constraints:
+        constraints = (
+            LotteryConstraint(
+                source_slot=0,
+                draw_index=1,
+                effect_id=0,
+                candidate_count=0,
+                total_weight=0,
+                allowed_u16=(U16Run(0, 0xFFFF),),
+            ),
+        )
+    maximum_draw = max(item.draw_index for item in constraints)
+    if maximum_draw >= 32:
+        raise ValueError("fixed-draw DirectCompute supports draw indexes below 32")
+    multiplier, addend = lcg_affine_for_draw(pivot_draw_index)
+    request = FullCompositionRequest(
+        rarity=3,
+        primary_effect_id=0,
+        secondary_effect_ids=(1, 2, 3),
+        natural_only=True,
+        playthrough=3,
+    )
+    plan = CompiledEffectPlan(
+        request=request,
+        promotion_draw_index=1,
+        promotion_probability_percent=0,
+        shuffle_draw_start=1,
+        slot_limit=4,
+        shared_constraints=(),
+        paths=(
+            CompiledEffectPath(
+                ordered_effect_ids=(),
+                promoted_slot=None,
+                constraints=constraints,
+            ),
+        ),
+        pivot_draw_index=pivot_draw_index,
+        pivot_allowed_u16=tuple(U16Run(value, value) for value in pivot_values),
+        pivot_affine_addend=addend,
+        pivot_inverse_multiplier=pow(multiplier, -1, 1 << 32),
+    )
+    accelerated = collect_effect_preimage_matches_d3d11(
+        plan,
+        start_trial=start_index,
+        stop_trial=stop_index,
+        output_capacity=max(100_000, (stop_index - start_index + 7) // 8),
+    )
+    if accelerated is None:
+        return None
+    return tuple((seed, trial + 1) for seed, trial in accelerated)
+
+
 def last_effect_preimage_backend() -> str:
     return {
         AMD_VENDOR_ID: "d3d11_amd",
@@ -321,6 +420,7 @@ __all__ = [
     "INTEL_VENDOR_ID",
     "NVIDIA_VENDOR_ID",
     "collect_effect_preimage_matches_d3d11",
+    "collect_fixed_draw_pivot_seeds_d3d11",
     "d3d11_effect_adapter_info",
     "d3d11_effect_acceleration_available",
     "last_effect_preimage_backend",

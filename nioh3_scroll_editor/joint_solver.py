@@ -135,6 +135,7 @@ def iter_constraint_intersection(
     use_native_acceleration: bool = True,
     pivot_seed_collector: PivotSeedCollector | None = None,
     pivot_seed_collector_chunk_trials: int = NATIVE_ACCELERATOR_CHUNK_TRIALS,
+    pivot_seed_collector_uses_pivot_major_order: bool = False,
 ) -> Iterator[SeedSolution]:
     """Yield exact intersections with an O(1) resumable pivot cursor.
 
@@ -195,11 +196,16 @@ def iter_constraint_intersection(
                 break
             native_was_available = True
             for seed, pivot_trial in accelerated:
-                flat_index = pivot_trial - 1
-                low_index, bucket_index = divmod(flat_index, len(values))
-                low16 = (low_index * low16_stride) & 0xFFFF
-                rotation = low_index % len(values)
-                u16 = values[(rotation + bucket_index) % len(values)]
+                if pivot_seed_collector_uses_pivot_major_order:
+                    pivot_state = state_after_draw_from_seed(seed, pivot.draw_index)
+                    u16 = pivot_state >> 16
+                    low16 = pivot_state & 0xFFFF
+                else:
+                    flat_index = pivot_trial - 1
+                    low_index, bucket_index = divmod(flat_index, len(values))
+                    low16 = (low_index * low16_stride) & 0xFFFF
+                    rotation = low_index % len(values)
+                    u16 = values[(rotation + bucket_index) % len(values)]
                 if not all(item.matches(seed) for item in others):
                     continue
                 yield SeedSolution(

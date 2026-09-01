@@ -68,8 +68,12 @@ from nioh3_scroll_editor.app import (
 )
 from nioh3_scroll_editor.auxiliary_catalog import load_auxiliary_name_catalog
 from nioh3_scroll_editor.auxiliary_generation import (
+    TERRAIN_DISPLAY_CRUCIBLE_KEY,
+    TERRAIN_DISPLAY_SPECIAL_KEYS,
     generate_complete_auxiliary,
     load_default_auxiliary_generation_tables,
+    terrain_display_effect_keys_for_row,
+    terrain_rows_containing_effects,
 )
 from nioh3_scroll_editor.grace_map import GraceOutputMap, GraceRange, load_grace_output_map
 from nioh3_scroll_editor.native import (
@@ -266,6 +270,30 @@ class BetaEditorTests(unittest.TestCase):
         self.assertIn("污血", label_by_value[0x08])
         self.assertTrue(label_by_value[0xA3].startswith("无地形影响"))
         self.assertIn("原生参数：造成伤害减少", label_by_value[0xA3])
+
+    def test_terrain_effect_filter_supports_native_multi_effect_rows(self) -> None:
+        tables = load_default_auxiliary_generation_tables()
+        foulblood = TERRAIN_DISPLAY_SPECIAL_KEYS[0x08]
+        fire = TERRAIN_DISPLAY_SPECIAL_KEYS[0x2D]
+
+        self.assertEqual(
+            terrain_display_effect_keys_for_row(14, tables=tables),
+            frozenset((TERRAIN_DISPLAY_CRUCIBLE_KEY, foulblood)),
+        )
+        self.assertEqual(
+            terrain_rows_containing_effects(
+                frozenset((TERRAIN_DISPLAY_CRUCIBLE_KEY, foulblood)),
+                tables=tables,
+            ),
+            (14,),
+        )
+        self.assertEqual(
+            terrain_rows_containing_effects(
+                frozenset((fire, foulblood)),
+                tables=tables,
+            ),
+            (),
+        )
 
     def test_enemy_combination_guide_describes_complete_group_structures(self) -> None:
         for structure in (
@@ -2087,7 +2115,7 @@ class BetaEditorTests(unittest.TestCase):
             report = json.loads(result.report_path.read_text(encoding="utf-8"))
             self.assertEqual(report["inventory_key"], 0xA0E2)
 
-    def test_install_repairs_existing_scroll_key_colliding_with_equipment(self) -> None:
+    def test_install_preserves_existing_scroll_key_colliding_with_equipment(self) -> None:
         class FakeCrypto:
             @staticmethod
             def decrypt(source: Path, output: Path) -> None:
@@ -2141,26 +2169,16 @@ class BetaEditorTests(unittest.TestCase):
             inserted_offset = SCROLL_GROUP_OFFSET + 2 * SCROLL_RECORD_SIZE
             self.assertEqual(
                 struct.unpack_from("<I", installed, affected_offset + 0x1C)[0],
-                0xA0E2,
+                0xA0E1,
             )
             self.assertEqual(
                 struct.unpack_from("<I", installed, inserted_offset + 0x1C)[0],
-                0xA0E3,
+                0xA0E2,
             )
             report = json.loads(result.report_path.read_text(encoding="utf-8"))
-            self.assertEqual(
-                report["inventory_key_repairs"],
-                [
-                    {
-                        "slot_index": 1,
-                        "old_inventory_key": 0xA0E1,
-                        "new_inventory_key": 0xA0E2,
-                        "reason": "non_scroll_item_key_collision",
-                    }
-                ],
-            )
+            self.assertEqual(report["inventory_key_repairs"], [])
 
-    def test_install_repairs_existing_duplicate_inventory_keys(self) -> None:
+    def test_install_preserves_existing_duplicate_inventory_keys(self) -> None:
         class FakeCrypto:
             @staticmethod
             def decrypt(source: Path, output: Path) -> None:
@@ -2208,16 +2226,135 @@ class BetaEditorTests(unittest.TestCase):
                 )[0]
                 for slot_index in range(3)
             ]
-            self.assertEqual(keys, [0x8AC9, 0x8ACA, 0x8ACB])
+            self.assertEqual(keys, [0x8AC9, 0x8AC9, 0x8ACA])
+            report = json.loads(result.report_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["inventory_key_repairs"], [])
+
+    def test_install_skips_equipment_generation_serial_collision(self) -> None:
+        class FakeCrypto:
+            @staticmethod
+            def decrypt(source: Path, output: Path) -> None:
+                encrypted = source.read_bytes()
+                if not encrypted.startswith(b"ENC"):
+                    raise AssertionError("expected fake encrypted input")
+                output.write_bytes(encrypted[3:])
+
+            @staticmethod
+            def encrypt(source: Path, output: Path) -> None:
+                output.write_bytes(b"ENC" + source.read_bytes())
+
+        account = TEST_ACCOUNT_ID
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            save_directory = root / str(account) / "SAVEDATA00"
+            save_directory.mkdir(parents=True)
+            save_path = save_directory / "SAVEDATA.BIN"
+            decrypted = bytearray(USER_SAVE_SIZE)
+            decrypted[:6] = b"RNNUSR"
+            template = bytearray(make_record(seed=1, account_id=account))
+            struct.pack_into("<I", template, 0x28, 0x00244071)
+            decrypted[
+                SCROLL_GROUP_OFFSET:SCROLL_GROUP_OFFSET + SCROLL_RECORD_SIZE
+            ] = template
+            external_serial_offset = SCROLL_GROUP_OFFSET - 0x101
+            external_record_offset = external_serial_offset - 0x28
+            struct.pack_into("<H", decrypted, external_record_offset, 0xBA2C)
+            struct.pack_into("<H", decrypted, external_record_offset + 0x02, 0xBA2C)
+            struct.pack_into("<H", decrypted, external_record_offset + 0x04, 1)
+            struct.pack_into("<H", decrypted, external_record_offset + 0x06, 145)
+            struct.pack_into("<H", decrypted, external_record_offset + 0x08, 145)
+            struct.pack_into("<I", decrypted, external_serial_offset, 0x00244072)
+            save_path.write_bytes(b"ENC" + bytes(decrypted))
+
+            installer = SaveInstaller(
+                save_path=save_path,
+                crypto=FakeCrypto(),
+                state_root=root / "state",
+            )
+            result = installer.install(
+                make_record(seed=2, account_id=account),
+                transfer_count=0,
+            )
+
+            installed = save_path.read_bytes()[3:]
+            inserted_offset = SCROLL_GROUP_OFFSET + SCROLL_RECORD_SIZE
+            self.assertEqual(
+                struct.unpack_from("<I", installed, inserted_offset + 0x28)[0],
+                0x00244073,
+            )
+            report = json.loads(result.report_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["generation_serial"], 0x00244073)
+            self.assertEqual(report["generation_serial_repairs"], [])
+
+    def test_install_repairs_existing_equipment_generation_serial_collision(self) -> None:
+        class FakeCrypto:
+            @staticmethod
+            def decrypt(source: Path, output: Path) -> None:
+                encrypted = source.read_bytes()
+                if not encrypted.startswith(b"ENC"):
+                    raise AssertionError("expected fake encrypted input")
+                output.write_bytes(encrypted[3:])
+
+            @staticmethod
+            def encrypt(source: Path, output: Path) -> None:
+                output.write_bytes(b"ENC" + source.read_bytes())
+
+        account = TEST_ACCOUNT_ID
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            save_directory = root / str(account) / "SAVEDATA00"
+            save_directory.mkdir(parents=True)
+            save_path = save_directory / "SAVEDATA.BIN"
+            decrypted = bytearray(USER_SAVE_SIZE)
+            decrypted[:6] = b"RNNUSR"
+            first = bytearray(make_record(seed=1, account_id=account))
+            struct.pack_into("<I", first, 0x28, 0x00244071)
+            affected = bytearray(make_record(seed=180443387, account_id=account))
+            struct.pack_into("<I", affected, 0x28, 0x00244072)
+            decrypted[
+                SCROLL_GROUP_OFFSET:SCROLL_GROUP_OFFSET + SCROLL_RECORD_SIZE
+            ] = first
+            affected_offset = SCROLL_GROUP_OFFSET + SCROLL_RECORD_SIZE
+            decrypted[affected_offset:affected_offset + SCROLL_RECORD_SIZE] = affected
+            external_serial_offset = SCROLL_GROUP_OFFSET - 0x101
+            external_record_offset = external_serial_offset - 0x28
+            struct.pack_into("<H", decrypted, external_record_offset, 0xBA2C)
+            struct.pack_into("<H", decrypted, external_record_offset + 0x02, 0xBA2C)
+            struct.pack_into("<H", decrypted, external_record_offset + 0x04, 1)
+            struct.pack_into("<H", decrypted, external_record_offset + 0x06, 145)
+            struct.pack_into("<H", decrypted, external_record_offset + 0x08, 145)
+            struct.pack_into("<I", decrypted, external_serial_offset, 0x00244072)
+            save_path.write_bytes(b"ENC" + bytes(decrypted))
+
+            installer = SaveInstaller(
+                save_path=save_path,
+                crypto=FakeCrypto(),
+                state_root=root / "state",
+            )
+            result = installer.install(
+                make_record(seed=3, account_id=account),
+                transfer_count=0,
+            )
+
+            installed = save_path.read_bytes()[3:]
+            inserted_offset = SCROLL_GROUP_OFFSET + 2 * SCROLL_RECORD_SIZE
+            self.assertEqual(
+                struct.unpack_from("<I", installed, affected_offset + 0x28)[0],
+                0x00244073,
+            )
+            self.assertEqual(
+                struct.unpack_from("<I", installed, inserted_offset + 0x28)[0],
+                0x00244074,
+            )
             report = json.loads(result.report_path.read_text(encoding="utf-8"))
             self.assertEqual(
-                report["inventory_key_repairs"],
+                report["generation_serial_repairs"],
                 [
                     {
                         "slot_index": 1,
-                        "old_inventory_key": 0x8AC9,
-                        "new_inventory_key": 0x8ACA,
-                        "reason": "duplicate_scroll_key",
+                        "old_generation_serial": 0x00244072,
+                        "new_generation_serial": 0x00244073,
+                        "reason": "non_scroll_item_generation_serial_collision",
                     }
                 ],
             )
