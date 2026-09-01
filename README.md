@@ -12,7 +12,7 @@
 `仁王3绘卷生成器` 是一款面向 PC 版《仁王3》的绘卷生成与本地编辑工具。项目将两类操作明确分开：
 
 - **搜索合法绘卷**：根据绘卷类型、稀有度、主词条、恩宠、地形、敌人和特殊规则联立求解 Seed，再使用离线复现的游戏生成逻辑构造完整绘卷。接收方会按照相同 canonical 字段重新生成，因此这种结果具备正常传播的技术基础。
-- **本地绘卷编辑**：同时查看并自由修改现有绘卷的七个词条槽，包括 ID、数值、prefix、metadata 和 tail，或清空指定物理栏位。允许重复、冲突、主副槽混放、未知 ID、任意 raw 值和不符合原生生成规则的组合；此类修改只供本机使用，通常不会传播。
+- **本地绘卷编辑**：自由修改现有绘卷的 Seed、周目、稀有度、等级、推荐等级、转手次数及七个完整词条槽；也可临时覆盖游戏进程中的敌人、地形和特殊规则。词条与头字段可写入存档，临时辅助覆盖不会保存或传播。
 
 ### 当前功能
 
@@ -22,12 +22,13 @@
 - 在一个全局搜索框中选择最终态逐项可达词条；前 1–3 项可作为“任一命中”的主词条候选，也可不限制主词条，其余项目作为无序必需副词条。
 - 每个普通词条可独立要求任意数值、抽取百分位 ≥80、≥90 或最高 100；特殊规则同样支持任意/精确原生变体。
 - 联立筛选主词条候选、多个无序副词条、可选或不限制恩宠、地形、敌人及多条特殊规则，并在搜索前检查槽位、冲突组和类别容量。
+- 142 个合法敌人名称按低手／中手／高手生成池档位分栏，并保留跨栏全局搜索；内置合法组合一览解释十种原生敌人组结构和“必须包含”的筛选语义。
 - 候选结果边找到边显示且不会抢走当前选择；支持按主词条数值、总抽取百分位或 Seed 排序，并可多选对比。
 - 三周目稀有度 3、4、5 的游戏关闭状态离线生成与精确验证；三种稀有度均保留在正式用户入口，稀有度 5 的传播用途优先级较低，但不会删除其搜索、生成和本地使用能力。
 - 自动发现 Steam 存档，不在界面或报告中写死用户目录。
 - 新增、修改、删除和恢复前自动备份；写档采用源文件哈希门禁、校验和修复、加密回读验证。
 - 自动备份浏览、恢复、移入 Windows 回收站，以及打开备份/存档目录。
-- CUDA 批量预筛 Seed、主词条、地形和完整敌人路径；没有兼容 NVIDIA 环境时自动回退到同一原生实现的 CPU 路径。特殊规则与完整词条仍对幸存候选执行精确重放。
+- 完整词条组合可使用 AMD、NVIDIA 或 Intel 的 Direct3D 11 Compute 预像快路径；CUDA 继续批量预筛 Seed、主词条、地形和完整敌人路径，没有兼容 GPU 时自动回退到原生 CPU。所有路径仍由 CPU 精确重放完整记录。
 - 自动发现游戏 EXE 并验证 PC v2.00.02 文件版本；明确检测到未验证的新游戏版本时拒绝用旧离线数据生成，等待应用更新。
 - 签名自动更新已启用：默认仅接收正式版，用户可主动选择 Beta；两条通道都只接受官方 Ed25519 签名清单，并复核 EXE 的 SHA-256、精确大小和发布版本。
 
@@ -108,7 +109,7 @@ py -3.12 -m PyInstaller --clean --noconfirm packaging\Nioh3ScrollGenerator.spec
 
 The Chinese beta is named `仁王3绘卷生成器`. Its effect selector is derived from captured native final-effect tables for the current playthrough and rarity rather than a hand-maintained list. The first one to three ordered selections can form an OR-set of primary candidates, or the primary can remain unconstrained; later selections are unordered required secondaries. Every selected ordinary effect can require any roll, percentile 80+, percentile 90+, or the exact maximum. The solver preflights slot count, conflict groups, and category capacity before opening a Seed family. It also supports an optional exact Grace filter, multi-select exact-value special rules, direct generation from a supplied Seed, stable streaming previews, sortable and side-by-side candidate comparison, and guarded insertion into the next fully zeroed slot. Save discovery is automatic. The product UI contains no numeric seed-range scan.
 
-The application has two explicit product areas. `搜索合法绘卷` solves or directly generates canonical records from scroll type, rarity, and Seed, so recipient-side regeneration remains consistent. `本地绘卷编辑` exposes all seven physical effect slots as one draft and can directly edit every ID, value, prefix, metadata, and tail field or clear whole records. It intentionally permits duplicate or conflicting effects, primary/secondary role mixing, unknown IDs, arbitrary uint32 values, and combinations unrelated to the canonical Seed or rarity. A catalog choice can synchronize an effect's native ID, group prefix, and category, while every raw field remains manually overridable. Local edits are intentionally marked non-propagating because the exchange protocol does not transmit effect slots. Batch editing and deletion use the same automatic-backup, exact-original, checksum, encryption-roundtrip, and source-hash transaction gates as canonical installation.
+The application has two explicit product areas. `搜索合法绘卷` solves or directly generates canonical records from scroll type, rarity, and Seed, so recipient-side regeneration remains consistent. Its 142 legal enemy identities are separated into Low, Middle, and High native generation-pool tiers with a global cross-tier search and a read-only guide to the ten legal enemy-group structures. `本地绘卷编辑` exposes the canonical Seed/header fields and all seven physical effect slots as one draft and can directly edit every ID, value, prefix, metadata, and tail field or clear whole records. It intentionally permits duplicate or conflicting effects, primary/secondary role mixing, unknown IDs, arbitrary uint32 values, and combinations unrelated to the canonical Seed or rarity. An experimental PC v2.00.02 runtime override can temporarily replace grouped enemies, terrain, and ordered special rules, including deliberately illegal repeated enemies; those auxiliary overrides revert when stopped or regenerated and are never presented as saved or propagating data. Batch editing and deletion use the same automatic-backup, exact-original, checksum, encryption-roundtrip, and source-hash transaction gates as canonical installation.
 
 The local editor also includes an automatic-backup browser. It lists the account, operation reason, file count, and recorded main-save SHA-256; restores always checkpoint the current main, game-backup, and system-save files first. Application-owned backup directories can be moved to the Windows recycle bin, and both the backup and current save directories have explicit open-folder actions.
 

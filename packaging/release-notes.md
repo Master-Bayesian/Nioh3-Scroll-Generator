@@ -1,33 +1,31 @@
-# 仁王3绘卷生成器 v0.6.4
+# 仁王3绘卷生成器 v0.6.5
 
-本正式版修复 v0.6.3 收到的三项主要反馈，并加入可选 Beta 更新通道及新的完整词条组合加速路径。
+本正式版补全本地绘卷编辑与敌人选择界面，并保留 v0.6.4 已实装的效果逆向快路径、结构合法性预检及 AMD/NVIDIA/Intel Direct3D 11 后端。
 
-- FB-014：补全“志那都彦的恩宠”（`0x4192`），现在可在稀有度 4、5 的恩宠候选中正确显示和选择。
-- FB-015：词条类别容量或冲突检查现在会直接列出相关词条名称、ID、原生类别、容量以及至少需要移除的数量。
-- FB-016：新增绘卷不再只检查绘卷栏位内的实例键，而是分配在完整存档中未使用的物品实例键；写入事务也会修复可严格确认的绘卷/装备实例键冲突，避免合法绘卷被游戏索引或显示成装备。
-- 更新通道默认只接收正式版。用户可在标题栏勾选“接收 Beta”，同时比较最新正式版和已签名的 GitHub prerelease；取消后立即恢复正式通道。
-- 带 `-beta.N` 或 `-rc.N` 的版本会作为 GitHub prerelease 发布，稳定版用户不会自动收到；两个通道继续强制校验 Ed25519 签名、文件大小和 SHA-256。
-- 恢复并保留三周目稀有度 3、4、5 的搜索、已知 Seed 生成和写入入口。
-- 加入完整词条组合预像加速路径，在满足完整槽位约束时可通过 Direct3D 11 Compute 在 AMD、NVIDIA 或 Intel 显卡上构造候选，再由 CPU 精确重放完整记录。
-- 保留 CUDA/原生 CPU 回退、流式候选显示、结构合法性预检和完整记录 fail-closed 门禁。
-- 应用标题和教程不再把正式版整体标成 Beta，并同步修正稀有度与更新通道说明。
+- 敌人候选按“低手／中手／高手”三个生成池档位分栏，每栏有独立搜索框，同时保留横向全敌人搜索下拉框。档位只描述原生生成池，不代表实际战斗强弱。
+- 新增“敌人合法组合一览”，明确列出原生十种敌人组结构。选择一名敌人仍表示“成品必须至少包含它”，不会错误承诺成品只有该敌人。
+- 142 个合法敌人显示名全部保留；不在原生绘卷候选表中的名称仍不会进入合法搜索。唯一横跨 role 4/5 的金井半兵卫标为“中／高手”，并同时出现在对应两栏。
+- 本地编辑器现在可在同一备份事务中修改 Seed、周目、稀有度、绘卷等级、推荐等级、转手次数及七个完整词条槽。词条 ID、数值、prefix、metadata 和 tail 仍允许任意 raw 值及非法组合。
+- 本地词条数值旁会显示 uint32 输入范围，并在原生表可解析时显示当前稀有度与等级下的离散 raw 范围；这些提示不会禁止自由输入。
+- 加入实验性的临时敌人／地形／特殊规则覆盖。它只支持 PC v2.00.02、按目标 Seed 命中，允许重复敌人等非法体验组合；覆盖不会写进存档，停止覆盖、关闭软件、重启游戏或游戏重新生成后都会恢复。
+- 临时覆盖会核对精确机器码并限制在原生已分配的敌人组容量内；停止覆盖时恢复原始指令。若游戏版本、签名或运行时结构不匹配，功能会拒绝启用。
+- Pro 完整词条组合预像快路径、Direct3D 11 Compute 跨厂商加速、CUDA/原生 CPU 回退、流式候选显示和完整 CPU 精确重放继续保留。
 
-本版本仍仅认证《仁王3》PC v2.00.02。写档前请让游戏返回标题界面；不需要断开网络。
+本版本仍仅认证《仁王3》PC v2.00.02。写档前请让游戏返回标题界面；不需要断开网络。临时辅助覆盖属于本机运行时功能，不具备传播性。
 
 ---
 
-# Nioh 3 Scroll Generator v0.6.4
+# Nioh 3 Scroll Generator v0.6.5
 
-This stable release fixes the three principal v0.6.3 reports and adds an opt-in Beta update channel plus a new complete-effect preimage accelerator.
+This stable release completes the local editor and enemy-selection workflow while retaining the effect-inversion fast path, structural preflight, and cross-vendor Direct3D 11 backend shipped in v0.6.4.
 
-- FB-014: adds the missing Shinatsuhiko's Grace name (`0x4192`) to the rarity-4 and rarity-5 Grace selectors.
-- FB-015: category-capacity and conflict errors now name every involved effect, its ID and native category, the capacity, and the minimum number of selections to remove.
-- FB-016: newly installed scrolls now receive an item-instance key unused across the complete save, not only the scroll array. Save transactions also repair strictly recognized scroll/equipment key collisions that can make a valid scroll render or index as equipment.
-- Stable updates remain the default. Users may opt into Beta in the header to compare the newest stable Release with signed GitHub prereleases, and can return to stable-only updates at any time.
-- Versions ending in `-beta.N` or `-rc.N` are published as GitHub prereleases and are ignored by stable clients. Both channels still require the Ed25519 signature, exact asset size, and SHA-256.
-- Rarity 3, 4, and 5 search, known-Seed generation, and installation remain available for the third playthrough.
-- A complete-effect preimage path can construct candidates through Direct3D 11 Compute on AMD, NVIDIA, or Intel GPUs when every ordinary effect slot is constrained, followed by exact CPU replay of the complete record.
-- CUDA/native-CPU fallbacks, streamed results, structural legality preflight, and fail-closed final-record gates remain active.
-- Stable builds no longer label the entire application as Beta, and the tutorial now reflects the actual rarity and update-channel behavior.
+- Enemy candidates are separated into Low, Middle, and High generation-pool tiers. Every column has its own search box, and the horizontal all-enemy search combobox remains available. These tiers describe native generation pools, not combat difficulty.
+- A read-only legal-combination guide lists the ten native enemy-group structures and explains that selecting an enemy means “must contain,” not “the finished scroll contains only this enemy.”
+- All 142 legal display identities remain available. Localization-only names without a native scroll-candidate row stay excluded. Kanai Hanbei, the sole role-4/role-5 identity, is marked Middle/High and appears in both columns.
+- The local editor can now change Seed, playthrough, rarity, scroll level, recommended level, transfer count, and all seven complete effect slots in one backup-gated transaction. Effect ID, value, prefix, metadata, and tail fields remain unrestricted.
+- Effect values show the full uint32 input domain and, when the native tables permit it, the discrete raw range for the selected rarity and level. These hints never restrict free editing.
+- An experimental temporary enemy/terrain/special-rule override is included for PC v2.00.02. It matches a target Seed and permits deliberately illegal local layouts such as repeated enemies. It is not saved: stopping the override, closing the application, restarting the game, or native regeneration restores the Seed-derived data.
+- The runtime override verifies exact machine code, stays within native enemy-group capacity, and restores the original instruction when stopped. Unsupported versions, signatures, or runtime layouts fail closed.
+- The Pro complete-composition preimage path, AMD/NVIDIA/Intel Direct3D 11 compute, CUDA/native-CPU fallbacks, streamed candidates, and exact CPU replay remain active.
 
-This release remains certified only for Nioh 3 PC v2.00.02. Return the game to the title screen before a save write; disconnecting from the network is not required.
+This release remains certified only for Nioh 3 PC v2.00.02. Return the game to the title screen before writing a save; disconnecting from the network is not required. Temporary auxiliary overrides are local runtime behavior and do not propagate.

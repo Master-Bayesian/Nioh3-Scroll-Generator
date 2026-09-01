@@ -267,6 +267,18 @@ class ScrollInventoryEntry:
 
 
 @dataclass(frozen=True, slots=True)
+class LocalScrollHeaderFields:
+    """Editable canonical/header fields of one local scroll record."""
+
+    playthrough: int
+    level: int
+    recommended_level: int
+    seed: int
+    rarity: int
+    transfer_count: int
+
+
+@dataclass(frozen=True, slots=True)
 class LocalEffectEdit:
     """Local-only replacement fields for one 0x18-byte effect slot."""
 
@@ -425,6 +437,84 @@ def patch_local_scroll_record(
             field_value = getattr(edit, name)
             if field_value is not None:
                 struct.pack_into("<I", output, base + relative_offset, field_value)
+    return bytes(output)
+
+
+def patch_local_scroll_seed(record: bytes, seed: int) -> bytes:
+    """Replace the canonical displayed Seed in one local scroll record.
+
+    Enemies, terrain, and special rules are not serialized as independent
+    fields in the 0xE8 record. The game derives them from this Seed and the
+    scroll playthrough. Local effect-slot bytes remain untouched so callers
+    may deliberately combine a Seed-derived auxiliary layout with arbitrary
+    local-only effect edits.
+    """
+
+    if len(record) != SCROLL_RECORD_SIZE:
+        raise ValueError("record must be exactly 0xE8 bytes")
+    if not 0 <= seed <= 0xFFFFFFFF:
+        raise ValueError("seed must fit in uint32")
+    output = bytearray(record)
+    struct.pack_into("<I", output, 0x20, seed)
+    return bytes(output)
+
+
+def read_local_scroll_header(record: bytes) -> LocalScrollHeaderFields:
+    """Parse the editable canonical/header fields of one mapped scroll."""
+
+    if len(record) != SCROLL_RECORD_SIZE:
+        raise ValueError("record must be exactly 0xE8 bytes")
+    record_type = struct.unpack_from("<H", record, 0x00)[0]
+    playthrough = TYPE_TO_CATEGORY.get(record_type)
+    if playthrough not in (1, 2, 3, 4, 5):
+        raise ValueError(f"record type 0x{record_type:04X} is not a mapped scroll")
+    return LocalScrollHeaderFields(
+        playthrough=playthrough,
+        level=struct.unpack_from("<H", record, 0x06)[0],
+        recommended_level=struct.unpack_from("<H", record, 0x10)[0],
+        seed=struct.unpack_from("<I", record, 0x20)[0],
+        rarity=record[0x30],
+        transfer_count=struct.unpack_from("<I", record, 0xDC)[0],
+    )
+
+
+def patch_local_scroll_header(
+    record: bytes,
+    *,
+    playthrough: int,
+    level: int,
+    recommended_level: int,
+    seed: int,
+    rarity: int,
+    transfer_count: int,
+) -> bytes:
+    """Patch mapped scroll header fields without regenerating effect slots."""
+
+    if len(record) != SCROLL_RECORD_SIZE:
+        raise ValueError("record must be exactly 0xE8 bytes")
+    if playthrough not in (1, 2, 3, 4, 5):
+        raise ValueError("playthrough must be in 1..5")
+    for name, value, maximum in (
+        ("level", level, 0xFFFF),
+        ("recommended_level", recommended_level, 0xFFFF),
+        ("seed", seed, 0xFFFFFFFF),
+        ("transfer_count", transfer_count, 0xFFFFFFFF),
+    ):
+        if not 0 <= value <= maximum:
+            raise ValueError(f"{name} must be in 0..0x{maximum:X}")
+    if rarity not in (3, 4, 5):
+        raise ValueError("rarity must be 3, 4, or 5")
+
+    output = bytearray(record)
+    struct.pack_into("<H", output, 0x00, CATEGORY_TO_TYPE[playthrough])
+    struct.pack_into("<H", output, 0x06, level)
+    struct.pack_into("<H", output, 0x08, level)
+    struct.pack_into("<H", output, 0x10, recommended_level)
+    struct.pack_into("<H", output, 0x12, recommended_level)
+    struct.pack_into("<I", output, 0x20, seed)
+    output[0x30] = rarity
+    output[0x31] = rarity
+    struct.pack_into("<I", output, 0xDC, transfer_count)
     return bytes(output)
 
 

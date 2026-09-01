@@ -31,6 +31,11 @@ from nioh3_scroll_editor.effect_generation_tables import (
     load_default_effect_generation_tables,
 )
 from nioh3_scroll_editor.app import (
+    ENEMY_COMBINATION_GUIDE_TEXT,
+    ENEMY_TIER_HIGH,
+    ENEMY_TIER_LOW,
+    ENEMY_TIER_MIDDLE,
+    ENEMY_TIER_MIDDLE_HIGH,
     FAQ_TEXT,
     FEATURE_GUIDE_TEXT,
     PRODUCT_RARITIES,
@@ -40,11 +45,15 @@ from nioh3_scroll_editor.app import (
     application_title,
     collect_offline_ng3_search_batch,
     collect_offline_rarity5_search_batch,
+    classify_enemy_roles,
     copy_text_to_clipboard,
+    format_local_auxiliary_preview,
     is_cached_game_closed_effect_context,
     is_game_closed_effect_context,
     legal_enemy_display_groups,
+    local_effect_raw_value_hint,
     partition_grouped_selections,
+    enemy_tier_columns,
     requirement_mode_group_index,
     special_rule_variant_label,
     toggle_rule_filter_option,
@@ -52,6 +61,7 @@ from nioh3_scroll_editor.app import (
 )
 from nioh3_scroll_editor.auxiliary_catalog import load_auxiliary_name_catalog
 from nioh3_scroll_editor.auxiliary_generation import (
+    generate_complete_auxiliary,
     load_default_auxiliary_generation_tables,
 )
 from nioh3_scroll_editor.grace_map import GraceOutputMap, GraceRange, load_grace_output_map
@@ -80,15 +90,24 @@ from nioh3_scroll_editor.savegame import (
     list_backup_entries,
     materialize_effect_sequence_candidate,
     next_generation_serial,
+    patch_local_scroll_header,
     patch_local_scroll_record,
+    patch_local_scroll_seed,
     prepare_candidate_for_install,
     read_local_effect_slots,
+    read_local_scroll_header,
     retarget_local_effect_identity,
 )
 from nioh3_scroll_editor.experiments import (
     CONTEXTUAL_TEST_EFFECT_ID,
     build_contextual_babd_experiment,
     build_existing_contextual_babd_experiment,
+)
+from nioh3_scroll_editor.runtime_auxiliary_override import (
+    DESCRIPTOR_COMPLETE_BYTES,
+    RuntimeAuxiliaryOverrideProfile,
+    build_override_trampoline,
+    build_relative_jump,
 )
 
 
@@ -143,6 +162,38 @@ class BetaEditorTests(unittest.TestCase):
         )
         self.assertEqual(len(groups), 142)
         self.assertTrue(all(keys.issubset(candidate_keys) for keys in groups.values()))
+
+    def test_player_enemy_tiers_match_native_role_families(self) -> None:
+        self.assertEqual(classify_enemy_roles((0, 1, 2, 3)), ENEMY_TIER_LOW)
+        self.assertEqual(classify_enemy_roles((4,)), ENEMY_TIER_MIDDLE)
+        self.assertEqual(classify_enemy_roles((5,)), ENEMY_TIER_HIGH)
+        self.assertEqual(
+            classify_enemy_roles((4, 5)),
+            ENEMY_TIER_MIDDLE_HIGH,
+        )
+        self.assertEqual(
+            enemy_tier_columns(ENEMY_TIER_MIDDLE_HIGH),
+            (ENEMY_TIER_MIDDLE, ENEMY_TIER_HIGH),
+        )
+        with self.assertRaises(ValueError):
+            classify_enemy_roles((1, 4))
+
+    def test_enemy_combination_guide_describes_complete_group_structures(self) -> None:
+        for structure in (
+            "中＋高",
+            "高＋高",
+            "中＋中＋高",
+            "中＋高＋高",
+            "高＋高＋高",
+            "低＋低＋高",
+            "低＋低＋低",
+            "低＋低＋低＋高",
+            "低＋低＋低＋低",
+            "低＋低＋低＋低＋低",
+        ):
+            self.assertIn(structure, ENEMY_COMBINATION_GUIDE_TEXT)
+        self.assertIn("必须至少包含", ENEMY_COMBINATION_GUIDE_TEXT)
+        self.assertIn("不代表实际战斗强弱", ENEMY_COMBINATION_GUIDE_TEXT)
 
     def test_qq_group_copy_uses_non_modal_system_clipboard_path(self) -> None:
         class FakeRoot:
@@ -1324,6 +1375,158 @@ class BetaEditorTests(unittest.TestCase):
         self.assertEqual(struct.unpack_from("<I", replacement, 0x3C)[0], 114514)
         self.assertEqual(struct.unpack_from("<I", replacement, 0x9C)[0], 0xFFFFFFFE)
         self.assertEqual(replacement[:0x34], original[:0x34])
+
+    def test_local_scroll_seed_patch_changes_only_seed_field(self) -> None:
+        original = make_record(seed=101)
+        replacement = patch_local_scroll_seed(original, 0x89ABCDEF)
+        actual_changed = {
+            index
+            for index, (before, after) in enumerate(
+                zip(original, replacement, strict=True)
+            )
+            if before != after
+        }
+
+        self.assertTrue(actual_changed <= set(range(0x20, 0x24)))
+        self.assertEqual(struct.unpack_from("<I", replacement, 0x20)[0], 0x89ABCDEF)
+
+    def test_local_scroll_header_patch_changes_only_exposed_fields(self) -> None:
+        original = make_record(seed=101)
+        replacement = patch_local_scroll_header(
+            original,
+            playthrough=5,
+            level=0x1234,
+            recommended_level=0x5678,
+            seed=0x89ABCDEF,
+            rarity=3,
+            transfer_count=0x10203040,
+        )
+        editable_offsets = (
+            set(range(0x00, 0x02))
+            | set(range(0x06, 0x0A))
+            | set(range(0x10, 0x14))
+            | set(range(0x20, 0x24))
+            | set(range(0x30, 0x32))
+            | set(range(0xDC, 0xE0))
+        )
+        actual_changed = {
+            index
+            for index, (before, after) in enumerate(
+                zip(original, replacement, strict=True)
+            )
+            if before != after
+        }
+        header = read_local_scroll_header(replacement)
+
+        self.assertTrue(actual_changed <= editable_offsets)
+        self.assertEqual(header.playthrough, 5)
+        self.assertEqual(header.level, 0x1234)
+        self.assertEqual(header.recommended_level, 0x5678)
+        self.assertEqual(header.seed, 0x89ABCDEF)
+        self.assertEqual(header.rarity, 3)
+        self.assertEqual(header.transfer_count, 0x10203040)
+        self.assertEqual(struct.unpack_from("<H", replacement, 0x08)[0], 0x1234)
+        self.assertEqual(struct.unpack_from("<H", replacement, 0x12)[0], 0x5678)
+        self.assertEqual(replacement[0x31], 3)
+        self.assertEqual(replacement[0x34:0xDC], original[0x34:0xDC])
+
+    def test_local_scroll_header_patch_rejects_unmapped_rarity_and_type(self) -> None:
+        original = make_record(seed=101)
+        valid = {
+            "playthrough": 3,
+            "level": 180,
+            "recommended_level": 183,
+            "seed": 101,
+            "rarity": 4,
+            "transfer_count": 0,
+        }
+        with self.assertRaisesRegex(ValueError, "playthrough"):
+            patch_local_scroll_header(original, **(valid | {"playthrough": 0}))
+        with self.assertRaisesRegex(ValueError, "rarity"):
+            patch_local_scroll_header(original, **(valid | {"rarity": 2}))
+
+    def test_local_auxiliary_preview_and_raw_value_hint_are_user_readable(self) -> None:
+        auxiliary = generate_complete_auxiliary(203900415, 3)
+        terrain, enemies, rules = format_local_auxiliary_preview(
+            auxiliary,
+            load_auxiliary_name_catalog("zh-CN"),
+        )
+        tables = load_default_effect_generation_tables()
+        native_hint = local_effect_raw_value_hint(
+            tables,
+            effect_id=0x47BC,
+            rarity=4,
+            level=180,
+            current_value=100,
+        )
+        unknown_hint = local_effect_raw_value_hint(
+            tables,
+            effect_id=0xDEADBEEF,
+            rarity=4,
+            level=180,
+        )
+
+        self.assertTrue(terrain.startswith("地形："))
+        self.assertIn("原生行", terrain)
+        self.assertIn("敌人（class ", enemies)
+        self.assertTrue(rules.startswith("特殊规则："))
+        self.assertIn("可输入 raw", native_hint)
+        self.assertIn("原生 raw", native_hint)
+        self.assertIn("没有可验证的原生数值范围", unknown_hint)
+
+    def test_runtime_auxiliary_override_profile_is_explicitly_bounded(self) -> None:
+        profile = RuntimeAuxiliaryOverrideProfile(
+            seed=203900415,
+            enemy_keys=(0x0006DE91, 0x0006DE91, 0x0006DE91),
+            special_rule_keys=(0x6171, 0, 0),
+            terrain_value=0x74,
+        )
+
+        self.assertEqual(len(profile.enemy_keys), 3)
+        with self.assertRaisesRegex(ValueError, "change at least one"):
+            RuntimeAuxiliaryOverrideProfile(seed=203900415)
+        with self.assertRaisesRegex(ValueError, "eight enemy groups"):
+            RuntimeAuxiliaryOverrideProfile(
+                seed=203900415,
+                enemy_keys=(0x0006DE91,) * 9,
+            )
+        with self.assertRaisesRegex(ValueError, "uint16"):
+            RuntimeAuxiliaryOverrideProfile(
+                seed=203900415,
+                special_rule_keys=(0x10000, 0, 0),
+            )
+
+    def test_runtime_auxiliary_trampoline_replays_instruction_and_returns(self) -> None:
+        return_address = 0x00007FF61234567D
+        profile = RuntimeAuxiliaryOverrideProfile(
+            seed=0x0C2745FF,
+            enemy_keys=(0x0006DE91,) * 3,
+            special_rule_keys=(0x6171, 0, 0),
+            terrain_value=0x74,
+        )
+
+        code = build_override_trampoline(profile, return_address=return_address)
+
+        self.assertLess(len(code), 0x1000)
+        self.assertTrue(code.startswith(bytes.fromhex("9C 50 51 52")))
+        self.assertGreaterEqual(code.count(struct.pack("<I", 0x0006DE91)), 3)
+        self.assertIn(struct.pack("<H", 0x6171), code)
+        self.assertTrue(
+            code.endswith(
+                DESCRIPTOR_COMPLETE_BYTES
+                + bytes.fromhex("48 B8")
+                + struct.pack("<Q", return_address)
+                + bytes.fromhex("FF E0")
+            )
+        )
+
+    def test_runtime_auxiliary_hook_uses_one_exact_rel32_instruction(self) -> None:
+        patch = build_relative_jump(0x00007FF600001000, 0x00007FF600101000)
+
+        self.assertEqual(len(patch), len(DESCRIPTOR_COMPLETE_BYTES))
+        self.assertEqual(patch, bytes.fromhex("E9 FB FF 0F 00"))
+        with self.assertRaisesRegex(ValueError, "rel32"):
+            build_relative_jump(0x1000, 0x1_0000_1000)
 
     def test_local_effect_slots_roundtrip_all_raw_fields(self) -> None:
         original = bytearray(make_record(seed=101))

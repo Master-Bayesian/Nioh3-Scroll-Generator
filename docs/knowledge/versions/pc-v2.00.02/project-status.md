@@ -1,8 +1,8 @@
-# Project status — 2026-08-31
+# Project status — 2026-09-01
 
 ## Public baseline
 
-This status ships with the v0.6.4 source tag. The GitHub Release is published
+This status ships with the v0.6.5 source tag. The GitHub Release is published
 only after its tag completes the signed Windows release workflow.
 
 ## Completed in the current working tree
@@ -15,6 +15,8 @@ only after its tag completes the signed Windows release workflow.
 | Vendor-neutral GPU path | Implemented | Direct3D 11 compute supports AMD, NVIDIA, and Intel adapters. |
 | Structural legality | Implemented and documented | Effect slots/conflicts/categories, enemy classes/roles, and special-rule ordering/budgets stop proved-impossible requests before search. |
 | Free local effect editing | Implemented | All seven effect slots accept unrestricted IDs, values, prefix, metadata, and tail fields without Seed or legality checks. |
+| Local header editing | Included in v0.6.5 | Mapped type/playthrough, mirrored level, mirrored recommended level, Seed, mirrored rarity, transfer count, and all seven unrestricted effect slots are written in one backup-gated transaction. Terrain, grouped enemies, and ordered special rules are previewed from Seed plus playthrough. |
+| Player enemy tiers | Included in v0.6.5 | All 142 native display identities are separated into low/middle/high generation-pool columns; the read-only guide lists the ten real group structures and keeps must-contain semantics distinct from a complete composition. |
 | Stable/Beta update selection | Included in v0.6.4 | Stable uses GitHub `releases/latest`; opt-in Beta compares the latest signed prerelease and stable release. |
 | FB-014/015/016 | Included in v0.6.4 | Shinatsuhiko Grace naming, human-readable category errors, and save-wide item-instance-key collision repair have regression coverage. |
 
@@ -22,8 +24,8 @@ only after its tag completes the signed Windows release workflow.
 
 | Area | Present capability | Remaining work |
 | --- | --- | --- |
-| Local scroll editor | Unrestricted effect-slot editing, record selection, backups, restore, and delete | Add direct terrain, enemy, special-rule, level, recommended-level, rarity/type, and other auxiliary/header field editors. These controls are local-only and must not enforce Seed legality. |
 | AMD optimization | D3D11 compute backend and AMD adapter selection are implemented; an AMD integrated GPU passed local parity | Run correctness, throughput, cancellation, and memory-pressure tests on at least one AMD discrete GPU. Integrated-GPU evidence is not a discrete-GPU performance claim. |
+| Unrestricted auxiliary editing | Included experimentally in v0.6.5; live hook installation/removal passed | Complete application-owned detail/challenge acceptance for terrain and ordered rules. The UI explicitly states that these fields are not saved and will revert. |
 | Search UX/performance | Results stream incrementally, event queues are bounded, structural preflight exists, and native/GPU preimages reduce the domain | Re-test low-end-machine responsiveness and the remaining Tk resize/scroll repaint lag with the packaged build. |
 | Special-rule localization | Legal native rows are filtered and most automatic-activation items are localized | Native item key `0x3011` remains unresolved and must stay visibly marked rather than guessed. |
 
@@ -37,21 +39,47 @@ mechanism is separate and still has unresolved candidate-object state and RNG
 semantics. The current product must not promise “N clears later this effect will
 appear.” Resume from the revised reroll freeze only.
 
-### Full local auxiliary editing
-
-The editor does not yet expose direct mutation of terrain, enemies, or special
-rules. This is the largest non-reroll user feature still missing from the prior
-TODO list.
-
 ### AMD discrete-GPU acceptance
 
 The backend is written, but discrete AMD hardware acceptance and performance
 measurement remain outstanding.
 
+### Unrestricted local auxiliary overrides
+
+Enemy groups, terrain, and special rules are constructed into a runtime
+descriptor and are not independent fields in the saved `0xE8` record. The
+current Seed editor only selects another native combination. Deliberately
+impossible layouts, including repeated bosses that violate native class rules,
+require an application-owned override profile and a version-gated runtime hook.
+The verified post-construction boundary is RVA `0x20DD558`, where `RBP` points
+to the completed descriptor and `R12D` still contains the displayed Seed.
+
+The three-Ichimokuren override has now been proved in both the detail UI and an
+actual challenge. A settlement/save experiment then restored the native enemy
+composition as soon as the hook was removed. Native serializer probes captured
+the plaintext inputs for both character and system saves; neither contained a
+direct unencoded auxiliary companion table in the tested dense or fixed-stride
+layouts. Encoded or indirectly indexed persistence remains unexcluded, but the
+current evidence supports an application-owned external override profile as the
+practical persistence design rather than pretending the canonical record can
+store illegal auxiliary fields. Product integration still requires a clean
+process-start/process-exit safety test and fail-closed game-version gating.
+
+Version 0.6.5 includes the bounded temporary variant of that design as an
+explicitly experimental feature. It matches one displayed Seed, verifies the exact v2.00.02 hook bytes,
+reuses only native enemy-vector capacity, and can overwrite repeated enemy
+groups, terrain, and three ordered special-rule keys. The application restores
+the original instruction when the user stops the override or closes the app;
+the retired 4 KiB trampoline remains allocated until game exit to avoid an
+unload race with a thread that already entered it. Live installation and removal
+passed against a running game process. A new application-owned hit still needs
+detail/challenge observation before this feature can be promoted from
+experimental to accepted.
+
 ## Next recommended order
 
-1. Complete unrestricted local auxiliary/header editing and add exact byte-diff
-   regression tests for every exposed field.
+1. Finish live detail/challenge validation of the application-owned temporary
+   auxiliary override, including terrain and ordered special rules.
 2. Validate the D3D11 accelerator on an AMD discrete GPU and tune batch sizes
    only from measured throughput and memory behavior.
 3. Resume challenge-completion reroll research with a clean candidate-object

@@ -12,7 +12,7 @@ import traceback
 import webbrowser
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Callable, Mapping
+from typing import Callable, Iterable, Mapping
 from tkinter import (
     BOTH,
     Canvas,
@@ -33,11 +33,12 @@ from tkinter import (
 )
 from tkinter import ttk
 
-from .auxiliary_catalog import load_auxiliary_name_catalog
+from .auxiliary_catalog import AuxiliaryNameCatalog, load_auxiliary_name_catalog
 from .auxiliary_generation import (
     TERRAIN_DISPLAY_CRUCIBLE_KEY,
     TERRAIN_DISPLAY_SPECIAL_KEYS,
     AuxiliarySearchCriteria,
+    CompleteAuxiliaryResult,
     SpecialRuleEntryResult,
     describe_special_rule,
     generate_complete_auxiliary,
@@ -76,7 +77,10 @@ from .effect_seed_solver import (
     merge_intersection_reports,
     validate_effect_request_feasibility,
 )
-from .effect_generation_tables import load_default_effect_generation_tables
+from .effect_generation_tables import (
+    EffectGenerationTableIndex,
+    load_default_effect_generation_tables,
+)
 from .effect_path_inverse import FullCompositionRequest
 from .effect_preimage_accelerator import (
     d3d11_effect_acceleration_available,
@@ -120,6 +124,10 @@ from .primary_map import (
     save_primary_map,
 )
 from .recommended_level import predict_recommended_level
+from .runtime_auxiliary_override import (
+    RuntimeAuxiliaryOverrideProfile,
+    RuntimeAuxiliaryOverrideSession,
+)
 from .search_event_buffer import MAX_PREVIEW_CANDIDATES, SearchEventBuffer
 from .savegame import (
     BackupEntry,
@@ -133,7 +141,9 @@ from .savegame import (
     discover_save_paths,
     list_backup_entries,
     move_backup_to_recycle_bin,
+    patch_local_scroll_header,
     patch_local_scroll_record,
+    read_local_scroll_header,
     read_local_effect_slots,
     retarget_local_effect_identity,
     save_slot_index_from_path,
@@ -425,6 +435,45 @@ def legal_enemy_display_groups(
         for name, keys in enemy_groups.items()
         if (legal_keys := frozenset(keys).intersection(legal_lookup_keys))
     }
+
+
+ENEMY_TIER_LOW = "low"
+ENEMY_TIER_MIDDLE = "middle"
+ENEMY_TIER_HIGH = "high"
+ENEMY_TIER_MIDDLE_HIGH = "middle_high"
+ENEMY_TIER_LABELS = {
+    ENEMY_TIER_LOW: "低手",
+    ENEMY_TIER_MIDDLE: "中手",
+    ENEMY_TIER_HIGH: "高手",
+    ENEMY_TIER_MIDDLE_HIGH: "中／高手",
+}
+
+
+def classify_enemy_roles(roles: Iterable[int]) -> str:
+    """Translate native role families into player-facing enemy tiers."""
+
+    normalized = frozenset(int(role) for role in roles)
+    if not normalized or any(role < 0 or role > 5 for role in normalized):
+        raise ValueError("enemy roles must be a non-empty subset of 0..5")
+    if normalized.issubset((0, 1, 2, 3)):
+        return ENEMY_TIER_LOW
+    if normalized == frozenset((4,)):
+        return ENEMY_TIER_MIDDLE
+    if normalized == frozenset((5,)):
+        return ENEMY_TIER_HIGH
+    if normalized == frozenset((4, 5)):
+        return ENEMY_TIER_MIDDLE_HIGH
+    raise ValueError(f"enemy display identity spans incompatible roles: {sorted(normalized)}")
+
+
+def enemy_tier_columns(tier: str) -> tuple[str, ...]:
+    """Return picker columns that should expose one player-facing tier."""
+
+    if tier == ENEMY_TIER_MIDDLE_HIGH:
+        return (ENEMY_TIER_MIDDLE, ENEMY_TIER_HIGH)
+    if tier in (ENEMY_TIER_LOW, ENEMY_TIER_MIDDLE, ENEMY_TIER_HIGH):
+        return (tier,)
+    raise ValueError(f"unsupported enemy tier {tier!r}")
 
 
 def special_rule_variant_label(name: str, key: int, value_text: str) -> str:
@@ -809,18 +858,126 @@ def format_special_rule_value(entry: SpecialRuleEntryResult) -> str:
     return ""
 
 
+def format_local_auxiliary_preview(
+    auxiliary: CompleteAuxiliaryResult,
+    names: AuxiliaryNameCatalog,
+) -> tuple[str, str, str]:
+    """Format deterministic auxiliary output for the local editor."""
+
+    terrain_names = [
+        names.terrain_effect_name(key)
+        for key in auxiliary.terrain.display_effect_keys
+    ]
+    terrain = " / ".join(terrain_names) if terrain_names else "无"
+    terrain_text = (
+        f"地形：{terrain}（原生行 {auxiliary.terrain.selected_row_index}）"
+    )
+
+    enemy_groups: list[str] = []
+    for group_index, group in enumerate(auxiliary.enemies.groups, start=1):
+        group_names = " / ".join(
+            names.enemy_name(entry.lookup_key) for entry in group.entries
+        )
+        enemy_groups.append(f"第 {group_index} 组：{group_names or '无'}")
+    enemies_text = (
+        f"敌人（class {auxiliary.mode.branch_class}）："
+        + ("；".join(enemy_groups) if enemy_groups else "无")
+    )
+
+    rules: list[str] = []
+    for entry in auxiliary.special_rules.entries:
+        value_text = format_special_rule_value(entry)
+        rules.append(
+            f"{names.special_rule_name(entry.key)}"
+            + (f" {value_text}" if value_text else "")
+        )
+    rules_text = "特殊规则：" + (" / ".join(rules) if rules else "无")
+    return terrain_text, enemies_text, rules_text
+
+
+def local_effect_raw_value_hint(
+    tables: EffectGenerationTableIndex,
+    *,
+    effect_id: int | None,
+    rarity: int,
+    level: int,
+    current_value: int | None = None,
+) -> str:
+    """Describe the editable uint32 domain and the native value set."""
+
+    input_domain = "可输入 raw：0–4294967295（0xFFFFFFFF）"
+    if effect_id is None:
+        return f"{input_domain}；先选择或输入词条 ID 后显示原生范围。"
+    if effect_id == 0xFFFFFFFF:
+        return f"{input_domain}；当前为空槽。"
+    try:
+        rarity_row = tables.rarity_generation[rarity]
+        values = sorted(
+            {
+                tables.resolved_effect_value(
+                    effect_id,
+                    roll_percent=roll_percent,
+                    level=level,
+                )
+                & 0xFFFFFFFF
+                for roll_percent in range(
+                    rarity_row.minimum_roll_percent,
+                    rarity_row.maximum_roll_percent + 1,
+                )
+            }
+        )
+    except (KeyError, ValueError):
+        return f"{input_domain}；当前 ID 没有可验证的原生数值范围，仍允许自由输入。"
+
+    if len(values) == 1:
+        native = f"原生 raw 固定为 {values[0]}（0x{values[0]:08X}）"
+    else:
+        native = (
+            f"原生 raw 范围 {values[0]}–{values[-1]} "
+            f"（0x{values[0]:08X}–0x{values[-1]:08X}，"
+            f"共 {len(values)} 个离散值）"
+        )
+    native += (
+        f"；抽取百分位 {rarity_row.minimum_roll_percent}–"
+        f"{rarity_row.maximum_roll_percent}"
+    )
+    if current_value is not None:
+        native += "；当前值在原生集合内" if current_value in values else "；当前值超出原生集合"
+    return f"{input_domain}；{native}。"
+
+
 TITLE_SCREEN_ACK_TEXT = "我确认游戏当前位于标题界面"
 TITLE_SCREEN_PROMPT_TEXT = (
     "写入存档前，请先让《仁王3》回到标题界面，避免游戏随后用内存中的旧状态覆盖修改。\n\n"
     "游戏不需要退出，也不需要断开网络。现在已经位于标题界面吗？"
 )
 
+ENEMY_COMBINATION_GUIDE_TEXT = """敌人合法组合一览（PC v2.00.02）
+
+低手、中手、高手只是绘卷生成池档位，不代表实际战斗强弱。例如一目连也属于低手档。
+
+原生合法敌人组结构只有以下十种：
+
+2组：中＋高；高＋高
+3组：中＋中＋高；中＋高＋高；高＋高＋高
+3组：低＋低＋高；低＋低＋低
+4组：低＋低＋低＋高；低＋低＋低＋低
+5组：低＋低＋低＋低＋低
+
+重要说明：
+1. 选择一名敌人表示“成品必须至少包含该敌人”，不是“成品只有该敌人”。
+2. 正常结构中不存在只有一个低手组、一个中手或一个高手的成品。
+3. 一个低手组内部可能包含多个敌人，因此“3个低手组”不等于恰好3名敌人。
+4. 中高手结构必须至少包含一个高手；三个纯中手不合法。
+5. 这里的组合表只说明档位结构。具体名称还受周目、地形、预算、联动组和随机路径限制，最终仍以完整生成验证为准。
+"""
+
 QUICK_START_TEXT = """仁王3绘卷生成器 - 快速上手
 
 搜索合法绘卷
 1. 选择周目和稀有度。
 2. 在“搜索所有词条”中输入名称并添加目标词条。默认第一项是主词条；可把主词条候选数设为 2 或 3（任一命中）。勾选“主词条不限”后，所选普通词条只要出现在主词条或副词条任一位置即可。普通词条可设为“必含”或放进同一个“任一组”；同组命中任意一个即可。拖动或点击上下箭头可换序，点击 × 可删除。
-3. 按需选择恩宠、地形、敌人和特殊规则；敌人也可设为“必含”或“任一组”。列表只提供原生绘卷候选表中真实可生成的敌人名称。稀有度4不限制恩宠时，结果可能保留恩宠，也可能最终没有恩宠。
+3. 按需选择恩宠、地形、敌人和特殊规则；敌人可在全局搜索框查找，也可按低手／中手／高手三栏选择，并设为“必含”或“任一组”。选择敌人只表示成品必须包含它，不会限制其他敌人；点击“合法组合一览”可查看完整档位结构。稀有度4不限制恩宠时，结果可能保留恩宠，也可能最终没有恩宠。
 4. “绘卷等级”是详情页左上角的 Lv.，并参与词条数值计算；PC v2.00.02 的可传播有效上限是 180，它不控制敌人等级。“推荐等级（内部）”会换算成挑战中实际采用的敌人/Boss 等级；数值越低越适合快速刷取，越高越适合挑战。
 5. 点击“计算候选 Seed”。符合条件的结果会边找到边显示。
 6. 选择候选查看完整词条与数值。满意后，在顶部选择正确的 Steam 账户和“游戏存档 1/2/3”栏位，再让游戏回到标题界面、勾选添加按钮左侧的确认框并添加。程序会自动备份。
@@ -829,7 +986,7 @@ QUICK_START_TEXT = """仁王3绘卷生成器 - 快速上手
 填写 Seed、周目和稀有度，再点击“生成并查看该 Seed”。该功能不应用上方筛选条件。
 
 本地绘卷编辑
-用于直接修改已有绘卷。选择一张绘卷后，七个槽的 ID 和数值会同时显示；可用完整目录替换当前槽，也可直接输入任意 raw 字段。允许重复、冲突、未知 ID 和不符合原生生成规则的组合，最后一次性保存全部变化。修改只供本机使用，通常不能传播给其他玩家。
+用于直接修改已有绘卷。选择一张绘卷后，可修改 Seed、周目、稀有度、绘卷等级、推荐等级和转手次数；七个词条槽可完全自由修改并写入存档。敌人、地形与特殊规则可按 Seed 预览，也可临时覆盖当前游戏进程，允许重复敌人等非法体验组合；临时覆盖不会写入存档，停止覆盖或重启游戏后会恢复。
 
 提示
 - “不限制恩宠”表示不把恩宠作为条件；稀有度4结果可能保留恩宠，也可能被完成器替换为普通词条。
@@ -847,7 +1004,7 @@ FEATURE_GUIDE_TEXT = """按功能使用
 一、搜索并添加可以传播的合法绘卷
 1. 选择周目与稀有度。
 2. 在目标组合中搜索词条，双击加入。默认第一项是主词条；主词条候选数可设为 2 或 3，表示任一命中。勾选“主词条不限”后，所有已选普通词条都只要求出现在主词条或副词条任一位置，不会被强制当成副词条。普通词条可设为必含，或把多个可接受结果放入同一个任一组。
-3. 恩宠、地形、敌人和特殊规则都可以单独限制；敌人下方会集中显示已选项，可逐项 × 删除，并可把多个可接受敌人放入同一个任一组。特殊规则直接点击即可添加多条，不需要按 Ctrl。
+3. 恩宠、地形、敌人和特殊规则都可以单独限制；敌人按低手／中手／高手分栏，并提供跨栏全局搜索。敌人下方会集中显示已选项，可逐项 × 删除，并可把多个可接受敌人放入同一个任一组。选择具体敌人只是“必须出现”，不是固定整张绘卷的全部敌人。特殊规则直接点击即可添加多条，不需要按 Ctrl。
 4. 点击“计算候选 Seed”，结果会实时加入候选列表。
 5. 比较词条、数值、敌人和规则。满意后选择正确的游戏存档栏位，让游戏回到标题界面，勾选添加按钮左侧的确认框并写入。
 
@@ -855,7 +1012,7 @@ FEATURE_GUIDE_TEXT = """按功能使用
 填写 Seed、周目和稀有度，点击“生成并查看该 Seed”。这里不会应用目标组合中的筛选条件。
 
 三、直接修改本地绘卷
-切换到“本地绘卷编辑”，读取存档并选择一张绘卷。七个物理槽会同时显示，可逐槽修改 ID 和数值；选中某槽后还能修改 prefix、metadata 和两个 tail。目录选择会同步该词条的 ID、prefix 与类别，手动输入则允许任意 uint32。程序不会阻止重复、冲突、主副槽混放、未知 ID 或其他非法组合，最后点击“一次性保存全部变化”。该功能只供本机自定义；传播后接收方会按 Seed 重新生成。
+切换到“本地绘卷编辑”，读取存档并选择一张绘卷。上方可以修改 Seed、周目、稀有度、绘卷等级、推荐等级和转手次数；修改 Seed 或周目后点击预览即可看到对应地形、分组敌人和有序特殊规则。点击“临时自定义敌人 / 地形 / 特殊规则”可覆盖当前游戏进程，包括重复敌人和其他不合法组合；应用后在游戏中切换绘卷即可生效，但停止覆盖或重启游戏后会恢复。七个物理词条槽仍可逐槽修改 ID、数值、prefix、metadata 和两个 tail，并一次性写入存档。
 
 四、备份与恢复
 每次新增、修改、删除或恢复前，程序都会自动建立备份。可以在本地编辑页查看、恢复、删除备份，或打开备份文件夹；“更改目录”可以指定以后保存备份、缓存和更新下载的位置。
@@ -937,7 +1094,7 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器使用教程
 1. 当前版本提供约束求解，不提供界面上的连续 Seed 扫描。一、二周目必须选择主词条；三周目至少选择一项词条、恩宠或辅助条件。
 2. 指定恩宠时先数学求逆对应的完整 Seed 集合；稀有度4还会逐个重放 finalizer，只接受最终仍保留所选恩宠的记录。数学候选按批构造，并优先使用可用的 DirectCompute/CUDA 原生加速路径；CPU 只对幸存候选精确重放特殊规则与完整词条。所有结果仍会经过权重池、冲突、晋升、重试、数值和规范化验证。
 3. 主词条候选、多个必含副词条、副词条任一组和必含项数值门槛都在完整 Seed 重放结果上检查；不指定时可直接比较返回候选中的实际词条。
-4. 地形、敌人和特殊规则同样由 Seed 离线生成并联合过滤。敌人列表只展示原生绘卷候选表中的合法名称；多个必含敌人是 AND，同一个任一组中的敌人是 OR。结构上不可能共存的组合会在求解前直接报无解。
+4. 地形、敌人和特殊规则同样由 Seed 离线生成并联合过滤。敌人列表只展示原生绘卷候选表中的合法名称，并按低手／中手／高手生成池档位分栏；这些档位不代表战斗强弱。多个必含敌人是 AND，同一个任一组中的敌人是 OR。选择一名敌人只保证至少出现该敌人；“合法组合一览”说明完整敌人组结构。结构上不可能共存的组合会在求解前直接报无解。
 5. “候选数量”决定一次返回多少张可比较绘卷（1–200）。每找到一张就会立即加入预览，不必等整轮完成；进度更新会自动合并，避免较慢电脑因界面消息堆积而失去响应。“单批数学游标数”只是每个计算块的大小，不是总搜索上限。程序会自动继续后续块，直到得到所需数量、完整数学族耗尽或用户取消。
 6. 支持 NVIDIA CUDA 时，数学候选构造会自动使用显卡；没有 CUDA 时回退到原生 CPU。无论使用哪种加速，候选最后都由完整离线生成器精确验证。
 7. 点击“计算候选 Seed”后，每找到一张完整匹配就会立刻加入下方列表；需要更多结果时点击“计算下一批候选”，程序从精确数学游标继续，不会重复以前的候选。
@@ -960,10 +1117,11 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器使用教程
 
 七、本地绘卷编辑
 1. 切换到“本地绘卷编辑”页，读取当前存档后可按物理栏位查看已有绘卷和全部七个词条槽。
-2. 七个槽的 ID 和数值可同时编辑；点击槽按钮后可从完整官方词条目录替换，也可直接输入 raw ID、数值、prefix、metadata 和 tail。目录替换会同步该词条自身的 prefix 与类别，其他原始字段仍可继续手动覆盖。
-3. 这是不受限制的本地修改：允许重复词条、冲突词条、主副槽混放、未知 ID、任意 uint32 数值和不符合当前稀有度/Seed 的组合。程序只检查字段能否写入，不做合法性修正。确认后会在同一个事务中一次保存所有变化。
-4. 本地修改不会改变传播用的 canonical Seed/稀有度；接收方会重新生成，因此不会保留这些本地词条。
-5. 删除绘卷会完整清零选中栏位，不移动或压缩其他栏位。编辑和删除前都会自动备份。
+2. Seed、周目、稀有度、绘卷等级、推荐等级和转手次数都可编辑。敌人、地形和特殊规则不是 0xE8 记录里的独立字段；界面会先显示 Seed 派生的原生结果。
+3. 点击“临时自定义敌人 / 地形 / 特殊规则”可以覆盖当前游戏进程。敌人允许重复，但只能复用该 Seed 已分配的原生组数；应用后在游戏中切换到其他绘卷再切回。临时覆盖不会写入存档，停止覆盖、关闭软件、重启游戏或重新生成后都会恢复。
+4. 七个槽的 ID 和数值可同时编辑；点击槽按钮后可从完整官方词条目录替换，也可直接输入 raw ID、数值、prefix、metadata 和 tail。目录替换会同步该词条自身的 prefix 与类别，其他原始字段仍可继续手动覆盖。数值提示会显示当前词条、稀有度和等级下可验证的原生 raw 集合，但仍允许任意 uint32。
+5. 这是不受限制的本地词条修改：允许重复词条、冲突词条、主副槽混放、未知 ID、任意 uint32 数值和不符合当前稀有度/Seed 的组合。程序只检查字段能否写入，不做合法性修正。确认后会在同一个事务中一次保存所有变化。
+6. 周目、稀有度和 Seed 是传播用 canonical 字段；接收方会按这些字段重新生成，因此不会保留自由修改的词条槽或临时辅助覆盖。删除绘卷会完整清零选中栏位，不移动或压缩其他栏位。编辑和删除前都会自动备份。
 
 八、自动备份管理
 1. 本地编辑页下方会列出本程序创建的备份，包括时间、账户、操作原因和主存档 SHA-256。
@@ -1063,6 +1221,7 @@ class ScrollEditorApp:
         self.selected_rule_text = StringVar(value="要求包含：无（不筛选）")
         self.selected_rule_option_ids: set[str] = set()
         rule_tables = load_default_auxiliary_generation_tables()
+        self.auxiliary_tables = rule_tables
         rule_groups = self.auxiliary_names.special_rule_key_groups(
             allowed_keys=legal_special_rule_keys(3, tables=rule_tables),
         )
@@ -1129,13 +1288,24 @@ class ScrollEditorApp:
                 self.rule_family_by_token[token] = family
         self.visible_rule_tokens: set[str] = set()
         self.enemy_search = StringVar(value="")
+        self.enemy_tier_search = {
+            tier: StringVar(value="")
+            for tier in (
+                ENEMY_TIER_LOW,
+                ENEMY_TIER_MIDDLE,
+                ENEMY_TIER_HIGH,
+            )
+        }
         self.selected_enemy_text = StringVar(value="要求包含：无（不筛选）")
         self.selected_enemy_keys: set[int] = set()
         self.selected_enemy_any_group_by_key: dict[int, int] = {}
         enemy_groups = self.auxiliary_names.enemy_key_groups()
+        candidate_roles_by_key: dict[int, set[int]] = {}
+        for row in rule_tables.enemy_candidates.rows():
+            lookup_key = struct.unpack_from("<I", row, 0x04)[0]
+            candidate_roles_by_key.setdefault(lookup_key, set()).add(row[0x1A])
         legal_enemy_keys = {
-            struct.unpack_from("<I", row, 0x04)[0]
-            for row in rule_tables.enemy_candidates.rows()
+            lookup_key for lookup_key in candidate_roles_by_key
         }
         legal_enemy_groups = legal_enemy_display_groups(
             enemy_groups,
@@ -1147,20 +1317,91 @@ class ScrollEditorApp:
         self.enemy_name_by_key = {
             min(keys): name for name, keys in legal_enemy_groups.items()
         }
-        self.enemy_options = [
-            (
-                min(keys),
-                f"{name} "
-                + (
-                    f"[0x{min(keys):08X}]"
-                    if len(keys) == 1
-                    else f"[{len(keys)} 个原生变体]"
-                ),
+        self.enemy_tier_by_key: dict[int, str] = {}
+        self.enemy_options: list[tuple[int, str]] = []
+        self.enemy_tier_options: dict[str, list[tuple[int, str]]] = {
+            ENEMY_TIER_LOW: [],
+            ENEMY_TIER_MIDDLE: [],
+            ENEMY_TIER_HIGH: [],
+        }
+        for name, keys in legal_enemy_groups.items():
+            display_key = min(keys)
+            roles = {
+                role
+                for lookup_key in keys
+                for role in candidate_roles_by_key[lookup_key]
+            }
+            tier = classify_enemy_roles(roles)
+            self.enemy_tier_by_key[display_key] = tier
+            tier_label = ENEMY_TIER_LABELS[tier]
+            suffix = (
+                f"[0x{display_key:08X}]"
+                if len(keys) == 1
+                else f"[{len(keys)} 个原生变体]"
             )
-            for name, keys in legal_enemy_groups.items()
-        ]
+            option = (display_key, f"[{tier_label}] {name} {suffix}")
+            self.enemy_options.append(option)
+            for column in enemy_tier_columns(tier):
+                self.enemy_tier_options[column].append(option)
         self.enemy_options.sort(key=lambda item: (item[1].casefold(), item[0]))
         self.enemy_visible = list(self.enemy_options)
+        for tier_options in self.enemy_tier_options.values():
+            tier_options.sort(key=lambda item: (item[1].casefold(), item[0]))
+        self.enemy_tier_visible = {
+            tier: list(options)
+            for tier, options in self.enemy_tier_options.items()
+        }
+        self.enemy_key_by_label = {
+            label: key for key, label in self.enemy_options
+        }
+
+        self.runtime_enemy_label_to_key = {
+            f"{self.auxiliary_names.enemy_name(key)} [0x{key:08X}]": key
+            for key in sorted(legal_enemy_keys)
+        }
+        self.runtime_enemy_labels = tuple(
+            sorted(self.runtime_enemy_label_to_key, key=str.casefold)
+        )
+        terrain_label_to_value: dict[str, int] = {}
+        seen_terrain_values: set[int] = set()
+        for row_index, row in enumerate(rule_tables.terrain.rows()):
+            terrain_value = row[0x30]
+            if terrain_value in seen_terrain_values:
+                continue
+            seen_terrain_values.add(terrain_value)
+            terrain_label_to_value[
+                f"{self.auxiliary_names.terrain_name(row_index)} "
+                f"[terrain 0x{terrain_value:02X}]"
+            ] = terrain_value
+        self.runtime_terrain_label_to_value = terrain_label_to_value
+        self.runtime_terrain_labels = tuple(
+            sorted(terrain_label_to_value, key=str.casefold)
+        )
+        runtime_rule_label_to_key = {"无 [0x0000]": 0}
+        if rule_tables.special_rules is not None:
+            for key, row in zip(
+                rule_tables.special_rule_keys_by_row,
+                rule_tables.special_rules.rows(),
+                strict=True,
+            ):
+                if key == 0 or not (row[0x36] & 0x01):
+                    continue
+                detail = describe_special_rule(key, tables=rule_tables)
+                value_text = format_special_rule_value(detail)
+                label = self.auxiliary_names.special_rule_name(key)
+                if value_text:
+                    label += f" {value_text}"
+                runtime_rule_label_to_key[f"{label} [0x{key:04X}]"] = key
+        self.runtime_rule_label_to_key = runtime_rule_label_to_key
+        self.runtime_rule_labels = tuple(
+            sorted(
+                runtime_rule_label_to_key,
+                key=lambda label: (
+                    runtime_rule_label_to_key[label] != 0,
+                    label.casefold(),
+                ),
+            )
+        )
 
         self.save_choices: dict[str, Path] = {}
         self.save_account = StringVar(value="正在自动搜索存档……")
@@ -1226,10 +1467,29 @@ class ScrollEditorApp:
         }
         self.local_effect_search = StringVar(value="")
         self.local_effect_choice = StringVar(value="")
+        self.local_seed = StringVar(value="")
+        self.local_playthrough = StringVar(value=PLAYTHROUGH_LABELS[2])
+        self.local_rarity = StringVar(value="4")
+        self.local_level = StringVar(value="180")
+        self.local_recommended_level = StringVar(value="183")
+        self.local_transfer_count = StringVar(value="0")
+        self.local_auxiliary_status = StringVar(value="尚未选择绘卷。")
+        self.local_auxiliary_terrain = StringVar(value="地形：—")
+        self.local_auxiliary_enemies = StringVar(value="敌人：—")
+        self.local_auxiliary_rules = StringVar(value="特殊规则：—")
+        self.local_runtime_override_status = StringVar(
+            value="临时覆盖：未启用"
+        )
+        self.local_runtime_override_session: (
+            RuntimeAuxiliaryOverrideSession | None
+        ) = None
         self.local_slot_effect_ids = [StringVar(value="") for _ in range(7)]
         self.local_slot_effect_values = [StringVar(value="") for _ in range(7)]
         self.local_slot_effect_names = [StringVar(value="未读取") for _ in range(7)]
         self.local_active_slot_text = StringVar(value="当前槽：未选择")
+        self.local_effect_value_hint = StringVar(
+            value="可输入 raw：0–4294967295（0xFFFFFFFF）"
+        )
         self.local_effect_prefix = StringVar(value="")
         self.local_effect_metadata = StringVar(value="")
         self.local_effect_tail_0 = StringVar(value="")
@@ -1252,6 +1512,7 @@ class ScrollEditorApp:
         self.effect_search.trace_add("write", self._filter_effect_catalog)
         self.local_effect_search.trace_add("write", self._filter_local_effect_catalog)
         self._build_ui()
+        self.root.protocol("WM_DELETE_WINDOW", self._close_application)
         self.receive_beta_updates.trace_add("write", self._on_update_channel_changed)
         startup_trace("user interface built")
         self._update_grace_search_hint()
@@ -2002,32 +2263,96 @@ class ScrollEditorApp:
         enemy_header.pack(fill="x")
         ttk.Label(
             enemy_header,
-            text="出现敌人条件（仅显示合法候选；可设必含或任一组）",
+            text="出现敌人条件（选择表示必须出现；不会限制其他敌人）",
         ).pack(side=LEFT)
         ttk.Button(
             enemy_header,
             text="清空已选敌人",
             command=self._clear_enemy_selection,
         ).pack(side=RIGHT)
-        ttk.Entry(enemy_frame, textvariable=self.enemy_search).pack(fill="x", pady=(4, 2))
-        enemy_list_frame = ttk.Frame(enemy_frame)
-        enemy_list_frame.pack(fill="x")
-        self.enemy_list = Listbox(
-            enemy_list_frame,
-            selectmode="multiple",
-            exportselection=False,
-            height=5,
+        ttk.Button(
+            enemy_header,
+            text="合法组合一览",
+            command=self._show_enemy_combination_guide,
+        ).pack(side=RIGHT, padx=(0, 6))
+        ttk.Label(
+            enemy_frame,
+            text=(
+                "低／中／高是生成池档位，不代表战斗强弱。选择一名敌人只保证"
+                "成品至少包含它；完整结构请查看“合法组合一览”。"
+            ),
+            foreground=self.colors["muted"],
+            wraplength=1040,
+        ).pack(anchor="w", pady=(3, 3))
+
+        global_enemy_search = ttk.Frame(enemy_frame)
+        global_enemy_search.pack(fill="x", pady=(2, 5))
+        ttk.Label(global_enemy_search, text="搜索全部敌人").pack(side=LEFT)
+        self.enemy_global_combo = ttk.Combobox(
+            global_enemy_search,
+            textvariable=self.enemy_search,
+            values=tuple(label for _key, label in self.enemy_visible),
+            state="normal",
         )
-        for _key, label in self.enemy_visible:
-            self.enemy_list.insert(END, label)
-        enemy_scrollbar = ttk.Scrollbar(
-            enemy_list_frame, orient="vertical", command=self.enemy_list.yview
+        self.enemy_global_combo.pack(side=LEFT, fill="x", expand=True, padx=(8, 0))
+        self.enemy_global_combo.bind(
+            "<<ComboboxSelected>>",
+            self._add_enemy_from_global_search,
         )
-        self.enemy_list.configure(yscrollcommand=enemy_scrollbar.set)
-        self.enemy_list.pack(side=LEFT, fill="x", expand=True)
-        enemy_scrollbar.pack(side=RIGHT, fill="y")
-        self.enemy_list.bind("<<ListboxSelect>>", self._on_enemy_select)
+        self.enemy_global_combo.bind(
+            "<Return>",
+            self._add_enemy_from_global_search,
+        )
         self.enemy_search.trace_add("write", self._filter_enemies)
+
+        tier_columns = ttk.Frame(enemy_frame)
+        tier_columns.pack(fill="x")
+        self.enemy_lists: dict[str, Listbox] = {}
+        for column_index, tier in enumerate(
+            (ENEMY_TIER_LOW, ENEMY_TIER_MIDDLE, ENEMY_TIER_HIGH)
+        ):
+            column = ttk.LabelFrame(
+                tier_columns,
+                text=f"{ENEMY_TIER_LABELS[tier]}候选",
+                padding=5,
+            )
+            column.grid(row=0, column=column_index, sticky="nsew", padx=2)
+            tier_columns.columnconfigure(column_index, weight=1, uniform="enemy-tier")
+            ttk.Entry(
+                column,
+                textvariable=self.enemy_tier_search[tier],
+            ).pack(fill="x", pady=(0, 3))
+            list_frame = ttk.Frame(column)
+            list_frame.pack(fill="x")
+            enemy_list = Listbox(
+                list_frame,
+                selectmode="browse",
+                exportselection=False,
+                height=7,
+            )
+            for _key, label in self.enemy_tier_visible[tier]:
+                enemy_list.insert(END, label)
+            scrollbar = ttk.Scrollbar(
+                list_frame,
+                orient="vertical",
+                command=enemy_list.yview,
+            )
+            enemy_list.configure(yscrollcommand=scrollbar.set)
+            enemy_list.pack(side=LEFT, fill="x", expand=True)
+            scrollbar.pack(side=RIGHT, fill="y")
+            enemy_list.bind(
+                "<<ListboxSelect>>",
+                lambda _event, selected_tier=tier: (
+                    self._add_enemy_from_tier(selected_tier)
+                ),
+            )
+            self.enemy_lists[tier] = enemy_list
+            self.enemy_tier_search[tier].trace_add(
+                "write",
+                lambda *_args, selected_tier=tier: (
+                    self._filter_enemy_tier(selected_tier)
+                ),
+            )
         ttk.Label(enemy_frame, textvariable=self.selected_enemy_text).pack(anchor="w")
         self.selected_enemy_chips = ttk.Frame(enemy_frame)
         self.selected_enemy_chips.pack(fill="x", pady=(3, 0))
@@ -2399,6 +2724,9 @@ class ScrollEditorApp:
         ):
             self.status.set(f"版本 {downloaded.manifest.version} 已下载，等待安装。")
             return
+        if not self._stop_local_runtime_override():
+            self.status.set("临时绘卷覆盖尚未安全移除，已取消本次自动重启。")
+            return
         launch_managed_update(
             script,
             downloaded,
@@ -2421,9 +2749,9 @@ class ScrollEditorApp:
         ttk.Label(
             warning,
             text=(
-                "这里是完全自由的本地词条修改器：不会检查组合是否合法，也不会按 Seed "
-                "重新生成。修改结果可在本机使用，但传播时接收方会根据稀有度和 Seed "
-                "重新生成，不会保留这些改动。"
+                "记录头和七个词条槽会写入存档；敌人、地形和特殊规则只能临时覆盖"
+                "游戏当前进程。临时覆盖不会写进存档：停止覆盖、重启游戏或游戏再次"
+                "按 Seed 生成后，这些内容会恢复。传播给其他玩家也不会保留。"
             ),
             foreground="#FF8585",
             wraplength=1080,
@@ -2459,7 +2787,11 @@ class ScrollEditorApp:
         panes = ttk.Panedwindow(outer, orient="horizontal")
         panes.pack(fill=BOTH, expand=True)
         inventory_frame = ttk.LabelFrame(panes, text="当前存档绘卷", padding=8)
-        editor_frame = ttk.LabelFrame(panes, text="七槽自由修改", padding=8)
+        editor_frame = ttk.LabelFrame(
+            panes,
+            text="记录头字段 + 七槽自由修改",
+            padding=8,
+        )
         panes.add(inventory_frame, weight=2)
         panes.add(editor_frame, weight=5)
 
@@ -2517,13 +2849,132 @@ class ScrollEditorApp:
         ttk.Label(
             editor_frame,
             text=(
-                "七个物理槽都可直接修改；允许重复词条、冲突词条、主副槽混放、"
-                "未知 ID 和任意 uint32 数值。这里只检查字段格式，不检查 Seed、"
-                "稀有度、恩宠或原生生成合法性。"
+                "敌人、特殊规则和地形不在 0xE8 记录中单独保存，而是由 Seed 与周目"
+                "生成。下方可以对当前游戏进程临时覆盖它们，包括三个一目连等非法"
+                "组合；覆盖不会保存，停止、重启或重新生成后会恢复。七个物理效果槽"
+                "仍可任意修改并写入存档。"
             ),
             foreground="#FFB35C",
             wraplength=1040,
         ).pack(anchor="w", pady=(0, 6))
+
+        auxiliary_frame = ttk.LabelFrame(
+            editor_frame,
+            text="辅助内容：原生预览与临时运行时覆盖",
+            padding=7,
+        )
+        auxiliary_frame.pack(fill="x", pady=(0, 8))
+        auxiliary_controls = ttk.Frame(auxiliary_frame)
+        auxiliary_controls.pack(fill="x")
+        ttk.Label(auxiliary_controls, text="Seed", width=7).pack(side=LEFT)
+        local_seed_entry = ttk.Entry(
+            auxiliary_controls,
+            textvariable=self.local_seed,
+            width=18,
+        )
+        local_seed_entry.pack(side=LEFT, padx=(0, 6))
+        local_seed_entry.bind(
+            "<Return>",
+            lambda _event: self._refresh_local_auxiliary_preview(),
+        )
+        ttk.Button(
+            auxiliary_controls,
+            text="按此 Seed 预览",
+            command=self._refresh_local_auxiliary_preview,
+            style="Compact.TButton",
+        ).pack(side=LEFT)
+        ttk.Button(
+            auxiliary_controls,
+            text="导入搜索页选中候选的 Seed",
+            command=self._import_selected_candidate_seed,
+            style="Compact.TButton",
+        ).pack(side=LEFT, padx=(6, 0))
+        ttk.Label(
+            auxiliary_controls,
+            textvariable=self.local_auxiliary_status,
+            foreground=self.colors["muted"],
+        ).pack(side=LEFT, padx=(10, 0))
+
+        header_controls = ttk.Frame(auxiliary_frame)
+        header_controls.pack(fill="x", pady=(6, 0))
+        ttk.Label(header_controls, text="周目", width=7).pack(side=LEFT)
+        local_playthrough_combo = ttk.Combobox(
+            header_controls,
+            textvariable=self.local_playthrough,
+            state="readonly",
+            values=PLAYTHROUGH_LABELS,
+            width=24,
+        )
+        local_playthrough_combo.pack(side=LEFT, padx=(0, 8))
+        local_playthrough_combo.bind(
+            "<<ComboboxSelected>>",
+            lambda _event: self._refresh_local_auxiliary_preview(),
+        )
+        ttk.Label(header_controls, text="稀有度").pack(side=LEFT)
+        local_rarity_combo = ttk.Combobox(
+            header_controls,
+            textvariable=self.local_rarity,
+            state="readonly",
+            values=tuple(str(value) for value in PRODUCT_RARITIES),
+            width=5,
+        )
+        local_rarity_combo.pack(side=LEFT, padx=(4, 8))
+        local_rarity_combo.bind(
+            "<<ComboboxSelected>>",
+            lambda _event: self._refresh_local_effect_value_hint(),
+        )
+        for label, variable, width in (
+            ("绘卷等级", self.local_level, 8),
+            ("推荐等级", self.local_recommended_level, 8),
+            ("转手次数", self.local_transfer_count, 10),
+        ):
+            ttk.Label(header_controls, text=label).pack(side=LEFT)
+            entry_widget = ttk.Entry(
+                header_controls,
+                textvariable=variable,
+                width=width,
+            )
+            entry_widget.pack(side=LEFT, padx=(4, 8))
+            if variable is self.local_level:
+                entry_widget.bind(
+                    "<FocusOut>",
+                    lambda _event: self._refresh_local_effect_value_hint(),
+                )
+                entry_widget.bind(
+                    "<Return>",
+                    lambda _event: self._refresh_local_effect_value_hint(),
+                )
+        for variable in (
+            self.local_auxiliary_terrain,
+            self.local_auxiliary_enemies,
+            self.local_auxiliary_rules,
+        ):
+            ttk.Label(
+                auxiliary_frame,
+                textvariable=variable,
+                wraplength=1020,
+            ).pack(anchor="w", pady=(4, 0))
+
+        runtime_row = ttk.Frame(auxiliary_frame)
+        runtime_row.pack(fill="x", pady=(7, 0))
+        ttk.Button(
+            runtime_row,
+            text="临时自定义敌人 / 地形 / 特殊规则",
+            command=self._open_runtime_auxiliary_override_dialog,
+            style="Accent.TButton",
+        ).pack(side=LEFT)
+        ttk.Button(
+            runtime_row,
+            text="停止临时覆盖",
+            command=self._stop_local_runtime_override,
+            style="Compact.TButton",
+        ).pack(side=LEFT, padx=(7, 0))
+        ttk.Label(
+            runtime_row,
+            textvariable=self.local_runtime_override_status,
+            foreground="#FF8585",
+            wraplength=650,
+        ).pack(side=LEFT, padx=(10, 0))
 
         draft_header = ttk.Frame(editor_frame)
         draft_header.pack(fill="x")
@@ -2564,11 +3015,24 @@ class ScrollEditorApp:
                 "<Return>",
                 lambda _event, index=slot_index: self._refresh_local_draft_name(index),
             )
-            ttk.Entry(
+            value_entry = ttk.Entry(
                 row,
                 textvariable=self.local_slot_effect_values[slot_index],
                 width=14,
-            ).pack(side=LEFT, padx=(4, 0))
+            )
+            value_entry.pack(side=LEFT, padx=(4, 0))
+            value_entry.bind(
+                "<FocusOut>",
+                lambda _event, index=slot_index: self._refresh_local_effect_value_hint(
+                    index
+                ),
+            )
+            value_entry.bind(
+                "<Return>",
+                lambda _event, index=slot_index: self._refresh_local_effect_value_hint(
+                    index
+                ),
+            )
             ttk.Button(
                 row,
                 text="清空槽",
@@ -2606,6 +3070,12 @@ class ScrollEditorApp:
             "<<ComboboxSelected>>",
             self._choose_local_effect,
         )
+        ttk.Label(
+            catalog_frame,
+            textvariable=self.local_effect_value_hint,
+            foreground=self.colors["green"],
+            wraplength=1020,
+        ).pack(anchor="w", pady=(5, 0))
 
         advanced_frame = ttk.LabelFrame(editor_frame, text="当前槽高级原始字段", padding=7)
         advanced_frame.pack(fill="x", pady=(8, 0))
@@ -2919,6 +3389,483 @@ class ScrollEditorApp:
             raise ValueError(f"{field_name}必须在 0 到 0xFFFFFFFF 之间")
         return parsed
 
+    @staticmethod
+    def _parse_local_u16(value: str, field_name: str) -> int:
+        parsed = ScrollEditorApp._parse_local_u32(value, field_name)
+        if parsed > 0xFFFF:
+            raise ValueError(f"{field_name}必须在 0 到 65535 之间")
+        return parsed
+
+    def _refresh_local_auxiliary_preview(self) -> None:
+        try:
+            seed = self._parse_local_u32(self.local_seed.get(), "Seed")
+            playthrough = PLAYTHROUGH_BY_LABEL[self.local_playthrough.get()]
+            auxiliary = generate_complete_auxiliary(seed, playthrough)
+            terrain, enemies, rules = format_local_auxiliary_preview(
+                auxiliary,
+                self.auxiliary_names,
+            )
+        except Exception as error:
+            self.local_auxiliary_status.set(f"无法预览：{error}")
+            self.local_auxiliary_terrain.set("地形：—")
+            self.local_auxiliary_enemies.set("敌人：—")
+            self.local_auxiliary_rules.set("特殊规则：—")
+            return
+        self.local_auxiliary_terrain.set(terrain)
+        self.local_auxiliary_enemies.set(enemies)
+        self.local_auxiliary_rules.set(rules)
+        self.local_auxiliary_status.set(
+            f"Seed {seed} / {playthrough_label(playthrough)}；尚未写入"
+        )
+
+    @staticmethod
+    def _label_for_runtime_value(
+        values_by_label: Mapping[str, int],
+        value: int,
+    ) -> str:
+        return next(
+            (
+                label
+                for label, candidate in values_by_label.items()
+                if candidate == value
+            ),
+            "",
+        )
+
+    @staticmethod
+    def _resolve_runtime_value(
+        values_by_label: Mapping[str, int],
+        text: str,
+        field_name: str,
+    ) -> int:
+        if text in values_by_label:
+            return values_by_label[text]
+        normalized = text.strip().casefold()
+        matches = [
+            value
+            for label, value in values_by_label.items()
+            if normalized and normalized in label.casefold()
+        ]
+        if len(matches) == 1:
+            return matches[0]
+        if not matches:
+            raise ValueError(f"{field_name}没有匹配到候选项")
+        raise ValueError(f"{field_name}匹配到多个候选，请从下拉列表选择具体项")
+
+    def _open_runtime_auxiliary_override_dialog(self) -> None:
+        entry = self.local_draft_entry
+        if entry is None:
+            messagebox.showerror("未选择绘卷", "请先读取并选择一张绘卷")
+            return
+        stored_header = read_local_scroll_header(entry.record)
+        try:
+            draft_seed = self._parse_local_u32(self.local_seed.get(), "Seed")
+        except Exception as error:
+            messagebox.showerror("Seed 无效", str(error))
+            return
+        if draft_seed != stored_header.seed:
+            messagebox.showerror(
+                "Seed 尚未保存",
+                "临时覆盖按游戏当前读取到的 Seed 命中。请先保存 Seed 修改，"
+                "让游戏重新读取存档，再重新读取本页绘卷。",
+            )
+            return
+        try:
+            auxiliary = generate_complete_auxiliary(
+                stored_header.seed,
+                stored_header.playthrough,
+            )
+        except Exception as error:
+            messagebox.showerror("无法生成原生辅助内容", str(error))
+            return
+        native_groups = auxiliary.enemies.groups
+        maximum_groups = min(len(native_groups), 8)
+        if maximum_groups == 0:
+            messagebox.showerror(
+                "没有可复用敌人组",
+                "该 Seed 没有生成可安全复用的敌人组，无法临时覆盖敌人。",
+            )
+            return
+
+        active_profile = (
+            self.local_runtime_override_session.profile
+            if self.local_runtime_override_session is not None
+            and self.local_runtime_override_session.active
+            and self.local_runtime_override_session.profile.seed == stored_header.seed
+            else None
+        )
+
+        dialog = Toplevel(self.root)
+        dialog.title("临时自定义绘卷体验")
+        dialog.geometry("900x760")
+        dialog.minsize(760, 620)
+        dialog.transient(self.root)
+
+        outer = ttk.Frame(dialog, padding=14)
+        outer.pack(fill=BOTH, expand=True)
+
+        def searchable_combobox(
+            parent: ttk.Frame,
+            variable: StringVar,
+            values: tuple[str, ...],
+        ) -> ttk.Combobox:
+            combo = ttk.Combobox(
+                parent,
+                textvariable=variable,
+                values=values,
+                state="normal",
+            )
+
+            def filter_values(event: object) -> None:
+                keysym = str(getattr(event, "keysym", ""))
+                if keysym in {
+                    "Up",
+                    "Down",
+                    "Left",
+                    "Right",
+                    "Return",
+                    "Escape",
+                    "Tab",
+                }:
+                    return
+                query = variable.get().strip().casefold()
+                combo.configure(
+                    values=(
+                        tuple(value for value in values if query in value.casefold())
+                        if query
+                        else values
+                    )
+                )
+
+            combo.bind("<KeyRelease>", filter_values)
+            return combo
+        ttk.Label(
+            outer,
+            text=(
+                "这是游戏内存中的临时覆盖，不会写入存档。停止覆盖、关闭软件、"
+                "重启游戏，或让游戏再次按 Seed 生成后，敌人、地形和特殊规则都会"
+                "恢复。相同 Seed 的其他绘卷也可能同时命中。"
+            ),
+            foreground="#FF8585",
+            wraplength=850,
+        ).pack(anchor="w", pady=(0, 8))
+        ttk.Label(
+            outer,
+            text=(
+                f"目标 Seed：{stored_header.seed}　周目："
+                f"{playthrough_label(stored_header.playthrough)}　"
+                f"原生敌人组容量：{maximum_groups}"
+            ),
+            foreground=self.colors["gold"],
+        ).pack(anchor="w", pady=(0, 8))
+
+        enemy_enabled = BooleanVar(value=True)
+        terrain_enabled = BooleanVar(value=True)
+        rule_enabled = BooleanVar(value=True)
+        if active_profile is not None:
+            enemy_enabled.set(bool(active_profile.enemy_keys))
+            terrain_enabled.set(active_profile.terrain_value is not None)
+            rule_enabled.set(active_profile.special_rule_keys is not None)
+
+        enemy_frame = ttk.LabelFrame(
+            outer,
+            text="敌人组（允许重复；每组使用一个敌人）",
+            padding=8,
+        )
+        enemy_frame.pack(fill="x", pady=(0, 8))
+        enemy_top = ttk.Frame(enemy_frame)
+        enemy_top.pack(fill="x")
+        ttk.Checkbutton(
+            enemy_top,
+            text="覆盖敌人",
+            variable=enemy_enabled,
+        ).pack(side=LEFT)
+        ttk.Label(enemy_top, text="使用组数：").pack(side=LEFT, padx=(14, 4))
+        initial_enemy_keys = (
+            active_profile.enemy_keys
+            if active_profile is not None and active_profile.enemy_keys
+            else tuple(group.entries[0].lookup_key for group in native_groups)
+        )
+        group_count = StringVar(
+            value=str(min(max(1, len(initial_enemy_keys)), maximum_groups))
+        )
+        ttk.Spinbox(
+            enemy_top,
+            from_=1,
+            to=maximum_groups,
+            textvariable=group_count,
+            width=5,
+        ).pack(side=LEFT)
+        ttk.Label(
+            enemy_top,
+            text="不能超过该 Seed 已分配的原生组数；下拉框可直接输入关键词",
+            foreground=self.colors["muted"],
+        ).pack(side=LEFT, padx=(10, 0))
+
+        enemy_choices: list[StringVar] = []
+        fallback_enemy_label = self.runtime_enemy_labels[0]
+        for group_index in range(maximum_groups):
+            if group_index < len(initial_enemy_keys):
+                enemy_key = initial_enemy_keys[group_index]
+            else:
+                enemy_key = native_groups[group_index].entries[0].lookup_key
+            selected_label = self._label_for_runtime_value(
+                self.runtime_enemy_label_to_key,
+                enemy_key,
+            ) or fallback_enemy_label
+            variable = StringVar(value=selected_label)
+            enemy_choices.append(variable)
+            row = ttk.Frame(enemy_frame)
+            row.pack(fill="x", pady=(4, 0))
+            ttk.Label(row, text=f"第 {group_index + 1} 组", width=9).pack(side=LEFT)
+            searchable_combobox(
+                row,
+                variable,
+                self.runtime_enemy_labels,
+            ).pack(side=LEFT, fill="x", expand=True)
+
+        terrain_frame = ttk.LabelFrame(outer, text="地形", padding=8)
+        terrain_frame.pack(fill="x", pady=(0, 8))
+        ttk.Checkbutton(
+            terrain_frame,
+            text="覆盖地形",
+            variable=terrain_enabled,
+        ).pack(side=LEFT)
+        terrain_value = (
+            active_profile.terrain_value
+            if active_profile is not None and active_profile.terrain_value is not None
+            else auxiliary.terrain.value
+        )
+        terrain_choice = StringVar(
+            value=self._label_for_runtime_value(
+                self.runtime_terrain_label_to_value,
+                terrain_value,
+            )
+            or self.runtime_terrain_labels[0]
+        )
+        searchable_combobox(
+            terrain_frame,
+            terrain_choice,
+            self.runtime_terrain_labels,
+        ).pack(side=LEFT, fill="x", expand=True, padx=(10, 0))
+
+        rule_frame = ttk.LabelFrame(outer, text="三个有序特殊规则槽", padding=8)
+        rule_frame.pack(fill="x", pady=(0, 8))
+        ttk.Checkbutton(
+            rule_frame,
+            text="覆盖特殊规则",
+            variable=rule_enabled,
+        ).pack(anchor="w")
+        initial_rule_keys = (
+            active_profile.special_rule_keys
+            if active_profile is not None
+            and active_profile.special_rule_keys is not None
+            else auxiliary.special_rules.keys
+        )
+        rule_choices: list[StringVar] = []
+        for rule_index, rule_key in enumerate(initial_rule_keys):
+            selected_label = self._label_for_runtime_value(
+                self.runtime_rule_label_to_key,
+                rule_key,
+            ) or "无 [0x0000]"
+            variable = StringVar(value=selected_label)
+            rule_choices.append(variable)
+            row = ttk.Frame(rule_frame)
+            row.pack(fill="x", pady=(4, 0))
+            ttk.Label(row, text=f"槽 {rule_index + 1}", width=9).pack(side=LEFT)
+            searchable_combobox(
+                row,
+                variable,
+                self.runtime_rule_labels,
+            ).pack(side=LEFT, fill="x", expand=True)
+
+        ttk.Label(
+            outer,
+            text=(
+                "应用后请在游戏里切换到另一张绘卷，再切回目标绘卷；进入挑战时同一"
+                "覆盖会再次命中。软件关闭时会先尝试安全移除 Hook。"
+            ),
+            foreground="#FFB35C",
+            wraplength=850,
+        ).pack(anchor="w", pady=(0, 8))
+
+        def apply_profile() -> None:
+            try:
+                enemy_keys: tuple[int, ...] = ()
+                if enemy_enabled.get():
+                    requested_groups = int(group_count.get(), 10)
+                    if not 1 <= requested_groups <= maximum_groups:
+                        raise ValueError(
+                            f"敌人组数必须在 1 到 {maximum_groups} 之间"
+                        )
+                    enemy_keys = tuple(
+                        self._resolve_runtime_value(
+                            self.runtime_enemy_label_to_key,
+                            choice.get(),
+                            f"第 {group_index + 1} 组敌人",
+                        )
+                        for group_index, choice in enumerate(
+                            enemy_choices[:requested_groups]
+                        )
+                    )
+                special_rule_keys = (
+                    tuple(
+                        self._resolve_runtime_value(
+                            self.runtime_rule_label_to_key,
+                            choice.get(),
+                            f"特殊规则槽 {rule_index + 1}",
+                        )
+                        for rule_index, choice in enumerate(rule_choices)
+                    )
+                    if rule_enabled.get()
+                    else None
+                )
+                terrain_override = (
+                    self._resolve_runtime_value(
+                        self.runtime_terrain_label_to_value,
+                        terrain_choice.get(),
+                        "地形",
+                    )
+                    if terrain_enabled.get()
+                    else None
+                )
+                profile = RuntimeAuxiliaryOverrideProfile(
+                    seed=stored_header.seed,
+                    enemy_keys=enemy_keys,
+                    special_rule_keys=special_rule_keys,
+                    terrain_value=terrain_override,
+                )
+                if not self._stop_local_runtime_override(show_error=False):
+                    raise RuntimeError("无法安全停止上一项临时覆盖")
+                session = RuntimeAuxiliaryOverrideSession(profile)
+                session.start()
+            except Exception as error:
+                messagebox.showerror("无法应用临时覆盖", str(error), parent=dialog)
+                return
+            self.local_runtime_override_session = session
+            self.local_runtime_override_status.set(
+                f"临时覆盖已启用：Seed {profile.seed}；切换绘卷后生效，"
+                "停止或重启会恢复"
+            )
+            self.status.set(
+                f"已启用 Seed {profile.seed} 的临时敌人/地形/规则覆盖"
+            )
+            self.root.after(
+                350,
+                lambda active_session=session: self._poll_local_runtime_override(
+                    active_session
+                ),
+            )
+            dialog.destroy()
+
+        button_row = ttk.Frame(outer)
+        button_row.pack(fill="x", side="bottom")
+        ttk.Button(
+            button_row,
+            text="应用临时覆盖",
+            command=apply_profile,
+            style="Accent.TButton",
+        ).pack(side=LEFT)
+        ttk.Button(
+            button_row,
+            text="取消",
+            command=dialog.destroy,
+        ).pack(side=LEFT, padx=(8, 0))
+
+    def _poll_local_runtime_override(
+        self,
+        session: RuntimeAuxiliaryOverrideSession,
+    ) -> None:
+        if self.local_runtime_override_session is not session or not session.active:
+            return
+        try:
+            hit_count = session.hit_count()
+        except Exception:
+            self.local_runtime_override_status.set(
+                "临时覆盖状态不可读；游戏可能已经退出"
+            )
+            return
+        self.local_runtime_override_status.set(
+            f"临时覆盖已启用：Seed {session.profile.seed}；"
+            f"已命中 {hit_count} 次；停止或重启会恢复"
+        )
+        self.root.after(
+            500,
+            lambda active_session=session: self._poll_local_runtime_override(
+                active_session
+            ),
+        )
+
+    def _stop_local_runtime_override(self, *, show_error: bool = True) -> bool:
+        session = self.local_runtime_override_session
+        if session is None:
+            self.local_runtime_override_status.set("临时覆盖：未启用")
+            return True
+        try:
+            session.stop()
+        except Exception as error:
+            if show_error:
+                messagebox.showerror("无法安全停止临时覆盖", str(error))
+            return False
+        self.local_runtime_override_session = None
+        self.local_runtime_override_status.set("临时覆盖：未启用")
+        self.status.set("已停止临时绘卷覆盖；再次生成时恢复 Seed 原生内容")
+        return True
+
+    def _close_application(self) -> None:
+        if not self._stop_local_runtime_override():
+            return
+        self.root.destroy()
+
+    def _import_selected_candidate_seed(self) -> None:
+        selection = self.candidate_list.curselection()
+        if not selection:
+            messagebox.showerror("未选择候选", "请先在搜索页选中一个候选 Seed")
+            return
+        candidate = self.candidates[selection[0]]
+        self.local_seed.set(str(candidate.seed))
+        if candidate.playthrough in (1, 2, 3, 4, 5):
+            self.local_playthrough.set(
+                PLAYTHROUGH_LABELS[candidate.playthrough - 1]
+            )
+        self._refresh_local_auxiliary_preview()
+        self.status.set(f"已导入候选 Seed {candidate.seed}；尚未修改存档")
+
+    def _refresh_local_effect_value_hint(self, slot_index: int | None = None) -> None:
+        if slot_index is None:
+            slot_index = self.local_active_slot_index
+        if slot_index is None or not 0 <= slot_index < 7:
+            self.local_effect_value_hint.set(
+                "可输入 raw：0–4294967295（0xFFFFFFFF）；请先选择词条槽。"
+            )
+            return
+        try:
+            effect_id = self._parse_local_u32(
+                self.local_slot_effect_ids[slot_index].get(),
+                f"槽 {slot_index + 1} 词条 ID",
+            )
+            current_value = self._parse_local_u32(
+                self.local_slot_effect_values[slot_index].get(),
+                f"槽 {slot_index + 1} 数值",
+            )
+            rarity = int(self.local_rarity.get(), 10)
+            level = self._parse_local_u16(self.local_level.get(), "绘卷等级")
+        except (KeyError, TypeError, ValueError) as error:
+            self.local_effect_value_hint.set(
+                "可输入 raw：0–4294967295（0xFFFFFFFF）；"
+                f"暂时无法计算原生范围：{error}"
+            )
+            return
+        self.local_effect_value_hint.set(
+            local_effect_raw_value_hint(
+                self.local_effect_tables,
+                effect_id=effect_id,
+                rarity=rarity,
+                level=level,
+                current_value=current_value,
+            )
+        )
+
     def _local_installer(self) -> SaveInstaller:
         save_path = self._selected_save_path()
         project_root = application_root()
@@ -2993,7 +3940,7 @@ class ScrollEditorApp:
         ):
             if not messagebox.askyesno(
                 "放弃未保存修改",
-                "当前绘卷还有未保存的本地词条修改。确定放弃并切换选择吗？",
+                "当前绘卷还有未保存的本地修改。确定放弃并切换选择吗？",
             ):
                 current_iid = f"slot-{self.local_draft_entry.slot_index}"
                 self.local_selection_guard = True
@@ -3014,6 +3961,19 @@ class ScrollEditorApp:
         self.local_active_slot_index = None
         self.local_active_slot_text.set("当前槽：未选择")
         self.local_effect_choice.set("")
+        self.local_seed.set("")
+        self.local_playthrough.set(PLAYTHROUGH_LABELS[2])
+        self.local_rarity.set("4")
+        self.local_level.set("")
+        self.local_recommended_level.set("")
+        self.local_transfer_count.set("")
+        self.local_auxiliary_status.set("尚未选择绘卷。")
+        self.local_auxiliary_terrain.set("地形：—")
+        self.local_auxiliary_enemies.set("敌人：—")
+        self.local_auxiliary_rules.set("特殊规则：—")
+        self.local_effect_value_hint.set(
+            "可输入 raw：0–4294967295（0xFFFFFFFF）"
+        )
         for slot_index in range(7):
             self.local_slot_effect_ids[slot_index].set("")
             self.local_slot_effect_values[slot_index].set("")
@@ -3036,6 +3996,13 @@ class ScrollEditorApp:
 
     def _load_local_effect_draft(self, entry: ScrollInventoryEntry) -> None:
         self.local_draft_entry = entry
+        header = read_local_scroll_header(entry.record)
+        self.local_seed.set(str(header.seed))
+        self.local_playthrough.set(PLAYTHROUGH_LABELS[header.playthrough - 1])
+        self.local_rarity.set(str(header.rarity))
+        self.local_level.set(str(header.level))
+        self.local_recommended_level.set(str(header.recommended_level))
+        self.local_transfer_count.set(str(header.transfer_count))
         self.local_draft_slots = list(read_local_effect_slots(entry.record))
         for fields in self.local_draft_slots:
             self.local_slot_effect_ids[fields.slot_index].set(
@@ -3047,6 +4014,7 @@ class ScrollEditorApp:
             )
         self.local_active_slot_index = None
         self._activate_local_effect_slot(0)
+        self._refresh_local_auxiliary_preview()
 
     def _refresh_local_draft_name(self, slot_index: int) -> None:
         try:
@@ -3096,6 +4064,7 @@ class ScrollEditorApp:
         self.local_effect_tail_0.set(f"0x{fields.tail_0:08X}")
         self.local_effect_tail_1.set(f"0x{fields.tail_1:08X}")
         self.local_effect_choice.set("")
+        self._refresh_local_effect_value_hint(slot_index)
 
     def _apply_local_catalog_effect(self) -> None:
         slot_index = self.local_active_slot_index
@@ -3123,6 +4092,7 @@ class ScrollEditorApp:
         self.local_slot_effect_names[slot_index].set(self._local_effect_name(effect_id))
         self.local_effect_prefix.set(f"0x{fields.prefix:08X}")
         self.local_effect_metadata.set(f"0x{fields.metadata:08X}")
+        self._refresh_local_effect_value_hint(slot_index)
         self.status.set(
             f"已把目录词条写入草稿槽 {slot_index + 1}；尚未修改存档"
         )
@@ -3174,7 +4144,25 @@ class ScrollEditorApp:
             updated_slots.append(fields)
             edits.append(fields.as_edit())
         self.local_draft_slots = updated_slots
-        return patch_local_scroll_record(self.local_draft_entry.record, edits)
+        replacement = patch_local_scroll_record(self.local_draft_entry.record, edits)
+        playthrough_label_value = self.local_playthrough.get()
+        if playthrough_label_value not in PLAYTHROUGH_BY_LABEL:
+            raise ValueError("请选择有效周目")
+        return patch_local_scroll_header(
+            replacement,
+            playthrough=PLAYTHROUGH_BY_LABEL[playthrough_label_value],
+            level=self._parse_local_u16(self.local_level.get(), "绘卷等级"),
+            recommended_level=self._parse_local_u16(
+                self.local_recommended_level.get(),
+                "推荐等级",
+            ),
+            seed=self._parse_local_u32(self.local_seed.get(), "Seed"),
+            rarity=int(self.local_rarity.get(), 10),
+            transfer_count=self._parse_local_u32(
+                self.local_transfer_count.get(),
+                "转手次数",
+            ),
+        )
 
     def _local_effect_draft_is_dirty(self) -> bool:
         if self.local_draft_entry is None:
@@ -3208,29 +4196,66 @@ class ScrollEditorApp:
             if entry.record[0x34 + slot_index * 0x18:0x4C + slot_index * 0x18]
             != replacement[0x34 + slot_index * 0x18:0x4C + slot_index * 0x18]
         ]
-        if not changed_slots:
-            messagebox.showinfo("没有变化", "七个词条槽与当前存档完全相同")
+        before_header = read_local_scroll_header(entry.record)
+        after_header = read_local_scroll_header(replacement)
+        header_fields = (
+            ("周目", "playthrough"),
+            ("绘卷等级", "level"),
+            ("推荐等级", "recommended_level"),
+            ("Seed", "seed"),
+            ("稀有度", "rarity"),
+            ("转手次数", "transfer_count"),
+        )
+        header_changes = [
+            {
+                "field": field_name,
+                "before": getattr(before_header, attribute),
+                "after": getattr(after_header, attribute),
+            }
+            for field_name, attribute in header_fields
+            if getattr(before_header, attribute) != getattr(after_header, attribute)
+        ]
+        if not changed_slots and not header_changes:
+            messagebox.showinfo("没有变化", "当前草稿与存档中的 0xE8 记录完全相同")
             return
         if not self._confirm_title_screen_if_needed("自由修改本地绘卷"):
             return
+        change_lines: list[str] = []
+        if header_changes:
+            change_lines.append(
+                "头字段："
+                + "；".join(
+                    f"{change['field']} {change['before']} → {change['after']}"
+                    for change in header_changes
+                )
+            )
+        if changed_slots:
+            change_lines.append(
+                "词条槽：" + ", ".join(str(value) for value in changed_slots)
+            )
         if not messagebox.askyesno(
             "确认自由修改",
-            f"将一次性修改栏位 {entry.slot_index} 的槽："
-            f"{', '.join(str(value) for value in changed_slots)}。\n\n"
+            f"将一次性修改栏位 {entry.slot_index}：\n"
+            + "\n".join(change_lines)
+            + "\n\n"
             "程序不会检查重复、冲突、槽位角色、数值合理性或 Seed 一致性。"
-            "这些修改只供本机使用，传播后不会保留；写入前会自动备份。",
+            "自由词条修改只供本机使用，传播后会按周目、稀有度和 Seed 重新生成；"
+            "写入前会自动备份。",
         ):
             return
         try:
             result = self._local_installer().edit_many(
                 ((entry.slot_index, entry.record, replacement),),
-                action="local-effect-edit",
+                action="local-scroll-edit",
                 metadata={
                     "local_only": True,
                     "unrestricted_effect_edit": True,
                     "legality_validation": False,
                     "effect_slots": changed_slots,
-                    "seed": entry.seed,
+                    "header_changes": header_changes,
+                    "seed": after_header.seed,
+                    "playthrough": after_header.playthrough,
+                    "rarity": after_header.rarity,
                 },
             )
         except Exception as error:
@@ -3240,7 +4265,8 @@ class ScrollEditorApp:
         self._refresh_backups()
         self._refresh_local_inventory(select_slot_index=entry.slot_index)
         self.status.set(
-            f"已自由修改栏位 {entry.slot_index} 的 {len(changed_slots)} 个槽；"
+            f"已修改栏位 {entry.slot_index}：{len(header_changes)} 个头字段、"
+            f"{len(changed_slots)} 个词条槽；"
             f"备份：{result.backup_directory.name}"
         )
 
@@ -3764,24 +4790,40 @@ class ScrollEditorApp:
     def _filter_rules(self, *_args: object) -> None:
         self._populate_rule_tree()
 
-    def _sync_enemy_selection(self) -> None:
-        visible_keys = {key for key, _label in self.enemy_visible}
-        selected_visible = {
-            self.enemy_visible[index][0] for index in self.enemy_list.curselection()
-        }
-        self.selected_enemy_keys = (
-            self.selected_enemy_keys - visible_keys
-        ) | selected_visible
-        for key in tuple(self.selected_enemy_any_group_by_key):
-            if key not in self.selected_enemy_keys:
-                self.selected_enemy_any_group_by_key.pop(key, None)
+    def _select_enemy_key(self, key: int) -> None:
+        if key not in self.enemy_name_by_key:
+            return
+        self.selected_enemy_keys.add(key)
         self._update_enemy_summary()
+        self._mark_intersection_stale()
 
-    def _restore_enemy_selection(self) -> None:
-        self.enemy_list.selection_clear(0, END)
-        for index, (key, _label) in enumerate(self.enemy_visible):
-            if key in self.selected_enemy_keys:
-                self.enemy_list.selection_set(index)
+    def _add_enemy_from_global_search(
+        self,
+        _event: object | None = None,
+    ) -> str:
+        value = self.enemy_search.get().strip()
+        key = self.enemy_key_by_label.get(value)
+        if key is None:
+            matches = [
+                option
+                for option in self.enemy_options
+                if self._key_option_matches(option, value)
+            ]
+            if len(matches) == 1:
+                key = matches[0][0]
+        if key is not None:
+            self._select_enemy_key(key)
+            self.enemy_search.set("")
+        return "break"
+
+    def _add_enemy_from_tier(self, tier: str) -> None:
+        enemy_list = self.enemy_lists[tier]
+        selected = enemy_list.curselection()
+        if not selected:
+            return
+        key = self.enemy_tier_visible[tier][selected[0]][0]
+        enemy_list.selection_clear(0, END)
+        self._select_enemy_key(key)
 
     def _update_enemy_summary(self) -> None:
         labels = [
@@ -3807,7 +4849,11 @@ class ScrollEditorApp:
         ):
             row = ttk.Frame(self.selected_enemy_chips)
             row.pack(fill="x", pady=1)
-            ttk.Label(row, text=self.enemy_name_by_key[key]).pack(
+            tier_label = ENEMY_TIER_LABELS[self.enemy_tier_by_key[key]]
+            ttk.Label(
+                row,
+                text=f"[{tier_label}] {self.enemy_name_by_key[key]}",
+            ).pack(
                 side=LEFT, fill="x", expand=True
             )
             group_index = self.selected_enemy_any_group_by_key.get(key, 0)
@@ -3851,32 +4897,53 @@ class ScrollEditorApp:
     def _remove_enemy_selection(self, key: int) -> None:
         self.selected_enemy_keys.discard(key)
         self.selected_enemy_any_group_by_key.pop(key, None)
-        self._restore_enemy_selection()
         self._update_enemy_summary()
-        self._mark_intersection_stale()
-
-    def _on_enemy_select(self, _event: object | None = None) -> None:
-        self._sync_enemy_selection()
         self._mark_intersection_stale()
 
     def _clear_enemy_selection(self) -> None:
         self.selected_enemy_keys.clear()
         self.selected_enemy_any_group_by_key.clear()
-        self._restore_enemy_selection()
         self._update_enemy_summary()
         self._mark_intersection_stale()
 
     def _filter_enemies(self, *_args: object) -> None:
-        self._sync_enemy_selection()
         self.enemy_visible = [
             option
             for option in self.enemy_options
             if self._key_option_matches(option, self.enemy_search.get())
         ]
-        self.enemy_list.delete(0, END)
-        for _key, label in self.enemy_visible:
-            self.enemy_list.insert(END, label)
-        self._restore_enemy_selection()
+        if hasattr(self, "enemy_global_combo"):
+            self.enemy_global_combo.configure(
+                values=tuple(label for _key, label in self.enemy_visible)
+            )
+
+    def _filter_enemy_tier(self, tier: str) -> None:
+        visible = [
+            option
+            for option in self.enemy_tier_options[tier]
+            if self._key_option_matches(option, self.enemy_tier_search[tier].get())
+        ]
+        self.enemy_tier_visible[tier] = visible
+        if not hasattr(self, "enemy_lists") or tier not in self.enemy_lists:
+            return
+        enemy_list = self.enemy_lists[tier]
+        enemy_list.delete(0, END)
+        for _key, label in visible:
+            enemy_list.insert(END, label)
+
+    def _show_enemy_combination_guide(self) -> None:
+        window = Toplevel(self.root)
+        window.title("敌人合法组合一览")
+        window.geometry("680x540")
+        window.minsize(560, 420)
+        window.transient(self.root)
+        body = Text(window, wrap=WORD, padx=14, pady=12)
+        body.pack(fill=BOTH, expand=True, padx=10, pady=(10, 6))
+        body.insert("1.0", ENEMY_COMBINATION_GUIDE_TEXT)
+        body.configure(state=DISABLED)
+        ttk.Button(window, text="关闭", command=window.destroy).pack(
+            pady=(0, 10)
+        )
 
     def _show_tutorial(self) -> None:
         window = Toplevel(self.root)
