@@ -207,7 +207,9 @@ def d3d11_effect_acceleration_available(*, vendor_id: int | None = None) -> bool
     if library is None:
         return False
     preferred = _configured_vendor_id() if vendor_id is None else vendor_id
-    return bool(library.d3d11_effect_acceleration_available(preferred))
+    if not library.d3d11_effect_acceleration_available(preferred):
+        return False
+    return _d3d11_effect_self_test(preferred)
 
 
 def d3d11_effect_adapter_info(
@@ -566,6 +568,51 @@ def last_effect_preimage_backend() -> str:
 def reset_effect_preimage_backend() -> None:
     global _last_d3d11_vendor_id
     _last_d3d11_vendor_id = None
+
+
+@lru_cache(maxsize=8)
+def _d3d11_effect_self_test(vendor_id: int) -> bool:
+    """Reject adapters that create a device but cannot execute both shaders."""
+
+    global _last_d3d11_vendor_id
+    previous_vendor_id = _last_d3d11_vendor_id
+    try:
+        pivot_state = (LCG_MULTIPLIER + LCG_INCREMENT) & 0xFFFFFFFF
+        pivot_low16 = pivot_state & 0xFFFF
+        preimage = collect_fixed_draw_pivot_seeds_d3d11(
+            (pivot_state >> 16,),
+            start_index=pivot_low16,
+            stop_index=pivot_low16 + 1,
+            low16_stride=1,
+            pivot_draw_index=1,
+        )
+        if preimage != ((1, pivot_low16 + 1),):
+            return False
+
+        # The R4 finalizer is the most demanding forward-filter path and has
+        # exposed virtual adapters that report D3D11 support but return empty
+        # output buffers. Validate it before advertising the backend.
+        from .effect_batch_filter import match_partial_effect_constraints_batch
+        from .grace_map import load_grace_output_map
+
+        filtered = match_partial_effect_constraints_batch(
+            (3,),
+            playthrough=3,
+            rarity=4,
+            primary_effect_ids=frozenset(),
+            required_secondary_ids=frozenset((0xDFF0,)),
+            required_secondary_id_groups=(),
+            special_mapping=load_grace_output_map(rarity=4),
+        )
+        return bool(
+            filtered is not None
+            and filtered.target_mask == 1
+            and filtered.masks == (1,)
+        )
+    except (OSError, RuntimeError, ValueError):
+        return False
+    finally:
+        _last_d3d11_vendor_id = previous_vendor_id
 
 
 __all__ = [

@@ -5,6 +5,7 @@ from pathlib import Path
 import struct
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from emaki_exchange import EFFECT_START, EFFECT_STRIDE, SCROLL_RECORD_SIZE
 from nioh3_scroll_editor.auxiliary_catalog import load_auxiliary_name_catalog
@@ -466,17 +467,21 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
             "max_trials": 0x4000,
         }
         baseline = collect_effect_seed_page(request, **shared)
-        accelerated = collect_effect_seed_page(
-            request,
-            **shared,
-            primary_effect_id_batch_generator=lambda seeds: (
-                generate_ng3_rarity5_primary_effect_ids(
-                    seeds,
-                    grace_id=GRACE,
-                    grace_mapping=self.grace_mapping,
-                )
-            ),
-        )
+        with patch(
+            "nioh3_scroll_editor.effect_seed_solver.last_seed_acceleration_backend",
+            return_value="cuda",
+        ):
+            accelerated = collect_effect_seed_page(
+                request,
+                **shared,
+                primary_effect_id_batch_generator=lambda seeds: (
+                    generate_ng3_rarity5_primary_effect_ids(
+                        seeds,
+                        grace_id=GRACE,
+                        grace_mapping=self.grace_mapping,
+                    )
+                ),
+            )
 
         self.assertEqual(
             tuple(candidate.seed for candidate in accelerated.candidates),

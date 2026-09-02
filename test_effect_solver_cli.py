@@ -7,6 +7,8 @@ import subprocess
 import sys
 import unittest
 
+from nioh3_scroll_editor.seed_accelerator import cuda_seed_acceleration_available
+
 from research.solve_effect_seed import (
     build_parser,
     candidate_batch_payload,
@@ -97,6 +99,8 @@ class EffectSolverCliTests(unittest.TestCase):
         self.assertEqual(args.max_results, 20)
 
     def test_ng3_rarity5_fixed_solver_needs_no_game_or_save(self) -> None:
+        if not cuda_seed_acceleration_available():
+            self.skipTest("no CUDA device for the fixed-draw product route")
         project_root = Path(__file__).resolve().parent
         child_environment = os.environ.copy()
         child_environment["PYTHONIOENCODING"] = "utf-8"
