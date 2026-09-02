@@ -2,7 +2,7 @@
 
 ## Status
 
-`released`; integrated in stable v0.6.8 on 2026-09-02.
+`released`; integrated in stable v0.6.9 on 2026-09-02.
 
 ## Passed
 
@@ -40,15 +40,17 @@ built the one-file executable, signed the update manifest, and published the
 stable release. The downloaded manifest signature, asset size and SHA-256, and
 packaged startup smoke passed locally.
 
-## Unreleased v0.6.9 follow-up
+## Stable v0.6.9 follow-up
 
-The current working tree repairs rarity-4 installation so the save receives
+Stable v0.6.9 repairs rarity-4 installation so the save receives
 the native stage-one record and the game performs the reveal finalizer exactly
 once. It also adds paired primary/secondary constraints, multi-select terrain
 result filtering with OR semantics, RTX 50 native CUDA images plus a real
 kernel-launch health gate, and independent vertical scrolling for the complete
-legal-search result pane and its candidate list. These are release-candidate
-changes until the tagged workflow and downloaded assets are verified.
+legal-search result pane and its candidate list. GitHub Actions run
+`33648790533` passed all 413 tests and published the signed stable release. The
+downloaded 17,927,879-byte executable passed signature, size, SHA-256, startup,
+cleanup, and public-update checks.
 
 ## Known version difference
 
@@ -64,11 +66,11 @@ native result.
 - First player-side v2.01 generation, installation, detail display, and live
   challenge remain post-release acceptance evidence, not a pretense of an
   already observed result.
-- The unreleased rarity-4 lifecycle repair writes the native stage-one record
+- The v0.6.9 rarity-4 lifecycle repair writes the native stage-one record
   while previewing the result after one completion pass. Offline regression
   for Seed `125804734` reproduces both the intended single-pass result and the
   old double-pass slot-4 `6AAF` mismatch exactly; it still requires an in-game
-  add/reveal acceptance run before release.
+  add/reveal acceptance run after release.
 - The propagation Grace-change report is not yet broad evidence. It is covered
   by the same hypothesis only for a rarity-4 first-reveal/completion case;
   rarity-5 or post-reveal network changes need paired saves.

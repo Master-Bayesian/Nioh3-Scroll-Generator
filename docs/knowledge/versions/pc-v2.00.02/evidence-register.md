@@ -20,6 +20,7 @@ mistaken for stronger evidence than the files actually contain.
 | Reroll candidate builder | `reroll_effect_helper_callers_20260831.json`, `reroll_state_functions_20260831.json`, `reroll.py`, and `test_reroll.py` | Static control flow closes Seed+counter RNG, legal pool, five draws, and counter mutations. No retained live candidate vector yet; one per-save group eligibility set remains to be inferred by controlled capture. |
 | Runtime enemy descriptor fields | `runtime_auxiliary_override.py`, captured native candidate rows, and `test_beta_editor.py` | Inner entry `+0x04` is the enemy lookup key and `+0x08` is its exact native role. The working tree writes both. This is source/static evidence only until a new hit-backed challenge pass. |
 | Special-rule item key `0x3011` | bundled v2.00.02 `item.bin` SHA-256 `1CDAEF2A...FEC21938`, unique row 1771, and `probe_scroll_auxiliary_text_catalog.py` | Exact native row and candidate localization IDs are closed; the displayed item name remains unresolved until the current-locale runtime pool is queried. |
+| Stable v0.6.9 publication | GitHub Actions run `33648790533`; downloaded `latest.json` and executable under `deliverables/v0.6.9/` | 413 tests, one-file build, Ed25519 signature, 17,927,879-byte size, SHA-256 `E520B92C5A70462399D5898B1E85E41420D7E82AB17745274DFE6C2832EDFD7A`, startup, cleanup, and public-update lookup passed. No game or save write. |
 
 The 10,000-Seed parity files are real native/offline aggregate results, not
 10,000 retained pairs of raw records. Do not describe them as a forensic raw

@@ -22,6 +22,8 @@ and are not distributable release assets.
 | User acceptance of the local v0.6.8 build | First-search automatic continuation reported working | Functional user evidence for the reported pagination defect; not Intel or AMD-discrete performance evidence. |
 | GitHub Actions run `33628032827` | Passed 409 tests, one-file build, signed manifest, and stable release publication | Public v0.6.8 tag peels to commit `ba11fb3`; release automation is not gameplay acceptance. |
 | Downloaded v0.6.8 release assets | Manifest signature, 17,788,428-byte size, SHA-256 `580589C574335235A1370380140585F5AFE4B6FEF515B96C3A00FC846F8561BA`, and GUI startup passed | Verifies the published executable and update metadata; no game or save write. |
+| GitHub Actions run `33648790533` | Passed 413 tests, one-file build, signed manifest, and stable release publication | Public v0.6.9 tag peels to commit `57a07a0`; release automation is not gameplay acceptance. |
+| Downloaded v0.6.9 release assets | Manifest signature, 17,927,879-byte size, SHA-256 `E520B92C5A70462399D5898B1E85E41420D7E82AB17745274DFE6C2832EDFD7A`, GUI startup, exact-path cleanup, and public stable-update lookup passed | Verifies the published executable and update metadata; no game or save write. |
 
 ## Safety
 

@@ -1,9 +1,9 @@
-# Project status — 2026-09-01
+# Project status — 2026-09-02
 
 ## Public baseline
 
-The public baseline is stable v0.6.8, published on 2026-09-02 after local user
-acceptance and the signed GitHub release workflow.
+The public baseline is stable v0.6.9, published on 2026-09-02 after the local
+test suite, packaged startup checks, and the signed GitHub release workflow.
 
 ## Completed in the current working tree
 
@@ -20,7 +20,7 @@ acceptance and the signed GitHub release workflow.
 | Stable/Beta update selection | Included in v0.6.4 | Stable uses GitHub `releases/latest`; opt-in Beta compares the latest signed prerelease and stable release. |
 | FB-014/015 | Included in v0.6.4 | Shinatsuhiko Grace naming and human-readable category errors have regression coverage. |
 | FB-016 | Corrected in v0.6.6 | Live testing disproved the earlier `+0x1C` hypothesis and proved a `+0x28` generation-serial collision with an equipment record. New installs allocate against native equipment serials, and affected scrolls are repaired before insertion. |
-| Combined terrain filtering | Included in v0.6.6 | Search accepts multiple required visible terrain effects, preflights the native-row intersection, and preserves both display effects in previews. Runtime editing exposes exact `0x08` Crucible/Foulblooded and `0x2D` Crucible/Fire presets. |
+| Combined terrain filtering | Expanded in v0.6.9 | Search exposes complete visible terrain results as an OR multi-select, including one aggregate option for every result containing Hell. Runtime editing retains exact `0x08` Crucible/Foulblooded and `0x2D` Crucible/Fire presets. |
 | Exact same-name enemy forms | Implemented after v0.6.6; awaiting UI acceptance | Yamagata, Takeda, Hiruko, Kanai, and both Hattori identities are separate lookup-key constraints in search, runtime editing, and trilingual catalogs. The two Hattori identity labels remain provisional pending future player feedback. |
 
 ## Partially complete
@@ -29,7 +29,7 @@ acceptance and the signed GitHub release workflow.
 | --- | --- | --- |
 | AMD optimization | D3D11 compute backend and AMD adapter selection are implemented; an AMD integrated GPU passed local parity | Run correctness, throughput, cancellation, and memory-pressure tests on at least one AMD discrete GPU. Integrated-GPU evidence is not a discrete-GPU performance claim. |
 | Unrestricted auxiliary editing | Included experimentally in v0.6.5; live hook installation/removal passed | The post-v0.6.6 working tree now writes both each enemy lookup key and its exact native role. Complete a new hit-backed detail/challenge acceptance pass for that change, terrain, and ordered rules. The UI explicitly states that these fields are not saved and will revert. |
-| Search UX/performance | Results stream incrementally, event queues are bounded, structural preflight exists, and generic pivot construction is GPU-first. R4 one/two-group requests run the exact GPU finalizer; three or more groups retain the cheaper lossless `N-1` stage filter. The v0.6.8 working tree fuses all auxiliary filters into bounded native CUDA calls, embeds precompiled DirectCompute shaders, and automatically continues internal pages until the requested result count. No-CUDA native CPU work requires explicit user consent. | Run manual packaged performance acceptance. Replace the Tk frontend in v0.7 to address resize, sash-drag, and scroll repaint latency; Electron is the current preferred candidate. |
+| Search UX/performance | Results stream incrementally, event queues are bounded, structural preflight exists, and generic pivot construction is GPU-first. R4 one/two-group requests run the exact GPU finalizer; three or more groups retain the cheaper lossless `N-1` stage filter. Stable v0.6.8 fuses all auxiliary filters into bounded native CUDA calls, embeds precompiled DirectCompute shaders, and automatically continues internal pages until the requested result count. Stable v0.6.9 adds full right-pane and candidate-list scrolling. No-CUDA native CPU work requires explicit user consent. | Run manual packaged performance acceptance. Replace the Tk frontend in v0.7 to address resize, sash-drag, and scroll repaint latency; Electron is the current preferred candidate. |
 | Special-rule localization | Legal native rows are filtered and most automatic-activation items are localized | Native item key `0x3011` remains unresolved and must stay visibly marked rather than guessed. |
 
 ## Frozen archival research

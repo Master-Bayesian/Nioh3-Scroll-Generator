@@ -8,15 +8,11 @@ is ready to ship.
 
 - Repository: `F:\Nioh3_ScrollEditor`
 - Branch: `codex/todo-321`
-- Public baseline: stable tag `v0.6.8`, published on 2026-09-02 from commit
-  `ba11fb3` with PC v2.01 and PC v2.00.02 support.
-- v0.6.8 combines fused auxiliary search, automatic first-search continuation,
-  explicit no-CUDA consent, and the local-editor scrollbar. The user accepted
-  the local build before publication.
-- Current product version in the working tree: `v0.6.9`; not published. It
-  combines the rarity-4 acquisition lifecycle repair, primary/secondary paired
-  constraints, terrain-result OR filtering, RTX 50 CUDA compatibility, and a
-  vertically scrollable legal-search result pane.
+- Public baseline: stable tag `v0.6.9`, published on 2026-09-02 from commit
+  `57a07a0` with PC v2.01 and PC v2.00.02 support.
+- v0.6.9 combines the rarity-4 acquisition lifecycle repair,
+  primary/secondary paired constraints, terrain-result OR filtering, RTX 50
+  CUDA compatibility, and a vertically scrollable legal-search result pane.
 - The earlier local `v0.6.7-beta.1` acceptance build remains historical and is
   not part of either update channel.
 - Preserve unrelated untracked research, captures, packages, and user files.
@@ -34,7 +30,7 @@ exported before resuming editor work:
 - Level-180 range attempts for all 3,609 effects; 182 contextual definitions
   are explicitly unresolved rather than guessed.
 
-## Unreleased working-tree follow-up
+## Stable v0.6.9 changes
 
 - Rarity-4 installation now separates the post-reveal candidate preview from
   the bytes written to the save. The installer writes the canonical native
@@ -75,6 +71,11 @@ exported before resuming editor work:
   and the presence of an `sm_120` cubin in the rebuilt DLL. Physical RTX 5090
   execution and the first real rarity-4 reveal remain player-side acceptance
   evidence.
+- GitHub Actions run `33648790533` passed the same 413-test suite, built the
+  one-file executable, signed `latest.json`, and published the stable Release.
+  The downloaded 17,927,879-byte asset passed Ed25519 manifest verification,
+  SHA-256 `E520B92C5A70462399D5898B1E85E41420D7E82AB17745274DFE6C2832EDFD7A`,
+  packaged startup, exact-path cleanup, and the public stable-update check.
 
 ## Stable v0.6.8 changes
 
@@ -208,8 +209,8 @@ unsupported.
    a cached descriptor and no overwrite occurred.
 3. Resolve native item key `0x3011` through its exact item-row localization text
    IDs; do not infer the item name from neighboring rows.
-4. Preserve the published v0.6.8 assets and signed manifest under
-   `deliverables/v0.6.8/` for local handoff.
+4. Preserve the published v0.6.9 assets and signed manifest under
+   `deliverables/v0.6.9/` for local handoff.
 5. In the release after the PC v2.01 compatibility release, research the native
    mechanism behind purple or empowered enemy appearances and whether possessed
    Underworld forms of ordinary enemies can be represented as independent
