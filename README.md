@@ -28,7 +28,7 @@
 - 自动发现 Steam 存档，不在界面或报告中写死用户目录。
 - 新增、修改、删除和恢复前自动备份；写档采用源文件哈希门禁、校验和修复、加密回读验证。
 - 自动备份浏览、恢复、移入 Windows 回收站，以及打开备份/存档目录。
-- 完整词条组合可使用 AMD、NVIDIA 或 Intel 的 Direct3D 11 Compute 预像快路径；CUDA 继续批量预筛 Seed、主词条、地形和完整敌人路径，没有兼容 GPU 时自动回退到原生 CPU。所有路径仍由 CPU 精确重放完整记录。
+- 完整词条组合可使用 AMD、NVIDIA 或 Intel 的 Direct3D 11 Compute 预像快路径；CUDA 将 Seed 构造、地形、敌人和特殊规则合并批量筛选。没有对应 GPU 后端时，程序只会在用户明确确认后回退到原生 CPU。所有路径仍由 CPU 精确重放完整记录。
 - 自动发现游戏 EXE 并验证 PC v2.00.02 文件版本；明确检测到未验证的新游戏版本时拒绝用旧离线数据生成，等待应用更新。
 - 签名自动更新已启用：默认仅接收正式版，用户可主动选择 Beta；两条通道都只接受官方 Ed25519 签名清单，并复核 EXE 的 SHA-256、精确大小和发布版本。
 
@@ -159,11 +159,12 @@ This local/native gate does not replace second-account propagation acceptance.
 
 When `bin/nioh3_seed_accelerator.dll` is present, pivot-family construction,
 natural-ID filtering, and exact NG3 primary-effect batches run through CUDA on
-supported NVIDIA hardware and fall back to native CPU code otherwise. Pivot
-calls are hard-chunked to at most 1,000,000 mathematical trials and primary
-calls to 65,536 surviving Seeds so no full candidate family is materialized in
-memory. Exact effect and auxiliary replay remains the final acceptance filter,
-so acceleration cannot admit an unverified candidate.
+supported NVIDIA hardware. Auxiliary-only searches fuse Seed construction,
+terrain, enemy, and special-rule filtering in bounded native calls. On systems
+without CUDA, native CPU execution requires explicit user confirmation instead
+of a silent fallback. Calls are hard-chunked so no full candidate family is
+materialized in memory. Exact effect and auxiliary replay remains the final
+acceptance filter, so acceleration cannot admit an unverified candidate.
 
 See `research/EFFECT_SEED_SOLVER.md` for usage and acceptance boundaries.
 

@@ -10,6 +10,9 @@ is ready to ship.
 - Branch: `codex/todo-321`
 - Public baseline: stable tag `v0.6.7`, published on 2026-09-02 from commit
   `5c9986d` with PC v2.01 and PC v2.00.02 support.
+- Current product version in the working tree: `v0.6.8`; not published. The
+  intended acceptance build combines fused auxiliary search, first-search
+  pagination, explicit no-CUDA consent, and the local-editor scrollbar.
 - The earlier local `v0.6.7-beta.1` acceptance build remains historical and is
   not part of either update channel.
 - Preserve unrelated untracked research, captures, packages, and user files.
@@ -27,9 +30,28 @@ exported before resuming editor work:
 - Level-180 range attempts for all 3,609 effects; 182 contextual definitions
   are explicitly unresolved rather than guessed.
 
-## Current working-tree changes (not released)
+## Current v0.6.8 working-tree changes (not released)
 
-The working tree includes the following accumulated post-v0.6.6 work:
+- Fuses natural Seed construction, terrain, enemy, scratch-enemy, and ordered
+  special-rule filtering into bounded native calls. CUDA keeps intermediate
+  candidates on-device and returns only final survivors; the same ABI has an
+  exact native CPU implementation for explicit no-CUDA fallback.
+- Rejects failed effect constraints before auxiliary generation instead of
+  sending every pivot survivor through repeated CUDA/Python/CUDA stages.
+- Builds the DirectCompute effect shaders into the DLL as bytecode. Product
+  startup no longer compiles the large HLSL programs on the first search.
+- Makes one-wildcard preimage collection continue across internal pages until
+  the requested count, advertised budget, cancellation, or family exhaustion.
+  This fixes the reported first-search result count stopping at one.
+- Replaces the no-CUDA hard rejection with a user confirmation dialog. CPU is
+  still never selected silently, and supported effect stages continue through
+  cross-vendor DirectCompute on AMD, Intel, or NVIDIA.
+- Adds an independent vertical scrollbar and mouse-wheel routing to the local
+  scroll editor's right pane for 1080p access.
+
+## Published v0.6.7 implementation
+
+The v0.6.7 baseline includes the following work:
 
 - exact PC v2.01 executable detection and a separately validated native
   runtime profile, while retaining PC v2.00.02 support;
@@ -81,18 +103,21 @@ Validation completed from source without touching a real save:
 
 - `py_compile` passed for the modified modules and test file.
 - 79 editor tests passed.
-- 401 release-reproducible repository tests passed after rebuilding the DirectCompute DLL and
-  enabling the approved PC v2.01 runtime profile.
+- 408 release-reproducible repository tests passed after rebuilding both native
+  accelerators for the v0.6.8 working tree.
 - At a live PC v2.01 title screen, 10,000 rarity-3 and rarity-4 native Seeds
   passed their complete parity gates, while 10,000 rarity-5 Seeds matched in
   every effect slot and differed only by the documented feature-flag-9 header
   cap. A final 64-Seed release-gate replay for each rarity also passed.
 - Repeated native auxiliary descriptors matched the v2.00.02 control vectors,
   and read-only save decryption retained the 400-slot record layout.
-- A 100,000-trial NVIDIA route smoke used CUDA for primary-only, Grace-only,
-  rule-only, enemy-only, and Grace-plus-enemy searches, and DirectCompute for
-  unrestricted ordinary-effect and ordinary-plus-auxiliary searches. No case
-  entered the disabled CPU/Python bulk fallback.
+- A post-change NVIDIA route matrix covered primary-only, unrestricted
+  ordinary-effect, rule-only, enemy-only, terrain-only, and mixed requests.
+  The three-rule report case scanned 100,000,000 mathematical cursors in about
+  0.94 seconds, compared with about 3.08 seconds for 10,000,000 cursors before
+  fusion. The UI-level automatic continuation found Seed `252159350` in its
+  tenth 100,000,000-cursor page, with cursor 924,000,000 after about 7.75
+  seconds. These are local source benchmarks, not other-vendor results.
 - A withdrawn Tk application constructed and completed idle layout with
   `UI_SMOKE_OK`; the runtime pickers contain 487 legal enemy keys, 20 terrain
   enums, and 277 enabled rule keys including `None`.
@@ -137,16 +162,19 @@ unsupported.
    a cached descriptor and no overwrite occurred.
 3. Resolve native item key `0x3011` through its exact item-row localization text
    IDs; do not infer the item name from neighboring rows.
-4. Preserve the published v0.6.7 assets and signed manifest under
+4. Complete packaged v0.6.8 UI/performance acceptance before publication;
+   specifically verify the first search fills its requested count when enough
+   matches exist and the editor scrollbar reaches every control at 1080p.
+5. Preserve the published v0.6.7 assets and signed manifest under
    `deliverables/v0.6.7/` for local handoff.
-5. In the release after the PC v2.01 compatibility release, research the native
+6. In the release after the PC v2.01 compatibility release, research the native
    mechanism behind purple or empowered enemy appearances and whether possessed
    Underworld forms of ordinary enemies can be represented as independent
    selectable identities. Do not add guessed forms before live validation.
-6. After the current release, replace the Tk frontend in v0.7. Evaluate a Rust
+7. After the current release, replace the Tk frontend in v0.7. Evaluate a Rust
    core with a Tauri frontend against Electron; GPU bulk search remains
    mandatory regardless of the UI host.
-7. Validate and tune D3D11 compute on an AMD discrete GPU only when suitable
+8. Validate and tune D3D11 compute on an AMD discrete GPU only when suitable
    hardware becomes available. Integrated-GPU parity is not a discrete-GPU
    performance result.
 

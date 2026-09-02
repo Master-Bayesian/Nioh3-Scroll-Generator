@@ -13,6 +13,7 @@ from nioh3_scroll_editor.auxiliary_generation import (
     AuxiliarySearchCriteria,
     AuxiliaryGenerationTables,
     DEFAULT_AUXILIARY_RESOURCE_ROOT,
+    collect_auxiliary_pivot_matches_batch,
     derive_auxiliary_descriptor_seed,
     derive_auxiliary_mode_seed,
     derive_special_rule_seed,
@@ -33,7 +34,11 @@ from nioh3_scroll_editor.auxiliary_generation import (
     load_default_auxiliary_generation_tables,
     load_enemy_parameter_gate_capture,
 )
-from nioh3_scroll_editor.seed_accelerator import cuda_seed_acceleration_available
+from nioh3_scroll_editor.seed_accelerator import (
+    collect_natural_pivot_seeds,
+    cuda_seed_acceleration_available,
+    native_seed_acceleration_available,
+)
 from nioh3_scroll_editor.auxiliary_feasibility import (
     SpecialRuleKeyRequirement,
     analyze_special_rule_feasibility,
@@ -598,6 +603,49 @@ class Class2EnemyTests(unittest.TestCase):
 
 
 class CompleteAuxiliaryTests(unittest.TestCase):
+    @unittest.skipUnless(
+        native_seed_acceleration_available(),
+        "native Seed accelerator is unavailable",
+    )
+    def test_fused_auxiliary_pivot_matches_exact_replay(self) -> None:
+        values = tuple(range(0x10000))
+        pivots = collect_natural_pivot_seeds(
+            values,
+            start_index=0,
+            stop_index=200_000,
+            low16_stride=0x9E37,
+            draw_index=1,
+        )
+        self.assertIsNotNone(pivots)
+        assert pivots is not None
+        target = generate_complete_auxiliary(pivots[0][0], 3)
+        enemy_key = target.enemies.groups[0].entries[0].lookup_key
+        rule_key = next(key for key in target.special_rules.keys if key)
+        criteria = AuxiliarySearchCriteria(
+            terrain_row_indices=frozenset((target.terrain.selected_row_index,)),
+            required_enemy_lookup_key_groups=(frozenset((enemy_key,)),),
+            required_special_rule_key_groups=(frozenset((rule_key,)),),
+        )
+        expected = tuple(
+            (seed, trial)
+            for seed, trial in pivots
+            if criteria.matches(generate_complete_auxiliary(seed, 3))
+        )
+        actual = collect_auxiliary_pivot_matches_batch(
+            values,
+            start_index=0,
+            stop_index=200_000,
+            low16_stride=0x9E37,
+            draw_index=1,
+            playthrough=3,
+            criteria=criteria,
+        )
+        self.assertIsNotNone(actual)
+        assert actual is not None
+        self.assertEqual(actual.matches, expected)
+        self.assertEqual(actual.stage_counts[0], len(pivots))
+        self.assertEqual(actual.stage_counts[-1], len(expected))
+
     @unittest.skipUnless(
         cuda_seed_acceleration_available(),
         "CUDA special-rule matcher is unavailable",

@@ -26,6 +26,8 @@ from .r4_finalizer_resource import (
 from .r4_table_bundle import FixedStrideTable
 from .r4_table_bundle import R4FinalizerTableBundle
 from .seed_accelerator import (
+    AuxiliaryPivotMatchPage,
+    collect_auxiliary_pivot_matches_native,
     generate_terrain_row_indices_native,
     last_seed_acceleration_backend,
     match_enemy_constraints_native,
@@ -1318,8 +1320,9 @@ def generate_special_rule_match_masks_batch(
     playthrough: int,
     *,
     criteria: AuxiliarySearchCriteria,
+    require_cuda: bool = False,
 ) -> tuple[int, ...]:
-    """Match special-rule groups on CUDA after exact enemy scratch replay."""
+    """Match special-rule groups after exact enemy scratch replay."""
 
     seeds = tuple(int(seed) & 0xFFFFFFFF for seed in displayed_seeds)
     terrain_rows = tuple(int(row) for row in terrain_row_indices)
@@ -1359,7 +1362,9 @@ def generate_special_rule_match_masks_batch(
         contexts=packed_contexts,
         criterion_groups=scratch_enemy_groups,
     )
-    if scratch_masks is None or last_seed_acceleration_backend() != "cuda":
+    if scratch_masks is None:
+        raise RuntimeError("native enemy scratch-key matcher is unavailable")
+    if require_cuda and last_seed_acceleration_backend() != "cuda":
         raise RuntimeError(
             "CUDA enemy scratch-key matcher is unavailable; CPU fallback is disabled"
         )
@@ -1369,11 +1374,92 @@ def generate_special_rule_match_masks_batch(
         rule_rows=packed_rule_rows,
         criterion_groups=groups,
     )
-    if native is None or last_seed_acceleration_backend() != "cuda":
+    if native is None:
+        raise RuntimeError("native special-rule matcher is unavailable")
+    if require_cuda and last_seed_acceleration_backend() != "cuda":
         raise RuntimeError(
             "CUDA special-rule matcher is unavailable; CPU fallback is disabled"
         )
     return native
+
+
+def collect_auxiliary_pivot_matches_batch(
+    values: tuple[int, ...],
+    *,
+    start_index: int,
+    stop_index: int,
+    low16_stride: int,
+    draw_index: int,
+    playthrough: int,
+    criteria: AuxiliarySearchCriteria,
+    output_capacity: int = 1_000_000,
+) -> AuxiliaryPivotMatchPage | None:
+    """Fuse natural-Seed construction and every auxiliary filter natively."""
+
+    if criteria.is_empty:
+        raise ValueError("fused auxiliary matching requires at least one criterion")
+    threshold, filtered_rows, terrain_row_count = _terrain_batch_configuration()
+    tables = load_default_auxiliary_generation_tables()
+    has_terrain_constraint = bool(
+        criteria.required_terrain_effect_keys
+        or criteria.required_terrain_effect_key_groups
+        or criteria.terrain_row_indices
+    )
+    allowed_terrain_rows = bytes(
+        int(
+            not has_terrain_constraint
+            or terrain_row_matches_criteria(row_index, criteria, tables=tables)
+        )
+        for row_index in range(terrain_row_count)
+    )
+    user_enemy_groups = tuple(
+        frozenset((key,)) for key in sorted(criteria.required_enemy_lookup_keys)
+    ) + tuple(criteria.required_enemy_lookup_key_groups)
+    rule_groups = tuple(
+        frozenset((key,)) for key in sorted(criteria.required_special_rule_keys)
+    ) + tuple(criteria.required_special_rule_key_groups)
+    scratch_groups: tuple[frozenset[int], ...] = ()
+    packed_rule_rows = b""
+    if rule_groups:
+        _scratch_keys, scratch_groups, packed_rule_rows = (
+            _special_rule_batch_configuration(playthrough)
+        )
+    (
+        mode_threshold,
+        descriptor_thresholds,
+        selector_threshold,
+        role_five_threshold,
+        selector_value,
+        packed_enemy_rows,
+        packed_terrains,
+        packed_contexts,
+    ) = _enemy_batch_configuration()
+    return collect_auxiliary_pivot_matches_native(
+        values,
+        start_index=start_index,
+        stop_index=stop_index,
+        low16_stride=low16_stride,
+        draw_index=draw_index,
+        playthrough=playthrough,
+        mode_threshold=mode_threshold,
+        filtered_terrain_rows=filtered_rows,
+        terrain_row_count=terrain_row_count,
+        allowed_terrain_rows=allowed_terrain_rows,
+        has_terrain_constraint=has_terrain_constraint,
+        descriptor_thresholds=descriptor_thresholds,
+        selector_threshold=selector_threshold,
+        role_five_threshold=role_five_threshold,
+        selector_value=selector_value,
+        enemy_rows=packed_enemy_rows,
+        terrains=packed_terrains,
+        contexts=packed_contexts,
+        enemy_criterion_groups=(*user_enemy_groups, *scratch_groups),
+        enemy_group_count=len(user_enemy_groups),
+        scratch_group_count=len(scratch_groups),
+        rule_rows=packed_rule_rows,
+        rule_criterion_groups=rule_groups,
+        output_capacity=output_capacity,
+    )
 
 
 def derive_enemy_seed(displayed_seed: int) -> int:
@@ -2531,6 +2617,7 @@ __all__ = [
     "TERRAIN_DISPLAY_SPECIAL_KEYS",
     "TerrainResult",
     "build_auxiliary_generation_resource",
+    "collect_auxiliary_pivot_matches_batch",
     "derive_auxiliary_descriptor_seed",
     "derive_auxiliary_mode_seed",
     "derive_enemy_seed",

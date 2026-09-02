@@ -2,6 +2,7 @@ import json
 import struct
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from emaki_exchange import SCROLL_RECORD_SIZE, USER_SAVE_SIZE, write_account_id
@@ -42,7 +43,9 @@ from nioh3_scroll_editor.app import (
     QUICK_START_TEXT,
     TITLE_SCREEN_ACK_TEXT,
     TITLE_SCREEN_PROMPT_TEXT,
+    SearchBatchResult,
     application_title,
+    collect_search_pages_until_requested,
     collect_offline_ng3_search_batch,
     collect_offline_rarity5_search_batch,
     build_runtime_terrain_options,
@@ -64,6 +67,7 @@ from nioh3_scroll_editor.app import (
     filter_runtime_labels,
     format_runtime_enemy_slot_summary,
     requirement_mode_group_index,
+    require_accelerated_generic_search,
     special_rule_variant_label,
     split_enemy_variant_display_groups,
     toggle_rule_filter_option,
@@ -71,6 +75,7 @@ from nioh3_scroll_editor.app import (
 )
 from nioh3_scroll_editor.auxiliary_catalog import load_auxiliary_name_catalog
 from nioh3_scroll_editor.auxiliary_generation import (
+    AuxiliarySearchCriteria,
     TERRAIN_DISPLAY_CRUCIBLE_KEY,
     TERRAIN_DISPLAY_SPECIAL_KEYS,
     generate_complete_auxiliary,
@@ -153,6 +158,56 @@ def make_record(
 
 
 class BetaEditorTests(unittest.TestCase):
+    def test_ui_search_automatically_continues_bounded_pages(self) -> None:
+        calls: list[tuple[int, int]] = []
+
+        def collect(remaining: int, cursor: int) -> SearchBatchResult:
+            calls.append((remaining, cursor))
+            candidate = ScrollCandidate.from_effect_sequence(
+                generate_ng3_rarity5_effect_sequence(cursor + 1)
+            )
+            return SearchBatchResult(
+                candidates=(candidate,),
+                requested_count=remaining,
+                next_start_after_trial=cursor + 1_000_000,
+                streamed=True,
+            )
+
+        result = collect_search_pages_until_requested(
+            collect,
+            result_count=20,
+        )
+
+        self.assertEqual(len(result.candidates), 20)
+        self.assertEqual(len(calls), 20)
+        self.assertEqual(calls[0], (20, 0))
+        self.assertEqual(calls[-1], (1, 19_000_000))
+
+    def test_intel_auxiliary_search_requires_explicit_cpu_consent(self) -> None:
+        request = EffectSeedRequest(
+            playthrough=3,
+            rarity=4,
+            auxiliary_criteria=AuxiliarySearchCriteria(
+                required_special_rule_key_groups=(frozenset((0x0071,)),),
+            ),
+        )
+        with (
+            patch(
+                "nioh3_scroll_editor.app.cuda_seed_acceleration_available",
+                return_value=False,
+            ),
+            patch(
+                "nioh3_scroll_editor.app.d3d11_effect_acceleration_available",
+                return_value=True,
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "CUDA"):
+                require_accelerated_generic_search(request)
+            require_accelerated_generic_search(
+                request,
+                allow_cpu_fallback=True,
+            )
+
     def test_default_window_uses_available_desktop_width(self) -> None:
         self.assertEqual(default_window_dimensions(1920, 1080), (1880, 1000))
         self.assertEqual(default_window_dimensions(2560, 1440), (2040, 1160))

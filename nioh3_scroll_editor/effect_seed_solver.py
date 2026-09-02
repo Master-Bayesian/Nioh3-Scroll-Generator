@@ -18,6 +18,7 @@ from emaki_exchange import SCROLL_RECORD_SIZE
 from .auxiliary_generation import (
     AuxiliarySearchCriteria,
     CompleteAuxiliaryResult,
+    collect_auxiliary_pivot_matches_batch,
     generate_complete_auxiliary,
     generate_enemy_match_masks_batch,
     generate_matching_auxiliary,
@@ -41,6 +42,7 @@ from .joint_solver import (
     U16Runs,
     choose_pivot,
     iter_constraint_intersection,
+    permuted_pivot_values,
 )
 from .models import (
     ScrollCandidate,
@@ -380,6 +382,7 @@ def _iter_solution_prefetch(
     playthrough: int,
     *,
     batch_size: int = 262_144,
+    allow_cpu_fallback: bool = False,
 ) -> Iterator[
     tuple[
         SeedSolution,
@@ -418,7 +421,10 @@ def _iter_solution_prefetch(
             generated_ids = batch_generator(seeds)
             if len(generated_ids) != len(batch):
                 raise ValueError("primary batch generator returned the wrong result count")
-            if last_seed_acceleration_backend() != "cuda":
+            if (
+                not allow_cpu_fallback
+                and last_seed_acceleration_backend() != "cuda"
+            ):
                 raise RuntimeError(
                     "CUDA primary matcher is unavailable; CPU fallback is disabled"
                 )
@@ -441,28 +447,62 @@ def _iter_solution_prefetch(
                     )
                 effect_masks = tuple(generated_masks)
                 effect_target_masks = (target_mask,) * len(batch)
+        eligible_effect_indices = tuple(
+            index
+            for index, (effect_id, effect_mask, effect_target_mask) in enumerate(
+                zip(effect_ids, effect_masks, effect_target_masks, strict=True)
+            )
+            if (
+                (not primary_effect_ids or effect_id in primary_effect_ids)
+                and (
+                    effect_mask is None
+                    or effect_target_mask is None
+                    or effect_mask == effect_target_mask
+                )
+            )
+        )
         terrain_rows: tuple[int | None, ...]
         if prefetch_terrain:
-            generated_rows = generate_terrain_row_indices_batch(
-                seeds,
-                require_cuda=True,
-            )
-            if len(generated_rows) != len(batch):
-                raise ValueError("terrain batch generator returned the wrong result count")
-            terrain_rows = tuple(generated_rows)
+            scattered_rows: list[int | None] = [None] * len(batch)
+            if eligible_effect_indices:
+                generated_rows = generate_terrain_row_indices_batch(
+                    tuple(seeds[index] for index in eligible_effect_indices),
+                    require_cuda=not allow_cpu_fallback,
+                )
+                if len(generated_rows) != len(eligible_effect_indices):
+                    raise ValueError(
+                        "terrain batch generator returned the wrong result count"
+                    )
+                for index, row in zip(
+                    eligible_effect_indices,
+                    generated_rows,
+                    strict=True,
+                ):
+                    scattered_rows[index] = row
+            terrain_rows = tuple(scattered_rows)
         else:
             terrain_rows = (None,) * len(batch)
         enemy_masks: tuple[int | None, ...]
         if enemy_group_count:
-            if any(row is None for row in terrain_rows):
-                raise AssertionError("native enemy matching requires terrain rows")
             eligible_indices = tuple(
                 index
-                for index, (effect_id, terrain_row) in enumerate(
-                    zip(effect_ids, terrain_rows, strict=True)
+                for index, (effect_id, effect_mask, effect_target_mask, terrain_row) in enumerate(
+                    zip(
+                        effect_ids,
+                        effect_masks,
+                        effect_target_masks,
+                        terrain_rows,
+                        strict=True,
+                    )
                 )
                 if (
                     (not primary_effect_ids or effect_id in primary_effect_ids)
+                    and terrain_row is not None
+                    and (
+                        effect_mask is None
+                        or effect_target_mask is None
+                        or effect_mask == effect_target_mask
+                    )
                     and (
                         not _has_terrain_constraints(terrain_criteria)
                         or terrain_row_matches_criteria(
@@ -479,7 +519,7 @@ def _iter_solution_prefetch(
                     tuple(int(terrain_rows[index]) for index in eligible_indices),
                     playthrough,
                     criteria=terrain_criteria,
-                    require_cuda=True,
+                    require_cuda=not allow_cpu_fallback,
                 )
                 if len(generated_masks) != len(eligible_indices):
                     raise ValueError(
@@ -496,16 +536,33 @@ def _iter_solution_prefetch(
             enemy_masks = (None,) * len(batch)
         rule_masks: tuple[int | None, ...]
         if rule_group_count:
-            if any(row is None for row in terrain_rows):
-                raise AssertionError("native special-rule matching requires terrain rows")
             target_enemy_mask = (1 << enemy_group_count) - 1
             eligible_indices = tuple(
                 index
-                for index, (effect_id, terrain_row, enemy_mask) in enumerate(
-                    zip(effect_ids, terrain_rows, enemy_masks, strict=True)
+                for index, (
+                    effect_id,
+                    effect_mask,
+                    effect_target_mask,
+                    terrain_row,
+                    enemy_mask,
+                ) in enumerate(
+                    zip(
+                        effect_ids,
+                        effect_masks,
+                        effect_target_masks,
+                        terrain_rows,
+                        enemy_masks,
+                        strict=True,
+                    )
                 )
                 if (
                     (not primary_effect_ids or effect_id in primary_effect_ids)
+                    and terrain_row is not None
+                    and (
+                        effect_mask is None
+                        or effect_target_mask is None
+                        or effect_mask == effect_target_mask
+                    )
                     and (
                         not _has_terrain_constraints(terrain_criteria)
                         or terrain_row_matches_criteria(
@@ -526,6 +583,7 @@ def _iter_solution_prefetch(
                     tuple(int(terrain_rows[index]) for index in eligible_indices),
                     playthrough,
                     criteria=terrain_criteria,
+                    require_cuda=not allow_cpu_fallback,
                 )
                 if len(generated_masks) != len(eligible_indices):
                     raise ValueError(
@@ -585,6 +643,187 @@ def merge_intersection_reports(
         ),
         complete_match_count=sum(report.complete_match_count for report in reports),
         exhausted_family=reports[-1].exhausted_family,
+    )
+
+
+def _auxiliary_native_stage_specs(
+    criteria: AuxiliarySearchCriteria,
+) -> tuple[_IntersectionStageSpec, ...]:
+    """Describe the fused auxiliary stages in their exact execution order."""
+
+    specs: list[_IntersectionStageSpec] = []
+    if _has_terrain_constraints(criteria):
+        if criteria.terrain_row_indices:
+            specs.append(
+                _IntersectionStageSpec(
+                    "terrain_row",
+                    tuple(sorted(criteria.terrain_row_indices)),
+                )
+            )
+        else:
+            terrain_keys = set(criteria.required_terrain_effect_keys)
+            for group in criteria.required_terrain_effect_key_groups:
+                terrain_keys.update(group)
+            specs.append(_IntersectionStageSpec("terrain", tuple(sorted(terrain_keys))))
+    specs.extend(
+        _IntersectionStageSpec("enemy", (key,))
+        for key in sorted(criteria.required_enemy_lookup_keys)
+    )
+    specs.extend(
+        _IntersectionStageSpec("enemy", tuple(sorted(group)))
+        for group in criteria.required_enemy_lookup_key_groups
+    )
+    specs.extend(
+        _IntersectionStageSpec("rule", (key,))
+        for key in sorted(criteria.required_special_rule_keys)
+    )
+    specs.extend(
+        _IntersectionStageSpec("rule", tuple(sorted(group)))
+        for group in criteria.required_special_rule_key_groups
+    )
+    return tuple(specs)
+
+
+def collect_auxiliary_only_seed_page(
+    request: EffectSeedRequest,
+    *,
+    page_size: int,
+    effect_sequence_generator: EffectSequenceGenerator,
+    start_after_trial: int = 0,
+    max_trials: int | None = None,
+    intersection_progress: IntersectionProgressCallback | None = None,
+    candidate_found: CandidateFoundCallback | None = None,
+    cancelled: CancellationCheck | None = None,
+    chunk_trials: int = 8_000_000,
+) -> EffectSeedPage:
+    """Search a pure auxiliary request with one fused native GPU pipeline."""
+
+    if page_size <= 0:
+        raise ValueError("page_size must be positive")
+    if request.auxiliary_criteria.is_empty:
+        raise ValueError("auxiliary-only search requires an auxiliary criterion")
+    if (
+        request.primary_effect_ids
+        or request.required_secondary_ids
+        or request.required_secondary_id_groups
+        or request.grace_effect_id is not None
+        or request.minimum_roll_percent_by_effect_id
+    ):
+        raise ValueError("auxiliary-only search cannot contain effect constraints")
+    if start_after_trial < 0:
+        raise ValueError("start_after_trial cannot be negative")
+    if max_trials is not None and max_trials <= 0:
+        raise ValueError("max_trials must be positive when supplied")
+    if not 1 <= chunk_trials <= 8_000_000:
+        raise ValueError("fused auxiliary chunk size must be in 1..8,000,000")
+
+    constraints = fixed_draw_constraints(request, allow_full_seed_family=True)
+    pivot = choose_pivot(constraints)
+    values = permuted_pivot_values(pivot.allowed_u16)
+    family_size = len(values) * 0x10000
+    budget_stop = family_size
+    if max_trials is not None:
+        budget_stop = min(family_size, start_after_trial + max_trials)
+    active_cursor = min(start_after_trial, family_size)
+    stage_specs = _auxiliary_native_stage_specs(request.auxiliary_criteria)
+    total_fixed = 0
+    total_stage_counts = [0] * len(stage_specs)
+    total_complete = 0
+    candidates: list[EffectSeedCandidate] = []
+
+    def report() -> EffectSeedIntersectionReport:
+        return EffectSeedIntersectionReport(
+            start_after_trial=start_after_trial,
+            inspected_through_trial=active_cursor,
+            family_size=family_size,
+            fixed_seed_count=total_fixed,
+            stages=tuple(
+                IntersectionStageCount(spec.kind, spec.values, count)
+                for spec, count in zip(stage_specs, total_stage_counts, strict=True)
+            ),
+            complete_match_count=total_complete,
+            exhausted_family=active_cursor >= family_size,
+        )
+
+    while (
+        len(candidates) < page_size
+        and active_cursor < budget_stop
+        and not (cancelled is not None and cancelled())
+    ):
+        chunk_start = active_cursor
+        chunk_stop = min(budget_stop, chunk_start + chunk_trials)
+        native_page = collect_auxiliary_pivot_matches_batch(
+            values,
+            start_index=chunk_start,
+            stop_index=chunk_stop,
+            low16_stride=0x9E37,
+            draw_index=pivot.draw_index,
+            playthrough=request.playthrough,
+            criteria=request.auxiliary_criteria,
+        )
+        if native_page is None:
+            raise RuntimeError("native fused auxiliary matcher is unavailable")
+        remaining = page_size - len(candidates)
+        selected_matches = native_page.matches[:remaining]
+        consumed_page = native_page
+        if len(native_page.matches) > remaining:
+            # Recount the exact prefix ending at the last returned result so
+            # pagination and every displayed intersection count stay exact.
+            chunk_stop = selected_matches[-1][1]
+            consumed_page = collect_auxiliary_pivot_matches_batch(
+                values,
+                start_index=chunk_start,
+                stop_index=chunk_stop,
+                low16_stride=0x9E37,
+                draw_index=pivot.draw_index,
+                playthrough=request.playthrough,
+                criteria=request.auxiliary_criteria,
+            )
+            if consumed_page is None:
+                raise RuntimeError("native fused auxiliary matcher is unavailable")
+            selected_matches = consumed_page.matches
+        active_cursor = chunk_stop
+        if len(consumed_page.stage_counts) != len(stage_specs) + 1:
+            raise RuntimeError("native auxiliary stage count layout changed")
+        total_fixed += consumed_page.stage_counts[0]
+        for index, count in enumerate(consumed_page.stage_counts[1:]):
+            total_stage_counts[index] += count
+
+        for seed, pivot_trial in selected_matches:
+            auxiliary = generate_matching_auxiliary(
+                seed,
+                request.playthrough,
+                criteria=request.auxiliary_criteria,
+            )
+            if auxiliary is None:
+                raise AssertionError("fused auxiliary matcher disagreed with exact replay")
+            effect_sequence = _generate_effect_sequence_checked(
+                seed,
+                request,
+                effect_sequence_generator,
+            )
+            candidate = EffectSeedCandidate(
+                seed=seed,
+                pivot_trial=pivot_trial,
+                fixed_draws=((pivot.name, pivot.draw_index),),
+                auxiliary=auxiliary,
+                effect_sequence=effect_sequence,
+            )
+            candidates.append(candidate)
+            total_complete += 1
+            if candidate_found is not None:
+                candidate_found(candidate)
+        if intersection_progress is not None:
+            intersection_progress(report())
+
+    final_report = report()
+    if intersection_progress is not None:
+        intersection_progress(final_report)
+    return EffectSeedPage(
+        candidates=tuple(candidates),
+        start_after_trial=start_after_trial,
+        next_start_after_trial=active_cursor,
+        intersection_report=final_report,
     )
 
 
@@ -1157,6 +1396,7 @@ def iter_effect_seed_candidates(
     pivot_seed_collector: PivotSeedCollector | None = None,
     pivot_seed_collector_chunk_trials: int = 8_000_000,
     prefer_d3d11_fixed_draw: bool = False,
+    allow_cpu_fallback: bool = False,
 ) -> Iterator[EffectSeedCandidate]:
     """Yield exact Seed candidates without connecting to a game process."""
 
@@ -1258,6 +1498,7 @@ def iter_effect_seed_candidates(
         request.primary_effect_ids,
         request.auxiliary_criteria,
         request.playthrough,
+        allow_cpu_fallback=allow_cpu_fallback,
     ):
         if cancelled is not None and cancelled():
             break
@@ -1537,6 +1778,7 @@ def collect_effect_seed_page(
     pivot_seed_collector: PivotSeedCollector | None = None,
     pivot_seed_collector_chunk_trials: int = 8_000_000,
     prefer_d3d11_fixed_draw: bool = False,
+    allow_cpu_fallback: bool = False,
 ) -> EffectSeedPage:
     """Collect a bounded, non-overlapping page from the exact candidate stream."""
 
@@ -1596,6 +1838,7 @@ def collect_effect_seed_page(
         pivot_seed_collector=pivot_seed_collector,
         pivot_seed_collector_chunk_trials=pivot_seed_collector_chunk_trials,
         prefer_d3d11_fixed_draw=prefer_d3d11_fixed_draw,
+        allow_cpu_fallback=allow_cpu_fallback,
     )
     collected: list[EffectSeedCandidate] = []
     for candidate in iterator:
@@ -1655,6 +1898,7 @@ __all__ = [
     "OfflineEffectReplayUnavailable",
     "PrimaryEffectGenerator",
     "collect_effect_seed_page",
+    "collect_auxiliary_only_seed_page",
     "fixed_draw_constraints",
     "iter_effect_seed_candidates",
     "merge_intersection_reports",

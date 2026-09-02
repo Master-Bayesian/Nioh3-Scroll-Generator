@@ -1368,6 +1368,366 @@ bool match_special_rule_constraints_on_cuda(
     return success;
 }
 
+struct AuxiliaryMatcherView {
+    std::uint8_t playthrough;
+    int mode_threshold;
+    const std::uint32_t* filtered_terrain_rows;
+    std::uint32_t filtered_terrain_count;
+    std::uint32_t terrain_row_count;
+    const std::uint8_t* allowed_terrain_rows;
+    const int* descriptor_thresholds;
+    int selector_threshold;
+    int role_five_threshold;
+    std::uint8_t selector_value;
+    const EnemyCandidateInput* enemy_rows;
+    std::uint32_t enemy_row_count;
+    const EnemyTerrainInput* terrains;
+    std::uint32_t terrain_count;
+    const EnemyContextInput* contexts;
+    std::uint32_t context_count;
+    const std::uint32_t* enemy_criterion_keys;
+    const std::uint16_t* enemy_group_offsets;
+    std::uint32_t enemy_group_count;
+    std::uint32_t scratch_group_count;
+    const SpecialRuleInput* rule_rows;
+    std::uint32_t rule_row_count;
+    const std::uint16_t* rule_criterion_keys;
+    const std::uint16_t* rule_group_offsets;
+    std::uint32_t rule_group_count;
+};
+
+struct AuxiliaryEvaluation {
+    std::uint32_t terrain_row;
+    bool terrain_matches;
+    std::uint32_t enemy_mask;
+    std::uint32_t rule_mask;
+};
+
+__host__ __device__ std::uint32_t target_group_mask(std::uint32_t count) {
+    return count == 32u ? 0xFFFFFFFFu : (count == 0u ? 0u : ((1u << count) - 1u));
+}
+
+__host__ __device__ AuxiliaryEvaluation evaluate_auxiliary_constraints(
+    std::uint32_t seed,
+    const AuxiliaryMatcherView& view) {
+    AuxiliaryEvaluation result{};
+    result.terrain_row = generate_terrain_row_index(
+        seed,
+        view.mode_threshold,
+        view.filtered_terrain_rows,
+        view.filtered_terrain_count,
+        view.terrain_row_count);
+    result.terrain_matches =
+        result.terrain_row < view.terrain_row_count &&
+        view.allowed_terrain_rows[result.terrain_row] != 0u;
+    if (!result.terrain_matches) {
+        return result;
+    }
+
+    const std::uint32_t combined_enemy_group_count =
+        view.enemy_group_count + view.scratch_group_count;
+    std::uint32_t combined_enemy_mask = 0u;
+    if (combined_enemy_group_count != 0u) {
+        native_enemy_matcher::match_enemy_constraints_for_seed(
+            seed,
+            result.terrain_row,
+            view.playthrough,
+            view.mode_threshold,
+            view.descriptor_thresholds,
+            view.selector_threshold,
+            view.role_five_threshold,
+            view.selector_value,
+            view.enemy_rows,
+            view.enemy_row_count,
+            view.terrains,
+            view.terrain_count,
+            view.contexts,
+            view.context_count,
+            view.enemy_criterion_keys,
+            view.enemy_group_offsets,
+            combined_enemy_group_count,
+            &combined_enemy_mask);
+    }
+    result.enemy_mask = combined_enemy_mask & target_group_mask(view.enemy_group_count);
+    if (result.enemy_mask != target_group_mask(view.enemy_group_count)) {
+        return result;
+    }
+    if (view.rule_group_count != 0u) {
+        const std::uint32_t scratch_mask =
+            (combined_enemy_mask >> view.enemy_group_count) &
+            target_group_mask(view.scratch_group_count);
+        result.rule_mask = match_special_rules_for_seed(
+            seed,
+            scratch_mask,
+            view.rule_rows,
+            view.rule_row_count,
+            view.rule_criterion_keys,
+            view.rule_group_offsets,
+            view.rule_group_count);
+    }
+    return result;
+}
+
+__global__ void collect_auxiliary_natural_seeds_kernel(
+    const std::uint16_t* values,
+    std::uint32_t value_count,
+    std::uint64_t start_index,
+    std::uint64_t item_count,
+    std::uint16_t low16_stride,
+    std::uint32_t draw_index,
+    std::uint32_t* natural_seeds,
+    std::uint64_t* natural_trials,
+    unsigned long long* natural_count,
+    std::uint64_t natural_capacity) {
+    const std::uint64_t item_index =
+        static_cast<std::uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (item_index >= item_count) {
+        return;
+    }
+    const std::uint64_t flat_index = start_index + item_index;
+    const std::uint64_t low_index = flat_index / value_count;
+    const std::uint32_t bucket_index =
+        static_cast<std::uint32_t>(flat_index % value_count);
+    const std::uint16_t low16 = static_cast<std::uint16_t>(
+        static_cast<std::uint32_t>(low_index) * low16_stride);
+    const std::uint32_t rotation =
+        static_cast<std::uint32_t>(low_index % value_count);
+    const std::uint16_t high16 = values[(rotation + bucket_index) % value_count];
+    std::uint32_t seed = (static_cast<std::uint32_t>(high16) << 16u) | low16;
+    for (std::uint32_t draw = 0u; draw < draw_index; ++draw) {
+        seed = kLcgInverse * (seed - 1u);
+    }
+    if (!is_natural_seed(seed)) {
+        return;
+    }
+    const unsigned long long output_index = atomicAdd(natural_count, 1ull);
+    if (output_index < natural_capacity) {
+        natural_seeds[output_index] = seed;
+        natural_trials[output_index] = flat_index + 1u;
+    }
+}
+
+__global__ void collect_auxiliary_matches_kernel(
+    const std::uint32_t* natural_seeds,
+    const std::uint64_t* natural_trials,
+    std::uint64_t natural_count,
+    AuxiliaryMatcherView view,
+    bool has_terrain_constraint,
+    std::uint32_t* output_seeds,
+    std::uint64_t* output_trials,
+    unsigned long long* output_count,
+    std::uint64_t output_capacity,
+    unsigned long long* stage_counts) {
+    const std::uint64_t index =
+        static_cast<std::uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (index >= natural_count) {
+        return;
+    }
+    const AuxiliaryEvaluation result = evaluate_auxiliary_constraints(
+        natural_seeds[index], view);
+    std::uint32_t stage_index = 1u;
+    if (has_terrain_constraint) {
+        if (!result.terrain_matches) {
+            return;
+        }
+        atomicAdd(stage_counts + stage_index, 1ull);
+        ++stage_index;
+    }
+    for (std::uint32_t group = 0u; group < view.enemy_group_count; ++group) {
+        const std::uint32_t prefix = target_group_mask(group + 1u);
+        if ((result.enemy_mask & prefix) != prefix) {
+            return;
+        }
+        atomicAdd(stage_counts + stage_index, 1ull);
+        ++stage_index;
+    }
+    for (std::uint32_t group = 0u; group < view.rule_group_count; ++group) {
+        const std::uint32_t prefix = target_group_mask(group + 1u);
+        if ((result.rule_mask & prefix) != prefix) {
+            return;
+        }
+        atomicAdd(stage_counts + stage_index, 1ull);
+        ++stage_index;
+    }
+    if (!result.terrain_matches ||
+        result.enemy_mask != target_group_mask(view.enemy_group_count) ||
+        result.rule_mask != target_group_mask(view.rule_group_count)) {
+        return;
+    }
+    const unsigned long long output_index = atomicAdd(output_count, 1ull);
+    if (output_index < output_capacity) {
+        output_seeds[output_index] = natural_seeds[index];
+        output_trials[output_index] = natural_trials[index];
+    }
+}
+
+bool collect_auxiliary_pivot_matches_on_cuda(
+    const std::uint16_t* values,
+    std::uint32_t value_count,
+    std::uint64_t start_index,
+    std::uint64_t stop_index,
+    std::uint16_t low16_stride,
+    std::uint32_t draw_index,
+    const AuxiliaryMatcherView& host_view,
+    bool has_terrain_constraint,
+    std::uint32_t* output_seeds,
+    std::uint64_t* output_trials,
+    std::uint64_t output_capacity,
+    std::uint64_t* output_stage_counts,
+    std::uint32_t stage_count) {
+    const std::uint64_t item_count = stop_index - start_index;
+    std::uint16_t* device_values = nullptr;
+    std::uint32_t* device_natural_seeds = nullptr;
+    std::uint64_t* device_natural_trials = nullptr;
+    std::uint32_t* device_output_seeds = nullptr;
+    std::uint64_t* device_output_trials = nullptr;
+    unsigned long long* device_natural_count = nullptr;
+    unsigned long long* device_output_count = nullptr;
+    unsigned long long* device_stage_counts = nullptr;
+    std::uint32_t* device_filtered_rows = nullptr;
+    std::uint8_t* device_allowed_terrain_rows = nullptr;
+    int* device_descriptor_thresholds = nullptr;
+    EnemyCandidateInput* device_enemy_rows = nullptr;
+    EnemyTerrainInput* device_terrains = nullptr;
+    EnemyContextInput* device_contexts = nullptr;
+    std::uint32_t* device_enemy_keys = nullptr;
+    std::uint16_t* device_enemy_offsets = nullptr;
+    SpecialRuleInput* device_rule_rows = nullptr;
+    std::uint16_t* device_rule_keys = nullptr;
+    std::uint16_t* device_rule_offsets = nullptr;
+    auto cleanup = [&]() {
+        cudaFree(device_values);
+        cudaFree(device_natural_seeds);
+        cudaFree(device_natural_trials);
+        cudaFree(device_output_seeds);
+        cudaFree(device_output_trials);
+        cudaFree(device_natural_count);
+        cudaFree(device_output_count);
+        cudaFree(device_stage_counts);
+        cudaFree(device_filtered_rows);
+        cudaFree(device_allowed_terrain_rows);
+        cudaFree(device_descriptor_thresholds);
+        cudaFree(device_enemy_rows);
+        cudaFree(device_terrains);
+        cudaFree(device_contexts);
+        cudaFree(device_enemy_keys);
+        cudaFree(device_enemy_offsets);
+        cudaFree(device_rule_rows);
+        cudaFree(device_rule_keys);
+        cudaFree(device_rule_offsets);
+    };
+    const std::uint32_t combined_enemy_groups =
+        host_view.enemy_group_count + host_view.scratch_group_count;
+    const std::uint32_t enemy_key_count = combined_enemy_groups == 0u
+        ? 0u
+        : host_view.enemy_group_offsets[combined_enemy_groups];
+    const std::uint32_t rule_key_count = host_view.rule_group_count == 0u
+        ? 0u
+        : host_view.rule_group_offsets[host_view.rule_group_count];
+    if (cudaMalloc(&device_values, value_count * sizeof(std::uint16_t)) != cudaSuccess ||
+        cudaMalloc(&device_natural_seeds, item_count * sizeof(std::uint32_t)) != cudaSuccess ||
+        cudaMalloc(&device_natural_trials, item_count * sizeof(std::uint64_t)) != cudaSuccess ||
+        cudaMalloc(&device_output_seeds, output_capacity * sizeof(std::uint32_t)) != cudaSuccess ||
+        cudaMalloc(&device_output_trials, output_capacity * sizeof(std::uint64_t)) != cudaSuccess ||
+        cudaMalloc(&device_natural_count, sizeof(unsigned long long)) != cudaSuccess ||
+        cudaMalloc(&device_output_count, sizeof(unsigned long long)) != cudaSuccess ||
+        cudaMalloc(&device_stage_counts, stage_count * sizeof(unsigned long long)) != cudaSuccess ||
+        cudaMalloc(&device_filtered_rows, host_view.filtered_terrain_count * sizeof(std::uint32_t)) != cudaSuccess ||
+        cudaMalloc(&device_allowed_terrain_rows, host_view.terrain_row_count * sizeof(std::uint8_t)) != cudaSuccess ||
+        cudaMalloc(&device_descriptor_thresholds, 3u * sizeof(int)) != cudaSuccess ||
+        cudaMalloc(&device_enemy_rows, host_view.enemy_row_count * sizeof(EnemyCandidateInput)) != cudaSuccess ||
+        cudaMalloc(&device_terrains, host_view.terrain_count * sizeof(EnemyTerrainInput)) != cudaSuccess ||
+        cudaMalloc(&device_contexts, host_view.context_count * sizeof(EnemyContextInput)) != cudaSuccess ||
+        (enemy_key_count != 0u && cudaMalloc(&device_enemy_keys, enemy_key_count * sizeof(std::uint32_t)) != cudaSuccess) ||
+        (combined_enemy_groups != 0u && cudaMalloc(&device_enemy_offsets, (combined_enemy_groups + 1u) * sizeof(std::uint16_t)) != cudaSuccess) ||
+        (host_view.rule_group_count != 0u && cudaMalloc(&device_rule_rows, host_view.rule_row_count * sizeof(SpecialRuleInput)) != cudaSuccess) ||
+        (rule_key_count != 0u && cudaMalloc(&device_rule_keys, rule_key_count * sizeof(std::uint16_t)) != cudaSuccess) ||
+        (host_view.rule_group_count != 0u && cudaMalloc(&device_rule_offsets, (host_view.rule_group_count + 1u) * sizeof(std::uint16_t)) != cudaSuccess)) {
+        cleanup();
+        return false;
+    }
+    unsigned long long zero = 0u;
+    if (cudaMemcpy(device_values, values, value_count * sizeof(std::uint16_t), cudaMemcpyHostToDevice) != cudaSuccess ||
+        cudaMemcpy(device_filtered_rows, host_view.filtered_terrain_rows, host_view.filtered_terrain_count * sizeof(std::uint32_t), cudaMemcpyHostToDevice) != cudaSuccess ||
+        cudaMemcpy(device_allowed_terrain_rows, host_view.allowed_terrain_rows, host_view.terrain_row_count * sizeof(std::uint8_t), cudaMemcpyHostToDevice) != cudaSuccess ||
+        cudaMemcpy(device_descriptor_thresholds, host_view.descriptor_thresholds, 3u * sizeof(int), cudaMemcpyHostToDevice) != cudaSuccess ||
+        cudaMemcpy(device_enemy_rows, host_view.enemy_rows, host_view.enemy_row_count * sizeof(EnemyCandidateInput), cudaMemcpyHostToDevice) != cudaSuccess ||
+        cudaMemcpy(device_terrains, host_view.terrains, host_view.terrain_count * sizeof(EnemyTerrainInput), cudaMemcpyHostToDevice) != cudaSuccess ||
+        cudaMemcpy(device_contexts, host_view.contexts, host_view.context_count * sizeof(EnemyContextInput), cudaMemcpyHostToDevice) != cudaSuccess ||
+        (enemy_key_count != 0u && cudaMemcpy(device_enemy_keys, host_view.enemy_criterion_keys, enemy_key_count * sizeof(std::uint32_t), cudaMemcpyHostToDevice) != cudaSuccess) ||
+        (combined_enemy_groups != 0u && cudaMemcpy(device_enemy_offsets, host_view.enemy_group_offsets, (combined_enemy_groups + 1u) * sizeof(std::uint16_t), cudaMemcpyHostToDevice) != cudaSuccess) ||
+        (host_view.rule_group_count != 0u && cudaMemcpy(device_rule_rows, host_view.rule_rows, host_view.rule_row_count * sizeof(SpecialRuleInput), cudaMemcpyHostToDevice) != cudaSuccess) ||
+        (rule_key_count != 0u && cudaMemcpy(device_rule_keys, host_view.rule_criterion_keys, rule_key_count * sizeof(std::uint16_t), cudaMemcpyHostToDevice) != cudaSuccess) ||
+        (host_view.rule_group_count != 0u && cudaMemcpy(device_rule_offsets, host_view.rule_group_offsets, (host_view.rule_group_count + 1u) * sizeof(std::uint16_t), cudaMemcpyHostToDevice) != cudaSuccess) ||
+        cudaMemcpy(device_natural_count, &zero, sizeof(zero), cudaMemcpyHostToDevice) != cudaSuccess ||
+        cudaMemcpy(device_output_count, &zero, sizeof(zero), cudaMemcpyHostToDevice) != cudaSuccess ||
+        cudaMemset(device_stage_counts, 0, stage_count * sizeof(unsigned long long)) != cudaSuccess) {
+        cleanup();
+        return false;
+    }
+    constexpr std::uint32_t threads = 128u;
+    const std::uint32_t raw_blocks = static_cast<std::uint32_t>(
+        (item_count + threads - 1u) / threads);
+    collect_auxiliary_natural_seeds_kernel<<<raw_blocks, threads>>>(
+        device_values,
+        value_count,
+        start_index,
+        item_count,
+        low16_stride,
+        draw_index,
+        device_natural_seeds,
+        device_natural_trials,
+        device_natural_count,
+        item_count);
+    unsigned long long natural_count = 0u;
+    if (cudaGetLastError() != cudaSuccess ||
+        cudaMemcpy(&natural_count, device_natural_count, sizeof(natural_count), cudaMemcpyDeviceToHost) != cudaSuccess ||
+        natural_count > item_count) {
+        cleanup();
+        return false;
+    }
+    AuxiliaryMatcherView device_view = host_view;
+    device_view.filtered_terrain_rows = device_filtered_rows;
+    device_view.allowed_terrain_rows = device_allowed_terrain_rows;
+    device_view.descriptor_thresholds = device_descriptor_thresholds;
+    device_view.enemy_rows = device_enemy_rows;
+    device_view.terrains = device_terrains;
+    device_view.contexts = device_contexts;
+    device_view.enemy_criterion_keys = device_enemy_keys;
+    device_view.enemy_group_offsets = device_enemy_offsets;
+    device_view.rule_rows = device_rule_rows;
+    device_view.rule_criterion_keys = device_rule_keys;
+    device_view.rule_group_offsets = device_rule_offsets;
+    if (natural_count != 0u) {
+        const std::uint32_t match_blocks = static_cast<std::uint32_t>(
+            (natural_count + threads - 1u) / threads);
+        collect_auxiliary_matches_kernel<<<match_blocks, threads>>>(
+            device_natural_seeds,
+            device_natural_trials,
+            natural_count,
+            device_view,
+            has_terrain_constraint,
+            device_output_seeds,
+            device_output_trials,
+            device_output_count,
+            output_capacity,
+            device_stage_counts);
+    }
+    unsigned long long match_count = 0u;
+    if (cudaGetLastError() != cudaSuccess || cudaDeviceSynchronize() != cudaSuccess ||
+        cudaMemcpy(&match_count, device_output_count, sizeof(match_count), cudaMemcpyDeviceToHost) != cudaSuccess ||
+        match_count > output_capacity ||
+        cudaMemcpy(output_stage_counts, device_stage_counts, stage_count * sizeof(unsigned long long), cudaMemcpyDeviceToHost) != cudaSuccess ||
+        (match_count != 0u && cudaMemcpy(output_seeds, device_output_seeds, match_count * sizeof(std::uint32_t), cudaMemcpyDeviceToHost) != cudaSuccess) ||
+        (match_count != 0u && cudaMemcpy(output_trials, device_output_trials, match_count * sizeof(std::uint64_t), cudaMemcpyDeviceToHost) != cudaSuccess)) {
+        cleanup();
+        return false;
+    }
+    output_stage_counts[0] = natural_count;
+    cleanup();
+    return true;
+}
+
 }  // namespace
 
 extern "C" __declspec(dllexport) int cuda_seed_acceleration_available() {
@@ -1918,10 +2278,8 @@ extern "C" __declspec(dllexport) int match_special_rule_constraints(
         }
     }
     int device_count = 0;
-    if (cudaGetDeviceCount(&device_count) != cudaSuccess || device_count <= 0) {
-        return -2;
-    }
-    if (!match_special_rule_constraints_on_cuda(
+    if (cudaGetDeviceCount(&device_count) == cudaSuccess && device_count > 0 &&
+        match_special_rule_constraints_on_cuda(
             seeds,
             scratch_masks,
             count,
@@ -1932,10 +2290,226 @@ extern "C" __declspec(dllexport) int match_special_rule_constraints(
             group_offsets,
             group_count,
             output_masks)) {
-        return -2;
+        g_last_backend = 1;
+        return 1;
     }
-    g_last_backend = 1;
-    return 1;
+    for (std::uint64_t index = 0u; index < count; ++index) {
+        output_masks[index] = match_special_rules_for_seed(
+            seeds[index],
+            scratch_masks[index],
+            rows,
+            row_count,
+            criterion_keys,
+            group_offsets,
+            group_count);
+    }
+    g_last_backend = 0;
+    return 0;
+}
+
+extern "C" __declspec(dllexport) std::uint64_t collect_auxiliary_pivot_matches(
+    const std::uint16_t* values,
+    std::uint32_t value_count,
+    std::uint64_t start_index,
+    std::uint64_t stop_index,
+    std::uint16_t low16_stride,
+    std::uint32_t draw_index,
+    std::uint8_t playthrough,
+    int mode_threshold,
+    const std::uint32_t* filtered_terrain_rows,
+    std::uint32_t filtered_terrain_count,
+    std::uint32_t terrain_row_count,
+    const std::uint8_t* allowed_terrain_rows,
+    std::uint32_t has_terrain_constraint,
+    const int* descriptor_thresholds,
+    int selector_threshold,
+    int role_five_threshold,
+    std::uint8_t selector_value,
+    const EnemyCandidateInput* enemy_rows,
+    std::uint32_t enemy_row_count,
+    const EnemyTerrainInput* terrains,
+    std::uint32_t terrain_count,
+    const EnemyContextInput* contexts,
+    std::uint32_t context_count,
+    const std::uint32_t* enemy_criterion_keys,
+    std::uint32_t enemy_criterion_key_count,
+    const std::uint16_t* enemy_group_offsets,
+    std::uint32_t enemy_group_count,
+    std::uint32_t scratch_group_count,
+    const SpecialRuleInput* rule_rows,
+    std::uint32_t rule_row_count,
+    const std::uint16_t* rule_criterion_keys,
+    std::uint32_t rule_criterion_key_count,
+    const std::uint16_t* rule_group_offsets,
+    std::uint32_t rule_group_count,
+    std::uint32_t* output_seeds,
+    std::uint64_t* output_trials,
+    std::uint64_t output_capacity,
+    std::uint64_t* output_stage_counts,
+    std::uint32_t stage_count) {
+    const std::uint32_t combined_enemy_group_count =
+        enemy_group_count + scratch_group_count;
+    const std::uint32_t expected_stage_count = 1u +
+        (has_terrain_constraint != 0u ? 1u : 0u) +
+        enemy_group_count + rule_group_count;
+    if (values == nullptr || value_count == 0u || start_index > stop_index ||
+        stop_index - start_index > 8000000u || low16_stride == 0u ||
+        (low16_stride & 1u) == 0u || draw_index == 0u || draw_index > 64u ||
+        playthrough == 0u || playthrough > 5u || filtered_terrain_rows == nullptr ||
+        filtered_terrain_count == 0u || terrain_row_count == 0u ||
+        allowed_terrain_rows == nullptr || has_terrain_constraint > 1u ||
+        descriptor_thresholds == nullptr || enemy_rows == nullptr ||
+        enemy_row_count == 0u ||
+        enemy_row_count > native_enemy_matcher::kMaximumEnemyRows ||
+        terrains == nullptr || terrain_count != terrain_row_count ||
+        contexts == nullptr || context_count == 0u ||
+        combined_enemy_group_count > native_enemy_matcher::kMaximumCriteriaGroups ||
+        (combined_enemy_group_count != 0u &&
+            (enemy_criterion_keys == nullptr || enemy_criterion_key_count == 0u ||
+             enemy_group_offsets == nullptr || enemy_group_offsets[0] != 0u ||
+             enemy_group_offsets[combined_enemy_group_count] != enemy_criterion_key_count)) ||
+        rule_group_count > native_enemy_matcher::kMaximumCriteriaGroups ||
+        (rule_group_count != 0u &&
+            (scratch_group_count == 0u || rule_rows == nullptr || rule_row_count == 0u ||
+             rule_criterion_keys == nullptr || rule_criterion_key_count == 0u ||
+             rule_group_offsets == nullptr || rule_group_offsets[0] != 0u ||
+             rule_group_offsets[rule_group_count] != rule_criterion_key_count)) ||
+        output_seeds == nullptr || output_trials == nullptr || output_capacity == 0u ||
+        output_stage_counts == nullptr || stage_count != expected_stage_count) {
+        return UINT64_MAX;
+    }
+    if (start_index == stop_index) {
+        for (std::uint32_t index = 0u; index < stage_count; ++index) {
+            output_stage_counts[index] = 0u;
+        }
+        return 0u;
+    }
+    for (std::uint32_t index = 0u; index < filtered_terrain_count; ++index) {
+        if (filtered_terrain_rows[index] >= terrain_row_count) {
+            return UINT64_MAX;
+        }
+    }
+    for (std::uint32_t group = 0u; group < combined_enemy_group_count; ++group) {
+        if (enemy_group_offsets[group] >= enemy_group_offsets[group + 1u]) {
+            return UINT64_MAX;
+        }
+    }
+    for (std::uint32_t group = 0u; group < rule_group_count; ++group) {
+        if (rule_group_offsets[group] >= rule_group_offsets[group + 1u]) {
+            return UINT64_MAX;
+        }
+    }
+
+    const AuxiliaryMatcherView view{
+        playthrough,
+        mode_threshold,
+        filtered_terrain_rows,
+        filtered_terrain_count,
+        terrain_row_count,
+        allowed_terrain_rows,
+        descriptor_thresholds,
+        selector_threshold,
+        role_five_threshold,
+        selector_value,
+        enemy_rows,
+        enemy_row_count,
+        terrains,
+        terrain_count,
+        contexts,
+        context_count,
+        enemy_criterion_keys,
+        enemy_group_offsets,
+        enemy_group_count,
+        scratch_group_count,
+        rule_rows,
+        rule_row_count,
+        rule_criterion_keys,
+        rule_group_offsets,
+        rule_group_count,
+    };
+    int device_count = 0;
+    if (cudaGetDeviceCount(&device_count) == cudaSuccess && device_count > 0 &&
+        collect_auxiliary_pivot_matches_on_cuda(
+            values,
+            value_count,
+            start_index,
+            stop_index,
+            low16_stride,
+            draw_index,
+            view,
+            has_terrain_constraint != 0u,
+            output_seeds,
+            output_trials,
+            output_capacity,
+            output_stage_counts,
+            stage_count)) {
+        g_last_backend = 1;
+        std::uint64_t match_count = output_stage_counts[stage_count - 1u];
+        if (enemy_group_count == 0u && rule_group_count == 0u &&
+            has_terrain_constraint == 0u) {
+            match_count = output_stage_counts[0];
+        }
+        return match_count;
+    }
+
+    for (std::uint32_t index = 0u; index < stage_count; ++index) {
+        output_stage_counts[index] = 0u;
+    }
+    std::uint64_t output_count = 0u;
+    for (std::uint64_t flat_index = start_index; flat_index < stop_index; ++flat_index) {
+        const std::uint64_t low_index = flat_index / value_count;
+        const std::uint32_t bucket_index =
+            static_cast<std::uint32_t>(flat_index % value_count);
+        const std::uint16_t low16 = static_cast<std::uint16_t>(
+            static_cast<std::uint32_t>(low_index) * low16_stride);
+        const std::uint32_t rotation =
+            static_cast<std::uint32_t>(low_index % value_count);
+        const std::uint16_t high16 = values[(rotation + bucket_index) % value_count];
+        std::uint32_t seed = (static_cast<std::uint32_t>(high16) << 16u) | low16;
+        for (std::uint32_t draw = 0u; draw < draw_index; ++draw) {
+            seed = kLcgInverse * (seed - 1u);
+        }
+        if (!is_natural_seed(seed)) {
+            continue;
+        }
+        ++output_stage_counts[0];
+        const AuxiliaryEvaluation result = evaluate_auxiliary_constraints(seed, view);
+        std::uint32_t stage_index = 1u;
+        if (has_terrain_constraint != 0u) {
+            if (!result.terrain_matches) {
+                continue;
+            }
+            ++output_stage_counts[stage_index++];
+        }
+        bool accepted = result.terrain_matches;
+        for (std::uint32_t group = 0u; accepted && group < enemy_group_count; ++group) {
+            const std::uint32_t prefix = target_group_mask(group + 1u);
+            accepted = (result.enemy_mask & prefix) == prefix;
+            if (accepted) {
+                ++output_stage_counts[stage_index];
+            }
+            ++stage_index;
+        }
+        for (std::uint32_t group = 0u; accepted && group < rule_group_count; ++group) {
+            const std::uint32_t prefix = target_group_mask(group + 1u);
+            accepted = (result.rule_mask & prefix) == prefix;
+            if (accepted) {
+                ++output_stage_counts[stage_index];
+            }
+            ++stage_index;
+        }
+        if (!accepted) {
+            continue;
+        }
+        if (output_count >= output_capacity) {
+            return UINT64_MAX;
+        }
+        output_seeds[output_count] = seed;
+        output_trials[output_count] = flat_index + 1u;
+        ++output_count;
+    }
+    g_last_backend = 0;
+    return output_count;
 }
 
 extern "C" __declspec(dllexport) std::uint64_t collect_natural_pivot_seeds(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+from dataclasses import dataclass
 from functools import lru_cache
 import os
 from pathlib import Path
@@ -10,6 +11,15 @@ import sys
 
 
 ERROR_RESULT = 0xFFFFFFFFFFFFFFFF
+
+
+@dataclass(frozen=True, slots=True)
+class AuxiliaryPivotMatchPage:
+    """Exact auxiliary survivors and cumulative native stage counts."""
+
+    matches: tuple[tuple[int, int], ...]
+    stage_counts: tuple[int, ...]
+    backend: str
 
 
 def _application_root() -> Path:
@@ -163,6 +173,49 @@ def _load_accelerator() -> ctypes.WinDLL | None:
         ctypes.POINTER(ctypes.c_uint32),
     )
     rule_matches.restype = ctypes.c_int
+    auxiliary_pivot_matches = library.collect_auxiliary_pivot_matches
+    auxiliary_pivot_matches.argtypes = (
+        ctypes.POINTER(ctypes.c_uint16),
+        ctypes.c_uint32,
+        ctypes.c_uint64,
+        ctypes.c_uint64,
+        ctypes.c_uint16,
+        ctypes.c_uint32,
+        ctypes.c_uint8,
+        ctypes.c_int,
+        ctypes.POINTER(ctypes.c_uint32),
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.POINTER(ctypes.c_uint8),
+        ctypes.c_uint32,
+        ctypes.POINTER(ctypes.c_int),
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_uint8,
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.POINTER(ctypes.c_uint32),
+        ctypes.c_uint32,
+        ctypes.POINTER(ctypes.c_uint16),
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.POINTER(ctypes.c_uint16),
+        ctypes.c_uint32,
+        ctypes.POINTER(ctypes.c_uint16),
+        ctypes.c_uint32,
+        ctypes.POINTER(ctypes.c_uint32),
+        ctypes.POINTER(ctypes.c_uint64),
+        ctypes.c_uint64,
+        ctypes.POINTER(ctypes.c_uint64),
+        ctypes.c_uint32,
+    )
+    auxiliary_pivot_matches.restype = ctypes.c_uint64
     return library
 
 
@@ -212,6 +265,181 @@ def collect_natural_pivot_seeds(
             ((seed_array[index], trial_array[index]) for index in range(count)),
             key=lambda item: item[1],
         )
+    )
+
+
+def _flatten_uint32_groups(
+    groups: tuple[frozenset[int], ...],
+) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    flattened: list[int] = []
+    offsets = [0]
+    for group in groups:
+        if not group:
+            raise ValueError("native criterion groups cannot be empty")
+        flattened.extend(sorted(group))
+        offsets.append(len(flattened))
+    if len(flattened) > 0xFFFF:
+        raise ValueError("native criterion alternatives exceed the uint16 ABI")
+    return tuple(flattened), tuple(offsets)
+
+
+def collect_auxiliary_pivot_matches_native(
+    values: tuple[int, ...],
+    *,
+    start_index: int,
+    stop_index: int,
+    low16_stride: int,
+    draw_index: int,
+    playthrough: int,
+    mode_threshold: int,
+    filtered_terrain_rows: tuple[int, ...],
+    terrain_row_count: int,
+    allowed_terrain_rows: bytes,
+    has_terrain_constraint: bool,
+    descriptor_thresholds: tuple[int, int, int],
+    selector_threshold: int,
+    role_five_threshold: int,
+    selector_value: int,
+    enemy_rows: bytes,
+    terrains: bytes,
+    contexts: bytes,
+    enemy_criterion_groups: tuple[frozenset[int], ...],
+    enemy_group_count: int,
+    scratch_group_count: int,
+    rule_rows: bytes,
+    rule_criterion_groups: tuple[frozenset[int], ...],
+    output_capacity: int = 1_000_000,
+) -> AuxiliaryPivotMatchPage | None:
+    """Collect exact auxiliary matches without returning intermediate Seeds."""
+
+    library = _load_accelerator()
+    if library is None:
+        return None
+    item_count = stop_index - start_index
+    if not values or not 0 <= start_index <= stop_index:
+        raise ValueError("invalid native auxiliary pivot range")
+    if item_count > 8_000_000:
+        raise ValueError("native auxiliary pivot calls must not exceed 8,000,000 trials")
+    if not 1 <= draw_index <= 64:
+        raise ValueError("native pivot draw index must be in 1..64")
+    if not 1 <= playthrough <= 5:
+        raise ValueError("playthrough must be in 1..5")
+    if len(filtered_terrain_rows) == 0 or terrain_row_count <= 0:
+        raise ValueError("native terrain configuration cannot be empty")
+    if len(allowed_terrain_rows) != terrain_row_count:
+        raise ValueError("terrain allow-mask must contain one byte per native row")
+    if len(enemy_rows) % 18 or not enemy_rows:
+        raise ValueError("packed enemy rows must use the 18-byte native ABI")
+    if len(terrains) % 5 or len(terrains) // 5 != terrain_row_count:
+        raise ValueError("packed terrain rows must use the 5-byte native ABI")
+    if len(contexts) % 22 or not contexts:
+        raise ValueError("packed contexts must use the 22-byte native ABI")
+    if enemy_group_count + scratch_group_count != len(enemy_criterion_groups):
+        raise ValueError("native enemy and scratch group counts do not match")
+    if len(enemy_criterion_groups) > 32 or len(rule_criterion_groups) > 32:
+        raise ValueError("native auxiliary matching supports at most 32 groups")
+    if bool(rule_criterion_groups) != bool(rule_rows):
+        raise ValueError("native rule rows and criterion groups must be supplied together")
+    if rule_rows and len(rule_rows) % 16:
+        raise ValueError("packed special-rule rows must use the 16-byte native ABI")
+    if output_capacity <= 0:
+        raise ValueError("native auxiliary output capacity must be positive")
+
+    enemy_keys, enemy_offsets = _flatten_uint32_groups(enemy_criterion_groups)
+    rule_keys32, rule_offsets = _flatten_uint32_groups(rule_criterion_groups)
+    if any(not 0 <= key <= 0xFFFF for key in rule_keys32):
+        raise ValueError("special-rule keys must fit in uint16")
+    stage_count = 1 + int(has_terrain_constraint) + enemy_group_count + len(
+        rule_criterion_groups
+    )
+    value_array = (ctypes.c_uint16 * len(values))(*values)
+    filtered_array = (ctypes.c_uint32 * len(filtered_terrain_rows))(
+        *filtered_terrain_rows
+    )
+    allowed_array = (ctypes.c_uint8 * terrain_row_count).from_buffer_copy(
+        allowed_terrain_rows
+    )
+    threshold_array = (ctypes.c_int * 3)(*descriptor_thresholds)
+    enemy_buffer = ctypes.create_string_buffer(enemy_rows)
+    terrain_buffer = ctypes.create_string_buffer(terrains)
+    context_buffer = ctypes.create_string_buffer(contexts)
+    enemy_key_array = (
+        (ctypes.c_uint32 * len(enemy_keys))(*enemy_keys) if enemy_keys else None
+    )
+    enemy_offset_array = (
+        (ctypes.c_uint16 * len(enemy_offsets))(*enemy_offsets)
+        if enemy_criterion_groups
+        else None
+    )
+    rule_buffer = ctypes.create_string_buffer(rule_rows) if rule_rows else None
+    rule_key_array = (
+        (ctypes.c_uint16 * len(rule_keys32))(*rule_keys32) if rule_keys32 else None
+    )
+    rule_offset_array = (
+        (ctypes.c_uint16 * len(rule_offsets))(*rule_offsets)
+        if rule_criterion_groups
+        else None
+    )
+    capacity = min(output_capacity, max(1, item_count))
+    output_seeds = (ctypes.c_uint32 * capacity)()
+    output_trials = (ctypes.c_uint64 * capacity)()
+    output_stage_counts = (ctypes.c_uint64 * stage_count)()
+    count = library.collect_auxiliary_pivot_matches(
+        value_array,
+        len(values),
+        start_index,
+        stop_index,
+        low16_stride,
+        draw_index,
+        playthrough,
+        mode_threshold,
+        filtered_array,
+        len(filtered_terrain_rows),
+        terrain_row_count,
+        allowed_array,
+        int(has_terrain_constraint),
+        threshold_array,
+        selector_threshold,
+        role_five_threshold,
+        selector_value,
+        ctypes.cast(enemy_buffer, ctypes.c_void_p),
+        len(enemy_rows) // 18,
+        ctypes.cast(terrain_buffer, ctypes.c_void_p),
+        len(terrains) // 5,
+        ctypes.cast(context_buffer, ctypes.c_void_p),
+        len(contexts) // 22,
+        enemy_key_array,
+        len(enemy_keys),
+        enemy_offset_array,
+        enemy_group_count,
+        scratch_group_count,
+        ctypes.cast(rule_buffer, ctypes.c_void_p) if rule_buffer else None,
+        len(rule_rows) // 16,
+        rule_key_array,
+        len(rule_keys32),
+        rule_offset_array,
+        len(rule_criterion_groups),
+        output_seeds,
+        output_trials,
+        capacity,
+        output_stage_counts,
+        stage_count,
+    )
+    if count == ERROR_RESULT or count > capacity:
+        raise RuntimeError("native auxiliary pivot matcher rejected valid input")
+    matches = tuple(
+        sorted(
+            (
+                (int(output_seeds[index]), int(output_trials[index]))
+                for index in range(count)
+            ),
+            key=lambda item: item[1],
+        )
+    )
+    return AuxiliaryPivotMatchPage(
+        matches=matches,
+        stage_counts=tuple(int(value) for value in output_stage_counts),
+        backend=last_seed_acceleration_backend(),
     )
 
 
@@ -613,7 +841,7 @@ def match_special_rule_constraints_native(
     rule_rows: bytes,
     criterion_groups: tuple[frozenset[int], ...],
 ) -> tuple[int, ...] | None:
-    """Return exact special-rule masks through CUDA, never through CPU."""
+    """Return exact special-rule masks through CUDA or native CPU."""
 
     library = _load_accelerator()
     if library is None:
@@ -657,9 +885,7 @@ def match_special_rule_constraints_native(
         len(criterion_groups),
         output_array,
     )
-    if result == -2:
-        return None
-    if result != 1:
+    if result not in (0, 1):
         raise RuntimeError("native special-rule matcher rejected valid input")
     return tuple(int(value) for value in output_array)
 
@@ -678,9 +904,11 @@ def last_seed_acceleration_backend() -> str:
 
 
 __all__ = [
+    "AuxiliaryPivotMatchPage",
     "build_weighted_effect_lookup_native",
     "collect_ng3_r4_primary_pivot_seeds_native",
     "collect_natural_pivot_seeds",
+    "collect_auxiliary_pivot_matches_native",
     "cuda_seed_acceleration_available",
     "generate_ng3_context_primary_effect_ids_native",
     "generate_ng3_r4_multi_context_primary_effect_ids_native",

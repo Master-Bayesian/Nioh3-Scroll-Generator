@@ -2,9 +2,8 @@
 
 ## Public baseline
 
-The public baseline is the v0.6.6 source tag. The current working tree is later
-than that tag and has a local, unpublished `v0.6.7-beta.1` acceptance build.
-Nothing in this file is evidence of a new GitHub Release.
+The public baseline is stable v0.6.7. The current working tree identifies as
+v0.6.8 and is not published; its acceptance package is still pending.
 
 ## Completed in the current working tree
 
@@ -30,7 +29,7 @@ Nothing in this file is evidence of a new GitHub Release.
 | --- | --- | --- |
 | AMD optimization | D3D11 compute backend and AMD adapter selection are implemented; an AMD integrated GPU passed local parity | Run correctness, throughput, cancellation, and memory-pressure tests on at least one AMD discrete GPU. Integrated-GPU evidence is not a discrete-GPU performance claim. |
 | Unrestricted auxiliary editing | Included experimentally in v0.6.5; live hook installation/removal passed | The post-v0.6.6 working tree now writes both each enemy lookup key and its exact native role. Complete a new hit-backed detail/challenge acceptance pass for that change, terrain, and ordered rules. The UI explicitly states that these fields are not saved and will revert. |
-| Search UX/performance | Results stream incrementally, event queues are bounded, structural preflight exists, and generic pivot construction is GPU-only. R4 one/two-group requests run the exact GPU finalizer; three or more groups retain the cheaper lossless `N-1` stage filter. Both paths exact-replay GPU survivors on CPU. The complete 398-test suite passes after rebuilding the native DLL. A bounded NVIDIA route smoke covered primary only, unrestricted ordinary effect, Grace only, rule only, enemy only, and mixed conditions without CPU fallback. | Run manual packaged performance acceptance. Replace the Tk frontend in v0.7 to address resize, sash-drag, and scroll repaint latency; Electron is the current preferred candidate. |
+| Search UX/performance | Results stream incrementally, event queues are bounded, structural preflight exists, and generic pivot construction is GPU-first. R4 one/two-group requests run the exact GPU finalizer; three or more groups retain the cheaper lossless `N-1` stage filter. The v0.6.8 working tree fuses all auxiliary filters into bounded native CUDA calls, embeds precompiled DirectCompute shaders, and automatically continues internal pages until the requested result count. No-CUDA native CPU work requires explicit user consent. | Run manual packaged performance acceptance. Replace the Tk frontend in v0.7 to address resize, sash-drag, and scroll repaint latency; Electron is the current preferred candidate. |
 | Special-rule localization | Legal native rows are filtered and most automatic-activation items are localized | Native item key `0x3011` remains unresolved and must stay visibly marked rather than guessed. |
 
 ## Frozen archival research
@@ -105,8 +104,9 @@ a cached descriptor and never crossed the hooked construction boundary.
    least one hook hit, then finish detail/challenge validation for terrain and
    ordered special rules. Treat zero hits as a cache/reconstruction miss rather
    than a successful override.
-2. Re-run packaged UI acceptance and release the accumulated working tree only
-   after user approval.
+2. Re-run packaged v0.6.8 UI acceptance, including first-search automatic
+   continuation and 1080p local-editor scrolling, and release only after user
+   approval.
 3. After this release, replace the Tk frontend in v0.7; Electron is the current
    preferred candidate pending an architecture decision.
 4. Validate and tune the D3D11 accelerator on an AMD discrete GPU only when

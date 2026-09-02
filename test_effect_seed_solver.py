@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from emaki_exchange import EFFECT_START, EFFECT_STRIDE, SCROLL_RECORD_SIZE
 from nioh3_scroll_editor.auxiliary_catalog import load_auxiliary_name_catalog
+from nioh3_scroll_editor.auxiliary_generation import AuxiliarySearchCriteria
 from nioh3_scroll_editor.auxiliary_feasibility import (
     EnemyKeyRequirement,
     analyze_enemy_feasibility,
@@ -16,6 +17,7 @@ from nioh3_scroll_editor.auxiliary_feasibility import (
 from nioh3_scroll_editor.effect_seed_solver import (
     EffectSeedRequest,
     OfflineEffectReplayUnavailable,
+    collect_auxiliary_only_seed_page,
     collect_effect_seed_page,
     iter_effect_seed_candidates,
     merge_intersection_reports,
@@ -24,6 +26,8 @@ from nioh3_scroll_editor.effect_seed_solver import (
 )
 from nioh3_scroll_editor.grace_map import load_grace_output_map
 from nioh3_scroll_editor.joint_solver import U16Runs
+from nioh3_scroll_editor.seed_accelerator import AuxiliaryPivotMatchPage
+from nioh3_scroll_editor.effect_sequence import generate_ng3_certified_effect_sequence
 from nioh3_scroll_editor.primary_map import (
     PrimaryFirstDrawOutputMap,
     PrimaryOutputMap,
@@ -116,6 +120,59 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
             draw_index=2,
             effects=((PRIMARY, complete_runs()),),
         )
+
+    def test_first_auxiliary_search_collects_the_full_requested_page(self) -> None:
+        request = EffectSeedRequest(
+            playthrough=3,
+            rarity=4,
+            auxiliary_criteria=AuxiliarySearchCriteria(
+                required_special_rule_key_groups=(frozenset((0x0071,)),),
+            ),
+        )
+        native_page = AuxiliaryPivotMatchPage(
+            matches=tuple((seed, seed) for seed in range(1, 21)),
+            stage_counts=(128, 20),
+            backend="cuda",
+        )
+        streamed: list[object] = []
+        with (
+            patch(
+                "nioh3_scroll_editor.effect_seed_solver.collect_auxiliary_pivot_matches_batch",
+                return_value=native_page,
+            ),
+            patch(
+                "nioh3_scroll_editor.effect_seed_solver.generate_matching_auxiliary",
+                return_value=object(),
+            ),
+        ):
+            first = collect_auxiliary_only_seed_page(
+                request,
+                page_size=20,
+                effect_sequence_generator=lambda seed: (
+                    generate_ng3_certified_effect_sequence(
+                        seed,
+                        rarity=4,
+                        level=180,
+                    )
+                ),
+                max_trials=1_000,
+                candidate_found=streamed.append,
+            )
+            second = collect_auxiliary_only_seed_page(
+                request,
+                page_size=20,
+                effect_sequence_generator=lambda seed: (
+                    generate_ng3_certified_effect_sequence(
+                        seed,
+                        rarity=4,
+                        level=180,
+                    )
+                ),
+                max_trials=1_000,
+            )
+        self.assertEqual(len(first.candidates), 20)
+        self.assertEqual(len(second.candidates), 20)
+        self.assertEqual(len(streamed), 20)
 
     def test_yields_exact_grace_primary_seed_without_game_process(self) -> None:
         request = EffectSeedRequest(

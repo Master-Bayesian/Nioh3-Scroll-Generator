@@ -104,7 +104,9 @@ class SeedSolution:
     pivot_state_low16: int
 
 
-def _permuted_values(runs: U16Runs) -> tuple[int, ...]:
+def permuted_pivot_values(runs: U16Runs) -> tuple[int, ...]:
+    """Return the stable bucket permutation used by the mathematical cursor."""
+
     values = tuple(runs.iter_values())
     if not values:
         return values
@@ -114,6 +116,12 @@ def _permuted_values(runs: U16Runs) -> tuple[int, ...]:
     while gcd(stride, len(values)) != 1:
         stride += 2
     return tuple(values[(index * stride) % len(values)] for index in range(len(values)))
+
+
+def _permuted_values(runs: U16Runs) -> tuple[int, ...]:
+    """Compatibility alias for research tests and older internal callers."""
+
+    return permuted_pivot_values(runs)
 
 
 def choose_pivot(constraints: Sequence[DrawConstraint]) -> DrawConstraint:
@@ -160,7 +168,7 @@ def iter_constraint_intersection(
 
     pivot = choose_pivot(constraints)
     others = tuple(item for item in constraints if item is not pivot)
-    values = _permuted_values(pivot.allowed_u16)
+    values = permuted_pivot_values(pivot.allowed_u16)
     family_size = len(values) * 0x10000
     first_index = min(start_after_trial, family_size)
     stop_index = family_size

@@ -74,6 +74,7 @@ from .effect_seed_solver import (
     EffectSeedIntersectionReport,
     EffectSeedRequest,
     IntersectionStageCount,
+    collect_auxiliary_only_seed_page,
     collect_effect_seed_page,
     merge_intersection_reports,
     validate_effect_request_feasibility,
@@ -101,6 +102,7 @@ from .effect_preimage_search import (
     collect_one_wildcard_composition_preimage_page,
 )
 from .effect_sequence import (
+    EffectSequenceResult,
     collect_ng3_r4_primary_pivot_seeds,
     generate_ng3_certified_effect_sequence,
     generate_ng3_rarity34_primary_effect_ids,
@@ -221,8 +223,8 @@ def search_backend_display_name() -> str:
         }.get(preimage, "DirectCompute")
     return {
         "cuda": "CUDA",
-        "native_cpu": "错误：原生 CPU 回退",
-        "python": "错误：Python CPU 回退",
+        "native_cpu": "原生 CPU（已确认）",
+        "python": "Python CPU（已确认）",
     }.get(last_seed_acceleration_backend(), "GPU 后端未使用")
 
 
@@ -276,6 +278,52 @@ class SearchBatchResult:
     next_start_after_trial: int | None = None
     intersection_report: EffectSeedIntersectionReport | None = None
     streamed: bool = False
+
+
+def collect_search_pages_until_requested(
+    collector: Callable[[int, int], SearchBatchResult],
+    *,
+    result_count: int,
+    start_after_trial: int = 0,
+    cancelled: Callable[[], bool] | None = None,
+) -> SearchBatchResult:
+    """Continue bounded solver pages until the UI request is satisfied."""
+
+    if result_count <= 0:
+        raise ValueError("result_count must be positive")
+    if start_after_trial < 0:
+        raise ValueError("start_after_trial cannot be negative")
+    active_cursor = start_after_trial
+    candidates: list[ScrollCandidate] = []
+    reports: list[EffectSeedIntersectionReport] = []
+    streamed = False
+    while len(candidates) < result_count:
+        if cancelled is not None and cancelled():
+            break
+        page = collector(result_count - len(candidates), active_cursor)
+        candidates.extend(page.candidates)
+        streamed = streamed or page.streamed
+        if page.intersection_report is not None:
+            reports.append(page.intersection_report)
+            if page.intersection_report.exhausted_family:
+                active_cursor = page.next_start_after_trial or active_cursor
+                break
+        next_cursor = page.next_start_after_trial
+        if next_cursor is None or next_cursor <= active_cursor:
+            break
+        active_cursor = next_cursor
+    combined_report = (
+        merge_intersection_reports(tuple(reports))
+        if len(reports) > 1
+        else reports[0] if reports else None
+    )
+    return SearchBatchResult(
+        candidates=tuple(candidates[:result_count]),
+        requested_count=result_count,
+        next_start_after_trial=active_cursor,
+        intersection_report=combined_report,
+        streamed=streamed,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -636,106 +684,185 @@ def collect_offline_one_wildcard_preimage_search_batch(
             "已停止计算，不会回退到慢速 CPU/Python。"
         )
     family_size = sum(plan.pivot_state_count for plan in plans)
-    page = collect_one_wildcard_composition_preimage_page(
-        inverse_request,
-        page_size=max(64, result_count * 8),
-        special_mapping=grace_mapping,
-        start_after_trial=min(start_after_trial, family_size),
-        max_trials=min(
-            max_trials_per_batch,
-            max(0, family_size - min(start_after_trial, family_size)),
-        )
-        or None,
-        cancelled=cancelled,
-    )
-    if page is None:
-        raise RuntimeError(
-            "DirectCompute GPU 求解器在计算中不可用；已停止计算，"
-            "不会回退到慢速 CPU/Python。"
-        )
+    active_cursor = min(start_after_trial, family_size)
+    budget_stop = min(family_size, active_cursor + max_trials_per_batch)
     candidates: list[ScrollCandidate] = []
-    cursor = page.next_start_after_trial
-    for match in page.matches:
-        if cancelled is not None and cancelled():
-            cursor = match.pivot_trial - 1
-            break
-        sequence = (
-            generate_ng3_certified_effect_sequence(
+    while (
+        len(candidates) < result_count
+        and active_cursor < budget_stop
+        and not (cancelled is not None and cancelled())
+    ):
+        page = collect_one_wildcard_composition_preimage_page(
+            inverse_request,
+            page_size=max(64, (result_count - len(candidates)) * 8),
+            special_mapping=grace_mapping,
+            start_after_trial=active_cursor,
+            max_trials=budget_stop - active_cursor,
+            cancelled=cancelled,
+        )
+        if page is None:
+            raise RuntimeError(
+                "DirectCompute GPU 求解器在计算中不可用；已停止计算，"
+                "不会回退到慢速 CPU/Python。"
+            )
+        previous_cursor = active_cursor
+        active_cursor = page.next_start_after_trial
+        for match in page.matches:
+            if cancelled is not None and cancelled():
+                active_cursor = match.pivot_trial - 1
+                break
+            sequence = (
+                generate_ng3_certified_effect_sequence(
+                    match.seed,
+                    rarity=request.rarity,
+                    level=level,
+                )
+                if request.playthrough == 3
+                else generate_rarity5_grace_effect_sequence(
+                    match.seed,
+                    playthrough=request.playthrough,
+                    level=level,
+                    grace_mapping=grace_mapping,
+                )
+            )
+            if not _sequence_satisfies_roll_filters(
+                sequence,
+                request.minimum_roll_percent_by_effect_id,
+            ):
+                continue
+            if (
+                request.grace_effect_id is not None
+                and (
+                    not sequence.terminal_is_special
+                    or sequence.grace.effect_id != request.grace_effect_id
+                )
+            ):
+                continue
+            auxiliary = generate_matching_auxiliary(
                 match.seed,
-                rarity=request.rarity,
-                level=level,
+                request.playthrough,
+                criteria=request.auxiliary_criteria,
             )
-            if request.playthrough == 3
-            else generate_rarity5_grace_effect_sequence(
-                match.seed,
-                playthrough=request.playthrough,
-                level=level,
-                grace_mapping=grace_mapping,
+            if auxiliary is None:
+                continue
+            candidate = ScrollCandidate.from_effect_sequence(
+                sequence,
+                auxiliary=auxiliary,
+                joint_search_trial=match.pivot_trial,
             )
-        )
-        if not _sequence_satisfies_roll_filters(
-            sequence,
-            request.minimum_roll_percent_by_effect_id,
-        ):
-            continue
-        if (
-            request.grace_effect_id is not None
-            and (
-                not sequence.terminal_is_special
-                or sequence.grace.effect_id != request.grace_effect_id
-            )
-        ):
-            continue
-        auxiliary = generate_matching_auxiliary(
-            match.seed,
-            request.playthrough,
-            criteria=request.auxiliary_criteria,
-        )
-        if auxiliary is None:
-            continue
-        candidate = ScrollCandidate.from_effect_sequence(
-            sequence,
-            auxiliary=auxiliary,
-            joint_search_trial=match.pivot_trial,
-        )
-        if not candidate_matches(
-            candidate,
-            primary_effect_ids=request.primary_effect_ids,
-            required_secondary_ids=request.required_secondary_ids,
-            required_secondary_id_groups=request.required_secondary_id_groups,
-        ):
-            continue
-        candidates.append(candidate)
-        if candidate_found is not None:
-            candidate_found(candidate)
-        if len(candidates) >= result_count:
-            cursor = match.pivot_trial
+            if not candidate_matches(
+                candidate,
+                primary_effect_ids=request.primary_effect_ids,
+                required_secondary_ids=request.required_secondary_ids,
+                required_secondary_id_groups=request.required_secondary_id_groups,
+            ):
+                continue
+            candidates.append(candidate)
+            if candidate_found is not None:
+                candidate_found(candidate)
+            if len(candidates) >= result_count:
+                active_cursor = match.pivot_trial
+                break
+        if active_cursor <= previous_cursor:
             break
     return SearchBatchResult(
         candidates=tuple(candidates),
         requested_count=result_count,
-        next_start_after_trial=cursor,
+        next_start_after_trial=active_cursor,
         streamed=candidate_found is not None,
     )
 
 
-def require_accelerated_generic_search(request: EffectSeedRequest) -> None:
+def require_accelerated_generic_search(
+    request: EffectSeedRequest,
+    *,
+    allow_cpu_fallback: bool = False,
+) -> None:
     """Reject generic searches that would silently enter bulk Python replay."""
 
     criteria = request.auxiliary_criteria
     if not (
         d3d11_effect_acceleration_available()
         or cuda_seed_acceleration_available()
-    ):
+    ) and not allow_cpu_fallback:
         raise RuntimeError(
             "没有检测到可用的 GPU 搜索后端；已停止计算，不会回退到 CPU/Python。"
         )
     requires_cuda_prefilter = not criteria.is_empty
-    if requires_cuda_prefilter and not cuda_seed_acceleration_available():
+    if (
+        requires_cuda_prefilter
+        and not cuda_seed_acceleration_available()
+        and not allow_cpu_fallback
+    ):
         raise RuntimeError(
-            "当前主词条/敌人/地形路径需要 CUDA 批量前筛，但 CUDA 不可用；"
+            "当前地形、敌人或特殊规则路径需要 CUDA 批量前筛，但 CUDA 不可用；"
             "已停止计算，不会回退到慢速 CPU。"
         )
+
+
+def request_is_auxiliary_only(request: EffectSeedRequest) -> bool:
+    """Return whether every selected condition belongs to auxiliary output."""
+
+    return bool(
+        not request.auxiliary_criteria.is_empty
+        and not request.primary_effect_ids
+        and not request.required_secondary_ids
+        and not request.required_secondary_id_groups
+        and request.grace_effect_id is None
+        and not request.minimum_roll_percent_by_effect_id
+    )
+
+
+def collect_offline_auxiliary_only_search_batch(
+    request: EffectSeedRequest,
+    *,
+    effect_sequence_generator: Callable[[int], EffectSequenceResult],
+    result_count: int,
+    max_trials_per_batch: int,
+    start_after_trial: int,
+    intersection_progress: Callable[[EffectSeedIntersectionReport], None] | None,
+    candidate_found: Callable[[ScrollCandidate], None] | None,
+    cancelled: Callable[[], bool] | None,
+) -> SearchBatchResult:
+    """Materialize one fused auxiliary-only search page."""
+
+    materialized_by_trial: dict[int, ScrollCandidate] = {}
+
+    def materialize(match: EffectSeedCandidate) -> ScrollCandidate:
+        cached = materialized_by_trial.get(match.pivot_trial)
+        if cached is not None:
+            return cached
+        if match.effect_sequence is None or match.auxiliary is None:
+            raise RuntimeError("fused auxiliary solver returned an incomplete preview")
+        candidate = ScrollCandidate.from_effect_sequence(
+            match.effect_sequence,
+            auxiliary=match.auxiliary,
+            joint_search_trial=match.pivot_trial,
+        )
+        materialized_by_trial[match.pivot_trial] = candidate
+        return candidate
+
+    page = collect_auxiliary_only_seed_page(
+        request,
+        page_size=result_count,
+        effect_sequence_generator=effect_sequence_generator,
+        start_after_trial=start_after_trial,
+        max_trials=max_trials_per_batch,
+        intersection_progress=intersection_progress,
+        candidate_found=(
+            (lambda match: candidate_found(materialize(match)))
+            if candidate_found is not None
+            else None
+        ),
+        cancelled=cancelled,
+    )
+    return SearchBatchResult(
+        candidates=tuple(materialize(match) for match in page.candidates),
+        requested_count=result_count,
+        next_start_after_trial=page.next_start_after_trial,
+        intersection_report=page.intersection_report,
+        streamed=candidate_found is not None,
+    )
 
 
 def partial_effect_batch_generator(
@@ -743,6 +870,7 @@ def partial_effect_batch_generator(
     *,
     grace_mapping: GraceOutputMap | None,
     level: int,
+    allow_cpu_fallback: bool = False,
 ) -> Callable[[tuple[int, ...]], tuple[tuple[int, ...], int] | None] | None:
     """Build a fail-closed D3D11 forward filter for partial effect requests."""
 
@@ -774,6 +902,8 @@ def partial_effect_batch_generator(
             level=level,
         )
         if result is None:
+            if allow_cpu_fallback:
+                return None
             raise RuntimeError(
                 "DirectCompute partial-effect matcher is unavailable; "
                 "CPU fallback is disabled"
@@ -967,37 +1097,65 @@ def collect_offline_rarity5_search_batch(
     intersection_progress: Callable[[EffectSeedIntersectionReport], None] | None = None,
     candidate_found: Callable[[ScrollCandidate], None] | None = None,
     cancelled: Callable[[], bool] | None = None,
+    allow_cpu_fallback: bool = False,
 ) -> SearchBatchResult:
     """Run one exact NG3-NG5 rarity-5 search without a game process."""
 
     reset_effect_preimage_backend()
     if request.playthrough not in (3, 4, 5) or request.rarity != 5:
         raise ValueError("offline Grace search requires NG3-NG5 rarity 5")
-    accelerated = collect_offline_complete_preimage_search_batch(
+    require_accelerated_generic_search(
         request,
-        grace_mapping=grace_mapping,
-        level=level,
-        result_count=result_count,
-        max_trials_per_batch=max_trials_per_batch,
-        start_after_trial=start_after_trial,
-        candidate_found=candidate_found,
-        cancelled=cancelled,
+        allow_cpu_fallback=allow_cpu_fallback,
+    )
+    if request_is_auxiliary_only(request):
+        return collect_offline_auxiliary_only_search_batch(
+            request,
+            effect_sequence_generator=lambda seed: generate_rarity5_grace_effect_sequence(
+                seed,
+                playthrough=request.playthrough,
+                level=level,
+                grace_mapping=grace_mapping,
+            ),
+            result_count=result_count,
+            max_trials_per_batch=max_trials_per_batch,
+            start_after_trial=start_after_trial,
+            intersection_progress=intersection_progress,
+            candidate_found=candidate_found,
+            cancelled=cancelled,
+        )
+    accelerated = (
+        collect_offline_complete_preimage_search_batch(
+            request,
+            grace_mapping=grace_mapping,
+            level=level,
+            result_count=result_count,
+            max_trials_per_batch=max_trials_per_batch,
+            start_after_trial=start_after_trial,
+            candidate_found=candidate_found,
+            cancelled=cancelled,
+        )
+        if d3d11_effect_acceleration_available() or not allow_cpu_fallback
+        else None
     )
     if accelerated is not None:
         return accelerated
-    accelerated = collect_offline_one_wildcard_preimage_search_batch(
-        request,
-        grace_mapping=grace_mapping,
-        level=level,
-        result_count=result_count,
-        max_trials_per_batch=max_trials_per_batch,
-        start_after_trial=start_after_trial,
-        candidate_found=candidate_found,
-        cancelled=cancelled,
+    accelerated = (
+        collect_offline_one_wildcard_preimage_search_batch(
+            request,
+            grace_mapping=grace_mapping,
+            level=level,
+            result_count=result_count,
+            max_trials_per_batch=max_trials_per_batch,
+            start_after_trial=start_after_trial,
+            candidate_found=candidate_found,
+            cancelled=cancelled,
+        )
+        if d3d11_effect_acceleration_available() or not allow_cpu_fallback
+        else None
     )
     if accelerated is not None:
         return accelerated
-    require_accelerated_generic_search(request)
     completed_reports: list[EffectSeedIntersectionReport] = []
     matches = []
     materialized_by_trial: dict[int, ScrollCandidate] = {}
@@ -1072,6 +1230,7 @@ def collect_offline_rarity5_search_batch(
                 request,
                 grace_mapping=grace_mapping,
                 level=level,
+                allow_cpu_fallback=allow_cpu_fallback,
             ),
             allow_full_seed_family=request.grace_effect_id is None,
             start_after_trial=active_cursor,
@@ -1083,6 +1242,7 @@ def collect_offline_rarity5_search_batch(
             # NVIDIA. DirectCompute remains the cross-vendor path when CUDA is
             # unavailable; neither route is allowed to fall back to bulk CPU.
             prefer_d3d11_fixed_draw=not cuda_seed_acceleration_available(),
+            allow_cpu_fallback=allow_cpu_fallback,
         )
         matches.extend(page.candidates)
         if page.intersection_report is not None:
@@ -1129,6 +1289,7 @@ def collect_offline_ng3_search_batch(
     intersection_progress: Callable[[EffectSeedIntersectionReport], None] | None = None,
     candidate_found: Callable[[ScrollCandidate], None] | None = None,
     cancelled: Callable[[], bool] | None = None,
+    allow_cpu_fallback: bool = False,
 ) -> SearchBatchResult:
     """Run one certified NG3 rarity-3/4/5 search without a game or save."""
 
@@ -1148,38 +1309,64 @@ def collect_offline_ng3_search_batch(
             intersection_progress=intersection_progress,
             candidate_found=candidate_found,
             cancelled=cancelled,
+            allow_cpu_fallback=allow_cpu_fallback,
         )
     if request.rarity == 3 and request.grace_effect_id is not None:
         raise ValueError("rarity-3 has no selectable final Grace")
     if request.rarity == 4 and request.grace_effect_id is not None:
         if grace_mapping is None or grace_mapping.rarity != 4:
             raise ValueError("rarity-4 final Grace filtering requires the R4 draw-1 map")
-    accelerated = collect_offline_complete_preimage_search_batch(
+    require_accelerated_generic_search(
         request,
-        grace_mapping=grace_mapping,
-        level=level,
-        result_count=result_count,
-        max_trials_per_batch=max_trials_per_batch,
-        start_after_trial=start_after_trial,
-        candidate_found=candidate_found,
-        cancelled=cancelled,
+        allow_cpu_fallback=allow_cpu_fallback,
+    )
+    if request_is_auxiliary_only(request):
+        return collect_offline_auxiliary_only_search_batch(
+            request,
+            effect_sequence_generator=lambda seed: generate_ng3_certified_effect_sequence(
+                seed,
+                rarity=request.rarity,
+                level=level,
+            ),
+            result_count=result_count,
+            max_trials_per_batch=max_trials_per_batch,
+            start_after_trial=start_after_trial,
+            intersection_progress=intersection_progress,
+            candidate_found=candidate_found,
+            cancelled=cancelled,
+        )
+    accelerated = (
+        collect_offline_complete_preimage_search_batch(
+            request,
+            grace_mapping=grace_mapping,
+            level=level,
+            result_count=result_count,
+            max_trials_per_batch=max_trials_per_batch,
+            start_after_trial=start_after_trial,
+            candidate_found=candidate_found,
+            cancelled=cancelled,
+        )
+        if d3d11_effect_acceleration_available() or not allow_cpu_fallback
+        else None
     )
     if accelerated is not None:
         return accelerated
-    accelerated = collect_offline_one_wildcard_preimage_search_batch(
-        request,
-        grace_mapping=grace_mapping,
-        level=level,
-        result_count=result_count,
-        max_trials_per_batch=max_trials_per_batch,
-        start_after_trial=start_after_trial,
-        candidate_found=candidate_found,
-        cancelled=cancelled,
+    accelerated = (
+        collect_offline_one_wildcard_preimage_search_batch(
+            request,
+            grace_mapping=grace_mapping,
+            level=level,
+            result_count=result_count,
+            max_trials_per_batch=max_trials_per_batch,
+            start_after_trial=start_after_trial,
+            candidate_found=candidate_found,
+            cancelled=cancelled,
+        )
+        if d3d11_effect_acceleration_available() or not allow_cpu_fallback
+        else None
     )
     if accelerated is not None:
         return accelerated
-
-    require_accelerated_generic_search(request)
 
     completed_reports: list[EffectSeedIntersectionReport] = []
     matches = []
@@ -1236,6 +1423,7 @@ def collect_offline_ng3_search_batch(
                 request,
                 grace_mapping=grace_mapping,
                 level=level,
+                allow_cpu_fallback=allow_cpu_fallback,
             ),
             allow_full_seed_family=request.grace_effect_id is None,
             start_after_trial=active_cursor,
@@ -1253,7 +1441,7 @@ def collect_offline_ng3_search_batch(
                             low16_stride=low16_stride,
                             primary_effect_ids=request.primary_effect_ids,
                             special_mapping=grace_mapping,
-                            require_cuda=True,
+                            require_cuda=not allow_cpu_fallback,
                         )
                     )
                 )
@@ -1269,6 +1457,7 @@ def collect_offline_ng3_search_batch(
             # NVIDIA. DirectCompute remains the cross-vendor path when CUDA is
             # unavailable; neither route may fall back to bulk CPU.
             prefer_d3d11_fixed_draw=not cuda_seed_acceleration_available(),
+            allow_cpu_fallback=allow_cpu_fallback,
         )
         matches.extend(page.candidates)
         if page.intersection_report is not None:
@@ -1617,7 +1806,7 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器使用教程
 3. 主词条候选、多个必含副词条、副词条任一组和必含项数值门槛都在完整 Seed 重放结果上检查；不指定时可直接比较返回候选中的实际词条。
 4. 地形、敌人和特殊规则同样由 Seed 离线生成并联合过滤。敌人列表只展示原生绘卷候选表中的合法名称，并按低手／中手／高手生成池档位分栏；这些档位不代表战斗强弱。同名但实际形态不同的高手，以及金井半兵卫的人形／妖怪形态，均按原生 ID 拆成独立选项。多个必含敌人是 AND，同一个任一组中的敌人是 OR。选择一名敌人只保证至少出现该敌人；“合法组合一览”说明完整敌人组结构。结构上不可能共存的组合会在求解前直接报无解。
 5. “候选数量”决定一次返回多少张可比较绘卷（1–200）。每找到一张就会立即加入预览，不必等整轮完成；进度更新会自动合并，避免较慢电脑因界面消息堆积而失去响应。“单批数学游标数”只是每个计算块的大小，不是总搜索上限。程序会自动继续后续块，直到得到所需数量、完整数学族耗尽或用户取消。
-6. 完整词条组合和部分普通词条可使用通用 Direct3D 11 / DirectCompute 后端，支持 AMD、NVIDIA 和 Intel 显卡；敌人、地形与特殊规则使用 NVIDIA CUDA。没有对应 GPU 快速路径时会立即停止并说明原因，不会静默回退到可能运行几十分钟的 CPU 全量搜索。所有 GPU 候选最后仍由完整离线生成器精确验证。
+6. 完整词条组合和部分普通词条可使用通用 Direct3D 11 / DirectCompute 后端，支持 AMD、NVIDIA 和 Intel 显卡；敌人、地形与特殊规则优先使用 NVIDIA CUDA。缺少对应 GPU 快速路径时，程序会先明确提示预计较慢，只有用户确认后才使用原生 CPU 精确计算；不会静默回退。所有 GPU 候选最后仍由完整离线生成器精确验证。
 7. 点击“计算候选 Seed”后，每找到一张完整匹配就会立刻加入下方列表；需要更多结果时点击“计算下一批候选”，程序从精确数学游标继续，不会重复以前的候选。
 
 四、已知 Seed 单点生成
@@ -2016,7 +2205,7 @@ class ScrollEditorApp:
         )
         self.special_id_by_label: dict[str, int] = {}
         self.direct_seed = StringVar(value="0")
-        self.max_seeds = StringVar(value="1000000")
+        self.max_seeds = StringVar(value="100000000")
         self.result_count = StringVar(value="20")
         self.candidate_sort = StringVar(value="发现顺序")
         self.level = StringVar(value="180")
@@ -2470,9 +2659,9 @@ class ScrollEditorApp:
                 "●  DirectCompute/CUDA 批量筛选 · CPU 仅验证 GPU 幸存结果"
                 if cuda_seed_acceleration_available()
                 else (
-                    "●  DirectCompute 批量筛选 · 不支持的条件将立即停止"
+                    "●  DirectCompute 批量筛选 · 辅助条件缺少 CUDA 时会先询问"
                     if d3d11_effect_acceleration_available()
-                    else "●  GPU 搜索后端不可用 · 不会回退到慢速 CPU"
+                    else "●  GPU 搜索后端不可用 · CPU 搜索前会先询问"
                 )
             ),
             style="Ready.TLabel",
@@ -3464,13 +3653,46 @@ class ScrollEditorApp:
         panes = ttk.Panedwindow(outer, orient="horizontal")
         panes.pack(fill=BOTH, expand=True)
         inventory_frame = ttk.LabelFrame(panes, text="当前存档绘卷", padding=8)
-        editor_frame = ttk.LabelFrame(
+        editor_pane = ttk.LabelFrame(
             panes,
             text="记录头字段 + 七槽自由修改",
             padding=8,
         )
         panes.add(inventory_frame, weight=2)
-        panes.add(editor_frame, weight=5)
+        panes.add(editor_pane, weight=5)
+
+        editor_canvas = Canvas(
+            editor_pane,
+            background=self.colors["surface"],
+            highlightthickness=0,
+        )
+        editor_scrollbar = ttk.Scrollbar(
+            editor_pane,
+            orient="vertical",
+            command=editor_canvas.yview,
+        )
+        editor_canvas.configure(yscrollcommand=editor_scrollbar.set)
+        editor_canvas.pack(side=LEFT, fill=BOTH, expand=True)
+        editor_scrollbar.pack(side=RIGHT, fill="y")
+        editor_frame = ttk.Frame(editor_canvas, padding=(0, 0, 8, 0))
+        editor_window = editor_canvas.create_window(
+            (0, 0),
+            window=editor_frame,
+            anchor="nw",
+        )
+
+        def refresh_editor_scroll_region(_event: object | None = None) -> None:
+            bounds = editor_canvas.bbox("all")
+            if bounds is not None:
+                editor_canvas.configure(scrollregion=bounds)
+
+        def resize_editor_content(event: object) -> None:
+            width = int(getattr(event, "width", 0))
+            if width > 0:
+                editor_canvas.itemconfigure(editor_window, width=width)
+
+        editor_frame.bind("<Configure>", refresh_editor_scroll_region)
+        editor_canvas.bind("<Configure>", resize_editor_content)
 
         inventory_columns = (
             "slot",
@@ -3887,6 +4109,24 @@ class ScrollEditorApp:
         self.backup_tree.configure(yscrollcommand=backup_scrollbar.set)
         self.backup_tree.pack(side=LEFT, fill="x", expand=True)
         backup_scrollbar.pack(side=RIGHT, fill="y")
+
+        def scroll_local_editor(event: object) -> str:
+            delta = int(getattr(event, "delta", 0))
+            if delta:
+                editor_canvas.yview_scroll(-1 if delta > 0 else 1, "units")
+            return "break"
+
+        def bind_editor_mousewheel(widget: object) -> None:
+            bind = getattr(widget, "bind", None)
+            children = getattr(widget, "winfo_children", None)
+            if callable(bind):
+                bind("<MouseWheel>", scroll_local_editor, add="+")
+            if callable(children):
+                for child in children():
+                    bind_editor_mousewheel(child)
+
+        bind_editor_mousewheel(editor_frame)
+        refresh_editor_scroll_region()
 
 
     def _backup_state_root(self) -> Path:
@@ -6061,7 +6301,7 @@ class ScrollEditorApp:
         if certified_ng3_mode:
             self.calculation_mode_hint.set(
                 "离线精确求解：DirectCompute/CUDA 分块构造并批量筛选普通词条、"
-                "地形、敌人与特殊规则；CPU 只验证 GPU 幸存候选。"
+                "地形、敌人与特殊规则；缺少对应 GPU 后端时会先询问是否使用 CPU。"
                 "恩宠可指定或任意。"
             )
         elif joint_mode:
@@ -6648,6 +6888,32 @@ class ScrollEditorApp:
     ) -> None:
         if self.worker and self.worker.is_alive():
             return
+        auxiliary_criteria = criteria[6]
+        has_cuda = cuda_seed_acceleration_available()
+        has_direct_compute = d3d11_effect_acceleration_available()
+        allow_cpu_fallback = False
+        if not has_cuda and not auxiliary_criteria.is_empty:
+            accelerator_detail = (
+                "支持的普通词条阶段仍会使用 DirectCompute；"
+                if has_direct_compute
+                else "当前也没有检测到可用的 DirectCompute 后端；"
+            )
+            allow_cpu_fallback = messagebox.askyesno(
+                "未检测到 CUDA",
+                "当前选择包含地形、敌人或特殊规则，但没有检测到 NVIDIA CUDA。\n\n"
+                f"{accelerator_detail}辅助条件将改用原生 CPU 精确计算，"
+                "在稀有组合上可能明显更慢。\n\n是否继续？",
+            )
+            if not allow_cpu_fallback:
+                return
+        elif not has_cuda and not has_direct_compute:
+            allow_cpu_fallback = messagebox.askyesno(
+                "未检测到 GPU 搜索后端",
+                "没有检测到可用的 CUDA 或 DirectCompute 搜索后端。\n\n"
+                "本次搜索将改用 CPU 精确计算，可能需要很长时间。\n\n是否继续？",
+            )
+            if not allow_cpu_fallback:
+                return
         available_preview_slots = MAX_PREVIEW_CANDIDATES - len(self.candidates)
         if available_preview_slots <= 0:
             self.status.set(
@@ -6785,21 +7051,28 @@ class ScrollEditorApp:
                             search_run_id, "intersection_progress", update
                         )
 
-                    result = collect_offline_ng3_search_batch(
-                        request,
-                        grace_mapping=offline_grace_mapping,
-                        level=level,
+                    search_cancelled = lambda: (
+                        self.cancel_event.is_set()
+                        or self.search_events.is_cancelled(search_run_id)
+                    )
+                    result = collect_search_pages_until_requested(
+                        lambda remaining, cursor: collect_offline_ng3_search_batch(
+                            request,
+                            grace_mapping=offline_grace_mapping,
+                            level=level,
+                            result_count=remaining,
+                            max_trials_per_batch=max_seeds,
+                            start_after_trial=cursor,
+                            intersection_progress=intersection_progress,
+                            candidate_found=lambda candidate: self.search_events.publish_candidate(
+                                search_run_id, candidate
+                            ),
+                            cancelled=search_cancelled,
+                            allow_cpu_fallback=allow_cpu_fallback,
+                        ),
                         result_count=result_count,
-                        max_trials_per_batch=max_seeds,
                         start_after_trial=joint_start_after_trial,
-                        intersection_progress=intersection_progress,
-                        candidate_found=lambda candidate: self.search_events.publish_candidate(
-                            search_run_id, candidate
-                        ),
-                        cancelled=lambda: (
-                            self.cancel_event.is_set()
-                            or self.search_events.is_cancelled(search_run_id)
-                        ),
+                        cancelled=search_cancelled,
                     )
                     self.search_events.publish_terminal(
                         search_run_id, "search_complete", result
@@ -6824,21 +7097,28 @@ class ScrollEditorApp:
                             search_run_id, "intersection_progress", update
                         )
 
-                    result = collect_offline_rarity5_search_batch(
-                        request,
-                        grace_mapping=offline_grace_mapping,
-                        level=level,
+                    search_cancelled = lambda: (
+                        self.cancel_event.is_set()
+                        or self.search_events.is_cancelled(search_run_id)
+                    )
+                    result = collect_search_pages_until_requested(
+                        lambda remaining, cursor: collect_offline_rarity5_search_batch(
+                            request,
+                            grace_mapping=offline_grace_mapping,
+                            level=level,
+                            result_count=remaining,
+                            max_trials_per_batch=max_seeds,
+                            start_after_trial=cursor,
+                            intersection_progress=intersection_progress,
+                            candidate_found=lambda candidate: self.search_events.publish_candidate(
+                                search_run_id, candidate
+                            ),
+                            cancelled=search_cancelled,
+                            allow_cpu_fallback=allow_cpu_fallback,
+                        ),
                         result_count=result_count,
-                        max_trials_per_batch=max_seeds,
                         start_after_trial=joint_start_after_trial,
-                        intersection_progress=intersection_progress,
-                        candidate_found=lambda candidate: self.search_events.publish_candidate(
-                            search_run_id, candidate
-                        ),
-                        cancelled=lambda: (
-                            self.cancel_event.is_set()
-                            or self.search_events.is_cancelled(search_run_id)
-                        ),
+                        cancelled=search_cancelled,
                     )
                     self.search_events.publish_terminal(
                         search_run_id, "search_complete", result
@@ -6955,21 +7235,28 @@ class ScrollEditorApp:
                         # Release its handle and remote scratch allocation before
                         # the potentially long game-closed solver runs.
                         oracle.close()
-                        result = collect_offline_rarity5_search_batch(
-                            request,
-                            grace_mapping=grace_output_map,
-                            level=level,
+                        search_cancelled = lambda: (
+                            self.cancel_event.is_set()
+                            or self.search_events.is_cancelled(search_run_id)
+                        )
+                        result = collect_search_pages_until_requested(
+                            lambda remaining, cursor: collect_offline_rarity5_search_batch(
+                                request,
+                                grace_mapping=grace_output_map,
+                                level=level,
+                                result_count=remaining,
+                                max_trials_per_batch=max_seeds,
+                                start_after_trial=cursor,
+                                intersection_progress=captured_intersection_progress,
+                                candidate_found=lambda candidate: self.search_events.publish_candidate(
+                                    search_run_id, candidate
+                                ),
+                                cancelled=search_cancelled,
+                                allow_cpu_fallback=allow_cpu_fallback,
+                            ),
                             result_count=result_count,
-                            max_trials_per_batch=max_seeds,
                             start_after_trial=joint_start_after_trial,
-                            intersection_progress=captured_intersection_progress,
-                            candidate_found=lambda candidate: self.search_events.publish_candidate(
-                                search_run_id, candidate
-                            ),
-                            cancelled=lambda: (
-                                self.cancel_event.is_set()
-                                or self.search_events.is_cancelled(search_run_id)
-                            ),
+                            cancelled=search_cancelled,
                         )
                         self.search_events.publish_terminal(
                             search_run_id, "search_complete", result

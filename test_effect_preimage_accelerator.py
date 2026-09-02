@@ -3,12 +3,14 @@ from __future__ import annotations
 from itertools import islice
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 from nioh3_scroll_editor.app import (
     _complete_preimage_request,
     _complete_preimage_requests,
     _legal_complete_preimage_layouts,
     _one_wildcard_preimage_request,
+    collect_offline_one_wildcard_preimage_search_batch,
     collect_offline_ng3_search_batch,
     collect_offline_rarity5_search_batch,
 )
@@ -36,6 +38,10 @@ from nioh3_scroll_editor.effect_preimage_accelerator import (
     last_effect_preimage_backend,
     plan_trial_for_seed,
     reset_effect_preimage_backend,
+)
+from nioh3_scroll_editor.effect_preimage_search import (
+    FullCompositionPreimageMatch,
+    FullCompositionPreimagePage,
 )
 import nioh3_scroll_editor.effect_preimage_accelerator as preimage_accelerator
 from nioh3_scroll_editor.effect_sequence import (
@@ -88,6 +94,52 @@ class EffectPreimageAcceleratorTests(unittest.TestCase):
             self.request,
             (seed for seed, _trial in matches),
         ))
+
+    def test_one_wildcard_search_keeps_paging_until_requested_count(self) -> None:
+        sequence = generate_ng3_rarity5_effect_sequence(1)
+        ordinary_ids = tuple(
+            effect.effect_id for effect in (sequence.primary, *sequence.secondaries)
+        )
+        request = EffectSeedRequest(
+            playthrough=3,
+            rarity=5,
+            required_secondary_ids=frozenset(ordinary_ids[:4]),
+            grace_effect_id=sequence.grace.effect_id,
+        )
+        pages = tuple(
+            FullCompositionPreimagePage(
+                matches=(FullCompositionPreimageMatch(seed=index, pivot_trial=index),),
+                start_after_trial=index - 1,
+                next_start_after_trial=index,
+                family_size=100,
+                exhausted_family=False,
+            )
+            for index in range(1, 21)
+        )
+        with (
+            patch(
+                "nioh3_scroll_editor.app.d3d11_effect_acceleration_available",
+                return_value=True,
+            ),
+            patch(
+                "nioh3_scroll_editor.app.collect_one_wildcard_composition_preimage_page",
+                side_effect=pages,
+            ) as collector,
+            patch(
+                "nioh3_scroll_editor.app.generate_ng3_certified_effect_sequence",
+                return_value=sequence,
+            ),
+        ):
+            result = collect_offline_one_wildcard_preimage_search_batch(
+                request,
+                grace_mapping=load_grace_output_map(rarity=5),
+                level=180,
+                result_count=20,
+                max_trials_per_batch=100,
+            )
+        self.assertEqual(len(result.candidates), 20)
+        self.assertEqual(result.next_start_after_trial, 20)
+        self.assertEqual(collector.call_count, 20)
 
     def test_partial_effect_forward_filter_matches_exact_sequences(self) -> None:
         if not d3d11_effect_acceleration_available():

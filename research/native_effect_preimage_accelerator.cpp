@@ -8,9 +8,11 @@
 #include <vector>
 
 #include <d3d11.h>
-#include <d3dcompiler.h>
 #include <dxgi1_2.h>
 #include <wrl/client.h>
+
+#include "native_effect_filter_shader.h"
+#include "native_preimage_shader.h"
 
 using Microsoft::WRL::ComPtr;
 
@@ -1028,27 +1030,10 @@ extern "C" __declspec(dllexport) std::uint64_t collect_effect_preimage_matches_d
     if (!create_device(preferred_vendor_id, &bundle)) return ERROR_RESULT;
     *output_vendor_id = bundle.vendor_id;
 
-    ComPtr<ID3DBlob> shader_blob;
-    ComPtr<ID3DBlob> error_blob;
-    const UINT compile_flags = D3DCOMPILE_OPTIMIZATION_LEVEL3 | D3DCOMPILE_IEEE_STRICTNESS;
-    if (FAILED(D3DCompile(
-            SHADER_SOURCE,
-            sizeof(SHADER_SOURCE) - 1u,
-            "effect_preimage.hlsl",
-            nullptr,
-            nullptr,
-            "main",
-            "cs_5_0",
-            compile_flags,
-            0u,
-            &shader_blob,
-            &error_blob))) {
-        return ERROR_RESULT;
-    }
     ComPtr<ID3D11ComputeShader> shader;
     if (FAILED(bundle.device->CreateComputeShader(
-            shader_blob->GetBufferPointer(),
-            shader_blob->GetBufferSize(),
+            g_preimage_shader_bytecode,
+            sizeof(g_preimage_shader_bytecode),
             nullptr,
             &shader))) {
         return ERROR_RESULT;
@@ -1240,28 +1225,10 @@ extern "C" __declspec(dllexport) int match_effect_constraints_d3d11(
     if (!create_device(preferred_vendor_id, &bundle)) return -2;
     *output_vendor_id = bundle.vendor_id;
 
-    ComPtr<ID3DBlob> shader_blob;
-    ComPtr<ID3DBlob> error_blob;
-    const UINT compile_flags =
-        D3DCOMPILE_OPTIMIZATION_LEVEL3 | D3DCOMPILE_IEEE_STRICTNESS;
-    if (FAILED(D3DCompile(
-            EFFECT_FILTER_SHADER_SOURCE,
-            sizeof(EFFECT_FILTER_SHADER_SOURCE) - 1u,
-            "effect_filter.hlsl",
-            nullptr,
-            nullptr,
-            "main",
-            "cs_5_0",
-            compile_flags,
-            0u,
-            &shader_blob,
-            &error_blob))) {
-        return -3;
-    }
     ComPtr<ID3D11ComputeShader> shader;
     if (FAILED(bundle.device->CreateComputeShader(
-            shader_blob->GetBufferPointer(),
-            shader_blob->GetBufferSize(),
+            g_effect_filter_shader_bytecode,
+            sizeof(g_effect_filter_shader_bytecode),
             nullptr,
             &shader))) {
         return -3;

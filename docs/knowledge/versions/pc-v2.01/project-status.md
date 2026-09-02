@@ -29,6 +29,14 @@
   release manifest, size, SHA-256, Ed25519 signature, and GUI startup smoke all
   passed locally after publication.
 
+## Post-v0.6.7 working tree
+
+The unpublished v0.6.8 working tree fuses CUDA auxiliary filtering, embeds
+precompiled DirectCompute shaders, automatically continues bounded solver pages
+until the requested candidate count, prompts before any no-CUDA native CPU
+fallback, and adds a vertical scrollbar to the local editor. The current source
+suite passes 409 tests; packaged UI acceptance remains required before release.
+
 ## Known version difference
 
 PC v2.01 calls the new feature-availability helper with flag 9 while assembling
@@ -51,6 +59,8 @@ The version profile is JSON and intentionally language-neutral so a later Rust
 core can consume the same RVAs, signatures, table identities, and gates.
 
 Rust should replace Python orchestration and CPU exact replay incrementally in
-v0.7. Bulk Seed search must still use CUDA or D3D11 compute and must never
-silently fall back to a whole-space CPU scan. Rewriting the same brute-force
-CPU algorithm in Rust alone is not an adequate performance design.
+v0.7. Bulk Seed search should use CUDA or D3D11 compute when available and must
+never silently fall back to a whole-space CPU scan. A user may explicitly
+confirm the exact native CPU fallback after a clear performance warning.
+Rewriting the same brute-force CPU algorithm in Rust alone is not an adequate
+performance design.
