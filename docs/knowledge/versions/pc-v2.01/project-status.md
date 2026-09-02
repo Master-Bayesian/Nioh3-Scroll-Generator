@@ -2,7 +2,7 @@
 
 ## Status
 
-`released`; integrated in stable v0.6.7 on 2026-09-02.
+`released`; integrated in stable v0.6.8 on 2026-09-02.
 
 ## Passed
 
@@ -29,13 +29,16 @@
   release manifest, size, SHA-256, Ed25519 signature, and GUI startup smoke all
   passed locally after publication.
 
-## Post-v0.6.7 working tree
+## Stable v0.6.8 search and UI follow-up
 
-The unpublished v0.6.8 working tree fuses CUDA auxiliary filtering, embeds
+Stable v0.6.8 fuses CUDA auxiliary filtering, embeds
 precompiled DirectCompute shaders, automatically continues bounded solver pages
 until the requested candidate count, prompts before any no-CUDA native CPU
-fallback, and adds a vertical scrollbar to the local editor. The current source
-suite passes 409 tests; packaged UI acceptance remains required before release.
+fallback, and adds a vertical scrollbar to the local editor. The user accepted
+the local search fix before publication. GitHub Actions passed all 409 tests,
+built the one-file executable, signed the update manifest, and published the
+stable release. The downloaded manifest signature, asset size and SHA-256, and
+packaged startup smoke passed locally.
 
 ## Known version difference
 

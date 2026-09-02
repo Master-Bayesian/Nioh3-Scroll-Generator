@@ -19,6 +19,9 @@ and are not distributable release assets.
 | Current encrypted `SAVEDATA00` read-only parse | 9,437,616 bytes; 25 visible records; 375 zero slots; next physical slot 47 | Decrypted only inside a temporary directory; no save write. |
 | GitHub Actions run `33616835569` | Passed 401 tests, one-file build, signed manifest, and stable release publication | Public v0.6.7 tag peels to commit `5c9986d`; this is release automation, not gameplay acceptance. |
 | Downloaded v0.6.7 release assets | Manifest signature, 17,700,685-byte size, SHA-256 `56E950EC3406B5C160C9452E3D496A079C1BBD62BA856C305A3343E372768C9B`, and GUI startup passed | Verifies the published executable and update metadata; no game or save write. |
+| User acceptance of the local v0.6.8 build | First-search automatic continuation reported working | Functional user evidence for the reported pagination defect; not Intel or AMD-discrete performance evidence. |
+| GitHub Actions run `33628032827` | Passed 409 tests, one-file build, signed manifest, and stable release publication | Public v0.6.8 tag peels to commit `ba11fb3`; release automation is not gameplay acceptance. |
+| Downloaded v0.6.8 release assets | Manifest signature, 17,788,428-byte size, SHA-256 `580589C574335235A1370380140585F5AFE4B6FEF515B96C3A00FC846F8561BA`, and GUI startup passed | Verifies the published executable and update metadata; no game or save write. |
 
 ## Safety
 

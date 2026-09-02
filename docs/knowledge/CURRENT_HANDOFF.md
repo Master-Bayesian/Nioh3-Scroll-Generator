@@ -8,11 +8,11 @@ is ready to ship.
 
 - Repository: `F:\Nioh3_ScrollEditor`
 - Branch: `codex/todo-321`
-- Public baseline: stable tag `v0.6.7`, published on 2026-09-02 from commit
-  `5c9986d` with PC v2.01 and PC v2.00.02 support.
-- Current product version in the working tree: `v0.6.8`; not published. The
-  intended acceptance build combines fused auxiliary search, first-search
-  pagination, explicit no-CUDA consent, and the local-editor scrollbar.
+- Public baseline: stable tag `v0.6.8`, published on 2026-09-02 from commit
+  `ba11fb3` with PC v2.01 and PC v2.00.02 support.
+- v0.6.8 combines fused auxiliary search, automatic first-search continuation,
+  explicit no-CUDA consent, and the local-editor scrollbar. The user accepted
+  the local build before publication.
 - The earlier local `v0.6.7-beta.1` acceptance build remains historical and is
   not part of either update channel.
 - Preserve unrelated untracked research, captures, packages, and user files.
@@ -30,7 +30,7 @@ exported before resuming editor work:
 - Level-180 range attempts for all 3,609 effects; 182 contextual definitions
   are explicitly unresolved rather than guessed.
 
-## Current v0.6.8 working-tree changes (not released)
+## Stable v0.6.8 changes
 
 - Fuses natural Seed construction, terrain, enemy, scratch-enemy, and ordered
   special-rule filtering into bounded native calls. CUDA keeps intermediate
@@ -162,19 +162,16 @@ unsupported.
    a cached descriptor and no overwrite occurred.
 3. Resolve native item key `0x3011` through its exact item-row localization text
    IDs; do not infer the item name from neighboring rows.
-4. Complete packaged v0.6.8 UI/performance acceptance before publication;
-   specifically verify the first search fills its requested count when enough
-   matches exist and the editor scrollbar reaches every control at 1080p.
-5. Preserve the published v0.6.7 assets and signed manifest under
-   `deliverables/v0.6.7/` for local handoff.
-6. In the release after the PC v2.01 compatibility release, research the native
+4. Preserve the published v0.6.8 assets and signed manifest under
+   `deliverables/v0.6.8/` for local handoff.
+5. In the release after the PC v2.01 compatibility release, research the native
    mechanism behind purple or empowered enemy appearances and whether possessed
    Underworld forms of ordinary enemies can be represented as independent
    selectable identities. Do not add guessed forms before live validation.
-7. After the current release, replace the Tk frontend in v0.7. Evaluate a Rust
+6. After the current release, replace the Tk frontend in v0.7. Evaluate a Rust
    core with a Tauri frontend against Electron; GPU bulk search remains
    mandatory regardless of the UI host.
-8. Validate and tune D3D11 compute on an AMD discrete GPU only when suitable
+7. Validate and tune D3D11 compute on an AMD discrete GPU only when suitable
    hardware becomes available. Integrated-GPU parity is not a discrete-GPU
    performance result.
 

@@ -2,8 +2,8 @@
 
 ## Public baseline
 
-The public baseline is stable v0.6.7. The current working tree identifies as
-v0.6.8 and is not published; its acceptance package is still pending.
+The public baseline is stable v0.6.8, published on 2026-09-02 after local user
+acceptance and the signed GitHub release workflow.
 
 ## Completed in the current working tree
 
@@ -104,9 +104,8 @@ a cached descriptor and never crossed the hooked construction boundary.
    least one hook hit, then finish detail/challenge validation for terrain and
    ordered special rules. Treat zero hits as a cache/reconstruction miss rather
    than a successful override.
-2. Re-run packaged v0.6.8 UI acceptance, including first-search automatic
-   continuation and 1080p local-editor scrolling, and release only after user
-   approval.
+2. Collect additional AMD-discrete and Intel hardware evidence when those
+   systems are available; do not infer it from NVIDIA or integrated-AMD runs.
 3. After this release, replace the Tk frontend in v0.7; Electron is the current
    preferred candidate pending an architecture decision.
 4. Validate and tune the D3D11 accelerator on an AMD discrete GPU only when
