@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import ctypes
+import json
+from pathlib import Path
 import struct
 import sys
 import threading
@@ -66,6 +68,149 @@ NATIVE_SIGNATURES = {
     ASSEMBLE_SCROLL_RVA: bytes.fromhex("48 89 5C 24 08 48 89 6C"),
     PLAYTHROUGH_VECTOR_RVA: bytes.fromhex("48 83 EC 48 48 8B 05 51"),
 }
+
+
+@dataclass(frozen=True, slots=True)
+class NativeRuntimeProfile:
+    display_version: str
+    canonicalize_rva: int
+    canonicalize_signature: bytes
+    finalize_effect_rva: int
+    finalize_effect_signature: bytes
+    descriptor_complete_rva: int
+    descriptor_complete_signature: bytes
+    init_compact_rva: int
+    reset_compact_rva: int
+    effective_level_rva: int
+    init_generation_context_rva: int
+    incomplete_record_rva: int
+    generate_effects_rva: int
+    assemble_scroll_rva: int
+    playthrough_vector_rva: int
+    playthrough_manager_pointer_rva: int
+    native_signatures: tuple[tuple[int, bytes], ...]
+
+
+DEFAULT_NATIVE_RUNTIME_PROFILE = NativeRuntimeProfile(
+    display_version="PC v2.00.02",
+    canonicalize_rva=CANONICALIZE_RVA,
+    canonicalize_signature=CANONICALIZE_SIGNATURE,
+    finalize_effect_rva=FINALIZE_EFFECT_RVA,
+    finalize_effect_signature=FINALIZE_EFFECT_SIGNATURE,
+    descriptor_complete_rva=0x20DD558,
+    descriptor_complete_signature=bytes.fromhex("48 8B 54 24 60"),
+    init_compact_rva=INIT_COMPACT_RVA,
+    reset_compact_rva=RESET_COMPACT_RVA,
+    effective_level_rva=EFFECTIVE_LEVEL_RVA,
+    init_generation_context_rva=INIT_GENERATION_CONTEXT_RVA,
+    incomplete_record_rva=INCOMPLETE_RECORD_RVA,
+    generate_effects_rva=GENERATE_EFFECTS_RVA,
+    assemble_scroll_rva=ASSEMBLE_SCROLL_RVA,
+    playthrough_vector_rva=PLAYTHROUGH_VECTOR_RVA,
+    playthrough_manager_pointer_rva=PLAYTHROUGH_MANAGER_POINTER_RVA,
+    native_signatures=tuple(NATIVE_SIGNATURES.items()),
+)
+
+
+def load_native_runtime_profile(path: str | Path) -> NativeRuntimeProfile:
+    """Load RVAs and captured signatures from a research profile.
+
+    This helper supports isolated parity tooling. Product compatibility remains
+    controlled separately and must never be enabled merely by loading a
+    candidate profile.
+    """
+
+    profile_path = Path(path)
+    payload = json.loads(profile_path.read_text(encoding="utf-8"))
+    if payload.get("schema") != "nioh3-game-version-research-profile/v1":
+        raise ValueError("unsupported native runtime profile schema")
+    text_sites = payload.get("text_sites", {})
+    data_sites = payload.get("data_sites", {})
+
+    def site(name: str) -> tuple[int, bytes]:
+        raw = text_sites.get(name)
+        if not isinstance(raw, dict) or raw.get("rva") is None:
+            raise ValueError(f"native runtime profile site {name} is unresolved")
+        signature = raw.get("captured_signature")
+        if not signature:
+            raise ValueError(
+                f"native runtime profile site {name} has no captured signature"
+            )
+        return int(str(raw["rva"]), 0), bytes.fromhex(str(signature))
+
+    def data_site(name: str) -> int:
+        raw = data_sites.get(name)
+        if not isinstance(raw, dict) or raw.get("rva") is None:
+            raise ValueError(f"native runtime data site {name} is unresolved")
+        return int(str(raw["rva"]), 0)
+
+    canonicalize_rva, canonicalize_signature = site("canonicalize")
+    finalizer_rva, finalizer_signature = site("completion_finalizer_wrapper")
+    descriptor_complete_rva, descriptor_complete_signature = site(
+        "descriptor_complete"
+    )
+    signature_names = (
+        "init_compact",
+        "reset_compact",
+        "effective_level",
+        "init_generation_context",
+        "incomplete_record",
+        "generate_effects",
+        "assemble_scroll",
+        "playthrough_vector",
+    )
+    resolved_signatures = {name: site(name) for name in signature_names}
+    return NativeRuntimeProfile(
+        display_version=str(payload["display_version"]),
+        canonicalize_rva=canonicalize_rva,
+        canonicalize_signature=canonicalize_signature,
+        finalize_effect_rva=finalizer_rva,
+        finalize_effect_signature=finalizer_signature,
+        descriptor_complete_rva=descriptor_complete_rva,
+        descriptor_complete_signature=descriptor_complete_signature,
+        init_compact_rva=resolved_signatures["init_compact"][0],
+        reset_compact_rva=resolved_signatures["reset_compact"][0],
+        effective_level_rva=resolved_signatures["effective_level"][0],
+        init_generation_context_rva=resolved_signatures[
+            "init_generation_context"
+        ][0],
+        incomplete_record_rva=resolved_signatures["incomplete_record"][0],
+        generate_effects_rva=resolved_signatures["generate_effects"][0],
+        assemble_scroll_rva=resolved_signatures["assemble_scroll"][0],
+        playthrough_vector_rva=resolved_signatures["playthrough_vector"][0],
+        playthrough_manager_pointer_rva=data_site(
+            "playthrough_selector_pointer"
+        ),
+        native_signatures=tuple(
+            resolved_signatures[name] for name in signature_names
+        ),
+    )
+
+
+def native_runtime_profile_for_game_version(
+    file_version: tuple[int, int, int, int],
+) -> NativeRuntimeProfile:
+    """Return an approved runtime profile for one exact executable version."""
+
+    if file_version == (2, 0, 0, 2):
+        return DEFAULT_NATIVE_RUNTIME_PROFILE
+    if file_version != (2, 0, 1, 0):
+        display = ".".join(str(part) for part in file_version)
+        raise ValueError(f"unsupported Nioh 3 executable version: {display}")
+    profile_path = (
+        Path(__file__).resolve().parent
+        / "data"
+        / "game_versions"
+        / "pc_v2_01.json"
+    )
+    payload = json.loads(profile_path.read_text(encoding="utf-8"))
+    if (
+        payload.get("approval_status") != "approved"
+        or payload.get("product_enablement_allowed") is not True
+        or payload.get("gates", {}).get("product_enablement_allowed") is not True
+    ):
+        raise RuntimeError("PC v2.01 runtime profile is not approved for product use")
+    return load_native_runtime_profile(profile_path)
 
 
 class PROCESSENTRY32W(ctypes.Structure):
@@ -393,6 +538,7 @@ def build_explicit_playthrough_seed_range_wrapper(
     count: int,
     playthrough: int,
     generation_mode: int = 0,
+    runtime_profile: NativeRuntimeProfile = DEFAULT_NATIVE_RUNTIME_PROFILE,
 ) -> bytes:
     """Generate a seed range with a temporary 1-5 playthrough context."""
     if not 0 <= start_seed <= 0xFFFFFFFF:
@@ -420,14 +566,14 @@ def build_explicit_playthrough_seed_range_wrapper(
     builder.emit(bytes.fromhex("44 89 6B 20"))  # mov [rbx+0x20],r13d
 
     builder.emit(bytes.fromhex("48 8D 4C 24 60"))
-    _emit_absolute_call(builder, module_base + INIT_COMPACT_RVA)
+    _emit_absolute_call(builder, module_base + runtime_profile.init_compact_rva)
     builder.emit(bytes.fromhex("48 8D 4C 24 60"))
-    _emit_absolute_call(builder, module_base + RESET_COMPACT_RVA)
+    _emit_absolute_call(builder, module_base + runtime_profile.reset_compact_rva)
 
     builder.emit(bytes.fromhex("0F B7 03"))
     builder.emit(bytes.fromhex("66 89 44 24 60"))
     builder.emit(bytes.fromhex("48 89 D9"))
-    _emit_absolute_call(builder, module_base + EFFECTIVE_LEVEL_RVA)
+    _emit_absolute_call(builder, module_base + runtime_profile.effective_level_rva)
     builder.emit(bytes.fromhex("0F B7 C0"))
     builder.emit(bytes.fromhex("89 44 24 64"))
     builder.emit(bytes.fromhex("0F B7 43 10"))
@@ -458,7 +604,9 @@ def build_explicit_playthrough_seed_range_wrapper(
 
     builder.emit(bytes.fromhex("48 8D 4C 24 20"))
     builder.emit(bytes.fromhex("0F B7 13"))
-    _emit_absolute_call(builder, module_base + INIT_GENERATION_CONTEXT_RVA)
+    _emit_absolute_call(
+        builder, module_base + runtime_profile.init_generation_context_rva
+    )
 
     builder.emit(bytes.fromhex("31 C0"))
     builder.emit(bytes.fromhex("48 89 84 24 40 01 00 00"))
@@ -466,20 +614,22 @@ def build_explicit_playthrough_seed_range_wrapper(
     builder.emit(bytes.fromhex("44 88 BC 24 40 01 00 00"))
     builder.emit(
         b"\x48\xB8"
-        + struct.pack("<Q", module_base + PLAYTHROUGH_MANAGER_POINTER_RVA)
+        + struct.pack(
+            "<Q", module_base + runtime_profile.playthrough_manager_pointer_rva
+        )
     )
     builder.emit(bytes.fromhex("48 8B 00"))
     builder.emit(bytes.fromhex("48 8B 40 08"))
     builder.emit(bytes.fromhex("48 89 84 24 48 01 00 00"))
     builder.emit(bytes.fromhex("48 8D 8C 24 40 01 00 00"))
     builder.emit(bytes.fromhex("48 8D 94 24 60 01 00 00"))
-    _emit_absolute_call(builder, module_base + PLAYTHROUGH_VECTOR_RVA)
+    _emit_absolute_call(builder, module_base + runtime_profile.playthrough_vector_rva)
     builder.emit(bytes.fromhex("0F 10 00"))
     builder.emit(bytes.fromhex("0F 11 44 24 44"))
     builder.emit(bytes.fromhex("44 88 7C 24 40"))
 
     builder.emit(bytes.fromhex("48 89 D9"))
-    _emit_absolute_call(builder, module_base + INCOMPLETE_RECORD_RVA)
+    _emit_absolute_call(builder, module_base + runtime_profile.incomplete_record_rva)
     builder.emit(bytes.fromhex("C7 44 24 3C 00 00 00 00"))
     builder.emit(bytes.fromhex("84 C0"))
     builder.jump32(bytes.fromhex("0F 84"), "incomplete_ready")
@@ -493,11 +643,11 @@ def build_explicit_playthrough_seed_range_wrapper(
         builder.emit(bytes.fromhex("45 31 C9"))
     else:
         builder.emit(bytes.fromhex("41 B1 01"))
-    _emit_absolute_call(builder, module_base + GENERATE_EFFECTS_RVA)
+    _emit_absolute_call(builder, module_base + runtime_profile.generate_effects_rva)
 
     builder.emit(bytes.fromhex("48 89 F1"))
     builder.emit(bytes.fromhex("48 8D 54 24 60"))
-    _emit_absolute_call(builder, module_base + ASSEMBLE_SCROLL_RVA)
+    _emit_absolute_call(builder, module_base + runtime_profile.assemble_scroll_rva)
 
     builder.emit(bytes.fromhex("48 81 C6 E8 00 00 00"))
     builder.emit(bytes.fromhex("45 01 F5"))
@@ -546,17 +696,57 @@ def build_source_record(
 
 
 class NativeBatchOracle:
-    def __init__(self, *, pid: int | None = None, max_batch_size: int = 2048) -> None:
+    def __init__(
+        self,
+        *,
+        pid: int | None = None,
+        max_batch_size: int = 2048,
+        runtime_profile: NativeRuntimeProfile = DEFAULT_NATIVE_RUNTIME_PROFILE,
+        preserve_requested_rarity: bool = False,
+    ) -> None:
         if not 1 <= max_batch_size <= 4096:
             raise ValueError("max_batch_size must be between 1 and 4096")
         self.dll = _kernel32()
         self.pid = find_nioh3_pid() if pid is None else pid
         self.module_base = find_module_base(self.pid)
         self.max_batch_size = max_batch_size
+        self.runtime_profile = runtime_profile
+        self.preserve_requested_rarity = preserve_requested_rarity
         self.process: int | None = None
         self.allocation: int | None = None
         self.source_address = 0
         self.destination_address = 0
+
+    def _preserve_rarity_headers(
+        self,
+        records: list[bytes],
+        requested_rarities: list[int],
+    ) -> list[bytes]:
+        """Keep the explicitly requested raw rarity across the v2.01 feature cap."""
+
+        if (
+            not self.preserve_requested_rarity
+            or self.runtime_profile.display_version != "PC v2.01"
+        ):
+            return records
+        preserved: list[bytes] = []
+        for record, requested_rarity in zip(
+            records,
+            requested_rarities,
+            strict=True,
+        ):
+            if requested_rarity != 5 or record[0x30:0x32] == b"\x05\x05":
+                preserved.append(record)
+                continue
+            if record[0x30:0x32] != b"\x04\x04":
+                raise RuntimeError(
+                    "PC v2.01 returned an unexpected rarity header for a raw "
+                    "rarity-5 generation request"
+                )
+            adjusted = bytearray(record)
+            adjusted[0x30:0x32] = b"\x05\x05"
+            preserved.append(bytes(adjusted))
+        return preserved
 
     def __enter__(self) -> "NativeBatchOracle":
         self.open()
@@ -573,23 +763,25 @@ class NativeBatchOracle:
             raise _last_error("OpenProcess")
         self.process = process
         try:
-            function = self.module_base + CANONICALIZE_RVA
-            signature = self.read(function, len(CANONICALIZE_SIGNATURE))
-            if signature != CANONICALIZE_SIGNATURE:
+            function = self.module_base + self.runtime_profile.canonicalize_rva
+            expected = self.runtime_profile.canonicalize_signature
+            signature = self.read(function, len(expected))
+            if signature != expected:
                 raise RuntimeError(
-                    "游戏生成器特征与《仁王3》v2.00.02 不匹配，已拒绝调用"
+                    f"游戏生成器特征与《仁王3》{self.runtime_profile.display_version}不匹配，已拒绝调用"
                 )
-            finalizer = self.module_base + FINALIZE_EFFECT_RVA
-            finalizer_signature = self.read(finalizer, len(FINALIZE_EFFECT_SIGNATURE))
-            if finalizer_signature != FINALIZE_EFFECT_SIGNATURE:
+            finalizer = self.module_base + self.runtime_profile.finalize_effect_rva
+            finalizer_expected = self.runtime_profile.finalize_effect_signature
+            finalizer_signature = self.read(finalizer, len(finalizer_expected))
+            if finalizer_signature != finalizer_expected:
                 raise RuntimeError(
-                    "游戏最终化函数特征与《仁王3》v2.00.02 不匹配，已拒绝调用"
+                    f"游戏最终化函数特征与《仁王3》{self.runtime_profile.display_version}不匹配，已拒绝调用"
                 )
-            for rva, expected in NATIVE_SIGNATURES.items():
+            for rva, expected in self.runtime_profile.native_signatures:
                 actual = self.read(self.module_base + rva, len(expected))
                 if actual != expected:
                     raise RuntimeError(
-                        f"周目生成链特征 {rva:#x} 与《仁王3》v2.00.02 不匹配，已拒绝调用"
+                        f"周目生成链特征 {rva:#x} 与《仁王3》{self.runtime_profile.display_version}不匹配，已拒绝调用"
                     )
             source_size = self.max_batch_size * SCROLL_RECORD_SIZE
             destination_size = source_size
@@ -656,7 +848,7 @@ class NativeBatchOracle:
         wrapper = build_batch_wrapper(
             self.source_address,
             self.destination_address,
-            self.module_base + CANONICALIZE_RVA,
+            self.module_base + self.runtime_profile.canonicalize_rva,
             count,
         )
         self.write(self.source_address, payload)
@@ -693,7 +885,10 @@ class NativeBatchOracle:
         ]
         if any(struct.unpack_from("<H", record, 0)[0] == 0 for record in records):
             raise RuntimeError("游戏原生生成器返回了空记录")
-        return records
+        return self._preserve_rarity_headers(
+            records,
+            [record[0x31] for record in source_records],
+        )
 
     def finalize_effect_stage(
         self,
@@ -714,7 +909,7 @@ class NativeBatchOracle:
         wrapper = build_effect_finalizer_wrapper(
             self.source_address,
             self.destination_address,
-            self.module_base + FINALIZE_EFFECT_RVA,
+            self.module_base + self.runtime_profile.finalize_effect_rva,
             effect_index,
             reveal,
         )
@@ -775,7 +970,7 @@ class NativeBatchOracle:
         wrapper = build_effect_finalizer_batch_wrapper(
             self.source_address,
             self.destination_address,
-            self.module_base + FINALIZE_EFFECT_RVA,
+            self.module_base + self.runtime_profile.finalize_effect_rva,
             count,
             effect_index,
             reveal,
@@ -879,14 +1074,19 @@ class NativeBatchOracle:
             wrapper = build_seed_range_wrapper(
                 self.source_address,
                 self.destination_address,
-                self.module_base + CANONICALIZE_RVA,
+                self.module_base + self.runtime_profile.canonicalize_rva,
                 start_seed,
                 seed_step,
                 count,
             )
         else:
             manager_pointer = struct.unpack(
-                "<Q", self.read(self.module_base + PLAYTHROUGH_MANAGER_POINTER_RVA, 8)
+                "<Q",
+                self.read(
+                    self.module_base
+                    + self.runtime_profile.playthrough_manager_pointer_rva,
+                    8,
+                ),
             )[0]
             if manager_pointer == 0:
                 raise RuntimeError("游戏周目管理器尚未初始化")
@@ -902,6 +1102,7 @@ class NativeBatchOracle:
                 count,
                 playthrough,
                 generation_mode,
+                self.runtime_profile,
             )
         self.write(self.source_address, template)
         self.write(self.destination_address, bytes(output_size))
@@ -938,7 +1139,10 @@ class NativeBatchOracle:
         ]
         if any(struct.unpack_from("<H", record, 0)[0] == 0 for record in records):
             raise RuntimeError("游戏原生生成器返回了空记录")
-        return records
+        return self._preserve_rarity_headers(
+            records,
+            [template[0x31]] * len(records),
+        )
 
 
 @dataclass(frozen=True, slots=True)

@@ -149,6 +149,20 @@ def _load_accelerator() -> ctypes.WinDLL | None:
         ctypes.POINTER(ctypes.c_uint32),
     )
     enemy_matches.restype = ctypes.c_int
+    rule_matches = library.match_special_rule_constraints
+    rule_matches.argtypes = (
+        ctypes.POINTER(ctypes.c_uint32),
+        ctypes.POINTER(ctypes.c_uint32),
+        ctypes.c_uint64,
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.POINTER(ctypes.c_uint16),
+        ctypes.c_uint32,
+        ctypes.POINTER(ctypes.c_uint16),
+        ctypes.c_uint32,
+        ctypes.POINTER(ctypes.c_uint32),
+    )
+    rule_matches.restype = ctypes.c_int
     return library
 
 
@@ -592,6 +606,64 @@ def match_enemy_constraints_native(
     return tuple(int(value) for value in output_array)
 
 
+def match_special_rule_constraints_native(
+    seeds: tuple[int, ...],
+    scratch_masks: tuple[int, ...],
+    *,
+    rule_rows: bytes,
+    criterion_groups: tuple[frozenset[int], ...],
+) -> tuple[int, ...] | None:
+    """Return exact special-rule masks through CUDA, never through CPU."""
+
+    library = _load_accelerator()
+    if library is None:
+        return None
+    if not seeds or len(seeds) > 1_000_000 or len(seeds) != len(scratch_masks):
+        raise ValueError(
+            "native special-rule batches require matching 1..1,000,000 inputs"
+        )
+    if len(rule_rows) % 16 or not rule_rows:
+        raise ValueError("packed special-rule rows must use the 16-byte native ABI")
+    if not criterion_groups or len(criterion_groups) > 32:
+        raise ValueError(
+            "native special-rule matching requires 1..32 criterion groups"
+        )
+    if any(not group for group in criterion_groups):
+        raise ValueError("native special-rule criterion groups cannot be empty")
+    flattened_keys: list[int] = []
+    group_offsets = [0]
+    for group in criterion_groups:
+        flattened_keys.extend(sorted(group))
+        group_offsets.append(len(flattened_keys))
+    if len(flattened_keys) > 0xFFFF:
+        raise ValueError("native special-rule alternatives exceed the uint16 ABI")
+    if any(not 0 <= key <= 0xFFFF for key in flattened_keys):
+        raise ValueError("special-rule keys must fit in uint16")
+    seed_array = (ctypes.c_uint32 * len(seeds))(*seeds)
+    scratch_array = (ctypes.c_uint32 * len(scratch_masks))(*scratch_masks)
+    rule_buffer = ctypes.create_string_buffer(rule_rows)
+    key_array = (ctypes.c_uint16 * len(flattened_keys))(*flattened_keys)
+    offset_array = (ctypes.c_uint16 * len(group_offsets))(*group_offsets)
+    output_array = (ctypes.c_uint32 * len(seeds))()
+    result = library.match_special_rule_constraints(
+        seed_array,
+        scratch_array,
+        len(seeds),
+        ctypes.cast(rule_buffer, ctypes.c_void_p),
+        len(rule_rows) // 16,
+        key_array,
+        len(flattened_keys),
+        offset_array,
+        len(criterion_groups),
+        output_array,
+    )
+    if result == -2:
+        return None
+    if result != 1:
+        raise RuntimeError("native special-rule matcher rejected valid input")
+    return tuple(int(value) for value in output_array)
+
+
 def cuda_seed_acceleration_available() -> bool:
     library = _load_accelerator()
     return library is not None and bool(library.cuda_seed_acceleration_available())
@@ -615,6 +687,7 @@ __all__ = [
     "generate_ng3_primary_effect_ids_native",
     "generate_terrain_row_indices_native",
     "match_enemy_constraints_native",
+    "match_special_rule_constraints_native",
     "last_seed_acceleration_backend",
     "native_seed_acceleration_available",
 ]

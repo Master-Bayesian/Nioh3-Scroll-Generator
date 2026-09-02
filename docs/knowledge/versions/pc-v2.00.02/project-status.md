@@ -2,44 +2,56 @@
 
 ## Public baseline
 
-This status ships with the v0.6.6 source tag. The GitHub Release is published
-only after its tag completes the signed Windows release workflow.
+The public baseline is the v0.6.6 source tag. The current working tree is later
+than that tag and has a local, unpublished `v0.6.7-beta.1` acceptance build.
+Nothing in this file is evidence of a new GitHub Release.
 
 ## Completed in the current working tree
 
 | Area | Status | Evidence boundary |
 | --- | --- | --- |
 | Complete effect generation | Implemented for supported rarities 3, 4, and 5 | Exact offline generation and existing native parity suites. |
-| Pro effect-path inversion | Implemented | Native C++ preimage accelerator plus exact full-record replay; R4 final results remain finalizer-verified. |
+| Pro effect-path inversion | Implemented | Native C++ preimage accelerator plus exact full-record replay; R4 final results remain finalizer-verified. Product routing no longer mistakes the incomplete R4 stage-one inverse for a final-record inverse. |
 | NVIDIA acceleration | Implemented and locally exercised | CUDA and DirectCompute paths exist; exact replay remains the acceptance gate. |
 | Vendor-neutral GPU path | Implemented | Direct3D 11 compute supports AMD, NVIDIA, and Intel adapters. |
 | Structural legality | Implemented and documented | Effect slots/conflicts/categories, enemy classes/roles, and special-rule ordering/budgets stop proved-impossible requests before search. |
 | Free local effect editing | Implemented | All seven effect slots accept unrestricted IDs, values, prefix, metadata, and tail fields without Seed or legality checks. |
 | Local header editing | Included in v0.6.5 | Mapped type/playthrough, mirrored level, mirrored recommended level, Seed, mirrored rarity, transfer count, and all seven unrestricted effect slots are written in one backup-gated transaction. Terrain, grouped enemies, and ordered special rules are previewed from Seed plus playthrough. |
-| Player enemy tiers | Included in v0.6.5 | All 142 native display identities are separated into low/middle/high generation-pool columns; the read-only guide lists the ten real group structures and keeps must-contain semantics distinct from a complete composition. |
+| Player enemy tiers | Included in v0.6.5; expanded after v0.6.6 | The 142 native localized identities expand to 148 player-facing entries after exact same-name forms are separated. Low/middle/high generation-pool columns and the read-only guide retain must-contain semantics rather than pretending a chosen enemy is a complete composition. |
 | Stable/Beta update selection | Included in v0.6.4 | Stable uses GitHub `releases/latest`; opt-in Beta compares the latest signed prerelease and stable release. |
 | FB-014/015 | Included in v0.6.4 | Shinatsuhiko Grace naming and human-readable category errors have regression coverage. |
 | FB-016 | Corrected in v0.6.6 | Live testing disproved the earlier `+0x1C` hypothesis and proved a `+0x28` generation-serial collision with an equipment record. New installs allocate against native equipment serials, and affected scrolls are repaired before insertion. |
 | Combined terrain filtering | Included in v0.6.6 | Search accepts multiple required visible terrain effects, preflights the native-row intersection, and preserves both display effects in previews. Runtime editing exposes exact `0x08` Crucible/Foulblooded and `0x2D` Crucible/Fire presets. |
+| Exact same-name enemy forms | Implemented after v0.6.6; awaiting UI acceptance | Yamagata, Takeda, Hiruko, Kanai, and both Hattori identities are separate lookup-key constraints in search, runtime editing, and trilingual catalogs. The two Hattori identity labels remain provisional pending future player feedback. |
 
 ## Partially complete
 
 | Area | Present capability | Remaining work |
 | --- | --- | --- |
 | AMD optimization | D3D11 compute backend and AMD adapter selection are implemented; an AMD integrated GPU passed local parity | Run correctness, throughput, cancellation, and memory-pressure tests on at least one AMD discrete GPU. Integrated-GPU evidence is not a discrete-GPU performance claim. |
-| Unrestricted auxiliary editing | Included experimentally in v0.6.5; live hook installation/removal passed | Complete application-owned detail/challenge acceptance for terrain and ordered rules. The UI explicitly states that these fields are not saved and will revert. |
-| Search UX/performance | Results stream incrementally, event queues are bounded, structural preflight exists, complete unrestricted-primary R4 requests use the Pro inverse, and generic fixed-draw construction prefers DirectCompute | Replace the Tk frontend in v0.7 to address resize, sash-drag, and scroll repaint latency instead of extending the current workaround stack. |
+| Unrestricted auxiliary editing | Included experimentally in v0.6.5; live hook installation/removal passed | The post-v0.6.6 working tree now writes both each enemy lookup key and its exact native role. Complete a new hit-backed detail/challenge acceptance pass for that change, terrain, and ordered rules. The UI explicitly states that these fields are not saved and will revert. |
+| Search UX/performance | Results stream incrementally, event queues are bounded, structural preflight exists, and generic pivot construction is GPU-only. R4 one/two-group requests run the exact GPU finalizer; three or more groups retain the cheaper lossless `N-1` stage filter. Both paths exact-replay GPU survivors on CPU. The complete 398-test suite passes after rebuilding the native DLL. A bounded NVIDIA route smoke covered primary only, unrestricted ordinary effect, Grace only, rule only, enemy only, and mixed conditions without CPU fallback. | Run manual packaged performance acceptance. Replace the Tk frontend in v0.7 to address resize, sash-drag, and scroll repaint latency; Electron is the current preferred candidate. |
 | Special-rule localization | Legal native rows are filtered and most automatic-activation items are localized | Native item key `0x3011` remains unresolved and must stay visibly marked rather than guessed. |
 
-## Not complete
+## Frozen archival research
 
 ### Challenge-completion reroll prediction
 
-The paid/manual reroll candidate path has a static offline model, but it lacks
-the required live native parity vector. The post-challenge four-slot replacement
+This work was explicitly abandoned as a product TODO on 2026-09-01. The
+paid/manual reroll candidate path has a static offline model, but it lacks the
+required live native parity vector. The post-challenge four-slot replacement
 mechanism is separate and still has unresolved candidate-object state and RNG
-semantics. The current product must not promise “N clears later this effect will
-appear.” Resume from the revised reroll freeze only.
+semantics. Preserve the frozen evidence and code, but do not resume research or
+promise “N clears later this effect will appear.”
+
+## Not complete
+
+### Enemy empowered and possessed variants
+
+Research for the release after PC v2.01 compatibility must determine the
+native identity/state mechanism behind purple or empowered enemies and whether
+possessed Underworld forms of ordinary enemies can be selected independently.
+No inferred variant is eligible for the player catalog before live validation.
 
 ### AMD discrete-GPU acceptance
 
@@ -79,13 +91,23 @@ passed against a running game process. A new application-owned hit still needs
 detail/challenge observation before this feature can be promoted from
 experimental to accepted.
 
+Static descriptor analysis after v0.6.6 identified a concrete consistency bug:
+an inner enemy entry stores its lookup key at `+0x04` and exact native role at
+`+0x08`. The earlier hook changed only `+0x04`; the current working tree changes
+both while preserving the dynamic `+0x0C` payload. This is a plausible cause of
+"details changed but challenge enemy missing," but source tests are not live
+acceptance. Separately, a zero application hit still means that the game reused
+a cached descriptor and never crossed the hooked construction boundary.
+
 ## Next recommended order
 
-1. Finish live detail/challenge validation of the application-owned temporary
-   auxiliary override, including terrain and ordered special rules.
-2. Validate the D3D11 accelerator on an AMD discrete GPU and tune batch sizes
-   only from measured throughput and memory behavior.
-3. Resume challenge-completion reroll research with a clean candidate-object
-   capture before confirmation, then require a second independent native vector.
-4. Re-run packaged UI responsiveness checks and release the accumulated working
-   tree only after user acceptance.
+1. Live-check the exact-role enemy overwrite after the application reports at
+   least one hook hit, then finish detail/challenge validation for terrain and
+   ordered special rules. Treat zero hits as a cache/reconstruction miss rather
+   than a successful override.
+2. Re-run packaged UI acceptance and release the accumulated working tree only
+   after user approval.
+3. After this release, replace the Tk frontend in v0.7; Electron is the current
+   preferred candidate pending an architecture decision.
+4. Validate and tune the D3D11 accelerator on an AMD discrete GPU only when
+   suitable hardware becomes available.

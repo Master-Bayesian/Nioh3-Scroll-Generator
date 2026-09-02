@@ -87,18 +87,18 @@
       "files": {
         "json": {
           "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-roles.json",
-          "size": 770939,
-          "sha256": "9756BFC4DC9219C0152D0B3612AD686C2233D8A1D5DE29396B4B0643B7E4B260"
+          "size": 872131,
+          "sha256": "6DD5A9051DE617E6189B75403D6B09BF2915CD2467E9DAF7DB676991BA908641"
         },
         "csv": {
           "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-roles.csv",
-          "size": 93112,
-          "sha256": "9DF130F6AC8EA5DFEC2F8E33A628676B46B4193294DD7B9696B4CB20A73EFFC1"
+          "size": 93727,
+          "sha256": "2753C5B71C1063E97EC21CED8F2C224A148520BB3E28290616B92A24EADF2D2B"
         },
         "md": {
           "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-roles.md",
-          "size": 19188,
-          "sha256": "C398D7B0A32CD96B6C7ACD4DB8BE042B917AF81F4183BAAAE69427BB8B630A44"
+          "size": 20047,
+          "sha256": "DB6EB6C0C9D7987E09420667398BE95F4B14257F1EA7E95054BE2227C9088828"
         }
       },
       "source_table": {
@@ -111,7 +111,7 @@
     },
     "enemy_combinations": {
       "schema": "nioh3-scroll-enemy-combination-catalog/v1",
-      "display_entries": 142,
+      "display_entries": 148,
       "unavailable_display_entries": 69,
       "recovered_branch_classes": [
         0,
@@ -120,31 +120,31 @@
       ],
       "family_counts": {
         "O": 64,
-        "A": 40,
-        "B": 37,
-        "A/B": 1
+        "A": 41,
+        "B": 43,
+        "A/B": 0
       },
       "files": {
         "json": {
           "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-combinations.json",
-          "size": 145730,
-          "sha256": "62E2F22FCA660C651A9D5DF18972812CDD8A4FA6DED9E3C13B43236B1035D175"
+          "size": 150575,
+          "sha256": "E6F76F46F2B5B8305618B3D986CD5EAAF56791003FEE7BEAB56D454840D30FBD"
         },
         "csv": {
           "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-combinations.csv",
-          "size": 39382,
-          "sha256": "35CECA0583A6196DC630801E6EB300FD1EF304046C58C6F9EF32D670320B0B7F"
+          "size": 41355,
+          "sha256": "9F97F9B0B5A9E8782BD3A31BBB1F82ACF07981C0ACD551617F14E812715FE32A"
         },
         "md": {
           "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-combinations.md",
-          "size": 22264,
-          "sha256": "6895BE023FF7FEBFA3A3B24D9EAFC8A3A311D8D2C41B69FBDAF34CBE3122EEE2"
+          "size": 23293,
+          "sha256": "E28BC8071622805B05200677BFB9906612581BA6EDBFD9B4BE64675C48B8C6F3"
         }
       },
       "player_guide_zh_CN": {
         "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-combinations.zh-CN.md",
-        "size": 18398,
-        "sha256": "EF172DFAAC08DF98C4921AF8DA20C8B973B6720886599A02896865A7159A88EA"
+        "size": 19403,
+        "sha256": "E6AE818C3F1575831230C1F0FD6E98ACBBBC4E59D6A88A00F0189EADCEC02941"
       },
       "unavailable_file": {
         "path": "docs/knowledge/versions/pc-v2.00.02/catalogs/enemy-unavailable.csv",

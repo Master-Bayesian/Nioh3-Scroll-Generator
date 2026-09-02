@@ -4,9 +4,12 @@ import unittest
 
 from nioh3_scroll_editor.effect_path_inverse import (
     FullCompositionRequest,
+    OneWildcardCompositionRequest,
     compile_full_composition_plans,
+    compile_one_wildcard_composition_plans,
     seed_satisfies_compiled_plan,
     verify_complete_matches,
+    verify_one_wildcard_matches,
 )
 from nioh3_scroll_editor.effect_sequence import (
     generate_ng3_rarity3_effect_sequence,
@@ -54,6 +57,18 @@ class EffectPathInverseTests(unittest.TestCase):
     def test_rarity5_requires_four_secondaries(self) -> None:
         with self.assertRaisesRegex(ValueError, "requires 5 distinct IDs"):
             FullCompositionRequest(5, 0xA051, (0xD40A, 0x34F3, 0x3E7A), 0x6553)
+
+    def test_rarity4_one_wildcard_known_seed_round_trip(self) -> None:
+        request = OneWildcardCompositionRequest(
+            4,
+            (0xA73D, 0x23E8, 0xD40A),
+            0x6553,
+        )
+        plans = compile_one_wildcard_composition_plans(request)
+        self.assertEqual(len(plans), 1)
+        self.assertGreater(len(plans[0].paths), 0)
+        self.assertTrue(any(seed_satisfies_compiled_plan(plan, 2) for plan in plans))
+        self.assertEqual(verify_one_wildcard_matches(request, (2,)), (2,))
 
 
 if __name__ == "__main__":

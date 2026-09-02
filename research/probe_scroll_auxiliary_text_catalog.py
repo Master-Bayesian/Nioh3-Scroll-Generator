@@ -68,10 +68,25 @@ def match_entries(
     return matches
 
 
+def match_text_ids(
+    entries: list[TextEntry],
+    text_ids: list[int],
+) -> dict[int, list[TextEntry]]:
+    """Return every current-locale entry for the requested stable text IDs."""
+
+    wanted = set(text_ids)
+    matches = {text_id: [] for text_id in text_ids}
+    for entry in entries:
+        if entry.text_id in wanted:
+            matches[entry.text_id].append(entry)
+    return matches
+
+
 def build_report(
     *,
     locale: str,
     terms: list[str],
+    text_ids: list[int],
     exact: bool,
     discovery_window_mb: int,
     fallback_scan_mb: int,
@@ -90,6 +105,7 @@ def build_report(
         block = reader.read(start, end - start)
         entries = list(iter_text_entries_from_block(block, start))
         matches = match_entries(entries, terms, exact=exact)
+        id_matches = match_text_ids(entries, text_ids)
 
         return {
             "schema": "nioh3-scroll-auxiliary-text-probe-v1",
@@ -106,6 +122,7 @@ def build_report(
             "plausible_entry_count": len(entries),
             "match_mode": "exact" if exact else "substring",
             "terms": terms,
+            "text_ids": [f"0x{text_id:08X}" for text_id in text_ids],
             "matches": {
                 term: [
                     {
@@ -117,7 +134,25 @@ def build_report(
                 ]
                 for term, selected in matches.items()
             },
+            "text_id_matches": {
+                f"0x{text_id:08X}": [
+                    {
+                        **asdict(entry),
+                        "text_id_hex": f"0x{entry.text_id:08X}",
+                        "address_hex": f"0x{entry.address:016X}",
+                    }
+                    for entry in selected
+                ]
+                for text_id, selected in id_matches.items()
+            },
         }
+
+
+def parse_int(value: str) -> int:
+    parsed = int(value, 0)
+    if not 0 <= parsed <= 0xFFFFFFFF:
+        raise argparse.ArgumentTypeError("text ID must fit in uint32")
+    return parsed
 
 
 def parse_args() -> argparse.Namespace:
@@ -128,12 +163,23 @@ def parse_args() -> argparse.Namespace:
         )
     )
     parser.add_argument("--locale", required=True)
-    parser.add_argument("--term", action="append", required=True, dest="terms")
+    parser.add_argument("--term", action="append", default=[], dest="terms")
+    parser.add_argument(
+        "--text-id",
+        action="append",
+        default=[],
+        type=parse_int,
+        dest="text_ids",
+        help="Stable native localization text ID, in decimal or 0x-prefixed form",
+    )
     parser.add_argument("--exact", action="store_true")
     parser.add_argument("--discovery-window-mb", type=int, default=8)
     parser.add_argument("--fallback-scan-mb", type=int, default=256)
     parser.add_argument("--output", type=Path, required=True)
-    return parser.parse_args()
+    args = parser.parse_args()
+    if not args.terms and not args.text_ids:
+        parser.error("at least one --term or --text-id is required")
+    return args
 
 
 def main() -> int:
@@ -143,6 +189,7 @@ def main() -> int:
     report = build_report(
         locale=args.locale,
         terms=args.terms,
+        text_ids=args.text_ids,
         exact=args.exact,
         discovery_window_mb=args.discovery_window_mb,
         fallback_scan_mb=args.fallback_scan_mb,
@@ -159,6 +206,10 @@ def main() -> int:
         print(f"{term}: {len(matches)} match(es)")
         for item in matches:
             print(f"  {item['text_id_hex']}: {item['text']}")
+    for text_id, matches in report["text_id_matches"].items():
+        print(f"{text_id}: {len(matches)} match(es)")
+        for item in matches:
+            print(f"  {item['text']}")
     return 0
 
 

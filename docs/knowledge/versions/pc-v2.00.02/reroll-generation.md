@@ -2,6 +2,11 @@
 
 ## Current status
 
+Project decision (2026-09-01): this research is frozen and abandoned as a
+product TODO. The evidence and offline research code are preserved for archival
+value, but no further implementation or live capture is planned. The application
+must not expose or promise reroll prediction.
+
 The paid/manual five-candidate reroll path is recovered to a
 `native-static-candidate` grade.
 The offline implementation reproduces the visible control flow and captured

@@ -58,10 +58,12 @@ not require reconstructing old capture bytes.
 - [Spreadsheet-friendly player catalog](enemy-combinations.csv)
 - [Native names unavailable to the scroll generator](enemy-unavailable.csv)
 
-These files translate the 487 raw candidate rows into 142 player-visible name
+These files translate the 487 raw candidate rows into 148 player-visible name
 entries and the O/A/B family rules used for structural preflight. They preserve
 candidate keys because a localized display name is not a globally unique enemy
-identity. Regenerate them after the role catalog with:
+identity. Known same-name human/yokai and character-identity variants are
+qualified from the shared `nioh3_scroll_editor/enemy_variants.py` registry.
+Regenerate them after the role catalog with:
 
 ```powershell
 python tools/export_enemy_combination_guide.py

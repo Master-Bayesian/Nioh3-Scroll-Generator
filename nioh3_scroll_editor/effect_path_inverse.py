@@ -12,6 +12,7 @@ certified forward generator before it is shown or written.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 from itertools import permutations
 from typing import Iterable, Sequence
 
@@ -122,10 +123,45 @@ class FullCompositionRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class OneWildcardCompositionRequest:
+    """A complete ordinary layout with exactly one unspecified effect."""
+
+    rarity: int
+    required_effect_ids: tuple[int, ...]
+    stage_special_effect_id: int | None = None
+    natural_only: bool = True
+    playthrough: int = 3
+
+    def __post_init__(self) -> None:
+        if self.rarity not in (4, 5):
+            raise ValueError("one-wildcard inversion supports rarity 4 or 5")
+        if self.playthrough not in (3, 4, 5):
+            raise ValueError("effect inversion supports playthrough 3, 4, or 5")
+        if self.rarity == 4 and self.playthrough != 3:
+            raise ValueError("rarity-4 generation is currently certified for NG3")
+        expected_required_count = 3 if self.rarity == 4 else 4
+        if (
+            len(self.required_effect_ids) != expected_required_count
+            or len(set(self.required_effect_ids)) != expected_required_count
+        ):
+            raise ValueError(
+                f"rarity-{self.rarity} one-wildcard inversion requires "
+                f"{expected_required_count} distinct ordinary IDs"
+            )
+        if self.stage_special_effect_id is None:
+            raise ValueError("one-wildcard inversion requires its draw-1 special effect")
+        if any(
+            not 0 <= value <= UINT32_MASK
+            for value in (*self.required_effect_ids, self.stage_special_effect_id)
+        ):
+            raise ValueError("effect IDs must fit in uint32")
+
+
+@dataclass(frozen=True, slots=True)
 class CompiledEffectPlan:
     """A finite pivot preimage plus exact path predicates."""
 
-    request: FullCompositionRequest
+    request: FullCompositionRequest | OneWildcardCompositionRequest
     promotion_draw_index: int
     promotion_probability_percent: int
     shuffle_draw_start: int
@@ -273,7 +309,7 @@ def _compile_paths_for_promotion_slot(
             pool = tables.weighted_candidate_pool(
                 record_type=record_type,
                 rarity=request.rarity,
-                playthrough=3,
+                playthrough=request.playthrough,
                 destination_category_and_flags=0x40 if position == 0 else 0,
                 destination_effect_flags=0x04 if source_slot == promoted_slot else 0,
                 remaining_category_capacities=capacities,
@@ -311,7 +347,7 @@ def _compile_paths_for_promotion_slot(
 
 
 def _build_plan(
-    request: FullCompositionRequest,
+    request: FullCompositionRequest | OneWildcardCompositionRequest,
     *,
     paths: tuple[CompiledEffectPath, ...],
     shared_constraints: tuple[tuple[int, tuple[U16Run, ...]], ...],
@@ -460,6 +496,173 @@ def compile_full_composition_plans(
     )
 
 
+def _compile_one_wildcard_paths_for_promotion_slot(
+    request: OneWildcardCompositionRequest,
+    *,
+    promoted_slot: int | None,
+    tables: EffectGenerationTableIndex,
+) -> tuple[CompiledEffectPath, ...]:
+    """Compile exact lottery branches while leaving one output ID unrestricted."""
+
+    if request.rarity == 4:
+        source_slots = (1, 2, 3, 4)
+    else:
+        source_slots = (1, 2, 3, 4, 5)
+    lottery_start_draw = 10 if promoted_slot is not None else 3
+    draw_indexes = tuple(
+        lottery_start_draw + 3 * index for index in range(len(source_slots))
+    )
+    record_type = CATEGORY_TO_TYPE[request.playthrough]
+    special_id = request.stage_special_effect_id
+    assert special_id is not None
+    required = frozenset(request.required_effect_ids)
+    built: list[CompiledEffectPath] = []
+
+    def visit(
+        position: int,
+        accepted: tuple[int, ...],
+        capacities: tuple[int, ...],
+        remaining_required: frozenset[int],
+        wildcard_used: bool,
+        constraints: tuple[LotteryConstraint, ...],
+    ) -> None:
+        if position == len(source_slots):
+            if not remaining_required and wildcard_used:
+                built.append(
+                    CompiledEffectPath(
+                        ordered_effect_ids=accepted,
+                        promoted_slot=promoted_slot,
+                        constraints=constraints,
+                    )
+                )
+            return
+
+        positions_left = len(source_slots) - position
+        if len(remaining_required) > positions_left:
+            return
+        pool = tables.weighted_candidate_pool(
+            record_type=record_type,
+            rarity=request.rarity,
+            playthrough=request.playthrough,
+            destination_category_and_flags=0x40 if position == 0 else 0,
+            destination_effect_flags=(
+                0x04 if source_slots[position] == promoted_slot else 0
+            ),
+            remaining_category_capacities=capacities,
+            existing_effect_ids=accepted,
+            special_effect_id=special_id,
+        )
+        can_use_wildcard = (
+            not wildcard_used and positions_left > len(remaining_required)
+        )
+        for candidate in pool:
+            effect_id = candidate.effect.effect_id
+            is_required = effect_id in remaining_required
+            if not is_required and not can_use_wildcard:
+                continue
+            runs = weighted_lottery_u16_runs(pool, effect_id)
+            if not runs:
+                continue
+            category = tables.group_for_effect(effect_id).category_key
+            if capacities[category] <= 0:
+                continue
+            next_capacities = list(capacities)
+            next_capacities[category] -= 1
+            visit(
+                position + 1,
+                (*accepted, effect_id),
+                tuple(next_capacities),
+                (
+                    remaining_required - {effect_id}
+                    if is_required
+                    else remaining_required
+                ),
+                wildcard_used or not is_required,
+                (
+                    *constraints,
+                    LotteryConstraint(
+                        source_slot=source_slots[position],
+                        draw_index=draw_indexes[position],
+                        effect_id=effect_id,
+                        candidate_count=len(pool),
+                        total_weight=sum(item.weight for item in pool)
+                        & UINT32_MASK,
+                        allowed_u16=runs,
+                    ),
+                ),
+            )
+
+    visit(
+        0,
+        (),
+        tables.category_capacities(
+            record_type=record_type,
+            rarity=request.rarity,
+        ),
+        required,
+        False,
+        (),
+    )
+    return tuple(built)
+
+
+@lru_cache(maxsize=16)
+def compile_one_wildcard_composition_plans(
+    request: OneWildcardCompositionRequest,
+    *,
+    tables: EffectGenerationTableIndex | None = None,
+    special_mapping: GraceOutputMap | None = None,
+) -> tuple[CompiledEffectPlan, ...]:
+    """Compile one GPU family for every layout containing the required IDs."""
+
+    if tables is None:
+        tables = load_default_effect_generation_tables()
+    definition = tables.rarity_generation[request.rarity]
+    if definition.promotion_trials != 1:
+        raise ValueError("path inversion requires the verified one-trial layout")
+    if special_mapping is None:
+        if request.playthrough != 3:
+            raise ValueError(
+                "NG4/NG5 inversion requires a captured matching-context Grace map"
+            )
+        special_mapping = load_grace_output_map(rarity=request.rarity)
+    special_id = request.stage_special_effect_id
+    assert special_id is not None
+    special_runs = tuple(
+        U16Run(entry.start, entry.end)
+        for entry in first_u16_ranges_for_grace(special_id, special_mapping)
+    )
+    if not special_runs:
+        raise ValueError("the requested special effect has no draw-1 preimage")
+    slot_limit = 5 if request.rarity == 4 else 6
+    paths = tuple(
+        path
+        for promoted_slot in (None, *range(1, slot_limit))
+        for path in _compile_one_wildcard_paths_for_promotion_slot(
+            request,
+            promoted_slot=promoted_slot,
+            tables=tables,
+        )
+    )
+    if not paths:
+        raise ValueError("the one-wildcard composition has no legal native path")
+    return (
+        _build_plan(
+            request,
+            paths=paths,
+            shared_constraints=((1, special_runs),),
+            promotion_draw_index=2,
+            promotion_probability_percent=int(
+                definition.promotion_probability_percent
+            ),
+            shuffle_draw_start=3,
+            slot_limit=slot_limit,
+            pivot_draw_index=1,
+            pivot_allowed_u16=special_runs,
+        ),
+    )
+
+
 def _u16_in_runs(value: int, runs: Sequence[U16Run]) -> bool:
     return any(run.start <= value <= run.end for run in runs)
 
@@ -568,16 +771,48 @@ def verify_complete_matches(
     return tuple(sorted(set(verified)))
 
 
+def verify_one_wildcard_matches(
+    request: OneWildcardCompositionRequest,
+    seeds: Iterable[int],
+) -> tuple[int, ...]:
+    """Replay one-wildcard GPU hits through the certified forward generator."""
+
+    required = frozenset(request.required_effect_ids)
+    verified: list[int] = []
+    for seed in seeds:
+        if request.natural_only and not is_natural_scroll_id(seed):
+            continue
+        if request.rarity == 4:
+            result = generate_ng3_rarity4_stage_one_effect_sequence(seed)
+        else:
+            result = generate_rarity5_grace_effect_sequence(
+                seed,
+                playthrough=request.playthrough,
+            )
+        ordinary = frozenset(
+            (result.primary.effect_id, *(effect.effect_id for effect in result.secondaries))
+        )
+        if (
+            required.issubset(ordinary)
+            and result.grace.effect_id == request.stage_special_effect_id
+        ):
+            verified.append(seed)
+    return tuple(sorted(set(verified)))
+
+
 __all__ = [
     "CompiledEffectPath",
     "CompiledEffectPlan",
     "FullCompositionRequest",
     "LotteryConstraint",
+    "OneWildcardCompositionRequest",
     "U16Run",
     "compile_full_composition_plans",
+    "compile_one_wildcard_composition_plans",
     "lcg_affine_for_draw",
     "seed_from_state_at_draw",
     "seed_satisfies_compiled_plan",
     "verify_complete_matches",
+    "verify_one_wildcard_matches",
     "weighted_lottery_u16_runs",
 ]

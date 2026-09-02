@@ -26,6 +26,16 @@ They must never be silently translated or shown as a bare English fallback in
 the Simplified Chinese UI.
 
 The only currently legal unresolved automatic-activation item key is `0x3011`.
+In the bundled v2.00.02 `item.bin` table (SHA-256
+`1CDAEF2A12D88A602F5B1E5E4198A042C8D8BC1C25AC23A0309C5A05FEC21938`),
+that key resolves uniquely to row index 1771. Candidate localization IDs in
+that row include `0x01215DB1`, `0x011D819F`, and `0x02CA6731`. The current-locale
+runtime pool must resolve those exact IDs before the player-facing item name is
+filled in; neighboring item names are not evidence.
+
+`research/probe_scroll_auxiliary_text_catalog.py` accepts repeated `--text-id`
+arguments for this exact lookup. Until a runtime capture closes the name field,
+the UI must keep the raw `0x3011` label visible.
 
 ## Priority-drop Grace coverage
 

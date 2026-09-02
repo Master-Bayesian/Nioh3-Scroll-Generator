@@ -35,6 +35,8 @@ survives.
   `0x6553`, yet produce different primary IDs (`0x512D` and `0x23E8`).
 - Ordinary secondaries depend on category allocation, conflicts, quota,
   weighted pools, promotion, retry, rejection, and previous accepted effects.
+  They are not independently invertible, but the product can still use an
+  exact forward GPU filter before independent exact replay.
 - R4 completion derives a scoped RNG from the complete stage-one record and
   target slot, then may retry and normalize the complete record.
 - Enemy and special-rule output is path-dependent on terrain, gates, budgets,
@@ -50,8 +52,9 @@ is complete offline replay against captured native tables.
 2. Construct an exact mathematical pivot family when a proven fixed-draw
    constraint exists; otherwise enumerate the complete natural Seed domain in
    bounded deterministic chunks rather than an arbitrary prefix.
-3. Use CUDA/CPU bulk prefilters only for predicates whose implementation has
-   parity evidence.
+3. Use GPU bulk prefilters only for predicates whose implementation has parity
+   evidence. The product does not silently fall back to a full-domain CPU or
+   Python replay.
 4. Replay the complete effect and auxiliary generators for each survivor.
 5. Stream accepted candidates and preserve a resume cursor; never materialize
    the full domain in memory.
@@ -59,6 +62,27 @@ is complete offline replay against captured native tables.
 The current accelerator hard-chunks pivot construction to 1,000,000
 mathematical trials and exact primary batches to 65,536 surviving Seeds. Those
 are memory bounds, not a claim that only the first million Seeds are searched.
+
+### R4 finalizer-aware partial ordinary-effect filter
+
+For one or two independent requirement groups, the DirectCompute matcher now
+generates all four stage-one ordinary effects, their percentile rolls, the
+transient Grace, and the exact completion-finalizer selection before evaluating
+the final five slots. It preserves primary-only versus any-ordinary-slot
+semantics and supports mandatory or OR-group conditions, including an effect
+created only by the finalizer.
+
+For three or more independent groups, the cheaper lossless rule remains useful:
+because the finalizer changes at most one physical slot, stage one must already
+match at least `N - 1` merged groups. The GPU evaluates that necessary
+condition and leaves final acceptance to exact replay.
+
+This is an exact forward filter, not a closed-form inverse. Every GPU survivor
+is still replayed independently by the certified CPU generator before it is
+shown or installed. Distributed 2,048-Seed two-group masks and contiguous
+1,024-Seed single-group masks produced zero differences; level-1 value-one
+eligibility and primary-position checks were also compared separately. Those
+local checks do not replace the existing native stage/final parity corpus.
 
 ## Rarity and stage notes
 

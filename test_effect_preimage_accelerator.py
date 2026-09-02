@@ -8,6 +8,7 @@ from nioh3_scroll_editor.app import (
     _complete_preimage_request,
     _complete_preimage_requests,
     _legal_complete_preimage_layouts,
+    _one_wildcard_preimage_request,
     collect_offline_ng3_search_batch,
     collect_offline_rarity5_search_batch,
 )
@@ -16,9 +17,14 @@ from nioh3_scroll_editor.effect_seed_solver import (
     fixed_draw_constraints,
     iter_effect_seed_candidates,
 )
+from nioh3_scroll_editor.effect_batch_filter import (
+    match_partial_effect_constraints_batch,
+)
 from nioh3_scroll_editor.effect_path_inverse import (
     FullCompositionRequest,
+    OneWildcardCompositionRequest,
     compile_full_composition_plans,
+    compile_one_wildcard_composition_plans,
     seed_satisfies_compiled_plan,
     verify_complete_matches,
 )
@@ -32,10 +38,24 @@ from nioh3_scroll_editor.effect_preimage_accelerator import (
     reset_effect_preimage_backend,
 )
 import nioh3_scroll_editor.effect_preimage_accelerator as preimage_accelerator
-from nioh3_scroll_editor.effect_sequence import generate_ng3_rarity5_effect_sequence
+from nioh3_scroll_editor.effect_sequence import (
+    generate_ng3_rarity3_effect_sequence,
+    generate_ng3_rarity4_final_effect_sequence,
+    generate_ng3_rarity4_stage_one_effect_sequence,
+    generate_ng3_rarity5_effect_sequence,
+)
 from nioh3_scroll_editor.grace_map import load_grace_output_map
 from nioh3_scroll_editor.joint_solver import _permuted_values, choose_pivot
 from nioh3_seed_math import state_after_draw_from_seed
+
+
+def _native_pivot_trial_for_seed(seed: int, pivot) -> int:
+    values = _permuted_values(pivot.allowed_u16)
+    state = state_after_draw_from_seed(seed, pivot.draw_index)
+    low_index = ((state & 0xFFFF) * pow(0x9E37, -1, 0x10000)) & 0xFFFF
+    rotation = low_index % len(values)
+    bucket_index = (values.index(state >> 16) - rotation) % len(values)
+    return low_index * len(values) + bucket_index + 1
 
 
 class EffectPreimageAcceleratorTests(unittest.TestCase):
@@ -65,6 +85,178 @@ class EffectPreimageAcceleratorTests(unittest.TestCase):
             self.request,
             (seed for seed, _trial in matches),
         ))
+
+    def test_partial_effect_forward_filter_matches_exact_sequences(self) -> None:
+        if not d3d11_effect_acceleration_available():
+            self.skipTest("no Direct3D 11 compute adapter")
+        seeds = tuple(range(1, 513))
+        for rarity, generator, mapping in (
+            (3, generate_ng3_rarity3_effect_sequence, None),
+            (5, generate_ng3_rarity5_effect_sequence, load_grace_output_map(rarity=5)),
+        ):
+            with self.subTest(rarity=rarity):
+                sequences = tuple(generator(seed) for seed in seeds)
+                required = sequences[0].secondaries[0].effect_id
+                alternative = sequences[1].secondaries[0].effect_id
+                result = match_partial_effect_constraints_batch(
+                    seeds,
+                    playthrough=3,
+                    rarity=rarity,
+                    primary_effect_ids=frozenset(),
+                    required_secondary_ids=frozenset((required,)),
+                    required_secondary_id_groups=(frozenset((alternative,)),),
+                    special_mapping=mapping,
+                )
+                self.assertIsNotNone(result)
+                assert result is not None
+                expected = []
+                for sequence in sequences:
+                    actual = {
+                        effect.effect_id
+                        for effect in (sequence.primary, *sequence.secondaries)
+                    }
+                    expected.append(
+                        (1 if required in actual else 0)
+                        | (2 if alternative in actual else 0)
+                    )
+                self.assertEqual(result.masks, tuple(expected))
+
+    def test_rarity4_stage_filter_allows_one_finalizer_rewrite(self) -> None:
+        if not d3d11_effect_acceleration_available():
+            self.skipTest("no Direct3D 11 compute adapter")
+        seeds = tuple(range(1, 513))
+        sequences = tuple(
+            generate_ng3_rarity4_stage_one_effect_sequence(seed)
+            for seed in seeds
+        )
+        required = tuple(effect.effect_id for effect in sequences[0].effects[:3])
+        result = match_partial_effect_constraints_batch(
+            seeds,
+            playthrough=3,
+            rarity=4,
+            primary_effect_ids=frozenset(),
+            required_secondary_ids=frozenset(required),
+            required_secondary_id_groups=(),
+            special_mapping=load_grace_output_map(rarity=4),
+        )
+        self.assertIsNotNone(result)
+        assert result is not None
+        target = (1 << len(required)) - 1
+        expected = []
+        for sequence in sequences:
+            actual = {effect.effect_id for effect in sequence.effects[:4]}
+            matched = sum(effect_id in actual for effect_id in required)
+            expected.append(target if matched >= len(required) - 1 else 0)
+        self.assertEqual(result.masks, tuple(expected))
+
+    def test_rarity4_generic_prefilter_keeps_finalizer_generated_effect(self) -> None:
+        if not d3d11_effect_acceleration_available():
+            self.skipTest("no Direct3D 11 compute adapter")
+        seed = 3
+        stage = generate_ng3_rarity4_stage_one_effect_sequence(seed)
+        final = generate_ng3_rarity4_final_effect_sequence(seed)
+        self.assertNotIn(0xDFF0, {effect.effect_id for effect in stage.effects})
+        self.assertIn(0xDFF0, {effect.effect_id for effect in final.effects})
+        request = EffectSeedRequest(
+            playthrough=3,
+            rarity=4,
+            required_secondary_ids=frozenset((0x6CE3, 0x47D2)),
+            required_secondary_id_groups=(frozenset((0xDFF0, 0xB613)),),
+            grace_effect_id=0x6553,
+        )
+        mapping = load_grace_output_map(rarity=4)
+        constraints = fixed_draw_constraints(
+            request,
+            grace_mapping=mapping,
+            replay_primary=True,
+        )
+        pivot = choose_pivot(constraints)
+        target_trial = _native_pivot_trial_for_seed(seed, pivot)
+        result = collect_offline_ng3_search_batch(
+            request,
+            grace_mapping=mapping,
+            level=180,
+            result_count=1,
+            max_trials_per_batch=129,
+            start_after_trial=max(0, target_trial - 64),
+        )
+        self.assertEqual(tuple(candidate.seed for candidate in result.candidates), (seed,))
+
+    def test_rarity4_single_group_filter_matches_finalizer_output(self) -> None:
+        if not d3d11_effect_acceleration_available():
+            self.skipTest("no Direct3D 11 compute adapter")
+        seeds = tuple(range(1, 1025))
+        target_effect_id = 0xDFF0
+        result = match_partial_effect_constraints_batch(
+            seeds,
+            playthrough=3,
+            rarity=4,
+            primary_effect_ids=frozenset(),
+            required_secondary_ids=frozenset((target_effect_id,)),
+            required_secondary_id_groups=(),
+            special_mapping=load_grace_output_map(rarity=4),
+        )
+        self.assertIsNotNone(result)
+        assert result is not None
+        expected = tuple(
+            int(
+                target_effect_id
+                in {
+                    effect.effect_id
+                    for effect in generate_ng3_rarity4_final_effect_sequence(seed).effects
+                }
+            )
+            for seed in seeds
+        )
+        self.assertEqual(result.target_mask, 1)
+        self.assertEqual(result.masks, expected)
+
+    def test_rarity4_gpu_finalizer_matches_distributed_seed_masks(self) -> None:
+        if not d3d11_effect_acceleration_available():
+            self.skipTest("no Direct3D 11 compute adapter")
+        seeds = tuple(
+            ((index * 0x9E3779B1) & 0x0FFFFFFF) or 1
+            for index in range(1, 2049)
+        )
+        sequences = tuple(
+            generate_ng3_rarity4_final_effect_sequence(seed) for seed in seeds
+        )
+        effect_ids = tuple(
+            sorted(
+                {
+                    effect.effect_id
+                    for sequence in sequences[:128]
+                    for effect in (sequence.primary, *sequence.secondaries)
+                }
+            )[:32]
+        )
+        requirement_groups = (
+            frozenset(effect_ids[:16]),
+            frozenset(effect_ids[16:]),
+        )
+        result = match_partial_effect_constraints_batch(
+            seeds,
+            playthrough=3,
+            rarity=4,
+            primary_effect_ids=frozenset(),
+            required_secondary_ids=frozenset(),
+            required_secondary_id_groups=requirement_groups,
+            special_mapping=load_grace_output_map(rarity=4),
+        )
+        self.assertIsNotNone(result)
+        assert result is not None
+        expected = tuple(
+            sum(
+                1 << index
+                for index, group in enumerate(requirement_groups)
+                if group.intersection(
+                    effect.effect_id
+                    for effect in (sequence.primary, *sequence.secondaries)
+                )
+            )
+            for sequence in sequences
+        )
+        self.assertEqual(result.masks, expected)
 
     def test_default_d3d11_device_round_trip(self) -> None:
         if not d3d11_effect_acceleration_available():
@@ -165,7 +357,7 @@ class EffectPreimageAcceleratorTests(unittest.TestCase):
              48_135_696, 76_175_780, 94_647_132, 250_107_693),
         )
 
-    def test_rarity4_final_request_uses_stage_one_inverse_with_final_replay(self) -> None:
+    def test_rarity4_final_request_does_not_use_incomplete_stage_inverse(self) -> None:
         request = EffectSeedRequest(
             playthrough=3,
             rarity=4,
@@ -173,39 +365,31 @@ class EffectPreimageAcceleratorTests(unittest.TestCase):
             required_secondary_ids=frozenset((0x4647, 0xD411, 0x3F41)),
             grace_effect_id=0x6553,
         )
-        inverse = _complete_preimage_request(request)
-        self.assertIsNotNone(inverse)
-        assert inverse is not None
-        self.assertEqual(inverse.stage_special_effect_id, 0x6553)
+        self.assertIsNone(_complete_preimage_request(request))
 
-    def test_rarity4_unrestricted_primary_expands_complete_assignments(self) -> None:
+    def test_rarity4_complete_request_uses_finalizer_aware_prefilter(self) -> None:
         request = EffectSeedRequest(
             playthrough=3,
             rarity=4,
             required_secondary_ids=frozenset((0xA73D, 0x23E8, 0xD40A, 0x28C4)),
             grace_effect_id=0x6553,
         )
-        self.assertEqual(
-            {item.primary_effect_id for item in _complete_preimage_requests(request)},
-            {0xA73D, 0x23E8, 0xD40A, 0x28C4},
-        )
+        self.assertEqual(_complete_preimage_requests(request), ())
 
-    def test_rarity4_complete_illegal_composition_stops_before_scan(self) -> None:
+    def test_generic_search_respects_one_batch_trial_budget(self) -> None:
         request = EffectSeedRequest(
             playthrough=3,
             rarity=4,
-            required_secondary_ids=frozenset((0xA051, 0xB613, 0xDFF0, 0xEA53)),
             grace_effect_id=0xCE68,
-            minimum_roll_percent_by_effect_id=((0xA051, 100),),
         )
-        with self.assertRaisesRegex(ValueError, "原生逐槽抽取路径中无解"):
-            collect_offline_ng3_search_batch(
-                request,
-                grace_mapping=load_grace_output_map(rarity=4),
-                level=180,
-                result_count=20,
-                max_trials_per_batch=1,
-            )
+        result = collect_offline_ng3_search_batch(
+            request,
+            grace_mapping=load_grace_output_map(rarity=4),
+            level=180,
+            result_count=20,
+            max_trials_per_batch=1,
+        )
+        self.assertLessEqual(result.next_start_after_trial, 1)
 
     def test_rarity4_unrestricted_primary_directcompute_round_trip(self) -> None:
         if not d3d11_effect_acceleration_available():
@@ -217,32 +401,47 @@ class EffectPreimageAcceleratorTests(unittest.TestCase):
             required_secondary_ids=frozenset((0xA73D, 0x23E8, 0xD40A, 0x28C4)),
             grace_effect_id=0x6553,
         )
-        layouts = _legal_complete_preimage_layouts(
+        self.assertIsNone(_legal_complete_preimage_layouts(
             request,
             grace_mapping=mapping,
+        ))
+        constraints = fixed_draw_constraints(
+            request,
+            grace_mapping=mapping,
+            replay_primary=True,
         )
-        assert layouts is not None
-        global_offset = 0
-        target_trial = None
-        for inverse, family_size in layouts:
-            plan_offset = 0
-            for plan in compile_full_composition_plans(
-                inverse,
-                special_mapping=mapping,
-            ):
-                if seed_satisfies_compiled_plan(plan, 2):
-                    target_trial = (
-                        global_offset + plan_offset + plan_trial_for_seed(plan, 2)
-                    )
-                    break
-                plan_offset += plan.pivot_state_count
-            if target_trial is not None:
-                break
-            global_offset += family_size
-        self.assertIsNotNone(target_trial)
-        assert target_trial is not None
+        pivot = choose_pivot(constraints)
+        target_trial = _native_pivot_trial_for_seed(2, pivot)
         result = collect_offline_ng3_search_batch(
             request,
+            grace_mapping=mapping,
+            level=180,
+            result_count=1,
+            max_trials_per_batch=129,
+            start_after_trial=target_trial - 64,
+        )
+        self.assertEqual(tuple(candidate.seed for candidate in result.candidates), (2,))
+
+    def test_rarity4_one_wildcard_directcompute_round_trip(self) -> None:
+        if not d3d11_effect_acceleration_available():
+            self.skipTest("no Direct3D 11 compute adapter")
+        mapping = load_grace_output_map(rarity=4)
+        product_request = EffectSeedRequest(
+            playthrough=3,
+            rarity=4,
+            required_secondary_ids=frozenset((0xA73D, 0x23E8, 0xD40A)),
+            grace_effect_id=0x6553,
+        )
+        self.assertIsNone(_one_wildcard_preimage_request(product_request))
+        constraints = fixed_draw_constraints(
+            product_request,
+            grace_mapping=mapping,
+            replay_primary=True,
+        )
+        pivot = choose_pivot(constraints)
+        target_trial = _native_pivot_trial_for_seed(2, pivot)
+        result = collect_offline_ng3_search_batch(
+            product_request,
             grace_mapping=mapping,
             level=180,
             result_count=1,

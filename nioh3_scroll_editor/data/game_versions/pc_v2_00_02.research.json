@@ -1,0 +1,50 @@
+{
+  "schema": "nioh3-game-version-research-profile/v1",
+  "profile_id": "pc_v2_00_02",
+  "display_version": "PC v2.00.02",
+  "file_version": [2, 0, 0, 2],
+  "section_dump": {
+    "manifest": "audit/runtime_sections/v2.00.02_20260827_title/manifest.json"
+  },
+  "text_sites": {
+    "canonicalize": {"rva": "0x20DD6EC", "signature_size": 16},
+    "completion_finalizer_wrapper": {"rva": "0x22799A8", "signature_size": 20, "range_size": 281},
+    "descriptor_complete": {"rva": "0x20DD558", "signature_size": 5},
+    "init_descriptor": {"rva": "0x1B6E658", "signature_size": 13},
+    "build_descriptor": {"rva": "0x20DD430", "signature_size": 11},
+    "destroy_descriptor": {"rva": "0x1B91E80", "signature_size": 12},
+    "init_compact": {"rva": "0x1B6F650", "signature_size": 8},
+    "reset_compact": {"rva": "0x1BBADBC", "signature_size": 8},
+    "effective_level": {"rva": "0x3DB834", "signature_size": 8},
+    "init_generation_context": {"rva": "0x570DF8", "signature_size": 8},
+    "incomplete_record": {"rva": "0x110BF30", "signature_size": 8},
+    "generate_effects": {"rva": "0x577964", "signature_size": 8},
+    "assemble_scroll": {"rva": "0x2277FE8", "signature_size": 8},
+    "playthrough_vector": {"rva": "0x578CD4", "signature_size": 8},
+    "completion_loop": {"rva": "0x10280BD", "signature_size": 16, "range_size": 439},
+    "per_effect_finalizer": {"rva": "0x1109270", "signature_size": 16, "range_size": 4953},
+    "effect_lookup": {"rva": "0x577808", "signature_size": 16},
+    "category_allocator": {"rva": "0x3DADC4", "signature_size": 16, "range_size": 688},
+    "effect_weight": {"rva": "0x57896C", "signature_size": 16, "range_size": 398},
+    "normalize_slot": {"rva": "0x5712D8", "signature_size": 16, "range_size": 354},
+    "bonus_count": {"rva": "0x5715FC", "signature_size": 16, "range_size": 135},
+    "lcg": {"rva": "0x30DCD4", "signature_size": 16, "range_size": 113}
+  },
+  "data_sites": {
+    "parameter_manager_pointer": {"rva": "0x45B1E00"},
+    "playthrough_selector_pointer": {"rva": "0x47494A0"},
+    "mode_pointer": {"rva": "0x47518E0"}
+  },
+  "rdata_sites": {
+    "one_over_65536": {"rva": "0x3BCCA04", "size": 4},
+    "hundred": {"rva": "0x3BCBEAC", "size": 4},
+    "forty_six": {"rva": "0x3BFC1DC", "size": 4},
+    "twenty": {"rva": "0x3BCBED4", "size": 4},
+    "one_over_100": {"rva": "0x3BCC630", "size": 4},
+    "one_over_1000": {"rva": "0x3BCC3A8", "size": 4}
+  },
+  "resources": {
+    "r4_finalizer": "nioh3_scroll_editor/data/r4_finalizer/pc_v2_00_02/resource_v1",
+    "auxiliary_generation": "nioh3_scroll_editor/data/auxiliary_generation/pc_v2_00_02/resource_v3"
+  }
+}

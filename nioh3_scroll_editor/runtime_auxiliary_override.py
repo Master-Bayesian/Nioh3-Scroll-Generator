@@ -17,12 +17,18 @@ import struct
 import sys
 from ctypes import wintypes
 from dataclasses import dataclass
+from functools import lru_cache
 
-from .native import find_module_base, find_nioh3_pid
+from .native import (
+    DEFAULT_NATIVE_RUNTIME_PROFILE,
+    NativeRuntimeProfile,
+    find_module_base,
+    find_nioh3_pid,
+)
 
 
 MODULE_NAME = "Nioh3.exe"
-MODULE_VERSION = "2.00.02"
+MODULE_VERSION = "2.00.02 / 2.01"
 DESCRIPTOR_COMPLETE_RVA = 0x20DD558
 DESCRIPTOR_COMPLETE_BYTES = bytes.fromhex("48 8B 54 24 60")
 REMOTE_ALLOCATION_SIZE = 0x1000
@@ -33,6 +39,27 @@ MEM_RELEASE = 0x8000
 MEM_FREE = 0x10000
 PAGE_EXECUTE_READWRITE = 0x40
 ALLOCATION_GRANULARITY = 0x10000
+
+
+@lru_cache(maxsize=1)
+def _enemy_role_by_lookup_key() -> dict[int, int]:
+    """Return the native descriptor role stored beside every enemy key."""
+
+    from .auxiliary_generation import load_default_auxiliary_generation_tables
+
+    tables = load_default_auxiliary_generation_tables()
+    if tables.enemy_candidates is None:
+        raise RuntimeError("enemy candidate table is unavailable")
+    roles: dict[int, int] = {}
+    for row in tables.enemy_candidates.rows():
+        lookup_key = struct.unpack_from("<I", row, 0x04)[0]
+        role = int(row[0x1A])
+        previous = roles.setdefault(lookup_key, role)
+        if previous != role:
+            raise RuntimeError(
+                f"enemy key 0x{lookup_key:08X} has ambiguous native roles"
+            )
+    return roles
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +78,12 @@ class RuntimeAuxiliaryOverrideProfile:
             raise ValueError("at most eight enemy groups are supported")
         if any(not 0 <= key <= 0xFFFFFFFF for key in self.enemy_keys):
             raise ValueError("enemy keys must fit in uint32")
+        if self.enemy_keys:
+            roles = _enemy_role_by_lookup_key()
+            unknown = tuple(key for key in self.enemy_keys if key not in roles)
+            if unknown:
+                formatted = ", ".join(f"0x{key:08X}" for key in unknown)
+                raise ValueError(f"unknown native enemy key(s): {formatted}")
         if self.special_rule_keys is not None:
             if len(self.special_rule_keys) != 3:
                 raise ValueError("special_rule_keys must contain exactly three keys")
@@ -99,6 +132,7 @@ def build_override_trampoline(
     *,
     return_address: int,
     counter_address: int | None = None,
+    original_instruction: bytes = DESCRIPTOR_COMPLETE_BYTES,
 ) -> bytes:
     """Build position-independent x64 code for one temporary profile."""
 
@@ -147,10 +181,19 @@ def build_override_trampoline(
             builder.emit(bytes.fromhex("4D 39 D9"))  # cmp r9,r11
             builder.branch(bytes.fromhex("0F 82"), "done")
 
+        enemy_roles = _enemy_role_by_lookup_key()
         for group_index, enemy_key in enumerate(profile.enemy_keys):
             group_offset = group_index * 0x28
             builder.emit(bytes.fromhex("4C 8B 80") + struct.pack("<I", group_offset))
             builder.emit(bytes.fromhex("41 C7 40 04") + struct.pack("<I", enemy_key))
+            # Native descriptors store the candidate role in inner +0x08.
+            # Updating only the display lookup key leaves an internally
+            # inconsistent entry and can make the challenge consumer discard
+            # the requested enemy even though the detail UI shows its name.
+            builder.emit(
+                bytes.fromhex("41 C7 40 08")
+                + struct.pack("<I", enemy_roles[enemy_key])
+            )
             builder.emit(bytes.fromhex("4D 8D 48 14"))  # lea r9,[r8+0x14]
             builder.emit(
                 bytes.fromhex("4C 89 88") + struct.pack("<I", group_offset + 0x08)
@@ -176,7 +219,9 @@ def build_override_trampoline(
 
     builder.mark("done")
     builder.emit(bytes.fromhex("41 5B 41 5A 41 59 41 58 5A 59 58 9D"))
-    builder.emit(DESCRIPTOR_COMPLETE_BYTES)
+    if not original_instruction:
+        raise ValueError("original_instruction must not be empty")
+    builder.emit(original_instruction)
     builder.emit(bytes.fromhex("48 B8") + struct.pack("<Q", return_address))
     builder.emit(bytes.fromhex("FF E0"))
     return builder.finish()
@@ -289,9 +334,11 @@ class RuntimeAuxiliaryOverrideSession:
         profile: RuntimeAuxiliaryOverrideProfile,
         *,
         pid: int | None = None,
+        runtime_profile: NativeRuntimeProfile = DEFAULT_NATIVE_RUNTIME_PROFILE,
     ) -> None:
         self.profile = profile
         self.pid = pid
+        self.runtime_profile = runtime_profile
         self.module_base = 0
         self.hook_address = 0
         self.process: int | None = None
@@ -414,23 +461,27 @@ class RuntimeAuxiliaryOverrideSession:
         dll = _kernel32()
         self.pid = find_nioh3_pid() if self.pid is None else self.pid
         self.module_base = find_module_base(self.pid)
-        self.hook_address = self.module_base + DESCRIPTOR_COMPLETE_RVA
+        hook_rva = self.runtime_profile.descriptor_complete_rva
+        hook_bytes = self.runtime_profile.descriptor_complete_signature
+        self.hook_address = self.module_base + hook_rva
         process = dll.OpenProcess(PROCESS_ACCESS, False, self.pid)
         if not process:
             raise _last_error("OpenProcess")
         self.process = int(process)
         try:
-            actual = self._read(self.hook_address, len(DESCRIPTOR_COMPLETE_BYTES))
-            if actual != DESCRIPTOR_COMPLETE_BYTES:
+            actual = self._read(self.hook_address, len(hook_bytes))
+            if actual != hook_bytes:
                 raise RuntimeError(
-                    "绘卷辅助生成函数与《仁王3》PC v2.00.02 不匹配，已拒绝覆盖"
+                    "绘卷辅助生成函数与《仁王3》"
+                    f"{self.runtime_profile.display_version} 不匹配，已拒绝覆盖"
                 )
             self.allocation = self._allocate_near(self.hook_address)
             self.counter_address = self.allocation + REMOTE_ALLOCATION_SIZE - 8
             code = build_override_trampoline(
                 self.profile,
-                return_address=self.hook_address + len(DESCRIPTOR_COMPLETE_BYTES),
+                return_address=self.hook_address + len(hook_bytes),
                 counter_address=self.counter_address,
+                original_instruction=hook_bytes,
             )
             if len(code) > REMOTE_ALLOCATION_SIZE - 8:
                 raise RuntimeError("runtime override trampoline exceeds its allocation")
@@ -448,11 +499,11 @@ class RuntimeAuxiliaryOverrideSession:
             try:
                 current = self._read(
                     self.hook_address,
-                    len(DESCRIPTOR_COMPLETE_BYTES),
+                    len(self.runtime_profile.descriptor_complete_signature),
                 )
                 if current == self.patch:
-                    self._write_hook(DESCRIPTOR_COMPLETE_BYTES)
-                elif current != DESCRIPTOR_COMPLETE_BYTES:
+                    self._write_hook(self.runtime_profile.descriptor_complete_signature)
+                elif current != self.runtime_profile.descriptor_complete_signature:
                     # Keep the remote allocation alive if another writer changed
                     # the hook. Freeing it could leave a dangling executable jump.
                     return
@@ -482,11 +533,12 @@ class RuntimeAuxiliaryOverrideSession:
             return
         restored = False
         try:
-            current = self._read(self.hook_address, len(DESCRIPTOR_COMPLETE_BYTES))
+            hook_bytes = self.runtime_profile.descriptor_complete_signature
+            current = self._read(self.hook_address, len(hook_bytes))
             if self.patch is not None and current == self.patch:
-                self._write_hook(DESCRIPTOR_COMPLETE_BYTES)
+                self._write_hook(hook_bytes)
                 restored = True
-            elif current == DESCRIPTOR_COMPLETE_BYTES:
+            elif current == hook_bytes:
                 restored = True
             else:
                 raise RuntimeError(

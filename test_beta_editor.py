@@ -46,6 +46,7 @@ from nioh3_scroll_editor.app import (
     collect_offline_ng3_search_batch,
     collect_offline_rarity5_search_batch,
     build_runtime_terrain_options,
+    build_terrain_filter_options,
     classify_enemy_roles,
     centered_child_geometry,
     copy_text_to_clipboard,
@@ -59,10 +60,12 @@ from nioh3_scroll_editor.app import (
     partition_grouped_selections,
     enemy_tier_columns,
     enemy_tiers_are_compatible,
+    enemy_variant_display_name,
     filter_runtime_labels,
     format_runtime_enemy_slot_summary,
     requirement_mode_group_index,
     special_rule_variant_label,
+    split_enemy_variant_display_groups,
     toggle_rule_filter_option,
     user_facing_error_message,
 )
@@ -214,6 +217,31 @@ class BetaEditorTests(unittest.TestCase):
         self.assertEqual(len(groups), 142)
         self.assertTrue(all(keys.issubset(candidate_keys) for keys in groups.values()))
 
+    def test_named_boss_variants_are_exposed_as_exact_choices(self) -> None:
+        groups = split_enemy_variant_display_groups(
+            {
+                "武田信玄": frozenset((0x00071ED1, 0x0000A5D2)),
+                "比留呼": frozenset((0x000B605B, 0x0004ACDF, 0x00093F79)),
+                "金井半兵卫": frozenset((0x0000F9CA, 0x000179F7)),
+            }
+        )
+        self.assertEqual(groups["武田信玄（人形）"], frozenset((0x00071ED1,)))
+        self.assertEqual(groups["武田信玄（妖怪形态）"], frozenset((0x0000A5D2,)))
+        self.assertEqual(groups["比留呼（古代妖怪形态）"], frozenset((0x0004ACDF,)))
+        self.assertEqual(groups["比留呼（江户妖怪形态）"], frozenset((0x00093F79,)))
+        self.assertEqual(groups["金井半兵卫（人形）"], frozenset((0x0000F9CA,)))
+        self.assertNotIn("武田信玄", groups)
+
+    def test_enemy_variant_names_distinguish_both_hattori_hanzo_identities(self) -> None:
+        self.assertEqual(
+            enemy_variant_display_name("服部半藏", 0x000D35E1),
+            "服部半藏（现任／子）",
+        )
+        self.assertEqual(
+            enemy_variant_display_name("服部半藏", 0x000202A7),
+            "服部半藏（先代／父（鬼半藏））",
+        )
+
     def test_player_enemy_tiers_match_native_role_families(self) -> None:
         self.assertEqual(classify_enemy_roles((0, 1, 2, 3)), ENEMY_TIER_LOW)
         self.assertEqual(classify_enemy_roles((4,)), ENEMY_TIER_MIDDLE)
@@ -263,13 +291,22 @@ class BetaEditorTests(unittest.TestCase):
         catalog = load_auxiliary_name_catalog("zh-CN")
         tables = load_default_auxiliary_generation_tables()
         options = build_runtime_terrain_options(tables, catalog)
-        label_by_value = {value: label for label, value in options.items()}
+        self.assertEqual(
+            set(options),
+            {"无地形影响", "地狱", "地狱＋火", "恶臭", "地狱＋瘴血"},
+        )
+        self.assertEqual(options["地狱＋火"], 0x2D)
+        self.assertEqual(options["地狱＋瘴血"], 0x08)
 
-        self.assertTrue(label_by_value[0x74].startswith("地狱"))
-        self.assertIn("瘴血", label_by_value[0x08])
-        self.assertIn("污血", label_by_value[0x08])
-        self.assertTrue(label_by_value[0xA3].startswith("无地形影响"))
-        self.assertIn("原生参数：造成伤害减少", label_by_value[0xA3])
+    def test_search_terrain_options_are_exact_native_results(self) -> None:
+        catalog = load_auxiliary_name_catalog("zh-CN")
+        tables = load_default_auxiliary_generation_tables()
+        options = build_terrain_filter_options(tables, catalog)
+
+        self.assertEqual(options["地狱（仅地狱）"], frozenset((0, 7, 11, 17)))
+        self.assertEqual(options["地狱＋火"], frozenset((6,)))
+        self.assertEqual(options["恶臭"], frozenset((10,)))
+        self.assertEqual(options["地狱＋瘴血"], frozenset((14,)))
 
     def test_terrain_effect_filter_supports_native_multi_effect_rows(self) -> None:
         tables = load_default_auxiliary_generation_tables()
@@ -452,7 +489,7 @@ class BetaEditorTests(unittest.TestCase):
             grace_mapping=load_grace_output_map(rarity=5),
             level=180,
             result_count=2,
-            max_trials_per_batch=4,
+            max_trials_per_batch=100,
             candidate_found=streamed.append,
         )
 
@@ -489,7 +526,7 @@ class BetaEditorTests(unittest.TestCase):
         self.assertEqual(result.intersection_report.stages[0].kind, "grace")
         self.assertEqual(result.intersection_report.stages[0].count, 3)
 
-    def test_rarity4_joint_search_reports_the_optimized_filter_order(self) -> None:
+    def test_rarity4_two_effect_groups_use_exact_gpu_finalizer(self) -> None:
         result = collect_offline_ng3_search_batch(
             EffectSeedRequest(
                 playthrough=3,
@@ -503,13 +540,10 @@ class BetaEditorTests(unittest.TestCase):
             result_count=1,
             max_trials_per_batch=250_000,
         )
-
         self.assertEqual(len(result.candidates), 1)
-        assert result.intersection_report is not None
-        self.assertEqual(
-            tuple(stage.kind for stage in result.intersection_report.stages),
-            ("primary", "grace", "secondary"),
-        )
+        candidate = result.candidates[0]
+        self.assertEqual(candidate.primary.effect_id, 0xB613)
+        self.assertIn(0x23E8, {effect.effect_id for effect in candidate.secondaries})
 
     def test_ng3_rarity345_use_game_closed_ui_path(self) -> None:
         base = (
@@ -549,7 +583,7 @@ class BetaEditorTests(unittest.TestCase):
             grace_mapping=mapping,
             level=180,
             result_count=1,
-            max_trials_per_batch=1,
+            max_trials_per_batch=100,
         )
 
         self.assertEqual(len(result.candidates), 1)
@@ -1627,6 +1661,10 @@ class BetaEditorTests(unittest.TestCase):
         self.assertLess(len(code), 0x1000)
         self.assertTrue(code.startswith(bytes.fromhex("9C 50 51 52")))
         self.assertGreaterEqual(code.count(struct.pack("<I", 0x0006DE91)), 3)
+        self.assertGreaterEqual(
+            code.count(bytes.fromhex("41 C7 40 08 01 00 00 00")),
+            3,
+        )
         self.assertIn(struct.pack("<H", 0x6171), code)
         self.assertTrue(
             code.endswith(
@@ -1636,6 +1674,24 @@ class BetaEditorTests(unittest.TestCase):
                 + bytes.fromhex("FF E0")
             )
         )
+
+    def test_runtime_auxiliary_profile_rejects_non_native_enemy_key(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unknown native enemy"):
+            RuntimeAuxiliaryOverrideProfile(
+                seed=203900415,
+                enemy_keys=(0xDEADBEEF,),
+            )
+
+    def test_runtime_enemy_variants_write_their_exact_native_roles(self) -> None:
+        code = build_override_trampoline(
+            RuntimeAuxiliaryOverrideProfile(
+                seed=203900415,
+                enemy_keys=(0x0000F9CA, 0x000179F7),
+            ),
+            return_address=0x00007FF61234567D,
+        )
+        self.assertIn(bytes.fromhex("41 C7 40 08 04 00 00 00"), code)
+        self.assertIn(bytes.fromhex("41 C7 40 08 05 00 00 00"), code)
 
     def test_runtime_auxiliary_hook_uses_one_exact_rel32_instruction(self) -> None:
         patch = build_relative_jump(0x00007FF600001000, 0x00007FF600101000)

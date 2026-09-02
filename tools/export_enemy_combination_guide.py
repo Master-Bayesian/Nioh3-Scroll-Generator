@@ -77,7 +77,7 @@ def _family_for_roles(roles: Iterable[int]) -> str:
 def _group_display_entries(role_payload: dict[str, Any]) -> list[dict[str, Any]]:
     grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in role_payload["rows"]:
-        key = tuple(row["names"][locale] for locale in LOCALES)
+        key = tuple(row["display_names"][locale] for locale in LOCALES)
         grouped[key].append(row)
 
     entries: list[dict[str, Any]] = []
@@ -170,6 +170,10 @@ def build_combination_payload() -> dict[str, Any]:
     role_payload = build_role_catalog_payload()
     entries = _group_display_entries(role_payload)
     unavailable_entries = _unavailable_display_entries(role_payload)
+    native_candidate_names = {
+        tuple(row["names"][locale] for locale in LOCALES)
+        for row in role_payload["rows"]
+    }
     target_names = ("一目连", "德川国松", "德川庆喜")
     target_roles = [_resolve_roles(entries, name) for name in target_names]
     target_classes = viable_enemy_branch_classes(target_roles)
@@ -189,7 +193,7 @@ def build_combination_payload() -> dict[str, Any]:
             "display_entry_count": len(entries),
             "unavailable_display_entry_count": len(unavailable_entries),
             "native_localization_display_entry_count": (
-                len(entries) + len(unavailable_entries)
+                len(native_candidate_names) + len(unavailable_entries)
             ),
             "candidate_row_count": len(role_payload["rows"]),
             "locales": list(LOCALES),

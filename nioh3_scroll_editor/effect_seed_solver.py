@@ -21,6 +21,7 @@ from .auxiliary_generation import (
     generate_complete_auxiliary,
     generate_enemy_match_masks_batch,
     generate_matching_auxiliary,
+    generate_special_rule_match_masks_batch,
     generate_terrain_row_indices_batch,
     terrain_row_matches_criteria,
 )
@@ -47,6 +48,7 @@ from .models import (
     effective_required_secondary_ids,
 )
 from .primary_map import PrimaryFirstDrawOutputMap, PrimaryOutputMap
+from .seed_accelerator import last_seed_acceleration_backend
 
 
 class OfflineEffectReplayUnavailable(RuntimeError):
@@ -166,6 +168,10 @@ EffectSequenceGenerator = Callable[[int], EffectSequenceResult]
 PrimaryEffectGenerator = Callable[[int], GeneratedEffect]
 PrimaryEffectIdGenerator = Callable[[int], int]
 PrimaryEffectIdBatchGenerator = Callable[[tuple[int, ...]], tuple[int, ...]]
+EffectConstraintMaskBatchGenerator = Callable[
+    [tuple[int, ...]],
+    tuple[tuple[int, ...], int] | None,
+]
 IntersectionProgressCallback = Callable[[EffectSeedIntersectionReport], None]
 CancellationCheck = Callable[[], bool]
 CandidateFoundCallback = Callable[[EffectSeedCandidate], None]
@@ -358,24 +364,47 @@ def _enemy_constraint_group_count(criteria: AuxiliarySearchCriteria) -> int:
     )
 
 
+def _special_rule_constraint_group_count(criteria: AuxiliarySearchCriteria) -> int:
+    return (
+        len(criteria.required_special_rule_keys)
+        + len(criteria.required_special_rule_key_groups)
+    )
+
+
 def _iter_solution_prefetch(
     solutions: Iterator[SeedSolution],
     batch_generator: PrimaryEffectIdBatchGenerator | None,
+    effect_constraint_generator: EffectConstraintMaskBatchGenerator | None,
     primary_effect_ids: frozenset[int],
     terrain_criteria: AuxiliarySearchCriteria,
     playthrough: int,
     *,
-    batch_size: int = 65_536,
-) -> Iterator[tuple[SeedSolution, int | None, int | None, int | None]]:
-    """Attach native primary, terrain, and enemy results to a Seed stream."""
+    batch_size: int = 262_144,
+) -> Iterator[
+    tuple[
+        SeedSolution,
+        int | None,
+        int | None,
+        int | None,
+        int | None,
+        int | None,
+        int | None,
+    ]
+]:
+    """Attach batched GPU effect and auxiliary predicates to a Seed stream."""
 
     enemy_group_count = _enemy_constraint_group_count(terrain_criteria)
+    rule_group_count = _special_rule_constraint_group_count(terrain_criteria)
     prefetch_terrain = _has_terrain_constraints(terrain_criteria) or bool(
-        enemy_group_count
+        enemy_group_count or rule_group_count
     )
-    if batch_generator is None and not prefetch_terrain:
+    if (
+        batch_generator is None
+        and effect_constraint_generator is None
+        and not prefetch_terrain
+    ):
         for solution in solutions:
-            yield solution, None, None, None
+            yield solution, None, None, None, None, None, None
         return
     while True:
         batch = tuple(islice(solutions, batch_size))
@@ -389,10 +418,35 @@ def _iter_solution_prefetch(
             generated_ids = batch_generator(seeds)
             if len(generated_ids) != len(batch):
                 raise ValueError("primary batch generator returned the wrong result count")
+            if last_seed_acceleration_backend() != "cuda":
+                raise RuntimeError(
+                    "CUDA primary matcher is unavailable; CPU fallback is disabled"
+                )
             effect_ids = tuple(generated_ids)
+        effect_masks: tuple[int | None, ...]
+        effect_target_masks: tuple[int | None, ...]
+        if effect_constraint_generator is None:
+            effect_masks = (None,) * len(batch)
+            effect_target_masks = (None,) * len(batch)
+        else:
+            generated_filter = effect_constraint_generator(seeds)
+            if generated_filter is None:
+                effect_masks = (None,) * len(batch)
+                effect_target_masks = (None,) * len(batch)
+            else:
+                generated_masks, target_mask = generated_filter
+                if len(generated_masks) != len(batch):
+                    raise ValueError(
+                        "effect constraint batch generator returned the wrong result count"
+                    )
+                effect_masks = tuple(generated_masks)
+                effect_target_masks = (target_mask,) * len(batch)
         terrain_rows: tuple[int | None, ...]
         if prefetch_terrain:
-            generated_rows = generate_terrain_row_indices_batch(seeds)
+            generated_rows = generate_terrain_row_indices_batch(
+                seeds,
+                require_cuda=True,
+            )
             if len(generated_rows) != len(batch):
                 raise ValueError("terrain batch generator returned the wrong result count")
             terrain_rows = tuple(generated_rows)
@@ -425,6 +479,7 @@ def _iter_solution_prefetch(
                     tuple(int(terrain_rows[index]) for index in eligible_indices),
                     playthrough,
                     criteria=terrain_criteria,
+                    require_cuda=True,
                 )
                 if len(generated_masks) != len(eligible_indices):
                     raise ValueError(
@@ -439,7 +494,62 @@ def _iter_solution_prefetch(
             enemy_masks = tuple(scattered_masks)
         else:
             enemy_masks = (None,) * len(batch)
-        yield from zip(batch, effect_ids, terrain_rows, enemy_masks, strict=True)
+        rule_masks: tuple[int | None, ...]
+        if rule_group_count:
+            if any(row is None for row in terrain_rows):
+                raise AssertionError("native special-rule matching requires terrain rows")
+            target_enemy_mask = (1 << enemy_group_count) - 1
+            eligible_indices = tuple(
+                index
+                for index, (effect_id, terrain_row, enemy_mask) in enumerate(
+                    zip(effect_ids, terrain_rows, enemy_masks, strict=True)
+                )
+                if (
+                    (not primary_effect_ids or effect_id in primary_effect_ids)
+                    and (
+                        not _has_terrain_constraints(terrain_criteria)
+                        or terrain_row_matches_criteria(
+                            int(terrain_row),
+                            terrain_criteria,
+                        )
+                    )
+                    and (
+                        not enemy_group_count
+                        or enemy_mask == target_enemy_mask
+                    )
+                )
+            )
+            scattered_masks: list[int | None] = [None] * len(batch)
+            if eligible_indices:
+                generated_masks = generate_special_rule_match_masks_batch(
+                    tuple(seeds[index] for index in eligible_indices),
+                    tuple(int(terrain_rows[index]) for index in eligible_indices),
+                    playthrough,
+                    criteria=terrain_criteria,
+                )
+                if len(generated_masks) != len(eligible_indices):
+                    raise ValueError(
+                        "special-rule batch generator returned the wrong result count"
+                    )
+                for index, mask in zip(
+                    eligible_indices,
+                    generated_masks,
+                    strict=True,
+                ):
+                    scattered_masks[index] = mask
+            rule_masks = tuple(scattered_masks)
+        else:
+            rule_masks = (None,) * len(batch)
+        yield from zip(
+            batch,
+            effect_ids,
+            effect_masks,
+            effect_target_masks,
+            terrain_rows,
+            enemy_masks,
+            rule_masks,
+            strict=True,
+        )
 
 
 def merge_intersection_reports(
@@ -756,6 +866,19 @@ class _IntersectionCounter:
             group_index += 1
         return True
 
+    def accept_prefetched_rule_mask(self, matched_mask: int) -> bool:
+        """Count CUDA-batched special-rule groups in UI constraint order."""
+
+        group_index = 0
+        for index, spec in enumerate(self.specs):
+            if spec.kind != "rule":
+                continue
+            if (matched_mask & (1 << group_index)) == 0:
+                return False
+            self.counts[index] += 1
+            group_index += 1
+        return True
+
     def accept_prefetched_terrain(self) -> None:
         """Count a terrain row after the complete native terrain gate passed."""
 
@@ -1023,13 +1146,16 @@ def iter_effect_seed_candidates(
     primary_effect_generator: PrimaryEffectGenerator | None = None,
     primary_effect_id_generator: PrimaryEffectIdGenerator | None = None,
     primary_effect_id_batch_generator: PrimaryEffectIdBatchGenerator | None = None,
+    effect_constraint_mask_batch_generator: (
+        EffectConstraintMaskBatchGenerator | None
+    ) = None,
     allow_full_seed_family: bool = False,
     start_after_trial: int = 0,
     max_trials: int | None = None,
     _intersection_counter: _IntersectionCounter | None = None,
     cancelled: CancellationCheck | None = None,
     pivot_seed_collector: PivotSeedCollector | None = None,
-    pivot_seed_collector_chunk_trials: int = 1_000_000,
+    pivot_seed_collector_chunk_trials: int = 8_000_000,
     prefer_d3d11_fixed_draw: bool = False,
 ) -> Iterator[EffectSeedCandidate]:
     """Yield exact Seed candidates without connecting to a game process."""
@@ -1095,7 +1221,7 @@ def iter_effect_seed_candidates(
         pivot_seed_collector = collect_fixed_draw_pivot_seeds
         pivot_seed_collector_chunk_trials = min(
             pivot_seed_collector_chunk_trials,
-            1_000_000,
+            8_000_000,
         )
         pivot_seed_collector_uses_pivot_major_order = True
     solutions: Iterator[SeedSolution] = iter_constraint_intersection(
@@ -1111,15 +1237,24 @@ def iter_effect_seed_candidates(
     )
     grace_slot = grace_mapping.effect_slot if grace_mapping is not None else None
     fixed_draws = tuple((constraint.name, constraint.draw_index) for constraint in constraints)
-    batch_primary = primary_effect_id_batch_generator if request.primary_effect_ids else None
+    batch_primary = (
+        primary_effect_id_batch_generator
+        if request.primary_effect_ids
+        and effect_constraint_mask_batch_generator is None
+        else None
+    )
     for (
         solution,
         prefetched_primary_effect_id,
+        prefetched_effect_mask,
+        prefetched_effect_target_mask,
         prefetched_terrain_row,
         prefetched_enemy_mask,
+        prefetched_rule_mask,
     ) in _iter_solution_prefetch(
         solutions,
         batch_primary,
+        effect_constraint_mask_batch_generator,
         request.primary_effect_ids,
         request.auxiliary_criteria,
         request.playthrough,
@@ -1132,12 +1267,22 @@ def iter_effect_seed_candidates(
                     "intersection counting requires an exact effect-sequence generator"
                 )
             _intersection_counter.observe_fixed_seed(solution.pivot_trial)
+            if (
+                prefetched_effect_mask is not None
+                and prefetched_effect_target_mask is not None
+                and prefetched_effect_mask != prefetched_effect_target_mask
+            ):
+                continue
             effect_sequence = None
-            has_primary_fast_path = request.primary_effect_ids and (
-                prefetched_primary_effect_id is not None
-                or primary_effect_id_batch_generator is not None
-                or primary_effect_id_generator is not None
-                or primary_effect_generator is not None
+            has_primary_fast_path = (
+                bool(request.primary_effect_ids)
+                and effect_constraint_mask_batch_generator is None
+                and (
+                    prefetched_primary_effect_id is not None
+                    or primary_effect_id_batch_generator is not None
+                    or primary_effect_id_generator is not None
+                    or primary_effect_generator is not None
+                )
             )
             if has_primary_fast_path:
                 primary_effect_id = (
@@ -1179,6 +1324,13 @@ def iter_effect_seed_candidates(
                     )
                 ):
                     continue
+                if (
+                    prefetched_rule_mask is not None
+                    and not _intersection_counter.accept_prefetched_rule_mask(
+                        prefetched_rule_mask
+                    )
+                ):
+                    continue
                 # Terrain is independent and substantially cheaper than enemy
                 # and rule generation. Reject terrain misses before building
                 # the remaining auxiliary record while preserving exact
@@ -1193,6 +1345,7 @@ def iter_effect_seed_candidates(
                             if (
                                 (kind == "terrain" and prefetched_terrain_row is not None)
                                 or (kind == "enemy" and prefetched_enemy_mask is not None)
+                                or (kind == "rule" and prefetched_rule_mask is not None)
                             )
                             else _intersection_counter.accept_auxiliary_stage(kind, result)
                         )
@@ -1241,6 +1394,12 @@ def iter_effect_seed_candidates(
 
         candidate = None
         effect_sequence = None
+        if (
+            prefetched_effect_mask is not None
+            and prefetched_effect_target_mask is not None
+            and prefetched_effect_mask != prefetched_effect_target_mask
+        ):
+            continue
         has_effect_replay_filter = bool(
             request.primary_effect_ids
             or request.required_secondary_ids
@@ -1310,6 +1469,13 @@ def iter_effect_seed_candidates(
                 target_enemy_mask = (1 << enemy_group_count) - 1
                 if prefetched_enemy_mask != target_enemy_mask:
                     continue
+            if prefetched_rule_mask is not None:
+                rule_group_count = _special_rule_constraint_group_count(
+                    request.auxiliary_criteria
+                )
+                target_rule_mask = (1 << rule_group_count) - 1
+                if prefetched_rule_mask != target_rule_mask:
+                    continue
             auxiliary = generate_matching_auxiliary(
                 solution.seed,
                 request.playthrough,
@@ -1358,6 +1524,9 @@ def collect_effect_seed_page(
     primary_effect_generator: PrimaryEffectGenerator | None = None,
     primary_effect_id_generator: PrimaryEffectIdGenerator | None = None,
     primary_effect_id_batch_generator: PrimaryEffectIdBatchGenerator | None = None,
+    effect_constraint_mask_batch_generator: (
+        EffectConstraintMaskBatchGenerator | None
+    ) = None,
     allow_full_seed_family: bool = False,
     start_after_trial: int = 0,
     max_trials: int | None = None,
@@ -1366,7 +1535,7 @@ def collect_effect_seed_page(
     candidate_found: CandidateFoundCallback | None = None,
     cancelled: CancellationCheck | None = None,
     pivot_seed_collector: PivotSeedCollector | None = None,
-    pivot_seed_collector_chunk_trials: int = 1_000_000,
+    pivot_seed_collector_chunk_trials: int = 8_000_000,
     prefer_d3d11_fixed_draw: bool = False,
 ) -> EffectSeedPage:
     """Collect a bounded, non-overlapping page from the exact candidate stream."""
@@ -1416,6 +1585,9 @@ def collect_effect_seed_page(
         primary_effect_generator=primary_effect_generator,
         primary_effect_id_generator=primary_effect_id_generator,
         primary_effect_id_batch_generator=primary_effect_id_batch_generator,
+        effect_constraint_mask_batch_generator=(
+            effect_constraint_mask_batch_generator
+        ),
         allow_full_seed_family=allow_full_seed_family,
         start_after_trial=start_after_trial,
         max_trials=max_trials,
@@ -1469,6 +1641,7 @@ def collect_effect_seed_page(
 
 __all__ = [
     "EffectSeedCandidate",
+    "EffectConstraintMaskBatchGenerator",
     "EffectSeedIntersectionReport",
     "EffectSeedPage",
     "EffectSeedRequest",

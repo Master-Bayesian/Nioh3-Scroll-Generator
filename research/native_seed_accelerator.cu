@@ -3,6 +3,21 @@
 
 #include <cuda_runtime.h>
 
+#pragma pack(push, 1)
+struct SpecialRuleInput {
+    std::uint16_t key;
+    std::uint16_t weight;
+    float cost;
+    std::uint16_t conflict_identity_0;
+    std::uint16_t conflict_identity_1;
+    std::uint8_t active_conflict_mask;
+    std::uint8_t scratch_bit;
+    std::uint16_t reserved;
+};
+#pragma pack(pop)
+
+static_assert(sizeof(SpecialRuleInput) == 16u, "special-rule ABI changed");
+
 namespace {
 
 constexpr std::uint32_t kLcgInverse = 0xA5E2A705u;
@@ -404,6 +419,237 @@ __global__ void match_enemy_constraints_kernel(
         group_count,
         &observed_mask);
     output_masks[index] = observed_mask;
+}
+
+__host__ __device__ bool special_rule_conflicts(
+    const SpecialRuleInput& current,
+    const SpecialRuleInput& previous) {
+    const std::uint16_t current_identities[2] = {
+        current.conflict_identity_0,
+        current.conflict_identity_1,
+    };
+    const std::uint16_t previous_identities[2] = {
+        previous.conflict_identity_0,
+        previous.conflict_identity_1,
+    };
+    for (std::uint32_t current_index = 0u; current_index < 2u; ++current_index) {
+        if ((current.active_conflict_mask & (1u << current_index)) == 0u) {
+            continue;
+        }
+        const std::uint16_t identity = current_identities[current_index];
+        if (identity == 0xFFFFu) {
+            continue;
+        }
+        for (std::uint32_t previous_index = 0u; previous_index < 2u;
+             ++previous_index) {
+            if (identity == previous_identities[previous_index]) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+__host__ __device__ void mark_special_rule_constraints(
+    std::uint16_t key,
+    const std::uint16_t* criterion_keys,
+    const std::uint16_t* group_offsets,
+    std::uint32_t group_count,
+    std::uint32_t& matched_mask) {
+    for (std::uint32_t group = 0u; group < group_count; ++group) {
+        if ((matched_mask & (1u << group)) != 0u) {
+            continue;
+        }
+        for (std::uint32_t index = group_offsets[group];
+             index < group_offsets[group + 1u]; ++index) {
+            if (criterion_keys[index] == key) {
+                matched_mask |= 1u << group;
+                break;
+            }
+        }
+    }
+}
+
+__host__ __device__ std::uint32_t match_special_rules_for_seed(
+    std::uint32_t displayed_seed,
+    std::uint32_t scratch_mask,
+    const SpecialRuleInput* rows,
+    std::uint32_t row_count,
+    const std::uint16_t* criterion_keys,
+    const std::uint16_t* group_offsets,
+    std::uint32_t group_count) {
+    std::uint32_t state = displayed_seed & 0x0FFFFFFFu;
+    state = lcg_step(state);
+    const int target_budget = static_cast<int>(
+        random_index_from_u16(static_cast<std::uint16_t>(state >> 16u), 5u)) + 1;
+    float remaining = static_cast<float>(target_budget);
+    const float original_budget = remaining;
+    std::uint16_t selected_keys[3] = {};
+    std::uint16_t selected_rows[3] = {};
+    std::uint32_t selected_count = 0u;
+    bool zero_selected = false;
+    float third_slot_best_abs = 0.0f;
+    std::uint32_t matched_mask = 0u;
+
+    for (std::uint32_t attempt = 0u; attempt < 3u; ++attempt) {
+        std::uint16_t total_weight = 0u;
+        for (std::uint32_t index = 0u; index < row_count; ++index) {
+            const SpecialRuleInput& row = rows[index];
+            if (row.weight == 0u ||
+                (row.scratch_bit < 32u &&
+                 (scratch_mask & (1u << row.scratch_bit)) != 0u)) {
+                continue;
+            }
+            bool accepted = true;
+            if (selected_count != 0u) {
+                if (row.key == 0u) {
+                    accepted = !zero_selected;
+                } else {
+                    for (std::uint32_t selected = 0u;
+                         selected < selected_count; ++selected) {
+                        if (row.key == selected_keys[selected] ||
+                            special_rule_conflicts(row, rows[selected_rows[selected]])) {
+                            accepted = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!accepted) {
+                continue;
+            }
+            if (selected_count == 1u) {
+                const float accumulated_delta = remaining - original_budget;
+                if ((accumulated_delta < 0.0f && row.cost >= 0.0f) ||
+                    (accumulated_delta > 0.0f && row.cost <= 0.0f)) {
+                    continue;
+                }
+            } else if (selected_count == 2u) {
+                if ((remaining < 0.0f && row.cost > 0.0f) ||
+                    (remaining > 0.0f && row.cost < 0.0f)) {
+                    continue;
+                }
+                const float absolute_cost = row.cost < 0.0f ? -row.cost : row.cost;
+                const float absolute_remaining =
+                    remaining < 0.0f ? -remaining : remaining;
+                if (absolute_cost > absolute_remaining ||
+                    absolute_cost < third_slot_best_abs) {
+                    continue;
+                }
+                if (absolute_cost > third_slot_best_abs) {
+                    total_weight = 0u;
+                    third_slot_best_abs = absolute_cost;
+                }
+            }
+            total_weight = static_cast<std::uint16_t>(
+                total_weight + row.weight);
+        }
+        if (total_weight == 0u) {
+            break;
+        }
+
+        state = lcg_step(state);
+        std::uint32_t ticket = random_index_from_u16(
+            static_cast<std::uint16_t>(state >> 16u), total_weight);
+        int chosen_index = -1;
+        for (std::uint32_t index = 0u; index < row_count; ++index) {
+            const SpecialRuleInput& row = rows[index];
+            if (row.weight == 0u ||
+                (row.scratch_bit < 32u &&
+                 (scratch_mask & (1u << row.scratch_bit)) != 0u)) {
+                continue;
+            }
+            bool accepted = true;
+            if (selected_count != 0u) {
+                if (row.key == 0u) {
+                    accepted = !zero_selected;
+                } else {
+                    for (std::uint32_t selected = 0u;
+                         selected < selected_count; ++selected) {
+                        if (row.key == selected_keys[selected] ||
+                            special_rule_conflicts(row, rows[selected_rows[selected]])) {
+                            accepted = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!accepted) {
+                continue;
+            }
+            if (selected_count == 1u) {
+                const float accumulated_delta = remaining - original_budget;
+                if ((accumulated_delta < 0.0f && row.cost >= 0.0f) ||
+                    (accumulated_delta > 0.0f && row.cost <= 0.0f)) {
+                    continue;
+                }
+            } else if (selected_count == 2u) {
+                if ((remaining < 0.0f && row.cost > 0.0f) ||
+                    (remaining > 0.0f && row.cost < 0.0f)) {
+                    continue;
+                }
+                const float absolute_cost = row.cost < 0.0f ? -row.cost : row.cost;
+                const float absolute_remaining =
+                    remaining < 0.0f ? -remaining : remaining;
+                if (absolute_cost > absolute_remaining ||
+                    absolute_cost != third_slot_best_abs) {
+                    continue;
+                }
+            }
+            if (ticket < row.weight) {
+                chosen_index = static_cast<int>(index);
+                break;
+            }
+            ticket -= row.weight;
+        }
+        if (chosen_index < 0) {
+            break;
+        }
+        const SpecialRuleInput& chosen = rows[chosen_index];
+        selected_keys[selected_count] = chosen.key;
+        selected_rows[selected_count] = static_cast<std::uint16_t>(chosen_index);
+        ++selected_count;
+        if (chosen.key == 0u) {
+            zero_selected = true;
+        } else {
+            mark_special_rule_constraints(
+                chosen.key,
+                criterion_keys,
+                group_offsets,
+                group_count,
+                matched_mask);
+        }
+        remaining = remaining - chosen.cost;
+        if (remaining == 0.0f) {
+            break;
+        }
+    }
+    return matched_mask;
+}
+
+__global__ void match_special_rule_constraints_kernel(
+    const std::uint32_t* seeds,
+    const std::uint32_t* scratch_masks,
+    std::uint64_t count,
+    const SpecialRuleInput* rows,
+    std::uint32_t row_count,
+    const std::uint16_t* criterion_keys,
+    const std::uint16_t* group_offsets,
+    std::uint32_t group_count,
+    std::uint32_t* output_masks) {
+    const std::uint64_t index =
+        static_cast<std::uint64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (index >= count) {
+        return;
+    }
+    output_masks[index] = match_special_rules_for_seed(
+        seeds[index],
+        scratch_masks[index],
+        rows,
+        row_count,
+        criterion_keys,
+        group_offsets,
+        group_count);
 }
 
 std::uint64_t collect_on_cpu(
@@ -1027,6 +1273,101 @@ bool match_enemy_constraints_on_cuda(
     return success;
 }
 
+bool match_special_rule_constraints_on_cuda(
+    const std::uint32_t* seeds,
+    const std::uint32_t* scratch_masks,
+    std::uint64_t count,
+    const SpecialRuleInput* rows,
+    std::uint32_t row_count,
+    const std::uint16_t* criterion_keys,
+    std::uint32_t criterion_key_count,
+    const std::uint16_t* group_offsets,
+    std::uint32_t group_count,
+    std::uint32_t* output_masks) {
+    std::uint32_t* device_seeds = nullptr;
+    std::uint32_t* device_scratch_masks = nullptr;
+    SpecialRuleInput* device_rows = nullptr;
+    std::uint16_t* device_criterion_keys = nullptr;
+    std::uint16_t* device_group_offsets = nullptr;
+    std::uint32_t* device_output = nullptr;
+    auto cleanup = [&]() {
+        cudaFree(device_seeds);
+        cudaFree(device_scratch_masks);
+        cudaFree(device_rows);
+        cudaFree(device_criterion_keys);
+        cudaFree(device_group_offsets);
+        cudaFree(device_output);
+    };
+    if (cudaMalloc(&device_seeds, count * sizeof(std::uint32_t)) != cudaSuccess ||
+        cudaMalloc(
+            &device_scratch_masks,
+            count * sizeof(std::uint32_t)) != cudaSuccess ||
+        cudaMalloc(
+            &device_rows,
+            row_count * sizeof(SpecialRuleInput)) != cudaSuccess ||
+        cudaMalloc(
+            &device_criterion_keys,
+            criterion_key_count * sizeof(std::uint16_t)) != cudaSuccess ||
+        cudaMalloc(
+            &device_group_offsets,
+            (group_count + 1u) * sizeof(std::uint16_t)) != cudaSuccess ||
+        cudaMalloc(&device_output, count * sizeof(std::uint32_t)) != cudaSuccess) {
+        cleanup();
+        return false;
+    }
+    if (cudaMemcpy(
+            device_seeds,
+            seeds,
+            count * sizeof(std::uint32_t),
+            cudaMemcpyHostToDevice) != cudaSuccess ||
+        cudaMemcpy(
+            device_scratch_masks,
+            scratch_masks,
+            count * sizeof(std::uint32_t),
+            cudaMemcpyHostToDevice) != cudaSuccess ||
+        cudaMemcpy(
+            device_rows,
+            rows,
+            row_count * sizeof(SpecialRuleInput),
+            cudaMemcpyHostToDevice) != cudaSuccess ||
+        cudaMemcpy(
+            device_criterion_keys,
+            criterion_keys,
+            criterion_key_count * sizeof(std::uint16_t),
+            cudaMemcpyHostToDevice) != cudaSuccess ||
+        cudaMemcpy(
+            device_group_offsets,
+            group_offsets,
+            (group_count + 1u) * sizeof(std::uint16_t),
+            cudaMemcpyHostToDevice) != cudaSuccess) {
+        cleanup();
+        return false;
+    }
+    constexpr std::uint32_t threads = 128u;
+    const std::uint32_t blocks = static_cast<std::uint32_t>(
+        (count + threads - 1u) / threads);
+    match_special_rule_constraints_kernel<<<blocks, threads>>>(
+        device_seeds,
+        device_scratch_masks,
+        count,
+        device_rows,
+        row_count,
+        device_criterion_keys,
+        device_group_offsets,
+        group_count,
+        device_output);
+    const bool success =
+        cudaGetLastError() == cudaSuccess &&
+        cudaDeviceSynchronize() == cudaSuccess &&
+        cudaMemcpy(
+            output_masks,
+            device_output,
+            count * sizeof(std::uint32_t),
+            cudaMemcpyDeviceToHost) == cudaSuccess;
+    cleanup();
+    return success;
+}
+
 }  // namespace
 
 extern "C" __declspec(dllexport) int cuda_seed_acceleration_available() {
@@ -1547,6 +1888,54 @@ extern "C" __declspec(dllexport) int match_enemy_constraints(
     }
     g_last_backend = 0;
     return 0;
+}
+
+extern "C" __declspec(dllexport) int match_special_rule_constraints(
+    const std::uint32_t* seeds,
+    const std::uint32_t* scratch_masks,
+    std::uint64_t count,
+    const SpecialRuleInput* rows,
+    std::uint32_t row_count,
+    const std::uint16_t* criterion_keys,
+    std::uint32_t criterion_key_count,
+    const std::uint16_t* group_offsets,
+    std::uint32_t group_count,
+    std::uint32_t* output_masks) {
+    if (seeds == nullptr || scratch_masks == nullptr || count == 0u ||
+        count > 1000000u || rows == nullptr || row_count == 0u ||
+        row_count > 1024u || criterion_keys == nullptr ||
+        criterion_key_count == 0u || group_offsets == nullptr ||
+        group_count == 0u ||
+        group_count > native_enemy_matcher::kMaximumCriteriaGroups ||
+        group_offsets[0] != 0u ||
+        group_offsets[group_count] != criterion_key_count ||
+        output_masks == nullptr) {
+        return -1;
+    }
+    for (std::uint32_t group = 0u; group < group_count; ++group) {
+        if (group_offsets[group] >= group_offsets[group + 1u]) {
+            return -1;
+        }
+    }
+    int device_count = 0;
+    if (cudaGetDeviceCount(&device_count) != cudaSuccess || device_count <= 0) {
+        return -2;
+    }
+    if (!match_special_rule_constraints_on_cuda(
+            seeds,
+            scratch_masks,
+            count,
+            rows,
+            row_count,
+            criterion_keys,
+            criterion_key_count,
+            group_offsets,
+            group_count,
+            output_masks)) {
+        return -2;
+    }
+    g_last_backend = 1;
+    return 1;
 }
 
 extern "C" __declspec(dllexport) std::uint64_t collect_natural_pivot_seeds(

@@ -2,11 +2,32 @@ from __future__ import annotations
 
 import struct
 import unittest
+from dataclasses import replace
 
 from nioh3_scroll_editor.native import build_effect_finalizer_batch_wrapper
+from nioh3_scroll_editor.native import (
+    DEFAULT_NATIVE_RUNTIME_PROFILE,
+    NativeBatchOracle,
+    NativeRuntimeProfile,
+    build_explicit_playthrough_seed_range_wrapper,
+)
 
 
 class EffectFinalizerBatchWrapperTests(unittest.TestCase):
+    def test_v201_product_mode_preserves_requested_raw_rarity_five(self) -> None:
+        oracle = object.__new__(NativeBatchOracle)
+        oracle.preserve_requested_rarity = True
+        oracle.runtime_profile = replace(
+            DEFAULT_NATIVE_RUNTIME_PROFILE,
+            display_version="PC v2.01",
+        )
+        record = bytearray(0xE8)
+        record[0x30:0x32] = b"\x04\x04"
+
+        preserved = oracle._preserve_rarity_headers([bytes(record)], [5])[0]
+
+        self.assertEqual(preserved[0x30:0x32], b"\x05\x05")
+
     def test_uses_mov_r12_imm64_not_mov_r12d_imm32(self) -> None:
         source = 0x1111111122222222
         destination = 0x3333333344444444
@@ -51,6 +72,51 @@ class EffectFinalizerBatchWrapperTests(unittest.TestCase):
         self.assertIn(b"\x41\xB8\x05\x00\x00\x00", wrapper)  # mov r8d, 5
         self.assertIn(b"\x41\xB9\x01\x00\x00\x00", wrapper)  # mov r9d, 1
         self.assertIn(b"\x41\xFF\xD4", wrapper)  # call r12
+
+    def test_explicit_playthrough_wrapper_uses_profiled_addresses(self) -> None:
+        profile = NativeRuntimeProfile(
+            display_version="test",
+            canonicalize_rva=0x100,
+            canonicalize_signature=b"a",
+            finalize_effect_rva=0x200,
+            finalize_effect_signature=b"b",
+            descriptor_complete_rva=0x300,
+            descriptor_complete_signature=b"c",
+            init_compact_rva=0x310,
+            reset_compact_rva=0x320,
+            effective_level_rva=0x330,
+            init_generation_context_rva=0x340,
+            incomplete_record_rva=0x350,
+            generate_effects_rva=0x360,
+            assemble_scroll_rva=0x370,
+            playthrough_vector_rva=0x380,
+            playthrough_manager_pointer_rva=0x390,
+            native_signatures=(),
+        )
+        module_base = 0x100000000
+        wrapper = build_explicit_playthrough_seed_range_wrapper(
+            source=0x200000000,
+            destination=0x300000000,
+            module_base=module_base,
+            start_seed=1,
+            seed_step=1,
+            count=2,
+            playthrough=3,
+            runtime_profile=profile,
+        )
+
+        for rva in (
+            profile.init_compact_rva,
+            profile.reset_compact_rva,
+            profile.effective_level_rva,
+            profile.init_generation_context_rva,
+            profile.incomplete_record_rva,
+            profile.generate_effects_rva,
+            profile.assemble_scroll_rva,
+            profile.playthrough_vector_rva,
+            profile.playthrough_manager_pointer_rva,
+        ):
+            self.assertIn(struct.pack("<Q", module_base + rva), wrapper)
 
 
 if __name__ == "__main__":

@@ -18,6 +18,8 @@ mistaken for stronger evidence than the files actually contain.
 | Exchange tuple | `emaki_exchange.py` plus receive/send disassembly | Effect slots absent; receiver rebuilds canonical effects. Final propagation still needs a second account. |
 | Scroll inventory-instance key | `audit/save/inventory-key-collision-20260830.json` plus `test_beta_editor.py` | Two private support saves had no native duplicate `+0x1C` keys; only raw-appended records collided with their donor. A two-key-only repair restored both hidden records in game. |
 | Reroll candidate builder | `reroll_effect_helper_callers_20260831.json`, `reroll_state_functions_20260831.json`, `reroll.py`, and `test_reroll.py` | Static control flow closes Seed+counter RNG, legal pool, five draws, and counter mutations. No retained live candidate vector yet; one per-save group eligibility set remains to be inferred by controlled capture. |
+| Runtime enemy descriptor fields | `runtime_auxiliary_override.py`, captured native candidate rows, and `test_beta_editor.py` | Inner entry `+0x04` is the enemy lookup key and `+0x08` is its exact native role. The working tree writes both. This is source/static evidence only until a new hit-backed challenge pass. |
+| Special-rule item key `0x3011` | bundled v2.00.02 `item.bin` SHA-256 `1CDAEF2A...FEC21938`, unique row 1771, and `probe_scroll_auxiliary_text_catalog.py` | Exact native row and candidate localization IDs are closed; the displayed item name remains unresolved until the current-locale runtime pool is queried. |
 
 The 10,000-Seed parity files are real native/offline aggregate results, not
 10,000 retained pairs of raw records. Do not describe them as a forensic raw

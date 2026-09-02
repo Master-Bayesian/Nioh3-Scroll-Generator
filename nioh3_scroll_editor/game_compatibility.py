@@ -10,7 +10,11 @@ from pathlib import Path
 import re
 
 
-SUPPORTED_GAME_VERSION = "2.00.02"
+SUPPORTED_GAME_VERSIONS = {
+    (2, 0, 0, 2): "2.00.02",
+    (2, 0, 1, 0): "2.01",
+}
+SUPPORTED_GAME_VERSION = "2.01"
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,6 +22,7 @@ class GameCompatibilityStatus:
     state: str
     detail: str
     executable: Path | None = None
+    file_version: tuple[int, int, int, int] | None = None
 
     @property
     def supported(self) -> bool:
@@ -141,7 +146,8 @@ def verify_game_executable(path: Path) -> GameCompatibilityStatus:
             f"已找到游戏，但无法验证生成代码：{error}",
             path,
         )
-    if version != (2, 0, 0, 2):
+    supported_display_version = SUPPORTED_GAME_VERSIONS.get(version)
+    if supported_display_version is None:
         display_version = ".".join(str(part) for part in version)
         return GameCompatibilityStatus(
             "unsupported",
@@ -150,11 +156,13 @@ def verify_game_executable(path: Path) -> GameCompatibilityStatus:
                 "验证范围。请先检查并更新绘卷生成器。"
             ),
             path,
+            version,
         )
     return GameCompatibilityStatus(
         "supported",
-        f"已安装游戏版本与 PC v{SUPPORTED_GAME_VERSION} 验证范围一致。",
+        f"已安装游戏版本与 PC v{supported_display_version} 验证范围一致。",
         path,
+        version,
     )
 
 
@@ -178,6 +186,7 @@ def detect_game_compatibility() -> GameCompatibilityStatus:
 
 __all__ = [
     "SUPPORTED_GAME_VERSION",
+    "SUPPORTED_GAME_VERSIONS",
     "GameCompatibilityStatus",
     "detect_game_compatibility",
     "discover_game_executables",

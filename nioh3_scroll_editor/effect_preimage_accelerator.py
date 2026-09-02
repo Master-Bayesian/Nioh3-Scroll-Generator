@@ -67,8 +67,37 @@ class _EffectPathInput(ctypes.Structure):
     )
 
 
+class _EffectCandidateInput(ctypes.Structure):
+    _fields_ = (
+        ("effect_id", ctypes.c_uint32),
+        ("group_key", ctypes.c_uint32),
+        ("category_key", ctypes.c_uint32),
+        ("conflict_mask_0", ctypes.c_uint32),
+        ("conflict_mask_1", ctypes.c_uint32),
+        ("normal_weight", ctypes.c_uint32),
+        ("promoted_weight", ctypes.c_uint32),
+        ("final_weight_common", ctypes.c_uint32),
+        ("final_weight_special", ctypes.c_uint32),
+        ("completion_candidate", ctypes.c_uint32),
+        ("value_one_roll_mask", ctypes.c_uint32),
+    )
+
+
+class _SpecialGroupInput(ctypes.Structure):
+    _fields_ = (
+        ("group_key", ctypes.c_uint32),
+        ("conflict_mask_0", ctypes.c_uint32),
+        ("conflict_mask_1", ctypes.c_uint32),
+        ("effect_id", ctypes.c_uint32),
+    )
+
+
 if ctypes.sizeof(_EffectPathInput) != 112:
     raise RuntimeError("Direct3D path descriptor ABI mismatch")
+if ctypes.sizeof(_EffectCandidateInput) != 44:
+    raise RuntimeError("Direct3D effect candidate ABI mismatch")
+if ctypes.sizeof(_SpecialGroupInput) != 16:
+    raise RuntimeError("Direct3D special group ABI mismatch")
 
 
 def _application_root() -> Path:
@@ -132,6 +161,34 @@ def _load_accelerator() -> ctypes.WinDLL | None:
         ctypes.POINTER(ctypes.c_uint32),
     )
     collect.restype = ctypes.c_uint64
+    match_effects = library.match_effect_constraints_d3d11
+    match_effects.argtypes = (
+        ctypes.POINTER(ctypes.c_uint32),
+        ctypes.c_uint32,
+        ctypes.POINTER(_EffectCandidateInput),
+        ctypes.c_uint32,
+        ctypes.POINTER(_SpecialGroupInput),
+        ctypes.c_uint32,
+        ctypes.POINTER(ctypes.c_uint32),
+        ctypes.POINTER(ctypes.c_uint32),
+        ctypes.c_uint32,
+        ctypes.POINTER(ctypes.c_uint32),
+        ctypes.POINTER(ctypes.c_uint32),
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.POINTER(ctypes.c_uint32),
+        ctypes.POINTER(ctypes.c_uint32),
+    )
+    match_effects.restype = ctypes.c_int
     return library
 
 
@@ -335,8 +392,8 @@ def collect_fixed_draw_pivot_seeds_d3d11(
     family_size = len(pivot_values) * 0x10000
     if not 0 <= start_index <= stop_index <= family_size:
         raise ValueError("invalid fixed-draw pivot range")
-    if stop_index - start_index > 1_000_000:
-        raise ValueError("fixed-draw DirectCompute chunks cannot exceed 1,000,000 trials")
+    if stop_index - start_index > 8_000_000:
+        raise ValueError("fixed-draw DirectCompute chunks cannot exceed 8,000,000 trials")
 
     constraints = tuple(
         LotteryConstraint(
@@ -401,6 +458,101 @@ def collect_fixed_draw_pivot_seeds_d3d11(
     return tuple((seed, trial + 1) for seed, trial in accelerated)
 
 
+def match_effect_constraints_d3d11(
+    seeds: tuple[int, ...],
+    *,
+    candidates: tuple[
+        tuple[int, int, int, int, int, int, int, int, int, int, int], ...
+    ],
+    special_groups: tuple[tuple[int, int, int, int], ...],
+    category_capacities: tuple[int, ...],
+    criterion_groups: tuple[tuple[int, frozenset[int]], ...],
+    rarity: int,
+    ordinary_slot_count: int,
+    slot_limit: int,
+    promotion_threshold: int,
+    consumes_special_draw: bool,
+    minimum_roll_percent: int,
+    maximum_roll_percent: int,
+    apply_r4_finalizer: bool,
+    auxiliary_mode_threshold: int,
+    vendor_id: int | None = None,
+) -> tuple[int, ...] | None:
+    """Forward-generate ordinary effects on any D3D11 hardware backend."""
+
+    library = _load_accelerator()
+    if library is None:
+        return None
+    if not seeds or len(seeds) > 1_000_000:
+        raise ValueError("DirectCompute effect batches require 1..1,000,000 Seeds")
+    if not candidates or len(candidates) > 4096:
+        raise ValueError("DirectCompute effect candidate table is invalid")
+    if len(special_groups) not in (1, 0x10000):
+        raise ValueError("special group lookup must contain 1 or 65,536 entries")
+    if len(category_capacities) != 32:
+        raise ValueError("category capacities must contain 32 entries")
+    if not criterion_groups or len(criterion_groups) > 32:
+        raise ValueError("effect matching requires 1..32 criterion groups")
+    flattened_keys: list[int] = []
+    offsets = [0]
+    kinds: list[int] = []
+    for kind, group in criterion_groups:
+        if kind not in (0, 1, 2) or not group:
+            raise ValueError("invalid effect criterion group")
+        flattened_keys.extend(sorted(group))
+        offsets.append(len(flattened_keys))
+        kinds.append(kind)
+    seed_array = (ctypes.c_uint32 * len(seeds))(*seeds)
+    candidate_array = (_EffectCandidateInput * len(candidates))(
+        *(_EffectCandidateInput(*row) for row in candidates)
+    )
+    special_array = (_SpecialGroupInput * len(special_groups))(
+        *(_SpecialGroupInput(*row) for row in special_groups)
+    )
+    capacity_array = (ctypes.c_uint32 * 32)(*category_capacities)
+    key_array = (ctypes.c_uint32 * len(flattened_keys))(*flattened_keys)
+    offset_array = (ctypes.c_uint32 * len(offsets))(*offsets)
+    kind_array = (ctypes.c_uint32 * len(kinds))(*kinds)
+    output_array = (ctypes.c_uint32 * len(seeds))()
+    actual_vendor = ctypes.c_uint32()
+    preferred = _configured_vendor_id() if vendor_id is None else vendor_id
+    result = library.match_effect_constraints_d3d11(
+        seed_array,
+        len(seeds),
+        candidate_array,
+        len(candidates),
+        special_array,
+        len(special_groups),
+        capacity_array,
+        key_array,
+        len(flattened_keys),
+        offset_array,
+        kind_array,
+        len(criterion_groups),
+        rarity,
+        ordinary_slot_count,
+        slot_limit,
+        promotion_threshold,
+        int(consumes_special_draw),
+        minimum_roll_percent,
+        maximum_roll_percent,
+        int(apply_r4_finalizer),
+        auxiliary_mode_threshold,
+        preferred,
+        output_array,
+        ctypes.byref(actual_vendor),
+    )
+    if result == -2:
+        return None
+    if result != 1:
+        raise RuntimeError(
+            f"Direct3D 11 effect matcher failed with native status {result}"
+        )
+    global _last_d3d11_vendor_id
+    _last_d3d11_vendor_id = actual_vendor.value
+    return tuple(int(value) for value in output_array)
+
+
 def last_effect_preimage_backend() -> str:
     if _last_d3d11_vendor_id is None:
         return "not_used"
@@ -426,6 +578,7 @@ __all__ = [
     "d3d11_effect_adapter_info",
     "d3d11_effect_acceleration_available",
     "last_effect_preimage_backend",
+    "match_effect_constraints_d3d11",
     "plan_trial_for_seed",
     "reset_effect_preimage_backend",
 ]

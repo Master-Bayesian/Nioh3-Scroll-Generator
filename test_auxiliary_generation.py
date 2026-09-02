@@ -27,11 +27,13 @@ from nioh3_scroll_editor.auxiliary_generation import (
     generate_enemy_match_masks_batch,
     generate_matching_auxiliary,
     generate_special_rules,
+    generate_special_rule_match_masks_batch,
     generate_terrain,
     generate_terrain_row_indices_batch,
     load_default_auxiliary_generation_tables,
     load_enemy_parameter_gate_capture,
 )
+from nioh3_scroll_editor.seed_accelerator import cuda_seed_acceleration_available
 from nioh3_scroll_editor.auxiliary_feasibility import (
     SpecialRuleKeyRequirement,
     analyze_special_rule_feasibility,
@@ -596,6 +598,42 @@ class Class2EnemyTests(unittest.TestCase):
 
 
 class CompleteAuxiliaryTests(unittest.TestCase):
+    @unittest.skipUnless(
+        cuda_seed_acceleration_available(),
+        "CUDA special-rule matcher is unavailable",
+    )
+    def test_cuda_special_rule_masks_match_exact_python_replay(self) -> None:
+        seeds = tuple(range(1, 513))
+        terrain_rows = generate_terrain_row_indices_batch(seeds)
+        criteria = AuxiliarySearchCriteria(
+            required_special_rule_keys=frozenset((0x2FEA, 0x43E6)),
+            required_special_rule_key_groups=(
+                frozenset((0xA4FA, 0x48C6)),
+            ),
+        )
+        groups = (
+            frozenset((0x2FEA,)),
+            frozenset((0x43E6,)),
+            *criteria.required_special_rule_key_groups,
+        )
+        actual_masks = generate_special_rule_match_masks_batch(
+            seeds,
+            terrain_rows,
+            3,
+            criteria=criteria,
+        )
+        expected_masks = []
+        for seed in seeds:
+            keys = frozenset(
+                key for key in generate_complete_auxiliary(seed, 3).special_rules.keys if key
+            )
+            mask = 0
+            for index, group in enumerate(groups):
+                if group.intersection(keys):
+                    mask |= 1 << index
+            expected_masks.append(mask)
+        self.assertEqual(actual_masks, tuple(expected_masks))
+
     def test_native_enemy_constraint_masks_match_exact_python_replay(self) -> None:
         seeds = tuple(range(1, 513))
         terrain_rows = generate_terrain_row_indices_batch(seeds)

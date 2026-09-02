@@ -32,6 +32,7 @@ from .seed_accelerator import (
     generate_ng3_context_primary_effect_ids_native,
     generate_ng3_primary_effect_ids_native,
     generate_ng3_r4_multi_context_primary_effect_ids_native,
+    last_seed_acceleration_backend,
 )
 from nioh3_seed_math import game_random_int_from_u16
 
@@ -810,6 +811,7 @@ def collect_ng3_r4_primary_pivot_seeds(
     low16_stride: int,
     primary_effect_ids: frozenset[int],
     special_mapping: GraceOutputMap | None = None,
+    require_cuda: bool = False,
 ) -> tuple[tuple[int, int], ...] | None:
     """CUDA-compact one R4 pivot chunk before Python exact replay."""
 
@@ -821,7 +823,7 @@ def collect_ng3_r4_primary_pivot_seeds(
         normal_lookups,
         promoted_lookups,
     ) = _ng3_r4_multi_primary_configuration(special_mapping)
-    return collect_ng3_r4_primary_pivot_seeds_native(
+    result = collect_ng3_r4_primary_pivot_seeds_native(
         values,
         start_index=start_index,
         stop_index=stop_index,
@@ -834,6 +836,14 @@ def collect_ng3_r4_primary_pivot_seeds(
         promotion_success_lookup=_promotion_success_lookup(30),
         random7_lookup=_random_int_u8_lookup(7),
     )
+    if require_cuda and (
+        result is None or last_seed_acceleration_backend() != "cuda"
+    ):
+        raise RuntimeError(
+            "CUDA rarity-4 primary pivot matcher is unavailable; "
+            "CPU fallback is disabled"
+        )
+    return result
 
 
 def generate_ng3_rarity34_primary_effect_ids(

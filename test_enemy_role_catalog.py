@@ -89,7 +89,7 @@ class EnemyRoleCatalogTests(unittest.TestCase):
             payload["schema"], "nioh3-scroll-enemy-combination-catalog/v1"
         )
         self.assertEqual(payload["scope"]["recovered_branch_classes"], [0, 1, 2])
-        self.assertEqual(len(payload["display_entries"]), 142)
+        self.assertEqual(len(payload["display_entries"]), 148)
         self.assertEqual(len(payload["unavailable_display_entries"]), 69)
         self.assertEqual(
             payload["scope"]["native_localization_display_entry_count"], 211
@@ -99,11 +99,28 @@ class EnemyRoleCatalogTests(unittest.TestCase):
                 family: details["display_entry_count"]
                 for family, details in payload["family_definitions"].items()
             },
-            {"O": 64, "A": 40, "B": 37, "A/B": 1},
+            {"O": 64, "A": 41, "B": 43, "A/B": 0},
         )
         self.assertEqual(
             sum(entry["candidate_count"] for entry in payload["display_entries"]),
             487,
+        )
+        variants = {
+            entry["names"]["zh-CN"]: entry
+            for entry in payload["display_entries"]
+        }
+        self.assertEqual(len(payload["display_entries"]), 148)
+        self.assertEqual(
+            variants["武田信玄（人形）"]["candidate_keys"],
+            ["0x00071ED1"],
+        )
+        self.assertEqual(
+            variants["比留呼（江户妖怪形态）"]["candidate_keys"],
+            ["0x00093F79"],
+        )
+        self.assertEqual(
+            variants["金井半兵卫（妖怪形态）"]["candidate_keys"],
+            ["0x000179F7"],
         )
         yui = next(
             entry
@@ -166,7 +183,7 @@ class EnemyRoleCatalogTests(unittest.TestCase):
             )
             self.assertEqual(
                 manifest["catalogs"]["enemy_combinations"]["display_entries"],
-                142,
+                148,
             )
             self.assertEqual(
                 output.read_bytes(), DEFAULT_KNOWLEDGE_MANIFEST.read_bytes()

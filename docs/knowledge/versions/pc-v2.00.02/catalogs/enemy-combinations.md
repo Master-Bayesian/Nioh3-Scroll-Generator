@@ -64,7 +64,7 @@ Pairwise compatibility is not enough for three or more requirements. For example
 
 ## Trilingual player catalog
 
-The catalog contains 142 player-visible name entries backed by 487 native candidate rows. Raw lookup keys remain in the JSON and CSV siblings; this player guide shows only the variant count.
+The catalog contains 148 player-visible name entries backed by 487 native candidate rows. Raw lookup keys remain in the JSON and CSV siblings; this player guide shows only the variant count.
 
 ### Ordinary pool O (native roles 0-3)
 
@@ -179,6 +179,7 @@ Structurally available only to class 0. It cannot coexist with an O requirement 
 | 血烟阿银 | 血煙お銀 | Blood-Spurting Ogin | 4 | 1/2/3/4/5 | 4 | 1 |
 | 近藤勇 | 近藤勇 | Kondo Isami | 4 | 1/2/3/4/5 | 4 | 1 |
 | 那须与一 | 那須与一 | Nasu no Yoichi | 4 | 1/2/3/4/5 | 4 | 1 |
+| 金井半兵卫（人形） | 金井半兵衛（人型） | Kanai Hanbei（Human form） | 4 | 1/2/3/4/5 | 4 | 1 |
 | 风魔小太郎 | 風魔小太郎 | Fuma Kotaro | 4 | 1/2/3/4/5 | 4 | 1 |
 | 高坂昌信 | 高坂昌信 | Kosaka Masanobu | 4 | 1/2/3/4/5 | 4 | 1 |
 | 高岛秋帆 | 高島秋帆 | Takashima Shuhan | 4 | 1/2/3/4/5 | 4 | 1 |
@@ -197,20 +198,25 @@ Available to class 0, or to the single highest-group B position in class 1. It c
 | 大天狗 | 大天狗 | Great Tengu | 5 | 1/2/3/4/5 | 4 | 1 |
 | 大蛤蟆 | 大蝦蟇 | Giant Toad | 5 | 1/2/3/4/5 | 4 | 1 |
 | 女郎蜘蛛 | 女郎蜘蛛 | Joro-gumo | 5 | 1/2/3/4/5 | 4 | 1 |
-| 山县昌景 | 山県昌景 | Yamagata Masakage | 5 | 1/2/3/4/5 | 4 | 2 |
+| 山县昌景（人形） | 山県昌景（人型） | Yamagata Masakage（Human form） | 5 | 1/2/3/4/5 | 4 | 1 |
+| 山县昌景（妖怪形态） | 山県昌景（妖怪形態） | Yamagata Masakage（Yokai form） | 5 | 1/2/3/4/5 | 4 | 1 |
 | 德川国松 | 徳川国松 | Tokugawa Kunimatsu | 5 | 1/2/3/4/5 | 4 | 1 |
 | 德川庆喜 | 徳川慶喜 | Tokugawa Yoshinobu | 5 | 1/2/3/4/5 | 4 | 1 |
 | 怨灵鬼 | 怨霊鬼 | Onryoki | 5 | 1/2/3/4/5 | 4 | 1 |
 | 惧鬼 | おとろし | Otoroshi | 5 | 1/2/3/4/5 | 4 | 1 |
 | 执心鬼 | 執心鬼 | Demon of Obsession | 5 | 1/2/3/4/5 | 4 | 1 |
 | 斋藤福 | 斎藤福 | Saito Fuku | 5 | 1/2/3/4/5 | 4 | 1 |
-| 服部半藏 | 服部半蔵 | Hattori Hanzo | 5 | 1/2/3/4/5 | 4 | 2 |
+| 服部半藏（先代／父（鬼半藏）） | 服部半蔵（先代／父（鬼半蔵）） | Hattori Hanzo（Former / father (Demon Hanzo)） | 5 | 1/2/3/4/5 | 4 | 1 |
+| 服部半藏（现任／子） | 服部半蔵（現任／息子） | Hattori Hanzo（Current / son） | 5 | 1/2/3/4/5 | 4 | 1 |
 | 本多忠胜 | 本多忠勝 | Honda Tadakatsu | 5 | 1/2/3/4/5 | 4 | 1 |
 | 柳生十兵卫 | 柳生十兵衛 | Yagyu Jubei | 5 | 1/2/3/4/5 | 4 | 1 |
 | 柳生宗矩 | 柳生宗矩 | Yagyu Munenori | 5 | 1/2/3/4/5 | 4 | 1 |
 | 梶原景时 | 梶原景時 | Kajiwara Kagetoki | 5 | 1/2/3/4/5 | 4 | 1 |
-| 武田信玄 | 武田信玄 | Takeda Shingen | 5 | 1/2/3/4/5 | 4 | 2 |
-| 比留呼 | 比留呼 | Hiruko | 5 | 1/2/3/4/5 | 4 | 3 |
+| 武田信玄（人形） | 武田信玄（人型） | Takeda Shingen（Human form） | 5 | 1/2/3/4/5 | 4 | 1 |
+| 武田信玄（妖怪形态） | 武田信玄（妖怪形態） | Takeda Shingen（Yokai form） | 5 | 1/2/3/4/5 | 4 | 1 |
+| 比留呼（人形） | 比留呼（人型） | Hiruko（Human form） | 5 | 1/2/3/4/5 | 4 | 1 |
+| 比留呼（古代妖怪形态） | 比留呼（古代妖怪形態） | Hiruko（Ancient-yokai form） | 5 | 1/2/3/4/5 | 4 | 1 |
+| 比留呼（江户妖怪形态） | 比留呼（江戸妖怪形態） | Hiruko（Edo-yokai form） | 5 | 1/2/3/4/5 | 4 | 1 |
 | 涂佛 | 塗仏 | Nuribotoke | 5 | 1/2/3/4/5 | 4 | 1 |
 | 源赖朝 | 源頼朝 | Minamoto no Yoritomo | 5 | 1/2/3/4/5 | 4 | 1 |
 | 火车 | 火車 | Kasha | 5 | 1/2/3/4/5 | 4 | 1 |
@@ -221,6 +227,7 @@ Available to class 0, or to the single highest-group B position in class 1. It c
 | 草薙 | 草薙 | Kusanagi | 5 | 1/2/3/4/5 | 4 | 1 |
 | 蛇骨婆 | 蛇骨婆 | Jakotsu-baba | 5 | 1/2/3/4/5 | 4 | 1 |
 | 血刀修罗 | 血刀修羅 | Bloodedge Demon | 5 | 1/2/3/4/5 | 4 | 1 |
+| 金井半兵卫（妖怪形态） | 金井半兵衛（妖怪形態） | Kanai Hanbei（Yokai form） | 5 | 1/2/3/4/5 | 4 | 1 |
 | 镰鼬 | 鎌鼬 | Kamaitachi | 5 | 1/2/3/4/5 | 4 | 1 |
 | 阴摩罗鬼 | 陰摩羅鬼 | Onmoraki | 5 | 1/2/3/4/5 | 4 | 1 |
 | 飞缘魔 | 飛縁魔 | Hino-enma | 5 | 1/2/3/4/5 | 4 | 1 |
@@ -234,7 +241,6 @@ This display name has distinct native candidates in both dedicated pools. Treat 
 
 | Simplified Chinese | Japanese | English | Roles | Playthroughs | Cost(s) | Native variants |
 | --- | --- | --- | --- | --- | --- | ---: |
-| 金井半兵卫 | 金井半兵衛 | Kanai Hanbei | 4/5 | 1/2/3/4/5 | 4 | 2 |
 
 ## Native names that are not legal scroll candidates
 

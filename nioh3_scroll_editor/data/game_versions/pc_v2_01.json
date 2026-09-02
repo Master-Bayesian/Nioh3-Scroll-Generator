@@ -1,0 +1,284 @@
+{
+  "schema": "nioh3-game-version-research-profile/v1",
+  "profile_id": "pc_v2_01",
+  "display_version": "PC v2.01",
+  "file_version": [
+    2,
+    0,
+    1,
+    0
+  ],
+  "approval_status": "approved",
+  "product_enablement_allowed": true,
+  "provenance": {
+    "baseline_profile": "nioh3_scroll_editor/data/game_versions/pc_v2_00_02.research.json",
+    "migration_report": "outputs/version-migrations/pc-v2.01-20260902/relocation-report-v5.json",
+    "target_manifest_sha256": "15569C2A5C662972CA37609126AE65423ACCBF4AD377F4449B88A6883E4A518D",
+    "resource_comparison": "outputs/version-migrations/pc-v2.01-20260902/resource-comparison-ng3-v2.json",
+    "native_parity": [
+      "outputs/version-migrations/pc-v2.01-20260902/native-parity-r3-10000.json",
+      "outputs/version-migrations/pc-v2.01-20260902/native-parity-r4-10000.json",
+      "outputs/version-migrations/pc-v2.01-20260902/native-parity-r5-10000.json",
+      "outputs/version-migrations/pc-v2.01-20260902/native-auxiliary-parity.json"
+    ]
+  },
+  "section_dump": {
+    "manifest": "audit/runtime_sections/v2.0.1.0_20260902_title/manifest.json"
+  },
+  "text_sites": {
+    "canonicalize": {
+      "signature_size": 16,
+      "baseline_rva": "0x20DD6EC",
+      "relocation_status": "resolved",
+      "rva": "0x20E1AF0",
+      "captured_signature": "48 89 5C 24 18 48 89 7C 24 20 55 48 8D 6C 24 C0"
+    },
+    "completion_finalizer_wrapper": {
+      "signature_size": 20,
+      "range_size": 281,
+      "baseline_rva": "0x22799A8",
+      "relocation_status": "resolved",
+      "rva": "0x227DCD0",
+      "captured_signature": "40 53 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 78 01 00 00"
+    },
+    "descriptor_complete": {
+      "signature_size": 5,
+      "baseline_rva": "0x20DD558",
+      "relocation_status": "resolved",
+      "rva": "0x20E195C",
+      "captured_signature": "48 8B 54 24 60"
+    },
+    "init_descriptor": {
+      "signature_size": 13,
+      "baseline_rva": "0x1B6E658",
+      "relocation_status": "resolved",
+      "rva": "0x1B729CC",
+      "captured_signature": "40 53 48 83 EC 20 48 8B D9 33 C0 33 C9"
+    },
+    "build_descriptor": {
+      "signature_size": 11,
+      "baseline_rva": "0x20DD430",
+      "relocation_status": "resolved",
+      "rva": "0x20E1834",
+      "captured_signature": "48 83 EC 38 48 8B D1 0F B7 09 E8"
+    },
+    "destroy_descriptor": {
+      "signature_size": 12,
+      "baseline_rva": "0x1B91E80",
+      "relocation_status": "resolved",
+      "rva": "0x1B961F4",
+      "captured_signature": "40 53 48 83 EC 20 48 8B D9 48 8B 09"
+    },
+    "init_compact": {
+      "signature_size": 8,
+      "baseline_rva": "0x1B6F650",
+      "relocation_status": "resolved",
+      "rva": "0x1B739C4",
+      "captured_signature": "40 53 48 83 EC 20 33 C0"
+    },
+    "reset_compact": {
+      "signature_size": 8,
+      "baseline_rva": "0x1BBADBC",
+      "relocation_status": "resolved",
+      "rva": "0x1BBF1B4",
+      "captured_signature": "48 83 EC 28 33 C0 C6 41"
+    },
+    "effective_level": {
+      "signature_size": 8,
+      "baseline_rva": "0x3DB834",
+      "relocation_status": "resolved",
+      "rva": "0x2FA5F4",
+      "captured_signature": "F7 41 18 00 00 20 00 75"
+    },
+    "init_generation_context": {
+      "signature_size": 8,
+      "baseline_rva": "0x570DF8",
+      "relocation_status": "resolved",
+      "rva": "0x5512F8",
+      "captured_signature": "48 83 EC 28 4C 8B D9 66"
+    },
+    "incomplete_record": {
+      "signature_size": 8,
+      "baseline_rva": "0x110BF30",
+      "relocation_status": "resolved",
+      "rva": "0x110E7E0",
+      "captured_signature": "33 D2 48 8D 41 42 80 38"
+    },
+    "generate_effects": {
+      "signature_size": 8,
+      "baseline_rva": "0x577964",
+      "relocation_status": "resolved",
+      "rva": "0x557E64",
+      "captured_signature": "48 8B C4 48 89 58 20 55"
+    },
+    "assemble_scroll": {
+      "signature_size": 8,
+      "baseline_rva": "0x2277FE8",
+      "relocation_status": "resolved",
+      "rva": "0x227C4CC",
+      "captured_signature": "48 89 5C 24 08 48 89 6C"
+    },
+    "playthrough_vector": {
+      "signature_size": 8,
+      "baseline_rva": "0x578CD4",
+      "relocation_status": "resolved",
+      "rva": "0x5591D4",
+      "captured_signature": "48 83 EC 48 48 8B 05 51"
+    },
+    "completion_loop": {
+      "signature_size": 16,
+      "range_size": 439,
+      "baseline_rva": "0x10280BD",
+      "relocation_status": "resolved",
+      "rva": "0x1028AFD",
+      "captured_signature": "48 89 AC 24 80 02 00 00 48 8D 5F 42 48 8D 6C 24"
+    },
+    "per_effect_finalizer": {
+      "signature_size": 16,
+      "range_size": 4953,
+      "baseline_rva": "0x1109270",
+      "relocation_status": "resolved",
+      "rva": "0x110BB20",
+      "captured_signature": "48 89 5C 24 20 55 56 57 41 54 41 55 41 56 41 57"
+    },
+    "effect_lookup": {
+      "signature_size": 16,
+      "baseline_rva": "0x577808",
+      "relocation_status": "resolved",
+      "rva": "0x557D08",
+      "captured_signature": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57"
+    },
+    "category_allocator": {
+      "signature_size": 16,
+      "range_size": 688,
+      "baseline_rva": "0x3DADC4",
+      "relocation_status": "resolved",
+      "rva": "0x2F9B84",
+      "captured_signature": "45 85 C9 0F 84 A6 02 00 00 48 89 5C 24 18 55 56"
+    },
+    "effect_weight": {
+      "signature_size": 16,
+      "range_size": 398,
+      "baseline_rva": "0x57896C",
+      "relocation_status": "resolved",
+      "rva": "0x558E6C",
+      "captured_signature": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57"
+    },
+    "normalize_slot": {
+      "signature_size": 16,
+      "range_size": 354,
+      "baseline_rva": "0x5712D8",
+      "relocation_status": "resolved",
+      "rva": "0x5517D8",
+      "captured_signature": "48 89 5C 24 08 44 88 4C 24 20 44 88 44 24 18 55"
+    },
+    "bonus_count": {
+      "signature_size": 16,
+      "range_size": 135,
+      "baseline_rva": "0x5715FC",
+      "relocation_status": "resolved",
+      "rva": "0x551AFC",
+      "captured_signature": "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48"
+    },
+    "lcg": {
+      "signature_size": 16,
+      "range_size": 113,
+      "baseline_rva": "0x30DCD4",
+      "relocation_status": "resolved",
+      "rva": "0x35F0B4",
+      "captured_signature": "48 83 EC 28 48 8B 0D 01 68 3F 04 48 85 C9 74 21"
+    }
+  },
+  "rdata_sites": {
+    "one_over_65536": {
+      "size": 4,
+      "baseline_rva": "0x3BCCA04",
+      "relocation_status": "resolved_by_explicit_override",
+      "rva": "0x3BD0B44",
+      "captured_signature": "00 00 80 37"
+    },
+    "hundred": {
+      "size": 4,
+      "baseline_rva": "0x3BCBEAC",
+      "relocation_status": "resolved_by_explicit_override",
+      "rva": "0x3BCFF4C",
+      "captured_signature": "00 00 C8 42"
+    },
+    "forty_six": {
+      "size": 4,
+      "baseline_rva": "0x3BFC1DC",
+      "relocation_status": "resolved",
+      "rva": "0x3C002E4",
+      "captured_signature": "00 00 38 42"
+    },
+    "twenty": {
+      "size": 4,
+      "baseline_rva": "0x3BCBED4",
+      "relocation_status": "resolved_by_explicit_override",
+      "rva": "0x3BCFF74",
+      "captured_signature": "00 00 A0 41"
+    },
+    "one_over_100": {
+      "size": 4,
+      "baseline_rva": "0x3BCC630",
+      "relocation_status": "resolved_by_explicit_override",
+      "rva": "0x3BD0750",
+      "captured_signature": "0A D7 23 3C"
+    },
+    "one_over_1000": {
+      "size": 4,
+      "baseline_rva": "0x3BCC3A8",
+      "relocation_status": "resolved_by_explicit_override",
+      "rva": "0x3BD0548",
+      "captured_signature": "6F 12 83 3A"
+    }
+  },
+  "data_sites": {
+    "parameter_manager_pointer": {
+      "baseline_rva": "0x45B1E00",
+      "rva": "0x45B5DF0",
+      "validation_status": "validated_by_runtime_table_capture"
+    },
+    "playthrough_selector_pointer": {
+      "baseline_rva": "0x47494A0",
+      "rva": "0x474D480",
+      "validation_status": "validated_by_ng3_native_parity"
+    },
+    "mode_pointer": {
+      "baseline_rva": "0x47518E0",
+      "rva": "0x47558C0",
+      "validation_status": "validated_by_runtime_table_capture"
+    }
+  },
+  "resources": {
+    "status": "aliased_after_exact_target_comparison",
+    "baseline": {
+      "r4_finalizer": "nioh3_scroll_editor/data/r4_finalizer/pc_v2_00_02/resource_v1",
+      "auxiliary_generation": "nioh3_scroll_editor/data/auxiliary_generation/pc_v2_00_02/resource_v3"
+    },
+    "target_aliases": {
+      "r4_finalizer": "nioh3_scroll_editor/data/r4_finalizer/pc_v2_00_02/resource_v1",
+      "auxiliary_generation": "nioh3_scroll_editor/data/auxiliary_generation/pc_v2_00_02/resource_v3"
+    }
+  },
+  "gates": {
+    "all_anchor_relocations_resolved": true,
+    "all_relocated_site_signatures_captured": true,
+    "runtime_data_sites_validated": true,
+    "parameter_tables_compared": true,
+    "native_parity_validated": true,
+    "save_layout_validated": true,
+    "product_enablement_allowed": true
+  },
+  "known_version_differences": [
+    "PC v2.01 caps a requested raw rarity-5 record header to rarity 4 when feature flag 9 is unavailable.",
+    "Rarity-5 effect slots matched the offline generator for 10,000 deterministic natural Seeds; product mode preserves an explicit raw rarity-5 request."
+  ],
+  "validation_summary": [
+    "Rarity 3 full-record parity passed for 10,000 deterministic natural Seeds.",
+    "Rarity 4 stage, final record, and accepted-slot parity passed for 10,000 deterministic natural Seeds.",
+    "Rarity 5 effect-slot parity passed for 10,000 deterministic natural Seeds with only the documented header cap.",
+    "Native auxiliary descriptors matched v2.00.02 exactly for shared control Seeds and were stable across repeated capture.",
+    "The current v2.01 encrypted save decrypted and parsed with the unchanged 400-slot layout."
+  ]
+}

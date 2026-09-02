@@ -89,9 +89,33 @@ these raw roles into four documentation families:
 - B: role 5;
 - A/B: a display name with distinct role-4 and role-5 candidate rows.
 
-It includes a quick compatibility matrix and all 142 trilingual display-name
+It includes a quick compatibility matrix and all 148 trilingual display-name
 entries. Its result is a structural preflight, not a promise that a matching
 Seed exists.
+
+## Same-name native forms
+
+The generator and the versioned catalogs expose the following same-name native
+lookup keys as independent exact choices. The qualifier data is centralized in
+`nioh3_scroll_editor/enemy_variants.py`, so the application, JSON, CSV, and
+Markdown exports use the same identities.
+
+| Base name | Player-facing form | Lookup key | Evidence boundary |
+| --- | --- | ---: | --- |
+| 山县昌景 | 人形 | `0x0004B03B` | Player-confirmed form distinction |
+| 山县昌景 | 妖怪形态 | `0x00092063` | Player-confirmed form distinction |
+| 武田信玄 | 人形 | `0x00071ED1` | Player-confirmed form distinction |
+| 武田信玄 | 妖怪形态 | `0x0000A5D2` | Player-confirmed form distinction |
+| 比留呼 | 人形 | `0x000B605B` | Player-confirmed form distinction |
+| 比留呼 | 古代妖怪形态 | `0x0004ACDF` | Player-confirmed form distinction |
+| 比留呼 | 江户妖怪形态 | `0x00093F79` | Player-confirmed form distinction |
+| 金井半兵卫 | 人形 | `0x0000F9CA` | Player-confirmed form distinction |
+| 金井半兵卫 | 妖怪形态 | `0x000179F7` | Player-confirmed form distinction |
+| 服部半藏 | 现任／子 | `0x000D35E1` | Provisional native-parameter identity mapping; no live gameplay test requested |
+| 服部半藏 | 先代／父（鬼半藏） | `0x000202A7` | Provisional native-parameter identity mapping; no live gameplay test requested |
+
+Selecting one of these entries requires that exact lookup key. It is no longer
+treated as an OR over every native row sharing the unqualified localized name.
 
 ## Proved impossible example
 
@@ -139,8 +163,8 @@ The safe strategy is:
 - deterministic exporter: `tools/export_enemy_role_catalog.py`
 
 The JSON preserves all 487 raw rows, native keys, role, known row fields,
-enabled playthroughs, class paths, and native Simplified Chinese, Japanese, and
-English names.
+enabled playthroughs, class paths, native Simplified Chinese, Japanese, and
+English names, and the versioned qualified display names used by the product.
 
 ## Verification boundary
 

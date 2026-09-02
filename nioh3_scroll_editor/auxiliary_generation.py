@@ -27,7 +27,9 @@ from .r4_table_bundle import FixedStrideTable
 from .r4_table_bundle import R4FinalizerTableBundle
 from .seed_accelerator import (
     generate_terrain_row_indices_native,
+    last_seed_acceleration_backend,
     match_enemy_constraints_native,
+    match_special_rule_constraints_native,
 )
 
 
@@ -964,6 +966,7 @@ def generate_terrain_row_indices_batch(
     *,
     tables: AuxiliaryGenerationTables | None = None,
     resource: R4FinalizerResourceBundle | None = None,
+    require_cuda: bool = False,
 ) -> tuple[int, ...]:
     """Generate exact terrain row indices in a native/CUDA batch when possible."""
 
@@ -979,7 +982,15 @@ def generate_terrain_row_indices_batch(
             terrain_row_count=terrain_row_count,
         )
         if native is not None:
+            if require_cuda and last_seed_acceleration_backend() != "cuda":
+                raise RuntimeError(
+                    "CUDA terrain matcher is unavailable; CPU fallback is disabled"
+                )
             return native
+        if require_cuda:
+            raise RuntimeError(
+                "CUDA terrain matcher is unavailable; CPU fallback is disabled"
+            )
         tables = load_default_auxiliary_generation_tables()
         resource = load_default_r4_finalizer_resource()
     else:
@@ -1155,6 +1166,7 @@ def generate_enemy_match_masks_batch(
     playthrough: int,
     *,
     criteria: AuxiliarySearchCriteria,
+    require_cuda: bool = False,
 ) -> tuple[int, ...]:
     """Return one bit mask for every requested enemy condition group."""
 
@@ -1194,7 +1206,15 @@ def generate_enemy_match_masks_batch(
         criterion_groups=groups,
     )
     if native is not None:
+        if require_cuda and last_seed_acceleration_backend() != "cuda":
+            raise RuntimeError(
+                "CUDA enemy matcher is unavailable; CPU fallback is disabled"
+            )
         return native
+    if require_cuda:
+        raise RuntimeError(
+            "CUDA enemy matcher is unavailable; CPU fallback is disabled"
+        )
 
     output: list[int] = []
     for seed in seeds:
@@ -1210,6 +1230,150 @@ def generate_enemy_match_masks_batch(
                 mask |= 1 << index
         output.append(mask)
     return tuple(output)
+
+
+@lru_cache(maxsize=5)
+def _special_rule_batch_configuration(
+    playthrough: int,
+) -> tuple[tuple[int, ...], tuple[frozenset[int], ...], bytes]:
+    """Pack exact rule rows and enemy scratch-key groups for one playthrough."""
+
+    if not 1 <= playthrough <= 5:
+        raise ValueError("playthrough must be in 1..5")
+    tables = load_default_auxiliary_generation_tables()
+    if (
+        tables.enemy_candidates is None
+        or tables.special_rules is None
+        or tables.rule_conflicts is None
+    ):
+        raise AuxiliaryGenerationError("special-rule generation tables are unavailable")
+    conflict_rows = dict(
+        zip(
+            tables.rule_conflict_keys_by_row,
+            tables.rule_conflicts.rows(),
+            strict=True,
+        )
+    )
+    enemy_rows = tuple(tables.enemy_candidates.rows())
+    scratch_keys = tuple(
+        sorted(
+            {
+                struct.unpack_from("<H", row, 0x12)[0]
+                for row in enemy_rows
+                if struct.unpack_from("<H", row, 0x12)[0] != 0xFFFF
+            }
+        )
+    )
+    if len(scratch_keys) > 32:
+        raise AuxiliaryGenerationError(
+            "native special-rule matcher supports at most 32 scratch keys"
+        )
+    enemy_groups = tuple(
+        frozenset(
+            struct.unpack_from("<I", row, 0x04)[0]
+            for row in enemy_rows
+            if struct.unpack_from("<H", row, 0x12)[0] == scratch_key
+        )
+        for scratch_key in scratch_keys
+    )
+    scratch_bit_by_key = {
+        key: bit for bit, key in enumerate(scratch_keys)
+    }
+    packed = bytearray()
+    for key, row in zip(
+        tables.special_rule_keys_by_row,
+        tables.special_rules.rows(),
+        strict=True,
+    ):
+        identities: list[int] = []
+        active_mask = 0
+        for index, group_key in enumerate(struct.unpack_from("<HH", row, 0x2C)):
+            conflict = conflict_rows.get(group_key)
+            if conflict is None:
+                identities.append(0xFFFF)
+                continue
+            identities.append(struct.unpack_from("<H", conflict, 0x08)[0])
+            if conflict[0x0C] & 0x01:
+                active_mask |= 1 << index
+        weight = _rule_weight(row, playthrough) if row[0x36] & 0x01 else 0
+        packed.extend(
+            struct.pack(
+                "<HHfHHBBH",
+                key,
+                weight,
+                struct.unpack_from("<f", row, 0x14)[0],
+                identities[0],
+                identities[1],
+                active_mask,
+                scratch_bit_by_key.get(key, 0xFF),
+                0,
+            )
+        )
+    return scratch_keys, enemy_groups, bytes(packed)
+
+
+def generate_special_rule_match_masks_batch(
+    displayed_seeds: Sequence[int],
+    terrain_row_indices: Sequence[int],
+    playthrough: int,
+    *,
+    criteria: AuxiliarySearchCriteria,
+) -> tuple[int, ...]:
+    """Match special-rule groups on CUDA after exact enemy scratch replay."""
+
+    seeds = tuple(int(seed) & 0xFFFFFFFF for seed in displayed_seeds)
+    terrain_rows = tuple(int(row) for row in terrain_row_indices)
+    if len(seeds) != len(terrain_rows):
+        raise ValueError("special-rule matcher requires one terrain row per Seed")
+    groups = tuple(
+        (frozenset((key,)) for key in sorted(criteria.required_special_rule_keys))
+    ) + tuple(criteria.required_special_rule_key_groups)
+    if not groups:
+        return (0,) * len(seeds)
+    if not seeds:
+        return ()
+    _scratch_keys, scratch_enemy_groups, packed_rule_rows = (
+        _special_rule_batch_configuration(playthrough)
+    )
+    (
+        mode_threshold,
+        descriptor_thresholds,
+        selector_threshold,
+        role_five_threshold,
+        selector_value,
+        packed_enemy_rows,
+        packed_terrains,
+        packed_contexts,
+    ) = _enemy_batch_configuration()
+    scratch_masks = match_enemy_constraints_native(
+        seeds,
+        terrain_rows,
+        playthrough=playthrough,
+        mode_threshold=mode_threshold,
+        descriptor_thresholds=descriptor_thresholds,
+        selector_threshold=selector_threshold,
+        role_five_threshold=role_five_threshold,
+        selector_value=selector_value,
+        enemy_rows=packed_enemy_rows,
+        terrains=packed_terrains,
+        contexts=packed_contexts,
+        criterion_groups=scratch_enemy_groups,
+    )
+    if scratch_masks is None or last_seed_acceleration_backend() != "cuda":
+        raise RuntimeError(
+            "CUDA enemy scratch-key matcher is unavailable; CPU fallback is disabled"
+        )
+    native = match_special_rule_constraints_native(
+        seeds,
+        scratch_masks,
+        rule_rows=packed_rule_rows,
+        criterion_groups=groups,
+    )
+    if native is None or last_seed_acceleration_backend() != "cuda":
+        raise RuntimeError(
+            "CUDA special-rule matcher is unavailable; CPU fallback is disabled"
+        )
+    return native
 
 
 def derive_enemy_seed(displayed_seed: int) -> int:
@@ -2382,6 +2546,7 @@ __all__ = [
     "generate_enemy_match_masks_batch",
     "generate_matching_auxiliary",
     "generate_special_rules",
+    "generate_special_rule_match_masks_batch",
     "generate_terrain",
     "generate_terrain_row_indices_batch",
     "legal_special_rule_keys",

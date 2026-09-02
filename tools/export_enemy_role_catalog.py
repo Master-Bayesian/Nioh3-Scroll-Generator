@@ -16,6 +16,8 @@ from typing import Any
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
+from nioh3_scroll_editor.enemy_variants import qualify_enemy_names  # noqa: E402
+
 DEFAULT_OUTPUT_ROOT = (
     REPOSITORY_ROOT
     / "docs"
@@ -105,6 +107,7 @@ def _load_rows() -> tuple[list[dict[str, Any]], dict[str, Any]]:
                 "row_index": row_index,
                 "lookup_key": _hex(lookup_key, 8),
                 "names": names,
+                "display_names": qualify_enemy_names(names, lookup_key),
                 "localization": localization,
                 "role": role,
                 "class_paths": list(ROLE_CLASS_PATHS[role]),
@@ -191,11 +194,17 @@ def build_role_catalog_payload() -> dict[str, Any]:
     by_localized_name: dict[str, dict[str, list[int]]] = {
         locale: defaultdict(list) for locale in LOCALES
     }
+    by_player_display_name: dict[str, dict[str, list[int]]] = {
+        locale: defaultdict(list) for locale in LOCALES
+    }
     for row in rows:
         by_role[str(row["role"])].append(row["row_index"])
         by_lookup_key[row["lookup_key"]] = row["row_index"]
         for locale in LOCALES:
             by_localized_name[locale][row["names"][locale]].append(row["row_index"])
+            by_player_display_name[locale][row["display_names"][locale]].append(
+                row["row_index"]
+            )
     return {
         "schema": "nioh3-scroll-enemy-role-catalog/v1",
         "game_version": GAME_VERSION,
@@ -273,6 +282,16 @@ def build_role_catalog_payload() -> dict[str, Any]:
                 }
                 for locale in LOCALES
             },
+            "by_player_display_name": {
+                locale: {
+                    name: row_indices
+                    for name, row_indices in sorted(
+                        by_player_display_name[locale].items(),
+                        key=lambda item: item[0],
+                    )
+                }
+                for locale in LOCALES
+            },
         },
         "rows": rows,
     }
@@ -314,9 +333,9 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
                 {
                     "row_index": row["row_index"],
                     "lookup_key": row["lookup_key"],
-                    "name_zh_CN": row["names"]["zh-CN"],
-                    "name_ja_JP": row["names"]["ja-JP"],
-                    "name_en_US": row["names"]["en-US"],
+                    "name_zh_CN": row["display_names"]["zh-CN"],
+                    "name_ja_JP": row["display_names"]["ja-JP"],
+                    "name_en_US": row["display_names"]["en-US"],
                     "role": row["role"],
                     "class_paths": ";".join(row["class_paths"]),
                     "cost": row["cost"],
@@ -340,9 +359,9 @@ def _write_markdown(path: Path, payload: dict[str, Any]) -> None:
     for row in payload["rows"]:
         key = (
             row["role"],
-            row["names"]["zh-CN"],
-            row["names"]["ja-JP"],
-            row["names"]["en-US"],
+            row["display_names"]["zh-CN"],
+            row["display_names"]["ja-JP"],
+            row["display_names"]["en-US"],
         )
         grouped[key].append(row)
 

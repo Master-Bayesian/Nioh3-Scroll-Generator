@@ -46,7 +46,6 @@ from .auxiliary_generation import (
     generate_matching_auxiliary,
     legal_special_rule_keys,
     load_default_auxiliary_generation_tables,
-    terrain_rows_containing_effects,
 )
 from .auxiliary_feasibility import (
     EnemyKeyRequirement,
@@ -83,16 +82,24 @@ from .effect_generation_tables import (
     EffectGenerationTableIndex,
     load_default_effect_generation_tables,
 )
+from .effect_batch_filter import (
+    match_partial_effect_constraints_batch,
+)
 from .effect_path_inverse import (
     FullCompositionRequest,
+    OneWildcardCompositionRequest,
     compile_full_composition_plans,
+    compile_one_wildcard_composition_plans,
 )
 from .effect_preimage_accelerator import (
     d3d11_effect_acceleration_available,
     last_effect_preimage_backend,
     reset_effect_preimage_backend,
 )
-from .effect_preimage_search import collect_full_composition_preimage_page
+from .effect_preimage_search import (
+    collect_full_composition_preimage_page,
+    collect_one_wildcard_composition_preimage_page,
+)
 from .effect_sequence import (
     collect_ng3_r4_primary_pivot_seeds,
     generate_ng3_certified_effect_sequence,
@@ -102,6 +109,10 @@ from .effect_sequence import (
     generate_rarity5_grace_effect_sequence,
     generate_rarity5_grace_primary_effect_id,
     generate_rarity5_grace_primary_effect_ids,
+)
+from .enemy_variants import (
+    enemy_variant_display_name,
+    split_enemy_variant_display_groups,
 )
 from .models import (
     CandidateRecordStage,
@@ -119,7 +130,14 @@ from .grace_map import (
     save_grace_map_cache,
 )
 from .game_compatibility import detect_game_compatibility
-from .native import NativeBatchOracle, ScanProgress, build_source_record, scan_next_candidate
+from .native import (
+    NativeBatchOracle,
+    NativeRuntimeProfile,
+    ScanProgress,
+    build_source_record,
+    native_runtime_profile_for_game_version,
+    scan_next_candidate,
+)
 from .primary_map import (
     PrimaryFirstDrawOutputMap,
     PrimaryMapProgress,
@@ -203,9 +221,9 @@ def search_backend_display_name() -> str:
         }.get(preimage, "DirectCompute")
     return {
         "cuda": "CUDA",
-        "native_cpu": "原生 CPU",
-        "python": "Python CPU",
-    }.get(last_seed_acceleration_backend(), "CPU")
+        "native_cpu": "错误：原生 CPU 回退",
+        "python": "错误：Python CPU 回退",
+    }.get(last_seed_acceleration_backend(), "GPU 后端未使用")
 
 
 PLAYTHROUGH_CURRENT_LABEL = "当前周目"
@@ -221,6 +239,7 @@ PLAYTHROUGH_BY_LABEL = {
     for index, label in enumerate(PLAYTHROUGH_LABELS, start=1)
 }
 NO_GRACE_FILTER_LABEL = "不限制恩宠（允许最终无恩宠）"
+NO_TERRAIN_FILTER_LABEL = "任意地形（不筛选）"
 PRODUCT_RARITIES = (3, 4, 5)
 EFFECT_ROLL_FILTERS = (
     ("任意数值", 0),
@@ -314,6 +333,12 @@ def _complete_preimage_requests(
 
     if request.required_secondary_id_groups:
         return ()
+    if request.rarity == 4:
+        # The R4 finalizer can replace one stage-one ordinary effect with a
+        # different final effect. Inverting only the requested final set as a
+        # stage-one set is fast but incomplete. Product R4 searches therefore
+        # use the finalizer-aware DirectCompute forward matcher below.
+        return ()
     expected_ordinary = {3: 4, 4: 4, 5: 5}.get(request.rarity)
     if expected_ordinary is None:
         return ()
@@ -363,6 +388,33 @@ def _complete_preimage_request(
 
     inverse_requests = _complete_preimage_requests(request)
     return inverse_requests[0] if len(inverse_requests) == 1 else None
+
+
+def _one_wildcard_preimage_request(
+    request: EffectSeedRequest,
+) -> OneWildcardCompositionRequest | None:
+    """Return the common unrestricted-primary request with one open slot."""
+
+    if (
+        request.primary_effect_ids
+        or request.required_secondary_id_groups
+        or request.rarity != 5
+        or request.grace_effect_id is None
+    ):
+        return None
+    expected_required_count = 3 if request.rarity == 4 else 4
+    if len(request.required_secondary_ids) != expected_required_count:
+        return None
+    try:
+        return OneWildcardCompositionRequest(
+            rarity=request.rarity,
+            required_effect_ids=tuple(sorted(request.required_secondary_ids)),
+            stage_special_effect_id=request.grace_effect_id,
+            natural_only=request.natural_only,
+            playthrough=request.playthrough,
+        )
+    except ValueError:
+        return None
 
 
 def _legal_complete_preimage_layouts(
@@ -436,8 +488,13 @@ def collect_offline_complete_preimage_search_batch(
         request,
         grace_mapping=grace_mapping,
     )
-    if layouts is None or not d3d11_effect_acceleration_available():
+    if layouts is None:
         return None
+    if not d3d11_effect_acceleration_available():
+        raise RuntimeError(
+            "当前完整词条条件需要 DirectCompute GPU 求解，但没有可用的硬件后端；"
+            "已停止计算，不会回退到慢速 CPU/Python。"
+        )
     total_family_size = sum(family_size for _request, family_size in layouts)
     active_cursor = min(start_after_trial, total_family_size)
     budget_stop = min(
@@ -473,7 +530,10 @@ def collect_offline_complete_preimage_search_batch(
             cancelled=cancelled,
         )
         if page is None:
-            return None
+            raise RuntimeError(
+                "DirectCompute GPU 求解器在计算中不可用；已停止计算，"
+                "不会回退到慢速 CPU/Python。"
+            )
         previous_cursor = active_cursor
         active_cursor = layout_offset + page.next_start_after_trial
         for match in page.matches:
@@ -537,6 +597,190 @@ def collect_offline_complete_preimage_search_batch(
         next_start_after_trial=active_cursor,
         streamed=candidate_found is not None,
     )
+
+
+def collect_offline_one_wildcard_preimage_search_batch(
+    request: EffectSeedRequest,
+    *,
+    grace_mapping: GraceOutputMap | None,
+    level: int,
+    result_count: int,
+    max_trials_per_batch: int,
+    start_after_trial: int = 0,
+    candidate_found: Callable[[ScrollCandidate], None] | None = None,
+    cancelled: Callable[[], bool] | None = None,
+) -> SearchBatchResult | None:
+    """Use one GPU family when exactly one ordinary effect is unrestricted."""
+
+    inverse_request = _one_wildcard_preimage_request(request)
+    if inverse_request is None:
+        return None
+    try:
+        plans = compile_one_wildcard_composition_plans(
+            inverse_request,
+            special_mapping=grace_mapping,
+        )
+    except ValueError as error:
+        selected_text = "、".join(
+            f"{contextual_effect_name(effect_id, rarity=request.rarity, slot=1)} "
+            f"[0x{effect_id:04X}]"
+            for effect_id in sorted(request.required_secondary_ids)
+        )
+        raise ValueError(
+            "所选词条无法与任意第四词条组成原生合法绘卷："
+            f"{selected_text}。"
+        ) from error
+    if not d3d11_effect_acceleration_available():
+        raise RuntimeError(
+            "当前部分词条条件需要 DirectCompute GPU 求解，但没有可用的硬件后端；"
+            "已停止计算，不会回退到慢速 CPU/Python。"
+        )
+    family_size = sum(plan.pivot_state_count for plan in plans)
+    page = collect_one_wildcard_composition_preimage_page(
+        inverse_request,
+        page_size=max(64, result_count * 8),
+        special_mapping=grace_mapping,
+        start_after_trial=min(start_after_trial, family_size),
+        max_trials=min(
+            max_trials_per_batch,
+            max(0, family_size - min(start_after_trial, family_size)),
+        )
+        or None,
+        cancelled=cancelled,
+    )
+    if page is None:
+        raise RuntimeError(
+            "DirectCompute GPU 求解器在计算中不可用；已停止计算，"
+            "不会回退到慢速 CPU/Python。"
+        )
+    candidates: list[ScrollCandidate] = []
+    cursor = page.next_start_after_trial
+    for match in page.matches:
+        if cancelled is not None and cancelled():
+            cursor = match.pivot_trial - 1
+            break
+        sequence = (
+            generate_ng3_certified_effect_sequence(
+                match.seed,
+                rarity=request.rarity,
+                level=level,
+            )
+            if request.playthrough == 3
+            else generate_rarity5_grace_effect_sequence(
+                match.seed,
+                playthrough=request.playthrough,
+                level=level,
+                grace_mapping=grace_mapping,
+            )
+        )
+        if not _sequence_satisfies_roll_filters(
+            sequence,
+            request.minimum_roll_percent_by_effect_id,
+        ):
+            continue
+        if (
+            request.grace_effect_id is not None
+            and (
+                not sequence.terminal_is_special
+                or sequence.grace.effect_id != request.grace_effect_id
+            )
+        ):
+            continue
+        auxiliary = generate_matching_auxiliary(
+            match.seed,
+            request.playthrough,
+            criteria=request.auxiliary_criteria,
+        )
+        if auxiliary is None:
+            continue
+        candidate = ScrollCandidate.from_effect_sequence(
+            sequence,
+            auxiliary=auxiliary,
+            joint_search_trial=match.pivot_trial,
+        )
+        if not candidate_matches(
+            candidate,
+            primary_effect_ids=request.primary_effect_ids,
+            required_secondary_ids=request.required_secondary_ids,
+            required_secondary_id_groups=request.required_secondary_id_groups,
+        ):
+            continue
+        candidates.append(candidate)
+        if candidate_found is not None:
+            candidate_found(candidate)
+        if len(candidates) >= result_count:
+            cursor = match.pivot_trial
+            break
+    return SearchBatchResult(
+        candidates=tuple(candidates),
+        requested_count=result_count,
+        next_start_after_trial=cursor,
+        streamed=candidate_found is not None,
+    )
+
+
+def require_accelerated_generic_search(request: EffectSeedRequest) -> None:
+    """Reject generic searches that would silently enter bulk Python replay."""
+
+    criteria = request.auxiliary_criteria
+    if not (
+        d3d11_effect_acceleration_available()
+        or cuda_seed_acceleration_available()
+    ):
+        raise RuntimeError(
+            "没有检测到可用的 GPU 搜索后端；已停止计算，不会回退到 CPU/Python。"
+        )
+    requires_cuda_prefilter = not criteria.is_empty
+    if requires_cuda_prefilter and not cuda_seed_acceleration_available():
+        raise RuntimeError(
+            "当前主词条/敌人/地形路径需要 CUDA 批量前筛，但 CUDA 不可用；"
+            "已停止计算，不会回退到慢速 CPU。"
+        )
+
+
+def partial_effect_batch_generator(
+    request: EffectSeedRequest,
+    *,
+    grace_mapping: GraceOutputMap | None,
+    level: int,
+) -> Callable[[tuple[int, ...]], tuple[tuple[int, ...], int] | None] | None:
+    """Build a fail-closed D3D11 forward filter for partial effect requests."""
+
+    if not (
+        request.primary_effect_ids
+        or request.required_secondary_ids
+        or request.required_secondary_id_groups
+    ):
+        return None
+    if (
+        request.primary_effect_ids
+        and not request.required_secondary_ids
+        and not request.required_secondary_id_groups
+        and cuda_seed_acceleration_available()
+    ):
+        return None
+    if request.rarity not in (3, 4, 5):
+        return None
+
+    def generate(seeds: tuple[int, ...]) -> tuple[tuple[int, ...], int] | None:
+        result = match_partial_effect_constraints_batch(
+            seeds,
+            playthrough=request.playthrough,
+            rarity=request.rarity,
+            primary_effect_ids=request.primary_effect_ids,
+            required_secondary_ids=request.required_secondary_ids,
+            required_secondary_id_groups=request.required_secondary_id_groups,
+            special_mapping=grace_mapping,
+            level=level,
+        )
+        if result is None:
+            raise RuntimeError(
+                "DirectCompute partial-effect matcher is unavailable; "
+                "CPU fallback is disabled"
+            )
+        return result.masks, result.target_mask
+
+    return generate
 
 
 def legal_enemy_display_groups(
@@ -637,40 +881,54 @@ def build_runtime_terrain_options(
     tables: AuxiliaryGenerationTables,
     names: AuxiliaryNameCatalog,
 ) -> dict[str, int]:
-    """Build runtime terrain labels from player-visible display effects."""
+    """Expose one canonical runtime value for each visible terrain result."""
 
-    options: dict[str, int] = {}
-    seen_values: set[int] = set()
+    values_by_effects: dict[tuple[int, ...], int] = {}
     for row_index, row in enumerate(tables.terrain.rows()):
         terrain_value = row[0x30]
-        if terrain_value in seen_values:
-            continue
-        seen_values.add(terrain_value)
-
         display_keys: list[int] = []
         if struct.unpack_from("<H", row, 0x2C)[0] != 0:
             display_keys.append(TERRAIN_DISPLAY_CRUCIBLE_KEY)
         special_key = TERRAIN_DISPLAY_SPECIAL_KEYS.get(terrain_value)
         if special_key is not None:
             display_keys.append(special_key)
+        values_by_effects.setdefault(tuple(display_keys), terrain_value)
 
-        display_names = []
-        for key in display_keys:
-            display_name = names.terrain_effect_name(key)
-            if key == 0x039F:
-                display_name = f"{display_name}（俗称污血）"
-            display_names.append(display_name)
-        visible_name = " / ".join(display_names) if display_names else "无地形影响"
+    options: dict[str, int] = {}
+    for display_keys, terrain_value in sorted(
+        values_by_effects.items(),
+        key=lambda item: (not item[0], item[0]),
+    ):
+        display_names = [names.terrain_effect_name(key) for key in display_keys]
+        visible_name = "＋".join(display_names) if display_names else "无地形影响"
+        options[visible_name] = terrain_value
+    return options
 
-        parameter_name = names.terrain_name(row_index)
-        parameter_note = ""
-        if not parameter_name.startswith("Unknown terrain row") and not any(
-            parameter_name in display_name for display_name in display_names
-        ):
-            parameter_note = f"；原生参数：{parameter_name}"
-        options[
-            f"{visible_name}{parameter_note} [terrain 0x{terrain_value:02X}]"
-        ] = terrain_value
+
+def build_terrain_filter_options(
+    tables: AuxiliaryGenerationTables,
+    names: AuxiliaryNameCatalog,
+) -> dict[str, frozenset[int]]:
+    """Build exact native terrain-result choices for Seed search."""
+
+    rows_by_effects: dict[tuple[int, ...], set[int]] = {}
+    for row_index, row in enumerate(tables.terrain.rows()):
+        display_keys: list[int] = []
+        if struct.unpack_from("<H", row, 0x2C)[0] != 0:
+            display_keys.append(TERRAIN_DISPLAY_CRUCIBLE_KEY)
+        special_key = TERRAIN_DISPLAY_SPECIAL_KEYS.get(row[0x30])
+        if special_key is not None:
+            display_keys.append(special_key)
+        if not display_keys:
+            continue
+        rows_by_effects.setdefault(tuple(display_keys), set()).add(row_index)
+
+    options: dict[str, frozenset[int]] = {}
+    for display_keys, row_indices in sorted(rows_by_effects.items()):
+        label = "＋".join(names.terrain_effect_name(key) for key in display_keys)
+        if display_keys == (TERRAIN_DISPLAY_CRUCIBLE_KEY,):
+            label += "（仅地狱）"
+        options[label] = frozenset(row_indices)
     return options
 
 
@@ -727,10 +985,24 @@ def collect_offline_rarity5_search_batch(
     )
     if accelerated is not None:
         return accelerated
+    accelerated = collect_offline_one_wildcard_preimage_search_batch(
+        request,
+        grace_mapping=grace_mapping,
+        level=level,
+        result_count=result_count,
+        max_trials_per_batch=max_trials_per_batch,
+        start_after_trial=start_after_trial,
+        candidate_found=candidate_found,
+        cancelled=cancelled,
+    )
+    if accelerated is not None:
+        return accelerated
+    require_accelerated_generic_search(request)
     completed_reports: list[EffectSeedIntersectionReport] = []
     matches = []
     materialized_by_trial: dict[int, ScrollCandidate] = {}
     active_cursor = start_after_trial
+    budget_stop = start_after_trial + max_trials_per_batch
 
     def materialize_match(match: EffectSeedCandidate) -> ScrollCandidate:
         cached = materialized_by_trial.get(match.pivot_trial)
@@ -753,7 +1025,11 @@ def collect_offline_rarity5_search_batch(
     def emit_match(match: EffectSeedCandidate) -> None:
         if candidate_found is not None:
             candidate_found(materialize_match(match))
-    while len(matches) < result_count and not (cancelled is not None and cancelled()):
+    while (
+        len(matches) < result_count
+        and active_cursor < budget_stop
+        and not (cancelled is not None and cancelled())
+    ):
 
         def report_progress(update: EffectSeedIntersectionReport) -> None:
             reports = (*completed_reports, update)
@@ -792,13 +1068,21 @@ def collect_offline_rarity5_search_batch(
                     grace_mapping=grace_mapping,
                 )
             ),
+            effect_constraint_mask_batch_generator=partial_effect_batch_generator(
+                request,
+                grace_mapping=grace_mapping,
+                level=level,
+            ),
             allow_full_seed_family=request.grace_effect_id is None,
             start_after_trial=active_cursor,
-            max_trials=max_trials_per_batch,
+            max_trials=budget_stop - active_cursor,
             intersection_progress=report_progress,
             candidate_found=emit_match,
             cancelled=cancelled,
-            prefer_d3d11_fixed_draw=True,
+            # CUDA has substantially lower setup cost for pivot enumeration on
+            # NVIDIA. DirectCompute remains the cross-vendor path when CUDA is
+            # unavailable; neither route is allowed to fall back to bulk CPU.
+            prefer_d3d11_fixed_draw=not cuda_seed_acceleration_available(),
         )
         matches.extend(page.candidates)
         if page.intersection_report is not None:
@@ -882,11 +1166,26 @@ def collect_offline_ng3_search_batch(
     )
     if accelerated is not None:
         return accelerated
+    accelerated = collect_offline_one_wildcard_preimage_search_batch(
+        request,
+        grace_mapping=grace_mapping,
+        level=level,
+        result_count=result_count,
+        max_trials_per_batch=max_trials_per_batch,
+        start_after_trial=start_after_trial,
+        candidate_found=candidate_found,
+        cancelled=cancelled,
+    )
+    if accelerated is not None:
+        return accelerated
+
+    require_accelerated_generic_search(request)
 
     completed_reports: list[EffectSeedIntersectionReport] = []
     matches = []
     materialized_by_trial: dict[int, ScrollCandidate] = {}
     active_cursor = start_after_trial
+    budget_stop = start_after_trial + max_trials_per_batch
 
     def materialize_match(match: EffectSeedCandidate) -> ScrollCandidate:
         cached = materialized_by_trial.get(match.pivot_trial)
@@ -906,7 +1205,11 @@ def collect_offline_ng3_search_batch(
     def emit_match(match: EffectSeedCandidate) -> None:
         if candidate_found is not None:
             candidate_found(materialize_match(match))
-    while len(matches) < result_count and not (cancelled is not None and cancelled()):
+    while (
+        len(matches) < result_count
+        and active_cursor < budget_stop
+        and not (cancelled is not None and cancelled())
+    ):
 
         def report_progress(update: EffectSeedIntersectionReport) -> None:
             reports = (*completed_reports, update)
@@ -929,9 +1232,14 @@ def collect_offline_ng3_search_batch(
                     rarity=request.rarity,
                 )
             ),
+            effect_constraint_mask_batch_generator=partial_effect_batch_generator(
+                request,
+                grace_mapping=grace_mapping,
+                level=level,
+            ),
             allow_full_seed_family=request.grace_effect_id is None,
             start_after_trial=active_cursor,
-            max_trials=max_trials_per_batch,
+            max_trials=budget_stop - active_cursor,
             intersection_progress=report_progress,
             candidate_found=emit_match,
             cancelled=cancelled,
@@ -945,6 +1253,7 @@ def collect_offline_ng3_search_batch(
                             low16_stride=low16_stride,
                             primary_effect_ids=request.primary_effect_ids,
                             special_mapping=grace_mapping,
+                            require_cuda=True,
                         )
                     )
                 )
@@ -956,7 +1265,10 @@ def collect_offline_ng3_search_batch(
                 else None
             ),
             pivot_seed_collector_chunk_trials=50_000_000,
-            prefer_d3d11_fixed_draw=True,
+            # CUDA has substantially lower setup cost for pivot enumeration on
+            # NVIDIA. DirectCompute remains the cross-vendor path when CUDA is
+            # unavailable; neither route may fall back to bulk CPU.
+            prefer_d3d11_fixed_draw=not cuda_seed_acceleration_available(),
         )
         matches.extend(page.candidates)
         if page.intersection_report is not None:
@@ -1080,7 +1392,11 @@ def format_local_auxiliary_preview(
     enemy_groups: list[str] = []
     for group_index, group in enumerate(auxiliary.enemies.groups, start=1):
         group_names = " / ".join(
-            names.enemy_name(entry.lookup_key) for entry in group.entries
+            enemy_variant_display_name(
+                names.enemy_name(entry.lookup_key),
+                entry.lookup_key,
+            )
+            for entry in group.entries
         )
         enemy_groups.append(f"第 {group_index} 组：{group_names or '无'}")
     enemies_text = (
@@ -1156,7 +1472,7 @@ TITLE_SCREEN_PROMPT_TEXT = (
     "游戏不需要退出，也不需要断开网络。现在已经位于标题界面吗？"
 )
 
-ENEMY_COMBINATION_GUIDE_TEXT = """敌人合法组合一览（PC v2.00.02）
+ENEMY_COMBINATION_GUIDE_TEXT = """敌人合法组合一览（PC v2.00.02 / v2.01）
 
 低手、中手、高手只是绘卷生成池档位，不代表实际战斗强弱。例如一目连也属于低手档。
 
@@ -1173,7 +1489,8 @@ ENEMY_COMBINATION_GUIDE_TEXT = """敌人合法组合一览（PC v2.00.02）
 2. 正常结构中不存在只有一个低手组、一个中手或一个高手的成品。
 3. 一个低手组内部可能包含多个敌人，因此“3个低手组”不等于恰好3名敌人。
 4. 中高手结构必须至少包含一个高手；三个纯中手不合法。
-5. 这里的组合表只说明档位结构。具体名称还受周目、地形、预算、联动组和随机路径限制，最终仍以完整生成验证为准。
+5. 同名但实际形态不同的高手，以及金井半兵卫的人形／妖怪形态，都是不同原生 ID；界面会分别列出，选择后只匹配指定形态。
+6. 这里的组合表只说明档位结构。具体名称还受周目、地形、预算、联动组和随机路径限制，最终仍以完整生成验证为准。
 """
 
 QUICK_START_TEXT = """仁王3绘卷生成器 - 快速上手
@@ -1182,7 +1499,7 @@ QUICK_START_TEXT = """仁王3绘卷生成器 - 快速上手
 1. 选择周目和稀有度。
 2. 在“搜索所有词条”中输入名称并添加目标词条。默认第一项是主词条；可把主词条候选数设为 2 或 3（任一命中）。勾选“主词条不限”后，所选普通词条只要出现在主词条或副词条任一位置即可。普通词条可设为“必含”或放进同一个“任一组”；同组命中任意一个即可。拖动或点击上下箭头可换序，点击 × 可删除。
 3. 按需选择恩宠、地形、敌人和特殊规则；敌人可在全局搜索框查找，也可按低手／中手／高手三栏选择，并设为“必含”或“任一组”。选择敌人只表示成品必须包含它，不会限制其他敌人；点击“合法组合一览”可查看完整档位结构。稀有度4不限制恩宠时，结果可能保留恩宠，也可能最终没有恩宠。
-4. “绘卷等级”是详情页左上角的 Lv.，并参与词条数值计算；PC v2.00.02 的可传播有效上限是 180，它不控制敌人等级。“推荐等级（内部）”会换算成挑战中实际采用的敌人/Boss 等级；数值越低越适合快速刷取，越高越适合挑战。
+4. “绘卷等级”是详情页左上角的 Lv.，并参与词条数值计算；PC v2.00.02 / v2.01 的可传播有效上限是 180，它不控制敌人等级。“推荐等级（内部）”会换算成挑战中实际采用的敌人/Boss 等级；数值越低越适合快速刷取，越高越适合挑战。
 5. 点击“计算候选 Seed”。符合条件的结果会边找到边显示。
 6. 选择候选查看完整词条与数值。满意后，在顶部选择正确的 Steam 账户和“游戏存档 1/2/3”栏位，再让游戏回到标题界面、勾选添加按钮左侧的确认框并添加。程序会自动备份。
 
@@ -1232,13 +1549,13 @@ FAQ_TEXT = """常见问题
 同一 Steam 账户可以有多个游戏角色存档。请在顶部下拉框中选择实际解锁了绘卷功能的“游戏存档 1/2/3”，而不是只看 Steam ID。程序不会再固定使用游戏存档 1。
 
 为什么仍然提供稀有度 5？
-绘卷原生稀有度为 3、4、5，三种都保留搜索、已知 Seed 生成和写入能力。稀有度 5 的传播行为可能随游戏后续修复而变化，因此它的产品优先级较低；程序仍按已验证的 PC v2.00.02 参数表生成，并在游戏版本不匹配时停止写入，而不是删除这一类绘卷。
+绘卷原生稀有度为 3、4、5，三种都保留搜索、已知 Seed 生成和写入能力。稀有度 5 的传播行为可能随游戏后续修复而变化，因此它的产品优先级较低。PC v2.01 新增功能标志门槛，标志 9 不可用时原生组装器会把记录头限制为稀有度 4，但词条生成算法未变；程序会保留用户明确选择的原始稀有度 5，并继续进行完整词条验证。
 
 为什么推荐等级填 1500，游戏里只显示 700？
-输入值不是游戏最终显示的等级。v2.00.02 会先把内部值限制到 156–1400，再经过原生 42 节点等级曲线换算；因此 1500 会先按 1400 处理，最终显示 700。挑战中的敌人/Boss 等级跟随这个最终推荐等级，而不是绘卷左上角的 Lv.。想轻松刷取就使用较低的最终值，想挑战就使用较高的最终值；继续填写超过 1400 的数值不会再提高难度。
+输入值不是游戏最终显示的等级。PC v2.00.02 / v2.01 会先把内部值限制到 156–1400，再经过原生 42 节点等级曲线换算；因此 1500 会先按 1400 处理，最终显示 700。挑战中的敌人/Boss 等级跟随这个最终推荐等级，而不是绘卷左上角的 Lv.。想轻松刷取就使用较低的最终值，想挑战就使用较高的最终值；继续填写超过 1400 的数值不会再提高难度。
 
 绘卷等级和推荐等级有什么区别？
-“绘卷等级”是详情页左上角的 Lv.，参与词条数值规范化和联机传播字段；PC v2.00.02 会把有效等级限制到最高 180。它不负责设置挑战敌人等级。“推荐等级”是内部难度输入，经过原生等级曲线后得到界面显示值，挑战中的敌人/Boss 等级按该最终值执行。
+“绘卷等级”是详情页左上角的 Lv.，参与词条数值规范化和联机传播字段；PC v2.00.02 / v2.01 会把有效等级限制到最高 180。它不负责设置挑战敌人等级。“推荐等级”是内部难度输入，经过原生等级曲线后得到界面显示值，挑战中的敌人/Boss 等级按该最终值执行。
 
 如何选择或取消多个特殊规则？
 直接点击规则即可逐条加入，不需要按 Ctrl。同一规则可以选择“任意变体”或一个精确数值变体；精确变体始终连同规则名称显示。已选规则下方可逐项点击 × 删除，也可以点击“清空已选规则”。未选择任何规则就表示不筛选。
@@ -1250,7 +1567,7 @@ FAQ_TEXT = """常见问题
 当前版本已知的原生名称都会显示。只有游戏目录本身没有对应文本、或正在研究尚未确认的上下文时才保留十六进制编号，不会猜测名称。
 
 为什么“优先掉落率上升”里没有志那都彦？
-“恩宠筛选”下拉框可以正常选择志那都彦的恩宠（0x4192）。缺少它的是另一项功能：“特殊规则 → 优先掉落率上升”。PC v2.00.02 的原生优先掉落规则表只有 20 种恩宠、每种 3 个数值变体；志那都彦是唯一没有对应规则行的恩宠，因此游戏当前版本不能生成“优先掉落率上升（志那都彦）”。软件不会把必定无解的特殊规则伪装成候选。
+“恩宠筛选”下拉框可以正常选择志那都彦的恩宠（0x4192）。缺少它的是另一项功能：“特殊规则 → 优先掉落率上升”。PC v2.00.02 / v2.01 的原生优先掉落规则表只有 20 种恩宠、每种 3 个数值变体；志那都彦是唯一没有对应规则行的恩宠，因此游戏当前版本不能生成“优先掉落率上升（志那都彦）”。软件不会把必定无解的特殊规则伪装成候选。
 
 本地直接修改的词条能传播吗？
 通常不能。联机传播发送 Seed、稀有度等 canonical 字段，接收方会自行重建词条。要传播自定义结果，请使用“搜索合法绘卷”找到天然生成目标组合的 Seed。
@@ -1271,7 +1588,7 @@ def user_facing_error_message(details: object) -> str:
 TUTORIAL_TEXT = f"""仁王3绘卷生成器使用教程
 
 一、准备
-1. 本工具仅支持《仁王3》PC v2.00.02。
+1. 本工具支持《仁王3》PC v2.00.02 与 PC v2.01；会按 EXE 精确版本选择独立的原生地址与特征签名，其他版本拒绝运行时调用。
 2. 正式入口提供三周目稀有度3、4、5的 Seed 求解、单点预览和完整记录构造，均可离线完成，不需要启动游戏或读取存档。
 3. 稀有度3、4、5均使用经过原生对照的完整生成路径；所有候选还会在返回前执行精确完整记录重放。
 4. 其他周目需要原生生成或准备写档时，让游戏返回标题界面，不需要关闭游戏或断开网络。
@@ -1289,18 +1606,18 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器使用教程
 7. 稀有度和绘卷类型都会影响词条生成结果。周目选择会改用类型表中的 record type：一周目 0x1E82、二周目 0x516D、三周目 0xE604、四周目 0xDD82、五周目 0xD523。
 8. 一、二周目没有三周目的恩宠槽；求解时必须至少选择一个主词条，程序直接求逆主词条 draw 1，再原生验证多个副词条。
 9. 三周目稀有度4可指定恩宠，并必须经过完整 finalizer 重放确认恩宠没有被替换。
-10. 等级、推荐等级和转手次数不直接参与副词条抽样；它们放在“绘卷属性”区域统一设置。“绘卷等级”对应详情页左上角的 Lv.，参与词条数值规范化；PC v2.00.02 的可传播有效范围是 0–180，超过 180 也只会按 180 传播，它不控制敌人等级。推荐等级输入会先限制到内部值 156–1400，再经过游戏原生 42 节点曲线换算为挑战中的最终敌人/Boss 等级；内部值 183 对应 160，181 对应 159，1400 或更高对应上限 700。
+10. 等级、推荐等级和转手次数不直接参与副词条抽样；它们放在“绘卷属性”区域统一设置。“绘卷等级”对应详情页左上角的 Lv.，参与词条数值规范化；PC v2.00.02 / v2.01 的可传播有效范围是 0–180，超过 180 也只会按 180 传播，它不控制敌人等级。推荐等级输入会先限制到内部值 156–1400，再经过游戏原生 42 节点曲线换算为挑战中的最终敌人/Boss 等级；内部值 183 对应 160，181 对应 159，1400 或更高对应上限 700。
 11. 地形影响、特殊规则和出现敌人都可多选为必含条件。原生组合“地狱＋火”和“地狱＋瘴血”可直接筛选；不存在共同原生地形行的选择会立即报无解。特殊规则直接点击即可加入多条，不需要按 Ctrl；父项表示任意数值变体，展开后可精确选择 +50%、+65%、+80% 等原生变体。“任意一难横行”会把全部装备类型和数值作为一个“任一命中”条件，而不是要求它们同时出现。每个精确变体都会保留规则名称，已选项可逐项 × 删除或一键清空；敌人也有独立的一键清空按钮。
 12. 地形、规则和敌人名称来自游戏当前版本的简中、日文、英文原生文本目录，不使用机器翻译。特殊规则只显示原生表中当前周目有权重的合法行；仍未解析出具体阴阳术名称的合法键会明确标成“未识别阴阳术（原生编号……，可生成）”，不会只显示英文或裸编号。
-13. 四、五周目预计由 DLC2 开放，v2.00.02 当前无法正常进入。0xDD82/0xD523 仅证明游戏文件中存在潜在生成上下文，不证明未来 DLC 的最终算法；目前只允许研究预览，禁止写档和传播声明。
+13. 四、五周目预计由 DLC2 开放，PC v2.00.02 / v2.01 当前无法正常进入。0xDD82/0xD523 仅证明游戏文件中存在潜在生成上下文，不证明未来 DLC 的最终算法；目前只允许研究预览，禁止写档和传播声明。
 
 三、联立求解 Seed
 1. 当前版本提供约束求解，不提供界面上的连续 Seed 扫描。一、二周目必须选择主词条；三周目至少选择一项词条、恩宠或辅助条件。
-2. 指定恩宠时先数学求逆对应的完整 Seed 集合；稀有度4还会逐个重放 finalizer，只接受最终仍保留所选恩宠的记录。数学候选按批构造，并优先使用可用的 DirectCompute/CUDA 原生加速路径；CPU 只对幸存候选精确重放特殊规则与完整词条。所有结果仍会经过权重池、冲突、晋升、重试、数值和规范化验证。
+2. 指定恩宠时先数学求逆对应的完整 Seed 集合。稀有度4只选一到两个独立普通词条条件时，会在 DirectCompute 中完整生成第一阶段并运行补全器；三个以上条件继续使用更快的“最终最多改写一槽”必要条件前筛。两条路径都不会把第一阶段词条直接当成最终结果，GPU 幸存 Seed 还会由 CPU 精确回放补全器。其他数学候选按批构造，普通词条、地形、敌人和特殊规则由 DirectCompute/CUDA 批量筛选；所有结果仍会经过权重池、冲突、晋升、重试、数值和规范化验证。
 3. 主词条候选、多个必含副词条、副词条任一组和必含项数值门槛都在完整 Seed 重放结果上检查；不指定时可直接比较返回候选中的实际词条。
-4. 地形、敌人和特殊规则同样由 Seed 离线生成并联合过滤。敌人列表只展示原生绘卷候选表中的合法名称，并按低手／中手／高手生成池档位分栏；这些档位不代表战斗强弱。多个必含敌人是 AND，同一个任一组中的敌人是 OR。选择一名敌人只保证至少出现该敌人；“合法组合一览”说明完整敌人组结构。结构上不可能共存的组合会在求解前直接报无解。
+4. 地形、敌人和特殊规则同样由 Seed 离线生成并联合过滤。敌人列表只展示原生绘卷候选表中的合法名称，并按低手／中手／高手生成池档位分栏；这些档位不代表战斗强弱。同名但实际形态不同的高手，以及金井半兵卫的人形／妖怪形态，均按原生 ID 拆成独立选项。多个必含敌人是 AND，同一个任一组中的敌人是 OR。选择一名敌人只保证至少出现该敌人；“合法组合一览”说明完整敌人组结构。结构上不可能共存的组合会在求解前直接报无解。
 5. “候选数量”决定一次返回多少张可比较绘卷（1–200）。每找到一张就会立即加入预览，不必等整轮完成；进度更新会自动合并，避免较慢电脑因界面消息堆积而失去响应。“单批数学游标数”只是每个计算块的大小，不是总搜索上限。程序会自动继续后续块，直到得到所需数量、完整数学族耗尽或用户取消。
-6. 完整词条组合优先使用通用 Direct3D 11 / DirectCompute 后端，支持 AMD、NVIDIA 和 Intel 显卡；其他固定抽取路径可使用 NVIDIA CUDA，没有对应显卡能力时回退到原生 CPU。界面会显示本次实际使用的后端，所有候选最后仍由完整离线生成器精确验证。
+6. 完整词条组合和部分普通词条可使用通用 Direct3D 11 / DirectCompute 后端，支持 AMD、NVIDIA 和 Intel 显卡；敌人、地形与特殊规则使用 NVIDIA CUDA。没有对应 GPU 快速路径时会立即停止并说明原因，不会静默回退到可能运行几十分钟的 CPU 全量搜索。所有 GPU 候选最后仍由完整离线生成器精确验证。
 7. 点击“计算候选 Seed”后，每找到一张完整匹配就会立刻加入下方列表；需要更多结果时点击“计算下一批候选”，程序从精确数学游标继续，不会重复以前的候选。
 
 四、已知 Seed 单点生成
@@ -1462,21 +1779,17 @@ class ScrollEditorApp:
         self.grace_map_cache: dict[tuple[str, int, int], GraceOutputMap] = {}
         self.auxiliary_names = load_auxiliary_name_catalog("zh-CN")
         startup_trace("auxiliary name catalog loaded")
-        terrain_effect_keys = {
-            TERRAIN_DISPLAY_CRUCIBLE_KEY,
-            *TERRAIN_DISPLAY_SPECIAL_KEYS.values(),
-        }
-        self.terrain_effect_by_label = {
-            f"{self.auxiliary_names.terrain_effect_name(key)} [0x{key:04X}]": key
-            for key in terrain_effect_keys
-        }
-        self.selected_terrain_effect_keys: set[int] = set()
-        self.terrain_filter_variables: dict[int, BooleanVar] = {}
-        self.selected_terrain_text = StringVar(value="地形必须包含：无（不筛选）")
+        rule_tables = load_default_auxiliary_generation_tables()
+        self.terrain_filter_rows_by_label = build_terrain_filter_options(
+            rule_tables,
+            self.auxiliary_names,
+        )
+        self.terrain_filter_choice = StringVar(value=NO_TERRAIN_FILTER_LABEL)
+        self.selected_terrain_row_indices: set[int] = set()
+        self.selected_terrain_text = StringVar(value="地形结果：任意（不筛选）")
         self.rule_search = StringVar(value="")
         self.selected_rule_text = StringVar(value="要求包含：无（不筛选）")
         self.selected_rule_option_ids: set[str] = set()
-        rule_tables = load_default_auxiliary_generation_tables()
         self.auxiliary_tables = rule_tables
         rule_groups = self.auxiliary_names.special_rule_key_groups(
             allowed_keys=legal_special_rule_keys(3, tables=rule_tables),
@@ -1563,9 +1876,11 @@ class ScrollEditorApp:
         legal_enemy_keys = {
             lookup_key for lookup_key in candidate_roles_by_key
         }
-        legal_enemy_groups = legal_enemy_display_groups(
-            enemy_groups,
-            legal_enemy_keys,
+        legal_enemy_groups = split_enemy_variant_display_groups(
+            legal_enemy_display_groups(
+                enemy_groups,
+                legal_enemy_keys,
+            )
         )
         self.enemy_key_groups = {
             min(keys): keys for keys in legal_enemy_groups.values()
@@ -1622,7 +1937,8 @@ class ScrollEditorApp:
         self.runtime_enemy_label_to_key = {
             (
                 f"[{ENEMY_TIER_LABELS[self.runtime_enemy_tier_by_key[key]]}] "
-                f"{self.auxiliary_names.enemy_name(key)} [0x{key:08X}]"
+                f"{enemy_variant_display_name(self.auxiliary_names.enemy_name(key), key)} "
+                f"[0x{key:08X}]"
             ): key
             for key in sorted(legal_enemy_keys)
         }
@@ -2151,9 +2467,13 @@ class ScrollEditorApp:
         ttk.Label(
             header,
             text=(
-                "●  CUDA Seed/主词条/地形/敌人预筛 · CPU 规则与完整词条重放"
+                "●  DirectCompute/CUDA 批量筛选 · CPU 仅验证 GPU 幸存结果"
                 if cuda_seed_acceleration_available()
-                else "●  原生 CPU 预筛 · 精确重放"
+                else (
+                    "●  DirectCompute 批量筛选 · 不支持的条件将立即停止"
+                    if d3d11_effect_acceleration_available()
+                    else "●  GPU 搜索后端不可用 · 不会回退到慢速 CPU"
+                )
             ),
             style="Ready.TLabel",
         ).pack(side=LEFT)
@@ -2214,7 +2534,7 @@ class ScrollEditorApp:
             warning,
             text=(
                 "三周目稀有度3、4、5的 Seed 求解与预览可完全离线运行，不需要启动游戏或读取存档。"
-                "其他周目、完整记录生成和写档仍只支持《仁王3》v2.00.02；写档前请让游戏回到标题界面。"
+                "其他周目、完整记录生成和写档支持《仁王3》PC v2.00.02 / v2.01；写档前请让游戏回到标题界面。"
             ),
             foreground="#E0A15E",
             wraplength=1000,
@@ -2495,7 +2815,7 @@ class ScrollEditorApp:
         ttk.Label(
             properties,
             text=(
-                "详情页左上角 Lv.；参与词条数值。PC v2.00.02 可传播范围 0–180，"
+                "详情页左上角 Lv.；参与词条数值。PC v2.00.02 / v2.01 可传播范围 0–180，"
                 "不控制敌人等级。"
             ),
             foreground=self.colors["muted"],
@@ -2537,7 +2857,7 @@ class ScrollEditorApp:
         terrain_header.pack(fill="x")
         ttk.Label(
             terrain_header,
-            text="地形影响必含（可多选）",
+            text="地形结果（选择一个原生组合）",
         ).pack(side=LEFT)
         ttk.Button(
             terrain_header,
@@ -2549,31 +2869,26 @@ class ScrollEditorApp:
             textvariable=self.selected_terrain_text,
             foreground="#E0B45B",
         ).pack(anchor="w", pady=(4, 2))
-        terrain_options = ttk.Frame(terrain_frame)
-        terrain_options.pack(fill="x")
-        for index, (label, effect_key) in enumerate(
-            sorted(
-                self.terrain_effect_by_label.items(),
-                key=lambda item: item[0].casefold(),
-            )
-        ):
-            variable = BooleanVar(value=False)
-            self.terrain_filter_variables[effect_key] = variable
-            ttk.Checkbutton(
-                terrain_options,
-                text=label,
-                variable=variable,
-                command=lambda key=effect_key: self._on_terrain_filter_changed(key),
-            ).grid(
-                row=index // 2,
-                column=index % 2,
-                sticky="w",
-                padx=(0, 12),
-                pady=1,
-            )
+        terrain_selector = ttk.Combobox(
+            terrain_frame,
+            textvariable=self.terrain_filter_choice,
+            values=(
+                NO_TERRAIN_FILTER_LABEL,
+                *self.terrain_filter_rows_by_label.keys(),
+            ),
+            state="readonly",
+        )
+        terrain_selector.pack(fill="x", pady=(2, 0))
+        terrain_selector.bind(
+            "<<ComboboxSelected>>",
+            lambda _event: self._on_terrain_filter_changed(),
+        )
         ttk.Label(
             terrain_frame,
-            text="地狱＋瘴血、地狱＋火是原生组合；不存在共同地形行的选择会立即报无解。",
+            text=(
+                "这里列出的每一项都是游戏可直接生成的完整结果。"
+                "“地狱＋火”和“地狱＋瘴血”不是两项自由拼接。"
+            ),
             foreground="#4BCB8A",
             wraplength=620,
             justify="left",
@@ -4047,7 +4362,7 @@ class ScrollEditorApp:
 
         terrain_frame = ttk.LabelFrame(
             outer,
-            text="地形组合（一个原生参数可同时显示多个效果）",
+            text="临时地形结果（只改当前游戏进程，不写存档）",
             padding=8,
         )
         terrain_frame.pack(fill="x", pady=(0, 8))
@@ -4055,7 +4370,7 @@ class ScrollEditorApp:
         terrain_controls.pack(fill="x")
         ttk.Checkbutton(
             terrain_controls,
-            text="覆盖地形",
+            text="临时替换此绘卷的地形",
             variable=terrain_enabled,
         ).pack(side=LEFT)
         terrain_value = (
@@ -4063,40 +4378,39 @@ class ScrollEditorApp:
             if active_profile is not None and active_profile.terrain_value is not None
             else auxiliary.terrain.value
         )
+        native_terrain_label = "＋".join(
+            self.auxiliary_names.terrain_effect_name(key)
+            for key in auxiliary.terrain.display_effect_keys
+        ) or "无地形影响"
         terrain_choice = StringVar(
-            value=self._label_for_runtime_value(
-                self.runtime_terrain_label_to_value,
-                terrain_value,
+            value=(
+                self._label_for_runtime_value(
+                    self.runtime_terrain_label_to_value,
+                    terrain_value,
+                )
+                or (
+                    native_terrain_label
+                    if native_terrain_label in self.runtime_terrain_label_to_value
+                    else self.runtime_terrain_labels[0]
+                )
             )
-            or self.runtime_terrain_labels[0]
         )
+        ttk.Label(terrain_controls, text="替换为：").pack(side=LEFT, padx=(10, 4))
         searchable_combobox(
             terrain_controls,
             terrain_choice,
             self.runtime_terrain_labels,
-        ).pack(side=LEFT, fill="x", expand=True, padx=(10, 0))
-        terrain_presets = ttk.Frame(terrain_frame)
-        terrain_presets.pack(fill="x", pady=(5, 0))
-        for label, value in (
-            ("地狱", 0xD4),
-            ("地狱＋火", 0x2D),
-            ("地狱＋瘴血", 0x08),
-        ):
-            preset = self._label_for_runtime_value(
-                self.runtime_terrain_label_to_value,
-                value,
-            )
-            if preset is None:
-                continue
-            ttk.Button(
-                terrain_presets,
-                text=label,
-                command=lambda value=preset: terrain_choice.set(value),
-            ).pack(side=LEFT, padx=(0, 5))
+        ).pack(side=LEFT, fill="x", expand=True)
         ttk.Label(
             terrain_frame,
-            text="“地狱＋瘴血”对应原生 terrain 0x08；不是两个会互相覆盖的独立字段。",
+            text=(
+                f"当前 Seed 原始结果：{native_terrain_label}。勾选后，游戏下次生成这张"
+                "绘卷的挑战信息时会临时改成所选完整结果；关闭软件、停止覆盖或重启游戏后恢复。"
+                "“地狱＋火”和“地狱＋瘴血”各自是一个整体结果。"
+            ),
             foreground="#4BCB8A",
+            wraplength=850,
+            justify="left",
         ).pack(anchor="w", pady=(4, 0))
 
         rule_frame = ttk.LabelFrame(outer, text="三个有序特殊规则槽", padding=8)
@@ -4204,7 +4518,10 @@ class ScrollEditorApp:
                 )
                 if not self._stop_local_runtime_override(show_error=False):
                     raise RuntimeError("无法安全停止上一项临时覆盖")
-                session = RuntimeAuxiliaryOverrideSession(profile)
+                session = RuntimeAuxiliaryOverrideSession(
+                    profile,
+                    runtime_profile=self._native_runtime_profile(),
+                )
                 session.start()
             except Exception as error:
                 messagebox.showerror("无法应用临时覆盖", str(error), parent=dialog)
@@ -5244,28 +5561,28 @@ class ScrollEditorApp:
         self._mark_intersection_stale()
 
     def _update_terrain_summary(self) -> None:
-        names = [
-            self.auxiliary_names.terrain_effect_name(key)
-            for key in sorted(self.selected_terrain_effect_keys)
-        ]
+        label = self.terrain_filter_choice.get()
         self.selected_terrain_text.set(
-            "地形必须包含：" + ("＋".join(names) if names else "无（不筛选）")
+            "地形结果："
+            + (
+                "任意（不筛选）"
+                if label == NO_TERRAIN_FILTER_LABEL
+                else label
+            )
         )
 
-    def _on_terrain_filter_changed(self, effect_key: int) -> None:
-        variable = self.terrain_filter_variables.get(effect_key)
-        if variable is not None and variable.get():
-            self.selected_terrain_effect_keys.add(effect_key)
-        else:
-            self.selected_terrain_effect_keys.discard(effect_key)
+    def _on_terrain_filter_changed(self) -> None:
+        label = self.terrain_filter_choice.get()
+        self.selected_terrain_row_indices = set(
+            self.terrain_filter_rows_by_label.get(label, frozenset())
+        )
         self._update_terrain_summary()
         self._mark_intersection_stale()
         self._update_calculation_controls()
 
     def _clear_terrain_selection(self) -> None:
-        self.selected_terrain_effect_keys.clear()
-        for variable in self.terrain_filter_variables.values():
-            variable.set(False)
+        self.terrain_filter_choice.set(NO_TERRAIN_FILTER_LABEL)
+        self.selected_terrain_row_indices.clear()
         self._update_terrain_summary()
         self._mark_intersection_stale()
         self._update_calculation_controls()
@@ -5660,7 +5977,8 @@ class ScrollEditorApp:
             return f"特殊规则 {self._deduplicate_names(names)}"
         if stage.kind == "enemy":
             names = [
-                f"{self.auxiliary_names.enemy_name(value)} [0x{value:08X}]"
+                f"{enemy_variant_display_name(self.auxiliary_names.enemy_name(value), value)} "
+                f"[0x{value:08X}]"
                 for value in stage.values
             ]
             return f"敌人 {self._deduplicate_names(names)}"
@@ -5742,8 +6060,8 @@ class ScrollEditorApp:
 
         if certified_ng3_mode:
             self.calculation_mode_hint.set(
-                "离线精确求解：CUDA 分块构造 Seed 前像，并批量预筛主词条、"
-                "地形与敌人；CPU 只重放幸存候选的特殊规则和完整词条。"
+                "离线精确求解：DirectCompute/CUDA 分块构造并批量筛选普通词条、"
+                "地形、敌人与特殊规则；CPU 只验证 GPU 幸存候选。"
                 "恩宠可指定或任意。"
             )
         elif joint_mode:
@@ -5829,18 +6147,7 @@ class ScrollEditorApp:
                     raise ValueError(
                         f"所选恩宠 0x{grace_effect_id:04X} 不存在于稀有度{rarity}的已测映射中"
                     ) from error
-        terrain_effects = frozenset(self.selected_terrain_effect_keys)
-        if terrain_effects and not terrain_rows_containing_effects(
-            terrain_effects,
-            tables=self.auxiliary_tables,
-        ):
-            names = "＋".join(
-                self.auxiliary_names.terrain_effect_name(key)
-                for key in sorted(terrain_effects)
-            )
-            raise ValueError(
-                f"所选地形组合原生无解：没有任何地形行会同时显示 {names}"
-            )
+        terrain_rows = frozenset(self.selected_terrain_row_indices)
         mandatory_enemy_keys, enemy_any_groups = partition_grouped_selections(
             self.selected_enemy_keys,
             self.selected_enemy_any_group_by_key,
@@ -5854,7 +6161,7 @@ class ScrollEditorApp:
             for display_key_group in enemy_any_groups
         )
         auxiliary_criteria = AuxiliarySearchCriteria(
-            required_terrain_effect_keys=terrain_effects,
+            terrain_row_indices=terrain_rows,
             required_special_rule_key_groups=tuple(
                 self.rule_option_by_token[token].keys
                 for token in sorted(self.selected_rule_option_ids)
@@ -6035,7 +6342,7 @@ class ScrollEditorApp:
         if rarity not in PRODUCT_RARITIES:
             raise ValueError("当前正式入口仅提供原生绘卷稀有度3、4、5")
         if not 0 <= level <= 180:
-            raise ValueError("PC v2.00.02 的可传播绘卷等级必须在 0 到 180 之间")
+            raise ValueError("PC v2.00.02 / v2.01 的可传播绘卷等级必须在 0 到 180 之间")
         if not 0 <= recommended <= 65535:
             raise ValueError("推荐等级内部值必须在 0 到 65535 之间")
         recommended = predict_recommended_level(recommended).canonical_internal_level
@@ -6044,6 +6351,14 @@ class ScrollEditorApp:
     def _ensure_supported_game_version(self) -> None:
         if self.game_compatibility.known_mismatch:
             raise ValueError(self.game_compatibility.detail)
+
+    def _native_runtime_profile(self) -> NativeRuntimeProfile:
+        status = self.game_compatibility
+        if not status.supported or status.file_version is None:
+            raise ValueError(
+                "无法确认当前游戏的精确版本，已拒绝调用游戏内原生生成函数"
+            )
+        return native_runtime_profile_for_game_version(status.file_version)
 
     def _require_ready(self) -> Path:
         self._ensure_supported_game_version()
@@ -6237,7 +6552,11 @@ class ScrollEditorApp:
                             "请启动游戏并回到标题界面，勾选确认后先执行一次求解以建立缓存"
                         )
                 template = inventory.template_record_for_playthrough(playthrough)
-                with NativeBatchOracle(max_batch_size=1) as oracle:
+                with NativeBatchOracle(
+                    max_batch_size=1,
+                    runtime_profile=self._native_runtime_profile(),
+                    preserve_requested_rarity=True,
+                ) as oracle:
                     source = build_source_record(
                         template,
                         seed=seed,
@@ -6364,12 +6683,12 @@ class ScrollEditorApp:
             if joint_start_after_trial > 0:
                 self.status.set(
                     "正在从上一离线游标继续求下一批完整 Seed；"
-                    "正在选择 DirectCompute / CUDA / CPU 最优路径……"
+                    "正在选择 DirectCompute / CUDA 快速路径……"
                 )
             else:
                 self.status.set(
                     "正在分析原生结构并联合过滤词条、地形、敌人与特殊规则；"
-                    "正在选择 DirectCompute / CUDA / CPU 最优路径……"
+                    "正在选择 DirectCompute / CUDA 快速路径……"
                 )
         elif primary_only_mode:
             if joint_start_after_trial > 0:
@@ -6549,7 +6868,11 @@ class ScrollEditorApp:
                         search_run_id, "progress", update
                     )
 
-                with NativeBatchOracle(max_batch_size=2048) as oracle:
+                with NativeBatchOracle(
+                    max_batch_size=2048,
+                    runtime_profile=self._native_runtime_profile(),
+                    preserve_requested_rarity=True,
+                ) as oracle:
                     primary_output_map = None
                     primary_first_output_map = None
                     grace_output_map = None
@@ -6827,7 +7150,7 @@ class ScrollEditorApp:
             or self.selected_secondary_ids
             or self.selected_rule_option_ids
             or self.selected_enemy_keys
-            or self.selected_terrain_effect_keys
+            or self.selected_terrain_row_indices
         )
         can_solve = rarity in (3, 4, 5) and (
             (
@@ -7195,7 +7518,10 @@ class ScrollEditorApp:
                     for entry in auxiliary.special_rules.entries
                 )
                 enemies = " / ".join(
-                    self.auxiliary_names.enemy_name(entry.lookup_key)
+                    enemy_variant_display_name(
+                        self.auxiliary_names.enemy_name(entry.lookup_key),
+                        entry.lookup_key,
+                    )
                     for group in auxiliary.enemies.groups
                     for entry in group.entries
                 )
@@ -7276,7 +7602,10 @@ class ScrollEditorApp:
                     rule_summary += f" 等{len(rule_names)}项"
                 parts.append(f"规则：{rule_summary}")
             enemy_names = [
-                self.auxiliary_names.enemy_name(entry.lookup_key)
+                enemy_variant_display_name(
+                    self.auxiliary_names.enemy_name(entry.lookup_key),
+                    entry.lookup_key,
+                )
                 for group in candidate.auxiliary.enemies.groups
                 for entry in group.entries
             ]
@@ -7441,7 +7770,10 @@ class ScrollEditorApp:
             )
             for group_index, group in enumerate(auxiliary.enemies.groups, start=1):
                 names = [
-                    self.auxiliary_names.enemy_name(entry.lookup_key)
+                    enemy_variant_display_name(
+                        self.auxiliary_names.enemy_name(entry.lookup_key),
+                        entry.lookup_key,
+                    )
                     for entry in group.entries
                 ]
                 keys = [f"0x{entry.lookup_key:08X}" for entry in group.entries]
@@ -7539,7 +7871,7 @@ class ScrollEditorApp:
             recommended_level = int(self.recommended.get(), 0)
             transfer_count = int(self.transfer_count.get(), 0)
             if not 0 <= level <= 180:
-                raise ValueError("PC v2.00.02 的可传播绘卷等级必须在 0 到 180 之间")
+                raise ValueError("PC v2.00.02 / v2.01 的可传播绘卷等级必须在 0 到 180 之间")
             if not 0 <= recommended_level <= 0xFFFF:
                 raise ValueError("推荐等级必须在 0 到 65535 之间")
             if not 0 <= transfer_count <= 0xFFFFFFFF:

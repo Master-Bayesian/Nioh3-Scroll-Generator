@@ -172,7 +172,7 @@ Rows are grouped only when role and all three native names match. The JSON and C
 | 4 | 血烟阿银 | 血煙お銀 | Blood-Spurting Ogin | `0x0004CC1C@439` |
 | 4 | 近藤勇 | 近藤勇 | Kondo Isami | `0x0001F6E5@415` |
 | 4 | 那须与一 | 那須与一 | Nasu no Yoichi | `0x00039B5F@408` |
-| 4 | 金井半兵卫 | 金井半兵衛 | Kanai Hanbei | `0x0000F9CA@426` |
+| 4 | 金井半兵卫（人形） | 金井半兵衛（人型） | Kanai Hanbei（Human form） | `0x0000F9CA@426` |
 | 4 | 风魔小太郎 | 風魔小太郎 | Fuma Kotaro | `0x000C9D7F@397` |
 | 4 | 高坂昌信 | 高坂昌信 | Kosaka Masanobu | `0x000431DA@411` |
 | 4 | 高岛秋帆 | 高島秋帆 | Takashima Shuhan | `0x000801A9@403` |
@@ -184,20 +184,25 @@ Rows are grouped only when role and all three native names match. The JSON and C
 | 5 | 大天狗 | 大天狗 | Great Tengu | `0x00041DB6@446` |
 | 5 | 大蛤蟆 | 大蝦蟇 | Giant Toad | `0x00033773@470` |
 | 5 | 女郎蜘蛛 | 女郎蜘蛛 | Joro-gumo | `0x00017AD0@466` |
-| 5 | 山县昌景 | 山県昌景 | Yamagata Masakage | `0x0004B03B@390`, `0x00092063@444` |
+| 5 | 山县昌景（人形） | 山県昌景（人型） | Yamagata Masakage（Human form） | `0x0004B03B@390` |
+| 5 | 山县昌景（妖怪形态） | 山県昌景（妖怪形態） | Yamagata Masakage（Yokai form） | `0x00092063@444` |
 | 5 | 德川国松 | 徳川国松 | Tokugawa Kunimatsu | `0x000F1A7F@394` |
 | 5 | 德川庆喜 | 徳川慶喜 | Tokugawa Yoshinobu | `0x00041A50@451` |
 | 5 | 怨灵鬼 | 怨霊鬼 | Onryoki | `0x00040A3B@469` |
 | 5 | 惧鬼 | おとろし | Otoroshi | `0x0005AAF9@448` |
 | 5 | 执心鬼 | 執心鬼 | Demon of Obsession | `0x0007C995@456` |
 | 5 | 斋藤福 | 斎藤福 | Saito Fuku | `0x000A3F52@420` |
-| 5 | 服部半藏 | 服部半蔵 | Hattori Hanzo | `0x000D35E1@419`, `0x000202A7@422` |
+| 5 | 服部半藏（先代／父（鬼半藏）） | 服部半蔵（先代／父（鬼半蔵）） | Hattori Hanzo（Former / father (Demon Hanzo)） | `0x000202A7@422` |
+| 5 | 服部半藏（现任／子） | 服部半蔵（現任／息子） | Hattori Hanzo（Current / son） | `0x000D35E1@419` |
 | 5 | 本多忠胜 | 本多忠勝 | Honda Tadakatsu | `0x000F0361@421` |
 | 5 | 柳生十兵卫 | 柳生十兵衛 | Yagyu Jubei | `0x00064B4D@396` |
 | 5 | 柳生宗矩 | 柳生宗矩 | Yagyu Munenori | `0x000BD9D5@418` |
 | 5 | 梶原景时 | 梶原景時 | Kajiwara Kagetoki | `0x000B0DAA@391` |
-| 5 | 武田信玄 | 武田信玄 | Takeda Shingen | `0x00071ED1@389`, `0x0000A5D2@445` |
-| 5 | 比留呼 | 比留呼 | Hiruko | `0x000B605B@395`, `0x0004ACDF@452`, `0x00093F79@453` |
+| 5 | 武田信玄（人形） | 武田信玄（人型） | Takeda Shingen（Human form） | `0x00071ED1@389` |
+| 5 | 武田信玄（妖怪形态） | 武田信玄（妖怪形態） | Takeda Shingen（Yokai form） | `0x0000A5D2@445` |
+| 5 | 比留呼（人形） | 比留呼（人型） | Hiruko（Human form） | `0x000B605B@395` |
+| 5 | 比留呼（古代妖怪形态） | 比留呼（古代妖怪形態） | Hiruko（Ancient-yokai form） | `0x0004ACDF@452` |
+| 5 | 比留呼（江户妖怪形态） | 比留呼（江戸妖怪形態） | Hiruko（Edo-yokai form） | `0x00093F79@453` |
 | 5 | 涂佛 | 塗仏 | Nuribotoke | `0x0005FEA7@450` |
 | 5 | 源赖朝 | 源頼朝 | Minamoto no Yoritomo | `0x00003EE6@447` |
 | 5 | 火车 | 火車 | Kasha | `0x000CA888@467` |
@@ -208,7 +213,7 @@ Rows are grouped only when role and all three native names match. The JSON and C
 | 5 | 草薙 | 草薙 | Kusanagi | `0x000A0477@457` |
 | 5 | 蛇骨婆 | 蛇骨婆 | Jakotsu-baba | `0x000E7450@442` |
 | 5 | 血刀修罗 | 血刀修羅 | Bloodedge Demon | `0x00003921@486` |
-| 5 | 金井半兵卫 | 金井半兵衛 | Kanai Hanbei | `0x000179F7@459` |
+| 5 | 金井半兵卫（妖怪形态） | 金井半兵衛（妖怪形態） | Kanai Hanbei（Yokai form） | `0x000179F7@459` |
 | 5 | 镰鼬 | 鎌鼬 | Kamaitachi | `0x000C76B4@462` |
 | 5 | 阴摩罗鬼 | 陰摩羅鬼 | Onmoraki | `0x000C327F@468` |
 | 5 | 飞缘魔 | 飛縁魔 | Hino-enma | `0x000147F1@463` |

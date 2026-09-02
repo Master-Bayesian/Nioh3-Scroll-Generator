@@ -38,8 +38,11 @@ global semantic key.
 
 ## Version index
 
+- [Current development handoff](CURRENT_HANDOFF.md)
+- [Game-version update pipeline](GAME_VERSION_UPDATE_PIPELINE.md)
 - [PC v2.00.02](versions/pc-v2.00.02/README.md)
 - [PC v2.00.02 player enemy-combination guide](versions/pc-v2.00.02/catalogs/enemy-combinations.md)
+- [PC v2.01 approved compatibility profile](versions/pc-v2.01/README.md)
 
 ## Update procedure
 

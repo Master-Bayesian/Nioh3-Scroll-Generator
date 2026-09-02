@@ -10,7 +10,7 @@
       2
     ],
     "mode_row_count": 7,
-    "display_entry_count": 142,
+    "display_entry_count": 148,
     "unavailable_display_entry_count": 69,
     "native_localization_display_entry_count": 211,
     "candidate_row_count": 487,
@@ -33,17 +33,17 @@
     },
     "A": {
       "title": "Dedicated pool A (native role 4)",
-      "display_entry_count": 40,
+      "display_entry_count": 41,
       "rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
     },
     "B": {
       "title": "Dedicated pool B (native role 5)",
-      "display_entry_count": 37,
+      "display_entry_count": 43,
       "rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
     },
     "A/B": {
       "title": "Dedicated pool A/B alternative (native roles 4 and 5)",
-      "display_entry_count": 1,
+      "display_entry_count": 0,
       "rule": "This display name has distinct native candidates in both dedicated pools. Treat it as A in class 0 or as the one B requirement in class 1."
     }
   },
@@ -4221,6 +4221,38 @@
     },
     {
       "names": {
+        "zh-CN": "金井半兵卫（人形）",
+        "ja-JP": "金井半兵衛（人型）",
+        "en-US": "Kanai Hanbei（Human form）"
+      },
+      "player_family": "A",
+      "native_roles": [
+        4
+      ],
+      "viable_classes_for_single_requirement": [
+        0
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0000F9CA"
+      ],
+      "candidate_rows": [
+        426
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Structurally available only to class 0. It cannot coexist with an O requirement in the normal generator. Class 0 has at most three entries and reserves one entry for B, so at most two A-only requirements fit."
+    },
+    {
+      "names": {
         "zh-CN": "风魔小太郎",
         "ja-JP": "風魔小太郎",
         "en-US": "Fuma Kotaro"
@@ -4580,9 +4612,9 @@
     },
     {
       "names": {
-        "zh-CN": "山县昌景",
-        "ja-JP": "山県昌景",
-        "en-US": "Yamagata Masakage"
+        "zh-CN": "山县昌景（人形）",
+        "ja-JP": "山県昌景（人型）",
+        "en-US": "Yamagata Masakage（Human form）"
       },
       "player_family": "B",
       "native_roles": [
@@ -4600,17 +4632,48 @@
         5
       ],
       "candidate_keys": [
-        "0x0004B03B",
+        "0x0004B03B"
+      ],
+      "candidate_rows": [
+        390
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "山县昌景（妖怪形态）",
+        "ja-JP": "山県昌景（妖怪形態）",
+        "en-US": "Yamagata Masakage（Yokai form）"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
         "0x00092063"
       ],
       "candidate_rows": [
-        390,
         444
       ],
       "costs": [
         4.0
       ],
-      "candidate_count": 2,
+      "candidate_count": 1,
       "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
     },
     {
@@ -4813,9 +4876,9 @@
     },
     {
       "names": {
-        "zh-CN": "服部半藏",
-        "ja-JP": "服部半蔵",
-        "en-US": "Hattori Hanzo"
+        "zh-CN": "服部半藏（先代／父（鬼半藏））",
+        "ja-JP": "服部半蔵（先代／父（鬼半蔵））",
+        "en-US": "Hattori Hanzo（Former / father (Demon Hanzo)）"
       },
       "player_family": "B",
       "native_roles": [
@@ -4833,17 +4896,48 @@
         5
       ],
       "candidate_keys": [
-        "0x000202A7",
-        "0x000D35E1"
+        "0x000202A7"
       ],
       "candidate_rows": [
-        419,
         422
       ],
       "costs": [
         4.0
       ],
-      "candidate_count": 2,
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "服部半藏（现任／子）",
+        "ja-JP": "服部半蔵（現任／息子）",
+        "en-US": "Hattori Hanzo（Current / son）"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000D35E1"
+      ],
+      "candidate_rows": [
+        419
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
       "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
     },
     {
@@ -4980,9 +5074,9 @@
     },
     {
       "names": {
-        "zh-CN": "武田信玄",
-        "ja-JP": "武田信玄",
-        "en-US": "Takeda Shingen"
+        "zh-CN": "武田信玄（人形）",
+        "ja-JP": "武田信玄（人型）",
+        "en-US": "Takeda Shingen（Human form）"
       },
       "player_family": "B",
       "native_roles": [
@@ -5000,24 +5094,55 @@
         5
       ],
       "candidate_keys": [
-        "0x0000A5D2",
         "0x00071ED1"
       ],
       "candidate_rows": [
-        389,
+        389
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "武田信玄（妖怪形态）",
+        "ja-JP": "武田信玄（妖怪形態）",
+        "en-US": "Takeda Shingen（Yokai form）"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0000A5D2"
+      ],
+      "candidate_rows": [
         445
       ],
       "costs": [
         4.0
       ],
-      "candidate_count": 2,
+      "candidate_count": 1,
       "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
     },
     {
       "names": {
-        "zh-CN": "比留呼",
-        "ja-JP": "比留呼",
-        "en-US": "Hiruko"
+        "zh-CN": "比留呼（人形）",
+        "ja-JP": "比留呼（人型）",
+        "en-US": "Hiruko（Human form）"
       },
       "player_family": "B",
       "native_roles": [
@@ -5035,19 +5160,81 @@
         5
       ],
       "candidate_keys": [
-        "0x0004ACDF",
-        "0x00093F79",
         "0x000B605B"
       ],
       "candidate_rows": [
-        395,
-        452,
+        395
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "比留呼（古代妖怪形态）",
+        "ja-JP": "比留呼（古代妖怪形態）",
+        "en-US": "Hiruko（Ancient-yokai form）"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x0004ACDF"
+      ],
+      "candidate_rows": [
+        452
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
+        "zh-CN": "比留呼（江户妖怪形态）",
+        "ja-JP": "比留呼（江戸妖怪形態）",
+        "en-US": "Hiruko（Edo-yokai form）"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x00093F79"
+      ],
+      "candidate_rows": [
         453
       ],
       "costs": [
         4.0
       ],
-      "candidate_count": 3,
+      "candidate_count": 1,
       "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
     },
     {
@@ -5380,6 +5567,39 @@
     },
     {
       "names": {
+        "zh-CN": "金井半兵卫（妖怪形态）",
+        "ja-JP": "金井半兵衛（妖怪形態）",
+        "en-US": "Kanai Hanbei（Yokai form）"
+      },
+      "player_family": "B",
+      "native_roles": [
+        5
+      ],
+      "viable_classes_for_single_requirement": [
+        0,
+        1
+      ],
+      "enabled_playthroughs_union": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "candidate_keys": [
+        "0x000179F7"
+      ],
+      "candidate_rows": [
+        459
+      ],
+      "costs": [
+        4.0
+      ],
+      "candidate_count": 1,
+      "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
+    },
+    {
+      "names": {
         "zh-CN": "镰鼬",
         "ja-JP": "鎌鼬",
         "en-US": "Kamaitachi"
@@ -5575,42 +5795,6 @@
       ],
       "candidate_count": 1,
       "family_rule": "Available to class 0, or to the single highest-group B position in class 1. It can coexist with O only when at most one requested enemy is assigned to B."
-    },
-    {
-      "names": {
-        "zh-CN": "金井半兵卫",
-        "ja-JP": "金井半兵衛",
-        "en-US": "Kanai Hanbei"
-      },
-      "player_family": "A/B",
-      "native_roles": [
-        4,
-        5
-      ],
-      "viable_classes_for_single_requirement": [
-        0,
-        1
-      ],
-      "enabled_playthroughs_union": [
-        1,
-        2,
-        3,
-        4,
-        5
-      ],
-      "candidate_keys": [
-        "0x0000F9CA",
-        "0x000179F7"
-      ],
-      "candidate_rows": [
-        426,
-        459
-      ],
-      "costs": [
-        4.0
-      ],
-      "candidate_count": 2,
-      "family_rule": "This display name has distinct native candidates in both dedicated pools. Treat it as A in class 0 or as the one B requirement in class 1."
     }
   ],
   "unavailable_display_entries": [

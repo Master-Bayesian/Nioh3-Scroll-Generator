@@ -15,6 +15,14 @@ external/
 .build/
 .tmp/
 .work/
+build/
+dist/
+output/
+outputs/
+tmp/
+*.obj
+*.exp
+*.lib
 
 # User saves and local game/runtime captures
 SAVEDATA*
@@ -34,6 +42,12 @@ updates/
 
 # Keep only reviewed public research sources from the internal research tree
 research/*
+!research/ILLEGAL_AUXILIARY_OVERRIDE_PROOF.md
+!research/probe_illegal_auxiliary_override_ce.lua
+!research/probe_auxiliary_property_origin_ce.lua
+!research/scan_auxiliary_companion_layouts.py
+!research/probe_save_write_origin_ce.lua
+!research/probe_save_record_serialization_ce.lua
 !research/EFFECT_CATALOG_CAPTURE_METHOD.md
 !research/EFFECT_GENERATION_TABLE_INDEX.md
 !research/EFFECT_SEED_SOLVER.md
@@ -50,5 +64,15 @@ research/*
 !research/probe_scroll_auxiliary_text_catalog.py
 !research/solve_effect_seed.py
 !research/verify_reported_rare_combination.py
+!research/build_r4_finalizer_resource.py
+!research/capture_native_auxiliary_vectors.py
+!research/disassemble_native_functions.py
+!research/dump_live_pe_sections.py
+!research/dump_r4_finalizer_tables.py
+!research/find_runtime_data_xrefs.py
+!research/native_xrefs.py
+!research/validate_ng3_rarity3_native_parity_live.py
+!research/validate_ng3_rarity4_native_parity_live.py
+!research/validate_ng3_rarity5_native_parity_live.py
 !research/test_vectors/
 !research/test_vectors/r4_seed_183696634_records_sanitized.json
