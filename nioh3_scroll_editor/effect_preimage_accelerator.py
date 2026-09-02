@@ -600,14 +600,14 @@ def _d3d11_effect_self_test(vendor_id: int) -> bool:
             playthrough=3,
             rarity=4,
             primary_effect_ids=frozenset(),
-            required_secondary_ids=frozenset((0xDFF0,)),
-            required_secondary_id_groups=(),
+            required_secondary_ids=frozenset((0x6CE3, 0x47D2)),
+            required_secondary_id_groups=(frozenset((0xDFF0, 0xB613)),),
             special_mapping=load_grace_output_map(rarity=4),
         )
         return bool(
             filtered is not None
-            and filtered.target_mask == 1
-            and filtered.masks == (1,)
+            and filtered.target_mask == 7
+            and filtered.masks == (7,)
         )
     except (OSError, RuntimeError, ValueError):
         return False
