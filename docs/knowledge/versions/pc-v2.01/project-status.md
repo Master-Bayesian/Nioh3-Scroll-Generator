@@ -2,7 +2,7 @@
 
 ## Status
 
-`approved-for-product`; integrated in v0.6.7.
+`released`; integrated in stable v0.6.7 on 2026-09-02.
 
 ## Passed
 
@@ -24,6 +24,10 @@
   save with the unchanged 400-slot layout.
 - Product version registry, native runtime profile, auxiliary-hook profile,
   rarity-5 preservation mode, and complete 401-test release regression.
+- The GitHub release workflow passed its 401-test suite, built the one-file
+  executable, signed `latest.json`, and published both assets. The downloaded
+  release manifest, size, SHA-256, Ed25519 signature, and GUI startup smoke all
+  passed locally after publication.
 
 ## Known version difference
 
@@ -36,8 +40,6 @@ native result.
 
 ## Remaining acceptance
 
-- Packaged executable startup and update-manifest verification are release
-  gates.
 - First player-side v2.01 generation, installation, detail display, and live
   challenge remain post-release acceptance evidence, not a pretense of an
   already observed result.

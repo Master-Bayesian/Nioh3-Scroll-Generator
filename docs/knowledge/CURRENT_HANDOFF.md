@@ -8,9 +8,8 @@ is ready to ship.
 
 - Repository: `F:\Nioh3_ScrollEditor`
 - Branch: `codex/todo-321`
-- Public baseline before this migration: tag `v0.6.6`.
-- Release target: stable `v0.6.7`, explicitly approved by the user on
-  2026-09-02 for immediate PC v2.01 compatibility publication.
+- Public baseline: stable tag `v0.6.7`, published on 2026-09-02 from commit
+  `5c9986d` with PC v2.01 and PC v2.00.02 support.
 - The earlier local `v0.6.7-beta.1` acceptance build remains historical and is
   not part of either update channel.
 - Preserve unrelated untracked research, captures, packages, and user files.
@@ -130,16 +129,16 @@ unsupported.
 
 ## Remaining order
 
-1. Finish the stable v0.6.7 build, signed update manifest, GitHub release, and
-   public update-channel verification.
-2. Post-release, live-check the exact-role runtime enemy overwrite after the application hit
+1. Collect player-side PC v2.01 generation, installation, detail-display, and
+   challenge evidence; automated parity and startup smoke are not gameplay
+   acceptance.
+2. Live-check the exact-role runtime enemy overwrite after the application hit
    counter reaches at least one. A zero-hit profile still means the game reused
    a cached descriptor and no overwrite occurred.
 3. Resolve native item key `0x3011` through its exact item-row localization text
    IDs; do not infer the item name from neighboring rows.
-4. Collect player-side v2.01 generation, installation, detail-display, and live
-   challenge evidence without representing release-gate automation as gameplay
-   acceptance.
+4. Preserve the published v0.6.7 assets and signed manifest under
+   `deliverables/v0.6.7/` for local handoff.
 5. In the release after the PC v2.01 compatibility release, research the native
    mechanism behind purple or empowered enemy appearances and whether possessed
    Underworld forms of ordinary enemies can be represented as independent
