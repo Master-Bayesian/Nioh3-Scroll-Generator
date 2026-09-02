@@ -46,12 +46,15 @@ from nioh3_scroll_editor.effect_sequence import (
 )
 from nioh3_scroll_editor.grace_map import load_grace_output_map
 from nioh3_scroll_editor.joint_solver import _permuted_values, choose_pivot
+from nioh3_scroll_editor.seed_accelerator import cuda_seed_acceleration_available
 from nioh3_seed_math import state_after_draw_from_seed
 
 
-def _native_pivot_trial_for_seed(seed: int, pivot) -> int:
+def _product_pivot_trial_for_seed(seed: int, pivot) -> int:
     values = _permuted_values(pivot.allowed_u16)
     state = state_after_draw_from_seed(seed, pivot.draw_index)
+    if not cuda_seed_acceleration_available():
+        return values.index(state >> 16) * 0x10000 + (state & 0xFFFF) + 1
     low_index = ((state & 0xFFFF) * pow(0x9E37, -1, 0x10000)) & 0xFFFF
     rotation = low_index % len(values)
     bucket_index = (values.index(state >> 16) - rotation) % len(values)
@@ -171,7 +174,7 @@ class EffectPreimageAcceleratorTests(unittest.TestCase):
             replay_primary=True,
         )
         pivot = choose_pivot(constraints)
-        target_trial = _native_pivot_trial_for_seed(seed, pivot)
+        target_trial = _product_pivot_trial_for_seed(seed, pivot)
         result = collect_offline_ng3_search_batch(
             request,
             grace_mapping=mapping,
@@ -411,7 +414,7 @@ class EffectPreimageAcceleratorTests(unittest.TestCase):
             replay_primary=True,
         )
         pivot = choose_pivot(constraints)
-        target_trial = _native_pivot_trial_for_seed(2, pivot)
+        target_trial = _product_pivot_trial_for_seed(2, pivot)
         result = collect_offline_ng3_search_batch(
             request,
             grace_mapping=mapping,
@@ -439,7 +442,7 @@ class EffectPreimageAcceleratorTests(unittest.TestCase):
             replay_primary=True,
         )
         pivot = choose_pivot(constraints)
-        target_trial = _native_pivot_trial_for_seed(2, pivot)
+        target_trial = _product_pivot_trial_for_seed(2, pivot)
         result = collect_offline_ng3_search_batch(
             product_request,
             grace_mapping=mapping,

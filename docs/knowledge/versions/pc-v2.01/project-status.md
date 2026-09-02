@@ -24,9 +24,6 @@
   save with the unchanged 400-slot layout.
 - Product version registry, native runtime profile, auxiliary-hook profile,
   rarity-5 preservation mode, and complete 401-test release regression.
-- Direct3D 11 readiness requires successful preimage and rarity-4 finalizer
-  shader round trips; creating a device alone is not treated as a working GPU
-  backend.
 
 ## Known version difference
 

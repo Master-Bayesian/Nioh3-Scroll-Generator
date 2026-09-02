@@ -5,7 +5,7 @@
 - 新增 PC v2.01 精确版本配置。程序会根据游戏 EXE 版本选择独立的原生函数地址与特征签名；未知后续版本仍会拒绝运行时调用，不会误用旧地址。
 - 对 PC v2.01 完成原生回归验证：稀有度 3、4 各 10,000 个 Seed 完整一致；稀有度 5 的 10,000 个 Seed 词条逐槽一致；敌人、地形、特殊规则与参数表和旧版一致；当前加密存档仍使用原有 400 栏位结构。
 - PC v2.01 新增“功能标志 9”稀有度上限。标志不可用时，游戏原生组装器会把稀有度 5 记录头限制为 4，但词条算法没有变化。工具继续保留用户明确选择的原始稀有度 5，并在写入前进行完整词条验证。
-- 补齐稀有度 4 的 DirectCompute 最终化筛选，以及“主词条不限”和部分词条条件的 GPU 快速路径。后端现在必须实际通过预像与稀有度 4 最终化着色器自检，避免把不能正确运算的虚拟显卡误报为可用。大范围搜索不再静默回退到可能运行几十分钟的 CPU/Python 路径；缺少必要 GPU 后端时会直接说明原因。
+- 补齐稀有度 4 的 DirectCompute 最终化筛选，以及“主词条不限”和部分词条条件的 GPU 快速路径。大范围搜索不再静默回退到可能运行几十分钟的 CPU/Python 路径；缺少必要 GPU 后端时会直接说明原因。
 - 将同名但不同原生 ID 的高手敌人，以及金井半兵卫的人形／妖怪形态拆成独立选项，搜索和临时修改均只匹配所选形态。
 - 地形搜索只提供游戏实际存在的完整结果组合；临时修改器明确区分原始结果与临时替换结果。
 - 新增可重复使用的游戏更新迁移管线：截取只读代码段、重定位签名、对比运行时参数表、执行原生生成回归，再由版本门禁决定是否允许产品启用。
@@ -21,7 +21,7 @@ This stable release adds Nioh 3 PC v2.01 compatibility while retaining PC v2.00.
 - Adds an exact PC v2.01 runtime profile. The app selects independent native addresses and signatures from the detected executable version. Unknown future versions remain fail-closed.
 - Completes native PC v2.01 regression gates: 10,000 full-record Seed checks each for rarities 3 and 4; 10,000 slot-exact rarity-5 checks; unchanged enemy, terrain, special-rule, and parameter resources; and the unchanged encrypted-save 400-slot layout.
 - Models the new PC v2.01 feature-flag-9 rarity cap. When that flag is unavailable, the native assembler caps a rarity-5 record header to 4 while leaving its generated effects unchanged. The tool preserves an explicitly requested raw rarity 5 and still performs complete effect validation before installation.
-- Completes DirectCompute finalizer-aware rarity-4 filtering and GPU fast paths for unrestricted-primary and partial-effect requests. A backend must now pass real preimage and rarity-4 finalizer shader self-tests, preventing nonfunctional virtual adapters from being reported as usable. Broad searches no longer silently fall back to impractically slow CPU/Python scans; unavailable required GPU backends now produce an actionable error.
+- Completes DirectCompute finalizer-aware rarity-4 filtering and GPU fast paths for unrestricted-primary and partial-effect requests. Broad searches no longer silently fall back to impractically slow CPU/Python scans; unavailable required GPU backends now produce an actionable error.
 - Splits same-name bosses with different native IDs, plus human/yokai Kanai Hanbei, into exact independent choices for search and temporary editing.
 - Limits terrain search to complete results that the game can actually generate and clarifies original versus temporary terrain results in the runtime editor.
 - Adds a repeatable game-update migration pipeline for read-only section capture, signature relocation, runtime-resource comparison, native parity, and fail-closed product approval.
