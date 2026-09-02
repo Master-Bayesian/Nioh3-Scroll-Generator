@@ -185,8 +185,8 @@ class AuxiliarySearchCriteria:
 
     required_terrain_effect_keys: frozenset[int] = frozenset()
     required_terrain_effect_key_groups: tuple[frozenset[int], ...] = ()
-    # Low-level research constraint retained for controlled table-row tests.
-    # Product code must filter by the UI-consumed effect keys above.
+    # Exact row union. Product code may populate this only from player-visible
+    # result options; raw row numbers remain an internal research detail.
     terrain_row_indices: frozenset[int] = frozenset()
     required_special_rule_keys: frozenset[int] = frozenset()
     required_special_rule_key_groups: tuple[frozenset[int], ...] = ()

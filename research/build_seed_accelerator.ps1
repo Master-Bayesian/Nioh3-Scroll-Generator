@@ -23,7 +23,7 @@ if (-not (Test-Path -LiteralPath $nvcc)) {
     throw "CUDA 13.3 nvcc.exe was not found."
 }
 
-$architectures = '-gencode=arch=compute_75,code=sm_75 -gencode=arch=compute_86,code=sm_86 -gencode=arch=compute_89,code=sm_89 -gencode=arch=compute_89,code=compute_89'
+$architectures = '-gencode=arch=compute_75,code=sm_75 -gencode=arch=compute_86,code=sm_86 -gencode=arch=compute_89,code=sm_89 -gencode=arch=compute_89,code=compute_89 -gencode=arch=compute_120,code=sm_120 -gencode=arch=compute_120,code=compute_120'
 $command = 'call "{0}" >nul && "{1}" -O3 -shared {2} -o "{3}" "{4}"' -f $vcvars, $nvcc, $architectures, $resolvedOutput, $sourcePath
 & cmd.exe /d /s /c $command
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $resolvedOutput)) {

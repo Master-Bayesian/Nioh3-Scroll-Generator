@@ -1,29 +1,27 @@
-# 仁王3绘卷生成器 v0.6.8
+# 仁王3绘卷生成器 v0.6.9
 
-本版集中修复纯特殊规则／敌人／地形搜索性能、首次搜索提前停止、Intel 等非 NVIDIA 设备的回退交互，以及 1080p 下本地绘卷编辑器无法访问底部控件的问题。
+本版修复稀有度 4 绘卷揭露后词条变化、RTX 50 系 CUDA 不可用，以及复杂条件令右侧结果不可见的问题，并补齐更灵活的主副词条与地形筛选。
 
-- 将自然 Seed 构造、地形、敌人和特殊规则筛选合并为一次原生 CUDA 管线，避免每层条件都在 Python 与显卡之间往返。稀有组合会持续扫描完整数学空间，不再按单个条件特判。
-- 普通词条 DirectCompute 着色器改为构建时预编译并嵌入 DLL，启动后的首次计算不再现场编译两个大型着色器。
-- 修正效果条件未通过时仍继续计算敌人、地形和特殊规则的问题；现在先丢弃不符合词条的 Seed，再运行后续辅助筛选。
-- 修正启动软件后的第一次搜索可能只返回 1 个候选便提前结束的问题。界面任务会自动继续底层数学批次和内部预像页，直到收集到用户要求的候选数、整个数学族耗尽或用户取消；默认 GPU 批次也由 100 万游标提高到 1 亿游标。
-- 未检测到 CUDA 时不再直接拒绝 Intel、AMD 或无 CUDA 用户。程序会明确说明哪些条件需要改用原生 CPU，并在用户确认后继续；不会静默回退。
-- 本地绘卷编辑器右侧增加独立纵向滚动条与鼠标滚轮支持，1080p 窗口可以访问全部字段、敌人、地形和特殊规则控件。
-- 保留 PC v2.01 与 PC v2.00.02、稀有度 3/4/5、DirectCompute 跨厂商普通词条加速和完整离线精确复核。
+- 修正稀有度 4 新增绘卷的两阶段生命周期。写档时保存游戏原生待揭露记录，候选区仍显示一次正常揭露后的最终结果，避免已经完成的记录被游戏再次补全并改掉另一槽词条或恩宠。种子 `125804734` 已加入精确回归测试。
+- 主词条候选新增“未当选主词条时，必须出现在副词条”选项。对 A、B 同时勾选即可搜索“A 为主且 B 为副，或 B 为主且 A 为副”。
+- 地形改为多选并按任一命中筛选；“含有地狱”覆盖所有可见结果中带地狱的原生组合，精确地形结果仍不会被错误地自由拼接。
+- CUDA DLL 新增 RTX 50 系 `sm_120` 原生映像与 `compute_120` PTX，并用真实内核启动检查代替只检测设备数量。CUDA 不可执行时，支持的普通词条路径会转到 DirectCompute；错误信息会保留具体失败阶段和代码。
+- “Seed 计算与结果验证”右侧整列新增独立纵向滚动条，长交集统计不再把候选结果、详情和写档按钮挤出屏幕；候选 Seed 列表也新增纵向滚动条。
+- 保留 PC v2.01 与 PC v2.00.02、稀有度 3/4/5、跨厂商 DirectCompute、CUDA 辅助条件加速，以及完整离线精确复核。
 
-写档前请让游戏返回标题界面。敌人、地形和特殊规则覆盖仍是临时内存功能，不会写入存档；停止覆盖、关闭软件、重启游戏或游戏重新生成描述符后都会恢复。
+写档前请让游戏返回标题界面。稀有度 4 修复已通过离线生命周期回归，仍以实际游戏首次揭露为最终验收。敌人、地形和特殊规则的本地覆盖仍是临时内存功能，不会写入存档或传播。
 
 ---
 
-# Nioh 3 Scroll Generator v0.6.8
+# Nioh 3 Scroll Generator v0.6.9
 
-This release focuses on pure special-rule/enemy/terrain search performance, first-search pagination, explicit fallback behavior for Intel and other non-NVIDIA systems, and editor accessibility at 1080p.
+This release repairs rarity-4 reveal changes, RTX 50-series CUDA compatibility, and inaccessible results under long constraint reports, while adding more expressive primary/secondary and terrain filters.
 
-- Fuses natural Seed construction and terrain, enemy, and special-rule filtering into one native CUDA pipeline instead of repeatedly transferring intermediate batches through Python.
-- Precompiles and embeds the ordinary-effect DirectCompute shaders at build time so the first search no longer compiles two large shaders at runtime.
-- Rejects effect-stage failures before running auxiliary filters.
-- Fixes the first search after application startup sometimes stopping after one candidate. A UI search now continues through bounded mathematical batches and internal preimage pages until it fills the requested count, exhausts the mathematical family, or is cancelled. The default GPU batch increases from one million to 100 million cursors.
-- Replaces the hard CUDA rejection with an explicit confirmation dialog. DirectCompute still accelerates supported ordinary-effect stages on AMD, NVIDIA, and Intel; unsupported auxiliary stages use exact native CPU code only after user consent.
-- Adds an independent vertical scrollbar and mouse-wheel support to the local scroll editor so every field and runtime auxiliary control remains reachable at 1080p.
-- Retains PC v2.01 and PC v2.00.02 support, rarities 3/4/5, cross-vendor DirectCompute ordinary-effect acceleration, and complete exact offline verification.
+- Writes the native rarity-4 stage-one acquisition record while previewing the result after exactly one reveal finalization. This prevents the game from completing an already-finalized record a second time and changing another effect or Grace slot. Seed `125804734` is covered by an exact regression test.
+- Adds a per-primary option requiring that candidate as a secondary when it is not selected as the primary. Selecting it for both A and B expresses `(A primary + B secondary) OR (B primary + A secondary)`.
+- Makes complete terrain results multi-select with OR semantics. The aggregate Hell option covers every native row whose visible result contains Hell; exact results are not treated as freely composable effects.
+- Adds native `sm_120` and `compute_120` PTX images for RTX 50-series GPUs and replaces device-count-only detection with a real kernel launch/synchronization health check. Supported ordinary-effect searches route to DirectCompute when CUDA cannot execute, while diagnostics retain the CUDA failure stage and code.
+- Adds an independent vertical scrollbar to the complete Seed calculation/results pane so long intersection reports cannot hide candidates, details, or install controls. The candidate Seed list now has its own vertical scrollbar as well.
+- Retains PC v2.01 and PC v2.00.02 support, rarities 3/4/5, cross-vendor DirectCompute, CUDA auxiliary filtering, and exact offline replay.
 
-Return the game to the title screen before writing a save. Enemy, terrain, and special-rule overrides remain temporary runtime behavior and revert when the override stops, the app or game closes, or the game regenerates the descriptor.
+Return the game to the title screen before writing a save. The rarity-4 repair has exact offline lifecycle regression coverage; the first real in-game reveal remains the final acceptance check. Local enemy, terrain, and special-rule overrides remain temporary runtime behavior and do not persist or propagate.

@@ -13,6 +13,10 @@ is ready to ship.
 - v0.6.8 combines fused auxiliary search, automatic first-search continuation,
   explicit no-CUDA consent, and the local-editor scrollbar. The user accepted
   the local build before publication.
+- Current product version in the working tree: `v0.6.9`; not published. It
+  combines the rarity-4 acquisition lifecycle repair, primary/secondary paired
+  constraints, terrain-result OR filtering, RTX 50 CUDA compatibility, and a
+  vertically scrollable legal-search result pane.
 - The earlier local `v0.6.7-beta.1` acceptance build remains historical and is
   not part of either update channel.
 - Preserve unrelated untracked research, captures, packages, and user files.
@@ -29,6 +33,48 @@ exported before resuming editor work:
   are reachable by captured scroll-generation contexts.
 - Level-180 range attempts for all 3,609 effects; 182 contextual definitions
   are explicitly unresolved rather than guessed.
+
+## Unreleased working-tree follow-up
+
+- Rarity-4 installation now separates the post-reveal candidate preview from
+  the bytes written to the save. The installer writes the canonical native
+  stage-one record so the game performs the completion pass exactly once.
+  Seed `125804734` is the regression vector: one completion produces
+  `23E8/190A/2B06/D40A/BABD`, while completing the old already-finalized
+  payload again reproduces the reported wrong slot-4 `6AAF` result exactly.
+- Each primary-effect candidate can now be marked "required as a secondary
+  when not selected as primary". Marking both A and B compiles to the existing
+  overlap-aware matcher as `(A primary and B secondary) OR (B primary and A
+  secondary)` without duplicating one effect in the UI list.
+- Legal terrain filtering now accepts multiple complete player-visible terrain
+  results with OR semantics. The aggregate Hell option covers every native row
+  whose visible result contains Hell without pretending that individual terrain
+  effects are freely composable.
+- A report that a propagated scroll's Grace changed is provisionally covered
+  only when it is a rarity-4 first-reveal/completion case. Rarity-5 or an
+  already-revealed record changing after network propagation requires a
+  separate before/after save capture.
+- The Seed accelerator build now ships native `sm_120` cubins and
+  `compute_120` PTX for GeForce RTX 50-series GPUs, while retaining the
+  existing `sm_75`, `sm_86`, `sm_89`, and `compute_89` images.
+- CUDA availability now requires a successful kernel launch and synchronize,
+  not merely a positive device count. If that compatibility self-test fails,
+  effect-only searches select the existing DirectCompute GPU path instead of
+  entering a CUDA-only R4 pivot path or silently scanning on the CPU.
+- The native DLL exposes the last CUDA error code and failure stage so an
+  unexpected R4 pivot failure no longer collapses into an untraceable generic
+  message.
+- The complete right-hand legal-search pane now has an independent vertical
+  scrollbar, and the candidate-Seed list has its own vertical scrollbar. Long
+  intersection reports no longer make the result and install controls
+  unreachable.
+- Local verification currently covers 413 passing tests, a withdrawn Tk UI
+  startup smoke, a 1000x650 long-intersection scroll smoke, packaged executable
+  startup and exact-path cleanup, an RTX 4070 Ti SUPER native-CUDA route, a
+  forced CUDA-unavailable DirectCompute route with exact R4-primary parity,
+  and the presence of an `sm_120` cubin in the rebuilt DLL. Physical RTX 5090
+  execution and the first real rarity-4 reveal remain player-side acceptance
+  evidence.
 
 ## Stable v0.6.8 changes
 

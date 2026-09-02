@@ -27,7 +27,7 @@ from emaki_exchange import (
 )
 
 from .native import build_source_record
-from .effect_sequence import materialize_ng3_certified_record
+from .effect_sequence import materialize_ng3_certified_install_record
 from .models import CandidateRecordStage, ScrollCandidate
 
 
@@ -946,7 +946,7 @@ def materialize_effect_sequence_candidate(
     if candidate.record_stage is not CandidateRecordStage.EFFECT_SEQUENCE_ONLY:
         raise ValueError("候选不是离线词条序列预览")
     template = inventory.template_record_for_playthrough(3)
-    record, _ = materialize_ng3_certified_record(
+    record, installed_preview = materialize_ng3_certified_install_record(
         template,
         seed=candidate.seed,
         rarity=candidate.rarity,
@@ -955,10 +955,15 @@ def materialize_effect_sequence_candidate(
         transfer_count=transfer_count,
         generation_serial=next_generation_serial(inventory),
     )
+    installed_record_stage = (
+        CandidateRecordStage.NATIVE_STAGE_ONE
+        if candidate.rarity == 4
+        else CandidateRecordStage.FINAL_RECORD
+    )
     materialized = ScrollCandidate.from_record(
         record,
         playthrough=3,
-        record_stage=CandidateRecordStage.FINAL_RECORD,
+        record_stage=installed_record_stage,
     )
     preview_slots = tuple(
         (
@@ -971,7 +976,8 @@ def materialize_effect_sequence_candidate(
         )
         for effect in candidate.effects
     )
-    materialized_slots = tuple(
+    preview_candidate = ScrollCandidate.from_effect_sequence(installed_preview)
+    materialized_preview_slots = tuple(
         (
             effect.effect_id,
             effect.value,
@@ -980,11 +986,14 @@ def materialize_effect_sequence_candidate(
             effect.tail_0,
             effect.tail_1,
         )
-        for effect in materialized.effects[:len(candidate.effects)]
+        for effect in preview_candidate.effects[:len(candidate.effects)]
     )
-    if materialized_slots != preview_slots:
-        raise RuntimeError("安装时物化记录与求解器预览不一致，已拒绝写入")
-    if any(not effect.is_empty for effect in materialized.effects[len(candidate.effects):]):
+    if materialized_preview_slots != preview_slots:
+        raise RuntimeError("安装记录的揭露后结果与求解器预览不一致，已拒绝写入")
+    if any(
+        not effect.is_empty
+        for effect in preview_candidate.effects[len(candidate.effects):]
+    ):
         raise RuntimeError("安装时物化记录出现预览之外的额外词条，已拒绝写入")
     if account_id_from_record(record) != inventory.account_id:
         raise RuntimeError("安装时物化记录没有绑定当前存档来源账号，已拒绝写入")
@@ -1794,6 +1803,8 @@ class SaveInstaller:
                 "seed": candidate.seed,
                 "generation_serial": generation_serial,
                 "preview_record_stage": candidate.record_stage.value,
+                "installed_record_stage": materialized.record_stage.value,
+                "rarity4_reveal_passes_expected": 1 if candidate.rarity == 4 else 0,
             },
         )
 

@@ -50,8 +50,10 @@ from nioh3_scroll_editor.app import (
     collect_offline_rarity5_search_batch,
     build_runtime_terrain_options,
     build_terrain_filter_options,
+    combine_terrain_filter_rows,
     classify_enemy_roles,
     centered_child_geometry,
+    compile_secondary_effect_requirements,
     copy_text_to_clipboard,
     default_window_dimensions,
     format_local_auxiliary_preview,
@@ -61,6 +63,7 @@ from nioh3_scroll_editor.app import (
     legal_enemy_display_groups,
     local_effect_raw_value_hint,
     partition_grouped_selections,
+    partial_effect_batch_generator,
     enemy_tier_columns,
     enemy_tiers_are_compatible,
     enemy_variant_display_name,
@@ -208,6 +211,34 @@ class BetaEditorTests(unittest.TestCase):
                 allow_cpu_fallback=True,
             )
 
+    def test_r4_primary_search_uses_directcompute_when_cuda_self_test_fails(self) -> None:
+        request = EffectSeedRequest(
+            playthrough=3,
+            rarity=4,
+            primary_effect_ids=frozenset((0xB613,)),
+        )
+        with patch(
+            "nioh3_scroll_editor.app.cuda_seed_acceleration_available",
+            return_value=False,
+        ):
+            generator = partial_effect_batch_generator(
+                request,
+                grace_mapping=load_grace_output_map(rarity=4),
+                level=180,
+            )
+        self.assertIsNotNone(generator)
+
+        with patch(
+            "nioh3_scroll_editor.app.cuda_seed_acceleration_available",
+            return_value=True,
+        ):
+            generator = partial_effect_batch_generator(
+                request,
+                grace_mapping=load_grace_output_map(rarity=4),
+                level=180,
+            )
+        self.assertIsNone(generator)
+
     def test_default_window_uses_available_desktop_width(self) -> None:
         self.assertEqual(default_window_dimensions(1920, 1080), (1880, 1000))
         self.assertEqual(default_window_dimensions(2560, 1440), (2040, 1160))
@@ -257,6 +288,42 @@ class BetaEditorTests(unittest.TestCase):
         self.assertEqual(groups, (frozenset((30,)), frozenset((20, 40))))
         self.assertEqual(requirement_mode_group_index("必含"), 0)
         self.assertEqual(requirement_mode_group_index("任一组 3"), 3)
+
+    def test_primary_candidates_can_be_required_as_secondary_fallbacks(self) -> None:
+        mandatory, groups = compile_secondary_effect_requirements(
+            {30, 40},
+            {40: 1},
+            {10, 20},
+        )
+        self.assertEqual(mandatory, frozenset((10, 20, 30)))
+        self.assertEqual(groups, (frozenset((40,)),))
+
+        a, b = 0x47BC, 0x4647
+        paired_required, _ = compile_secondary_effect_requirements(
+            set(),
+            {},
+            {a, b},
+        )
+        paired = ScrollCandidate.from_record(
+            make_record(effects=(a, b, 0xA051, 0x190A, 0x2B06, 0xB613))
+        )
+        missing_partner = ScrollCandidate.from_record(
+            make_record(effects=(a, 0xDFF0, 0xA051, 0x190A, 0x2B06, 0xB613))
+        )
+        self.assertTrue(
+            candidate_matches(
+                paired,
+                primary_effect_ids=frozenset((a, b)),
+                required_secondary_ids=paired_required,
+            )
+        )
+        self.assertFalse(
+            candidate_matches(
+                missing_partner,
+                primary_effect_ids=frozenset((a, b)),
+                required_secondary_ids=paired_required,
+            )
+        )
 
     def test_player_enemy_options_exclude_localization_only_names(self) -> None:
         catalog = load_auxiliary_name_catalog("zh-CN")
@@ -358,10 +425,38 @@ class BetaEditorTests(unittest.TestCase):
         tables = load_default_auxiliary_generation_tables()
         options = build_terrain_filter_options(tables, catalog)
 
+        self.assertEqual(
+            options["含有地狱（任意组合）"],
+            frozenset((0, 6, 7, 11, 14, 17)),
+        )
+        self.assertEqual(
+            options["无地形影响"],
+            frozenset((1, 2, 3, 4, 5, 8, 9, 12, 13, 15, 16, 18, 19)),
+        )
         self.assertEqual(options["地狱（仅地狱）"], frozenset((0, 7, 11, 17)))
         self.assertEqual(options["地狱＋火"], frozenset((6,)))
         self.assertEqual(options["恶臭"], frozenset((10,)))
         self.assertEqual(options["地狱＋瘴血"], frozenset((14,)))
+
+    def test_search_terrain_options_combine_with_or_semantics(self) -> None:
+        catalog = load_auxiliary_name_catalog("zh-CN")
+        tables = load_default_auxiliary_generation_tables()
+        options = build_terrain_filter_options(tables, catalog)
+
+        self.assertEqual(
+            combine_terrain_filter_rows(
+                ("地狱＋火", "恶臭"),
+                options,
+            ),
+            frozenset((6, 10)),
+        )
+        self.assertEqual(
+            combine_terrain_filter_rows(
+                ("含有地狱（任意组合）", "恶臭"),
+                options,
+            ),
+            frozenset((0, 6, 7, 10, 11, 14, 17)),
+        )
 
     def test_terrain_effect_filter_supports_native_multi_effect_rows(self) -> None:
         tables = load_default_auxiliary_generation_tables()
@@ -1344,10 +1439,69 @@ class BetaEditorTests(unittest.TestCase):
             transfer_count=0,
         )
 
-        self.assertEqual(struct.unpack_from("<H", materialized.record, 0x0C)[0], 0)
         self.assertEqual(
-            [effect.effect_id for effect in materialized.effects[:5]],
+            materialized.record_stage,
+            CandidateRecordStage.NATIVE_STAGE_ONE,
+        )
+        self.assertEqual(struct.unpack_from("<H", materialized.record, 0x0C)[0], 0)
+        from nioh3_scroll_editor.r4_finalizer_engine import (
+            load_default_r4_finalizer_engine,
+        )
+
+        completed = load_default_r4_finalizer_engine().finalize_completion(
+            materialized.record
+        )
+        completed_candidate = ScrollCandidate.from_record(
+            completed.record,
+            playthrough=3,
+            record_stage=CandidateRecordStage.FINAL_RECORD,
+        )
+        self.assertEqual(
+            [effect.effect_id for effect in completed_candidate.effects[:5]],
             [effect.effect_id for effect in preview.effects],
+        )
+
+    def test_rarity4_install_avoids_seed_125804734_double_completion(self) -> None:
+        account = TEST_ACCOUNT_ID
+        save_path = Path(f"C:/dummy/{account}/SAVEDATA00/SAVEDATA.BIN")
+        save = bytearray(USER_SAVE_SIZE)
+        save[:6] = b"RNNUSR"
+        template = bytearray(make_record(seed=241719428, account_id=account))
+        struct.pack_into("<H", template, 0, 0xE604)
+        struct.pack_into("<I", template, 0x28, 40)
+        save[SCROLL_GROUP_OFFSET:SCROLL_GROUP_OFFSET + SCROLL_RECORD_SIZE] = template
+        inventory = SaveInventory.load(save_path, bytes(save))
+        preview = ScrollCandidate.from_effect_sequence(
+            generate_ng3_certified_effect_sequence(125_804_734, rarity=4, level=180)
+        )
+
+        materialized = materialize_effect_sequence_candidate(
+            inventory,
+            preview,
+            level=180,
+            recommended_level=183,
+            transfer_count=0,
+        )
+
+        from nioh3_scroll_editor.r4_finalizer_engine import (
+            load_default_r4_finalizer_engine,
+        )
+
+        finalizer = load_default_r4_finalizer_engine()
+        revealed_once = finalizer.finalize_completion(materialized.record).record
+        revealed_twice = finalizer.finalize_completion(revealed_once).record
+
+        def effect_ids(record: bytes) -> tuple[int, ...]:
+            return tuple(
+                struct.unpack_from("<I", record, 0x38 + index * 0x18)[0]
+                for index in range(5)
+            )
+
+        expected = (0x23E8, 0x190A, 0x2B06, 0xD40A, 0xBABD)
+        self.assertEqual(effect_ids(revealed_once), expected)
+        self.assertEqual(
+            effect_ids(revealed_twice),
+            (0x23E8, 0x190A, 0x2B06, 0x6AAF, 0xBABD),
         )
 
     def test_contextual_babd_experiment_changes_only_controlled_fields(self) -> None:

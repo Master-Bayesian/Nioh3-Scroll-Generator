@@ -241,7 +241,6 @@ PLAYTHROUGH_BY_LABEL = {
     for index, label in enumerate(PLAYTHROUGH_LABELS, start=1)
 }
 NO_GRACE_FILTER_LABEL = "不限制恩宠（允许最终无恩宠）"
-NO_TERRAIN_FILTER_LABEL = "任意地形（不筛选）"
 PRODUCT_RARITIES = (3, 4, 5)
 EFFECT_ROLL_FILTERS = (
     ("任意数值", 0),
@@ -355,6 +354,26 @@ def partition_grouped_selections(
         tuple(mandatory),
         tuple(frozenset(groups[index]) for index in sorted(groups)),
     )
+
+
+def compile_secondary_effect_requirements(
+    selected_secondary_ids: set[int],
+    any_group_by_id: Mapping[int, int],
+    primary_secondary_required_ids: set[int],
+) -> tuple[frozenset[int], tuple[frozenset[int], ...]]:
+    """Compile ordinary and cross-role secondary requirements.
+
+    A cross-role ID is a primary candidate that must occupy a secondary slot
+    whenever another candidate becomes the actual primary. The matcher removes
+    the actual primary from this set, so selecting this option for A and B means
+    exactly "A primary plus B secondary, or B primary plus A secondary".
+    """
+
+    mandatory, groups = partition_grouped_selections(
+        selected_secondary_ids,
+        any_group_by_id,
+    )
+    return frozenset(mandatory) | frozenset(primary_secondary_required_ids), groups
 
 
 def requirement_mode_group_index(label: str) -> int:
@@ -1039,7 +1058,7 @@ def build_terrain_filter_options(
     tables: AuxiliaryGenerationTables,
     names: AuxiliaryNameCatalog,
 ) -> dict[str, frozenset[int]]:
-    """Build exact native terrain-result choices for Seed search."""
+    """Build player-visible terrain choices as unions of exact native rows."""
 
     rows_by_effects: dict[tuple[int, ...], set[int]] = {}
     for row_index, row in enumerate(tables.terrain.rows()):
@@ -1049,17 +1068,46 @@ def build_terrain_filter_options(
         special_key = TERRAIN_DISPLAY_SPECIAL_KEYS.get(row[0x30])
         if special_key is not None:
             display_keys.append(special_key)
-        if not display_keys:
-            continue
         rows_by_effects.setdefault(tuple(display_keys), set()).add(row_index)
 
     options: dict[str, frozenset[int]] = {}
+    rows_by_effect: dict[int, set[int]] = {}
+    combinations_by_effect: dict[int, int] = {}
+    for display_keys, row_indices in rows_by_effects.items():
+        for key in display_keys:
+            rows_by_effect.setdefault(key, set()).update(row_indices)
+            combinations_by_effect[key] = combinations_by_effect.get(key, 0) + 1
+    for key in sorted(rows_by_effect):
+        if combinations_by_effect[key] <= 1:
+            continue
+        label = f"含有{names.terrain_effect_name(key)}（任意组合）"
+        options[label] = frozenset(rows_by_effect[key])
     for display_keys, row_indices in sorted(rows_by_effects.items()):
-        label = "＋".join(names.terrain_effect_name(key) for key in display_keys)
+        if not display_keys:
+            label = "无地形影响"
+        else:
+            label = "＋".join(names.terrain_effect_name(key) for key in display_keys)
         if display_keys == (TERRAIN_DISPLAY_CRUCIBLE_KEY,):
             label += "（仅地狱）"
         options[label] = frozenset(row_indices)
     return options
+
+
+def combine_terrain_filter_rows(
+    selected_labels: Iterable[str],
+    rows_by_label: Mapping[str, frozenset[int]],
+) -> frozenset[int]:
+    """Return the row union for player-facing terrain OR selections."""
+
+    labels = tuple(selected_labels)
+    unknown = [label for label in labels if label not in rows_by_label]
+    if unknown:
+        raise ValueError(f"unknown terrain filter option: {unknown[0]}")
+    return frozenset(
+        row_index
+        for label in labels
+        for row_index in rows_by_label[label]
+    )
 
 
 def special_rule_variant_label(name: str, key: int, value_text: str) -> str:
@@ -1796,7 +1844,7 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器使用教程
 8. 一、二周目没有三周目的恩宠槽；求解时必须至少选择一个主词条，程序直接求逆主词条 draw 1，再原生验证多个副词条。
 9. 三周目稀有度4可指定恩宠，并必须经过完整 finalizer 重放确认恩宠没有被替换。
 10. 等级、推荐等级和转手次数不直接参与副词条抽样；它们放在“绘卷属性”区域统一设置。“绘卷等级”对应详情页左上角的 Lv.，参与词条数值规范化；PC v2.00.02 / v2.01 的可传播有效范围是 0–180，超过 180 也只会按 180 传播，它不控制敌人等级。推荐等级输入会先限制到内部值 156–1400，再经过游戏原生 42 节点曲线换算为挑战中的最终敌人/Boss 等级；内部值 183 对应 160，181 对应 159，1400 或更高对应上限 700。
-11. 地形影响、特殊规则和出现敌人都可多选为必含条件。原生组合“地狱＋火”和“地狱＋瘴血”可直接筛选；不存在共同原生地形行的选择会立即报无解。特殊规则直接点击即可加入多条，不需要按 Ctrl；父项表示任意数值变体，展开后可精确选择 +50%、+65%、+80% 等原生变体。“任意一难横行”会把全部装备类型和数值作为一个“任一命中”条件，而不是要求它们同时出现。每个精确变体都会保留规则名称，已选项可逐项 × 删除或一键清空；敌人也有独立的一键清空按钮。
+11. 地形影响可复选，所选项目之间是 OR：生成结果命中任意一项即可。“含有地狱（任意组合）”同时覆盖仅地狱、地狱＋火和地狱＋瘴血；也可选择某个精确完整结果。特殊规则和出现敌人则按必含条件筛选。特殊规则直接点击即可加入多条，不需要按 Ctrl；父项表示任意数值变体，展开后可精确选择 +50%、+65%、+80% 等原生变体。“任意一难横行”会把全部装备类型和数值作为一个“任一命中”条件，而不是要求它们同时出现。每个精确变体都会保留规则名称，已选项可逐项 × 删除或一键清空；敌人也有独立的一键清空按钮。
 12. 地形、规则和敌人名称来自游戏当前版本的简中、日文、英文原生文本目录，不使用机器翻译。特殊规则只显示原生表中当前周目有权重的合法行；仍未解析出具体阴阳术名称的合法键会明确标成“未识别阴阳术（原生编号……，可生成）”，不会只显示英文或裸编号。
 13. 四、五周目预计由 DLC2 开放，PC v2.00.02 / v2.01 当前无法正常进入。0xDD82/0xD523 仅证明游戏文件中存在潜在生成上下文，不证明未来 DLC 的最终算法；目前只允许研究预览，禁止写档和传播声明。
 
@@ -1973,9 +2021,13 @@ class ScrollEditorApp:
             rule_tables,
             self.auxiliary_names,
         )
-        self.terrain_filter_choice = StringVar(value=NO_TERRAIN_FILTER_LABEL)
+        self.terrain_filter_variables = {
+            label: BooleanVar(value=False)
+            for label in self.terrain_filter_rows_by_label
+        }
+        self.selected_terrain_option_labels: set[str] = set()
         self.selected_terrain_row_indices: set[int] = set()
-        self.selected_terrain_text = StringVar(value="地形结果：任意（不筛选）")
+        self.selected_terrain_text = StringVar(value="地形影响：任意（不筛选）")
         self.rule_search = StringVar(value="")
         self.selected_rule_text = StringVar(value="要求包含：无（不筛选）")
         self.selected_rule_option_ids: set[str] = set()
@@ -2179,6 +2231,7 @@ class ScrollEditorApp:
         self.selected_effect_ids: list[int] = []
         self.selected_effect_min_rolls: dict[int, int] = {}
         self.selected_effect_any_group_by_id: dict[int, int] = {}
+        self.selected_primary_secondary_required_ids: set[int] = set()
         self.selected_primary_ids: set[int] = set()
         self.selected_secondary_ids: set[int] = set()
         self.search_effect_catalog = searchable_scroll_effect_definitions(3, 5)
@@ -2763,13 +2816,87 @@ class ScrollEditorApp:
             width=DEFAULT_FILTER_PANE_FALLBACK_WIDTH,
         )
         self.search_filter_host = filter_host
-        results_column = ttk.Frame(
+        results_host = ttk.Frame(
             workspace,
             width=DEFAULT_RESULTS_PANE_MIN_WIDTH,
         )
+        results_canvas = Canvas(
+            results_host,
+            background=self.colors["surface"],
+            highlightthickness=0,
+        )
+        results_scrollbar = ttk.Scrollbar(
+            results_host,
+            orient="vertical",
+            command=results_canvas.yview,
+        )
+        results_canvas.configure(yscrollcommand=results_scrollbar.set)
+        results_canvas.pack(side=LEFT, fill=BOTH, expand=True)
+        results_scrollbar.pack(side=RIGHT, fill="y")
+        results_column = ttk.Frame(results_canvas, padding=(0, 0, 8, 0))
+        results_window = results_canvas.create_window(
+            (0, 0),
+            window=results_column,
+            anchor="nw",
+        )
+        self.search_results_canvas = results_canvas
+        self.search_results_scrollbar = results_scrollbar
         self.search_results_column = results_column
         workspace.add(filter_host, weight=0)
-        workspace.add(results_column, weight=1)
+        workspace.add(results_host, weight=1)
+
+        results_layout_state: dict[str, object] = {
+            "after": None,
+            "width": 0,
+            "height": 0,
+        }
+
+        def apply_results_layout() -> None:
+            results_layout_state["after"] = None
+            width = int(results_layout_state["width"])
+            viewport_height = int(results_layout_state["height"])
+            if width <= 0:
+                width = results_canvas.winfo_width()
+            if viewport_height <= 0:
+                viewport_height = results_canvas.winfo_height()
+            if width <= 0 or viewport_height <= 0:
+                return
+            content_height = max(
+                viewport_height,
+                results_column.winfo_reqheight(),
+            )
+            results_canvas.itemconfigure(
+                results_window,
+                width=width,
+                height=content_height,
+            )
+            results_canvas.configure(
+                scrollregion=(0, 0, width, content_height),
+            )
+
+        def request_results_layout(event: object | None = None) -> None:
+            if event is not None:
+                width = int(getattr(event, "width", 0))
+                height = int(getattr(event, "height", 0))
+                if getattr(event, "widget", None) is results_canvas:
+                    if width > 0:
+                        results_layout_state["width"] = width
+                    if height > 0:
+                        results_layout_state["height"] = height
+            if results_layout_state["after"] is None:
+                results_layout_state["after"] = results_canvas.after(
+                    16,
+                    apply_results_layout,
+                )
+
+        results_column.bind("<Configure>", request_results_layout)
+        results_canvas.bind("<Configure>", request_results_layout)
+        results_scrollbar.bind(
+            "<ButtonRelease-1>",
+            lambda _event: results_canvas.after_idle(
+                results_canvas.update_idletasks
+            ),
+        )
 
         def set_initial_workspace_split() -> None:
             workspace.update_idletasks()
@@ -3046,7 +3173,7 @@ class ScrollEditorApp:
         terrain_header.pack(fill="x")
         ttk.Label(
             terrain_header,
-            text="地形结果（选择一个原生组合）",
+            text="地形影响（点击多选；命中任意一项即可）",
         ).pack(side=LEFT)
         ttk.Button(
             terrain_header,
@@ -3057,26 +3184,34 @@ class ScrollEditorApp:
             terrain_frame,
             textvariable=self.selected_terrain_text,
             foreground="#E0B45B",
+            wraplength=620,
+            justify="left",
         ).pack(anchor="w", pady=(4, 2))
-        terrain_selector = ttk.Combobox(
-            terrain_frame,
-            textvariable=self.terrain_filter_choice,
-            values=(
-                NO_TERRAIN_FILTER_LABEL,
-                *self.terrain_filter_rows_by_label.keys(),
-            ),
-            state="readonly",
-        )
-        terrain_selector.pack(fill="x", pady=(2, 0))
-        terrain_selector.bind(
-            "<<ComboboxSelected>>",
-            lambda _event: self._on_terrain_filter_changed(),
-        )
+        terrain_choices = ttk.Frame(terrain_frame)
+        terrain_choices.pack(fill="x", pady=(2, 0))
+        for index, label in enumerate(self.terrain_filter_rows_by_label):
+            ttk.Checkbutton(
+                terrain_choices,
+                text=label,
+                variable=self.terrain_filter_variables[label],
+                command=lambda selected_label=label: self._on_terrain_filter_toggled(
+                    selected_label
+                ),
+            ).grid(
+                row=index // 2,
+                column=index % 2,
+                sticky="w",
+                padx=(0, 18),
+                pady=1,
+            )
+        terrain_choices.columnconfigure(0, weight=1)
+        terrain_choices.columnconfigure(1, weight=1)
         ttk.Label(
             terrain_frame,
             text=(
-                "这里列出的每一项都是游戏可直接生成的完整结果。"
-                "“地狱＋火”和“地狱＋瘴血”不是两项自由拼接。"
+                "这里只筛选详情页显示的“地形影响”，不是挑战场景或地图。"
+                "当前 20 个原生地形行会归并为 5 种可见结果；“含有地狱”会一次搜索"
+                "所有带地狱的结果。精确项仍表示一个完整结果，不会自由拼接。"
             ),
             foreground="#4BCB8A",
             wraplength=620,
@@ -3347,9 +3482,18 @@ class ScrollEditorApp:
             orient="horizontal",
             command=self.candidate_list.xview,
         )
-        self.candidate_list.configure(xscrollcommand=candidate_xscrollbar.set)
+        candidate_yscrollbar = ttk.Scrollbar(
+            candidate_list_frame,
+            orient="vertical",
+            command=self.candidate_list.yview,
+        )
+        self.candidate_list.configure(
+            xscrollcommand=candidate_xscrollbar.set,
+            yscrollcommand=candidate_yscrollbar.set,
+        )
         candidate_xscrollbar.pack(side="bottom", fill="x")
-        self.candidate_list.pack(fill=BOTH, expand=True)
+        candidate_yscrollbar.pack(side=RIGHT, fill="y")
+        self.candidate_list.pack(side=LEFT, fill=BOTH, expand=True)
         self.candidate_list.bind("<<ListboxSelect>>", self._show_selected_candidate)
         candidate_actions = ttk.Frame(left)
         candidate_actions.pack(fill="x", pady=(6, 0))
@@ -5391,6 +5535,9 @@ class ScrollEditorApp:
         for effect_id in tuple(self.selected_effect_any_group_by_id):
             if effect_id not in self.selected_secondary_ids:
                 self.selected_effect_any_group_by_id.pop(effect_id, None)
+        self.selected_primary_secondary_required_ids.intersection_update(
+            self.selected_primary_ids
+        )
 
     def _max_selected_effect_count(self) -> int:
         # Alternatives inside one any-of group consume one logical requirement,
@@ -5401,11 +5548,11 @@ class ScrollEditorApp:
     def _secondary_effect_requirements(
         self,
     ) -> tuple[frozenset[int], tuple[frozenset[int], ...]]:
-        mandatory, groups = partition_grouped_selections(
+        return compile_secondary_effect_requirements(
             self.selected_secondary_ids,
             self.selected_effect_any_group_by_id,
+            self.selected_primary_secondary_required_ids,
         )
-        return frozenset(mandatory), groups
 
     def _on_primary_mode_changed(self, *_args: object) -> None:
         self._sync_effect_roles()
@@ -5479,6 +5626,7 @@ class ScrollEditorApp:
             return
         self.selected_effect_min_rolls.pop(effect_id, None)
         self.selected_effect_any_group_by_id.pop(effect_id, None)
+        self.selected_primary_secondary_required_ids.discard(effect_id)
         self._sync_effect_roles()
         self._render_selected_effects()
         self._refresh_combination_status()
@@ -5489,6 +5637,7 @@ class ScrollEditorApp:
         self.selected_effect_ids.clear()
         self.selected_effect_min_rolls.clear()
         self.selected_effect_any_group_by_id.clear()
+        self.selected_primary_secondary_required_ids.clear()
         self._sync_effect_roles()
         self._render_selected_effects()
         self._refresh_combination_status()
@@ -5514,6 +5663,19 @@ class ScrollEditorApp:
         else:
             self.selected_effect_any_group_by_id.pop(effect_id, None)
         self._render_selected_effects()
+        self._refresh_combination_status()
+        self._mark_intersection_stale()
+        self._update_calculation_controls()
+
+    def _set_primary_secondary_requirement(
+        self,
+        effect_id: int,
+        enabled: bool,
+    ) -> None:
+        if enabled and effect_id in self.selected_primary_ids:
+            self.selected_primary_secondary_required_ids.add(effect_id)
+        else:
+            self.selected_primary_secondary_required_ids.discard(effect_id)
         self._refresh_combination_status()
         self._mark_intersection_stale()
         self._update_calculation_controls()
@@ -5690,6 +5852,21 @@ class ScrollEditorApp:
                         self._set_effect_requirement_mode(value, variable.get())
                     ),
                 )
+            elif role == "主候选":
+                secondary_required = BooleanVar(
+                    value=effect_id in self.selected_primary_secondary_required_ids
+                )
+                ttk.Checkbutton(
+                    option_row,
+                    text="未当选主词条时，必须出现在副词条",
+                    variable=secondary_required,
+                    command=lambda value=effect_id, variable=secondary_required: (
+                        self._set_primary_secondary_requirement(
+                            value,
+                            variable.get(),
+                        )
+                    ),
+                ).pack(side=LEFT, padx=(4, 0), pady=2)
             for widget in (row, role_label, name_label):
                 widget.bind(
                     "<ButtonPress-1>",
@@ -5801,27 +5978,35 @@ class ScrollEditorApp:
         self._mark_intersection_stale()
 
     def _update_terrain_summary(self) -> None:
-        label = self.terrain_filter_choice.get()
+        labels = [
+            label
+            for label in self.terrain_filter_rows_by_label
+            if label in self.selected_terrain_option_labels
+        ]
         self.selected_terrain_text.set(
-            "地形结果："
-            + (
-                "任意（不筛选）"
-                if label == NO_TERRAIN_FILTER_LABEL
-                else label
-            )
+            "地形影响："
+            + ("任意（不筛选）" if not labels else "任一：" + " / ".join(labels))
         )
 
-    def _on_terrain_filter_changed(self) -> None:
-        label = self.terrain_filter_choice.get()
+    def _on_terrain_filter_toggled(self, label: str) -> None:
+        if self.terrain_filter_variables[label].get():
+            self.selected_terrain_option_labels.add(label)
+        else:
+            self.selected_terrain_option_labels.discard(label)
         self.selected_terrain_row_indices = set(
-            self.terrain_filter_rows_by_label.get(label, frozenset())
+            combine_terrain_filter_rows(
+                self.selected_terrain_option_labels,
+                self.terrain_filter_rows_by_label,
+            )
         )
         self._update_terrain_summary()
         self._mark_intersection_stale()
         self._update_calculation_controls()
 
     def _clear_terrain_selection(self) -> None:
-        self.terrain_filter_choice.set(NO_TERRAIN_FILTER_LABEL)
+        for variable in self.terrain_filter_variables.values():
+            variable.set(False)
+        self.selected_terrain_option_labels.clear()
         self.selected_terrain_row_indices.clear()
         self._update_terrain_summary()
         self._mark_intersection_stale()
@@ -6140,6 +6325,9 @@ class ScrollEditorApp:
             for effect_id, minimum in self.selected_effect_min_rolls.items()
             if effect_id in available_ids
         }
+        self.selected_primary_secondary_required_ids.intersection_update(
+            available_ids
+        )
         self._sync_effect_roles()
         self._filter_effect_catalog()
         self._render_selected_effects()
@@ -6207,8 +6395,31 @@ class ScrollEditorApp:
             ]
             return f"地形 {self._deduplicate_names(names)}"
         if stage.kind == "terrain_row":
-            rows = "/".join(str(value) for value in stage.values)
-            return f"地形原生行 {rows}"
+            stage_rows = frozenset(stage.values)
+            selected_labels = [
+                label
+                for label in self.terrain_filter_rows_by_label
+                if label in self.selected_terrain_option_labels
+            ]
+            if (
+                selected_labels
+                and stage_rows == frozenset(self.selected_terrain_row_indices)
+            ):
+                return "地形影响（任一） " + self._deduplicate_names(
+                    selected_labels
+                )
+            exact_labels = [
+                label
+                for label, option_rows in self.terrain_filter_rows_by_label.items()
+                if not label.startswith("含有") and option_rows.issubset(stage_rows)
+            ]
+            covered_rows = combine_terrain_filter_rows(
+                exact_labels,
+                self.terrain_filter_rows_by_label,
+            )
+            if exact_labels and covered_rows == stage_rows:
+                return "地形影响（任一） " + self._deduplicate_names(exact_labels)
+            return "地形影响（内部组合）"
         if stage.kind == "rule":
             names = [
                 f"{self.auxiliary_names.special_rule_name(value)} [0x{value:04X}]"
@@ -6229,7 +6440,10 @@ class ScrollEditorApp:
         report: EffectSeedIntersectionReport,
     ) -> str:
         if report.is_global_total:
-            scope = "完整 Seed 空间精确总数"
+            scope = (
+                "完整 Seed 空间；各数字是按箭头顺序累计剩余的匹配 Seed，"
+                "不是玩家持有绘卷数量"
+            )
         else:
             inspected = max(
                 0,
@@ -8179,11 +8393,17 @@ class ScrollEditorApp:
             if candidate.playthrough in (4, 5)
             else ""
         )
+        rarity4_reveal_notice = (
+            "\n\n稀有度4会写入游戏原生的待揭露阶段记录；候选区展示的是游戏完成一次揭露后的预测结果。"
+            if candidate.rarity == 4
+            else ""
+        )
         if not messagebox.askyesno(
             "确认写入存档",
             f"确定把种子 {candidate.seed}（{candidate_playthrough}生成上下文）作为新绘卷添加到存档吗？\n\n"
             "程序会在写入时重新读取当前存档、绑定合法模板和新的内部序号，"
             "然后自动备份并写入下一个绘卷栏位；不会覆盖任何现有绘卷。"
+            + rarity4_reveal_notice
             + experimental_notice,
         ):
             return

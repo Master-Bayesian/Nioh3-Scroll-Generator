@@ -33,6 +33,7 @@ from .seed_accelerator import (
     generate_ng3_primary_effect_ids_native,
     generate_ng3_r4_multi_context_primary_effect_ids_native,
     last_seed_acceleration_backend,
+    last_cuda_acceleration_failure,
 )
 from nioh3_seed_math import game_random_int_from_u16
 
@@ -839,9 +840,16 @@ def collect_ng3_r4_primary_pivot_seeds(
     if require_cuda and (
         result is None or last_seed_acceleration_backend() != "cuda"
     ):
+        failure = last_cuda_acceleration_failure()
+        detail = (
+            f" Native CUDA stage: {failure[0]}; error code: {failure[1]}."
+            if failure is not None
+            else ""
+        )
         raise RuntimeError(
             "CUDA rarity-4 primary pivot matcher is unavailable; "
-            "CPU fallback is disabled"
+            "CPU fallback is disabled."
+            + detail
         )
     return result
 
@@ -1694,6 +1702,47 @@ def materialize_ng3_certified_record(
     raise ValueError("certified NG3 materialization supports rarity 3, 4, or 5")
 
 
+def materialize_ng3_certified_install_record(
+    template: bytes,
+    *,
+    seed: int,
+    rarity: int,
+    level: int,
+    recommended_level: int,
+    transfer_count: int,
+    generation_serial: int,
+) -> tuple[bytes, EffectSequenceResult]:
+    """Build the record the game must receive plus its post-reveal preview.
+
+    Rarity-4 acquisition has two native stages. The save must receive the
+    stage-one record so the game's reveal path runs the completion pass exactly
+    once. Writing the already completed record makes the game complete it a
+    second time and can change another effect slot, including the Grace slot.
+
+    Other certified rarities are already stored in their installable form.
+    """
+
+    common = {
+        "seed": seed,
+        "level": level,
+        "recommended_level": recommended_level,
+        "transfer_count": transfer_count,
+        "generation_serial": generation_serial,
+    }
+    if rarity != RARITY_FINALIZABLE:
+        return materialize_ng3_certified_record(template, rarity=rarity, **common)
+
+    install_record, _stage_one = materialize_ng3_rarity4_stage_one_record(
+        template,
+        **common,
+    )
+    _completed_record, completed_preview = materialize_ng3_rarity4_final_record(
+        template,
+        **common,
+    )
+    return install_record, completed_preview
+
+
 __all__ = [
     "EffectSequenceGenerationError",
     "EffectSequenceResult",
@@ -1724,6 +1773,7 @@ __all__ = [
     "materialize_ng3_rarity3_record",
     "materialize_ng3_rarity4_final_record",
     "materialize_ng3_rarity4_stage_one_record",
+    "materialize_ng3_certified_install_record",
     "materialize_ng3_certified_record",
     "serialize_ng3_rarity4_stage_one_effect_slots",
     "serialize_ng3_rarity3_effect_slots",

@@ -25,6 +25,70 @@ constexpr std::uint32_t kLcgMultiplier = 0x00010DCDu;
 constexpr std::uint32_t kAuxiliaryModeSeedMaskLow = 0x01E3C78Fu;
 constexpr std::uint32_t kAuxiliaryModeSeedMaskHigh = 0x00E1C387u;
 int g_last_backend = -1;
+int g_cuda_health = -1;
+int g_last_cuda_error = 0;
+int g_last_cuda_stage = 0;
+
+enum CudaFailureStage : int {
+    kCudaStageNone = 0,
+    kCudaStageDeviceDiscovery = 1,
+    kCudaStageSelfTestLaunch = 2,
+    kCudaStageSelfTestSynchronize = 3,
+    kCudaStageR4PivotAllocation = 10,
+    kCudaStageR4PivotUpload = 11,
+    kCudaStageR4PivotLaunch = 12,
+    kCudaStageR4PivotSynchronize = 13,
+    kCudaStageR4PivotCountDownload = 14,
+    kCudaStageR4PivotOutputDownload = 15,
+    kCudaStageR4PivotCapacity = 16,
+};
+
+void record_cuda_failure(cudaError_t error, CudaFailureStage stage) {
+    g_last_cuda_error = static_cast<int>(error);
+    g_last_cuda_stage = static_cast<int>(stage);
+}
+
+void clear_cuda_failure() {
+    g_last_cuda_error = 0;
+    g_last_cuda_stage = kCudaStageNone;
+}
+
+__global__ void seed_accelerator_self_test_kernel() {}
+
+bool cuda_runtime_operational() {
+    if (g_cuda_health >= 0) {
+        return g_cuda_health == 1;
+    }
+    int device_count = 0;
+    const cudaError_t discovery = cudaGetDeviceCount(&device_count);
+    if (discovery != cudaSuccess || device_count <= 0) {
+        record_cuda_failure(
+            discovery != cudaSuccess ? discovery : cudaErrorNoDevice,
+            kCudaStageDeviceDiscovery);
+        g_cuda_health = 0;
+        return false;
+    }
+    // A device count alone does not prove that this DLL contains executable
+    // code for the installed GPU. Launching one kernel catches unsupported
+    // cubins and PTX JIT/driver mismatches before product routing selects CUDA.
+    cudaGetLastError();
+    seed_accelerator_self_test_kernel<<<1, 1>>>();
+    const cudaError_t launch = cudaGetLastError();
+    if (launch != cudaSuccess) {
+        record_cuda_failure(launch, kCudaStageSelfTestLaunch);
+        g_cuda_health = 0;
+        return false;
+    }
+    const cudaError_t synchronize = cudaDeviceSynchronize();
+    if (synchronize != cudaSuccess) {
+        record_cuda_failure(synchronize, kCudaStageSelfTestSynchronize);
+        g_cuda_health = 0;
+        return false;
+    }
+    clear_cuda_failure();
+    g_cuda_health = 1;
+    return true;
+}
 
 __host__ __device__ std::uint32_t lcg_step(std::uint32_t state) {
     return kLcgMultiplier * state + 1u;
@@ -1014,27 +1078,98 @@ std::uint64_t collect_r4_primary_pivot_seeds_on_cuda(
     constexpr std::size_t u16_count = 65536u;
     const std::size_t matrix_count =
         static_cast<std::size_t>(context_count) * u16_count;
-    if (cudaMalloc(&device_values, value_count * sizeof(std::uint16_t)) != cudaSuccess ||
-        cudaMalloc(&device_allowed, allowed_effect_count * sizeof(std::uint32_t)) != cudaSuccess ||
-        cudaMalloc(&device_contexts, u16_count) != cudaSuccess ||
-        cudaMalloc(&device_normal, matrix_count * sizeof(std::uint32_t)) != cudaSuccess ||
-        cudaMalloc(&device_promoted, matrix_count * sizeof(std::uint32_t)) != cudaSuccess ||
-        cudaMalloc(&device_promotion, u16_count) != cudaSuccess ||
-        cudaMalloc(&device_random7, u16_count) != cudaSuccess ||
-        cudaMalloc(&device_seeds, output_capacity * sizeof(std::uint32_t)) != cudaSuccess ||
-        cudaMalloc(&device_trials, output_capacity * sizeof(std::uint64_t)) != cudaSuccess ||
-        cudaMalloc(&device_count, sizeof(unsigned long long)) != cudaSuccess) {
+    cudaError_t cuda_error = cudaMalloc(
+        &device_values, value_count * sizeof(std::uint16_t));
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMalloc(
+            &device_allowed,
+            allowed_effect_count * sizeof(std::uint32_t));
+    }
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMalloc(&device_contexts, u16_count);
+    }
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMalloc(
+            &device_normal, matrix_count * sizeof(std::uint32_t));
+    }
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMalloc(
+            &device_promoted, matrix_count * sizeof(std::uint32_t));
+    }
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMalloc(&device_promotion, u16_count);
+    }
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMalloc(&device_random7, u16_count);
+    }
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMalloc(
+            &device_seeds, output_capacity * sizeof(std::uint32_t));
+    }
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMalloc(
+            &device_trials, output_capacity * sizeof(std::uint64_t));
+    }
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMalloc(&device_count, sizeof(unsigned long long));
+    }
+    if (cuda_error != cudaSuccess) {
+        record_cuda_failure(cuda_error, kCudaStageR4PivotAllocation);
         cleanup();
         return UINT64_MAX;
     }
-    if (cudaMemcpy(device_values, values, value_count * sizeof(std::uint16_t), cudaMemcpyHostToDevice) != cudaSuccess ||
-        cudaMemcpy(device_allowed, allowed_effect_ids, allowed_effect_count * sizeof(std::uint32_t), cudaMemcpyHostToDevice) != cudaSuccess ||
-        cudaMemcpy(device_contexts, context_by_first_u16, u16_count, cudaMemcpyHostToDevice) != cudaSuccess ||
-        cudaMemcpy(device_normal, normal_lookups, matrix_count * sizeof(std::uint32_t), cudaMemcpyHostToDevice) != cudaSuccess ||
-        cudaMemcpy(device_promoted, promoted_lookups, matrix_count * sizeof(std::uint32_t), cudaMemcpyHostToDevice) != cudaSuccess ||
-        cudaMemcpy(device_promotion, promotion_success_lookup, u16_count, cudaMemcpyHostToDevice) != cudaSuccess ||
-        cudaMemcpy(device_random7, random7_lookup, u16_count, cudaMemcpyHostToDevice) != cudaSuccess ||
-        cudaMemset(device_count, 0, sizeof(unsigned long long)) != cudaSuccess) {
+    cuda_error = cudaMemcpy(
+        device_values,
+        values,
+        value_count * sizeof(std::uint16_t),
+        cudaMemcpyHostToDevice);
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMemcpy(
+            device_allowed,
+            allowed_effect_ids,
+            allowed_effect_count * sizeof(std::uint32_t),
+            cudaMemcpyHostToDevice);
+    }
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMemcpy(
+            device_contexts,
+            context_by_first_u16,
+            u16_count,
+            cudaMemcpyHostToDevice);
+    }
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMemcpy(
+            device_normal,
+            normal_lookups,
+            matrix_count * sizeof(std::uint32_t),
+            cudaMemcpyHostToDevice);
+    }
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMemcpy(
+            device_promoted,
+            promoted_lookups,
+            matrix_count * sizeof(std::uint32_t),
+            cudaMemcpyHostToDevice);
+    }
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMemcpy(
+            device_promotion,
+            promotion_success_lookup,
+            u16_count,
+            cudaMemcpyHostToDevice);
+    }
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMemcpy(
+            device_random7,
+            random7_lookup,
+            u16_count,
+            cudaMemcpyHostToDevice);
+    }
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMemset(device_count, 0, sizeof(unsigned long long));
+    }
+    if (cuda_error != cudaSuccess) {
+        record_cuda_failure(cuda_error, kCudaStageR4PivotUpload);
         cleanup();
         return UINT64_MAX;
     }
@@ -1058,16 +1193,50 @@ std::uint64_t collect_r4_primary_pivot_seeds_on_cuda(
         device_trials,
         device_count,
         output_capacity);
-    unsigned long long count = 0u;
-    if (cudaGetLastError() != cudaSuccess ||
-        cudaDeviceSynchronize() != cudaSuccess ||
-        cudaMemcpy(&count, device_count, sizeof(count), cudaMemcpyDeviceToHost) != cudaSuccess ||
-        count > output_capacity ||
-        cudaMemcpy(output_seeds, device_seeds, count * sizeof(std::uint32_t), cudaMemcpyDeviceToHost) != cudaSuccess ||
-        cudaMemcpy(output_trials, device_trials, count * sizeof(std::uint64_t), cudaMemcpyDeviceToHost) != cudaSuccess) {
+    cuda_error = cudaGetLastError();
+    if (cuda_error != cudaSuccess) {
+        record_cuda_failure(cuda_error, kCudaStageR4PivotLaunch);
         cleanup();
         return UINT64_MAX;
     }
+    cuda_error = cudaDeviceSynchronize();
+    if (cuda_error != cudaSuccess) {
+        record_cuda_failure(cuda_error, kCudaStageR4PivotSynchronize);
+        cleanup();
+        return UINT64_MAX;
+    }
+    unsigned long long count = 0u;
+    cuda_error = cudaMemcpy(
+        &count, device_count, sizeof(count), cudaMemcpyDeviceToHost);
+    if (cuda_error != cudaSuccess) {
+        record_cuda_failure(cuda_error, kCudaStageR4PivotCountDownload);
+        cleanup();
+        return UINT64_MAX;
+    }
+    if (count > output_capacity) {
+        g_last_cuda_error = -1;
+        g_last_cuda_stage = kCudaStageR4PivotCapacity;
+        cleanup();
+        return UINT64_MAX;
+    }
+    cuda_error = cudaMemcpy(
+        output_seeds,
+        device_seeds,
+        count * sizeof(std::uint32_t),
+        cudaMemcpyDeviceToHost);
+    if (cuda_error == cudaSuccess) {
+        cuda_error = cudaMemcpy(
+            output_trials,
+            device_trials,
+            count * sizeof(std::uint64_t),
+            cudaMemcpyDeviceToHost);
+    }
+    if (cuda_error != cudaSuccess) {
+        record_cuda_failure(cuda_error, kCudaStageR4PivotOutputDownload);
+        cleanup();
+        return UINT64_MAX;
+    }
+    clear_cuda_failure();
     cleanup();
     return static_cast<std::uint64_t>(count);
 }
@@ -1731,12 +1900,19 @@ bool collect_auxiliary_pivot_matches_on_cuda(
 }  // namespace
 
 extern "C" __declspec(dllexport) int cuda_seed_acceleration_available() {
-    int device_count = 0;
-    return cudaGetDeviceCount(&device_count) == cudaSuccess && device_count > 0 ? 1 : 0;
+    return cuda_runtime_operational() ? 1 : 0;
 }
 
 extern "C" __declspec(dllexport) int seed_accelerator_last_backend() {
     return g_last_backend;
+}
+
+extern "C" __declspec(dllexport) int seed_accelerator_last_cuda_error() {
+    return g_last_cuda_error;
+}
+
+extern "C" __declspec(dllexport) int seed_accelerator_last_cuda_stage() {
+    return g_last_cuda_stage;
 }
 
 extern "C" __declspec(dllexport) int build_weighted_effect_lookup(
@@ -1798,8 +1974,7 @@ extern "C" __declspec(dllexport) int generate_ng3_primary_effect_ids(
         output_effect_ids == nullptr) {
         return -1;
     }
-    int device_count = 0;
-    if (cudaGetDeviceCount(&device_count) == cudaSuccess && device_count > 0 &&
+    if (cuda_runtime_operational() &&
         generate_primary_ids_on_cuda(
             seeds,
             count,
@@ -1862,8 +2037,7 @@ extern "C" __declspec(dllexport) int generate_ng3_primary_effect_ids_context(
         output_effect_ids == nullptr) {
         return -1;
     }
-    int device_count = 0;
-    if (cudaGetDeviceCount(&device_count) == cudaSuccess && device_count > 0 &&
+    if (cuda_runtime_operational() &&
         generate_primary_ids_context_on_cuda(
             seeds,
             count,
@@ -1937,8 +2111,7 @@ extern "C" __declspec(dllexport) int generate_ng3_r4_primary_effect_ids_multi(
             return -1;
         }
     }
-    int device_count = 0;
-    if (cudaGetDeviceCount(&device_count) == cudaSuccess && device_count > 0 &&
+    if (cuda_runtime_operational() &&
         generate_r4_primary_ids_multi_on_cuda(
             seeds,
             count,
@@ -2019,8 +2192,7 @@ extern "C" __declspec(dllexport) std::uint64_t collect_ng3_r4_primary_pivot_seed
             return UINT64_MAX;
         }
     }
-    int device_count = 0;
-    if (cudaGetDeviceCount(&device_count) == cudaSuccess && device_count > 0) {
+    if (cuda_runtime_operational()) {
         const std::uint64_t count = collect_r4_primary_pivot_seeds_on_cuda(
             values,
             value_count,
@@ -2126,8 +2298,7 @@ extern "C" __declspec(dllexport) int generate_terrain_row_indices(
             return -1;
         }
     }
-    int device_count = 0;
-    if (cudaGetDeviceCount(&device_count) == cudaSuccess && device_count > 0 &&
+    if (cuda_runtime_operational() &&
         generate_terrain_rows_on_cuda(
             seeds,
             count,
@@ -2197,8 +2368,7 @@ extern "C" __declspec(dllexport) int match_enemy_constraints(
             return -1;
         }
     }
-    int device_count = 0;
-    if (cudaGetDeviceCount(&device_count) == cudaSuccess && device_count > 0 &&
+    if (cuda_runtime_operational() &&
         match_enemy_constraints_on_cuda(
             seeds,
             terrain_rows,
@@ -2277,8 +2447,7 @@ extern "C" __declspec(dllexport) int match_special_rule_constraints(
             return -1;
         }
     }
-    int device_count = 0;
-    if (cudaGetDeviceCount(&device_count) == cudaSuccess && device_count > 0 &&
+    if (cuda_runtime_operational() &&
         match_special_rule_constraints_on_cuda(
             seeds,
             scratch_masks,
@@ -2427,8 +2596,7 @@ extern "C" __declspec(dllexport) std::uint64_t collect_auxiliary_pivot_matches(
         rule_group_offsets,
         rule_group_count,
     };
-    int device_count = 0;
-    if (cudaGetDeviceCount(&device_count) == cudaSuccess && device_count > 0 &&
+    if (cuda_runtime_operational() &&
         collect_auxiliary_pivot_matches_on_cuda(
             values,
             value_count,
@@ -2527,8 +2695,7 @@ extern "C" __declspec(dllexport) std::uint64_t collect_natural_pivot_seeds(
         draw_index > 64u) {
         return UINT64_MAX;
     }
-    int device_count = 0;
-    if (cudaGetDeviceCount(&device_count) == cudaSuccess && device_count > 0) {
+    if (cuda_runtime_operational()) {
         const std::uint64_t cuda_result = collect_on_cuda(
             values,
             value_count,

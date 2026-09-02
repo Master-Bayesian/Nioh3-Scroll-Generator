@@ -11,6 +11,18 @@ import sys
 
 
 ERROR_RESULT = 0xFFFFFFFFFFFFFFFF
+CUDA_FAILURE_STAGE_NAMES = {
+    1: "device discovery",
+    2: "compatibility self-test launch",
+    3: "compatibility self-test synchronization",
+    10: "R4 pivot allocation",
+    11: "R4 pivot upload",
+    12: "R4 pivot kernel launch",
+    13: "R4 pivot kernel synchronization",
+    14: "R4 pivot result-count download",
+    15: "R4 pivot result download",
+    16: "R4 pivot result capacity",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +69,12 @@ def _load_accelerator() -> ctypes.WinDLL | None:
     last_backend = library.seed_accelerator_last_backend
     last_backend.argtypes = ()
     last_backend.restype = ctypes.c_int
+    last_cuda_error = library.seed_accelerator_last_cuda_error
+    last_cuda_error.argtypes = ()
+    last_cuda_error.restype = ctypes.c_int
+    last_cuda_stage = library.seed_accelerator_last_cuda_stage
+    last_cuda_stage.argtypes = ()
+    last_cuda_stage.restype = ctypes.c_int
     weighted_lookup = library.build_weighted_effect_lookup
     weighted_lookup.argtypes = (
         ctypes.POINTER(ctypes.c_uint32),
@@ -903,6 +921,19 @@ def last_seed_acceleration_backend() -> str:
     return {1: "cuda", 0: "native_cpu"}.get(backend, "not_used")
 
 
+def last_cuda_acceleration_failure() -> tuple[str, int] | None:
+    """Return the last native CUDA failure stage and numeric runtime code."""
+
+    library = _load_accelerator()
+    if library is None:
+        return None
+    stage = int(library.seed_accelerator_last_cuda_stage())
+    error = int(library.seed_accelerator_last_cuda_error())
+    if stage == 0 and error == 0:
+        return None
+    return CUDA_FAILURE_STAGE_NAMES.get(stage, f"unknown stage {stage}"), error
+
+
 __all__ = [
     "AuxiliaryPivotMatchPage",
     "build_weighted_effect_lookup_native",
@@ -917,5 +948,6 @@ __all__ = [
     "match_enemy_constraints_native",
     "match_special_rule_constraints_native",
     "last_seed_acceleration_backend",
+    "last_cuda_acceleration_failure",
     "native_seed_acceleration_available",
 ]
