@@ -11,6 +11,7 @@ a = Analysis(
     ],
     datas=[
         ("..\\nioh3_scroll_editor\\data", "nioh3_scroll_editor\\data"),
+        ("..\\bin\\nioh3_seed_accelerator.build.json", "bin"),
         ("..\\assets", "assets"),
     ],
     hiddenimports=[],

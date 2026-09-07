@@ -4,6 +4,14 @@
 
 `released`; current stable v0.6.10 was published on 2026-09-06.
 
+An unreleased working-tree backend freeze was added on 2026-09-07 before the
+Frontend V2/architecture redesign. It implements the bounded B1-B6 audit
+closure: save transaction identity and rollback, conservative native-resource
+lifecycle handling, centralized generated-install policy, strict accelerator
+ABI v2, a minimal UI-independent service seam, context-bound caches, and a
+stable test inventory. See `../../BACKEND_FREEZE_BEFORE_V070.md`. It is not a
+new release and does not add generation mechanics.
+
 ## Passed
 
 - Installed executable identity and live PE-section capture.

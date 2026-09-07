@@ -150,6 +150,8 @@ class ScrollCandidate:
 
     @property
     def install_blocker(self) -> str | None:
+        if self.playthrough in (4, 5):
+            return "四、五周目候选仅供研究预览，禁止通过生成候选安装写入存档。"
         if self.installation_record is not None:
             if len(self.installation_record) != SCROLL_RECORD_SIZE:
                 return "候选携带的待揭露记录长度无效，拒绝写入。"

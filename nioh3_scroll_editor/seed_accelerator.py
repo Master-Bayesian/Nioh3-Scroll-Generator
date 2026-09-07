@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 import ctypes
+from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import lru_cache
 import os
 from pathlib import Path
 import sys
+import threading
 
 
 ERROR_RESULT = 0xFFFFFFFFFFFFFFFF
+SEED_ACCELERATOR_ABI_VERSION = 2
+EXECUTION_POLICY_STRICT_GPU = 0
+EXECUTION_POLICY_ALLOW_BULK_CPU = 1
+_EXECUTION_POLICY_LOCK = threading.RLock()
 CUDA_FAILURE_STAGE_NAMES = {
     1: "device discovery",
     2: "compatibility self-test launch",
@@ -50,6 +56,22 @@ def _load_accelerator() -> ctypes.WinDLL | None:
     if not path.is_file():
         return None
     library = ctypes.WinDLL(str(path))
+    try:
+        abi_version = library.seed_accelerator_abi_version
+        build_id = library.seed_accelerator_build_id
+        set_execution_policy = library.seed_accelerator_set_execution_policy
+    except AttributeError:
+        return None
+    abi_version.argtypes = ()
+    abi_version.restype = ctypes.c_int
+    build_id.argtypes = ()
+    build_id.restype = ctypes.c_char_p
+    set_execution_policy.argtypes = (ctypes.c_int,)
+    set_execution_policy.restype = ctypes.c_int
+    if abi_version() != SEED_ACCELERATOR_ABI_VERSION:
+        return None
+    if set_execution_policy(EXECUTION_POLICY_STRICT_GPU) != 0:
+        return None
     function = library.collect_natural_pivot_seeds
     function.argtypes = (
         ctypes.POINTER(ctypes.c_uint16),
@@ -235,6 +257,41 @@ def _load_accelerator() -> ctypes.WinDLL | None:
     )
     auxiliary_pivot_matches.restype = ctypes.c_uint64
     return library
+
+
+@contextmanager
+def seed_acceleration_execution_policy(*, allow_bulk_cpu: bool):
+    """Pin the native DLL policy for one complete search operation."""
+
+    library = _load_accelerator()
+    if library is None:
+        yield
+        return
+    policy = (
+        EXECUTION_POLICY_ALLOW_BULK_CPU
+        if allow_bulk_cpu
+        else EXECUTION_POLICY_STRICT_GPU
+    )
+    with _EXECUTION_POLICY_LOCK:
+        if library.seed_accelerator_set_execution_policy(policy) != 0:
+            raise RuntimeError("native Seed accelerator rejected its execution policy")
+        try:
+            yield
+        finally:
+            library.seed_accelerator_set_execution_policy(
+                EXECUTION_POLICY_STRICT_GPU
+            )
+
+
+def seed_accelerator_identity() -> tuple[int, str] | None:
+    """Return the loaded accelerator ABI and source build identity."""
+
+    library = _load_accelerator()
+    if library is None:
+        return None
+    raw_build_id = library.seed_accelerator_build_id()
+    build_id = raw_build_id.decode("ascii", errors="replace") if raw_build_id else ""
+    return int(library.seed_accelerator_abi_version()), build_id
 
 
 def collect_natural_pivot_seeds(
@@ -918,7 +975,10 @@ def last_seed_acceleration_backend() -> str:
     if library is None:
         return "python"
     backend = library.seed_accelerator_last_backend()
-    return {1: "cuda", 0: "native_cpu"}.get(backend, "not_used")
+    return {1: "cuda", 0: "native_cpu", -2: "cpu_blocked"}.get(
+        backend,
+        "not_used",
+    )
 
 
 def last_cuda_acceleration_failure() -> tuple[str, int] | None:
@@ -950,4 +1010,6 @@ __all__ = [
     "last_seed_acceleration_backend",
     "last_cuda_acceleration_failure",
     "native_seed_acceleration_available",
+    "seed_acceleration_execution_policy",
+    "seed_accelerator_identity",
 ]

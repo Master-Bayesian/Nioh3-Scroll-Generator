@@ -69,6 +69,7 @@ from .catalog import (
     searchable_scroll_effect_definitions,
     target_effects_for_rarity,
 )
+from .core_services import CandidateApplicationService, CoreServiceError
 from .effect_seed_solver import (
     EffectSeedCandidate,
     EffectSeedIntersectionReport,
@@ -156,6 +157,7 @@ from .runtime_auxiliary_override import (
 )
 from .search_event_buffer import MAX_PREVIEW_CANDIDATES, SearchEventBuffer
 from .savegame import (
+    BACKUP_MANIFEST_SCHEMA,
     BackupEntry,
     LocalEffectEdit,
     LocalEffectSlotFields,
@@ -177,6 +179,7 @@ from .savegame import (
 from .seed_accelerator import (
     cuda_seed_acceleration_available,
     last_seed_acceleration_backend,
+    seed_acceleration_execution_policy,
 )
 from .updater import (
     DownloadedUpdate,
@@ -1607,12 +1610,16 @@ def primary_map_cache_path(
     playthrough: int,
     rarity: int,
     grace_effect_id: int | None,
+    generation_context_digest: str,
 ) -> Path:
     kind = "draw1" if grace_effect_id is None else f"grace-{grace_effect_id:08X}-draw2"
     return (
         state_root
         / "primary-effect-maps"
-        / f"{save_fingerprint.lower()}-p{playthrough}-r{rarity}-{kind}.json"
+        / (
+            f"{save_fingerprint.lower()}-{generation_context_digest.lower()[:16]}-"
+            f"p{playthrough}-r{rarity}-{kind}.json"
+        )
     )
 
 
@@ -1622,11 +1629,15 @@ def grace_map_cache_path(
     save_fingerprint: str,
     playthrough: int,
     rarity: int,
+    generation_context_digest: str,
 ) -> Path:
     return (
         state_root
         / "grace-output-maps"
-        / f"{save_fingerprint.lower()}-p{playthrough}-r{rarity}-draw1.json"
+        / (
+            f"{save_fingerprint.lower()}-{generation_context_digest.lower()[:16]}-"
+            f"p{playthrough}-r{rarity}-draw1.json"
+        )
     )
 
 
@@ -2021,6 +2032,7 @@ class ScrollEditorApp:
 
         self.app_settings = load_app_settings(fallback_root=application_root())
         self.state_root = self.app_settings.data_root
+        self.candidate_service = CandidateApplicationService()
         self.data_directory_text = StringVar(value=str(self.state_root))
         self.receive_beta_updates = BooleanVar(
             value=self.app_settings.update_channel == UPDATE_CHANNEL_BETA
@@ -4384,9 +4396,16 @@ class ScrollEditorApp:
         if len(selected) != 1:
             messagebox.showerror("请选择一个备份", "恢复时必须且只能选择一个备份")
             return
+        entry = selected[0]
+        if entry.manifest_schema != BACKUP_MANIFEST_SCHEMA:
+            messagebox.showerror(
+                "旧备份无法自动恢复",
+                "该备份没有当前版本要求的账号、存档槽位和文件哈希身份信息。"
+                "为避免恢复到错误账号或错误存档槽，程序不会自动恢复旧格式备份。",
+            )
+            return
         if not self._confirm_title_screen_if_needed("恢复备份"):
             return
-        entry = selected[0]
         if not messagebox.askyesno(
             "确认恢复整个存档",
             f"确定恢复备份 {entry.timestamp} 吗？\n\n"
@@ -4402,6 +4421,8 @@ class ScrollEditorApp:
         self.status.set(
             f"已恢复备份 {entry.timestamp}；恢复前检查点：{result.checkpoint_directory.name}"
         )
+        if result.warning:
+            messagebox.showwarning("恢复已提交，但报告失败", result.warning)
         self._refresh_backups()
         self._refresh_local_inventory()
 
@@ -5017,7 +5038,18 @@ class ScrollEditorApp:
         return True
 
     def _close_application(self) -> None:
+        if self.worker is not None and self.worker.is_alive():
+            self.cancel_event.set()
+            self.search_events.cancel(self.active_search_run_id)
+            if not getattr(self, "_closing_requested", False):
+                self._closing_requested = True
+                self.status.set(
+                    "正在等待当前后台操作安全结束；完成前不会强制关闭……"
+                )
+            self.root.after(100, self._close_application)
+            return
         if not self._stop_local_runtime_override():
+            self._closing_requested = False
             return
         self.root.destroy()
 
@@ -5473,6 +5505,11 @@ class ScrollEditorApp:
             f"{len(changed_slots)} 个词条槽；"
             f"备份：{result.backup_directory.name}"
         )
+        if result.warning:
+            messagebox.showwarning(
+                "修改已提交，但报告失败",
+                f"绘卷修改已经写入存档。\n\n{result.warning}",
+            )
 
     def _delete_local_scrolls(self) -> None:
         selected = self._selected_local_entries()
@@ -5496,6 +5533,11 @@ class ScrollEditorApp:
         self.status.set(
             f"已清零 {len(result.slot_indices)} 个绘卷栏位；备份：{result.backup_directory.name}"
         )
+        if result.warning:
+            messagebox.showwarning(
+                "删除已提交，但报告失败",
+                f"绘卷删除已经写入存档。\n\n{result.warning}",
+            )
         self._refresh_backups()
         self._refresh_local_inventory()
 
@@ -7026,11 +7068,13 @@ class ScrollEditorApp:
                         save_fingerprint=save_fingerprint,
                         playthrough=playthrough,
                         rarity=rarity,
+                        generation_context_digest=self.candidate_service.context.context_digest,
                     )
                     if grace_mapping is None and cache_path.is_file():
                         grace_mapping = load_grace_map_cache(
                             cache_path,
                             expected_context_fingerprint=save_fingerprint,
+                            expected_generation_context_digest=self.candidate_service.context.context_digest,
                         )
                     if grace_mapping is not None:
                         self.grace_map_cache[grace_key] = grace_mapping
@@ -7297,11 +7341,13 @@ class ScrollEditorApp:
                         save_fingerprint=save_fingerprint,
                         playthrough=playthrough,
                         rarity=rarity,
+                        generation_context_digest=self.candidate_service.context.context_digest,
                     )
                     if offline_grace_mapping is None and cache_path.is_file():
                         offline_grace_mapping = load_grace_map_cache(
                             cache_path,
                             expected_context_fingerprint=save_fingerprint,
+                            expected_generation_context_digest=self.candidate_service.context.context_digest,
                         )
                     if offline_grace_mapping is not None:
                         self.grace_map_cache[grace_key] = offline_grace_mapping
@@ -7456,11 +7502,13 @@ class ScrollEditorApp:
                                 save_fingerprint=save_fingerprint,
                                 playthrough=playthrough,
                                 rarity=rarity,
+                                generation_context_digest=self.candidate_service.context.context_digest,
                             )
                             if grace_output_map is None and grace_cache_path.is_file():
                                 grace_output_map = load_grace_map_cache(
                                     grace_cache_path,
                                     expected_context_fingerprint=save_fingerprint,
+                                    expected_generation_context_digest=self.candidate_service.context.context_digest,
                                 )
                             if grace_output_map is None:
 
@@ -7483,6 +7531,7 @@ class ScrollEditorApp:
                                     grace_cache_path,
                                     grace_output_map,
                                     context_fingerprint=save_fingerprint,
+                                    generation_context_digest=self.candidate_service.context.context_digest,
                                 )
                             self.grace_map_cache[grace_key] = grace_output_map
                             if grace_effect_id is not None:
@@ -7564,11 +7613,13 @@ class ScrollEditorApp:
                                 playthrough=playthrough,
                                 rarity=rarity,
                                 grace_effect_id=grace_effect_id,
+                                generation_context_digest=self.candidate_service.context.context_digest,
                             )
                             if cache_path.is_file():
                                 cached = load_primary_map(
                                     cache_path,
                                     expected_context_fingerprint=save_fingerprint,
+                                    expected_generation_context_digest=self.candidate_service.context.context_digest,
                                 )
                                 if not isinstance(cached, PrimaryOutputMap):
                                     raise ValueError("磁盘缓存不是恩宠条件下的主词条 draw-2 映射")
@@ -7596,6 +7647,7 @@ class ScrollEditorApp:
                                 cache_path,
                                 primary_output_map,
                                 context_fingerprint=save_fingerprint,
+                                generation_context_digest=self.candidate_service.context.context_digest,
                             )
                         self.primary_map_cache[map_key] = primary_output_map
                     elif (
@@ -7612,11 +7664,13 @@ class ScrollEditorApp:
                                 playthrough=playthrough,
                                 rarity=rarity,
                                 grace_effect_id=None,
+                                generation_context_digest=self.candidate_service.context.context_digest,
                             )
                             if cache_path.is_file():
                                 cached = load_primary_map(
                                     cache_path,
                                     expected_context_fingerprint=save_fingerprint,
+                                    expected_generation_context_digest=self.candidate_service.context.context_digest,
                                 )
                                 if not isinstance(cached, PrimaryFirstDrawOutputMap):
                                     raise ValueError("磁盘缓存不是主词条 draw-1 映射")
@@ -7642,6 +7696,7 @@ class ScrollEditorApp:
                                 cache_path,
                                 primary_first_output_map,
                                 context_fingerprint=save_fingerprint,
+                                generation_context_digest=self.candidate_service.context.context_digest,
                             )
                         self.primary_map_cache[map_key] = primary_first_output_map
                     scan_kwargs: dict[str, object] = {
@@ -7713,7 +7768,20 @@ class ScrollEditorApp:
                     search_run_id, "search_error", traceback.format_exc()
                 )
 
-        self.worker = threading.Thread(target=work, daemon=True)
+        def policy_work() -> None:
+            try:
+                with seed_acceleration_execution_policy(
+                    allow_bulk_cpu=allow_cpu_fallback
+                ):
+                    work()
+            except Exception:
+                self.search_events.publish_terminal(
+                    search_run_id,
+                    "search_error",
+                    traceback.format_exc(),
+                )
+
+        self.worker = threading.Thread(target=policy_work, daemon=True)
         self.worker.start()
 
     def _cancel(self) -> None:
@@ -7969,11 +8037,17 @@ class ScrollEditorApp:
                     self.status.set(
                         f"已写入槽位 {result.slot_index}；备份已创建"
                     )
-                    messagebox.showinfo(
-                        "写入完成",
-                        f"新绘卷已添加到槽位 {result.slot_index}。\n\n"
-                        "备份和安装报告已保存到程序数据目录。",
-                    )
+                    if result.warning:
+                        messagebox.showwarning(
+                            "写入已提交，但报告失败",
+                            f"新绘卷已添加到槽位 {result.slot_index}。\n\n{result.warning}",
+                        )
+                    else:
+                        messagebox.showinfo(
+                            "写入完成",
+                            f"新绘卷已添加到槽位 {result.slot_index}。\n\n"
+                            "备份和安装报告已保存到程序数据目录。",
+                        )
                 elif event == "update_check_complete":
                     self.update_button.configure(state="normal")
                     result, manual = payload
@@ -8479,8 +8553,10 @@ class ScrollEditorApp:
             messagebox.showerror("写入参数无效", str(error))
             return
         candidate = self.candidates[selection[0]]
-        if candidate.install_blocker:
-            messagebox.showerror("候选尚未完成最终解析", candidate.install_blocker)
+        try:
+            install_plan = self.candidate_service.prepare_generated_install(candidate)
+        except CoreServiceError as error:
+            messagebox.showerror("候选不可安装", str(error))
             return
         candidate_playthrough = playthrough_label(candidate.playthrough)
         experimental_notice = (
@@ -8521,18 +8597,14 @@ class ScrollEditorApp:
                 crypto = SaveCrypto(default_crypto_tool(project_root))
                 state_root = self._backup_state_root()
                 installer = SaveInstaller(save_path=save_path, crypto=crypto, state_root=state_root)
-                if candidate.can_materialize_for_install:
-                    result = installer.install_effect_sequence_candidate(
-                        candidate,
-                        level=level,
-                        recommended_level=recommended_level,
-                        transfer_count=transfer_count,
-                    )
-                else:
-                    result = installer.install(
-                        candidate.installation_record or candidate.record,
-                        transfer_count=transfer_count,
-                    )
+                result = self.candidate_service.execute_generated_install(
+                    install_plan,
+                    candidate,
+                    installer,
+                    level=level,
+                    recommended_level=recommended_level,
+                    transfer_count=transfer_count,
+                )
                 self.events.put(("install_complete", result))
             except Exception:
                 self.events.put(("error", traceback.format_exc()))

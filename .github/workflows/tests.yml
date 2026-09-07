@@ -39,5 +39,19 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall -q nioh3_scroll_editor launch_editor.py emaki_exchange.py nioh3_seed_math.py scroll_lab.py
 
+      - name: Verify native accelerator source and ABI identity
+        run: python tools\verify_native_build_manifest.py
+
       - name: Run test suite
         run: python -m unittest discover -v
+
+      - name: Record collected test IDs and environment
+        if: always()
+        run: python tools\write_test_inventory.py --output test-results\test-inventory.json
+
+      - name: Upload test inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unittest-inventory-windows-py312
+          path: test-results/test-inventory.json

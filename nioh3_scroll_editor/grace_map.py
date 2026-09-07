@@ -56,7 +56,7 @@ _EXPECTED_CONTEXTS = {
     5: (0xE604, 5, "current-loaded-state", 6),
 }
 _EXPECTED_VERSION = "2.00.02"
-GRACE_MAP_CACHE_SCHEMA = "nioh3-grace-output-map-cache/v1"
+GRACE_MAP_CACHE_SCHEMA = "nioh3-grace-output-map-cache/v2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +97,7 @@ def grace_map_to_cache_payload(
     mapping: GraceOutputMap,
     *,
     context_fingerprint: str,
+    generation_context_digest: str,
 ) -> dict[str, object]:
     """Serialize one live-measured map under an exact save-context gate."""
 
@@ -105,10 +106,18 @@ def grace_map_to_cache_payload(
         character not in "0123456789abcdef" for character in fingerprint
     ):
         raise ValueError("context fingerprint must be a 64-character SHA-256 hex string")
+    generation_digest = generation_context_digest.strip().lower()
+    if len(generation_digest) != 64 or any(
+        character not in "0123456789abcdef" for character in generation_digest
+    ):
+        raise ValueError(
+            "generation context digest must be a 64-character SHA-256 hex string"
+        )
     _validate_complete_mapping(mapping)
     return {
         "schema": GRACE_MAP_CACHE_SCHEMA,
         "context_fingerprint": fingerprint,
+        "generation_context_digest": generation_digest,
         "game_version": _EXPECTED_VERSION,
         "record_type": f"0x{mapping.record_type:04X}",
         "rarity": mapping.rarity,
@@ -130,6 +139,7 @@ def grace_map_from_cache_payload(
     payload: dict[str, object],
     *,
     expected_context_fingerprint: str | None = None,
+    expected_generation_context_digest: str | None = None,
 ) -> GraceOutputMap:
     """Load a cached map while rejecting stale game/save contexts."""
 
@@ -138,10 +148,19 @@ def grace_map_from_cache_payload(
     if payload.get("game_version") != _EXPECTED_VERSION:
         raise ValueError("Grace-map cache belongs to another game version")
     fingerprint = str(payload.get("context_fingerprint", "")).lower()
+    generation_digest = str(payload.get("generation_context_digest", "")).lower()
+    if len(generation_digest) != 64 or any(
+        character not in "0123456789abcdef" for character in generation_digest
+    ):
+        raise ValueError("Grace-map cache has no valid generation context")
     if expected_context_fingerprint is not None:
         expected = expected_context_fingerprint.strip().lower()
         if fingerprint != expected:
             raise ValueError("Grace output map belongs to a different save context")
+    if expected_generation_context_digest is not None:
+        expected = expected_generation_context_digest.strip().lower()
+        if generation_digest != expected:
+            raise ValueError("Grace output map belongs to a different generation context")
     if int(payload.get("draw_index", 0)) != 1:
         raise ValueError("Grace-map cache is not a draw-1 partition")
     raw_ranges = payload.get("ranges")
@@ -174,6 +193,7 @@ def save_grace_map_cache(
     mapping: GraceOutputMap,
     *,
     context_fingerprint: str,
+    generation_context_digest: str,
 ) -> Path:
     """Atomically persist a live map for later process/game-closed reuse."""
 
@@ -182,6 +202,7 @@ def save_grace_map_cache(
     payload = grace_map_to_cache_payload(
         mapping,
         context_fingerprint=context_fingerprint,
+        generation_context_digest=generation_context_digest,
     )
     data = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
@@ -197,6 +218,7 @@ def load_grace_map_cache(
     path: str | Path,
     *,
     expected_context_fingerprint: str | None = None,
+    expected_generation_context_digest: str | None = None,
 ) -> GraceOutputMap:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
@@ -204,6 +226,7 @@ def load_grace_map_cache(
     return grace_map_from_cache_payload(
         payload,
         expected_context_fingerprint=expected_context_fingerprint,
+        expected_generation_context_digest=expected_generation_context_digest,
     )
 
 

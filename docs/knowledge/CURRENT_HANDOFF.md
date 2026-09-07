@@ -1,4 +1,4 @@
-# Current project handoff — 2026-09-06
+# Current project handoff — 2026-09-07
 
 This file is the durable entry point for the next development agent. It is a
 working-tree handoff, not a release note and not evidence that unfinished code
@@ -20,6 +20,27 @@ resuming the equipment supplement or full-item catalog work.
 - The earlier local `v0.6.7-beta.1` acceptance build remains historical and is
   not part of either update channel.
 - Preserve unrelated untracked research, captures, packages, and user files.
+
+## Unreleased backend freeze before Frontend V2
+
+The branch after stable v0.6.10 contains the bounded B1-B6 backend
+safety/interface freeze requested by the Astra audit. This work is intentionally
+unreleased and is checkpointed by the annotated tag
+`backend-freeze-before-v0.7.0`. Its authoritative scope, contracts, evidence
+levels, and stop condition are recorded in
+`docs/knowledge/BACKEND_FREEZE_BEFORE_V070.md`.
+
+The freeze adds manifest-bound save transactions and rollback, conservative
+remote-call/hook/window lifecycles, centralized generated-install policy,
+strict Seed accelerator ABI v2 with no hidden bulk-CPU fallback, a minimal
+UI-independent service/headless seam, generation-context-bound caches, and a
+stable test inventory. Do not mistake this for Frontend V2 or a full backend
+rewrite.
+
+Final local verification passed 449 discovered tests in 67.171 seconds, the
+native ABI/source/binary identity check, the headless context handshake, and a
+five-second startup smoke of an 18,444,094-byte one-file package. The smoke
+artifact is intentionally under `.codex_tmp`, not a release or delivery build.
 
 ## Most recent completed delivery
 
@@ -234,22 +255,19 @@ unsupported.
 
 ## Remaining order
 
-1. Collect player-side PC v2.01 generation, installation, detail-display, and
-   challenge evidence; automated parity and startup smoke are not gameplay
+1. Do not publish the frozen checkpoint as a product release without a separate
+   user instruction.
+2. Give Astra the repository and audit evidence for a read-only architecture
+   pass, then perform the combined backend and Frontend V2 redesign while
+   preserving the frozen service, policy, transaction, identity, and test
+   contracts.
+3. Collect any still-missing game-runtime acceptance evidence when the matching
+   feature is changed or prepared for release. Automated tests are not gameplay
    acceptance.
-2. Live-check the exact-role runtime enemy overwrite after the application hit
-   counter reaches at least one. A zero-hit profile still means the game reused
-   a cached descriptor and no overwrite occurred.
-3. Preserve the published v0.6.9 assets and signed manifest under
-   `deliverables/v0.6.9/` for local handoff.
-4. In the release after the PC v2.01 compatibility release, research the native
-   mechanism behind purple or empowered enemy appearances and whether possessed
-   Underworld forms of ordinary enemies can be represented as independent
-   selectable identities. Do not add guessed forms before live validation.
-5. After the current release, replace the Tk frontend in v0.7. Evaluate a Rust
-   core with a Tauri frontend against Electron; GPU bulk search remains
-   mandatory regardless of the UI host.
-6. Validate and tune D3D11 compute on an AMD discrete GPU only when suitable
+4. Treat purple/empowered enemies and independently selectable possessed
+   Underworld forms as P3 research. Do not add guessed forms before live
+   validation, and do not let research block product development.
+5. Validate and tune D3D11 compute on an AMD discrete GPU only when suitable
    hardware becomes available. Integrated-GPU parity is not a discrete-GPU
    performance result.
 

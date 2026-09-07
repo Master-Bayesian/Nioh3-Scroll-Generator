@@ -40,6 +40,7 @@ GRACE = 0x6553
 PRIMARY = 0x47BC
 SECONDARY = 0x190A
 FINGERPRINT = hashlib.sha256(b"test-save-context").hexdigest()
+GENERATION_DIGEST = hashlib.sha256(b"test-generation-context").hexdigest()
 
 
 def complete_runs() -> U16Runs:
@@ -82,14 +83,30 @@ class PrimaryMapPersistenceTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "primary.json"
-            save_primary_map(path, mapping, context_fingerprint=FINGERPRINT)
+            save_primary_map(
+                path,
+                mapping,
+                context_fingerprint=FINGERPRINT,
+                generation_context_digest=GENERATION_DIGEST,
+            )
             loaded = load_primary_map(
                 path,
                 expected_context_fingerprint=FINGERPRINT.upper(),
+                expected_generation_context_digest=GENERATION_DIGEST.upper(),
             )
             self.assertEqual(loaded, mapping)
             with self.assertRaisesRegex(ValueError, "different save context"):
-                load_primary_map(path, expected_context_fingerprint="0" * 64)
+                load_primary_map(
+                    path,
+                    expected_context_fingerprint="0" * 64,
+                    expected_generation_context_digest=GENERATION_DIGEST,
+                )
+            with self.assertRaisesRegex(ValueError, "different generation context"):
+                load_primary_map(
+                    path,
+                    expected_context_fingerprint=FINGERPRINT,
+                    expected_generation_context_digest="34" * 32,
+                )
 
     def test_roundtrips_first_draw_map(self) -> None:
         mapping = PrimaryFirstDrawOutputMap(
@@ -102,7 +119,12 @@ class PrimaryMapPersistenceTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "primary-first.json"
-            save_primary_map(path, mapping, context_fingerprint=FINGERPRINT)
+            save_primary_map(
+                path,
+                mapping,
+                context_fingerprint=FINGERPRINT,
+                generation_context_digest=GENERATION_DIGEST,
+            )
             self.assertEqual(load_primary_map(path), mapping)
 
 

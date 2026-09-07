@@ -39,6 +39,7 @@ MEM_RELEASE = 0x8000
 MEM_FREE = 0x10000
 PAGE_EXECUTE_READWRITE = 0x40
 ALLOCATION_GRANULARITY = 0x10000
+STILL_ACTIVE = 259
 
 
 @lru_cache(maxsize=1)
@@ -259,6 +260,8 @@ def _kernel32() -> ctypes.WinDLL:
     dll.OpenProcess.restype = wintypes.HANDLE
     dll.CloseHandle.argtypes = [wintypes.HANDLE]
     dll.CloseHandle.restype = wintypes.BOOL
+    dll.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+    dll.GetExitCodeProcess.restype = wintypes.BOOL
     dll.ReadProcessMemory.argtypes = [
         wintypes.HANDLE,
         wintypes.LPCVOID,
@@ -528,6 +531,17 @@ class RuntimeAuxiliaryOverrideSession:
             return 0
         return struct.unpack("<Q", self._read(self.counter_address, 8))[0]
 
+    def _process_has_exited(self) -> bool:
+        """Return true only when Windows positively reports process termination."""
+
+        if not self.process:
+            return True
+        exit_code = wintypes.DWORD()
+        dll = _kernel32()
+        if not dll.GetExitCodeProcess(self.process, ctypes.byref(exit_code)):
+            return False
+        return exit_code.value != STILL_ACTIVE
+
     def stop(self) -> None:
         if not self.process:
             return
@@ -545,8 +559,13 @@ class RuntimeAuxiliaryOverrideSession:
                     "游戏 Hook 已被其他程序改写；为避免跳转到已释放内存，"
                     "本程序不会强行覆盖或释放跳板"
                 )
-        except OSError:
-            # A terminated game process releases the remote allocation itself.
+        except OSError as error:
+            if not self._process_has_exited():
+                raise RuntimeError(
+                    "无法读取或恢复游戏 Hook，且无法确认游戏进程已经退出；"
+                    "为避免留下悬空跳转，临时覆盖仍标记为启用"
+                ) from error
+            # A confirmed-terminated process releases the remote allocation itself.
             restored = True
         if not restored:
             raise RuntimeError("未能安全移除临时绘卷覆盖")

@@ -1,0 +1,12 @@
+{
+  "schema": "nioh3-native-build/v1",
+  "component": "nioh3_seed_accelerator",
+  "abi_version": 2,
+  "build_id": "sha256:7826ab5226d82e8825eff32c81cdf6650129e46d6919cb04a58b7ea08065acf7",
+  "source": "research/native_seed_accelerator.cu",
+  "source_sha256": "7826ab5226d82e8825eff32c81cdf6650129e46d6919cb04a58b7ea08065acf7",
+  "binary": "nioh3_seed_accelerator.dll",
+  "binary_sha256": "03b5ac233d96e9810643e2e9c48bbba40bfe50b06810d0e4c05567ad673cb118",
+  "compiler": "Build cuda_13.3.r13.3/compiler.38244171_0",
+  "flags": "-O3 -shared -gencode=arch=compute_75,code=sm_75 -gencode=arch=compute_86,code=sm_86 -gencode=arch=compute_89,code=sm_89 -gencode=arch=compute_89,code=compute_89 -gencode=arch=compute_120,code=sm_120 -gencode=arch=compute_120,code=compute_120"
+}

@@ -106,6 +106,8 @@ from nioh3_scroll_editor.native import (
     scan_next_candidate,
 )
 from nioh3_scroll_editor.savegame import (
+    BACKUP_MANIFEST_SCHEMA,
+    SAVE_SCHEMA_PROFILE,
     BackupEntry,
     LocalEffectEdit,
     LocalEffectSlotFields,
@@ -118,6 +120,7 @@ from nioh3_scroll_editor.savegame import (
     patch_local_scroll_header,
     patch_local_scroll_record,
     patch_local_scroll_seed,
+    sha256_file,
     prepare_candidate_for_install,
     read_local_effect_slots,
     read_local_scroll_header,
@@ -2164,11 +2167,30 @@ class BetaEditorTests(unittest.TestCase):
             (source_directory / "SAVEDATA.BIN").write_bytes(b"old main")
             (source_directory / "BACKUP.BIN").write_bytes(b"old game backup")
             (source_directory / "SYSTEMSAVEDATA.BIN").write_bytes(b"old system")
-            (source_directory / "edit-report.json").write_text(
+            backup_files = []
+            for filename, role in (
+                ("SAVEDATA.BIN", "main_save"),
+                ("BACKUP.BIN", "game_backup"),
+                ("SYSTEMSAVEDATA.BIN", "system_save"),
+            ):
+                path = source_directory / filename
+                backup_files.append(
+                    {
+                        "source_role": role,
+                        "backup_file": filename,
+                        "size": path.stat().st_size,
+                        "sha256": sha256_file(path),
+                    }
+                )
+            (source_directory / "backup-manifest.json").write_text(
                 json.dumps(
                     {
+                        "backup_manifest_schema": BACKUP_MANIFEST_SCHEMA,
+                        "save_schema_profile": SAVE_SCHEMA_PROFILE,
                         "action": "local-effect-edit",
                         "steam_account_id": account,
+                        "save_slot_index": 0,
+                        "backup_files": backup_files,
                     }
                 ),
                 encoding="utf-8",
@@ -2182,9 +2204,16 @@ class BetaEditorTests(unittest.TestCase):
             self.assertEqual(entries[0].file_count, 4)
             self.assertIsNotNone(entries[0].main_save_sha256)
 
+            class RestoreValidationCrypto:
+                @staticmethod
+                def decrypt(_source: Path, destination: Path) -> None:
+                    decrypted = bytearray(USER_SAVE_SIZE)
+                    decrypted[:6] = b"RNNUSR"
+                    destination.write_bytes(decrypted)
+
             installer = SaveInstaller(
                 save_path=save_path,
-                crypto=object(),  # restore is an encrypted-file transaction
+                crypto=RestoreValidationCrypto(),
                 state_root=state_root,
             )
             result = installer.restore_backup(source_directory)
@@ -2291,6 +2320,15 @@ class BetaEditorTests(unittest.TestCase):
             self.assertEqual(report["slot_indices"], [1, 2, 3])
             self.assertEqual(report["metadata"], {"test": True})
             self.assertEqual(len(report["backup_files"]), 3)
+            manifest = json.loads(
+                (result.backup_directory / "backup-manifest.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(manifest["operation_id"], report["operation_id"])
+            self.assertEqual(manifest["steam_account_id"], account)
+            self.assertEqual(manifest["save_slot_index"], 0)
+            self.assertEqual(manifest["save_schema_profile"], SAVE_SCHEMA_PROFILE)
 
     def test_install_backs_up_then_uses_the_next_slot_and_redacts_paths(self) -> None:
         class FakeCrypto:

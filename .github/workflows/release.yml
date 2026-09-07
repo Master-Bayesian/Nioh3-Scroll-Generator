@@ -37,8 +37,14 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall -q nioh3_scroll_editor launch_editor.py emaki_exchange.py nioh3_seed_math.py scroll_lab.py tools
 
+      - name: Verify native accelerator source and ABI identity
+        run: python tools\verify_native_build_manifest.py
+
       - name: Run test suite
         run: python -m unittest discover -v
+
+      - name: Record collected test IDs and environment
+        run: python tools\write_test_inventory.py --output dist\test-inventory.json
 
       - name: Build single-file executable
         run: python -m PyInstaller --clean --noconfirm --distpath dist --workpath build packaging\Nioh3ScrollGenerator.spec
@@ -64,3 +70,4 @@ jobs:
           files: |
             dist/Nioh3ScrollGenerator.exe
             dist/latest.json
+            dist/test-inventory.json

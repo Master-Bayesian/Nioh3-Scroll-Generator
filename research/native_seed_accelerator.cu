@@ -24,7 +24,13 @@ constexpr std::uint32_t kLcgInverse = 0xA5E2A705u;
 constexpr std::uint32_t kLcgMultiplier = 0x00010DCDu;
 constexpr std::uint32_t kAuxiliaryModeSeedMaskLow = 0x01E3C78Fu;
 constexpr std::uint32_t kAuxiliaryModeSeedMaskHigh = 0x00E1C387u;
+constexpr int kSeedAcceleratorAbiVersion = 2;
+constexpr int kExecutionPolicyStrictGpu = 0;
+constexpr int kExecutionPolicyAllowBulkCpu = 1;
 int g_last_backend = -1;
+int g_execution_policy = kExecutionPolicyStrictGpu;
+int g_test_force_cuda_failure = 0;
+std::uint64_t g_bulk_cpu_call_count = 0u;
 int g_cuda_health = -1;
 int g_last_cuda_error = 0;
 int g_last_cuda_stage = 0;
@@ -53,9 +59,17 @@ void clear_cuda_failure() {
     g_last_cuda_stage = kCudaStageNone;
 }
 
+bool bulk_cpu_fallback_allowed() {
+    return g_execution_policy == kExecutionPolicyAllowBulkCpu;
+}
+
 __global__ void seed_accelerator_self_test_kernel() {}
 
 bool cuda_runtime_operational() {
+    if (g_test_force_cuda_failure != 0) {
+        record_cuda_failure(cudaErrorUnknown, kCudaStageDeviceDiscovery);
+        return false;
+    }
     if (g_cuda_health >= 0) {
         return g_cuda_health == 1;
     }
@@ -1903,6 +1917,42 @@ extern "C" __declspec(dllexport) int cuda_seed_acceleration_available() {
     return cuda_runtime_operational() ? 1 : 0;
 }
 
+extern "C" __declspec(dllexport) int seed_accelerator_abi_version() {
+    return kSeedAcceleratorAbiVersion;
+}
+
+extern "C" __declspec(dllexport) const char* seed_accelerator_build_id() {
+#ifdef NIOH3_SEED_ACCELERATOR_BUILD_ID
+    return NIOH3_SEED_ACCELERATOR_BUILD_ID;
+#else
+    return "untracked-source";
+#endif
+}
+
+extern "C" __declspec(dllexport) int seed_accelerator_set_execution_policy(
+    int policy) {
+    if (policy != kExecutionPolicyStrictGpu &&
+        policy != kExecutionPolicyAllowBulkCpu) {
+        return -1;
+    }
+    g_execution_policy = policy;
+    return 0;
+}
+
+extern "C" __declspec(dllexport) void seed_accelerator_test_force_cuda_failure(
+    int enabled) {
+    g_test_force_cuda_failure = enabled != 0 ? 1 : 0;
+}
+
+extern "C" __declspec(dllexport) void seed_accelerator_reset_bulk_cpu_call_count() {
+    g_bulk_cpu_call_count = 0u;
+}
+
+extern "C" __declspec(dllexport) std::uint64_t
+seed_accelerator_bulk_cpu_call_count() {
+    return g_bulk_cpu_call_count;
+}
+
 extern "C" __declspec(dllexport) int seed_accelerator_last_backend() {
     return g_last_backend;
 }
@@ -1986,6 +2036,11 @@ extern "C" __declspec(dllexport) int generate_ng3_primary_effect_ids(
         g_last_backend = 1;
         return 1;
     }
+    if (!bulk_cpu_fallback_allowed()) {
+        g_last_backend = -2;
+        return -2;
+    }
+    ++g_bulk_cpu_call_count;
     for (std::uint64_t index = 0u; index < count; ++index) {
         std::uint32_t state = lcg_step(seeds[index]);
         state = lcg_step(state);
@@ -2053,6 +2108,11 @@ extern "C" __declspec(dllexport) int generate_ng3_primary_effect_ids_context(
         g_last_backend = 1;
         return 1;
     }
+    if (!bulk_cpu_fallback_allowed()) {
+        g_last_backend = -2;
+        return -2;
+    }
+    ++g_bulk_cpu_call_count;
     for (std::uint64_t index = 0u; index < count; ++index) {
         std::uint32_t state = seeds[index];
         for (std::uint32_t draw = 0u; draw < pre_promotion_draws; ++draw) {
@@ -2125,6 +2185,11 @@ extern "C" __declspec(dllexport) int generate_ng3_r4_primary_effect_ids_multi(
         g_last_backend = 1;
         return 1;
     }
+    if (!bulk_cpu_fallback_allowed()) {
+        g_last_backend = -2;
+        return -2;
+    }
+    ++g_bulk_cpu_call_count;
     for (std::uint64_t index = 0u; index < count; ++index) {
         std::uint32_t state = lcg_step(seeds[index]);
         const std::uint32_t context = context_by_first_u16[state >> 16u];
@@ -2215,6 +2280,11 @@ extern "C" __declspec(dllexport) std::uint64_t collect_ng3_r4_primary_pivot_seed
             return count;
         }
     }
+    if (!bulk_cpu_fallback_allowed()) {
+        g_last_backend = -2;
+        return UINT64_MAX;
+    }
+    ++g_bulk_cpu_call_count;
 
     std::uint64_t output_count = 0u;
     for (std::uint64_t flat_index = start_index; flat_index < stop_index; ++flat_index) {
@@ -2310,6 +2380,11 @@ extern "C" __declspec(dllexport) int generate_terrain_row_indices(
         g_last_backend = 1;
         return 1;
     }
+    if (!bulk_cpu_fallback_allowed()) {
+        g_last_backend = -2;
+        return -2;
+    }
+    ++g_bulk_cpu_call_count;
     for (std::uint64_t index = 0u; index < count; ++index) {
         output_rows[index] = generate_terrain_row_index(
             seeds[index],
@@ -2393,6 +2468,11 @@ extern "C" __declspec(dllexport) int match_enemy_constraints(
         g_last_backend = 1;
         return 1;
     }
+    if (!bulk_cpu_fallback_allowed()) {
+        g_last_backend = -2;
+        return -2;
+    }
+    ++g_bulk_cpu_call_count;
     for (std::uint64_t index = 0u; index < count; ++index) {
         std::uint32_t observed_mask = 0u;
         native_enemy_matcher::match_enemy_constraints_for_seed(
@@ -2462,6 +2542,11 @@ extern "C" __declspec(dllexport) int match_special_rule_constraints(
         g_last_backend = 1;
         return 1;
     }
+    if (!bulk_cpu_fallback_allowed()) {
+        g_last_backend = -2;
+        return -2;
+    }
+    ++g_bulk_cpu_call_count;
     for (std::uint64_t index = 0u; index < count; ++index) {
         output_masks[index] = match_special_rules_for_seed(
             seeds[index],
@@ -2619,7 +2704,12 @@ extern "C" __declspec(dllexport) std::uint64_t collect_auxiliary_pivot_matches(
         }
         return match_count;
     }
+    if (!bulk_cpu_fallback_allowed()) {
+        g_last_backend = -2;
+        return UINT64_MAX;
+    }
 
+    ++g_bulk_cpu_call_count;
     for (std::uint32_t index = 0u; index < stage_count; ++index) {
         output_stage_counts[index] = 0u;
     }
@@ -2711,6 +2801,11 @@ extern "C" __declspec(dllexport) std::uint64_t collect_natural_pivot_seeds(
             return cuda_result;
         }
     }
+    if (!bulk_cpu_fallback_allowed()) {
+        g_last_backend = -2;
+        return UINT64_MAX;
+    }
+    ++g_bulk_cpu_call_count;
     g_last_backend = 0;
     return collect_on_cpu(
         values,

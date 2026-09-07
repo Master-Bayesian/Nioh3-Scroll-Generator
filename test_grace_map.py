@@ -239,17 +239,20 @@ class GraceMapTests(unittest.TestCase):
             ),
         )
         fingerprint = "ab" * 32
+        generation_digest = "12" * 32
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "grace-map.json"
             save_grace_map_cache(
                 path,
                 mapping,
                 context_fingerprint=fingerprint,
+                generation_context_digest=generation_digest,
             )
             self.assertEqual(
                 load_grace_map_cache(
                     path,
                     expected_context_fingerprint=fingerprint.upper(),
+                    expected_generation_context_digest=generation_digest.upper(),
                 ),
                 mapping,
             )
@@ -257,6 +260,13 @@ class GraceMapTests(unittest.TestCase):
                 load_grace_map_cache(
                     path,
                     expected_context_fingerprint="cd" * 32,
+                    expected_generation_context_digest=generation_digest,
+                )
+            with self.assertRaisesRegex(ValueError, "different generation context"):
+                load_grace_map_cache(
+                    path,
+                    expected_context_fingerprint=fingerprint,
+                    expected_generation_context_digest="34" * 32,
                 )
 
 

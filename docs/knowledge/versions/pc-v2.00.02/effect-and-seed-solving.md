@@ -91,9 +91,10 @@ local checks do not replace the existing native stage/final parity corpus.
 - Rarity 4 builds a stage-one record and runs the completion finalizer. Slot 5
   may retain its Grace candidate or become an ordinary completed effect.
 - Rarity 5 has complete third-playthrough offline generation and a 10,000-Seed
-  full-record parity report. Hiding it from the current UI is a product policy,
-  not a claim that the offline algorithm lacks technical verification. The
-  policy anticipates the game developer's announced propagation fix.
+  full-record parity report on PC v2.00.02. It is available in the current
+  product. PC v2.01 may cap the native header to rarity 4 behind feature flag 9;
+  product mode preserves an explicitly requested rarity-5 header while exact
+  effect-slot parity remains unchanged.
 
 ## `0xBABD` lesson
 

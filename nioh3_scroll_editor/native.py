@@ -35,6 +35,7 @@ MEM_COMMIT_RESERVE = 0x1000 | 0x2000
 MEM_RELEASE = 0x8000
 PAGE_EXECUTE_READWRITE = 0x40
 WAIT_OBJECT_0 = 0
+WAIT_INFINITE = 0xFFFFFFFF
 TH32CS_SNAPPROCESS = 0x00000002
 TH32CS_SNAPMODULE = 0x00000008
 TH32CS_SNAPMODULE32 = 0x00000010
@@ -716,6 +717,7 @@ class NativeBatchOracle:
         self.allocation: int | None = None
         self.source_address = 0
         self.destination_address = 0
+        self._retired_call_watcher: threading.Thread | None = None
 
     def _preserve_rarity_headers(
         self,
@@ -810,6 +812,36 @@ class NativeBatchOracle:
         self.process = None
         self.allocation = None
 
+    def _retire_inflight_allocation(self, remote_thread: int) -> None:
+        """Transfer a timed-out call to a waiter that frees only after completion."""
+
+        process = self.process
+        allocation = self.allocation
+        dll = self.dll
+        if not process or not allocation:
+            raise RuntimeError("cannot retire an incomplete native call allocation")
+        self.process = None
+        self.allocation = None
+        self.source_address = 0
+        self.destination_address = 0
+
+        def wait_and_release() -> None:
+            try:
+                wait_result = dll.WaitForSingleObject(remote_thread, WAIT_INFINITE)
+                if wait_result == WAIT_OBJECT_0:
+                    dll.VirtualFreeEx(process, allocation, 0, MEM_RELEASE)
+            finally:
+                dll.CloseHandle(remote_thread)
+                dll.CloseHandle(process)
+
+        watcher = threading.Thread(
+            target=wait_and_release,
+            name="nioh3-retired-native-call",
+            daemon=True,
+        )
+        self._retired_call_watcher = watcher
+        watcher.start()
+
     def read(self, address: int, size: int) -> bytes:
         if not self.process:
             raise RuntimeError("oracle session is not open")
@@ -870,6 +902,8 @@ class NativeBatchOracle:
         try:
             wait_result = self.dll.WaitForSingleObject(thread, timeout_ms)
             if wait_result != WAIT_OBJECT_0:
+                self._retire_inflight_allocation(thread)
+                thread = None
                 raise RuntimeError(f"等待游戏原生生成器失败：{wait_result:#x}")
             exit_code = wintypes.DWORD()
             if not self.dll.GetExitCodeThread(thread, ctypes.byref(exit_code)):
@@ -877,7 +911,8 @@ class NativeBatchOracle:
             if exit_code.value != 0:
                 raise RuntimeError(f"游戏原生生成器线程返回异常：{exit_code.value:#x}")
         finally:
-            self.dll.CloseHandle(thread)
+            if thread:
+                self.dll.CloseHandle(thread)
         output = self.read(self.destination_address, output_size)
         records = [
             output[index:index + SCROLL_RECORD_SIZE]
@@ -932,6 +967,8 @@ class NativeBatchOracle:
         try:
             wait_result = self.dll.WaitForSingleObject(thread, timeout_ms)
             if wait_result != WAIT_OBJECT_0:
+                self._retire_inflight_allocation(thread)
+                thread = None
                 raise RuntimeError(f"等待游戏原生最终化函数失败：{wait_result:#x}")
             exit_code = wintypes.DWORD()
             if not self.dll.GetExitCodeThread(thread, ctypes.byref(exit_code)):
@@ -939,7 +976,8 @@ class NativeBatchOracle:
             if exit_code.value != 0:
                 raise RuntimeError(f"游戏原生最终化线程返回异常：{exit_code.value:#x}")
         finally:
-            self.dll.CloseHandle(thread)
+            if thread:
+                self.dll.CloseHandle(thread)
 
         record = self.read(self.destination_address, SCROLL_RECORD_SIZE)
         if struct.unpack_from("<H", record, 0)[0] == 0:
@@ -994,6 +1032,8 @@ class NativeBatchOracle:
         try:
             wait_result = self.dll.WaitForSingleObject(thread, timeout_ms)
             if wait_result != WAIT_OBJECT_0:
+                self._retire_inflight_allocation(thread)
+                thread = None
                 raise RuntimeError(f"等待游戏原生批量最终化函数失败：{wait_result:#x}")
             exit_code = wintypes.DWORD()
             if not self.dll.GetExitCodeThread(thread, ctypes.byref(exit_code)):
@@ -1001,7 +1041,8 @@ class NativeBatchOracle:
             if exit_code.value != 0:
                 raise RuntimeError(f"游戏原生批量最终化线程返回异常：{exit_code.value:#x}")
         finally:
-            self.dll.CloseHandle(thread)
+            if thread:
+                self.dll.CloseHandle(thread)
 
         output = self.read(self.destination_address, output_size)
         records = [
@@ -1181,6 +1222,8 @@ class NativeBatchOracle:
         try:
             wait_result = self.dll.WaitForSingleObject(thread, timeout_ms)
             if wait_result != WAIT_OBJECT_0:
+                self._retire_inflight_allocation(thread)
+                thread = None
                 raise RuntimeError(f"等待游戏原生生成器失败：{wait_result:#x}")
             exit_code = wintypes.DWORD()
             if not self.dll.GetExitCodeThread(thread, ctypes.byref(exit_code)):
@@ -1188,7 +1231,8 @@ class NativeBatchOracle:
             if exit_code.value != 0:
                 raise RuntimeError(f"游戏原生生成器线程返回异常：{exit_code.value:#x}")
         finally:
-            self.dll.CloseHandle(thread)
+            if thread:
+                self.dll.CloseHandle(thread)
 
         output = self.read(self.destination_address, output_size)
         records = [

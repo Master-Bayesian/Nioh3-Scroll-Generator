@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import ctypes
+import functools
 import json
 import os
 import re
@@ -9,6 +10,8 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,6 +43,8 @@ SCROLL_INVENTORY_KEY_OFFSET = 0x1C
 SCROLL_INVENTORY_KEY_MAX = 0xFFFF
 SCROLL_GENERATION_SERIAL_OFFSET = 0x28
 SCROLL_GENERATION_SERIAL_MAX = 0xFFFFFFFC
+BACKUP_MANIFEST_SCHEMA = "nioh3-scroll-backup/v2"
+SAVE_SCHEMA_PROFILE = "nioh3-pc-v2.00.02-v2.01/save-layout-v1"
 
 
 def scroll_slot_is_empty(record: bytes) -> bool:
@@ -634,6 +639,42 @@ def create_backup_directory(state_root: Path) -> Path:
     raise RuntimeError("同一秒内创建的备份过多，无法分配安全目录")
 
 
+def write_backup_manifest(
+    backup_directory: Path,
+    save_path: Path,
+    backup_files: Sequence[dict[str, object]],
+    *,
+    action: str,
+    operation_id: str,
+) -> Path:
+    """Persist recovery identity before the corresponding save commit."""
+
+    manifest_path = backup_directory / "backup-manifest.json"
+    payload = {
+        "backup_manifest_schema": BACKUP_MANIFEST_SCHEMA,
+        "save_schema_profile": SAVE_SCHEMA_PROFILE,
+        "operation_id": operation_id,
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "action": action,
+        "steam_account_id": account_id_from_save_path(save_path),
+        "save_slot_index": save_slot_index_from_path(save_path),
+        "backup_files": list(backup_files),
+    }
+    temporary = manifest_path.with_name(
+        f".{manifest_path.name}.{operation_id}.tmp"
+    )
+    try:
+        temporary.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        os.replace(temporary, manifest_path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+    return manifest_path
+
+
 SAVE_SLOT_DIRECTORY_PATTERN = re.compile(r"^SAVEDATA(?P<index>\d{2})$")
 
 
@@ -674,6 +715,60 @@ def account_id_from_save_path(path: Path) -> int:
         return int(path.parents[1].name)
     except (ValueError, IndexError) as error:
         raise ValueError("无法从自动发现的存档中识别 Steam ID") from error
+
+
+@contextmanager
+def _save_operation_lock(state_root: Path, save_path: Path):
+    """Hold a cross-process account lock for every save mutation."""
+
+    account_id = account_id_from_save_path(save_path)
+    lock_root = state_root.resolve() / "locks"
+    lock_root.mkdir(parents=True, exist_ok=True)
+    lock_path = lock_root / f"account-{account_id}.lock"
+    handle = lock_path.open("a+b")
+    try:
+        handle.seek(0, os.SEEK_END)
+        if handle.tell() == 0:
+            handle.write(b"\0")
+            handle.flush()
+        handle.seek(0)
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as error:
+            raise RuntimeError(
+                "另一个本程序实例正在操作该账号的存档，已拒绝并发写入"
+            ) from error
+        yield
+    finally:
+        try:
+            handle.seek(0)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            pass
+        handle.close()
+
+
+def _serialized_save_operation(method):
+    @functools.wraps(method)
+    def wrapped(self, *args, **kwargs):
+        with _save_operation_lock(self.state_root, self.save_path):
+            return method(self, *args, **kwargs)
+
+    return wrapped
 
 
 def default_crypto_tool(project_root: Path) -> Path:
@@ -1007,6 +1102,8 @@ class InstallResult:
     backup_directory: Path
     installed_sha256: str
     report_path: Path
+    commit_status: str = "committed"
+    warning: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1016,6 +1113,8 @@ class BatchInstallResult:
     backup_directory: Path
     installed_sha256: str
     report_path: Path
+    commit_status: str = "committed"
+    warning: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1025,6 +1124,8 @@ class BatchEditResult:
     backup_directory: Path
     installed_sha256: str
     report_path: Path
+    commit_status: str = "committed"
+    warning: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1036,6 +1137,8 @@ class BackupEntry:
     report_path: Path | None
     file_count: int
     main_save_sha256: str | None
+    save_slot_index: int | None = None
+    manifest_schema: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1044,6 +1147,8 @@ class RestoreResult:
     checkpoint_directory: Path
     restored_targets: tuple[Path, ...]
     report_path: Path
+    commit_status: str = "committed"
+    warning: str | None = None
 
 
 def _validated_backup_directory(state_root: Path, directory: Path) -> Path:
@@ -1068,7 +1173,7 @@ def list_backup_entries(state_root: Path) -> tuple[BackupEntry, ...]:
     for directory in sorted(backups_root.iterdir(), reverse=True):
         if directory.is_symlink() or not directory.is_dir():
             continue
-        report_path = next(
+        operation_report_path = next(
             (
                 candidate
                 for candidate in (
@@ -1080,15 +1185,25 @@ def list_backup_entries(state_root: Path) -> tuple[BackupEntry, ...]:
             ),
             None,
         )
+        manifest_path = directory / "backup-manifest.json"
+        identity_path = manifest_path if manifest_path.is_file() else operation_report_path
         report: dict[str, Any] = {}
-        if report_path is not None:
+        if identity_path is not None:
             try:
-                loaded = json.loads(report_path.read_text(encoding="utf-8"))
+                loaded = json.loads(identity_path.read_text(encoding="utf-8"))
                 if isinstance(loaded, dict):
                     report = loaded
             except (OSError, ValueError, TypeError):
                 report = {}
-        action = str(report.get("action") or "")
+        operation_report: dict[str, Any] = {}
+        if operation_report_path is not None and operation_report_path != identity_path:
+            try:
+                loaded = json.loads(operation_report_path.read_text(encoding="utf-8"))
+                if isinstance(loaded, dict):
+                    operation_report = loaded
+            except (OSError, ValueError, TypeError):
+                operation_report = {}
+        action = str(operation_report.get("action") or report.get("action") or "")
         if not action:
             metadata = report.get("metadata")
             if isinstance(metadata, dict):
@@ -1100,6 +1215,11 @@ def list_backup_entries(state_root: Path) -> tuple[BackupEntry, ...]:
             account_id = int(account_id_value) if account_id_value is not None else None
         except (TypeError, ValueError):
             account_id = None
+        slot_value = report.get("save_slot_index")
+        try:
+            save_slot_index = int(slot_value) if slot_value is not None else None
+        except (TypeError, ValueError):
+            save_slot_index = None
         main_save = directory / "SAVEDATA.BIN"
         reported_main_hash: str | None = None
         for collection_name in ("backup_files", "checkpoint_files"):
@@ -1123,13 +1243,25 @@ def list_backup_entries(state_root: Path) -> tuple[BackupEntry, ...]:
                 timestamp=directory.name,
                 action=action,
                 account_id=account_id,
-                report_path=report_path.resolve() if report_path is not None else None,
+                report_path=(
+                    operation_report_path.resolve()
+                    if operation_report_path is not None
+                    else identity_path.resolve()
+                    if identity_path is not None
+                    else None
+                ),
                 file_count=sum(1 for item in directory.iterdir() if item.is_file()),
                 main_save_sha256=(
                     reported_main_hash
                     if reported_main_hash is not None
                     else sha256_file(main_save)
                     if main_save.is_file()
+                    else None
+                ),
+                save_slot_index=save_slot_index,
+                manifest_schema=(
+                    str(report.get("backup_manifest_schema"))
+                    if report.get("backup_manifest_schema") is not None
                     else None
                 ),
             )
@@ -1180,6 +1312,7 @@ class SaveInstaller:
             self.crypto.decrypt(self.save_path, decrypted_path)
             return SaveInventory.load(self.save_path, decrypted_path.read_bytes())
 
+    @_serialized_save_operation
     def restore_backup(self, backup_directory: Path) -> RestoreResult:
         """Restore an application backup after checkpointing the current files."""
 
@@ -1187,6 +1320,35 @@ class SaveInstaller:
             self.state_root,
             backup_directory,
         )
+        source_report_path = source_directory / "backup-manifest.json"
+        if not source_report_path.is_file():
+            raise RuntimeError("旧备份缺少身份与哈希清单，禁止自动恢复")
+        try:
+            source_report = json.loads(source_report_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, TypeError) as error:
+            raise RuntimeError("备份清单无法读取，禁止自动恢复") from error
+        if not isinstance(source_report, dict):
+            raise RuntimeError("备份清单格式无效，禁止自动恢复")
+        if source_report.get("backup_manifest_schema") != BACKUP_MANIFEST_SCHEMA:
+            raise RuntimeError("旧备份缺少 v2 身份清单，禁止自动恢复")
+        if source_report.get("save_schema_profile") != SAVE_SCHEMA_PROFILE:
+            raise RuntimeError("备份存档结构版本与当前程序不一致，禁止恢复")
+        expected_account = account_id_from_save_path(self.save_path)
+        expected_slot = save_slot_index_from_path(self.save_path)
+        if source_report.get("steam_account_id") != expected_account:
+            raise RuntimeError("备份所属账号与当前账号不一致，禁止恢复")
+        if source_report.get("save_slot_index") != expected_slot:
+            raise RuntimeError("备份所属角色栏位与当前栏位不一致，禁止恢复")
+        declared_files = source_report.get("backup_files")
+        if not isinstance(declared_files, list):
+            declared_files = source_report.get("checkpoint_files")
+        if not isinstance(declared_files, list):
+            raise RuntimeError("备份缺少文件哈希清单，禁止恢复")
+        declared_by_name = {
+            item.get("backup_file"): item
+            for item in declared_files
+            if isinstance(item, dict) and isinstance(item.get("backup_file"), str)
+        }
         source_targets = (
             (
                 source_directory / "SYSTEMSAVEDATA.BIN",
@@ -1209,43 +1371,85 @@ class SaveInstaller:
             raise FileNotFoundError("所选备份不含主 SAVEDATA.BIN")
         if not self.save_path.is_file():
             raise FileNotFoundError(self.save_path)
+        for source, _target, role in available:
+            declared = declared_by_name.get(source.name)
+            if declared is None or declared.get("source_role") != role:
+                raise RuntimeError(f"备份文件 {source.name} 未通过角色清单验证")
+            if declared.get("size") != source.stat().st_size:
+                raise RuntimeError(f"备份文件 {source.name} 大小与清单不一致")
+            digest = declared.get("sha256")
+            if not isinstance(digest, str) or sha256_file(source) != digest.upper():
+                raise RuntimeError(f"备份文件 {source.name} 哈希与清单不一致")
+        main_source = next(
+            source for source, _target, role in available if role == "main_save"
+        )
+        with tempfile.TemporaryDirectory(prefix="nioh3-scroll-restore-validate-") as directory:
+            decrypted_path = Path(directory) / "decrypted.bin"
+            try:
+                self.crypto.decrypt(main_source, decrypted_path)
+                require_decrypted_user_save(decrypted_path.read_bytes())
+            except Exception as error:
+                raise RuntimeError(
+                    "备份主存档未通过解密与结构验证，禁止恢复"
+                ) from error
 
         current_targets = (
-            (self.save_path, "SAVEDATA.BIN"),
-            (self.save_path.parent / "BACKUP.BIN", "BACKUP.BIN"),
+            (self.save_path, "SAVEDATA.BIN", "main_save"),
+            (self.save_path.parent / "BACKUP.BIN", "BACKUP.BIN", "game_backup"),
             (
                 self.save_path.parent.parent / "SYSTEMSAVEDATA00" / "SAVEDATA.BIN",
                 "SYSTEMSAVEDATA.BIN",
+                "system_save",
             ),
         )
         source_hashes = {
             path.resolve(): sha256_file(path)
-            for path, _backup_name in current_targets
+            for path, _backup_name, _role in current_targets
             if path.is_file()
         }
         checkpoint_directory = create_backup_directory(self.state_root)
+        operation_id = uuid.uuid4().hex
         checkpoint_files: list[dict[str, object]] = []
-        for current_path, backup_name in current_targets:
+        for current_path, backup_name, role in current_targets:
             if not current_path.is_file():
                 continue
             destination = checkpoint_directory / backup_name
             shutil.copy2(current_path, destination)
             checkpoint_files.append(
                 {
-                    "source_role": backup_name,
+                    "source_role": role,
                     "backup_file": backup_name,
                     "size": destination.stat().st_size,
                     "sha256": sha256_file(destination),
                 }
             )
+        write_backup_manifest(
+            checkpoint_directory,
+            self.save_path,
+            checkpoint_files,
+            action="pre-restore-checkpoint",
+            operation_id=operation_id,
+        )
 
+        journal_path = checkpoint_directory / "restore-journal.json"
+        journal = {
+            "schema": "nioh3-save-restore-journal/v1",
+            "operation_id": operation_id,
+            "state": "prepared",
+            "steam_account_id": expected_account,
+            "save_slot_index": expected_slot,
+            "source_backup_directory": source_directory.name,
+            "targets": [role for _source, _target, role in available],
+        }
+        journal_path.write_text(json.dumps(journal, indent=2), encoding="utf-8")
         staged: list[tuple[Path, Path, str, str]] = []
+        committed: list[tuple[Path, str]] = []
         try:
             for source, target, role in available:
                 target.parent.mkdir(parents=True, exist_ok=True)
-                temporary = target.with_name(target.name + ".scroll-generator-restore.tmp")
-                if temporary.exists():
-                    temporary.unlink()
+                temporary = target.with_name(
+                    target.name + f".scroll-generator-restore-{operation_id}.tmp"
+                )
                 shutil.copy2(source, temporary)
                 source_digest = sha256_file(source)
                 if sha256_file(temporary) != source_digest:
@@ -1258,35 +1462,86 @@ class SaveInstaller:
             restored_roles: list[str] = []
             for temporary, target, expected_digest, role in staged:
                 os.replace(temporary, target)
+                committed.append((target, role))
                 if sha256_file(target) != expected_digest:
                     raise RuntimeError("恢复后的文件哈希与所选备份不一致")
                 restored_targets.append(target.resolve())
                 restored_roles.append(role)
+        except Exception as error:
+            rollback_errors: list[str] = []
+            checkpoint_by_role = {
+                "main_save": checkpoint_directory / "SAVEDATA.BIN",
+                "game_backup": checkpoint_directory / "BACKUP.BIN",
+                "system_save": checkpoint_directory / "SYSTEMSAVEDATA.BIN",
+            }
+            for target, role in reversed(committed):
+                checkpoint = checkpoint_by_role[role]
+                try:
+                    if checkpoint.is_file():
+                        rollback_temp = target.with_name(
+                            target.name + f".scroll-generator-rollback-{operation_id}.tmp"
+                        )
+                        shutil.copy2(checkpoint, rollback_temp)
+                        os.replace(rollback_temp, target)
+                        if sha256_file(target) != sha256_file(checkpoint):
+                            raise RuntimeError("rollback hash mismatch")
+                    elif target.exists():
+                        target.unlink()
+                except Exception as rollback_error:
+                    rollback_errors.append(f"{role}: {rollback_error}")
+            journal["state"] = "recovery_required" if rollback_errors else "rolled_back"
+            journal["error"] = str(error)
+            journal["rollback_errors"] = rollback_errors
+            journal_path.write_text(json.dumps(journal, indent=2), encoding="utf-8")
+            if rollback_errors:
+                raise RuntimeError(
+                    "恢复中断且自动回滚不完整；请保留恢复点并执行人工恢复："
+                    + "; ".join(rollback_errors)
+                ) from error
+            raise
         finally:
             for temporary, _target, _digest, _role in staged:
                 if temporary.exists():
                     temporary.unlink()
 
+        journal["state"] = "committed"
         report = {
+            "backup_manifest_schema": BACKUP_MANIFEST_SCHEMA,
+            "save_schema_profile": SAVE_SCHEMA_PROFILE,
+            "operation_id": operation_id,
             "action": "restore-backup",
             "restored_at_utc": datetime.now(timezone.utc).isoformat(),
             "steam_account_id": account_id_from_save_path(self.save_path),
+            "save_slot_index": save_slot_index_from_path(self.save_path),
             "source_backup_directory": source_directory.name,
             "restored_targets": restored_roles,
             "checkpoint_files": checkpoint_files,
         }
         report_path = checkpoint_directory / "restore-report.json"
-        report_path.write_text(
-            json.dumps(report, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        commit_status = "committed"
+        warning = None
+        try:
+            journal_path.write_text(json.dumps(journal, indent=2), encoding="utf-8")
+            report_path.write_text(
+                json.dumps(report, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+        except OSError as error:
+            commit_status = "committed_with_warning"
+            warning = (
+                "存档已恢复，恢复前检查点仍可自动恢复，但提交后的恢复报告写入失败："
+                f"{error}"
+            )
         return RestoreResult(
             source_backup_directory=source_directory,
             checkpoint_directory=checkpoint_directory,
             restored_targets=tuple(restored_targets),
             report_path=report_path,
+            commit_status=commit_status,
+            warning=warning,
         )
 
+    @_serialized_save_operation
     def edit_many(
         self,
         edits: Sequence[tuple[int, bytes, bytes]],
@@ -1319,6 +1574,7 @@ class SaveInstaller:
             raise FileNotFoundError(self.save_path)
 
         source_hash = sha256_file(self.save_path)
+        operation_id = uuid.uuid4().hex
         backup_directory = create_backup_directory(self.state_root)
 
         save_directory = self.save_path.parent
@@ -1349,6 +1605,13 @@ class SaveInstaller:
                     "sha256": sha256_file(destination),
                 }
             )
+        write_backup_manifest(
+            backup_directory,
+            self.save_path,
+            copied,
+            action=normalized_action,
+            operation_id=operation_id,
+        )
 
         with tempfile.TemporaryDirectory(prefix="nioh3-scroll-batch-edit-") as directory:
             work = Path(directory)
@@ -1414,9 +1677,13 @@ class SaveInstaller:
                     installed_temp.unlink()
 
         report = {
+            "backup_manifest_schema": BACKUP_MANIFEST_SCHEMA,
+            "save_schema_profile": SAVE_SCHEMA_PROFILE,
+            "operation_id": operation_id,
             "installed_at_utc": datetime.now(timezone.utc).isoformat(),
             "action": normalized_action,
             "steam_account_id": account_id_from_save_path(self.save_path),
+            "save_slot_index": save_slot_index_from_path(self.save_path),
             "source_sha256": source_hash,
             "installed_sha256": sha256_file(self.save_path),
             "slot_indices": list(slot_indices),
@@ -1428,15 +1695,26 @@ class SaveInstaller:
             "metadata": metadata or {},
         }
         report_path = backup_directory / "edit-report.json"
-        report_path.write_text(
-            json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
+        commit_status = "committed"
+        warning = None
+        try:
+            report_path.write_text(
+                json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+        except OSError as error:
+            commit_status = "committed_with_warning"
+            warning = (
+                "存档已修改，提交前备份仍可自动恢复，但提交后的操作报告写入失败："
+                f"{error}"
+            )
         return BatchEditResult(
             slot_indices=slot_indices,
             record_offsets=tuple(record_offsets),
             backup_directory=backup_directory,
             installed_sha256=report["installed_sha256"],
             report_path=report_path,
+            commit_status=commit_status,
+            warning=warning,
         )
 
     def delete_many(
@@ -1461,6 +1739,7 @@ class SaveInstaller:
             },
         )
 
+    @_serialized_save_operation
     def install_many(
         self,
         candidate_records: Sequence[bytes],
@@ -1484,6 +1763,7 @@ class SaveInstaller:
             raise FileNotFoundError(self.save_path)
 
         source_hash = sha256_file(self.save_path)
+        operation_id = uuid.uuid4().hex
         backup_directory = create_backup_directory(self.state_root)
 
         save_directory = self.save_path.parent
@@ -1514,6 +1794,14 @@ class SaveInstaller:
                     "sha256": sha256_file(destination),
                 }
             )
+
+        write_backup_manifest(
+            backup_directory,
+            self.save_path,
+            copied,
+            action=normalized_action,
+            operation_id=operation_id,
+        )
 
         with tempfile.TemporaryDirectory(prefix="nioh3-scroll-batch-install-") as directory:
             work = Path(directory)
@@ -1598,9 +1886,13 @@ class SaveInstaller:
                     installed_temp.unlink()
 
         report = {
+            "backup_manifest_schema": BACKUP_MANIFEST_SCHEMA,
+            "save_schema_profile": SAVE_SCHEMA_PROFILE,
+            "operation_id": operation_id,
             "installed_at_utc": datetime.now(timezone.utc).isoformat(),
             "action": normalized_action,
             "steam_account_id": account_id_from_save_path(self.save_path),
+            "save_slot_index": save_slot_index_from_path(self.save_path),
             "source_sha256": source_hash,
             "installed_sha256": sha256_file(self.save_path),
             "slot_indices": list(slot_indices),
@@ -1620,17 +1912,29 @@ class SaveInstaller:
             "metadata": metadata or {},
         }
         report_path = backup_directory / "install-report.json"
-        report_path.write_text(
-            json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
+        commit_status = "committed"
+        warning = None
+        try:
+            report_path.write_text(
+                json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+        except OSError as error:
+            commit_status = "committed_with_warning"
+            warning = (
+                "存档已写入，提交前备份仍可自动恢复，但提交后的操作报告写入失败："
+                f"{error}"
+            )
         return BatchInstallResult(
             slot_indices=slot_indices,
             record_offsets=tuple(record_offsets),
             backup_directory=backup_directory,
             installed_sha256=report["installed_sha256"],
             report_path=report_path,
+            commit_status=commit_status,
+            warning=warning,
         )
 
+    @_serialized_save_operation
     def install(
         self,
         candidate_record: bytes,
@@ -1642,6 +1946,8 @@ class SaveInstaller:
         if not self.save_path.is_file():
             raise FileNotFoundError(self.save_path)
         source_hash = sha256_file(self.save_path)
+        operation_id = uuid.uuid4().hex
+        manifest_action = str((metadata or {}).get("operation") or "scroll-install")
         if (
             expected_source_sha256 is not None
             and source_hash.upper() != expected_source_sha256.upper()
@@ -1677,6 +1983,14 @@ class SaveInstaller:
                     "sha256": sha256_file(destination),
                 }
             )
+
+        write_backup_manifest(
+            backup_directory,
+            self.save_path,
+            copied,
+            action=manifest_action,
+            operation_id=operation_id,
+        )
 
         with tempfile.TemporaryDirectory(prefix="nioh3-scroll-install-") as directory:
             work = Path(directory)
@@ -1741,8 +2055,13 @@ class SaveInstaller:
                     installed_temp.unlink()
 
         report = {
+            "backup_manifest_schema": BACKUP_MANIFEST_SCHEMA,
+            "save_schema_profile": SAVE_SCHEMA_PROFILE,
+            "operation_id": operation_id,
             "installed_at_utc": datetime.now(timezone.utc).isoformat(),
+            "action": manifest_action,
             "steam_account_id": account_id_from_save_path(self.save_path),
+            "save_slot_index": save_slot_index_from_path(self.save_path),
             "source_sha256": source_hash,
             "installed_sha256": sha256_file(self.save_path),
             "slot_index": slot_index,
@@ -1760,15 +2079,26 @@ class SaveInstaller:
             "metadata": metadata or {},
         }
         report_path = backup_directory / "install-report.json"
-        report_path.write_text(
-            json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
+        commit_status = "committed"
+        warning = None
+        try:
+            report_path.write_text(
+                json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+        except OSError as error:
+            commit_status = "committed_with_warning"
+            warning = (
+                "存档已写入，提交前备份仍可自动恢复，但提交后的操作报告写入失败："
+                f"{error}"
+            )
         return InstallResult(
             slot_index=slot_index,
             record_offset=record_offset,
             backup_directory=backup_directory,
             installed_sha256=report["installed_sha256"],
             report_path=report_path,
+            commit_status=commit_status,
+            warning=warning,
         )
 
     def install_effect_sequence_candidate(

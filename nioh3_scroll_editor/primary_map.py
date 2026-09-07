@@ -29,7 +29,7 @@ from .grace_map import (
 from .joint_solver import U16Runs
 
 
-PRIMARY_MAP_SCHEMA = "nioh3-primary-effect-output-map/v1"
+PRIMARY_MAP_SCHEMA = "nioh3-primary-effect-output-map/v2"
 
 
 class BatchOracle(Protocol):
@@ -123,16 +123,25 @@ def primary_map_to_payload(
     mapping: PrimaryMap,
     *,
     context_fingerprint: str,
+    generation_context_digest: str,
 ) -> dict[str, object]:
     """Serialize a certified draw map without process-specific addresses."""
 
     fingerprint = context_fingerprint.strip().lower()
     if len(fingerprint) != 64 or any(character not in "0123456789abcdef" for character in fingerprint):
         raise ValueError("context fingerprint must be a 64-character SHA-256 hex string")
+    generation_digest = generation_context_digest.strip().lower()
+    if len(generation_digest) != 64 or any(
+        character not in "0123456789abcdef" for character in generation_digest
+    ):
+        raise ValueError(
+            "generation context digest must be a 64-character SHA-256 hex string"
+        )
     _validate_complete_partition(mapping)
     common: dict[str, object] = {
         "schema": PRIMARY_MAP_SCHEMA,
         "context_fingerprint": fingerprint,
+        "generation_context_digest": generation_digest,
         "game_version": mapping.game_version,
         "record_type": f"0x{mapping.record_type:04X}",
         "rarity": mapping.rarity,
@@ -168,16 +177,26 @@ def primary_map_from_payload(
     payload: dict[str, object],
     *,
     expected_context_fingerprint: str | None = None,
+    expected_generation_context_digest: str | None = None,
 ) -> PrimaryMap:
     """Load and validate a previously certified primary-effect draw map."""
 
     if payload.get("schema") != PRIMARY_MAP_SCHEMA:
         raise ValueError(f"unsupported primary-map schema: {payload.get('schema')!r}")
     fingerprint = str(payload.get("context_fingerprint", "")).lower()
+    generation_digest = str(payload.get("generation_context_digest", "")).lower()
+    if len(generation_digest) != 64 or any(
+        character not in "0123456789abcdef" for character in generation_digest
+    ):
+        raise ValueError("primary output map has no valid generation context")
     if expected_context_fingerprint is not None:
         expected = expected_context_fingerprint.strip().lower()
         if fingerprint != expected:
             raise ValueError("primary output map belongs to a different save context")
+    if expected_generation_context_digest is not None:
+        expected = expected_generation_context_digest.strip().lower()
+        if generation_digest != expected:
+            raise ValueError("primary output map belongs to a different generation context")
 
     effects_payload = payload.get("effects")
     if not isinstance(effects_payload, list):
@@ -228,6 +247,7 @@ def save_primary_map(
     mapping: PrimaryMap,
     *,
     context_fingerprint: str,
+    generation_context_digest: str,
 ) -> Path:
     """Atomically persist a map so later game-closed solves can reuse it."""
 
@@ -236,6 +256,7 @@ def save_primary_map(
     payload = primary_map_to_payload(
         mapping,
         context_fingerprint=context_fingerprint,
+        generation_context_digest=generation_context_digest,
     )
     data = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
@@ -251,6 +272,7 @@ def load_primary_map(
     path: str | Path,
     *,
     expected_context_fingerprint: str | None = None,
+    expected_generation_context_digest: str | None = None,
 ) -> PrimaryMap:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
@@ -258,6 +280,7 @@ def load_primary_map(
     return primary_map_from_payload(
         payload,
         expected_context_fingerprint=expected_context_fingerprint,
+        expected_generation_context_digest=expected_generation_context_digest,
     )
 
 

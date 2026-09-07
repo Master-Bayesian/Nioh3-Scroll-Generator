@@ -35,6 +35,7 @@ from nioh3_scroll_editor.auxiliary_feasibility import (
 )
 from nioh3_scroll_editor.auxiliary_generation import AuxiliarySearchCriteria
 from nioh3_scroll_editor.catalog import contextual_effect_name
+from nioh3_scroll_editor.core_services import GenerationContext
 from nioh3_scroll_editor.effect_seed_solver import (
     EffectSeedIntersectionReport,
     EffectSeedRequest,
@@ -74,6 +75,7 @@ from nioh3_scroll_editor.savegame import (
 
 CATALOG_PATH = PROJECT_ROOT / "nioh3_scroll_editor" / "data" / "effect_names_multilingual.json"
 STATE_ROOT = Path(os.environ.get("LOCALAPPDATA", PROJECT_ROOT)) / "Nioh3ScrollGenerator"
+GENERATION_CONTEXT = GenerationContext.capture()
 
 
 def parse_int(value: str) -> int:
@@ -261,11 +263,13 @@ def _load_or_build_primary_map(
         playthrough=playthrough,
         rarity=rarity,
         grace_effect_id=grace_effect_id,
+        generation_context_digest=GENERATION_CONTEXT.context_digest,
     )
     if cache_path.is_file():
         return load_primary_map(
             cache_path,
             expected_context_fingerprint=save_fingerprint,
+            expected_generation_context_digest=GENERATION_CONTEXT.context_digest,
         )
 
     progress = lambda update: _progress_line(
@@ -300,6 +304,7 @@ def _load_or_build_primary_map(
         cache_path,
         mapping,
         context_fingerprint=save_fingerprint,
+        generation_context_digest=GENERATION_CONTEXT.context_digest,
     )
     print(f"cached primary map: {cache_path}", file=sys.stderr)
     return mapping
@@ -654,6 +659,7 @@ def main() -> int:
                 playthrough=args.playthrough,
                 rarity=args.rarity,
                 grace_effect_id=grace_effect_id,
+                generation_context_digest=GENERATION_CONTEXT.context_digest,
             )
             if not cache_path.is_file():
                 raise FileNotFoundError(
@@ -664,6 +670,7 @@ def main() -> int:
             primary_mapping = load_primary_map(
                 cache_path,
                 expected_context_fingerprint=save_fingerprint,
+                expected_generation_context_digest=GENERATION_CONTEXT.context_digest,
             )
         request = EffectSeedRequest(
             playthrough=args.playthrough,

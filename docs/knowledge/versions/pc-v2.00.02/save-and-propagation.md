@@ -91,16 +91,17 @@ and `+0x14`.
   play but are explicitly non-propagating.
 - Every write transaction backs up the save, repairs checksum, verifies an
   encrypt/decrypt roundtrip, and refuses the write if the source hash changed.
-- Every newly inserted record receives a fresh `+0x1C` item-instance key whose
-  four-byte encoding is absent from the complete decrypted save. FB-016 proved
-  that scroll-only uniqueness is insufficient: a canonical scroll with key
-  `50409` collided with an equipment record at its own `+0x1C`, causing the
-  game to render/index the scroll as equipment while still allowing the scroll
-  challenge. Drop/pickup is not a reliable repair on every account.
-- Existing scroll-only duplicate keys are repaired transactionally: the first
-  record keeps its key and later collisions receive unused nonzero values. A
-  scroll key colliding with a strictly recognized non-scroll item header is
-  also replaced; loose scalar matches elsewhere in the save are not rewritten.
+- `+0x1C` remains an incompletely understood scroll-local key. New records use
+  conservative globally absent values, but live FB-016 testing disproved this
+  field as the equipment-rendering cause.
+- FB-016 is caused by the `+0x28` generation serial sharing an identity
+  namespace with non-scroll inventory records. A scroll serial that collides
+  with the `+0x28` serial of a strictly recognized equipment record can make
+  the scroll render as that equipment while its challenge remains usable.
+- Every newly inserted record receives a fresh `+0x28` serial unused by scrolls
+  or strictly recognized non-scroll item headers. Existing scroll-only
+  duplicates and proven scroll/equipment serial collisions are repaired
+  transactionally. Loose scalar matches elsewhere in the save are not edited.
 - Two-account receipt remains the final propagation acceptance test. Offline
   parity and local display are not substitutes.
 
