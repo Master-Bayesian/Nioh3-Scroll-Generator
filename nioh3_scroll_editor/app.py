@@ -270,6 +270,35 @@ SearchCriteria = tuple[
 ]
 
 
+def supports_grace_filter(*, rarity: int, playthrough: int | None) -> bool:
+    """Return whether the product has a verified final-Grace search path."""
+
+    if rarity == 4:
+        return playthrough in (1, 2, 3)
+    if rarity == 5:
+        return playthrough in (3, 4, 5)
+    return False
+
+
+def is_custom_only_early_r4(*, rarity: int, playthrough: int | None) -> bool:
+    """Return whether generation is supported despite no legal native drop."""
+
+    return rarity == 4 and playthrough in (1, 2)
+
+
+def require_search_candidate_ready(candidate: ScrollCandidate) -> ScrollCandidate:
+    """Reject rarity-4 stage-one records at the application search boundary."""
+
+    if (
+        candidate.rarity == 4
+        and candidate.record_stage is CandidateRecordStage.NATIVE_STAGE_ONE
+    ):
+        raise RuntimeError(
+            "稀有度4搜索结果仍是原生待揭露中间态，已拒绝加入候选列表"
+        )
+    return candidate
+
+
 @dataclass(frozen=True, slots=True)
 class SearchBatchResult:
     candidates: tuple[ScrollCandidate, ...]
@@ -1759,7 +1788,7 @@ QUICK_START_TEXT = """仁王3绘卷生成器 - 快速上手
 
 FEATURE_GUIDE_TEXT = """按功能使用
 
-一、搜索并添加可以传播的合法绘卷
+一、搜索并添加由游戏 Seed 生成的绘卷
 1. 选择周目与稀有度。
 2. 在目标组合中搜索词条，双击加入。默认第一项是主词条；主词条候选数可设为 2 或 3，表示任一命中。勾选“主词条不限”后，所有已选普通词条都只要求出现在主词条或副词条任一位置，不会被强制当成副词条。普通词条可设为必含，或把多个可接受结果放入同一个任一组。
 3. 恩宠、地形、敌人和特殊规则都可以单独限制；敌人按低手／中手／高手分栏，并提供跨栏全局搜索。敌人下方会集中显示已选项，可逐项 × 删除，并可把多个可接受敌人放入同一个任一组。选择具体敌人只是“必须出现”，不是固定整张绘卷的全部敌人。特殊规则直接点击即可添加多条，不需要按 Ctrl。
@@ -1807,7 +1836,7 @@ FAQ_TEXT = """常见问题
 “恩宠筛选”下拉框可以正常选择志那都彦的恩宠（0x4192）。缺少它的是另一项功能：“特殊规则 → 优先掉落率上升”。PC v2.00.02 / v2.01 的原生优先掉落规则表只有 20 种恩宠、每种 3 个数值变体；志那都彦是唯一没有对应规则行的恩宠，因此游戏当前版本不能生成“优先掉落率上升（志那都彦）”。软件不会把必定无解的特殊规则伪装成候选。
 
 本地直接修改的词条能传播吗？
-通常不能。联机传播发送 Seed、稀有度等 canonical 字段，接收方会自行重建词条。要传播自定义结果，请使用“搜索合法绘卷”找到天然生成目标组合的 Seed。
+通常不能。联机传播发送 Seed、稀有度等 canonical 字段，接收方会自行重建词条。要传播自定义结果，请使用 Seed 搜索找到游戏生成器能够重建的目标组合。某些可构造配置并没有合法原生掉落，界面会单独提示。
 """
 
 
@@ -1841,15 +1870,15 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器使用教程
 5. ID 0x0001 会显示为“未完成的杰作（画龙点睛）”；目前合法游戏状态中只确认稀有度 3 会出现该词条。它不作为普通副词条候选供直接拼接。
 6. 旧版用同 Seed 的 R4 中间结果预测“画龙点睛恩宠”的路径已停用；R3 与 R4 现在分别运行各自经过原生对照的完整离线算法。
 7. 稀有度和绘卷类型都会影响词条生成结果。周目选择会改用类型表中的 record type：一周目 0x1E82、二周目 0x516D、三周目 0xE604、四周目 0xDD82、五周目 0xD523。
-8. 一、二周目没有三周目的恩宠槽；求解时必须至少选择一个主词条，程序直接求逆主词条 draw 1，再原生验证多个副词条。
-9. 三周目稀有度4可指定恩宠，并必须经过完整 finalizer 重放确认恩宠没有被替换。
+8. 稀有度3的第5槽是成长状态，不是当前记录中的恩宠。一、二周目不能合法原生掉落稀有度4绘卷，但 PC v2.01 原生构造链可以生成并最终化这种记录，因此仍允许玩家搜索和添加；界面会明确标为自定义配置。求解会建立对应周目的原生阶段映射，再调用游戏 finalizer 验证最终恩宠和全部词条，不会套用三周目映射。
+9. 三周目稀有度4可离线指定恩宠；一、二周目稀有度4首次指定恩宠时需要游戏位于标题界面，以建立该周目专属映射并执行原生最终化。
 10. 等级、推荐等级和转手次数不直接参与副词条抽样；它们放在“绘卷属性”区域统一设置。“绘卷等级”对应详情页左上角的 Lv.，参与词条数值规范化；PC v2.00.02 / v2.01 的可传播有效范围是 0–180，超过 180 也只会按 180 传播，它不控制敌人等级。推荐等级输入会先限制到内部值 156–1400，再经过游戏原生 42 节点曲线换算为挑战中的最终敌人/Boss 等级；内部值 183 对应 160，181 对应 159，1400 或更高对应上限 700。
 11. 地形影响可复选，所选项目之间是 OR：生成结果命中任意一项即可。“含有地狱（任意组合）”同时覆盖仅地狱、地狱＋火和地狱＋瘴血；也可选择某个精确完整结果。特殊规则和出现敌人则按必含条件筛选。特殊规则直接点击即可加入多条，不需要按 Ctrl；父项表示任意数值变体，展开后可精确选择 +50%、+65%、+80% 等原生变体。“任意一难横行”会把全部装备类型和数值作为一个“任一命中”条件，而不是要求它们同时出现。每个精确变体都会保留规则名称，已选项可逐项 × 删除或一键清空；敌人也有独立的一键清空按钮。
 12. 地形、规则和敌人名称来自游戏当前版本的简中、日文、英文原生文本目录，不使用机器翻译。特殊规则只显示原生表中当前周目有权重的合法行；仍未解析出具体阴阳术名称的合法键会明确标成“未识别阴阳术（原生编号……，可生成）”，不会只显示英文或裸编号。
 13. 四、五周目预计由 DLC2 开放，PC v2.00.02 / v2.01 当前无法正常进入。0xDD82/0xD523 仅证明游戏文件中存在潜在生成上下文，不证明未来 DLC 的最终算法；目前只允许研究预览，禁止写档和传播声明。
 
 三、联立求解 Seed
-1. 当前版本提供约束求解，不提供界面上的连续 Seed 扫描。一、二周目必须选择主词条；三周目至少选择一项词条、恩宠或辅助条件。
+1. 当前版本提供约束求解，不提供界面上的连续 Seed 扫描。一、二周目必须选择主词条或当前已支持的恩宠；三周目至少选择一项词条、恩宠或辅助条件。
 2. 指定恩宠时先数学求逆对应的完整 Seed 集合。稀有度4只选一到两个独立普通词条条件时，会在 DirectCompute 中完整生成第一阶段并运行补全器；三个以上条件继续使用更快的“最终最多改写一槽”必要条件前筛。两条路径都不会把第一阶段词条直接当成最终结果，GPU 幸存 Seed 还会由 CPU 精确回放补全器。其他数学候选按批构造，普通词条、地形、敌人和特殊规则由 DirectCompute/CUDA 批量筛选；所有结果仍会经过权重池、冲突、晋升、重试、数值和规范化验证。
 3. 主词条候选、多个必含副词条、副词条任一组和必含项数值门槛都在完整 Seed 重放结果上检查；不指定时可直接比较返回候选中的实际词条。
 4. 地形、敌人和特殊规则同样由 Seed 离线生成并联合过滤。敌人列表只展示原生绘卷候选表中的合法名称，并按低手／中手／高手生成池档位分栏；这些档位不代表战斗强弱。同名但实际形态不同的高手，以及金井半兵卫的人形／妖怪形态，均按原生 ID 拆成独立选项。多个必含敌人是 AND，同一个任一组中的敌人是 OR。选择一名敌人只保证至少出现该敌人；“合法组合一览”说明完整敌人组结构。结构上不可能共存的组合会在求解前直接报无解。
@@ -6499,9 +6528,9 @@ class ScrollEditorApp:
             rarity = -1
         playthrough = PLAYTHROUGH_BY_LABEL.get(self.playthrough.get())
         has_special = self.grace_filter.get() != NO_GRACE_FILTER_LABEL
-        grace_mode = has_special and (
-            (rarity == 4 and playthrough == 3)
-            or (rarity == 5 and playthrough in (3, 4, 5))
+        grace_mode = has_special and supports_grace_filter(
+            rarity=rarity,
+            playthrough=playthrough,
         )
         certified_ng3_mode = playthrough == 3 and rarity in (3, 4, 5)
         primary_only_mode = (
@@ -6558,10 +6587,7 @@ class ScrollEditorApp:
                 rarity,
                 include_transient_stage_one=RESEARCH_MODE,
             )
-            if (
-                (rarity == 4 and playthrough == 3)
-                or (rarity == 5 and playthrough in (3, 4, 5))
-            )
+            if supports_grace_filter(rarity=rarity, playthrough=playthrough)
             else ()
         )
         self.special_id_by_label = {effect.label: effect.effect_id for effect in effects}
@@ -6589,10 +6615,10 @@ class ScrollEditorApp:
         if grace_effect_id is not None:
             if rarity not in (4, 5):
                 raise ValueError("只有稀有度4和5具备可筛选的最终恩宠结果")
-            if playthrough not in (3, 4, 5):
-                raise ValueError("恩宠筛选仅适用于三至五周目绘卷")
-            if rarity == 4 and playthrough != 3:
-                raise ValueError("稀有度4恩宠 finalizer 当前只完成三周目离线认证")
+            if rarity == 5 and playthrough not in (3, 4, 5):
+                raise ValueError("稀有度5恩宠筛选仅适用于三至五周目绘卷")
+            if rarity == 4 and playthrough not in (1, 2, 3):
+                raise ValueError("稀有度4恩宠筛选仅适用于一至三周目绘卷")
             if playthrough == 3:
                 mapping = load_grace_output_map(rarity=rarity)
                 try:
@@ -6712,9 +6738,24 @@ class ScrollEditorApp:
         if self.grace_filter.get() == NO_GRACE_FILTER_LABEL:
             playthrough = PLAYTHROUGH_BY_LABEL.get(self.playthrough.get())
             if playthrough in (1, 2):
-                self.grace_search_hint.set(
-                    "一、二周目没有三周目恩宠槽；选择主词条后直接求逆 draw 1。"
-                )
+                try:
+                    rarity = int(self.rarity.get(), 0)
+                except ValueError:
+                    rarity = -1
+                if rarity == 3:
+                    self.grace_search_hint.set(
+                        "稀有度3第5槽是成长状态，不是当前绘卷中的可选恩宠。"
+                    )
+                elif rarity == 4:
+                    self.grace_search_hint.set(
+                        "提示：一、二周目不能合法原生掉落稀有度4绘卷；"
+                        "仍允许自定义搜索和添加。程序使用对应周目的原生阶段映射和 finalizer，"
+                        "最终恩宠可能保留，也可能被替换。"
+                    )
+                else:
+                    self.grace_search_hint.set(
+                        "一、二周目稀有度5没有已确认的原生获取路径。"
+                    )
             elif playthrough == 3:
                 try:
                     rarity = int(self.rarity.get(), 0)
@@ -6749,6 +6790,12 @@ class ScrollEditorApp:
                 self.grace_search_hint.set(
                     "三周目稀有度4：先求逆恩宠 draw-1 前像，再离线重放完整 finalizer；"
                     "只有最终第5槽仍是所选恩宠的 Seed 才会进入结果。"
+                )
+            elif rarity == 4 and playthrough in (1, 2):
+                self.grace_search_hint.set(
+                    "提示：该周目不能合法原生掉落稀有度4绘卷，本功能仅供自定义搜索和添加。"
+                    "首次求解会在标题界面建立所选周目专属阶段映射，并逐张调用游戏 finalizer；"
+                    "只返回最终仍保留所选恩宠的 Seed。"
                 )
             elif playthrough == 3:
                 self.grace_search_hint.set(
@@ -6868,8 +6915,8 @@ class ScrollEditorApp:
                 _minimum_rolls,
                 secondary_any_groups,
             ) = criteria
-            if playthrough in (1, 2) and not primary:
-                raise ValueError("一、二周目联立求解必须至少选择一个主词条")
+            if playthrough in (1, 2) and not primary and grace is None:
+                raise ValueError("一、二周目求解必须至少选择一个主词条或已支持的恩宠")
             if (
                 playthrough == 3
                 and rarity in (3, 4, 5)
@@ -7018,16 +7065,29 @@ class ScrollEditorApp:
                         level=level,
                         recommended_level=recommended,
                     )
-                    record = oracle.generate([source])[0]
+                    stage_record = oracle.generate([source])[0]
+                    if rarity == 4 and playthrough in (1, 2):
+                        record = oracle.finalize_stage_records_batch([stage_record])[0]
+                        record_stage = CandidateRecordStage.FINAL_RECORD
+                        installation_record = stage_record
+                    else:
+                        record = stage_record
+                        record_stage = (
+                            CandidateRecordStage.FINAL_RECORD
+                            if rarity == 5
+                            else CandidateRecordStage.NATIVE_STAGE_ONE
+                        )
+                        installation_record = None
                 candidate = ScrollCandidate.from_record(
                     record,
                     playthrough=playthrough,
-                    record_stage=(
-                        CandidateRecordStage.FINAL_RECORD
-                        if rarity == 5
-                        else CandidateRecordStage.NATIVE_STAGE_ONE
-                    ),
+                    record_stage=record_stage,
                 )
+                if installation_record is not None:
+                    candidate = replace(
+                        candidate,
+                        installation_record=installation_record,
+                    )
                 if not candidate_has_expected_effect_count(candidate, rarity):
                     raise RuntimeError("游戏原生生成结果的词条数量与稀有度不一致")
                 candidate = self._attach_auxiliary(candidate, playthrough)
@@ -7061,8 +7121,8 @@ class ScrollEditorApp:
                 _minimum_rolls,
                 _secondary_any_groups,
             ) = current
-            if playthrough in (1, 2) and not primary:
-                raise ValueError("一、二周目联立求解必须至少选择一个主词条")
+            if playthrough in (1, 2) and not primary and grace is None:
+                raise ValueError("一、二周目求解必须至少选择一个主词条或已支持的恩宠")
             result_count, max_seeds = self._parse_search_limits()
         except Exception as error:
             messagebox.showerror("计算条件无效", str(error))
@@ -7269,6 +7329,13 @@ class ScrollEditorApp:
                         self.cancel_event.is_set()
                         or self.search_events.is_cancelled(search_run_id)
                     )
+
+                    def publish_search_candidate(candidate: ScrollCandidate) -> None:
+                        self.search_events.publish_candidate(
+                            search_run_id,
+                            require_search_candidate_ready(candidate),
+                        )
+
                     result = collect_search_pages_until_requested(
                         lambda remaining, cursor: collect_offline_ng3_search_batch(
                             request,
@@ -7278,9 +7345,7 @@ class ScrollEditorApp:
                             max_trials_per_batch=max_seeds,
                             start_after_trial=cursor,
                             intersection_progress=intersection_progress,
-                            candidate_found=lambda candidate: self.search_events.publish_candidate(
-                                search_run_id, candidate
-                            ),
+                            candidate_found=publish_search_candidate,
                             cancelled=search_cancelled,
                             allow_cpu_fallback=allow_cpu_fallback,
                         ),
@@ -7315,6 +7380,13 @@ class ScrollEditorApp:
                         self.cancel_event.is_set()
                         or self.search_events.is_cancelled(search_run_id)
                     )
+
+                    def publish_search_candidate(candidate: ScrollCandidate) -> None:
+                        self.search_events.publish_candidate(
+                            search_run_id,
+                            require_search_candidate_ready(candidate),
+                        )
+
                     result = collect_search_pages_until_requested(
                         lambda remaining, cursor: collect_offline_rarity5_search_batch(
                             request,
@@ -7324,9 +7396,7 @@ class ScrollEditorApp:
                             max_trials_per_batch=max_seeds,
                             start_after_trial=cursor,
                             intersection_progress=intersection_progress,
-                            candidate_found=lambda candidate: self.search_events.publish_candidate(
-                                search_run_id, candidate
-                            ),
+                            candidate_found=publish_search_candidate,
                             cancelled=search_cancelled,
                             allow_cpu_fallback=allow_cpu_fallback,
                         ),
@@ -7370,8 +7440,15 @@ class ScrollEditorApp:
                     primary_output_map = None
                     primary_first_output_map = None
                     grace_output_map = None
-                    if rarity == 5 and playthrough in (3, 4, 5):
-                        if playthrough in (4, 5):
+                    if grace_effect_id is not None and supports_grace_filter(
+                        rarity=rarity,
+                        playthrough=playthrough,
+                    ):
+                        if (
+                            rarity == 4 and playthrough in (1, 2)
+                        ) or (
+                            rarity == 5 and playthrough in (4, 5)
+                        ):
                             grace_key = (save_fingerprint, playthrough, rarity)
                             grace_output_map = self.grace_map_cache.get(grace_key)
                             grace_cache_path = grace_map_cache_path(
@@ -7463,7 +7540,8 @@ class ScrollEditorApp:
                                 start_after_trial=cursor,
                                 intersection_progress=captured_intersection_progress,
                                 candidate_found=lambda candidate: self.search_events.publish_candidate(
-                                    search_run_id, candidate
+                                    search_run_id,
+                                    require_search_candidate_ready(candidate),
                                 ),
                                 cancelled=search_cancelled,
                                 allow_cpu_fallback=allow_cpu_fallback,
@@ -7520,7 +7598,11 @@ class ScrollEditorApp:
                                 context_fingerprint=save_fingerprint,
                             )
                         self.primary_map_cache[map_key] = primary_output_map
-                    elif playthrough in (1, 2) and primary:
+                    elif (
+                        playthrough in (1, 2)
+                        and primary
+                        and grace_effect_id is None
+                    ):
                         map_key = (save_fingerprint, playthrough, 0, rarity)
                         primary_first_output_map = self.primary_map_cache.get(map_key)
                         if primary_first_output_map is None:
@@ -7603,6 +7685,7 @@ class ScrollEditorApp:
                         candidate = scan_next_candidate(**scan_kwargs)
                         if candidate is None:
                             break
+                        candidate = require_search_candidate_ready(candidate)
                         candidate = replace(candidate, playthrough=playthrough)
                         candidate = self._attach_auxiliary(candidate, playthrough)
                         candidates.append(candidate)
@@ -7665,7 +7748,19 @@ class ScrollEditorApp:
                 playthrough in (4, 5)
                 and rarity == 5
             )
-            or (playthrough in (1, 2) and bool(self.selected_primary_ids))
+            or (
+                playthrough in (1, 2)
+                and (
+                    bool(self.selected_primary_ids)
+                    or (
+                        self.grace_filter.get() != NO_GRACE_FILTER_LABEL
+                        and supports_grace_filter(
+                            rarity=rarity,
+                            playthrough=playthrough,
+                        )
+                    )
+                )
+            )
         )
         self.find_button.configure(
             state="disabled" if busy or not can_solve else "normal"
@@ -8398,12 +8493,22 @@ class ScrollEditorApp:
             if candidate.rarity == 4
             else ""
         )
+        custom_only_drop_notice = (
+            "\n\n掉落提示：一、二周目不能合法原生掉落稀有度4绘卷。"
+            "程序仍允许自定义添加，但该记录不属于合法原生掉落。"
+            if is_custom_only_early_r4(
+                rarity=candidate.rarity,
+                playthrough=candidate.playthrough,
+            )
+            else ""
+        )
         if not messagebox.askyesno(
             "确认写入存档",
             f"确定把种子 {candidate.seed}（{candidate_playthrough}生成上下文）作为新绘卷添加到存档吗？\n\n"
             "程序会在写入时重新读取当前存档、绑定合法模板和新的内部序号，"
             "然后自动备份并写入下一个绘卷栏位；不会覆盖任何现有绘卷。"
             + rarity4_reveal_notice
+            + custom_only_drop_notice
             + experimental_notice,
         ):
             return
@@ -8425,7 +8530,7 @@ class ScrollEditorApp:
                     )
                 else:
                     result = installer.install(
-                        candidate.record,
+                        candidate.installation_record or candidate.record,
                         transfer_count=transfer_count,
                     )
                 self.events.put(("install_complete", result))

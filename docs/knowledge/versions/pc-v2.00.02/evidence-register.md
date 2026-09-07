@@ -10,6 +10,7 @@ mistaken for stronger evidence than the files actually contain.
 | R3 stable-record parity | `audit/parity/ng3-r3-live-parity-20260829.json` | 10,000 deterministic Seeds, zero stable-record mismatches. Aggregate report only; runtime header byte `+0x1B` differed and is explicitly excluded. |
 | R4 stage/final parity | `audit/parity/ng3-r4-live-parity-20260829.json` | 10,000 deterministic Seeds, zero stage/final/accepted-index mismatches. Aggregate report only. |
 | R4 retained native pairs | `test_fixtures/r4_native_corpus/base/` and `distributed/` | Ten stage/final pairs, nine unique Seeds. Sanitized tracked copies differ from private captures only in the eight origin-account bytes. |
+| Earlier-playthrough R4 Grace | `audit/scroll-type-selector-matrix-20260827.json` plus the PC v2.01 live validation reports | A stored P2 Seed `212942103` retains final slot-5 Grace `0x5012`; a second private P2 save retains `0x4FE4`. These records do not prove legal drops. PC v2.01 native scratch validation closes the P1/P2 R4 constructor/finalizer path; both configurations remain custom-only. |
 | R5 record parity | `audit/ng3-r5-native-parity-live-10000-20260829.json` | 10,000 deterministic Seeds, zero full-record mismatches. Aggregate report only; technically verified while product access is hidden by policy. |
 | Complete auxiliary parity | `audit/p1_static/COMPLETE_AUXILIARY_PARITY_20260829.md` | All three class branches and 22 native vectors; strongest for third playthrough and `caller_option = 0`. |
 | Enemy role structure | versioned `enemy-roles.json`, native table SHA, class control flow, and `test_effect_seed_solver.py` | Complete 487-row table; two process captures produced the same row hash. |
@@ -40,6 +41,9 @@ corpus. The smaller R4 fixture set is the portable byte corpus.
 ## Missing evidence
 
 - Large native parity corpora for playthroughs 1 and 2.
+- Authentic first-playthrough rarity-4 acquisition evidence remains absent;
+  product support instead rests on the complete PC v2.01 draw-1 map and
+  repeatable native finalizer result, and does not claim a natural P1 drop.
 - Released algorithms and protocol acceptance for playthroughs 4 and 5.
 - Nonzero `caller_option` auxiliary paths.
 - A code/data-flow closure from challenge descriptor `+0x2C` to enemy/Boss AI

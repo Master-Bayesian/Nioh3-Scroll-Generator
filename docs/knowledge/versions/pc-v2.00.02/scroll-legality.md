@@ -62,6 +62,28 @@ Consequently:
 - `0xBABD` is Tsukuyomi's Grace only in final-record context. A stage-one
   `0xBABD` does not guarantee that final result.
 
+This behavior is record-type specific. An authentic second-playthrough
+`0x516D` rarity-4 record with Seed `212942103` retains `0x5012` in final slot 5,
+including the final-Grace metadata bit. A separate support save contains a
+second `0x516D` rarity-4 record retaining `0x4FE4`. Therefore the earlier
+product rule that rejected every first- and second-playthrough Grace was too
+broad.
+
+The original PC v2.00.02 evidence justified enabling second-playthrough R4.
+PC v2.01 subsequently supplied read-only native execution evidence for the
+first-playthrough `0x1E82` R4 path as well. The current product boundary is:
+
+- first- and second-playthrough rarity 4 may select a final Grace;
+- neither earlier playthrough has a legal native rarity-4 drop, so both are
+  labeled custom-only even though search and installation remain available;
+- each stage-one draw-1 map is measured from its own record type, never
+  borrowed from the third-playthrough `0xE604` map;
+- every candidate is run through the native completion loop and filtered as a
+  final record;
+- installation writes the corresponding stage-one bytes so the game performs
+  exactly one reveal completion;
+- rarity-3 slot 5 remains a growth state, not a selectable final Grace.
+
 ## Enemy-combination rules
 
 The normal scroll generator has exactly three recovered branch classes:

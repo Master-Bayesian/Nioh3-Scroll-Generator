@@ -22,6 +22,16 @@
   the shared v2.00.02 control Seeds.
 - Read-only decryption and parsing of the current 9,437,616-byte encrypted
   save with the unchanged 400-slot layout.
+- Complete live draw-1 maps and replayed native finalization for first- and
+  second-playthrough rarity-4 Grace. Both contexts exposed the same 10-ID pool
+  in the tested PC v2.01 save context, but retain separate record-type- and
+  save-scoped caches because another authentic P2 save contains `0x4FE4`.
+- First- and second-playthrough rarity-4 records are custom-only: the product
+  permits native construction, search, finalization, and installation while
+  warning that neither context has a legal native R4 drop.
+- A 4,096-Seed live sample for each earlier playthrough confirmed that rarity
+  3 keeps slot 5 empty or as growth token `0x0001`; it is not a selectable
+  final Grace context.
 - Product version registry, native runtime profile, auxiliary-hook profile,
   rarity-5 preservation mode, and complete 401-test release regression.
 - The GitHub release workflow passed its 401-test suite, built the one-file
@@ -51,6 +61,20 @@ legal-search result pane and its candidate list. GitHub Actions run
 `33648790533` passed all 413 tests and published the signed stable release. The
 downloaded 17,927,879-byte executable passed signature, size, SHA-256, startup,
 cleanup, and public-update checks.
+
+## Unreleased rarity-4 search finalization follow-up
+
+Native rarity-4 searches now retain their stage-one installation payload while
+filtering and displaying only the corresponding completed record. The full
+native outer loop tries each eligible source slot independently; if no attempt
+is accepted, the unchanged source is the valid final result. Regression Seeds
+`43723117` and `36526331` cover post-reveal replacement and exhaustive
+no-change respectively, and the application boundary rejects any rarity-4
+stage-one candidate leaked by a future route. Live PC v2.01 native scanning and
+the subsequent in-game reveals matched both predicted final records. Packaging
+and public release remain pending. The final source tree passes all 426
+repository tests, including an application-boundary regression that refuses a
+rarity-4 stage-one candidate.
 
 ## Known version difference
 

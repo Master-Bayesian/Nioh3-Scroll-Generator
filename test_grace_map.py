@@ -186,6 +186,47 @@ class GraceMapTests(unittest.TestCase):
             ),
         )
 
+    def test_live_category_two_rarity_four_map_reads_stage_one_slot_five(self) -> None:
+        class FakeOracle:
+            max_batch_size = 0x10000
+
+            @staticmethod
+            def generate(source_records: list[bytes], *, timeout_ms: int = 60_000) -> list[bytes]:
+                generated = []
+                for source in source_records:
+                    record = bytearray(source)
+                    seed = struct.unpack_from("<I", record, 0x20)[0]
+                    effect_id = 0x5012 if lcg_step(seed) >> 16 < 0x8000 else 0x4FE4
+                    struct.pack_into(
+                        "<I", record, EFFECT_START + 4 * EFFECT_STRIDE + 4, effect_id
+                    )
+                    # Slot 6 is deliberately different. Rarity 4 must not read it.
+                    struct.pack_into(
+                        "<I", record, EFFECT_START + 5 * EFFECT_STRIDE + 4, 0xDEAD
+                    )
+                    generated.append(bytes(record))
+                return generated
+
+        template = bytearray(SCROLL_RECORD_SIZE)
+        struct.pack_into("<H", template, 0, 0x516D)
+        mapping = build_live_grace_output_map(
+            FakeOracle(),
+            template=bytes(template),
+            category=2,
+            rarity=4,
+        )
+        self.assertEqual(mapping.record_type, 0x516D)
+        self.assertEqual(mapping.rarity, 4)
+        self.assertEqual(mapping.effect_slot, 5)
+        self.assertEqual(mapping.playthrough, "category-2-live-native")
+        self.assertEqual(
+            mapping.ranges,
+            (
+                GraceRange(0, 0x7FFF, 0x5012),
+                GraceRange(0x8000, 0xFFFF, 0x4FE4),
+            ),
+        )
+
     def test_live_map_cache_roundtrip_uses_context_fingerprint(self) -> None:
         mapping = GraceOutputMap(
             record_type=0xDD82,

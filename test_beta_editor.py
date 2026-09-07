@@ -71,8 +71,11 @@ from nioh3_scroll_editor.app import (
     format_runtime_enemy_slot_summary,
     requirement_mode_group_index,
     require_accelerated_generic_search,
+    require_search_candidate_ready,
+    is_custom_only_early_r4,
     special_rule_variant_label,
     split_enemy_variant_display_groups,
+    supports_grace_filter,
     toggle_rule_filter_option,
     user_facing_error_message,
 )
@@ -161,6 +164,44 @@ def make_record(
 
 
 class BetaEditorTests(unittest.TestCase):
+    def test_app_search_boundary_rejects_rarity4_stage_one_candidates(self) -> None:
+        record = bytearray(
+            make_record(
+                seed=43_723_117,
+                effects=(0xDFF0, 0x9A3D, 0xD411, 0xBC51, 0xBABD),
+            )
+        )
+        record[0x30] = record[0x31] = 4
+        stage_candidate = ScrollCandidate.from_record(
+            bytes(record),
+            playthrough=2,
+            record_stage=CandidateRecordStage.NATIVE_STAGE_ONE,
+        )
+        final_candidate = ScrollCandidate.from_record(
+            bytes(record),
+            playthrough=2,
+            record_stage=CandidateRecordStage.FINAL_RECORD,
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "待揭露中间态"):
+            require_search_candidate_ready(stage_candidate)
+        self.assertIs(require_search_candidate_ready(final_candidate), final_candidate)
+
+    def test_grace_filter_support_matrix_matches_verified_record_contexts(self) -> None:
+        self.assertFalse(supports_grace_filter(rarity=3, playthrough=1))
+        self.assertFalse(supports_grace_filter(rarity=3, playthrough=2))
+        self.assertTrue(supports_grace_filter(rarity=4, playthrough=1))
+        self.assertTrue(supports_grace_filter(rarity=4, playthrough=2))
+        self.assertTrue(supports_grace_filter(rarity=4, playthrough=3))
+        self.assertFalse(supports_grace_filter(rarity=5, playthrough=2))
+        self.assertTrue(supports_grace_filter(rarity=5, playthrough=3))
+
+    def test_early_rarity_four_is_supported_but_marked_custom_only(self) -> None:
+        self.assertTrue(is_custom_only_early_r4(rarity=4, playthrough=1))
+        self.assertTrue(is_custom_only_early_r4(rarity=4, playthrough=2))
+        self.assertFalse(is_custom_only_early_r4(rarity=3, playthrough=2))
+        self.assertFalse(is_custom_only_early_r4(rarity=4, playthrough=3))
+
     def test_ui_search_automatically_continues_bounded_pages(self) -> None:
         calls: list[tuple[int, int]] = []
 
@@ -538,7 +579,7 @@ class BetaEditorTests(unittest.TestCase):
             self.assertIn(phrase, QUICK_START_TEXT)
         for technical_term in ("LCG", "draw-1", "前像"):
             self.assertNotIn(technical_term, QUICK_START_TEXT)
-        self.assertIn("搜索并添加可以传播的合法绘卷", FEATURE_GUIDE_TEXT)
+        self.assertIn("搜索并添加由游戏 Seed 生成的绘卷", FEATURE_GUIDE_TEXT)
         self.assertIn("不需要断开网络", FAQ_TEXT)
         self.assertIn("3609 项原生名称目录", FAQ_TEXT)
         self.assertIn("它不负责设置挑战敌人等级", FAQ_TEXT)
@@ -1503,6 +1544,56 @@ class BetaEditorTests(unittest.TestCase):
             effect_ids(revealed_twice),
             (0x23E8, 0x190A, 0x2B06, 0x6AAF, 0xBABD),
         )
+
+    def test_rarity4_install_matches_final_preview_for_reported_search_seeds(self) -> None:
+        account = TEST_ACCOUNT_ID
+        save_path = Path(f"C:/dummy/{account}/SAVEDATA00/SAVEDATA.BIN")
+        save = bytearray(USER_SAVE_SIZE)
+        save[:6] = b"RNNUSR"
+        template = bytearray(make_record(seed=241719428, account_id=account))
+        struct.pack_into("<H", template, 0, 0xE604)
+        struct.pack_into("<I", template, 0x28, 40)
+        save[SCROLL_GROUP_OFFSET:SCROLL_GROUP_OFFSET + SCROLL_RECORD_SIZE] = template
+        inventory = SaveInventory.load(save_path, bytes(save))
+
+        from nioh3_scroll_editor.r4_finalizer_engine import (
+            load_default_r4_finalizer_engine,
+        )
+
+        finalizer = load_default_r4_finalizer_engine()
+        expected_by_seed = {
+            43_723_117: (0xDFF0, 0x9A3D, 0xF9BE, 0xBC51, 0xBABD),
+            36_526_331: (0xEA53, 0xA73D, 0xEA74, 0x6CE3, 0xEB61),
+        }
+        for seed, expected in expected_by_seed.items():
+            with self.subTest(seed=seed):
+                preview = ScrollCandidate.from_effect_sequence(
+                    generate_ng3_certified_effect_sequence(seed, rarity=4, level=180)
+                )
+                materialized = materialize_effect_sequence_candidate(
+                    inventory,
+                    preview,
+                    level=180,
+                    recommended_level=183,
+                    transfer_count=0,
+                )
+                revealed = finalizer.finalize_completion(materialized.record).record
+                revealed_candidate = ScrollCandidate.from_record(
+                    revealed,
+                    playthrough=3,
+                    record_stage=CandidateRecordStage.FINAL_RECORD,
+                )
+
+                self.assertEqual(
+                    tuple(effect.effect_id for effect in preview.effects[:5]),
+                    expected,
+                )
+                self.assertEqual(
+                    tuple(effect.effect_id for effect in revealed_candidate.effects[:5]),
+                    expected,
+                )
+                self.assertEqual(preview.unresolved_effect_slots, ())
+                self.assertIsNone(preview.install_blocker)
 
     def test_contextual_babd_experiment_changes_only_controlled_fields(self) -> None:
         account = TEST_ACCOUNT_ID

@@ -11,9 +11,11 @@ PRIMARY = 0x47BC
 ORDINARY = (0x4647, 0xA051, 0x190A)
 
 
-def make_record(*, seed: int, rarity: int, slot5: int) -> bytes:
+def make_record(
+    *, seed: int, rarity: int, slot5: int, record_type: int = 0xE604
+) -> bytes:
     record = bytearray(SCROLL_RECORD_SIZE)
-    struct.pack_into("<H", record, 0, 0xE604)
+    struct.pack_into("<H", record, 0, record_type)
     struct.pack_into("<H", record, 6, 180)
     struct.pack_into("<H", record, 8, 180)
     struct.pack_into("<H", record, 0x10, 183)
@@ -35,6 +37,170 @@ def make_record(*, seed: int, rarity: int, slot5: int) -> bytes:
 
 
 class GrowingGraceExperimentTests(unittest.TestCase):
+    def test_seed_43723117_filters_the_post_reveal_effects(self) -> None:
+        stage_effect_id = 0xD411
+        final_effect_id = 0xF9BE
+
+        def record_with_third_effect(effect_id: int) -> bytes:
+            record = bytearray(
+                make_record(
+                    seed=43_723_117,
+                    rarity=4,
+                    slot5=TARGET_GRACE,
+                    record_type=0x516D,
+                )
+            )
+            struct.pack_into("<I", record, EFFECT_START + 2 * EFFECT_STRIDE + 4, effect_id)
+            return bytes(record)
+
+        stage_record = record_with_third_effect(stage_effect_id)
+        final_record = record_with_third_effect(final_effect_id)
+        self_test = self
+
+        class FakeOracle:
+            max_batch_size = 1
+
+            @staticmethod
+            def generate_seed_range(
+                template: bytes,
+                *,
+                start_seed: int,
+                seed_step: int,
+                count: int,
+                playthrough=None,
+            ) -> list[bytes]:
+                return [stage_record]
+
+            @staticmethod
+            def finalize_stage_records_batch(source_records: list[bytes]) -> list[bytes]:
+                self_test.assertEqual(source_records, [stage_record])
+                return [final_record]
+
+        rejected = scan_next_candidate(
+            FakeOracle(),
+            template=stage_record,
+            start_seed=43_723_117,
+            primary_effect_ids=frozenset(),
+            required_secondary_ids=frozenset((stage_effect_id,)),
+            rarity=4,
+            playthrough=2,
+            max_seeds=1,
+        )
+        accepted = scan_next_candidate(
+            FakeOracle(),
+            template=stage_record,
+            start_seed=43_723_117,
+            primary_effect_ids=frozenset(),
+            required_secondary_ids=frozenset((final_effect_id,)),
+            rarity=4,
+            playthrough=2,
+            max_seeds=1,
+        )
+
+        self.assertIsNone(rejected)
+        self.assertIsNotNone(accepted)
+        assert accepted is not None
+        self.assertEqual(accepted.record, final_record)
+        self.assertEqual(accepted.installation_record, stage_record)
+        self.assertEqual(accepted.record_stage.value, "final_record")
+        self.assertIsNone(accepted.install_blocker)
+
+    def test_seed_36526331_never_leaves_the_native_stage_as_candidate(self) -> None:
+        stage_record = bytearray(
+            make_record(
+                seed=36_526_331,
+                rarity=4,
+                slot5=0xEB61,
+                record_type=0x516D,
+            )
+        )
+        final_record = bytearray(stage_record)
+        final_record[EFFECT_START + 2 * EFFECT_STRIDE + 0x0E] |= 0x04
+
+        class FakeOracle:
+            max_batch_size = 1
+
+            @staticmethod
+            def generate_seed_range(
+                template: bytes,
+                *,
+                start_seed: int,
+                seed_step: int,
+                count: int,
+                playthrough=None,
+            ) -> list[bytes]:
+                return [bytes(stage_record)]
+
+            @staticmethod
+            def finalize_stage_records_batch(source_records: list[bytes]) -> list[bytes]:
+                return [bytes(final_record)]
+
+        candidate = scan_next_candidate(
+            FakeOracle(),
+            template=bytes(stage_record),
+            start_seed=36_526_331,
+            primary_effect_ids=frozenset((PRIMARY,)),
+            required_secondary_ids=frozenset(),
+            rarity=4,
+            playthrough=2,
+            max_seeds=1,
+        )
+
+        self.assertIsNotNone(candidate)
+        assert candidate is not None
+        self.assertEqual(candidate.record, bytes(final_record))
+        self.assertEqual(candidate.installation_record, bytes(stage_record))
+        self.assertEqual(candidate.record_stage.value, "final_record")
+        self.assertEqual(candidate.unresolved_effect_slots, ())
+        self.assertIsNone(candidate.install_blocker)
+
+    def test_playthrough_one_rarity_four_uses_final_preview_and_stage_install_record(self) -> None:
+        class FakeOracle:
+            max_batch_size = 1
+
+            @staticmethod
+            def generate_seed_range(
+                template: bytes,
+                *,
+                start_seed: int,
+                seed_step: int,
+                count: int,
+                playthrough=None,
+            ) -> list[bytes]:
+                return [
+                    make_record(
+                        seed=start_seed,
+                        rarity=4,
+                        slot5=TARGET_GRACE,
+                        record_type=0x1E82,
+                    )
+                ]
+
+            @staticmethod
+            def finalize_stage_records_batch(source_records: list[bytes]) -> list[bytes]:
+                return source_records
+
+        candidate = scan_next_candidate(
+            FakeOracle(),
+            template=make_record(
+                seed=1,
+                rarity=4,
+                slot5=TARGET_GRACE,
+                record_type=0x1E82,
+            ),
+            start_seed=456,
+            primary_effect_ids=frozenset((PRIMARY,)),
+            required_secondary_ids=frozenset(),
+            rarity=4,
+            playthrough=1,
+            max_seeds=1,
+        )
+        self.assertIsNotNone(candidate)
+        assert candidate is not None
+        self.assertEqual(candidate.record_stage.value, "final_record")
+        self.assertEqual(candidate.installation_record, candidate.record)
+        self.assertIsNone(candidate.install_blocker)
+
     def test_rarity3_returns_growing_record_when_same_seed_r4_shadow_matches(self) -> None:
         seed = 67_966_805
 
@@ -131,12 +297,16 @@ class GrowingGraceExperimentTests(unittest.TestCase):
         )
         self.assertIsNone(candidate)
 
-    def test_rarity4_control_filters_slot5_directly(self) -> None:
+    def test_rarity4_control_filters_finalized_slot5(self) -> None:
         class FakeOracle:
             max_batch_size = 1
 
             def generate_seed_range(self, template: bytes, *, start_seed: int, seed_step: int, count: int, playthrough=None):
                 return [make_record(seed=start_seed, rarity=4, slot5=TARGET_GRACE)]
+
+            @staticmethod
+            def finalize_stage_records_batch(source_records: list[bytes]) -> list[bytes]:
+                return source_records
 
         candidate = scan_next_candidate(
             FakeOracle(),
@@ -154,6 +324,8 @@ class GrowingGraceExperimentTests(unittest.TestCase):
         assert candidate is not None
         self.assertIsNone(candidate.predicted_growth_grace_id)
         self.assertEqual(candidate.seed, 456)
+        self.assertEqual(candidate.installation_record, candidate.record)
+        self.assertEqual(candidate.record_stage.value, "final_record")
 
 
 if __name__ == "__main__":

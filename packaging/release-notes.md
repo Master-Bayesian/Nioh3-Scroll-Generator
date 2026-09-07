@@ -1,27 +1,25 @@
-# 仁王3绘卷生成器 v0.6.9
+# 仁王3绘卷生成器 v0.6.10
 
-本版修复稀有度 4 绘卷揭露后词条变化、RTX 50 系 CUDA 不可用，以及复杂条件令右侧结果不可见的问题，并补齐更灵活的主副词条与地形筛选。
+本版修复稀有度 4 搜索仍可能把待揭露中间态当作候选的问题，并开放一、二周目稀有度 4 自定义搜索与添加。
 
-- 修正稀有度 4 新增绘卷的两阶段生命周期。写档时保存游戏原生待揭露记录，候选区仍显示一次正常揭露后的最终结果，避免已经完成的记录被游戏再次补全并改掉另一槽词条或恩宠。种子 `125804734` 已加入精确回归测试。
-- 主词条候选新增“未当选主词条时，必须出现在副词条”选项。对 A、B 同时勾选即可搜索“A 为主且 B 为副，或 B 为主且 A 为副”。
-- 地形改为多选并按任一命中筛选；“含有地狱”覆盖所有可见结果中带地狱的原生组合，精确地形结果仍不会被错误地自由拼接。
-- CUDA DLL 新增 RTX 50 系 `sm_120` 原生映像与 `compute_120` PTX，并用真实内核启动检查代替只检测设备数量。CUDA 不可执行时，支持的普通词条路径会转到 DirectCompute；错误信息会保留具体失败阶段和代码。
-- “Seed 计算与结果验证”右侧整列新增独立纵向滚动条，长交集统计不再把候选结果、详情和写档按钮挤出屏幕；候选 Seed 列表也新增纵向滚动条。
-- 保留 PC v2.01 与 PC v2.00.02、稀有度 3/4/5、跨厂商 DirectCompute、CUDA 辅助条件加速，以及完整离线精确复核。
+- 所有游戏原生稀有度 4 搜索路径现在都会完整执行揭露最终化，再用最终记录检查主词条、副词条与恩宠；写档时仍保留对应的原生待揭露记录，避免重复最终化。
+- 修复 Seed `43723117` 的中间词条误命中：槽位 3 在最终化后由 `0xD411` 变为 `0xF9BE`，搜索只按 `0xF9BE` 判断。
+- 修复 Seed `36526331` 被误判为“尚未完成最终解析”：游戏尝试全部合资格槽位后若没有接受替换，原记录本身就是有效最终结果。
+- 应用候选入口新增稀有度 4 最终态门禁；即使以后某条搜索分支再次泄漏待揭露记录，也不会显示或允许写入。
+- 一、二周目现在可以搜索并添加稀有度 4 绘卷及指定恩宠。界面会明确提示这些周目没有合法原生 R4 掉落；程序按所选存档建立独立映射并调用游戏原生最终化，不套用三周目结果。
 
-写档前请让游戏返回标题界面。稀有度 4 修复已通过离线生命周期回归，仍以实际游戏首次揭露为最终验收。敌人、地形和特殊规则的本地覆盖仍是临时内存功能，不会写入存档或传播。
+写档前请让游戏返回标题界面。一、二周目 R4 属于可构造的自定义配置，不代表游戏会原生掉落。敌人、地形和特殊规则的本地覆盖仍是临时内存功能，不会写入存档或传播。
 
 ---
 
-# Nioh 3 Scroll Generator v0.6.9
+# Nioh 3 Scroll Generator v0.6.10
 
-This release repairs rarity-4 reveal changes, RTX 50-series CUDA compatibility, and inaccessible results under long constraint reports, while adding more expressive primary/secondary and terrain filters.
+This release prevents rarity-4 searches from exposing pre-reveal intermediate records and enables custom rarity-4 search/install flows for playthroughs one and two.
 
-- Writes the native rarity-4 stage-one acquisition record while previewing the result after exactly one reveal finalization. This prevents the game from completing an already-finalized record a second time and changing another effect or Grace slot. Seed `125804734` is covered by an exact regression test.
-- Adds a per-primary option requiring that candidate as a secondary when it is not selected as the primary. Selecting it for both A and B expresses `(A primary + B secondary) OR (B primary + A secondary)`.
-- Makes complete terrain results multi-select with OR semantics. The aggregate Hell option covers every native row whose visible result contains Hell; exact results are not treated as freely composable effects.
-- Adds native `sm_120` and `compute_120` PTX images for RTX 50-series GPUs and replaces device-count-only detection with a real kernel launch/synchronization health check. Supported ordinary-effect searches route to DirectCompute when CUDA cannot execute, while diagnostics retain the CUDA failure stage and code.
-- Adds an independent vertical scrollbar to the complete Seed calculation/results pane so long intersection reports cannot hide candidates, details, or install controls. The candidate Seed list now has its own vertical scrollbar as well.
-- Retains PC v2.01 and PC v2.00.02 support, rarities 3/4/5, cross-vendor DirectCompute, CUDA auxiliary filtering, and exact offline replay.
+- Every native rarity-4 search path now runs the complete reveal finalizer before checking primary effects, secondary effects, or Grace. Installation still keeps the corresponding native stage-one payload so the game finalizes it exactly once.
+- Fixes Seed `43723117`: slot 3 changes from stage-only `0xD411` to final `0xF9BE`, and only the final effect can satisfy search filters.
+- Fixes Seed `36526331`: after every eligible native attempt declines a replacement, the unchanged source record is the valid final result rather than an unresolved candidate.
+- Adds an application-boundary gate that rejects any rarity-4 stage-one record before it can enter the candidate list.
+- Enables rarity-4 Grace search and installation for playthroughs one and two. The UI explicitly marks these as custom configurations with no legal native R4 drop; mappings are save/context scoped and finalized natively instead of borrowing playthrough-three results.
 
-Return the game to the title screen before writing a save. The rarity-4 repair has exact offline lifecycle regression coverage; the first real in-game reveal remains the final acceptance check. Local enemy, terrain, and special-rule overrides remain temporary runtime behavior and do not persist or propagate.
+Return the game to the title screen before writing a save. Playthrough-one/two rarity-4 records are constructible custom configurations, not native drops. Local enemy, terrain, and special-rule overrides remain temporary runtime behavior and do not persist or propagate.

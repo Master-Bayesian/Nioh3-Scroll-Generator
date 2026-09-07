@@ -228,18 +228,25 @@ def build_live_grace_output_map(
 ) -> GraceOutputMap:
     """Measure a complete first-draw special-result map with the live game.
 
-    Categories 4 and 5 exist in the v2.00.02 native type table but are not
-    present in the supplied NG3 save.  Their synthetic templates are therefore
+    Rarity 4 maps the stage-one slot-5 Grace candidate.  Rarity 5 maps the
+    final slot-6 Grace.  The map is context-specific: a category-2 rarity-4
+    map cannot be substituted with the measured category-3 map even when the
+    effect ID sets overlap.
+
+    Categories 4 and 5 exist in the native type table but are not present in
+    the supplied NG3 save.  Their synthetic templates are therefore
     experimental.  Every returned candidate is still regenerated and checked
     by the game's native generator before it can be shown or installed.
     """
 
     if len(template) != SCROLL_RECORD_SIZE:
         raise ValueError("template must be exactly 0xE8 bytes")
-    if category not in (3, 4, 5):
-        raise ValueError("live special-result mapping supports categories 3, 4, and 5")
-    if rarity != 5:
-        raise ValueError("experimental category-4/5 mapping currently supports rarity 5")
+    if category not in (1, 2, 3, 4, 5):
+        raise ValueError("live special-result mapping supports categories 1 through 5")
+    if rarity not in (4, 5):
+        raise ValueError("live special-result mapping supports rarity 4 or 5")
+    if rarity == 5 and category in (1, 2):
+        raise ValueError("rarity-5 Grace mapping is not enabled for categories 1 or 2")
     record_type = struct.unpack_from("<H", template, 0)[0]
     expected_type = CATEGORY_TO_TYPE[category]
     if record_type != expected_type:
@@ -279,9 +286,12 @@ def build_live_grace_output_map(
                 raise RuntimeError("游戏原生生成器改变了特殊结果映射探针 Seed")
             if struct.unpack_from("<H", record, 0)[0] != record_type:
                 raise RuntimeError("游戏原生生成器改变了特殊结果映射记录类型")
+            effect_slot = 5 if rarity == 4 else 6
             outputs.append(
                 struct.unpack_from(
-                    "<I", record, EFFECT_START + 5 * EFFECT_STRIDE + 4
+                    "<I",
+                    record,
+                    EFFECT_START + (effect_slot - 1) * EFFECT_STRIDE + 4,
                 )[0]
             )
         if progress:
@@ -301,7 +311,7 @@ def build_live_grace_output_map(
         record_type=record_type,
         rarity=rarity,
         playthrough=f"category-{category}-live-native",
-        effect_slot=6,
+        effect_slot=5 if rarity == 4 else 6,
         ranges=tuple(ranges),
     )
 

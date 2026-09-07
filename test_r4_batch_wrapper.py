@@ -14,6 +14,91 @@ from nioh3_scroll_editor.native import (
 
 
 class EffectFinalizerBatchWrapperTests(unittest.TestCase):
+    def test_batched_completion_uses_original_source_for_each_attempt(self) -> None:
+        oracle = object.__new__(NativeBatchOracle)
+        oracle.max_batch_size = 4
+        source = bytearray(0xE8)
+        for effect_index in (0, 1):
+            offset = 0x34 + effect_index * 0x18
+            struct.pack_into("<H", source, offset, 1)
+        calls: list[tuple[int, list[bytes]]] = []
+
+        def finalize_batch(
+            source_records: list[bytes],
+            *,
+            effect_index: int,
+            reveal: bool = True,
+            timeout_ms: int = 60_000,
+        ) -> list[bytes]:
+            calls.append((effect_index, source_records))
+            output = bytearray(source_records[0])
+            if effect_index == 1:
+                output[0x34 + effect_index * 0x18 + 0x0E] |= 0x04
+            else:
+                # This failed-attempt mutation must not feed the next call.
+                output[0x20] = 0xAA
+            return [bytes(output)]
+
+        oracle.finalize_effect_stage_batch = finalize_batch
+        completed = oracle.finalize_stage_records_batch([bytes(source)])
+
+        self.assertEqual([effect_index for effect_index, _ in calls], [0, 1])
+        self.assertEqual(calls[1][1][0][0x20], source[0x20])
+        self.assertTrue(completed[0][0x34 + 0x18 + 0x0E] & 0x04)
+
+    def test_batched_completion_keeps_source_after_exhaustive_no_change(self) -> None:
+        oracle = object.__new__(NativeBatchOracle)
+        oracle.max_batch_size = 1
+        source = bytearray(0xE8)
+        struct.pack_into("<H", source, 0x34, 1)
+        struct.pack_into("<I", source, 0x20, 36_526_331)
+        calls: list[int] = []
+
+        def finalize_batch(
+            source_records: list[bytes],
+            *,
+            effect_index: int,
+            reveal: bool = True,
+            timeout_ms: int = 60_000,
+        ) -> list[bytes]:
+            calls.append(effect_index)
+            return source_records
+
+        oracle.finalize_effect_stage_batch = finalize_batch
+        completed = oracle.finalize_stage_records_batch([bytes(source)])
+
+        self.assertEqual(calls, [0])
+        self.assertEqual(completed, [bytes(source)])
+
+    def test_existing_promoted_slot_does_not_skip_later_completion(self) -> None:
+        oracle = object.__new__(NativeBatchOracle)
+        oracle.max_batch_size = 1
+        source = bytearray(0xE8)
+        for effect_index in (0, 1):
+            offset = 0x34 + effect_index * 0x18
+            struct.pack_into("<H", source, offset, 1)
+        source[0x34 + 0x0E] |= 0x04
+        calls: list[int] = []
+
+        def finalize_batch(
+            source_records: list[bytes],
+            *,
+            effect_index: int,
+            reveal: bool = True,
+            timeout_ms: int = 60_000,
+        ) -> list[bytes]:
+            calls.append(effect_index)
+            output = bytearray(source_records[0])
+            output[0x34 + effect_index * 0x18 + 0x0E] |= 0x04
+            return [bytes(output)]
+
+        oracle.finalize_effect_stage_batch = finalize_batch
+        completed = oracle.finalize_stage_records_batch([bytes(source)])
+
+        self.assertEqual(calls, [1])
+        self.assertTrue(completed[0][0x34 + 0x0E] & 0x04)
+        self.assertTrue(completed[0][0x34 + 0x18 + 0x0E] & 0x04)
+
     def test_v201_product_mode_preserves_requested_raw_rarity_five(self) -> None:
         oracle = object.__new__(NativeBatchOracle)
         oracle.preserve_requested_rarity = True

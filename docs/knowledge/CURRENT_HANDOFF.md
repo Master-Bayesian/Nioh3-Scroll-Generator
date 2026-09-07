@@ -4,6 +4,10 @@ This file is the durable entry point for the next development agent. It is a
 working-tree handoff, not a release note and not evidence that unfinished code
 is ready to ship.
 
+The active community catalog/live-verification task is documented separately in
+`docs/knowledge/EQUIPMENT_CATALOG_LIVE_HANDOFF_20260902.md`. Read it before
+resuming the equipment supplement or full-item catalog work.
+
 ## Repository state
 
 - Repository: `F:\Nioh3_ScrollEditor`
@@ -29,6 +33,30 @@ exported before resuming editor work:
   are reachable by captured scroll-generation contexts.
 - Level-180 range attempts for all 3,609 effects; 182 contextual definitions
   are explicitly unresolved rather than guessed.
+
+## Unreleased rarity-4 search finalization repair — 2026-09-06
+
+- Every native rarity-4 search route now keeps two distinct records: the
+  native stage-one installation payload and the completed record used for
+  filtering and UI preview. User constraints are evaluated only against the
+  completed record.
+- Native batch completion now mirrors the full outer loop: it tries every
+  eligible source slot independently, accepts the first completed replacement,
+  and treats exhaustive no-change as the game's valid unchanged final result.
+  A rarity-4 stage-one record is also rejected at the application search
+  boundary if a future route attempts to expose it as a candidate.
+- Seeds `43723117` and `36526331` are permanent regression vectors. The first
+  proves that a stage-one `0xD411` hit must be rejected after completion changes
+  slot 3 to `0xF9BE`; the second proves that a completed preview, rather than an
+  unresolved native stage record, reaches the candidate UI.
+- The native scanner was exercised live for both reported Seeds on PC v2.01:
+  `43723117` rejects stage-only `0xD411` and accepts final `0xF9BE`, while
+  `36526331` returns an installable final candidate after exhaustive no-change.
+  The subsequent in-game reveal matched both predicted final records; that is
+  gameplay evidence for the native finalizer, not a substitute for the
+  application-boundary regression.
+- The final source tree passes all 426 repository tests, including the
+  application search-boundary gate and both reported-Seed regressions.
 
 ## Stable v0.6.9 changes
 
@@ -207,18 +235,16 @@ unsupported.
 2. Live-check the exact-role runtime enemy overwrite after the application hit
    counter reaches at least one. A zero-hit profile still means the game reused
    a cached descriptor and no overwrite occurred.
-3. Resolve native item key `0x3011` through its exact item-row localization text
-   IDs; do not infer the item name from neighboring rows.
-4. Preserve the published v0.6.9 assets and signed manifest under
+3. Preserve the published v0.6.9 assets and signed manifest under
    `deliverables/v0.6.9/` for local handoff.
-5. In the release after the PC v2.01 compatibility release, research the native
+4. In the release after the PC v2.01 compatibility release, research the native
    mechanism behind purple or empowered enemy appearances and whether possessed
    Underworld forms of ordinary enemies can be represented as independent
    selectable identities. Do not add guessed forms before live validation.
-6. After the current release, replace the Tk frontend in v0.7. Evaluate a Rust
+5. After the current release, replace the Tk frontend in v0.7. Evaluate a Rust
    core with a Tauri frontend against Electron; GPU bulk search remains
    mandatory regardless of the UI host.
-7. Validate and tune D3D11 compute on an AMD discrete GPU only when suitable
+6. Validate and tune D3D11 compute on an AMD discrete GPU only when suitable
    hardware becomes available. Integrated-GPU parity is not a discrete-GPU
    performance result.
 

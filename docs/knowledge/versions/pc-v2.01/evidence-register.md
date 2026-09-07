@@ -24,6 +24,9 @@ and are not distributable release assets.
 | Downloaded v0.6.8 release assets | Manifest signature, 17,788,428-byte size, SHA-256 `580589C574335235A1370380140585F5AFE4B6FEF515B96C3A00FC846F8561BA`, and GUI startup passed | Verifies the published executable and update metadata; no game or save write. |
 | GitHub Actions run `33648790533` | Passed 413 tests, one-file build, signed manifest, and stable release publication | Public v0.6.9 tag peels to commit `57a07a0`; release automation is not gameplay acceptance. |
 | Downloaded v0.6.9 release assets | Manifest signature, 17,927,879-byte size, SHA-256 `E520B92C5A70462399D5898B1E85E41420D7E82AB17745274DFE6C2832EDFD7A`, GUI startup, exact-path cleanup, and public stable-update lookup passed | Verifies the published executable and update metadata; no game or save write. |
+| First-playthrough R4 Grace | `audit/p1-r4-grace-live-validation-v201-20260902.json` | Complete 65,536-bucket live draw-1 map for `0x1E82`; Seed `67966805` retained final slot-5 Grace `0x23E5` with metadata `0x00020C00`, and repeated finalization reproduced the same effect region. Native scratch buffers only; no save write or natural-drop claim. |
+| Second-playthrough R4 Grace | `audit/p2-r4-grace-live-validation-v201-20260902.json` plus the authentic v2.00.02 save record | Complete 65,536-bucket live draw-1 map for `0x516D`; Seed `176440089` retained final slot-5 Grace `0x5012`, the stage install record reproduced the final effect region, and the preview is installable. Native scratch buffers only in this v2.01 validation. |
+| Earlier-playthrough R3 slot 5 | `audit/early-playthrough-r3-growth-live-validation-v201-20260902.json` | 4,096 native Seeds for each of `0x1E82` and `0x516D`; slot 5 remained empty or growth token `0x0001`, never a final Grace. No save write. |
 
 ## Safety
 

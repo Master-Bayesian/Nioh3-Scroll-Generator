@@ -214,6 +214,10 @@ class GraceAcceleratedScannerTests(unittest.TestCase):
                     out.append(r4_record(seed, PRIMARY))
                 return out
 
+            @staticmethod
+            def finalize_stage_records_batch(source_records: list[bytes]) -> list[bytes]:
+                return source_records
+
         self_test = self
         oracle = FakeOracle()
         candidate = scan_next_candidate(
@@ -230,6 +234,122 @@ class GraceAcceleratedScannerTests(unittest.TestCase):
         self.assertIsNotNone(candidate)
         self.assertEqual(candidate.seed, oracle.seeds[0])
         self.assertEqual(candidate.effects[4].effect_id, TARGET_GRACE)
+        self.assertEqual(candidate.installation_record, candidate.record)
+
+    def test_playthrough_two_rarity_four_filters_the_native_final_record(self) -> None:
+        from nioh3_scroll_editor.grace_map import GraceOutputMap, GraceRange
+
+        mapping = GraceOutputMap(
+            record_type=0x516D,
+            rarity=4,
+            playthrough="category-2-live-native",
+            effect_slot=5,
+            ranges=(GraceRange(0, 0xFFFF, TARGET_GRACE),),
+        )
+
+        def make_record(seed: int, grace: int) -> bytes:
+            record = bytearray(SCROLL_RECORD_SIZE)
+            struct.pack_into("<H", record, 0, 0x516D)
+            struct.pack_into("<I", record, 0x20, seed)
+            record[0x30] = record[0x31] = 4
+            for index, effect_id in enumerate((PRIMARY, *ORDINARY[:3], grace)):
+                offset = EFFECT_START + index * EFFECT_STRIDE
+                struct.pack_into("<H", record, offset, 1)
+                struct.pack_into("<I", record, offset + 4, effect_id)
+            return bytes(record)
+
+        class FakeOracle:
+            max_batch_size = 1
+            stage_record: bytes | None = None
+            final_record: bytes | None = None
+
+            def generate(self, source_records: list[bytes]) -> list[bytes]:
+                self_test.assertEqual(len(source_records), 1)
+                source_seed = struct.unpack_from("<I", source_records[0], 0x20)[0]
+                self.stage_record = make_record(source_seed, TARGET_GRACE)
+                self.final_record = make_record(source_seed, TARGET_GRACE)
+                return [self.stage_record]
+
+            def finalize_stage_records_batch(self, source_records: list[bytes]) -> list[bytes]:
+                self_test.assertEqual(source_records, [self.stage_record])
+                assert self.final_record is not None
+                return [self.final_record]
+
+        self_test = self
+        template = make_record(0, TARGET_GRACE)
+        oracle = FakeOracle()
+        candidate = scan_next_candidate(
+            oracle,
+            template=template,
+            start_seed=0,
+            primary_effect_ids=frozenset((PRIMARY,)),
+            required_secondary_ids=frozenset(ORDINARY[:3]),
+            grace_effect_id=TARGET_GRACE,
+            rarity=4,
+            playthrough=2,
+            grace_output_map=mapping,
+            max_seeds=1,
+        )
+        self.assertIsNotNone(candidate)
+        self.assertEqual(candidate.record, oracle.final_record)
+        self.assertEqual(candidate.installation_record, oracle.stage_record)
+        self.assertEqual(candidate.record_stage.value, "final_record")
+
+    def test_playthrough_one_rarity_four_accepts_its_live_map_and_finalizes(self) -> None:
+        from nioh3_scroll_editor.grace_map import GraceOutputMap, GraceRange
+
+        mapping = GraceOutputMap(
+            record_type=0x1E82,
+            rarity=4,
+            playthrough="category-1-live-native",
+            effect_slot=5,
+            ranges=(GraceRange(0, 0xFFFF, TARGET_GRACE),),
+        )
+
+        def make_record(seed: int) -> bytes:
+            record = bytearray(SCROLL_RECORD_SIZE)
+            struct.pack_into("<H", record, 0, 0x1E82)
+            struct.pack_into("<I", record, 0x20, seed)
+            record[0x30] = record[0x31] = 4
+            for index, effect_id in enumerate((PRIMARY, *ORDINARY[:3], TARGET_GRACE)):
+                offset = EFFECT_START + index * EFFECT_STRIDE
+                struct.pack_into("<H", record, offset, 1)
+                struct.pack_into("<I", record, offset + 4, effect_id)
+                struct.pack_into("<I", record, offset + 12, 0x00020C00)
+            return bytes(record)
+
+        class FakeOracle:
+            max_batch_size = 1
+            stage_record: bytes | None = None
+
+            def generate(self, source_records: list[bytes]) -> list[bytes]:
+                seed = struct.unpack_from("<I", source_records[0], 0x20)[0]
+                self.stage_record = make_record(seed)
+                return [self.stage_record]
+
+            @staticmethod
+            def finalize_stage_records_batch(source_records: list[bytes]) -> list[bytes]:
+                return source_records
+
+        oracle = FakeOracle()
+        candidate = scan_next_candidate(
+            oracle,
+            template=make_record(0),
+            start_seed=0,
+            primary_effect_ids=frozenset(),
+            required_secondary_ids=frozenset(),
+            grace_effect_id=TARGET_GRACE,
+            rarity=4,
+            playthrough=1,
+            grace_output_map=mapping,
+            max_seeds=1,
+        )
+
+        self.assertIsNotNone(candidate)
+        assert candidate is not None
+        self.assertEqual(candidate.record_stage.value, "final_record")
+        self.assertEqual(candidate.installation_record, oracle.stage_record)
+        self.assertIsNone(candidate.install_blocker)
 
     def test_rarity3_acceleration_uses_r4_map_then_shadow_validates_only_match(self) -> None:
         mapping = load_grace_output_map(rarity=4)

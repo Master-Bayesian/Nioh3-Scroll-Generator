@@ -67,6 +67,11 @@ class ScrollCandidate:
     # part of the compact online Emaki exchange tuple.
     auxiliary: CompleteAuxiliaryResult | None = None
     auxiliary_error: str | None = None
+    # Some rarity-4 searches preview a native completion result but must write
+    # the corresponding stage-one record so the game performs that completion
+    # exactly once on reveal.  This is transient search metadata and is never
+    # parsed from a saved final record.
+    installation_record: bytes | None = None
 
     @property
     def primary(self) -> ScrollEffect:
@@ -145,6 +150,15 @@ class ScrollCandidate:
 
     @property
     def install_blocker(self) -> str | None:
+        if self.installation_record is not None:
+            if len(self.installation_record) != SCROLL_RECORD_SIZE:
+                return "候选携带的待揭露记录长度无效，拒绝写入。"
+            if struct.unpack_from("<I", self.installation_record, 0x20)[0] != self.seed:
+                return "候选预览与待揭露记录的 Seed 不一致，拒绝写入。"
+            if self.installation_record[0x30] != self.rarity:
+                return "候选预览与待揭露记录的稀有度不一致，拒绝写入。"
+            if self.record and self.installation_record[:2] != self.record[:2]:
+                return "候选预览与待揭露记录的绘卷类型不一致，拒绝写入。"
         if self.record_stage is CandidateRecordStage.EFFECT_SEQUENCE_ONLY:
             if self.can_materialize_for_install:
                 return None
