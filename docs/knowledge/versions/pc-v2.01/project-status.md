@@ -72,7 +72,7 @@ is accepted, the unchanged source is the valid final result. Regression Seeds
 no-change respectively, and the application boundary rejects any rarity-4
 stage-one candidate leaked by a future route. Live PC v2.01 native scanning and
 the subsequent in-game reveals matched both predicted final records. GitHub
-Actions run `34080366708` passed all 426 tests, built and signed the one-file
+Actions run `34080366708` passed all 423 tests, built and signed the one-file
 executable, and published stable v0.6.10. The downloaded asset passed signature,
 size, SHA-256, startup, cleanup, and public-update checks.
 

@@ -55,9 +55,9 @@ exported before resuming editor work:
   The subsequent in-game reveal matched both predicted final records; that is
   gameplay evidence for the native finalizer, not a substitute for the
   application-boundary regression.
-- The final source tree passes all 426 repository tests, including the
+- The tracked release tree passes all 423 repository tests, including the
   application search-boundary gate and both reported-Seed regressions.
-- GitHub Actions run `34080366708` passed the same 426-test suite, built the
+- GitHub Actions run `34080366708` passed the same 423-test suite, built the
   one-file executable, signed `latest.json`, and published the stable Release.
   The downloaded 17,933,766-byte asset passed Ed25519 manifest verification,
   SHA-256 `E2ABD12562C615155E0B97F146B66BBB7FD6209863ACEE9391321D12AEC9621E`,
