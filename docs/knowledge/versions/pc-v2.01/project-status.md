@@ -2,7 +2,7 @@
 
 ## Status
 
-`released`; integrated in stable v0.6.9 on 2026-09-02.
+`released`; current stable v0.6.10 was published on 2026-09-06.
 
 ## Passed
 
@@ -62,7 +62,7 @@ legal-search result pane and its candidate list. GitHub Actions run
 downloaded 17,927,879-byte executable passed signature, size, SHA-256, startup,
 cleanup, and public-update checks.
 
-## Unreleased rarity-4 search finalization follow-up
+## Stable v0.6.10 rarity-4 search finalization follow-up
 
 Native rarity-4 searches now retain their stage-one installation payload while
 filtering and displaying only the corresponding completed record. The full
@@ -71,10 +71,10 @@ is accepted, the unchanged source is the valid final result. Regression Seeds
 `43723117` and `36526331` cover post-reveal replacement and exhaustive
 no-change respectively, and the application boundary rejects any rarity-4
 stage-one candidate leaked by a future route. Live PC v2.01 native scanning and
-the subsequent in-game reveals matched both predicted final records. Packaging
-and public release remain pending. The final source tree passes all 426
-repository tests, including an application-boundary regression that refuses a
-rarity-4 stage-one candidate.
+the subsequent in-game reveals matched both predicted final records. GitHub
+Actions run `34080366708` passed all 426 tests, built and signed the one-file
+executable, and published stable v0.6.10. The downloaded asset passed signature,
+size, SHA-256, startup, cleanup, and public-update checks.
 
 ## Known version difference
 

@@ -2,7 +2,7 @@
 
 ## Public baseline
 
-The public baseline is stable v0.6.9, published on 2026-09-02 after the local
+The public baseline is stable v0.6.10, published on 2026-09-06 after the local
 test suite, packaged startup checks, and the signed GitHub release workflow.
 
 ## Completed in the current working tree

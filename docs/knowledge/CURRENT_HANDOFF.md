@@ -1,4 +1,4 @@
-# Current project handoff — 2026-09-02
+# Current project handoff — 2026-09-06
 
 This file is the durable entry point for the next development agent. It is a
 working-tree handoff, not a release note and not evidence that unfinished code
@@ -12,11 +12,11 @@ resuming the equipment supplement or full-item catalog work.
 
 - Repository: `F:\Nioh3_ScrollEditor`
 - Branch: `codex/todo-321`
-- Public baseline: stable tag `v0.6.9`, published on 2026-09-02 from commit
-  `57a07a0` with PC v2.01 and PC v2.00.02 support.
-- v0.6.9 combines the rarity-4 acquisition lifecycle repair,
-  primary/secondary paired constraints, terrain-result OR filtering, RTX 50
-  CUDA compatibility, and a vertically scrollable legal-search result pane.
+- Public baseline: stable tag `v0.6.10`, published on 2026-09-06 from commit
+  `00a89b2` with PC v2.01 and PC v2.00.02 support.
+- v0.6.10 adds final-record-only rarity-4 search matching and custom-only
+  first-/second-playthrough rarity-4 Grace search and installation while
+  retaining all v0.6.9 features.
 - The earlier local `v0.6.7-beta.1` acceptance build remains historical and is
   not part of either update channel.
 - Preserve unrelated untracked research, captures, packages, and user files.
@@ -34,7 +34,7 @@ exported before resuming editor work:
 - Level-180 range attempts for all 3,609 effects; 182 contextual definitions
   are explicitly unresolved rather than guessed.
 
-## Unreleased rarity-4 search finalization repair — 2026-09-06
+## Stable v0.6.10 rarity-4 search finalization repair
 
 - Every native rarity-4 search route now keeps two distinct records: the
   native stage-one installation payload and the completed record used for
@@ -57,6 +57,11 @@ exported before resuming editor work:
   application-boundary regression.
 - The final source tree passes all 426 repository tests, including the
   application search-boundary gate and both reported-Seed regressions.
+- GitHub Actions run `34080366708` passed the same 426-test suite, built the
+  one-file executable, signed `latest.json`, and published the stable Release.
+  The downloaded 17,933,766-byte asset passed Ed25519 manifest verification,
+  SHA-256 `E2ABD12562C615155E0B97F146B66BBB7FD6209863ACEE9391321D12AEC9621E`,
+  packaged startup, exact-path cleanup, and the public stable-update check.
 
 ## Stable v0.6.9 changes
 
