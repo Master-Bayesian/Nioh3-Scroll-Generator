@@ -7,7 +7,18 @@ function Get-PackageHash([string]$Path) {
     finally { $stream.Dispose(); $algorithm.Dispose() }
 }
 trap {
-    $report=@{status='failed';error=$_.Exception.Message;time=[DateTime]::UtcNow.ToString('o')}|ConvertTo-Json
+    $failure=$_.Exception.Message
+    if($prepared -and (Test-Path -LiteralPath $prepared)) {
+        # Only this invocation's newly copied sibling is disposable on failure.
+        if([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($prepared)) -eq $parent -and
+           [IO.Path]::GetFileName($prepared).StartsWith([IO.Path]::GetFileName($targetPath)+'.update-')) {
+            $links=Get-ChildItem -LiteralPath $prepared -Recurse -Force | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }
+            if(-not $links -and -not ((Get-Item -LiteralPath $prepared).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+                Remove-Item -LiteralPath $prepared -Recurse -Force
+            }
+        }
+    }
+    $report=@{status='failed';error=$failure;time=[DateTime]::UtcNow.ToString('o')}|ConvertTo-Json
     [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'last-update-result.json'),$report)
     exit 1
 }
@@ -39,6 +50,8 @@ try {
     [IO.Directory]::Move($targetPath,$previous)
     $moved=$true
     [IO.Directory]::Move($prepared,$targetPath)
+    # Persist before launch: the new app may finish startup before this helper exits.
+    [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'last-update-result.json'),(@{status='awaiting-startup';target=$targetPath;previous=$previous;manifestHash=$ManifestHash;time=[DateTime]::UtcNow.ToString('o')}|ConvertTo-Json))
     Start-Process -FilePath (Join-Path $targetPath 'Nioh3ScrollEditorV2.exe') -WorkingDirectory $targetPath -WindowStyle Hidden
 } catch {
     if($moved){
@@ -52,4 +65,4 @@ try {
     throw
 }
 
-[IO.File]::WriteAllText((Join-Path $PSScriptRoot 'last-update-result.json'),(@{status='launched';previous=$previous;time=[DateTime]::UtcNow.ToString('o')}|ConvertTo-Json))
+# Startup acknowledgement and cleanup belong to the verified new application.

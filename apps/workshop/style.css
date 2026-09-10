@@ -120,6 +120,9 @@ html,body,#root{width:100%;height:100%;margin:0;padding:0;background:#e8edf5}bod
 /* Collection actions remain visible without changing scroll-card geometry. */
 .favorite-button { font-size: 24px; line-height: 1; min-width: 36px; }
 .favorite-button[aria-pressed="true"] { color: #946400; background: #fff1c9; }
+.favorite-button { display: inline-flex; align-items: center; justify-content: center; padding: 6px 10px; }
+.star-icon { display: inline-block; flex: 0 0 22px; vertical-align: middle; }
+.update-notice { background: #dcebf7; border: 1px solid #82a7c8; color: #244c70; font-weight: 600; }
 .collection-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 
 /* Translated labels need room without spilling over the navigation divider. */

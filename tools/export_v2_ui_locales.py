@@ -1,5 +1,6 @@
 """Export reviewed UI strings and existing game-localized names for V2."""
 import json
+import re
 from pathlib import Path
 import sys
 
@@ -38,6 +39,7 @@ for locale in ('en-US', 'ja-JP'):
         original = next((r for r in source['terrains'] if r['option_id'] == row['option_id']), None)
         if original:
             translated[original['name']] = row['name']
-    games[locale] = translated
+    games[locale] = {key: re.sub(r'\^(?:20|21)~default~|\^FE~RUBY~|\^FF~RUBY,[^~]*~', '', value, flags=re.I)
+                     for key, value in translated.items()}
 (base / 'ui-locales.json').write_text(json.dumps({'ui': ui, 'game': games}, ensure_ascii=False, indent=2)+'\n', encoding='utf-8', newline='\n')
 print(f'Exported {len(ui)} UI messages and {sum(map(len, games.values()))} game names')

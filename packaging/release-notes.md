@@ -1,4 +1,23 @@
-# Nioh 3 Scroll Editor 0.7.0
+# Nioh 3 Scroll Editor 0.7.1
+
+## Fixes in this patch
+
+- Restore automatic update checks at startup, with a visible new-version button.
+  Download and installation remain under your control; protected operations must
+  finish safely before restart.
+- Remove downloaded ZIPs after verification and failed download caches after
+  failure. Once the new application starts successfully, remove its previous
+  installation and staging cache, including upgrades from v0.7.0. Unexpected
+  user files in an old program folder are preserved rather than deleted.
+- Display Japanese names without game ruby/font control codes or duplicated
+  pronunciation text. Scroll rows retain their fixed layout.
+- Use crisp vector outline/filled stars for favorites, including high-DPI displays.
+
+In v0.7.0, open Settings > Check for updates, download the update and restart
+using the install button. Automatic startup checks resume in v0.7.1.
+Electron and the package footprint are unchanged in this patch.
+
+## Included desktop features
 
 The new desktop interface combines scroll search, editing, favorites, a selected-item
 cart, and backup management. Chinese, English and Japanese can be selected in the app.
@@ -22,7 +41,7 @@ cart, and backup management. Chinese, English and Japanese can be selected in th
 
 ## Install or migrate from v0.6
 
-Download `Nioh3ScrollEditor-0.7.0-win-x64.zip`, extract the entire archive into a
+Download `Nioh3ScrollEditor-0.7.1-win-x64.zip`, extract the entire archive into a
 writable folder and launch `Nioh3ScrollEditorV2.exe`. Python and Cheat Engine are
 not required. The legacy single-EXE updater cannot install V2; this first migration
 requires the ZIP download. Future V2 updates replace the complete portable directory.
