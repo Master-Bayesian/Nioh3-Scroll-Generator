@@ -126,6 +126,13 @@ Additional tools are in active development; the disabled **Coming soon** entry
 in v0.7.1 is intentional. New tools will be documented here only after their
 user flow and safety boundaries have been verified.
 
+## License and attribution
+
+The project does not currently declare a project-wide open-source license.
+Public access to the source does not by itself grant redistribution rights.
+Third-party software terms and attributions are listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
 ## Help and diagnostics
 
 For a problem report, open **Settings → Copy log** and include the copied details
@@ -137,5 +144,4 @@ and rotated automatically.
 - Authors: MasterBayesian and Saber_Li
 
 For implementation notes, validation evidence, and versioned reverse-engineering
-records, see the [engineering knowledge base](docs/knowledge/INDEX.md). Third-party
-software attributions are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+records, see the [engineering knowledge base](docs/knowledge/INDEX.md).
