@@ -38,7 +38,10 @@ class TauriInstallerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             binary = root / 'Nioh3Studio.exe'
-            binary.write_bytes(b'MZ-prefix-' + UNKNOWN_BUNDLE_TOKEN + b'-suffix')
+            binary.write_bytes(
+                b'MZ-prefix-' + NSIS_BUNDLE_TOKEN + b'-runtime-literal-'
+                + UNKNOWN_BUNDLE_TOKEN + b'-suffix'
+            )
             manifest = {
                 'files': [{'path': 'Nioh3Studio.exe', 'size': 0, 'sha256': ''}],
             }

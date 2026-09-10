@@ -20,10 +20,12 @@ def patch_nsis_binary(path: Path) -> bool:
     data = path.read_bytes()
     unknown_count = data.count(UNKNOWN_BUNDLE_TOKEN)
     nsis_count = data.count(NSIS_BUNDLE_TOKEN)
-    if unknown_count == 1 and nsis_count == 0:
+    # The binary also contains the NSS match-arm literal used by Tauri at
+    # runtime. Only the single UNK placeholder identifies an unpatched build.
+    if unknown_count == 1:
         path.write_bytes(data.replace(UNKNOWN_BUNDLE_TOKEN, NSIS_BUNDLE_TOKEN, 1))
         return True
-    if unknown_count == 0 and nsis_count == 1:
+    if unknown_count == 0 and nsis_count >= 1:
         return False
     raise ValueError('Main executable has an unexpected Tauri bundle marker')
 
