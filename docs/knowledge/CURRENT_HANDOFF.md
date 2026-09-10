@@ -2,12 +2,11 @@
 
 ## Status and entry points
 
-**Current release work:** Tauri 2 v0.7.1 supersedes the withdrawn Electron v0.7.0.
-The user authorized publication after the packaged checks. The signed preparation
-workflow builds once; publication must reuse its verified artifact. Until that
-publication succeeds, GitHub latest remains v0.6.10. Read
-[the migration checkpoint](TAURI2_MIGRATION_20260909.md) and
-[the release runbook](RELEASE_RUNBOOK.md). The Electron notes below are historical.
+**Published:** Tauri 2 v0.7.1 is the latest stable release. The final ZIP is
+28.3 MiB; the exact hosted files were accepted locally and signed without a
+rebuild. Read [publication evidence](TAURI_V071_PUBLICATION_20260910.md) and
+[the release runbook](RELEASE_RUNBOOK.md). Electron v0.7.0 remains withdrawn.
+The Electron notes below are historical.
 
 The connected Electron/React V2 is prepared at 0.7.0 with Chinese, English and Japanese UI.
 This handoff records the local preparation checkpoint; hosted checks and the
