@@ -87,3 +87,17 @@ and treats an already installed matching version as a no-op. Test this with a fr
 dependency directory and no prior Electron launch. Preserve the release workflow's
 ability to build directly from dependency installation; a smoke launch is not a
 substitute for a build prerequisite.
+
+## Archive naming is part of the update contract
+
+The first complete package passed all runtime checks but signing stopped with
+`UPDATE_ASSET_INVALID`. The archive workflow used the `Nioh3ScrollEditor-` prefix,
+while the V2 updater intentionally accepts `Nioh3ScrollEditorV2-` ZIP files. The
+private key was available; this was metadata validation, not a signing-key failure.
+
+Use `Nioh3ScrollEditorV2-<version>-win-x64.zip` consistently in archive creation,
+the signer input, download URL and release notes. Keep the updater's validation
+unchanged. A new test reads the actual release workflow, verifies that the archive,
+signer input and URL agree, signs that metadata with a disposable test key, and
+passes it through the real updater validator. It reproduces the old failure and
+passes with the corrected name. Run this check before the expensive release gates.
