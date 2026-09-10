@@ -49,6 +49,7 @@ jobs:
       - run: git diff --exit-code -- packages/contracts apps/workshop/ui-locales.json
       - run: node tools/audit_v2_ui_locales.mjs
       - run: python tools/verify_native_build_manifest.py
+      - run: python tools/run_cpu_only_tests.py
       - run: python -m unittest discover -v
       - run: npm test
       - run: ./tools/verify_native_faults.ps1

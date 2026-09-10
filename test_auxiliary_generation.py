@@ -38,6 +38,7 @@ from nioh3_scroll_editor.seed_accelerator import (
     collect_natural_pivot_seeds,
     cuda_seed_acceleration_available,
     native_seed_acceleration_available,
+    seed_acceleration_execution_policy,
 )
 from nioh3_scroll_editor.auxiliary_feasibility import (
     SpecialRuleKeyRequirement,
@@ -603,6 +604,9 @@ class Class2EnemyTests(unittest.TestCase):
 
 
 class CompleteAuxiliaryTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.enterContext(seed_acceleration_execution_policy(allow_bulk_cpu=True))
+
     @unittest.skipUnless(
         native_seed_acceleration_available(),
         "native Seed accelerator is unavailable",

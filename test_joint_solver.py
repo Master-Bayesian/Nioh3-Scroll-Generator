@@ -15,6 +15,7 @@ from nioh3_scroll_editor.joint_solver import (
 from nioh3_scroll_editor.seed_accelerator import (
     collect_natural_pivot_seeds,
     native_seed_acceleration_available,
+    seed_acceleration_execution_policy,
 )
 from nioh3_scroll_editor.native import scan_next_candidate
 from nioh3_scroll_editor.primary_map import (
@@ -112,6 +113,9 @@ class FakeFirstDrawOracle:
 
 
 class JointSolverTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.enterContext(seed_acceleration_execution_policy(allow_bulk_cpu=True))
+
     def test_native_accelerator_rejects_oversized_single_allocation(self) -> None:
         if not native_seed_acceleration_available():
             self.skipTest("native Seed accelerator is not built")

@@ -36,6 +36,7 @@ from nioh3_scroll_editor.grace_map import (
     load_grace_output_map,
 )
 from nioh3_seed_math import state_after_draw_from_seed
+from nioh3_scroll_editor.seed_accelerator import seed_acceleration_execution_policy
 
 
 ROOT = Path(__file__).resolve().parent
@@ -47,6 +48,9 @@ VECTORS = json.loads(
 
 
 class Ng3Rarity5EffectSequenceTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.enterContext(seed_acceleration_execution_policy(allow_bulk_cpu=True))
+
     def test_any_grace_primary_batch_matches_full_sequence(self) -> None:
         seeds = (0, 1, 2, 241719428, 0xFFFFFFFF)
         self.assertEqual(
@@ -285,6 +289,9 @@ class Ng3Rarity5EffectSequenceTests(unittest.TestCase):
 
 
 class Ng3Rarity3EffectSequenceTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.enterContext(seed_acceleration_execution_policy(allow_bulk_cpu=True))
+
     VECTOR = bytes.fromhex(
         VECTORS["ng3_rarity3_seed_6096970_record_hex"]
     )

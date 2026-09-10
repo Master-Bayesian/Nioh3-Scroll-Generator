@@ -58,8 +58,8 @@ dialog{width:560px;max-width:95vw;border:1px solid #96b0b6;border-radius:6px;bac
 .result-pane{overflow:auto}
 .result-context{margin-bottom:4px}
 .result-paging{margin-top:4px;margin-bottom:6px}
-.result-scroll{flex:none;height:618px;overflow:visible}
-.result-detail{height:618px}
+.result-scroll{flex:none;height:auto;min-height:618px;overflow:visible}
+.result-detail{height:auto;min-height:618px}
 .result-scroll .scroll{height:528px;min-height:528px;flex:none;grid-template-rows:44px 40px 177px 88px 99px 28px 30px}
 .result-scroll .scroll>section{padding:2px 0}
 .result-scroll .scroll>section:first-of-type{grid-template-rows:23px repeat(6,24px)}
@@ -76,7 +76,7 @@ dialog{width:560px;max-width:95vw;border:1px solid #96b0b6;border-radius:6px;bac
 .install-mode label{font-size:11px;margin:0}
 @media(max-height:850px) and (min-width:1031px){
  .result-pane{padding-top:8px}
- .result-scroll,.result-detail{height:517px}
+ .result-scroll,.result-detail{height:auto;min-height:517px}
  .result-scroll .scroll{height:441px;min-height:441px;padding:8px;grid-template-rows:36px 30px 146px 74px 86px 23px 28px}
  .result-scroll .scroll>section:first-of-type{grid-template-rows:20px repeat(6,20px)}
  .result-scroll .scroll .effect-line,.result-scroll .scroll .scroll-rule{font-size:12px;height:20px;min-height:20px;line-height:18px}

@@ -29,3 +29,33 @@ unresolved temporary path. GitHub's Windows runner can expose `TEMP` through an
 Resolve the fixture root before comparing it. Keep the assertions that changing
 the next-launch data directory does not move the currently active operations.
 Do not weaken application path canonicalization to accommodate a test fixture.
+
+## Numerical tests on runners without CUDA
+
+Twenty-three legacy numerical tests called native bulk helpers without entering
+an explicit CPU-permitted execution policy. They passed on the developer's GPU,
+but the same calls correctly failed closed on a hosted runner without CUDA.
+`NIOH3_PARITY_ALLOW_CPU` only configures the packaged replay driver; it does not
+change the native DLL's policy or these lower-level tests.
+
+Numerical test fixtures now explicitly enter the permitted CPU policy and pass
+the corresponding solver flag. The application default remains strict, and the
+freeze tests still assert that forced CUDA failures cannot enter CPU execution
+without explicit permission. `python tools/run_cpu_only_tests.py` exercises these
+suites through the real native DLL with CUDA fault injection, even on a developer
+machine with a healthy GPU. The release workflow runs this gate as well.
+
+## Cart controls on compact Windows desktops
+
+The connected UI test reached real search results and then could not click the
+cart button: the install-mode section intercepted pointer events. The scroll
+card had a deliberate fixed height, but its surrounding container also had a
+fixed height. Action buttons wrapping on a narrow display overflowed that
+container and overlapped the next section.
+
+Keep the scroll card's fixed rows and height. Give the surrounding result and
+action containers a minimum height and allow them to grow with wrapped controls.
+The result pane remains scrollable. The connected synthetic-save test now requests
+a compact 1280x800 content area, asserts that the cart button stays above the save
+picker, and performs the real click and selected-item add. Do not replace this
+with a forced Playwright click or an artificially enlarged test window.

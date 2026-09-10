@@ -26,7 +26,10 @@ from nioh3_scroll_editor.effect_seed_solver import (
 )
 from nioh3_scroll_editor.grace_map import load_grace_output_map
 from nioh3_scroll_editor.joint_solver import U16Runs
-from nioh3_scroll_editor.seed_accelerator import AuxiliaryPivotMatchPage
+from nioh3_scroll_editor.seed_accelerator import (
+    AuxiliaryPivotMatchPage,
+    seed_acceleration_execution_policy,
+)
 from nioh3_scroll_editor.effect_sequence import generate_ng3_certified_effect_sequence
 from nioh3_scroll_editor.primary_map import (
     PrimaryFirstDrawOutputMap,
@@ -129,6 +132,9 @@ class PrimaryMapPersistenceTests(unittest.TestCase):
 
 
 class GameClosedEffectSeedSolverTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.enterContext(seed_acceleration_execution_policy(allow_bulk_cpu=True))
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.grace_mapping = load_grace_output_map(rarity=5)
@@ -206,6 +212,7 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         candidate = next(
             iter_effect_seed_candidates(
                 request,
+                allow_cpu_fallback=True,
                 grace_mapping=self.grace_mapping,
                 primary_mapping=self.primary_mapping,
                 max_trials=0x20000,
@@ -224,6 +231,7 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         )
         first = collect_effect_seed_page(
             request,
+            allow_cpu_fallback=True,
             page_size=3,
             grace_mapping=self.grace_mapping,
             primary_mapping=self.primary_mapping,
@@ -231,6 +239,7 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         )
         second = collect_effect_seed_page(
             request,
+            allow_cpu_fallback=True,
             page_size=3,
             grace_mapping=self.grace_mapping,
             primary_mapping=self.primary_mapping,
@@ -258,6 +267,7 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "page_size"):
             collect_effect_seed_page(
                 request,
+                allow_cpu_fallback=True,
                 page_size=0,
                 grace_mapping=self.grace_mapping,
             )
@@ -463,6 +473,7 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         )
         page = collect_effect_seed_page(
             request,
+            allow_cpu_fallback=True,
             page_size=2,
             grace_mapping=self.grace_mapping,
             effect_sequence_generator=generate_ng3_rarity5_effect_sequence,
@@ -503,6 +514,7 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         )
         page = collect_effect_seed_page(
             request,
+            allow_cpu_fallback=True,
             page_size=1,
             grace_mapping=self.grace_mapping,
             effect_sequence_generator=generate_ng3_rarity5_effect_sequence,
@@ -545,13 +557,14 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
             "primary_effect_id_generator": generate_ng3_rarity5_primary_effect_id,
             "max_trials": 0x4000,
         }
-        baseline = collect_effect_seed_page(request, **shared)
+        baseline = collect_effect_seed_page(request, allow_cpu_fallback=True, **shared)
         with patch(
             "nioh3_scroll_editor.effect_seed_solver.last_seed_acceleration_backend",
             return_value="cuda",
         ):
             accelerated = collect_effect_seed_page(
                 request,
+                allow_cpu_fallback=True,
                 **shared,
                 primary_effect_id_batch_generator=lambda seeds: (
                     generate_ng3_rarity5_primary_effect_ids(
@@ -586,6 +599,7 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         )
         first = collect_effect_seed_page(
             request,
+            allow_cpu_fallback=True,
             page_size=1,
             grace_mapping=self.grace_mapping,
             effect_sequence_generator=generate_ng3_rarity5_effect_sequence,
@@ -594,6 +608,7 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         )
         second = collect_effect_seed_page(
             request,
+            allow_cpu_fallback=True,
             page_size=1,
             grace_mapping=self.grace_mapping,
             effect_sequence_generator=generate_ng3_rarity5_effect_sequence,
@@ -628,6 +643,7 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
             next(
                 iter_effect_seed_candidates(
                     request,
+                    allow_cpu_fallback=True,
                     grace_mapping=self.grace_mapping,
                     primary_mapping=self.primary_mapping,
                 )
@@ -644,6 +660,7 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         candidate = next(
             iter_effect_seed_candidates(
                 request,
+                allow_cpu_fallback=True,
                 grace_mapping=self.grace_mapping,
                 primary_mapping=self.primary_mapping,
                 final_record_generator=make_final_record,
@@ -668,6 +685,7 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         candidate = next(
             iter_effect_seed_candidates(
                 request,
+                allow_cpu_fallback=True,
                 grace_mapping=self.grace_mapping,
                 primary_mapping=self.primary_mapping,
                 final_record_generator=make_final_record,
@@ -689,6 +707,7 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         candidate = next(
             iter_effect_seed_candidates(
                 request,
+                allow_cpu_fallback=True,
                 grace_mapping=self.grace_mapping,
                 primary_mapping=self.primary_mapping,
                 final_record_generator=make_final_record,
@@ -741,6 +760,7 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         candidate = next(
             iter_effect_seed_candidates(
                 request,
+                allow_cpu_fallback=True,
                 grace_mapping=self.grace_mapping,
                 primary_mapping=primary_mapping,
                 effect_sequence_generator=generate_ng3_rarity5_effect_sequence,
@@ -770,6 +790,7 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         candidate = next(
             iter_effect_seed_candidates(
                 request,
+                allow_cpu_fallback=True,
                 grace_mapping=self.grace_mapping,
                 effect_sequence_generator=generate_ng3_rarity5_effect_sequence,
                 primary_effect_generator=generate_ng3_rarity5_primary_effect,

@@ -7,7 +7,7 @@ const check=(name,ok)=>{assert.ok(ok,name);checks.push(name);console.log(name)};
 try{
  await app.evaluate(({dialog},path)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[path]})},fixture.path);
  const p=await app.firstWindow();const errors=[];p.on('pageerror',e=>errors.push(e.message));
- await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false));
+ await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setContentSize(1280,800)});
  await p.getByText('后端已连接，请选择筛选条件。',{exact:true}).waitFor({timeout:30000});
  if(process.env.NIOH3_PARITY_ALLOW_CPU==='1'){await p.getByRole('button',{name:'设置',exact:true}).click();await p.getByRole('checkbox',{name:'允许使用 CPU 搜索',exact:true}).check();await p.getByRole('button',{name:'关闭侧边菜单',exact:true}).click();}
  await p.getByRole('button',{name:'绘卷编辑',exact:true}).click();
@@ -18,7 +18,9 @@ try{
  await p.getByRole('checkbox',{name:'游戏已回到标题界面',exact:true}).check();await p.getByRole('button',{name:'确认写入存档',exact:true}).click();await p.getByText('修改已写入存档。',{exact:true}).waitFor();check('Reviewed edit commits only to synthetic fixture',!original.equals(await readFile(fixture.path)));
  await p.getByRole('button',{name:'绘卷搜索',exact:true}).click();await p.getByRole('button',{name:'清空全部',exact:true}).click();await p.getByRole('button',{name:'开始搜索'}).click();await p.waitForFunction(()=>document.querySelector('.search-page .status')?.textContent?.includes('本批找到'),{},{timeout:60000});check('Real backend search fills a 25-item page',await p.locator('.number-rail button').count()===25);
  await p.getByRole('checkbox',{name:'加入购物车',exact:true}).check();await p.getByRole('button',{name:'查看购物车（1）'}).waitFor();await p.getByRole('slider',{name:'滑动切换绘卷'}).fill('2');await p.getByRole('checkbox',{name:'加入购物车',exact:true}).check();await p.getByRole('button',{name:'查看购物车（2）'}).waitFor();await p.getByRole('button',{name:'下一批 →',exact:true}).click();await p.waitForFunction(()=>!document.querySelector('.primary-button').disabled);
- await p.getByRole('radio',{name:'回标题界面后添加到存档',exact:true}).check();await p.getByRole('button',{name:'查看购物车（2）'}).click();await p.locator('.cart-check input').first().uncheck();const beforeAdd=await readFile(fixture.path);
+ await p.getByRole('radio',{name:'回标题界面后添加到存档',exact:true}).check();
+ check('Cart controls stay above the save picker at compact window sizes',await p.locator('.compare-button').evaluate(e=>e.getBoundingClientRect().bottom<=document.querySelector('.install-mode').getBoundingClientRect().top));
+ await p.getByRole('button',{name:'查看购物车（2）'}).click();await p.locator('.cart-check input').first().uncheck();const beforeAdd=await readFile(fixture.path);
  await p.getByRole('button',{name:'核对添加',exact:true}).click();await p.getByRole('button',{name:'确认添加所选 1 张',exact:true}).waitFor();check('Cart candidate survives worker page replacement',true);check('Cart preparation is read-only',beforeAdd.equals(await readFile(fixture.path)));
  await p.getByRole('checkbox',{name:'游戏已回到标题界面',exact:true}).check();await p.getByRole('button',{name:'确认添加所选 1 张',exact:true}).click();await p.getByText('已添加到存档。',{exact:true}).waitFor();check('One selected cart item added to encrypted fixture',!beforeAdd.equals(await readFile(fixture.path)));
  await p.keyboard.press('Escape');await p.getByRole('button',{name:'绘卷编辑',exact:true}).click();await p.waitForFunction(()=>document.querySelectorAll('.inventory-list button').length===2);check('Inventory readback contains exactly two records',await p.locator('.inventory-list button').count()===2);
