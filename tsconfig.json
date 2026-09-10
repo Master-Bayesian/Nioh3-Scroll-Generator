@@ -5,5 +5,5 @@
     "resolveJsonModule": true, "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["apps/desktop/**/*.ts", "apps/desktop/**/*.tsx", "apps/workshop/**/*.ts", "apps/workshop/**/*.tsx", "packages/contracts/**/*.ts"]
+  "include": ["apps/desktop/**/*.ts", "apps/desktop/**/*.tsx", "apps/workshop/**/*.ts", "apps/workshop/**/*.tsx", "apps/tauri/**/*.ts", "packages/contracts/**/*.ts"]
 }

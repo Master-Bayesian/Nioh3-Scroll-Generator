@@ -45,3 +45,21 @@ visual acceptance is still pending at this checkpoint. No v0.7.1 release was mad
 
 See [the release runbook](RELEASE_RUNBOOK.md) and
 [the hosted failure record](V070_HOSTED_BUILD_FIXES_20260909.md).
+
+## Tauri implementation checkpoint
+
+The Rust host now brokers the existing framed Python workers, private candidate
+transfers, search/cancellation, protected operations, preferences, favorites,
+diagnostics, dialogs and native window controls. The release package embeds the
+shared React frontend and uses system WebView2. Default search conditions are
+empty. Exact-crate third-party notices are included with source provenance.
+
+The local package passed real WebView2 startup, known-seed Japanese preview,
+favorites, synthetic inventory and private-operation rejection. Rust tests cover
+real worker search, JavaScript/Rust signature parity, installer rollback and
+user-file-preserving cleanup. The final release workflow additionally verifies
+real application restart/cleanup and packaged CPU/GPU parity before signing.
+
+No new in-game write acceptance is claimed for the Rust host. Backend algorithms
+and native dispatch code are unchanged. Public release publication must use the
+same verified hosted artifact, not the dirty local development package.

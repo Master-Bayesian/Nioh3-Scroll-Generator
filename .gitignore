@@ -107,6 +107,9 @@ research/*
 node_modules/
 apps/desktop/dist/
 apps/desktop/test-results/
+apps/tauri/dist/
+apps/tauri/src-tauri/target/
+apps/tauri/src-tauri/gen/
 
 !research/capture_update_context_ce.lua
 !research/find_bounded_rip_references.py

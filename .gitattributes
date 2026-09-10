@@ -18,3 +18,7 @@ packages/contracts/*.ts text eol=lf
 *.dll binary
 *.exe binary
 *.png binary
+
+# Preserve downloaded third-party notices byte-for-byte for provenance hashes.
+third_party/rust-notices/** -text
+third_party/rust-notices/**/provenance.json text eol=lf

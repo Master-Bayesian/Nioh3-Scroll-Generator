@@ -147,3 +147,22 @@ Users migrating from v0.6 need the complete ZIP once. Keep `v2-update.json` as
 the whole-package update protocol; do not offer the ZIP as the legacy updater's
 single executable. Internal protocol or executable names can retain V2 for
 compatibility without requiring it in the downloadable ZIP's name.
+
+## Tauri release preparation gate
+
+The release workflow now runs only by explicit dispatch. It prepares and signs
+Tauri artifacts without publishing. After checking the exact downloaded artifact,
+create the version tag at that workflow's commit and publish those same bytes;
+never rebuild locally for upload. Tag pushes must not invoke the preserved
+Electron workflow. The Electron implementation remains on
+codex/electron-preserved-before-tauri2.
+
+Limits: ZIP <= 60 MiB; no Chromium/Node payload; every dependency has notices;
+manifest records a clean checkout; frontend and workers are tested from the
+actual package. Use explicit NIOH3_PYTHON, locked Cargo/npm/Python dependencies,
+and preserve existing native EOL/ABI identity checks. Windows resource paths may
+have canonical or extended-length aliases; compare canonical paths before scoped
+update cleanup. Test actual restart, not only a mock installer acknowledgement.
+
+The first Tauri installation is a manual ZIP migration. Do not advertise the
+legacy single-EXE or Electron manifest as compatible with the Tauri format.

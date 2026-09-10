@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Nioh3 Studio",
+  "version": "0.7.1",
+  "identifier": "io.github.master-bayesian.nioh3-studio",
+  "build": { "frontendDist": "../dist" },
+  "app": {
+    "windows": [{ "label": "main", "create": false, "title": "独脚踏鞴工作室", "width": 1600, "height": 1000, "minWidth": 1100, "minHeight": 740, "decorations": false }],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost; frame-src 'none'; object-src 'none'; base-uri 'none'"
+    }
+  },
+  "bundle": { "active": false, "icon": ["../../../assets/nioh3-scroll-generator.ico"], "windows": { "webviewInstallMode": { "type": "downloadBootstrapper" } } }
+}

@@ -2,11 +2,12 @@
 
 ## Status and entry points
 
-**Release override:** v0.7.0 is withdrawn to draft at the user's request; GitHub
-latest stable is v0.6.10. Preserve the Electron copy and migrate to Tauri 2.
-Do not publish the in-progress Electron v0.7.1 patch. Read
-[the migration checkpoint](TAURI2_MIGRATION_20260909.md) first. The preparation
-and release-gate language below predates this withdrawal.
+**Current release work:** Tauri 2 v0.7.1 supersedes the withdrawn Electron v0.7.0.
+The user authorized publication after the packaged checks. The signed preparation
+workflow builds once; publication must reuse its verified artifact. Until that
+publication succeeds, GitHub latest remains v0.6.10. Read
+[the migration checkpoint](TAURI2_MIGRATION_20260909.md) and
+[the release runbook](RELEASE_RUNBOOK.md). The Electron notes below are historical.
 
 The connected Electron/React V2 is prepared at 0.7.0 with Chinese, English and Japanese UI.
 This handoff records the local preparation checkpoint; hosted checks and the
