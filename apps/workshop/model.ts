@@ -111,15 +111,7 @@ export type Query = {
 export const initialSample = data.samples.find((s) => s.rarity === 4)!;
 export function initialQuery(): Query {
   return {
-    effects: initialSample.effects
-      .filter((e) => e.role === "主词条" || e.role === "副词条")
-      .map((e, i) => ({
-        id: e.id,
-        name: e.name,
-        mode: i > 1 ? 1 : 0,
-        roll: i < 2 ? 80 : 0,
-        cross: false,
-      })),
+    effects: [],
     enemies: [],
     rules: [],
     terrains: [],

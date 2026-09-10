@@ -1,6 +1,6 @@
 {
   "name": "nioh3-v2-workspace",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -18,6 +18,8 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/cli": "2.11.4",
     "@types/node": "24.10.1",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",

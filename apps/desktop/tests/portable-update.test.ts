@@ -25,20 +25,20 @@ test('The signed download URL must identify the declared version and filename',(
   assert.throws(()=>validateUpdate(m,publicKey),/UPDATE_ASSET_ORIGIN_INVALID/);
  }
 });
-test('The real release workflow produces metadata accepted by the signed updater',()=>{
+test('The Tauri workflow signs the archive it actually builds without publishing Electron',()=>{
  const workflow=readFileSync(new URL('../../../.github/workflows/release.yml',import.meta.url),'utf8');
+ const signer=readFileSync(new URL('../../../tools/build_tauri_update_manifest.mjs',import.meta.url),'utf8');
  const archiveLine=workflow.split('\n').find(line=>line.includes('run: python tools/archive_frontend_v2.py '));
- assert.ok(archiveLine,'Release archive command is present');
- const nameTemplate=archiveLine.match(/deliverables\/release\/([^/]+\.zip)\s*$/)?.[1];
- const signedPath=workflow.match(/"deliverables\/release\/([^"\r\n]+\.zip)"/)?.[1];
- const urlTemplate=workflow.match(/"(https:\/\/github\.com\/[^"\r\n]+\.zip)"/)?.[1];
- assert.ok(nameTemplate&&urlTemplate,'Release archive name and signed URL are present');
- assert.equal(signedPath,nameTemplate,'Signer consumes the archive that was built');
- const m=manifest();
- const expand=(value:string)=>value.replaceAll('${{ steps.version.outputs.value }}',m.version).replaceAll('${{ github.repository }}','Master-Bayesian/Nioh3-Scroll-Generator');
- m.asset.name=expand(nameTemplate);m.asset.url=expand(urlTemplate);
- assert.equal(new URL(m.asset.url).pathname.split('/').at(-1),m.asset.name);
- m.signature=sign(null,Buffer.from(signedUpdatePayload(m)),keys.privateKey).toString('base64');
- assert.equal(validateUpdate(m,publicKey),m);
+ assert.ok(archiveLine);
+ const name=archiveLine.match(/deliverables\/release\/([^/]+\.zip)\s*$/)?.[1];
+ const signedName=workflow.match(/\$zip='deliverables\/release\/([^']+)'/)?.[1];
+ assert.ok(name);assert.equal(signedName,name);
+ assert.ok(workflow.includes('node tools/build_tauri_update_manifest.mjs $zip'));
+ assert.ok(workflow.includes('60MB'));
+ assert.ok(signer.includes("schema:'nioh3-tauri-update/v1'"));
+ assert.ok(signer.includes('releases/download/v${version}/${name}'));
+ assert.ok(signer.includes('verify(null,payload,publicKey,signature)'));
+ assert.ok(!workflow.includes('softprops/action-gh-release'));
+ assert.ok(!workflow.includes('build_frontend_v2.ps1'));
 });
 test('Update version ordering refuses downgrades and separates prerelease stability',()=>{assert.ok(compareVersion('0.7.0','0.7.0-beta.5')>0);assert.ok(compareVersion('0.7.0-rc.1','0.7.0-beta.5')>0);assert.ok(compareVersion('0.6.10','0.7.0-dev.0')<0);assert.equal(compareVersion('0.7.0','0.7.0'),0)});

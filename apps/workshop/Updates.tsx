@@ -1,5 +1,27 @@
 import React, { useEffect, useState } from "react";
 import type { UpdateState } from "../desktop/src/portable-update";
+export function UpdateNotice({ onOpen }: { onOpen: () => void }) {
+  const [available, setAvailable] = useState(false);
+  useEffect(() => {
+    let stopped = false;
+    let checked = false;
+    const channel = localStorage.getItem("nioh3-update-channel") === "beta" ? "beta" : "stable";
+    async function poll(initial = false) {
+      try {
+        let state = await window.review.update({ action: "status", channel });
+        if (!checked && state.canApply && state.phase === "idle") {
+          checked = true;
+          state = await window.review.update({ action: "check", channel });
+        }
+        if (!stopped) setAvailable(["available", "ready"].includes(state.phase));
+      } catch { /* Background network failures must not interrupt editing. */ }
+    }
+    void poll(true);
+    const timer = setInterval(() => void poll(), 3000);
+    return () => { stopped = true; clearInterval(timer); };
+  }, []);
+  return available ? <button className="update-notice" onClick={onOpen}>发现新版本</button> : null;
+}
 export function Updates() {
   const [channel, setChannel] = useState<"stable" | "beta">(() =>
     localStorage.getItem("nioh3-update-channel") === "beta" ? "beta" : "stable",

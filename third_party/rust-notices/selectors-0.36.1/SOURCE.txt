@@ -1,0 +1,1 @@
+Unmodified source, including original copyright notices: https://github.com/servo/stylo/tree/635e1a19d02960588a00e189bd4bd5bdb150ec3d/selectors

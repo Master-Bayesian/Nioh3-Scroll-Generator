@@ -1,11 +1,16 @@
 # 仁王3绘卷生成器 / Nioh 3 Scroll Generator
 
-The current recommended release is **v0.6.10**:
-[download the EXE](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/download/v0.6.10/Nioh3ScrollGenerator.exe).
-The Electron v0.7.0 release has been withdrawn because its package size made
-downloads and updates impractical for users. GitHub latest and the public update
-feed are back on v0.6.10. The existing desktop work is preserved while its host
-is migrated to Tauri 2; no replacement v0.7 release is available yet.
+The desktop application now uses **Tauri 2** with the shared Windows WebView2 runtime.
+Download the complete [v0.7.1 ZIP](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/tag/v0.7.1),
+extract it, and run `Nioh3Studio.exe`. Keep its adjacent folders. No Python, Node,
+Electron or Cheat Engine installation is required.
+
+The oversized Electron v0.7.0 was withdrawn and remains preserved in source.
+Migration from v0.6.x/Electron requires one manual download; subsequent Tauri
+updates use the signed in-place updater. The older Tk interface is still available
+as a source entry. The sections below describe its backend features as well.
+See [release notes](packaging/release-notes.md) and the
+[Tauri migration record](docs/knowledge/TAURI2_MIGRATION_20260909.md).
 
 [简体中文](#简体中文) | [English](#english)
 

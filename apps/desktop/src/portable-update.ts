@@ -1,9 +1,10 @@
 import {createHash, createPublicKey, verify, randomUUID} from 'node:crypto';
-import {mkdir, writeFile, open, readFile} from 'node:fs/promises';
+import {mkdir, writeFile, open, readFile, unlink} from 'node:fs/promises';
 import {join} from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {verifyPortable} from '../../../packages/packaging/integrity.mjs';
+import {removeUpdateCache} from './update-cleanup';
 
 const PUBLIC_KEY='c6oPCnJE4B+7ZnDUkZRJzUo3PZQmlM/eMlFqRC1h3dU=';
 const RELEASES='https://api.github.com/repos/Master-Bayesian/Nioh3-Scroll-Generator/releases?per_page=20';
@@ -34,7 +35,7 @@ export class PortableUpdate {
  state:UpdateState={phase:'idle'};private manifest:UpdateManifest|null=null;stagedDirectory:string|null=null;manifestHash:string|null=null;
  constructor(readonly directory:string,readonly currentVersion:string,readonly extractScript:string,private dependencies:{fetch?:typeof fetch;publicKey?:string}={}){}
  async check(channel:'stable'|'beta'){
-  if(['checking','downloading'].includes(this.state.phase))return;this.state={phase:'checking'};this.manifest=null;this.stagedDirectory=null;
+  if(['checking','downloading','ready'].includes(this.state.phase))return;this.state={phase:'checking'};this.manifest=null;this.stagedDirectory=null;this.manifestHash=null;
   try{const releases=JSON.parse((await boundedFetch(RELEASES,1024*1024,this.dependencies.fetch)).toString());if(!Array.isArray(releases))throw Error('UPDATE_INDEX_INVALID');
    const candidates:UpdateManifest[]=[];
    for(const release of releases.slice(0,20)){if(release.draft||channel==='stable'&&release.prerelease)continue;const asset=release.assets?.find((a:{name:string})=>a.name==='v2-update.json');if(!asset)continue;
@@ -48,14 +49,19 @@ export class PortableUpdate {
  }
  async download(){if(this.state.phase!=='available'||!this.manifest)throw Error('UPDATE_NOT_AVAILABLE');const manifest=this.manifest;
   this.state={phase:'downloading',version:manifest.version,downloaded:0,total:manifest.asset.size};
-  try{const folder=join(this.directory,randomUUID());await mkdir(folder,{recursive:true});const archive=join(folder,'package.zip'),staged=join(folder,'package');
+  const folder=join(this.directory,randomUUID());
+  try{await mkdir(folder,{recursive:true});const archive=join(folder,'package.zip'),staged=join(folder,'package');
    const response=await (this.dependencies.fetch||fetch)(manifest.asset.url,{signal:AbortSignal.timeout(600000)});if(!response.ok||!response.body)throw Error('UPDATE_DOWNLOAD_FAILED');
    const file=await open(archive,'wx');const hash=createHash('sha256');let size=0;
    try{for await(const chunk of response.body){size+=chunk.length;if(size>manifest.asset.size)throw Error('UPDATE_RESPONSE_TOO_LARGE');hash.update(chunk);let offset=0;while(offset<chunk.length){const written=await file.write(chunk,offset,chunk.length-offset);offset+=written.bytesWritten;}this.state={...this.state,downloaded:size};}await file.sync();}finally{await file.close();}
    if(size!==manifest.asset.size||hash.digest('hex')!==manifest.asset.sha256)throw Error('UPDATE_HASH_MISMATCH');
    await promisify(execFile)('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',this.extractScript,'-Archive',archive,'-Destination',staged],{windowsHide:true,timeout:180000});
    const report=await verifyPortable(staged);if(report.version!==manifest.version)throw Error('UPDATE_PACKAGE_VERSION_MISMATCH');
-   await writeFile(join(folder,'verified-update.json'),JSON.stringify(manifest));this.manifestHash=createHash('sha256').update(await readFile(join(staged,'build-manifest.json'))).digest('hex');this.stagedDirectory=staged;this.state={phase:'ready',version:manifest.version};
-  }catch(error){this.state={phase:'failed',error:String(error)}}
+   await writeFile(join(folder,'verified-update.json'),JSON.stringify(manifest));
+   await unlink(archive);
+   this.manifestHash=createHash('sha256').update(await readFile(join(staged,'build-manifest.json'))).digest('hex');this.stagedDirectory=staged;this.state={phase:'ready',version:manifest.version};
+  }catch(error){this.stagedDirectory=null;this.manifestHash=null;
+   try{await removeUpdateCache(this.directory,folder)}catch(cleanup){error=Error(String(error)+'; '+String(cleanup))}
+   this.state={phase:'failed',error:String(error)}}
  }
 }

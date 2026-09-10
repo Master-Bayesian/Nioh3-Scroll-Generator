@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import resources from "./ui-locales.json";
 import { publicError } from "./public-errors";
+import { plainGameText } from "./game-text";
 export type UiLocale = "zh-CN" | "en-US" | "ja-JP";
 let locale: UiLocale =
   typeof localStorage !== "undefined" &&
@@ -27,7 +28,7 @@ const maps = new Map<string, Record<string, string>>(),
 export function localize(text: string): string {
   text=text.replace(/\s+/g,' ');
   text = publicError(text);
-  if (locale === "zh-CN" || !text) return text;
+  if (locale === "zh-CN" || !text) return plainGameText(text);
   if (!maps.has(locale)) {
     const entries = {
       ...resources.game[locale],
@@ -52,12 +53,12 @@ export function localize(text: string): string {
   }
   const entries = maps.get(locale)!;
   if (entries[text.trim()])
-    return text.replace(text.trim(), entries[text.trim()]);
+    return plainGameText(text.replace(text.trim(), entries[text.trim()]));
   const translated = text.replace(
     patterns.get(locale)!,
     (part) => entries[part],
   );
-  return locale === "en-US"
+  return plainGameText(locale === "en-US"
     ? translated.replaceAll("（", "(").replaceAll("）", ")")
-    : translated;
+    : translated);
 }

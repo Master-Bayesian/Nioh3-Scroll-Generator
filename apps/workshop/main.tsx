@@ -1,7 +1,8 @@
 import { useUiLocale, setUiLocale, localize } from "./presentation";
 import { ScrollCard } from "./ScrollCard";
 import { collectionKey, useCollections } from "./collections";
-import { Updates } from "./Updates";
+import { Updates, UpdateNotice } from "./Updates";
+import { StarIcon } from "./StarIcon";
 import { appIcon } from "./app-icon";
 import React, {
   createContext,
@@ -457,9 +458,7 @@ function App() {
       )}
       onClick={() => void toggleFavorite(sample)}
     >
-      {favorites.some((s) => collectionKey(s) === collectionKey(sample))
-        ? "★"
-        : "☆"}
+      <StarIcon filled={favorites.some((s) => collectionKey(s) === collectionKey(sample))} />
     </button>
   );
   const conditionDrag = useConditionDrag(q, setQ);
@@ -868,7 +867,7 @@ function App() {
             ▣<span>备份与管理</span>
           </button>
           <button onClick={() => open("收藏夹")} aria-label="收藏夹">
-            ☆<span>收藏夹（{favorites.length}）</span>
+            <StarIcon /><span>收藏夹（{favorites.length}）</span>
           </button>
           <button className="coming-soon" disabled>
             <span aria-hidden="true">♜</span>
@@ -940,6 +939,7 @@ function App() {
           >
             ⚙ <span>设置</span>
           </button>
+          {desktop && <UpdateNotice onOpen={() => open("检查更新")} />}
         </div>
       </aside>
       <header className="topbar">

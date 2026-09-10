@@ -1,4 +1,5 @@
 import {PortableUpdate} from './portable-update';
+import {finishInstalledUpdate} from './update-cleanup';
 import {FavoritesStore} from './favorites-store';
 import {spawn} from 'node:child_process';
 import {createHash} from 'node:crypto';
@@ -42,6 +43,7 @@ let preferences: PreferencesStore;
 let runtimeLog:RollingLog;
 let updater:PortableUpdate;
 let applyUpdate=false;
+let updatesReady=false;
 let packageVerification: DiagnosticReport['packageVerification'] = null;
 const protectedHosts = new Map<'save' | 'runtime', ProtectedClient>();
 function host(role: 'save' | 'runtime') {
@@ -95,6 +97,7 @@ app.whenReady().then(async () => {
   register('review:update', value=>{
     const params=value as {action:string;channel:'stable'|'beta'};
     if(!params||!['status','check','download','apply'].includes(params.action)||!['stable','beta'].includes(params.channel))throw Error('INVALID_UPDATE_ACTION');
+    if(params.action!=='status'&&!updatesReady)throw Error('UPDATE_STARTUP_PENDING');
     if(params.action==='check')void updater.check(params.channel);
     if(params.action==='download')void updater.download().catch(e=>runtimeLog.write('update',e));
     if(params.action==='apply'){
@@ -102,7 +105,7 @@ app.whenReady().then(async () => {
       if(updater.state.phase!=='ready'||!updater.stagedDirectory)throw Error('UPDATE_NOT_READY');
       applyUpdate=true;app.quit();
     }
-    return {...updater.state,canApply:app.isPackaged};
+    return {...updater.state,canApply:app.isPackaged&&updatesReady};
   });
   register('review:window' , value => { if(value==='minimize')window.minimize(); else if(value==='maximize'){if(window.isMaximized())window.unmaximize();else window.maximize();}else if(value==='close')window.close();else throw Error('INVALID_WINDOW_ACTION'); });
   register('core:handshake', () => worker.handshake());
@@ -254,6 +257,12 @@ app.whenReady().then(async () => {
   });
   window.on('close', event => { if (!quitting) { event.preventDefault(); app.quit(); } });
   await window.loadFile(entry);
+  if (app.isPackaged) {
+    await worker.handshake();
+    await finishInstalledUpdate(updater.directory, dirname(process.execPath), version, originalFilesystem)
+      .catch(error => runtimeLog.write('update-cleanup-deferred', error));
+  }
+  updatesReady=true;
 }).catch(async error => {
   // No automatic relaunch or operation replay after a failed startup.
   if (process.env.NIOH3_ELECTRON_TEST) console.error('STARTUP_FAILED:', error);

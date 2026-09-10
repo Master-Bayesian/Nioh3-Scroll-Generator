@@ -14,7 +14,7 @@ def main():
     root = args.portable.resolve(strict=True)
     manifest_path = root / 'build-manifest.json'
     manifest = json.loads(manifest_path.read_bytes())
-    if manifest['schema'] != 'nioh3-portable-manifest/v2':
+    if manifest['schema'] not in ('nioh3-portable-manifest/v2', 'nioh3-tauri-manifest/v1'):
         raise ValueError('Unsupported portable manifest')
     files, seen = [], set()
     for entry in manifest['files']:

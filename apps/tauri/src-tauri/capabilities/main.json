@@ -1,0 +1,6 @@
+{
+  "identifier": "main-window",
+  "description": "Bundled application only; privileged actions use the reviewed broker.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
