@@ -892,6 +892,8 @@ class SaveInventory:
         return tuple(entries)
 
     def template_record_for_playthrough(self, playthrough: int) -> bytes:
+        if not self.template_record:
+            raise RuntimeError('No authentic scroll template is available in this save')
         if playthrough not in (1, 2, 3, 4, 5):
             raise ValueError("周目必须在一至五周目之间")
         record_type = CATEGORY_TO_TYPE[playthrough]
@@ -915,7 +917,7 @@ class SaveInventory:
         )
 
     @classmethod
-    def load(cls, save_path: Path, decrypted: bytes) -> "SaveInventory":
+    def load(cls, save_path: Path, decrypted: bytes, *, allow_empty: bool = False) -> "SaveInventory":
         require_decrypted_user_save(decrypted)
         account_id = account_id_from_save_path(save_path)
         own_records: list[bytes] = []
@@ -940,6 +942,10 @@ class SaveInventory:
                 if account_id_from_record(record) == account_id:
                     own_records.append(record)
         if not mapped_records:
+            if allow_empty:
+                return cls(save_path=save_path, decrypted=decrypted, account_id=account_id,
+                           template_record=b'', template_records=(), empty_slots=tuple(empty_slots),
+                           next_slot_index=empty_slots[0] if empty_slots else None)
             raise RuntimeError("存档中没有可作为原生模板的有效绘卷")
 
         # E604 is the verified current-NG3 Grace generator context.  A re-sign
@@ -1306,15 +1312,17 @@ class SaveInstaller:
         self.crypto = crypto
         self.state_root = state_root.resolve()
 
-    def capture_inventory(self) -> SaveInventory:
+    def capture_inventory(self, *, allow_empty: bool = False) -> SaveInventory:
         with tempfile.TemporaryDirectory(prefix="nioh3-scroll-read-") as directory:
             decrypted_path = Path(directory) / "decrypted.bin"
             self.crypto.decrypt(self.save_path, decrypted_path)
-            return SaveInventory.load(self.save_path, decrypted_path.read_bytes())
+            return SaveInventory.load(self.save_path, decrypted_path.read_bytes(), allow_empty=allow_empty)
 
     @_serialized_save_operation
-    def restore_backup(self, backup_directory: Path) -> RestoreResult:
+    def restore_backup(self, backup_directory: Path, *, expected_source_sha256: str | None = None) -> RestoreResult:
         """Restore an application backup after checkpointing the current files."""
+        if expected_source_sha256 is not None and sha256_file(self.save_path) != expected_source_sha256:
+            raise RuntimeError('Save changed after restore preparation; no write attempted')
 
         source_directory = _validated_backup_directory(
             self.state_root,
@@ -1548,6 +1556,7 @@ class SaveInstaller:
         *,
         action: str,
         metadata: dict[str, Any] | None = None,
+        expected_source_sha256: str | None = None,
     ) -> BatchEditResult:
         """Replace existing records under exact-original and source-hash gates."""
         normalized_edits = tuple(edits)
@@ -1574,6 +1583,8 @@ class SaveInstaller:
             raise FileNotFoundError(self.save_path)
 
         source_hash = sha256_file(self.save_path)
+        if expected_source_sha256 is not None and source_hash != expected_source_sha256:
+            raise RuntimeError('Save changed after edit preparation; no write attempted')
         operation_id = uuid.uuid4().hex
         backup_directory = create_backup_directory(self.state_root)
 
@@ -1746,6 +1757,7 @@ class SaveInstaller:
         *,
         action: str,
         metadata: dict[str, Any] | None = None,
+        expected_source_sha256: str | None = None,
     ) -> BatchInstallResult:
         """Insert several complete records in one backed-up atomic transaction."""
         records = tuple(candidate_records)
@@ -1763,6 +1775,8 @@ class SaveInstaller:
             raise FileNotFoundError(self.save_path)
 
         source_hash = sha256_file(self.save_path)
+        if expected_source_sha256 is not None and source_hash != expected_source_sha256:
+            raise RuntimeError('Save changed after batch preparation; no write attempted')
         operation_id = uuid.uuid4().hex
         backup_directory = create_backup_directory(self.state_root)
 

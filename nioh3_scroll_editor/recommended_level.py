@@ -9,6 +9,7 @@ import struct
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 
 RESOURCE_PATH = Path(__file__).resolve().parent / "data" / "recommended_level_curve.json"
@@ -25,6 +26,16 @@ class RecommendedLevelPrediction:
     @property
     def was_clamped(self) -> bool:
         return self.requested_internal_level != self.canonical_internal_level
+
+
+@dataclass(frozen=True, slots=True)
+class RecommendedLevelResolution:
+    """Exact inverse result; an unavailable target never selects a nearby raw value."""
+
+    requested_displayed_level: int
+    status: Literal["exact", "out_of_range", "unreachable"]
+    canonical_internal_levels: tuple[int, ...]
+    selected_internal_level: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +75,34 @@ class RecommendedLevelCurve:
             maximum_internal_level=self.maximum_internal_level,
         )
 
+    def resolve_displayed_level(self, requested: int) -> RecommendedLevelResolution:
+        """Enumerate exact canonical inputs using the unchanged float32 forward curve.
+
+        Only integers are accepted (booleans are not levels). Missing targets are
+        distinguished from targets outside the supported displayed range. Exact
+        targets select the lowest matching raw value deterministically; all
+        alternatives remain available to callers. No input is clamped or rounded.
+        """
+        if not isinstance(requested, int) or isinstance(requested, bool):
+            raise TypeError("displayed recommended level must be an integer")
+        values = _canonical_displayed_levels(self)
+        matches = tuple(self.minimum_internal_level + index
+                        for index, displayed in enumerate(values) if displayed == requested)
+        status = "exact" if matches else (
+            "out_of_range" if requested < min(values) or requested > max(values) else "unreachable"
+        )
+        return RecommendedLevelResolution(requested, status, matches, matches[0] if matches else None)
+
+    def displayed_level_bounds(self) -> tuple[int, int]:
+        values = _canonical_displayed_levels(self)
+        return min(values), max(values)
+
+
+@lru_cache(maxsize=8)
+def _canonical_displayed_levels(curve: RecommendedLevelCurve) -> tuple[int, ...]:
+    return tuple(curve.displayed_level(raw) for raw in
+                 range(curve.minimum_internal_level, curve.maximum_internal_level + 1))
+
 
 def _float32(value: float) -> float:
     return struct.unpack("<f", struct.pack("<f", value))[0]
@@ -87,3 +126,8 @@ def native_recommended_level_curve() -> RecommendedLevelCurve:
 
 def predict_recommended_level(requested: int) -> RecommendedLevelPrediction:
     return native_recommended_level_curve().predict(requested)
+
+
+def resolve_recommended_level(displayed_level: int) -> RecommendedLevelResolution:
+    """Resolve a displayed target against the captured native curve, without writes."""
+    return native_recommended_level_curve().resolve_displayed_level(displayed_level)

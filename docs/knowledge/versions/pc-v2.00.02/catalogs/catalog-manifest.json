@@ -188,8 +188,8 @@
     },
     "special_rule_item_names": {
       "path": "nioh3_scroll_editor/data/special_rule_item_names.json",
-      "size": 2542,
-      "sha256": "09C307F7665661CCD4ADA83D6F381D7BE89E38BE4A75D1D56B63C90456F5BA60"
+      "size": 8871,
+      "sha256": "06929DC0BF83C56C07B774437BEC88A263A53114573059F7F2A76D2FCA3C7129"
     }
   },
   "rules": {

@@ -1,0 +1,7 @@
+/** Sign a V2 portable ZIP; signing is explicit and never publishes a release. */
+import {readFile,writeFile,stat} from 'node:fs/promises';import {basename} from 'node:path';import {createPrivateKey,createHash,sign} from 'node:crypto';import {validateUpdate,signedUpdatePayload,type UpdateManifest} from '../apps/desktop/src/portable-update';
+const [asset,url,version,channel,notesFile,output]=process.argv.slice(2);
+if(!output||!['stable','beta'].includes(channel))throw Error('Usage: tsx tools/build_v2_update_manifest.ts ZIP URL VERSION stable|beta NOTES OUTPUT');
+const encoded=process.env.NIOH3_UPDATE_PRIVATE_KEY_BASE64;if(!encoded)throw Error('Set NIOH3_UPDATE_PRIVATE_KEY_BASE64 in the signing environment');const raw=Buffer.from(encoded,'base64');if(raw.length!==32)throw Error('Signing key must be 32 bytes');
+const key=createPrivateKey({key:Buffer.concat([Buffer.from('302e020100300506032b657004220420','hex'),raw]),format:'der',type:'pkcs8'});
+const manifest:UpdateManifest={schema:'nioh3-v2-update/v1',version,channel:channel as 'stable'|'beta',platform:'win32-x64',notes:await readFile(notesFile,'utf8'),asset:{name:basename(asset),url,size:(await stat(asset)).size,sha256:createHash('sha256').update(await readFile(asset)).digest('hex')},signature:''};manifest.signature=sign(null,Buffer.from(signedUpdatePayload(manifest)),key).toString('base64');validateUpdate(manifest);await writeFile(output,JSON.stringify(manifest,null,2)+'\n','utf8');console.log(output);

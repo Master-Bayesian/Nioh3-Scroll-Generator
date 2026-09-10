@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from .savegame import InstallResult, SaveInstaller
 
 
-GENERATION_ALGORITHM_VERSION = "scroll-generation-v0.6-freeze-1"
+GENERATION_ALGORITHM_VERSION = "scroll-generation-v0.7-native-completion-1"
 OPERATION_POLICY_VERSION = "operation-policy-v1"
 SUPPORTED_GAME_PROFILE = "pc-v2.00.02-v2.01"
 

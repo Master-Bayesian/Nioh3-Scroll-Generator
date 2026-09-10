@@ -480,7 +480,7 @@ class RuntimeAuxiliaryOverrideSession:
                 )
             self.allocation = self._allocate_near(self.hook_address)
             self.counter_address = self.allocation + REMOTE_ALLOCATION_SIZE - 8
-            code = build_override_trampoline(
+            code = self._build_code(
                 self.profile,
                 return_address=self.hook_address + len(hook_bytes),
                 counter_address=self.counter_address,
@@ -496,6 +496,9 @@ class RuntimeAuxiliaryOverrideSession:
         except Exception:
             self._rollback_start()
             raise
+
+    def _build_code(self, profile, **kwargs):
+        return build_override_trampoline(profile, **kwargs)
 
     def _rollback_start(self) -> None:
         if self.process and self.patch is not None:

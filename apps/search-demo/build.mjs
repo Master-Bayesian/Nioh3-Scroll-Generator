@@ -1,0 +1,13 @@
+import { build } from 'esbuild';
+import { readFile, writeFile, mkdir, copyFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+const output=resolve('deliverables/frontend-v2/search-ui-demo');
+await mkdir(output,{recursive:true});
+const reference=await readFile('deliverables/frontend-v2/live-acceptance/20260907T225708Z/r3-10030565-before-first-clear.png');
+const dataUrl=`data:image/png;base64,${reference.toString('base64')}`;
+const result=await build({entryPoints:['apps/search-demo/main.tsx'],bundle:true,write:false,outdir:'out',format:'iife',platform:'browser',minify:true,loader:{'.png':'dataurl'},external:['game-reference.png'],define:{'process.env.NODE_ENV':'"production"'}});
+const script=result.outputFiles.find(f=>f.path.endsWith('.js')).text.replaceAll('game-reference.png',dataUrl).replaceAll('</script','<\\/script');
+const css=result.outputFiles.find(f=>f.path.endsWith('.css')).text.replaceAll('game-reference.png',dataUrl);
+await writeFile(`${output}/index.html`,`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nioh 3 — Scroll Search Demo</title><style>${css}</style></head><body><div id="root"></div><script>${script}</script></body></html>`);
+await copyFile('apps/search-demo/DESIGN.md',`${output}/README.md`);
+console.log(`Built ${output}/index.html`);

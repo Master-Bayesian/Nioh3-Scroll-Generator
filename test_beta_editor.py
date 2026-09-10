@@ -240,11 +240,11 @@ class BetaEditorTests(unittest.TestCase):
         )
         with (
             patch(
-                "nioh3_scroll_editor.app.cuda_seed_acceleration_available",
+                "nioh3_scroll_editor.search_application.cuda_seed_acceleration_available",
                 return_value=False,
             ),
             patch(
-                "nioh3_scroll_editor.app.d3d11_effect_acceleration_available",
+                "nioh3_scroll_editor.search_application.d3d11_effect_acceleration_available",
                 return_value=True,
             ),
         ):
@@ -262,7 +262,7 @@ class BetaEditorTests(unittest.TestCase):
             primary_effect_ids=frozenset((0xB613,)),
         )
         with patch(
-            "nioh3_scroll_editor.app.cuda_seed_acceleration_available",
+            "nioh3_scroll_editor.search_application.cuda_seed_acceleration_available",
             return_value=False,
         ):
             generator = partial_effect_batch_generator(
@@ -273,7 +273,7 @@ class BetaEditorTests(unittest.TestCase):
         self.assertIsNotNone(generator)
 
         with patch(
-            "nioh3_scroll_editor.app.cuda_seed_acceleration_available",
+            "nioh3_scroll_editor.search_application.cuda_seed_acceleration_available",
             return_value=True,
         ):
             generator = partial_effect_batch_generator(

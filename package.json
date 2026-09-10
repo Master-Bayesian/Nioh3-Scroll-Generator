@@ -1,0 +1,31 @@
+{
+  "name": "nioh3-v2-workspace",
+  "version": "0.7.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "contracts": "json2ts -i packages/contracts/request.schema.json -o packages/contracts/generated.ts --no-enableConstEnums && json2ts -i packages/contracts/response.schema.json -o packages/contracts/responses.ts && json2ts -i packages/contracts/protected-request.schema.json -o packages/contracts/protected-requests.ts && json2ts -i packages/contracts/protected-response.schema.json -o packages/contracts/protected-responses.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && node apps/desktop/build.mjs",
+    "desktop": "npm run build && electron apps/desktop/dist/main.cjs",
+    "test": "tsx --test apps/desktop/tests/*.test.ts",
+    "test:electron": "npm run build && tsx apps/desktop/tests/electron-smoke.ts",
+    "test:packaged": "tsx apps/desktop/tests/packaged-parity.ts"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "electron": "44.2.0",
+    "esbuild": "0.25.12",
+    "json-schema-to-typescript": "15.0.4",
+    "playwright": "1.58.2",
+    "tsx": "4.23.13",
+    "typescript": "5.9.3"
+  }
+}

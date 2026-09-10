@@ -1,0 +1,3750 @@
+{
+  "ui": {
+    "主词条": [
+      "Primary effect",
+      "主効果"
+    ],
+    "副词条": [
+      "Secondary effect",
+      "副効果"
+    ],
+    "恩宠": [
+      "Grace",
+      "恩寵"
+    ],
+    "主副词条": [
+      "Primary / secondary effects",
+      "主・副効果"
+    ],
+    "词条": [
+      "Effect",
+      "効果"
+    ],
+    "敌人": [
+      "Enemy",
+      "敵"
+    ],
+    "特殊规则": [
+      "Special rules",
+      "特殊ルール"
+    ],
+    "地形影响": [
+      "Terrain effects",
+      "地形効果"
+    ],
+    "必含": [
+      "Required",
+      "必須"
+    ],
+    "任选组": [
+      "Any-of group",
+      "いずれかのグループ"
+    ],
+    "· 任选一个": [
+      "· Any one",
+      "· いずれか一つ"
+    ],
+    "项": [
+      "items",
+      "件"
+    ],
+    "全部": [
+      "All",
+      "すべて"
+    ],
+    "紫色": [
+      "Purple",
+      "紫"
+    ],
+    "绿色": [
+      "Green",
+      "緑"
+    ],
+    "橙色": [
+      "Orange",
+      "橙"
+    ],
+    "说明": [
+      "Help",
+      "説明"
+    ],
+    "返回顶部": [
+      "Back to top",
+      "先頭へ"
+    ],
+    "清空": [
+      "Clear",
+      "クリア"
+    ],
+    "取消收藏": [
+      "Remove favorite",
+      "お気に入りを解除"
+    ],
+    "收藏绘卷": [
+      "Favorite scroll",
+      "お気に入りに登録"
+    ],
+    "任意槽": [
+      "Any slot",
+      "任意の枠"
+    ],
+    "主词条备选": [
+      "Primary option",
+      "主効果の候補"
+    ],
+    "组合方式": [
+      "Match mode",
+      "条件の組み合わせ"
+    ],
+    "数值门槛": [
+      "Minimum roll",
+      "数値の下限"
+    ],
+    "数值不限": [
+      "Any value",
+      "数値不問"
+    ],
+    "抽取 ≥80%": [
+      "Roll ≥80/100",
+      "数値評価 ≥80/100"
+    ],
+    "抽取 ≥90%": [
+      "Roll ≥90/100",
+      "数値評価 ≥90/100"
+    ],
+    "抽取 100%": [
+      "Roll 100/100",
+      "数値評価 100/100"
+    ],
+    "移除": [
+      "Remove",
+      "削除"
+    ],
+    "手": [
+      "pool",
+      "枠"
+    ],
+    "展开侧栏": [
+      "Expand sidebar",
+      "サイドバーを展開"
+    ],
+    "收起侧栏": [
+      "Collapse sidebar",
+      "サイドバーを折りたたむ"
+    ],
+    "仁王": [
+      "Nioh",
+      "仁王"
+    ],
+    "独脚踏鞴工作室": [
+      "Ippon-Datara Studio",
+      "一本だたら工房"
+    ],
+    "绘卷搜索": [
+      "Scroll search",
+      "絵巻検索"
+    ],
+    "绘卷编辑": [
+      "Scroll editor",
+      "絵巻編集"
+    ],
+    "备份与管理": [
+      "Backups",
+      "バックアップ管理"
+    ],
+    "收藏夹": [
+      "Favorites",
+      "お気に入り"
+    ],
+    "收藏夹（": [
+      "Favorites (",
+      "お気に入り（"
+    ],
+    "敬请期待": [
+      "Coming soon",
+      "今後追加予定"
+    ],
+    "切换语言": [
+      "Change language",
+      "言語を変更"
+    ],
+    "语言": [
+      "Language",
+      "言語"
+    ],
+    "设置": [
+      "Settings",
+      "設定"
+    ],
+    "作者：MasterBayesian · Saber_Li": [
+      "Authors: MasterBayesian · Saber_Li",
+      "作者：MasterBayesian · Saber_Li"
+    ],
+    "加入QQ群": [
+      "Join QQ group",
+      "QQグループに参加"
+    ],
+    "最小化": [
+      "Minimize",
+      "最小化"
+    ],
+    "最大化或还原": [
+      "Maximize / restore",
+      "最大化・元に戻す"
+    ],
+    "关闭应用": [
+      "Close app",
+      "アプリを終了"
+    ],
+    "装备在身上：筛选左侧词条与恩宠。刷副本：筛选右侧敌人、规则、地形与挑战次数。": [
+      "For equipped bonuses, filter effects and graces on the left. For missions, filter enemies, rules, terrain and attempts on the right.",
+      "装備用：左側で効果と恩寵を指定。ミッション用：右側で敵・ルール・地形・挑戦回数を指定。"
+    ],
+    "使用说明": [
+      "How to use",
+      "使い方"
+    ],
+    "已选条件": [
+      "Selected conditions",
+      "選択した条件"
+    ],
+    "清空全部": [
+      "Clear all",
+      "すべてクリア"
+    ],
+    "收起已选条件": [
+      "Collapse conditions",
+      "条件を折りたたむ"
+    ],
+    "展开已选条件": [
+      "Expand conditions",
+      "条件を展開"
+    ],
+    "主词条不限": [
+      "Any primary effect",
+      "主効果を指定しない"
+    ],
+    "主词条可选数量": [
+      "Primary options",
+      "主効果の候補数"
+    ],
+    "前": [
+      "First",
+      "先頭の"
+    ],
+    "项均可为主词条": [
+      "items can be the primary effect",
+      "件のいずれかを主効果にする"
+    ],
+    "拖动词条到一起分组，拖出取消分组": [
+      "Drag together to group; drag out to ungroup",
+      "重ねてグループ化、外にドラッグして解除"
+    ],
+    "从下方目录添加词条，也可以只选择恩宠或辅助条件。": [
+      "Add effects below, or choose only a grace or mission conditions.",
+      "下の一覧から効果を追加。恩寵やミッション条件だけでも検索できます。"
+    ],
+    "恩宠 · 任选一个": [
+      "Grace · Any one",
+      "恩寵 · いずれか一つ"
+    ],
+    "敌人 ·": [
+      "Enemy ·",
+      "敵 ·"
+    ],
+    "敌人组合": [
+      "Enemy matching",
+      "敵の組み合わせ"
+    ],
+    "移除敌人": [
+      "Remove enemy",
+      "敵を削除"
+    ],
+    "规则 ·": [
+      "Rule ·",
+      "ルール ·"
+    ],
+    "全部接受": [
+      "Accept any",
+      "すべて許可"
+    ],
+    "规则组合": [
+      "Rule matching",
+      "ルールの組み合わせ"
+    ],
+    "移除规则": [
+      "Remove rule",
+      "ルールを削除"
+    ],
+    "地形任一 ·": [
+      "Any terrain ·",
+      "いずれかの地形 ·"
+    ],
+    "挑战": [
+      "Attempts",
+      "挑戦"
+    ],
+    "次 ×": [
+      "times ×",
+      "回 ×"
+    ],
+    "装备加成筛选": [
+      "Equipment bonus filters",
+      "装備効果の条件"
+    ],
+    "装备加成": [
+      "Equipment bonuses",
+      "装備効果"
+    ],
+    "选择主副词条与恩宠": [
+      "Choose effects and graces",
+      "主・副効果と恩寵を選択"
+    ],
+    "搜索词条名称或 ID": [
+      "Search effect name or ID",
+      "効果名・IDで検索"
+    ],
+    "词条名称": [
+      "Effect name",
+      "効果名"
+    ],
+    "添加到条件": [
+      "Add condition",
+      "条件に追加"
+    ],
+    "添加词条": [
+      "Add effect",
+      "効果を追加"
+    ],
+    "没有匹配词条": [
+      "No matching effects",
+      "一致する効果がありません"
+    ],
+    "显示": [
+      "Showing",
+      "表示"
+    ],
+    "项 · 目录随周目与稀有度更新": [
+      "items · List follows playthrough and rarity",
+      "件 · 周回と希少度に応じた一覧"
+    ],
+    "可以添加多个恩宠，结果有其中一个即可。不添加时不限制恩宠。": [
+      "Select multiple graces to accept any one. Leave empty to accept any grace.",
+      "複数の恩寵を選ぶと、いずれか一つを含む結果を検索します。未選択なら恩寵は不問です。"
+    ],
+    "搜索恩宠": [
+      "Search graces",
+      "恩寵を検索"
+    ],
+    "选择恩宠": [
+      "Select grace",
+      "恩寵を選択"
+    ],
+    "已选": [
+      "Selected",
+      "選択済み"
+    ],
+    "当前周目／稀有度不开放恩宠筛选": [
+      "Grace filtering is unavailable for this playthrough / rarity",
+      "この周回・希少度では恩寵を指定できません"
+    ],
+    "副本刷取筛选": [
+      "Mission filters",
+      "ミッションの条件"
+    ],
+    "副本刷取": [
+      "Missions",
+      "ミッション"
+    ],
+    "选择敌人、特殊规则、地形与挑战次数": [
+      "Choose enemies, rules, terrain and attempts",
+      "敵・ルール・地形・挑戦回数を選択"
+    ],
+    "组合说明": [
+      "Matching help",
+      "組み合わせの説明"
+    ],
+    "低手": [
+      "Low pool",
+      "低位の枠"
+    ],
+    "中手": [
+      "Middle pool",
+      "中位の枠"
+    ],
+    "高手": [
+      "High pool",
+      "高位の枠"
+    ],
+    "搜索全部敌人名称或 ID": [
+      "Search all enemies by name or ID",
+      "すべての敵を名前・IDで検索"
+    ],
+    "个变体": [
+      "variants",
+      "種類"
+    ],
+    "添加敌人": [
+      "Add enemy",
+      "敵を追加"
+    ],
+    "个敌人": [
+      "enemies",
+      "体の敵"
+    ],
+    "组": [
+      "groups",
+      "組"
+    ],
+    "搜索规则、部位、符咒或恩宠": [
+      "Search rule, body part, talisman or grace",
+      "ルール・部位・符・恩寵を検索"
+    ],
+    "任意对象／数值": [
+      "Any target / value",
+      "対象・数値不問"
+    ],
+    "添加整类": [
+      "Add whole category",
+      "分類全体を追加"
+    ],
+    "全部对象": [
+      "All targets",
+      "すべての対象"
+    ],
+    "规则变体": [
+      "Rule variant",
+      "ルールの種類"
+    ],
+    "任意变体": [
+      "Any variant",
+      "種類不問"
+    ],
+    "添加规则": [
+      "Add rule",
+      "ルールを追加"
+    ],
+    "更新": [
+      "Update",
+      "更新"
+    ],
+    "地形影响与挑战次数": [
+      "Terrain and attempts",
+      "地形効果と挑戦回数"
+    ],
+    "· 全选": [
+      "· Select all",
+      "· すべて選択"
+    ],
+    "挑战次数": [
+      "Attempt capacity",
+      "挑戦回数上限"
+    ],
+    "不限": [
+      "Any",
+      "指定なし"
+    ],
+    "使用已有映射缓存": [
+      "Use saved mapping",
+      "保存済み対応表を使用"
+    ],
+    "采集并使用映射缓存": [
+      "Capture and use mapping",
+      "対応表を取得して使用"
+    ],
+    "游戏已停在标题界面（当前周目使用游戏原生生成）": [
+      "Game is at the title screen (this playthrough uses native generation)",
+      "ゲームはタイトル画面です（この周回ではゲーム内の生成処理を使用）"
+    ],
+    "周目": [
+      "Playthrough",
+      "周回"
+    ],
+    "一周目": [
+      "First playthrough",
+      "1周目"
+    ],
+    "二周目": [
+      "Second playthrough",
+      "2周目"
+    ],
+    "三周目": [
+      "Third playthrough",
+      "3周目"
+    ],
+    "四周目（研究）": [
+      "Fourth playthrough (research)",
+      "4周目（研究用）"
+    ],
+    "五周目（研究）": [
+      "Fifth playthrough (research)",
+      "5周目（研究用）"
+    ],
+    "稀有度": [
+      "Rarity",
+      "希少度"
+    ],
+    "R3 · 紫色": [
+      "R3 · Purple",
+      "R3 · 紫"
+    ],
+    "R4 · 绿色": [
+      "R4 · Green",
+      "R4 · 緑"
+    ],
+    "R5 · 橙色": [
+      "R5 · Orange",
+      "R5 · 橙"
+    ],
+    "绘卷等级": [
+      "Scroll level",
+      "絵巻レベル"
+    ],
+    "推荐等级（敌人等级）": [
+      "Recommended level (enemy level)",
+      "推奨レベル（敵レベル）"
+    ],
+    "推荐等级": [
+      "Recommended level",
+      "推奨レベル"
+    ],
+    "设置绘卷的转手次数": [
+      "Set scroll transfer count",
+      "絵巻の譲渡回数を設定"
+    ],
+    "转手次数": [
+      "Transfer count",
+      "譲渡回数"
+    ],
+    "候选数量": [
+      "Results per batch",
+      "1回の検索件数"
+    ],
+    "⌕ 开始搜索": [
+      "⌕ Search",
+      "⌕ 検索開始"
+    ],
+    "下一批 →": [
+      "Next batch →",
+      "次の結果 →"
+    ],
+    "取消": [
+      "Cancel",
+      "キャンセル"
+    ],
+    "已知绘卷 ID": [
+      "Known scroll ID",
+      "既知の絵巻ID"
+    ],
+    "已知绘卷ID": [
+      "Known scroll ID",
+      "既知の絵巻ID"
+    ],
+    "输入种子，单点查看": [
+      "Enter seed to preview",
+      "シードを入力して確認"
+    ],
+    "已知种子预览": [
+      "Seed preview",
+      "シードのプレビュー"
+    ],
+    "已找到该绘卷。": [
+      "Scroll found.",
+      "絵巻が見つかりました。"
+    ],
+    "此预览暂不支持该绘卷 ID。": [
+      "This preview does not support that scroll ID.",
+      "このプレビューではその絵巻IDに対応していません。"
+    ],
+    "查看": [
+      "View",
+      "表示"
+    ],
+    "搜索进度": [
+      "Search progress",
+      "検索の進行状況"
+    ],
+    "绘卷结果浏览": [
+      "Browse scroll results",
+      "検索結果の絵巻を閲覧"
+    ],
+    "搜索结果": [
+      "Search results",
+      "検索結果"
+    ],
+    "张": [
+      "scrolls",
+      "枚"
+    ],
+    "最近三批": [
+      "Last three batches",
+      "直近3回の結果"
+    ],
+    "历史": [
+      "History",
+      "履歴"
+    ],
+    "结果排序": [
+      "Sort results",
+      "結果の並び順"
+    ],
+    "主词条评分 ↓": [
+      "Primary roll ↓",
+      "主効果の数値評価 ↓"
+    ],
+    "副词条平均分 ↓": [
+      "Secondary average ↓",
+      "副効果の平均評価 ↓"
+    ],
+    "全部词条平均分 ↓": [
+      "All effects average ↓",
+      "全効果の平均評価 ↓"
+    ],
+    "条件已修改，请重新搜索": [
+      "Conditions changed; search again",
+      "条件が変わりました。再検索してください"
+    ],
+    "周目 · R": [
+      "playthrough · R",
+      "周目 · R"
+    ],
+    "上一张绘卷": [
+      "Previous scroll",
+      "前の絵巻"
+    ],
+    "第": [
+      "No.",
+      "第"
+    ],
+    "跳转到第几张": [
+      "Jump to result number",
+      "結果番号へ移動"
+    ],
+    "下一张绘卷": [
+      "Next scroll",
+      "次の絵巻"
+    ],
+    "选择绘卷": [
+      "Select scroll",
+      "絵巻を選択"
+    ],
+    "滑动切换绘卷": [
+      "Slide to browse scrolls",
+      "スライドして絵巻を切り替え"
+    ],
+    "移除预览": [
+      "Remove preview",
+      "プレビューを削除"
+    ],
+    "清空预览": [
+      "Clear previews",
+      "プレビューをすべて削除"
+    ],
+    "管理预览": [
+      "Manage previews",
+      "プレビュー管理"
+    ],
+    "多选移除": [
+      "Remove selected",
+      "選択して削除"
+    ],
+    "加入购物车": [
+      "Add to cart",
+      "カートに追加"
+    ],
+    "购物车": [
+      "Cart",
+      "カート"
+    ],
+    "查看购物车（": [
+      "View cart (",
+      "カートを見る（"
+    ],
+    "没有匹配结果": [
+      "No matches",
+      "一致する結果がありません"
+    ],
+    "试试减少筛选条件。": [
+      "Try fewer conditions.",
+      "条件を減らしてみてください。"
+    ],
+    "清空条件": [
+      "Clear conditions",
+      "条件をクリア"
+    ],
+    "添加方式": [
+      "Addition method",
+      "追加方法"
+    ],
+    "游戏内实时添加": [
+      "Add in game",
+      "ゲーム内に直接追加"
+    ],
+    "回标题界面后添加到存档": [
+      "Add to save at title screen",
+      "タイトル画面でセーブに追加"
+    ],
+    "选择购物车中的绘卷添加": [
+      "Choose scrolls from cart to add",
+      "カートから追加する絵巻を選択"
+    ],
+    "关闭侧边菜单": [
+      "Close side menu",
+      "サイドメニューを閉じる"
+    ],
+    "设置菜单": [
+      "Settings menu",
+      "設定メニュー"
+    ],
+    "语言菜单": [
+      "Language menu",
+      "言語メニュー"
+    ],
+    "允许使用 CPU 搜索": [
+      "Allow CPU search",
+      "CPU検索を許可"
+    ],
+    "界面字号": [
+      "Text size",
+      "文字サイズ"
+    ],
+    "显示词条与敌人 ID": [
+      "Show effect and enemy IDs",
+      "効果・敵のIDを表示"
+    ],
+    "日志已复制。": [
+      "Log copied.",
+      "ログをコピーしました。"
+    ],
+    "复制日志": [
+      "Copy log",
+      "ログをコピー"
+    ],
+    "检查更新": [
+      "Check for updates",
+      "更新を確認"
+    ],
+    "界面语言": [
+      "Interface language",
+      "表示言語"
+    ],
+    "简体中文 ✓": [
+      "简体中文",
+      "简体中文"
+    ],
+    "日本語 · 準備中": [
+      "日本語",
+      "日本語"
+    ],
+    "关闭提示": [
+      "Dismiss message",
+      "メッセージを閉じる"
+    ],
+    "关闭窗口": [
+      "Close window",
+      "ウィンドウを閉じる"
+    ],
+    "/ 50 张绘卷": [
+      "/ 50 scrolls",
+      "/ 50 枚"
+    ],
+    "点击绘卷旁的 ☆ 即可收藏。": [
+      "Click ☆ beside a scroll to save it here.",
+      "絵巻の横の☆を押すと登録できます。"
+    ],
+    "复制 ID": [
+      "Copy ID",
+      "IDをコピー"
+    ],
+    "复制稀有度": [
+      "Copy rarity",
+      "希少度をコピー"
+    ],
+    "复制 ID 和稀有度": [
+      "Copy ID and rarity",
+      "IDと希少度をコピー"
+    ],
+    "绘卷 ID": [
+      "Scroll ID",
+      "絵巻ID"
+    ],
+    "移除所选": [
+      "Remove selected",
+      "選択項目を削除"
+    ],
+    "张预览": [
+      "previews",
+      "枚のプレビュー"
+    ],
+    "周目 ·": [
+      "playthrough ·",
+      "周目 ·"
+    ],
+    "张绘卷，已勾选": [
+      "scrolls; selected",
+      "枚、選択中"
+    ],
+    "张 ·": [
+      "scrolls ·",
+      "枚 ·"
+    ],
+    "添加到存档": [
+      "Add to save",
+      "セーブに追加"
+    ],
+    "已添加 ·": [
+      "Added ·",
+      "追加済み ·"
+    ],
+    "勾选绘卷": [
+      "Select scroll",
+      "絵巻を選択"
+    ],
+    "选择此绘卷": [
+      "Select this scroll",
+      "この絵巻を選択"
+    ],
+    "移出购物车": [
+      "Remove from cart",
+      "カートから削除"
+    ],
+    "已选择": [
+      "Selected",
+      "選択済み"
+    ],
+    "张绘卷；此界面预览暂不执行游戏或存档写入。": [
+      "scrolls; this preview does not write to the game or save.",
+      "枚。このプレビューではゲームやセーブに書き込みません。"
+    ],
+    "添加所选（": [
+      "Add selected (",
+      "選択した絵巻を追加（"
+    ],
+    "绘卷比较": [
+      "Compare scrolls",
+      "絵巻を比較"
+    ],
+    "空槽": [
+      "Empty slot",
+      "空き枠"
+    ],
+    "未知词条": [
+      "Unknown effect",
+      "不明な効果"
+    ],
+    "当前存档没有绘卷。": [
+      "This save has no scrolls.",
+      "このセーブに絵巻はありません。"
+    ],
+    "绘卷 ID（种子）": [
+      "Scroll ID (seed)",
+      "絵巻ID（シード）"
+    ],
+    "请填写有效整数": [
+      "Enter a valid integer",
+      "有効な整数を入力してください"
+    ],
+    "绘卷 ID 超出范围": [
+      "Scroll ID is out of range",
+      "絵巻IDが範囲外です"
+    ],
+    "请选择有效周目与稀有度": [
+      "Select a valid playthrough and rarity",
+      "有効な周回と希少度を選択してください"
+    ],
+    "绘卷等级应为 0–180": [
+      "Scroll level must be 0–180",
+      "絵巻レベルは0～180で指定してください"
+    ],
+    "请填写有效的敌人等级": [
+      "Enter a valid enemy level",
+      "有効な敵レベルを入力してください"
+    ],
+    "词条字段应为 0–4294967295 的整数": [
+      "Effect fields must be integers from 0 to 4294967295",
+      "効果の値は0～4294967295の整数で指定してください"
+    ],
+    "请先读取真实存档。": [
+      "Load a save first.",
+      "先にセーブを読み込んでください。"
+    ],
+    "推荐等级无法转换。": [
+      "That recommended level cannot be converted.",
+      "この推奨レベルは変換できません。"
+    ],
+    "内容已改变，请重新核对修改。": [
+      "Content changed. Review the edit again.",
+      "内容が変わりました。変更を再確認してください。"
+    ],
+    "请输入有效的绘卷 ID 和周目。": [
+      "Enter a valid scroll ID and playthrough.",
+      "有効な絵巻IDと周回を入力してください。"
+    ],
+    "已预览当前种子的副本内容。": [
+      "Mission preview updated for this seed.",
+      "現在のシードのミッション内容を表示しました。"
+    ],
+    "临时修改：": [
+      "Temporary override: ",
+      "一時変更："
+    ],
+    "未开启": [
+      "Off",
+      "無効"
+    ],
+    "等待打开绘卷": [
+      "Waiting for scroll details",
+      "絵巻の詳細画面を待機中"
+    ],
+    "已生效": [
+      "Active",
+      "適用中"
+    ],
+    "状态待核对": [
+      "Needs verification",
+      "確認が必要"
+    ],
+    "· 触发": [
+      "· Applied",
+      "· 適用"
+    ],
+    "次 · 待完成调用": [
+      "times · Pending calls",
+      "回 · 処理待ち"
+    ],
+    "槽：": [
+      "Slot: ",
+      "枠："
+    ],
+    "原始数值": [
+      "Raw value",
+      "内部値"
+    ],
+    "请先读取存档绘卷。": [
+      "Load scrolls from a save first.",
+      "先にセーブから絵巻を読み込んでください。"
+    ],
+    "请先等待副本内容读取完成。": [
+      "Wait for mission details to load.",
+      "ミッション内容の読み込みをお待ちください。"
+    ],
+    "请选择有效地形。": [
+      "Select a valid terrain.",
+      "有効な地形を選択してください。"
+    ],
+    "临时修改已开启。停止修改后重新打开绘卷，或退出游戏即可恢复。": [
+      "Temporary changes enabled. Stop changes and reopen the scroll, or exit the game, to restore the original.",
+      "一時変更を開始しました。変更を停止して絵巻を開き直すか、ゲームを終了すると元に戻ります。"
+    ],
+    "临时修改已停止。": [
+      "Temporary changes stopped.",
+      "一時変更を停止しました。"
+    ],
+    "修改已写入存档。": [
+      "Changes saved.",
+      "変更をセーブに保存しました。"
+    ],
+    "写入结果尚未确认，请核对操作回执。": [
+      "Write outcome is unconfirmed. Check the operation result.",
+      "書き込み結果が未確認です。操作結果を確認してください。"
+    ],
+    "将删除": [
+      "Will delete",
+      "削除対象："
+    ],
+    "张绘卷，请核对后确认。": [
+      "scrolls. Review before confirming.",
+      "枚。内容を確認して確定してください。"
+    ],
+    "请先选择存档。": [
+      "Select a save first.",
+      "先にセーブを選択してください。"
+    ],
+    "将恢复选中的备份，请核对后确认。": [
+      "The selected backup will be restored. Review before confirming.",
+      "選択したバックアップを復元します。内容を確認してください。"
+    ],
+    "选择存档中的绘卷": [
+      "Choose a scroll from the save",
+      "セーブ内の絵巻を選択"
+    ],
+    "当前存档没有绘卷，可以先从购物车添加。": [
+      "No scrolls in this save. You can add some from the cart.",
+      "このセーブには絵巻がありません。カートから追加できます。"
+    ],
+    "读取后可编辑词条、查看备份和修改副本内容。": [
+      "Load a save to edit effects, manage backups and change missions.",
+      "読み込むと効果編集・バックアップ管理・ミッション変更ができます。"
+    ],
+    "我的绘卷": [
+      "My scrolls",
+      "所持絵巻"
+    ],
+    "账户与角色": [
+      "Account and character",
+      "アカウントとキャラクター"
+    ],
+    "编辑账户": [
+      "Editor account",
+      "編集対象アカウント"
+    ],
+    "示例角色 · 存档 1": [
+      "Example character · Save 1",
+      "サンプルキャラクター · セーブ1"
+    ],
+    "此预览展示示例绘卷，暂不读取游戏存档。": [
+      "This preview shows sample scrolls and does not read game saves.",
+      "このプレビューはサンプル絵巻を表示し、セーブは読み込みません。"
+    ],
+    "读取存档": [
+      "Load save",
+      "セーブを読み込む"
+    ],
+    "查找已有绘卷": [
+      "Find owned scrolls",
+      "所持絵巻を検索"
+    ],
+    "查找绘卷 ID 或词条": [
+      "Search scroll ID or effect",
+      "絵巻ID・効果で検索"
+    ],
+    "选择删除栏位": [
+      "Select slots to delete",
+      "削除する枠を選択"
+    ],
+    "栏位": [
+      "Slot",
+      "枠"
+    ],
+    "空词条绘卷": [
+      "Scroll with no effects",
+      "効果のない絵巻"
+    ],
+    "此预览暂不删除游戏存档中的绘卷。": [
+      "This preview does not delete scrolls from saves.",
+      "このプレビューではセーブ内の絵巻を削除しません。"
+    ],
+    "删除选中绘卷": [
+      "Delete selected scrolls",
+      "選択した絵巻を削除"
+    ],
+    "备份与恢复": [
+      "Backup and restore",
+      "バックアップと復元"
+    ],
+    "修改前自动备份，可在这里恢复。": [
+      "Edits are backed up automatically. Restore them here.",
+      "変更前に自動バックアップします。ここから復元できます。"
+    ],
+    "尚未连接备份目录。": [
+      "Backup directory is not connected.",
+      "バックアップ先に接続されていません。"
+    ],
+    "查看备份": [
+      "View backups",
+      "バックアップを見る"
+    ],
+    "· 恢复": [
+      "· Restore",
+      "· 復元"
+    ],
+    "编辑绘卷": [
+      "Edit scroll",
+      "絵巻を編集"
+    ],
+    "有未应用的修改": [
+      "Unsaved changes",
+      "未適用の変更あり"
+    ],
+    "尚未修改": [
+      "Unchanged",
+      "変更なし"
+    ],
+    "撤销": [
+      "Undo",
+      "元に戻す"
+    ],
+    "重做": [
+      "Redo",
+      "やり直す"
+    ],
+    "选择购物车中绘卷种子": [
+      "Choose a seed from the cart",
+      "カートの絵巻シードを選択"
+    ],
+    "主副词条修改可以长期保存，重启游戏仍保留。传给其他玩家后，词条会按种子重新生成。": [
+      "Effect edits persist after restarting the game. When shared with another player, effects regenerate from the seed.",
+      "主・副効果の変更は再起動後も残ります。他のプレイヤーに渡すと、効果はシードから再生成されます。"
+    ],
+    "切换绘卷会放弃当前修改。": [
+      "Switching scrolls discards the current edits.",
+      "絵巻を切り替えると現在の変更は破棄されます。"
+    ],
+    "放弃并切换": [
+      "Discard and switch",
+      "破棄して切り替え"
+    ],
+    "继续编辑": [
+      "Keep editing",
+      "編集を続ける"
+    ],
+    "基础信息 · 长期保存": [
+      "Basic details · Persistent",
+      "基本情報 · 保存可能"
+    ],
+    "编辑": [
+      "Edit",
+      "編集"
+    ],
+    "主副词条 · 长期保存": [
+      "Effects · Persistent",
+      "主・副効果 · 保存可能"
+    ],
+    "选择一行，在下方更换词条。": [
+      "Select a row, then replace its effect below.",
+      "行を選択して、下の一覧から効果を変更します。"
+    ],
+    "词条 ID": [
+      "Effect ID",
+      "効果ID"
+    ],
+    "编辑词条ID": [
+      "Edit effect ID",
+      "効果IDを編集"
+    ],
+    "编辑词条原始数值": [
+      "Edit raw effect value",
+      "効果の内部値を編集"
+    ],
+    "清空此槽": [
+      "Clear this slot",
+      "この枠を空にする"
+    ],
+    "当前为空槽": [
+      "Empty slot",
+      "現在は空き枠"
+    ],
+    "原生数值：": [
+      "Native values: ",
+      "ゲーム内の値："
+    ],
+    "个可用值）": [
+      "valid values)",
+      "個の値）"
+    ],
+    "当前值在原生集合内": [
+      "Current value is in the native set",
+      "現在の値はゲーム内の集合に含まれます"
+    ],
+    "当前值不在原生集合内，仍可自由修改": [
+      "Current value is outside the native set; free editing is allowed",
+      "現在の値はゲーム内の集合外ですが、自由に編集できます"
+    ],
+    "此词条暂无可验证的原生数值范围": [
+      "No verified native value range for this effect",
+      "この効果の検証済みの値域はありません"
+    ],
+    "选择原生数值": [
+      "Choose native value",
+      "ゲーム内の値を選択"
+    ],
+    "选择一个原生数值": [
+      "Choose a native value",
+      "ゲーム内の値を選択してください"
+    ],
+    "编辑词条目录搜索": [
+      "Search effect catalog",
+      "効果一覧を検索"
+    ],
+    "替换": [
+      "Replace",
+      "置き換え"
+    ],
+    "高级原始字段": [
+      "Advanced raw fields",
+      "詳細な内部フィールド"
+    ],
+    "不检查词条冲突或组合合法性。修改这些字段前，请确认它们的含义。": [
+      "Effect conflicts and combination legality are not checked. Only edit fields you understand.",
+      "効果の競合や組み合わせの正当性は確認しません。意味を理解した上で変更してください。"
+    ],
+    "副本内容 · 临时修改": [
+      "Mission details · Temporary",
+      "ミッション内容 · 一時変更"
+    ],
+    "只修改游戏内存，不保存进绘卷。停止修改后重新打开绘卷，或退出游戏即可恢复。": [
+      "Changes only game memory. Stop changes and reopen the scroll, or exit the game, to restore the original.",
+      "ゲームのメモリだけを変更します。変更を停止して絵巻を開き直すか、ゲームを終了すると元に戻ります。"
+    ],
+    "按当前种子预览副本": [
+      "Preview mission for this seed",
+      "現在のシードのミッションを表示"
+    ],
+    "检查生效状态": [
+      "Check override status",
+      "適用状態を確認"
+    ],
+    "修改敌人": [
+      "Override enemies",
+      "敵を変更"
+    ],
+    "敌人组数": [
+      "Enemy groups",
+      "敵グループ数"
+    ],
+    "临时敌人组数": [
+      "Temporary enemy group count",
+      "一時的な敵グループ数"
+    ],
+    "临时修改敌人": [
+      "Temporary enemy override",
+      "敵の一時変更"
+    ],
+    "当前敌人": [
+      "Current enemy",
+      "現在の敵"
+    ],
+    "修改地形": [
+      "Override terrain",
+      "地形を変更"
+    ],
+    "临时修改地形影响": [
+      "Temporary terrain override",
+      "地形効果の一時変更"
+    ],
+    "修改特殊规则": [
+      "Override rules",
+      "特殊ルールを変更"
+    ],
+    "条": [
+      "entries",
+      "件"
+    ],
+    "临时修改特殊规则": [
+      "Temporary rule override",
+      "特殊ルールの一時変更"
+    ],
+    "无": [
+      "None",
+      "なし"
+    ],
+    "可挑战次数上限": [
+      "Maximum attempts",
+      "挑戦回数上限"
+    ],
+    "临时修改挑战次数上限": [
+      "Temporary attempt capacity",
+      "挑戦回数上限の一時変更"
+    ],
+    "当前版本暂不支持修改次数上限": [
+      "Changing the capacity is not supported yet",
+      "現在は回数上限の変更に対応していません"
+    ],
+    "临时修改草稿已准备好；此预览暂未连接游戏。": [
+      "Temporary draft ready; this preview is not connected to the game.",
+      "一時変更の下書きを準備しました。このプレビューはゲームに接続していません。"
+    ],
+    "应用临时修改": [
+      "Apply temporary changes",
+      "一時変更を適用"
+    ],
+    "停止临时修改": [
+      "Stop temporary changes",
+      "一時変更を停止"
+    ],
+    "已恢复示例副本内容。": [
+      "Original mission details restored.",
+      "元のミッション内容に戻しました。"
+    ],
+    "恢复原始内容": [
+      "Restore original details",
+      "元の内容に戻す"
+    ],
+    "放弃修改": [
+      "Discard edits",
+      "変更を破棄"
+    ],
+    "核对修改": [
+      "Review edits",
+      "変更を確認"
+    ],
+    "修改预览": [
+      "Edit preview",
+      "変更プレビュー"
+    ],
+    "百境百怪绘卷": [
+      "Scroll of a Hundred Demons",
+      "百鬼夜行絵巻"
+    ],
+    "等级": [
+      "Level",
+      "レベル"
+    ],
+    "· 敌人等级": [
+      "· Enemy level",
+      "· 敵レベル"
+    ],
+    "本次变化": [
+      "Changes",
+      "変更内容"
+    ],
+    "选择词条或修改基础信息，即可在这里核对。": [
+      "Choose effects or edit basic details to review changes here.",
+      "効果や基本情報を変更すると、ここで確認できます。"
+    ],
+    "确认修改": [
+      "Confirm edits",
+      "変更を確定"
+    ],
+    "本次将应用": [
+      "Will apply",
+      "適用する変更："
+    ],
+    "项变化。": [
+      "changes.",
+      "件。"
+    ],
+    "游戏已回到标题界面": [
+      "Game is at the title screen",
+      "ゲームはタイトル画面です"
+    ],
+    "确认写入存档": [
+      "Confirm save write",
+      "セーブへの書き込みを確定"
+    ],
+    "修改已应用到本次预览。": [
+      "Edits applied to this preview.",
+      "プレビューに変更を適用しました。"
+    ],
+    "应用到预览": [
+      "Apply to preview",
+      "プレビューに適用"
+    ],
+    "当前存档绘卷": [
+      "Scrolls in this save",
+      "このセーブの絵巻"
+    ],
+    "示例绘卷 · 不写入游戏存档": [
+      "Sample scrolls · No save writes",
+      "サンプル絵巻 · セーブには書き込みません"
+    ],
+    "关闭种子选择": [
+      "Close seed picker",
+      "シード選択を閉じる"
+    ],
+    "已选用绘卷种子": [
+      "Selected scroll seed",
+      "選択した絵巻シード"
+    ],
+    "每类最多支持 8 组筛选条件，请合并或减少条件。": [
+      "At most 8 groups per category. Merge or reduce conditions.",
+      "分類ごとに最大8グループです。条件をまとめるか減らしてください。"
+    ],
+    "成长词条": [
+      "Growing effect",
+      "成長効果"
+    ],
+    "未知敌人": [
+      "Unknown enemy",
+      "不明な敵"
+    ],
+    "未知规则": [
+      "Unknown rule",
+      "不明なルール"
+    ],
+    "秒": [
+      "seconds",
+      "秒"
+    ],
+    "请先搜索或查看真实绘卷。": [
+      "Search or preview a real scroll first.",
+      "先に実際の絵巻を検索または表示してください。"
+    ],
+    "未能检测存档。": [
+      "Could not detect saves.",
+      "セーブを検出できませんでした。"
+    ],
+    "目标存档": [
+      "Target save",
+      "対象セーブ"
+    ],
+    "自动检测的存档": [
+      "Detected saves",
+      "検出されたセーブ"
+    ],
+    "正在检测存档…": [
+      "Detecting saves…",
+      "セーブを検出中…"
+    ],
+    "请选择角色存档": [
+      "Select a character save",
+      "キャラクターのセーブを選択"
+    ],
+    "未检测到存档": [
+      "No saves detected",
+      "セーブが見つかりません"
+    ],
+    "账户": [
+      "Account",
+      "アカウント"
+    ],
+    "· 存档": [
+      "· Save",
+      "· セーブ"
+    ],
+    "重新检测": [
+      "Scan again",
+      "再検出"
+    ],
+    "手动定位": [
+      "Locate manually",
+      "手動で指定"
+    ],
+    "重新读取": [
+      "Reload",
+      "再読み込み"
+    ],
+    "核对上次写入结果": [
+      "Check last write",
+      "前回の書き込みを確認"
+    ],
+    "请先核对上次添加结果。": [
+      "Check the previous addition first.",
+      "先に前回の追加結果を確認してください。"
+    ],
+    "四、五周目的研究候选不能添加。": [
+      "Research candidates from playthroughs 4 and 5 cannot be added.",
+      "研究用の4・5周目の候補は追加できません。"
+    ],
+    "购物车存在失效的候选，请重新搜索后添加。": [
+      "A cart candidate has expired. Search again before adding.",
+      "カートの候補が失効しています。再検索してから追加してください。"
+    ],
+    "未收到添加计划。": [
+      "No addition plan received.",
+      "追加計画を受け取れませんでした。"
+    ],
+    "请确认游戏已回到标题界面。": [
+      "Confirm the game is at the title screen.",
+      "ゲームがタイトル画面に戻っていることを確認してください。"
+    ],
+    "已添加到存档。": [
+      "Added to save.",
+      "セーブに追加しました。"
+    ],
+    "写入尚未确认，请核对操作结果。": [
+      "Write not yet confirmed. Check the result.",
+      "書き込みが未確認です。結果を確認してください。"
+    ],
+    "添加回执不匹配。": [
+      "Addition receipt does not match.",
+      "追加の操作記録が一致しません。"
+    ],
+    "已验证添加": [
+      "Verified additions",
+      "確認済みの追加数"
+    ],
+    "张。": [
+      "scrolls.",
+      "枚。"
+    ],
+    "请在游戏中正常保存。": [
+      "Save normally in the game.",
+      "ゲーム内で通常どおりセーブしてください。"
+    ],
+    "其余操作尚未全部确认，请先核对结果，不要重复添加。": [
+      "Some results are unconfirmed. Check them before adding again.",
+      "未確認の結果があります。再追加する前に結果を確認してください。"
+    ],
+    "没有待核对的实时添加。": [
+      "No live addition needs checking.",
+      "確認待ちのゲーム内追加はありません。"
+    ],
+    "未取得添加回执。": [
+      "Could not read the addition result.",
+      "追加結果を取得できませんでした。"
+    ],
+    "未取得核对后的添加回执。": [
+      "Could not read the reconciled addition result.",
+      "確認後の追加結果を取得できませんでした。"
+    ],
+    "上次计划尚未执行，已取消，可以重新核对添加。": [
+      "The previous plan was not executed and is now cancelled. You can prepare another.",
+      "前回の計画は未実行のためキャンセルしました。改めて追加を確認できます。"
+    ],
+    "张；": [
+      "scrolls; ",
+      "枚；"
+    ],
+    "已完成": [
+      "Completed",
+      "完了"
+    ],
+    "已取消": [
+      "Cancelled",
+      "キャンセル済み"
+    ],
+    "请核对剩余操作，避免重复添加": [
+      "Check remaining results before adding again",
+      "重複追加を避けるため残りの結果を確認してください"
+    ],
+    "已添加": [
+      "Added",
+      "追加済み"
+    ],
+    "张，当前一张完成后可停止。": [
+      "scrolls. Stopping waits for the current scroll to finish.",
+      "枚。現在の1枚の処理が完了してから停止します。"
+    ],
+    "停止后续添加": [
+      "Stop remaining additions",
+      "以降の追加を停止"
+    ],
+    "一、二周目的绿色绘卷属于自定义配置，不代表游戏自然掉落。": [
+      "Green scrolls in playthroughs 1 and 2 are custom configurations, not evidence of natural drops.",
+      "1・2周目の緑の絵巻はカスタム設定であり、自然ドロップを示すものではありません。"
+    ],
+    "本次选择": [
+      "Selected",
+      "今回の選択"
+    ],
+    "张 · 推荐等级": [
+      "scrolls · Recommended level",
+      "枚 · 推奨レベル"
+    ],
+    "· 转手次数": [
+      "· Transfers",
+      "· 譲渡回数"
+    ],
+    "核对添加": [
+      "Review addition",
+      "追加を確認"
+    ],
+    "核对上次实时添加": [
+      "Check last in-game addition",
+      "前回のゲーム内追加を確認"
+    ],
+    "已准备": [
+      "Prepared",
+      "準備済み"
+    ],
+    "张绘卷的添加计划。": [
+      "scrolls for addition.",
+      "枚の追加計画。"
+    ],
+    "选择已改变，请重新核对添加。": [
+      "Selection changed. Review the addition again.",
+      "選択が変わりました。追加内容を再確認してください。"
+    ],
+    "确认添加所选": [
+      "Confirm selected additions",
+      "選択した追加を確定"
+    ],
+    "请先选择角色存档。": [
+      "Select a character save first.",
+      "先にキャラクターのセーブを選択してください。"
+    ],
+    "原生搜索中，已找到": [
+      "Native search; found",
+      "ゲーム内生成で検索中、検出数"
+    ],
+    "原生搜索未返回结果。": [
+      "Native search returned no result.",
+      "ゲーム内生成の検索から結果が返りませんでした。"
+    ],
+    "存档备份与管理": [
+      "Save backups and management",
+      "セーブのバックアップと管理"
+    ],
+    "请打开后端版查看本机备份。": [
+      "Open the desktop app to view local backups.",
+      "ローカルのバックアップを見るにはデスクトップ版を開いてください。"
+    ],
+    "恢复会替换当前角色存档，执行前会自动备份当前状态。": [
+      "Restoring replaces this character save. The current state is backed up first.",
+      "復元すると現在のキャラクターのセーブが置き換わります。実行前に現在の状態をバックアップします。"
+    ],
+    "备份已恢复。": [
+      "Backup restored.",
+      "バックアップを復元しました。"
+    ],
+    "恢复结果尚未确认，请核对操作回执。": [
+      "Restore outcome is unconfirmed. Check the operation result.",
+      "復元結果が未確認です。操作結果を確認してください。"
+    ],
+    "选中的备份已移入回收站。": [
+      "Selected backups moved to the Recycle Bin.",
+      "選択したバックアップをゴミ箱に移動しました。"
+    ],
+    "添加绘卷": [
+      "Add scrolls",
+      "絵巻を追加"
+    ],
+    "删除绘卷": [
+      "Delete scrolls",
+      "絵巻を削除"
+    ],
+    "恢复前备份": [
+      "Backup before restore",
+      "復元前のバックアップ"
+    ],
+    "打开存档文件夹": [
+      "Open save folder",
+      "セーブフォルダーを開く"
+    ],
+    "数据目录将在重启应用后生效，原目录中的备份会保留。": [
+      "The data folder changes after restarting the app. Existing backups stay in the original folder.",
+      "データフォルダーの変更は再起動後に適用されます。元のバックアップは元の場所に残ります。"
+    ],
+    "打开数据文件夹": [
+      "Open data folder",
+      "データフォルダーを開く"
+    ],
+    "更改数据目录": [
+      "Change data folder",
+      "データフォルダーを変更"
+    ],
+    "恢复默认目录": [
+      "Reset data folder",
+      "既定のフォルダーに戻す"
+    ],
+    "刷新备份": [
+      "Refresh backups",
+      "バックアップを更新"
+    ],
+    "打开备份文件夹": [
+      "Open backup folder",
+      "バックアップフォルダーを開く"
+    ],
+    "恢复选中备份": [
+      "Restore selected backup",
+      "選択したバックアップを復元"
+    ],
+    "移入回收站": [
+      "Move to Recycle Bin",
+      "ゴミ箱に移動"
+    ],
+    "选择": [
+      "Select",
+      "選択"
+    ],
+    "备份时间": [
+      "Backup time",
+      "バックアップ日時"
+    ],
+    "操作": [
+      "Action",
+      "操作"
+    ],
+    "文件数": [
+      "Files",
+      "ファイル数"
+    ],
+    "选择备份": [
+      "Select backup",
+      "バックアップを選択"
+    ],
+    "这个存档暂无备份。": [
+      "No backups for this save.",
+      "このセーブのバックアップはありません。"
+    ],
+    "选择存档后显示对应备份。": [
+      "Select a save to see its backups.",
+      "セーブを選択すると対応するバックアップを表示します。"
+    ],
+    "将恢复：": [
+      "Will restore: ",
+      "復元対象："
+    ],
+    "确认恢复存档": [
+      "Confirm restore",
+      "セーブの復元を確定"
+    ],
+    "更新通道": [
+      "Update channel",
+      "更新チャンネル"
+    ],
+    "正式版": [
+      "Stable",
+      "安定版"
+    ],
+    "测试版": [
+      "Beta",
+      "テスト版"
+    ],
+    "检查是否有新版本。": [
+      "Check for a newer version.",
+      "新しいバージョンを確認します。"
+    ],
+    "正在检查更新…": [
+      "Checking for updates…",
+      "更新を確認中…"
+    ],
+    "当前没有可用的新版本。": [
+      "No newer version is available.",
+      "利用可能な新しいバージョンはありません。"
+    ],
+    "发现新版本": [
+      "New version available",
+      "新しいバージョンがあります"
+    ],
+    "正在下载并校验更新…": [
+      "Downloading and verifying update…",
+      "更新をダウンロード・検証中…"
+    ],
+    "更新已准备好，重启后完成安装。": [
+      "Update ready. Restart to finish installing.",
+      "更新の準備ができました。再起動するとインストールが完了します。"
+    ],
+    "更新未完成，请重试。": [
+      "Update failed. Try again.",
+      "更新を完了できませんでした。再試行してください。"
+    ],
+    "下载更新": [
+      "Download update",
+      "更新をダウンロード"
+    ],
+    "安全退出并安装更新": [
+      "Exit safely and install",
+      "安全に終了してインストール"
+    ],
+    "源码启动版请使用发行包测试安装更新。": [
+      "Use a packaged build to test update installation.",
+      "更新のインストールは配布版で確認してください。"
+    ],
+    "收藏夹读取失败。": [
+      "Could not load favorites.",
+      "お気に入りを読み込めませんでした。"
+    ],
+    "购物车最多保存 50 张绘卷。": [
+      "The cart holds up to 50 scrolls.",
+      "カートには最大50枚まで追加できます。"
+    ],
+    "收藏夹最多保存 50 张绘卷。": [
+      "Favorites holds up to 50 scrolls.",
+      "お気に入りは最大50枚まで登録できます。"
+    ],
+    "绘卷": [
+      "Scroll",
+      "絵巻"
+    ],
+    "百境百怪绘卷 · 顿悟": [
+      "Scroll of a Hundred Demons · Enlightenment",
+      "百鬼夜行絵巻 · 悟り"
+    ],
+    "周目战绘卷": [
+      "playthrough scroll",
+      "周目の絵巻"
+    ],
+    "特殊效果": [
+      "Special effects",
+      "特殊効果"
+    ],
+    "数值评分：100 为最高档。同名词条分数越高，数值档位越高；不是实际加成百分比。": [
+      "Roll quality: 100 is the highest tier. Compare scores for the same effect; this is not the actual bonus percentage.",
+      "数値評価は100が最高。同じ効果なら高いほど上位の値です。実際の加算率ではありません。"
+    ],
+    "成长": [
+      "Growing",
+      "成長"
+    ],
+    "评分": [
+      "Score",
+      "数値評価"
+    ],
+    "出现敌人": [
+      "Enemies",
+      "出現する敵"
+    ],
+    "未解析": [
+      "Unresolved",
+      "未解析"
+    ],
+    "复制绘卷ID": [
+      "Copy scroll ID",
+      "絵巻IDをコピー"
+    ],
+    "复制": [
+      "Copy",
+      "コピー"
+    ],
+    "候选数量应为 1–25。": [
+      "Choose 1–25 results per batch.",
+      "検索件数は1～25で指定してください。"
+    ],
+    "推荐等级应为 142–700 内可转换的整数。": [
+      "Choose a convertible recommended level from 142 to 700.",
+      "推奨レベルは142～700の変換可能な整数で指定してください。"
+    ],
+    "绘卷等级应为 0–180。": [
+      "Scroll level must be 0–180.",
+      "絵巻レベルは0～180で指定してください。"
+    ],
+    "转手次数应为 −1 或有效的无符号整数。": [
+      "Transfer count must be −1 or a valid unsigned integer.",
+      "譲渡回数は−1または有効な符号なし整数で指定してください。"
+    ],
+    "最多保留 24 个词条选项，任一组按一项逻辑要求计算。": [
+      "Select up to 24 effect options. Each any-of group counts as one requirement.",
+      "効果の選択は最大24件です。いずれかのグループは一つの条件として扱います。"
+    ],
+    "此预览暂仅支持搜索三周目、180 级绘卷。": [
+      "This preview supports third-playthrough level-180 scrolls only.",
+      "このプレビューは3周目・レベル180の絵巻のみ検索できます。"
+    ],
+    "请选择筛选条件。": [
+      "Choose search conditions.",
+      "検索条件を選択してください。"
+    ],
+    "请先选择并读取存档。": [
+      "Select and load a save first.",
+      "先にセーブを選択して読み込んでください。"
+    ],
+    "请先确认游戏已停在标题界面。": [
+      "Confirm the game is at the title screen first.",
+      "先にゲームがタイトル画面にあることを確認してください。"
+    ],
+    "已连接当前存档的映射缓存，可离线搜索。": [
+      "Mapping loaded for this save. Offline search is available.",
+      "このセーブの対応表を読み込みました。オフライン検索が可能です。"
+    ],
+    "后端已连接，请选择筛选条件。": [
+      "Ready. Choose search conditions.",
+      "準備完了。検索条件を選択してください。"
+    ],
+    "正在连接后端…": [
+      "Connecting…",
+      "接続中…"
+    ],
+    "真实搜索结果": [
+      "Search results",
+      "検索結果"
+    ],
+    "已取消，保留已找到的绘卷。": [
+      "Cancelled. Found scrolls are retained.",
+      "キャンセルしました。見つかった絵巻は保持されます。"
+    ],
+    "本批找到": [
+      "This batch found",
+      "今回の検索結果"
+    ],
+    "张绘卷，耗时": [
+      "scrolls in",
+      "枚、所要時間"
+    ],
+    "秒。": [
+      "seconds.",
+      "秒。"
+    ],
+    "正在搜索，已找到": [
+      "Searching; found",
+      "検索中、検出数"
+    ],
+    "张绘卷…": [
+      "scrolls…",
+      "枚…"
+    ],
+    "群号已复制，若未自动跳转，可在 QQ 中手动加群。": [
+      "Group number copied. If QQ does not open, join manually using this number.",
+      "グループ番号をコピーしました。QQが開かない場合は番号で検索して参加してください。"
+    ],
+    "请在 QQ 中搜索群号": [
+      "Search this group number in QQ: ",
+      "QQで次のグループ番号を検索："
+    ],
+    "加入。": [
+      "to join.",
+      "参加してください。"
+    ],
+    "未筛选示例": [
+      "Sample results",
+      "サンプル結果"
+    ],
+    "周目／稀有度已切换，目录已更新。": [
+      "Playthrough / rarity changed. Catalog updated.",
+      "周回・希少度を変更し、一覧を更新しました。"
+    ],
+    "当前周目使用原生生成，支持词条组合筛选；抽取评分暂不可用，数值已设为不限。": [
+      "This playthrough uses native generation and effect matching. Roll scores are unavailable, so values are unrestricted.",
+      "この周回はゲーム内生成と効果条件に対応しています。数値評価は未対応のため数値不問になります。"
+    ],
+    "种子预览": [
+      "Seed preview",
+      "シードのプレビュー"
+    ],
+    "原生搜索结果": [
+      "Native search results",
+      "ゲーム内生成の検索結果"
+    ],
+    "已取消，保留": [
+      "Cancelled; retained",
+      "キャンセル。保持数"
+    ],
+    "张绘卷。": [
+      "scrolls.",
+      "枚。"
+    ],
+    "正在准备搜索…": [
+      "Preparing search…",
+      "検索を準備中…"
+    ],
+    "正在搜索…": [
+      "Searching…",
+      "検索中…"
+    ],
+    "已取消，保留上一批结果。": [
+      "Cancelled. Previous batch retained.",
+      "キャンセルしました。前回の結果は保持されます。"
+    ],
+    "已按条件筛选": [
+      "Filtered results",
+      "条件で絞り込み済み"
+    ],
+    "搜索完成，找到": [
+      "Search complete; found",
+      "検索完了、検出数"
+    ],
+    "没有下一批。": [
+      "No more results.",
+      "次の結果はありません。"
+    ],
+    "已清空全部条件；搜索设置恢复默认。": [
+      "Conditions cleared; search settings reset.",
+      "条件をクリアし、検索設定を既定値に戻しました。"
+    ],
+    "已复制。": [
+      "Copied.",
+      "コピーしました。"
+    ],
+    "剪贴板不可用，请手动复制：": [
+      "Clipboard unavailable. Copy manually: ",
+      "クリップボードを使用できません。手動でコピーしてください："
+    ],
+    "拖到前后换序，拖到中央分组": [
+      "Drag before or after to reorder; onto the center to group",
+      "前後にドラッグして並べ替え、中央に重ねてグループ化"
+    ],
+    "未当选主词条时，副词条必须包含此项": [
+      "Require this as a secondary effect if not chosen as primary",
+      "主効果に選ばれなければ副効果に必須"
+    ],
+    "未选为主时，副词条也要有": [
+      "Require as secondary if not primary",
+      "主効果でなければ副効果に必須"
+    ],
+    "支持主词条不限或前 1–3 项主词条备选择一。上下移动已选项可改变主副角色。未当选时副词条必含可表达 A主+B副 或 B主+A副。": [
+      "Leave the primary effect unrestricted, or use the first 1–3 choices as alternatives. Reorder to change their roles. Require unchosen alternatives as secondary effects to match either order.",
+      "主効果を指定しないか、先頭1～3件を主効果の候補にします。並べ替えで役割を変更できます。選ばれなかった候補を副効果に必須とすることもできます。"
+    ],
+    "低／中／高指生成池档位，不代表难度。选择表示至少包含，允许其他敌人出现。已选敌人可设必含或任选组。": [
+      "Low / middle / high indicate generation pools, not difficulty. Selected enemies must appear, but additional enemies are allowed. Use required or any-of groups.",
+      "低・中・高は生成枠であり難易度ではありません。選択した敵以外の出現も許可します。必須またはいずれかのグループを指定できます。"
+    ],
+    "按类型查找，再选择具体对象与数值。任意变体覆盖该项全部数值；选择精确变体会替换该项旧选择。最多组合三项特殊规则。": [
+      "Find a category, then choose a target and value. Any variant accepts all values. A specific variant replaces the previous choice. Combine up to three rules.",
+      "分類から対象と数値を選択します。種類不問なら全数値を許可し、特定の種類を選ぶと以前の選択を置き換えます。最大3ルールです。"
+    ],
+    "地形条件之间取任一；精确项代表完整结果，不是地图场景。挑战次数筛选种子决定的初始上限，不是剩余次数。": [
+      "Any selected terrain combination may match; these are terrain effects, not locations. Attempts filter the seed-derived capacity, not the remaining count.",
+      "地形条件はいずれか一つに一致すれば対象です。地図の場所ではなく地形効果の組み合わせです。挑戦回数は残り回数ではなくシード由来の初期上限を指定します。"
+    ],
+    "想刷某个敌人：添加它并选“必含”。几个敌人都可以：把它们设为同一个“任选组”，出现其中一个就算符合。": [
+      "For one specific enemy, add it as Required. To accept any of several enemies, put them in the same any-of group.",
+      "特定の敵を狙う場合は「必須」で追加します。複数の敵のどれでもよい場合は、同じグループにまとめます。"
+    ],
+    "装备加成：在左边选择你想要的词条和恩宠。刷副本：在右边选择想打的敌人、特殊规则、地形和挑战次数。": [
+      "For equipment bonuses, choose effects and graces on the left. For missions, choose enemies, rules, terrain and attempts on the right.",
+      "装備用は左側で効果と恩寵を選びます。ミッション用は右側で敵・ルール・地形・挑戦回数を選びます。"
+    ],
+    "怎样组合词条？": [
+      "How do effect groups work?",
+      "効果条件の組み合わせ方"
+    ],
+    "“必含”：每个选中的词条都要有。例如同时添加体力和幸运，结果必须同时有这两项。": [
+      "Required means every selected effect must appear. Requiring Life and Luck searches for scrolls containing both.",
+      "「必須」は選択したすべての効果が必要です。体力と幸運を追加すると、両方ある絵巻を検索します。"
+    ],
+    "“任选组”：同组中有一项就可以。例如把体力和幸运放进“任选组 1”，有体力或有幸运都可以。": [
+      "An any-of group needs only one matching effect. Group Life and Luck together to accept either one.",
+      "同じグループではいずれか一つがあれば一致します。体力と幸運をまとめると、どちらかがある絵巻を検索します。"
+    ],
+    "想指定第一条词条？": [
+      "How do I choose the primary effect?",
+      "主効果を指定するには？"
+    ],
+    "关闭“主词条不限”。已选列表最前面的 1～3 项作为第一条词条的备选，找到其中一项即可。拖动已选词条调整顺序。": [
+      "Turn off Any primary effect. The first 1–3 choices are alternatives for the primary slot. Drag to change their order.",
+      "「主効果を指定しない」を解除します。先頭1～3件が主効果の候補になります。ドラッグで順序を変更できます。"
+    ],
+    "如果选了两个备选，并勾选“未选为主时，副词条也要有”，就会寻找这样的绘卷：一项在第一条，另一项在副词条。": [
+      "With two primary alternatives, requiring the unchosen one as secondary searches for both effects in either order.",
+      "主効果の候補を二つ選び、選ばれなかった方を副効果に必須とすると、片方が主効果、もう片方が副効果にある絵巻を検索します。"
+    ],
+    "规则数值怎么选？": [
+      "How do I select rule values?",
+      "ルールの数値の選び方"
+    ],
+    "选择“全部接受”，表示这条规则的任何数值都可以；也可以指定某个数值。选好后点“＋”加入条件，不需要时在上方移除。": [
+      "Accept any allows all values for the rule. Or choose one value, then press + to add it. Remove unwanted conditions above.",
+      "「すべて許可」はそのルールの数値を問いません。特定の数値も指定できます。＋で追加し、不要な条件は上で削除します。"
+    ],
+    "一难横行": [
+      "Misfortune",
+      "難行"
+    ],
+    "优先掉落率上升": [
+      "Lucky drop rate",
+      "優先ドロップ率上昇"
+    ],
+    "同行者": [
+      "Companion",
+      "同行者"
+    ],
+    "圆猫之法": [
+      "Scampuss form",
+      "すねこすり化"
+    ],
+    "威猛强敌": [
+      "Mighty enemies",
+      "強敵出現"
+    ],
+    "属性伤害与异常状态累积增加": [
+      "Elemental damage and status accumulation",
+      "属性ダメージ・状態異常蓄積増加"
+    ],
+    "正面与负面效果强化": [
+      "Stronger buffs and debuffs",
+      "有利・不利効果の強化"
+    ],
+    "正面效果持续时间延长": [
+      "Extended buffs",
+      "有利効果の持続時間延長"
+    ],
+    "灵力槽逐渐减少·积攒量增加": [
+      "Spirit gauge drain / increased gain",
+      "霊力ゲージ徐々に減少・蓄積量増加"
+    ],
+    "神器掉落率上升": [
+      "Divine item drop rate",
+      "神器ドロップ率上昇"
+    ],
+    "移动加速": [
+      "Movement speed",
+      "移動速度上昇"
+    ],
+    "精力恢复强化": [
+      "Ki recovery boost",
+      "気力回復強化"
+    ],
+    "自动发动": [
+      "Auto activation",
+      "自動発動"
+    ],
+    "自动恢复阴阳术与箭弹": [
+      "Onmyo / ammunition recovery",
+      "陰陽術・矢弾の自動回復"
+    ],
+    "获得金钱增加": [
+      "Increased gold earned",
+      "獲得金銭増加"
+    ],
+    "负面效果持续时间延长": [
+      "Extended debuffs",
+      "不利効果の持続時間延長"
+    ],
+    "赋予吸取体力": [
+      "Life drain",
+      "体力吸収を付与"
+    ],
+    "追击和近身刺击伤害增加": [
+      "Final blow and grapple damage",
+      "追い討ち・組み討ちダメージ増加"
+    ],
+    "造成的属性伤害增加": [
+      "Elemental damage dealt",
+      "与える属性ダメージ増加"
+    ],
+    "魂核掉落率上升": [
+      "Soul core drop rate",
+      "魂代ドロップ率上昇"
+    ],
+    "固定变体": [
+      "Fixed variant",
+      "固定の種類"
+    ],
+    "中／高手": [
+      "Middle / high pool",
+      "中・高位の枠"
+    ],
+    "候选已失效，请按原 ID 重新搜索后添加。": [
+      "Candidate expired. Search its ID again before adding.",
+      "候補が失効しました。同じIDで再検索してから追加してください。"
+    ],
+    "请先启动游戏并进入角色存档。": [
+      "Start the game and load your character first.",
+      "先にゲームを起動してキャラクターを読み込んでください。"
+    ],
+    "请关闭游戏菜单，原地等待片刻后重新核对。": [
+      "Close the game menus, wait briefly in place, then review again.",
+      "ゲームのメニューを閉じ、少し待ってから再確認してください。"
+    ],
+    "自动备份无法通过校验，本次没有继续添加。请重新核对添加。": [
+      "Backup verification failed, so addition did not continue. Review again.",
+      "自動バックアップを検証できないため追加を中止しました。再確認してください。"
+    ],
+    "上次操作尚未确认，请先核对结果，不要重复添加。": [
+      "Check the previous operation before adding again.",
+      "前回の結果を確認してから再追加してください。"
+    ],
+    "另一项操作仍在进行，请等待完成。": [
+      "Another operation is running. Wait for it to finish.",
+      "別の操作が進行中です。完了をお待ちください。"
+    ],
+    "当前游戏版本尚未支持，请检查更新。": [
+      "This game version is not supported. Check for updates.",
+      "このゲームバージョンは未対応です。更新を確認してください。"
+    ],
+    "收藏夹文件无法读取，原文件已保留。请复制日志排查。": [
+      "Favorites could not be read. The original file is preserved; copy the log for diagnosis.",
+      "お気に入りを読み込めません。元のファイルは保持しています。ログをコピーして確認してください。"
+    ],
+    "操作未完成，请复制日志排查；涉及写入时，请先核对操作结果。": [
+      "The operation failed. Copy the log for diagnosis; check any write outcome before retrying.",
+      "操作を完了できませんでした。ログをコピーしてください。書き込みの場合は再実行前に結果を確認してください。"
+    ],
+    "挑战次数上限应为 1–7。": [
+      "Maximum attempts must be 1–7.",
+      "挑戦回数上限は1～7で指定してください。"
+    ],
+    "存档与当前绘卷状态不一致。请先在神社保存，关闭菜单后重新核对添加。": [
+      "The save differs from your current scrolls. Save at a shrine, close the menus, then review the addition again.",
+      "セーブと現在の絵巻の状態が一致しません。社でセーブし、メニューを閉じてから追加内容を再確認してください。"
+    ],
+    "请先停止临时修改，再核对当前次数。": [
+      "Stop temporary changes before reviewing the remaining count.",
+      "一時変更を停止してから残り回数を確認してください。"
+    ],
+    "这张绘卷的当前状态暂不支持修改次数。": [
+      "The current state of this scroll does not support count editing.",
+      "この絵巻の現在の状態では回数を変更できません。"
+    ],
+    "当前次数已修改，请在游戏中正常保存。": [
+      "Remaining count changed. Save normally in the game.",
+      "残り回数を変更しました。ゲーム内でセーブしてください。"
+    ],
+    "修改结果尚未确认，请核对上次操作，不要重复修改。": [
+      "The result is unconfirmed. Check the previous operation before making another change.",
+      "変更結果を確認できません。再変更する前に前回の操作を確認してください。"
+    ],
+    "本次没有写入，请重新核对。": [
+      "No write was performed. Review the change again.",
+      "書き込みは行われていません。内容を再確認してください。"
+    ],
+    "当前可挑战次数": [
+      "Remaining attempts",
+      "残り挑戦回数"
+    ],
+    "修改游戏内这张绘卷的剩余次数，修改后请在游戏中正常保存。挑战次数上限在“副本内容”中临时修改。": [
+      "Change this scroll’s remaining attempts in the game, then save to keep the change. The attempt limit is a temporary setting under Mission content.",
+      "ゲーム内のこの絵巻の残り挑戦回数を変更します。保存するにはゲーム内でセーブしてください。挑戦回数の上限は「ミッション内容」で一時的に変更できます。"
+    ],
+    "设为": [
+      "Set to",
+      "変更後"
+    ],
+    "允许范围：0–7。设为0将无法继续挑战。": [
+      "Allowed range: 0–7. A count of 0 prevents further attempts.",
+      "設定範囲：0～7。0にすると挑戦できなくなります。"
+    ],
+    "核对次数修改": [
+      "Review count change",
+      "回数の変更を確認"
+    ],
+    "核对上次次数修改": [
+      "Check previous count change",
+      "前回の回数変更を確認"
+    ],
+    "自动备份已完成。": [
+      "Automatic backup completed.",
+      "自動バックアップが完了しました。"
+    ],
+    "确认修改当前次数": [
+      "Confirm count change",
+      "残り回数の変更を確定"
+    ],
+    "放弃本次核对": [
+      "Discard review",
+      "確認内容を破棄"
+    ],
+    "存档备份": [
+      "Save backup",
+      "セーブのバックアップ"
+    ]
+  },
+  "game": {
+    "en-US": {
+      "备用": "备用",
+      "未完成的杰作": "Unfinished Masterpiece",
+      "灵力增加量": "Spirit Force Charge",
+      "获得金钱": "Gold Earned",
+      "装备品掉落率": "Equipment Drop Rate",
+      "赋予雷属性": "Imbue Lightning",
+      "造成水属性伤害时吸取体力": "Life Drain (Water Damage)",
+      "阴阳术　术力": "Onmyo Magic Power",
+      "火枪动作速度加快": "Rifle Speed Up",
+      "绝境时赋予^09~BUFF~{}^09~~": "Effect 0xFD0F",
+      "成功识破时^09~BUFF~{}^09~~": "Effect 0xEAC1",
+      "属性攻击伤害": "Elemental Damage",
+      "获得精华": "Amrita Earned",
+      "造成风属性伤害时吸取体力": "Life Drain (Wind Damage)",
+      "体力恢复量（地狱）": "Life Recovery (Crucible)",
+      "坚忍度": "Toughness",
+      "火属性伤害": "Fire Damage",
+      "雷属性伤害": "Lightning Damage",
+      "速攻击精力消耗降低": "Quick Attack Ki Consumption",
+      "背后攻击伤害": "Backstab Damage",
+      "猿田彦的恩宠": "Grace of Sarutahiko",
+      "近距离攻击伤害（绝境）": "Melee Damage (Critical)",
+      "伊邪那岐的恩宠": "Grace of Izanagi",
+      "守护灵技的精力伤害": "Guardian Spirit Skill Ki Damage",
+      "箭弹命中时召唤千千古": "Summon Chijiko (Ranged Weapon Hit)",
+      "阴阳术命中赋予^09~BUFF~{}^09~~": "Effect 0xF087",
+      "强攻击精力消耗降低": "Strong Attack Ki Consumption",
+      "赋予双属性（火、水）": "Dual Elements (Fire & Water)",
+      "速攻击伤害": "Quick Attack Damage",
+      "阴阳术精力伤害": "Onmyo Magic Ki Damage",
+      "远距离伤害": "Ranged Damage",
+      "{}的持有上限": "Effect 0xF72D",
+      "近距离攻击伤害": "Melee Damage",
+      "近距离攻击精力伤害": "Melee Ki Damage",
+      "箭弹命中弱点可恢复体力": "Life Drain (Bullseye)",
+      "毒抗性": "Poison Resistance",
+      "残心初始量": "Ki Pulse Bonus",
+      "跳跃的精力": "Ki Consumption (Jump)",
+      "使敌人陷入^09~DEBUFF~{}^09~~状态时精华槽增加": "Effect 0xF575",
+      "承受伤害增加灵力": "Spirit Force Bonus (Damage Taken)",
+      "神宝掉落率": "Ethereal Item Drop Rate",
+      "晴明御灵": "The Spirit of Seimei",
+      "伤害反映（阴阳术术力）": "Damage Bonus (Onmyo Magic Power)",
+      "火枪精力伤害": "Rifle Ki Damage",
+      "祓除常世可恢复体力": "Life Recovery (Purification)",
+      "造成雷属性伤害时增加灵力": "Spirit Force Bonus (Lightning Damage)",
+      "获得精华（地狱）": "Amrita Earned (Crucible)",
+      "大炮精力伤害": "Hand Cannon Ki Damage",
+      "麻痹抗性": "Paralysis Resistance",
+      "使敌人陷入^09~DEBUFF~{}^09~~状态时增加灵力": "Effect 0xFBAA",
+      "吸收精华可恢复体力": "Life Recovery (Amrita Absorption)",
+      "精力恢复速度": "Ki Recovery Speed",
+      "对伤害的反映（智）": "Damage Bonus (Intellect)",
+      "造成火属性伤害时吸取体力": "Life Drain (Fire Damage)",
+      "防御力": "Defense",
+      "被攻击时承受的伤害降低": "Damage Taken",
+      "武技精力消耗降低": "Martial Arts Ki Consumption",
+      "忍术造成的精力伤害": "Ninjutsu Ki Damage",
+      "格挡可增加灵力": "Increased Spirit Force (Deflect)",
+      "灵力增加量（负面效果时）": "Spirit Force Charge (Ailing)",
+      "造成风属性伤害时增加灵力": "Spirit Force Bonus (Wind Damage)",
+      "雷抗性": "Lightning Resistance",
+      "敌人的^09~DEBUFF~{}^09~~状态累积": "Effect 0xFB94",
+      "属性攻击伤害降低": "Decreased Elemental Damage Taken",
+      "忍术伤害吸取体力": "Life Drain (Ninjutsu Hit)",
+      "幸运": "Luck",
+      "水属性伤害": "Water Damage",
+      "对伤害的反映（刚）": "Damage Bonus (Stamina)",
+      "获得精华增加灵力": "Spirit Force Bonus (Amrita)",
+      "造成雷属性伤害时吸取体力": "Life Drain (Lightning Damage)",
+      "灵力增加量（地狱）": "Spirit Force Charge (Crucible)",
+      "中段架式攻击的精力消耗降低": "Mid Attack Ki Consumption",
+      "祓除常世赋予^09~BUFF~{}^09~~": "Effect 0xFFDD",
+      "风抗性": "Wind Resistance",
+      "灵力": "Spirit Force",
+      "精力恢复速度上升（无伤）": "Ki Recovery Speed (Unscathed)",
+      "对处于^09~DEBUFF~{}^09~~状态敌人的守护灵技伤害": "Effect 0xF6E1",
+      "打倒敌人时赋予^09~BUFF~{}^09~~": "Effect 0xFFE7",
+      "闪避动作的无敌时间延长": "Extended Dodge Invulnerability",
+      "陷入异常状态时赋予^09~BUFF~{}^09~~": "Effect 0xFEBC",
+      "闪避动作精力消耗降低": "Dodge Ki Consumption",
+      "武技灵力增加量": "Spirit Force Charge (Martial Art)",
+      "空手攻击时赋予^09~BUFF~{}^09~~": "Effect 0xD8BD",
+      "中段架式攻击吸取体力": "Life Drain (Mid Attack)",
+      "空手攻击伤害": "Bare-Handed Attack Damage",
+      "道具掉落率": "Item Drop Rate",
+      "强攻击伤害": "Strong Attack Damage",
+      "对处于^09~DEBUFF~{}^09~~状态敌人的精力伤害": "Effect 0xF4F0",
+      "奥义两立（{}）": "Effect 0xFD7B",
+      "对防御力的反映（咒）": "Defense Bonus (Magic)",
+      "格挡成功时赋予^09~BUFF~{}^09~~": "Effect 0xFB1A",
+      "大炮伤害": "Hand Cannon Damage",
+      "对处于^09~DEBUFF~{}^09~~状态敌人的近距离伤害": "Effect 0xFD51",
+      "吸收精华后赋予^09~BUFF~{}^09~~": "Effect 0xFF27",
+      "{}计量槽增加量": "Effect 0xFDBD",
+      "防御性能": "Base Defense",
+      "赋予麻痹效果": "Imbue Paralysis",
+      "精力恢复速度（绝境）": "Ki Recovery Speed (Critical)",
+      "{}造成的伤害": "Effect 0xF7D3",
+      "体力": "Life",
+      "强攻击精力伤害": "Strong Attack Ki Damage",
+      "名门巨星": "Golden Boy",
+      "残心精力恢复量": "Ki Pulse Recovery",
+      "守护灵技命中可吸取体力": "Life Drain (Guardian Spirit Skill Hit)",
+      "箭弹命中可恢复体力": "Life Drain (Ranged Weapon Hit)",
+      "近距离攻击精力消耗降低（绝境）": "Melee Attack Ki Consumption (Critical)",
+      "幸运反映（精华槽）": "Luck Bonus (Amrita Gauge)",
+      "大山津见的恩宠": "Grace of Oyamatsumi",
+      "强攻击吸取体力": "Life Drain (Strong Attack)",
+      "精力": "Ki",
+      "赋予火属性": "Imbue Fire",
+      "魂核掉落率": "Soul Core Drop Rate",
+      "守护灵技的伤害": "Guardian Spirit Skill Damage",
+      "阴阳术伤害吸取体力": "Life Drain (Onmyo Magic Hit)",
+      "对伤害的反映（技）": "Damage Bonus (Skill)",
+      "火抗性": "Fire Resistance",
+      "九十九化身结束时恢复体力": "Life Recovery (Living Artifact Ends)",
+      "武技成功时恢复精力（{}）": "Effect 0xC69A",
+      "上段架式攻击伤害": "High Attack Damage",
+      "柳生的暗行者": "Clandestine Yagyu Ways",
+      "上段武技伤害": "High Stance Martial Art Damage",
+      "近距离攻击的精力消耗降低": "Melee Attack Ki Consumption",
+      "仙药掉落率": "Elixir Drop Rate",
+      "忍术命中赋予^09~BUFF~{}^09~~": "Effect 0xDD57",
+      "冲刺精力消耗降低": "Dash Ki Consumption",
+      "死亡时自动回收刀冢": "Auto-Grave Recovery",
+      "精力受到攻击降至50%以下时赋予^09~BUFF~{}^09~~": "Effect 0xF0A7",
+      "承受精力伤害": "Ki Damage Taken",
+      "对尸狂造成的伤害": "Damage vs. Revenants",
+      "武器造成的水属性伤害": "Weapon-Dealt Water Damage",
+      "负面效果持续时间缩短": "Negative Effects Duration",
+      "风属性伤害": "Wind Damage",
+      "风属性伤害降低": "Wind Damage Reduction",
+      "攻击处于^09~DEBUFF~{}^09~~状态的敌人增加灵力": "Effect 0xED95",
+      "水属性伤害降低": "Water Damage Reduction",
+      "中毒时持续承受伤害降低": "Damage Taken Over Time (Poison)",
+      "精华槽增加量": "Amrita Gauge Charge",
+      "龙之忍者": "Dragon Ninja",
+      "闪避行动移动距离延长": "Dodge Range Up",
+      "近距离攻击伤害（无伤）": "Melee Damage (Unscathed)",
+      "获得武功": "Glory Obtained",
+      "箭矢持有数量上限": "Max Arrows",
+      "叱诧战国": "Hero of Troubled Times",
+      "水抗性": "Water Resistance",
+      "被攻击时承受的伤害降低（绝境）": "Damage Taken (Critical)",
+      "闪避动作精力消耗降低（绝境）": "Dodge Ki Consumption (Critical)",
+      "赋予水属性": "Imbue Water",
+      "伤害反映（爱用度）": "Damage Bonus (Familiarity)",
+      "忍术伤害": "Ninjutsu Damage",
+      "下段架式攻击伤害": "Low Attack Damage",
+      "箭弹命中时施加^09~DEBUFF~{}^09~~": "Effect 0xF61E",
+      "复制正面效果": "Copy Enhancement",
+      "获得精华增加灵力（无伤）": "Spirit Force Bonus (Unscathed Amrita)",
+      "肉户八重垣流": "Ultimate Defense",
+      "对无伤敌人造成的近距离伤害": "Melee Damage vs. Unscathed Enemy",
+      "使用药品时赋予^09~BUFF~{}^09~~": "Effect 0xC9BC",
+      "抗常世": "Yokai Realm Resistance",
+      "药物恢复体力效果": "Medicine Efficacy",
+      "炮弹持有数量上限": "Max Hand Cannon Ammo",
+      "敌人的持续伤害": "Damage Over Time",
+      "九十九化身持续时间延长": "Living Artifact Duration",
+      "伤害反映（打倒敌人数）": "Damage Bonus (Enemies Defeated)",
+      "阴阳术伤害": "Onmyo Magic Damage",
+      "崩解": "Break",
+      "以近距离攻击打倒敌人时恢复自己和我方体力": "Heal Self & Allies (Melee Kill)",
+      "防御反映（心）": "Defense Bonus (Heart)",
+      "使敌人陷入异常状态时增加灵力": "Spirit Force Bonus (Status Ailment)",
+      "承受的伤害降低（攻击动作期间）": "Damage Taken (While Attacking)",
+      "对伤害的反映（体）": "Damage Bonus (Constitution)",
+      "神机妙算": "Brilliant Strategem",
+      "强攻击灵力增加量": "Spirit Force Charge (Strong Attack)",
+      "灵力全满时的守护灵技伤害": "Guardian Spirit Skill Damage (Spirit Force Boost)",
+      "中段架式防御精力消耗降低": "Mid Guard Ki Consumption",
+      "追击与近身刺击赋予^09~BUFF~{}^09~~": "Effect 0xFB1D",
+      "精力反映（精华槽）": "Ki Bonus (Amrita Gauge)",
+      "造成水属性伤害时增加灵力": "Spirit Force Bonus (Water Damage)",
+      "武技吸取体力": "Life Drain (Martial Arts)",
+      "拿起远距离武器时的移动速度": "Movement Speed (Aiming Ranged Weapon)",
+      "枪弹持有数量上限": "Max Rifle Ammo",
+      "爱用度增加量": "Familiarity Bonus",
+      "迦具土的恩宠": "Grace of Kagutsuchi",
+      "对伤害的反映（心）": "Damage Bonus (Heart)",
+      "接招": "Block",
+      "中段架式攻击伤害": "Mid Attack Damage",
+      "地狱武器掉落率": "Crucible Weapon Drop Rate",
+      "灵力增加量（正面效果时）": "Spirit Force Charge (Enhanced)",
+      "赋予属性的持续时间延长": "Extended Elemental Weapon",
+      "^09~DEBUFF~{}^09~~状态持续时间": "Effect 0xF9C5",
+      "弓伤害": "Bow Damage",
+      "识破的判定时间延长": "Extended Evade Window",
+      "箭弹伤害（无伤）": "Projectile Damage (Unscathed)",
+      "灵力增加量（无伤）": "Spirit Force Charge (Unscathed)",
+      "对极近距离敌人的弓箭伤害": "Bow Damage (Close Range)",
+      "追击和近身刺击增加灵力": "Spirit Force Bonus (Final Blow/Grapple)",
+      "防御精力消耗降低": "Guard Ki Consumption",
+      "雷属性伤害降低": "Lightning Damage Reduction",
+      "陷入异常状态时降低承受的伤害": "Damage Taken (Ailing)",
+      "少彦名的恩宠": "Grace of Sukunahikona",
+      "空中攻击精力伤害": "Aerial Attack Ki Damage",
+      "行动精力消耗（负面效果时）": "Ki Consumption for Movement (Negative Effects)",
+      "火枪伤害": "Rifle Damage",
+      "承受的远距离伤害降低": "Projectile Damage Taken",
+      "赋予毒效果": "Imbue Poison",
+      "坂上党的骄傲": "Pride of the Sakanoue",
+      "下段武技精力伤害": "Low Stance Martial Art Ki Damage",
+      "造成属性伤害时吸取体力": "Life Drain (Elemental Damage)",
+      "建御名方的恩宠": "Grace of Takeminakata",
+      "攻击性能": "Base Attack",
+      "上段架式　攻击崩解力": "High Attack Break",
+      "对伤害的反映（武）": "Damage Bonus (Strength)",
+      "防御反映（刚）": "Defense Bonus (Stamina)",
+      "防御反映（精华槽）": "Defense Bonus (Amrita Gauge)",
+      "防御反映（智）": "Defense Bonus (Intellect)",
+      "^09~DEBUFF~{}^09~~状态无效": "Effect 0xED65",
+      "以守护灵技打倒敌人可回收灵力": "Efficient Guardian Spirit Skills",
+      "忍术槽增加量": "Ninjutsu Gauge Charge",
+      "防御反映（技）": "Defense Bonus (Skill)",
+      "弓精力伤害": "Bow Ki Damage",
+      "赋予双属性（雷、火）": "Dual Elements (Lightning & Fire)",
+      "恢复体力赋予^09~BUFF~{}^09~~": "Effect 0xE8A9",
+      "追击和近身刺击可恢复体力": "Life Drain (Final Blow/Grapple)",
+      "九十九化身槽减少（攻击动作中）": "Living Artifact Gauge Reduction (While Attacking)",
+      "守护灵技命中赋予^09~BUFF~{}^09~~": "Effect 0xD1F2",
+      "识破可增加灵力": "Increased Spirit Force (Evade)",
+      "九十九化身时造成的伤害增加": "Living Artifact Damage",
+      "伤害反映（敏捷）": "Damage Bonus (Agility)",
+      "勇士的真意": "Intentions of a Gallant Warrior",
+      "阴阳术命中时施加^09~DEBUFF~{}^09~~": "Effect 0xDFB4",
+      "速攻击崩解力": "Quick Attack Break",
+      "自得院流枪术": "Master of the Spear",
+      "毘沙门天的恩宠": "Grace of Vaisravana",
+      "刚之深奥": "Ultimate Stamina",
+      "不易被敌人发现": "Stealth",
+      "背后攻击灵力增加量": "Spirit Force Charge (Backstab)",
+      "持续性伤害不会导致死亡": "Tenacity (Damage Over Time)",
+      "伤害反映（精华槽）": "Damage Bonus (Amrita Gauge)",
+      "勇猛粗莽": "The Bold and the Boorish",
+      "不消耗使役符以外的阴阳术": "Untouched Onmyo Magic (Except Summoning Seals)",
+      "一难的解除时间延长": "Extended Curse Nullification",
+      "上段架式攻击吸取体力": "Life Drain (High Attack)",
+      "阴阳术术力反映（精华槽）": "Onmyo Magic Bonus (Amrita Gauge)",
+      "武技的持续时间（{}）": "Effect 0xF533",
+      "绝妙追杀": "Finishing Flair",
+      "不消耗箭弹": "Untouched Projectiles",
+      "弑兄觉悟": "A Deadly Conviction",
+      "对极近距离敌人的大炮伤害": "Hand Cannon Damage (Close Range)",
+      "交叉镰的体现": "The Crossed Sickles",
+      "武技精力伤害": "Martial Art Ki Damage",
+      "弁才天的恩宠": "Grace of Benzaiten",
+      "咒之深奥": "Ultimate Magic",
+      "箭弹的精力伤害": "Projectile Ki Damage",
+      "才智卓越": "Extraordinary Intelligence",
+      "防御精力消耗降低（绝境）": "Guard Ki Consumption (Critical)",
+      "速攻击吸取体力": "Life Drain (Quick Attack)",
+      "异常状态累积": "Status Ailment Accumulation",
+      "死亡时自动回收一部分精华": "Auto-Amrita Recovery",
+      "承受的伤害减半（无伤状态）": "Damage Taken Halved (Unscathed)",
+      "身处常世时恢复体力": "Life Recovery (Yokai Realm)",
+      "箭弹命中增加灵力": "Spirit Force Bonus (Projectiles)",
+      "赋予风属性": "Imbue Wind",
+      "连续攻击伤害增加": "Damage Bonus (Consecutive Attacks)",
+      "冲刺速度提升": "Dash Speed",
+      "下段架式攻击吸取体力": "Life Drain (Low Attack)",
+      "对精力耗尽敌人的近距离伤害": "Melee Damage vs. Winded Enemy",
+      "梦想一刀": "Single Sword's Reverie",
+      "接招（绝境）": "Block (Critical)",
+      "武器造成的火属性伤害": "Weapon-Dealt Fire Damage",
+      "赋予双属性（水、雷）": "Dual Elements (Water & Lightning)",
+      "防御时的属性攻击伤害降低": "Decreased Elemental Damage Taken (Guarding)",
+      "九十九化身结束时赋予^09~BUFF~{}^09~~": "Effect 0xE54E",
+      "属性附武伤害": "Elemental Weapon Damage",
+      "火属性伤害降低": "Fire Damage Reduction",
+      "近距离攻击伤害（地狱）": "Melee Damage (Crucible)",
+      "负面效果持续时间延长": "Extended Negative Effects",
+      "反映变化（武士）": "Transform Bonus (Samurai)",
+      "近距离攻击的灵力增加量": "Spirit Force Charge (Melee Attack)",
+      "赖光四天王之首": "First of the Four Guardians",
+      "攻击力": "Attack",
+      "防御反映（体）": "Defense Bonus (Constitution)",
+      "天下布武": "National Unity",
+      "下段架式防御精力消耗降低": "Low Guard Ki Consumption",
+      "近距离攻击吸取体力": "Life Drain (Melee Attack)",
+      "对伤害的反映（咒）": "Damage Bonus (Magic)",
+      "上段架式防御精力消耗降低": "High Guard Ki Consumption",
+      "源氏嫡系的威光": "Prestige of the Genji Bloodline",
+      "下段武技精力": "Low Stance Martial Art Ki Consumption",
+      "获得精华增加灵力（绝境）": "Spirit Force Bonus (Critical Amrita)",
+      "近距离攻击打倒敌人时恢复体力": "Life Drain (Melee Kill)",
+      "承受箭弹伤害时不会畏惧": "Stalwart (Projectiles)",
+      "中段武技精力": "Mid Stance Martial Art Ki Consumption",
+      "效果持续力": "Effect Duration",
+      "武技崩解力": "Martial Arts Break",
+      "空中承受的伤害": "Damage Taken in Midair",
+      "赤备的骄傲": "Pride of the Crimson Army",
+      "志那都彦的恩宠": "Grace of Shinatsuhiko",
+      "强攻击获得精华": "Gain Amrita (Strong Attack)",
+      "刚勇流离": "Valiant Wanderer",
+      "伤害反映（装备重量）": "Damage Bonus (Equipment Weight)",
+      "强攻击崩解力": "Strong Attack Break",
+      "感应敌人": "Enemy Sensor",
+      "武技伤害": "Martial Art Damage",
+      "格挡成功时解除负面效果": "Dispel Negative Effects (Deflect)",
+      "幸运（地狱）": "Luck (Crucible)",
+      "伤害反映（忍术威力）": "Damage Bonus (Ninjutsu Power)",
+      "合轴可继承稀有度": "Rarity Inheritance (Scroll Transference)",
+      "大绵津见的恩宠": "Grace of Owatatsumi",
+      "箭弹或道具命中增加灵力": "Spirit Force Bonus (Projectiles/Items)",
+      "造成火属性伤害时增加灵力": "Spirit Force Bonus (Fire Damage)",
+      "阴阳术命中增加灵力": "Spirit Force Bonus (Onmyo Magic Hit)",
+      "箭弹命中弱点时伤害": "Bullseye Bonus",
+      "狡狯忠臣": "Devious Loyalty",
+      "刺击伤害": "Thrust Damage",
+      "视死如归的赤备队": "The Red of Devotion",
+      "格挡反射远距离攻击": "Deflect Projectiles (Deflect)",
+      "暗杀伤害": "Assassination Damage",
+      "奇策百出": "Ingenious Schemer",
+      "地狱武器伤害": "Crucible Weapon Damage",
+      "精力归零时降低承受的伤害": "Damage Taken (Ki Depleted)",
+      "稻荷神的恩宠": "Grace of Inari",
+      "天钿女的恩宠": "Grace of Ame-no-Uzume",
+      "伊贺忍者首领": "Head of the Iga Ninja",
+      "大黑天的恩宠": "Grace of Daikokuten",
+      "上段架式攻击的精力消耗降低": "High Attack Ki Consumption",
+      "冲刺精力消耗降低（绝境）": "Dash Ki Consumption (Critical)",
+      "精髓并存（武士）": "Dual Mastery (Samurai)",
+      "不消耗道具": "Unlimited Items",
+      "田村大明神的庇佑": "The Protection of Tamura Shrine",
+      "独眼龙的野心": "One-Eyed Dragon's Ambition",
+      "组合效果的所需装备数": "Reduced Set Bonus Requirements",
+      "九十九化身时的属性伤害": "Elemental Damage (Living Artifact)",
+      "自动瞄准要害": "Auto-Target Weak Point",
+      "战国第一接班人": "Unifier of the Warring States",
+      "布袋尊的恩宠": "Grace of Hotei",
+      "龙神灵宝": "Dragon God's Sacred Treasure",
+      "中段武技伤害": "Mid Stance Martial Art Damage",
+      "通往地狱道的指引": "Path of the Demon",
+      "格挡的判定时间延长": "Extended Deflect Window",
+      "奇稻田姬的恩宠": "Grace of Kushinadahime",
+      "琼琼杵的恩宠": "Grace of Ninigi",
+      "七难八苦": "Seven Misfortunes, Eight Hardships",
+      "对极近距离敌人的火枪伤害": "Rifle Damage (Close Range)",
+      "命运一射": "The Fated Shot",
+      "太平基石": "Tranquil Foundations",
+      "中段武技精力伤害": "Mid Stance Martial Art Ki Damage",
+      "重义的谋将": "Righteous Strategist",
+      "追击和近身刺击伤害": "Final Blow/Grapple Damage",
+      "灵力增加量（绝境）": "Spirit Force Charge (Critical)",
+      "绝景哉": "Picturesque Scenery",
+      "上段武技精力": "High Stance Martial Art Ki Consumption",
+      "祓除常世增加灵力": "Spirit Force Bonus (Purification)",
+      "弓动作速度加快": "Bow Speed Up",
+      "实行祓除者": "Purifying Presence",
+      "成功识破时解除负面效果": "Dispel Negative Effects (Evade)",
+      "来自背后的伤害降低": "Backstab Damage Taken",
+      "着火时持续承受伤害降低": "Damage Taken Over Time (Fire)",
+      "天照大神的恩宠": "Grace of Amaterasu",
+      "伊邪那美的恩宠": "Grace of Izanami",
+      "一人当千之精锐": "Unmatched Warrior",
+      "空中攻击伤害": "Aerial Attack Damage",
+      "横行天下的倾奇者": "The Rightful Eccentric",
+      "智之深奥": "Ultimate Intellect",
+      "不消耗使役符": "Untouched Summoning Seals",
+      "梦之残映": "Shadows of a Dream",
+      "不消耗仙药": "Untouched Elixirs",
+      "强攻击解除异常状态": "Dispel Ailments (Strong Attack)",
+      "防御时精力恢复速度": "Guard Ki Recovery Speed",
+      "天下副将军": "Legendary Vice Shogun",
+      "下段武技伤害": "Low Stance Martial Art Damage",
+      "感应木灵": "Kodama Sensor",
+      "不动明王的恩宠": "Grace of Acala",
+      "太平先驱": "Herald of Peace",
+      "使用阴阳术时赋予^09~BUFF~{}^09~~": "Effect 0xD37D",
+      "武家政权之基石": "Founder of the Shogunate",
+      "对人战术": "Counter-Human Tactics",
+      "下段架式攻击的精力消耗降低": "Low Attack Ki Consumption",
+      "柳生表里剑": "Yagyu Double-Edged Sword",
+      "对攻击中敌人的近距离伤害": "Melee Damage vs. Attacking Enemy",
+      "使用仙药时增加灵力": "Spirit Force Bonus (Elixir)",
+      "经津主的恩宠": "Grace of Futsunushi",
+      "悲剧英雄": "The Tragic Hero",
+      "幸运（绝境）": "Luck (Critical)",
+      "福禄寿的恩宠": "Grace of Fukurokuju",
+      "今川执权": "Imagawa Regent",
+      "摩利支天的恩宠": "Grace of Marici",
+      "大力无双的勇僧": "Mighty Monk",
+      "下段架式　攻击崩解力": "Low Attack Break",
+      "受到敌人攻击时不会畏惧（绝境）": "Stalwart (Critical)",
+      "异常状态抗性": "Ailment Resistance",
+      "正面效果持续时间延长": "Extended Status Enhancements",
+      "军神的明鉴": "The God of War Looks Down",
+      "守护灵技灵力消耗减少": "Reduced Spirit Force Consumption",
+      "东国无双的荣耀": "Warrior of the East's Honor",
+      "不消耗枪弹与炮弹": "Unlimited Ammunition",
+      "独创战法": "The Triumph of Tranquility",
+      "上段武技精力伤害": "High Stance Martial Art Ki Damage",
+      "征讨伟勋": "Vanquisher",
+      "机关旋棍": "Tonfa Gun",
+      "通往天道的指引": "Path of the Gods",
+      "幻术异常状态累积": "Shadow Art Ailment Augmentation",
+      "惠比寿的恩宠": "Grace of Ebisu",
+      "忍术命中增加灵力": "Spirit Force Bonus (Ninjutsu Hit)",
+      "百鬼化身": "Demon Incarnate",
+      "柳生新阴流": "Yagyu's Shinkage Style",
+      "感应精华": "Amrita Sensor",
+      "神之祝子": "Servant of the Gods",
+      "豪放猛牛的勇武": "The Heroic Raging Bull",
+      "永不退缩者": "He Who Never Retreats",
+      "风魔的威名": "Famed Fuma",
+      "剑禅一致": "Sword and Zen as One",
+      "天下第一兵法": "Strategist of Legend",
+      "中段架式　攻击崩解力": "Mid Attack Break",
+      "烈火般的反骨": "Blazing Defiance",
+      "甲斐的副将": "Kai's Vice General",
+      "鞍马流剑术": "Kurama Swordmaster",
+      "获得魂核时恢复体力": "Life Recovery (Soul Core Gained)",
+      "灵力增加量反映（累积伤害）": "Spirit Force Charge Bonus (Cumulative Damage)",
+      "波澜万丈": "The Vicissitudes of Life",
+      "调和严正": "The Honor in Harmony",
+      "显净土真实": "The True Pure Land",
+      "不消耗{}": "Effect 0xFCFB",
+      "九十九化身时的耐久力": "Living Artifact Durability",
+      "真·龙剑": "True Dragon Sword",
+      "守护灵技命中敌人时施加^09~DEBUFF~{}^09~~": "Effect 0xE853",
+      "对妖战术": "Counter-Yokai Tactics",
+      "守护灵技伤害（绝境）": "Guardian Spirit Skill Damage (Critical)",
+      "通往畜生道的指引": "Path of the Beast",
+      "近距离攻击精力伤害（地狱）": "Melee Attack Ki Damage (Crucible)",
+      "箭弹贯穿": "Piercing Projectiles",
+      "九十九化身时的守护灵技伤害": "Guardian Spirit Skill Damage (Living Artifact)",
+      "感应宝物": "Treasure Sensor",
+      "怨恨盖世": "Matchless Resentment",
+      "拿起远距离武器时不会畏惧": "Stalwart (Aiming Ranged Weapon)",
+      "神君再临": "Advent of the Divine",
+      "体力恢复量": "Life Recovery Amount",
+      "十勇士之首": "Leader of the Ten Braves",
+      "思兼神的恩宠": "Grace of Omoikane",
+      "技之深奥": "Ultimate Skill",
+      "风流才智之士": "Exemplary Eye for Elegance",
+      "阴阳术道具的伤害（无伤）": "Onmyo Magic Damage (Unscathed)",
+      "对处于负面效果敌人的近距离伤害": "Melee Damage (Ailing Enemy)",
+      "过往名军师的智谋": "Tactician's Ingenuity",
+      "屠妖者": "Yokai Annihilator",
+      "西国无双的荣耀": "Warrior of the West's Honor",
+      "八幡神的恩宠": "Grace of Hachiman",
+      "寿老人的恩宠": "Grace of Jurojin",
+      "朝家守护": "Imperial Ward",
+      "武技的架开判定时间延长": "Extended Parry Window",
+      "打虎勇士": "Hunter of Tigers",
+      "心之深奥": "Ultimate Heart",
+      "武器造成的雷属性伤害": "Weapon-Dealt Lightning Damage",
+      "幻惑吞牛": "Master of Illusion",
+      "伊贺后裔": "Descendant of Iga",
+      "灵力增加量反映（精华槽）": "Spirit Force Charge Bonus (Amrita Gauge)",
+      "敌人精力耗尽时赋予^09~BUFF~{}^09~~": "Increased Damage Taken (Winded Enemy)",
+      "一射专心": "Straight and True",
+      "通往人道的指引": "Path of the Avaricious",
+      "阴阳术赋予的正面效果持续": "Status Enhancements Duration (Onmyo Magic)",
+      "月读的恩宠": "Grace of Tsukuyomi",
+      "黑色的异国武士": "Samurai from Dark Lands",
+      "杂贺的八咫乌": "Saika's Yatagarasu",
+      "阴阳术施加的负面效果持续时间": "Negative Effect Duration (Onmyo Magic)",
+      "伤害反映（幸运）": "Damage Bonus (Luck)",
+      "日本第一的勇猛": "Japan's Bravest",
+      "大一大万大吉": "One for All, All for One",
+      "防御反映（武）": "Defense Bonus (Strength)",
+      "仰不愧于天": "Righteous in the Eyes of Heaven",
+      "弑君之罪": "The Crime of Patricide",
+      "依打倒敌人的数量降低承受的伤害": "Defense Bonus (Enemies Defeated)",
+      "幕府密探总管": "Chief of Imperial Secrets",
+      "伤害反映（弓伤害）": "Damage Bonus (Bow Damage)",
+      "高岛流炮术": "Master of Gunnery",
+      "伊达家忠臣之鉴": "True Date Family Loyalist",
+      "精力恢复反映（精华槽）": "Ki Recovery Bonus (Amrita Gauge)",
+      "天顶烈阳": "Mid-Heaven's Light",
+      "土佐能人": "Champion of Tosa",
+      "反映变化（忍者）": "Transform Bonus (Ninja)",
+      "三恶妄为": "Profligate Sinner",
+      "素盏呜尊的恩宠": "Grace of Susano",
+      "通往修罗道的指引": "Path of the Ruthless",
+      "仁王的化身": "Nioh Incarnate",
+      "月下弄笛": "Moonlight Flutist",
+      "加贺百万石的荣华": "Prosperity of One Million Koku",
+      "千成之愿": "A Multitude of Hopes",
+      "回收射偏的箭弹": "Retrieve Stray Projectiles",
+      "伤害反映（负面效果数）": "Damage Bonus (Negative Effects)",
+      "风林火山": "Swift Silence and Daring Defense",
+      "无与伦比的名枪手": "Master of Spears",
+      "聪慧心鬼": "Cunning Spirit",
+      "伊贺越复仇的主导者": "Iga Escape Conspirator",
+      "体之深奥": "Ultimate Constitution",
+      "开耶姬的恩宠": "Grace of Sakuyahime",
+      "武之深奥": "Ultimate Strength",
+      "大国主的恩宠": "Grace of Okuninushi",
+      "和谐严明": "Onmyo Austerity",
+      "通往饿鬼道的指引": "Path of the Ravenous",
+      "殿军名将": "Commander of the Rearguard",
+      "英勇猿夜叉": "Saruyasha's Valor",
+      "井伊赤鬼": "Ii, the Red Demon",
+      "怪童丸": "Kintaro",
+      "十一面观音的庇佑": "The Protection of Kannon",
+      "鸿鹄之志": "Appetite for Ascension",
+      "里体舍流总帅": "Urataisha Leader",
+      "持续伤害降低": "Damage Taken Over Time",
+      "九头龙的恩宠": "Grace of Kuzuryu",
+      "剑豪将军的威武": "A Master Swordsman's Power",
+      "精力耗尽的恢复时间缩短": "Faster Winded Recovery",
+      "精髓并存（忍者）": "Dual Mastery (Ninja)",
+      "祸津日的恩宠": "Grace of Magatsuhi",
+      "破盔豪杰": "Unrelenting Grasp",
+      "凋零勇将": "General of Ruin",
+      "机智勇士": "Quick-Witted Courage",
+      "建御雷的恩宠": "Grace of Takemikazuchi",
+      "属性伤害无效": "Nullify Elemental Damage",
+      "河边妖怪众头目": "Ruler of the Riverside Yokai",
+      "天手力男的恩宠": "Grace of Tajikarao",
+      "三河武士之鉴": "Legendary Mikawa Warrior",
+      "神器以上装备掉落率": "Divine+ Item Drop Rate",
+      "二心将领": "The Duplicitous General",
+      "大炮动作速度加快": "Hand Cannon Speed Up",
+      "发动守护灵技达成残心": "Guardian Spirit Skill Ki Pulse",
+      "弘法利生": "Devout Practitioner",
+      "猎妖者": "Yokai Slayer",
+      "精髓并存（共通）": "Dual Mastery (Common)",
+      "猎杀妖怪者": "Yokai Slayer",
+      "薄命之剑": "Sword of Misfortune",
+      "敌人精力耗尽时赋予受到伤害增加": "Increased Damage Taken (Winded Enemy)",
+      "一反木棉": "Flying Bolt",
+      "一目连": "Ichimokuren",
+      "两面宿傩": "Ryomen Sukuna",
+      "中根正盛": "Nakane Masamori",
+      "丸桥忠弥": "Marubashi Chuya",
+      "乌鸦天狗": "Karasu Tengu",
+      "亡骸武者": "Skeleton Warrior",
+      "亲鸾": "Shinran",
+      "人鱼": "Mermaid",
+      "以津真天": "Itsumade",
+      "伊东一刀斋": "Ito Ittosai",
+      "传林坊赖庆": "Denrinbo Raikei",
+      "傲岸鬼": "Demon of Pride",
+      "内藤昌丰": "Naito Masatoyo",
+      "冒疾鬼": "Demon of Envy",
+      "冰柱女": "Tsurara-onna",
+      "冲田总司": "Okita Soji",
+      "前田光高": "Maeda Mitsutaka",
+      "千眼方术士": "All-Seeing Mage",
+      "叛军浪士": "Rebel Ronin",
+      "古笼火": "Koroka",
+      "土方岁三": "Hijikata Toshizo",
+      "地狱蜂": "Crucible Wasp",
+      "垢尝": "Akaname",
+      "外道兵": "Aberrant Soldier",
+      "夜叉": "Yasha",
+      "夜行兵": "Yagyo Soldier",
+      "大天狗": "Great Tengu",
+      "大蛤蟆": "Giant Toad",
+      "太原雪斋": "Taigen Sessai",
+      "女郎蜘蛛": "Joro-gumo",
+      "妖蟹": "Bakegani",
+      "妖鬼": "Yoki",
+      "姑获鸟": "Ubume",
+      "子泣爷爷": "Konaki-Jiji",
+      "小海坊主": "Lesser Umi-bozu",
+      "山县昌景（人形）": "Yamagata Masakage",
+      "山县昌景（妖怪形态）": "Yamagata Masakage",
+      "山姥": "Yamanba",
+      "山彦": "Yamabiko",
+      "山狗": "Yamainu",
+      "山田真龙轩": "Yamada Shinryuken",
+      "巴御前": "Tomoe Gozen",
+      "幕府兵": "Shogunate Soldier",
+      "幽鬼": "Grudge Spirit",
+      "异想的贝伦加莉亚": "Berenguela the Whimsical",
+      "德川国松": "Tokugawa Kunimatsu",
+      "德川庆喜": "Tokugawa Yoshinobu",
+      "忍者": "Ninja",
+      "忍者妖鬼": "Ninja Yoki",
+      "怨嗟武人": "Aggrieved Warrior",
+      "怨灵鬼": "Onryoki",
+      "惧鬼": "Otoroshi",
+      "执心鬼": "Demon of Obsession",
+      "撒沙婆婆": "Sunakake-baba",
+      "敷次郎": "Dweller",
+      "斋藤一": "Saito Hajime",
+      "斋藤福": "Saito Fuku",
+      "斩鬼武士": "Demon Slayer",
+      "新选组·服部武雄": "Shinsengumi Member Hattori Takeo",
+      "新选组队士": "Shinsengumi Member",
+      "旗本武士": "Vassal",
+      "服部半藏（先代／父（鬼半藏））": "Hattori Hanzo",
+      "服部半藏（现任／子）": "Hattori Hanzo",
+      "本多忠胜": "Honda Tadakatsu",
+      "朱盆": "Shunobon",
+      "杉谷善住坊": "Sugitani Zenjubo",
+      "柳生十兵卫": "Yagyu Jubei",
+      "柳生宗矩": "Yagyu Munenori",
+      "梶原景时": "Kajiwara Kagetoki",
+      "棘饿鬼": "Thorned Gaki",
+      "武田信玄（人形）": "Takeda Shingen",
+      "武田信玄（妖怪形态）": "Takeda Shingen",
+      "武田士兵": "Takeda Soldier",
+      "比留呼（人形）": "Hiruko",
+      "比留呼（古代妖怪形态）": "Hiruko",
+      "比留呼（江户妖怪形态）": "Hiruko",
+      "毛利玄达": "Mori Gentatsu",
+      "永仓新八": "Nagakura Shinpachi",
+      "河原十郎兵卫": "Kawara Jurobei",
+      "河童": "Kappa",
+      "油伞妖": "Karakasa Umbrella",
+      "泽村保佑": "Sawamura Yasusuke",
+      "涂佛": "Nuribotoke",
+      "源赖朝": "Minamoto no Yoritomo",
+      "濡女": "Nure-onna",
+      "火车": "Kasha",
+      "灵窟修验者": "Cavern Ascetic",
+      "炼造武士": "Fabricated Warrior",
+      "炼金术师": "Alchemist",
+      "烟烟罗": "Enenra",
+      "熊谷直义": "Kumagai Naoyoshi",
+      "牛头鬼": "Gozuki",
+      "狂骨": "Kyokotsu",
+      "独眼小僧": "One-eyed Imp",
+      "独眼鬼": "One-eyed Oni",
+      "独脚踏鞴": "Ippon-Datara",
+      "狱卒鬼": "Jailer Oni",
+      "猥裸": "Waira",
+      "猿鬼": "Enki",
+      "田鹤夫人": "Otazu no Kata",
+      "由井正雪": "Yui Shosetsu",
+      "盗贼": "Outlaw",
+      "石川五右卫门": "Ishikawa Goemon",
+      "碓井贞光": "Usui Sadamitsu",
+      "祸津武士": "Magatsu Warrior",
+      "穴山信君": "Anayama Nobutada",
+      "穴泽盛秀": "Anazawa Morihide",
+      "绿影剑鬼": "Green Shadow's Blade",
+      "肉户景俊": "Shishido Kagetoshi",
+      "肉瘤怪": "Nuppeppo",
+      "茨木童子": "Ibaraki Doji",
+      "草薙": "Kusanagi",
+      "荒木又右卫门": "Araki Mataemon",
+      "蛇骨婆": "Jakotsu-baba",
+      "蛤蟆附身": "Gamatsuki",
+      "蜘蛛": "Spider",
+      "血刀修罗": "Bloodedge Demon",
+      "血烟阿银": "Blood-Spurting Ogin",
+      "见越入道": "Mikoshi Nyudo",
+      "赤河童": "Red Kappa",
+      "轮入道": "Wheelmonk",
+      "近藤勇": "Kondo Isami",
+      "那须与一": "Nasu no Yoichi",
+      "邪马台国兵": "Yamatai Soldier",
+      "野槌": "Nozuchi",
+      "野武士": "Rogue",
+      "金井半兵卫（人形）": "Kanai Hanbei",
+      "金井半兵卫（妖怪形态）": "Kanai Hanbei",
+      "铁鼠": "Tesso",
+      "镰仓武士": "Kamakura Warrior",
+      "镰鼬": "Kamaitachi",
+      "防人": "Sentry",
+      "阴摩罗鬼": "Onmoraki",
+      "阴阳师": "Onmyo Mage",
+      "雪入道": "Snowclops",
+      "雷兽": "Raiju",
+      "风魔小太郎": "Fuma Kotaro",
+      "飞缘魔": "Hino-enma",
+      "饿鬼": "Gaki",
+      "饿鬼大将": "Gaki Chief",
+      "马场信春": "Baba Nobuharu",
+      "马头鬼": "Mezuki",
+      "高坂昌信": "Kosaka Masanobu",
+      "高岛秋帆": "Takashima Shuhan",
+      "高杉晋作": "Takasugi Shinsaku",
+      "高桥泥舟": "Takahashi Deishu",
+      "鬼火": "Oni-bi",
+      "一难横行（刀）": "Cursed Cavalcade (Swords)",
+      "一难横行（双刀）": "Cursed Cavalcade (Dual Swords)",
+      "一难横行（大太刀）": "Cursed Cavalcade (Odachi)",
+      "一难横行（头部防具）": "Cursed Cavalcade (Head Armor)",
+      "一难横行（忍刀）": "Cursed Cavalcade (Ninja Swords)",
+      "一难横行（忍双刀）": "Cursed Cavalcade (Dual Ninja Swords)",
+      "一难横行（忍盾矛）": "Cursed Cavalcade (Ninja Hoko & Shields)",
+      "一难横行（手斧）": "Cursed Cavalcade (Hatchets)",
+      "一难横行（手甲钩）": "Cursed Cavalcade (Talons)",
+      "一难横行（手甲）": "Cursed Cavalcade (Cestuses)",
+      "一难横行（手臂防具）": "Cursed Cavalcade (Arm Guards)",
+      "一难横行（斧）": "Cursed Cavalcade (Axes)",
+      "一难横行（旋棍）": "Cursed Cavalcade (Tonfa)",
+      "一难横行（机关棍）": "Cursed Cavalcade (Splitstaves)",
+      "一难横行（枪）": "Cursed Cavalcade (Spears)",
+      "一难横行（盾矛）": "Cursed Cavalcade (Hoko & Shields)",
+      "一难横行（腿部防具）": "Cursed Cavalcade (Leg Guards)",
+      "一难横行（薙刀镰）": "Cursed Cavalcade (Switchglaives)",
+      "一难横行（足部防具）": "Cursed Cavalcade (Foot Guards)",
+      "一难横行（身体防具）": "Cursed Cavalcade (Torso Armor)",
+      "一难横行（远距离武器）": "Cursed Cavalcade (Ranged Weapon)",
+      "一难横行（配件）": "Cursed Cavalcade (Accessories)",
+      "一难横行（锁镰）": "Cursed Cavalcade (Kusarigama)",
+      "优先掉落率上升（不动明王的恩宠）": "Lucky Drop Rate Up (Grace of Acala)",
+      "优先掉落率上升（九头龙的恩宠）": "Lucky Drop Rate Up (Grace of Kuzuryu)",
+      "优先掉落率上升（八幡神的恩宠）": "Lucky Drop Rate Up (Grace of Hachiman)",
+      "优先掉落率上升（大绵津见的恩宠）": "Lucky Drop Rate Up (Grace of Owatatsumi)",
+      "优先掉落率上升（大黑天的恩宠）": "Lucky Drop Rate Up (Grace of Daikokuten)",
+      "优先掉落率上升（天照大神的恩宠）": "Lucky Drop Rate Up (Grace of Amaterasu)",
+      "优先掉落率上升（天钿女的恩宠）": "Lucky Drop Rate Up (Grace of Ame-no-Uzume)",
+      "优先掉落率上升（寿老人的恩宠）": "Lucky Drop Rate Up (Grace of Jurojin)",
+      "优先掉落率上升（布袋尊的恩宠）": "Lucky Drop Rate Up (Grace of Hotei)",
+      "优先掉落率上升（建御雷的恩宠）": "Lucky Drop Rate Up (Grace of Takemikazuchi)",
+      "优先掉落率上升（弁才天的恩宠）": "Lucky Drop Rate Up (Grace of Benzaiten)",
+      "优先掉落率上升（惠比寿的恩宠）": "Lucky Drop Rate Up (Grace of Ebisu)",
+      "优先掉落率上升（摩利支天的恩宠）": "Lucky Drop Rate Up (Grace of Marici)",
+      "优先掉落率上升（月读的恩宠）": "Lucky Drop Rate Up (Grace of Tsukuyomi)",
+      "优先掉落率上升（毘沙门天的恩宠）": "Lucky Drop Rate Up (Grace of Vaisravana)",
+      "优先掉落率上升（祸津日的恩宠）": "Lucky Drop Rate Up (Grace of Magatsuhi)",
+      "优先掉落率上升（福禄寿的恩宠）": "Lucky Drop Rate Up (Grace of Fukurokuju)",
+      "优先掉落率上升（稻荷神的恩宠）": "Lucky Drop Rate Up (Grace of Inari)",
+      "优先掉落率上升（素盏呜尊的恩宠）": "Lucky Drop Rate Up (Grace of Susano)",
+      "优先掉落率上升（迦具土的恩宠）": "Lucky Drop Rate Up (Grace of Kagutsuchi)",
+      "同行者（卑弥呼）": "Companion (Himiko)",
+      "同行者（德川国松）": "Companion (Tokugawa Kunimatsu)",
+      "同行者（德川家康）": "Companion (Tokugawa Ieyasu)",
+      "同行者（服部半藏）": "Companion (Hattori Hanzo)",
+      "同行者（本多忠胜）": "Companion (Honda Tadakatsu)",
+      "同行者（柳生十兵卫）": "Companion (Yagyu Jubei)",
+      "同行者（柳生宗矩）": "Companion (Yagyu Munenori)",
+      "同行者（梶原景时）": "Companion (Kajiwara Kagetoki)",
+      "同行者（源义经）": "Companion (Minamoto no Yoshitsune)",
+      "同行者（藤堂平助）": "Companion (Todo Heisuke)",
+      "同行者（风魔小太郎）": "Companion (Fuma Kotaro)",
+      "同行者（高杉晋作）": "Companion (Takasugi Shinsaku)",
+      "同行者（龙麻吕）": "Companion (Tatsumaro)",
+      "圆猫之法": "Pufferpuss Technique",
+      "威猛强敌": "Enemy Rampage",
+      "属性伤害与异常状态累积增加": "Elemental Damage and Status Ailment Build-up Boost",
+      "正面与负面效果强化": "Status Enhancement and Negative Effect Boost",
+      "灵力槽逐渐减少·积攒量增加": "Spirit Force Gauge Drain/Charge Bonus",
+      "神器掉落率上升": "Divine Item Drop Rate Up",
+      "移动加速": "Faster Movement",
+      "精力恢复强化": "Faster Ki Recovery",
+      "自动发动（从水符）": "Auto Trigger (Water Familiar Talisman)",
+      "自动发动（从火符）": "Auto Trigger (Fire Familiar Talisman)",
+      "自动发动（从雷符）": "Auto Trigger (Lightning Familiar Talisman)",
+      "自动发动（从风符）": "Auto Trigger (Wind Familiar Talisman)",
+      "自动发动（修罗符）": "Auto Trigger (Carnage Talisman)",
+      "自动发动（养身符）": "Auto Trigger (Rejuvenation Talisman)",
+      "自动发动（刚力符）": "Auto Trigger (Power Talisman)",
+      "自动发动（召水符）": "Auto Trigger (Water Talisman)",
+      "自动发动（召火符）": "Auto Trigger (Fire Talisman)",
+      "自动发动（召雷符）": "Auto Trigger (Lightning Talisman)",
+      "自动发动（召风符）": "Auto Trigger (Wind Talisman)",
+      "自动发动（回生符）": "Auto Trigger (Preservation Talisman)",
+      "自动发动（夺灵符）": "Auto Trigger (Extraction Talisman)",
+      "自动发动（拳力符）": "Auto Trigger (Talisman of the Fist)",
+      "自动发动（斥风符）": "Auto Trigger (Gust Talisman)",
+      "自动发动（斩冲符）": "Auto Trigger (Cutting Blast Talisman)",
+      "自动发动（昂灵符）": "Auto Trigger (Pleiades Talisman)",
+      "自动发动（未识别阴阳术（原生编号 0x3011，可生成））": "Auto Trigger (Item 0x3011)",
+      "自动发动（波动符）": "Auto Trigger (Shockwave Talisman)",
+      "自动发动（神箭符）": "Auto Trigger (Blessed Bolt Talisman)",
+      "自动发动（禁水符）": "Auto Trigger (Waterstop Talisman)",
+      "自动发动（禁火符）": "Auto Trigger (Firestop Talisman)",
+      "自动发动（禁雷符）": "Auto Trigger (Lightningstop Talisman)",
+      "自动发动（禁风符）": "Auto Trigger (Windstop Talisman)",
+      "自动发动（粹然符）": "Auto Trigger (Sanctity Talisman)",
+      "自动发动（迅足符）": "Auto Trigger (Strider Talisman)",
+      "自动发动（金刚符）": "Auto Trigger (Steel Talisman)",
+      "自动恢复阴阳术与箭弹": "Onmyo Magic and Projectile Auto-Recovery",
+      "获得金钱增加": "Income Boost",
+      "赋予吸取体力": "Life Drain Enhancement",
+      "追击和近身刺击伤害增加": "Increased Final Blow/Grapple Damage",
+      "造成的水属性伤害增加": "Increased Water Damage Dealt",
+      "造成的火属性伤害增加": "Increased Fire Damage Dealt",
+      "造成的雷属性伤害增加": "Increased Lightning Damage Dealt",
+      "造成的风属性伤害增加": "Increased Wind Damage Dealt",
+      "魂核掉落率上升": "Soul Core Drop Rate Up",
+      "地狱": "The Crucible",
+      "无地形效果": "No terrain effects",
+      "地狱 + 火": "The Crucible + Scorched",
+      "恶臭": "Stench",
+      "地狱 + 瘴血": "The Crucible + Foulblooded",
+      "包含地狱": "Contains The Crucible"
+    },
+    "ja-JP": {
+      "备用": "ダミー",
+      "未完成的杰作": "未完の大作",
+      "灵力增加量": "霊力加算量",
+      "获得金钱": "獲得金",
+      "装备品掉落率": "装備品ドロップ率",
+      "赋予雷属性": "雷属性付与",
+      "造成水属性伤害时吸取体力": "水ダメージを与えると体力吸収",
+      "阴阳术　术力": "陰陽術 術力",
+      "火枪动作速度加快": "動作短縮（銃）",
+      "绝境时赋予^09~BUFF~{}^09~~": "効果 0xFD0F",
+      "成功识破时^09~BUFF~{}^09~~": "効果 0xEAC1",
+      "属性攻击伤害": "属性ダメージ",
+      "获得精华": "獲得アムリタ",
+      "造成风属性伤害时吸取体力": "風ダメージを与えると体力吸収",
+      "体力恢复量（地狱）": "体力回復量（地獄）",
+      "坚忍度": "頑強さ",
+      "火属性伤害": "火ダメージ",
+      "雷属性伤害": "雷ダメージ",
+      "速攻击精力消耗降低": "速い攻撃の気力",
+      "背后攻击伤害": "背後攻撃ダメージ",
+      "猿田彦的恩宠": "サルタヒコの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "近距离攻击伤害（绝境）": "近接ダメージ（窮地）",
+      "伊邪那岐的恩宠": "イザナギの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "守护灵技的精力伤害": "守護霊技の気力ダメージ",
+      "箭弹命中时召唤千千古": "矢弾命中で千々古召喚",
+      "阴阳术命中赋予^09~BUFF~{}^09~~": "効果 0xF087",
+      "强攻击精力消耗降低": "強い攻撃の気力",
+      "赋予双属性（火、水）": "二属性付与（火・水）",
+      "速攻击伤害": "速い攻撃のダメージ",
+      "阴阳术精力伤害": "陰陽術の気力ダメージ",
+      "远距离伤害": "遠距離ダメージ",
+      "{}的持有上限": "効果 0xF72D",
+      "近距离攻击伤害": "近接ダメージ",
+      "近距离攻击精力伤害": "近接攻撃の気力ダメージ",
+      "箭弹命中弱点可恢复体力": "矢弾の急所命中で体力回復",
+      "毒抗性": "毒耐性",
+      "残心初始量": "残心初期量",
+      "跳跃的精力": "ジャンプの気力",
+      "使敌人陷入^09~DEBUFF~{}^09~~状态时精华槽增加": "効果 0xF575",
+      "承受伤害增加灵力": "被ダメージで霊力加算",
+      "神宝掉落率": "神宝のドロップ率",
+      "晴明御灵": "晴明御霊",
+      "伤害反映（阴阳术术力）": "ダメージ反映（陰陽術術力）",
+      "火枪精力伤害": "銃の気力ダメージ",
+      "祓除常世可恢复体力": "常世祓いで体力回復",
+      "造成雷属性伤害时增加灵力": "雷ダメージを与えると霊力加算",
+      "获得精华（地狱）": "獲得アムリタ（地獄）",
+      "大炮精力伤害": "大筒の気力ダメージ",
+      "麻痹抗性": "麻痺耐性",
+      "使敌人陷入^09~DEBUFF~{}^09~~状态时增加灵力": "効果 0xFBAA",
+      "吸收精华可恢复体力": "アムリタ吸収で体力回復",
+      "精力恢复速度": "気力回復速度",
+      "对伤害的反映（智）": "ダメージ反映（智）",
+      "造成火属性伤害时吸取体力": "火ダメージを与えると体力吸収",
+      "防御力": "防御力",
+      "被攻击时承受的伤害降低": "攻撃の被ダメージ",
+      "武技精力消耗降低": "武技の気力",
+      "忍术造成的精力伤害": "忍術の気力ダメージ",
+      "格挡可增加灵力": "捌きで霊力増加",
+      "灵力增加量（负面效果时）": "霊力加算量（不利効果中）",
+      "造成风属性伤害时增加灵力": "風ダメージを与えると霊力加算",
+      "雷抗性": "雷耐性",
+      "敌人的^09~DEBUFF~{}^09~~状态累积": "効果 0xFB94",
+      "属性攻击伤害降低": "属性ダメージ軽減",
+      "忍术伤害吸取体力": "忍術命中で体力吸収",
+      "幸运": "幸運",
+      "水属性伤害": "水ダメージ",
+      "对伤害的反映（刚）": "ダメージ反映（剛）",
+      "获得精华增加灵力": "アムリタ獲得で霊力加算",
+      "造成雷属性伤害时吸取体力": "雷ダメージを与えると体力吸収",
+      "灵力增加量（地狱）": "霊力加算量（地獄）",
+      "中段架式攻击的精力消耗降低": "中段攻撃の気力",
+      "祓除常世赋予^09~BUFF~{}^09~~": "効果 0xFFDD",
+      "风抗性": "風耐性",
+      "灵力": "霊力",
+      "精力恢复速度上升（无伤）": "気力回復速度（無傷）",
+      "对处于^09~DEBUFF~{}^09~~状态敌人的守护灵技伤害": "効果 0xF6E1",
+      "打倒敌人时赋予^09~BUFF~{}^09~~": "効果 0xFFE7",
+      "闪避动作的无敌时间延长": "回避行動の無敵時間延長",
+      "陷入异常状态时赋予^09~BUFF~{}^09~~": "効果 0xFEBC",
+      "闪避动作精力消耗降低": "回避行動の気力",
+      "武技灵力增加量": "武技の霊力加算量",
+      "空手攻击时赋予^09~BUFF~{}^09~~": "効果 0xD8BD",
+      "中段架式攻击吸取体力": "中段攻撃で体力吸収",
+      "空手攻击伤害": "素手攻撃ダメージ",
+      "道具掉落率": "ドロップ率",
+      "强攻击伤害": "強い攻撃のダメージ",
+      "对处于^09~DEBUFF~{}^09~~状态敌人的精力伤害": "効果 0xF4F0",
+      "奥义两立（{}）": "効果 0xFD7B",
+      "对防御力的反映（咒）": "防御反映（呪）",
+      "格挡成功时赋予^09~BUFF~{}^09~~": "効果 0xFB1A",
+      "大炮伤害": "大筒ダメージ",
+      "对处于^09~DEBUFF~{}^09~~状态敌人的近距离伤害": "効果 0xFD51",
+      "吸收精华后赋予^09~BUFF~{}^09~~": "効果 0xFF27",
+      "{}计量槽增加量": "効果 0xFDBD",
+      "防御性能": "防御性能",
+      "赋予麻痹效果": "麻痺付与",
+      "精力恢复速度（绝境）": "気力回復速度（窮地）",
+      "{}造成的伤害": "効果 0xF7D3",
+      "体力": "体力",
+      "强攻击精力伤害": "強い攻撃の気力ダメージ",
+      "名门巨星": "名門の巨星",
+      "残心精力恢复量": "残心の気力回復量",
+      "守护灵技命中可吸取体力": "守護霊技命中で体力吸収",
+      "箭弹命中可恢复体力": "矢弾命中で体力回復",
+      "近距离攻击精力消耗降低（绝境）": "近接攻撃の気力（窮地）",
+      "幸运反映（精华槽）": "幸運反映（アムリタゲージ）",
+      "大山津见的恩宠": "オオヤマツミの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "强攻击吸取体力": "強い攻撃で体力吸収",
+      "精力": "気力",
+      "赋予火属性": "火属性付与",
+      "魂核掉落率": "魂代ドロップ率",
+      "守护灵技的伤害": "守護霊技のダメージ",
+      "阴阳术伤害吸取体力": "陰陽術命中で体力吸収",
+      "对伤害的反映（技）": "ダメージ反映（技）",
+      "火抗性": "火耐性",
+      "九十九化身结束时恢复体力": "九十九化身終了時に体力回復",
+      "武技成功时恢复精力（{}）": "効果 0xC69A",
+      "上段架式攻击伤害": "上段攻撃のダメージ",
+      "柳生的暗行者": "^20~default~^FE~RUBY~^21~default~柳生^FF~RUBY,やぎゅう~の^20~default~^FE~RUBY~^21~default~影働^FF~RUBY,かげばたら~き",
+      "上段武技伤害": "上段武技のダメージ",
+      "近距离攻击的精力消耗降低": "近接攻撃の気力",
+      "仙药掉落率": "仙薬ドロップ率",
+      "忍术命中赋予^09~BUFF~{}^09~~": "効果 0xDD57",
+      "冲刺精力消耗降低": "ダッシュの気力",
+      "死亡时自动回收刀冢": "落命時、刀塚を自動回収",
+      "精力受到攻击降至50%以下时赋予^09~BUFF~{}^09~~": "効果 0xF0A7",
+      "承受精力伤害": "被気力ダメージ",
+      "对尸狂造成的伤害": "屍狂いへのダメージ",
+      "武器造成的水属性伤害": "武器で与える水ダメージ",
+      "负面效果持续时间缩短": "不利効果の持続",
+      "风属性伤害": "風ダメージ",
+      "风属性伤害降低": "風ダメージ軽減",
+      "攻击处于^09~DEBUFF~{}^09~~状态的敌人增加灵力": "効果 0xED95",
+      "水属性伤害降低": "水ダメージ軽減",
+      "中毒时持续承受伤害降低": "毒の継続ダメージ",
+      "精华槽增加量": "アムリタゲージの加算量",
+      "龙之忍者": "龍の忍者",
+      "闪避行动移动距离延长": "回避行動の移動距離延長",
+      "近距离攻击伤害（无伤）": "近接ダメージ（無傷）",
+      "获得武功": "獲得武功",
+      "箭矢持有数量上限": "矢の所持数上限",
+      "叱诧战国": "戦国の風雲児",
+      "水抗性": "水耐性",
+      "被攻击时承受的伤害降低（绝境）": "攻撃の被ダメージ（窮地）",
+      "闪避动作精力消耗降低（绝境）": "回避行動の気力（窮地）",
+      "赋予水属性": "水属性付与",
+      "伤害反映（爱用度）": "ダメージ反映（愛用度）",
+      "忍术伤害": "忍術ダメージ",
+      "下段架式攻击伤害": "下段攻撃のダメージ",
+      "箭弹命中时施加^09~DEBUFF~{}^09~~": "効果 0xF61E",
+      "复制正面效果": "有利効果の複写",
+      "获得精华增加灵力（无伤）": "アムリタ獲得で霊力加算（無傷）",
+      "肉户八重垣流": "^20~default~^FE~RUBY~^21~default~宍戸八重垣流^FF~RUBY,ししどやえがきりゅう~",
+      "对无伤敌人造成的近距离伤害": "無傷の敵への近接ダメージ",
+      "使用药品时赋予^09~BUFF~{}^09~~": "効果 0xC9BC",
+      "抗常世": "対常世",
+      "药物恢复体力效果": "薬の体力回復効果",
+      "炮弹持有数量上限": "砲弾の所持数上限",
+      "敌人的持续伤害": "敵の継続ダメージ",
+      "九十九化身持续时间延长": "九十九化身の持続時間延長",
+      "伤害反映（打倒敌人数）": "ダメージ反映（倒した敵の数）",
+      "阴阳术伤害": "陰陽術ダメージ",
+      "崩解": "崩し",
+      "以近距离攻击打倒敌人时恢复自己和我方体力": "近接攻撃で敵を倒すと自分と味方の体力回復",
+      "防御反映（心）": "防御反映（心）",
+      "使敌人陷入异常状态时增加灵力": "敵を状態異常にすると霊力加算",
+      "承受的伤害降低（攻击动作期间）": "攻撃動作中の被ダメージ",
+      "对伤害的反映（体）": "ダメージ反映（体）",
+      "神机妙算": "神算鬼謀",
+      "强攻击灵力增加量": "強い攻撃の霊力加算量",
+      "灵力全满时的守护灵技伤害": "霊力最大時の守護霊技ダメージ",
+      "中段架式防御精力消耗降低": "中段構え中ガードの気力",
+      "追击与近身刺击赋予^09~BUFF~{}^09~~": "効果 0xFB1D",
+      "精力反映（精华槽）": "気力反映（アムリタゲージ）",
+      "造成水属性伤害时增加灵力": "水ダメージを与えると霊力加算",
+      "武技吸取体力": "武技で体力吸収",
+      "拿起远距离武器时的移动速度": "遠距離武器構え中の移動速度",
+      "枪弹持有数量上限": "銃弾の所持数上限",
+      "爱用度增加量": "愛用度の加算量",
+      "迦具土的恩宠": "カグツチの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "对伤害的反映（心）": "ダメージ反映（心）",
+      "接招": "受け",
+      "中段架式攻击伤害": "中段攻撃のダメージ",
+      "地狱武器掉落率": "地獄武器ドロップ率",
+      "灵力增加量（正面效果时）": "霊力加算量（有利効果中）",
+      "赋予属性的持续时间延长": "属性付与の持続",
+      "^09~DEBUFF~{}^09~~状态持续时间": "効果 0xF9C5",
+      "弓伤害": "弓ダメージ",
+      "识破的判定时间延长": "見切りの成功猶予延長",
+      "箭弹伤害（无伤）": "矢弾のダメージ（無傷）",
+      "灵力增加量（无伤）": "霊力加算量（無傷）",
+      "对极近距离敌人的弓箭伤害": "至近距離の敵への弓ダメージ",
+      "追击和近身刺击增加灵力": "追い討ち・組み討ちで霊力加算",
+      "防御精力消耗降低": "ガードの気力",
+      "雷属性伤害降低": "雷ダメージ軽減",
+      "陷入异常状态时降低承受的伤害": "状態異常時の被ダメージ",
+      "少彦名的恩宠": "スクナヒコナの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "空中攻击精力伤害": "空中攻撃の気力ダメージ",
+      "行动精力消耗（负面效果时）": "行動の気力（不利効果中）",
+      "火枪伤害": "銃ダメージ",
+      "承受的远距离伤害降低": "飛び道具の被ダメージ",
+      "赋予毒效果": "毒付与",
+      "坂上党的骄傲": "^20~default~^FE~RUBY~^21~default~坂上党^FF~RUBY,さかのうえとう~の^20~default~^FE~RUBY~^21~default~誇^FF~RUBY,ほこ~り",
+      "下段武技精力伤害": "下段武技の気力ダメージ",
+      "造成属性伤害时吸取体力": "属性ダメージを与えると体力吸収",
+      "建御名方的恩宠": "タケミナカタの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "攻击性能": "攻撃性能",
+      "上段架式　攻击崩解力": "上段攻撃の崩し",
+      "对伤害的反映（武）": "ダメージ反映（武）",
+      "防御反映（刚）": "防御反映（剛）",
+      "防御反映（精华槽）": "防御反映（アムリタゲージ）",
+      "防御反映（智）": "防御反映（智）",
+      "^09~DEBUFF~{}^09~~状态无效": "効果 0xED65",
+      "以守护灵技打倒敌人可回收灵力": "守護霊技で敵を倒すと霊力回収",
+      "忍术槽增加量": "忍術ゲージ加算量",
+      "防御反映（技）": "防御反映（技）",
+      "弓精力伤害": "弓の気力ダメージ",
+      "赋予双属性（雷、火）": "二属性付与（雷・火）",
+      "恢复体力赋予^09~BUFF~{}^09~~": "効果 0xE8A9",
+      "追击和近身刺击可恢复体力": "追い討ち・組み討ちで体力回復",
+      "九十九化身槽减少（攻击动作中）": "九十九化身ゲージ減少（攻撃動作中）",
+      "守护灵技命中赋予^09~BUFF~{}^09~~": "効果 0xD1F2",
+      "识破可增加灵力": "見切りで霊力増加",
+      "九十九化身时造成的伤害增加": "九十九化身中の与ダメージ",
+      "伤害反映（敏捷）": "ダメージ反映（敏捷さ）",
+      "勇士的真意": "勇士の本意",
+      "阴阳术命中时施加^09~DEBUFF~{}^09~~": "効果 0xDFB4",
+      "速攻击崩解力": "速い攻撃の崩し",
+      "自得院流枪术": "^20~default~^FE~RUBY~^21~default~自得院流槍術^FF~RUBY,じとくいんりゅうそうじゅつ~",
+      "毘沙门天的恩宠": "^20~default~^FE~RUBY~^21~default~毘沙門天^FF~RUBY,びしゃもんてん~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "刚之深奥": "剛の深奥",
+      "不易被敌人发现": "敵からの気付かれにくさ",
+      "背后攻击灵力增加量": "背後攻撃の霊力加算量",
+      "持续性伤害不会导致死亡": "継続ダメージで落命しない",
+      "伤害反映（精华槽）": "ダメージ反映（アムリタゲージ）",
+      "勇猛粗莽": "勇猛武骨",
+      "不消耗使役符以外的阴阳术": "使役符以外の陰陽術が消費されない",
+      "一难的解除时间延长": "一難の解除時間延長",
+      "上段架式攻击吸取体力": "上段攻撃で体力吸収",
+      "阴阳术术力反映（精华槽）": "陰陽術術力反映（アムリタゲージ）",
+      "武技的持续时间（{}）": "効果 0xF533",
+      "绝妙追杀": "詰めの巧み",
+      "不消耗箭弹": "矢弾が消費されない",
+      "弑兄觉悟": "兄討ちの覚悟",
+      "对极近距离敌人的大炮伤害": "至近距離の敵への大筒ダメージ",
+      "交叉镰的体现": "違い鎌の示すもの",
+      "武技精力伤害": "武技の気力ダメージ",
+      "弁才天的恩宠": "^20~default~^FE~RUBY~^21~default~弁才天^FF~RUBY,べんざいてん~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "咒之深奥": "呪の深奥",
+      "箭弹的精力伤害": "矢弾の気力ダメージ",
+      "才智卓越": "^20~default~^FE~RUBY~^21~default~才智卓越^FF~RUBY,さいちたくえつ~",
+      "防御精力消耗降低（绝境）": "ガードの気力（窮地）",
+      "速攻击吸取体力": "速い攻撃で体力吸収",
+      "异常状态累积": "状態異常蓄積",
+      "死亡时自动回收一部分精华": "落命時、一部アムリタを自動回収",
+      "承受的伤害减半（无伤状态）": "被ダメージ半減（無傷）",
+      "身处常世时恢复体力": "常世の中で体力回復",
+      "箭弹命中增加灵力": "矢弾命中で霊力加算",
+      "赋予风属性": "風属性付与",
+      "连续攻击伤害增加": "連続攻撃でダメージ増加",
+      "冲刺速度提升": "ダッシュ速度",
+      "下段架式攻击吸取体力": "下段攻撃で体力吸収",
+      "对精力耗尽敌人的近距离伤害": "気力切れの敵への近接ダメージ",
+      "梦想一刀": "^20~default~^FE~RUBY~^21~default~夢想^FF~RUBY,むそう~の^20~default~^FE~RUBY~^21~default~一刀^FF~RUBY,いっとう~",
+      "接招（绝境）": "受け（窮地）",
+      "武器造成的火属性伤害": "武器で与える火ダメージ",
+      "赋予双属性（水、雷）": "二属性付与（水・雷）",
+      "防御时的属性攻击伤害降低": "ガード時の属性ダメージ軽減",
+      "九十九化身结束时赋予^09~BUFF~{}^09~~": "効果 0xE54E",
+      "属性附武伤害": "属性をまとわせた武器のダメージ",
+      "火属性伤害降低": "火ダメージ軽減",
+      "近距离攻击伤害（地狱）": "近接ダメージ（地獄）",
+      "负面效果持续时间延长": "不利効果持続延長",
+      "反映变化（武士）": "反映改変（サムライ）",
+      "近距离攻击的灵力增加量": "近接攻撃の霊力加算量",
+      "赖光四天王之首": "^20~default~^FE~RUBY~^21~default~頼光四天王筆頭^FF~RUBY,よりみつしてんのうひっとう~",
+      "攻击力": "攻撃力",
+      "防御反映（体）": "防御反映（体）",
+      "天下布武": "天下布武",
+      "下段架式防御精力消耗降低": "下段構え中ガードの気力",
+      "近距离攻击吸取体力": "近接攻撃で体力吸収",
+      "对伤害的反映（咒）": "ダメージ反映（呪）",
+      "上段架式防御精力消耗降低": "上段構え中ガードの気力",
+      "源氏嫡系的威光": "源氏嫡流の威光",
+      "下段武技精力": "下段武技の気力",
+      "获得精华增加灵力（绝境）": "アムリタ獲得で霊力加算（窮地）",
+      "近距离攻击打倒敌人时恢复体力": "近接攻撃で敵を倒すと体力回復",
+      "承受箭弹伤害时不会畏惧": "矢弾の被ダメージ時怯まない",
+      "中段武技精力": "中段武技の気力",
+      "效果持续力": "効果持続力",
+      "武技崩解力": "武技の崩し",
+      "空中承受的伤害": "空中での被ダメージ",
+      "赤备的骄傲": "^20~default~^FE~RUBY~^21~default~赤備^FF~RUBY,あかぞな~えの^20~default~^FE~RUBY~^21~default~誇^FF~RUBY,ほこ~り",
+      "志那都彦的恩宠": "シナツヒコの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "强攻击获得精华": "強い攻撃でアムリタ獲得",
+      "刚勇流离": "^20~default~^FE~RUBY~^21~default~剛勇流離^FF~RUBY,ごうゆうりゅうり~",
+      "伤害反映（装备重量）": "ダメージ反映（装備の重さ）",
+      "强攻击崩解力": "強い攻撃の崩し",
+      "感应敌人": "敵感知",
+      "武技伤害": "武技ダメージ",
+      "格挡成功时解除负面效果": "捌き成功時に不利効果を解除",
+      "幸运（地狱）": "幸運（地獄）",
+      "伤害反映（忍术威力）": "ダメージ反映（忍術威力）",
+      "合轴可继承稀有度": "軸移しで希少度継承",
+      "大绵津见的恩宠": "オオワタツミの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "箭弹或道具命中增加灵力": "矢弾やアイテム命中で霊力加算",
+      "造成火属性伤害时增加灵力": "火ダメージを与えると霊力加算",
+      "阴阳术命中增加灵力": "陰陽術命中で霊力加算",
+      "箭弹命中弱点时伤害": "矢弾の急所命中ダメージ",
+      "狡狯忠臣": "^20~default~^FE~RUBY~^21~default~奸智^FF~RUBY,かんち~の^20~default~^FE~RUBY~^21~default~忠臣^FF~RUBY,ちゅうしん~",
+      "刺击伤害": "突き攻撃のダメージ",
+      "视死如归的赤备队": "不惜身命の赤備え",
+      "格挡反射远距离攻击": "捌きで飛び道具を反射",
+      "暗杀伤害": "暗殺のダメージ",
+      "奇策百出": "^20~default~^FE~RUBY~^21~default~奇策縦横^FF~RUBY,きさくじゅうおう~",
+      "地狱武器伤害": "地獄武器のダメージ",
+      "精力归零时降低承受的伤害": "気力0の時の被ダメージ",
+      "稻荷神的恩宠": "^20~default~^FE~RUBY~^21~default~稲荷神^FF~RUBY,いなりしん~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "天钿女的恩宠": "アメノウズメの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "伊贺忍者首领": "^20~default~^FE~RUBY~^21~default~伊賀忍^FF~RUBY,いがしの~びの^20~default~^FE~RUBY~^21~default~長^FF~RUBY,おさ~",
+      "大黑天的恩宠": "^20~default~^FE~RUBY~^21~default~大黒天^FF~RUBY,だいこくてん~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "上段架式攻击的精力消耗降低": "上段攻撃の気力",
+      "冲刺精力消耗降低（绝境）": "ダッシュの気力（窮地）",
+      "精髓并存（武士）": "極意両立（サムライ）",
+      "不消耗道具": "アイテムが消費されない",
+      "田村大明神的庇佑": "田村大明神の加護",
+      "独眼龙的野心": "独眼竜の野望",
+      "组合效果的所需装备数": "揃え効果の必要装備品数",
+      "九十九化身时的属性伤害": "九十九化身中の属性ダメージ",
+      "自动瞄准要害": "急所への自動照準",
+      "战国第一接班人": "戦国一の出世頭",
+      "布袋尊的恩宠": "^20~default~^FE~RUBY~^21~default~布袋尊^FF~RUBY,ほていそん~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "龙神灵宝": "龍神の霊宝",
+      "中段武技伤害": "中段武技のダメージ",
+      "通往地狱道的指引": "地獄道への導き",
+      "格挡的判定时间延长": "捌きの成立猶予延長",
+      "奇稻田姬的恩宠": "クシナダヒメの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "琼琼杵的恩宠": "ニニギの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "七难八苦": "^20~default~^FE~RUBY~^21~default~七難八苦^FF~RUBY,しちなんはっく~",
+      "对极近距离敌人的火枪伤害": "至近距離の敵への銃ダメージ",
+      "命运一射": "^20~default~^FE~RUBY~^21~default~命運^FF~RUBY,めいうん~の^20~default~^FE~RUBY~^21~default~一射^FF~RUBY,いっしゃ~",
+      "太平基石": "泰平の礎",
+      "中段武技精力伤害": "中段武技の気力ダメージ",
+      "重义的谋将": "義に厚き謀将",
+      "追击和近身刺击伤害": "追い討ち・組み討ちダメージ",
+      "灵力增加量（绝境）": "霊力加算量（窮地）",
+      "绝景哉": "^20~default~^FE~RUBY~^21~default~絶景^FF~RUBY,ぜっけい~かな",
+      "上段武技精力": "上段武技の気力",
+      "祓除常世增加灵力": "常世祓いで霊力加算",
+      "弓动作速度加快": "動作短縮（弓）",
+      "实行祓除者": "^20~default~^FE~RUBY~^21~default~祓^FF~RUBY,はらえ~をなすもの",
+      "成功识破时解除负面效果": "見切り成功時に不利効果を解除",
+      "来自背后的伤害降低": "背後からの被ダメージ",
+      "着火时持续承受伤害降低": "火の継続ダメージ",
+      "天照大神的恩宠": "アマテラスの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "伊邪那美的恩宠": "イザナミの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "一人当千之精锐": "^20~default~^FE~RUBY~^21~default~一人当千^FF~RUBY,いちにんとうせん~の^20~default~^FE~RUBY~^21~default~兵者^FF~RUBY,へいしゃ~",
+      "空中攻击伤害": "空中攻撃のダメージ",
+      "横行天下的倾奇者": "^20~default~^FE~RUBY~^21~default~天下御免^FF~RUBY,てんかごめん~の^20~default~^FE~RUBY~^21~default~傾奇者^FF~RUBY,かぶきもの~",
+      "智之深奥": "智の深奥",
+      "不消耗使役符": "使役符が消費されない",
+      "梦之残映": "夢の残映",
+      "不消耗仙药": "仙薬が消費されない",
+      "强攻击解除异常状态": "強い攻撃で状態異常を解除",
+      "防御时精力恢复速度": "ガード中の気力回復速度",
+      "天下副将军": "^20~default~^FE~RUBY~^21~default~天下^FF~RUBY,てんか~の^20~default~^FE~RUBY~^21~default~副将軍^FF~RUBY,ふくしょうぐん~",
+      "下段武技伤害": "下段武技のダメージ",
+      "感应木灵": "木霊感知",
+      "不动明王的恩宠": "^20~default~^FE~RUBY~^21~default~不動明王^FF~RUBY,ふどうみょうおう~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "太平先驱": "^20~default~^FE~RUBY~^21~default~泰平^FF~RUBY,たいへい~の^20~default~^FE~RUBY~^21~default~魁^FF~RUBY,さきがけ~",
+      "使用阴阳术时赋予^09~BUFF~{}^09~~": "効果 0xD37D",
+      "武家政权之基石": "^20~default~^FE~RUBY~^21~default~武家政権^FF~RUBY,ぶけせいけん~の^20~default~^FE~RUBY~^21~default~礎^FF~RUBY,いしずえ~",
+      "对人战术": "対人戦術",
+      "下段架式攻击的精力消耗降低": "下段攻撃の気力",
+      "柳生表里剑": "^20~default~^FE~RUBY~^21~default~柳生表裏剣^FF~RUBY,やぎゅうひょうりけん~",
+      "对攻击中敌人的近距离伤害": "攻撃動作中の敵への近接ダメージ",
+      "使用仙药时增加灵力": "仙薬の使用時に霊力加算",
+      "经津主的恩宠": "フツヌシの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "悲剧英雄": "^20~default~^FE~RUBY~^21~default~悲劇^FF~RUBY,ひげき~の^20~default~^FE~RUBY~^21~default~英雄^FF~RUBY,えいゆう~",
+      "幸运（绝境）": "幸運（窮地）",
+      "福禄寿的恩宠": "^20~default~^FE~RUBY~^21~default~福禄寿^FF~RUBY,ふくろくじゅ~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "今川执权": "^20~default~^FE~RUBY~^21~default~今川^FF~RUBY,いまがわ~の^20~default~^FE~RUBY~^21~default~執権^FF~RUBY,しっけん~",
+      "摩利支天的恩宠": "^20~default~^FE~RUBY~^21~default~摩利支天^FF~RUBY,まりしてん~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "大力无双的勇僧": "大力無双の荒法師",
+      "下段架式　攻击崩解力": "下段攻撃の崩し",
+      "受到敌人攻击时不会畏惧（绝境）": "敵の攻撃で怯まない（窮地）",
+      "异常状态抗性": "状態異常耐性",
+      "正面效果持续时间延长": "有利効果持続延長",
+      "军神的明鉴": "^20~default~^FE~RUBY~^21~default~軍神^FF~RUBY,ぐんしん~の^20~default~^FE~RUBY~^21~default~照覧^FF~RUBY,しょうらん~",
+      "守护灵技灵力消耗减少": "守護霊技の霊力消費",
+      "东国无双的荣耀": "^20~default~^FE~RUBY~^21~default~東国無双^FF~RUBY,とうごくむそう~の^20~default~^FE~RUBY~^21~default~誉^FF~RUBY,ほま~れ",
+      "不消耗枪弹与炮弹": "銃弾と砲弾が消費されない",
+      "独创战法": "無手勝流",
+      "上段武技精力伤害": "上段武技の気力ダメージ",
+      "征讨伟勋": "征討の偉勲",
+      "机关旋棍": "仕込み旋棍",
+      "通往天道的指引": "天道への導き",
+      "幻术异常状态累积": "幻術の状態異常蓄積",
+      "惠比寿的恩宠": "^20~default~^FE~RUBY~^21~default~恵比寿^FF~RUBY,えびす~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "忍术命中增加灵力": "忍術命中で霊力加算",
+      "百鬼化身": "^20~default~^FE~RUBY~^21~default~百鬼化身^FF~RUBY,ひゃっきけしん~",
+      "柳生新阴流": "柳生新陰流",
+      "感应精华": "アムリタ感知",
+      "神之祝子": "かみのはふり",
+      "豪放猛牛的勇武": "豪放なる猛牛の武勇",
+      "永不退缩者": "退かざる者",
+      "风魔的威名": "^20~default~^FE~RUBY~^21~default~風魔^FF~RUBY,ふうま~の^20~default~^FE~RUBY~^21~default~威名^FF~RUBY,いめい~",
+      "剑禅一致": "^20~default~^FE~RUBY~^21~default~剣禅一致^FF~RUBY,けんぜんいっち~",
+      "天下第一兵法": "兵法天下一",
+      "中段架式　攻击崩解力": "中段攻撃の崩し",
+      "烈火般的反骨": "^20~default~^FE~RUBY~^21~default~烈火^FF~RUBY,れっか~のごとき^20~default~^FE~RUBY~^21~default~反骨^FF~RUBY,はんこつ~",
+      "甲斐的副将": "^20~default~^FE~RUBY~^21~default~甲斐^FF~RUBY,かい~の^20~default~^FE~RUBY~^21~default~副将^FF~RUBY,ふくしょう~",
+      "鞍马流剑术": "鞍馬流剣術",
+      "获得魂核时恢复体力": "魂代入手時に体力回復",
+      "灵力增加量反映（累积伤害）": "霊力加算量反映（累積ダメージ）",
+      "波澜万丈": "波乱万丈",
+      "调和严正": "調和厳正",
+      "显净土真实": "^20~default~^FE~RUBY~^21~default~顕浄土真実^FF~RUBY,けんじょうどしんじつ~",
+      "不消耗{}": "効果 0xFCFB",
+      "九十九化身时的耐久力": "九十九化身中の耐久力",
+      "真·龙剑": "真・龍剣",
+      "守护灵技命中敌人时施加^09~DEBUFF~{}^09~~": "効果 0xE853",
+      "对妖战术": "対妖戦術",
+      "守护灵技伤害（绝境）": "守護霊技ダメージ（窮地）",
+      "通往畜生道的指引": "畜生道への導き",
+      "近距离攻击精力伤害（地狱）": "近接攻撃の気力ダメージ（地獄）",
+      "箭弹贯穿": "矢弾貫通",
+      "九十九化身时的守护灵技伤害": "九十九化身中の守護霊技ダメージ",
+      "感应宝物": "宝感知",
+      "怨恨盖世": "^20~default~^FE~RUBY~^21~default~怨憎蓋世^FF~RUBY,えんぞうがいせい~",
+      "拿起远距离武器时不会畏惧": "遠距離武器の構え中怯まない",
+      "神君再临": "^20~default~^FE~RUBY~^21~default~神君^FF~RUBY,しんくん~の^20~default~^FE~RUBY~^21~default~再来^FF~RUBY,さいらい~",
+      "体力恢复量": "体力回復量",
+      "十勇士之首": "十勇士筆頭",
+      "思兼神的恩宠": "オモイカネの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "技之深奥": "技の深奥",
+      "风流才智之士": "^20~default~^FE~RUBY~^21~default~風流^FF~RUBY,ふりゅう~の^20~default~^FE~RUBY~^21~default~利発人^FF~RUBY,りはつにん~",
+      "阴阳术道具的伤害（无伤）": "陰陽術ダメージ（無傷）",
+      "对处于负面效果敌人的近距离伤害": "不利効果中の敵への近接ダメージ",
+      "过往名军师的智谋": "往年の名軍師の智謀",
+      "屠妖者": "あやかしを^20~default~^FE~RUBY~^21~default~屠^FF~RUBY,ほふ~る^20~default~^FE~RUBY~^21~default~者^FF~RUBY,もの~",
+      "西国无双的荣耀": "西国無双の誉れ",
+      "八幡神的恩宠": "^20~default~^FE~RUBY~^21~default~八幡神^FF~RUBY,はちまんしん~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "寿老人的恩宠": "^20~default~^FE~RUBY~^21~default~寿老人^FF~RUBY,じゅろうじん~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "朝家守护": "朝家の守護",
+      "武技的架开判定时间延长": "武技の受け流し成立猶予延長",
+      "打虎勇士": "虎退治の勇士",
+      "心之深奥": "心の深奥",
+      "武器造成的雷属性伤害": "武器で与える雷ダメージ",
+      "幻惑吞牛": "^20~default~^FE~RUBY~^21~default~幻惑呑牛^FF~RUBY,どんぎゅう~",
+      "伊贺后裔": "^20~default~^FE~RUBY~^21~default~伊賀^FF~RUBY,いが~の^20~default~^FE~RUBY~^21~default~末裔^FF~RUBY,まつえい~",
+      "灵力增加量反映（精华槽）": "霊力加算量反映（アムリタゲージ）",
+      "敌人精力耗尽时赋予^09~BUFF~{}^09~~": "敵の気力切れで被ダメージ増加",
+      "一射专心": "^20~default~^FE~RUBY~^21~default~一射専心^FF~RUBY,いっしゃせんしん~",
+      "通往人道的指引": "人間道への導き",
+      "阴阳术赋予的正面效果持续": "陰陽術で与える有利効果の持続",
+      "月读的恩宠": "ツクヨミの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "黑色的异国武士": "黒き異国のサムライ",
+      "杂贺的八咫乌": "雑賀の八咫烏",
+      "阴阳术施加的负面效果持续时间": "陰陽術で与える不利効果の持続",
+      "伤害反映（幸运）": "ダメージ反映（幸運）",
+      "日本第一的勇猛": "日本第一の勇猛",
+      "大一大万大吉": "大一大万大吉",
+      "防御反映（武）": "防御反映（武）",
+      "仰不愧于天": "仰ぎて天に愧じず",
+      "弑君之罪": "弑逆の咎",
+      "依打倒敌人的数量降低承受的伤害": "防御反映（倒した敵の数）",
+      "幕府密探总管": "^20~default~^FE~RUBY~^21~default~公儀隠密元締^FF~RUBY,こうぎおんみつもとじめ~",
+      "伤害反映（弓伤害）": "ダメージ反映（弓ダメージ）",
+      "高岛流炮术": "^20~default~^FE~RUBY~^21~default~高島流砲術^FF~RUBY,たかしまりゅうほうじゅつ~",
+      "伊达家忠臣之鉴": "伊達家忠臣の鑑",
+      "精力恢复反映（精华槽）": "気力回復反映（アムリタゲージ）",
+      "天顶烈阳": "中天の陽",
+      "土佐能人": "土佐の出来人",
+      "反映变化（忍者）": "反映改変（ニンジャ）",
+      "三恶妄为": "^20~default~^FE~RUBY~^21~default~三悪放縦^FF~RUBY,さんあくほうじゅう~",
+      "素盏呜尊的恩宠": "スサノオの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "通往修罗道的指引": "修羅道への導き",
+      "仁王的化身": "仁王の化身",
+      "月下弄笛": "月下弄笛",
+      "加贺百万石的荣华": "^20~default~^FE~RUBY~^21~default~加賀百万石^FF~RUBY,かがひゃくまんごく~の^20~default~^FE~RUBY~^21~default~栄華^FF~RUBY,えいが~",
+      "千成之愿": "千成の願意",
+      "回收射偏的箭弹": "はずれた矢弾を回収",
+      "伤害反映（负面效果数）": "ダメージ反映（不利効果の数）",
+      "风林火山": "^20~default~^FE~RUBY~^21~default~風林火山^FF~RUBY,ふうりんかざん~",
+      "无与伦比的名枪手": "比類なき槍の名手",
+      "聪慧心鬼": "^20~default~^FE~RUBY~^21~default~利発心鬼^FF~RUBY,りはつしんき~",
+      "伊贺越复仇的主导者": "^20~default~^FE~RUBY~^21~default~伊賀越仇討^FF~RUBY,いがごえあだう~ちの^20~default~^FE~RUBY~^21~default~立役者^FF~RUBY,たてやくしゃ~",
+      "体之深奥": "体の深奥",
+      "开耶姬的恩宠": "サクヤヒメの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "武之深奥": "武の深奥",
+      "大国主的恩宠": "オオクニヌシの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "和谐严明": "陰陽峻厳",
+      "通往饿鬼道的指引": "餓鬼道への導き",
+      "殿军名将": "^20~default~^FE~RUBY~^21~default~殿軍^FF~RUBY,でんぐん~の^20~default~^FE~RUBY~^21~default~名将^FF~RUBY,めいしょう~",
+      "英勇猿夜叉": "猿夜叉の武勇",
+      "井伊赤鬼": "井伊の赤鬼",
+      "怪童丸": "^20~default~^FE~RUBY~^21~default~怪童丸^FF~RUBY,かいどうまる~",
+      "十一面观音的庇佑": "^20~default~^FE~RUBY~^21~default~十一面観音^FF~RUBY,じゅういちめんかんのん~の^20~default~^FE~RUBY~^21~default~加護^FF~RUBY,かご~",
+      "鸿鹄之志": "大出世の大志",
+      "里体舍流总帅": "^20~default~^FE~RUBY~^21~default~裏^FF~RUBY,うら~タイ^20~default~^FE~RUBY~^21~default~捨総帥^FF~RUBY,しゃそうすい~",
+      "持续伤害降低": "継続ダメージ",
+      "九头龙的恩宠": "^20~default~^FE~RUBY~^21~default~九頭龍^FF~RUBY,くずりゅう~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "剑豪将军的威武": "剣豪将軍の武威",
+      "精力耗尽的恢复时间缩短": "気力切れの復帰時間短縮",
+      "精髓并存（忍者）": "極意両立（ニンジャ）",
+      "祸津日的恩宠": "マガツヒの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "破盔豪杰": "錣引きの豪傑",
+      "凋零勇将": "^20~default~^FE~RUBY~^21~default~零落^FF~RUBY,れいらく~の^20~default~^FE~RUBY~^21~default~勇将^FF~RUBY,ゆうしょう~",
+      "机智勇士": "^20~default~^FE~RUBY~^21~default~機知^FF~RUBY,きち~の^20~default~^FE~RUBY~^21~default~勇士^FF~RUBY,ゆうし~",
+      "建御雷的恩宠": "タケミカヅチの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "属性伤害无效": "属性ダメージ無効",
+      "河边妖怪众头目": "川辺妖怪衆顔役",
+      "天手力男的恩宠": "タヂカラオの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~",
+      "三河武士之鉴": "三河武士の鑑",
+      "神器以上装备掉落率": "神器以上のドロップ率",
+      "二心将领": "^20~default~^FE~RUBY~^21~default~二心^FF~RUBY,にしん~の^20~default~^FE~RUBY~^21~default~将^FF~RUBY,しょう~",
+      "大炮动作速度加快": "動作短縮（大筒）",
+      "发动守护灵技达成残心": "守護霊技発動で残心成立",
+      "弘法利生": "^20~default~^FE~RUBY~^21~default~弘法利生^FF~RUBY,こうぼうりしょう~",
+      "猎妖者": "あやかしを狩る者",
+      "精髓并存（共通）": "極意両立（共通）",
+      "猎杀妖怪者": "あやかしを狩りし者",
+      "薄命之剑": "^20~default~^FE~RUBY~^21~default~薄命^FF~RUBY,はくめい~の^20~default~^FE~RUBY~^21~default~剣^FF~RUBY,けん~",
+      "敌人精力耗尽时赋予受到伤害增加": "敵の気力切れで被ダメージ増加",
+      "一反木棉": "一反木綿",
+      "一目连": "一目連",
+      "两面宿傩": "両面宿儺",
+      "中根正盛": "中根正盛",
+      "丸桥忠弥": "丸橋忠弥",
+      "乌鸦天狗": "烏天狗",
+      "亡骸武者": "骸武者",
+      "亲鸾": "親鸞",
+      "人鱼": "人魚",
+      "以津真天": "以津真天",
+      "伊东一刀斋": "伊東一刀斎",
+      "传林坊赖庆": "伝林坊頼慶",
+      "傲岸鬼": "傲岸鬼",
+      "内藤昌丰": "内藤昌豊",
+      "冒疾鬼": "冒疾鬼",
+      "冰柱女": "つらら女",
+      "冲田总司": "沖田総司",
+      "前田光高": "前田光高",
+      "千眼方术士": "千眼の方術士",
+      "叛军浪士": "反乱軍浪士",
+      "古笼火": "古籠火",
+      "土方岁三": "土方歳三",
+      "地狱蜂": "地獄蜂",
+      "垢尝": "垢嘗",
+      "外道兵": "外道兵",
+      "夜叉": "夜叉",
+      "夜行兵": "夜行兵",
+      "大天狗": "大天狗",
+      "大蛤蟆": "大蝦蟇",
+      "太原雪斋": "太原雪斎",
+      "女郎蜘蛛": "女郎蜘蛛",
+      "妖蟹": "化け蟹",
+      "妖鬼": "妖鬼",
+      "姑获鸟": "姑獲鳥",
+      "子泣爷爷": "子泣き爺",
+      "小海坊主": "小海坊主",
+      "山县昌景（人形）": "山県昌景",
+      "山县昌景（妖怪形态）": "山県昌景",
+      "山姥": "山姥",
+      "山彦": "やまびこ",
+      "山狗": "山狗",
+      "山田真龙轩": "山田真龍軒",
+      "巴御前": "巴御前",
+      "幕府兵": "幕府兵士",
+      "幽鬼": "幽鬼",
+      "异想的贝伦加莉亚": "奇想のベレンゲラ",
+      "德川国松": "徳川国松",
+      "德川庆喜": "徳川慶喜",
+      "忍者": "忍者",
+      "忍者妖鬼": "忍者妖鬼",
+      "怨嗟武人": "怨嗟の武人",
+      "怨灵鬼": "怨霊鬼",
+      "惧鬼": "おとろし",
+      "执心鬼": "執心鬼",
+      "撒沙婆婆": "砂かけ婆",
+      "敷次郎": "敷次郎",
+      "斋藤一": "斎藤一",
+      "斋藤福": "斎藤福",
+      "斩鬼武士": "鬼斬りの武者",
+      "新选组·服部武雄": "新選組・服部武雄",
+      "新选组队士": "新選組隊士",
+      "旗本武士": "旗本",
+      "服部半藏（先代／父（鬼半藏））": "服部半蔵",
+      "服部半藏（现任／子）": "服部半蔵",
+      "本多忠胜": "本多忠勝",
+      "朱盆": "朱の盆",
+      "杉谷善住坊": "杉谷善住坊",
+      "柳生十兵卫": "柳生十兵衛",
+      "柳生宗矩": "柳生宗矩",
+      "梶原景时": "梶原景時",
+      "棘饿鬼": "茨餓鬼",
+      "武田信玄（人形）": "武田信玄",
+      "武田信玄（妖怪形态）": "武田信玄",
+      "武田士兵": "武田兵士",
+      "比留呼（人形）": "比留呼",
+      "比留呼（古代妖怪形态）": "比留呼",
+      "比留呼（江户妖怪形态）": "比留呼",
+      "毛利玄达": "毛利玄達",
+      "永仓新八": "永倉新八",
+      "河原十郎兵卫": "河原十郎兵衛",
+      "河童": "河童",
+      "油伞妖": "唐傘お化け",
+      "泽村保佑": "沢村保祐",
+      "涂佛": "塗仏",
+      "源赖朝": "源頼朝",
+      "濡女": "濡れ女",
+      "火车": "火車",
+      "灵窟修验者": "霊窟の修験者",
+      "炼造武士": "錬造武者",
+      "炼金术师": "錬金術師",
+      "烟烟罗": "煙々羅",
+      "熊谷直义": "熊谷直義",
+      "牛头鬼": "牛頭鬼",
+      "狂骨": "狂骨",
+      "独眼小僧": "一つ目小僧",
+      "独眼鬼": "一つ目鬼",
+      "独脚踏鞴": "一本だたら",
+      "狱卒鬼": "獄卒鬼",
+      "猥裸": "わいら",
+      "猿鬼": "猿鬼",
+      "田鹤夫人": "お田鶴の方",
+      "由井正雪": "由井正雪",
+      "盗贼": "賊",
+      "石川五右卫门": "石川五右衛門",
+      "碓井贞光": "碓井貞光",
+      "祸津武士": "禍ツ武者",
+      "穴山信君": "穴山信君",
+      "穴泽盛秀": "穴澤盛秀",
+      "绿影剑鬼": "緑影の剣鬼",
+      "肉户景俊": "宍戸景俊",
+      "肉瘤怪": "ぬっぺふほふ",
+      "茨木童子": "茨木童子",
+      "草薙": "草薙",
+      "荒木又右卫门": "荒木又右衛門",
+      "蛇骨婆": "蛇骨婆",
+      "蛤蟆附身": "蝦蟇憑き",
+      "蜘蛛": "蜘蛛",
+      "血刀修罗": "血刀修羅",
+      "血烟阿银": "血煙お銀",
+      "见越入道": "見越し入道",
+      "赤河童": "赤河童",
+      "轮入道": "輪入道",
+      "近藤勇": "近藤勇",
+      "那须与一": "那須与一",
+      "邪马台国兵": "邪馬台国兵士",
+      "野槌": "野槌",
+      "野武士": "野武士",
+      "金井半兵卫（人形）": "金井半兵衛",
+      "金井半兵卫（妖怪形态）": "金井半兵衛",
+      "铁鼠": "鉄鼠",
+      "镰仓武士": "鎌倉武士",
+      "镰鼬": "鎌鼬",
+      "防人": "防人",
+      "阴摩罗鬼": "陰摩羅鬼",
+      "阴阳师": "陰陽師",
+      "雪入道": "雪入道",
+      "雷兽": "雷獣",
+      "风魔小太郎": "風魔小太郎",
+      "飞缘魔": "飛縁魔",
+      "饿鬼": "餓鬼",
+      "饿鬼大将": "餓鬼大将",
+      "马场信春": "馬場信春",
+      "马头鬼": "馬頭鬼",
+      "高坂昌信": "高坂昌信",
+      "高岛秋帆": "高島秋帆",
+      "高杉晋作": "高杉晋作",
+      "高桥泥舟": "高橋泥舟",
+      "鬼火": "鬼火",
+      "一难横行（刀）": "一難横行（刀）",
+      "一难横行（双刀）": "一難横行（二刀）",
+      "一难横行（大太刀）": "一難横行（大太刀）",
+      "一难横行（头部防具）": "一難横行（頭防具）",
+      "一难横行（忍刀）": "一難横行（忍刀）",
+      "一难横行（忍双刀）": "一難横行（忍二刀）",
+      "一难横行（忍盾矛）": "一難横行（忍鉾盾）",
+      "一难横行（手斧）": "一難横行（手斧）",
+      "一难横行（手甲钩）": "一難横行（手甲鉤）",
+      "一难横行（手甲）": "一難横行（手甲）",
+      "一难横行（手臂防具）": "一難横行（腕防具）",
+      "一难横行（斧）": "一難横行（斧）",
+      "一难横行（旋棍）": "一難横行（旋棍）",
+      "一难横行（机关棍）": "一難横行（仕込棍）",
+      "一难横行（枪）": "一難横行（槍）",
+      "一难横行（盾矛）": "一難横行（鉾盾）",
+      "一难横行（腿部防具）": "一難横行（脚防具）",
+      "一难横行（薙刀镰）": "一難横行（薙刀鎌）",
+      "一难横行（足部防具）": "一難横行（足防具）",
+      "一难横行（身体防具）": "一難横行（体防具）",
+      "一难横行（远距离武器）": "一難横行（遠距離武器）",
+      "一难横行（配件）": "一難横行（小物）",
+      "一难横行（锁镰）": "一難横行（鎖鎌）",
+      "优先掉落率上升（不动明王的恩宠）": "優先ドロップ率上昇（^20~default~^FE~RUBY~^21~default~不動明王^FF~RUBY,ふどうみょうおう~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（九头龙的恩宠）": "優先ドロップ率上昇（^20~default~^FE~RUBY~^21~default~九頭龍^FF~RUBY,くずりゅう~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（八幡神的恩宠）": "優先ドロップ率上昇（^20~default~^FE~RUBY~^21~default~八幡神^FF~RUBY,はちまんしん~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（大绵津见的恩宠）": "優先ドロップ率上昇（オオワタツミの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（大黑天的恩宠）": "優先ドロップ率上昇（^20~default~^FE~RUBY~^21~default~大黒天^FF~RUBY,だいこくてん~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（天照大神的恩宠）": "優先ドロップ率上昇（アマテラスの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（天钿女的恩宠）": "優先ドロップ率上昇（アメノウズメの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（寿老人的恩宠）": "優先ドロップ率上昇（^20~default~^FE~RUBY~^21~default~寿老人^FF~RUBY,じゅろうじん~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（布袋尊的恩宠）": "優先ドロップ率上昇（^20~default~^FE~RUBY~^21~default~布袋尊^FF~RUBY,ほていそん~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（建御雷的恩宠）": "優先ドロップ率上昇（タケミカヅチの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（弁才天的恩宠）": "優先ドロップ率上昇（^20~default~^FE~RUBY~^21~default~弁才天^FF~RUBY,べんざいてん~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（惠比寿的恩宠）": "優先ドロップ率上昇（^20~default~^FE~RUBY~^21~default~恵比寿^FF~RUBY,えびす~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（摩利支天的恩宠）": "優先ドロップ率上昇（^20~default~^FE~RUBY~^21~default~摩利支天^FF~RUBY,まりしてん~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（月读的恩宠）": "優先ドロップ率上昇（ツクヨミの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（毘沙门天的恩宠）": "優先ドロップ率上昇（^20~default~^FE~RUBY~^21~default~毘沙門天^FF~RUBY,びしゃもんてん~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（祸津日的恩宠）": "優先ドロップ率上昇（マガツヒの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（福禄寿的恩宠）": "優先ドロップ率上昇（^20~default~^FE~RUBY~^21~default~福禄寿^FF~RUBY,ふくろくじゅ~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（稻荷神的恩宠）": "優先ドロップ率上昇（^20~default~^FE~RUBY~^21~default~稲荷神^FF~RUBY,いなりしん~の^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（素盏呜尊的恩宠）": "優先ドロップ率上昇（スサノオの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "优先掉落率上升（迦具土的恩宠）": "優先ドロップ率上昇（カグツチの^20~default~^FE~RUBY~^21~default~恩寵^FF~RUBY,おんちょう~）",
+      "同行者（卑弥呼）": "同行者（卑弥呼）",
+      "同行者（德川国松）": "同行者（徳川国松）",
+      "同行者（德川家康）": "同行者（徳川家康）",
+      "同行者（服部半藏）": "同行者（服部半蔵）",
+      "同行者（本多忠胜）": "同行者（本多忠勝）",
+      "同行者（柳生十兵卫）": "同行者（柳生十兵衛）",
+      "同行者（柳生宗矩）": "同行者（柳生宗矩）",
+      "同行者（梶原景时）": "同行者（梶原景時）",
+      "同行者（源义经）": "同行者（源義経）",
+      "同行者（藤堂平助）": "同行者（藤堂平助）",
+      "同行者（风魔小太郎）": "同行者（風魔小太郎）",
+      "同行者（高杉晋作）": "同行者（高杉晋作）",
+      "同行者（龙麻吕）": "同行者（竜麻呂）",
+      "圆猫之法": "丸猫の法",
+      "威猛强敌": "敵の猛威",
+      "属性伤害与异常状态累积增加": "属性ダメージと状態異常蓄積の増加",
+      "正面与负面效果强化": "有利効果と不利効果の強化",
+      "灵力槽逐渐减少·积攒量增加": "霊力ゲージ漸減・加算量増加",
+      "神器掉落率上升": "神器ドロップ率上昇",
+      "移动加速": "移動加速",
+      "精力恢复强化": "気力回復強化",
+      "自动发动（从水符）": "自動発動（従水符）",
+      "自动发动（从火符）": "自動発動（従火符）",
+      "自动发动（从雷符）": "自動発動（従雷符）",
+      "自动发动（从风符）": "自動発動（従風符）",
+      "自动发动（修罗符）": "自動発動（修羅符）",
+      "自动发动（养身符）": "自動発動（養身符）",
+      "自动发动（刚力符）": "自動発動（剛力符）",
+      "自动发动（召水符）": "自動発動（召水符）",
+      "自动发动（召火符）": "自動発動（召火符）",
+      "自动发动（召雷符）": "自動発動（召雷符）",
+      "自动发动（召风符）": "自動発動（召風符）",
+      "自动发动（回生符）": "自動発動（回生符）",
+      "自动发动（夺灵符）": "自動発動（奪霊符）",
+      "自动发动（拳力符）": "自動発動（拳力符）",
+      "自动发动（斥风符）": "自動発動（斥風符）",
+      "自动发动（斩冲符）": "自動発動（斬衝符）",
+      "自动发动（昂灵符）": "自動発動（昂霊符）",
+      "自动发动（未识别阴阳术（原生编号 0x3011，可生成））": "自動発動（アイテム 0x3011）",
+      "自动发动（波动符）": "自動発動（波動符）",
+      "自动发动（神箭符）": "自動発動（神箭符）",
+      "自动发动（禁水符）": "自動発動（禁水符）",
+      "自动发动（禁火符）": "自動発動（禁火符）",
+      "自动发动（禁雷符）": "自動発動（禁雷符）",
+      "自动发动（禁风符）": "自動発動（禁風符）",
+      "自动发动（粹然符）": "自動発動（粋然符）",
+      "自动发动（迅足符）": "自動発動（俊足符）",
+      "自动发动（金刚符）": "自動発動（金剛符）",
+      "自动恢复阴阳术与箭弹": "陰陽術と矢弾の自動回復",
+      "获得金钱增加": "獲得金増加",
+      "赋予吸取体力": "体力吸収付与",
+      "追击和近身刺击伤害增加": "追い討ち・組み討ちダメージ増加",
+      "造成的水属性伤害增加": "水属性の与ダメージ増加",
+      "造成的火属性伤害增加": "火属性の与ダメージ増加",
+      "造成的雷属性伤害增加": "雷属性の与ダメージ増加",
+      "造成的风属性伤害增加": "風属性の与ダメージ増加",
+      "魂核掉落率上升": "魂代ドロップ率上昇",
+      "地狱": "地獄",
+      "无地形效果": "地形効果なし",
+      "地狱 + 火": "地獄 + 火",
+      "恶臭": "悪臭",
+      "地狱 + 瘴血": "地獄 + 瘴血",
+      "包含地狱": "地獄を含む"
+    }
+  }
+}

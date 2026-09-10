@@ -1,0 +1,17 @@
+:root { font-family: "Segoe UI", sans-serif; color: #20252b; background: #f7f8fa; }
+body { margin: 0; }
+main { max-width: 1100px; padding: 24px; margin: auto; }
+h1 { font-size: 24px; }
+h2 { font-size: 18px; }
+section { margin: 24px 0; padding: 18px; background: white; border: 1px solid #ccd1d8; }
+textarea { display: block; width: 100%; min-height: 230px; box-sizing: border-box; font-family: Consolas, monospace; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.controls { display: flex; gap: 14px; flex-wrap: wrap; margin: 14px 0; align-items: center; }
+button, input { padding: 6px 10px; }
+button { cursor: pointer; }
+button:disabled { cursor: default; }
+input[type="number"] { width: 130px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { border: 1px solid #ccd1d8; padding: 8px; text-align: left; overflow-wrap: anywhere; }
+[role="alert"] { color: #9a2020; }
+:focus-visible { outline: 2px solid #245ea8; outline-offset: 2px; }

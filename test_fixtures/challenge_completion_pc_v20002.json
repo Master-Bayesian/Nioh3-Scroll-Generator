@@ -1,0 +1,287 @@
+{
+  "schema": "nioh3-scroll-challenge-completion-vector/v1",
+  "game_version": "PC v2.00.02",
+  "capture_date": "2026-08-31",
+  "evidence_grade": "controlled-ui-plus-decrypted-save",
+  "seed": 203900415,
+  "record_type": "0xE604",
+  "rarity": 4,
+  "scope": {
+    "mechanism": "post-challenge special-effect replacement",
+    "excluded_mechanism": "paid/manual five-candidate reroll",
+    "save_access": "read-only decrypt and compare",
+    "debugger_attached_during_valid_run": false
+  },
+  "pre_record": {
+    "counter": 1,
+    "challenge_count_byte_0x33": 5,
+    "sha256": "a84db1d80738724548cb7b5b279403480be2d1f692baab2edc4ee3951806c626",
+    "effects": [
+      {
+        "slot": 1,
+        "effect_id": "0xCE1A",
+        "name_zh_CN": "武技伤害",
+        "value": 52,
+        "prefix": "0xAF2C",
+        "metadata": "0x00004352"
+      },
+      {
+        "slot": 2,
+        "effect_id": "0xD411",
+        "name_zh_CN": "冲刺精力消耗降低",
+        "value": 57,
+        "prefix": "0xD2C1",
+        "metadata": "0x00001C45"
+      },
+      {
+        "slot": 3,
+        "effect_id": "0x6AAF",
+        "name_zh_CN": "智之深奥",
+        "value": 150,
+        "prefix": "0x35BE",
+        "metadata": "0x00040D4E"
+      },
+      {
+        "slot": 4,
+        "effect_id": "0xFBEE",
+        "name_zh_CN": "防御精力消耗降低",
+        "value": 54,
+        "prefix": "0x4843",
+        "metadata": "0x00000550"
+      },
+      {
+        "slot": 5,
+        "effect_id": "0xBABD",
+        "name_zh_CN": "月读的恩宠",
+        "value": 0,
+        "prefix": "0xB991",
+        "metadata": "0x00020C00"
+      },
+      {
+        "slot": 6,
+        "effect_id": "0xFFFFFFFF",
+        "name_zh_CN": "空",
+        "value": 0,
+        "prefix": "0x0000",
+        "metadata": "0x00000000"
+      },
+      {
+        "slot": 7,
+        "effect_id": "0xFFFFFFFF",
+        "name_zh_CN": "空",
+        "value": 0,
+        "prefix": "0x0000",
+        "metadata": "0x00000000"
+      }
+    ],
+    "record_hex": "04e600000000b400b400000001000001b700b700000000008400801f00000000ff45270c000000000000000000000000040300052caf00001ace000034000000524300000000000000000000c1d2000011d4000039000000451c00000000000000000000be350000af6a0000960000004e0d0400000000000000000043480000eefb00003600000050050000000000000000000091b90000bdba000000000000000c0200000000000000000000000000ffffffff0000000000000000000000000000000000000000ffffffff00000000000000000000000000000000000000000000000000000000"
+  },
+  "displayed_candidates": [
+    {
+      "target_slot": 2,
+      "original_effect_id": "0xD411",
+      "original_name_zh_CN": "冲刺精力消耗降低",
+      "candidate_effect_id": "0xDAC2",
+      "candidate_name_zh_CN": "体之深奥",
+      "visible_value": null
+    },
+    {
+      "target_slot": 3,
+      "original_effect_id": "0x6AAF",
+      "original_name_zh_CN": "智之深奥",
+      "candidate_effect_id": "0xDFF0",
+      "candidate_name_zh_CN": "武之深奥",
+      "visible_value": null
+    },
+    {
+      "target_slot": 4,
+      "original_effect_id": "0xFBEE",
+      "original_name_zh_CN": "防御精力消耗降低",
+      "candidate_effect_id": "0x6CE3",
+      "candidate_name_zh_CN": "不消耗使役符",
+      "visible_value": "+1.4%"
+    },
+    {
+      "target_slot": 5,
+      "original_effect_id": "0xBABD",
+      "original_name_zh_CN": "月读的恩宠",
+      "candidate_effect_id": null,
+      "candidate_group_key": "0x3194",
+      "candidate_id_status": "not captured; the displayed name maps to multiple native effect rows, so the earlier 0xBC51 guess is withdrawn",
+      "candidate_name_zh_CN": "精华槽增加量",
+      "visible_value": "+9.3%"
+    }
+  ],
+  "selected_candidate": {
+    "target_slot": 2,
+    "effect_id": "0xDAC2",
+    "name_zh_CN": "体之深奥"
+  },
+  "post_record": {
+    "counter": 2,
+    "challenge_count_byte_0x33": 4,
+    "sha256": "e7f1ec25faacc4a659d4735be99cc49bcd197fdf7a5ddd1851320e8c70f71253",
+    "effects": [
+      {
+        "slot": 1,
+        "effect_id": "0xCE1A",
+        "name_zh_CN": "武技伤害",
+        "value": 52,
+        "prefix": "0xAF2C",
+        "metadata": "0x00004352"
+      },
+      {
+        "slot": 2,
+        "effect_id": "0xDAC2",
+        "name_zh_CN": "体之深奥",
+        "value": 150,
+        "prefix": "0xF8B5",
+        "metadata": "0x00040D59"
+      },
+      {
+        "slot": 3,
+        "effect_id": "0x6AAF",
+        "name_zh_CN": "智之深奥",
+        "value": 150,
+        "prefix": "0x35BE",
+        "metadata": "0x00040D4E"
+      },
+      {
+        "slot": 4,
+        "effect_id": "0xFBEE",
+        "name_zh_CN": "防御精力消耗降低",
+        "value": 54,
+        "prefix": "0x4843",
+        "metadata": "0x00000550"
+      },
+      {
+        "slot": 5,
+        "effect_id": "0xBABD",
+        "name_zh_CN": "月读的恩宠",
+        "value": 0,
+        "prefix": "0xA1B1",
+        "metadata": "0x00020C00"
+      },
+      {
+        "slot": 6,
+        "effect_id": "0xFFFFFFFF",
+        "name_zh_CN": "空",
+        "value": 0,
+        "prefix": "0x0000",
+        "metadata": "0x00000000"
+      },
+      {
+        "slot": 7,
+        "effect_id": "0xFFFFFFFF",
+        "name_zh_CN": "空",
+        "value": 0,
+        "prefix": "0x0000",
+        "metadata": "0x00000000"
+      }
+    ],
+    "record_hex": "04e600000000b400b400000002000001b700b700000000008400801f00000000ff45270c000000000000000000000000040300042caf00001ace000034000000524300000000000000000000b5f80000c2da000096000000590d04000000000000000000be350000af6a0000960000004e0d0400000000000000000043480000eefb000036000000500500000000000000000000b1a10000bdba000000000000000c0200000000000000000000000000ffffffff0000000000000000000000000000000000000000ffffffff00000000000000000000000000000000000000000000000000000000"
+  },
+  "byte_differences": [
+    {
+      "offset": "0x0C",
+      "before": "0x01",
+      "after": "0x02",
+      "interpretation": "reroll/completion counter increment"
+    },
+    {
+      "offset": "0x33",
+      "before": "0x05",
+      "after": "0x04",
+      "interpretation": "visible challenge count changed from 5/7 to 4/7"
+    },
+    {
+      "offset": "0x4C",
+      "before": "0xC1",
+      "after": "0xB5",
+      "interpretation": "selected slot 2 prefix"
+    },
+    {
+      "offset": "0x4D",
+      "before": "0xD2",
+      "after": "0xF8",
+      "interpretation": "selected slot 2 prefix"
+    },
+    {
+      "offset": "0x50",
+      "before": "0x11",
+      "after": "0xC2",
+      "interpretation": "selected slot 2 effect ID"
+    },
+    {
+      "offset": "0x51",
+      "before": "0xD4",
+      "after": "0xDA",
+      "interpretation": "selected slot 2 effect ID"
+    },
+    {
+      "offset": "0x54",
+      "before": "0x39",
+      "after": "0x96",
+      "interpretation": "selected slot 2 raw value"
+    },
+    {
+      "offset": "0x58",
+      "before": "0x45",
+      "after": "0x59",
+      "interpretation": "selected slot 2 metadata"
+    },
+    {
+      "offset": "0x59",
+      "before": "0x1C",
+      "after": "0x0D",
+      "interpretation": "selected slot 2 metadata"
+    },
+    {
+      "offset": "0x5A",
+      "before": "0x00",
+      "after": "0x04",
+      "interpretation": "selected slot 2 metadata"
+    },
+    {
+      "offset": "0x94",
+      "before": "0x91",
+      "after": "0xB1",
+      "interpretation": "unselected slot 5 prefix normalization"
+    },
+    {
+      "offset": "0x95",
+      "before": "0xB9",
+      "after": "0xA1",
+      "interpretation": "unselected slot 5 prefix normalization"
+    }
+  ],
+  "conclusions": [
+    "The primary slot is not offered for replacement in this completion flow.",
+    "Each of the four occupied non-primary slots received one independent candidate, and the player selected one original-to-candidate pair.",
+    "The Grace slot can receive a non-Grace replacement candidate.",
+    "The slot-5 screenshot proves the displayed group name and value, but not a unique effect ID; 0xBC51 must not be treated as captured native evidence.",
+    "Only the selected slot effect payload changed; an unselected Grace prefix was normalized without changing its effect ID.",
+    "The completion counter incremented exactly once.",
+    "The observed vector does not match the current paid/manual five-candidate predictor under any enumerated dynamic-gate subset, so the two mechanisms must remain separate until native control flow proves otherwise."
+  ],
+  "source_sha256": "7b2163e221fdb4677aaa8a25dc17356030b256b3c5034a56fba4ed490d98d927",
+  "sanitized_ranges": [
+    [
+      2,
+      4
+    ],
+    [
+      20,
+      4
+    ],
+    [
+      28,
+      4
+    ],
+    [
+      40,
+      8
+    ]
+  ],
+  "sanitization": "Instance/acquisition identity is zeroed in both records. All tested effect, counter and remaining-count transition bytes are unchanged. No screenshot or user save is required."
+}

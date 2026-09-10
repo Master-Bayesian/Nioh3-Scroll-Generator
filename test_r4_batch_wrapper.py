@@ -202,6 +202,9 @@ class EffectFinalizerBatchWrapperTests(unittest.TestCase):
             profile.playthrough_manager_pointer_rva,
         ):
             self.assertIn(struct.pack("<Q", module_base + rva), wrapper)
+        serial_disable = bytes.fromhex('C6 84 24 81 00 00 00 01')
+        assembly_call = b'\x48\xB8' + struct.pack('<Q', module_base + profile.assemble_scroll_rva)
+        self.assertLess(wrapper.index(serial_disable), wrapper.index(assembly_call))
 
 
 if __name__ == "__main__":

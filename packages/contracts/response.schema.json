@@ -1,0 +1,1544 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WorkerResponse",
+  "definitions": {
+    "JobSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "job_id": {
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "queued",
+            "running",
+            "cancel_requested",
+            "completed",
+            "cancelled",
+            "failed"
+          ]
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "query_digest": {
+          "type": "string"
+        },
+        "context_digest": {
+          "type": "string"
+        },
+        "cursor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "start_cursor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "candidate_id": {
+                "type": "string"
+              },
+              "context_digest": {
+                "type": "string"
+              },
+              "seed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "playthrough": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "rarity": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "record_stage": {
+                "enum": [
+                  "final_record",
+                  "native_stage_one",
+                  "effect_sequence_only"
+                ]
+              },
+              "installable": {
+                "type": "boolean"
+              },
+              "install_blocker": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "effects": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "slot": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "effect_id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "value": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "metadata": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "prefix": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "tail_0": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "tail_1": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "roll_percent": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "slot",
+                    "effect_id",
+                    "value",
+                    "metadata",
+                    "prefix",
+                    "tail_0",
+                    "tail_1",
+                    "roll_percent"
+                  ]
+                }
+              },
+              "auxiliary": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "terrain": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "value": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 4294967295
+                          },
+                          "display_effect_keys": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4294967295
+                            }
+                          }
+                        },
+                        "required": [
+                          "value",
+                          "display_effect_keys"
+                        ]
+                      },
+                      "enemy_groups": {
+                        "type": "array",
+                        "items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "lookup_key": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 4294967295
+                              },
+                              "role": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 4294967295
+                              }
+                            },
+                            "required": [
+                              "lookup_key",
+                              "role"
+                            ]
+                          }
+                        }
+                      },
+                      "special_rules": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "key": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4294967295
+                            },
+                            "raw_value": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "display_value": {
+                              "anyOf": [
+                                {
+                                  "type": "number"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "display_unit": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "display_grade": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "qualifier_kind": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "qualifier_key": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4294967295
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "key",
+                            "raw_value",
+                            "display_value",
+                            "display_unit",
+                            "display_grade",
+                            "qualifier_kind",
+                            "qualifier_key"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "terrain",
+                      "enemy_groups",
+                      "special_rules"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "cursor": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "evidence": {
+                "enum": [
+                  "certified_offline_replay",
+                  "native_finalized_generation"
+                ]
+              },
+              "installation_available": {
+                "type": "boolean"
+              },
+              "initial_challenge_capacity": {
+                "type": "integer",
+                "minimum": 4,
+                "maximum": 7
+              }
+            },
+            "required": [
+              "candidate_id",
+              "context_digest",
+              "seed",
+              "playthrough",
+              "rarity",
+              "record_stage",
+              "installable",
+              "install_blocker",
+              "effects",
+              "auxiliary",
+              "cursor",
+              "evidence",
+              "installation_available",
+              "initial_challenge_capacity"
+            ]
+          },
+          "maxItems": 100
+        },
+        "progress": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "start_after_trial": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "inspected_through_trial": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "family_size": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "fixed_seed_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "stages": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "type": "string"
+                      },
+                      "values": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "count": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "values",
+                      "count"
+                    ]
+                  }
+                },
+                "complete_match_count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "exhausted_family": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "start_after_trial",
+                "inspected_through_trial",
+                "family_size",
+                "fixed_seed_count",
+                "stages",
+                "complete_match_count",
+                "exhausted_family"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stop_reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "result_limit",
+                "budget_reached",
+                "family_exhausted",
+                "cancelled",
+                "error"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resume_token": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "elapsed_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "job_id",
+        "state",
+        "sequence",
+        "query_digest",
+        "context_digest",
+        "cursor",
+        "start_cursor",
+        "candidates",
+        "progress",
+        "stop_reason",
+        "error",
+        "resume_token",
+        "elapsed_ms"
+      ],
+      "title": "JobSnapshot"
+    },
+    "Handshake": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "contract_digest": {
+          "type": "string"
+        },
+        "role": {
+          "const": "offline_search"
+        },
+        "context": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "product_version": {
+              "type": "string"
+            },
+            "game_profile": {
+              "type": "string"
+            },
+            "resources_digest": {
+              "type": "string"
+            },
+            "algorithm_version": {
+              "type": "string"
+            },
+            "policy_version": {
+              "type": "string"
+            },
+            "context_digest": {
+              "type": "string"
+            },
+            "seed_accelerator_abi": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "seed_accelerator_build_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "product_version",
+            "game_profile",
+            "resources_digest",
+            "algorithm_version",
+            "policy_version",
+            "context_digest",
+            "seed_accelerator_abi",
+            "seed_accelerator_build_id"
+          ]
+        },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "playthroughs": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "rarities": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "cuda_pivot_and_auxiliary": {
+              "type": "boolean"
+            },
+            "directcompute_effect_filter": {
+              "type": "boolean"
+            },
+            "cpu_exact_replay": {
+              "type": "boolean"
+            },
+            "bulk_cpu_requires_opt_in": {
+              "type": "boolean"
+            },
+            "save_write": {
+              "const": false
+            },
+            "runtime_calls": {
+              "const": false
+            },
+            "cached_rarity5_playthroughs": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  4,
+                  5
+                ]
+              }
+            }
+          },
+          "required": [
+            "playthroughs",
+            "rarities",
+            "cuda_pivot_and_auxiliary",
+            "directcompute_effect_filter",
+            "cpu_exact_replay",
+            "bulk_cpu_requires_opt_in",
+            "save_write",
+            "runtime_calls"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "contract_digest",
+        "role",
+        "context",
+        "capabilities"
+      ],
+      "title": "Handshake"
+    },
+    "SearchCatalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "context_digest": {
+          "type": "string"
+        },
+        "ordinary_effects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "effect_id": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "effect_id",
+              "name"
+            ]
+          }
+        },
+        "grace_effects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "effect_id": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "effect_id",
+              "name"
+            ]
+          }
+        },
+        "terrain_options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "option_id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "effect_keys": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              },
+              "aggregate": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "option_id",
+              "name",
+              "effect_keys",
+              "aggregate"
+            ]
+          }
+        },
+        "enemy_options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "lookup_key": {
+                "type": "integer"
+              },
+              "role": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "lookup_key",
+              "role",
+              "name"
+            ]
+          }
+        },
+        "special_rule_options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "variant": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "key",
+              "name",
+              "variant"
+            ]
+          }
+        },
+        "special_rule_families": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "keys": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              }
+            },
+            "required": [
+              "name",
+              "keys"
+            ]
+          }
+        },
+        "recommended_level": {
+          "$ref": "#/definitions/RecommendedLevelMetadata"
+        }
+      },
+      "required": [
+        "context_digest",
+        "ordinary_effects",
+        "grace_effects",
+        "recommended_level"
+      ],
+      "title": "SearchCatalog"
+    },
+    "CandidateTransfer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "context_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 180
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "playthrough": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "rarity": {
+          "enum": [
+            3,
+            4,
+            5
+          ]
+        },
+        "record_stage": {
+          "enum": [
+            "final_record",
+            "native_stage_one",
+            "effect_sequence_only"
+          ]
+        },
+        "record_hex": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{464})?$"
+        },
+        "installation_record_hex": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{464}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "slot": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "effect_id": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "value": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "metadata": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "prefix": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "tail_0": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "tail_1": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "roll_percent": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "slot",
+              "effect_id",
+              "value",
+              "metadata",
+              "prefix",
+              "tail_0",
+              "tail_1",
+              "roll_percent"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 7,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "candidate_id",
+        "context_digest",
+        "level",
+        "seed",
+        "playthrough",
+        "rarity",
+        "record_stage",
+        "record_hex",
+        "installation_record_hex",
+        "effects"
+      ],
+      "title": "CandidateTransfer"
+    },
+    "CacheReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cache_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cache_id"
+      ]
+    },
+    "RecommendedLevelMetadata": {
+      "title": "RecommendedLevelMetadata",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minimum_internal_level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "maximum_internal_level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "minimum_displayed_level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "maximum_displayed_level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "selection_policy": {
+          "const": "lowest_canonical_internal_level"
+        },
+        "evidence": {
+          "const": "captured_native_curve_prediction"
+        }
+      },
+      "required": [
+        "minimum_internal_level",
+        "maximum_internal_level",
+        "minimum_displayed_level",
+        "maximum_displayed_level",
+        "selection_policy",
+        "evidence"
+      ]
+    },
+    "RecommendedLevelResolution": {
+      "title": "RecommendedLevelResolution",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "requested_displayed_level": {
+              "type": "integer",
+              "minimum": -2147483648,
+              "maximum": 2147483647
+            },
+            "status": {
+              "const": "exact"
+            },
+            "canonical_internal_levels": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "minItems": 1,
+              "maxItems": 1245,
+              "uniqueItems": true
+            },
+            "selected_internal_level": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "metadata": {
+              "$ref": "#/definitions/RecommendedLevelMetadata"
+            }
+          },
+          "required": [
+            "requested_displayed_level",
+            "status",
+            "canonical_internal_levels",
+            "selected_internal_level",
+            "metadata"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "requested_displayed_level": {
+              "type": "integer",
+              "minimum": -2147483648,
+              "maximum": 2147483647
+            },
+            "status": {
+              "enum": [
+                "out_of_range",
+                "unreachable"
+              ]
+            },
+            "canonical_internal_levels": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "minItems": 0,
+              "maxItems": 0,
+              "uniqueItems": true
+            },
+            "selected_internal_level": {
+              "type": "null"
+            },
+            "metadata": {
+              "$ref": "#/definitions/RecommendedLevelMetadata"
+            }
+          },
+          "required": [
+            "requested_displayed_level",
+            "status",
+            "canonical_internal_levels",
+            "selected_internal_level",
+            "metadata"
+          ]
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ok": {
+          "const": true
+        },
+        "result": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/JobSnapshot"
+            },
+            {
+              "$ref": "#/definitions/Handshake"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "stopped": {
+                  "const": true
+                }
+              },
+              "required": [
+                "stopped"
+              ]
+            },
+            {
+              "$ref": "#/definitions/SearchCatalog"
+            },
+            {
+              "$ref": "#/definitions/CandidateTransfer"
+            },
+            {
+              "$ref": "#/definitions/CacheReference"
+            },
+            {
+              "$ref": "#/definitions/RecommendedLevelResolution"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "job": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/JobSnapshot"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "job"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "candidate": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "candidate_id": {
+                      "type": "string"
+                    },
+                    "context_digest": {
+                      "type": "string"
+                    },
+                    "seed": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "playthrough": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "rarity": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "record_stage": {
+                      "enum": [
+                        "final_record",
+                        "native_stage_one",
+                        "effect_sequence_only"
+                      ]
+                    },
+                    "installable": {
+                      "type": "boolean"
+                    },
+                    "install_blocker": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "effects": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "slot": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "effect_id": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "value": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "metadata": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "prefix": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "tail_0": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "tail_1": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "roll_percent": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "slot",
+                          "effect_id",
+                          "value",
+                          "metadata",
+                          "prefix",
+                          "tail_0",
+                          "tail_1",
+                          "roll_percent"
+                        ]
+                      }
+                    },
+                    "auxiliary": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "terrain": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "value": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 4294967295
+                                },
+                                "display_effect_keys": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 4294967295
+                                  }
+                                }
+                              },
+                              "required": [
+                                "value",
+                                "display_effect_keys"
+                              ]
+                            },
+                            "enemy_groups": {
+                              "type": "array",
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "lookup_key": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 4294967295
+                                    },
+                                    "role": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "maximum": 4294967295
+                                    }
+                                  },
+                                  "required": [
+                                    "lookup_key",
+                                    "role"
+                                  ]
+                                }
+                              }
+                            },
+                            "special_rules": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                  "key": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 4294967295
+                                  },
+                                  "raw_value": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "display_value": {
+                                    "anyOf": [
+                                      {
+                                        "type": "number"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "display_unit": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "display_grade": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "qualifier_kind": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "qualifier_key": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 4294967295
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "key",
+                                  "raw_value",
+                                  "display_value",
+                                  "display_unit",
+                                  "display_grade",
+                                  "qualifier_kind",
+                                  "qualifier_key"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "terrain",
+                            "enemy_groups",
+                            "special_rules"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cursor": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "evidence": {
+                      "enum": [
+                        "certified_offline_replay",
+                        "native_finalized_generation"
+                      ]
+                    },
+                    "installation_available": {
+                      "type": "boolean"
+                    },
+                    "initial_challenge_capacity": {
+                      "type": "integer",
+                      "minimum": 4,
+                      "maximum": 7
+                    }
+                  },
+                  "required": [
+                    "candidate_id",
+                    "context_digest",
+                    "seed",
+                    "playthrough",
+                    "rarity",
+                    "record_stage",
+                    "installable",
+                    "install_blocker",
+                    "effects",
+                    "auxiliary",
+                    "cursor",
+                    "evidence",
+                    "installation_available",
+                    "initial_challenge_capacity"
+                  ]
+                },
+                "transfer": {
+                  "$ref": "#/definitions/CandidateTransfer"
+                }
+              },
+              "required": [
+                "candidate",
+                "transfer"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "ok",
+        "result"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ok": {
+          "const": false
+        },
+        "error": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "ok",
+        "error"
+      ]
+    }
+  ]
+}

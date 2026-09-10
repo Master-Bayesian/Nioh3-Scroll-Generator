@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {data,initialQuery,matches,queryProblem,toRecordTransferCount} from './model';
+const sample=data.samples.find(s=>s.rarity===4&&s.effects.some(e=>e.role==='恩宠'))!;
+const grace=sample.effects.find(e=>e.role==='恩宠')!;
+const q={...initialQuery(),effects:[],graces:[grace.id,'not-a-grace']};
+assert.ok(matches(sample,q));
+assert.ok(!matches(sample,{...q,graces:['not-a-grace']}));
+const rules=[{id:'present',name:'present',keys:[sample.rules[0].key],variant:'any',mode:1},{id:'absent',name:'absent',keys:[-1],variant:'any',mode:1}];
+assert.ok(matches(sample,{...q,rules}));
+assert.ok(!matches(sample,{...q,rules:rules.map(r=>({...r,mode:0}))}));
+assert.equal(queryProblem({...q,count:20}),'');
+assert.ok(queryProblem({...q,count:21}));
+assert.equal(toRecordTransferCount(-1),0xFFFFFFFF);
+console.log('7 query semantic checks passed');

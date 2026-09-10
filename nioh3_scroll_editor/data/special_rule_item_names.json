@@ -3,37 +3,255 @@
   "game_version": "PC v2.00.02",
   "notes": "Names are matched by the native uint16 item key. Simplified Chinese names follow the in-game Nioh 3 terminology; disabled native rule rows are filtered separately and never exposed as legal choices.",
   "items": {
-    "0x0708": {"en-US": "Lightning Shikigami", "zh-CN": "式神符·雷卒"},
-    "0x07D7": {"en-US": "Strider Talisman", "zh-CN": "迅足符"},
-    "0x0830": {"en-US": "Lightningstop Talisman", "zh-CN": "禁雷符"},
-    "0x0849": {"en-US": "Gust Talisman", "zh-CN": "斥风符"},
-    "0x10DE": {"en-US": "Carnage Talisman", "zh-CN": "修罗符"},
-    "0x13CF": {"en-US": "Wind Familiar Talisman", "zh-CN": "从风符"},
-    "0x1F98": {"en-US": "Preservation Talisman", "zh-CN": "回生符"},
-    "0x2589": {"en-US": "Talisman of the Fist", "zh-CN": "拳力符"},
-    "0x2B62": {"en-US": "Blessed Bolt Talisman", "zh-CN": "神箭符"},
-    "0x2D91": {"en-US": "Rejuvenation Talisman", "zh-CN": "养身符"},
-    "0x38BB": {"en-US": "Fire Shikigami", "zh-CN": "式神符·火卒"},
-    "0x3CA2": {"en-US": "Wind Shikigami", "zh-CN": "式神符·风卒"},
-    "0x4076": {"en-US": "Firestop Talisman", "zh-CN": "禁火符"},
-    "0x5C8E": {"en-US": "Cutting Blast Talisman", "zh-CN": "斩冲符"},
-    "0x69A6": {"en-US": "Ki Burst Talisman", "zh-CN": "发气符"},
-    "0x729D": {"en-US": "Power Talisman", "zh-CN": "增力符"},
-    "0x75C6": {"en-US": "Fire Familiar Talisman", "zh-CN": "从火符"},
-    "0x7859": {"en-US": "Shockwave Talisman", "zh-CN": "波动符"},
-    "0x7A7F": {"en-US": "Lightning Familiar Talisman", "zh-CN": "从雷符"},
-    "0x8970": {"en-US": "Windstop Talisman", "zh-CN": "禁风符"},
-    "0x89AA": {"en-US": "Extraction Talisman", "zh-CN": "夺灵符"},
-    "0x8E7F": {"en-US": "Oasis Talisman", "zh-CN": "活源符"},
-    "0x8F92": {"en-US": "Waterstop Talisman", "zh-CN": "禁水符"},
-    "0x9EAA": {"en-US": "Pleiades Talisman", "zh-CN": "昂灵符"},
-    "0xA5AE": {"en-US": "Sanctity Talisman", "zh-CN": "粹然符"},
-    "0xAFFD": {"en-US": "Steel Talisman", "zh-CN": "金刚符"},
-    "0xBFBA": {"en-US": "Water Familiar Talisman", "zh-CN": "从水符"},
-    "0xCBC3": {"en-US": "Water Talisman", "zh-CN": "召水符"},
-    "0xD247": {"en-US": "Last Stand Talisman", "zh-CN": "背水符"},
-    "0xD810": {"en-US": "Fire Talisman", "zh-CN": "召火符"},
-    "0xF36A": {"en-US": "Wind Talisman", "zh-CN": "召风符"},
-    "0xF450": {"en-US": "Lightning Talisman", "zh-CN": "召雷符"}
+    "0x0708": {
+      "en-US": "Lightning Shikigami",
+      "zh-CN": "式神符·雷卒",
+      "ja-JP": "式札・雷卒"
+    },
+    "0x07D7": {
+      "en-US": "Strider Talisman",
+      "zh-CN": "迅足符",
+      "ja-JP": "俊足符"
+    },
+    "0x0830": {
+      "en-US": "Lightningstop Talisman",
+      "zh-CN": "禁雷符",
+      "ja-JP": "禁雷符"
+    },
+    "0x0849": {
+      "en-US": "Gust Talisman",
+      "zh-CN": "斥风符",
+      "ja-JP": "斥風符"
+    },
+    "0x10DE": {
+      "en-US": "Carnage Talisman",
+      "zh-CN": "修罗符",
+      "ja-JP": "修羅符"
+    },
+    "0x13CF": {
+      "en-US": "Wind Familiar Talisman",
+      "zh-CN": "从风符",
+      "ja-JP": "従風符"
+    },
+    "0x1F98": {
+      "en-US": "Preservation Talisman",
+      "zh-CN": "回生符",
+      "ja-JP": "回生符"
+    },
+    "0x2589": {
+      "en-US": "Talisman of the Fist",
+      "zh-CN": "拳力符",
+      "ja-JP": "拳力符"
+    },
+    "0x2B62": {
+      "en-US": "Blessed Bolt Talisman",
+      "zh-CN": "神箭符",
+      "ja-JP": "神箭符"
+    },
+    "0x2D91": {
+      "en-US": "Rejuvenation Talisman",
+      "zh-CN": "养身符",
+      "ja-JP": "養身符"
+    },
+    "0x38BB": {
+      "en-US": "Fire Shikigami",
+      "zh-CN": "式神符·火卒",
+      "ja-JP": "式札・火卒"
+    },
+    "0x3CA2": {
+      "en-US": "Wind Shikigami",
+      "zh-CN": "式神符·风卒",
+      "ja-JP": "式札・風卒"
+    },
+    "0x4076": {
+      "en-US": "Firestop Talisman",
+      "zh-CN": "禁火符",
+      "ja-JP": "禁火符"
+    },
+    "0x5C8E": {
+      "en-US": "Cutting Blast Talisman",
+      "zh-CN": "斩冲符",
+      "ja-JP": "斬衝符"
+    },
+    "0x69A6": {
+      "en-US": "Ki Burst Talisman",
+      "zh-CN": "发气符",
+      "ja-JP": "発気符"
+    },
+    "0x729D": {
+      "en-US": "Power Talisman",
+      "zh-CN": "刚力符",
+      "ja-JP": "剛力符"
+    },
+    "0x75C6": {
+      "en-US": "Fire Familiar Talisman",
+      "zh-CN": "从火符",
+      "ja-JP": "従火符"
+    },
+    "0x7859": {
+      "en-US": "Shockwave Talisman",
+      "zh-CN": "波动符",
+      "ja-JP": "波動符"
+    },
+    "0x7A7F": {
+      "en-US": "Lightning Familiar Talisman",
+      "zh-CN": "从雷符",
+      "ja-JP": "従雷符"
+    },
+    "0x8970": {
+      "en-US": "Windstop Talisman",
+      "zh-CN": "禁风符",
+      "ja-JP": "禁風符"
+    },
+    "0x89AA": {
+      "en-US": "Extraction Talisman",
+      "zh-CN": "夺灵符",
+      "ja-JP": "奪霊符"
+    },
+    "0x8E7F": {
+      "en-US": "Oasis Talisman",
+      "zh-CN": "活源符",
+      "ja-JP": "活源符"
+    },
+    "0x8F92": {
+      "en-US": "Waterstop Talisman",
+      "zh-CN": "禁水符",
+      "ja-JP": "禁水符"
+    },
+    "0x9EAA": {
+      "en-US": "Pleiades Talisman",
+      "zh-CN": "昂灵符",
+      "ja-JP": "昂霊符"
+    },
+    "0xA5AE": {
+      "en-US": "Sanctity Talisman",
+      "zh-CN": "粹然符",
+      "ja-JP": "粋然符"
+    },
+    "0xAFFD": {
+      "en-US": "Steel Talisman",
+      "zh-CN": "金刚符",
+      "ja-JP": "金剛符"
+    },
+    "0xBFBA": {
+      "en-US": "Water Familiar Talisman",
+      "zh-CN": "从水符",
+      "ja-JP": "従水符"
+    },
+    "0xCBC3": {
+      "en-US": "Water Talisman",
+      "zh-CN": "召水符",
+      "ja-JP": "召水符"
+    },
+    "0xD247": {
+      "en-US": "Last Stand Talisman",
+      "zh-CN": "背水符",
+      "ja-JP": "背水符"
+    },
+    "0xD810": {
+      "en-US": "Fire Talisman",
+      "zh-CN": "召火符",
+      "ja-JP": "召火符"
+    },
+    "0xF36A": {
+      "en-US": "Wind Talisman",
+      "zh-CN": "召风符",
+      "ja-JP": "召風符"
+    },
+    "0xF450": {
+      "en-US": "Lightning Talisman",
+      "zh-CN": "召雷符",
+      "ja-JP": "召雷符"
+    }
+  },
+  "native_text_ids": {
+    "0x0708": "0x0138201A",
+    "0x07D7": "0x0103D668",
+    "0x0830": "0x0108C5BC",
+    "0x0849": "0x0131F456",
+    "0x10DE": "0x010240C9",
+    "0x13CF": "0x013656B8",
+    "0x1F98": "0x013D48EA",
+    "0x2589": "0x0123DABF",
+    "0x2B62": "0x01349C98",
+    "0x2D91": "0x013D4FC2",
+    "0x38BB": "0x012DFC71",
+    "0x3CA2": "0x0102CA19",
+    "0x4076": "0x010DAE02",
+    "0x5C8E": "0x010608F8",
+    "0x69A6": "0x0116D9C4",
+    "0x729D": "0x0120EC5E",
+    "0x75C6": "0x012E4BAA",
+    "0x7859": "0x012DEC4C",
+    "0x7A7F": "0x011652FE",
+    "0x8970": "0x012F8C6F",
+    "0x89AA": "0x01323AB8",
+    "0x8E7F": "0x01134236",
+    "0x8F92": "0x012D33B3",
+    "0x9EAA": "0x013CB11D",
+    "0xA5AE": "0x01329D4C",
+    "0xAFFD": "0x0136A360",
+    "0xBFBA": "0x013C6627",
+    "0xCBC3": "0x011D6101",
+    "0xD247": "0x01224E4F",
+    "0xD810": "0x0132337C",
+    "0xF36A": "0x01035FDF",
+    "0xF450": "0x01321D96"
+  },
+  "locale_verification": {
+    "zh-CN": {
+      "game_version": "PC v2.01",
+      "captured_at_utc": "2026-09-08T01:42:39.562107+00:00",
+      "method": "Read-only native item key at row +0x152 to text ID at +0x68; exact localized pool lookup",
+      "source": "qualifiers.zh-CN.json"
+    },
+    "en-US": {
+      "game_version": "PC v2.01",
+      "captured_at_utc": "2026-09-08T02:22:26.806259+00:00",
+      "method": "Read-only native item/text ID lookup with exact English pool anchors; all 32 text IDs match Chinese and Japanese captures",
+      "source": "qualifiers.en-US.json"
+    },
+    "ja-JP": {
+      "game_version": "PC v2.01",
+      "captured_at_utc": "2026-09-08T02:10:21.492963+00:00",
+      "method": "Read-only native item/text ID lookup, validated Japanese pool anchors; ruby/style markup removed for display and retained separately",
+      "source": "qualifiers.ja-JP.json"
+    }
+  },
+  "native_markup": {
+    "ja-JP": {
+      "0xD810": "^20~default~^FE~RUBY~^21~default~召火符^FF~RUBY,しょうかふ~",
+      "0xCBC3": "^20~default~^FE~RUBY~^21~default~召水符^FF~RUBY,しょうすいふ~",
+      "0xF450": "^20~default~^FE~RUBY~^21~default~召雷符^FF~RUBY,しょうらいふ~",
+      "0xF36A": "^20~default~^FE~RUBY~^21~default~召風符^FF~RUBY,しょうふうふ~",
+      "0x07D7": "^20~default~^FE~RUBY~^21~default~俊足符^FF~RUBY,しゅんそくふ~",
+      "0x729D": "^20~default~^FE~RUBY~^21~default~剛力符^FF~RUBY,ごうりきふ~",
+      "0x1F98": "^20~default~^FE~RUBY~^21~default~回生符^FF~RUBY,かいせいふ~",
+      "0xD247": "^20~default~^FE~RUBY~^21~default~背水符^FF~RUBY,はいすいふ~",
+      "0x5C8E": "^20~default~^FE~RUBY~^21~default~斬衝符^FF~RUBY,ざんしょうふ~",
+      "0x0849": "^20~default~^FE~RUBY~^21~default~斥風符^FF~RUBY,せきふうふ~",
+      "0x75C6": "^20~default~^FE~RUBY~^21~default~従火符^FF~RUBY,じゅうかふ~",
+      "0x2B62": "^20~default~^FE~RUBY~^21~default~神箭符^FF~RUBY,しんせんふ~",
+      "0x38BB": "^20~default~^FE~RUBY~^21~default~式札^FF~RUBY,しきふだ~・^20~default~^FE~RUBY~^21~default~火卒^FF~RUBY,かそつ~",
+      "0x0708": "^20~default~^FE~RUBY~^21~default~式札^FF~RUBY,しきふだ~・^20~default~^FE~RUBY~^21~default~雷卒^FF~RUBY,らいそつ~",
+      "0x3CA2": "^20~default~^FE~RUBY~^21~default~式札^FF~RUBY,しきふだ~・^20~default~^FE~RUBY~^21~default~風卒^FF~RUBY,ふうそつ~",
+      "0x4076": "^20~default~^FE~RUBY~^21~default~禁火符^FF~RUBY,きんかふ~",
+      "0x8F92": "^20~default~^FE~RUBY~^21~default~禁水符^FF~RUBY,きんすいふ~",
+      "0x0830": "^20~default~^FE~RUBY~^21~default~禁雷符^FF~RUBY,きんらいふ~",
+      "0x8970": "^20~default~^FE~RUBY~^21~default~禁風符^FF~RUBY,きんふうふ~",
+      "0xAFFD": "^20~default~^FE~RUBY~^21~default~金剛符^FF~RUBY,こんごうふ~",
+      "0x2D91": "^20~default~^FE~RUBY~^21~default~養身符^FF~RUBY,ようしんふ~",
+      "0x8E7F": "^20~default~^FE~RUBY~^21~default~活源符^FF~RUBY,かつげんふ~",
+      "0x9EAA": "^20~default~^FE~RUBY~^21~default~昂霊符^FF~RUBY,こうれいふ~",
+      "0x89AA": "^20~default~^FE~RUBY~^21~default~奪霊符^FF~RUBY,だつれいふ~",
+      "0x10DE": "^20~default~^FE~RUBY~^21~default~修羅符^FF~RUBY,しゅらふ~",
+      "0x7859": "^20~default~^FE~RUBY~^21~default~波動符^FF~RUBY,はどうふ~",
+      "0x2589": "^20~default~^FE~RUBY~^21~default~拳力符^FF~RUBY,けんりきふ~",
+      "0x69A6": "^20~default~^FE~RUBY~^21~default~発気符^FF~RUBY,はっきふ~",
+      "0xA5AE": "^20~default~^FE~RUBY~^21~default~粋然符^FF~RUBY,すいぜんふ~",
+      "0xBFBA": "^20~default~^FE~RUBY~^21~default~従水符^FF~RUBY,じゅうすいふ~",
+      "0x7A7F": "^20~default~^FE~RUBY~^21~default~従雷符^FF~RUBY,じゅうらいふ~",
+      "0x13CF": "^20~default~^FE~RUBY~^21~default~従風符^FF~RUBY,じゅうふうふ~"
+    }
   }
 }

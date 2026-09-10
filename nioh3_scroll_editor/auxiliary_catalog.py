@@ -7,6 +7,7 @@ from functools import lru_cache
 import json
 from pathlib import Path
 from typing import Any, Mapping
+from .presentation_strings import label
 
 
 AUXILIARY_NAME_SCHEMA = "nioh3-scroll-auxiliary-names/v1"
@@ -60,7 +61,7 @@ class AuxiliaryNameCatalog:
                 return same_language
             if self.locale.startswith("zh"):
                 return f"未识别阴阳术（原生编号 0x{qualifier_key:04X}，可生成）"
-            return names.get("en-US") or f"item 0x{qualifier_key:04X}"
+            return names.get("en-US") or label(self.locale, 'item', value=f'0x{qualifier_key:04X}')
         return None
 
     @staticmethod
@@ -79,18 +80,18 @@ class AuxiliaryNameCatalog:
         entry = self.terrain.get(str(row_index))
         if entry and entry.get("name"):
             return str(entry["name"])
-        return f"Unknown terrain row {row_index}"
+        return label(self.locale, 'unknown_terrain', value=row_index)
 
     def terrain_effect_name(self, key: int) -> str:
         wanted = _hex_key(key, 4).replace("0X", "0x")
         for entry in self.terrain.values():
             if wanted in entry.get("hash_keys", ()) and entry.get("name"):
                 return str(entry["name"])
-        return f"Unknown terrain effect 0x{key:04X}"
+        return label(self.locale, 'unknown_terrain_effect', value=f'0x{key:04X}')
 
     def special_rule_name(self, key: int) -> str:
         if key == 0:
-            return "None"
+            return label(self.locale, 'none')
         entry = self.special_rules.get(_hex_key(key, 4))
         if entry:
             raw_name = str(entry.get("name") or "").strip()
@@ -109,13 +110,13 @@ class AuxiliaryNameCatalog:
             display_name = str(entry.get("display_name") or "").strip()
             if display_name:
                 return display_name
-        return f"Unknown rule 0x{key:04X}"
+        return label(self.locale, 'unknown_rule', value=f'0x{key:04X}')
 
     def enemy_name(self, lookup_key: int) -> str:
         entry = self.enemies.get(_hex_key(lookup_key, 8))
         if entry and entry.get("name"):
             return str(entry["name"])
-        return f"Unknown enemy 0x{lookup_key:08X}"
+        return label(self.locale, 'unknown_enemy', value=f'0x{lookup_key:08X}')
 
     def enemy_keys_for_name(self, name: str) -> frozenset[int]:
         """Return every native lookup key sharing one localized enemy name."""

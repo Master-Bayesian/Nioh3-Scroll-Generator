@@ -118,15 +118,15 @@ class EffectPreimageAcceleratorTests(unittest.TestCase):
         )
         with (
             patch(
-                "nioh3_scroll_editor.app.d3d11_effect_acceleration_available",
+                "nioh3_scroll_editor.search_application.d3d11_effect_acceleration_available",
                 return_value=True,
             ),
             patch(
-                "nioh3_scroll_editor.app.collect_one_wildcard_composition_preimage_page",
+                "nioh3_scroll_editor.search_application.collect_one_wildcard_composition_preimage_page",
                 side_effect=pages,
             ) as collector,
             patch(
-                "nioh3_scroll_editor.app.generate_ng3_certified_effect_sequence",
+                "nioh3_scroll_editor.search_application.generate_ng3_certified_effect_sequence",
                 return_value=sequence,
             ),
         ):

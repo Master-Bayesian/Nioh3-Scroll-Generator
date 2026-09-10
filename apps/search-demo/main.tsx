@@ -1,0 +1,64 @@
+import React, { useRef, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { conditions, rules, fixtures, initialQuery, matchFixtures, type Query, type ScrollFixture } from './fixtures';
+import './style.css';
+
+function Icon({kind='search'}:{kind?:string}) {
+  const paths:Record<string,string> = {search:'M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0',edit:'M4 20l4-1L21 6l-4-4L4 15v5M14 5l4 4',box:'M3 7h18v14H3zM2 3h20v4H2zM9 12h6',gear:'M4 5h16M4 12h16M4 19h16M8 2v6M16 9v6M9 16v6',copy:'M8 8h13v13H8zM16 8V3H3v13h5',arrow:'M5 12h14M14 7l5 5-5 5',close:'M6 6l12 12M18 6L6 18'};
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[kind] || paths.search}/></svg>;
+}
+function Panel({title,tone,help,children}:{title:string;tone:string;help:string;children:React.ReactNode}) {
+  return <section className={`module ${tone}`}><header><h2>{title}</h2><details className="help"><summary aria-label={`Help: ${title}`}>?</summary><p>{help}</p></details></header>{children}</section>;
+}
+function Choice({label,value,values,onChange}:{label:string;value:string;values:string[];onChange:(v:string)=>void}) {
+  return <label className="field"><span>{label}</span><select value={value} onChange={e=>onChange(e.target.value)}>{values.map(v=><option key={v}>{v}</option>)}</select></label>;
+}
+function ConditionList({group,selected,toggle,filter=''}:{group:string;selected:string[];toggle:(id:string)=>void;filter?:string}) {
+  const visible = conditions.filter(c=>c.group===group && c.label.toLowerCase().includes(filter.toLowerCase()));
+  return <div className="choice-list">{visible.length ? visible.map(c=><label className="check-row" key={c.id}><input type="checkbox" checked={selected.includes(c.id)} onChange={()=>toggle(c.id)}/><span>{c.label}</span>{c.value&&<small>{c.value}</small>}</label>):<p className="muted">No matching effects.</p>}</div>;
+}
+function ScrollPreview({item,recommended,onCopy}:{item:ScrollFixture;recommended:number;onCopy:()=>void}) {
+  const effects=conditions.filter(c=>item.conditions.includes(c.id));
+  return <article className="scroll-sheet" aria-label={`Scroll preview ${item.seed}`}>
+    <div className="scroll-top"><div className="scroll-icon" role="img" aria-label="Scroll icon from the game screenshot"/><div><span className="item-level">Lv. {item.level} <small>R{item.rarity}</small></span><h2>百境百怪绘卷 · 顿悟</h2></div></div>
+    <div className="item-meta"><span>Recommended level<strong>{recommended}</strong></span><span>Challenges<strong>0 / {item.capacity}</strong></span></div>
+    <section className="item-section"><h3>Special effects <span>特殊效果</span></h3>{effects.filter(c=>['Primary','Secondary','Grace'].includes(c.group)).map((c,i)=><div className={`affix ${c.group.toLowerCase()}`} key={c.id}><span className="slot">{String(i+1).padStart(2,'0')}</span><span>{c.label}</span><strong>{c.value || '2 / 7'}</strong></div>)}</section>
+    <section className="item-section"><h3>Enemies <span>出现敌人</span></h3>{effects.filter(c=>c.group==='Enemies').map(c=><div className="enemy-line" key={c.id}><span>◇</span>{c.label}</div>)}</section>
+    <section className="item-section"><h3>Special rules <span>特殊规则</span></h3>{item.rules.map(rule=><div className="rule-line" key={rule}><span>{rule.split(': ')[0]}</span><strong>{rule.split(': ')[1]}</strong></div>)}</section>
+    <div className="terrain-line"><span>Terrain</span><strong>{item.terrain}</strong><span>NG {item.ng}</span></div>
+    <footer><span>Scroll ID <strong>{item.seed}</strong></span><button onClick={onCopy} aria-label="Copy scroll ID"><Icon kind="copy"/>Copy ID</button></footer>
+  </article>;
+}
+function App() {
+  const [draft,setDraft]=useState<Query>(initialQuery), [submitted,setSubmitted]=useState<Query>(initialQuery);
+  const [results,setResults]=useState<ScrollFixture[]>(fixtures),[active,setActive]=useState(0);
+  const [tab,setTab]=useState('Primary'),[filter,setFilter]=useState(''),[graceFilter,setGraceFilter]=useState('');
+  const [family,setFamily]=useState(Object.keys(rules)[0]),[variant,setVariant]=useState(rules[Object.keys(rules)[0]][0]);
+  const [notice,setNotice]=useState('Explore three illustrative scrolls.'),[searched,setSearched]=useState(false);
+  const reference=useRef<HTMLDialogElement>(null);
+  const dirty=JSON.stringify(draft)!==JSON.stringify(submitted);
+  const update=<K extends keyof Query>(key:K,value:Query[K])=>setDraft(q=>({...q,[key]:value}));
+  const toggle=(id:string)=>update('selected',draft.selected.includes(id)?draft.selected.filter(x=>x!==id):[...draft.selected,id]);
+  const item=results[active];
+  const tags=[...draft.selected.map(id=>({key:id,label:conditions.find(c=>c.id===id)!.label,remove:()=>toggle(id)})),...draft.rules.map(rule=>({key:rule,label:rule,remove:()=>update('rules',draft.rules.filter(r=>r!==rule))})),...(['terrain','capacity'] as const).filter(k=>draft[k]!=='Any').map(k=>({key:k,label:`${k==='capacity'?'Challenges': 'Terrain'}: ${draft[k]}`,remove:()=>update(k,'Any')}))];
+  function search(e:React.FormEvent) {e.preventDefault(); const matches=matchFixtures(draft);setResults(matches);setActive(0);setSubmitted(structuredClone(draft));setSearched(true);setNotice(`${matches.length} matching demo ${matches.length===1?'scroll':'scrolls'}.`);}
+  async function copy() {try {await navigator.clipboard.writeText(item.seed);setNotice('Scroll ID copied.');}catch {setNotice(`Copy unavailable. Select this ID manually: ${item.seed}`);}}
+  return <div className="app-shell">
+    <aside className="navigation"><div className="brand">NIOH<span>3</span><small>SCROLL WORKSHOP</small></div><nav aria-label="Main navigation"><button className="current" aria-current="page"><Icon/>Scroll Search</button><button disabled title="Outside this demo"><Icon kind="edit"/>Scroll Editor</button><button disabled title="Planned feature"><Icon kind="box"/>Equipment</button><button disabled title="Planned feature"><Icon kind="gear"/>Utilities</button></nav><div className="nav-footer"><span>百 境 百 怪</span><p>Shape your next challenge.</p><small>UI concept · 01</small></div></aside>
+    <main className="workspace"><header className="page-header"><div><h1>Scroll Search</h1><p>Combine effects and encounter conditions to find your scroll.</p></div><span className="demo-label">Interactive demo</span></header>
+      <section className="selection" aria-label="Selected conditions"><div className="selection-heading"><h2>Selected conditions <span>{tags.length}</span></h2><button className="text-button" disabled={!tags.length} onClick={()=>setDraft({...draft,selected:[],rules:[],terrain:'Any',capacity:'Any'})}>Clear all</button></div><div className="chips">{tags.length?tags.map(t=><button key={t.key} className="chip" onClick={t.remove} aria-label={`Remove ${t.label}`}>{t.label}<Icon kind="close"/></button>):<p className="empty-tray">Choose any combination below. Your selections will appear here.</p>}</div></section>
+      <form onSubmit={search} className="search-form"><div className="filter-columns"><div className="filter-column">
+        <Panel title="Effects" tone="sage" help="Choose primary and secondary effects together. Each selected effect is required in this demo. Values are illustrative; native value and duplicate-name selection will use the full catalog."><div className="tabs" role="tablist" aria-label="Effect type">{['Primary','Secondary'].map(t=><button type="button" role="tab" aria-selected={tab===t} key={t} onClick={()=>setTab(t)}>{t} effects <span>{draft.selected.filter(id=>conditions.find(c=>c.id===id)?.group===t).length || ''}</span></button>)}</div><label className="filter-input"><Icon/><input aria-label="Find effects" placeholder="Find an effect…" value={filter} onChange={e=>setFilter(e.target.value)}/></label><ConditionList group={tab} selected={draft.selected} toggle={toggle} filter={filter}/><p className="module-note">Select names here; exact values stay visible alongside.</p></Panel>
+        <Panel title="Grace" tone="lavender" help="Choose a grace, or leave all unchecked for any grace. One grace may be selected in this demo."><label className="filter-input"><Icon/><input aria-label="Find grace" placeholder="Find a grace…" value={graceFilter} onChange={e=>setGraceFilter(e.target.value)}/></label><ConditionList group="Grace" filter={graceFilter} selected={draft.selected} toggle={id=>update('selected',draft.selected.includes(id)?draft.selected.filter(x=>x!==id):[...draft.selected.filter(x=>conditions.find(c=>c.id===x)?.group!=='Grace'),id])}/></Panel>
+      </div><div className="filter-column">
+        <Panel title="Enemies" tone="sand" help="Choose required enemies. Multiple selections require all of them to appear."><div className="enemy-options"><ConditionList group="Enemies" selected={draft.selected} toggle={toggle}/></div></Panel>
+        <Panel title="Special rules" tone="rose" help="First choose a rule family, then a specific qualifier. Add it to the shared selection tray."><div className="rule-fields"><Choice label="Rule family" value={family} values={Object.keys(rules)} onChange={v=>{setFamily(v);setVariant(rules[v][0]);}}/><Choice label="Qualifier" value={variant} values={rules[family]} onChange={setVariant}/></div><button type="button" className="add-rule" disabled={draft.rules.includes(`${family}: ${variant}`)} onClick={()=>update('rules',[...draft.rules,`${family}: ${variant}`])}>Add rule <span>+</span></button></Panel>
+        <Panel title="Terrain" tone="blue" help="These scene labels are visual placeholders. A verified clean/polluted terrain classification is not yet connected."><div className="segmented">{['Any','Shrine','Battlefield','Cave'].map(v=><button type="button" key={v} aria-pressed={draft.terrain===v} onClick={()=>update('terrain',v)}>{v}</button>)}</div></Panel>
+        <Panel title="Challenge count" tone="blue" help="Filter seed-derived initial capacity, not the remaining-attempt field. The accepted range is four to seven."><div className="segmented">{['Any','4','5','6','7'].map(v=><button type="button" key={v} aria-pressed={draft.capacity===v} onClick={()=>update('capacity',v)}>{v}</button>)}</div></Panel>
+      </div></div><footer className="search-footer"><div className="search-settings"><Choice label="NG cycle" value={draft.ng} values={['Any','1','2','3','4','5']} onChange={v=>update('ng',v)}/><Choice label="Rarity" value={draft.rarity} values={['Any','3','4','5']} onChange={v=>update('rarity',v)}/><label className="field"><span>Recommended level</span><input required aria-label="Recommended level" type="number" min="142" max="700" value={draft.recommended} onChange={e=>update('recommended',e.target.valueAsNumber)}/></label><Choice label="Result limit" value={String(draft.limit)} values={['1','2','3']} onChange={v=>update('limit',Number(v))}/><button className="search-button" type="submit"><Icon/>Search<Icon kind="arrow"/></button></div><p className="search-disclaimer">Local preview data only · No game connection or save changes</p></footer></form>
+    </main>
+    <aside className="results"><header className="results-header"><div><h2>Results <span>{results.length.toString().padStart(2,'0')}</span></h2><p>{dirty?'Conditions changed · Search to apply':searched?'Matching demo scrolls':'Preview data · illustrative combinations'}</p></div><button className="reference-button" onClick={()=>reference.current?.showModal()}>Game reference</button></header><div className="result-layout"><div className="result-numbers" aria-label="Select result">{results.map((r,i)=><button key={r.id} aria-label={`Result ${i+1}`} aria-pressed={active===i} onClick={()=>setActive(i)}>{String(i+1).padStart(2,'0')}</button>)}</div>{item?<ScrollPreview item={item} recommended={submitted.recommended} onCopy={()=>void copy()}/>:<div className="no-results"><Icon/><h3>No demo matches</h3><p>Try fewer conditions. This demo contains only three illustrative scrolls.</p><button onClick={()=>{setDraft(initialQuery);setSubmitted(initialQuery);setResults(fixtures);setActive(0);setNotice('Demo reset.');}}>Reset filters</button></div>}</div><div className="results-status" role="status">{notice}</div><p className="preview-note">Layout preview, not a generated or verified scroll.<br/>Default order: challenge capacity, high to low after search.</p></aside>
+    <dialog ref={reference}><header><h2>In-game layout reference</h2><button onClick={()=>reference.current?.close()} aria-label="Close reference"><Icon kind="close"/></button></header><img src="game-reference.png" alt="Previously captured Nioh 3 scroll details, showing effects, enemies and special rules"/><p>Original local capture · PC v2.01 · September 7, 2026. Independent of demo results.</p></dialog>
+  </div>;
+}
+createRoot(document.getElementById('root')!).render(<App/>);

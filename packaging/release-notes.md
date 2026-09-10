@@ -1,25 +1,40 @@
-# 仁王3绘卷生成器 v0.6.10
+# Nioh 3 Scroll Editor 0.7.0
 
-本版修复稀有度 4 搜索仍可能把待揭露中间态当作候选的问题，并开放一、二周目稀有度 4 自定义搜索与添加。
+The new desktop interface combines scroll search, editing, favorites, a selected-item
+cart, and backup management. Chinese, English and Japanese can be selected in the app.
 
-- 所有游戏原生稀有度 4 搜索路径现在都会完整执行揭露最终化，再用最终记录检查主词条、副词条与恩宠；写档时仍保留对应的原生待揭露记录，避免重复最终化。
-- 修复 Seed `43723117` 的中间词条误命中：槽位 3 在最终化后由 `0xD411` 变为 `0xF9BE`，搜索只按 `0xF9BE` 判断。
-- 修复 Seed `36526331` 被误判为“尚未完成最终解析”：游戏尝试全部合资格槽位后若没有接受替换，原记录本身就是有效最终结果。
-- 应用候选入口新增稀有度 4 最终态门禁；即使以后某条搜索分支再次泄漏待揭露记录，也不会显示或允许写入。
-- 一、二周目现在可以搜索并添加稀有度 4 绘卷及指定恩宠。界面会明确提示这些周目没有合法原生 R4 掉落；程序按所选存档建立独立映射并调用游戏原生最终化，不套用三周目结果。
+- Search by primary alternatives, secondary effects, Grace, enemies, special rules,
+  terrain and maximum attempts. Each batch returns up to 25 scrolls; continue with
+  the next batch, keep the latest three searches, or load a known scroll ID.
+- Keep up to 50 favorites and 50 cart items independently. Add only the selected
+  cart items, either directly in the running game or to a save at the title screen.
+  Native live addition includes a verified automatic backup and durable receipts;
+  Cheat Engine is optional and is not needed for the default executor.
+- Edit existing scroll effects and header values with undo/redo and reviewed save
+  writes. Choose seeds from the cart. Native value ranges are shown when available.
+- Temporarily change enemies, terrain, rules and maximum attempts. Change current
+  remaining attempts separately for the selected scroll instance, with backup and
+  readback. Temporary capacity overrides do not propagate with a shared scroll.
+- Manage automatic backups, restore at the title screen, copy bounded diagnostic
+  logs, adjust font size, show catalog IDs and check signed whole-package updates.
+- Preserve the verified generation, RNG, R4 reveal-finalizer and native ABI behavior.
+  The legacy Tk source entry remains runnable during migration.
 
-写档前请让游戏返回标题界面。一、二周目 R4 属于可构造的自定义配置，不代表游戏会原生掉落。敌人、地形和特殊规则的本地覆盖仍是临时内存功能，不会写入存档或传播。
+## Install or migrate from v0.6
 
----
+Download `Nioh3ScrollEditor-0.7.0-win-x64.zip`, extract the entire archive into a
+writable folder and launch `Nioh3ScrollEditorV2.exe`. Python and Cheat Engine are
+not required. The legacy single-EXE updater cannot install V2; this first migration
+requires the ZIP download. Future V2 updates replace the complete portable directory.
 
-# Nioh 3 Scroll Generator v0.6.10
+## Compatibility
 
-This release prevents rarity-4 searches from exposing pre-reveal intermediate records and enables custom rarity-4 search/install flows for playthroughs one and two.
+Native live memory operations are gated to the verified PC v2.01 build. Early
+playthrough R4/R5 configurations are constructible custom records, not a claim of
+natural drops. Free effect edits are local; another player regenerates them from
+the seed. Save/reload, offline parity and local readback do not prove multiplayer
+propagation or every GPU configuration. The accepted R5 load-time normalization
+and icon discrepancy remain game behavior rather than an application workaround.
 
-- Every native rarity-4 search path now runs the complete reveal finalizer before checking primary effects, secondary effects, or Grace. Installation still keeps the corresponding native stage-one payload so the game finalizes it exactly once.
-- Fixes Seed `43723117`: slot 3 changes from stage-only `0xD411` to final `0xF9BE`, and only the final effect can satisfy search filters.
-- Fixes Seed `36526331`: after every eligible native attempt declines a replacement, the unchanged source record is the valid final result rather than an unresolved candidate.
-- Adds an application-boundary gate that rejects any rarity-4 stage-one record before it can enter the candidate list.
-- Enables rarity-4 Grace search and installation for playthroughs one and two. The UI explicitly marks these as custom configurations with no legal native R4 drop; mappings are save/context scoped and finalized natively instead of borrowing playthrough-three results.
-
-Return the game to the title screen before writing a save. Playthrough-one/two rarity-4 records are constructible custom configurations, not native drops. Local enemy, terrain, and special-rule overrides remain temporary runtime behavior and do not persist or propagate.
+The V2 update manifest is signed using the existing official Ed25519 key. Windows
+executables do not carry an Authenticode certificate.

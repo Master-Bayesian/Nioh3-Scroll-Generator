@@ -1,5 +1,13 @@
 # 仁王3绘卷生成器 / Nioh 3 Scroll Generator
 
+Frontend V2 is prepared at **0.7.0**: scroll search/editing, native live addition without CE,
+50-item favorites and cart, automatic backups, and Chinese/English/Japanese UI.
+See [release preparation and acceptance](docs/knowledge/V070_PREPUSH_COMPLETION_20260909.md)
+and the [V2 startup guide](docs/knowledge/FRONTEND_V2_FOUNDATION.md).
+Download and extract the complete V2 ZIP once when migrating from v0.6; the legacy
+single-EXE updater cannot install V2. The Tk interface documented below remains
+available as a source entry during migration. The 0.7.0 release has not been published yet.
+
 [简体中文](#简体中文) | [English](#english)
 
 ![仁王3绘卷生成器实际桌面界面 / Actual desktop application](docs/images/application-search.png)

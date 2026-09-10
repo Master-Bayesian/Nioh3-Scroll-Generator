@@ -1,5 +1,9 @@
 # Nioh 3 Scroll Generator UI Design System
 
+Status: historical Tk guidance. Frontend V2's final layout and visual system
+will be supplied through the user's Figma collaboration. The V2 engineering
+workbench does not approve or replace that design.
+
 ## Reference concepts
 
 - `design/concepts/canonical-search.png`

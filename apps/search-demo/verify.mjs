@@ -1,0 +1,55 @@
+import { chromium } from 'playwright';
+import assert from 'node:assert/strict';
+import { writeFile } from 'node:fs/promises';
+const out='deliverables/frontend-v2/search-ui-demo';
+const browser=await chromium.launch({headless:true});
+const page=await browser.newPage({viewport:{width:1440,height:1000}});
+const errors=[];
+page.on('pageerror',e=>errors.push(e.message));
+const checks=[];
+const check=(name,condition)=>{assert.ok(condition,name);checks.push(name);};
+try {
+  await page.goto('http://127.0.0.1:4177');
+  await page.getByRole('heading',{name:'Scroll Search',exact:true}).waitFor();
+  check('Three illustrative results initially',await page.getByRole('button',{name:/^Result [1-3]$/}).count()===3);
+  await page.getByRole('button',{name:'Result 2',exact:true}).click();
+  check('Result selection changes inspector',await page.getByRole('article',{name:'Scroll preview 43723117'}).isVisible());
+  await page.getByRole('checkbox',{name:'体力 +313',exact:true}).check();
+  await page.getByRole('tab',{name:'Secondary effects',exact:true}).click();
+  await page.getByRole('checkbox',{name:'幸运 +31',exact:true}).check();
+  check('Primary and secondary selections persist together',await page.getByRole('button',{name:'Remove 体力',exact:true}).isVisible() && await page.getByRole('button',{name:'Remove 幸运',exact:true}).isVisible());
+  await page.getByRole('button',{name:'Add rule +',exact:true}).click();
+  check('Duplicate rule disabled',await page.getByRole('button',{name:'Add rule +',exact:true}).isDisabled());
+  await page.getByRole('button',{name:'Search',exact:true}).click();
+  check('All selected conditions filter fixtures',await page.getByRole('status').innerText()==='1 matching demo scroll.');
+  check('Expected inspector',await page.getByRole('article',{name:'Scroll preview 10030565'}).isVisible());
+  await page.screenshot({path:`${out}/desktop-preview.png`,fullPage:true});
+  await page.getByRole('checkbox',{name:'祸津日的恩宠',exact:true}).check();
+  check('Draft change marks old results',await page.getByText('Conditions changed · Search to apply').isVisible());
+  await page.getByRole('button',{name:'Search',exact:true}).click();
+  check('Empty state',await page.getByRole('heading',{name:'No demo matches'}).isVisible());
+  await page.getByRole('button',{name:'Reset filters'}).click();
+  await page.getByRole('combobox',{name:'NG cycle',exact:true}).selectOption('2');
+  await page.getByRole('combobox',{name:'Rarity',exact:true}).selectOption('3');
+  await page.getByRole('spinbutton',{name:'Recommended level',exact:true}).fill('343');
+  await page.getByRole('button',{name:'Search',exact:true}).click();
+  check('NG and rarity filter',await page.getByRole('article',{name:'Scroll preview 36526331'}).isVisible());
+  check('Recommended level applied after submit',await page.locator('.item-meta').innerText().then(x=>x.includes('343')));
+  await page.getByRole('combobox',{name:'Rule family',exact:true}).selectOption('Increased drops');
+  check('Rule family resets qualifier',await page.getByRole('combobox',{name:'Qualifier'}).inputValue()==='九头龙的恩宠 · 30%');
+  await page.getByRole('button',{name:'Game reference',exact:true}).click();
+  check('Reference image loaded',await page.locator('dialog img').evaluate(img=>img.complete && img.naturalWidth>0));
+  await page.keyboard.press('Escape');
+  check('Reference closes with Escape',!await page.locator('dialog').isVisible());
+  for(const [width,height] of [[1440,1000],[1120,800],[390,844]]) {
+    await page.setViewportSize({width,height});
+    check(`No horizontal overflow at ${width}`,await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+    await page.screenshot({path:`${out}/viewport-${width}.png`,fullPage:true});
+  }
+  check('No runtime errors',errors.length===0);
+  await page.goto(`file:///${process.cwd().replaceAll('\\','/')}/${out}/index.html`);
+  await page.getByRole('heading',{name:'Scroll Search',exact:true}).waitFor();
+  check('Standalone HTML works without server',await page.getByRole('button',{name:'Result 3',exact:true}).isVisible());
+  await writeFile(`${out}/verification.json`,JSON.stringify({checks,errors},null,2));
+  console.log(`${checks.length} demo checks passed`);
+} finally {await browser.close();}

@@ -47,8 +47,8 @@ class AuxiliaryNameCatalogTests(unittest.TestCase):
 
     def test_unknown_values_remain_visible_as_hex(self) -> None:
         catalog = load_auxiliary_name_catalog("ja-JP")
-        self.assertEqual(catalog.special_rule_name(0x1234), "Unknown rule 0x1234")
-        self.assertEqual(catalog.enemy_name(0x12345678), "Unknown enemy 0x12345678")
+        self.assertEqual(catalog.special_rule_name(0x1234), "不明なルール 0x1234")
+        self.assertEqual(catalog.enemy_name(0x12345678), "不明な敵 0x12345678")
 
     def test_missing_locale_falls_back_to_japanese(self) -> None:
         catalog = load_auxiliary_name_catalog("missing-locale")

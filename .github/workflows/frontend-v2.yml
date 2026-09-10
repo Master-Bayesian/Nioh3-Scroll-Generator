@@ -1,0 +1,62 @@
+name: Frontend V2 foundation
+on:
+  workflow_dispatch:
+  push:
+    paths: ['apps/**', 'packages/**', 'nioh3_scroll_editor/**', 'test_*.py', 'test_v2_*.py', 'test_fixtures/**', 'test_recommended_level.py', 'test_live_insertion_evidence.py', 'research/analyze_live_item_insertion.py', 'test_auxiliary_catalog.py', 'tools/audit_v2_localization.py', 'tools/export_v2_ui_locales.py', 'tools/audit_v2_ui_locales.mjs', 'tools/verify_native_faults.ps1', 'research/verify_native_fault_matrix.py', 'research/native_dispatch_fixture.cpp', 'packaging/**', 'tools/*frontend_v2*', 'tools/write_v2_python_manifest.py', 'launch_*worker.py', 'package*.json', 'tsconfig.json', 'requirements*.txt', '.github/workflows/frontend-v2.yml']
+  pull_request:
+    paths: ['apps/**', 'packages/**', 'nioh3_scroll_editor/**', 'test_*.py', 'test_v2_*.py', 'test_fixtures/**', 'test_recommended_level.py', 'test_live_insertion_evidence.py', 'research/analyze_live_item_insertion.py', 'test_auxiliary_catalog.py', 'tools/audit_v2_localization.py', 'tools/export_v2_ui_locales.py', 'tools/audit_v2_ui_locales.mjs', 'tools/verify_native_faults.ps1', 'research/verify_native_fault_matrix.py', 'research/native_dispatch_fixture.cpp', 'packaging/**', 'tools/*frontend_v2*', 'tools/write_v2_python_manifest.py', 'launch_*worker.py', 'package*.json', 'tsconfig.json', 'requirements*.txt', '.github/workflows/frontend-v2.yml']
+jobs:
+  foundation:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: python -m pip install -r packaging/requirements-v2.lock.txt
+      - run: npm ci --no-fund
+      - run: npm run contracts
+      - run: python tools/export_v2_ui_locales.py
+      - run: git diff --exit-code -- apps/workshop/ui-locales.json
+      - run: node tools/audit_v2_ui_locales.mjs
+      - run: git diff --exit-code -- packages/contracts
+      - run: python -m unittest test_frontend_v2 test_v2_operations test_v2_localization test_auxiliary_catalog test_recommended_level test_v2_recommended_level test_live_insertion_evidence test_v2_live_reveal test_live_add_operations test_live_add_application test_live_add_descriptor test_single_native_insertion test_dispatch_probe_evidence test_live_add_native test_cart_batch test_review_integration test_grace_accelerated_scanner test_r4_batch_wrapper -v
+      - run: python tools/audit_v2_localization.py --output deliverables/frontend-v2/localization-coverage.json
+      - run: npm test
+      - run: python -m unittest test_effect_occurrences test_challenge_override test_runtime_count_edit test_challenge_completion_capture
+      - run: ./tools/verify_native_faults.ps1
+      - run: npm run test:electron
+      - name: Connected production UI with an isolated encrypted save
+        run: node apps/workshop/verify-connected.mjs
+        env:
+          NIOH3_PARITY_ALLOW_CPU: '1'
+      - name: Build and validate portable application
+        shell: pwsh
+        run: |
+          $buildPython = (Get-Command python).Source
+          $env:NIOH3_PYTHON = $buildPython
+          ./tools/build_frontend_v2.ps1 -Python $buildPython -Output 'deliverables/frontend-v2/portable-ci'
+          $portable = Join-Path $PWD 'deliverables/frontend-v2/portable-ci'
+          $env:NIOH3_WORKER_EXE = Join-Path $portable 'resources/worker/nioh3-search-worker.exe'
+          $env:NIOH3_PROTECTED_WORKER_EXE = Join-Path $portable 'resources/worker/nioh3-protected-worker.exe'
+          $env:NIOH3_PORTABLE_EXE = Join-Path $portable 'Nioh3ScrollEditorV2.exe'
+          $env:NIOH3_PARITY_ALLOW_CPU = '1'
+          npm test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:packaged
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:electron
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node apps/workshop/verify-connected.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node apps/workshop/verify-collections.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-v2-evidence
+          path: deliverables/frontend-v2/

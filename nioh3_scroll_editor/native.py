@@ -646,6 +646,9 @@ def build_explicit_playthrough_seed_range_wrapper(
         builder.emit(bytes.fromhex("41 B1 01"))
     _emit_absolute_call(builder, module_base + runtime_profile.generate_effects_rva)
 
+    # This is an isolated search preview, not an inventory acquisition. The
+    # compact descriptor's +0x21 flag suppresses the global serial allocation.
+    builder.emit(bytes.fromhex("C6 84 24 81 00 00 00 01"))
     builder.emit(bytes.fromhex("48 89 F1"))
     builder.emit(bytes.fromhex("48 8D 54 24 60"))
     _emit_absolute_call(builder, module_base + runtime_profile.assemble_scroll_rva)
@@ -718,6 +721,7 @@ class NativeBatchOracle:
         self.source_address = 0
         self.destination_address = 0
         self._retired_call_watcher: threading.Thread | None = None
+        self._retired_call_pending = threading.Event()
 
     def _preserve_rarity_headers(
         self,
@@ -824,12 +828,15 @@ class NativeBatchOracle:
         self.allocation = None
         self.source_address = 0
         self.destination_address = 0
+        self._retired_call_pending = threading.Event()
+        self._retired_call_pending.set()
 
         def wait_and_release() -> None:
             try:
                 wait_result = dll.WaitForSingleObject(remote_thread, WAIT_INFINITE)
                 if wait_result == WAIT_OBJECT_0:
                     dll.VirtualFreeEx(process, allocation, 0, MEM_RELEASE)
+                    self._retired_call_pending.clear()
             finally:
                 dll.CloseHandle(remote_thread)
                 dll.CloseHandle(process)
@@ -841,6 +848,11 @@ class NativeBatchOracle:
         )
         self._retired_call_watcher = watcher
         watcher.start()
+
+    @property
+    def remote_call_pending(self) -> bool:
+        """Retirement is complete only after a positively observed thread exit."""
+        return self._retired_call_pending.is_set()
 
     def read(self, address: int, size: int) -> bytes:
         if not self.process:
@@ -1251,6 +1263,7 @@ class NativeBatchOracle:
 class ScanProgress:
     scanned: int
     current_seed: int
+    joint_trial: int | None = None
 
 
 def _require_grace_acceleration_context(
@@ -1293,12 +1306,12 @@ def _require_grace_acceleration_context(
     return mapping
 
 
-def _should_finalize_native_rarity4(
+def _should_finalize_native_record(
     *, rarity: int, playthrough: int | None
 ) -> bool:
-    """Return whether this native context has a verified R4 completion path."""
+    """Run completion before filtering R4 and early-playthrough R3 records."""
 
-    return rarity == 4 and playthrough in (None, 1, 2, 3)
+    return (rarity == 4 and playthrough in (None, 1, 2, 3)) or (rarity == 3 and playthrough in (1, 2))
 
 
 def _require_experimental_slot5_grace_context(
@@ -1553,7 +1566,7 @@ def scan_next_candidate(
             )
             if not batch:
                 if progress:
-                    progress(ScanProgress(scanned=checked, current_seed=raw_batch[-1].seed))
+                    progress(ScanProgress(scanned=checked, current_seed=raw_batch[-1].seed, joint_trial=raw_batch[-1].pivot_trial))
                 continue
             sources = [
                 build_source_record(
@@ -1568,13 +1581,13 @@ def scan_next_candidate(
             generated = oracle.generate(sources)
             if len(generated) != len(batch):
                 raise RuntimeError("游戏原生生成器返回了错误数量的联立候选")
-            finalize_rarity4 = _should_finalize_native_rarity4(
+            finalize_native = _should_finalize_native_record(
                 rarity=rarity,
                 playthrough=playthrough,
             )
             finalized = (
                 oracle.finalize_stage_records_batch(generated)
-                if finalize_rarity4
+                if finalize_native
                 else generated
             )
             for solution, stage_record, record in zip(
@@ -1597,7 +1610,7 @@ def scan_next_candidate(
                     auxiliary_criteria=None,
                     record_stage=(
                         CandidateRecordStage.FINAL_RECORD
-                        if finalize_rarity4
+                        if finalize_native
                         else None
                     ),
                 )
@@ -1607,11 +1620,11 @@ def scan_next_candidate(
                         joint_search_trial=solution.pivot_trial,
                         auxiliary=auxiliary_by_seed.get(solution.seed),
                         installation_record=(
-                            stage_record if finalize_rarity4 else None
+                            stage_record if finalize_native else None
                         ),
                     )
             if progress:
-                progress(ScanProgress(scanned=checked, current_seed=raw_batch[-1].seed))
+                progress(ScanProgress(scanned=checked, current_seed=raw_batch[-1].seed, joint_trial=raw_batch[-1].pivot_trial))
         return None
 
     # Complete fixed-prefix solver for the verified NG3 rarity-5 path:
@@ -1665,7 +1678,7 @@ def scan_next_candidate(
             )
             if not batch:
                 if progress:
-                    progress(ScanProgress(scanned=scanned, current_seed=raw_batch[-1].seed))
+                    progress(ScanProgress(scanned=scanned, current_seed=raw_batch[-1].seed, joint_trial=raw_batch[-1].pivot_trial))
                 continue
             sources = [
                 build_source_record(
@@ -1702,7 +1715,7 @@ def scan_next_candidate(
                         auxiliary=auxiliary_by_seed.get(solution.seed),
                     )
             if progress:
-                progress(ScanProgress(scanned=scanned, current_seed=raw_batch[-1].seed))
+                progress(ScanProgress(scanned=scanned, current_seed=raw_batch[-1].seed, joint_trial=raw_batch[-1].pivot_trial))
         return None
 
     # Accelerated Grace path.  R4 and R5 use their own first-u16 maps.  R3
@@ -1745,13 +1758,13 @@ def scan_next_candidate(
                 raise RuntimeError("Native batch oracle returned an unexpected record count")
 
             if rarity in (4, 5):
-                finalize_rarity4 = _should_finalize_native_rarity4(
+                finalize_native = _should_finalize_native_record(
                     rarity=rarity,
                     playthrough=playthrough,
                 )
                 finalized = (
                     oracle.finalize_stage_records_batch(generated)
-                    if finalize_rarity4
+                    if finalize_native
                     else generated
                 )
                 for first_draw, stage_record, record in zip(
@@ -1766,7 +1779,7 @@ def scan_next_candidate(
                             "Native batch oracle changed an accelerated source seed: "
                             f"expected {first_draw.seed:#x}, got {actual_seed:#x}"
                         )
-                    if finalize_rarity4:
+                    if finalize_native:
                         stage_grace_id = struct.unpack_from(
                             "<I", stage_record, EFFECT_START + 4 * EFFECT_STRIDE + 4
                         )[0]
@@ -1788,16 +1801,16 @@ def scan_next_candidate(
                         auxiliary_criteria=auxiliary_criteria,
                         record_stage=(
                             CandidateRecordStage.FINAL_RECORD
-                            if finalize_rarity4
+                            if finalize_native
                             else None
                         ),
-                        strict_grace_prediction=not finalize_rarity4,
+                        strict_grace_prediction=not finalize_native,
                     )
                     if candidate is not None:
                         return replace(
                             candidate,
                             installation_record=(
-                                stage_record if finalize_rarity4 else None
+                                stage_record if finalize_native else None
                             ),
                         )
             else:
@@ -1883,13 +1896,13 @@ def scan_next_candidate(
                 playthrough=playthrough,
             )
             if rarity in (4, 5):
-                finalize_rarity4 = _should_finalize_native_rarity4(
+                finalize_native = _should_finalize_native_record(
                     rarity=rarity,
                     playthrough=playthrough,
                 )
                 finalized = (
                     oracle.finalize_stage_records_batch(generated)
-                    if finalize_rarity4
+                    if finalize_native
                     else generated
                 )
                 grace_slot = 5 if rarity == 4 else 6
@@ -1906,16 +1919,16 @@ def scan_next_candidate(
                         auxiliary_criteria=auxiliary_criteria,
                         record_stage=(
                             CandidateRecordStage.FINAL_RECORD
-                            if finalize_rarity4
+                            if finalize_native
                             else None
                         ),
-                        strict_grace_prediction=not finalize_rarity4,
+                        strict_grace_prediction=not finalize_native,
                     )
                     if candidate is not None:
                         return replace(
                             candidate,
                             installation_record=(
-                                stage_record if finalize_rarity4 else None
+                                stage_record if finalize_native else None
                             ),
                         )
             else:
@@ -1973,13 +1986,13 @@ def scan_next_candidate(
             count=count,
             playthrough=playthrough,
         )
-        finalize_rarity4 = _should_finalize_native_rarity4(
+        finalize_native = _should_finalize_native_record(
             rarity=rarity,
             playthrough=playthrough,
         )
         finalized = (
             oracle.finalize_stage_records_batch(generated)
-            if finalize_rarity4
+            if finalize_native
             else generated
         )
         for stage_record, record in zip(generated, finalized, strict=True):
@@ -1994,7 +2007,7 @@ def scan_next_candidate(
                 auxiliary_criteria=auxiliary_criteria,
                 record_stage=(
                     CandidateRecordStage.FINAL_RECORD
-                    if finalize_rarity4
+                    if finalize_native
                     else None
                 ),
             )
@@ -2002,7 +2015,7 @@ def scan_next_candidate(
                 return replace(
                     candidate,
                     installation_record=(
-                        stage_record if finalize_rarity4 else None
+                        stage_record if finalize_native else None
                     ),
                 )
         scanned += count

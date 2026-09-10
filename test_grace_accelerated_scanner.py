@@ -28,6 +28,32 @@ def record_for(seed: int, *, primary: int, grace: int) -> bytes:
 
 
 class GraceAcceleratedScannerTests(unittest.TestCase):
+    def test_early_r3_filters_completed_effects_and_retains_installation_source(self):
+        from nioh3_scroll_editor.models import CandidateRecordStage
+        source = bytearray(SCROLL_RECORD_SIZE)
+        struct.pack_into('<H', source, 0, 0x1E82)
+        struct.pack_into('<I', source, 0x20, 123)
+        source[0x30:0x32] = b'\x03\x03'
+        for index, effect_id in enumerate((PRIMARY, *ORDINARY[:3])):
+            struct.pack_into('<I', source, EFFECT_START + index * EFFECT_STRIDE + 4, effect_id)
+        completed = bytearray(source)
+        struct.pack_into('<I', completed, EFFECT_START + 4, 0x4647)
+        class Oracle:
+            max_batch_size = 1
+            def generate_seed_range(self, *args, **kwargs):
+                return [bytes(source)]
+            def finalize_stage_records_batch(self, records):
+                return [bytes(completed)]
+        for playthrough in (1, 2):
+            candidate = scan_next_candidate(Oracle(), template=bytes(source), start_seed=123,
+                primary_effect_ids=frozenset((0x4647,)), required_secondary_ids=frozenset(),
+                rarity=3, playthrough=playthrough, max_seeds=1)
+            self.assertIsNotNone(candidate)
+            self.assertEqual(candidate.record_stage, CandidateRecordStage.FINAL_RECORD)
+            self.assertEqual(candidate.installation_record, bytes(source))
+            self.assertEqual(candidate.record, bytes(completed))
+            self.assertIsNone(candidate.install_blocker)
+
     def test_grace_seeds_are_batched_and_then_filtered_by_primary_and_secondaries(self) -> None:
         mapping = load_grace_output_map()
 

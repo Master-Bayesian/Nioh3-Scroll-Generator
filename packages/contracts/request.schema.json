@@ -1,0 +1,729 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WorkerRequest",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "job.current"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {}
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "handshake"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {},
+          "required": []
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "search.catalog"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "playthrough": {
+              "const": 3
+            },
+            "rarity": {
+              "enum": [
+                3,
+                4,
+                5
+              ]
+            },
+            "locale": {
+              "enum": [
+                "en-US",
+                "zh-CN",
+                "ja-JP"
+              ]
+            }
+          },
+          "required": [
+            "playthrough",
+            "rarity",
+            "locale"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "recommended_level.resolve"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "displayed_level": {
+              "type": "integer",
+              "minimum": -2147483648,
+              "maximum": 2147483647
+            }
+          },
+          "required": [
+            "displayed_level"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "search.start"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "query": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "playthrough": {
+                  "enum": [
+                    3,
+                    4,
+                    5
+                  ]
+                },
+                "rarity": {
+                  "enum": [
+                    3,
+                    4,
+                    5
+                  ]
+                },
+                "level": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 180
+                },
+                "primary_effect_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "maxItems": 32,
+                  "uniqueItems": true
+                },
+                "required_secondary_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "maxItems": 32,
+                  "uniqueItems": true
+                },
+                "required_secondary_id_groups": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4294967295
+                    },
+                    "maxItems": 32,
+                    "uniqueItems": true,
+                    "minItems": 1
+                  },
+                  "maxItems": 8
+                },
+                "grace_effect_id": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4294967295
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "minimum_roll_percent_by_effect_id": {
+                  "type": "array",
+                  "maxItems": 32,
+                  "items": {
+                    "type": "array",
+                    "items": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4294967295
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100
+                      }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2
+                  }
+                },
+                "auxiliary": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "required_terrain_effect_keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4294967295
+                      },
+                      "maxItems": 32,
+                      "uniqueItems": true
+                    },
+                    "required_terrain_effect_key_groups": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4294967295
+                        },
+                        "maxItems": 32,
+                        "uniqueItems": true,
+                        "minItems": 1
+                      },
+                      "maxItems": 8
+                    },
+                    "required_special_rule_keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4294967295
+                      },
+                      "maxItems": 32,
+                      "uniqueItems": true
+                    },
+                    "required_special_rule_key_groups": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4294967295
+                        },
+                        "maxItems": 32,
+                        "uniqueItems": true,
+                        "minItems": 1
+                      },
+                      "maxItems": 8
+                    },
+                    "required_enemy_lookup_keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4294967295
+                      },
+                      "maxItems": 32,
+                      "uniqueItems": true
+                    },
+                    "required_enemy_lookup_key_groups": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4294967295
+                        },
+                        "maxItems": 32,
+                        "uniqueItems": true,
+                        "minItems": 1
+                      },
+                      "maxItems": 8
+                    }
+                  },
+                  "required": [
+                    "required_terrain_effect_keys",
+                    "required_terrain_effect_key_groups",
+                    "required_special_rule_keys",
+                    "required_special_rule_key_groups",
+                    "required_enemy_lookup_keys",
+                    "required_enemy_lookup_key_groups"
+                  ]
+                },
+                "terrain_selection_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "maxItems": 32,
+                  "uniqueItems": true
+                },
+                "initial_challenge_counts": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 4,
+                    "maximum": 7
+                  },
+                  "uniqueItems": true,
+                  "maxItems": 4,
+                  "description": "Optional offline search filter on seed-derived initial capacity; empty accepts any. Does not edit the remaining byte."
+                },
+                "grace_effect_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "uniqueItems": true,
+                  "maxItems": 64,
+                  "description": "Optional OR set of final grace IDs, applied to completed candidates. Empty accepts any grace."
+                },
+                "effect_occurrences": {
+                  "type": "array",
+                  "maxItems": 24,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "scope": {
+                        "enum": [
+                          "primary",
+                          "secondary",
+                          "any"
+                        ]
+                      },
+                      "alternatives": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 24,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "effect_id": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 65535
+                            },
+                            "minimum_roll_percent": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100
+                            }
+                          },
+                          "required": [
+                            "effect_id",
+                            "minimum_roll_percent"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "scope",
+                      "alternatives"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "playthrough",
+                "rarity",
+                "level",
+                "primary_effect_ids",
+                "required_secondary_ids",
+                "required_secondary_id_groups",
+                "grace_effect_id",
+                "minimum_roll_percent_by_effect_id",
+                "auxiliary"
+              ]
+            },
+            "context_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "result_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "page_trials": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "job_trials": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967296
+            },
+            "allow_cpu_fallback": {
+              "type": "boolean"
+            },
+            "resume_token": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 2048
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "cache_id": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "query",
+            "context_digest",
+            "result_count",
+            "page_trials",
+            "job_trials",
+            "allow_cpu_fallback",
+            "resume_token"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "job.snapshot"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "job_id": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "job_id"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "job.cancel"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "job_id": {
+              "type": "string",
+              "maxLength": 64,
+              "minLength": 1
+            }
+          },
+          "required": [
+            "job_id"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "shutdown"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {},
+          "required": []
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "method": {
+          "const": "candidate.export"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "job_id": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "candidate_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "job_id",
+            "candidate_id"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "cache.register"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cache_json": {
+              "type": "string",
+              "maxLength": 1000000
+            }
+          },
+          "required": [
+            "cache_json"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "candidate.preview"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "rarity": {
+              "enum": [
+                3,
+                4,
+                5
+              ]
+            },
+            "level": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 180
+            }
+          },
+          "required": [
+            "seed",
+            "rarity",
+            "level"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    }
+  ]
+}
