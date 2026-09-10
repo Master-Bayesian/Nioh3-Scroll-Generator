@@ -121,6 +121,57 @@ class SaveOperationsTests(unittest.TestCase):
 
 
 class ProtectedOwnershipTests(unittest.TestCase):
+    def test_terminal_job_waits_for_owner_exit_before_next_request(self):
+        original_thread = threading.Thread
+        for failed in (False, True):
+            with self.subTest(failed=failed):
+                jobs = ProtectedJobs()
+                terminal, release, returned = threading.Event(), threading.Event(), threading.Event()
+                outcomes, errors = [], []
+
+                class DelayedExitThread(original_thread):
+                    def run(self):
+                        super().run()
+                        if self.name == 'protected-save.commit':
+                            terminal.set()
+                            release.wait(5)
+
+                def first_action(*_):
+                    if failed:
+                        raise ValueError('Expected operation failure')
+                    return {'committed': True}
+
+                def next_request():
+                    try:
+                        outcomes.append(jobs.start('save.backups', lambda *_: {'backups': []}))
+                    except Exception as error:
+                        errors.append(str(error))
+                    finally:
+                        returned.set()
+
+                with patch('nioh3_scroll_editor.protected_jobs.threading.Thread', DelayedExitThread):
+                    first = jobs.start('save.commit', first_action)
+                    caller = original_thread(target=next_request)
+                    try:
+                        self.assertTrue(terminal.wait(5))
+                        snapshot = jobs.snapshot(first['job_id'])
+                        self.assertEqual('failed' if failed else 'completed', snapshot['state'])
+                        self.assertEqual(1, snapshot['sequence'])
+                        caller.start()
+                        finished = returned.wait(0.1)
+                        self.assertEqual([], errors)
+                        self.assertFalse(finished, 'A terminal owner must be joined before replying to the next request')
+                    finally:
+                        release.set()
+                        if caller.ident is not None:
+                            caller.join(5)
+                        jobs.join()
+                self.assertFalse(caller.is_alive())
+                self.assertEqual([], errors)
+                self.assertEqual(1, len(outcomes))
+                self.assertNotEqual(first['job_id'], outcomes[0]['job_id'])
+                self.assertEqual({'backups': []}, jobs.current()['job']['result'])
+
     def test_current_protected_job_is_detached_and_tracks_cancellation(self):
         jobs = ProtectedJobs(); entered, release = threading.Event(), threading.Event()
         def action(cancel, progress):

@@ -127,3 +127,25 @@ Connected-test failures now print and save the visible UI status so another
 failure will include the actual error, rather than only a success-message timeout.
 Do not hide this failure with a forced click, a broad retry or removal of the
 real recycle operation.
+
+## Terminal job publication preceded thread exit
+
+The next hosted run exposed the underlying failure as `BUSY: protected operation
+is still running`. `ProtectedJobs` published a terminal state before its final
+sequence update and before `Thread.is_alive()` became false. A fast follow-up
+inventory or backup request therefore received BUSY after observing completion.
+The observer correctly treated a rejected protected submission conservatively;
+the resulting locked controls were a symptom, not permission to replay writes.
+
+The worker now publishes the terminal state, result/error and final sequence
+together, then joins a terminal owner outside the state lock before accepting
+the next request or confirming idle shutdown. An actually active action is still
+rejected as busy, never cancelled or replaced. Worker closures retain their own
+job object so final updates cannot mutate a later job.
+
+A deterministic regression keeps a real thread alive after its target has
+completed. Both successful and failed actions reproduced the old BUSY rejection;
+the repaired implementation waits for owner exit and accepts exactly one next
+request. Existing active-write, cancellation, receipt and hook-ownership tests
+remain enabled. This added one distinct Python test: subsequent inventories
+contain 563 unique IDs, while the earlier deduplication result remains 562.

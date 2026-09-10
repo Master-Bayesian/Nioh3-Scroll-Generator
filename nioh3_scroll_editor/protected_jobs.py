@@ -1,7 +1,6 @@
 """Responsive serialized operations whose owner must not be force-terminated."""
 from copy import deepcopy
 import threading
-import time
 import uuid
 
 
@@ -12,28 +11,36 @@ class ProtectedJobs:
         self.thread = None
         self.job = None
 
+    def _join_terminal_owner(self):
+        with self.lock:
+            previous = self.thread if self.job and self.job['state'] in ('completed', 'failed') else None
+        # Completion can be observed before Thread.is_alive() becomes false.
+        # Join outside the lock, without retrying or replacing an active action.
+        if previous is not None:
+            previous.join()
+
     def start(self, kind, action, *, cancellable=False):
+        self._join_terminal_owner()
         with self.lock:
             if self.thread is not None and self.thread.is_alive():
                 raise RuntimeError('BUSY: protected operation is still running')
             self.cancelled.clear()
             self.job = {'job_id': uuid.uuid4().hex, 'kind': kind, 'state': 'running', 'sequence': 0,
                         'cancellable': cancellable, 'progress': None, 'result': None, 'error': None}
-            initial = deepcopy(self.job)
+            job = self.job
+            initial = deepcopy(job)
             def progress(value):
                 with self.lock:
-                    self.job.update(progress=value, sequence=self.job['sequence'] + 1)
+                    job.update(progress=value, sequence=job['sequence'] + 1)
             def run():
                 try:
                     result = action(self.cancelled, progress)
-                    with self.lock:
-                        self.job.update(state='completed', result=result)
+                    outcome = {'state': 'completed', 'result': result}
                 except Exception as error:
-                    with self.lock:
-                        self.job.update(state='failed', error={'code': getattr(error, 'code', 'OPERATION_FAILED'), 'message': str(error)})
-                finally:
-                    with self.lock:
-                        self.job['sequence'] += 1
+                    outcome = {'state': 'failed', 'error': {'code': getattr(error, 'code', 'OPERATION_FAILED'), 'message': str(error)}}
+                with self.lock:
+                    # Publish all terminal fields together, after action cleanup.
+                    job.update(**outcome, sequence=job['sequence'] + 1)
             self.thread = threading.Thread(target=run, name=f'protected-{kind}', daemon=False)
             self.thread.start()
             return initial
@@ -60,7 +67,9 @@ class ProtectedJobs:
             return deepcopy(self.job)
 
     def idle(self):
-        return self.thread is None or not self.thread.is_alive()
+        self._join_terminal_owner()
+        with self.lock:
+            return self.thread is None or not self.thread.is_alive()
 
     def join(self):
         if self.thread is not None:
