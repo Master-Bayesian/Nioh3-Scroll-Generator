@@ -45,13 +45,15 @@ try {
   await p.getByRole('button',{name:'特殊规则',exact:true}).click();
   await p.locator('.primary-button').click();
   await p.waitForFunction(async()=>((await window.nioh.currentSearch()).submitted?.query.auxiliary.required_special_rule_key_groups[0]?.length===23),null,{timeout:15000});
-  await p.getByRole('button',{name:'取消',exact:true}).click();
+  const cancel=p.getByRole('button',{name:'取消',exact:true});
+  if(await cancel.isEnabled()) await cancel.click({timeout:2000}).catch(()=>{});
   await p.waitForFunction(async()=>['cancelled','completed'].includes((await window.nioh.currentSearch()).job?.state),null,{timeout:15000});
   await p.locator('.rule-chip .rule-value').selectOption('any-rule-value');
   await p.locator('.primary-button').click();
   await p.waitForFunction(async()=>((await window.nioh.currentSearch()).submitted?.query.auxiliary.required_special_rule_key_groups[0]?.length===69),null,{timeout:15000});
   assert.doesNotMatch(await p.locator('.status').innerText(),/INVALID_REQUEST/);
-  await p.getByRole('button',{name:'取消',exact:true}).click();
+  if(await cancel.isEnabled()) await cancel.click({timeout:2000}).catch(()=>{});
+  await p.waitForFunction(async()=>['cancelled','completed'].includes((await window.nioh.currentSearch()).job?.state),null,{timeout:15000});
   await p.getByRole('button',{name:'清空全部',exact:true}).click();
   await p.getByRole('textbox',{name:'已知绘卷ID',exact:true}).fill('76634363');
   await p.getByRole('button',{name:'查看',exact:true}).click();await p.locator('.result-detail .scroll').waitFor();

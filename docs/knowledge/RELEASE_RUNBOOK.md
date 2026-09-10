@@ -117,6 +117,11 @@ After the debugging endpoint becomes reachable, wait for WebView2 to publish
 its first page target before selecting the page. Hosted runners can expose
 `/json/version` several seconds before the Tauri page appears.
 
+UI search acceptance must allow a bounded search to complete before the test
+can press Cancel. The hosted runner can finish an auxiliary-only page faster
+than a local workstation, so a disabled Cancel button is a valid completed
+state rather than an acceptance failure.
+
 ## 5. Verify, promote, and publish exact bytes
 
 Download `nioh3-tauri-release` into a new directory. Verify:
