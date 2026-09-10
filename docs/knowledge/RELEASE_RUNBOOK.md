@@ -105,6 +105,14 @@ cause, commit the fix, and dispatch the new SHA. Do not repeatedly rebuild the
 same known-bad commit. UI timeouts require captured UI/log evidence; retries do
 not turn a failed acceptance into a pass.
 
+Packaged WebView2 acceptance passes its isolated debugging port through
+`NIOH3_TAURI_TEST_DEBUG_PORT`. The application applies that value directly to
+the test-only WebView builder when `NIOH3_TAURI_TEST_ROOT` is also present.
+Do not replace this with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`: GitHub hosted
+Windows runners have launched a healthy application while silently omitting
+the environment-only remote-debugging switch, leaving Playwright unable to
+inspect the running UI.
+
 ## 5. Verify, promote, and publish exact bytes
 
 Download `nioh3-tauri-release` into a new directory. Verify:

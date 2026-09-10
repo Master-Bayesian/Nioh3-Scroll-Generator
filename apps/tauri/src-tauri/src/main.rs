@@ -75,6 +75,15 @@ fn trusted(url: &tauri::Url) -> bool {
                 && url.host_str() == Some("tauri.localhost")))
 }
 
+fn test_debug_port() -> Option<u16> {
+    std::env::var_os("NIOH3_TAURI_TEST_ROOT")?;
+    std::env::var("NIOH3_TAURI_TEST_DEBUG_PORT")
+        .ok()?
+        .parse::<u16>()
+        .ok()
+        .filter(|port| *port != 0)
+}
+
 #[tauri::command]
 async fn desktop_request(
     app: tauri::AppHandle,
@@ -377,8 +386,18 @@ fn main() {
             let updater=update::Updater::new(data.join("updates"));
             let webview_data=data.join("webview");
             app.manage(State { broker: Arc::new(Broker::new(root.clone(), data, packaged)), updater, packaged, update_ready:AtomicBool::new(!packaged), apply_update:AtomicBool::new(false), quitting: AtomicBool::new(false), closing: AtomicBool::new(false) });
-            tauri::WebviewWindowBuilder::from_config(app,&app.config().app.windows[0])?
-                .data_directory(webview_data).on_navigation(trusted).build()?;
+            let mut window = tauri::WebviewWindowBuilder::from_config(
+                app,
+                &app.config().app.windows[0],
+            )?
+            .data_directory(webview_data)
+            .on_navigation(trusted);
+            if let Some(port) = test_debug_port() {
+                window = window.additional_browser_args(&format!(
+                    "--remote-debugging-port={port}"
+                ));
+            }
+            window.build()?;
             Ok(())
         })
         .on_window_event(|window, event| {

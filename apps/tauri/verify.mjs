@@ -13,7 +13,7 @@ execFileSync(python, ['apps/desktop/tests/fixtures/create-save.py', join(root, '
 const server = createServer(); await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const port=server.address().port; await new Promise(r=>server.close(r));
 const child = spawn(resolve(process.env.NIOH3_TAURI_EXE || 'apps/tauri/src-tauri/target/debug/nioh3-studio.exe'), ['--user-data-dir',join(root,'profile')], {
-  windowsHide:true, stdio:['ignore','pipe','pipe'], env:{...process.env,NIOH3_PYTHON:python,NIOH3_TAURI_TEST_ROOT:join(root,'profile'),NIOH3_STATE_ROOT:join(root,'state'),LOCALAPPDATA:join(root,'local'),WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:`--remote-debugging-port=${port}`}
+  windowsHide:true, stdio:['ignore','pipe','pipe'], env:{...process.env,NIOH3_PYTHON:python,NIOH3_TAURI_TEST_ROOT:join(root,'profile'),NIOH3_TAURI_TEST_DEBUG_PORT:String(port),NIOH3_STATE_ROOT:join(root,'state'),LOCALAPPDATA:join(root,'local')}
 });
 let stderr=''; child.stderr.on('data',b=>stderr=(stderr+b).slice(-32000));
 let browser;

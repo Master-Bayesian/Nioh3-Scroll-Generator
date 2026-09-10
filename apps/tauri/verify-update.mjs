@@ -15,7 +15,7 @@ await mkdir(cache,{recursive:true});await cp(source,target,{recursive:true});awa
 const helper=join(cache,'apply-update.ps1');await cp('apps/tauri/src-tauri/apply-update.ps1',helper);
 const hash=createHash('sha256').update(await readFile(join(stage,'build-manifest.json'))).digest('hex');
 const server=createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));const port=server.address().port;await new Promise(r=>server.close(r));
-const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',helper,'-ProcessId','2147483647','-Target',target,'-Staged',stage,'-ManifestHash',hash,'-Profile',profile],{windowsHide:true,encoding:'utf8',timeout:30000,env:{...process.env,NIOH3_STATE_ROOT:join(root,'state'),WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:`--remote-debugging-port=${port}`}});
+const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',helper,'-ProcessId','2147483647','-Target',target,'-Staged',stage,'-ManifestHash',hash,'-Profile',profile],{windowsHide:true,encoding:'utf8',timeout:30000,env:{...process.env,NIOH3_TAURI_TEST_ROOT:profile,NIOH3_TAURI_TEST_DEBUG_PORT:String(port),NIOH3_STATE_ROOT:join(root,'state')}});
 assert.equal(result.status,0,result.stderr);
 let browser;
 try {

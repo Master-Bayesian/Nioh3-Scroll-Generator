@@ -246,7 +246,10 @@ async fn real_worker_search_validation_and_private_transfers() {
 #[test]
 fn support_log_keeps_complete_chunked_diagnostics_with_iso_timestamps() {
     let data = std::env::temp_dir().join(format!("nioh3-log-test-{}", uuid::Uuid::new_v4()));
-    let message = format!("save_path=C:/Users/player/save record_hex={}", "ab".repeat(9000));
+    let message = format!(
+        "save_path=C:/Users/player/save record_hex={}",
+        "ab".repeat(9000)
+    );
     crate::storage::log(&data, "worker-request", &message);
     let text = std::fs::read_to_string(data.join("logs/desktop.log")).unwrap();
     assert!(text.contains("T"));
