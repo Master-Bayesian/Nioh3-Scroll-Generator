@@ -176,3 +176,14 @@ latter was reproduced locally using an actual short-path TEMP directory and now
 compares physical parent/target paths while retaining symlink and user-file
 refusals. Shared frontend CI no longer builds the retired Electron package;
 packaged acceptance is owned once by the signed Tauri preparation workflow.
+
+### WebView2 runner prerequisite
+
+The first hosted portable build and packaged worker parity passed, but the runner
+could not create the WebView2 process for UI acceptance. Resolve/install the
+Microsoft-signed runtime before isolating LOCALAPPDATA for synthetic saves, and
+pass its real Windows path as WEBVIEW2_BROWSER_EXECUTABLE_FOLDER. Forward-slash
+paths can make the loader report a missing runtime despite an installed runtime;
+the local explicit-runtime smoke passed with the native Windows path. Failed
+startup now exports diagnostics, and failed acceptance retains both the complete
+candidate package and Cargo cache so diagnosis does not require another build.

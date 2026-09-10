@@ -1,12 +1,12 @@
 /** Real WebView2 + Rust broker acceptance; all writable state is isolated. */
 import { chromium } from 'playwright';
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, cp, realpath } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:net';
 import assert from 'node:assert/strict';
-const root = await mkdtemp(join(tmpdir(), 'nioh3-tauri-ui-'));
+const root = await realpath(await mkdtemp(join(tmpdir(), 'nioh3-tauri-ui-')));
 const output = resolve('deliverables/frontend-v2/tauri-acceptance'); await mkdir(output, {recursive:true});
 const python = process.env.NIOH3_PYTHON || 'python';
 execFileSync(python, ['apps/desktop/tests/fixtures/create-save.py', join(root, 'local/KoeiTecmo/NIOH3/Savedata')], {windowsHide:true});
@@ -18,7 +18,7 @@ const child = spawn(resolve(process.env.NIOH3_TAURI_EXE || 'apps/tauri/src-tauri
 let stderr=''; child.stderr.on('data',b=>stderr=(stderr+b).slice(-32000));
 let browser;
 try {
-  for(let i=0;i<100;i++) {
+  for(let i=0;i<200;i++) {
     if(child.exitCode!==null) throw Error(`App exited ${child.exitCode}: ${stderr}`);
     try { const r=await fetch(`http://127.0.0.1:${port}/json/version`);if(r.ok)break; }catch{}
     await new Promise(r=>setTimeout(r,300));
@@ -44,6 +44,8 @@ try {
   await p.evaluate(()=>window.review.windowAction('close'));
   console.log('TAURI_WEBVIEW2_SEARCH_FAVORITES_INVENTORY_OK');
 } catch(error) {
+  await writeFile(join(output,'startup-failure.json'),JSON.stringify({root,stderr,exitCode:child.exitCode,error:String(error)},null,2));
+  await cp(join(root,'profile/logs'),join(output,'failed-logs'),{recursive:true}).catch(()=>{});
   if(browser) { const p=browser.contexts()[0]?.pages()[0];if(p)await writeFile(join(output,'failure.txt'),await p.locator('body').innerText().catch(()=>stderr)); }
   throw error;
 } finally {
