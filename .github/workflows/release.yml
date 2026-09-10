@@ -18,6 +18,7 @@ jobs:
     env:
       PYTHONUTF8: "1"
       NIOH3_PARITY_ALLOW_CPU: "1"
+      NIOH3_REQUIRE_CLEAN_SOURCE: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -50,6 +51,12 @@ jobs:
       - run: python tools/export_v2_ui_locales.py
       - run: git diff --exit-code -- packages/contracts apps/workshop/ui-locales.json
       - run: node tools/audit_v2_ui_locales.mjs
+      - name: Require a clean source checkout after generation
+        shell: pwsh
+        run: |
+          $changes = git status --porcelain
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect source checkout' }
+          if ($changes) { throw "Release checkout changed after generation:`n$($changes -join [Environment]::NewLine)" }
       - run: python tools/verify_native_build_manifest.py
       - name: Verify unique test inventory before lengthy build steps
         run: python tools/write_test_inventory.py --output deliverables/release/test-inventory.json

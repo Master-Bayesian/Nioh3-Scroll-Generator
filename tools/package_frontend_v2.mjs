@@ -86,8 +86,10 @@ async function scan(folder) {
 }
 await scan(output);
 const git = args => execFileSync('git', args, { encoding: 'utf8', windowsHide: true }).trim();
+const changes = git(['status', '--porcelain']);
+if (process.env.NIOH3_REQUIRE_CLEAN_SOURCE === '1' && changes) throw new Error('RELEASE_SOURCE_DIRTY:\n' + changes);
 await writeFile(join(output, 'build-manifest.json'), JSON.stringify({ schema: 'nioh3-portable-manifest/v2', version: workspace.version, signed: false,
-  git: { commit: git(['rev-parse', 'HEAD']), dirty: !!git(['status', '--porcelain']) },
+  git: { commit: git(['rev-parse', 'HEAD']), dirty: !!changes },
   dependencyLocks: { npm: await hashFile('package-lock.json'), python: await hashFile('packaging/requirements-v2.lock.txt') },
   files: files.sort((a, b) => a.path.localeCompare(b.path)) }, null, 2) + '\n');
 await verifyPortable(output);

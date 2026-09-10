@@ -6,6 +6,7 @@
 *.csv text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
+packages/contracts/*.ts text eol=lf
 *.ps1 text eol=crlf
 
 # Native build identities hash the exact source bytes on every checkout.

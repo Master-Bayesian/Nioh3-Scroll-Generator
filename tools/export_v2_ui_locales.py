@@ -39,5 +39,5 @@ for locale in ('en-US', 'ja-JP'):
         if original:
             translated[original['name']] = row['name']
     games[locale] = translated
-(base / 'ui-locales.json').write_text(json.dumps({'ui': ui, 'game': games}, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+(base / 'ui-locales.json').write_text(json.dumps({'ui': ui, 'game': games}, ensure_ascii=False, indent=2)+'\n', encoding='utf-8', newline='\n')
 print(f'Exported {len(ui)} UI messages and {sum(map(len, games.values()))} game names')

@@ -149,3 +149,21 @@ the repaired implementation waits for owner exit and accepts exactly one next
 request. Existing active-write, cancellation, receipt and hook-ownership tests
 remain enabled. This added one distinct Python test: subsequent inventories
 contain 563 unique IDs, while the earlier deduplication result remains 562.
+
+## Generated files must use their declared checkout line endings
+
+Downloading the first signed package verified its official signature and ZIP
+hash, but the build manifest recorded `dirty: true`. A fresh Windows clone
+reproduced the cause before tests: generated contract TypeScript used LF while
+its default checkout used CRLF, and the locale exporter wrote CRLF despite the
+JSON file's LF attribute. Git's normalized content diff was empty, yet status
+still reported these five files as modified. The existing `git diff --exit-code`
+gate consequently passed without establishing a clean working tree.
+
+Generated contract TypeScript now has explicit LF attributes, and the Python
+locale exporter explicitly writes LF. The release checks `git status --porcelain`
+immediately after generation, and the packager refuses a dirty source tree when
+`NIOH3_REQUIRE_CLEAN_SOURCE=1`. The final manifest retains the real status value;
+the fix does not force it to false or ignore arbitrary changed files. Development
+packages can still record a dirty tree, but they cannot be promoted as a clean
+official release. Validate the downloaded manifest as well as the workflow status.
