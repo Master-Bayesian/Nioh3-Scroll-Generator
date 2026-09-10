@@ -1,0 +1,26 @@
+{
+  "schema": "nioh3-tauri-release-acceptance/v1",
+  "version": "0.7.1",
+  "candidateRun": "34435249593",
+  "sourceCommit": "5014a48d9983ba0620d862afa84e0111ce52a3ca",
+  "manifestSha256": "0de1c3a89a9ca5035496952a410ea19eb37facf39050b6c7f9c3477f9e48e10c",
+  "exeSha256": "a872b45d778deed713a4b19ba7711877c72b7d27747df3f6ebe9a8acf2bb194e",
+  "ui": {
+    "webview2": true,
+    "pythonHandshake": true,
+    "realSeed": 76634363,
+    "favorites": true,
+    "isolatedInventory": true,
+    "privateMethodRefused": true,
+    "gameWrites": 0
+  },
+  "update": {
+    "replacement": true,
+    "realApplicationStarted": true,
+    "workerHandshake": true,
+    "previousRemoved": true,
+    "cacheRemoved": true,
+    "gameWrites": 0
+  },
+  "limitation": "Hosted WebView2 started the UI and backend but did not expose the CDP test port. These acceptance checks ran on the exact downloaded clean-source hosted candidate on the development Windows machine. No game writes."
+}

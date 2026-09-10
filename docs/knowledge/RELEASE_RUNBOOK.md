@@ -187,3 +187,14 @@ paths can make the loader report a missing runtime despite an installed runtime;
 the local explicit-runtime smoke passed with the native Windows path. Failed
 startup now exports diagnostics, and failed acceptance retains both the complete
 candidate package and Cargo cache so diagnosis does not require another build.
+
+### Resume publication without rebuilding
+
+Hosted run 34435249593 produced a clean candidate and passed packaged parity.
+Its UI/backend startup logs were healthy, but the runner did not expose the CDP
+port to the test client. The exact retained candidate passed both WebView2 UI and
+real replacement/restart/cache-cleanup acceptance on the development Windows host.
+See evidence/tauri-v071-acceptance.json for the source commit and manifest hash.
+The explicit candidate_run signing route verifies that evidence and rejects any
+product-source change since that build. It then archives/signs those exact files;
+it does not claim that hosted CDP acceptance succeeded or rebuild the executable.
