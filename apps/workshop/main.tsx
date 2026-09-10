@@ -20,6 +20,9 @@ import {
   initialSample,
   matches,
   queryProblem,
+  ANY_RULE_VALUE,
+  ruleFamilyKeys,
+  ruleFamilyValues,
   type Query,
   type Sample,
   type SelectedEffect,
@@ -68,15 +71,18 @@ function Select({
   onChange,
   options,
   disabled = false,
+  className,
 }: {
   label: string;
   value: string | number;
   onChange: (v: string) => void;
   options: (string | number | string[])[];
   disabled?: boolean;
+  className?: string;
 }) {
   return (
     <select
+      className={className}
       aria-label={label}
       value={value}
       disabled={disabled}
@@ -501,6 +507,14 @@ function App() {
     [sortMode, setSortMode] = useState("primary"),
     [fontSize, setFontSize] = useState(13),
     [popup, setPopup] = useState("");
+  const [appVersion, setAppVersion] = useState("");
+  useEffect(() => {
+    if (!desktop) return;
+    void window.support
+      .diagnostics()
+      .then((report) => setAppVersion(report.version))
+      .catch(() => {});
+  }, []);
   const logs = useRef<string[]>([]);
   useEffect(() => {
     logs.current = [
@@ -841,6 +855,7 @@ function App() {
         <div className="brand">
           仁王<span>3</span>
           <small>独脚踏鞴工作室</small>
+          {appVersion && <em className="app-version">v{appVersion}</em>}
         </div>
         <nav>
           <button
@@ -1145,13 +1160,53 @@ function App() {
                     >
                       <span className="drag-grip">⠿</span>
                       <span>
-                        规则 · {r.name} ·{" "}
-                        {data.rules
-                          .find((f) => f.id === r.id)
-                          ?.variants.find((v) => String(v.key) === r.variant)
-                          ?.label || "全部接受"}
+                        规则 · {r.name}
+                        {!r.id.startsWith("category:") && (
+                          <>
+                            {" · "}
+                            {data.rules
+                              .find((f) => f.id === r.id)
+                              ?.variants.find(
+                                (v) => String(v.key) === r.variant,
+                              )?.label ||
+                              (r.variant === ANY_RULE_VALUE ||
+                              r.variant === "任意变体" ||
+                              r.variant === "任意对象／数值"
+                                ? "全部接受"
+                                : r.variant)}
+                          </>
+                        )}
                       </span>
+                      {r.id.startsWith("category:") && (
+                        <Select
+                          className="rule-value"
+                          label={r.name + "统一数值"}
+                          value={r.variant}
+                          options={[
+                            [ANY_RULE_VALUE, "任意数值"],
+                            ...ruleFamilyValues(r.name).map((value) => [
+                              value,
+                              value,
+                            ]),
+                          ]}
+                          onChange={(variant) =>
+                            change(
+                              "rules",
+                              q.rules.map((item) =>
+                                item.id === r.id
+                                  ? {
+                                      ...item,
+                                      keys: ruleFamilyKeys(r.name, variant),
+                                      variant,
+                                    }
+                                  : item,
+                              ),
+                            )
+                          }
+                        />
+                      )}
                       <Select
+                        className="rule-match"
                         label={r.name + "规则组合"}
                         value={r.mode || 0}
                         options={modeOptions}
@@ -1436,12 +1491,41 @@ function App() {
                         </button>
                         {(expandedRule === category || !!ruleFind) && (
                           <div className="rule-picker">
-                            <span>任意对象／数值</span>
+                            <span>任意对象</span>
+                            <Select
+                              label={category + "统一数值"}
+                              value={
+                                ruleDrafts["category:" + category] ||
+                                q.rules.find(
+                                  (item) => item.id === "category:" + category,
+                                )?.variant ||
+                                ANY_RULE_VALUE
+                              }
+                              options={[
+                                [ANY_RULE_VALUE, "任意数值"],
+                                ...ruleFamilyValues(category).map((value) => [
+                                  value,
+                                  value,
+                                ]),
+                              ]}
+                              onChange={(value) =>
+                                setRuleDrafts((previous) => ({
+                                  ...previous,
+                                  ["category:" + category]: value,
+                                }))
+                              }
+                            />
                             <button
                               onClick={() => {
                                 const families = data.rules.filter(
                                   (r) => r.category === category,
                                 );
+                                const variant =
+                                  ruleDrafts["category:" + category] ||
+                                  q.rules.find(
+                                    (item) => item.id === "category:" + category,
+                                  )?.variant ||
+                                  ANY_RULE_VALUE;
                                 const rest = q.rules.filter(
                                   (r) =>
                                     !families.some((f) => f.id === r.id) &&
@@ -1452,13 +1536,17 @@ function App() {
                                   {
                                     id: "category:" + category,
                                     name: category,
-                                    keys: families.flatMap((f) => f.keys),
-                                    variant: "任意对象／数值",
+                                    keys: ruleFamilyKeys(category, variant),
+                                    variant,
                                   },
                                 ]);
                               }}
                             >
-                              添加整类
+                              {q.rules.some(
+                                (item) => item.id === "category:" + category,
+                              )
+                                ? "更新"
+                                : "添加整类"}
                             </button>
                           </div>
                         )}

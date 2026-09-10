@@ -17,6 +17,46 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 
+const QQ_INVITE_URL: &str = "https://qm.qq.com/cgi-bin/qm/qr?k=0qS7eJtELBBcN8_ne4B7qG-c63Ze6pIo&jump_from=webapi&authKey=OMNXRYe8Ns3exbv9xiDr6HOQca3C/F+f5dVguJS7d2NFCf5URf308buzPfPXaf2G";
+const QQ_PROFILE_URL: &str = "tencent://ntqq-open?subCmd=profile&action=openMiniBuddyProfile&actionParams=%7B%22uin%22%3A%221106302479%22%2C%22sourceType%22%3A%22QrCodeShareBuddyLink%22%7D";
+
+fn qq_protocol_from_html(html: &str) -> Option<String> {
+    let encoded = html.split_once("var qsig = \"")?.1.split_once("\";")?.0;
+    let protocol = encoded.replace("\\/", "/").replace("\\u0026", "&");
+    let url = tauri::Url::parse(&protocol).ok()?;
+    if url.scheme() != "tencent" || url.host_str() != Some("groupwpa") || url.path() != "/" {
+        return None;
+    }
+    let mut subcommand = false;
+    let mut valid_parameter = false;
+    for (name, value) in url.query_pairs() {
+        match name.as_ref() {
+            "subcmd" => subcommand = value == "all",
+            "param" => {
+                valid_parameter = value.len() >= 32
+                    && value.len() <= 4096
+                    && value.contains("31313036333032343739")
+                    && value.as_bytes().iter().all(u8::is_ascii_hexdigit)
+            }
+            _ => return None,
+        }
+    }
+    (subcommand && valid_parameter).then(|| format!("{protocol}&jump_from=webapi"))
+}
+
+async fn qq_protocol() -> Option<String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(4))
+        .user_agent("Nioh3-Studio")
+        .build()
+        .ok()?;
+    let response = client.get(QQ_INVITE_URL).send().await.ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    qq_protocol_from_html(&response.text().await.ok()?)
+}
+
 struct State {
     broker: Arc<Broker>,
     updater: Arc<update::Updater>,
@@ -150,9 +190,21 @@ async fn desktop_request(
         "review:link" => {
             let url = match value.as_str() {
                 Some("github") => "https://github.com/Master-Bayesian/Nioh3-Scroll-Generator",
-                Some("updates") => "https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest",
-                Some("qq") => "https://qm.qq.com/cgi-bin/qm/qr?k=0qS7eJtELBBcN8_ne4B7qG-c63Ze6pIo&jump_from=webapi&authKey=OMNXRYe8Ns3exbv9xiDr6HOQca3C/F+f5dVguJS7d2NFCf5URf308buzPfPXaf2G",
-                _ => return Err("INVALID_EXTERNAL_LINK".into())
+                Some("updates") => {
+                    "https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest"
+                }
+                Some("qq") => {
+                    if let Some(protocol) = qq_protocol().await {
+                        if app.opener().open_url(protocol, None::<&str>).is_ok() {
+                            return Ok(Value::Null);
+                        }
+                    }
+                    if app.opener().open_url(QQ_PROFILE_URL, None::<&str>).is_ok() {
+                        return Ok(Value::Null);
+                    }
+                    QQ_INVITE_URL
+                }
+                _ => return Err("INVALID_EXTERNAL_LINK".into()),
             };
             app.opener()
                 .open_url(url, None::<&str>)

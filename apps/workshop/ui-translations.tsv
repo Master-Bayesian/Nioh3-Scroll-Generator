@@ -65,6 +65,7 @@
 移除敌人	Remove enemy	敵を削除
 规则 ·	Rule ·	ルール ·
 全部接受	Accept any	すべて許可
+筛选条件无法提交。请更新应用；若仍出现，请复制日志反馈。	The filters could not be submitted. Update the app; if this continues, copy the log and report it.	検索条件を送信できません。アプリを更新し、解決しない場合はログをコピーして報告してください。
 规则组合	Rule matching	ルールの組み合わせ
 移除规则	Remove rule	ルールを削除
 地形任一 ·	Any terrain ·	いずれかの地形 ·
@@ -99,6 +100,9 @@
 组	groups	組
 搜索规则、部位、符咒或恩宠	Search rule, body part, talisman or grace	ルール・部位・符・恩寵を検索
 任意对象／数值	Any target / value	対象・数値不問
+任意对象	Any target	対象不問
+统一数值	Shared value	共通数値
+任意数值	Any value	数値不問
 添加整类	Add whole category	分類全体を追加
 全部对象	All targets	すべての対象
 规则变体	Rule variant	ルールの種類

@@ -6,6 +6,10 @@ export function publicError(message: string): string {
     [/FAVORITES_CAPACITY_REACHED/, "收藏夹最多保存 50 张绘卷。"],
     [/CART_CAPACITY_REACHED/, "购物车最多保存 50 张绘卷。"],
     [
+      /INVALID_REQUEST:\s*search\.start/i,
+      "筛选条件无法提交。请更新应用；若仍出现，请复制日志反馈。",
+    ],
+    [
       /Saved defined record fields differ|Saved inventory serial set differs/i,
       "存档与当前绘卷状态不一致。请先在神社保存，关闭菜单后重新核对添加。",
     ],

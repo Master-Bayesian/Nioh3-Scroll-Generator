@@ -92,6 +92,35 @@ export type RuleCondition = {
   variant: string;
   mode?: number;
 };
+export const ANY_RULE_VALUE = "any-rule-value";
+export function ruleFamilyValues(category: string): string[] {
+  const members = data.rules.filter((rule) => rule.category === category);
+  if (!members.length) return [];
+  const common = new Set(members[0].variants.map((variant) => variant.label));
+  for (const member of members.slice(1)) {
+    const labels = new Set(member.variants.map((variant) => variant.label));
+    for (const value of common) if (!labels.has(value)) common.delete(value);
+  }
+  return [...common].sort(
+    (left, right) =>
+      (Number.parseFloat(left) || 0) - (Number.parseFloat(right) || 0) ||
+      left.localeCompare(right),
+  );
+}
+export function ruleFamilyKeys(category: string, value = ANY_RULE_VALUE): number[] {
+  const members = data.rules.filter((rule) => rule.category === category);
+  return [
+    ...new Set(
+      members.flatMap((member) =>
+        value === ANY_RULE_VALUE
+          ? member.keys
+          : member.variants
+              .filter((variant) => variant.label === value)
+              .map((variant) => variant.key),
+      ),
+    ),
+  ];
+}
 export type Query = {
   effects: SelectedEffect[];
   enemies: EnemyCondition[];

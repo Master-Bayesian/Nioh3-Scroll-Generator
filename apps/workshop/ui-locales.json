@@ -268,6 +268,10 @@
       "Accept any",
       "すべて許可"
     ],
+    "筛选条件无法提交。请更新应用；若仍出现，请复制日志反馈。": [
+      "The filters could not be submitted. Update the app; if this continues, copy the log and report it.",
+      "検索条件を送信できません。アプリを更新し、解決しない場合はログをコピーして報告してください。"
+    ],
     "规则组合": [
       "Rule matching",
       "ルールの組み合わせ"
@@ -403,6 +407,18 @@
     "任意对象／数值": [
       "Any target / value",
       "対象・数値不問"
+    ],
+    "任意对象": [
+      "Any target",
+      "対象不問"
+    ],
+    "统一数值": [
+      "Shared value",
+      "共通数値"
+    ],
+    "任意数值": [
+      "Any value",
+      "数値不問"
     ],
     "添加整类": [
       "Add whole category",

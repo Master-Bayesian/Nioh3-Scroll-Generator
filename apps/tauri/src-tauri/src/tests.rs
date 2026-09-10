@@ -3,6 +3,27 @@ use base64::Engine;
 use serde_json::json;
 
 #[test]
+fn qq_invite_accepts_only_the_official_group_protocol_shape() {
+    let html = r#"<script>var qsig = "tencent:\/\/groupwpa\/?subcmd=all\u0026param=7b2267726f757055696e223a313130363330323437397d";</script>"#;
+    assert_eq!(
+        crate::qq_protocol_from_html(html).as_deref(),
+        Some("tencent://groupwpa/?subcmd=all&param=7b2267726f757055696e223a313130363330323437397d&jump_from=webapi")
+    );
+    assert!(crate::qq_protocol_from_html(
+        r#"var qsig = "https:\/\/attacker.invalid\/?subcmd=all\u0026param=7b22";"#
+    )
+    .is_none());
+    assert!(crate::qq_protocol_from_html(
+        r#"var qsig = "tencent:\/\/groupwpa\/?subcmd=other\u0026param=7b2267726f757055696e223a313130363330323437397d";"#
+    )
+    .is_none());
+    assert!(crate::qq_protocol_from_html(
+        r#"var qsig = "tencent:\/\/groupwpa\/?subcmd=all\u0026param=7b2267726f757055696e223a393939393939393939397d";"#
+    )
+    .is_none());
+}
+
+#[test]
 fn javascript_signature_and_package_paths() {
     let fixture: serde_json::Value =
         serde_json::from_str(include_str!("../../test-fixtures/signed-update.json")).unwrap();
