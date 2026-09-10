@@ -20,3 +20,12 @@ Hosted release preparation runs against the pushed commit, verifies the actual
 packaged workers and UI, and signs its update manifest using the existing
 repository secret. The version tag is pushed only after this preparation passes.
 The tag workflow rebuilds, verifies, signs and publishes the release assets.
+
+## Windows temporary-directory aliases
+
+The review integration test compared a canonical application state path with an
+unresolved temporary path. GitHub's Windows runner can expose `TEMP` through an
+8.3 alias, so both paths referred to the same directory while their strings differed.
+Resolve the fixture root before comparing it. Keep the assertions that changing
+the next-launch data directory does not move the currently active operations.
+Do not weaken application path canonicalization to accommodate a test fixture.

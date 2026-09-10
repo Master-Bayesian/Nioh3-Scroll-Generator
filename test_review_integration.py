@@ -36,7 +36,8 @@ class ReviewIntegrationTests(unittest.TestCase):
         from unittest.mock import patch
         from nioh3_scroll_editor.app_settings import load_app_settings, default_state_root
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {'LOCALAPPDATA': directory, 'NIOH3_SCROLL_DATA_ROOT': ''}):
-            root = Path(directory)
+            # Hosted Windows TEMP may use an 8.3 alias; compare canonical paths.
+            root = Path(directory).resolve()
             original = root / 'active'
             app = SaveApplication(original)
             target = root / 'chosen'

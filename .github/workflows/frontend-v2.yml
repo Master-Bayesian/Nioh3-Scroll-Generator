@@ -2,9 +2,9 @@ name: Frontend V2 foundation
 on:
   workflow_dispatch:
   push:
-    paths: ['apps/**', 'packages/**', 'nioh3_scroll_editor/**', 'test_*.py', 'test_v2_*.py', 'test_fixtures/**', 'test_recommended_level.py', 'test_live_insertion_evidence.py', 'research/analyze_live_item_insertion.py', 'test_auxiliary_catalog.py', 'tools/audit_v2_localization.py', 'tools/export_v2_ui_locales.py', 'tools/audit_v2_ui_locales.mjs', 'tools/verify_native_faults.ps1', 'research/verify_native_fault_matrix.py', 'research/native_dispatch_fixture.cpp', 'packaging/**', 'tools/*frontend_v2*', 'tools/write_v2_python_manifest.py', 'launch_*worker.py', 'package*.json', 'tsconfig.json', 'requirements*.txt', '.github/workflows/frontend-v2.yml']
+    paths: ['.gitattributes', 'apps/**', 'packages/**', 'nioh3_scroll_editor/**', 'test_*.py', 'test_v2_*.py', 'test_fixtures/**', 'test_recommended_level.py', 'test_live_insertion_evidence.py', 'research/analyze_live_item_insertion.py', 'test_auxiliary_catalog.py', 'tools/audit_v2_localization.py', 'tools/export_v2_ui_locales.py', 'tools/audit_v2_ui_locales.mjs', 'tools/verify_native_faults.ps1', 'research/verify_native_fault_matrix.py', 'research/native_dispatch_fixture.cpp', 'packaging/**', 'tools/*frontend_v2*', 'tools/write_v2_python_manifest.py', 'launch_*worker.py', 'package*.json', 'tsconfig.json', 'requirements*.txt', '.github/workflows/frontend-v2.yml']
   pull_request:
-    paths: ['apps/**', 'packages/**', 'nioh3_scroll_editor/**', 'test_*.py', 'test_v2_*.py', 'test_fixtures/**', 'test_recommended_level.py', 'test_live_insertion_evidence.py', 'research/analyze_live_item_insertion.py', 'test_auxiliary_catalog.py', 'tools/audit_v2_localization.py', 'tools/export_v2_ui_locales.py', 'tools/audit_v2_ui_locales.mjs', 'tools/verify_native_faults.ps1', 'research/verify_native_fault_matrix.py', 'research/native_dispatch_fixture.cpp', 'packaging/**', 'tools/*frontend_v2*', 'tools/write_v2_python_manifest.py', 'launch_*worker.py', 'package*.json', 'tsconfig.json', 'requirements*.txt', '.github/workflows/frontend-v2.yml']
+    paths: ['.gitattributes', 'apps/**', 'packages/**', 'nioh3_scroll_editor/**', 'test_*.py', 'test_v2_*.py', 'test_fixtures/**', 'test_recommended_level.py', 'test_live_insertion_evidence.py', 'research/analyze_live_item_insertion.py', 'test_auxiliary_catalog.py', 'tools/audit_v2_localization.py', 'tools/export_v2_ui_locales.py', 'tools/audit_v2_ui_locales.mjs', 'tools/verify_native_faults.ps1', 'research/verify_native_fault_matrix.py', 'research/native_dispatch_fixture.cpp', 'packaging/**', 'tools/*frontend_v2*', 'tools/write_v2_python_manifest.py', 'launch_*worker.py', 'package*.json', 'tsconfig.json', 'requirements*.txt', '.github/workflows/frontend-v2.yml']
 jobs:
   foundation:
     runs-on: windows-latest
@@ -19,6 +19,7 @@ jobs:
           cache: npm
       - run: python -m pip install -r packaging/requirements-v2.lock.txt
       - run: npm ci --no-fund
+      - run: python tools/verify_native_build_manifest.py
       - run: npm run contracts
       - run: python tools/export_v2_ui_locales.py
       - run: git diff --exit-code -- apps/workshop/ui-locales.json
