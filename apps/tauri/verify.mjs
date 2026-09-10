@@ -24,7 +24,13 @@ try {
     await new Promise(r=>setTimeout(r,300));
   }
   browser=await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
-  const p=browser.contexts()[0].pages()[0];
+  let p;
+  for(let i=0;i<150;i++) {
+    p=browser.contexts()[0]?.pages()[0];
+    if(p) break;
+    await new Promise(r=>setTimeout(r,200));
+  }
+  if(!p) throw Error('WebView2 debugging endpoint opened without a page target');
   await p.getByText('后端已连接，请选择筛选条件。',{exact:true}).waitFor({timeout:45000});
   await p.locator('.app-version').waitFor();
   assert.equal(await p.locator('.app-version').innerText(),'v0.7.2');

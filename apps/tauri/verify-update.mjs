@@ -21,7 +21,9 @@ let browser;
 try {
   for(let i=0;i<100;i++){try{if((await fetch(`http://127.0.0.1:${port}/json/version`)).ok)break;}catch{}await new Promise(r=>setTimeout(r,300));}
   browser=await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
-  const page=browser.contexts()[0].pages()[0];
+  let page;
+  for(let i=0;i<150;i++){page=browser.contexts()[0]?.pages()[0];if(page)break;await new Promise(r=>setTimeout(r,200));}
+  if(!page)throw Error('WebView2 debugging endpoint opened without a page target');
   await page.locator('.shell').waitFor({timeout:45000});
   let receipt;
   for(let i=0;i<100;i++) {receipt=JSON.parse(await readFile(join(cache,'last-update-result.json'),'utf8'));if(receipt.status==='completed')break;await new Promise(r=>setTimeout(r,300));}

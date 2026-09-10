@@ -113,6 +113,10 @@ Windows runners have launched a healthy application while silently omitting
 the environment-only remote-debugging switch, leaving Playwright unable to
 inspect the running UI.
 
+After the debugging endpoint becomes reachable, wait for WebView2 to publish
+its first page target before selecting the page. Hosted runners can expose
+`/json/version` several seconds before the Tauri page appears.
+
 ## 5. Verify, promote, and publish exact bytes
 
 Download `nioh3-tauri-release` into a new directory. Verify:
