@@ -11,8 +11,11 @@ const workspace = JSON.parse(await readFile('package.json', 'utf8'));
 const pythonEnvironment = JSON.parse(await readFile(join(workers, 'python-build-environment.json'), 'utf8'));
 try { await stat(output); throw new Error('Output already exists; use a new directory'); }
 catch (error) { if (error.code !== 'ENOENT') throw error; }
+// Electron 44 downloads its binary lazily; packaging must not depend on a prior launch.
+const electronDirectory = dirname(createRequire(import.meta.url).resolve('electron/package.json'));
+execFileSync(process.execPath, [join(electronDirectory, 'install.js')], { stdio: 'inherit', windowsHide: true });
 await mkdir(output, { recursive: true });
-await cp(resolve('node_modules/electron/dist'), output, { recursive: true });
+await cp(join(electronDirectory, 'dist'), output, { recursive: true });
 await rename(join(output, 'electron.exe'), join(output, 'Nioh3ScrollEditorV2.exe'));
 execFileSync(process.env.NIOH3_BUILD_PYTHON || 'python', ['tools/stamp_v2_executable.py', join(output, 'Nioh3ScrollEditorV2.exe'), workspace.version], { windowsHide: true });
 const resources = join(output, 'resources');

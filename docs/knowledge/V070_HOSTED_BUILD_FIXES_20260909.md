@@ -59,3 +59,31 @@ The result pane remains scrollable. The connected synthetic-save test now reques
 a compact 1280x800 content area, asserts that the cart button stays above the save
 picker, and performs the real click and selected-item add. Do not replace this
 with a forced Playwright click or an artificially enlarged test window.
+
+## Repeated unittest discovery
+
+`test_cart_batch.py` imported another module's `TestCase` class to reuse its
+fixture. Unittest discovered that imported class again, so the earlier 569 test
+executions represented 562 distinct test IDs. All executions passed after the
+environment fixes, but the separate inventory gate correctly rejected duplicates.
+
+Import the module and reference its fixture through the module, keeping the
+class out of the importing module's discovery namespace. Verify that the unique
+ID set before and after the change is identical. The inventory now reports 562
+unique tests, with no tests removed. The release workflow runs inventory validation
+before lengthy tests and packaging; errors report the duplicate IDs or discovery
+exceptions directly. Keep this gate enabled and use its count in release reports.
+
+## Electron's binary must be installed explicitly
+
+Electron 44's npm package has no postinstall download. Its executable is installed
+lazily when a launcher first resolves it. The foundation workflow launched Electron
+before packaging, while the release workflow went directly from `npm ci` to
+packaging. Only the latter exposed the missing `node_modules/electron/dist` folder.
+
+The packager now invokes the installed Electron package's own `install.js` before
+copying the distribution. That installer validates the pinned package's checksums
+and treats an already installed matching version as a no-op. Test this with a fresh
+dependency directory and no prior Electron launch. Preserve the release workflow's
+ability to build directly from dependency installation; a smoke launch is not a
+substitute for a build prerequisite.

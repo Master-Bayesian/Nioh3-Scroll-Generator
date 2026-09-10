@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -23,10 +24,14 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    suite = unittest.defaultTestLoader.discover(".")
+    loader = unittest.TestLoader()
+    suite = loader.discover(".")
+    if loader.errors:
+        raise RuntimeError("unittest discovery failed:\n" + "\n".join(loader.errors))
     test_ids = tuple(sorted(iter_test_ids(suite)))
-    if len(test_ids) != len(set(test_ids)):
-        raise RuntimeError("the unittest runner collected duplicate test IDs")
+    duplicates = [test_id for test_id, count in Counter(test_ids).items() if count > 1]
+    if duplicates:
+        raise RuntimeError("the unittest runner collected duplicate test IDs:\n" + "\n".join(duplicates))
     payload = {
         "schema": "nioh3-test-inventory/v1",
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),

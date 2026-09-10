@@ -10,7 +10,7 @@ from unittest.mock import Mock
 import struct
 
 from nioh3_scroll_editor.live_add_batch import LiveAddBatch
-from test_live_add_application import LiveAddApplicationTests
+import test_live_add_application as live_add_tests
 from nioh3_scroll_editor.save_application import SaveApplication
 from nioh3_scroll_editor.savegame import SaveInstaller
 
@@ -121,7 +121,7 @@ class BatchTests(unittest.TestCase):
 
 
 class ChainedPreparationTests(unittest.TestCase):
-    setUp = LiveAddApplicationTests.setUp
+    setUp = live_add_tests.LiveAddApplicationTests.setUp
 
     def advance(self):
         first = self.app.prepare({'candidate_id': 'first'}, self.save)

@@ -49,6 +49,8 @@ jobs:
       - run: git diff --exit-code -- packages/contracts apps/workshop/ui-locales.json
       - run: node tools/audit_v2_ui_locales.mjs
       - run: python tools/verify_native_build_manifest.py
+      - name: Verify unique test inventory before lengthy build steps
+        run: python tools/write_test_inventory.py --output deliverables/release/test-inventory.json
       - run: python tools/run_cpu_only_tests.py
       - run: python -m unittest discover -v
       - run: npm test
@@ -88,8 +90,6 @@ jobs:
             "https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.value }}/Nioh3ScrollEditor-${{ steps.version.outputs.value }}-win-x64.zip" `
             "${{ steps.version.outputs.value }}" "${{ steps.version.outputs.channel }}" `
             packaging/release-notes.md deliverables/release/v2-update.json
-      - name: Record test inventory
-        run: python tools/write_test_inventory.py --output deliverables/release/test-inventory.json
       - name: Retain preparation artifacts
         uses: actions/upload-artifact@v4
         with:
