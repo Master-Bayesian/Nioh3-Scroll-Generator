@@ -59,6 +59,8 @@ jobs:
         run: |
           if(git status --porcelain){throw 'Source checkout is dirty'}
           ./tools/build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output deliverables/release/portable
+      - name: Build the single-file installer from the portable product
+        run: python tools/build_tauri_installer.py deliverables/release/portable deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64-setup.exe
       - name: Verify the release binaries
         shell: pwsh
         run: |
@@ -71,12 +73,10 @@ jobs:
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node apps/tauri/verify-update.mjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
-      - run: python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.zip
-      - name: Build the single-file installer
-        run: python tools/build_tauri_installer.py deliverables/release/portable deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64-setup.exe
       - name: Verify installer, installed startup and uninstaller
         shell: pwsh
         run: ./tools/verify_tauri_installer.ps1 -Installer deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64-setup.exe -Python $env:NIOH3_PYTHON
+      - run: python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.zip
       - name: Enforce download budget and sign
         shell: pwsh
         env:

@@ -11,6 +11,34 @@ import subprocess
 import sys
 from uuid import uuid4
 
+UNKNOWN_BUNDLE_TOKEN = b'__TAURI_BUNDLE_TYPE_VAR_UNK'
+NSIS_BUNDLE_TOKEN = b'__TAURI_BUNDLE_TYPE_VAR_NSS'
+
+
+def patch_nsis_binary(path: Path) -> bool:
+    """Make the executable bytes identical inside the ZIP and NSIS bundle."""
+    data = path.read_bytes()
+    unknown_count = data.count(UNKNOWN_BUNDLE_TOKEN)
+    nsis_count = data.count(NSIS_BUNDLE_TOKEN)
+    if unknown_count == 1 and nsis_count == 0:
+        path.write_bytes(data.replace(UNKNOWN_BUNDLE_TOKEN, NSIS_BUNDLE_TOKEN, 1))
+        return True
+    if unknown_count == 0 and nsis_count == 1:
+        return False
+    raise ValueError('Main executable has an unexpected Tauri bundle marker')
+
+
+def refresh_main_manifest(portable: Path, manifest: dict) -> None:
+    main_binary = portable / 'Nioh3Studio.exe'
+    entries = [entry for entry in manifest.get('files', [])
+               if entry.get('path') == 'Nioh3Studio.exe']
+    if len(entries) != 1:
+        raise ValueError('Portable manifest must contain the main executable exactly once')
+    entries[0]['size'] = main_binary.stat().st_size
+    entries[0]['sha256'] = sha256(main_binary)
+    (portable / 'build-manifest.json').write_text(
+        json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+
 
 def resource_map(portable: Path) -> dict[str, str]:
     files = {}
@@ -67,6 +95,8 @@ def main() -> None:
     main_binary = portable / 'Nioh3Studio.exe'
     if not main_binary.is_file() or main_binary.read_bytes()[:2] != b'MZ':
         raise ValueError('Portable main executable is missing or invalid')
+    patch_nsis_binary(main_binary)
+    refresh_main_manifest(portable, manifest)
 
     cargo_binary = root / 'apps/tauri/src-tauri/target/release/Nioh3Studio.exe'
     shutil.copy2(main_binary, cargo_binary)

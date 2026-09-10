@@ -58,18 +58,20 @@ derive both downloadable artifacts from that same verified directory:
 
 ```powershell
 ./tools/build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output deliverables/release/portable
+python tools/build_tauri_installer.py deliverables/release/portable deliverables/release/Nioh3Studio-<version>-win-x64-setup.exe
 npm run test:packaged
 node apps/tauri/verify.mjs
 node apps/tauri/verify-update.mjs
-python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/Nioh3Studio-<version>-win-x64.zip
-python tools/build_tauri_installer.py deliverables/release/portable deliverables/release/Nioh3Studio-<version>-win-x64-setup.exe
 ./tools/verify_tauri_installer.ps1 -Installer deliverables/release/Nioh3Studio-<version>-win-x64-setup.exe -Python $env:NIOH3_PYTHON
+python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/Nioh3Studio-<version>-win-x64.zip
 ```
 
 The setup EXE is the default download for new users. The ZIP remains the signed
 whole-package input to the in-app updater and a portable fallback. Do not point
 the updater at the installer and do not distribute the inner application EXE by
-itself.
+itself. Build the installer before archiving: the installer tool applies the
+same Tauri NSIS marker to the portable EXE and refreshes its manifest so both
+downloads contain byte-identical application binaries.
 
 Verify the installer with an isolated current-user install. Require the installed
 root to pass `build-manifest.json` verification and start through the same

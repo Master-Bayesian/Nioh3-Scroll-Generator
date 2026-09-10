@@ -4,7 +4,14 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from tools.build_tauri_installer import bundle_config, resource_map
+from tools.build_tauri_installer import (
+    NSIS_BUNDLE_TOKEN,
+    UNKNOWN_BUNDLE_TOKEN,
+    bundle_config,
+    patch_nsis_binary,
+    refresh_main_manifest,
+    resource_map,
+)
 
 
 class TauriInstallerTests(unittest.TestCase):
@@ -26,6 +33,22 @@ class TauriInstallerTests(unittest.TestCase):
             self.assertEqual(config['bundle']['targets'], ['nsis'])
             self.assertEqual(config['bundle']['windows']['nsis']['installMode'], 'currentUser')
             json.dumps(config)
+
+    def test_nsis_marker_and_portable_manifest_are_updated_together(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            binary = root / 'Nioh3Studio.exe'
+            binary.write_bytes(b'MZ-prefix-' + UNKNOWN_BUNDLE_TOKEN + b'-suffix')
+            manifest = {
+                'files': [{'path': 'Nioh3Studio.exe', 'size': 0, 'sha256': ''}],
+            }
+            self.assertTrue(patch_nsis_binary(binary))
+            self.assertFalse(patch_nsis_binary(binary))
+            refresh_main_manifest(root, manifest)
+            written = json.loads((root / 'build-manifest.json').read_text(encoding='utf-8'))
+            self.assertIn(NSIS_BUNDLE_TOKEN, binary.read_bytes())
+            self.assertEqual(written['files'][0]['size'], binary.stat().st_size)
+            self.assertEqual(len(written['files'][0]['sha256']), 64)
 
 
 if __name__ == '__main__':
