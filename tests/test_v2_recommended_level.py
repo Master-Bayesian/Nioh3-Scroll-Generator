@@ -14,7 +14,7 @@ from nioh3_scroll_editor.catalog_application import recommended_level_metadata, 
 from nioh3_scroll_editor.worker_transport import read_frame, write_frame
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 RESPONSE = json.loads((ROOT / 'packages/contracts/response.schema.json').read_text(encoding='utf-8'))
 VALIDATOR = Draft7Validator(RESPONSE)
 

@@ -14,7 +14,7 @@ from nioh3_scroll_editor.r4_finalizer_engine import R4FinalizerEngine
 from nioh3_scroll_editor.grace_map import load_grace_output_map
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 CORPUS_ROOTS = (
     ROOT / "test_fixtures" / "r4_native_corpus" / "base",
     ROOT / "test_fixtures" / "r4_native_corpus" / "distributed",

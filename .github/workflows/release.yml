@@ -57,7 +57,7 @@ jobs:
       - run: python tools/verify_native_build_manifest.py
       - run: python tools/write_test_inventory.py --output deliverables/release/test-inventory.json
       - run: python tools/run_cpu_only_tests.py
-      - run: python -m unittest discover -v
+      - run: python -m unittest discover -s tests -t . -v
       - run: npm test
       - run: ./tools/verify_native_faults.ps1
       - run: node apps/tauri/build.mjs

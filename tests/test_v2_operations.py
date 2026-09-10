@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from emaki_exchange import SCROLL_RECORD_SIZE, USER_SAVE_SIZE
-from test_beta_editor import make_record, TEST_ACCOUNT_ID, SCROLL_GROUP_OFFSET
+from tests.test_beta_editor import make_record, TEST_ACCOUNT_ID, SCROLL_GROUP_OFFSET
 from nioh3_scroll_editor.save_application import SaveApplication
 from nioh3_scroll_editor.protected_jobs import ProtectedJobs
 from nioh3_scroll_editor.runtime_application import RuntimeApplication
@@ -19,7 +19,7 @@ from nioh3_scroll_editor.models import ScrollCandidate
 from nioh3_scroll_editor.protected_worker import RESPONSE_VALIDATOR
 from nioh3_scroll_editor.search_jobs import SearchJobs
 from nioh3_scroll_editor.grace_map import load_grace_output_map, grace_map_to_cache_payload
-from test_frontend_v2 import parameters
+from tests.test_frontend_v2 import parameters
 
 
 class FixtureCrypto:

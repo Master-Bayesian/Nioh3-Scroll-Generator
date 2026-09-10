@@ -16,8 +16,8 @@ from nioh3_scroll_editor.savegame import next_generation_serial
 from nioh3_scroll_editor.search_jobs import SearchJobs
 from nioh3_scroll_editor.search_application import SearchBatchResult
 from nioh3_scroll_editor.worker_contracts import RequestError
-from test_frontend_v2 import parameters
-from test_cart_batch import FakeApplication
+from tests.test_frontend_v2 import parameters
+from tests.test_cart_batch import FakeApplication
 from nioh3_scroll_editor.live_add_batch import LiveAddBatch
 
 class ReviewIntegrationTests(unittest.TestCase):
@@ -81,7 +81,7 @@ class ReviewIntegrationTests(unittest.TestCase):
     def test_early_playthrough_native_route_keeps_category_and_auxiliary(self):
         from unittest.mock import patch
         from nioh3_scroll_editor.runtime_application import RuntimeApplication
-        from test_beta_editor import make_record
+        from tests.test_beta_editor import make_record
         import threading
         class Oracle:
             remote_call_pending = False

@@ -136,7 +136,7 @@ class GraceMapTests(unittest.TestCase):
             )
 
     def test_loader_rejects_a_context_that_is_not_verified(self) -> None:
-        data_path = Path(__file__).parent / "nioh3_scroll_editor" / "data" / "grace_output_map_e604_r5_current.json"
+        data_path = Path(__file__).resolve().parents[1] / "nioh3_scroll_editor" / "data" / "grace_output_map_e604_r5_current.json"
         data = json.loads(data_path.read_text(encoding="utf-8"))
         data["context"]["rarity"] = 4
         with tempfile.TemporaryDirectory() as directory:

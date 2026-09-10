@@ -43,7 +43,7 @@ runtime constraints remain authoritative until researched and implemented.
 
 ## Evidence
 
-Synthetic tests in `test_cart_batch.py` cover predecessor chaining, unexpected
+Synthetic tests in `tests/test_cart_batch.py` cover predecessor chaining, unexpected
 inventory changes, invalid later candidates, cancellation, unknown execution,
 duplicate dispatch protection, unsigned transfer records and source-hash guard.
 No game process was attached and no real save was read or modified in this turn.

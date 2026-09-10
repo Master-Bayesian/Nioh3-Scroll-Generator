@@ -39,7 +39,7 @@ from nioh3_seed_math import state_after_draw_from_seed
 from nioh3_scroll_editor.seed_accelerator import seed_acceleration_execution_policy
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 VECTORS = json.loads(
     (ROOT / "test_fixtures" / "effect_sequence_vectors.json").read_text(
         encoding="utf-8"

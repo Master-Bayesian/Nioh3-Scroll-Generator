@@ -24,8 +24,12 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    project_root = Path(__file__).resolve().parents[1]
     loader = unittest.TestLoader()
-    suite = loader.discover(".")
+    suite = loader.discover(
+        str(project_root / "tests"),
+        top_level_dir=str(project_root),
+    )
     if loader.errors:
         raise RuntimeError("unittest discovery failed:\n" + "\n".join(loader.errors))
     test_ids = tuple(sorted(iter_test_ids(suite)))
@@ -35,7 +39,7 @@ def main() -> int:
     payload = {
         "schema": "nioh3-test-inventory/v1",
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-        "runner": "python -m unittest discover -v",
+        "runner": "python -m unittest discover -s tests -t . -v",
         "python": sys.version,
         "platform": platform.platform(),
         "test_count": len(test_ids),

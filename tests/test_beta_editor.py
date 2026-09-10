@@ -1022,7 +1022,7 @@ class BetaEditorTests(unittest.TestCase):
         self.assertNotIn("BUFF", searchable[0xB82B])
 
     def test_fbee_conflict_is_resolved_from_full_ng3_records(self) -> None:
-        audit_path = Path(__file__).parent / "test_fixtures" / "effect_mapping_31.json"
+        audit_path = Path(__file__).resolve().parents[1] / "test_fixtures" / "effect_mapping_31.json"
         audit = json.loads(audit_path.read_text(encoding="utf-8"))
         conflict = audit["existing_id_audit"]["different_name_conflicts"]
         self.assertEqual(conflict, [])

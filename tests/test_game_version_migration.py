@@ -10,7 +10,7 @@ import tempfile
 import unittest
 
 
-MODULE_PATH = Path(__file__).parent / "tools" / "prepare_game_version_update.py"
+MODULE_PATH = Path(__file__).resolve().parents[1] / "tools" / "prepare_game_version_update.py"
 SPEC = importlib.util.spec_from_file_location("prepare_game_version_update", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)

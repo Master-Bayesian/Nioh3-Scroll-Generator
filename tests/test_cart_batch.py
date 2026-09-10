@@ -10,7 +10,7 @@ from unittest.mock import Mock
 import struct
 
 from nioh3_scroll_editor.live_add_batch import LiveAddBatch
-import test_live_add_application as live_add_tests
+from tests import test_live_add_application as live_add_tests
 from nioh3_scroll_editor.save_application import SaveApplication
 from nioh3_scroll_editor.savegame import SaveInstaller
 

@@ -507,7 +507,7 @@ class EffectPreimageAcceleratorTests(unittest.TestCase):
 
     def test_packaged_app_includes_directcompute_preimage_backend(self) -> None:
         spec = (
-            Path(__file__).parent / "packaging" / "Nioh3ScrollGenerator.spec"
+            Path(__file__).resolve().parents[1] / "packaging" / "Nioh3ScrollGenerator.spec"
         ).read_text(encoding="utf-8")
         self.assertIn("nioh3_effect_preimage_accelerator.dll", spec)
 

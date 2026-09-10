@@ -10,7 +10,7 @@ from unittest.mock import patch
 from nioh3_scroll_editor.live_add_application import LiveAddApplication
 from nioh3_scroll_editor.models import CandidateRecordStage
 from nioh3_scroll_editor.savegame import SCROLL_GROUP_OFFSET
-import test_single_native_insertion as evidence_tests
+from tests import test_single_native_insertion as evidence_tests
 
 
 class FakeCrypto:

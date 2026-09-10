@@ -137,7 +137,7 @@ normal generator:
 This is a proof of no solution, not a statement that a finite scan failed to
 find one. The executable preflight is in
 `nioh3_scroll_editor/auxiliary_feasibility.py`; the regression is in
-`test_effect_seed_solver.py`.
+`tests/test_effect_seed_solver.py`.
 
 ## Seed-solving consequence
 

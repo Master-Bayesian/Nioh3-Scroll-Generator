@@ -67,7 +67,7 @@ class LiveAddDescriptorTests(unittest.TestCase):
             assembly_descriptor(source)
 
     def test_generated_ce_layout_matches_the_python_profile(self):
-        p = Path(__file__).parent / 'research/live_add_layout_ce.lua'
+        p = Path(__file__).resolve().parents[1] / 'research/live_add_layout_ce.lua'
         text = p.read_text()
         for key, value in PC_V201.lua_layout().items():
             expected = '"' + value + '"' if isinstance(value, str) else hex(value)

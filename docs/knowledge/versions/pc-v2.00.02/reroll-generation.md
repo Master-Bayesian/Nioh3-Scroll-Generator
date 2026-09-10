@@ -102,7 +102,7 @@ promoted to product truth.
 - CLI preview: `research/predict_scroll_rerolls.py`
 - Live CE capture: `research/capture_scroll_reroll_ce.lua`
 - Capture analyzer: `research/analyze_scroll_reroll_capture.py`
-- Regression tests: `test_reroll.py`
+- Regression tests: `tests/test_reroll.py`
 - Candidate builder disassembly:
   `audit/p1_static/reroll_effect_helper_callers_20260831.json`
 - Caller and state-transition disassembly:

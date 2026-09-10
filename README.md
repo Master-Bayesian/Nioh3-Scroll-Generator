@@ -1,147 +1,104 @@
-# 独脚踏鞴工作室 / Ippon-Datara Studio
+# 独脚踏鞴工作室
 
-> Find, add, edit, and protect Nioh 3 scrolls from one Windows desktop app.
+**简体中文** | [English](README.en.md)
 
-[![Latest release](https://img.shields.io/github/v/release/Master-Bayesian/Nioh3-Scroll-Generator?display_name=tag&sort=semver)](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)
-![Platform](https://img.shields.io/badge/platform-Windows%20x64-2563eb)
-![Desktop](https://img.shields.io/badge/desktop-Tauri%202-24c8db)
+> 在一款 Windows 桌面应用中搜索、添加、修改并保护《仁王3》绘卷。
 
-Ippon-Datara Studio is a desktop toolkit for the PC version of Nioh 3. It helps
-players search for game-legal scrolls, add selected results, edit scrolls they
-already own, and recover from changes with verified automatic save backups.
+[![最新版本](https://img.shields.io/github/v/release/Master-Bayesian/Nioh3-Scroll-Generator?display_name=tag&sort=semver)](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)
+![平台](https://img.shields.io/badge/platform-Windows%20x64-2563eb)
+![桌面框架](https://img.shields.io/badge/desktop-Tauri%202-24c8db)
 
-The current stable release is **v0.7.1**, rebuilt on **Tauri 2**. The release
-package includes everything the app needs except the shared Microsoft Edge
-WebView2 Runtime that is normally already present on Windows.
+独脚踏鞴工作室（Ippon-Datara Studio）是面向《仁王3》PC 版玩家的桌面工具箱。它可以按照游戏规则搜索绘卷、添加选中的结果、修改已有绘卷，并通过自动验证的备份帮助你从改动中恢复存档。
 
-[Download the latest release](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)
-· [Read the v0.7.1 release notes](packaging/release-notes.md)
+当前稳定版是基于 **Tauri 2** 重构的 **v0.7.1**。发布包已经包含应用所需的组件；唯一的系统依赖是 Microsoft Edge WebView2 Runtime，现代 Windows 通常已经自带。
 
-## What you can do
+[下载最新版本](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)
+· [查看 v0.7.1 发布说明](packaging/release-notes.md)
 
-### Search for game-legal scrolls
+## 能做什么
 
-Build a search around the result you want instead of scanning seed ranges by
-hand. You can filter by:
+### 搜索符合游戏规则的绘卷
 
-- primary and secondary effects, including roll thresholds;
-- Grace;
-- enemies and legal enemy-group combinations;
-- special rules, terrain, levels, and attempt settings;
-- scroll type, playthrough, and rarity.
+直接描述你想要的结果，不必手工遍历 Seed。搜索条件包括：
 
-Search results are generated from the recovered game rules and replayed before
-they are shown. You can preview a known scroll ID, compare results, save
-favorites, collect candidates in the cart, and choose exactly which scrolls to
-add.
+- 主效果和副效果，以及词条数值门槛；
+- 恩宠；
+- 敌人和合法的敌人组合；
+- 特殊规则、地形、等级和尝试次数设置；
+- 绘卷类型、周目和稀有度。
 
-### Add selected scrolls
+搜索结果依据已经还原的游戏规则生成，并在显示前重放验证。你还可以预览已知绘卷 ID、比较结果、收藏候选、把候选加入购物车，并准确选择要添加的绘卷。
 
-Supported results can be added directly while you are in game or written to a
-save while the game is at the title screen. The app verifies the current game
-and save context, creates a backup, and records the operation before it writes.
+### 添加选中的绘卷
 
-The v0.7.1 release does **not** require Cheat Engine, Python, Node.js, or
-Electron. Compatibility and safety checks remain inside the app; if the game or
-save state is not supported, the operation stops instead of guessing.
+受支持的结果既可以在游戏运行时直接添加，也可以在游戏停留于标题界面时写入存档。每次写入前，应用都会检查当前游戏和存档状态、创建并验证备份，然后记录本次操作。
 
-### Edit scrolls you already own
+v0.7.1 **不需要** Cheat Engine、Python、Node.js 或 Electron。兼容性与安全检查已经包含在应用内；遇到不受支持的游戏版本或存档状态时，操作会停止，而不会猜测性写入。
 
-The scroll editor discovers local saves and lets you review changes before
-applying them. It can edit persistent basic fields and effect slots, update the
-remaining attempt count, and delete selected scrolls.
+### 修改已经拥有的绘卷
 
-Local effect editing is intentionally unrestricted. It does not automatically
-make an arbitrary combination game-legal or suitable for sharing. Other players
-regenerate effects from the scroll seed, so use the legal search and addition
-workflow when you want a canonical result.
+绘卷编辑器可以自动发现本地存档，并在应用改动前让你复核。它支持修改可持久保存的基础字段和效果槽、调整剩余尝试次数，以及删除选中的绘卷。
 
-Mission details such as enemies, terrain, special rules, and the attempt limit
-are temporary runtime changes. The app labels them as temporary and provides a
-clear stop/restore action.
+本地效果编辑刻意不限制组合，但任意修改并不会自动变成符合游戏生成规则、适合分享的绘卷。其他玩家会根据绘卷 Seed 重新生成效果；如果你需要标准结果，请使用合法搜索与添加流程。
 
-### Back up and restore saves
+敌人、地形、特殊规则和尝试次数上限等任务详情属于临时运行时改动。应用会明确标出临时状态，并提供停止与恢复操作。
 
-Every supported write creates and verifies a backup first. The Backups page can
-show backups for each account and save slot, open the relevant folders, restore
-a selected backup, or move an app-owned backup to the Recycle Bin. Restoring a
-backup checkpoints the current save again before replacement.
+### 自动备份与恢复存档
 
-Automatic backups are a safety layer, not a reason to skip your own long-term
-save archive.
+每次受支持的写入都会先创建并验证备份。你可以在“备份”页面按账号和存档槽查看备份、打开对应目录、恢复选中的备份，或把应用创建的备份移入回收站。恢复旧备份前，应用还会再次保存当前存档作为检查点。
 
-## Quick start
+自动备份是一层安全保障，但仍建议你另外保留长期存档副本。
 
-1. Download `Nioh3Studio-0.7.1-win-x64.zip` from the
-   [latest release](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest).
-2. Extract the **entire ZIP** to a writable folder.
-3. Run `Nioh3Studio.exe` and keep all adjacent folders and files together.
-4. Choose English, Simplified Chinese, or Japanese from the language control.
-5. Follow the status message and in-app prompts before any game or save
-   operation.
+## 快速开始
 
-Requirements:
+1. 从[最新版本页面](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)下载 `Nioh3Studio-0.7.1-win-x64.zip`。
+2. 把**整个 ZIP**解压到一个可写目录。
+3. 运行 `Nioh3Studio.exe`，不要移动或删除旁边的文件夹和文件。
+4. 在语言选项中选择简体中文、English 或日本語。
+5. 进行任何游戏或存档操作前，先阅读状态信息并按应用内提示操作。
+
+运行要求：
 
 - Windows x64
 - Microsoft Edge WebView2 Runtime
-- A supported PC build of Nioh 3 for game-connected features
+- 使用游戏连接功能时，需要受支持的《仁王3》PC 版本
 
-Moving only the executable will not work because the packaged workers,
-resources, licenses, and integrity manifest must remain beside it.
+不要只复制可执行文件。打包的工作进程、资源、许可证和完整性清单必须与它放在一起。
 
-### Upgrading from an older version
+### 从旧版本升级
 
-Users moving from v0.6.x or the withdrawn Electron v0.7.0 need to download and
-extract the Tauri package once. Later Tauri releases can use the signed in-app
-updater, including replacement rollback and cleanup if the new version does not
-start correctly.
+从 v0.6.x 或已经撤回的 Electron v0.7.0 升级时，需要重新下载并完整解压一次 Tauri 版本。之后的 Tauri 版本可以使用带签名的应用内更新；如果新版本无法正常启动，更新流程还支持替换回滚与清理。
 
-## A simple workflow
+## 一个简单的使用流程
 
-1. **Search:** choose effects or mission conditions, run the search, and inspect
-   complete previews.
-2. **Collect:** favorite useful results or place them in the cart for comparison
-   and batch selection.
-3. **Add:** choose in-game addition or title-screen save addition, then review
-   the operation.
-4. **Edit:** use Scroll editor for local changes to scrolls you already own.
-5. **Recover:** use Backups if you need to inspect or restore an earlier save.
+1. **搜索：**选择效果或任务条件，开始搜索并检查完整预览。
+2. **整理：**收藏有用的结果，或加入购物车进行比较和批量选择。
+3. **添加：**选择游戏内添加或标题界面存档添加，然后复核操作。
+4. **修改：**使用绘卷编辑器调整你已经拥有的本地绘卷。
+5. **恢复：**需要检查或回退存档时，打开备份页面。
 
-## Important boundaries
+## 重要边界
 
-- Search and local generation do not by themselves prove that every scroll will
-  propagate to a second account through normal online play.
-- Local effect edits persist on your machine, but recipients regenerate effects
-  from the canonical seed fields.
-- Temporary mission-detail overrides are not stored as permanent scroll data.
-- Game-connected features are version-gated. Do not bypass an unsupported-build
-  warning.
-- Let active search and save operations finish or cancel through the app before
-  closing it.
+- 搜索和本地生成本身不能证明每张绘卷都能通过正常在线流程传播到另一个账号。
+- 本地效果修改会保存在你的机器上，但接收者会根据标准 Seed 字段重新生成效果。
+- 临时任务详情覆盖不会写入永久绘卷数据。
+- 游戏连接功能受版本限制，不要绕过“不受支持的游戏版本”警告。
+- 关闭应用前，请让正在进行的搜索或存档操作正常完成，或在应用内取消。
 
-## More workshop tools
+## 更多工作室工具
 
-Ippon-Datara Studio is intended to grow beyond the current scroll workflows.
-Additional tools are in active development; the disabled **Coming soon** entry
-in v0.7.1 is intentional. New tools will be documented here only after their
-user flow and safety boundaries have been verified.
+独脚踏鞴工作室不会止步于当前的绘卷功能。更多工具正在开发中；v0.7.1 里暂时不可用的“即将推出”入口是有意保留的。新工具会在用户流程和安全边界得到验证后再写入这里。
 
-## License and attribution
+## 许可与第三方声明
 
-The project does not currently declare a project-wide open-source license.
-Public access to the source does not by itself grant redistribution rights.
-Third-party software terms and attributions are listed in
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+本项目目前没有声明覆盖整个项目的开源许可证。源码公开可见本身并不自动授予再分发权。第三方软件的许可条款与署名见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-## Help and diagnostics
+## 帮助与诊断
 
-For a problem report, open **Settings → Copy log** and include the copied details
-with a clear description of what you were doing. Runtime logs are size-limited
-and rotated automatically.
+报告问题时，请打开**设置 → 复制日志**，把复制的详情和当时正在进行的操作一起提交。运行日志有大小限制，并会自动轮换。
 
-- [Open a GitHub issue](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/issues)
-- QQ group: `1106302479`
-- Authors: MasterBayesian and Saber_Li
+- [提交 GitHub Issue](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/issues)
+- QQ 群：`1106302479`
+- 作者：MasterBayesian、Saber_Li
 
-For implementation notes, validation evidence, and versioned reverse-engineering
-records, see the [engineering knowledge base](docs/knowledge/INDEX.md).
+如果你需要查看实现说明、验证证据和按游戏版本整理的逆向记录，请进入[工程知识库](docs/knowledge/INDEX.md)。

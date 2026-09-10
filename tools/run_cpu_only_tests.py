@@ -11,11 +11,11 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULES = (
-    "test_auxiliary_generation",
-    "test_effect_seed_solver",
-    "test_effect_sequence",
-    "test_joint_solver",
-    "test_backend_freeze",
+    "tests.test_auxiliary_generation",
+    "tests.test_effect_seed_solver",
+    "tests.test_effect_sequence",
+    "tests.test_joint_solver",
+    "tests.test_backend_freeze",
 )
 
 

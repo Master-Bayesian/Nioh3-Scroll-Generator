@@ -19,7 +19,7 @@ from nioh3_scroll_editor.r4_finalizer_reference import (
     weighted_select_inclusive,
 )
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE = json.loads(
     (ROOT / "research" / "test_vectors" / "r4_seed_183696634_records_sanitized.json").read_text(
         encoding="utf-8"

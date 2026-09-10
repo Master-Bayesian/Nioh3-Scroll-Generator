@@ -60,4 +60,4 @@ closed.
 - static callers: `audit/p1_static/recommended_level_curve_callers_20260830.json`
 - detail consumer: `audit/p1_static/scroll_detail_consumer_1F0B3D4_20260829.json`
 - challenge constructor: `audit/p1_static/aux_ctor_20DD430_20DD760.asm`
-- regression tests: `test_recommended_level.py`
+- regression tests: `tests/test_recommended_level.py`

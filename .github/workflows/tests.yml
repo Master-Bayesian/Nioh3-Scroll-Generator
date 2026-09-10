@@ -43,7 +43,7 @@ jobs:
         run: python tools\verify_native_build_manifest.py
 
       - name: Run test suite
-        run: python -m unittest discover -v
+        run: python -m unittest discover -s tests -t . -v
 
       - name: Record collected test IDs and environment
         if: always()

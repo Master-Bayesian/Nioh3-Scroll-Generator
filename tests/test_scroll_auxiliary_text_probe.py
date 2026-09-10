@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 
-MODULE_PATH = Path(__file__).parent / "research" / "probe_scroll_auxiliary_text_catalog.py"
+MODULE_PATH = Path(__file__).resolve().parents[1] / "research" / "probe_scroll_auxiliary_text_catalog.py"
 SPEC = importlib.util.spec_from_file_location("probe_scroll_auxiliary_text_catalog", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)

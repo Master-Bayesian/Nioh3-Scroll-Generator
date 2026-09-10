@@ -11,7 +11,7 @@ from nioh3_scroll_editor.scroll_input_metadata import record_input_metadata
 class LiveRevealRegressionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.fixture = json.loads((Path(__file__).parent / 'test_fixtures/live_first_reveal_pc_v201.json').read_text(encoding='utf-8'))
+        cls.fixture = json.loads((Path(__file__).resolve().parents[1] / 'test_fixtures/live_first_reveal_pc_v201.json').read_text(encoding='utf-8'))
 
     def test_revealed_and_saved_effects_match_frozen_prediction(self):
         engine = load_default_r4_finalizer_engine()

@@ -101,7 +101,7 @@ class EffectSolverCliTests(unittest.TestCase):
     def test_ng3_rarity5_fixed_solver_needs_no_game_or_save(self) -> None:
         if not cuda_seed_acceleration_available():
             self.skipTest("no CUDA device for the fixed-draw product route")
-        project_root = Path(__file__).resolve().parent
+        project_root = Path(__file__).resolve().parents[1]
         child_environment = os.environ.copy()
         child_environment["PYTHONIOENCODING"] = "utf-8"
         completed = subprocess.run(
