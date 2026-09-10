@@ -2,6 +2,13 @@
 
 ## Status and entry points
 
+**Public release override:** v0.7.0 has been withdrawn to draft at the user's
+request. GitHub latest is v0.6.10, with its original EXE and signed update
+manifest. Electron source and its pending patch are preserved on
+`codex/electron-preserved-before-tauri2`; development continues on
+`codex/tauri2-migration`. Do not republish the Electron package. The preparation
+notes below are historical and do not override this withdrawal.
+
 The connected Electron/React V2 is prepared at 0.7.0 with Chinese, English and Japanese UI.
 This handoff records the local preparation checkpoint; hosted checks and the
 GitHub version tag record the subsequent publication status. Read

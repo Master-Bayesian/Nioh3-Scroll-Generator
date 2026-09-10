@@ -1,12 +1,11 @@
 # 仁王3绘卷生成器 / Nioh 3 Scroll Generator
 
-Frontend V2 is prepared at **0.7.0**: scroll search/editing, native live addition without CE,
-50-item favorites and cart, automatic backups, and Chinese/English/Japanese UI.
-See [release preparation and acceptance](docs/knowledge/V070_PREPUSH_COMPLETION_20260909.md)
-and the [V2 startup guide](docs/knowledge/FRONTEND_V2_FOUNDATION.md).
-Download and extract the complete V2 ZIP once when migrating from v0.6; the legacy
-single-EXE updater cannot install V2. The Tk interface documented below remains
-available as a source entry during migration. The 0.7.0 release has not been published yet.
+The current recommended release is **v0.6.10**:
+[download the EXE](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/download/v0.6.10/Nioh3ScrollGenerator.exe).
+The Electron v0.7.0 release has been withdrawn because its package size made
+downloads and updates impractical for users. GitHub latest and the public update
+feed are back on v0.6.10. The existing desktop work is preserved while its host
+is migrated to Tauri 2; no replacement v0.7 release is available yet.
 
 [简体中文](#简体中文) | [English](#english)
 
