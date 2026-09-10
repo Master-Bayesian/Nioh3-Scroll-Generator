@@ -34,14 +34,14 @@ try{
  await card.hover();await page.mouse.wheel(0,-120);
  await page.waitForFunction(()=>document.querySelector('[aria-label="跳转到第几张"]').value==='2');
  checks.push('Mouse wheel switches results');
- await page.getByRole('checkbox',{name:'加入购物车',exact:true}).check();
+ await page.getByRole('button',{name:'加入购物车',exact:true}).click();
  await page.getByRole('slider',{name:'滑动切换绘卷'}).fill('1');
- await page.getByRole('checkbox',{name:'加入购物车',exact:true}).check();
+ await page.getByRole('button',{name:'加入购物车',exact:true}).click();
  await page.getByRole('button',{name:'查看购物车（2）'}).click();
  check('Cart compares two records',await page.locator('.cart-review .scroll').count()===2);
  await page.keyboard.press('Escape');
- await page.getByRole('radio',{name:'回标题界面后添加到存档'}).check();
- check('Install mode selectable',await page.getByRole('radio',{name:'回标题界面后添加到存档'}).isChecked());
+ await page.getByRole('radio',{name:'关闭游戏后添加到存档'}).check();
+ check('Install mode selectable',await page.getByRole('radio',{name:'关闭游戏后添加到存档'}).isChecked());
  await page.getByRole('button',{name:'主副词条',exact:true}).click();
  const grip=page.locator('.selected-row .drag-grip').first();
  const source=await grip.boundingBox(),target=await page.locator('.selected-row').nth(1).boundingBox();

@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
-const call = (channel: string, value: unknown = null): Promise<any> => invoke('desktop_request', { channel, value });
+import { createDiagnosticInvoker } from '../desktop/src/invoke-with-diagnostics';
+const call = createDiagnosticInvoker((channel, value = null) => invoke('desktop_request', { channel, value })) as (channel: string, value?: unknown) => Promise<any>;
 window.nioh = {
   handshake: () => call('core:handshake'), searchCatalog: (rarity, locale) => call('core:catalog', { rarity, locale }),
   resolveRecommendedLevel: v => call('core:recommended-level', v), startSearch: p => call('core:start', p),

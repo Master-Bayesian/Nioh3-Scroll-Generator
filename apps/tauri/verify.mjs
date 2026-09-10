@@ -27,7 +27,7 @@ try {
   const p=browser.contexts()[0].pages()[0];
   await p.getByText('后端已连接，请选择筛选条件。',{exact:true}).waitFor({timeout:45000});
   await p.locator('.app-version').waitFor();
-  assert.equal(await p.locator('.app-version').innerText(),'v0.7.1');
+  assert.equal(await p.locator('.app-version').innerText(),'v0.7.2');
   assert.equal(await p.locator('.selected-body .selected-row').count(),0,'Fresh startup has no preselected effects');
   await p.getByRole('button',{name:'特殊规则',exact:true}).click();
   await p.locator('.rule-category').filter({hasText:'一难横行'}).click();

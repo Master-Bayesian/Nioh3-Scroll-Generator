@@ -521,7 +521,6 @@ function App() {
       ...logs.current,
       new Date().toISOString() + " " + status.slice(0, 2000),
     ].slice(-500);
-    if (desktop) void window.review.log(status.slice(0, 16000)).catch(() => {});
   }, [status]);
   useEffect(() => {
     const close = (e: KeyboardEvent) => {
@@ -2060,18 +2059,25 @@ function App() {
                     多选移除
                   </button>
                   {favoriteButton(selected)}
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={cartPending.includes(cartKey(selected))||cart.some((s) => cartKey(s) === cartKey(selected))}
-                      disabled={cartPending.includes(cartKey(selected))}
-                      onChange={(e) => {
-                        if (e.target.checked) void addCart(selected);
-                        else removeCart(selected);
-                      }}
-                    />
+                  <button
+                    className="cart-toggle"
+                    aria-label="加入购物车"
+                    aria-pressed={cart.some(
+                      (sample) => cartKey(sample) === cartKey(selected),
+                    )}
+                    disabled={cartPending.includes(cartKey(selected))}
+                    onClick={() => {
+                      if (
+                        cart.some(
+                          (sample) => cartKey(sample) === cartKey(selected),
+                        )
+                      )
+                        removeCart(selected);
+                      else void addCart(selected);
+                    }}
+                  >
                     加入购物车
-                  </label>
+                  </button>
                 </div>
                 <button
                   className="compare-button"
@@ -2110,7 +2116,7 @@ function App() {
                 checked={installMode === "save"}
                 onChange={() => setInstallMode("save")}
               />
-              回标题界面后添加到存档
+              关闭游戏后添加到存档
             </label>
             {desktop && installMode === "save" && <SavePicker />}
             <button

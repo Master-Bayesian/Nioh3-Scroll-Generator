@@ -124,7 +124,7 @@ export function DesktopCartActions({
   );
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
-    [titleConfirmed, setTitleConfirmed] = useState(false);
+    [gameClosedConfirmed, setGameClosedConfirmed] = useState(false);
   const [plan, setPlan] = useState<{
     signature: string;
     savePlan?: string;
@@ -205,7 +205,6 @@ export function DesktopCartActions({
           }),
         );
       }
-      setTitleConfirmed(false);
     } catch (error) {
       setMessage(String(error));
     } finally {
@@ -217,7 +216,7 @@ export function DesktopCartActions({
     setBusy(true);
     try {
       if (plan.savePlan) {
-        if (!titleConfirmed) throw Error("请确认游戏已回到标题界面。");
+        if (!gameClosedConfirmed) throw Error("请确认游戏已完全关闭。");
         const receipt = await saveSession!.commit(plan.savePlan);
         setPlan(null);
         setMessage(
@@ -363,8 +362,29 @@ export function DesktopCartActions({
         本次选择 {samples.length} 张 · 推荐等级 {query.recommended} · 转手次数{" "}
         {query.transfers}
       </p>
+      {mode === "save" && (
+        <>
+          <p className="temporary-warning">
+            为防止游戏退出时用内存中的旧状态覆盖存档，核对和写入前必须完全关闭游戏。
+          </p>
+          <label>
+            <input
+              type="checkbox"
+              checked={gameClosedConfirmed}
+              onChange={(e) => setGameClosedConfirmed(e.target.checked)}
+            />
+            游戏已完全关闭
+          </label>
+        </>
+      )}
       <button
-        disabled={busy || !samples.length || !state.inventory || uncertain}
+        disabled={
+          busy ||
+          !samples.length ||
+          !state.inventory ||
+          uncertain ||
+          (mode === "save" && !gameClosedConfirmed)
+        }
         onClick={() => void prepare()}
       >
         核对添加
@@ -381,22 +401,12 @@ export function DesktopCartActions({
               ? `已准备 ${plan.count} 张绘卷的添加计划。`
               : "选择已改变，请重新核对添加。"}
           </p>
-          {plan.savePlan && (
-            <label>
-              <input
-                type="checkbox"
-                checked={titleConfirmed}
-                onChange={(e) => setTitleConfirmed(e.target.checked)}
-              />
-              游戏已回到标题界面
-            </label>
-          )}
           <button
             disabled={
               busy ||
               uncertain ||
               plan.signature !== signature ||
-              (!!plan.savePlan && !titleConfirmed) ||
+              (!!plan.savePlan && !gameClosedConfirmed) ||
               (!!plan.batch && plan.batch.state !== "prepared")
             }
             onClick={() => void execute()}

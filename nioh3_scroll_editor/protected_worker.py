@@ -32,7 +32,12 @@ def main():
     service = CandidateApplicationService()
     if args.role == 'save':
         from .save_application import SaveApplication
-        application = SaveApplication(Path(os.environ.get('NIOH3_STATE_ROOT') or load_app_settings(fallback_root=ROOT).data_root), service=service)
+        from .native import find_nioh3_pids
+        application = SaveApplication(
+            Path(os.environ.get('NIOH3_STATE_ROOT') or load_app_settings(fallback_root=ROOT).data_root),
+            service=service,
+            game_process_ids=find_nioh3_pids,
+        )
     else:
         from .runtime_application import RuntimeApplication
         application = RuntimeApplication(service=service)

@@ -1,200 +1,150 @@
-# Windows release runbook
+# Windows Tauri release runbook
 
-Use this procedure for the Electron portable distribution. The legacy Tk
-single-EXE build is a separate source entry and cannot install this package.
-See [the v0.7.0 failure record](V070_HOSTED_BUILD_FIXES_20260909.md) for the
-environment and integration failures that established these gates.
+This is the authoritative release procedure for the current Tauri 2 product.
+The withdrawn Electron v0.7.0 and the legacy Tk executable use different
+package and update formats and must never enter this workflow.
 
-## Establish the candidate
+See `V070_HOSTED_BUILD_FIXES_20260909.md` for the historical failures that
+established the source, line-ending, native-identity, and hosted WebView2 gates.
 
-1. Read `CURRENT_HANDOFF.md`, the previous release record and the release notes.
-   Reuse completed game acceptance when its implementation is unchanged. Tests
-   and package smoke checks are not substitutes for new game acceptance when a
-   change actually affects an unverified memory operation.
-2. Inspect `git status`, the staged diff, `gh auth status`, the remote main ref
-   and any existing version tag. Stage only reviewed source, tests and docs.
-   Keep saves, captures, private dumps, signing material and developer build
-   directories out of the commit. Do not use `git add .` for this research tree.
-3. Synchronize the Python and npm versions and the release notes. Record the
-   complete candidate commit SHA. A subsequent code change invalidates earlier
-   release preparation, even if its version string is unchanged.
-4. Use a real fresh Windows Git checkout for cold-build reproduction, with
-   `core.autocrlf=true`. Copying working files does not exercise checkout attributes.
-   Use the workflow's Python/Node versions and pinned dependency files.
+## 1. Freeze one candidate commit
 
-## Run inexpensive checks first
+1. Read `CURRENT_HANDOFF.md`, the previous publication record, and the release
+   notes.
+2. Inspect `git status`, the complete diff, remote `main`, existing tags, and
+   GitHub authentication. Stage only reviewed source, tests, generated contracts,
+   generated locales, and release documentation. Never use `git add .` in this
+   research checkout.
+3. Keep saves, captures, private dumps, signing keys, `.codex_tmp`, local build
+   output, and unrelated research outside the commit.
+4. Synchronize the version in `package.json`, `package-lock.json`,
+   `nioh3_scroll_editor/version.py`, `apps/tauri/src-tauri/Cargo.toml`,
+   `Cargo.lock`, `tauri.conf.json`, the visible-version acceptance, README files,
+   and release notes.
+5. Commit before packaging. Any later product-code change creates a new candidate
+   and invalidates the previous build evidence.
 
-The release workflow executes these before packaging. Run the relevant checks
-locally when changing their inputs; do not repeatedly rebuild before fixing a
-deterministic early failure.
+The official builder sets `NIOH3_REQUIRE_CLEAN_SOURCE=1`. A build from a dirty
+tree is not a release artifact even if its tests pass.
+
+## 2. Run local checks in failure-cost order
+
+Use an explicit Python executable through `NIOH3_PYTHON`; do not assume `python`
+is on PATH. Run:
 
 ```powershell
+python tools/export_knowledge_catalog_manifest.py
+python tools/export_v2_ui_locales.py
+node tools/audit_v2_ui_locales.mjs
 python tools/verify_native_build_manifest.py
 python tools/write_test_inventory.py --output deliverables/release/test-inventory.json
-npx tsx --test apps/desktop/tests/portable-update.test.ts
+python tools/run_cpu_only_tests.py
+python -m unittest discover -s tests -t . -v
+npm test
+npm run typecheck
+cargo test --locked --manifest-path apps/tauri/src-tauri/Cargo.toml
+./tools/verify_native_faults.ps1
 ```
 
-- Native source/DLL/ABI identity must remain exact. Keep LF attributes for native
-  sources. Do not update identity hashes merely to bless a CRLF checkout or alter
-  verified RNG/finalizer code to make a packaging test pass.
-- Test inventory must contain unique IDs with no discovery errors. Imported
-  `TestCase` classes can be collected twice; import fixture modules instead.
-  Report the unique inventory count and hardware skips separately.
-- The metadata test reads the actual archive and signing commands in
-  `release.yml`. The asset must be a safe ZIP basename with a matching official
-  version-tag URL. A product name or `V2` prefix is not a trust boundary.
-- Regenerate contracts and locales and require empty `git status --porcelain`,
-  as well as no tracked content diff. Windows line-ending normalization can make
-  the content diff empty while Git status still reports modified generated files.
-  Generated files must match their committed bytes and declared EOL attributes.
-  Official packaging requires `NIOH3_REQUIRE_CLEAN_SOURCE=1`. Use the native
-  fault matrix and `tools/run_cpu_only_tests.py` for CPU-only coverage, even on a
-  GPU-equipped development machine. `NIOH3_PARITY_ALLOW_CPU` configures drivers;
-  it does not relax the native execution policy.
+Regenerated contracts, catalogs, and locales must produce no tracked diff.
+Native source/DLL/ABI identity must remain exact. Do not update identity hashes
+to bless a CRLF checkout or a modified binary. Record unique Python test count
+and hardware skips separately from untracked developer tests.
 
-## Prepare on GitHub before publishing a tag
+## 3. Build and validate from a clean checkout
 
-Push the reviewed candidate branch, then dispatch the existing workflow:
+Build the portable directory once, test its real workers and WebView2 host, then
+derive both downloadable artifacts from that same verified directory:
 
 ```powershell
-gh workflow run release.yml --ref codex/todo-321
-gh run list --commit <full-candidate-sha> --json databaseId,headSha,status,conclusion,workflowName
+./tools/build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output deliverables/release/portable
+npm run test:packaged
+node apps/tauri/verify.mjs
+node apps/tauri/verify-update.mjs
+python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/Nioh3Studio-<version>-win-x64.zip
+python tools/build_tauri_installer.py deliverables/release/portable deliverables/release/Nioh3Studio-<version>-win-x64-setup.exe
+./tools/verify_tauri_installer.ps1 -Installer deliverables/release/Nioh3Studio-<version>-win-x64-setup.exe -Python $env:NIOH3_PYTHON
 ```
 
-Use the actual candidate branch if different. Inspect runs by commit SHA, not by
-the newest run's position. Require successful Tests, Frontend V2 foundation and
-manual Signed Windows release runs for that candidate.
+The setup EXE is the default download for new users. The ZIP remains the signed
+whole-package input to the in-app updater and a portable fallback. Do not point
+the updater at the installer and do not distribute the inner application EXE by
+itself.
 
-The manual release run performs dependency installation, source tests, native
-fault checks, cold packaging, tests against the bundled workers, replay parity,
-Electron startup, connected synthetic-save operations, collection persistence,
-layout/language checks, archive verification and official manifest signing.
-It retains `nioh3-v2-release` artifacts but does not publish a GitHub release.
+Verify the installer with an isolated current-user install. Require the installed
+root to pass `build-manifest.json` verification and start through the same
+WebView2 acceptance driver. Uninstall the isolated test copy afterward.
 
-The packager explicitly runs the pinned Electron package's installer. A prior
-Electron launch must not be necessary for packaging. Keep the workflow capable
-of going straight from `npm ci` to the packager.
+Limits: ZIP and setup EXE must each be at most 60 MiB. Every manifest entry must
+match its size and SHA-256; the archive must contain no traversal paths or extra
+files. The manifest must record the exact candidate SHA and `dirty: false`.
 
-When a run fails, inspect `gh run view <run-id> --log-failed`. Fix the observed
-cause before dispatching again. Do not hide failures with forced clicks, broad
-retries, permissive native fallbacks or omitted tests. For UI timeouts, examine
-the captured visible status; wait for actual operation completion rather than
-an old row count that was already true. A several-minute packaged verification
-step is expected and is not itself evidence of a hang.
+## 4. Prepare signed hosted artifacts
 
-## Verify the prepared download
+Push the candidate branch and dispatch `release.yml` on that exact ref:
 
 ```powershell
-gh run download <successful-manual-run-id> --name nioh3-v2-release --dir deliverables/release/prepared
+gh workflow run release.yml --ref codex/tauri2-migration
+gh run list --commit <candidate-sha> --json databaseId,headSha,status,conclusion,workflowName
 ```
 
-Use a new directory per candidate. Before promotion:
+Inspect runs by exact commit SHA. The workflow installs locked dependencies,
+runs source and native-fault tests, builds from a clean Windows checkout, tests
+the packaged workers and app, builds both downloads, and signs
+`tauri-update.json`. It prepares artifacts only; it does not publish a release.
 
-- Verify `v2-update.json` through the real `validateUpdate` implementation in
-  `apps/desktop/src/portable-update.ts`, using its embedded production public key.
-  The signing workflow validates with the same key; no unsigned fallback is valid.
-- Match the ZIP's actual size and SHA-256 with both the signed manifest and the
-  `.sha256` file. The signature authenticates the complete archive.
-- Verify every archive member against `build-manifest.json`, reject unexpected
-  or unsafe entries, and check the ZIP CRC. The manifest must record the exact
-  candidate SHA and `dirty: false`.
-- Extract to a new directory and use the packaged startup/parity drivers if local
-  verification is needed. Set `NIOH3_PORTABLE_EXE`, `NIOH3_WORKER_EXE` and
-  `NIOH3_PROTECTED_WORKER_EXE` to this download. Use isolated test state and
-  synthetic saves; never launch a test against a player's save by accident.
+There is no candidate-reuse branch in the current workflow. The v0.7.1
+signing-only rescue route was tied to one historical acceptance record and was
+removed so it cannot accidentally emit a later release with hard-coded v0.7.1
+names.
 
-The repository secret signs the update manifest with Ed25519. This does not
-provide Windows Authenticode signing. Never claim that the EXEs carry a Windows
-publisher certificate when they do not.
+If the run fails, inspect `gh run view <run-id> --log-failed`, fix the observed
+cause, commit the fix, and dispatch the new SHA. Do not repeatedly rebuild the
+same known-bad commit. UI timeouts require captured UI/log evidence; retries do
+not turn a failed acceptance into a pass.
 
-## Promote and verify public delivery
+## 5. Verify, promote, and publish exact bytes
 
-Re-read remote main and tag refs immediately before publishing. Main must be an
-ancestor of the verified candidate. If it advanced incompatibly, integrate the
-change and prepare the resulting commit again. Never force-push over someone
-else's work or silently move a published version tag.
+Download `nioh3-tauri-release` into a new directory. Verify:
 
-Create an annotated version tag at the exact verified SHA, then push main and
-the tag atomically. For example, after replacing the values with verified ones:
+- ZIP and setup EXE SHA-256 sidecars;
+- `tauri-update.json` through the production Ed25519 public key;
+- signed manifest version, filename, official GitHub tag URL, size, and ZIP hash;
+- every ZIP member against `build-manifest.json` and ZIP CRC;
+- clean source SHA equals the candidate commit;
+- extracted package startup and, when changed, isolated installer startup.
+
+Refresh remote `main`. Require `origin/main` to be an ancestor of the candidate.
+Create an annotated version tag at the verified SHA, then push `main` and the tag
+atomically. Never move an existing release tag.
 
 ```powershell
 git fetch origin main
-if ($LASTEXITCODE -ne 0) { throw 'Cannot refresh remote main' }
-git merge-base --is-ancestor origin/main <full-candidate-sha>
-if ($LASTEXITCODE -ne 0) { throw 'Main is not an ancestor of this candidate' }
-git tag -a v<version> <full-candidate-sha> -m "Release v<version>"
-if ($LASTEXITCODE -ne 0) { throw 'Cannot create the version tag' }
-git push --atomic origin <full-candidate-sha>:refs/heads/main refs/tags/v<version>
+git merge-base --is-ancestor origin/main <candidate-sha>
+git tag -a v<version> <candidate-sha> -m "Release v<version>"
+git push --atomic origin <candidate-sha>:refs/heads/main refs/tags/v<version>
 ```
 
-Stop if the ancestry command fails. On PowerShell, inspect annotated tags with
-`git rev-list -n 1 <tag>` and `git cat-file -p <tag>`; an unquoted `^{}` expression
-can be parsed incorrectly. Verify remote main and the peeled tag after pushing.
+Create the GitHub release from the already verified workflow downloads. Upload
+the setup EXE, its SHA sidecar, the ZIP, its SHA sidecar,
+`tauri-update.json`, and the test inventory. Do not rebuild during publication.
 
-The tag workflow rebuilds, verifies and publishes. Wait for its success, verify
-that the release is public and on the intended stable/beta channel, and download
-its public assets. Repeat the signature, archive hash, member integrity and clean
-source-commit checks on that public download. Build timestamps can change ZIP
-bytes, so a manual-preparation checksum is not the final public checksum.
+After publishing, query the release again, download its public assets, and repeat
+hash, signature, ZIP-member, source-SHA, and latest-stable checks. Record the
+release URL, tag commit, workflow URL, artifact sizes and SHA-256 values in a new
+publication record and update `CURRENT_HANDOFF.md` without moving the tag.
 
-Confirm the latest stable release when publishing stable, record the final asset
-name/size/SHA, successful run URLs and tag commit, and update `CURRENT_HANDOFF.md`
-and the failure record. Publish those documentation updates without moving the
-released tag. Preserve older local artifacts as historical evidence and label
-which public download supersedes them.
+## 6. Product safety gates
 
-Users migrating from v0.6 need the complete ZIP once. Keep `v2-update.json` as
-the whole-package update protocol; do not offer the ZIP as the legacy updater's
-single executable. Internal protocol or executable names can retain V2 for
-compatibility without requiring it in the downloadable ZIP's name.
-
-## Tauri release preparation gate
-
-The release workflow now runs only by explicit dispatch. It prepares and signs
-Tauri artifacts without publishing. After checking the exact downloaded artifact,
-create the version tag at that workflow's commit and publish those same bytes;
-never rebuild locally for upload. Tag pushes must not invoke the preserved
-Electron workflow. The Electron implementation remains on
-codex/electron-preserved-before-tauri2.
-
-Limits: ZIP <= 60 MiB; no Chromium/Node payload; every dependency has notices;
-manifest records a clean checkout; frontend and workers are tested from the
-actual package. Use explicit NIOH3_PYTHON, locked Cargo/npm/Python dependencies,
-and preserve existing native EOL/ABI identity checks. Windows resource paths may
-have canonical or extended-length aliases; compare canonical paths before scoped
-update cleanup. Test actual restart, not only a mock installer acknowledgement.
-
-The first Tauri installation is a manual ZIP migration. Do not advertise the
-legacy single-EXE or Electron manifest as compatible with the Tauri format.
-
-### Tauri preparation follow-up
-
-Two inherited CI assumptions were repaired before any hosted release package was
-built: the release regression still expected an Electron manifest URL in YAML,
-and the preserved Electron cleanup compared Windows 8.3 paths lexically. The
-latter was reproduced locally using an actual short-path TEMP directory and now
-compares physical parent/target paths while retaining symlink and user-file
-refusals. Shared frontend CI no longer builds the retired Electron package;
-packaged acceptance is owned once by the signed Tauri preparation workflow.
-
-### WebView2 runner prerequisite
-
-The first hosted portable build and packaged worker parity passed, but the runner
-could not create the WebView2 process for UI acceptance. Resolve/install the
-Microsoft-signed runtime before isolating LOCALAPPDATA for synthetic saves, and
-pass its real Windows path as WEBVIEW2_BROWSER_EXECUTABLE_FOLDER. Forward-slash
-paths can make the loader report a missing runtime despite an installed runtime;
-the local explicit-runtime smoke passed with the native Windows path. Failed
-startup now exports diagnostics, and failed acceptance retains both the complete
-candidate package and Cargo cache so diagnosis does not require another build.
-
-### Resume publication without rebuilding
-
-Hosted run 34435249593 produced a clean candidate and passed packaged parity.
-Its UI/backend startup logs were healthy, but the runner did not expose the CDP
-port to the test client. The exact retained candidate passed both WebView2 UI and
-real replacement/restart/cache-cleanup acceptance on the development Windows host.
-See evidence/tauri-v071-acceptance.json for the source commit and manifest hash.
-The explicit candidate_run signing route verifies that evidence and rejects any
-product-source change since that build. It then archives/signs those exact files;
-it does not claim that hosted CDP acceptance succeeded or rebuild the executable.
+- Tests and package smoke checks are bounded evidence. Keep earlier in-game
+  acceptance only when the native implementation is unchanged.
+- New or changed memory writes require matching live-game acceptance.
+- Offline save-file plans and commits require the Nioh 3 process to be fully
+  closed. Title screen is no longer sufficient.
+- Live addition requires the game to be running, creates a verified backup,
+  retries only a non-mutating released preview miss, and never replays an actual
+  insertion.
+- The updater authenticates the complete ZIP, replaces in place, retains a
+  rollback copy until startup handshake, then removes the previous version and
+  download cache. Authenticode signing is not currently provided; do not claim
+  a Windows publisher certificate.

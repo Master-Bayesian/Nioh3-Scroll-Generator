@@ -1,6 +1,10 @@
 /** User-facing next steps; the broker keeps full technical errors in rolling logs. */
 export function publicError(message: string): string {
   const cases: [RegExp, string][] = [
+    [
+      /GAME_RUNNING|GAME_STATE_UNKNOWN/,
+      "请完全关闭《仁王3》后再写入存档。本次没有修改存档。",
+    ],
     [/Stop temporary overrides before editing remaining count/, "请先停止临时修改，再核对当前次数。"],
     [/Current scroll state is not supported for count editing/, "这张绘卷的当前状态暂不支持修改次数。"],
     [/FAVORITES_CAPACITY_REACHED/, "收藏夹最多保存 50 张绘卷。"],

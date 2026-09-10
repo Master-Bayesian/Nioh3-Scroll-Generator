@@ -700,6 +700,10 @@
       "Add to save at title screen",
       "タイトル画面でセーブに追加"
     ],
+    "关闭游戏后添加到存档": [
+      "Add to save after closing the game",
+      "ゲーム終了後にセーブへ追加"
+    ],
     "选择购物车中的绘卷添加": [
       "Choose scrolls from cart to add",
       "カートから追加する絵巻を選択"
@@ -1324,6 +1328,10 @@
       "Game is at the title screen",
       "ゲームはタイトル画面です"
     ],
+    "游戏已完全关闭": [
+      "Nioh 3 is completely closed",
+      "ゲームを完全に終了しました"
+    ],
     "确认写入存档": [
       "Confirm save write",
       "セーブへの書き込みを確定"
@@ -1443,6 +1451,18 @@
     "请确认游戏已回到标题界面。": [
       "Confirm the game is at the title screen.",
       "ゲームがタイトル画面に戻っていることを確認してください。"
+    ],
+    "请确认游戏已完全关闭。": [
+      "Confirm Nioh 3 is completely closed.",
+      "ゲームが完全に終了していることを確認してください。"
+    ],
+    "请完全关闭《仁王3》后再写入存档。本次没有修改存档。": [
+      "Close Nioh 3 completely before writing the save. The save was not changed.",
+      "セーブを書き込む前にゲームを完全に終了してください。今回はセーブを変更していません。"
+    ],
+    "为防止游戏退出时用内存中的旧状态覆盖存档，核对和写入前必须完全关闭游戏。": [
+      "Close the game completely before reviewing and writing so its cached state cannot overwrite the edited save when it exits.",
+      "ゲーム終了時にメモリ内の古い状態でセーブが上書きされないよう、確認と書き込みの前にゲームを完全に終了してください。"
     ],
     "已添加到存档。": [
       "Added to save.",

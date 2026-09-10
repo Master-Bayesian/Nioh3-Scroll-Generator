@@ -28,7 +28,7 @@ try{
  check('Slider maps to exact numbered record',await page.locator('.number-rail button.active').innerText()==='10');
  const card=page.locator('.search-page .scroll');
  check('Effects and rules share row height',Math.abs((await card.locator('.effect-line').first().boundingBox()).height-(await card.locator('.scroll-rule').first().boundingBox()).height)<1);
- await page.getByRole('checkbox',{name:'加入购物车',exact:true}).check();await page.getByRole('slider',{name:'滑动切换绘卷'}).fill('11');await page.getByRole('checkbox',{name:'加入购物车',exact:true}).check();
+ await page.getByRole('button',{name:'加入购物车',exact:true}).click();await page.getByRole('slider',{name:'滑动切换绘卷'}).fill('11');await page.getByRole('button',{name:'加入购物车',exact:true}).click();
  await page.getByRole('button',{name:'查看购物车（2）'}).click();await page.locator('.cart-check input').first().uncheck();
  check('Only selected cart subset is submitted',await page.getByRole('button',{name:'添加所选（1）',exact:true}).isEnabled());
  await page.getByRole('button',{name:'添加所选（1）',exact:true}).click();

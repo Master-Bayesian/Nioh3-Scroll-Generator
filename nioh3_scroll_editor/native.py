@@ -318,7 +318,9 @@ def _last_error(operation: str) -> OSError:
     return ctypes.WinError(ctypes.get_last_error(), operation)
 
 
-def find_nioh3_pid() -> int:
+def find_nioh3_pids() -> tuple[int, ...]:
+    """Return every running game process without imposing a single-owner policy."""
+
     dll = _kernel32()
     snapshot = dll.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
     if not snapshot or snapshot == INVALID_HANDLE_VALUE:
@@ -334,6 +336,11 @@ def find_nioh3_pid() -> int:
             ok = dll.Process32NextW(snapshot, ctypes.byref(entry))
     finally:
         dll.CloseHandle(snapshot)
+    return tuple(matches)
+
+
+def find_nioh3_pid() -> int:
+    matches = find_nioh3_pids()
     if len(matches) != 1:
         raise RuntimeError(f"应当只运行一个 Nioh3.exe，当前找到 {len(matches)} 个")
     return matches[0]

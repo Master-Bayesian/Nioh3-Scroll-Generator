@@ -1,12 +1,5 @@
 name: Signed Tauri Windows release preparation
-on:
-  workflow_dispatch:
-    inputs:
-      candidate_run:
-        description: 'Reuse an exact hosted candidate with committed local acceptance evidence; no rebuild'
-        type: string
-        required: false
-        default: ''
+on: workflow_dispatch
 permissions:
   contents: read
   actions: read
@@ -15,7 +8,6 @@ concurrency:
   cancel-in-progress: false
 jobs:
   release:
-    if: inputs.candidate_run == ''
     runs-on: windows-latest
     env:
       PYTHONUTF8: '1'
@@ -80,6 +72,11 @@ jobs:
           node apps/tauri/verify-update.mjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - run: python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.zip
+      - name: Build the single-file installer
+        run: python tools/build_tauri_installer.py deliverables/release/portable deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64-setup.exe
+      - name: Verify installer, installed startup and uninstaller
+        shell: pwsh
+        run: ./tools/verify_tauri_installer.ps1 -Installer deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64-setup.exe -Python $env:NIOH3_PYTHON
       - name: Enforce download budget and sign
         shell: pwsh
         env:
@@ -94,6 +91,7 @@ jobs:
           name: nioh3-tauri-release
           path: |
             deliverables/release/*.zip
+            deliverables/release/*.exe
             deliverables/release/*.sha256
             deliverables/release/tauri-update.json
             deliverables/release/test-inventory.json
@@ -107,35 +105,3 @@ jobs:
         with:
           name: tauri-candidate-for-diagnosis
           path: deliverables/release/portable
-  sign-accepted-candidate:
-    if: inputs.candidate_run != ''
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      - uses: actions/download-artifact@v4
-        with:
-          name: tauri-candidate-for-diagnosis
-          path: deliverables/release/portable
-          run-id: ${{ inputs.candidate_run }}
-          github-token: ${{ github.token }}
-      - name: Bind acceptance to the unchanged hosted product
-        env:
-          CANDIDATE_RUN: ${{ inputs.candidate_run }}
-        run: python3 tools/verify_tauri_acceptance.py
-      - run: python3 tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/Nioh3Studio-0.7.1-win-x64.zip
-      - name: Sign the exact accepted archive
-        env:
-          NIOH3_UPDATE_PRIVATE_KEY_BASE64: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY_BASE64 }}
-        run: node tools/build_tauri_update_manifest.mjs deliverables/release/Nioh3Studio-0.7.1-win-x64.zip 0.7.1 packaging/release-notes.md deliverables/release/tauri-update.json
-      - uses: actions/upload-artifact@v4
-        with:
-          name: nioh3-tauri-release
-          path: |
-            deliverables/release/*.zip
-            deliverables/release/*.sha256
-            deliverables/release/tauri-update.json

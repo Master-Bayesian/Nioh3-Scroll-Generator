@@ -33,15 +33,30 @@ def json_value(value):
 
 
 class SaveApplication:
-    def __init__(self, state_root: Path, *, crypto=None, service=None):
+    def __init__(self, state_root: Path, *, crypto=None, service=None, game_process_ids=None):
         self.state_root = state_root.resolve()
         self.crypto = crypto or SaveCrypto(default_crypto_tool(Path(__file__).resolve().parents[1]))
         self.service = service or CandidateApplicationService()
+        self.game_process_ids = game_process_ids
         self.saves = {}
         self.snapshots = {}
         self.plans = {}
         self.receipts = {}
         self.lock = threading.RLock()
+
+    def _require_game_closed(self):
+        if self.game_process_ids is None:
+            return
+        try:
+            running = tuple(self.game_process_ids())
+        except Exception as error:
+            raise RuntimeError(
+                'GAME_STATE_UNKNOWN: Could not verify that Nioh 3 is closed; no save write attempted'
+            ) from error
+        if running:
+            raise RuntimeError(
+                'GAME_RUNNING: Close Nioh 3 completely before writing the save; no save write attempted'
+            )
 
     def register(self, path: str) -> dict:
         selected = Path(path).resolve(strict=True)
@@ -129,6 +144,7 @@ class SaveApplication:
         return current[1], current[2]
 
     def _plan(self, save_id, source_hash, kind, data, preview):
+        self._require_game_closed()
         self.plans = {key: value for key, value in self.plans.items() if value['expires'] > time.monotonic()}
         if len(self.plans) >= 32:
             raise ValueError('Too many uncommitted plans; discard or wait for expiry')
@@ -336,6 +352,7 @@ class SaveApplication:
             plan = self.plans.get(plan_id)
             if not plan or plan['expires'] <= time.monotonic():
                 raise ValueError('Plan expired; prepare a new plan')
+            self._require_game_closed()
             installer = self._installer(plan['save_id'])
             if sha256_file(installer.save_path) != plan['source_hash']:
                 raise RuntimeError('Save changed after preparation; no write attempted')

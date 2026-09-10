@@ -173,6 +173,7 @@ R5 · 橙色	R5 · Orange	R5 · 橙
 添加方式	Addition method	追加方法
 游戏内实时添加	Add in game	ゲーム内に直接追加
 回标题界面后添加到存档	Add to save at title screen	タイトル画面でセーブに追加
+关闭游戏后添加到存档	Add to save after closing the game	ゲーム終了後にセーブへ追加
 选择购物车中的绘卷添加	Choose scrolls from cart to add	カートから追加する絵巻を選択
 关闭侧边菜单	Close side menu	サイドメニューを閉じる
 设置菜单	Settings menu	設定メニュー
@@ -329,6 +330,7 @@ R5 · 橙色	R5 · Orange	R5 · 橙
 本次将应用	Will apply	適用する変更：
 项变化。	changes.	件。
 游戏已回到标题界面	Game is at the title screen	ゲームはタイトル画面です
+游戏已完全关闭	Nioh 3 is completely closed	ゲームを完全に終了しました
 确认写入存档	Confirm save write	セーブへの書き込みを確定
 修改已应用到本次预览。	Edits applied to this preview.	プレビューに変更を適用しました。
 应用到预览	Apply to preview	プレビューに適用
@@ -359,6 +361,9 @@ R5 · 橙色	R5 · Orange	R5 · 橙
 购物车存在失效的候选，请重新搜索后添加。	A cart candidate has expired. Search again before adding.	カートの候補が失効しています。再検索してから追加してください。
 未收到添加计划。	No addition plan received.	追加計画を受け取れませんでした。
 请确认游戏已回到标题界面。	Confirm the game is at the title screen.	ゲームがタイトル画面に戻っていることを確認してください。
+请确认游戏已完全关闭。	Confirm Nioh 3 is completely closed.	ゲームが完全に終了していることを確認してください。
+请完全关闭《仁王3》后再写入存档。本次没有修改存档。	Close Nioh 3 completely before writing the save. The save was not changed.	セーブを書き込む前にゲームを完全に終了してください。今回はセーブを変更していません。
+为防止游戏退出时用内存中的旧状态覆盖存档，核对和写入前必须完全关闭游戏。	Close the game completely before reviewing and writing so its cached state cannot overwrite the edited save when it exits.	ゲーム終了時にメモリ内の古い状態でセーブが上書きされないよう、確認と書き込みの前にゲームを完全に終了してください。
 已添加到存档。	Added to save.	セーブに追加しました。
 写入尚未确认，请核对操作结果。	Write not yet confirmed. Check the result.	書き込みが未確認です。結果を確認してください。
 添加回执不匹配。	Addition receipt does not match.	追加の操作記録が一致しません。

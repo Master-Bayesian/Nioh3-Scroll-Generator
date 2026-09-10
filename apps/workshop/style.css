@@ -121,6 +121,7 @@ html,body,#root{width:100%;height:100%;margin:0;padding:0;background:#e8edf5}bod
 .favorite-button { font-size: 24px; line-height: 1; min-width: 36px; }
 .favorite-button[aria-pressed="true"] { color: #946400; background: #fff1c9; }
 .favorite-button { display: inline-flex; align-items: center; justify-content: center; padding: 6px 10px; }
+.result-tools .cart-toggle{margin-left:auto;min-width:132px;background:#d8a744;border-color:#efc866;color:#17272c;font-weight:700;box-shadow:0 0 0 2px #d8a74435}.result-tools .cart-toggle::before{content:"＋";font-size:16px;line-height:1;margin-right:5px}.result-tools .cart-toggle:hover:not(:disabled){background:#efc45e;border-color:#ffe08b}.result-tools .cart-toggle[aria-pressed=true]{background:#39785e;border-color:#70ae91;color:#f4fbf7;box-shadow:none}.result-tools .cart-toggle[aria-pressed=true]::before{content:"✓"}
 .app-version{display:block;margin-top:4px;color:#6d7d91;font:normal 10px/1.2 "Segoe UI",sans-serif;letter-spacing:.4px}
 .rule-chip>.rule-value{width:86px}.rule-chip>.rule-match{width:83px}
 .condition-group .rule-chip>.rule-value{grid-column:2;grid-row:2;max-width:110px}.condition-group .rule-chip>.rule-match{grid-column:2;grid-row:3;max-width:110px}

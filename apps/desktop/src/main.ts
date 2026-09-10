@@ -205,7 +205,7 @@ app.whenReady().then(async () => {
   });
   register('review:save-folder',async value=>{const result=await host('save').run('save.live_add_source',value as {save_id:string;snapshot_id:string});if(!('save_path' in result)||typeof result.save_path!=='string')throw Error('SAVE_EXPECTED');const error=await shell.openPath(dirname(result.save_path));if(error)throw Error(error)});
   register('review:backup-folder',async()=>{const result=await host('save').run('save.backup_location',{});if(!('backup_directory' in result)||typeof result.backup_directory!=='string')throw new Error('INVALID_BACKUP_DIRECTORY');const error=await shell.openPath(result.backup_directory);if(error)throw new Error(error)});
-  register('review:log',value=>{if(typeof value!=='string'||value.length>16384)throw Error('INVALID_LOG_MESSAGE');runtimeLog.write('ui',value)});
+  register('review:log',value=>{if(typeof value!=='string'||value.length>16384)throw Error('INVALID_LOG_MESSAGE');runtimeLog.write('client',value)});
   register('review:copy-log',async()=>{clipboard.writeText(JSON.stringify(await diagnostics(),null,2)+'\n'+runtimeLog.tail()+'\n'+worker.stderr.join('\n'));});
   register('review:copy',value=>{if(typeof value!=='string'||value.length>200000)throw new Error('INVALID_CLIPBOARD_TEXT');clipboard.writeText(value)});
   register('review:link',value=>{

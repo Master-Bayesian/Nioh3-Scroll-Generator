@@ -576,7 +576,7 @@ class BetaEditorTests(unittest.TestCase):
         for phrase in (
             "搜索所有词条",
             "计算候选 Seed",
-            "回到标题界面",
+            "完全关闭游戏",
             "自动备份",
         ):
             self.assertIn(phrase, QUICK_START_TEXT)

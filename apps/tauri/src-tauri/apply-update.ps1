@@ -45,6 +45,20 @@ foreach($entry in $manifest.files){
     if(-not $file.StartsWith($prepared+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Package path escapes replacement'}
     if((Get-Item -LiteralPath $file).Length -ne $entry.size -or (Get-PackageHash $file) -ne $entry.sha256){throw 'Staged package changed'}
 }
+# Tauri's NSIS installer keeps its uninstaller beside the application. Preserve
+# that one installer-owned file so an in-place portable update does not remove
+# the user's normal uninstall path. It is deliberately outside the portable
+# manifest and is validated again before rollback cleanup.
+$installedUninstaller=Join-Path $targetPath 'uninstall.exe'
+$preparedUninstaller=Join-Path $prepared 'uninstall.exe'
+if(Test-Path -LiteralPath $installedUninstaller){
+    $uninstaller=Get-Item -LiteralPath $installedUninstaller -Force
+    if(($uninstaller.Attributes -band [IO.FileAttributes]::ReparsePoint) -or $uninstaller.PSIsContainer){throw 'Installed uninstaller is not a regular file'}
+    if($uninstaller.Length -le 0 -or $uninstaller.Length -gt 64MB){throw 'Installed uninstaller is invalid'}
+    if(Test-Path -LiteralPath $preparedUninstaller){throw 'Update package contains an unexpected uninstaller'}
+    Copy-Item -LiteralPath $installedUninstaller -Destination $preparedUninstaller
+    if((Get-Item -LiteralPath $preparedUninstaller).Length -ne $uninstaller.Length -or (Get-PackageHash $preparedUninstaller) -ne (Get-PackageHash $installedUninstaller)){throw 'Installed uninstaller copy failed'}
+}
 Wait-Process -Id $ProcessId -Timeout 90 -ErrorAction SilentlyContinue
 if(Get-Process -Id $ProcessId -ErrorAction SilentlyContinue){throw 'Application did not exit safely'}
 $moved=$false

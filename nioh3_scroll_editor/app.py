@@ -156,6 +156,7 @@ from .native import (
     NativeRuntimeProfile,
     ScanProgress,
     build_source_record,
+    find_nioh3_pids,
     native_runtime_profile_for_game_version,
     scan_next_candidate,
 )
@@ -728,7 +729,7 @@ def local_effect_raw_value_hint(
 
 TITLE_SCREEN_ACK_TEXT = "我确认游戏当前位于标题界面"
 TITLE_SCREEN_PROMPT_TEXT = (
-    "写入存档前，请先让《仁王3》回到标题界面，避免游戏随后用内存中的旧状态覆盖修改。\n\n"
+    "部分周目需要在标题界面调用游戏原生生成函数。这个步骤只生成或搜索绘卷，不写入存档。\n\n"
     "游戏不需要退出，也不需要断开网络。现在已经位于标题界面吗？"
 )
 
@@ -761,7 +762,7 @@ QUICK_START_TEXT = """仁王3绘卷生成器 - 快速上手
 3. 按需选择恩宠、地形、敌人和特殊规则；敌人可在全局搜索框查找，也可按低手／中手／高手三栏选择，并设为“必含”或“任一组”。选择敌人只表示成品必须包含它，不会限制其他敌人；点击“合法组合一览”可查看完整档位结构。稀有度4不限制恩宠时，结果可能保留恩宠，也可能最终没有恩宠。
 4. “绘卷等级”是详情页左上角的 Lv.，并参与词条数值计算；PC v2.00.02 / v2.01 的可传播有效上限是 180，它不控制敌人等级。“推荐等级（内部）”会换算成挑战中实际采用的敌人/Boss 等级；数值越低越适合快速刷取，越高越适合挑战。
 5. 点击“计算候选 Seed”。符合条件的结果会边找到边显示。
-6. 选择候选查看完整词条与数值。满意后，在顶部选择正确的 Steam 账户和“游戏存档 1/2/3”栏位，再让游戏回到标题界面、勾选添加按钮左侧的确认框并添加。程序会自动备份。
+6. 选择候选查看完整词条与数值。满意后，在顶部选择正确的 Steam 账户和“游戏存档 1/2/3”栏位，完全关闭游戏后再添加。程序会自动备份；游戏仍在运行时会拒绝写入。
 
 已知 Seed
 填写 Seed、周目和稀有度，再点击“生成并查看该 Seed”。该功能不应用上方筛选条件。
@@ -787,7 +788,7 @@ FEATURE_GUIDE_TEXT = """按功能使用
 2. 在目标组合中搜索词条，双击加入。默认第一项是主词条；主词条候选数可设为 2 或 3，表示任一命中。勾选“主词条不限”后，所有已选普通词条都只要求出现在主词条或副词条任一位置，不会被强制当成副词条。普通词条可设为必含，或把多个可接受结果放入同一个任一组。
 3. 恩宠、地形、敌人和特殊规则都可以单独限制；敌人按低手／中手／高手分栏，并提供跨栏全局搜索。敌人下方会集中显示已选项，可逐项 × 删除，并可把多个可接受敌人放入同一个任一组。选择具体敌人只是“必须出现”，不是固定整张绘卷的全部敌人。特殊规则直接点击即可添加多条，不需要按 Ctrl。
 4. 点击“计算候选 Seed”，结果会实时加入候选列表。
-5. 比较词条、数值、敌人和规则。满意后选择正确的游戏存档栏位，让游戏回到标题界面，勾选添加按钮左侧的确认框并写入。
+5. 比较词条、数值、敌人和规则。满意后选择正确的游戏存档栏位，完全关闭游戏后再写入。
 
 二、查看一个已知 Seed
 填写 Seed、周目和稀有度，点击“生成并查看该 Seed”。这里不会应用目标组合中的筛选条件。
@@ -802,8 +803,8 @@ FEATURE_GUIDE_TEXT = """按功能使用
 
 FAQ_TEXT = """常见问题
 
-为什么添加按钮要求确认标题界面？
-游戏在关卡或据点中可能把内存里的旧存档再次写回。添加前回到标题界面即可；不需要退出游戏，也不需要断开网络。未勾选时点击添加，程序会再次询问并可直接继续。
+为什么修改存档前必须关闭游戏？
+游戏退出时可能把内存中的旧状态写回存档。为避免覆盖外部修改，添加、编辑、删除和恢复存档前必须完全关闭游戏；程序检测到 Nioh3.exe 仍在运行时会拒绝写入。需要调用游戏原生生成函数的搜索仍在标题界面完成，搜索结束后关闭游戏再写档。所有流程都不需要断开网络。
 
 为什么明明有绘卷，却提示没有可用模板？
 同一 Steam 账户可以有多个游戏角色存档。请在顶部下拉框中选择实际解锁了绘卷功能的“游戏存档 1/2/3”，而不是只看 Steam ID。程序不会再固定使用游戏存档 1。
@@ -852,7 +853,7 @@ TUTORIAL_TEXT = f"""仁王3绘卷生成器使用教程
 2. 正式入口提供三周目稀有度3、4、5的 Seed 求解、单点预览和完整记录构造，均可离线完成，不需要启动游戏或读取存档。
 3. 稀有度3、4、5均使用经过原生对照的完整生成路径；所有候选还会在返回前执行精确完整记录重放。
 4. 其他周目需要原生生成或准备写档时，让游戏返回标题界面，不需要关闭游戏或断开网络。
-5. 启动生成器。程序会自动搜索同一账户下的全部游戏角色存档；写档前需要选择正确的“游戏存档 1/2/3”，并勾选添加按钮左侧的标题界面确认框。
+5. 启动生成器。程序会自动搜索同一账户下的全部游戏角色存档；写档前需要选择正确的“游戏存档 1/2/3”，并完全关闭游戏。
 
 二、设置目标组合
 1. 使用顶部的统一搜索框查找当前周目与稀有度下可生成的最终词条；双击或点击“添加选中词条”加入目标组合。
@@ -1800,7 +1801,7 @@ class ScrollEditorApp:
             warning,
             text=(
                 "三周目稀有度3、4、5的 Seed 求解与预览可完全离线运行，不需要启动游戏或读取存档。"
-                "其他周目、完整记录生成和写档支持《仁王3》PC v2.00.02 / v2.01；写档前请让游戏回到标题界面。"
+                "其他周目、完整记录生成和写档支持《仁王3》PC v2.00.02 / v2.01；写档前请完全关闭游戏。"
             ),
             foreground="#E0A15E",
             wraplength=1000,
@@ -3387,7 +3388,7 @@ class ScrollEditorApp:
                 "为避免恢复到错误账号或错误存档槽，程序不会自动恢复旧格式备份。",
             )
             return
-        if not self._confirm_title_screen_if_needed("恢复备份"):
+        if not self._confirm_game_closed_before_save("恢复备份"):
             return
         if not messagebox.askyesno(
             "确认恢复整个存档",
@@ -4437,7 +4438,7 @@ class ScrollEditorApp:
         if not changed_slots and not header_changes:
             messagebox.showinfo("没有变化", "当前草稿与存档中的 0xE8 记录完全相同")
             return
-        if not self._confirm_title_screen_if_needed("自由修改本地绘卷"):
+        if not self._confirm_game_closed_before_save("自由修改本地绘卷"):
             return
         change_lines: list[str] = []
         if header_changes:
@@ -4499,7 +4500,7 @@ class ScrollEditorApp:
         if not selected:
             messagebox.showerror("未选择绘卷", "请先选择至少一张要删除的绘卷")
             return
-        if not self._confirm_title_screen_if_needed("删除本地绘卷"):
+        if not self._confirm_game_closed_before_save("删除本地绘卷"):
             return
         slot_text = ", ".join(str(entry.slot_index) for entry in selected)
         if not messagebox.askyesno(
@@ -5892,16 +5893,22 @@ class ScrollEditorApp:
             raise ValueError("请先确认游戏位于标题界面")
         return self._selected_save_path()
 
-    def _confirm_title_screen_if_needed(self, action: str) -> bool:
-        if self.title_ack.get():
-            return True
-        confirmed = messagebox.askyesno(
-            f"{action}前确认",
-            TITLE_SCREEN_PROMPT_TEXT,
-        )
-        if confirmed:
-            self.title_ack.set(True)
-        return confirmed
+    def _confirm_game_closed_before_save(self, action: str) -> bool:
+        try:
+            running = find_nioh3_pids()
+        except Exception as error:
+            messagebox.showerror(
+                f"无法确认{action}安全性",
+                f"无法确认《仁王3》是否已经关闭，本次不会写入存档。\n\n{error}",
+            )
+            return False
+        if running:
+            messagebox.showwarning(
+                f"{action}前请关闭游戏",
+                "请完全关闭《仁王3》后再写入存档。游戏仍在运行时退出，可能用内存中的旧状态覆盖修改。",
+            )
+            return False
+        return True
 
     def _search_save_path(self, criteria: SearchCriteria) -> Path | None:
         if is_game_closed_effect_context(criteria):
@@ -7516,10 +7523,10 @@ class ScrollEditorApp:
         selection = self.candidate_list.curselection()
         if not selection:
             return
-        if not self._confirm_title_screen_if_needed("添加绘卷"):
+        if not self._confirm_game_closed_before_save("添加绘卷"):
             return
         try:
-            save_path = self._require_ready()
+            save_path = self._selected_save_path()
             level = int(self.level.get(), 0)
             recommended_level = int(self.recommended.get(), 0)
             transfer_count = int(self.transfer_count.get(), 0)

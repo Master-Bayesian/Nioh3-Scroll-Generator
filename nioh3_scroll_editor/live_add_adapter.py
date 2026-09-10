@@ -125,16 +125,29 @@ class LiveAddAdapter:
         return value
 
     def preview(self, plan, installation_record):
-        operation_id = str(uuid4())
-        self.pending = operation_id
-        self.pending_pid = plan['pid']
-        self.transport.call('preview', operation_id=operation_id, profile_id=plan['profile_id'], pid=plan['pid'],
-                            descriptor_hex=assembly_descriptor(installation_record).hex(),
-                            expected_record_hex=installation_record.hex(), builder_code_hex=plan['builder_code_hex'])
-        result = self.wait(operation_id)
-        verify_dispatch(result)
-        verify_assembly_preview(installation_record, bytes.fromhex(result['source_hex']))
-        return result
+        # A preview cannot mutate inventory or advance the serial counter. The
+        # game's accepted idle dispatch is periodic, though, so a quiet window
+        # can end one attempt before the breakpoint is reached. Retry only that
+        # explicit, fully released, zero-redirect outcome. Writes are never
+        # replayed and every attempt retains its own native receipt.
+        for attempt in range(3):
+            operation_id = str(uuid4())
+            self.pending = operation_id
+            self.pending_pid = plan['pid']
+            self.transport.call('preview', operation_id=operation_id, profile_id=plan['profile_id'], pid=plan['pid'],
+                                descriptor_hex=assembly_descriptor(installation_record).hex(),
+                                expected_record_hex=installation_record.hex(), builder_code_hex=plan['builder_code_hex'])
+            result = self.wait(operation_id)
+            idle_miss = (result.get('redirect_count') == 0
+                         and result.get('released') is True
+                         and result.get('active') is False
+                         and result.get('error') == 'No accepted idle dispatch before timeout')
+            if idle_miss and attempt < 2:
+                continue
+            verify_dispatch(result)
+            verify_assembly_preview(installation_record, bytes.fromhex(result['source_hex']))
+            return result
+        raise AssertionError('Preview retry loop did not return')
 
     def insert(self, plan):
         fields = {key: plan[key] for key in ('operation_id', 'profile_id', 'pid', 'manager', 'data',

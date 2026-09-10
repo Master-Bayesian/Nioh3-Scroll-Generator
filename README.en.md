@@ -12,12 +12,12 @@ Ippon-Datara Studio is a desktop toolkit for the PC version of Nioh 3. It helps
 players search for game-legal scrolls, add selected results, edit scrolls they
 already own, and recover from changes with verified automatic save backups.
 
-The current stable release is **v0.7.1**, rebuilt on **Tauri 2**. The release
+The current stable release is **v0.7.2**, rebuilt on **Tauri 2**. The release
 package includes everything the app needs except the shared Microsoft Edge
 WebView2 Runtime that is normally already present on Windows.
 
 [Download the latest release](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)
-· [Read the v0.7.1 release notes](packaging/release-notes.md)
+· [Read the v0.7.2 release notes](packaging/release-notes.md)
 
 ## What you can do
 
@@ -40,10 +40,12 @@ add.
 ### Add selected scrolls
 
 Supported results can be added directly while you are in game or written to a
-save while the game is at the title screen. The app verifies the current game
-and save context, creates a backup, and records the operation before it writes.
+save after the game is fully closed. The app verifies the current game and save
+context, creates a backup, and records the operation before it writes. Save-file
+writes stop if the game process is still running, preventing a later game exit
+from overwriting the new file with stale in-memory state.
 
-The v0.7.1 release does **not** require Cheat Engine, Python, Node.js, or
+The v0.7.2 release does **not** require Cheat Engine, Python, Node.js, or
 Electron. Compatibility and safety checks remain inside the app; if the game or
 save state is not supported, the operation stops instead of guessing.
 
@@ -74,10 +76,10 @@ save archive.
 
 ## Quick start
 
-1. Download `Nioh3Studio-0.7.1-win-x64.zip` from the
+1. Download `Nioh3Studio-0.7.2-win-x64-setup.exe` from the
    [latest release](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest).
-2. Extract the **entire ZIP** to a writable folder.
-3. Run `Nioh3Studio.exe` and keep all adjacent folders and files together.
+2. Run the installer. This is the only file new users need to download.
+3. Start Ippon-Datara Studio from the Start menu or its installation folder.
 4. Choose English, Simplified Chinese, or Japanese from the language control.
 5. Follow the status message and in-app prompts before any game or save
    operation.
@@ -88,13 +90,14 @@ Requirements:
 - Microsoft Edge WebView2 Runtime
 - A supported PC build of Nioh 3 for game-connected features
 
-Moving only the executable will not work because the packaged workers,
-resources, licenses, and integrity manifest must remain beside it.
+A portable ZIP remains available as a fallback. If you use it, extract the
+complete archive because its workers, resources, licenses, and integrity
+manifest must remain together.
 
 ### Upgrading from an older version
 
-Users moving from v0.6.x or the withdrawn Electron v0.7.0 need to download and
-extract the Tauri package once. Later Tauri releases can use the signed in-app
+Users moving from v0.6.x or the withdrawn Electron v0.7.0 need to run the Tauri
+installer once. Later Tauri releases can use the signed in-app
 updater, including replacement rollback and cleanup if the new version does not
 start correctly.
 
@@ -104,7 +107,7 @@ start correctly.
    complete previews.
 2. **Collect:** favorite useful results or place them in the cart for comparison
    and batch selection.
-3. **Add:** choose in-game addition or title-screen save addition, then review
+3. **Add:** choose in-game addition or close the game for save-file addition, then review
    the operation.
 4. **Edit:** use Scroll editor for local changes to scrolls you already own.
 5. **Recover:** use Backups if you need to inspect or restore an earlier save.
@@ -125,7 +128,7 @@ start correctly.
 
 Ippon-Datara Studio is intended to grow beyond the current scroll workflows.
 Additional tools are in active development; the disabled **Coming soon** entry
-in v0.7.1 is intentional. New tools will be documented here only after their
+in v0.7.2 is intentional. New tools will be documented here only after their
 user flow and safety boundaries have been verified.
 
 ## License and attribution

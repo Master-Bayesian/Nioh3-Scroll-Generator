@@ -319,6 +319,32 @@ impl Updater {
                 {
                     return Err("UPDATE_PREVIOUS_INVALID".into());
                 }
+                // The NSIS installer owns one file beside the portable
+                // product. The update helper copies it into the replacement so
+                // Add/Remove Programs keeps working. Remove the rollback copy
+                // only when it is byte-identical to the installed copy; every
+                // other extra file still causes fail-safe preservation below.
+                let previous_uninstaller = previous.join("uninstall.exe");
+                if previous_uninstaller.exists() {
+                    let installed_uninstaller = target.join("uninstall.exe");
+                    let previous_metadata = std::fs::symlink_metadata(&previous_uninstaller)
+                        .map_err(|e| e.to_string())?;
+                    let installed_metadata = std::fs::symlink_metadata(&installed_uninstaller)
+                        .map_err(|e| e.to_string())?;
+                    if previous_metadata.file_type().is_symlink()
+                        || installed_metadata.file_type().is_symlink()
+                        || !previous_metadata.is_file()
+                        || !installed_metadata.is_file()
+                        || previous_metadata.len() == 0
+                        || previous_metadata.len() > 64 * 1024 * 1024
+                        || previous_metadata.len() != installed_metadata.len()
+                        || package::hash_file(&previous_uninstaller)?
+                            != package::hash_file(&installed_uninstaller)?
+                    {
+                        return Err("UPDATE_UNINSTALLER_MISMATCH".into());
+                    }
+                    std::fs::remove_file(previous_uninstaller).map_err(|e| e.to_string())?;
+                }
                 package::remove_child(
                     target.parent().ok_or("UPDATE_TARGET_INVALID")?,
                     &previous,

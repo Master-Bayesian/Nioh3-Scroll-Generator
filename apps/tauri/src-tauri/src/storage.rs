@@ -38,11 +38,25 @@ pub fn log(root: &Path, category: &str, message: &str) {
         .append(true)
         .open(path)
     {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
-        let bounded: String = message.chars().take(8192).collect();
-        let _ = writeln!(file, "{timestamp} [{category}] {bounded}");
+        let timestamp = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+        let chars: Vec<char> = message.chars().collect();
+        let parts = chars.len().max(1).div_ceil(8192);
+        if chars.is_empty() {
+            let _ = writeln!(file, "{timestamp} [{category}]");
+        } else {
+            for (index, chunk) in chars.chunks(8192).enumerate() {
+                let text: String = chunk.iter().collect();
+                if parts == 1 {
+                    let _ = writeln!(file, "{timestamp} [{category}] {text}");
+                } else {
+                    let _ = writeln!(
+                        file,
+                        "{timestamp} [{category} part={}/{}] {text}",
+                        index + 1,
+                        parts
+                    );
+                }
+            }
+        }
     }
 }

@@ -184,7 +184,7 @@ async fn desktop_request(
                 .as_str()
                 .filter(|s| s.len() <= 16384)
                 .ok_or("INVALID_LOG_MESSAGE")?;
-            storage::log(&broker.data, "ui", text);
+            storage::log(&broker.data, "client", text);
             Ok(Value::Null)
         }
         "review:link" => {

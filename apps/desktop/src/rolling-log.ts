@@ -1,6 +1,6 @@
 import {appendFileSync, mkdirSync, renameSync, rmSync, statSync, readFileSync, existsSync} from 'node:fs';
 import {join} from 'node:path';
-/** Bounded support log: five files of 4 MiB, UTF-8 JSONL, no request payloads. */
+/** Bounded support log: five files of 4 MiB with operation diagnostics. */
 export class RollingLog {
  constructor(readonly directory:string, readonly limit=4*1024*1024, readonly files=5){mkdirSync(directory,{recursive:true})}
  write(event:string, detail:unknown='') {try {

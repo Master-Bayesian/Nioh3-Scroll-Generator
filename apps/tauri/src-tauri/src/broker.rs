@@ -13,6 +13,25 @@ pub struct Broker {
     pub storage: Mutex<()>,
 }
 impl Broker {
+    fn trace_worker_method(method: &str) -> bool {
+        !matches!(
+            method,
+            "handshake"
+                | "job.current"
+                | "job.snapshot"
+                | "search.catalog"
+                | "recommended_level.resolve"
+        )
+    }
+
+    fn trace_worker(&self, category: &str, role: &str, method: &str, value: &Value) {
+        crate::storage::log(
+            &self.data,
+            category,
+            &format!("role={role} method={method} payload={value}"),
+        );
+    }
+
     pub async fn diagnostics(&self) -> Value {
         let hosts: Vec<_> = self.workers.lock().await.values().cloned().collect();
         let mut workers = vec![];
@@ -61,10 +80,44 @@ impl Broker {
         Ok(worker)
     }
     pub async fn call(&self, role: &str, method: &str, params: Value) -> Reply {
-        self.host(role).await?.call(method, params).await
+        let traced = Self::trace_worker_method(method);
+        if traced {
+            self.trace_worker("worker-request", role, method, &params);
+        }
+        let result = match self.host(role).await {
+            Ok(worker) => worker.call(method, params).await,
+            Err(error) => Err(error),
+        };
+        match &result {
+            Ok(value) if traced => self.trace_worker("worker-response", role, method, value),
+            Err(error) => crate::storage::log(
+                &self.data,
+                "worker-error",
+                &format!("role={role} method={method} error={error}"),
+            ),
+            _ => {}
+        }
+        result
     }
     pub async fn run(&self, role: &str, method: &str, params: Value) -> Reply {
-        self.host(role).await?.run(method, params).await
+        let traced = Self::trace_worker_method(method);
+        if traced {
+            self.trace_worker("worker-run", role, method, &params);
+        }
+        let result = match self.host(role).await {
+            Ok(worker) => worker.run(method, params).await,
+            Err(error) => Err(error),
+        };
+        match &result {
+            Ok(value) if traced => self.trace_worker("worker-result", role, method, value),
+            Err(error) => crate::storage::log(
+                &self.data,
+                "worker-error",
+                &format!("role={role} method={method} error={error}"),
+            ),
+            _ => {}
+        }
+        result
     }
     async fn retain(&self, transfer: Value) -> Reply {
         let key = transfer["candidate_id"]

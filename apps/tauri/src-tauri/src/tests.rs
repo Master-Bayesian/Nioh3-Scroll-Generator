@@ -100,6 +100,7 @@ fn real_update_helper_preserves_rollback_until_acknowledgement() {
     let stage = folder.join("package");
     let target = root.join("installed");
     fixture(&target, "0.7.1", true);
+    std::fs::write(target.join("uninstall.exe"), "installer-owned-uninstaller").unwrap();
     fixture(&stage, "0.7.2", true);
     let helper = cache.join("apply-update.ps1");
     std::fs::write(&helper, include_str!("../apply-update.ps1")).unwrap();
@@ -139,6 +140,10 @@ fn real_update_helper_preserves_rollback_until_acknowledgement() {
         serde_json::from_slice(&std::fs::read(&report).unwrap()).unwrap();
     let previous = std::path::PathBuf::from(receipt["previous"].as_str().unwrap());
     assert!(previous.exists());
+    assert_eq!(
+        std::fs::read(target.join("uninstall.exe")).unwrap(),
+        b"installer-owned-uninstaller"
+    );
     let before = std::fs::read(target.join("build-manifest.json")).unwrap();
     let broken = root.join("broken");
     fixture(&broken, "0.7.3", false);
@@ -236,4 +241,18 @@ async fn real_worker_search_validation_and_private_transfers() {
     assert!(host.close().await);
     assert!(host.close().await, "Closing a safe host twice must succeed");
     assert!(broker.shutdown().await);
+}
+
+#[test]
+fn support_log_keeps_complete_chunked_diagnostics_with_iso_timestamps() {
+    let data = std::env::temp_dir().join(format!("nioh3-log-test-{}", uuid::Uuid::new_v4()));
+    let message = format!("save_path=C:/Users/player/save record_hex={}", "ab".repeat(9000));
+    crate::storage::log(&data, "worker-request", &message);
+    let text = std::fs::read_to_string(data.join("logs/desktop.log")).unwrap();
+    assert!(text.contains("T"));
+    assert!(text.contains("Z [worker-request part=1/3]"));
+    assert!(text.contains("[worker-request part=3/3]"));
+    assert!(text.contains("save_path=C:/Users/player/save"));
+    assert_eq!(text.matches("ab").count(), 9000);
+    std::fs::remove_dir_all(data).unwrap();
 }

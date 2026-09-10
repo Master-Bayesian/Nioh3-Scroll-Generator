@@ -96,6 +96,22 @@ class SaveOperationsTests(unittest.TestCase):
             self.application.commit(plan['plan_id'])
         self.assertEqual(changed, self.path.read_bytes())
 
+    def test_running_game_rejects_commit_before_ledger_backup_or_write(self):
+        original = self.path.read_bytes()
+        plan = self.plan()
+        self.application.game_process_ids = lambda: (1234,)
+        with self.assertRaisesRegex(RuntimeError, 'GAME_RUNNING'):
+            self.application.commit(plan['plan_id'])
+        self.assertEqual(original, self.path.read_bytes())
+        self.assertFalse(self.application._ledger_path(plan['plan_id']).exists())
+        self.assertEqual([], self.application.backups(self.save_id)['backups'])
+
+    def test_running_game_rejects_save_plan_before_user_review(self):
+        self.application.game_process_ids = lambda: (1234,)
+        with self.assertRaisesRegex(RuntimeError, 'GAME_RUNNING'):
+            self.plan()
+        self.assertEqual({}, self.application.plans)
+
     def test_delete_then_restore(self):
         original = self.path.read_bytes()
         plan = self.application.prepare_delete(self.save_id, self.snapshot['snapshot_id'], [0])
