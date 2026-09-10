@@ -10,11 +10,15 @@ const RELEASES='https://api.github.com/repos/Master-Bayesian/Nioh3-Scroll-Genera
 export interface UpdateManifest {schema:'nioh3-v2-update/v1';version:string;channel:'stable'|'beta';platform:'win32-x64';notes:string;asset:{name:string;url:string;size:number;sha256:string};signature:string}
 export interface UpdateState {phase:'idle'|'checking'|'current'|'available'|'downloading'|'ready'|'failed';version?:string;notes?:string;downloaded?:number;total?:number;error?:string}
 export function signedUpdatePayload(value:UpdateManifest){return JSON.stringify({schema:value.schema,version:value.version,channel:value.channel,platform:value.platform,notes:value.notes,asset:{name:value.asset.name,url:value.asset.url,size:value.asset.size,sha256:value.asset.sha256}})}
+function safeZipAssetName(name:unknown):name is string {
+ if(typeof name!=='string'||name.length>180||!/^.+\.zip$/i.test(name)||name!==name.trim()||/[<>:"/\\|?*\u0000-\u001f\u007f]/.test(name))return false;
+ return !/^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])$/i.test(name.split('.')[0].trimEnd());
+}
 export function validateUpdate(value:UpdateManifest, publicKey=PUBLIC_KEY){
  if(!value||value.schema!=='nioh3-v2-update/v1'||value.platform!=='win32-x64'||!['stable','beta'].includes(value.channel)||!/^\d+\.\d+\.\d+(?:-(?:beta|rc)\.\d+)?$/.test(value.version)||typeof value.notes!=='string'||value.notes.length>32000)throw Error('UPDATE_MANIFEST_INVALID');
  if(value.channel==='stable'&&value.version.includes('-'))throw Error('UPDATE_CHANNEL_MISMATCH');
- const a=value.asset;if(!a||!/^Nioh3ScrollEditorV2-[a-zA-Z0-9.-]+\.zip$/.test(a.name)||!Number.isSafeInteger(a.size)||a.size<=0||a.size>1024*1024*1024||!/^[a-f0-9]{64}$/.test(a.sha256))throw Error('UPDATE_ASSET_INVALID');
- const url=new URL(a.url);if(url.origin!=='https://github.com'||!url.pathname.startsWith('/Master-Bayesian/Nioh3-Scroll-Generator/releases/download/')||url.username||url.password||url.hash)throw Error('UPDATE_ASSET_ORIGIN_INVALID');
+ const a=value.asset;if(!a||!safeZipAssetName(a.name)||!Number.isSafeInteger(a.size)||a.size<=0||a.size>1024*1024*1024||!/^[a-f0-9]{64}$/.test(a.sha256))throw Error('UPDATE_ASSET_INVALID');
+ const url=new URL(a.url);if(url.origin!=='https://github.com'||decodeURIComponent(url.pathname)!==`/Master-Bayesian/Nioh3-Scroll-Generator/releases/download/v${value.version}/${a.name}`||url.username||url.password||url.hash)throw Error('UPDATE_ASSET_ORIGIN_INVALID');
  const key=createPublicKey({key:Buffer.concat([Buffer.from('302a300506032b6570032100','hex'),Buffer.from(publicKey,'base64')]),format:'der',type:'spki'});
  if(typeof value.signature!=='string'||!verify(null,Buffer.from(signedUpdatePayload(value)),key,Buffer.from(value.signature,'base64')))throw Error('UPDATE_SIGNATURE_INVALID');
  return value;

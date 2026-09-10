@@ -22,7 +22,7 @@ cart, and backup management. Chinese, English and Japanese can be selected in th
 
 ## Install or migrate from v0.6
 
-Download `Nioh3ScrollEditorV2-0.7.0-win-x64.zip`, extract the entire archive into a
+Download `Nioh3ScrollEditor-0.7.0-win-x64.zip`, extract the entire archive into a
 writable folder and launch `Nioh3ScrollEditorV2.exe`. Python and Cheat Engine are
 not required. The legacy single-EXE updater cannot install V2; this first migration
 requires the ZIP download. Future V2 updates replace the complete portable directory.

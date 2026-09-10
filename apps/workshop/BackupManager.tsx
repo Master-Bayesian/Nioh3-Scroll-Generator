@@ -7,7 +7,6 @@ import React, {
 import { SavePicker } from "./CartActions";
 import { saveSession, saveObserver } from "./save-workspace";
 import { desktop } from "./desktop-bridge";
-import type { ProtectedJob } from "../../packages/contracts/protected-responses";
 type Backup = {
   backup_id: string;
   timestamp: string;
@@ -29,6 +28,10 @@ function ConnectedBackups() {
     saveSession!.subscribe,
     saveSession!.getSnapshot,
   );
+  const operation = useSyncExternalStore(
+    saveObserver!.subscribe,
+    saveObserver!.getSnapshot,
+  );
   const [items, setItems] = useState<Backup[]>([]),
     [selected, setSelected] = useState<string[]>([]),
     [busy, setBusy] = useState(false),
@@ -36,6 +39,7 @@ function ConnectedBackups() {
     [plan, setPlan] = useState<{ id: string; backup: string } | null>(null),
     [confirmed, setConfirmed] = useState(false);
   const loadedSnapshot = useRef("");
+  const locked = busy || state.busy || !saveObserver!.canStart();
   async function load() {
     if (!state.selected) return;
     setBusy(true);
@@ -59,7 +63,7 @@ function ConnectedBackups() {
   useEffect(() => {
     if (
       state.inventory &&
-      !state.busy &&
+      !locked &&
       loadedSnapshot.current !== state.inventory.snapshot_id
     ) {
       loadedSnapshot.current = state.inventory.snapshot_id;
@@ -67,7 +71,7 @@ function ConnectedBackups() {
       setPlan(null);
       setConfirmed(false);
     }
-  }, [state.inventory?.snapshot_id, state.busy]);
+  }, [state.inventory?.snapshot_id, state.busy, busy, operation.phase]);
   async function prepare() {
     setBusy(true);
     try {
@@ -136,12 +140,12 @@ function ConnectedBackups() {
     "v2-count-edit": "当前可挑战次数",
   };
   return (
-    <section className="backup-page">
+    <section className="backup-page" aria-busy={locked}>
       <h2>存档备份与管理</h2>
       <SavePicker />
       <div className="backup-toolbar">
         <button
-          disabled={busy || !state.inventory}
+          disabled={locked || !state.inventory}
           onClick={() =>
             void window.review
               .openSaveFolder({
@@ -157,8 +161,7 @@ function ConnectedBackups() {
           <button
             key={action}
             disabled={
-              busy ||
-              state.busy ||
+              locked ||
               (action !== "open" &&
                 !!(state.uncertainOperationId || state.plan))
             }
@@ -180,13 +183,13 @@ function ConnectedBackups() {
           </button>
         ))}
         <button
-          disabled={busy || state.busy || !state.selected}
+          disabled={locked || !state.selected}
           onClick={() => void load()}
         >
           刷新备份
         </button>
         <button
-          disabled={busy || state.busy}
+          disabled={locked}
           onClick={() =>
             void window.review
               .openBackupFolder()
@@ -196,13 +199,13 @@ function ConnectedBackups() {
           打开备份文件夹
         </button>
         <button
-          disabled={busy || state.busy || selected.length !== 1}
+          disabled={locked || selected.length !== 1}
           onClick={() => void prepare()}
         >
           恢复选中备份
         </button>
         <button
-          disabled={busy || state.busy || !selected.length}
+          disabled={locked || !selected.length}
           onClick={() => void recycle()}
         >
           移入回收站
@@ -225,6 +228,7 @@ function ConnectedBackups() {
                   <td>
                     <input
                       type="checkbox"
+                      disabled={locked}
                       aria-label={"选择备份" + item.backup_id}
                       checked={selected.includes(item.backup_id)}
                       onChange={(e) => {
@@ -264,7 +268,7 @@ function ConnectedBackups() {
             游戏已回到标题界面
           </label>
           <button
-            disabled={!confirmed || busy || state.busy}
+            disabled={!confirmed || locked}
             onClick={() => void restore()}
           >
             确认恢复存档

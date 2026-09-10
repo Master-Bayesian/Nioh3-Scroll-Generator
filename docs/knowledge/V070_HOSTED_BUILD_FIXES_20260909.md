@@ -88,16 +88,42 @@ dependency directory and no prior Electron launch. Preserve the release workflow
 ability to build directly from dependency installation; a smoke launch is not a
 substitute for a build prerequisite.
 
-## Archive naming is part of the update contract
+## A development label is not an artifact identity
 
 The first complete package passed all runtime checks but signing stopped with
 `UPDATE_ASSET_INVALID`. The archive workflow used the `Nioh3ScrollEditor-` prefix,
-while the V2 updater intentionally accepts `Nioh3ScrollEditorV2-` ZIP files. The
+while the updater unnecessarily required `Nioh3ScrollEditorV2-` ZIP files. The
 private key was available; this was metadata validation, not a signing-key failure.
 
-Use `Nioh3ScrollEditorV2-<version>-win-x64.zip` consistently in archive creation,
-the signer input, download URL and release notes. Keep the updater's validation
-unchanged. A new test reads the actual release workflow, verifies that the archive,
-signer input and URL agree, signs that metadata with a disposable test key, and
-passes it through the real updater validator. It reproduces the old failure and
-passes with the corrected name. Run this check before the expensive release gates.
+The initial workaround renamed the archive to match that restriction. The user
+correctly identified this as a design bug: a development label must not determine
+whether an official package is trusted. The final repair accepts safe ZIP basenames
+without coupling them to a product name. It rejects path separators, control
+characters, invalid Windows filename characters and reserved device names. The
+signed download URL must identify the declared version and exact filename in the
+official repository. Signature, platform, version, archive hash and complete
+package-manifest checks remain mandatory.
+
+Use `Nioh3ScrollEditor-<version>-win-x64.zip` consistently in archive creation,
+the signer input, download URL and release notes. A regression test reads the
+actual release workflow, checks agreement between those fields, signs the metadata
+with a disposable test key and passes it through the real updater validator.
+Additional tests accept renamed packages and reject unsafe names and mismatched
+URLs even when signed. Run this check before the expensive release gates.
+
+## Wait for backup refresh completion, not a previously satisfied row count
+
+A later packaged run timed out waiting for the recycle success message after
+restore. The test's `row count >= 3` condition was already true before refresh,
+so it did not establish that refresh had completed. Inspection also found that
+restore's local busy flag could clear while its newly triggered automatic backup
+refresh was still using the shared protected-operation observer.
+
+The backup view now observes the actual protected-operation state. Automatic
+loading waits for the previous action, and both actions and selection stay
+disabled while a request is active. The test waits for the backup page to become
+idle and verifies the restore-created backup before selecting an item to recycle.
+Connected-test failures now print and save the visible UI status so another
+failure will include the actual error, rather than only a success-message timeout.
+Do not hide this failure with a forced click, a broad retry or removal of the
+real recycle operation.

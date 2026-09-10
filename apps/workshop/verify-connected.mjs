@@ -30,10 +30,16 @@ try{
  await p.getByRole('button',{name:'备份与管理',exact:true}).click();await p.locator('.backup-list tbody tr').first().waitFor();check('Backup manager automatically lists the selected save backups',await p.locator('.backup-list tbody tr').count()>=2);
  check('Backup actions show player-facing labels',!(await p.locator('.backup-list').innerText()).includes('v2-'));
  const backupRows=await p.locator('.backup-list tbody tr').count();await p.locator('.backup-list tbody input').last().check();await p.getByRole('button',{name:'恢复选中备份',exact:true}).click();await p.getByRole('button',{name:'确认恢复存档',exact:true}).waitFor();check('Backup restore waits for title-screen confirmation',await p.getByRole('button',{name:'确认恢复存档',exact:true}).isDisabled());await p.getByRole('checkbox',{name:'游戏已回到标题界面',exact:true}).check();await p.getByRole('button',{name:'确认恢复存档',exact:true}).click();await p.getByText('备份已恢复。',{exact:true}).waitFor();check('Backup restores the original encrypted fixture',original.equals(await readFile(fixture.path)));
- await p.getByRole('button',{name:'刷新备份',exact:true}).click();await p.waitForFunction(()=>document.querySelectorAll('.backup-list tbody tr').length>=3);const beforeRecycle=await p.locator('.backup-list tbody tr').count();await p.locator('.backup-list tbody input').last().check();await p.getByRole('button',{name:'移入回收站',exact:true}).click();await p.getByText('选中的备份已移入回收站。',{exact:true}).waitFor();check('Recycling a selected backup leaves the save untouched',original.equals(await readFile(fixture.path))&&await p.locator('.backup-list tbody tr').count()===beforeRecycle-1);
+ await p.getByRole('button',{name:'刷新备份',exact:true}).click();await p.locator('.backup-page[aria-busy="false"]').waitFor();const beforeRecycle=await p.locator('.backup-list tbody tr').count();check('Backup refresh completes before another action is available',beforeRecycle>backupRows);await p.locator('.backup-list tbody input').last().check();await p.getByRole('button',{name:'移入回收站',exact:true}).click();await p.getByText('选中的备份已移入回收站。',{exact:true}).waitFor();check('Recycling a selected backup leaves the save untouched',original.equals(await readFile(fixture.path))&&await p.locator('.backup-list tbody tr').count()===beforeRecycle-1);
  check('Renderer exposes no Node access',await p.evaluate(()=>typeof window.require==='undefined'&&typeof window.process==='undefined'));
  check('Private materialization cannot be called by renderer',await p.evaluate(async()=>{try{await window.operations.execute({method:'save.materialize_live_many',params:{}});return false}catch{return true}}));
  check('No renderer exceptions',errors.length===0);
  await mkdir('deliverables/frontend-v2/search-ui-demo-v2',{recursive:true});
  await writeFile('deliverables/frontend-v2/search-ui-demo-v2/connected-verification.json',JSON.stringify({checks,errors,scope:'Isolated synthetic encrypted save only; no game process used'},null,2));
+}catch(error){
+ const p=await app.firstWindow();
+ await mkdir('deliverables/frontend-v2/search-ui-demo-v2',{recursive:true});
+ await writeFile('deliverables/frontend-v2/search-ui-demo-v2/connected-failure.txt',String(error)+'\n'+await p.locator('body').innerText());
+ console.error('Connected UI failure state:\n'+await p.locator('body').innerText());
+ throw error;
 }finally{await app.close()}
