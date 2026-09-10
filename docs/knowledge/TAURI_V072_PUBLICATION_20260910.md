@@ -77,4 +77,3 @@ promoted or rebuilt during publication.
   an honest deterministic filter. See
   `CRUCIBLE_POSSESSED_ENEMY_RESEARCH_20260910.md`.
 - A web edition remains deferred by product priority.
-
