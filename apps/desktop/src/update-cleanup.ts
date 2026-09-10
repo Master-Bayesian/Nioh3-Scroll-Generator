@@ -25,7 +25,7 @@ async function physicalFiles(root: string): Promise<string[]> {
 async function removeChild(parent: string, child: string) {
   const canonicalParent = await realpath(parent);
   const expected = join(canonicalParent, basename(child));
-  if (!samePath(resolve(child), join(resolve(parent), basename(child))) ||
+  if (!samePath(await realpath(dirname(child)), canonicalParent) ||
       (await lstat(child)).isSymbolicLink() || !samePath(await realpath(child), expected)) {
     throw Error('UPDATE_CLEANUP_PATH_REFUSED');
   }
@@ -46,11 +46,11 @@ export async function finishInstalledUpdate(root: string, target: string, versio
   catch (error) { if (!missing(error)) throw error; }
   if (receipt && ['awaiting-startup', 'launched'].includes(receipt.status)) {
     const previous = receipt.previous;
-    const parent = dirname(resolve(target));
+    const parent = await realpath(dirname(resolve(target)));
     const prefix = basename(target) + '.previous-';
-    if (typeof previous !== 'string' || !samePath(dirname(resolve(previous)), parent) ||
+    if (typeof previous !== 'string' || !samePath(await realpath(dirname(resolve(previous))), parent) ||
         !basename(previous).startsWith(prefix) || !/^[0-9a-f]{32}$/i.test(basename(previous).slice(prefix.length)) ||
-        receipt.target && !samePath(resolve(receipt.target), resolve(target))) throw Error('UPDATE_RECEIPT_TARGET_REFUSED');
+        receipt.target && !samePath(await realpath(receipt.target), await realpath(target))) throw Error('UPDATE_RECEIPT_TARGET_REFUSED');
     const installed = await verifyPortable(target, filesystem);
     if (installed.version !== version || receipt.manifestHash && installed.manifestSha256 !== receipt.manifestHash.toLowerCase()) {
       throw Error('UPDATE_RECEIPT_PACKAGE_MISMATCH');

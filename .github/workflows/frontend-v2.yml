@@ -30,32 +30,8 @@ jobs:
       - run: npm test
       - run: python -m unittest test_effect_occurrences test_challenge_override test_runtime_count_edit test_challenge_completion_capture
       - run: ./tools/verify_native_faults.ps1
-      - run: npm run test:electron
-      - name: Connected production UI with an isolated encrypted save
-        run: node apps/workshop/verify-connected.mjs
-        env:
-          NIOH3_PARITY_ALLOW_CPU: '1'
-      - name: Build and validate portable application
-        shell: pwsh
-        run: |
-          $buildPython = (Get-Command python).Source
-          $env:NIOH3_PYTHON = $buildPython
-          ./tools/build_frontend_v2.ps1 -Python $buildPython -Output 'deliverables/frontend-v2/portable-ci'
-          $portable = Join-Path $PWD 'deliverables/frontend-v2/portable-ci'
-          $env:NIOH3_WORKER_EXE = Join-Path $portable 'resources/worker/nioh3-search-worker.exe'
-          $env:NIOH3_PROTECTED_WORKER_EXE = Join-Path $portable 'resources/worker/nioh3-protected-worker.exe'
-          $env:NIOH3_PORTABLE_EXE = Join-Path $portable 'Nioh3ScrollEditorV2.exe'
-          $env:NIOH3_PARITY_ALLOW_CPU = '1'
-          npm test
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm run test:packaged
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm run test:electron
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node apps/workshop/verify-connected.mjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node apps/workshop/verify-collections.mjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      # Packaged host acceptance belongs to the signed Tauri preparation workflow.
+      - run: npm run typecheck
       - uses: actions/upload-artifact@v4
         if: always()
         with:

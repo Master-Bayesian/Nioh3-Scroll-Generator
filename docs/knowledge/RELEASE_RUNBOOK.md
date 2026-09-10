@@ -166,3 +166,13 @@ update cleanup. Test actual restart, not only a mock installer acknowledgement.
 
 The first Tauri installation is a manual ZIP migration. Do not advertise the
 legacy single-EXE or Electron manifest as compatible with the Tauri format.
+
+### Tauri preparation follow-up
+
+Two inherited CI assumptions were repaired before any hosted release package was
+built: the release regression still expected an Electron manifest URL in YAML,
+and the preserved Electron cleanup compared Windows 8.3 paths lexically. The
+latter was reproduced locally using an actual short-path TEMP directory and now
+compares physical parent/target paths while retaining symlink and user-file
+refusals. Shared frontend CI no longer builds the retired Electron package;
+packaged acceptance is owned once by the signed Tauri preparation workflow.
