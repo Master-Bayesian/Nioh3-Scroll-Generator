@@ -7,6 +7,8 @@ This handoff records the local preparation checkpoint; hosted checks and the
 GitHub version tag record the subsequent publication status. Read
 [the pre-push completion report](V070_PREPUSH_COMPLETION_20260909.md) first; it
 supersedes the pending-gate lists in the older reports below.
+See [hosted build fixes](V070_HOSTED_BUILD_FIXES_20260909.md) for the subsequent
+Windows checkout reproducibility repair and release workflow.
 Read [V070_RELEASE_READINESS_REVIEW_20260909.md](V070_RELEASE_READINESS_REVIEW_20260909.md)
 for the original findings. Read [V070_RC1_FOLLOWUP_20260909.md](V070_RC1_FOLLOWUP_20260909.md) for subsequent repairs, new evidence and remaining release gates.
 Historical progress is preserved in
