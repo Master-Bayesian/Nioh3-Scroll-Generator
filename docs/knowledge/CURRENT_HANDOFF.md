@@ -1,12 +1,14 @@
-# Current project handoff — 2026-09-09
+# Current project handoff — 2026-09-10
 
 ## Status and entry points
 
-**Published:** Tauri 2 v0.7.1 is the latest stable release. The final ZIP is
-28.3 MiB; the exact hosted files were accepted locally and signed without a
-rebuild. Read [publication evidence](TAURI_V071_PUBLICATION_20260910.md) and
+**Published:** Tauri 2 v0.7.2 is the latest stable release. The official setup
+EXE is 27,324,865 bytes and the portable/update ZIP is 29,683,023 bytes. Both
+are exact products of successful hosted run `34513941110`, and the public
+downloads were verified again after publication. Read
+[v0.7.2 publication evidence](TAURI_V072_PUBLICATION_20260910.md) and
 [the release runbook](RELEASE_RUNBOOK.md). Electron v0.7.0 remains withdrawn.
-The Electron notes below are historical.
+The older Electron and v0.7.1 notes below are historical.
 
 The connected Electron/React V2 is prepared at 0.7.0 with Chinese, English and Japanese UI.
 This handoff records the local preparation checkpoint; hosted checks and the
@@ -25,7 +27,7 @@ Figma/CE/NG1-NG2 statements are historical, not current product status.
 
 - Freeze baseline: `backend-freeze-before-v0.7.0`, commit
   `8ad89ea4aee088b542977be14ec9e7c54e6bc3d1`. Preserve its B1-B6 contracts.
-- Electron brokers typed private transfers; the renderer never receives raw
+- Desktop brokers use typed private transfers; the renderer never receives raw
   records/process pointers. Search is killable; writes and native calls retain
   protected ownership and durable no-replay receipts.
 - Preserve GenerationContext, R4 final-preview/stage-one installation pairing,
@@ -46,7 +48,15 @@ The subsequent final-package favorites -> cart subset -> native insertion was ve
 
 ## Current source and testing
 
-The RC follow-up adds distinct-slot effect requirements, between-item live batch cancellation/progress, signed local update replacement/rollback tests, and isolated native fault tests. Temporary challenge capacity editing passed packaged UI/live acceptance on revealed R3 and R4 scrolls. The RC1 UI acceptance subsequently performed one verified native insertion and normal user save/reload. The user confirmed R3 6/7 -> 2/5 and R4 3/4 -> 2/6; independent current-count changes were first accepted through a backed-up research probe. The pre-push pass adds the reviewed instance-count command and formal UI, with automatic backup/readback and no-replay recovery. All capacity ownership is stopped and safe to shut down; counts remain at 2 by explicit user request. See the RC1 live acceptance report for scope and evidence.
+The immutable v0.7.2 product commit is
+`6b7689d75ec43f7f42b813a9ea6af396046930f7`. Hosted acceptance passed 571
+Python tests, 123 CPU-policy tests, 47 Node tests, 5 Rust tests, packaged
+R3/R4/R5 parity, real WebView2 UI flows, the signed in-place updater, and the
+single-file installer lifecycle. The public package contains 756
+manifest-verified files and preserves the earlier live-game evidence without
+introducing a new mutation path.
+
+The RC follow-up added distinct-slot effect requirements, between-item live batch cancellation/progress, signed local update replacement/rollback tests, and isolated native fault tests. Temporary challenge capacity editing passed packaged UI/live acceptance on revealed R3 and R4 scrolls. The RC1 UI acceptance subsequently performed one verified native insertion and normal user save/reload. The user confirmed R3 6/7 -> 2/5 and R4 3/4 -> 2/6; independent current-count changes were first accepted through a backed-up research probe. The pre-push pass added the reviewed instance-count command and formal UI, with automatic backup/readback and no-replay recovery. All capacity ownership is stopped and safe to shut down; counts remain at 2 by explicit user request. See the RC1 live acceptance report for scope and evidence.
 
 - Default native executor; optional CE transport remains research compatibility.
 - New live backups now use the normal account/slot/hash backup manifest and
@@ -56,14 +66,24 @@ The RC follow-up adds distinct-slot effect requirements, between-item live batch
 - The production review UI participates in TypeScript checking and CI paths.
   CI runs real encrypted synthetic-save UI workflows in source and package modes.
 - Logs remain bounded (five 4 MiB segments), search history retains three batches.
-- Latest review artifact: `deliverables/frontend-v2/portable-v070-rc1-final-20260909/`.
-  All older portable directories are superseded for these review fixes.
+- Failed operations automatically replace the clipboard with a bounded support
+  log containing the save path, candidate record, native receipt, and worker
+  error needed for diagnosis.
+- Offline save plans and commits fail closed while Nioh 3 is running. Live-add
+  preview can retry a narrowly proved idle miss, but actual insertion is never
+  replayed.
+- The v0.7.2 UI supports shared exact values for grouped rule families, keeps
+  default filters empty, and makes Add to cart visually prominent.
+- Exact published assets: `deliverables/releases/v0.7.2/`.
 
 ## Remaining work and constraints
 
-Prioritize the concrete release gates in the review, not a new visual redesign
-or a Rust rewrite. Three UI languages are enabled; native-speaker review remains separate. Production UI code is now in `apps/workshop`. Favorites and cart each cap at 50; favorites persist exact broker-owned candidate transfers.
-Do not claim natural early-playthrough R4/R5 drops, propagation acceptance,
-all-state native fault tolerance or a real signed-update rollout from smoke tests.
+Three UI languages are enabled; native-speaker review remains separate.
+Production UI code is in `apps/workshop`. Favorites and cart each cap at 50;
+favorites persist exact broker-owned candidate transfers. The web edition is
+deferred. Independent possessed-Crucible-enemy selection remains research-only;
+do not infer a supported filter from seed `86872488`.
+Do not claim natural early-playthrough R4/R5 drops, propagation acceptance, or
+all-state native fault tolerance beyond the recorded evidence.
 Keep experiment data, user saves, game dumps, signing material, build state and
 unrelated root scripts out of a future selectively reviewed commit.
