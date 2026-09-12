@@ -1,9 +1,9 @@
 # Nioh 3 Studio 0.7.3
 
-This unpublished candidate improves failure recovery, automatic diagnostic
-copying, backup restoration, and direct launch from one install-free EXE. It
-includes the reviewed fixes from the withdrawn v0.7.2 candidate. Publication
-requires the owner's review of the final local package.
+This release improves failure recovery, automatic diagnostic copying, backup
+restoration, responsive layout, and direct launch from one install-free EXE.
+It includes the reviewed fixes from the withdrawn v0.7.2 candidate and the
+final v0.7.3 interface follow-up.
 
 ## Direct launch and updates
 
@@ -37,6 +37,12 @@ not the default download.
 - The result-page **Add to cart** button is easier to see. Grouped special-rule
   families can share one chosen value, including any weapon's Against All Comers
   and any elemental-damage increase.
+- The full interface remains reachable at constrained window sizes and Windows
+  scaling levels. Collection cards keep stable action rows, long enemy lists
+  scroll inside their cards, and long localized titles no longer hide metadata.
+- Settings use accessible switches for boolean preferences. Favorites and
+  editor-selection dialogs can be dismissed from the backdrop without treating
+  an interaction that began inside the dialog as an outside click.
 
 The interface retains the 25-result default, descending result sorts, favorites,
 cart subset selection, editor, backup manager, three languages, and visible

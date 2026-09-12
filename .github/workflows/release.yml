@@ -81,6 +81,9 @@ jobs:
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node apps/tauri/verify.mjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          $env:NIOH3_UI_OUTPUT=Join-Path $PWD 'deliverables/frontend-v2/tauri-acceptance/add-layout'
+          node apps/tauri/verify-add-layout.mjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node apps/tauri/verify-update.mjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Verify direct one-file launch, runtime cache and outer updates

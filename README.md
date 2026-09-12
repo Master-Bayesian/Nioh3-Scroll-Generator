@@ -10,7 +10,7 @@
 
 独脚踏鞴工作室（Ippon-Datara Studio）是面向《仁王3》PC 版玩家的桌面工具箱。它可以按照游戏规则搜索绘卷、添加选中的结果、修改已有绘卷，并通过自动验证的备份帮助你从改动中恢复存档。
 
-正在准备基于 **Tauri 2** 的 **v0.7.3**，当前候选版尚未发布。新版只需下载一个免安装 EXE，双击即可运行；唯一的系统依赖是 Microsoft Edge WebView2 Runtime，现代 Windows 通常已经自带。
+当前稳定版是基于 **Tauri 2** 的 **v0.7.3**。只需下载一个免安装 EXE，双击即可运行；唯一的系统依赖是 Microsoft Edge WebView2 Runtime，现代 Windows 通常已经自带。
 
 [下载最新版本](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)
 · [查看 v0.7.3 发布说明](packaging/release-notes.md)
@@ -53,7 +53,7 @@ v0.7.3 **不需要** Cheat Engine、Python、Node.js 或 Electron。兼容性与
 
 ## 快速开始
 
-1. v0.7.3 发布后，从[最新版本页面](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)下载 `Nioh3Studio-0.7.3-win-x64.exe`。
+1. 从[最新版本页面](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)下载 `Nioh3Studio-0.7.3-win-x64.exe`。
 2. 把 EXE 放在你希望保留的位置，双击运行，不需要安装或手动解压。
 3. 下次使用时直接打开同一个 EXE。
 4. 在语言选项中选择简体中文、English 或日本語。

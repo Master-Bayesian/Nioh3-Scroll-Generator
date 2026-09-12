@@ -12,10 +12,10 @@ Ippon-Datara Studio is a desktop toolkit for the PC version of Nioh 3. It helps
 players search for game-legal scrolls, add selected results, edit scrolls they
 already own, and recover from changes with verified automatic save backups.
 
-The **v0.7.3** candidate uses **Tauri 2** and is not published yet. It ships as
-one install-free EXE: download it and double-click to run. The only shared
-system dependency is Microsoft Edge WebView2 Runtime, normally already present
-on Windows.
+The current stable **v0.7.3** release uses **Tauri 2** and ships as one
+install-free EXE: download it and double-click to run. The only shared system
+dependency is Microsoft Edge WebView2 Runtime, normally already present on
+Windows.
 
 [Download the latest release](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)
 · [Read the v0.7.3 release notes](packaging/release-notes.md)
@@ -79,7 +79,7 @@ save archive.
 
 ## Quick start
 
-1. After v0.7.3 is published, download `Nioh3Studio-0.7.3-win-x64.exe` from the
+1. Download `Nioh3Studio-0.7.3-win-x64.exe` from the
    [latest release](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest).
 2. Keep the EXE wherever you prefer and double-click it. No installation or
    manual extraction is needed.
