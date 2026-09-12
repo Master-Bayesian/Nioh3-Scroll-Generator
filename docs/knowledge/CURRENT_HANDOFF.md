@@ -2,9 +2,11 @@
 
 ## Status and entry points
 
-**Current delivery boundary:** the owner now requests local review before any
-push or publication. Finish the v0.7.3 local review candidate and explain the
-changes first. Do not push commits, tags, release assets or an update feed until
+**Current delivery boundary:** the v0.7.3 local review candidate is complete at
+`4b4214d`, with installer, portable/source archives and all final acceptance
+recorded in [the local delivery](V073_LOCAL_REVIEW_20260912.md). The owner
+requests review before any push or publication. Do not push commits, tags,
+release assets or an update feed until
 the owner reviews and authorizes release. Permanent save edits and deletions,
 like append and restore, must remain usable at the title screen without closing
 the game. See [local preparation](V073_RELEASE_PREPARATION_20260912.md).
