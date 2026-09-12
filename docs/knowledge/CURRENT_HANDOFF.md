@@ -2,34 +2,30 @@
 
 ## Status and entry points
 
-**Latest UI transfer:** product checkpoint `bca6ed2049ac595d138131c68f1f738946bb0ca6`
-contains verified direct addition, compact controls, stable sidebar positions,
-and unclipped section help. The owner has requested a new Sol xhigh task to finish
-collection-card geometry, fullscreen/DPI overflow, modal backdrop dismissal and
-settings switches. Read the [complete UI transfer](UI_FOLLOWUP_HANDOFF_20260912.md).
-Its packaged inner app passed bounded acceptance, but no new outer EXE has been
-made for that checkpoint. The further card and three newest UI fixes are pending.
-Do not publish or describe the previous EXE as containing these changes.
+**Current stable release:** Tauri v0.7.3 is public and is GitHub's latest stable
+release. The immutable product commit is
+`893996e4c11a9b0c20b125c696c89a0a47ec9048`, annotated tag object
+`84218abf850282f9b8da34d3aaa325c795727878`, and successful hosted release run
+`34690776011`. Read [the publication record](TAURI_V073_PUBLICATION_20260912.md)
+and [the release runbook](RELEASE_RUNBOOK.md).
 
-**Last completed one-file baseline:** the true install-free v0.7.3 replacement is
-locally built and verified from `ca757396c42092a9f1ee19e960da67ca5f52e5cc` under
-[the one-file delivery contract](TAURI_ONEFILE_DELIVERY_20260912.md).
-The direct-launch EXE is 31,746,127 bytes, SHA-256
-`7067203816c605b32683103234fa0fb7c6fda60999a5e1ec971b64b351cba72c`, in
-`deliverables/releases/0.7.3-onefile-review-20260912/`. Read its `REVIEW.md` and
-`verification.json`. Actual direct launch, unchanged installation registry,
-cache reuse/pruning, outer-EXE update with real process waits, startup cleanup,
-and automatic clipboard replacement all passed. No game writes were made by
-these packaging checks. The update fixture used distinct outer bytes at the
-same product version; it was not a newly published feed.
-The earlier `4b4214d` installer and its
-[acceptance evidence](V073_LOCAL_REVIEW_20260912.md) remain historical and do
-not satisfy this delivery requirement. The owner requests review before any
-push or publication. Do not push commits, tags,
-release assets or an update feed until
-the owner reviews and authorizes release. Permanent save edits and deletions,
-like append and restore, must remain usable at the title screen without closing
-the game. See [local preparation](V073_RELEASE_PREPARATION_20260912.md).
+The player download is the true single-file outer executable
+`Nioh3Studio-0.7.3-win-x64.exe`, 30,724,544 bytes, SHA-256
+`2c1766751b0746eede917b04e2f4edac9b4c3348893349e2de4c3e38e84f9513`.
+It does not require an installer, manual extraction, Python, Node.js, Electron,
+or Cheat Engine. On launch it validates and extracts its embedded runtime into
+a bounded LocalAppData cache and uses the Windows WebView2 system runtime.
+The inner executable in the update ZIP is not a separately supported standalone
+download. Hosted direct launch, cache reuse and pruning, real outer-EXE update
+and restart, and public-release redownload verification all passed with zero
+game writes.
+
+Exact hosted assets and acceptance evidence are under
+`F:/Nioh3_ScrollEditor/deliverables/releases/0.7.3-hosted-34690776011/`.
+An independent redownload of all public assets is under
+`F:/Nioh3_ScrollEditor/deliverables/releases/0.7.3-public-verification-20260912/`.
+The earlier local one-file and installer candidates remain historical and are
+not the published product.
 
 The v0.7.3 preparation audit verified both Pro patch archives in full and found
 an additional backup-restore transaction path requiring the same race guards.
@@ -37,26 +33,12 @@ That path is now fixed with eight new fault regressions. Read the
 [item-by-item closure](V073_PRO_REVIEW_CLOSURE_20260912.md) to distinguish
 integrated code, actual verification, and the explicitly deferred research.
 
-**Release status, rechecked 2026-09-12:** public latest is v0.7.1. The owner
-subsequently withdrew v0.7.2 to draft. v0.7.3 is being prepared from the reviewed
-follow-up worktree. The following v0.7.2 publication figures are historical. The official setup
-EXE is 27,324,865 bytes and the portable/update ZIP is 29,683,023 bytes. Both
-are exact products of successful hosted run `34513941110`, and the public
-downloads were verified again after publication. Read
-[v0.7.2 publication evidence](TAURI_V072_PUBLICATION_20260910.md) and
-[the release runbook](RELEASE_RUNBOOK.md). Electron v0.7.0 remains withdrawn.
-The older Electron and v0.7.1 notes below are historical.
-
-**Unpublished follow-up:** the 2026-09-11 Pro review patch is integrated in the
-current dirty worktree and has passed the full Windows verification recorded in
-[the integration report](V072_PRO_REVIEW_INTEGRATION_20260911.md). Publication
-policy changed by the project owner's latest 2026-09-12 decision: close the
-unreproduced title-save and intermittent live-add reports pending a fresh
-affected save and log. They are not current release blockers. This disposition
-does not establish a game or user-side cause. The title-screen path remains available without a new native
-save/cache protocol. Preserve the integrated transaction and recovery guards;
-do not describe this decision as a demonstrated corruption fix or as overall
-release acceptance. Read the [current risk decision](TITLE_SAVE_APPROACH_RESET_20260912.md).
+The integrated transaction and recovery guards remain required. The unreproduced
+title-save and intermittent live-add reports are closed pending a fresh affected
+save and diagnostic log; this does not establish a game or user-side cause.
+Read the [current risk decision](TITLE_SAVE_APPROACH_RESET_20260912.md).
+Electron v0.7.0 remains withdrawn, and the v0.7.1/v0.7.2 publication notes below
+are historical.
 
 The title-save Pro handoff has now returned and its static recovery plus
 read-only v2.01 observer are integrated. Read
@@ -120,15 +102,15 @@ The subsequent final-package favorites -> cart subset -> native insertion was ve
 
 ## Current source and testing
 
-The current unpublished working tree includes the Pro follow-up patch over
-commit `6264cbd355729e0b434ba5f540232a5d1362a79d`. Windows integration passed 614
-Python tests, 51 Node tests with source workers, the same 51 with packaged
-workers, TypeScript checking, 11 Rust tests, the Electron production build, 15
-production-surface checks, 20 encrypted synthetic-save UI checks, a complete
-Tauri release build, strict packaged R3/R4/R5 GPU parity, portable manifest
-verification and a 12-second packaged startup smoke. These results validate the
-integrated application changes, not the unresolved game save-cache protocol or
-unperformed live acceptance.
+The immutable v0.7.3 product commit is
+`893996e4c11a9b0c20b125c696c89a0a47ec9048`. Hosted acceptance passed 631
+discovered Python tests with the documented hardware skips, 57 Node tests,
+TypeScript checking, both Rust test groups, catalog and locale drift checks,
+packaged R3/R4/R5 parity, real WebView2 workflows, the complete responsive UI
+matrix, synthetic encrypted-save operations, single-file direct launch, and a
+real single-file update/restart lifecycle. The public release redownloads match
+the hosted products and their signed update metadata. These are bounded package
+and synthetic-save results; they introduced no new live-game writes.
 
 The immutable v0.7.2 product commit is
 `6b7689d75ec43f7f42b813a9ea6af396046930f7`. Hosted acceptance passed 571
@@ -169,7 +151,9 @@ The RC follow-up added distinct-slot effect requirements, between-item live batc
   receipt exists; ambiguous failures still retain ownership.
 - The v0.7.2 UI supports shared exact values for grouped rule families, keeps
   default filters empty, and makes Add to cart visually prominent.
-- Exact published assets: `deliverables/releases/v0.7.2/`.
+- Exact published v0.7.3 assets and evidence:
+  `F:/Nioh3_ScrollEditor/deliverables/releases/0.7.3-hosted-34690776011/` and
+  `F:/Nioh3_ScrollEditor/deliverables/releases/0.7.3-public-verification-20260912/`.
 
 ## Remaining work and constraints
 
