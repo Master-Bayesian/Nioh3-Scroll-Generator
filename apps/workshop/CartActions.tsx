@@ -1,5 +1,6 @@
 import {collectionKey} from "./collections";
-import React, { useState, useSyncExternalStore, useEffect } from "react";
+import { PreparedLiveBatchOwner } from "./prepared-live-batch";
+import React, { useState, useSyncExternalStore, useEffect, useRef } from "react";
 import {
   saveSession,
   saveObserver,
@@ -26,7 +27,7 @@ function saveInstallMessage(receipt: OperationReceipt): string {
   return receipt.warning || "本次没有写入，请回到标题界面后重试。";
 }
 
-export function SavePicker() {
+export function SavePicker({ compact = false }: { compact?: boolean }) {
   const state = useSyncExternalStore(
     saveSession!.subscribe,
     saveSession!.getSnapshot,
@@ -49,7 +50,7 @@ export function SavePicker() {
     void scan();
   }, []);
   return (
-    <div className="save-picker">
+    <div className={"save-picker" + (compact ? " save-picker-compact" : "")}>
       <label>
         目标存档
         <select
@@ -121,11 +122,13 @@ export function DesktopCartActions({
   mode,
   query,
   onAdded,
+  autoPrepare = false,
 }: {
   samples: Sample[];
   mode: string;
   query: Query;
   onAdded?: (keys: string[]) => void;
+  autoPrepare?: boolean;
 }) {
   const runtime = useSyncExternalStore(
     runtimeObserver!.subscribe,
@@ -147,6 +150,39 @@ export function DesktopCartActions({
   const [uncertain, setUncertain] = useState(
     () => !!localStorage.getItem("nioh3-review-live-batch"),
   );
+  const preparedOwner = useRef<PreparedLiveBatchOwner | null>(null);
+  if (!preparedOwner.current) {
+    preparedOwner.current = new PreparedLiveBatchOwner(async batch => {
+      // Never replace the observer of an executing or interrupted protected operation.
+      if (!runtimeObserver!.canStart()) throw Error("LIVE_BATCH_CLEANUP_DEFERRED_BUSY");
+      const result = await runtimeObserver!.run(() => window.operations.execute({
+        method: "runtime.live_batch_cancel",
+        params: { batch_id: batch.batch_id },
+      }));
+      if (!result || !("live_batch" in result)) throw Error("LIVE_BATCH_CANCEL_RECEIPT_REQUIRED");
+      return result.live_batch;
+    }, batch => {
+      const marker = JSON.parse(localStorage.getItem("nioh3-review-live-batch") || "null");
+      if (marker?.batch_id === batch.batch_id && marker?.plan_digest === batch.plan_digest) {
+        localStorage.removeItem("nioh3-review-live-batch");
+        window.dispatchEvent(new Event("nioh3-live-batch-cancelled"));
+      }
+    });
+  }
+  useEffect(() => () => {
+    void preparedOwner.current!.close().catch(error => {
+      // Keep the matching recovery marker when cancellation cannot be confirmed.
+      void window.review.log(`Prepared live batch cleanup: ${String(error)}`).catch(() => {});
+    });
+  }, []);
+  useEffect(() => {
+    // A newly opened view may overlap the previous view's cancellation response.
+    const cancelled = () => {
+      if (!localStorage.getItem("nioh3-review-live-batch")) setUncertain(false);
+    };
+    window.addEventListener("nioh3-live-batch-cancelled", cancelled);
+    return () => window.removeEventListener("nioh3-live-batch-cancelled", cancelled);
+  }, []);
   const references = samples.map((s) => s.backend?.referenceId || "");
   const signature = JSON.stringify([
     mode,
@@ -156,6 +192,14 @@ export function DesktopCartActions({
     state.selected?.save_id,
     state.inventory?.snapshot_id,
   ]);
+  const initialPreparation = useRef(false);
+  useEffect(() => {
+    if (!autoPrepare || initialPreparation.current || !state.inventory || state.busy || busy || uncertain)
+      return;
+    // Only prepare once on entry. Writing always requires the confirmation button.
+    initialPreparation.current = true;
+    void prepare();
+  }, [autoPrepare, state.inventory, state.busy, busy, uncertain]);
   async function prepare() {
     setBusy(true);
     setMessage("");
@@ -166,14 +210,8 @@ export function DesktopCartActions({
       const inventory = state.inventory;
       if (!inventory) throw Error("请先选择并读取存档。");
       if (references.some((r) => !r))
-        throw Error("购物车存在失效的候选，请重新搜索后添加。");
-      if (plan?.batch?.state === "prepared")
-        await runtimeObserver!.run(() =>
-          window.operations.execute({
-            method: "runtime.live_batch_cancel",
-            params: { batch_id: plan.batch!.batch_id },
-          }),
-        );
+        throw Error("候选已失效，请重新搜索后添加。");
+      await preparedOwner.current!.discard();
       const resolution = await window.nioh.resolveRecommendedLevel(
         query.recommended,
       );
@@ -190,6 +228,7 @@ export function DesktopCartActions({
         recommended_level: resolution.selected_internal_level,
         transfer_count: toRecordTransferCount(query.transfers),
       };
+      if (preparedOwner.current!.closed) return;
       if (mode === "save") {
         const prepared = await saveSession!.prepareCart(
           async () =>
@@ -208,7 +247,6 @@ export function DesktopCartActions({
         );
         if (!result || !("live_batch" in result))
           throw Error("未收到添加计划。");
-        setPlan({ signature, batch: result.live_batch, count: samples.length });
         localStorage.setItem(
           "nioh3-review-live-batch",
           JSON.stringify({
@@ -217,10 +255,14 @@ export function DesktopCartActions({
             keys:samples.map(collectionKey),
           }),
         );
+        if (!await preparedOwner.current!.adopt(result.live_batch)) return;
+        setPlan({ signature, batch: result.live_batch, count: samples.length });
       }
       setTitleConfirmed(false);
     } catch (error) {
-      setMessage(String(error));
+      if (preparedOwner.current!.closed)
+        void window.review.log(`Closed addition view preparation: ${String(error)}`).catch(() => {});
+      else setMessage(String(error));
     } finally {
       setBusy(false);
     }
@@ -239,6 +281,7 @@ export function DesktopCartActions({
           await saveSession!.refresh();
         }
       } else if (plan.batch) {
+        preparedOwner.current!.beginExecution(plan.batch.batch_id);
         setUncertain(true);
         const result = await runtimeObserver!.run(() =>
           window.operations.execute({

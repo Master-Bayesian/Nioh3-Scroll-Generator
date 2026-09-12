@@ -3,6 +3,7 @@ import { ScrollCard } from "./ScrollCard";
 import { collectionKey, useCollections } from "./collections";
 import { Updates, UpdateNotice } from "./Updates";
 import { StarIcon } from "./StarIcon";
+import { SectionHelp } from "./SectionHelp";
 import { appIcon } from "./app-icon";
 import React, {
   createContext,
@@ -134,10 +135,9 @@ function Panel({
           <h2>{title}</h2>
         </button>
         {extra}
-        <details>
-          <summary aria-label={title + "说明"}>?</summary>
-          <p>{help}</p>
-        </details>
+        <SectionHelp key={String(expanded)} title={title + "说明"}>
+          {help}
+        </SectionHelp>
       </header>
       <div
         className="panel-body"
@@ -435,6 +435,12 @@ function App() {
   const selectionLeave = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { cart, favorites, cartPending, addCart, removeCart, toggleFavorite } =
     useCollections(setStatus);
+  const [directAdd, setDirectAdd] = useState<{
+    sample: Sample;
+    mode: string;
+    query: Query;
+  } | null>(null);
+  const [retainingCurrent, setRetainingCurrent] = useState(false);
   const ownedReferences = useRef(new Set<string>());
   useEffect(() => {
     const next = new Set(
@@ -442,6 +448,7 @@ function App() {
         ...cart,
         ...favorites,
         ...results,
+        ...(directAdd ? [directAdd.sample] : []),
         ...history.flatMap((p) => p.samples),
       ].flatMap((s) => (s.backend?.referenceId ? [s.backend.referenceId] : [])),
     );
@@ -450,7 +457,7 @@ function App() {
         if (!next.has(ref))
           void window.review.release(ref).catch((e) => setStatus(String(e)));
     ownedReferences.current = next;
-  }, [cart, favorites, results, history]);
+  }, [cart, favorites, results, history, directAdd]);
   const favoriteButton = (sample: Sample) => (
     <button
       className="favorite-button"
@@ -575,6 +582,23 @@ function App() {
   function open(name: string) {
     setModal(name);
     dialog.current?.showModal();
+  }
+  async function addCurrent() {
+    if (!selected || retainingCurrent) return;
+    const sample = selected;
+    const mode = installMode;
+    const query = { ...q };
+    setRetainingCurrent(true);
+    try {
+      // Pin the selected candidate independently of the cart and search page.
+      const retained = desktop ? await retainSample(sample) : sample;
+      setDirectAdd({ sample: retained, mode, query });
+      open("添加当前绘卷");
+    } catch (error) {
+      setStatus(String(error));
+    } finally {
+      setRetainingCurrent(false);
+    }
   }
   function swapContext(ng: number, rarity: number) {
     if (ng !== 3) setInstallMode("save");
@@ -863,7 +887,7 @@ function App() {
             aria-label="绘卷搜索"
             title="绘卷搜索"
           >
-            ▤<span>绘卷搜索</span>
+            <span className="nav-icon" aria-hidden="true">▤</span><span>绘卷搜索</span>
           </button>
           <button
             className={page === "editor" ? "active" : ""}
@@ -871,20 +895,20 @@ function App() {
             aria-label="绘卷编辑"
             title="绘卷编辑"
           >
-            ✎<span>绘卷编辑</span>
+            <span className="nav-icon" aria-hidden="true">✎</span><span>绘卷编辑</span>
           </button>
           <button
             className={page === "backups" ? "active" : ""}
             onClick={() => setPage("backups")}
             aria-label="备份与管理"
           >
-            ▣<span>备份与管理</span>
+            <span className="nav-icon" aria-hidden="true">▣</span><span>备份与管理</span>
           </button>
           <button onClick={() => open("收藏夹")} aria-label="收藏夹">
-            <StarIcon /><span>收藏夹（{favorites.length}）</span>
+            <span className="nav-icon" aria-hidden="true"><StarIcon /></span><span>收藏夹（{favorites.length}）</span>
           </button>
           <button className="coming-soon" disabled>
-            <span aria-hidden="true">♜</span>
+            <span className="nav-icon" aria-hidden="true">♜</span>
             <span>敬请期待</span>
           </button>
         </nav>
@@ -951,7 +975,7 @@ function App() {
               setPopup(popup === "settings" ? "" : "settings");
             }}
           >
-            ⚙ <span>设置</span>
+            <span className="nav-icon" aria-hidden="true">⚙</span><span>设置</span>
           </button>
           {desktop && <UpdateNotice onOpen={() => open("检查更新")} />}
         </div>
@@ -2059,6 +2083,8 @@ function App() {
                     多选移除
                   </button>
                   {favoriteButton(selected)}
+                </div>
+                <div className="result-cart-actions">
                   <button
                     className="cart-toggle"
                     aria-label="加入购物车"
@@ -2078,7 +2104,6 @@ function App() {
                   >
                     加入购物车
                   </button>
-                </div>
                 <button
                   className="compare-button"
                   disabled={!cart.length}
@@ -2089,6 +2114,7 @@ function App() {
                 >
                   查看购物车（{cart.length}）
                 </button>
+                </div>
               </div>
             ) : resultSource && !busy ? (
               <div className="no-results">
@@ -2098,7 +2124,8 @@ function App() {
               </div>
             ) : null}
           </div>
-          <section className="install-mode">
+          <section className={"install-mode" + (desktop && installMode === "save" ? " install-save" : "")}>
+            <div className="install-choice">
             <h3>添加方式</h3>
             <label>
               <input
@@ -2118,15 +2145,14 @@ function App() {
               />
               回标题界面后添加到存档
             </label>
-            {desktop && installMode === "save" && <SavePicker />}
+            </div>
+            {desktop && installMode === "save" && <SavePicker compact />}
             <button
-              disabled={!cart.length}
-              onClick={() => {
-                setCartSelected(cart.filter(s=>!addedKeys.includes(cartKey(s))).map(cartKey));
-                open("购物车");
-              }}
+              className="install-current"
+              disabled={!selected || retainingCurrent}
+              onClick={() => void addCurrent()}
             >
-              选择购物车中的绘卷添加
+              添加当前绘卷
             </button>
           </section>
         </aside>
@@ -2243,7 +2269,7 @@ function App() {
           ×
         </button>
       </div>
-      <dialog ref={dialog} onClose={() => setModal("")}>
+      <dialog ref={dialog} onClose={() => { setModal(""); setDirectAdd(null); }}>
         <header>
           <h2>{modal}</h2>
           <button aria-label="关闭窗口" onClick={() => dialog.current?.close()}>
@@ -2344,6 +2370,22 @@ function App() {
                 </div>
               </section>
             ))}
+          </div>
+        ) : modal === "添加当前绘卷" && directAdd ? (
+          <div className="current-add-review">
+            <p className="current-add-summary">
+              绘卷 ID <strong>{directAdd.sample.seed}</strong> · R{directAdd.sample.rarity}
+              {" · "}{directAdd.mode === "live" ? "游戏内实时添加" : "添加到存档"}
+            </p>
+            {desktop ? (
+              <DesktopCartActions
+                samples={[directAdd.sample]}
+                mode={directAdd.mode}
+                query={directAdd.query}
+                onAdded={recordAdded}
+                autoPrepare
+              />
+            ) : <p>此界面预览暂不执行游戏或存档写入。</p>}
           </div>
         ) : modal === "购物车" ? (
           <div className="cart-review">

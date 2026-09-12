@@ -136,3 +136,140 @@ html:is([lang="en-US"], [lang="ja-JP"]) .shell:not(.nav-collapsed) {
 .nav nav button { min-width: 0; max-width: 100%; }
 html[lang="en-US"] .selected-row > select { min-width: 125px; }
 html[lang="en-US"] .effect-group .selected-row > select { min-width: 0; max-width: none; }
+
+/* Collapsing the sidebar changes its width, never its control row positions. */
+.shell > .nav { flex-direction: column; padding: 10px 9px 14px; }
+.shell > .nav > .nav-toggle {
+  flex: 0 0 32px;
+  height: 32px;
+  margin: 0 0 8px;
+  padding: 0 10px;
+  line-height: 32px;
+}
+.shell > .nav > .brand {
+  display: block;
+  flex: 0 0 80px;
+  height: 80px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.shell.nav-collapsed > .nav > .brand { visibility: hidden; }
+.shell > .nav > nav {
+  display: grid;
+  flex: 0 0 auto;
+  grid-auto-rows: 48px;
+  gap: 10px;
+  margin: 30px 0 0;
+}
+.shell > .nav > nav > button,
+.shell > .nav > .nav-bottom > .language-button,
+.shell > .nav > .nav-bottom > .settings {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 48px;
+  height: 48px;
+  min-height: 48px;
+  padding: 11px 6px;
+  margin: 0;
+  white-space: nowrap;
+}
+.shell > .nav .nav-icon {
+  display: inline-flex;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 26px;
+  font-size: 19px;
+  line-height: 1;
+}
+.shell > .nav > .nav-bottom { display: flex; flex-direction: column; flex: 0 0 auto; gap: 7px; }
+.shell > .nav > .nav-bottom > .settings > span { margin-left: 0; }
+.shell.nav-collapsed > .nav > nav > button,
+.shell.nav-collapsed > .nav > .nav-bottom > button { justify-content: center; }
+.shell.nav-collapsed > .nav > nav > button > .nav-icon,
+.shell.nav-collapsed > .nav > .nav-bottom > .settings > .nav-icon { display: inline-flex; }
+.shell > .nav > .nav-bottom > .update-notice {
+  height: 40px;
+  min-height: 40px;
+  padding: 5px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Help floats above adjacent sections without changing their layout or scroll size. */
+.module > header > button.section-help-trigger {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  margin-left: auto;
+  padding: 0;
+  border: 1px solid #9caeb0;
+  border-radius: 50%;
+  background: #f6f9fd;
+  color: #56748b;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+.module > header > :is(.count, .subtle) + .section-help-trigger { margin-left: 0; }
+.section-help-popover {
+  position: fixed;
+  z-index: 40;
+  width: min(320px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  padding: 12px 14px;
+  border: 1px solid #a8bdd4;
+  border-radius: 7px;
+  background: #f7faff;
+  color: #324b65;
+  box-shadow: 0 5px 18px #243f5b30;
+  font-size: 12px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+/* Keep result actions compact and reserve cart selection for the cart dialog. */
+.result-scroll, .result-detail { min-height: 0; }
+.result-cart-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+.result-cart-actions > button { width: auto; min-width: 0; margin: 0; padding: 7px 10px; }
+.result-cart-actions .cart-toggle { border: 1px solid #bb6c25; background: #edb463; color: #443017; font-weight: 700; }
+.result-cart-actions .cart-toggle:hover { background: #f5c780; }
+.result-cart-actions .cart-toggle[aria-pressed="true"] { background: #ead7b9; border-color: #9b805d; }
+.result-cart-actions .cart-toggle[aria-pressed="true"]::before { content: "✓ "; }
+.result-tools .favorite-button { margin-left: auto; }
+.result-pane > .install-mode { margin-top: 8px; padding-top: 8px; gap: 6px; }
+.install-mode > h3 { margin: 0; }
+.install-mode > label { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.install-mode > .install-current { margin-top: 0; padding: 8px 10px; }
+.install-mode > .save-picker-compact { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 0; }
+.install-mode .save-picker-compact > label { grid-column: 1 / -1; display: flex; flex-direction: row; align-items: center; gap: 8px; white-space: nowrap; }
+.install-mode .save-picker-compact select { flex: 1; width: 0; min-width: 0; height: 30px; }
+.install-mode .save-picker-compact > button { width: auto; margin: 0; padding: 5px 8px; background: var(--surface, #f7f9fc); color: var(--ink, #274159); font-size: 12px; }
+.install-mode .save-picker-compact > p { grid-column: 1 / -1; margin: 0; }
+.current-add-review { padding: 0 16px 16px; }
+.current-add-summary { margin: 8px 0; }
+.current-add-summary strong { font-size: 17px; }
+.current-add-review .save-picker { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.current-add-review .save-picker > label, .current-add-review .save-picker > p { grid-column: 1 / -1; }
+.current-add-review .save-picker > button { min-width: 0; }
+.result-pane > .install-mode { grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(116px, 1.5fr); }
+.install-choice { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; }
+.install-choice > h3 { margin: 0; font-size: 11px; white-space: nowrap; }
+.install-choice > label { display: flex; align-items: center; gap: 3px; margin: 0; white-space: nowrap; }
+.install-mode.install-save > .save-picker-compact { display: contents; }
+.install-save > .install-current { grid-column: 4; grid-row: 3; padding: 6px 5px; font-size: 12px; }
+.install-save .save-picker-compact > button:nth-of-type(1) { grid-column: 1; grid-row: 3; }
+.install-save .save-picker-compact > button:nth-of-type(2) { grid-column: 2; grid-row: 3; }
+.install-save .save-picker-compact > button:nth-of-type(3) { grid-column: 3; grid-row: 3; }
+.install-save .save-picker-compact > button { padding: 5px 3px; white-space: nowrap; }
+.install-save .save-picker-compact > button:nth-of-type(n+4) { grid-column: 1 / -1; }
+@media (max-height: 850px) and (min-width: 1031px) {
+  .result-scroll, .result-detail { min-height: 0; }
+  .result-cart-actions > button { padding: 5px 8px; }
+  .result-pane > .install-mode { margin-top: 6px; padding-top: 6px; gap: 4px; }
+}

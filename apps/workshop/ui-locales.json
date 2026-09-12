@@ -649,19 +649,19 @@
       "スライドして絵巻を切り替え"
     ],
     "移除预览": [
-      "Remove preview",
-      "プレビューを削除"
+      "Remove",
+      "削除"
     ],
     "清空预览": [
-      "Clear previews",
-      "プレビューをすべて削除"
+      "Clear all",
+      "すべて削除"
     ],
     "管理预览": [
       "Manage previews",
       "プレビュー管理"
     ],
     "多选移除": [
-      "Remove selected",
+      "Select…",
       "選択して削除"
     ],
     "加入购物车": [
@@ -1425,7 +1425,7 @@
       "再検出"
     ],
     "手动定位": [
-      "Locate manually",
+      "Browse…",
       "手動で指定"
     ],
     "重新读取": [
@@ -2119,6 +2119,18 @@
     "候选已失效，请按原 ID 重新搜索后添加。": [
       "Candidate expired. Search its ID again before adding.",
       "候補が失効しました。同じIDで再検索してから追加してください。"
+    ],
+    "候选已失效，请重新搜索后添加。": [
+      "Candidate expired. Search again before adding.",
+      "候補が失効しました。再検索してから追加してください。"
+    ],
+    "添加当前绘卷": [
+      "Add current scroll",
+      "表示中の絵巻を追加"
+    ],
+    "此界面预览暂不执行游戏或存档写入。": [
+      "This preview does not write to the game or save.",
+      "このプレビューではゲームやセーブに書き込みません。"
     ],
     "请先启动游戏并进入角色存档。": [
       "Start the game and load your character first.",

@@ -160,10 +160,10 @@ R5 · 橙色	R5 · Orange	R5 · 橙
 下一张绘卷	Next scroll	次の絵巻
 选择绘卷	Select scroll	絵巻を選択
 滑动切换绘卷	Slide to browse scrolls	スライドして絵巻を切り替え
-移除预览	Remove preview	プレビューを削除
-清空预览	Clear previews	プレビューをすべて削除
+移除预览	Remove	削除
+清空预览	Clear all	すべて削除
 管理预览	Manage previews	プレビュー管理
-多选移除	Remove selected	選択して削除
+多选移除	Select…	選択して削除
 加入购物车	Add to cart	カートに追加
 购物车	Cart	カート
 查看购物车（	View cart (	カートを見る（
@@ -354,7 +354,7 @@ R5 · 橙色	R5 · Orange	R5 · 橙
 账户	Account	アカウント
 · 存档	· Save	· セーブ
 重新检测	Scan again	再検出
-手动定位	Locate manually	手動で指定
+手动定位	Browse…	手動で指定
 重新读取	Reload	再読み込み
 核对上次写入结果	Check last write	前回の書き込みを確認
 请先核对上次添加结果。	Check the previous addition first.	先に前回の追加結果を確認してください。
@@ -528,6 +528,9 @@ R5 · 橙色	R5 · Orange	R5 · 橙
 固定变体	Fixed variant	固定の種類
 中／高手	Middle / high pool	中・高位の枠
 候选已失效，请按原 ID 重新搜索后添加。	Candidate expired. Search its ID again before adding.	候補が失効しました。同じIDで再検索してから追加してください。
+候选已失效，请重新搜索后添加。	Candidate expired. Search again before adding.	候補が失効しました。再検索してから追加してください。
+添加当前绘卷	Add current scroll	表示中の絵巻を追加
+此界面预览暂不执行游戏或存档写入。	This preview does not write to the game or save.	このプレビューではゲームやセーブに書き込みません。
 请先启动游戏并进入角色存档。	Start the game and load your character first.	先にゲームを起動してキャラクターを読み込んでください。
 请关闭游戏菜单，原地等待片刻后重新核对。	Close the game menus, wait briefly in place, then review again.	ゲームのメニューを閉じ、少し待ってから再確認してください。
 自动备份无法通过校验，本次没有继续添加。请重新核对添加。	Backup verification failed, so addition did not continue. Review again.	自動バックアップを検証できないため追加を中止しました。再確認してください。
