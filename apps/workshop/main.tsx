@@ -1,5 +1,6 @@
 import { useUiLocale, setUiLocale, localize } from "./presentation";
 import { ScrollCard } from "./ScrollCard";
+import { useDialogBackdropDismiss } from "./use-dialog-backdrop-dismiss";
 import { collectionKey, useCollections } from "./collections";
 import { Updates, UpdateNotice } from "./Updates";
 import { StarIcon } from "./StarIcon";
@@ -568,6 +569,7 @@ function App() {
   const dialog = useRef<HTMLDialogElement>(null),
     cancel = useRef(false),
     generation = useRef(0);
+  const dialogBackdropDismiss = useDialogBackdropDismiss();
   const context =
     data.contexts[`${q.ng}-${q.rarity}` as keyof typeof data.contexts];
   const change = <K extends keyof Query>(key: K, value: Query[K]) =>
@@ -2176,13 +2178,14 @@ function App() {
               <>
                 <h2>设置</h2>
                 {desktop && (
-                  <label>
+                  <label className="settings-switch">
+                    <span>允许使用 CPU 搜索</span>
                     <input
                       type="checkbox"
+                      role="switch"
                       checked={allowCpu}
                       onChange={(e) => setAllowCpu(e.target.checked)}
                     />
-                    允许使用 CPU 搜索
                   </label>
                 )}
                 <label>
@@ -2199,13 +2202,14 @@ function App() {
                     ))}
                   </select>
                 </label>
-                <label>
+                <label className="settings-switch">
+                  <span>显示词条与敌人 ID</span>
                   <input
                     type="checkbox"
+                    role="switch"
                     checked={showIds}
                     onChange={(e) => setShowIds(e.target.checked)}
                   />
-                  显示词条与敌人 ID
                 </label>
                 <hr />
                 <button
@@ -2269,7 +2273,11 @@ function App() {
           ×
         </button>
       </div>
-      <dialog ref={dialog} onClose={() => { setModal(""); setDirectAdd(null); }}>
+      <dialog
+        ref={dialog}
+        {...dialogBackdropDismiss}
+        onClose={() => { setModal(""); setDirectAdd(null); }}
+      >
         <header>
           <h2>{modal}</h2>
           <button aria-label="关闭窗口" onClick={() => dialog.current?.close()}>
@@ -2282,7 +2290,7 @@ function App() {
             {!favorites.length && <p>点击绘卷旁的 ☆ 即可收藏。</p>}
             <div className="compare-grid">
               {favorites.map((s) => (
-                <div key={cartKey(s)}>
+                <div className="collection-card-item" key={cartKey(s)}>
                   <ScrollCard sample={s} level={submitted.recommended} />
                   <div className="collection-actions">
                     {favoriteButton(s)}
@@ -2350,21 +2358,23 @@ function App() {
                 </h3>
                 <div className="compare-grid">
                   {page.samples.map((sample) => (
-                    <div key={sample.seed}>
+                    <div className="collection-card-item" key={sample.seed}>
                       <ScrollCard
                         sample={sample}
                         level={page.query.recommended}
                       />
-                      <button
-                        disabled={cart.some(
-                          (s) =>
-                            s.seed === sample.seed &&
-                            s.rarity === sample.rarity,
-                        )}
-                        onClick={() => void addCart(sample)}
-                      >
-                        加入购物车
-                      </button>
+                      <div className="collection-actions">
+                        <button
+                          disabled={cart.some(
+                            (s) =>
+                              s.seed === sample.seed &&
+                              s.rarity === sample.rarity,
+                          )}
+                          onClick={() => void addCart(sample)}
+                        >
+                          加入购物车
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2396,7 +2406,7 @@ function App() {
             </p>
             <div className="compare-grid">
               {cart.map((s) => (
-                <div key={cartKey(s)}>
+                <div className="collection-card-item" key={cartKey(s)}>
                   <label className="cart-check">
                     {addedKeys.includes(cartKey(s)) && (
                       <strong>已添加 · </strong>
@@ -2416,8 +2426,10 @@ function App() {
                     选择此绘卷
                   </label>
                   <ScrollCard sample={s} level={submitted.recommended} />
-                  {favoriteButton(s)}
-                  <button onClick={() => removeCart(s)}>移出购物车</button>
+                  <div className="collection-actions">
+                    {favoriteButton(s)}
+                    <button onClick={() => removeCart(s)}>移出购物车</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -2450,11 +2462,12 @@ function App() {
             {results
               .filter((s) => comparison.includes(s.seed))
               .map((s) => (
-                <ScrollCard
-                  sample={s}
-                  level={submitted.recommended}
-                  key={s.seed}
-                />
+                <div className="collection-card-item" key={s.seed}>
+                  <ScrollCard
+                    sample={s}
+                    level={submitted.recommended}
+                  />
+                </div>
               ))}
           </div>
         ) : (

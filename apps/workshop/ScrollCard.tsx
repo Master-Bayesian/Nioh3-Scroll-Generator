@@ -12,6 +12,10 @@ export function ScrollCard({
   level: number;
   showIds?: boolean;
 }) {
+  const title =
+    (sample.playthrough || 3) === 3
+      ? "百境百怪绘卷 · 顿悟"
+      : `${sample.playthrough} 周目战绘卷`;
   return (
     <article
       className={"scroll rarity-" + sample.rarity}
@@ -22,11 +26,7 @@ export function ScrollCard({
           <small>
             Lv.{sample.level || 180} <span>稀有度 {sample.rarity}</span>
           </small>
-          <h2>
-            {(sample.playthrough || 3) === 3
-              ? "百境百怪绘卷 · 顿悟"
-              : `${sample.playthrough} 周目战绘卷`}
-          </h2>
+          <h2 className="scroll-title" title={title}>{title}</h2>
         </div>
         <span className="rarity-mark">R{sample.rarity}</span>
       </header>

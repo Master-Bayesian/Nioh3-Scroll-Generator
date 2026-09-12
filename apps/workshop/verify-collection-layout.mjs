@@ -7,7 +7,9 @@ import { join } from 'node:path';
  * Catalog seeds are hints only: regenerate each through the ordinary backend preview.
  * The caller must provide an isolated app profile with the search page visible.
  */
-export async function addKnownEnemyVariantsToCart(page, { seeds = [12008, 12011, 12019] } = {}) {
+export async function addKnownEnemyVariantsToCart(page, {
+  seeds = [12008, 12011, 12019], addToFavorites = false,
+} = {}) {
   assert.equal(await page.locator('dialog[open]').count(), 0, 'Close dialogs before populating collection samples');
   const results = [];
   for (const seed of seeds) {
@@ -19,6 +21,11 @@ export async function addKnownEnemyVariantsToCart(page, { seeds = [12008, 12011,
     const add = page.locator('.result-cart-actions .cart-toggle');
     if (await add.getAttribute('aria-pressed') !== 'true') await add.click();
     await page.waitForFunction(() => document.querySelector('.result-cart-actions .cart-toggle')?.getAttribute('aria-pressed') === 'true');
+    if (addToFavorites) {
+      const favorite = page.locator('.result-tools .favorite-button');
+      if (await favorite.getAttribute('aria-pressed') !== 'true') await favorite.click();
+      await page.waitForFunction(() => document.querySelector('.result-tools .favorite-button')?.getAttribute('aria-pressed') === 'true');
+    }
     results.push({ seed, enemyCount, source: 'Actual backend known-ID preview; catalog supplied seed hints only' });
   }
   assert(new Set(results.map(value => value.enemyCount)).size >= 2,
@@ -42,7 +49,12 @@ async function measurePreview(page) {
         nameRight: nameBox?.right ?? null, valueLeft: valueBox?.left ?? null };
     });
     const rectangle = card.getBoundingClientRect(), footer = card.querySelector('footer').getBoundingClientRect();
+    const header = card.querySelector(':scope > header'), title = header.querySelector('.scroll-title');
+    const titleBox = title.getBoundingClientRect(), markBox = header.querySelector('.rarity-mark').getBoundingClientRect();
     return { height: rectangle.height, bottom: rectangle.bottom, footerBottom: footer.bottom,
+      title: { text: title.textContent.trim(), accessibleText: title.getAttribute('title'),
+        top: titleBox.top, bottom: titleBox.bottom, right: titleBox.right, markLeft: markBox.left,
+        clientHeight: title.clientHeight, scrollHeight: title.scrollHeight },
       effects: rows('.effect-line'), rules: rows('.scroll-rule') };
   });
 }
@@ -70,10 +82,28 @@ export async function verifyCollectionLayout(page, {
     const buttons = actionWrapper ? [...actionWrapper.querySelectorAll('button')] : [...item.querySelectorAll(':scope > button')];
     const enemyList = card.querySelector('.enemy-lines');
     const footer = card.querySelector('footer');
+    const header = card.querySelector(':scope > header'), title = header.querySelector('.scroll-title');
+    const titleBox = title.getBoundingClientRect(), headerBox = header.getBoundingClientRect();
+    const markBox = header.querySelector('.rarity-mark').getBoundingClientRect();
+    const enemyLabels = [...enemyList.querySelectorAll(':scope > span')].map(label => {
+      const style = getComputedStyle(label);
+      return { text: label.textContent.trim(), display: style.display, whiteSpace: style.whiteSpace,
+        overflow: style.overflow, textOverflow: style.textOverflow,
+        scrollWidth: label.scrollWidth, clientWidth: label.clientWidth };
+    });
+    const previousEnemyScroll = enemyList.scrollTop;
+    enemyList.scrollTop = enemyList.scrollHeight;
+    const lastEnemy = enemyList.lastElementChild?.getBoundingClientRect();
+    const enemyBoxAtEnd = enemyList.getBoundingClientRect();
+    const lastEnemyReachable = !lastEnemy || (lastEnemy.bottom <= enemyBoxAtEnd.bottom + 1 && lastEnemy.top >= enemyBoxAtEnd.top - 1);
+    enemyList.scrollTop = previousEnemyScroll;
     return { seed: card.querySelector('footer strong')?.textContent, card: rectangle(card), item: rectangle(item),
       footer: rectangle(footer), enemyCount: enemyList.querySelectorAll(':scope > span').length,
       enemyList: { ...rectangle(enemyList), scrollHeight: enemyList.scrollHeight, clientHeight: enemyList.clientHeight,
-        overflowY: getComputedStyle(enemyList).overflowY },
+        overflowY: getComputedStyle(enemyList).overflowY, labels: enemyLabels, lastEnemyReachable },
+      title: { text: title.textContent.trim(), accessibleText: title.getAttribute('title'),
+        top: titleBox.top, bottom: titleBox.bottom, right: titleBox.right, headerBottom: headerBox.bottom,
+        markLeft: markBox.left, clientHeight: title.clientHeight, scrollHeight: title.scrollHeight },
       actions: buttons.map(button => ({ label: button.getAttribute('aria-label') || button.textContent.trim(),
         ...rectangle(button) })) };
   }));
@@ -98,6 +128,16 @@ export async function verifyCollectionLayout(page, {
       assert(['auto', 'scroll'].includes(value.enemyList.overflowY),
         `Long enemy lists remain scrollable instead of clipping card ${value.seed}`);
     }
+    assert(value.enemyList.lastEnemyReachable, `Every enemy label is reachable in card ${value.seed}`);
+    for (const enemy of value.enemyList.labels) {
+      assert(enemy.text && enemy.display !== 'none', `Card ${value.seed} retains every enemy label`);
+      assert(enemy.whiteSpace !== 'nowrap' && enemy.textOverflow !== 'ellipsis' && enemy.scrollWidth <= enemy.clientWidth + 1,
+        `Enemy label remains complete without ellipsis in card ${value.seed}: ${JSON.stringify(enemy)}`);
+    }
+    assert(value.title.bottom <= value.title.headerBottom + 1 && value.title.right <= value.title.markLeft + 1,
+      `Localized title stays inside the header without overlapping card metadata ${value.seed}`);
+    assert(value.title.scrollHeight <= value.title.clientHeight + 1 && value.title.accessibleText === value.title.text,
+      `Clamped localized title preserves its complete accessible text in card ${value.seed}`);
   }
   // Compare cards that occupy the same grid row, including labels above each card.
   for (let index = 0; index < geometry.length; index++) {
@@ -114,6 +154,9 @@ export async function verifyCollectionLayout(page, {
   }
   if (preview) {
     assert(preview.footerBottom <= preview.bottom + 1, 'Main preview ID/copy footer remains inside its fixed card');
+    assert(preview.title.bottom <= preview.title.clientHeight + preview.title.top + 1 &&
+      preview.title.right <= preview.title.markLeft + 1 && preview.title.accessibleText === preview.title.text,
+    'Main preview localized title remains contained and exposes its full text');
     for (const [kind, rows] of [['effects', preview.effects], ['rules', preview.rules]]) {
       for (const row of rows) {
         assert(row.height >= row.lineHeight - 1, `Preview ${kind} rows fit their text line without vertical clipping`);
@@ -127,18 +170,20 @@ export async function verifyCollectionLayout(page, {
 
   const lastItem = cards.last().locator('..');
   const lastActions = lastItem.locator('.collection-actions button');
-  const lastAction = await lastActions.count() ? lastActions.last() : lastItem.locator(':scope > button').last();
+  const actionTargets = await lastActions.count() ? lastActions : lastItem.locator(':scope > button');
+  const lastAction = actionTargets.last();
   await lastAction.scrollIntoViewIfNeeded();
-  results.lastAction = await lastAction.evaluate(button => {
+  results.lastActions = await actionTargets.evaluateAll(buttons => buttons.map(button => {
     const r = button.getBoundingClientRect();
     const points = [[r.left + 2, r.top + 2], [r.right - 2, r.top + 2],
       [r.left + 2, r.bottom - 2], [r.right - 2, r.bottom - 2], [r.left + r.width / 2, r.top + r.height / 2]];
     return { label: button.getAttribute('aria-label') || button.textContent.trim(), top: r.top, bottom: r.bottom,
       left: r.left, right: r.right, viewportHeight: innerHeight, viewportWidth: innerWidth,
       unobscured: points.every(([x, y]) => document.elementsFromPoint(x, y).includes(button)) };
-  });
-  assert(results.lastAction.unobscured && results.lastAction.top >= 0 && results.lastAction.bottom <= results.lastAction.viewportHeight + 1,
-    'The last collection action is fully reachable after scrolling, including lower grid rows');
+  }));
+  results.lastAction = results.lastActions.at(-1);
+  for (const action of results.lastActions) assert(action.unobscured && action.top >= 0 && action.bottom <= action.viewportHeight + 1,
+    `The complete last collection action row is reachable after scrolling: ${action.label}`);
   if (outputDirectory) {
     await writeFile(join(outputDirectory, `${label}-geometry.json`), JSON.stringify(results, null, 2));
     await page.screenshot({ path: join(outputDirectory, `${label}-last-action.png`) });

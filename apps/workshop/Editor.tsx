@@ -1,5 +1,6 @@
 import {CountEditor} from "./CountEditor";
 import { localize } from "./presentation";
+import { useDialogBackdropDismiss } from "./use-dialog-backdrop-dismiss";
 import React, { useEffect, useState, useRef } from "react";
 import { data, type Sample, toRecordTransferCount } from "./model";
 import { desktop } from "./desktop-bridge";
@@ -129,6 +130,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
     [],
   );
   const cartDialog = useRef<HTMLDialogElement>(null);
+  const cartDialogBackdropDismiss = useDialogBackdropDismiss();
   const [inventory, setInventory] = useState<Sample[]>(() =>
     data.samples.filter((s) => s.rarity === 4).slice(0, 12),
   );
@@ -1206,7 +1208,11 @@ export function Editor({ cart }: { cart: Sample[] }) {
           {desktop ? "当前存档绘卷" : "示例绘卷 · 不写入游戏存档"}
         </p>
       </aside>
-      <dialog ref={cartDialog} className="seed-cart-dialog">
+      <dialog
+        ref={cartDialog}
+        className="seed-cart-dialog"
+        {...cartDialogBackdropDismiss}
+      >
         <header>
           <h2>选择购物车中绘卷种子</h2>
           <button

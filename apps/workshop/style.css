@@ -273,3 +273,239 @@ html[lang="en-US"] .effect-group .selected-row > select { min-width: 0; max-widt
   .result-cart-actions > button { padding: 5px 8px; }
   .result-pane > .install-mode { margin-top: 6px; padding-top: 6px; gap: 4px; }
 }
+
+/* Keep the complete application reachable at constrained viewport and DPI sizes. */
+html, body, #root { min-width: 0; min-height: 100%; }
+body { overflow: auto; }
+.shell {
+  min-width: 0;
+  height: max(740px, 100dvh);
+  grid-template-columns: 126px minmax(0, 1fr) minmax(320px, 31%);
+}
+.shell.nav-collapsed {
+  grid-template-columns: 62px minmax(0, 1fr) minmax(320px, 31%);
+}
+html:is([lang="en-US"], [lang="ja-JP"]) .shell:not(.nav-collapsed) {
+  grid-template-columns: max(150px, calc(var(--ui-font-size) * 10)) minmax(0, 1fr) minmax(320px, 31%);
+}
+.shell > *, main, .result-pane, .editor-host, .backup-page { min-width: 0; }
+main { overflow: auto; }
+
+@media (max-width: 1030px) {
+  .shell {
+    height: auto;
+    min-height: 100dvh;
+    grid-template-columns: 90px minmax(0, 1fr);
+    grid-template-rows: 50px auto auto;
+  }
+  .shell.nav-collapsed {
+    grid-template-columns: 62px minmax(0, 1fr);
+  }
+  html:is([lang="en-US"], [lang="ja-JP"]) .shell:not(.nav-collapsed) {
+    grid-template-columns: 90px minmax(0, 1fr);
+  }
+  .editor-host, .backup-page { grid-column: 2; overflow: visible; }
+}
+
+@media (max-width: 680px) {
+  .shell,
+  .shell.nav-collapsed,
+  html:is([lang="en-US"], [lang="ja-JP"]) .shell:not(.nav-collapsed) {
+    display: block;
+  }
+}
+
+/* Keep long localized titles inside their header while preserving the full DOM text and tooltip. */
+.scroll > header > div { flex: 1; min-width: 0; }
+.scroll > header .scroll-title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scroll > header .rarity-mark { flex: 0 0 auto; }
+
+/* Give preview rows readable breathing room and expand ID-rich cards into a reachable scroll area. */
+.result-scroll { overflow: auto; }
+.result-scroll .scroll .effect-line,
+.result-scroll .scroll .scroll-rule {
+  line-height: 1.4;
+  align-items: center;
+}
+.result-scroll .scroll:has(.effect-line small) {
+  height: 559px;
+  min-height: 559px;
+  grid-template-rows: 44px 40px 208px 88px 99px 28px 30px;
+}
+.result-scroll .scroll:has(.effect-line small) > section:first-of-type {
+  grid-template-rows: 22px repeat(6, 31px);
+}
+.result-scroll .scroll:has(.effect-line small) .effect-line {
+  height: 31px;
+  min-height: 31px;
+  line-height: 14px;
+}
+.result-scroll .scroll:has(.effect-line small) .effect-line > div {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+}
+.result-scroll .scroll:has(.effect-line small) .effect-line > div > span {
+  display: block;
+  line-height: 14px;
+}
+.result-scroll .scroll:has(.effect-line small) .effect-line small { line-height: 11px; }
+
+/* Collection cards share fixed geometry while long enemy lists remain completely reachable. */
+dialog {
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+dialog .compare-grid { align-items: stretch; }
+.collection-card-item {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.collection-card-item > .scroll {
+  display: grid;
+  grid-template-rows: 44px 42px 174px 88px 94px 26px 32px;
+  align-content: start;
+  width: 100%;
+  height: 540px;
+  min-height: 540px;
+  padding: 12px;
+  overflow: hidden;
+}
+.collection-card-item > .scroll > header,
+.collection-card-item > .scroll > .scroll-hero { margin: 0; }
+.collection-card-item > .scroll .scroll-title { line-height: 1.5; }
+.collection-card-item > .scroll > section {
+  min-height: 0;
+  margin: 0;
+  padding: 2px 0;
+  overflow: hidden;
+}
+.collection-card-item > .scroll > section:first-of-type {
+  display: grid;
+  grid-template-rows: 22px repeat(6, 24px);
+  align-content: start;
+}
+.collection-card-item > .scroll .effect-line,
+.collection-card-item > .scroll .scroll-rule {
+  height: 24px;
+  min-height: 24px;
+  padding: 2px 0;
+  overflow: hidden;
+  line-height: 18px;
+}
+.collection-card-item > .scroll h3 {
+  height: 22px;
+  margin: 0;
+  line-height: 20px;
+}
+.collection-card-item > .scroll .enemy-lines {
+  display: flex;
+  max-height: 62px;
+  min-height: 0;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  line-height: 18px;
+}
+.collection-card-item > .scroll .enemy-lines > span {
+  flex: 0 0 auto;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+.collection-card-item > .scroll .scroll-terrain {
+  min-height: 0;
+  height: 26px;
+  padding: 2px 0;
+  overflow: hidden;
+}
+.collection-card-item > .scroll > footer {
+  min-height: 0;
+  padding-top: 2px;
+  overflow: hidden;
+}
+.collection-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.collection-actions > button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+.cart-review .collection-actions { flex-wrap: nowrap; }
+.cart-review .collection-actions > .favorite-button { flex: 0 0 42px; }
+.cart-review .collection-actions > button:last-child { flex: 1 1 auto; }
+
+/* Settings booleans use keyboard-accessible switches; other checkboxes keep their native style. */
+.side-popup label.settings-switch {
+  display: flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.side-popup label.settings-switch > span { min-width: 0; }
+.side-popup label.settings-switch > input[type="checkbox"] {
+  position: relative;
+  width: 42px;
+  min-width: 42px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 42px;
+  appearance: none;
+  border: 1px solid #9aa8b7;
+  border-radius: 999px;
+  background: #b9c2cc;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+.side-popup label.settings-switch > input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px #1d2a3740;
+  transition: transform 160ms ease;
+}
+.side-popup label.settings-switch > input[type="checkbox"]:checked {
+  border-color: #39785e;
+  background: #39785e;
+}
+.side-popup label.settings-switch > input[type="checkbox"]:checked::before {
+  transform: translateX(18px);
+}
+.side-popup label.settings-switch > input[type="checkbox"]:focus {
+  outline: 2px solid #2f997d;
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .side-popup label.settings-switch > input[type="checkbox"],
+  .side-popup label.settings-switch > input[type="checkbox"]::before {
+    transition: none;
+  }
+}
