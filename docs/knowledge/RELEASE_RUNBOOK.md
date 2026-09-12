@@ -5,11 +5,17 @@ The withdrawn Electron v0.7.0 and the legacy Tk executable use different
 package and update formats and must never enter this workflow.
 
 The default product is now one install-free outer EXE. Read
-`TAURI_ONEFILE_DELIVERY_20260912.md`. Do not push, dispatch hosted builds, tag,
-or publish while the owner's local-review-only boundary remains active.
+`TAURI_ONEFILE_DELIVERY_20260912.md`. Every release requires explicit owner
+authorization before pushing the candidate, creating a tag, or publishing
+assets. A local review artifact or a successful workflow is not publication
+authorization. The v0.7.3 local-review-only boundary ended when the owner
+authorized and completed its publication; do not carry that historical gate
+forward as current project status.
 
 See `V070_HOSTED_BUILD_FIXES_20260909.md` for the historical failures that
 established the source, line-ending, native-identity, and hosted WebView2 gates.
+See `TAURI_V073_PUBLICATION_20260912.md` for the exact v0.7.3 hosted failures,
+successful run, promoted hashes, and public-redownload verification.
 
 ## 1. Freeze one candidate commit
 
@@ -141,6 +147,23 @@ can press Cancel. The hosted runner can finish an auxiliary-only page faster
 than a local workstation, so a disabled Cancel button is a valid completed
 state rather than an acceptance failure.
 
+### 4.1 Hosted Windows failure patterns retained from v0.7.3
+
+The failed v0.7.3 runs are reusable release-gate evidence, not disposable CI
+noise:
+
+| Run | Symptom | Root cause | Permanent rule |
+| --- | --- | --- | --- |
+| `34687187920` | Ten save-race tests failed only on the hosted runner. | Windows temporary paths appeared in both long and 8.3 short forms, so textual path comparison rejected the same resolved file. | Resolve fixture and observed paths before comparing file identities. Never weaken the transaction assertions merely because the runner uses short paths. |
+| `34687811828` | The native maximize assertion failed on a 1024x768 desktop. | The initial 1028x779 window was already larger than the work area, so a correct maximize operation reduced rather than enlarged it. | Validate that the maximized window matches or stays within the work area. Do not require width or height growth. |
+| `34688734252` | The layout gate found a one-pixel sidebar drift and controls below the initial fold. | A real CSS alignment regression was mixed with an invalid assumption that every reachable control must fit in the first viewport on the small native desktop. | Keep exact alignment checks for geometry defects, but test first-viewport fit and scroll reachability as separate contracts. |
+| `34689783181` | Comprehensive WebView2 acceptance could not find a CPU setting. | The UI had correctly changed the control from an ARIA checkbox to a switch, while two acceptance drivers retained the obsolete role. | Locate controls by their shipped semantic role and update every acceptance driver in the same product change. Do not replace the role check with an unscoped text selector. |
+
+After any hosted failure, preserve the run ID and evidence, commit the actual
+fix, and dispatch a new clean candidate SHA. v0.7.3 was published only from the
+subsequent successful run `34690776011` at
+`893996e4c11a9b0c20b125c696c89a0a47ec9048`.
+
 ## 5. Verify, promote, and publish exact bytes
 
 Download `nioh3-tauri-release` into a new directory. Verify:
@@ -167,10 +190,34 @@ Create the GitHub release from the already verified workflow downloads. Upload
 the outer EXE, its SHA sidecar, the internal update ZIP, its SHA sidecar,
 `tauri-update.json`, and the test inventory. Do not rebuild during publication.
 
+Treat release state as an explicit progression:
+
+1. Pushing the candidate branch makes source available remotely; it does not
+   create a version tag, a GitHub Release, downloadable assets, or an update
+   feed.
+2. A successful `release.yml` run produces hosted artifacts; it still does not
+   publish them.
+3. An annotated tag fixes the immutable product commit; it does not by itself
+   create a GitHub Release page or upload files.
+4. A public, non-prerelease GitHub Release with all six verified assets makes
+   the player EXE and update metadata public.
+5. Publication is complete only after `/releases/latest` resolves to the new
+   tag and all public downloads pass the same hash, signature, archive, and
+   source-commit checks as the hosted artifacts.
+
+The six expected assets are the outer EXE, EXE SHA-256 sidecar, update ZIP, ZIP
+SHA-256 sidecar, `tauri-update.json`, and `test-inventory.json`. The update feed
+is not considered published merely because a signed manifest exists in a
+workflow artifact; the matching manifest and ZIP must be attached to the public
+release at their signed URL.
+
 After publishing, query the release again, download its public assets, and repeat
 hash, signature, ZIP-member, source-SHA, and latest-stable checks. Record the
 release URL, tag commit, workflow URL, artifact sizes and SHA-256 values in a new
-publication record and update `CURRENT_HANDOFF.md` without moving the tag.
+publication record and update `CURRENT_HANDOFF.md` without moving the tag. The
+documentation commit may follow the immutable product tag and move `main`
+forward; record that separation so the later branch head is not mistaken for
+the tagged product source.
 
 ## 6. Product safety gates
 
