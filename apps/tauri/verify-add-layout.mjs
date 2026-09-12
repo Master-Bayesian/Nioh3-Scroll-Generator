@@ -219,9 +219,10 @@ try {
   await maximize.click();
   const nativeRestored = await waitForViewportChange(page, nativeMaximized);
   const nativeRestoredGeometry = await verifyViewportReachability(page, 'native-restored');
-  assert(nativeMaximized.width >= nativeStart.width && nativeMaximized.height >= nativeStart.height &&
-    (nativeMaximized.width > nativeStart.width || nativeMaximized.height > nativeStart.height),
-  `Native maximize must expand at least one CSS viewport dimension: ${JSON.stringify({ nativeStart, nativeMaximized })}`);
+  const workAreaTolerance = 2;
+  assert(Math.abs(nativeMaximized.outerWidth - nativeMaximized.screen.availWidth) <= workAreaTolerance &&
+    Math.abs(nativeMaximized.outerHeight - nativeMaximized.screen.availHeight) <= workAreaTolerance,
+  `Native maximize must occupy the available work area: ${JSON.stringify({ nativeStart, nativeMaximized })}`);
   assert.equal(nativeRestored.width, nativeStart.width, 'Native restore returns the exact pre-maximize CSS width');
   assert.equal(nativeRestored.height, nativeStart.height, 'Native restore returns the exact pre-maximize CSS height');
   nativeWindow = { start: nativeStart, maximized: nativeMaximized, restored: nativeRestored,
