@@ -12,6 +12,9 @@ from tests.test_beta_editor import TEST_ACCOUNT_ID, make_record
 class SaveRaceTests(unittest.TestCase):
     def setUp(self):
         self.root, self.save, self.backup, self.system = support.SaveCommitGuardTests.make_fixture(self)
+        self.save = self.save.resolve()
+        self.backup = self.backup.resolve()
+        self.system = self.system.resolve()
         self.old = self.save.read_bytes()
         self.sleep = patch.object(sg.time, 'sleep', return_value=None)
         self.sleep.start()

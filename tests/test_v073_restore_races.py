@@ -17,6 +17,10 @@ class RestoreRaceTests(unittest.TestCase):
         self.root = Path(temporary.name)
         (self.installer, self.source, self.save, self.backup,
          self.system, _) = _prepare_restore_fixture(self.root)
+        self.source = self.source.resolve()
+        self.save = self.save.resolve()
+        self.backup = self.backup.resolve()
+        self.system = self.system.resolve()
         self.baseline = {p: p.read_bytes() for p in (self.save, self.backup, self.system)}
         sleeper = patch.object(sg.time, 'sleep', return_value=None)
         sleeper.start()
