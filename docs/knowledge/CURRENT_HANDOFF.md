@@ -2,7 +2,16 @@
 
 ## Status and entry points
 
-**Current delivery boundary:** the true install-free v0.7.3 replacement is
+**Latest UI transfer:** product checkpoint `bca6ed2049ac595d138131c68f1f738946bb0ca6`
+contains verified direct addition, compact controls, stable sidebar positions,
+and unclipped section help. The owner has requested a new Sol xhigh task to finish
+collection-card geometry, fullscreen/DPI overflow, modal backdrop dismissal and
+settings switches. Read the [complete UI transfer](UI_FOLLOWUP_HANDOFF_20260912.md).
+Its packaged inner app passed bounded acceptance, but no new outer EXE has been
+made for that checkpoint. The further card and three newest UI fixes are pending.
+Do not publish or describe the previous EXE as containing these changes.
+
+**Last completed one-file baseline:** the true install-free v0.7.3 replacement is
 locally built and verified from `ca757396c42092a9f1ee19e960da67ca5f52e5cc` under
 [the one-file delivery contract](TAURI_ONEFILE_DELIVERY_20260912.md).
 The direct-launch EXE is 31,746,127 bytes, SHA-256

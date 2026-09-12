@@ -39,6 +39,7 @@ global semantic key.
 ## Version index
 
 - [Current development handoff](CURRENT_HANDOFF.md)
+- [Current UI follow-up task transfer](UI_FOLLOWUP_HANDOFF_20260912.md)
 - [v0.7.3 direct addition and navigation review](V073_ADDITION_UI_REVIEW_20260912.md)
 - [Install-free one-file delivery](TAURI_ONEFILE_DELIVERY_20260912.md)
 - [Research handoff workflow](RESEARCH_HANDOFF_WORKFLOW.md)
