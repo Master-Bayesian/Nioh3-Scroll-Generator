@@ -2,10 +2,17 @@
 
 ## Status and entry points
 
-**Current delivery boundary:** the owner rejected the v0.7.3 NSIS installer:
-one EXE must open the application directly, with no installation flow. A true
-one-file replacement is being prepared under
+**Current delivery boundary:** the true install-free v0.7.3 replacement is
+locally built and verified from `ca757396c42092a9f1ee19e960da67ca5f52e5cc` under
 [the one-file delivery contract](TAURI_ONEFILE_DELIVERY_20260912.md).
+The direct-launch EXE is 31,746,127 bytes, SHA-256
+`7067203816c605b32683103234fa0fb7c6fda60999a5e1ec971b64b351cba72c`, in
+`deliverables/releases/0.7.3-onefile-review-20260912/`. Read its `REVIEW.md` and
+`verification.json`. Actual direct launch, unchanged installation registry,
+cache reuse/pruning, outer-EXE update with real process waits, startup cleanup,
+and automatic clipboard replacement all passed. No game writes were made by
+these packaging checks. The update fixture used distinct outer bytes at the
+same product version; it was not a newly published feed.
 The earlier `4b4214d` installer and its
 [acceptance evidence](V073_LOCAL_REVIEW_20260912.md) remain historical and do
 not satisfy this delivery requirement. The owner requests review before any

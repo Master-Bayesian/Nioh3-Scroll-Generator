@@ -9,8 +9,8 @@ uninstall registration. The old NSIS candidate remains archived locally; it is
 not advertised as the replacement for this requirement.
 
 Publication is still prohibited until the owner reviews and approves a concrete
-local package. This document specifies the implementation and verification
-contract, not a completed runtime acceptance or publication claim.
+local package. The final local candidate and its scoped runtime acceptance are
+recorded below; nothing has been pushed or published.
 
 ## Container and provenance
 
@@ -77,3 +77,21 @@ long paths. Use the helper directory as the child working directory because
 the launcher establishes its own runtime location. The update acceptance must
 pass the real canonical target and wait for both the actual app and launcher
 PIDs; synthetic nonexistent PIDs alone missed this interoperability issue.
+
+## Completed local candidate
+
+Candidate `ca757396c42092a9f1ee19e960da67ca5f52e5cc` was built from a clean
+isolated checkout. The outer EXE is 31,746,127 bytes, SHA-256
+`7067203816c605b32683103234fa0fb7c6fda60999a5e1ec971b64b351cba72c`.
+Delivery and raw evidence are under
+`deliverables/releases/0.7.3-onefile-review-20260912/`.
+
+The exact final EXE passed direct-launch/cache/registry acceptance, actual outer
+replacement with both real process IDs and canonical paths, new startup and
+rollback/download cleanup, packaged generation parity, and the encrypted
+synthetic-save/real-clipboard UI workflow. There were no game writes. The
+outer-update fixture deliberately keeps the product version constant while
+changing archive bytes; signature validation remains separately tested.
+Fifteen Rust host, ten launcher and seven Python wrapper regressions passed.
+The earlier D44 candidate exposed the Windows path issue and is historical,
+not the file to provide to the owner.
