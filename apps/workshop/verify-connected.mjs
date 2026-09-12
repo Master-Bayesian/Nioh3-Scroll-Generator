@@ -9,7 +9,7 @@ try{
  const p=await app.firstWindow();const errors=[];p.on('pageerror',e=>errors.push(e.message));
  await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.webContents.setBackgroundThrottling(false);w.setContentSize(1280,800)});
  await p.getByText('后端已连接，请选择筛选条件。',{exact:true}).waitFor({timeout:30000});
- if(process.env.NIOH3_PARITY_ALLOW_CPU==='1'){await p.getByRole('button',{name:'设置',exact:true}).click();await p.getByRole('checkbox',{name:'允许使用 CPU 搜索',exact:true}).check();await p.getByRole('button',{name:'关闭侧边菜单',exact:true}).click();}
+ if(process.env.NIOH3_PARITY_ALLOW_CPU==='1'){await p.getByRole('button',{name:'设置',exact:true}).click();await p.getByRole('switch',{name:'允许使用 CPU 搜索',exact:true}).check();await p.getByRole('button',{name:'关闭侧边菜单',exact:true}).click();}
  await p.getByRole('button',{name:'绘卷编辑',exact:true}).click();
  await p.locator('.inventory-list button').first().waitFor();check('Real encrypted fixture inventory read through preload and Python',await p.locator('.inventory-list button').count()===1);
  const original=await readFile(fixture.path);
