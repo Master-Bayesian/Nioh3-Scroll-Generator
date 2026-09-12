@@ -1,38 +1,51 @@
-# Nioh 3 Studio 0.7.2
+# Nioh 3 Studio 0.7.3
 
-This maintenance release makes failed operations diagnosable, hardens both
-addition paths, and adds a one-file installer for new users.
+This maintenance release improves failure recovery, automatic diagnostic copying,
+and backup restoration. It includes the reviewed fixes from the withdrawn
+v0.7.2 candidate.
 
-## Installation
+## Installation and updates
 
-Download and run `Nioh3Studio-0.7.2-win-x64-setup.exe`. The portable ZIP is
-also available for users who prefer to extract the complete application folder.
-No Cheat Engine, Python, Node.js, or Electron installation is required.
+Download `Nioh3Studio-0.7.3-win-x64-setup.exe` and run it. New users need only
+this installer. A complete portable ZIP remains available. Cheat Engine, Python,
+Node.js, and Electron are not required.
 
-Existing Tauri installations can use the signed in-app updater. It downloads
-the complete verified portable package, replaces the application in place,
-rolls back a failed startup, and removes the previous version and update cache
-after the new frontend and backend complete their startup handshake. Updates
-from the installer preserve its verified uninstall entry.
+Existing Tauri installations can use the signed in-app updater. It replaces the
+application in place, keeps rollback files until the new frontend and backend
+start successfully, and then removes the previous version and download cache.
+Installed copies retain their uninstall registration.
 
-## Changes
+## Fixes
 
-- Automatically copy a bounded diagnostic log to the clipboard when an
-  operation fails. Logs now retain save paths, candidate records, native
-  receipts, and worker errors needed to reproduce a failure, use readable UTC
-  timestamps, and rotate at five 4 MiB files.
-- Retry only the read-only live-add preview when the game reports a fully
-  released idle-window miss. Actual insertion is never replayed.
-- Refuse every save-file plan and commit while Nioh 3 is still running. This
-  prevents a title-screen add followed by an immediate game exit from
-  overwriting the modified save with stale in-memory state.
-- Make the result-page **Add to cart** control prominent.
-- Allow grouped special-rule families such as Any Against All Comers or any
-  elemental-damage increase to share an exact selected value.
-- Keep the 25-result default, descending result sorts, favorites, cart batch
-  selection, editor, backup manager, trilingual interface, and visible version.
+- Failed operations automatically replace the clipboard with useful diagnostic
+  details, including worker errors, save paths, candidate records, and native
+  receipts. The original error remains visible even if diagnostic copying fails.
+- Logs use readable timestamps, keep the first actionable error, correctly handle
+  Japanese and Chinese text across chunks, and rotate at five 4 MiB files.
+- Live addition releases rejected preparation attempts correctly and binds native
+  operations to the original process lifetime. Uncertain insertions are never
+  replayed; a stopped protected worker can be recovered after its process exits.
+- Save transactions verify the original file generation and recover interrupted
+  commits without silently replacing later changes. Backup restoration now also
+  checks source backups, manifests, sibling files, and rollback checkpoints.
+- Generated-scroll addition, permanent editing, deletion, and backup restoration
+  are available at the title screen or with the game closed. Every supported write creates and verifies a backup first.
+- The result-page **Add to cart** button is easier to see. Grouped special-rule
+  families can share one chosen value, including any weapon's Against All Comers
+  and any elemental-damage increase.
 
-Every live addition still creates and verifies a save backup before dispatch.
-The live executor remains version-gated to the accepted PC build. Independent
-selection of a possessed Crucible enemy is not exposed because the native
-per-occurrence state has not yet been proved.
+The interface retains the 25-result default, descending result sorts, favorites,
+cart subset selection, editor, backup manager, three languages, and visible
+version number.
+
+## Known limitations
+
+A running game may later overwrite externally changed save files. The reported
+title-save corruption has not been reproduced or proved fixed. If a change is
+lost or a save cannot be loaded, restore a verified backup from **Backups**.
+Restoration returns progress to the selected backup's point in time.
+
+The intermittent live-add report has several repaired failure paths, but its
+original cause has not been confirmed. If it recurs, include the automatically
+copied diagnostic log. Further early-playthrough testing and possessed-enemy
+selection research remain deferred.

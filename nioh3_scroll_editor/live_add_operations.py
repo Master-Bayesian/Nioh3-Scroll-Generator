@@ -80,6 +80,17 @@ class LiveAddOperations:
         exclusive_json(directory / 'receipt.json', {'digest': hashlib.sha256(canonical(receipt)).hexdigest(), 'receipt': receipt})
         return self.snapshot(operation_id)
 
+    def unresolved_ids(self):
+        """Only dispatched, unacknowledged plans block a new insertion."""
+        result = []
+        for path in self.root.glob('*/claim.json'):
+            if path.parent.name == 'batches':
+                continue
+            operation_id = path.parent.name
+            if self.snapshot(operation_id)['state'] == 'uncertain':
+                result.append(operation_id)
+        return result
+
     def snapshot(self, operation_id):
         directory = self.directory(operation_id)
         value = self.plan(operation_id)

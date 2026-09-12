@@ -732,6 +732,11 @@ TITLE_SCREEN_PROMPT_TEXT = (
     "部分周目需要在标题界面调用游戏原生生成函数。这个步骤只生成或搜索绘卷，不写入存档。\n\n"
     "游戏不需要退出，也不需要断开网络。现在已经位于标题界面吗？"
 )
+SAVE_INSTALL_TITLE_PROMPT_TEXT = (
+    "添加绘卷前请回到游戏标题菜单并停留片刻。程序会自动备份存档；"
+    "如果检测到游戏正在同步存档，本次写入会无损中止。\n\n"
+    "游戏现在位于标题菜单吗？"
+)
 
 ENEMY_COMBINATION_GUIDE_TEXT = """敌人合法组合一览（PC v2.00.02 / v2.01）
 
@@ -3388,7 +3393,7 @@ class ScrollEditorApp:
                 "为避免恢复到错误账号或错误存档槽，程序不会自动恢复旧格式备份。",
             )
             return
-        if not self._confirm_game_closed_before_save("恢复备份"):
+        if not self._confirm_title_screen_if_needed("恢复备份"):
             return
         if not messagebox.askyesno(
             "确认恢复整个存档",
@@ -5893,6 +5898,17 @@ class ScrollEditorApp:
             raise ValueError("请先确认游戏位于标题界面")
         return self._selected_save_path()
 
+    def _confirm_title_screen_if_needed(self, action: str) -> bool:
+        if self.title_ack.get():
+            return True
+        confirmed = messagebox.askyesno(
+            f"{action}前确认",
+            SAVE_INSTALL_TITLE_PROMPT_TEXT,
+        )
+        if confirmed:
+            self.title_ack.set(True)
+        return confirmed
+
     def _confirm_game_closed_before_save(self, action: str) -> bool:
         try:
             running = find_nioh3_pids()
@@ -7523,7 +7539,7 @@ class ScrollEditorApp:
         selection = self.candidate_list.curselection()
         if not selection:
             return
-        if not self._confirm_game_closed_before_save("添加绘卷"):
+        if not self._confirm_title_screen_if_needed("添加绘卷"):
             return
         try:
             save_path = self._selected_save_path()

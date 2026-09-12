@@ -55,6 +55,10 @@ class LiveAddApplication:
             value, record = self.validate_candidate(candidate)
             adapter = self.executor()
             plan, before, index_before = adapter.inspect()
+            for operation_id in self.operations.unresolved_ids():
+                old = self.operations.plan(operation_id)['plan']
+                if (old.get('pid'), old.get('process_creation_time')) == (plan['pid'], plan['process_creation_time']):
+                    raise RuntimeError(f'Uncertain insertion {operation_id}; recover its receipt before preparing another')
             mapping = index_entries(index_before)
             if str(plan['serial']) in mapping or any(mapping.get(key) != item['slot_index'] for key, item in inventory_entries(before).items()):
                 raise ValueError('Native serial index differs from inventory')
@@ -103,6 +107,7 @@ class LiveAddApplication:
                     raise ValueError('Native index changed between batch items')
                 persistence_baseline = parent.get('persistence_baseline', parent['before'])
             verify_persistence(persistence_baseline, [saved[SCROLL_GROUP_OFFSET+i*232:SCROLL_GROUP_OFFSET+(i+1)*232] for i in range(400)])
+            plan.update(parent_operation_id=operation_id, source_save_path=str(source), candidate_id=candidate['candidate_id'])
             preview = adapter.preview(plan, record)
             after_preview, after_index = adapter.readback()
             for field in ('pid', 'entries', 'serial_counter', 'acquisition_order_counter', 'container_sha256'):
@@ -143,22 +148,54 @@ class LiveAddApplication:
             if not backup.is_file() or hashlib.sha256(backup.read_bytes()).hexdigest() != plan['source_save_sha256']:
                 raise ValueError('Automatic save backup is missing or changed; insertion was not dispatched')
             self.operations.claim(operation_id, plan_digest)
-            result = adapter.insert(plan)
+            try:
+                result = adapter.insert(plan)
+            except Exception as error:
+                absent = getattr(adapter, 'submission_absent', None)
+                if callable(absent) and absent(operation_id) is True:
+                    return self.operations.complete(operation_id, {
+                        'operation_id': operation_id, 'state': 'rejected_before_dispatch',
+                        'redirect_count': 0, 'error': str(error),
+                    })
+                raise
             return self._finish(plan, result)
 
     def _finish(self, plan, execution):
         operation_id = plan['operation_id']
-        if execution.get('redirect_count') == 0 and execution.get('released'):
+        if (execution.get('redirect_count') == 0 and execution.get('released') is True
+                and execution.get('active') is False and execution.get('breakpoints') == []
+                and execution.get('operation_id') == operation_id and execution.get('pid') == plan['pid']):
             return self.operations.complete(operation_id, {'operation_id': operation_id,
                 'state': 'rejected_before_dispatch', 'redirect_count': 0, 'error': execution.get('error')})
+        require_instance = getattr(self.executor(), 'require_process_instance', None)
+        if callable(require_instance):
+            require_instance(plan['pid'], plan['process_creation_time'])
+        if execution.get('process_creation_time', plan['process_creation_time']) != plan['process_creation_time']:
+            raise RuntimeError('Native receipt belongs to another process lifetime')
         after, index_after = self.executor().readback()
-        result = verify(plan, execution, plan['before'], after, plan['index_before'], index_after)
+        if callable(require_instance) and any(value.get('process_creation_time') != plan['process_creation_time']
+                                              for value in (after, index_after)):
+            raise RuntimeError('PROCESS_INSTANCE_CHANGED: receipt and readback lifetimes differ')
         directory = self.operations.directory(operation_id)
-        for name, payload in (('execution', execution), ('inventory-after', after), ('index-after', index_after)):
-            path = directory / (name + '.json')
-            if not path.exists():
-                exclusive_json(path, payload)
-        return self.operations.complete(operation_id, {**result, 'state': 'verified'})
+        # Failed verification is evidence too. Keep each recovery attempt rather
+        # than losing it, or later publishing success beside an older snapshot.
+        attempt = directory / 'verification' / str(uuid4())
+        attempt.mkdir(parents=True)
+        payloads = (('execution', execution), ('inventory-after', after), ('index-after', index_after))
+        for name, payload in payloads:
+            exclusive_json(attempt / (name + '.json'), payload)
+        try:
+            result = verify(plan, execution, plan['before'], after, plan['index_before'], index_after)
+        except Exception as error:
+            error.add_note(f'Live verification evidence: {attempt}')
+            raise
+        # Batch chaining reads these fixed names; publish only verified snapshots.
+        for name, payload in payloads:
+            temporary = directory / (name + '-' + attempt.name + '.tmp')
+            exclusive_json(temporary, payload)
+            os.replace(temporary, directory / (name + '.json'))
+        return self.operations.complete(operation_id, {**result, 'state': 'verified',
+                                                      'verification_evidence': str(attempt)})
 
     def recover(self, operation_id):
         with self.lock:
@@ -166,7 +203,12 @@ class LiveAddApplication:
             if snapshot['state'] != 'uncertain':
                 return snapshot
             plan = self.operations.plan(operation_id)['plan']
-            return self._finish(plan, self.executor().recover(operation_id, plan['pid']))
+            adapter = self.executor()
+            if callable(getattr(adapter, 'require_process_instance', None)):
+                execution = adapter.recover(operation_id, plan['pid'], plan['process_creation_time'])
+            else:
+                execution = adapter.recover(operation_id, plan['pid'])
+            return self._finish(plan, execution)
 
     def cancel(self, operation_id):
         return self.operations.cancel(operation_id)

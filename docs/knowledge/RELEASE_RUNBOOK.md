@@ -27,6 +27,10 @@ established the source, line-ending, native-identity, and hosted WebView2 gates.
 The official builder sets `NIOH3_REQUIRE_CLEAN_SOURCE=1`. A build from a dirty
 tree is not a release artifact even if its tests pass.
 
+Query the current GitHub release state before selecting a version: publication
+records describe the event, but an owner can subsequently withdraw a release
+to draft. Never infer the current latest download from an old publication note.
+
 ## 2. Run local checks in failure-cost order
 
 Use an explicit Python executable through `NIOH3_PYTHON`; do not assume `python`
@@ -52,6 +56,11 @@ to bless a CRLF checkout or a modified binary. Record unique Python test count
 and hardware skips separately from untracked developer tests.
 
 ## 3. Build and validate from a clean checkout
+
+The hosted workflow may perform the one clean release build after local source
+checks. In that case download its exact artifacts for local WebView2, installer,
+update, and live-game acceptance before publication; do not build a redundant
+local candidate merely to repeat the hosted compilation.
 
 Build the portable directory once, test its real workers and WebView2 host, then
 derive both downloadable artifacts from that same verified directory:
@@ -158,8 +167,14 @@ publication record and update `CURRENT_HANDOFF.md` without moving the tag.
 - Tests and package smoke checks are bounded evidence. Keep earlier in-game
   acceptance only when the native implementation is unchanged.
 - New or changed memory writes require matching live-game acceptance.
-- Offline save-file plans and commits require the Nioh 3 process to be fully
-  closed. Title screen is no longer sufficient.
+- Generated-scroll append, permanent edits/deletions, and backup restoration
+  permit title-screen use or a closed game. The UI collects the appropriate acknowledgement; process presence
+  is not a native title-screen detector.
+- The owner accepted the unreproduced title-save corruption and possible delayed
+  overwrite as known risks on 2026-09-12. Preserve automatic verified backups,
+  pre-restore checkpoints, transaction identities, and no-replay recovery. Do not
+  claim native save ownership or a demonstrated corruption fix. See
+  `TITLE_SAVE_APPROACH_RESET_20260912.md` for the authoritative decision.
 - Live addition requires the game to be running, creates a verified backup,
   retries only a non-mutating released preview miss, and never replays an actual
   insertion.

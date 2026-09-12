@@ -1,6 +1,8 @@
 """Responsive serialized operations whose owner must not be force-terminated."""
 from copy import deepcopy
 import threading
+import sys
+import traceback
 import uuid
 
 
@@ -37,6 +39,11 @@ class ProtectedJobs:
                     result = action(self.cancelled, progress)
                     outcome = {'state': 'completed', 'result': result}
                 except Exception as error:
+                    try:
+                        print(f"[protected-failure] job_id={job['job_id']} kind={kind} error={error}", file=sys.stderr)
+                        traceback.print_exc(file=sys.stderr)
+                    except Exception:
+                        pass
                     outcome = {'state': 'failed', 'error': {'code': getattr(error, 'code', 'OPERATION_FAILED'), 'message': str(error)}}
                 with self.lock:
                     # Publish all terminal fields together, after action cleanup.

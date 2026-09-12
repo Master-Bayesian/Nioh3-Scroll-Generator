@@ -10,8 +10,10 @@ R5 icon per user. The user explicitly requests no further R5 workaround.
 Use `deliverables/frontend-v2/portable-v2-native-matrix-20260909/`, built and
 verified with four packaged protected-worker IPC tests. This supersedes the
 pending persistence/build notes below. No publication.
-Latest extension: all nine NG1-NG3 x R3-R5 combinations have now passed actual
-CE-free insertion, with an automatic backup per item. The eight-cell extension
+Latest extension: all nine NG1-NG3 scroll-payload x R3-R5 combinations have now
+passed actual CE-free insertion, with an automatic backup per item. This did
+not vary the running character's current progression; actual NG1 and NG2
+runtime compatibility remains a separate test. The eight-cell extension
 increased inventory 31 to 39 and preserved all old records. The user has been
 asked for one normal save/title reload; persistence verification is pending.
 Early R3 native completion, search-preview serial suppression and narrow raw-R5

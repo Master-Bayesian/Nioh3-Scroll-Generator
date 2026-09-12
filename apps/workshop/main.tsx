@@ -2116,7 +2116,7 @@ function App() {
                 checked={installMode === "save"}
                 onChange={() => setInstallMode("save")}
               />
-              关闭游戏后添加到存档
+              回标题界面后添加到存档
             </label>
             {desktop && installMode === "save" && <SavePicker />}
             <button

@@ -58,6 +58,16 @@ class SaveApplication:
                 'GAME_RUNNING: Close Nioh 3 completely before writing the save; no save write attempted'
             )
 
+    @staticmethod
+    def _kind_requires_game_closed(kind):
+        """Reviewed disk operations permit title-screen use by product policy.
+
+        The UI collects the title-screen acknowledgement; process presence alone
+        does not identify the game state or prove native cache acceptance.
+        """
+
+        return kind not in ('install', 'install_many', 'edit', 'delete', 'restore')
+
     def register(self, path: str) -> dict:
         selected = Path(path).resolve(strict=True)
         if selected.name.upper() != 'SAVEDATA.BIN':
@@ -144,7 +154,8 @@ class SaveApplication:
         return current[1], current[2]
 
     def _plan(self, save_id, source_hash, kind, data, preview):
-        self._require_game_closed()
+        if self._kind_requires_game_closed(kind):
+            self._require_game_closed()
         self.plans = {key: value for key, value in self.plans.items() if value['expires'] > time.monotonic()}
         if len(self.plans) >= 32:
             raise ValueError('Too many uncommitted plans; discard or wait for expiry')
@@ -352,12 +363,15 @@ class SaveApplication:
             plan = self.plans.get(plan_id)
             if not plan or plan['expires'] <= time.monotonic():
                 raise ValueError('Plan expired; prepare a new plan')
-            self._require_game_closed()
+            if self._kind_requires_game_closed(plan['kind']):
+                self._require_game_closed()
             installer = self._installer(plan['save_id'])
             if sha256_file(installer.save_path) != plan['source_hash']:
                 raise RuntimeError('Save changed after preparation; no write attempted')
             result = {'operation_id': plan_id, 'save_id': plan['save_id'],
-                      'commit_status': 'executing', 'warning': None, 'details': {}}
+                      'commit_status': 'executing', 'warning': None,
+                      'details': {'save_path': str(installer.save_path),
+                                  'reviewed_source_sha256': plan['source_hash']}}
             self._write_receipt(plan_id, result)  # Durable intent precedes every write.
             try:
                 if plan['kind'] in ('edit', 'delete'):
@@ -375,8 +389,13 @@ class SaveApplication:
                     unchanged = sha256_file(installer.save_path) == plan['source_hash']
                 except OSError:
                     unchanged = False
+                # Keep the public plan ID and native transaction/evidence ID together.
+                evidence = getattr(error, 'save_diagnostics', None)
+                if isinstance(evidence, dict):
+                    result['details'].update(evidence)
                 # Restore may have touched siblings even when the main file is unchanged.
-                result.update(commit_status='not_committed' if unchanged and plan['kind'] != 'restore' else 'unknown', warning=str(error))
+                result.update(commit_status=getattr(error, 'commit_status',
+                    'not_committed' if unchanged and plan['kind'] != 'restore' else 'unknown'), warning=str(error))
             self.receipts[plan_id] = result
             if len(self.receipts) > 128:
                 self.receipts.pop(next(iter(self.receipts)))

@@ -4,8 +4,8 @@ import hashlib
 import struct
 import unittest
 
-from research.verify_dispatch_probe import REGISTERS
-from research.verify_single_native_insertion import verify, verify_persistence
+from nioh3_scroll_editor.dispatch_evidence import REGISTERS
+from nioh3_scroll_editor.live_add_evidence import verify, verify_persistence
 
 
 class InsertionEvidenceTests(unittest.TestCase):

@@ -14,12 +14,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from nioh3_scroll_editor.live_add_native_transport import NativeLiveAddTransport
 from nioh3_scroll_editor.windows_debug_session import WindowsDebug
 from nioh3_scroll_editor.live_add_profile import PC_V201
+from nioh3_scroll_editor.process_instance import process_creation_time
 
 
 def run(root, scenario):
     process = subprocess.Popen([str(root / 'native_dispatch_fixture.exe')], stdin=subprocess.PIPE,
                                stdout=subprocess.PIPE, text=True)
     fixture = json.loads(process.stdout.readline())
+    creation = process_creation_time(fixture['pid'])
+    assert creation is not None, 'Synthetic target must have a live process identity'
     profile = replace(PC_V201, dispatch_rva=fixture['entry'], dispatch_return_rva=fixture['caller_return'],
                       manager_pointer_rva=fixture['manager_pointer'], container_offset=0)
     calls = {'restores': 0}
@@ -57,7 +60,8 @@ def run(root, scenario):
              patch('nioh3_scroll_editor.live_add_native_transport.WindowsDebug', FaultDebug):
             transport = NativeLiveAddTransport(root / 'fault-receipts')
             operation = str(uuid4())
-            transport.call('noop', operation_id=operation, pid=fixture['pid'], profile_id=profile.profile_id)
+            transport.call('noop', operation_id=operation, pid=fixture['pid'], profile_id=profile.profile_id,
+                           process_creation_time=creation)
             if scenario == 'restore_until_released':
                 deadline = time.monotonic() + 10
                 while calls['restores'] < 3 and time.monotonic() < deadline:
@@ -70,7 +74,8 @@ def run(root, scenario):
             assert result['released'] and not result['active'] and result['breakpoint_count'] == 0, result
             assert result['phase'] != 'completed', result
             try:
-                transport.call('noop', operation_id=operation, pid=fixture['pid'], profile_id=profile.profile_id)
+                transport.call('noop', operation_id=operation, pid=fixture['pid'], profile_id=profile.profile_id,
+                               process_creation_time=creation)
             except RuntimeError:
                 pass
             else:

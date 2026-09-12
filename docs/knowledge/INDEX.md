@@ -39,6 +39,14 @@ global semantic key.
 ## Version index
 
 - [Current development handoff](CURRENT_HANDOFF.md)
+- [Research handoff workflow](RESEARCH_HANDOFF_WORKFLOW.md)
+- [PC v2.01 Crucible possessed-enemy research freeze](CRUCIBLE_POSSESSED_RESEARCH_FREEZE_20260911.md)
+- [v0.7.2 follow-up fixes prepared for review](V072_FOLLOWUP_FIXES_20260911.md)
+- [v0.7.2 Pro review patch integration](V072_PRO_REVIEW_INTEGRATION_20260911.md)
+- [v0.7.3 item-by-item Pro review closure](V073_PRO_REVIEW_CLOSURE_20260912.md)
+- [PC v2.01 title-save ownership research plan](TITLE_SAVE_OWNERSHIP_RESEARCH_PLAN_20260911.md)
+- [PC v2.01 title-save static recovery integration](V072_TITLE_SAVE_STATIC_INTEGRATION_20260911.md)
+- [Title-save investigation approach reset](TITLE_SAVE_APPROACH_RESET_20260912.md)
 - [Game-version update pipeline](GAME_VERSION_UPDATE_PIPELINE.md)
 - [PC v2.00.02](versions/pc-v2.00.02/README.md)
 - [PC v2.00.02 player enemy-combination guide](versions/pc-v2.00.02/catalogs/enemy-combinations.md)

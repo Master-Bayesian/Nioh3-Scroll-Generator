@@ -12,12 +12,12 @@ Ippon-Datara Studio is a desktop toolkit for the PC version of Nioh 3. It helps
 players search for game-legal scrolls, add selected results, edit scrolls they
 already own, and recover from changes with verified automatic save backups.
 
-The current stable release is **v0.7.2**, rebuilt on **Tauri 2**. The release
+The current stable release is **v0.7.3**, rebuilt on **Tauri 2**. The release
 package includes everything the app needs except the shared Microsoft Edge
 WebView2 Runtime that is normally already present on Windows.
 
 [Download the latest release](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)
-· [Read the v0.7.2 release notes](packaging/release-notes.md)
+· [Read the v0.7.3 release notes](packaging/release-notes.md)
 
 ## What you can do
 
@@ -40,12 +40,12 @@ add.
 ### Add selected scrolls
 
 Supported results can be added directly while you are in game or written to a
-save after the game is fully closed. The app verifies the current game and save
-context, creates a backup, and records the operation before it writes. Save-file
-writes stop if the game process is still running, preventing a later game exit
-from overwriting the new file with stale in-memory state.
+save at the title screen or with the game closed. The app verifies the
+current game and save context, creates a backup, and records the operation before
+it writes. A running game can later overwrite external save changes; restore a
+verified backup if the change is lost or the save cannot be loaded.
 
-The v0.7.2 release does **not** require Cheat Engine, Python, Node.js, or
+The v0.7.3 release does **not** require Cheat Engine, Python, Node.js, or
 Electron. Compatibility and safety checks remain inside the app; if the game or
 save state is not supported, the operation stops instead of guessing.
 
@@ -69,14 +69,16 @@ clear stop/restore action.
 Every supported write creates and verifies a backup first. The Backups page can
 show backups for each account and save slot, open the relevant folders, restore
 a selected backup, or move an app-owned backup to the Recycle Bin. Restoring a
-backup checkpoints the current save again before replacement.
+backup checkpoints the current save again before replacement. Restoration
+can run at the title screen or with the game closed, as can permanent scroll
+edits and deletions.
 
 Automatic backups are a safety layer, not a reason to skip your own long-term
 save archive.
 
 ## Quick start
 
-1. Download `Nioh3Studio-0.7.2-win-x64-setup.exe` from the
+1. Download `Nioh3Studio-0.7.3-win-x64-setup.exe` from the
    [latest release](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest).
 2. Run the installer. This is the only file new users need to download.
 3. Start Ippon-Datara Studio from the Start menu or its installation folder.
@@ -107,7 +109,7 @@ start correctly.
    complete previews.
 2. **Collect:** favorite useful results or place them in the cart for comparison
    and batch selection.
-3. **Add:** choose in-game addition or close the game for save-file addition, then review
+3. **Add:** choose in-game addition or return to the title screen for save-file addition, then review
    the operation.
 4. **Edit:** use Scroll editor for local changes to scrolls you already own.
 5. **Recover:** use Backups if you need to inspect or restore an earlier save.
@@ -128,7 +130,7 @@ start correctly.
 
 Ippon-Datara Studio is intended to grow beyond the current scroll workflows.
 Additional tools are in active development; the disabled **Coming soon** entry
-in v0.7.2 is intentional. New tools will be documented here only after their
+in v0.7.3 is intentional. New tools will be documented here only after their
 user flow and safety boundaries have been verified.
 
 ## License and attribution

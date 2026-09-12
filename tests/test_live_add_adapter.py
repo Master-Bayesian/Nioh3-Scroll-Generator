@@ -40,12 +40,12 @@ class LiveAddPreviewRetryTests(unittest.TestCase):
     @staticmethod
     def idle_miss():
         return {'phase': 'rejected', 'redirect_count': 0, 'released': True,
-                'active': False, 'error': 'No accepted idle dispatch before timeout'}
+                'active': False, 'breakpoint_count': 0, 'error': 'No accepted idle dispatch before timeout'}
 
     @staticmethod
     def accepted():
         return {'phase': 'completed', 'redirect_count': 1, 'released': True,
-                'active': False, 'source_hex': bytes(232).hex()}
+                'active': False, 'breakpoint_count': 0, 'source_hex': bytes(232).hex()}
 
     @patch('nioh3_scroll_editor.live_add_adapter.verify_assembly_preview')
     @patch('nioh3_scroll_editor.live_add_adapter.verify_dispatch')

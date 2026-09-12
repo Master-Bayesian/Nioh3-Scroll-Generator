@@ -26,8 +26,27 @@ const TRACED_CHANNELS = new Set([
 ]);
 
 function diagnosticJson(value: unknown): string {
-  const json = JSON.stringify(value ?? null);
-  return json.length <= 14_000 ? json : `${json.slice(0, 14_000)}...[client trace truncated; worker trace retains full data]`;
+  // Formatting must never prevent a submission or turn success into failure.
+  try {
+    const json = JSON.stringify(value ?? null);
+    const bytes = new TextEncoder().encode(json);
+    if (bytes.length <= 14_000) return json;
+    let end = 14_000;
+    while (end > 0 && (bytes[end] & 0xc0) === 0x80) end--;
+    return new TextDecoder().decode(bytes.slice(0, end)) + "...[trace truncated]";
+  } catch {
+    return "[diagnostic value could not be serialized]";
+  }
+}
+
+async function bestEffort(action: () => Promise<unknown>, timeoutMs: number): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      Promise.resolve().then(action).then(() => undefined, () => undefined),
+      new Promise<void>(resolve => { timer = setTimeout(resolve, timeoutMs); }),
+    ]);
+  } finally { clearTimeout(timer); }
 }
 
 function line(kind: string, channel: string, id: number, value?: unknown): string {
@@ -47,34 +66,36 @@ function jobFrom(result: unknown): Record<string, unknown> | null {
 }
 
 function operationFailure(result: unknown): string | null {
-  if (!result || typeof result !== "object") return null;
-  const value = result as {
-    state?: unknown;
-    error?: unknown;
-    job?: { state?: unknown; error?: unknown } | null;
+  const seen = new Set<unknown>();
+  const inspect = (input: unknown, depth: number): string | null => {
+    if (!input || typeof input !== "object" || seen.has(input) || depth > 4) return null;
+    seen.add(input);
+    const value = input as Record<string, unknown>;
+    if (value.state === "failed") return diagnosticJson(value.error ?? "Operation failed");
+    if (["not_committed", "unknown", "committed_with_warning"].includes(String(value.commit_status)))
+      return diagnosticJson({ operation_id: value.operation_id, commit_status: value.commit_status, warning: value.warning, details: value.details });
+    if (["uncertain", "rejected_before_dispatch", "partial"].includes(String(value.state)))
+      return diagnosticJson({ operation_id: value.operation_id, batch_id: value.batch_id, state: value.state, error: value.error, receipt: value.receipt });
+    for (const key of ["job", "result", "live_add", "live_batch"] as const) {
+      const failure = inspect(value[key], depth + 1);
+      if (failure) return failure;
+    }
+    return null;
   };
-  const failed = value.state === "failed" ? value : value.job?.state === "failed" ? value.job : null;
-  if (!failed) return null;
-  return typeof failed.error === "string"
-    ? failed.error
-    : JSON.stringify(failed.error ?? "Operation failed");
+  return inspect(result, 0);
 }
 
 /** Add one bounded automatic support capture around a desktop transport. */
-export function createDiagnosticInvoker(rawInvoke: Invoke): Invoke {
+export function createDiagnosticInvoker(rawInvoke: Invoke, diagnosticTimeoutMs = 750): Invoke {
   let reporting: Promise<void> | null = null;
   let previousFailure = "";
   let previousFailureAt = 0;
   let requestSequence = 0;
   const jobStates = new Map<string, string>();
 
-  const write = async (message: string) => {
-    try {
-      await rawInvoke("review:log", message);
-    } catch {
-      // Diagnostics are best effort and cannot alter the operation result.
-    }
-  };
+  const write = (message: string) => bestEffort(
+    () => rawInvoke("review:log", message), diagnosticTimeoutMs,
+  );
 
   const recordJobTransition = async (channel: string, result: unknown) => {
     const job = jobFrom(result);
@@ -97,19 +118,9 @@ export function createDiagnosticInvoker(rawInvoke: Invoke): Invoke {
     previousFailureAt = now;
     if (reporting) return reporting;
     reporting = (async () => {
-      try {
-        await rawInvoke("review:log", `[automatic-failure] ${channel}: ${failure}`);
-      } catch {
-        // Keep the original operation error even when the log sink is unavailable.
-      }
-      try {
-        await rawInvoke("review:copy-log", null);
-      } catch {
-        // Clipboard capture is best effort and must never replace the real error.
-      }
-    })().finally(() => {
-      reporting = null;
-    });
+      await write(`[automatic-failure] ${channel}: ${failure}`);
+      await bestEffort(() => rawInvoke("review:copy-log", null), diagnosticTimeoutMs);
+    })().finally(() => { reporting = null; });
     return reporting;
   };
 

@@ -44,7 +44,8 @@ def capture_inventory():
                                 'seed': struct.unpack_from('<I', record, 0x20)[0]})
         serials = [entry['serial'] for entry in entries]
         return {'schema': 'nioh3-live-scroll-readonly/v1', 'captured_at_utc': datetime.now(timezone.utc).isoformat(),
-                'pid': pid, 'game_version': profile.display_version, 'read_only': True,
+                'pid': pid, 'process_creation_time': reader.creation_time(),
+                'game_version': profile.display_version, 'read_only': True,
                 'capacity': 400, 'entries': entries, 'duplicate_scroll_serials': sorted({s for s in serials if serials.count(s) > 1}),
                 'serial_counter': str(struct.unpack_from('<Q', counters, 8)[0]),
                 'acquisition_order_counter': struct.unpack_from('<I', counters)[0],
@@ -119,9 +120,11 @@ def capture_index():
         data = reader.u64(manager)
         if reader.u64(data + LAYOUT.container_offset + LAYOUT.capacity_offset) != 400:
             raise ValueError('Unexpected inventory owner')
+        creation_time = reader.creation_time()
         result = inspect(reader, data + LAYOUT.serial_index_offset)
         if reader.u64(reader.module_base + LAYOUT.manager_pointer_rva) != manager or reader.u64(manager) != data:
             raise ValueError('Inventory owner changed')
     return {'schema': 'nioh3-native-serial-index/v1', 'pid': pid, 'read_only': True,
+            'process_creation_time': creation_time,
             'captured_at_utc': datetime.now(timezone.utc).isoformat(), **result,
             'scope': 'Native FNV bucket/list agreement; historical unused keys may remain. Not an atomic snapshot.'}

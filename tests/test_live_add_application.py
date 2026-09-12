@@ -61,6 +61,17 @@ class FakeAdapter:
         return self.pending is None
 
 
+class RejectingTransport:
+    @staticmethod
+    def operation_known(_operation_id):
+        return False
+
+    def call(self, method, **_params):
+        if method in ("preview", "insert"):
+            raise RuntimeError("Synthetic pre-dispatch rejection")
+        raise AssertionError(method)
+
+
 class LiveAddApplicationTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -160,6 +171,69 @@ class LiveAddApplicationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.app.execute(prepared['operation_id'], prepared['plan_digest'])
         self.assertEqual(self.adapter.calls, 0)
+
+    def test_pre_dispatch_transport_rejection_does_not_poison_adapter(self):
+        from nioh3_scroll_editor.live_add_adapter import LiveAddAdapter
+
+        adapter = LiveAddAdapter(RejectingTransport())
+        plan = {
+            "pid": 123,
+            "profile_id": "pc-v2.01-live-add-r1",
+            "builder_code_hex": "00",
+        }
+        record = bytearray(self.e.raw)
+        struct.pack_into("<I", record, 0x18, 0x02800002)
+        struct.pack_into("<I", record, 0x20, 86872488)
+        record[0x30] = 3
+        with self.assertRaisesRegex(RuntimeError, "pre-dispatch rejection"):
+            adapter.preview(plan, bytes(record))
+        self.assertIsNone(adapter.pending)
+        self.assertIsNone(adapter.pending_pid)
+        self.assertTrue(adapter.safe_to_shutdown())
+
+        insert_plan = {
+            "operation_id": "00000000-0000-0000-0000-000000000001",
+            "profile_id": "pc-v2.01-live-add-r1",
+            "pid": 123,
+            "manager": 1,
+            "data": 2,
+            "serial": 3,
+            "slot": 4,
+            "scheduler_owner": 5,
+            "function_address": 6,
+            "container_hex": "00",
+            "insertion_code_hex": "00",
+            "builder_code_hex": "00",
+            "descriptor_hex": "00",
+            "expected_record_hex": "00",
+        }
+        with self.assertRaisesRegex(RuntimeError, "pre-dispatch rejection"):
+            adapter.insert(insert_plan)
+        self.assertIsNone(adapter.pending)
+        self.assertTrue(adapter.safe_to_shutdown())
+
+    def test_ambiguous_transport_rejection_retains_adapter_owner(self):
+        from nioh3_scroll_editor.live_add_adapter import LiveAddAdapter
+
+        class AmbiguousTransport(RejectingTransport):
+            @staticmethod
+            def operation_known(_operation_id):
+                return True
+
+        adapter = LiveAddAdapter(AmbiguousTransport())
+        plan = {
+            "pid": 123,
+            "profile_id": "pc-v2.01-live-add-r1",
+            "builder_code_hex": "00",
+        }
+        record = bytearray(self.e.raw)
+        struct.pack_into("<I", record, 0x18, 0x02800002)
+        struct.pack_into("<I", record, 0x20, 86872488)
+        record[0x30] = 3
+        with self.assertRaisesRegex(RuntimeError, "pre-dispatch rejection"):
+            adapter.preview(plan, bytes(record))
+        self.assertIsNotNone(adapter.pending)
+        self.assertEqual(123, adapter.pending_pid)
 
 
 if __name__ == '__main__':

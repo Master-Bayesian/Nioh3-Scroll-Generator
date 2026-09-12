@@ -31,9 +31,31 @@ pub struct Worker {
 }
 
 impl Worker {
+    /// A broken pipe alone is not permission to replace a protected owner.
+    pub async fn can_replace(&self) -> bool {
+        if self.safely_closed.load(Ordering::SeqCst) {
+            return true;
+        }
+        self.dead.load(Ordering::SeqCst)
+            && self.child.lock().await.try_wait().ok().flatten().is_some()
+    }
+    #[cfg(test)]
+    pub async fn disconnect_for_test(&self) {
+        self.fail("TEST_TRANSPORT_LOST").await;
+    }
+
     pub async fn diagnostics(&self) -> Value {
-        let identity = self.identity.lock().await;
-        json!({"role":self.role,"connection":if self.safely_closed.load(Ordering::SeqCst){"closed"}else if self.dead.load(Ordering::SeqCst){"unavailable"}else if identity.is_some(){"ready"}else{"starting"},"contextDigest":identity.as_ref().map(|v|v["context"]["context_digest"].clone()),"contractDigest":self.contract_digest})
+        // A pending handshake holds identity across an await. Support export
+        // must not wait for that handshake or for the failing worker itself.
+        let context = self.identity.try_lock().ok().and_then(|guard| {
+            guard
+                .as_ref()
+                .map(|v| v["context"]["context_digest"].clone())
+        });
+        let pending = self.pending.try_lock().ok().map(|value| value.len());
+        json!({"role":self.role,"connection":if self.safely_closed.load(Ordering::SeqCst){"closed"}
+            else if self.dead.load(Ordering::SeqCst){"unavailable"}else if context.is_some(){"ready"}else{"starting"},
+            "contextDigest":context,"contractDigest":self.contract_digest,"pendingRequests":pending})
     }
     pub async fn spawn(
         root: &Path,
@@ -79,6 +101,7 @@ impl Worker {
         }
         command
             .current_dir(root)
+            .env("NIOH3_STATE_ROOT", &data)
             .env("PYTHONUTF8", "1")
             .env("PYTHONIOENCODING", "utf-8")
             .stdin(std::process::Stdio::piped())
@@ -96,11 +119,19 @@ impl Worker {
         let category = format!("{role}-stderr");
         tokio::spawn(async move {
             let mut b = [0; 8192];
+            let mut decoder = crate::storage::Utf8LogDecoder::default();
             while let Ok(n) = stderr.read(&mut b).await {
                 if n == 0 {
                     break;
                 }
-                crate::storage::log(&data, &category, &String::from_utf8_lossy(&b[..n]));
+                let text = decoder.push(&b[..n]);
+                if !text.is_empty() {
+                    crate::storage::log(&data, &category, &text);
+                }
+            }
+            let last = decoder.finish();
+            if !last.is_empty() {
+                crate::storage::log(&data, &category, &last);
             }
         });
         let worker = Arc::new(Self {

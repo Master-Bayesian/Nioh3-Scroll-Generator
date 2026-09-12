@@ -11,6 +11,7 @@ from .live_add_descriptor import assembly_descriptor, verify_assembly_preview
 from .live_add_profile import live_add_profile
 from .live_inventory import capture_inventory, capture_index
 from .process_memory_readonly import ProcessReader
+from .process_instance import original_process_exited, process_creation_time
 
 
 class LiveAddAdapter:
@@ -18,27 +19,41 @@ class LiveAddAdapter:
         self.transport = transport
         self.pending = None
         self.pending_pid = None
+        self.pending_creation_time = None
+
+    def _clear_pending(self):
+        self.pending = self.pending_pid = self.pending_creation_time = None
+
+    def _refresh_pending(self):
+        if self.pending is None:
+            return
+        try:
+            value = self.transport.call('status', operation_id=self.pending)
+            if (value.get('operation_id') == self.pending and value.get('released') is True
+                    and value.get('active') is False and value.get('breakpoint_count') == 0):
+                self._clear_pending()
+                return
+        except Exception:
+            pass
+        if self.pending_pid is not None and original_process_exited(
+                self.pending_pid, self.pending_creation_time):
+            self._clear_pending()
 
     def safe_to_shutdown(self):
-        if self.pending is None:
-            return True
-        if self.pending_pid is None:
-            return False
-        import ctypes
-        from ctypes import wintypes
-        dll = ctypes.WinDLL('kernel32', use_last_error=True)
-        dll.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
-        dll.OpenProcess.restype = wintypes.HANDLE
-        dll.CloseHandle.argtypes = [wintypes.HANDLE]
-        dll.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
-        handle = dll.OpenProcess(0x1000, False, self.pending_pid)
-        if not handle:
-            return ctypes.get_last_error() == 87  # PID no longer exists; access denial is not exit.
+        self._refresh_pending()
+        return self.pending is None
+
+    def submission_absent(self, operation_id):
         try:
-            code = wintypes.DWORD()
-            return bool(dll.GetExitCodeProcess(handle, ctypes.byref(code))) and code.value != 259
-        finally:
-            dll.CloseHandle(handle)
+            known = getattr(self.transport, 'operation_known', None)
+            return callable(known) and known(operation_id) is False
+        except Exception:
+            return False
+
+    @staticmethod
+    def require_process_instance(pid, creation_time):
+        if creation_time is None or process_creation_time(pid) != creation_time:
+            raise RuntimeError('PROCESS_INSTANCE_CHANGED: do not verify an old receipt against a new game')
 
     def identity(self):
         from .runtime_application import running_game_identity
@@ -60,6 +75,9 @@ class LiveAddAdapter:
         with ProcessReader() as reader:
             if reader.pid != pid:
                 raise RuntimeError('Process changed')
+            creation_time = reader.creation_time()
+            if any(value.get('process_creation_time') != creation_time for value in (inventory, index)):
+                raise RuntimeError('PROCESS_INSTANCE_CHANGED: planning snapshots span game lifetimes')
             base = reader.module_base
             identities = json.loads((Path(__file__).parent / 'data/live_add_pc_v201_identity.json').read_bytes())
             if identities['profile_id'] != profile.profile_id:
@@ -92,7 +110,7 @@ class LiveAddAdapter:
                     raise RuntimeError('Mission scheduler ownership changed')
                 time.sleep(0.02)
             plan = {'pid': pid, 'profile_id': profile.profile_id, 'manager': manager, 'data': data,
-                    'process_creation_time': reader.creation_time(),
+                    'process_creation_time': creation_time,
                     'serial': serial, 'slot': slots[0], 'scheduler_owner': scheduler,
                     'function_address': base + profile.insertion_rva, 'container_hex': container.hex(),
                     'insertion_code_hex': reader.read(base + profile.insertion_rva, profile.insertion_size).hex(),
@@ -100,18 +118,24 @@ class LiveAddAdapter:
         return plan, inventory, index
 
     def wait(self, operation_id):
+        if self.pending not in (None, operation_id):
+            raise RuntimeError('Another native operation still owns the adapter')
         self.pending = operation_id
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
             value = self.transport.call('status', operation_id=operation_id)
-            if value.get('released') is True and not value.get('active', False):
-                self.pending = None
+            if value.get('operation_id') != operation_id:
+                raise RuntimeError('Native receipt operation identity differs')
+            if (value.get('released') is True and value.get('active') is False
+                    and value.get('breakpoint_count') == 0):
+                self._clear_pending()
                 return self.normalize(value)
             if value.get('phase') == 'completed' or not value.get('active', False):
                 if value.get('redirect_count') == 0 or value.get('phase') == 'completed':
                     value = self.transport.call('release', operation_id=operation_id)
-                    if value.get('released'):
-                        self.pending = None
+                    if (value.get('operation_id') == operation_id and value.get('released') is True
+                            and value.get('active') is False and value.get('breakpoint_count') == 0):
+                        self._clear_pending()
                     return self.normalize(value)
                 raise RuntimeError('Native dispatch result is uncertain; allocation retained, do not retry')
             time.sleep(0.05)
@@ -124,6 +148,35 @@ class LiveAddAdapter:
         value['breakpoints'] = [] if count == 0 else ['unconfirmed']
         return value
 
+    def _submit(self, method, operation_id, owner_pid, **fields):
+        """Own a request only after the transport accepts it.
+
+        A rejected request has no native ownership only when the transport can
+        prove that it never accepted this operation ID. Ambiguous transport
+        failures keep ownership so an insertion can never be replayed.
+        """
+
+        self._refresh_pending()
+        if self.pending is not None:
+            raise RuntimeError('Another native operation still owns the adapter; recover it first')
+        self.pending = operation_id
+        self.pending_pid = owner_pid
+        self.pending_creation_time = fields.get('process_creation_time')
+        # The optional CE line protocol predates native receipt metadata and
+        # only accepts flat identifier/hex tokens. Keep lifecycle metadata local
+        # instead of serializing Windows paths/None into that accepted ABI.
+        submitted_fields = fields
+        if isinstance(self.transport, CELiveAddTransport):
+            submitted_fields = {key: value for key, value in fields.items()
+                                if key not in ('process_creation_time', 'source_save_path',
+                                               'candidate_id', 'parent_operation_id')}
+        try:
+            return self.transport.call(method, operation_id=operation_id, **submitted_fields)
+        except Exception:
+            if self.submission_absent(operation_id):
+                self._clear_pending()
+            raise
+
     def preview(self, plan, installation_record):
         # A preview cannot mutate inventory or advance the serial counter. The
         # game's accepted idle dispatch is periodic, though, so a quiet window
@@ -132,15 +185,17 @@ class LiveAddAdapter:
         # replayed and every attempt retains its own native receipt.
         for attempt in range(3):
             operation_id = str(uuid4())
-            self.pending = operation_id
-            self.pending_pid = plan['pid']
-            self.transport.call('preview', operation_id=operation_id, profile_id=plan['profile_id'], pid=plan['pid'],
-                                descriptor_hex=assembly_descriptor(installation_record).hex(),
-                                expected_record_hex=installation_record.hex(), builder_code_hex=plan['builder_code_hex'])
+            self._submit('preview', operation_id, plan['pid'], profile_id=plan['profile_id'], pid=plan['pid'],
+                         process_creation_time=plan.get('process_creation_time'),
+                         source_save_path=plan.get('source_save_path'),
+                         candidate_id=plan.get('candidate_id'), parent_operation_id=plan.get('parent_operation_id'),
+                         descriptor_hex=assembly_descriptor(installation_record).hex(),
+                         expected_record_hex=installation_record.hex(), builder_code_hex=plan['builder_code_hex'])
             result = self.wait(operation_id)
             idle_miss = (result.get('redirect_count') == 0
                          and result.get('released') is True
                          and result.get('active') is False
+                         and result.get('breakpoints') == []
                          and result.get('error') == 'No accepted idle dispatch before timeout')
             if idle_miss and attempt < 2:
                 continue
@@ -153,16 +208,27 @@ class LiveAddAdapter:
         fields = {key: plan[key] for key in ('operation_id', 'profile_id', 'pid', 'manager', 'data',
                   'serial', 'slot', 'scheduler_owner', 'function_address', 'container_hex', 'insertion_code_hex',
                   'builder_code_hex', 'descriptor_hex', 'expected_record_hex')}
-        self.pending = plan['operation_id']
-        self.pending_pid = plan['pid']
-        self.transport.call('insert', **fields)
+        operation_id = plan['operation_id']
+        fields.pop('operation_id')
+        fields.update({key: plan.get(key) for key in ('process_creation_time', 'source_save_path', 'candidate_id', 'parent_operation_id')})
+        self._submit('insert', operation_id, plan['pid'], **fields)
         return self.wait(plan['operation_id'])
 
     def readback(self):
-        return capture_inventory(), capture_index()
+        inventory, index = capture_inventory(), capture_index()
+        creation_time = inventory.get('process_creation_time')
+        if inventory['pid'] != index['pid'] or creation_time != index.get('process_creation_time'):
+            raise RuntimeError('PROCESS_INSTANCE_CHANGED: readback snapshots span game lifetimes')
+        self.require_process_instance(inventory['pid'], creation_time)
+        return inventory, index
 
-    def recover(self, operation_id, pid):
+    def recover(self, operation_id, pid, process_creation_time=None):
+        self._refresh_pending()
+        if self.pending not in (None, operation_id):
+            raise RuntimeError('Another native operation still owns the adapter')
+        self.require_process_instance(pid, process_creation_time)
         self.pending_pid = pid
+        self.pending_creation_time = process_creation_time
         return self.wait(operation_id)
 
 

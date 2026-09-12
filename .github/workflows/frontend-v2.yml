@@ -18,6 +18,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: python -m pip install -r packaging/requirements-v2.lock.txt
+      - run: python -m pip install -r requirements-dev.txt
       - run: npm ci --no-fund
       - run: python tools/verify_native_build_manifest.py
       - run: npm run contracts
@@ -26,6 +27,7 @@ jobs:
       - run: node tools/audit_v2_ui_locales.mjs
       - run: git diff --exit-code -- packages/contracts
       - run: python -m unittest tests.test_frontend_v2 tests.test_v2_operations tests.test_v2_localization tests.test_auxiliary_catalog tests.test_recommended_level tests.test_v2_recommended_level tests.test_live_insertion_evidence tests.test_v2_live_reveal tests.test_live_add_operations tests.test_live_add_application tests.test_live_add_descriptor tests.test_single_native_insertion tests.test_dispatch_probe_evidence tests.test_live_add_native tests.test_cart_batch tests.test_review_integration tests.test_grace_accelerated_scanner tests.test_r4_batch_wrapper -v
+      - run: python -m pytest -q tests\test_title_save_observer.py tests\test_title_save_capture_tools.py
       - run: python tools/audit_v2_localization.py --output deliverables/frontend-v2/localization-coverage.json
       - run: npm test
       - run: python -m unittest tests.test_effect_occurrences tests.test_challenge_override tests.test_runtime_count_edit tests.test_challenge_completion_capture

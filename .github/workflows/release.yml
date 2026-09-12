@@ -29,6 +29,7 @@ jobs:
           workspaces: apps/tauri/src-tauri
           cache-on-failure: true
       - run: python -m pip install -r packaging/requirements-v2.lock.txt
+      - run: python -m pip install -r requirements-dev.txt
       - run: npm ci --no-fund
       - run: ./tools/prepare_webview2_test.ps1
       - name: Validate versions and Python path
@@ -50,7 +51,9 @@ jobs:
       - run: python tools/write_test_inventory.py --output deliverables/release/test-inventory.json
       - run: python tools/run_cpu_only_tests.py
       - run: python -m unittest discover -s tests -t . -v
+      - run: python -m pytest -q tests\test_title_save_observer.py tests\test_title_save_capture_tools.py
       - run: npm test
+      - run: npm run typecheck
       - run: ./tools/verify_native_faults.ps1
       - run: node apps/tauri/build.mjs
       - run: cargo test --locked --manifest-path apps/tauri/src-tauri/Cargo.toml

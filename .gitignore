@@ -85,6 +85,9 @@ research/*
 !research/test_live_item_probe_lifecycle_ce.lua
 !research/capture_live_scroll_builder_ce.lua
 !research/owned_breakpoint_lifecycle_ce.lua
+!research/probe_title_save_ownership_ce.lua
+!research/title_save_v201/
+!research/title_save_v201/**
 !research/test_live_scroll_builder_probe_ce.lua
 !research/capture_live_scroll_flow_ce.lua
 !research/test_live_scroll_flow_probe_ce.lua
@@ -98,6 +101,8 @@ research/*
 !research/ce_main_thread_timer.lua
 !research/probe_pickup_dispatch_noop_ce.lua
 !research/test_pickup_dispatch_noop_ce.lua
+!research/possessed_enemy_capture/
+!research/possessed_enemy_capture/**
 !research/build_dispatch_probe_code.lua
 !research/verify_dispatch_probe.py
 !research/test_live_scroll_finalizer_probe_ce.lua

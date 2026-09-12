@@ -330,6 +330,7 @@ R5 · 橙色	R5 · Orange	R5 · 橙
 本次将应用	Will apply	適用する変更：
 项变化。	changes.	件。
 游戏已回到标题界面	Game is at the title screen	ゲームはタイトル画面です
+游戏已回到标题界面或已关闭	Game is at the title screen or closed	ゲームはタイトル画面、または終了しています
 游戏已完全关闭	Nioh 3 is completely closed	ゲームを完全に終了しました
 确认写入存档	Confirm save write	セーブへの書き込みを確定
 修改已应用到本次预览。	Edits applied to this preview.	プレビューに変更を適用しました。
@@ -552,3 +553,8 @@ R5 · 橙色	R5 · Orange	R5 · 橙
 确认修改当前次数	Confirm count change	残り回数の変更を確定
 放弃本次核对	Discard review	確認内容を破棄
 存档备份	Save backup	セーブのバックアップ
+请先回到标题界面。检测到游戏正在同步存档时，程序会无损中止并提示重试。	Return to the title screen first. If save synchronization is detected, the app stops without writing and asks you to retry.	先にタイトル画面へ戻ってください。セーブの同期を検出した場合は書き込まずに中止し、再試行を案内します。
+本次没有写入，请回到标题界面后重试。	No write was performed. Return to the title screen and retry.	書き込みは行われませんでした。タイトル画面へ戻って再試行してください。
+检测到游戏正在同步存档，本次没有写入。请在标题菜单停留片刻后重试。	The game is synchronizing save files, so nothing was written. Wait at the title menu briefly and retry.	ゲームがセーブを同期しているため、書き込みませんでした。タイトルメニューで少し待ってから再試行してください。
+写入后校验失败，主存档已自动恢复；游戏备份没有改动。	Post-write verification failed. The main save was restored automatically and the game backup was not changed.	書き込み後の検証に失敗しました。メインセーブは自動復元され、ゲームのバックアップは変更されていません。
+写入结果无法确认。请先核对存档和操作记录，不要重复添加。	The write result could not be confirmed. Check the save and operation record before trying again.	書き込み結果を確認できません。再実行する前にセーブと操作記録を確認してください。

@@ -10,6 +10,7 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -45,6 +46,29 @@ SCROLL_GENERATION_SERIAL_OFFSET = 0x28
 SCROLL_GENERATION_SERIAL_MAX = 0xFFFFFFFC
 BACKUP_MANIFEST_SCHEMA = "nioh3-scroll-backup/v2"
 SAVE_SCHEMA_PROFILE = "nioh3-pc-v2.00.02-v2.01/save-layout-v1"
+SAVE_QUIESCENCE_SECONDS = 0.20
+
+
+@dataclass(frozen=True)
+class SaveFileFingerprint:
+    """Stable identity for one file participating in a character-save update."""
+
+    role: str
+    path: Path
+    exists: bool
+    size: int | None
+    modified_ns: int | None
+    sha256: str | None
+
+    def report(self) -> dict[str, object]:
+        return {
+            "role": self.role,
+            "path": str(self.path),
+            "exists": self.exists,
+            "size": self.size,
+            "modified_ns": self.modified_ns,
+            "sha256": self.sha256,
+        }
 
 
 def scroll_slot_is_empty(record: bytes) -> bool:
@@ -614,6 +638,425 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest().upper()
 
 
+def related_save_paths(save_path: Path) -> tuple[tuple[str, Path], ...]:
+    """Return the files whose game-managed generation must stay quiescent."""
+
+    resolved = save_path.resolve()
+    return (
+        ("main_save", resolved),
+        ("game_backup", resolved.parent / "BACKUP.BIN"),
+        (
+            "system_save",
+            resolved.parent.parent / "SYSTEMSAVEDATA00" / "SAVEDATA.BIN",
+        ),
+    )
+
+
+def _capture_save_file_fingerprint(role: str, path: Path) -> SaveFileFingerprint:
+    """Hash one file only when its metadata is unchanged across the read."""
+
+    try:
+        before = path.stat()
+    except FileNotFoundError:
+        return SaveFileFingerprint(role, path, False, None, None, None)
+    digest = sha256_file(path)
+    try:
+        after = path.stat()
+    except FileNotFoundError as error:
+        raise RuntimeError(
+            f"SAVE_SYNC_ACTIVE: {role} disappeared while it was being read; no write attempted"
+        ) from error
+    if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+        raise RuntimeError(
+            f"SAVE_SYNC_ACTIVE: {role} changed while it was being read; no write attempted"
+        )
+    return SaveFileFingerprint(
+        role,
+        path,
+        True,
+        after.st_size,
+        after.st_mtime_ns,
+        digest,
+    )
+
+
+def capture_related_save_fingerprints(
+    save_path: Path,
+) -> tuple[SaveFileFingerprint, ...]:
+    return tuple(
+        _capture_save_file_fingerprint(role, path)
+        for role, path in related_save_paths(save_path)
+    )
+
+
+def capture_quiescent_save_fingerprints(
+    save_path: Path,
+    *,
+    interval_seconds: float = SAVE_QUIESCENCE_SECONDS,
+) -> tuple[SaveFileFingerprint, ...]:
+    """Require a quiet main/backup/system generation before an external write."""
+
+    first = capture_related_save_fingerprints(save_path)
+    if interval_seconds > 0:
+        time.sleep(interval_seconds)
+    second = capture_related_save_fingerprints(save_path)
+    if first != second:
+        raise RuntimeError(
+            "SAVE_SYNC_ACTIVE: Nioh 3 is synchronizing save files; no write attempted. "
+            "Wait at the title menu for a moment and retry."
+        )
+    return second
+
+
+def require_related_save_fingerprints(
+    save_path: Path,
+    expected: Sequence[SaveFileFingerprint],
+    *,
+    interval_seconds: float = SAVE_QUIESCENCE_SECONDS,
+) -> None:
+    """Reject a commit if any game-managed save file changed or appeared."""
+
+    current = capture_quiescent_save_fingerprints(
+        save_path,
+        interval_seconds=interval_seconds,
+    )
+    if tuple(expected) != current:
+        raise RuntimeError(
+            "SAVE_SYNC_ACTIVE: Main, backup, or system save changed during preparation; "
+            "no write attempted. Wait at the title menu and retry."
+        )
+
+
+def _replace_file_durable(source: Path, target: Path) -> None:
+    """Replace one file and request durable rename metadata on the host OS."""
+
+    if os.name == "nt":
+        move_file_ex = ctypes.windll.kernel32.MoveFileExW
+        move_file_ex.argtypes = (ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_uint)
+        move_file_ex.restype = ctypes.c_int
+        replace_existing = 0x1
+        write_through = 0x8
+        if not move_file_ex(
+            str(source),
+            str(target),
+            replace_existing | write_through,
+        ):
+            raise ctypes.WinError()
+        return
+    os.replace(source, target)
+    directory_fd = os.open(str(target.parent), os.O_RDONLY)
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+
+
+def _write_json_durable(path: Path, payload: dict[str, object]) -> None:
+    """Replace a JSON record only after its bytes reach the file handle."""
+
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with temporary.open("w", encoding="utf-8", newline="\n") as handle:
+            json.dump(payload, handle, indent=2, ensure_ascii=False)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        _replace_file_durable(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def _copy_file_durable(source: Path, target: Path) -> None:
+    """Copy a file and flush the destination before it can be renamed."""
+
+    with source.open("rb") as reader, target.open("xb") as writer:
+        shutil.copyfileobj(reader, writer, length=1024 * 1024)
+        writer.flush()
+        os.fsync(writer.fileno())
+
+
+def _restore_main_from_application_backup(
+    save_path: Path,
+    backup_path: Path,
+    *,
+    operation_id: str,
+    expected_backup_sha256: str,
+    expected_current_sha256: str,
+    expected_fingerprints: Sequence[SaveFileFingerprint],
+) -> None:
+    """Restore only our checkpoint, never a concurrently replaced generation."""
+
+    rollback_temp = save_path.with_name(
+        f"{save_path.name}.scroll-generator-rollback-{operation_id}.tmp"
+    )
+    if rollback_temp.exists():
+        rollback_temp.unlink()
+    try:
+        _copy_file_durable(backup_path, rollback_temp)
+        if sha256_file(rollback_temp) != expected_backup_sha256:
+            raise RuntimeError("rollback backup differs from the original checkpoint")
+        require_committed_save_generation(
+            save_path, expected_current_sha256, expected_fingerprints
+        )
+        _replace_file_durable(rollback_temp, save_path)
+        if sha256_file(save_path) != expected_backup_sha256:
+            raise RuntimeError("rollback installed hash mismatch")
+    finally:
+        if rollback_temp.exists():
+            rollback_temp.unlink()
+
+
+def backup_related_save_files(
+    backup_directory: Path,
+    fingerprints: Sequence[SaveFileFingerprint],
+) -> list[dict[str, object]]:
+    """Copy the exact quiet generation used to prepare a save transaction."""
+
+    copied: list[dict[str, object]] = []
+    names = {
+        "main_save": "SAVEDATA.BIN",
+        "game_backup": "BACKUP.BIN",
+        "system_save": "SYSTEMSAVEDATA.BIN",
+    }
+    for fingerprint in fingerprints:
+        if not fingerprint.exists:
+            continue
+        destination = backup_directory / names[fingerprint.role]
+        _copy_file_durable(fingerprint.path, destination)
+        copied_hash = sha256_file(destination)
+        if copied_hash != fingerprint.sha256:
+            raise RuntimeError(
+                f"SAVE_SYNC_ACTIVE: {fingerprint.role} changed while creating the "
+                "automatic backup; no write attempted"
+            )
+        copied.append(
+            {
+                "source_role": fingerprint.role,
+                "source_path": str(fingerprint.path),
+                "backup_file": destination.name,
+                "size": destination.stat().st_size,
+                "sha256": copied_hash,
+            }
+        )
+    return copied
+
+
+class SaveCommitUncertain(RuntimeError):
+    """A replacement may have occurred; equality with old bytes is not proof."""
+
+    code = "SAVE_COMMIT_UNCERTAIN"
+    commit_status = "unknown"
+
+
+def require_committed_save_generation(save_path, installed_hash, baseline_files):
+    """Check post-write peers too. This is NOT a game-memory ownership barrier."""
+    current = capture_related_save_fingerprints(save_path)
+    if current[0].sha256 != installed_hash or current[1:] != tuple(baseline_files)[1:]:
+        raise SaveCommitUncertain(
+            "SAVE_COMMIT_UNCERTAIN: main/backup/system generation changed; "
+            "do not overwrite it with an automatic rollback"
+        )
+
+
+def _with_save_failure_context(commit):
+    """Attach bounded evidence pointers without changing transaction semantics."""
+    @functools.wraps(commit)
+    def wrapped(**kwargs):
+        try:
+            return commit(**kwargs)
+        except Exception as error:
+            # Error reporting must not replace the transaction's first failure.
+            try:
+                diagnostic = kwargs.get("diagnostics", {})
+                context = {
+                    "save_path": str(kwargs["save_path"]),
+                    "transaction_id": str(kwargs["operation_id"]),
+                    "backup_directory": str(kwargs["backup_directory"]),
+                    "journal_path": str(kwargs["backup_directory"] / "save-write-journal.json"),
+                    "action": diagnostic.get("action"),
+                }
+                for key in ("candidate_record_hex", "installed_record_hex"):
+                    if isinstance(diagnostic.get(key), str):
+                        context[key] = diagnostic[key][:0xE8 * 2]
+                for key in ("candidate_records_hex", "installed_records_hex"):
+                    records = diagnostic.get(key)
+                    if isinstance(records, (tuple, list)):
+                        context[key + "_count"] = len(records)
+                        context[key + "_preview"] = [str(item)[:0xE8 * 2] for item in records[:2]]
+                error.save_diagnostics = context
+            except Exception:
+                pass
+            raise
+    return wrapped
+
+
+@_with_save_failure_context
+def commit_encrypted_main_save(
+    *,
+    save_path: Path,
+    crypto: SaveCrypto,
+    encrypted_path: Path,
+    expected_decrypted: bytes,
+    expected_fingerprints: Sequence[SaveFileFingerprint],
+    backup_directory: Path,
+    operation_id: str,
+    diagnostics: dict[str, object],
+) -> tuple[str, Path]:
+    """Commit one main save, verify it through crypto, and recover if necessary."""
+
+    journal_path = backup_directory / "save-write-journal.json"
+    journal: dict[str, object] = {
+        "schema": "nioh3-save-write-journal/v1",
+        "operation_id": operation_id,
+        "state": "preparing",
+        "save_path": str(save_path),
+        "baseline_files": [item.report() for item in expected_fingerprints],
+        "diagnostics": diagnostics,
+    }
+    _write_json_durable(journal_path, journal)
+    try:
+        require_related_save_fingerprints(save_path, expected_fingerprints)
+    except Exception as error:
+        journal.update(state="aborted", error=str(error))
+        try:
+            _write_json_durable(journal_path, journal)
+        except Exception:
+            pass  # Preserve the original precondition failure.
+        raise
+
+    staged_hash = sha256_file(encrypted_path)
+    installed_temp = save_path.with_name(
+        f"{save_path.name}.scroll-generator-{operation_id}.tmp"
+    )
+    if installed_temp.exists():
+        installed_temp.unlink()
+    replace_attempted = False
+    try:
+        _copy_file_durable(encrypted_path, installed_temp)
+        if sha256_file(installed_temp) != staged_hash:
+            raise RuntimeError("Staged save hash does not match the encrypted candidate")
+        journal.update(state="prepared", staged_sha256=staged_hash)
+        _write_json_durable(journal_path, journal)
+        # Staging and journal I/O occur AFTER the earlier quiescence check.
+        # Revalidate here; a previous check is not a compare-and-swap.
+        require_related_save_fingerprints(save_path, expected_fingerprints)
+        replace_attempted = True
+        _replace_file_durable(installed_temp, save_path)
+    except Exception as error:
+        journal.update(state="recovery_required" if replace_attempted else "aborted", error=str(error))
+        try:
+            _write_json_durable(journal_path, journal)
+        except Exception:
+            pass  # Never replace the first failure with a journal failure.
+        if replace_attempted:
+            raise SaveCommitUncertain(
+                f"SAVE_COMMIT_UNCERTAIN: replacement or its durability failed; journal={journal_path}: {error}"
+            ) from error
+        raise
+    finally:
+        if installed_temp.exists():
+            installed_temp.unlink()
+
+    try:
+        installed_hash = sha256_file(save_path)
+    except Exception as error:
+        journal.update(
+            state="recovery_required",
+            error=f"Could not hash the installed main save: {error}",
+        )
+        try:
+            _write_json_durable(journal_path, journal)
+        except Exception:
+            pass  # Preserve the original transaction failure and its status.
+        raise SaveCommitUncertain(
+            "SAVE_COMMIT_UNCERTAIN: The installed main save could not be read. "
+            "The game backup was preserved; inspect the operation before retrying."
+        ) from error
+    if installed_hash != staged_hash:
+        journal.update(
+            state="recovery_required",
+            error="Main save changed before post-commit verification",
+            observed_main_sha256=installed_hash,
+        )
+        try:
+            _write_json_durable(journal_path, journal)
+        except Exception:
+            pass  # Preserve the original transaction failure and its status.
+        raise SaveCommitUncertain(
+            "SAVE_COMMIT_UNCERTAIN: The main save changed immediately after replacement. "
+            "The game backup was preserved; inspect the operation before retrying."
+        )
+
+    verification_path = encrypted_path.with_name("installed-verification.bin")
+    if verification_path.exists():
+        verification_path.unlink()
+    try:
+        crypto.decrypt(save_path, verification_path)
+        installed_decrypted = verification_path.read_bytes()
+        if installed_decrypted != expected_decrypted:
+            raise RuntimeError("Installed save did not decrypt to the prepared bytes")
+        require_decrypted_user_save(installed_decrypted)
+        SaveInventory.load(save_path, installed_decrypted)
+    except Exception as error:
+        rollback_error: Exception | None = None
+        try:
+            require_committed_save_generation(save_path, staged_hash, expected_fingerprints)
+            _restore_main_from_application_backup(
+                save_path,
+                backup_directory / "SAVEDATA.BIN",
+                operation_id=operation_id,
+                expected_backup_sha256=expected_fingerprints[0].sha256,
+                expected_current_sha256=staged_hash,
+                expected_fingerprints=expected_fingerprints,
+            )
+        except Exception as candidate_rollback_error:
+            rollback_error = candidate_rollback_error
+        journal.update(
+            state="recovery_required" if rollback_error else "rolled_back",
+            error=str(error),
+            rollback_error=str(rollback_error) if rollback_error else None,
+        )
+        try:
+            _write_json_durable(journal_path, journal)
+        except Exception:
+            pass  # Preserve the original transaction failure and its status.
+        if rollback_error:
+            raise SaveCommitUncertain(
+                "SAVE_COMMIT_UNCERTAIN: Post-commit verification failed and automatic "
+                f"rollback was unsafe: {rollback_error}"
+            ) from error
+        raise RuntimeError(
+            "SAVE_COMMIT_ROLLED_BACK: Post-commit verification failed; the original "
+            "main save was restored and the game backup was left untouched."
+        ) from error
+    finally:
+        if verification_path.exists():
+            verification_path.unlink()
+
+    try:
+        require_committed_save_generation(save_path, staged_hash, expected_fingerprints)
+    except Exception as error:
+        journal.update(state="recovery_required", error=str(error))
+        try:
+            _write_json_durable(journal_path, journal)
+        except Exception:
+            pass
+        raise
+    journal.update(
+        state="committed",
+        installed_sha256=installed_hash,
+        committed_at_utc=datetime.now(timezone.utc).isoformat(),
+    )
+    try:
+        _write_json_durable(journal_path, journal)
+    except Exception as error:
+        raise SaveCommitUncertain(
+            f"SAVE_COMMIT_UNCERTAIN: bytes passed readback but commit journal could not be persisted: {journal_path}"
+        ) from error
+    return installed_hash, journal_path
+
+
 def utc_timestamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
 
@@ -660,18 +1103,7 @@ def write_backup_manifest(
         "save_slot_index": save_slot_index_from_path(save_path),
         "backup_files": list(backup_files),
     }
-    temporary = manifest_path.with_name(
-        f".{manifest_path.name}.{operation_id}.tmp"
-    )
-    try:
-        temporary.write_text(
-            json.dumps(payload, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        os.replace(temporary, manifest_path)
-    finally:
-        if temporary.exists():
-            temporary.unlink()
+    _write_json_durable(manifest_path, payload)
     return manifest_path
 
 
@@ -1324,6 +1756,11 @@ class SaveInstaller:
         if expected_source_sha256 is not None and sha256_file(self.save_path) != expected_source_sha256:
             raise RuntimeError('Save changed after restore preparation; no write attempted')
 
+        baseline_files = capture_quiescent_save_fingerprints(self.save_path)
+        if expected_source_sha256 is not None and baseline_files[0].sha256 != expected_source_sha256:
+            raise RuntimeError('Save changed after restore preparation; no write attempted')
+        expected_files = {item.role: item for item in baseline_files}
+
         source_directory = _validated_backup_directory(
             self.state_root,
             backup_directory,
@@ -1379,6 +1816,7 @@ class SaveInstaller:
             raise FileNotFoundError("所选备份不含主 SAVEDATA.BIN")
         if not self.save_path.is_file():
             raise FileNotFoundError(self.save_path)
+        source_digests: dict[str, str] = {}
         for source, _target, role in available:
             declared = declared_by_name.get(source.name)
             if declared is None or declared.get("source_role") != role:
@@ -1388,6 +1826,7 @@ class SaveInstaller:
             digest = declared.get("sha256")
             if not isinstance(digest, str) or sha256_file(source) != digest.upper():
                 raise RuntimeError(f"备份文件 {source.name} 哈希与清单不一致")
+            source_digests[role] = digest.upper()
         main_source = next(
             source for source, _target, role in available if role == "main_save"
         )
@@ -1401,36 +1840,10 @@ class SaveInstaller:
                     "备份主存档未通过解密与结构验证，禁止恢复"
                 ) from error
 
-        current_targets = (
-            (self.save_path, "SAVEDATA.BIN", "main_save"),
-            (self.save_path.parent / "BACKUP.BIN", "BACKUP.BIN", "game_backup"),
-            (
-                self.save_path.parent.parent / "SYSTEMSAVEDATA00" / "SAVEDATA.BIN",
-                "SYSTEMSAVEDATA.BIN",
-                "system_save",
-            ),
-        )
-        source_hashes = {
-            path.resolve(): sha256_file(path)
-            for path, _backup_name, _role in current_targets
-            if path.is_file()
-        }
         checkpoint_directory = create_backup_directory(self.state_root)
         operation_id = uuid.uuid4().hex
-        checkpoint_files: list[dict[str, object]] = []
-        for current_path, backup_name, role in current_targets:
-            if not current_path.is_file():
-                continue
-            destination = checkpoint_directory / backup_name
-            shutil.copy2(current_path, destination)
-            checkpoint_files.append(
-                {
-                    "source_role": role,
-                    "backup_file": backup_name,
-                    "size": destination.stat().st_size,
-                    "sha256": sha256_file(destination),
-                }
-            )
+        checkpoint_files = backup_related_save_files(checkpoint_directory, baseline_files)
+        require_related_save_fingerprints(self.save_path, baseline_files, interval_seconds=0)
         write_backup_manifest(
             checkpoint_directory,
             self.save_path,
@@ -1452,29 +1865,45 @@ class SaveInstaller:
         journal_path.write_text(json.dumps(journal, indent=2), encoding="utf-8")
         staged: list[tuple[Path, Path, str, str]] = []
         committed: list[tuple[Path, str]] = []
+
+        def require_expected_generation() -> None:
+            require_related_save_fingerprints(
+                self.save_path, tuple(expected_files.values()), interval_seconds=0,
+            )
+
+        def record_replacement(target: Path, role: str, digest: str | None) -> None:
+            observed = _capture_save_file_fingerprint(role, target)
+            if observed.sha256 != digest or observed.exists != (digest is not None):
+                raise SaveCommitUncertain(
+                    f"SAVE_COMMIT_UNCERTAIN: restored {role} changed before verification"
+                )
+            expected_files[role] = observed
+            require_expected_generation()
+
         try:
             for source, target, role in available:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 temporary = target.with_name(
                     target.name + f".scroll-generator-restore-{operation_id}.tmp"
                 )
-                shutil.copy2(source, temporary)
-                source_digest = sha256_file(source)
-                if sha256_file(temporary) != source_digest:
-                    raise RuntimeError("恢复文件没有通过临时副本哈希验证")
+                source_digest = source_digests[role]
                 staged.append((temporary, target, source_digest, role))
-            for path, expected_hash in source_hashes.items():
-                if not path.is_file() or sha256_file(path) != expected_hash:
-                    raise RuntimeError("准备恢复期间当前存档发生变化，已拒绝覆盖")
+                _copy_file_durable(source, temporary)
+                if sha256_file(temporary) != source_digest:
+                    raise RuntimeError("Restore source differs from the validated backup manifest")
+            require_expected_generation()
             restored_targets: list[Path] = []
             restored_roles: list[str] = []
             for temporary, target, expected_digest, role in staged:
+                require_expected_generation()
+                if sha256_file(temporary) != expected_digest:
+                    raise RuntimeError("Staged restore file changed before replacement")
                 os.replace(temporary, target)
                 committed.append((target, role))
-                if sha256_file(target) != expected_digest:
-                    raise RuntimeError("恢复后的文件哈希与所选备份不一致")
+                record_replacement(target, role, expected_digest)
                 restored_targets.append(target.resolve())
                 restored_roles.append(role)
+            require_expected_generation()
         except Exception as error:
             rollback_errors: list[str] = []
             checkpoint_by_role = {
@@ -1482,30 +1911,63 @@ class SaveInstaller:
                 "game_backup": checkpoint_directory / "BACKUP.BIN",
                 "system_save": checkpoint_directory / "SYSTEMSAVEDATA.BIN",
             }
-            for target, role in reversed(committed):
-                checkpoint = checkpoint_by_role[role]
-                try:
-                    if checkpoint.is_file():
-                        rollback_temp = target.with_name(
-                            target.name + f".scroll-generator-rollback-{operation_id}.tmp"
-                        )
-                        shutil.copy2(checkpoint, rollback_temp)
-                        os.replace(rollback_temp, target)
-                        if sha256_file(target) != sha256_file(checkpoint):
-                            raise RuntimeError("rollback hash mismatch")
-                    elif target.exists():
-                        target.unlink()
-                except Exception as rollback_error:
-                    rollback_errors.append(f"{role}: {rollback_error}")
+            original_files = {item.role: item for item in baseline_files}
+            try:
+                # Check every peer and checkpoint before undoing any of our writes.
+                # A game write or a changed backup is never an automatic rollback target.
+                require_expected_generation()
+                for _target, role in committed:
+                    original = original_files[role]
+                    checkpoint = checkpoint_by_role[role]
+                    if original.exists and (
+                        not checkpoint.is_file() or sha256_file(checkpoint) != original.sha256
+                    ):
+                        raise RuntimeError("Restore checkpoint differs from the original generation")
+                for target, role in reversed(committed):
+                    checkpoint = checkpoint_by_role[role]
+                    original = original_files[role]
+                    rollback_temp = target.with_name(
+                        target.name + f".scroll-generator-rollback-{operation_id}.tmp"
+                    )
+                    try:
+                        if original.exists:
+                            _copy_file_durable(checkpoint, rollback_temp)
+                            if sha256_file(rollback_temp) != original.sha256:
+                                raise RuntimeError("Rollback copy differs from the original checkpoint")
+                            require_expected_generation()
+                            os.replace(rollback_temp, target)
+                        else:
+                            require_expected_generation()
+                            target.unlink()
+                        record_replacement(target, role, original.sha256)
+                    finally:
+                        if rollback_temp.exists():
+                            rollback_temp.unlink()
+            except Exception as rollback_error:
+                rollback_errors.append(str(rollback_error))
             journal["state"] = "recovery_required" if rollback_errors else "rolled_back"
             journal["error"] = str(error)
             journal["rollback_errors"] = rollback_errors
-            journal_path.write_text(json.dumps(journal, indent=2), encoding="utf-8")
+            try:
+                _write_json_durable(journal_path, journal)
+            except OSError:
+                pass  # Preserve the first operation error if diagnostics also fail.
+            failure = error
             if rollback_errors:
-                raise RuntimeError(
-                    "恢复中断且自动回滚不完整；请保留恢复点并执行人工恢复："
+                failure = SaveCommitUncertain(
+                    "SAVE_COMMIT_UNCERTAIN: restore interrupted; automatic rollback was unsafe: "
                     + "; ".join(rollback_errors)
-                ) from error
+                )
+            failure.save_diagnostics = {
+                "save_path": str(self.save_path),
+                "transaction_id": operation_id,
+                "backup_directory": str(checkpoint_directory),
+                "source_backup_directory": str(source_directory),
+                "journal_path": str(journal_path),
+                "action": "restore-backup",
+            }
+            if failure is not error:
+                raise failure from error
             raise
         finally:
             for temporary, _target, _digest, _role in staged:
@@ -1774,40 +2236,15 @@ class SaveInstaller:
         if not self.save_path.is_file():
             raise FileNotFoundError(self.save_path)
 
-        source_hash = sha256_file(self.save_path)
+        baseline_files = capture_quiescent_save_fingerprints(self.save_path)
+        source_hash = baseline_files[0].sha256
+        if source_hash is None:
+            raise FileNotFoundError(self.save_path)
         if expected_source_sha256 is not None and source_hash != expected_source_sha256:
             raise RuntimeError('Save changed after batch preparation; no write attempted')
         operation_id = uuid.uuid4().hex
         backup_directory = create_backup_directory(self.state_root)
-
-        save_directory = self.save_path.parent
-        related = (
-            self.save_path,
-            save_directory / "BACKUP.BIN",
-            save_directory.parent / "SYSTEMSAVEDATA00" / "SAVEDATA.BIN",
-        )
-        copied: list[dict[str, object]] = []
-        for source in related:
-            if not source.is_file():
-                continue
-            destination = backup_directory / source.name
-            if source.name == "SAVEDATA.BIN" and source != self.save_path:
-                destination = backup_directory / "SYSTEMSAVEDATA.BIN"
-            shutil.copy2(source, destination)
-            copied.append(
-                {
-                    "source_role": (
-                        "main_save"
-                        if source == self.save_path
-                        else "system_save"
-                        if source.name == "SAVEDATA.BIN"
-                        else "game_backup"
-                    ),
-                    "backup_file": destination.name,
-                    "size": destination.stat().st_size,
-                    "sha256": sha256_file(destination),
-                }
-            )
+        copied = backup_related_save_files(backup_directory, baseline_files)
 
         write_backup_manifest(
             backup_directory,
@@ -1825,11 +2262,14 @@ class SaveInstaller:
             verification_path = work / "verification.bin"
             self.crypto.decrypt(self.save_path, decrypted_path)
             inventory = SaveInventory.load(self.save_path, decrypted_path.read_bytes())
-            normalized_decrypted, generation_serial_repairs = (
+            _, generation_serial_repairs = (
                 repair_duplicate_scroll_generation_serials(inventory.decrypted)
             )
             if generation_serial_repairs:
-                inventory = SaveInventory.load(self.save_path, normalized_decrypted)
+                raise RuntimeError(
+                    "APPEND_ONLY_REPAIR_REQUIRED: existing scroll generation serials "
+                    "collide; adding a scroll must not silently rewrite owned records"
+                )
             inventory_key_repairs: tuple[dict[str, int | str], ...] = ()
             first_slot = inventory.next_slot_index
             if first_slot is None:
@@ -1884,20 +2324,22 @@ class SaveInstaller:
             self.crypto.decrypt(encrypted_path, verification_path)
             if verification_path.read_bytes() != edited:
                 raise RuntimeError("批量候选存档未通过加密后精确回读验证")
-            if sha256_file(self.save_path) != source_hash:
-                raise RuntimeError("准备期间游戏存档发生变化，已拒绝写入")
-
-            installed_temp = self.save_path.with_name("SAVEDATA.BIN.scroll-generator.tmp")
-            if installed_temp.exists():
-                installed_temp.unlink()
-            try:
-                shutil.copy2(encrypted_path, installed_temp)
-                if sha256_file(installed_temp) != sha256_file(encrypted_path):
-                    raise RuntimeError("批量临时写入文件的哈希不一致")
-                os.replace(installed_temp, self.save_path)
-            finally:
-                if installed_temp.exists():
-                    installed_temp.unlink()
+            installed_hash, journal_path = commit_encrypted_main_save(
+                save_path=self.save_path,
+                crypto=self.crypto,
+                encrypted_path=encrypted_path,
+                expected_decrypted=edited,
+                expected_fingerprints=baseline_files,
+                backup_directory=backup_directory,
+                operation_id=operation_id,
+                diagnostics={
+                    "action": normalized_action,
+                    "candidate_record_hex": [record.hex() for record in records],
+                    "installed_record_hex": [
+                        record.hex() for record in installed_records
+                    ],
+                },
+            )
 
         report = {
             "backup_manifest_schema": BACKUP_MANIFEST_SCHEMA,
@@ -1908,7 +2350,10 @@ class SaveInstaller:
             "steam_account_id": account_id_from_save_path(self.save_path),
             "save_slot_index": save_slot_index_from_path(self.save_path),
             "source_sha256": source_hash,
-            "installed_sha256": sha256_file(self.save_path),
+            "installed_sha256": installed_hash,
+            "save_path": str(self.save_path),
+            "baseline_files": [item.report() for item in baseline_files],
+            "write_journal": journal_path.name,
             "slot_indices": list(slot_indices),
             "record_offsets": record_offsets,
             "record_offsets_hex": [hex(offset) for offset in record_offsets],
@@ -1921,6 +2366,8 @@ class SaveInstaller:
             "records": [
                 describe_record_for_report(record) for record in installed_records
             ],
+            "candidate_record_hex": [record.hex() for record in records],
+            "installed_record_hex": [record.hex() for record in installed_records],
             "inserts": insert_reports,
             "backup_files": copied,
             "metadata": metadata or {},
@@ -1959,7 +2406,10 @@ class SaveInstaller:
     ) -> InstallResult:
         if not self.save_path.is_file():
             raise FileNotFoundError(self.save_path)
-        source_hash = sha256_file(self.save_path)
+        baseline_files = capture_quiescent_save_fingerprints(self.save_path)
+        source_hash = baseline_files[0].sha256
+        if source_hash is None:
+            raise FileNotFoundError(self.save_path)
         operation_id = uuid.uuid4().hex
         manifest_action = str((metadata or {}).get("operation") or "scroll-install")
         if (
@@ -1968,35 +2418,7 @@ class SaveInstaller:
         ):
             raise RuntimeError("候选绑定后游戏存档发生变化，已拒绝写入")
         backup_directory = create_backup_directory(self.state_root)
-
-        save_directory = self.save_path.parent
-        related = (
-            self.save_path,
-            save_directory / "BACKUP.BIN",
-            save_directory.parent / "SYSTEMSAVEDATA00" / "SAVEDATA.BIN",
-        )
-        copied: list[dict[str, object]] = []
-        for source in related:
-            if not source.is_file():
-                continue
-            destination = backup_directory / source.name
-            if source.name == "SAVEDATA.BIN" and source != self.save_path:
-                destination = backup_directory / "SYSTEMSAVEDATA.BIN"
-            shutil.copy2(source, destination)
-            copied.append(
-                {
-                    "source_role": (
-                        "main_save"
-                        if source == self.save_path
-                        else "system_save"
-                        if source.name == "SAVEDATA.BIN"
-                        else "game_backup"
-                    ),
-                    "backup_file": destination.name,
-                    "size": destination.stat().st_size,
-                    "sha256": sha256_file(destination),
-                }
-            )
+        copied = backup_related_save_files(backup_directory, baseline_files)
 
         write_backup_manifest(
             backup_directory,
@@ -2014,11 +2436,14 @@ class SaveInstaller:
             verification_path = work / "verification.bin"
             self.crypto.decrypt(self.save_path, decrypted_path)
             inventory = SaveInventory.load(self.save_path, decrypted_path.read_bytes())
-            normalized_decrypted, generation_serial_repairs = (
+            _, generation_serial_repairs = (
                 repair_duplicate_scroll_generation_serials(inventory.decrypted)
             )
             if generation_serial_repairs:
-                inventory = SaveInventory.load(self.save_path, normalized_decrypted)
+                raise RuntimeError(
+                    "APPEND_ONLY_REPAIR_REQUIRED: existing scroll generation serials "
+                    "collide; adding a scroll must not silently rewrite owned records"
+                )
             inventory_key_repairs: tuple[dict[str, int | str], ...] = ()
             slot_index = inventory.next_slot_index
             if slot_index is None:
@@ -2053,20 +2478,20 @@ class SaveInstaller:
             self.crypto.decrypt(encrypted_path, verification_path)
             if verification_path.read_bytes() != edited:
                 raise RuntimeError("候选存档未通过加密后精确回读验证")
-            if sha256_file(self.save_path) != source_hash:
-                raise RuntimeError("准备期间游戏存档发生变化，已拒绝写入")
-
-            installed_temp = self.save_path.with_name("SAVEDATA.BIN.scroll-generator.tmp")
-            if installed_temp.exists():
-                installed_temp.unlink()
-            try:
-                shutil.copy2(encrypted_path, installed_temp)
-                if sha256_file(installed_temp) != sha256_file(encrypted_path):
-                    raise RuntimeError("临时写入文件的哈希不一致")
-                os.replace(installed_temp, self.save_path)
-            finally:
-                if installed_temp.exists():
-                    installed_temp.unlink()
+            installed_hash, journal_path = commit_encrypted_main_save(
+                save_path=self.save_path,
+                crypto=self.crypto,
+                encrypted_path=encrypted_path,
+                expected_decrypted=edited,
+                expected_fingerprints=baseline_files,
+                backup_directory=backup_directory,
+                operation_id=operation_id,
+                diagnostics={
+                    "action": manifest_action,
+                    "candidate_record_hex": candidate_record.hex(),
+                    "installed_record_hex": record.hex(),
+                },
+            )
 
         report = {
             "backup_manifest_schema": BACKUP_MANIFEST_SCHEMA,
@@ -2077,7 +2502,10 @@ class SaveInstaller:
             "steam_account_id": account_id_from_save_path(self.save_path),
             "save_slot_index": save_slot_index_from_path(self.save_path),
             "source_sha256": source_hash,
-            "installed_sha256": sha256_file(self.save_path),
+            "installed_sha256": installed_hash,
+            "save_path": str(self.save_path),
+            "baseline_files": [item.report() for item in baseline_files],
+            "write_journal": journal_path.name,
             "slot_index": slot_index,
             "record_offset": record_offset,
             "record_offset_hex": hex(record_offset),
@@ -2088,6 +2516,8 @@ class SaveInstaller:
             "generation_serial_hex": hex(generation_serial),
             "generation_serial_repairs": list(generation_serial_repairs),
             "candidate": describe_record_for_report(record),
+            "candidate_record_hex": candidate_record.hex(),
+            "installed_record_hex": record.hex(),
             "insert": insert_report,
             "backup_files": copied,
             "metadata": metadata or {},
@@ -2142,7 +2572,7 @@ class SaveInstaller:
             transfer_count=transfer_count,
             expected_source_sha256=source_hash,
             metadata={
-                "materializer": f"game-closed-ng3-rarity{candidate.rarity}-v2.00.02",
+                "materializer": f"title-screen-ng3-rarity{candidate.rarity}-v2.00.02",
                 "native_full_record_parity_vectors": 10_000,
                 "seed": candidate.seed,
                 "generation_serial": generation_serial,

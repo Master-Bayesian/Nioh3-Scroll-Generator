@@ -276,8 +276,13 @@ async fn desktop_request(
         }
         "support:diagnostics" | "support:export" | "review:copy-log" => {
             let verification = if state.packaged {
-                let m = package::verify(&broker.root)?;
-                json!({"version":m.version,"fileCount":m.files.len(),"signed":false,"manifestSha256":package::hash_file(&broker.root.join("build-manifest.json"))?})
+                match package::verify(&broker.root) {
+                    Ok(m) => {
+                        json!({"ok":true,"version":m.version,"fileCount":m.files.len(),"signed":false,
+                        "manifestSha256":package::hash_file(&broker.root.join("build-manifest.json")).ok()})
+                    }
+                    Err(error) => json!({"ok":false,"error":error}),
+                }
             } else {
                 Value::Null
             };
@@ -286,7 +291,8 @@ async fn desktop_request(
                 .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
                 .map(|v| v["locale"].clone())
                 .unwrap_or(json!("zh-CN"));
-            let report = json!({"schema":"nioh3-v2-diagnostics/v1","version":env!("CARGO_PKG_VERSION"),"packaged":state.packaged,"locale":locale,"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"runtimeVersions":{"tauri":"2.11.5"},"packageVerification":verification,"workers":broker.diagnostics().await});
+            let log_directory = broker.data.join("logs");
+            let report = json!({"schema":"nioh3-v2-diagnostics/v1","version":env!("CARGO_PKG_VERSION"),"packaged":state.packaged,"locale":locale,"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"dataDirectory":broker.data,"logDirectory":log_directory,"runtimeVersions":{"tauri":"2.11.5"},"packageVerification":verification,"workers":broker.diagnostics().await,"firstSessionFailure":storage::first_failure(&broker.data)});
             if channel == "support:export" {
                 if let Some(path) = app
                     .dialog()
@@ -300,18 +306,12 @@ async fn desktop_request(
                     Ok(json!({"saved":false}))
                 }
             } else if channel == "review:copy-log" {
-                let text = std::fs::read_to_string(broker.data.join("logs/desktop.log"))
-                    .unwrap_or_default();
-                let tail: String = text
-                    .chars()
-                    .rev()
-                    .take(128000)
-                    .collect::<String>()
-                    .chars()
-                    .rev()
-                    .collect();
+                let tail = storage::support_log_tail(&broker.data, 128_000);
+                let report = serde_json::to_string_pretty(&report).map_err(|e| e.to_string())?;
                 app.clipboard()
-                    .write_text(format!("{report}\n{tail}"))
+                    .write_text(format!(
+                        "=== Nioh 3 Studio diagnostics ===\n{report}\n\n=== Operation log (latest 128000 bytes, including rotated files) ===\n{tail}"
+                    ))
                     .map_err(|e| e.to_string())?;
                 Ok(Value::Null)
             } else {

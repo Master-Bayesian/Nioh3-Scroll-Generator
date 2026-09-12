@@ -2330,7 +2330,7 @@ class BetaEditorTests(unittest.TestCase):
             self.assertEqual(manifest["save_slot_index"], 0)
             self.assertEqual(manifest["save_schema_profile"], SAVE_SCHEMA_PROFILE)
 
-    def test_install_backs_up_then_uses_the_next_slot_and_redacts_paths(self) -> None:
+    def test_install_backs_up_then_uses_the_next_slot_and_records_diagnostics(self) -> None:
         class FakeCrypto:
             @staticmethod
             def decrypt(source: Path, output: Path) -> None:
@@ -2393,9 +2393,9 @@ class BetaEditorTests(unittest.TestCase):
             self.assertTrue((result.backup_directory / "SYSTEMSAVEDATA.BIN").is_file())
             report = json.loads(result.report_path.read_text(encoding="utf-8"))
             self.assertEqual(report["steam_account_id"], account)
-            self.assertNotIn("save_path", report)
-            rendered = json.dumps(report)
-            self.assertNotIn(str(root), rendered)
+            self.assertEqual(str(save_path.resolve()), report["save_path"])
+            self.assertEqual(candidate.hex(), report["candidate_record_hex"])
+            self.assertEqual(3, len(report["baseline_files"]))
 
     def test_install_replaces_colliding_template_inventory_key(self) -> None:
         class FakeCrypto:
@@ -2680,7 +2680,7 @@ class BetaEditorTests(unittest.TestCase):
             self.assertEqual(report["generation_serial"], 0x00244073)
             self.assertEqual(report["generation_serial_repairs"], [])
 
-    def test_install_repairs_existing_equipment_generation_serial_collision(self) -> None:
+    def test_install_refuses_silent_existing_generation_serial_repair(self) -> None:
         class FakeCrypto:
             @staticmethod
             def decrypt(source: Path, output: Path) -> None:
@@ -2725,33 +2725,17 @@ class BetaEditorTests(unittest.TestCase):
                 crypto=FakeCrypto(),
                 state_root=root / "state",
             )
-            result = installer.install(
-                make_record(seed=3, account_id=account),
-                transfer_count=0,
-            )
-
-            installed = save_path.read_bytes()[3:]
-            inserted_offset = SCROLL_GROUP_OFFSET + 2 * SCROLL_RECORD_SIZE
+            baseline = save_path.read_bytes()
+            with self.assertRaisesRegex(RuntimeError, "APPEND_ONLY_REPAIR_REQUIRED"):
+                installer.install(make_record(seed=3, account_id=account), transfer_count=0)
+            self.assertEqual(save_path.read_bytes(), baseline)
             self.assertEqual(
-                struct.unpack_from("<I", installed, affected_offset + 0x28)[0],
-                0x00244073,
+                struct.unpack_from("<I", save_path.read_bytes()[3:], affected_offset + 0x28)[0],
+                0x00244072,
             )
-            self.assertEqual(
-                struct.unpack_from("<I", installed, inserted_offset + 0x28)[0],
-                0x00244074,
-            )
-            report = json.loads(result.report_path.read_text(encoding="utf-8"))
-            self.assertEqual(
-                report["generation_serial_repairs"],
-                [
-                    {
-                        "slot_index": 1,
-                        "old_generation_serial": 0x00244072,
-                        "new_generation_serial": 0x00244073,
-                        "reason": "non_scroll_item_generation_serial_collision",
-                    }
-                ],
-            )
+            backups = tuple((root / "state" / "backups").glob("*/SAVEDATA.BIN"))
+            self.assertEqual(len(backups), 1)
+            self.assertEqual(backups[0].read_bytes(), baseline)
 
     def test_install_effect_sequence_candidate_materializes_inside_hash_gate(self) -> None:
         class FakeCrypto:
@@ -2810,7 +2794,7 @@ class BetaEditorTests(unittest.TestCase):
             report = json.loads(result.report_path.read_text(encoding="utf-8"))
             self.assertEqual(
                 report["metadata"]["materializer"],
-                "game-closed-ng3-rarity5-v2.00.02",
+                "title-screen-ng3-rarity5-v2.00.02",
             )
             self.assertEqual(report["metadata"]["native_full_record_parity_vectors"], 10_000)
 

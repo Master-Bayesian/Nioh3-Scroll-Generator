@@ -10,9 +10,22 @@ import {
 import { toRecordTransferCount, type Query, type Sample } from "./model";
 import type {
   LiveBatch,
+  OperationReceipt,
   ProtectedJob,
   SaveReference,
 } from "../../packages/contracts/protected-responses";
+
+function saveInstallMessage(receipt: OperationReceipt): string {
+  if (receipt.commit_status.startsWith("committed")) return "已添加到存档。";
+  if (receipt.warning?.includes("SAVE_SYNC_ACTIVE"))
+    return "检测到游戏正在同步存档，本次没有写入。请在标题菜单停留片刻后重试。";
+  if (receipt.warning?.includes("SAVE_COMMIT_ROLLED_BACK"))
+    return "写入后校验失败，主存档已自动恢复；游戏备份没有改动。";
+  if (receipt.warning?.includes("SAVE_COMMIT_UNCERTAIN"))
+    return "写入结果无法确认。请先核对存档和操作记录，不要重复添加。";
+  return receipt.warning || "本次没有写入，请回到标题界面后重试。";
+}
+
 export function SavePicker() {
   const state = useSyncExternalStore(
     saveSession!.subscribe,
@@ -124,7 +137,7 @@ export function DesktopCartActions({
   );
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
-    [gameClosedConfirmed, setGameClosedConfirmed] = useState(false);
+    [titleConfirmed, setTitleConfirmed] = useState(false);
   const [plan, setPlan] = useState<{
     signature: string;
     savePlan?: string;
@@ -205,6 +218,7 @@ export function DesktopCartActions({
           }),
         );
       }
+      setTitleConfirmed(false);
     } catch (error) {
       setMessage(String(error));
     } finally {
@@ -216,15 +230,10 @@ export function DesktopCartActions({
     setBusy(true);
     try {
       if (plan.savePlan) {
-        if (!gameClosedConfirmed) throw Error("请确认游戏已完全关闭。");
+        if (!titleConfirmed) throw Error("请确认游戏已回到标题界面。");
         const receipt = await saveSession!.commit(plan.savePlan);
         setPlan(null);
-        setMessage(
-          receipt.commit_status === "committed" ||
-            receipt.commit_status === "committed_with_warning"
-            ? "已添加到存档。"
-            : "写入尚未确认，请核对操作结果。",
-        );
+        setMessage(saveInstallMessage(receipt));
         if (receipt.commit_status.startsWith("committed")) {
           onAdded?.(samples.map(collectionKey));
           await saveSession!.refresh();
@@ -363,28 +372,12 @@ export function DesktopCartActions({
         {query.transfers}
       </p>
       {mode === "save" && (
-        <>
-          <p className="temporary-warning">
-            为防止游戏退出时用内存中的旧状态覆盖存档，核对和写入前必须完全关闭游戏。
-          </p>
-          <label>
-            <input
-              type="checkbox"
-              checked={gameClosedConfirmed}
-              onChange={(e) => setGameClosedConfirmed(e.target.checked)}
-            />
-            游戏已完全关闭
-          </label>
-        </>
+        <p className="temporary-warning">
+          请先回到标题界面。检测到游戏正在同步存档时，程序会无损中止并提示重试。
+        </p>
       )}
       <button
-        disabled={
-          busy ||
-          !samples.length ||
-          !state.inventory ||
-          uncertain ||
-          (mode === "save" && !gameClosedConfirmed)
-        }
+        disabled={busy || !samples.length || !state.inventory || uncertain}
         onClick={() => void prepare()}
       >
         核对添加
@@ -401,12 +394,22 @@ export function DesktopCartActions({
               ? `已准备 ${plan.count} 张绘卷的添加计划。`
               : "选择已改变，请重新核对添加。"}
           </p>
+          {plan.savePlan && (
+            <label>
+              <input
+                type="checkbox"
+                checked={titleConfirmed}
+                onChange={(e) => setTitleConfirmed(e.target.checked)}
+              />
+              游戏已回到标题界面
+            </label>
+          )}
           <button
             disabled={
               busy ||
               uncertain ||
               plan.signature !== signature ||
-              (!!plan.savePlan && !gameClosedConfirmed) ||
+              (!!plan.savePlan && !titleConfirmed) ||
               (!!plan.batch && plan.batch.state !== "prepared")
             }
             onClick={() => void execute()}

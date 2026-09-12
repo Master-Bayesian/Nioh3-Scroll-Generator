@@ -265,7 +265,7 @@ function ConnectedBackups() {
               checked={confirmed}
               onChange={(e) => setConfirmed(e.target.checked)}
             />
-            游戏已完全关闭
+            游戏已回到标题界面或已关闭
           </label>
           <button
             disabled={!confirmed || locked}

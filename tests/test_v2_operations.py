@@ -89,6 +89,7 @@ class SaveOperationsTests(unittest.TestCase):
             import_candidate(wire, digest)
 
     def test_external_change_rejects_commit_without_overwrite(self):
+        self.application.game_process_ids = lambda: (1234,)
         plan = self.plan()
         changed = self.path.read_bytes() + b'changed'
         self.path.write_bytes(changed)
@@ -96,21 +97,66 @@ class SaveOperationsTests(unittest.TestCase):
             self.application.commit(plan['plan_id'])
         self.assertEqual(changed, self.path.read_bytes())
 
-    def test_running_game_rejects_commit_before_ledger_backup_or_write(self):
+    def test_running_game_allows_title_edit_with_backup_and_no_replay(self):
         original = self.path.read_bytes()
         plan = self.plan()
         self.application.game_process_ids = lambda: (1234,)
-        with self.assertRaisesRegex(RuntimeError, 'GAME_RUNNING'):
-            self.application.commit(plan['plan_id'])
+        result = self.application.commit(plan['plan_id'])
+        self.assertEqual('committed', result['commit_status'])
+        self.assertEqual(202, self.application.inventory(self.save_id)['entries'][0]['header']['seed'])
+        backups = self.application.backups(self.save_id)['backups']
+        self.assertEqual(1, len(backups))
+        self.assertEqual(original, (self.state / 'backups' / backups[0]['backup_id'] / 'SAVEDATA.BIN').read_bytes())
+        fresh = SaveApplication(self.state, crypto=FixtureCrypto(), game_process_ids=lambda: (1234,))
+        self.assertEqual(result, fresh.commit(plan['plan_id']))
+        self.assertEqual(1, len(self.application.backups(self.save_id)['backups']))
+
+    def test_title_edit_preview_is_read_only_while_game_is_running(self):
+        original = self.path.read_bytes()
+        self.application.game_process_ids = lambda: (1234,)
+        plan = self.plan()
+        self.assertEqual('edit', plan['kind'])
         self.assertEqual(original, self.path.read_bytes())
         self.assertFalse(self.application._ledger_path(plan['plan_id']).exists())
         self.assertEqual([], self.application.backups(self.save_id)['backups'])
 
-    def test_running_game_rejects_save_plan_before_user_review(self):
+    def test_title_delete_preserves_backup_while_game_is_running(self):
+        original = self.path.read_bytes()
         self.application.game_process_ids = lambda: (1234,)
-        with self.assertRaisesRegex(RuntimeError, 'GAME_RUNNING'):
-            self.plan()
-        self.assertEqual({}, self.application.plans)
+        plan = self.application.prepare_delete(self.save_id, self.snapshot['snapshot_id'], [0])
+        self.assertEqual(original, self.path.read_bytes())
+        self.assertEqual('committed', self.application.commit(plan['plan_id'])['commit_status'])
+        self.assertEqual([], self.application.inventory(self.save_id)['entries'])
+        backups = self.application.backups(self.save_id)['backups']
+        self.assertEqual(1, len(backups))
+        self.assertEqual(original, (self.state / 'backups' / backups[0]['backup_id'] / 'SAVEDATA.BIN').read_bytes())
+
+    def test_running_game_allows_title_screen_install_plan_and_commit(self):
+        self.application.game_process_ids = lambda: (1234,)
+        candidate = ScrollCandidate.from_effect_sequence(
+            generate_ng3_certified_effect_sequence(
+                36526331,
+                rarity=4,
+                level=180,
+            )
+        )
+        wire = export_candidate(
+            candidate,
+            self.application.service.context.context_digest,
+            180,
+        )
+        plan = self.application.prepare_install(
+            self.save_id,
+            self.snapshot['snapshot_id'],
+            wire,
+            183,
+            0xFFFFFFFF,
+        )
+        self.assertEqual('install', plan['kind'])
+        self.assertEqual(
+            'committed',
+            self.application.commit(plan['plan_id'])['commit_status'],
+        )
 
     def test_delete_then_restore(self):
         original = self.path.read_bytes()
@@ -122,6 +168,27 @@ class SaveOperationsTests(unittest.TestCase):
         restore = self.application.prepare_restore(self.save_id, snapshot['snapshot_id'], backup['backup_id'])
         self.assertEqual('committed', self.application.commit(restore['plan_id'])['commit_status'])
         self.assertEqual(original, self.path.read_bytes())
+
+    def test_running_game_allows_restore_with_checkpoint_and_no_replay(self):
+        original = self.path.read_bytes()
+        self.assertEqual('committed', self.application.commit(self.plan()['plan_id'])['commit_status'])
+        edited = self.path.read_bytes()
+        snapshot = self.application.inventory(self.save_id)
+        backup = self.application.backups(self.save_id)['backups'][0]
+        self.application.game_process_ids = lambda: (1234,)
+
+        plan = self.application.prepare_restore(self.save_id, snapshot['snapshot_id'], backup['backup_id'])
+        self.assertEqual(edited, self.path.read_bytes())
+        result = self.application.commit(plan['plan_id'])
+        self.assertEqual('committed', result['commit_status'])
+        self.assertEqual(original, self.path.read_bytes())
+        checkpoint = Path(result['details']['checkpoint_directory'])
+        self.assertEqual(edited, (checkpoint / 'SAVEDATA.BIN').read_bytes())
+
+        backup_count = len(self.application.backups(self.save_id)['backups'])
+        fresh = SaveApplication(self.state, crypto=FixtureCrypto(), game_process_ids=lambda: (1234,))
+        self.assertEqual(result, fresh.commit(plan['plan_id']))
+        self.assertEqual(backup_count, len(self.application.backups(self.save_id)['backups']))
 
     def test_interrupted_receipt_never_replays(self):
         plan = self.plan()

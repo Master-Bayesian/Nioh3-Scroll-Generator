@@ -13,12 +13,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from nioh3_scroll_editor.live_add_native_transport import NativeLiveAddTransport
 from nioh3_scroll_editor.live_add_profile import PC_V201
 from nioh3_scroll_editor.dispatch_evidence import verify_dispatch
+from nioh3_scroll_editor.process_instance import process_creation_time
 
 root = Path(sys.argv[1])
 process = subprocess.Popen([str(root / 'native_dispatch_fixture.exe')], stdin=subprocess.PIPE,
                            stdout=subprocess.PIPE, text=True)
 try:
     fixture = json.loads(process.stdout.readline())
+    creation = process_creation_time(fixture['pid'])
+    assert creation is not None, 'Synthetic target must have a live process identity'
     profile = replace(PC_V201, dispatch_rva=fixture['entry'], dispatch_return_rva=fixture['caller_return'],
                       manager_pointer_rva=fixture['manager_pointer'], container_offset=0)
     with patch('nioh3_scroll_editor.live_add_native_transport.LAYOUT', profile), \
@@ -27,7 +30,8 @@ try:
          patch('nioh3_scroll_editor.live_add_native_transport.find_module_base', return_value=0):
         transport = NativeLiveAddTransport(root / ('receipts-' + str(uuid4())))
         operation = str(uuid4())
-        transport.call('noop', operation_id=operation, pid=fixture['pid'], profile_id=profile.profile_id)
+        transport.call('noop', operation_id=operation, pid=fixture['pid'], profile_id=profile.profile_id,
+                       process_creation_time=creation)
         deadline = time.monotonic() + 20
         while True:
             result = transport.call('status', operation_id=operation)
@@ -43,13 +47,15 @@ try:
         with patch('nioh3_scroll_editor.live_add_native_transport.LAYOUT',
                    replace(profile, dispatch_return_rva=profile.dispatch_return_rva + 1)):
             rejected_id = str(uuid4())
-            transport.call('noop', operation_id=rejected_id, pid=fixture['pid'], profile_id=profile.profile_id)
+            transport.call('noop', operation_id=rejected_id, pid=fixture['pid'], profile_id=profile.profile_id,
+                           process_creation_time=creation)
             transport.thread.join(15)
             rejected = transport.call('status', operation_id=rejected_id)
             assert rejected['released'] and rejected['redirect_count'] == 0, rejected
             assert rejected['phase'] == 'rejected' and rejected['breakpoint_count'] == 0, rejected
         repeated_id = str(uuid4())
-        transport.call('noop', operation_id=repeated_id, pid=fixture['pid'], profile_id=profile.profile_id)
+        transport.call('noop', operation_id=repeated_id, pid=fixture['pid'], profile_id=profile.profile_id,
+                       process_creation_time=creation)
         transport.thread.join(15)
         repeated = transport.call('status', operation_id=repeated_id)
         assert repeated['phase'] == 'completed' and repeated['released'], repeated

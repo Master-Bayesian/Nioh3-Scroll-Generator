@@ -115,7 +115,7 @@ function fromSample(s: Sample): Draft {
 export function Editor({ cart }: { cart: Sample[] }) {
   const [saveState, setSaveState] = useState(() => saveSession?.getSnapshot());
   const [reviewedPlan, setReviewedPlan] = useState<string | null>(null),
-    [gameClosedConfirmed, setGameClosedConfirmed] = useState(false),
+    [saveStateConfirmed, setSaveStateConfirmed] = useState(false),
     [backendBusy, setBackendBusy] = useState(false);
   const [backups, setBackups] = useState<
     { backup_id: string; timestamp: string; action: string }[]
@@ -151,7 +151,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
   useEffect(() => {
     setReview(false);
     setReviewedPlan(null);
-    setGameClosedConfirmed(false);
+    setSaveStateConfirmed(false);
   }, [draft]);
   const [undoStack, setUndoStack] = useState<History[]>([]),
     [redoStack, setRedoStack] = useState<History[]>([]);
@@ -303,7 +303,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
         if (identity !== draftIdentity.current)
           throw Error("内容已改变，请重新核对修改。");
         setReviewedPlan(plan.plan_id);
-        setGameClosedConfirmed(false);
+        setSaveStateConfirmed(false);
       }
       setReview(true);
       setMessage("");
@@ -484,7 +484,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
     }
   }
   async function applyReal() {
-    if (!reviewedPlan || !gameClosedConfirmed) return;
+    if (!reviewedPlan || !saveStateConfirmed) return;
     setBackendBusy(true);
     try {
       const receipt = await saveSession!.commit(reviewedPlan);
@@ -515,7 +515,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
       );
       setReviewedPlan(plan.plan_id);
       setReview(true);
-      setGameClosedConfirmed(false);
+      setSaveStateConfirmed(false);
       setMessage(`将删除 ${deleteSlots.length || 1} 张绘卷，请核对后确认。`);
     } catch (error) {
       setMessage(String(error));
@@ -543,7 +543,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
       const plan = await saveSession!.prepareRestore(backupId);
       setReviewedPlan(plan.plan_id);
       setReview(true);
-      setGameClosedConfirmed(false);
+      setSaveStateConfirmed(false);
       setMessage("将恢复选中的备份，请核对后确认。");
     } catch (error) {
       setMessage(String(error));
@@ -1173,13 +1173,13 @@ export function Editor({ cart }: { cart: Sample[] }) {
                 <label>
                   <input
                     type="checkbox"
-                    checked={gameClosedConfirmed}
-                    onChange={(e) => setGameClosedConfirmed(e.target.checked)}
+                    checked={saveStateConfirmed}
+                    onChange={(e) => setSaveStateConfirmed(e.target.checked)}
                   />
-                  游戏已完全关闭
+                  游戏已回到标题界面或已关闭
                 </label>
                 <button
-                  disabled={!gameClosedConfirmed || !reviewedPlan || backendBusy}
+                  disabled={!saveStateConfirmed || !reviewedPlan || backendBusy}
                   onClick={() => void applyReal()}
                 >
                   确认写入存档

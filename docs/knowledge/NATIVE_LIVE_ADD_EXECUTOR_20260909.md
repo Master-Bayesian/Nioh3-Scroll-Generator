@@ -2,8 +2,11 @@
 
 ## Final acceptance checkpoint
 
-All nine NG1-NG3 x requested R3/R4/R5 cells were added through the independent
-Windows executor. The user confirmed normal save/reload and all added scrolls.
+All nine NG1-NG3 scroll-payload x requested R3/R4/R5 cells were added through
+the independent Windows executor. Here NG1-NG3 describes each generated
+scroll's category, not the progression currently selected in the running game.
+The runtime progression was not varied or recorded as a test dimension. The
+user confirmed normal save/reload and all added scrolls.
 Read-only save-copy verification matched all 39 records to their pre-reload
 inventory bytes. Loaded inventory kept all 39 serials, generated fields and
 native index entries. Only the new-item marker cleared, and the three requested
@@ -93,7 +96,7 @@ addition never substitutes an offline save write for normal in-game saving.
    the complete React-to-protected-host route, including unavailable/conflicting
    debugger handling. Keep the optional CE adapter as a fallback/research tool.
 
-## Full NG1-NG3 / R3-R5 installation matrix
+## Full NG1-NG3 scroll-payload / R3-R5 installation matrix
 
 The user confirmed the first R3 appeared, normally saved and closed the shrine
 menus, then requested all remaining rarity/early-playthrough combinations.
@@ -113,7 +116,10 @@ Each operation has its own flushed, decrypted and verified automatic backup.
 | 3 | 4 | 10031034 | 2419502 |
 | 3 | 5 | 10031035 | 2419503 |
 
-Together with seed 10030566, all nine cells have insertion evidence. Normal
+Together with seed 10030566, all nine payload cells have insertion evidence. It
+does not establish that live insertion works while the running character is
+actually playing NG1 or NG2; that separate runtime-context matrix is pending.
+Normal
 save/reload of the full matrix is pending. This is explicit requested-rarity
 installation, not evidence of natural early-playthrough R4/R5 drops or reveal.
 

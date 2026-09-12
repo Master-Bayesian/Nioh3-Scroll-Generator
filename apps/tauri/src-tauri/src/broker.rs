@@ -57,8 +57,13 @@ impl Broker {
         }
         let mut hosts = self.workers.lock().await;
         if let Some(worker) = hosts.get(role) {
-            return Ok(worker.clone());
+            if !worker.can_replace().await {
+                return Ok(worker.clone());
+            }
         }
+        // Spawn a new host only after positive shutdown/exit proof. No operation
+        // is replayed: callers must recover their durable business receipt.
+        hosts.remove(role);
         let executable = if self.packaged {
             self.root.join(if role == "offline_search" {
                 "worker/nioh3-search-worker.exe"
@@ -291,7 +296,8 @@ impl Broker {
                 let host = self.workers.lock().await.get(role).cloned();
                 match host {
                     None => Ok(json!({"job":null,"busy":false})),
-                    Some(host) => {
+                    Some(_) => {
+                        let host = self.host(role).await?;
                         let value = host.call("job.current", json!({})).await?;
                         public_current(&value["job"])
                     }

@@ -63,3 +63,52 @@ test("operation traces retain diagnostic fields including raw candidate data", a
   assert.match(messages[1], /\[operation-job\]/);
   assert.match(messages[2], /accepted/);
 });
+
+test("nested business failures trigger capture even in a completed worker job", async () => {
+  for (const result of [
+    { commit_status: "unknown", operation_id: "save-1", warning: "SAVE_COMMIT_UNCERTAIN" },
+    { live_add: { state: "rejected_before_dispatch", operation_id: "live-1" } },
+    { live_batch: { state: "partial", batch_id: "batch-1" } },
+  ]) {
+    const captured: string[] = [];
+    const job = { job_id: "j", state: "completed", result };
+    const invoke = createDiagnosticInvoker(async channel => {
+      captured.push(channel);
+      return channel === "operations:snapshot" ? job : null;
+    });
+    assert.equal(await invoke("operations:snapshot"), job);
+    assert.equal(captured.filter(c => c === "review:copy-log").length, 1);
+  }
+});
+
+test("hung clipboard and log sinks cannot suppress the original error", async () => {
+  const failure = new Error("ORIGINAL_WRITE_FAILURE");
+  const invoke = createDiagnosticInvoker(async channel => {
+    if (channel === "operations:execute") throw failure;
+    return new Promise(() => {});
+  }, 5);
+  await assert.rejects(() => invoke("operations:execute"), error => error === failure);
+});
+
+test("diagnostic serialization cannot convert successful execution into failure", async () => {
+  const result: any = { job_id: "j", state: "completed", result: { counter: 7n } };
+  result.result.circular = result;
+  const seen: string[] = [];
+  const invoke = createDiagnosticInvoker(async channel => {
+    seen.push(channel);
+    return channel === "operations:execute" ? result : null;
+  });
+  assert.equal(await invoke("operations:execute", { counter: 8n }), result);
+  assert.equal(seen.filter(c => c === "operations:execute").length, 1);
+  assert.ok(!seen.includes("review:copy-log"));
+});
+
+test("multibyte diagnostic messages respect the broker UTF-8 byte bound", async () => {
+  const logs: string[] = [];
+  const invoke = createDiagnosticInvoker(async (channel, value) => {
+    if (channel === "review:log") logs.push(String(value));
+    return null;
+  });
+  await invoke("operations:execute", { text: "错".repeat(20_000) });
+  assert.ok(logs.every(value => Buffer.byteLength(value) <= 16_384));
+});

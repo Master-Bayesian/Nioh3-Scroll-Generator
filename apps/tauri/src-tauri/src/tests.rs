@@ -259,3 +259,100 @@ fn support_log_keeps_complete_chunked_diagnostics_with_iso_timestamps() {
     assert_eq!(text.matches("ab").count(), 9000);
     std::fs::remove_dir_all(data).unwrap();
 }
+
+#[test]
+fn support_log_tail_crosses_rotated_file_boundaries_in_order() {
+    let data = std::env::temp_dir().join(format!("nioh3-log-tail-test-{}", uuid::Uuid::new_v4()));
+    let logs = data.join("logs");
+    std::fs::create_dir_all(&logs).unwrap();
+    std::fs::write(logs.join("desktop.2.log"), "oldest\n").unwrap();
+    std::fs::write(logs.join("desktop.1.log"), "previous\n").unwrap();
+    std::fs::write(logs.join("desktop.log"), "current\n").unwrap();
+    assert_eq!(
+        crate::storage::support_log_tail(&data, 1024),
+        "oldest\nprevious\ncurrent\n"
+    );
+    assert_eq!(
+        crate::storage::support_log_tail(&data, 17),
+        "previous\ncurrent\n"
+    );
+    std::fs::write(logs.join("desktop.log"), "错误详情\n").unwrap();
+    assert_eq!(crate::storage::support_log_tail(&data, 7), "详情\n");
+    std::fs::remove_dir_all(data).unwrap();
+}
+
+#[test]
+fn support_tail_skips_every_partial_utf8_prefix() {
+    let data = std::env::temp_dir().join(format!("nioh3-utf8-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(data.join("logs")).unwrap();
+    std::fs::write(data.join("logs/desktop.log"), "错😀OK\n").unwrap();
+    for count in 4..=6 {
+        assert_eq!(crate::storage::support_log_tail(&data, count), "OK\n");
+    }
+    std::fs::remove_dir_all(data).unwrap();
+}
+
+#[test]
+fn single_oversized_payload_cannot_exceed_the_segment_limit() {
+    let data = std::env::temp_dir().join(format!("nioh3-cap-{}", uuid::Uuid::new_v4()));
+    crate::storage::log(&data, "worker-request", &"字".repeat(8_000_000));
+    let files: Vec<_> = std::fs::read_dir(data.join("logs"))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert!(files.len() <= 5);
+    assert!(files
+        .iter()
+        .all(|file| file.metadata().unwrap().len() <= 4 * 1024 * 1024));
+    std::fs::remove_dir_all(data).unwrap();
+}
+
+#[test]
+fn first_actionable_error_is_pinned_across_rotation_and_cleanup_errors() {
+    let data = std::env::temp_dir().join(format!("nioh3-first-{}", uuid::Uuid::new_v4()));
+    crate::storage::log(&data, "worker-error", "operation=first native=idle-gate");
+    crate::storage::log(&data, "worker-request", &"x".repeat(5_000_000));
+    crate::storage::log(&data, "worker-error", "cleanup-error");
+    let pinned = crate::storage::first_failure(&data).unwrap();
+    assert!(pinned.contains("operation=first native=idle-gate"));
+    assert!(!pinned.contains("cleanup-error"));
+    std::fs::remove_dir_all(data).unwrap();
+}
+
+#[test]
+fn worker_stderr_preserves_utf8_across_arbitrary_pipe_splits() {
+    let value = "失败😀 C:/存档/SAVEDATA.BIN";
+    for split in 0..=value.len() {
+        let mut decoder = crate::storage::Utf8LogDecoder::default();
+        let mut decoded = decoder.push(&value.as_bytes()[..split]);
+        decoded.push_str(&decoder.push(&value.as_bytes()[split..]));
+        decoded.push_str(&decoder.finish());
+        assert_eq!(decoded, value);
+    }
+    let mut decoder = crate::storage::Utf8LogDecoder::default();
+    assert_eq!(decoder.push(&[0xff, 0xe4]), "\u{FFFD}");
+    assert_eq!(decoder.finish(), "\u{FFFD}");
+}
+
+#[tokio::test]
+async fn dead_protected_worker_is_replaced_only_after_its_process_exits() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let data = std::env::temp_dir().join(format!("nioh3-recover-{}", uuid::Uuid::new_v4()));
+    let broker = Broker::new(root, data.clone(), false);
+    let old = broker.host("save").await.unwrap();
+    old.handshake().await.unwrap();
+    assert!(!old.can_replace().await);
+    old.disconnect_for_test().await; // EOF, not process kill; no game dispatch.
+    for _ in 0..100 {
+        if old.can_replace().await {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    assert!(old.can_replace().await);
+    let replacement = broker.host("save").await.unwrap();
+    assert!(!std::sync::Arc::ptr_eq(&old, &replacement));
+    replacement.handshake().await.unwrap();
+    assert!(broker.shutdown().await);
+    let _ = std::fs::remove_dir_all(data);
+}
