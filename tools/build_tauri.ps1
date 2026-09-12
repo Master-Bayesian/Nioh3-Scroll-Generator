@@ -9,6 +9,7 @@ $env:NIOH3_PYTHON=$Python
 $env:PYTHONUTF8='1'
 Checked 'npm.cmd' @('run','typecheck')
 Checked 'node.exe' @('apps/tauri/build.mjs')
+Checked 'cargo.exe' @('build','--release','--locked','--manifest-path','apps/launcher/Cargo.toml')
 Checked 'cargo.exe' @('build','--release','--locked','--manifest-path','apps/tauri/src-tauri/Cargo.toml')
 $build=Join-Path $PWD ('.codex_tmp/tauri-build-'+[guid]::NewGuid().ToString('N'))
 $workers=Join-Path $build 'workers'

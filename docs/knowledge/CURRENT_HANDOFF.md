@@ -2,10 +2,14 @@
 
 ## Status and entry points
 
-**Current delivery boundary:** the v0.7.3 local review candidate is complete at
-`4b4214d`, with installer, portable/source archives and all final acceptance
-recorded in [the local delivery](V073_LOCAL_REVIEW_20260912.md). The owner
-requests review before any push or publication. Do not push commits, tags,
+**Current delivery boundary:** the owner rejected the v0.7.3 NSIS installer:
+one EXE must open the application directly, with no installation flow. A true
+one-file replacement is being prepared under
+[the one-file delivery contract](TAURI_ONEFILE_DELIVERY_20260912.md).
+The earlier `4b4214d` installer and its
+[acceptance evidence](V073_LOCAL_REVIEW_20260912.md) remain historical and do
+not satisfy this delivery requirement. The owner requests review before any
+push or publication. Do not push commits, tags,
 release assets or an update feed until
 the owner reviews and authorizes release. Permanent save edits and deletions,
 like append and restore, must remain usable at the title screen without closing
@@ -30,10 +34,10 @@ The older Electron and v0.7.1 notes below are historical.
 **Unpublished follow-up:** the 2026-09-11 Pro review patch is integrated in the
 current dirty worktree and has passed the full Windows verification recorded in
 [the integration report](V072_PRO_REVIEW_INTEGRATION_20260911.md). Publication
-policy changed by the project owner's 2026-09-12 decision: the unreproduced
-title-save corruption report and possible delayed overwrite are accepted known
-risks with automatic backup/restore as recovery. This concern alone no longer
-blocks release. The title-screen path remains available without a new native
+policy changed by the project owner's latest 2026-09-12 decision: close the
+unreproduced title-save and intermittent live-add reports pending a fresh
+affected save and log. They are not current release blockers. This disposition
+does not establish a game or user-side cause. The title-screen path remains available without a new native
 save/cache protocol. Preserve the integrated transaction and recovery guards;
 do not describe this decision as a demonstrated corruption fix or as overall
 release acceptance. Read the [current risk decision](TITLE_SAVE_APPROACH_RESET_20260912.md).

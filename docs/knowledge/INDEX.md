@@ -39,6 +39,7 @@ global semantic key.
 ## Version index
 
 - [Current development handoff](CURRENT_HANDOFF.md)
+- [Install-free one-file delivery](TAURI_ONEFILE_DELIVERY_20260912.md)
 - [Research handoff workflow](RESEARCH_HANDOFF_WORKFLOW.md)
 - [PC v2.01 Crucible possessed-enemy research freeze](CRUCIBLE_POSSESSED_RESEARCH_FREEZE_20260911.md)
 - [v0.7.2 follow-up fixes prepared for review](V072_FOLLOWUP_FIXES_20260911.md)

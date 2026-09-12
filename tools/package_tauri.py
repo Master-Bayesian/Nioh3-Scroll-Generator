@@ -19,6 +19,8 @@ def main():
     output.mkdir(parents=True)
     version = json.loads((root / 'package.json').read_text(encoding='utf-8'))['version']
     shutil.copy2(root / 'apps/tauri/src-tauri/target/release/nioh3-studio.exe', output / 'Nioh3Studio.exe')
+    (output / 'launcher').mkdir()
+    shutil.copy2(root / 'apps/launcher/target/release/Nioh3Launcher.exe', output / 'launcher/Nioh3Launcher.exe')
     (output / 'worker').mkdir()
     for name in ('nioh3-search-worker.exe', 'nioh3-protected-worker.exe'):
         shutil.copy2(args.workers / name, output / 'worker' / name)
@@ -47,11 +49,16 @@ def main():
             raise ValueError('JavaScript license missing: ' + name)
         javascript.append({'name': name, 'version': info['version'], 'license': info.get('license'), 'notices': notices})
         pending.extend(info.get('dependencies', {}))
-    metadata = json.loads(subprocess.check_output(['cargo', 'metadata', '--manifest-path', str(root / 'apps/tauri/src-tauri/Cargo.toml'), '--format-version', '1', '--locked', '--filter-platform', 'x86_64-pc-windows-msvc'], text=True, encoding='utf-8'))
     dependencies = []
-    used = {node['id'] for node in metadata['resolve']['nodes']}
-    for package in metadata['packages']:
-        if package['id'] not in used or package['source'] is None:
+    rust_packages = {}
+    for crate in ('apps/tauri/src-tauri/Cargo.toml', 'apps/launcher/Cargo.toml'):
+        metadata = json.loads(subprocess.check_output(['cargo', 'metadata', '--manifest-path', str(root / crate), '--format-version', '1', '--locked', '--filter-platform', 'x86_64-pc-windows-msvc'], text=True, encoding='utf-8'))
+        used = {node['id'] for node in metadata['resolve']['nodes']}
+        for package in metadata['packages']:
+            if package['id'] in used and package['source'] is not None:
+                rust_packages[package['id']] = package
+    for package in rust_packages.values():
+        if package['source'] is None:
             continue
         source = Path(package['manifest_path']).parent
         destination = output / 'licenses/rust' / f"{package['name']}-{package['version']}"
@@ -69,7 +76,7 @@ def main():
             notices = [p.relative_to(output).as_posix() for p in destination.iterdir() if p.is_file()]
         dependencies.append({'name': package['name'], 'version': package['version'], 'license': package['license'], 'source': f"https://crates.io/api/v1/crates/{package['name']}/{package['version']}/download", 'notices': notices})
     (output / 'dependency-manifest.json').write_text(json.dumps({'javascript': javascript, 'rust': dependencies, 'pythonBuildEnvironment': json.loads((args.workers / 'python-build-environment.json').read_text(encoding='utf-8'))}, indent=2) + '\n', encoding='utf-8')
-    (output / 'README.txt').write_text('Nioh 3 Studio ' + version + '\n\nExtract the complete archive, then run Nioh3Studio.exe.\nThe shared Microsoft Edge WebView2 Runtime is required.\nNo Python, Node, Electron or Cheat Engine installation is required.\nKeep the worker and packages folders beside the EXE.\n', encoding='utf-8')
+    (output / 'README.txt').write_text('Nioh 3 Studio ' + version + '\n\nThis directory is the verified internal runtime and signed updater payload.\nPlayers launch the outer Nioh3Studio-' + version + '-win-x64.exe directly; no installation or manual extraction is needed.\nThe shared Microsoft Edge WebView2 Runtime is required.\nNo Python, Node, Electron or Cheat Engine installation is required.\nKeep this internal runtime intact.\n', encoding='utf-8')
     files = []
     for path in sorted(output.rglob('*')):
         if path.is_file():

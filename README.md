@@ -10,7 +10,7 @@
 
 独脚踏鞴工作室（Ippon-Datara Studio）是面向《仁王3》PC 版玩家的桌面工具箱。它可以按照游戏规则搜索绘卷、添加选中的结果、修改已有绘卷，并通过自动验证的备份帮助你从改动中恢复存档。
 
-当前稳定版是基于 **Tauri 2** 重构的 **v0.7.3**。发布包已经包含应用所需的组件；唯一的系统依赖是 Microsoft Edge WebView2 Runtime，现代 Windows 通常已经自带。
+正在准备基于 **Tauri 2** 的 **v0.7.3**，当前候选版尚未发布。新版只需下载一个免安装 EXE，双击即可运行；唯一的系统依赖是 Microsoft Edge WebView2 Runtime，现代 Windows 通常已经自带。
 
 [下载最新版本](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)
 · [查看 v0.7.3 发布说明](packaging/release-notes.md)
@@ -31,7 +31,7 @@
 
 ### 添加选中的绘卷
 
-受支持的结果既可以在游戏内实时添加，也可以回到标题界面或关闭游戏后写入存档。每次添加前，应用都会检查当前游戏和存档状态、创建并验证备份，然后记录本次操作。运行中的游戏可能在之后覆盖外部存档修改；如果新增内容丢失或存档无法读取，可以恢复已验证的备份。
+受支持的结果既可以在游戏内实时添加，也可以回到标题界面或关闭游戏后写入存档。每次添加前，应用都会检查当前游戏和存档状态、创建并验证备份，然后记录本次操作。需要回退时，可以在备份页面恢复已验证的备份。
 
 v0.7.3 **不需要** Cheat Engine、Python、Node.js 或 Electron。兼容性与安全检查已经包含在应用内；遇到不受支持的游戏版本或存档状态时，操作会停止，而不会猜测性写入。
 
@@ -53,9 +53,9 @@ v0.7.3 **不需要** Cheat Engine、Python、Node.js 或 Electron。兼容性与
 
 ## 快速开始
 
-1. 从[最新版本页面](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)下载 `Nioh3Studio-0.7.3-win-x64-setup.exe`。
-2. 运行安装程序。只需下载这一个 EXE，安装程序会放置完整应用文件。
-3. 从开始菜单或安装目录运行“独脚踏鞴工作室”。
+1. v0.7.3 发布后，从[最新版本页面](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)下载 `Nioh3Studio-0.7.3-win-x64.exe`。
+2. 把 EXE 放在你希望保留的位置，双击运行，不需要安装或手动解压。
+3. 下次使用时直接打开同一个 EXE。
 4. 在语言选项中选择简体中文、English 或日本語。
 5. 进行任何游戏或存档操作前，先阅读状态信息并按应用内提示操作。
 
@@ -65,11 +65,11 @@ v0.7.3 **不需要** Cheat Engine、Python、Node.js 或 Electron。兼容性与
 - Microsoft Edge WebView2 Runtime
 - 使用游戏连接功能时，需要受支持的《仁王3》PC 版本
 
-便携 ZIP 仍作为备用下载提供；使用它时必须完整解压，不能只复制其中的可执行文件。
+程序会自动准备并校验运行所需的缓存，旧缓存有数量和体积限制。你的设置与存档备份会独立保留。
 
 ### 从旧版本升级
 
-从 v0.6.x 或已经撤回的 Electron v0.7.0 升级时，需要手动运行一次 Tauri 安装程序。之后的 Tauri 版本可以使用带签名的应用内更新；如果新版本无法正常启动，更新流程还支持替换回滚与清理。
+从旧版迁移时，下载并运行新的免安装 EXE 即可。应用内更新会验证签名并替换这个 EXE；新版本启动成功后自动清理旧版本与下载缓存。
 
 ## 一个简单的使用流程
 
@@ -98,6 +98,8 @@ v0.7.3 **不需要** Cheat Engine、Python、Node.js 或 Electron。兼容性与
 ## 帮助与诊断
 
 报告问题时，请打开**设置 → 复制日志**，把复制的详情和当时正在进行的操作一起提交。运行日志有大小限制，并会自动轮换。
+
+此前未能稳定复现的实时添加和标题存档报告已结束本轮跟进；如再次遇到，请同时提供本次存档和日志，以便根据实际现场处理。
 
 - [提交 GitHub Issue](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/issues)
 - QQ 群：`1106302479`

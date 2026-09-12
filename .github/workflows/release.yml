@@ -26,7 +26,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: apps/tauri/src-tauri
+          workspaces: |
+            apps/tauri/src-tauri
+            apps/launcher
           cache-on-failure: true
       - run: python -m pip install -r packaging/requirements-v2.lock.txt
       - run: python -m pip install -r requirements-dev.txt
@@ -42,6 +44,8 @@ jobs:
           $nodeVersion=(Get-Content package.json -Raw | ConvertFrom-Json).version
           $tauriVersion=(Get-Content apps/tauri/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
           if($version -ne $nodeVersion -or $version -ne $tauriVersion){throw 'Version mismatch'}
+          $launcherVersion = python -c "import tomllib; print(tomllib.load(open('apps/launcher/Cargo.toml','rb'))['package']['version'])"
+          if($LASTEXITCODE -ne 0 -or $version -ne $launcherVersion){throw 'Launcher version mismatch'}
           "value=$version" >> $env:GITHUB_OUTPUT
       - run: npm run contracts
       - run: python tools/export_v2_ui_locales.py
@@ -57,13 +61,16 @@ jobs:
       - run: ./tools/verify_native_faults.ps1
       - run: node apps/tauri/build.mjs
       - run: cargo test --locked --manifest-path apps/tauri/src-tauri/Cargo.toml
+      - run: cargo test --locked --manifest-path apps/launcher/Cargo.toml
       - name: Build once from a clean checkout
         shell: pwsh
         run: |
           if(git status --porcelain){throw 'Source checkout is dirty'}
           ./tools/build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output deliverables/release/portable
-      - name: Build the single-file installer from the portable product
-        run: python tools/build_tauri_installer.py deliverables/release/portable deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64-setup.exe
+      - name: Archive the verified internal update payload
+        run: python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.zip
+      - name: Build the install-free single executable
+        run: python tools/build_tauri_onefile.py deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.zip deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.exe
       - name: Verify the release binaries
         shell: pwsh
         run: |
@@ -76,10 +83,14 @@ jobs:
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node apps/tauri/verify-update.mjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
-      - name: Verify installer, installed startup and uninstaller
+      - name: Verify direct one-file launch, runtime cache and outer updates
         shell: pwsh
-        run: ./tools/verify_tauri_installer.ps1 -Installer deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64-setup.exe -Python $env:NIOH3_PYTHON
-      - run: python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.zip
+        run: |
+          $env:NIOH3_ONEFILE_EXE=Join-Path $PWD 'deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.exe'
+          node apps/tauri/verify-onefile.mjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          node apps/tauri/verify-onefile-update.mjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Enforce download budget and sign
         shell: pwsh
         env:

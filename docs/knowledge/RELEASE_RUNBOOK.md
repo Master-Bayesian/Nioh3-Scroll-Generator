@@ -4,6 +4,10 @@ This is the authoritative release procedure for the current Tauri 2 product.
 The withdrawn Electron v0.7.0 and the legacy Tk executable use different
 package and update formats and must never enter this workflow.
 
+The default product is now one install-free outer EXE. Read
+`TAURI_ONEFILE_DELIVERY_20260912.md`. Do not push, dispatch hosted builds, tag,
+or publish while the owner's local-review-only boundary remains active.
+
 See `V070_HOSTED_BUILD_FIXES_20260909.md` for the historical failures that
 established the source, line-ending, native-identity, and hosted WebView2 gates.
 
@@ -19,7 +23,8 @@ established the source, line-ending, native-identity, and hosted WebView2 gates.
    output, and unrelated research outside the commit.
 4. Synchronize the version in `package.json`, `package-lock.json`,
    `nioh3_scroll_editor/version.py`, `apps/tauri/src-tauri/Cargo.toml`,
-   `Cargo.lock`, `tauri.conf.json`, the visible-version acceptance, README files,
+   `Cargo.lock`, `tauri.conf.json`, `apps/launcher/Cargo.toml` and its lockfile,
+   the visible-version acceptance, README files,
    and release notes.
 5. Commit before packaging. Any later product-code change creates a new candidate
    and invalidates the previous build evidence.
@@ -47,6 +52,7 @@ python -m unittest discover -s tests -t . -v
 npm test
 npm run typecheck
 cargo test --locked --manifest-path apps/tauri/src-tauri/Cargo.toml
+cargo test --locked --manifest-path apps/launcher/Cargo.toml
 ./tools/verify_native_faults.ps1
 ```
 
@@ -58,7 +64,7 @@ and hardware skips separately from untracked developer tests.
 ## 3. Build and validate from a clean checkout
 
 The hosted workflow may perform the one clean release build after local source
-checks. In that case download its exact artifacts for local WebView2, installer,
+checks. In that case download its exact artifacts for local WebView2, one-file,
 update, and live-game acceptance before publication; do not build a redundant
 local candidate merely to repeat the hosted compilation.
 
@@ -67,26 +73,30 @@ derive both downloadable artifacts from that same verified directory:
 
 ```powershell
 ./tools/build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output deliverables/release/portable
-python tools/build_tauri_installer.py deliverables/release/portable deliverables/release/Nioh3Studio-<version>-win-x64-setup.exe
+python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/Nioh3Studio-<version>-win-x64.zip
+python tools/build_tauri_onefile.py deliverables/release/Nioh3Studio-<version>-win-x64.zip deliverables/release/Nioh3Studio-<version>-win-x64.exe
 npm run test:packaged
 node apps/tauri/verify.mjs
 node apps/tauri/verify-update.mjs
-./tools/verify_tauri_installer.ps1 -Installer deliverables/release/Nioh3Studio-<version>-win-x64-setup.exe -Python $env:NIOH3_PYTHON
-python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/Nioh3Studio-<version>-win-x64.zip
+$env:NIOH3_ONEFILE_EXE=Join-Path $PWD 'deliverables/release/Nioh3Studio-<version>-win-x64.exe'
+node apps/tauri/verify-onefile.mjs
+node apps/tauri/verify-onefile-update.mjs
 ```
 
-The setup EXE is the default download for new users. The ZIP remains the signed
-whole-package input to the in-app updater and a portable fallback. Do not point
-the updater at the installer and do not distribute the inner application EXE by
-itself. Build the installer before archiving: the installer tool applies the
-same Tauri NSIS marker to the portable EXE and refreshes its manifest so both
-downloads contain byte-identical application binaries.
+The outer EXE is the default player download: it launches directly without
+installation or manual extraction. The ZIP remains the signed internal input to
+the updater, including older Tauri directory-mode clients. Keep the manifest-owned
+`launcher/Nioh3Launcher.exe` inside that ZIP so a one-file update can reconstruct
+the new outer EXE. Never advertise the inner application EXE as self-contained.
+Do not run the archived NSIS builder against the new candidate; it patches the
+inner application and would invalidate the already verified package.
 
-Verify the installer with an isolated current-user install. Require the installed
-root to pass `build-manifest.json` verification and start through the same
-WebView2 acceptance driver. Uninstall the isolated test copy afterward.
+Verify direct launch with isolated local app data, no installation registration,
+cache reuse/pruning, and the real WebView2 acceptance driver. Verify both the
+legacy directory updater and outer-EXE replacement, acknowledgement, rollback
+and cleanup. Keep previous installer artifacts only as historical local evidence.
 
-Limits: ZIP and setup EXE must each be at most 60 MiB. Every manifest entry must
+Limits: ZIP and outer EXE must each be at most 60 MiB. Every manifest entry must
 match its size and SHA-256; the archive must contain no traversal paths or extra
 files. The manifest must record the exact candidate SHA and `dirty: false`.
 
@@ -135,12 +145,12 @@ state rather than an acceptance failure.
 
 Download `nioh3-tauri-release` into a new directory. Verify:
 
-- ZIP and setup EXE SHA-256 sidecars;
+- ZIP and outer EXE SHA-256 sidecars and the embedded ZIP footer/hash;
 - `tauri-update.json` through the production Ed25519 public key;
 - signed manifest version, filename, official GitHub tag URL, size, and ZIP hash;
 - every ZIP member against `build-manifest.json` and ZIP CRC;
 - clean source SHA equals the candidate commit;
-- extracted package startup and, when changed, isolated installer startup.
+- extracted package startup, direct outer-EXE startup, and updater acceptance.
 
 Refresh remote `main`. Require `origin/main` to be an ancestor of the candidate.
 Create an annotated version tag at the verified SHA, then push `main` and the tag
@@ -154,7 +164,7 @@ git push --atomic origin <candidate-sha>:refs/heads/main refs/tags/v<version>
 ```
 
 Create the GitHub release from the already verified workflow downloads. Upload
-the setup EXE, its SHA sidecar, the ZIP, its SHA sidecar,
+the outer EXE, its SHA sidecar, the internal update ZIP, its SHA sidecar,
 `tauri-update.json`, and the test inventory. Do not rebuild during publication.
 
 After publishing, query the release again, download its public assets, and repeat
@@ -170,15 +180,16 @@ publication record and update `CURRENT_HANDOFF.md` without moving the tag.
 - Generated-scroll append, permanent edits/deletions, and backup restoration
   permit title-screen use or a closed game. The UI collects the appropriate acknowledgement; process presence
   is not a native title-screen detector.
-- The owner accepted the unreproduced title-save corruption and possible delayed
-  overwrite as known risks on 2026-09-12. Preserve automatic verified backups,
-  pre-restore checkpoints, transaction identities, and no-replay recovery. Do not
-  claim native save ownership or a demonstrated corruption fix. See
-  `TITLE_SAVE_APPROACH_RESET_20260912.md` for the authoritative decision.
+- The owner closed the unreproduced title-save and intermittent live-add reports
+  pending a fresh affected save and log. They are not release blockers; closure
+  is not a proven root-cause fix. Preserve automatic verified backups,
+  pre-restore checkpoints, transaction identities and no-replay recovery. Do not
+  restart deferred native-save/possessed-enemy research as a packaging gate.
 - Live addition requires the game to be running, creates a verified backup,
   retries only a non-mutating released preview miss, and never replays an actual
   insertion.
-- The updater authenticates the complete ZIP, replaces in place, retains a
+- The updater authenticates the complete ZIP, replaces the outer EXE in one-file
+  mode or the runtime directory in legacy mode, and retains a
   rollback copy until startup handshake, then removes the previous version and
   download cache. Authenticode signing is not currently provided; do not claim
   a Windows publisher certificate.

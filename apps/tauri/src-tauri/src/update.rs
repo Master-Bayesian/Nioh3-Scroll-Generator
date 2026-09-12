@@ -1,4 +1,4 @@
-use crate::{package, storage};
+use crate::{onefile, package, storage};
 use base64::Engine;
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
@@ -269,7 +269,8 @@ impl Updater {
             package::extract(&archive,&stage)?;
             if package::verify(&stage)?.version!=manifest.version{return Err("UPDATE_VERSION_MISMATCH".into());}
             storage::write_json(&folder.join("verified-update.json"),&serde_json::to_value(&manifest).map_err(|e|e.to_string())?)?;
-            std::fs::remove_file(archive).map_err(|e|e.to_string())?;
+            // One-file clients rebuild the original executable from this signed archive.
+            if onefile::context()?.is_none() { std::fs::remove_file(archive).map_err(|e|e.to_string())?; }
             let hash=package::hash_file(&stage.join("build-manifest.json"))?;
             *self.ready.lock().await=Some((stage,hash));*self.state.lock().await=json!({"phase":"ready","version":manifest.version});Ok(())
         }.await;
@@ -288,6 +289,10 @@ impl Updater {
                 serde_json::from_slice(&std::fs::read(&report).map_err(|e| e.to_string())?)
                     .map_err(|e| e.to_string())?;
             if receipt["status"] == "awaiting-startup" {
+                if receipt["mode"] == "onefile" {
+                    let context = onefile::context()?.ok_or("ONEFILE_CONTEXT_MISSING")?;
+                    onefile::acknowledge(&mut receipt, &report, target, &context)?;
+                } else {
                 let recorded =
                     PathBuf::from(receipt["target"].as_str().ok_or("UPDATE_RECEIPT_INVALID")?)
                         .canonicalize()
@@ -352,6 +357,7 @@ impl Updater {
                 )?;
                 receipt["status"] = json!("completed");
                 storage::write_json(&report, &receipt)?;
+                }
             } else if receipt["status"] != "completed" && receipt["status"] != "failed" {
                 return Ok(());
             }
@@ -367,6 +373,9 @@ impl Updater {
     pub async fn launch(&self, target: &Path) -> Result<(), String> {
         let (stage, hash) = self.ready.lock().await.clone().ok_or("UPDATE_NOT_READY")?;
         package::verify(&stage)?;
+        if let Some(context) = onefile::context()? {
+            return self.launch_onefile(&stage, &hash, &context);
+        }
         let helper = self.root.join("apply-update.ps1");
         std::fs::write(&helper, include_str!("../apply-update.ps1")).map_err(|e| e.to_string())?;
         let mut command = std::process::Command::new("powershell.exe");
@@ -395,6 +404,30 @@ impl Updater {
             use std::os::windows::process::CommandExt;
             command.creation_flags(0x08000000);
         }
+        command.spawn().map_err(|e| e.to_string())?;
+        Ok(())
+    }
+    fn launch_onefile(&self, stage: &Path, hash: &str, context: &onefile::Context) -> Result<(), String> {
+        let folder = stage.parent().ok_or("UPDATE_STAGE_INVALID")?;
+        let manifest: Manifest = serde_json::from_slice(&std::fs::read(folder.join("verified-update.json")).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+        validate(&manifest)?;
+        if package::verify(stage)?.version != manifest.version || package::hash_file(&stage.join("build-manifest.json"))? != hash {
+            return Err("UPDATE_STAGE_CHANGED".into());
+        }
+        let replacement = folder.join(format!("replacement-{}.exe", uuid::Uuid::new_v4()));
+        let file_hash = onefile::assemble(stage, &folder.join("package.zip"), &replacement, &manifest.asset.sha256)?;
+        let helper = self.root.join("apply-onefile-update.ps1");
+        std::fs::write(&helper, include_str!("../apply-onefile-update.ps1")).map_err(|e| e.to_string())?;
+        let mut command = std::process::Command::new("powershell.exe");
+        command.args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File"]).arg(helper)
+            .arg("-ProcessId").arg(std::process::id().to_string())
+            .arg("-LauncherProcessId").arg(context.launcher_pid.to_string())
+            .arg("-Target").arg(&context.executable).arg("-Staged").arg(replacement)
+            .arg("-FileHash").arg(file_hash).arg("-PreviousHash").arg(package::hash_file(&context.executable)?)
+            .arg("-ManifestHash").arg(hash).arg("-Profile").arg(self.root.parent().ok_or("UPDATE_PROFILE_INVALID")?)
+            .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+        #[cfg(windows)] { use std::os::windows::process::CommandExt; command.creation_flags(0x08000000); }
         command.spawn().map_err(|e| e.to_string())?;
         Ok(())
     }

@@ -12,9 +12,10 @@ Ippon-Datara Studio is a desktop toolkit for the PC version of Nioh 3. It helps
 players search for game-legal scrolls, add selected results, edit scrolls they
 already own, and recover from changes with verified automatic save backups.
 
-The current stable release is **v0.7.3**, rebuilt on **Tauri 2**. The release
-package includes everything the app needs except the shared Microsoft Edge
-WebView2 Runtime that is normally already present on Windows.
+The **v0.7.3** candidate uses **Tauri 2** and is not published yet. It ships as
+one install-free EXE: download it and double-click to run. The only shared
+system dependency is Microsoft Edge WebView2 Runtime, normally already present
+on Windows.
 
 [Download the latest release](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)
 · [Read the v0.7.3 release notes](packaging/release-notes.md)
@@ -42,8 +43,8 @@ add.
 Supported results can be added directly while you are in game or written to a
 save at the title screen or with the game closed. The app verifies the
 current game and save context, creates a backup, and records the operation before
-it writes. A running game can later overwrite external save changes; restore a
-verified backup if the change is lost or the save cannot be loaded.
+it writes. Use the Backups page to restore a verified backup when you need to
+return to an earlier save.
 
 The v0.7.3 release does **not** require Cheat Engine, Python, Node.js, or
 Electron. Compatibility and safety checks remain inside the app; if the game or
@@ -78,10 +79,11 @@ save archive.
 
 ## Quick start
 
-1. Download `Nioh3Studio-0.7.3-win-x64-setup.exe` from the
+1. After v0.7.3 is published, download `Nioh3Studio-0.7.3-win-x64.exe` from the
    [latest release](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest).
-2. Run the installer. This is the only file new users need to download.
-3. Start Ippon-Datara Studio from the Start menu or its installation folder.
+2. Keep the EXE wherever you prefer and double-click it. No installation or
+   manual extraction is needed.
+3. Open the same EXE whenever you want to use the app again.
 4. Choose English, Simplified Chinese, or Japanese from the language control.
 5. Follow the status message and in-app prompts before any game or save
    operation.
@@ -92,16 +94,14 @@ Requirements:
 - Microsoft Edge WebView2 Runtime
 - A supported PC build of Nioh 3 for game-connected features
 
-A portable ZIP remains available as a fallback. If you use it, extract the
-complete archive because its workers, resources, licenses, and integrity
-manifest must remain together.
+The launcher prepares and verifies its runtime cache automatically. Old caches
+have count and size limits; settings and save backups are kept separately.
 
 ### Upgrading from an older version
 
-Users moving from v0.6.x or the withdrawn Electron v0.7.0 need to run the Tauri
-installer once. Later Tauri releases can use the signed in-app
-updater, including replacement rollback and cleanup if the new version does not
-start correctly.
+Download and run the install-free EXE to move from an older release. The in-app
+updater verifies its signed payload and replaces that EXE. The previous version
+and download cache are removed after the new version starts successfully.
 
 ## A simple workflow
 
@@ -145,6 +145,10 @@ Third-party software terms and attributions are listed in
 For a problem report, open **Settings → Copy log** and include the copied details
 with a clear description of what you were doing. Runtime logs are size-limited
 and rotated automatically.
+
+The earlier intermittent live-add and title-save reports could not be reliably
+reproduced and are closed for this cycle. If either happens again, include the
+affected save and a fresh log so the new incident can be investigated.
 
 - [Open a GitHub issue](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/issues)
 - QQ group: `1106302479`

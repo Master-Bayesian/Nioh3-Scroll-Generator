@@ -1,19 +1,23 @@
 # Nioh 3 Studio 0.7.3
 
-This maintenance release improves failure recovery, automatic diagnostic copying,
-and backup restoration. It includes the reviewed fixes from the withdrawn
-v0.7.2 candidate.
+This unpublished candidate improves failure recovery, automatic diagnostic
+copying, backup restoration, and direct launch from one install-free EXE. It
+includes the reviewed fixes from the withdrawn v0.7.2 candidate. Publication
+requires the owner's review of the final local package.
 
-## Installation and updates
+## Direct launch and updates
 
-Download `Nioh3Studio-0.7.3-win-x64-setup.exe` and run it. New users need only
-this installer. A complete portable ZIP remains available. Cheat Engine, Python,
-Node.js, and Electron are not required.
+Download `Nioh3Studio-0.7.3-win-x64.exe` and double-click it. No installation,
+installer wizard, or manual extraction is needed. The runtime is prepared and
+verified automatically in a bounded cache. Cheat Engine, Python, Node.js, and
+Electron are not required.
 
-Existing Tauri installations can use the signed in-app updater. It replaces the
-application in place, keeps rollback files until the new frontend and backend
-start successfully, and then removes the previous version and download cache.
-Installed copies retain their uninstall registration.
+The in-app updater verifies the signed payload and replaces the outer EXE in
+place. It keeps a rollback copy until the new frontend and backend start
+successfully, then removes the previous executable and download cache. The
+internal signed ZIP format is retained for compatibility with earlier Tauri
+updaters. The old installer is retained locally as a historical artifact and is
+not the default download.
 
 ## Fixes
 
@@ -38,14 +42,13 @@ The interface retains the 25-result default, descending result sorts, favorites,
 cart subset selection, editor, backup manager, three languages, and visible
 version number.
 
-## Known limitations
+## Closed reports and follow-up
 
-A running game may later overwrite externally changed save files. The reported
-title-save corruption has not been reproduced or proved fixed. If a change is
-lost or a save cannot be loaded, restore a verified backup from **Backups**.
-Restoration returns progress to the selected backup's point in time.
+The unreproduced intermittent live-add and title-save reports are closed for
+this release cycle by the owner's decision. They are not release blockers and
+are not described as proven root-cause fixes. Reopen investigation only with a
+fresh affected save and diagnostic log. Verified automatic backups and recovery
+checks remain enabled. Restore returns to the selected backup's point in time.
 
-The intermittent live-add report has several repaired failure paths, but its
-original cause has not been confirmed. If it recurs, include the automatically
-copied diagnostic log. Further early-playthrough testing and possessed-enemy
-selection research remain deferred.
+A website, usage statistics, and possessed-enemy research are outside this
+release's scope.

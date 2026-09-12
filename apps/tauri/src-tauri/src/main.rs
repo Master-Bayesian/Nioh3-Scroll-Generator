@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod broker;
+mod onefile;
 mod package;
 mod storage;
 #[cfg(test)]
@@ -383,6 +384,9 @@ fn main() {
                 }
             }
             storage::log(&data, "startup", env!("CARGO_PKG_VERSION"));
+            if let Some(executable) = std::env::var_os("NIOH3_ONEFILE_EXE") {
+                storage::log(&data, "onefile-runtime", &format!("executable={} runtime={} launcher_pid={}", std::path::Path::new(&executable).display(), root.display(), std::env::var("NIOH3_ONEFILE_PID").unwrap_or_default()));
+            }
             let updater=update::Updater::new(data.join("updates"));
             let webview_data=data.join("webview");
             app.manage(State { broker: Arc::new(Broker::new(root.clone(), data, packaged)), updater, packaged, update_ready:AtomicBool::new(!packaged), apply_update:AtomicBool::new(false), quitting: AtomicBool::new(false), closing: AtomicBool::new(false) });
