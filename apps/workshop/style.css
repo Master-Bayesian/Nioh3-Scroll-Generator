@@ -304,6 +304,9 @@ main { overflow: auto; }
   html:is([lang="en-US"], [lang="ja-JP"]) .shell:not(.nav-collapsed) {
     grid-template-columns: 90px minmax(0, 1fr);
   }
+  .shell.nav-collapsed > .nav > nav > button {
+    justify-content: flex-start;
+  }
   .editor-host, .backup-page { grid-column: 2; overflow: visible; }
 }
 

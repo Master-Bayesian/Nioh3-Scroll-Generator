@@ -261,10 +261,14 @@ try {
       `Cart add and view controls share one row at ${width}x${height}`);
     assert(geometry.scrollHeight <= geometry.clientHeight + 1,
       `Result pane needs no scrolling at ${width}x${height}: ${JSON.stringify(geometry)}`);
-    for (const control of geometry.controls) {
-      assert(control.width > 0 && control.height > 0 && control.x >= -1 && control.y >= -1 &&
-        control.right <= width + 1 && control.bottom <= height + 1,
-      `Addition control fits viewport at ${width}x${height}: ${JSON.stringify(control)}`);
+    if (requestedWidth) {
+      for (const control of geometry.controls) {
+        assert(control.width > 0 && control.height > 0 && control.x >= -1 && control.y >= -1 &&
+          control.right <= width + 1 && control.bottom <= height + 1,
+        `Addition control fits viewport at ${width}x${height}: ${JSON.stringify(control)}`);
+      }
+    } else {
+      geometry.reachability = await verifyViewportReachability(page, 'default-addition-layout');
     }
     const tools = await picker.locator('button').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().y));
     assert(Math.max(...tools) - Math.min(...tools) <= 1, `Save utility buttons share one row at ${width}x${height}`);
