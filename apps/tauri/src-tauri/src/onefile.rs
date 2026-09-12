@@ -249,7 +249,7 @@ mod tests {
                 "2147483646",
                 "-Target",
             ])
-            .arg(&target)
+            .arg(target.canonicalize().unwrap())
             .arg("-Staged")
             .arg(&stage)
             .arg("-FileHash")
@@ -306,7 +306,7 @@ mod tests {
             .arg("-ProcessId")
             .arg(original_process.id().to_string())
             .args(["-LauncherProcessId", "2147483646", "-Target"])
-            .arg(&target)
+            .arg(target.canonicalize().unwrap())
             .arg("-Staged")
             .arg(&stage)
             .arg("-FileHash")

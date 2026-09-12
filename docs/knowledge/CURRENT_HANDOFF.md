@@ -139,14 +139,14 @@ The RC follow-up added distinct-slot effect requirements, between-item live batc
   error needed for diagnosis.
 - Copied support logs now span rotated segments and include version, data/log
   directories, and worker state.
-- Offline edit/delete operations fail closed while Nioh 3 is running. Backup
-  restoration permits the title screen or a closed game, per the owner's
-  2026-09-12 correction; it retains identity checks and a pre-restore checkpoint.
-  Generated-scroll append operations may run at the title screen and
+- Permanent editing, deletion, backup restoration, and generated-scroll append
+  permit the title screen or a closed game, per the owner's 2026-09-12 correction.
+  Restore retains identity checks and a pre-restore checkpoint. These operations
   use related-save quiescence checks, an automatic multi-file backup, a durable
-  write journal, exact decrypt/readback, and guarded rollback. Delayed overwrite
-  after a title-screen write remains an accepted known risk under the current
-  owner decision, rather than a mandatory native-protocol research gate.
+  write journal, exact decrypt/readback, and guarded rollback. The unreproduced
+  title-save report is closed pending a fresh affected save and diagnostic log.
+  Historical delayed-write simulations do not establish its cause or reopen a
+  mandatory native-protocol research gate.
 - Live-add preview can retry a narrowly proved idle miss, but actual insertion
   is never replayed. A rejected operation now clears its false adapter owner
   only when the default native transport proves that no in-memory or durable

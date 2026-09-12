@@ -66,3 +66,14 @@ root cause is claimed fixed. Keep verified automatic backups, generation/race
 guards, and no-replay receipts. Do not restart broad ETL/native-save research.
 Website work, usage statistics, and possessed-enemy selection remain outside
 this release. Record final candidate evidence separately after it is produced.
+
+## Windows path regression found during acceptance
+
+The first outer-update test exposed Windows PowerShell 5.1 rejecting `Join-Path`
+when its parent uses Rust's canonical `\\?\` path format (`drive is null`).
+Use `System.IO.Path.Combine`, `File.GetAttributes`, and `ProcessStartInfo` for
+the outer-file workflow. Preserve the canonical prefix; stripping it can break
+long paths. Use the helper directory as the child working directory because
+the launcher establishes its own runtime location. The update acceptance must
+pass the real canonical target and wait for both the actual app and launcher
+PIDs; synthetic nonexistent PIDs alone missed this interoperability issue.

@@ -16,8 +16,10 @@ function Get-FileDigest([string]$Path) {
     finally { $stream.Dispose(); $algorithm.Dispose() }
 }
 function Assert-RegularFile([string]$Path) {
-    $item = Get-Item -LiteralPath $Path -Force
-    if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+    # Windows PowerShell's FileSystem provider rejects canonical \\?\ paths.
+    # System.IO preserves them, including long paths, without provider parsing.
+    $attributes = [IO.File]::GetAttributes($Path)
+    if (($attributes -band [IO.FileAttributes]::Directory) -or ($attributes -band [IO.FileAttributes]::ReparsePoint)) {
         throw 'Update requires a regular executable file'
     }
 }
@@ -46,8 +48,8 @@ foreach ($digest in @($FileHash, $PreviousHash, $ManifestHash)) {
 Assert-RegularFile $targetPath
 Assert-RegularFile $stagePath
 if ((Get-FileDigest $targetPath) -ne $PreviousHash -or (Get-FileDigest $stagePath) -ne $FileHash) { throw 'Executable changed before update' }
-$prepared = Join-Path $parent ([IO.Path]::GetFileName($targetPath) + '.update-' + [guid]::NewGuid().ToString('N'))
-$previous = Join-Path $parent ([IO.Path]::GetFileName($targetPath) + '.previous-' + [guid]::NewGuid().ToString('N'))
+$prepared = [IO.Path]::Combine($parent, ([IO.Path]::GetFileName($targetPath) + '.update-' + [guid]::NewGuid().ToString('N')))
+$previous = [IO.Path]::Combine($parent, ([IO.Path]::GetFileName($targetPath) + '.previous-' + [guid]::NewGuid().ToString('N')))
 [IO.File]::Copy($stagePath, $prepared, $false)
 if ((Get-FileDigest $prepared) -ne $FileHash) { throw 'Replacement verification failed' }
 foreach ($waitId in @($ProcessId, $LauncherProcessId) | Select-Object -Unique) {
@@ -71,7 +73,17 @@ try {
     foreach ($name in @('NIOH3_ONEFILE_EXE','NIOH3_ONEFILE_PID','NIOH3_ONEFILE_PAYLOAD_SHA256')) {
         [Environment]::SetEnvironmentVariable($name, $null, 'Process')
     }
-    Start-Process -FilePath $targetPath -WorkingDirectory $parent -ArgumentList @('--user-data-dir', ('"' + [IO.Path]::GetFullPath($Profile) + '"')) -WindowStyle Hidden
+    $start = New-Object System.Diagnostics.ProcessStartInfo
+    $start.FileName = $targetPath
+    # The launcher establishes its own runtime directory. Do not inherit a
+    # potentially long outer-download directory as the Windows process CWD.
+    $start.WorkingDirectory = $PSScriptRoot
+    $start.Arguments = '--user-data-dir "' + [IO.Path]::GetFullPath($Profile) + '"'
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden
+    $started = [Diagnostics.Process]::Start($start)
+    $started.Dispose()
 } catch {
     if ($moved) {
         if ([IO.File]::Exists($targetPath)) { [IO.File]::Delete($targetPath) }
