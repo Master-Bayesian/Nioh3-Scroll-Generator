@@ -312,6 +312,9 @@
                   }
                 ]
               },
+              "enemy_states": {
+                "$ref": "#/definitions/EnemyStatePreviews"
+              },
               "cursor": {
                 "anyOf": [
                   {
@@ -350,6 +353,7 @@
               "install_blocker",
               "effects",
               "auxiliary",
+              "enemy_states",
               "cursor",
               "evidence",
               "installation_available",
@@ -806,6 +810,85 @@
         "recommended_level"
       ],
       "title": "SearchCatalog"
+    },
+    "EnemyStatePreview": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "playthrough": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "variant": { "enum": ["solo", "expedition"] },
+        "terrain": {
+          "anyOf": [
+            { "type": "integer", "minimum": 0, "maximum": 255 },
+            { "type": "null" }
+          ]
+        },
+        "occurrences": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "wave_index": { "type": "integer", "minimum": 0, "maximum": 255 },
+              "position": { "type": "integer", "minimum": 0, "maximum": 255 },
+              "lookup_key": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+              "role": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+              "source_row_index": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+              "availability": { "enum": ["base", "expedition_only"] },
+              "native_spawn_key": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+              "possessed": { "enum": ["yes", "no", "unknown"] },
+              "curse": { "enum": ["guaranteed", "possible", "never", "unknown"] },
+              "curse_probability": { "type": ["number", "null"] },
+              "curse_if_fresh_null_source_selector_runs": { "enum": ["guaranteed", "never", "unknown"] },
+              "evidence_grade": { "type": "string" },
+              "curse_evidence": { "type": "string" }
+            },
+            "required": [
+              "wave_index", "position", "lookup_key", "role",
+              "source_row_index", "availability", "native_spawn_key",
+              "possessed", "curse", "curse_probability",
+              "curse_if_fresh_null_source_selector_runs", "evidence_grade",
+              "curse_evidence"
+            ]
+          }
+        },
+        "possessed_complete": { "type": "boolean" },
+        "missing_inputs": { "type": "array", "items": { "type": "string" }, "maxItems": 64 },
+        "curse_scope": { "type": "string" },
+        "curse_count_range": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": { "type": "integer" },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            { "type": "null" }
+          ]
+        },
+        "curse_count_domain": { "type": ["string", "null"] }
+      },
+      "required": [
+        "seed", "playthrough", "variant", "terrain", "occurrences",
+        "possessed_complete", "missing_inputs", "curse_scope",
+        "curse_count_range", "curse_count_domain"
+      ]
+    },
+    "EnemyStatePreviews": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "solo": { "$ref": "#/definitions/EnemyStatePreview" },
+            "expedition": { "$ref": "#/definitions/EnemyStatePreview" }
+          },
+          "required": ["solo", "expedition"]
+        },
+        { "type": "null" }
+      ]
     },
     "CandidateTransfer": {
       "type": "object",
@@ -1433,6 +1516,9 @@
                         }
                       ]
                     },
+                    "enemy_states": {
+                      "$ref": "#/definitions/EnemyStatePreviews"
+                    },
                     "cursor": {
                       "anyOf": [
                         {
@@ -1471,6 +1557,7 @@
                     "install_blocker",
                     "effects",
                     "auxiliary",
+                    "enemy_states",
                     "cursor",
                     "evidence",
                     "installation_available",

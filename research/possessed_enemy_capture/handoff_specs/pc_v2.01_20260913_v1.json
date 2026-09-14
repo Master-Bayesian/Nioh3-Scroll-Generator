@@ -1,0 +1,56 @@
+{
+  "schema": "nioh3-possessed-enemy-handoff-spec/v1",
+  "delivery_name": "Nioh3_PC_v2.01_Possessed_Enemy_Assignment_Pro_Handoff_20260913_v1",
+  "game_version": "PC v2.01",
+  "executable_sha256": "4047ECB623F3AE033F7D6F3637CD1C5408C72A89A038463268A7C9AC5C394159",
+  "private_analysis_only": true,
+  "include_runtime_sections": true,
+  "runtime_section_root": "audit/runtime_sections/v2.0.1.0_20260902_title",
+  "runtime_section_hashes": {
+    "Nioh3_v2.0.1.0.text.bin": "F8799B5DB54A9CA46F52BCD6C037B2AD9B413DC83A26F1D3F0E61251BFB48023",
+    "Nioh3_v2.0.1.0.rdata.bin": "DF245B4EF1478643845680DB183EA170F448B1EF8FF9710CBD040CB48F4E363D",
+    "Nioh3_v2.0.1.0.pdata.bin": "928D0407FFCCFBD081559A2DF00D4995598B60B5C3F1D325D086CB531B09B904"
+  },
+  "control_runs": [
+    "audit/possessed_enemy_capture/156062997/20260912-sp-a",
+    "audit/possessed_enemy_capture/156062997/20260912-sp-b5",
+    "audit/possessed_enemy_capture/86872488/20260912-sp-negative-b",
+    "audit/possessed_enemy_capture/86872488/20260912-one-person-expedition-a",
+    "audit/possessed_enemy_capture/86872488/20260913-one-person-expedition-b"
+  ],
+  "static_evidence": [
+    "audit/possessed_enemy_capture/static/RESOURCE_EXHAUSTION_INCIDENT_20260912.md",
+    "audit/possessed_enemy_capture/static/v2.01-record-field-8f-accesses.json",
+    "audit/possessed_enemy_capture/static/v2.01-priority-2a-field-8f-functions.json",
+    "audit/possessed_enemy_capture/static/v2.01-byte-field-8f-writer-functions.json",
+    "audit/possessed_enemy_capture/static/v2.01-byte-field-8f-writer-direct-call-xrefs.json",
+    "audit/possessed_enemy_capture/static/v2.01-byte-field-8f-writer-rdata-pointer-candidates.json"
+  ],
+  "project_files": [
+    "AGENTS.md",
+    "docs/knowledge/CRUCIBLE_POSSESSED_RESEARCH_FREEZE_20260911.md",
+    "docs/knowledge/POSSESSED_ENEMY_RESEARCH_RESUME_20260912.md",
+    "docs/knowledge/RESEARCH_HANDOFF_WORKFLOW.md",
+    "research/disassemble_runtime_functions.py",
+    "research/find_runtime_call_xrefs.py",
+    "research/find_runtime_data_xrefs.py",
+    "research/find_runtime_pointer_xrefs.py",
+    "research/find_runtime_string_xrefs.py",
+    "research/native_xrefs.py",
+    "research/owned_breakpoint_lifecycle_ce.lua",
+    "tests/__init__.py",
+    "tests/test_possessed_enemy_capture.py",
+    "tests/test_possessed_enemy_handoff_builder.py",
+    "tests/test_research_handoff_validation.py",
+    "tools/compare_possessed_enemy_repeats.py",
+    "tools/compare_possessed_late_mask.py",
+    "tools/summarize_possessed_late_mask.py",
+    "tools/validate_possessed_enemy_collectors.py",
+    "tools/validate_possessed_enemy_handoff.py",
+    "tools/validate_research_handoff.py",
+    "tools/build_possessed_enemy_assignment_handoff.py"
+  ],
+  "project_trees": [
+    "research/possessed_enemy_capture"
+  ]
+}

@@ -14,6 +14,18 @@ export type Sample = (typeof catalog.samples)[number] & {
     referenceId?: string;
     installable: boolean;
   };
+  enemyVariant?: "solo" | "expedition";
+  enemyOccurrences?: {
+    lookupKey: number;
+    name: string;
+    waveIndex: number;
+    position: number;
+    availability: "base" | "expedition_only";
+    possessed: "yes" | "no" | "unknown";
+    curse: "guaranteed" | "possible" | "never" | "unknown";
+  }[];
+  possessedComplete?: boolean;
+  curseScope?: string;
   saveEntry?: import("../../packages/contracts/protected-responses").SaveInventory["entries"][number];
 };
 export type SelectedEffect = {
@@ -83,8 +95,19 @@ export type EnemyCondition = {
   id: string;
   name: string;
   keys: number[];
+  possessedKeys: number[];
   mode: number;
+  state: "any" | "possessed" | "curse";
+  availability: "any" | "base" | "expedition_only";
 };
+export function enemyCanBePossessed(enemy: Pick<EnemyCondition, "id" | "keys">): boolean {
+  const catalogEnemy = data.enemies.find(
+    (candidate) =>
+      candidate.id === enemy.id ||
+      candidate.keys.some((key) => enemy.keys.includes(key)),
+  );
+  return !!catalogEnemy?.possessedKeys.length;
+}
 export type RuleCondition = {
   id: string;
   name: string;
@@ -124,6 +147,7 @@ export function ruleFamilyKeys(category: string, value = ANY_RULE_VALUE): number
 export type Query = {
   effects: SelectedEffect[];
   enemies: EnemyCondition[];
+  enemyVariant: "solo" | "expedition";
   rules: RuleCondition[];
   terrains: string[];
   capacities: number[];
@@ -142,6 +166,7 @@ export function initialQuery(): Query {
   return {
     effects: [],
     enemies: [],
+    enemyVariant: "solo",
     rules: [],
     terrains: [],
     capacities: [],
@@ -235,11 +260,26 @@ export function matches(sample: Sample, q: Query): boolean {
         .some((r) => sample.rules.some((v) => r.keys.includes(v.key)))
     )
       return false;
-  if (
-    q.enemies
-      .filter((e) => !e.mode)
-      .some((e) => !e.keys.some((k) => sample.enemyKeys.includes(k)))
-  )
+  const enemyMatches = (condition: EnemyCondition) => {
+    if (sample.enemyOccurrences) {
+      return sample.enemyOccurrences.some(
+        (occurrence) =>
+          condition.keys.includes(occurrence.lookupKey) &&
+          (condition.availability === "any" ||
+            occurrence.availability === condition.availability) &&
+          (condition.state === "any" ||
+            (condition.state === "possessed" && occurrence.possessed === "yes") ||
+            (condition.state === "curse" &&
+              (occurrence.curse === "guaranteed" || occurrence.curse === "possible"))),
+      );
+    }
+    return (
+      condition.state === "any" &&
+      condition.availability === "any" &&
+      condition.keys.some((key) => sample.enemyKeys.includes(key))
+    );
+  };
+  if (q.enemies.filter((e) => !e.mode).some((e) => !enemyMatches(e)))
     return false;
   for (const group of new Set(
     q.enemies.filter((e) => e.mode).map((e) => e.mode),
@@ -247,7 +287,7 @@ export function matches(sample: Sample, q: Query): boolean {
     if (
       !q.enemies
         .filter((e) => e.mode === group)
-        .some((e) => e.keys.some((k) => sample.enemyKeys.includes(k)))
+        .some(enemyMatches)
     )
       return false;
   return true;
@@ -270,6 +310,27 @@ export function queryProblem(q: Query, realBackend = false): string {
     return "转手次数应为 −1 或有效的无符号整数。";
   if (q.effects.length > 24)
     return "最多保留 24 个词条选项，任一组按一项逻辑要求计算。";
+  if (q.enemies.some((enemy) => enemy.state === "curse"))
+    return "一难状态会在每次进入时变化，无法按绘卷 ID 精确筛选。";
+  if (
+    q.enemies.some(
+      (enemy) => enemy.state === "possessed" && !enemyCanBePossessed(enemy),
+    )
+  )
+    return "这个敌人没有地狱附身变体，请关闭开关或选择标有“可附身”的低手敌人。";
+  if (
+    q.enemyVariant === "solo" &&
+    q.enemies.some((enemy) => enemy.availability === "expedition_only")
+  )
+    return "仅常世同行追加的敌人需要使用常世同行预览。";
+  if (
+    q.ng !== 3 &&
+    (q.enemyVariant === "expedition" ||
+      q.enemies.some(
+        (enemy) => enemy.state !== "any" || enemy.availability !== "any",
+      ))
+  )
+    return "敌人状态与常世同行预览目前仅支持三周目。";
   if (!realBackend && (q.ng !== 3 || q.level !== 180))
     return "此预览暂仅支持搜索三周目、180 级绘卷。";
   return "";

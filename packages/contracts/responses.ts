@@ -62,6 +62,7 @@ export type WorkerResponse =
                   qualifier_key: number | null;
                 }[];
               } | null;
+              enemy_states: EnemyStatePreviews;
               cursor: number | null;
               evidence: "certified_offline_replay" | "native_finalized_generation";
               installation_available: boolean;
@@ -79,6 +80,10 @@ export type WorkerResponse =
         message: string;
       };
     };
+export type EnemyStatePreviews = {
+  solo: EnemyStatePreview;
+  expedition: EnemyStatePreview;
+} | null;
 export type RecommendedLevelResolution =
   | {
       requested_displayed_level: number;
@@ -152,6 +157,7 @@ export interface JobSnapshot {
         qualifier_key: number | null;
       }[];
     } | null;
+    enemy_states: EnemyStatePreviews;
     cursor: number | null;
     evidence: "certified_offline_replay" | "native_finalized_generation";
     installation_available: boolean;
@@ -177,6 +183,38 @@ export interface JobSnapshot {
   } | null;
   resume_token: string | null;
   elapsed_ms: number;
+}
+export interface EnemyStatePreview {
+  seed: number;
+  playthrough: number;
+  variant: "solo" | "expedition";
+  terrain: number | null;
+  /**
+   * @maxItems 64
+   */
+  occurrences: {
+    wave_index: number;
+    position: number;
+    lookup_key: number;
+    role: number;
+    source_row_index: number;
+    availability: "base" | "expedition_only";
+    native_spawn_key: number;
+    possessed: "yes" | "no" | "unknown";
+    curse: "guaranteed" | "possible" | "never" | "unknown";
+    curse_probability: number | null;
+    curse_if_fresh_null_source_selector_runs: "guaranteed" | "never" | "unknown";
+    evidence_grade: string;
+    curse_evidence: string;
+  }[];
+  possessed_complete: boolean;
+  /**
+   * @maxItems 64
+   */
+  missing_inputs: string[];
+  curse_scope: string;
+  curse_count_range: [number, number] | null;
+  curse_count_domain: string | null;
 }
 export interface Handshake {
   protocol: 1;

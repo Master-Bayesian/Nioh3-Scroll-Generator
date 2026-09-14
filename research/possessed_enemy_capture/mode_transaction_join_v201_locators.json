@@ -1,0 +1,74 @@
+{
+  "version": "PC v2.01 pinned build",
+  "exe_sha256": "4047ECB623F3AE033F7D6F3637CD1C5408C72A89A038463268A7C9AC5C394159",
+  "image_size": 77814240,
+  "sites": {
+    "request_queued": {
+      "rva": "0x10d9368",
+      "bytes": "4A895C203042896C20386642896C203C",
+      "length": 16,
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "runtime_function": [
+        "0x10d9180",
+        "0x10d984b",
+        "0x4305c88"
+      ]
+    },
+    "mission_consume": {
+      "rva": "0x20e198c",
+      "bytes": "48895C24084889742410574881ECA00000008A4109488BF2",
+      "length": 24,
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "runtime_function": [
+        "0x20e198c",
+        "0x20e1a04",
+        "0x42de568"
+      ]
+    },
+    "mission_generated": {
+      "rva": "0x2237978",
+      "bytes": "488B0D81E43702488D542468448BC7",
+      "length": 15,
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "function_range": [
+        "0x22377B8",
+        "0x2237C10"
+      ],
+      "evidence": "evidence/prior-pro-return/disassembly/022377B8.asm @ 02237978..02237987",
+      "role": "after 20E198C returns; before task materialization"
+    },
+    "materialize_enter": {
+      "rva": "0x1c244e4",
+      "bytes": "48895C24205556574154415541564157488DAC24E0FEFFFF",
+      "length": 24,
+      "function_range": [
+        "0x1C244E4",
+        "0x1C2471B"
+      ],
+      "evidence": "evidence/prior-mode-upstream-static/disassembly/01C244E4.asm",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+    }
+  },
+  "scope": "Existing supplied v2.01 signatures; no fresh whole-module uniqueness claim. Recovered producer return is from live enqueue frame, not a broad stack scan.",
+  "schema": "nioh3.mode-transaction-join.locators.v1",
+  "extra_signature_checks": {
+    "enqueue_prologue": {
+      "rva": "0x10d9180",
+      "bytes": "48895C240855565741544155415641574881EC20060000488B0592AD3D03",
+      "length": 30,
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "runtime_function": [
+        "0x10d9180",
+        "0x10d984b",
+        "0x4305c88"
+      ]
+    }
+  },
+  "stack_join": {
+    "queued_to_enqueue_entry_rsp": 1624,
+    "queued_to_saved_caller_rbp": 1616,
+    "consume_to_return_rsp_delta": 8,
+    "consume_to_materialize_entry_rsp_delta": 0,
+    "output_minus_consume_rsp": 112
+  }
+}

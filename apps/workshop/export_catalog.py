@@ -14,6 +14,7 @@ from nioh3_scroll_editor.grace_map import load_grace_output_map
 from nioh3_scroll_editor.effect_sequence import generate_ng3_certified_effect_sequence, generate_challenge_attempt_count
 from nioh3_scroll_editor.auxiliary_generation import generate_complete_auxiliary, load_default_auxiliary_generation_tables
 from nioh3_scroll_editor.recommended_level import resolve_recommended_level
+from nioh3_scroll_editor.possessed_generation import EnemyStateTables
 from nioh3_scroll_editor.version import APP_AUTHORS, CONTACT_QQ_GROUP, PROJECT_GITHUB_URL
 
 from nioh3_scroll_editor.effect_generation_tables import load_default_effect_generation_tables
@@ -22,12 +23,15 @@ tables = load_default_effect_generation_tables()
 names = load_auxiliary_name_catalog("zh-CN")
 catalog = auxiliary_catalog(3, "zh-CN")
 roles = {e["lookup_key"]: e["role"] for e in catalog["enemy_options"]}
+enemy_state_tables = EnemyStateTables.load()
+possessed_keys = {key for key in roles if enemy_state_tables.eligible(key)}
 groups = split_enemy_variant_display_groups({name: keys.intersection(roles) for name, keys in names.enemy_key_groups().items() if keys.intersection(roles)})
 enemies = []
 for name, keys in groups.items():
     native_roles = {roles[key] for key in keys}
     tier = "低手" if native_roles <= {0,1,2,3} else "中手" if native_roles == {4} else "高手" if native_roles == {5} else "中／高手"
-    enemies.append({"id": str(min(keys)), "name": name, "keys": sorted(keys), "tier": tier})
+    enemies.append({"id": str(min(keys)), "name": name, "keys": sorted(keys), "tier": tier,
+                    "possessedKeys": sorted(keys & possessed_keys)})
 
 def rule_value(v):
     value = v["display_value"]

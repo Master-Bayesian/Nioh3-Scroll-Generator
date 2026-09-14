@@ -1,0 +1,274 @@
+{
+  "schema": "nioh3.assignment-origin.locators.v1",
+  "exe_sha256": "4047ECB623F3AE033F7D6F3637CD1C5408C72A89A038463268A7C9AC5C394159",
+  "exe_size": 77814240,
+  "version": "2.0.1.0",
+  "sites": {
+    "origin_entry": {
+      "rva": "0x10283c0",
+      "function_start": "0x10283c0",
+      "function_end_exclusive": "0x10285cc",
+      "bytes": "48895C240848896C241048897424185741544155415641574883EC50488B01440FB6FA0F297424400F297C2430440F294424204C8B304C8B6008",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "reason": "Pinned PC v2.01 instruction bytes; no absolute relocation occurs in this window."
+    },
+    "trial_decision": {
+      "rva": "0x1028570",
+      "function_start": "0x10283c0",
+      "function_end_exclusive": "0x10285cc",
+      "bytes": "3BC77E50488B3D75D85803",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFF",
+      "reason": "Pinned PC v2.01 instruction bytes; no absolute relocation occurs in this window."
+    },
+    "task_copy": {
+      "rva": "0x1bf2d54",
+      "function_start": "0x1bf2cf8",
+      "function_end_exclusive": "0x1bf2ecb",
+      "bytes": "0F1187800000008B4310898790000000",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "reason": "Pinned PC v2.01 instruction bytes; no absolute relocation occurs in this window."
+    },
+    "task_linked": {
+      "rva": "0x1c24662",
+      "function_start": "0x1c244e4",
+      "function_end_exclusive": "0x1c2471b",
+      "bytes": "41C686F400000001498D9EFC00000041C686E500000001",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "reason": "Pinned PC v2.01 instruction bytes; no absolute relocation occurs in this window."
+    }
+  },
+  "static_anchors": {
+    "source_write": {
+      "rva": "0x10285c4",
+      "bytes": "C6460F01B001EBCB",
+      "mask": "FFFFFFFFFFFFFFFF",
+      "runtime_breakpoint": false,
+      "end_exclusive": "0x10285cc",
+      "unique_matches": 1
+    },
+    "source_call0": {
+      "rva": "0x102c889",
+      "bytes": "33D24C896DE0488D4DE0E828BBFFFF84C0",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "runtime_breakpoint": false,
+      "end_exclusive": "0x102c89a",
+      "unique_matches": 1
+    },
+    "ctor_return": {
+      "rva": "0x1bf2eb8",
+      "bytes": "488B5C2430488BC7488B7424384883C4205FC3",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "runtime_breakpoint": false,
+      "end_exclusive": "0x1bf2ecb",
+      "unique_matches": 88
+    },
+    "clone_copy": {
+      "rva": "0x4bbc2b",
+      "bytes": "0F1083800000000F1187800000008B8390000000",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "runtime_breakpoint": false,
+      "end_exclusive": "0x4bbc3f",
+      "unique_matches": 1
+    },
+    "e9_read": {
+      "rva": "0xe3af3d",
+      "bytes": "0FB6878F00000084C0746041807C240C03",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "runtime_breakpoint": false,
+      "end_exclusive": "0xe3af4e",
+      "unique_matches": 1
+    },
+    "e9_direct": {
+      "rva": "0xe3af83",
+      "bytes": "C687E900000001488B060FB608888F95000000",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "runtime_breakpoint": false,
+      "end_exclusive": "0xe3af96",
+      "unique_matches": 1
+    },
+    "e9_weighted": {
+      "rva": "0xe3b4a6",
+      "bytes": "C686E900000001498B060FB608888E95000000",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "runtime_breakpoint": false,
+      "end_exclusive": "0xe3b4b9",
+      "unique_matches": 1
+    }
+  },
+  "function_locators": {
+    "mission_entry": {
+      "rva": "0x22377b8",
+      "end_exclusive": "0x2237c10",
+      "bytes": "48895C241848896C2420565741564881ECB0000000488B055CC72702",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "generation_wrapper": {
+      "rva": "0x20e198c",
+      "end_exclusive": "0x20e1a04",
+      "bytes": "48895C24084889742410574881ECA00000008A4109",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "generation_dispatch": {
+      "rva": "0x20e1864",
+      "end_exclusive": "0x20e198c",
+      "bytes": "48895C240848896C241048897424185741544155415641574881EC80000000448AF9",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "enemy_descriptor_generator": {
+      "rva": "0x1029e80",
+      "end_exclusive": "0x102c93b",
+      "bytes": "48895C2408488974241048897C2418554154415541564157488DAC2410EAFFFF",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "scoped_lcg_constructor": {
+      "rva": "0x9d8978",
+      "end_exclusive": "0x9d8a35",
+      "bytes": "48895C2408488974241048897C241841564883EC30488D7910",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "origin_assignment": {
+      "rva": "0x10283c0",
+      "end_exclusive": "0x10285cc",
+      "bytes": "48895C240848896C241048897424185741544155415641574883EC50488B01",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "task_installer": {
+      "rva": "0x1c244e4",
+      "end_exclusive": "0x1c2471b",
+      "bytes": "48895C24205556574154415541564157488DAC24E0FEFFFF",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "task_constructor": {
+      "rva": "0x1bf2cf8",
+      "end_exclusive": "0x1bf2ecb",
+      "bytes": "48895C24084889742410574883EC2033F6488BF9488931498BD9",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "task_copy_constructor": {
+      "rva": "0x4bbbb8",
+      "end_exclusive": "0x4bbf69",
+      "bytes": "48895C2408574883EC20488BDA488BF9E8B3A6E3FF",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "task_allocate_insert": {
+      "rva": "0x4bc874",
+      "end_exclusive": "0x4bcacb",
+      "bytes": "48895C2408488974241048897C2418554154415541564157488BEC4883EC504C8BF2",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "late_dispatch": {
+      "rva": "0x37a414",
+      "end_exclusive": "0x37a4f9",
+      "bytes": "48895C24084889742410574883EC4083B92001000000",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "late_selector": {
+      "rva": "0xe667a0",
+      "end_exclusive": "0xe66a2a",
+      "bytes": "48896C242056B810140000E830BAD2FF",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "late_candidate_helper": {
+      "rva": "0xe3adf0",
+      "end_exclusive": "0xe3b553",
+      "bytes": "488BC448894808554154488BEC4883EC68",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "late_count_helper": {
+      "rva": "0xe3a900",
+      "end_exclusive": "0xe3ad89",
+      "bytes": "48894C240853415441554883EC40F30F1009",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "auxiliary_index_builder": {
+      "rva": "0xe39d40",
+      "end_exclusive": "0xe39e24",
+      "bytes": "48896C24204154415641574883EC30488B01",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "enemy_database_selector": {
+      "rva": "0x1342e0",
+      "end_exclusive": "0x1342fa",
+      "bytes": "488B05091B480480B80A0B0000007405",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "enemy_hash32": {
+      "rva": "0x134430",
+      "end_exclusive": "0x1344b1",
+      "bytes": "48895C2408574883EC204C8B51088BFA4C8B4910488BD94D2BCA49C1F903E8A5EACA00",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "subtype_hash16": {
+      "rva": "0x555564",
+      "end_exclusive": "0x5555eb",
+      "bytes": "48895C2408574883EC204C8B5108488BD94C8B49100FB7FA4D2BCA8BD749C1F903E86600000033D28BC049F7F14533DB488BCA4D85C9744A",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    },
+    "config4543_lookup": {
+      "rva": "0x608460",
+      "end_exclusive": "0x608513",
+      "bytes": "48895C240848896C24104889742418574883EC20488B59208BF2488BF94C8B5B084C8B53104D2BD349C1FA03E8C79E6500",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "unique_matches": 1,
+      "runtime_breakpoint": false
+    }
+  },
+  "globals_and_constants": {
+    "generation_input_blob": "0x45B8400",
+    "parameter_manager_pointer": "0x45B5DF0",
+    "task_manager_root_pointer": "0x45B5E00",
+    "primary_thread_manager": "0x47558C0",
+    "primary_lcg_pointer": "0x44BFB88",
+    "secondary_lcg_pointer": "0x44BFB90",
+    "secondary_thread_id": "0x45BFA10",
+    "fallback_lcg_scalar": "0x44BFB84",
+    "f32_one": {
+      "rva": "0x3BD00A0",
+      "bytes": "0000803f"
+    },
+    "f32_2minus16": {
+      "rva": "0x3BD0B44",
+      "bytes": "00008037"
+    },
+    "f32_10000": {
+      "rva": "0x3BD0420",
+      "bytes": "00401c46"
+    }
+  }
+}

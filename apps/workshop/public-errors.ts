@@ -10,6 +10,10 @@ export function publicError(message: string): string {
     [/FAVORITES_CAPACITY_REACHED/, "收藏夹最多保存 50 张绘卷。"],
     [/CART_CAPACITY_REACHED/, "购物车最多保存 50 张绘卷。"],
     [
+      /Possessed is available only for eligible low-pool enemy variants/i,
+      "这个敌人没有地狱附身变体，请关闭开关或选择标有“可附身”的低手敌人。",
+    ],
+    [
       /INVALID_REQUEST:\s*search\.start/i,
       "筛选条件无法提交。请更新应用；若仍出现，请复制日志反馈。",
     ],

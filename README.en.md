@@ -12,13 +12,12 @@ Ippon-Datara Studio is a desktop toolkit for the PC version of Nioh 3. It helps
 players search for game-legal scrolls, add selected results, edit scrolls they
 already own, and recover from changes with verified automatic save backups.
 
-The current stable **v0.7.3** release uses **Tauri 2** and ships as one
-install-free EXE: download it and double-click to run. The only shared system
-dependency is Microsoft Edge WebView2 Runtime, normally already present on
-Windows.
+The current edition uses **Tauri 2** and ships as one install-free EXE: download
+it and double-click to run. The only shared system dependency is Microsoft Edge
+WebView2 Runtime, normally already present on Windows.
 
 [Download the latest release](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)
-· [Read the v0.7.3 release notes](packaging/release-notes.md)
+· [Read the current release notes](packaging/release-notes.md)
 
 ## What you can do
 
@@ -29,7 +28,8 @@ hand. You can filter by:
 
 - primary and secondary effects, including roll thresholds;
 - Grace;
-- enemies and legal enemy-group combinations;
+- enemies, legal enemy-group combinations, and the **Crucible Wraith** state
+  for supported low-pool enemies;
 - special rules, terrain, levels, and attempt settings;
 - scroll type, playthrough, and rarity.
 
@@ -46,7 +46,7 @@ current game and save context, creates a backup, and records the operation befor
 it writes. Use the Backups page to restore a verified backup when you need to
 return to an earlier save.
 
-The v0.7.3 release does **not** require Cheat Engine, Python, Node.js, or
+The release does **not** require Cheat Engine, Python, Node.js, or
 Electron. Compatibility and safety checks remain inside the app; if the game or
 save state is not supported, the operation stops instead of guessing.
 
@@ -79,7 +79,7 @@ save archive.
 
 ## Quick start
 
-1. Download `Nioh3Studio-0.7.3-win-x64.exe` from the
+1. Download the file named like `Nioh3Studio-<version>-win-x64.exe` from the
    [latest release](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest).
 2. Keep the EXE wherever you prefer and double-click it. No installation or
    manual extraction is needed.
@@ -99,9 +99,11 @@ have count and size limits; settings and save backups are kept separately.
 
 ### Upgrading from an older version
 
-Download and run the install-free EXE to move from an older release. The in-app
-updater verifies its signed payload and replaces that EXE. The previous version
-and download cache are removed after the new version starts successfully.
+Download and run the install-free EXE to move from an older release. The app
+checks for updates on every launch and asks before downloading a newer version;
+you can also use **Settings → Check for updates**. The updater verifies its
+signed payload and replaces that EXE. The previous version and download cache
+are removed after the new version starts successfully.
 
 ## A simple workflow
 
@@ -130,7 +132,7 @@ and download cache are removed after the new version starts successfully.
 
 Ippon-Datara Studio is intended to grow beyond the current scroll workflows.
 Additional tools are in active development; the disabled **Coming soon** entry
-in v0.7.3 is intentional. New tools will be documented here only after their
+is intentional. New tools will be documented here only after their
 user flow and safety boundaries have been verified.
 
 ## License and attribution

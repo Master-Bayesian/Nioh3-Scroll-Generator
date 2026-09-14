@@ -160,6 +160,14 @@
       "Favorites (",
       "お気に入り（"
     ],
+    "搜索收藏夹中的绘卷 ID、词条、恩宠或敌人": [
+      "Search favorites by scroll ID, effect, grace, or enemy",
+      "お気に入りを絵巻ID・効果・恩寵・敵で検索"
+    ],
+    "收藏夹中没有匹配的绘卷。": [
+      "No matching scrolls in Favorites.",
+      "お気に入りに一致する絵巻がありません。"
+    ],
     "敬请期待": [
       "Coming soon",
       "今後追加予定"
@@ -195,10 +203,6 @@
     "关闭应用": [
       "Close app",
       "アプリを終了"
-    ],
-    "装备在身上：筛选左侧词条与恩宠。刷副本：筛选右侧敌人、规则、地形与挑战次数。": [
-      "For equipped bonuses, filter effects and graces on the left. For missions, filter enemies, rules, terrain and attempts on the right.",
-      "装備用：左側で効果と恩寵を指定。ミッション用：右側で敵・ルール・地形・挑戦回数を指定。"
     ],
     "使用说明": [
       "How to use",
@@ -300,9 +304,9 @@
       "Equipment bonuses",
       "装備効果"
     ],
-    "选择主副词条与恩宠": [
-      "Choose effects and graces",
-      "主・副効果と恩寵を選択"
+    "装备在身上：筛选词条与恩宠": [
+      "For equipped bonuses: filter effects and graces",
+      "装備用：効果と恩寵を指定"
     ],
     "搜索词条名称或 ID": [
       "Search effect name or ID",
@@ -360,9 +364,9 @@
       "Missions",
       "ミッション"
     ],
-    "选择敌人、特殊规则、地形与挑战次数": [
-      "Choose enemies, rules, terrain and attempts",
-      "敵・ルール・地形・挑戦回数を選択"
+    "刷副本：筛选敌人、规则、地形与挑战次数": [
+      "For missions: filter enemies, rules, terrain and attempts",
+      "ミッション用：敵・ルール・地形・挑戦回数を指定"
     ],
     "组合说明": [
       "Matching help",
@@ -723,10 +727,6 @@
     "允许使用 CPU 搜索": [
       "Allow CPU search",
       "CPU検索を許可"
-    ],
-    "界面字号": [
-      "Text size",
-      "文字サイズ"
     ],
     "显示词条与敌人 ID": [
       "Show effect and enemy IDs",
@@ -1728,6 +1728,10 @@
       "New version available",
       "新しいバージョンがあります"
     ],
+    "是否现在下载并安装？": [
+      "Install it now?",
+      "今すぐインストールしますか？"
+    ],
     "正在下载并校验更新…": [
       "Downloading and verifying update…",
       "更新をダウンロード・検証中…"
@@ -1743,6 +1747,10 @@
     "下载更新": [
       "Download update",
       "更新をダウンロード"
+    ],
+    "稍后": [
+      "Later",
+      "後で"
     ],
     "安全退出并安装更新": [
       "Exit safely and install",
@@ -1976,9 +1984,21 @@
       "Leave the primary effect unrestricted, or use the first 1–3 choices as alternatives. Reorder to change their roles. Require unchosen alternatives as secondary effects to match either order.",
       "主効果を指定しないか、先頭1～3件を主効果の候補にします。並べ替えで役割を変更できます。選ばれなかった候補を副効果に必須とすることもできます。"
     ],
-    "低／中／高指生成池档位，不代表难度。选择表示至少包含，允许其他敌人出现。已选敌人可设必含或任选组。": [
-      "Low / middle / high indicate generation pools, not difficulty. Selected enemies must appear, but additional enemies are allowed. Use required or any-of groups.",
-      "低・中・高は生成枠であり難易度ではありません。選択した敵以外の出現も許可します。必須またはいずれかのグループを指定できます。"
+    "低／中／高指敌人生成池，不代表难度。添加敌人表示结果中至少包含它；游戏仍可能生成其他敌人。只有原生规则允许的低手敌人才提供地狱附身开关。": [
+      "Low / middle / high are enemy generation pools, not difficulty levels. Adding an enemy requires it to appear, but other enemies may also appear. The Crucible Wraith switch is shown only for low-pool enemies allowed by the native rules.",
+      "低・中・高は敵の生成枠であり、難易度ではありません。敵を追加すると結果にその敵が必須になりますが、ほかの敵も出現できます。地獄憑きスイッチは、ゲーム本来の規則で許可された低位枠の敵にだけ表示されます。"
+    ],
+    "敌人列表": [
+      "Enemy list",
+      "敵一覧"
+    ],
+    "点击＋添加筛选条件": [
+      "Click + to add a filter",
+      "＋で絞り込み条件に追加"
+    ],
+    "可附身": [
+      "Crucible Wraith eligible",
+      "地獄憑き対応"
     ],
     "按类型查找，再选择具体对象与数值。任意变体覆盖该项全部数值；选择精确变体会替换该项旧选择。最多组合三项特殊规则。": [
       "Find a category, then choose a target and value. Any variant accepts all values. A specific variant replaces the previous choice. Combine up to three rules.",
@@ -1991,6 +2011,22 @@
     "想刷某个敌人：添加它并选“必含”。几个敌人都可以：把它们设为同一个“任选组”，出现其中一个就算符合。": [
       "For one specific enemy, add it as Required. To accept any of several enemies, put them in the same any-of group.",
       "特定の敵を狙う場合は「必須」で追加します。複数の敵のどれでもよい場合は、同じグループにまとめます。"
+    ],
+    "每个设为“必含”的敌人都必须出现在结果中。例如同时选择古笼火和肉瘤怪，结果必须同时包含两者。": [
+      "Every Required enemy must appear in the result. For example, selecting both Koroka and Nuppeppo requires both to appear.",
+      "「必須」にした敵はすべて結果に出現する必要があります。たとえば古籠火と肉瘤怪を選ぶと、両方が出現する結果だけが対象です。"
+    ],
+    "同一任选组只需出现其中一个敌人。例如把古笼火和肉瘤怪放入“任选组 1”，出现任意一个就符合。": [
+      "An any-of group needs only one of its enemies to appear. For example, putting Koroka and Nuppeppo in Any-of group 1 accepts either enemy.",
+      "同じ選択グループでは、いずれか1体が出現すれば条件を満たします。たとえば古籠火と肉瘤怪を「選択グループ 1」に入れると、どちらかが出現すれば対象です。"
+    ],
+    "多个条件怎样计算？": [
+      "How are multiple conditions evaluated?",
+      "複数の条件はどう判定されますか？"
+    ],
+    "每个必含条件和每个任选组都要分别满足；绘卷中可以同时出现没有选择的其他敌人。": [
+      "Every Required condition and every any-of group must be satisfied independently. The scroll may also contain enemies you did not select.",
+      "各「必須」条件と各選択グループをそれぞれ満たす必要があります。選んでいない敵が同時に出現しても問題ありません。"
     ],
     "装备加成：在左边选择你想要的词条和恩宠。刷副本：在右边选择想打的敌人、特殊规则、地形和挑战次数。": [
       "For equipment bonuses, choose effects and graces on the left. For missions, choose enemies, rules, terrain and attempts on the right.",
@@ -2251,6 +2287,102 @@
     "写入结果无法确认。请先核对存档和操作记录，不要重复添加。": [
       "The write result could not be confirmed. Check the save and operation record before trying again.",
       "書き込み結果を確認できません。再実行する前にセーブと操作記録を確認してください。"
+    ],
+    "出现即可": [
+      "Any appearance",
+      "出現のみ"
+    ],
+    "地狱附身": [
+      "Crucible Wraith",
+      "地獄憑き"
+    ],
+    "一难（每次进入变化）": [
+      "Curse (changes on each entry)",
+      "難行（入場ごとに変化）"
+    ],
+    "任意出场": [
+      "Any availability",
+      "出現条件を問わない"
+    ],
+    "单人也出现": [
+      "Appears in solo",
+      "ソロでも出現"
+    ],
+    "仅常世同行追加": [
+      "Expedition-only",
+      "常世同行でのみ追加"
+    ],
+    "敌人状态": [
+      "Enemy state",
+      "敵の状態"
+    ],
+    "出场范围": [
+      "Availability",
+      "出現範囲"
+    ],
+    "敌人预览模式": [
+      "Enemy preview mode",
+      "敵プレビューモード"
+    ],
+    "敌人预览": [
+      "Enemy preview",
+      "敵プレビュー"
+    ],
+    "单人": [
+      "Solo",
+      "ソロ"
+    ],
+    "常世同行": [
+      "Expedition",
+      "常世同行"
+    ],
+    "只有低手敌人才可能地狱附身，可按绘卷 ID 精确筛选；一难会在每次进入时变化，仅在预览中如实标为随机。": [
+      "Only low-pool enemies can be Crucible Wraiths, and they can be filtered exactly by Scroll ID. Curse changes on each entry and is shown honestly as random in previews.",
+      "地獄憑きになる可能性があるのは低位枠の敵だけで、絵巻IDによる正確な絞り込みに対応しています。難行は入場ごとに変化するため、プレビューではランダムとして表示します。"
+    ],
+    "这个敌人没有地狱附身变体，请关闭开关或选择标有“可附身”的低手敌人。": [
+      "This enemy has no Crucible Wraith variant. Turn off the switch or choose a low-pool enemy marked Crucible Wraith eligible.",
+      "この敵には地獄憑きの個体がありません。スイッチをオフにするか、「地獄憑き対応」と表示された低位枠の敵を選んでください。"
+    ],
+    "联机追加": [
+      "Expedition-only",
+      "常世同行で追加"
+    ],
+    "同行": [
+      "Exp.",
+      "同行"
+    ],
+    "附身": [
+      "Wraith",
+      "憑き"
+    ],
+    "附身未知": [
+      "Crucible Wraith status unknown",
+      "地獄憑き状態不明"
+    ],
+    "一难随机": [
+      "Curse random",
+      "難行はランダム"
+    ],
+    "· 一难随机": [
+      "· Curse random",
+      "· 難行はランダム"
+    ],
+    "波 ·": [
+      "wave ·",
+      "ウェーブ ·"
+    ],
+    "一难状态会在每次进入时变化，无法按绘卷 ID 精确筛选。": [
+      "Curse changes on each entry and cannot be filtered exactly by Scroll ID.",
+      "難行は入場ごとに変化するため、絵巻IDでは正確に絞り込めません。"
+    ],
+    "仅常世同行追加的敌人需要使用常世同行预览。": [
+      "Expedition-only enemies require the Expedition preview.",
+      "常世同行でのみ追加される敵には、常世同行プレビューを使用してください。"
+    ],
+    "敌人状态与常世同行预览目前仅支持三周目。": [
+      "Enemy states and Expedition previews are currently supported only in NG+2.",
+      "敵の状態と常世同行プレビューは現在3周目のみ対応しています。"
     ]
   },
   "game": {

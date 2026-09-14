@@ -1,0 +1,503 @@
+[
+  {
+    "source": "evidence/controls/156062997/20260912-sp-a/late-mask.json",
+    "source_sha256": "0000f903afb4849079491954188eaa246063a9d9d88d4b0cf0131dec814644b3",
+    "run": "20260912-sp-a",
+    "seed": 156062997,
+    "records": [
+      {
+        "spawn": 3900,
+        "lookup": 492278,
+        "mission": 52374,
+        "descriptor_hex": "3c0f0000f6820700050000000000010000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 2,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3901,
+        "lookup": 999088,
+        "mission": 52374,
+        "descriptor_hex": "3d0f0000b03e0f00010000000000050000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 4,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3902,
+        "lookup": 572569,
+        "mission": 52374,
+        "descriptor_hex": "3e0f000099bc0800020000000000030000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 3,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3903,
+        "lookup": 970966,
+        "mission": 52374,
+        "descriptor_hex": "3f0f0000d6d00e00010000000000060000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 1,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3904,
+        "lookup": 572468,
+        "mission": 52374,
+        "descriptor_hex": "400f000034bc0800010000000000030100ffffff",
+        "flag8f": 1,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 0,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3905,
+        "lookup": 945986,
+        "mission": 52374,
+        "descriptor_hex": "410f0000426f0e00020000000000010000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 5,
+        "object0_is_null": true,
+        "object18_is_null": true
+      }
+    ],
+    "mask_hex": "000000000000000000000000"
+  },
+  {
+    "source": "evidence/controls/156062997/20260912-sp-b5/late-mask.json",
+    "source_sha256": "35c54d8370cb2c3c03f81e713afe07f458b572aa79c4f65cdf7509b9cfa40a5f",
+    "run": "20260912-sp-b5",
+    "seed": 156062997,
+    "records": [
+      {
+        "spawn": 3900,
+        "lookup": 492278,
+        "mission": 52374,
+        "descriptor_hex": "3c0f0000f6820700050000000000010000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 2,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3901,
+        "lookup": 999088,
+        "mission": 52374,
+        "descriptor_hex": "3d0f0000b03e0f00010000000000050000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 4,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3902,
+        "lookup": 572569,
+        "mission": 52374,
+        "descriptor_hex": "3e0f000099bc0800020000000000030000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 3,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3903,
+        "lookup": 970966,
+        "mission": 52374,
+        "descriptor_hex": "3f0f0000d6d00e00010000000000060000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 1,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3904,
+        "lookup": 572468,
+        "mission": 52374,
+        "descriptor_hex": "400f000034bc0800010000000000030100ffffff",
+        "flag8f": 1,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 0,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3905,
+        "lookup": 945986,
+        "mission": 52374,
+        "descriptor_hex": "410f0000426f0e00020000000000010000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 5,
+        "object0_is_null": true,
+        "object18_is_null": true
+      }
+    ],
+    "mask_hex": "000000000000000000000000"
+  },
+  {
+    "source": "evidence/controls/86872488/20260912-one-person-expedition-a/late-mask.json",
+    "source_sha256": "a2533f6e1e0764889b685cbe226ea1c6bd89efc92e6353cd3304204326c0ca96",
+    "run": "20260912-one-person-expedition-a",
+    "seed": 86872488,
+    "records": [
+      {
+        "spawn": 3900,
+        "lookup": 243822,
+        "mission": 52374,
+        "descriptor_hex": "3c0f00006eb80300030000000000020000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 5,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3901,
+        "lookup": 243822,
+        "mission": 52374,
+        "descriptor_hex": "3d0f00006eb80300030000000000030001ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 7,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3902,
+        "lookup": 904088,
+        "mission": 52374,
+        "descriptor_hex": "3e0f000098cb0d00010000000000070000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 1,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3903,
+        "lookup": 904088,
+        "mission": 52374,
+        "descriptor_hex": "3f0f000098cb0d00010000000000010101ffffff",
+        "flag8f": 1,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 6,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3904,
+        "lookup": 352684,
+        "mission": 52374,
+        "descriptor_hex": "400f0000ac610500010000000000080000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 3,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3905,
+        "lookup": 17288,
+        "mission": 52374,
+        "descriptor_hex": "410f000088430000000000000000070000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 4,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3906,
+        "lookup": 352684,
+        "mission": 52374,
+        "descriptor_hex": "420f0000ac610500010000000000020001ffffff",
+        "flag8f": 0,
+        "e9": 0,
+        "ea": 0,
+        "assigned_index": 0,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3907,
+        "lookup": 904088,
+        "mission": 52374,
+        "descriptor_hex": "430f000098cb0d00010000000000040000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 0,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3908,
+        "lookup": 52104,
+        "mission": 52374,
+        "descriptor_hex": "440f000088cb0000000000000000070000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 2,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3909,
+        "lookup": 904088,
+        "mission": 52374,
+        "descriptor_hex": "450f000098cb0d00010000000000030001ffffff",
+        "flag8f": 0,
+        "e9": 0,
+        "ea": 0,
+        "assigned_index": 0,
+        "object0_is_null": true,
+        "object18_is_null": true
+      }
+    ],
+    "mask_hex": "000000000000000000000000"
+  },
+  {
+    "source": "evidence/controls/86872488/20260912-sp-negative-b/late-mask.json",
+    "source_sha256": "c3fa583bc03480a2c516135120c2b7ca5ad201d002118c652592e82191bebb64",
+    "run": "20260912-sp-negative-b",
+    "seed": 86872488,
+    "records": [
+      {
+        "spawn": 3900,
+        "lookup": 243822,
+        "mission": 52374,
+        "descriptor_hex": "3c0f00006eb80300030000000000020000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 1,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3901,
+        "lookup": 904088,
+        "mission": 52374,
+        "descriptor_hex": "3d0f000098cb0d00010000000000070000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 2,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3902,
+        "lookup": 352684,
+        "mission": 52374,
+        "descriptor_hex": "3e0f0000ac610500010000000000080000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 0,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3903,
+        "lookup": 17288,
+        "mission": 52374,
+        "descriptor_hex": "3f0f000088430000000000000000070000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 4,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3904,
+        "lookup": 904088,
+        "mission": 52374,
+        "descriptor_hex": "400f000098cb0d00010000000000040000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 3,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3905,
+        "lookup": 52104,
+        "mission": 52374,
+        "descriptor_hex": "410f000088cb0000000000000000070000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 5,
+        "object0_is_null": true,
+        "object18_is_null": true
+      }
+    ],
+    "mask_hex": "000000000000000000000000"
+  },
+  {
+    "source": "evidence/controls/86872488/20260913-one-person-expedition-b/late-mask.json",
+    "source_sha256": "9fd59d1bb72e0ecd205fe41e020c27b1aa939135e80396b0b39eac9fa28ba8e1",
+    "run": "20260913-one-person-expedition-b",
+    "seed": 86872488,
+    "records": [
+      {
+        "spawn": 3900,
+        "lookup": 243822,
+        "mission": 52374,
+        "descriptor_hex": "3c0f00006eb80300030000000000020000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 1,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3901,
+        "lookup": 243822,
+        "mission": 52374,
+        "descriptor_hex": "3d0f00006eb80300030000000000030001ffffff",
+        "flag8f": 0,
+        "e9": 0,
+        "ea": 0,
+        "assigned_index": 0,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3902,
+        "lookup": 904088,
+        "mission": 52374,
+        "descriptor_hex": "3e0f000098cb0d00010000000000070000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 5,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3903,
+        "lookup": 904088,
+        "mission": 52374,
+        "descriptor_hex": "3f0f000098cb0d00010000000000010101ffffff",
+        "flag8f": 1,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 6,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3904,
+        "lookup": 352684,
+        "mission": 52374,
+        "descriptor_hex": "400f0000ac610500010000000000080000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 3,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3905,
+        "lookup": 17288,
+        "mission": 52374,
+        "descriptor_hex": "410f000088430000000000000000070000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 2,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3906,
+        "lookup": 352684,
+        "mission": 52374,
+        "descriptor_hex": "420f0000ac610500010000000000020001ffffff",
+        "flag8f": 0,
+        "e9": 0,
+        "ea": 0,
+        "assigned_index": 0,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3907,
+        "lookup": 904088,
+        "mission": 52374,
+        "descriptor_hex": "430f000098cb0d00010000000000040000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 0,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3908,
+        "lookup": 52104,
+        "mission": 52374,
+        "descriptor_hex": "440f000088cb0000000000000000070000ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 4,
+        "object0_is_null": true,
+        "object18_is_null": true
+      },
+      {
+        "spawn": 3909,
+        "lookup": 904088,
+        "mission": 52374,
+        "descriptor_hex": "450f000098cb0d00010000000000030001ffffff",
+        "flag8f": 0,
+        "e9": 1,
+        "ea": 0,
+        "assigned_index": 7,
+        "object0_is_null": true,
+        "object18_is_null": true
+      }
+    ],
+    "mask_hex": "000000000000000000000000"
+  }
+]

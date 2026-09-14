@@ -103,6 +103,10 @@ research/*
 !research/test_pickup_dispatch_noop_ce.lua
 !research/possessed_enemy_capture/
 !research/possessed_enemy_capture/**
+research/possessed_enemy_capture/**/__pycache__/
+!research/enemy_states_v201/
+!research/enemy_states_v201/**
+research/enemy_states_v201/**/__pycache__/
 !research/build_dispatch_probe_code.lua
 !research/verify_dispatch_probe.py
 !research/test_live_scroll_finalizer_probe_ce.lua

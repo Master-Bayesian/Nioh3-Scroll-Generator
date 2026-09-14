@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "text_sha256": "F8799B5DB54A9CA46F52BCD6C037B2AD9B413DC83A26F1D3F0E61251BFB48023",
+  "coverage": "partial-table-capture; NOT a seed-result cache",
+  "positions_by_terrain": {
+    "0xD4": {
+      "complete_terrain_scan": true,
+      "rows_hex": [
+        "8EEF474800C0414640A76648000000003F00D40100000000",
+        "1240474800C04146686266480000A0411F00D40200000000",
+        "02C9484800C041460078664800008CC21F00D40300000000",
+        "CAEE484800C04146BF2E67488DB4B8C20F00D40401000000",
+        "94C5464800C04146C53467480000A0420F00D40501000000",
+        "F4F8474800C04146C03B67480000D8413F00D40601000000",
+        "E79B484800C04146A902684800000EC31F00D40701000000",
+        "2F36474800C041462CEC674871EF1F431F00D40801000000"
+      ]
+    }
+  },
+  "eligibility_by_lookup": {
+    "0x3B86E": {
+      "enemy_row_index": 343,
+      "enemy_row_present": true,
+      "enemy_weight244": 200,
+      "flags14": 0,
+      "subtype_key": 32671,
+      "subtype_raw_hex": "3401000086040000641900009F7F000056E540000000000072F1000089250000735D0000020000000A0000000F000000BEEB652202005F000B005F000000000003000300000000000500030008000B00A00F0000",
+      "subtype_row_index": 32,
+      "subtype_row_present": true
+    },
+    "0xDCB98": {
+      "enemy_row_index": 369,
+      "enemy_row_present": true,
+      "enemy_weight244": 200,
+      "flags14": 0,
+      "subtype_key": 33706,
+      "subtype_raw_hex": "A50100001A05000064190000AA830000DE527C000000000070DA0000912D000096100000020000000A0000000F000000A5C1128201005F000C005F0008000900030003000A000B00050003000C001100A00F0000",
+      "subtype_row_index": 45,
+      "subtype_row_present": true
+    },
+    "0x561AC": {
+      "enemy_row_index": 322,
+      "enemy_row_present": true,
+      "enemy_weight244": 200,
+      "flags14": 0,
+      "subtype_key": 18738,
+      "subtype_raw_hex": "110100005B0400006419000032490000599A780000000000F6C7000038D100000D8F0000020000000A0000000F000000BCE4507C01005F000A005F000500060003000300040005000600030006000800A00F0000",
+      "subtype_row_index": 28,
+      "subtype_row_present": true
+    },
+    "0x4388": {
+      "enemy_row_index": 366,
+      "enemy_row_present": true,
+      "enemy_weight244": 100,
+      "subtype_key": 0,
+      "subtype_row_present": false
+    },
+    "0xCB88": {
+      "enemy_row_index": 330,
+      "enemy_row_present": true,
+      "enemy_weight244": 100,
+      "flags14": 0,
+      "subtype_key": 62738,
+      "subtype_raw_hex": "1D0100006B040000E204000012F50000158963000000000015B900009F0F000052A00000010000000500000007000000C694311A04005F0007005F000600070004000400080009000C00060006000800A00F0000",
+      "subtype_row_index": 29,
+      "subtype_row_present": true
+    }
+  },
+  "config_4543_lookup_observed": true,
+  "config_4543_hex": "8A18000000000000A144000000000000F4010000434500000000803F00000000",
+  "source_note": "Current handoff evidence/prior-run-d/assignment-origin.json for enemy/subtype gates and 4543; prior supplied Mode_Upstream_Live_Result ZIP evidence/live-mode-upstream/mode-upstream.json for complete D4 subset of A90. No Seed or captured RNG state is a table lookup key.",
+  "provenance": [
+    {
+      "path": "evidence/prior-run-d/assignment-origin.json",
+      "sha256": "3a64f16c89975ab466a7ea38f317a0465e320b1f1feb6d478c6a4007bd564a77"
+    },
+    {
+      "archive": "Nioh3_PC_v2.01_Mode_Upstream_Live_Result_Pro_Handoff_20260913_v1.zip",
+      "path": "evidence/live-mode-upstream/mode-upstream.json",
+      "sha256": "1fb085f6a732a7d3b78b161678d544fd653752cd60f4db3632999e3be6119a27"
+    }
+  ]
+}

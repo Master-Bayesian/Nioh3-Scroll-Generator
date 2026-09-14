@@ -1,14 +1,39 @@
-# Project instructions
+# Repository guidance
 
-- Write all source code, tests, comments, commits, and project documentation in English.
-- Speak to the user in Simplified Chinese unless the user requests another language.
-- Read `docs/knowledge/CURRENT_HANDOFF.md` and `docs/knowledge/INDEX.md` before changing generation, save, live-add, release, or reverse-engineering code.
+- Speak to the user in Simplified Chinese unless they request another language. Write source code, tests, comments, commits, and repository documentation in English.
+- Preserve unrelated tracked and untracked work. Put task delivery artifacts under `deliverables/`, not in the repository root.
+- Continue through implementation, relevant verification, and repair until the requested outcome is complete or a real owner decision is required.
 
-## Research tasks
+## Use context when it is relevant
 
-- Every research or reverse-engineering task must produce a self-contained handoff package for a Pro model. A research task is not complete when its evidence exists only in chat history, `.codex_tmp`, Cheat Engine state, or an unindexed scratch file.
-- Use Codex for bounded evidence collection, reproducible capture tooling, controlled experiments, source inventory, and package verification. Package open-ended binary analysis, mathematical derivation, solver design, or unresolved causal analysis for the Pro model instead of spending an unbounded session on it.
-- Follow `docs/knowledge/RESEARCH_HANDOFF_WORKFLOW.md` for required package contents, evidence grading, privacy boundaries, validation, and delivery paths.
-- Put every package in a dedicated directory under `deliverables/` and also create a ZIP with a SHA-256 digest. Include a ready-to-run Pro task prompt and explicit acceptance criteria.
-- Preserve confirmed facts, observations, inferences, and unknowns as separate categories. Never turn an intermediate runtime state or a plausible interpretation into a product claim.
-- After the Pro result returns, verify its claims against the package evidence and applicable live acceptance before integrating it into production.
+- Use `docs/knowledge/CURRENT_HANDOFF.md` for current product and release state. Use `docs/knowledge/INDEX.md` and its linked subsystem evidence when changing generation, saves, live addition, or game-version compatibility.
+- Run Python tests through `tools/run_python_tests.ps1`, which selects and validates the repository dependency environment; never invoke an ambient `python`, `py`, or ad-hoc `uv` environment directly.
+- Use `docs/knowledge/RELEASE_RUNBOOK.md` for packaging or publication work.
+- Use `docs/knowledge/RESEARCH_HANDOFF_WORKFLOW.md` for research or reverse engineering.
+- Use `$nioh3-product-stewardship` when changing user-visible behavior, migrating the UI, or preparing a version.
+- Use the matching repository skill for release, CE research, research handoff, product stewardship, or UI acceptance work.
+
+## Product and safety boundaries
+
+- Preserve shipped behavior unless the owner explicitly approves a change. Entry points, defaults, terminology, visibility, and removal are product behavior.
+- When generation, save, or live-add paths are affected, preserve `GenerationContext`, exact RNG and replay behavior, the R4 finalized-preview/stage-one pairing, supported legacy Tk compatibility, and protected-operation recovery unless the task changes an approved contract.
+- Treat static checks, automated tests, synthetic saves, packaged startup, and offline parity as bounded evidence, not live-game, visual, persistence, or propagation acceptance.
+- Fail closed for unsupported game versions, unknown record semantics, ambiguous writes, and unverified legality rules.
+- Treat QQ and community reports as evidence, not accepted requirements. The owner decides priority, target version, intentional behavior changes, and closure that requires player or game acceptance.
+- Research must produce the self-contained Pro handoff required by the research workflow; verify Pro conclusions before integrating them into the product.
+- Do not push, tag, publish assets, replace an update feed, or announce a release without explicit owner authorization.
+
+## Improve recurring workflows
+
+- When a completed task exposes a stable, reusable improvement to a repository workflow, update the matching skill, runbook, automation, or executable check before finishing.
+- Prefer deterministic scripts and CI checks for mechanical rules. Keep skills focused on decisions and workflow boundaries; do not encode one-off failures or duplicate authoritative documentation.
+- Validate every changed skill with the repository or system skill validator.
+- For a substantive failure in research, build, packaging, or release work
+  (not an ordinary expected test failure), immediately delegate a Luna agent to
+  append a bounded entry to `docs/research/EXPERIMENT_FAILURE_LEDGER.md`.
+  Include the objective, observed symptom, root cause (or `unknown`), evidence
+  paths, disposition, reproduction status, and follow-up state. Keep symptoms
+  separate from rules; do not promote a one-off failure into a skill or active
+  conclusion. The ledger is non-canonical, normally unloaded, and must not
+  block the main task. Delegate simple documentation, archival, and audit work
+  to Luna when practical.

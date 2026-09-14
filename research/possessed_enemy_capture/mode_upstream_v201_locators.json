@@ -1,0 +1,51 @@
+{
+  "version": "PC v2.01 pinned build",
+  "exe_sha256": "4047ECB623F3AE033F7D6F3637CD1C5408C72A89A038463268A7C9AC5C394159",
+  "image_size": 77814240,
+  "sites": {
+    "request_enqueue": {
+      "rva": "0x10d9180",
+      "bytes": "48895C240855565741544155415641574881EC20060000488B0592AD3D03",
+      "length": 30,
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "runtime_function": [
+        "0x10d9180",
+        "0x10d984b",
+        "0x4305c88"
+      ]
+    },
+    "request_queued": {
+      "rva": "0x10d9368",
+      "bytes": "4A895C203042896C20386642896C203C",
+      "length": 16,
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "runtime_function": [
+        "0x10d9180",
+        "0x10d984b",
+        "0x4305c88"
+      ]
+    },
+    "mission_consume": {
+      "rva": "0x20e198c",
+      "bytes": "48895C24084889742410574881ECA00000008A4109488BF2",
+      "length": 24,
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "runtime_function": [
+        "0x20e198c",
+        "0x20e1a04",
+        "0x42de568"
+      ]
+    },
+    "context_resolved": {
+      "rva": "0x1029fee",
+      "bytes": "0F84E12800004181E6FFFFFF0F",
+      "length": 13,
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFF",
+      "runtime_function": [
+        "0x1029e80",
+        "0x1029ffb",
+        "0x42de6b8"
+      ]
+    }
+  }
+}

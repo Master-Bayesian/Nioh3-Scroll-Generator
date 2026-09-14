@@ -178,6 +178,12 @@ class SearchJobs:
                     if query.effect_occurrences:
                         from .effect_occurrences import matches_occurrences
                         accepted = [c for c in accepted if matches_occurrences(c.effects, query.effect_occurrences)]
+                    if query.enemy_occurrence_groups:
+                        from .enemy_state_search import generate_enemy_state_preview, enemy_occurrence_groups_status
+                        accepted = [c for c in accepted if enemy_occurrence_groups_status(
+                            generate_enemy_state_preview(c.seed, query.request.playthrough,
+                                                         variant=query.enemy_variant),
+                            query.enemy_occurrence_groups) == 'match']
                     payloads = [candidate_payload(c, self.service) for c in accepted]
                     next_cursor = page.next_start_after_trial
                     if next_cursor is None or next_cursor < cursor or next_cursor > min(stop, cursor + params['page_trials']):

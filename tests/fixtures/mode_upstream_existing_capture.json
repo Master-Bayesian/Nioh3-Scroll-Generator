@@ -1,0 +1,497 @@
+{
+  "schema": "nioh3.mode-upstream.existing-evidence.v1",
+  "seed": 86872488,
+  "controls": [
+    {
+      "path": "evidence/controls/86872488/20260912-sp-negative-b/late-mask.json",
+      "sha256": "C3FA583BC03480A2C516135120C2B7CA5AD201D002118C652592E82191BEBB64",
+      "tasks": [
+        {
+          "spawn": 3900,
+          "lookup": 243822,
+          "terrain": 212,
+          "position_key": 2,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "3C0F00006EB80300030000000000020000FFFFFF",
+          "json_pointer": "/bridge_result/events/12/records/10"
+        },
+        {
+          "spawn": 3901,
+          "lookup": 904088,
+          "terrain": 212,
+          "position_key": 7,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "3D0F000098CB0D00010000000000070000FFFFFF",
+          "json_pointer": "/bridge_result/events/12/records/11"
+        },
+        {
+          "spawn": 3902,
+          "lookup": 352684,
+          "terrain": 212,
+          "position_key": 8,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "3E0F0000AC610500010000000000080000FFFFFF",
+          "json_pointer": "/bridge_result/events/12/records/12"
+        },
+        {
+          "spawn": 3903,
+          "lookup": 17288,
+          "terrain": 212,
+          "position_key": 7,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "3F0F000088430000000000000000070000FFFFFF",
+          "json_pointer": "/bridge_result/events/12/records/13"
+        },
+        {
+          "spawn": 3904,
+          "lookup": 904088,
+          "terrain": 212,
+          "position_key": 4,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "400F000098CB0D00010000000000040000FFFFFF",
+          "json_pointer": "/bridge_result/events/12/records/14"
+        },
+        {
+          "spawn": 3905,
+          "lookup": 52104,
+          "terrain": 212,
+          "position_key": 7,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "410F000088CB0000000000000000070000FFFFFF",
+          "json_pointer": "/bridge_result/events/12/records/15"
+        }
+      ]
+    },
+    {
+      "path": "evidence/controls/86872488/20260912-one-person-expedition-a/late-mask.json",
+      "sha256": "A2533F6E1E0764889B685CBE226EA1C6BD89EFC92E6353CD3304204326C0CA96",
+      "tasks": [
+        {
+          "spawn": 3900,
+          "lookup": 243822,
+          "terrain": 212,
+          "position_key": 2,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "3C0F00006EB80300030000000000020000FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/10"
+        },
+        {
+          "spawn": 3901,
+          "lookup": 243822,
+          "terrain": 212,
+          "position_key": 3,
+          "selector_class": 1,
+          "source_flag": 0,
+          "descriptor_hex": "3D0F00006EB80300030000000000030001FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/11"
+        },
+        {
+          "spawn": 3902,
+          "lookup": 904088,
+          "terrain": 212,
+          "position_key": 7,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "3E0F000098CB0D00010000000000070000FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/12"
+        },
+        {
+          "spawn": 3903,
+          "lookup": 904088,
+          "terrain": 212,
+          "position_key": 1,
+          "selector_class": 1,
+          "source_flag": 1,
+          "descriptor_hex": "3F0F000098CB0D00010000000000010101FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/13"
+        },
+        {
+          "spawn": 3904,
+          "lookup": 352684,
+          "terrain": 212,
+          "position_key": 8,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "400F0000AC610500010000000000080000FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/14"
+        },
+        {
+          "spawn": 3905,
+          "lookup": 17288,
+          "terrain": 212,
+          "position_key": 7,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "410F000088430000000000000000070000FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/15"
+        },
+        {
+          "spawn": 3906,
+          "lookup": 352684,
+          "terrain": 212,
+          "position_key": 2,
+          "selector_class": 1,
+          "source_flag": 0,
+          "descriptor_hex": "420F0000AC610500010000000000020001FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/16"
+        },
+        {
+          "spawn": 3907,
+          "lookup": 904088,
+          "terrain": 212,
+          "position_key": 4,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "430F000098CB0D00010000000000040000FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/17"
+        },
+        {
+          "spawn": 3908,
+          "lookup": 52104,
+          "terrain": 212,
+          "position_key": 7,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "440F000088CB0000000000000000070000FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/18"
+        },
+        {
+          "spawn": 3909,
+          "lookup": 904088,
+          "terrain": 212,
+          "position_key": 3,
+          "selector_class": 1,
+          "source_flag": 0,
+          "descriptor_hex": "450F000098CB0D00010000000000030001FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/19"
+        }
+      ]
+    },
+    {
+      "path": "evidence/controls/86872488/20260913-one-person-expedition-b/late-mask.json",
+      "sha256": "9FD59D1BB72E0ECD205FE41E020C27B1AA939135E80396B0B39EAC9FA28BA8E1",
+      "tasks": [
+        {
+          "spawn": 3900,
+          "lookup": 243822,
+          "terrain": 212,
+          "position_key": 2,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "3C0F00006EB80300030000000000020000FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/10"
+        },
+        {
+          "spawn": 3901,
+          "lookup": 243822,
+          "terrain": 212,
+          "position_key": 3,
+          "selector_class": 1,
+          "source_flag": 0,
+          "descriptor_hex": "3D0F00006EB80300030000000000030001FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/11"
+        },
+        {
+          "spawn": 3902,
+          "lookup": 904088,
+          "terrain": 212,
+          "position_key": 7,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "3E0F000098CB0D00010000000000070000FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/12"
+        },
+        {
+          "spawn": 3903,
+          "lookup": 904088,
+          "terrain": 212,
+          "position_key": 1,
+          "selector_class": 1,
+          "source_flag": 1,
+          "descriptor_hex": "3F0F000098CB0D00010000000000010101FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/13"
+        },
+        {
+          "spawn": 3904,
+          "lookup": 352684,
+          "terrain": 212,
+          "position_key": 8,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "400F0000AC610500010000000000080000FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/14"
+        },
+        {
+          "spawn": 3905,
+          "lookup": 17288,
+          "terrain": 212,
+          "position_key": 7,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "410F000088430000000000000000070000FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/15"
+        },
+        {
+          "spawn": 3906,
+          "lookup": 352684,
+          "terrain": 212,
+          "position_key": 2,
+          "selector_class": 1,
+          "source_flag": 0,
+          "descriptor_hex": "420F0000AC610500010000000000020001FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/16"
+        },
+        {
+          "spawn": 3907,
+          "lookup": 904088,
+          "terrain": 212,
+          "position_key": 4,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "430F000098CB0D00010000000000040000FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/17"
+        },
+        {
+          "spawn": 3908,
+          "lookup": 52104,
+          "terrain": 212,
+          "position_key": 7,
+          "selector_class": 0,
+          "source_flag": 0,
+          "descriptor_hex": "440F000088CB0000000000000000070000FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/18"
+        },
+        {
+          "spawn": 3909,
+          "lookup": 904088,
+          "terrain": 212,
+          "position_key": 3,
+          "selector_class": 1,
+          "source_flag": 0,
+          "descriptor_hex": "450F000098CB0D00010000000000030001FFFFFF",
+          "json_pointer": "/bridge_result/events/16/records/19"
+        }
+      ]
+    }
+  ],
+  "source": "Provided captures only; not new native execution",
+  "physical_actor_join": false,
+  "run_d": {
+    "path": "evidence/runtime/assignment-origin-run-d/assignment-origin.json",
+    "sha256": "3A64F16C89975AB466A7EA38F317A0465E320B1F1FEB6D478C6A4007BD564A77",
+    "request_hex": "A8912D05B700010301010200",
+    "context": {
+      "address": "0x1BC2A60AA58",
+      "configured_counts": [
+        1,
+        1,
+        1,
+        1,
+        0
+      ],
+      "path": 2,
+      "raw_hex": "4900000000004040000040400000804000008040000000000000803F0000000000000000000000008E02010101010000"
+    },
+    "parent_rng_entry": 2281170847,
+    "parent_rng_final": 115239214,
+    "diagnostic_rng_is_not_consumed_stream": true,
+    "trials": [
+      {
+        "sequence": 2,
+        "selector": 0,
+        "spawn": 3900,
+        "wave_index": 0,
+        "position": 0,
+        "state": 1608944980,
+        "ticket": 3746,
+        "threshold": 500,
+        "success": false
+      },
+      {
+        "sequence": 3,
+        "selector": 0,
+        "spawn": 3902,
+        "wave_index": 1,
+        "position": 0,
+        "state": 237006917,
+        "ticket": 551,
+        "threshold": 500,
+        "success": false
+      },
+      {
+        "sequence": 4,
+        "selector": 0,
+        "spawn": 3904,
+        "wave_index": 2,
+        "position": 0,
+        "state": 1710385218,
+        "ticket": 3982,
+        "threshold": 500,
+        "success": false
+      },
+      {
+        "sequence": 5,
+        "selector": 0,
+        "spawn": 3907,
+        "wave_index": 3,
+        "position": 0,
+        "state": 1521145563,
+        "ticket": 3541,
+        "threshold": 500,
+        "success": false
+      },
+      {
+        "sequence": 6,
+        "selector": 0,
+        "spawn": 3908,
+        "wave_index": 3,
+        "position": 1,
+        "state": 512896096,
+        "ticket": 1194,
+        "threshold": 500,
+        "success": false
+      },
+      {
+        "sequence": 8,
+        "selector": 1,
+        "spawn": 3901,
+        "wave_index": 0,
+        "position": 1,
+        "state": 330197217,
+        "ticket": 768,
+        "threshold": 500,
+        "success": false
+      },
+      {
+        "sequence": 9,
+        "selector": 1,
+        "spawn": 3903,
+        "wave_index": 1,
+        "position": 1,
+        "state": 115239214,
+        "ticket": 268,
+        "threshold": 500,
+        "success": true
+      }
+    ],
+    "tasks": [
+      {
+        "spawn": 3900,
+        "lookup": 243822,
+        "wave_index": 0,
+        "position": 0,
+        "position_key": 2,
+        "selector_class": 0,
+        "source_flag": 0,
+        "descriptor_hex": "3C0F00006EB80300030000000000020000FFFFFF",
+        "sequence": 11
+      },
+      {
+        "spawn": 3901,
+        "lookup": 243822,
+        "wave_index": 0,
+        "position": 1,
+        "position_key": 3,
+        "selector_class": 1,
+        "source_flag": 0,
+        "descriptor_hex": "3D0F00006EB80300030000000000030001FFFFFF",
+        "sequence": 13
+      },
+      {
+        "spawn": 3902,
+        "lookup": 904088,
+        "wave_index": 1,
+        "position": 0,
+        "position_key": 7,
+        "selector_class": 0,
+        "source_flag": 0,
+        "descriptor_hex": "3E0F000098CB0D00010000000000070000FFFFFF",
+        "sequence": 15
+      },
+      {
+        "spawn": 3903,
+        "lookup": 904088,
+        "wave_index": 1,
+        "position": 1,
+        "position_key": 1,
+        "selector_class": 1,
+        "source_flag": 1,
+        "descriptor_hex": "3F0F000098CB0D00010000000000010101FFFFFF",
+        "sequence": 17
+      },
+      {
+        "spawn": 3904,
+        "lookup": 352684,
+        "wave_index": 2,
+        "position": 0,
+        "position_key": 8,
+        "selector_class": 0,
+        "source_flag": 0,
+        "descriptor_hex": "400F0000AC610500010000000000080000FFFFFF",
+        "sequence": 19
+      },
+      {
+        "spawn": 3905,
+        "lookup": 17288,
+        "wave_index": 2,
+        "position": 1,
+        "position_key": 7,
+        "selector_class": 0,
+        "source_flag": 0,
+        "descriptor_hex": "410F000088430000000000000000070000FFFFFF",
+        "sequence": 21
+      },
+      {
+        "spawn": 3906,
+        "lookup": 352684,
+        "wave_index": 2,
+        "position": 2,
+        "position_key": 2,
+        "selector_class": 1,
+        "source_flag": 0,
+        "descriptor_hex": "420F0000AC610500010000000000020001FFFFFF",
+        "sequence": 23
+      },
+      {
+        "spawn": 3907,
+        "lookup": 904088,
+        "wave_index": 3,
+        "position": 0,
+        "position_key": 4,
+        "selector_class": 0,
+        "source_flag": 0,
+        "descriptor_hex": "430F000098CB0D00010000000000040000FFFFFF",
+        "sequence": 25
+      },
+      {
+        "spawn": 3908,
+        "lookup": 52104,
+        "wave_index": 3,
+        "position": 1,
+        "position_key": 7,
+        "selector_class": 0,
+        "source_flag": 0,
+        "descriptor_hex": "440F000088CB0000000000000000070000FFFFFF",
+        "sequence": 27
+      },
+      {
+        "spawn": 3909,
+        "lookup": 904088,
+        "wave_index": 3,
+        "position": 2,
+        "position_key": 3,
+        "selector_class": 1,
+        "source_flag": 0,
+        "descriptor_hex": "450F000098CB0D00010000000000030001FFFFFF",
+        "sequence": 29
+      }
+    ]
+  }
+}

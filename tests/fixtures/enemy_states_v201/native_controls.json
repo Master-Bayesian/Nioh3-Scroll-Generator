@@ -1,0 +1,589 @@
+{
+  "rosters": [
+    {
+      "seed": 86872488,
+      "playthrough": 3,
+      "variant": "expedition",
+      "waves": [
+        [
+          {
+            "spawn": 3900,
+            "lookup": 243822,
+            "role": 3,
+            "selector": 0,
+            "flag": 0,
+            "raw_hex": "3c0f00006eb80300030000000000020000ffffff"
+          },
+          {
+            "spawn": 3901,
+            "lookup": 243822,
+            "role": 3,
+            "selector": 1,
+            "flag": 0,
+            "raw_hex": "3d0f00006eb80300030000000000030001ffffff"
+          }
+        ],
+        [
+          {
+            "spawn": 3902,
+            "lookup": 904088,
+            "role": 1,
+            "selector": 0,
+            "flag": 0,
+            "raw_hex": "3e0f000098cb0d00010000000000070000ffffff"
+          },
+          {
+            "spawn": 3903,
+            "lookup": 904088,
+            "role": 1,
+            "selector": 1,
+            "flag": 1,
+            "raw_hex": "3f0f000098cb0d00010000000000010101ffffff"
+          }
+        ],
+        [
+          {
+            "spawn": 3904,
+            "lookup": 352684,
+            "role": 1,
+            "selector": 0,
+            "flag": 0,
+            "raw_hex": "400f0000ac610500010000000000080000ffffff"
+          },
+          {
+            "spawn": 3905,
+            "lookup": 17288,
+            "role": 0,
+            "selector": 0,
+            "flag": 0,
+            "raw_hex": "410f000088430000000000000000070000ffffff"
+          },
+          {
+            "spawn": 3906,
+            "lookup": 352684,
+            "role": 1,
+            "selector": 1,
+            "flag": 0,
+            "raw_hex": "420f0000ac610500010000000000020001ffffff"
+          }
+        ],
+        [
+          {
+            "spawn": 3907,
+            "lookup": 904088,
+            "role": 1,
+            "selector": 0,
+            "flag": 0,
+            "raw_hex": "430f000098cb0d00010000000000040000ffffff"
+          },
+          {
+            "spawn": 3908,
+            "lookup": 52104,
+            "role": 0,
+            "selector": 0,
+            "flag": 0,
+            "raw_hex": "440f000088cb0000000000000000070000ffffff"
+          },
+          {
+            "spawn": 3909,
+            "lookup": 904088,
+            "role": 1,
+            "selector": 1,
+            "flag": 0,
+            "raw_hex": "450f000098cb0d00010000000000030001ffffff"
+          }
+        ]
+      ],
+      "source": "evidence/current-live/mode-transaction-join.json",
+      "event_sequence": 3
+    },
+    {
+      "seed": 86872488,
+      "playthrough": 3,
+      "variant": "solo",
+      "waves": [
+        [
+          {
+            "spawn": 3900,
+            "lookup": 243822,
+            "role": 3,
+            "selector": 0,
+            "flag": 0,
+            "raw_hex": "3c0f00006eb80300030000000000020000ffffff"
+          }
+        ],
+        [
+          {
+            "spawn": 3901,
+            "lookup": 904088,
+            "role": 1,
+            "selector": 0,
+            "flag": 0,
+            "raw_hex": "3d0f000098cb0d00010000000000070000ffffff"
+          }
+        ],
+        [
+          {
+            "spawn": 3902,
+            "lookup": 352684,
+            "role": 1,
+            "selector": 0,
+            "flag": 0,
+            "raw_hex": "3e0f0000ac610500010000000000080000ffffff"
+          },
+          {
+            "spawn": 3903,
+            "lookup": 17288,
+            "role": 0,
+            "selector": 0,
+            "flag": 0,
+            "raw_hex": "3f0f000088430000000000000000070000ffffff"
+          }
+        ],
+        [
+          {
+            "spawn": 3904,
+            "lookup": 904088,
+            "role": 1,
+            "selector": 0,
+            "flag": 0,
+            "raw_hex": "400f000098cb0d00010000000000040000ffffff"
+          },
+          {
+            "spawn": 3905,
+            "lookup": 52104,
+            "role": 0,
+            "selector": 0,
+            "flag": 0,
+            "raw_hex": "410f000088cb0000000000000000070000ffffff"
+          }
+        ]
+      ],
+      "source": "evidence/prior-sequence-c/mode-upstream-sequence.json",
+      "event_sequence": 4
+    }
+  ],
+  "late_controls": [
+    {
+      "seed": 156062997,
+      "run": "20260912-sp-a",
+      "source": "evidence/controls/156062997/20260912-sp-a/late-mask.json",
+      "source_sha256": "0000f903afb4849079491954188eaa246063a9d9d88d4b0cf0131dec814644b3",
+      "records": [
+        {
+          "spawn": 3900,
+          "lookup": 492278,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 2,
+          "raw_hex": "3c0f0000f6820700050000000000010000ffffff"
+        },
+        {
+          "spawn": 3901,
+          "lookup": 999088,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 4,
+          "raw_hex": "3d0f0000b03e0f00010000000000050000ffffff"
+        },
+        {
+          "spawn": 3902,
+          "lookup": 572569,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 3,
+          "raw_hex": "3e0f000099bc0800020000000000030000ffffff"
+        },
+        {
+          "spawn": 3903,
+          "lookup": 970966,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 1,
+          "raw_hex": "3f0f0000d6d00e00010000000000060000ffffff"
+        },
+        {
+          "spawn": 3904,
+          "lookup": 572468,
+          "flag8f": 1,
+          "e9": 1,
+          "assigned_index": 0,
+          "raw_hex": "400f000034bc0800010000000000030100ffffff"
+        },
+        {
+          "spawn": 3905,
+          "lookup": 945986,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 5,
+          "raw_hex": "410f0000426f0e00020000000000010000ffffff"
+        }
+      ]
+    },
+    {
+      "seed": 156062997,
+      "run": "20260912-sp-b5",
+      "source": "evidence/controls/156062997/20260912-sp-b5/late-mask.json",
+      "source_sha256": "35c54d8370cb2c3c03f81e713afe07f458b572aa79c4f65cdf7509b9cfa40a5f",
+      "records": [
+        {
+          "spawn": 3900,
+          "lookup": 492278,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 2,
+          "raw_hex": "3c0f0000f6820700050000000000010000ffffff"
+        },
+        {
+          "spawn": 3901,
+          "lookup": 999088,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 4,
+          "raw_hex": "3d0f0000b03e0f00010000000000050000ffffff"
+        },
+        {
+          "spawn": 3902,
+          "lookup": 572569,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 3,
+          "raw_hex": "3e0f000099bc0800020000000000030000ffffff"
+        },
+        {
+          "spawn": 3903,
+          "lookup": 970966,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 1,
+          "raw_hex": "3f0f0000d6d00e00010000000000060000ffffff"
+        },
+        {
+          "spawn": 3904,
+          "lookup": 572468,
+          "flag8f": 1,
+          "e9": 1,
+          "assigned_index": 0,
+          "raw_hex": "400f000034bc0800010000000000030100ffffff"
+        },
+        {
+          "spawn": 3905,
+          "lookup": 945986,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 5,
+          "raw_hex": "410f0000426f0e00020000000000010000ffffff"
+        }
+      ]
+    },
+    {
+      "seed": 86872488,
+      "run": "20260912-one-person-expedition-a",
+      "source": "evidence/controls/86872488/20260912-one-person-expedition-a/late-mask.json",
+      "source_sha256": "a2533f6e1e0764889b685cbe226ea1c6bd89efc92e6353cd3304204326c0ca96",
+      "records": [
+        {
+          "spawn": 3900,
+          "lookup": 243822,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 5,
+          "raw_hex": "3c0f00006eb80300030000000000020000ffffff"
+        },
+        {
+          "spawn": 3901,
+          "lookup": 243822,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 7,
+          "raw_hex": "3d0f00006eb80300030000000000030001ffffff"
+        },
+        {
+          "spawn": 3902,
+          "lookup": 904088,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 1,
+          "raw_hex": "3e0f000098cb0d00010000000000070000ffffff"
+        },
+        {
+          "spawn": 3903,
+          "lookup": 904088,
+          "flag8f": 1,
+          "e9": 1,
+          "assigned_index": 6,
+          "raw_hex": "3f0f000098cb0d00010000000000010101ffffff"
+        },
+        {
+          "spawn": 3904,
+          "lookup": 352684,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 3,
+          "raw_hex": "400f0000ac610500010000000000080000ffffff"
+        },
+        {
+          "spawn": 3905,
+          "lookup": 17288,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 4,
+          "raw_hex": "410f000088430000000000000000070000ffffff"
+        },
+        {
+          "spawn": 3906,
+          "lookup": 352684,
+          "flag8f": 0,
+          "e9": 0,
+          "assigned_index": 0,
+          "raw_hex": "420f0000ac610500010000000000020001ffffff"
+        },
+        {
+          "spawn": 3907,
+          "lookup": 904088,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 0,
+          "raw_hex": "430f000098cb0d00010000000000040000ffffff"
+        },
+        {
+          "spawn": 3908,
+          "lookup": 52104,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 2,
+          "raw_hex": "440f000088cb0000000000000000070000ffffff"
+        },
+        {
+          "spawn": 3909,
+          "lookup": 904088,
+          "flag8f": 0,
+          "e9": 0,
+          "assigned_index": 0,
+          "raw_hex": "450f000098cb0d00010000000000030001ffffff"
+        }
+      ]
+    },
+    {
+      "seed": 86872488,
+      "run": "20260912-sp-negative-b",
+      "source": "evidence/controls/86872488/20260912-sp-negative-b/late-mask.json",
+      "source_sha256": "c3fa583bc03480a2c516135120c2b7ca5ad201d002118c652592e82191bebb64",
+      "records": [
+        {
+          "spawn": 3900,
+          "lookup": 243822,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 1,
+          "raw_hex": "3c0f00006eb80300030000000000020000ffffff"
+        },
+        {
+          "spawn": 3901,
+          "lookup": 904088,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 2,
+          "raw_hex": "3d0f000098cb0d00010000000000070000ffffff"
+        },
+        {
+          "spawn": 3902,
+          "lookup": 352684,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 0,
+          "raw_hex": "3e0f0000ac610500010000000000080000ffffff"
+        },
+        {
+          "spawn": 3903,
+          "lookup": 17288,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 4,
+          "raw_hex": "3f0f000088430000000000000000070000ffffff"
+        },
+        {
+          "spawn": 3904,
+          "lookup": 904088,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 3,
+          "raw_hex": "400f000098cb0d00010000000000040000ffffff"
+        },
+        {
+          "spawn": 3905,
+          "lookup": 52104,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 5,
+          "raw_hex": "410f000088cb0000000000000000070000ffffff"
+        }
+      ]
+    },
+    {
+      "seed": 86872488,
+      "run": "20260913-one-person-expedition-b",
+      "source": "evidence/controls/86872488/20260913-one-person-expedition-b/late-mask.json",
+      "source_sha256": "9fd59d1bb72e0ecd205fe41e020c27b1aa939135e80396b0b39eac9fa28ba8e1",
+      "records": [
+        {
+          "spawn": 3900,
+          "lookup": 243822,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 1,
+          "raw_hex": "3c0f00006eb80300030000000000020000ffffff"
+        },
+        {
+          "spawn": 3901,
+          "lookup": 243822,
+          "flag8f": 0,
+          "e9": 0,
+          "assigned_index": 0,
+          "raw_hex": "3d0f00006eb80300030000000000030001ffffff"
+        },
+        {
+          "spawn": 3902,
+          "lookup": 904088,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 5,
+          "raw_hex": "3e0f000098cb0d00010000000000070000ffffff"
+        },
+        {
+          "spawn": 3903,
+          "lookup": 904088,
+          "flag8f": 1,
+          "e9": 1,
+          "assigned_index": 6,
+          "raw_hex": "3f0f000098cb0d00010000000000010101ffffff"
+        },
+        {
+          "spawn": 3904,
+          "lookup": 352684,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 3,
+          "raw_hex": "400f0000ac610500010000000000080000ffffff"
+        },
+        {
+          "spawn": 3905,
+          "lookup": 17288,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 2,
+          "raw_hex": "410f000088430000000000000000070000ffffff"
+        },
+        {
+          "spawn": 3906,
+          "lookup": 352684,
+          "flag8f": 0,
+          "e9": 0,
+          "assigned_index": 0,
+          "raw_hex": "420f0000ac610500010000000000020001ffffff"
+        },
+        {
+          "spawn": 3907,
+          "lookup": 904088,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 0,
+          "raw_hex": "430f000098cb0d00010000000000040000ffffff"
+        },
+        {
+          "spawn": 3908,
+          "lookup": 52104,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 4,
+          "raw_hex": "440f000088cb0000000000000000070000ffffff"
+        },
+        {
+          "spawn": 3909,
+          "lookup": 904088,
+          "flag8f": 0,
+          "e9": 1,
+          "assigned_index": 7,
+          "raw_hex": "450f000098cb0d00010000000000030001ffffff"
+        }
+      ]
+    }
+  ],
+  "run_d_source_entry_state": 2281170847,
+  "run_d_trials": [
+    {
+      "spawn": 3900,
+      "ticket": 3746,
+      "threshold": 500,
+      "state": 1608944980,
+      "selector": 0,
+      "accepted": false
+    },
+    {
+      "spawn": 3902,
+      "ticket": 551,
+      "threshold": 500,
+      "state": 237006917,
+      "selector": 0,
+      "accepted": false
+    },
+    {
+      "spawn": 3904,
+      "ticket": 3982,
+      "threshold": 500,
+      "state": 1710385218,
+      "selector": 0,
+      "accepted": false
+    },
+    {
+      "spawn": 3907,
+      "ticket": 3541,
+      "threshold": 500,
+      "state": 1521145563,
+      "selector": 0,
+      "accepted": false
+    },
+    {
+      "spawn": 3908,
+      "ticket": 1194,
+      "threshold": 500,
+      "state": 512896096,
+      "selector": 0,
+      "accepted": false
+    },
+    {
+      "spawn": 3901,
+      "ticket": 768,
+      "threshold": 500,
+      "state": 330197217,
+      "selector": 1,
+      "accepted": false
+    },
+    {
+      "spawn": 3903,
+      "ticket": 268,
+      "threshold": 500,
+      "state": 115239214,
+      "selector": 1,
+      "accepted": true
+    }
+  ],
+  "provenance": [
+    {
+      "path": "evidence/current-live/mode-transaction-join.json",
+      "sha256": "2909c2afc4514ad2afcfd33497370af0a1c68f7c3a71c6076fc2ecb9dc06ed36"
+    },
+    {
+      "path": "evidence/prior-sequence-c/mode-upstream-sequence.json",
+      "sha256": "1ac727e8fd1af8bcba8d4049f6135b8e812c04b0eab2f51a2d15015e7b0f86e1"
+    },
+    {
+      "path": "evidence/assignment-origin-pro-return/source/tests/fixtures/assignment_origin_controls.json",
+      "sha256": "5408e526ab5a6d44a77289c1c884791d153faa953d6cefa4f425766f6930732e"
+    },
+    {
+      "path": "evidence/prior-run-d/assignment-origin.json",
+      "sha256": "3a64f16c89975ab466a7ea38f317a0465e320b1f1feb6d478c6a4007bd564a77"
+    }
+  ]
+}

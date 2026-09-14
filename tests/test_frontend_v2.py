@@ -48,6 +48,45 @@ class ProtocolTests(unittest.TestCase):
             with self.assertRaises(RequestError):
                 SearchJobs().start(bad)
 
+    def test_curse_search_is_rejected_instead_of_treating_unknown_as_a_match(self):
+        p = parameters()
+        p['query'].update(
+            enemy_variant='expedition',
+            enemy_occurrence_groups=[[{
+                'lookup_keys': [0xDCB98],
+                'state': 'curse',
+                'availability': 'any',
+            }]],
+        )
+        with self.assertRaisesRegex(ValueError, 'Curse changes between entries'):
+            SearchJobs().start(p)
+
+    def test_enemy_state_filters_reject_incompatible_modes(self):
+        solo = parameters()
+        solo['query']['enemy_occurrence_groups'] = [[{
+            'lookup_keys': [0xDCB98],
+            'state': 'any',
+            'availability': 'expedition_only',
+        }]]
+        with self.assertRaisesRegex(ValueError, 'require the expedition preview'):
+            SearchJobs().start(solo)
+
+        later_playthrough = parameters()
+        later_playthrough['query'].update(playthrough=4, enemy_variant='expedition')
+        with self.assertRaisesRegex(ValueError, 'only in playthrough 3'):
+            SearchJobs().start(later_playthrough)
+
+        for lookup_key in (12014, 451004):
+            ineligible = parameters()
+            ineligible['query']['enemy_occurrence_groups'] = [[{
+                'lookup_keys': [lookup_key],
+                'state': 'possessed',
+                'availability': 'any',
+            }]]
+            with self.subTest(lookup_key=lookup_key):
+                with self.assertRaisesRegex(ValueError, 'only for eligible low-pool'):
+                    SearchJobs().start(ineligible)
+
     def test_frames_fragmented_utf8_and_limits(self):
         class Fragmented(io.BytesIO):
             def read(self, size=-1): return super().read(min(size, 2))
@@ -63,6 +102,35 @@ class ProtocolTests(unittest.TestCase):
 
 
 class JobTests(unittest.TestCase):
+    def test_possessed_expedition_filter_uses_exact_occurrence_replay(self):
+        seeds = [156062997, 86872488]
+        candidates = [ScrollCandidate.from_effect_sequence(
+            generate_ng3_certified_effect_sequence(seed, rarity=4, level=180)
+        ) for seed in seeds]
+        def collect(_request, **kwargs):
+            cursor = kwargs['start_after_trial']
+            return SearchBatchResult((candidates[cursor],), 1, cursor + 1)
+        jobs = SearchJobs(collector=collect)
+        p = parameters()
+        p.update(result_count=1, page_trials=1, job_trials=2)
+        p['query'].update(
+            enemy_variant='expedition',
+            enemy_occurrence_groups=[[{
+                'lookup_keys': [0xDCB98],
+                'state': 'possessed',
+                'availability': 'expedition_only',
+            }]],
+        )
+        started = jobs.start(p)
+        jobs.thread.join(10)
+        result = jobs.snapshot(started['job_id'])
+        self.assertEqual(result['state'], 'completed', result['error'])
+        self.assertEqual([c['seed'] for c in result['candidates']], [86872488])
+        occurrence = next(x for x in result['candidates'][0]['enemy_states']['expedition']['occurrences']
+                          if x['native_spawn_key'] == 0xF3F)
+        self.assertEqual((occurrence['possessed'], occurrence['availability']),
+                         ('yes', 'expedition_only'))
+
     def test_capacity_filter_advances_rejected_pages_and_exports_only_matches(self):
         seeds = [10030565, 36526331, 43723117]
         self.assertEqual([initial_challenge_capacity(seed) for seed in seeds], [7, 4, 7])

@@ -1,0 +1,42 @@
+{
+  "cleanup_metadata": {
+    "captured_at_utc": "2026-09-14T03:07:06.341033+00:00",
+    "run_id": "mode-transaction-join-86872488-expedition-a-20260913",
+    "phase": "mode-transaction-join",
+    "session_id": "ce-12064",
+    "bridge_port": 5566,
+    "target": {
+      "process_id": 26892,
+      "process_name": "Nioh3.exe",
+      "image_path": "D:\\Steam\\steamapps\\common\\Nioh3\\Nioh3.exe",
+      "image_size": 77814240,
+      "executable_sha256": "4047ECB623F3AE033F7D6F3637CD1C5408C72A89A038463268A7C9AC5C394159",
+      "module_base": null,
+      "creation_filetime": "134338256782097283"
+    },
+    "verified": true,
+    "initially_verified": false,
+    "reconnect_cycles": 4,
+    "error": null
+  },
+  "bridge_result": {
+    "breakpoints": [],
+    "debugger_broken": false,
+    "debugger_broken_source": "debug_context_fallback:function",
+    "probe": {
+      "active": false,
+      "cleanup_errors": [],
+      "cleanup_pending": false,
+      "debugger_broken": false,
+      "debugger_broken_source": "debug_context_fallback:function",
+      "owned_breakpoints": [],
+      "run_id": "mode-transaction-join-86872488-expedition-a-20260913",
+      "schema": "nioh3.mode-transaction-join.v1",
+      "stop_reason": "observation_window_elapsed"
+    },
+    "ok": true,
+    "session_id": "ce-12064",
+    "bridge_session_id": "ce-12064",
+    "ce_process_id": 12064
+  }
+}

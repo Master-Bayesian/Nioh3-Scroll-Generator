@@ -12,7 +12,7 @@ export function ScrollCard({
   level: number;
   showIds?: boolean;
 }) {
-  const title =
+  const scrollTitle =
     (sample.playthrough || 3) === 3
       ? "百境百怪绘卷 · 顿悟"
       : `${sample.playthrough} 周目战绘卷`;
@@ -26,7 +26,7 @@ export function ScrollCard({
           <small>
             Lv.{sample.level || 180} <span>稀有度 {sample.rarity}</span>
           </small>
-          <h2 className="scroll-title" title={title}>{title}</h2>
+          <h2 className="scroll-title" title={scrollTitle}>{scrollTitle}</h2>
         </div>
         <span className="rarity-mark">R{sample.rarity}</span>
       </header>
@@ -77,11 +77,39 @@ export function ScrollCard({
         )}
       </section>
       <section>
-        <h3>出现敌人</h3>
+        <h3>
+          出现敌人
+        </h3>
         <div className="enemy-lines">
-          {sample.enemies.map((n, i) => (
-            <span key={i}>◇ {n}</span>
-          ))}
+          {sample.enemyOccurrences
+            ? sample.enemyOccurrences.map((enemy, i) => (
+                <span
+                  className="enemy-occurrence"
+                  key={i}
+                  title={`第 ${enemy.waveIndex + 1} 波 · ${enemy.name}`}
+                >
+                  <span>
+                    {enemy.waveIndex + 1} · {enemy.name}
+                    {enemy.possessed !== "no" && (
+                      <small
+                        className={
+                          "enemy-state-marker" +
+                          (enemy.possessed === "yes" ? "" : " is-unknown")
+                        }
+                        title={
+                          enemy.possessed === "yes" ? "地狱附身" : "附身未知"
+                        }
+                        aria-label={
+                          enemy.possessed === "yes" ? "地狱附身" : "附身未知"
+                        }
+                      >
+                        {enemy.possessed === "yes" ? "附身" : "?"}
+                      </small>
+                    )}
+                  </span>
+                </span>
+              ))
+            : sample.enemies.map((n, i) => <span key={i}>◇ {n}</span>)}
         </div>
       </section>
       <section>

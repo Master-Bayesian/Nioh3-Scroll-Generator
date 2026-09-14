@@ -10,10 +10,10 @@
 
 独脚踏鞴工作室（Ippon-Datara Studio）是面向《仁王3》PC 版玩家的桌面工具箱。它可以按照游戏规则搜索绘卷、添加选中的结果、修改已有绘卷，并通过自动验证的备份帮助你从改动中恢复存档。
 
-当前稳定版是基于 **Tauri 2** 的 **v0.7.3**。只需下载一个免安装 EXE，双击即可运行；唯一的系统依赖是 Microsoft Edge WebView2 Runtime，现代 Windows 通常已经自带。
+当前版本基于 **Tauri 2**，只需下载一个免安装 EXE，双击即可运行；唯一的系统依赖是 Microsoft Edge WebView2 Runtime，现代 Windows 通常已经自带。
 
 [下载最新版本](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)
-· [查看 v0.7.3 发布说明](packaging/release-notes.md)
+· [查看当前发布说明](packaging/release-notes.md)
 
 ## 能做什么
 
@@ -23,7 +23,7 @@
 
 - 主效果和副效果，以及词条数值门槛；
 - 恩宠；
-- 敌人和合法的敌人组合；
+- 敌人、合法的敌人组合，以及受支持低手敌人的“地狱附身”状态；
 - 特殊规则、地形、等级和尝试次数设置；
 - 绘卷类型、周目和稀有度。
 
@@ -33,7 +33,7 @@
 
 受支持的结果既可以在游戏内实时添加，也可以回到标题界面或关闭游戏后写入存档。每次添加前，应用都会检查当前游戏和存档状态、创建并验证备份，然后记录本次操作。需要回退时，可以在备份页面恢复已验证的备份。
 
-v0.7.3 **不需要** Cheat Engine、Python、Node.js 或 Electron。兼容性与安全检查已经包含在应用内；遇到不受支持的游戏版本或存档状态时，操作会停止，而不会猜测性写入。
+发行版 **不需要** Cheat Engine、Python、Node.js 或 Electron。兼容性与安全检查已经包含在应用内；遇到不受支持的游戏版本或存档状态时，操作会停止，而不会猜测性写入。
 
 ### 修改已经拥有的绘卷
 
@@ -53,7 +53,7 @@ v0.7.3 **不需要** Cheat Engine、Python、Node.js 或 Electron。兼容性与
 
 ## 快速开始
 
-1. 从[最新版本页面](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)下载 `Nioh3Studio-0.7.3-win-x64.exe`。
+1. 从[最新版本页面](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/releases/latest)下载名称类似 `Nioh3Studio-<版本>-win-x64.exe` 的文件。
 2. 把 EXE 放在你希望保留的位置，双击运行，不需要安装或手动解压。
 3. 下次使用时直接打开同一个 EXE。
 4. 在语言选项中选择简体中文、English 或日本語。
@@ -69,7 +69,7 @@ v0.7.3 **不需要** Cheat Engine、Python、Node.js 或 Electron。兼容性与
 
 ### 从旧版本升级
 
-从旧版迁移时，下载并运行新的免安装 EXE 即可。应用内更新会验证签名并替换这个 EXE；新版本启动成功后自动清理旧版本与下载缓存。
+从旧版迁移时，下载并运行新的免安装 EXE 即可。应用每次启动都会自动检查更新；发现新版本时会询问是否更新，也可以在“设置 → 检查更新”中手动检查。应用内更新会验证签名并替换这个 EXE；新版本启动成功后自动清理旧版本与下载缓存。
 
 ## 一个简单的使用流程
 
@@ -89,7 +89,7 @@ v0.7.3 **不需要** Cheat Engine、Python、Node.js 或 Electron。兼容性与
 
 ## 更多工作室工具
 
-独脚踏鞴工作室不会止步于当前的绘卷功能。更多工具正在开发中；v0.7.3 里暂时不可用的“即将推出”入口是有意保留的。新工具会在用户流程和安全边界得到验证后再写入这里。
+独脚踏鞴工作室不会止步于当前的绘卷功能。更多工具正在开发中；暂时不可用的“即将推出”入口是有意保留的。新工具会在用户流程和安全边界得到验证后再写入这里。
 
 ## 许可与第三方声明
 

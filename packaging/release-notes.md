@@ -1,25 +1,38 @@
-# Nioh 3 Studio 0.7.3
+# Nioh 3 Studio 0.7.4
 
-This release improves failure recovery, automatic diagnostic copying, backup
-restoration, responsive layout, and direct launch from one install-free EXE.
-It includes the reviewed fixes from the withdrawn v0.7.2 candidate and the
-final v0.7.3 interface follow-up.
+This release adds exact Crucible Wraith enemy filtering for supported Hundred
+Demon Realms Picture Scrolls, polishes the search and collection interface, and
+makes update availability visible at startup.
 
 ## Direct launch and updates
 
-Download `Nioh3Studio-0.7.3-win-x64.exe` and double-click it. No installation,
+Download `Nioh3Studio-0.7.4-win-x64.exe` and double-click it. No installation,
 installer wizard, or manual extraction is needed. The runtime is prepared and
 verified automatically in a bounded cache. Cheat Engine, Python, Node.js, and
 Electron are not required.
 
-The in-app updater verifies the signed payload and replaces the outer EXE in
-place. It keeps a rollback copy until the new frontend and backend start
-successfully, then removes the previous executable and download cache. The
-internal signed ZIP format is retained for compatibility with earlier Tauri
-updaters. The old installer is retained locally as a historical artifact and is
-not the default download.
+The app performs one update check on every packaged launch after startup safety
+checks finish. When a newer signed release is available, it opens the update
+dialog and asks whether to download it. The same check remains available from
+Settings. Applying an update verifies the signed payload and replaces the outer
+EXE in place, with rollback data retained until the new version starts.
 
-## Fixes
+## New and improved
+
+- Enemy filters can require a specific eligible low-pool enemy to appear as a
+  **Crucible Wraith** (Simplified Chinese: `地狱附身`; Japanese: `地獄憑き`).
+  Eligibility and preview state come from the recovered native rules rather
+  than assigning the state to arbitrary enemies.
+- Enemy conditions now fit on one compact row. Preview state markers sit beside
+  the enemy name, and the collection view uses the same fixed card geometry as
+  search results with a local metadata search.
+- Search guidance is integrated into the equipment and mission columns, leaving
+  more room for selected conditions. Preview metadata uses consistent type and
+  alignment roles, and the ineffective interface-font-size setting was removed.
+- The packaged app checks for updates once per launch, prompts once when a newer
+  version is found, and retains a manual **Check for updates** action in Settings.
+
+## Preserved safety and recovery
 
 - Failed operations automatically replace the clipboard with useful diagnostic
   details, including worker errors, save paths, candidate records, and native
@@ -34,7 +47,7 @@ not the default download.
   checks source backups, manifests, sibling files, and rollback checkpoints.
 - Generated-scroll addition, permanent editing, deletion, and backup restoration
   are available at the title screen or with the game closed. Every supported write creates and verifies a backup first.
-- The result-page **Add to cart** button is easier to see. Grouped special-rule
+- The result-page **Add to cart** button remains prominent. Grouped special-rule
   families can share one chosen value, including any weapon's Against All Comers
   and any elemental-damage increase.
 - The full interface remains reachable at constrained window sizes and Windows
@@ -56,5 +69,5 @@ are not described as proven root-cause fixes. Reopen investigation only with a
 fresh affected save and diagnostic log. Verified automatic backups and recovery
 checks remain enabled. Restore returns to the selected backup's point in time.
 
-A website, usage statistics, and possessed-enemy research are outside this
-release's scope.
+A website, usage statistics, and equipment or Soul Core generation are outside
+this release's scope.

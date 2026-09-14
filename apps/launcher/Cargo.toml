@@ -1,6 +1,6 @@
 [package]
 name = "nioh3-onefile-launcher"
-version = "0.7.3"
+version = "0.7.4"
 edition = "2021"
 rust-version = "1.89"
 build = "build.rs"

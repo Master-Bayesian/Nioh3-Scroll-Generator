@@ -1,28 +1,33 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { UpdateState } from "../desktop/src/portable-update";
+import { localize } from "./presentation";
+import { StartupUpdateCheck } from "./startup-update-check";
 export function UpdateNotice({ onOpen }: { onOpen: () => void }) {
   const [available, setAvailable] = useState(false);
+  const onOpenRef = useRef(onOpen);
+  useEffect(() => {
+    onOpenRef.current = onOpen;
+  }, [onOpen]);
   useEffect(() => {
     let stopped = false;
-    let checked = false;
     const channel = localStorage.getItem("nioh3-update-channel") === "beta" ? "beta" : "stable";
-    async function poll(initial = false) {
+    const startup = new StartupUpdateCheck(
+      (params) => window.review.update(params),
+      () => onOpenRef.current(),
+    );
+    async function poll() {
       try {
-        let state = await window.review.update({ action: "status", channel });
-        if (!checked && state.canApply && state.phase === "idle") {
-          checked = true;
-          state = await window.review.update({ action: "check", channel });
-        }
+        const state = await startup.poll(channel);
         if (!stopped) setAvailable(["available", "ready"].includes(state.phase));
       } catch { /* Background network failures must not interrupt editing. */ }
     }
-    void poll(true);
+    void poll();
     const timer = setInterval(() => void poll(), 3000);
     return () => { stopped = true; clearInterval(timer); };
   }, []);
   return available ? <button className="update-notice" onClick={onOpen}>发现新版本</button> : null;
 }
-export function Updates() {
+export function Updates({ onClose }: { onClose?: () => void }) {
   const [channel, setChannel] = useState<"stable" | "beta">(() =>
     localStorage.getItem("nioh3-update-channel") === "beta" ? "beta" : "stable",
   );
@@ -68,7 +73,12 @@ export function Updates() {
             idle: "检查是否有新版本。",
             checking: "正在检查更新…",
             current: "当前没有可用的新版本。",
-            available: "发现新版本 " + state.version,
+            available:
+              localize("发现新版本") +
+              " " +
+              state.version +
+              " — " +
+              localize("是否现在下载并安装？"),
             downloading: "正在下载并校验更新…",
             ready: "更新已准备好，重启后完成安装。",
             failed: "更新未完成，请重试。",
@@ -87,7 +97,10 @@ export function Updates() {
           检查更新
         </button>
         {state.phase === "available" && (
-          <button onClick={() => void action("download")}>下载更新</button>
+          <>
+            {onClose && <button onClick={onClose}>稍后</button>}
+            <button onClick={() => void action("download")}>下载更新</button>
+          </>
         )}
         {state.phase === "ready" && (
           <button

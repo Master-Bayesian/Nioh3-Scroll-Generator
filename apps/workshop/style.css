@@ -100,6 +100,12 @@ html,body,#root{width:100%;height:100%;margin:0;padding:0;background:#e8edf5}bod
 
 .number-rail{display:grid;grid-template-rows:repeat(var(--result-count),minmax(0,1fr));height:100%;gap:0}.number-rail button{min-height:0;height:100%;padding:0;line-height:1}.result-navigation{--result-row-height:23px}@media(max-height:850px){.result-navigation{--result-row-height:19px}}
 
+/* Explicit enemy-state mode and compact occurrence metadata. */
+.enemy-variant-choice{display:flex;align-items:center;gap:4px;margin-bottom:5px;font-size:10px}.enemy-variant-choice>span{margin-right:auto;color:#58717b}.enemy-variant-choice button{padding:2px 8px;font-size:10px}.enemy-variant-choice button.selected{background:#3c745f;color:#fff;border-color:#3c745f}.enemy-state-note{margin:0 0 6px;color:#607982;font-size:10px;line-height:1.45}.condition-group .enemy-chip>select:nth-of-type(1){grid-column:2;grid-row:2}.condition-group .enemy-chip>select:nth-of-type(2){grid-column:2;grid-row:3}.condition-group .enemy-chip>select:nth-of-type(3){grid-column:2;grid-row:4}.condition-group .enemy-chip>select{max-width:150px}.scroll h3>small{float:right;color:#8fa49a;font-size:9px;font-weight:400;letter-spacing:0}.enemy-occurrence{display:flex;align-items:center;min-width:0}.enemy-occurrence>span{display:inline-flex;align-items:center;gap:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;line-height:1}.enemy-state-marker{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:auto;height:12px;margin:0;padding:0;color:#e6a33d;font-size:9px;font-weight:600;line-height:12px;vertical-align:middle;transform:translateY(-.5px)}.enemy-state-marker.is-unknown{width:10px;height:10px;border:1px solid currentColor;border-radius:50%;font-size:8px;font-weight:700;line-height:8px}.result-scroll .scroll .enemy-lines:has(.enemy-occurrence){grid-template-rows:repeat(5,14px);grid-auto-columns:minmax(0,1fr)}
+.other-conditions>.enemy-chip{width:300px;max-width:100%;min-width:0;display:grid;grid-template-columns:20px minmax(0,1fr) 22px;align-items:start;gap:4px;padding:6px}.other-conditions>.enemy-chip>span:not(.drag-grip){grid-column:2;grid-row:1;white-space:normal;overflow-wrap:anywhere;line-height:1.5;min-width:0}.other-conditions>.enemy-chip>select{grid-column:2;width:100%;max-width:150px}.other-conditions>.enemy-chip>select:nth-of-type(1){grid-row:2}.other-conditions>.enemy-chip>select:nth-of-type(2){grid-row:3}.other-conditions>.enemy-chip>select:nth-of-type(3){grid-row:4}.other-conditions>.enemy-chip>button{grid-column:3;grid-row:1}.result-scroll .scroll .enemy-lines:has(.enemy-occurrence){grid-template-rows:repeat(4,14px);grid-auto-columns:minmax(0,1fr)}
+.result-scroll .scroll .scroll-hero p{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;font-size:12px;line-height:1.4}.result-scroll .scroll .scroll-hero strong{font:600 12px/1.4 "Microsoft YaHei UI","Microsoft YaHei","Segoe UI",sans-serif;font-variant-numeric:tabular-nums}@media(max-height:850px) and (min-width:1031px){.result-scroll .scroll .scroll-hero p,.result-scroll .scroll .scroll-hero strong{font-size:10px;line-height:1.3}}
+.result-scroll .scroll{grid-template-columns:minmax(0,1fr);grid-template-rows:44px 40px 165px 98px 99px 28px 30px}.result-scroll .scroll>*{min-width:0}.result-scroll .scroll>header>div{min-width:0;overflow:hidden}.result-scroll .scroll>header h2{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.result-scroll .scroll>section:first-of-type{grid-template-rows:23px repeat(6,23px)}.result-scroll .scroll .effect-line{height:23px;min-height:23px;line-height:21px}.result-scroll .scroll .enemy-lines:has(.enemy-occurrence){grid-template-rows:repeat(5,14px)}@media(max-height:850px) and (min-width:1031px){.result-scroll .scroll{grid-template-rows:34px 30px 138px 84px 86px 23px 28px}.result-scroll .scroll>section:first-of-type{grid-template-rows:20px repeat(6,19px)}.result-scroll .scroll .effect-line{height:19px;min-height:19px;line-height:17px}.result-scroll .scroll .enemy-lines:has(.enemy-occurrence){grid-template-rows:repeat(5,12px);font-size:10px;line-height:12px}.enemy-state-marker{height:10px;font-size:8px;line-height:10px}}
+
 .intro button,.module header>button:not(.panel-toggle){border:1px solid #acbfd4;background:#f6f9fd;border-radius:4px;padding:4px 8px}.native-search-source>label{display:block;margin-top:4px}
 
 .nav nav button{padding:11px 6px;gap:7px}.nav nav button span{white-space:nowrap}.nav nav button>span:first-child[aria-hidden]{flex-shrink:0}
@@ -131,7 +137,7 @@ html,body,#root{width:100%;height:100%;margin:0;padding:0;background:#e8edf5}bod
 
 /* Translated labels need room without spilling over the navigation divider. */
 html:is([lang="en-US"], [lang="ja-JP"]) .shell:not(.nav-collapsed) {
-  grid-template-columns: max(150px, calc(var(--ui-font-size) * 10)) minmax(540px, 1fr) minmax(390px, 31%);
+  grid-template-columns: 150px minmax(540px, 1fr) minmax(390px, 31%);
 }
 .nav nav button { min-width: 0; max-width: 100%; }
 html[lang="en-US"] .selected-row > select { min-width: 125px; }
@@ -241,6 +247,123 @@ html[lang="en-US"] .effect-group .selected-row > select { min-width: 0; max-widt
 .result-cart-actions .cart-toggle:hover { background: #f5c780; }
 .result-cart-actions .cart-toggle[aria-pressed="true"] { background: #ead7b9; border-color: #9b805d; }
 .result-cart-actions .cart-toggle[aria-pressed="true"]::before { content: "✓ "; }
+
+/* Shared accessible switches for settings and eligible Possessed enemies. */
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  cursor: pointer;
+  user-select: none;
+}
+.toggle-switch > span { min-width: 0; }
+.toggle-switch > input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.toggle-switch > i {
+  position: relative;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 19px;
+  border: 1px solid #aab7c4;
+  border-radius: 999px;
+  background: #c8d0d8;
+  box-shadow: inset 0 1px 2px #31485f20;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.toggle-switch > i::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px #20364b55;
+  transition: transform 120ms ease;
+}
+.toggle-switch > input:checked + i {
+  border-color: #2f725b;
+  background: #3f8a6e;
+}
+.toggle-switch > input:checked + i::after { transform: translateX(15px); }
+.toggle-switch:focus-within > i {
+  outline: 2px solid #2f997d;
+  outline-offset: 2px;
+}
+.toggle-switch:has(input:disabled) { cursor: default; opacity: .48; }
+.toggle-switch.compact {
+  grid-column: 2;
+  grid-row: 3;
+  width: 150px;
+  max-width: 100%;
+  padding: 2px 1px;
+  color: #4c665d;
+  font-size: 10px;
+}
+.toggle-switch.compact > i {
+  flex-basis: 30px;
+  width: 30px;
+  height: 17px;
+}
+.toggle-switch.compact > i::after { width: 11px; height: 11px; }
+.toggle-switch.compact > input:checked + i::after { transform: translateX(13px); }
+
+/* Give the enemy catalog a visible, bounded surface instead of loose rows. */
+.enemy-list-frame {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 72px;
+  overflow: hidden;
+  border: 1px solid #adc3d0;
+  border-radius: 7px;
+  background: #f8fbfd;
+  box-shadow: inset 0 0 0 1px #ffffffaa;
+}
+.enemy-list-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border-bottom: 1px solid #c8d7df;
+  background: #dce8ee;
+  color: #506b78;
+  font-size: 10px;
+  font-weight: 600;
+}
+.enemy-list-caption small { color: #718791; font-size: 9px; font-weight: 400; }
+.enemy-list-frame .enemy-list {
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  height: auto !important;
+  padding-top: 0 !important;
+  background: #f8fbfd;
+}
+.enemy-list .catalog-row:last-child { border-bottom: 0; }
+.enemy-list .catalog-row em {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.enemy-list .catalog-row em b {
+  padding: 1px 5px;
+  border: 1px solid #9ec3b3;
+  border-radius: 999px;
+  background: #e1f0e9;
+  color: #2f725b;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 600;
+}
 .result-tools .favorite-button { margin-left: auto; }
 .result-pane > .install-mode { margin-top: 8px; padding-top: 8px; gap: 6px; }
 .install-mode > h3 { margin: 0; }
@@ -286,7 +409,7 @@ body { overflow: auto; }
   grid-template-columns: 62px minmax(0, 1fr) minmax(320px, 31%);
 }
 html:is([lang="en-US"], [lang="ja-JP"]) .shell:not(.nav-collapsed) {
-  grid-template-columns: max(150px, calc(var(--ui-font-size) * 10)) minmax(0, 1fr) minmax(320px, 31%);
+  grid-template-columns: 150px minmax(0, 1fr) minmax(320px, 31%);
 }
 .shell > *, main, .result-pane, .editor-host, .backup-page { min-width: 0; }
 main { overflow: auto; }
@@ -511,4 +634,261 @@ dialog .compare-grid { align-items: stretch; }
   .side-popup label.settings-switch > input[type="checkbox"]::before {
     transition: none;
   }
+}
+
+/* The removed intro banner gives its vertical space to selected conditions. */
+@media (min-height: 851px) {
+  .search-page main > .selection { height: 226px; }
+  .selection .selected-body {
+    flex-basis: 128px;
+    height: 128px;
+    max-height: 128px;
+  }
+  .selection-expanded .selected-body {
+    flex-basis: 390px;
+    height: 390px;
+    max-height: min(390px, 60vh);
+  }
+}
+
+/* Enemy conditions use one compact row: name, match mode, state, and remove. */
+.other-conditions > .enemy-chip,
+.condition-group .enemy-chip {
+  display: grid;
+  grid-template-columns: 20px minmax(48px, 1fr) 84px auto 22px;
+  grid-template-rows: 25px;
+  align-items: center;
+  gap: 4px;
+  width: 320px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 5px 6px;
+}
+.condition-group .enemy-chip { width: 100%; }
+.other-conditions > .enemy-chip > span:not(.drag-grip),
+.condition-group .enemy-chip > span:not(.drag-grip) {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 25px;
+}
+.other-conditions > .enemy-chip > select:nth-of-type(1),
+.condition-group .enemy-chip > select:nth-of-type(1) {
+  grid-column: 3;
+  grid-row: 1;
+  width: 84px;
+  max-width: 84px;
+  height: 25px;
+}
+.other-conditions > .enemy-chip > .toggle-switch.compact,
+.condition-group .enemy-chip > .toggle-switch.compact {
+  grid-column: 4;
+  grid-row: 1;
+  justify-content: flex-start;
+  gap: 4px;
+  width: auto;
+  max-width: none;
+  padding: 0;
+  white-space: nowrap;
+}
+.other-conditions > .enemy-chip > button,
+.condition-group .enemy-chip > button {
+  grid-column: 5;
+  grid-row: 1;
+  align-self: center;
+}
+
+/* Favorites share the main preview card geometry and add local-only filtering. */
+dialog[open]:has(.favorites-review) {
+  display: flex;
+  flex-direction: column;
+  width: min(1080px, 95vw);
+  height: min(820px, 92vh);
+  overflow: hidden;
+}
+dialog:has(.favorites-review) > header { flex: 0 0 auto; }
+.favorites-review {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.favorites-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.favorites-toolbar .finder {
+  width: min(480px, 70%);
+  margin: 0;
+}
+.favorites-review > .compare-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+.favorite-card {
+  display: grid;
+  grid-template-rows: 528px 44px;
+  min-width: 0;
+}
+.favorite-card > .scroll {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 44px 40px 165px 98px 99px 28px 30px;
+  width: 100%;
+  max-width: none;
+  height: 528px;
+  min-height: 528px;
+  margin: 0;
+  padding: 10px;
+  overflow: hidden;
+}
+.favorite-card > .scroll > * { min-width: 0; }
+.favorite-card > .scroll > header,
+.favorite-card > .scroll > .scroll-hero { margin: 0; }
+.favorite-card > .scroll > header > div {
+  min-width: 0;
+  overflow: hidden;
+}
+.favorite-card > .scroll > header h2 {
+  margin-top: 3px;
+  overflow: hidden;
+  font-size: 17px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.favorite-card > .scroll > section {
+  margin: 0;
+  padding: 2px 0;
+  overflow: hidden;
+}
+.favorite-card > .scroll > section:first-of-type {
+  display: grid;
+  grid-template-rows: 23px repeat(6, 23px);
+}
+.favorite-card > .scroll h3 {
+  height: 23px;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  line-height: 21px;
+}
+.favorite-card > .scroll .effect-line,
+.favorite-card > .scroll .scroll-rule {
+  height: 23px;
+  min-height: 23px;
+  padding: 1px 0;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 21px;
+}
+.favorite-card > .scroll .effect-line strong {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.favorite-card > .scroll .scroll-hero {
+  align-items: center;
+}
+.favorite-card > .scroll .scroll-hero p {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  margin: 2px 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.favorite-card > .scroll .scroll-hero strong {
+  font: 600 12px/1.4 "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.favorite-card > .scroll .enemy-lines {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(5, 14px);
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 0;
+  overflow: auto hidden;
+  font-size: 12px;
+  line-height: 14px;
+}
+.favorite-card > .scroll .scroll-terrain {
+  height: 28px;
+  padding: 2px 0;
+  overflow: hidden;
+  font-size: 12px;
+}
+.favorite-card > .scroll > footer {
+  min-height: 0;
+  padding-top: 2px;
+  overflow: hidden;
+  font-size: 12px;
+}
+.favorite-card > .collection-actions {
+  display: grid;
+  grid-template-columns: 36px repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 6px;
+  height: 36px;
+  margin-top: 8px;
+}
+.favorite-card > .collection-actions > button {
+  min-width: 0;
+  min-height: 36px;
+  padding: 3px 5px;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1.2;
+}
+.favorite-card > .collection-actions > .favorite-button {
+  padding: 5px;
+  font-size: 22px;
+}
+@media (max-height: 850px) and (min-width: 1031px) {
+  .favorite-card { grid-template-rows: 441px 44px; }
+  .favorite-card > .scroll {
+    grid-template-rows: 34px 30px 138px 84px 86px 23px 28px;
+    height: 441px;
+    min-height: 441px;
+    padding: 8px;
+  }
+  .favorite-card > .scroll > section:first-of-type {
+    grid-template-rows: 20px repeat(6, 19px);
+  }
+  .favorite-card > .scroll .effect-line,
+  .favorite-card > .scroll .scroll-rule {
+    height: 19px;
+    min-height: 19px;
+    font-size: 12px;
+    line-height: 17px;
+  }
+  .favorite-card > .scroll h3 {
+    height: 20px;
+    font-size: 11px;
+    line-height: 18px;
+  }
+  .favorite-card > .scroll > header h2 { font-size: 14px; }
+  .favorite-card > .scroll .enemy-lines {
+    grid-template-rows: repeat(5, 12px);
+    font-size: 10px;
+    line-height: 12px;
+  }
+  .favorite-card > .scroll .scroll-hero p { font-size: 10px; line-height: 1.3; }
+  .favorite-card > .scroll .scroll-hero strong { font-size: 10px; line-height: 1.3; }
+  .favorite-card > .scroll .scroll-terrain { height: 23px; font-size: 10px; }
+}
+@media (max-width: 760px) {
+  dialog[open]:has(.favorites-review) { height: 92vh; }
+  .favorites-toolbar { align-items: stretch; flex-direction: column; }
+  .favorites-toolbar .finder { width: 100%; }
+  .favorites-review > .compare-grid { grid-template-columns: 1fr; }
 }

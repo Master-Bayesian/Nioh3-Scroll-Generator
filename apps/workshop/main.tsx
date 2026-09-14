@@ -22,6 +22,7 @@ import {
   initialSample,
   matches,
   queryProblem,
+  enemyCanBePossessed,
   ANY_RULE_VALUE,
   ruleFamilyKeys,
   ruleFamilyValues,
@@ -62,6 +63,34 @@ function score(sample: Sample, mode: string) {
         : effects;
   return selected.reduce((sum, e) => sum + e.roll, 0) / (selected.length || 1);
 }
+function collectionSearchText(sample: Sample): string {
+  const terrain = data.terrains.find(
+    (candidate) =>
+      !candidate.aggregate &&
+      candidate.effect_keys.length === sample.terrainKeys.length &&
+      candidate.effect_keys.every((key) => sample.terrainKeys.includes(key)),
+  )?.name;
+  const values = [
+    sample.seed,
+    `R${sample.rarity}`,
+    sample.level || 180,
+    sample.capacity,
+    (sample.playthrough || 3) === 3
+      ? "百境百怪绘卷 · 顿悟"
+      : `${sample.playthrough} 周目战绘卷`,
+    ...sample.effects.flatMap((effect) => [effect.name, effect.role]),
+    ...(sample.enemyOccurrences?.map((enemy) => enemy.name) || sample.enemies),
+    ...sample.rules.flatMap((rule) => [rule.name, rule.value]),
+    terrain || "",
+  ];
+  return values
+    .flatMap((value) => {
+      const source = String(value);
+      return [source, localize(source)];
+    })
+    .join(" ")
+    .toLocaleLowerCase();
+}
 const colors: Record<number, string> = { 3: "紫色", 4: "绿色", 5: "橙色" };
 const modeOptions = [
   ["0", "必含"],
@@ -99,6 +128,34 @@ function Select({
         </option>
       ))}
     </select>
+  );
+}
+function ToggleSwitch({
+  label,
+  checked,
+  onChange,
+  disabled = false,
+  compact = false,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <label className={`toggle-switch${compact ? " compact" : ""}`}>
+      <span>{label}</span>
+      <input
+        type="checkbox"
+        role="switch"
+        aria-label={label}
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <i aria-hidden="true" />
+    </label>
   );
 }
 const PanelContext = createContext({
@@ -271,7 +328,8 @@ function App() {
     [graceFind, setGraceFind] = useState(""),
     [enemyFind, setEnemyFind] = useState(""),
     [tier, setTier] = useState("全部"),
-    [ruleFind, setRuleFind] = useState("");
+    [ruleFind, setRuleFind] = useState(""),
+    [favoriteFind, setFavoriteFind] = useState("");
   const [showIds, setShowIds] = useState(false),
     [modal, setModal] = useState(""),
     [status, setStatus] = useState("请选择筛选条件。"),
@@ -402,7 +460,13 @@ function App() {
       setResults(
         job.candidates
           .map((c) =>
-            candidateSample(c, state.submitted?.query.level || 180, job.job_id),
+            candidateSample(
+              c,
+              state.submitted?.query.level || 180,
+              job.job_id,
+              undefined,
+              submittedForm.enemyVariant,
+            ),
           )
           .sort(
             (a, b) => score(b, sorting.current) - score(a, sorting.current),
@@ -513,7 +577,6 @@ function App() {
   }
   const [page, setPage] = useState("search"),
     [sortMode, setSortMode] = useState("primary"),
-    [fontSize, setFontSize] = useState(13),
     [popup, setPopup] = useState("");
   const [appVersion, setAppVersion] = useState("");
   useEffect(() => {
@@ -567,6 +630,7 @@ function App() {
   }
   const [resultSource, setResultSource] = useState(desktop ? "" : "未筛选示例");
   const dialog = useRef<HTMLDialogElement>(null),
+    pendingUpdatePrompt = useRef(false),
     cancel = useRef(false),
     generation = useRef(0);
   const dialogBackdropDismiss = useDialogBackdropDismiss();
@@ -583,7 +647,23 @@ function App() {
     );
   function open(name: string) {
     setModal(name);
-    dialog.current?.showModal();
+    if (!dialog.current?.open) dialog.current?.showModal();
+  }
+  function openUpdatePrompt() {
+    if (dialog.current?.open) {
+      pendingUpdatePrompt.current = true;
+      return;
+    }
+    pendingUpdatePrompt.current = false;
+    open("检查更新");
+  }
+  function handleDialogClose() {
+    setModal("");
+    setDirectAdd(null);
+    if (pendingUpdatePrompt.current) {
+      pendingUpdatePrompt.current = false;
+      requestAnimationFrame(() => open("检查更新"));
+    }
   }
   async function addCurrent() {
     if (!selected || retainingCurrent) return;
@@ -614,6 +694,15 @@ function App() {
       rarity,
       effects: kept,
       graces: q.graces.filter((id) => c.graces.some((e) => e.id === id)),
+      enemyVariant: ng === 3 ? q.enemyVariant : "solo",
+      enemies:
+        ng === 3
+          ? q.enemies
+          : q.enemies.map((enemy) => ({
+              ...enemy,
+              state: "any",
+              availability: "any",
+            })),
     });
     setStatus(
       ng === 3
@@ -862,12 +951,14 @@ function App() {
       .includes(ruleFind.toLowerCase()),
   );
   const categories = [...new Set(ruleRows.map((r) => r.category))];
+  const favoriteQuery = favoriteFind.trim().toLocaleLowerCase();
+  const visibleFavorites = favoriteQuery
+    ? favorites.filter((sample) =>
+        collectionSearchText(sample).includes(favoriteQuery),
+      )
+    : favorites;
   return (
-    <div
-      style={{ "--ui-font-size": fontSize + "px" } as React.CSSProperties}
-      data-fontsize={fontSize}
-      className={"shell " + (collapsed ? "nav-collapsed" : "")}
-    >
+    <div className={"shell " + (collapsed ? "nav-collapsed" : "")}>
       <aside className="nav">
         <button
           className="nav-toggle"
@@ -979,7 +1070,7 @@ function App() {
           >
             <span className="nav-icon" aria-hidden="true">⚙</span><span>设置</span>
           </button>
-          {desktop && <UpdateNotice onOpen={() => open("检查更新")} />}
+          {desktop && <UpdateNotice onOpen={openUpdatePrompt} />}
         </div>
       </aside>
       <header className="topbar">
@@ -1037,10 +1128,6 @@ function App() {
       </header>
       <div className="search-page" hidden={page !== "search"}>
         <main>
-          <div className="intro">
-            装备在身上：筛选左侧词条与恩宠。刷副本：筛选右侧敌人、规则、地形与挑战次数。
-            <button onClick={() => open("使用说明")}>使用说明</button>
-          </div>
           <section
             onMouseEnter={() => {
               if (selectionLeave.current) clearTimeout(selectionLeave.current);
@@ -1060,6 +1147,7 @@ function App() {
               <h2>
                 已选条件 <span>{count}</span>
               </h2>
+              <button onClick={() => open("使用说明")}>使用说明</button>
               <button onClick={reset} disabled={busy}>
                 清空全部
               </button>
@@ -1148,7 +1236,7 @@ function App() {
                       key={e.id}
                     >
                       <span className="drag-grip">⠿</span>
-                      <span>敌人 · {e.name}</span>
+                      <span title={e.name}>敌人 · {e.name}</span>
                       <Select
                         label={e.name + "敌人组合"}
                         value={e.mode}
@@ -1162,6 +1250,26 @@ function App() {
                           )
                         }
                       />
+                      {q.ng === 3 && enemyCanBePossessed(e) && (
+                        <ToggleSwitch
+                          compact
+                          label="地狱附身"
+                          checked={e.state === "possessed"}
+                          onChange={(checked) =>
+                          change(
+                            "enemies",
+                            q.enemies.map((item) =>
+                              item.id === e.id
+                                ? {
+                                    ...item,
+                                    state: checked ? "possessed" : "any",
+                                  }
+                                : item,
+                            ),
+                          )
+                          }
+                        />
+                      )}
                       <button
                         aria-label={"移除敌人" + e.name}
                         onClick={() =>
@@ -1308,7 +1416,7 @@ function App() {
               >
                 <header className="purpose">
                   <h2>装备加成</h2>
-                  <p>选择主副词条与恩宠</p>
+                  <p>装备在身上：筛选词条与恩宠</p>
                 </header>
                 <Panel
                   title="主副词条"
@@ -1422,12 +1530,12 @@ function App() {
               >
                 <header className="purpose">
                   <h2>副本刷取</h2>
-                  <p>选择敌人、特殊规则、地形与挑战次数</p>
+                  <p>刷副本：筛选敌人、规则、地形与挑战次数</p>
                 </header>
                 <Panel
                   title="敌人"
                   tone="blue"
-                  help="低／中／高指生成池档位，不代表难度。选择表示至少包含，允许其他敌人出现。已选敌人可设必含或任选组。"
+                  help="低／中／高指敌人生成池，不代表难度。添加敌人表示结果中至少包含它；游戏仍可能生成其他敌人。只有原生规则允许的低手敌人才提供地狱附身开关。"
                   extra={
                     <button className="subtle" onClick={() => open("敌人组合")}>
                       组合说明
@@ -1450,29 +1558,46 @@ function App() {
                     value={enemyFind}
                     set={setEnemyFind}
                   />
-                  <div className="catalog-list enemy-list">
-                    {enemyRows.map((e) => (
-                      <div className="catalog-row" key={e.id}>
-                        <span>
-                          {e.name}
-                          {showIds && (
-                            <small>
-                              {hex(e.id)} · {e.keys.length} 个变体
-                            </small>
-                          )}
-                        </span>
-                        <em>{e.tier}</em>
-                        <button
-                          aria-label={"添加敌人" + e.name}
-                          disabled={q.enemies.some((x) => x.id === e.id)}
-                          onClick={() =>
-                            change("enemies", [...q.enemies, { ...e, mode: 0 }])
-                          }
-                        >
-                          {q.enemies.some((x) => x.id === e.id) ? "已选" : "＋"}
-                        </button>
-                      </div>
-                    ))}
+                  <div className="enemy-list-frame">
+                    <div className="enemy-list-caption">
+                      <span>敌人列表</span>
+                      <small>点击＋添加筛选条件</small>
+                    </div>
+                    <div className="catalog-list enemy-list">
+                      {enemyRows.map((e) => (
+                        <div className="catalog-row" key={e.id}>
+                          <span>
+                            {e.name}
+                            {showIds && (
+                              <small>
+                                {hex(e.id)} · {e.keys.length} 个变体
+                              </small>
+                            )}
+                          </span>
+                          <em>
+                            {e.tier}
+                            {!!e.possessedKeys.length && <b>可附身</b>}
+                          </em>
+                          <button
+                            aria-label={"添加敌人" + e.name}
+                            disabled={q.enemies.some((x) => x.id === e.id)}
+                            onClick={() =>
+                              change("enemies", [
+                                ...q.enemies,
+                                {
+                                  ...e,
+                                  mode: 0,
+                                  state: "any",
+                                  availability: "any",
+                                },
+                              ])
+                            }
+                          >
+                            {q.enemies.some((x) => x.id === e.id) ? "已选" : "＋"}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   <footer className="catalog-footer">
                     {enemyRows.length} / {data.enemies.length} 个敌人
@@ -1908,7 +2033,13 @@ function App() {
                       return;
                     }
                     setBusy(true);
-                    void previewSeed(Number(direct), q.rarity, q.level)
+                    void previewSeed(
+                      Number(direct),
+                      q.rarity,
+                      q.level,
+                      false,
+                      q.enemyVariant,
+                    )
                       .then((sample) => {
                         setResults([sample]);
                         setSubmitted(structuredClone(q));
@@ -2178,39 +2309,17 @@ function App() {
               <>
                 <h2>设置</h2>
                 {desktop && (
-                  <label className="settings-switch">
-                    <span>允许使用 CPU 搜索</span>
-                    <input
-                      type="checkbox"
-                      role="switch"
-                      checked={allowCpu}
-                      onChange={(e) => setAllowCpu(e.target.checked)}
-                    />
-                  </label>
-                )}
-                <label>
-                  界面字号
-                  <select
-                    aria-label="界面字号"
-                    value={fontSize}
-                    onChange={(e) => setFontSize(Number(e.target.value))}
-                  >
-                    {[12, 13, 14, 15, 16, 18].map((n) => (
-                      <option key={n} value={n}>
-                        {n} px
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="settings-switch">
-                  <span>显示词条与敌人 ID</span>
-                  <input
-                    type="checkbox"
-                    role="switch"
-                    checked={showIds}
-                    onChange={(e) => setShowIds(e.target.checked)}
+                  <ToggleSwitch
+                    label="允许使用 CPU 搜索"
+                    checked={allowCpu}
+                    onChange={setAllowCpu}
                   />
-                </label>
+                )}
+                <ToggleSwitch
+                  label="显示词条与敌人 ID"
+                  checked={showIds}
+                  onChange={setShowIds}
+                />
                 <hr />
                 <button
                   onClick={() =>
@@ -2276,7 +2385,7 @@ function App() {
       <dialog
         ref={dialog}
         {...dialogBackdropDismiss}
-        onClose={() => { setModal(""); setDirectAdd(null); }}
+        onClose={handleDialogClose}
       >
         <header>
           <h2>{modal}</h2>
@@ -2286,11 +2395,23 @@ function App() {
         </header>
         {modal === "收藏夹" ? (
           <div className="favorites-review">
-            <p>{favorites.length} / 50 张绘卷</p>
+            <div className="favorites-toolbar">
+              <p>{favorites.length} / 50 张绘卷</p>
+              {favorites.length > 0 && (
+                <Finder
+                  label="搜索收藏夹中的绘卷 ID、词条、恩宠或敌人"
+                  value={favoriteFind}
+                  set={setFavoriteFind}
+                />
+              )}
+            </div>
             {!favorites.length && <p>点击绘卷旁的 ☆ 即可收藏。</p>}
+            {favorites.length > 0 && !visibleFavorites.length && (
+              <p className="empty-list">收藏夹中没有匹配的绘卷。</p>
+            )}
             <div className="compare-grid">
-              {favorites.map((s) => (
-                <div className="collection-card-item" key={cartKey(s)}>
+              {visibleFavorites.map((s) => (
+                <div className="collection-card-item favorite-card" key={cartKey(s)}>
                   <ScrollCard sample={s} level={submitted.recommended} />
                   <div className="collection-actions">
                     {favoriteButton(s)}
@@ -2348,7 +2469,7 @@ function App() {
             </button>
           </section>
         ) : modal === "检查更新" ? (
-          <Updates />
+          <Updates onClose={() => dialog.current?.close()} />
         ) : modal === "最近三批" ? (
           <div className="history-pages">
             {history.map((page) => (
@@ -2470,12 +2591,25 @@ function App() {
                 </div>
               ))}
           </div>
+        ) : modal === "敌人组合" ? (
+          <div className="modal-body enemy-combination-help">
+            <h3>必含</h3>
+            <p>
+              每个设为“必含”的敌人都必须出现在结果中。例如同时选择古笼火和肉瘤怪，结果必须同时包含两者。
+            </p>
+            <h3>任选组</h3>
+            <p>
+              同一任选组只需出现其中一个敌人。例如把古笼火和肉瘤怪放入“任选组 1”，出现任意一个就符合。
+            </p>
+            <h3>多个条件怎样计算？</h3>
+            <p>
+              每个必含条件和每个任选组都要分别满足；绘卷中可以同时出现没有选择的其他敌人。
+            </p>
+          </div>
         ) : (
           <div className="modal-body">
             <p>
-              {modal === "敌人组合"
-                ? "想刷某个敌人：添加它并选“必含”。几个敌人都可以：把它们设为同一个“任选组”，出现其中一个就算符合。"
-                : "装备加成：在左边选择你想要的词条和恩宠。刷副本：在右边选择想打的敌人、特殊规则、地形和挑战次数。"}
+              装备加成：在左边选择你想要的词条和恩宠。刷副本：在右边选择想打的敌人、特殊规则、地形和挑战次数。
             </p>
             <h3>怎样组合词条？</h3>
             <p>

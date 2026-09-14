@@ -1,0 +1,519 @@
+{
+  "capture_metadata": {
+    "captured_at_utc": "2026-09-13T20:59:43.854676+00:00",
+    "phase": "mode-upstream-sequence",
+    "run_id": "mode-upstream-sequence-86872488-expedition-c-20260913",
+    "requested_pid": 35484,
+    "target_seed": 86872488,
+    "mode_label": "one-person-expedition",
+    "session_id": "ce-44212",
+    "bridge_port": 5568,
+    "target": {
+      "process_id": 35484,
+      "process_name": "Nioh3.exe",
+      "image_path": "D:\\Steam\\steamapps\\common\\Nioh3\\Nioh3.exe",
+      "image_size": 77814240,
+      "executable_sha256": "4047ECB623F3AE033F7D6F3637CD1C5408C72A89A038463268A7C9AC5C394159",
+      "module_base": null,
+      "creation_filetime": "134338049984156850"
+    },
+    "source": {
+      "phase_file": "mode_upstream_sequence_ce.lua",
+      "phase_sha256": "CD53ED4CC8440ADD582E656A0D841B39450D07747295D476C9679CD2B41E937E",
+      "common_sha256": null,
+      "lifecycle_sha256": "0E1F54E959DFBE3EEC1CFD91B5F8360777CAACB7D8B7E64DFC955C47E3E7CD7D"
+    },
+    "stop_on_first_final": false,
+    "read_only": true,
+    "writes_game_memory": false,
+    "fresh_phase_initialization": {
+      "breakpoints": [],
+      "debugger_active": true,
+      "debugger_broken": false,
+      "debugger_broken_source": "debug_context_fallback:function",
+      "initialized": true,
+      "ok": true,
+      "session_id": "ce-44212",
+      "bridge_session_id": "ce-44212",
+      "ce_process_id": 44212
+    },
+    "arm_verification": {
+      "active": true,
+      "breakpoints": [
+        "0x7FF640879180",
+        "0x7FF640879368",
+        "0x7FF64188198C",
+        "0x7FF6419D7978"
+      ],
+      "debugger_broken": false,
+      "debugger_broken_source": "debug_context_fallback:function",
+      "owned_breakpoints": [
+        "0x7FF640879180",
+        "0x7FF640879368",
+        "0x7FF64188198C",
+        "0x7FF6419D7978"
+      ],
+      "run_id": "mode-upstream-sequence-86872488-expedition-c-20260913",
+      "schema": "nioh3.mode-upstream-sequence.v1",
+      "ok": true,
+      "session_id": "ce-44212",
+      "bridge_session_id": "ce-44212",
+      "ce_process_id": 44212
+    }
+  },
+  "bridge_result": {
+    "active": false,
+    "calls_game_functions": false,
+    "cleanup_errors": [],
+    "cleanup_pending": true,
+    "clear_captures": "function: 0000000015708710",
+    "completed_invocations": 1,
+    "conclusion": "generation_returns_observed_not_session_finality",
+    "coverage": "fixed-site observation window; not an all-writers trace or final playable-session proof",
+    "elapsed_ms": 120641,
+    "event_sequence": 4,
+    "events": [
+      {
+        "caller_rbp": "0x2B011FE870",
+        "caller_rsp": "0x2B011FE7F8",
+        "current_session": {
+          "available": true,
+          "forwarded_metadata30_not_captured": true,
+          "mission_type": 0,
+          "object": "0x21913DDCBA0",
+          "request_address": "0x21913DDCBD8",
+          "request_hex": "00000000010000000100B33F",
+          "root": "0x7FF643EED468",
+          "state24": 1
+        },
+        "elapsed_ms": 56297,
+        "padding_observed": "0000",
+        "queue_snapshot": [
+          {
+            "byte8": 0,
+            "index": 0,
+            "mission_type": 0,
+            "node": "0x7FF643D583E0",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 1,
+            "mission_type": 0,
+            "node": "0x7FF643D58438",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 2,
+            "mission_type": 0,
+            "node": "0x7FF643D58490",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 3,
+            "mission_type": 0,
+            "node": "0x7FF643D584E8",
+            "occupied": false
+          }
+        ],
+        "read_bytes_total": 186.0,
+        "request_address": "0x2B011FE820",
+        "request_hex": "A8912D05B700010301000000",
+        "request_id": 1,
+        "return_rva": "0xF1E4F1",
+        "route": "owned_scroll_branch",
+        "rva": "0x10D9180",
+        "sequence": 1,
+        "session_view": {
+          "available": true,
+          "byte6": 0,
+          "byte8_source": 0,
+          "kind": 0,
+          "metadata": 0,
+          "mission_type": 0,
+          "playthrough": 1,
+          "root": "0x7FF643D6E3B0",
+          "scroll_seed": 0,
+          "view": "0x7FF643D6F3C0"
+        },
+        "site": "request_enqueue",
+        "thread_id": 39664,
+        "thread_id_source": "callback_api_unverified:getCurrentThreadID"
+      },
+      {
+        "current_session": {
+          "available": true,
+          "forwarded_metadata30_not_captured": true,
+          "mission_type": 0,
+          "object": "0x21913DDCBA0",
+          "request_address": "0x21913DDCBD8",
+          "request_hex": "00000000010000000100B33F",
+          "root": "0x7FF643EED468",
+          "state24": 1
+        },
+        "elapsed_ms": 56297,
+        "enqueue_link": "frame_and_source",
+        "mission_type": 52374,
+        "queue_index": 0,
+        "queue_node": "0x7FF643D583E0",
+        "queue_rsp": "0x2B011FE1A0",
+        "queue_snapshot": [
+          {
+            "byte8": 150,
+            "index": 0,
+            "mission_type": 52374,
+            "node": "0x7FF643D583E0",
+            "occupied": true,
+            "request_hex": "A8912D05B700010301000000"
+          },
+          {
+            "byte8": 0,
+            "index": 1,
+            "mission_type": 0,
+            "node": "0x7FF643D58438",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 2,
+            "mission_type": 0,
+            "node": "0x7FF643D58490",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 3,
+            "mission_type": 0,
+            "node": "0x7FF643D584E8",
+            "occupied": false
+          }
+        ],
+        "read_bytes_total": 307.0,
+        "request_address": "0x7FF643D58400",
+        "request_hex": "A8912D05B700010301000000",
+        "request_id": 1,
+        "rva": "0x10D9368",
+        "sequence": 2,
+        "session_view": {
+          "available": true,
+          "byte6": 0,
+          "byte8_source": 0,
+          "kind": 0,
+          "metadata": 0,
+          "mission_type": 0,
+          "playthrough": 1,
+          "root": "0x7FF643D6E3B0",
+          "scroll_seed": 0,
+          "view": "0x7FF643D6F3C0"
+        },
+        "site": "request_queued",
+        "source_address": "0x2B011FE820",
+        "source_hex": "A8912D05B700010301000000",
+        "thread_id": 39664,
+        "thread_id_source": "callback_api_unverified:getCurrentThreadID"
+      },
+      {
+        "consumer_rsp": "0x2B011FEC58",
+        "current_session": {
+          "available": true,
+          "forwarded_metadata30_not_captured": true,
+          "mission_type": 52374,
+          "object": "0x21913DDCBA0",
+          "request_address": "0x21913DDCBD8",
+          "request_hex": "A8912D05B700010301000000",
+          "root": "0x7FF643EED468",
+          "state24": 2
+        },
+        "elapsed_ms": 69469,
+        "invocation_id": 1,
+        "link_grade": "unique_pending_payload",
+        "matching_request_ids": [
+          1
+        ],
+        "output_address": "0x2B011FECC8",
+        "queue_head": "0x7FF643D583E0",
+        "queue_snapshot": [
+          {
+            "byte8": 150,
+            "index": 0,
+            "mission_type": 52374,
+            "node": "0x7FF643D583E0",
+            "occupied": true,
+            "request_hex": "A8912D05B700010301000000"
+          },
+          {
+            "byte8": 0,
+            "index": 1,
+            "mission_type": 0,
+            "node": "0x7FF643D58438",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 2,
+            "mission_type": 0,
+            "node": "0x7FF643D58490",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 3,
+            "mission_type": 0,
+            "node": "0x7FF643D584E8",
+            "occupied": false
+          }
+        ],
+        "read_bytes_total": 420.0,
+        "request_address": "0x7FF643D58400",
+        "request_hex": "A8912D05B700010301000000",
+        "request_id": 1,
+        "return_rva": "0x2237978",
+        "rva": "0x20E198C",
+        "sequence": 3,
+        "session_view": {
+          "available": true,
+          "byte6": 0,
+          "byte8_source": 0,
+          "kind": 0,
+          "metadata": 0,
+          "mission_type": 0,
+          "playthrough": 1,
+          "root": "0x7FF643D6E3B0",
+          "scroll_seed": 0,
+          "view": "0x7FF643D6F3C0"
+        },
+        "site": "mission_consume",
+        "thread_id": 39664,
+        "thread_id_source": "callback_api_unverified:getCurrentThreadID"
+      },
+      {
+        "consumer_rsp": "0x2B011FEC58",
+        "current_session": {
+          "available": true,
+          "forwarded_metadata30_not_captured": true,
+          "mission_type": 52374,
+          "object": "0x21913DDCBA0",
+          "request_address": "0x21913DDCBD8",
+          "request_hex": "A8912D05B700010301000000",
+          "root": "0x7FF643EED468",
+          "state24": 2
+        },
+        "elapsed_ms": 69469,
+        "extra_evidence": "request_projection_static; not a new F+1648 observation",
+        "extra_from_request": 0,
+        "invocation_id": 1,
+        "output": {
+          "address": "0x2B011FECC8",
+          "byte8_copy": 1,
+          "class0_count": 6,
+          "class1_count": 0,
+          "context_key": 142,
+          "descriptor_count": 6,
+          "header_hex": "E0B690131902000080B790131902000080B7901319020000D85CBCFD9D518ED40000000001020000B7000000A000000003E8B33F",
+          "metadata": 183,
+          "persistent_task_join": false,
+          "physical_actor_join": false,
+          "playthrough": 3,
+          "stage": "post_20E198C_pre_1C244E4",
+          "terrain": 212,
+          "wave_count": 4,
+          "waves": [
+            {
+              "address": "0x2191390B6E0",
+              "descriptors": [
+                {
+                  "address": "0x2191390B7E0",
+                  "lookup": 243822,
+                  "point_key": 2,
+                  "position": 0,
+                  "raw_hex": "3C0F00006EB80300030000000000020000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3900,
+                  "wave_index": 0
+                }
+              ],
+              "raw_hex": "E0B7901319020000F4B7901319020000F4B7901319020000FFFFFFFF000000000000000000020000",
+              "wave_index": 0
+            },
+            {
+              "address": "0x2191390B708",
+              "descriptors": [
+                {
+                  "address": "0x2191390B860",
+                  "lookup": 904088,
+                  "point_key": 7,
+                  "position": 0,
+                  "raw_hex": "3D0F000098CB0D00010000000000070000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3901,
+                  "wave_index": 1
+                }
+              ],
+              "raw_hex": "60B890131902000074B890131902000074B8901319020000FFFFFFFF000070430000000000000000",
+              "wave_index": 1
+            },
+            {
+              "address": "0x2191390B730",
+              "descriptors": [
+                {
+                  "address": "0x2191390B930",
+                  "lookup": 352684,
+                  "point_key": 8,
+                  "position": 0,
+                  "raw_hex": "3E0F0000AC610500010000000000080000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3902,
+                  "wave_index": 2
+                },
+                {
+                  "address": "0x2191390B944",
+                  "lookup": 17288,
+                  "point_key": 7,
+                  "position": 1,
+                  "raw_hex": "3F0F000088430000000000000000070000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3903,
+                  "wave_index": 2
+                }
+              ],
+              "raw_hex": "30B990131902000058B990131902000058B9901319020000FFFFFFFF000070430000000000000000",
+              "wave_index": 2
+            },
+            {
+              "address": "0x2191390B758",
+              "descriptors": [
+                {
+                  "address": "0x2191390BA10",
+                  "lookup": 904088,
+                  "point_key": 4,
+                  "position": 0,
+                  "raw_hex": "400F000098CB0D00010000000000040000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3904,
+                  "wave_index": 3
+                },
+                {
+                  "address": "0x2191390BA24",
+                  "lookup": 52104,
+                  "point_key": 7,
+                  "position": 1,
+                  "raw_hex": "410F000088CB0000000000000000070000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3905,
+                  "wave_index": 3
+                }
+              ],
+              "raw_hex": "10BA90131902000038BA90131902000038BA901319020000FFFFFFFF000070430000000000000000",
+              "wave_index": 3
+            }
+          ]
+        },
+        "output_address": "0x2B011FECC8",
+        "queue_snapshot": [
+          {
+            "byte8": 150,
+            "index": 0,
+            "mission_type": 52374,
+            "node": "0x7FF643D583E0",
+            "occupied": true,
+            "request_hex": "A8912D05B700010301000000"
+          },
+          {
+            "byte8": 0,
+            "index": 1,
+            "mission_type": 0,
+            "node": "0x7FF643D58438",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 2,
+            "mission_type": 0,
+            "node": "0x7FF643D58490",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 3,
+            "mission_type": 0,
+            "node": "0x7FF643D584E8",
+            "occupied": false
+          }
+        ],
+        "read_bytes_total": 857.0,
+        "request_hex": "A8912D05B700010301000000",
+        "request_id": 1,
+        "return_rsp": "0x2B011FEC60",
+        "rva": "0x2237978",
+        "sequence": 4,
+        "session_view": {
+          "available": true,
+          "byte6": 0,
+          "byte8_source": 0,
+          "kind": 0,
+          "metadata": 0,
+          "mission_type": 0,
+          "playthrough": 1,
+          "root": "0x7FF643D6E3B0",
+          "scroll_seed": 0,
+          "view": "0x7FF643D6F3C0"
+        },
+        "site": "mission_generated",
+        "thread_id": 39664,
+        "thread_id_source": "callback_api_unverified:getCurrentThreadID"
+      }
+    ],
+    "identity": {
+      "creation_filetime": "134338049984156850",
+      "executable_sha256": "4047ECB623F3AE033F7D6F3637CD1C5408C72A89A038463268A7C9AC5C394159",
+      "image_path": "D:\\Steam\\steamapps\\common\\Nioh3\\Nioh3.exe",
+      "image_size": 77814240,
+      "process_id": 35484,
+      "process_name": "Nioh3.exe"
+    },
+    "ignored_hits": 0,
+    "invocation_count": 1,
+    "max_events": 128,
+    "max_hits": 4096,
+    "max_invocations": 16,
+    "max_requests": 16,
+    "max_seconds": 120,
+    "mode_label": "one-person-expedition",
+    "module_base": "0x7FF63F7A0000",
+    "owned_breakpoints": [
+      "0x7FF640879180",
+      "0x7FF640879368",
+      "0x7FF64188198C",
+      "0x7FF6419D7978"
+    ],
+    "pid": 35484,
+    "read_bytes": 857.0,
+    "read_only": true,
+    "request_count": 1,
+    "retry_cleanup": "function: 000000000CCDD960",
+    "run_id": "mode-upstream-sequence-86872488-expedition-c-20260913",
+    "schema": "nioh3.mode-upstream-sequence.v1",
+    "started_tick_ms": 248248062,
+    "status": "function: 000000000CD04220",
+    "stop": "function: 000000000CD044A0",
+    "stop_on_first_complete_chain": false,
+    "stop_reason": "observation_window_elapsed",
+    "stopped_elapsed_ms": 120641,
+    "target_seed": 86872488,
+    "total_hits": 4,
+    "unbound_invocations": 0,
+    "writes_game_memory": false,
+    "ok": true,
+    "session_id": "ce-44212",
+    "bridge_session_id": "ce-44212",
+    "ce_process_id": 44212
+  }
+}

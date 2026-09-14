@@ -1,0 +1,736 @@
+{
+  "schema": "nioh3.augmentation-code-closure.v1",
+  "capture_kind": "offline_only",
+  "section_hashes": {
+    "text": "F8799B5DB54A9CA46F52BCD6C037B2AD9B413DC83A26F1D3F0E61251BFB48023",
+    "rdata": "DF245B4EF1478643845680DB183EA170F448B1EF8FF9710CBD040CB48F4E363D",
+    "pdata": "928D0407FFCCFBD081559A2DF00D4995598B60B5C3F1D325D086CB531B09B904"
+  },
+  "functions": [
+    {
+      "entry_rva": 35874044,
+      "call_site_rva": 35872260,
+      "call_bytes": "E8F3060000",
+      "scope": "complete_unwind_linked_group_NOT_transitive_call_graph",
+      "ranges": [
+        {
+          "begin_rva": 35874044,
+          "end_rva": 35874177,
+          "raw_hex": "40534881ECA0050000488B0524DA27024833C44889842490050000488BD9E815F3E4FD33C984C0743CE8F6524DFE894338E86AEF04FE488D4C242088433DE8CD156400BA05000000488BC8E8B0629FFF83F802488D4C24200F94C088433CE805349FFFEB07894B3866894B3C488B8C24900500004833CCE838AC95FE4881C4A00500005BC3",
+          "sha256": "4C83F9E10416EA902763408ECD0B52A2EDF592EB228256E5EA8927EE1A571032",
+          "unwind": {
+            "rva": 70275064,
+            "raw_hex": "191B03000901B40002300000C820B900",
+            "version": 1,
+            "flags": 3,
+            "count_of_codes": 3,
+            "parent_begin": null
+          },
+          "file": "022364FC_022364FC.bin"
+        }
+      ],
+      "total_code_bytes": 133,
+      "transitive_callees_complete": false,
+      "semantic_role_proved_by_export": false,
+      "control_flow_edges": [
+        {
+          "site": 35874074,
+          "target": 546868,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 35874083,
+          "target": 35874145,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 35874085,
+          "target": 7387168,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 35874093,
+          "target": 2643100,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 35874106,
+          "target": 42433292,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 35874119,
+          "target": 29542396,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 35874138,
+          "target": 29530468,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 35874143,
+          "target": 35874152,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 35874163,
+          "target": 12128688,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        }
+      ],
+      "decoded_instruction_count": 33,
+      "branch_targets_covered": true
+    },
+    {
+      "entry_rva": 14916928,
+      "call_site_rva": 29509063,
+      "call_bytes": "E8745721FF",
+      "scope": "complete_unwind_linked_group_NOT_transitive_call_graph",
+      "ranges": [
+        {
+          "begin_rva": 14916928,
+          "end_rva": 14916968,
+          "raw_hex": "48896C24204154415641574883EC30488B010FB6EA4C8BF94C8B60084C8B304D3BF40F84AC000000",
+          "sha256": "872DAE2AE4D516E1A45030671DD1E8E78FE46AFBA797311A97CAEB95E15B3A69",
+          "unwind": {
+            "rva": 69560528,
+            "raw_hex": "010F06000F540D000F520BF009E007C0",
+            "version": 1,
+            "flags": 0,
+            "count_of_codes": 6,
+            "parent_begin": null
+          },
+          "file": "00E39D40_00E39D40.bin"
+        },
+        {
+          "begin_rva": 14916968,
+          "end_rva": 14917140,
+          "raw_hex": "48895C2450488974245848897C2460660F1F840000000000498B7608498B1E483BDE746C0F1F400040386B107559E845A52FFF8B5304488BF8488B4820E886A62FFF488B173B4204733D8BC04869C898030000488D42084803C1742BF74074004000007422498B4F10488D5424204C8BC38B398D47018901498B4F08E8A73FFFFF488B088979144883C314483BDE75984983C6284D3BF40F857BFFFFFF488B7C2460488B742458488B5C2450",
+          "sha256": "9286CE9E5118725829335202F0F7A1FBD142E359E56A178D99E0E21EBCD79F28",
+          "unwind": {
+            "rva": 69560544,
+            "raw_hex": "210F06000F740C000A640B0005340A00409DE300689DE300D0682504",
+            "version": 1,
+            "flags": 4,
+            "count_of_codes": 6,
+            "parent_begin": 14916928
+          },
+          "file": "00E39D40_00E39D68.bin"
+        },
+        {
+          "begin_rva": 14917140,
+          "end_rva": 14917156,
+          "raw_hex": "488B6C24684883C430415F415E415CC3",
+          "sha256": "5BFFB564B23B20D6548D02BCEB74A1D72DC3BB743CE3CA8244A57746A3853C6E",
+          "unwind": {
+            "rva": 69560572,
+            "raw_hex": "21000000409DE300689DE300D0682504",
+            "version": 1,
+            "flags": 4,
+            "count_of_codes": 0,
+            "parent_begin": 14916928
+          },
+          "file": "00E39D40_00E39E14.bin"
+        }
+      ],
+      "total_code_bytes": 228,
+      "transitive_callees_complete": false,
+      "semantic_role_proved_by_export": false,
+      "control_flow_edges": [
+        {
+          "site": 14916962,
+          "target": 14917140,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 14917002,
+          "target": 14917112,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 14917012,
+          "target": 14917103,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 14917014,
+          "target": 1262304,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 14917029,
+          "target": 1262640,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 14917040,
+          "target": 14917103,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 14917058,
+          "target": 14917103,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 14917067,
+          "target": 14917103,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 14917092,
+          "target": 14867856,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 14917110,
+          "target": 14917008,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 14917119,
+          "target": 14916992,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        }
+      ],
+      "decoded_instruction_count": 63,
+      "branch_targets_covered": true
+    },
+    {
+      "entry_rva": 1271884,
+      "call_site_rva": 29509135,
+      "call_bytes": "E8382251FE",
+      "scope": "pinned_leaf_CFG",
+      "ranges": [
+        {
+          "begin_rva": 1271884,
+          "end_rva": 1271970,
+          "raw_hex": "4C8B4108448BD2488B014D8BC849C1E1044C03C8EB12488D04C84883C9FF482BCA4883C0104C03C14D85C07417498BD048D1EA488BCA4803C9443914C872D74C8BC2EBE4493BC17405443B10730333C0C3488B4008C3",
+          "sha256": "627C74A4D65ED70D8F1D6A6D699C6786B23E4A49D5C3EDCF0B81FD134851BF59",
+          "unwind": null,
+          "file": "0013684C_0013684C.bin"
+        }
+      ],
+      "total_code_bytes": 86,
+      "transitive_callees_complete": false,
+      "semantic_role_proved_by_export": false,
+      "control_flow_edges": [
+        {
+          "site": 1271904,
+          "target": 1271924,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 1271927,
+          "target": 1271952,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 1271945,
+          "target": 1271906,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 1271950,
+          "target": 1271924,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 1271955,
+          "target": 1271962,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 1271960,
+          "target": 1271965,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        }
+      ],
+      "decoded_instruction_count": 30,
+      "branch_targets_covered": true
+    },
+    {
+      "entry_rva": 4969976,
+      "call_site_rva": 4966719,
+      "call_bytes": "E8B40C0000",
+      "scope": "complete_unwind_linked_group_NOT_transitive_call_graph",
+      "ranges": [
+        {
+          "begin_rva": 4969976,
+          "end_rva": 4970207,
+          "raw_hex": "4C8BDC5356574883EC3048832200498BF84983630800488BF2C6420800488BD94C8B09498D5320488B410848C1E0044903C14D894B20498943104D8BC8498D43084D8D4310498943D8E88204000088460884C00F84FA764501488B5308488B4310482BC24883F8010F82C4764501488B4C24504C8BC249C1E0044C03034C3BC174454D85C07413418B40F0418900498B40F849894008488B5308488D4201498D50F048894308E8F5040000448B0F448909488B47084889410848890E488BC64883C4305F5E5BC34D85C074118B07418900488B470849894008488B5308488D420148894308EBD2",
+          "sha256": "C5FFAD72A932D09D08900B71060ADE20C8996E59DD027F99F4E573E33E6CFB76",
+          "unwind": {
+            "rva": 68620544,
+            "raw_hex": "010A04000A52067005600430",
+            "version": 1,
+            "flags": 0,
+            "count_of_codes": 4,
+            "parent_begin": null
+          },
+          "file": "004BD5F8_004BD5F8.bin"
+        },
+        {
+          "begin_rva": 26299690,
+          "end_rva": 26299743,
+          "raw_hex": "4C8B442450488D542450488BCB48897C2420E8DB942D00488B4C2450E96689BAFE488B4C2450482B0B4883E1F048030BE95289BAFE",
+          "sha256": "5FED071DC3648F688070844216AB7DFD7485539543D6824611A17D472209B852",
+          "unwind": {
+            "rva": 68620556,
+            "raw_hex": "21000000F8D54B00DFD64B0000111704",
+            "version": 1,
+            "flags": 4,
+            "count_of_codes": 0,
+            "parent_begin": 4969976
+          },
+          "file": "004BD5F8_01914D2A.bin"
+        }
+      ],
+      "total_code_bytes": 284,
+      "transitive_callees_complete": false,
+      "semantic_role_proved_by_export": false,
+      "control_flow_edges": [
+        {
+          "site": 4970049,
+          "target": 4971208,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 4970059,
+          "target": 26299723,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 4970080,
+          "target": 26299690,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 4970104,
+          "target": 4970175,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 4970109,
+          "target": 4970130,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 4970142,
+          "target": 4971416,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 4970178,
+          "target": 4970197,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 4970205,
+          "target": 4970161,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 26299708,
+          "target": 29286940,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 26299718,
+          "target": 4970161,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 26299738,
+          "target": 4970161,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        }
+      ],
+      "decoded_instruction_count": 81,
+      "branch_targets_covered": true
+    },
+    {
+      "entry_rva": 4971556,
+      "call_site_rva": 4966681,
+      "call_bytes": "E806130000",
+      "scope": "complete_unwind_linked_group_NOT_transitive_call_graph",
+      "ranges": [
+        {
+          "begin_rva": 4971556,
+          "end_rva": 4971999,
+          "raw_hex": "488BC44889580848896810488970184889782041564883EC2033ED4C8BF1488929418AF148896908418BF8488969108BDA8BCAE8CC26E0FF49834E30FF498D4E384989461841895E2041897E2441896E28E86601000049896E58498D8EFC00000049896E6033C049896E6849896E4841896E5049896E7049896E784989AE8000000049C78688000000060000004188AE900000004188B6940000006641C7869500000000FF4188AE970000004989AE980000004989AEA00000004989AEA80000004989AEB00000004188AEB80000004989AEBC0000004189AEC40000004989AEC8000000498986D00000004989AED80000004989AEE000000041C786E80000000100000041C786EC000000FF01000041C786F00000000001000049C786F400000001010000E8E225FFFF488B05AB800F044989AE340100004189AE3C01000041C78640010000000080BF4989AE440100004189AE4C0100004188AE50010000488B08488B5148498BCE8A82BD000000418886DC0000008A82BE000000418886DD0000008A82BF000000418886DF000000E86FECDFFF498BCEE82F0CE0FF488B5C2430498BC6488B6C2438488B742440488B7C24484883C420415EC3",
+          "sha256": "7DA83E5301BD3538306B630AA4912DC35405F72073F8B20BF810368D2676129D",
+          "unwind": {
+            "rva": 68620744,
+            "raw_hex": "01190A0019740900196408001954070019340600193215E0",
+            "version": 1,
+            "flags": 0,
+            "count_of_codes": 10,
+            "parent_begin": null
+          },
+          "file": "004BDC24_004BDC24.bin"
+        }
+      ],
+      "total_code_bytes": 443,
+      "transitive_callees_complete": false,
+      "semantic_role_proved_by_export": false,
+      "control_flow_edges": [
+        {
+          "site": 4971607,
+          "target": 2884392,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 4971637,
+          "target": 4972000,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 4971849,
+          "target": 4916016,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 4971956,
+          "target": 2869800,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 4971964,
+          "target": 2877936,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        }
+      ],
+      "decoded_instruction_count": 82,
+      "branch_targets_covered": true
+    },
+    {
+      "entry_rva": 29322944,
+      "call_site_rva": 29508928,
+      "call_bytes": "E87B29FDFF",
+      "scope": "complete_unwind_linked_group_NOT_transitive_call_graph",
+      "ranges": [
+        {
+          "begin_rva": 29322944,
+          "end_rva": 29323035,
+          "raw_hex": "48895C2408574883EC20488BDA488BF9E857FFFFFF8B43188947180FB7431C6689471C8A431E88471E8A431F88471F8A43208847208A43218847218A43228847228A43238847238A4324488B5C2430884724488BC74883C4205FC3",
+          "sha256": "2E12759879D472D4EBF0A2529432E54B68F3D9736116CAB9B1958CE38331BEE6",
+          "unwind": {
+            "rva": 69560504,
+            "raw_hex": "010A04000A3406000A320670",
+            "version": 1,
+            "flags": 0,
+            "count_of_codes": 4,
+            "parent_begin": null
+          },
+          "file": "01BF6EC0_01BF6EC0.bin"
+        }
+      ],
+      "total_code_bytes": 91,
+      "transitive_callees_complete": false,
+      "semantic_role_proved_by_export": false,
+      "control_flow_edges": [
+        {
+          "site": 29322960,
+          "target": 29322796,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        }
+      ],
+      "decoded_instruction_count": 29,
+      "branch_targets_covered": true
+    },
+    {
+      "entry_rva": 29516544,
+      "call_site_rva": 35879323,
+      "call_bytes": "E860E99EFF",
+      "scope": "complete_unwind_linked_group_NOT_transitive_call_graph",
+      "ranges": [
+        {
+          "begin_rva": 29516544,
+          "end_rva": 29516995,
+          "raw_hex": "488BC4488958104889701848897820554154415541564157488D68A14881ECA0000000488B0506DC88024833C448894527488BF1E8BF0D22FF488B05C0FA9802488B1080BA182C0000000F844601000080BAF42B0000000F84390100008B82E82B00004533F689451F41BC4B6000000FB782EC2B000041BD1AB1000066894523448975D7488B0D65FA9802420FB754751F488B89A00A0000E833AAFEFF4C8BF84885C00F84DC00000033FF41BE85F900008BD7498BCFE89144F9FF488B0D2EFA98020FB7D00FB7D8488B4920E867AAFEFF4885C00F849C0000008BD7498BCFE87C44F9FF0F28D00FB7D3488BCEE8AEEDFDFFB871350000663BD87521410FB75F304C8D45B7488D55DF668945B7488BCEE89F7820FF488B00895818EB5966413BDC7513418B5F044C8D45BF66448965BF488D55EFEB3266413BDD7514410FB75F324C8D45C76644896DC7488D55FFEB1866413BDE7520410FB75F344C8D45CF66448975CF488D550F488BCEE8447820FF488B08895918FFC783FF020F8230FFFFFF448B75D741FFC6448975D74183FE030F82EEFEFFFF488B4D274833CCE80EADF6FE4C8D9C24A0000000498B5B38498B7340498B7B48498BE3415F415E415D415C5DC3",
+          "sha256": "7042372CBC61FB67DB2F7513180B99BB1BB7DC75B068B4BC7A7507B2F56CA241",
+          "unwind": {
+            "rva": 69578176,
+            "raw_hex": "19310D0023741D0023641C0023341B002301140018F016E014D012C010500000C820B900",
+            "version": 1,
+            "flags": 3,
+            "count_of_codes": 13,
+            "parent_begin": null
+          },
+          "file": "01C26300_01C26300.bin"
+        }
+      ],
+      "total_code_bytes": 451,
+      "transitive_callees_complete": false,
+      "semantic_role_proved_by_export": false,
+      "control_flow_edges": [
+        {
+          "site": 29516596,
+          "target": 14971128,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 29516618,
+          "target": 29516950,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29516631,
+          "target": 29516950,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29516696,
+          "target": 29429200,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 29516707,
+          "target": 29516933,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29516726,
+          "target": 29075532,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 29516748,
+          "target": 29429304,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 29516756,
+          "target": 29516918,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29516767,
+          "target": 29075552,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 29516781,
+          "target": 29381024,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 29516794,
+          "target": 29516829,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29516816,
+          "target": 14867636,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 29516827,
+          "target": 29516918,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29516833,
+          "target": 29516854,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29516852,
+          "target": 29516904,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29516858,
+          "target": 29516880,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29516878,
+          "target": 29516904,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29516884,
+          "target": 29516918,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29516907,
+          "target": 14867636,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 29516923,
+          "target": 29516721,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29516944,
+          "target": 29516676,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29516957,
+          "target": 12128688,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        }
+      ],
+      "decoded_instruction_count": 114,
+      "branch_targets_covered": true
+    },
+    {
+      "entry_rva": 29508656,
+      "call_site_rva": 35879372,
+      "call_bytes": "E85FCA9EFF",
+      "scope": "complete_unwind_linked_group_NOT_transitive_call_graph",
+      "ranges": [
+        {
+          "begin_rva": 29508656,
+          "end_rva": 29508835,
+          "raw_hex": "48895C240848896C24104889742418574883EC208BEA418AD9B201418AF8488BF1E86266FEFF8B442450894604892E885E0940887E08488B05A393B2024C8B00498B40184889863802000085ED7413488B0D7293B2028BD5E857E6ADFE3401884628488BCEE8824FFFFF84C0741C488BCEE83EC4FEFF80780E00740E80780A007408488BCEE81A48FEFF488B05BF8FB202488B5C2430488B6C2438488B48088A4110888646030000488B7424404883C4205FC3",
+          "sha256": "0F68B557145EEC4CEFF0BDA6BE579F74807E909AC3F433A76276150203702D4A",
+          "unwind": {
+            "rva": 69573340,
+            "raw_hex": "0114080014640800145407001434060014321070",
+            "version": 1,
+            "flags": 0,
+            "count_of_codes": 8,
+            "parent_begin": null
+          },
+          "file": "01C24430_01C24430.bin"
+        }
+      ],
+      "total_code_bytes": 179,
+      "transitive_callees_complete": false,
+      "semantic_role_proved_by_export": false,
+      "control_flow_edges": [
+        {
+          "site": 29508689,
+          "target": 29403832,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 29508733,
+          "target": 29508754,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29508744,
+          "target": 7351012,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 29508757,
+          "target": 29463580,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 29508764,
+          "target": 29508794,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29508769,
+          "target": 29427940,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        },
+        {
+          "site": 29508778,
+          "target": 29508794,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29508784,
+          "target": 29508794,
+          "kind": "branch",
+          "in_exported_instruction_boundaries": true
+        },
+        {
+          "site": 29508789,
+          "target": 29396180,
+          "kind": "direct_call",
+          "in_exported_instruction_boundaries": false
+        }
+      ],
+      "decoded_instruction_count": 49,
+      "branch_targets_covered": true
+    }
+  ],
+  "uses_process": false,
+  "breakpoints_used": 0,
+  "game_acceptance": false
+}

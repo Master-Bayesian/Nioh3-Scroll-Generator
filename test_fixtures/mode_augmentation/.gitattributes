@@ -1,0 +1,3 @@
+# Preserve supplied native capture bytes and their provenance hashes.
+run_c.json -text
+run_d.json -text

@@ -2630,6 +2630,7 @@ __all__ = [
     "generate_class1_enemies",
     "generate_class2_enemies",
     "generate_complete_auxiliary",
+    "generate_enemy_state_preview",
     "generate_enemy_match_masks_batch",
     "generate_matching_auxiliary",
     "generate_special_rules",
@@ -2643,3 +2644,18 @@ __all__ = [
     "terrain_row_matches_criteria",
     "terrain_rows_containing_effects",
 ]
+
+
+def generate_enemy_state_preview(
+    displayed_seed: int, playthrough: int, *, variant: str,
+    game_version: str = "pc_v2_01", tables=None, resource=None, state_tables=None,
+):
+    """Additive preview: explicit solo/expedition, Possessed and separate Curse.
+
+    Missing late-state evidence remains unknown. Legacy complete generation,
+    search, save and native mutation semantics are unchanged.
+    """
+    from .enemy_state_search import generate_enemy_state_preview as preview
+    return preview(displayed_seed, playthrough, variant=variant,
+                   game_version=game_version, tables=tables, resource=resource,
+                   state_tables=state_tables)

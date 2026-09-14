@@ -35,6 +35,41 @@ function keyGroups(items: { keys: number[]; mode?: number }[]) {
   }
   return groups;
 }
+function enemyOccurrenceGroups(items: Query["enemies"]) {
+  const groups: {
+    lookup_keys: number[];
+    state: "any" | "possessed" | "curse";
+    availability: "any" | "base" | "expedition_only";
+  }[][] = [];
+  const seen = new Set<number>();
+  for (const item of items) {
+    const value = {
+      lookup_keys: [...new Set(
+        item.state === "possessed" ? item.possessedKeys : item.keys,
+      )],
+      state: item.state,
+      availability: "any" as const,
+    };
+    if (!item.mode) groups.push([value]);
+    else if (!seen.has(item.mode)) {
+      seen.add(item.mode);
+      groups.push(
+        items
+          .filter((candidate) => candidate.mode === item.mode)
+          .map((candidate) => ({
+            lookup_keys: [...new Set(
+              candidate.state === "possessed"
+                ? candidate.possessedKeys
+                : candidate.keys,
+            )],
+            state: candidate.state,
+            availability: "any" as const,
+          })),
+      );
+    }
+  }
+  return groups;
+}
 export function workerQuery(q: Query): StartParams["query"] {
   const primary = q.unrestricted ? [] : q.effects.slice(0, q.primaryCount),
     secondary = q.unrestricted ? q.effects : q.effects.slice(q.primaryCount);
@@ -69,6 +104,8 @@ export function workerQuery(q: Query): StartParams["query"] {
     },
     terrain_selection_ids: q.terrains,
     initial_challenge_counts: q.capacities,
+    enemy_variant: "solo",
+    enemy_occurrence_groups: enemyOccurrenceGroups(q.enemies),
   };
   if (
     [
@@ -111,6 +148,7 @@ export function candidateSample(
   level: number,
   jobId?: string,
   referenceId?: string,
+  enemyVariant: Query["enemyVariant"] = "solo",
 ): Sample {
   const catalog = catalogs.get(candidate.rarity);
   const names = new Map(
@@ -134,11 +172,25 @@ export function candidateSample(
     catalog?.special_rule_options?.map((e) => [e.key, e.name]),
   );
   const auxiliary = candidate.auxiliary;
+  const enemyState = candidate.enemy_states?.[enemyVariant];
+  const enemyOccurrences = enemyState?.occurrences.map((occurrence) => ({
+    lookupKey: occurrence.lookup_key,
+    name: enemyNames.get(occurrence.lookup_key) || "未知敌人",
+    waveIndex: occurrence.wave_index,
+    position: occurrence.position,
+    availability: occurrence.availability,
+    possessed: occurrence.possessed,
+    curse: occurrence.curse,
+  }));
   return {
     seed: String(candidate.seed),
     rarity: candidate.rarity,
     level,
     playthrough: candidate.playthrough || 3,
+    enemyVariant,
+    enemyOccurrences,
+    possessedComplete: enemyState?.possessed_complete,
+    curseScope: enemyState?.curse_scope,
     backend: {
       jobId,
       candidateId: candidate.candidate_id,
@@ -168,6 +220,7 @@ export function candidateSample(
       })),
     capacity: candidate.initial_challenge_capacity,
     enemyKeys:
+      enemyOccurrences?.map((occurrence) => occurrence.lookupKey) ||
       auxiliary?.enemy_groups.flatMap((g) => g.map((e) => e.lookup_key)) || [],
     enemySlotKeys:
       auxiliary?.enemy_groups
@@ -175,9 +228,10 @@ export function candidateSample(
         .filter((k) => k !== undefined) || [],
     enemies: [
       ...new Set(
-        auxiliary?.enemy_groups.flatMap((g) =>
-          g.map((e) => enemyNames.get(e.lookup_key) || "未知敌人"),
-        ) || [],
+        enemyOccurrences?.map((occurrence) => occurrence.name) ||
+          auxiliary?.enemy_groups.flatMap((g) =>
+            g.map((e) => enemyNames.get(e.lookup_key) || "未知敌人"),
+          ) || [],
       ),
     ],
     terrainKeys: auxiliary?.terrain.display_effect_keys || [],
@@ -206,6 +260,7 @@ export async function retainSample(sample: Sample) {
       sample.rarity,
       sample.level || 180,
       true,
+      sample.enemyVariant || "solo",
     );
   const ref = await window.review.retain({
     job_id: sample.backend.jobId!,
@@ -221,6 +276,7 @@ export async function previewSeed(
   rarity: number,
   level: number,
   retain = false,
+  enemyVariant: Query["enemyVariant"] = "solo",
 ) {
   await loadDesktopCatalog(rarity);
   const result = await window.review.preview({
@@ -234,6 +290,7 @@ export async function previewSeed(
     level,
     undefined,
     result.reference_id || undefined,
+    enemyVariant,
   );
 }
 export async function copyText(text: string) {
@@ -293,10 +350,28 @@ export function formQuery(params: StartParams): Query {
         });
     }
   }
-  return {
-    effects,
-    enemies: value.auxiliary.required_enemy_lookup_key_groups.map(
-      (keys, i) => ({
+  const enemyGroups = value.enemy_occurrence_groups || [];
+  const enemies: Query["enemies"] = enemyGroups.length
+    ? enemyGroups.flatMap((group, groupIndex) =>
+        group.map((requirement, alternativeIndex) => ({
+          id: `restored:${groupIndex}:${alternativeIndex}`,
+          name: requirement.lookup_keys
+            .map(
+              (key) =>
+                data.enemies.find((enemy) => enemy.keys.includes(key))?.name ||
+                String(key),
+            )
+            .join("／"),
+          keys: requirement.lookup_keys,
+          possessedKeys: requirement.lookup_keys.filter((key) =>
+            data.enemies.some((enemy) => enemy.possessedKeys.includes(key)),
+          ),
+          mode: group.length > 1 ? groupIndex + 1 : 0,
+          state: requirement.state === "possessed" ? "possessed" as const : "any" as const,
+          availability: "any" as const,
+        })),
+      )
+    : value.auxiliary.required_enemy_lookup_key_groups.map((keys, i) => ({
         id: "restored:" + i,
         name: keys
           .map(
@@ -305,9 +380,17 @@ export function formQuery(params: StartParams): Query {
           )
           .join("／"),
         keys,
+        possessedKeys: keys.filter((key) =>
+          data.enemies.some((enemy) => enemy.possessedKeys.includes(key)),
+        ),
         mode: 0,
-      }),
-    ),
+        state: "any" as const,
+        availability: "any" as const,
+      }));
+  return {
+    effects,
+    enemies,
+    enemyVariant: "solo",
     rules: value.auxiliary.required_special_rule_key_groups.map((keys, i) => ({
       id: "restored:" + i,
       name: keys

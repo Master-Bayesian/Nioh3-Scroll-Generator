@@ -48,14 +48,44 @@ class SearchQuery:
     grace_effect_ids: tuple[int, ...] = ()
     grouped_rolls: tuple[tuple[int, int], ...] = ()
     effect_occurrences: tuple[dict, ...] = ()
+    enemy_variant: str = 'solo'
+    enemy_occurrence_groups: tuple[tuple[dict, ...], ...] = ()
 
     @classmethod
     def from_payload(cls, payload: dict) -> SearchQuery:
         from .catalog_application import resolve_terrain_selections
-        auxiliary = AuxiliarySearchCriteria(**{
+        enemy_variant = payload.get('enemy_variant', 'solo')
+        if enemy_variant not in ('solo', 'expedition'):
+            raise ValueError('enemy variant must be solo or expedition')
+        enemy_groups = tuple(tuple(dict(item) for item in group)
+                             for group in payload.get('enemy_occurrence_groups', ()))
+        if any(item.get('state', 'any') == 'curse' for group in enemy_groups for item in group):
+            raise ValueError('Curse changes between entries and cannot be searched exactly by Scroll ID')
+        possessed_items = [item for group in enemy_groups for item in group
+                           if item.get('state', 'any') == 'possessed']
+        if possessed_items:
+            from .possessed_generation import EnemyStateTables
+            state_tables = EnemyStateTables.load()
+            if any(not any(state_tables.eligible(key) for key in item['lookup_keys'])
+                   for item in possessed_items):
+                raise ValueError('Possessed is available only for eligible low-pool enemy variants')
+        if enemy_variant == 'solo' and any(
+                item.get('availability', 'any') == 'expedition_only'
+                for group in enemy_groups for item in group):
+            raise ValueError('Expedition-only enemies require the expedition preview variant')
+        if payload['playthrough'] != 3 and (enemy_variant != 'solo' or enemy_groups):
+            raise ValueError('Enemy-state and expedition filters are currently supported only in playthrough 3')
+        auxiliary_payload = {
             key: tuple(frozenset(group) for group in value) if key.endswith('_groups') else frozenset(value)
             for key, value in payload['auxiliary'].items()
-        }, terrain_row_indices=resolve_terrain_selections(payload.get('terrain_selection_ids', [])))
+        }
+        if enemy_groups:
+            from .enemy_state_search import compile_enemy_occurrence_prefilters
+            auxiliary_payload['required_enemy_lookup_keys'] = frozenset()
+            auxiliary_payload['required_enemy_lookup_key_groups'] = compile_enemy_occurrence_prefilters(
+                enemy_groups, variant=enemy_variant)
+        auxiliary = AuxiliarySearchCriteria(**auxiliary_payload,
+            terrain_row_indices=resolve_terrain_selections(payload.get('terrain_selection_ids', [])))
         if len({pair[0] for pair in payload['minimum_roll_percent_by_effect_id']}) != len(payload['minimum_roll_percent_by_effect_id']):
             raise ValueError('Roll constraints must contain unique effect IDs')
         grouped_ids = set().union(*map(set, payload['required_secondary_id_groups']))
@@ -79,13 +109,32 @@ class SearchQuery:
                 raise ValueError('Conflicting grace filters')
         validate_effect_request_feasibility(request)
         digest = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
-        return cls(request, payload['level'], digest, tuple(payload.get('initial_challenge_counts', ())), grace_ids, grouped_rolls, tuple(payload.get('effect_occurrences', ())))
+        return cls(request, payload['level'], digest, tuple(payload.get('initial_challenge_counts', ())),
+                   grace_ids, grouped_rolls, tuple(payload.get('effect_occurrences', ())),
+                   enemy_variant, enemy_groups)
 
 
 def candidate_payload(candidate: ScrollCandidate, service: CandidateApplicationService, *, evidence='certified_offline_replay') -> dict:
     preview = asdict(service.preview(candidate))
     preview['record_stage'] = candidate.record_stage.value
     auxiliary = candidate.auxiliary
+    enemy_states = None
+    if candidate.playthrough == 3:
+        from .enemy_state_search import generate_enemy_state_preview
+        from .auxiliary_generation import AuxiliaryGenerationError
+        enemy_states = {}
+        for variant in ('solo', 'expedition'):
+            try:
+                state_preview = generate_enemy_state_preview(candidate.seed, 3, variant=variant)
+                enemy_states[variant] = state_preview.to_dict()
+            except AuxiliaryGenerationError as error:
+                enemy_states[variant] = {
+                    'seed': candidate.seed, 'playthrough': 3, 'variant': variant,
+                    'terrain': None, 'occurrences': [], 'possessed_complete': False,
+                    'missing_inputs': [str(error)],
+                    'curse_scope': 'late runtime context not captured; no Seed-only certainty claimed',
+                    'curse_count_range': None, 'curse_count_domain': None,
+                }
     return {
         **preview,
         'effects': [asdict(effect) for effect in candidate.effects],
@@ -94,6 +143,7 @@ def candidate_payload(candidate: ScrollCandidate, service: CandidateApplicationS
             'enemy_groups': [[{'lookup_key': entry.lookup_key, 'role': entry.role} for entry in group.entries] for group in auxiliary.enemies.groups],
             'special_rules': [{key: getattr(entry, key) for key in ('key', 'raw_value', 'display_value', 'display_unit', 'display_grade', 'qualifier_kind', 'qualifier_key')} for entry in auxiliary.special_rules.entries],
         } if auxiliary is not None else None,
+        'enemy_states': enemy_states,
         'cursor': candidate.joint_search_trial,
         'evidence': evidence,
         'installation_available': preview['installable'],

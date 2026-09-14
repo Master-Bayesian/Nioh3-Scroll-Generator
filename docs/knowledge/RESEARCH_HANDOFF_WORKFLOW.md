@@ -95,7 +95,7 @@ Before delivery:
 1. Confirm every required file exists and is non-empty.
 2. Recompute hashes for the authoritative evidence files.
 3. Generate `SHA256SUMS.txt` after the final copy.
-4. Create the ZIP and enumerate it to confirm it opens and contains the expected root directory.
+4. Create the ZIP, then run `python tools/validate_research_handoff.py <package-directory> --zip <archive>` to verify its structure, checksum coverage, and exact archived bytes.
 5. Compute and report the ZIP SHA-256 and byte size.
 6. Open `TASK_FOR_PRO.md` once from the final package and verify that it contains no chat-only references.
 7. Add the package path, status, and unresolved product boundary to `CURRENT_HANDOFF.md`.

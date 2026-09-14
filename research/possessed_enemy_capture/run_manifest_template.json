@@ -1,0 +1,78 @@
+{
+  "schema": "nioh3-pc-v2.01-native-possessed-enemy-run-manifest/v3",
+  "run_id": "replace-me",
+  "seed": 156062997,
+  "game_version": "PC v2.01",
+  "mode": "single-player",
+  "fresh_mission_entry": true,
+  "scroll_provenance": {
+    "kind": "natural_drop",
+    "basis": "project_owner_report",
+    "native_capture_confirmed": false
+  },
+  "capture_files": {
+    "late_mask": null,
+    "late_mask_cleanup": null,
+    "mission": null,
+    "selector": null,
+    "config_draw": null,
+    "mt_selection": null,
+    "pool_removal": null,
+    "runtime_tables": null
+  },
+  "owner_observation": {
+    "observed": true,
+    "wave": 1,
+    "possessed_enemy_name": "Koroka",
+    "possessed_enemy_key": "0x0008BC34",
+    "appeared_with_another_enemy": true,
+    "companion_identity": null,
+    "repeat_entry_available": true,
+    "basis": "direct project owner observation before capture"
+  },
+  "offline_prediction": {
+    "model_input": {
+      "seed": 156062997,
+      "difficulty": 3
+    },
+    "group_1": [
+      {
+        "enemy_name": "Koroka",
+        "enemy_key": "0x0008BC34",
+        "role": 1,
+        "row": 485
+      },
+      {
+        "enemy_name": "Jailor Demon",
+        "enemy_key": "0x000E6F42",
+        "role": 2,
+        "row": 257
+      }
+    ],
+    "native_possession_proven": false
+  },
+  "native_capture": {
+    "field_8f_visual_correlation_confirmed": null,
+    "field_8f_record_enemy_key": null,
+    "field_8f_record_spawn_id": null,
+    "field_8f_value": null,
+    "field_ea_value": null,
+    "selection_mask_hex": null,
+    "notes": "Populate only from the saved late-mask evidence."
+  },
+  "capture_integrity": {
+    "exact_process_identity_verified": null,
+    "approved_executable_sha256_verified": null,
+    "instruction_signatures_verified": null,
+    "cleanup_verified": null,
+    "unknown_breakpoints_present": false,
+    "game_memory_writes": false,
+    "manual_selector_calls": false
+  },
+  "inferences": [],
+  "unknowns": [
+    "Whether the positive assignment repeats across fresh single-player entries.",
+    "Which late-stage input selects the possessed occurrence.",
+    "Whether the companion is the offline-predicted Jailor Demon."
+  ]
+}

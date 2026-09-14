@@ -1,0 +1,748 @@
+{
+  "capture_metadata": {
+    "captured_at_utc": "2026-09-14T03:07:01.284303+00:00",
+    "phase": "mode-transaction-join",
+    "run_id": "mode-transaction-join-86872488-expedition-a-20260913",
+    "requested_pid": 26892,
+    "target_seed": 86872488,
+    "mode_label": "one-person-expedition",
+    "session_id": "ce-12064",
+    "bridge_port": 5566,
+    "target": {
+      "process_id": 26892,
+      "process_name": "Nioh3.exe",
+      "image_path": "D:\\Steam\\steamapps\\common\\Nioh3\\Nioh3.exe",
+      "image_size": 77814240,
+      "executable_sha256": "4047ECB623F3AE033F7D6F3637CD1C5408C72A89A038463268A7C9AC5C394159",
+      "module_base": null,
+      "creation_filetime": "134338256782097283"
+    },
+    "source": {
+      "phase_file": "mode_transaction_join_ce.lua",
+      "phase_sha256": "98785BCA3A9C1D1871882B1473F52C0F1A9B8B5E25D9B7102D418656CDF82C85",
+      "common_sha256": null,
+      "lifecycle_sha256": "0E1F54E959DFBE3EEC1CFD91B5F8360777CAACB7D8B7E64DFC955C47E3E7CD7D"
+    },
+    "stop_on_first_final": false,
+    "read_only": true,
+    "writes_game_memory": false,
+    "fresh_phase_initialization": {
+      "breakpoints": [],
+      "debugger_active": true,
+      "debugger_broken": false,
+      "debugger_broken_source": "debug_context_fallback:function",
+      "initialized": true,
+      "ok": true,
+      "session_id": "ce-12064",
+      "bridge_session_id": "ce-12064",
+      "ce_process_id": 12064
+    },
+    "arm_verification": {
+      "active": true,
+      "breakpoints": [
+        "0x7FF786CC9368",
+        "0x7FF7878144E4",
+        "0x7FF787CD198C",
+        "0x7FF787E27978"
+      ],
+      "debugger_broken": false,
+      "debugger_broken_source": "debug_context_fallback:function",
+      "owned_breakpoints": [
+        "0x7FF786CC9368",
+        "0x7FF7878144E4",
+        "0x7FF787CD198C",
+        "0x7FF787E27978"
+      ],
+      "run_id": "mode-transaction-join-86872488-expedition-a-20260913",
+      "schema": "nioh3.mode-transaction-join.v1",
+      "ok": true,
+      "session_id": "ce-12064",
+      "bridge_session_id": "ce-12064",
+      "ce_process_id": 12064
+    }
+  },
+  "bridge_result": {
+    "active": false,
+    "calls_game_functions": false,
+    "cleanup_errors": [],
+    "cleanup_pending": true,
+    "clear_captures": "function: 00000000105130D0",
+    "completed_invocations": 1,
+    "conclusion": "entry_boundaries_observed_not_native_mode_or_task_finality",
+    "coverage": "producer-at-queue-copy/consumer/return/materializer-input; no native UI enum, task or actor join",
+    "debugger_interface": 2,
+    "elapsed_ms": 120625,
+    "event_sequence": 4,
+    "events": [
+      {
+        "caller_rbp": "0xCE258FE710",
+        "caller_rsp": "0xCE258FE608",
+        "current_session": {
+          "available": true,
+          "forwarded_metadata30_not_captured": true,
+          "mission_type": 0,
+          "object": "0x253AEA1CBA0",
+          "request_address": "0x253AEA1CBD8",
+          "request_hex": "00000000010000000100F885",
+          "root": "0x7FF78A33D468",
+          "state24": 1
+        },
+        "elapsed_ms": 40265,
+        "mission_type": 52374,
+        "native_mode_enum_decoded": false,
+        "producer_call": {
+          "address": "0x7FF787DCC433",
+          "available": true,
+          "direct_call": true,
+          "raw_hex": "E848CDEFFE",
+          "target_rva": "0x10D9180"
+        },
+        "producer_contract_errors": [],
+        "producer_contract_status": "consistent",
+        "producer_location": "return address on live enqueue frame at completed request copy",
+        "producer_return_address": "0x7FF787DCC438",
+        "queue_index": 0,
+        "queue_node": "0x7FF78A1A83E0",
+        "queue_rsp": "0xCE258FDFB0",
+        "queue_snapshot": [
+          {
+            "byte8": 150,
+            "index": 0,
+            "mission_type": 52374,
+            "node": "0x7FF78A1A83E0",
+            "occupied": true,
+            "request_hex": "A8912D05B700010301010200"
+          },
+          {
+            "byte8": 0,
+            "index": 1,
+            "mission_type": 0,
+            "node": "0x7FF78A1A8438",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 2,
+            "mission_type": 0,
+            "node": "0x7FF78A1A8490",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 3,
+            "mission_type": 0,
+            "node": "0x7FF78A1A84E8",
+            "occupied": false
+          }
+        ],
+        "read_bytes_total": 251.0,
+        "request_address": "0x7FF78A1A8400",
+        "request_hex": "A8912D05B700010301010200",
+        "request_id": 1,
+        "return_rva": "0x21DC438",
+        "route": "parameterized_session_branch",
+        "rva": "0x10D9368",
+        "sequence": 1,
+        "session_view": {
+          "available": true,
+          "byte6": 0,
+          "byte8_source": 0,
+          "kind": 0,
+          "metadata": 0,
+          "mission_type": 0,
+          "playthrough": 1,
+          "root": "0x7FF78A1BE3B0",
+          "scroll_seed": 0,
+          "view": "0x7FF78A1BF3C0"
+        },
+        "site": "request_queued",
+        "source_address": "0xCE258FE670",
+        "source_hex": "A8912D05B700010301010200",
+        "source_projection": "literal_one_route_only",
+        "thread_id": 35424,
+        "thread_id_source": "callback_api_unverified:getCurrentThreadID"
+      },
+      {
+        "consumer_rsp": "0xCE2D5FEBA8",
+        "current_session": {
+          "available": true,
+          "forwarded_metadata30_not_captured": true,
+          "mission_type": 52374,
+          "object": "0x253AEA1CBA0",
+          "request_address": "0x253AEA1CBD8",
+          "request_hex": "A8912D05B700010301010200",
+          "root": "0x7FF78A33D468",
+          "state24": 2
+        },
+        "elapsed_ms": 52093,
+        "invocation_id": 1,
+        "link_grade": "unique_observed_queued_payload",
+        "matching_request_ids": [
+          1
+        ],
+        "output_address": "0xCE2D5FEC18",
+        "queue_head": "0x7FF78A1A83E0",
+        "queue_snapshot": [
+          {
+            "byte8": 150,
+            "index": 0,
+            "mission_type": 52374,
+            "node": "0x7FF78A1A83E0",
+            "occupied": true,
+            "request_hex": "A8912D05B700010301010200"
+          },
+          {
+            "byte8": 0,
+            "index": 1,
+            "mission_type": 0,
+            "node": "0x7FF78A1A8438",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 2,
+            "mission_type": 0,
+            "node": "0x7FF78A1A8490",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 3,
+            "mission_type": 0,
+            "node": "0x7FF78A1A84E8",
+            "occupied": false
+          }
+        ],
+        "read_bytes_total": 364.0,
+        "request_address": "0x7FF78A1A8400",
+        "request_hex": "A8912D05B700010301010200",
+        "request_id": 1,
+        "return_rva": "0x2237978",
+        "rva": "0x20E198C",
+        "sequence": 2,
+        "session_view": {
+          "available": true,
+          "byte6": 0,
+          "byte8_source": 0,
+          "kind": 0,
+          "metadata": 0,
+          "mission_type": 0,
+          "playthrough": 1,
+          "root": "0x7FF78A1BE3B0",
+          "scroll_seed": 0,
+          "view": "0x7FF78A1BF3C0"
+        },
+        "site": "mission_consume",
+        "thread_id": 35424,
+        "thread_id_source": "callback_api_unverified:getCurrentThreadID"
+      },
+      {
+        "consumer_rsp": "0xCE2D5FEBA8",
+        "current_session": {
+          "available": true,
+          "forwarded_metadata30_not_captured": true,
+          "mission_type": 52374,
+          "object": "0x253AEA1CBA0",
+          "request_address": "0x253AEA1CBD8",
+          "request_hex": "A8912D05B700010301010200",
+          "root": "0x7FF78A33D468",
+          "state24": 2
+        },
+        "elapsed_ms": 52093,
+        "extra_evidence": "request_projection_static; not a new F+1648 observation",
+        "extra_from_request": 1,
+        "invocation_id": 1,
+        "output": {
+          "address": "0xCE2D5FEC18",
+          "byte8_copy": 1,
+          "class0_count": 6,
+          "class1_count": 4,
+          "context_key": 142,
+          "descriptor_count": 10,
+          "header_hex": "700E41AE53020000100F41AE53020000100F41AE53020000D85CBCFD9D518ED40000000001020000B7000000A000000003E8F885",
+          "metadata": 183,
+          "persistent_task_join": false,
+          "physical_actor_join": false,
+          "playthrough": 3,
+          "stage": "at_event_boundary",
+          "terrain": 212,
+          "wave_count": 4,
+          "waves": [
+            {
+              "address": "0x253AE410E70",
+              "descriptors": [
+                {
+                  "address": "0x253AE410FC0",
+                  "lookup": 243822,
+                  "point_key": 2,
+                  "position": 0,
+                  "raw_hex": "3C0F00006EB80300030000000000020000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3900,
+                  "wave_index": 0
+                },
+                {
+                  "address": "0x253AE410FD4",
+                  "lookup": 243822,
+                  "point_key": 3,
+                  "position": 1,
+                  "raw_hex": "3D0F00006EB80300030000000000030001FFFFFF",
+                  "selector_class": 1,
+                  "source_flag": 0,
+                  "spawn": 3901,
+                  "wave_index": 0
+                }
+              ],
+              "raw_hex": "C00F41AE53020000E80F41AE53020000E80F41AE53020000FFFFFFFF00000000000000000000803F",
+              "wave_index": 0
+            },
+            {
+              "address": "0x253AE410E98",
+              "descriptors": [
+                {
+                  "address": "0x253AE4110A0",
+                  "lookup": 904088,
+                  "point_key": 7,
+                  "position": 0,
+                  "raw_hex": "3E0F000098CB0D00010000000000070000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3902,
+                  "wave_index": 1
+                },
+                {
+                  "address": "0x253AE4110B4",
+                  "lookup": 904088,
+                  "point_key": 1,
+                  "position": 1,
+                  "raw_hex": "3F0F000098CB0D00010000000000010101FFFFFF",
+                  "selector_class": 1,
+                  "source_flag": 1,
+                  "spawn": 3903,
+                  "wave_index": 1
+                }
+              ],
+              "raw_hex": "A01041AE53020000C81041AE53020000C81041AE53020000FFFFFFFF00007043000000000000803F",
+              "wave_index": 1
+            },
+            {
+              "address": "0x253AE410EC0",
+              "descriptors": [
+                {
+                  "address": "0x253AE4111E0",
+                  "lookup": 352684,
+                  "point_key": 8,
+                  "position": 0,
+                  "raw_hex": "400F0000AC610500010000000000080000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3904,
+                  "wave_index": 2
+                },
+                {
+                  "address": "0x253AE4111F4",
+                  "lookup": 17288,
+                  "point_key": 7,
+                  "position": 1,
+                  "raw_hex": "410F000088430000000000000000070000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3905,
+                  "wave_index": 2
+                },
+                {
+                  "address": "0x253AE411208",
+                  "lookup": 352684,
+                  "point_key": 2,
+                  "position": 2,
+                  "raw_hex": "420F0000AC610500010000000000020001FFFFFF",
+                  "selector_class": 1,
+                  "source_flag": 0,
+                  "spawn": 3906,
+                  "wave_index": 2
+                }
+              ],
+              "raw_hex": "E01141AE530200001C1241AE530200001C1241AE53020000FFFFFFFF000070430000000000000000",
+              "wave_index": 2
+            },
+            {
+              "address": "0x253AE410EE8",
+              "descriptors": [
+                {
+                  "address": "0x253AE411330",
+                  "lookup": 904088,
+                  "point_key": 4,
+                  "position": 0,
+                  "raw_hex": "430F000098CB0D00010000000000040000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3907,
+                  "wave_index": 3
+                },
+                {
+                  "address": "0x253AE411344",
+                  "lookup": 52104,
+                  "point_key": 7,
+                  "position": 1,
+                  "raw_hex": "440F000088CB0000000000000000070000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3908,
+                  "wave_index": 3
+                },
+                {
+                  "address": "0x253AE411358",
+                  "lookup": 904088,
+                  "point_key": 3,
+                  "position": 2,
+                  "raw_hex": "450F000098CB0D00010000000000030001FFFFFF",
+                  "selector_class": 1,
+                  "source_flag": 0,
+                  "spawn": 3909,
+                  "wave_index": 3
+                }
+              ],
+              "raw_hex": "301341AE530200006C1341AE530200006C1341AE53020000FFFFFFFF000070430000000000000000",
+              "wave_index": 3
+            }
+          ]
+        },
+        "output_address": "0xCE2D5FEC18",
+        "queue_snapshot": [
+          {
+            "byte8": 150,
+            "index": 0,
+            "mission_type": 52374,
+            "node": "0x7FF78A1A83E0",
+            "occupied": true,
+            "request_hex": "A8912D05B700010301010200"
+          },
+          {
+            "byte8": 0,
+            "index": 1,
+            "mission_type": 0,
+            "node": "0x7FF78A1A8438",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 2,
+            "mission_type": 0,
+            "node": "0x7FF78A1A8490",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 3,
+            "mission_type": 0,
+            "node": "0x7FF78A1A84E8",
+            "occupied": false
+          }
+        ],
+        "read_bytes_total": 881.0,
+        "request_hex": "A8912D05B700010301010200",
+        "request_id": 1,
+        "return_rsp": "0xCE2D5FEBB0",
+        "rva": "0x2237978",
+        "sequence": 3,
+        "session_view": {
+          "available": true,
+          "byte6": 0,
+          "byte8_source": 0,
+          "kind": 0,
+          "metadata": 0,
+          "mission_type": 0,
+          "playthrough": 1,
+          "root": "0x7FF78A1BE3B0",
+          "scroll_seed": 0,
+          "view": "0x7FF78A1BF3C0"
+        },
+        "site": "mission_generated",
+        "thread_id": 35424,
+        "thread_id_source": "callback_api_unverified:getCurrentThreadID"
+      },
+      {
+        "consumed_request_hex": "A8912D05B700010301010200",
+        "current_session": {
+          "available": true,
+          "forwarded_metadata30_not_captured": true,
+          "mission_type": 52374,
+          "object": "0x253AEA1CBA0",
+          "request_address": "0x253AEA1CBD8",
+          "request_hex": "A8912D05B700010301010200",
+          "root": "0x7FF78A33D468",
+          "state24": 2
+        },
+        "descriptor_buffers_equal": true,
+        "elapsed_ms": 52093,
+        "entry_rsp": "0xCE2D5FEBA8",
+        "header_changed_offsets": [],
+        "invocation_id": 1,
+        "join_grade": "same_live_generator_frame_and_output",
+        "materializer_contract": "consistent",
+        "materializer_input_only": true,
+        "mission_parameter": 52374,
+        "output": {
+          "address": "0xCE2D5FEC18",
+          "byte8_copy": 1,
+          "class0_count": 6,
+          "class1_count": 4,
+          "context_key": 142,
+          "descriptor_count": 10,
+          "header_hex": "700E41AE53020000100F41AE53020000100F41AE53020000D85CBCFD9D518ED40000000001020000B7000000A000000003E8F885",
+          "metadata": 183,
+          "persistent_task_join": false,
+          "physical_actor_join": false,
+          "playthrough": 3,
+          "stage": "at_event_boundary",
+          "terrain": 212,
+          "wave_count": 4,
+          "waves": [
+            {
+              "address": "0x253AE410E70",
+              "descriptors": [
+                {
+                  "address": "0x253AE410FC0",
+                  "lookup": 243822,
+                  "point_key": 2,
+                  "position": 0,
+                  "raw_hex": "3C0F00006EB80300030000000000020000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3900,
+                  "wave_index": 0
+                },
+                {
+                  "address": "0x253AE410FD4",
+                  "lookup": 243822,
+                  "point_key": 3,
+                  "position": 1,
+                  "raw_hex": "3D0F00006EB80300030000000000030001FFFFFF",
+                  "selector_class": 1,
+                  "source_flag": 0,
+                  "spawn": 3901,
+                  "wave_index": 0
+                }
+              ],
+              "raw_hex": "C00F41AE53020000E80F41AE53020000E80F41AE53020000FFFFFFFF00000000000000000000803F",
+              "wave_index": 0
+            },
+            {
+              "address": "0x253AE410E98",
+              "descriptors": [
+                {
+                  "address": "0x253AE4110A0",
+                  "lookup": 904088,
+                  "point_key": 7,
+                  "position": 0,
+                  "raw_hex": "3E0F000098CB0D00010000000000070000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3902,
+                  "wave_index": 1
+                },
+                {
+                  "address": "0x253AE4110B4",
+                  "lookup": 904088,
+                  "point_key": 1,
+                  "position": 1,
+                  "raw_hex": "3F0F000098CB0D00010000000000010101FFFFFF",
+                  "selector_class": 1,
+                  "source_flag": 1,
+                  "spawn": 3903,
+                  "wave_index": 1
+                }
+              ],
+              "raw_hex": "A01041AE53020000C81041AE53020000C81041AE53020000FFFFFFFF00007043000000000000803F",
+              "wave_index": 1
+            },
+            {
+              "address": "0x253AE410EC0",
+              "descriptors": [
+                {
+                  "address": "0x253AE4111E0",
+                  "lookup": 352684,
+                  "point_key": 8,
+                  "position": 0,
+                  "raw_hex": "400F0000AC610500010000000000080000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3904,
+                  "wave_index": 2
+                },
+                {
+                  "address": "0x253AE4111F4",
+                  "lookup": 17288,
+                  "point_key": 7,
+                  "position": 1,
+                  "raw_hex": "410F000088430000000000000000070000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3905,
+                  "wave_index": 2
+                },
+                {
+                  "address": "0x253AE411208",
+                  "lookup": 352684,
+                  "point_key": 2,
+                  "position": 2,
+                  "raw_hex": "420F0000AC610500010000000000020001FFFFFF",
+                  "selector_class": 1,
+                  "source_flag": 0,
+                  "spawn": 3906,
+                  "wave_index": 2
+                }
+              ],
+              "raw_hex": "E01141AE530200001C1241AE530200001C1241AE53020000FFFFFFFF000070430000000000000000",
+              "wave_index": 2
+            },
+            {
+              "address": "0x253AE410EE8",
+              "descriptors": [
+                {
+                  "address": "0x253AE411330",
+                  "lookup": 904088,
+                  "point_key": 4,
+                  "position": 0,
+                  "raw_hex": "430F000098CB0D00010000000000040000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3907,
+                  "wave_index": 3
+                },
+                {
+                  "address": "0x253AE411344",
+                  "lookup": 52104,
+                  "point_key": 7,
+                  "position": 1,
+                  "raw_hex": "440F000088CB0000000000000000070000FFFFFF",
+                  "selector_class": 0,
+                  "source_flag": 0,
+                  "spawn": 3908,
+                  "wave_index": 3
+                },
+                {
+                  "address": "0x253AE411358",
+                  "lookup": 904088,
+                  "point_key": 3,
+                  "position": 2,
+                  "raw_hex": "450F000098CB0D00010000000000030001FFFFFF",
+                  "selector_class": 1,
+                  "source_flag": 0,
+                  "spawn": 3909,
+                  "wave_index": 3
+                }
+              ],
+              "raw_hex": "301341AE530200006C1341AE530200006C1341AE53020000FFFFFFFF000070430000000000000000",
+              "wave_index": 3
+            }
+          ]
+        },
+        "output_address": "0xCE2D5FEC18",
+        "persistent_task_join": false,
+        "physical_actor_join": false,
+        "queue_context_hex": "A8912D05B700010301010200",
+        "queue_snapshot": [
+          {
+            "byte8": 150,
+            "index": 0,
+            "mission_type": 52374,
+            "node": "0x7FF78A1A83E0",
+            "occupied": true,
+            "request_hex": "A8912D05B700010301010200"
+          },
+          {
+            "byte8": 0,
+            "index": 1,
+            "mission_type": 0,
+            "node": "0x7FF78A1A8438",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 2,
+            "mission_type": 0,
+            "node": "0x7FF78A1A8490",
+            "occupied": false
+          },
+          {
+            "byte8": 0,
+            "index": 3,
+            "mission_type": 0,
+            "node": "0x7FF78A1A84E8",
+            "occupied": false
+          }
+        ],
+        "queue_unchanged_since_consume": true,
+        "read_bytes_total": 1406.0,
+        "request_id": 1,
+        "return_rva": "0x2237994",
+        "rva": "0x1C244E4",
+        "sequence": 4,
+        "session_view": {
+          "available": true,
+          "byte6": 0,
+          "byte8_source": 0,
+          "kind": 0,
+          "metadata": 0,
+          "mission_type": 0,
+          "playthrough": 1,
+          "root": "0x7FF78A1BE3B0",
+          "scroll_seed": 0,
+          "view": "0x7FF78A1BF3C0"
+        },
+        "site": "materialize_enter",
+        "thread_id": 35424,
+        "thread_id_source": "callback_api_unverified:getCurrentThreadID",
+        "wrapper": "0x7FF78A793D18"
+      }
+    ],
+    "identity": {
+      "creation_filetime": "134338256782097283",
+      "executable_sha256": "4047ECB623F3AE033F7D6F3637CD1C5408C72A89A038463268A7C9AC5C394159",
+      "image_path": "D:\\Steam\\steamapps\\common\\Nioh3\\Nioh3.exe",
+      "image_size": 77814240,
+      "process_id": 26892,
+      "process_name": "Nioh3.exe"
+    },
+    "ignored_hits": 0,
+    "invocation_count": 1,
+    "materialized_invocations": 1,
+    "max_events": 128,
+    "max_hits": 4096,
+    "max_invocations": 16,
+    "max_requests": 16,
+    "max_seconds": 120,
+    "mode_label": "one-person-expedition",
+    "module_base": "0x7FF785BF0000",
+    "owned_breakpoints": [
+      "0x7FF786CC9368",
+      "0x7FF7878144E4",
+      "0x7FF787CD198C",
+      "0x7FF787E27978"
+    ],
+    "pid": 26892,
+    "read_bytes": 1406.0,
+    "read_only": true,
+    "request_count": 1,
+    "retry_cleanup": "function: 00000000156EDD70",
+    "run_id": "mode-transaction-join-86872488-expedition-a-20260913",
+    "schema": "nioh3.mode-transaction-join.v1",
+    "started_tick_ms": 270285500,
+    "status": "function: 000000001042C360",
+    "stop": "function: 000000001042CAE0",
+    "stop_on_first_complete_chain": false,
+    "stop_reason": "observation_window_elapsed",
+    "stopped_elapsed_ms": 120625,
+    "target_seed": 86872488,
+    "total_hits": 4,
+    "unbound_invocations": 0,
+    "unbound_materializers": 0,
+    "writes_game_memory": false,
+    "ok": true,
+    "session_id": "ce-12064",
+    "bridge_session_id": "ce-12064",
+    "ce_process_id": 12064
+  }
+}

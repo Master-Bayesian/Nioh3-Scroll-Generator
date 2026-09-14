@@ -422,6 +422,59 @@
                       "alternatives"
                     ]
                   }
+                },
+                "enemy_variant": {
+                  "enum": [
+                    "solo",
+                    "expedition"
+                  ],
+                  "description": "Explicit roster variant for enemy occurrence search and preview."
+                },
+                "enemy_occurrence_groups": {
+                  "type": "array",
+                  "maxItems": 8,
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 24,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "lookup_keys": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 32,
+                          "uniqueItems": true,
+                          "items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 4294967295
+                          }
+                        },
+                        "state": {
+                          "enum": [
+                            "any",
+                            "possessed",
+                            "curse"
+                          ]
+                        },
+                        "availability": {
+                          "enum": [
+                            "any",
+                            "base",
+                            "expedition_only"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "lookup_keys",
+                        "state",
+                        "availability"
+                      ]
+                    }
+                  },
+                  "description": "Mandatory groups of enemy occurrence alternatives. Curse remains schema-visible but is rejected while Seed-only state is unknown."
                 }
               },
               "required": [

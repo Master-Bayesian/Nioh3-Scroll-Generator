@@ -96,8 +96,11 @@ function ConnectedBackups() {
           ? "备份已恢复。"
           : "恢复结果尚未确认，请核对操作回执。",
       );
-      if (receipt.commit_status.startsWith("committed"))
-        await saveSession!.refresh();
+      if (receipt.commit_status.startsWith("committed")) {
+        const inventory = await saveSession!.refresh();
+        loadedSnapshot.current = inventory.snapshot_id;
+        await load();
+      }
     } catch (e) {
       setMessage(String(e));
     } finally {

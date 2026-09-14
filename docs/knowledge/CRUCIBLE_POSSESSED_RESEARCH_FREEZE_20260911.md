@@ -1,5 +1,11 @@
 # PC v2.01 Crucible possessed-enemy research freeze
 
+Status update, 2026-09-12: the missing-positive-control gate is superseded by
+`POSSESSED_ENEMY_RESEARCH_RESUME_20260912.md` after the owner supplied a new
+single-player natural-drop positive. The evidence and conclusions below remain
+historical constraints; in particular, seed `86872488` is still not a valid
+seed-only positive.
+
 ## Decision
 
 The possessed-enemy inverse solver is frozen. Seed `86872488` is not a valid

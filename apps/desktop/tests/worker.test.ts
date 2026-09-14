@@ -36,6 +36,10 @@ test('real Python IPC: handshake, search, resume, cancellation, validation and e
     assert.equal(first.state, 'completed', JSON.stringify(first.error));
     assert.equal(first.candidates.length, 2);
     assert.equal(first.candidates[0].effects[0].effect_id, 44634);
+    assert.equal(first.candidates[0].enemy_states?.solo.variant, 'solo');
+    assert.equal(first.candidates[0].enemy_states?.expedition.variant, 'expedition');
+    assert.equal(first.candidates[0].enemy_states?.solo.possessed_complete, true);
+    assert.equal(first.candidates[0].enemy_states?.expedition.possessed_complete, true);
     assert.equal((await worker.current()).job!.job_id, first.job_id);
     const retained = (await worker.current()).submitted!;
     retained.query.level = 170;

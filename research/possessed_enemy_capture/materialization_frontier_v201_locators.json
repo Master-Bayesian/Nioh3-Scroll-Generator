@@ -1,0 +1,52 @@
+{
+  "version": "PC v2.01 pinned file",
+  "exe_sha256": "4047ECB623F3AE033F7D6F3637CD1C5408C72A89A038463268A7C9AC5C394159",
+  "executable_file_size": 77814240,
+  "scope": "exact supplied bytes; no whole-module uniqueness claim",
+  "sites": {
+    "materialize_enter": {
+      "rva": "0x1c244e4",
+      "bytes": "48895C24205556574154415541564157488DAC24E0FEFFFF",
+      "length": 24,
+      "function_range": [
+        "0x1C244E4",
+        "0x1C2471B"
+      ],
+      "evidence": "evidence/prior-mode-upstream-static/disassembly/01C244E4.asm",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+    },
+    "after_prepass": {
+      "rva": "0x1c245d8",
+      "bytes": "488B074D8B6F08498B374C896C2450",
+      "length": 15,
+      "function_range": [
+        "0x1C244E4",
+        "0x1C2471B"
+      ],
+      "evidence": "evidence/prior-mode-upstream-static/disassembly/01C244E4.asm",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+    },
+    "task_lookup": {
+      "rva": "0x1c24614",
+      "bytes": "4C8BF04885C07546418A471F488D4DB08B17",
+      "length": 18,
+      "function_range": [
+        "0x1C244E4",
+        "0x1C2471B"
+      ],
+      "evidence": "evidence/prior-mode-upstream-static/disassembly/01C244E4.asm",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+    },
+    "task_link": {
+      "rva": "0x1c24662",
+      "bytes": "41C686F400000001498D9EFC00000041C686E500000001",
+      "length": 23,
+      "function_range": [
+        "0x1C244E4",
+        "0x1C2471B"
+      ],
+      "evidence": "evidence/prior-mode-upstream-static/disassembly/01C244E4.asm",
+      "mask": "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+    }
+  }
+}
