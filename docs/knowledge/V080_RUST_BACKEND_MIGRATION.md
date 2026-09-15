@@ -183,3 +183,68 @@ becoming negative results. The original 84,016 TSV rows still pass.
 Final `cargo fmt --check` and Clippy (`-D warnings`) pass for both crates. Combined
 retained enemy-state and migration checks report 97 passed, 3 skipped through
 the project selector. No fresh live-game, UI, or package acceptance is claimed.
+
+## M2.1 offline effect-sequence slice
+
+The ordinary NG3 effect-sequence path is ported behind the same offline parity
+policy: `crates/nioh3-domain` now carries `effect`, `record` and `sequence`
+modules plus a development vector emitter, `crates/nioh3-data` carries the
+effect-resource adapter and its own emitters, and `tests/migration` carries the
+sequence parity gate and the permanent adapter parity gate. Nothing in the
+ships-product path changed: no Tauri, broker, `packages/contracts`,
+`search_jobs.py`, `search_worker.py` or `worker_contracts.py` edit.
+
+Reference identity read at `d81a532`:
+`effect_sequence.py` `83CABD7B237C627E22CE3AD6ECA4D4BB9A1726615A73D2A943C91AE59F1AE303`,
+`effect_generation_tables.py` `6DE6116D7013A567567CFDA2A5ADD08475A137576DB9CE7F355E813EDB6B4EBC`,
+`r4_finalizer_reference.py` `4E9B0E4D545A6FEC4F63D63A9C8D194594BAE85470FF972D76F3AA3721924F84`.
+
+Verified locally (uncommitted at the time of writing; the owner-approval commit
+carries it):
+
+- Sequence parity: 549 emitted rows with zero differences between the Rust
+  adapter path and the retained Python reference - 546 generations and 3
+  capacity rows. The generation set is 110 seeds at level 180 across `r3`,
+  `r4_stage_one` and `r5` (14 hand-picked boundary seeds plus 96 stride seeds),
+  plus a 216-row cross-level sweep (levels 1, 30, 90, 150, 180, 300, 500, 700
+  and the `u16` maximum 65535, eight seeds, three paths). Compared per row: slot
+  order and `source_index`, per-slot rolls, resolved values including the R4
+  stage-one and R5 terminal values, `candidate_count`, promoted source indexes,
+  draw count and final LCG state. Both promotion branches appear in the sweep.
+- Level scaling: the sweep is measured, not assumed, to be non-vacuous - 5 of
+  the 24 level groups change resolved values, producing 7 distinct resolved
+  tuples, and the gate pins that distribution so a table or reference change
+  forces a re-measure. Levels above the 500-row curve clamp (700 and 65535) keep
+  their verbatim level column and reproduce the level-500 effect block, asserted
+  explicitly. Only level and resolved values move with level: identifiers, slot
+  order, rolls, category/flags, candidate counts, prefixes, promotions, draw
+  counts and final state are level-invariant by test.
+- Native anchors: three retained byte fixtures (r5 seed 1, r5 seed 241719428,
+  r3 seed 6096970) are reproduced from their record bytes, not from the
+  generator alone.
+- Adapter parity: a permanent gate runs the production
+  `nioh3_data::load_effect_resource` path and compares per-table row digests
+  against the shipped files; an explicit swap guard keeps `effect` (0xD8 x 3609)
+  and `level_curve` (10 x 501) content-distinct, and a mutation that swaps the
+  two struct fields fails with `216 != 10`.
+- Gates: domain crate 48 passed, data crate 12 passed, `tests/migration` 26
+  passed, retained `test_effect_sequence.py` / `test_r4_finalizer_engine.py` /
+  `test_effect_path_inverse.py` 34 passed, `cargo fmt --check` and
+  `clippy --all-targets -D warnings` clean for both crates, all through the
+  repository Python selector with `CARGO_TARGET_DIR` outside the checkout.
+
+Correction to an earlier planning note: the seed-1 vector
+A051/D40A/34F3/3E7A/AE5A/6553 (rolls 94/91/94/96/91/0, 24 draws, state
+`0x2FAC1E69`) is the **rarity-5** row. Seed-1 `r4_stage_one` is
+B613/4647/D411/3F41/6553 (rolls 88/82/88/92/0, 21 draws, state `0xF18AF3AA`).
+The fixture classification is authoritative.
+
+Not covered by M2.1: `GenerationContext` digest binding, candidate
+hashing/identity, the R4 finalized-preview/stage-one dual record and the R4
+finalizer, weighted search-side primary selection, worker/process cutover,
+product wiring, and packaged or live-game acceptance. NG4/NG5 generation fails
+closed because no captured Grace map exists for those record types.
+
+The earlier reviewer finding that every row and native anchor used level 180 is
+closed by the cross-level sweep above; no other limitation remains open for this
+slice.

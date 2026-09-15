@@ -21,6 +21,13 @@ use nioh3_domain::enemy::{
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
+mod effect_resource;
+
+pub use effect_resource::{
+    load_effect_resource, GRACE_MAP_FORMAT, GRACE_MAP_GAME_VERSION, GRACE_MAP_PATHS,
+    GRACE_MAP_RECORD_TYPE,
+};
+
 /// Resource directory, relative to the supplied `nioh3_scroll_editor/data` root.
 pub const AUXILIARY_RESOURCE_DIR: &str = "auxiliary_generation/pc_v2_00_02/resource_v3";
 /// Resource directory, relative to the supplied `nioh3_scroll_editor/data` root.

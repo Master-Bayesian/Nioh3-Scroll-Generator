@@ -27,8 +27,13 @@ v0.7.5 search-continuation and icon fixes.
 M0 and M1 are standalone offline Rust domain/data slices covering enemy
 generation, variants, Wraith trials, and native-table loading; the production
 backend has not switched to them. See the migration record for exact evidence.
-M2 is the next bounded scroll-record/effect/R4/read-only worker migration; it
-does not include save writes. Nothing in this section is packaged, tagged, or
+M2.1 adds the ordinary NG3 scroll-record/effect-sequence slice with an offline
+cross-language parity gate (549 emitted rows, zero differences, including a
+216-row cross-level sweep through the curve clamp, three native byte anchors)
+and a permanent adapter content-parity guard; it is local offline evidence with
+no product cutover. The R4 finalized record, GenerationContext digest binding,
+candidate identity and the read-only worker cutover remain future work, and save
+writes stay out of this line. Nothing in this section is packaged, tagged, or
 published.
 
 ## v0.7.4 published release

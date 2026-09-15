@@ -151,7 +151,9 @@ global semantic key.
 - [Tauri v0.7.3 publication](TAURI_V073_PUBLICATION_20260912.md) — historical
   public-release evidence for the current stable release before v0.7.4.
 - [Tauri v0.7.4 publication](TAURI_V074_PUBLICATION_20260915.md) — current
-  public-release evidence.
+  public-release evidence; the v0.7.5 entry below is the latest publication.
+- [Tauri v0.7.5 publication](TAURI_V075_PUBLICATION_20260915.md) — current
+  public-release evidence for the emergency search-continuation and icon fixes.
 - [Tauri 2 migration and Electron withdrawal](TAURI2_MIGRATION_20260909.md) —
   historical migration/withdrawal record.
 - [Title-screen save ownership research plan](TITLE_SAVE_OWNERSHIP_RESEARCH_PLAN_20260911.md)
