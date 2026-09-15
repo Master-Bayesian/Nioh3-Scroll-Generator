@@ -340,7 +340,10 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(25));
         }
         original_process.kill().unwrap();
-        original_process.wait().unwrap();
+        // The helper owns the exit wait under test. Release the test harness's
+        // Windows process handle so its independent PID check sees only the
+        // real process lifetime, not an observer retained by Child.
+        drop(original_process);
         let status = helper_process.wait().unwrap();
         assert!(changed);
         assert!(!status.success());
