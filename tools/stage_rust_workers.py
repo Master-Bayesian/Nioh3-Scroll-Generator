@@ -362,7 +362,7 @@ def main() -> int:
             {
                 "backend": manifest["backend"],
                 "workers": [entry["packagedName"] for entry in manifest["binaries"]],
-                "optIn": "development",
+                "graph": "shipped-packaged",
             }
         )
     )
