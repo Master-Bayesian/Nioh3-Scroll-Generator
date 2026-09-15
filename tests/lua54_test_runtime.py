@@ -5,8 +5,12 @@ import ctypes.util
 
 class Lua54:
     def __init__(self):
+        self.l=None;self.s=None;self.runtime=None
         name=os.environ.get('LUA54_LIBRARY') or ctypes.util.find_library('lua5.4') or ctypes.util.find_library('lua54')
-        if not name:raise RuntimeError('Lua 5.4 shared library required (liblua5.4.so / lua54.dll)')
+        if not name:
+            from lupa.lua54 import LuaRuntime
+            self.runtime=LuaRuntime(unpack_returned_tuples=True)
+            return
         self.l=C.CDLL(name);l=self.l
         def api(n,args,ret):
             f=getattr(l,n);f.argtypes=args;f.restype=ret
@@ -25,6 +29,7 @@ class Lua54:
         self.s=l.luaL_newstate();l.luaL_openlibs(self.s)
     def close(self):
         if self.s:self.l.lua_close(self.s);self.s=None
+        self.runtime=None
     def __del__(self):self.close()
     def value(self,idx):
         l,s=self.l,self.s;t=l.lua_type(s,idx)
@@ -44,6 +49,14 @@ class Lua54:
             return out
         return '<lua-type-%s>'%t
     def run(self,source):
+        if self.runtime is not None:
+            def convert(value):
+                if not hasattr(value,'items'):return value
+                out={convert(key):convert(item) for key,item in value.items()}
+                if out and all(isinstance(key,int) and not isinstance(key,bool) for key in out) and set(out)==set(range(1,len(out)+1)):
+                    return [out[key] for key in range(1,len(out)+1)]
+                return out
+            return convert(self.runtime.execute(source))
         b=source.encode();l,s=self.l,self.s
         if l.luaL_loadbufferx(s,b,len(b),b'test',None) or l.lua_pcallk(s,0,1,0,0,None):
             e=self.value(-1);l.lua_settop(s,0);raise RuntimeError(e)
