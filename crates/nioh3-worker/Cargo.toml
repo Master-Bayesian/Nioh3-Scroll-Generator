@@ -1,0 +1,29 @@
+[workspace]
+
+[package]
+name = "nioh3-worker"
+version = "0.1.0"
+edition = "2021"
+description = "Development-only read-only preview worker transport for the Nioh 3 backend migration"
+publish = false
+default-run = "nioh3-readonly-worker"
+
+[lib]
+name = "nioh3_worker"
+path = "src/lib.rs"
+
+[[bin]]
+name = "nioh3-readonly-worker"
+path = "src/main.rs"
+
+[dependencies]
+nioh3-domain = { path = "../nioh3-domain" }
+nioh3-data = { path = "../nioh3-data" }
+serde_json = "1"
+sha2 = "0.10"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "s"

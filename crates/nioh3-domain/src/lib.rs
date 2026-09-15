@@ -3,6 +3,7 @@
 //! Offline enemy generation with exact numerical replay. Resource loading and
 //! transport remain outside this crate; the production backend is not switched.
 
+pub mod auxiliary;
 pub mod context;
 pub mod effect;
 pub mod enemy;

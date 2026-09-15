@@ -35,9 +35,14 @@ no product cutover. M2.2 adds R4 completion finalization and the paired
 stage-one/install and finalized/preview records, byte-exact against all ten
 tracked 232-byte native pairs through the same adapter, with a measured
 reveal-branch comparison and an effect-area level-sensitivity measurement;
-GenerationContext digest binding, candidate identity and the read-only worker
-cutover remain future work, and save writes stay out of this line. Nothing in
-this section is packaged, tagged, or published.
+M2.3a adds a development-only Rust read-only worker that serves the preview
+subset over the shipped protocol and matches the Python worker on a 189-preview
+subprocess matrix, with runtime independence checks (no Python on `PATH`, empty
+data root fails closed, contract digest read from disk). GenerationContext
+digest binding over the wire, candidate identity beyond the preview payload,
+search orchestration and the product worker cutover remain future work, and save
+writes stay out of this line. Nothing in this section is packaged, tagged, or
+published.
 
 ## v0.7.4 published release
 

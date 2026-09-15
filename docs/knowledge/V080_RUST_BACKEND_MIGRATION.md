@@ -323,3 +323,90 @@ Playthroughs other than 3 and record types other than `0xE604` are rejected, not
 covered. `GenerationContext` digest binding, candidate identity/hashing, the
 read-only worker cutover, product wiring, and packaged or live acceptance remain
 out of scope, and the slice exposes no write path.
+
+## M2.3a development read-only worker and preview parity
+
+M2.3a adds a development-only Rust worker process that serves the read-only
+preview subset over the shipped framed-JSON protocol. It reuses the existing
+crates rather than introducing a new preview crate:
+`crates/nioh3-domain/src/auxiliary.rs` plus the extended `preview.rs`, `wraith.rs`
+and `enemy.rs`, `crates/nioh3-data::preview_resource::load_preview_resources`,
+and the new `crates/nioh3-worker` crate (`context`, `engine`, `model`, `native`,
+`payload`, `protocol`, `transport`, `main`). Its dependency graph is
+`nioh3-worker -> nioh3-data -> nioh3-domain` plus `serde_json` and `sha2`; no
+process, IPC or Python dependency exists, and the only native input is the seed
+accelerator ABI/build identity.
+
+- Supported methods: `handshake`, `candidate.preview`, `shutdown`. The eight
+  other protocol methods (`search.catalog`, `recommended_level.resolve`,
+  `search.start`, `cache.register`, `candidate.export`, `job.snapshot`,
+  `job.current`, `job.cancel`) return `UNSUPPORTED_METHOD`; a completely unknown
+  method fails the versioned request schema and returns `INVALID_REQUEST`.
+  Search orchestration - continuous search, resume and cancel - is M2.3b.
+- Bounded development deviation: the three supported methods keep full strict
+  parameter validation and the shipped error framing, but a known-but-unimplemented
+  method short-circuits to `UNSUPPORTED_METHOD` before parameter validation, so
+  malformed params on those methods answer `UNSUPPORTED_METHOD` instead of the
+  Python worker's `INVALID_REQUEST`. This is a development-only partial-worker
+  limitation with no production compatibility claim; M2.3b must restore full
+  validation for every method it implements. The deviation is pinned by a
+  permanent assertion in the subprocess gate rather than left to prose.
+- Production selection is structurally impossible: the binary requires an
+  explicit `--dev-preview-only` acknowledgement and otherwise writes a refusal
+  and exits non-zero before serving any frame.
+- Identity: `contract_digest` is the SHA-256 of the two shipped schema files read
+  byte-for-byte, and the eight context fields (including `resources_digest`,
+  `algorithm_version`, `policy_version` and `context_digest`) equal the Python
+  worker's values.
+- Capabilities disclose the reduced subset honestly (`playthroughs: [3]`,
+  `rarities: [3, 4, 5]`, `cpu_exact_replay: true`, GPU flags false,
+  `save_write`/`runtime_calls` false).
+- Subprocess parity: 189 previews (21 deterministic seeds x rarities 3/4/5 x
+  levels 1/90/180) match the Python worker field for field after normalising only
+  run identifiers and timestamps, covering the 15 required payload fields, the
+  whole `transfer` block and all eight effect fields. The matrix is measured to
+  be non-vacuous: it exercises terrain display keys, special rules, enemy groups,
+  challenge capacity, at least one Wraith occurrence, at least one
+  expedition-only occurrence, and all three rarities.
+- Independence evidence (bounded interpreter-independence and resource checks,
+  all runtime): with `PATH` isolated to an empty directory and `PYTHONHOME`,
+  `PYTHONPATH`, `NIOH3_PYTHON` and `NIOH3_SEED_ACCELERATOR` cleared, the Rust
+  worker still handshakes and matches the oracle produced by a separate Python
+  process for unusual seeds and rarity/level combinations; an empty `--data-root`
+  fails closed instead of returning the shipped payload, and a mutated
+  `--contract-dir` changes the reported `contract_digest`. This is a bounded
+  interpreter-independence check - it does not by itself prove the absence of
+  every possible out-of-process helper, so it is read together with the crate
+  dependency graph (`nioh3-worker -> nioh3-data -> nioh3-domain`, plus
+  `serde_json` and `sha2`, with no process/IPC dependency) and the fact that the
+  composition functions live only in `nioh3-domain` and are called directly by
+  `crates/nioh3-worker/src/engine.rs`. The binary is rebuilt from the current
+  candidate before every run, so a stale debug artifact cannot satisfy the gate,
+  and a missing worker crate or toolchain fails the gate rather than skipping it.
+- Identity and mutation binding are covered by permanent tests, not only probe
+  scripts: `crates/nioh3-worker/src/context.rs`
+  (`context_digest_covers_exactly_the_seven_identity_fields`),
+  `crates/nioh3-worker/src/model.rs` (port of `core_services.candidate_identity`
+  with pinned vectors), and the subprocess gate's contract-directory mutation,
+  which proves the reported `contract_digest` is read from disk.
+- Gates: worker crate 17 plus 3 passing, `tests/migration` 11-test subprocess
+  gate plus the retained preview/sequence/R4 gates, domain crate 71, data crate
+  17, `cargo fmt --check` and `clippy --all-targets -D warnings` clean for all
+  three crates.
+
+Bounded limits for M2.3a: previews are `effect_sequence_only` with no record
+bytes, and the R4 install/preview pair stays a template-driven library
+capability verified by the M2.2 native gate rather than a wire method; payloads
+built from this path report `certified_offline_replay` only; descriptor selector
+and `caller_option` other than zero are rejected; `enemy_states` is composed only
+for playthrough 3 (the preview method fixes playthrough 3) and is null
+otherwise; graded rule families whose grade occurs only at playthrough 1 are
+covered by the domain parity gate, not by the subprocess gate; and
+`possessed_complete = false` / `Possessed::Unknown` is unreachable with the
+shipped capture (all 1,022 eligibility rows and 133 summary rows are captured),
+so it is a documented capture limit covered by unit tests rather than a
+seed-selectable behaviour. Locale and name resolution remain response
+composition, and `raw_value` (f32) versus `display_value` (f64) are compared
+without re-rounding. `GenerationContext` mutation binding over the wire,
+candidate identity beyond the preview payload, product wiring, packaging and
+live acceptance remain out of scope, and the worker exposes no write path.

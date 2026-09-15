@@ -15,8 +15,9 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
+use nioh3_domain::auxiliary::{SpecialRuleTables, RULE_CONFLICT_ROW_BYTES, SPECIAL_RULE_ROW_BYTES};
 use nioh3_domain::enemy::{
-    ContextTables, Eligibility, EnemyStateTables, RosterTables, ENEMY_TEXT_SHA256,
+    ContextTables, CurseGate, Eligibility, EnemyStateTables, RosterTables, ENEMY_TEXT_SHA256,
 };
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
@@ -46,6 +47,8 @@ const CONTEXT_STRIDE: usize = 48;
 const OPTIONAL_MULTIPLIER_STRIDE: usize = 32;
 const ENEMY_PARAMETER_GATE_ENTRY_BYTES: usize = 8;
 const ENEMY_STATE_ROW_STRIDE: usize = 24;
+const SPECIAL_RULE_STRIDE: usize = SPECIAL_RULE_ROW_BYTES;
+const RULE_CONFLICT_STRIDE: usize = RULE_CONFLICT_ROW_BYTES;
 const TERRAIN_BYTE_OFFSET: usize = 0x12;
 const CONFIG_ROW_BYTES: usize = 0x20;
 
@@ -78,6 +81,37 @@ pub fn load_enemy_resources(data_root: &Path) -> Result<EnemyResources, Box<dyn 
     })
 }
 
+/// Typed inputs for the complete offline NG3 preview composition.
+#[derive(Debug)]
+pub struct PreviewResources {
+    pub roster: RosterTables,
+    pub context: ContextTables,
+    pub rules: SpecialRuleTables,
+    pub states: EnemyStateTables,
+}
+
+/// Load every resource the complete offline preview composition needs.
+///
+/// `data_root` is the product `nioh3_scroll_editor/data` directory. The
+/// special-rule and rule-conflict tables are read from the same verified
+/// auxiliary resource the roster uses; a missing, undeclared, or
+/// digest-mismatched blob is an error rather than a silent substitution.
+pub fn load_preview_resources(data_root: &Path) -> Result<PreviewResources, Box<dyn Error>> {
+    let root = canonical_dir(data_root, "product data directory")?;
+    let auxiliary_root = declared_resource_root(&root, AUXILIARY_RESOURCE_DIR)?;
+    let roster = load_roster_resource(&auxiliary_root)?;
+    let rules = load_rule_tables(&auxiliary_root)?;
+    let context = load_context_resource(&declared_resource_root(&root, R4_RESOURCE_DIR)?)?;
+    let states_path = declared_path(&root, ENEMY_STATE_TABLES_PATH, "enemy-state capture")?;
+    let states = load_enemy_states_file(&states_path)?;
+    Ok(PreviewResources {
+        roster,
+        context,
+        rules,
+        states,
+    })
+}
+
 /// Parse the native enemy-state capture with `possessed_generation.py` semantics.
 ///
 /// Capture identity, the observed config lookup, complete terrain scans, row
@@ -103,12 +137,14 @@ pub fn parse_enemy_state_tables(bytes: &[u8]) -> Result<EnemyStateTables, Box<dy
 
     let positions = parse_positions_by_terrain(&document)?;
     let eligibility = parse_eligibility_by_lookup(&document)?;
+    let curse_gates = parse_curse_gates_by_lookup(&document)?;
     let config = parse_config_row(&document)?;
 
     Ok(EnemyStateTables {
         text_sha256,
         positions_by_terrain: positions,
         eligibility,
+        curse_gates,
         enemy_index_complete: document
             .get("enemy_index_complete")
             .and_then(Value::as_bool)
@@ -211,6 +247,54 @@ fn eligibility_state(entry: &Map<String, Value>) -> Eligibility {
     }
 }
 
+/// Map the `enemy_weight244` evidence the conditional Curse bound consumes.
+///
+/// The shipped capture stores integer weights. A row whose field is absent,
+/// non-integral, or negative stays [`CurseGate::Unknown`] so the preview
+/// reports unknown rather than inventing a guaranteed or impossible Curse.
+fn parse_curse_gates_by_lookup(
+    document: &Value,
+) -> Result<BTreeMap<u32, CurseGate>, Box<dyn Error>> {
+    const LABEL: &str = "enemy-state capture eligibility_by_lookup";
+    let entries = field(document, "eligibility_by_lookup", LABEL)?
+        .as_object()
+        .ok_or_else(|| format!("{LABEL}: must be an object"))?;
+
+    let mut gates = BTreeMap::new();
+    for (key, entry) in entries {
+        let lookup = parse_index_key(key, LABEL)?;
+        let lookup = u32::try_from(lookup)
+            .map_err(|_| format!("{LABEL}: lookup key {key:?} is outside uint32"))?;
+        let entry = entry
+            .as_object()
+            .ok_or_else(|| format!("{LABEL}: lookup 0x{lookup:X} must be an object"))?;
+        if gates.insert(lookup, curse_gate_state(entry)).is_some() {
+            return Err(
+                format!("{LABEL}: duplicate lookup key -> 0x{lookup:X} (from {key:?})").into(),
+            );
+        }
+    }
+    Ok(gates)
+}
+
+fn curse_gate_state(entry: &Map<String, Value>) -> CurseGate {
+    match entry.get("enemy_row_present").and_then(Value::as_bool) {
+        Some(false) => CurseGate::EnemyRowAbsent,
+        Some(true) => match entry.get("enemy_weight244") {
+            Some(Value::Number(number)) => match number.as_u64() {
+                Some(weight) => match u32::try_from(weight) {
+                    Ok(weight) => CurseGate::Weight244(weight),
+                    Err(_) => CurseGate::Unknown,
+                },
+                None => CurseGate::Unknown,
+            },
+            Some(_) => CurseGate::Unknown,
+            None => CurseGate::MissingWeight244,
+        },
+        None => CurseGate::Unknown,
+    }
+}
+
 fn parse_config_row(document: &Value) -> Result<Option<[u8; CONFIG_ROW_BYTES]>, Box<dyn Error>> {
     const LABEL: &str = "enemy-state capture config_4543_hex";
     let value = field(document, "config_4543_hex", LABEL)?;
@@ -295,6 +379,70 @@ fn load_context_resource(resource_root: &Path) -> Result<ContextTables, Box<dyn 
         contexts: contexts.fixed_rows::<CONTEXT_STRIDE>(),
         optional_multipliers: optional_multipliers.fixed_rows::<OPTIONAL_MULTIPLIER_STRIDE>(),
     })
+}
+
+/// Load the special-rule rows, their hash index and the rule-conflict rows.
+///
+/// Mirrors `auxiliary_generation.AuxiliaryGenerationTables.from_resource`:
+/// the keys blob is the captured native hash index and must cover every row
+/// exactly once, so a stale or reordered keys file fails closed.
+fn load_rule_tables(resource_root: &Path) -> Result<SpecialRuleTables, Box<dyn Error>> {
+    let root = canonical_dir(resource_root, AUXILIARY_RESOURCE_DIR)?;
+    let manifest = read_manifest(&root, AUXILIARY_SCHEMA)?;
+
+    let rules_meta = auxiliary_table(
+        manifest
+            .get("tables")
+            .and_then(Value::as_object)
+            .ok_or_else(|| format!("{AUXILIARY_SCHEMA}: manifest has no tables object"))?,
+        "scroll_special_rule",
+    )?;
+    let rules = fixed_table(
+        &root,
+        rules_meta,
+        "scroll_special_rule",
+        SPECIAL_RULE_STRIDE,
+    )?;
+    let rule_keys = parse_table_keys(&root, rules_meta, "scroll_special_rule", rules.row_count)?;
+
+    let conflicts_meta = auxiliary_table(
+        manifest
+            .get("tables")
+            .and_then(Value::as_object)
+            .ok_or_else(|| format!("{AUXILIARY_SCHEMA}: manifest has no tables object"))?,
+        "auxiliary_rule_conflict",
+    )?;
+    let conflicts = fixed_table(
+        &root,
+        conflicts_meta,
+        "auxiliary_rule_conflict",
+        RULE_CONFLICT_STRIDE,
+    )?;
+    let conflict_keys = parse_table_keys(
+        &root,
+        conflicts_meta,
+        "auxiliary_rule_conflict",
+        conflicts.row_count,
+    )?;
+
+    Ok(SpecialRuleTables {
+        rules: rules.fixed_rows::<SPECIAL_RULE_STRIDE>(),
+        rule_keys,
+        conflicts: conflicts.fixed_rows::<RULE_CONFLICT_STRIDE>(),
+        conflict_keys,
+    })
+}
+
+/// Verify and decode one table's declared `keys_file`.
+fn parse_table_keys(
+    root: &Path,
+    table_meta: &Value,
+    name: &str,
+    row_count: usize,
+) -> Result<Vec<u16>, Box<dyn Error>> {
+    let keys_meta = field(table_meta, "keys_file", name)?;
+    let (_, keys_bytes) = read_declared_blob(root, keys_meta, &format!("{name} keys"))?;
+    parse_u16_keys(name, row_count, &keys_bytes)
 }
 
 fn load_enemy_states_file(path: &Path) -> Result<EnemyStateTables, Box<dyn Error>> {
@@ -915,6 +1063,146 @@ mod tests {
                 "expected {name} to be rejected"
             );
         }
+    }
+
+    #[test]
+    fn preview_resources_carry_the_rule_and_curse_tables() {
+        let resources = load_preview_resources(&product_data_root()).expect("load preview data");
+
+        assert_eq!(resources.roster.terrains.len(), 20);
+        assert_eq!(resources.roster.enemies.len(), 487);
+        assert_eq!(resources.rules.rules.len(), 301);
+        assert_eq!(resources.rules.rule_keys.len(), 301);
+        assert_eq!(resources.rules.conflicts.len(), 29);
+        assert_eq!(resources.rules.conflict_keys.len(), 29);
+        for (index, (key, row)) in resources
+            .rules
+            .rule_keys
+            .iter()
+            .zip(resources.rules.rules.iter())
+            .enumerate()
+        {
+            // The native generator reads the row field while the hash index
+            // resolves display metadata, so a drifted index must be visible.
+            assert_eq!(
+                u16::from_le_bytes([row[0x20], row[0x21]]),
+                *key,
+                "special-rule row {index}"
+            );
+        }
+
+        let mut positive = 0usize;
+        let mut zero = 0usize;
+        for gate in resources.states.curse_gates.values() {
+            match gate {
+                CurseGate::Weight244(weight) if *weight > 0 => positive += 1,
+                CurseGate::Weight244(_) => zero += 1,
+                other => panic!("unexpected curse gate {other:?}"),
+            }
+        }
+        assert_eq!(resources.states.curse_gates.len(), 1022);
+        assert_eq!(positive, 604);
+        assert_eq!(zero, 418);
+    }
+
+    /// Capture with one row per `enemy_weight244` shape the preview consumes.
+    fn curse_gate_document() -> Value {
+        serde_json::json!({
+            "schema_version": 1,
+            "text_sha256": ENEMY_TEXT_SHA256,
+            "enemy_index_complete": false,
+            "config_4543_lookup_observed": true,
+            "config_4543_hex": Value::Null,
+            "positions_by_terrain": {},
+            "eligibility_by_lookup": {
+                "0x1": {"enemy_row_present": false, "enemy_weight244": 300},
+                "0x2": {"enemy_row_present": true, "subtype_row_present": true, "flags14": 0, "enemy_weight244": 200},
+                "0x3": {"enemy_row_present": true, "subtype_row_present": true, "flags14": 0, "enemy_weight244": 0},
+                "0x4": {"enemy_row_present": true, "subtype_row_present": false},
+                "0x5": {"subtype_row_present": true},
+                "0x6": {"enemy_row_present": true, "enemy_weight244": "many"},
+            },
+        })
+    }
+
+    #[test]
+    fn curse_gates_keep_absent_missing_and_unknown_distinct() {
+        let bytes = serde_json::to_vec(&curse_gate_document()).expect("encode capture");
+        let states = parse_enemy_state_tables(&bytes).expect("parse capture");
+
+        assert_eq!(
+            states.curse_gates.get(&0x1),
+            Some(&CurseGate::EnemyRowAbsent)
+        );
+        assert_eq!(
+            states.curse_gates.get(&0x2),
+            Some(&CurseGate::Weight244(200))
+        );
+        assert_eq!(states.curse_gates.get(&0x3), Some(&CurseGate::Weight244(0)));
+        assert_eq!(
+            states.curse_gates.get(&0x4),
+            Some(&CurseGate::MissingWeight244)
+        );
+        assert_eq!(states.curse_gates.get(&0x5), Some(&CurseGate::Unknown));
+        assert_eq!(states.curse_gates.get(&0x6), Some(&CurseGate::Unknown));
+        assert_eq!(
+            states.curse_gates.get(&0x7),
+            None,
+            "an uncaptured lookup stays absent instead of becoming a gate"
+        );
+    }
+
+    #[test]
+    fn missing_or_altered_rule_tables_are_rejected() {
+        let temp = TempDir::new("preview-rules");
+        let mut manifest = write_auxiliary_resource(&temp.path);
+        write_manifest(&temp.path, &manifest);
+        let error = load_rule_tables(&temp.path).expect_err("undeclared rule tables");
+        assert!(error.to_string().contains("scroll_special_rule"), "{error}");
+
+        let rules = write_blob(
+            &temp.path,
+            "tables/scroll_special_rule.bin",
+            &fixed_table_store(SPECIAL_RULE_STRIDE, 1),
+        );
+        let rule_keys = write_blob(
+            &temp.path,
+            "tables/scroll_special_rule_keys.bin",
+            &[0x00, 0x00],
+        );
+        let conflicts = write_blob(
+            &temp.path,
+            "tables/auxiliary_rule_conflict.bin",
+            &fixed_table_store(RULE_CONFLICT_STRIDE, 1),
+        );
+        let conflict_keys = write_blob(
+            &temp.path,
+            "tables/auxiliary_rule_conflict_keys.bin",
+            &[0x00, 0x00],
+        );
+        manifest["tables"]["scroll_special_rule"] = serde_json::json!({
+            "row_size": SPECIAL_RULE_STRIDE,
+            "row_count": 1,
+            "file": rules,
+            "keys_file": rule_keys,
+        });
+        manifest["tables"]["auxiliary_rule_conflict"] = serde_json::json!({
+            "row_size": RULE_CONFLICT_STRIDE,
+            "row_count": 1,
+            "file": conflicts,
+            "keys_file": conflict_keys,
+        });
+        write_manifest(&temp.path, &manifest);
+
+        let loaded = load_rule_tables(&temp.path).expect("declared rule tables load");
+        assert_eq!(loaded.rules.len(), 1);
+        assert_eq!(loaded.conflict_keys, vec![0]);
+
+        manifest["tables"]["scroll_special_rule"]["file"]["sha256"] =
+            serde_json::json!("0".repeat(64));
+        write_manifest(&temp.path, &manifest);
+        let error = load_rule_tables(&temp.path).expect_err("digest mismatch must fail");
+        assert!(error.to_string().contains("SHA-256"), "{error}");
     }
 
     #[test]

@@ -236,6 +236,7 @@ mod tests {
             text_sha256: ENEMY_TEXT_SHA256.to_string(),
             positions_by_terrain,
             eligibility: BTreeMap::new(),
+            curse_gates: BTreeMap::new(),
             enemy_index_complete: false,
             config_4543: config,
         }

@@ -93,11 +93,32 @@ pub enum Eligibility {
     Unknown,
 }
 
+/// Captured `enemy_weight244` evidence behind the conditional Curse bound.
+///
+/// The shipped preview reports this separately from [`Eligibility`] because it
+/// answers a different question: whether a fresh null source selector that runs
+/// would guarantee, never produce, or still leave unknown a Curse. A row whose
+/// capture carries no `enemy_weight244` field stays unknown rather than
+/// becoming a negative result.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CurseGate {
+    /// The capture proves the native enemy lookup returns null.
+    EnemyRowAbsent,
+    /// The captured `enemy_weight244` value.
+    Weight244(u32),
+    /// The row is captured but the capture has no `enemy_weight244` field.
+    MissingWeight244,
+    /// The lookup is not captured, or the field is only partially captured.
+    Unknown,
+}
+
 #[derive(Debug, Clone)]
 pub struct EnemyStateTables {
     pub text_sha256: String,
     pub positions_by_terrain: BTreeMap<u8, Vec<[u8; 24]>>,
     pub eligibility: BTreeMap<u32, Eligibility>,
+    /// Per-lookup `enemy_weight244` evidence, keyed by roster lookup key.
+    pub curse_gates: BTreeMap<u32, CurseGate>,
     pub enemy_index_complete: bool,
     pub config_4543: Option<[u8; 32]>,
 }
