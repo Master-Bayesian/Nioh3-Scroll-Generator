@@ -185,7 +185,10 @@ def indexed_top_level_knowledge_documents(knowledge_root: Path, index_path: Path
 def audit_knowledge_index(knowledge_root: Path, index_path: Path) -> list[AuditFinding]:
     """Report top-level knowledge Markdown documents omitted from INDEX.md."""
 
-    expected = set(knowledge_root.glob("*.md"))
+    # Normalize both sides before comparing path identity. Windows runners may
+    # expose the temporary root through an 8.3 alias (for example RUNNER~1)
+    # while Path.resolve() expands link destinations to their long form.
+    expected = {path.resolve() for path in knowledge_root.glob("*.md")}
     indexed = indexed_top_level_knowledge_documents(knowledge_root, index_path)
     missing = sorted(expected - indexed)
     return [

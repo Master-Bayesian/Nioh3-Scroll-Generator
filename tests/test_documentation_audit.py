@@ -62,6 +62,26 @@ class DocumentationAuditTests(unittest.TestCase):
             self.assertEqual(len(index_findings), 1)
             self.assertIn("CURRENT.md", index_findings[0].detail)
 
+    def test_audit_normalizes_equivalent_knowledge_root_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_temp:
+            root = Path(raw_temp)
+            _, knowledge = self.create_repository(
+                root,
+                "[Index](INDEX.md)\n[Current](CURRENT.md)\n",
+            )
+            (knowledge / "CURRENT.md").write_text("# Current\n", encoding="utf-8")
+            alias_directory = root / "alias"
+            alias_directory.mkdir()
+            aliased_knowledge = alias_directory / ".." / "docs" / "knowledge"
+
+            self.assertEqual(
+                MODULE.audit_knowledge_index(
+                    aliased_knowledge,
+                    aliased_knowledge / "INDEX.md",
+                ),
+                [],
+            )
+
     def test_parenthesized_destinations_and_anchors_resolve_deterministically(self) -> None:
         with tempfile.TemporaryDirectory() as raw_temp:
             root = Path(raw_temp)
