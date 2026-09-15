@@ -406,7 +406,11 @@ try {
   await page.getByRole('button', { name: '清空全部', exact: true }).click();
   if (process.env.NIOH3_PARITY_ALLOW_CPU === '1') {
     await page.getByRole('button', { name: '设置', exact: true }).click();
-    await page.getByRole('switch', { name: '允许使用 CPU 搜索', exact: true }).check();
+    const allowCpuSwitch = page.getByRole('switch', { name: '允许使用 CPU 搜索', exact: true });
+    if (!await allowCpuSwitch.isChecked()) {
+      await allowCpuSwitch.locator('xpath=following-sibling::i').click();
+    }
+    assert.equal(await allowCpuSwitch.isChecked(), true, 'Visible CPU-search switch enables CPU search');
     await page.getByRole('button', { name: '关闭侧边菜单', exact: true }).click();
   }
   await page.locator('.primary-button').click();
