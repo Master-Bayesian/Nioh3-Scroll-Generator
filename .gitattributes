@@ -14,6 +14,9 @@ packages/contracts/*.ts text eol=lf
 *.cpp text eol=lf
 *.h text eol=lf
 
+# Capture provenance pins this CE source file's exact bytes.
+research/owned_breakpoint_lifecycle_ce.lua text eol=lf
+
 *.bin binary
 *.dll binary
 *.exe binary

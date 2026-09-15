@@ -3,6 +3,7 @@
 - Speak to the user in Simplified Chinese unless they request another language. Write source code, tests, comments, commits, and repository documentation in English.
 - Preserve unrelated tracked and untracked work. Put task delivery artifacts under `deliverables/`, not in the repository root.
 - Continue through implementation, relevant verification, and repair until the requested outcome is complete or a real owner decision is required.
+- Model routing: all implementation, test, documentation, and packaging work runs on DeepSeek V4.1 Flash agents; the primary model provides guidance, supervision, review, and decisions.
 
 ## Use context when it is relevant
 
@@ -29,11 +30,29 @@
 - Prefer deterministic scripts and CI checks for mechanical rules. Keep skills focused on decisions and workflow boundaries; do not encode one-off failures or duplicate authoritative documentation.
 - Validate every changed skill with the repository or system skill validator.
 - For a substantive failure in research, build, packaging, or release work
-  (not an ordinary expected test failure), immediately delegate a Luna agent to
-  append a bounded entry to `docs/research/EXPERIMENT_FAILURE_LEDGER.md`.
+  (not an ordinary expected test failure), immediately delegate a DeepSeek agent
+  to append a bounded entry to `docs/research/EXPERIMENT_FAILURE_LEDGER.md`.
   Include the objective, observed symptom, root cause (or `unknown`), evidence
   paths, disposition, reproduction status, and follow-up state. Keep symptoms
   separate from rules; do not promote a one-off failure into a skill or active
   conclusion. The ledger is non-canonical, normally unloaded, and must not
   block the main task. Delegate simple documentation, archival, and audit work
-  to Luna when practical.
+  to DeepSeek when practical.
+
+## Owner reporting contract
+
+- The owner does not monitor builds or read source routinely. Work an assigned
+  release task end to end and report proactively instead of asking for progress
+  checkpoints.
+- Send `send_message` to `/root` only on completion or a genuine owner/root
+  decision blocker, then finish with the reported answer. Do not report routine
+  progress.
+- The completion report is evidence-based, 600-1000 English words maximum, and
+  contains no raw logs or code. Keep raw logs and artifact inventories on disk
+  and reference their paths.
+- A release report states: the completed boundary and pending steps; the exact
+  candidate SHA/version/branch/run URL and the asset identity (outer EXE and ZIP
+  hashes); the parity result for the shipped fix; a gate table naming what
+  passed, failed, or was skipped with evidence paths; any failure with root
+  cause and retest; safety and scope facts; remaining risks; and the exact
+  remote actions still awaiting approval.

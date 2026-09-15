@@ -79,7 +79,11 @@ class SearchJobs:
                     raise ValueError('NG4/5 offline search requires an exact save-bound rarity-5 map')
             elif cache_id is not None:
                 raise ValueError('NG3 uses its certified bundled map')
-            binding = f'{query.digest}:{params["context_digest"]}:{params["allow_cpu_fallback"]}:{cache_id}'
+            # The binding covers the continuation policy too, so a token minted
+            # under one policy is never replayed under another. Absent historical
+            # requests default to False and keep their bounded semantics.
+            continuation_policy = bool(params.get('continue_until_complete', False))
+            binding = f'{query.digest}:{params["context_digest"]}:{params["allow_cpu_fallback"]}:{continuation_policy}:{cache_id}'
             cursor = self._cursor(params['resume_token'], binding)
             self.cancel_event.clear()
             self.candidate_records = {}
@@ -140,19 +144,25 @@ class SearchJobs:
                 if not self.cancel_event.is_set():
                     self.job.update(state='running', sequence=self.job['sequence'] + 1)
                 cursor = self.job['cursor']
-            stop = cursor + params['job_trials']
+            # Optional continuation: this one job keeps taking bounded pages until
+            # the result count, family exhaustion, cancellation, or a fail-closed
+            # error. `job_trials` then bounds nothing; `page_trials` still does.
+            continue_until_complete = bool(params.get('continue_until_complete', False))
+            page_trials = params['page_trials']
+            stop = None if continue_until_complete else cursor + params['job_trials']
             mapping = self.maps[params['cache_id']] if query.request.playthrough in (4, 5) else (load_grace_output_map(rarity=query.request.rarity) if query.request.rarity in (4, 5) else None)
             collector = collect_offline_rarity5_search_batch if query.request.playthrough in (4, 5) else self.collector
             reason = 'budget_reached'
             with seed_acceleration_execution_policy(allow_bulk_cpu=params['allow_cpu_fallback']):
-                while cursor < stop:
+                while stop is None or cursor < stop:
                     if self.cancel_event.is_set():
                         reason = 'cancelled'
                         break
+                    page_budget = page_trials if stop is None else min(page_trials, stop - cursor)
                     page = collector(
                         query.request, grace_mapping=mapping, level=query.level,
                         result_count=params['result_count'] - len(self.job['candidates']),
-                        max_trials_per_batch=min(params['page_trials'], stop - cursor),
+                        max_trials_per_batch=page_budget,
                         start_after_trial=cursor, intersection_progress=progress,
                         cancelled=self.cancel_event.is_set,
                         allow_cpu_fallback=params['allow_cpu_fallback'],
@@ -186,7 +196,10 @@ class SearchJobs:
                             query.enemy_occurrence_groups) == 'match']
                     payloads = [candidate_payload(c, self.service) for c in accepted]
                     next_cursor = page.next_start_after_trial
-                    if next_cursor is None or next_cursor < cursor or next_cursor > min(stop, cursor + params['page_trials']):
+                    # Any real page end inside this page's budget is valid; the
+                    # bound is the actual page budget, never the job stop.
+                    page_limit = cursor + page_budget
+                    if next_cursor is None or next_cursor < cursor or next_cursor > page_limit:
                         raise RequestError('INVALID_CHECKPOINT', 'Solver returned an invalid page cursor')
                     with self.lock:
                         if len(self.job['candidates']) + len(payloads) > params['result_count']:

@@ -41,12 +41,18 @@ class ProtocolTests(unittest.TestCase):
         p = parameters()
         validate_request({'protocol': 1, 'id': '1', 'method': 'search.start', 'params': p})
         for mutate in (lambda p: p.update(result_count=True), lambda p: p.update(exec='bad'),
-                       lambda p: p['query'].update(playthrough=1), lambda p: p.update(page_trials=1000001)):
+                       lambda p: p['query'].update(playthrough=1), lambda p: p.update(page_trials=100000001),
+                       lambda p: p.update(continue_until_complete='yes')):
             bad = deepcopy(p); mutate(bad)
             with self.assertRaises(RequestError):
                 validate_request({'protocol': 1, 'id': '1', 'method': 'search.start', 'params': bad})
             with self.assertRaises(RequestError):
                 SearchJobs().start(bad)
+        wide = deepcopy(p); wide.update(page_trials=100000000)
+        validate_request({'protocol': 1, 'id': '1', 'method': 'search.start', 'params': wide})
+        for flag in (True, False):
+            flagged = deepcopy(p); flagged.update(continue_until_complete=flag)
+            validate_request({'protocol': 1, 'id': '1', 'method': 'search.start', 'params': flagged})
 
     def test_curse_search_is_rejected_instead_of_treating_unknown_as_a_match(self):
         p = parameters()
@@ -178,14 +184,136 @@ class JobTests(unittest.TestCase):
         p['resume_token'] = result['resume_token']
         started = jobs.start(p); jobs.thread.join(10)
         self.assertEqual(jobs.snapshot(started['job_id'])['cursor'], 500)
-        for change in ('policy', 'query', 'context', 'session', 'token'):
+        for change in ('policy', 'query', 'context', 'session', 'token', 'continuation'):
             bad = deepcopy(p); target = jobs
             if change == 'policy': bad['allow_cpu_fallback'] = True
             if change == 'query': bad['query']['level'] = 170
             if change == 'context': bad['context_digest'] = '0' * 64
             if change == 'session': target = SearchJobs(collector=collect)
             if change == 'token': bad['resume_token'] += 'bad'
+            if change == 'continuation': bad['continue_until_complete'] = True
             with self.assertRaises(RequestError): target.start(bad)
+
+    def test_continuation_reaches_a_match_past_the_bounded_budget_in_one_job(self):
+        target = ScrollCandidate.from_effect_sequence(generate_ng3_certified_effect_sequence(226061463, rarity=4, level=180))
+        calls = []
+        def collect(_request, **kwargs):
+            calls.append(kwargs['max_trials_per_batch'])
+            start, budget = kwargs['start_after_trial'], kwargs['max_trials_per_batch']
+            if start >= 300:
+                return SearchBatchResult((target,), 1, 350)
+            return SearchBatchResult((), 1, start + budget)
+        jobs = SearchJobs(collector=collect); p = parameters()
+        p.update(result_count=1, page_trials=100, job_trials=250)
+        bounded = jobs.start(p); jobs.thread.join(10)
+        bounded_result = jobs.snapshot(bounded['job_id'])
+        self.assertEqual(bounded_result['stop_reason'], 'budget_reached')
+        self.assertEqual((bounded_result['cursor'], bounded_result['candidates']), (250, []))
+        p.update(continue_until_complete=True, resume_token=bounded_result['resume_token'])
+        with self.assertRaisesRegex(RequestError, 'Resume token'):
+            jobs.start(p)
+        p['resume_token'] = None
+        started = jobs.start(p); jobs.thread.join(10)
+        result = jobs.snapshot(started['job_id'])
+        self.assertEqual(result['state'], 'completed', result['error'])
+        self.assertEqual(result['stop_reason'], 'result_limit')
+        self.assertEqual([c['seed'] for c in result['candidates']], [226061463])
+        self.assertEqual(result['cursor'], 350)
+        self.assertEqual(calls, [100, 100, 50, 100, 100, 100, 100])
+
+    def test_continuation_accumulates_candidates_past_the_old_job_stop(self):
+        seeds = (226061463, 36526331)
+        targets = [ScrollCandidate.from_effect_sequence(generate_ng3_certified_effect_sequence(seed, rarity=4, level=180))
+                   for seed in seeds]
+        budgets = []
+        def collect(_request, **kwargs):
+            budgets.append(kwargs['max_trials_per_batch'])
+            start = kwargs['start_after_trial']
+            if start == 0:
+                return SearchBatchResult((), 1, 100)
+            if start == 100:
+                return SearchBatchResult((targets[0],), 1, 150)
+            return SearchBatchResult((targets[1],), 1, 200)
+        jobs = SearchJobs(collector=collect); p = parameters()
+        p.update(result_count=2, page_trials=100, job_trials=50, continue_until_complete=True)
+        started = jobs.start(p); jobs.thread.join(10)
+        result = jobs.snapshot(started['job_id'])
+        self.assertEqual(result['state'], 'completed', result['error'])
+        self.assertEqual(result['stop_reason'], 'result_limit')
+        self.assertEqual([c['seed'] for c in result['candidates']], list(seeds))
+        self.assertEqual((result['cursor'], budgets), (200, [100, 100, 100]))
+        self.assertEqual(sorted(record.seed for record in jobs.candidate_records.values()), sorted(seeds))
+        for payload in result['candidates']:
+            exported = jobs.export(started['job_id'], payload['candidate_id'])
+            self.assertEqual((exported['seed'], exported['candidate_id']),
+                             (payload['seed'], payload['candidate_id']))
+
+    def test_continuation_reports_family_exhaustion_without_candidates(self):
+        report = EffectSeedIntersectionReport(0, 50, 50, 0, (), 0, True)
+        def collect(_request, **kwargs):
+            stop = min(50, kwargs['start_after_trial'] + kwargs['max_trials_per_batch'])
+            return SearchBatchResult((), 2, stop, report)
+        jobs = SearchJobs(collector=collect); p = parameters()
+        p.update(page_trials=100, job_trials=1000000, continue_until_complete=True)
+        started = jobs.start(p); jobs.thread.join(10)
+        result = jobs.snapshot(started['job_id'])
+        self.assertEqual(result['state'], 'completed', result['error'])
+        self.assertEqual(result['stop_reason'], 'family_exhausted')
+        self.assertEqual(result['cursor'], 50)
+        self.assertIsNone(result['resume_token'])
+
+    def test_continuation_cancels_between_pages_and_resumes_under_the_same_policy(self):
+        target = ScrollCandidate.from_effect_sequence(generate_ng3_certified_effect_sequence(36526331, rarity=4, level=180))
+        entered, release = threading.Event(), threading.Event()
+        pages = []
+        def collect(_request, **kwargs):
+            start = kwargs['start_after_trial']
+            pages.append(start)
+            if start == 10:
+                entered.set(); release.wait(5)
+                return SearchBatchResult((), 1, 20)
+            if start == 20:
+                return SearchBatchResult((target,), 1, 30)
+            return SearchBatchResult((), 1, start + kwargs['max_trials_per_batch'])
+        jobs = SearchJobs(collector=collect); p = parameters()
+        p.update(result_count=1, page_trials=10, job_trials=1000, continue_until_complete=True)
+        started = jobs.start(p)
+        try:
+            self.assertTrue(entered.wait(5))
+            self.assertEqual(jobs.cancel(started['job_id'])['state'], 'cancel_requested')
+        finally:
+            release.set(); jobs.thread.join(10)
+        result = jobs.snapshot(started['job_id'])
+        self.assertEqual(result['state'], 'cancelled')
+        self.assertEqual(result['stop_reason'], 'cancelled')
+        self.assertEqual(result['cursor'], 20)
+        self.assertIsNotNone(result['resume_token'])
+        p['resume_token'] = result['resume_token']
+        with self.assertRaisesRegex(RequestError, 'Resume token'):
+            jobs.start(dict(p, continue_until_complete=False))
+        resumed = jobs.start(p); jobs.thread.join(10)
+        resumed_result = jobs.snapshot(resumed['job_id'])
+        self.assertEqual(resumed_result['state'], 'completed', resumed_result['error'])
+        self.assertEqual(resumed_result['stop_reason'], 'result_limit')
+        self.assertEqual([c['seed'] for c in resumed_result['candidates']], [36526331])
+        self.assertEqual(resumed_result['cursor'], 30)
+        self.assertEqual(pages, [0, 10, 20])
+
+    def test_continuation_fails_closed_on_invalid_checkpoint_overflow_and_no_progress(self):
+        candidate = ScrollCandidate.from_effect_sequence(generate_ng3_certified_effect_sequence(36526331, rarity=4, level=180))
+        for page, code in ((SearchBatchResult((), 1, 101), 'INVALID_CHECKPOINT'),
+                           (SearchBatchResult((), 1, 0), 'NO_PROGRESS'),
+                           (SearchBatchResult((candidate,) * 3, 1, 1), 'RESULT_OVERFLOW')):
+            with self.subTest(code=code):
+                jobs = SearchJobs(collector=lambda *_a, **_kw: page)
+                p = parameters(); p.update(result_count=1, page_trials=100, job_trials=10, continue_until_complete=True)
+                started = jobs.start(p); jobs.thread.join(10)
+                result = jobs.snapshot(started['job_id'])
+                self.assertEqual(result['state'], 'failed')
+                self.assertEqual(result['error']['code'], code)
+                self.assertEqual(result['cursor'], 0)
+                self.assertEqual(result['candidates'], [])
+                self.assertIsNone(result['resume_token'])
 
     def test_cancel_is_acknowledged_before_safe_stop_and_busy_is_enforced(self):
         entered, release = threading.Event(), threading.Event()

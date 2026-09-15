@@ -1031,8 +1031,15 @@ export type WorkerRequest =
         };
         context_digest: string;
         result_count: number;
+        /**
+         * Trials in one bounded solver page. The native fused auxiliary solver chunks internally, so large pages only remove per-page overhead.
+         */
         page_trials: number;
         job_trials: number;
+        /**
+         * Optional. When true this single job keeps taking bounded pages until the requested result count, pivot-family exhaustion, cancellation, or a fail-closed error. job_trials then bounds nothing; omitting the field keeps the existing bounded stop at job_trials.
+         */
+        continue_until_complete?: boolean;
         allow_cpu_fallback: boolean;
         resume_token: string | null;
         cache_id?: string | null;
