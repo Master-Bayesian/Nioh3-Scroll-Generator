@@ -1,15 +1,19 @@
 # Current project handoff — 2026-09-14
 
-## v0.7.5 hotfix candidate (not published)
+## v0.7.5 published release
 
-The 0.7.5 emergency source is prepared in the isolated worktree
-`F:/Nioh3_ScrollEditor/.codex_tmp/v075-search-hotfix` on branch
-`codex/v075-search-hotfix`, with the version synchronized across the release
-identity files. It fixes two shipped problems: NG3 searches that stopped at an
-internal trial budget and read as empty results, and the window/taskbar icon
-that Windows stretched from a 16x16 bitmap. Nothing is committed, tagged,
-pushed, or published, so the v0.7.4 release below remains the current public
-state. See [the v0.7.5 product record](../product/releases/v0.7.5.md).
+The 0.7.5 emergency release fixes two shipped problems: NG3 searches that
+stopped at an internal trial budget and read as empty results, and the
+window/taskbar icon that Windows stretched from a 16x16 bitmap. The immutable
+product commit is `533694ebad21906aecbb6ab5283e04e760ce6c09` on
+`codex/v075-search-hotfix` (promoted to `main`), annotated tag object
+`c4cfce1523aa10a2532b79319c1e16ad4fbd6ee7`, hosted release run `34936188564`.
+The public outer EXE is `Nioh3Studio-0.7.5-win-x64.exe`, 30,988,811 bytes,
+SHA-256 `a81a30dd72b813c1253bcbca7a8f393fdf51468fed0d997a36a4b4535e7c6d09`. Read
+[the publication record](TAURI_V075_PUBLICATION_20260915.md) and
+[the v0.7.5 product record](../product/releases/v0.7.5.md). A later
+documentation-only commit may follow the immutable tag; the tag still owns the
+product source.
 
 ## v0.7.4 published release
 
@@ -26,12 +30,14 @@ passed hosted and public acceptance; publication is complete.
 
 ## Status and entry points
 
-**Current stable release:** Tauri v0.7.4 is public and is GitHub's latest stable
+**Current stable release:** Tauri v0.7.5 is public and is GitHub's latest stable
 release. The immutable product commit is
-`df438ed3a9a1b92e68b3c77da0b1c094e0663327`, annotated tag object
-`dd1057d775c168f1978845a1779880ec8a098aee`, and successful hosted release run
-`34921969962`. Read [the publication record](TAURI_V074_PUBLICATION_20260915.md)
-and [the release runbook](RELEASE_RUNBOOK.md).
+`533694ebad21906aecbb6ab5283e04e760ce6c09`, annotated tag object
+`c4cfce1523aa10a2532b79319c1e16ad4fbd6ee7`, and successful hosted release run
+`34936188564`. Read [the v0.7.5 publication record](TAURI_V075_PUBLICATION_20260915.md)
+and [the release runbook](RELEASE_RUNBOOK.md). The v0.7.4 record below is
+historical; its release remains available and was replaced only in the updater
+feed.
 
 The player download is the true single-file outer executable
 `Nioh3Studio-0.7.4-win-x64.exe`, 30,862,753 bytes, SHA-256
