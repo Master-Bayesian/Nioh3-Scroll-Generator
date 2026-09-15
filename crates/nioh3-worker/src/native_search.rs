@@ -253,6 +253,25 @@ pub struct R4PrimaryPivotSpec {
     pub random7_lookup: Vec<u8>,
 }
 
+/// Inputs of `generate_ng3_primary_effect_ids_context`.
+///
+/// The shipped NG3 rarity-3 primary replay builds one weighted lottery per
+/// special context and asks the DLL for the primary effect id of a whole batch
+/// of seeds. `allowed_effect_ids` is the caller's request: a seed is accepted
+/// when its generated primary id is one of them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrimaryEffectSpec {
+    pub allowed_effect_ids: Vec<u32>,
+    pub normal_lookup: Vec<u32>,
+    pub promoted_lookup: Vec<u32>,
+    pub promotion_success_lookup: Vec<u8>,
+    pub random7_lookup: Vec<u8>,
+    pub pre_promotion_draws: u32,
+    pub slot_limit: u8,
+    pub excluded_slot_mask: u8,
+    pub primary_source_index: u8,
+}
+
 /// Inputs of `collect_auxiliary_pivot_matches`.
 ///
 /// Criterion groups are alternatives: every group must match at least one key.
@@ -582,6 +601,53 @@ impl Accelerator {
             stage_counts,
             backend: self.last_backend(),
         })
+    }
+
+    /// The shipped batched primary-effect predicate, in one verdict per seed.
+    ///
+    /// Mirrors `effect_sequence.generate_ng3_rarity34_primary_effect_ids` for
+    /// rarity 3: the DLL returns the primary effect id every seed would roll,
+    /// and a seed is selected when that id is one the caller asked for. This is
+    /// the predicate the shipped solver applies to the full seed family before
+    /// it replays an effect sequence or composes a candidate.
+    pub fn primary_effect_selected(
+        &self,
+        spec: &PrimaryEffectSpec,
+        seeds: &[u32],
+    ) -> Result<Vec<bool>, NativeSearchError> {
+        if seeds.is_empty() {
+            return Ok(Vec::new());
+        }
+        if spec.allowed_effect_ids.is_empty() {
+            return Ok(vec![true; seeds.len()]);
+        }
+        if spec.normal_lookup.len() != LOOKUP_ENTRIES
+            || spec.promoted_lookup.len() != LOOKUP_ENTRIES
+            || spec.promotion_success_lookup.len() != LOOKUP_ENTRIES
+            || spec.random7_lookup.len() != LOOKUP_ENTRIES
+            || spec.slot_limit == 0
+            || spec.slot_limit > 7
+            || spec.primary_source_index >= spec.slot_limit
+            || spec.excluded_slot_mask & (1u8 << spec.primary_source_index) != 0
+        {
+            return Err(NativeSearchError::InvalidInput(
+                "native primary predicate inputs do not match the API",
+            ));
+        }
+        let mut selected = vec![false; seeds.len()];
+        for start in (0..seeds.len()).step_by(MAX_PREDICATE_BATCH) {
+            let stop = (start + MAX_PREDICATE_BATCH).min(seeds.len());
+            let batch = &seeds[start..stop];
+            let mut generated = vec![0u32; batch.len()];
+            let code = self.native.primary_effect_ids(batch, spec, &mut generated);
+            if code != 0 && code != 1 {
+                return Err(self.fail("generate_ng3_primary_effect_ids_context"));
+            }
+            for (index, effect_id) in generated.iter().enumerate() {
+                selected[start + index] = spec.allowed_effect_ids.contains(effect_id);
+            }
+        }
+        Ok(selected)
     }
 
     /// The shipped per-seed auxiliary predicate, in one verdict per seed.
@@ -1046,8 +1112,8 @@ mod platform {
     use std::path::Path;
 
     use super::{
-        flatten_groups, AuxiliaryPivotSpec, PivotWindow, R4PrimaryPivotSpec, LOOKUP_ENTRIES,
-        SEED_ACCELERATOR_ABI_VERSION,
+        flatten_groups, AuxiliaryPivotSpec, PivotWindow, PrimaryEffectSpec, R4PrimaryPivotSpec,
+        LOOKUP_ENTRIES, SEED_ACCELERATOR_ABI_VERSION,
     };
 
     #[link(name = "kernel32")]
@@ -1166,6 +1232,20 @@ mod platform {
         u32,
         *mut u32,
     ) -> i32;
+    #[allow(clippy::type_complexity)]
+    type PrimaryIds = unsafe extern "C" fn(
+        *const u32,
+        u64,
+        *const u32,
+        *const u32,
+        *const u8,
+        *const u8,
+        u32,
+        u8,
+        u8,
+        u8,
+        *mut u32,
+    ) -> i32;
 
     /// Resolved exports of one loaded accelerator library.
     pub(super) struct Native {
@@ -1183,6 +1263,7 @@ mod platform {
         terrain_rows: TerrainRows,
         match_enemy: MatchEnemy,
         match_rules: MatchRules,
+        primary_ids: PrimaryIds,
         build_weighted_lookup: BuildWeightedLookup,
         force_cuda_failure: Option<ForceCudaFailure>,
         bulk_cpu_call_count: Option<BulkCpuCallCount>,
@@ -1230,6 +1311,8 @@ mod platform {
                 let terrain_rows: TerrainRows = symbol(handle, b"generate_terrain_row_indices\0")?;
                 let match_enemy: MatchEnemy = symbol(handle, b"match_enemy_constraints\0")?;
                 let match_rules: MatchRules = symbol(handle, b"match_special_rule_constraints\0")?;
+                let primary_ids: PrimaryIds =
+                    symbol(handle, b"generate_ng3_primary_effect_ids_context\0")?;
                 let build_weighted_lookup: BuildWeightedLookup =
                     symbol(handle, b"build_weighted_effect_lookup\0")?;
                 let force_cuda_failure: Option<ForceCudaFailure> =
@@ -1264,6 +1347,7 @@ mod platform {
                     terrain_rows,
                     match_enemy,
                     match_rules,
+                    primary_ids,
                     build_weighted_lookup,
                     force_cuda_failure,
                     bulk_cpu_call_count,
@@ -1575,6 +1659,34 @@ mod platform {
                 )
             }
         }
+
+        /// `generate_ng3_primary_effect_ids_context` over one bounded batch.
+        pub(super) fn primary_effect_ids(
+            &self,
+            seeds: &[u32],
+            spec: &PrimaryEffectSpec,
+            output: &mut [u32],
+        ) -> i32 {
+            debug_assert_eq!(seeds.len(), output.len());
+            // SAFETY: every pointer refers to a live slice; both lookups hold
+            // 65,536 u32 entries and the caller validated the context fields
+            // against the exported ABI before this call.
+            unsafe {
+                (self.primary_ids)(
+                    seeds.as_ptr(),
+                    seeds.len() as u64,
+                    spec.normal_lookup.as_ptr(),
+                    spec.promoted_lookup.as_ptr(),
+                    spec.promotion_success_lookup.as_ptr(),
+                    spec.random7_lookup.as_ptr(),
+                    spec.pre_promotion_draws,
+                    spec.slot_limit,
+                    spec.excluded_slot_mask,
+                    spec.primary_source_index,
+                    output.as_mut_ptr(),
+                )
+            }
+        }
     }
 
     fn raw_u32(values: &[u32]) -> (*const u32, u32) {
@@ -1614,7 +1726,7 @@ mod platform {
 mod platform {
     use std::path::Path;
 
-    use super::{AuxiliaryPivotSpec, PivotWindow, R4PrimaryPivotSpec};
+    use super::{AuxiliaryPivotSpec, PivotWindow, PrimaryEffectSpec, R4PrimaryPivotSpec};
 
     /// Non-Windows stub: the shipped accelerator is a Windows DLL, so every
     /// load fails and no native call is ever made.
@@ -1736,6 +1848,15 @@ mod platform {
             _scratch_masks: &[u32],
             _rule_rows: &[u8],
             _groups: &[Vec<u16>],
+            _output: &mut [u32],
+        ) -> i32 {
+            -1
+        }
+
+        pub(super) fn primary_effect_ids(
+            &self,
+            _seeds: &[u32],
+            _spec: &PrimaryEffectSpec,
             _output: &mut [u32],
         ) -> i32 {
             -1

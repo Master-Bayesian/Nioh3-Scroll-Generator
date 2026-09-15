@@ -119,6 +119,7 @@ fn main() -> ExitCode {
         let route_name = match compiled.route {
             Route::Auxiliary => "auxiliary",
             Route::R4Primary => "r4_primary",
+            Route::FullFamily => "full_family",
         };
         if route != route_name {
             failures.push(json!({

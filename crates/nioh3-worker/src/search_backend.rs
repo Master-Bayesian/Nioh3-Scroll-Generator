@@ -14,7 +14,8 @@ use nioh3_domain::rng::A_INV;
 use crate::native_search::{
     absent_capabilities, Accelerator, AuxiliaryPivotSpec, ExecutionPolicy, ExecutionPolicyGuard,
     NativeBackend, NativeCapabilities, NativeSearchError, PivotMatch, PivotWindow,
-    R4PrimaryPivotSpec, MAX_AUXILIARY_TRIALS, MAX_NATURAL_TRIALS, MAX_R4_PRIMARY_TRIALS,
+    PrimaryEffectSpec, R4PrimaryPivotSpec, MAX_AUXILIARY_TRIALS, MAX_NATURAL_TRIALS,
+    MAX_R4_PRIMARY_TRIALS,
 };
 
 /// Result capacity one fused auxiliary chunk may return.
@@ -281,20 +282,20 @@ impl SearchBackend {
 
     /// Collect one bounded page whose `page_size` counts accepted matches.
     ///
-    /// `predicate` is the shipped per-seed auxiliary predicate. With a
-    /// predicate, a raw native match is decided *before* it counts towards
-    /// `page_size`, which is the placement the shipped solver uses: a page ends
-    /// when it has `page_size` accepted candidates or when the trial budget is
-    /// exhausted, so a page whose candidates are all rejected still covers its
-    /// whole window in one scan. Without a predicate the raw matches are the
-    /// accepted ones.
+    /// `filter` holds the shipped predicates for routes whose pivot does not
+    /// already pack the caller's criteria. With a filter, a raw native match is
+    /// decided *before* it counts towards `page_size`, which is the placement
+    /// the shipped solver uses: a page ends when it has `page_size` accepted
+    /// candidates or when the trial budget is exhausted, so a page whose
+    /// candidates are all rejected still covers its whole window in one scan.
+    /// Without a filter the raw matches are the accepted ones.
     pub fn collect_page_filtered(
         &self,
         query: &NativePivotQuery,
         request: &PageRequest,
         cancelled: &dyn Fn() -> bool,
         progress: &mut dyn FnMut(&ChunkProgress),
-        predicate: Option<&AuxiliaryPivotSpec>,
+        filter: Option<&MatchFilter<'_>>,
     ) -> Result<CollectedPage, NativeSearchError> {
         let Some(accelerator) = self.accelerator.as_deref() else {
             return Err(NativeSearchError::Unavailable);
@@ -340,8 +341,8 @@ impl SearchBackend {
             }
             accumulate(&mut stage_counts, &counts)?;
 
-            let accepted = match predicate {
-                Some(predicate) => filter_matches(accelerator, predicate, &page.matches)?,
+            let accepted = match filter {
+                Some(filter) => filter_matches(accelerator, filter, &page.matches)?,
                 None => page.matches,
             };
             let remaining = request.page_size - matches.len();
@@ -357,8 +358,8 @@ impl SearchBackend {
                 for matched in &recount.matches {
                     verify_pivot_match(values, &recount_window, *matched)?;
                 }
-                let recount_accepted = match predicate {
-                    Some(predicate) => filter_matches(accelerator, predicate, &recount.matches)?,
+                let recount_accepted = match filter {
+                    Some(filter) => filter_matches(accelerator, filter, &recount.matches)?,
                     None => recount.matches,
                 };
                 if recount_accepted.len() != remaining {
@@ -457,25 +458,51 @@ impl NativePivotQuery {
     }
 }
 
-/// Decide one window's raw native matches with the shipped per-seed predicate.
+/// The predicates a page applies before a raw native match counts as accepted.
+///
+/// Order matters and mirrors the shipped solver: the batched primary-effect
+/// predicate runs first, then the auxiliary criteria are decided only for its
+/// survivors (`effect_seed_solver._iter_solution_prefetch` eligibility).
+#[derive(Clone, Copy)]
+pub struct MatchFilter<'a> {
+    pub primary: Option<&'a PrimaryEffectSpec>,
+    pub auxiliary: Option<&'a AuxiliaryPivotSpec>,
+}
+
+/// Decide one window's raw native matches with the shipped predicates.
 ///
 /// Runs inside the page loop, so the caller already holds the native call lock
 /// and passes the accelerator directly.
 fn filter_matches(
     accelerator: &Accelerator,
-    predicate: &AuxiliaryPivotSpec,
+    filter: &MatchFilter<'_>,
     raw: &[PivotMatch],
 ) -> Result<Vec<PivotMatch>, NativeSearchError> {
     if raw.is_empty() {
         return Ok(Vec::new());
     }
-    let seeds: Vec<u32> = raw.iter().map(|matched| matched.seed).collect();
-    let selected = accelerator.auxiliary_criteria_selected(predicate, &seeds)?;
-    Ok(raw
-        .iter()
-        .zip(selected)
-        .filter_map(|(matched, keep)| keep.then_some(*matched))
-        .collect())
+    let mut kept: Vec<PivotMatch> = raw.to_vec();
+    if let Some(primary) = filter.primary {
+        let seeds: Vec<u32> = kept.iter().map(|matched| matched.seed).collect();
+        let selected = accelerator.primary_effect_selected(primary, &seeds)?;
+        kept = kept
+            .into_iter()
+            .zip(selected)
+            .filter_map(|(matched, keep)| keep.then_some(matched))
+            .collect();
+    }
+    if let Some(auxiliary) = filter.auxiliary {
+        if !kept.is_empty() {
+            let seeds: Vec<u32> = kept.iter().map(|matched| matched.seed).collect();
+            let selected = accelerator.auxiliary_criteria_selected(auxiliary, &seeds)?;
+            kept = kept
+                .into_iter()
+                .zip(selected)
+                .filter_map(|(matched, keep)| keep.then_some(matched))
+                .collect();
+        }
+    }
+    Ok(kept)
 }
 
 /// Exact replay check: a returned match must reproduce from its own cursor.

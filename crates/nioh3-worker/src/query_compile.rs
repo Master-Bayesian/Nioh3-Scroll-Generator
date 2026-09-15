@@ -29,15 +29,22 @@ use crate::collector::{
     SearchCollector, SearchFactory,
 };
 use crate::native_search::{
-    Accelerator, AuxiliaryPivotSpec, ExecutionPolicy, NativeSearchError, R4PrimaryPivotSpec,
+    Accelerator, AuxiliaryPivotSpec, ExecutionPolicy, NativeSearchError, PrimaryEffectSpec,
+    R4PrimaryPivotSpec,
 };
 use crate::query::SearchQuery;
-use crate::search_backend::{NativePivotQuery, PageRequest, SearchBackend};
+use crate::search_backend::{MatchFilter, NativePivotQuery, PageRequest, SearchBackend};
 
 /// NG3 scroll record type (`NG3_RECORD_TYPE`).
 pub const NG3_RECORD_TYPE: u16 = 0xE604;
 /// The rarity whose stage-one mapping the R4 primary lookups use.
 const RARITY_FINALIZABLE: u8 = 4;
+/// The rarity whose primary lottery is rolled from the full seed family.
+const RARITY_GROWING: u8 = 3;
+/// The single special group a rarity-3 primary lottery is conditioned on.
+const RARITY3_PRIMARY_SPECIAL_ID: u32 = 0x0001;
+/// `_promotion_success_lookup(10)` for the rarity-3 primary lottery.
+const RARITY3_PRIMARY_PROMOTION_PERCENT: u32 = 10;
 /// The rarity-4 Grace map's effect slot (`_validate_rarity4_stage_mapping`).
 const R4_GRACE_SLOT: u8 = 5;
 
@@ -58,6 +65,8 @@ const AUXILIARY_CHUNK_TRIALS: u64 = 8_000_000;
 /// One native chunk of the R4 primary route
 /// (`pivot_seed_collector_chunk_trials`).
 const R4_PRIMARY_CHUNK_TRIALS: u64 = 50_000_000;
+/// One native chunk of the full-family replay (`MAX_NATURAL_TRIALS`).
+const FULL_FAMILY_CHUNK_TRIALS: u64 = 1_000_000;
 
 /// Which native route a compiled query uses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,6 +75,9 @@ pub enum Route {
     Auxiliary,
     /// Rarity-4 primary-effect pivot scan.
     R4Primary,
+    /// Plain natural pivot over the full family with the shipped batched
+    /// predicates: a rarity-3 primary search or an unconstrained search.
+    FullFamily,
 }
 
 /// One report stage: the declared kind and the user's values, in native order.
@@ -87,17 +99,26 @@ pub struct CompiledQuery {
     /// Report stages in native order; `stage_counts[1..]` lines up with these.
     pub stage_specs: Vec<StageSpec>,
     pub chunk_trials: u64,
-    /// The per-seed auxiliary predicate the collector must apply before it
-    /// returns matches whose pivot does not already pack the caller's
-    /// auxiliary criteria (the rarity-4 primary route).
+    /// The shipped predicates the page must apply before a raw match counts,
+    /// for routes whose pivot does not already pack the caller's criteria.
     ///
-    /// `None` means the route already packs them natively, so a second check
+    /// `None` means the route already decides them natively, so a second check
     /// would only cost time.
-    pub auxiliary_predicate: Option<AuxiliaryPivotSpec>,
+    pub page_filter: Option<PageFilter>,
     /// Filters the job layer must apply to accepted candidates, because the
     /// shipped worker applies them after materialization rather than as pivot
     /// constraints. Listed so they can never be silently dropped.
     pub post_acceptance_filters: Vec<&'static str>,
+}
+
+/// The shipped predicates one page applies before a raw match counts.
+///
+/// Mirrors the shipped prefetch order: the batched primary-effect predicate
+/// first (rarity-3 primary), then the auxiliary criteria for its survivors.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PageFilter {
+    pub primary: Option<PrimaryEffectSpec>,
+    pub auxiliary: Option<AuxiliaryPivotSpec>,
 }
 
 /// Why a query cannot be compiled into a native search.
@@ -236,6 +257,16 @@ impl QueryCompiler {
         if query.rarity == RARITY_FINALIZABLE && !query.primary_effect_ids.is_empty() {
             return self.compile_r4_primary(query, accelerator);
         }
+        // Rarity-3 primary and unconstrained searches are the shipped fixed-draw
+        // replay over the full seed family: the same family the plain natural
+        // pivot walks, with the caller's criteria decided by the shipped batched
+        // predicates before anything is composed.
+        if query.rarity == RARITY_GROWING && !query.primary_effect_ids.is_empty() {
+            return self.compile_full_family(query, accelerator);
+        }
+        if query.rarity != 5 && !query_has_effect_constraints(query) {
+            return self.compile_full_family(query, accelerator);
+        }
         if query.rarity == 5 {
             return Err(CompileError::unsupported(
                 "rarity-5 effect searches run through the effect-preimage accelerator, which this \
@@ -288,7 +319,7 @@ impl QueryCompiler {
             has_terrain_constraint,
             stage_specs,
             chunk_trials: AUXILIARY_CHUNK_TRIALS,
-            auxiliary_predicate: None,
+            page_filter: None,
             post_acceptance_filters: post_acceptance_filters(query),
         })
     }
@@ -391,10 +422,13 @@ impl QueryCompiler {
         // The rarity-4 pivot narrows on the primary effect only, so the caller's
         // auxiliary criteria are applied by the native per-seed predicate after
         // the page is collected, exactly where the shipped worker applies them.
-        let auxiliary_predicate = if auxiliary_is_empty(&query.auxiliary) {
-            None
-        } else {
-            Some(self.auxiliary_packing(query)?.0)
+        let page_filter = PageFilter {
+            primary: None,
+            auxiliary: if auxiliary_is_empty(&query.auxiliary) {
+                None
+            } else {
+                Some(self.auxiliary_packing(query)?.0)
+            },
         };
         let native = NativePivotQuery::R4Primary {
             values: self.full_family_values(),
@@ -409,8 +443,103 @@ impl QueryCompiler {
             has_terrain_constraint: false,
             stage_specs: Vec::new(),
             chunk_trials: R4_PRIMARY_CHUNK_TRIALS,
-            auxiliary_predicate,
+            page_filter: Some(page_filter),
             post_acceptance_filters: r4_primary_post_acceptance_filters(query),
+        })
+    }
+
+    /// The shipped fixed-draw replay over the full seed family.
+    ///
+    /// `fixed_draw_constraints` reduces a rarity-3 primary search and an
+    /// unconstrained search to the same `seed_space` constraint at draw 1, so
+    /// both walk the family the plain natural pivot enumerates. The criteria are
+    /// decided afterwards by the shipped batched predicates
+    /// (`effect_sequence.generate_ng3_rarity34_primary_effect_ids` for the
+    /// primary ids, then the auxiliary masks), which is why no candidate has to
+    /// be composed to reject a seed.
+    fn compile_full_family(
+        &self,
+        query: &SearchQuery,
+        accelerator: &Accelerator,
+    ) -> Result<CompiledQuery, CompileError> {
+        if !query.required_secondary_ids.is_empty()
+            || !query.required_secondary_id_groups.is_empty()
+            || !query.minimum_roll_percent_by_effect_id.is_empty()
+            || !query.grouped_rolls.is_empty()
+            || !query.effect_occurrences.is_empty()
+        {
+            return Err(CompileError::unsupported(
+                "secondary, roll and occurrence constraints are replayed per candidate and this \
+                 development worker does not compile that verification yet",
+            ));
+        }
+        let primary = if query.primary_effect_ids.is_empty() {
+            None
+        } else {
+            Some(self.primary_effect_spec(accelerator, query.rarity, &query.primary_effect_ids)?)
+        };
+        let auxiliary = if auxiliary_is_empty(&query.auxiliary) {
+            None
+        } else {
+            Some(self.auxiliary_packing(query)?.0)
+        };
+        let has_terrain_constraint = auxiliary
+            .as_ref()
+            .is_some_and(|spec| spec.has_terrain_constraint);
+        Ok(CompiledQuery {
+            route: Route::FullFamily,
+            digest: query.digest.clone(),
+            native: NativePivotQuery::Natural {
+                values: self.full_family_values(),
+            },
+            playthrough: query.playthrough,
+            rarity: query.rarity,
+            has_terrain_constraint,
+            stage_specs: Vec::new(),
+            chunk_trials: FULL_FAMILY_CHUNK_TRIALS,
+            page_filter: Some(PageFilter { primary, auxiliary }),
+            post_acceptance_filters: post_acceptance_filters(query),
+        })
+    }
+
+    /// `_ng3_rarity34_primary_lookup` plus the shipped rarity-3 draw parameters.
+    ///
+    /// Rarity 3 rolls its primary from the single special group `0x0001` with no
+    /// promotion draw before it; rarity 4 uses the Grace-context matrix and is
+    /// served by [`QueryCompiler::r4_primary_spec`] instead.
+    fn primary_effect_spec(
+        &self,
+        accelerator: &Accelerator,
+        rarity: u8,
+        primary_effect_ids: &[u32],
+    ) -> Result<PrimaryEffectSpec, CompileError> {
+        let mut allowed = sorted_unique(primary_effect_ids);
+        if allowed.is_empty() {
+            return Err(CompileError::Rejected(
+                "at least one primary effect must be selected".to_string(),
+            ));
+        }
+        let normal = self.primary_pool_for(rarity, RARITY3_PRIMARY_SPECIAL_ID, false)?;
+        let promoted = self.primary_pool_for(rarity, RARITY3_PRIMARY_SPECIAL_ID, true)?;
+        let lookup = |pool: &[(u32, u32)]| {
+            accelerator
+                .build_weighted_effect_lookup(pool)
+                .map_err(|error| {
+                    CompileError::data(format!(
+                        "native primary lottery for rarity {rarity}: {error:?}"
+                    ))
+                })
+        };
+        Ok(PrimaryEffectSpec {
+            allowed_effect_ids: std::mem::take(&mut allowed),
+            normal_lookup: lookup(&normal)?,
+            promoted_lookup: lookup(&promoted)?,
+            promotion_success_lookup: promotion_success_lookup(RARITY3_PRIMARY_PROMOTION_PERCENT),
+            random7_lookup: random_int_u8_lookup(7),
+            pre_promotion_draws: 0,
+            slot_limit: 4,
+            excluded_slot_mask: 0,
+            primary_source_index: 0,
         })
     }
 
@@ -705,7 +834,7 @@ impl QueryCompiler {
         let mut promoted = Vec::with_capacity(special_ids.len() * 0x1_0000);
         for special_id in &special_ids {
             for is_promoted in [false, true] {
-                let pool = self.primary_pool(*special_id, is_promoted)?;
+                let pool = self.primary_pool_for(RARITY_FINALIZABLE, *special_id, is_promoted)?;
                 let lookup = accelerator
                     .build_weighted_effect_lookup(&pool)
                     .map_err(|error| {
@@ -739,15 +868,18 @@ impl QueryCompiler {
         })
     }
 
-    fn primary_pool(
+    /// `_ng3_rarity34_primary_pool`: the seed-invariant primary lottery for one
+    /// rarity and special group.
+    fn primary_pool_for(
         &self,
+        rarity: u8,
         special_id: u32,
         promoted: bool,
     ) -> Result<Vec<(u32, u32)>, CompileError> {
         let request = CandidatePoolRequest {
             context: NativeWeightContext {
                 record_type: NG3_RECORD_TYPE,
-                rarity: RARITY_FINALIZABLE,
+                rarity,
                 playthrough: 3,
                 restricted_destination_slot: false,
                 extra_selector: 0,
@@ -757,7 +889,7 @@ impl QueryCompiler {
             destination_effect_flags: if promoted { EFFECT_FLAG_PROMOTED } else { 0 },
             remaining_category_capacities: self
                 .effect_index
-                .category_capacities(NG3_RECORD_TYPE, RARITY_FINALIZABLE)
+                .category_capacities(NG3_RECORD_TYPE, rarity)
                 .map_err(|error| CompileError::data(format!("category capacities: {error:?}")))?,
             special_effect_id: Some(special_id),
             alternate_runtime_context: false,
@@ -1048,9 +1180,17 @@ impl SearchCollector for NativeCollector {
             false,
         );
         // The page budget counts matches the caller actually accepts, exactly
-        // like the shipped solver: the native per-seed predicate runs inside the
-        // page loop, so a page whose candidates are all rejected still covers its
+        // like the shipped solver: the native predicates run inside the page
+        // loop, so a page whose candidates are all rejected still covers its
         // window in one scan instead of being truncated on raw native matches.
+        let page_filter = self
+            .compiled
+            .page_filter
+            .as_ref()
+            .map(|filter| MatchFilter {
+                primary: filter.primary.as_ref(),
+                auxiliary: filter.auxiliary.as_ref(),
+            });
         let page = self
             .backend
             .collect_page_filtered(
@@ -1069,7 +1209,7 @@ impl SearchCollector for NativeCollector {
                     );
                     progress(&latest);
                 },
-                self.compiled.auxiliary_predicate.as_ref(),
+                page_filter.as_ref(),
             )
             .map_err(|error| map_collector_error("collect page", &error))?;
 
@@ -1211,8 +1351,9 @@ mod tests {
                 .compile(&query, &accelerator)
                 .expect("the combined route compiles");
             let predicate = compiled
-                .auxiliary_predicate
+                .page_filter
                 .as_ref()
+                .and_then(|filter| filter.auxiliary.as_ref())
                 .expect("the combined route carries the native predicate");
             let page = backend
                 .collect_page(

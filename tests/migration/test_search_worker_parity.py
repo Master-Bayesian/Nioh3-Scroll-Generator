@@ -49,10 +49,11 @@ REGRESSION_TRIAL = 158614759
 TERMINAL_STATES = ("completed", "cancelled", "failed")
 POLL_SECONDS = 0.05
 
-# The M2.3b1 supported routes are the NG3 auxiliary route (terrain keys, special
-# rule keys and groups, enemy lookup keys and groups) and the R4 primary route.
-# An unconstrained query is an effect-constraint search, which runs through the
-# effect-preimage accelerator and is deliberately unsupported in this slice.
+# The supported routes are the NG3 auxiliary route (terrain keys, special rule
+# keys and groups, enemy lookup keys and groups), the R4 primary route, and the
+# shipped full-family replay that serves a rarity-3 primary search and an
+# unconstrained query. Rarity-5 effect searches, secondary/roll routes and the
+# effect-preimage family stay refused with their own named reasons.
 RULE_ROUTE_KEY = 113
 PRIMARY_ROUTE_EFFECT = 30543
 
@@ -731,37 +732,85 @@ class SearchWorkerParityTests(unittest.TestCase):
     def test_unported_effect_and_r3_routes_are_rejected(self) -> None:
         """Unsupported routes must reject explicitly, never run silently.
 
-        Recorded as an accepted M2.3b1 boundary, each arm naming its own actual
-        reason: an unconstrained query needs the effect-constraint replay route,
-        and a rarity-3 *primary* query needs the batched primary/replay route
-        (the native evidence shows it is not the effect-preimage DLL), so both
-        are refused with INVALID_REQUEST while the Python worker still serves
-        them. The auxiliary-only rarity-3 and rarity-5 routes are a different,
-        served surface and are gated separately.
+        The shipped full-family replay now serves a rarity-3 primary search and
+        an unconstrained query (batched primary ids, then the auxiliary masks),
+        so both must match the Python worker instead of being refused. The
+        routes that remain unported still reject with INVALID_REQUEST and their
+        own reason: a rarity-5 effect search needs the effect-preimage
+        accelerator, and a secondary/roll-constrained R4 route is replayed by
+        the job layer rather than by a pivot.
         """
 
-        # Each arm names the reason it actually misses. The rarity-3 primary
-        # message must not be the rarity-5 effect-preimage text: the native
-        # evidence shows that route is the full-family/batched-primary replay,
-        # so this arm requires its own reason word and forbids the wrong one.
-        cases = {
+        served = {
             "unconstrained": {
                 "query": base_query(),
-                "reason": "effect",
-                "forbidden": None,
             },
             "r3_primary": {
                 "query": base_query(
                     rarity=3, primary_effect_ids=[PRIMARY_ROUTE_EFFECT]
                 ),
-                "reason": "primary",
-                "forbidden": "effect-preimage",
+            },
+        }
+        refused = {
+            "r5_primary": {
+                "query": base_query(
+                    rarity=5, primary_effect_ids=[PRIMARY_ROUTE_EFFECT]
+                ),
+                "reason": "effect-preimage",
+            },
+            "r4_primary_plus_secondary": {
+                "query": base_query(
+                    primary_effect_ids=[PRIMARY_ROUTE_EFFECT],
+                    required_secondary_ids=[0x1234],
+                ),
+                "reason": "secondary",
             },
         }
         rust = self.rust_worker()
+        python = self.python_worker()
         try:
             context = self.handshake_context(rust)["context_digest"]
-            for name, case in cases.items():
+            python_context = self.handshake_context(python)["context_digest"]
+            for name, case in served.items():
+                with self.subTest(route=name):
+                    params = search_params(
+                        case["query"],
+                        context,
+                        result_count=2,
+                        page_trials=2_000_000,
+                        job_trials=2_000_000,
+                        **self.policy(),
+                    )
+                    rust_snapshot = wait_for_terminal(
+                        rust,
+                        rust.result("search.start", params, label=f"rust {name}")["job_id"],
+                        timeout=600,
+                    )
+                    python_snapshot = wait_for_terminal(
+                        python,
+                        python.result(
+                            "search.start",
+                            {**params, "context_digest": python_context},
+                            label=f"python {name}",
+                        )["job_id"],
+                        timeout=600,
+                    )
+                    self.assertEqual(
+                        candidate_seeds(rust_snapshot),
+                        candidate_seeds(python_snapshot),
+                        f"{name}: candidate identity or order differs from Python",
+                    )
+                    self.assertEqual(
+                        rust_snapshot["cursor"],
+                        python_snapshot["cursor"],
+                        f"{name}: cursor differs from the Python worker",
+                    )
+                    self.assertEqual(
+                        rust_snapshot["stop_reason"],
+                        python_snapshot["stop_reason"],
+                        f"{name}: stop reason differs from the Python worker",
+                    )
+            for name, case in refused.items():
                 with self.subTest(route=name):
                     reply = rust.call(
                         "search.start",
@@ -770,28 +819,22 @@ class SearchWorkerParityTests(unittest.TestCase):
                             context,
                             page_trials=1_000_000,
                             job_trials=1_000_000,
-                        ),
+                        )
                     )
                     self.assertFalse(
                         reply.get("ok"),
                         f"{name} must be refused, not silently searched: {reply}",
                     )
                     self.assertEqual(reply["error"]["code"], "INVALID_REQUEST")
-                    self.assertTrue(
-                        case["reason"] in reply["error"]["message"],
+                    self.assertIn(
+                        case["reason"],
+                        reply["error"]["message"],
                         f"{name} must name the missing route it actually needs "
                         f"(expected {case['reason']!r}): {reply['error']['message']}",
                     )
-                    if case["forbidden"] is not None:
-                        self.assertNotIn(
-                            case["forbidden"],
-                            reply["error"]["message"],
-                            f"{name} must not report the rarity-5 effect-preimage "
-                            "text for a route the native evidence shows is a "
-                            "different one",
-                        )
         finally:
             rust.close()
+            python.close()
 
     def test_r3_and_r5_auxiliary_only_routes_match_the_python_worker(self) -> None:
         """Auxiliary-only pages are served at every certified rarity.
