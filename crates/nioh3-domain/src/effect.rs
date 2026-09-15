@@ -20,6 +20,9 @@ pub const CATEGORY_COUNT_MULTIPLIER_ROW_BYTES: usize = 0x20;
 pub const OPTIONAL_MULTIPLIER_ROW_BYTES: usize = 0x20;
 pub const RARITY_ROLL_ROW_BYTES: usize = 248;
 pub const LEVEL_CURVE_ROW_BYTES: usize = 10;
+/// Row size of the shipped `special_context` table consumed by the recovered
+/// auxiliary-mode and R4 finalizer weight-slot paths.
+pub const SPECIAL_CONTEXT_ROW_BYTES: usize = 48;
 /// Rows in the rarity-roll table; one per rarity index 0..=5.
 pub const RARITY_ROLL_ROW_COUNT: usize = 6;
 /// Width of the native per-slot category capacity vector built at RVA 0x91B6E8.
@@ -109,6 +112,10 @@ pub enum EffectError {
     UnsupportedDestinationFlag,
     /// A type-class-5 weight needed an optional multiplier key the table lacks.
     MissingOptionalMultiplier { lookup_key: u32 },
+    /// A category-count multiplier key is absent from the shipped table.
+    MissingCategoryCountMultiplier { lookup_key: u32 },
+    /// An auxiliary mode resolved to more than one `special_context` row.
+    AmbiguousSpecialContext { mode: u8 },
     /// A binary32 intermediate was not finite, so the reference's `int()` fails.
     NonFiniteIntermediate { stage: &'static str },
     /// A binary32 intermediate was outside the truncation contract.
@@ -300,6 +307,15 @@ fn i16_at(row: &[u8], offset: usize) -> i16 {
     i16::from_le_bytes([row[offset], row[offset + 1]])
 }
 
+fn i32_at(row: &[u8], offset: usize) -> i32 {
+    i32::from_le_bytes([
+        row[offset],
+        row[offset + 1],
+        row[offset + 2],
+        row[offset + 3],
+    ])
+}
+
 fn f32_at(row: &[u8], offset: usize) -> f32 {
     f32::from_le_bytes([
         row[offset],
@@ -313,19 +329,19 @@ fn f32_at(row: &[u8], offset: usize) -> f32 {
 // each operands is already binary32, so widening to binary64, applying the
 // operation and rounding back reproduces the reference's intermediate value,
 // including its double-rounding behaviour.
-fn f32_mul(left: f32, right: f32) -> f32 {
+pub(crate) fn f32_mul(left: f32, right: f32) -> f32 {
     (f64::from(left) * f64::from(right)) as f32
 }
 
-fn f32_add(left: f32, right: f32) -> f32 {
+pub(crate) fn f32_add(left: f32, right: f32) -> f32 {
     (f64::from(left) + f64::from(right)) as f32
 }
 
-fn f32_sub(left: f32, right: f32) -> f32 {
+pub(crate) fn f32_sub(left: f32, right: f32) -> f32 {
     (f64::from(left) - f64::from(right)) as f32
 }
 
-fn f32_div(left: f32, right: f32) -> f32 {
+pub(crate) fn f32_div(left: f32, right: f32) -> f32 {
     (f64::from(left) / f64::from(right)) as f32
 }
 
@@ -334,7 +350,7 @@ fn f32_div(left: f32, right: f32) -> f32 {
 /// The reference truncates toward zero and raises on non-finite input; the
 /// integer result is not bounded, so anything outside the `i64` contract is
 /// rejected instead of silently saturating.
-fn trunc_f32(value: f32, stage: &'static str) -> Result<i64, EffectError> {
+pub(crate) fn trunc_f32(value: f32, stage: &'static str) -> Result<i64, EffectError> {
     if !value.is_finite() {
         return Err(EffectError::NonFiniteIntermediate { stage });
     }
@@ -536,11 +552,29 @@ pub struct EffectGroupDefinition {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CategoryDefinition {
+    /// Row index inside the category table. The mode-0x12 category lottery is
+    /// order-sensitive, so the reference iterates rows, not sorted keys.
+    pub row_index: usize,
     pub category_key: u16,
     pub rarity_capacities: [u16; 6],
     pub mode12_lottery_weight: u16,
     pub mode12_capacity: u16,
     pub mode12_count_multiplier_key: u16,
+}
+
+/// One 48-byte `special_context` row used by the auxiliary and weight-slot
+/// paths.
+///
+/// `mode` is the recovered descriptor byte `+0x1E` (`row +0x28`); the
+/// remaining fields are the ones the recovered code reads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SpecialContextDefinition {
+    /// Auxiliary mode byte at `+0x28`.
+    pub mode: u8,
+    /// Auxiliary branch class at `+0x29`.
+    pub branch_class: u8,
+    /// Bit 0 of `+0x2F`: the finalizer moves to weight slots `0x3D`/`0x3E`.
+    pub reveal_weight_flag: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -610,6 +644,9 @@ impl EffectDefinition {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct OptionalMultiplierDefinition {
     pub lookup_key: u32,
+    /// Signed base at `+0x10`; the auxiliary lottery multiplies it by
+    /// [`Self::multiplier`] to build its integer threshold.
+    pub base_value: i32,
     pub multiplier: f32,
 }
 
@@ -682,6 +719,9 @@ pub struct EffectTableIndex {
     pub optional_multipliers_by_key: BTreeMap<u32, OptionalMultiplierDefinition>,
     /// Rarity rows 0..=5 from the rarity-roll table.
     pub rarity_generation: Vec<RarityGenerationDefinition>,
+    /// `special_context` rows in table order, as the auxiliary and finalizer
+    /// weight-slot paths consume them.
+    pub special_context: Vec<SpecialContextDefinition>,
     /// Playthrough selectors 1..=5 as four `u32` progress values each; the
     /// vector index is `selector - 1`.
     pub playthrough_progress: Vec<[u32; 4]>,
@@ -718,6 +758,11 @@ impl EffectTableIndex {
             "level_curve",
             resource.level_curve.row_size,
             LEVEL_CURVE_ROW_BYTES,
+        )?;
+        expect_stride(
+            "special_context",
+            resource.special_context.row_size,
+            SPECIAL_CONTEXT_ROW_BYTES,
         )?;
 
         let mut items = BTreeMap::new();
@@ -773,6 +818,7 @@ impl EffectTableIndex {
                 &mut categories,
                 u16_at(row, 0x08),
                 CategoryDefinition {
+                    row_index: index,
                     category_key: u16_at(row, 0x08),
                     rarity_capacities,
                     mode12_lottery_weight: u16_at(row, 0x5A),
@@ -857,6 +903,7 @@ impl EffectTableIndex {
                 .expect("row in range");
             let definition = OptionalMultiplierDefinition {
                 lookup_key: u32_at(row, 0x14),
+                base_value: i32_at(row, 0x10),
                 multiplier: f32_at(row, 0x18),
             };
             insert_unique(
@@ -882,6 +929,19 @@ impl EffectTableIndex {
                 total_slot_count: u32_at(row, 0x4C),
                 promotion_trials: u32_at(row, 0x58),
                 promotion_probability_percent: f32_at(row, 0xDC),
+            });
+        }
+
+        let mut special_context = Vec::with_capacity(resource.special_context.row_count());
+        for index in 0..resource.special_context.row_count() {
+            let row = resource
+                .special_context
+                .row(index)
+                .expect("row index within count");
+            special_context.push(SpecialContextDefinition {
+                mode: row[0x28],
+                branch_class: row[0x29],
+                reveal_weight_flag: row[0x2F] & 0x01 != 0,
             });
         }
 
@@ -926,6 +986,7 @@ impl EffectTableIndex {
             effects_in_row_order,
             optional_multipliers_by_key: optional_multipliers,
             rarity_generation,
+            special_context,
             playthrough_progress,
             level_curve,
         })
@@ -1041,6 +1102,56 @@ impl EffectTableIndex {
             .ok_or(EffectError::MissingOptionalMultiplier { lookup_key })
     }
 
+    /// Optional-multiplier row with its signed base, for the auxiliary lottery.
+    pub fn optional_multiplier_row(
+        &self,
+        lookup_key: u32,
+    ) -> Result<&OptionalMultiplierDefinition, EffectError> {
+        self.optional_multipliers_by_key
+            .get(&lookup_key)
+            .ok_or(EffectError::MissingOptionalMultiplier { lookup_key })
+    }
+
+    /// Category-count multiplier selected by the recovered RVA 0x3DADC4 path.
+    ///
+    /// The reference indexes the row's seven `f32` values by the live category
+    /// count and falls back to slot zero once the count reaches the row width.
+    pub fn category_count_multiplier(
+        &self,
+        lookup_key: u32,
+        count: usize,
+    ) -> Result<f32, EffectError> {
+        let definition = self
+            .count_multipliers_by_key
+            .get(&lookup_key)
+            .ok_or(EffectError::MissingCategoryCountMultiplier { lookup_key })?;
+        let index = if count < definition.multipliers.len() {
+            count
+        } else {
+            0
+        };
+        Ok(definition.multipliers[index])
+    }
+
+    /// The unique `special_context` row carrying one auxiliary mode byte.
+    ///
+    /// Duplicate modes are rejected instead of silently taking the first row,
+    /// matching the reference's uniqueness check.
+    pub fn special_context_row_for_mode(
+        &self,
+        mode: u8,
+    ) -> Result<Option<&SpecialContextDefinition>, EffectError> {
+        let mut matched = self
+            .special_context
+            .iter()
+            .filter(|definition| definition.mode == mode);
+        let first = matched.next();
+        if matched.next().is_some() {
+            return Err(EffectError::AmbiguousSpecialContext { mode });
+        }
+        Ok(first)
+    }
+
     /// Rarity row, mirroring `rarity_generation[rarity]`.
     pub fn rarity_generation(&self, rarity: u8) -> Result<RarityGenerationDefinition, EffectError> {
         self.rarity_generation
@@ -1121,12 +1232,6 @@ impl EffectTableIndex {
                 rarity: context.rarity,
             });
         }
-        let effect = self
-            .effects_by_id
-            .get(&effect_id)
-            .ok_or(EffectError::UnknownEffect {
-                effect_id: u32::from(effect_id),
-            })?;
         let weight_slot = if context.restricted_destination_slot {
             0x29
         } else {
@@ -1134,6 +1239,39 @@ impl EffectTableIndex {
             // branch, which `EffectDefinition::slot_weight` already models.
             usize::try_from(item.field_15c).unwrap_or(usize::MAX)
         };
+        self.native_effect_weight_with_slot(effect_id, context, weight_slot)
+    }
+
+    /// [`Self::native_effect_weight`] with an explicit weight-slot selector.
+    ///
+    /// The recovered R4 finalizer substitutes slots `0x3C`/`0x3D`/`0x3E` for
+    /// the item row's `+0x15C` selector, so the slot is an input rather than a
+    /// derived field. Out-of-range selectors keep the native "weight 0" branch.
+    pub fn native_effect_weight_with_slot(
+        &self,
+        effect_id: u16,
+        context: NativeWeightContext,
+        weight_slot: usize,
+    ) -> Result<i64, EffectError> {
+        let item = self.item(context.record_type)?;
+        if item.mode != SCROLL_ITEM_MODE {
+            return Err(EffectError::UnexpectedMode {
+                table: "item",
+                record_type: context.record_type,
+                mode: item.mode,
+            });
+        }
+        if context.rarity > 5 {
+            return Err(EffectError::UnsupportedRarity {
+                rarity: context.rarity,
+            });
+        }
+        let effect = self
+            .effects_by_id
+            .get(&effect_id)
+            .ok_or(EffectError::UnknownEffect {
+                effect_id: u32::from(effect_id),
+            })?;
         let type_class = type_class_for_record_type(
             context.record_type,
             context.rarity,
@@ -1468,7 +1606,10 @@ fn progress_value_for(progress: &[u32; 4], threshold: u16) -> u32 {
     progress[progress_bucket(threshold)]
 }
 
-fn groups_conflict(candidate: &EffectGroupDefinition, existing: &EffectGroupDefinition) -> bool {
+pub(crate) fn groups_conflict(
+    candidate: &EffectGroupDefinition,
+    existing: &EffectGroupDefinition,
+) -> bool {
     candidate.group_key == existing.group_key
         || candidate.conflict_mask_0 & existing.conflict_mask_0 != 0
         || candidate.conflict_mask_1 & existing.conflict_mask_1 != 0

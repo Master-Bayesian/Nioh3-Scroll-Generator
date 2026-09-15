@@ -7,6 +7,7 @@ pub mod context;
 pub mod effect;
 pub mod enemy;
 pub mod preview;
+pub mod r4_finalizer;
 pub mod record;
 pub mod rng;
 pub mod roster;

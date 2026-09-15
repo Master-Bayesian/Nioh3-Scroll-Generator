@@ -31,10 +31,13 @@ M2.1 adds the ordinary NG3 scroll-record/effect-sequence slice with an offline
 cross-language parity gate (549 emitted rows, zero differences, including a
 216-row cross-level sweep through the curve clamp, three native byte anchors)
 and a permanent adapter content-parity guard; it is local offline evidence with
-no product cutover. The R4 finalized record, GenerationContext digest binding,
-candidate identity and the read-only worker cutover remain future work, and save
-writes stay out of this line. Nothing in this section is packaged, tagged, or
-published.
+no product cutover. M2.2 adds R4 completion finalization and the paired
+stage-one/install and finalized/preview records, byte-exact against all ten
+tracked 232-byte native pairs through the same adapter, with a measured
+reveal-branch comparison and an effect-area level-sensitivity measurement;
+GenerationContext digest binding, candidate identity and the read-only worker
+cutover remain future work, and save writes stay out of this line. Nothing in
+this section is packaged, tagged, or published.
 
 ## v0.7.4 published release
 

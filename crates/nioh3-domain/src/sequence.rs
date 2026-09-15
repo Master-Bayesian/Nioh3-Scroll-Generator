@@ -11,6 +11,7 @@ use crate::effect::{
     CandidatePoolRequest, EffectError, EffectTableIndex, GraceMap, NativeWeightContext,
     PromotedSlotRequest, CATEGORY_CAPACITY_SLOTS, EFFECT_FLAG_PRIMARY, EFFECT_FLAG_PROMOTED,
 };
+use crate::record::{Rarity4RecordPair, RecordError, ScrollRecordBytes};
 use crate::record::{ScrollEffect, ScrollRecord};
 use crate::rng::{f32_of, LcgStream};
 
@@ -58,11 +59,29 @@ pub enum SequenceError {
     CategoryCapacityUnderflow { category: u8 },
     /// The claimed draw count disagrees with the draws actually consumed.
     DrawCountMismatch { expected: u32, actual: u64 },
+    /// A recovered record codec or context guard rejected the input.
+    Record(RecordError),
+    /// A record of another scroll type was handed to an NG3 materializer.
+    TemplateRecordType { record_type: u16 },
+    /// The R4 finalizer rejected the stage-one record it was given.
+    Finalizer(crate::r4_finalizer::R4FinalizerError),
 }
 
 impl From<EffectError> for SequenceError {
     fn from(error: EffectError) -> Self {
         Self::Table(error)
+    }
+}
+
+impl From<RecordError> for SequenceError {
+    fn from(error: RecordError) -> Self {
+        Self::Record(error)
+    }
+}
+
+impl From<crate::r4_finalizer::R4FinalizerError> for SequenceError {
+    fn from(error: crate::r4_finalizer::R4FinalizerError) -> Self {
+        Self::Finalizer(error)
     }
 }
 
@@ -283,6 +302,103 @@ pub fn generate_ng3_rarity5_effect_sequence(
     level: u16,
 ) -> Result<ScrollRecord, SequenceError> {
     generate_rarity5_grace_effect_sequence(index, grace_map, NG3_PLAYTHROUGH, seed, level)
+}
+
+/// Bind one NG3 rarity-4 stage-one sequence to a real save template.
+///
+/// Mirrors `effect_sequence.materialize_ng3_rarity4_stage_one_record`: every
+/// template byte outside the lineage fields, the rarity pair, the challenge
+/// count, the seven effect slots and the transfer count is preserved verbatim.
+/// The result is an internal native generation stage and is deliberately not a
+/// safe install artifact on its own; use
+/// [`materialize_ng3_rarity4_final_record`] for the paired outputs.
+///
+/// The reference's range checks on `seed`, `level`, `recommended_level`,
+/// `generation_serial` and `transfer_count` are structural here: every one of
+/// them is already a `u32`/`u16`.
+// The positional parameter list mirrors the reference materializer's keyword
+// arguments one-for-one, so callers and the parity gate stay directly
+// comparable.
+#[allow(clippy::too_many_arguments)]
+pub fn materialize_ng3_rarity4_stage_one_record(
+    index: &EffectTableIndex,
+    stage_one_grace_map: &GraceMap,
+    template: &ScrollRecordBytes,
+    seed: u32,
+    level: u16,
+    recommended_level: u16,
+    generation_serial: u32,
+    transfer_count: u32,
+) -> Result<(ScrollRecordBytes, ScrollRecord), SequenceError> {
+    let template_type = template.record_type();
+    if template_type != NG3_RECORD_TYPE {
+        return Err(SequenceError::TemplateRecordType {
+            record_type: template_type,
+        });
+    }
+    let sequence =
+        generate_ng3_rarity4_stage_one_effect_sequence(index, stage_one_grace_map, seed, level)?;
+
+    let mut record = template.clone();
+    // +0x0C is the R4 completion salt, not a lineage field. A newly generated
+    // stage-one record starts from the canonical zero salt used by the native
+    // receive path, so an inherited non-zero salt cannot shift the finalizer
+    // RNG stream away from the game-closed preview.
+    record.write_u16(0x0C, 0)?;
+    record.write_u16(0x06, level)?;
+    record.write_u16(0x08, level)?;
+    record.write_u16(0x10, recommended_level)?;
+    record.write_u16(0x12, recommended_level)?;
+    record.write_u32(0x20, seed)?;
+    record.write_u32(0x28, generation_serial)?;
+    record.write_u8(0x30, RARITY_FINALIZABLE)?;
+    record.write_u8(0x31, RARITY_FINALIZABLE)?;
+    record.write_u8(0x33, challenge_attempt_count_byte(seed))?;
+    record.write_bytes(
+        crate::record::EFFECT_SLOT_BASE,
+        &sequence.serialize_rarity4_stage_one_slots()?,
+    )?;
+    record.write_u32(0xDC, transfer_count)?;
+    Ok((record, sequence))
+}
+
+/// Build the paired rarity-4 outputs for one template.
+///
+/// Composes the stage-one materializer with the native completion pass, so the
+/// returned pair carries both the record the save must receive and the preview
+/// the game's reveal path will produce.
+// See [`materialize_ng3_rarity4_stage_one_record`] for why the argument list is
+// positional and complete.
+#[allow(clippy::too_many_arguments)]
+pub fn materialize_ng3_rarity4_final_record(
+    index: &EffectTableIndex,
+    stage_one_grace_map: &GraceMap,
+    template: &ScrollRecordBytes,
+    seed: u32,
+    level: u16,
+    recommended_level: u16,
+    generation_serial: u32,
+    transfer_count: u32,
+) -> Result<Rarity4RecordPair, SequenceError> {
+    let (stage_one, sequence) = materialize_ng3_rarity4_stage_one_record(
+        index,
+        stage_one_grace_map,
+        template,
+        seed,
+        level,
+        recommended_level,
+        generation_serial,
+        transfer_count,
+    )?;
+    let finalizer = crate::r4_finalizer::R4FinalizerEngine::new(index)?;
+    Ok(finalizer.build_rarity4_pair(&stage_one, sequence.final_rng_state)?)
+}
+
+/// Challenge attempt count as the serialized byte at `+0x33`.
+fn challenge_attempt_count_byte(seed: u32) -> u8 {
+    // `generate_challenge_attempt_count` is bounded by
+    // `MIN_CHALLENGE_ATTEMPTS..=MAX_CHALLENGE_ATTEMPTS`, so the cast is exact.
+    generate_challenge_attempt_count(seed) as u8
 }
 
 /// Identity carried by every ordinary sequence path.

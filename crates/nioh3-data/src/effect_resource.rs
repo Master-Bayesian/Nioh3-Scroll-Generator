@@ -458,6 +458,110 @@ mod tests {
     }
 
     #[test]
+    fn loads_shipped_finalizer_inputs_for_the_completion_path() {
+        let resource = load_effect_resource(&shipped_data_root()).expect("shipped resource loads");
+        let u32_at = |row: &[u8], offset: usize| {
+            u32::from_le_bytes(row[offset..offset + 4].try_into().unwrap())
+        };
+        let i32_at = |row: &[u8], offset: usize| {
+            i32::from_le_bytes(row[offset..offset + 4].try_into().unwrap())
+        };
+        let f32_at = |row: &[u8], offset: usize| {
+            f32::from_le_bytes(row[offset..offset + 4].try_into().unwrap())
+        };
+
+        // `special_context` drives the reveal branch of the weight-slot selector
+        // (`r4_finalizer_engine._weight_slot`): the mode byte is matched at
+        // +0x28 and the reveal flag is bit 0 of +0x2F. Both branches must be
+        // represented or the shipped tables would only cover the ordinary slot.
+        assert_eq!(resource.special_context.row_size, 48);
+        assert_eq!(resource.special_context.row_count(), 7);
+        let mut contexts = Vec::new();
+        for index in 0..resource.special_context.row_count() {
+            let row = resource.special_context.row(index).expect("row in range");
+            contexts.push((row[0x28], row[0x29], row[0x2F] & 0x01));
+        }
+        assert_eq!(
+            contexts,
+            vec![
+                (0x57, 0, 1),
+                (0x6F, 0, 1),
+                (0x4C, 1, 0),
+                (0x7D, 1, 1),
+                (0x48, 2, 0),
+                (0x8E, 2, 0),
+                (0x62, 2, 0),
+            ]
+        );
+        assert!(contexts.iter().any(|(_, _, reveal)| *reveal == 1));
+        assert!(contexts.iter().any(|(_, _, reveal)| *reveal == 0));
+
+        // The auxiliary-mode threshold row (`generate_auxiliary_mode`, key
+        // 0x1E7D) is the single 0x20-byte `optional_multiplier` row whose key
+        // sits at +0x14; the finalizer needs its +0x10 base and +0x18 scale.
+        assert_eq!(resource.optional_multiplier.row_size, 0x20);
+        let mut matches = Vec::new();
+        for index in 0..resource.optional_multiplier.row_count() {
+            let row = resource
+                .optional_multiplier
+                .row(index)
+                .expect("row in range");
+            if u32_at(row, 0x14) == 0x1E7D {
+                matches.push(index);
+            }
+        }
+        assert_eq!(matches, vec![2259]);
+        let threshold_row = resource
+            .optional_multiplier
+            .row(2259)
+            .expect("row in range");
+        assert_eq!(i32_at(threshold_row, 0x10), 2000);
+        assert_eq!(f32_at(threshold_row, 0x18), 1.0);
+
+        // Playthrough selector 3 (index 2) is the only progress vector the
+        // finalizer is certified for, and it must not be all zeroes.
+        assert_eq!(resource.playthrough_progress.len(), 5 * 4 * 4);
+        let selector = |index: usize| -> [u32; 4] {
+            let base = index * 16;
+            let mut values = [0u32; 4];
+            for (slot, value) in values.iter_mut().enumerate() {
+                let offset = base + slot * 4;
+                *value = u32::from_le_bytes(
+                    resource.playthrough_progress[offset..offset + 4]
+                        .try_into()
+                        .unwrap(),
+                );
+            }
+            values
+        };
+        assert_eq!(selector(2), [6510, 7710, 0, 7710]);
+        assert_ne!(selector(2), [0, 0, 0, 0]);
+
+        // The stage-one materializer consumes the rarity-4 Grace map.
+        assert_eq!(resource.grace_maps[0].rarity, 4);
+        assert_eq!(resource.grace_maps[0].effect_slot, 5);
+        assert_eq!(resource.grace_maps[0].ranges.len(), 21);
+    }
+
+    #[test]
+    fn rejects_resource_missing_a_finalizer_table() {
+        let root = scratch_dir("missing-special-context");
+        let root = write_synthetic_root(&root, |manifest, _root| {
+            let tables = manifest["tables"]
+                .as_array_mut()
+                .expect("synthetic manifest declares tables");
+            tables.retain(|table| {
+                table.get("name").and_then(Value::as_str) != Some("special_context")
+            });
+        });
+        let error = load_effect_resource(&root).expect_err("missing finalizer table is rejected");
+        assert!(
+            error.to_string().contains("special_context"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
     fn rejects_altered_table_digest() {
         let root = scratch_dir("altered-digest");
         let root = write_synthetic_root(&root, |_manifest, root| {
