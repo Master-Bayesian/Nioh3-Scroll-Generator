@@ -1,8 +1,8 @@
 # Current project handoff — 2026-09-14
 
-## v0.7.4 final product gates
+## v0.7.4 published release
 
-The current release-candidate scope includes two final product changes. The
+The published v0.7.4 scope includes two shipped product changes. The
 official Nioh 3 manual confirms the player-facing enemy-state terminology as
 zh-CN `地狱附身`, en-US `Crucible Wraith`, and ja-JP `地獄憑き`; internal
 `possessed` identifiers must not be presented as the official English label.
@@ -10,21 +10,21 @@ The packaged app now performs one update check after updater startup readiness
 on every launch, prompts once when a newer version is found, defers that prompt
 while another dialog is open, and retains a working manual Settings check.
 The controller, isolated update UI, and native WebView2 surfaces have passed
-bounded acceptance. Packaged update-feed behavior and the final outer EXE still
-require candidate acceptance before publication.
+bounded acceptance. Packaged update-feed behavior and the final outer EXE also
+passed hosted and public acceptance; publication is complete.
 
 ## Status and entry points
 
-**Current stable release:** Tauri v0.7.3 is public and is GitHub's latest stable
+**Current stable release:** Tauri v0.7.4 is public and is GitHub's latest stable
 release. The immutable product commit is
-`893996e4c11a9b0c20b125c696c89a0a47ec9048`, annotated tag object
-`84218abf850282f9b8da34d3aaa325c795727878`, and successful hosted release run
-`34690776011`. Read [the publication record](TAURI_V073_PUBLICATION_20260912.md)
+`df438ed3a9a1b92e68b3c77da0b1c094e0663327`, annotated tag object
+`dd1057d775c168f1978845a1779880ec8a098aee`, and successful hosted release run
+`34921969962`. Read [the publication record](TAURI_V074_PUBLICATION_20260915.md)
 and [the release runbook](RELEASE_RUNBOOK.md).
 
 The player download is the true single-file outer executable
-`Nioh3Studio-0.7.3-win-x64.exe`, 30,724,544 bytes, SHA-256
-`2c1766751b0746eede917b04e2f4edac9b4c3348893349e2de4c3e38e84f9513`.
+`Nioh3Studio-0.7.4-win-x64.exe`, 30,862,753 bytes, SHA-256
+`634315acf853fc1b9a722a1b34fc7ee1734b4023fd0dfd0d555060b8905cd4e9`.
 It does not require an installer, manual extraction, Python, Node.js, Electron,
 or Cheat Engine. On launch it validates and extracts its embedded runtime into
 a bounded LocalAppData cache and uses the Windows WebView2 system runtime.
@@ -34,9 +34,9 @@ and restart, and public-release redownload verification all passed with zero
 game writes.
 
 Exact hosted assets and acceptance evidence are under
-`F:/Nioh3_ScrollEditor/deliverables/releases/0.7.3-hosted-34690776011/`.
+`F:/Nioh3_ScrollEditor/deliverables/v074-hosted-candidate-df438ed-20260915/`.
 An independent redownload of all public assets is under
-`F:/Nioh3_ScrollEditor/deliverables/releases/0.7.3-public-verification-20260912/`.
+`F:/Nioh3_ScrollEditor/deliverables/releases/0.7.4-public-verification-20260915/`.
 The earlier local one-file and installer candidates remain historical and are
 not the published product.
 
@@ -115,9 +115,9 @@ The subsequent final-package favorites -> cart subset -> native insertion was ve
 
 ## Current source and testing
 
-The immutable v0.7.3 product commit is
-`893996e4c11a9b0c20b125c696c89a0a47ec9048`. Hosted acceptance passed 631
-discovered Python tests with the documented hardware skips, 57 Node tests,
+The immutable v0.7.4 product commit is
+`df438ed3a9a1b92e68b3c77da0b1c094e0663327`. Hosted acceptance passed 671
+discovered Python tests with the documented hardware skips, 61 Node tests,
 TypeScript checking, both Rust test groups, catalog and locale drift checks,
 packaged R3/R4/R5 parity, real WebView2 workflows, the complete responsive UI
 matrix, synthetic encrypted-save operations, single-file direct launch, and a
@@ -164,18 +164,20 @@ The RC follow-up added distinct-slot effect requirements, between-item live batc
   receipt exists; ambiguous failures still retain ownership.
 - The v0.7.2 UI supports shared exact values for grouped rule families, keeps
   default filters empty, and makes Add to cart visually prominent.
-- Exact published v0.7.3 assets and evidence:
-  `F:/Nioh3_ScrollEditor/deliverables/releases/0.7.3-hosted-34690776011/` and
-  `F:/Nioh3_ScrollEditor/deliverables/releases/0.7.3-public-verification-20260912/`.
+- Exact published v0.7.4 assets and evidence:
+  `F:/Nioh3_ScrollEditor/deliverables/v074-hosted-candidate-df438ed-20260915/` and
+  `F:/Nioh3_ScrollEditor/deliverables/releases/0.7.4-public-verification-20260915/`.
 
 ## Remaining work and constraints
 
 Three UI languages are enabled; native-speaker review remains separate.
 Production UI code is in `apps/workshop`. Favorites and cart each cap at 50;
 favorites persist exact broker-owned candidate transfers. The web edition is
-deferred. Native possessed-enemy research is active as bounded read-only
-evidence collection. Read [the current resume and evidence record](POSSESSED_ENEMY_RESEARCH_RESUME_20260912.md)
-and [the prior freeze](CRUCIBLE_POSSESSED_RESEARCH_FREEZE_20260911.md). Seed
+deferred. The shipped Crucible Wraith feature and its research boundary are
+recorded in [the Pro integration record](ENEMY_STATES_PRO_INTEGRATION_20260914.md).
+The chronological capture history below remains supporting evidence; read
+[the earlier resume](POSSESSED_ENEMY_RESEARCH_RESUME_20260912.md) and
+[the prior freeze](CRUCIBLE_POSSESSED_RESEARCH_FREEZE_20260911.md). Seed
 `86872488` remains invalid as a seed-only positive because possession differs
 between normal solo and a one-person expedition.
 
@@ -431,8 +433,8 @@ the complete Python suite at 1,252 passed with 7 skips. No UI/worker or release
 claim follows from this capture; this remains a backend/reference foundation,
 not a shipped filter or release feature.
 
-The enemy-state product integration is now present in the working tree under a
-revised owner-approved boundary. The NG3 search and preview flow uses the
+The enemy-state product integration shipped in v0.7.4 under a revised
+owner-approved boundary. The NG3 search and preview flow uses the
 ordinary solo roster. Its only user-facing enemy-state control is an iOS-style
 Crucible Wraith (地狱附身) switch, offered only for exact identities with a valid
 native-table-eligible low-pool variant. The catalog marks 50 capable groups;
@@ -453,13 +455,13 @@ absent for ineligible low-pool and high-pool identities, and that the enemy
 list frame and enemy-only combination help are present. It covered `zh-CN`,
 `en-US`, and `ja-JP`, maximized-window layout, no overflow, and paired
 12px/16.8px label-value typography for recommendation level and
-challenge-count fields. ScrollCard Crucible Wraith markers are fixed-width
-icons immediately after the enemy name, center-aligned rather than placed in a
+challenge-count fields. ScrollCard Crucible Wraith markers are compact text
+labels immediately after the enemy name, center-aligned rather than placed in a
 separate right-justified column; the measured gap is about 3.0px, center delta about
 0.54px, and row-center delta about 0.55px. Verification totals are 1,258 Python tests passed / 7
 skipped, 61 desktop tests passed, and 596 localized messages audited.
-This remains an unpublished working-tree feature: no packaged release,
-live-game write, save mutation, or persistence acceptance is claimed. The
+This feature is packaged and published in v0.7.4. Its acceptance did not add a
+live-game write, save mutation, or persistence claim. The
 feature record is maintained in [the product catalog](../product/FEATURES.md);
 the research and fixture boundary remains documented in
 [the Pro integration record](ENEMY_STATES_PRO_INTEGRATION_20260914.md).
@@ -468,11 +470,11 @@ The same native WebView2 acceptance also covers the current UI micro-tuning.
 The former top explanatory banner is removed, with its explanation incorporated
 into the equipment and mission columns. The usage/help entry is in the selected-
 conditions title bar; that panel has more vertical space, and enemy conditions
-use a compact single-line layout. Crucible Wraith markers are fixed-width icons
-inline after the enemy name and center-aligned. The interface-font-size setting is removed. Favorite
+use a compact single-line layout. Crucible Wraith markers are compact localized
+text immediately after the enemy name and are center-aligned. The
+interface-font-size setting is removed. Favorite
 cards use the same fixed geometry as the main preview and support local search
-over scroll ID and visible card metadata. These are observed in the
-unpublished working tree under bounded native WebView2 acceptance only; they
-are not packaged or published, and no live-game write, save, or persistence
-acceptance is claimed. The bounded measurements are stored locally at
+over scroll ID and visible card metadata. These changes are packaged and
+published in v0.7.4; no live-game write, save, or persistence acceptance is
+claimed. The bounded measurements are stored locally at
 `deliverables/v074-ui-acceptance-20260914/verification.json`.

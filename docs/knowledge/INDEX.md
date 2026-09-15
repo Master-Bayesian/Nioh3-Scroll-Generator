@@ -148,6 +148,8 @@ global semantic key.
   publication record; current handoff says v0.7.2 is draft.
 - [Tauri v0.7.3 publication](TAURI_V073_PUBLICATION_20260912.md) — historical
   public-release evidence for the current stable release before v0.7.4.
+- [Tauri v0.7.4 publication](TAURI_V074_PUBLICATION_20260915.md) — current
+  public-release evidence.
 - [Tauri 2 migration and Electron withdrawal](TAURI2_MIGRATION_20260909.md) —
   historical migration/withdrawal record.
 - [Title-screen save ownership research plan](TITLE_SAVE_OWNERSHIP_RESEARCH_PLAN_20260911.md)
