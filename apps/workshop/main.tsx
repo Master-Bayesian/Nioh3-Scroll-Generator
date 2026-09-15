@@ -48,6 +48,7 @@ import {
 import { searchNativePage } from "./native-search";
 import { runtimeObserver, saveSession } from "./save-workspace";
 import { terminal } from "../desktop/src/search-controller";
+import { searchStartParams, searchStatusText } from "./search-policy";
 import { useConditionDrag } from "./condition-drag";
 const hex = (id: string) =>
   "0x" + Number(id).toString(16).toUpperCase().padStart(4, "0");
@@ -474,15 +475,7 @@ function App() {
       );
       setResumeAvailable(!!job.resume_token);
       setResultSource("真实搜索结果");
-      setStatus(
-        job.error
-          ? job.error.message
-          : terminal(job)
-            ? job.state === "cancelled"
-              ? "已取消，保留已找到的绘卷。"
-              : `本批找到 ${job.candidates.length} 张绘卷，耗时 ${(job.elapsed_ms / 1000).toFixed(1)} 秒。`
-            : `正在搜索，已找到 ${job.candidates.length} 张绘卷…`,
-      );
+      setStatus(searchStatusText(job));
     };
     const unsubscribe = controller.subscribe(update);
     void Promise.all([3, 4, 5].map(loadDesktopCatalog))
@@ -797,17 +790,14 @@ function App() {
         }
         const query = workerQuery(q);
         pendingQuery.current = structuredClone(q);
-        await searchController.start({
+        await searchController.start(searchStartParams({
           query,
-          context_digest:
+          contextDigest:
             searchController.getSnapshot().handshake!.context.context_digest,
-          ...(q.ng >= 4 && cache ? { cache_id: cache.id } : {}),
-          result_count: q.count,
-          page_trials: 1000000,
-          job_trials: 10000000,
-          allow_cpu_fallback: allowCpu,
-          resume_token: null,
-        });
+          cacheId: q.ng >= 4 && cache ? cache.id : null,
+          resultCount: q.count,
+          allowCpuFallback: allowCpu,
+        }));
       } catch (error) {
         setStatus(String(error));
         setBusy(false);

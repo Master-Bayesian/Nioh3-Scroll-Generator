@@ -1892,6 +1892,26 @@
       "scrolls…",
       "枚…"
     ],
+    "本批在试验预算内找到": [
+      "This batch found",
+      "今回の検索は試験予算内で"
+    ],
+    "张绘卷；条件尚未穷尽，可继续搜索下一批，耗时": [
+      "scrolls within the trial budget; conditions are not exhausted, continue with the next batch, in",
+      "枚を検出しました。条件は未探索のため次のバッチで続行できます。所要時間"
+    ],
+    "张绘卷，已达候选数量，耗时": [
+      "scrolls, candidate target met, in",
+      "枚、候補数に到達、所要時間"
+    ],
+    "搜索范围已穷尽，本批找到": [
+      "The search range is exhausted; this batch found",
+      "検索範囲をすべて探索しました。今回の検出数"
+    ],
+    "搜索失败，请重试或复制诊断信息。": [
+      "The search failed. Retry, or copy the diagnostics.",
+      "検索に失敗しました。再試行するか、診断情報をコピーしてください。"
+    ],
     "群号已复制，若未自动跳转，可在 QQ 中手动加群。": [
       "Group number copied. If QQ does not open, join manually using this number.",
       "グループ番号をコピーしました。QQが開かない場合は番号で検索して参加してください。"

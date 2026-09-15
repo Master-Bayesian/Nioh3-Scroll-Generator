@@ -1,5 +1,16 @@
 # Current project handoff — 2026-09-14
 
+## v0.7.5 hotfix candidate (not published)
+
+The 0.7.5 emergency source is prepared in the isolated worktree
+`F:/Nioh3_ScrollEditor/.codex_tmp/v075-search-hotfix` on branch
+`codex/v075-search-hotfix`, with the version synchronized across the release
+identity files. It fixes two shipped problems: NG3 searches that stopped at an
+internal trial budget and read as empty results, and the window/taskbar icon
+that Windows stretched from a 16x16 bitmap. Nothing is committed, tagged,
+pushed, or published, so the v0.7.4 release below remains the current public
+state. See [the v0.7.5 product record](../product/releases/v0.7.5.md).
+
 ## v0.7.4 published release
 
 The published v0.7.4 scope includes two shipped product changes. The

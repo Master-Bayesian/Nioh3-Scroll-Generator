@@ -501,12 +501,18 @@
             "page_trials": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 1000000
+              "maximum": 100000000,
+              "description": "Trials in one bounded solver page. The native fused auxiliary solver chunks internally, so large pages only remove per-page overhead."
             },
             "job_trials": {
               "type": "integer",
               "minimum": 1,
               "maximum": 4294967296
+            },
+            "continue_until_complete": {
+              "type": "boolean",
+              "default": false,
+              "description": "Optional. When true this single job keeps taking bounded pages until the requested result count, pivot-family exhaustion, cancellation, or a fail-closed error. job_trials then bounds nothing; omitting the field keeps the existing bounded stop at job_trials."
             },
             "allow_cpu_fallback": {
               "type": "boolean"

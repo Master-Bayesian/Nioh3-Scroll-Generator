@@ -868,3 +868,94 @@ and the successful debug rebuild and native UI acceptance.
 acceptance passed.
 
 **Skill promotion:** None.
+
+## 2026-09-15: v0.7.5 release-checkout LF fixture hash mismatch (autocrlf)
+
+**Objective:** Run the v0.7.5 search-continuation hotfix regression suite from a
+checkout of `a1601bb242ebfdc509ab853016cc64639f69320c` in the new hotfix
+worktree `F:\Nioh3_ScrollEditor\.codex_tmp\v075-search-hotfix`.
+
+**Symptom:** `tests/test_mode_transaction_join.py` failed in its live
+parameterized case: the recorded transcript compares the LF fixture hash
+`0e1f54e9...` for `research/owned_breakpoint_lifecycle_ce.lua`, but the working
+copy hashed to `7bb81b4a...`. Search behavior was not involved.
+
+**Root cause:** Windows line-ending materialization, not a product defect. With
+`core.autocrlf=true` the fixture was checked out as a 3494-byte CRLF file
+(93 `\r\n` pairs) instead of the 3401-byte LF blob the transcript hashes. The
+backend independently observed the same CRLF content in older clean worktrees,
+which rules out a search-regression cause.
+
+**Evidence:** Worktree at `a1601bb`, `git config core.autocrlf` = `true`,
+`git cat-file -s HEAD:research/owned_breakpoint_lifecycle_ce.lua` = 3401,
+working copy 3494 bytes with 93 CRLF pairs,
+sha256 LF blob
+`0e1f54e959dfbe3eec1cfd91b5f8360777caacb7d8b7e64dfc955c47e3e7cd7d` versus
+working copy
+`7bb81b4acf031cc60deb5bd55e901db89a78c465fd913a482012357a98e945d5`, and the
+backend failure log for `tests/test_mode_transaction_join.py`. After the
+approved repair the worktree file is 3401 bytes with 0 CRLF pairs and matches
+the expected LF hash above.
+
+**Disposition:** Root approved a targeted `eol=lf` rule for this fixture path
+plus normalization of the working file, with no change to the expected hash.
+The worktree now carries
+`research/owned_breakpoint_lifecycle_ce.lua text eol=lf` in `.gitattributes`
+(uncommitted there) and the fixture is LF. Fixture-hash re-verification is
+pending the backend owner's test run.
+
+**Reproduction status:** Reproduced from the clean `a1601bb` checkout on this
+Windows host. Re-check by deleting/re-checking the fixture and comparing the two
+sha256 values above.
+
+**Follow-up state:** Open until the normalized checkout passes
+`tests/test_mode_transaction_join.py`. If the hash still mismatches after
+normalization, treat it as a real fixture-contract change and stop.
+
+**Skill promotion:** None; one-off checkout artifact, not a rule.
+
+## 2026-09-15: v0.7.5 hotfix worktree Tauri cargo gate blocked by disk pressure
+
+**Objective:** Run the local release gate
+`cargo test --locked --manifest-path apps/tauri/src-tauri/Cargo.toml` for the
+v0.7.5 search-continuation hotfix in the isolated worktree
+`F:\Nioh3_ScrollEditor\.codex_tmp\v075-search-hotfix` at base `a1601bb`.
+
+**Symptom:** The cold Tauri debug build failed while linking and copying build
+scripts: `error: failed to link or copy ... build-script-build.exe`, `Caused by:
+There is not enough space on the disk. (os error 112)`, and
+`LINK : fatal error LNK1318: Unexpected PDB error; LIMIT (12)`. Cargo exited
+101. No source or test assertion failed; the same commit's Python, Node,
+TypeScript, and launcher-crate gates passed.
+
+**Root cause:** Local disk pressure on the exFAT `F:` volume, not a product
+regression. The volume hosts the main checkout's
+`apps/tauri/src-tauri/target` (measured 4,339,545,395 bytes) plus a fresh cold
+Tauri `target` in the hotfix worktree, which grew to 2,195,710,520 bytes before
+the link stage ran out of space.
+
+**Evidence:** `apps/tauri/src-tauri/target` in the main checkout and in the
+hotfix worktree; `cargo test --locked --manifest-path
+apps/tauri/src-tauri/Cargo.toml` failure output with os error 112 and LNK1318;
+`Get-PSDrive F` free space reaching 0 bytes during the attempt;
+`deliverables/v075-search-hotfix/source_gates_report.md` records the gate totals.
+The frontend agent independently measured 0.40 GB free of 931.48 GB (exFAT) with
+no cargo/rustc processes running, and reported no frontend gate failure
+attributable to disk; its WebView2 continuation acceptance later passed on a
+legacy-built debug host.
+
+**Disposition:** Ran `cargo clean` for the aborted hotfix-worktree Tauri target
+(2.0 GiB) and for the same worktree's launcher target (270.4 MiB), preserving all
+source and other agents' artifacts. The Tauri crate gate is left to the hosted
+release workflow rather than a repeated cold local build, which also matches the
+runbook's preference for one clean hosted package after the frozen SHA.
+
+**Reproduction status:** Reproduced once on this host. Re-checks: confirm
+`F:` free space before a cold Tauri build; `cargo clean` only task-specific
+target caches; keep `CARGO_TARGET_DIR` off `F:` when a local host build is truly
+needed.
+
+**Follow-up state:** Open as a local environment constraint until the hosted
+release workflow reports the Tauri `cargo test` result for the frozen candidate.
+
+**Skill promotion:** None; local volume capacity is not a product rule.
