@@ -1,0 +1,52 @@
+[workspace]
+
+[package]
+name = "nioh3-protected"
+version = "0.1.0"
+edition = "2021"
+description = "Protected save/runtime role host for the Nioh 3 backend migration"
+publish = false
+
+[lib]
+name = "nioh3_protected"
+path = "src/lib.rs"
+
+[[bin]]
+name = "nioh3-protected-worker"
+path = "src/main.rs"
+
+[[example]]
+name = "scan_bench"
+path = "examples/scan_bench.rs"
+required-features = ["test-fake"]
+
+[features]
+# Compiles the deterministic scripted batch oracle into the host so the
+# cross-language gate can drive the real scan loops over fixed rows without a
+# game. Off by default; the packaged host never builds it.
+test-fake = []
+
+[dependencies]
+# Reuse, not copy: the read-only worker crate owns the shipped stdio framing and
+# the `GenerationContext` capture, so the protected process speaks byte-for-byte
+# the same transport and publishes the same identity.
+nioh3-worker = { path = "../nioh3-worker" }
+nioh3-save = { path = "../nioh3-save" }
+nioh3-runtime = { path = "../nioh3-runtime" }
+nioh3-domain = { path = "../nioh3-domain" }
+nioh3-data = { path = "../nioh3-data" }
+serde_json = "1"
+serde = "1"
+sha2 = "0.10"
+jsonschema = { version = "0.33", default-features = false }
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "s"

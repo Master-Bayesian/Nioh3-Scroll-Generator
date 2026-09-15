@@ -119,7 +119,10 @@ fn main() -> ExitCode {
         let route_name = match compiled.route {
             Route::Auxiliary => "auxiliary",
             Route::R4Primary => "r4_primary",
+            Route::CompletePreimage => "complete_preimage",
+            Route::OneWildcardPreimage => "one_wildcard_preimage",
             Route::FullFamily => "full_family",
+            Route::PartialEffectFilter => "partial_effect_filter",
         };
         if route != route_name {
             failures.push(json!({
@@ -158,6 +161,10 @@ fn main() -> ExitCode {
                 equal
             }
             NativePivotQuery::Natural { .. } => false,
+            // The effect-preimage route is verified by its own recorded vectors
+            // (tests/migration/test_search_worker_parity.py and the worker's
+            // effect_path tests), not by this pivot-values probe.
+            NativePivotQuery::EffectPreimage { .. } => false,
         };
 
         let mut window_results = Vec::new();
@@ -229,6 +236,7 @@ fn main() -> ExitCode {
                     }
                 }
                 NativePivotQuery::Natural { .. } => (Vec::new(), true),
+                NativePivotQuery::EffectPreimage { .. } => (Vec::new(), true),
             };
             let matches_ok = actual_matches == expected_matches;
             if !matches_ok || !stage_ok {

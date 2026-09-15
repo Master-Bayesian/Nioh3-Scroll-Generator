@@ -4,9 +4,10 @@
 //! [`crate::schema::RequestSchema`], so every method the worker serves gets the
 //! same strict parameter validation the shipped `jsonschema.Draft7Validator`
 //! gives it and answers with the same `INVALID_REQUEST` code. Methods the schema
-//! knows but this slice does not serve answer `UNSUPPORTED_METHOD` after that
-//! validation, never before it. Methods the schema does not know at all stay
-//! `INVALID_REQUEST`, exactly like the Python worker.
+//! knows but this slice does not serve would answer `UNSUPPORTED_METHOD` after
+//! that validation, never before it; the shipped contract's eleven methods are
+//! all served, so that path is currently unreachable. Methods the schema does
+//! not know at all stay `INVALID_REQUEST`, exactly like the Python worker.
 
 use serde_json::Value;
 
@@ -14,11 +15,15 @@ use crate::schema::RequestSchema;
 
 /// `PROTOCOL_VERSION` from the shipped contracts.
 pub const PROTOCOL_VERSION: i64 = 1;
-/// Methods this development worker actually serves.
-pub const SUPPORTED_METHODS: [&str; 8] = [
+/// Methods this development worker actually serves. Every method the shipped
+/// contract can express is served, so [`UNIMPLEMENTED_METHODS`] is empty.
+pub const SUPPORTED_METHODS: [&str; 11] = [
     "handshake",
+    "recommended_level.resolve",
+    "cache.register",
     "candidate.preview",
     "search.start",
+    "search.catalog",
     "job.current",
     "job.snapshot",
     "job.cancel",
@@ -26,11 +31,7 @@ pub const SUPPORTED_METHODS: [&str; 8] = [
     "shutdown",
 ];
 /// Methods the shipped schema knows but this slice does not implement.
-pub const UNIMPLEMENTED_METHODS: [&str; 3] = [
-    "search.catalog",
-    "recommended_level.resolve",
-    "cache.register",
-];
+pub const UNIMPLEMENTED_METHODS: [&str; 0] = [];
 
 /// A rejected request, carrying the shipped error code and message.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -96,9 +97,9 @@ impl RequestError {
         Self {
             code: "UNSUPPORTED_METHOD",
             message: format!(
-                "This development worker does not implement {method}; supported methods are \
-                 handshake, candidate.preview, search.start, job.current, job.snapshot, \
-                 job.cancel, candidate.export and shutdown"
+                "This development worker does not implement {method}; the versioned \
+                 contract's methods are served by {}",
+                SUPPORTED_METHODS.join(", ")
             ),
         }
     }
@@ -139,6 +140,22 @@ pub enum Request {
         job_id: String,
         candidate_id: String,
     },
+    /// `recommended_level.resolve`: exact inverse of the captured native curve.
+    RecommendedLevelResolve {
+        id: String,
+        displayed_level: i32,
+    },
+    /// `cache.register`: validate a save-bound measured map and return its id.
+    CacheRegister {
+        id: String,
+        cache_json: String,
+    },
+    /// `search.catalog`: the context-bound option catalog for one rarity.
+    SearchCatalog {
+        id: String,
+        rarity: u8,
+        locale: String,
+    },
     Shutdown {
         id: String,
     },
@@ -159,6 +176,9 @@ impl Request {
             | Request::JobSnapshot { id, .. }
             | Request::JobCancel { id, .. }
             | Request::CandidateExport { id, .. }
+            | Request::RecommendedLevelResolve { id, .. }
+            | Request::CacheRegister { id, .. }
+            | Request::SearchCatalog { id, .. }
             | Request::Shutdown { id }
             | Request::Unimplemented { id, .. } => id,
         }
@@ -224,6 +244,19 @@ pub fn parse_request(payload: &Value, schema: &RequestSchema) -> Result<Request,
             id,
             job_id: string(params, "job_id").to_string(),
             candidate_id: string(params, "candidate_id").to_string(),
+        }),
+        "recommended_level.resolve" => Ok(Request::RecommendedLevelResolve {
+            id,
+            displayed_level: integer(params, "displayed_level") as i32,
+        }),
+        "cache.register" => Ok(Request::CacheRegister {
+            id,
+            cache_json: string(params, "cache_json").to_string(),
+        }),
+        "search.catalog" => Ok(Request::SearchCatalog {
+            id,
+            rarity: integer(params, "rarity") as u8,
+            locale: string(params, "locale").to_string(),
         }),
         other => Ok(Request::Unimplemented {
             id,
@@ -299,30 +332,55 @@ mod tests {
                 id: "d".to_string()
             })
         );
+        assert_eq!(
+            parse_request(
+                &json!({"protocol":1,"id":"e","method":"recommended_level.resolve",
+                        "params":{"displayed_level":200}}),
+                &schema
+            ),
+            Ok(Request::RecommendedLevelResolve {
+                id: "e".to_string(),
+                displayed_level: 200
+            })
+        );
+        assert_eq!(
+            parse_request(
+                &json!({"protocol":1,"id":"f","method":"cache.register",
+                        "params":{"cache_json":"{}"}}),
+                &schema
+            ),
+            Ok(Request::CacheRegister {
+                id: "f".to_string(),
+                cache_json: "{}".to_string()
+            })
+        );
     }
 
     #[test]
-    fn schema_known_but_unserved_methods_still_validate_first() {
+    fn every_contract_method_parses_and_shape_faults_validate_first() {
         let schema = request_schema();
-        let parsed = parse_request(
-            &json!({"protocol":1,"id":"a","method":"search.catalog",
-                    "params":{"playthrough":3,"rarity":4,"locale":"zh-CN"}}),
-            &schema,
-        )
-        .expect("schema-known method parses");
+        // Serving `search.catalog` retired the last contract method this slice
+        // refused, so nothing may fall through to UNSUPPORTED_METHOD any more.
+        assert_eq!(UNIMPLEMENTED_METHODS.len(), 0);
         assert_eq!(
-            parsed,
-            Request::Unimplemented {
+            parse_request(
+                &json!({"protocol":1,"id":"a","method":"search.catalog",
+                        "params":{"playthrough":3,"rarity":4,"locale":"zh-CN"}}),
+                &schema
+            )
+            .expect("the catalog method is served"),
+            Request::SearchCatalog {
                 id: "a".to_string(),
-                method: "search.catalog".to_string()
+                rarity: 4,
+                locale: "zh-CN".to_string()
             }
         );
+        // The shipped code stays available for a method a later schema adds.
         assert_eq!(
-            RequestError::unsupported_method("search.catalog").code,
+            RequestError::unsupported_method("not.a.method").code,
             "UNSUPPORTED_METHOD"
         );
-        // The same method with malformed params must answer INVALID_REQUEST, not
-        // UNSUPPORTED_METHOD: validation runs before the routing short-circuit.
+        // Malformed params answer INVALID_REQUEST before any routing decision.
         assert_eq!(
             parse_request(
                 &json!({"protocol":1,"id":"a","method":"search.catalog",
@@ -330,6 +388,16 @@ mod tests {
                 &schema
             )
             .expect_err("playthrough 4 is outside the enum")
+            .code,
+            "INVALID_REQUEST"
+        );
+        assert_eq!(
+            parse_request(
+                &json!({"protocol":1,"id":"a","method":"search.catalog",
+                        "params":{"playthrough":3,"rarity":4,"locale":"fr-FR"}}),
+                &schema
+            )
+            .expect_err("locale outside the enum")
             .code,
             "INVALID_REQUEST"
         );

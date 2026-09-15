@@ -39,6 +39,10 @@ SCHEMA_DIR = ROOT / "packages" / "contracts"
 MAX_FRAME_BYTES = 4 * 1024 * 1024
 WORKER_ROLE = "offline_search"
 
+sys.path.insert(0, str(ROOT))
+
+from tests.migration.cargo_target import resolved_cargo_target_dir  # noqa: E402
+
 REQUEST_SCHEMA = json.loads((SCHEMA_DIR / "request.schema.json").read_text(encoding="utf-8"))
 RESPONSE_SCHEMA = json.loads((SCHEMA_DIR / "response.schema.json").read_text(encoding="utf-8"))
 RESPONSE_VALIDATOR = Draft7Validator(RESPONSE_SCHEMA)
@@ -229,23 +233,25 @@ SUPPORTED_METHODS = (
     "job.current",
     "job.cancel",
     "candidate.export",
+    # M2.3c application methods: both validate parameters before routing, so a
+    # wrong-shaped request still answers INVALID_REQUEST.
+    "recommended_level.resolve",
+    "cache.register",
+    # M2.3c catalog: `search.catalog` is served from the shipped tables, so the
+    # last schema-known method this slice refused is retired.
+    "search.catalog",
     "shutdown",
 )
 # Schema-known methods this slice deliberately does not implement. They must
 # answer UNSUPPORTED_METHOD for a schema-valid request, and full validation still
 # applies before that short-circuit.
-PENDING_METHODS = (
-    "search.catalog",
-    "recommended_level.resolve",
-    "cache.register",
-)
-# The read-only preview/search slice does not implement the D3D11 effect-filter
-# path, so its capability is availability AND implementation. The owner who ports
-# that path flips this constant together with its own evidence; until then the
-# honest value is `false` even though the Python worker (which does implement it)
-# probes the same DLL as available. The NG4/NG5 cache is the same rule: it must
-# not be advertised at all while it is unported.
-EFFECT_FILTER_IMPLEMENTED = False
+PENDING_METHODS: tuple[str, ...] = ()
+# The read-only preview/search slice implements the D3D11 effect-filter path (the
+# partial-effect forward filter with its certified recomposition), so its
+# capability is the live probe intersected with that implementation, which is
+# what the Rust handshake publishes. The NG4/NG5 cache is a different rule: it
+# must not be advertised at all while it is unported.
+EFFECT_FILTER_IMPLEMENTED = True
 
 # Only these keys may be normalised away before comparison. Everything else in a
 # payload is compared exactly, so a meaningful mismatch cannot be hidden.
@@ -276,7 +282,11 @@ def develop_worker_target() -> tuple[Path, str]:
             payload = tomllib.load(stream)
         name = str(payload.get("package", {}).get("name", ""))
         bins = [str(entry.get("name", name)) for entry in payload.get("bin", [])]
-        if "worker" not in name and not any("worker" in entry for entry in bins):
+        # The read-only worker specifically: `crates/nioh3-protected` also ships a
+        # `*-worker` binary, and this gate must never drive the protected host.
+        if override and manifest == Path(override):
+            return manifest, (bins[0] if bins else name)
+        if name != "nioh3-worker" and "nioh3-readonly-worker" not in bins:
             continue
         return manifest, (bins[0] if bins else name)
     raise AssertionError(
@@ -384,9 +394,20 @@ class FramedProcess:
         self.process.wait(timeout=60)
 
 
+def worker_target_dir() -> Path:
+    """The cargo target directory this gate builds into.
+
+    The rule lives in one place (`tests/migration/cargo_target.py`):
+    `CARGO_TARGET_DIR` always wins, otherwise the platform temp directory is
+    used, so a fresh target tree is never written into the checkout.
+    """
+
+    return Path(resolved_cargo_target_dir("worker"))
+
+
 def worktree_env() -> dict[str, str]:
     env = dict(os.environ)
-    env.setdefault("CARGO_TARGET_DIR", str(ROOT / ".codex_tmp" / "m23-worker-target"))
+    env["CARGO_TARGET_DIR"] = str(worker_target_dir())
     return env
 
 
@@ -618,14 +639,14 @@ class PreviewWorkerParityTests(unittest.TestCase):
         rust_caps = rust_reply["result"]["capabilities"]
         python_caps = python_reply["result"]["capabilities"]
 
-        # The NG4/NG5 cache is not ported, so the key must be absent or empty.
-        # Python advertises [4, 5] because it really ships that cache; copying
-        # that value here would advertise an unimplemented capability.
+        # The NG4/NG5 save-bound cache is ported, so the advertised playthroughs
+        # must be exactly the shipped worker's: the Rust worker compiles the
+        # registered map into its native collector (`SearchFactory::cached_collector`)
+        # and the search parity gate compares both workers through that map.
         self.assertEqual(
-            rust_caps.get("cached_rarity5_playthroughs", []),
-            [],
-            "an unported NG4/NG5 cache must stay absent or empty; add it with the "
-            "cache slice and flip the declaration there",
+            rust_caps.get("cached_rarity5_playthroughs"),
+            python_caps.get("cached_rarity5_playthroughs"),
+            "the ported cache route must advertise the playthroughs it serves",
         )
 
         # Expected capabilities are the measured native availability intersected
@@ -646,6 +667,11 @@ class PreviewWorkerParityTests(unittest.TestCase):
                 python_caps["directcompute_effect_filter"]
             )
             and EFFECT_FILTER_IMPLEMENTED,
+            # The save-bound NG4/NG5 cached route is ported, so the playthroughs
+            # it serves are advertised exactly like the shipped worker's.
+            "cached_rarity5_playthroughs": python_caps.get(
+                "cached_rarity5_playthroughs"
+            ),
         }
         self.assertEqual(
             rust_caps,

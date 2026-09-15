@@ -35,3 +35,25 @@ export function useDialogBackdropDismiss() {
     },
   };
 }
+
+/** What one "open the update prompt" request should do right now. */
+export type UpdatePromptDecision =
+  | { action: "open" }
+  | { action: "defer" }
+  | { action: "reopen" };
+
+/**
+ * Decide whether a startup/manual update prompt may open now.
+ *
+ * A prompt that arrives while another dialog owns the layer is deferred rather
+ * than dropped: the caller records the intent and re-issues it once the dialog
+ * closes, so exactly one prompt opens and it never stacks on top of another
+ * modal. The decision is pure so the sequence is testable without a browser.
+ */
+export function decideUpdatePrompt(
+  dialogOpen: boolean,
+  pending: boolean,
+): UpdatePromptDecision {
+  if (dialogOpen) return { action: "defer" };
+  return pending ? { action: "reopen" } : { action: "open" };
+}

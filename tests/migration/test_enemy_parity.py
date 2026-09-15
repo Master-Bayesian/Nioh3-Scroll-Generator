@@ -11,6 +11,7 @@ import pytest
 from nioh3_scroll_editor import auxiliary_generation as ag
 from nioh3_scroll_editor.enemy_variant_generation import generate_enemy_variant
 from nioh3_scroll_editor.possessed_generation import EnemyStateTables, generate_possessed
+from tests.migration.cargo_target import resolved_cargo_target_dir
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -33,7 +34,7 @@ def rust_preview():
     cargo = shutil.which("cargo")
     assert cargo, "Rust is required for the enemy migration gate"
     env = dict(os.environ)
-    env.setdefault("CARGO_TARGET_DIR", str(ROOT / ".codex_tmp/v080-domain-target"))
+    env.setdefault("CARGO_TARGET_DIR", resolved_cargo_target_dir("v080-domain"))
     build = subprocess.run(
         [cargo, "build", "--release", "--locked", "--offline", "--manifest-path",
          str(ROOT / "crates/nioh3-data/Cargo.toml"), "--example", "enemy_preview"],

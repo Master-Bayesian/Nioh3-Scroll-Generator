@@ -118,7 +118,7 @@ fn no_links(root: &Path) -> Result<Vec<String>, String> {
         #[cfg(windows)]
         {
             use std::os::windows::fs::MetadataExt;
-            return Ok(m.file_attributes() & 0x400 != 0);
+            Ok(m.file_attributes() & 0x400 != 0)
         }
         #[cfg(not(windows))]
         {

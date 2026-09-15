@@ -7,15 +7,24 @@
 //! handed on.
 
 use std::path::Path;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use nioh3_domain::rng::A_INV;
 
+use crate::effect_batch::{EffectMaskSpec, PartialEffectVerifier, PREDICATE_BATCH_SIZE};
+use crate::effect_path::{
+    native_path_descriptors, CompiledEffectPlan, EffectPathError, PreimageVerifier,
+};
 use crate::native_search::{
     absent_capabilities, Accelerator, AuxiliaryPivotSpec, ExecutionPolicy, ExecutionPolicyGuard,
     NativeBackend, NativeCapabilities, NativeSearchError, PivotMatch, PivotWindow,
     PrimaryEffectSpec, R4PrimaryPivotSpec, MAX_AUXILIARY_TRIALS, MAX_NATURAL_TRIALS,
     MAX_R4_PRIMARY_TRIALS,
+};
+use crate::preimage::{
+    PreimageAccelerator, PreimageError, PreimagePlanParams, PreimagePolicy,
+    DEFAULT_OUTPUT_CAPACITY, MAX_OUTPUT_CAPACITY, MAX_PREIMAGE_TRIALS,
 };
 
 /// Result capacity one fused auxiliary chunk may return.
@@ -52,6 +61,19 @@ pub enum NativePivotQuery {
         values: Vec<u16>,
         spec: AuxiliaryPivotSpec,
     },
+    /// Complete-composition effect-preimage sweep over the concatenated plan
+    /// families (`effect_preimage_search.collect_full_composition_preimage_page`).
+    ///
+    /// The cursor space is the concatenation of every plan's pivot family, in
+    /// plan order: a trial is `plan_offset + local native trial + 1`. The
+    /// accelerator reports its own `(Seed, local trial)` pairs, and each pair is
+    /// only accepted after [`PreimageVerifier`] re-composes the Seed with the
+    /// certified forward generator, so this route has no cursor-to-Seed replay
+    /// check to add.
+    EffectPreimage {
+        plans: Arc<Vec<CompiledEffectPlan>>,
+        verifier: Arc<PreimageVerifier>,
+    },
 }
 
 impl NativePivotQuery {
@@ -61,6 +83,10 @@ impl NativePivotQuery {
             NativePivotQuery::Natural { values }
             | NativePivotQuery::R4Primary { values, .. }
             | NativePivotQuery::Auxiliary { values, .. } => values,
+            // The preimage route's cursor space is the concatenated plan
+            // families, not one permuted value table: it reports no flat value
+            // table, and its acceptance check is the certified recomposition.
+            NativePivotQuery::EffectPreimage { .. } => &[],
         }
     }
 
@@ -68,13 +94,22 @@ impl NativePivotQuery {
     pub fn low16_stride(&self) -> u16 {
         match self {
             NativePivotQuery::Auxiliary { .. } => AUXILIARY_LOW16_STRIDE,
+            // Each plan family is enumerated low16-minor by the accelerator, so
+            // the stride is one; no cursor replay uses it on this route.
+            NativePivotQuery::EffectPreimage { .. } => 1,
             _ => R4_PRIMARY_LOW16_STRIDE,
         }
     }
 
     /// Total number of trials in the pivot family.
     pub fn family_size(&self) -> u64 {
-        self.values().len() as u64 * 0x1_0000
+        match self {
+            NativePivotQuery::EffectPreimage { plans, .. } => plans
+                .iter()
+                .map(CompiledEffectPlan::pivot_state_count)
+                .sum(),
+            query => query.values().len() as u64 * 0x1_0000,
+        }
     }
 
     /// Native stage-count vector length for this route.
@@ -94,6 +129,7 @@ impl NativePivotQuery {
             NativePivotQuery::Natural { .. } => MAX_NATURAL_TRIALS,
             NativePivotQuery::R4Primary { .. } => MAX_R4_PRIMARY_TRIALS,
             NativePivotQuery::Auxiliary { .. } => MAX_AUXILIARY_TRIALS,
+            NativePivotQuery::EffectPreimage { .. } => MAX_PREIMAGE_TRIALS,
         }
     }
 }
@@ -112,7 +148,12 @@ pub struct PageRequest {
     pub max_trials: u64,
     /// Largest window one native call may scan; clamped to the route's ABI cap.
     pub chunk_trials: u64,
-    /// Stop after this many matches.
+    /// Stop after this many accepted matches.
+    ///
+    /// This is also the page's cursor contract: the shipped complete-composition
+    /// route walks the page's matches until it has published the caller's
+    /// pending count and reports *that* match's trial, so a page sized by the
+    /// pending count reproduces the shipped cursor exactly.
     pub page_size: usize,
 }
 
@@ -185,6 +226,13 @@ pub struct ChunkProgress {
 /// The single owner of the loaded accelerator for search.
 pub struct SearchBackend {
     accelerator: Option<Arc<Accelerator>>,
+    /// The verified effect-preimage helper, or the named reason it is unusable.
+    ///
+    /// The failure is kept rather than dropped so the route can report an absent
+    /// library, a substituted artifact and a missing export distinctly.
+    preimage: Result<Arc<PreimageAccelerator>, PreimageError>,
+    /// The effect-preimage execution policy the current job pinned.
+    pinned_preimage_policy: AtomicU8,
 }
 
 impl SearchBackend {
@@ -192,16 +240,63 @@ impl SearchBackend {
     /// ABI/policy/symbol validation; the worker must still answer `handshake`
     /// and must fail search closed.
     pub fn load(application_root: &Path, override_path: Option<&Path>) -> Option<Self> {
-        Accelerator::load(application_root, override_path)
-            .map(|accelerator| Self::from_shared(Arc::new(accelerator)))
+        let accelerator = Accelerator::load(application_root, override_path).map(Arc::new);
+        // The seed accelerator stays the primary helper: without it no bounded
+        // search can run, so the worker reports the backend as absent exactly as
+        // before. The effect-preimage helper is optional per route, so its own
+        // load failure is carried into the backend instead of hiding the seed
+        // accelerator's state.
+        accelerator.as_ref()?;
+        let preimage_path = crate::capabilities::effect_preimage_path(application_root, None);
+        let preimage =
+            PreimageAccelerator::load(application_root, Some(&preimage_path)).map(Arc::new);
+        Some(Self::new(accelerator, preimage))
     }
 
     /// Share one already-loaded accelerator between the query compiler and the
     /// bounded collector, so the DLL is opened once per worker.
     pub fn from_shared(accelerator: Arc<Accelerator>) -> Self {
+        Self::new(
+            Some(accelerator),
+            Err(PreimageError::Absent(
+                "this backend was built from a shared seed accelerator only, so no \
+                 effect-preimage helper was loaded"
+                    .to_string(),
+            )),
+        )
+    }
+
+    /// Share one seed accelerator and one effect-preimage helper.
+    pub fn new(
+        accelerator: Option<Arc<Accelerator>>,
+        preimage: Result<Arc<PreimageAccelerator>, PreimageError>,
+    ) -> Self {
         Self {
-            accelerator: Some(accelerator),
+            accelerator,
+            preimage,
+            pinned_preimage_policy: AtomicU8::new(PreimagePolicy::StrictGpu.raw()),
         }
+    }
+
+    /// Pin the effect-preimage policy for one job; drop restores the previous.
+    pub fn pin_preimage_policy(&self, policy: PreimagePolicy) -> PreimagePolicyGuard<'_> {
+        let previous = self
+            .pinned_preimage_policy
+            .swap(policy.raw(), Ordering::SeqCst);
+        PreimagePolicyGuard {
+            backend: self,
+            previous,
+        }
+    }
+
+    /// The effect-preimage policy in force for the current job.
+    pub fn pinned_preimage_policy(&self) -> PreimagePolicy {
+        PreimagePolicy::from_raw(self.pinned_preimage_policy.load(Ordering::SeqCst))
+    }
+
+    /// The verified helper, or the named reason it is unusable.
+    pub fn preimage(&self) -> Result<&Arc<PreimageAccelerator>, &PreimageError> {
+        self.preimage.as_ref()
     }
 
     /// Real capabilities, or the absent report when nothing loaded.
@@ -304,7 +399,6 @@ impl SearchBackend {
         let family_size = query.family_size();
         let start = request.start_after_trial.min(family_size);
         let budget_stop = start.saturating_add(request.max_trials).min(family_size);
-        let values = query.values();
         let mut stage_counts = vec![0u64; query.stage_count()];
         let mut matches: Vec<PivotMatch> = Vec::new();
         let mut cursor = start;
@@ -333,33 +427,82 @@ impl SearchBackend {
                 low16_stride: query.low16_stride(),
                 draw_index: query.draw_index(),
             };
-            let (page, counts) = collect_window(accelerator, query, &window)?;
+            let (page, counts) = collect_window(
+                accelerator,
+                self.preimage(),
+                self.pinned_preimage_policy(),
+                query,
+                &window,
+                request.page_size,
+            )?;
             native_calls += 1;
             backend = page.backend;
             for matched in &page.matches {
-                verify_pivot_match(values, &window, *matched)?;
+                verify_window_match(query, &window, *matched)?;
             }
             accumulate(&mut stage_counts, &counts)?;
 
             let accepted = match filter {
-                Some(filter) => filter_matches(accelerator, filter, &page.matches)?,
+                Some(filter) => filter_matches(
+                    accelerator,
+                    self.preimage(),
+                    self.pinned_preimage_policy(),
+                    filter,
+                    &page.matches,
+                    request
+                        .page_size
+                        .saturating_sub(matches.len())
+                        .saturating_add(1),
+                )?,
                 None => page.matches,
             };
             let remaining = request.page_size - matches.len();
             if accepted.len() > remaining {
+                // The preimage window already reports its verified matches in
+                // trial order and never reports native stage counts, so the page
+                // can end on the last published candidate directly. Re-sweeping a
+                // narrower window here would double the GPU work for no gain,
+                // because the acceptance decision is the certified recomposition,
+                // not a window-bounded recount.
+                if matches!(query, NativePivotQuery::EffectPreimage { .. }) {
+                    cursor = accepted[remaining - 1].trial;
+                    matches.extend(accepted.into_iter().take(remaining));
+                    progress(&ChunkProgress {
+                        inspected_through_trial: cursor,
+                        stage_counts: stage_counts.clone(),
+                        matches: matches.len(),
+                    });
+                    break;
+                }
                 // Recount the exact prefix ending at the last returned result so
                 // pagination and every displayed intersection count stay exact.
                 let cut = accepted[remaining - 1].trial;
                 let mut recount_window = window;
                 recount_window.stop_index = cut;
-                let (recount, recount_counts) =
-                    collect_window(accelerator, query, &recount_window)?;
+                let (recount, recount_counts) = collect_window(
+                    accelerator,
+                    self.preimage(),
+                    self.pinned_preimage_policy(),
+                    query,
+                    &recount_window,
+                    request.page_size,
+                )?;
                 native_calls += 1;
                 for matched in &recount.matches {
-                    verify_pivot_match(values, &recount_window, *matched)?;
+                    verify_window_match(query, &recount_window, *matched)?;
                 }
                 let recount_accepted = match filter {
-                    Some(filter) => filter_matches(accelerator, filter, &recount.matches)?,
+                    Some(filter) => filter_matches(
+                        accelerator,
+                        self.preimage(),
+                        self.pinned_preimage_policy(),
+                        filter,
+                        &recount.matches,
+                        request
+                            .page_size
+                            .saturating_sub(matches.len())
+                            .saturating_add(1),
+                    )?,
                     None => recount.matches,
                 };
                 if recount_accepted.len() != remaining {
@@ -454,7 +597,24 @@ impl NativePivotQuery {
             NativePivotQuery::Natural { .. } => 1,
             NativePivotQuery::R4Primary { .. } => 1,
             NativePivotQuery::Auxiliary { spec, .. } => spec.draw_index,
+            NativePivotQuery::EffectPreimage { plans, .. } => {
+                plans.first().map_or(1, |plan| plan.pivot_draw_index)
+            }
         }
+    }
+}
+
+/// Restores the previous effect-preimage policy when the job ends.
+pub struct PreimagePolicyGuard<'a> {
+    backend: &'a SearchBackend,
+    previous: u8,
+}
+
+impl Drop for PreimagePolicyGuard<'_> {
+    fn drop(&mut self) {
+        self.backend
+            .pinned_preimage_policy
+            .store(self.previous, Ordering::SeqCst);
     }
 }
 
@@ -463,10 +623,18 @@ impl NativePivotQuery {
 /// Order matters and mirrors the shipped solver: the batched primary-effect
 /// predicate runs first, then the auxiliary criteria are decided only for its
 /// survivors (`effect_seed_solver._iter_solution_prefetch` eligibility).
+///
+/// The partial-effect forward filter adds two more stages: the accelerator's
+/// batched constraint mask (a necessary predicate) and then the certified
+/// recomposition, which is the route's actual acceptance decision.
 #[derive(Clone, Copy)]
 pub struct MatchFilter<'a> {
     pub primary: Option<&'a PrimaryEffectSpec>,
     pub auxiliary: Option<&'a AuxiliaryPivotSpec>,
+    /// `match_effect_constraints_d3d11` over the surviving Seeds.
+    pub effect_mask: Option<&'a EffectMaskSpec>,
+    /// The certified composition gate every surviving Seed must pass.
+    pub effect_verifier: Option<&'a PartialEffectVerifier>,
 }
 
 /// Decide one window's raw native matches with the shipped predicates.
@@ -475,13 +643,22 @@ pub struct MatchFilter<'a> {
 /// and passes the accelerator directly.
 fn filter_matches(
     accelerator: &Accelerator,
+    preimage: Result<&Arc<PreimageAccelerator>, &PreimageError>,
+    policy: PreimagePolicy,
     filter: &MatchFilter<'_>,
     raw: &[PivotMatch],
+    limit: usize,
 ) -> Result<Vec<PivotMatch>, NativeSearchError> {
-    if raw.is_empty() {
+    if raw.is_empty() || limit == 0 {
         return Ok(Vec::new());
     }
     let mut kept: Vec<PivotMatch> = raw.to_vec();
+    if let Some(mask) = filter.effect_mask {
+        kept = effect_mask_matches(preimage, policy, mask, kept)?;
+        if kept.is_empty() {
+            return Ok(kept);
+        }
+    }
     if let Some(primary) = filter.primary {
         let seeds: Vec<u32> = kept.iter().map(|matched| matched.seed).collect();
         let selected = accelerator.primary_effect_selected(primary, &seeds)?;
@@ -500,6 +677,99 @@ fn filter_matches(
                 .zip(selected)
                 .filter_map(|(matched, keep)| keep.then_some(matched))
                 .collect();
+        }
+    }
+    if let Some(verifier) = filter.effect_verifier {
+        // The native mask is never the acceptance decision: every survivor is
+        // re-composed with the certified generator and re-checked against every
+        // query criterion. A composition failure is an error, not a rejection.
+        //
+        // The recomposition is the expensive stage, so it walks the survivors in
+        // trial order and stops at `limit`: the page only needs the first
+        // `page_size` accepted matches, and one more to prove it must cut the
+        // cursor at an accepted trial. Without this bound a bounded page pays
+        // for every survivor of its whole window.
+        let mut accepted: Vec<PivotMatch> = Vec::with_capacity(kept.len());
+        for matched in kept {
+            if accepted.len() >= limit {
+                break;
+            }
+            if verifier
+                .accepts(matched.seed)
+                .map_err(|error| map_effect_path_error(&error))?
+            {
+                accepted.push(matched);
+            }
+        }
+        kept = accepted;
+    }
+    kept.truncate(limit);
+    Ok(kept)
+}
+
+/// Apply the accelerator's batched forward filter to the surviving Seeds.
+///
+/// The mask is a necessary predicate, so a Seed it rejects can be dropped here
+/// without changing the result set. Under the strict-GPU policy a missing
+/// backend is a named refusal; under the explicit CPU opt-in the filter is
+/// skipped and the certified recomposition still decides every Seed, which is
+/// exactly the shipped `allow_cpu_fallback` behaviour.
+fn effect_mask_matches(
+    preimage: Result<&Arc<PreimageAccelerator>, &PreimageError>,
+    policy: PreimagePolicy,
+    mask: &EffectMaskSpec,
+    matches: Vec<PivotMatch>,
+) -> Result<Vec<PivotMatch>, NativeSearchError> {
+    let strict = matches!(policy, PreimagePolicy::StrictGpu);
+    let accelerator = match preimage {
+        Ok(accelerator) => accelerator,
+        Err(error) => {
+            return if strict {
+                Err(NativeSearchError::PreimageUnavailable(error.to_string()))
+            } else {
+                Ok(matches)
+            }
+        }
+    };
+    if accelerator.require_backend(policy).is_err() {
+        return if strict {
+            Err(NativeSearchError::PreimageUnavailable(
+                accelerator
+                    .require_backend(policy)
+                    .err()
+                    .map(|error| error.to_string())
+                    .unwrap_or_else(|| "no DirectCompute backend".to_string()),
+            ))
+        } else {
+            Ok(matches)
+        };
+    }
+    let vendor = accelerator.configured_vendor_id();
+    let mut kept: Vec<PivotMatch> = Vec::with_capacity(matches.len());
+    for chunk in matches.chunks(PREDICATE_BATCH_SIZE) {
+        let seeds: Vec<u32> = chunk.iter().map(|matched| matched.seed).collect();
+        let request = mask.request(&seeds, vendor);
+        let masks = accelerator
+            .match_effect_constraints(&request)
+            .map_err(|error| NativeSearchError::PreimageUnavailable(error.to_string()))?;
+        match masks {
+            Some(masks) => {
+                for (matched, observed) in chunk.iter().zip(masks) {
+                    if mask.accepts_mask(observed) {
+                        kept.push(*matched);
+                    }
+                }
+            }
+            // The library reported no backend for this call. The strict policy
+            // must not quietly continue; the explicit opt-in falls back to the
+            // certified composition alone, like the shipped worker.
+            None if strict => {
+                return Err(NativeSearchError::PreimageUnavailable(
+                    "the DirectCompute partial-effect matcher reported no usable backend"
+                        .to_string(),
+                ))
+            }
+            None => kept.extend(chunk.iter().copied()),
         }
     }
     Ok(kept)
@@ -525,10 +795,128 @@ pub fn verify_pivot_match(
     Ok(())
 }
 
-fn collect_window(
-    accelerator: &Accelerator,
+/// The acceptance check for one returned match, per route.
+///
+/// The cursor-replay routes re-derive the Seed from the trial they report, so a
+/// wrong cursor can never be published. The effect-preimage route instead
+/// accepts a Seed only after the certified forward generator re-composed it
+/// inside [`collect_window`], which is the same placement the shipped Python page
+/// uses, so only the window bounds remain to re-check here.
+fn verify_window_match(
     query: &NativePivotQuery,
     window: &PivotWindow,
+    matched: PivotMatch,
+) -> Result<(), NativeSearchError> {
+    if matched.trial <= window.start_index || matched.trial > window.stop_index {
+        return Err(NativeSearchError::InvalidInput(
+            "native match outside the scanned window",
+        ));
+    }
+    match query {
+        NativePivotQuery::EffectPreimage { .. } => Ok(()),
+        other => verify_pivot_match(other.values(), window, matched),
+    }
+}
+
+/// Map one plan-compiler failure onto the search error the collector reports.
+fn map_effect_path_error(error: &EffectPathError) -> NativeSearchError {
+    NativeSearchError::PreimageUnavailable(format!("effect-preimage plan: {error}"))
+}
+
+/// One preimage window: the concatenated plan families the window covers.
+///
+/// `window` is expressed in the route's cursor space, so every plan is clipped
+/// to the window and swept with its own pivot parameters and packed paths. Each
+/// returned Seed is re-composed by the certified generator before it becomes a
+/// match, and the reported trial is `plan_offset + local trial + 1`, which is
+/// exactly the shipped page's one-based cursor.
+fn collect_preimage_window(
+    preimage: Result<&Arc<PreimageAccelerator>, &PreimageError>,
+    policy: PreimagePolicy,
+    plans: &[CompiledEffectPlan],
+    verifier: &PreimageVerifier,
+    window: &PivotWindow,
+    page_size: usize,
+) -> Result<Vec<PivotMatch>, NativeSearchError> {
+    let accelerator =
+        preimage.map_err(|error| NativeSearchError::PreimageUnavailable(error.to_string()))?;
+    accelerator
+        .require_backend(policy)
+        .map_err(|error| NativeSearchError::PreimageUnavailable(error.to_string()))?;
+    let capacity = page_size
+        .saturating_mul(8)
+        .clamp(DEFAULT_OUTPUT_CAPACITY, MAX_OUTPUT_CAPACITY);
+    let mut matches: Vec<PivotMatch> = Vec::new();
+    let mut offset: u64 = 0;
+    for plan in plans {
+        let plan_size = plan.pivot_state_count();
+        let plan_start = offset;
+        let plan_stop = offset + plan_size;
+        offset = plan_stop;
+        let local_start = window.start_index.max(plan_start);
+        let local_stop = window.stop_index.min(plan_stop);
+        if local_start >= local_stop {
+            continue;
+        }
+        let descriptors =
+            native_path_descriptors(plan).map_err(|error| map_effect_path_error(&error))?;
+        let pivot_values: Vec<u16> = plan
+            .pivot_allowed_u16
+            .iter()
+            .flat_map(|run| run.start..=run.end)
+            .collect();
+        let maximum_draw = plan
+            .paths
+            .iter()
+            .flat_map(|path| path.constraints.iter().map(|item| item.draw_index))
+            .max()
+            .unwrap_or(plan.promotion_draw_index);
+        let params = PreimagePlanParams {
+            pivot_draw_index: plan.pivot_draw_index,
+            pivot_affine_addend: plan.pivot_affine_addend,
+            pivot_inverse_multiplier: plan.pivot_inverse_multiplier,
+            promotion_draw_index: plan.promotion_draw_index,
+            promotion_probability_percent: plan.promotion_probability_percent,
+            shuffle_draw_start: plan.shuffle_draw_start,
+            rarity: plan.request.rarity(),
+            slot_limit: plan.slot_limit,
+            maximum_draw,
+        };
+        let hits = accelerator
+            .collect_matches(
+                &pivot_values,
+                &descriptors,
+                &params,
+                local_start - plan_start,
+                local_stop - plan_start,
+                capacity,
+                accelerator.configured_vendor_id(),
+            )
+            .map_err(|error| NativeSearchError::PreimageUnavailable(error.to_string()))?;
+        for (seed, local_trial) in hits {
+            if !verifier
+                .accepts(seed)
+                .map_err(|error| map_effect_path_error(&error))?
+            {
+                continue;
+            }
+            matches.push(PivotMatch {
+                seed,
+                trial: plan_start + local_trial + 1,
+            });
+        }
+    }
+    matches.sort_by_key(|matched| matched.trial);
+    Ok(matches)
+}
+
+fn collect_window(
+    accelerator: &Accelerator,
+    preimage: Result<&Arc<PreimageAccelerator>, &PreimageError>,
+    policy: PreimagePolicy,
+    query: &NativePivotQuery,
+    window: &PivotWindow,
+    page_size: usize,
 ) -> Result<(crate::native_search::AuxiliaryPivotPage, Vec<u64>), NativeSearchError> {
     match query {
         NativePivotQuery::Natural { values } => {
@@ -562,6 +950,22 @@ fn collect_window(
             )?;
             let counts = page.stage_counts.clone();
             Ok((page, counts))
+        }
+        NativePivotQuery::EffectPreimage { plans, verifier } => {
+            let matches =
+                collect_preimage_window(preimage, policy, plans, verifier, window, page_size)?;
+            let counts = Vec::new();
+            Ok((
+                crate::native_search::AuxiliaryPivotPage {
+                    matches,
+                    stage_counts: counts.clone(),
+                    // The seed accelerator did not run for this route; the
+                    // accelerator that did is reported by
+                    // `PreimageAccelerator::last_backend()`.
+                    backend: NativeBackend::NotUsed,
+                },
+                counts,
+            ))
         }
     }
 }

@@ -54,8 +54,9 @@ and the rarity-4 primary pivot, including a rarity-4 primary query that also
 carries auxiliary criteria. The handshake capability object now comes from the
 loaded accelerator's own probe (`cuda_pivot_and_auxiliary` and
 `bulk_cpu_requires_opt_in` report `true`, matching the Python worker), and the
-DirectCompute effect-filter capability and NG4/NG5 cache stay `false`/absent
-because those paths are not ported.
+DirectCompute effect-filter capability and NG4/NG5 cache stayed `false`/absent
+while those paths were unported; both are published now (see the M2.3d note
+below).
 
 Deliberately not served, each refused with its own reason instead of one blanket
 claim: rarity-5 effect searches (effect-preimage accelerator not implemented), a
@@ -63,9 +64,62 @@ rarity-3 or other non-rarity-4 primary search (batched primary/replay route not
 compiled), an effect-constraint search without a primary id (DirectCompute effect
 route not implemented), an unconstrained sweep (fixed-draw replay not compiled),
 secondary/roll-only replay, Grace-filtered pivots, terrain option ids, and
-playthrough 4/5 (which need an exact save-bound rarity-5 map). Search is still not
-wired into the shipped host: no product cutover, package, tag or publication, and
-save writes stay out of this line.
+playthrough 4/5 (which need an exact save-bound rarity-5 map). Every one of those
+gaps was then closed by M2.3d: the complete-composition preimage (rarity 3 and
+rarity 5 with Grace), the rarity-5 one-wildcard route, the partial-effect filter
+at rarities 3/4/5 including a selected Grace as the draw-1 pivot, and the
+save-bound NG4/NG5 cached rarity-5 route all match the shipped worker on the
+whole returned candidate payload, per-candidate cursors, page cursor, stop
+reason, cancel/resume and structural refusals, so the handshake now publishes
+the DirectCompute effect-filter capability and `cached_rarity5_playthroughs:
+[4, 5]`. Read [the M2.3d handoff](../../deliverables/m23d-preimage/HANDOFF.md)
+and [the migration record](V080_RUST_BACKEND_MIGRATION.md) for the gates and the
+matched fixed-budget numbers. Two items remain explicitly open and are not
+claimed: **live NG4/NG5 cache capture** (the cached gates use clearly labeled
+synthetic valid partitions with a real Python oracle, since no genuine
+`0xDD82`/`0xD523` capture exists) and **G4/private write materialization** (the
+read-only slice never writes a save; `installable` stays false).
+
+Search is still not wired into the shipped host: no product cutover, package,
+tag or publication, and save writes stay out of this line.
+
+### Current position (M3/M4, 2026-09-15)
+
+The M2.3a sentence above that lists digest binding over the wire, candidate
+identity beyond the preview payload, search orchestration and the product worker
+cutover as "future work" is superseded and kept only as history:
+
+- The read-only worker serves its whole surface, including the DirectCompute
+  effect filter and `cached_rarity5_playthroughs: [4, 5]`.
+- `crates/nioh3-protected` (new) serves the runtime role - ownership, temporary
+  overrides, reviewed live add and batch, and the `generate` / `search` /
+  `capture_grace` scan and measured-map loops - and the save role.
+- Packaged profile (M4) is implemented and is now the **default packaged graph**:
+  the packaged host selects the Rust graph from the staged
+  `worker/worker-backend.json`, validating and refusing a bad manifest by name
+  rather than falling back, and acceptance compares the resolved argv for all
+  three roles. The owner authorized this local backend switch for internal
+  v0.8.0 backend validation only - no remote push, dispatch, tag, feed or
+  publication. The PyInstaller worker stays in the tree for development, parity
+  and the legacy Tk path and is no longer part of the shipped graph.
+- The product version is deliberately unchanged for this internal build, so its
+  bytes are not the published v0.7.5 stable release and must not be described as
+  one. See `deliverables/v080-completion-readiness/` for the current lane record.
+- Frontend acceptance: the cart/R4 and editor/delete/restore legs were blocked on
+  the Rust save host refusing `effect_sequence_only` candidates at
+  `install_record` (`/root/m3_save_acceptance`); the lane record now reports both
+  former blockers fixed and every named leg green on the rust-packaged graph,
+  and the app-level save lifecycle faster than the shipped Python host (4.833 s
+  vs 8.121 s). Those results predate the cipher optimization on some legs, so
+  the same-candidate packaged UI acceptance remains open and is owned by
+  `/root/m4_quality_review`.
+- Open: four live flows (real game process and real save) and any
+  player-facing acceptance. Live acceptance has not run.
+
+Current boundary statement and evidence:
+[`RUNTIME_HANDOFF.md`](../../deliverables/m3-protected-host/RUNTIME_HANDOFF.md),
+[`EVIDENCE_RUNTIME_HOST.md`](../../deliverables/m3-protected-host/EVIDENCE_RUNTIME_HOST.md),
+[`v0.8.0` engineering record](../product/releases/v0.8.0.md).
 
 ## v0.7.4 published release
 

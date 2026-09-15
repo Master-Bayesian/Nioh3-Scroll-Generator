@@ -226,6 +226,12 @@ pub enum NativeSearchError {
     },
     /// `seed_accelerator_set_execution_policy` refused the policy.
     PolicyRejected,
+    /// The effect-preimage helper is unusable, carrying the pinned reason (an
+    /// absent library, a substituted artifact, a missing export or a machine
+    /// with no DirectCompute device). The reason is never collapsed into a
+    /// generic failure: the caller has to know whether to install, replace or
+    /// change policy.
+    PreimageUnavailable(String),
 }
 
 /// One composed auxiliary page, including the native stage counts.

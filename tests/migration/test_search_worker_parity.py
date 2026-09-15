@@ -36,6 +36,10 @@ DATA_ROOT = ROOT / "nioh3_scroll_editor" / "data"
 ACCELERATOR = ROOT / "bin" / "nioh3_seed_accelerator.dll"
 MAX_FRAME_BYTES = 4 * 1024 * 1024
 
+sys.path.insert(0, str(ROOT))
+
+from tests.migration.cargo_target import resolved_cargo_target_dir  # noqa: E402
+
 RESPONSE_VALIDATOR = Draft7Validator(
     json.loads((SCHEMA_DIR / "response.schema.json").read_text(encoding="utf-8"))
 )
@@ -56,6 +60,92 @@ POLL_SECONDS = 0.05
 # effect-preimage family stay refused with their own named reasons.
 RULE_ROUTE_KEY = 113
 PRIMARY_ROUTE_EFFECT = 30543
+
+# The densest complete rarity-3 ordinary set found in the first candidate seeds
+# (`deliverables/m23d-preimage/scripts/capture_preimage_vectors.py`). It reaches
+# 63 verified matches inside the contract's 100M-trial page cap, which is the
+# strongest window the shipped protocol can exercise end to end.
+COMPLETE_PREIMAGE_PRIMARY = 17991
+COMPLETE_PREIMAGE_SECONDARY_IDS = (19630, 20781, 30543)
+
+# A rarity-5 complete composition the shipped layer accepts: Seed 3 composes
+# this ordinary set and terminates in Grace 0x6553, and every requested
+# secondary can be drawn into a normal slot.
+RARITY5_PRIMARY = 20781
+RARITY5_SECONDARY_IDS = (6410, 12028, 28203, 41127)
+RARITY5_GRACE_ID = 0x6553
+
+# The same rarity-5 shape with a secondary only the single deep slot can
+# produce: the shipped layer refuses it before searching, so the worker must
+# refuse it by name too.
+RARITY5_DEEP_ONLY_PRIMARY = 41041
+RARITY5_DEEP_ONLY_SECONDARY_IDS = (13555, 15994, 44634, 54282)
+
+# Partial-effect forward filter: a rarity-3 request that names only some of its
+# ordinary slots. The expected Seed and cursor are the shipped solver's own
+# answer for a 100M-trial window
+# (`deliverables/m23d-preimage/scripts/probe_forward_filter_route.py`).
+PARTIAL_FILTER_PRIMARY = 60020
+PARTIAL_FILTER_SECONDARY = 12028
+PARTIAL_FILTER_SEED = 90790139
+PARTIAL_FILTER_CURSOR = 26885
+
+
+def complete_rarity5_query() -> dict:
+    """A rarity-5 query that names every ordinary slot and its Grace."""
+
+    return base_query(
+        rarity=5,
+        primary_effect_ids=[RARITY5_PRIMARY],
+        required_secondary_ids=list(RARITY5_SECONDARY_IDS),
+        grace_effect_id=RARITY5_GRACE_ID,
+    )
+
+
+def one_wildcard_rarity5_query() -> dict:
+    """A rarity-5 query with an unrestricted primary and one open ordinary slot."""
+
+    return base_query(
+        rarity=5,
+        primary_effect_ids=[],
+        required_secondary_ids=list(RARITY5_SECONDARY_IDS),
+        grace_effect_id=RARITY5_GRACE_ID,
+    )
+
+
+def complete_preimage_query() -> dict:
+    """A rarity-3 query that names every ordinary slot."""
+
+    return base_query(
+        rarity=3,
+        primary_effect_ids=[COMPLETE_PREIMAGE_PRIMARY],
+        required_secondary_ids=list(COMPLETE_PREIMAGE_SECONDARY_IDS),
+    )
+
+
+def directcompute_available() -> bool:
+    """Whether this machine can run the shipped DirectCompute preimage sweep."""
+
+    from nioh3_scroll_editor.effect_preimage_accelerator import (
+        d3d11_effect_acceleration_available,
+    )
+
+    return bool(d3d11_effect_acceleration_available())
+
+
+def composed_roll_percent(query: dict, seed: int) -> int:
+    """The roll percent the certified generator gives the queried primary."""
+
+    from nioh3_scroll_editor.effect_sequence import (
+        generate_ng3_rarity3_effect_sequence,
+    )
+
+    sequence = generate_ng3_rarity3_effect_sequence(seed)
+    primary = query["primary_effect_ids"][0]
+    for effect in (sequence.primary, *sequence.secondaries):
+        if effect.effect_id == primary:
+            return int(effect.roll_percent)
+    raise AssertionError(f"Seed {seed} does not compose the queried primary")
 
 
 def contract_digest() -> str:
@@ -82,7 +172,11 @@ def develop_worker_target() -> tuple[Path, str]:
             payload = tomllib.load(stream)
         name = str(payload.get("package", {}).get("name", ""))
         bins = [str(entry.get("name", name)) for entry in payload.get("bin", [])]
-        if "worker" not in name and not any("worker" in entry for entry in bins):
+        # The read-only worker specifically: `crates/nioh3-protected` also ships a
+        # `*-worker` binary, and this gate must never drive the protected host.
+        if override and manifest == Path(override):
+            return manifest, (bins[0] if bins else name)
+        if name != "nioh3-worker" and "nioh3-readonly-worker" not in bins:
             continue
         return manifest, (bins[0] if bins else name)
     raise AssertionError(
@@ -91,9 +185,20 @@ def develop_worker_target() -> tuple[Path, str]:
     )
 
 
+def worker_target_dir() -> Path:
+    """The cargo target directory this gate builds into.
+
+    The rule lives in one place (`tests/migration/cargo_target.py`):
+    `CARGO_TARGET_DIR` always wins, otherwise the platform temp directory is
+    used, so a fresh target tree is never written into the checkout.
+    """
+
+    return Path(resolved_cargo_target_dir("worker"))
+
+
 def worktree_env() -> dict[str, str]:
     env = dict(os.environ)
-    env.setdefault("CARGO_TARGET_DIR", str(ROOT / ".codex_tmp" / "m23-worker-target"))
+    env["CARGO_TARGET_DIR"] = str(worker_target_dir())
     return env
 
 
@@ -264,6 +369,12 @@ def search_params(
 
 def candidate_seeds(snapshot: dict) -> list[int]:
     return [int(candidate["seed"]) for candidate in snapshot.get("candidates", [])]
+
+
+def candidate_cursors(snapshot: dict) -> list[int]:
+    """The 1-based solver trial each published candidate came from."""
+
+    return [int(candidate["cursor"]) for candidate in snapshot.get("candidates", [])]
 
 
 def wait_for_terminal(worker: FramedProcess, job_id: str, *, timeout: float) -> dict:
@@ -729,16 +840,942 @@ class SearchWorkerParityTests(unittest.TestCase):
             "combined-route cursor differs from the Python worker",
         )
 
-    def test_unported_effect_and_r3_routes_are_rejected(self) -> None:
-        """Unsupported routes must reject explicitly, never run silently.
+    def test_partial_effect_forward_filter_matches_the_python_worker(self) -> None:
+        """The partial-effect forward filter serves a request the pivots cannot.
 
-        The shipped full-family replay now serves a rarity-3 primary search and
-        an unconstrained query (batched primary ids, then the auxiliary masks),
-        so both must match the Python worker instead of being refused. The
-        routes that remain unported still reject with INVALID_REQUEST and their
-        own reason: a rarity-5 effect search needs the effect-preimage
-        accelerator, and a secondary/roll-constrained R4 route is replayed by
-        the job layer rather than by a pivot.
+        A rarity-3 request that names only some ordinary slots has no
+        complete-composition preimage, so the shipped worker sweeps the full seed
+        family with the DirectCompute constraint mask and certifies every
+        survivor with the forward generator. The expected cursor and candidate
+        below come from the shipped solver itself
+        (`deliverables/m23d-preimage/scripts/probe_forward_filter_route.py`), so
+        this gate pins the route even if both workers drift together.
+        """
+
+        query = base_query(
+            rarity=3,
+            primary_effect_ids=[PARTIAL_FILTER_PRIMARY],
+            required_secondary_ids=[PARTIAL_FILTER_SECONDARY],
+        )
+        rust = self.rust_worker()
+        python = self.python_worker()
+        try:
+            rust_context = self.handshake_context(rust)["context_digest"]
+            python_context = self.handshake_context(python)["context_digest"]
+            self.assertEqual(rust_context, python_context)
+            params = search_params(
+                query,
+                rust_context,
+                result_count=1,
+                page_trials=10_000_000,
+                job_trials=10_000_000,
+                **self.policy(),
+            )
+            rust_snapshot = wait_for_terminal(
+                rust,
+                rust.result("search.start", params, label="rust partial")["job_id"],
+                timeout=900,
+            )
+            python_snapshot = wait_for_terminal(
+                python,
+                python.result(
+                    "search.start",
+                    {**params, "context_digest": python_context},
+                    label="python partial",
+                )["job_id"],
+                timeout=900,
+            )
+        finally:
+            rust.close()
+            python.close()
+        self.assertEqual(rust_snapshot["state"], "completed", rust_snapshot.get("error"))
+        self.assertEqual(
+            candidate_seeds(rust_snapshot),
+            [PARTIAL_FILTER_SEED],
+            "the partial-effect route must publish the probed Seed",
+        )
+        self.assertEqual(candidate_seeds(rust_snapshot), candidate_seeds(python_snapshot))
+        self.assertEqual(candidate_cursors(rust_snapshot), candidate_cursors(python_snapshot))
+        self.assertEqual(
+            rust_snapshot["cursor"],
+            PARTIAL_FILTER_CURSOR,
+            "the partial-effect cursor must be the accepted candidate's pivot trial",
+        )
+        self.assertEqual(rust_snapshot["cursor"], python_snapshot["cursor"])
+        self.assertEqual(rust_snapshot["stop_reason"], python_snapshot["stop_reason"])
+
+    def test_partial_effect_secondary_only_query_matches_the_python_worker(self) -> None:
+        """A partial request with no primary still runs the forward filter.
+
+        The criterion groups of a primary-less request use the shipped
+        `ordinary_kind = 2`, so this pins that packing separately from the
+        primary-bearing case above.
+        """
+
+        query = base_query(
+            rarity=3,
+            primary_effect_ids=[],
+            required_secondary_ids=[12028, 16437],
+        )
+        rust = self.rust_worker()
+        python = self.python_worker()
+        try:
+            rust_context = self.handshake_context(rust)["context_digest"]
+            python_context = self.handshake_context(python)["context_digest"]
+            params = search_params(
+                query,
+                rust_context,
+                result_count=1,
+                page_trials=10_000_000,
+                job_trials=10_000_000,
+                **self.policy(),
+            )
+            rust_snapshot = wait_for_terminal(
+                rust,
+                rust.result("search.start", params, label="rust partial secondary")["job_id"],
+                timeout=900,
+            )
+            python_snapshot = wait_for_terminal(
+                python,
+                python.result(
+                    "search.start",
+                    {**params, "context_digest": python_context},
+                    label="python partial secondary",
+                )["job_id"],
+                timeout=900,
+            )
+        finally:
+            rust.close()
+            python.close()
+        self.assertEqual(rust_snapshot["state"], "completed", rust_snapshot.get("error"))
+        self.assertEqual(
+            candidate_seeds(rust_snapshot),
+            [232216827],
+            "the secondary-only route must publish the probed Seed",
+        )
+        self.assertEqual(candidate_seeds(rust_snapshot), candidate_seeds(python_snapshot))
+        self.assertEqual(candidate_cursors(rust_snapshot), candidate_cursors(python_snapshot))
+        self.assertEqual(rust_snapshot["cursor"], python_snapshot["cursor"])
+        self.assertEqual(rust_snapshot["stop_reason"], python_snapshot["stop_reason"])
+
+    def test_grace_filtered_partial_rarity5_matches_the_python_worker(self) -> None:
+        """A rarity-5 partial request with a selected Grace inverts that Grace.
+
+        The shipped solver's pivot is the Grace's draw-1 runs, not the whole seed
+        family, so this pins the cursor space itself: the expected Seeds and
+        cursors come from the shipped solver
+        (`deliverables/m23d-preimage/scripts/probe_forward_filter_route.py`), and
+        a natural-family substitute would land on a different trial.
+        """
+
+        cases = (
+            {
+                "name": "primary_and_secondaries",
+                "query": base_query(
+                    rarity=5,
+                    primary_effect_ids=[RARITY5_PRIMARY],
+                    required_secondary_ids=[6410, 12028],
+                    grace_effect_id=RARITY5_GRACE_ID,
+                ),
+                "expected_seed": 88364494,
+                "expected_cursor": 393530,
+            },
+            {
+                "name": "secondaries_only",
+                "query": base_query(
+                    rarity=5,
+                    primary_effect_ids=[],
+                    required_secondary_ids=[6410, 12028],
+                    grace_effect_id=RARITY5_GRACE_ID,
+                ),
+                "expected_seed": 163797243,
+                "expected_cursor": 1695,
+            },
+            {
+                "name": "grace_only",
+                "query": base_query(
+                    rarity=5,
+                    primary_effect_ids=[],
+                    required_secondary_ids=[],
+                    grace_effect_id=RARITY5_GRACE_ID,
+                ),
+                "expected_seed": 162486523,
+                "expected_cursor": 15,
+            },
+        )
+        rust = self.rust_worker()
+        python = self.python_worker()
+        try:
+            rust_context = self.handshake_context(rust)["context_digest"]
+            python_context = self.handshake_context(python)["context_digest"]
+            self.assertEqual(rust_context, python_context)
+            for case in cases:
+                with self.subTest(case=case["name"]):
+                    params = search_params(
+                        case["query"],
+                        rust_context,
+                        result_count=1,
+                        page_trials=4_000_000,
+                        job_trials=4_000_000,
+                        **self.policy(),
+                    )
+                    rust_snapshot = wait_for_terminal(
+                        rust,
+                        rust.result(
+                            "search.start", params, label=f"rust {case['name']}"
+                        )["job_id"],
+                        timeout=900,
+                    )
+                    python_snapshot = wait_for_terminal(
+                        python,
+                        python.result(
+                            "search.start",
+                            {**params, "context_digest": python_context},
+                            label=f"python {case['name']}",
+                        )["job_id"],
+                        timeout=900,
+                    )
+                    self.assertEqual(
+                        rust_snapshot["state"], "completed", rust_snapshot.get("error")
+                    )
+                    self.assertEqual(
+                        candidate_seeds(rust_snapshot),
+                        [case["expected_seed"]],
+                        f"{case['name']}: expected the probed Grace-context Seed",
+                    )
+                    self.assertEqual(
+                        candidate_seeds(rust_snapshot),
+                        candidate_seeds(python_snapshot),
+                        f"{case['name']}: candidate identity differs from Python",
+                    )
+                    self.assertEqual(
+                        candidate_cursors(rust_snapshot),
+                        candidate_cursors(python_snapshot),
+                        f"{case['name']}: candidate cursor differs from Python",
+                    )
+                    self.assertEqual(
+                        rust_snapshot["cursor"],
+                        case["expected_cursor"],
+                        f"{case['name']}: the Grace draw-1 pivot cursor must match",
+                    )
+                    self.assertEqual(
+                        rust_snapshot["cursor"], python_snapshot["cursor"]
+                    )
+                    self.assertEqual(
+                        rust_snapshot["stop_reason"], python_snapshot["stop_reason"]
+                    )
+        finally:
+            rust.close()
+            python.close()
+
+    def test_grace_filtered_partial_rarity4_matches_the_python_worker(self) -> None:
+        """The rarity-4 finalizer route inverts the same draw-1 Grace runs."""
+
+        grace = 25939
+        cases = (
+            {
+                "name": "primary_and_secondary",
+                "query": base_query(
+                    rarity=4,
+                    primary_effect_ids=[PRIMARY_ROUTE_EFFECT],
+                    required_secondary_ids=[12028],
+                    grace_effect_id=grace,
+                ),
+                "expected_seed": 83888569,
+                "expected_cursor": 33956,
+            },
+            {
+                "name": "secondary_only",
+                "query": base_query(
+                    rarity=4,
+                    primary_effect_ids=[],
+                    required_secondary_ids=[12028],
+                    grace_effect_id=grace,
+                ),
+                "expected_seed": 116283643,
+                "expected_cursor": 688,
+            },
+        )
+        rust = self.rust_worker()
+        python = self.python_worker()
+        try:
+            rust_context = self.handshake_context(rust)["context_digest"]
+            python_context = self.handshake_context(python)["context_digest"]
+            self.assertEqual(rust_context, python_context)
+            for case in cases:
+                with self.subTest(case=case["name"]):
+                    params = search_params(
+                        case["query"],
+                        rust_context,
+                        result_count=1,
+                        page_trials=4_000_000,
+                        job_trials=4_000_000,
+                        **self.policy(),
+                    )
+                    rust_snapshot = wait_for_terminal(
+                        rust,
+                        rust.result(
+                            "search.start", params, label=f"rust {case['name']}"
+                        )["job_id"],
+                        timeout=900,
+                    )
+                    python_snapshot = wait_for_terminal(
+                        python,
+                        python.result(
+                            "search.start",
+                            {**params, "context_digest": python_context},
+                            label=f"python {case['name']}",
+                        )["job_id"],
+                        timeout=900,
+                    )
+                    self.assertEqual(
+                        rust_snapshot["state"], "completed", rust_snapshot.get("error")
+                    )
+                    self.assertEqual(
+                        candidate_seeds(rust_snapshot),
+                        [case["expected_seed"]],
+                        f"{case['name']}: expected the probed Grace-context Seed",
+                    )
+                    self.assertEqual(
+                        candidate_seeds(rust_snapshot),
+                        candidate_seeds(python_snapshot),
+                        f"{case['name']}: candidate identity differs from Python",
+                    )
+                    self.assertEqual(
+                        rust_snapshot["cursor"],
+                        case["expected_cursor"],
+                        f"{case['name']}: the Grace draw-1 pivot cursor must match",
+                    )
+                    self.assertEqual(
+                        rust_snapshot["cursor"], python_snapshot["cursor"]
+                    )
+                    self.assertEqual(
+                        rust_snapshot["stop_reason"], python_snapshot["stop_reason"]
+                    )
+        finally:
+            rust.close()
+            python.close()
+
+    def test_partial_effect_cancel_and_resume_continue_without_replay(self) -> None:
+        """A cancelled partial-effect page resumes exactly where it stopped.
+
+        The forward-filter route scans the whole seed family, so a cancel lands
+        inside a long page rather than after a short one. The union of the
+        cancelled page and the resumed job must equal the shipped worker's
+        single continuing run, which is only possible if the checkpoint really
+        is the accepted-match cursor and nothing is replayed.
+        """
+
+        query = base_query(
+            rarity=3,
+            primary_effect_ids=[PARTIAL_FILTER_PRIMARY],
+            required_secondary_ids=[PARTIAL_FILTER_SECONDARY],
+        )
+        rust = self.rust_worker()
+        python = self.python_worker()
+        try:
+            context = self.handshake_context(rust)["context_digest"]
+            python_context = self.handshake_context(python)["context_digest"]
+            params = search_params(
+                query,
+                context,
+                result_count=25,
+                page_trials=100_000_000,
+                job_trials=400_000_000,
+                continue_until_complete=True,
+                **self.policy(),
+            )
+            python_snapshot = wait_for_terminal(
+                python,
+                python.result(
+                    "search.start",
+                    {**params, "context_digest": python_context},
+                    label="python continuing partial",
+                )["job_id"],
+                timeout=900,
+            )
+            started = rust.result("search.start", params, label="rust partial start")
+            time.sleep(0.25)
+            inflight = rust.result(
+                "job.snapshot", {"job_id": started["job_id"]}, label="job.snapshot"
+            )
+            self.assertNotIn(
+                inflight["state"],
+                TERMINAL_STATES,
+                "the partial page finished before the cancel landed, so this check "
+                "measured nothing",
+            )
+            cancel_started = time.monotonic()
+            rust.result("job.cancel", {"job_id": started["job_id"]}, label="job.cancel")
+            cancelled = wait_for_terminal(rust, started["job_id"], timeout=60)
+            cancel_seconds = time.monotonic() - cancel_started
+            self.assertEqual(cancelled["state"], "cancelled", cancelled)
+            self.assertLess(
+                cancel_seconds,
+                2.0,
+                "a cancel inside a 100M-trial partial page must be responsive",
+            )
+            token = cancelled.get("resume_token")
+            self.assertIsNotNone(
+                token, "a cancelled partial job must publish its checkpoint token"
+            )
+            resumed = rust.result(
+                "search.start",
+                search_params(
+                    query,
+                    context,
+                    result_count=25,
+                    page_trials=100_000_000,
+                    job_trials=400_000_000,
+                    continue_until_complete=True,
+                    resume_token=token,
+                    **self.policy(),
+                ),
+                label="resume search.start",
+            )
+            self.assertGreaterEqual(
+                resumed["cursor"],
+                cancelled["cursor"],
+                "a resume must not rewind the partial-effect cursor",
+            )
+            resumed_snapshot = wait_for_terminal(rust, resumed["job_id"], timeout=900)
+            union_seeds = candidate_seeds(cancelled) + candidate_seeds(resumed_snapshot)
+            self.assertEqual(
+                len(union_seeds),
+                len(set(union_seeds)),
+                "a resumed partial page must not replay candidates",
+            )
+            python_seeds = candidate_seeds(python_snapshot)
+            self.assertTrue(union_seeds, "the cancelled run published nothing to check")
+            # A resumed job carries its own `job_trials` budget from the
+            # checkpoint, so the two runs need not cover the same number of
+            # trials; what must hold is that both enumerate the same accepted
+            # candidates in the same order as far as both went, with nothing
+            # replayed and nothing invented.
+            overlap = min(len(union_seeds), len(python_seeds))
+            self.assertEqual(
+                union_seeds[:overlap],
+                python_seeds[:overlap],
+                "cancel plus resume must enumerate the shipped run's candidates in "
+                f"the same order (rust {len(union_seeds)}, shipped {len(python_seeds)})",
+            )
+            if resumed_snapshot["candidates"]:
+                self.assertGreater(
+                    candidate_cursors(resumed_snapshot)[0],
+                    cancelled["cursor"],
+                    "the resumed page must continue after the checkpoint",
+                )
+            print(
+                f"# partial cancel: {cancel_seconds * 1000:.0f} ms at cursor "
+                f"{cancelled['cursor']} ({len(cancelled['candidates'])} published), "
+                f"resumed {len(resumed_snapshot['candidates'])} candidates to cursor "
+                f"{resumed_snapshot['cursor']} ({resumed_snapshot['stop_reason']}), "
+                f"shipped run {len(python_seeds)} to cursor {python_snapshot['cursor']} "
+                f"({python_snapshot['stop_reason']})"
+            )
+        finally:
+            rust.close()
+            python.close()
+
+    def test_complete_preimage_route_matches_the_python_worker(self) -> None:
+        """The complete-composition preimage route is a real GPU route now.
+
+        A rarity-3 request that names every ordinary slot is inverted through the
+        shipped effect-preimage accelerator on both sides, so this gate compares
+        the composed candidates and their per-candidate cursors against the
+        shipped Python worker.
+
+        The window is wide enough to reach the shipped page boundary
+        (`max(64, 8 * pending)` verified matches), so the assertion covers the
+        scan-boundary cursor as well as the candidate list: the Rust collector
+        mirrors the wider scan and publishes only the requested candidates.
+        """
+
+        query = complete_preimage_query()
+        has_directcompute = directcompute_available()
+        rust = self.rust_worker()
+        python = self.python_worker()
+        try:
+            rust_context = self.handshake_context(rust)["context_digest"]
+            python_context = self.handshake_context(python)["context_digest"]
+            params = search_params(
+                query,
+                rust_context,
+                result_count=2,
+                page_trials=100_000_000,
+                job_trials=100_000_000,
+                **self.policy(),
+            )
+            rust_snapshot = wait_for_terminal(
+                rust,
+                rust.result("search.start", params, label="rust complete preimage")[
+                    "job_id"
+                ],
+                timeout=900,
+            )
+            if not has_directcompute:
+                # Without a DirectCompute device this route must fail closed by
+                # name instead of quietly answering from a different scanner.
+                self.assertEqual(rust_snapshot["state"], "failed", rust_snapshot)
+                self.assertEqual(
+                    rust_snapshot["error"]["code"],
+                    "SEARCH_BACKEND_UNAVAILABLE",
+                    rust_snapshot["error"],
+                )
+                self.assertIn(
+                    "effect-preimage",
+                    rust_snapshot["error"]["message"].lower(),
+                    "the refusal must name the helper it could not use",
+                )
+                return
+            python_snapshot = wait_for_terminal(
+                python,
+                python.result(
+                    "search.start",
+                    {**params, "context_digest": python_context},
+                    label="python complete preimage",
+                )["job_id"],
+                timeout=900,
+            )
+        finally:
+            rust.close()
+            python.close()
+        self.assertEqual(rust_snapshot["state"], "completed", rust_snapshot.get("error"))
+        self.assertTrue(
+            rust_snapshot["candidates"],
+            "the complete-composition preimage route found nothing",
+        )
+        self.assertEqual(
+            candidate_seeds(rust_snapshot),
+            candidate_seeds(python_snapshot),
+            "complete-preimage candidate identity or order differs from the Python worker",
+        )
+        self.assertEqual(
+            candidate_cursors(rust_snapshot),
+            candidate_cursors(python_snapshot),
+            "complete-preimage candidate trials differ from the Python worker",
+        )
+        self.assertEqual(
+            rust_snapshot["cursor"],
+            python_snapshot["cursor"],
+            "complete-preimage page cursor differs from the Python worker",
+        )
+        self.assertEqual(
+            rust_snapshot["stop_reason"],
+            python_snapshot["stop_reason"],
+            "complete-preimage stop reason differs from the Python worker",
+        )
+
+    def test_complete_rarity5_preimage_matches_the_python_worker(self) -> None:
+        """A rarity-5 complete composition runs the same GPU inverse with Grace.
+
+        The draw-1 Grace preimage is the route's shared constraint, so this also
+        covers the Grace integration: candidate identity, per-candidate cursor and
+        the final page cursor must match the shipped Python worker exactly.
+        """
+
+        query = complete_rarity5_query()
+        has_directcompute = directcompute_available()
+        rust = self.rust_worker()
+        python = self.python_worker()
+        try:
+            rust_context = self.handshake_context(rust)["context_digest"]
+            python_context = self.handshake_context(python)["context_digest"]
+            params = search_params(
+                query,
+                rust_context,
+                result_count=2,
+                page_trials=100_000_000,
+                job_trials=100_000_000,
+                **self.policy(),
+            )
+            rust_snapshot = wait_for_terminal(
+                rust,
+                rust.result("search.start", params, label="rust rarity5 preimage")[
+                    "job_id"
+                ],
+                timeout=900,
+            )
+            if not has_directcompute:
+                self.assertEqual(rust_snapshot["state"], "failed", rust_snapshot)
+                self.assertIn(
+                    "effect-preimage",
+                    rust_snapshot["error"]["message"].lower(),
+                    "the refusal must name the helper it could not use",
+                )
+                return
+            python_snapshot = wait_for_terminal(
+                python,
+                python.result(
+                    "search.start",
+                    {**params, "context_digest": python_context},
+                    label="python rarity5 preimage",
+                )["job_id"],
+                timeout=900,
+            )
+        finally:
+            rust.close()
+            python.close()
+        self.assertEqual(rust_snapshot["state"], "completed", rust_snapshot.get("error"))
+        self.assertTrue(
+            rust_snapshot["candidates"],
+            "the rarity-5 complete-composition route found nothing",
+        )
+        self.assertEqual(
+            candidate_seeds(rust_snapshot),
+            candidate_seeds(python_snapshot),
+            "rarity-5 candidate identity or order differs from the Python worker",
+        )
+        self.assertEqual(
+            candidate_cursors(rust_snapshot),
+            candidate_cursors(python_snapshot),
+            "rarity-5 candidate trials differ from the Python worker",
+        )
+        self.assertEqual(
+            rust_snapshot["cursor"],
+            python_snapshot["cursor"],
+            "rarity-5 page cursor differs from the Python worker",
+        )
+        self.assertEqual(
+            rust_snapshot["stop_reason"],
+            python_snapshot["stop_reason"],
+            "rarity-5 stop reason differs from the Python worker",
+        )
+        for candidate in rust_snapshot["candidates"]:
+            slots = {
+                int(effect["slot"]): int(effect["effect_id"])
+                for effect in candidate["effects"]
+            }
+            self.assertEqual(
+                slots.get(6),
+                RARITY5_GRACE_ID,
+                "every candidate must terminate in the requested Grace",
+            )
+
+    def test_one_wildcard_rarity5_route_matches_the_python_worker(self) -> None:
+        """The one-wildcard route must serve the same Seeds as the shipped worker.
+
+        The requested ordinary effects have to be present and one ordinary slot is
+        free, so this also proves the containment acceptance agrees with
+        `verify_one_wildcard_matches` rather than with a stricter exact-set match.
+        """
+
+        query = one_wildcard_rarity5_query()
+        has_directcompute = directcompute_available()
+        rust = self.rust_worker()
+        python = self.python_worker()
+        try:
+            rust_context = self.handshake_context(rust)["context_digest"]
+            python_context = self.handshake_context(python)["context_digest"]
+            params = search_params(
+                query,
+                rust_context,
+                result_count=2,
+                page_trials=100_000_000,
+                job_trials=100_000_000,
+                **self.policy(),
+            )
+            rust_snapshot = wait_for_terminal(
+                rust,
+                rust.result("search.start", params, label="rust one wildcard")[
+                    "job_id"
+                ],
+                timeout=900,
+            )
+            if not has_directcompute:
+                self.assertEqual(rust_snapshot["state"], "failed", rust_snapshot)
+                self.assertIn(
+                    "effect-preimage",
+                    rust_snapshot["error"]["message"].lower(),
+                )
+                return
+            python_snapshot = wait_for_terminal(
+                python,
+                python.result(
+                    "search.start",
+                    {**params, "context_digest": python_context},
+                    label="python one wildcard",
+                )["job_id"],
+                timeout=900,
+            )
+        finally:
+            rust.close()
+            python.close()
+        self.assertEqual(rust_snapshot["state"], "completed", rust_snapshot.get("error"))
+        self.assertTrue(
+            rust_snapshot["candidates"],
+            "the one-wildcard route found nothing",
+        )
+        self.assertEqual(
+            candidate_seeds(rust_snapshot),
+            candidate_seeds(python_snapshot),
+            "one-wildcard candidate identity or order differs from the Python worker",
+        )
+        self.assertEqual(
+            rust_snapshot["cursor"],
+            python_snapshot["cursor"],
+            "one-wildcard page cursor differs from the Python worker",
+        )
+        self.assertEqual(
+            rust_snapshot["stop_reason"],
+            python_snapshot["stop_reason"],
+            "one-wildcard stop reason differs from the Python worker",
+        )
+        for candidate in rust_snapshot["candidates"]:
+            slots = {
+                int(effect["slot"]): int(effect["effect_id"])
+                for effect in candidate["effects"]
+            }
+            ordinary = {slots.get(slot) for slot in range(1, 6)}
+            for effect_id in RARITY5_SECONDARY_IDS:
+                self.assertIn(
+                    effect_id,
+                    ordinary,
+                    "every returned candidate must contain the required ordinary effects",
+                )
+            self.assertEqual(
+                slots.get(6),
+                RARITY5_GRACE_ID,
+                "every returned candidate must terminate in the requested Grace",
+            )
+            self.assertEqual(
+                len(ordinary - set(RARITY5_SECONDARY_IDS)),
+                1,
+                "exactly one ordinary slot is free in a one-wildcard search",
+            )
+
+
+    def test_complete_rarity5_deep_slot_only_set_is_refused_by_both_workers(self) -> None:
+        """A structurally impossible rarity-5 set must fail closed, not answer."""
+
+        query = base_query(
+            rarity=5,
+            primary_effect_ids=[RARITY5_DEEP_ONLY_PRIMARY],
+            required_secondary_ids=list(RARITY5_DEEP_ONLY_SECONDARY_IDS),
+            grace_effect_id=RARITY5_GRACE_ID,
+        )
+        rust = self.rust_worker()
+        python = self.python_worker()
+        try:
+            rust_context = self.handshake_context(rust)["context_digest"]
+            python_context = self.handshake_context(python)["context_digest"]
+            params = search_params(
+                query,
+                rust_context,
+                result_count=2,
+                page_trials=100_000_000,
+                job_trials=100_000_000,
+                **self.policy(),
+            )
+            reply = rust.call("search.start", params)
+            self.assertFalse(reply.get("ok"), "the worker must refuse this combination")
+            self.assertEqual(
+                reply["error"]["code"],
+                "INVALID_REQUEST",
+                reply["error"],
+            )
+            self.assertIn(
+                "deep slot",
+                reply["error"]["message"].lower(),
+                "the refusal must name the reason it cannot be searched",
+            )
+            python_reply = python.call(
+                "search.start", {**params, "context_digest": python_context}
+            )
+            self.assertFalse(
+                python_reply.get("ok"),
+                "the shipped worker refuses this combination too, so a search answer "
+                "here would be a parity break",
+            )
+            self.assertEqual(python_reply["error"]["code"], "INVALID_REQUEST")
+        finally:
+            rust.close()
+            python.close()
+
+
+    def test_complete_preimage_roll_and_occurrence_filters_match_the_python_worker(self) -> None:
+        """Roll minimums and effect occurrences stay enforced on the GPU route.
+
+        Plain roll minimums are the one post-acceptance criterion the job layer
+        does not re-check, so the route decides them from its own certified
+        composition; occurrences are decided by the job layer. Both must agree
+        with the shipped Python worker, including when the filter removes a seed
+        the unfiltered run returned.
+        """
+
+        query = complete_preimage_query()
+        rust = self.rust_worker()
+        python = self.python_worker()
+        try:
+            rust_context = self.handshake_context(rust)["context_digest"]
+            python_context = self.handshake_context(python)["context_digest"]
+            baseline = search_params(
+                query, rust_context, result_count=3, page_trials=100_000_000, job_trials=100_000_000,
+                **self.policy(),
+            )
+            baseline_snapshot = wait_for_terminal(
+                rust,
+                rust.result("search.start", baseline, label="preimage baseline")["job_id"],
+                timeout=900,
+            )
+            self.assertTrue(baseline_snapshot["candidates"], "baseline found no candidate")
+            seed = candidate_seeds(baseline_snapshot)[0]
+            roll = composed_roll_percent(query, seed)
+            cases = {
+                "roll_at_observed_minimum": [[COMPLETE_PREIMAGE_PRIMARY, roll]],
+                "roll_above_observed": [
+                    [COMPLETE_PREIMAGE_PRIMARY, min(roll + 5, 100)]
+                ],
+            }
+            for name, minimum_rolls in cases.items():
+                filtered = base_query(
+                    rarity=3,
+                    primary_effect_ids=[COMPLETE_PREIMAGE_PRIMARY],
+                    required_secondary_ids=list(COMPLETE_PREIMAGE_SECONDARY_IDS),
+                    minimum_roll_percent_by_effect_id=minimum_rolls,
+                )
+                params = search_params(
+                    filtered, rust_context, result_count=3, page_trials=100_000_000,
+                    job_trials=100_000_000, **self.policy(),
+                )
+                rust_snapshot = wait_for_terminal(
+                    rust,
+                    rust.result("search.start", params, label=f"{name} rust")["job_id"],
+                    timeout=900,
+                )
+                python_snapshot = wait_for_terminal(
+                    python,
+                    python.result(
+                        "search.start",
+                        {**params, "context_digest": python_context},
+                        label=f"{name} python",
+                    )["job_id"],
+                    timeout=900,
+                )
+                self.assertEqual(
+                    rust_snapshot["state"],
+                    "completed",
+                    f"{name}: {rust_snapshot.get('error')}",
+                )
+                self.assertEqual(
+                    candidate_seeds(rust_snapshot),
+                    candidate_seeds(python_snapshot),
+                    f"{name}: candidate identity or order differs from the Python worker",
+                )
+                self.assertEqual(
+                    rust_snapshot["cursor"],
+                    python_snapshot["cursor"],
+                    f"{name}: cursor differs from the Python worker",
+                )
+                if name == "roll_at_observed_minimum":
+                    self.assertIn(
+                        seed,
+                        candidate_seeds(rust_snapshot),
+                        f"{name}: the unfiltered seed must survive its own roll minimum",
+                    )
+                else:
+                    self.assertNotIn(
+                        seed,
+                        candidate_seeds(rust_snapshot),
+                        f"{name}: a roll minimum above the observed roll must filter that seed",
+                    )
+        finally:
+            rust.close()
+            python.close()
+
+
+    def test_complete_preimage_cancel_and_resume_do_not_replay(self) -> None:
+        """The preimage route must cancel responsively and resume exactly.
+
+        The first job is cancelled while a 200M-trial page is in flight. The
+        checkpoint it publishes must be usable without replaying a candidate and
+        without rewinding the cursor, which is the property the shipped page's
+        scan-boundary cursor exists to guarantee.
+        """
+
+        query = complete_preimage_query()
+        rust = self.rust_worker()
+        try:
+            context = self.handshake_context(rust)["context_digest"]
+            started = rust.result(
+                "search.start",
+                search_params(
+                    query,
+                    context,
+                    result_count=100,
+                    page_trials=100_000_000,
+                    job_trials=100_000_000,
+                    continue_until_complete=True,
+                    **self.policy(),
+                ),
+                label="preimage cancel start",
+            )
+            time.sleep(0.25)
+            inflight = rust.result(
+                "job.snapshot", {"job_id": started["job_id"]}, label="job.snapshot"
+            )
+            self.assertNotIn(
+                inflight["state"],
+                TERMINAL_STATES,
+                "the preimage job finished before the cancel could be issued, so this "
+                "check measured nothing; raise result_count so a page stays in flight",
+            )
+            rust.result("job.cancel", {"job_id": started["job_id"]}, label="preimage cancel")
+            cancelled = wait_for_terminal(rust, started["job_id"], timeout=900)
+            self.assertEqual(cancelled["state"], "cancelled", cancelled.get("error"))
+            self.assertEqual(cancelled["stop_reason"], "cancelled")
+            token = cancelled.get("resume_token")
+            self.assertIsNotNone(
+                token, "a cancelled preimage job must publish a resume token"
+            )
+            first_seeds = set(candidate_seeds(cancelled))
+            resumed = rust.result(
+                "search.start",
+                search_params(
+                    query,
+                    context,
+                    result_count=100,
+                    page_trials=100_000_000,
+                    job_trials=100_000_000,
+                    continue_until_complete=True,
+                    resume_token=token,
+                    **self.policy(),
+                ),
+                label="preimage resume start",
+            )
+            self.assertGreaterEqual(
+                resumed["cursor"],
+                cancelled["cursor"],
+                "a resume must not rewind the cursor",
+            )
+            resumed_snapshot = wait_for_terminal(rust, resumed["job_id"], timeout=900)
+        finally:
+            rust.close()
+        self.assertEqual(resumed_snapshot["state"], "completed", resumed_snapshot.get("error"))
+        self.assertTrue(resumed_snapshot["candidates"], "the resumed preimage job found nothing")
+        for candidate in resumed_snapshot["candidates"]:
+            self.assertGreater(
+                int(candidate["cursor"]),
+                int(cancelled["cursor"]),
+                "a resumed preimage job must not return a trial at or before the checkpoint",
+            )
+            self.assertNotIn(
+                int(candidate["seed"]),
+                first_seeds,
+                "a resumed preimage job must not replay a published candidate",
+            )
+
+    def test_effect_routes_match_or_refuse_like_the_python_worker(self) -> None:
+        """Effect routes either answer with the Python worker's result or refuse.
+
+        The shipped full-family replay serves a rarity-3 primary search and an
+        unconstrained query (batched primary ids, then the auxiliary masks), and
+        the partial-effect forward filter serves a request that names only some
+        ordinary slots at rarity 3, 4 and 5. Every served case carries the
+        shipped solver's own cursor and Seed
+        (`deliverables/m23d-preimage/scripts/probe_forward_filter_route.py`), so
+        the gate pins the route even if both workers drift together. Routes that
+        remain unported still reject with INVALID_REQUEST and their own reason.
         """
 
         served = {
@@ -750,20 +1787,35 @@ class SearchWorkerParityTests(unittest.TestCase):
                     rarity=3, primary_effect_ids=[PRIMARY_ROUTE_EFFECT]
                 ),
             },
-        }
-        refused = {
+            "r4_primary_plus_secondary": {
+                "query": base_query(
+                    primary_effect_ids=[PRIMARY_ROUTE_EFFECT],
+                    required_secondary_ids=[12028],
+                ),
+                "result_count": 1,
+                "expected_seed": 74209531,
+                "expected_cursor": 1110,
+            },
             "r5_primary": {
                 "query": base_query(
                     rarity=5, primary_effect_ids=[PRIMARY_ROUTE_EFFECT]
                 ),
-                "reason": "effect-preimage",
+                "result_count": 1,
+                "expected_seed": 8411387,
+                "expected_cursor": 626,
             },
-            "r4_primary_plus_secondary": {
+        }
+        refused = {
+            # The shared structural preflight refuses an effect id outside the
+            # native table before any route is chosen, exactly like the shipped
+            # worker, so this is a query-level refusal rather than a route gap.
+            "unknown_effect_id": {
                 "query": base_query(
                     primary_effect_ids=[PRIMARY_ROUTE_EFFECT],
                     required_secondary_ids=[0x1234],
                 ),
-                "reason": "secondary",
+                "reason": "native parameter table",
+                "python": True,
             },
         }
         rust = self.rust_worker()
@@ -776,7 +1828,7 @@ class SearchWorkerParityTests(unittest.TestCase):
                     params = search_params(
                         case["query"],
                         context,
-                        result_count=2,
+                        result_count=case.get("result_count", 2),
                         page_trials=2_000_000,
                         job_trials=2_000_000,
                         **self.policy(),
@@ -810,6 +1862,17 @@ class SearchWorkerParityTests(unittest.TestCase):
                         python_snapshot["stop_reason"],
                         f"{name}: stop reason differs from the Python worker",
                     )
+                    if "expected_seed" in case:
+                        self.assertEqual(
+                            candidate_seeds(rust_snapshot),
+                            [case["expected_seed"]],
+                            f"{name}: the served route must publish the probed Seed",
+                        )
+                        self.assertEqual(
+                            rust_snapshot["cursor"],
+                            case["expected_cursor"],
+                            f"{name}: the served cursor must be the probed cursor",
+                        )
             for name, case in refused.items():
                 with self.subTest(route=name):
                     reply = rust.call(
@@ -832,6 +1895,26 @@ class SearchWorkerParityTests(unittest.TestCase):
                         f"{name} must name the missing route it actually needs "
                         f"(expected {case['reason']!r}): {reply['error']['message']}",
                     )
+                    if case.get("python"):
+                        # A structural refusal is not a Rust-only gap: the shipped
+                        # worker refuses the same query, so both codes must match
+                        # and neither worker may answer it.
+                        python_reply = python.call(
+                            "search.start",
+                            search_params(
+                                case["query"],
+                                python_context,
+                                page_trials=1_000_000,
+                                job_trials=1_000_000,
+                            ),
+                        )
+                        self.assertFalse(python_reply.get("ok"), python_reply)
+                        self.assertEqual(
+                            python_reply["error"]["code"],
+                            reply["error"]["code"],
+                            f"{name}: the shipped worker refuses this query with a "
+                            "different code",
+                        )
         finally:
             rust.close()
             python.close()
@@ -1077,10 +2160,10 @@ class SearchWorkerParityTests(unittest.TestCase):
                         effect["effect_id"] == chosen_effect
                         for effect in candidate["effects"]
                     ),
-                    # Effect constraints run through the effect-preimage
-                    # accelerator, which this slice does not port, so the route
-                    # must refuse rather than return unaffected candidates.
-                    "rejected",
+                    # The occurrence filter rides on the partial-effect route,
+                    # which composes nothing for it and lets the job layer decide
+                    # it, exactly like the shipped solver.
+                    "enforced",
                 ),
                 (
                     "enemy_occurrence_groups",
@@ -1555,32 +2638,611 @@ class SearchWorkerParityTests(unittest.TestCase):
             return (snapshot.get("error") or {}).get("code")
         return None
 
-    def test_unported_ng4_ng5_search_is_unadvertised_and_fails_closed(self) -> None:
-        rust = self.rust_worker()
-        try:
-            handshake = rust.result("handshake")
-            self.assertNotIn(
-                "cached_rarity5_playthroughs",
-                handshake["capabilities"],
-                "the NG4/NG5 cache is not ported, so it must not be advertised",
-            )
-            context = handshake["context"]["context_digest"]
-            for playthrough in (4, 5):
-                query = base_query(playthrough=playthrough, rarity=5)
-                params = search_params(query, context, page_trials=100_000, job_trials=100_000)
-                actual = self.terminal_failure_code(rust, "search.start", params)
-                # Accepted boundary (documented, not a parity claim): the NG4/NG5
-                # cache is deliberately unported, so this worker rejects the route
-                # with INVALID_REQUEST while the Python worker can still accept it
-                # through its own save-bound map. Rejection is the contract here.
-                self.assertEqual(
-                    actual,
-                    "INVALID_REQUEST",
-                    f"playthrough {playthrough} without a save-bound rarity-5 map "
-                    "must be rejected, never silently ignored",
+    # Deterministic synthetic draw-1 partitions. Every one is a labeled fixture,
+    # not a capture: dense two-range, an interleaved four-range map, and a "late"
+    # map whose composable range sits after the sparse one so the first pages
+    # cannot fill from easy hits.
+    SYNTHETIC_RANGES = {
+        "two_range": [
+            {"start": 0, "end": 32767, "grace_id": 5858},
+            {"start": 32768, "end": 65535, "grace_id": 25939},
+        ],
+        "interleaved": [
+            {"start": 0, "end": 8191, "grace_id": 25939},
+            {"start": 8192, "end": 16383, "grace_id": 5858},
+            {"start": 16384, "end": 49151, "grace_id": 25939},
+            {"start": 49152, "end": 65535, "grace_id": 5858},
+        ],
+        "late": [
+            {"start": 0, "end": 61439, "grace_id": 25939},
+            {"start": 61440, "end": 65535, "grace_id": 5858},
+        ],
+    }
+
+    @classmethod
+    def synthetic_grace_cache(
+        cls,
+        playthrough: int,
+        generation_digest: str,
+        shape: str = "two_range",
+    ) -> str:
+        """A clearly synthetic but structurally valid NG4/NG5 rarity-5 map.
+
+        No genuine NG4/NG5 capture exists in the tree, so this fixture is
+        labeled as synthetic: a dense partition of the draw-1 buckets whose
+        grace ids are real effect rows, registered against the worker's own
+        generation-context digest. Both workers must accept it and agree on the
+        route's whole output; live capture acceptance stays an explicit open
+        gate.
+        """
+
+        payload = {
+            "schema": "nioh3-grace-output-map-cache/v2",
+            "game_version": "2.00.02",
+            "generation_context_digest": generation_digest,
+            "draw_index": 1,
+            "record_type": "0xDD82" if playthrough == 4 else "0xD523",
+            "rarity": 5,
+            "playthrough": f"synthetic-ng{playthrough}-{shape}",
+            "effect_slot": 6,
+            "ranges": cls.SYNTHETIC_RANGES[shape],
+        }
+        return json.dumps(payload, separators=(",", ":"), sort_keys=True)
+
+    def register_grace_cache(self, worker: FramedProcess, cache_json: str) -> str:
+        return worker.result("cache.register", {"cache_json": cache_json})["cache_id"]
+
+    @staticmethod
+    def normalise_payload(value):
+        """Drop only genuinely nondeterministic run metadata."""
+
+        if isinstance(value, dict):
+            return {
+                key: SearchWorkerParityTests.normalise_payload(item)
+                for key, item in value.items()
+                if key not in ("elapsed_ms",)
+            }
+        if isinstance(value, list):
+            return [SearchWorkerParityTests.normalise_payload(item) for item in value]
+        return value
+
+    def assert_cached_case_matches(
+        self,
+        rust: FramedProcess,
+        python: FramedProcess,
+        *,
+        name: str,
+        playthrough: int,
+        query: dict,
+        rust_context: str,
+        python_context: str,
+        shape: str = "two_range",
+        result_count: int = 2,
+        page_trials: int = 200_000,
+        job_trials: int | None = None,
+        continue_until_complete: bool = False,
+        compare_exports: bool = True,
+    ) -> dict:
+        """Run one cached case on both workers and compare the whole output."""
+
+        rust_cache = self.register_grace_cache(
+            rust, self.synthetic_grace_cache(playthrough, rust_context, shape)
+        )
+        python_cache = self.register_grace_cache(
+            python, self.synthetic_grace_cache(playthrough, python_context, shape)
+        )
+        self.assertEqual(
+            rust_cache, python_cache, f"{name}: the registered map id must match"
+        )
+        params = search_params(
+            query,
+            rust_context,
+            result_count=result_count,
+            page_trials=page_trials,
+            job_trials=job_trials or page_trials,
+            continue_until_complete=continue_until_complete,
+            cache_id=rust_cache,
+            **self.policy(),
+        )
+        rust_snapshot = wait_for_terminal(
+            rust,
+            rust.result("search.start", params, label=f"rust {name}")["job_id"],
+            timeout=900,
+        )
+        python_snapshot = wait_for_terminal(
+            python,
+            python.result(
+                "search.start",
+                {**params, "context_digest": python_context},
+                label=f"python {name}",
+            )["job_id"],
+            timeout=900,
+        )
+        self.assertEqual(
+            rust_snapshot["state"], "completed", f"{name}: {rust_snapshot.get('error')}"
+        )
+        self.assertEqual(
+            self.normalise_payload(rust_snapshot["candidates"]),
+            self.normalise_payload(python_snapshot["candidates"]),
+            f"{name}: the whole candidate payload must match the shipped worker",
+        )
+        self.assertEqual(
+            rust_snapshot["cursor"],
+            python_snapshot["cursor"],
+            f"{name}: page cursor differs from Python",
+        )
+        self.assertEqual(
+            rust_snapshot["stop_reason"],
+            python_snapshot["stop_reason"],
+            f"{name}: stop reason differs from Python",
+        )
+        if compare_exports:
+            for candidate in rust_snapshot["candidates"]:
+                rust_export = rust.result(
+                    "candidate.export",
+                    {
+                        "job_id": rust_snapshot["job_id"],
+                        "candidate_id": candidate["candidate_id"],
+                    },
+                    label=f"rust {name} export",
                 )
+                python_export = python.result(
+                    "candidate.export",
+                    {
+                        "job_id": python_snapshot["job_id"],
+                        "candidate_id": candidate["candidate_id"],
+                    },
+                    label=f"python {name} export",
+                )
+                self.assertEqual(
+                    self.normalise_payload(rust_export),
+                    self.normalise_payload(python_export),
+                    f"{name}: the private export payload must match the shipped worker",
+                )
+        return rust_snapshot
+
+    def test_cached_ng4_ng5_rarity5_route_matches_the_python_worker(self) -> None:
+        """The save-bound NG4/NG5 route now serves the registered map.
+
+        Both workers register the same synthetic valid map, must agree on its
+        content-addressed id, and must return the same ordered candidates, page
+        cursor and stop reason for a rarity-5 request through that map. The
+        fixture is synthesized (no genuine 0xDD82/0xD523 capture exists), so this
+        proves the ported route and its context binding, not a live save.
+        """
+
+        rust = self.rust_worker()
+        python = self.python_worker()
+        try:
+            rust_handshake = rust.result("handshake")
+            python_handshake = python.result("handshake")
+            rust_context = rust_handshake["context"]["context_digest"]
+            python_context = python_handshake["context"]["context_digest"]
+            self.assertEqual(rust_context, python_context)
+            self.assertEqual(
+                rust_handshake["capabilities"].get("cached_rarity5_playthroughs"),
+                [4, 5],
+                "the ported save-bound route must advertise the playthroughs it serves",
+            )
+            self.assertEqual(
+                rust_handshake["capabilities"].get("cached_rarity5_playthroughs"),
+                python_handshake["capabilities"].get("cached_rarity5_playthroughs"),
+            )
+
+            for playthrough in (4, 5):
+                with self.subTest(playthrough=playthrough):
+                    rust_cache = self.register_grace_cache(
+                        rust, self.synthetic_grace_cache(playthrough, rust_context)
+                    )
+                    python_cache = self.register_grace_cache(
+                        python, self.synthetic_grace_cache(playthrough, python_context)
+                    )
+                    self.assertEqual(
+                        rust_cache,
+                        python_cache,
+                        "the registered map id must be the same content hash",
+                    )
+                    query = base_query(
+                        playthrough=playthrough,
+                        rarity=5,
+                        grace_effect_id=5858,
+                    )
+                    params = search_params(
+                        query,
+                        rust_context,
+                        result_count=1,
+                        page_trials=200_000,
+                        job_trials=200_000,
+                        cache_id=rust_cache,
+                        **self.policy(),
+                    )
+                    rust_snapshot = wait_for_terminal(
+                        rust,
+                        rust.result(
+                            "search.start", params, label=f"rust ng{playthrough} cached"
+                        )["job_id"],
+                        timeout=600,
+                    )
+                    python_snapshot = wait_for_terminal(
+                        python,
+                        python.result(
+                            "search.start",
+                            {**params, "context_digest": python_context},
+                            label=f"python ng{playthrough} cached",
+                        )["job_id"],
+                        timeout=600,
+                    )
+                    self.assertEqual(
+                        rust_snapshot["state"], "completed", rust_snapshot.get("error")
+                    )
+                    self.assertTrue(
+                        rust_snapshot["candidates"],
+                        f"the NG{playthrough} cached route found nothing",
+                    )
+                    self.assertEqual(
+                        candidate_seeds(rust_snapshot),
+                        candidate_seeds(python_snapshot),
+                        f"NG{playthrough}: candidate identity differs from Python",
+                    )
+                    self.assertEqual(
+                        candidate_cursors(rust_snapshot),
+                        candidate_cursors(python_snapshot),
+                        f"NG{playthrough}: candidate cursor differs from Python",
+                    )
+                    self.assertEqual(
+                        rust_snapshot["cursor"],
+                        python_snapshot["cursor"],
+                        f"NG{playthrough}: page cursor differs from Python",
+                    )
+                    self.assertEqual(
+                        rust_snapshot["stop_reason"],
+                        python_snapshot["stop_reason"],
+                        f"NG{playthrough}: stop reason differs from Python",
+                    )
+                    for candidate in rust_snapshot["candidates"]:
+                        self.assertEqual(
+                            candidate.get("rarity"), 5, "the cached route serves rarity 5"
+                        )
+
+            # Refusals: without a registered map, with a map of the wrong
+            # playthrough, and with an unknown cache id, both workers must refuse
+            # the same way instead of silently searching the bundled map.
+            ng4_cache = self.register_grace_cache(
+                rust, self.synthetic_grace_cache(4, rust_context)
+            )
+            unknown = "0" * 64
+            cases = {
+                "ng4_without_map": search_params(
+                    base_query(playthrough=4, rarity=5),
+                    rust_context,
+                    page_trials=100_000,
+                    job_trials=100_000,
+                ),
+                "ng4_with_unknown_cache": search_params(
+                    base_query(playthrough=4, rarity=5, grace_effect_id=5858),
+                    rust_context,
+                    page_trials=100_000,
+                    job_trials=100_000,
+                    cache_id=unknown,
+                ),
+                "ng4_rarity4_query": search_params(
+                    base_query(playthrough=4, rarity=4),
+                    rust_context,
+                    page_trials=100_000,
+                    job_trials=100_000,
+                    cache_id=ng4_cache,
+                ),
+            }
+            for name, params in cases.items():
+                with self.subTest(refusal=name):
+                    rust_code = self.terminal_failure_code(rust, "search.start", params)
+                    python_code = self.terminal_failure_code(
+                        python,
+                        "search.start",
+                        {**params, "context_digest": python_context},
+                    )
+                    self.assertEqual(
+                        rust_code,
+                        "INVALID_REQUEST",
+                        f"{name}: the cached route must fail closed",
+                    )
+                    self.assertEqual(
+                        python_code,
+                        rust_code,
+                        f"{name}: the shipped worker refuses this with a different code",
+                    )
         finally:
             rust.close()
+            python.close()
+
+    def test_cached_ng4_ng5_whole_payload_matches_the_python_worker(self) -> None:
+        """The cached route must match the shipped worker beyond candidate ids.
+
+        The cached NG4/NG5 path composes a full payload (effects, auxiliary,
+        enemy-state half, installation metadata, context and the private export),
+        so identity/order/cursor agreement is not enough: every returned
+        candidate and its `candidate.export` block must equal Python's, on
+        several synthetic partitions, levels, caller filters and page depths,
+        including a no-hit budget, cancel/resume, and negative map bindings.
+
+        A real defect this gate found: the Rust payload published a composed
+        `enemy_states` half for NG4/NG5, while the shipped
+        `worker_contracts.candidate_payload` publishes `enemy_states: null` for
+        every playthrough other than NG3 and never generates those previews. The
+        port now composes the enemy half only for NG3, exactly like the shipped
+        worker.
+        """
+
+        rust = self.rust_worker()
+        python = self.python_worker()
+        try:
+            rust_context = self.handshake_context(rust)["context_digest"]
+            python_context = self.handshake_context(python)["context_digest"]
+            self.assertEqual(rust_context, python_context)
+
+            cases = (
+                (
+                    "ng4_grace_only",
+                    4,
+                    base_query(playthrough=4, rarity=5, grace_effect_id=5858),
+                    "two_range",
+                    2,
+                    200_000,
+                    False,
+                ),
+                (
+                    "ng5_grace_only",
+                    5,
+                    base_query(playthrough=5, rarity=5, grace_effect_id=25939),
+                    "two_range",
+                    2,
+                    200_000,
+                    False,
+                ),
+                (
+                    "ng4_late_map_level60",
+                    4,
+                    base_query(playthrough=4, rarity=5, grace_effect_id=25939, level=60),
+                    "late",
+                    3,
+                    40_000,
+                    False,
+                ),
+                (
+                    "ng5_filtered_interleaved",
+                    5,
+                    base_query(
+                        playthrough=5,
+                        rarity=5,
+                        required_secondary_ids=[6410],
+                        grace_effect_id=5858,
+                    ),
+                    "interleaved",
+                    3,
+                    60_000,
+                    False,
+                ),
+                (
+                    "ng4_deep_pagination",
+                    4,
+                    base_query(playthrough=4, rarity=5, grace_effect_id=5858),
+                    "two_range",
+                    25,
+                    200_000,
+                    True,
+                ),
+            )
+            for name, playthrough, query, shape, count, page, complete in cases:
+                with self.subTest(case=name):
+                    snapshot = self.assert_cached_case_matches(
+                        rust,
+                        python,
+                        name=name,
+                        playthrough=playthrough,
+                        query=query,
+                        rust_context=rust_context,
+                        python_context=python_context,
+                        shape=shape,
+                        result_count=count,
+                        page_trials=page,
+                        continue_until_complete=complete,
+                    )
+                    self.assertTrue(
+                        snapshot["candidates"],
+                        f"{name}: the case must publish candidates to compare",
+                    )
+                    for candidate in snapshot["candidates"]:
+                        self.assertIsNone(
+                            candidate.get("enemy_states"),
+                            f"{name}: a cached NG4/NG5 payload publishes no enemy-state half",
+                        )
+                        self.assertEqual(candidate.get("playthrough"), playthrough)
+
+            # A budget with no hit at all must still agree exactly.
+            with self.subTest(case="ng4_no_hit"):
+                nohit = self.assert_cached_case_matches(
+                    rust,
+                    python,
+                    name="ng4_no_hit",
+                    playthrough=4,
+                    query=base_query(
+                        playthrough=4,
+                        rarity=5,
+                        primary_effect_ids=[60020],
+                        required_secondary_ids=[12028],
+                        grace_effect_id=5858,
+                    ),
+                    rust_context=rust_context,
+                    python_context=python_context,
+                    result_count=3,
+                    page_trials=2_000,
+                )
+                self.assertFalse(
+                    nohit["candidates"], "the tiny fixed budget is a genuine no-hit case"
+                )
+                self.assertEqual(nohit["stop_reason"], "budget_reached")
+
+            # Cancel and resume through the same registered map.
+            resume_query = base_query(playthrough=4, rarity=5, grace_effect_id=5858)
+            rust_cache = self.register_grace_cache(
+                rust, self.synthetic_grace_cache(4, rust_context)
+            )
+            python_cache = self.register_grace_cache(
+                python, self.synthetic_grace_cache(4, python_context)
+            )
+            self.assertEqual(rust_cache, python_cache)
+            shipped = wait_for_terminal(
+                python,
+                python.result(
+                    "search.start",
+                    search_params(
+                        resume_query,
+                        python_context,
+                        result_count=25,
+                        page_trials=20_000_000,
+                        job_trials=400_000_000,
+                        continue_until_complete=True,
+                        cache_id=python_cache,
+                        **self.policy(),
+                    ),
+                    label="python cached continuing",
+                )["job_id"],
+                timeout=900,
+            )
+            started = rust.result(
+                "search.start",
+                search_params(
+                    resume_query,
+                    rust_context,
+                    result_count=25,
+                    page_trials=20_000_000,
+                    job_trials=400_000_000,
+                    continue_until_complete=True,
+                    cache_id=rust_cache,
+                    **self.policy(),
+                ),
+                label="rust cached continuing",
+            )
+            time.sleep(0.25)
+            inflight = rust.result("job.snapshot", {"job_id": started["job_id"]})
+            self.assertNotIn(
+                inflight["state"],
+                TERMINAL_STATES,
+                "the cached page finished before the cancel landed",
+            )
+            rust.result("job.cancel", {"job_id": started["job_id"]})
+            cancelled = wait_for_terminal(rust, started["job_id"], timeout=60)
+            self.assertEqual(cancelled["state"], "cancelled")
+            token = cancelled.get("resume_token")
+            self.assertIsNotNone(token, "a cancelled cached job publishes its token")
+            resumed = rust.result(
+                "search.start",
+                search_params(
+                    resume_query,
+                    rust_context,
+                    result_count=25,
+                    page_trials=20_000_000,
+                    job_trials=400_000_000,
+                    continue_until_complete=True,
+                    resume_token=token,
+                    cache_id=rust_cache,
+                    **self.policy(),
+                ),
+                label="resume cached search.start",
+            )
+            resumed_snapshot = wait_for_terminal(rust, resumed["job_id"], timeout=900)
+            union = candidate_seeds(cancelled) + candidate_seeds(resumed_snapshot)
+            self.assertEqual(len(union), len(set(union)), "a resume must not replay")
+            shipped_seeds = candidate_seeds(shipped)
+            overlap = min(len(union), len(shipped_seeds))
+            self.assertEqual(
+                union[:overlap],
+                shipped_seeds[:overlap],
+                "cancel plus resume must enumerate the shipped candidates in order",
+            )
+
+            # Negative and stale map bindings: a register-time context mismatch,
+            # a map of another playthrough, a rarity-4 query through the cache,
+            # an unknown id and no map at all must all refuse identically.
+            stale = self.synthetic_grace_cache(4, "b" * 64)
+            for worker, label in ((rust, "rust"), (python, "python")):
+                reply = worker.call("cache.register", {"cache_json": stale})
+                self.assertFalse(
+                    reply.get("ok"), f"{label}: a stale generation context must refuse"
+                )
+                self.assertEqual(reply["error"]["code"], "INVALID_REQUEST")
+            ng5_cache = self.register_grace_cache(
+                rust, self.synthetic_grace_cache(5, rust_context)
+            )
+            refusals = {
+                "ng4_query_with_ng5_map": search_params(
+                    base_query(playthrough=4, rarity=5, grace_effect_id=5858),
+                    rust_context,
+                    page_trials=100_000,
+                    job_trials=100_000,
+                    cache_id=ng5_cache,
+                ),
+                "ng4_rarity4_query": search_params(
+                    base_query(playthrough=4, rarity=4),
+                    rust_context,
+                    page_trials=100_000,
+                    job_trials=100_000,
+                    cache_id=rust_cache,
+                ),
+                "ng4_unknown_cache": search_params(
+                    base_query(playthrough=4, rarity=5, grace_effect_id=5858),
+                    rust_context,
+                    page_trials=100_000,
+                    job_trials=100_000,
+                    cache_id="0" * 64,
+                ),
+                "ng4_without_map": search_params(
+                    base_query(playthrough=4, rarity=5),
+                    rust_context,
+                    page_trials=100_000,
+                    job_trials=100_000,
+                ),
+            }
+            for name, params in refusals.items():
+                with self.subTest(refusal=name):
+                    rust_code = self.terminal_failure_code(rust, "search.start", params)
+                    python_code = self.terminal_failure_code(
+                        python,
+                        "search.start",
+                        {**params, "context_digest": python_context},
+                    )
+                    self.assertEqual(rust_code, "INVALID_REQUEST", f"{name}: fail closed")
+                    self.assertEqual(python_code, rust_code, f"{name}: code parity")
+
+            # `candidate.preview` carries no cache parameter in the shipped
+            # contract, so a cached Seed previews against the bundled NG3 map on
+            # both sides. This pins that the preview path is not silently
+            # cache-aware and that both workers compose it identically.
+            cached_seed = self.assert_cached_case_matches(
+                rust,
+                python,
+                name="ng4_preview_source",
+                playthrough=4,
+                query=base_query(playthrough=4, rarity=5, grace_effect_id=5858),
+                rust_context=rust_context,
+                python_context=python_context,
+                result_count=1,
+                page_trials=200_000,
+            )["candidates"][0]["seed"]
+            rust_preview = rust.result(
+                "candidate.preview", {"seed": cached_seed, "rarity": 5, "level": 180}
+            )
+            python_preview = python.result(
+                "candidate.preview", {"seed": cached_seed, "rarity": 5, "level": 180}
+            )
+            self.assertEqual(
+                self.normalise_payload(rust_preview),
+                self.normalise_payload(python_preview),
+                "candidate.preview must match the shipped worker for a cached Seed",
+            )
+        finally:
+            rust.close()
+            python.close()
 
 
 if __name__ == "__main__":

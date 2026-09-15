@@ -23,6 +23,7 @@ import unittest
 from nioh3_scroll_editor.effect_generation_tables import (
     load_default_effect_generation_tables,
 )
+from tests.migration.cargo_target import resolved_cargo_target_dir
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -35,9 +36,7 @@ HEADER_BYTES = 8
 def adapter_report() -> dict:
     """Run the production adapter emitter and return its JSON report."""
 
-    target = os.environ.get(
-        "CARGO_TARGET_DIR", str(ROOT / ".codex_tmp" / "m2_effect_parity_target")
-    )
+    target = resolved_cargo_target_dir("m2-effect-parity")
     completed = subprocess.run(
         [
             "cargo",

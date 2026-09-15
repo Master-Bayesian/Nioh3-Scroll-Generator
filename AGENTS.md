@@ -9,6 +9,7 @@
 
 - Use `docs/knowledge/CURRENT_HANDOFF.md` for current product and release state. Use `docs/knowledge/INDEX.md` and its linked subsystem evidence when changing generation, saves, live addition, or game-version compatibility.
 - Run Python tests through `tools/run_python_tests.ps1`, which selects and validates the repository dependency environment; never invoke an ambient `python`, `py`, or ad-hoc `uv` environment directly.
+- Migration gates must resolve Cargo target directories through `tests/migration/cargo_target.py`: an explicit `CARGO_TARGET_DIR` always wins, the fallback is the platform temp directory, and no gate may implicitly build into the repository volume.
 - Use `docs/knowledge/RELEASE_RUNBOOK.md` for packaging or publication work.
 - Use `docs/knowledge/RESEARCH_HANDOFF_WORKFLOW.md` for research or reverse engineering.
 - Use `$nioh3-product-stewardship` when changing user-visible behavior, migrating the UI, or preparing a version.

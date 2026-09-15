@@ -339,13 +339,8 @@ pub fn compose_enemy_state_preview(
         // half as unknown rather than dropping it or claiming a proven absence.
         return Ok(enemy_state_fallback(seed, playthrough, variant));
     }
-    let (_, roster) = resolve_and_generate_roster(
-        seed,
-        playthrough,
-        variant,
-        tables.roster,
-        tables.context,
-    )?;
+    let (_, roster) =
+        resolve_and_generate_roster(seed, playthrough, variant, tables.roster, tables.context)?;
     let wraith = generate_wraith(&roster, tables.states);
 
     let mut occurrences = Vec::new();
@@ -396,11 +391,7 @@ pub fn compose_enemy_state_preview(
 }
 
 /// The shipped fallback for a candidate whose enemy-state half is unknown.
-fn enemy_state_fallback(
-    seed: u32,
-    playthrough: u8,
-    variant: MissionVariant,
-) -> EnemyStatePreview {
+fn enemy_state_fallback(seed: u32, playthrough: u8, variant: MissionVariant) -> EnemyStatePreview {
     EnemyStatePreview {
         seed,
         playthrough,

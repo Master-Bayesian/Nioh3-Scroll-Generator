@@ -1,4 +1,8 @@
 use crate::broker::Broker;
+use crate::worker::{
+    protected_backend, search_backend, ProtectedBackend, RustProtectedEnv, RustSearchEnv,
+    SearchBackend,
+};
 use base64::Engine;
 use serde_json::json;
 
@@ -355,4 +359,498 @@ async fn dead_protected_worker_is_replaced_only_after_its_process_exits() {
     replacement.handshake().await.unwrap();
     assert!(broker.shutdown().await);
     let _ = std::fs::remove_dir_all(data);
+}
+
+/// The development Rust worker selection never changes the shipped product and
+/// never silently falls back to Python once an operator has asked for it.
+#[test]
+fn a_packaged_host_without_a_staged_manifest_keeps_the_shipped_search_worker() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let named = RustSearchEnv {
+        executable: Some(root.join("Cargo.toml").display().to_string()),
+        data_root: Some("elsewhere".to_string()),
+        contract_dir: None,
+        accelerator: None,
+    };
+    assert_eq!(
+        search_backend(root, true, &named).unwrap(),
+        SearchBackend::Python,
+        "a packaged host must ignore the development selection"
+    );
+    assert_eq!(
+        search_backend(root, false, &RustSearchEnv::default()).unwrap(),
+        SearchBackend::Python,
+        "an unset selection keeps the shipped worker"
+    );
+    assert_eq!(
+        search_backend(
+            root,
+            false,
+            &RustSearchEnv {
+                executable: Some("   ".to_string()),
+                ..RustSearchEnv::default()
+            }
+        )
+        .unwrap(),
+        SearchBackend::Python,
+        "a blank selection keeps the shipped worker"
+    );
+    let missing = search_backend(
+        root,
+        false,
+        &RustSearchEnv {
+            executable: Some(root.join("does-not-exist.exe").display().to_string()),
+            ..RustSearchEnv::default()
+        },
+    )
+    .expect_err("a named but absent binary fails closed");
+    assert!(missing.starts_with("RUST_WORKER_MISSING"), "{missing}");
+}
+
+/// The development launch must run the real Rust binary with its own arguments,
+/// never the Python module, and must use the working-tree paths by default.
+#[test]
+fn the_development_rust_launch_names_the_binary_and_its_paths() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let binary = root.join("Cargo.toml");
+    let backend = search_backend(
+        root,
+        false,
+        &RustSearchEnv {
+            executable: Some(binary.display().to_string()),
+            ..RustSearchEnv::default()
+        },
+    )
+    .unwrap();
+    let SearchBackend::Rust(launch) = backend else {
+        panic!("an existing binary must select the Rust backend");
+    };
+    assert_eq!(launch.executable, binary);
+    assert_eq!(launch.data_root, root.join("nioh3_scroll_editor/data"));
+    assert_eq!(launch.contract_dir, root.join("packages/contracts"));
+    assert_eq!(
+        launch.accelerator,
+        root.join("bin/nioh3_seed_accelerator.dll")
+    );
+    let arguments = launch.arguments();
+    assert_eq!(arguments[0], "--dev-preview-only");
+    assert_eq!(
+        arguments,
+        vec![
+            "--dev-preview-only",
+            "--data-root",
+            &launch.data_root.display().to_string(),
+            "--contract-dir",
+            &launch.contract_dir.display().to_string(),
+            "--accelerator",
+            &launch.accelerator.display().to_string(),
+        ]
+    );
+    assert!(
+        !arguments
+            .iter()
+            .any(|value| value.contains("search_worker")),
+        "the development launch must not run the Python module"
+    );
+
+    // Explicit overrides win, so an isolated profile or harness can point the
+    // worker at its own data root without touching the working tree.
+    let overridden = search_backend(
+        root,
+        false,
+        &RustSearchEnv {
+            executable: Some(binary.display().to_string()),
+            data_root: Some("/tmp/data".to_string()),
+            contract_dir: Some("/tmp/contracts".to_string()),
+            accelerator: Some("/tmp/accelerator.dll".to_string()),
+        },
+    )
+    .unwrap();
+    let SearchBackend::Rust(overridden) = overridden else {
+        panic!("overrides keep the Rust backend");
+    };
+    assert_eq!(overridden.data_root, std::path::PathBuf::from("/tmp/data"));
+    assert_eq!(
+        overridden.contract_dir,
+        std::path::PathBuf::from("/tmp/contracts")
+    );
+    assert_eq!(
+        overridden.accelerator,
+        std::path::PathBuf::from("/tmp/accelerator.dll")
+    );
+}
+
+/// The development protected selection never changes the shipped product and
+/// never silently falls back to Python once an operator has asked for it.
+#[test]
+fn a_packaged_host_without_a_staged_manifest_keeps_the_shipped_protected_worker() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let named = RustProtectedEnv {
+        executable: Some(root.join("Cargo.toml").display().to_string()),
+        data_root: Some("elsewhere".to_string()),
+        contract_dir: None,
+        accelerator: None,
+    };
+    assert_eq!(
+        protected_backend(root, true, &named).unwrap(),
+        ProtectedBackend::Python,
+        "a packaged host must ignore the development selection"
+    );
+    assert_eq!(
+        protected_backend(root, false, &RustProtectedEnv::default()).unwrap(),
+        ProtectedBackend::Python,
+        "an unset selection keeps the shipped worker"
+    );
+    assert_eq!(
+        protected_backend(
+            root,
+            false,
+            &RustProtectedEnv {
+                executable: Some("   ".to_string()),
+                ..RustProtectedEnv::default()
+            }
+        )
+        .unwrap(),
+        ProtectedBackend::Python,
+        "a blank selection keeps the shipped worker"
+    );
+    let missing = protected_backend(
+        root,
+        false,
+        &RustProtectedEnv {
+            executable: Some(root.join("does-not-exist.exe").display().to_string()),
+            ..RustProtectedEnv::default()
+        },
+    )
+    .expect_err("a named but absent binary fails closed");
+    assert!(
+        missing.starts_with("RUST_PROTECTED_WORKER_MISSING"),
+        "{missing}"
+    );
+}
+
+/// The development protected launch must run the real Rust binary with its own
+/// arguments, never the Python module, and must carry the role plus state root.
+#[test]
+fn the_development_protected_launch_names_the_binary_and_its_paths() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let binary = root.join("Cargo.toml");
+    let backend = protected_backend(
+        root,
+        false,
+        &RustProtectedEnv {
+            executable: Some(binary.display().to_string()),
+            ..RustProtectedEnv::default()
+        },
+    )
+    .unwrap();
+    let ProtectedBackend::Rust(launch) = backend else {
+        panic!("an existing binary must select the Rust protected backend");
+    };
+    assert_eq!(launch.executable, binary);
+    assert_eq!(launch.data_root, root.join("nioh3_scroll_editor/data"));
+    assert_eq!(launch.contract_dir, root.join("packages/contracts"));
+    assert_eq!(
+        launch.accelerator,
+        root.join("bin/nioh3_seed_accelerator.dll")
+    );
+    let state = std::path::PathBuf::from(r"D:\state");
+    let arguments = launch.arguments("save", &state);
+    assert_eq!(
+        arguments,
+        vec![
+            "--role",
+            "save",
+            "--dev-protected-only",
+            "--state-root",
+            &state.display().to_string(),
+            "--data-root",
+            &launch.data_root.display().to_string(),
+            "--contract-dir",
+            &launch.contract_dir.display().to_string(),
+            "--accelerator",
+            &launch.accelerator.display().to_string(),
+        ]
+    );
+    assert!(
+        !arguments
+            .iter()
+            .any(|value| value.contains("protected_worker")),
+        "the development launch must not run the Python module"
+    );
+}
+
+/// Build a minimal but structurally real staged Rust package: the manifest the
+/// staging tool writes, both declared worker EXEs at their packaged names, and
+/// the package-confined data/contract/helper roots the workers resolve.
+fn staged_rust_package(name: &str) -> std::path::PathBuf {
+    use std::path::Path;
+    let root = std::env::temp_dir().join(format!("nioh3-staged-{name}-{}", uuid::Uuid::new_v4()));
+    let write = |relative: &str, body: &str| {
+        let path = root.join(relative);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, body).unwrap();
+    };
+    write("worker/nioh3-search-worker.exe", "staged search worker");
+    write(
+        "worker/nioh3-protected-worker.exe",
+        "staged protected worker",
+    );
+    write(
+        "worker/runtime/nioh3_scroll_editor/data/tables.bin",
+        "tables",
+    );
+    write(
+        "worker/runtime/bin/nioh3_seed_accelerator.dll",
+        "shipped helper",
+    );
+    write("packages/contracts/request.schema.json", "{}");
+    write("packages/contracts/response.schema.json", "{}");
+    write("packages/contracts/protected-request.schema.json", "{}");
+    write("packages/contracts/protected-response.schema.json", "{}");
+    let sha = |relative: &str| crate::package::hash_file(&root.join(relative)).unwrap();
+    // Build the manifest with the real staged paths already inside the JSON
+    // strings: substituting a Windows path into serialized JSON afterwards would
+    // need its backslashes re-escaped.
+    let data_root = root
+        .join("worker/runtime/nioh3_scroll_editor/data")
+        .display()
+        .to_string();
+    let contract_dir = root.join("packages/contracts").display().to_string();
+    let manifest = json!({
+        "schema": "nioh3-worker-backend/v1",
+        "backend": "rust",
+        "binaries": [
+            {"packagedName": "nioh3-search-worker.exe", "sha256": sha("worker/nioh3-search-worker.exe")},
+            {"packagedName": "nioh3-protected-worker.exe", "sha256": sha("worker/nioh3-protected-worker.exe")},
+        ],
+        "invocation": {
+            "offline_search": {"mode": "packaged", "binary": "nioh3-search-worker.exe", "argv": [
+                "--packaged-worker",
+                "--data-root", data_root.clone(),
+                "--contract-dir", contract_dir.clone()]},
+            "save": {"mode": "packaged", "binary": "nioh3-protected-worker.exe", "argv": [
+                "--role", "save",
+                "--state-root", "<state root>",
+                "--data-root", data_root.clone(),
+                "--contract-dir", contract_dir.clone()]},
+            "runtime": {"mode": "packaged", "binary": "nioh3-protected-worker.exe", "argv": [
+                "--role", "runtime",
+                "--state-root", "<state root>",
+                "--data-root", data_root.clone(),
+                "--contract-dir", contract_dir.clone()]},
+        },
+        "launchContract": {
+            "schema": "nioh3-worker-launch-contract/v1",
+            "roles": ["offline_search", "save", "runtime"],
+            "stateRoot": {"policy": "broker-injected-external", "placeholder": "<state root>", "packageConfined": false},
+        },
+    });
+    std::fs::write(
+        root.join("worker/worker-backend.json"),
+        manifest.to_string(),
+    )
+    .unwrap();
+    assert!(Path::new(&root.join("worker/nioh3-search-worker.exe")).is_file());
+    root
+}
+
+/// The packaged resolver is driven from the staged manifest, so every role
+/// receives the roots and the binary the package actually staged.
+#[test]
+fn packaged_manifest_resolves_every_role_to_the_staged_binary_and_roots() {
+    use crate::worker::{normalize_path, resolve_role_launch, staged_backend_manifest};
+    let root = staged_rust_package("packaged-resolve");
+    let staged = staged_backend_manifest(&root)
+        .unwrap()
+        .expect("staged manifest");
+    let staged_data = root
+        .join("worker")
+        .join("runtime")
+        .join("nioh3_scroll_editor")
+        .join("data");
+    let staged_contracts = root.join("packages").join("contracts");
+    let staged_helper = root
+        .join("worker")
+        .join("runtime")
+        .join("bin")
+        .join("nioh3_seed_accelerator.dll");
+    assert_eq!(normalize_path(&staged.data_root), staged_data);
+    assert_eq!(normalize_path(&staged.contract_dir), staged_contracts);
+    assert_eq!(normalize_path(&staged.accelerator), staged_helper);
+    let state = std::env::temp_dir().join("nioh3-state-outside-package");
+    for role in ["offline_search", "save", "runtime"] {
+        let (executable, arguments) = resolve_role_launch(&root, role, true, &state).unwrap();
+        assert_eq!(executable.parent().unwrap(), root.join("worker"));
+        assert_eq!(
+            normalize_path(&executable),
+            root.join("worker").join(if role == "offline_search" {
+                "nioh3-search-worker.exe"
+            } else {
+                "nioh3-protected-worker.exe"
+            })
+        );
+        let value = |flag: &str| {
+            let index = arguments
+                .iter()
+                .position(|token| token == flag)
+                .unwrap_or_else(|| panic!("{role} argv lacks {flag}: {arguments:?}"));
+            arguments[index + 1].clone()
+        };
+        assert_eq!(
+            normalize_path(std::path::Path::new(&value("--data-root"))),
+            staged_data
+        );
+        assert_eq!(
+            normalize_path(std::path::Path::new(&value("--contract-dir"))),
+            staged_contracts
+        );
+        assert_eq!(
+            normalize_path(std::path::Path::new(&value("--accelerator"))),
+            staged_helper
+        );
+        // F3: the packaged and development shapes pin the helper identically.
+        assert!(
+            arguments.contains(&"--accelerator".to_string()),
+            "{role} must pin the accelerator explicitly: {arguments:?}"
+        );
+        if role == "offline_search" {
+            assert_eq!(arguments[0], "--packaged-worker");
+            assert!(!arguments.iter().any(|token| token == "--dev-preview-only"));
+        } else {
+            assert_eq!(arguments[0], "--role");
+            assert_eq!(arguments[1], role);
+            assert_eq!(value("--state-root"), state.display().to_string());
+            assert!(!arguments
+                .iter()
+                .any(|token| token == "--dev-protected-only"));
+        }
+    }
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// A staged package that declares a binary or a root it does not carry is a
+/// named refusal, never a silent fallback to the shipped Python worker.
+#[test]
+fn packaged_manifest_fails_closed_for_missing_or_escaping_declarations() {
+    use crate::worker::{search_backend, staged_backend_manifest, RustSearchEnv};
+    let root = staged_rust_package("packaged-refuse");
+    assert!(search_backend(&root, true, &RustSearchEnv::default()).is_ok());
+
+    let missing = staged_rust_package("packaged-missing");
+    std::fs::remove_file(missing.join("worker/nioh3-protected-worker.exe")).unwrap();
+    let error = search_backend(&missing, true, &RustSearchEnv::default())
+        .expect_err("a declared but absent binary must refuse");
+    assert!(
+        error.starts_with("RUST_WORKER_MISSING"),
+        "{error} (a fallback to Python would hide this)"
+    );
+
+    let escaping = staged_rust_package("packaged-escaping");
+    let manifest_path = escaping.join("worker/worker-backend.json");
+    let outside = std::env::temp_dir().join("nioh3-outside-data-root");
+    std::fs::create_dir_all(&outside).unwrap();
+    // Substitute through the JSON value so a Windows path is escaped for us.
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&manifest_path).unwrap()).unwrap();
+    for role in ["offline_search", "save", "runtime"] {
+        let argv = manifest["invocation"][role]["argv"].as_array_mut().unwrap();
+        let index = argv
+            .iter()
+            .position(|token| token == "--data-root")
+            .expect("declared data root");
+        argv[index + 1] = json!(outside.display().to_string());
+    }
+    std::fs::write(&manifest_path, manifest.to_string()).unwrap();
+    let error = search_backend(&escaping, true, &RustSearchEnv::default())
+        .expect_err("a path escaping the package must refuse");
+    assert!(
+        error.starts_with("WORKER_BACKEND_ESCAPES_PACKAGE"),
+        "{error}"
+    );
+
+    let unsupported = staged_rust_package("packaged-unsupported");
+    let manifest_path = unsupported.join("worker/worker-backend.json");
+    let text = std::fs::read_to_string(&manifest_path).unwrap();
+    std::fs::write(&manifest_path, text.replace("\"rust\"", "\"python\"")).unwrap();
+    let error =
+        staged_backend_manifest(&unsupported).expect_err("an unknown declared backend must refuse");
+    assert!(error.contains("WORKER_BACKEND_UNSUPPORTED"), "{error}");
+
+    // A package without a manifest keeps the shipped worker exactly as before.
+    let plain = std::env::temp_dir().join(format!("nioh3-unstaged-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(plain.join("worker")).unwrap();
+    assert_eq!(
+        search_backend(&plain, true, &RustSearchEnv::default()).unwrap(),
+        SearchBackend::Python
+    );
+    for path in [&missing, &escaping, &unsupported, &plain] {
+        let _ = std::fs::remove_dir_all(path);
+    }
+    let _ = std::fs::remove_dir_all(&outside);
+}
+
+/// A staged binary whose bytes no longer match the declared sha256 is refused by
+/// name. The manifest is a declaration, not an oracle, so replacing the file
+/// after staging must not be launchable.
+#[test]
+fn packaged_manifest_refuses_a_binary_that_changed_after_staging() {
+    use crate::worker::{resolve_role_launch, staged_backend_manifest, verify_declared_binary};
+    let root = staged_rust_package("packaged-mutation");
+    let manifest = staged_backend_manifest(&root)
+        .unwrap()
+        .expect("staged manifest");
+    let binary = root.join("worker").join("nioh3-search-worker.exe");
+    // The untouched file passes the declared identity.
+    verify_declared_binary(&manifest, "offline_search", &binary).expect("declared bytes match");
+
+    let mut bytes = std::fs::read(&binary).unwrap();
+    bytes.extend_from_slice(b"tampered-after-staging");
+    std::fs::write(&binary, bytes).unwrap();
+    let error = verify_declared_binary(&manifest, "offline_search", &binary)
+        .expect_err("a changed binary must be refused");
+    assert!(error.starts_with("RUST_WORKER_CHANGED"), "{error}");
+
+    // The packaged resolver propagates the same refusal, so a tampered package
+    // cannot reach a launch through the acceptance entry point either.
+    let error = resolve_role_launch(
+        &root,
+        "offline_search",
+        true,
+        &std::env::temp_dir().join("nioh3-mutation-state"),
+    )
+    .expect_err("the resolver must refuse a changed binary");
+    assert!(error.starts_with("RUST_WORKER_CHANGED"), "{error}");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// Acceptance probe for the Python packaged gate.
+///
+/// It is `#[ignore]`d so it never runs in a normal build or test pass; the gate
+/// invokes it with `--ignored --exact --nocapture` and reads the single JSON line
+/// this prints. That keeps the argv the gate compares against the argv the real
+/// host resolver produces, rather than a second copy of the staging tool's rules.
+#[test]
+#[ignore]
+fn dump_role_launch_for_acceptance() {
+    use crate::worker::resolve_role_launch;
+    let root = std::path::PathBuf::from(std::env::var("NIOH3_ACCEPTANCE_ROOT").unwrap());
+    let role = std::env::var("NIOH3_ACCEPTANCE_ROLE").unwrap();
+    let packaged = std::env::var("NIOH3_ACCEPTANCE_PACKAGED").as_deref() == Ok("1");
+    let state = std::env::var("NIOH3_ACCEPTANCE_STATE_ROOT")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::env::temp_dir().join("nioh3-acceptance-state"));
+    let (executable, arguments) = resolve_role_launch(&root, &role, packaged, &state)
+        .unwrap_or_else(|error| panic!("resolve failed: {error}"));
+    println!(
+        "NIOH3_LAUNCH {}",
+        json!({
+            "root": root.display().to_string(),
+            "role": role,
+            "packaged": packaged,
+            "stateRoot": state.display().to_string(),
+            "executable": executable.display().to_string(),
+            "argv": arguments,
+        })
+    );
 }

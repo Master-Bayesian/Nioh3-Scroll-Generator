@@ -7,6 +7,7 @@ pub mod auxiliary;
 pub mod context;
 pub mod effect;
 pub mod enemy;
+pub mod install_materialize;
 pub mod preview;
 pub mod r4_finalizer;
 pub mod record;

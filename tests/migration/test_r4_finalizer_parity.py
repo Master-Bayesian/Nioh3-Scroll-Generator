@@ -36,6 +36,7 @@ from nioh3_scroll_editor.effect_sequence import (
     materialize_ng3_rarity4_stage_one_record,
 )
 from nioh3_scroll_editor.r4_finalizer_engine import R4FinalizerEngine
+from tests.migration.cargo_target import resolved_cargo_target_dir
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -129,9 +130,7 @@ SLOT_DELTA_OFFSETS = (0x00, 0x01, 0x04, 0x05, 0x08, 0x0C, 0x0D, 0x0E)
 def run_emitter() -> list[str]:
     """Run the Rust development emitter and return its tabbed output lines."""
 
-    target = os.environ.get(
-        "CARGO_TARGET_DIR", str(ROOT / ".codex_tmp" / "m22_r4_parity_target")
-    )
+    target = resolved_cargo_target_dir("m22-r4-parity")
     completed = subprocess.run(
         [
             "cargo",

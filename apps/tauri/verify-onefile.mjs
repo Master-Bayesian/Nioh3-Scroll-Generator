@@ -1,5 +1,6 @@
 /** Direct download-to-launch acceptance. Only isolated caches and profiles are writable. */
 import {spawn} from 'node:child_process';
+import {existsSync} from 'node:fs';
 import {access, cp, mkdir, mkdtemp, readdir, readFile, stat, utimes, writeFile} from 'node:fs/promises';
 import {join, resolve, basename} from 'node:path';
 import {tmpdir} from 'node:os';
@@ -53,9 +54,34 @@ try {
   assert.equal(registrySnapshot(), registryBefore, 'Installation registry changed');
   assert.equal((await inspectOnefile(source)).sha256, original.sha256);
   const output = resolve('deliverables/frontend-v2/tauri-acceptance'); await mkdir(output, {recursive:true});
-  await writeFile(join(output, 'onefile-direct-launch.json'), JSON.stringify({sourceSha256:original.sha256,
-    payloadSha256:original.payloadSha256, root, directLaunch:true, workerHandshake:true, initialFiltersEmpty:true,
+  // The shipped graph is the staged Rust worker, so its identity is asserted
+  // from inside the single-file product by default: the manifest is validated,
+  // the packaged binary is hashed, and a real handshake must answer. A package
+  // without that manifest (the development/parity graph) is reported
+  // best-effort instead, and an unverifiable worker is recorded as unverified
+  // rather than as a fabricated `workerHandshake: true`.
+  const stagedRustGraph = existsSync(join(runtime, 'worker', 'worker-backend.json'));
+  const identityOptIn = stagedRustGraph || process.env.NIOH3_WORKER_IDENTITY_OPT_IN === '1';
+  const protectedRequested = identityOptIn || process.env.NIOH3_WORKER_IDENTITY_PROTECTED === '1';
+  const {verifyWorkerIdentity, verifyShippedWorker} = await import('./verify-worker-identity.mjs');
+  let workerIdentity, protectedIdentity = null;
+  if (identityOptIn) {
+    workerIdentity = await verifyWorkerIdentity({runtime, role: 'offline_search'});
+    if (protectedRequested) {
+      protectedIdentity = await verifyWorkerIdentity({runtime, role: 'save'});
+    }
+  } else {
+    workerIdentity = await verifyShippedWorker({runtime, role: 'offline_search'});
+    if (protectedRequested) {
+      protectedIdentity = await verifyShippedWorker({runtime, role: 'save'});
+    }
+  }
+  const workerHandshake = workerIdentity.verified === true && workerIdentity.handshake === true;
+  const launchRecord = {sourceSha256:original.sha256,
+    payloadSha256:original.payloadSha256, root, directLaunch:true, workerHandshake, initialFiltersEmpty:true,
     updateAvailable:true, launches:2, cacheReused:true, staleCachesPruned:2, retainedCaches:2,
-    unrelatedFilesPreserved:true, noInstallationRegistryChanges:true, downloadContainsOneExe:true, gameWrites:0}, null, 2));
+    unrelatedFilesPreserved:true, noInstallationRegistryChanges:true, downloadContainsOneExe:true, gameWrites:0,
+    workerIdentity, protectedIdentity, workerIdentityOptIn:identityOptIn, stagedRustGraph};
+  await writeFile(join(output, 'onefile-direct-launch.json'), JSON.stringify(launchRecord, null, 2));
   console.log('TAURI_ONEFILE_DIRECT_LAUNCH_CACHE_OK');
 } finally {if (session || child) await closeSession(session, child);}

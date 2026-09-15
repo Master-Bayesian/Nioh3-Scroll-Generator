@@ -1,0 +1,56 @@
+[workspace]
+
+[package]
+name = "nioh3-runtime"
+version = "0.1.0"
+edition = "2021"
+description = "Read-only Windows runtime adapter and runtime.status core for the Nioh 3 backend migration"
+publish = false
+
+[lib]
+name = "nioh3_runtime"
+path = "src/lib.rs"
+
+[[example]]
+name = "runtime_read_probe"
+path = "examples/runtime_read_probe.rs"
+
+[features]
+# Compiles the fault-injecting adapter into the probe so the cross-language
+# gate can drive scripted mutation scenarios. Off by default.
+test-fake = []
+# Builds the owned helper process that proves the real Windows read/write/
+# protect/allocation path. Off by default; the product never builds it.
+test-helper = []
+
+[[bin]]
+name = "runtime_mutation_helper"
+path = "src/bin/runtime_mutation_helper.rs"
+required-features = ["test-helper"]
+
+[dependencies]
+serde_json = "1"
+sha2 = "0.10"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Kernel",
+    "Win32_System_Memory",
+    "Win32_System_Threading",
+] }
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "s"

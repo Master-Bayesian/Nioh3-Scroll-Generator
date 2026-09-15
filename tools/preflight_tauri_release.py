@@ -118,7 +118,9 @@ def _check_update_identity(root: Path) -> dict[str, Any]:
 def _check_workflow(root: Path) -> dict[str, Any]:
     workflow = (root / ".github/workflows/release.yml").read_text(encoding="utf-8").replace("\r\n", "\n")
     required = {
-        "manual dispatch only": "on: workflow_dispatch",
+        # `workflow_dispatch` may be written inline or as a mapping that carries
+        # its inputs; both are manual-only and both are accepted here.
+        "manual dispatch only": ("on: workflow_dispatch", "workflow_dispatch:"),
         "read-only contents permission": "contents: read",
         "clean source required": "NIOH3_REQUIRE_CLEAN_SOURCE: '1'",
         "archive identity": (
@@ -136,7 +138,14 @@ def _check_workflow(root: Path) -> dict[str, Any]:
         "update manifest upload": "deliverables/release/tauri-update.json",
         "test inventory upload": "deliverables/release/test-inventory.json",
     }
-    missing = [name for name, marker in required.items() if marker not in workflow]
+    missing = [
+        name
+        for name, marker in required.items()
+        if not any(
+            candidate in workflow
+            for candidate in (marker if isinstance(marker, tuple) else (marker,))
+        )
+    ]
     if missing:
         raise ValueError("Release workflow contract is missing: " + ", ".join(missing))
     return {"artifactStem": ARTIFACT_STEM, "markers": sorted(required)}

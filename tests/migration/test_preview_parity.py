@@ -34,6 +34,7 @@ from nioh3_scroll_editor.enemy_state_search import generate_enemy_state_preview
 from nioh3_scroll_editor.grace_map import load_grace_output_map
 from nioh3_scroll_editor.models import ScrollCandidate
 from nioh3_scroll_editor.scroll_input_metadata import initial_challenge_capacity
+from tests.migration.cargo_target import resolved_cargo_target_dir
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -251,9 +252,7 @@ def reference_lines() -> list[str]:
 def run_example(*arguments: str) -> list[str]:
     """Run the Rust development emitter and return its tabbed output lines."""
 
-    target = os.environ.get(
-        "CARGO_TARGET_DIR", str(ROOT / ".codex_tmp" / "m23_preview_parity_target")
-    )
+    target = resolved_cargo_target_dir("m23-preview-parity")
     completed = subprocess.run(
         [
             "cargo",

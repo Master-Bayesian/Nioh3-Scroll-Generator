@@ -13,9 +13,12 @@ use std::path::{Path, PathBuf};
 ///
 /// The helper DLL probe is real, but the wire capability reports availability
 /// intersected with what this worker can actually do: advertising `true` while
-/// the route is unported would promise a usable filter to the client. Keep this
-/// `false` until the effect-preimage routes land.
-pub const EFFECT_FILTER_ROUTE_PORTED: bool = false;
+/// the route is unported would promise a usable filter to the client. The
+/// partial-effect forward filter now serves the shipped surface
+/// (`Route::PartialEffectFilter` plus the certified recomposition), and its gate
+/// compares candidate identity, per-candidate cursors and the page cursor
+/// against the shipped worker, so the intersection is the probe again.
+pub const EFFECT_FILTER_ROUTE_PORTED: bool = true;
 
 /// The published effect-filter capability: the helper probe intersected with
 /// what this worker can actually run.
@@ -180,7 +183,12 @@ mod tests {
     }
 
     #[test]
-    fn the_effect_filter_capability_stays_false_until_the_route_is_ported() {
+    fn the_effect_filter_capability_follows_the_ported_route() {
+        // The wire value is the live probe intersected with the ported route.
+        // With the route ported and the helper loadable the client is promised
+        // the filter; with the helper absent it must not be advertised.
+        assert_eq!(wire_effect_filter(true), EFFECT_FILTER_ROUTE_PORTED);
+        assert!(!wire_effect_filter(false));
         let probed = Capabilities {
             cuda_pivot_and_auxiliary: true,
             directcompute_effect_filter: wire_effect_filter(true),
@@ -188,8 +196,8 @@ mod tests {
             bulk_cpu_requires_opt_in: true,
         };
         assert!(
-            !probed.directcompute_effect_filter,
-            "a loadable helper must not be advertised as an implemented filter"
+            probed.directcompute_effect_filter,
+            "a loadable helper with a ported route is the advertised filter"
         );
         assert!(
             probed.directcompute_probe,

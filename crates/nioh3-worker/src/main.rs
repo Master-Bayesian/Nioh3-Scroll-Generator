@@ -1,10 +1,15 @@
-//! Development-only read-only preview worker.
+//! Read-only search worker with an explicit launch-mode acknowledgement.
 //!
-//! Speaks the shipped `offline_search` frame protocol but serves only
-//! `handshake`, `candidate.preview` and `shutdown`. The binary refuses to start
-//! without an explicit `--dev-preview-only` acknowledgement, so the shipped
-//! Tauri host, whose fixed spawn command cannot pass that flag, can never
-//! select it as a production worker.
+//! Speaks the shipped `offline_search` frame protocol. The binary refuses to
+//! start without exactly one explicit launch-mode acknowledgement:
+//! `--dev-preview-only` for a development launch (the shape
+//! `apps/tauri/src-tauri/src/worker.rs` passes when `NIOH3_RUST_SEARCH_WORKER`
+//! names this binary, and the shape every migration gate uses) or
+//! `--packaged-worker` for a packaged launch, which the staged runtime's
+//! manifest records. Nothing here makes the binary production by accident: the
+//! default packaged host still spawns the shipped worker, and a launch with no
+//! acknowledgement, both acknowledgements, or the development environment
+//! variable without the development flag fails closed with a named error.
 
 use std::env;
 use std::io::{self, BufReader, BufWriter};
@@ -16,12 +21,16 @@ use nioh3_worker::protocol::{parse_request, request_id};
 use nioh3_worker::transport::{read_frame, write_frame};
 
 const USAGE: &str = "\
-usage: nioh3-readonly-worker --dev-preview-only --data-root <DIR> --contract-dir <DIR> \
-[--accelerator <DLL>]
+usage: nioh3-readonly-worker (--dev-preview-only | --packaged-worker) \
+--data-root <DIR> --contract-dir <DIR> [--accelerator <DLL>]
 
-Serves the read-only preview subset (handshake, candidate.preview, shutdown) of the
-Nioh 3 offline search worker. Every other method is rejected. This binary is not
-selectable as the production worker and always requires --dev-preview-only.";
+Serves the offline search surface of the Nioh 3 search worker (handshake,
+search.catalog, recommended_level.resolve, cache.register, candidate.preview,
+search.start, job.current, job.snapshot, job.cancel, candidate.export and
+shutdown). Anything outside the shipped request contract is rejected.
+
+Launch modes: --dev-preview-only marks a development launch; --packaged-worker
+marks a launch from a staged packaged runtime. Exactly one is required.";
 
 #[derive(Debug)]
 struct Options {
@@ -45,6 +54,7 @@ fn main() -> ExitCode {
 /// `Ok(None)` means the caller asked for help.
 fn parse_options(args: &[String]) -> Result<Option<Options>, String> {
     let mut dev_preview_only = false;
+    let mut packaged_worker = false;
     let mut data_root = None;
     let mut contract_dir = None;
     let mut accelerator = None;
@@ -53,6 +63,7 @@ fn parse_options(args: &[String]) -> Result<Option<Options>, String> {
     while index < args.len() {
         match args[index].as_str() {
             "--dev-preview-only" => dev_preview_only = true,
+            "--packaged-worker" => packaged_worker = true,
             "--help" | "-h" => {
                 println!("{USAGE}");
                 return Ok(None);
@@ -80,12 +91,32 @@ fn parse_options(args: &[String]) -> Result<Option<Options>, String> {
         index += 1;
     }
 
-    if !dev_preview_only {
-        return Err(
-            "refusing to start: this development worker requires the explicit \
-             --dev-preview-only acknowledgement and is never the production worker"
-                .to_string(),
-        );
+    // Exactly one launch-mode acknowledgement, and the development environment
+    // variable always forces the development acknowledgement so a stray
+    // variable cannot silently select the packaged mode.
+    let dev_selected = env::var_os("NIOH3_RUST_SEARCH_WORKER")
+        .filter(|value| !value.is_empty())
+        .is_some();
+    match (dev_preview_only, packaged_worker, dev_selected) {
+        (true, true, _) => {
+            return Err("refusing to start: pass either --dev-preview-only or \
+                 --packaged-worker, not both"
+                .to_string())
+        }
+        (false, false, _) => {
+            return Err("refusing to start: an explicit launch mode is required \
+                 (--dev-preview-only for a development launch, --packaged-worker \
+                 for a staged packaged runtime)"
+                .to_string())
+        }
+        (false, true, true) => {
+            return Err(
+                "refusing to start: NIOH3_RUST_SEARCH_WORKER selects a development \
+                 launch, which requires --dev-preview-only"
+                    .to_string(),
+            )
+        }
+        _ => {}
     }
     let data_root = data_root.ok_or("--data-root is required")?;
     let contract_dir = contract_dir.ok_or("--contract-dir is required")?;
@@ -163,7 +194,33 @@ mod tests {
     fn development_acknowledgement_is_mandatory() {
         let error = parse_options(&args(&["--data-root", "d", "--contract-dir", "c"]))
             .expect_err("must refuse without the acknowledgement");
-        assert!(error.contains("--dev-preview-only"));
+        assert!(error.contains("explicit launch mode is required"));
+    }
+
+    /// The packaged mode is explicit, exclusive and unaffected by the
+    /// development environment variable.
+    #[test]
+    fn packaged_launch_mode_is_explicit_and_exclusive() {
+        let packaged = parse_options(&args(&[
+            "--packaged-worker",
+            "--data-root",
+            "data",
+            "--contract-dir",
+            "contracts",
+        ]))
+        .expect("valid packaged options")
+        .expect("not help");
+        assert_eq!(packaged.data_root, PathBuf::from("data"));
+        let both = parse_options(&args(&[
+            "--dev-preview-only",
+            "--packaged-worker",
+            "--data-root",
+            "data",
+            "--contract-dir",
+            "contracts",
+        ]))
+        .expect_err("both launch modes must be refused");
+        assert!(both.contains("not both"));
     }
 
     #[test]

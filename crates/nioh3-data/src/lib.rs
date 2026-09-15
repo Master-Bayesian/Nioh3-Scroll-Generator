@@ -23,6 +23,8 @@ use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
 mod effect_resource;
+#[cfg(test)]
+mod install_materialize_parity;
 
 pub use effect_resource::{
     load_effect_resource, GRACE_MAP_FORMAT, GRACE_MAP_GAME_VERSION, GRACE_MAP_PATHS,

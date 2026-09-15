@@ -1,4 +1,4 @@
-use crate::worker::{Reply, Worker};
+use crate::worker::{self, ProtectedBackend, Reply, SearchBackend, Worker};
 use serde_json::{json, Value};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
@@ -64,21 +64,25 @@ impl Broker {
         // Spawn a new host only after positive shutdown/exit proof. No operation
         // is replayed: callers must recover their durable business receipt.
         hosts.remove(role);
-        let executable = if self.packaged {
-            self.root.join(if role == "offline_search" {
-                "worker/nioh3-search-worker.exe"
-            } else {
-                "worker/nioh3-protected-worker.exe"
-            })
+        // Only the read-only search worker has a Rust development backend; the
+        // protected save/runtime route keeps the shipped worker.
+        let backend = if role == "offline_search" {
+            worker::search_backend(&self.root, self.packaged, &worker::rust_search_env())?
         } else {
-            PathBuf::from(std::env::var("NIOH3_PYTHON").unwrap_or_else(|_| "python".into()))
+            SearchBackend::Python
+        };
+        let protected = if role == "offline_search" {
+            ProtectedBackend::Python
+        } else {
+            worker::protected_backend(&self.root, self.packaged, &worker::rust_protected_env())?
         };
         let worker = Worker::spawn(
             &self.root,
-            &executable,
             role,
             self.packaged,
             self.data.clone(),
+            &backend,
+            &protected,
         )
         .await?;
         hosts.insert(role.into(), worker.clone());
@@ -277,7 +281,7 @@ impl Broker {
                 .await
             }
             "operations:prepare-count" => {
-                if !p["new_count"].as_u64().is_some_and(|v| v <= 7) {
+                if p["new_count"].as_u64().is_none_or(|v| v > 7) {
                     return Err("INVALID_COUNT".into());
                 }
                 let source = self.run("save", "save.count_edit_source", json!({"save_id":p["save_id"],"snapshot_id":p["snapshot_id"],"slot_index":p["slot_index"]})).await?;

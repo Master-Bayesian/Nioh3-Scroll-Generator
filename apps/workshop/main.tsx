@@ -1,6 +1,9 @@
 import { useUiLocale, setUiLocale, localize } from "./presentation";
 import { ScrollCard } from "./ScrollCard";
-import { useDialogBackdropDismiss } from "./use-dialog-backdrop-dismiss";
+import {
+  decideUpdatePrompt,
+  useDialogBackdropDismiss,
+} from "./use-dialog-backdrop-dismiss";
 import { collectionKey, useCollections } from "./collections";
 import { Updates, UpdateNotice } from "./Updates";
 import { StarIcon } from "./StarIcon";
@@ -643,7 +646,11 @@ function App() {
     if (!dialog.current?.open) dialog.current?.showModal();
   }
   function openUpdatePrompt() {
-    if (dialog.current?.open) {
+    const decision = decideUpdatePrompt(
+      Boolean(dialog.current?.open),
+      pendingUpdatePrompt.current,
+    );
+    if (decision.action === "defer") {
       pendingUpdatePrompt.current = true;
       return;
     }
@@ -654,8 +661,11 @@ function App() {
     setModal("");
     setDirectAdd(null);
     if (pendingUpdatePrompt.current) {
+      const decision = decideUpdatePrompt(false, true);
       pendingUpdatePrompt.current = false;
-      requestAnimationFrame(() => open("检查更新"));
+      if (decision.action === "reopen") {
+        requestAnimationFrame(() => open("检查更新"));
+      }
     }
   }
   async function addCurrent() {

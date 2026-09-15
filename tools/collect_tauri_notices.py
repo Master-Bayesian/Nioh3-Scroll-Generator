@@ -1,12 +1,28 @@
-"""Collect missing crate notices from their exact published source commits."""
+"""Collect missing crate notices from their exact published source commits.
+
+This is the supplement step for crates that publish no licence file in their
+own source: the packager copies each dependency's notices and falls back to
+`third_party/rust-notices/<name>-<version>` when there are none. It therefore
+has to enumerate the same crate graphs the package attributes - the Tauri host,
+the launcher, and (for the Rust worker graph) both worker workspaces - so a
+worker-only dependency can never be left without a supplement.
+"""
 import concurrent.futures
 import hashlib
 import json
 from pathlib import Path
 import subprocess
+import sys
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from package_tauri import rust_license_manifests  # noqa: E402
+
+# The Rust graph ships the worker crates, so the supplement set is the union of
+# every workspace the packager attributes rather than the host workspace alone.
+MANIFESTS = rust_license_manifests('rust')
 
 def collect(package):
     source = Path(package['manifest_path']).parent
@@ -50,7 +66,12 @@ def collect(package):
     raise ValueError('Missing notice: ' + package['name'])
 
 if __name__ == '__main__':
-    metadata = json.loads(subprocess.check_output(['cargo', 'metadata', '--manifest-path', str(ROOT / 'apps/tauri/src-tauri/Cargo.toml'), '--format-version', '1', '--locked', '--filter-platform', 'x86_64-pc-windows-msvc']))
-    used = {n['id'] for n in metadata['resolve']['nodes']}
+    packages = {}
+    for manifest in MANIFESTS:
+        metadata = json.loads(subprocess.check_output(['cargo', 'metadata', '--manifest-path', str(ROOT / manifest), '--format-version', '1', '--locked', '--filter-platform', 'x86_64-pc-windows-msvc']))
+        used = {n['id'] for n in metadata['resolve']['nodes']}
+        for package in metadata['packages']:
+            if package['source'] and package['id'] in used:
+                packages[package['id']] = package
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-        list(executor.map(collect, [p for p in metadata['packages'] if p['source'] and p['id'] in used]))
+        list(executor.map(collect, packages.values()))

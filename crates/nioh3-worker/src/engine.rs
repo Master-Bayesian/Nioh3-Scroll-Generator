@@ -14,17 +14,18 @@ use nioh3_domain::effect::{EffectResourceBytes, EffectTableIndex};
 use nioh3_domain::enemy::MissionVariant;
 use nioh3_domain::preview::{
     compose_auxiliary_preview, compose_enemy_state_preview, effect_previews, AuxiliaryPreview,
-    Ng3PreviewComposition, PreviewTables,
+    EnemyStatePreview, PreviewTables,
 };
 use nioh3_domain::record::{materialize_ng3_rarity4_final_record, ScrollRecord, ScrollRecordBytes};
 use nioh3_domain::sequence::{
     generate_challenge_attempt_count, generate_ng3_rarity3_effect_sequence,
-    generate_ng3_rarity5_effect_sequence, NG3_RECORD_TYPE,
+    generate_rarity5_grace_effect_sequence, NG3_RECORD_TYPE,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::capabilities::{self, Capabilities};
+use crate::catalog::{self, Catalog};
 use crate::collector::{self, CandidateSource, CollectorError, MaterializedCandidate};
 use crate::context::{capture_context, hex_lower, ContextError, GenerationContext};
 use crate::jobs::{JobStore, StartParams};
@@ -32,6 +33,7 @@ use crate::model::{Candidate, CandidateEffect, RecordStage};
 use crate::native::probe_seed_accelerator;
 use crate::payload;
 use crate::protocol::{Request, RequestError};
+use crate::recommended_level::{self, RecommendedLevelCurve};
 use crate::schema::RequestSchema;
 
 /// Product playthrough the offline preview path is certified for.
@@ -116,6 +118,24 @@ impl Materializer {
         Ok(resources)
     }
 
+    /// Run `f` over the loaded effect resource and preview tables.
+    ///
+    /// The catalog needs the decoded effect index, the raw resource (for the
+    /// measured Grace maps) and the preview tables. Handing them over keeps the
+    /// lazy cache in one place instead of making the catalog load its own copy
+    /// of tables the worker already holds.
+    pub(crate) fn inspect<T>(
+        &self,
+        f: impl FnOnce(
+            &EffectTableIndex,
+            &EffectResourceBytes,
+            &PreviewResources,
+        ) -> Result<T, EngineError>,
+    ) -> Result<T, EngineError> {
+        let resources = self.resources()?;
+        f(&resources.index, &resources.effect, &resources.preview)
+    }
+
     /// Compose the certified candidate and the preview payload its result
     /// carries, mirroring `candidate_payload` plus `export_candidate`.
     ///
@@ -128,7 +148,7 @@ impl Materializer {
         rarity: u8,
         level: u16,
         joint_search_trial: Option<u64>,
-    ) -> Result<(Candidate, Value, Value, Ng3PreviewComposition), EngineError> {
+    ) -> Result<(Candidate, Value, Value, ComposedPreview), EngineError> {
         let resources = self.resources()?;
         let tables = preview_tables(&resources);
         let auxiliary = compose_auxiliary_preview(seed, NG3_PLAYTHROUGH, &tables)
@@ -141,6 +161,8 @@ impl Materializer {
             level,
             joint_search_trial,
             auxiliary,
+            NG3_PLAYTHROUGH,
+            None,
         )
     }
 
@@ -160,24 +182,38 @@ impl Materializer {
         level: u16,
         joint_search_trial: Option<u64>,
         auxiliary: AuxiliaryPreview,
-    ) -> Result<(Candidate, Value, Value, Ng3PreviewComposition), EngineError> {
-        let composition = Ng3PreviewComposition {
-            auxiliary,
-            enemy_states: [
-                compose_enemy_state_preview(seed, NG3_PLAYTHROUGH, MissionVariant::Solo, tables)
+        playthrough: u8,
+        cached_grace: Option<&nioh3_domain::effect::GraceMap>,
+    ) -> Result<(Candidate, Value, Value, ComposedPreview), EngineError> {
+        // The shipped payload publishes the enemy-state half for the NG3
+        // playthrough only (`worker_contracts.candidate_payload` emits `null`
+        // otherwise and never generates the previews), so a cached NG4/NG5
+        // candidate carries `null` and pays for no enemy composition.
+        let enemy_states = if playthrough == NG3_PLAYTHROUGH {
+            Some([
+                compose_enemy_state_preview(seed, playthrough, MissionVariant::Solo, tables)
                     .map_err(unsupported_preview)?,
-                compose_enemy_state_preview(
-                    seed,
-                    NG3_PLAYTHROUGH,
-                    MissionVariant::Expedition,
-                    tables,
-                )
-                .map_err(unsupported_preview)?,
-            ],
+                compose_enemy_state_preview(seed, playthrough, MissionVariant::Expedition, tables)
+                    .map_err(unsupported_preview)?,
+            ])
+        } else {
+            None
+        };
+        let composition = ComposedPreview {
+            auxiliary,
+            enemy_states,
             initial_challenge_capacity: generate_challenge_attempt_count(seed),
         };
 
-        let record = build_sequence(rarity, seed, level, &resources.index, &resources.effect)?;
+        let record = build_sequence(
+            rarity,
+            seed,
+            level,
+            &resources.index,
+            &resources.effect,
+            playthrough,
+            cached_grace,
+        )?;
         let effects: Vec<CandidateEffect> = effect_previews(&record)
             .into_iter()
             .map(|effect| CandidateEffect {
@@ -193,7 +229,7 @@ impl Materializer {
             .collect();
         let candidate = Candidate {
             seed,
-            playthrough: Some(NG3_PLAYTHROUGH),
+            playthrough: Some(playthrough),
             rarity,
             record_stage: RecordStage::EffectSequenceOnly,
             record: Vec::new(),
@@ -224,11 +260,13 @@ impl CandidateSource for Materializer {
         query: &crate::query::SearchQuery,
         seed: u32,
         trial: u64,
+        grace: Option<&nioh3_domain::effect::GraceMap>,
     ) -> Result<MaterializedCandidate, CollectorError> {
         let resources = self
             .resources()
             .map_err(|error| CollectorError::new(error.code, error.message))?;
         let tables = preview_tables(&resources);
+        let playthrough = query.playthrough;
 
         // Cheap pre-acceptance stage. The caller's terrain / special-rule /
         // enemy criteria are decided by the auxiliary half alone, so they are
@@ -237,13 +275,13 @@ impl CandidateSource for Materializer {
         // paying for the full preview, exactly as the shipped worker never
         // composes a payload for a candidate its own filter drops. Anything the
         // auxiliary half itself cannot compose still fails the job closed.
-        let auxiliary = compose_auxiliary_preview(seed, NG3_PLAYTHROUGH, &tables)
+        let auxiliary = compose_auxiliary_preview(seed, playthrough, &tables)
             .map_err(unsupported_preview)
             .map_err(|error| CollectorError::new(error.code, error.message))?;
         let auxiliary_match = auxiliary_criteria_match(query, &auxiliary);
         if !auxiliary_match {
             return Ok(MaterializedCandidate {
-                candidate: rejected_candidate(seed, query.rarity, trial),
+                candidate: rejected_candidate(seed, query.rarity, trial, playthrough),
                 payload: Value::Null,
                 auxiliary_match: Some(false),
                 enemy_occurrence_match: None,
@@ -259,6 +297,8 @@ impl CandidateSource for Materializer {
                 query.level,
                 Some(trial),
                 auxiliary,
+                playthrough,
+                grace,
             )
             .map_err(|error| CollectorError::new(error.code, error.message))?;
         let enemy_occurrence_match = Some(enemy_occurrence_groups_match(query, &composition));
@@ -298,10 +338,10 @@ fn unsupported_preview(error: impl std::fmt::Debug) -> EngineError {
 /// reject it. It is never published: `jobs::accepts` refuses any candidate whose
 /// `auxiliary_match` is not `Some(true)`, so the placeholder only has to be
 /// cheap, not complete.
-fn rejected_candidate(seed: u32, rarity: u8, trial: u64) -> Candidate {
+fn rejected_candidate(seed: u32, rarity: u8, trial: u64, playthrough: u8) -> Candidate {
     Candidate {
         seed,
-        playthrough: Some(NG3_PLAYTHROUGH),
+        playthrough: Some(playthrough),
         rarity,
         record_stage: RecordStage::EffectSequenceOnly,
         record: Vec::new(),
@@ -388,7 +428,7 @@ fn hits_every_group(actual: &[u32], groups: &[Vec<u32>]) -> bool {
 /// unknown Possessed/Curse state never hides behind a false positive.
 fn enemy_occurrence_groups_match(
     query: &crate::query::SearchQuery,
-    composition: &nioh3_domain::preview::Ng3PreviewComposition,
+    composition: &ComposedPreview,
 ) -> bool {
     use crate::query::{Availability, EnemyStateFilter, EnemyVariant};
     use nioh3_domain::enemy::Possession;
@@ -397,9 +437,17 @@ fn enemy_occurrence_groups_match(
     if query.enemy_occurrence_groups.is_empty() {
         return true;
     }
+    // Only the NG3 playthrough publishes an enemy-state half, so a cached
+    // NG4/NG5 candidate cannot be decided against occurrence groups. The
+    // shipped worker raises in the same situation (it generates the preview for
+    // the request's own playthrough), so this stays a rejection rather than an
+    // invented answer.
+    let Some(enemy_states) = composition.enemy_states.as_ref() else {
+        return false;
+    };
     let state = match query.enemy_variant {
-        EnemyVariant::Solo => &composition.enemy_states[0],
-        EnemyVariant::Expedition => &composition.enemy_states[1],
+        EnemyVariant::Solo => &enemy_states[0],
+        EnemyVariant::Expedition => &enemy_states[1],
     };
 
     let mut any_no_match = false;
@@ -455,6 +503,19 @@ fn enemy_occurrence_groups_match(
     !any_no_match && !any_unknown
 }
 
+/// The composed halves one candidate payload and its occurrence filter need.
+///
+/// The enemy-state half exists only for the NG3 playthrough: the shipped
+/// `worker_contracts.candidate_payload` emits `enemy_states: null` for every
+/// other playthrough and never even generates the previews, so a cached NG4/NG5
+/// payload must carry `null` rather than a composition the product does not
+/// publish for that playthrough.
+pub struct ComposedPreview {
+    pub auxiliary: AuxiliaryPreview,
+    pub enemy_states: Option<[EnemyStatePreview; 2]>,
+    pub initial_challenge_capacity: i32,
+}
+
 /// Owns the generation identity, the shipped schema and the single search job.
 pub struct Engine {
     context: GenerationContext,
@@ -463,6 +524,13 @@ pub struct Engine {
     schema: RequestSchema,
     materializer: Arc<Materializer>,
     jobs: Arc<JobStore>,
+    /// The captured native recommended-level curve for `recommended_level.resolve`.
+    recommended_level: RecommendedLevelCurve,
+    /// The shipped name catalogs `search.catalog` renders from, loaded on first
+    /// use so the other methods never pay for them.
+    catalog: Mutex<Option<Arc<Catalog>>>,
+    /// Product data root, kept for the lazily loaded catalog.
+    data_root: PathBuf,
     negotiated: bool,
 }
 
@@ -489,6 +557,7 @@ impl Engine {
         )
         .map_err(from_context_error)?;
         let capabilities = capabilities::probe(application_root, accelerator_path.as_deref(), None);
+        let recommended_level = recommended_level::load(data_root)?;
         let materializer = Arc::new(Materializer::new(data_root, &context.context_digest));
         let jobs = JobStore::new(
             &context.context_digest,
@@ -508,6 +577,9 @@ impl Engine {
             schema,
             materializer,
             jobs: Arc::new(jobs),
+            recommended_level,
+            catalog: Mutex::new(None),
+            data_root: data_root.to_path_buf(),
             negotiated: false,
         })
     }
@@ -632,6 +704,37 @@ impl Engine {
                     Err(error) => self.failure(&id, error),
                 }
             }
+            Request::RecommendedLevelResolve {
+                displayed_level, ..
+            } => {
+                if !self.negotiated {
+                    return self.failure(&id, RequestError::handshake_required());
+                }
+                Outcome::Reply(payload::success_frame(
+                    &id,
+                    self.recommended_level.resolve_payload(displayed_level),
+                ))
+            }
+            Request::CacheRegister { cache_json, .. } => {
+                if !self.negotiated {
+                    return self.failure(&id, RequestError::handshake_required());
+                }
+                match self.jobs.register_cache(&cache_json) {
+                    Ok(result) => Outcome::Reply(payload::success_frame(&id, result)),
+                    Err(error) => self.failure(&id, error),
+                }
+            }
+            Request::SearchCatalog { rarity, locale, .. } => {
+                if !self.negotiated {
+                    return self.failure(&id, RequestError::handshake_required());
+                }
+                match self.catalog_payload(rarity, &locale) {
+                    Ok(result) => Outcome::Reply(payload::success_frame(&id, result)),
+                    Err(error) => {
+                        Outcome::Reply(payload::error_frame(&id, error.code, &error.message))
+                    }
+                }
+            }
             Request::Unimplemented { method, .. } => {
                 if !self.negotiated {
                     return self.failure(&id, RequestError::handshake_required());
@@ -653,6 +756,33 @@ impl Engine {
 
     fn failure(&self, id: &Value, error: RequestError) -> Outcome {
         Outcome::Reply(payload::error_frame(id, error.code, &error.message))
+    }
+
+    /// The bundled name catalogs, loaded once on first use.
+    fn catalog(&self) -> Result<Arc<Catalog>, EngineError> {
+        let mut slot = self.catalog.lock().expect("catalog cache");
+        if let Some(catalog) = slot.as_ref() {
+            return Ok(Arc::clone(catalog));
+        }
+        let catalog = Arc::new(Catalog::load(&self.data_root)?);
+        *slot = Some(Arc::clone(&catalog));
+        Ok(catalog)
+    }
+
+    /// `search.catalog`, composed from the loaded tables and name catalogs.
+    fn catalog_payload(&self, rarity: u8, locale: &str) -> Result<Value, EngineError> {
+        let catalog = self.catalog()?;
+        self.materializer.inspect(|index, effect, preview| {
+            catalog.payload(catalog::CatalogInputs {
+                context_digest: &self.context.context_digest,
+                rarity,
+                locale,
+                index,
+                effect,
+                preview,
+                recommended_level: &self.recommended_level,
+            })
+        })
     }
 
     /// Read the schema-checked `search.start` params into typed job arguments.
@@ -697,6 +827,8 @@ fn build_sequence(
     level: u16,
     index: &EffectTableIndex,
     effect: &EffectResourceBytes,
+    playthrough: u8,
+    cached_grace: Option<&nioh3_domain::effect::GraceMap>,
 ) -> Result<ScrollRecord, EngineError> {
     match rarity {
         3 => generate_ng3_rarity3_effect_sequence(index, seed, level)
@@ -719,8 +851,14 @@ fn build_sequence(
             .map_err(|error| EngineError::new("INVALID_REQUEST", format!("{error:?}")))?;
             Ok(pair.preview_sequence().clone())
         }
-        5 => generate_ng3_rarity5_effect_sequence(index, &effect.grace_maps[1], seed, level)
-            .map_err(|error| EngineError::new("INVALID_REQUEST", format!("{error:?}"))),
+        5 => generate_rarity5_grace_effect_sequence(
+            index,
+            cached_grace.unwrap_or(&effect.grace_maps[1]),
+            playthrough,
+            seed,
+            level,
+        )
+        .map_err(|error| EngineError::new("INVALID_REQUEST", format!("{error:?}"))),
         other => Err(EngineError::new(
             "INVALID_REQUEST",
             format!("certified offline preview supports rarity 3, 4 or 5, not {other}"),
@@ -806,7 +944,7 @@ mod tests {
                 .expect("rejected query");
 
         let accepted_match = materializer
-            .materialize(&accepted, seed, 158614759)
+            .materialize(&accepted, seed, 158614759, None)
             .expect("the shipped canonical match composes");
         assert_eq!(accepted_match.auxiliary_match, Some(true));
         assert!(
@@ -819,7 +957,7 @@ mod tests {
         );
 
         let rejected_match = materializer
-            .materialize(&rejected, seed, 158614759)
+            .materialize(&rejected, seed, 158614759, None)
             .expect("an auxiliary rejection is not an error");
         assert_eq!(rejected_match.auxiliary_match, Some(false));
         assert!(

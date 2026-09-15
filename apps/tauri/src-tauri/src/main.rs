@@ -85,6 +85,56 @@ fn test_debug_port() -> Option<u16> {
         .filter(|port| *port != 0)
 }
 
+/// Log which worker graph each role resolved to, and where.
+///
+/// This is the host's own resolution, recorded before any worker starts, so a
+/// packaged acceptance can prove the argv the host would spawn without inferring
+/// it from a separately launched binary. A package that declares a backend it
+/// cannot run logs the refusal instead of falling back.
+fn log_resolved_workers(root: &std::path::Path, data: &std::path::Path, packaged: bool) {
+    let search = worker::search_backend(root, packaged, &worker::rust_search_env());
+    let protected = worker::protected_backend(root, packaged, &worker::rust_protected_env());
+    let (search_backend, protected_backend) = match (search, protected) {
+        (Ok(search), Ok(protected)) => (search, protected),
+        (Err(error), _) | (_, Err(error)) => {
+            storage::log(
+                data,
+                "worker-backend",
+                &format!("resolution failed: {error}"),
+            );
+            return;
+        }
+    };
+    let identifier = worker::backend_identifier(packaged, &search_backend, &protected_backend);
+    storage::log(data, "worker-backend", &format!("graph={identifier}"));
+    for role in ["offline_search", "save", "runtime"] {
+        let (executable, arguments) = worker::launch_command(
+            root,
+            role,
+            packaged,
+            &search_backend,
+            &protected_backend,
+            data,
+        );
+        let digest = std::fs::read(&executable)
+            .ok()
+            .map(|bytes| {
+                use sha2::{Digest, Sha256};
+                format!("{:x}", Sha256::digest(&bytes))
+            })
+            .unwrap_or_else(|| "unavailable".into());
+        storage::log(
+            data,
+            "worker-backend",
+            &format!(
+                "role={role} executable={} sha256={digest} argv={}",
+                executable.display(),
+                arguments.join(" ")
+            ),
+        );
+    }
+}
+
 #[tauri::command]
 async fn desktop_request(
     app: tauri::AppHandle,
@@ -361,8 +411,25 @@ fn main() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             let packaged = !cfg!(debug_assertions);
-            let root = if packaged { app.path().resource_dir()? } else { std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..").canonicalize()? };
-            if packaged && package::verify(&root).map_err(std::io::Error::other)?.version != env!("CARGO_PKG_VERSION") {return Err("PACKAGE_VERSION_MISMATCH".into());}
+            // A packaged acceptance needs to run the real packaged resolution
+            // against a staged runtime. The override is test-only: it is compiled
+            // out of a release build (`!packaged` is false there, so the branch
+            // cannot be taken), and inside a debug build it additionally requires
+            // both NIOH3_TAURI_PACKAGE_ROOT and NIOH3_TAURI_TEST_ROOT. A debug
+            // binary run directly by a user with both variables set would take it;
+            // that is a test-build configuration, not part of the shipped graph.
+            let package_override = (!packaged)
+                .then(|| {
+                    std::env::var_os("NIOH3_TAURI_PACKAGE_ROOT").map(std::path::PathBuf::from)
+                })
+                .flatten()
+                .filter(|_| std::env::var_os("NIOH3_TAURI_TEST_ROOT").is_some());
+            let packaged = packaged || package_override.is_some();
+            let root = match package_override {
+                Some(root) => root,
+                None if packaged => app.path().resource_dir()?,
+                None => std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..").canonicalize()?,
+            };
             let arguments:Vec<_>=std::env::args_os().collect();
             let profile=arguments.windows(2).find(|p|p[0]=="--user-data-dir").map(|p|std::path::PathBuf::from(&p[1]));
             if profile.as_ref().is_some_and(|p|!p.is_absolute()){return Err("Profile directory must be absolute".into());}
@@ -384,6 +451,11 @@ fn main() {
                 }
             }
             storage::log(&data, "startup", env!("CARGO_PKG_VERSION"));
+            // Record the resolved worker graph at startup. A packaged acceptance
+            // can then read the identity of the worker the *host* resolved
+            // instead of inferring it from a separately spawned binary.
+            log_resolved_workers(&root, &data, packaged);
+            if packaged && package::verify(&root).map_err(std::io::Error::other)?.version != env!("CARGO_PKG_VERSION") {return Err("PACKAGE_VERSION_MISMATCH".into());}
             if let Some(executable) = std::env::var_os("NIOH3_ONEFILE_EXE") {
                 storage::log(&data, "onefile-runtime", &format!("executable={} runtime={} launcher_pid={}", std::path::Path::new(&executable).display(), root.display(), std::env::var("NIOH3_ONEFILE_PID").unwrap_or_default()));
             }

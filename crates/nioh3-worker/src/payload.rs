@@ -7,8 +7,7 @@
 
 use nioh3_domain::enemy::{MissionVariant, Possession};
 use nioh3_domain::preview::{
-    AuxiliaryPreview, CurseConditional, EnemyStatePreview, Ng3PreviewComposition,
-    OccurrenceAvailability,
+    AuxiliaryPreview, CurseConditional, EnemyStatePreview, OccurrenceAvailability,
 };
 use serde_json::{json, Map, Value};
 
@@ -19,6 +18,13 @@ use crate::model::{candidate_identity, Candidate, CandidateEffect};
 
 /// Evidence label the offline preview path reports.
 pub const CERTIFIED_OFFLINE_REPLAY: &str = "certified_offline_replay";
+
+/// `cached_rarity5_playthroughs`: the save-bound cache route serves NG4 and NG5.
+///
+/// Mirrors the shipped worker's handshake value. It is published because the
+/// route is ported (`SearchFactory::cached_collector` compiles the registered
+/// map into the native collector), not merely because a map can be registered.
+pub const CACHED_RARITY5_PLAYTHROUGHS: [u8; 2] = [4, 5];
 
 /// The handshake result the development worker publishes.
 ///
@@ -42,6 +48,10 @@ pub fn handshake_result(
             // helpers are loaded and asked, exactly like the Python worker.
             "cuda_pivot_and_auxiliary": capabilities.cuda_pivot_and_auxiliary,
             "directcompute_effect_filter": capabilities.directcompute_effect_filter,
+            // The save-bound NG4/NG5 cached route is ported, so the playthroughs
+            // it serves are advertised exactly like the shipped worker's. NG3
+            // keeps using its certified bundled map and never takes a cache.
+            "cached_rarity5_playthroughs": CACHED_RARITY5_PLAYTHROUGHS,
             "cpu_exact_replay": true,
             "bulk_cpu_requires_opt_in": capabilities.bulk_cpu_requires_opt_in,
             "save_write": false,
@@ -75,7 +85,7 @@ pub fn preview_result(
     candidate: &Candidate,
     context_digest: &str,
     level: u16,
-    composition: &Ng3PreviewComposition,
+    composition: &crate::engine::ComposedPreview,
 ) -> Value {
     json!({
         "candidate": candidate_payload_json(candidate, context_digest, composition),
@@ -90,7 +100,7 @@ pub fn preview_result(
 pub fn candidate_payload_json(
     candidate: &Candidate,
     context_digest: &str,
-    composition: &Ng3PreviewComposition,
+    composition: &crate::engine::ComposedPreview,
 ) -> Value {
     let candidate_id = candidate_identity(candidate, context_digest);
     let blocker = candidate.install_blocker();
@@ -108,7 +118,10 @@ pub fn candidate_payload_json(
         "install_blocker": blocker,
         "effects": effects,
         "auxiliary": auxiliary_json(&composition.auxiliary),
-        "enemy_states": enemy_states_json(&composition.enemy_states),
+        "enemy_states": match &composition.enemy_states {
+            Some(states) => enemy_states_json(states),
+            None => Value::Null,
+        },
         "cursor": candidate.joint_search_trial,
         "evidence": CERTIFIED_OFFLINE_REPLAY,
         "installation_available": installable,

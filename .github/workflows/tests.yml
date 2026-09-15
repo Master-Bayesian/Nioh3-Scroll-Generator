@@ -59,11 +59,35 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo fetch --locked --manifest-path crates/nioh3-worker/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fetch --locked --manifest-path crates/nioh3-save/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --offline --manifest-path crates/nioh3-domain/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --offline --manifest-path crates/nioh3-data/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --offline --manifest-path crates/nioh3-worker/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --offline --manifest-path crates/nioh3-save/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --locked --offline --all-targets --manifest-path crates/nioh3-save/Cargo.toml -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fmt --check --manifest-path crates/nioh3-save/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fetch --locked --manifest-path crates/nioh3-runtime/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --offline --features test-helper --manifest-path crates/nioh3-runtime/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --locked --offline --all-targets --features test-fake,test-helper --manifest-path crates/nioh3-runtime/Cargo.toml -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fmt --check --manifest-path crates/nioh3-runtime/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fetch --locked --manifest-path crates/nioh3-protected/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --offline --manifest-path crates/nioh3-protected/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --locked --offline --all-targets --manifest-path crates/nioh3-protected/Cargo.toml -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fmt --check --manifest-path crates/nioh3-protected/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -TestPath tests/migration
 
@@ -77,3 +101,59 @@ jobs:
         with:
           name: unittest-inventory-windows-py312
           path: test-results/test-inventory.json
+
+  rust-packaging:
+    # Required gate for the shipped packaging graph. The packaged product selects
+    # the Rust worker from the staged manifest, so this job proves the worker
+    # crates build, stage without any PyInstaller artifact, answer a real
+    # handshake per role, and that the host resolves the staged manifest's
+    # binary and roots. The PyInstaller graph stays a development, parity and
+    # oracle backend.
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+
+      - name: Set up Rust for the packaged workers
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build and verify the packaged Rust graph
+        shell: pwsh
+        run: |
+          $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'rust-packaging-cargo-target'
+          cargo fetch --locked --manifest-path crates/nioh3-worker/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fetch --locked --manifest-path crates/nioh3-protected/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo build --locked --offline --manifest-path crates/nioh3-worker/Cargo.toml --bin nioh3-readonly-worker
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo build --locked --offline --manifest-path crates/nioh3-protected/Cargo.toml --bin nioh3-protected-worker
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -TestPath tests/migration/test_packaging_optin.py,tests/migration/test_worker_identity_optin.py -PytestArgument -q
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # The packaged-profile gate needs the host binary, so it is opt-in here.
+          # It proves the host resolves the staged manifest's binary and roots;
+          # the workers it spawns are the same real binaries built above.
+          cargo build --locked --manifest-path apps/tauri/src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -TestPath tests/migration/test_packaged_host_resolver.py -PytestArgument -q
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        env:
+          NIOH3_M4_IDENTITY_EVIDENCE: ${{ runner.temp }}/m4-identity-evidence.json
+          NIOH3_PACKAGED_HOST_GATE: "1"
+
+      - name: Upload packaged identity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m4-optin-identity-evidence
+          path: ${{ runner.temp }}/m4-identity-evidence.json

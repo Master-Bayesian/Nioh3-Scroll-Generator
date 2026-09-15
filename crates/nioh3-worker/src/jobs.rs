@@ -6,7 +6,7 @@
 //! the private candidate records and the resume token are bound to the same
 //! query/context/policy/continuation binding.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -19,6 +19,7 @@ use crate::collector::{
     BatchRequest, CandidateSource, CollectorError, IntersectionReport, MaterializedCandidate,
     SearchCollector, SearchFactory, MISSING_COLLECTOR_MESSAGE,
 };
+use crate::grace_map::{self, GraceOutputMap, CATEGORY_TO_TYPE};
 use crate::model::Candidate;
 use crate::payload;
 use crate::protocol::RequestError;
@@ -26,6 +27,9 @@ use crate::query::{OccurrenceScope, SearchQuery};
 
 /// States that end a job.
 pub const TERMINAL_STATES: [&str; 3] = ["completed", "cancelled", "failed"];
+
+/// `SearchJobs`: at most 16 measured maps before the registry must be restarted.
+pub const MAX_REGISTERED_MAPS: usize = 16;
 
 /// The one job this worker retains, in wire shape.
 #[derive(Debug, Clone)]
@@ -88,6 +92,9 @@ struct Inner {
     /// Private candidate records; never sent to a renderer, only exported.
     candidate_records: HashMap<String, Candidate>,
     level: u16,
+    /// `SearchJobs.maps`: validated save-bound measured maps, keyed by the
+    /// sha256 of the exact `cache_json` string the caller registered.
+    maps: BTreeMap<String, GraceOutputMap>,
 }
 
 /// `search.start` arguments after schema validation.
@@ -133,6 +140,7 @@ impl JobStore {
                 job: None,
                 candidate_records: HashMap::new(),
                 level: 180,
+                maps: BTreeMap::new(),
             }),
             cancel: AtomicBool::new(false),
             alive: AtomicBool::new(false),
@@ -149,28 +157,94 @@ impl JobStore {
         self.alive.load(Ordering::SeqCst)
     }
 
+    /// `SearchJobs.register_cache`.
+    ///
+    /// Validates one save-bound measured map against this worker's generation
+    /// context and returns its content id. The id is the sha256 of the exact
+    /// `cache_json` string, so two spellings of the same map are two ids, just
+    /// like the shipped worker.
+    pub fn register_cache(&self, cache_json: &str) -> Result<Value, RequestError> {
+        let payload: Value = serde_json::from_str(cache_json)
+            .map_err(|error| RequestError::invalid_request_message(error.to_string()))?;
+        let mapping = grace_map::from_cache_payload(&payload, Some(&self.context_digest))
+            .map_err(RequestError::invalid_request_message)?;
+        let cache_id = hex_lower(&Sha256::digest(cache_json.as_bytes()));
+        let mut inner = self.inner.lock().expect("job store");
+        if !inner.maps.contains_key(&cache_id) && inner.maps.len() >= MAX_REGISTERED_MAPS {
+            return Err(RequestError::invalid_request_message(
+                "Measured map registry is full; restart the idle search worker",
+            ));
+        }
+        inner.maps.insert(cache_id.clone(), mapping);
+        Ok(serde_json::json!({ "cache_id": cache_id }))
+    }
+
     /// `SearchJobs.start`.
     pub fn start(
         self: &Arc<Self>,
         query_payload: &Value,
         params: &StartParams,
     ) -> Result<JobView, RequestError> {
-        if self.is_alive() {
+        // Claim the single owner atomically. A plain `is_alive()` load followed by
+        // a later store loses the race: two concurrent starts can both observe an
+        // idle worker, and the second then replaces the first job's record and
+        // leaves its thread unowned. The compare-exchange makes the check and the
+        // claim one step, so exactly one caller can own the worker at a time even
+        // though the framed main loop is single-threaded and only a caller that
+        // issues starts in parallel can reach this path.
+        if self
+            .alive
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
             return Err(RequestError::new("BUSY", "One search can run per worker"));
         }
+        // The previous owner is finished (`is_alive` is false), so joining it
+        // here cannot block; it keeps one job thread per store.
+        if let Some(previous) = self.thread.lock().expect("job thread").take() {
+            let _ = previous.join();
+        }
+        // From here the claim must be released on every early return.
         if params.context_digest != self.context_digest {
+            self.alive.store(false, Ordering::Release);
             return Err(RequestError::new(
                 "CONTEXT_MISMATCH",
                 "Refresh the worker handshake before searching",
             ));
         }
-        let query = SearchQuery::from_payload(query_payload)?;
+        let query = match SearchQuery::from_payload(query_payload) {
+            Ok(query) => query,
+            Err(error) => {
+                self.alive.store(false, Ordering::Release);
+                return Err(error);
+            }
+        };
+        // `SearchJobs.start`'s cache binding. NG4/NG5 runs only against an exact
+        // save-bound rarity-5 map whose record type matches the playthrough;
+        // NG3 always uses its certified bundled map and never takes a cache.
+        let mapping = {
+            let inner = self.inner.lock().expect("job store");
+            params
+                .cache_id
+                .as_ref()
+                .and_then(|cache_id| inner.maps.get(cache_id).cloned())
+        };
         if query.playthrough > 3 {
-            return Err(RequestError::invalid_request_message(
-                "NG4/5 offline search requires an exact save-bound rarity-5 map",
-            ));
-        }
-        if params.cache_id.is_some() {
+            let expected_record_type = CATEGORY_TO_TYPE
+                .get(usize::from(query.playthrough))
+                .copied();
+            let usable = query.rarity == 5
+                && mapping.as_ref().is_some_and(|mapping| {
+                    Some(mapping.record_type) == expected_record_type && mapping.rarity == 5
+                });
+            if !usable {
+                self.alive.store(false, Ordering::Release);
+                return Err(RequestError::invalid_request_message(
+                    "NG4/5 offline search requires an exact save-bound rarity-5 map",
+                ));
+            }
+        } else if params.cache_id.is_some() {
+            self.alive.store(false, Ordering::Release);
             return Err(RequestError::invalid_request_message(
                 "NG3 uses its certified bundled map",
             ));
@@ -182,26 +256,39 @@ impl JobStore {
             params.continue_until_complete,
             params.cache_id.as_deref(),
         );
-        let cursor = self.decode_cursor(params.resume_token.as_deref(), &binding)?;
+        let cursor = match self.decode_cursor(params.resume_token.as_deref(), &binding) {
+            Ok(cursor) => cursor,
+            Err(error) => {
+                self.alive.store(false, Ordering::Release);
+                return Err(error);
+            }
+        };
         // The table-derived compilation runs at start, so an unsupported filter
         // fails the request with a message naming it instead of starting a job
         // that can only fail.
         let collector = match &self.factory {
             Some(factory) => {
-                Some(
-                    factory
-                        .collector(&query)
-                        .map_err(|error| match error.code.as_str() {
-                            // A backend that cannot run at all keeps its own code so a
-                            // caller can tell "no accelerator" apart from a bad query.
-                            "SEARCH_BACKEND_UNAVAILABLE" => {
-                                RequestError::new("SEARCH_BACKEND_UNAVAILABLE", error.message)
-                            }
-                            "SEARCH_FAILED" => RequestError::new("SEARCH_FAILED", error.message),
-                            // Compilation rejections name the unsupported filter.
-                            _ => RequestError::invalid_request_message(error.message),
-                        })?,
-                )
+                let compiled = match (&mapping, query.playthrough) {
+                    (Some(cache), 4 | 5) => factory.cached_collector(&query, cache),
+                    _ => factory.collector(&query),
+                }
+                .map_err(|error| match error.code.as_str() {
+                    // A backend that cannot run at all keeps its own code so a
+                    // caller can tell "no accelerator" apart from a bad query.
+                    "SEARCH_BACKEND_UNAVAILABLE" => {
+                        RequestError::new("SEARCH_BACKEND_UNAVAILABLE", error.message)
+                    }
+                    "SEARCH_FAILED" => RequestError::new("SEARCH_FAILED", error.message),
+                    // Compilation rejections name the unsupported filter.
+                    _ => RequestError::invalid_request_message(error.message),
+                });
+                match compiled {
+                    Ok(collector) => Some(collector),
+                    Err(error) => {
+                        self.alive.store(false, Ordering::Release);
+                        return Err(error);
+                    }
+                }
             }
             None => None,
         };
@@ -229,16 +316,14 @@ impl JobStore {
             inner.job.as_ref().expect("job just stored").view()
         };
 
-        self.alive.store(true, Ordering::SeqCst);
+        // `alive` is already claimed by the compare-exchange above.
         let store = Arc::clone(self);
         let params = params.clone();
         let handle = thread::Builder::new()
             .name("offline-search".to_string())
             .spawn(move || store.run(query, params, binding, collector))
             .expect("spawn the offline search thread");
-        if let Some(previous) = self.thread.lock().expect("job thread").replace(handle) {
-            let _ = previous.join();
-        }
+        *self.thread.lock().expect("job thread") = Some(handle);
         Ok(job)
     }
 
@@ -360,6 +445,18 @@ impl JobStore {
         started: Instant,
         job_collector: Option<&Arc<dyn SearchCollector>>,
     ) -> Result<(&'static str, u64), CollectorError> {
+        // The registered save-bound map of this job, when it has one. It is the
+        // same map the collector compiled against, so materialization composes
+        // the player's own playthrough instead of the bundled NG3 tables.
+        let cached_grace: Option<GraceOutputMap> = params.cache_id.as_ref().and_then(|cache_id| {
+            self.inner
+                .lock()
+                .expect("job store")
+                .maps
+                .get(cache_id)
+                .cloned()
+        });
+        let cached_grace = cached_grace.and_then(|mapping| mapping.to_domain_map().ok());
         let mut cursor = self
             .inner
             .lock()
@@ -434,7 +531,7 @@ impl JobStore {
             for pivot in &batch.matches {
                 let materialized = self
                     .source
-                    .materialize(query, pivot.seed, pivot.trial)
+                    .materialize(query, pivot.seed, pivot.trial, cached_grace.as_ref())
                     .map_err(|error| {
                         // Name the exact match that could not be composed so a
                         // bounded port limit is reproducible from the job error
@@ -1039,6 +1136,7 @@ mod tests {
             _query: &SearchQuery,
             seed: u32,
             trial: u64,
+            _grace: Option<&nioh3_domain::effect::GraceMap>,
         ) -> Result<MaterializedCandidate, CollectorError> {
             let rarity = 4;
             let candidate = Candidate {
@@ -1530,6 +1628,87 @@ mod tests {
         assert_eq!(job.cursor, 16);
         assert!(job.resume_token.is_some());
         assert!(job.elapsed_ms < 30_000);
+    }
+
+    /// The BUSY guard's real invariant: two `start` calls that are genuinely
+    /// concurrent must still admit exactly one job.
+    ///
+    /// This is the deterministic version of the operator-visible symptom. The
+    /// framed main loop dispatches one request at a time, so the only path to
+    /// concurrent `start` calls is a caller that issues them in parallel, which
+    /// is what the two threads below do. The collector sleeps before returning
+    /// so the first job cannot finish underneath the race.
+    #[test]
+    fn concurrent_starts_admit_exactly_one_job() {
+        const RACES: usize = 128;
+        let payload = query_payload(4, "flat");
+        let mut refusals = 0usize;
+        for _ in 0..RACES {
+            let store = open_store(Arc::new(SlowStartCollector));
+            let barrier = Arc::new(std::sync::Barrier::new(2));
+            let mut handles = Vec::new();
+            for _ in 0..2 {
+                let store = Arc::clone(&store);
+                let payload = payload.clone();
+                let barrier = Arc::clone(&barrier);
+                handles.push(thread::spawn(move || {
+                    barrier.wait();
+                    store.start(&payload, &params(true))
+                }));
+            }
+            let outcomes: Vec<_> = handles
+                .into_iter()
+                .map(|handle| handle.join().expect("start thread"))
+                .collect();
+            let mut accepted = Vec::new();
+            let mut refused = Vec::new();
+            for outcome in outcomes {
+                match outcome {
+                    Ok(job) => accepted.push(job),
+                    Err(error) => refused.push(error.code),
+                }
+            }
+            assert_eq!(
+                (accepted.len(), refused.len()),
+                (1, 1),
+                "exactly one concurrent start may own the worker"
+            );
+            assert_eq!(
+                refused[0], "BUSY",
+                "the loser must be refused by name, not replaced silently"
+            );
+            refusals += 1;
+            // The surviving owner is the one the store actually reports, so a
+            // second thread cannot have replaced the accepted job's record.
+            let current = store.current().expect("one job survives");
+            assert_eq!(current.job_id, accepted[0].job_id);
+            wait_terminal(&store, &current.job_id);
+            assert!(!store.is_alive(), "the job thread ends with its job");
+        }
+        assert_eq!(refusals, RACES, "every race produced exactly one BUSY");
+    }
+
+    /// A collector that keeps the first job non-terminal across the race.
+    struct SlowStartCollector;
+
+    impl SearchCollector for SlowStartCollector {
+        fn collect(
+            &self,
+            request: &BatchRequest<'_>,
+            _progress: &mut dyn FnMut(&IntersectionReport),
+            _cancelled: &dyn Fn() -> bool,
+        ) -> Result<SearchBatch, CollectorError> {
+            thread::sleep(Duration::from_millis(4));
+            let next = request.start_after_trial + 16;
+            Ok(SearchBatch {
+                matches: Vec::new(),
+                next_start_after_trial: Some(next),
+                // A complete page report ends the job, so the race window is the
+                // sleep above rather than a long scan.
+                intersection_report: Some(report(true, request.start_after_trial, next, 1 << 20)),
+                streamed: false,
+            })
+        }
     }
 
     #[test]

@@ -147,11 +147,18 @@ pub struct MaterializedCandidate {
 /// `trial` is the 1-based solver trial the match came from; it becomes the
 /// candidate's `joint_search_trial`, which is the wire `cursor`.
 pub trait CandidateSource: Send + Sync {
+    /// Compose one accepted match.
+    ///
+    /// `grace` is the registered save-bound Grace map of a cached NG4/NG5 job,
+    /// or `None` for an NG3 job, which always composes the bundled map. The
+    /// certified composer needs it because the playthrough's record type and
+    /// draw-1 partition are exactly what the cached route replaces.
     fn materialize(
         &self,
         query: &SearchQuery,
         seed: u32,
         trial: u64,
+        grace: Option<&nioh3_domain::effect::GraceMap>,
     ) -> Result<MaterializedCandidate, CollectorError>;
 }
 
@@ -167,6 +174,25 @@ pub const MISSING_COLLECTOR_MESSAGE: &str = "offline search requires the bounded
 /// [`SearchQuery`] to `search_backend::NativePivotQuery`.
 pub trait SearchFactory: Send + Sync {
     fn collector(&self, query: &SearchQuery) -> Result<Arc<dyn SearchCollector>, CollectorError>;
+
+    /// Compile the save-bound cache route for a playthrough-4/5 rarity-5 job.
+    ///
+    /// The measured-map pivot belongs to the native compiler, which owns
+    /// `query_compile`/`search_backend`; this hook lets the job layer hand it the
+    /// validated map without that file having to change shape. Until the native
+    /// cache route lands, the default refuses with a named
+    /// [`CollectorError::unavailable`] instead of claiming an unavailable search.
+    fn cached_collector(
+        &self,
+        query: &SearchQuery,
+        cache: &crate::grace_map::GraceOutputMap,
+    ) -> Result<Arc<dyn SearchCollector>, CollectorError> {
+        let _ = (query, cache);
+        Err(CollectorError::unavailable(
+            "the save-bound NG4/NG5 cache search route is not compiled into this \
+             development worker yet",
+        ))
+    }
 }
 
 /// The native bounded collector the job layer mounts at startup.

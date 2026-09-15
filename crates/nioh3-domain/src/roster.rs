@@ -34,6 +34,7 @@
 //!   dependency is involved, and nothing here is wired into product entry
 //!   points.
 
+use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 
 use crate::enemy::{
@@ -352,6 +353,33 @@ pub fn generate_roster(
         state_after_roster: parent.state(),
         parent_draws: parent.draws(),
     })
+}
+
+/// `runtime_auxiliary_override._enemy_role_by_lookup_key`: the native descriptor
+/// role stored beside every candidate row's lookup key.
+///
+/// The candidate table can list one lookup key on several rows. A row whose role
+/// disagrees with an earlier row makes the key's role ambiguous, so the key is
+/// refused instead of silently resolving to one of them.
+pub fn enemy_role_by_lookup_key(tables: &RosterTables) -> Result<BTreeMap<u32, u8>, EnemyError> {
+    let mut roles: BTreeMap<u32, u8> = BTreeMap::new();
+    for row in tables.enemies.iter() {
+        let lookup_key = read_u32(row, ENEMY_LOOKUP_KEY_OFFSET);
+        let role = row[ENEMY_ROLE_OFFSET];
+        match roles.entry(lookup_key) {
+            Entry::Vacant(slot) => {
+                slot.insert(role);
+            }
+            Entry::Occupied(slot) => {
+                if *slot.get() != role {
+                    return Err(EnemyError::MissingData(format!(
+                        "enemy key 0x{lookup_key:08X} has ambiguous native roles"
+                    )));
+                }
+            }
+        }
+    }
+    Ok(roles)
 }
 
 fn read_u16(row: &[u8], offset: usize) -> u16 {
@@ -1173,5 +1201,43 @@ mod tests {
             ),
             Err(EnemyError::Unsupported(_))
         ));
+    }
+
+    #[test]
+    fn enemy_roles_are_collected_per_lookup_key_and_ambiguity_fails_closed() {
+        let role_tables = |enemies: Vec<[u8; ENEMY_ROW_BYTES]>| RosterTables {
+            enemies,
+            contexts: vec![context_row(
+                0x00,
+                0,
+                [1.0; WAVE_BUDGET_COUNT],
+                [0; WAVE_BUDGET_COUNT],
+            )],
+            terrains: vec![[0u8; TERRAIN_ROW_BYTES]],
+            terrain_keys: vec![0],
+            parameter_types: BTreeMap::new(),
+        };
+
+        // A repeated lookup key with one agreed role collapses to a single entry;
+        // rows are keyed by lookup key, not by row index.
+        let agreed = role_tables(vec![
+            EnemyRow::new(1.0, 2).lookup(0x0000_03F0).row(),
+            EnemyRow::new(2.0, 2).lookup(0x0000_03F0).row(),
+            EnemyRow::new(3.0, 5).lookup(0x0000_0C77).row(),
+        ]);
+        let roles = enemy_role_by_lookup_key(&agreed).unwrap();
+        assert_eq!(roles.len(), 2);
+        assert_eq!(roles.get(&0x0000_03F0), Some(&2));
+        assert_eq!(roles.get(&0x0000_0C77), Some(&5));
+
+        let ambiguous = role_tables(vec![
+            EnemyRow::new(1.0, 0).lookup(0x0000_03F0).row(),
+            EnemyRow::new(1.0, 4).lookup(0x0000_03F0).row(),
+        ]);
+        let error = enemy_role_by_lookup_key(&ambiguous).expect_err("ambiguous role");
+        assert!(
+            error.to_string().contains("has ambiguous native roles"),
+            "{error}"
+        );
     }
 }

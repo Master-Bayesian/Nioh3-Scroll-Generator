@@ -34,6 +34,7 @@ from nioh3_scroll_editor.effect_sequence import (
     generate_ng3_rarity5_effect_sequence,
 )
 from nioh3_scroll_editor.grace_map import load_grace_output_map
+from tests.migration.cargo_target import resolved_cargo_target_dir
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -103,9 +104,7 @@ def fnv1a64(payload: bytes) -> int:
 def run_example(manifest: Path, example: str, *arguments: str) -> list[str]:
     """Run one Rust development emitter and return its tabbed output lines."""
 
-    target = os.environ.get(
-        "CARGO_TARGET_DIR", str(ROOT / ".codex_tmp" / "m2_effect_parity_target")
-    )
+    target = resolved_cargo_target_dir("m2-effect-parity")
     completed = subprocess.run(
         [
             "cargo",

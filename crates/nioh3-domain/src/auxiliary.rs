@@ -96,6 +96,38 @@ pub fn derive_special_rule_seed(displayed_seed: u32) -> u32 {
     displayed_seed & 0x0FFF_FFFF
 }
 
+/// `legal_special_rule_keys`: the rule keys the native generator can select.
+///
+/// The captured table keeps disabled placeholders and rows whose weight is zero
+/// for one progression. Those rows stay research evidence, but offering them in
+/// the product picker would promise a rule that can never be generated. Keys
+/// come from the captured hash index, matching the reference, so every key this
+/// returns is also resolvable by [`describe_special_rule`].
+pub fn legal_special_rule_keys(
+    playthrough: u8,
+    tables: &SpecialRuleTables,
+) -> Result<std::collections::BTreeSet<u16>, EnemyError> {
+    if !(1..=5).contains(&playthrough) {
+        return Err(EnemyError::InvalidInput(format!(
+            "playthrough {playthrough} is outside 1..=5"
+        )));
+    }
+    if tables.rule_keys.len() != tables.rules.len() {
+        return Err(EnemyError::MissingData(
+            "special-rule key index does not match row count".into(),
+        ));
+    }
+    let weight_offset = RULE_WEIGHT_BASE_OFFSET + usize::from(playthrough) * 2;
+    Ok(tables
+        .rule_keys
+        .iter()
+        .zip(tables.rules.iter())
+        .filter(|(_, row)| row[RULE_ENABLED_OFFSET] & RULE_ENABLED_BIT != 0)
+        .filter(|(_, row)| read_u16(&row[..], weight_offset) > 0)
+        .map(|(key, _)| *key)
+        .collect())
+}
+
 /// `generate_special_rules`: native RVA 0x1028880.
 ///
 /// `scratch_rule_keys` are the rule keys carried by the enemy rows that were
@@ -828,5 +860,36 @@ mod tests {
         let mut conflicts = table;
         conflicts.conflicts = vec![conflict_row(1, true)];
         assert!(generate_special_rules(0, 3, &[], &conflicts).is_err());
+    }
+
+    #[test]
+    fn legal_rule_keys_keep_enabled_rows_with_a_positive_progression_weight() {
+        // Playthrough 3 reads the third weight word at +0x26.
+        let enabled = rule_row(0x0200, [1, 1, 1, 1, 1], 0.0, 0.0, 0.0, 0, true, 0, 0, 0);
+        let zero_weight = rule_row(0x0201, [1, 1, 0, 1, 1], 0.0, 0.0, 0.0, 0, true, 0, 0, 0);
+        let disabled = rule_row(0x0202, [1, 1, 1, 1, 1], 0.0, 0.0, 0.0, 0, false, 0, 0, 0);
+        let table = tables(vec![enabled, zero_weight, disabled], vec![], vec![]);
+
+        let legal = legal_special_rule_keys(3, &table).unwrap();
+        assert_eq!(legal.iter().copied().collect::<Vec<_>>(), vec![0x0200]);
+        // The same rows stay legal for a progression whose weight is non-zero.
+        assert_eq!(
+            legal_special_rule_keys(1, &table)
+                .unwrap()
+                .iter()
+                .copied()
+                .collect::<Vec<_>>(),
+            vec![0x0200, 0x0201]
+        );
+        assert!(legal_special_rule_keys(0, &table).is_err());
+        assert!(legal_special_rule_keys(6, &table).is_err());
+
+        let mut mismatched = table;
+        mismatched.rule_keys.clear();
+        let error = legal_special_rule_keys(3, &mismatched).expect_err("key index mismatch");
+        assert!(
+            error.to_string().contains("does not match row count"),
+            "{error}"
+        );
     }
 }

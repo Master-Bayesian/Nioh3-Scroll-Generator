@@ -23,15 +23,23 @@ use nioh3_domain::effect::{
     CandidatePoolRequest, EffectTableIndex, GraceMap, NativeWeightContext, EFFECT_FLAG_PROMOTED,
 };
 use nioh3_domain::rng::{cvtt_i32, f32_of};
+use nioh3_domain::sequence::RARITY5_GRACE_SLOT;
 
 use crate::collector::{
     BatchRequest, CollectorError, IntersectionReport, IntersectionStageCount, SearchBatch,
     SearchCollector, SearchFactory,
 };
+use crate::effect_batch::{EffectMaskSpec, PartialEffectVerifier};
+use crate::effect_path::{
+    compile_full_composition_plans, first_u16_ranges_for_grace, CompiledEffectPlan,
+    FullCompositionRequest, PreimageVerifier,
+};
+use crate::grace_map::CATEGORY_TO_TYPE;
 use crate::native_search::{
     Accelerator, AuxiliaryPivotSpec, ExecutionPolicy, NativeSearchError, PrimaryEffectSpec,
     R4PrimaryPivotSpec,
 };
+use crate::preimage::{PreimagePolicy, MAX_PREIMAGE_TRIALS};
 use crate::query::SearchQuery;
 use crate::search_backend::{MatchFilter, NativePivotQuery, PageRequest, SearchBackend};
 
@@ -41,6 +49,8 @@ pub const NG3_RECORD_TYPE: u16 = 0xE604;
 const RARITY_FINALIZABLE: u8 = 4;
 /// The rarity whose primary lottery is rolled from the full seed family.
 const RARITY_GROWING: u8 = 3;
+/// The rarity whose complete composition terminates in a Grace (`RARITY_DIVINE`).
+const RARITY_DIVINE: u8 = 5;
 /// The single special group a rarity-3 primary lottery is conditioned on.
 const RARITY3_PRIMARY_SPECIAL_ID: u32 = 0x0001;
 /// `_promotion_success_lookup(10)` for the rarity-3 primary lottery.
@@ -75,9 +85,18 @@ pub enum Route {
     Auxiliary,
     /// Rarity-4 primary-effect pivot scan.
     R4Primary,
+    /// Complete-composition effect-preimage sweep over compiled plan families.
+    CompletePreimage,
+    /// One-wildcard effect-preimage sweep: the requested ordinary effects must be
+    /// present and the fifth ordinary slot is free.
+    OneWildcardPreimage,
     /// Plain natural pivot over the full family with the shipped batched
     /// predicates: a rarity-3 primary search or an unconstrained search.
     FullFamily,
+    /// Partial ordinary-effect search: the full seed family swept with the
+    /// accelerator's batched constraint mask, then certified per Seed by the
+    /// ported forward composition (`partial_effect_batch_generator`).
+    PartialEffectFilter,
 }
 
 /// One report stage: the declared kind and the user's values, in native order.
@@ -115,10 +134,18 @@ pub struct CompiledQuery {
 ///
 /// Mirrors the shipped prefetch order: the batched primary-effect predicate
 /// first (rarity-3 primary), then the auxiliary criteria for its survivors.
+///
+/// The partial-effect route adds the accelerator's batched constraint mask and
+/// the certified recomposition that decides the request's own effect criteria;
+/// both stay `None` on every route that packs its criteria natively.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PageFilter {
     pub primary: Option<PrimaryEffectSpec>,
     pub auxiliary: Option<AuxiliaryPivotSpec>,
+    /// `match_effect_constraints_d3d11` for a partial ordinary-effect request.
+    pub effect_mask: Option<Arc<EffectMaskSpec>>,
+    /// The certified composition gate for that same request.
+    pub effect_verifier: Option<Arc<PartialEffectVerifier>>,
 }
 
 /// Why a query cannot be compiled into a native search.
@@ -184,8 +211,14 @@ pub struct QueryCompiler {
     rules: Vec<[u8; 56]>,
     conflict_keys: Vec<u16>,
     conflicts: Vec<[u8; 24]>,
-    effect_index: EffectTableIndex,
+    /// Shared with the effect-preimage verifier, which re-composes every
+    /// accelerator hit on the same verified tables.
+    effect_index: Arc<EffectTableIndex>,
     r4_grace: Option<GraceMap>,
+    r5_grace: Option<GraceMap>,
+    /// Set only on the derived compiler a save-bound cached job uses: the
+    /// playthrough whose registered Grace map replaced the bundled rarity-5 map.
+    cached_playthrough: Option<u8>,
 }
 
 impl QueryCompiler {
@@ -202,6 +235,11 @@ impl QueryCompiler {
             .iter()
             .find(|map| map.rarity == RARITY_FINALIZABLE)
             .cloned();
+        let r5_grace = effect_bytes
+            .grace_maps
+            .iter()
+            .find(|map| map.rarity == RARITY_DIVINE)
+            .cloned();
         Ok(Self {
             enemies: preview.roster.enemies,
             auxiliary_contexts: preview.roster.contexts,
@@ -213,9 +251,93 @@ impl QueryCompiler {
             rules: preview.rules.rules,
             conflict_keys: preview.rules.conflict_keys,
             conflicts: preview.rules.conflicts,
-            effect_index,
+            effect_index: Arc::new(effect_index),
             r4_grace,
+            r5_grace,
+            cached_playthrough: None,
         })
+    }
+
+    /// Bind a derived compiler to one registered NG4/NG5 Grace map.
+    ///
+    /// The save-bound route compiles against the measured map of the player's
+    /// own playthrough instead of the bundled NG3 map, and only rarity 5 with
+    /// that playthrough's record type and Grace slot is accepted. The returned
+    /// compiler carries the same verified tables; only the rarity-5 map and the
+    /// playthrough gate differ.
+    pub fn for_cached_grace(
+        &self,
+        playthrough: u8,
+        map: GraceMap,
+        record_type: u16,
+        effect_slot: u8,
+    ) -> Result<Self, CompileError> {
+        let expected_record_type = CATEGORY_TO_TYPE
+            .get(usize::from(playthrough))
+            .copied()
+            .filter(|_| matches!(playthrough, 4 | 5))
+            .ok_or_else(|| {
+                CompileError::unsupported(format!(
+                    "the save-bound cache route serves NG4 and NG5, not playthrough {playthrough}"
+                ))
+            })?;
+        if record_type != expected_record_type {
+            return Err(CompileError::Rejected(format!(
+                "the registered map belongs to record type 0x{record_type:04X}, not 0x{expected_record_type:04X}"
+            )));
+        }
+        if effect_slot != RARITY5_GRACE_SLOT {
+            return Err(CompileError::Rejected(format!(
+                "the registered map reports Grace slot {effect_slot}, not {RARITY5_GRACE_SLOT}"
+            )));
+        }
+        if map.rarity != RARITY_DIVINE || map.effect_slot != effect_slot {
+            return Err(CompileError::Rejected(
+                "the registered map is not a rarity-5 Grace map".to_string(),
+            ));
+        }
+        if map.record_type != u32::from(record_type) {
+            return Err(CompileError::Rejected(format!(
+                "the registered map record type 0x{:04X} does not match playthrough {playthrough}",
+                map.record_type
+            )));
+        }
+        Ok(Self {
+            enemies: self.enemies.clone(),
+            auxiliary_contexts: self.auxiliary_contexts.clone(),
+            terrains: self.terrains.clone(),
+            terrain_keys: self.terrain_keys.clone(),
+            parameter_types: self.parameter_types.clone(),
+            optional_multipliers: self.optional_multipliers.clone(),
+            rule_keys: self.rule_keys.clone(),
+            rules: self.rules.clone(),
+            conflict_keys: self.conflict_keys.clone(),
+            conflicts: self.conflicts.clone(),
+            effect_index: Arc::clone(&self.effect_index),
+            r4_grace: self.r4_grace.clone(),
+            r5_grace: Some(map),
+            cached_playthrough: Some(playthrough),
+        })
+    }
+
+    /// The verified effect tables every route composes and filters against.
+    pub fn effect_index(&self) -> &EffectTableIndex {
+        &self.effect_index
+    }
+
+    /// The same tables as a shared handle, for the certified verifiers.
+    pub fn effect_index_arc(&self) -> Arc<EffectTableIndex> {
+        Arc::clone(&self.effect_index)
+    }
+
+    /// The captured rarity-4 draw-1 Grace map, when the resource carries it.
+    pub fn r4_grace(&self) -> Option<&GraceMap> {
+        self.r4_grace.as_ref()
+    }
+
+    /// The captured rarity-5 draw-1 Grace map, when the resource carries it.
+    pub fn r5_grace(&self) -> Option<&GraceMap> {
+        self.r5_grace.as_ref()
     }
 
     /// Compile one validated query, or explain why it cannot be compiled.
@@ -224,11 +346,23 @@ impl QueryCompiler {
         query: &SearchQuery,
         accelerator: &Accelerator,
     ) -> Result<CompiledQuery, CompileError> {
-        if query.playthrough != 3 {
-            return Err(CompileError::unsupported(format!(
-                "offline NG3 search requires playthrough 3, not {}",
-                query.playthrough
-            )));
+        match self.cached_playthrough {
+            // A cache-bound compiler serves exactly the playthrough its
+            // registered map belongs to.
+            Some(bound) if query.playthrough != bound => {
+                return Err(CompileError::Rejected(format!(
+                    "this cached search is bound to playthrough {bound}, not {}",
+                    query.playthrough
+                )))
+            }
+            None if query.playthrough != 3 => {
+                return Err(CompileError::unsupported(format!(
+                    "offline NG3 search requires playthrough 3, not {}; NG4/NG5 needs its \
+                     save-bound rarity-5 cache",
+                    query.playthrough
+                )))
+            }
+            _ => {}
         }
         if !(3..=5).contains(&query.rarity) {
             return Err(CompileError::unsupported(format!(
@@ -236,10 +370,17 @@ impl QueryCompiler {
                 query.rarity
             )));
         }
-        if query.grace_effect_id.is_some() {
+        // A selected Grace is a draw-1 pivot constraint for every route that
+        // serves it: the rarity-5 preimage routes build it in
+        // `compile_complete_preimage` / `compile_one_wildcard_preimage`, and the
+        // partial-effect route builds the same run inversion in
+        // `compile_partial_effect_filter`. Rarities without a captured map are
+        // refused by name there.
+        if query.grace_effect_id.is_some()
+            && !matches!(query.rarity, RARITY_FINALIZABLE | RARITY_DIVINE)
+        {
             return Err(CompileError::unsupported(
-                "Grace-filtered pivots need the certified Grace run inversion, which this \
-                 development worker does not compile yet",
+                "Grace choices do not belong to this rarity",
             ));
         }
         if !query.terrain_selection_ids.is_empty() {
@@ -254,52 +395,67 @@ impl QueryCompiler {
         if auxiliary_only {
             return self.compile_auxiliary(query);
         }
-        if query.rarity == RARITY_FINALIZABLE && !query.primary_effect_ids.is_empty() {
+        // Shipped order: the complete-composition preimage is tried before the
+        // one-wildcard family and before the fixed-draw replay, so a request
+        // that names every ordinary slot runs the GPU inverse instead of
+        // sweeping the whole seed family.
+        if self.complete_preimage_eligible(query) {
+            return self.compile_complete_preimage(query);
+        }
+        if self.one_wildcard_eligible(query) {
+            return self.compile_one_wildcard_preimage(query);
+        }
+        // The rarity-4 primary pivot serves a primary-only request; a request
+        // that also names secondaries or rolls is the shipped partial-effect
+        // fixed-draw replay instead (the rarity-4 finalizer-aware forward
+        // filter), so it falls through to the partial arm below.
+        if query.rarity == RARITY_FINALIZABLE
+            && !query.primary_effect_ids.is_empty()
+            && query.required_secondary_ids.is_empty()
+            && query.required_secondary_id_groups.is_empty()
+            && query.minimum_roll_percent_by_effect_id.is_empty()
+            && query.grouped_rolls.is_empty()
+        {
             return self.compile_r4_primary(query, accelerator);
         }
         // Rarity-3 primary and unconstrained searches are the shipped fixed-draw
         // replay over the full seed family: the same family the plain natural
         // pivot walks, with the caller's criteria decided by the shipped batched
-        // predicates before anything is composed.
-        if query.rarity == RARITY_GROWING && !query.primary_effect_ids.is_empty() {
+        // predicates before anything is composed. A rarity-3 primary search that
+        // also names secondaries, rolls or occurrences is the partial-effect
+        // forward filter instead, so it falls through to that arm.
+        if query.rarity == RARITY_GROWING
+            && !query.primary_effect_ids.is_empty()
+            && query.required_secondary_ids.is_empty()
+            && query.required_secondary_id_groups.is_empty()
+            && query.minimum_roll_percent_by_effect_id.is_empty()
+            && query.grouped_rolls.is_empty()
+            && query.effect_occurrences.is_empty()
+        {
             return self.compile_full_family(query, accelerator);
         }
         if query.rarity != 5 && !query_has_effect_constraints(query) {
             return self.compile_full_family(query, accelerator);
         }
+        // Everything left names at least one ordinary-effect criterion, so it is
+        // the shipped partial-effect fixed-draw replay: the full seed family,
+        // the accelerator's batched constraint mask when ordinary slots are
+        // named, and the certified recomposition of every survivor.
+        if query_has_effect_constraints(query) {
+            return self.compile_partial_effect_filter(query, accelerator);
+        }
         if query.rarity == 5 {
             return Err(CompileError::unsupported(
-                "rarity-5 effect searches run through the effect-preimage accelerator, which this \
-                 development worker does not implement yet",
+                "an unconstrained rarity-5 search needs the shipped fixed-draw replay over the \
+                 full seed family with the rarity-5 Grace context, which this development worker \
+                 does not compile yet",
             ));
         }
-        // Everything left is a generic effect search the shipped worker resolves
-        // without a pivot this worker can compile, and the three shapes do not
-        // share one missing implementation: a rarity-3 primary search walks the
-        // full seed family with its batched primary generator, a remaining
-        // effect-constraint search runs the fixed-draw replay with the
-        // DirectCompute effect filters, and an unconstrained sweep runs the
-        // plain replay with no filter at all. Naming the route each arm misses
-        // keeps a rarity-3 primary search from being reported as the rarity-5
-        // effect-preimage route, which the native evidence shows is a different
-        // implementation.
-        if !query.primary_effect_ids.is_empty() {
-            return Err(CompileError::unsupported(format!(
-                "a rarity-{} primary search needs the shipped batched primary/replay route \
-                 over the full seed family, which this development worker does not compile yet",
-                query.rarity
-            )));
-        }
-        if query_has_effect_constraints(query) {
-            return Err(CompileError::unsupported(
-                "this effect-constraint search needs the shipped DirectCompute effect route (the \
-                 effect-preimage accelerator's forward filter, or its complete-composition \
-                 inverse), which this development worker does not implement yet",
-            ));
-        }
+        // The arms above cover every shape this worker compiles; anything that
+        // reaches here is refused by the arm that owns its missing route rather
+        // than silently widened into another route.
         Err(CompileError::unsupported(format!(
-            "an unconstrained rarity-{} effect search needs the shipped fixed-draw replay over \
-             the full seed family, which this development worker does not compile yet",
+            "this rarity-{} search does not match any route this development worker compiles",
             query.rarity
         )))
     }
@@ -403,6 +559,292 @@ impl QueryCompiler {
         Ok((spec, stage_specs, has_terrain_constraint))
     }
 
+    /// Whether the shipped complete-composition preimage route serves this
+    /// query (`_complete_preimage_requests` plus this worker's own gates).
+    ///
+    /// The shipped dispatch tries this route first whenever every ordinary slot
+    /// is named, so a rarity-3 request with a primary and three secondaries is
+    /// inverted on the GPU instead of sweeping the whole seed family.
+    fn complete_preimage_eligible(&self, query: &SearchQuery) -> bool {
+        if !matches!(query.rarity, RARITY_GROWING | RARITY_DIVINE)
+            || !query.required_secondary_id_groups.is_empty()
+        {
+            return false;
+        }
+        // A rarity-5 complete composition is only defined with its selected
+        // Grace; without one the shipped layer leaves this route unclaimed.
+        if query.rarity == RARITY_DIVINE && query.grace_effect_id.is_none() {
+            return false;
+        }
+        let expected_ordinary = expected_ordinary_count(query.rarity);
+        if query.primary_effect_ids.is_empty()
+            && query.required_secondary_ids.len() != expected_ordinary
+        {
+            return false;
+        }
+        self.complete_preimage_requests(query).is_some()
+    }
+
+    /// Every exact-primary request for one complete ordinary set.
+    ///
+    /// Returns `None` when the shape is not a complete composition. Roll
+    /// percentages, secondary any-of groups and explicit effect occurrences are
+    /// replayed per candidate by the shipped job layer, which this worker does
+    /// not implement yet, so a query carrying them is not claimed by this route
+    /// and falls through to a route that names its own missing verification.
+    fn complete_preimage_requests(
+        &self,
+        query: &SearchQuery,
+    ) -> Option<Vec<FullCompositionRequest>> {
+        // The shipped complete-composition route is only defined for a fully
+        // named ordinary set, so secondary any-of groups make it ineligible.
+        // Plain roll minimums are enforced by this route's own acceptance and
+        // occurrences by the job layer, so neither makes it ineligible.
+        if !query.required_secondary_id_groups.is_empty() {
+            return None;
+        }
+        let expected_ordinary = expected_ordinary_count(query.rarity);
+        let primary_options: Vec<u32> = if !query.primary_effect_ids.is_empty() {
+            sorted_unique(&query.primary_effect_ids)
+        } else if query.required_secondary_ids.len() == expected_ordinary {
+            sorted_unique(&query.required_secondary_ids)
+        } else {
+            return None;
+        };
+        let mut requests: Vec<FullCompositionRequest> = Vec::new();
+        for primary_effect_id in primary_options {
+            let mut secondaries: Vec<u32> = sorted_unique(&query.required_secondary_ids);
+            secondaries.retain(|effect_id| *effect_id != primary_effect_id);
+            if secondaries.len() != expected_ordinary - 1 {
+                continue;
+            }
+            let request = FullCompositionRequest {
+                rarity: query.rarity,
+                primary_effect_id,
+                secondary_effect_ids: secondaries,
+                stage_special_effect_id: query.grace_effect_id,
+                natural_only: true,
+                playthrough: query.playthrough,
+            };
+            if request.validate().is_err() {
+                continue;
+            }
+            if !requests.contains(&request) {
+                requests.push(request);
+            }
+        }
+        if requests.is_empty() {
+            None
+        } else {
+            Some(requests)
+        }
+    }
+
+    /// Whether the shipped one-wildcard route serves this query.
+    ///
+    /// `_one_wildcard_preimage_request`: rarity 5, no primary restriction, no
+    /// secondary any-of groups, its Grace selected, and exactly four required
+    /// ordinary effects (the fifth ordinary slot is the wildcard).
+    fn one_wildcard_eligible(&self, query: &SearchQuery) -> bool {
+        query.rarity == RARITY_DIVINE
+            && query.primary_effect_ids.is_empty()
+            && query.required_secondary_id_groups.is_empty()
+            && query.grace_effect_id.is_some()
+            && query.required_secondary_ids.len() == expected_ordinary_count(query.rarity) - 1
+    }
+
+    /// Compile the one-wildcard route.
+    ///
+    /// The plan family is the same shape as the complete-composition route; the
+    /// difference is that acceptance requires the requested ordinary effects to
+    /// be present rather than forming one exact set, which is what
+    /// `verify_one_wildcard_matches` does.
+    fn compile_one_wildcard_preimage(
+        &self,
+        query: &SearchQuery,
+    ) -> Result<CompiledQuery, CompileError> {
+        let grace = query.grace_effect_id.ok_or_else(|| {
+            CompileError::Rejected("a rarity-5 one-wildcard search requires its Grace".to_string())
+        })?;
+        let map = self.r5_grace.as_ref().ok_or_else(|| {
+            CompileError::data("the rarity-5 Grace map is not present in the product resource")
+        })?;
+        let special_runs = first_u16_ranges_for_grace(grace, map).map_err(|error| {
+            CompileError::Rejected(format!(
+                "rarity-5 Grace 0x{grace:04X} has no draw-1 preimage: {error}"
+            ))
+        })?;
+        let request = crate::effect_path::OneWildcardCompositionRequest {
+            rarity: query.rarity,
+            required_effect_ids: sorted_unique(&query.required_secondary_ids),
+            stage_special_effect_id: Some(grace),
+            natural_only: true,
+            playthrough: query.playthrough,
+        };
+        let plans = crate::effect_path::compile_one_wildcard_composition_plans(
+            &request,
+            &self.effect_index,
+            &special_runs,
+        )
+        .map_err(|error| {
+            CompileError::Rejected(format!(
+                "the one-wildcard rarity-5 composition has no legal native path: {error}"
+            ))
+        })?;
+        let verifier = PreimageVerifier::build(crate::effect_path::PreimageVerifierSpec {
+            tables: Arc::clone(&self.effect_index),
+            rarity: query.rarity,
+            accepted: Vec::new(),
+            stage_special_effect_id: Some(grace),
+            grace_map: Some(map.clone()),
+            playthrough: query.playthrough,
+            level: query.level,
+            natural_only: true,
+            minimum_rolls: query.minimum_roll_percent_by_effect_id.clone(),
+            wildcard_required: Some(request.required_effect_ids.clone()),
+        });
+        let page_filter = PageFilter {
+            primary: None,
+            auxiliary: if auxiliary_is_empty(&query.auxiliary) {
+                None
+            } else {
+                Some(self.auxiliary_packing(query)?.0)
+            },
+            effect_mask: None,
+            effect_verifier: None,
+        };
+        let has_terrain_constraint = page_filter
+            .auxiliary
+            .as_ref()
+            .is_some_and(|spec| spec.has_terrain_constraint);
+        Ok(CompiledQuery {
+            route: Route::OneWildcardPreimage,
+            digest: query.digest.clone(),
+            native: NativePivotQuery::EffectPreimage {
+                plans: Arc::new(plans),
+                verifier: Arc::new(verifier),
+            },
+            playthrough: query.playthrough,
+            rarity: query.rarity,
+            has_terrain_constraint,
+            stage_specs: Vec::new(),
+            chunk_trials: MAX_PREIMAGE_TRIALS,
+            page_filter: Some(page_filter),
+            post_acceptance_filters: post_acceptance_filters(query),
+        })
+    }
+
+    /// Compile the complete-composition preimage route.
+    ///
+    /// Every request's plan families are concatenated in request order, which is
+    /// exactly the cursor layout the shipped page walks: plan offsets accumulate
+    /// `pivot_state_count`, and the accelerator's own local trial becomes the
+    /// one-based cursor `plan_offset + local trial + 1`.
+    fn compile_complete_preimage(
+        &self,
+        query: &SearchQuery,
+    ) -> Result<CompiledQuery, CompileError> {
+        if !matches!(query.rarity, RARITY_GROWING | RARITY_DIVINE) {
+            return Err(CompileError::unsupported(format!(
+                "the complete-composition preimage route is compiled for rarities 3 and 5; rarity \
+                 {} needs the captured draw-1 Grace preimage this worker does not have",
+                query.rarity
+            )));
+        }
+        // Rarity 5 terminates in the selected Grace, so its draw-1 preimage is
+        // the route's shared constraint and has to come from the captured map.
+        let special_runs = if query.rarity == RARITY_DIVINE {
+            let grace = query.grace_effect_id.ok_or_else(|| {
+                CompileError::Rejected(
+                    "a rarity-5 complete composition requires its selected Grace".to_string(),
+                )
+            })?;
+            let map = self.r5_grace.as_ref().ok_or_else(|| {
+                CompileError::data("the rarity-5 Grace map is not present in the product resource")
+            })?;
+            first_u16_ranges_for_grace(grace, map).map_err(|error| {
+                CompileError::Rejected(format!(
+                    "rarity-5 Grace 0x{grace:04X} has no draw-1 preimage: {error}"
+                ))
+            })?
+        } else {
+            Vec::new()
+        };
+        let requests = self.complete_preimage_requests(query).ok_or_else(|| {
+            CompileError::Rejected(
+                "a complete composition needs a primary and every remaining distinct secondary"
+                    .to_string(),
+            )
+        })?;
+        let mut plans: Vec<CompiledEffectPlan> = Vec::new();
+        let mut accepted: Vec<(u32, Vec<u32>)> = Vec::new();
+        for request in &requests {
+            let request_plans =
+                compile_full_composition_plans(request, &self.effect_index, &special_runs)
+                    .map_err(|error| {
+                        CompileError::Rejected(format!(
+                            "the complete rarity-{} composition has no legal native path: {error}",
+                            query.rarity
+                        ))
+                    })?;
+            plans.extend(request_plans);
+            accepted.push((
+                request.primary_effect_id,
+                request.secondary_effect_ids.clone(),
+            ));
+        }
+        if plans.is_empty() {
+            return Err(CompileError::Rejected(
+                "the complete composition compiled no plan family".to_string(),
+            ));
+        }
+        let verifier = PreimageVerifier::build(crate::effect_path::PreimageVerifierSpec {
+            tables: Arc::clone(&self.effect_index),
+            rarity: query.rarity,
+            accepted,
+            stage_special_effect_id: query.grace_effect_id,
+            grace_map: if query.rarity == RARITY_DIVINE {
+                self.r5_grace.clone()
+            } else {
+                None
+            },
+            playthrough: query.playthrough,
+            level: query.level,
+            natural_only: true,
+            minimum_rolls: query.minimum_roll_percent_by_effect_id.clone(),
+            wildcard_required: None,
+        });
+        let page_filter = PageFilter {
+            primary: None,
+            auxiliary: if auxiliary_is_empty(&query.auxiliary) {
+                None
+            } else {
+                Some(self.auxiliary_packing(query)?.0)
+            },
+            effect_mask: None,
+            effect_verifier: None,
+        };
+        let has_terrain_constraint = page_filter
+            .auxiliary
+            .as_ref()
+            .is_some_and(|spec| spec.has_terrain_constraint);
+        Ok(CompiledQuery {
+            route: Route::CompletePreimage,
+            digest: query.digest.clone(),
+            native: NativePivotQuery::EffectPreimage {
+                plans: Arc::new(plans),
+                verifier: Arc::new(verifier),
+            },
+            playthrough: query.playthrough,
+            rarity: query.rarity,
+            has_terrain_constraint,
+            stage_specs: Vec::new(),
+            chunk_trials: MAX_PREIMAGE_TRIALS,
+            page_filter: Some(page_filter),
+            post_acceptance_filters: post_acceptance_filters(query),
+        })
+    }
+
     fn compile_r4_primary(
         &self,
         query: &SearchQuery,
@@ -429,6 +871,8 @@ impl QueryCompiler {
             } else {
                 Some(self.auxiliary_packing(query)?.0)
             },
+            effect_mask: None,
+            effect_verifier: None,
         };
         let native = NativePivotQuery::R4Primary {
             values: self.full_family_values(),
@@ -497,8 +941,155 @@ impl QueryCompiler {
             has_terrain_constraint,
             stage_specs: Vec::new(),
             chunk_trials: FULL_FAMILY_CHUNK_TRIALS,
-            page_filter: Some(PageFilter { primary, auxiliary }),
+            page_filter: Some(PageFilter {
+                primary,
+                auxiliary,
+                effect_mask: None,
+                effect_verifier: None,
+            }),
             post_acceptance_filters: post_acceptance_filters(query),
+        })
+    }
+
+    /// The shipped partial-effect fixed-draw replay
+    /// (`partial_effect_batch_generator` feeding the full-family sweep).
+    ///
+    /// A request that names only some ordinary slots has no complete-composition
+    /// preimage, so the shipped worker sweeps the whole seed family and decides
+    /// each Seed with two filters: the accelerator's batched constraint mask
+    /// (`match_effect_constraints_d3d11`) and then the certified forward
+    /// composition (`effect_seed_solver._verify_effect_sequence`). The mask is
+    /// acceleration, never the decision, so this route always carries the
+    /// certified verifier.
+    fn compile_partial_effect_filter(
+        &self,
+        query: &SearchQuery,
+        accelerator: &Accelerator,
+    ) -> Result<CompiledQuery, CompileError> {
+        let special_mapping = match query.rarity {
+            RARITY_FINALIZABLE => self.r4_grace.as_ref(),
+            RARITY_DIVINE => self.r5_grace.as_ref(),
+            _ => None,
+        };
+        // A selected Grace is the pivot: the shipped solver inverts its draw-1
+        // runs and the cursor walks that permuted bucket table, never the whole
+        // seed family.
+        let pivot_values = match query.grace_effect_id {
+            Some(grace) => {
+                let map = special_mapping.ok_or_else(|| {
+                    CompileError::data(format!(
+                        "the rarity-{} Grace map is not present in the product resource",
+                        query.rarity
+                    ))
+                })?;
+                crate::effect_path::grace_pivot_values(grace, map).map_err(|error| {
+                    CompileError::Rejected(format!(
+                        "rarity-{} Grace 0x{grace:04X} has no draw-1 preimage: {error}",
+                        query.rarity
+                    ))
+                })?
+            }
+            None => self.full_family_values(),
+        };
+        let mask = crate::effect_batch::plan_effect_mask(
+            &self.effect_index,
+            special_mapping,
+            query.playthrough,
+            query.rarity,
+            query.level,
+            &query.primary_effect_ids,
+            &query.required_secondary_ids,
+            &query.required_secondary_id_groups,
+        )
+        .map_err(|error| match error {
+            crate::effect_path::EffectPathError::Unsupported(message) => {
+                CompileError::unsupported(message)
+            }
+            crate::effect_path::EffectPathError::Rejected(message) => {
+                CompileError::Rejected(message)
+            }
+            crate::effect_path::EffectPathError::Data(message) => CompileError::data(message),
+        })?;
+        let criteria = crate::effect_batch::PartialEffectCriteria {
+            primary_effect_ids: sorted_unique(&query.primary_effect_ids),
+            required_secondary_ids: sorted_unique(&query.required_secondary_ids),
+            required_secondary_id_groups: query
+                .required_secondary_id_groups
+                .iter()
+                .map(|group| sorted_unique(group))
+                .collect(),
+            grace_effect_id: query.grace_effect_id,
+            minimum_roll_percent_by_effect_id: query.minimum_roll_percent_by_effect_id.clone(),
+        };
+        // The shipped solver only runs the certified composition when the
+        // request actually carries an ordinary-effect criterion; a request whose
+        // only constraint is a job-layer filter (explicit effect occurrences, a
+        // challenge count) is the plain full-family replay, and composing it
+        // would decide nothing.
+        let has_composition_criteria = !criteria.primary_effect_ids.is_empty()
+            || !criteria.required_secondary_ids.is_empty()
+            || !criteria.required_secondary_id_groups.is_empty()
+            || !criteria.minimum_roll_percent_by_effect_id.is_empty()
+            || criteria.grace_effect_id.is_some();
+        let verifier = has_composition_criteria.then(|| {
+            crate::effect_batch::PartialEffectVerifier::build(
+                Arc::clone(&self.effect_index),
+                query.rarity,
+                query.playthrough,
+                query.level,
+                criteria,
+                self.r4_grace.clone(),
+                self.r5_grace.clone(),
+            )
+        });
+        let auxiliary = if auxiliary_is_empty(&query.auxiliary) {
+            None
+        } else {
+            Some(self.auxiliary_packing(query)?.0)
+        };
+        let has_terrain_constraint = auxiliary
+            .as_ref()
+            .is_some_and(|spec| spec.has_terrain_constraint);
+        // The shipped dispatch picks the pivot from the platform: with CUDA the
+        // rarity-4 primary-conditioned collector enumerates the family, and
+        // without it the DirectCompute fixed-draw collector walks the whole
+        // seed family. Mirroring that choice keeps the cursor space identical.
+        let (native, chunk_trials) = if query.rarity == RARITY_FINALIZABLE
+            && !query.primary_effect_ids.is_empty()
+            && accelerator.capabilities().cuda_seed_acceleration
+        {
+            let spec = self.r4_primary_spec(accelerator, &query.primary_effect_ids)?;
+            (
+                NativePivotQuery::R4Primary {
+                    values: pivot_values,
+                    spec,
+                },
+                R4_PRIMARY_CHUNK_TRIALS,
+            )
+        } else {
+            (
+                NativePivotQuery::Natural {
+                    values: pivot_values,
+                },
+                FULL_FAMILY_CHUNK_TRIALS,
+            )
+        };
+        Ok(CompiledQuery {
+            route: Route::PartialEffectFilter,
+            digest: query.digest.clone(),
+            native,
+            playthrough: query.playthrough,
+            rarity: query.rarity,
+            has_terrain_constraint,
+            stage_specs: Vec::new(),
+            chunk_trials,
+            page_filter: Some(PageFilter {
+                primary: None,
+                auxiliary,
+                effect_mask: mask.map(Arc::new),
+                effect_verifier: verifier.map(Arc::new),
+            }),
+            post_acceptance_filters: partial_effect_post_acceptance_filters(query),
         })
     }
 
@@ -1042,6 +1633,25 @@ pub fn r4_primary_post_acceptance_filters(query: &SearchQuery) -> Vec<&'static s
     filters
 }
 
+/// Post-acceptance filters for the partial-effect forward-filter route.
+///
+/// The route's own acceptance already decides the ordinary-effect criteria
+/// (primary, secondaries, any-of groups and plain roll minimums) from the
+/// certified composition, so only the shipped job-layer filters remain: the
+/// auxiliary composition, the grouped-roll thresholds, the explicit effect
+/// occurrences and the challenge-count filter.
+pub fn partial_effect_post_acceptance_filters(query: &SearchQuery) -> Vec<&'static str> {
+    let mut filters = Vec::new();
+    if !auxiliary_is_empty(&query.auxiliary) {
+        filters.push("auxiliary_criteria");
+    }
+    if !query.grouped_rolls.is_empty() {
+        filters.push("grouped_rolls");
+    }
+    filters.extend(post_acceptance_filters(query));
+    filters
+}
+
 fn u32_at(row: &[u8], offset: usize) -> u32 {
     u32::from_le_bytes([
         row[offset],
@@ -1049,6 +1659,15 @@ fn u32_at(row: &[u8], offset: usize) -> u32 {
         row[offset + 2],
         row[offset + 3],
     ])
+}
+
+/// `{3: 4, 4: 4, 5: 5}`: the ordinary slots one complete composition needs.
+fn expected_ordinary_count(rarity: u8) -> usize {
+    if rarity == RARITY_DIVINE {
+        5
+    } else {
+        4
+    }
 }
 
 fn u32_bytes(values: &[u32]) -> Vec<u8> {
@@ -1060,7 +1679,7 @@ fn u32_bytes(values: &[u32]) -> Vec<u8> {
 }
 
 /// `game_random_int_from_u16`: two binary32 roundings then truncation.
-fn game_random_int_from_u16(value: u16, count: u32) -> u32 {
+pub(crate) fn game_random_int_from_u16(value: u16, count: u32) -> u32 {
     let unit = f32_of(f64::from(value) * (1.0 / 65536.0));
     let scaled = f32_of(f64::from(unit) * f64::from(f32_of(f64::from(count))));
     let result = cvtt_i32(f64::from(scaled));
@@ -1103,6 +1722,7 @@ pub fn native_factory(
 /// Compiles queries and hands the job layer a bounded native collector.
 pub struct NativeSearchFactory {
     accelerator: Option<Arc<Accelerator>>,
+    preimage: Result<Arc<crate::preimage::PreimageAccelerator>, crate::preimage::PreimageError>,
     compiler: Result<QueryCompiler, CompileError>,
 }
 
@@ -1114,6 +1734,11 @@ impl NativeSearchFactory {
     ) -> Self {
         Self {
             accelerator: Accelerator::load(application_root, accelerator_override).map(Arc::new),
+            preimage: {
+                let path = crate::capabilities::effect_preimage_path(application_root, None);
+                crate::preimage::PreimageAccelerator::load(application_root, Some(&path))
+                    .map(Arc::new)
+            },
             compiler: QueryCompiler::load(data_root),
         }
     }
@@ -1130,10 +1755,58 @@ impl SearchFactory for NativeSearchFactory {
                 "the native seed accelerator is unavailable, so bounded search cannot run",
             )
         })?;
+        // The shipped structural preflight, applied once here for every route:
+        // a request the product refuses must be refused whatever collector it
+        // would have reached, and no route may answer a structurally impossible
+        // combination.
+        crate::feasibility::validate_query_feasibility(query, &compiler.effect_index)
+            .map_err(|error| CollectorError::new("INVALID_REQUEST", error))?;
         let compiled = compiler
             .compile(query, accelerator)
             .map_err(|error| CollectorError::new("INVALID_REQUEST", error.to_string()))?;
-        let backend = SearchBackend::from_shared(Arc::clone(accelerator));
+        let backend = SearchBackend::new(Some(Arc::clone(accelerator)), self.preimage.clone());
+        Ok(Arc::new(NativeCollector { backend, compiled }))
+    }
+
+    /// Compile the save-bound NG4/NG5 cached rarity-5 route.
+    ///
+    /// The job layer has already resolved `cache_id` to this registered map and
+    /// checked that it belongs to the query's playthrough; this hook binds the
+    /// compiler to that map so every downstream stage (the Grace draw-1
+    /// inversion, the complete-composition plans and the certified
+    /// recomposition) composes the player's own playthrough instead of the
+    /// bundled NG3 tables.
+    fn cached_collector(
+        &self,
+        query: &SearchQuery,
+        cache: &crate::grace_map::GraceOutputMap,
+    ) -> Result<Arc<dyn SearchCollector>, CollectorError> {
+        let compiler = self
+            .compiler
+            .as_ref()
+            .map_err(|error| CollectorError::new("SEARCH_FAILED", error.to_string()))?;
+        let accelerator = self.accelerator.as_ref().ok_or_else(|| {
+            CollectorError::unavailable(
+                "the native seed accelerator is unavailable, so bounded search cannot run",
+            )
+        })?;
+        let mapping = cache
+            .to_domain_map()
+            .map_err(|message| CollectorError::new("INVALID_REQUEST", message))?;
+        let bound = compiler
+            .for_cached_grace(
+                query.playthrough,
+                mapping,
+                cache.record_type,
+                cache.effect_slot,
+            )
+            .map_err(|error| CollectorError::new("INVALID_REQUEST", error.to_string()))?;
+        crate::feasibility::validate_query_feasibility(query, bound.effect_index())
+            .map_err(|error| CollectorError::new("INVALID_REQUEST", error))?;
+        let compiled = bound
+            .compile(query, accelerator)
+            .map_err(|error| CollectorError::new("INVALID_REQUEST", error.to_string()))?;
+        let backend = SearchBackend::new(Some(Arc::clone(accelerator)), self.preimage.clone());
         Ok(Arc::new(NativeCollector { backend, compiled }))
     }
 }
@@ -1162,6 +1835,14 @@ impl SearchCollector for NativeCollector {
             .backend
             .pin_policy(policy)
             .map_err(|error| map_collector_error("pin execution policy", &error))?;
+        // The effect-preimage routes run on a different helper with its own
+        // policy; pinning it for the job keeps a strict request strict even if a
+        // previous job opted into a non-accelerated path. Drop restores it.
+        let _preimage_pin =
+            self.backend
+                .pin_preimage_policy(PreimagePolicy::from_allow_cpu_fallback(
+                    request.allow_cpu_fallback,
+                ));
 
         let page_request = PageRequest::chunk(
             request.start_after_trial,
@@ -1190,6 +1871,8 @@ impl SearchCollector for NativeCollector {
             .map(|filter| MatchFilter {
                 primary: filter.primary.as_ref(),
                 auxiliary: filter.auxiliary.as_ref(),
+                effect_mask: filter.effect_mask.as_deref(),
+                effect_verifier: filter.effect_verifier.as_deref(),
             });
         let page = self
             .backend
@@ -1274,6 +1957,9 @@ fn map_collector_error(what: &str, error: &NativeSearchError) -> CollectorError 
         NativeSearchError::InvalidInput(message) => {
             CollectorError::new("SEARCH_FAILED", format!("{what}: {message}"))
         }
+        NativeSearchError::PreimageUnavailable(message) => {
+            CollectorError::unavailable(format!("{what}: {message}"))
+        }
         NativeSearchError::Rejected { call } => {
             CollectorError::new("SEARCH_FAILED", format!("{what}: {call} rejected valid input"))
         }
@@ -1294,6 +1980,113 @@ mod tests {
     /// The workspace root, resolved the same way the native-search tests do.
     fn repo_root() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+    }
+
+    /// A clearly synthetic but structurally valid NG4 Grace-map payload.
+    ///
+    /// No genuine NG4/NG5 capture exists in the tree, so the cache route is
+    /// proven with a labeled fixture: a dense two-range partition of the draw-1
+    /// buckets whose ids are real effect rows. `generation_context_digest` is
+    /// whatever the registering worker's own context reports.
+    fn synthetic_ng4_cache_payload(generation_digest: &str) -> serde_json::Value {
+        json!({
+            "schema": "nioh3-grace-output-map-cache/v2",
+            "game_version": "2.00.02",
+            "generation_context_digest": generation_digest,
+            "draw_index": 1,
+            "record_type": "0xDD82",
+            "rarity": 5,
+            "playthrough": "synthetic-ng4",
+            "effect_slot": 6,
+            "ranges": [
+                {"start": 0, "end": 32767, "grace_id": 5858},
+                {"start": 32768, "end": 65535, "grace_id": 25939},
+            ],
+        })
+    }
+
+    /// The cached NG4 route compiles against the registered map and its page
+    /// reproduces the shipped solver's own cursor for that map.
+    ///
+    /// The expected Seed and cursor come from running the shipped Python layer
+    /// on this exact synthetic map returned (seed 182,147,323 at trial 11).
+    #[test]
+    fn the_cached_ng4_route_pages_like_the_shipped_solver() {
+        use crate::native_search::Accelerator;
+        use crate::search_backend::{MatchFilter, NativePivotQuery, PageRequest, SearchBackend};
+
+        let root = repo_root();
+        let compiler = QueryCompiler::load(&root.join("nioh3_scroll_editor").join("data"))
+            .expect("the product tables load");
+        let registered = crate::grace_map::from_cache_payload(
+            &synthetic_ng4_cache_payload(&"a".repeat(64)),
+            None,
+        )
+        .expect("the synthetic map satisfies the cache contract");
+        let map = registered.to_domain_map().expect("the typed map is valid");
+        let bound = compiler
+            .for_cached_grace(4, map, registered.record_type, registered.effect_slot)
+            .expect("the cached compiler binds");
+        assert_eq!(CATEGORY_TO_TYPE[4], registered.record_type);
+
+        let accelerator =
+            Arc::new(Accelerator::load(&root, None).expect("the shipped seed accelerator loads"));
+        let query = SearchQuery::from_payload(&json!({
+            "playthrough": 4,
+            "rarity": 5,
+            "level": 180,
+            "primary_effect_ids": [],
+            "required_secondary_ids": [],
+            "required_secondary_id_groups": [],
+            "grace_effect_id": 5858,
+            "minimum_roll_percent_by_effect_id": [],
+            "auxiliary": {
+                "required_terrain_effect_keys": [],
+                "required_terrain_effect_key_groups": [],
+                "required_special_rule_keys": [],
+                "required_special_rule_key_groups": [],
+                "required_enemy_lookup_keys": [],
+                "required_enemy_lookup_key_groups": [],
+            },
+        }))
+        .expect("the NG4 rarity-5 request is valid");
+        let compiled = bound
+            .compile(&query, &accelerator)
+            .expect("the cached route compiles");
+        assert_eq!(compiled.route, Route::PartialEffectFilter);
+        match &compiled.native {
+            NativePivotQuery::Natural { values } => {
+                assert_eq!(
+                    values.len(),
+                    32_768,
+                    "the registered Grace run is the pivot"
+                );
+            }
+            other => panic!("the NG4 Grace route must walk the Grace pivot: {other:?}"),
+        }
+
+        let preimage_path = crate::capabilities::effect_preimage_path(&root, None);
+        let preimage =
+            crate::preimage::PreimageAccelerator::load(&root, Some(&preimage_path)).map(Arc::new);
+        let backend = SearchBackend::new(Some(Arc::clone(&accelerator)), preimage);
+        let filter = compiled.page_filter.as_ref().map(|filter| MatchFilter {
+            primary: filter.primary.as_ref(),
+            auxiliary: filter.auxiliary.as_ref(),
+            effect_mask: filter.effect_mask.as_deref(),
+            effect_verifier: filter.effect_verifier.as_deref(),
+        });
+        let page = backend
+            .collect_page_filtered(
+                &compiled.native,
+                &PageRequest::chunk(0, 200_000, compiled.chunk_trials, 1),
+                &|| false,
+                &mut |_| {},
+                filter.as_ref(),
+            )
+            .expect("the cached page runs");
+        assert_eq!(page.matches.len(), 1);
+        assert_eq!(page.matches[0].seed, 182_147_323);
+        assert_eq!(page.matches[0].trial, 11);
     }
 
     fn combined_query(primary: u32, rules: &[u32]) -> SearchQuery {
@@ -1378,7 +2171,7 @@ mod tests {
             let mut accepted = 0usize;
             for (matched, keep) in page.matches.iter().zip(&selected) {
                 let materialized = materializer
-                    .materialize(&query, matched.seed, matched.trial)
+                    .materialize(&query, matched.seed, matched.trial, None)
                     .expect("every R4 primary match composes");
                 assert_eq!(
                     *keep,

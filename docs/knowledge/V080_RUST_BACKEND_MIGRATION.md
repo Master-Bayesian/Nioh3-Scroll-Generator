@@ -1,7 +1,9 @@
 # v0.8.0 Rust backend migration
 
-Status: active; the published v0.7.5 baseline is integrated, M0 and M1 offline
-slices verified on 2026-09-15, no product cutover.
+Status: active; the published v0.7.5 baseline is integrated and the M0-M4 slices
+are verified on 2026-09-15. The owner authorized a **local** default backend
+switch, so the packaged product now defaults to the Rust graph; no remote
+publication, no tag and no live-game acceptance has happened.
 Decision owner: Astra primary agent under the project owner's direction.
 Implementation: bounded DeepSeek V4.1 Flash assignments, reviewed by the primary.
 
@@ -578,3 +580,144 @@ implicit:
   `RESULT_OVERFLOW` / `INVALID_CHECKPOINT` / `NO_PROGRESS` for per-page solver
   faults. A materialization failure carries `(seed, trial, rarity, level)` so the
   bound is reproducible from the job error.
+
+## M2.3c application and catalog surface
+
+Two application slices landed after M2.3b1. Both are local development work: no
+package, tag, release, update feed or product cutover.
+
+M2.3c b1 (`/root/m23b_jobs_recover`) served `recommended_level.resolve` and
+`cache.register` (new `recommended_level.rs` and `grace_map.rs`, protocol,
+engine and job-registry integration) and bound `cache_id` at `search.start`:
+NG3 with a cache and NG4/5 without a usable save-bound map are each refused by
+name.
+
+M2.3c b2 (`/root/m23c_catalog`) served `search.catalog` from the shipped tables:
+`catalog.searchable_scroll_effect_definitions` reachability (row-index gate,
+candidate context, category capacity and the native weight at
+`restricted_destination_slot = false`), the shipped Grace maps for rarities 4
+and 5, and `catalog_application.auxiliary_catalog` with the three localized
+auxiliary-name catalogs together with the special-rule item names. Two domain
+helpers were extracted for it (`auxiliary::legal_special_rule_keys` and
+`roster::enemy_role_by_lookup_key`). No captured payload is replayed:
+`tests/migration/test_application_worker_parity.py` compares the Rust and Python
+workers over the same data root for all three locales and rarities, and against
+the frozen zh-CN capture as well.
+
+With b2 every method the versioned contract can express is served, so
+`UNIMPLEMENTED_METHODS` is empty and no method is advertised as pending. The
+M2.3b1 "still refused or named pending" sentence above is superseded: read
+[the b1 evidence](../../deliverables/m23c-application/EVIDENCE.md) and
+[the catalog evidence](../../deliverables/m23c-application/EVIDENCE_CATALOG.md)
+for the current state.
+
+The served search routes also widened outside this record's own text. The
+native/search-backend slice reports `abe8aff` (rarity-4 primary auxiliary
+criteria decided by native per-seed predicates) and `45270a0` (rarity-3 primary
+and unconstrained full-family replay) with its measurements under
+`deliverables/m23b2-performance/`, so the M2.3b1 claim that a rarity-3 primary
+or an unconstrained sweep is refused no longer describes the worker; verify
+against that evidence rather than restating it. Rarity-5 effect searches,
+Grace-narrowed pivots, secondary/roll/occurrence constraints, terrain option
+ids, the effect-preimage family and the NG4/5 save-bound cache route stay
+refused or unavailable.
+
+## Read-only search surface complete (M2.3d, 2026-09-15)
+
+Every read-only search route the shipped worker serves is now ported and gated
+against it on the frozen tree: the complete-composition effect preimage (rarity
+3 and rarity 5 with its Grace), the rarity-5 one-wildcard preimage, the
+partial-effect forward filter at rarities 3, 4 and 5 including a selected Grace
+as the draw-1 pivot, and the save-bound NG4/NG5 cached rarity-5 route. The
+handshake therefore publishes the DirectCompute effect-filter capability (live
+probe intersected with the ported route) and `cached_rarity5_playthroughs:
+[4, 5]`. The worker crate is `cargo fmt --check` and `cargo clippy
+--all-targets` clean, `cargo test --lib` reports 105 passing, and
+`tests/migration/test_search_worker_parity.py` plus `test_preview_worker_parity.py`
+report 41 passing through `tools/run_python_tests.ps1`; see
+[the M2.3d handoff](../../deliverables/m23d-preimage/HANDOFF.md) sections 0d/0e
+and its `evidence/perf_region_timings.json` for the matched fixed-budget
+numbers.
+
+Two acceptance items stay explicitly open, and no claim here covers them:
+
+1. **Live cache capture.** No genuine NG4 (`0xDD82`) or NG5 (`0xD523`) capture
+   exists in the tree, so the cached route is proven with clearly labeled
+   synthetic dense partitions (real effect ids, the registering worker's own
+   generation-context digest) plus a real Python oracle on the same map. A live
+   save capture acceptance run has not happened.
+2. **G4/private write materialization.** The cached gate compares the whole
+   returned candidate payload and the private `candidate.export` block, but the
+   product's private write path (save/install materialization) is not part of
+   this read-only slice and remains unported; `installable` stays false and no
+   save is written.
+
+`candidate.preview` carries no cache parameter in the shipped contract, so it
+remains an NG3-bundled-map path on both workers; its parity was re-checked for a
+cached Seed rather than assumed.
+
+## M3 protected host (runtime lane, closed 2026-09-15)
+
+The protected runtime role is ported end to end, and the current statement of
+that boundary - what is complete, what is open and who owns it - lives in
+[the runtime handoff](../../deliverables/m3-protected-host/RUNTIME_HANDOFF.md).
+Read that first; the paragraphs below are the historical record of how it was
+reached and are not kept in step with it.
+
+In order: the runtime role stopped answering every native method with one shared
+stub (`runtime.status`, `start_override`, `stop_override`, `shutdown` and the
+process `finalize` drain through the real `WindowsMutationHost` and concrete
+`WindowsOverrideSession`, with ownership retained before the first write and
+kept whenever a rollback cannot be confirmed, and `live_add_*`/`live_batch_*`
+over `LiveAddApplication`/`LiveAddBatch`); the three scan methods then ported
+their pre-flight only, each naming its own missing host-side loop rather than
+sharing one blanket refusal; and finally `scan.rs` (the shipped branch order,
+`_candidate_matches_scan_filters`, `_should_finalize_native_record`, the
+same-seed rarity-4 shadow and `ScanProgress`), `grace_capture.rs`
+(`build_live_grace_output_map` with the shipped atomic cache write) and `maps.rs`
+(the measured primary maps, the joint constraint solver, the accelerated Grace
+seed enumeration and `prepare_maps` with its cache-reuse rule) removed that gap
+entirely. All of it drives a `BatchOracle` the product binds to
+`NativeBatchOracle` and the gates bind to a scripted table.
+
+Matched-workload performance acceptance followed
+(`tests/migration/test_runtime_scan_performance_parity.py`, evidence in
+`deliverables/m3-protected-host/perf/scan_perf.json`): identical route results
+and identical oracle call sequences on every route with hit and no-hit cases,
+timed against the shipped host with its native pivot accelerator loaded. That
+gate's `MAX_SLOWDOWN = 3.0` is a catastrophic-regression tripwire, not a
+no-regression standard.
+
+What stayed open at the end of this line, and who owns it now, is in the handoff
+document: the save host's ledger durability, backup root and app-level
+performance moved to `/root/m3_save_acceptance`, and the frontend, packaging and
+package acceptance belong to the UI/packaging lane. No native insertion,
+override hit or save persistence is claimed.
+
+## M4 default backend switch (local, owner-authorized 2026-09-15)
+
+The packaged product now defaults to the staged Rust worker graph. The switch is
+a packaging and default change, not an algorithm change:
+
+- `tools/build_tauri.ps1` defaults `-WorkerBackend` to `rust` and resolves one
+  shared `CARGO_TARGET_DIR` (explicit value wins, otherwise the platform temp
+  directory) for the host, the launcher and both worker crates, so a candidate
+  build never writes into the checkout volume.
+- `tools/package_tauri.py` defaults `--worker-backend` to `rust` and resolves the
+  host and launcher EXEs through that same shared target rule.
+- `.github/workflows/release.yml` defaults its `worker_backend` input to `rust`;
+  both selections keep every contracts, locale, native-identity, test, fault,
+  size-budget, signing and one-file identity step. `.github/workflows/tests.yml`
+  carries the packaging job as a required gate.
+- `apps/tauri/verify-onefile.mjs` asserts the staged worker identity from inside
+  the single-file product whenever the package carries the staged manifest, so
+  the outer EXE proves which worker answered.
+- The staged manifest records `defaultGraph: rust` and
+  `pythonGraph: development-parity-and-legacy-tk-only`, and the Rust graph ships
+  no Python interpreter, no PyInstaller worker and no `Nioh_Savefile_decrypt.exe`
+  (the ported cipher is native code with MIT attribution).
+
+`python` remains selectable for development, parity gates and the legacy Tk
+entry point. This builds an internal backend-validation candidate: the product
+version is unchanged, the bytes are not the published v0.7.5 stable release, and
+the protected G5-G7 gates plus every live-game flow stay open.

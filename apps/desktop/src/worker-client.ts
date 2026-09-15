@@ -26,8 +26,12 @@ export class WorkerClient {
   private submitted: { jobId: string; params: StartParams } | null = null;
   readonly stderr: string[] = [];
 
-  constructor(readonly root: string, python: string, executable = false, log?:(message:string)=>void) {
-    this.child = spawn(python, executable ? [] : ['-u', '-m', 'nioh3_scroll_editor.search_worker'], {
+  constructor(readonly root: string, python: string, executable = false, log?:(message:string)=>void, argv: string[] = []) {
+    // The shipped Python worker starts with no arguments; a packaged worker EXE
+    // carries its own launch-mode acknowledgement and resource roots, so the
+    // caller passes them through `argv`. The default keeps the Python behaviour
+    // byte-for-byte.
+    this.child = spawn(python, executable ? argv : ['-u', '-m', 'nioh3_scroll_editor.search_worker'], {
       cwd: root, shell: false, windowsHide: true, stdio: 'pipe',
       env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
     });

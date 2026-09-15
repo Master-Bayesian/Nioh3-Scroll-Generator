@@ -17,6 +17,7 @@ from nioh3_scroll_editor.enemy_state_rng import (
     LcgStream, MT19937, cvtt_i32, lottery_10000, native_shuffle, state_after,
     threshold_from_config,
 )
+from tests.migration.cargo_target import resolved_cargo_target_dir
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -42,7 +43,7 @@ def rust_vectors():
     cargo = shutil.which("cargo")
     assert cargo, "Install Rust to run the required cross-language migration gate"
     env = dict(os.environ)
-    env.setdefault("CARGO_TARGET_DIR", str(ROOT / ".codex_tmp/v080-domain-target"))
+    env.setdefault("CARGO_TARGET_DIR", resolved_cargo_target_dir("v080-domain"))
     result = subprocess.run(
         [cargo, "run", "--release", "--quiet", "--locked", "--offline", "--manifest-path",
          str(ROOT / "crates/nioh3-domain/Cargo.toml"), "--example", "rng_vectors"],

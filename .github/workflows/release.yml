@@ -1,5 +1,19 @@
 name: Signed Tauri Windows release preparation
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      worker_backend:
+        description: >-
+          Packaged worker backend. `rust` is the shipped default (the packaged
+          host selects its graph from the staged manifest); `python` keeps the
+          previous PyInstaller graph for development, parity and oracle use and
+          is not a shipped product graph.
+        required: false
+        default: rust
+        type: choice
+        options:
+          - python
+          - rust
 permissions:
   contents: read
   actions: read
@@ -66,13 +80,39 @@ jobs:
         shell: pwsh
         run: |
           if(git status --porcelain){throw 'Source checkout is dirty'}
-          ./tools/build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output deliverables/release/portable
+          ./tools/build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output deliverables/release/portable -WorkerBackend ${{ inputs.worker_backend }}
+      - name: Assert the packaged Rust worker graph carries no Python worker
+        if: inputs.worker_backend == 'rust'
+        shell: pwsh
+        run: |
+          $workers='deliverables/release/portable/worker'
+          $manifestPath=Join-Path $workers 'worker-backend.json'
+          if(-not (Test-Path -LiteralPath $manifestPath)){throw 'OPTIN_MANIFEST_MISSING'}
+          $manifest=Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+          if($manifest.backend -ne 'rust'){throw "OPTIN_BACKEND_INVALID: $($manifest.backend)"}
+          if(-not $manifest.excludedProductionResources -or $manifest.excludedProductionResources -notcontains 'packaging/search-worker.spec' -or $manifest.excludedProductionResources -notcontains 'packaging/protected-worker.spec'){
+            throw 'OPTIN_EXCLUSIONS_UNDECLARED'
+          }
+          foreach($entry in $manifest.binaries){
+            $binary=Join-Path $workers $entry.packagedName
+            if(-not (Test-Path -LiteralPath $binary)){throw "OPTIN_WORKER_MISSING: $($entry.packagedName)"}
+            $hash=(Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLower()
+            if($hash -ne $entry.sha256){throw "OPTIN_WORKER_HASH_MISMATCH: $($entry.packagedName)"}
+          }
+          if(Test-Path -LiteralPath (Join-Path $workers 'python-build-environment.json')){throw 'OPTIN_PYTHON_RESOURCE_PRESENT'}
+          if(Get-ChildItem -LiteralPath $workers -Directory -Recurse -Filter '_internal' -ErrorAction SilentlyContinue){throw 'OPTIN_PYINSTALLER_OUTPUT_PRESENT'}
+          Write-Host "OPTIN_GRAPH_OK backend=$($manifest.backend) workers=$($manifest.binaries.Count)"
       - name: Archive the verified internal update payload
         run: python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.zip
       - name: Build the install-free single executable
         run: python tools/build_tauri_onefile.py deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.zip deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.exe
       - name: Verify the release binaries
         shell: pwsh
+        env:
+          # The packaged-parity gate selects the packaged worker's launch argv
+          # from the staged manifest when this names `rust`; unset keeps the
+          # shipped no-argument spawn byte-for-byte.
+          NIOH3_WORKER_BACKEND: ${{ inputs.worker_backend }}
         run: |
           $env:NIOH3_WORKER_EXE=Join-Path $PWD 'deliverables/release/portable/worker/nioh3-search-worker.exe'
           $env:NIOH3_PROTECTED_WORKER_EXE=Join-Path $PWD 'deliverables/release/portable/worker/nioh3-protected-worker.exe'
@@ -86,8 +126,36 @@ jobs:
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node apps/tauri/verify-update.mjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+      - name: Verify the packaged Rust identity, host graph and frontend
+        if: inputs.worker_backend == 'rust'
+        shell: pwsh
+        run: |
+          # The Rust branch must be accepted on the real shipped product, not on
+          # the resource graph alone: the host's own startup record must name the
+          # rust-packaged graph and the exact argv, each packaged role must answer
+          # its representative request under the staged manifest, and the shipped
+          # frontend must run against that graph. A blocked leg fails this step.
+          $portable='deliverables/release/portable'
+          $exe=Join-Path $PWD "$portable/Nioh3Studio.exe"
+          $evidence='deliverables/frontend-v2/tauri-acceptance/rust-packaged'
+          New-Item -ItemType Directory -Force -Path $evidence | Out-Null
+          node apps/tauri/verify-host-package.mjs --package $portable --exe $exe --out (Join-Path $evidence 'host-package.json')
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          $env:NIOH3_WORKER_IDENTITY_OPT_IN='1'
+          foreach($role in @('offline_search','save','runtime')) {
+            node apps/tauri/verify-worker-identity.mjs --runtime $portable --role $role --out (Join-Path $evidence "identity-$role.json")
+            if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          }
+          node apps/tauri/verify-packaged-frontend.mjs --package $portable --exe $exe --python $env:NIOH3_PYTHON --out $evidence
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Verify direct one-file launch, runtime cache and outer updates
         shell: pwsh
+        env:
+          # The staged manifest alone already makes `verify-onefile.mjs` assert
+          # the Rust worker identity from inside the single-file product; these
+          # flags stay as an explicit override for a graph without a manifest.
+          NIOH3_WORKER_IDENTITY_OPT_IN: ${{ inputs.worker_backend == 'rust' && '1' || '' }}
+          NIOH3_WORKER_IDENTITY_PROTECTED: ${{ inputs.worker_backend == 'rust' && '1' || '' }}
         run: |
           $env:NIOH3_ONEFILE_EXE=Join-Path $PWD 'deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.exe'
           node apps/tauri/verify-onefile.mjs
