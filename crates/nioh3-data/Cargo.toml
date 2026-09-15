@@ -1,0 +1,15 @@
+[package]
+name = "nioh3-data"
+version = "0.1.0"
+edition = "2021"
+description = "Bounded read-only adapter for the current Nioh 3 product resource files"
+publish = false
+
+[lib]
+name = "nioh3_data"
+path = "src/lib.rs"
+
+[dependencies]
+nioh3-domain = { path = "../nioh3-domain" }
+serde_json = "1"
+sha2 = "0.10"

@@ -56,6 +56,8 @@ global semantic key.
 - [Documentation index (this page)](INDEX.md) — complete discoverability map.
 - [Current project handoff](CURRENT_HANDOFF.md) — current product, release,
   acceptance, and remaining-work position.
+- [v0.8.0 Rust backend migration](V080_RUST_BACKEND_MIGRATION.md) — active
+  architecture, delegation boundaries, staged parity gates and first domain slice.
 - [Release runbook](RELEASE_RUNBOOK.md) — authoritative current Tauri release
   procedure; publication still needs owner authorization.
 - [Game-version update pipeline](GAME_VERSION_UPDATE_PIPELINE.md) — fail-closed

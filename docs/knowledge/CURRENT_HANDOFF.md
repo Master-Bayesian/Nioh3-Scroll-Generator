@@ -1,5 +1,17 @@
 # Current project handoff — 2026-09-14
 
+## v0.8.0 development
+
+The owner has started an Astra-led incremental Rust backend migration, with
+bounded implementation assigned to DeepSeek V4.1 Flash. See the
+[migration baseline and sequence](V080_RUST_BACKEND_MIGRATION.md) and
+[v0.8.0 engineering record](../product/releases/v0.8.0.md).
+M0 and M1 are standalone offline Rust domain/data slices covering enemy
+generation, variants, Wraith trials, and native-table loading; the production
+backend has not switched to them. See the migration record for exact evidence.
+M2 is the next bounded scroll-record/effect/R4/read-only worker migration; it
+does not include save writes.
+
 ## v0.7.4 published release
 
 The published v0.7.4 scope includes two shipped product changes. The

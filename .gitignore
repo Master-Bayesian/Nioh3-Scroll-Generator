@@ -118,6 +118,7 @@ apps/desktop/dist/
 apps/desktop/test-results/
 apps/tauri/dist/
 apps/tauri/src-tauri/target/
+crates/*/target/
 apps/tauri/src-tauri/gen/
 
 !research/capture_update_context_ce.lua

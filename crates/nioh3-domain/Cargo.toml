@@ -1,0 +1,18 @@
+[package]
+name = "nioh3-domain"
+version = "0.1.0"
+edition = "2021"
+description = "Std-only Nioh 3 domain semantics (enemy-state RNG) with cross-language parity"
+publish = false
+
+[lib]
+name = "nioh3_domain"
+path = "src/lib.rs"
+
+[dependencies]
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "s"
