@@ -1,16 +1,23 @@
 # v0.8.0 Rust backend migration
 
-Status: active; M0 and M1 offline slices verified on 2026-09-15, no product cutover.
+Status: active; the published v0.7.5 baseline is integrated, M0 and M1 offline
+slices verified on 2026-09-15, no product cutover.
 Decision owner: Astra primary agent under the project owner's direction.
 Implementation: bounded DeepSeek V4.1 Flash assignments, reviewed by the primary.
 
 ## Baseline and purpose
 
-- Published behavior: v0.7.4 product commit
-  `df438ed3a9a1b92e68b3c77da0b1c094e0663327`.
+- Published behavior: v0.7.5 product commit
+  `533694ebad21906aecbb6ab5283e04e760ce6c09`, which the owner manually
+  confirmed for the NG3 search-continuation and window/taskbar icon fixes. The
+  earlier v0.7.4 commit `df438ed3a9a1b92e68b3c77da0b1c094e0663327` is the
+  historical predecessor.
 - Starting checkout: `a1601bb242ebfdc509ab853016cc64639f69320c`, which adds the
-  publication record. Work branch: `codex/v080-rust-backend`.
-- Existing uncommitted research ledger and untracked work are outside this slice.
+  v0.7.4 publication record. Work branch: `codex/v080-rust-backend`.
+- The published v0.7.5 source arrived through integration merge `263f46d`, which
+  combines the M0/M1 checkpoint `7dba4ca` with `d847cff` (containing `533694e`).
+- Existing uncommitted research-ledger edits and untracked work are outside this
+  slice and remain uncommitted in the working tree.
 - Preserve the current React/WebView2 product and one-file delivery contract while
   replacing backend components incrementally. Equipment generation and editing
   require separate research and are not promised by this migration.
