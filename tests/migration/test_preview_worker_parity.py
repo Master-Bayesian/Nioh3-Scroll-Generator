@@ -31,11 +31,133 @@ import tempfile
 import tomllib
 import unittest
 
+from jsonschema import Draft7Validator
+
 
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_DIR = ROOT / "packages" / "contracts"
 MAX_FRAME_BYTES = 4 * 1024 * 1024
 WORKER_ROLE = "offline_search"
+
+REQUEST_SCHEMA = json.loads((SCHEMA_DIR / "request.schema.json").read_text(encoding="utf-8"))
+RESPONSE_SCHEMA = json.loads((SCHEMA_DIR / "response.schema.json").read_text(encoding="utf-8"))
+RESPONSE_VALIDATOR = Draft7Validator(RESPONSE_SCHEMA)
+
+
+def schema_methods() -> tuple[str, ...]:
+    """Every method the versioned request contract can express."""
+
+    names = {
+        branch["properties"]["method"]["const"]
+        for branch in REQUEST_SCHEMA["oneOf"]
+        if branch.get("properties", {}).get("method", {}).get("const")
+    }
+    return tuple(sorted(names))
+
+
+def assert_contract_frame(case: unittest.TestCase, frame: dict, label: str) -> None:
+    """Every frame a worker emits must satisfy the versioned response contract."""
+
+    errors = sorted(RESPONSE_VALIDATOR.iter_errors(frame), key=lambda error: list(error.path))
+    case.assertFalse(
+        errors,
+        f"{label} violates response.schema.json: "
+        + "; ".join(f"{list(error.path)}: {error.message}" for error in errors),
+    )
+
+
+def search_surface_served(worker: "FramedProcess") -> bool:
+    """Whether the worker serves `search.start`.
+
+    A contract-valid body with a deliberately wrong context digest answers an
+    error code instead of starting a job, so the probe is cheap and side-effect
+    free. `UNSUPPORTED_METHOD` means the surface is not implemented yet, in which
+    case no acceleration capability may be advertised for it.
+    """
+
+    probe = {
+        "query": {
+            "playthrough": 3,
+            "rarity": 4,
+            "level": 180,
+            "primary_effect_ids": [],
+            "required_secondary_ids": [],
+            "required_secondary_id_groups": [],
+            "grace_effect_id": None,
+            "minimum_roll_percent_by_effect_id": [],
+            "auxiliary": {
+                "required_terrain_effect_keys": [],
+                "required_terrain_effect_key_groups": [],
+                "required_special_rule_keys": [],
+                "required_special_rule_key_groups": [],
+                "required_enemy_lookup_keys": [],
+                "required_enemy_lookup_key_groups": [],
+            },
+        },
+        "context_digest": "0" * 64,
+        "result_count": 1,
+        "page_trials": 1,
+        "job_trials": 1,
+        "allow_cpu_fallback": False,
+        "resume_token": None,
+    }
+    reply = worker.call("search.start", probe)
+    if reply.get("ok"):
+        return True
+    return reply["error"]["code"] != "UNSUPPORTED_METHOD"
+
+
+def schema_valid_params(method: str, context_digest: str) -> dict:
+    """Minimal parameters that satisfy `request.schema.json` for one method.
+
+    These are well-formed on purpose: a schema-invalid body answers
+    INVALID_REQUEST for every method and could not separate "validated but not
+    implemented" from "served".
+    """
+
+    if method == "search.catalog":
+        return {"playthrough": 3, "rarity": 4, "locale": "zh-CN"}
+    if method == "recommended_level.resolve":
+        return {"displayed_level": 180}
+    if method == "cache.register":
+        return {"cache_json": "{}"}
+    if method == "candidate.preview":
+        return {"seed": 1, "rarity": 4, "level": 180}
+    if method == "search.start":
+        return {
+            "query": {
+                "playthrough": 3,
+                "rarity": 4,
+                "level": 180,
+                "primary_effect_ids": [],
+                "required_secondary_ids": [],
+                "required_secondary_id_groups": [],
+                "grace_effect_id": None,
+                "minimum_roll_percent_by_effect_id": [],
+                "auxiliary": {
+                    "required_terrain_effect_keys": [],
+                    "required_terrain_effect_key_groups": [],
+                    "required_special_rule_keys": [],
+                    "required_special_rule_key_groups": [],
+                    "required_enemy_lookup_keys": [],
+                    "required_enemy_lookup_key_groups": [],
+                },
+            },
+            "context_digest": context_digest,
+            "result_count": 1,
+            "page_trials": 1,
+            "job_trials": 1,
+            "allow_cpu_fallback": False,
+            "resume_token": None,
+        }
+    if method in ("job.snapshot", "job.cancel"):
+        return {"job_id": "00000000-0000-0000-0000-000000000000"}
+    if method == "candidate.export":
+        return {
+            "job_id": "00000000-0000-0000-0000-000000000000",
+            "candidate_id": "0" * 64,
+        }
+    return {}
 
 # Deterministic seed matrix: fixed boundary/known seeds plus a stride sweep.
 FIXED_SEEDS = (
@@ -96,17 +218,34 @@ CANDIDATE_REQUIRED = (
     "initial_challenge_capacity",
 )
 EFFECT_REQUIRED = ("slot", "effect_id", "value", "metadata", "prefix", "tail_0", "tail_1", "roll_percent")
-SUPPORTED_METHODS = ("handshake", "candidate.preview", "shutdown")
-UNSUPPORTED_METHODS = (
-    "search.catalog",
-    "recommended_level.resolve",
+# Methods the worker must serve with full parameter validation. The set is
+# asserted against real behaviour, so adding or removing a method in the worker
+# forces a deliberate update here instead of letting a stale list pass.
+SUPPORTED_METHODS = (
+    "handshake",
+    "candidate.preview",
     "search.start",
-    "cache.register",
-    "candidate.export",
     "job.snapshot",
     "job.current",
     "job.cancel",
+    "candidate.export",
+    "shutdown",
 )
+# Schema-known methods this slice deliberately does not implement. They must
+# answer UNSUPPORTED_METHOD for a schema-valid request, and full validation still
+# applies before that short-circuit.
+PENDING_METHODS = (
+    "search.catalog",
+    "recommended_level.resolve",
+    "cache.register",
+)
+# The read-only preview/search slice does not implement the D3D11 effect-filter
+# path, so its capability is availability AND implementation. The owner who ports
+# that path flips this constant together with its own evidence; until then the
+# honest value is `false` even though the Python worker (which does implement it)
+# probes the same DLL as available. The NG4/NG5 cache is the same rule: it must
+# not be advertised at all while it is unported.
+EFFECT_FILTER_IMPLEMENTED = False
 
 # Only these keys may be normalised away before comparison. Everything else in a
 # payload is compared exactly, so a meaningful mismatch cannot be hidden.
@@ -162,7 +301,14 @@ def dev_preview_arguments() -> list[str]:
 class FramedProcess:
     """Framed JSON stdio client for one worker subprocess."""
 
-    def __init__(self, argv: list[str], *, cwd: Path, env: dict[str, str]) -> None:
+    def __init__(
+        self,
+        argv: list[str],
+        *,
+        cwd: Path,
+        env: dict[str, str],
+        name: str = "worker",
+    ) -> None:
         self.process = subprocess.Popen(
             argv,
             cwd=str(cwd),
@@ -171,7 +317,9 @@ class FramedProcess:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
+        self.name = name
         self.counter = 0
+        self.pending_id: str | None = None
 
     def send(self, method: str, params: dict | None = None, *, protocol: int = 1) -> str:
         self.counter += 1
@@ -201,10 +349,29 @@ class FramedProcess:
         body = self.process.stdout.read(size)
         if len(body) != size:
             raise EOFError("worker frame truncated")
-        return json.loads(body.decode("utf-8"))
+        frame = json.loads(body.decode("utf-8"))
+        # The contract carries the request id back on every reply; a worker
+        # that answers the wrong frame would otherwise look healthy.
+        if self.pending_id is not None:
+            if frame.get("id") != self.pending_id:
+                raise AssertionError(
+                    f"{self.name} replied to id {frame.get('id')!r} "
+                    f"while {self.pending_id!r} was outstanding"
+                )
+        errors = sorted(
+            RESPONSE_VALIDATOR.iter_errors(frame), key=lambda error: list(error.path)
+        )
+        if errors:
+            raise AssertionError(
+                f"{self.name} frame violates response.schema.json: "
+                + "; ".join(
+                    f"{list(error.path)}: {error.message}" for error in errors
+                )
+            )
+        return frame
 
     def call(self, method: str, params: dict | None = None, *, protocol: int = 1) -> dict:
-        self.send(method, params, protocol=protocol)
+        self.pending_id = self.send(method, params, protocol=protocol)
         return self.read_frame()
 
     def close(self) -> int:
@@ -299,10 +466,12 @@ class PreviewWorkerParityTests(unittest.TestCase):
         cls.python_argv = [sys.executable, "-u", "-m", "nioh3_scroll_editor.search_worker"]
 
     def rust_worker(self) -> FramedProcess:
-        return FramedProcess(self.rust_argv, cwd=ROOT, env=worktree_env())
+        return FramedProcess(self.rust_argv, cwd=ROOT, env=worktree_env(), name="rust worker")
 
     def python_worker(self) -> FramedProcess:
-        return FramedProcess(self.python_argv, cwd=ROOT, env=worktree_env())
+        return FramedProcess(
+            self.python_argv, cwd=ROOT, env=worktree_env(), name="python worker"
+        )
 
     def test_development_acknowledgement_is_required_before_serving_frames(self) -> None:
         process = subprocess.run(
@@ -347,27 +516,179 @@ class PreviewWorkerParityTests(unittest.TestCase):
         for field in CONTEXT_FIELDS:
             self.assertEqual(actual[field], expected[field], field)
 
-    def test_only_the_advertised_methods_are_supported(self) -> None:
+    def test_every_contract_method_is_served_with_validation_or_named_pending(self) -> None:
+        """Every contract method is either served with validation or named as pending.
+
+        The previous revision of this test asserted a constant against itself,
+        which could never fail. The check below derives the contract's method set
+        from `request.schema.json` and probes each method twice: malformed
+        parameters must return the Python worker's validation code, and a
+        schema-valid body must answer UNSUPPORTED_METHOD exactly for the methods
+        declared pending. Implementing or removing a method therefore forces a
+        deliberate update of these lists.
+        """
+
         worker = self.rust_worker()
+        python = self.python_worker()
         try:
-            self.assertTrue(worker.call("handshake").get("ok"))
-            for method in UNSUPPORTED_METHODS:
-                reply = worker.call(method, {})
-                self.assertFalse(reply.get("ok"), reply)
-                self.assertEqual(reply["error"]["code"], "UNSUPPORTED_METHOD", method)
-            # Bounded development deviation: a known-but-unimplemented method
-            # short-circuits to UNSUPPORTED_METHOD before full parameter
-            # validation, so malformed params still answer UNSUPPORTED_METHOD
-            # instead of the Python worker's INVALID_REQUEST. M2.3b must restore
-            # full validation for every method it implements.
-            malformed = worker.call("search.start", {"unexpected": 1})
-            self.assertFalse(malformed.get("ok"), malformed)
-            self.assertEqual(malformed["error"]["code"], "UNSUPPORTED_METHOD", malformed)
-            for method in SUPPORTED_METHODS:
-                self.assertIn(method, ("handshake", "candidate.preview", "shutdown"))
+            handshake = worker.call("handshake")
+            self.assertTrue(handshake.get("ok"), handshake)
+            context = handshake["result"]["context"]["context_digest"]
+            python.call("handshake")
+            for method in schema_methods():
+                if method in ("handshake", "shutdown"):
+                    continue
+                reply = worker.call(method, {"definitely_not_a_parameter": True})
+                self.assertFalse(reply.get("ok"), (method, reply))
+                expected = python.call(method, {"definitely_not_a_parameter": True})
+                self.assertFalse(expected.get("ok"), (method, expected))
+                self.assertEqual(
+                    reply["error"]["code"],
+                    expected["error"]["code"],
+                    f"{method} must validate parameters like the Python worker",
+                )
+
+                well_formed = worker.call(
+                    method, schema_valid_params(method, context)
+                )
+                code = None if well_formed.get("ok") else well_formed["error"]["code"]
+                if method in PENDING_METHODS:
+                    self.assertEqual(
+                        code,
+                        "UNSUPPORTED_METHOD",
+                        f"{method} is declared pending but the worker answered {code}",
+                    )
+                else:
+                    self.assertNotEqual(
+                        code,
+                        "UNSUPPORTED_METHOD",
+                        f"{method} is declared served but the worker rejected it as "
+                        "unimplemented; update SUPPORTED_METHODS and the migration "
+                        "record together",
+                    )
+            declared = set(SUPPORTED_METHODS) | set(PENDING_METHODS) | {"handshake", "shutdown"}
+            self.assertEqual(
+                declared,
+                set(schema_methods()),
+                "every contract method must be declared served or pending",
+            )
             self.assertTrue(worker.call("shutdown").get("ok"))
         finally:
             worker.close()
+            python.close()
+
+    def test_unknown_methods_are_rejected_like_the_python_worker(self) -> None:
+        """A method outside the contract must not fall through to a success."""
+
+        rust = self.rust_worker()
+        python = self.python_worker()
+        try:
+            rust.call("handshake")
+            python.call("handshake")
+            invented = "search.not_a_real_method"
+            expected = python.call(invented, {})
+            actual = rust.call(invented, {})
+        finally:
+            rust.close()
+            python.close()
+        self.assertFalse(actual.get("ok"), actual)
+        self.assertFalse(expected.get("ok"), expected)
+        self.assertEqual(actual["error"]["code"], expected["error"]["code"])
+
+    def test_handshake_capabilities_reflect_the_real_probes(self) -> None:
+        """Capabilities are contract data, so each value must be a real probe.
+
+        The Python worker answers these fields from live probes of the same two
+        DLLs, so it is the oracle here. A hard-coded `false` is a parity defect
+        even when it looks conservative: the broker and desktop renderer use the
+        field to decide whether an accelerated search can be offered at all.
+        """
+
+        rust = self.rust_worker()
+        python = self.python_worker()
+        try:
+            rust_reply = rust.call("handshake")
+            python_reply = python.call("handshake")
+            served = search_surface_served(rust)
+        finally:
+            rust.close()
+            python.close()
+        assert_contract_frame(self, rust_reply, "rust handshake")
+        assert_contract_frame(self, python_reply, "python handshake")
+        rust_caps = rust_reply["result"]["capabilities"]
+        python_caps = python_reply["result"]["capabilities"]
+
+        # The NG4/NG5 cache is not ported, so the key must be absent or empty.
+        # Python advertises [4, 5] because it really ships that cache; copying
+        # that value here would advertise an unimplemented capability.
+        self.assertEqual(
+            rust_caps.get("cached_rarity5_playthroughs", []),
+            [],
+            "an unported NG4/NG5 cache must stay absent or empty; add it with the "
+            "cache slice and flip the declaration there",
+        )
+
+        # Expected capabilities are the measured native availability intersected
+        # with what this worker actually implements.
+        expected = {
+            "playthroughs": python_caps["playthroughs"],
+            "rarities": python_caps["rarities"],
+            "cpu_exact_replay": python_caps["cpu_exact_replay"],
+            "save_write": False,
+            "runtime_calls": False,
+            # Strict GPU is the default and bulk CPU is the explicit opt-in.
+            "bulk_cpu_requires_opt_in": True,
+            # Real probe, but only once the search surface that consumes it exists.
+            "cuda_pivot_and_auxiliary": bool(python_caps["cuda_pivot_and_auxiliary"])
+            and served,
+            # Real probe, gated on the effect-filter path being ported.
+            "directcompute_effect_filter": bool(
+                python_caps["directcompute_effect_filter"]
+            )
+            and EFFECT_FILTER_IMPLEMENTED,
+        }
+        self.assertEqual(
+            rust_caps,
+            expected,
+            "capabilities must equal measured native availability intersected with "
+            f"implemented features (search served: {served}, effect filter "
+            f"implemented: {EFFECT_FILTER_IMPLEMENTED}); cuda_pivot_and_auxiliary "
+            "and bulk_cpu_requires_opt_in must reflect the live probe and the CPU "
+            "opt-in policy, not a constant copied from either side",
+        )
+
+    def test_accelerator_absence_degrades_without_faking_capability(self) -> None:
+        """A missing accelerator must stay visible instead of reporting support."""
+
+        missing = ROOT / "bin" / "definitely-not-present-accelerator.dll"
+        self.assertFalse(missing.exists(), "the control path must not exist")
+        argv = [
+            *self.rust_argv,
+            "--accelerator",
+            str(missing),
+        ]
+        worker = FramedProcess(argv, cwd=ROOT, env=worktree_env(), name="rust worker (no accelerator)")
+        python = self.python_worker()
+        try:
+            reply = worker.call("handshake")
+            expected = python.call("handshake")["result"]
+        finally:
+            worker.close()
+            python.close()
+        self.assertTrue(reply.get("ok"), reply)
+        result = reply["result"]
+        context = result["context"]
+        self.assertIsNone(
+            context["seed_accelerator_abi"],
+            "a missing accelerator must not report an ABI identity",
+        )
+        self.assertIsNone(context["seed_accelerator_build_id"])
+        # The Python worker still probes its own packaged DLL, so it reports the
+        # available value; the Rust worker must report the truth for its own
+        # (absent) accelerator rather than copying the Python constant.
+        self.assertFalse(result["capabilities"]["cuda_pivot_and_auxiliary"])
+        self.assertEqual(result["capabilities"]["playthroughs"], expected["capabilities"]["playthroughs"])
+        self.assertEqual(result["capabilities"]["rarities"], expected["capabilities"]["rarities"])
 
     def test_full_preview_surface_matches_the_python_worker(self) -> None:
         """Rarities 3/4/5 across representative levels and the seed matrix."""

@@ -46,6 +46,9 @@ fn seed_sweep() -> Vec<u32> {
         82_212_268,
         183_696_634,
         241_719_428,
+        // Nonzero descriptor selector: the auxiliary half still composes and
+        // the enemy-state half falls back exactly like the shipped payload.
+        53_432_590,
         0x0FFF_FFFF,
         0x7FFF_FFFF,
         0x8000_0000,
@@ -167,7 +170,10 @@ fn describe_state(seed: u32, state: &EnemyStatePreview) -> Vec<String> {
     }
     lines.push(format!(
         "statesummary\t{seed}\t{variant}\t{}\t{}\t{}\t{}\t{}\t{}",
-        state.terrain,
+        match state.terrain {
+            Some(value) => value.to_string(),
+            None => "-".to_string(),
+        },
         state.occurrences.len(),
         state.possessed_complete,
         state.missing_inputs.len(),

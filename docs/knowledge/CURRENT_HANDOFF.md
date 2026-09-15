@@ -44,6 +44,29 @@ search orchestration and the product worker cutover remain future work, and save
 writes stay out of this line. Nothing in this section is packaged, tagged, or
 published.
 
+M2.3b1 now serves a bounded search surface inside this development worker, and
+its gates are green on the frozen tree: `tests/migration` 78 passed / 0 failed
+(an independent re-run of the three worker/parity modules alone: 33 passed), with
+`cargo test` worker 66 library + 3 binary, domain 71, data 17, and `cargo fmt` /
+`cargo clippy -D warnings` clean. The served routes are the fused auxiliary pivot
+(terrain/special-rule/enemy criteria at playthrough 3, any certified rarity 3/4/5)
+and the rarity-4 primary pivot, including a rarity-4 primary query that also
+carries auxiliary criteria. The handshake capability object now comes from the
+loaded accelerator's own probe (`cuda_pivot_and_auxiliary` and
+`bulk_cpu_requires_opt_in` report `true`, matching the Python worker), and the
+DirectCompute effect-filter capability and NG4/NG5 cache stay `false`/absent
+because those paths are not ported.
+
+Deliberately not served, each refused with its own reason instead of one blanket
+claim: rarity-5 effect searches (effect-preimage accelerator not implemented), a
+rarity-3 or other non-rarity-4 primary search (batched primary/replay route not
+compiled), an effect-constraint search without a primary id (DirectCompute effect
+route not implemented), an unconstrained sweep (fixed-draw replay not compiled),
+secondary/roll-only replay, Grace-filtered pivots, terrain option ids, and
+playthrough 4/5 (which need an exact save-bound rarity-5 map). Search is still not
+wired into the shipped host: no product cutover, package, tag or publication, and
+save writes stay out of this line.
+
 ## v0.7.4 published release
 
 The published v0.7.4 scope includes two shipped product changes. The

@@ -410,3 +410,171 @@ composition, and `raw_value` (f32) versus `display_value` (f64) are compared
 without re-rounding. `GenerationContext` mutation binding over the wire,
 candidate identity beyond the preview payload, product wiring, packaging and
 live acceptance remain out of scope, and the worker exposes no write path.
+
+## M2.3b search acceptance gates
+
+Owner of this section: `/root/m23b_reviewer_recover` (recovering the earlier
+`/root/m23_preview` slice), independent acceptance, tests, docs and CI only. The
+native ABI and paged query driver belong to `/root/m23b_native_recover`; the job
+state machine, protocol, payload and CLI belong to `/root/m23b_jobs_recover`.
+Base HEAD `554a0c70e6cd9de187d0d1764ff9b7cd7a782ab8` on branch
+`codex/v080-rust-backend`. No product file was changed here.
+
+Two tracked subprocess gates are owned here and both fail loudly instead of
+skipping, so an unimplemented surface can never look like a passing result:
+
+- `tests/migration/test_preview_worker_parity.py` (M2.3a, extended). Its
+  previous revision asserted a constant against itself
+  (`assertIn(method, ("handshake", "candidate.preview", "shutdown"))`), which
+  could never fail, and it compared only two capability fields. It now derives
+  the contract's method set from `request.schema.json`, probes every method for
+  real and requires the served set to equal `SUPPORTED_METHODS` and the pending
+  set to equal the schema minus the served set, so implementing a method forces
+  a deliberate update. Unknown methods must return the Python worker's code, and
+  every frame from both workers is validated against
+  `packages/contracts/response.schema.json` and must carry the outstanding
+  request id.
+- `tests/migration/test_search_worker_parity.py` (new). It drives the real Rust
+  worker and the real Python worker over the shipped protocol for: the canonical
+  v0.7.5 three-rule regression in one continuing job and its bounded control;
+  effect and enemy page identity, order and cursor parity; responsive cancel
+  inside a 100,000,000-trial page plus a resume that reaches the same candidate
+  without replay; resume-token rejection for forgery, changed query, changed
+  context, changed execution policy, changed continuation policy and a second
+  process; candidate ownership and export; accelerator absence; and the
+  unported NG4/NG5 boundary. Every expected error code is taken from the Python
+  worker's answer to the same request rather than being written down here.
+
+### Capability defect, resolved (was P1, owners `/root/m23b_jobs` and
+### `/root/m23b_native_search`)
+
+The quality review's first P1 was that the handshake reported constants rather
+than probes: the Python worker measured `cuda_pivot_and_auxiliary = true`,
+`directcompute_effect_filter = true` and `bulk_cpu_requires_opt_in = true` (its
+probes load the seed accelerator and the effect-preimage DLL), while the Rust
+worker reported `false` for all three and omitted `cached_rarity5_playthroughs`.
+`payload.rs` now builds the capability object from the loaded accelerator's own
+probe, and the gate asserts the whole object as measured native availability
+intersected with implemented features. The frozen integrated run reports the
+Rust worker as `cuda_pivot_and_auxiliary = true`, `bulk_cpu_requires_opt_in =
+true`, `cpu_exact_replay = true`, `playthroughs = [3]`, `rarities = [3, 4, 5]`,
+`save_write = false`, `runtime_calls = false`, `directcompute_effect_filter =
+false` and no `cached_rarity5_playthroughs` key. The two `false`/absent values
+are deliberate: the DirectCompute effect-filter path and the NG4/NG5 cache are
+not ported, so advertising them would be a capability claim the worker cannot
+honour. The gate also requires the absent-accelerator case to report `false`
+with a null ABI identity instead of copying a constant.
+
+### Oracle measurements used as acceptance targets
+
+Measured against the shipped Python worker on this machine, so the targets are
+the product's own behaviour rather than a restatement of the Rust code:
+
+- canonical v0.7.5 query (`required_special_rule_keys` `64956`/`113`/`20893`,
+  verified as `0xFDBC`/`0x0071`/`0x519D` in the shipped rule table): one
+  continuing job with `page_trials = 100000000` returns seed `226061463` at
+  cursor `164000000`, `stop_reason = result_limit`, in 1.80 s; the bounded
+  control (`page_trials = 1000000`, `job_trials = 10000000`) stays
+  `budget_reached` at cursor `10000000` with no candidates.
+- cancel inside the same 100,000,000-trial page: `job.cancel` completes in 53 ms,
+  the job reports `cancelled` at cursor `16000000` with a published
+  `resume_token`, and the resumed job continues from `16000000` to the same seed
+  at `164000000` without replaying candidates.
+- dense page-parity queries are non-vacuous, and each is an auxiliary or
+  rarity-4-primary query the Rust worker actually serves: the rarity-4
+  primary-effect page and the rule-route page, plus the per-variant enemy pages
+  built from real lookup keys of a known Seed's shipped preview.
+
+### Current state
+
+The Rust worker serves `search.start` for a bounded surface, and the three
+module gates are green on the frozen tree. Measured in the final serialized run
+of the job owner and reproduced by an independent re-run of the same three
+files: `tests/migration` = 78 passed / 0 failed in 145 s (job owner) and 33
+passed / 0 failed in 128 s (the three worker/parity modules alone), `cargo test`
+= worker 66 library + 3 binary, domain 71, data 17, all zero failures, with
+`cargo fmt --check` and `cargo clippy --all-targets -D warnings` clean.
+
+Served route: the fused auxiliary pivot (`compile_auxiliary`) is selected by
+non-empty auxiliary criteria with no effect constraint of its own, at
+playthrough 3 and any certified rarity 3/4/5, and the rarity-4 primary pivot
+(`compile_r4_primary`). A rarity-4 primary query may also carry auxiliary
+criteria; that combination is served, with the auxiliary criteria verified
+per candidate by the job layer before the payload is composed.
+
+Explicit non-support, each with its own reason rather than one blanket claim:
+
+- rarity-5 **effect** searches are refused because the effect-preimage
+  accelerator is not implemented (`compile`'s rarity-5 arm);
+- a rarity-3 (or any non-rarity-4) **primary** search is refused because the
+  batched primary/replay route over the full seed family is not compiled. The
+  native evidence shows this route is *not* the effect-preimage DLL, so its
+  message names the batched replay route explicitly;
+- an effect-constraint search with no primary id is refused because the
+  DirectCompute effect route is not implemented;
+- an unconstrained effect sweep is refused because the fixed-draw replay over
+  the full seed family is not compiled. This is why an empty-auxiliary,
+  empty-effect query is `INVALID_REQUEST` rather than an accepted page;
+- secondary/roll-only replay, Grace-filtered pivots, terrain option ids,
+  playthrough 4/5 (which need an exact save-bound rarity-5 map), `cache_id` on
+  the NG3 path, and the unported `search.catalog` / `recommended_level.resolve`
+  / `cache.register` methods stay refused or named pending.
+
+The NG4/NG5 cache stays unadvertised, and the DirectCompute effect-filter
+capability stays `false`, until each is ported. CI already runs `tests/migration`
+through the project Python selector plus `cargo test` for all three crates, so
+both gates are wired with no additional workflow step. Nothing here is packaged,
+tagged, released or cut over: this is an isolated M2.3b1 development slice, not a
+product search backend.
+
+### M2.3b job-layer contract (job orchestration owner)
+
+Recorded so the shipped semantics of the job layer are explicit rather than
+implicit:
+
+- **Whole-page commit is parity, not a difference.** `jobs.rs` materializes and
+  filters every match of one bounded page, then commits that page - candidates,
+  private records and cursor - under a single lock, and a failed page keeps
+  `cursor` at the last committed page boundary. The shipped
+  `nioh3_scroll_editor/search_jobs.py` `_run` does exactly the same: it collects
+  one page, applies `require_search_candidate_ready`, the
+  `initial_challenge_counts` / grace / grouped-roll / occurrence /
+  enemy-occurrence filters and `candidate_payload` (lines 170-197), validates the
+  page cursor (202-203), and only then, under `self.lock`, extends
+  `self.job['candidates']` and advances `cursor` in one commit (204-209); a
+  mid-page exception is caught at 227-230 and publishes no prefix and no resume
+  token. The only "progressive" element in the Python pipeline is the
+  collector's `intersection_progress` callback, which reports progress during a
+  page and never publishes a candidate; `jobs.rs` reproduces that with its
+  `progress` closure. An earlier draft of this section called the commit model an
+  "accepted behavioural difference"; that was wrong about the shipped worker and
+  has been withdrawn. Line-level comparison and the timing-only residuals are in
+  `deliverables/m23b-search/PAGE_COMMIT_ASSESSMENT.md`.
+- **Auxiliary criteria are decided before the expensive composition.** For a
+  route whose pivot narrows on the primary effect only, `engine.rs` composes the
+  auxiliary half first and evaluates the caller's terrain / special-rule / enemy
+  criteria; a match those criteria reject is refused without composing the
+  record, the enemy-state half or the payload, which is the set the shipped
+  worker also never composes a payload for. The auxiliary half is still composed
+  for every match, so its `UNSUPPORTED_CONTEXT` fail-closed path is preserved.
+  Values are unchanged (identical seeds, order, cursor and payloads); the change
+  removes a duplicate auxiliary composition and skips the remainder for
+  already-rejected matches.
+- **Post-acceptance filters are enforced, never assumed native.** The compiled
+  pivot may narrow on other criteria than the ones requested, so the job layer
+  verifies, per candidate: the requested auxiliary criteria
+  (`auxiliary_criteria_match`: terrain display keys, non-zero special-rule keys,
+  enemy lookup keys of composed groups, each with their any-of groups), the
+  mandatory enemy-occurrence groups
+  (`enemy_occurrence_groups_status == match`), `initial_challenge_counts`,
+  grouped-roll thresholds and `effect_occurrences`. When
+  `enemy_occurrence_groups` is present the caller's enemy key sets are skipped,
+  mirroring `SearchQuery.from_payload`'s replacement of them with compiled
+  prefilters.
+- **Named fail-closed codes.** `SEARCH_BACKEND_UNAVAILABLE` for a missing or
+  unusable accelerator (distinct from `INVALID_REQUEST`, which names an
+  unsupported filter at `search.start`), `UNSUPPORTED_CONTEXT` when the ported
+  composition cannot materialize a named seed, and `SEARCH_FAILED` /
+  `RESULT_OVERFLOW` / `INVALID_CHECKPOINT` / `NO_PROGRESS` for per-page solver
+  faults. A materialization failure carries `(seed, trial, rarity, level)` so the
+  bound is reproducible from the job error.

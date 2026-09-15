@@ -1,28 +1,35 @@
 //! Request validation and the supported method subset.
 //!
-//! The shipped request schema is the contract. This module reproduces the
-//! parts the development worker serves (`handshake`, `candidate.preview`,
-//! `shutdown`), keeps `additionalProperties: false` at every level it checks,
-//! and answers every other schema-known method with `UNSUPPORTED_METHOD`
-//! instead of pretending to implement it. Methods the schema does not know at
-//! all stay `INVALID_REQUEST`, exactly like the Python worker.
+//! The shipped request schema is the contract, evaluated verbatim by
+//! [`crate::schema::RequestSchema`], so every method the worker serves gets the
+//! same strict parameter validation the shipped `jsonschema.Draft7Validator`
+//! gives it and answers with the same `INVALID_REQUEST` code. Methods the schema
+//! knows but this slice does not serve answer `UNSUPPORTED_METHOD` after that
+//! validation, never before it. Methods the schema does not know at all stay
+//! `INVALID_REQUEST`, exactly like the Python worker.
 
-use serde_json::{Map, Value};
+use serde_json::Value;
+
+use crate::schema::RequestSchema;
 
 /// `PROTOCOL_VERSION` from the shipped contracts.
 pub const PROTOCOL_VERSION: i64 = 1;
 /// Methods this development worker actually serves.
-pub const SUPPORTED_METHODS: [&str; 3] = ["handshake", "candidate.preview", "shutdown"];
+pub const SUPPORTED_METHODS: [&str; 8] = [
+    "handshake",
+    "candidate.preview",
+    "search.start",
+    "job.current",
+    "job.snapshot",
+    "job.cancel",
+    "candidate.export",
+    "shutdown",
+];
 /// Methods the shipped schema knows but this slice does not implement.
-pub const UNIMPLEMENTED_METHODS: [&str; 8] = [
+pub const UNIMPLEMENTED_METHODS: [&str; 3] = [
     "search.catalog",
     "recommended_level.resolve",
-    "search.start",
     "cache.register",
-    "candidate.export",
-    "job.snapshot",
-    "job.current",
-    "job.cancel",
 ];
 
 /// A rejected request, carrying the shipped error code and message.
@@ -33,6 +40,13 @@ pub struct RequestError {
 }
 
 impl RequestError {
+    pub fn new(code: &'static str, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+        }
+    }
+
     pub fn protocol_mismatch() -> Self {
         Self {
             code: "PROTOCOL_MISMATCH",
@@ -47,10 +61,34 @@ impl RequestError {
         }
     }
 
+    /// A schema-valid request the shipped worker still rejects on semantics.
+    pub fn invalid_request_message(message: impl Into<String>) -> Self {
+        Self {
+            code: "INVALID_REQUEST",
+            message: message.into(),
+        }
+    }
+
     pub fn handshake_required() -> Self {
         Self {
             code: "HANDSHAKE_REQUIRED",
             message: "Negotiate before sending commands".to_string(),
+        }
+    }
+
+    pub fn job_not_found() -> Self {
+        Self {
+            code: "JOB_NOT_FOUND",
+            message: "Job is unavailable; only the latest job is retained".to_string(),
+        }
+    }
+
+    pub fn invalid_resume_token() -> Self {
+        Self {
+            code: "INVALID_RESUME_TOKEN",
+            message: "Resume token belongs to a different query, context, execution policy, or \
+                      worker session"
+                .to_string(),
         }
     }
 
@@ -59,7 +97,8 @@ impl RequestError {
             code: "UNSUPPORTED_METHOD",
             message: format!(
                 "This development worker does not implement {method}; supported methods are \
-                 handshake, candidate.preview and shutdown"
+                 handshake, candidate.preview, search.start, job.current, job.snapshot, \
+                 job.cancel, candidate.export and shutdown"
             ),
         }
     }
@@ -77,10 +116,34 @@ pub enum Request {
         rarity: u8,
         level: u16,
     },
+    /// Carries the schema-checked `search.start` params verbatim; the job layer
+    /// runs the cross-field query validation in the shipped order, after its
+    /// BUSY and context checks.
+    SearchStart {
+        id: String,
+        params: Value,
+    },
+    JobCurrent {
+        id: String,
+    },
+    JobSnapshot {
+        id: String,
+        job_id: String,
+    },
+    JobCancel {
+        id: String,
+        job_id: String,
+    },
+    CandidateExport {
+        id: String,
+        job_id: String,
+        candidate_id: String,
+    },
     Shutdown {
         id: String,
     },
-    Unsupported {
+    /// Schema-known method this slice does not serve.
+    Unimplemented {
         id: String,
         method: String,
     },
@@ -91,8 +154,13 @@ impl Request {
         match self {
             Request::Handshake { id }
             | Request::CandidatePreview { id, .. }
+            | Request::SearchStart { id, .. }
+            | Request::JobCurrent { id }
+            | Request::JobSnapshot { id, .. }
+            | Request::JobCancel { id, .. }
+            | Request::CandidateExport { id, .. }
             | Request::Shutdown { id }
-            | Request::Unsupported { id, .. } => id,
+            | Request::Unimplemented { id, .. } => id,
         }
     }
 }
@@ -106,8 +174,9 @@ pub fn request_id(payload: &Value) -> Value {
         .unwrap_or(Value::Null)
 }
 
-/// Validate one request frame. The order mirrors `worker_contracts.validate_request`.
-pub fn parse_request(payload: &Value) -> Result<Request, RequestError> {
+/// Validate one request frame. The order mirrors `worker_contracts.validate_request`:
+/// protocol version, then the shipped schema, then dispatch.
+pub fn parse_request(payload: &Value, schema: &RequestSchema) -> Result<Request, RequestError> {
     let object = payload
         .as_object()
         .ok_or_else(RequestError::protocol_mismatch)?;
@@ -115,108 +184,66 @@ pub fn parse_request(payload: &Value) -> Result<Request, RequestError> {
         Some(Value::Number(number)) if number.as_i64() == Some(PROTOCOL_VERSION) => {}
         _ => return Err(RequestError::protocol_mismatch()),
     }
-    if object
-        .keys()
-        .any(|key| !matches!(key.as_str(), "protocol" | "id" | "method" | "params"))
-    {
+    if !schema.accepts(payload) {
         return Err(RequestError::invalid_request());
     }
-
     let id = object
         .get("id")
         .and_then(Value::as_str)
-        .ok_or_else(RequestError::invalid_request)?;
-    let id_chars = id.chars().count();
-    if id_chars == 0 || id_chars > 64 {
-        return Err(RequestError::invalid_request());
-    }
-
+        .expect("schema requires id")
+        .to_string();
     let method = object
         .get("method")
         .and_then(Value::as_str)
-        .ok_or_else(RequestError::invalid_request)?;
-    let params = object
-        .get("params")
-        .ok_or_else(RequestError::invalid_request)?;
-    if !params.is_object() {
-        return Err(RequestError::invalid_request());
-    }
-    if !SUPPORTED_METHODS.contains(&method) && !UNIMPLEMENTED_METHODS.contains(&method) {
-        return Err(RequestError::invalid_request());
-    }
+        .expect("schema requires method");
+    let params = object.get("params").expect("schema requires params");
 
     match method {
-        "handshake" => {
-            require_empty_object(params)?;
-            Ok(Request::Handshake { id: id.to_string() })
-        }
-        "shutdown" => {
-            require_empty_object(params)?;
-            Ok(Request::Shutdown { id: id.to_string() })
-        }
-        "candidate.preview" => {
-            let params = params.as_object().expect("checked above");
-            require_exact_keys(params, &["seed", "rarity", "level"])?;
-            let seed = integral(params.get("seed"))
-                .filter(|value| (0..=u32::MAX as i64).contains(value))
-                .ok_or_else(RequestError::invalid_request)?;
-            let rarity = integral(params.get("rarity"))
-                .filter(|value| matches!(value, 3..=5))
-                .ok_or_else(RequestError::invalid_request)?;
-            let level = integral(params.get("level"))
-                .filter(|value| (1..=180).contains(value))
-                .ok_or_else(RequestError::invalid_request)?;
-            Ok(Request::CandidatePreview {
-                id: id.to_string(),
-                seed: seed as u32,
-                rarity: rarity as u8,
-                level: level as u16,
-            })
-        }
-        other => Ok(Request::Unsupported {
-            id: id.to_string(),
+        "handshake" => Ok(Request::Handshake { id }),
+        "shutdown" => Ok(Request::Shutdown { id }),
+        "candidate.preview" => Ok(Request::CandidatePreview {
+            id,
+            seed: integer(params, "seed") as u32,
+            rarity: integer(params, "rarity") as u8,
+            level: integer(params, "level") as u16,
+        }),
+        "search.start" => Ok(Request::SearchStart {
+            id,
+            params: params.clone(),
+        }),
+        "job.current" => Ok(Request::JobCurrent { id }),
+        "job.snapshot" => Ok(Request::JobSnapshot {
+            id,
+            job_id: string(params, "job_id").to_string(),
+        }),
+        "job.cancel" => Ok(Request::JobCancel {
+            id,
+            job_id: string(params, "job_id").to_string(),
+        }),
+        "candidate.export" => Ok(Request::CandidateExport {
+            id,
+            job_id: string(params, "job_id").to_string(),
+            candidate_id: string(params, "candidate_id").to_string(),
+        }),
+        other => Ok(Request::Unimplemented {
+            id,
             method: other.to_string(),
         }),
     }
 }
 
-fn require_empty_object(params: &Value) -> Result<(), RequestError> {
-    let object = params
-        .as_object()
-        .ok_or_else(RequestError::invalid_request)?;
-    if object.is_empty() {
-        Ok(())
-    } else {
-        Err(RequestError::invalid_request())
-    }
+/// A schema-required integer parameter.
+fn integer(params: &Value, key: &str) -> i64 {
+    crate::schema::integral(params.get(key).expect("schema requires the key"))
+        .expect("schema requires an integer")
 }
 
-fn require_exact_keys(object: &Map<String, Value>, expected: &[&str]) -> Result<(), RequestError> {
-    if object.len() != expected.len() || !expected.iter().all(|key| object.contains_key(*key)) {
-        return Err(RequestError::invalid_request());
-    }
-    Ok(())
-}
-
-/// JSON Schema `integer`: integral JSON numbers, including `180.0`.
-fn integral(value: Option<&Value>) -> Option<i64> {
-    match value? {
-        Value::Number(number) => {
-            if let Some(value) = number.as_i64() {
-                Some(value)
-            } else if let Some(value) = number.as_u64() {
-                i64::try_from(value).ok()
-            } else {
-                let value = number.as_f64()?;
-                if value.is_finite() && value.fract() == 0.0 {
-                    Some(value as i64)
-                } else {
-                    None
-                }
-            }
-        }
-        _ => None,
-    }
+/// A schema-required string parameter.
+fn string<'a>(params: &'a Value, key: &str) -> &'a str {
+    params
+        .get(key)
+        .and_then(Value::as_str)
+        .expect("schema requires a string")
 }
 
 #[cfg(test)]
@@ -224,17 +251,29 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    fn request_schema() -> RequestSchema {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/contracts");
+        RequestSchema::load(&dir).expect("load the shipped request schema")
+    }
+
     #[test]
     fn accepts_the_supported_methods() {
+        let schema = request_schema();
         assert_eq!(
-            parse_request(&json!({"protocol":1,"id":"a","method":"handshake","params":{}})),
+            parse_request(
+                &json!({"protocol":1,"id":"a","method":"handshake","params":{}}),
+                &schema
+            ),
             Ok(Request::Handshake {
                 id: "a".to_string()
             })
         );
         assert_eq!(
-            parse_request(&json!({"protocol":1,"id":"b","method":"candidate.preview",
-                                  "params":{"seed":1,"rarity":4,"level":180}})),
+            parse_request(
+                &json!({"protocol":1,"id":"b","method":"candidate.preview",
+                                  "params":{"seed":1,"rarity":4,"level":180}}),
+                &schema
+            ),
             Ok(Request::CandidatePreview {
                 id: "b".to_string(),
                 seed: 1,
@@ -244,69 +283,123 @@ mod tests {
         );
         // JSON Schema integer accepts an integral JSON number.
         assert!(matches!(
-            parse_request(&json!({"protocol":1,"id":"c","method":"candidate.preview",
-                                  "params":{"seed":1.0,"rarity":4,"level":180.0}})),
+            parse_request(
+                &json!({"protocol":1,"id":"c","method":"candidate.preview",
+                                  "params":{"seed":1.0,"rarity":4,"level":180.0}}),
+                &schema
+            ),
             Ok(Request::CandidatePreview { .. })
         ));
+        assert_eq!(
+            parse_request(
+                &json!({"protocol":1,"id":"d","method":"job.current","params":{}}),
+                &schema
+            ),
+            Ok(Request::JobCurrent {
+                id: "d".to_string()
+            })
+        );
     }
 
     #[test]
-    fn unimplemented_methods_are_named_not_dropped() {
-        let parsed =
-            parse_request(&json!({"protocol":1,"id":"a","method":"search.start","params":{}}))
-                .expect("schema-known method parses");
+    fn schema_known_but_unserved_methods_still_validate_first() {
+        let schema = request_schema();
+        let parsed = parse_request(
+            &json!({"protocol":1,"id":"a","method":"search.catalog",
+                    "params":{"playthrough":3,"rarity":4,"locale":"zh-CN"}}),
+            &schema,
+        )
+        .expect("schema-known method parses");
         assert_eq!(
             parsed,
-            Request::Unsupported {
+            Request::Unimplemented {
                 id: "a".to_string(),
-                method: "search.start".to_string()
+                method: "search.catalog".to_string()
             }
         );
         assert_eq!(
-            RequestError::unsupported_method("search.start").code,
+            RequestError::unsupported_method("search.catalog").code,
             "UNSUPPORTED_METHOD"
+        );
+        // The same method with malformed params must answer INVALID_REQUEST, not
+        // UNSUPPORTED_METHOD: validation runs before the routing short-circuit.
+        assert_eq!(
+            parse_request(
+                &json!({"protocol":1,"id":"a","method":"search.catalog",
+                        "params":{"playthrough":4,"rarity":4,"locale":"zh-CN"}}),
+                &schema
+            )
+            .expect_err("playthrough 4 is outside the enum")
+            .code,
+            "INVALID_REQUEST"
+        );
+        assert_eq!(
+            parse_request(
+                &json!({"protocol":1,"id":"a","method":"search.start","params":{}}),
+                &schema
+            )
+            .expect_err("search.start requires its full param block")
+            .code,
+            "INVALID_REQUEST"
         );
     }
 
     #[test]
     fn protocol_and_shape_faults_match_the_shipped_codes() {
+        let schema = request_schema();
         assert_eq!(
-            parse_request(&json!({"protocol":2,"id":"a","method":"handshake","params":{}}))
-                .expect_err("protocol 2 must fail")
-                .code,
+            parse_request(
+                &json!({"protocol":2,"id":"a","method":"handshake","params":{}}),
+                &schema
+            )
+            .expect_err("protocol 2 must fail")
+            .code,
             "PROTOCOL_MISMATCH"
         );
         assert_eq!(
             parse_request(
                 &json!({"protocol":1,"id":"a","method":"handshake","params":{},
-                                  "unexpected":true})
+                                  "unexpected":true}),
+                &schema
             )
             .expect_err("additional properties must fail")
             .code,
             "INVALID_REQUEST"
         );
         assert_eq!(
-            parse_request(&json!({"protocol":1,"id":"a","method":"candidate.preview",
-                                  "params":{"seed":1,"rarity":4,"level":180,"extra":1}}))
+            parse_request(
+                &json!({"protocol":1,"id":"a","method":"candidate.preview",
+                                  "params":{"seed":1,"rarity":4,"level":180,"extra":1}}),
+                &schema
+            )
             .expect_err("unknown params must fail")
             .code,
             "INVALID_REQUEST"
         );
         assert_eq!(
-            parse_request(&json!({"protocol":1,"id":"a","method":"not.a.method","params":{}}))
-                .expect_err("unknown methods are not in the schema")
-                .code,
+            parse_request(
+                &json!({"protocol":1,"id":"a","method":"not.a.method","params":{}}),
+                &schema
+            )
+            .expect_err("unknown methods are not in the schema")
+            .code,
             "INVALID_REQUEST"
         );
         assert_eq!(
-            parse_request(&json!({"protocol":1,"id":"","method":"handshake","params":{}}))
-                .expect_err("empty id must fail")
-                .code,
+            parse_request(
+                &json!({"protocol":1,"id":"","method":"handshake","params":{}}),
+                &schema
+            )
+            .expect_err("empty id must fail")
+            .code,
             "INVALID_REQUEST"
         );
         assert_eq!(
-            parse_request(&json!({"protocol":1,"id":"a","method":"candidate.preview",
-                                  "params":{"seed":1,"rarity":6,"level":180}}))
+            parse_request(
+                &json!({"protocol":1,"id":"a","method":"candidate.preview",
+                                  "params":{"seed":1,"rarity":6,"level":180}}),
+                &schema
+            )
             .expect_err("rarity outside the enum must fail")
             .code,
             "INVALID_REQUEST"

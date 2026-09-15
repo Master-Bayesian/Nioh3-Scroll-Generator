@@ -83,6 +83,11 @@ pub struct Candidate {
     pub record: Vec<u8>,
     pub installation_record: Option<Vec<u8>>,
     pub effects: Vec<CandidateEffect>,
+    /// 1-based solver trial this candidate came from, or `None` when the
+    /// candidate was not produced by a search job. Mirrors
+    /// `ScrollCandidate.joint_search_trial`, which the wire `cursor` field
+    /// reports; it is deliberately not part of `candidate_identity`.
+    pub joint_search_trial: Option<u64>,
 }
 
 impl Candidate {
@@ -264,6 +269,7 @@ mod tests {
                 record: Vec::new(),
                 installation_record: None,
                 effects,
+                joint_search_trial: None,
             };
             assert_eq!(
                 candidate_identity(&candidate, CONTEXT_DIGEST),
@@ -283,6 +289,7 @@ mod tests {
             record: Vec::new(),
             installation_record: None,
             effects: Vec::new(),
+            joint_search_trial: None,
         };
         assert!(candidate.installable());
         assert_eq!(candidate.install_blocker(), None);
@@ -304,6 +311,7 @@ mod tests {
             record: vec![0u8; SCROLL_RECORD_SIZE],
             installation_record: None,
             effects: Vec::new(),
+            joint_search_trial: None,
         };
         assert_eq!(candidate.unresolved_effect_slots(), vec![5]);
         assert!(!candidate.installable());

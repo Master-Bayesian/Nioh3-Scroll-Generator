@@ -12,7 +12,9 @@ use nioh3_domain::preview::{
 };
 use serde_json::{json, Map, Value};
 
+use crate::capabilities::Capabilities;
 use crate::context::GenerationContext;
+use crate::jobs::JobView;
 use crate::model::{candidate_identity, Candidate, CandidateEffect};
 
 /// Evidence label the offline preview path reports.
@@ -23,7 +25,11 @@ pub const CERTIFIED_OFFLINE_REPLAY: &str = "certified_offline_replay";
 /// The capability block states the real subset: exact CPU replay of the
 /// offline preview, no GPU helper, no search orchestration, no cache and no
 /// write path. Absent optional fields are omitted rather than faked.
-pub fn handshake_result(contract_digest: &str, context: &GenerationContext) -> Value {
+pub fn handshake_result(
+    contract_digest: &str,
+    context: &GenerationContext,
+    capabilities: Capabilities,
+) -> Value {
     json!({
         "protocol": crate::protocol::PROTOCOL_VERSION,
         "contract_digest": contract_digest,
@@ -32,10 +38,12 @@ pub fn handshake_result(contract_digest: &str, context: &GenerationContext) -> V
         "capabilities": {
             "playthroughs": [3],
             "rarities": [3, 4, 5],
-            "cuda_pivot_and_auxiliary": false,
-            "directcompute_effect_filter": false,
+            // Real probes: the shipped seed-accelerator and effect-preimage
+            // helpers are loaded and asked, exactly like the Python worker.
+            "cuda_pivot_and_auxiliary": capabilities.cuda_pivot_and_auxiliary,
+            "directcompute_effect_filter": capabilities.directcompute_effect_filter,
             "cpu_exact_replay": true,
-            "bulk_cpu_requires_opt_in": false,
+            "bulk_cpu_requires_opt_in": capabilities.bulk_cpu_requires_opt_in,
             "save_write": false,
             "runtime_calls": false,
         },
@@ -69,12 +77,27 @@ pub fn preview_result(
     level: u16,
     composition: &Ng3PreviewComposition,
 ) -> Value {
+    json!({
+        "candidate": candidate_payload_json(candidate, context_digest, composition),
+        "transfer": transfer_json(candidate, context_digest, level),
+    })
+}
+
+/// `worker_contracts.candidate_payload`: one job candidate entry.
+///
+/// `cursor` is the 1-based solver trial the candidate came from, matching
+/// `candidate.joint_search_trial`; the standalone preview path leaves it null.
+pub fn candidate_payload_json(
+    candidate: &Candidate,
+    context_digest: &str,
+    composition: &Ng3PreviewComposition,
+) -> Value {
     let candidate_id = candidate_identity(candidate, context_digest);
     let blocker = candidate.install_blocker();
     let installable = blocker.is_none();
     let effects: Vec<Value> = candidate.effects.iter().map(effect_json).collect();
 
-    let candidate_payload = json!({
+    json!({
         "candidate_id": candidate_id,
         "context_digest": context_digest,
         "seed": candidate.seed,
@@ -86,13 +109,18 @@ pub fn preview_result(
         "effects": effects,
         "auxiliary": auxiliary_json(&composition.auxiliary),
         "enemy_states": enemy_states_json(&composition.enemy_states),
-        "cursor": Value::Null,
+        "cursor": candidate.joint_search_trial,
         "evidence": CERTIFIED_OFFLINE_REPLAY,
         "installation_available": installable,
         "initial_challenge_capacity": composition.initial_challenge_capacity,
-    });
+    })
+}
 
-    let transfer = json!({
+/// `candidate_transfer.export_candidate`: the broker-only transfer block.
+pub fn transfer_json(candidate: &Candidate, context_digest: &str, level: u16) -> Value {
+    let candidate_id = candidate_identity(candidate, context_digest);
+    let effects: Vec<Value> = candidate.effects.iter().map(effect_json).collect();
+    json!({
         "candidate_id": candidate_id,
         "context_digest": context_digest,
         "level": level,
@@ -108,9 +136,59 @@ pub fn preview_result(
             .map(Value::String)
             .unwrap_or(Value::Null),
         "effects": effects,
-    });
+    })
+}
 
-    json!({"candidate": candidate_payload, "transfer": transfer})
+/// One detached `JobSnapshot`, exactly the shipped field set.
+pub fn job_snapshot_json(view: &JobView) -> Value {
+    let progress = match &view.progress {
+        None => Value::Null,
+        Some(report) => json!({
+            "start_after_trial": report.start_after_trial,
+            "inspected_through_trial": report.inspected_through_trial,
+            "family_size": report.family_size,
+            "fixed_seed_count": report.fixed_seed_count,
+            "stages": report
+                .stages
+                .iter()
+                .map(|stage| json!({
+                    "kind": stage.kind,
+                    "values": stage.values,
+                    "count": stage.count,
+                }))
+                .collect::<Vec<Value>>(),
+            "complete_match_count": report.complete_match_count,
+            "exhausted_family": report.exhausted_family,
+        }),
+    };
+    json!({
+        "job_id": view.job_id,
+        "state": view.state,
+        "sequence": view.sequence,
+        "query_digest": view.query_digest,
+        "context_digest": view.context_digest,
+        "cursor": view.cursor,
+        "start_cursor": view.start_cursor,
+        "candidates": view.candidates,
+        "progress": progress,
+        "stop_reason": view.stop_reason,
+        "error": match &view.error {
+            None => Value::Null,
+            Some((code, message)) => json!({"code": code, "message": message}),
+        },
+        "resume_token": view.resume_token,
+        "elapsed_ms": view.elapsed_ms,
+    })
+}
+
+/// `job.current`: the latest job, or null before the first search.
+pub fn current_job_json(view: Option<&JobView>) -> Value {
+    json!({
+        "job": match view {
+            None => Value::Null,
+            Some(view) => job_snapshot_json(view),
+        },
+    })
 }
 
 fn effect_json(effect: &CandidateEffect) -> Value {

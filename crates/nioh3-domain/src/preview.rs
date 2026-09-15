@@ -31,6 +31,14 @@ use crate::{
 pub const CURSE_SCOPE: &str = "late runtime context not captured; no Seed-only certainty claimed";
 /// Curse input the shipped preview always reports as missing.
 pub const CURSE_MISSING_INPUT: &str = "Curse: selector gates, resolved per-occurrence eligibility, probability/3B37 and placement source for the same invocation";
+/// Reason the shipped payload reports when the enemy-state half cannot be
+/// composed but the candidate is still returned.
+///
+/// This is the reference's own text (the `AuxiliaryGenerationError` raised by
+/// `generate_enemy_variant` for a nonzero descriptor selector), because the
+/// message is part of the candidate payload's `missing_inputs`.
+pub const ENEMY_STATE_FALLBACK_REASON: &str =
+    "selector-nonzero branch needs independent parity; use explicit generate_roster for research";
 
 /// Byte offset of the wave-budget block inside a 48-byte context row.
 const CONTEXT_BUDGET_OFFSET: usize = 0x04;
@@ -206,7 +214,9 @@ pub struct EnemyStatePreview {
     pub seed: u32,
     pub playthrough: u8,
     pub variant: MissionVariant,
-    pub terrain: u8,
+    /// Terrain of the composed roster, or `None` when the enemy-state half fell
+    /// back because the descriptor selector branch is outside this slice.
+    pub terrain: Option<u8>,
     pub occurrences: Vec<EnemyStateOccurrence>,
     pub possessed_complete: bool,
     pub missing_inputs: Vec<String>,
@@ -242,18 +252,22 @@ pub fn compose_auxiliary_preview(
     playthrough: u8,
     tables: &PreviewTables<'_>,
 ) -> Result<AuxiliaryPreview, EnemyError> {
-    let preview = generate_enemy_preview(
+    // The auxiliary half is composed through the selector-aware roster stage,
+    // not the research wrapper that rejects a nonzero descriptor selector: the
+    // shipped payload still reports terrain, enemy groups and special rules for
+    // those Seeds. Only the enemy-state half falls back, exactly like the
+    // reference, which is why this path must not fail the whole candidate.
+    let (context, roster) = resolve_and_generate_roster(
         seed,
         playthrough,
         MissionVariant::Solo,
         tables.roster,
         tables.context,
-        tables.states,
     )?;
-    let budgets = wave_budgets(tables.roster, preview.context.auxiliary_mode)?;
+    let budgets = wave_budgets(tables.roster, context.auxiliary_mode)?;
 
-    let mut enemy_groups = Vec::with_capacity(preview.roster.waves.len());
-    for (wave, occurrences) in preview.roster.waves.iter().enumerate() {
+    let mut enemy_groups = Vec::with_capacity(roster.waves.len());
+    for (wave, occurrences) in roster.waves.iter().enumerate() {
         let entries = occurrences
             .iter()
             .filter(|occurrence| occurrence.selector_class == 0)
@@ -282,30 +296,27 @@ pub fn compose_auxiliary_preview(
     let terrain_row = tables
         .roster
         .terrains
-        .get(preview.context.terrain_row_index)
+        .get(context.terrain_row_index)
         .ok_or_else(|| {
             EnemyError::InvalidInput(format!(
                 "terrain row {} is outside {} terrain rows",
-                preview.context.terrain_row_index,
+                context.terrain_row_index,
                 tables.roster.terrains.len()
             ))
         })?;
 
     Ok(AuxiliaryPreview {
-        mode: preview.context.auxiliary_mode,
-        mode_branch: preview.context.mode_branch,
+        mode: context.auxiliary_mode,
+        mode_branch: context.mode_branch,
         terrain: TerrainPreview {
-            value: preview.context.terrain_value,
-            display_effect_keys: terrain_display_effect_keys(
-                terrain_row,
-                preview.context.terrain_value,
-            ),
+            value: context.terrain_value,
+            display_effect_keys: terrain_display_effect_keys(terrain_row, context.terrain_value),
             scoped_seed: crate::context::derive_terrain_seed(seed),
-            used_filtered_pool: preview.context.used_filtered_pool,
-            selected_row_index: preview.context.terrain_row_index,
+            used_filtered_pool: context.used_filtered_pool,
+            selected_row_index: context.terrain_row_index,
         },
-        descriptor_selector: preview.context.selector,
-        descriptor_flags: preview.context.flags,
+        descriptor_selector: context.selector,
+        descriptor_flags: context.flags,
         enemy_groups,
         special_rules,
     })
@@ -322,19 +333,24 @@ pub fn compose_enemy_state_preview(
     variant: MissionVariant,
     tables: &PreviewTables<'_>,
 ) -> Result<EnemyStatePreview, EnemyError> {
-    let preview = generate_enemy_preview(
+    let context = resolve_context(seed, tables.roster, tables.context)?;
+    if context.selector != 0 {
+        // The shipped payload keeps the candidate and reports the enemy-state
+        // half as unknown rather than dropping it or claiming a proven absence.
+        return Ok(enemy_state_fallback(seed, playthrough, variant));
+    }
+    let (_, roster) = resolve_and_generate_roster(
         seed,
         playthrough,
         variant,
         tables.roster,
         tables.context,
-        tables.states,
     )?;
+    let wraith = generate_wraith(&roster, tables.states);
 
     let mut occurrences = Vec::new();
-    for (index, occurrence) in preview.roster.occurrences().enumerate() {
-        let possessed = preview
-            .wraith
+    for (index, occurrence) in roster.occurrences().enumerate() {
+        let possessed = wraith
             .states
             .get(index)
             .copied()
@@ -364,19 +380,68 @@ pub fn compose_enemy_state_preview(
         });
     }
 
-    let mut missing_inputs = preview.wraith.missing.clone();
+    let mut missing_inputs = wraith.missing.clone();
     missing_inputs.push(CURSE_MISSING_INPUT.to_string());
 
     Ok(EnemyStatePreview {
         seed,
         playthrough,
         variant,
-        terrain: preview.roster.terrain,
+        terrain: Some(roster.terrain),
         occurrences,
-        possessed_complete: preview.wraith.exact,
+        possessed_complete: wraith.exact,
         missing_inputs,
         curse_scope: CURSE_SCOPE,
     })
+}
+
+/// The shipped fallback for a candidate whose enemy-state half is unknown.
+fn enemy_state_fallback(
+    seed: u32,
+    playthrough: u8,
+    variant: MissionVariant,
+) -> EnemyStatePreview {
+    EnemyStatePreview {
+        seed,
+        playthrough,
+        variant,
+        terrain: None,
+        occurrences: Vec::new(),
+        possessed_complete: false,
+        missing_inputs: vec![ENEMY_STATE_FALLBACK_REASON.to_string()],
+        curse_scope: CURSE_SCOPE,
+    }
+}
+
+/// Resolve the descriptor context and generate the roster with that selector.
+///
+/// The roster stage itself supports the selector branch (row `+0x19` matching);
+/// only [`generate_enemy_preview`] rejects it, because that entry point keeps
+/// the narrower research contract.
+fn resolve_and_generate_roster(
+    seed: u32,
+    playthrough: u8,
+    variant: MissionVariant,
+    roster_tables: &RosterTables,
+    context_tables: &ContextTables,
+) -> Result<(ResolvedContext, RosterResult), EnemyError> {
+    let context = resolve_context(seed, roster_tables, context_tables)?;
+    let input = RosterInput {
+        seed,
+        playthrough,
+        variant,
+        auxiliary_mode: context.auxiliary_mode,
+        terrain_row_index: context.terrain_row_index,
+        selector: context.selector,
+        flags: context.flags,
+    };
+    let threshold = if context.mode_branch == 0 {
+        optional_threshold(context_tables, ROLE5_THRESHOLD_KEY)?
+    } else {
+        0
+    };
+    let roster = generate_roster(input, roster_tables, threshold)?;
+    Ok((context, roster))
 }
 
 /// Compose the complete offline NG3 preview: auxiliary, both variants, capacity.

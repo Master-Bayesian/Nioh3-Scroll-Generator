@@ -52,6 +52,9 @@ SEED_SWEEP = [
     82_212_268,
     183_696_634,
     241_719_428,
+    # Nonzero descriptor selector: the shipped payload still composes the
+    # auxiliary half and reports the enemy-state half as the documented fallback.
+    53_432_590,
     0x0FFF_FFFF,
     0x7FFF_FFFF,
     0x8000_0000,
@@ -153,7 +156,7 @@ def state_lines(seed: int) -> list[str]:
 
     lines: list[str] = []
     for variant in VARIANTS:
-        preview = generate_enemy_state_preview(seed, NG3_PLAYTHROUGH, variant=variant)
+        preview = enemy_state_or_fallback(seed, variant)
         for occurrence in preview.occurrences:
             lines.append(
                 f"state\t{seed}\t{variant}\t{occurrence.wave_index}"
@@ -163,7 +166,8 @@ def state_lines(seed: int) -> list[str]:
                 f"\t{occurrence.curse_if_fresh_null_source_selector_runs}"
             )
         lines.append(
-            f"statesummary\t{seed}\t{variant}\t{preview.terrain}"
+            f"statesummary\t{seed}\t{variant}"
+            f"\t{'-' if preview.terrain is None else preview.terrain}"
             f"\t{len(preview.occurrences)}"
             f"\t{flag_text(preview.possessed_complete)}"
             f"\t{len(preview.missing_inputs)}"
@@ -171,6 +175,31 @@ def state_lines(seed: int) -> list[str]:
             f"\t{preview.curse_scope}"
         )
     return lines
+
+
+def enemy_state_or_fallback(seed: int, variant: str):
+    """Reproduce `worker_contracts.candidate_payload`'s enemy-state fallback.
+
+    The shipped payload keeps the candidate when the enemy-state half cannot be
+    composed and reports the reason in `missing_inputs` instead of dropping it,
+    so the reference must model that branch as well.
+    """
+
+    from nioh3_scroll_editor.auxiliary_generation import AuxiliaryGenerationError
+    from nioh3_scroll_editor.enemy_state_search import EnemyStatePreview
+
+    try:
+        return generate_enemy_state_preview(seed, NG3_PLAYTHROUGH, variant=variant)
+    except AuxiliaryGenerationError as error:
+        return EnemyStatePreview(
+            seed,
+            NG3_PLAYTHROUGH,
+            variant,
+            None,
+            tuple(),
+            False,
+            (str(error),),
+        )
 
 
 def effect_lines(seed: int, grace_map) -> list[str]:
@@ -270,6 +299,85 @@ class PreviewParityTest(unittest.TestCase):
         ):
             self.assertEqual(rust_line, reference_line, f"row {index}")
 
+    def test_nonzero_descriptor_selector_matches_the_shipped_payload(self) -> None:
+        """The nonzero-selector Seed must reproduce the shipped payload exactly.
+
+        The shipped worker composes the auxiliary half through the selector-aware
+        roster stage, so `candidate.auxiliary` still carries terrain, enemy groups
+        and special rules for a nonzero descriptor selector. Only the enemy-state
+        half falls back: `enemy_state_search.generate_enemy_state_preview` reaches
+        `generate_enemy_variant`, which raises for that branch, and
+        `worker_contracts.candidate_payload` keeps the candidate and records the
+        error text in `missing_inputs`. Both sides are pinned here so neither the
+        composed half nor the fallback can regress unnoticed.
+        """
+
+        from nioh3_scroll_editor.auxiliary_generation import AuxiliaryGenerationError
+        from nioh3_scroll_editor.auxiliary_generation import generate_complete_auxiliary
+        from nioh3_scroll_editor.enemy_state_search import generate_enemy_state_preview
+
+        seed = 53_432_590
+        self.assertIn(seed, SEED_SWEEP, "the nonzero-selector Seed must be swept")
+
+        # Oracle: the shipped product's own behaviour for this Seed.
+        shipped_auxiliary = generate_complete_auxiliary(seed, NG3_PLAYTHROUGH)
+        self.assertNotEqual(
+            shipped_auxiliary.descriptor.selector,
+            0,
+            "this Seed must exercise the nonzero descriptor selector branch",
+        )
+        for variant in VARIANTS:
+            with self.assertRaises(AuxiliaryGenerationError) as caught:
+                generate_enemy_state_preview(seed, NG3_PLAYTHROUGH, variant=variant)
+            self.assertIn("selector-nonzero branch", str(caught.exception), variant)
+
+        # The Rust emitter must reproduce that byte-for-byte, not merely agree on
+        # the rows that happen to be present on both sides.
+        components = [
+            line.split("\t")
+            for line in self.reference
+            if line.startswith(f"component\t{seed}\t")
+        ]
+        self.assertEqual(len(components), len(PLAYTHROUGH_SWEEP))
+        for row in components:
+            # Columns: kind, seed, playthrough, mode, branch, terrain value,
+            # terrain row, used-filtered-pool, selector, flags, display keys,
+            # rule keys, rule budget, draws, scoped seed.
+            self.assertNotEqual(
+                int(row[8]),
+                0,
+                "the shipped auxiliary half reports a nonzero descriptor selector",
+            )
+            self.assertTrue(
+                row[11],
+                "the composed half must still publish a terrain display row",
+            )
+            self.assertTrue(
+                row[13],
+                "the composed half must still publish the special-rule keys",
+            )
+
+        fallbacks = [
+            line.split("\t")
+            for line in self.reference
+            if line.startswith(f"statesummary\t{seed}\t")
+        ]
+        self.assertEqual(len(fallbacks), len(VARIANTS))
+        for row in fallbacks:
+            self.assertEqual(row[3], "-", "the fallback reports no terrain")
+            self.assertEqual(row[4], "0", "the fallback reports no occurrence")
+            self.assertEqual(row[5], "false", "the fallback is not a complete possession")
+            self.assertEqual(row[6], "1", "the fallback reports exactly one reason")
+            self.assertIn("selector-nonzero branch", row[7])
+
+        rust_lines = {line for line in self.rust if f"\t{seed}\t" in line}
+        reference_lines = {line for line in self.reference if f"\t{seed}\t" in line}
+        self.assertEqual(
+            rust_lines,
+            reference_lines,
+            "the nonzero-selector Seed must match the shipped payload exactly",
+        )
+
     def test_sweep_is_not_vacuous(self) -> None:
         """Pin the sweep shape so a silently empty gate cannot pass."""
 
@@ -291,6 +399,11 @@ class PreviewParityTest(unittest.TestCase):
         )
         self.assertGreaterEqual(
             len({int(row[6]) for row in fields}), 15, "measured terrain rows"
+        )
+        self.assertTrue(
+            any(int(row[8]) != 0 for row in fields),
+            "the sweep no longer covers a nonzero descriptor selector, so the "
+            "fallback branch would go untested",
         )
         display_keys = {row[11] for row in fields}
         self.assertTrue(
@@ -336,12 +449,14 @@ class PreviewParityTest(unittest.TestCase):
             if line.startswith("statesummary\t")
         ]
         self.assertTrue(
-            all(row[5] == "true" for row in summaries),
-            "a complete capture must report possessed_complete",
+            {"true", "false"}.issubset({row[5] for row in summaries}),
+            "the sweep must contain both a composed enemy-state half and the "
+            "documented fallback, so neither branch is untested",
         )
         self.assertTrue(
             all(row[6] == "1" for row in summaries),
-            "exactly the Curse line is missing on a complete capture",
+            "a composed half misses exactly the Curse line and the fallback misses "
+            "exactly its reason",
         )
 
         effects = [

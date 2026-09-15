@@ -133,7 +133,7 @@ fn run(options: &Options) -> ExitCode {
             }
         };
         let id = request_id(&payload);
-        let outcome = match parse_request(&payload) {
+        let outcome = match parse_request(&payload, engine.schema()) {
             Ok(request) => engine.dispatch(request),
             Err(error) => Outcome::Reply(engine.error_reply(&id, &error)),
         };
