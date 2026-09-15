@@ -227,6 +227,29 @@ impl SearchBackend {
         }
     }
 
+    /// Apply the shipped per-seed auxiliary predicate to one batch of page
+    /// matches, returning one verdict per seed in input order.
+    ///
+    /// This is the placement the shipped worker uses before it composes
+    /// anything: the native terrain/enemy/rule matchers decide the caller's
+    /// auxiliary criteria for a whole batch of candidate seeds. The job layer
+    /// still verifies every accepted candidate against the composed auxiliary
+    /// output, so this can only remove seeds the native matcher already
+    /// rejected, never admit one.
+    pub fn auxiliary_criteria_selected(
+        &self,
+        spec: &AuxiliaryPivotSpec,
+        seeds: &[u32],
+    ) -> Result<Vec<bool>, NativeSearchError> {
+        let Some(accelerator) = self.accelerator.as_deref() else {
+            return Err(NativeSearchError::Unavailable);
+        };
+        // The DLL keeps process-global diagnostics and scratch buffers, so the
+        // predicate takes the same lock a page collection does.
+        let _call_lock = native_call_lock();
+        accelerator.auxiliary_criteria_selected(spec, seeds)
+    }
+
     /// Collect one bounded, non-overlapping page.
     ///
     /// Cancellation is honoured between native chunks, so the caller never
@@ -252,6 +275,26 @@ impl SearchBackend {
         request: &PageRequest,
         cancelled: &dyn Fn() -> bool,
         progress: &mut dyn FnMut(&ChunkProgress),
+    ) -> Result<CollectedPage, NativeSearchError> {
+        self.collect_page_filtered(query, request, cancelled, progress, None)
+    }
+
+    /// Collect one bounded page whose `page_size` counts accepted matches.
+    ///
+    /// `predicate` is the shipped per-seed auxiliary predicate. With a
+    /// predicate, a raw native match is decided *before* it counts towards
+    /// `page_size`, which is the placement the shipped solver uses: a page ends
+    /// when it has `page_size` accepted candidates or when the trial budget is
+    /// exhausted, so a page whose candidates are all rejected still covers its
+    /// whole window in one scan. Without a predicate the raw matches are the
+    /// accepted ones.
+    pub fn collect_page_filtered(
+        &self,
+        query: &NativePivotQuery,
+        request: &PageRequest,
+        cancelled: &dyn Fn() -> bool,
+        progress: &mut dyn FnMut(&ChunkProgress),
+        predicate: Option<&AuxiliaryPivotSpec>,
     ) -> Result<CollectedPage, NativeSearchError> {
         let Some(accelerator) = self.accelerator.as_deref() else {
             return Err(NativeSearchError::Unavailable);
@@ -297,11 +340,15 @@ impl SearchBackend {
             }
             accumulate(&mut stage_counts, &counts)?;
 
+            let accepted = match predicate {
+                Some(predicate) => filter_matches(accelerator, predicate, &page.matches)?,
+                None => page.matches,
+            };
             let remaining = request.page_size - matches.len();
-            if page.matches.len() > remaining {
+            if accepted.len() > remaining {
                 // Recount the exact prefix ending at the last returned result so
                 // pagination and every displayed intersection count stay exact.
-                let cut = page.matches[remaining - 1].trial;
+                let cut = accepted[remaining - 1].trial;
                 let mut recount_window = window;
                 recount_window.stop_index = cut;
                 let (recount, recount_counts) =
@@ -310,14 +357,18 @@ impl SearchBackend {
                 for matched in &recount.matches {
                     verify_pivot_match(values, &recount_window, *matched)?;
                 }
-                if recount.matches.len() != remaining {
+                let recount_accepted = match predicate {
+                    Some(predicate) => filter_matches(accelerator, predicate, &recount.matches)?,
+                    None => recount.matches,
+                };
+                if recount_accepted.len() != remaining {
                     return Err(NativeSearchError::Rejected {
                         call: "collect_auxiliary_pivot_matches",
                     });
                 }
                 stage_counts = vec![0u64; query.stage_count()];
                 accumulate(&mut stage_counts, &recount_counts)?;
-                matches.extend(recount.matches);
+                matches.extend(recount_accepted);
                 cursor = cut;
                 progress(&ChunkProgress {
                     inspected_through_trial: cursor,
@@ -326,7 +377,7 @@ impl SearchBackend {
                 });
                 break;
             }
-            matches.extend(page.matches);
+            matches.extend(accepted);
             cursor = stop;
             progress(&ChunkProgress {
                 inspected_through_trial: cursor,
@@ -404,6 +455,27 @@ impl NativePivotQuery {
             NativePivotQuery::Auxiliary { spec, .. } => spec.draw_index,
         }
     }
+}
+
+/// Decide one window's raw native matches with the shipped per-seed predicate.
+///
+/// Runs inside the page loop, so the caller already holds the native call lock
+/// and passes the accelerator directly.
+fn filter_matches(
+    accelerator: &Accelerator,
+    predicate: &AuxiliaryPivotSpec,
+    raw: &[PivotMatch],
+) -> Result<Vec<PivotMatch>, NativeSearchError> {
+    if raw.is_empty() {
+        return Ok(Vec::new());
+    }
+    let seeds: Vec<u32> = raw.iter().map(|matched| matched.seed).collect();
+    let selected = accelerator.auxiliary_criteria_selected(predicate, &seeds)?;
+    Ok(raw
+        .iter()
+        .zip(selected)
+        .filter_map(|(matched, keep)| keep.then_some(*matched))
+        .collect())
 }
 
 /// Exact replay check: a returned match must reproduce from its own cursor.

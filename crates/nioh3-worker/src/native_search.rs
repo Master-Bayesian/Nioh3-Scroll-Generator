@@ -33,6 +33,8 @@ pub const MAX_R4_PRIMARY_TRIALS: u64 = 50_000_000;
 pub const MAX_R4_PRIMARY_CAPACITY: u64 = 4_000_000;
 /// Maximum trials one fused auxiliary call may scan (native ABI cap).
 pub const MAX_AUXILIARY_TRIALS: u64 = 8_000_000;
+/// Maximum seeds one per-seed batch predicate call may take (native ABI cap).
+pub const MAX_PREDICATE_BATCH: usize = 1_000_000;
 /// Maximum criterion groups the native matchers accept.
 pub const MAX_CRITERION_GROUPS: usize = 32;
 /// Maximum enemy rows the native matcher accepts.
@@ -315,6 +317,17 @@ fn flatten_groups<T: Copy + Ord>(
     Ok((keys, offsets))
 }
 
+/// `(1 << groups) - 1`: the mask a seed must set when every group matches.
+///
+/// The native ABI caps a batch at 32 groups, where the mask is all ones.
+fn group_mask(groups: usize) -> u32 {
+    if groups >= 32 {
+        u32::MAX
+    } else {
+        (1u32 << groups) - 1
+    }
+}
+
 /// The loaded accelerator library, owned by the single worker job owner.
 pub struct Accelerator {
     identity: AcceleratorIdentity,
@@ -569,6 +582,206 @@ impl Accelerator {
             stage_counts,
             backend: self.last_backend(),
         })
+    }
+
+    /// The shipped per-seed auxiliary predicate, in one verdict per seed.
+    ///
+    /// This is the placement `effect_seed_solver._iter_solution_prefetch` uses
+    /// before the R4-primary route composes anything: the terrain row for every
+    /// seed, the caller's terrain criteria over that row, the requested enemy
+    /// groups, and the special-rule groups after their scratch-key replay. All
+    /// four steps are the same native exports the fused auxiliary route uses, so
+    /// no criterion semantics are re-derived in Rust.
+    ///
+    /// Later stages only run for seeds an earlier stage kept, mirroring the
+    /// reference's staged batch filtering.
+    pub fn auxiliary_criteria_selected(
+        &self,
+        spec: &AuxiliaryPivotSpec,
+        seeds: &[u32],
+    ) -> Result<Vec<bool>, NativeSearchError> {
+        if seeds.is_empty() {
+            return Ok(Vec::new());
+        }
+        if seeds.len() > MAX_PREDICATE_BATCH {
+            return Err(NativeSearchError::InvalidInput(
+                "native predicate batches are limited to 1,000,000 seeds",
+            ));
+        }
+        let enemy_groups = spec.enemy_group_count as usize;
+        if enemy_groups > spec.enemy_criterion_groups.len() {
+            return Err(NativeSearchError::InvalidInput(
+                "native enemy group count exceeds the packed groups",
+            ));
+        }
+        let terrain_groups = &spec.enemy_criterion_groups[..enemy_groups];
+        let scratch_groups = &spec.enemy_criterion_groups[enemy_groups..];
+        let needs_rows = spec.has_terrain_constraint
+            || !terrain_groups.is_empty()
+            || !spec.rule_criterion_groups.is_empty();
+        if !needs_rows {
+            return Ok(vec![true; seeds.len()]);
+        }
+        if spec.terrain_row_count == 0
+            || spec.filtered_terrain_rows.is_empty()
+            || spec.allowed_terrain_rows.len() != spec.terrain_row_count as usize
+        {
+            return Err(NativeSearchError::InvalidInput(
+                "native terrain predicate needs one flag per terrain row",
+            ));
+        }
+        if spec
+            .filtered_terrain_rows
+            .iter()
+            .any(|row| *row >= spec.terrain_row_count)
+            || !spec.enemy_rows.len().is_multiple_of(ENEMY_ROW_BYTES)
+            || !spec.terrains.len().is_multiple_of(TERRAIN_ROW_BYTES)
+            || !spec.contexts.len().is_multiple_of(CONTEXT_ROW_BYTES)
+            || (!terrain_groups.is_empty() || !scratch_groups.is_empty())
+                && (spec.enemy_rows.is_empty()
+                    || spec.terrains.is_empty()
+                    || spec.contexts.is_empty())
+        {
+            return Err(NativeSearchError::InvalidInput(
+                "native predicate inputs do not match the packed ABI",
+            ));
+        }
+        if !spec.rule_criterion_groups.is_empty()
+            && (!spec.rule_rows.len().is_multiple_of(RULE_ROW_BYTES) || spec.rule_rows.is_empty())
+        {
+            return Err(NativeSearchError::InvalidInput(
+                "native special-rule rows do not match the 16-byte ABI",
+            ));
+        }
+
+        let mut selected = vec![true; seeds.len()];
+        for start in (0..seeds.len()).step_by(MAX_PREDICATE_BATCH) {
+            let stop = (start + MAX_PREDICATE_BATCH).min(seeds.len());
+            let batch = &seeds[start..stop];
+            let mut rows = vec![0u32; batch.len()];
+            let code = self.native.terrain_row_indices(
+                batch,
+                spec.mode_threshold,
+                &spec.filtered_terrain_rows,
+                spec.terrain_row_count,
+                &mut rows,
+            );
+            if code != 0 && code != 1 {
+                return Err(self.fail("generate_terrain_row_indices"));
+            }
+            if spec.has_terrain_constraint {
+                for (index, row) in rows.iter().enumerate() {
+                    if spec.allowed_terrain_rows[*row as usize] == 0 {
+                        selected[start + index] = false;
+                    }
+                }
+            }
+            if !terrain_groups.is_empty() {
+                let kept: Vec<usize> = (0..batch.len())
+                    .filter(|index| selected[start + index])
+                    .collect();
+                let masks = self.enemy_masks(&kept, batch, &rows, spec, terrain_groups)?;
+                let target = group_mask(terrain_groups.len());
+                for (slot, mask) in masks.iter().enumerate() {
+                    if *mask != target {
+                        selected[start + kept[slot]] = false;
+                    }
+                }
+            }
+            if !spec.rule_criterion_groups.is_empty() {
+                let kept: Vec<usize> = (0..batch.len())
+                    .filter(|index| selected[start + index])
+                    .collect();
+                let scratch = self.enemy_masks(&kept, batch, &rows, spec, scratch_groups)?;
+                let batch_seeds: Vec<u32> = kept.iter().map(|index| batch[*index]).collect();
+                let mut scratch_for_rules = vec![0u32; scratch.len()];
+                scratch_for_rules.copy_from_slice(&scratch);
+                let masks = self.rule_masks(&batch_seeds, &scratch_for_rules, spec)?;
+                let target = group_mask(spec.rule_criterion_groups.len());
+                for (slot, mask) in masks.iter().enumerate() {
+                    if *mask != target {
+                        selected[start + kept[slot]] = false;
+                    }
+                }
+            }
+        }
+        Ok(selected)
+    }
+
+    /// Enemy masks for the kept seeds of one batch, in kept order.
+    fn enemy_masks(
+        &self,
+        kept: &[usize],
+        batch: &[u32],
+        rows: &[u32],
+        spec: &AuxiliaryPivotSpec,
+        groups: &[Vec<u32>],
+    ) -> Result<Vec<u32>, NativeSearchError> {
+        if kept.is_empty() {
+            return Ok(Vec::new());
+        }
+        if groups.is_empty() || groups.len() > 32 || groups.iter().any(|group| group.is_empty()) {
+            return Err(NativeSearchError::InvalidInput(
+                "native enemy matching requires 1..32 non-empty groups",
+            ));
+        }
+        let seeds: Vec<u32> = kept.iter().map(|index| batch[*index]).collect();
+        let terrain_rows: Vec<u32> = kept.iter().map(|index| rows[*index]).collect();
+        let mut masks = vec![0u32; seeds.len()];
+        let code = self.native.match_enemy_constraints(
+            &seeds,
+            &terrain_rows,
+            spec.playthrough,
+            spec.mode_threshold,
+            &spec.descriptor_thresholds,
+            spec.selector_threshold,
+            spec.role_five_threshold,
+            spec.selector_value,
+            &spec.enemy_rows,
+            &spec.terrains,
+            &spec.contexts,
+            groups,
+            &mut masks,
+        );
+        if code != 0 && code != 1 {
+            return Err(self.fail("match_enemy_constraints"));
+        }
+        Ok(masks)
+    }
+
+    /// Special-rule masks for one batch after the scratch-key replay.
+    fn rule_masks(
+        &self,
+        seeds: &[u32],
+        scratch_masks: &[u32],
+        spec: &AuxiliaryPivotSpec,
+    ) -> Result<Vec<u32>, NativeSearchError> {
+        if seeds.is_empty() {
+            return Ok(Vec::new());
+        }
+        if spec.rule_criterion_groups.is_empty()
+            || spec.rule_criterion_groups.len() > 32
+            || spec
+                .rule_criterion_groups
+                .iter()
+                .any(|group| group.is_empty())
+        {
+            return Err(NativeSearchError::InvalidInput(
+                "native special-rule matching requires 1..32 non-empty groups",
+            ));
+        }
+        let mut masks = vec![0u32; seeds.len()];
+        let code = self.native.match_special_rule_constraints(
+            seeds,
+            scratch_masks,
+            &spec.rule_rows,
+            &spec.rule_criterion_groups,
+            &mut masks,
+        );
+        if code != 0 && code != 1 {
+            return Err(self.fail("match_special_rule_constraints"));
+        }
+        Ok(masks)
     }
 
     /// Test-only hook: `seed_accelerator_test_force_cuda_failure`.
@@ -915,6 +1128,45 @@ mod platform {
         u32,
     ) -> u64;
 
+    type TerrainRows =
+        unsafe extern "C" fn(*const u32, u64, i32, *const u32, u32, u32, *mut u32) -> i32;
+    #[allow(clippy::type_complexity)]
+    type MatchEnemy = unsafe extern "C" fn(
+        *const u32,
+        *const u32,
+        u64,
+        u8,
+        i32,
+        *const i32,
+        i32,
+        i32,
+        u8,
+        *const c_void,
+        u32,
+        *const c_void,
+        u32,
+        *const c_void,
+        u32,
+        *const u32,
+        u32,
+        *const u16,
+        u32,
+        *mut u32,
+    ) -> i32;
+    #[allow(clippy::type_complexity)]
+    type MatchRules = unsafe extern "C" fn(
+        *const u32,
+        *const u32,
+        u64,
+        *const c_void,
+        u32,
+        *const u16,
+        u32,
+        *const u16,
+        u32,
+        *mut u32,
+    ) -> i32;
+
     /// Resolved exports of one loaded accelerator library.
     pub(super) struct Native {
         /// Lives for the process lifetime; the library is never unloaded.
@@ -928,6 +1180,9 @@ mod platform {
         collect_natural: CollectNatural,
         collect_r4_primary: CollectR4Primary,
         collect_auxiliary: CollectAuxiliary,
+        terrain_rows: TerrainRows,
+        match_enemy: MatchEnemy,
+        match_rules: MatchRules,
         build_weighted_lookup: BuildWeightedLookup,
         force_cuda_failure: Option<ForceCudaFailure>,
         bulk_cpu_call_count: Option<BulkCpuCallCount>,
@@ -972,6 +1227,9 @@ mod platform {
                     symbol(handle, b"collect_ng3_r4_primary_pivot_seeds\0")?;
                 let collect_auxiliary: CollectAuxiliary =
                     symbol(handle, b"collect_auxiliary_pivot_matches\0")?;
+                let terrain_rows: TerrainRows = symbol(handle, b"generate_terrain_row_indices\0")?;
+                let match_enemy: MatchEnemy = symbol(handle, b"match_enemy_constraints\0")?;
+                let match_rules: MatchRules = symbol(handle, b"match_special_rule_constraints\0")?;
                 let build_weighted_lookup: BuildWeightedLookup =
                     symbol(handle, b"build_weighted_effect_lookup\0")?;
                 let force_cuda_failure: Option<ForceCudaFailure> =
@@ -1003,6 +1261,9 @@ mod platform {
                     collect_natural,
                     collect_r4_primary,
                     collect_auxiliary,
+                    terrain_rows,
+                    match_enemy,
+                    match_rules,
                     build_weighted_lookup,
                     force_cuda_failure,
                     bulk_cpu_call_count,
@@ -1208,6 +1469,112 @@ mod platform {
                 )
             }
         }
+
+        /// `generate_terrain_row_indices` over one bounded seed batch.
+        pub(super) fn terrain_row_indices(
+            &self,
+            seeds: &[u32],
+            mode_threshold: i32,
+            filtered_rows: &[u32],
+            terrain_row_count: u32,
+            output: &mut [u32],
+        ) -> i32 {
+            debug_assert_eq!(seeds.len(), output.len());
+            // SAFETY: every pointer refers to a live slice and the caller
+            // validated the row table against the native ABI.
+            unsafe {
+                (self.terrain_rows)(
+                    seeds.as_ptr(),
+                    seeds.len() as u64,
+                    mode_threshold,
+                    filtered_rows.as_ptr(),
+                    filtered_rows.len() as u32,
+                    terrain_row_count,
+                    output.as_mut_ptr(),
+                )
+            }
+        }
+
+        /// `match_enemy_constraints` over one bounded seed batch.
+        #[allow(clippy::too_many_arguments)]
+        pub(super) fn match_enemy_constraints(
+            &self,
+            seeds: &[u32],
+            terrain_rows: &[u32],
+            playthrough: u8,
+            mode_threshold: i32,
+            descriptor_thresholds: &[i32; 3],
+            selector_threshold: i32,
+            role_five_threshold: i32,
+            selector_value: u8,
+            enemy_rows: &[u8],
+            terrains: &[u8],
+            contexts: &[u8],
+            groups: &[Vec<u32>],
+            output: &mut [u32],
+        ) -> i32 {
+            let (keys, offsets) = flatten_groups(groups).unwrap_or_default();
+            let (keys_ptr, key_count) = raw_u32(&keys);
+            let (offsets_ptr, _) = raw_u16(&offsets);
+            debug_assert_eq!(seeds.len(), output.len());
+            // SAFETY: the packed blobs use the 18/5/22-byte native ABI and were
+            // validated by the caller; the slices outlive the call.
+            unsafe {
+                (self.match_enemy)(
+                    seeds.as_ptr(),
+                    terrain_rows.as_ptr(),
+                    seeds.len() as u64,
+                    playthrough,
+                    mode_threshold,
+                    descriptor_thresholds.as_ptr(),
+                    selector_threshold,
+                    role_five_threshold,
+                    selector_value,
+                    enemy_rows.as_ptr().cast::<c_void>(),
+                    (enemy_rows.len() / super::ENEMY_ROW_BYTES) as u32,
+                    terrains.as_ptr().cast::<c_void>(),
+                    (terrains.len() / super::TERRAIN_ROW_BYTES) as u32,
+                    contexts.as_ptr().cast::<c_void>(),
+                    (contexts.len() / super::CONTEXT_ROW_BYTES) as u32,
+                    keys_ptr,
+                    key_count,
+                    offsets_ptr,
+                    groups.len() as u32,
+                    output.as_mut_ptr(),
+                )
+            }
+        }
+
+        /// `match_special_rule_constraints` over one bounded seed batch.
+        pub(super) fn match_special_rule_constraints(
+            &self,
+            seeds: &[u32],
+            scratch_masks: &[u32],
+            rule_rows: &[u8],
+            groups: &[Vec<u16>],
+            output: &mut [u32],
+        ) -> i32 {
+            let (keys, offsets) = flatten_groups(groups).unwrap_or_default();
+            let (keys_ptr, key_count) = raw_u16(&keys);
+            let (offsets_ptr, _) = raw_u16(&offsets);
+            debug_assert_eq!(seeds.len(), output.len());
+            // SAFETY: packed rule rows use the 16-byte native ABI validated by
+            // the caller; every pointer refers to a live slice.
+            unsafe {
+                (self.match_rules)(
+                    seeds.as_ptr(),
+                    scratch_masks.as_ptr(),
+                    seeds.len() as u64,
+                    rule_rows.as_ptr().cast::<c_void>(),
+                    (rule_rows.len() / super::RULE_ROW_BYTES) as u32,
+                    keys_ptr,
+                    key_count,
+                    offsets_ptr,
+                    groups.len() as u32,
+                    output.as_mut_ptr(),
+                )
+            }
+        }
     }
 
     fn raw_u32(values: &[u32]) -> (*const u32, u32) {
@@ -1331,6 +1698,47 @@ mod platform {
             _stage_counts: &mut [u64],
         ) -> u64 {
             super::ERROR_RESULT
+        }
+
+        pub(super) fn terrain_row_indices(
+            &self,
+            _seeds: &[u32],
+            _mode_threshold: i32,
+            _filtered_rows: &[u32],
+            _terrain_row_count: u32,
+            _output: &mut [u32],
+        ) -> i32 {
+            -1
+        }
+
+        pub(super) fn match_enemy_constraints(
+            &self,
+            _seeds: &[u32],
+            _terrain_rows: &[u32],
+            _playthrough: u8,
+            _mode_threshold: i32,
+            _descriptor_thresholds: &[i32; 3],
+            _selector_threshold: i32,
+            _role_five_threshold: i32,
+            _selector_value: u8,
+            _enemy_rows: &[u8],
+            _terrains: &[u8],
+            _contexts: &[u8],
+            _groups: &[Vec<u32>],
+            _output: &mut [u32],
+        ) -> i32 {
+            -1
+        }
+
+        pub(super) fn match_special_rule_constraints(
+            &self,
+            _seeds: &[u32],
+            _scratch_masks: &[u32],
+            _rule_rows: &[u8],
+            _groups: &[Vec<u16>],
+            _output: &mut [u32],
+        ) -> i32 {
+            -1
         }
     }
 }

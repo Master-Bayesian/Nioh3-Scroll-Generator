@@ -87,6 +87,13 @@ pub struct CompiledQuery {
     /// Report stages in native order; `stage_counts[1..]` lines up with these.
     pub stage_specs: Vec<StageSpec>,
     pub chunk_trials: u64,
+    /// The per-seed auxiliary predicate the collector must apply before it
+    /// returns matches whose pivot does not already pack the caller's
+    /// auxiliary criteria (the rarity-4 primary route).
+    ///
+    /// `None` means the route already packs them natively, so a second check
+    /// would only cost time.
+    pub auxiliary_predicate: Option<AuxiliaryPivotSpec>,
     /// Filters the job layer must apply to accepted candidates, because the
     /// shipped worker applies them after materialization rather than as pivot
     /// constraints. Listed so they can never be silently dropped.
@@ -267,6 +274,35 @@ impl QueryCompiler {
     }
 
     fn compile_auxiliary(&self, query: &SearchQuery) -> Result<CompiledQuery, CompileError> {
+        let (spec, stage_specs, has_terrain_constraint) = self.auxiliary_packing(query)?;
+        let native = NativePivotQuery::Auxiliary {
+            values: self.full_family_values(),
+            spec,
+        };
+        Ok(CompiledQuery {
+            route: Route::Auxiliary,
+            digest: query.digest.clone(),
+            native,
+            playthrough: query.playthrough,
+            rarity: query.rarity,
+            has_terrain_constraint,
+            stage_specs,
+            chunk_trials: AUXILIARY_CHUNK_TRIALS,
+            auxiliary_predicate: None,
+            post_acceptance_filters: post_acceptance_filters(query),
+        })
+    }
+
+    /// Pack the caller's auxiliary criteria exactly as the fused route does.
+    ///
+    /// Returns the pivot spec, the report stages and whether a terrain
+    /// constraint is present. The fused auxiliary scan and the per-seed
+    /// predicate share this one packing path, so both consume identical rows,
+    /// thresholds and criterion groups.
+    fn auxiliary_packing(
+        &self,
+        query: &SearchQuery,
+    ) -> Result<(AuxiliaryPivotSpec, Vec<StageSpec>, bool), CompileError> {
         let criteria = &query.auxiliary;
         let terrain = self.terrain_batch();
         let enemy = self.enemy_batch()?;
@@ -333,21 +369,7 @@ impl QueryCompiler {
             rule_criterion_groups: rule_groups,
         };
         let stage_specs = stage_specs(criteria, has_terrain_constraint);
-        let native = NativePivotQuery::Auxiliary {
-            values: self.full_family_values(),
-            spec,
-        };
-        Ok(CompiledQuery {
-            route: Route::Auxiliary,
-            digest: query.digest.clone(),
-            native,
-            playthrough: query.playthrough,
-            rarity: query.rarity,
-            has_terrain_constraint,
-            stage_specs,
-            chunk_trials: AUXILIARY_CHUNK_TRIALS,
-            post_acceptance_filters: post_acceptance_filters(query),
-        })
+        Ok((spec, stage_specs, has_terrain_constraint))
     }
 
     fn compile_r4_primary(
@@ -366,6 +388,14 @@ impl QueryCompiler {
             ));
         }
         let spec = self.r4_primary_spec(accelerator, &query.primary_effect_ids)?;
+        // The rarity-4 pivot narrows on the primary effect only, so the caller's
+        // auxiliary criteria are applied by the native per-seed predicate after
+        // the page is collected, exactly where the shipped worker applies them.
+        let auxiliary_predicate = if auxiliary_is_empty(&query.auxiliary) {
+            None
+        } else {
+            Some(self.auxiliary_packing(query)?.0)
+        };
         let native = NativePivotQuery::R4Primary {
             values: self.full_family_values(),
             spec,
@@ -379,6 +409,7 @@ impl QueryCompiler {
             has_terrain_constraint: false,
             stage_specs: Vec::new(),
             chunk_trials: R4_PRIMARY_CHUNK_TRIALS,
+            auxiliary_predicate,
             post_acceptance_filters: r4_primary_post_acceptance_filters(query),
         })
     }
@@ -1016,9 +1047,13 @@ impl SearchCollector for NativeCollector {
             &[],
             false,
         );
+        // The page budget counts matches the caller actually accepts, exactly
+        // like the shipped solver: the native per-seed predicate runs inside the
+        // page loop, so a page whose candidates are all rejected still covers its
+        // window in one scan instead of being truncated on raw native matches.
         let page = self
             .backend
-            .collect_page_with_progress(
+            .collect_page_filtered(
                 &self.compiled.native,
                 &page_request,
                 cancelled,
@@ -1034,6 +1069,7 @@ impl SearchCollector for NativeCollector {
                     );
                     progress(&latest);
                 },
+                self.compiled.auxiliary_predicate.as_ref(),
             )
             .map_err(|error| map_collector_error("collect page", &error))?;
 
@@ -1100,6 +1136,129 @@ fn map_collector_error(what: &str, error: &NativeSearchError) -> CollectorError 
         }
         NativeSearchError::Rejected { call } => {
             CollectorError::new("SEARCH_FAILED", format!("{what}: {call} rejected valid input"))
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use serde_json::json;
+
+    use super::*;
+    use crate::collector::CandidateSource;
+    use crate::engine::Materializer;
+    use crate::query::SearchQuery;
+
+    /// The workspace root, resolved the same way the native-search tests do.
+    fn repo_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+    }
+
+    fn combined_query(primary: u32, rules: &[u32]) -> SearchQuery {
+        SearchQuery::from_payload(&json!({
+            "playthrough": 3,
+            "rarity": 4,
+            "level": 180,
+            "primary_effect_ids": [primary],
+            "required_secondary_ids": [],
+            "required_secondary_id_groups": [],
+            "grace_effect_id": null,
+            "minimum_roll_percent_by_effect_id": [],
+            "auxiliary": {
+                "required_terrain_effect_keys": [],
+                "required_terrain_effect_key_groups": [],
+                "required_special_rule_keys": rules,
+                "required_special_rule_key_groups": [],
+                "required_enemy_lookup_keys": [],
+                "required_enemy_lookup_key_groups": [],
+            },
+        }))
+        .expect("the combined query shape is valid")
+    }
+
+    /// The shipped worker decides the auxiliary criteria of this route with the
+    /// native per-seed matchers (`_iter_solution_prefetch`), and the job layer
+    /// then re-checks each accepted candidate against the composed auxiliary
+    /// output. If the two ever disagreed, a native false negative would silently
+    /// drop a candidate the product returns.
+    ///
+    /// This drives the real R4-primary pivot over a bounded window and compares
+    /// the native predicate with the composed acceptance for every match: both
+    /// verdicts must be identical, and the window must contain accepted and
+    /// rejected seeds so the comparison is not vacuous.
+    #[test]
+    fn the_native_auxiliary_predicate_agrees_with_the_composed_acceptance() {
+        let root = repo_root();
+        let data_root = root.join("nioh3_scroll_editor").join("data");
+        let compiler = QueryCompiler::load(&data_root).expect("the shipped tables load");
+        let materializer = Materializer::new(&data_root, "query-compile-predicate-test");
+        let accelerator = Accelerator::load(&root, None).expect("the shipped accelerator loads");
+        let backend = SearchBackend::from_shared(Arc::new(
+            Accelerator::load(&root, None).expect("the shipped accelerator loads twice"),
+        ));
+
+        // One combination the product returns candidates for, and one whose
+        // three rules no candidate satisfies inside the same window.
+        let cases = [
+            (0x774Fu32, vec![113u32], true),
+            (0xAE5Au32, vec![64956, 113, 20893], false),
+        ];
+        for (primary, rules, expect_accepted) in cases {
+            let query = combined_query(primary, &rules);
+            let compiled = compiler
+                .compile(&query, &accelerator)
+                .expect("the combined route compiles");
+            let predicate = compiled
+                .auxiliary_predicate
+                .as_ref()
+                .expect("the combined route carries the native predicate");
+            let page = backend
+                .collect_page(
+                    &compiled.native,
+                    // A page size above the window's match count keeps the page
+                    // from truncating, so every match of the window is compared
+                    // instead of only the first few.
+                    &PageRequest::chunk(0, 100_000, compiled.chunk_trials, 1_000_000),
+                    &|| false,
+                )
+                .expect("a bounded R4 primary page");
+            assert!(
+                !page.matches.is_empty(),
+                "primary 0x{primary:04X} must match inside the window"
+            );
+            let seeds: Vec<u32> = page.matches.iter().map(|matched| matched.seed).collect();
+            let selected = backend
+                .auxiliary_criteria_selected(predicate, &seeds)
+                .expect("the native predicate runs");
+            assert_eq!(selected.len(), page.matches.len());
+
+            let mut accepted = 0usize;
+            for (matched, keep) in page.matches.iter().zip(&selected) {
+                let materialized = materializer
+                    .materialize(&query, matched.seed, matched.trial)
+                    .expect("every R4 primary match composes");
+                assert_eq!(
+                    *keep,
+                    materialized.auxiliary_match == Some(true),
+                    "primary 0x{primary:04X} seed {} trial {}",
+                    matched.seed,
+                    matched.trial
+                );
+                accepted += usize::from(*keep);
+            }
+            if expect_accepted {
+                assert!(
+                    accepted > 0,
+                    "primary 0x{primary:04X} must accept at least one match in the window"
+                );
+            } else {
+                assert_eq!(
+                    accepted, 0,
+                    "primary 0x{primary:04X} must reject every match in the window"
+                );
+            }
         }
     }
 }
