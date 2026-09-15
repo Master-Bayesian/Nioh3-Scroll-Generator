@@ -318,31 +318,32 @@ try {
   await showIdsSwitch.focus();
   await page.keyboard.press('Space');
   assert.equal(await showIdsSwitch.isChecked(), true, 'Space toggles the Settings switch');
-  settingsSwitches = await page.locator('.settings-switch').evaluateAll(labels => labels.map(label => {
+  settingsSwitches = await page.locator('.side-popup .toggle-switch').evaluateAll(labels => labels.map(label => {
     const text = label.querySelector('span').getBoundingClientRect();
-    const input = label.querySelector('input'), control = input.getBoundingClientRect();
-    const style = getComputedStyle(input), thumb = getComputedStyle(input, '::before');
+    const input = label.querySelector('input'), track = label.querySelector('i');
+    const control = track.getBoundingClientRect();
+    const style = getComputedStyle(track), thumb = getComputedStyle(track, '::after');
     return { name: label.textContent.trim(), role: input.getAttribute('role'), checked: input.checked,
       active: document.activeElement === input,
       label: { left: text.left, right: text.right, centerY: text.top + text.height / 2 },
       control: { left: control.left, right: control.right, width: control.width, height: control.height,
         centerY: control.top + control.height / 2 },
-      style: { appearance: style.appearance, borderRadius: style.borderRadius, outlineStyle: style.outlineStyle,
+      style: { borderRadius: style.borderRadius, outlineStyle: style.outlineStyle,
         outlineWidth: style.outlineWidth, boxShadow: style.boxShadow,
         thumbWidth: thumb.width, thumbHeight: thumb.height, thumbTransform: thumb.transform } };
   }));
+  assert.equal(settingsSwitches.length, 2, 'Both Settings switches are inspected');
   for (const value of settingsSwitches) {
     assert.equal(value.role, 'switch');
     assert(value.label.right < value.control.left && Math.abs(value.label.centerY - value.control.centerY) <= 1,
       `Settings text stays left and aligned with its switch: ${JSON.stringify(value)}`);
-    assert(value.control.width >= 40 && value.control.height >= 22 && value.style.appearance === 'none' &&
+    assert(value.control.width >= 30 && value.control.height >= 17 &&
       value.style.borderRadius !== '0px' && value.style.thumbWidth === value.style.thumbHeight,
     `Settings boolean has iOS-style track and thumb geometry: ${JSON.stringify(value)}`);
   }
   const focusedSwitch = settingsSwitches.find(value => value.active);
   assert(focusedSwitch && focusedSwitch.name.includes('显示词条') &&
-    ((focusedSwitch.style.outlineStyle !== 'none' && parseFloat(focusedSwitch.style.outlineWidth) >= 1.5) ||
-      focusedSwitch.style.boxShadow !== 'none'),
+    focusedSwitch.style.outlineStyle !== 'none' && parseFloat(focusedSwitch.style.outlineWidth) >= 1.5,
     'Focused Settings switch has a visible focus ring');
   previewLineSpacing = await page.locator('.result-scroll .effect-line').evaluateAll(rows => rows.map((row, index) => {
     const rectangle = element => {

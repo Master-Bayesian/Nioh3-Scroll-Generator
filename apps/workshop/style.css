@@ -760,7 +760,7 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
   overflow: hidden;
 }
 .favorite-card > .scroll > header h2 {
-  margin-top: 3px;
+  margin-top: 0;
   overflow: hidden;
   font-size: 17px;
   line-height: 1.5;
@@ -813,6 +813,7 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 }
 .favorite-card > .scroll .enemy-lines {
   display: grid;
+  max-height: none;
   grid-auto-flow: column;
   grid-template-rows: repeat(5, 14px);
   grid-auto-columns: minmax(0, 1fr);
