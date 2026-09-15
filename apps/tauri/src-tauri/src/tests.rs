@@ -824,6 +824,122 @@ fn packaged_manifest_refuses_a_binary_that_changed_after_staging() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
+/// The staged manifest declares `<runtime>/a/b` with POSIX separators while the
+/// packaged host's root is canonical (`\\?\...`). A canonical path is never
+/// normalized, so a mixed-separator path is looked up literally: without the
+/// separator conversion every declared resource reads as missing and no packaged
+/// launch can start its workers. This is the shape `resource_dir()` hands the
+/// host, not the raw environment path the development acceptance uses.
+#[test]
+fn packaged_manifest_resolves_placeholder_paths_under_a_canonical_root() {
+    use crate::worker::{normalize_path, resolve_role_launch, staged_backend_manifest};
+    let root = std::env::temp_dir().join(format!("nioh3-canonical-{}", uuid::Uuid::new_v4()));
+    let write = |relative: &str, body: &str| {
+        let path = root.join(relative);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, body).unwrap();
+    };
+    write("worker/nioh3-search-worker.exe", "staged search worker");
+    write(
+        "worker/nioh3-protected-worker.exe",
+        "staged protected worker",
+    );
+    write(
+        "worker/runtime/nioh3_scroll_editor/data/tables.bin",
+        "tables",
+    );
+    write("worker/runtime/bin/nioh3_seed_accelerator.dll", "helper");
+    write("packages/contracts/request.schema.json", "{}");
+    write("packages/contracts/response.schema.json", "{}");
+    write("packages/contracts/protected-request.schema.json", "{}");
+    write("packages/contracts/protected-response.schema.json", "{}");
+    let sha = |relative: &str| crate::package::hash_file(&root.join(relative)).unwrap();
+    // Exactly what `tools/stage_rust_workers.py` writes: a `<runtime>` placeholder
+    // with forward slashes, never a pre-resolved absolute path.
+    let manifest = json!({
+        "schema": "nioh3-worker-backend/v1",
+        "backend": "rust",
+        "binaries": [
+            {"packagedName": "nioh3-search-worker.exe", "sha256": sha("worker/nioh3-search-worker.exe")},
+            {"packagedName": "nioh3-protected-worker.exe", "sha256": sha("worker/nioh3-protected-worker.exe")},
+        ],
+        "invocation": {
+            "offline_search": {"mode": "packaged", "binary": "nioh3-search-worker.exe", "argv": [
+                "--packaged-worker",
+                "--data-root", "<runtime>/worker/runtime/nioh3_scroll_editor/data",
+                "--contract-dir", "<runtime>/packages/contracts"]},
+            "save": {"mode": "packaged", "binary": "nioh3-protected-worker.exe", "argv": [
+                "--role", "save",
+                "--state-root", "<state root>",
+                "--data-root", "<runtime>/worker/runtime/nioh3_scroll_editor/data",
+                "--contract-dir", "<runtime>/packages/contracts"]},
+            "runtime": {"mode": "packaged", "binary": "nioh3-protected-worker.exe", "argv": [
+                "--role", "runtime",
+                "--state-root", "<state root>",
+                "--data-root", "<runtime>/worker/runtime/nioh3_scroll_editor/data",
+                "--contract-dir", "<runtime>/packages/contracts"]},
+        },
+        "launchContract": {
+            "schema": "nioh3-worker-launch-contract/v1",
+            "roles": ["offline_search", "save", "runtime"],
+            "stateRoot": {"policy": "broker-injected-external", "placeholder": "<state root>", "packageConfined": false},
+        },
+    });
+    std::fs::write(
+        root.join("worker/worker-backend.json"),
+        manifest.to_string(),
+    )
+    .unwrap();
+
+    // `resource_dir()` hands the host the canonical form, which is why the raw
+    // development override never reproduced this.
+    let canonical = std::path::PathBuf::from(format!(r"\\?\{}", root.display()));
+    assert!(
+        canonical.to_string_lossy().starts_with(r"\\?\"),
+        "the packaged root must be canonical: {}",
+        canonical.display()
+    );
+    let staged = staged_backend_manifest(&canonical)
+        .unwrap()
+        .expect("staged manifest");
+    assert_eq!(
+        normalize_path(&staged.data_root),
+        normalize_path(&root.join("worker/runtime/nioh3_scroll_editor/data"))
+    );
+    assert!(
+        staged.data_root.is_dir(),
+        "the declared data root must resolve: {}",
+        staged.data_root.display()
+    );
+    assert!(staged.contract_dir.is_dir());
+    assert!(staged.accelerator.is_file());
+    let state = std::env::temp_dir().join("nioh3-canonical-state");
+    for role in ["offline_search", "save", "runtime"] {
+        let (executable, arguments) = resolve_role_launch(&canonical, role, true, &state)
+            .unwrap_or_else(|error| panic!("{role} did not resolve: {error}"));
+        assert!(
+            executable.is_file(),
+            "{role} binary {}",
+            executable.display()
+        );
+        let value = |flag: &str| {
+            let index = arguments
+                .iter()
+                .position(|token| token == flag)
+                .unwrap_or_else(|| panic!("{role} argv lacks {flag}: {arguments:?}"));
+            arguments[index + 1].clone()
+        };
+        assert!(
+            std::path::Path::new(&value("--data-root")).is_dir(),
+            "{role} data root {}",
+            value("--data-root")
+        );
+        assert!(std::path::Path::new(&value("--contract-dir")).is_dir());
+        assert!(std::path::Path::new(&value("--accelerator")).is_file());
+    }
+    let _ = std::fs::remove_dir_all(&root);
+}
+
 /// Acceptance probe for the Python packaged gate.
 ///
 /// It is `#[ignore]`d so it never runs in a normal build or test pass; the gate

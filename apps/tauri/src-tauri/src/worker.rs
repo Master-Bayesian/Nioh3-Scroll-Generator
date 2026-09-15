@@ -195,7 +195,16 @@ pub fn staged_backend_manifest(root: &Path) -> Result<Option<StagedBackendManife
         // declares package-confined paths with a `<runtime>` placeholder. The
         // packaged host is the thing that knows that root, so it substitutes it
         // here rather than trusting a path the manifest could not have resolved.
-        let text = trimmed.replace("<runtime>", &root.display().to_string());
+        //
+        // The manifest declares POSIX-style separators and the packaged root is
+        // canonical (`\\?\...`). A canonical path is never normalized by the
+        // filesystem, so a mixed-separator path is looked up literally and every
+        // declared resource reads as missing. The root's own form is preserved
+        // (stripping `\\?\` would break long paths); only the manifest's
+        // separators are converted.
+        let text = trimmed
+            .replace("<runtime>", &root.display().to_string())
+            .replace('/', std::path::MAIN_SEPARATOR_STR);
         let text = text.as_str();
         let declared = if Path::new(text).is_absolute() {
             std::path::PathBuf::from(text)
