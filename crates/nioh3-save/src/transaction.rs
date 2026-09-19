@@ -679,6 +679,16 @@ impl SaveTransactionHost {
         self.require_generation_unchanged(&plan.save_path, &plan.baseline)?;
         timing("quiescent-baseline", stage);
         let stage = std::time::Instant::now();
+        // A restore records the generation it is about to replace as its own
+        // automatic checkpoint before the selected backup is read, so the
+        // shipped "a restore is itself undoable" guarantee survives the port.
+        // The checkpoint is a new directory, so the bytes the selected backup
+        // holds stay exactly as they were.
+        let restore_checkpoint = if plan.kind == PlanKind::Restore {
+            Some(self.write_restore_checkpoint(plan)?)
+        } else {
+            None
+        };
         let backup_id = if plan.backup_id.is_empty() {
             self.write_backup(&plan.plan_id, plan.kind.label(), &plan.baseline)?
         } else {
@@ -722,13 +732,19 @@ impl SaveTransactionHost {
         timing("install+readback", stage);
         match installed {
             Ok(installed) => {
+                let message = match restore_checkpoint.as_deref() {
+                    Some(checkpoint_id) => {
+                        self.complete_restore_checkpoint(checkpoint_id, plan, &installed)
+                    }
+                    None => None,
+                };
                 let receipt = OperationReceipt {
                     operation_id: plan.plan_id.clone(),
                     kind: plan.kind.label().to_string(),
                     outcome: "committed".to_string(),
                     installed_sha256: Some(installed),
                     backup_id: Some(backup_id),
-                    message: None,
+                    message,
                 };
                 self.write_receipt(&receipt)?;
                 Ok(receipt)
@@ -768,6 +784,22 @@ impl SaveTransactionHost {
                 } else {
                     "not_committed"
                 };
+                // The journal must not claim a success the commit never
+                // reached. The shipped product separates a clean rollback from
+                // one that could not be proven, so a later reader can tell them
+                // apart; a failure to record it never masks the real error.
+                if let Some(checkpoint_id) = restore_checkpoint.as_deref() {
+                    let rollback_errors: Vec<String> = match &rollback {
+                        Ok(()) => Vec::new(),
+                        Err(rollback_error) => vec![rollback_error.to_string()],
+                    };
+                    let _ = self.record_restore_failure(
+                        checkpoint_id,
+                        plan,
+                        &error.to_string(),
+                        &rollback_errors,
+                    );
+                }
                 let receipt = OperationReceipt {
                     operation_id: plan.plan_id.clone(),
                     kind: plan.kind.label().to_string(),
@@ -1138,6 +1170,106 @@ impl SaveTransactionHost {
             });
         }
         Ok(())
+    }
+
+    /// Record the pre-restore generation as the shipped automatic checkpoint.
+    ///
+    /// Mirrors `savegame.py`'s restore path: a new bundle holding the bytes this
+    /// commit is about to replace, plus the journal that names the selected
+    /// backup as its source. The bundle's `action` is the shipped marker the UI
+    /// reads to present a restore as undoable.
+    fn write_restore_checkpoint(&self, plan: &SavePlan) -> Result<String, SaveReadError> {
+        let checkpoint_id =
+            self.write_backup(&plan.plan_id, "pre-restore-checkpoint", &plan.baseline)?;
+        self.write_restore_journal_value(
+            &checkpoint_id,
+            &self.restore_journal(plan, "prepared", None, &[]),
+        )?;
+        Ok(checkpoint_id)
+    }
+
+    /// Mark a restore checkpoint committed.
+    ///
+    /// The save bytes are already restored by the time this runs, so a
+    /// diagnostics failure is reported as a warning on a committed receipt
+    /// instead of failing an operation that really did land.
+    fn complete_restore_checkpoint(
+        &self,
+        checkpoint_id: &str,
+        plan: &SavePlan,
+        installed_sha256: &str,
+    ) -> Option<String> {
+        let journal = self.restore_journal(plan, "committed", Some(installed_sha256), &[]);
+        match self.write_restore_journal_value(checkpoint_id, &journal) {
+            Ok(()) => None,
+            Err(error) => Some(format!(
+                "the save was restored, but its restore journal could not be persisted: {error}"
+            )),
+        }
+    }
+
+    /// Record why a restore did not commit, without masking that reason.
+    fn record_restore_failure(
+        &self,
+        checkpoint_id: &str,
+        plan: &SavePlan,
+        error: &str,
+        rollback_errors: &[String],
+    ) -> Result<(), SaveReadError> {
+        let state = if rollback_errors.is_empty() {
+            "rolled_back"
+        } else {
+            "recovery_required"
+        };
+        let mut journal = self.restore_journal(plan, state, None, rollback_errors);
+        journal["error"] = serde_json::Value::String(error.to_string());
+        self.write_restore_journal_value(checkpoint_id, &journal)
+    }
+
+    /// The journal the shipped product writes beside a restore checkpoint.
+    fn restore_journal(
+        &self,
+        plan: &SavePlan,
+        state: &str,
+        installed_sha256: Option<&str>,
+        rollback_errors: &[String],
+    ) -> serde_json::Value {
+        let targets: Vec<String> = plan
+            .baseline
+            .iter()
+            .filter(|entry| entry.exists)
+            .map(|entry| entry.role.label().to_string())
+            .collect();
+        let mut journal = serde_json::json!({
+            "schema": "nioh3-save-restore-journal/v1",
+            "operation_id": plan.plan_id.clone(),
+            "state": state,
+            "steam_account_id": crate::paths::account_id_from_save_path(&plan.save_path).ok(),
+            "save_slot_index": crate::paths::save_slot_index_from_path(&plan.save_path).ok(),
+            "source_backup_directory": plan.backup_id.clone(),
+            "targets": targets,
+        });
+        if let Some(digest) = installed_sha256 {
+            journal["installed_sha256"] = serde_json::Value::String(digest.to_string());
+            journal["committed_at_utc"] = serde_json::Value::String(timestamp_label());
+        }
+        if !rollback_errors.is_empty() {
+            journal["rollback_errors"] = serde_json::json!(rollback_errors);
+        }
+        journal
+    }
+
+    fn write_restore_journal_value(
+        &self,
+        checkpoint_id: &str,
+        journal: &serde_json::Value,
+    ) -> Result<(), SaveReadError> {
+        let path = self.backup_dir(checkpoint_id).join("restore-journal.json");
+        let text = serde_json::to_string_pretty(journal).map_err(|error| SaveReadError::Io {
+            path: path.display().to_string(),
+            message: error.to_string(),
+        })?;
+        write_durable(&path, text.as_bytes())
     }
 
     fn write_backup(

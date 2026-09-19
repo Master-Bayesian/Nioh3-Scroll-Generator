@@ -354,6 +354,9 @@ class SaveTransactionTests(unittest.TestCase):
             )
         )
         backup_id = receipt["backup_id"]
+        bundles_before = {
+            entry.name for entry in (type(self).state_root / "backups").iterdir()
+        }
         restored = run_host(
             type(self).target,
             [
@@ -372,6 +375,32 @@ class SaveTransactionTests(unittest.TestCase):
             type(self).container.read_bytes(),
             "restore must return the checkpointed generation",
         )
+        # The shipped host also records the generation it is about to replace as
+        # its own automatic checkpoint, so a restore stays undoable and the
+        # selected bundle is never reused as that checkpoint.
+        bundles_after = {
+            entry.name for entry in (type(self).state_root / "backups").iterdir()
+        }
+        self.assertIn(backup_id, bundles_after, "the selected backup must survive")
+        created = bundles_after - bundles_before
+        self.assertEqual(len(created), 1, sorted(created))
+        checkpoint = type(self).state_root / "backups" / created.pop()
+        manifest = json.loads((checkpoint / "backup-manifest.json").read_text("utf-8"))
+        self.assertEqual(manifest["action"], "pre-restore-checkpoint")
+        main = next(
+            entry
+            for entry in manifest["backup_files"]
+            if entry["source_role"] == "main_save"
+        )
+        self.assertEqual(
+            (checkpoint / main["backup_file"]).read_bytes(),
+            staged_container.read_bytes(),
+            "the checkpoint must hold the complete pre-restore generation",
+        )
+        journal = json.loads((checkpoint / "restore-journal.json").read_text("utf-8"))
+        self.assertEqual(journal["schema"], "nioh3-save-restore-journal/v1")
+        self.assertEqual(journal["state"], "committed")
+        self.assertEqual(journal["source_backup_directory"], backup_id)
 
     def test_duplicate_operation_id_is_not_replayed(self) -> None:
         plan = run_host(
