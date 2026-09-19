@@ -21,11 +21,12 @@
  *     --runtime <runtime root> --role offline_search|save|runtime [--out file]
  */
 import {createHash} from 'node:crypto';
-import {existsSync, mkdirSync} from 'node:fs';
+import {existsSync, mkdirSync, realpathSync} from 'node:fs';
 import {mkdir, readFile, stat, writeFile} from 'node:fs/promises';
 import {join, relative, resolve, sep} from 'node:path';
 import {tmpdir} from 'node:os';
 import {spawn} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 
 // Independently derived expectations. The manifest is data to validate, never
 // an oracle.
@@ -529,7 +530,30 @@ async function main() {
   console.log('TAURI_WORKER_IDENTITY_OK');
 }
 
-main().catch((error) => {
-  console.error('TAURI_WORKER_IDENTITY_FAILED: ' + error.message);
-  process.exitCode = 1;
-});
+/**
+ * Run the command line only when this file is the entry point.
+ *
+ * `verify-onefile.mjs` imports `verifyWorkerIdentity` to assert the identity
+ * from inside the single-file product. An unguarded `main()` ran on that
+ * import with the importer's argv, failed with "--runtime is required" and
+ * forced a failure exit for a gate that had actually passed.
+ */
+function invokedDirectly() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return (
+      realpathSync(entry).toLowerCase() ===
+      realpathSync(fileURLToPath(import.meta.url)).toLowerCase()
+    );
+  } catch {
+    return false;
+  }
+}
+
+if (invokedDirectly()) {
+  main().catch((error) => {
+    console.error('TAURI_WORKER_IDENTITY_FAILED: ' + error.message);
+    process.exitCode = 1;
+  });
+}
