@@ -52,6 +52,7 @@ RETAINED_GATES = {
     "one-file identity": "python tools/build_tauri_onefile.py ",
     "outer verification": "node apps/tauri/verify-onefile.mjs",
     "outer update verification": "node apps/tauri/verify-onefile-update.mjs",
+    "outer rollback verification": "node apps/tauri/verify-onefile-rollback.mjs",
     "size budget and signing": "build_tauri_update_manifest.mjs $zip",
 }
 
