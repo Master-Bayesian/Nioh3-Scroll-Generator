@@ -27,10 +27,28 @@ import {mkdtemp} from 'node:fs/promises';
 
 const ROLES = ['offline_search', 'save', 'runtime'];
 
+/**
+ * Fold a Windows path to a comparison form: every extended-length prefix is
+ * dropped, separators are flattened and case is folded.
+ *
+ * The packaged host reports its resources through `resource_dir()`, which is
+ * canonical (`\\?\...`), while this harness holds the same location in plain
+ * form. Both name the same file, and a canonical path is never normalized by
+ * the filesystem, so the two spellings only compare equal once the prefix is
+ * folded away here. The prefix is applied globally because an argv string
+ * carries one before each path value rather than only at its start.
+ */
+function compareForm(value) {
+  return String(value)
+    .replace(/\\\\\?\\UNC\\/gi, '\\\\')
+    .replace(/\\\\\?\\/g, '')
+    .replace(/[\\/]+/g, '/')
+    .toLowerCase();
+}
+
 /** Compare package paths without caring which separator style each side used. */
 function samePath(left, right) {
-  const flatten = (value) => resolve(value).replace(/[\\/]+/g, '/').toLowerCase();
-  return flatten(left) === flatten(right);
+  return compareForm(resolve(left)) === compareForm(resolve(right));
 }
 
 function parseArgs(argv) {
@@ -139,12 +157,12 @@ async function main() {
     }
     const dataRoot = join(staged, 'worker', 'runtime', 'nioh3_scroll_editor', 'data');
     const contractRoot = join(staged, 'packages', 'contracts');
-    const argvPaths = record.argv.replace(/[\\/]+/g, '/').toLowerCase();
-    if (!argvPaths.includes(`--data-root ${dataRoot.replace(/[\\/]+/g, '/').toLowerCase()}`)) {
+    const argvPaths = compareForm(record.argv);
+    if (!argvPaths.includes(`--data-root ${compareForm(dataRoot)}`)) {
       throw new Error(`${role} argv lacks the staged data root: ${record.argv}`);
     }
     if (
-      !argvPaths.includes(`--contract-dir ${contractRoot.replace(/[\\/]+/g, '/').toLowerCase()}`)
+      !argvPaths.includes(`--contract-dir ${compareForm(contractRoot)}`)
     ) {
       throw new Error(`${role} argv lacks the staged contract root: ${record.argv}`);
     }
@@ -165,7 +183,7 @@ async function main() {
       if (record.argv.includes('--dev-protected-only')) {
         throw new Error(`${role} used the development acknowledgement: ${record.argv}`);
       }
-      if (!argvPaths.includes(`--state-root ${profile.replace(/[\\/]+/g, '/').toLowerCase()}`)) {
+      if (!argvPaths.includes(`--state-root ${compareForm(profile)}`)) {
         throw new Error(`${role} argv lacks the injected state root: ${record.argv}`);
       }
     }
