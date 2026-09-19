@@ -121,6 +121,36 @@ Current boundary statement and evidence:
 [`EVIDENCE_RUNTIME_HOST.md`](../../deliverables/m3-protected-host/EVIDENCE_RUNTIME_HOST.md),
 [`v0.8.0` engineering record](../product/releases/v0.8.0.md).
 
+### Same-byte candidate acceptance (2026-09-19)
+
+This supersedes the "same-candidate packaged UI acceptance remains open" line
+above, and is bounded package and synthetic evidence only. The final internal
+v0.8.0 backend-review candidate is artifact source commit
+`b20e493ff0b2374978d008451a461cb9caa6d44b` (`dirty=false`, 748 manifest members,
+version still 0.7.5). Outer EXE 11,027,487 bytes SHA-256
+`546be5fa25a2df8f78ff41d0775b7f72c16065a2fd244f0963f773adc12581e8`; ZIP
+10,403,815 bytes SHA-256
+`1ef50eef2c4290c6309620ea55a7c914a0a97f7cc3e69480a608f0a8c543c8b2`; the
+extracted runtime is byte-identical to that ZIP (749 of 749 files).
+
+Closed on those bytes: the release-host frontend gate
+(`TAURI_PACKAGED_FRONTEND_OK`), host resolution and per-role identity, one-file
+cold/warm launch and cache, update replacement/rollback, the responsive layout
+matrix, and protected-save performance (Rust 4.845 s steady / 4.841 s cold versus
+the shipped Python host 7.531 s / 8.507 s; the old "13.7 s versus 8.0 s" line was
+stale). Evidence root
+`D:\Nioh3_v080_deliverables\deliverables\v080-backend-review\evidence\`:
+`packaged-frontend-b20e493/`, `host-package-b20e493.json`,
+`identity-*-b20e493.json`, `cold-start-b20e493.json`,
+`onefile-rollback-gate-b20e493.json`, `add-layout-b20e493/`,
+`M3B_PROTECTED_SAVE_PERF-packaged-b20e493.json`.
+
+Still open: live game and real-save acceptance, support for the new game 2.02
+build (confirmed by the compatibility lane; its title read-only capture is
+currently active), and equipment readiness. Open research: `添画` on Divine
+completion - the maximum-6-effects semantics, and a reported 700 -> 356 level
+change that is not a confirmed cap.
+
 ## v0.7.4 published release
 
 The published v0.7.4 scope includes two shipped product changes. The

@@ -15,6 +15,7 @@
  * Usage:
  *   node apps/tauri/verify-packaged-frontend.mjs --package <app root> \
  *     --exe <host exe> --python <python.exe> --out <dir> [--host debug|release]
+ *     [--screenshots <dir>] [--artifact-exe <path>] [--artifact-zip <path>]
  *
  * `--package` is the app root the host resolves: the staged portable directory
  * for the opt-in development runtime, or the extracted one-file runtime (the
@@ -26,7 +27,7 @@
  */
 import {chromium} from 'playwright';
 import {spawn, execFileSync} from 'node:child_process';
-import {existsSync, readFileSync, rmSync} from 'node:fs';
+import {existsSync, readFileSync, rmSync, statSync} from 'node:fs';
 import {mkdtemp, mkdir, readFile, realpath, writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {join, resolve} from 'node:path';
@@ -48,11 +49,26 @@ function parseArgs(argv) {
     else if (key === '--python') options.python = argv[++index];
     else if (key === '--out') options.out = argv[++index];
     else if (key === '--host') options.host = argv[++index];
+    else if (key === '--screenshots') options.screenshots = argv[++index];
+    else if (key === '--artifact-exe') options.artifactExe = argv[++index];
+    else if (key === '--artifact-zip') options.artifactZip = argv[++index];
     else if (key === '--timeout') options.timeout = Number(argv[++index]);
     else throw new Error(`unknown argument: ${key}`);
   }
   if (!options.package) throw new Error('--package is required');
   return options;
+}
+
+/**
+ * Raw bytes identity for one file. A normalized PE hash is not an identity, so
+ * evidence records the size and the raw SHA-256 of the exact artifact.
+ */
+function rawHash(path) {
+  return {
+    path,
+    size: statSync(path).size,
+    sha256: createHash('sha256').update(readFileSync(path)).digest('hex'),
+  };
 }
 
 async function freePort() {
@@ -117,6 +133,8 @@ async function main() {
   const output = resolve(options.out || 'deliverables/v080-packaged-frontend');
   const timeoutMs = (options.timeout || 90) * 1000;
   await mkdir(output, {recursive: true});
+  const screenshotDir = options.screenshots ? resolve(options.screenshots) : null;
+  if (screenshotDir) await mkdir(screenshotDir, {recursive: true});
   if (!existsSync(executable)) throw new Error(`host executable missing: ${executable}`);
   if (!existsSync(join(staged, 'worker', 'worker-backend.json'))) {
     throw new Error(`the staged package carries no worker manifest: ${staged}`);
@@ -225,6 +243,24 @@ async function main() {
     gameWrites: 0,
     userSaveTouched: false,
   };
+  // Bind the run to exact bytes: the inner host, the packaged worker binaries,
+  // the build manifest, and - when the caller supplies them - the outer one-file
+  // EXE and the outer ZIP the runtime was extracted from.
+  evidence.artifact = {
+    innerExe: rawHash(executable),
+    buildManifest: rawHash(join(staged, 'build-manifest.json')),
+    workerManifest: rawHash(join(staged, 'worker', 'worker-backend.json')),
+    roleBinaries: Object.fromEntries(
+      ROLES.map((role) => [
+        role,
+        manifest.invocation[role]?.binary
+          ? rawHash(join(staged, 'worker', manifest.invocation[role].binary))
+          : null,
+      ]),
+    ),
+    outerExe: options.artifactExe ? rawHash(resolve(options.artifactExe)) : null,
+    outerZip: options.artifactZip ? rawHash(resolve(options.artifactZip)) : null,
+  };
   let host = startHost({
     executable,
     profile,
@@ -332,6 +368,84 @@ async function main() {
       evidence.catalogs['en-US'].firstOrdinary,
       'localized payloads must differ per locale',
     );
+
+    if (screenshotDir) {
+      // Visual acceptance: the shipped shell rendered in each of the three UI
+      // languages, with the CSS viewport and DPR recorded alongside. This is a
+      // real WebView2 window, so the captures are native-layout evidence rather
+      // than an emulated viewport. Screenshots are evidence, so a capture
+      // failure is recorded instead of turning the functional gate red; the
+      // caller reviews the recorded result.
+      evidence.visual = {screenshots: [], errors: [], observed: {}, viewports: {}};
+      const readMetrics = () =>
+        page.evaluate(() => ({
+          width: window.innerWidth,
+          height: window.innerHeight,
+          dpr: window.devicePixelRatio,
+          lang: document.documentElement.lang,
+        }));
+      const dismissPopups = async () => {
+        const dismiss = page.locator('.popup-dismiss');
+        if (await dismiss.count()) {
+          await dismiss.first().click({timeout: 2000}).catch(() => {});
+        }
+      };
+      // Selecting the language that is already active does not necessarily close
+      // the popup, so a no-op switch is skipped instead of re-clicking the menu.
+      const switchLanguage = async (label, lang) => {
+        const current = await page.evaluate(() => document.documentElement.lang);
+        if (current === lang) return;
+        await dismissPopups();
+        await page.locator('.language-button').click({timeout: 10000});
+        await page
+          .locator('.side-popup')
+          .getByRole('button', {name: label, exact: true})
+          .click({timeout: 10000});
+      };
+      const startingMetrics = await readMetrics();
+      evidence.visual.viewports.initial = startingMetrics;
+      // The labels are the product's own localized names, written as escapes so
+      // this file stays ASCII.
+      const languages = [
+        {label: 'English', lang: 'en-US', file: 'shell-en-US.png'},
+        {label: '\u65e5\u672c\u8a9e', lang: 'ja-JP', file: 'shell-ja-JP.png'},
+        {label: '\u7b80\u4f53\u4e2d\u6587', lang: 'zh-CN', file: 'shell-zh-CN.png'},
+      ];
+      for (const language of languages) {
+        try {
+          await switchLanguage(language.label, language.lang);
+          await page.waitForFunction(
+            (lang) => document.documentElement.lang === lang,
+            language.lang,
+            {timeout: 15000},
+          );
+          await page.screenshot({path: join(screenshotDir, language.file)});
+          evidence.visual.observed[language.lang] = true;
+          evidence.visual.screenshots.push(language.file);
+        } catch (error) {
+          evidence.visual.observed[language.lang] = false;
+          evidence.visual.errors.push(`${language.lang}: ${error}`);
+          await dismissPopups();
+        }
+      }
+      // Restore the language this run started in so the remaining legs and the
+      // persisted preference are not perturbed by the screenshot step.
+      const restore = languages.find((entry) => entry.lang === startingMetrics.lang);
+      if (restore) {
+        try {
+          await switchLanguage(restore.label, restore.lang);
+          await page.waitForFunction(
+            (lang) => document.documentElement.lang === lang,
+            restore.lang,
+            {timeout: 15000},
+          );
+          await dismissPopups();
+        } catch (error) {
+          evidence.visual.errors.push(`restore ${restore.lang}: ${error}`);
+          await dismissPopups();
+        }
+      }
+    }
 
     // Preview through the staged read-only worker.
     const preview = await page.evaluate(() =>
@@ -1215,16 +1329,44 @@ async function main() {
     // not compared against its starting bytes here: this run commits a delete,
     // a restore and a cart install on it, so the meaningful assertions are the
     // per-leg readbacks above and the isolation of the fixture copy.
-    const diagnostics = await page.evaluate(() => window.support.diagnostics());
-    const searchWorker = diagnostics.workers.find((worker) => worker.role === 'offline_search');
-    assert.ok(searchWorker, JSON.stringify(diagnostics).slice(0, 400));
-    assert.equal(searchWorker.connection, 'ready');
+    //
+    // The worker becomes reachable asynchronously: the shipped UI mounts the
+    // shell, loads its catalogs, and only then hands the search worker its
+    // handshake, so a freshly restarted host can legitimately report `starting`
+    // for a moment after the window appears. Wait for the shipped readiness
+    // state rather than sampling it once at an arbitrary instant; an
+    // `unavailable` worker still fails immediately, and a worker that never
+    // becomes ready fails on the deadline.
+    const diagnosticWaitStart = Date.now();
+    const diagnosticDeadline = diagnosticWaitStart + 60000;
+    let searchWorker;
+    for (;;) {
+      const diagnostics = await page.evaluate(() => window.support.diagnostics());
+      searchWorker = diagnostics.workers.find((worker) => worker.role === 'offline_search');
+      assert.ok(searchWorker, JSON.stringify(diagnostics).slice(0, 400));
+      if (searchWorker.connection === 'ready') break;
+      assert.notEqual(
+        searchWorker.connection,
+        'unavailable',
+        `the search worker failed to start: ${JSON.stringify(searchWorker)}`,
+      );
+      if (Date.now() >= diagnosticDeadline) break;
+      await new Promise((ready) => setTimeout(ready, 250));
+    }
+    assert.equal(
+      searchWorker.connection,
+      'ready',
+      `the search worker never became ready: ${JSON.stringify(searchWorker)}`,
+    );
     assert.match(
       String(searchWorker.backend || ''),
       /rust/,
       `the answering worker must be the Rust graph: ${JSON.stringify(searchWorker)}`,
     );
-    evidence.diagnostics = {offlineSearch: searchWorker};
+    evidence.diagnostics = {
+      offlineSearch: searchWorker,
+      readyWaitMs: Date.now() - diagnosticWaitStart,
+    };
     evidence.fixtureWrites = {
       isolatedCopy: true,
       committedLegs: [
@@ -1236,6 +1378,21 @@ async function main() {
       ],
       realSaveTouched: false,
     };
+    if (screenshotDir && evidence.visual) {
+      // The restarted host must come back in the persisted language.
+      try {
+        evidence.visual.viewports.afterRestart = await page.evaluate(() => ({
+          width: window.innerWidth,
+          height: window.innerHeight,
+          dpr: window.devicePixelRatio,
+          lang: document.documentElement.lang,
+        }));
+        await page.screenshot({path: join(screenshotDir, 'shell-after-restart.png')});
+        evidence.visual.screenshots.push('shell-after-restart.png');
+      } catch (error) {
+        evidence.visual.errors.push(`afterRestart: ${error}`);
+      }
+    }
   } finally {
     try {
       await page?.evaluate(() => window.review.windowAction('close'));
