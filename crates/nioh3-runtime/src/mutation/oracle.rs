@@ -28,8 +28,7 @@ use crate::mutation::native_abi::{
 };
 use crate::mutation::win_session::{RemoteSession, WAIT_INFINITE, WAIT_OBJECT_0};
 use crate::profile::NativeRuntimeProfile;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{mpsc, Arc, Mutex};
 
 /// The mask a session handed to [`NativeBatchOracle::open`] must hold.
 ///
@@ -39,6 +38,207 @@ use std::sync::Arc;
 /// PROCESS_QUERY_INFORMATION`. The Oracle never requests
 /// `PROCESS_ALL_ACCESS`, a termination right or a suspension right.
 pub const ORACLE_ACCESS: u32 = crate::mutation::native_abi::RUNTIME_ACCESS;
+
+const WAIT_TIMEOUT: u32 = 0x0000_0102;
+
+struct RetiredRemoteOwner {
+    session: Box<dyn RemoteSession + Send>,
+    allocation: u64,
+    thread: Option<u64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RetirementLifecycle {
+    Idle,
+    ReaperPending,
+    RetainedUnsafe,
+    Released,
+}
+
+struct RetirementState {
+    lifecycle: RetirementLifecycle,
+    allocation: Option<u64>,
+    thread: Option<u64>,
+    error: Option<String>,
+    owner: Option<RetiredRemoteOwner>,
+}
+
+/// A cloneable receipt for one oracle allocation after normal close or timeout.
+///
+/// The receipt owns any session that could not be handed to a live reaper or
+/// whose allocation could not be released. Callers retain it until
+/// [`Self::refresh`] proves terminal release; dropping the originating oracle
+/// therefore never turns unknown cleanup into `safe_to_shutdown=true`.
+#[derive(Clone)]
+pub struct OracleRetirement {
+    inner: Arc<Mutex<RetirementState>>,
+}
+
+/// Read-only ownership facts for diagnostics and shutdown decisions.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OracleRetirementSnapshot {
+    pub lifecycle: &'static str,
+    pub allocation: Option<u64>,
+    pub thread: Option<u64>,
+    pub error: Option<String>,
+    pub pending_remote_call: bool,
+    pub safe_to_shutdown: bool,
+}
+
+impl OracleRetirement {
+    fn new() -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(RetirementState {
+                lifecycle: RetirementLifecycle::Idle,
+                allocation: None,
+                thread: None,
+                error: None,
+                owner: None,
+            })),
+        }
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, RetirementState> {
+        self.inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    fn mark_reaper_pending(&self, allocation: u64, thread: u64) {
+        let mut state = self.lock();
+        state.lifecycle = RetirementLifecycle::ReaperPending;
+        state.allocation = Some(allocation);
+        state.thread = Some(thread);
+        state.error = None;
+        state.owner = None;
+    }
+
+    fn retain(&self, owner: RetiredRemoteOwner, error: String) {
+        let mut state = self.lock();
+        state.lifecycle = RetirementLifecycle::RetainedUnsafe;
+        state.allocation = Some(owner.allocation);
+        state.thread = owner.thread;
+        state.error = Some(error);
+        state.owner = Some(owner);
+    }
+
+    fn release(&self) {
+        let mut state = self.lock();
+        state.lifecycle = RetirementLifecycle::Released;
+        state.allocation = None;
+        state.thread = None;
+        state.error = None;
+        state.owner = None;
+    }
+
+    /// Current ownership facts without performing process work.
+    pub fn snapshot(&self) -> OracleRetirementSnapshot {
+        let state = self.lock();
+        let safe = matches!(
+            state.lifecycle,
+            RetirementLifecycle::Idle | RetirementLifecycle::Released
+        );
+        OracleRetirementSnapshot {
+            lifecycle: match state.lifecycle {
+                RetirementLifecycle::Idle => "idle",
+                RetirementLifecycle::ReaperPending => "reaper_pending",
+                RetirementLifecycle::RetainedUnsafe => "retained_unsafe",
+                RetirementLifecycle::Released => "released",
+            },
+            allocation: state.allocation,
+            thread: state.thread,
+            error: state.error.clone(),
+            pending_remote_call: !safe,
+            safe_to_shutdown: safe,
+        }
+    }
+
+    /// Retry retained cleanup without blocking on an incomplete remote thread.
+    pub fn refresh(&self) -> bool {
+        let owner = {
+            let mut state = self.lock();
+            if state.lifecycle != RetirementLifecycle::RetainedUnsafe {
+                return matches!(
+                    state.lifecycle,
+                    RetirementLifecycle::Idle | RetirementLifecycle::Released
+                );
+            }
+            state.owner.take()
+        };
+        let Some(mut owner) = owner else {
+            return false;
+        };
+
+        if let Some(thread) = owner.thread {
+            match owner.session.wait_thread(thread, 0) {
+                Ok(WAIT_OBJECT_0) => {
+                    owner.session.close_thread(thread);
+                    owner.thread = None;
+                }
+                Ok(WAIT_TIMEOUT) => {
+                    self.retain(owner, "remote call is still running".to_string());
+                    return false;
+                }
+                Ok(waited) => {
+                    self.retain(
+                        owner,
+                        format!("unexpected remote-thread wait result: {waited:#x}"),
+                    );
+                    return false;
+                }
+                Err(error) => {
+                    self.retain(owner, format!("remote-thread wait failed: {error}"));
+                    return false;
+                }
+            }
+        }
+
+        match owner.session.free(owner.allocation) {
+            Ok(()) => {
+                owner.session.close();
+                self.release();
+                true
+            }
+            Err(error) => {
+                self.retain(owner, format!("remote allocation release failed: {error}"));
+                false
+            }
+        }
+    }
+}
+
+fn finish_retired_owner(mut owner: RetiredRemoteOwner, retirement: OracleRetirement) {
+    let Some(thread) = owner.thread else {
+        retirement.retain(owner, "retired remote call has no thread owner".to_string());
+        return;
+    };
+    match owner.session.wait_thread(thread, WAIT_INFINITE) {
+        Ok(WAIT_OBJECT_0) => {
+            owner.session.close_thread(thread);
+            owner.thread = None;
+        }
+        Ok(waited) => {
+            retirement.retain(
+                owner,
+                format!("unexpected remote-thread wait result: {waited:#x}"),
+            );
+            return;
+        }
+        Err(error) => {
+            retirement.retain(owner, format!("remote-thread wait failed: {error}"));
+            return;
+        }
+    }
+    match owner.session.free(owner.allocation) {
+        Ok(()) => {
+            owner.session.close();
+            retirement.release();
+        }
+        Err(error) => {
+            retirement.retain(owner, format!("remote allocation release failed: {error}"));
+        }
+    }
+}
 
 /// `emaki_exchange.EFFECT_START + index * EFFECT_STRIDE + 0x0E`.
 fn effect_flag_offset(index: usize) -> usize {
@@ -61,7 +261,7 @@ pub struct NativeBatchOracle {
     allocation: Option<u64>,
     pub source_address: u64,
     pub destination_address: u64,
-    retired_pending: Arc<AtomicBool>,
+    retirement: OracleRetirement,
 }
 
 impl NativeBatchOracle {
@@ -88,7 +288,7 @@ impl NativeBatchOracle {
             allocation: None,
             source_address: 0,
             destination_address: 0,
-            retired_pending: Arc::new(AtomicBool::new(false)),
+            retirement: OracleRetirement::new(),
         })
     }
 
@@ -125,19 +325,37 @@ impl NativeBatchOracle {
     }
 
     pub fn close(&mut self) {
-        if let (Some(session), Some(allocation)) = (self.session.as_mut(), self.allocation) {
-            session.free(allocation).ok();
+        if let (Some(mut session), Some(allocation)) = (self.session.take(), self.allocation.take())
+        {
+            match session.free(allocation) {
+                Ok(()) => {
+                    session.close();
+                    self.retirement.release();
+                }
+                Err(error) => self.retirement.retain(
+                    RetiredRemoteOwner {
+                        session,
+                        allocation,
+                        thread: None,
+                    },
+                    format!("remote allocation release failed: {error}"),
+                ),
+            }
+        } else if let Some(mut session) = self.session.take() {
             session.close();
         }
-        self.session = None;
-        self.allocation = None;
         self.source_address = 0;
         self.destination_address = 0;
     }
 
     /// `NativeBatchOracle.remote_call_pending`.
     pub fn remote_call_pending(&self) -> bool {
-        self.retired_pending.load(Ordering::SeqCst)
+        self.retirement.snapshot().pending_remote_call
+    }
+
+    /// A durable receipt that remains valid after this oracle is dropped.
+    pub fn retirement(&self) -> OracleRetirement {
+        self.retirement.clone()
     }
 
     pub fn pid(&self) -> u32 {
@@ -162,35 +380,66 @@ impl NativeBatchOracle {
     /// `NativeBatchOracle._retire_inflight_allocation`: hand the allocation to
     /// a waiter that frees it only after the remote thread exits.
     fn retire_inflight(&mut self, thread: u64) -> Result<(), RuntimeError> {
-        let Some(mut session) = self.session.take() else {
+        self.retire_inflight_with(thread, |receiver, retirement| {
+            std::thread::Builder::new()
+                .name("nioh3-retired-native-call".to_string())
+                .spawn(move || {
+                    if let Ok(owner) = receiver.recv() {
+                        finish_retired_owner(owner, retirement);
+                    }
+                })
+                .map(|_| ())
+        })
+    }
+
+    fn retire_inflight_with<F>(&mut self, thread: u64, spawn: F) -> Result<(), RuntimeError>
+    where
+        F: FnOnce(mpsc::Receiver<RetiredRemoteOwner>, OracleRetirement) -> std::io::Result<()>,
+    {
+        if self.session.is_none() {
+            return Err(RuntimeError::OracleRejected {
+                detail: "cannot retire an incomplete native call allocation".to_string(),
+            });
+        }
+        let Some(allocation) = self.allocation else {
             return Err(RuntimeError::OracleRejected {
                 detail: "cannot retire an incomplete native call allocation".to_string(),
             });
         };
-        let Some(allocation) = self.allocation.take() else {
-            self.session = Some(session);
+        let (sender, receiver) = mpsc::sync_channel(1);
+        if let Err(error) = spawn(receiver, self.retirement.clone()) {
+            let session = self.session.take().ok_or(RuntimeError::SessionNotOpen)?;
+            self.allocation = None;
+            self.source_address = 0;
+            self.destination_address = 0;
+            self.retirement.retain(
+                RetiredRemoteOwner {
+                    session,
+                    allocation,
+                    thread: Some(thread),
+                },
+                format!("native-call reaper spawn failed: {error}"),
+            );
             return Err(RuntimeError::OracleRejected {
                 detail: "cannot retire an incomplete native call allocation".to_string(),
             });
-        };
+        }
+        let session = self.session.take().ok_or(RuntimeError::SessionNotOpen)?;
+        self.allocation = None;
         self.source_address = 0;
         self.destination_address = 0;
-        self.retired_pending.store(true, Ordering::SeqCst);
-        let pending = Arc::clone(&self.retired_pending);
-        let spawned = std::thread::Builder::new()
-            .name("nioh3-retired-native-call".to_string())
-            .spawn(move || {
-                if session.wait_thread(thread, WAIT_INFINITE).ok() == Some(WAIT_OBJECT_0) {
-                    session.free(allocation).ok();
-                    pending.store(false, Ordering::SeqCst);
-                }
-                session.close_thread(thread);
-                session.close();
-            });
-        if spawned.is_err() {
-            self.retired_pending.store(false, Ordering::SeqCst);
+        self.retirement.mark_reaper_pending(allocation, thread);
+        if let Err(error) = sender.send(RetiredRemoteOwner {
+            session,
+            allocation,
+            thread: Some(thread),
+        }) {
+            self.retirement.retain(
+                error.0,
+                "native-call reaper stopped before ownership transfer".to_string(),
+            );
             return Err(RuntimeError::OracleRejected {
-                detail: "cannot retire an incomplete native call allocation".to_string(),
+                detail: "cannot transfer an incomplete native call allocation".to_string(),
             });
         }
         Ok(())
@@ -605,4 +854,188 @@ pub fn source_record(
 /// Lowercase hex for the receipts and reports that carry oracle output.
 pub fn records_hex(records: &[Vec<u8>]) -> String {
     hex(&records.concat())
+}
+
+#[cfg(test)]
+mod retirement_tests {
+    #![allow(clippy::expect_used, clippy::unwrap_used)]
+
+    use super::*;
+    use crate::profile::ProfileSite;
+    use std::time::Duration;
+
+    #[derive(Default)]
+    struct Controls {
+        completed: bool,
+        fail_free: bool,
+        free_calls: usize,
+        closed: bool,
+    }
+
+    struct FakeRemoteSession {
+        controls: Arc<Mutex<Controls>>,
+    }
+
+    impl RemoteSession for FakeRemoteSession {
+        fn pid(&self) -> u32 {
+            7
+        }
+
+        fn read(&mut self, _address: u64, size: usize) -> Result<Vec<u8>, RuntimeError> {
+            Ok(vec![0; size])
+        }
+
+        fn write(&mut self, _address: u64, _data: &[u8]) -> Result<(), RuntimeError> {
+            Ok(())
+        }
+
+        fn allocate(&mut self, _size: usize) -> Result<u64, RuntimeError> {
+            Ok(0x5000)
+        }
+
+        fn free(&mut self, address: u64) -> Result<(), RuntimeError> {
+            let mut controls = self.controls.lock().unwrap();
+            controls.free_calls += 1;
+            if controls.fail_free {
+                Err(RuntimeError::AllocationRelease { address, code: 5 })
+            } else {
+                Ok(())
+            }
+        }
+
+        fn create_remote_thread(&mut self, _start: u64) -> Result<u64, RuntimeError> {
+            Ok(0x7000)
+        }
+
+        fn wait_thread(&mut self, _thread: u64, _milliseconds: u32) -> Result<u32, RuntimeError> {
+            Ok(if self.controls.lock().unwrap().completed {
+                WAIT_OBJECT_0
+            } else {
+                WAIT_TIMEOUT
+            })
+        }
+
+        fn thread_exit_code(&mut self, _thread: u64) -> Result<u32, RuntimeError> {
+            Ok(0)
+        }
+
+        fn close_thread(&mut self, _thread: u64) {}
+
+        fn close(&mut self) {
+            self.controls.lock().unwrap().closed = true;
+        }
+    }
+
+    fn profile() -> NativeRuntimeProfile {
+        let site = |name| ProfileSite {
+            name,
+            rva: 1,
+            signature: vec![0x90],
+        };
+        NativeRuntimeProfile {
+            display_version: "test".to_string(),
+            canonicalize: site("canonicalize"),
+            finalize_effect: site("finalize_effect"),
+            descriptor_complete: site("descriptor_complete"),
+            native_signatures: Vec::new(),
+            playthrough_selector_pointer_rva: 0,
+        }
+    }
+
+    fn owned_oracle(controls: Arc<Mutex<Controls>>) -> NativeBatchOracle {
+        let mut oracle = NativeBatchOracle::new(7, 0x1000, profile(), 1, false).unwrap();
+        oracle.session = Some(Box::new(FakeRemoteSession { controls }));
+        oracle.allocation = Some(0x5000);
+        oracle.source_address = 0x6000;
+        oracle.destination_address = 0x6100;
+        oracle
+    }
+
+    #[test]
+    fn reaper_spawn_failure_keeps_the_original_owner_and_allocation() {
+        let controls = Arc::new(Mutex::new(Controls::default()));
+        let mut oracle = owned_oracle(Arc::clone(&controls));
+        let result = oracle.retire_inflight_with(0x7000, |_receiver, _retirement| {
+            Err(std::io::Error::other("injected spawn failure"))
+        });
+        assert!(result.is_err());
+        let snapshot = oracle.retirement().snapshot();
+        assert_eq!(snapshot.lifecycle, "retained_unsafe");
+        assert_eq!(snapshot.allocation, Some(0x5000));
+        assert_eq!(snapshot.thread, Some(0x7000));
+        assert!(snapshot.error.unwrap().contains("spawn failed"));
+        assert!(oracle.remote_call_pending());
+        assert_eq!(controls.lock().unwrap().free_calls, 0);
+    }
+
+    #[test]
+    fn late_completion_is_polled_then_released_by_the_retained_owner() {
+        let controls = Arc::new(Mutex::new(Controls::default()));
+        let mut oracle = owned_oracle(Arc::clone(&controls));
+        oracle
+            .retire_inflight_with(0x7000, |_receiver, _retirement| {
+                Err(std::io::Error::other("injected spawn failure"))
+            })
+            .unwrap_err();
+        let retirement = oracle.retirement();
+        assert!(!retirement.refresh());
+        assert_eq!(controls.lock().unwrap().free_calls, 0);
+        controls.lock().unwrap().completed = true;
+        assert!(retirement.refresh());
+        assert!(retirement.snapshot().safe_to_shutdown);
+        let controls = controls.lock().unwrap();
+        assert_eq!(controls.free_calls, 1);
+        assert!(controls.closed);
+    }
+
+    #[test]
+    fn free_failure_retains_address_owner_and_error_until_retry_succeeds() {
+        let controls = Arc::new(Mutex::new(Controls {
+            completed: true,
+            fail_free: true,
+            ..Controls::default()
+        }));
+        let mut oracle = owned_oracle(Arc::clone(&controls));
+        let retirement = oracle.retirement();
+        oracle.close();
+        let snapshot = retirement.snapshot();
+        assert_eq!(snapshot.lifecycle, "retained_unsafe");
+        assert_eq!(snapshot.allocation, Some(0x5000));
+        assert!(snapshot.error.unwrap().contains("release failed"));
+        assert!(!snapshot.safe_to_shutdown);
+        controls.lock().unwrap().fail_free = false;
+        assert!(retirement.refresh());
+        assert_eq!(controls.lock().unwrap().free_calls, 2);
+    }
+
+    #[test]
+    fn live_reaper_owns_until_terminal_free() {
+        let controls = Arc::new(Mutex::new(Controls {
+            completed: true,
+            ..Controls::default()
+        }));
+        let mut oracle = owned_oracle(Arc::clone(&controls));
+        let retirement = oracle.retirement();
+        // The reaper signals completion so the assertion never depends on
+        // scheduler luck between the spawn and the snapshot.
+        let (finished_sender, finished_receiver) = mpsc::channel();
+        oracle
+            .retire_inflight_with(0x7000, |receiver, receipt| {
+                std::thread::Builder::new()
+                    .spawn(move || {
+                        finish_retired_owner(receiver.recv().unwrap(), receipt);
+                        let _ = finished_sender.send(());
+                    })
+                    .map(|_| ())
+            })
+            .unwrap();
+        let finished = finished_receiver.recv_timeout(Duration::from_secs(10));
+        assert!(finished.is_ok(), "the retired reaper did not finish");
+        let snapshot = retirement.snapshot();
+        assert_eq!(snapshot.lifecycle, "released");
+        assert!(snapshot.safe_to_shutdown);
+        assert!(!snapshot.pending_remote_call);
+        assert_eq!(controls.lock().unwrap().free_calls, 1);
+        assert!(controls.lock().unwrap().closed);
+    }
 }

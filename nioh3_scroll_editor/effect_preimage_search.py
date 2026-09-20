@@ -14,6 +14,7 @@ from .effect_path_inverse import (
     verify_complete_matches,
     verify_one_wildcard_matches,
 )
+from .effect_generation_tables import EffectGenerationTableIndex
 from .effect_preimage_accelerator import collect_effect_preimage_matches_d3d11
 from .grace_map import GraceOutputMap
 
@@ -63,6 +64,7 @@ def collect_full_composition_preimage_page(
     chunk_trials: int = 256_000_000,
     progress: ProgressCallback | None = None,
     cancelled: CancellationCheck | None = None,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> FullCompositionPreimagePage | None:
     """Search a complete composition or return ``None`` without D3D11.
 
@@ -81,6 +83,7 @@ def collect_full_composition_preimage_page(
         raise ValueError("chunk_trials must be positive")
     plans = compile_full_composition_plans(
         request,
+        tables=tables,
         special_mapping=special_mapping,
     )
     offsets = _plan_offsets(plans)
@@ -119,6 +122,8 @@ def collect_full_composition_preimage_page(
                 verify_complete_matches(
                     request,
                     (seed for seed, _trial in accelerated),
+                    tables=tables,
+                    special_mapping=special_mapping,
                 )
             )
             for seed, local_trial in accelerated:
@@ -175,6 +180,7 @@ def collect_one_wildcard_composition_preimage_page(
     chunk_trials: int = 256_000_000,
     progress: ProgressCallback | None = None,
     cancelled: CancellationCheck | None = None,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> FullCompositionPreimagePage | None:
     """Search all legal completions of one unspecified ordinary effect."""
 
@@ -188,6 +194,7 @@ def collect_one_wildcard_composition_preimage_page(
         raise ValueError("chunk_trials must be positive")
     plans = compile_one_wildcard_composition_plans(
         request,
+        tables=tables,
         special_mapping=special_mapping,
     )
     offsets = _plan_offsets(plans)
@@ -226,6 +233,8 @@ def collect_one_wildcard_composition_preimage_page(
                 verify_one_wildcard_matches(
                     request,
                     (seed for seed, _trial in accelerated),
+                    tables=tables,
+                    special_mapping=special_mapping,
                 )
             )
             for seed, local_trial in accelerated:

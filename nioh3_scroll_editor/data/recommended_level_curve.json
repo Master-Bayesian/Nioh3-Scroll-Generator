@@ -4,7 +4,7 @@
   "record_constructor": {
     "playthroughs": [1, 2, 3, 4],
     "minimum_internal_level": 156,
-    "maximum_internal_level": 1400
+    "maximum_internal_level": 600
   },
   "curve": {
     "input_field_offset": "0x48",

@@ -19,7 +19,8 @@ use serde_json::Value;
 
 use super::{
     canonical_dir, declared_path, declared_resource_root, field, field_str, field_usize,
-    fixed_table, read_declared_blob, R4_RESOURCE_DIR, R4_SCHEMA, TABLE_HEADER_BYTES,
+    fixed_table, read_declared_blob, resource_descriptor, R4_RESOURCE_DIR, R4_SCHEMA,
+    TABLE_HEADER_BYTES,
 };
 
 /// Shipped Grace maps, relative to the product `nioh3_scroll_editor/data` root.
@@ -34,19 +35,6 @@ pub const GRACE_MAP_FORMAT: &str = "nioh3-grace-first-u16-map-v2";
 pub const GRACE_MAP_GAME_VERSION: &str = "2.00.02";
 pub const GRACE_MAP_RECORD_TYPE: u32 = 0xE604;
 
-/// Expected manifest row strides for the nine shipped tables.
-const EXPECTED_TABLE_STRIDES: [(&str, usize); 9] = [
-    ("item", 0x1A0),
-    ("effect_group", 0x70),
-    ("category", 0x6C),
-    ("category_count_multiplier", 0x20),
-    ("level_curve", 10),
-    ("effect", 0xD8),
-    ("optional_multiplier", 0x20),
-    ("rarity_roll", 248),
-    ("special_context", 48),
-];
-
 /// Bonus-curve row size declared by the shipped manifest (`bonus_curve.row_size`).
 const BONUS_CURVE_ROW_BYTES: usize = 0x58;
 
@@ -55,18 +43,51 @@ const BONUS_CURVE_ROW_BYTES: usize = 0x58;
 /// `data_root` is the product `nioh3_scroll_editor/data` directory. Missing,
 /// undeclared, duplicated, escaping, schema-mismatched, or digest-mismatched
 /// resources are reported as errors instead of being silently substituted.
+///
+/// This entry point stays pinned to the shipped v2.00.02 payload for historical
+/// parity; use [`load_effect_resource_for_file_version`] to load the exact
+/// executable version instead of assuming that legacy identity.
 pub fn load_effect_resource(data_root: &Path) -> Result<EffectResourceBytes, Box<dyn Error>> {
+    load_effect_resource_from_dir(data_root, R4_RESOURCE_DIR)
+}
+
+/// Load every M2.1 effect resource bound to one exact executable version.
+///
+/// PC v2.02 changed the `item` and `optional_multiplier` tables, so it owns its
+/// own resource directory; PC v2.00.02 and PC v2.01 alias the shipped payload
+/// because it is byte-equal for them. An unregistered executable version is
+/// rejected by `r4_resource_dir_for_file_version` before any file is read; this
+/// path never falls back to the shipped payload. Digest, shape, containment and
+/// manifest declarations are enforced exactly as they are for the legacy
+/// entry point.
+pub fn load_effect_resource_for_file_version(
+    data_root: &Path,
+    file_version: (u16, u16, u16, u16),
+) -> Result<EffectResourceBytes, Box<dyn Error>> {
+    load_effect_resource_from_dir(
+        data_root,
+        super::r4_resource_dir_for_file_version(file_version)?,
+    )
+}
+
+fn load_effect_resource_from_dir(
+    data_root: &Path,
+    resource_dir: &str,
+) -> Result<EffectResourceBytes, Box<dyn Error>> {
     let root = canonical_dir(data_root, "product data directory")?;
-    let resource_root = declared_resource_root(&root, R4_RESOURCE_DIR)?;
+    let resource_root = declared_resource_root(&root, resource_dir)?;
     let manifest = super::read_manifest(&resource_root, R4_SCHEMA)?;
 
-    let mut tables = Vec::with_capacity(EXPECTED_TABLE_STRIDES.len());
-    for (name, stride) in EXPECTED_TABLE_STRIDES {
+    // The names and strides come from the shared descriptor the selected-bundle
+    // resolver also consumes, so the loader and the identity cannot drift.
+    let mut tables = Vec::with_capacity(resource_descriptor::R4_TABLES.len());
+    for descriptor in resource_descriptor::R4_TABLES {
+        let name = descriptor.name;
         let table = fixed_table(
             &resource_root,
             super::r4_table(&manifest, name)?,
             name,
-            stride,
+            descriptor.stride,
         )?;
         tables.push(
             EffectTableBytes::new(
@@ -93,7 +114,8 @@ pub fn load_effect_resource(data_root: &Path) -> Result<EffectResourceBytes, Box
 
     Ok(EffectResourceBytes {
         schema: R4_SCHEMA.to_string(),
-        // Field order mirrors EXPECTED_TABLE_STRIDES; keep the two in step.
+        // Field order mirrors `resource_descriptor::R4_TABLES`; keep the two in
+        // step.
         item: next()?,
         effect_group: next()?,
         category: next()?,
@@ -118,7 +140,8 @@ fn load_shipped_blobs(
     manifest: &Value,
 ) -> Result<ShippedBlobs, Box<dyn Error>> {
     const LABEL: &str = "bonus_curve";
-    let meta = field(manifest, "bonus_curve", LABEL)?;
+    let bonus_section = resource_descriptor::R4_BONUS_ROWS.section;
+    let meta = field(manifest, bonus_section, LABEL)?;
     let row_size = field_usize(meta, "row_size", LABEL)?;
     if row_size != BONUS_CURVE_ROW_BYTES {
         return Err(format!(
@@ -132,7 +155,11 @@ fn load_shipped_blobs(
     if unique_row_count > entry_count {
         return Err(format!("{LABEL}: unique rows exceed the entry count").into());
     }
-    let (_, rows) = read_declared_blob(resource_root, field(meta, "rows_file", LABEL)?, LABEL)?;
+    let (_, rows) = read_declared_blob(
+        resource_root,
+        resource_descriptor::manifest_record(manifest, &resource_descriptor::R4_BONUS_ROWS)?,
+        LABEL,
+    )?;
     let expected_rows = row_size
         .checked_mul(entry_count)
         .ok_or_else(|| format!("{LABEL}: row store size overflows"))?;
@@ -143,7 +170,11 @@ fn load_shipped_blobs(
         )
         .into());
     }
-    let (_, index) = read_declared_blob(resource_root, field(meta, "index_file", LABEL)?, LABEL)?;
+    let (_, index) = read_declared_blob(
+        resource_root,
+        resource_descriptor::manifest_record(manifest, &resource_descriptor::R4_BONUS_INDEX)?,
+        LABEL,
+    )?;
     let expected_index = entry_count
         .checked_mul(4)
         .ok_or_else(|| format!("{LABEL}: index size overflows"))?;
@@ -155,7 +186,8 @@ fn load_shipped_blobs(
         .into());
     }
 
-    const PLAYTHROUGH: &str = "playthrough";
+    // Label and section both come from the shared descriptor.
+    const PLAYTHROUGH: &str = resource_descriptor::R4_PLAYTHROUGH.section;
     let playthrough = field(manifest, PLAYTHROUGH, PLAYTHROUGH)?;
     let selector_min = field_usize(playthrough, "selector_min", PLAYTHROUGH)?;
     let selector_max = field_usize(playthrough, "selector_max", PLAYTHROUGH)?;
@@ -169,7 +201,7 @@ fn load_shipped_blobs(
         .ok_or_else(|| format!("{PLAYTHROUGH}: selector store size overflows"))?;
     let (_, progress) = read_declared_blob(
         resource_root,
-        field(playthrough, "file", PLAYTHROUGH)?,
+        resource_descriptor::manifest_record(manifest, &resource_descriptor::R4_PLAYTHROUGH)?,
         PLAYTHROUGH,
     )?;
     if progress.len() != expected {
@@ -291,7 +323,7 @@ mod tests {
     use std::{collections::BTreeMap, fs, path::PathBuf};
 
     use super::*;
-    use crate::sha256_hex_upper;
+    use crate::{sha256_hex_upper, R4_RESOURCE_DIR_V202};
 
     /// The shipped product data root inside this checkout.
     fn shipped_data_root() -> PathBuf {
@@ -308,14 +340,25 @@ mod tests {
     /// Minimal valid resource tree: nine tables, bonus curve, playthrough and
     /// both Grace maps, all with correct digests.
     fn write_synthetic_root(root: &Path, mutate: impl FnOnce(&mut Value, &Path)) -> PathBuf {
-        let resource = root.join(R4_RESOURCE_DIR);
+        write_synthetic_root_in(root, R4_RESOURCE_DIR, mutate)
+    }
+
+    /// Same fixture, written to the resource directory of one exact version, so
+    /// the versioned entry point can be driven against a scratch tree.
+    fn write_synthetic_root_in(
+        root: &Path,
+        resource_dir: &str,
+        mutate: impl FnOnce(&mut Value, &Path),
+    ) -> PathBuf {
+        let resource = root.join(resource_dir);
         fs::create_dir_all(resource.join("tables")).unwrap();
         fs::create_dir_all(resource.join("bonus_curve")).unwrap();
         fs::create_dir_all(resource.join("globals")).unwrap();
 
         let mut records = Vec::new();
         let mut tables = Vec::new();
-        for (name, stride) in EXPECTED_TABLE_STRIDES {
+        for descriptor in resource_descriptor::R4_TABLES {
+            let (name, stride) = (descriptor.name, descriptor.stride);
             let row_count = 2usize;
             let mut bytes = vec![0u8; TABLE_HEADER_BYTES + stride * row_count];
             bytes[..4].copy_from_slice(&[0x00, 0x22, 0x04, 0x20]);
@@ -541,6 +584,110 @@ mod tests {
         assert_eq!(resource.grace_maps[0].rarity, 4);
         assert_eq!(resource.grace_maps[0].effect_slot, 5);
         assert_eq!(resource.grace_maps[0].ranges.len(), 21);
+    }
+
+    #[test]
+    fn versioned_effect_resource_loads_the_changed_v202_tables() {
+        let root = shipped_data_root();
+        let shipped = load_effect_resource(&root).expect("shipped resource loads");
+        let v202 = load_effect_resource_for_file_version(&root, (2, 0, 2, 0)).expect("v2.02 loads");
+
+        assert_eq!(v202.schema, shipped.schema);
+
+        // The two tables PC v2.02 changed must come from the v2.02 directory.
+        assert_eq!(shipped.item.row_count(), 3362);
+        assert_eq!(shipped.optional_multiplier.row_count(), 2951);
+        assert_eq!(v202.item.row_count(), 3362);
+        assert_eq!(v202.optional_multiplier.row_count(), 2954);
+        assert_ne!(v202.item.rows, shipped.item.rows, "item payload changed");
+        assert_ne!(
+            v202.optional_multiplier.rows, shipped.optional_multiplier.rows,
+            "optional_multiplier payload changed"
+        );
+
+        // Every other resource stays byte-equal, so the version split is exactly
+        // those two tables and nothing else was silently re-read.
+        for (label, versioned, legacy) in [
+            ("effect_group", &v202.effect_group, &shipped.effect_group),
+            ("category", &v202.category, &shipped.category),
+            (
+                "category_count_multiplier",
+                &v202.category_count_multiplier,
+                &shipped.category_count_multiplier,
+            ),
+            ("level_curve", &v202.level_curve, &shipped.level_curve),
+            ("effect", &v202.effect, &shipped.effect),
+            ("rarity_roll", &v202.rarity_roll, &shipped.rarity_roll),
+            (
+                "special_context",
+                &v202.special_context,
+                &shipped.special_context,
+            ),
+        ] {
+            assert_eq!(versioned.rows, legacy.rows, "{label}: unchanged table");
+        }
+        assert_eq!(v202.bonus_curve_rows, shipped.bonus_curve_rows);
+        assert_eq!(v202.bonus_curve_index, shipped.bonus_curve_index);
+        assert_eq!(v202.playthrough_progress, shipped.playthrough_progress);
+        assert_eq!(v202.grace_maps.len(), shipped.grace_maps.len());
+    }
+
+    #[test]
+    fn versioned_effect_resource_aliases_shipped_for_older_versions() {
+        let root = shipped_data_root();
+        for aliased in [(2, 0, 0, 2), (2, 0, 1, 0)] {
+            let resource = load_effect_resource_for_file_version(&root, aliased)
+                .unwrap_or_else(|error| panic!("{aliased:?}: {error}"));
+            assert_eq!(resource.item.rows.len(), 0x1A0 * 3362);
+            assert_eq!(resource.optional_multiplier.row_count(), 2951);
+        }
+    }
+
+    #[test]
+    fn versioned_effect_resource_rejects_unknown_file_version() {
+        let root = shipped_data_root();
+        for unknown in [(2, 1, 0, 0), (1, 0, 0, 0), (2, 0, 3, 0), (0, 0, 0, 0)] {
+            let error = load_effect_resource_for_file_version(&root, unknown)
+                .expect_err("unknown executable version is rejected");
+            assert!(
+                error.to_string().contains("no offline generation resource"),
+                "{unknown:?}: unexpected error: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn versioned_effect_resource_keeps_digest_and_shape_validation() {
+        let altered = scratch_dir("v202-altered-digest");
+        let altered = write_synthetic_root_in(&altered, R4_RESOURCE_DIR_V202, |_manifest, root| {
+            let path = root.join(R4_RESOURCE_DIR_V202).join("tables/item.bin");
+            let mut bytes = fs::read(&path).unwrap();
+            bytes.push(0);
+            fs::write(&path, &bytes).unwrap();
+        });
+        let error = load_effect_resource_for_file_version(&altered, (2, 0, 2, 0))
+            .expect_err("altered v2.02 digest is rejected");
+        assert!(
+            error.to_string().contains("size mismatch") || error.to_string().contains("SHA-256"),
+            "unexpected error: {error}"
+        );
+
+        let incomplete = scratch_dir("v202-missing-table");
+        let incomplete =
+            write_synthetic_root_in(&incomplete, R4_RESOURCE_DIR_V202, |manifest, _root| {
+                let tables = manifest["tables"]
+                    .as_array_mut()
+                    .expect("synthetic manifest declares tables");
+                tables.retain(|table| {
+                    table.get("name").and_then(Value::as_str) != Some("optional_multiplier")
+                });
+            });
+        let error = load_effect_resource_for_file_version(&incomplete, (2, 0, 2, 0))
+            .expect_err("missing v2.02 table is rejected");
+        assert!(
+            error.to_string().contains("optional_multiplier"),
+            "unexpected error: {error}"
+        );
     }
 
     #[test]

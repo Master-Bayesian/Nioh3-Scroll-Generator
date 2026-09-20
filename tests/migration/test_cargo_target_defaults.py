@@ -6,8 +6,11 @@ setup with "There is not enough space on the disk" instead of reporting their
 real result.
 
 The rule: `CARGO_TARGET_DIR` always wins, so an operator or CI can point the
-build at any volume; otherwise the target lives under the platform temp
-directory. No migration gate may default a cargo target into the checkout.
+build at any volume; otherwise the target lives under the project build root,
+which is `D:/Nioh3_v080_deliverables/build-cache/<gate>` on a local Windows host
+and the platform temp directory on CI or a non-Windows host. No migration gate
+may default a cargo target into the checkout or into the `C:` system temp on
+this host. `tests/migration/test_build_root_policy.py` owns the root policy.
 """
 from __future__ import annotations
 
@@ -23,6 +26,7 @@ MIGRATION = ROOT / "tests" / "migration"
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from tests.migration import cargo_target  # noqa: E402
 from tests.migration.cargo_target import resolved_cargo_target_dir  # noqa: E402
 
 
@@ -44,8 +48,10 @@ def test_an_explicit_cargo_target_dir_always_wins(monkeypatch) -> None:
     assert resolved_cargo_target_dir("probe") != "   "
 
 
-def test_the_fallback_is_external_and_named_per_gate(monkeypatch) -> None:
+def test_the_portable_fallback_is_external_and_named_per_gate(monkeypatch) -> None:
     monkeypatch.delenv("CARGO_TARGET_DIR", raising=False)
+    monkeypatch.delenv("NIOH3_BUILD_ROOT", raising=False)
+    monkeypatch.setattr(cargo_target, "_host_is_local_windows", lambda local_root: False)
     fallback = Path(resolved_cargo_target_dir("unit-probe"))
     assert fallback == Path(tempfile.gettempdir()) / "nioh3-unit-probe-target"
     assert fallback.is_absolute()

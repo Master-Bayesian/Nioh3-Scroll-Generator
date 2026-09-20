@@ -13,11 +13,22 @@ from nioh3_scroll_editor.enemy_variants import split_enemy_variant_display_group
 from nioh3_scroll_editor.grace_map import load_grace_output_map
 from nioh3_scroll_editor.effect_sequence import generate_ng3_certified_effect_sequence, generate_challenge_attempt_count
 from nioh3_scroll_editor.auxiliary_generation import generate_complete_auxiliary, load_default_auxiliary_generation_tables
-from nioh3_scroll_editor.recommended_level import resolve_recommended_level
+from nioh3_scroll_editor.recommended_level import (
+    native_recommended_level_curve,
+    resolve_recommended_level,
+)
 from nioh3_scroll_editor.possessed_generation import EnemyStateTables
 from nioh3_scroll_editor.version import APP_AUTHORS, CONTACT_QQ_GROUP, PROJECT_GITHUB_URL
 
 from nioh3_scroll_editor.effect_generation_tables import load_default_effect_generation_tables
+
+
+def _level_display_range():
+    """The selectable displayed levels, taken from the shipped curve bound."""
+    minimum, maximum = native_recommended_level_curve().displayed_level_bounds()
+    return minimum, maximum + 1
+
+
 tables = load_default_effect_generation_tables()
 
 names = load_auxiliary_name_catalog("zh-CN")
@@ -78,7 +89,7 @@ for rarity in (3,4,5):
         samples.append({"seed":str(seed),"rarity":rarity,"effects":effects,"capacity":generate_challenge_attempt_count(seed),"enemyKeys":enemy_keys,"enemySlotKeys":[group.entries[0].lookup_key for group in aux.enemies.groups],
             "enemies":list(dict.fromkeys(names.enemy_name(k) for k in enemy_keys)),"terrainKeys":list(aux.terrain.display_effect_keys),
             "rules":[{"key":e.key,"name":names.special_rule_name(e.key),"value":rule_value({"display_value":e.display_value,"display_unit":e.display_unit,"display_grade":e.display_grade})} for e in aux.special_rules.entries]})
-levels={str(level):resolve_recommended_level(level).selected_internal_level for level in range(142,701)}
+levels={str(level):resolve_recommended_level(level).selected_internal_level for level in range(*_level_display_range())}
 identities={str(key):{"prefix":row.group_key,"category":tables.group_for_effect(key).category_key} for key,row in tables.effects_by_id.items()}
 aux_tables=load_default_auxiliary_generation_tables()
 runtime_terrains={t["option_id"]:aux_tables.terrain.row(min(resolve_terrain_selections([t["option_id"]])))[0x30] for t in catalog["terrain_options"] if not t["aggregate"]}

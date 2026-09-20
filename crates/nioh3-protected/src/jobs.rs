@@ -63,6 +63,7 @@ impl JobRecord {
 /// The single protected owner behind `job.*`.
 pub struct ProtectedJobs {
     cancel: Arc<AtomicBool>,
+    closing: AtomicBool,
     job: Arc<Mutex<Option<JobRecord>>>,
     handle: Mutex<Option<JoinHandle<()>>>,
     seed: Mutex<u128>,
@@ -78,6 +79,7 @@ impl ProtectedJobs {
     pub fn new() -> Self {
         Self {
             cancel: Arc::new(AtomicBool::new(false)),
+            closing: AtomicBool::new(false),
             job: Arc::new(Mutex::new(None)),
             handle: Mutex::new(None),
             seed: Mutex::new(0),
@@ -135,6 +137,11 @@ impl ProtectedJobs {
     where
         F: FnOnce(&JobContext) -> Result<Value, HostError> + Send + 'static,
     {
+        if self.closing.load(Ordering::SeqCst) {
+            return Err(HostError::rejected(
+                "CLOSING: protected host is finalizing ownership",
+            ));
+        }
         self.join_terminal_owner();
         let mut handle_guard = match self.handle.lock() {
             Ok(guard) => guard,
@@ -214,9 +221,23 @@ impl ProtectedJobs {
                 *handle_guard = Some(handle);
                 Ok(initial)
             }
-            Err(error) => Err(HostError::rejected(format!(
-                "protected operation thread could not start: {error}"
-            ))),
+            Err(error) => {
+                let mut guard = match self.job.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+                if let Some(record) = guard.as_mut() {
+                    record.state = "failed";
+                    record.error = Some(json!({
+                        "code": "OPERATION_REJECTED",
+                        "message": format!("protected operation thread could not start: {error}"),
+                    }));
+                    record.sequence += 1;
+                }
+                Err(HostError::rejected(format!(
+                    "protected operation thread could not start: {error}"
+                )))
+            }
         }
     }
 
@@ -280,6 +301,25 @@ impl ProtectedJobs {
     /// Signal cancellation to whatever is running; used on shutdown and EOF.
     pub fn request_cancel(&self) {
         self.cancel.store(true, Ordering::SeqCst);
+        let mut guard = match self.job.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        if let Some(record) = guard.as_mut() {
+            if record.state == "running" {
+                record.state = "cancel_requested";
+                record.sequence += 1;
+            }
+        }
+    }
+
+    /// Enter the one-way host closing state. Once set, no new owner can start.
+    pub fn begin_closing(&self) {
+        self.closing.store(true, Ordering::SeqCst);
+    }
+
+    pub fn closing(&self) -> bool {
+        self.closing.load(Ordering::SeqCst)
     }
 
     /// `ProtectedJobs.join`: wait for the owning action to finish its cleanup.

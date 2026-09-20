@@ -19,13 +19,8 @@ def capture_inventory():
         signature = bytes.fromhex('40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC')
         if reader.read(reader.module_base + LAYOUT.insertion_rva, len(signature)) != signature:
             raise RuntimeError('Inventory insertion signature mismatch')
-        manager_address = reader.module_base + LAYOUT.manager_pointer_rva
-        manager = reader.u64(manager_address)
-        if not manager:
-            raise RuntimeError('Item manager is not loaded')
-        data = reader.u64(manager)
-        if not data:
-            raise RuntimeError('Inventory data is not loaded')
+        pointers = LAYOUT.resolve_inventory(reader.u64, reader.module_base)
+        data = pointers.data_address
         container = data + LAYOUT.container_offset
         if reader.u64(container + LAYOUT.capacity_offset) != 400:
             raise RuntimeError('Unexpected scroll container capacity')
@@ -33,7 +28,7 @@ def capture_inventory():
         raw = reader.read(container, 400 * 0xE8)
         if raw != reader.read(container, len(raw)) or counters != reader.read(data, 16):
             raise RuntimeError('Inventory or counters changed during capture; retry at rest')
-        if reader.u64(manager_address) != manager or reader.u64(manager) != data:
+        if LAYOUT.resolve_inventory(reader.u64, reader.module_base) != pointers:
             raise RuntimeError('Inventory owner changed during capture')
         entries = []
         for slot in range(400):
@@ -116,13 +111,13 @@ def capture_index():
     with ProcessReader() as reader:
         if reader.pid != pid:
             raise ValueError('Process changed')
-        manager = reader.u64(reader.module_base + LAYOUT.manager_pointer_rva)
-        data = reader.u64(manager)
+        pointers = LAYOUT.resolve_inventory(reader.u64, reader.module_base)
+        data = pointers.data_address
         if reader.u64(data + LAYOUT.container_offset + LAYOUT.capacity_offset) != 400:
             raise ValueError('Unexpected inventory owner')
         creation_time = reader.creation_time()
         result = inspect(reader, data + LAYOUT.serial_index_offset)
-        if reader.u64(reader.module_base + LAYOUT.manager_pointer_rva) != manager or reader.u64(manager) != data:
+        if LAYOUT.resolve_inventory(reader.u64, reader.module_base) != pointers:
             raise ValueError('Inventory owner changed')
     return {'schema': 'nioh3-native-serial-index/v1', 'pid': pid, 'read_only': True,
             'process_creation_time': creation_time,

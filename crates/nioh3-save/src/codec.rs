@@ -238,6 +238,10 @@ pub fn write_scroll_inventory_key(
 /// captured non-scroll equipment records share one identity namespace, so both
 /// are excluded from the allocation. The non-scroll predicate is the strict
 /// captured-equipment header rule (`_looks_like_non_scroll_item_record`).
+///
+/// Refuses with [`SaveReadError::AllocationExhausted`] when the observed
+/// `+0x28` words leave no legal successor inside
+/// `1..=SCROLL_GENERATION_SERIAL_MAX`.
 pub fn allocate_scroll_generation_serials(
     decrypted: &[u8],
     count: usize,
@@ -263,14 +267,11 @@ pub fn allocate_scroll_generation_serials(
             occupied.push(value);
         }
     }
-    let start = scroll_serials.iter().copied().max().unwrap_or(0) + 1;
-    if start > SCROLL_GENERATION_SERIAL_MAX {
-        return Err(SaveReadError::AllocationExhausted {
-            kind: "generation serial",
-        });
-    }
+    let start = serial_allocation_start(scroll_serials.iter().copied().max().unwrap_or(0))?;
     let mut allocated: Vec<u32> = Vec::with_capacity(count);
     let mut value = start;
+    // `start` is already inside the legal domain, so the increment below cannot
+    // reach the u32 wrap.
     while value <= SCROLL_GENERATION_SERIAL_MAX {
         if !occupied.contains(&value) && !allocated.contains(&value) {
             allocated.push(value);
@@ -283,6 +284,29 @@ pub fn allocate_scroll_generation_serials(
     Err(SaveReadError::AllocationExhausted {
         kind: "generation serial",
     })
+}
+
+/// `start = largest observed serial + 1`, validated against the serial domain.
+///
+/// The record scan above copies `+0x28` without filtering it, so the largest
+/// observation is an untrusted word: an empty namespace must still start at 1,
+/// and only this helper knows where the namespace ends. `checked_add` is what
+/// keeps a `u32::MAX` observation from wrapping to zero and handing the caller
+/// a serial outside `1..=SCROLL_GENERATION_SERIAL_MAX`; the explicit ceiling
+/// then refuses every value whose successor is already illegal. `largest` is
+/// unsigned, so `checked_add` succeeding already establishes `start >= 1`.
+fn serial_allocation_start(largest_serial: u32) -> Result<u32, SaveReadError> {
+    let start = largest_serial
+        .checked_add(1)
+        .ok_or(SaveReadError::AllocationExhausted {
+            kind: "generation serial",
+        })?;
+    if start > SCROLL_GENERATION_SERIAL_MAX {
+        return Err(SaveReadError::AllocationExhausted {
+            kind: "generation serial",
+        });
+    }
+    Ok(start)
 }
 
 /// The strict captured-equipment header predicate used by the serial allocator.
@@ -544,6 +568,76 @@ mod tests {
         let save = save_with(&[(0, record(0xE604, 7, 11)), (1, record(0xE604, 9, 12))]);
         let allocated = allocate_scroll_generation_serials(&save, 2).expect("allocation");
         assert_eq!(allocated, vec![13, 14]);
+    }
+
+    #[test]
+    fn generation_serials_allocate_the_maximum_legal_serial() {
+        // The largest observed serial leaves exactly one legal successor, so the
+        // domain ceiling itself must be allocatable rather than refused.
+        let save = save_with(&[(0, record(0xE604, 7, SCROLL_GENERATION_SERIAL_MAX - 1))]);
+        let allocated = allocate_scroll_generation_serials(&save, 1).expect("allocation");
+        assert_eq!(allocated, vec![SCROLL_GENERATION_SERIAL_MAX]);
+        assert!(
+            write_scroll_generation_serial(&record(0xE604, 7, 1), allocated[0]).is_ok(),
+            "the allocator's ceiling must be a serial the writer accepts"
+        );
+
+        // One more value would step past the ceiling, so the loop terminates by
+        // refusing instead of incrementing out of the domain.
+        let error = allocate_scroll_generation_serials(&save, 2).expect_err("ceiling");
+        assert!(matches!(
+            error,
+            SaveReadError::AllocationExhausted {
+                kind: "generation serial"
+            }
+        ));
+    }
+
+    #[test]
+    fn generation_serial_allocation_refuses_a_u32_max_observation() {
+        // `+0x28` is read as a raw word, so a corrupt or reserved record can
+        // hold `u32::MAX`. `max + 1` would wrap to zero and hand the caller a
+        // serial below the legal domain; the start must refuse instead, and it
+        // must refuse before anything observable changes.
+        let save = save_with(&[(0, record(0xE604, 7, u32::MAX))]);
+        let before = save.clone();
+        let error = allocate_scroll_generation_serials(&save, 1).expect_err("wrapped start");
+        assert!(matches!(
+            error,
+            SaveReadError::AllocationExhausted {
+                kind: "generation serial"
+            }
+        ));
+        assert_eq!(
+            save, before,
+            "a refused allocation must not mutate its input"
+        );
+    }
+
+    #[test]
+    fn serial_allocation_start_refuses_every_value_without_a_legal_successor() {
+        assert_eq!(serial_allocation_start(0).expect("empty namespace"), 1);
+        assert_eq!(
+            serial_allocation_start(SCROLL_GENERATION_SERIAL_MAX - 1).expect("successor"),
+            SCROLL_GENERATION_SERIAL_MAX
+        );
+        for largest_serial in [
+            SCROLL_GENERATION_SERIAL_MAX,
+            SCROLL_GENERATION_SERIAL_MAX + 1,
+            u32::MAX - 1,
+            u32::MAX,
+        ] {
+            let error = serial_allocation_start(largest_serial).expect_err("no successor");
+            assert!(
+                matches!(
+                    error,
+                    SaveReadError::AllocationExhausted {
+                        kind: "generation serial"
+                    }
+                ),
+                "{largest_serial:#010X} must refuse"
+            );
+        }
     }
 
     #[test]

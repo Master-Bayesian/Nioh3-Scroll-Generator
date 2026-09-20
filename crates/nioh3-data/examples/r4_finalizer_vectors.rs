@@ -10,20 +10,31 @@
 //! corpus bytes (`test_fixtures/r4_native_corpus`). This example is not a
 //! product CLI.
 //!
-//! Usage: `cargo run --example r4_finalizer_vectors -- [data_root] [corpus_root]`
+//! Usage:
+//! `cargo run --example r4_finalizer_vectors -- [data_root] [corpus_root]`
+//!     `[--resource-version <a.b.c.d|legacy>] [--seeds <s1,s2,...>]`
+//!
+//! The default invocation is unchanged: no `--resource-version` still loads the
+//! shipped legacy v2.00.02 payload through `load_effect_resource`, and no
+//! `--seeds` adds no rows. `--resource-version` selects that exact executable's
+//! own offline resource for the whole run and adds one `resource` identity row;
+//! `--seeds` adds one `version-seed` row per seed with the real paired
+//! stage-one/final bytes, so a gate can compare same-version bytes for named
+//! seeds without touching the shipped sweeps.
 
 use std::{
     env, fs,
     path::{Path, PathBuf},
 };
 
-use nioh3_data::load_effect_resource;
+use nioh3_data::{load_effect_resource, load_effect_resource_for_file_version};
 use nioh3_domain::effect::EffectTableIndex;
 use nioh3_domain::r4_finalizer::{FinalizerAttemptTrace, R4FinalizerEngine, R4FinalizerError};
 use nioh3_domain::record::{
     materialize_ng3_rarity4_final_record, materialize_ng3_rarity4_stage_one_record,
     ScrollRecordBytes,
 };
+use sha2::{Digest, Sha256};
 
 /// Level used by the fixed seed sweep; the reference default is 180.
 const LEVEL: u16 = 180;
@@ -100,6 +111,94 @@ fn dedupe(seeds: Vec<u32>) -> Vec<u32> {
 
 /// Local error alias: domain errors carry structured data instead of `Display`.
 type EmitResult<T> = Result<T, String>;
+
+/// Command-line inputs. Every field keeps the historical default, so an
+/// argument-free invocation still emits exactly the original row set.
+struct Options {
+    data_root: String,
+    corpus_root: String,
+    resource_version: Option<(u16, u16, u16, u16)>,
+    seeds: Vec<u32>,
+}
+
+fn parse_options() -> EmitResult<Options> {
+    let mut options = Options {
+        data_root: "../../nioh3_scroll_editor/data".to_string(),
+        corpus_root: "../../test_fixtures/r4_native_corpus".to_string(),
+        resource_version: None,
+        seeds: Vec::new(),
+    };
+    let mut positional = 0usize;
+    let mut args = env::args().skip(1);
+    while let Some(argument) = args.next() {
+        match argument.as_str() {
+            "--resource-version" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| "--resource-version needs a.b.c.d or legacy".to_string())?;
+                options.resource_version = parse_version(&value)?;
+            }
+            "--seeds" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| "--seeds needs a comma-separated list".to_string())?;
+                options.seeds = value
+                    .split(',')
+                    .filter(|item| !item.trim().is_empty())
+                    .map(|item| {
+                        item.trim()
+                            .parse::<u32>()
+                            .map_err(|error| format!("--seeds {item}: {error}"))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+            }
+            other => {
+                if other.starts_with("--") {
+                    return Err(format!("unknown argument {other}"));
+                }
+                match positional {
+                    0 => options.data_root = other.to_string(),
+                    1 => options.corpus_root = other.to_string(),
+                    _ => return Err(format!("unexpected extra argument {other}")),
+                }
+                positional += 1;
+            }
+        }
+    }
+    Ok(options)
+}
+
+/// `legacy` keeps the historical shipped-payload loader; a four-part version
+/// selects that exact executable's own offline resource instead.
+fn parse_version(value: &str) -> EmitResult<Option<(u16, u16, u16, u16)>> {
+    if value.eq_ignore_ascii_case("legacy") {
+        return Ok(None);
+    }
+    let parts: Vec<&str> = value.split('.').collect();
+    if parts.len() != 4 {
+        return Err(format!(
+            "--resource-version {value}: expected a.b.c.d or legacy"
+        ));
+    }
+    let mut parsed = [0u16; 4];
+    for (index, part) in parts.iter().enumerate() {
+        parsed[index] = part
+            .parse::<u16>()
+            .map_err(|error| format!("--resource-version {value}: {error}"))?;
+    }
+    Ok(Some((parsed[0], parsed[1], parsed[2], parsed[3])))
+}
+
+fn version_label(version: (u16, u16, u16, u16)) -> String {
+    format!("{}.{}.{}.{}", version.0, version.1, version.2, version.3)
+}
+
+/// Uppercase SHA-256 of the header-stripped rows the loader actually exposes.
+fn sha256_hex(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    format!("{:X}", hasher.finalize())
+}
 
 /// One native corpus pair: the tracked stage bytes and the sibling final bytes.
 struct NativePair {
@@ -291,15 +390,31 @@ fn build_reveal_row(
 }
 
 fn run() -> EmitResult<()> {
-    let root = env::args()
-        .nth(1)
-        .unwrap_or_else(|| "../../nioh3_scroll_editor/data".to_string());
-    let corpus_root = env::args()
-        .nth(2)
-        .unwrap_or_else(|| "../../test_fixtures/r4_native_corpus".to_string());
-    let corpus_root = PathBuf::from(corpus_root);
+    let options = parse_options()?;
+    let corpus_root = PathBuf::from(&options.corpus_root);
 
-    let resource = load_effect_resource(Path::new(&root)).map_err(|error| error.to_string())?;
+    // The requested version selects the resource for the whole run; the default
+    // stays the historical shipped payload.
+    let (resource, resource_label, resource_dir) = match options.resource_version {
+        Some(version) => {
+            let dir = nioh3_data::r4_resource_dir_for_file_version(version)
+                .map_err(|error| error.to_string())?
+                .to_string();
+            let resource =
+                load_effect_resource_for_file_version(Path::new(&options.data_root), version)
+                    .map_err(|error| error.to_string())?;
+            (resource, version_label(version), dir)
+        }
+        None => {
+            let resource = load_effect_resource(Path::new(&options.data_root))
+                .map_err(|error| error.to_string())?;
+            (
+                resource,
+                "legacy-v2.00.02".to_string(),
+                nioh3_data::R4_RESOURCE_DIR.to_string(),
+            )
+        }
+    };
     let index = EffectTableIndex::from_resource(&resource).map_err(|error| format!("{error:?}"))?;
     let engine = R4FinalizerEngine::new(&index).map_err(|error| format!("{error:?}"))?;
     let grace_map = &resource.grace_maps[0];
@@ -411,6 +526,43 @@ fn run() -> EmitResult<()> {
     lines.push(reject_rarity(&engine, &donor));
     lines.push(reject_template_context(&index, grace_map, &donor));
     lines.push(reject_promotion_target(&engine, &donor));
+
+    // Resource identity block: emitted only when an explicit version was asked
+    // for, so the default invocation keeps its historical row set byte for byte.
+    // The digests are taken from the rows the loader actually handed over.
+    if options.resource_version.is_some() {
+        lines.push(format!(
+            "resource\t{resource_label}\t{resource_dir}\t{}\t{}\t{}\t{}",
+            resource.item.row_count(),
+            sha256_hex(&resource.item.rows),
+            resource.optional_multiplier.row_count(),
+            sha256_hex(&resource.optional_multiplier.rows),
+        ));
+    }
+
+    // Explicit seed block: real stage-one/final bytes for named seeds under the
+    // selected resource, with the same donor and lineage the fixed sweep uses.
+    for seed in &options.seeds {
+        let built = build_pair(
+            &index,
+            grace_map,
+            &donor,
+            Lineage {
+                seed: *seed,
+                level: LEVEL,
+                recommended_level: SWEEP_RECOMMENDED_LEVEL,
+                generation_serial: SWEEP_GENERATION_SERIAL,
+                transfer_count: SWEEP_TRANSFER_COUNT,
+            },
+        )?;
+        lines.push(format!(
+            "version-seed\t{seed}\t{LEVEL}\t{}\t{}\t{}\t{}",
+            hex(&built.stage),
+            hex(&built.preview),
+            accepted_text(built.accepted),
+            built.attempts,
+        ));
+    }
 
     for line in lines {
         println!("{line}");

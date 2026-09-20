@@ -741,8 +741,11 @@ def seed_satisfies_compiled_plan(plan: CompiledEffectPlan, seed: int) -> bool:
 def verify_complete_matches(
     request: FullCompositionRequest,
     seeds: Iterable[int],
+    *,
+    tables: EffectGenerationTableIndex | None = None,
+    special_mapping: GraceOutputMap | None = None,
 ) -> tuple[int, ...]:
-    """Apply the certified forward generator as the final acceptance gate."""
+    """Apply the certified forward generator in the selected resource context."""
 
     expected_secondaries = frozenset(request.secondary_effect_ids)
     verified: list[int] = []
@@ -750,13 +753,19 @@ def verify_complete_matches(
         if request.natural_only and not is_natural_scroll_id(seed):
             continue
         if request.rarity == 3:
-            result = generate_ng3_rarity3_effect_sequence(seed)
+            result = generate_ng3_rarity3_effect_sequence(seed, tables=tables)
         elif request.rarity == 4:
-            result = generate_ng3_rarity4_stage_one_effect_sequence(seed)
+            result = generate_ng3_rarity4_stage_one_effect_sequence(
+                seed,
+                tables=tables,
+                special_mapping=special_mapping,
+            )
         else:
             result = generate_rarity5_grace_effect_sequence(
                 seed,
                 playthrough=request.playthrough,
+                tables=tables,
+                grace_mapping=special_mapping,
             )
         if (
             result.primary.effect_id == request.primary_effect_id
@@ -774,8 +783,11 @@ def verify_complete_matches(
 def verify_one_wildcard_matches(
     request: OneWildcardCompositionRequest,
     seeds: Iterable[int],
+    *,
+    tables: EffectGenerationTableIndex | None = None,
+    special_mapping: GraceOutputMap | None = None,
 ) -> tuple[int, ...]:
-    """Replay one-wildcard GPU hits through the certified forward generator."""
+    """Replay one-wildcard hits in the selected resource context."""
 
     required = frozenset(request.required_effect_ids)
     verified: list[int] = []
@@ -783,11 +795,17 @@ def verify_one_wildcard_matches(
         if request.natural_only and not is_natural_scroll_id(seed):
             continue
         if request.rarity == 4:
-            result = generate_ng3_rarity4_stage_one_effect_sequence(seed)
+            result = generate_ng3_rarity4_stage_one_effect_sequence(
+                seed,
+                tables=tables,
+                special_mapping=special_mapping,
+            )
         else:
             result = generate_rarity5_grace_effect_sequence(
                 seed,
                 playthrough=request.playthrough,
+                tables=tables,
+                grace_mapping=special_mapping,
             )
         ordinary = frozenset(
             (result.primary.effect_id, *(effect.effect_id for effect in result.secondaries))

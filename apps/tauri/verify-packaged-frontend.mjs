@@ -340,6 +340,14 @@ async function main() {
       role: identity.role,
       contextDigest: identity.context.context_digest,
       contractDigest: identity.contract_digest,
+      selectedContext: {
+        gameFileVersion: identity.context.game_file_version,
+        versionedResourceDir: identity.context.versioned_resource_dir,
+        bundleDigest: identity.context.bundle_digest,
+        versionedDigest: identity.context.versioned_digest,
+        legacyContextDigest: identity.context.legacy_context_digest,
+        contextDigest: identity.context.context_digest,
+      },
     };
 
     // Catalog for every locale, from the staged tables.

@@ -60,8 +60,10 @@ pub use descriptor::{
 pub use evidence::{defined, verify, verify_dispatch, verify_persistence, REGISTERS};
 pub use inventory::{
     capture_index, capture_inventory, capture_read_only, index_entries, inventory_entries,
-    inventory_json, Inventory, InventoryEntry, InventoryLayout, InventoryProcess, NativeIndex,
-    INSERTION_SIGNATURE, PC_V201_INVENTORY_LAYOUT,
+    inventory_json, resolve_inventory_pointers, Inventory, InventoryEntry, InventoryGlobalMode,
+    InventoryLayout, InventoryPointers, InventoryProcess, NativeIndex, INSERTION_SIGNATURE,
+    INVENTORY_GLOBAL_MODE_DIRECT_DATA, INVENTORY_GLOBAL_MODE_MANAGER_OBJECT,
+    PC_V201_INVENTORY_LAYOUT,
 };
 pub use live_add::{
     saved_scroll_records, CandidateEffect, CandidateStage, CatalogPolicy, InstallationCandidate,

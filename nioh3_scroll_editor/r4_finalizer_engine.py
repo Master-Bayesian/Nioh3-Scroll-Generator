@@ -558,11 +558,22 @@ def load_default_r4_finalizer_engine() -> R4FinalizerEngine:
     return R4FinalizerEngine()
 
 
+def load_r4_finalizer_engine_for_game_version(file_version) -> R4FinalizerEngine:
+    """Engine bound to the offline resource of one exact executable version."""
+
+    from .effect_generation_tables import effect_generation_tables_for_game_version
+
+    return R4FinalizerEngine(
+        tables=effect_generation_tables_for_game_version(file_version)
+    )
+
+
 __all__ = [
     "CompletionResult",
     "FinalizerAttemptTrace",
     "R4FinalizerEngine",
     "load_default_r4_finalizer_engine",
+    "load_r4_finalizer_engine_for_game_version",
     "SUPPORTED_PLAYTHROUGH",
     "SUPPORTED_RARITY",
     "SUPPORTED_RECORD_TYPE",

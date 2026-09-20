@@ -71,6 +71,10 @@ impl ByteMemory {
 #[derive(Debug, Clone)]
 pub struct InventoryFixture {
     pub layout: InventoryLayout,
+    /// Display version the accepted pair binds this layout to.
+    pub display_version: &'static str,
+    /// Live-add profile id the accepted pair binds this layout to.
+    pub profile_id: &'static str,
     pub base: u64,
     pub memory: ByteMemory,
     pub creation_time: u64,
@@ -85,14 +89,31 @@ impl InventoryFixture {
         serial_counter: u64,
         acquisition_order: u32,
     ) -> Result<Self, RuntimeError> {
+        Self::from_container_for_layout(
+            crate::mutation::inventory::PC_V201_INVENTORY_LAYOUT,
+            container,
+            serial_counter,
+            acquisition_order,
+        )
+    }
+
+    /// The same fixture over any accepted layout, so a candidate run can seed a
+    /// synthetic v2.02 image at the candidate RVAs instead of the shipped ones.
+    pub fn from_container_for_layout(
+        layout: InventoryLayout,
+        container: &[u8],
+        serial_counter: u64,
+        acquisition_order: u32,
+    ) -> Result<Self, RuntimeError> {
         if container.len() != CAPACITY as usize * RECORD_SIZE {
             return Err(RuntimeError::InventoryInvalid {
                 detail: "Expected a complete 400-record container".to_string(),
             });
         }
-        // The shipped PC v2.01 RVAs, so a synthetic container can be compared
+        // The accepted pair's own RVAs, so a synthetic container can be compared
         // against the shipped `capture_inventory` on the same bytes.
-        let layout = crate::mutation::inventory::PC_V201_INVENTORY_LAYOUT;
+        let display_version = Self::binding_version(&layout);
+        let profile_id = Self::binding_profile_id(&layout);
         let base = FIXTURE_BASE;
         let mut memory = ByteMemory::default();
         memory.write(base + layout.insertion_rva, &INSERTION_SIGNATURE);
@@ -111,6 +132,8 @@ impl InventoryFixture {
         );
         let mut fixture = Self {
             layout,
+            display_version,
+            profile_id,
             base,
             memory,
             creation_time: FIXTURE_CREATION,
@@ -122,7 +145,23 @@ impl InventoryFixture {
     /// `records` are `(slot, serial, seed)`; the counters are supplied directly
     /// so a test can express a counter that disagrees with the records.
     pub fn new(records: &[(usize, u64, u32)], serial_counter: u64, acquisition_order: u32) -> Self {
-        let layout = crate::mutation::inventory::PC_V201_INVENTORY_LAYOUT;
+        Self::new_for_layout(
+            crate::mutation::inventory::PC_V201_INVENTORY_LAYOUT,
+            records,
+            serial_counter,
+            acquisition_order,
+        )
+    }
+
+    /// The same synthetic fixture over any accepted layout.
+    pub fn new_for_layout(
+        layout: InventoryLayout,
+        records: &[(usize, u64, u32)],
+        serial_counter: u64,
+        acquisition_order: u32,
+    ) -> Self {
+        let display_version = Self::binding_version(&layout);
+        let profile_id = Self::binding_profile_id(&layout);
         let base = FIXTURE_BASE;
         let mut memory = ByteMemory::default();
         memory.write(base + layout.insertion_rva, &INSERTION_SIGNATURE);
@@ -149,10 +188,28 @@ impl InventoryFixture {
         Self::seed_index(&mut memory, data + layout.serial_index_offset, records);
         Self {
             layout,
+            display_version,
+            profile_id,
             base,
             memory,
             creation_time: FIXTURE_CREATION,
         }
+    }
+
+    /// The display version the accepted inventory pair binds one layout to. An
+    /// unaccepted layout keeps the product label so a fixture cannot silently
+    /// invent a version; every read gate still refuses the pair.
+    fn binding_version(layout: &InventoryLayout) -> &'static str {
+        crate::mutation::inventory::accepted_inventory_version(layout)
+            .unwrap_or(LIVE_ADD_DISPLAY_VERSION)
+    }
+
+    /// The live-add profile id the accepted inventory pair binds one layout to.
+    /// An unaccepted layout keeps the shipped fixture id so nothing invents a
+    /// binding the gates have not accepted.
+    fn binding_profile_id(layout: &InventoryLayout) -> &'static str {
+        crate::mutation::inventory::accepted_inventory_profile_id(layout)
+            .unwrap_or(FIXTURE_PROFILE_ID)
     }
 
     /// A single FNV bucket holding the whole list, which is the smallest shape
@@ -219,7 +276,7 @@ impl InventoryFixture {
 
     pub fn capture(&self) -> Result<(Inventory, NativeIndex), RuntimeError> {
         let mut view = FixtureView { fixture: self };
-        capture_read_only(&mut view, &self.layout, LIVE_ADD_DISPLAY_VERSION)
+        capture_read_only(&mut view, &self.layout, self.display_version)
     }
 
     pub fn serial_counter(&self) -> Result<u64, RuntimeError> {
@@ -377,14 +434,14 @@ impl FakeLiveAddExecutor {
         let slot = self.fixture.first_empty_slot()?;
         Ok(json!({
             "pid": FIXTURE_PID,
-            "profile_id": FIXTURE_PROFILE_ID,
+            "profile_id": self.fixture.profile_id,
             "manager": manager,
             "data": data,
             "process_creation_time": inventory.process_creation_time,
             "serial": serial,
             "slot": slot,
             "scheduler_owner": 0x7FF0_0000_9000u64,
-            "function_address": self.fixture.base + 0x54_D294,
+            "function_address": self.fixture.base + self.fixture.layout.insertion_rva,
             "container_hex": hex(&self.fixture.container()?),
             "insertion_code_hex": hex(&INSERTION_SIGNATURE),
             "builder_code_hex": hex(&assembly_descriptor(

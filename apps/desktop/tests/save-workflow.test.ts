@@ -45,7 +45,7 @@ test('real encrypted synthetic save: review, edit, receipt recovery, delete, res
     await session.select(reference);
     const entry = session.getSnapshot().inventory!.entries[0];
     assert.deepEqual(entry.derived, { initial_challenge_capacity: 4, remaining_challenge_attempts: 3,
-      recommended_displayed_level: 160, recommended_raw_was_clamped: false });
+      recommended_displayed_level: 160, recommended_raw_was_clamped: false, recommended_raw_level: 183 });
     const edit = editFromEntry(entry); edit.header.recommended_level = 585;
     assert.equal('derived' in edit, false);
     const plan = await session.prepareEdit([edit]);

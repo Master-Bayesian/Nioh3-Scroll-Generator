@@ -23,9 +23,14 @@ TERMINAL = frozenset(('completed', 'cancelled', 'failed'))
 
 
 class SearchJobs:
-    def __init__(self, service=None, collector=collect_offline_ng3_search_batch):
-        self.service = service or CandidateApplicationService()
+    def __init__(self, service=None, collector=collect_offline_ng3_search_batch,
+                 generation_tables=None, context=None):
+        self.service = service or CandidateApplicationService(context)
         self.collector = collector
+        # Explicit generation-table injection.  ``None`` keeps the shipped
+        # deterministic baseline; the bootstrap passes the tables of the
+        # verified installed build instead of mutating a global loader.
+        self.generation_tables = generation_tables
         self.lock = threading.RLock()
         self.cancel_event = threading.Event()
         self.thread = None
@@ -72,6 +77,22 @@ class SearchJobs:
                 raise RequestError('CONTEXT_MISMATCH', 'Refresh the worker handshake before searching')
             query = SearchQuery.from_payload(params['query'])
             cache_id = params.get('cache_id')
+            # A rarity-5 route reads its primary/effect pools from the selected
+            # generation tables.  A context that published the production
+            # authority must have resolved those tables with it, so refusing
+            # here keeps a versioned identity from silently running the shipped
+            # legacy baseline.  The legacy opt-in is the only null-tables
+            # authority, and it is not a production context.
+            if (
+                query.request.rarity == 5
+                and self.generation_tables is None
+                and self.service.context.to_payload().get('production_authority')
+            ):
+                raise RequestError(
+                    'RESOURCE_MISMATCH',
+                    'Rarity-5 search requires the generation tables of the '
+                    'selected game version; this worker resolved none',
+                )
             if query.request.playthrough in (4, 5):
                 from emaki_exchange import CATEGORY_TO_TYPE
                 mapping = self.maps.get(cache_id)
@@ -159,14 +180,24 @@ class SearchJobs:
                         reason = 'cancelled'
                         break
                     page_budget = page_trials if stop is None else min(page_trials, stop - cursor)
-                    page = collector(
-                        query.request, grace_mapping=mapping, level=query.level,
-                        result_count=params['result_count'] - len(self.job['candidates']),
-                        max_trials_per_batch=page_budget,
-                        start_after_trial=cursor, intersection_progress=progress,
-                        cancelled=self.cancel_event.is_set,
-                        allow_cpu_fallback=params['allow_cpu_fallback'],
-                    )
+                    collector_kwargs = {
+                        'grace_mapping': mapping,
+                        'level': query.level,
+                        'result_count': params['result_count'] - len(self.job['candidates']),
+                        'max_trials_per_batch': page_budget,
+                        'start_after_trial': cursor,
+                        'intersection_progress': progress,
+                        'cancelled': self.cancel_event.is_set,
+                        'allow_cpu_fallback': params['allow_cpu_fallback'],
+                    }
+                    # Both the NG3 collector and the NG4/NG5 rarity-5 collector
+                    # take the caller's selected index.  A rarity-5 route whose
+                    # native stage selected no tables (the legacy opt-in) keeps
+                    # the explicit shipped-baseline mode; every version-bound
+                    # context must carry its own tables instead of silently
+                    # falling back to the legacy default.
+                    collector_kwargs['tables'] = self.generation_tables
+                    page = collector(query.request, **collector_kwargs)
                     remaining = params['result_count'] - len(self.job['candidates'])
                     if len(page.candidates) > remaining:
                         raise RequestError('RESULT_OVERFLOW', 'Solver exceeded the requested result limit')

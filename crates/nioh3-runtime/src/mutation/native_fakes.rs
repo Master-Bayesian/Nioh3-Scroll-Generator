@@ -14,7 +14,10 @@ use crate::mutation::live_add::LIVE_ADD_DISPLAY_VERSION;
 use crate::mutation::live_fakes::{ByteMemory, InventoryFixture, FIXTURE_BASE, FIXTURE_PID};
 use crate::mutation::native_abi::{hex, LiveAddLayout, PC_V201_LIVE_ADD};
 use crate::mutation::native_executor::{settled, DispatchMode, LiveAddTransport, ReceiptStore};
-use crate::mutation::win_session::{DebugEvent, DebugSession, RemoteSession, ThreadContext};
+use crate::mutation::win_session::{
+    DebugEvent, DebugSession, OwnerThreadSnapshot, RemoteSession, RuntimeOwnerSession,
+    RuntimeOwnerSnapshot, ThreadContext, EXCEPTION_BREAKPOINT, EXCEPTION_SINGLE_STEP,
+};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 
@@ -29,17 +32,30 @@ pub struct NativeFaults {
     pub reject_before_dispatch: bool,
     /// The destination write is skipped so recovery sees a proven absence.
     pub skip_destination: bool,
+    /// R1: the durable record is written settled while the process that owns
+    /// the allocation and the debug session is still alive (its durable entry
+    /// was deregistered before the owner finished). The receipt is not proof.
+    pub settled_receipt_with_live_owner: bool,
 }
 
 /// A transport over one fixture process image.
 pub struct FakeLiveAddTransport {
     pub fixture: InventoryFixture,
     pub layout: LiveAddLayout,
+    /// Exact executable identity this transport claims, when it claims one.
+    pub executable_sha256: Option<String>,
+    /// Every target read this transport served, so a test can prove that a
+    /// refused binding never touched the target.
+    pub reads: u64,
     pub store: ReceiptStore,
     pub faults: NativeFaults,
     pub submissions: Vec<String>,
     pub module_name: String,
     pub current_creation_time: String,
+    /// The admitted operation whose allocation and debug session this transport
+    /// still owns. A durable receipt is a claim either way, so ownership lives
+    /// here and outlives a receipt that was rewritten as settled.
+    pub live_owner: Option<String>,
 }
 
 impl FakeLiveAddTransport {
@@ -52,9 +68,20 @@ impl FakeLiveAddTransport {
         fixture: InventoryFixture,
         faults: NativeFaults,
     ) -> Result<Self, RuntimeError> {
+        Self::with_layout_faults(directory, fixture, PC_V201_LIVE_ADD, None, faults)
+    }
+
+    /// The same injected transport over any accepted layout, claiming an exact
+    /// executable identity when the caller supplies one.
+    pub fn with_layout_faults(
+        directory: &Path,
+        fixture: InventoryFixture,
+        layout: LiveAddLayout,
+        executable_sha256: Option<&str>,
+        faults: NativeFaults,
+    ) -> Result<Self, RuntimeError> {
         let mut fixture = fixture;
         // The dispatch shim's own contract site: the seven signature bytes.
-        let layout = PC_V201_LIVE_ADD;
         fixture.memory.write(
             fixture.base + layout.dispatch_rva,
             &layout.dispatch_signature,
@@ -88,11 +115,14 @@ impl FakeLiveAddTransport {
         Ok(Self {
             fixture,
             layout,
+            executable_sha256: executable_sha256.map(str::to_string),
+            reads: 0,
             store: ReceiptStore::new(directory)?,
             faults,
             submissions: Vec::new(),
             module_name: "Nioh3.exe".to_string(),
             current_creation_time: current,
+            live_owner: None,
         })
     }
 
@@ -161,14 +191,19 @@ impl LiveAddTransport for FakeLiveAddTransport {
     }
 
     fn read(&mut self, address: u64, size: usize) -> Result<Vec<u8>, RuntimeError> {
+        self.reads += 1;
         self.fixture.memory.read(address, size)
+    }
+
+    fn executable_sha256(&mut self) -> Result<Option<String>, RuntimeError> {
+        Ok(self.executable_sha256.clone())
     }
 
     fn ping(&mut self) -> Result<Value, RuntimeError> {
         Ok(json!({
             "pid": FIXTURE_PID,
             "profile_id": self.layout.profile_id,
-            "busy": self.store.unresolved_owner()?.is_some(),
+            "busy": self.live_owner.is_some() || self.store.unresolved_owner()?.is_some(),
         }))
     }
 
@@ -193,6 +228,16 @@ impl LiveAddTransport for FakeLiveAddTransport {
                 ),
             });
         }
+        if let Some(owner) = &self.live_owner {
+            // The real binding refuses a dispatch while it still owns an
+            // allocation or a debug session, even when the durable record of
+            // that owner was already rewritten as settled.
+            return Err(RuntimeError::NativeDispatch {
+                detail: format!(
+                    "Previous native operation {owner} is unresolved; recover it, never replay"
+                ),
+            });
+        }
         if self.store.exists(&operation_id) {
             return Err(RuntimeError::NativeDispatch {
                 detail: "Operation already submitted or executor is occupied".to_string(),
@@ -208,6 +253,11 @@ impl LiveAddTransport for FakeLiveAddTransport {
             "released": false,
             "redirect_count": 0,
             "breakpoint_count": -1,
+            "business_outcome": "pending",
+            "remote_execution": "not_started",
+            "allocation_state": "not_allocated",
+            "debugger_state": "not_attached",
+            "thread_cleanup": {},
             "executor": "windows-native",
             "mode": mode.receipt_mode(),
             "serial": params.get("serial").cloned().unwrap_or(Value::Null),
@@ -220,6 +270,11 @@ impl LiveAddTransport for FakeLiveAddTransport {
                 object.insert("active".to_string(), json!(false));
                 object.insert("released".to_string(), json!(true));
                 object.insert("breakpoint_count".to_string(), json!(0));
+                object.insert("business_outcome".to_string(), json!("rejected"));
+                object.insert("remote_execution".to_string(), json!("not_started"));
+                object.insert("allocation_state".to_string(), json!("freed"));
+                object.insert("debugger_state".to_string(), json!("detached"));
+                object.insert("thread_cleanup".to_string(), json!({}));
                 object.insert(
                     "error".to_string(),
                     json!("No accepted idle dispatch before timeout"),
@@ -253,6 +308,18 @@ impl LiveAddTransport for FakeLiveAddTransport {
             object.insert("active".to_string(), json!(false));
             object.insert("breakpoint_count".to_string(), json!(0));
             object.insert("breakpoints".to_string(), json!([]));
+            object.insert(
+                "business_outcome".to_string(),
+                json!(if mode == DispatchMode::Insert {
+                    "committed"
+                } else {
+                    "completed"
+                }),
+            );
+            object.insert("remote_execution".to_string(), json!("quiescent"));
+            object.insert("allocation_state".to_string(), json!("freed"));
+            object.insert("debugger_state".to_string(), json!("detached"));
+            object.insert("thread_cleanup".to_string(), json!({}));
             object.insert("mode".to_string(), json!(mode.receipt_mode()));
             object.insert("status".to_string(), json!(3));
             object.insert("source_hex".to_string(), json!(hex(&source)));
@@ -288,7 +355,25 @@ impl LiveAddTransport for FakeLiveAddTransport {
                 object.insert("released".to_string(), json!(false));
                 object.insert("active".to_string(), json!(false));
                 object.insert("breakpoint_count".to_string(), json!(-1));
+                object.insert("remote_execution".to_string(), json!("unknown"));
+                object.insert("allocation_state".to_string(), json!("retained"));
+                object.insert("debugger_state".to_string(), json!("unknown"));
+                object.insert(
+                    "thread_cleanup".to_string(),
+                    json!({"unknown": {"cleanup_state": "unknown"}}),
+                );
             }
+            self.live_owner = Some(operation_id);
+            self.write_receipt(&receipt)?;
+            return Err(RuntimeError::NativeDispatch {
+                detail: "native reply lost; query the receipt".to_string(),
+            });
+        }
+        if self.faults.settled_receipt_with_live_owner {
+            // R1 window: the receipt reads settled (the reaper deregistered its
+            // durable entry) while this transport still owns the allocation and
+            // the debug session. A receipt cannot release that owner.
+            self.live_owner = Some(operation_id);
             self.write_receipt(&receipt)?;
             return Err(RuntimeError::NativeDispatch {
                 detail: "native reply lost; query the receipt".to_string(),
@@ -325,8 +410,7 @@ impl LiveAddTransport for FakeLiveAddTransport {
             if let Some(object) = value.as_object_mut() {
                 object.insert("phase".to_string(), json!("completed"));
                 object.insert("active".to_string(), json!(false));
-                object.insert("released".to_string(), json!(true));
-                object.insert("breakpoint_count".to_string(), json!(0));
+                object.insert("business_outcome".to_string(), json!("committed"));
                 object.insert(
                     "recovered_by".to_string(),
                     json!("destination_record_and_serial"),
@@ -341,8 +425,7 @@ impl LiveAddTransport for FakeLiveAddTransport {
             if let Some(object) = value.as_object_mut() {
                 object.insert("phase".to_string(), json!("rejected"));
                 object.insert("active".to_string(), json!(false));
-                object.insert("released".to_string(), json!(true));
-                object.insert("breakpoint_count".to_string(), json!(0));
+                object.insert("business_outcome".to_string(), json!("rejected"));
                 object.insert("recovered_by".to_string(), json!("proven_absence"));
             }
             self.store.save(&value)?;
@@ -358,11 +441,17 @@ impl LiveAddTransport for FakeLiveAddTransport {
         self.store.exists(operation_id)
     }
 
+    fn owner_retained(&mut self) -> bool {
+        self.live_owner.is_some()
+            || self
+                .store
+                .unresolved_owner()
+                .map(|owner| owner.is_some())
+                .unwrap_or(true)
+    }
+
     fn safe_to_shutdown(&mut self) -> bool {
-        self.store
-            .unresolved_owner()
-            .map(|owner| owner.is_none())
-            .unwrap_or(false)
+        !self.owner_retained()
     }
 }
 
@@ -404,6 +493,8 @@ pub struct FakeDebugSession {
     pub attached: bool,
     pub events: std::collections::VecDeque<DebugEvent>,
     pub contexts: std::collections::BTreeMap<u32, ThreadContext>,
+    pub owner: FakeRuntimeOwner,
+    pub freed: Vec<u64>,
 }
 
 impl FakeDebugSession {
@@ -416,6 +507,22 @@ impl FakeDebugSession {
             attached: false,
             events: std::collections::VecDeque::new(),
             contexts: std::collections::BTreeMap::new(),
+            owner: FakeRuntimeOwner::default(),
+            freed: Vec::new(),
+        }
+    }
+
+    pub fn from_parts(pid: u32, memory: ByteMemory, base: u64, creation_time: u64) -> Self {
+        Self {
+            pid,
+            memory,
+            base,
+            creation_time,
+            attached: false,
+            events: std::collections::VecDeque::new(),
+            contexts: std::collections::BTreeMap::new(),
+            owner: FakeRuntimeOwner::default(),
+            freed: Vec::new(),
         }
     }
 }
@@ -448,7 +555,8 @@ impl DebugSession for FakeDebugSession {
         Ok(address)
     }
 
-    fn free(&mut self, _address: u64) -> Result<(), RuntimeError> {
+    fn free(&mut self, address: u64) -> Result<(), RuntimeError> {
+        self.freed.push(address);
         Ok(())
     }
 
@@ -458,6 +566,7 @@ impl DebugSession for FakeDebugSession {
 
     fn attach(&mut self) -> Result<(), RuntimeError> {
         self.attached = true;
+        self.owner.attach();
         Ok(())
     }
 
@@ -466,19 +575,45 @@ impl DebugSession for FakeDebugSession {
     }
 
     fn detach(&mut self) -> Result<(), RuntimeError> {
-        self.attached = false;
-        Ok(())
+        let result = self.owner.detach();
+        self.attached = self.owner.attached;
+        result
     }
 
     fn wait(&mut self, _milliseconds: u32) -> Result<Option<DebugEvent>, RuntimeError> {
-        Ok(self.events.pop_front())
+        let Some(event) = self.events.pop_front() else {
+            return Ok(None);
+        };
+        self.contexts.entry(event.tid).or_default();
+        self.owner.begin_event(event)?;
+        if event.exception_code == Some(EXCEPTION_SINGLE_STEP) {
+            if let Some(context) = self.contexts.get_mut(&event.tid) {
+                if context.rip == context.dr0 {
+                    context.dr6 |= 1;
+                }
+                if context.rip == context.dr1 {
+                    context.dr6 |= 2;
+                }
+            }
+        }
+        Ok(Some(event))
     }
 
-    fn resume(&mut self, _event: &DebugEvent, _handled: bool) -> Result<(), RuntimeError> {
+    fn resume(&mut self, event: &DebugEvent, handled: bool) -> Result<(), RuntimeError> {
+        if self.owner.current_event != Some(*event) {
+            return Err(RuntimeError::NativeDispatch {
+                detail: "fake continuation does not match the pending event".to_string(),
+            });
+        }
+        self.owner.continue_event(handled)?;
+        if event.is_exit_thread() {
+            self.owner.retire_exit_thread(event.tid)?;
+        }
         Ok(())
     }
 
     fn context(&mut self, tid: u32) -> Result<ThreadContext, RuntimeError> {
+        self.owner.context(tid)?;
         self.contexts
             .get(&tid)
             .copied()
@@ -486,37 +621,397 @@ impl DebugSession for FakeDebugSession {
     }
 
     fn set_context(&mut self, tid: u32, context: &ThreadContext) -> Result<(), RuntimeError> {
+        self.owner.set_context(tid, context)?;
         self.contexts.insert(tid, *context);
         Ok(())
     }
 
-    fn adopt_thread(&mut self, _tid: u32, _handle: u64) -> Result<(), RuntimeError> {
+    fn adopt_thread(&mut self, tid: u32, handle: u64) -> Result<(), RuntimeError> {
+        let context = self.contexts.get(&tid).copied().unwrap_or_default();
+        self.owner.adopt_thread(tid, handle, context)?;
         Ok(())
     }
 
     fn arm_thread(
         &mut self,
-        _tid: u32,
-        _entry: u64,
-        _acknowledgement: u64,
+        tid: u32,
+        entry: u64,
+        acknowledgement: u64,
     ) -> Result<(), RuntimeError> {
-        Ok(())
+        let mut context = self.context(tid)?;
+        if context.dr7 & 0xFF != 0 {
+            return Err(RuntimeError::NativeDispatch {
+                detail: "a fake thread already has active hardware breakpoints".to_string(),
+            });
+        }
+        context.dr0 = entry;
+        context.dr1 = acknowledgement;
+        context.dr6 = 0;
+        context.dr7 = (context.dr7 & !0xFFFF_00FF) | 5;
+        self.set_context(tid, &context)
     }
 
     fn restore_threads(&mut self) -> Result<(), RuntimeError> {
-        Ok(())
+        let result = self.owner.restore_threads();
+        for thread in self.owner.threads.values() {
+            if thread.restored {
+                if let Some(context) = self.contexts.get_mut(&thread.tid) {
+                    context.dr0 = thread.current_debug[0];
+                    context.dr1 = thread.current_debug[1];
+                    context.dr2 = thread.current_debug[2];
+                    context.dr3 = thread.current_debug[3];
+                    context.dr6 = thread.current_debug[4];
+                    context.dr7 = thread.current_debug[5];
+                }
+            }
+        }
+        result
     }
 
     fn all_threads_exited(&mut self) -> Result<bool, RuntimeError> {
-        Ok(false)
+        Ok(!self.owner.retired.is_empty() && self.owner.threads.is_empty())
     }
 
-    fn thread_signalled(&mut self, _tid: u32) -> Result<bool, RuntimeError> {
-        Ok(false)
+    fn thread_signalled(&mut self, tid: u32) -> Result<bool, RuntimeError> {
+        Ok(self.owner.retired.iter().any(|thread| thread.tid == tid))
     }
 
     fn debug_break(&mut self) -> Result<(), RuntimeError> {
         Ok(())
+    }
+}
+
+impl RuntimeOwnerSession for FakeDebugSession {
+    fn begin_cleanup_barrier(&mut self) -> Result<(), RuntimeError> {
+        if self.owner.current_event.is_some() {
+            return Err(RuntimeError::NativeDispatch {
+                detail: "fake debug break requires no pending event".to_string(),
+            });
+        }
+        let tid = self
+            .owner
+            .threads
+            .keys()
+            .next()
+            .copied()
+            .or_else(|| self.contexts.keys().next().copied())
+            .unwrap_or(1);
+        self.events.push_back(DebugEvent {
+            code: 1,
+            pid: self.pid,
+            tid,
+            exception_code: Some(EXCEPTION_BREAKPOINT),
+            ..DebugEvent::default()
+        });
+        Ok(())
+    }
+
+    fn runtime_owner_snapshot(&self) -> RuntimeOwnerSnapshot {
+        let mut threads = self
+            .owner
+            .retired
+            .iter()
+            .map(|thread| OwnerThreadSnapshot {
+                tid: thread.tid,
+                instance: thread.instance,
+                handle: thread.handle,
+                handle_provenance: "scripted_debug_event",
+                run_state: "exited",
+                cleanup_state: "exited",
+                error: None,
+            })
+            .collect::<Vec<_>>();
+        threads.extend(self.owner.threads.values().map(|thread| {
+            OwnerThreadSnapshot {
+                tid: thread.tid,
+                instance: thread.instance,
+                handle: thread.handle,
+                handle_provenance: "scripted_debug_event",
+                run_state: match thread.state {
+                    FakeThreadState::Running => "running",
+                    FakeThreadState::Stopped => "stopped",
+                    FakeThreadState::Exited => "exited",
+                },
+                cleanup_state: if thread.restored {
+                    "original_restored"
+                } else if self.owner.faults.restore_tid == Some(thread.tid) {
+                    "restore_failed"
+                } else {
+                    "armed"
+                },
+                error: (self.owner.faults.restore_tid == Some(thread.tid))
+                    .then(|| "injected debug-register restore failure".to_string()),
+            }
+        }));
+        RuntimeOwnerSnapshot {
+            debugger_state: self.owner.debugger_state,
+            threads,
+        }
+    }
+}
+
+/// Test-only state for one debugger-owned thread instance.
+///
+/// A numeric Win32 handle is deliberately not the identity: Windows may reuse
+/// the value after the debug event that owned it has been continued. Tests use
+/// `instance` to prove that a retired thread cannot be confused with a later
+/// thread that happens to receive the same handle value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FakeOwnedThread {
+    pub instance: u64,
+    pub tid: u32,
+    pub handle: u64,
+    /// False after continuing EXIT_THREAD; the numeric value may be reused.
+    pub handle_open: bool,
+    pub state: FakeThreadState,
+    pub original_debug: [u64; 6],
+    pub current_debug: [u64; 6],
+    pub restored: bool,
+}
+
+/// Whether the owner may legally read or write one thread's context.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FakeThreadState {
+    Running,
+    Stopped,
+    Exited,
+}
+
+/// Faults needed by the T3 runtime-owner regression matrix.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RuntimeOwnerFaults {
+    /// Fail while restoring this thread, after earlier threads were restored.
+    pub restore_tid: Option<u32>,
+    /// Fail `DebugActiveProcessStop` and keep debugger ownership attached.
+    pub detach: bool,
+}
+
+/// A strict offline model of debugger ownership.
+///
+/// This intentionally lives beside the older syscall-shaped fake instead of
+/// changing the production trait. T3a uses it to express the state that the
+/// current `DebugSession` API cannot yet carry: thread instance identity,
+/// stopped/running/exited transitions, automatic event-handle closure,
+/// explicit EXIT_THREAD retirement, partial restore, detach failure and the
+/// handled/not-handled disposition of late exceptions.
+#[derive(Debug)]
+pub struct FakeRuntimeOwner {
+    pub attached: bool,
+    pub debugger_state: &'static str,
+    pub threads: std::collections::BTreeMap<u32, FakeOwnedThread>,
+    pub retired: Vec<FakeOwnedThread>,
+    pub current_event: Option<DebugEvent>,
+    pub resumes: Vec<(DebugEvent, bool)>,
+    pub restore_attempts: Vec<(u32, u64)>,
+    pub detach_attempts: u64,
+    pub faults: RuntimeOwnerFaults,
+    next_instance: u64,
+}
+
+impl Default for FakeRuntimeOwner {
+    fn default() -> Self {
+        Self {
+            attached: false,
+            debugger_state: "not_attached",
+            threads: std::collections::BTreeMap::new(),
+            retired: Vec::new(),
+            current_event: None,
+            resumes: Vec::new(),
+            restore_attempts: Vec::new(),
+            detach_attempts: 0,
+            faults: RuntimeOwnerFaults::default(),
+            next_instance: 0,
+        }
+    }
+}
+
+impl FakeRuntimeOwner {
+    pub fn with_faults(faults: RuntimeOwnerFaults) -> Self {
+        Self {
+            faults,
+            ..Self::default()
+        }
+    }
+
+    pub fn attach(&mut self) {
+        self.attached = true;
+        self.debugger_state = "attached";
+    }
+
+    /// Adopt one handle from a create event and assign a non-reusable instance.
+    pub fn adopt_thread(
+        &mut self,
+        tid: u32,
+        handle: u64,
+        context: ThreadContext,
+    ) -> Result<u64, RuntimeError> {
+        if self.threads.contains_key(&tid)
+            || self.threads.values().any(|thread| thread.handle == handle)
+        {
+            return Err(owner_model_error("thread or handle is still owned"));
+        }
+        self.next_instance += 1;
+        let instance = self.next_instance;
+        let debug = debug_registers(&context);
+        let state = if self.current_event.is_some() {
+            FakeThreadState::Stopped
+        } else {
+            FakeThreadState::Running
+        };
+        self.threads.insert(
+            tid,
+            FakeOwnedThread {
+                instance,
+                tid,
+                handle,
+                handle_open: true,
+                state,
+                original_debug: debug,
+                current_debug: debug,
+                restored: false,
+            },
+        );
+        Ok(instance)
+    }
+
+    /// Deliver one debug event. Its thread is stopped until `continue_event`.
+    pub fn begin_event(&mut self, event: DebugEvent) -> Result<(), RuntimeError> {
+        if self.current_event.is_some() {
+            return Err(owner_model_error("a debug event is already pending"));
+        }
+        for thread in self.threads.values_mut() {
+            if thread.state != FakeThreadState::Exited {
+                thread.state = FakeThreadState::Stopped;
+            }
+        }
+        self.current_event = Some(event);
+        Ok(())
+    }
+
+    pub fn context(&self, tid: u32) -> Result<ThreadContext, RuntimeError> {
+        let thread = self
+            .threads
+            .get(&tid)
+            .ok_or_else(|| owner_model_error("thread instance is not owned"))?;
+        if thread.state != FakeThreadState::Stopped {
+            return Err(owner_model_error("thread context requires a stopped event"));
+        }
+        Ok(ThreadContext {
+            dr0: thread.current_debug[0],
+            dr1: thread.current_debug[1],
+            dr2: thread.current_debug[2],
+            dr3: thread.current_debug[3],
+            dr6: thread.current_debug[4],
+            dr7: thread.current_debug[5],
+            ..ThreadContext::default()
+        })
+    }
+
+    pub fn set_context(&mut self, tid: u32, context: &ThreadContext) -> Result<(), RuntimeError> {
+        let thread = self
+            .threads
+            .get_mut(&tid)
+            .ok_or_else(|| owner_model_error("thread instance is not owned"))?;
+        if thread.state != FakeThreadState::Stopped {
+            return Err(owner_model_error("thread context requires a stopped event"));
+        }
+        thread.current_debug = debug_registers(context);
+        Ok(())
+    }
+
+    /// Continue the pending event. Continuing EXIT_THREAD automatically closes
+    /// the event-supplied handle, but deliberately keeps a retired-required
+    /// record until the owner acknowledges the exit with `retire_exit_thread`.
+    pub fn continue_event(&mut self, handled: bool) -> Result<(), RuntimeError> {
+        let event = self
+            .current_event
+            .take()
+            .ok_or_else(|| owner_model_error("no debug event is pending"))?;
+        self.resumes.push((event, handled));
+        if let Some(thread) = self.threads.get_mut(&event.tid) {
+            thread.state = if event.is_exit_thread() {
+                thread.handle_open = false;
+                FakeThreadState::Exited
+            } else {
+                FakeThreadState::Running
+            };
+        }
+        for thread in self.threads.values_mut() {
+            if thread.state != FakeThreadState::Exited {
+                thread.state = FakeThreadState::Running;
+            }
+        }
+        Ok(())
+    }
+
+    /// Retire the exact instance after EXIT_THREAD has been continued.
+    pub fn retire_exit_thread(&mut self, tid: u32) -> Result<FakeOwnedThread, RuntimeError> {
+        let thread = self
+            .threads
+            .get(&tid)
+            .copied()
+            .ok_or_else(|| owner_model_error("thread instance is not owned"))?;
+        if thread.state != FakeThreadState::Exited {
+            return Err(owner_model_error("EXIT_THREAD was not continued"));
+        }
+        let retired = self
+            .threads
+            .remove(&tid)
+            .ok_or_else(|| owner_model_error("thread instance is not owned"))?;
+        self.retired.push(retired);
+        Ok(retired)
+    }
+
+    /// Restore in deterministic tid order. A fault leaves the failed and later
+    /// instances owned, making partial cleanup visible to the caller.
+    pub fn restore_threads(&mut self) -> Result<(), RuntimeError> {
+        let tids = self.threads.keys().copied().collect::<Vec<_>>();
+        for tid in tids {
+            let thread = self
+                .threads
+                .get_mut(&tid)
+                .ok_or_else(|| owner_model_error("thread instance is not owned"))?;
+            if thread.state != FakeThreadState::Stopped {
+                return Err(owner_model_error(
+                    "restore requires a stopped event barrier",
+                ));
+            }
+            self.restore_attempts.push((tid, thread.instance));
+            if self.faults.restore_tid == Some(tid) {
+                return Err(owner_model_error("injected debug-register restore failure"));
+            }
+            thread.current_debug = thread.original_debug;
+            thread.restored = true;
+        }
+        Ok(())
+    }
+
+    pub fn detach(&mut self) -> Result<(), RuntimeError> {
+        self.detach_attempts += 1;
+        if self.faults.detach {
+            self.debugger_state = "detach_failed";
+            return Err(owner_model_error("injected debugger detach failure"));
+        }
+        self.attached = false;
+        self.debugger_state = "detached";
+        Ok(())
+    }
+}
+
+fn debug_registers(context: &ThreadContext) -> [u64; 6] {
+    [
+        context.dr0,
+        context.dr1,
+        context.dr2,
+        context.dr3,
+        context.dr6,
+        context.dr7,
+    ]
+}
+
+fn owner_model_error(detail: &str) -> RuntimeError {
+    RuntimeError::NativeDispatch {
+        detail: detail.to_string(),
     }
 }
 

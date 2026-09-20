@@ -1,4 +1,4 @@
-# Current project handoff — 2026-09-14
+# Current project handoff — 2026-09-20
 
 ## v0.7.5 published release
 
@@ -145,11 +145,11 @@ stale). Evidence root
 `onefile-rollback-gate-b20e493.json`, `add-layout-b20e493/`,
 `M3B_PROTECTED_SAVE_PERF-packaged-b20e493.json`.
 
-Still open: live game and real-save acceptance, support for the new game 2.02
-build (confirmed by the compatibility lane; its title read-only capture is
-currently active), and equipment readiness. Open research: `添画` on Divine
-completion - the maximum-6-effects semantics, and a reported 700 -> 356 level
-change that is not a confirmed cap.
+Still open: live game and real-save acceptance, equipment readiness, and
+protected live add/save/reload before product PC v2.02 can be enabled. The PC
+v2.02 level-cap research is closed at native `600` / display `356`, and `添画` on
+Divine completion is owner-deferred, not a blocker. The v2.02 Rust backend wiring
+and the live noop-gate result are in the status reconciliation below.
 
 ## v0.7.4 published release
 
@@ -631,3 +631,216 @@ over scroll ID and visible card metadata. These changes are packaged and
 published in v0.7.4; no live-game write, save, or persistence acceptance is
 claimed. The bounded measurements are stored locally at
 `deliverables/v074-ui-acceptance-20260914/verification.json`.
+
+## PC v2.02 Pro handoff (final package v5, ACCEPTED for bounded Pro analysis)
+
+Self-contained bounded handoff: D:\\Nioh3_v080_deliverables\\deliverables\\game-version-update-20260919\\pro-handoff\\nioh3-pc-v2.02-addon-revision-and-level-clamp-pro-handoff-20260919-v5 and .zip (137,038 bytes, 60 members, SHA-256 74E1576DF78F804D7734F2C948B3413665F2418255A79A5BE10D931B7764EDC9).
+Accepted 2026-09-19 on independent closure review (archive-derived, read-only); that review also confirms the v4->v5 diff is 4 files (README.md, TASK_FOR_PRO.md, KNOWN_LIMITS.md, SHA256SUMS.txt) with 56 byte-identical members.
+Status: accepted Pro handoff awaiting Pro analysis / next-probe design. Product PC v2.02 remains UNAPPROVED (product_enablement_allowed: false), no release, no packaging, and the overall compatibility goal is NOT complete.
+Known limits: 24 raw records = second seed only (seed 1 raw unrecoverable); no revision artifact for the Q1 additive-effect question; 600/180 clamp consumer body not located; item/multiplier row-store addresses are runtime-only; table field meanings unknown.
+
+## PC v2.02 P0 evidence corrections (2026-09-19, supersedes earlier P0 numbers)
+
+- item row 3358: the true row-relative change is `+0x84` at absolute `0x15514C`
+  (`0x380` -> `0x0`). The v5 `+0x8C` was window-relative only; the exported
+  window started 8 bytes early. Real row `+0x8C` is unchanged.
+- optional_multiplier: verified keyed diff (validated schema, key u32 at
+  `+0x14`, stride 32, header 8) = 0 keys removed, 3 added (`0x3472`, `0xAA65`,
+  `0xD56F`), 3 payload changes (`0x39E8` 80 -> 35, `0xA899` 30 -> 15, `0xD7C3`
+  1400 -> 600), 104 position shifts, 646 metadata-only changes. The earlier
+  "105 added / 101 removed / 546 changed / duplicates 85 -> 84" came from an
+  8-byte key read at the row start with per-key dict collapse and is rejected.
+- 42-row display curve: the retained PC v2.02 capture verifies 42/42 identical
+  points with matching blob hashes; identity grade is
+  `signature_bound_read_only_capture` (no PID, module base, or executable hash
+  recorded). `tables/level_curve.bin` (501 x 10 bytes) is a different table and
+  is not evidence for the display curve.
+- Parity scope: R3 masks `0x1B` (10,000 runtime header mismatches) and R5 keeps
+  10,000 full-record mismatches; neither may be summarised as a full-record
+  pass. Raw reports stay immutable with pinned hashes in `tools/parity_scope.py`.
+- Private save: exactly one game-recognized save file, unchanged since
+  `2026-09-14T19:45:54Z`; 43 occupied records; one record (slot 45, `0xE604`,
+  seed 180443387, serial 2375795, key 50409) stores raw internal recommended
+  1400 (predicted display 700) and is identical in the 9/2-era product backup.
+  The owner reports that some scrolls now show 356, but that observation is not
+  yet joined to this record, so the stable 1400 proves only that the durable
+  value has not been rewritten and that no post-update save exists yet.
+  Identity, persistence, and per-user generality stay unproven.
+  Superseded 2026-09-19: a post-update durable save now exists and stores raw
+  internal 600 (display 356) for this exact tuple; the sentence above is kept as
+  the pre-update snapshot. See the status reconciliation below.
+- Strongest static lead: u32 key `0xD7C3` is consumed at `0x110DE06`
+  (base x scale threshold) and at `0x227FE4B` (parameter manager `+0x230` ->
+  getters `0x6084C0` -> `0x20E544C` -> writes record `+0x10`/`+0x12`). Static
+  relation only; no causality and no product change.
+- Status unchanged: PC v2.02 remains UNAPPROVED, nothing published, and the
+  overall compatibility plus backend live-acceptance goal is NOT complete.
+
+## PC v2.02 status reconciliation (2026-09-19)
+
+Compact closure update; it supersedes the "no post-update save exists yet" clause
+above and does not rewrite the raw P0 snapshot.
+
+- Level-cap research is closed: native cap `600` -> derived display `356`. The
+  prior durable `1400` record (slot 45, type `0xE604`, seed 180443387, serial
+  2375795, key 50409) reads `600` live and is `600` in the first post-update
+  durable save. The UI-selection pointer join is not established and is not
+  claimed. Strongest level-persistence evidence:
+  `deliverables/game-version-update-20260919/reports/current-save-after-load-20260919.json`
+  with the live probe `.../reports/ce-selected-record-probe-20260919.json`.
+- Product PC v2.02 stays disabled and unapproved pending a protected live
+  add/save/reload.
+- Dispatch-thread attribution is closed by the `go-v202-thread-attribution`
+  report: TID 44388 is the unique same-capture stack owner and no named-thread
+  product requirement exists.
+- The acquisition writer is proven by the `go-v202-acquisition-contract` report;
+  width stays live qword vs save u32, and the conditional insertion gate remains
+  a runtime qualification risk.
+- `添画` on Divine completion is owner-deferred, not a blocker; there is still no
+  raw rarity-5 sample, so its maximum-6-effects semantics stay `unknown`.
+- The Rust v2.02 backend halves are wired offline: the version-aware effect
+  resource loader, and the `Materializer`'s version-selected effect plus preview
+  tables. Both named worker seeds (`226061463`, `10030700`) are byte-exact against
+  the Python PC v2.02 reference and the engine's own table choice is proven by a
+  resource identity row. Evidence:
+  `deliverables/router-recovery-20260919/EFFECT_RESOURCE_FIX.md` (loader; legacy
+  entry point unchanged) and `.../V202_PARITY.md`. Offline only - no live-game,
+  packaged or save acceptance is claimed.
+- Native noop gate: **blocked, not passed**. The corrected-window attempt
+  (`v202-noop-39932`, the same PC v2.02 process instance) did reach the dispatch
+  entry and was accepted once - `entry_hits 1`, `acknowledgement_hits 1`,
+  `redirect_count 1`, `stop_reason "accepted"`, 49 ms - and then cleanup failed
+  with `GetThreadContext(0)` error 6, leaving the receipt `phase: "uncertain"`,
+  `released: false`, a retained allocation and `breakpoint_count: -1`. Inventory
+  read identical before and after and the debugger detached, but that is bounded
+  evidence about visible inventory only, not a safety proof. After the capture
+  the game showed a fatal `0xC0000005` dialog at `0x00007FF69AA272D6`; the
+  derived RVA `0x1E72D6` is arithmetic, not causality. No success claim, no Pro
+  or package claim, and no retry. Evidence:
+  `deliverables/router-recovery-20260919/native-noop-deadline-fixed/evidence/`
+  (no top-level report; raw receipt preserved; ledger entry 2026-09-20). The
+  earlier title-screen idle miss is history:
+  `deliverables/router-recovery-20260919/native-noop/REPORT.md`.
+- Incident handoff packet A for that cleanup failure is built and structurally
+  validated: `deliverables/native-noop-cleanup-pro-20260920/` plus `.zip`
+  (143,021 bytes, 36 files, ZIP SHA-256
+  `72d4c74dabb11e3dbadda937adda08a3cf3316b156b778c408caee34e3906073`). It asks
+  Pro to explain the invalid-handle cleanup path, decide what the packaged
+  evidence does or does not say about the later access violation, and propose the
+  smallest fix with a deterministic regression and one safe acceptance plan.
+  The package states the noop's real target-process writes (trampoline, `RIP`
+  redirect, debug registers) and its absence of inventory/serial/save mutation;
+  nothing in it claims a root cause or enables writes.
+
+## Rust backend migration Pro review package (packet B, ready for Pro, 2026-09-20)
+
+Self-contained review package for the unpublished six-crate Rust backend
+migration: `deliverables/rust-migration-pro-review-20260920/` plus `.zip`
+(2,639,869 bytes, 464 files, ZIP SHA-256
+`cc6eb6647f93de43450c08ed669ec42b49a5c2390bd6721aa122aeb20d9a55ba`). It asks for
+an evidence-graded module decision (`KEEP` / `LOCAL_REPAIR` / `REFACTOR` /
+`REWRITE`, or `NOT_ASSESSED` / `INSUFFICIENT_EVIDENCE`) plus an aggregate
+`KEEP` / `PARTIAL_REPAIR` / `FULL_BACKEND_REWRITE` recommendation, both citing
+packaged paths and lines. It bundles all six crates with every manifest and
+lock, the 28 migration gates with the fixtures they load, 53 current Python
+peers and 54 baseline peers extracted from the published v0.7.5 commit
+`533694ebad21906aecbb6ab5283e04e760ce6c09` (what `v0.7.5^{commit}` resolves to;
+annotated tag object `c4cfce1523aa10a2532b79319c1e16ad4fbd6ee7`), every
+repository product data resource including the large versioned tables, packet A
+unpacked once as incident reference, and portable standard-library validation.
+
+Status: ready, pending Pro review. No review conclusion exists, nothing is
+published, and the package enables no PC v2.02 write path. Snapshot boundary: the
+package was built before this entry, so this paragraph is intentionally not part
+of it and recording the link here invalidates no package hash.
+
+## v0.8.0 repair-wave r4/r5 verdict and evidence-link closure (2026-09-20)
+
+Self-contained Pro review of the r3 repair wave:
+`deliverables/Nioh3_v080_RepairWave_r4_Closure_Review_20260920/` plus the
+same-named `.zip` (1,446,401 bytes, 190 files and 189 manifest entries, SHA-256
+`74d7d3ee1138e47ba27544b4204678ece8ed1175980835d9e4a4b5cc5eaf70e0`). Both
+repository validators - the checkout-bound `tools/validate_research_handoff.py`
+and the package-local `verify_package.py` - and an independent verifier returned
+PASS on this package.
+
+The independent r4 return is verified at
+`D:\Downloads\Nioh3_RepairWave_r4_Independent_Review_20260920.zip` (SHA-256
+`b1fd922371f9b52d8de040aa23d5b8485b10d729599942e78a9dc7eed2799c05`). Its
+six-item result is three `PASS`, three `REPAIR`, and no `REWRITE`: RF01, RF04,
+and contract idempotence pass; RF02, RF03, and RF05 required bounded repair.
+
+Those three repairs and final closure evidence are now packaged in
+`deliverables/Nioh3_v080_RepairWave_r5_Final_Closure_Review_20260920/` plus the
+same-named `.zip` (756,191 bytes, 155 files / 154 manifest entries, SHA-256
+`1da548d9d8aa1878e9f4d3615596fe0638ddd19754f1f0d435ab4e71d6d0a631`). Both
+`tools/validate_research_handoff.py` and the package-local `verify_package.py`
+passed the directory and ZIP.
+
+Current bounded gates: save transaction 54; RF02/RF05 plus protected-host
+closure 24; save crate 40; runtime all-features 148; Tauri 41 passed / one
+explicitly ignored; packaged host resolver 7/7; build-root policy 13; save,
+runtime, and Tauri clippy/rustfmt clean; four contract outputs byte-identical
+before/run1/run2; five compact raw crash cases retained. The seven previously
+unattributed RW09 failures are now mapped to all seven packaged-host resolver
+nodes and closed by the 7/7 rerun.
+
+The independent r5 return is verified at
+`D:\Downloads\Nioh3_RepairWave_r5_Independent_Review_20260920.zip` (109,156
+bytes, SHA-256
+`a921d8bee87e93198994978fb38c7b0455b8087e61709fbb69cd817367848235`; 32
+internal hashes passed). RF02, RF03, and RF05 all pass. Its aggregate remained
+`REPAIR_FIRST` only because the earlier 7/7 report did not retain the executed
+debug-host identity, both JavaScript verifier sources, and their result JSONs in
+one traceable record. Pro explicitly limited the remaining work to
+`R5-EVIDENCE-LINK` and stated that a contradiction-free closure promotes the
+tree to `PASS_TO_LOCAL_RC`; it did not request another backend repair wave.
+
+That final link is now closed in
+`deliverables/Nioh3_v080_R5_Evidence_Link_20260920/` and the same-named ZIP
+(241,340 bytes, 94 files / 93 manifest entries, SHA-256
+`714e7194b39053d6c9d64106ae64636ee530e6493441ab9de764f954b608958a`). The
+repository handoff validator verified every directory hash and archived byte.
+The bounded rerun rebuilt the Tauri frontend, explicitly confirmed the current
+Cargo debug host and two debug workers, and then ran only the seven packaged-host
+resolver nodes: 7 passed, 0 failed, 0 skipped. The host and frontend verifiers
+both executed debug host SHA-256
+`1d1632f6be42fbcc112fcbba0291ec12efe25ac795ef3e52722049be2d5b9251`;
+all three roles carried game file version `2.0.2.0`, and the frontend handshake
+selected `r4_finalizer/pc_v2_02/resource_v1` with bundle digest
+`df15220de9e356755bd8b4e2ec33f4617cf0e7c140347898b8374fd75515acbf`.
+Source and artifact identities were unchanged across the run.
+
+The independent evidence-link return is verified at
+`D:\Downloads\Nioh3_R5_Evidence_Link_Independent_Review_20260920.zip`
+(39,963 bytes, SHA-256
+`a73e5c2c6d098b94c4b5f4a74b6490b9b0a7e783d5b6061a789388e874ee38a5`;
+10 internal hashes passed). It independently recomputed 45 consistency groups
+with no failures, accepted the retained 7/7 Windows results under their stated
+debug/synthetic boundary, and returned `PASS_TO_LOCAL_RC` with no remaining
+repair-wave tickets or new product findings. This closes `R5-EVIDENCE-LINK` and
+the repair wave; do not reopen the backend or run another global audit without a
+new concrete failure or relevant code change.
+
+Status: **`PASS_TO_LOCAL_RC` for the repair-wave gate.** This means the tree may
+proceed to a local v0.8.0 RC; it is not itself an RC package or publication
+approval. The retained acceptance is automated debug WebView2 functional
+evidence on synthetic saves. No manual visual acceptance, one-file user
+installation/startup acceptance, real game, real user save, full global Python
+rerun, push, tag, update-feed change, or release acceptance is claimed. PC v2.02
+protected writes remain disabled and unapproved. The old Electron/Python
+source-development launch remains a non-shipped explicit-version follow-up.
+
+## Agent orchestration note
+
+Multi-agent work in this repository runs an Astra root that owns the outcome,
+ticket design, prioritization, risk and uncertainty decisions, and acceptance,
+with DeepSeek V4.1 Flash workers executing coding, tests, documentation,
+packaging, and bounded evidence collection. Worker routing is the official
+`router_deepseek_deepseek_v4_1_flash` role (model
+`deepseek/deepseek-v4.1-flash`), the default and only DeepSeek worker route the
+owner set. Read `$nioh3-agent-orchestration`
+(`.agents/skills/nioh3-agent-orchestration/SKILL.md`) for ticket shape,
+parallelism, context, review, and reporting detail; `AGENTS.md` keeps the routing
+summary and links the skill so a fresh thread finds it. This is operational
+routing, not a capability claim.

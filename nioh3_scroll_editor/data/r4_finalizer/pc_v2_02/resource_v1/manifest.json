@@ -1,0 +1,437 @@
+{
+  "schema": "nioh3-r4-finalizer-resource/v1",
+  "game_version": "PC v2.02",
+  "source": {
+    "capture_schema": "nioh3-r4-finalizer-runtime-tables/v1",
+    "capture_manifest_sha256": "D7B68EC10AFADFB7868FAD7A1DC20332D8303BBE67965F693B4F252AB398EAAB",
+    "captured_at_utc": "2026-09-19T10:20:04.924843+00:00",
+    "locale": "unknown",
+    "effective_playthrough": 3,
+    "pe": {
+      "machine": "0x8664",
+      "section_count": 8,
+      "timestamp": "0x6AA7C106",
+      "optional_header_magic": "0x020B",
+      "size_of_image": 87011328
+    }
+  },
+  "code_identity": {
+    "signatures": {
+      "canonicalize": {
+        "rva": "0x20E524C",
+        "expected": "48 89 5C 24 18 48 89 7C 24 20 55 48 8D 6C 24 C0",
+        "actual": "48 89 5C 24 18 48 89 7C 24 20 55 48 8D 6C 24 C0",
+        "matches": true
+      },
+      "completion_finalizer_wrapper": {
+        "rva": "0x2281460",
+        "expected": "40 53 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 78 01 00 00",
+        "actual": "40 53 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 78 01 00 00",
+        "matches": true
+      },
+      "descriptor_complete": {
+        "rva": "0x20E50B8",
+        "expected": "48 8B 54 24 60",
+        "actual": "48 8B 54 24 60",
+        "matches": true
+      },
+      "init_descriptor": {
+        "rva": "0x1B75E24",
+        "expected": "40 53 48 83 EC 20 48 8B D9 33 C0 33 C9",
+        "actual": "40 53 48 83 EC 20 48 8B D9 33 C0 33 C9",
+        "matches": true
+      },
+      "build_descriptor": {
+        "rva": "0x20E4F90",
+        "expected": "48 83 EC 38 48 8B D1 0F B7 09 E8",
+        "actual": "48 83 EC 38 48 8B D1 0F B7 09 E8",
+        "matches": true
+      },
+      "destroy_descriptor": {
+        "rva": "0x1B9964C",
+        "expected": "40 53 48 83 EC 20 48 8B D9 48 8B 09",
+        "actual": "40 53 48 83 EC 20 48 8B D9 48 8B 09",
+        "matches": true
+      },
+      "init_compact": {
+        "rva": "0x1B76E1C",
+        "expected": "40 53 48 83 EC 20 33 C0",
+        "actual": "40 53 48 83 EC 20 33 C0",
+        "matches": true
+      },
+      "reset_compact": {
+        "rva": "0x1BC260C",
+        "expected": "48 83 EC 28 33 C0 C6 41",
+        "actual": "48 83 EC 28 33 C0 C6 41",
+        "matches": true
+      },
+      "effective_level": {
+        "rva": "0x2FA524",
+        "expected": "F7 41 18 00 00 20 00 75",
+        "actual": "F7 41 18 00 00 20 00 75",
+        "matches": true
+      },
+      "init_generation_context": {
+        "rva": "0x5513C8",
+        "expected": "48 83 EC 28 4C 8B D9 66",
+        "actual": "48 83 EC 28 4C 8B D9 66",
+        "matches": true
+      },
+      "incomplete_record": {
+        "rva": "0x1111AA0",
+        "expected": "33 D2 48 8D 41 42 80 38",
+        "actual": "33 D2 48 8D 41 42 80 38",
+        "matches": true
+      },
+      "generate_effects": {
+        "rva": "0x557F34",
+        "expected": "48 8B C4 48 89 58 20 55",
+        "actual": "48 8B C4 48 89 58 20 55",
+        "matches": true
+      },
+      "assemble_scroll": {
+        "rva": "0x227FC5C",
+        "expected": "48 89 5C 24 08 48 89 6C",
+        "actual": "48 89 5C 24 08 48 89 6C",
+        "matches": true
+      },
+      "playthrough_vector": {
+        "rva": "0x5592A4",
+        "expected": "48 83 EC 48 48 8B 05 81",
+        "actual": "48 83 EC 48 48 8B 05 81",
+        "matches": true
+      },
+      "completion_loop": {
+        "rva": "0x102A9AD",
+        "expected": "48 89 AC 24 80 02 00 00 48 8D 5F 42 48 8D 6C 24",
+        "actual": "48 89 AC 24 80 02 00 00 48 8D 5F 42 48 8D 6C 24",
+        "matches": true
+      },
+      "per_effect_finalizer": {
+        "rva": "0x110ED60",
+        "expected": "48 89 5C 24 20 55 56 57 41 54 41 55 41 56 41 57",
+        "actual": "48 89 5C 24 20 55 56 57 41 54 41 55 41 56 41 57",
+        "matches": true
+      },
+      "effect_lookup": {
+        "rva": "0x557DD8",
+        "expected": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57",
+        "actual": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57",
+        "matches": true
+      },
+      "category_allocator": {
+        "rva": "0x2F9AB4",
+        "expected": "45 85 C9 0F 84 A6 02 00 00 48 89 5C 24 18 55 56",
+        "actual": "45 85 C9 0F 84 A6 02 00 00 48 89 5C 24 18 55 56",
+        "matches": true
+      },
+      "effect_weight": {
+        "rva": "0x558F3C",
+        "expected": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57",
+        "actual": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57",
+        "matches": true
+      },
+      "normalize_slot": {
+        "rva": "0x5518A8",
+        "expected": "48 89 5C 24 08 44 88 4C 24 20 44 88 44 24 18 55",
+        "actual": "48 89 5C 24 08 44 88 4C 24 20 44 88 44 24 18 55",
+        "matches": true
+      },
+      "bonus_count": {
+        "rva": "0x551BCC",
+        "expected": "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48",
+        "actual": "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48",
+        "matches": true
+      },
+      "lcg": {
+        "rva": "0x35F0D4",
+        "expected": "48 83 EC 28 48 8B 0D 31 A8 3F 04 48 85 C9 74 21",
+        "actual": "48 83 EC 28 48 8B 0D 31 A8 3F 04 48 85 C9 74 21",
+        "matches": true
+      }
+    },
+    "ranges": [
+      {
+        "name": "completion_finalizer_wrapper",
+        "begin_rva": "0x2281460",
+        "end_rva": "0x2281579",
+        "size": 281,
+        "sha256": "145D17D49493AA92EA86ACEE3CA9485156AEBBD2FF690819228ACEF43B27622B"
+      },
+      {
+        "name": "completion_loop",
+        "begin_rva": "0x102A9AD",
+        "end_rva": "0x102AB64",
+        "size": 439,
+        "sha256": "141FEE064E7C412A03D07EDE22A328DE2AB76637C5549AEEC23411CDEA30D2E2"
+      },
+      {
+        "name": "per_effect_finalizer",
+        "begin_rva": "0x110ED60",
+        "end_rva": "0x11100B9",
+        "size": 4953,
+        "sha256": "BCE458889E8E61BC544E7FC38ABC0F1A81253B1224480C25B8439ED7743DAFAF"
+      },
+      {
+        "name": "category_allocator",
+        "begin_rva": "0x2F9AB4",
+        "end_rva": "0x2F9D64",
+        "size": 688,
+        "sha256": "88A9150BC2CC6AC463E521088EC46999E74AE890CB5F686C73346CC2F8F34F36"
+      },
+      {
+        "name": "effect_weight",
+        "begin_rva": "0x558F3C",
+        "end_rva": "0x5590CA",
+        "size": 398,
+        "sha256": "910C20F85C6A981936BE5AB41CB804CC2C3BBEC08F6072A3DB0118E35CE4EC24"
+      },
+      {
+        "name": "normalize_slot",
+        "begin_rva": "0x5518A8",
+        "end_rva": "0x551A0A",
+        "size": 354,
+        "sha256": "5F1F1DFBF4816BE19A77E381C5BA510E672A77C9DB2CCDB11EC55EB44D7D8728"
+      },
+      {
+        "name": "bonus_count",
+        "begin_rva": "0x551BCC",
+        "end_rva": "0x551C53",
+        "size": 135,
+        "sha256": "D28D29A0ADE35B3EA90D3A05DED86FCC7D3E0BEBC8986869D5F75C45E8B79556"
+      },
+      {
+        "name": "lcg",
+        "begin_rva": "0x35F0D4",
+        "end_rva": "0x35F145",
+        "size": 113,
+        "sha256": "431986DE64001D03A7452DE8D889F6F56B4D27D12B99CD7D61F1EC2999D39D1E"
+      }
+    ]
+  },
+  "float_constants": {
+    "one_over_65536": {
+      "bits": "0x37800000",
+      "value": 1.52587890625e-05
+    },
+    "hundred": {
+      "bits": "0x42C80000",
+      "value": 100.0
+    },
+    "forty_six": {
+      "bits": "0x42380000",
+      "value": 46.0
+    },
+    "twenty": {
+      "bits": "0x41A00000",
+      "value": 20.0
+    },
+    "one_over_100": {
+      "bits": "0x3C23D70A",
+      "value": 0.009999999776482582
+    },
+    "one_over_1000": {
+      "bits": "0x3A83126F",
+      "value": 0.0010000000474974513
+    }
+  },
+  "tables": [
+    {
+      "name": "item",
+      "purpose": "record-type/item rows",
+      "row_size": 416,
+      "row_count": 3362,
+      "file": {
+        "filename": "tables/item.bin",
+        "size": 1398600,
+        "sha256": "F680966B0A21AB64EADF31A26E80F83E2EEEAAC1446E305BB87B9E64617B53CE"
+      }
+    },
+    {
+      "name": "effect_group",
+      "purpose": "prefix, category, text ID, conflicts",
+      "row_size": 112,
+      "row_count": 1152,
+      "file": {
+        "filename": "tables/effect_group.bin",
+        "size": 129032,
+        "sha256": "331E0320DA0A4E552684962CAC56D2B70EDDE063B568F62468450E51EC802629"
+      }
+    },
+    {
+      "name": "category",
+      "purpose": "category capacity and category lottery",
+      "row_size": 108,
+      "row_count": 17,
+      "file": {
+        "filename": "tables/category.bin",
+        "size": 1844,
+        "sha256": "D241B12AD80D134EEFD79E497DA888B547CA5D1C3913B6230D67EB652BF433D7"
+      }
+    },
+    {
+      "name": "category_count_multiplier",
+      "purpose": "category-count multipliers",
+      "row_size": 32,
+      "row_count": 6,
+      "file": {
+        "filename": "tables/category_count_multiplier.bin",
+        "size": 200,
+        "sha256": "B2E7FD2ACEAE4B499CFD4C86C851DAA1EF784801EBEA108C63619527F95E7CA2"
+      }
+    },
+    {
+      "name": "level_curve",
+      "purpose": "numeric effect level curves",
+      "row_size": 10,
+      "row_count": 501,
+      "file": {
+        "filename": "tables/level_curve.bin",
+        "size": 5018,
+        "sha256": "E5E098E176C1F299C8A53B7388C02CF26D02EDFFAABF1CA366783E13DDAC9921"
+      }
+    },
+    {
+      "name": "effect",
+      "purpose": "effect candidates, weights and formulas",
+      "row_size": 216,
+      "row_count": 3609,
+      "file": {
+        "filename": "tables/effect.bin",
+        "size": 779552,
+        "sha256": "D25D988C5C2A39D079B3D02933EAF6292421B92C5B84F5BF097AC1B8B8792912"
+      }
+    },
+    {
+      "name": "optional_multiplier",
+      "purpose": "keyed scalar/count multipliers",
+      "row_size": 32,
+      "row_count": 2954,
+      "file": {
+        "filename": "tables/optional_multiplier.bin",
+        "size": 94536,
+        "sha256": "DF3F3F261B84C416F12DC9433BFC5427069B9E6E1AC9528EB1F4D01A3B8B7EEA"
+      }
+    },
+    {
+      "name": "rarity_roll",
+      "purpose": "numeric roll min/max by rarity",
+      "row_size": 248,
+      "row_count": 6,
+      "file": {
+        "filename": "tables/rarity_roll.bin",
+        "size": 1496,
+        "sha256": "EE21D1749973973FCDA962C13F18FD9C874260DD12F4EE47D66DE2CE4772796F"
+      }
+    },
+    {
+      "name": "special_context",
+      "purpose": "context rows used by special weight columns",
+      "row_size": 48,
+      "row_count": 7,
+      "file": {
+        "filename": "tables/special_context.bin",
+        "size": 344,
+        "sha256": "E5588CEBA9C7AFB5F251EDDD018FF7DC3CF735C78323E174249AF0432FAEB94C"
+      }
+    }
+  ],
+  "bonus_curve": {
+    "row_size": 88,
+    "entry_count": 662,
+    "unique_row_count": 662,
+    "invalid_row_index": 4294967295,
+    "rows_file": {
+      "filename": "bonus_curve/rows.bin",
+      "size": 58256,
+      "sha256": "7F489037FCB47F5ACA7F1EACD5182E896F0E4061971811DE94E44ACF26DC774E"
+    },
+    "index_file": {
+      "filename": "bonus_curve/index.bin",
+      "size": 2648,
+      "sha256": "5641EECCEC693E2251152B26E5156EE8E18B73D39DE607C5656DD8BF2E1702AE"
+    }
+  },
+  "playthrough": {
+    "selector_min": 1,
+    "selector_max": 5,
+    "values_per_selector": 4,
+    "file": {
+      "filename": "globals/playthrough_progress.bin",
+      "size": 80,
+      "sha256": "8D79225D565B912127C0AAEAA8B7C41FED83CE54C74D1304F2130BE961E7E698"
+    }
+  },
+  "mode_gate_bytes": [
+    0,
+    0,
+    0
+  ],
+  "files": [
+    {
+      "filename": "tables/item.bin",
+      "size": 1398600,
+      "sha256": "F680966B0A21AB64EADF31A26E80F83E2EEEAAC1446E305BB87B9E64617B53CE"
+    },
+    {
+      "filename": "tables/effect_group.bin",
+      "size": 129032,
+      "sha256": "331E0320DA0A4E552684962CAC56D2B70EDDE063B568F62468450E51EC802629"
+    },
+    {
+      "filename": "tables/category.bin",
+      "size": 1844,
+      "sha256": "D241B12AD80D134EEFD79E497DA888B547CA5D1C3913B6230D67EB652BF433D7"
+    },
+    {
+      "filename": "tables/category_count_multiplier.bin",
+      "size": 200,
+      "sha256": "B2E7FD2ACEAE4B499CFD4C86C851DAA1EF784801EBEA108C63619527F95E7CA2"
+    },
+    {
+      "filename": "tables/level_curve.bin",
+      "size": 5018,
+      "sha256": "E5E098E176C1F299C8A53B7388C02CF26D02EDFFAABF1CA366783E13DDAC9921"
+    },
+    {
+      "filename": "tables/effect.bin",
+      "size": 779552,
+      "sha256": "D25D988C5C2A39D079B3D02933EAF6292421B92C5B84F5BF097AC1B8B8792912"
+    },
+    {
+      "filename": "tables/optional_multiplier.bin",
+      "size": 94536,
+      "sha256": "DF3F3F261B84C416F12DC9433BFC5427069B9E6E1AC9528EB1F4D01A3B8B7EEA"
+    },
+    {
+      "filename": "tables/rarity_roll.bin",
+      "size": 1496,
+      "sha256": "EE21D1749973973FCDA962C13F18FD9C874260DD12F4EE47D66DE2CE4772796F"
+    },
+    {
+      "filename": "tables/special_context.bin",
+      "size": 344,
+      "sha256": "E5588CEBA9C7AFB5F251EDDD018FF7DC3CF735C78323E174249AF0432FAEB94C"
+    },
+    {
+      "filename": "bonus_curve/rows.bin",
+      "size": 58256,
+      "sha256": "7F489037FCB47F5ACA7F1EACD5182E896F0E4061971811DE94E44ACF26DC774E"
+    },
+    {
+      "filename": "bonus_curve/index.bin",
+      "size": 2648,
+      "sha256": "5641EECCEC693E2251152B26E5156EE8E18B73D39DE607C5656DD8BF2E1702AE"
+    },
+    {
+      "filename": "globals/playthrough_progress.bin",
+      "size": 80,
+      "sha256": "8D79225D565B912127C0AAEAA8B7C41FED83CE54C74D1304F2130BE961E7E698"
+    }
+  ],
+  "safety": {
+    "process_specific_metadata_omitted": true,
+    "runtime_references_omitted": true,
+    "source_payloads_scanned": 12
+  }
+}

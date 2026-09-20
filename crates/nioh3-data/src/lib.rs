@@ -25,16 +25,29 @@ use sha2::{Digest, Sha256};
 mod effect_resource;
 #[cfg(test)]
 mod install_materialize_parity;
+mod selected_bundle;
 
 pub use effect_resource::{
-    load_effect_resource, GRACE_MAP_FORMAT, GRACE_MAP_GAME_VERSION, GRACE_MAP_PATHS,
-    GRACE_MAP_RECORD_TYPE,
+    load_effect_resource, load_effect_resource_for_file_version, GRACE_MAP_FORMAT,
+    GRACE_MAP_GAME_VERSION, GRACE_MAP_PATHS, GRACE_MAP_RECORD_TYPE,
+};
+pub use selected_bundle::{
+    resolve_selected_generation_bundle, BundleFile, SelectedGenerationBundle,
 };
 
 /// Resource directory, relative to the supplied `nioh3_scroll_editor/data` root.
 pub const AUXILIARY_RESOURCE_DIR: &str = "auxiliary_generation/pc_v2_00_02/resource_v3";
 /// Resource directory, relative to the supplied `nioh3_scroll_editor/data` root.
 pub const R4_RESOURCE_DIR: &str = "r4_finalizer/pc_v2_00_02/resource_v1";
+/// Versioned offline resource owned by PC v2.02, whose two changed tables make
+/// the shipped payload non-reusable.
+pub const R4_RESOURCE_DIR_V202: &str = "r4_finalizer/pc_v2_02/resource_v1";
+/// Offline generation resource version this release ships with.
+///
+/// This is an intentional release default, not an ambient global: the versioned
+/// loaders stay explicit, and an unknown live identity is still rejected by its
+/// own fail-closed path.
+pub const CURRENT_RESOURCE_VERSION: (u16, u16, u16, u16) = (2, 0, 2, 0);
 /// Enemy-state capture, relative to the supplied `nioh3_scroll_editor/data` root.
 pub const ENEMY_STATE_TABLES_PATH: &str = "enemy_states/pc_v2_01/native_tables.json";
 
@@ -53,6 +66,182 @@ const SPECIAL_RULE_STRIDE: usize = SPECIAL_RULE_ROW_BYTES;
 const RULE_CONFLICT_STRIDE: usize = RULE_CONFLICT_ROW_BYTES;
 const TERRAIN_BYTE_OFFSET: usize = 0x12;
 const CONFIG_ROW_BYTES: usize = 0x20;
+
+/// One crate-internal source of truth for every file the offline loaders select.
+///
+/// The real loaders and the selected-bundle identity resolver both consume these
+/// descriptors, so a table, key index, or companion input cannot be read by a
+/// loader while being dropped from the identity -- or the reverse. A
+/// resolver-only mirror list is exactly the drift this module exists to prevent.
+pub(crate) mod resource_descriptor {
+    use super::{field, Error, Value};
+
+    /// One fixed-stride R4 finalizer table.
+    pub(crate) struct R4TableDescriptor {
+        pub(crate) name: &'static str,
+        pub(crate) stride: usize,
+    }
+
+    /// The nine R4 tables the versioned effect/context materialization reads, in
+    /// the order `EffectResourceBytes` exposes them.
+    pub(crate) const R4_TABLES: [R4TableDescriptor; 9] = [
+        R4TableDescriptor {
+            name: "item",
+            stride: 0x1A0,
+        },
+        R4TableDescriptor {
+            name: "effect_group",
+            stride: 0x70,
+        },
+        R4TableDescriptor {
+            name: "category",
+            stride: 0x6C,
+        },
+        R4TableDescriptor {
+            name: "category_count_multiplier",
+            stride: 0x20,
+        },
+        R4TableDescriptor {
+            name: "level_curve",
+            stride: 10,
+        },
+        R4TableDescriptor {
+            name: "effect",
+            stride: 0xD8,
+        },
+        R4TableDescriptor {
+            name: "optional_multiplier",
+            stride: 0x20,
+        },
+        R4TableDescriptor {
+            name: "rarity_roll",
+            stride: 248,
+        },
+        R4TableDescriptor {
+            name: "special_context",
+            stride: 48,
+        },
+    ];
+
+    /// One manifest-declared companion blob below a named manifest section.
+    pub(crate) struct ManifestRecordDescriptor {
+        pub(crate) section: &'static str,
+        pub(crate) key: &'static str,
+        pub(crate) label: &'static str,
+    }
+
+    /// Bonus-curve rows the versioned effect materialization reads.
+    pub(crate) const R4_BONUS_ROWS: ManifestRecordDescriptor = ManifestRecordDescriptor {
+        section: "bonus_curve",
+        key: "rows_file",
+        label: "bonus_curve rows",
+    };
+    /// Bonus-curve index the versioned effect materialization reads.
+    pub(crate) const R4_BONUS_INDEX: ManifestRecordDescriptor = ManifestRecordDescriptor {
+        section: "bonus_curve",
+        key: "index_file",
+        label: "bonus_curve index",
+    };
+    /// Playthrough-progress blob the versioned effect materialization reads.
+    pub(crate) const R4_PLAYTHROUGH: ManifestRecordDescriptor = ManifestRecordDescriptor {
+        section: "playthrough",
+        key: "file",
+        label: "playthrough",
+    };
+
+    /// Every R4 companion record the versioned effect materialization reads.
+    pub(crate) const R4_COMPANION_RECORDS: [&ManifestRecordDescriptor; 3] =
+        [&R4_BONUS_ROWS, &R4_BONUS_INDEX, &R4_PLAYTHROUGH];
+
+    /// One auxiliary-generation table, and whether its declared `keys_file` index
+    /// is a loader input.
+    pub(crate) struct AuxiliaryTableDescriptor {
+        pub(crate) name: &'static str,
+        pub(crate) stride: usize,
+        pub(crate) keys: bool,
+    }
+
+    /// The five auxiliary tables the roster and rule loaders read.
+    pub(crate) const AUXILIARY_TABLES: [AuxiliaryTableDescriptor; 5] = [
+        AuxiliaryTableDescriptor {
+            name: "auxiliary_terrain",
+            stride: super::TERRAIN_STRIDE,
+            keys: true,
+        },
+        AuxiliaryTableDescriptor {
+            name: "auxiliary_enemy_candidate",
+            stride: super::ENEMY_STRIDE,
+            keys: false,
+        },
+        AuxiliaryTableDescriptor {
+            name: "special_context",
+            stride: super::CONTEXT_STRIDE,
+            keys: false,
+        },
+        AuxiliaryTableDescriptor {
+            name: "scroll_special_rule",
+            stride: super::SPECIAL_RULE_STRIDE,
+            keys: true,
+        },
+        AuxiliaryTableDescriptor {
+            name: "auxiliary_rule_conflict",
+            stride: super::RULE_CONFLICT_STRIDE,
+            keys: true,
+        },
+    ];
+
+    /// Auxiliary manifest section holding the enemy-parameter gate record.
+    pub(crate) const AUXILIARY_GATE_SECTION: &str = "enemy_parameter_gate";
+    /// Manifest key of the enemy-parameter gate blob inside that section.
+    pub(crate) const AUXILIARY_GATE_KEY: &str = "file";
+    /// Diagnostic label the gate record and parser report.
+    pub(crate) const AUXILIARY_GATE_LABEL: &str = "enemy_parameter_gate";
+
+    /// Look up one auxiliary table descriptor by name.
+    pub(crate) fn auxiliary_table(
+        name: &str,
+    ) -> Result<&'static AuxiliaryTableDescriptor, Box<dyn Error>> {
+        AUXILIARY_TABLES
+            .iter()
+            .find(|table| table.name == name)
+            .ok_or_else(|| format!("resource descriptor: no auxiliary table named {name:?}").into())
+    }
+
+    /// Resolve one companion record inside a manifest section.
+    pub(crate) fn manifest_record<'a>(
+        manifest: &'a Value,
+        record: &ManifestRecordDescriptor,
+    ) -> Result<&'a Value, Box<dyn Error>> {
+        let section = manifest.get(record.section).ok_or_else(|| {
+            format!(
+                "{}: manifest has no {} section",
+                record.label, record.section
+            )
+        })?;
+        field(section, record.key, record.section)
+    }
+}
+
+/// Test-only counter proving each manifest is read from one byte buffer.
+///
+/// The counter is thread-local, so parallel tests cannot pollute each other.
+#[cfg(test)]
+pub(crate) mod manifest_read_probe {
+    use std::cell::Cell;
+
+    thread_local! {
+        static SNAPSHOTS: Cell<usize> = const { Cell::new(0) };
+    }
+
+    pub(crate) fn record() {
+        SNAPSHOTS.with(|count| count.set(count.get() + 1));
+    }
+
+    /// Read and clear the count for the current thread.
+    pub(crate) fn take() -> usize {
+        SNAPSHOTS.with(|count| count.replace(0))
+    }
+}
 
 /// Typed inputs for offline enemy generation, all verified before use.
 #[derive(Debug)]
@@ -112,6 +301,53 @@ pub fn load_preview_resources(data_root: &Path) -> Result<PreviewResources, Box<
         rules,
         states,
     })
+}
+
+/// Offline R4 resource directory for one exact executable version.
+///
+/// PC v2.00.02 and PC v2.01 alias the shipped directory because their
+/// deterministic payloads are byte-equal; PC v2.02 changed two tables and owns
+/// its own directory. An unregistered version is an error, never a fallback.
+pub fn r4_resource_dir_for_file_version(
+    file_version: (u16, u16, u16, u16),
+) -> Result<&'static str, Box<dyn Error>> {
+    match file_version {
+        (2, 0, 0, 2) | (2, 0, 1, 0) => Ok(R4_RESOURCE_DIR),
+        (2, 0, 2, 0) => Ok(R4_RESOURCE_DIR_V202),
+        other => Err(format!(
+            "no offline generation resource for executable version {}.{}.{}.{}",
+            other.0, other.1, other.2, other.3
+        )
+        .into()),
+    }
+}
+
+/// Load the preview resources bound to one exact executable version.
+pub fn load_preview_resources_for_file_version(
+    data_root: &Path,
+    file_version: (u16, u16, u16, u16),
+) -> Result<PreviewResources, Box<dyn Error>> {
+    let root = canonical_dir(data_root, "product data directory")?;
+    let auxiliary_root = declared_resource_root(&root, AUXILIARY_RESOURCE_DIR)?;
+    let roster = load_roster_resource(&auxiliary_root)?;
+    let rules = load_rule_tables(&auxiliary_root)?;
+    let resource_dir = r4_resource_dir_for_file_version(file_version)?;
+    let context = load_context_resource(&declared_resource_root(&root, resource_dir)?)?;
+    let states_path = declared_path(&root, ENEMY_STATE_TABLES_PATH, "enemy-state capture")?;
+    let states = load_enemy_states_file(&states_path)?;
+    Ok(PreviewResources {
+        roster,
+        context,
+        rules,
+        states,
+    })
+}
+
+/// Load the preview resources of the version this release ships with.
+pub fn load_preview_resources_current(
+    data_root: &Path,
+) -> Result<PreviewResources, Box<dyn Error>> {
+    load_preview_resources_for_file_version(data_root, CURRENT_RESOURCE_VERSION)
 }
 
 /// Parse the native enemy-state capture with `possessed_generation.py` semantics.
@@ -321,35 +557,38 @@ fn load_roster_resource(resource_root: &Path) -> Result<RosterTables, Box<dyn Er
         .and_then(Value::as_object)
         .ok_or_else(|| format!("{AUXILIARY_SCHEMA}: manifest has no tables object"))?;
 
-    let terrain_meta = auxiliary_table(tables, "auxiliary_terrain")?;
-    let terrain = fixed_table(&root, terrain_meta, "auxiliary_terrain", TERRAIN_STRIDE)?;
-    let keys_meta = field(terrain_meta, "keys_file", "auxiliary_terrain")?;
-    let (_, keys_bytes) = read_declared_blob(&root, keys_meta, "auxiliary_terrain keys")?;
-    let terrain_keys = parse_u16_keys("auxiliary_terrain", terrain.row_count, &keys_bytes)?;
-
-    let enemies = fixed_table(
+    let (terrain, terrain_keys) = load_auxiliary_table(
         &root,
-        auxiliary_table(tables, "auxiliary_enemy_candidate")?,
-        "auxiliary_enemy_candidate",
-        ENEMY_STRIDE,
+        tables,
+        resource_descriptor::auxiliary_table("auxiliary_terrain")?,
     )?;
-    let contexts = fixed_table(
+    let terrain_keys = required_key_index("auxiliary_terrain", terrain_keys)?;
+    let (enemies, _) = load_auxiliary_table(
         &root,
-        auxiliary_table(tables, "special_context")?,
-        "special_context",
-        CONTEXT_STRIDE,
+        tables,
+        resource_descriptor::auxiliary_table("auxiliary_enemy_candidate")?,
+    )?;
+    let (contexts, _) = load_auxiliary_table(
+        &root,
+        tables,
+        resource_descriptor::auxiliary_table("special_context")?,
     )?;
 
+    let gate_label = resource_descriptor::AUXILIARY_GATE_LABEL;
     let gate_meta = manifest
-        .get("enemy_parameter_gate")
+        .get(resource_descriptor::AUXILIARY_GATE_SECTION)
         .ok_or("enemy_parameter_gate: manifest has no enemy parameter gate")?;
-    let entry_count = field_usize(gate_meta, "entry_count", "enemy_parameter_gate")?;
+    let entry_count = field_usize(gate_meta, "entry_count", gate_label)?;
     let (_, gate_bytes) = read_declared_blob(
         &root,
-        field(gate_meta, "file", "enemy_parameter_gate")?,
-        "enemy_parameter_gate",
+        field(
+            gate_meta,
+            resource_descriptor::AUXILIARY_GATE_KEY,
+            gate_label,
+        )?,
+        gate_label,
     )?;
-    let parameter_types = parse_parameter_gate("enemy_parameter_gate", entry_count, &gate_bytes)?;
+    let parameter_types = parse_parameter_gate(gate_label, entry_count, &gate_bytes)?;
 
     Ok(RosterTables {
         enemies: enemies.fixed_rows::<ENEMY_STRIDE>(),
@@ -392,40 +631,23 @@ fn load_rule_tables(resource_root: &Path) -> Result<SpecialRuleTables, Box<dyn E
     let root = canonical_dir(resource_root, AUXILIARY_RESOURCE_DIR)?;
     let manifest = read_manifest(&root, AUXILIARY_SCHEMA)?;
 
-    let rules_meta = auxiliary_table(
-        manifest
-            .get("tables")
-            .and_then(Value::as_object)
-            .ok_or_else(|| format!("{AUXILIARY_SCHEMA}: manifest has no tables object"))?,
-        "scroll_special_rule",
-    )?;
-    let rules = fixed_table(
-        &root,
-        rules_meta,
-        "scroll_special_rule",
-        SPECIAL_RULE_STRIDE,
-    )?;
-    let rule_keys = parse_table_keys(&root, rules_meta, "scroll_special_rule", rules.row_count)?;
+    let tables = manifest
+        .get("tables")
+        .and_then(Value::as_object)
+        .ok_or_else(|| format!("{AUXILIARY_SCHEMA}: manifest has no tables object"))?;
 
-    let conflicts_meta = auxiliary_table(
-        manifest
-            .get("tables")
-            .and_then(Value::as_object)
-            .ok_or_else(|| format!("{AUXILIARY_SCHEMA}: manifest has no tables object"))?,
-        "auxiliary_rule_conflict",
-    )?;
-    let conflicts = fixed_table(
+    let (rules, rule_keys) = load_auxiliary_table(
         &root,
-        conflicts_meta,
-        "auxiliary_rule_conflict",
-        RULE_CONFLICT_STRIDE,
+        tables,
+        resource_descriptor::auxiliary_table("scroll_special_rule")?,
     )?;
-    let conflict_keys = parse_table_keys(
+    let rule_keys = required_key_index("scroll_special_rule", rule_keys)?;
+    let (conflicts, conflict_keys) = load_auxiliary_table(
         &root,
-        conflicts_meta,
-        "auxiliary_rule_conflict",
-        conflicts.row_count,
+        tables,
+        resource_descriptor::auxiliary_table("auxiliary_rule_conflict")?,
     )?;
+    let conflict_keys = required_key_index("auxiliary_rule_conflict", conflict_keys)?;
 
     Ok(SpecialRuleTables {
         rules: rules.fixed_rows::<SPECIAL_RULE_STRIDE>(),
@@ -433,6 +655,36 @@ fn load_rule_tables(resource_root: &Path) -> Result<SpecialRuleTables, Box<dyn E
         conflicts: conflicts.fixed_rows::<RULE_CONFLICT_STRIDE>(),
         conflict_keys,
     })
+}
+
+/// A manifest-declared auxiliary table plus its verified key index when the
+/// descriptor declares that the loader consumes one.
+type LoadedAuxiliaryTable = (FixedStrideTable, Option<Vec<u16>>);
+
+/// Load one manifest-declared auxiliary table and, when its descriptor says the
+/// loader consumes a key index, that verified keys blob too.
+///
+/// The loader and the selected-bundle identity share this routine, so a table or
+/// its key index cannot be read by one and dropped by the other.
+fn load_auxiliary_table(
+    root: &Path,
+    tables: &Map<String, Value>,
+    descriptor: &resource_descriptor::AuxiliaryTableDescriptor,
+) -> Result<LoadedAuxiliaryTable, Box<dyn Error>> {
+    let name = descriptor.name;
+    let meta = auxiliary_table(tables, name)?;
+    let table = fixed_table(root, meta, name, descriptor.stride)?;
+    let keys = if descriptor.keys {
+        Some(parse_table_keys(root, meta, name, table.row_count)?)
+    } else {
+        None
+    };
+    Ok((table, keys))
+}
+
+/// A descriptor that declares a key index must produce one.
+fn required_key_index(name: &str, keys: Option<Vec<u16>>) -> Result<Vec<u16>, Box<dyn Error>> {
+    keys.ok_or_else(|| format!("{name}: descriptor declares a key index, none was read").into())
 }
 
 /// Verify and decode one table's declared `keys_file`.
@@ -635,10 +887,20 @@ fn declared_resource_root(data_root: &Path, relative: &str) -> Result<PathBuf, B
     Ok(root)
 }
 
-fn read_manifest(resource_root: &Path, expected_schema: &str) -> Result<Value, Box<dyn Error>> {
+/// Read and parse one resource manifest from a single byte buffer.
+///
+/// The returned bytes are the exact buffer that produced the parsed document, so
+/// an identity that folds those bytes and selects through that document
+/// describes one consistent snapshot instead of two reads that could interleave.
+fn read_manifest_snapshot(
+    resource_root: &Path,
+    expected_schema: &str,
+) -> Result<(PathBuf, Vec<u8>, Value), Box<dyn Error>> {
     let path = declared_path(resource_root, "manifest.json", expected_schema)?;
     let bytes = fs::read(&path)
         .map_err(|error| format!("{expected_schema}: cannot read {}: {error}", path.display()))?;
+    #[cfg(test)]
+    manifest_read_probe::record();
     let manifest: Value = serde_json::from_slice(&bytes).map_err(|error| {
         format!(
             "{expected_schema}: invalid JSON manifest at {}: {error}",
@@ -652,7 +914,11 @@ fn read_manifest(resource_root: &Path, expected_schema: &str) -> Result<Value, B
     if schema != expected_schema {
         return Err(format!("{expected_schema}: unsupported resource schema {schema:?}").into());
     }
-    Ok(manifest)
+    Ok((path, bytes, manifest))
+}
+
+fn read_manifest(resource_root: &Path, expected_schema: &str) -> Result<Value, Box<dyn Error>> {
+    read_manifest_snapshot(resource_root, expected_schema).map(|(_, _, manifest)| manifest)
 }
 
 /// Read and verify one manifest-declared blob against its size and SHA-256.
@@ -1290,5 +1556,34 @@ mod tests {
     fn resources_outside_the_product_root_are_rejected() {
         let temp = TempDir::new("empty");
         assert!(load_enemy_resources(&temp.path).is_err());
+    }
+
+    #[test]
+    fn versioned_resource_selection_prefers_the_v202_directory() {
+        assert_eq!(
+            r4_resource_dir_for_file_version((2, 0, 2, 0)).expect("v2.02"),
+            R4_RESOURCE_DIR_V202
+        );
+        for aliased in [(2, 0, 0, 2), (2, 0, 1, 0)] {
+            assert_eq!(
+                r4_resource_dir_for_file_version(aliased).expect("aliased"),
+                R4_RESOURCE_DIR
+            );
+        }
+        assert!(r4_resource_dir_for_file_version((2, 1, 0, 0)).is_err());
+    }
+
+    #[test]
+    fn v202_preview_resources_load_the_changed_tables() {
+        let data_root =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data");
+        if !data_root.is_dir() {
+            return;
+        }
+        let shipped = load_preview_resources(&data_root).expect("shipped preview resources");
+        let candidate =
+            load_preview_resources_for_file_version(&data_root, (2, 0, 2, 0)).expect("v2.02");
+        assert_eq!(shipped.context.optional_multipliers.len(), 2951);
+        assert_eq!(candidate.context.optional_multipliers.len(), 2954);
     }
 }

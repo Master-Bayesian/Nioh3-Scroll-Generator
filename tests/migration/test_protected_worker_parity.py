@@ -119,6 +119,20 @@ class FramedWorker:
             self.process.kill()
             raise
 
+    def close_stdin(self) -> None:
+        """Close the request pipe without terminating or reaping the worker."""
+
+        assert self.process.stdin is not None
+        self.process.stdin.close()
+
+    def wait_for_exit(self, timeout: float) -> int | None:
+        """The exit code once the worker exits, or None while it is still alive."""
+
+        try:
+            return self.process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return None
+
 
 def develop_protected_manifest() -> Path:
     """Return the protected crate manifest; a missing crate fails the gate."""
@@ -216,6 +230,10 @@ class ProtectedSaveParityTests(unittest.TestCase):
             "--role",
             role,
             "--dev-protected-only",
+            # This gate drives synthetic fixtures, not an installed game, so it
+            # takes the explicit non-production context instead of claiming a
+            # real game executable version.
+            "--legacy-test-context",
             "--state-root",
             str(state),
             "--data-root",
@@ -920,6 +938,9 @@ class ProtectedRuntimeScanTests(unittest.TestCase):
             "--role",
             "runtime",
             "--dev-protected-only",
+            # Same non-production opt-in as the save-parity worker: the scan
+            # loop is driven by a scripted fixture, not an installed game.
+            "--legacy-test-context",
             "--state-root",
             str(state),
             "--data-root",
@@ -1432,15 +1453,26 @@ class ProtectedRuntimeScanTests(unittest.TestCase):
             self.assertEqual(worker.terminate(), 0)
 
     def test_a_retired_oracle_keeps_the_runtime_unsafe_to_shut_down(self) -> None:
-        """A native call that may still be outstanding retains ownership."""
+        """A native call that may still be outstanding retains ownership.
+
+        EOF must not abandon that owner, so the host stays alive after the pipe
+        closes. Only the explicit release of the retired call proves terminal
+        cleanup and lets the process exit cleanly.
+        """
 
         save, save_state = self.save_fixture("retire")
         product = self.product_template(save, save_state)
         filled = self._filled_template(product["template_hex"], 4)
+        release = self.root / "retire-release"
         script = self.root / "retire-script.json"
         script.write_text(
             json.dumps(
-                {"template_hex": filled, "rarity": 4, "remote_call_pending": True}
+                {
+                    "template_hex": filled,
+                    "rarity": 4,
+                    "remote_call_pending": True,
+                    "retirement_release_file": str(release),
+                }
             ),
             encoding="utf-8",
         )
@@ -1448,6 +1480,8 @@ class ProtectedRuntimeScanTests(unittest.TestCase):
         try:
             handshake = worker.call("handshake")
             self.assertTrue(handshake["ok"], handshake)
+            # A protected host is never a terminate-and-retry target.
+            self.assertIs(handshake["result"]["kill_safe"], False)
             digest = handshake["result"]["context"]["context_digest"]
             before = worker.call("runtime.status")
             self.assertEqual(before["result"]["pending_remote_calls"], 0)
@@ -1479,8 +1513,24 @@ class ProtectedRuntimeScanTests(unittest.TestCase):
             # The shipped host refuses a shutdown that would abandon the owner.
             refused = worker.call("shutdown")
             self.assertEqual(refused["result"]["safe_to_shutdown"], False)
+            # A closed pipe is not proof of release: the owner is still live.
+            worker.close_stdin()
+            self.assertIsNone(
+                worker.wait_for_exit(5),
+                "a host with an unresolved owner must not exit when stdin closes",
+            )
+            # The retired call is explicitly resolved; only now is a clean
+            # process exit proven.
+            release.write_text("released", encoding="utf-8")
+            self.assertEqual(
+                worker.wait_for_exit(60),
+                0,
+                "a resolved owner must let the host exit cleanly",
+            )
         finally:
-            self.assertEqual(worker.terminate(), 0)
+            if worker.process.poll() is None:
+                worker.process.kill()
+            worker.process.wait(timeout=60)
 
     def test_the_scan_refuses_a_foreign_context_and_a_missing_game(self) -> None:
         save, save_state = self.save_fixture("scan-refusals")
@@ -1820,6 +1870,8 @@ class ProtectedRuntimeRoutingAudit(unittest.TestCase):
                 "--role",
                 "runtime",
                 "--dev-protected-only",
+                # The release binary is still driven by a synthetic fixture.
+                "--legacy-test-context",
                 "--state-root",
                 str(state),
                 "--data-root",

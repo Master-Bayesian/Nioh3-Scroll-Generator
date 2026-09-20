@@ -44,8 +44,12 @@ pub use collector::{
     BatchRequest, CandidateSource, CollectorError, IntersectionReport, IntersectionStageCount,
     MaterializedCandidate, SearchBatch, SearchCollector,
 };
-pub use context::{capture_context, ContextError, GenerationContext};
-pub use engine::{Engine, EngineError};
+pub use context::{
+    capture_legacy_context, capture_resolved_context, capture_resolved_context_from_bundle,
+    legacy_identity_payload, resolved_identity_payload, ContextError, GameFileVersion,
+    LegacyGenerationContext, ResolvedGenerationContext,
+};
+pub use engine::{ContextSelection, Engine, EngineContext, EngineError};
 pub use jobs::{JobStore, JobView, StartParams};
 pub use model::{candidate_identity, Candidate, CandidateEffect, RecordStage};
 pub use native_search::{NativeCapabilities, NativeSearchError, PivotMatch, PivotWindow};

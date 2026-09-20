@@ -1,6 +1,6 @@
 [package]
 name = "nioh3-studio"
-version = "0.7.5"
+version = "0.8.0"
 edition = "2021"
 
 [build-dependencies]
@@ -23,6 +23,13 @@ ed25519-dalek = "2"
 base64 = "0.22"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Registry",
+] }
 
 [profile.release]
 strip = true

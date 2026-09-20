@@ -255,6 +255,15 @@ export function Editor({ cart }: { cart: Sample[] }) {
         throw Error("绘卷等级应为 0–180");
       if (!(draft.recommended in data.levels))
         throw Error("请填写有效的敌人等级");
+      // A record stored above the current bound stays editable: when the
+      // displayed level is untouched, keep its existing raw value instead of
+      // rewriting it to a different canonical raw with the same display.
+      const storedRaw = current.saveEntry?.derived.recommended_raw_level;
+      const storedDisplay = current.saveEntry?.derived.recommended_displayed_level;
+      const preservingStoredRaw =
+        typeof storedRaw === "number" &&
+        saved.recommended === draft.recommended &&
+        String(storedDisplay ?? "") === String(draft.recommended);
       for (const slot of draft.slots)
         for (const k of [
           "id",
@@ -288,7 +297,9 @@ export function Editor({ cart }: { cart: Sample[] }) {
             playthrough: Number(draft.ng),
             rarity: Number(draft.rarity),
             level: Number(draft.level),
-            recommended_level: level.selected_internal_level,
+            recommended_level: preservingStoredRaw
+              ? storedRaw!
+              : level.selected_internal_level,
             transfer_count: toRecordTransferCount(Number(draft.transfers)),
           },
           effects: draft.slots.map((slot, i) => ({

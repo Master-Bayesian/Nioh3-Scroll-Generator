@@ -25,7 +25,8 @@ class LiveRevealRegressionTests(unittest.TestCase):
                     'initial_challenge_capacity': vector['initial_capacity'],
                     'remaining_challenge_attempts': vector['remaining_after'],
                     'recommended_displayed_level': vector['recommended_displayed_level'],
-                    'recommended_raw_was_clamped': False})
+                    'recommended_raw_was_clamped': False,
+                    'recommended_raw_level': read_local_scroll_header(saved).recommended_level})
                 for record in (before, revealed, saved):
                     for region in self.fixture['sanitized_ranges']:
                         self.assertEqual(record[region['offset']:region['offset'] + region['length']], bytes(region['length']))

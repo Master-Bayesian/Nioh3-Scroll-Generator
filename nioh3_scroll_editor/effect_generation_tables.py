@@ -27,6 +27,7 @@ from .r4_finalizer_reference import (
 from .r4_finalizer_resource import (
     R4FinalizerResourceBundle,
     load_default_r4_finalizer_resource,
+    load_r4_finalizer_resource_for_version,
 )
 
 
@@ -687,6 +688,21 @@ def load_default_effect_generation_tables() -> EffectGenerationTableIndex:
     return EffectGenerationTableIndex(load_default_r4_finalizer_resource())
 
 
+def effect_generation_tables_for_game_version(
+    file_version,
+) -> EffectGenerationTableIndex:
+    """Offline generation index for one exact executable version.
+
+    The shipped PC v2.00.02/v2.01 payload is unchanged; PC v2.02 resolves its own
+    versioned resource.  An unregistered version fails closed in
+    ``load_r4_finalizer_resource_for_version`` instead of reusing old tables.
+    """
+
+    return EffectGenerationTableIndex(
+        load_r4_finalizer_resource_for_version(file_version)
+    )
+
+
 __all__ = [
     "EMPTY_EFFECT_ID",
     "SCROLL_ITEM_MODE",
@@ -700,4 +716,5 @@ __all__ = [
     "ScrollItemDefinition",
     "WeightedEffectCandidate",
     "load_default_effect_generation_tables",
+    "effect_generation_tables_for_game_version",
 ]

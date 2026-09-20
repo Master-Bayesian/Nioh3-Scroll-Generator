@@ -293,70 +293,70 @@ impl Updater {
                     let context = onefile::context()?.ok_or("ONEFILE_CONTEXT_MISSING")?;
                     onefile::acknowledge(&mut receipt, &report, target, &context)?;
                 } else {
-                let recorded =
-                    PathBuf::from(receipt["target"].as_str().ok_or("UPDATE_RECEIPT_INVALID")?)
-                        .canonicalize()
-                        .map_err(|e| e.to_string())?;
-                if recorded != target.canonicalize().map_err(|e| e.to_string())?
-                    || receipt["manifestHash"].as_str().map(str::to_lowercase)
-                        != Some(package::hash_file(&target.join("build-manifest.json"))?)
-                {
-                    return Err("UPDATE_RECEIPT_MISMATCH".into());
-                }
-                let previous = PathBuf::from(
-                    receipt["previous"]
-                        .as_str()
-                        .ok_or("UPDATE_RECEIPT_INVALID")?,
-                );
-                let expected = format!(
-                    "{}.previous-",
-                    target
-                        .file_name()
-                        .ok_or("UPDATE_TARGET_INVALID")?
-                        .to_string_lossy()
-                );
-                let name = previous
-                    .file_name()
-                    .ok_or("UPDATE_RECEIPT_INVALID")?
-                    .to_string_lossy();
-                if !name.starts_with(&expected)
-                    || uuid::Uuid::parse_str(&name[expected.len()..]).is_err()
-                {
-                    return Err("UPDATE_PREVIOUS_INVALID".into());
-                }
-                // The NSIS installer owns one file beside the portable
-                // product. The update helper copies it into the replacement so
-                // Add/Remove Programs keeps working. Remove the rollback copy
-                // only when it is byte-identical to the installed copy; every
-                // other extra file still causes fail-safe preservation below.
-                let previous_uninstaller = previous.join("uninstall.exe");
-                if previous_uninstaller.exists() {
-                    let installed_uninstaller = target.join("uninstall.exe");
-                    let previous_metadata = std::fs::symlink_metadata(&previous_uninstaller)
-                        .map_err(|e| e.to_string())?;
-                    let installed_metadata = std::fs::symlink_metadata(&installed_uninstaller)
-                        .map_err(|e| e.to_string())?;
-                    if previous_metadata.file_type().is_symlink()
-                        || installed_metadata.file_type().is_symlink()
-                        || !previous_metadata.is_file()
-                        || !installed_metadata.is_file()
-                        || previous_metadata.len() == 0
-                        || previous_metadata.len() > 64 * 1024 * 1024
-                        || previous_metadata.len() != installed_metadata.len()
-                        || package::hash_file(&previous_uninstaller)?
-                            != package::hash_file(&installed_uninstaller)?
+                    let recorded =
+                        PathBuf::from(receipt["target"].as_str().ok_or("UPDATE_RECEIPT_INVALID")?)
+                            .canonicalize()
+                            .map_err(|e| e.to_string())?;
+                    if recorded != target.canonicalize().map_err(|e| e.to_string())?
+                        || receipt["manifestHash"].as_str().map(str::to_lowercase)
+                            != Some(package::hash_file(&target.join("build-manifest.json"))?)
                     {
-                        return Err("UPDATE_UNINSTALLER_MISMATCH".into());
+                        return Err("UPDATE_RECEIPT_MISMATCH".into());
                     }
-                    std::fs::remove_file(previous_uninstaller).map_err(|e| e.to_string())?;
-                }
-                package::remove_child(
-                    target.parent().ok_or("UPDATE_TARGET_INVALID")?,
-                    &previous,
-                    true,
-                )?;
-                receipt["status"] = json!("completed");
-                storage::write_json(&report, &receipt)?;
+                    let previous = PathBuf::from(
+                        receipt["previous"]
+                            .as_str()
+                            .ok_or("UPDATE_RECEIPT_INVALID")?,
+                    );
+                    let expected = format!(
+                        "{}.previous-",
+                        target
+                            .file_name()
+                            .ok_or("UPDATE_TARGET_INVALID")?
+                            .to_string_lossy()
+                    );
+                    let name = previous
+                        .file_name()
+                        .ok_or("UPDATE_RECEIPT_INVALID")?
+                        .to_string_lossy();
+                    if !name.starts_with(&expected)
+                        || uuid::Uuid::parse_str(&name[expected.len()..]).is_err()
+                    {
+                        return Err("UPDATE_PREVIOUS_INVALID".into());
+                    }
+                    // The NSIS installer owns one file beside the portable
+                    // product. The update helper copies it into the replacement so
+                    // Add/Remove Programs keeps working. Remove the rollback copy
+                    // only when it is byte-identical to the installed copy; every
+                    // other extra file still causes fail-safe preservation below.
+                    let previous_uninstaller = previous.join("uninstall.exe");
+                    if previous_uninstaller.exists() {
+                        let installed_uninstaller = target.join("uninstall.exe");
+                        let previous_metadata = std::fs::symlink_metadata(&previous_uninstaller)
+                            .map_err(|e| e.to_string())?;
+                        let installed_metadata = std::fs::symlink_metadata(&installed_uninstaller)
+                            .map_err(|e| e.to_string())?;
+                        if previous_metadata.file_type().is_symlink()
+                            || installed_metadata.file_type().is_symlink()
+                            || !previous_metadata.is_file()
+                            || !installed_metadata.is_file()
+                            || previous_metadata.len() == 0
+                            || previous_metadata.len() > 64 * 1024 * 1024
+                            || previous_metadata.len() != installed_metadata.len()
+                            || package::hash_file(&previous_uninstaller)?
+                                != package::hash_file(&installed_uninstaller)?
+                        {
+                            return Err("UPDATE_UNINSTALLER_MISMATCH".into());
+                        }
+                        std::fs::remove_file(previous_uninstaller).map_err(|e| e.to_string())?;
+                    }
+                    package::remove_child(
+                        target.parent().ok_or("UPDATE_TARGET_INVALID")?,
+                        &previous,
+                        true,
+                    )?;
+                    receipt["status"] = json!("completed");
+                    storage::write_json(&report, &receipt)?;
                 }
             } else if receipt["status"] != "completed" && receipt["status"] != "failed" {
                 return Ok(());
@@ -407,27 +407,67 @@ impl Updater {
         command.spawn().map_err(|e| e.to_string())?;
         Ok(())
     }
-    fn launch_onefile(&self, stage: &Path, hash: &str, context: &onefile::Context) -> Result<(), String> {
+    fn launch_onefile(
+        &self,
+        stage: &Path,
+        hash: &str,
+        context: &onefile::Context,
+    ) -> Result<(), String> {
         let folder = stage.parent().ok_or("UPDATE_STAGE_INVALID")?;
-        let manifest: Manifest = serde_json::from_slice(&std::fs::read(folder.join("verified-update.json")).map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
+        let manifest: Manifest = serde_json::from_slice(
+            &std::fs::read(folder.join("verified-update.json")).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
         validate(&manifest)?;
-        if package::verify(stage)?.version != manifest.version || package::hash_file(&stage.join("build-manifest.json"))? != hash {
+        if package::verify(stage)?.version != manifest.version
+            || package::hash_file(&stage.join("build-manifest.json"))? != hash
+        {
             return Err("UPDATE_STAGE_CHANGED".into());
         }
         let replacement = folder.join(format!("replacement-{}.exe", uuid::Uuid::new_v4()));
-        let file_hash = onefile::assemble(stage, &folder.join("package.zip"), &replacement, &manifest.asset.sha256)?;
+        let file_hash = onefile::assemble(
+            stage,
+            &folder.join("package.zip"),
+            &replacement,
+            &manifest.asset.sha256,
+        )?;
         let helper = self.root.join("apply-onefile-update.ps1");
-        std::fs::write(&helper, include_str!("../apply-onefile-update.ps1")).map_err(|e| e.to_string())?;
+        std::fs::write(&helper, include_str!("../apply-onefile-update.ps1"))
+            .map_err(|e| e.to_string())?;
         let mut command = std::process::Command::new("powershell.exe");
-        command.args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File"]).arg(helper)
-            .arg("-ProcessId").arg(std::process::id().to_string())
-            .arg("-LauncherProcessId").arg(context.launcher_pid.to_string())
-            .arg("-Target").arg(&context.executable).arg("-Staged").arg(replacement)
-            .arg("-FileHash").arg(file_hash).arg("-PreviousHash").arg(package::hash_file(&context.executable)?)
-            .arg("-ManifestHash").arg(hash).arg("-Profile").arg(self.root.parent().ok_or("UPDATE_PROFILE_INVALID")?)
-            .stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
-        #[cfg(windows)] { use std::os::windows::process::CommandExt; command.creation_flags(0x08000000); }
+        command
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+            ])
+            .arg(helper)
+            .arg("-ProcessId")
+            .arg(std::process::id().to_string())
+            .arg("-LauncherProcessId")
+            .arg(context.launcher_pid.to_string())
+            .arg("-Target")
+            .arg(&context.executable)
+            .arg("-Staged")
+            .arg(replacement)
+            .arg("-FileHash")
+            .arg(file_hash)
+            .arg("-PreviousHash")
+            .arg(package::hash_file(&context.executable)?)
+            .arg("-ManifestHash")
+            .arg(hash)
+            .arg("-Profile")
+            .arg(self.root.parent().ok_or("UPDATE_PROFILE_INVALID")?)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            command.creation_flags(0x08000000);
+        }
         command.spawn().map_err(|e| e.to_string())?;
         Ok(())
     }

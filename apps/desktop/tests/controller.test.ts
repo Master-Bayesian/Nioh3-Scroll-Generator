@@ -16,7 +16,7 @@ test('submitted query is isolated, stale progress cannot undo cancel, restart cl
   const api: DesktopApi = { handshake: async () => hello, restartWorker: async () => hello,
     currentSearch: async () => ({ job: null, submitted: null }),
     searchCatalog: async () => ({ context_digest: 'context', ordinary_effects: [], grace_effects: [], recommended_level: {
-      minimum_internal_level: 156, maximum_internal_level: 1400, minimum_displayed_level: 142, maximum_displayed_level: 700,
+      minimum_internal_level: 156, maximum_internal_level: 600, minimum_displayed_level: 142, maximum_displayed_level: 356,
       selection_policy: 'lowest_canonical_internal_level', evidence: 'captured_native_curve_prediction' } }),
     resolveRecommendedLevel: async () => { throw new Error('Not used by the search controller'); },
     startSearch: async () => ({ ...job }), snapshot: async () => ({ ...job, sequence: 4 }),

@@ -207,11 +207,18 @@ class NativeLiveAddTransport:
                     raise RuntimeError(f'Native precondition changed at {address:#x}')
             def u64(address):
                 return struct.unpack('<Q', api.read(address, 8))[0]
+            def ownership(message):
+                # The shipped diagnostics for a missing owner must not change:
+                # a null inventory global, manager or data object all report the
+                # original message instead of the mode-specific wording.
+                try:
+                    return LAYOUT.resolve_inventory(u64, base)
+                except RuntimeError as error:
+                    raise RuntimeError(message) from error
             same(entry, original)
-            manager = u64(base + LAYOUT.manager_pointer_rva)
-            data = u64(manager)
-            if not manager or not data:
-                raise RuntimeError('Inventory owner is not loaded')
+            pointers = ownership('Inventory owner is not loaded')
+            manager = pointers.manager_address
+            data = pointers.data_address
             container = data + LAYOUT.container_offset
             descriptor = expected = None
             if mode != 'noop':
@@ -323,7 +330,7 @@ class NativeLiveAddTransport:
                                         api.resume(event, True)
                                         event = None
                                         continue
-                                    if u64(base + LAYOUT.manager_pointer_rva) != manager or u64(manager) != data:
+                                    if ownership('Inventory ownership changed') != pointers:
                                         raise RuntimeError('Inventory ownership changed')
                                     serial_before = api.read(data + LAYOUT.serial_counter_offset, 8)
                                     if mode == 'insert':

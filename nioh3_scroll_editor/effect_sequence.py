@@ -548,6 +548,100 @@ def generate_rarity5_grace_effect_sequence(
     )
 
 
+def take_rarity5_primary_pool(
+    grace_id: int,
+    promoted: bool,
+    record_type: int,
+    playthrough: int,
+    tables: EffectGenerationTableIndex,
+) -> tuple[tuple[int, int], ...]:
+    """Return the exact seed-invariant primary lottery for one explicit index.
+
+    ``tables`` is required: the shipped loader is the PC v2.00.02/v2.01 payload,
+    so a versioned caller must pass the index it actually selected instead of
+    silently reusing the baseline tables. ``None`` raises ``TypeError`` so a
+    dropped argument cannot degrade into the legacy default.
+    """
+
+    if tables is None:
+        raise TypeError(
+            "rarity-5 primary generation requires explicit generation tables; "
+            "pass tables=... instead of relying on the shipped baseline"
+        )
+    pool = tables.weighted_candidate_pool(
+        record_type=record_type,
+        rarity=RARITY_DIVINE,
+        playthrough=playthrough,
+        destination_category_and_flags=0x40,
+        destination_effect_flags=0x04 if promoted else 0,
+        remaining_category_capacities=tables.category_capacities(
+            record_type=record_type,
+            rarity=RARITY_DIVINE,
+        ),
+        existing_effect_ids=(),
+        special_effect_id=grace_id,
+    )
+    if not pool:
+        raise EffectSequenceGenerationError("native primary candidate pool is empty")
+    return tuple((candidate.effect.effect_id, candidate.weight) for candidate in pool)
+
+
+@lru_cache(maxsize=512)
+def _primary_pool_lookup(
+    pool: tuple[tuple[int, int], ...],
+    _pool_is_promoted: bool,
+) -> tuple[int, ...]:
+    """Map every possible native u16 lottery draw to its exact effect ID.
+
+    The second argument only separates the normal and promoted cache entries.
+    Both map one u16 draw straight through their own pool; the promotion choice
+    is already encoded in which pool the caller built.
+    """
+
+    native = build_weighted_effect_lookup_native(pool)
+    if native is not None:
+        return native
+    total = sum(weight for _effect_id, weight in pool) & 0xFFFFFFFF
+    upper_count = (total + 1) & 0xFFFFFFFF
+    if upper_count == 0:
+        raise OverflowError("native primary lottery total wrapped to zero")
+    output: list[int] = []
+    for value in range(0x10000):
+        ticket = min(game_random_int_from_u16(value, upper_count), total)
+        for effect_id, weight in pool:
+            if ticket <= weight:
+                output.append(effect_id)
+                break
+            ticket = (ticket - weight) & 0xFFFFFFFF
+        else:
+            raise EffectSequenceGenerationError(
+                "native primary weighted lottery had no winner"
+            )
+    return tuple(output)
+
+
+def rarity5_primary_effect_lookups(
+    grace_id: int,
+    record_type: int,
+    playthrough: int,
+    tables: EffectGenerationTableIndex,
+) -> tuple[tuple[int, ...], tuple[int, ...]]:
+    """Normal plus promoted-selected/unselected primary ID lookups."""
+
+    if tables is None:
+        raise TypeError(
+            "rarity-5 primary generation requires explicit generation tables; "
+            "pass tables=... instead of relying on the shipped baseline"
+        )
+    normal = take_rarity5_primary_pool(
+        grace_id, False, record_type, playthrough, tables
+    )
+    promoted = take_rarity5_primary_pool(
+        grace_id, True, record_type, playthrough, tables
+    )
+    return _primary_pool_lookup(normal, False), _primary_pool_lookup(promoted, True)
+
+
 def generate_ng3_rarity5_effect_sequence(
     seed: int,
     *,
@@ -938,6 +1032,7 @@ def generate_rarity5_grace_primary_effect_id(
     *,
     playthrough: int,
     grace_mapping: GraceOutputMap | None = None,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> int:
     """Return the exact primary ID through a cached path-specific lottery.
 
@@ -952,6 +1047,8 @@ def generate_rarity5_grace_primary_effect_id(
     record_type = CATEGORY_TO_TYPE[playthrough]
     if not 0 <= seed <= 0xFFFFFFFF:
         raise ValueError("seed must fit in uint32")
+    if tables is None:
+        tables = load_default_effect_generation_tables()
     if grace_mapping is None:
         if playthrough != 3:
             raise ValueError("NG4/NG5 primary generation requires a captured Grace map")
@@ -973,11 +1070,12 @@ def generate_rarity5_grace_primary_effect_id(
         selected_index = next(index for index in order if 0 < index < 6)
         primary_promoted = selected_index == 1
 
-    pool = _default_primary_pool(
+    pool = take_rarity5_primary_pool(
         grace_id,
         primary_promoted,
         record_type,
         playthrough,
+        tables,
     )
     total = sum(weight for _effect_id, weight in pool) & 0xFFFFFFFF
     upper_count = (total + 1) & 0xFFFFFFFF
@@ -996,6 +1094,7 @@ def generate_ng3_rarity5_primary_effect_id(
     seed: int,
     *,
     grace_mapping: GraceOutputMap | None = None,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> int:
     """Backward-compatible verified NG3 primary-ID entry point."""
 
@@ -1003,6 +1102,7 @@ def generate_ng3_rarity5_primary_effect_id(
         seed,
         playthrough=3,
         grace_mapping=grace_mapping,
+        tables=tables,
     )
 
 
@@ -1012,6 +1112,7 @@ def generate_rarity5_grace_primary_effect_ids(
     playthrough: int,
     grace_id: int,
     grace_mapping: GraceOutputMap | None = None,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> tuple[int, ...]:
     """Return exact primary IDs for one fixed-Grace Seed batch.
 
@@ -1030,20 +1131,24 @@ def generate_rarity5_grace_primary_effect_ids(
         raise ValueError("every seed must fit in uint32")
     if not 0 <= grace_id <= 0xFFFFFFFF:
         raise ValueError("grace_id must fit in uint32")
+    if tables is None:
+        tables = load_default_effect_generation_tables()
     if grace_mapping is None:
         if playthrough != 3:
             raise ValueError("NG4/NG5 primary generation requires a captured Grace map")
         grace_mapping = load_grace_output_map(rarity=RARITY_DIVINE)
     _validate_grace_mapping(grace_mapping, playthrough=playthrough)
 
+    normal_lookup, promoted_lookup = rarity5_primary_effect_lookups(
+        grace_id,
+        record_type,
+        playthrough,
+        tables,
+    )
     native = generate_ng3_primary_effect_ids_native(
         seeds,
-        normal_lookup=_default_primary_effect_lookup(
-            grace_id, False, record_type, playthrough
-        ),
-        promoted_lookup=_default_primary_effect_lookup(
-            grace_id, True, record_type, playthrough
-        ),
+        normal_lookup=normal_lookup,
+        promoted_lookup=promoted_lookup,
         promotion_success_lookup=_promotion_success_lookup(50),
         random7_lookup=_random_int_u8_lookup(7),
     )
@@ -1054,6 +1159,7 @@ def generate_rarity5_grace_primary_effect_ids(
             seed,
             playthrough=playthrough,
             grace_mapping=grace_mapping,
+            tables=tables,
         )
         for seed in seeds
     )
@@ -1064,6 +1170,7 @@ def generate_rarity5_any_grace_primary_effect_ids(
     *,
     playthrough: int,
     grace_mapping: GraceOutputMap | None = None,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> tuple[int, ...]:
     """Return exact primary IDs for a batch without constraining its Grace.
 
@@ -1074,6 +1181,8 @@ def generate_rarity5_any_grace_primary_effect_ids(
 
     if not seeds:
         return ()
+    if tables is None:
+        tables = load_default_effect_generation_tables()
     if grace_mapping is None:
         if playthrough != 3:
             raise ValueError("NG4/NG5 primary generation requires a captured Grace map")
@@ -1092,6 +1201,7 @@ def generate_rarity5_any_grace_primary_effect_ids(
             playthrough=playthrough,
             grace_id=grace_id,
             grace_mapping=grace_mapping,
+            tables=tables,
         )
         for (index, _seed), effect_id in zip(indexed_seeds, generated, strict=True):
             output[index] = effect_id
@@ -1103,6 +1213,7 @@ def generate_ng3_rarity5_primary_effect_ids(
     *,
     grace_id: int,
     grace_mapping: GraceOutputMap | None = None,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> tuple[int, ...]:
     """Backward-compatible verified NG3 batched primary-ID entry point."""
 
@@ -1111,6 +1222,7 @@ def generate_ng3_rarity5_primary_effect_ids(
         playthrough=3,
         grace_id=grace_id,
         grace_mapping=grace_mapping,
+        tables=tables,
     )
 
 
@@ -1662,15 +1774,16 @@ def generate_ng3_certified_effect_sequence(
     *,
     rarity: int,
     level: int = 180,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> EffectSequenceResult:
     """Generate a certified PC v2.00.02 NG3 rarity-3/4/5 effect sequence."""
 
     if rarity == RARITY_GROWING:
-        return generate_ng3_rarity3_effect_sequence(seed, level=level)
+        return generate_ng3_rarity3_effect_sequence(seed, level=level, tables=tables)
     if rarity == RARITY_FINALIZABLE:
-        return generate_ng3_rarity4_final_effect_sequence(seed, level=level)
+        return generate_ng3_rarity4_final_effect_sequence(seed, level=level, tables=tables)
     if rarity == RARITY_DIVINE:
-        return generate_ng3_rarity5_effect_sequence(seed, level=level)
+        return generate_ng3_rarity5_effect_sequence(seed, level=level, tables=tables)
     raise ValueError("certified game-closed NG3 generation supports rarity 3, 4, or 5")
 
 

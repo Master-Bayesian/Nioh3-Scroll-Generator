@@ -31,6 +31,21 @@ DEFAULT_RESOURCE_ROOT = (
     / "pc_v2_00_02"
     / "resource_v1"
 )
+# Versioned offline resources.  PC v2.01 aliases the shipped PC v2.00.02 payload
+# because its deterministic tables are byte-equal; PC v2.02 changed two tables,
+# so it owns a separate directory.  Registering a version here never enables a
+# product path by itself: the compatibility registry and the approval flags in
+# ``data/game_versions/*.json`` stay the gate.
+VERSION_RESOURCE_ROOTS = {
+    (2, 0, 2, 0): (
+        Path(__file__).resolve().parent
+        / "data"
+        / "r4_finalizer"
+        / "pc_v2_02"
+        / "resource_v1"
+    ),
+}
+ALIASED_GAME_VERSIONS = ((2, 0, 0, 2), (2, 0, 1, 0))
 REQUIRED_TABLES = (
     "item",
     "effect_group",
@@ -463,7 +478,34 @@ def load_default_r4_finalizer_resource(*, verify: bool = True) -> R4FinalizerRes
     return R4FinalizerResourceBundle(DEFAULT_RESOURCE_ROOT, verify=verify)
 
 
+def resource_root_for_game_version(file_version) -> Path:
+    """Versioned offline resource root for one exact executable version.
+
+    Unregistered versions fail closed instead of silently falling back to the
+    shipped PC v2.00.02 tables.
+    """
+
+    key = tuple(int(part) for part in file_version)
+    if key in ALIASED_GAME_VERSIONS:
+        return DEFAULT_RESOURCE_ROOT
+    root = VERSION_RESOURCE_ROOTS.get(key)
+    if root is None:
+        display = ".".join(str(part) for part in key)
+        raise ValueError(f"no offline generation resource for executable version {display}")
+    return root
+
+
+@lru_cache(maxsize=4)
+def load_r4_finalizer_resource_for_version(
+    file_version, *, verify: bool = True
+) -> R4FinalizerResourceBundle:
+    """Load the offline resource that belongs to ``file_version``."""
+
+    return R4FinalizerResourceBundle(resource_root_for_game_version(file_version), verify=verify)
+
+
 __all__ = [
+    "ALIASED_GAME_VERSIONS",
     "BONUS_CURVE_ROW_SIZE",
     "BonusCurveEntry",
     "DEFAULT_RESOURCE_ROOT",
@@ -472,6 +514,9 @@ __all__ = [
     "RESOURCE_SCHEMA",
     "R4FinalizerResourceBundle",
     "ResourceIntegrityError",
+    "VERSION_RESOURCE_ROOTS",
     "build_r4_finalizer_resource",
     "load_default_r4_finalizer_resource",
+    "load_r4_finalizer_resource_for_version",
+    "resource_root_for_game_version",
 ]

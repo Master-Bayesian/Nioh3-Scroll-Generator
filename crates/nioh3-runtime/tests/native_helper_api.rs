@@ -31,6 +31,18 @@ use nioh3_runtime::profile::{NativeRuntimeProfile, ProfileSite, SIGNATURE_SITE_N
 use nioh3_runtime::RuntimeError;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::Mutex;
+
+/// The real Win32 helper cases exercise debugger and remote-thread ownership.
+/// Keep those OS-level lifecycles sequential inside this integration binary so
+/// one case cannot invalidate another case's inherited pipe or debug handles.
+static LIVE_HELPER_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+fn lock_live_helper_test() -> std::sync::MutexGuard<'static, ()> {
+    LIVE_HELPER_TEST_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 
 struct Helper {
     child: Child,
@@ -185,6 +197,7 @@ fn helper_profile(page: u64, module_base: u64, signature: &[u8]) -> NativeRuntim
 
 #[test]
 fn the_real_oracle_path_runs_a_batch_and_reads_it_back() -> Result<(), RuntimeError> {
+    let _test_guard = lock_live_helper_test();
     let mut helper = Helper::spawn()?;
     let (page, template, code) = helper.oracle(false)?;
     assert!(page > 0 && template > 0);
@@ -228,6 +241,7 @@ fn the_real_oracle_path_runs_a_batch_and_reads_it_back() -> Result<(), RuntimeEr
 
 #[test]
 fn a_timed_out_oracle_call_is_retired_before_more_work() -> Result<(), RuntimeError> {
+    let _test_guard = lock_live_helper_test();
     let mut helper = Helper::spawn()?;
     let (page, _template, code) = helper.oracle(true)?;
     let mut oracle = NativeBatchOracle::new(
@@ -265,6 +279,7 @@ fn a_timed_out_oracle_call_is_retired_before_more_work() -> Result<(), RuntimeEr
 
 #[test]
 fn the_real_debug_binding_attaches_reads_arms_and_restores() -> Result<(), RuntimeError> {
+    let _test_guard = lock_live_helper_test();
     let mut helper = Helper::spawn()?;
     let image = std::path::Path::new(env!("CARGO_BIN_EXE_runtime_mutation_helper"))
         .file_name()
@@ -328,6 +343,136 @@ fn the_real_debug_binding_attaches_reads_arms_and_restores() -> Result<(), Runti
     let _ = WAIT_INFINITE;
     helper.quit();
     Ok(())
+}
+
+/// `set_context` must fetch the full CONTEXT before writing the modelled
+/// fields back, or every group its `ContextFlags` did not select is written
+/// back as zeros. The observable proof is a non-modelled group: `MxCsr` and an
+/// `Xmm` register must survive a Get -> modify-modelled-fields -> Set round
+/// trip unchanged. Disposable helper child only; the game is never touched.
+#[test]
+fn a_context_write_back_preserves_the_groups_it_does_not_model() -> Result<(), RuntimeError> {
+    let _test_guard = lock_live_helper_test();
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::Diagnostics::Debug::{GetThreadContext, CONTEXT};
+    use windows_sys::Win32::System::Threading::{
+        OpenThread, THREAD_GET_CONTEXT, THREAD_QUERY_INFORMATION, THREAD_SET_CONTEXT,
+    };
+    /// `CONTEXT_ALL` for x86-64: control, integer, floating point and debug.
+    const CONTEXT_ALL: u32 = 0x0010_003B;
+    /// One `CONTEXT` slot with the 16-byte alignment the API requires.
+    #[repr(align(64))]
+    struct Aligned([u8; 1280]);
+
+    /// Read one full `CONTEXT` through aligned storage.
+    unsafe fn read_context(handle: windows_sys::Win32::Foundation::HANDLE) -> Option<CONTEXT> {
+        let mut storage = Box::new(Aligned([0u8; 1280]));
+        let raw = storage.0.as_mut_ptr() as *mut CONTEXT;
+        (*raw).ContextFlags = CONTEXT_ALL;
+        if GetThreadContext(handle, raw) == 0 {
+            return None;
+        }
+        Some(*raw)
+    }
+
+    let mut helper = Helper::spawn()?;
+    let image = std::path::Path::new(env!("CARGO_BIN_EXE_runtime_mutation_helper"))
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let mut session = WindowsDebugSession::open(helper.pid, &image)?;
+    session.attach()?;
+
+    let outcome = (|| -> Result<(), RuntimeError> {
+        // Stop at the initial debugger breakpoint with the helper's own thread.
+        let mut tid = None;
+        let mut armed_event = None;
+        for _ in 0..64 {
+            let Some(event) = session.wait(1000)? else {
+                break;
+            };
+            if event.is_create_thread() || event.is_create_process() {
+                if let Some(handle) = event.thread_handle {
+                    session.adopt_thread(event.tid, handle)?;
+                }
+                session.resume(&event, true)?;
+                continue;
+            }
+            if event.is_exception() && event.exception_code == Some(EXCEPTION_BREAKPOINT) {
+                tid = Some(event.tid);
+                armed_event = Some(event);
+                break;
+            }
+            session.resume(&event, true)?;
+        }
+        let tid = tid.ok_or(RuntimeError::SessionNotOpen)?;
+
+        // A thread handle for the raw CONTEXT reads below. The session's adopted
+        // handle stays private, so this test opens its own with exactly the
+        // rights a context round trip needs.
+        let handle = unsafe {
+            OpenThread(
+                THREAD_GET_CONTEXT | THREAD_SET_CONTEXT | THREAD_QUERY_INFORMATION,
+                0,
+                tid,
+            )
+        };
+        if handle.is_null() {
+            return Err(RuntimeError::SessionNotOpen);
+        }
+        // Both the handle and the debug session's ownership are released on
+        // every path, including an assertion failure below.
+        let result = (|| -> Result<(), RuntimeError> {
+            let before = unsafe { read_context(handle) }.ok_or(RuntimeError::SessionNotOpen)?;
+            // `MxCsr` is a direct field; the XMM registers live in a union, so
+            // read the first 128-bit register through its struct view.
+            let (mxcsr_before, xmm_before) =
+                unsafe { (before.MxCsr, before.Anonymous.Anonymous.Xmm0) };
+            let original = session.context(tid)?;
+
+            // Write back a context that differs only in modelled fields.
+            let mut modelled = original;
+            modelled.rax = modelled.rax.wrapping_add(0x1234_5678);
+            modelled.rbx = modelled.rbx.wrapping_add(0x9ABC_DEF0);
+            session.set_context(tid, &modelled)?;
+
+            let after = unsafe { read_context(handle) }.ok_or(RuntimeError::SessionNotOpen)?;
+            assert_eq!(
+                after.MxCsr, mxcsr_before,
+                "the non-modelled MxCsr control state must survive the write back"
+            );
+            let xmm_after = unsafe { after.Anonymous.Anonymous.Xmm0 };
+            assert_eq!(
+                (xmm_after.Low, xmm_after.High),
+                (xmm_before.Low, xmm_before.High),
+                "the non-modelled Xmm0 register must survive the write back"
+            );
+            assert_eq!(
+                after.Rip, modelled.rip,
+                "the modelled instruction pointer is still what was written"
+            );
+            assert_eq!(after.Rax, modelled.rax, "the modelled Rax landed");
+
+            // Put the modelled registers back so the helper continues cleanly.
+            session.set_context(tid, &original)?;
+            let restored = unsafe { read_context(handle) }.ok_or(RuntimeError::SessionNotOpen)?;
+            assert_eq!(restored.Rax, original.rax, "Rax is restored");
+            assert_eq!(restored.MxCsr, mxcsr_before, "MxCsr is still untouched");
+            Ok(())
+        })();
+
+        // Cleanup runs whatever the assertions decided.
+        unsafe { CloseHandle(handle) };
+        if let Some(event) = armed_event {
+            session.resume(&event, true)?;
+        }
+        session.detach()?;
+        assert!(!session.attached());
+        result
+    })();
+
+    helper.quit();
+    outcome
 }
 
 #[test]

@@ -12,9 +12,21 @@
 //! the same receipts. The transaction crate's own plan/receipt/backup bundle is
 //! rooted one level down (`<state_root>/protected-internal`) so the two never
 //! write the same file.
+//!
+//! Authority note: the save-core journal under
+//! `<state_root>/protected-internal/v2-operations/<plan_id>.json` is the single
+//! authority for whether an operation committed, rolled back, or still needs
+//! recovery. This outer ledger projects that authority instead of deciding for
+//! itself: `save.operation` and `save.operations` overlay the core receipt onto
+//! a stale `executing` intent, and `commit` resolves the same intent through that
+//! receipt. Two identities stay separate on the wire:
+//! `details.reviewed_source_sha256` is the target generation the human reviewed
+//! (the drift guard), while `details.installed_sha256` is the source bytes the
+//! commit installed.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
@@ -31,6 +43,7 @@ use nioh3_domain::record::{EFFECT_SLOT_BASE, EFFECT_SLOT_COUNT, EFFECT_SLOT_STRI
 use nioh3_domain::sequence::generate_challenge_attempt_count;
 use nioh3_save::backup::{list_backup_entries, move_backup_to_recycle_bin};
 use nioh3_save::codec::prepare_candidate_for_install;
+use nioh3_save::error::SaveReadError;
 use nioh3_save::inventory::{SaveInventory, ScrollInventoryEntry};
 use nioh3_save::save::DecryptedSave;
 use nioh3_save::transaction::{PlanCommand, PlanKind, SavePlan, SaveTransactionHost};
@@ -38,7 +51,7 @@ use nioh3_save::transform::{
     patch_local_scroll_header, patch_local_scroll_record, read_local_effect_slots, EffectPatch,
     HeaderPatch, InstallRequest, LocalEffectSlot, SlotEdit,
 };
-use nioh3_worker::context::GenerationContext;
+use nioh3_worker::engine::EngineContext;
 use nioh3_worker::grace_map as worker_grace_map;
 use nioh3_worker::recommended_level::RecommendedLevelCurve;
 
@@ -61,6 +74,13 @@ const EFFECT_SEQUENCE_REFUSAL: &str =
 const MATERIALIZE_BATCH_REFUSAL: &str = "Expected 1-200 distinct candidates";
 /// `save_application.materialize_live_many`'s non-materializing level guard.
 const RECOMMENDED_LEVEL_REFUSAL: &str = "Regenerate candidate with the selected recommended level";
+/// `save_application.SaveApplication.operation`'s stale-intent warning.
+///
+/// The protected host reports it for a claimed write whose outcome the save
+/// core never recorded, so an interrupted operation never reads as success.
+const STALE_INTENT_WARNING: &str =
+    "Previous process ended before recording the outcome; inspect backups and \
+     current save before further writes";
 
 struct Snapshot {
     snapshot_id: String,
@@ -81,7 +101,7 @@ pub struct SaveApplication {
     state_root: PathBuf,
     transaction_root: PathBuf,
     data_root: PathBuf,
-    context: GenerationContext,
+    context: EngineContext,
     curve: RecommendedLevelCurve,
     saves: HashMap<String, PathBuf>,
     snapshots: HashMap<String, Snapshot>,
@@ -93,9 +113,9 @@ pub struct SaveApplication {
     /// decrypt, so the cache can never serve a stale generation.
     inventory_cache: HashMap<String, (String, SaveInventory)>,
     /// `load_preview_resources`, held for the process lifetime after first use.
-    preview_resources: Option<PreviewResources>,
+    preview_resources: Option<ResourceCache<PreviewResources>>,
     /// The shipped effect tables plus their measured Grace maps.
-    materialization: Option<MaterializationResources>,
+    materialization: Option<ResourceCache<MaterializationResources>>,
 }
 
 /// The verified tables one installation record is materialized from.
@@ -104,12 +124,35 @@ struct MaterializationResources {
     effect: EffectResourceBytes,
 }
 
+/// The offline resource selection one frozen generation context resolved to.
+///
+/// A production context carries the exact installed executable version, so the
+/// lazy loaders resolve the same versioned interface the search worker's
+/// materializer uses. `None` is the opt-in, non-production legacy identity: it
+/// keeps the pre-version loader so its explicit tests reproduce the shipped
+/// v2.00.02 payload.
+///
+/// `cache_identity` is the digest of the same frozen context, so a cache entry
+/// can never be handed to a different identity: the two values are read from one
+/// context and compared together.
+#[derive(Clone, PartialEq, Eq)]
+struct ResourceBinding {
+    cache_identity: String,
+    version: Option<(u16, u16, u16, u16)>,
+}
+
+/// One lazily loaded resource set plus the binding it was loaded for.
+struct ResourceCache<T> {
+    binding: ResourceBinding,
+    value: T,
+}
+
 impl SaveApplication {
     /// Build the save role for one state root and data root.
     pub fn new(
         state_root: PathBuf,
         data_root: &Path,
-        context: GenerationContext,
+        context: EngineContext,
     ) -> Result<Self, HostError> {
         let curve = nioh3_worker::recommended_level::load(data_root)
             .map_err(|error| HostError::coded("RESOURCE_MISMATCH", error.to_string()))?;
@@ -134,7 +177,14 @@ impl SaveApplication {
         // collide with the protected ledger under `v2-operations`), while the
         // bundles live in the canonical public root the shipped host uses, so a
         // user's existing backups are discovered and restored in place.
-        SaveTransactionHost::new(&self.transaction_root).with_backup_root(self.backup_root())
+        let backup_root = self.backup_root();
+        match host_fault_point() {
+            Some(point) => {
+                SaveTransactionHost::with_faults(&self.transaction_root, fault_set_for(point))
+                    .with_backup_root(backup_root)
+            }
+            None => SaveTransactionHost::new(&self.transaction_root).with_backup_root(backup_root),
+        }
     }
 
     /// `savegame.SaveInstaller`'s `state_root/backups`, unchanged by migration.
@@ -263,6 +313,9 @@ impl SaveApplication {
             "remaining_challenge_attempts": record[0x33],
             "recommended_displayed_level": self.curve.displayed_level(canonical),
             "recommended_raw_was_clamped": recommended != canonical,
+            // The stored raw value is reported unchanged so an editor can keep
+            // it when nothing else changed instead of rewriting an over-cap record.
+            "recommended_raw_level": recommended,
         });
         Ok(json!({
             "slot_index": entry.slot_index,
@@ -287,7 +340,7 @@ impl SaveApplication {
             "template_hex": hex(template.as_bytes()),
             "save_fingerprint": snapshot.inventory.decrypted().sha256(),
             "source_sha256": snapshot.source_sha256.to_lowercase(),
-            "context_digest": self.context.context_digest,
+            "context_digest": self.context.digest(),
         }))
     }
 
@@ -347,29 +400,80 @@ impl SaveApplication {
         Ok((snapshot.source_sha256.clone(), snapshot.inventory.clone()))
     }
 
+    /// The resource selection the frozen generation context resolved to.
+    ///
+    /// Only the production variant carries an executable version, and it is
+    /// never inferred: the host resolved it through the same
+    /// `ContextSelection::Production` path the worker uses, so an unregistered
+    /// version already failed closed at startup.
+    fn resource_binding(&self) -> ResourceBinding {
+        let version = match &self.context {
+            EngineContext::Production(context) => Some((
+                context.game_file_version.0,
+                context.game_file_version.1,
+                context.game_file_version.2,
+                context.game_file_version.3,
+            )),
+            EngineContext::LegacyTest(_) => None,
+        };
+        ResourceBinding {
+            cache_identity: self.context.digest().to_string(),
+            version,
+        }
+    }
+
     /// `load_preview_resources`, loaded on first use like the shipped caches.
+    ///
+    /// The auxiliary half is composed from the context tables of the selected
+    /// resource directory, so a production context must read the same versioned
+    /// directory the worker's preview used instead of the shipped legacy one.
     fn preview_resources(&mut self) -> Result<&PreviewResources, HostError> {
-        if self.preview_resources.is_none() {
-            let loaded = nioh3_data::load_preview_resources(&self.data_root)
-                .map_err(|error| HostError::rejected(error.to_string()))?;
-            self.preview_resources = Some(loaded);
+        let binding = self.resource_binding();
+        if !matches!(&self.preview_resources, Some(cache) if cache.binding == binding) {
+            let loaded = match binding.version {
+                Some(version) => {
+                    nioh3_data::load_preview_resources_for_file_version(&self.data_root, version)
+                }
+                None => nioh3_data::load_preview_resources(&self.data_root),
+            }
+            .map_err(|error| HostError::rejected(error.to_string()))?;
+            self.preview_resources = Some(ResourceCache {
+                binding,
+                value: loaded,
+            });
         }
         self.preview_resources
             .as_ref()
+            .map(|cache| &cache.value)
             .ok_or_else(|| HostError::rejected("auxiliary preview resources are unavailable"))
     }
 
     /// `load_effect_resource` plus its table index, loaded on first use.
+    ///
+    /// Both halves - the effect tables behind record composition and the
+    /// measured Grace maps - come from the version-selected resource, so a
+    /// production candidate is materialized from the tables its search-side
+    /// preview was composed with.
     fn materialization_resources(&mut self) -> Result<&MaterializationResources, HostError> {
-        if self.materialization.is_none() {
-            let effect = nioh3_data::load_effect_resource(&self.data_root)
-                .map_err(|error| HostError::rejected(error.to_string()))?;
+        let binding = self.resource_binding();
+        if !matches!(&self.materialization, Some(cache) if cache.binding == binding) {
+            let effect = match binding.version {
+                Some(version) => {
+                    nioh3_data::load_effect_resource_for_file_version(&self.data_root, version)
+                }
+                None => nioh3_data::load_effect_resource(&self.data_root),
+            }
+            .map_err(|error| HostError::rejected(error.to_string()))?;
             let index = EffectTableIndex::from_resource(&effect)
                 .map_err(|error| HostError::rejected(format!("{error:?}")))?;
-            self.materialization = Some(MaterializationResources { index, effect });
+            self.materialization = Some(ResourceCache {
+                binding,
+                value: MaterializationResources { index, effect },
+            });
         }
         self.materialization
             .as_ref()
+            .map(|cache| &cache.value)
             .ok_or_else(|| HostError::rejected("effect resources are unavailable"))
     }
 
@@ -450,7 +554,7 @@ impl SaveApplication {
         self.current_snapshot_hash(save_id, snapshot_id)?;
         let (_source_hash, inventory) = self.snapshot_copy(save_id, snapshot_id)?;
         let fingerprint = inventory.decrypted().sha256();
-        let digest = self.context.context_digest.clone();
+        let digest = self.context.digest().to_string();
         let path =
             grace_map_cache_path(&self.state_root, &fingerprint, playthrough, rarity, &digest);
         let payload = read_json_file(&path)?;
@@ -508,7 +612,7 @@ impl SaveApplication {
         self.current_snapshot_hash(save_id, snapshot_id)?;
         let (_source_hash, inventory) = self.snapshot_copy(save_id, snapshot_id)?;
         let save_path = python_path_string(&self.save_path(save_id)?);
-        let context_digest = self.context.context_digest.clone();
+        let context_digest = self.context.digest().to_string();
 
         let mut exported = Vec::with_capacity(payloads.len());
         {
@@ -689,7 +793,7 @@ impl SaveApplication {
         recommended_level: u16,
         transfer_count: u32,
     ) -> Result<([u8; RECORD_BYTES], Value), HostError> {
-        let context_digest = self.context.context_digest.clone();
+        let context_digest = self.context.digest().to_string();
         let source = import_candidate(candidate, &context_digest)?;
         require_installable(&source)?;
         if can_materialize_for_install(&source) {
@@ -910,14 +1014,69 @@ impl SaveApplication {
             HostError::rejected(format!("operation ledger is not JSON: {error}"))
         })?;
         if value.get("commit_status").and_then(Value::as_str) == Some("executing") {
-            value["commit_status"] = json!("unknown");
-            value["warning"] = json!(
-                "Previous process ended before recording the outcome; inspect backups and \
-                 current save before further writes"
-            );
+            self.project_core_authority(plan_id, &mut value);
+            // The projected word becomes the durable record so the ledger and the
+            // public receipt cannot disagree after a restart. It stays a
+            // projection: the core journal remains the authority, so a failed
+            // rewrite only costs the next reader one recomputation.
+            if let Err(error) = self.write_ledger(plan_id, &value, true) {
+                eprintln!(
+                    "protected save host: could not persist the projected receipt for \
+                     {plan_id}: {}",
+                    error.message
+                );
+            }
         }
         self.receipts.insert(plan_id.to_string(), value.clone());
         Ok(value)
+    }
+
+    /// Project the save-core receipt onto a stale outer intent.
+    ///
+    /// The save-core operation journal is the single authority for a commit's
+    /// terminal state, so a restarted host reads it through the transaction
+    /// crate rather than deciding `committed`/`rolled_back` from the outer
+    /// ledger. An unreadable core leaves the intent untouched, which then reads
+    /// as `unknown` instead of fabricating an outcome the core never recorded.
+    fn project_core_authority(&self, plan_id: &str, value: &mut Value) {
+        let receipt = match self.host().receipt(plan_id) {
+            Ok(Some(receipt)) => receipt,
+            Ok(None) | Err(_) => {
+                value["commit_status"] = json!("unknown");
+                value["warning"] = json!(STALE_INTENT_WARNING);
+                return;
+            }
+        };
+        // The core's own words are the authority; the outer code only carries
+        // them. A core that still reads `pending` stays `unknown` because the
+        // operation never reached a terminal state.
+        let projected = match receipt.outcome.as_str() {
+            "committed" => "committed",
+            "not_committed" => "not_committed",
+            _ => "unknown",
+        };
+        value["commit_status"] = json!(projected);
+        value["warning"] = match receipt.message.as_deref().map(str::trim) {
+            Some(message) if !message.is_empty() => json!(message),
+            // A non-terminal core cannot explain itself, so the operator keeps
+            // the shipped warning rather than a silent null.
+            _ if projected == "unknown" => json!(STALE_INTENT_WARNING),
+            _ => Value::Null,
+        };
+        // Only a terminal outcome may publish the core's installed facts: a
+        // `pending` or `uncertain` core never confirmed an installation, so
+        // naming an `installed_sha256` for it would report something the core
+        // did not record. The reviewed target generation stays distinct from it.
+        if projected != "unknown" {
+            if let Some(details) = value.get_mut("details").and_then(Value::as_object_mut) {
+                details.insert(
+                    "installed_sha256".to_string(),
+                    json!(receipt.installed_sha256),
+                );
+                details.insert("backup_id".to_string(), json!(receipt.backup_id));
+                details.insert("core_outcome".to_string(), json!(receipt.outcome));
+            }
+        }
     }
 
     fn operations(&mut self, save_id: &str) -> Result<Value, HostError> {
@@ -952,6 +1111,12 @@ impl SaveApplication {
 
     fn commit(&mut self, plan_id: &str) -> Result<Value, HostError> {
         if self.ledger_dir().join(format!("{plan_id}.json")).is_file() {
+            // The outer ledger already has a durable entry for this operation.
+            // `operation` projects the save-core journal onto it, so a stale
+            // `executing` intent whose core commit really landed resolves to the
+            // core's own `committed` state instead of a blanket `unknown` that a
+            // later retry could try to replay. A terminal outer record is
+            // returned exactly as written.
             return self.operation(plan_id);
         }
         let plan = self
@@ -984,37 +1149,96 @@ impl SaveApplication {
                 "reviewed_source_sha256": source_hash,
             },
         });
-        self.write_ledger(plan_id, &intent)?;
+        self.write_ledger(plan_id, &intent, false)?;
         let core_started = std::time::Instant::now();
-        let receipt = self
-            .host()
-            .commit(&save_plan)
-            .map_err(HostError::from_save)?;
+        let core = self.host().commit(&save_plan);
         if host_timing_enabled() {
             eprintln!(
                 "host-timing\tcore-commit\t{}",
                 core_started.elapsed().as_micros()
             );
         }
-        let commit_status = match receipt.outcome.as_str() {
-            "committed" => "committed",
-            "not_committed" => "not_committed",
-            _ => "unknown",
+        // The business commit and the quality of its bookkeeping are two
+        // separate facts. A core that already wrote the target must never turn
+        // into a `failed` job with `result = None` just because a record could
+        // not be persisted, and an unprovable outcome must read as `unknown`
+        // rather than as a retryable not-committed result.
+        let (mut commit_status, mut warning, core_outcome) = match core {
+            Ok(receipt) => (
+                commit_word(&receipt.outcome).to_string(),
+                receipt.message.clone(),
+                receipt.outcome.clone(),
+            ),
+            // The core wrote the target and read it back, but its own terminal
+            // record did not land. The plan is consumed, so the operation id
+            // must not be retried.
+            Err(SaveReadError::CommitCompletedWithWarning { warning, .. }) => (
+                "committed_with_warning".to_string(),
+                Some(warning),
+                "committed_with_warning".to_string(),
+            ),
+            // The core can prove neither that the bytes landed nor that they did
+            // not. `unknown` is the honest published word; fabricating either
+            // success or a retryable failure would be worse than the raw error.
+            Err(SaveReadError::CommitUncertain { message }) => (
+                "unknown".to_string(),
+                Some(message),
+                "uncertain".to_string(),
+            ),
+            // Every other core error happened before the target could move (or
+            // could be proven not to have moved), so the shipped refusal stays a
+            // refusal and no receipt is invented for it.
+            Err(error) => return Err(HostError::from_save(error)),
         };
-        let result = json!({
+        // The two error arms still have a durable core record whenever the core
+        // managed to write one; re-read it so the published facts come from the
+        // core instead of being published as nulls the core actually recorded.
+        let core_record = self.host().receipt(plan_id).ok().flatten();
+        let installed_sha256 = core_record
+            .as_ref()
+            .and_then(|record| record.installed_sha256.clone());
+        let backup_id = core_record
+            .as_ref()
+            .and_then(|record| record.backup_id.clone());
+        let mut result = json!({
             "operation_id": plan_id,
             "save_id": save_id,
             "commit_status": commit_status,
-            "warning": receipt.message,
+            "warning": warning,
             "details": {
                 "save_path": python_path_string(&save_path),
+                // The target generation the human reviewed. This is the drift
+                // guard the outer transaction crate compares at commit time and
+                // is deliberately distinct from `installed_sha256`, which is the
+                // selected source bundle's identity. The two must never be
+                // conflated on the wire.
                 "reviewed_source_sha256": source_hash,
                 "kind": kind,
-                "installed_sha256": receipt.installed_sha256,
-                "backup_id": receipt.backup_id,
+                "installed_sha256": installed_sha256,
+                "backup_id": backup_id,
+                "core_outcome": core_outcome,
             },
         });
-        self.write_ledger(plan_id, &result)?;
+        if let Err(error) = self.write_ledger(plan_id, &result, true) {
+            // Shipped `save_application.SaveApplication.commit`: a failed outer
+            // ledger update never demotes a completed write. `committed` becomes
+            // `committed_with_warning` and the failure is appended to the
+            // warning; any other status keeps its own word and gains the note.
+            if commit_status == "committed" {
+                commit_status = "committed_with_warning".to_string();
+            }
+            let note = format!("Operation ledger update failed: {}", error.message);
+            warning = Some(match warning.as_deref().map(str::trim) {
+                Some(existing) if !existing.is_empty() => format!("{existing} {note}"),
+                _ => note,
+            });
+            result["commit_status"] = json!(commit_status);
+            result["warning"] = json!(warning);
+            eprintln!(
+                "protected save host: could not persist the terminal receipt for {plan_id}: {}",
+                error.message
+            );
+        }
         self.receipts.insert(plan_id.to_string(), result.clone());
         if let Some(plan) = self.plans.remove(plan_id) {
             self.snapshots.remove(&plan.save_id);
@@ -1022,7 +1246,13 @@ impl SaveApplication {
         Ok(result)
     }
 
-    fn write_ledger(&self, plan_id: &str, result: &Value) -> Result<(), HostError> {
+    /// Persist one outer ledger record.
+    ///
+    /// `terminal` marks the record written after the save core returned. Only
+    /// that write is subject to the RW02 fault gate; the durable intent that
+    /// precedes a claimed write must keep failing hard, because a write without
+    /// a recorded claim is exactly what the intent exists to prevent.
+    fn write_ledger(&self, plan_id: &str, result: &Value, terminal: bool) -> Result<(), HostError> {
         let directory = self.ledger_dir();
         std::fs::create_dir_all(&directory)
             .map_err(|error| HostError::rejected(error.to_string()))?;
@@ -1030,10 +1260,33 @@ impl SaveApplication {
         let temporary = path.with_extension("tmp");
         let text = serde_json::to_string(result)
             .map_err(|error| HostError::rejected(error.to_string()))?;
+        let fault = if terminal { take_ledger_fault() } else { None };
+        if fault == Some(LedgerFault::Temp) {
+            return Err(ledger_fault_error(plan_id, "temp"));
+        }
         // The receipt must survive a crash, not just a rename: write, flush to
         // the device, then replace, mirroring `_write_receipt`'s fsync.
-        nioh3_save::transaction::write_durable(&temporary, text.as_bytes())
-            .map_err(HostError::from_save)?;
+        match fault {
+            Some(LedgerFault::Write) | Some(LedgerFault::Flush) => {
+                std::fs::write(&temporary, text.as_bytes())
+                    .map_err(|error| HostError::rejected(error.to_string()))?;
+                return Err(ledger_fault_error(
+                    plan_id,
+                    if fault == Some(LedgerFault::Flush) {
+                        "flush"
+                    } else {
+                        "write"
+                    },
+                ));
+            }
+            _ => {
+                nioh3_save::transaction::write_durable(&temporary, text.as_bytes())
+                    .map_err(HostError::from_save)?;
+            }
+        }
+        if fault == Some(LedgerFault::Rename) {
+            return Err(ledger_fault_error(plan_id, "rename"));
+        }
         std::fs::rename(&temporary, &path).map_err(|error| HostError::rejected(error.to_string()))
     }
 
@@ -1066,7 +1319,7 @@ impl RoleApplication for SaveApplication {
     }
 
     fn context_payload(&self) -> Value {
-        self.context.to_payload()
+        crate::app::protected_context_payload(&self.context)
     }
 
     fn direct(&mut self, method: &str, _params: &Value) -> Result<Value, HostError> {
@@ -1423,6 +1676,82 @@ fn host_timing_enabled() -> bool {
     std::env::var("NIOH3_SAVE_HOST_TIMING")
         .map(|value| value.trim() == "1")
         .unwrap_or(false)
+}
+
+/// The save-core fault point one process should inject, if any.
+///
+/// Acceptance and diagnosis drive the save-core fault gate from outside the
+/// process; the shipped host exposes no protocol field for it, so the selector
+/// travels in the environment exactly like `NIOH3_SAVE_HOST_TIMING`. It is unset
+/// in every ordinary run, which leaves the host fault-free.
+fn host_fault_point() -> Option<nioh3_save::transaction::FaultPoint> {
+    let value = std::env::var("NIOH3_SAVE_HOST_FAULT").ok()?;
+    nioh3_save::transaction::FaultPoint::ALL
+        .into_iter()
+        .find(|point| point.label() == value.trim())
+}
+
+/// One armed fault set for an externally selected point.
+fn fault_set_for(
+    point: nioh3_save::transaction::FaultPoint,
+) -> nioh3_save::transaction::TransactionFaults {
+    let faults = nioh3_save::transaction::TransactionFaults::default();
+    faults.arm(point);
+    faults
+}
+
+/// The published word for one save-core outcome.
+///
+/// `committed` and `not_committed` are the core's own terminal words; anything
+/// else (a `pending` intent, an `uncertain` rollback) has no proven outcome and
+/// is published as `unknown` instead of being rounded to a success.
+fn commit_word(outcome: &str) -> &'static str {
+    match outcome {
+        "committed" => "committed",
+        "not_committed" => "not_committed",
+        _ => "unknown",
+    }
+}
+
+/// One stage of the outer ledger write the RW02 gate can fail.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LedgerFault {
+    /// Fail before the staged record exists.
+    Temp,
+    /// Fail after the staged record was created without a device flush.
+    Write,
+    /// Fail after the staged bytes were written, before the device flush.
+    Flush,
+    /// Fail after the staged record is durable, before the replacement.
+    Rename,
+}
+
+/// Whether the outer-ledger fault gate already fired in this process.
+static LEDGER_FAULT_FIRED: AtomicBool = AtomicBool::new(false);
+
+/// The outer-ledger fault one process should inject, if any.
+///
+/// `NIOH3_SAVE_LEDGER_FAULT` names one stage (`temp`, `write`, `flush`,
+/// `rename`) of the *terminal* ledger write. It travels in the environment like
+/// `NIOH3_SAVE_HOST_FAULT`, is unset in every ordinary run, and fires at most
+/// once so a restart in the same test is fault-free.
+fn take_ledger_fault() -> Option<LedgerFault> {
+    let value = std::env::var("NIOH3_SAVE_LEDGER_FAULT").ok()?;
+    let fault = match value.trim() {
+        "temp" => LedgerFault::Temp,
+        "write" => LedgerFault::Write,
+        "flush" => LedgerFault::Flush,
+        "rename" => LedgerFault::Rename,
+        _ => return None,
+    };
+    (!LEDGER_FAULT_FIRED.swap(true, Ordering::SeqCst)).then_some(fault)
+}
+
+/// The refusal the RW02 gate returns for one injected ledger stage.
+fn ledger_fault_error(plan_id: &str, stage: &str) -> HostError {
+    HostError::rejected(format!(
+        "injected outer-ledger fault at {stage} for operation {plan_id}"
+    ))
 }
 
 fn param_u64(params: &Value, name: &str) -> Result<u64, HostError> {

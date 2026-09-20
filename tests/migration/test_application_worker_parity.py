@@ -40,6 +40,9 @@ ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_DIR = ROOT / "packages" / "contracts"
 DATA_ROOT = ROOT / "nioh3_scroll_editor" / "data"
 ACCELERATOR = ROOT / "bin" / "nioh3_seed_accelerator.dll"
+# Both roles pin the same explicit production version and the same accelerator
+# policy, so the resolved context identity is comparable field-for-field.
+PRODUCTION_GAME_FILE_VERSION = "2.0.2.0"
 CATALOG_REFERENCE = ROOT / "deliverables" / "m23c-application" / "catalog_reference_zh.json"
 
 if str(ROOT) not in sys.path:
@@ -79,9 +82,10 @@ ENEMY_OPTION_COUNT = 487
 SPECIAL_RULE_OPTION_COUNT = 277
 SPECIAL_RULE_FAMILY_COUNT = 103
 
-# `recommended_level.py`'s captured curve: below the first canonical display,
-# the single unreachable display (328), the saturation band start, the cap and
-# one past it, plus the exact and clamping inputs in between.
+# `recommended_level.py`'s captured curve under the owner-approved
+# raw-600/display-356 bound: below the first canonical display, the single
+# unreachable display (328), the top of the canonical range and one step either
+# side of it, the retired 700 plateau, plus the inputs in between.
 RECOMMENDED_LEVEL_CASES = (
     -5,
     0,
@@ -93,6 +97,9 @@ RECOMMENDED_LEVEL_CASES = (
     250,
     313,
     328,
+    355,
+    356,
+    357,
     530,
     699,
     700,
@@ -100,7 +107,10 @@ RECOMMENDED_LEVEL_CASES = (
     1000,
     2147483647,
 )
-SATURATION_INTERNAL_RANGE = (1301, 1400)
+# The approved bound: raw internal 600 is the maximum, deriving display 356.
+CAP_INTERNAL_LEVEL = 600
+CAP_DISPLAYED_LEVEL = 356
+TOP_OF_RANGE_INTERNAL_LEVELS = (599, 600)
 UNREACHABLE_DISPLAYED_LEVEL = 328
 
 FINGERPRINT = "ab" * 32
@@ -220,7 +230,8 @@ class FramedProcess:
         handshake = self.call("handshake")
         if not handshake.get("ok"):
             raise AssertionError(f"{self.name} refused the handshake: {handshake}")
-        self.digest = handshake["result"]["context"]["context_digest"]
+        self.context = handshake["result"]["context"]
+        self.digest = self.context["context_digest"]
 
     def call(self, method: str, params: dict | None = None) -> dict:
         self.counter += 1
@@ -347,6 +358,20 @@ def search_params(context_digest: str, *, playthrough: int, rarity: int, cache_i
     return params
 
 
+def without_game_file_version(argv: list[str]) -> list[str]:
+    """One launch with the explicit identity pair removed, for the refusal gate."""
+
+    stripped: list[str] = []
+    index = 0
+    while index < len(argv):
+        if argv[index] == "--game-file-version":
+            index += 2
+            continue
+        stripped.append(argv[index])
+        index += 1
+    return stripped
+
+
 class ApplicationWorkerParityTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -380,6 +405,8 @@ class ApplicationWorkerParityTests(unittest.TestCase):
         cls.rust_argv = [
             str(cls.binary_path),
             "--dev-preview-only",
+            "--game-file-version",
+            PRODUCTION_GAME_FILE_VERSION,
             "--data-root",
             str(DATA_ROOT),
             "--contract-dir",
@@ -387,7 +414,14 @@ class ApplicationWorkerParityTests(unittest.TestCase):
             "--accelerator",
             str(ACCELERATOR),
         ]
-        cls.python_argv = [sys.executable, "-u", "-m", "nioh3_scroll_editor.search_worker"]
+        cls.python_argv = [
+            sys.executable,
+            "-u",
+            "-m",
+            "nioh3_scroll_editor.search_worker",
+            "--game-file-version",
+            PRODUCTION_GAME_FILE_VERSION,
+        ]
 
     def workers(self, **locale_overrides: str):
         """Both workers for one test, closed together even if the test fails."""
@@ -455,6 +489,44 @@ class ApplicationWorkerParityTests(unittest.TestCase):
             "both workers must report one generation context before their catalogs "
             "can be compared",
         )
+        # Both roles pin the same explicit version and the same accelerator
+        # policy, so the whole resolved identity must match field-for-field,
+        # not only the version-bound authority digest. The version-bound
+        # `context_digest` is the shared authority; `legacy_context_digest` is
+        # carried beside it as a separate proof field and never authorizes.
+        self.assertEqual(
+            rust.context,
+            python.context,
+            "the two roles must publish one complete resolved identity",
+        )
+        self.assertEqual(
+            set(rust.context),
+            {
+                "product_version",
+                "game_profile",
+                "resources_digest",
+                "algorithm_version",
+                "policy_version",
+                "seed_accelerator_abi",
+                "seed_accelerator_build_id",
+                "context_digest",
+                "game_file_version",
+                "versioned_resource_dir",
+                "bundle_digest",
+                "versioned_digest",
+                "legacy_context_digest",
+                "production_authority",
+            },
+            "the resolved identity must publish every authority and proof field",
+        )
+        self.assertEqual(rust.context["game_file_version"], PRODUCTION_GAME_FILE_VERSION)
+        self.assertIs(rust.context["production_authority"], True)
+        self.assertIs(python.context["production_authority"], True)
+        self.assertNotEqual(
+            rust.digest,
+            rust.context["legacy_context_digest"],
+            "the version-bound authority must not be the pre-version proof digest",
+        )
         for locale in LOCALES:
             for rarity in RARITIES:
                 with self.subTest(locale=locale, rarity=rarity):
@@ -482,6 +554,17 @@ class ApplicationWorkerParityTests(unittest.TestCase):
         self.assertEqual(
             set(reference["3"]),
             {"ordinary_effects", "grace_effects_ids", "auxiliary", "recommended_level"},
+        )
+        # Owner-approved bound: raw internal 600, derived display 356. The
+        # capture's retired 1400/700 pair is replaced explicitly here so a later
+        # refresh cannot silently restore the obsolete cap.
+        self.assertEqual(
+            reference["3"]["recommended_level"]["maximum_internal_level"],
+            CAP_INTERNAL_LEVEL,
+        )
+        self.assertEqual(
+            reference["3"]["recommended_level"]["maximum_displayed_level"],
+            CAP_DISPLAYED_LEVEL,
         )
         for rarity in (4, 5):
             self.assertEqual(set(reference[str(rarity)]), {"ordinary_effects", "grace_effects_ids"})
@@ -565,13 +648,36 @@ class ApplicationWorkerParityTests(unittest.TestCase):
                     sorted(rust_result["canonical_internal_levels"]),
                 )
 
-        saturation = rust.result("recommended_level.resolve", {"displayed_level": 700})
-        self.assertEqual(saturation["status"], "exact")
-        self.assertEqual(
-            (saturation["canonical_internal_levels"][0], saturation["canonical_internal_levels"][-1]),
-            SATURATION_INTERNAL_RANGE,
+        # The approved cap boundary: display 356 is the top canonical value and
+        # is produced by raw 599/600, with the lowest one selected.
+        cap = rust.result(
+            "recommended_level.resolve", {"displayed_level": CAP_DISPLAYED_LEVEL}
         )
-        self.assertEqual(saturation["selected_internal_level"], SATURATION_INTERNAL_RANGE[0])
+        self.assertEqual(cap["status"], "exact")
+        self.assertEqual(
+            tuple(cap["canonical_internal_levels"]), TOP_OF_RANGE_INTERNAL_LEVELS
+        )
+        self.assertEqual(cap["selected_internal_level"], TOP_OF_RANGE_INTERNAL_LEVELS[0])
+        self.assertEqual(
+            python.result(
+                "recommended_level.resolve", {"displayed_level": CAP_DISPLAYED_LEVEL}
+            ),
+            cap,
+        )
+
+        # One step past the cap leaves the canonical range entirely, and the
+        # retired 700 plateau is no longer reachable through the bound-limited
+        # inverse even though its captured curve point still exists.
+        for requested in (CAP_DISPLAYED_LEVEL + 1, 700):
+            past = rust.result("recommended_level.resolve", {"displayed_level": requested})
+            self.assertEqual(past["status"], "out_of_range", str(requested))
+            self.assertEqual(past["canonical_internal_levels"], [], str(requested))
+            self.assertIsNone(past["selected_internal_level"], str(requested))
+            self.assertEqual(
+                python.result("recommended_level.resolve", {"displayed_level": requested}),
+                past,
+                str(requested),
+            )
 
         unreachable = rust.result(
             "recommended_level.resolve", {"displayed_level": UNREACHABLE_DISPLAYED_LEVEL}
@@ -660,6 +766,43 @@ class ApplicationWorkerParityTests(unittest.TestCase):
         )
         self.assertEqual(ng5_without_cache, python_ng5_without_cache)
         self.assertFalse(ng5_without_cache["ok"])
+
+    def test_a_production_launch_without_the_explicit_version_is_refused(self) -> None:
+        """Both roles refuse to start when the identity flag is absent.
+
+        This is the only launch in this gate that omits ``--game-file-version``;
+        every other launch names the exact pinned production version, so a
+        missing flag can never pass as a working worker. Both roles fail closed
+        with a usage refusal before any frame is written, which is the contract
+        the shipped host depends on.
+        """
+
+        for name, argv in (
+            ("rust worker", self.rust_argv),
+            ("python worker", self.python_argv),
+        ):
+            with self.subTest(worker=name):
+                stripped = without_game_file_version(argv)
+                self.assertNotIn("--game-file-version", stripped)
+                completed = subprocess.run(
+                    stripped,
+                    cwd=str(ROOT),
+                    env=worker_env(),
+                    capture_output=True,
+                    timeout=120,
+                )
+                self.assertEqual(
+                    completed.returncode,
+                    2,
+                    f"{name} must refuse a launch with no explicit version; "
+                    f"stderr={completed.stderr.decode('utf-8', 'replace')[-2000:]}",
+                )
+                self.assertEqual(
+                    completed.stdout,
+                    b"",
+                    "no frame may be written before identity resolves",
+                )
+                self.assertIn(b"--game-file-version", completed.stderr)
 
 
 if __name__ == "__main__":

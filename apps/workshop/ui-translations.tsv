@@ -453,7 +453,7 @@ R5 · 橙色	R5 · Orange	R5 · 橙
 复制绘卷ID	Copy scroll ID	絵巻IDをコピー
 复制	Copy	コピー
 候选数量应为 1–25。	Choose 1–25 results per batch.	検索件数は1～25で指定してください。
-推荐等级应为 142–700 内可转换的整数。	Choose a convertible recommended level from 142 to 700.	推奨レベルは142～700の変換可能な整数で指定してください。
+推荐等级应为 142–356 内可转换的整数。	Choose a convertible recommended level from 142 to 356.	推奨レベルは142～356の変換可能な整数で指定してください。
 绘卷等级应为 0–180。	Scroll level must be 0–180.	絵巻レベルは0～180で指定してください。
 转手次数应为 −1 或有效的无符号整数。	Transfer count must be −1 or a valid unsigned integer.	譲渡回数は−1または有効な符号なし整数で指定してください。
 最多保留 24 个词条选项，任一组按一项逻辑要求计算。	Select up to 24 effect options. Each any-of group counts as one requirement.	効果の選択は最大24件です。いずれかのグループは一つの条件として扱います。

@@ -31,6 +31,13 @@ pub const INSERTION_SIGNATURE: [u8; 16] = [
 ];
 
 /// The `live_add_profile` fields an inventory capture resolves addresses with.
+///
+/// `inventory_global_mode` is the explicit ABI choice mirrored from
+/// `live_add_profile.InventoryGlobalMode`: one executable may expose
+/// `global -> manager -> data` while another may expose `global -> data`
+/// directly. A missing or unknown value is refused by
+/// [`resolve_inventory_pointers`] before any dereference, so a candidate
+/// layout cannot become dispatchable by supplying only an RVA.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InventoryLayout {
     pub insertion_rva: u64,
@@ -41,6 +48,7 @@ pub struct InventoryLayout {
     pub capacity: u32,
     pub record_size: usize,
     pub serial_counter_offset: u64,
+    pub inventory_global_mode: Option<&'static str>,
 }
 
 /// `live_add_profile.PC_V201`, the only layout the product validates.
@@ -53,7 +61,160 @@ pub const PC_V201_INVENTORY_LAYOUT: InventoryLayout = InventoryLayout {
     capacity: CAPACITY,
     record_size: RECORD_SIZE,
     serial_counter_offset: 8,
+    inventory_global_mode: Some(INVENTORY_GLOBAL_MODE_MANAGER_OBJECT),
 };
+
+/// The PC v2.02 candidate's inventory leg. Not accepted: nothing selects it.
+///
+/// Every address is copied from
+/// [`crate::mutation::native_abi::PC_V202_LIVE_ADD_CANDIDATE`] so the two legs
+/// cannot drift, and the ABI mode is the live-verified `manager_object` shape
+/// (`global -> manager -> data`), not a new one. The layout stays
+/// non-dispatchable because the read gates accept the canonical display version
+/// only: [`capture_inventory`] and [`capture_index`] refuse `PC v2.02` before
+/// any dereference, so a candidate cannot be captured, indexed or dispatched by
+/// supplying these numbers.
+pub const PC_V202_INVENTORY_LAYOUT_CANDIDATE: InventoryLayout = InventoryLayout {
+    insertion_rva: crate::mutation::native_abi::PC_V202_LIVE_ADD_CANDIDATE.insertion_rva,
+    manager_pointer_rva: crate::mutation::native_abi::PC_V202_LIVE_ADD_CANDIDATE
+        .manager_pointer_rva,
+    container_offset: crate::mutation::native_abi::PC_V202_LIVE_ADD_CANDIDATE.container_offset,
+    capacity_offset: crate::mutation::native_abi::PC_V202_LIVE_ADD_CANDIDATE.capacity_offset,
+    serial_index_offset: crate::mutation::native_abi::PC_V202_LIVE_ADD_CANDIDATE
+        .serial_index_offset,
+    capacity: crate::mutation::native_abi::PC_V202_LIVE_ADD_CANDIDATE.capacity,
+    record_size: crate::mutation::native_abi::PC_V202_LIVE_ADD_CANDIDATE.record_size,
+    serial_counter_offset: crate::mutation::native_abi::PC_V202_LIVE_ADD_CANDIDATE
+        .serial_counter_offset,
+    inventory_global_mode: Some(INVENTORY_GLOBAL_MODE_MANAGER_OBJECT),
+};
+
+/// The accepted `(inventory layout, display version)` pairs.
+///
+/// The pair is the binding: a display version alone never authorizes a layout,
+/// and a layout alone never authorizes a version. `PC v2.01` is the shipped
+/// product pair; `PC v2.02` is the opt-in research candidate, whose layout is
+/// only reachable through an executor whose own gate already proved the pinned
+/// executable identity.
+const ACCEPTED_INVENTORY_PAIRS: [(&InventoryLayout, &str, &str); 2] = [
+    (
+        &PC_V201_INVENTORY_LAYOUT,
+        crate::mutation::native_abi::PRODUCT_DISPLAY_VERSION,
+        crate::mutation::native_abi::PC_V201_LIVE_ADD.profile_id,
+    ),
+    (
+        &PC_V202_INVENTORY_LAYOUT_CANDIDATE,
+        crate::mutation::native_abi::CANDIDATE_DISPLAY_VERSION,
+        crate::mutation::native_abi::PC_V202_LIVE_ADD_CANDIDATE.profile_id,
+    ),
+];
+
+/// The display version one exact layout is accepted with, if any.
+pub fn accepted_inventory_version(layout: &InventoryLayout) -> Option<&'static str> {
+    ACCEPTED_INVENTORY_PAIRS
+        .iter()
+        .find(|(accepted, _, _)| *accepted == layout)
+        .map(|(_, version, _)| *version)
+}
+
+/// The live-add profile id one exact layout is accepted with, if any.
+pub fn accepted_inventory_profile_id(layout: &InventoryLayout) -> Option<&'static str> {
+    ACCEPTED_INVENTORY_PAIRS
+        .iter()
+        .find(|(accepted, _, _)| *accepted == layout)
+        .map(|(_, _, profile_id)| *profile_id)
+}
+
+/// `live_add_profile.InventoryGlobalMode`: how the version-owned inventory
+/// global reaches the data object.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InventoryGlobalMode {
+    /// `global -> manager -> data`, the shipped PC v2.01 shape.
+    ManagerObject,
+    /// `global -> data`; a candidate shape with no manager object.
+    DirectData,
+}
+
+/// `live_add_profile.InventoryGlobalMode.MANAGER_OBJECT.value`.
+pub const INVENTORY_GLOBAL_MODE_MANAGER_OBJECT: &str = "manager_object";
+/// `live_add_profile.InventoryGlobalMode.DIRECT_DATA.value`.
+pub const INVENTORY_GLOBAL_MODE_DIRECT_DATA: &str = "direct_data";
+
+impl InventoryGlobalMode {
+    /// The shipped lowercase value.
+    pub const fn value(self) -> &'static str {
+        match self {
+            Self::ManagerObject => INVENTORY_GLOBAL_MODE_MANAGER_OBJECT,
+            Self::DirectData => INVENTORY_GLOBAL_MODE_DIRECT_DATA,
+        }
+    }
+
+    /// `live_add_profile.InventoryGlobalMode.parse`: a missing or unknown mode
+    /// is refused, so neither can silently select the manager-object read.
+    pub fn parse(value: Option<&str>) -> Result<Self, RuntimeError> {
+        match value {
+            Some(INVENTORY_GLOBAL_MODE_MANAGER_OBJECT) => Ok(Self::ManagerObject),
+            Some(INVENTORY_GLOBAL_MODE_DIRECT_DATA) => Ok(Self::DirectData),
+            Some(other) => Err(invalid(&format!(
+                "Unsupported inventory global mode: '{other}'"
+            ))),
+            None => Err(invalid("Inventory global mode is required")),
+        }
+    }
+}
+
+/// `live_add_profile.InventoryPointers`.
+///
+/// `manager_address` is the manager object only for `manager_object` mode;
+/// direct-data mode has no manager object and therefore stores `None`
+/// deliberately.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InventoryPointers {
+    pub global_address: u64,
+    pub manager_address: Option<u64>,
+    pub data_address: u64,
+}
+
+/// Port of `live_add_profile.resolve_inventory_pointers`.
+///
+/// Missing/invalid modes and a null global fail before any dereference that
+/// could be mistaken for a valid owner, and the two null-owner diagnostics
+/// keep the shipped wording. Whether a layout may be dispatched at all stays
+/// with the `PC v2.01` version gates in [`capture_inventory`] and
+/// [`capture_index`]; this helper only mirrors the parse-and-resolve half.
+pub fn resolve_inventory_pointers<M: InventoryProcess + ?Sized>(
+    memory: &mut M,
+    layout: &InventoryLayout,
+) -> Result<InventoryPointers, RuntimeError> {
+    let mode = InventoryGlobalMode::parse(layout.inventory_global_mode)?;
+    if layout.manager_pointer_rva == 0 {
+        return Err(invalid("Inventory global RVA is unresolved"));
+    }
+    let global_address = memory.module_base() + layout.manager_pointer_rva;
+    let global_value = read_u64(memory, global_address)?;
+    if global_value == 0 {
+        return Err(match mode {
+            InventoryGlobalMode::ManagerObject => invalid("Item manager is not loaded"),
+            InventoryGlobalMode::DirectData => invalid("Inventory data is not loaded"),
+        });
+    }
+    if mode == InventoryGlobalMode::DirectData {
+        return Ok(InventoryPointers {
+            global_address,
+            manager_address: None,
+            data_address: global_value,
+        });
+    }
+    let data_address = read_u64(memory, global_value)?;
+    if data_address == 0 {
+        return Err(invalid("Inventory data is not loaded"));
+    }
+    Ok(InventoryPointers {
+        global_address,
+        manager_address: Some(global_value),
+        data_address,
+    })
+}
 
 /// The read-only process view an inventory capture needs.
 pub trait InventoryProcess {
@@ -344,13 +505,11 @@ pub fn capture_index<M: InventoryProcess + ?Sized>(
     layout: &InventoryLayout,
     game_version: &str,
 ) -> Result<NativeIndex, RuntimeError> {
-    if game_version != "PC v2.01" {
+    if accepted_inventory_version(layout) != Some(game_version) {
         return Err(invalid("PC v2.01 is required"));
     }
-    let base = memory.module_base();
-    let manager_address = base + layout.manager_pointer_rva;
-    let manager = read_u64(memory, manager_address)?;
-    let data = read_u64(memory, manager)?;
+    let pointers = resolve_inventory_pointers(memory, layout)?;
+    let data = pointers.data_address;
     if read_u64(
         memory,
         data + layout.container_offset + layout.capacity_offset,
@@ -361,7 +520,7 @@ pub fn capture_index<M: InventoryProcess + ?Sized>(
     let creation_time = memory.creation_time()?;
     let (node_count, bucket_count, entries) =
         inspect_index(memory, data + layout.serial_index_offset)?;
-    if read_u64(memory, manager_address)? != manager || read_u64(memory, manager)? != data {
+    if resolve_inventory_pointers(memory, layout)? != pointers {
         return Err(invalid("Inventory owner changed"));
     }
     Ok(NativeIndex {
@@ -552,7 +711,7 @@ pub fn capture_inventory<M: InventoryProcess + ?Sized>(
     layout: &InventoryLayout,
     game_version: &str,
 ) -> Result<Inventory, RuntimeError> {
-    if game_version != "PC v2.01" {
+    if accepted_inventory_version(layout) != Some(game_version) {
         return Err(invalid(
             "This inventory layout is validated only for PC v2.01",
         ));
@@ -562,15 +721,8 @@ pub fn capture_inventory<M: InventoryProcess + ?Sized>(
     if signature != INSERTION_SIGNATURE {
         return Err(invalid("Inventory insertion signature mismatch"));
     }
-    let manager_address = base + layout.manager_pointer_rva;
-    let manager = read_u64(memory, manager_address)?;
-    if manager == 0 {
-        return Err(invalid("Item manager is not loaded"));
-    }
-    let data = read_u64(memory, manager)?;
-    if data == 0 {
-        return Err(invalid("Inventory data is not loaded"));
-    }
+    let pointers = resolve_inventory_pointers(memory, layout)?;
+    let data = pointers.data_address;
     let container = data + layout.container_offset;
     if read_u64(memory, container + layout.capacity_offset)? != layout.capacity as u64 {
         return Err(invalid("Unexpected scroll container capacity"));
@@ -584,7 +736,7 @@ pub fn capture_inventory<M: InventoryProcess + ?Sized>(
             "Inventory or counters changed during capture; retry at rest",
         ));
     }
-    if read_u64(memory, manager_address)? != manager || read_u64(memory, manager)? != data {
+    if resolve_inventory_pointers(memory, layout)? != pointers {
         return Err(invalid("Inventory owner changed during capture"));
     }
 
@@ -749,5 +901,269 @@ impl WindowsInventory {
             reader: &mut self.reader,
         };
         capture_inventory(&mut view, layout, game_version)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        capture_index, capture_inventory, resolve_inventory_pointers, InventoryGlobalMode,
+        InventoryLayout, InventoryProcess, INVENTORY_GLOBAL_MODE_DIRECT_DATA,
+        INVENTORY_GLOBAL_MODE_MANAGER_OBJECT, PC_V201_INVENTORY_LAYOUT,
+        PC_V202_INVENTORY_LAYOUT_CANDIDATE,
+    };
+    use crate::error::RuntimeError;
+    use std::cell::RefCell;
+    use std::collections::BTreeMap;
+
+    /// A little-endian value map that records every read, so a test can prove
+    /// which dereferences happened before an error.
+    struct RecordingMemory {
+        base: u64,
+        values: BTreeMap<u64, u64>,
+        reads: RefCell<Vec<(u64, usize)>>,
+    }
+
+    impl RecordingMemory {
+        fn with(values: &[(u64, u64)]) -> Self {
+            Self {
+                base: 0x1_0000_0000,
+                values: values.iter().copied().collect(),
+                reads: RefCell::new(Vec::new()),
+            }
+        }
+
+        fn reads(&self) -> Vec<(u64, usize)> {
+            self.reads.borrow().clone()
+        }
+    }
+
+    impl InventoryProcess for RecordingMemory {
+        fn pid(&self) -> u32 {
+            4321
+        }
+
+        fn module_base(&self) -> u64 {
+            self.base
+        }
+
+        fn creation_time(&mut self) -> Result<String, RuntimeError> {
+            Ok("test".to_string())
+        }
+
+        fn read(&mut self, address: u64, size: usize) -> Result<Vec<u8>, RuntimeError> {
+            self.reads.borrow_mut().push((address, size));
+            let value = self.values.get(&address).copied().unwrap_or(0);
+            Ok(value.to_le_bytes()[..size.min(8)].to_vec())
+        }
+    }
+
+    fn layout(mode: Option<&'static str>) -> InventoryLayout {
+        InventoryLayout {
+            inventory_global_mode: mode,
+            ..PC_V201_INVENTORY_LAYOUT
+        }
+    }
+
+    #[test]
+    fn the_shipped_v2_01_layout_carries_the_manager_object_mode() {
+        assert_eq!(
+            PC_V201_INVENTORY_LAYOUT.inventory_global_mode,
+            Some(INVENTORY_GLOBAL_MODE_MANAGER_OBJECT)
+        );
+        assert_eq!(
+            InventoryGlobalMode::parse(PC_V201_INVENTORY_LAYOUT.inventory_global_mode).ok(),
+            Some(InventoryGlobalMode::ManagerObject)
+        );
+        assert_eq!(InventoryGlobalMode::ManagerObject.value(), "manager_object");
+        assert_eq!(InventoryGlobalMode::DirectData.value(), "direct_data");
+    }
+
+    #[test]
+    fn a_missing_or_unknown_global_mode_is_refused_before_any_read() {
+        let mut memory = RecordingMemory::with(&[]);
+        let missing = resolve_inventory_pointers(&mut memory, &layout(None)).err();
+        assert_eq!(
+            missing.as_ref().map(RuntimeError::code),
+            Some("INVENTORY_INVALID")
+        );
+        assert_eq!(
+            missing.map(|error| error.message()),
+            Some("Inventory global mode is required".to_string())
+        );
+        assert!(memory.reads().is_empty());
+
+        let unknown = resolve_inventory_pointers(&mut memory, &layout(Some("global_direct"))).err();
+        assert_eq!(
+            unknown.map(|error| error.message()),
+            Some("Unsupported inventory global mode: 'global_direct'".to_string())
+        );
+        assert!(memory.reads().is_empty());
+
+        let unresolved = resolve_inventory_pointers(
+            &mut memory,
+            &InventoryLayout {
+                manager_pointer_rva: 0,
+                ..PC_V201_INVENTORY_LAYOUT
+            },
+        )
+        .err();
+        assert_eq!(
+            unresolved.map(|error| error.message()),
+            Some("Inventory global RVA is unresolved".to_string())
+        );
+        assert!(memory.reads().is_empty());
+    }
+
+    #[test]
+    fn manager_object_mode_dereferences_the_manager_before_the_data() -> Result<(), RuntimeError> {
+        let base = 0x1_0000_0000;
+        let slot = base + PC_V201_INVENTORY_LAYOUT.manager_pointer_rva;
+        let manager = base + 0x1_0000;
+        let data = base + 0x2_0000;
+        let mut memory = RecordingMemory::with(&[(slot, manager), (manager, data)]);
+        let pointers = resolve_inventory_pointers(&mut memory, &PC_V201_INVENTORY_LAYOUT)?;
+        assert_eq!(pointers.global_address, slot);
+        assert_eq!(pointers.manager_address, Some(manager));
+        assert_eq!(pointers.data_address, data);
+        assert_eq!(memory.reads(), vec![(slot, 8), (manager, 8)]);
+        Ok(())
+    }
+
+    #[test]
+    fn direct_data_mode_resolves_the_global_as_data_without_a_manager_read(
+    ) -> Result<(), RuntimeError> {
+        let base = 0x1_0000_0000;
+        let slot = base + PC_V201_INVENTORY_LAYOUT.manager_pointer_rva;
+        let data = base + 0x2_0000;
+        let mut memory = RecordingMemory::with(&[(slot, data)]);
+        let pointers = resolve_inventory_pointers(
+            &mut memory,
+            &layout(Some(INVENTORY_GLOBAL_MODE_DIRECT_DATA)),
+        )?;
+        assert_eq!(pointers.global_address, slot);
+        assert_eq!(pointers.manager_address, None);
+        assert_eq!(pointers.data_address, data);
+        assert_eq!(memory.reads(), vec![(slot, 8)]);
+        Ok(())
+    }
+
+    #[test]
+    fn a_null_global_keeps_the_shipped_mode_specific_diagnostics() {
+        let mut memory = RecordingMemory::with(&[]);
+        let missing_manager =
+            resolve_inventory_pointers(&mut memory, &PC_V201_INVENTORY_LAYOUT).err();
+        assert_eq!(
+            missing_manager.map(|error| error.message()),
+            Some("Item manager is not loaded".to_string())
+        );
+        let missing_data = resolve_inventory_pointers(
+            &mut memory,
+            &layout(Some(INVENTORY_GLOBAL_MODE_DIRECT_DATA)),
+        )
+        .err();
+        assert_eq!(
+            missing_data.map(|error| error.message()),
+            Some("Inventory data is not loaded".to_string())
+        );
+    }
+
+    /// The executable non-enablement gate: a direct-data candidate layout
+    /// cannot be reached through a non-v2.01 version, so PC v2.02 stays
+    /// non-dispatchable in the Rust mirror and the shipped v2.01 layout keeps
+    /// the manager-object ABI.
+    #[test]
+    fn a_direct_data_candidate_stays_non_dispatchable_for_v2_02() {
+        let mut memory = RecordingMemory::with(&[]);
+        let candidate = layout(Some(INVENTORY_GLOBAL_MODE_DIRECT_DATA));
+        let inventory = capture_inventory(&mut memory, &candidate, "PC v2.02").err();
+        assert_eq!(
+            inventory.map(|error| error.message()),
+            Some("This inventory layout is validated only for PC v2.01".to_string())
+        );
+        let index = capture_index(&mut memory, &candidate, "PC v2.02").err();
+        assert_eq!(
+            index.map(|error| error.message()),
+            Some("PC v2.01 is required".to_string())
+        );
+        assert!(memory.reads().is_empty());
+        assert_ne!(
+            PC_V201_INVENTORY_LAYOUT.inventory_global_mode,
+            Some(INVENTORY_GLOBAL_MODE_DIRECT_DATA)
+        );
+    }
+
+    /// The candidate's own numbers stay coherent for the accepted ABI: the
+    /// live-verified v2.02 global resolves `global -> manager -> data`.
+    #[test]
+    fn the_v2_02_candidate_inventory_layout_resolves_the_manager_object_chain(
+    ) -> Result<(), RuntimeError> {
+        let layout = PC_V202_INVENTORY_LAYOUT_CANDIDATE;
+        assert_eq!(
+            layout.inventory_global_mode,
+            Some(INVENTORY_GLOBAL_MODE_MANAGER_OBJECT)
+        );
+        let base = 0x1_0000_0000;
+        let slot = base + layout.manager_pointer_rva;
+        let manager = base + 0x1_0000;
+        let data = base + 0x2_0000;
+        let mut memory = RecordingMemory::with(&[(slot, manager), (manager, data)]);
+        let pointers = resolve_inventory_pointers(&mut memory, &layout)?;
+        assert_eq!(pointers.global_address, slot);
+        assert_eq!(pointers.manager_address, Some(manager));
+        assert_eq!(pointers.data_address, data);
+        assert_eq!(memory.reads(), vec![(slot, 8), (manager, 8)]);
+        // The two legs are one definition, so the candidate's inventory view is
+        // the live-add candidate's view and not a second copy of the numbers.
+        let live_add = crate::mutation::native_abi::PC_V202_LIVE_ADD_CANDIDATE;
+        assert_eq!(layout.insertion_rva, live_add.insertion_rva);
+        assert_eq!(layout.manager_pointer_rva, live_add.manager_pointer_rva);
+        assert_eq!(layout.container_offset, live_add.container_offset);
+        assert_eq!(layout.capacity_offset, live_add.capacity_offset);
+        assert_eq!(layout.serial_index_offset, live_add.serial_index_offset);
+        assert_eq!(layout.serial_counter_offset, live_add.serial_counter_offset);
+        assert_eq!(layout.record_size, live_add.record_size);
+        assert_eq!(layout.capacity, live_add.capacity);
+        Ok(())
+    }
+
+    /// The pair is the binding: a version string never authorizes a layout, and
+    /// a layout never authorizes a version, so the inverted pairs are refused
+    /// before any dereference while the accepted candidate pair opens the read.
+    #[test]
+    fn the_candidate_inventory_pair_is_accepted_only_together() {
+        let mut memory = RecordingMemory::with(&[]);
+        for (bound, version) in [
+            (PC_V201_INVENTORY_LAYOUT, "PC v2.02"),
+            (PC_V202_INVENTORY_LAYOUT_CANDIDATE, "PC v2.01"),
+        ] {
+            let inventory = capture_inventory(&mut memory, &bound, version).err();
+            assert_eq!(
+                inventory.map(|error| error.message()),
+                Some("This inventory layout is validated only for PC v2.01".to_string())
+            );
+            let index = capture_index(&mut memory, &bound, version).err();
+            assert_eq!(
+                index.map(|error| error.message()),
+                Some("PC v2.01 is required".to_string())
+            );
+            assert!(
+                memory.reads().is_empty(),
+                "{version} must be refused before any read"
+            );
+        }
+        // The accepted candidate pair passes the version gate and stops at the
+        // next gate on synthetic memory, so the read path provably opened.
+        let signature =
+            capture_inventory(&mut memory, &PC_V202_INVENTORY_LAYOUT_CANDIDATE, "PC v2.02").err();
+        assert_eq!(
+            signature.map(|error| error.message()),
+            Some("Inventory insertion signature mismatch".to_string())
+        );
+        assert!(!memory.reads().is_empty());
+        // The shipped layout keeps the accepted numbers and stays distinct.
+        assert_eq!(PC_V201_INVENTORY_LAYOUT.insertion_rva, 0x54_D294);
+        assert_eq!(PC_V201_INVENTORY_LAYOUT.manager_pointer_rva, 0x474D4E0);
+        assert_ne!(PC_V201_INVENTORY_LAYOUT, PC_V202_INVENTORY_LAYOUT_CANDIDATE);
     }
 }

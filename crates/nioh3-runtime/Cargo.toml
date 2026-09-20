@@ -22,6 +22,10 @@ test-fake = []
 # Builds the owned helper process that proves the real Windows read/write/
 # protect/allocation path. Off by default; the product never builds it.
 test-helper = []
+# Compiles the real-binding observation-failure seam (a test-only adapter that
+# makes one recorded handle genuinely unobservable) into the library. Off by
+# default; the product never builds it.
+test-observation = []
 
 [[bin]]
 name = "runtime_mutation_helper"

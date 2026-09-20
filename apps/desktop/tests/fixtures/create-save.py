@@ -32,4 +32,12 @@ folder.mkdir(parents=True)
 plain, encrypted = target / 'synthetic.bin', folder / 'SAVEDATA.BIN'
 plain.write_bytes(data)
 SaveCrypto(default_crypto_tool(ROOT)).encrypt(plain, encrypted)
+# The product treats Main, the game's per-slot backup, and the account System
+# save as one quiescent generation. Keep this synthetic fixture equally shaped
+# so restore acceptance exercises the complete three-role contract instead of
+# manufacturing a Main-only bundle that the product must reject.
+(folder / 'BACKUP.BIN').write_bytes(encrypted.read_bytes())
+system = target / str(account) / 'SYSTEMSAVEDATA00'
+system.mkdir()
+(system / 'SAVEDATA.BIN').write_bytes(b'RNN-SYNTHETIC-SYSTEM-SAVE')
 print(json.dumps({'path': str(encrypted)}))

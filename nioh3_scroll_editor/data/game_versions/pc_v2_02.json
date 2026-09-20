@@ -1,0 +1,290 @@
+{
+  "schema": "nioh3-game-version-research-profile/v1",
+  "profile_id": "pc_v2_02",
+  "display_version": "PC v2.02",
+  "file_version": [
+    2,
+    0,
+    2,
+    0
+  ],
+  "approval_status": "candidate",
+  "product_enablement_allowed": false,
+  "provenance": {
+    "baseline_profile": "nioh3_scroll_editor/data/game_versions/pc_v2_01.json",
+    "candidate_report": "deliverables/game-version-update-20260919/reports/pc-v2.02-candidate.unapproved.json",
+    "resource_comparison": "deliverables/game-version-update-20260919/reports/resource-comparison-v2.02-ng3.json",
+    "native_parity": [
+      "deliverables/game-version-update-20260919/reports/native-parity-r3-10000-v2.02.json",
+      "deliverables/game-version-update-20260919/reports/native-parity-r4-10000-v2.02.json",
+      "deliverables/game-version-update-20260919/reports/native-parity-r5-10000-v2.02.json",
+      "deliverables/game-version-update-20260919/reports/native-auxiliary-parity-v2.02.json"
+    ],
+    "executable_sha256": "E22C4A635E4EC1E27A177B76E27D7F6A637F426C0ED3928B60F5693BC52AE130"
+  },
+  "section_dump": {
+    "manifest": "deliverables/game-version-update-20260919/reports/live-pe-sections-v2.0.2.0.json"
+  },
+  "text_sites": {
+    "canonicalize": {
+      "signature_size": 16,
+      "baseline_rva": "0x20E1AF0",
+      "relocation_status": "resolved",
+      "captured_signature": "48 89 5C 24 18 48 89 7C 24 20 55 48 8D 6C 24 C0",
+      "rva": "0x20E524C"
+    },
+    "completion_finalizer_wrapper": {
+      "signature_size": 20,
+      "range_size": 281,
+      "baseline_rva": "0x227DCD0",
+      "relocation_status": "resolved",
+      "captured_signature": "40 53 55 56 57 41 54 41 55 41 56 41 57 48 81 EC 78 01 00 00",
+      "rva": "0x2281460"
+    },
+    "descriptor_complete": {
+      "signature_size": 5,
+      "baseline_rva": "0x20E195C",
+      "relocation_status": "resolved",
+      "captured_signature": "48 8B 54 24 60",
+      "rva": "0x20E50B8"
+    },
+    "init_descriptor": {
+      "signature_size": 13,
+      "baseline_rva": "0x1B729CC",
+      "relocation_status": "resolved",
+      "captured_signature": "40 53 48 83 EC 20 48 8B D9 33 C0 33 C9",
+      "rva": "0x1B75E24"
+    },
+    "build_descriptor": {
+      "signature_size": 11,
+      "baseline_rva": "0x20E1834",
+      "relocation_status": "resolved",
+      "captured_signature": "48 83 EC 38 48 8B D1 0F B7 09 E8",
+      "rva": "0x20E4F90"
+    },
+    "destroy_descriptor": {
+      "signature_size": 12,
+      "baseline_rva": "0x1B961F4",
+      "relocation_status": "resolved",
+      "captured_signature": "40 53 48 83 EC 20 48 8B D9 48 8B 09",
+      "rva": "0x1B9964C"
+    },
+    "init_compact": {
+      "signature_size": 8,
+      "baseline_rva": "0x1B739C4",
+      "relocation_status": "resolved",
+      "captured_signature": "40 53 48 83 EC 20 33 C0",
+      "rva": "0x1B76E1C"
+    },
+    "reset_compact": {
+      "signature_size": 8,
+      "baseline_rva": "0x1BBF1B4",
+      "relocation_status": "resolved",
+      "captured_signature": "48 83 EC 28 33 C0 C6 41",
+      "rva": "0x1BC260C"
+    },
+    "effective_level": {
+      "signature_size": 8,
+      "baseline_rva": "0x2FA5F4",
+      "relocation_status": "resolved",
+      "captured_signature": "F7 41 18 00 00 20 00 75",
+      "rva": "0x2FA524"
+    },
+    "init_generation_context": {
+      "signature_size": 8,
+      "baseline_rva": "0x5512F8",
+      "relocation_status": "resolved",
+      "captured_signature": "48 83 EC 28 4C 8B D9 66",
+      "rva": "0x5513C8"
+    },
+    "incomplete_record": {
+      "signature_size": 8,
+      "baseline_rva": "0x110E7E0",
+      "relocation_status": "resolved",
+      "captured_signature": "33 D2 48 8D 41 42 80 38",
+      "rva": "0x1111AA0"
+    },
+    "generate_effects": {
+      "signature_size": 8,
+      "baseline_rva": "0x557E64",
+      "relocation_status": "resolved",
+      "captured_signature": "48 8B C4 48 89 58 20 55",
+      "rva": "0x557F34"
+    },
+    "assemble_scroll": {
+      "signature_size": 8,
+      "baseline_rva": "0x227C4CC",
+      "relocation_status": "resolved",
+      "captured_signature": "48 89 5C 24 08 48 89 6C",
+      "rva": "0x227FC5C"
+    },
+    "playthrough_vector": {
+      "signature_size": 8,
+      "baseline_rva": "0x5591D4",
+      "relocation_status": "resolved",
+      "captured_signature": "48 83 EC 48 48 8B 05 81",
+      "rva": "0x5592A4"
+    },
+    "completion_loop": {
+      "signature_size": 16,
+      "range_size": 439,
+      "baseline_rva": "0x1028AFD",
+      "relocation_status": "resolved",
+      "captured_signature": "48 89 AC 24 80 02 00 00 48 8D 5F 42 48 8D 6C 24",
+      "rva": "0x102A9AD"
+    },
+    "per_effect_finalizer": {
+      "signature_size": 16,
+      "range_size": 4953,
+      "baseline_rva": "0x110BB20",
+      "relocation_status": "resolved",
+      "captured_signature": "48 89 5C 24 20 55 56 57 41 54 41 55 41 56 41 57",
+      "rva": "0x110ED60"
+    },
+    "effect_lookup": {
+      "signature_size": 16,
+      "baseline_rva": "0x557D08",
+      "relocation_status": "resolved",
+      "captured_signature": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57",
+      "rva": "0x557DD8"
+    },
+    "category_allocator": {
+      "signature_size": 16,
+      "range_size": 688,
+      "baseline_rva": "0x2F9B84",
+      "relocation_status": "resolved",
+      "captured_signature": "45 85 C9 0F 84 A6 02 00 00 48 89 5C 24 18 55 56",
+      "rva": "0x2F9AB4"
+    },
+    "effect_weight": {
+      "signature_size": 16,
+      "range_size": 398,
+      "baseline_rva": "0x558E6C",
+      "relocation_status": "resolved",
+      "captured_signature": "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57",
+      "rva": "0x558F3C"
+    },
+    "normalize_slot": {
+      "signature_size": 16,
+      "range_size": 354,
+      "baseline_rva": "0x5517D8",
+      "relocation_status": "resolved",
+      "captured_signature": "48 89 5C 24 08 44 88 4C 24 20 44 88 44 24 18 55",
+      "rva": "0x5518A8"
+    },
+    "bonus_count": {
+      "signature_size": 16,
+      "range_size": 135,
+      "baseline_rva": "0x551AFC",
+      "relocation_status": "resolved",
+      "captured_signature": "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48",
+      "rva": "0x551BCC"
+    },
+    "lcg": {
+      "signature_size": 16,
+      "range_size": 113,
+      "baseline_rva": "0x35F0B4",
+      "relocation_status": "resolved",
+      "captured_signature": "48 83 EC 28 48 8B 0D 31 A8 3F 04 48 85 C9 74 21",
+      "rva": "0x35F0D4"
+    }
+  },
+  "rdata_sites": {
+    "one_over_65536": {
+      "size": 4,
+      "baseline_rva": "0x3BD0B44",
+      "relocation_status": "resolved",
+      "captured_signature": "00 00 80 37",
+      "rva": "0x3BD4C84"
+    },
+    "hundred": {
+      "size": 4,
+      "baseline_rva": "0x3BCFF4C",
+      "relocation_status": "resolved",
+      "captured_signature": "00 00 C8 42",
+      "rva": "0x3BD408C"
+    },
+    "forty_six": {
+      "size": 4,
+      "baseline_rva": "0x3C002E4",
+      "relocation_status": "resolved",
+      "captured_signature": "00 00 38 42",
+      "rva": "0x3C04474"
+    },
+    "twenty": {
+      "size": 4,
+      "baseline_rva": "0x3BCFF74",
+      "relocation_status": "resolved",
+      "captured_signature": "00 00 A0 41",
+      "rva": "0x3BD40B4"
+    },
+    "one_over_100": {
+      "size": 4,
+      "baseline_rva": "0x3BD0750",
+      "relocation_status": "resolved",
+      "captured_signature": "0A D7 23 3C",
+      "rva": "0x3BD4890"
+    },
+    "one_over_1000": {
+      "size": 4,
+      "baseline_rva": "0x3BD0548",
+      "relocation_status": "resolved",
+      "captured_signature": "6F 12 83 3A",
+      "rva": "0x3BD4688"
+    }
+  },
+  "data_sites": {
+    "parameter_manager_pointer": {
+      "baseline_rva": "0x45B5DF0",
+      "rva": "0x45B9E30",
+      "validation_status": "validated_by_runtime_table_capture"
+    },
+    "playthrough_selector_pointer": {
+      "baseline_rva": "0x474D480",
+      "rva": "0x47514D0",
+      "validation_status": "validated_by_ng3_native_parity"
+    },
+    "mode_pointer": {
+      "baseline_rva": "0x47558C0",
+      "rva": "0x4759910",
+      "validation_status": "validated_by_runtime_table_capture"
+    }
+  },
+  "resources": {
+    "status": "own_versioned_directory_after_table_comparison",
+    "baseline": {
+      "r4_finalizer": "nioh3_scroll_editor/data/r4_finalizer/pc_v2_00_02/resource_v1",
+      "auxiliary_generation": "nioh3_scroll_editor/data/auxiliary_generation/pc_v2_00_02/resource_v3"
+    },
+    "target": {
+      "r4_finalizer": "nioh3_scroll_editor/data/r4_finalizer/pc_v2_02/resource_v1",
+      "auxiliary_generation": "nioh3_scroll_editor/data/auxiliary_generation/pc_v2_00_02/resource_v3"
+    },
+    "note": "Nine of twelve R4 payloads are byte-equal to the shipped resource, so the auxiliary resource is aliased unchanged. tables/item.bin and tables/optional_multiplier.bin differ, so the R4 resource is a new versioned directory. globals/playthrough_progress.bin is save-dependent, not version identity, and carries the shipped baseline vector."
+  },
+  "gates": {
+    "all_anchor_relocations_resolved": true,
+    "all_relocated_site_signatures_captured": true,
+    "runtime_data_sites_validated": true,
+    "parameter_tables_compared": true,
+    "native_parity_validated": true,
+    "save_layout_validated": false,
+    "product_enablement_allowed": false
+  },
+  "known_version_differences": [
+    "tables/item.bin row 3358 field +0x84 changed 0x380 -> 0x0.",
+    "tables/optional_multiplier.bin grew from 2951 to 2954 rows: keys 0x3472, 0xAA65 and 0xD56F were added, none removed, and key 0xD7C3 changed its value from 1400 to 600.",
+    "Nine other R4 payloads and all five auxiliary tables are byte-equal."
+  ],
+  "validation_summary": [
+    "Rarity-3 parity passes on the masked comparison; exactly one runtime header byte (0x1B) differs on every seed and is excluded by the harness, so no full-record pass is claimed.",
+    "Rarity-4 stage, final record and accepted-slot parity passed for 10,000 deterministic natural Seeds.",
+    "Rarity-5 effect-slot parity passed; the captured report still records 10,000 full-record and unexpected mismatches at 0x30/0x31, so the effect-slot claim stands and no full-record pass is claimed.",
+    "Native auxiliary descriptors matched five baseline Seeds and were stable across repeated capture.",
+    "The recommended-level curve is point-for-point identical to the shipped resource."
+  ],
+  "limitations": [
+    "No PC v2.02 save written by the new build was available, so the save layout and revision semantics remain unvalidated for this version.",
+    "Product enablement stays false: the compatibility registry, the live path and the runtime write gate are unchanged by this profile."
+  ]
+}

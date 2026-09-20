@@ -194,6 +194,25 @@ CONTEXT_FIELDS = (
     "seed_accelerator_abi",
     "seed_accelerator_build_id",
 )
+# The version-bound proof fields both roles publish once an explicit game file
+# version selects a production identity. They are compared field-for-field so a
+# handshake cannot silently drop or reinterpret one of them.
+PRODUCTION_PROOF_FIELDS = (
+    "game_file_version",
+    "versioned_resource_dir",
+    "bundle_digest",
+    "versioned_digest",
+    "context_digest",
+    "legacy_context_digest",
+    "production_authority",
+)
+# One explicit production version both roles are launched with, so the
+# version-bound `context_digest` is a deliberate shared authority rather than
+# whatever the host happens to resolve.
+PRODUCTION_GAME_FILE_VERSION = "2.0.2.0"
+# The other shipped version: a distinct primary identity that must never be
+# accepted the way the production identity is.
+OTHER_GAME_FILE_VERSION = "2.0.0.2"
 REQUIRED_CAPABILITIES = (
     "playthroughs",
     "rarities",
@@ -297,7 +316,12 @@ def develop_worker_target() -> tuple[Path, str]:
 
 
 def dev_preview_arguments() -> list[str]:
-    """The explicit development acknowledgement plus the read-only roots."""
+    """The explicit development acknowledgement plus the read-only roots.
+
+    Both roles are launched with the same explicit production game file version
+    so the resolved `context_digest` is a deliberate shared authority. Passing no
+    identity at all is the fail-closed start both workers must refuse.
+    """
 
     return [
         "--dev-preview-only",
@@ -305,6 +329,21 @@ def dev_preview_arguments() -> list[str]:
         str(ROOT / "nioh3_scroll_editor" / "data"),
         "--contract-dir",
         str(SCHEMA_DIR),
+        "--game-file-version",
+        PRODUCTION_GAME_FILE_VERSION,
+    ]
+
+
+def python_preview_arguments() -> list[str]:
+    """The Python worker argv: same acknowledgement, roots and identity."""
+
+    return [
+        sys.executable,
+        "-u",
+        "-m",
+        "nioh3_scroll_editor.search_worker",
+        "--game-file-version",
+        PRODUCTION_GAME_FILE_VERSION,
     ]
 
 
@@ -484,7 +523,7 @@ class PreviewWorkerParityTests(unittest.TestCase):
                 + build.stderr.decode("utf-8", "replace")[-4000:]
             )
         cls.rust_argv = [str(Path(env["CARGO_TARGET_DIR"]) / "debug" / f"{binary}.exe"), *dev_preview_arguments()]
-        cls.python_argv = [sys.executable, "-u", "-m", "nioh3_scroll_editor.search_worker"]
+        cls.python_argv = python_preview_arguments()
 
     def rust_worker(self) -> FramedProcess:
         return FramedProcess(self.rust_argv, cwd=ROOT, env=worktree_env(), name="rust worker")
@@ -505,6 +544,46 @@ class PreviewWorkerParityTests(unittest.TestCase):
         )
         self.assertNotEqual(process.returncode, 0, "worker served without the development acknowledgement")
         self.assertTrue(process.stderr.strip(), "worker refused without an explanation on stderr")
+
+    def test_a_missing_identity_is_refused_by_both_roles(self) -> None:
+        """Neither role may start, or negotiate a handshake, without an identity.
+
+        Omitting both `--game-file-version` and `--legacy-test-context` is the
+        fail-closed production start: the process must exit non-zero with an
+        explanation and publish no handshake.
+        """
+
+        rust = subprocess.run(
+            [
+                self.rust_argv[0],
+                "--dev-preview-only",
+                "--data-root",
+                str(ROOT / "nioh3_scroll_editor" / "data"),
+                "--contract-dir",
+                str(SCHEMA_DIR),
+            ],
+            cwd=str(ROOT),
+            env=worktree_env(),
+            input=b"",
+            capture_output=True,
+            timeout=600,
+        )
+        self.assertNotEqual(rust.returncode, 0, "the Rust worker started without an identity")
+        self.assertIn("--game-file-version", rust.stderr.decode("utf-8", "replace"))
+        python = subprocess.run(
+            [sys.executable, "-u", "-m", "nioh3_scroll_editor.search_worker"],
+            cwd=str(ROOT),
+            env=worktree_env(),
+            input=b"",
+            capture_output=True,
+            timeout=600,
+        )
+        self.assertNotEqual(python.returncode, 0, "the Python worker started without an identity")
+        self.assertIn(
+            "--game-file-version",
+            python.stderr.decode("utf-8", "replace"),
+            "the Python refusal must name the missing identity flag",
+        )
 
     def test_handshake_reports_the_exact_contract_and_an_honest_subset(self) -> None:
         worker = self.rust_worker()
@@ -536,6 +615,64 @@ class PreviewWorkerParityTests(unittest.TestCase):
             rust.close()
         for field in CONTEXT_FIELDS:
             self.assertEqual(actual[field], expected[field], field)
+        # Both roles were launched with the same explicit version and the same
+        # accelerator policy, so every resolved proof field must agree, and the
+        # version-bound `context_digest` is the shared production authority.
+        for field in PRODUCTION_PROOF_FIELDS:
+            self.assertIn(field, actual, field)
+            self.assertIn(field, expected, field)
+            self.assertEqual(actual[field], expected[field], field)
+        self.assertEqual(actual["game_file_version"], PRODUCTION_GAME_FILE_VERSION)
+        self.assertIs(actual["production_authority"], True)
+        self.assertIs(expected["production_authority"], True)
+        self.assertNotEqual(
+            actual["context_digest"],
+            actual["legacy_context_digest"],
+            "the version-bound authority must not be the pre-version proof digest",
+        )
+
+    def test_a_different_explicit_version_is_a_different_authority(self) -> None:
+        """A second shipped version must resolve a distinct primary identity.
+
+        The two versions share one pre-version `legacy_context_digest` (same
+        profile and same whole-root digest), which is exactly why that field can
+        never authorize a candidate, cache, or resume. The version-bound
+        `context_digest` must differ.
+        """
+
+        first = self.python_worker()
+        second = FramedProcess(
+            [
+                *self.python_argv[:4],
+                "--game-file-version",
+                OTHER_GAME_FILE_VERSION,
+            ],
+            cwd=ROOT,
+            env=worktree_env(),
+            name="python worker (other version)",
+        )
+        try:
+            primary = first.call("handshake")["result"]["context"]
+            other = second.call("handshake")["result"]["context"]
+        finally:
+            first.close()
+            second.close()
+        self.assertEqual(other["game_file_version"], OTHER_GAME_FILE_VERSION)
+        self.assertNotEqual(
+            primary["context_digest"],
+            other["context_digest"],
+            "two explicit versions must not share a version-bound authority",
+        )
+        self.assertEqual(
+            primary["legacy_context_digest"],
+            other["legacy_context_digest"],
+            "the proof-only pre-version digest is shared, which is why it is not authority",
+        )
+        self.assertNotEqual(
+            primary["versioned_resource_dir"],
+            other["versioned_resource_dir"],
+            "the two versions must select different versioned resource directories",
+        )
 
     def test_every_contract_method_is_served_with_validation_or_named_pending(self) -> None:
         """Every contract method is either served with validation or named as pending.
@@ -853,7 +990,16 @@ class PreviewWorkerParityTests(unittest.TestCase):
         self.assertTrue(expected.get("ok"), expected)
         with tempfile.TemporaryDirectory(prefix="m23-emptyroot-") as empty:
             worker = FramedProcess(
-                [self.rust_argv[0], "--dev-preview-only", "--data-root", empty, "--contract-dir", str(SCHEMA_DIR)],
+                [
+                    self.rust_argv[0],
+                    "--dev-preview-only",
+                    "--data-root",
+                    empty,
+                    "--contract-dir",
+                    str(SCHEMA_DIR),
+                    "--game-file-version",
+                    PRODUCTION_GAME_FILE_VERSION,
+                ],
                 cwd=ROOT,
                 env=worktree_env(),
             )
@@ -879,8 +1025,16 @@ class PreviewWorkerParityTests(unittest.TestCase):
             mutated["description"] = "mutation binding probe"
             (target / "response.schema.json").write_text(json.dumps(mutated, indent=2), encoding="utf-8")
             worker = FramedProcess(
-                [self.rust_argv[0], "--dev-preview-only", "--data-root", str(ROOT / "nioh3_scroll_editor" / "data"),
-                 "--contract-dir", str(target)],
+                [
+                    self.rust_argv[0],
+                    "--dev-preview-only",
+                    "--data-root",
+                    str(ROOT / "nioh3_scroll_editor" / "data"),
+                    "--contract-dir",
+                    str(target),
+                    "--game-file-version",
+                    PRODUCTION_GAME_FILE_VERSION,
+                ],
                 cwd=ROOT,
                 env=worktree_env(),
             )

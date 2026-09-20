@@ -161,8 +161,8 @@
   "machine_resources": {
     "recommended_level_curve": {
       "path": "nioh3_scroll_editor/data/recommended_level_curve.json",
-      "size": 1462,
-      "sha256": "70577AF01B8AE7B74189CB6090441E81D19D18A888F5E76E0AD37DC392EFF62B"
+      "size": 1461,
+      "sha256": "68C107C0D525AB87C71C73F85576B48DFF4AD6E57B7EF6EFD00CA7F23408EE09"
     },
     "effect_finalizer": {
       "path": "nioh3_scroll_editor/data/r4_finalizer/pc_v2_00_02/resource_v1/manifest.json",

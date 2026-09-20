@@ -78,6 +78,16 @@ async function readLogUntil(logPath, deadline) {
   }
 }
 
+/** Raw bytes, not a normalized PE digest: this is the executed file identity. */
+async function rawHash(path) {
+  const body = await readFile(path);
+  return {
+    path: resolve(path),
+    size: body.byteLength,
+    sha256: createHash('sha256').update(body).digest('hex'),
+  };
+}
+
 function parseRoles(log) {
   const records = {};
   const wanted = new Set(ROLES);
@@ -193,6 +203,24 @@ async function main() {
     }
     evidence.roles[role] = record;
   }
+  const roleBinaries = {};
+  for (const role of ROLES) {
+    roleBinaries[role] = await rawHash(resolve(records[role].executable));
+  }
+  evidence.artifact = {
+    innerExe: await rawHash(executable),
+    buildManifest: existsSync(join(staged, 'build-manifest.json'))
+      ? await rawHash(join(staged, 'build-manifest.json'))
+      : null,
+    workerManifest: await rawHash(manifestPath),
+    roleBinaries,
+  };
+  evidence.gameFileVersions = Object.fromEntries(
+    ROLES.map((role) => [
+      role,
+      (/--game-file-version\s+(\S+)/.exec(records[role].argv) || [])[1] || null,
+    ]),
+  );
   if (options.out) {
     const out = resolve(options.out);
     await mkdir(resolve(out, '..'), {recursive: true});

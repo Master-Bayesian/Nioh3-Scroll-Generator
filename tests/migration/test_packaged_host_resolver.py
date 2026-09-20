@@ -40,6 +40,9 @@ DUMP_TEST = "tests::dump_role_launch_for_acceptance"
 HOST_VERIFIER = ROOT / "apps/tauri/verify-host-package.mjs"
 FRONTEND_VERIFIER = ROOT / "apps/tauri/verify-packaged-frontend.mjs"
 MAX_FRAME_BYTES = 4 * 1024 * 1024
+PRODUCTION_GAME_FILE_VERSION = "2.0.2.0"
+EVIDENCE_ROOT_ENV = "NIOH3_ACCEPTANCE_EVIDENCE_ROOT"
+EVIDENCE_RUN_ID_ENV = "NIOH3_ACCEPTANCE_RUN_ID"
 
 
 def node_executable() -> str | None:
@@ -140,6 +143,17 @@ def real_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def file_identity(path: Path) -> dict:
+    """Return the raw-byte identity used by the retained acceptance evidence."""
+
+    resolved = path.resolve()
+    return {
+        "path": str(resolved),
+        "size": resolved.stat().st_size,
+        "sha256": real_hash(resolved),
+    }
+
+
 def plaintext_digest(path: Path) -> str:
     """SHA-256 of the decrypted savedata generation.
 
@@ -216,15 +230,141 @@ class PackagedHostResolverTests(unittest.TestCase):
                     f"{binary} did not build: "
                     + result.stderr.decode("utf-8", "replace")[-2000:]
                 )
+        # `assemble_layout` resolves release host binaries through the same
+        # explicit CARGO_TARGET_DIR as every other migration gate. Build those
+        # prerequisites here so a clean, standalone full-suite run cannot turn
+        # one missing host artifact into seven identical setup failures.
+        for manifest, binary in (
+            ("apps/tauri/src-tauri/Cargo.toml", "nioh3-studio"),
+            ("apps/launcher/Cargo.toml", "Nioh3Launcher"),
+        ):
+            built = cls.target / "release" / f"{binary}.exe"
+            if built.is_file():
+                continue
+            result = subprocess.run(
+                [
+                    "cargo",
+                    "build",
+                    "--locked",
+                    "--offline",
+                    "--release",
+                    "--manifest-path",
+                    str(ROOT / manifest),
+                    "--bin",
+                    binary,
+                ],
+                cwd=str(ROOT),
+                env=environment,
+                capture_output=True,
+                timeout=3600,
+            )
+            if result.returncode != 0:
+                raise AssertionError(
+                    f"{binary} did not build: "
+                    + result.stderr.decode("utf-8", "replace")[-2000:]
+                )
         cls.stage_tool = load_tool("stage_rust_workers")
         cls.packager = load_tool("package_tauri")
         cls.host_environment = dict(os.environ)
         cls.host_environment["CARGO_TARGET_DIR"] = str(cls.target)
+        cls.host_environment["NIOH3_ACCEPTANCE_GAME_FILE_VERSION"] = (
+            PRODUCTION_GAME_FILE_VERSION
+        )
 
     def setUp(self) -> None:
         self.temp = fixture_root()
         self.addCleanup(lambda: shutil.rmtree(self.temp, ignore_errors=True))
         self.package = self.assemble_real_rust_package()
+        self.capture_node_identity("before")
+
+    def tearDown(self) -> None:
+        # `addCleanup` removes the synthetic package after this method returns.
+        # In evidence mode, freeze the exact final graph before that happens.
+        self.capture_node_identity("after")
+
+    def evidence_directory(self) -> Path | None:
+        configured = os.environ.get(EVIDENCE_ROOT_ENV, "").strip()
+        if not configured:
+            return None
+        destination = Path(configured).resolve() / "nodes" / self._testMethodName
+        destination.mkdir(parents=True, exist_ok=True)
+        return destination
+
+    def write_evidence_json(self, name: str, payload: dict | list) -> None:
+        destination = self.evidence_directory()
+        if destination is None:
+            return
+        (destination / name).write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    def persist_evidence_file(self, source: Path, name: str | None = None) -> None:
+        destination = self.evidence_directory()
+        if destination is None or not source.is_file():
+            return
+        shutil.copy2(source, destination / (name or source.name))
+
+    def persist_evidence_tree(self, source: Path, prefix: str) -> None:
+        destination = self.evidence_directory()
+        if destination is None or not source.is_dir():
+            return
+        for path in sorted(source.rglob("*")):
+            if path.is_file():
+                relative = path.relative_to(source)
+                target = destination / prefix / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(path, target)
+
+    def capture_node_identity(self, phase: str) -> None:
+        destination = self.evidence_directory()
+        if destination is None:
+            return
+
+        artifact_paths = {
+            "debugHost": self.target / "debug/nioh3-studio.exe",
+            "debugSearchWorker": self.target / "debug/nioh3-readonly-worker.exe",
+            "debugProtectedWorker": self.target / "debug/nioh3-protected-worker.exe",
+            "releaseHostFixturePrerequisite": self.target / "release/nioh3-studio.exe",
+            "releaseLauncherFixturePrerequisite": self.target / "release/Nioh3Launcher.exe",
+            "stagedSearchWorker": self.package / "worker/nioh3-search-worker.exe",
+            "stagedProtectedWorker": self.package / "worker/nioh3-protected-worker.exe",
+        }
+        source_paths = {
+            "resolverTest": Path(__file__),
+            "hostVerifier": HOST_VERIFIER,
+            "frontendVerifier": FRONTEND_VERIFIER,
+            "stageRustWorkers": TOOLS / "stage_rust_workers.py",
+            "packageTauri": TOOLS / "package_tauri.py",
+        }
+        package_paths = {
+            "workerManifest": self.package / "worker/worker-backend.json",
+            "buildManifest": self.package / "build-manifest.json",
+        }
+        payload = {
+            "schema": "nioh3-r5-evidence-node/v1",
+            "runId": os.environ.get(EVIDENCE_RUN_ID_ENV),
+            "node": self._testMethodName,
+            "phase": phase,
+            "gameFileVersion": PRODUCTION_GAME_FILE_VERSION,
+            "cargoTarget": str(self.target.resolve()),
+            "syntheticPackage": str(self.package.resolve()),
+            "artifacts": {
+                name: file_identity(path) if path.is_file() else None
+                for name, path in artifact_paths.items()
+            },
+            "sources": {
+                name: file_identity(path) if path.is_file() else None
+                for name, path in source_paths.items()
+            },
+            "packageFiles": {
+                name: file_identity(path) if path.is_file() else None
+                for name, path in package_paths.items()
+            },
+        }
+        self.write_evidence_json(f"{phase}-identity.json", payload)
+        for name, path in package_paths.items():
+            self.persist_evidence_file(path, f"{phase}-{name}.json")
 
     def assemble_real_rust_package(self) -> Path:
         """Stage the real binaries, the real tables and the real contracts."""
@@ -381,8 +521,10 @@ class PackagedHostResolverTests(unittest.TestCase):
         state_root = self.temp / "state"
         state_root.mkdir()
         staged_root = str(self.package)
+        retained_launches = {}
         for role in ROLES:
             launch = self.resolve_launch(role, state_root)
+            retained_launches[role] = launch
             declared = manifest["invocation"][role]
             assert launch["packaged"] is True
             assert Path(launch["executable"]) == self.package / "worker" / declared["binary"]
@@ -408,7 +550,15 @@ class PackagedHostResolverTests(unittest.TestCase):
                 if value == "<state root>":
                     assert actual[flag] == str(state_root)
                 elif value is not None:
-                    assert actual[flag].replace(staged_root, "<runtime>") == value, (
+                    # The staging tool declares package-confined paths in POSIX
+                    # form on purpose and the resolver converts every manifest
+                    # separator to the platform's own (a canonical `\\?\` root is
+                    # never normalized, so a mixed-separator path would not
+                    # resolve). Compare the declared text against that same
+                    # normalization instead of assuming the two agree byte for
+                    # byte on every platform.
+                    observed = actual[flag].replace(staged_root, "<runtime>")
+                    assert observed.replace(os.sep, "/") == value, (
                         f"{role} {flag}: {actual[flag]} != {value}"
                     )
             # F3: the resolver always pins the helper, in both launch shapes.
@@ -430,6 +580,7 @@ class PackagedHostResolverTests(unittest.TestCase):
                 assert actual["--role"] == role
                 assert "--dev-protected-only" not in actual
                 assert actual["--state-root"] == str(state_root)
+        self.write_evidence_json("resolved-launches.json", retained_launches)
 
     def test_resolved_launch_really_starts_the_declared_binary(self) -> None:
         state_root = self.temp / "state-live"
@@ -438,6 +589,7 @@ class PackagedHostResolverTests(unittest.TestCase):
         expected_sha = {
             entry["packagedName"]: entry["sha256"] for entry in manifest["binaries"]
         }
+        retained_handshakes = {}
         for role in ROLES:
             launch = self.resolve_launch(role, state_root)
             binary = Path(launch["executable"])
@@ -445,10 +597,16 @@ class PackagedHostResolverTests(unittest.TestCase):
                 f"{role} resolved {binary.name} but the manifest declares another identity"
             )
             handshake = self.spawn_and_handshake(launch)
+            retained_handshakes[role] = {
+                "launch": launch,
+                "handshake": handshake,
+                "binary": file_identity(binary),
+            }
             assert handshake["role"] == role, handshake
             assert handshake["contract_digest"], handshake
             if role != "offline_search":
                 assert handshake["kill_safe"] is False, handshake
+        self.write_evidence_json("role-handshakes.json", retained_handshakes)
 
     def test_a_package_without_the_manifest_keeps_the_shipped_python_graph(self) -> None:
         (self.package / "worker/worker-backend.json").unlink()
@@ -459,6 +617,7 @@ class PackagedHostResolverTests(unittest.TestCase):
         assert "--packaged-worker" not in launch["argv"]
         assert "--dev-preview-only" not in launch["argv"]
         assert Path(launch["executable"]).name == "nioh3-search-worker.exe"
+        self.write_evidence_json("no-manifest-fallback.json", launch)
 
     def test_a_damaged_manifest_fails_the_resolver_instead_of_falling_back(self) -> None:
         manifest_path = self.package / "worker/worker-backend.json"
@@ -501,6 +660,14 @@ class PackagedHostResolverTests(unittest.TestCase):
         assert "WORKER_BACKEND_UNSUPPORTED" in combined, combined[-2000:]
         # The shipped Python worker is still there and must not have been used.
         assert (self.package / "worker/nioh3-search-worker.exe").is_file()
+        self.write_evidence_json(
+            "damaged-manifest-result.json",
+            {
+                "exitCode": result.returncode,
+                "expectedError": "WORKER_BACKEND_UNSUPPORTED",
+                "combinedOutput": combined,
+            },
+        )
 
     def test_real_host_process_resolves_the_staged_graph(self) -> None:
         """Native acceptance: the real host binary, launched against the package.
@@ -539,6 +706,28 @@ class PackagedHostResolverTests(unittest.TestCase):
         )
         stdout = result.stdout.decode("utf-8", "replace")
         stderr = result.stderr.decode("utf-8", "replace")
+        self.write_evidence_json(
+            "host-verifier-run.json",
+            {
+                "exitCode": result.returncode,
+                "argv": [
+                    node,
+                    str(HOST_VERIFIER),
+                    "--package",
+                    str(self.package),
+                    "--exe",
+                    str(executable),
+                    "--out",
+                    str(out),
+                    "--timeout",
+                    "90",
+                ],
+                "stdout": stdout,
+                "stderr": stderr,
+            },
+        )
+        self.persist_evidence_file(out, "host-resolution.json")
+        self.capture_node_identity("execution")
         if result.returncode != 0:
             raise AssertionError(
                 f"the packaged host did not resolve the staged graph: {stdout[-3000:]}{stderr[-3000:]}"
@@ -601,6 +790,30 @@ class PackagedHostResolverTests(unittest.TestCase):
         stderr = result.stderr.decode("utf-8", "replace")
         blocked_evidence = out / "partial-evidence.json"
         full_evidence = out / "packaged-frontend.json"
+        self.write_evidence_json(
+            "frontend-verifier-run.json",
+            {
+                "exitCode": result.returncode,
+                "argv": [
+                    node,
+                    str(FRONTEND_VERIFIER),
+                    "--package",
+                    str(self.package),
+                    "--exe",
+                    str(executable),
+                    "--python",
+                    python,
+                    "--out",
+                    str(out),
+                    "--timeout",
+                    "120",
+                ],
+                "stdout": stdout,
+                "stderr": stderr,
+            },
+        )
+        self.persist_evidence_tree(out, "frontend-result")
+        self.capture_node_identity("execution")
         if result.returncode != 0 and not blocked_evidence.is_file():
             raise AssertionError(
                 "the packaged frontend acceptance failed: "
@@ -622,6 +835,10 @@ class PackagedHostResolverTests(unittest.TestCase):
         assert evidence["graph"] == "rust-packaged", evidence
         assert evidence["developmentBuild"] is True
         assert evidence["releaseCandidate"] is False
+        assert (
+            evidence["handshake"]["selectedContext"]["gameFileVersion"]
+            == PRODUCTION_GAME_FILE_VERSION
+        ), evidence["handshake"]
         # The fixture copy is written on purpose by the committed legs; what must
         # hold is that they are isolated and never touch a real save.
         assert evidence["fixtureWrites"]["realSaveTouched"] is False, evidence["fixtureWrites"]

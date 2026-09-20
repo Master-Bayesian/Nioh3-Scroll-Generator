@@ -7,7 +7,10 @@ from functools import lru_cache
 
 from emaki_exchange import CATEGORY_TO_TYPE
 
-from .effect_generation_tables import load_default_effect_generation_tables
+from .effect_generation_tables import (
+    EffectGenerationTableIndex,
+    load_default_effect_generation_tables,
+)
 from .effect_preimage_accelerator import match_effect_constraints_d3d11
 from .grace_map import GraceOutputMap
 from .r4_finalizer_reference import EffectRow, effect_weight, type_class_for_record_type
@@ -27,6 +30,7 @@ def _candidate_configuration(
     playthrough: int,
     rarity: int,
     level: int,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> tuple[
     tuple[
         tuple[int, int, int, int, int, int, int, int, int, int, int], ...
@@ -44,7 +48,8 @@ def _candidate_configuration(
         )
     if not 0 <= level <= 0xFFFF:
         raise ValueError("effect filtering level must fit in uint16")
-    tables = load_default_effect_generation_tables()
+    if tables is None:
+        tables = load_default_effect_generation_tables()
     record_type = CATEGORY_TO_TYPE[playthrough]
     candidates: list[
         tuple[int, int, int, int, int, int, int, int, int, int, int]
@@ -137,8 +142,10 @@ def _candidate_configuration(
 def _special_group_lookup(
     rarity: int,
     special_mapping: GraceOutputMap | None,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> tuple[tuple[int, int, int, int], ...]:
-    tables = load_default_effect_generation_tables()
+    if tables is None:
+        tables = load_default_effect_generation_tables()
     if rarity == 3:
         group = tables.group_for_effect(0x0001)
         return (
@@ -215,6 +222,7 @@ def match_partial_effect_constraints_batch(
     required_secondary_id_groups: tuple[frozenset[int], ...],
     special_mapping: GraceOutputMap | None,
     level: int = 180,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> EffectBatchFilterResult | None:
     """Return per-Seed masks for an exact partial-effect forward pass."""
 
@@ -257,11 +265,12 @@ def match_partial_effect_constraints_batch(
         playthrough,
         rarity,
         level,
+        tables,
     )
     masks = match_effect_constraints_d3d11(
         seeds,
         candidates=candidates,
-        special_groups=_special_group_lookup(rarity, special_mapping),
+        special_groups=_special_group_lookup(rarity, special_mapping, tables),
         category_capacities=capacities,
         criterion_groups=tuple(groups),
         rarity=rarity,

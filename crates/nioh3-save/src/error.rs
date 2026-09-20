@@ -44,6 +44,13 @@ pub enum SaveReadError {
     UnknownIdentifier { kind: &'static str, value: String },
     /// A commit finished in a state that cannot be proven either way.
     CommitUncertain { message: String },
+    /// The target bytes were durably committed, but the terminal record could
+    /// not be persisted. Distinct from [`Self::CommitUncertain`]: the caller
+    /// must not treat this as a replayable, not-committed operation.
+    CommitCompletedWithWarning {
+        operation_id: String,
+        warning: String,
+    },
     /// `decrypt_container` was handed bytes that are already clear.
     ContainerAlreadyClear,
     /// `encrypt_container` was handed bytes that are already a container.
@@ -74,6 +81,13 @@ pub enum SaveReadError {
     PlanTargetMismatch { expected: String, actual: String },
     /// The fault gate injected a failure at a named commit stage.
     InjectedFault { stage: String },
+    /// A new write plan was refused because the same save still owns an
+    /// unresolved operation from an earlier process.
+    UnresolvedTargetOperation {
+        operation_id: String,
+        outcome: String,
+        detail: String,
+    },
     /// A batch install found colliding record serials it must not rewrite.
     AppendOnlyRepairRequired,
     /// A batch install has no contiguous run long enough for its records.
@@ -147,6 +161,14 @@ impl fmt::Display for SaveReadError {
                 formatter,
                 "the commit finished in an unprovable state: {message}; query the receipt before retrying"
             ),
+            Self::CommitCompletedWithWarning {
+                operation_id,
+                warning,
+            } => write!(
+                formatter,
+                "operation {operation_id} committed, but its terminal record could not be persisted: \
+                 {warning}; do not retry the same operation id"
+            ),
             Self::ContainerAlreadyClear => {
                 write!(formatter, "the buffer is already decrypted, not an encrypted container")
             }
@@ -199,6 +221,15 @@ impl fmt::Display for SaveReadError {
             Self::InjectedFault { stage } => {
                 write!(formatter, "an injected fault fired at commit stage {stage}")
             }
+            Self::UnresolvedTargetOperation {
+                operation_id,
+                outcome,
+                detail,
+            } => write!(
+                formatter,
+                "UNRESOLVED_OPERATION: {operation_id} ({outcome}) still owns this save: {detail}; \
+                 inspect that operation before preparing another write"
+            ),
             Self::AppendOnlyRepairRequired => write!(
                 formatter,
                 "APPEND_ONLY_REPAIR_REQUIRED: existing scroll generation serials collide; \

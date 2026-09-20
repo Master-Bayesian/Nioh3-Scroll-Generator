@@ -35,6 +35,13 @@ SCHEMA_DIR = ROOT / "packages" / "contracts"
 DATA_ROOT = ROOT / "nioh3_scroll_editor" / "data"
 ACCELERATOR = ROOT / "bin" / "nioh3_seed_accelerator.dll"
 MAX_FRAME_BYTES = 4 * 1024 * 1024
+# One explicit production version both roles are launched with, so the
+# version-bound `context_digest` is a deliberate shared authority rather than an
+# accident of whatever the host resolves.
+PRODUCTION_GAME_FILE_VERSION = "2.0.2.0"
+# A different shipped version: a distinct primary identity that shares only the
+# proof-only pre-version digest, so it can prove authority separation.
+OTHER_GAME_FILE_VERSION = "2.0.0.2"
 
 sys.path.insert(0, str(ROOT))
 
@@ -423,6 +430,8 @@ class SearchWorkerParityTests(unittest.TestCase):
         binary_path = Path(env["CARGO_TARGET_DIR"]) / "debug" / f"{binary}.exe"
         common = [
             "--dev-preview-only",
+            "--game-file-version",
+            PRODUCTION_GAME_FILE_VERSION,
             "--data-root",
             str(DATA_ROOT),
             "--contract-dir",
@@ -435,7 +444,14 @@ class SearchWorkerParityTests(unittest.TestCase):
             "--accelerator",
             str(ROOT / "bin" / "definitely-not-present-accelerator.dll"),
         ]
-        cls.python_argv = [sys.executable, "-u", "-m", "nioh3_scroll_editor.search_worker"]
+        cls.python_argv = [
+            sys.executable,
+            "-u",
+            "-m",
+            "nioh3_scroll_editor.search_worker",
+            "--game-file-version",
+            PRODUCTION_GAME_FILE_VERSION,
+        ]
         cls.search_pending = cls._search_surface_pending()
         cls.cuda_available = cls._cuda_available()
 
@@ -497,6 +513,130 @@ class SearchWorkerParityTests(unittest.TestCase):
 
     def handshake_context(self, worker: FramedProcess) -> dict:
         return worker.result("handshake")["context"]
+
+    def assert_shared_production_identity(
+        self, rust: FramedProcess, python: FramedProcess
+    ) -> str:
+        """The two roles must resolve one identical production identity.
+
+        Both workers are launched with the same explicit game file version and
+        the same accelerator policy, so every resolved proof field must agree and
+        the version-bound `context_digest` is the shared authority. The
+        proof-only `legacy_context_digest` is asserted separately as diagnostics.
+        """
+
+        rust_context = self.handshake_context(rust)
+        python_context = self.handshake_context(python)
+        for field in (
+            "product_version",
+            "game_profile",
+            "resources_digest",
+            "algorithm_version",
+            "policy_version",
+            "context_digest",
+            "seed_accelerator_abi",
+            "seed_accelerator_build_id",
+            "game_file_version",
+            "versioned_resource_dir",
+            "bundle_digest",
+            "versioned_digest",
+            "legacy_context_digest",
+            "production_authority",
+        ):
+            self.assertEqual(
+                rust_context[field],
+                python_context[field],
+                f"{field} must be identical once both roles pin the same identity",
+            )
+        self.assertEqual(rust_context["game_file_version"], PRODUCTION_GAME_FILE_VERSION)
+        self.assertIs(rust_context["production_authority"], True)
+        self.assertIs(python_context["production_authority"], True)
+        self.assertNotEqual(
+            rust_context["context_digest"],
+            rust_context["legacy_context_digest"],
+            "the version-bound authority must not be the pre-version proof digest",
+        )
+        return rust_context["context_digest"]
+
+    def test_production_identity_is_shared_and_the_proof_digest_is_not_authority(
+        self,
+    ) -> None:
+        """The resolved identity is shared; the proof digest alone is not authority."""
+
+        rust = self.rust_worker()
+        python = self.python_worker()
+        try:
+            shared = self.assert_shared_production_identity(rust, python)
+            self.assertEqual(len(shared), 64, shared)
+        finally:
+            rust.close()
+            python.close()
+
+    def test_a_different_explicit_version_is_rejected_by_the_authority_gate(
+        self,
+    ) -> None:
+        """A second explicit version resolves a distinct identity and is refused.
+
+        Both shipped versions share one `legacy_context_digest` (same profile,
+        same whole-root digest), which is exactly why the pre-version digest can
+        never authorize a candidate, cache, or resume. The version-bound
+        `context_digest` must differ, and a job opened under the other version
+        must be refused with the shipped context-mismatch code rather than
+        silently accepted.
+        """
+
+        rust = self.rust_worker()
+        python = self.python_worker()
+        other = FramedProcess(
+            [
+                *self.python_argv[:4],
+                "--game-file-version",
+                OTHER_GAME_FILE_VERSION,
+            ],
+            name="python worker (other version)",
+        )
+        try:
+            rust_context = self.handshake_context(rust)
+            python_context = self.handshake_context(python)
+            other_context = self.handshake_context(other)
+            self.assertEqual(other_context["game_file_version"], OTHER_GAME_FILE_VERSION)
+            self.assertIs(other_context["production_authority"], True)
+            self.assertNotEqual(
+                other_context["context_digest"],
+                rust_context["context_digest"],
+                "a different version must not share the version-bound authority",
+            )
+            self.assertNotEqual(
+                other_context["versioned_resource_dir"],
+                rust_context["versioned_resource_dir"],
+            )
+            self.assertEqual(
+                other_context["legacy_context_digest"],
+                rust_context["legacy_context_digest"],
+                "the proof-only pre-version digest is shared across versions",
+            )
+            self.assertEqual(
+                other_context["legacy_context_digest"],
+                python_context["legacy_context_digest"],
+            )
+            # The production identity is the authority: a job opened under the
+            # other version's digest is refused rather than reused.
+            params = search_params(
+                base_query(),
+                other_context["context_digest"],
+                page_trials=1000,
+                job_trials=1000,
+            )
+            refusal = rust.error_code("search.start", params)
+            self.assertEqual(
+                refusal,
+                "CONTEXT_MISMATCH",
+                "a foreign version's digest must not authorize a search job",
+            )
+        finally:
+            rust.close()
+            python.close()
+            other.close()
 
     @staticmethod
     def regression_auxiliary(shape: str) -> dict:
@@ -2978,7 +3118,11 @@ class SearchWorkerParityTests(unittest.TestCase):
         try:
             rust_context = self.handshake_context(rust)["context_digest"]
             python_context = self.handshake_context(python)["context_digest"]
-            self.assertEqual(rust_context, python_context)
+            self.assertEqual(
+                rust_context,
+                python_context,
+                "both roles must share the version-bound production authority",
+            )
 
             cases = (
                 (

@@ -28,7 +28,7 @@ pub const SCROLL_GROUP_OFFSET: usize = 0x176CCE;
 pub const SCROLL_SLOT_COUNT: usize = 400;
 
 /// Display version the live-add layout is accepted for.
-pub const LIVE_ADD_DISPLAY_VERSION: &str = "PC v2.01";
+pub const LIVE_ADD_DISPLAY_VERSION: &str = crate::mutation::native_abi::PRODUCT_DISPLAY_VERSION;
 
 fn rejected(detail: &str) -> RuntimeError {
     RuntimeError::LiveAddRejected {
@@ -309,6 +309,16 @@ pub trait LiveAddExecutor {
 
     /// `safe_to_shutdown`.
     fn safe_to_shutdown(&mut self) -> bool;
+
+    /// Display version this executor is bound to.
+    ///
+    /// The shipped fake returns the product version. A bound executor returns
+    /// the version its binding was accepted with, so the snapshots this module
+    /// records name the version the run actually proved instead of a label that
+    /// only happens to be the product's.
+    fn display_version(&self) -> &str {
+        LIVE_ADD_DISPLAY_VERSION
+    }
 }
 
 /// The checkpoint the save side produces for every live-addition operation.
@@ -528,7 +538,7 @@ impl LiveAddApplication {
             let previous_directory = self.operations.directory(previous_operation_id)?;
             let verified_after = read_json(&previous_directory.join("inventory-after.json"))?;
             let verified_index = read_json(&previous_directory.join("index-after.json"))?;
-            let before_json = inventory_json(&before, LIVE_ADD_DISPLAY_VERSION);
+            let before_json = inventory_json(&before, self.executor.display_version());
             for field in [
                 "pid",
                 "entries",
@@ -556,8 +566,8 @@ impl LiveAddApplication {
         let plan_value = Value::Object(plan.clone());
         let preview = self.executor.preview(&plan_value, &assembly)?;
         let (after_preview, after_index) = self.executor.readback()?;
-        let before_json = inventory_json(&before, LIVE_ADD_DISPLAY_VERSION);
-        let after_json = inventory_json(&after_preview, LIVE_ADD_DISPLAY_VERSION);
+        let before_json = inventory_json(&before, self.executor.display_version());
+        let after_json = inventory_json(&after_preview, self.executor.display_version());
         for field in [
             "pid",
             "entries",
@@ -583,7 +593,7 @@ impl LiveAddApplication {
         plan.insert("expected_record_hex".to_string(), json!(hex(&assembly)));
         plan.insert(
             "before".to_string(),
-            inventory_json(&before, LIVE_ADD_DISPLAY_VERSION),
+            inventory_json(&before, self.executor.display_version()),
         );
         plan.insert("index_before".to_string(), index_before.to_json());
         plan.insert("source_save_sha256".to_string(), json!(source_sha256));
@@ -593,7 +603,7 @@ impl LiveAddApplication {
         );
         plan.insert(
             "persistence_baseline".to_string(),
-            inventory_json(&persistence_baseline, LIVE_ADD_DISPLAY_VERSION),
+            inventory_json(&persistence_baseline, self.executor.display_version()),
         );
         plan.insert(
             "previous_operation_id".to_string(),
@@ -778,7 +788,7 @@ impl LiveAddApplication {
             ("execution", execution.clone()),
             (
                 "inventory-after",
-                inventory_json(&after, LIVE_ADD_DISPLAY_VERSION),
+                inventory_json(&after, self.executor.display_version()),
             ),
             ("index-after", index_after.to_json()),
         ];

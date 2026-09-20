@@ -1,12 +1,12 @@
 # Product feature catalog
 
-Status: **implementation checkpoint; the current working tree is not a published release**
+Status: **shipped feature catalog for the published v0.7.4 stable release; unreleased v0.8.0 work is recorded in [releases/v0.8.0.md](releases/v0.8.0.md)**
 
-Last updated: 2026-09-14
+Last updated: 2026-09-15
 
 This file is the durable index of shipped product behavior. It is deliberately compact: detailed technical and reverse-engineering evidence stays in `docs/knowledge/`, while planning state stays in the shared spreadsheet.
 
-The initial entries below are grounded in the current player README and current handoff. They cover the primary shipped workflows but have not yet been reconciled screen by screen against the packaged v0.7.3 candidate. Future product work should verify and improve the affected entries rather than treating this bootstrap list as exhaustive.
+The initial entries below are grounded in the current player README and current handoff. They cover the primary shipped workflows but have not yet been reconciled screen by screen against the published v0.7.4 release. Future product work should verify and improve the affected entries rather than treating this bootstrap list as exhaustive.
 
 ## Shipped capabilities
 
@@ -27,10 +27,10 @@ The initial entries below are grounded in the current player README and current 
 
 ## Known reconciliation work
 
-- The enemy-state search and preview implementation is present in the working tree but has not been packaged, published, or accepted as a live-game write/persistence feature. Keep its bounded PC v2.01 / NG3 scope visible until a release is authorized.
+- The enemy-state search and preview implementation is packaged and published in v0.7.4. Its acceptance did not add a live-game write, save mutation, or persistence claim; keep its bounded PC v2.01 / NG3 scope visible.
 - Preview cards now use paired label/value typography for the recommendation level and challenge-count fields; the English title overflow case is covered by the native WebView2 acceptance.
-- The current UI micro-tuning is an unpublished working-tree/native WebView2 bounded acceptance only. Local evidence is recorded at `deliverables/v074-ui-acceptance-short-labels-20260914/verification.json`: all tested views fit at normal and maximized geometry, the selected-conditions and compact enemy layouts remain reachable, localized Wraith labels are centered inline, and favorites match the fixed preview geometry with local metadata search. This does not establish packaged, published, live-game, save, or persistence acceptance.
+- The current UI micro-tuning shipped in v0.7.4 and is covered by a native WebView2 bounded acceptance. Local evidence is recorded at `deliverables/v074-ui-acceptance-short-labels-20260914/verification.json`: all tested views fit at normal and maximized geometry, the selected-conditions and compact enemy layouts remain reachable, localized Wraith labels are centered inline, and favorites match the fixed preview geometry with local metadata search. This does not establish live-game, save, or persistence acceptance.
 
-- Reconcile every v0.7.3 packaged screen against this catalog before the next broad UI migration is declared complete.
+- Reconcile every v0.7.4 packaged screen against this catalog before the next broad UI migration is declared complete.
 - Add focused regression and acceptance links when an entry is next changed; do not perform a repository-wide evidence backfill during an unrelated fix.
 - Keep intentionally unavailable or coming-soon tools separate from shipped capabilities until their workflows and safety boundaries are accepted.

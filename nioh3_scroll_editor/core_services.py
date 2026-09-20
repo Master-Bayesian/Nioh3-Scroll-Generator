@@ -23,6 +23,7 @@ from .version import APP_VERSION
 
 if TYPE_CHECKING:
     from .savegame import InstallResult, SaveInstaller
+    from .resolved_context import ResolvedGenerationContext
 
 
 GENERATION_ALGORITHM_VERSION = "scroll-generation-v0.7-native-completion-1"
@@ -272,7 +273,7 @@ class CandidateApplicationService:
 
     def __init__(
         self,
-        context: GenerationContext | None = None,
+        context: GenerationContext | ResolvedGenerationContext | None = None,
         policy: OperationPolicy | None = None,
     ) -> None:
         self.context = context or GenerationContext.capture()

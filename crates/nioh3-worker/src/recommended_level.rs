@@ -237,8 +237,9 @@ mod tests {
     fn forward_curve_matches_the_captured_python_values() {
         let curve = curve();
         assert_eq!(curve.minimum_internal_level, 156);
-        assert_eq!(curve.maximum_internal_level, 1400);
-        assert_eq!(curve.displayed_level_bounds(), (142, 700));
+        // The current supported bound is raw 600 -> displayed 356.
+        assert_eq!(curve.maximum_internal_level, 600);
+        assert_eq!(curve.displayed_level_bounds(), (142, 356));
         for (raw, expected) in [
             (0, 142),
             (155, 142),
@@ -252,10 +253,11 @@ mod tests {
             (230, 180),
             (300, 214),
             (500, 292),
-            (1000, 549),
-            (1300, 699),
-            (1399, 700),
-            (1400, 700),
+            (599, 356),
+            (600, 356),
+            // Above the bound the constructor clamp is what moves the value.
+            (601, 356),
+            (1400, 356),
         ] {
             assert_eq!(
                 curve.displayed_level(curve.canonical_internal_level(raw)),
@@ -265,10 +267,20 @@ mod tests {
         }
     }
 
+    /// The captured curve points survive the bound change untouched.
+    #[test]
+    fn the_curve_points_still_carry_the_legacy_display_mapping() {
+        let curve = curve();
+        assert_eq!(curve.displayed_level(1000), 549);
+        assert_eq!(curve.displayed_level(1300), 699);
+        assert_eq!(curve.displayed_level(1301), 700);
+        assert_eq!(curve.displayed_level(1400), 700);
+    }
+
     #[test]
     fn inverse_resolution_matches_the_captured_python_values() {
         let curve = curve();
-        let cases: [(i32, &str, Vec<i32>, Option<i32>); 10] = [
+        let cases: [(i32, &str, Vec<i32>, Option<i32>); 8] = [
             (-5, "out_of_range", Vec::new(), None),
             (0, "out_of_range", Vec::new(), None),
             (137, "out_of_range", Vec::new(), None),
@@ -276,11 +288,8 @@ mod tests {
             (200, "exact", vec![272, 273], Some(272)),
             (250, "exact", vec![420], Some(420)),
             (313, "exact", vec![521], Some(521)),
-            (530, "exact", vec![961, 962, 963], Some(961)),
-            // The curve saturates at internal 1301, so every internal level up
-            // to the 1400 cap predicts displayed 700.
-            (700, "exact", (1301..=1400).collect(), Some(1301)),
-            (701, "out_of_range", Vec::new(), None),
+            // Display 356 is the top of the canonical range, reached by 599/600.
+            (356, "exact", vec![599, 600], Some(599)),
         ];
         for (requested, status, alternatives, selected) in cases {
             let resolution = curve.resolve_displayed_level(requested);
@@ -293,6 +302,15 @@ mod tests {
                 resolution.selected_internal_level, selected,
                 "requested {requested}"
             );
+        }
+        // 530 sat exactly under the old bound and is out of range now; the
+        // legacy plateau is still inside the captured points but is no longer
+        // reachable through the bound-limited inverse.
+        for requested in [530, 357, 700, 701] {
+            let resolution = curve.resolve_displayed_level(requested);
+            assert_eq!(resolution.status, "out_of_range", "requested {requested}");
+            assert!(resolution.canonical_internal_levels.is_empty());
+            assert_eq!(resolution.selected_internal_level, None);
         }
     }
 
@@ -320,9 +338,9 @@ mod tests {
             curve.metadata(),
             serde_json::json!({
                 "minimum_internal_level": 156,
-                "maximum_internal_level": 1400,
+                "maximum_internal_level": 600,
                 "minimum_displayed_level": 142,
-                "maximum_displayed_level": 700,
+                "maximum_displayed_level": 356,
                 "selection_policy": "lowest_canonical_internal_level",
                 "evidence": "captured_native_curve_prediction",
             })

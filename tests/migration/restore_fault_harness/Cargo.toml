@@ -1,0 +1,11 @@
+[package]
+name = "nioh3-restore-fault-harness"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+nioh3-save = { path = "../../../crates/nioh3-save" }
+serde_json = "1"
+
+[workspace]

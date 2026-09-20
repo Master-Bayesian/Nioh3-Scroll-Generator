@@ -49,6 +49,14 @@ from emaki_exchange import (  # noqa: E402
     compute_user_checksum,
 )
 from tests.migration.cargo_target import resolved_cargo_target_dir  # noqa: E402
+from tests.migration.save_restore_fixture import (  # noqa: E402
+    assert_generations_distinct,
+    generation_bytes,
+    generation_digests,
+    read_generation,
+    write_backup_bundle,
+    write_generation,
+)
 from tests.migration.test_protected_worker_parity import FramedWorker  # noqa: E402
 from tests.migration.test_save_read_parity import (  # noqa: E402
     SCROLL_GROUP_OFFSET,
@@ -72,6 +80,34 @@ JOB_TIMEOUT_SECONDS = 300
 # the Rust host keeps its transaction state under `protected-internal`.
 SHIPPED_BACKUP_SUBDIR = Path("backups")
 RUST_BACKUP_SUBDIR = Path("protected-internal") / "backups"
+RESTORE_FAULT_HARNESS = (
+    ROOT / "tests" / "migration" / "restore_fault_harness" / "Cargo.toml"
+)
+
+# The product data root and the two offline generation resource directories the
+# protected save role's lazy loaders resolve. PC v2.00.02 aliases the shipped
+# payload; PC v2.02 owns its own directory, so each identity has exactly one
+# resource to read.
+DATA_ROOT = ROOT / "nioh3_scroll_editor" / "data"
+LEGACY_R4_RESOURCE_DIR = "r4_finalizer/pc_v2_00_02/resource_v1"
+V202_R4_RESOURCE_DIR = "r4_finalizer/pc_v2_02/resource_v1"
+V202_GAME_FILE_VERSION = "2.0.2.0"
+# The shipped protected context projection, published unchanged by this ticket.
+PROTECTED_CONTEXT_KEYS = (
+    "product_version",
+    "game_profile",
+    "resources_digest",
+    "algorithm_version",
+    "policy_version",
+    "context_digest",
+    "seed_accelerator_abi",
+    "seed_accelerator_build_id",
+)
+# A rarity-4 Seed whose effect-sequence candidate both implementations accept.
+VERSIONED_CANDIDATE_SEED = 1
+VERSIONED_CANDIDATE_RARITY = 4
+VERSIONED_CANDIDATE_LEVEL = 180
+RECOMMENDED_LEVEL = 183
 
 
 def sha256_file(path: Path) -> str:
@@ -93,6 +129,85 @@ def stored_checksum(blob: bytes) -> int:
     import struct
 
     return struct.unpack_from("<I", blob, USER_CHECKSUM_VALUE_OFFSET)[0]
+
+
+class SearchWorkerClient:
+    """Minimal framed client for the read-only search worker.
+
+    `tests/migration/test_application_worker_parity.FramedProcess` validates
+    every frame against `packages/contracts/response.schema.json`, whose context
+    object requires the version-bound production proof fields. The read-only
+    worker's explicit `--legacy-test-context` handshake is deliberately
+    non-production, so it cannot satisfy that schema; the legacy resource oracle
+    is therefore driven here without the production-only projection gate. Every
+    value this gate compares still comes from the worker's own framed reply, and
+    the protected side keeps its own schema-validated client.
+    """
+
+    MAX_FRAME_BYTES = 1 << 26
+
+    def __init__(self, argv: list[str], *, name: str, env: dict[str, str]) -> None:
+        self.name = name
+        self.counter = 0
+        self.pending_id: str | None = None
+        self.process = subprocess.Popen(
+            argv,
+            cwd=str(ROOT),
+            env=env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        handshake = self.call("handshake")
+        if not handshake.get("ok"):
+            raise AssertionError(f"{self.name} refused the handshake: {handshake}")
+        self.context = handshake["result"]["context"]
+        self.digest = self.context["context_digest"]
+
+    def call(self, method: str, params: dict | None = None) -> dict:
+        import struct
+
+        self.counter += 1
+        request_id = f"rw06-{self.counter}"
+        body = json.dumps(
+            {"protocol": 1, "id": request_id, "method": method, "params": params or {}},
+            separators=(",", ":"),
+        ).encode("utf-8")
+        assert self.process.stdin is not None and self.process.stdout is not None
+        self.process.stdin.write(struct.pack("<I", len(body)) + body)
+        self.process.stdin.flush()
+        self.pending_id = request_id
+        header = self.process.stdout.read(4)
+        if len(header) != 4:
+            raise EOFError(f"{self.name} closed stdout")
+        (size,) = struct.unpack("<I", header)
+        if size > self.MAX_FRAME_BYTES:
+            raise ValueError(f"{self.name} frame exceeds the contract limit: {size}")
+        payload = self.process.stdout.read(size)
+        if len(payload) != size:
+            raise EOFError(f"{self.name} frame truncated")
+        frame = json.loads(payload.decode("utf-8"))
+        if frame.get("id") != self.pending_id:
+            raise AssertionError(
+                f"{self.name} replied to {frame.get('id')!r} while "
+                f"{self.pending_id!r} was outstanding"
+            )
+        return frame
+
+    def result(self, method: str, params: dict | None = None) -> dict:
+        reply = self.call(method, params)
+        if not reply.get("ok"):
+            raise AssertionError(f"{self.name} {method} failed: {reply.get('error')}")
+        return reply["result"]
+
+    def close(self) -> int:
+        try:
+            self.call("shutdown")
+        except (EOFError, AssertionError):
+            pass
+        assert self.process.stdin is not None
+        self.process.stdin.close()
+        return self.process.wait(timeout=120)
 
 
 def drain(worker: FramedWorker, log_path: Path | None = None) -> None:
@@ -172,6 +287,26 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
         native_transform(plain, container)
         cls.container = container.read_bytes()
         cls.plain = plain.read_bytes()
+        restore_b = bytearray(cls.plain)
+        restore_b[SCROLL_GROUP_OFFSET + 0x20 : SCROLL_GROUP_OFFSET + 0x24] = (
+            0xB0B0B0B0
+        ).to_bytes(4, "little")
+        restore_b_plain = cls.root / "restore-b-plain.bin"
+        restore_b_plain.write_bytes(bytes(restore_b))
+        restore_b_container = cls.root / "restore-b-container.bin"
+        native_transform(restore_b_plain, restore_b_container)
+        restore_c = bytearray(cls.plain)
+        restore_c[SCROLL_GROUP_OFFSET + 0x20 : SCROLL_GROUP_OFFSET + 0x24] = (
+            0xC0C0C0C0
+        ).to_bytes(4, "little")
+        restore_c_plain = cls.root / "restore-c-plain.bin"
+        restore_c_plain.write_bytes(bytes(restore_c))
+        restore_c_container = cls.root / "restore-c-container.bin"
+        native_transform(restore_c_plain, restore_c_container)
+        cls.restore_a = generation_bytes(cls.container, "generation-a")
+        cls.restore_b = generation_bytes(restore_b_container.read_bytes(), "generation-b")
+        cls.restore_c = generation_bytes(restore_c_container.read_bytes(), "generation-c")
+        assert_generations_distinct(cls.restore_a, cls.restore_b, cls.restore_c)
         cls.parity_gaps: list[str] = []
         cls.performance_findings: list[str] = []
 
@@ -220,6 +355,35 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
         state.mkdir()
         return save, state
 
+    def isolated_restore_case(self, name: str) -> tuple[Path, Path, str, Path]:
+        """Create B targets and an authenticated A source bundle."""
+
+        save, state = self.isolated(name)
+        write_generation(save, self.restore_b)
+        assert_generations_distinct(self.restore_a, self.restore_b, self.restore_c)
+        self.assert_generation(
+            save, self.restore_b, "precondition: target must be generation B"
+        )
+        backup_id = f"20260920-{name}-source-a"
+        bundle = write_backup_bundle(
+            state,
+            backup_id,
+            self.restore_a,
+            account_id=int(ACCOUNT),
+        )
+        return save, state, backup_id, bundle
+
+    def assert_generation(
+        self, save: Path, expected: dict[str, bytes], message: str
+    ) -> None:
+        actual = read_generation(save)
+        mismatched = [role for role in expected if actual[role] != expected[role]]
+        self.assertFalse(
+            mismatched,
+            f"{message}; mismatched_roles={mismatched}; "
+            f"actual={generation_digests(actual)}; expected={generation_digests(expected)}",
+        )
+
     def rust_worker(
         self,
         state: Path,
@@ -232,6 +396,10 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
                 "--role",
                 "save",
                 "--dev-protected-only",
+                # This gate drives a synthetic fixture, not an installed game, so
+                # it opts into the explicit non-production context instead of
+                # claiming a real game executable version.
+                "--legacy-test-context",
                 "--state-root",
                 str(state),
                 "--data-root",
@@ -261,6 +429,185 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
         )
         drain(worker)
         return worker
+
+    def run_restore_harness(self, arguments: list[str]) -> subprocess.CompletedProcess[str]:
+        """Drive a save-core Restore beside the real protected host state."""
+
+        return subprocess.run(
+            [
+                "cargo",
+                "run",
+                "--offline",
+                "--quiet",
+                "--manifest-path",
+                str(RESTORE_FAULT_HARNESS),
+                "--",
+                *arguments,
+            ],
+            cwd=str(ROOT),
+            env={**os.environ, "CARGO_TARGET_DIR": str(self.target)},
+            capture_output=True,
+            text=True,
+            timeout=600,
+            check=False,
+        )
+
+    # ------------------------------------------------- versioned resources
+
+    def resource_data_root(self, name: str, *, poison: str | None = None) -> Path:
+        """A task-local copy of the product data root with one directory removed.
+
+        Removing a resource directory is the fail-on-call marker: the loaders
+        verify manifest presence and digests, so a host that resolves the removed
+        identity reports the missing directory by name instead of substituting
+        the other version's payload.
+        """
+
+        root = self.root / f"{name}-data"
+        shutil.copytree(DATA_ROOT, root)
+        if poison is not None:
+            target = root / poison
+            self.assertTrue(
+                target.is_dir(), f"the resource that must be poisoned is missing: {target}"
+            )
+            shutil.rmtree(target)
+        return root
+
+    def versioned_rust_worker(
+        self,
+        state: Path,
+        *,
+        data_root: Path,
+        game_file_version: str | None = None,
+        legacy: bool = False,
+        stderr_log: Path | None = None,
+    ) -> FramedWorker:
+        """The protected save host launched with one explicit resource identity."""
+
+        if legacy:
+            identity = ["--legacy-test-context"]
+        else:
+            if game_file_version is None:
+                raise AssertionError("a production launch needs --game-file-version")
+            identity = ["--game-file-version", game_file_version]
+        worker = FramedWorker(
+            [
+                str(self.rust_binary),
+                "--role",
+                "save",
+                "--dev-protected-only",
+                *identity,
+                "--state-root",
+                str(state),
+                "--data-root",
+                str(data_root),
+                "--contract-dir",
+                str(ROOT / "packages" / "contracts"),
+                # The context digest folds the accelerator identity, so both
+                # sides of the comparison must be pointed at the same one.
+                *self.accelerator_arguments(),
+            ],
+            cwd=ROOT,
+            env={**os.environ, "NIOH3_STATE_ROOT": str(state)},
+            name=f"rust-versioned-{state.name}",
+        )
+        drain(worker, stderr_log)
+        return worker
+
+    @staticmethod
+    def accelerator_arguments() -> list[str]:
+        """The one accelerator identity both comparison sides resolve."""
+
+        accelerator = ROOT / "bin" / "nioh3_seed_accelerator.dll"
+        return ["--accelerator", str(accelerator)] if accelerator.is_file() else []
+
+    @classmethod
+    def readonly_worker_binary(cls) -> Path:
+        """The read-only search worker, built once per test session."""
+
+        cached = getattr(cls, "_readonly_worker_binary", None)
+        if cached is not None:
+            return cached
+        manifest = ROOT / "crates" / "nioh3-worker" / "Cargo.toml"
+        if not manifest.is_file():
+            raise AssertionError(f"the read-only worker crate is missing: {manifest}")
+        cargo = shutil.which("cargo")
+        if cargo is None:
+            raise AssertionError("cargo is required to build the read-only worker")
+        target = resolved_cargo_target_dir("protected-readonly-worker")
+        build = subprocess.run(
+            [
+                cargo,
+                "build",
+                "--offline",
+                "--manifest-path",
+                str(manifest),
+                "--bin",
+                "nioh3-readonly-worker",
+            ],
+            cwd=str(ROOT),
+            env={**os.environ, "CARGO_TARGET_DIR": target},
+            capture_output=True,
+            timeout=3600,
+        )
+        if build.returncode != 0:
+            raise AssertionError(
+                "the read-only worker did not build: "
+                + build.stderr.decode("utf-8", "replace")[-4000:]
+            )
+        binary = Path(target) / "debug" / "nioh3-readonly-worker.exe"
+        if not binary.is_file():
+            raise AssertionError(f"missing read-only worker binary: {binary}")
+        cls._readonly_worker_binary = binary
+        return binary
+
+    def readonly_worker(
+        self,
+        *,
+        data_root: Path,
+        game_file_version: str | None = None,
+        legacy: bool = False,
+    ) -> SearchWorkerClient:
+        """The shipped search side: the same resource the save role receives."""
+
+        if legacy:
+            identity = ["--legacy-test-context"]
+        else:
+            if game_file_version is None:
+                raise AssertionError("a production launch needs --game-file-version")
+            identity = ["--game-file-version", game_file_version]
+        argv = [
+            str(self.readonly_worker_binary()),
+            "--dev-preview-only",
+            *identity,
+            "--data-root",
+            str(data_root),
+            "--contract-dir",
+            str(ROOT / "packages" / "contracts"),
+            *self.accelerator_arguments(),
+        ]
+        client = SearchWorkerClient(argv, name="read-only worker", env={**os.environ})
+        self.addCleanup(client.close)
+        return client
+
+    def protected_context(self, worker: FramedWorker) -> dict:
+        handshake = worker.call("handshake")
+        self.assertTrue(handshake["ok"], handshake)
+        self.assertEqual(handshake["result"]["role"], "save")
+        return handshake["result"]["context"]
+
+    def worker_candidate(self, worker: SearchWorkerClient) -> tuple[dict, dict]:
+        """One rarity-4 candidate the search side composed under its own version."""
+
+        preview = worker.result(
+            "candidate.preview",
+            {
+                "seed": VERSIONED_CANDIDATE_SEED,
+                "rarity": VERSIONED_CANDIDATE_RARITY,
+                "level": VERSIONED_CANDIDATE_LEVEL,
+            },
+        )
+        return preview["candidate"], preview["transfer"]
 
     # ------------------------------------------------------------- protocols
 
@@ -1097,6 +1444,18 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
         canonical.mkdir(parents=True, exist_ok=True)
         shutil.copytree(shipped_bundle, canonical / backup_id)
         manifest_before = sha256_file(canonical / backup_id / "backup-manifest.json")
+        source_generation = {
+            "main_save": (canonical / backup_id / "SAVEDATA.BIN").read_bytes(),
+            "game_backup": (canonical / backup_id / "BACKUP.BIN").read_bytes(),
+            "system_save": (canonical / backup_id / "SYSTEMSAVEDATA.BIN").read_bytes(),
+        }
+        write_generation(rust_save, self.restore_b)
+        assert_generations_distinct(source_generation, self.restore_b, self.restore_c)
+        self.assertNotEqual(
+            generation_digests(read_generation(rust_save)),
+            generation_digests(source_generation),
+            "precondition: Rust target B must differ from selected backup A",
+        )
 
         rust = self.rust_worker(rust_state)
         try:
@@ -1131,6 +1490,11 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
                 rust_save.read_bytes(),
                 self.container,
                 "the restore must return the checkpointed (pre-edit) generation exactly",
+            )
+            self.assert_generation(
+                rust_save,
+                source_generation,
+                "restore must install Main, Backup and System from one authenticated A bundle",
             )
             self.assertNotEqual(
                 rust_save.read_bytes(),
@@ -1175,6 +1539,140 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
             )
         finally:
             restarted.terminate()
+
+    def test_restore_rejects_valid_manifest_with_corrupt_content(self) -> None:
+        save, state, backup_id, bundle = self.isolated_restore_case("corrupt-content")
+        source = bundle / "SAVEDATA.BIN"
+        corrupt = bytearray(source.read_bytes())
+        corrupt[len(corrupt) // 2] ^= 0x5A
+        source.write_bytes(bytes(corrupt))
+        rust = self.rust_worker(state)
+        try:
+            self.handshake_digest(rust)
+            registered = self.register(rust, save)
+            inventory = self.inventory(rust, registered["save_id"])
+            self.drive_failure(
+                rust,
+                "save.prepare_restore",
+                {
+                    "save_id": registered["save_id"],
+                    "snapshot_id": inventory["snapshot_id"],
+                    "backup_id": backup_id,
+                },
+            )
+            self.assert_generation(
+                save, self.restore_b, "corrupt source must leave generation B unchanged"
+            )
+        finally:
+            rust.terminate()
+
+    def test_restore_rejects_source_swapped_after_prepare(self) -> None:
+        save, state, backup_id, bundle = self.isolated_restore_case("source-swap")
+        rust = self.rust_worker(state)
+        try:
+            self.handshake_digest(rust)
+            registered = self.register(rust, save)
+            inventory = self.inventory(rust, registered["save_id"])
+            plan = self.drive(
+                rust,
+                "save.prepare_restore",
+                {
+                    "save_id": registered["save_id"],
+                    "snapshot_id": inventory["snapshot_id"],
+                    "backup_id": backup_id,
+                },
+            )
+            for role, name in (
+                ("main_save", "SAVEDATA.BIN"),
+                ("game_backup", "BACKUP.BIN"),
+                ("system_save", "SYSTEMSAVEDATA.BIN"),
+            ):
+                (bundle / name).write_bytes(self.restore_c[role])
+            self.drive_failure(rust, "save.commit", {"plan_id": plan["plan_id"]})
+            self.assert_generation(
+                save,
+                self.restore_b,
+                "a source swap after prepare must not replace any B role",
+            )
+        finally:
+            rust.terminate()
+
+    def test_restore_rejects_wrong_manifest_size_or_hash(self) -> None:
+        for field in ("size", "sha256"):
+            with self.subTest(field=field):
+                save, state, backup_id, bundle = self.isolated_restore_case(
+                    f"manifest-{field}"
+                )
+                manifest_path = bundle / "backup-manifest.json"
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                main = next(
+                    entry
+                    for entry in manifest["backup_files"]
+                    if entry["source_role"] == "main_save"
+                )
+                main[field] = main[field] + 1 if field == "size" else "0" * 64
+                manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+                rust = self.rust_worker(state)
+                try:
+                    self.handshake_digest(rust)
+                    registered = self.register(rust, save)
+                    inventory = self.inventory(rust, registered["save_id"])
+                    self.drive_failure(
+                        rust,
+                        "save.prepare_restore",
+                        {
+                            "save_id": registered["save_id"],
+                            "snapshot_id": inventory["snapshot_id"],
+                            "backup_id": backup_id,
+                        },
+                    )
+                    self.assert_generation(
+                        save,
+                        self.restore_b,
+                        f"wrong manifest {field} must leave generation B unchanged",
+                    )
+                finally:
+                    rust.terminate()
+
+    def test_restore_rejects_missing_or_aliased_role(self) -> None:
+        for shape in ("missing", "aliased"):
+            with self.subTest(shape=shape):
+                save, state = self.isolated(f"manifest-role-{shape}")
+                write_generation(save, self.restore_b)
+                backup_id = f"20260920-role-{shape}-source-a"
+                options: dict[str, object]
+                if shape == "missing":
+                    options = {"omitted_roles": {"game_backup"}}
+                else:
+                    options = {"file_overrides": {"game_backup": "SAVEDATA.BIN"}}
+                write_backup_bundle(
+                    state,
+                    backup_id,
+                    self.restore_a,
+                    account_id=int(ACCOUNT),
+                    **options,
+                )
+                rust = self.rust_worker(state)
+                try:
+                    self.handshake_digest(rust)
+                    registered = self.register(rust, save)
+                    inventory = self.inventory(rust, registered["save_id"])
+                    self.drive_failure(
+                        rust,
+                        "save.prepare_restore",
+                        {
+                            "save_id": registered["save_id"],
+                            "snapshot_id": inventory["snapshot_id"],
+                            "backup_id": backup_id,
+                        },
+                    )
+                    self.assert_generation(
+                        save,
+                        self.restore_b,
+                        f"{shape} role source must leave generation B unchanged",
+                    )
+                finally:
+                    rust.terminate()
 
     def test_recycle_path_and_binding_refusals_match_the_shipped_host(self) -> None:
         rust_save, rust_state = self.isolated("refuse-rust")
@@ -1340,17 +1838,602 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
         finally:
             restarted.terminate()
 
+    def test_restart_projects_the_save_core_authority_onto_the_outer_ledger(self) -> None:
+        """The save-core journal decides the terminal state, not the outer ledger.
+
+        A real restore is aborted at a named save-core stage through the same
+        fault gate the crate's own matrix uses (`NIOH3_SAVE_HOST_FAULT`, unset in
+        every ordinary run). The save-core journal therefore records a terminal
+        outcome while the protected ledger keeps only its durable `executing`
+        intent. After a restart the public receipt must report the core's own
+        answer, the outer ledger must carry the same terminal word, and the two
+        identities the Pro review separated must stay separate:
+        `details.reviewed_source_sha256` is the reviewed target generation and
+        `details.installed_sha256` is the selected source bundle. An operation the
+        core already committed must never read as a fresh failure and must never
+        be replayed.
+        """
+
+        for point in ("after-replace", "after-readback"):
+            with self.subTest(point=point):
+                save, state, backup_id, bundle = self.isolated_restore_case(
+                    f"restart-{point}"
+                )
+                source_generation = {
+                    role: (bundle / name).read_bytes()
+                    for role, name in (
+                        ("main_save", "SAVEDATA.BIN"),
+                        ("game_backup", "BACKUP.BIN"),
+                        ("system_save", "SYSTEMSAVEDATA.BIN"),
+                    )
+                }
+                # The save-core fault gate is selected in the environment, and
+                # the fault aborts the whole commit at the named stage. Each
+                # attempt drives one fault and is then restarted fault-free so the
+                # restart path is exercised exactly as a crashed process would be.
+                rust = self.rust_worker(
+                    state, {"NIOH3_SAVE_HOST_FAULT": point}
+                )
+                try:
+                    self.handshake_digest(rust)
+                    registered = self.register(rust, save)
+                    inventory = self.inventory(rust, registered["save_id"])
+                    plan = self.drive(
+                        rust,
+                        "save.prepare_restore",
+                        {
+                            "save_id": registered["save_id"],
+                            "snapshot_id": inventory["snapshot_id"],
+                            "backup_id": backup_id,
+                        },
+                    )
+                    plan_id = plan["plan_id"]
+                    refusal = self.drive_or_refuse(
+                        rust, "save.commit", {"plan_id": plan_id}
+                    )
+                    self.assertEqual(
+                        refusal[0],
+                        "refused",
+                        f"{point}: the armed fault must refuse the commit",
+                    )
+                    core_receipt = (
+                        state
+                        / RUST_BACKUP_SUBDIR.parent
+                        / "v2-operations"
+                        / f"{plan_id}.json"
+                    )
+                    self.assertTrue(
+                        core_receipt.is_file(),
+                        f"{point}: the save-core journal must record a terminal outcome",
+                    )
+                    outer_path = state / "v2-operations" / f"{plan_id}.json"
+                    self.assertTrue(
+                        outer_path.is_file(),
+                        f"{point}: a claimed write must keep its durable intent",
+                    )
+                    outer_before = json.loads(outer_path.read_text(encoding="utf-8"))
+                    self.assertEqual(
+                        outer_before["commit_status"],
+                        "executing",
+                        outer_before,
+                    )
+                finally:
+                    rust.terminate()
+
+                core_outcome = json.loads(core_receipt.read_text(encoding="utf-8"))[
+                    "outcome"
+                ]
+                self.assertIn(core_outcome, ("committed", "not_committed", "uncertain"))
+                restarted = self.rust_worker(state)
+                try:
+                    self.handshake_digest(restarted)
+                    restarted_registered = self.register(restarted, save)
+                    receipt = self.drive(
+                        restarted, "save.operation", {"plan_id": plan_id}
+                    )
+                    expected = {
+                        "committed": "committed",
+                        "not_committed": "not_committed",
+                        "uncertain": "unknown",
+                    }[core_outcome]
+                    self.assertEqual(
+                        receipt["commit_status"],
+                        expected,
+                        f"{point}: the outer receipt must project the core outcome {core_outcome}",
+                    )
+                    self.assertEqual(receipt["operation_id"], plan_id)
+                    self.assertEqual(receipt["save_id"], restarted_registered["save_id"])
+                    self.assertEqual(
+                        set(receipt),
+                        {"operation_id", "save_id", "commit_status", "warning", "details"},
+                        receipt,
+                    )
+                    # The two facts stay distinct on the wire: the reviewed
+                    # target generation is the drift guard, and the installed
+                    # digest names the selected source bundle.
+                    self.assertEqual(
+                        receipt["details"]["reviewed_source_sha256"],
+                        plan["source_sha256"],
+                        receipt,
+                    )
+                    if core_outcome == "committed":
+                        self.assertEqual(
+                            receipt["details"]["installed_sha256"].lower(),
+                            sha256_file(bundle / "SAVEDATA.BIN"),
+                            "the committed digest must be the selected source bundle",
+                        )
+                        self.assertNotEqual(
+                            receipt["details"]["reviewed_source_sha256"],
+                            receipt["details"]["installed_sha256"],
+                            "the reviewed target and the installed source must not be conflated",
+                        )
+                        self.assert_generation(
+                            save,
+                            source_generation,
+                            "a committed restore must have installed the source bundle",
+                        )
+                    else:
+                        self.assert_generation(
+                            save,
+                            self.restore_b,
+                            "a rolled-back restore must leave generation B",
+                        )
+
+                    # The outer ledger carries the same terminal word as the core.
+                    outer = json.loads(
+                        (state / "v2-operations" / f"{plan_id}.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    self.assertEqual(outer["commit_status"], expected, outer)
+                    listed = self.drive(
+                        restarted,
+                        "save.operations",
+                        {"save_id": restarted_registered["save_id"]},
+                    )
+                    self.assertTrue(
+                        any(
+                            entry["operation_id"] == plan_id
+                            and entry["commit_status"] == expected
+                            for entry in listed["operations"]
+                        ),
+                        f"{point}: the restarted host must list the terminal operation: {listed}",
+                    )
+
+                    # No replay: a retry answers the durable receipt and the
+                    # installed generation does not move again.
+                    before = generation_digests(read_generation(save))
+                    retried = self.drive(restarted, "save.commit", {"plan_id": plan_id})
+                    self.assertEqual(retried["commit_status"], expected, retried)
+                    self.assertEqual(
+                        generation_digests(read_generation(save)),
+                        before,
+                        f"{point}: an already-recorded operation must not be replayed",
+                    )
+                finally:
+                    restarted.terminate()
+
+    def install_materialized_candidates(
+        self, worker: FramedWorker, save: Path, level: int = 183
+    ) -> tuple[str, dict, list[dict]]:
+        """Register one save and materialize its certified candidate batch."""
+
+        digest = self.handshake_digest(worker)
+        registered = self.register(worker, save)
+        inventory = self.inventory(worker, registered["save_id"])
+        materialized = self.drive(
+            worker,
+            "save.materialize_live_many",
+            {
+                "save_id": registered["save_id"],
+                "snapshot_id": inventory["snapshot_id"],
+                "candidates": [self.candidate_payloads(digest)[0]],
+                "recommended_level": level,
+                "transfer_count": 0,
+            },
+        )["candidates"]
+        return registered["save_id"], inventory, materialized
+
+    def prepare_install_plan(
+        self,
+        worker: FramedWorker,
+        save_id: str,
+        inventory: dict,
+        materialized: list[dict],
+        level: int = 183,
+    ) -> dict:
+        return self.drive(
+            worker,
+            "save.prepare_install_many",
+            {
+                "save_id": save_id,
+                "snapshot_id": inventory["snapshot_id"],
+                "candidates": materialized,
+                "recommended_level": level,
+                "transfer_count": 0,
+            },
+        )
+
+    def sibling_slot(self, save: Path, slot: int = 1) -> Path:
+        """A second character slot in the same account, sharing the system save."""
+
+        other = save.parent.parent / f"SAVEDATA{slot:02d}" / "SAVEDATA.BIN"
+        other.parent.mkdir(parents=True, exist_ok=True)
+        (other.parent / "BACKUP.BIN").write_bytes(b"game-backup")
+        other.write_bytes(self.container)
+        return other
+
+    def external_container(self, name: str, offset: int = 0x21) -> bytes:
+        """A container whose main generation is a third, externally written one."""
+
+        changed = bytearray(self.plain)
+        changed[SCROLL_GROUP_OFFSET + offset] ^= 0x5A
+        plain = self.root / f"{name}-plain.bin"
+        plain.write_bytes(bytes(changed))
+        container = self.root / f"{name}-container.bin"
+        native_transform(plain, container)
+        return container.read_bytes()
+
+    def test_outer_ledger_failure_keeps_the_commit_and_never_replays(self) -> None:
+        """RW02 / RF01: a failed outer ledger write never demotes a commit.
+
+        The save core succeeds - the target bytes land and are read back - and
+        only the protected host's terminal ledger write fails, once, at each of
+        its stages. The published receipt must stay committed with a warning, the
+        save-core journal must independently name the installed digest, a
+        same-process query and a same-id retry must not write again, and a restart
+        must still report the committed operation instead of turning it into a
+        failure or an unknown write.
+        """
+
+        for stage in ("temp", "write", "flush", "rename"):
+            with self.subTest(stage=stage):
+                save, state = self.isolated(f"ledger-fault-{stage}")
+                before = sha256_file(save)
+                rust = self.rust_worker(state, {"NIOH3_SAVE_LEDGER_FAULT": stage})
+                try:
+                    save_id, inventory, materialized = self.install_materialized_candidates(
+                        rust, save
+                    )
+                    plan = self.prepare_install_plan(rust, save_id, inventory, materialized)
+                    plan_id = plan["plan_id"]
+                    receipt = self.drive(rust, "save.commit", {"plan_id": plan_id})
+                    self.assertEqual(
+                        receipt["commit_status"], "committed_with_warning", receipt
+                    )
+                    self.assertIn("Operation ledger update failed", receipt["warning"])
+                    written = sha256_file(save)
+                    self.assertNotEqual(
+                        written, before, "the core commit must have landed before the fault"
+                    )
+
+                    # Independent oracle: the save-core journal, not the host's
+                    # own projection, names the installed generation.
+                    core = json.loads(
+                        (
+                            state
+                            / RUST_BACKUP_SUBDIR.parent
+                            / "v2-operations"
+                            / f"{plan_id}.json"
+                        ).read_text(encoding="utf-8")
+                    )
+                    self.assertEqual(core["outcome"], "committed", core)
+                    self.assertTrue(core["committed"], core)
+                    self.assertEqual(core["installed_sha256"].lower(), written, core)
+                    self.assertEqual(
+                        receipt["details"]["installed_sha256"].lower(), written, receipt
+                    )
+
+                    # The durable outer intent is still the only outer record, so
+                    # the failure is a persistence fact, not a missing claim.
+                    outer = json.loads(
+                        (state / "v2-operations" / f"{plan_id}.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    self.assertEqual(outer["commit_status"], "executing", outer)
+
+                    queried = self.drive(rust, "save.operation", {"plan_id": plan_id})
+                    self.assertEqual(queried["commit_status"], "committed_with_warning")
+                    self.assertEqual(sha256_file(save), written)
+                finally:
+                    rust.terminate()
+
+                # One arming per process: the restart is fault-free and must
+                # project the save-core authority instead of reporting a failure.
+                restarted = self.rust_worker(state)
+                try:
+                    self.handshake_digest(restarted)
+                    registered = self.register(restarted, save)
+                    receipt = self.drive(restarted, "save.operation", {"plan_id": plan_id})
+                    self.assertEqual(receipt["commit_status"], "committed", receipt)
+                    self.assertEqual(
+                        receipt["details"]["installed_sha256"].lower(),
+                        sha256_file(save),
+                        receipt,
+                    )
+                    outer = json.loads(
+                        (state / "v2-operations" / f"{plan_id}.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    self.assertEqual(outer["commit_status"], "committed", outer)
+                    listed = self.drive(
+                        restarted, "save.operations", {"save_id": registered["save_id"]}
+                    )
+                    self.assertTrue(
+                        any(
+                            entry["operation_id"] == plan_id
+                            and entry["commit_status"] == "committed"
+                            for entry in listed["operations"]
+                        ),
+                        listed,
+                    )
+                    retried = self.drive(restarted, "save.commit", {"plan_id": plan_id})
+                    self.assertEqual(retried["commit_status"], "committed", retried)
+                    self.assertEqual(
+                        sha256_file(save), written, "a committed operation must not replay"
+                    )
+                finally:
+                    restarted.terminate()
+
+    def test_restart_fences_a_new_plan_on_the_same_target(self) -> None:
+        """RW04 / RF02: an unresolved operation fences its own target only.
+
+        A claimed write is interrupted at a deterministic save-core stage, so the
+        operation keeps a `pending` receipt while the target bytes stay put. After
+        a restart the operation is queryable, a new plan for the same save is
+        refused with the per-role classification, an unrelated slot may still be
+        planned, an external write is named instead of being overwritten, and the
+        same operation id never writes again.
+        """
+
+        save, state = self.isolated("fence-protected")
+        other = self.sibling_slot(save)
+        before = sha256_file(save)
+        interrupted = self.rust_worker(state, {"NIOH3_SAVE_HOST_FAULT": "after-receipt"})
+        try:
+            save_id, inventory, materialized = self.install_materialized_candidates(
+                interrupted, save
+            )
+            plan = self.prepare_install_plan(interrupted, save_id, inventory, materialized)
+            plan_id = plan["plan_id"]
+            refusal = self.drive_failure(interrupted, "save.commit", {"plan_id": plan_id})
+            self.assertIn("injected fault", refusal["message"])
+            self.assertEqual(sha256_file(save), before, "the armed fault must precede the write")
+            core = json.loads(
+                (
+                    state
+                    / RUST_BACKUP_SUBDIR.parent
+                    / "v2-operations"
+                    / f"{plan_id}.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(core["outcome"], "pending", core)
+        finally:
+            interrupted.terminate()
+
+        restarted = self.rust_worker(state)
+        try:
+            self.handshake_digest(restarted)
+            registered = self.register(restarted, save)
+            registered_other = self.register(restarted, other)
+
+            # Queryable, and never a fabricated success.
+            receipt = self.drive(restarted, "save.operation", {"plan_id": plan_id})
+            self.assertEqual(receipt["commit_status"], "unknown", receipt)
+            self.assertTrue(receipt["warning"], receipt)
+
+            # Same target: refused, naming the operation and what the bytes show.
+            save_id, inventory, materialized = self.install_materialized_candidates(
+                restarted, save
+            )
+            blocked = self.drive_failure(
+                restarted,
+                "save.prepare_install_many",
+                {
+                    "save_id": save_id,
+                    "snapshot_id": inventory["snapshot_id"],
+                    "candidates": materialized,
+                    "recommended_level": 183,
+                    "transfer_count": 0,
+                },
+            )
+            self.assertIn("UNRESOLVED_OPERATION", blocked["message"])
+            self.assertIn(plan_id, blocked["message"])
+            self.assertIn("main_save=B_checkpoint", blocked["message"])
+            self.assertIn("game_backup=B_checkpoint", blocked["message"])
+            self.assertEqual(sha256_file(save), before)
+
+            # An unrelated slot in the same account is outside the fence.
+            other_id, other_inventory, other_materialized = (
+                self.install_materialized_candidates(restarted, other)
+            )
+            allowed = self.prepare_install_plan(
+                restarted, other_id, other_inventory, other_materialized
+            )
+            self.assertEqual(allowed["kind"], "install_many")
+
+            # An external C is named and preserved, and the same id never writes.
+            external = self.external_container("fence-external")
+            save.write_bytes(external)
+            external_digest = sha256_file(save)
+            blocked = self.drive_failure(
+                restarted,
+                "save.prepare_install_many",
+                {
+                    "save_id": save_id,
+                    "snapshot_id": inventory["snapshot_id"],
+                    "candidates": materialized,
+                    "recommended_level": 183,
+                    "transfer_count": 0,
+                },
+            )
+            self.assertIn("main_save=external_C", blocked["message"])
+            retried = self.drive(restarted, "save.commit", {"plan_id": plan_id})
+            self.assertEqual(retried["commit_status"], "unknown", retried)
+            self.assertEqual(sha256_file(save), external_digest)
+        finally:
+            restarted.terminate()
+
+    def test_prepared_plan_is_rechecked_at_the_protected_commit_boundary(self) -> None:
+        """RF02: a preprepared Q cannot bypass a later pending P receipt."""
+
+        save, state = self.isolated("fence-prepared-q-protected")
+        before = sha256_file(save)
+        rust = self.rust_worker(state, {"NIOH3_SAVE_HOST_FAULT": "after-receipt"})
+        try:
+            save_id, inventory, materialized = self.install_materialized_candidates(rust, save)
+            plan_p = self.prepare_install_plan(rust, save_id, inventory, materialized)
+            plan_q = self.prepare_install_plan(rust, save_id, inventory, materialized)
+            self.assertNotEqual(plan_p["plan_id"], plan_q["plan_id"])
+
+            interrupted = self.drive_failure(
+                rust, "save.commit", {"plan_id": plan_p["plan_id"]}
+            )
+            self.assertIn("injected fault", interrupted["message"])
+            self.assertEqual(sha256_file(save), before)
+            core = json.loads(
+                (
+                    state
+                    / "protected-internal"
+                    / "v2-operations"
+                    / f"{plan_p['plan_id']}.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(core["outcome"], "pending", core)
+
+            blocked = self.drive_failure(
+                rust, "save.commit", {"plan_id": plan_q["plan_id"]}
+            )
+            self.assertIn("UNRESOLVED_OPERATION", blocked["message"])
+            self.assertIn(plan_p["plan_id"], blocked["message"])
+            self.assertEqual(
+                sha256_file(save),
+                before,
+                "the final commit fence must run before Q creates side effects",
+            )
+            self.assertFalse(
+                (
+                    state
+                    / "protected-internal"
+                    / "v2-operations"
+                    / f"{plan_q['plan_id']}.json"
+                ).exists(),
+                "a refused Q must not create a receipt",
+            )
+        finally:
+            rust.terminate()
+
+    def test_restore_fence_uses_the_shared_system_path_across_slots(self) -> None:
+        """RF02: Restore conflicts through System; Main-only work does not."""
+
+        save, state, backup_p, _ = self.isolated_restore_case(
+            "fence-shared-system-protected"
+        )
+        other = self.sibling_slot(save)
+        write_generation(other, self.restore_b)
+        backup_q = "20260920-fence-shared-system-slot1-source-a"
+        write_backup_bundle(
+            state,
+            backup_q,
+            self.restore_a,
+            account_id=int(ACCOUNT),
+            save_slot_index=1,
+        )
+
+        rust = self.rust_worker(state)
+        try:
+            self.handshake_digest(rust)
+            registered_q = self.register(rust, other)
+            inventory_q = self.inventory(rust, registered_q["save_id"])
+            plan_q = self.drive(
+                rust,
+                "save.prepare_restore",
+                {
+                    "save_id": registered_q["save_id"],
+                    "snapshot_id": inventory_q["snapshot_id"],
+                    "backup_id": backup_q,
+                },
+            )
+
+            core_root = state / "protected-internal"
+            public_backups = state / "backups"
+            prepared_p = self.run_restore_harness(
+                [
+                    "prepare",
+                    "--state-root",
+                    str(core_root),
+                    "--backup-root",
+                    str(public_backups),
+                    "--save-path",
+                    str(save),
+                    "--backup-id",
+                    backup_p,
+                ]
+            )
+            self.assertEqual(
+                prepared_p.returncode,
+                0,
+                prepared_p.stdout + prepared_p.stderr,
+            )
+            plan_p = prepared_p.stdout.strip().splitlines()[0]
+            crashed_p = self.run_restore_harness(
+                [
+                    "commit",
+                    "--state-root",
+                    str(core_root),
+                    "--backup-root",
+                    str(public_backups),
+                    "--save-path",
+                    str(save),
+                    "--plan-id",
+                    plan_p,
+                    "--crash-cut",
+                    "before-replace:system_save",
+                ]
+            )
+            self.assertEqual(
+                crashed_p.returncode,
+                9,
+                crashed_p.stdout + crashed_p.stderr,
+            )
+            pending = json.loads(
+                (core_root / "v2-operations" / f"{plan_p}.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(pending["outcome"], "pending", pending)
+
+            blocked = self.drive_failure(
+                rust, "save.commit", {"plan_id": plan_q["plan_id"]}
+            )
+            self.assertIn("UNRESOLVED_OPERATION", blocked["message"])
+            self.assertIn(plan_p, blocked["message"])
+            self.assertIn("system_save=", blocked["message"])
+
+            # P did not target slot 1's Main, so a Main-only plan remains legal.
+            other_id, other_inventory, other_materialized = (
+                self.install_materialized_candidates(rust, other)
+            )
+            allowed = self.prepare_install_plan(
+                rust, other_id, other_inventory, other_materialized
+            )
+            self.assertEqual(allowed["kind"], "install_many")
+        finally:
+            rust.terminate()
+
     def test_process_death_mid_write_keeps_the_no_replay_invariant(self) -> None:
         """A killed write must never read as a clean success, and never replay.
 
         Both hosts are killed once their durable *intent* exists: the shipped
         host's `v2-operations/<plan>.json` (`commit_status: executing`) or the
         Rust host's save-core receipt under `protected-internal/v2-operations/`.
-        The safety invariants are asserted on both; the difference in how an
-        interrupted operation is *reported* after restart is recorded (the
-        shipped host answers `unknown` with its warning, the Rust host currently
-        answers `Unknown operation ID`) and reported to the host lane, which owns
-        `crates/nioh3-protected/src/save_app.rs`.
+        A claimed write therefore always leaves a queryable record: the restarted
+        host must answer with a receipt (`unknown` for a pending core intent, or
+        `committed` once the core's own terminal record landed) and must list the
+        operation. An error frame that says the operation is unknown is no longer
+        accepted, because the durable intent precedes the write on both hosts.
         """
 
         observed: dict[str, str] = {}
@@ -1402,49 +2485,33 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
             try:
                 self.handshake_digest(restarted)
                 restarted_registered = self.register(restarted, save)
-                try:
-                    receipt = self.drive(
-                        restarted, "save.operation", {"plan_id": plan_id}
-                    )
-                except AssertionError as error:
-                    # The Rust host answers an error frame when its ledger has no
-                    # entry for an operation it had already claimed. That missing
-                    # durable intent is the recorded parity gap, so the *shape* of
-                    # the refusal is asserted here rather than asserted equal to
-                    # the shipped `unknown` receipt.
-                    self.assertIn(
-                        "Unknown operation ID",
-                        str(error),
-                        f"{side}: an interrupted operation must be reported, got {error}",
-                    )
-                    observed[side] = "unknown-operation-id"
-                else:
-                    observed[side] = receipt["commit_status"]
-                    self.assertIn(
+                receipt = self.drive(restarted, "save.operation", {"plan_id": plan_id})
+                observed[side] = receipt["commit_status"]
+                self.assertIn(
+                    receipt["commit_status"],
+                    ("unknown", "committed"),
+                    f"{side}: an interrupted operation must never read as a fresh success",
+                )
+                if receipt["commit_status"] == "unknown":
+                    self.assertTrue(receipt["warning"], receipt)
+                if killed_at != self.container:
+                    self.assertNotEqual(
                         receipt["commit_status"],
-                        ("unknown", "committed"),
-                        f"{side}: an interrupted operation must never read as a fresh success",
+                        "not_committed",
+                        f"{side}: the write landed, so 'not_committed' would be wrong",
                     )
-                    if receipt["commit_status"] == "unknown":
-                        self.assertTrue(receipt["warning"], receipt)
-                    if killed_at != self.container:
-                        self.assertNotEqual(
-                            receipt["commit_status"],
-                            "not_committed",
-                            f"{side}: the write landed, so 'not_committed' would be wrong",
-                        )
-                    operations = self.drive(
-                        restarted,
-                        "save.operations",
-                        {"save_id": restarted_registered["save_id"]},
-                    )
-                    self.assertTrue(
-                        any(
-                            entry["operation_id"] == plan_id
-                            for entry in operations["operations"]
-                        ),
-                        "an interrupted operation the host still knows must be listed",
-                    )
+                operations = self.drive(
+                    restarted,
+                    "save.operations",
+                    {"save_id": restarted_registered["save_id"]},
+                )
+                self.assertTrue(
+                    any(
+                        entry["operation_id"] == plan_id
+                        for entry in operations["operations"]
+                    ),
+                    "an interrupted operation the host still knows must be listed",
+                )
 
                 # No replay: the restarted host cannot silently write again.
                 try:
@@ -1465,9 +2532,10 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
             self.parity_gaps.append(
                 "interrupted-write reporting: rust="
                 f"{observed.get('rust')} python={observed.get('python')} "
-                "(the shipped host persists 'executing' before the write and reports "
-                "'unknown' plus its warning; the Rust host writes its ledger only after "
-                "the commit, so the operation is missing from the protected ledger)"
+                "(the shipped host keeps only its in-memory outcome, so a restarted "
+                "write reads as 'unknown' even when it landed; the Rust host projects "
+                "the save-core journal onto the durable intent and can therefore answer "
+                "'committed' once the core's own terminal record exists)"
             )
 
     def test_repeated_inventory_reuses_the_validated_snapshot(self) -> None:
@@ -1595,14 +2663,20 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
         finally:
             worker.terminate()
 
-    def test_write_boundary_death_reports_unknown_like_the_shipped_host(self) -> None:
-        """Kill both hosts the instant the write lands, then compare responses.
+    def test_smoke_write_boundary_death_reports_unknown_like_the_shipped_host(self) -> None:
+        """Smoke: kill both hosts the instant the write lands, then compare.
 
         This is a real write boundary: the atomic replace is on disk and the
         terminal receipt has not been written. The shipped host answers `unknown`
         plus its warning from the durable `executing` receipt it wrote before the
         write; the Rust host must publish the same public response, list the
         operation, and answer a retry with that receipt instead of writing again.
+
+        The kill point here is timing-relative to a measured commit, so this test
+        is a smoke probe rather than the authoritative cut. The deterministic cuts
+        live in `test_outer_ledger_failure_keeps_the_commit_and_never_replays`
+        (terminal ledger stage faults), `test_restart_fences_a_new_plan_on_the_same_target`
+        (save-core stage fault plus restart) and the save-core crash harness.
 
         Note the shipped host never rewrites its ledger with the terminal status
         (the outcome lives in memory only), so after a restart even a *successful*
@@ -1622,72 +2696,42 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
             # clear of the terminal ledger write.
             commit_seconds = self.measure_commit_seconds(side)
             delays = (0.35 * commit_seconds, 0.6 * commit_seconds, 0.85 * commit_seconds)
-            save, state = self.isolated(f"boundary-{side}")
-            worker = self.rust_worker(state) if side == "rust" else self.python_worker(state)
-            digest = self.handshake_digest(worker)
-            registered = self.register(worker, save)
-            inventory = self.inventory(worker, registered["save_id"])
-            payloads = self.candidate_payloads(digest)
-            materialized = self.drive(
-                worker,
-                "save.materialize_live_many",
-                {
-                    "save_id": registered["save_id"],
-                    "snapshot_id": inventory["snapshot_id"],
-                    "candidates": [payloads[0]],
-                    "recommended_level": 183,
-                    "transfer_count": 0,
-                },
-            )["candidates"]
-            plan = self.drive(
-                worker,
-                "save.prepare_install_many",
-                {
-                    "save_id": registered["save_id"],
-                    "snapshot_id": inventory["snapshot_id"],
-                    "candidates": materialized,
-                    "recommended_level": 183,
-                    "transfer_count": 0,
-                },
-            )
-            # Each attempt starts from a fresh plan. Kill points are measured
-            # from the *durable intent* and nothing here opens the save while the
-            # host is replacing it: a Windows read handle on the target would make
-            # the replace fail instead of observing it.
-            plan_id = plan["plan_id"]
-            killed_at = sha256_file(save)
+            # Each attempt runs on its own fixture and its own fresh plan: an
+            # attempt the host was killed inside leaves an unresolved operation,
+            # and the same-target fence refuses to stack a second plan on it.
+            # Kill points are measured from the *durable intent*, and nothing here
+            # opens the save while the host is replacing it: a Windows read handle
+            # on the target would make the replace fail instead of observing it.
             landed = False
             for attempt, delay in enumerate(delays):
-                if attempt:
-                    worker = (
-                        self.rust_worker(state) if side == "rust" else self.python_worker(state)
-                    )
-                    self.handshake_digest(worker)
-                    registered = self.register(worker, save)
-                    inventory = self.inventory(worker, registered["save_id"])
-                    materialized = self.drive(
-                        worker,
-                        "save.materialize_live_many",
-                        {
-                            "save_id": registered["save_id"],
-                            "snapshot_id": inventory["snapshot_id"],
-                            "candidates": [self.candidate_payloads(self.handshake_digest(worker))[0]],
-                            "recommended_level": 183,
-                            "transfer_count": 0,
-                        },
-                    )["candidates"]
-                    plan = self.drive(
-                        worker,
-                        "save.prepare_install_many",
-                        {
-                            "save_id": registered["save_id"],
-                            "snapshot_id": inventory["snapshot_id"],
-                            "candidates": materialized,
-                            "recommended_level": 183,
-                            "transfer_count": 0,
-                        },
-                    )
-                    plan_id = plan["plan_id"]
+                save, state = self.isolated(f"boundary-{side}-{attempt}")
+                worker = self.rust_worker(state) if side == "rust" else self.python_worker(state)
+                digest = self.handshake_digest(worker)
+                registered = self.register(worker, save)
+                inventory = self.inventory(worker, registered["save_id"])
+                materialized = self.drive(
+                    worker,
+                    "save.materialize_live_many",
+                    {
+                        "save_id": registered["save_id"],
+                        "snapshot_id": inventory["snapshot_id"],
+                        "candidates": [self.candidate_payloads(digest)[0]],
+                        "recommended_level": 183,
+                        "transfer_count": 0,
+                    },
+                )["candidates"]
+                plan = self.drive(
+                    worker,
+                    "save.prepare_install_many",
+                    {
+                        "save_id": registered["save_id"],
+                        "snapshot_id": inventory["snapshot_id"],
+                        "candidates": materialized,
+                        "recommended_level": 183,
+                        "transfer_count": 0,
+                    },
+                )
+                plan_id = plan["plan_id"]
                 before = sha256_file(save)
                 intent = state / "v2-operations" / f"{plan_id}.json"
                 worker.send("save.commit", {"plan_id": plan_id})
@@ -2013,6 +3057,215 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
                     f"rust={json.dumps(report['rust']['steady_phases'])} "
                     f"shipped={json.dumps(report['python']['steady_phases'])}"
                 )
+
+    def test_protected_loaders_read_the_selected_versioned_resource(self) -> None:
+        """RW06 / RF04: the production save role loads the PC v2.02 tables.
+
+        The copied data root no longer carries the shipped PC v2.00.02 payload,
+        so any lazy loader that still resolves the legacy identity has to fail on
+        call and name the missing directory. The production entry must answer the
+        complete offline path - auxiliary preview, materialization and prepare -
+        from the selected directory, and it must accept the candidate the search
+        worker composed under that same version.
+        """
+
+        poisoned = self.resource_data_root(
+            "versioned-poisoned-legacy", poison=LEGACY_R4_RESOURCE_DIR
+        )
+        self.assertTrue((poisoned / V202_R4_RESOURCE_DIR / "manifest.json").is_file())
+        save, state = self.isolated("versioned-protected")
+        protected = self.versioned_rust_worker(
+            state, data_root=poisoned, game_file_version=V202_GAME_FILE_VERSION
+        )
+        worker = self.readonly_worker(
+            data_root=poisoned, game_file_version=V202_GAME_FILE_VERSION
+        )
+        try:
+            context = self.protected_context(protected)
+            # The protected wire keeps its shipped eight-key projection; the
+            # version-bound proof fields stay on the read-only side.
+            self.assertEqual(sorted(context), sorted(PROTECTED_CONTEXT_KEYS))
+            # The worker publishes the wider resolved identity for the same
+            # explicit version and data root, so this is one identity - and the
+            # version it resolved is the PC v2.02 directory under test.
+            self.assertEqual(context["context_digest"], worker.digest)
+            self.assertEqual(worker.context["game_file_version"], V202_GAME_FILE_VERSION)
+            self.assertEqual(worker.context["versioned_resource_dir"], V202_R4_RESOURCE_DIR)
+
+            candidate, transfer = self.worker_candidate(worker)
+            self.assertEqual(transfer["record_stage"], "effect_sequence_only")
+            self.assertTrue(transfer["effects"], "the worker candidate carries no effect sequence")
+            self.assertIsNone(candidate["install_blocker"], candidate.get("install_blocker"))
+
+            # Preview loader: the auxiliary half is composed from the context
+            # tables of the selected resource directory, and the worker composed
+            # the same half from the same version.
+            auxiliary = self.drive(
+                protected,
+                "save.auxiliary_preview",
+                {"seed": VERSIONED_CANDIDATE_SEED, "playthrough": 3},
+            )
+            protected_auxiliary = json.loads(auxiliary["auxiliary_json"])
+            protected_auxiliary.pop("initial_challenge_capacity")
+            self.assertEqual(protected_auxiliary, candidate["auxiliary"])
+
+            registered = self.register(protected, save)
+            inventory = self.inventory(protected, registered["save_id"])
+            materialized = self.drive(
+                protected,
+                "save.materialize_live_many",
+                {
+                    "save_id": registered["save_id"],
+                    "snapshot_id": inventory["snapshot_id"],
+                    "candidates": [transfer],
+                    "recommended_level": RECOMMENDED_LEVEL,
+                    "transfer_count": 0,
+                },
+            )
+            exported = materialized["candidates"][0]
+            self.assertEqual(exported["context_digest"], context["context_digest"])
+            self.assertEqual(exported["record_stage"], "final_record")
+            self.assertTrue(exported["installation_record_hex"])
+            self.assertNotEqual(
+                exported["record_hex"],
+                exported["installation_record_hex"],
+                "the R4 stage-one install record and the final preview stay separate",
+            )
+
+            # Prepare resolves its own installation record through the same
+            # materializer, so the same selected resource answers it.
+            plan = self.drive(
+                protected,
+                "save.prepare_install_many",
+                {
+                    "save_id": registered["save_id"],
+                    "snapshot_id": inventory["snapshot_id"],
+                    "candidates": [exported],
+                    "recommended_level": RECOMMENDED_LEVEL,
+                    "transfer_count": 0,
+                },
+            )
+            self.assertEqual(plan["kind"], "install_many")
+            self.assertEqual(plan["preview"]["count"], 1)
+        finally:
+            protected.terminate()
+
+        # The fail-on-call marker is real: the same binary, on the same data
+        # root, refuses the legacy identity by naming the removed directory.
+        _legacy_save, legacy_state = self.isolated("versioned-legacy-poisoned")
+        legacy = self.versioned_rust_worker(legacy_state, data_root=poisoned, legacy=True)
+        try:
+            legacy_context = self.protected_context(legacy)
+            self.assertEqual(sorted(legacy_context), sorted(PROTECTED_CONTEXT_KEYS))
+            self.assertNotEqual(
+                legacy_context["context_digest"],
+                context["context_digest"],
+                "the opt-in legacy identity is not the resolved production one",
+            )
+            refusal = self.drive_failure(
+                legacy,
+                "save.auxiliary_preview",
+                {"seed": VERSIONED_CANDIDATE_SEED, "playthrough": 3},
+            )
+            self.assertIn(LEGACY_R4_RESOURCE_DIR, refusal["message"])
+        finally:
+            legacy.terminate()
+
+    def test_legacy_selection_keeps_the_shipped_legacy_payload(self) -> None:
+        """RW06 / RF04: the explicit legacy identity still reads PC v2.00.02.
+
+        This is the other direction of the same selection: with the PC v2.02
+        directory removed, the legacy identity still previews and materializes
+        the shipped Python reference candidates, while the production identity
+        refuses to start by naming the missing versioned directory. The legacy
+        loader stays reachable only through this explicit, non-production entry.
+        """
+
+        poisoned = self.resource_data_root("versioned-poisoned-v202", poison=V202_R4_RESOURCE_DIR)
+        self.assertTrue((poisoned / LEGACY_R4_RESOURCE_DIR / "manifest.json").is_file())
+        save, state = self.isolated("legacy-selected")
+        protected = self.versioned_rust_worker(state, data_root=poisoned, legacy=True)
+        try:
+            context = self.protected_context(protected)
+            self.assertEqual(sorted(context), sorted(PROTECTED_CONTEXT_KEYS))
+            digest = context["context_digest"]
+
+            auxiliary = self.drive(
+                protected,
+                "save.auxiliary_preview",
+                {"seed": VERSIONED_CANDIDATE_SEED, "playthrough": 3},
+            )
+            self.assertTrue(json.loads(auxiliary["auxiliary_json"])["enemy_groups"])
+
+            registered = self.register(protected, save)
+            inventory = self.inventory(protected, registered["save_id"])
+            # The shipped Python save role is the legacy reference: its exported
+            # candidates carry the effects its own v2.00.02 tables produced.
+            payloads = self.candidate_payloads(digest)
+            materialized = self.drive(
+                protected,
+                "save.materialize_live_many",
+                {
+                    "save_id": registered["save_id"],
+                    "snapshot_id": inventory["snapshot_id"],
+                    "candidates": payloads,
+                    "recommended_level": RECOMMENDED_LEVEL,
+                    "transfer_count": 0,
+                },
+            )
+            exported = materialized["candidates"]
+            self.assertEqual([item["rarity"] for item in exported], [3, 4, 5])
+            for item in exported:
+                # The legacy identity's digest is the only identity this run
+                # accepts, and it is not the production one resolved for the
+                # same data root.
+                self.assertEqual(item["context_digest"], digest)
+                self.assertEqual(item["record_stage"], "final_record")
+                self.assertTrue(item["installation_record_hex"])
+
+            plan = self.drive(
+                protected,
+                "save.prepare_install_many",
+                {
+                    "save_id": registered["save_id"],
+                    "snapshot_id": inventory["snapshot_id"],
+                    "candidates": exported,
+                    "recommended_level": RECOMMENDED_LEVEL,
+                    "transfer_count": 0,
+                },
+            )
+            self.assertEqual(plan["kind"], "install_many")
+            self.assertEqual(plan["preview"]["count"], 3)
+        finally:
+            protected.terminate()
+
+        # Production must refuse this data root: its own resource directory is
+        # the one that is missing, and the startup error names it.
+        refused = subprocess.run(
+            [
+                str(self.rust_binary),
+                "--role",
+                "save",
+                "--dev-protected-only",
+                "--game-file-version",
+                V202_GAME_FILE_VERSION,
+                "--state-root",
+                str(state),
+                "--data-root",
+                str(poisoned),
+                "--contract-dir",
+                str(ROOT / "packages" / "contracts"),
+            ],
+            cwd=str(ROOT),
+            env={**os.environ, "NIOH3_STATE_ROOT": str(state)},
+            capture_output=True,
+            timeout=300,
+        )
+        self.assertNotEqual(refused.returncode, 0, refused.stdout.decode("utf-8", "replace"))
+        self.assertIn(
+            V202_R4_RESOURCE_DIR,
+            refused.stderr.decode("utf-8", "replace"),
+        )
 
 
 if __name__ == "__main__":

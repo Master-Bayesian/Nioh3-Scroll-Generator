@@ -21,4 +21,7 @@ def record_input_metadata(record: bytes, header) -> dict:
         'remaining_challenge_attempts': record[0x33],
         'recommended_displayed_level': prediction.displayed_level,
         'recommended_raw_was_clamped': prediction.was_clamped,
+        # The stored raw value is reported unchanged so an editor can keep it
+        # when nothing else changed instead of rewriting an over-cap record.
+        'recommended_raw_level': header.recommended_level,
     }

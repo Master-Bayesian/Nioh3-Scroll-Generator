@@ -1172,6 +1172,11 @@
                   },
                   "recommended_raw_was_clamped": {
                     "type": "boolean"
+                  },
+                  "recommended_raw_level": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
                   }
                 },
                 "required": [

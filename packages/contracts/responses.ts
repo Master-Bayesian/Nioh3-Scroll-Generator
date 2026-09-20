@@ -223,10 +223,40 @@ export interface Handshake {
   context: {
     product_version: string;
     game_profile: string;
+    /**
+     * Exact installed game executable version this identity resolved, as a dotted four-part string such as "2.0.2.0". There is no default.
+     */
+    game_file_version: string;
+    /**
+     * Version-selected offline resource directory the bundle resolved to.
+     */
+    versioned_resource_dir: string;
+    /**
+     * Identity over every selected input, including version-invariant ones.
+     */
+    bundle_digest: string;
+    /**
+     * Identity over only the files below the versioned resource directory.
+     */
+    versioned_digest: string;
+    /**
+     * Whole-root digest, retained as proof/diagnostic only.
+     */
     resources_digest: string;
     algorithm_version: string;
     policy_version: string;
+    /**
+     * The version-bound digest that authorizes candidate, cache, and resume reuse.
+     */
     context_digest: string;
+    /**
+     * Pre-version identity digest, carried only as an explicit proof field.
+     */
+    legacy_context_digest: string;
+    /**
+     * True only for a resolved production identity. A false value marks the opt-in, non-production legacy capture and must not authorize reuse.
+     */
+    production_authority: boolean;
     seed_accelerator_abi: number | null;
     seed_accelerator_build_id: string | null;
   };

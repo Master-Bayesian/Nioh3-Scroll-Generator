@@ -27,7 +27,10 @@ use sha2::{Digest, Sha256};
 use crate::capabilities::{self, Capabilities};
 use crate::catalog::{self, Catalog};
 use crate::collector::{self, CandidateSource, CollectorError, MaterializedCandidate};
-use crate::context::{capture_context, hex_lower, ContextError, GenerationContext};
+use crate::context::{
+    capture_legacy_context, capture_resolved_context, hex_lower, ContextError, GameFileVersion,
+    LegacyGenerationContext, ResolvedGenerationContext,
+};
 use crate::jobs::{JobStore, StartParams};
 use crate::model::{Candidate, CandidateEffect, RecordStage};
 use crate::native::probe_seed_accelerator;
@@ -86,16 +89,37 @@ struct LoadedResources {
 pub struct Materializer {
     data_root: PathBuf,
     context_digest: String,
+    resource_version: Option<(u16, u16, u16, u16)>,
     resources: Mutex<Option<Arc<LoadedResources>>>,
 }
 
 impl Materializer {
     pub fn new(data_root: &Path, context_digest: &str) -> Self {
+        Self::with_resource_version(
+            data_root,
+            context_digest,
+            Some(nioh3_data::CURRENT_RESOURCE_VERSION),
+        )
+    }
+
+    /// ``None`` selects the shipped legacy v2.00.02 payload for BOTH halves -
+    /// the effect tables behind record composition and the preview tables - so
+    /// legacy fixtures keep their historical bytes.
+    pub fn with_resource_version(
+        data_root: &Path,
+        context_digest: &str,
+        resource_version: Option<(u16, u16, u16, u16)>,
+    ) -> Self {
         Self {
             data_root: data_root.to_path_buf(),
             context_digest: context_digest.to_string(),
+            resource_version,
             resources: Mutex::new(None),
         }
+    }
+
+    pub fn resource_version(&self) -> Option<(u16, u16, u16, u16)> {
+        self.resource_version
     }
 
     fn resources(&self) -> Result<Arc<LoadedResources>, EngineError> {
@@ -103,12 +127,24 @@ impl Materializer {
         if let Some(resources) = slot.as_ref() {
             return Ok(Arc::clone(resources));
         }
-        let effect = load_effect_resource(&self.data_root)
-            .map_err(|error| EngineError::new("RESOURCE_MISMATCH", error.to_string()))?;
+        // The version selects both halves; an unregistered version fails closed
+        // here rather than silently reusing the shipped tables.
+        let effect = match self.resource_version {
+            Some(version) => {
+                nioh3_data::load_effect_resource_for_file_version(&self.data_root, version)
+            }
+            None => load_effect_resource(&self.data_root),
+        }
+        .map_err(|error| EngineError::new("RESOURCE_MISMATCH", error.to_string()))?;
         let index = EffectTableIndex::from_resource(&effect)
             .map_err(|error| EngineError::new("RESOURCE_MISMATCH", format!("{error:?}")))?;
-        let preview = load_preview_resources(&self.data_root)
-            .map_err(|error| EngineError::new("RESOURCE_MISMATCH", error.to_string()))?;
+        let preview = match self.resource_version {
+            Some(version) => {
+                nioh3_data::load_preview_resources_for_file_version(&self.data_root, version)
+            }
+            None => load_preview_resources(&self.data_root),
+        }
+        .map_err(|error| EngineError::new("RESOURCE_MISMATCH", error.to_string()))?;
         let resources = Arc::new(LoadedResources {
             index,
             effect,
@@ -516,9 +552,64 @@ pub struct ComposedPreview {
     pub initial_challenge_capacity: i32,
 }
 
+/// Which identity a launch resolves, and whether it may authorize work.
+///
+/// A production launch selects one exact installed game version. The legacy
+/// variant is opt-in, explicitly labelled non-production, and is never reachable
+/// from the packaged or development acknowledgement path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ContextSelection {
+    /// Production: bind the identity to this exact installed executable version.
+    Production(GameFileVersion),
+    /// Opt-in test/dev mode: reproduce the pre-version identity, no authority.
+    LegacyTest,
+}
+
+/// The identity an `Engine` resolved, boxed so the enum stays cheap to move.
+///
+/// The two variants are deliberately different types: only the production
+/// variant is a [`ResolvedGenerationContext`], so a code path that needs
+/// production authority cannot accidentally accept the opt-in legacy identity.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EngineContext {
+    Production(Box<ResolvedGenerationContext>),
+    LegacyTest(Box<LegacyGenerationContext>),
+}
+
+impl EngineContext {
+    /// The digest that authorizes candidate, cache, and resume reuse.
+    pub fn digest(&self) -> &str {
+        match self {
+            EngineContext::Production(context) => &context.context_digest,
+            EngineContext::LegacyTest(context) => &context.context_digest,
+        }
+    }
+
+    /// Whether this identity may authorize production reuse.
+    pub fn production_authority(&self) -> bool {
+        matches!(self, EngineContext::Production(_))
+    }
+
+    /// The handshake payload for this identity.
+    pub fn to_payload(&self) -> Value {
+        match self {
+            EngineContext::Production(context) => context.to_payload(),
+            EngineContext::LegacyTest(context) => context.to_payload(),
+        }
+    }
+
+    /// The pre-version digest, published only as an explicit proof field.
+    pub fn legacy_context_digest(&self) -> &str {
+        match self {
+            EngineContext::Production(context) => &context.legacy_context_digest,
+            EngineContext::LegacyTest(context) => &context.context_digest,
+        }
+    }
+}
+
 /// Owns the generation identity, the shipped schema and the single search job.
 pub struct Engine {
-    context: GenerationContext,
+    context: EngineContext,
     contract_digest: String,
     capabilities: Capabilities,
     schema: RequestSchema,
@@ -535,12 +626,19 @@ pub struct Engine {
 }
 
 impl Engine {
-    /// Capture the generation context, the shipped contract digest and the real
-    /// capability probes.
+    /// Resolve the generation context, the shipped contract digest and the real
+    /// capability probes for one explicit [`ContextSelection`].
+    ///
+    /// A production selection binds the identity to the exact installed version
+    /// and resolves the matching resource bundle; a missing or unknown version
+    /// fails closed with `RESOURCE_MISMATCH` and never falls back to
+    /// `CURRENT_RESOURCE_VERSION`. The legacy variant is the only path that may
+    /// reproduce the pre-version identity, and it is non-production.
     pub fn load(
         data_root: &Path,
         contract_dir: &Path,
         accelerator_path: Option<PathBuf>,
+        selection: ContextSelection,
     ) -> Result<Self, EngineError> {
         let contract_digest = contract_digest(contract_dir)?;
         let schema = RequestSchema::load(contract_dir)
@@ -550,17 +648,47 @@ impl Engine {
             .and_then(Path::parent)
             .unwrap_or_else(|| Path::new("."));
         let accelerator = probe_seed_accelerator(application_root, accelerator_path.as_deref());
-        let context = capture_context(
-            crate::context::SUPPORTED_GAME_PROFILE,
-            data_root,
-            accelerator,
-        )
-        .map_err(from_context_error)?;
+        let (context, resource_version) = match selection {
+            ContextSelection::Production(file_version) => {
+                let resolved = capture_resolved_context(
+                    crate::context::SUPPORTED_GAME_PROFILE,
+                    data_root,
+                    file_version,
+                    accelerator,
+                )
+                .map_err(from_context_error)?;
+                let version = (
+                    file_version.0,
+                    file_version.1,
+                    file_version.2,
+                    file_version.3,
+                );
+                (EngineContext::Production(Box::new(resolved)), Some(version))
+            }
+            ContextSelection::LegacyTest => {
+                let legacy = capture_legacy_context(
+                    crate::context::SUPPORTED_GAME_PROFILE,
+                    data_root,
+                    accelerator,
+                )
+                .map_err(from_context_error)?;
+                // The shipped legacy payload is the historical v2.00.02 tables.
+                (
+                    EngineContext::LegacyTest(Box::new(legacy)),
+                    Some(nioh3_data::CURRENT_RESOURCE_VERSION),
+                )
+            }
+        };
+        let context_digest = context.digest().to_string();
         let capabilities = capabilities::probe(application_root, accelerator_path.as_deref(), None);
         let recommended_level = recommended_level::load(data_root)?;
-        let materializer = Arc::new(Materializer::new(data_root, &context.context_digest));
+        let materializer = Arc::new(Materializer::with_resource_version(
+            data_root,
+            &context_digest,
+            resource_version,
+        ));
         let jobs = JobStore::new(
-            &context.context_digest,
+            &context_digest,
             collector::native_factory(application_root, accelerator_path.as_deref(), data_root),
             Arc::clone(&materializer) as Arc<dyn CandidateSource>,
         )
@@ -584,7 +712,7 @@ impl Engine {
         })
     }
 
-    pub fn context(&self) -> &GenerationContext {
+    pub fn context(&self) -> &EngineContext {
         &self.context
     }
 
@@ -774,7 +902,7 @@ impl Engine {
         let catalog = self.catalog()?;
         self.materializer.inspect(|index, effect, preview| {
             catalog.payload(catalog::CatalogInputs {
-                context_digest: &self.context.context_digest,
+                context_digest: self.context.digest(),
                 rarity,
                 locale,
                 index,
@@ -967,6 +1095,213 @@ mod tests {
         assert!(
             rejected_match.candidate.effects.is_empty(),
             "a rejected match must not pay for the effect sequence"
+        );
+    }
+
+    /// The release default composes a completed preview from the versioned
+    /// PC v2.02 tables, while an explicit legacy selector still uses the
+    /// shipped PC v2.00.02 payload.
+    #[test]
+    fn completed_preview_uses_the_release_version_and_legacy_stays_explicit() {
+        let data_root =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data");
+        let current = Materializer::new(&data_root, "engine-test-context");
+        assert_eq!(
+            current.resource_version(),
+            Some(nioh3_data::CURRENT_RESOURCE_VERSION)
+        );
+        let payload = current
+            .preview(10030700, 4, 180)
+            .expect("completed preview");
+        assert!(
+            payload.is_object(),
+            "the release preview must produce a composed record: {payload}"
+        );
+        assert_eq!(
+            nioh3_data::r4_resource_dir_for_file_version(nioh3_data::CURRENT_RESOURCE_VERSION)
+                .expect("release resource"),
+            nioh3_data::R4_RESOURCE_DIR_V202
+        );
+
+        let legacy = Materializer::with_resource_version(&data_root, "engine-test-context", None);
+        assert_eq!(legacy.resource_version(), None);
+        let legacy_payload = legacy.preview(10030700, 4, 180).expect("legacy preview");
+        assert!(
+            legacy_payload.is_object(),
+            "the explicit legacy selector must still compose a record"
+        );
+    }
+
+    /// The version selects the ENGINE's effect tables, not only the preview
+    /// tables.  PC v2.02 owns a 2954-row `optional_multiplier` table while the
+    /// shipped PC v2.00.02 payload has 2951 rows, so the two loads are
+    /// distinguishable from the rows the executor actually holds.
+    #[test]
+    fn resource_version_selects_the_engine_effect_tables() {
+        use std::hash::{Hash, Hasher};
+
+        let data_root =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data");
+
+        let observed = |materializer: &Materializer| {
+            materializer
+                .inspect(|_index, effect, _preview| {
+                    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                    effect.item.rows.hash(&mut hasher);
+                    Ok((
+                        effect.optional_multiplier.row_count(),
+                        effect.item.row_count(),
+                        hasher.finish(),
+                    ))
+                })
+                .expect("resource loads")
+        };
+
+        let (current_optional, current_item, current_item_hash) =
+            observed(&Materializer::new(&data_root, "engine-test-context"));
+        assert_eq!(
+            current_optional, 2954,
+            "PC v2.02 optional_multiplier row count"
+        );
+
+        let (legacy_optional, legacy_item, legacy_item_hash) = observed(
+            &Materializer::with_resource_version(&data_root, "engine-test-context", None),
+        );
+        assert_eq!(
+            legacy_optional, 2951,
+            "shipped PC v2.00.02 optional_multiplier row count"
+        );
+
+        assert_eq!(
+            current_item, legacy_item,
+            "the item table keeps its row count"
+        );
+        assert_ne!(
+            current_item_hash, legacy_item_hash,
+            "PC v2.02 changed the item payload, so the loaded rows must differ"
+        );
+    }
+
+    /// Both shipped identities stay pinned, and the version-bound digest is the
+    /// value that authorizes reuse: two resolutions that select different
+    /// bundles never share a `context_digest`, so a candidate minted for one
+    /// version is refused by a job store opened for the other. The same explicit
+    /// context still composes byte-identical output, so determinism is preserved
+    /// per identity rather than weakened.
+    #[test]
+    fn selected_versions_do_not_share_production_authority() {
+        let data_root =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data");
+        let v2_00_02 = capture_resolved_context(
+            crate::context::SUPPORTED_GAME_PROFILE,
+            &data_root,
+            GameFileVersion(2, 0, 0, 2),
+            None,
+        )
+        .expect("the shipped v2.00.02 bundle resolves");
+        let v2_02 = capture_resolved_context(
+            crate::context::SUPPORTED_GAME_PROFILE,
+            &data_root,
+            GameFileVersion(2, 0, 2, 0),
+            None,
+        )
+        .expect("the shipped v2.02 bundle resolves");
+
+        // Both identities are pinned to the shipped selected-bundle digests.
+        assert_eq!(v2_00_02.versioned_resource_dir, nioh3_data::R4_RESOURCE_DIR);
+        assert_eq!(
+            v2_02.versioned_resource_dir,
+            nioh3_data::R4_RESOURCE_DIR_V202
+        );
+        assert_eq!(
+            v2_00_02.context_digest,
+            "61b50195316954103a3768f50da59dd6dd3aa8726487c798aa98c11f26b7b7c4"
+        );
+        assert_eq!(
+            v2_02.context_digest,
+            "1903eeaffde48d3b10ba5f9edbef88dae6205dcf2f2460d7fe69fc3361bb588e"
+        );
+        // The pre-version proof field is shared; only the primary digest differs,
+        // which is exactly why the legacy digest cannot authorize reuse.
+        assert_eq!(v2_00_02.legacy_context_digest, v2_02.legacy_context_digest);
+        assert_ne!(v2_00_02.context_digest, v2_02.context_digest);
+
+        // A job store opened for one version refuses the other's digest. Both
+        // stores are fed the same in-process collector, so only the identity
+        // differs.
+        let open = |digest: &str| -> Arc<JobStore> {
+            Arc::new(
+                JobStore::new(
+                    digest,
+                    None,
+                    Arc::new(Materializer::with_resource_version(
+                        &data_root,
+                        digest,
+                        Some(nioh3_data::CURRENT_RESOURCE_VERSION),
+                    )) as Arc<dyn CandidateSource>,
+                )
+                .expect("an OS CSPRNG is available"),
+            )
+        };
+        let store = open(&v2_02.context_digest);
+        let query = serde_json::json!({
+            "playthrough": 3,
+            "rarity": 4,
+            "level": 180,
+            "primary_effect_ids": [],
+            "required_secondary_ids": [],
+            "required_secondary_id_groups": [],
+            "grace_effect_id": null,
+            "minimum_roll_percent_by_effect_id": [],
+            "auxiliary": {
+                "required_terrain_effect_keys": [],
+                "required_terrain_effect_key_groups": [],
+                "required_special_rule_keys": [],
+                "required_special_rule_key_groups": [],
+                "required_enemy_lookup_keys": [],
+                "required_enemy_lookup_key_groups": [],
+            },
+        });
+        let mismatched = StartParams {
+            context_digest: v2_00_02.context_digest.clone(),
+            result_count: 1,
+            page_trials: 1000,
+            job_trials: 1000,
+            continue_until_complete: false,
+            allow_cpu_fallback: false,
+            resume_token: None,
+            cache_id: None,
+        };
+        assert_eq!(
+            store
+                .start(&query, &mismatched)
+                .expect_err("a foreign context digest must be refused")
+                .code,
+            "CONTEXT_MISMATCH"
+        );
+
+        // Determinism per identity: the same explicit context composes the same
+        // record bytes twice, so binding the version did not perturb RNG output.
+        let materializer = |digest: &str, version: (u16, u16, u16, u16)| {
+            Materializer::with_resource_version(&data_root, digest, Some(version))
+        };
+        let v2_02_materializer = materializer(&v2_02.context_digest, (2, 0, 2, 0));
+        let first = v2_02_materializer
+            .preview(10030700, 4, 180)
+            .expect("v2.02 preview");
+        let second = v2_02_materializer
+            .preview(10030700, 4, 180)
+            .expect("v2.02 preview again");
+        assert_eq!(
+            first, second,
+            "the same explicit context must stay deterministic"
+        );
+        let v2_00_02_first = materializer(&v2_00_02.context_digest, (2, 0, 0, 2))
+            .preview(10030700, 4, 180)
+            .expect("v2.00.02 preview");
+        assert_ne!(
+            first, v2_00_02_first,
+            "the two selected versions must not compose identical bytes"
         );
     }
 }

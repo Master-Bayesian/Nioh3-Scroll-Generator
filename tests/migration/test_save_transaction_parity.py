@@ -33,6 +33,14 @@ from tests.migration.test_save_read_parity import (  # noqa: E402
     native_transform_short,
 )
 from tests.migration.cargo_target import resolved_cargo_target_dir  # noqa: E402
+from tests.migration.save_restore_fixture import (  # noqa: E402
+    assert_generations_distinct,
+    generation_bytes,
+    generation_digests,
+    read_generation,
+    write_backup_bundle,
+    write_generation,
+)
 from tests.migration.test_save_read_parity import (  # noqa: E402
     OWN_ACCOUNT,
     SAVE_RECORD_TYPE,
@@ -46,6 +54,7 @@ FIXTURE_ROOT = Path(
         r"D:\Nioh3_v080_deliverables\m3-save-acceptance",
     )
 )
+RESTORE_FAULT_HARNESS = ROOT / "tests" / "migration" / "restore_fault_harness" / "Cargo.toml"
 
 
 def run_host(target: str, arguments: list[str]) -> subprocess.CompletedProcess:
@@ -59,6 +68,28 @@ def run_host(target: str, arguments: list[str]) -> subprocess.CompletedProcess:
             str(ROOT / "crates" / "nioh3-save" / "Cargo.toml"),
             "--example",
             "save_transaction",
+            "--",
+            *arguments,
+        ],
+        cwd=str(ROOT),
+        env={**os.environ, "CARGO_TARGET_DIR": target},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def run_restore_harness(target: str, arguments: list[str]) -> subprocess.CompletedProcess:
+    """Drive a Restore plan through public save-crate APIs only."""
+
+    return subprocess.run(
+        [
+            "cargo",
+            "run",
+            "--offline",
+            "--quiet",
+            "--manifest-path",
+            str(RESTORE_FAULT_HARNESS),
             "--",
             *arguments,
         ],
@@ -480,6 +511,26 @@ class _ProductFixture(unittest.TestCase):
         cls.container = cls.root / "base-container.bin"
         native_transform_short(cls.plain, cls.container)
         cls.baseline = hashlib.sha256(cls.container.read_bytes()).hexdigest()
+        restore_b = bytearray(cls.blob)
+        restore_b[0x176CCE + 0x20 : 0x176CCE + 0x24] = (0xB0B0B0B0).to_bytes(
+            4, "little"
+        )
+        restore_b_path = cls.root / "restore-b-plain.bin"
+        restore_b_path.write_bytes(bytes(restore_b))
+        restore_b_container = cls.root / "restore-b-container.bin"
+        native_transform_short(restore_b_path, restore_b_container)
+        restore_c = bytearray(cls.blob)
+        restore_c[0x176CCE + 0x20 : 0x176CCE + 0x24] = (0xC0C0C0C0).to_bytes(
+            4, "little"
+        )
+        restore_c_path = cls.root / "restore-c-plain.bin"
+        restore_c_path.write_bytes(bytes(restore_c))
+        restore_c_container = cls.root / "restore-c-container.bin"
+        native_transform_short(restore_c_path, restore_c_container)
+        cls.restore_a = generation_bytes(cls.container.read_bytes(), "generation-a")
+        cls.restore_b = generation_bytes(restore_b_container.read_bytes(), "generation-b")
+        cls.restore_c = generation_bytes(restore_c_container.read_bytes(), "generation-c")
+        assert_generations_distinct(cls.restore_a, cls.restore_b, cls.restore_c)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -1135,8 +1186,825 @@ class SaveProductTransactionTests(_ProductFixture):
         )
 
 
+class SaveRestoreRedTests(_ProductFixture):
+    """Restore-specific counterexamples from the verified Pro review.
+
+    A is the selected old backup, B is the current target at prepare time, and
+    C is an external writer's generation.  Every role is distinct before the
+    host runs, so a no-op restore cannot satisfy the byte assertions.
+    """
+
+    backup_id = "20260920-restore-source-a"
+
+    def prepare_restore_result(
+        self, backup_id: str | None = None
+    ) -> subprocess.CompletedProcess:
+        return run_restore_harness(
+            self.target,
+            [
+                "prepare",
+                "--state-root",
+                str(self.state_root),
+                "--save-path",
+                str(self.save_path),
+                "--backup-id",
+                backup_id or self.backup_id,
+            ],
+        )
+
+    def prepare_restore(self, backup_id: str | None = None) -> str:
+        completed = self.prepare_restore_result(backup_id)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        return completed.stdout.strip().splitlines()[0]
+
+    def commit_restore(
+        self, plan_id: str, point: str | None = None
+    ) -> subprocess.CompletedProcess:
+        arguments = [
+            "commit",
+            "--state-root",
+            str(self.state_root),
+            "--save-path",
+            str(self.save_path),
+            "--plan-id",
+            plan_id,
+        ]
+        if point is not None:
+            arguments.extend(("--point", point))
+        return run_restore_harness(self.target, arguments)
+
+    def commit_restore_by_id(self, plan_id: str) -> subprocess.CompletedProcess:
+        return run_restore_harness(
+            self.target,
+            [
+                "commit-by-id",
+                "--state-root",
+                str(self.state_root),
+                "--save-path",
+                str(self.save_path),
+                "--plan-id",
+                plan_id,
+            ],
+        )
+
+    def reset_restore_case(self) -> Path:
+        self.clear_state()
+        write_generation(self.save_path, self.restore_b)
+        assert_generations_distinct(self.restore_a, self.restore_b, self.restore_c)
+        self.assert_generation(self.restore_b, "precondition: target must be generation B")
+        return write_backup_bundle(
+            self.state_root,
+            self.backup_id,
+            self.restore_a,
+            account_id=int(self.account),
+        )
+
+    def assert_generation(self, expected: dict[str, bytes], message: str) -> None:
+        actual = read_generation(self.save_path)
+        mismatched = [role for role in expected if actual[role] != expected[role]]
+        self.assertFalse(
+            mismatched,
+            f"{message}; mismatched_roles={mismatched}; "
+            f"actual={generation_digests(actual)}; expected={generation_digests(expected)}",
+        )
+
+    def assert_refused_without_target_change(self, completed: subprocess.CompletedProcess) -> None:
+        self.assertNotEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assert_generation(
+            self.restore_b, "a refused restore must leave all three B roles unchanged"
+        )
+
+    def assert_invalid_source_refused(self) -> None:
+        prepared = self.prepare_restore_result()
+        if prepared.returncode == 0:
+            plan_id = prepared.stdout.strip().splitlines()[0]
+            refused = self.commit_restore(plan_id)
+        else:
+            refused = prepared
+        self.assert_refused_without_target_change(refused)
+
+    def restore_journal(self) -> dict[str, object]:
+        journals = list((self.state_root / "backups").glob("*/restore-journal.json"))
+        self.assertEqual(len(journals), 1, journals)
+        return json.loads(journals[0].read_text(encoding="utf-8"))
+
+    def assert_restore_ledger(
+        self,
+        plan_id: str,
+        *,
+        journal_state: str,
+        receipt_outcome: str | None,
+        replacement_started: bool,
+        final_state: str,
+    ) -> None:
+        journal = self.restore_journal()
+        self.assertEqual(journal["operation_id"], plan_id)
+        self.assertEqual(journal["state"], journal_state)
+        self.assertEqual(
+            set(journal["targets"]), {"main_save", "game_backup", "system_save"}
+        )
+        role_results = journal["role_results"]
+        self.assertEqual(len(role_results), 3)
+        self.assertEqual(
+            {entry["role"] for entry in role_results},
+            {"main_save", "game_backup", "system_save"},
+        )
+        self.assertTrue(
+            all(entry["replacement_started"] is replacement_started for entry in role_results)
+        )
+        self.assertTrue(all(entry["final_state"] == final_state for entry in role_results))
+
+        receipt_path = self.state_root / "v2-operations" / f"{plan_id}.json"
+        if receipt_outcome is None:
+            self.assertFalse(receipt_path.exists())
+        else:
+            self.assertTrue(receipt_path.is_file())
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+            self.assertEqual(receipt["outcome"], receipt_outcome)
+
+    def raw_receipt(self, plan_id: str) -> dict:
+        path = self.state_root / "v2-operations" / f"{plan_id}.json"
+        self.assertTrue(path.is_file(), "the intent receipt must survive on disk")
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def receipt_exists(self, plan_id: str) -> bool:
+        return (self.state_root / "v2-operations" / f"{plan_id}.json").is_file()
+
+    def commit_restore_crash(
+        self, plan_id: str, cut: str, point: str | None = None
+    ) -> subprocess.CompletedProcess:
+        """Run a commit that exits the child inside the restore loop.
+
+        `cut` is `<before-replace|after-replace>:<role>`; the process terminates
+        after the durable per-role marker and before any recovery path, so the
+        parent observes a real crash rather than an in-process rollback.
+        """
+
+        arguments = [
+            "commit",
+            "--state-root",
+            str(self.state_root),
+            "--save-path",
+            str(self.save_path),
+            "--plan-id",
+            plan_id,
+            "--crash-cut",
+            cut,
+        ]
+        if point is not None:
+            arguments.extend(("--point", point))
+        return run_restore_harness(self.target, arguments)
+
+    def commit_restore_fault_crash(self, plan_id: str, point: str) -> subprocess.CompletedProcess:
+        """Run a commit that exits after the injected stage fault returns."""
+
+        return run_restore_harness(
+            self.target,
+            [
+                "commit",
+                "--state-root",
+                str(self.state_root),
+                "--save-path",
+                str(self.save_path),
+                "--plan-id",
+                plan_id,
+                "--point",
+                point,
+                "--crash",
+            ],
+        )
+
+    def classify_restore(self, plan_id: str) -> dict:
+        completed = run_restore_harness(
+            self.target,
+            [
+                "classify",
+                "--state-root",
+                str(self.state_root),
+                "--save-path",
+                str(self.save_path),
+                "--plan-id",
+                plan_id,
+            ],
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        parsed: dict = {}
+        for line in completed.stdout.strip().splitlines():
+            key, _, value = line.partition("=")
+            parsed[key] = value
+        return parsed
+
+    RESTORE_ROLE_CUTS = (
+        "before-replace:system_save",
+        "after-replace:system_save",
+        "before-replace:game_backup",
+        "after-replace:game_backup",
+        "before-replace:main_save",
+        "after-replace:main_save",
+    )
+
+    RESTORE_JOURNAL_CUTS = (
+        "journal-create",
+        "journal-write",
+        "journal-flush",
+        "journal-replace",
+    )
+
+    def assert_crash_cut_exits(self, completed: subprocess.CompletedProcess, cut: str) -> None:
+        self.assertEqual(
+            completed.returncode,
+            9,
+            f"{cut}: the cut must terminate the child inside the restore loop, "
+            f"before any rollback; {completed.stdout}{completed.stderr}",
+        )
+        self.assertIn("deterministic crash cut", completed.stderr, completed.stderr)
+
+    def test_restore_role_cut_leaves_durable_per_role_progress(self) -> None:
+        """Every role cut is a real crash-cut, never an in-process rollback."""
+
+        # `prepare` writes a plan, not a receipt; the durable intent appears only
+        # once the commit starts, so there is nothing to assert before the cut.
+        self.reset_restore_case()
+        plan_id = self.prepare_restore()
+        self.assertFalse(
+            self.receipt_exists(plan_id),
+            "preparing a plan must not create a terminal record",
+        )
+        for cut in self.RESTORE_ROLE_CUTS:
+            with self.subTest(cut=cut):
+                self.reset_restore_case()
+                plan_id = self.prepare_restore()
+                completed = self.commit_restore_crash(plan_id, cut)
+                self.assert_crash_cut_exits(completed, cut)
+                journal = self.restore_journal()
+                self.assertEqual(
+                    journal["state"],
+                    "roles_in_progress",
+                    f"{cut}: a crash-cut must leave a per-role in-progress journal",
+                )
+                self.assertEqual(journal["operation_id"], plan_id)
+                # The intent receipt is still the untouched pending record;
+                # reconcile reports it as a non-replayable unknown.
+                self.assertEqual(self.raw_receipt(plan_id)["outcome"], "pending")
+                classified = self.classify_restore(plan_id)
+                self.assertEqual(classified["receipt_outcome"], "unknown")
+                # Every role keeps its source digest and the pre-replace digest
+                # from A/B, so the journal alone can place each role after restart.
+                role_results = journal["role_results"]
+                self.assertTrue(all(entry["source_sha256"] for entry in role_results))
+                self.assertTrue(all(entry["target_before_sha256"] for entry in role_results))
+                self.assertEqual(
+                    set(journal["targets"]),
+                    {"main_save", "game_backup", "system_save"},
+                )
+
+    def test_restore_journal_crash_never_truncates_the_last_valid_progress(self) -> None:
+        """A staged journal update leaves the prior valid marker authoritative."""
+
+        for cut in self.RESTORE_JOURNAL_CUTS:
+            with self.subTest(cut=cut):
+                self.reset_restore_case()
+                plan_id = self.prepare_restore()
+                completed = self.commit_restore_crash(plan_id, cut)
+                self.assert_crash_cut_exits(completed, cut)
+
+                journal = self.restore_journal()
+                self.assertEqual(journal["operation_id"], plan_id)
+                self.assertEqual(journal["state"], "roles_in_progress")
+                system = next(
+                    entry
+                    for entry in journal["role_results"]
+                    if entry["role"] == "system_save"
+                )
+                self.assertIs(system["replacement_started"], True)
+                self.assertIs(system["replacement_completed"], False)
+                classified = self.classify_restore(plan_id)
+                self.assertEqual(classified["system_save.class"], "A_source")
+                self.assertEqual(classified["game_backup.class"], "B_checkpoint")
+                self.assertEqual(classified["main_save.class"], "B_checkpoint")
+                self.assertEqual(self.raw_receipt(plan_id)["outcome"], "pending")
+
+    def test_restore_role_cut_classifies_each_role_from_journal_and_bytes(self) -> None:
+        """A restart classifies untouched/A/B/external-C for every cut point.
+
+        The class is decided by the bytes on disk, so the cut role is
+        `B_checkpoint` before its rename and `A_source` after it, even though its
+        completion record never landed. The journal carries the other half of
+        the fact: `replacement_started=true, replacement_completed=false` in both
+        phases. Asserting the bytes here keeps the oracle from being satisfied by
+        the journal's own labels.
+        """
+
+        expected_role_order = ("system_save", "game_backup", "main_save")
+        for index, role in enumerate(expected_role_order):
+            replaced = set(expected_role_order[:index])
+            for phase in ("before-replace", "after-replace"):
+                cut = f"{phase}:{role}"
+                with self.subTest(cut=cut):
+                    self.reset_restore_case()
+                    plan_id = self.prepare_restore()
+                    completed = self.commit_restore_crash(plan_id, cut)
+                    self.assert_crash_cut_exits(completed, cut)
+                    classified = self.classify_restore(plan_id)
+                    self.assertEqual(classified["journal_state"], "roles_in_progress")
+                    # Independent evidence: the realized bytes of the same target.
+                    observed = read_generation(self.save_path)
+                    for other in expected_role_order:
+                        if other in replaced:
+                            self.assertEqual(
+                                observed[other],
+                                self.restore_a[other],
+                                f"{cut}: {other} must hold generation A",
+                            )
+                            self.assertEqual(
+                                classified[f"{other}.class"],
+                                "A_source",
+                                f"{cut}: {other} was replaced before the cut; {classified}",
+                            )
+                            self.assertEqual(classified[f"{other}.replacement_started"], "true")
+                            self.assertEqual(classified[f"{other}.replacement_completed"], "true")
+                        elif other == role:
+                            # The cut role sits between its durable dispatch
+                            # marker and its completion record: the rename landed
+                            # in the after phase only, and the journal says so.
+                            landed = phase == "after-replace"
+                            owner = self.restore_a if landed else self.restore_b
+                            self.assertEqual(
+                                observed[other],
+                                owner[other],
+                                f"{cut}: {other} must still be generation "
+                                f"{'A' if landed else 'B'}",
+                            )
+                            self.assertEqual(
+                                classified[f"{other}.class"],
+                                "A_source" if landed else "B_checkpoint",
+                                f"{cut}: {other} is classified by its bytes; {classified}",
+                            )
+                            self.assertEqual(classified[f"{other}.replacement_started"], "true")
+                            self.assertEqual(classified[f"{other}.replacement_completed"], "false")
+                        else:
+                            self.assertEqual(
+                                observed[other],
+                                self.restore_b[other],
+                                f"{cut}: {other} was never dispatched and must hold B",
+                            )
+                            self.assertEqual(
+                                classified[f"{other}.class"],
+                                "B_checkpoint",
+                                f"{cut}: {other} was not replaced before the cut; {classified}",
+                            )
+                            self.assertEqual(
+                                classified[f"{other}.replacement_started"], "false"
+                            )
+                            self.assertEqual(
+                                classified[f"{other}.replacement_completed"], "false"
+                            )
+
+    def test_restore_restart_refuses_to_treat_a_mixed_target_as_untouched(self) -> None:
+        """A genuinely mixed A/B/C target must be classified per role."""
+
+        self.reset_restore_case()
+        plan_id = self.prepare_restore()
+        # Cut after the first role's rename landed but before its completion
+        # record, so System is source A while GameBackup and Main stay at B.
+        completed = self.commit_restore_crash(plan_id, "after-replace:system_save")
+        self.assert_crash_cut_exits(completed, "after-replace:system_save")
+        # Move only the main role to the external generation C. Writing one role
+        # keeps this a real A/B/C mix instead of an all-C target.
+        self.save_path.write_bytes(self.restore_c["main_save"])
+        observed = read_generation(self.save_path)
+        self.assertEqual(observed["system_save"], self.restore_a["system_save"])
+        self.assertEqual(observed["game_backup"], self.restore_b["game_backup"])
+        self.assertEqual(observed["main_save"], self.restore_c["main_save"])
+        classified = self.classify_restore(plan_id)
+        self.assertEqual(classified["system_save.class"], "A_source", classified)
+        self.assertEqual(classified["game_backup.class"], "B_checkpoint", classified)
+        self.assertEqual(classified["main_save.class"], "external_C", classified)
+        journal = self.restore_journal()
+        self.assertEqual(journal["state"], "roles_in_progress")
+        self.assertEqual(journal["operation_id"], plan_id)
+        # The journal still names main as untouched: its replacement was never
+        # dispatched, so nothing recorded that an external writer moved it. The
+        # restart must therefore classify by bytes instead of trusting that
+        # label, which is exactly what makes an unrecorded role not `untouched`.
+        recorded_states = {entry["role"]: entry["final_state"] for entry in journal["role_results"]}
+        self.assertEqual(recorded_states["main_save"], "untouched")
+        self.assertEqual(recorded_states["system_save"], "replacement_started")
+        # Nothing may claim the mixed target is committed.
+        self.assertEqual(classified["receipt_outcome"], "unknown")
+
+    def test_restore_success_changes_every_role_from_b_to_a(self) -> None:
+        self.reset_restore_case()
+        plan_id = self.prepare_restore()
+        completed = self.commit_restore(plan_id)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assert_generation(
+            self.restore_a, "restore must install the authenticated A bundle for every role"
+        )
+
+        self.assert_restore_ledger(
+            plan_id,
+            journal_state="committed",
+            receipt_outcome="committed",
+            replacement_started=True,
+            final_state="source_installed",
+        )
+
+    def digest_of(self, path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def unrelated_save(self) -> Path:
+        """A second account inside the same fixture root, for the fence's scope."""
+
+        path = self.root / "76561198000000001" / "SAVEDATA00" / "SAVEDATA.BIN"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        (path.parent / "BACKUP.BIN").write_bytes(b"game-backup")
+        system = path.parent.parent / "SYSTEMSAVEDATA00"
+        system.mkdir(exist_ok=True)
+        (system / "SAVEDATA.BIN").write_bytes(b"system-save")
+        path.write_bytes(self.container.read_bytes())
+        return path
+
+    def test_unresolved_operation_fences_a_new_plan_on_the_same_target(self) -> None:
+        """RW04 / RF02: a new plan is refused while the same save is unresolved.
+
+        The crash cut leaves a real mixed generation (System at A, GameBackup and
+        Main at B) plus a `pending` receipt and a per-role journal. A new plan for
+        the same save must be refused, and the refusal must name the unresolved
+        operation and the per-role classification the bytes actually show. An
+        unrelated save may still be planned, an external C is named instead of
+        being overwritten, and the same operation id never writes again.
+        """
+
+        self.reset_restore_case()
+        plan_id = self.prepare_restore()
+        completed = self.commit_restore_crash(plan_id, "after-replace:system_save")
+        self.assert_crash_cut_exits(completed, "after-replace:system_save")
+        # Keep the mixed target: System is A, GameBackup and Main are B.
+        observed = read_generation(self.save_path)
+        self.assertEqual(observed["system_save"], self.restore_a["system_save"])
+        self.assertEqual(observed["game_backup"], self.restore_b["game_backup"])
+        self.assertEqual(observed["main_save"], self.restore_b["main_save"])
+        self.assertEqual(self.raw_receipt(plan_id)["outcome"], "pending")
+        mixed_main = self.digest_of(self.save_path)
+
+        refusal = self.host(
+            "plan-edit",
+            "--state-root",
+            str(self.state_root),
+            "--save-path",
+            str(self.save_path),
+            "--source-sha256",
+            mixed_main,
+            "--spec-file",
+            str(self.edit_spec(1)),
+        )
+        self.assertNotEqual(refusal.returncode, 0, refusal.stdout + refusal.stderr)
+        self.assertIn("UNRESOLVED_OPERATION", refusal.stderr, refusal.stderr)
+        self.assertIn(plan_id, refusal.stderr, refusal.stderr)
+        self.assertIn("system_save=A_source", refusal.stderr, refusal.stderr)
+        self.assertIn("game_backup=B_checkpoint", refusal.stderr, refusal.stderr)
+        self.assertIn("main_save=B_checkpoint", refusal.stderr, refusal.stderr)
+        stored_plans = sorted(
+            path.name for path in (self.state_root / "v2-plans").glob("*.json")
+        )
+        self.assertEqual(
+            stored_plans,
+            [f"{plan_id}.json"],
+            "a refused plan must not be stored",
+        )
+        self.assertEqual(self.digest_of(self.save_path), mixed_main)
+
+        # An unrelated save (a different account) is outside the fence.
+        unrelated = self.unrelated_save()
+        allowed = self.host(
+            "plan-edit",
+            "--state-root",
+            str(self.state_root),
+            "--save-path",
+            str(unrelated),
+            "--source-sha256",
+            self.digest_of(unrelated),
+            "--spec-file",
+            str(self.edit_spec(1)),
+        )
+        self.assertEqual(allowed.returncode, 0, allowed.stderr)
+
+        # An external C on the fenced target is reported, never overwritten.
+        external = bytearray(self.restore_b["main_save"])
+        external[0x21] ^= 0x5A
+        self.save_path.write_bytes(bytes(external))
+        external_digest = self.digest_of(self.save_path)
+        blocked = self.host(
+            "plan-edit",
+            "--state-root",
+            str(self.state_root),
+            "--save-path",
+            str(self.save_path),
+            "--source-sha256",
+            external_digest,
+            "--spec-file",
+            str(self.edit_spec(1)),
+        )
+        self.assertNotEqual(blocked.returncode, 0, blocked.stdout + blocked.stderr)
+        self.assertIn("main_save=external_C", blocked.stderr, blocked.stderr)
+        self.assertIn("system_save=A_source", blocked.stderr, blocked.stderr)
+        self.assertEqual(self.digest_of(self.save_path), external_digest)
+
+        # The same operation id is never replayed by a retry.
+        replay = self.commit(plan_id)
+        self.assertNotEqual(replay.returncode, 0, replay.stdout + replay.stderr)
+        self.assertIn("already-committed operation", replay.stderr, replay.stderr)
+        self.assertEqual(self.digest_of(self.save_path), external_digest)
+
+    def test_prepared_plan_is_rechecked_at_direct_and_by_id_commit_boundaries(self) -> None:
+        """A Q prepared before P becomes pending cannot bypass the final fence."""
+
+        for commit_mode in ("direct", "by-id"):
+            with self.subTest(commit_mode=commit_mode):
+                self.reset_restore_case()
+                plan_p = self.prepare_restore()
+                plan_q = self.prepare_restore()
+                crashed = self.commit_restore_crash(
+                    plan_p, "before-replace:system_save"
+                )
+                self.assert_crash_cut_exits(crashed, "before-replace:system_save")
+                before = read_generation(self.save_path)
+                backups_before = sorted(
+                    path.name for path in (self.state_root / "backups").iterdir()
+                )
+
+                refused = (
+                    self.commit_restore(plan_q)
+                    if commit_mode == "direct"
+                    else self.commit_restore_by_id(plan_q)
+                )
+                self.assertNotEqual(refused.returncode, 0, refused.stdout + refused.stderr)
+                self.assertIn("UNRESOLVED_OPERATION", refused.stderr, refused.stderr)
+                self.assertIn(plan_p, refused.stderr, refused.stderr)
+                self.assertEqual(read_generation(self.save_path), before)
+                self.assertEqual(
+                    sorted(path.name for path in (self.state_root / "backups").iterdir()),
+                    backups_before,
+                    "a final-boundary refusal must precede Q's checkpoint side effect",
+                )
+
+    def test_corrupt_authoritative_receipt_fails_closed(self) -> None:
+        self.reset_restore_case()
+        plan_id = self.prepare_restore()
+        crashed = self.commit_restore_crash(plan_id, "before-replace:system_save")
+        self.assert_crash_cut_exits(crashed, "before-replace:system_save")
+        receipt_path = self.state_root / "v2-operations" / f"{plan_id}.json"
+        receipt_path.write_text("{not-json", encoding="utf-8")
+        before = read_generation(self.save_path)
+        plan_count = len(list((self.state_root / "v2-plans").glob("*.json")))
+
+        refused = self.host(
+            "plan-edit",
+            "--state-root",
+            str(self.state_root),
+            "--save-path",
+            str(self.save_path),
+            "--source-sha256",
+            self.digest_of(self.save_path),
+            "--spec-file",
+            str(self.edit_spec(1)),
+        )
+        self.assertNotEqual(refused.returncode, 0, refused.stdout + refused.stderr)
+        self.assertIn(plan_id, refused.stderr, refused.stderr)
+        self.assertEqual(read_generation(self.save_path), before)
+        self.assertEqual(
+            len(list((self.state_root / "v2-plans").glob("*.json"))),
+            plan_count,
+        )
+
+    def test_restore_fallback_keeps_source_a_distinct_from_checkpoint_b(self) -> None:
+        self.reset_restore_case()
+        plan_id = self.prepare_restore()
+        crashed = self.commit_restore_crash(plan_id, "before-replace:system_save")
+        self.assert_crash_cut_exits(crashed, "before-replace:system_save")
+        journal_path = next((self.state_root / "backups").glob("*/restore-journal.json"))
+        journal_path.unlink()
+
+        refused = self.host(
+            "plan-edit",
+            "--state-root",
+            str(self.state_root),
+            "--save-path",
+            str(self.save_path),
+            "--source-sha256",
+            self.digest_of(self.save_path),
+            "--spec-file",
+            str(self.edit_spec(1)),
+        )
+        self.assertNotEqual(refused.returncode, 0, refused.stdout + refused.stderr)
+        self.assertIn("main_save=B_checkpoint", refused.stderr, refused.stderr)
+        self.assertIn("game_backup=B_checkpoint", refused.stderr, refused.stderr)
+        self.assertIn("system_save=B_checkpoint", refused.stderr, refused.stderr)
+
+    def test_shared_system_conflicts_across_restore_slots_but_main_only_does_not(self) -> None:
+        """Conflict is the actual role write set, not merely account plus slot."""
+
+        self.reset_restore_case()
+        second_save = self.root / self.account / "SAVEDATA01" / "SAVEDATA.BIN"
+        write_generation(second_save, self.restore_b)
+        second_backup_id = f"{self.backup_id}-slot1"
+        write_backup_bundle(
+            self.state_root,
+            second_backup_id,
+            self.restore_a,
+            account_id=int(self.account),
+            save_slot_index=1,
+        )
+        plan_p = self.prepare_restore()
+        second_prepared = run_restore_harness(
+            self.target,
+            [
+                "prepare",
+                "--state-root",
+                str(self.state_root),
+                "--save-path",
+                str(second_save),
+                "--backup-id",
+                second_backup_id,
+            ],
+        )
+        self.assertEqual(second_prepared.returncode, 0, second_prepared.stderr)
+        plan_q = second_prepared.stdout.strip().splitlines()[0]
+        crashed = self.commit_restore_crash(plan_p, "before-replace:system_save")
+        self.assert_crash_cut_exits(crashed, "before-replace:system_save")
+
+        restore_refusal = run_restore_harness(
+            self.target,
+            [
+                "commit-by-id",
+                "--state-root",
+                str(self.state_root),
+                "--save-path",
+                str(second_save),
+                "--plan-id",
+                plan_q,
+            ],
+        )
+        self.assertNotEqual(
+            restore_refusal.returncode,
+            0,
+            restore_refusal.stdout + restore_refusal.stderr,
+        )
+        self.assertIn("UNRESOLVED_OPERATION", restore_refusal.stderr)
+
+        main_only = self.host(
+            "plan-edit",
+            "--state-root",
+            str(self.state_root),
+            "--save-path",
+            str(second_save),
+            "--source-sha256",
+            self.digest_of(second_save),
+            "--spec-file",
+            str(self.edit_spec(1)),
+        )
+        self.assertEqual(main_only.returncode, 0, main_only.stderr)
+
+    def assert_restore_fault_rolls_back_to_b(self, point: str) -> None:
+        self.reset_restore_case()
+        plan_id = self.prepare_restore()
+        completed = self.commit_restore(plan_id, point)
+        self.assertNotEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assert_generation(
+            self.restore_b,
+            f"{point}: rollback must use the pre-restore B checkpoint",
+        )
+        replacement_started = point in {"after-replace", "after-readback"}
+        self.assert_restore_ledger(
+            plan_id,
+            journal_state="rolled_back",
+            receipt_outcome=None if point == "after-checkpoint" else "not_committed",
+            replacement_started=replacement_started,
+            final_state="checkpoint_restored" if replacement_started else "untouched",
+        )
+
+    def test_restore_fault_after_checkpoint_rolls_back_to_b(self) -> None:
+        self.assert_restore_fault_rolls_back_to_b("after-checkpoint")
+
+    def test_restore_fault_after_receipt_rolls_back_to_b(self) -> None:
+        self.assert_restore_fault_rolls_back_to_b("after-receipt")
+
+    def test_restore_fault_after_stage_rolls_back_to_b(self) -> None:
+        self.assert_restore_fault_rolls_back_to_b("after-stage")
+
+    def test_restore_fault_after_replace_rolls_back_to_b(self) -> None:
+        self.assert_restore_fault_rolls_back_to_b("after-replace")
+
+    def test_restore_fault_after_readback_rolls_back_to_b(self) -> None:
+        self.assert_restore_fault_rolls_back_to_b("after-readback")
+
+    def test_restore_refuses_external_c_without_clobbering_it(self) -> None:
+        self.reset_restore_case()
+        plan_id = self.prepare_restore()
+        write_generation(self.save_path, self.restore_c)
+        completed = self.commit_restore(plan_id)
+        self.assertNotEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        self.assert_generation(
+            self.restore_c, "a generation C written after prepare must remain untouched"
+        )
+
+    def test_restore_rejects_valid_manifest_with_corrupt_content(self) -> None:
+        bundle = self.reset_restore_case()
+        source = bundle / "SAVEDATA.BIN"
+        corrupt = bytearray(source.read_bytes())
+        corrupt[len(corrupt) // 2] ^= 0x5A
+        source.write_bytes(bytes(corrupt))
+        self.assert_invalid_source_refused()
+
+    def test_restore_rejects_source_swapped_after_prepare(self) -> None:
+        bundle = self.reset_restore_case()
+        plan_id = self.prepare_restore()
+        for role, name in (
+            ("main_save", "SAVEDATA.BIN"),
+            ("game_backup", "BACKUP.BIN"),
+            ("system_save", "SYSTEMSAVEDATA.BIN"),
+        ):
+            (bundle / name).write_bytes(self.restore_c[role])
+        self.assert_refused_without_target_change(self.commit_restore(plan_id))
+
+    def assert_restore_rejects_wrong_manifest_field(self, field: str) -> None:
+        bundle = self.reset_restore_case()
+        manifest_path = bundle / "backup-manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        main = next(
+            entry
+            for entry in manifest["backup_files"]
+            if entry["source_role"] == "main_save"
+        )
+        main[field] = main[field] + 1 if field == "size" else "0" * 64
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        self.assert_invalid_source_refused()
+
+    def test_restore_rejects_wrong_manifest_size(self) -> None:
+        self.assert_restore_rejects_wrong_manifest_field("size")
+
+    def test_restore_rejects_wrong_manifest_hash(self) -> None:
+        self.assert_restore_rejects_wrong_manifest_field("sha256")
+
+    def assert_restore_rejects_role_shape(self, shape: str) -> None:
+        self.clear_state()
+        write_generation(self.save_path, self.restore_b)
+        options: dict[str, object]
+        if shape == "missing":
+            options = {"omitted_roles": {"game_backup"}}
+        else:
+            options = {"file_overrides": {"game_backup": "SAVEDATA.BIN"}}
+        write_backup_bundle(
+            self.state_root,
+            self.backup_id,
+            self.restore_a,
+            account_id=int(self.account),
+            **options,
+        )
+        self.assert_invalid_source_refused()
+
+    def test_restore_rejects_missing_role(self) -> None:
+        self.assert_restore_rejects_role_shape("missing")
+
+    def test_restore_rejects_aliased_role(self) -> None:
+        self.assert_restore_rejects_role_shape("aliased")
+
+
 class SaveFaultGateTests(_ProductFixture):
     """Injected I/O faults and process death at every commit stage."""
+
+    RECEIPT_STAGES = (
+        "receipt-create",
+        "receipt-write",
+        "receipt-flush",
+        "receipt-replace",
+    )
+
+    def reference_edit_record(self, slot_index: int) -> tuple[int, int, bytes]:
+        """The record the shipped Python composition installs for `edit_spec`."""
+
+        from nioh3_scroll_editor.savegame import (
+            SCROLL_GROUP_OFFSET,
+            SCROLL_RECORD_SIZE,
+            LocalEffectEdit,
+            patch_local_scroll_header,
+            patch_local_scroll_record,
+        )
+
+        offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
+        current = self.blob[offset : offset + SCROLL_RECORD_SIZE]
+        expected = patch_local_scroll_header(
+            current,
+            playthrough=3,
+            level=185,
+            recommended_level=195,
+            seed=0x0BADF00D,
+            rarity=5,
+            transfer_count=2,
+        )
+        expected = patch_local_scroll_record(expected, [LocalEffectEdit(slot_index=0, value=4242)])
+        return offset, SCROLL_RECORD_SIZE, expected
 
     def test_injected_fault_at_each_stage_recovers_exactly(self) -> None:
         # `after-checkpoint` fires after the checkpoint exists but before the
@@ -1282,6 +2150,92 @@ class SaveFaultGateTests(_ProductFixture):
                 realized = self.decrypt_installed(f"recovered-{point}")
                 self.assertEqual(realized[:6], b"RNNUSR")
                 self.clear_state()
+
+    def test_terminal_receipt_stage_fault_stays_committed_with_a_warning(self) -> None:
+        """RW01: the terminal receipt's create/write/flush/replace each fail.
+
+        The target bytes have already landed and been read back, so the result
+        must be an explicit completed-with-warning rather than a replayable
+        not-committed or an unprovable state: the old intent stays parseable, the
+        plan is not replayable, and the same operation id never writes twice.
+        """
+
+        offset, width, expected = self.reference_edit_record(1)
+        for stage in self.RECEIPT_STAGES:
+            with self.subTest(stage=stage):
+                self.save_path.write_bytes(self.container.read_bytes())
+                self.clear_state()
+                plan_id = self.plan_edit(1)
+                plan_path = self.state_root / "v2-plans" / f"{plan_id}.json"
+                # Keep the plan text so the retry below can restore it and prove
+                # the receipt gate, not a missing file, refuses the replay.
+                plan_text = plan_path.read_text(encoding="utf-8")
+                completed = self.host(
+                    "fault",
+                    "--state-root",
+                    str(self.state_root),
+                    "--save-path",
+                    str(self.save_path),
+                    "--plan-id",
+                    plan_id,
+                    "--point",
+                    stage,
+                )
+                self.assertNotEqual(completed.returncode, 0, completed.stderr)
+                self.assertIn(
+                    "committed, but its terminal record could not be persisted",
+                    completed.stderr,
+                    completed.stderr,
+                )
+                self.assertNotIn("not_committed", completed.stderr)
+                self.assertNotIn("unprovable", completed.stderr)
+
+                # The durable record must never be truncated in place: it parses
+                # as this operation and the recovery rewrite lands the terminal
+                # outcome over the pending intent it replaced.
+                receipt = self.receipt(plan_id)
+                self.assertEqual(receipt["operation_id"], plan_id)
+                self.assertEqual(receipt["outcome"], "committed")
+                self.assertIs(receipt["committed"], True)
+                self.assertNotIn(receipt["outcome"], {"not_committed", "uncertain"})
+                siblings = sorted(
+                    path.name
+                    for path in (self.state_root / "v2-operations").iterdir()
+                    if path.name != f"{plan_id}.json"
+                )
+                self.assertEqual(siblings, [], f"{stage}: no staged receipt may survive")
+
+                # Independent target evidence: the bytes are the realized edit,
+                # not the pre-commit generation and not a truncated write.
+                target = self.save_path.read_bytes()
+                self.assertNotEqual(target, self.container.read_bytes())
+                self.assertEqual(receipt["installed_sha256"], hashlib.sha256(target).hexdigest())
+                realized = self.decrypt_installed(f"receipt-{stage}")
+                self.assertEqual(realized[:6], b"RNNUSR")
+                self.assertEqual(realized[offset : offset + width], expected)
+
+                # Same operation id, with the consumed plan restored: the receipt
+                # gate refuses the replay and the target keeps its committed bytes.
+                plan_path.write_text(plan_text, encoding="utf-8")
+                committed_digest = hashlib.sha256(target).hexdigest()
+                retry = self.commit(plan_id)
+                self.assertNotEqual(retry.returncode, 0, retry.stdout + retry.stderr)
+                self.assertEqual(
+                    hashlib.sha256(self.save_path.read_bytes()).hexdigest(),
+                    committed_digest,
+                    f"{stage}: a retry must never write the target again",
+                )
+                reconciled = self.host(
+                    "reconcile",
+                    "--state-root",
+                    str(self.state_root),
+                    "--save-path",
+                    str(self.save_path),
+                    "--plan-id",
+                    plan_id,
+                )
+                self.assertEqual(reconciled.returncode, 0, reconciled.stderr)
+                self.assertEqual(reconciled.stdout.strip().splitlines()[0], "committed")
 
 
 class SaveTamperGateTests(_ProductFixture):

@@ -1008,6 +1008,10 @@ pub struct ExecutionPolicyGuard<'a> {
 impl Drop for ExecutionPolicyGuard<'_> {
     fn drop(&mut self) {
         self.accelerator.native.set_policy(self.previous);
+        // The lock's active value is the authoritative mirror used by nested
+        // guards. Restore it while this thread still owns the re-entrant lock,
+        // so the native policy and the mirror cannot diverge between drops.
+        policy_lock::note(self.previous);
         policy_lock::release();
     }
 }

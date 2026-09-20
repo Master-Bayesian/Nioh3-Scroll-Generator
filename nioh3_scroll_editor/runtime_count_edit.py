@@ -38,8 +38,9 @@ class WindowsCountMemory:
         with ProcessReader() as reader:
             if reader.pid != inventory['pid']:
                 raise ValueError('Game process changed')
-            manager = reader.u64(reader.module_base + LAYOUT.manager_pointer_rva)
-            data = reader.u64(manager)
+            pointers = LAYOUT.resolve_inventory(reader.u64, reader.module_base)
+            manager = pointers.manager_address
+            data = pointers.data_address
             address = data + LAYOUT.container_offset + entry['slot_index'] * 0xE8
             if reader.read(address, 0xE8).hex() != entry['record_hex']:
                 raise ValueError('Scroll changed during inspection')
@@ -52,7 +53,8 @@ class WindowsCountMemory:
         with ProcessReader() as reader:
             if reader.pid != expected['pid'] or reader.creation_time() != expected['creation_time']:
                 raise ValueError('Game process changed before count write')
-            if reader.u64(reader.module_base + LAYOUT.manager_pointer_rva) != expected['manager'] or reader.u64(expected['manager']) != expected['data']:
+            pointers = LAYOUT.resolve_inventory(reader.u64, reader.module_base)
+            if pointers.manager_address != expected['manager'] or pointers.data_address != expected['data']:
                 raise ValueError('Inventory owner changed before count write')
             if reader.read(expected['address'], 0xE8).hex() != expected['record_hex']:
                 raise ValueError('Scroll changed before count write')

@@ -103,6 +103,12 @@ global semantic key.
   is `7D08DC2FF52223FC502BCEDF9614DF48FD6E5C1604191768E624463CF519ACA3`.
 - [PC v2.01 Crucible possessed-enemy research freeze](CRUCIBLE_POSSESSED_RESEARCH_FREEZE_20260911.md)
   — historical negative-control correction whose claim boundaries still apply.
+- [PC v2.02 noop cleanup-failure Pro handoff (incident packet A)](../../deliverables/native-noop-cleanup-pro-20260920/)
+  — bounded incident package for the accepted noop whose cleanup failed and the
+  later access-violation dialog; validator passed (36 files, ZIP SHA-256
+  `72d4c74dabb11e3dbadda937adda08a3cf3316b156b778c408caee34e3906073`). The
+  package records the noop's real target-process writes and asks Pro for a graded
+  causal conclusion; no root cause is claimed.
 
 ### Workflow/reference
 
@@ -129,6 +135,21 @@ global semantic key.
   — follow-up evidence and deferred experiment context.
 - [V2 requirements and later research](V2_REQUIREMENTS_BACKLOG.md) —
   non-authoritative backlog and later research topics.
+- [Rust backend migration review package (packet B)](../../deliverables/rust-migration-pro-review-20260920/README.md)
+  — ready, pending Pro review; six unpublished crates, migration gates, current
+  and v0.7.5-baseline Python peers, bundled product data.
+- [v0.8.0 repair-wave r4 closure review](../../deliverables/Nioh3_v080_RepairWave_r4_Closure_Review_20260920/README.md)
+  — completed predecessor review; RF01/RF04/contract idempotence passed and
+  RF02/RF03/RF05 were repaired and closed by the r5 review.
+- [v0.8.0 r5 final evidence link](../../deliverables/Nioh3_v080_R5_Evidence_Link_20260920/README.md)
+  — independently confirmed `PASS_TO_LOCAL_RC`: exact debug host/workers,
+  verifier sources, PC `2.0.2.0` selected context, three synthetic roles, and
+  7/7 node results are linked in one validated record. The 39,963-byte
+  independent return has SHA-256
+  `a73e5c2c6d098b94c4b5f4a74b6490b9b0a7e783d5b6061a789388e874ee38a5`
+  and leaves no repair-wave tickets open. This is not a release or PC v2.02
+  write authorization; the reviewed evidence-link ZIP has SHA-256
+  `714e7194b39053d6c9d64106ae64636ee530e6493441ab9de764f954b608958a`.
 
 ### Historical snapshots
 
@@ -205,3 +226,58 @@ For a new executable version:
 5. Record changed, unchanged, and unknown subsystems in the capability matrix.
 6. Mark old documents with `superseded_by`; never silently edit history into a
    different version's truth.
+
+## PC v2.02 Pro handoff (final package v5, ACCEPTED for bounded Pro analysis)
+
+Self-contained bounded handoff: D:\\Nioh3_v080_deliverables\\deliverables\\game-version-update-20260919\\pro-handoff\\nioh3-pc-v2.02-addon-revision-and-level-clamp-pro-handoff-20260919-v5 and .zip (137,038 bytes, 60 members, SHA-256 74E1576DF78F804D7734F2C948B3413665F2418255A79A5BE10D931B7764EDC9).
+Accepted 2026-09-19 on independent closure review (archive-derived, read-only); that review also confirms the v4->v5 diff is 4 files (README.md, TASK_FOR_PRO.md, KNOWN_LIMITS.md, SHA256SUMS.txt) with 56 byte-identical members.
+Status: accepted Pro handoff awaiting Pro analysis / next-probe design. Product PC v2.02 remains UNAPPROVED (product_enablement_allowed: false), no release, no packaging, and the overall compatibility goal is NOT complete.
+Known limits: 24 raw records = second seed only (seed 1 raw unrecoverable); no revision artifact for the Q1 additive-effect question; 600/180 clamp consumer body not located; item/multiplier row-store addresses are runtime-only; table field meanings unknown.
+
+## PC v2.02 P0 evidence corrections (2026-09-19)
+
+Corrected evidence lives in
+`deliverables/game-version-update-20260919/reports/P0-corrections-20260919.md`
+with machine-readable companions `P0-verified-facts-20260919.json`,
+`recommended-level-curve-42point-verified-20260919.json`,
+`private-save-discovery-20260919.json`, `private-record-scan-20260919.json` and
+`backup-record-comparison-20260919.json`.
+
+- item row 3358 is `+0x84` in true row coordinates (`0x15514C`); the published
+  `+0x8C` was a window-relative coordinate from a window that started 8 bytes
+  early.
+- optional_multiplier is a keyed diff: 0 keys removed, 3 added, 3 payload
+  changes (`0xD7C3` 1400 -> 600 among them), 104 position shifts, 646
+  metadata-only changes. The 105/101/546/85 -> 84 figures are rejected as an
+  artifact of an 8-byte row-start key with dict collapse.
+- The 42-row display curve is verified identical in the retained PC v2.02
+  capture, but only as a signature-bound read-only capture;
+  `tables/level_curve.bin` (501 rows) is not evidence for it.
+- R3 masks `0x1B` and R5 keeps 10,000 full-record mismatches; both raw reports
+  stay immutable and must not be summarised as full-record passes.
+- The only game-recognized save is unchanged since 2026-09-14 and stores the
+  probed scroll at internal recommended 1400 (display 700), also present in the
+  9/2-era backup. The owner's 356 report is not yet identity-joined to that
+  record, so it is a candidate observation, not proof about this scroll.
+
+## Rust backend migration Pro review package (packet B, ready, 2026-09-20)
+
+`deliverables/rust-migration-pro-review-20260920/` plus `.zip` (2,639,869 bytes,
+464 files, ZIP SHA-256
+`cc6eb6647f93de43450c08ed669ec42b49a5c2390bd6721aa122aeb20d9a55ba`). Status:
+ready, **pending Pro review** - no review conclusion exists yet, nothing is
+published, and no PC v2.02 write path is enabled by it.
+
+It asks Pro for evidence-graded module decisions (`KEEP` / `LOCAL_REPAIR` /
+`REFACTOR` / `REWRITE`, or `NOT_ASSESSED` / `INSUFFICIENT_EVIDENCE`) plus an
+aggregate `KEEP` / `PARTIAL_REPAIR` / `FULL_BACKEND_REWRITE` recommendation,
+each citing packaged paths and lines. Contents: the six unpublished crates with
+all manifests and locks; the 28 migration gates and their fixtures; 53 current
+Python peers and 54 baseline peers extracted from the published v0.7.5 commit
+`533694ebad21906aecbb6ab5283e04e760ce6c09` (`v0.7.5^{commit}`; annotated tag
+object `c4cfce1523aa10a2532b79319c1e16ad4fbd6ee7`); every repository product data
+resource including the large versioned tables; packet A unpacked once as
+incident reference; and portable standard-library validation.
+
+Snapshot boundary: the package was built before this index entry, so the entry
+is deliberately not inside it and no packaged hash depends on it.

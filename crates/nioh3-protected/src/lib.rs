@@ -36,10 +36,10 @@ pub mod scan;
 #[cfg(feature = "test-fake")]
 pub mod scan_bench_api;
 
-pub use app::{JobContext, Role, RoleApplication};
+pub use app::{FinalizePlan, FinalizeStep, JobContext, Role, RoleApplication};
 pub use contract::Contract;
 pub use error::HostError;
-pub use host::serve;
+pub use host::{serve, serve_with_plan, serve_with_plan_and_degraded_poll};
 pub use jobs::ProtectedJobs;
 pub use runtime_app::RuntimeApplication;
 pub use save_app::SaveApplication;

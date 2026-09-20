@@ -348,6 +348,7 @@ export interface SaveInventory {
       remaining_challenge_attempts: number;
       recommended_displayed_level: number;
       recommended_raw_was_clamped: boolean;
+      recommended_raw_level?: number;
     };
   }[];
 }

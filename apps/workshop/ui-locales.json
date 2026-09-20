@@ -1820,9 +1820,9 @@
       "Choose 1–25 results per batch.",
       "検索件数は1～25で指定してください。"
     ],
-    "推荐等级应为 142–700 内可转换的整数。": [
-      "Choose a convertible recommended level from 142 to 700.",
-      "推奨レベルは142～700の変換可能な整数で指定してください。"
+    "推荐等级应为 142–356 内可转换的整数。": [
+      "Choose a convertible recommended level from 142 to 356.",
+      "推奨レベルは142～356の変換可能な整数で指定してください。"
     ],
     "绘卷等级应为 0–180。": [
       "Scroll level must be 0–180.",

@@ -14,12 +14,60 @@ from .process_memory_readonly import ProcessReader
 from .process_instance import original_process_exited, process_creation_time
 
 
+# The live record's ``+0x28`` is a qword and the native index hashes all eight
+# bytes, but the saved generation serial is a u32.  The insertion stamps the
+# planned serial into the new record and advances the live counter to
+# ``serial + 1``, so a counter whose successor passes this cap cannot round-trip
+# into a save.  Refuse the plan instead of truncating the live value or widening
+# the save field.  ``tests/test_live_add_adapter.py`` pins this against the save
+# codec's own ``SCROLL_GENERATION_SERIAL_MAX``.
+SAVE_GENERATION_SERIAL_MAX = 0xFFFFFFFC
+
+# Code-identity resources are selected by profile id rather than by adding a
+# field to ``LiveAddProfile``, whose exported layout is mirrored by the Rust
+# runtime and the generated CE layout.
+IDENTITY_RESOURCES = {
+    'pc-v2.01-live-add-r1': 'data/live_add_pc_v201_identity.json',
+    'pc-v2.02-live-add-candidate': 'data/live_add_pc_v202_identity.json',
+}
+
+
+def serial_in_save_domain(serial):
+    """Whether a live serial and its successor both fit the saved u32 field."""
+
+    return 0 < serial < SAVE_GENERATION_SERIAL_MAX
+
+
+def verify_executable_identity(executable_path, expected_sha256):
+    """Whether the running executable matches the resource's declared identity.
+
+    The v2.02 candidate resource declares the exact installed executable because
+    a few of the v2.01 identity ranges could not be relocated to v2.02 code.  The
+    executable hash is the primary identity; the ranges are corroboration.  An
+    absent expectation keeps the shipped v2.01 behaviour unchanged.
+    """
+
+    if not expected_sha256:
+        return True
+    if not executable_path:
+        return False
+    hasher = hashlib.sha256()
+    try:
+        with open(executable_path, 'rb') as handle:
+            for chunk in iter(lambda: handle.read(1 << 20), b''):
+                hasher.update(chunk)
+    except OSError:
+        return False
+    return hasher.hexdigest().upper() == str(expected_sha256).upper()
+
+
 class LiveAddAdapter:
     def __init__(self, transport):
         self.transport = transport
         self.pending = None
         self.pending_pid = None
         self.pending_creation_time = None
+        self.game_path = None
 
     def _clear_pending(self):
         self.pending = self.pending_pid = self.pending_creation_time = None
@@ -60,6 +108,7 @@ class LiveAddAdapter:
         pid, profile, path = running_game_identity()
         if profile.display_version != 'PC v2.01':
             raise ValueError('Live addition requires accepted PC v2.01')
+        self.game_path = path
         return pid, live_add_profile((2, 0, 1, 0))
 
     def inspect(self):
@@ -79,22 +128,34 @@ class LiveAddAdapter:
             if any(value.get('process_creation_time') != creation_time for value in (inventory, index)):
                 raise RuntimeError('PROCESS_INSTANCE_CHANGED: planning snapshots span game lifetimes')
             base = reader.module_base
-            identities = json.loads((Path(__file__).parent / 'data/live_add_pc_v201_identity.json').read_bytes())
+            resource = IDENTITY_RESOURCES.get(profile.profile_id)
+            if resource is None:
+                raise ValueError(f'No code identity resource for profile {profile.profile_id!r}')
+            identities = json.loads((Path(__file__).parent / resource).read_bytes())
             if identities['profile_id'] != profile.profile_id:
                 raise ValueError('Code identity profile differs')
+            expected_executable = identities.get('executable_sha256')
+            if identities.get('unverified_ranges') and not expected_executable:
+                raise ValueError(
+                    'Code identity resource declares unverified ranges without an executable identity')
+            if not verify_executable_identity(self.game_path, expected_executable):
+                raise RuntimeError('Game executable identity differs')
             for site in identities['ranges']:
                 if hashlib.sha256(reader.read(base + site['rva'], site['size'])).hexdigest() != site['sha256']:
                     raise RuntimeError(f"Loaded native code differs at RVA {site['rva']:#x}; remove the conflicting modification")
             if reader.read(base + profile.dispatch_rva, 7).hex().upper() != profile.dispatch_signature_hex.upper():
                 raise RuntimeError('Dispatch instructions differ')
-            manager = reader.u64(base + profile.manager_pointer_rva)
-            data = reader.u64(manager)
+            pointers = profile.resolve_inventory(reader.u64, base)
+            manager = pointers.manager_address
+            data = pointers.data_address
             container = reader.read(data + profile.container_offset, profile.capacity * profile.record_size)
             if hashlib.sha256(container).hexdigest() != inventory['container_sha256']:
                 raise RuntimeError('Inventory changed during planning')
             serial = reader.u64(data + profile.serial_counter_offset)
-            if str(serial) != inventory['serial_counter'] or not 0 < serial < 0x7FFFFFFFFFFFFFFE:
+            if str(serial) != inventory['serial_counter'] or serial == 0:
                 raise ValueError('Serial changed or exceeds this executor ABI range')
+            if not serial_in_save_domain(serial):
+                raise ValueError('Serial cannot be advanced within the save format')
             slots = [i for i in range(profile.capacity) if container[i*profile.record_size:i*profile.record_size+2] == b'\0\0']
             if not slots:
                 raise ValueError('Scroll inventory is full')

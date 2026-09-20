@@ -299,7 +299,7 @@ export function queryProblem(q: Query, realBackend = false): string {
     !Number.isInteger(q.recommended) ||
     !(String(q.recommended) in data.levels)
   )
-    return "推荐等级应为 142–700 内可转换的整数。";
+    return "推荐等级应为 142–356 内可转换的整数。";
   if (!Number.isInteger(q.level) || q.level < 0 || q.level > 180)
     return "绘卷等级应为 0–180。";
   if (

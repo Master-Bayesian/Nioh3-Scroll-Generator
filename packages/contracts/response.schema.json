@@ -537,8 +537,26 @@
             "game_profile": {
               "type": "string"
             },
+            "game_file_version": {
+              "type": "string",
+              "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$",
+              "description": "Exact installed game executable version this identity resolved, as a dotted four-part string such as \"2.0.2.0\". There is no default."
+            },
+            "versioned_resource_dir": {
+              "type": "string",
+              "description": "Version-selected offline resource directory the bundle resolved to."
+            },
+            "bundle_digest": {
+              "type": "string",
+              "description": "Identity over every selected input, including version-invariant ones."
+            },
+            "versioned_digest": {
+              "type": "string",
+              "description": "Identity over only the files below the versioned resource directory."
+            },
             "resources_digest": {
-              "type": "string"
+              "type": "string",
+              "description": "Whole-root digest, retained as proof/diagnostic only."
             },
             "algorithm_version": {
               "type": "string"
@@ -547,7 +565,16 @@
               "type": "string"
             },
             "context_digest": {
-              "type": "string"
+              "type": "string",
+              "description": "The version-bound digest that authorizes candidate, cache, and resume reuse."
+            },
+            "legacy_context_digest": {
+              "type": "string",
+              "description": "Pre-version identity digest, carried only as an explicit proof field."
+            },
+            "production_authority": {
+              "type": "boolean",
+              "description": "True only for a resolved production identity. A false value marks the opt-in, non-production legacy capture and must not authorize reuse."
             },
             "seed_accelerator_abi": {
               "anyOf": [
@@ -575,10 +602,16 @@
           "required": [
             "product_version",
             "game_profile",
+            "game_file_version",
+            "versioned_resource_dir",
+            "bundle_digest",
+            "versioned_digest",
             "resources_digest",
             "algorithm_version",
             "policy_version",
             "context_digest",
+            "legacy_context_digest",
+            "production_authority",
             "seed_accelerator_abi",
             "seed_accelerator_build_id"
           ]

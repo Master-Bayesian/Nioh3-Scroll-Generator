@@ -32,10 +32,19 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
-use nioh3_worker::context::GenerationContext;
+use nioh3_worker::engine::EngineContext;
 
+#[cfg(windows)]
+use crate::app::FinalizeStep;
 use crate::app::{JobContext, Role, RoleApplication};
 use crate::error::HostError;
+
+/// The one ownership reason a runtime host without a Windows binding can give.
+///
+/// `shutdown` and the finalization decision both use it so the control plane's
+/// error text, the degraded `finalization.reason` and the shutdown reply cannot
+/// drift apart.
+pub const NON_WINDOWS_OWNERSHIP_REASON: &str = "the runtime adapter requires Windows";
 
 /// The `CountEdit` object the protected contract publishes for `runtime.count_*`.
 fn count_status_json(status: &nioh3_runtime::mutation::CountStatus) -> Value {
@@ -55,7 +64,7 @@ fn count_status_json(status: &nioh3_runtime::mutation::CountStatus) -> Value {
 pub struct RuntimeApplication {
     state_root: PathBuf,
     data_root: PathBuf,
-    context: GenerationContext,
+    context: EngineContext,
     /// Candidates the most recent native generation published, keyed by id.
     candidates: HashMap<String, Value>,
     /// The override/live-add ownership state machine.
@@ -70,10 +79,49 @@ pub struct RuntimeApplication {
     /// The product tables the offline preview composition reads, loaded once.
     #[cfg(windows)]
     preview: Option<Box<nioh3_data::PreviewResources>>,
+    /// Offline generation resource version for the preview tables. `None`
+    /// selects the shipped legacy resource; the release default is the version
+    /// this build ships with.
+    #[cfg(windows)]
+    resource_version: Option<(u16, u16, u16, u16)>,
     /// Composed auxiliary halves, keyed by seed: one scan can revisit a seed
     /// across batches, and the shipped generator is deterministic per seed.
     #[cfg(windows)]
     auxiliary_cache: HashMap<u32, nioh3_domain::preview::AuxiliaryPreview>,
+    /// Oracle owners whose allocation or remote thread is not yet proven
+    /// released. These receipts outlive the job that produced them.
+    #[cfg(windows)]
+    retired_oracles: Vec<RetiredOracleOwner>,
+}
+
+#[cfg(windows)]
+enum RetiredOracleOwner {
+    Native(nioh3_runtime::mutation::oracle::OracleRetirement),
+    #[cfg(feature = "test-fake")]
+    Scripted {
+        release_file: Option<PathBuf>,
+    },
+}
+
+#[cfg(windows)]
+impl RetiredOracleOwner {
+    fn refresh(&self) -> bool {
+        match self {
+            Self::Native(owner) => owner.refresh(),
+            #[cfg(feature = "test-fake")]
+            Self::Scripted { release_file } => {
+                release_file.as_ref().is_some_and(|path| path.is_file())
+            }
+        }
+    }
+
+    fn error(&self) -> Option<String> {
+        match self {
+            Self::Native(owner) => owner.snapshot().error,
+            #[cfg(feature = "test-fake")]
+            Self::Scripted { .. } => Some("scripted remote call still owns cleanup".to_string()),
+        }
+    }
 }
 
 impl RuntimeApplication {
@@ -81,7 +129,7 @@ impl RuntimeApplication {
     pub fn new(
         state_root: PathBuf,
         data_root: &Path,
-        context: GenerationContext,
+        context: EngineContext,
     ) -> Result<Self, HostError> {
         Ok(Self {
             state_root,
@@ -97,7 +145,11 @@ impl RuntimeApplication {
             #[cfg(windows)]
             preview: None,
             #[cfg(windows)]
+            resource_version: Some(nioh3_data::CURRENT_RESOURCE_VERSION),
+            #[cfg(windows)]
             auxiliary_cache: HashMap::new(),
+            #[cfg(windows)]
+            retired_oracles: Vec::new(),
         })
     }
 
@@ -245,7 +297,10 @@ mod imp {
     };
     use nioh3_runtime::{GameIdentity, NativeRuntimeProfile};
 
-    use super::{HostError, JobContext, PathBuf, Role, RoleApplication, RuntimeApplication};
+    use super::{
+        finalize_reason, FinalizeStep, HostError, JobContext, PathBuf, RetiredOracleOwner, Role,
+        RoleApplication, RuntimeApplication,
+    };
     use crate::oracle::{BatchOracle, NativeOracle};
     use crate::scan::{
         AuxiliaryCriteria, AuxiliarySource, ScanFilters, ScanMatch, ScanProgress, ScanRequest,
@@ -261,7 +316,10 @@ mod imp {
     enum OracleHandle {
         Native(Box<NativeOracle>),
         #[cfg(feature = "test-fake")]
-        Scripted(Box<crate::oracle::scripted::ScriptedOracle>),
+        Scripted {
+            oracle: Box<crate::oracle::scripted::ScriptedOracle>,
+            release_file: Option<PathBuf>,
+        },
     }
 
     impl OracleHandle {
@@ -269,15 +327,26 @@ mod imp {
             match self {
                 OracleHandle::Native(oracle) => oracle.as_mut(),
                 #[cfg(feature = "test-fake")]
-                OracleHandle::Scripted(oracle) => oracle.as_mut(),
+                OracleHandle::Scripted { oracle, .. } => oracle.as_mut(),
             }
         }
 
-        fn remote_call_pending(&self) -> bool {
+        fn retirement(&self) -> Option<RetiredOracleOwner> {
             match self {
-                OracleHandle::Native(oracle) => oracle.0.remote_call_pending(),
+                OracleHandle::Native(oracle) => {
+                    let retirement = oracle.0.retirement();
+                    (!retirement.snapshot().safe_to_shutdown)
+                        .then_some(RetiredOracleOwner::Native(retirement))
+                }
                 #[cfg(feature = "test-fake")]
-                OracleHandle::Scripted(oracle) => oracle.remote_call_pending(),
+                OracleHandle::Scripted {
+                    oracle,
+                    release_file,
+                } => oracle
+                    .remote_call_pending()
+                    .then(|| RetiredOracleOwner::Scripted {
+                        release_file: release_file.clone(),
+                    }),
             }
         }
 
@@ -287,7 +356,7 @@ mod imp {
             match self {
                 OracleHandle::Native(oracle) => oracle.close(),
                 #[cfg(feature = "test-fake")]
-                OracleHandle::Scripted(_) => {}
+                OracleHandle::Scripted { .. } => {}
             }
         }
     }
@@ -461,6 +530,12 @@ mod imp {
         /// before taking the snapshot, then the override session and the
         /// retired native calls.
         pub(super) fn status(&mut self) -> Result<Value, HostError> {
+            self.retired_oracles.retain(|owner| !owner.refresh());
+            let retired_count = self.retired_oracles.len() as u64;
+            let retired_error = self
+                .retired_oracles
+                .iter()
+                .find_map(RetiredOracleOwner::error);
             let ownership = match self.live_add.as_mut() {
                 Some(application) => {
                     Some(application.ownership().map_err(HostError::from_runtime)?)
@@ -471,7 +546,19 @@ mod imp {
                 Some(ownership) => self.host.status_with_live_add(ownership),
                 None => self.host.status(),
             };
-            Ok(status.to_json())
+            let mut value = status.to_json();
+            if retired_count > 0 {
+                let base_pending = value
+                    .get("pending_remote_calls")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0);
+                value["pending_remote_calls"] = json!(base_pending + retired_count);
+                value["safe_to_shutdown"] = Value::Bool(false);
+                if value.get("error").is_none_or(Value::is_null) {
+                    value["error"] = json!(retired_error);
+                }
+            }
+            Ok(value)
         }
 
         /// `RuntimeApplication.stop_override`. A failed restoration retains
@@ -638,7 +725,7 @@ mod imp {
                 );
                 let application = LiveAddApplication::new(
                     &self.state_root,
-                    &self.context.context_digest,
+                    self.context.digest(),
                     Box::new(executor),
                     Box::new(crate::runtime_backup::SaveBackupAdapter::new(
                         &self.state_root,
@@ -714,7 +801,7 @@ mod imp {
                 .get("context_digest")
                 .and_then(Value::as_str)
                 .ok_or_else(HostError::invalid_request)?;
-            if digest != self.context.context_digest {
+            if digest != self.context.digest() {
                 return Err(HostError::rejected(
                     "Template context differs from the running core",
                 ));
@@ -735,8 +822,14 @@ mod imp {
         /// The product preview tables, loaded once on first use.
         fn preview_resources(&mut self) -> Result<&nioh3_data::PreviewResources, HostError> {
             if self.preview.is_none() {
-                let loaded = nioh3_data::load_preview_resources(&self.data_root)
-                    .map_err(|error| HostError::coded("RESOURCE_MISMATCH", error.to_string()))?;
+                let loaded = match self.resource_version {
+                    Some(version) => nioh3_data::load_preview_resources_for_file_version(
+                        &self.data_root,
+                        version,
+                    ),
+                    None => nioh3_data::load_preview_resources(&self.data_root),
+                }
+                .map_err(|error| HostError::coded("RESOURCE_MISMATCH", error.to_string()))?;
                 self.preview = Some(Box::new(loaded));
             }
             self.preview
@@ -754,9 +847,22 @@ mod imp {
             if let Some(path) =
                 std::env::var_os("NIOH3_PROTECTED_ORACLE_SCRIPT").filter(|value| !value.is_empty())
             {
-                let scripted = crate::oracle::scripted::load_script(std::path::Path::new(&path))
+                let script_path = std::path::Path::new(&path);
+                let scripted = crate::oracle::scripted::load_script(script_path)
                     .map_err(HostError::rejected)?;
-                return Ok(OracleHandle::Scripted(Box::new(scripted)));
+                let release_file = std::fs::read_to_string(script_path)
+                    .ok()
+                    .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+                    .and_then(|payload| {
+                        payload
+                            .get("retirement_release_file")
+                            .and_then(Value::as_str)
+                            .map(PathBuf::from)
+                    });
+                return Ok(OracleHandle::Scripted {
+                    oracle: Box::new(scripted),
+                    release_file,
+                });
             }
             let identity = self.identity()?;
             let mut oracle = NativeOracle::new(
@@ -888,7 +994,7 @@ mod imp {
             };
             let mut payload = nioh3_worker::payload::candidate_payload_json(
                 &candidate,
-                &self.context.context_digest,
+                self.context.digest(),
                 &composition,
             );
             // `worker_contracts.candidate_payload(candidate, service, evidence=...)`
@@ -904,11 +1010,8 @@ mod imp {
             }
             // The shipped search also retains the broker-only transfer block so
             // `runtime.export` can hand the same candidate to the save side.
-            let wire = nioh3_worker::payload::transfer_json(
-                &candidate,
-                &self.context.context_digest,
-                level,
-            );
+            let wire =
+                nioh3_worker::payload::transfer_json(&candidate, self.context.digest(), level);
             if let Some(candidate_id) = wire.get("candidate_id").and_then(Value::as_str) {
                 self.candidates
                     .insert(candidate_id.to_string(), wire.clone());
@@ -943,7 +1046,7 @@ mod imp {
                     .and_then(Value::as_str)
                     .ok_or_else(HostError::invalid_request)?
                     .to_string();
-                let digest = self.context.context_digest.clone();
+                let digest = self.context.digest().to_string();
                 let maps = crate::maps::prepare_maps(
                     handle.batch(),
                     &self.state_root,
@@ -989,10 +1092,14 @@ mod imp {
                     ..
                 } = self;
                 if preview.is_none() {
-                    let loaded =
-                        nioh3_data::load_preview_resources(&self.data_root).map_err(|error| {
-                            HostError::coded("RESOURCE_MISMATCH", error.to_string())
-                        })?;
+                    let loaded = match self.resource_version {
+                        Some(version) => nioh3_data::load_preview_resources_for_file_version(
+                            &self.data_root,
+                            version,
+                        ),
+                        None => nioh3_data::load_preview_resources(&self.data_root),
+                    }
+                    .map_err(|error| HostError::coded("RESOURCE_MISMATCH", error.to_string()))?;
                     *preview = Some(Box::new(loaded));
                 }
                 let resources = preview
@@ -1026,10 +1133,8 @@ mod imp {
                 )
             };
             handle.close();
-            if handle.remote_call_pending() {
-                // A retired owner that may still owe a native call is retained
-                // rather than discarded, exactly like the shipped `finally`.
-                self.host.ownership_mut().retire_oracle(true);
+            if let Some(owner) = handle.retirement() {
+                self.retired_oracles.push(owner);
             }
             let matched = outcome?;
             match matched {
@@ -1093,11 +1198,11 @@ mod imp {
                 &mut |progress| ctx.progress(progress.to_json()),
             );
             handle.close();
-            if handle.remote_call_pending() {
-                self.host.ownership_mut().retire_oracle(true);
+            if let Some(owner) = handle.retirement() {
+                self.retired_oracles.push(owner);
             }
             let mapping = outcome?;
-            let digest = self.context.context_digest.clone();
+            let digest = self.context.digest().to_string();
             let path = crate::save_app::grace_map_cache_path(
                 &self.state_root,
                 &fingerprint,
@@ -1122,7 +1227,7 @@ mod imp {
         }
 
         fn context_payload(&self) -> Value {
-            self.context.to_payload()
+            crate::app::protected_context_payload(&self.context)
         }
 
         fn direct(&mut self, method: &str, _params: &Value) -> Result<Value, HostError> {
@@ -1296,22 +1401,37 @@ mod imp {
             }
         }
 
-        fn finalize(&mut self) {
-            // The shipped `finally` block drains ownership before exit:
-            // `while not application.shutdown()['safe_to_shutdown']: sleep(1)`.
-            // A wedged target must not park the process forever, so the host
-            // makes three bounded attempts and then reports the retained owner
-            // on stderr; it never drops an unconfirmed hook silently.
-            for _ in 0..3 {
-                match self.shutdown() {
-                    Ok(value) if value.get("safe_to_shutdown") == Some(&Value::Bool(true)) => {
-                        return
-                    }
-                    Ok(_) | Err(_) => std::thread::sleep(std::time::Duration::from_millis(250)),
+        fn finalize(&mut self) -> FinalizeStep {
+            // One decision per attempt. The host owns the bounded retry
+            // schedule and the degraded state it ends in; this only reports
+            // whether ownership is proven released and, when it is not, why.
+            match self.shutdown() {
+                Ok(value) if value.get("safe_to_shutdown") == Some(&Value::Bool(true)) => {
+                    FinalizeStep::Released
                 }
+                Ok(value) => FinalizeStep::Retained {
+                    reason: finalize_reason(&value, "runtime ownership is unresolved"),
+                },
+                Err(error) => FinalizeStep::Retained {
+                    reason: format!(
+                        "runtime status could not be read during finalization: {}",
+                        error.message
+                    ),
+                },
             }
-            eprintln!("protected runtime host still owns a target; ownership retained");
         }
+    }
+}
+
+/// The shipped ownership reason for a `safe_to_shutdown: false` snapshot.
+///
+/// Non-Windows answers with `the runtime adapter requires Windows`, which says
+/// the state cannot be resolved here at all rather than that it is still being
+/// worked on.
+fn finalize_reason(value: &Value, fallback: &str) -> String {
+    match value.get("error") {
+        Some(Value::String(message)) if !message.trim().is_empty() => message.trim().to_string(),
+        _ => fallback.to_string(),
     }
 }
 
@@ -1323,7 +1443,10 @@ mod imp {
 mod imp {
     use serde_json::{json, Value};
 
-    use super::{HostError, JobContext, Role, RoleApplication, RuntimeApplication};
+    use super::{
+        FinalizeStep, HostError, JobContext, Role, RoleApplication, RuntimeApplication,
+        NON_WINDOWS_OWNERSHIP_REASON,
+    };
 
     impl RuntimeApplication {
         fn unsupported<T>() -> Result<T, HostError> {
@@ -1351,7 +1474,7 @@ mod imp {
         }
 
         fn context_payload(&self) -> Value {
-            self.context.to_payload()
+            crate::app::protected_context_payload(&self.context)
         }
 
         fn direct(&mut self, method: &str, _params: &Value) -> Result<Value, HostError> {
@@ -1396,8 +1519,18 @@ mod imp {
         fn shutdown(&mut self) -> Result<Value, HostError> {
             Ok(json!({
                 "safe_to_shutdown": false,
-                "error": "the runtime adapter requires Windows",
+                "error": NON_WINDOWS_OWNERSHIP_REASON,
             }))
+        }
+
+        fn finalize(&mut self) -> FinalizeStep {
+            // There is no Windows binding here, so no in-process attempt can
+            // ever resolve the owner. Report that instead of spending the whole
+            // bounded schedule: the host still stays retained, but one attempt
+            // is enough to reach the explicit degraded state.
+            FinalizeStep::Terminal {
+                reason: NON_WINDOWS_OWNERSHIP_REASON.to_string(),
+            }
         }
     }
 }

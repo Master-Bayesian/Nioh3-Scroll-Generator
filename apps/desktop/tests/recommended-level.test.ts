@@ -9,13 +9,19 @@ test('displayed level selector uses the exact worker curve without clamping', { 
   try {
     const catalog = await worker.catalog(4, 'en-US');
     assert.equal(catalog.recommended_level.minimum_displayed_level, 142);
-    assert.equal(catalog.recommended_level.maximum_displayed_level, 700);
+    // The current bound is raw 600 -> displayed 356.
+    assert.equal(catalog.recommended_level.maximum_internal_level, 600);
+    assert.equal(catalog.recommended_level.maximum_displayed_level, 356);
     const selected = await worker.resolveRecommendedLevel(350);
     assert.equal(selected.status, 'exact');
     assert.deepEqual(selected.canonical_internal_levels, [585, 586]);
     assert.equal(selected.selected_internal_level, 585);
     assert.equal(selected.metadata.evidence, 'captured_native_curve_prediction');
-    for (const requested of [141, 701, 0]) {
+    const top = await worker.resolveRecommendedLevel(356);
+    assert.equal(top.status, 'exact');
+    assert.deepEqual(top.canonical_internal_levels, [599, 600]);
+    assert.equal(top.selected_internal_level, 599);
+    for (const requested of [141, 357, 700, 701, 0]) {
       const unavailable = await worker.resolveRecommendedLevel(requested);
       assert.equal(unavailable.status, 'out_of_range');
       assert.deepEqual(unavailable.canonical_internal_levels, []);

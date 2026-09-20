@@ -105,6 +105,109 @@ pub const PC_V201_LIVE_ADD: LiveAddLayout = LiveAddLayout {
     capacity: 400,
 };
 
+/// PC v2.02 candidate live-add layout. Not accepted: nothing selects it.
+///
+/// Additive and disabled. [`PC_V201_LIVE_ADD`] stays the only layout the
+/// product validates, `profile_for_game_version` still refuses `2.0.2.0`, and
+/// neither the protected host nor any JSON parameter can name this constant. It
+/// exists so the version-owned RVAs the PC v2.02 lanes derived can be reviewed
+/// as data and pinned by tests before one controlled validation through the
+/// injected transport seam.
+///
+/// `profile_id` carries the candidate marker on purpose: the executor's
+/// identity gate compares the transport's claimed profile id with the layout's
+/// own id, so this layout can never be mistaken for the shipped
+/// `pc-v2.01-live-add-r1` identity, and any run that used it would be an
+/// explicit research claim rather than product selection.
+pub const PC_V202_LIVE_ADD_CANDIDATE: LiveAddLayout = LiveAddLayout {
+    profile_id: "pc-v2.02-live-add-candidate",
+    dispatch_rva: 0x12E9E50,
+    dispatch_return_rva: 0x20BB1C,
+    dispatch_signature: [0x40, 0x53, 0x57, 0x48, 0x83, 0xEC, 0x38],
+    builder_rva: 0x227FC5C,
+    builder_size: 0x27B,
+    insertion_rva: 0x54D324,
+    insertion_size: 0xE17,
+    slot_lookup_rva: 0x55308C,
+    manager_pointer_rva: 0x4751530,
+    scheduler_pointer_rva: 0x4745348,
+    container_offset: 0x224A60,
+    capacity_offset: 0x16A80,
+    serial_counter_offset: 8,
+    serial_index_offset: 0x23B5E8,
+    scheduler_pending_offset: 0x1408,
+    scheduler_ready_offset: 0x1629,
+    queue_begin_offset: 0x60,
+    queue_end_offset: 0x68,
+    // Carried from PC v2.01 and confirmed by the v2.02 static and live lanes;
+    // not re-derived here.
+    record_size: SCROLL_RECORD_SIZE,
+    descriptor_size: DESCRIPTOR_SIZE,
+    capacity: 400,
+};
+
+/// The executable the PC v2.02 candidate RVAs were read from.
+pub const PC_V202_CANDIDATE_EXECUTABLE_SHA256: &str =
+    "E22C4A635E4EC1E27A177B76E27D7F6A637F426C0ED3928B60F5693BC52AE130";
+
+/// The captured `.text` image of that executable, the lanes' decode input.
+pub const PC_V202_CANDIDATE_TEXT_SHA256: &str =
+    "4CEC8FB6AD867417A76DF8201C1D4F54172443884910463C1953ACAD91AE6C29";
+
+/// Display version of the accepted product build.
+///
+/// One accepted layout pairs with one display version: a version string alone
+/// never authorizes a layout, and a layout alone never authorizes a version.
+pub const PRODUCT_DISPLAY_VERSION: &str = "PC v2.01";
+
+/// Display version of the accepted research candidate build.
+///
+/// The candidate is opt-in research only. Naming this version without
+/// [`PC_V202_LIVE_ADD_CANDIDATE`] and the pinned
+/// [`PC_V202_CANDIDATE_EXECUTABLE_SHA256`] is refused by the executor's binding
+/// gate, and no product path names it.
+pub const CANDIDATE_DISPLAY_VERSION: &str = "PC v2.02";
+
+/// Owning lane for every version-owned value of
+/// [`PC_V202_LIVE_ADD_CANDIDATE`].
+///
+/// The three record/descriptor constants carried unchanged from PC v2.01 and
+/// the authored `profile_id` have no lane of their own and are deliberately
+/// absent. `inventory_global_mode` records the ABI choice this layout fixes
+/// rather than a field of [`LiveAddLayout`]; the Python mirror
+/// (`live_add_profile.PC_V202_EVIDENCE`) names the same lanes and spells the
+/// signature field `dispatch_signature_hex`.
+pub const PC_V202_CANDIDATE_EVIDENCE: [(&str, &str); 19] = [
+    (
+        "manager_pointer_rva",
+        "deepseek-v202-inventory-live-verify + go-v202-acquisition-contract",
+    ),
+    ("scheduler_pointer_rva", "deepseek-v202-scheduler-recovery"),
+    (
+        "scheduler_pending_offset",
+        "deepseek-v202-scheduler-recovery",
+    ),
+    ("scheduler_ready_offset", "deepseek-v202-scheduler-recovery"),
+    ("queue_begin_offset", "deepseek-v202-scheduler-recovery"),
+    ("queue_end_offset", "deepseek-v202-scheduler-recovery"),
+    ("dispatch_rva", "deepseek-v202-scheduler-recovery"),
+    ("dispatch_return_rva", "deepseek-v202-scheduler-recovery"),
+    ("dispatch_signature", "deepseek-v202-scheduler-recovery"),
+    ("builder_rva", "deepseek-v202-scheduler-recovery"),
+    ("builder_size", "deepseek-v202-scheduler-recovery"),
+    ("insertion_rva", "deepseek-v202-scheduler-recovery"),
+    ("insertion_size", "deepseek-v202-scheduler-recovery"),
+    ("slot_lookup_rva", "deepseek-v202-layout-static-offsets"),
+    ("container_offset", "deepseek-v202-layout-static-offsets"),
+    ("capacity_offset", "deepseek-v202-layout-static-offsets"),
+    (
+        "serial_counter_offset",
+        "deepseek-v202-layout-static-offsets",
+    ),
+    ("serial_index_offset", "deepseek-v202-layout-static-offsets"),
+    ("inventory_global_mode", "deepseek-v202-layout-acceptance"),
+];
+
 /// Live-add dispatch page offsets (`memory + <offset>` in the shipped shim).
 pub const DISPATCH_MARKER_OFFSET: u64 = 0x300;
 pub const BUILDER_RESULT_OFFSET: u64 = 0x308;
@@ -839,5 +942,126 @@ mod tests {
         assert_eq!(record[0x00], 0x5A);
         assert_eq!(record[0xE7], 0x5A);
         Ok(())
+    }
+
+    /// The PC v2.02 candidate is review data: every value is pinned to the
+    /// report its owning lane published, and the three record/descriptor
+    /// constants are shared with the shipped layout rather than restated.
+    #[test]
+    fn the_v2_02_candidate_layout_pins_the_lane_values() {
+        let candidate = PC_V202_LIVE_ADD_CANDIDATE;
+        assert_eq!(candidate.profile_id, "pc-v2.02-live-add-candidate");
+        assert_eq!(candidate.dispatch_rva, 0x12E9E50);
+        assert_eq!(candidate.dispatch_return_rva, 0x20BB1C);
+        assert_eq!(
+            candidate.dispatch_signature,
+            [0x40, 0x53, 0x57, 0x48, 0x83, 0xEC, 0x38]
+        );
+        assert_eq!(candidate.builder_rva, 0x227FC5C);
+        assert_eq!(candidate.builder_size, 0x27B);
+        assert_eq!(candidate.insertion_rva, 0x54D324);
+        assert_eq!(candidate.insertion_size, 0xE17);
+        assert_eq!(candidate.slot_lookup_rva, 0x55308C);
+        assert_eq!(candidate.manager_pointer_rva, 0x4751530);
+        assert_eq!(candidate.scheduler_pointer_rva, 0x4745348);
+        assert_eq!(candidate.container_offset, 0x224A60);
+        assert_eq!(candidate.capacity_offset, 0x16A80);
+        assert_eq!(candidate.serial_counter_offset, 8);
+        assert_eq!(candidate.serial_index_offset, 0x23B5E8);
+        assert_eq!(candidate.scheduler_pending_offset, 0x1408);
+        assert_eq!(candidate.scheduler_ready_offset, 0x1629);
+        assert_eq!(candidate.queue_begin_offset, 0x60);
+        assert_eq!(candidate.queue_end_offset, 0x68);
+        assert_eq!(candidate.record_size, PC_V201_LIVE_ADD.record_size);
+        assert_eq!(candidate.descriptor_size, PC_V201_LIVE_ADD.descriptor_size);
+        assert_eq!(candidate.capacity, PC_V201_LIVE_ADD.capacity);
+        // A real relocation, not a copy of the shipped layout.
+        assert_ne!(candidate.insertion_rva, PC_V201_LIVE_ADD.insertion_rva);
+        assert_ne!(
+            candidate.manager_pointer_rva,
+            PC_V201_LIVE_ADD.manager_pointer_rva
+        );
+    }
+
+    /// A candidate value may not be added without naming the lane that owns it.
+    #[test]
+    fn every_version_owned_candidate_field_names_its_lane() {
+        let expected = [
+            "dispatch_rva",
+            "dispatch_return_rva",
+            "dispatch_signature",
+            "builder_rva",
+            "builder_size",
+            "insertion_rva",
+            "insertion_size",
+            "slot_lookup_rva",
+            "manager_pointer_rva",
+            "scheduler_pointer_rva",
+            "container_offset",
+            "capacity_offset",
+            "serial_counter_offset",
+            "serial_index_offset",
+            "scheduler_pending_offset",
+            "scheduler_ready_offset",
+            "queue_begin_offset",
+            "queue_end_offset",
+            "inventory_global_mode",
+        ];
+        let mut named: Vec<&str> = PC_V202_CANDIDATE_EVIDENCE
+            .iter()
+            .map(|(field, _)| *field)
+            .collect();
+        named.sort_unstable();
+        let mut expected = Vec::from(expected);
+        expected.sort_unstable();
+        assert_eq!(named, expected);
+        for (field, lane) in PC_V202_CANDIDATE_EVIDENCE {
+            assert!(!lane.is_empty(), "{field} names no owning lane");
+        }
+        // The authored identity of the candidate is not a version-owned field.
+        assert!(!named.contains(&"profile_id"));
+    }
+
+    /// The disabled candidate leaves the product's version gates exactly as
+    /// they were: `2.0.2.0` resolves nothing and the shipped layout is
+    /// byte-for-byte the accepted PC v2.01 profile.
+    #[test]
+    fn the_v2_02_candidate_stays_unreachable_from_product_selection() {
+        use crate::platform::FileVersion;
+
+        let v2_02 = FileVersion::new(2, 0, 2, 0);
+        assert_eq!(crate::profile::supported_display_version(v2_02), None);
+        assert_eq!(
+            crate::profile::profile_for_game_version(v2_02, std::path::Path::new(".")).err(),
+            Some(RuntimeError::UnsupportedGameVersion {
+                display: "2.0.2.0".to_string(),
+            })
+        );
+        let shipped = PC_V201_LIVE_ADD;
+        assert_eq!(shipped.profile_id, "pc-v2.01-live-add-r1");
+        assert_eq!(shipped.dispatch_rva, 0x12E6840);
+        assert_eq!(shipped.dispatch_return_rva, 0x20BB2C);
+        assert_eq!(shipped.builder_rva, 0x227C4CC);
+        assert_eq!(shipped.builder_size, 0x27B);
+        assert_eq!(shipped.insertion_rva, 0x54D294);
+        assert_eq!(shipped.insertion_size, 0xE17);
+        assert_eq!(shipped.slot_lookup_rva, 0x552FBC);
+        assert_eq!(shipped.manager_pointer_rva, 0x474D4E0);
+        assert_eq!(shipped.scheduler_pointer_rva, 0x47412F8);
+        assert_eq!(shipped.scheduler_pending_offset, 0x1408);
+        assert_eq!(shipped.scheduler_ready_offset, 0x1629);
+        assert_eq!(shipped.queue_begin_offset, 0x60);
+        assert_eq!(shipped.queue_end_offset, 0x68);
+        assert_eq!(shipped.record_size, SCROLL_RECORD_SIZE);
+        assert_eq!(shipped.descriptor_size, DESCRIPTOR_SIZE);
+        assert_eq!(shipped.capacity, 400);
+        // The executor's only accepted version string is still PC v2.01, and
+        // the candidate advertises a different identity, so selecting it would
+        // take an explicit code change rather than a value change.
+        assert_eq!(
+            crate::mutation::live_add::LIVE_ADD_DISPLAY_VERSION,
+            "PC v2.01"
+        );
+        assert_ne!(PC_V202_LIVE_ADD_CANDIDATE.profile_id, shipped.profile_id);
     }
 }

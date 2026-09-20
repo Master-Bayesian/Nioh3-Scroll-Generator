@@ -10,6 +10,7 @@ from .effect_batch_filter import match_partial_effect_constraints_batch
 from .effect_path_inverse import FullCompositionRequest, OneWildcardCompositionRequest, compile_full_composition_plans, compile_one_wildcard_composition_plans
 from .effect_preimage_accelerator import d3d11_effect_acceleration_available, reset_effect_preimage_backend
 from .effect_preimage_search import collect_full_composition_preimage_page, collect_one_wildcard_composition_preimage_page
+from .effect_generation_tables import EffectGenerationTableIndex
 from .effect_sequence import EffectSequenceResult, collect_ng3_r4_primary_pivot_seeds, generate_ng3_certified_effect_sequence, generate_ng3_rarity34_primary_effect_ids, generate_rarity5_any_grace_primary_effect_ids, generate_rarity5_grace_effect_sequence, generate_rarity5_grace_primary_effect_id, generate_rarity5_grace_primary_effect_ids
 from .models import CandidateRecordStage, ScrollCandidate, candidate_matches
 from .grace_map import GraceOutputMap
@@ -178,6 +179,7 @@ def _legal_complete_preimage_layouts(
     request: EffectSeedRequest,
     *,
     grace_mapping: GraceOutputMap | None,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> tuple[tuple[FullCompositionRequest, int], ...] | None:
     """Compile exact paths and reject an exhausted complete composition."""
 
@@ -189,6 +191,7 @@ def _legal_complete_preimage_layouts(
         try:
             plans = compile_full_composition_plans(
                 inverse_request,
+                tables=tables,
                 special_mapping=grace_mapping,
             )
         except ValueError:
@@ -236,12 +239,14 @@ def collect_offline_complete_preimage_search_batch(
     start_after_trial: int = 0,
     candidate_found: Callable[[ScrollCandidate], None] | None = None,
     cancelled: Callable[[], bool] | None = None,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> SearchBatchResult | None:
     """Use the path inverse when the user specified every ordinary slot."""
 
     layouts = _legal_complete_preimage_layouts(
         request,
         grace_mapping=grace_mapping,
+        tables=tables,
     )
     if layouts is None:
         return None
@@ -283,6 +288,7 @@ def collect_offline_complete_preimage_search_batch(
                 budget_stop - active_cursor,
             ),
             cancelled=cancelled,
+            tables=tables,
         )
         if page is None:
             raise RuntimeError(
@@ -300,6 +306,7 @@ def collect_offline_complete_preimage_search_batch(
                     match.seed,
                     rarity=request.rarity,
                     level=level,
+                    tables=tables,
                 )
                 if request.playthrough == 3
                 else generate_rarity5_grace_effect_sequence(
@@ -307,6 +314,7 @@ def collect_offline_complete_preimage_search_batch(
                     playthrough=request.playthrough,
                     level=level,
                     grace_mapping=grace_mapping,
+                    tables=tables,
                 )
             )
             if not _sequence_satisfies_roll_filters(
@@ -363,6 +371,7 @@ def collect_offline_one_wildcard_preimage_search_batch(
     start_after_trial: int = 0,
     candidate_found: Callable[[ScrollCandidate], None] | None = None,
     cancelled: Callable[[], bool] | None = None,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> SearchBatchResult | None:
     """Use one GPU family when exactly one ordinary effect is unrestricted."""
 
@@ -372,6 +381,7 @@ def collect_offline_one_wildcard_preimage_search_batch(
     try:
         plans = compile_one_wildcard_composition_plans(
             inverse_request,
+            tables=tables,
             special_mapping=grace_mapping,
         )
     except ValueError as error:
@@ -405,6 +415,7 @@ def collect_offline_one_wildcard_preimage_search_batch(
             start_after_trial=active_cursor,
             max_trials=budget_stop - active_cursor,
             cancelled=cancelled,
+            tables=tables,
         )
         if page is None:
             raise RuntimeError(
@@ -422,6 +433,7 @@ def collect_offline_one_wildcard_preimage_search_batch(
                     match.seed,
                     rarity=request.rarity,
                     level=level,
+                    tables=tables,
                 )
                 if request.playthrough == 3
                 else generate_rarity5_grace_effect_sequence(
@@ -429,6 +441,7 @@ def collect_offline_one_wildcard_preimage_search_batch(
                     playthrough=request.playthrough,
                     level=level,
                     grace_mapping=grace_mapping,
+                    tables=tables,
                 )
             )
             if not _sequence_satisfies_roll_filters(
@@ -573,6 +586,7 @@ def partial_effect_batch_generator(
     grace_mapping: GraceOutputMap | None,
     level: int,
     allow_cpu_fallback: bool = False,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> Callable[[tuple[int, ...]], tuple[tuple[int, ...], int] | None] | None:
     """Build a fail-closed D3D11 forward filter for partial effect requests."""
 
@@ -602,6 +616,7 @@ def partial_effect_batch_generator(
             required_secondary_id_groups=request.required_secondary_id_groups,
             special_mapping=grace_mapping,
             level=level,
+            tables=tables,
         )
         if result is None:
             if allow_cpu_fallback:
@@ -626,6 +641,7 @@ def collect_offline_rarity5_search_batch(
     candidate_found: Callable[[ScrollCandidate], None] | None = None,
     cancelled: Callable[[], bool] | None = None,
     allow_cpu_fallback: bool = False,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> SearchBatchResult:
     """Run one exact NG3-NG5 rarity-5 search without a game process."""
 
@@ -644,6 +660,7 @@ def collect_offline_rarity5_search_batch(
                 playthrough=request.playthrough,
                 level=level,
                 grace_mapping=grace_mapping,
+                tables=tables,
             ),
             result_count=result_count,
             max_trials_per_batch=max_trials_per_batch,
@@ -662,6 +679,7 @@ def collect_offline_rarity5_search_batch(
             start_after_trial=start_after_trial,
             candidate_found=candidate_found,
             cancelled=cancelled,
+            tables=tables,
         )
         if d3d11_effect_acceleration_available() or not allow_cpu_fallback
         else None
@@ -678,6 +696,7 @@ def collect_offline_rarity5_search_batch(
             start_after_trial=start_after_trial,
             candidate_found=candidate_found,
             cancelled=cancelled,
+            tables=tables,
         )
         if d3d11_effect_acceleration_available() or not allow_cpu_fallback
         else None
@@ -732,12 +751,14 @@ def collect_offline_rarity5_search_batch(
                 playthrough=request.playthrough,
                 level=level,
                 grace_mapping=grace_mapping,
+                tables=tables,
             ),
             primary_effect_id_generator=lambda seed: (
                 generate_rarity5_grace_primary_effect_id(
                     seed,
                     playthrough=request.playthrough,
                     grace_mapping=grace_mapping,
+                    tables=tables,
                 )
             ),
             primary_effect_id_batch_generator=lambda seeds: (
@@ -746,12 +767,14 @@ def collect_offline_rarity5_search_batch(
                     playthrough=request.playthrough,
                     grace_id=request.grace_effect_id,
                     grace_mapping=grace_mapping,
+                    tables=tables,
                 )
                 if request.grace_effect_id is not None
                 else generate_rarity5_any_grace_primary_effect_ids(
                     seeds,
                     playthrough=request.playthrough,
                     grace_mapping=grace_mapping,
+                    tables=tables,
                 )
             ),
             effect_constraint_mask_batch_generator=partial_effect_batch_generator(
@@ -759,6 +782,7 @@ def collect_offline_rarity5_search_batch(
                 grace_mapping=grace_mapping,
                 level=level,
                 allow_cpu_fallback=allow_cpu_fallback,
+                tables=tables,
             ),
             allow_full_seed_family=request.grace_effect_id is None,
             start_after_trial=active_cursor,
@@ -771,6 +795,7 @@ def collect_offline_rarity5_search_batch(
             # unavailable; neither route is allowed to fall back to bulk CPU.
             prefer_d3d11_fixed_draw=not cuda_seed_acceleration_available(),
             allow_cpu_fallback=allow_cpu_fallback,
+            tables=tables,
         )
         matches.extend(page.candidates)
         if page.intersection_report is not None:
@@ -817,6 +842,7 @@ def collect_offline_ng3_search_batch(
     candidate_found: Callable[[ScrollCandidate], None] | None = None,
     cancelled: Callable[[], bool] | None = None,
     allow_cpu_fallback: bool = False,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> SearchBatchResult:
     """Run one certified NG3 rarity-3/4/5 search without a game or save."""
 
@@ -837,6 +863,7 @@ def collect_offline_ng3_search_batch(
             candidate_found=candidate_found,
             cancelled=cancelled,
             allow_cpu_fallback=allow_cpu_fallback,
+            tables=tables,
         )
     if request.rarity == 3 and request.grace_effect_id is not None:
         raise ValueError("rarity-3 has no selectable final Grace")
@@ -854,6 +881,7 @@ def collect_offline_ng3_search_batch(
                 seed,
                 rarity=request.rarity,
                 level=level,
+                tables=tables,
             ),
             result_count=result_count,
             max_trials_per_batch=max_trials_per_batch,
@@ -872,6 +900,7 @@ def collect_offline_ng3_search_batch(
             start_after_trial=start_after_trial,
             candidate_found=candidate_found,
             cancelled=cancelled,
+            tables=tables,
         )
         if d3d11_effect_acceleration_available() or not allow_cpu_fallback
         else None
@@ -888,6 +917,7 @@ def collect_offline_ng3_search_batch(
             start_after_trial=start_after_trial,
             candidate_found=candidate_found,
             cancelled=cancelled,
+            tables=tables,
         )
         if d3d11_effect_acceleration_available() or not allow_cpu_fallback
         else None
@@ -939,6 +969,7 @@ def collect_offline_ng3_search_batch(
                 seed,
                 rarity=request.rarity,
                 level=level,
+                tables=tables,
             ),
             primary_effect_id_batch_generator=lambda seeds: (
                 generate_ng3_rarity34_primary_effect_ids(
@@ -951,6 +982,7 @@ def collect_offline_ng3_search_batch(
                 grace_mapping=grace_mapping,
                 level=level,
                 allow_cpu_fallback=allow_cpu_fallback,
+                tables=tables,
             ),
             allow_full_seed_family=request.grace_effect_id is None,
             start_after_trial=active_cursor,
@@ -985,6 +1017,7 @@ def collect_offline_ng3_search_batch(
             # unavailable; neither route may fall back to bulk CPU.
             prefer_d3d11_fixed_draw=not cuda_seed_acceleration_available(),
             allow_cpu_fallback=allow_cpu_fallback,
+            tables=tables,
         )
         matches.extend(page.candidates)
         if page.intersection_report is not None:

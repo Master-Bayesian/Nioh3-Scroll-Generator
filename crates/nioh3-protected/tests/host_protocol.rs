@@ -8,19 +8,58 @@
 //! exercised without a game process or a save file. Methods are real
 //! `protected-request` methods so the request validator is genuinely applied.
 
-use std::io::Cursor;
+use std::io::{self, Cursor, Read, Write};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
-use nioh3_protected::{serve, Contract, HostError, JobContext, Role, RoleApplication};
+use nioh3_protected::{
+    serve, serve_with_plan, serve_with_plan_and_degraded_poll, Contract, FinalizePlan,
+    FinalizeStep, HostError, JobContext, Role, RoleApplication,
+};
 
 struct Scripted {
     role: Role,
+    signals: Signals,
+    panic_job: bool,
+}
+
+#[derive(Clone)]
+struct Signals {
     saw_cancel: Arc<AtomicBool>,
+    finalized: Arc<AtomicBool>,
+    allow_finalize: Arc<AtomicBool>,
+    ownership_unknown: Arc<AtomicBool>,
+    panic_status_once: Arc<AtomicBool>,
+    /// How many `finalize` attempts the host made before it stopped.
+    finalize_attempts: Arc<AtomicU32>,
+    /// The maximum number of attempts this application allows before it reports
+    /// an unrecoverable owner instead of an ordinary retry.
+    finalize_gate: Arc<AtomicU32>,
+    /// When true, `finalize` panics instead of answering. The panic must be
+    /// contained and turned into a retained attempt, never an exit proof.
+    panic_finalize: Arc<AtomicBool>,
+    /// When true, `finalize` answers an unretainable step instead of retrying.
+    finalize_terminal: Arc<AtomicBool>,
+}
+
+impl Signals {
+    fn new() -> Self {
+        Self {
+            saw_cancel: Arc::new(AtomicBool::new(false)),
+            finalized: Arc::new(AtomicBool::new(false)),
+            allow_finalize: Arc::new(AtomicBool::new(true)),
+            ownership_unknown: Arc::new(AtomicBool::new(false)),
+            panic_status_once: Arc::new(AtomicBool::new(false)),
+            finalize_attempts: Arc::new(AtomicU32::new(0)),
+            finalize_gate: Arc::new(AtomicU32::new(u32::MAX)),
+            panic_finalize: Arc::new(AtomicBool::new(false)),
+            finalize_terminal: Arc::new(AtomicBool::new(false)),
+        }
+    }
 }
 
 impl RoleApplication for Scripted {
@@ -30,7 +69,7 @@ impl RoleApplication for Scripted {
 
     fn context_payload(&self) -> Value {
         json!({
-            "product_version": "0.7.5",
+            "product_version": "0.8.0",
             "game_profile": "pc-v2.00.02-v2.01",
             "resources_digest": "r",
             "algorithm_version": "a",
@@ -43,12 +82,16 @@ impl RoleApplication for Scripted {
 
     fn direct(&mut self, method: &str, _params: &Value) -> Result<Value, HostError> {
         if method == "runtime.status" {
+            if self.signals.panic_status_once.swap(false, Ordering::SeqCst) {
+                panic!("injected application panic");
+            }
+            let unknown = self.signals.ownership_unknown.load(Ordering::SeqCst);
             return Ok(json!({
-                "override_state": "stopped",
+                "override_state": if unknown { "unknown" } else { "stopped" },
                 "hit_count": 0,
-                "pending_remote_calls": 0,
-                "safe_to_shutdown": true,
-                "error": null,
+                "pending_remote_calls": if unknown { 1 } else { 0 },
+                "safe_to_shutdown": !unknown,
+                "error": if unknown { Value::String("cleanup ownership is unknown".to_string()) } else { Value::Null },
             }));
         }
         Err(HostError::rejected("unexpected inline method"))
@@ -60,6 +103,9 @@ impl RoleApplication for Scripted {
         params: Value,
         ctx: &JobContext,
     ) -> Result<Value, HostError> {
+        if self.panic_job {
+            panic!("injected protected job panic");
+        }
         match operation {
             // A contract-valid `SaveReference`, the shape `save.register` answers.
             "register" => Ok(json!({
@@ -77,8 +123,48 @@ impl RoleApplication for Scripted {
                     }
                     std::thread::sleep(Duration::from_millis(5));
                 }
-                self.saw_cancel.store(true, Ordering::SeqCst);
+                self.signals.saw_cancel.store(true, Ordering::SeqCst);
                 Ok(json!({"cancelled": true}))
+            }
+            "live_batch_execute" => {
+                let deadline = Instant::now() + Duration::from_secs(30);
+                while !ctx.cancelled() {
+                    if Instant::now() > deadline {
+                        return Err(HostError::rejected("wait timed out"));
+                    }
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+                self.signals.saw_cancel.store(true, Ordering::SeqCst);
+                Ok(json!({
+                    "live_batch": {
+                        "batch_id": "00000000-0000-0000-0000-000000000001",
+                        "plan_digest": "1".repeat(64),
+                        "state": "cancelled",
+                        "count": 1,
+                        "verified_count": 0,
+                        "child_operation_ids": [],
+                    }
+                }))
+            }
+            "live_add_status" => {
+                self.signals.ownership_unknown.store(true, Ordering::SeqCst);
+                Ok(json!({
+                    "live_add": {
+                        "operation_id": "00000000-0000-0000-0000-000000000001",
+                        "plan_digest": "1".repeat(64),
+                        "state": "uncertain",
+                        "can_dispatch": false,
+                        "can_cancel": false,
+                        "receipt": {
+                            "business_outcome": "committed",
+                            "remote_execution": "quiescent",
+                            "allocation_state": "retained",
+                            "debugger_state": "attached",
+                            "thread_cleanup": {"71:1": {"cleanup_state": "unknown"}},
+                            "released": false,
+                        }
+                    }
+                }))
             }
             other => Err(HostError::rejected(format!("EXPECTED_FAILURE {other}"))),
         }
@@ -86,6 +172,34 @@ impl RoleApplication for Scripted {
 
     fn shutdown(&mut self) -> Result<Value, HostError> {
         Ok(json!({"safe_to_shutdown": true}))
+    }
+
+    fn finalize(&mut self) -> FinalizeStep {
+        self.signals.finalized.store(true, Ordering::SeqCst);
+        let attempts = self
+            .signals
+            .finalize_attempts
+            .fetch_add(1, Ordering::SeqCst)
+            + 1;
+        if self.signals.panic_finalize.load(Ordering::SeqCst) {
+            panic!("injected finalization panic");
+        }
+        if self.signals.allow_finalize.load(Ordering::SeqCst) {
+            return FinalizeStep::Released;
+        }
+        if self.signals.finalize_terminal.load(Ordering::SeqCst) {
+            return FinalizeStep::Terminal {
+                reason: "scripted owner can never be resolved in process".to_string(),
+            };
+        }
+        if attempts >= self.signals.finalize_gate.load(Ordering::SeqCst) {
+            return FinalizeStep::Terminal {
+                reason: "scripted owner can never be resolved in process".to_string(),
+            };
+        }
+        FinalizeStep::Retained {
+            reason: "scripted owner still owns remote cleanup".to_string(),
+        }
     }
 }
 
@@ -135,15 +249,19 @@ fn request(id: &str, method: &str, params: Value) -> Value {
 
 fn drive(input: Vec<Value>, role: Role) -> (Vec<Value>, Arc<AtomicBool>) {
     let contract = Contract::load(&contract_dir()).expect("contract loads");
-    let saw_cancel = Arc::new(AtomicBool::new(false));
+    let signals = Signals::new();
     let application: Box<dyn RoleApplication> = Box::new(Scripted {
         role,
-        saw_cancel: Arc::clone(&saw_cancel),
+        signals: signals.clone(),
+        panic_job: false,
     });
+    // A panicking job must not also panic `finalize`; only the job handler is
+    // under test here.
+    signals.panic_finalize.store(false, Ordering::SeqCst);
     let mut source = Cursor::new(frames(&input));
     let mut sink = Vec::new();
     serve(application, &contract, &mut source, &mut sink).expect("serve succeeds");
-    (responses(&sink), saw_cancel)
+    (responses(&sink), signals.saw_cancel)
 }
 
 #[test]
@@ -195,16 +313,19 @@ fn handshake_then_job_current_and_shutdown() {
     assert!(job["sequence"].as_u64().unwrap() >= 1);
 
     // `job.current` never mutates the owner, so a shutdown is still accepted.
-    let shutdown = drive(
-        vec![
-            request("1", "handshake", json!({})),
-            request("2", "save.register", json!({"path": "SAVEDATA.BIN"})),
-            request("3", "shutdown", json!({})),
-        ],
-        Role::Save,
-    )
-    .0;
-    assert_eq!(shutdown[2]["result"]["safe_to_shutdown"], true);
+    let mut shutdown_input = vec![
+        request("1", "handshake", json!({})),
+        request("2", "save.register", json!({"path": "SAVEDATA.BIN"})),
+    ];
+    for index in 0..200 {
+        shutdown_input.push(request(&format!("s{index}"), "job.current", json!({})));
+    }
+    shutdown_input.push(request("shutdown", "shutdown", json!({})));
+    let shutdown = drive(shutdown_input, Role::Save).0;
+    assert_eq!(
+        shutdown.last().expect("shutdown response")["result"]["safe_to_shutdown"],
+        true
+    );
 }
 
 #[test]
@@ -303,10 +424,11 @@ fn cancelling_an_unknown_job_uses_the_shipped_text() {
 #[test]
 fn eof_never_discards_in_flight_ownership() {
     let contract = Contract::load(&contract_dir()).expect("contract loads");
-    let saw_cancel = Arc::new(AtomicBool::new(false));
+    let signals = Signals::new();
     let application: Box<dyn RoleApplication> = Box::new(Scripted {
         role: Role::Save,
-        saw_cancel: Arc::clone(&saw_cancel),
+        signals: signals.clone(),
+        panic_job: false,
     });
     // handshake + start a blocking job, then close the stream: EOF must cancel
     // and join the owner before the host returns.
@@ -318,7 +440,7 @@ fn eof_never_discards_in_flight_ownership() {
     let mut sink = Vec::new();
     serve(application, &contract, &mut source, &mut sink).expect("serve returns on EOF");
     assert!(
-        saw_cancel.load(Ordering::SeqCst),
+        signals.saw_cancel.load(Ordering::SeqCst),
         "the in-flight protected owner must observe cancellation on EOF"
     );
 }
@@ -335,4 +457,608 @@ fn a_malformed_request_frame_is_answered_with_a_null_id() {
         out[0]["error"]["message"],
         "INVALID_REQUEST: protected contract validation failed"
     );
+}
+
+struct BrokenPipe;
+
+impl Write for BrokenPipe {
+    fn write(&mut self, _buffer: &[u8]) -> io::Result<usize> {
+        Err(io::Error::new(
+            io::ErrorKind::BrokenPipe,
+            "injected pipe close",
+        ))
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::BrokenPipe,
+            "injected pipe close",
+        ))
+    }
+}
+
+struct BreakAfterHandshake {
+    writes: usize,
+}
+
+impl Write for BreakAfterHandshake {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        if self.writes >= 2 {
+            return Err(io::Error::new(
+                io::ErrorKind::BrokenPipe,
+                "injected pipe close after handshake",
+            ));
+        }
+        self.writes += 1;
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+struct ChannelReader {
+    receiver: mpsc::Receiver<Vec<u8>>,
+    chunk: Vec<u8>,
+    offset: usize,
+}
+
+impl ChannelReader {
+    fn new(receiver: mpsc::Receiver<Vec<u8>>) -> Self {
+        Self {
+            receiver,
+            chunk: Vec::new(),
+            offset: 0,
+        }
+    }
+}
+
+impl Read for ChannelReader {
+    fn read(&mut self, output: &mut [u8]) -> io::Result<usize> {
+        while self.offset == self.chunk.len() {
+            match self.receiver.recv() {
+                Ok(chunk) => {
+                    self.chunk = chunk;
+                    self.offset = 0;
+                }
+                Err(_) => return Ok(0),
+            }
+        }
+        let count = output.len().min(self.chunk.len() - self.offset);
+        output[..count].copy_from_slice(&self.chunk[self.offset..self.offset + count]);
+        self.offset += count;
+        Ok(count)
+    }
+}
+
+#[derive(Clone)]
+struct SharedSink(Arc<Mutex<Vec<u8>>>);
+
+impl Write for SharedSink {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.0.lock().expect("sink lock").extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+fn complete_responses(bytes: &[u8]) -> Vec<Value> {
+    let mut offset = 0usize;
+    let mut out = Vec::new();
+    while offset + 4 <= bytes.len() {
+        let size = u32::from_le_bytes([
+            bytes[offset],
+            bytes[offset + 1],
+            bytes[offset + 2],
+            bytes[offset + 3],
+        ]) as usize;
+        if offset + 4 + size > bytes.len() {
+            break;
+        }
+        out.push(
+            serde_json::from_slice(&bytes[offset + 4..offset + 4 + size])
+                .expect("complete response json"),
+        );
+        offset += 4 + size;
+    }
+    out
+}
+
+fn wait_for_responses(sink: &Arc<Mutex<Vec<u8>>>, count: usize) -> Vec<Value> {
+    let deadline = Instant::now() + Duration::from_secs(2);
+    loop {
+        let values = complete_responses(&sink.lock().expect("sink lock"));
+        if values.len() >= count {
+            return values;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "timed out waiting for response {count}"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
+fn scripted_application(
+    role: Role,
+    signals: &Signals,
+    panic_job: bool,
+) -> Box<dyn RoleApplication> {
+    Box::new(Scripted {
+        role,
+        signals: signals.clone(),
+        panic_job,
+    })
+}
+
+#[test]
+fn normal_eof_enters_finalization() {
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let signals = Signals::new();
+    let mut source = Cursor::new(Vec::<u8>::new());
+    let mut sink = Vec::new();
+    serve(
+        scripted_application(Role::Save, &signals, false),
+        &contract,
+        &mut source,
+        &mut sink,
+    )
+    .expect("clean EOF");
+    assert!(signals.finalized.load(Ordering::SeqCst));
+}
+
+#[test]
+fn truncated_frame_enters_finalization_before_returning_error() {
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let signals = Signals::new();
+    let mut source = Cursor::new(vec![5, 0, 0, 0, b'{']);
+    let mut sink = Vec::new();
+    let error = serve(
+        scripted_application(Role::Save, &signals, false),
+        &contract,
+        &mut source,
+        &mut sink,
+    )
+    .expect_err("truncated frame is fatal");
+    assert_eq!(error, "Truncated frame");
+    assert!(signals.finalized.load(Ordering::SeqCst));
+}
+
+#[test]
+fn malformed_frame_enters_finalization_before_returning_error() {
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let signals = Signals::new();
+    let body = b"{not-json}";
+    let mut bytes = (body.len() as u32).to_le_bytes().to_vec();
+    bytes.extend_from_slice(body);
+    let mut source = Cursor::new(bytes);
+    let mut sink = Vec::new();
+    let error = serve(
+        scripted_application(Role::Save, &signals, false),
+        &contract,
+        &mut source,
+        &mut sink,
+    )
+    .expect_err("malformed frame is fatal");
+    assert!(error.starts_with("Invalid frame JSON:"));
+    assert!(signals.finalized.load(Ordering::SeqCst));
+}
+
+#[test]
+fn broken_pipe_enters_finalization_before_returning_error() {
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let signals = Signals::new();
+    let mut source = Cursor::new(frame(&request("1", "handshake", json!({}))));
+    let mut sink = BrokenPipe;
+    let error = serve(
+        scripted_application(Role::Save, &signals, false),
+        &contract,
+        &mut source,
+        &mut sink,
+    )
+    .expect_err("broken pipe is fatal");
+    assert!(error.contains("injected pipe close"));
+    assert!(signals.finalized.load(Ordering::SeqCst));
+}
+
+#[test]
+fn broken_pipe_cancels_and_joins_an_in_flight_owner_before_exit() {
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let signals = Signals::new();
+    let mut source = Cursor::new(frames(&[
+        request("1", "handshake", json!({})),
+        request(
+            "2",
+            "runtime.live_batch_execute",
+            json!({
+                "batch_id": "00000000-0000-0000-0000-000000000001",
+                "plan_digest": "1".repeat(64),
+            }),
+        ),
+    ]));
+    let mut sink = BreakAfterHandshake { writes: 0 };
+    let error = serve(
+        scripted_application(Role::Runtime, &signals, false),
+        &contract,
+        &mut source,
+        &mut sink,
+    )
+    .expect_err("job response pipe closes");
+    assert!(error.contains("injected pipe close after handshake"));
+    assert!(signals.saw_cancel.load(Ordering::SeqCst));
+    assert!(signals.finalized.load(Ordering::SeqCst));
+}
+
+#[test]
+fn application_panic_crosses_the_boundary_only_after_finalization() {
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let signals = Signals::new();
+    signals.panic_status_once.store(true, Ordering::SeqCst);
+    let mut source = Cursor::new(Vec::<u8>::new());
+    let mut sink = Vec::new();
+    let error = serve(
+        scripted_application(Role::Runtime, &signals, false),
+        &contract,
+        &mut source,
+        &mut sink,
+    )
+    .expect_err("application panic is contained");
+    assert!(error.contains("panicked"));
+    assert!(signals.finalized.load(Ordering::SeqCst));
+}
+
+#[test]
+fn job_panic_is_terminal_and_host_finalization_still_runs() {
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let signals = Signals::new();
+    let mut input = vec![
+        request("1", "handshake", json!({})),
+        request("2", "save.register", json!({"path": "SAVEDATA.BIN"})),
+    ];
+    for index in 0..100 {
+        input.push(request(&format!("p{index}"), "job.current", json!({})));
+    }
+    let mut source = Cursor::new(frames(&input));
+    let mut sink = Vec::new();
+    serve(
+        scripted_application(Role::Save, &signals, true),
+        &contract,
+        &mut source,
+        &mut sink,
+    )
+    .expect("job panic is represented by the job record");
+    let out = responses(&sink);
+    let job = &out.last().expect("current job response")["result"]["job"];
+    assert_eq!(job["state"], "failed");
+    assert_eq!(job["error"]["code"], "OPERATION_REJECTED");
+    assert!(signals.finalized.load(Ordering::SeqCst));
+}
+
+#[test]
+fn unresolved_owner_keeps_the_host_alive_until_release_is_proven() {
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let signals = Signals::new();
+    signals.allow_finalize.store(false, Ordering::SeqCst);
+    signals.finalize_gate.store(u32::MAX, Ordering::SeqCst);
+    let thread_signals = signals.clone();
+    let handle = std::thread::spawn(move || {
+        let mut source = Cursor::new(Vec::<u8>::new());
+        let mut sink = Vec::new();
+        serve(
+            scripted_application(Role::Save, &thread_signals, false),
+            &contract,
+            &mut source,
+            &mut sink,
+        )
+    });
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while !signals.finalized.load(Ordering::SeqCst) && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(signals.finalized.load(Ordering::SeqCst));
+    assert!(
+        !handle.is_finished(),
+        "unknown ownership must keep its host alive"
+    );
+    signals.allow_finalize.store(true, Ordering::SeqCst);
+    // The bounded schedule has already ended by now, so a host that only
+    // re-checks inside its budget would never notice the release. The retained
+    // state must stay re-checkable by the operator-driven release path, which
+    // this proves: the retain is expressed by the live process, never by a spin
+    // inside the exhausted loop.
+    handle
+        .join()
+        .expect("host thread")
+        .expect("release permits exit");
+}
+
+#[test]
+fn bounded_finalization_reports_a_degraded_state_instead_of_spinning_forever() {
+    // RED-before: the shipped loop retried a 250 ms sleep with no counter, no
+    // log and no bound, so an unresolvable owner was never reported. The bounded
+    // schedule must stop the *active* phase and publish the retained state while
+    // the host keeps running.
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let signals = Signals::new();
+    signals.allow_finalize.store(false, Ordering::SeqCst);
+    let thread_signals = signals.clone();
+    let handle = std::thread::spawn(move || {
+        let mut source = Cursor::new(Vec::<u8>::new());
+        let mut sink = Vec::new();
+        serve_with_plan_and_degraded_poll(
+            scripted_application(Role::Runtime, &thread_signals, false),
+            &contract,
+            &mut source,
+            &mut sink,
+            FinalizePlan {
+                max_attempts: 3,
+                retry_interval: Duration::from_millis(1),
+            },
+            Duration::from_millis(5),
+        )
+    });
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while signals.finalize_attempts.load(Ordering::SeqCst) < 3 && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    // Freeze the observed counter while the retained host keeps watching the
+    // owner at the degraded cadence. A schedule that kept retrying at the fast
+    // cadence would already have added attempts here.
+    assert_eq!(
+        signals.finalize_attempts.load(Ordering::SeqCst),
+        3,
+        "the active phase must stop after the bound instead of busy-spinning"
+    );
+    assert!(
+        !handle.is_finished(),
+        "the process must stay retained and observable, not exit with an unresolved owner"
+    );
+    // The retained process is still watching the owner, just at the degraded
+    // cadence instead of the tight retry: the release is noticed and honored.
+    signals.allow_finalize.store(true, Ordering::SeqCst);
+    handle
+        .join()
+        .expect("host thread")
+        .expect("release permits exit");
+}
+
+#[test]
+fn a_terminal_finalize_step_ends_the_active_phase_without_waiting_out_the_bound() {
+    // A non-Windows runtime host can never resolve its owner. It must reach the
+    // degraded terminal state on the first attempt, not retry a bound it cannot
+    // use, and it must still never exit.
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let signals = Signals::new();
+    signals.allow_finalize.store(false, Ordering::SeqCst);
+    signals.finalize_gate.store(1, Ordering::SeqCst);
+    let thread_signals = signals.clone();
+    let handle = std::thread::spawn(move || {
+        let mut source = Cursor::new(Vec::<u8>::new());
+        let mut sink = Vec::new();
+        serve_with_plan_and_degraded_poll(
+            scripted_application(Role::Runtime, &thread_signals, false),
+            &contract,
+            &mut source,
+            &mut sink,
+            FinalizePlan {
+                max_attempts: 8,
+                retry_interval: Duration::from_millis(1),
+            },
+            Duration::from_millis(5),
+        )
+    });
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while signals.finalize_attempts.load(Ordering::SeqCst) == 0 && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    // A terminal decision ends the active phase on its first attempt. The
+    // retained host then watches only at the degraded cadence, so the counter
+    // cannot have advanced past one while the fast phase is over.
+    assert_eq!(
+        signals.finalize_attempts.load(Ordering::SeqCst),
+        1,
+        "a terminal decision must end the active phase immediately"
+    );
+    assert!(
+        !handle.is_finished(),
+        "a terminal decision is not permission to exit with an unresolved owner"
+    );
+    signals.allow_finalize.store(true, Ordering::SeqCst);
+    handle
+        .join()
+        .expect("host thread")
+        .expect("release permits exit");
+}
+
+#[test]
+fn a_released_owner_exits_on_the_first_finalization_attempt() {
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let signals = Signals::new();
+    let mut source = Cursor::new(Vec::<u8>::new());
+    let mut sink = Vec::new();
+    serve_with_plan(
+        scripted_application(Role::Save, &signals, false),
+        &contract,
+        &mut source,
+        &mut sink,
+        FinalizePlan {
+            max_attempts: 8,
+            retry_interval: Duration::from_millis(250),
+        },
+    )
+    .expect("clean EOF");
+    assert_eq!(
+        signals.finalize_attempts.load(Ordering::SeqCst),
+        1,
+        "an ordinary release must not pay the retry schedule"
+    );
+}
+
+#[test]
+fn a_panicking_finalize_is_reported_and_never_becomes_an_exit_proof() {
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let signals = Signals::new();
+    signals.panic_finalize.store(true, Ordering::SeqCst);
+    // The panic is contained by the host and becomes a retained attempt. The
+    // owner is released right after, so the run terminates deterministically
+    // instead of leaving a retained thread behind.
+    let release = std::thread::spawn({
+        let signals = signals.clone();
+        move || {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while signals.finalize_attempts.load(Ordering::SeqCst) < 2 && Instant::now() < deadline
+            {
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            signals.panic_finalize.store(false, Ordering::SeqCst);
+            signals.allow_finalize.store(true, Ordering::SeqCst);
+        }
+    });
+    let mut source = Cursor::new(Vec::<u8>::new());
+    let mut sink = Vec::new();
+    serve_with_plan_and_degraded_poll(
+        scripted_application(Role::Runtime, &signals, false),
+        &contract,
+        &mut source,
+        &mut sink,
+        FinalizePlan {
+            max_attempts: 2,
+            retry_interval: Duration::from_millis(1),
+        },
+        Duration::from_millis(5),
+    )
+    .expect("clean EOF is not a transport error");
+    release.join().expect("releaser thread");
+    assert_eq!(
+        signals.finalize_attempts.load(Ordering::SeqCst),
+        3,
+        "a contained panic is retained, retried within the bound, then released"
+    );
+}
+
+#[test]
+fn shutdown_enters_finalization() {
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let signals = Signals::new();
+    let mut source = Cursor::new(frames(&[
+        request("1", "handshake", json!({})),
+        request("2", "shutdown", json!({})),
+    ]));
+    let mut sink = Vec::new();
+    serve(
+        scripted_application(Role::Save, &signals, false),
+        &contract,
+        &mut source,
+        &mut sink,
+    )
+    .expect("shutdown");
+    assert_eq!(responses(&sink)[1]["result"]["safe_to_shutdown"], true);
+    assert!(signals.finalized.load(Ordering::SeqCst));
+}
+
+#[test]
+fn blocking_native_job_keeps_status_and_cancel_responsive() {
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let signals = Signals::new();
+    let (sender, receiver) = mpsc::channel();
+    let bytes = Arc::new(Mutex::new(Vec::new()));
+    let thread_bytes = Arc::clone(&bytes);
+    let thread_signals = signals.clone();
+    let handle = std::thread::spawn(move || {
+        let mut source = ChannelReader::new(receiver);
+        let mut sink = SharedSink(thread_bytes);
+        serve(
+            scripted_application(Role::Runtime, &thread_signals, false),
+            &contract,
+            &mut source,
+            &mut sink,
+        )
+    });
+
+    sender
+        .send(frame(&request("1", "handshake", json!({}))))
+        .expect("handshake send");
+    wait_for_responses(&bytes, 1);
+    sender
+        .send(frame(&request(
+            "2",
+            "runtime.live_batch_execute",
+            json!({
+                "batch_id": "00000000-0000-0000-0000-000000000001",
+                "plan_digest": "1".repeat(64),
+            }),
+        )))
+        .expect("job send");
+    let out = wait_for_responses(&bytes, 2);
+    let job_id = out[1]["result"]["job_id"]
+        .as_str()
+        .expect("job id")
+        .to_string();
+
+    let started = Instant::now();
+    sender
+        .send(frame(&request("3", "runtime.status", json!({}))))
+        .expect("status send");
+    let out = wait_for_responses(&bytes, 3);
+    assert!(started.elapsed() < Duration::from_secs(1));
+    assert_eq!(out[2]["result"]["safe_to_shutdown"], false);
+
+    sender
+        .send(frame(&request(
+            "4",
+            "job.cancel",
+            json!({"job_id": job_id}),
+        )))
+        .expect("cancel send");
+    let out = wait_for_responses(&bytes, 4);
+    assert_eq!(out[3]["result"]["state"], "cancel_requested");
+    drop(sender);
+    handle.join().expect("host thread").expect("controlled EOF");
+    assert!(signals.saw_cancel.load(Ordering::SeqCst));
+    assert!(signals.finalized.load(Ordering::SeqCst));
+}
+
+#[test]
+fn business_success_with_unknown_cleanup_keeps_both_facts() {
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let signals = Signals::new();
+    let mut input = vec![
+        request("1", "handshake", json!({})),
+        request(
+            "2",
+            "runtime.live_add_status",
+            json!({"operation_id": "00000000-0000-0000-0000-000000000001"}),
+        ),
+    ];
+    for index in 0..100 {
+        input.push(request(&format!("p{index}"), "job.current", json!({})));
+    }
+    input.push(request("status", "runtime.status", json!({})));
+    let mut source = Cursor::new(frames(&input));
+    let mut sink = Vec::new();
+    serve(
+        scripted_application(Role::Runtime, &signals, false),
+        &contract,
+        &mut source,
+        &mut sink,
+    )
+    .expect("projection host");
+    let out = responses(&sink);
+    let job = out
+        .iter()
+        .rev()
+        .find_map(|response| response["result"].get("job"))
+        .expect("job projection");
+    let receipt = &job["result"]["live_add"]["receipt"];
+    assert_eq!(receipt["business_outcome"], "committed");
+    assert_eq!(receipt["remote_execution"], "quiescent");
+    assert_eq!(receipt["allocation_state"], "retained");
+    assert_eq!(receipt["debugger_state"], "attached");
+    assert_eq!(receipt["released"], false);
+    let status = out.last().expect("runtime status");
+    assert_eq!(status["result"]["safe_to_shutdown"], false);
 }

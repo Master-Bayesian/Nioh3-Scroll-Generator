@@ -1942,7 +1942,7 @@ function App() {
                   aria-label="推荐等级"
                   type="number"
                   min="142"
-                  max="700"
+                  max="356"
                   value={q.recommended}
                   onChange={(e) =>
                     change("recommended", e.target.valueAsNumber)

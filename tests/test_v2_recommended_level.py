@@ -22,8 +22,8 @@ VALIDATOR = Draft7Validator(RESPONSE)
 class RecommendedLevelContractTests(unittest.TestCase):
     def test_catalog_metadata_is_compact_and_explicit_about_prediction(self):
         self.assertEqual(recommended_level_metadata(), {
-            'minimum_internal_level': 156, 'maximum_internal_level': 1400,
-            'minimum_displayed_level': 142, 'maximum_displayed_level': 700,
+            'minimum_internal_level': 156, 'maximum_internal_level': 600,
+            'minimum_displayed_level': 142, 'maximum_displayed_level': 356,
             'selection_policy': 'lowest_canonical_internal_level',
             'evidence': 'captured_native_curve_prediction',
         })
@@ -62,8 +62,13 @@ class RecommendedLevelContractTests(unittest.TestCase):
         stream = io.BytesIO()
         for index, (method, params) in enumerate(requests):
             write_frame(stream, {'protocol': 1, 'id': str(index), 'method': method, 'params': params})
-        completed = subprocess.run([sys.executable, '-m', 'nioh3_scroll_editor.search_worker'],
-                                   input=stream.getvalue(), capture_output=True, cwd=ROOT, timeout=30, check=True)
+        # Identity is explicit: the worker refuses to start without an exact
+        # game file version, so this read-only contract test names one.
+        completed = subprocess.run(
+            [sys.executable, '-m', 'nioh3_scroll_editor.search_worker',
+             '--game-file-version', '2.0.2.0'],
+            input=stream.getvalue(), capture_output=True, cwd=ROOT, timeout=30, check=True,
+        )
         output = io.BytesIO(completed.stdout)
         responses = [read_frame(output) for _ in requests]
         self.assertIsNone(read_frame(output))

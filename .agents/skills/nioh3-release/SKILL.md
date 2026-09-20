@@ -51,3 +51,12 @@ Pushes, workflow dispatches, tag creation or movement, release creation, asset u
 An earlier general request or approval for local preparation does not satisfy this checkpoint. Authorization expires if the SHA, version, tag, artifact bytes, hashes, target, or action sequence changes. Stop for renewed authorization rather than broadening the approved action.
 
 If a hosted run fails, its SHA and artifacts are non-promotable. Diagnose the evidence, fix the cause, and use a new commit SHA; never dispatch the same known-bad SHA again or turn a timeout into acceptance through retries.
+
+## Completion report
+
+A release completion report states: the completed boundary and pending steps; the
+candidate SHA/version/branch/run URL and asset identity (outer EXE and ZIP
+hashes); the parity result for the shipped fix; a gate table naming what passed,
+failed, or skipped with evidence paths; any failure with root cause and retest;
+safety and scope facts; remaining risks; and the remote actions still awaiting
+approval. Keep it proportionate to the task and leave raw logs on disk.

@@ -40,6 +40,44 @@ DEFAULT_TEMPLATE_EVIDENCE = (
     / "playthrough-matrix-ng3-current-vs-1-to-5-20260827.json"
 )
 
+# Version-scoped known behaviour: the native assembler caps a requested raw
+# rarity-5 header to rarity 4 when feature flag 9 is unavailable.  The cap is
+# accepted only for the exact two header offsets with the exact native/offline
+# byte values below; any other difference stays "unexpected".  Extending this
+# mapping is a deliberate evidence-backed change: PC v2.02 reproduces the same
+# two-offset difference on the full 10,000-seed NG3 corpus, with every other
+# byte of every record equal, and there is no blanket ignored-field list.
+KNOWN_RARITY5_HEADER_CAP_VERSIONS: dict[str, str] = {
+    "PC v2.01": (
+        "PC v2.01 caps requested rarity 5 to rarity 4 in the assembled record "
+        "header when feature flag 9 is unavailable."
+    ),
+    "PC v2.02": (
+        "PC v2.02 reproduces the same two-offset rarity-5 header cap on the "
+        "10,000-seed NG3 corpus; effect slots are unaffected."
+    ),
+}
+HEADER_CAP_OFFSETS = [0x30, 0x31]
+HEADER_CAP_NATIVE_BYTES = b"\x04\x04"
+HEADER_CAP_OFFLINE_BYTES = b"\x05\x05"
+
+
+def expected_known_rarity_header_cap(
+    display_version: str,
+    record_differences: list[int],
+    native_record: bytes,
+    offline_record: bytes,
+) -> bool:
+    """Return True only for the documented, exactly-scoped header cap."""
+
+    if display_version not in KNOWN_RARITY5_HEADER_CAP_VERSIONS:
+        return False
+    return (
+        list(record_differences) == HEADER_CAP_OFFSETS
+        and native_record[0x30:0x32] == HEADER_CAP_NATIVE_BYTES
+        and offline_record[0x30:0x32] == HEADER_CAP_OFFLINE_BYTES
+    )
+
 
 def iter_dicts(value: object) -> Iterator[dict[str, object]]:
     if isinstance(value, dict):
@@ -210,11 +248,11 @@ def validate(
                             }
                         )
                 record_differences = differing_offsets(native_record, offline_record)
-                expected_v201_header_cap = (
-                    oracle.runtime_profile.display_version == "PC v2.01"
-                    and record_differences == [0x30, 0x31]
-                    and native_record[0x30:0x32] == b"\x04\x04"
-                    and offline_record[0x30:0x32] == b"\x05\x05"
+                expected_v201_header_cap = expected_known_rarity_header_cap(
+                    oracle.runtime_profile.display_version,
+                    record_differences,
+                    native_record,
+                    offline_record,
                 )
                 if record_differences:
                     full_record_mismatch_count += 1
@@ -269,9 +307,9 @@ def validate(
             and unexpected_record_mismatch_count == 0
         ),
         "known_version_difference": (
-            "PC v2.01 caps requested rarity 5 to rarity 4 in the assembled "
-            "record header when feature flag 9 is unavailable; generated "
-            "effect slots remain identical."
+            KNOWN_RARITY5_HEADER_CAP_VERSIONS.get(
+                oracle.runtime_profile.display_version
+            )
             if expected_header_cap_count
             else None
         ),

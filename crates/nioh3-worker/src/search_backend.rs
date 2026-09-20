@@ -427,6 +427,10 @@ impl SearchBackend {
                 low16_stride: query.low16_stride(),
                 draw_index: query.draw_index(),
             };
+            // Keep the cumulative total before this chunk. If the page ends
+            // inside the chunk, the exact-prefix recount replaces only this
+            // chunk's contribution, not the totals from earlier full chunks.
+            let counts_before_chunk = stage_counts.clone();
             let (page, counts) = collect_window(
                 accelerator,
                 self.preimage(),
@@ -510,7 +514,7 @@ impl SearchBackend {
                         call: "collect_auxiliary_pivot_matches",
                     });
                 }
-                stage_counts = vec![0u64; query.stage_count()];
+                stage_counts = counts_before_chunk;
                 accumulate(&mut stage_counts, &recount_counts)?;
                 matches.extend(recount_accepted);
                 cursor = cut;
@@ -985,7 +989,8 @@ fn accumulate(total: &mut [u64], counts: &[u64]) -> Result<(), NativeSearchError
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
-    use std::sync::{Mutex, MutexGuard};
+    use std::sync::{mpsc, Arc, Mutex, MutexGuard};
+    use std::time::Duration;
 
     use super::*;
     use crate::native_search::SEED_ACCELERATOR_ABI_VERSION;
@@ -1010,6 +1015,32 @@ mod tests {
 
     fn loaded() -> SearchBackend {
         SearchBackend::load(&repo_root(), None).expect("shipped accelerator must load")
+    }
+
+    fn accelerator(backend: &SearchBackend) -> &Accelerator {
+        backend
+            .accelerator
+            .as_deref()
+            .expect("loaded backend has an accelerator")
+    }
+
+    fn assert_direct_policy(backend: &SearchBackend, expected: ExecutionPolicy) {
+        let accelerator = accelerator(backend);
+        assert_eq!(accelerator.pinned_policy(), expected);
+        accelerator.force_cuda_failure(true);
+        let result = accelerator.collect_natural_pivot_page(&VALUES, window(0, 2_000));
+        let served_by = accelerator.last_backend();
+        accelerator.force_cuda_failure(false);
+        match expected {
+            ExecutionPolicy::StrictGpu => assert!(matches!(
+                result,
+                Err(NativeSearchError::CudaUnavailable { .. })
+            )),
+            ExecutionPolicy::AllowBulkCpu => {
+                result.expect("bulk CPU policy must accept the forced CUDA fallback");
+                assert_eq!(served_by, NativeBackend::NativeCpu);
+            }
+        }
     }
 
     /// Independent bounded oracle for the pivot cursor algebra: enumerate the
@@ -1257,6 +1288,165 @@ mod tests {
             .matches
             .iter()
             .all(|matched| oracle.contains(matched)));
+    }
+
+    #[test]
+    fn auxiliary_final_truncated_chunk_recount_keeps_prior_100_plus_tail_5_counts() {
+        let _lock = lock();
+        let backend = loaded();
+        let _pin = backend
+            .pin_policy(ExecutionPolicy::AllowBulkCpu)
+            .expect("policy pin");
+        let query = NativePivotQuery::Auxiliary {
+            values: VALUES.to_vec(),
+            spec: synthetic_auxiliary_spec(),
+        };
+        let oracle = local_natural_matches(&VALUES, 0, 100_000, STRIDE, 1);
+        assert!(oracle.len() > 115, "oracle must span two chunks");
+        let first_chunk_trials = oracle[99].trial;
+        assert!(
+            oracle[104].trial < first_chunk_trials.saturating_mul(2),
+            "the second chunk must contain the five-result tail"
+        );
+
+        let page = backend
+            .collect_page(
+                &query,
+                &PageRequest::chunk(
+                    0,
+                    first_chunk_trials.saturating_mul(2),
+                    first_chunk_trials,
+                    105,
+                ),
+                &|| false,
+            )
+            .expect("two-chunk truncated auxiliary page");
+
+        assert_eq!(
+            page.native_calls, 3,
+            "full, final, and prefix recount calls"
+        );
+        assert_eq!(page.matches, oracle[..105]);
+        assert_eq!(page.next_cursor, oracle[104].trial);
+        assert_eq!(page.stage_counts, vec![105]);
+        assert_eq!(page.fixed_seed_count, 105);
+
+        let resumed = backend
+            .collect_page(
+                &query,
+                &PageRequest::chunk(page.next_cursor, first_chunk_trials, first_chunk_trials, 10),
+                &|| false,
+            )
+            .expect("resume after the truncated cursor");
+        assert_eq!(resumed.matches, oracle[105..115]);
+        assert_eq!(resumed.next_cursor, oracle[114].trial);
+        assert!(resumed.matches[0].trial > page.next_cursor);
+    }
+
+    #[test]
+    fn nested_policy_allow_strict_drop_restores_allow_then_strict_default() {
+        let _lock = lock();
+        let backend = loaded();
+        assert_direct_policy(&backend, ExecutionPolicy::StrictGpu);
+        let outer = backend
+            .pin_policy(ExecutionPolicy::AllowBulkCpu)
+            .expect("outer allow pin");
+        assert_direct_policy(&backend, ExecutionPolicy::AllowBulkCpu);
+        let inner = backend
+            .pin_policy(ExecutionPolicy::StrictGpu)
+            .expect("inner strict pin");
+        assert_direct_policy(&backend, ExecutionPolicy::StrictGpu);
+        drop(inner);
+        assert_direct_policy(&backend, ExecutionPolicy::AllowBulkCpu);
+        drop(outer);
+        assert_direct_policy(&backend, ExecutionPolicy::StrictGpu);
+    }
+
+    #[test]
+    fn nested_policy_strict_allow_drop_restores_strict_in_both_scopes() {
+        let _lock = lock();
+        let backend = loaded();
+        let outer = backend
+            .pin_policy(ExecutionPolicy::StrictGpu)
+            .expect("outer strict pin");
+        assert_direct_policy(&backend, ExecutionPolicy::StrictGpu);
+        let inner = backend
+            .pin_policy(ExecutionPolicy::AllowBulkCpu)
+            .expect("inner allow pin");
+        assert_direct_policy(&backend, ExecutionPolicy::AllowBulkCpu);
+        drop(inner);
+        assert_direct_policy(&backend, ExecutionPolicy::StrictGpu);
+        drop(outer);
+        assert_direct_policy(&backend, ExecutionPolicy::StrictGpu);
+    }
+
+    #[test]
+    fn policy_guard_error_return_restores_native_and_mirror_to_strict_gpu() {
+        let _lock = lock();
+        let backend = loaded();
+        let result = (|| -> Result<(), NativeSearchError> {
+            let _guard = backend.pin_policy(ExecutionPolicy::AllowBulkCpu)?;
+            assert_direct_policy(&backend, ExecutionPolicy::AllowBulkCpu);
+            Err(NativeSearchError::Rejected {
+                call: "expected_test_error",
+            })
+        })();
+        assert!(matches!(
+            result,
+            Err(NativeSearchError::Rejected {
+                call: "expected_test_error"
+            })
+        ));
+        assert_direct_policy(&backend, ExecutionPolicy::StrictGpu);
+    }
+
+    #[test]
+    fn policy_guard_concurrency_isolates_threads_and_finishes_strict_gpu() {
+        let _lock = lock();
+        let backend = Arc::new(loaded());
+        let (holding_tx, holding_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let first_backend = Arc::clone(&backend);
+        let first = std::thread::spawn(move || {
+            let guard = first_backend
+                .pin_policy(ExecutionPolicy::AllowBulkCpu)
+                .expect("first-thread allow pin");
+            holding_tx
+                .send(accelerator(&first_backend).pinned_policy())
+                .expect("publish first policy");
+            release_rx.recv().expect("release first thread");
+            drop(guard);
+        });
+        assert_eq!(holding_rx.recv().unwrap(), ExecutionPolicy::AllowBulkCpu);
+
+        let (attempting_tx, attempting_rx) = mpsc::channel();
+        let (acquired_tx, acquired_rx) = mpsc::channel();
+        let second_backend = Arc::clone(&backend);
+        let second = std::thread::spawn(move || {
+            attempting_tx.send(()).expect("publish second attempt");
+            let guard = second_backend
+                .pin_policy(ExecutionPolicy::StrictGpu)
+                .expect("second-thread strict pin");
+            acquired_tx
+                .send(accelerator(&second_backend).pinned_policy())
+                .expect("publish second policy");
+            drop(guard);
+        });
+        attempting_rx.recv().expect("second thread started");
+        assert!(
+            acquired_rx
+                .recv_timeout(Duration::from_millis(100))
+                .is_err(),
+            "second thread must wait while the first thread owns the policy"
+        );
+        release_tx.send(()).expect("release first owner");
+        assert_eq!(
+            acquired_rx.recv_timeout(Duration::from_secs(2)).unwrap(),
+            ExecutionPolicy::StrictGpu
+        );
+        first.join().expect("first policy thread");
+        second.join().expect("second policy thread");
+        assert_direct_policy(&backend, ExecutionPolicy::StrictGpu);
     }
 
     #[test]

@@ -29,6 +29,7 @@ from .auxiliary_generation import (
 from .grace_map import GraceOutputMap, first_u16_ranges_for_grace
 from .effect_sequence import EffectSequenceResult, GeneratedEffect
 from .effect_generation_tables import (
+    EffectGenerationTableIndex,
     SCROLL_RECORD_TYPES,
     load_default_effect_generation_tables,
 )
@@ -180,7 +181,11 @@ CandidateFoundCallback = Callable[[EffectSeedCandidate], None]
 PivotSeedCollector = Callable[..., tuple[tuple[int, int], ...] | None]
 
 
-def validate_effect_request_feasibility(request: EffectSeedRequest) -> None:
+def validate_effect_request_feasibility(
+    request: EffectSeedRequest,
+    *,
+    tables: EffectGenerationTableIndex | None = None,
+) -> None:
     """Reject combinations that cannot fit the native PC v2.00.02 layout.
 
     This is a structural preflight, not a claim that every request that passes
@@ -188,9 +193,14 @@ def validate_effect_request_feasibility(request: EffectSeedRequest) -> None:
     opened: slot count, unavailable table rows, effect conflicts and category
     capacity. Path-dependent weighted lotteries are still decided by exact
     replay.
+
+    ``tables`` is the caller's selected generation index. A version-bound
+    caller passes it so the preflight reads the same version as the sequence
+    layer; ``None`` keeps the shipped PC v2.00.02 baseline.
     """
 
-    tables = load_default_effect_generation_tables()
+    if tables is None:
+        tables = load_default_effect_generation_tables()
     record_type = SCROLL_RECORD_TYPES[request.playthrough - 1]
 
     max_secondaries = {
@@ -1397,10 +1407,11 @@ def iter_effect_seed_candidates(
     pivot_seed_collector_chunk_trials: int = 8_000_000,
     prefer_d3d11_fixed_draw: bool = False,
     allow_cpu_fallback: bool = False,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> Iterator[EffectSeedCandidate]:
     """Yield exact Seed candidates without connecting to a game process."""
 
-    validate_effect_request_feasibility(request)
+    validate_effect_request_feasibility(request, tables=tables)
     if (
         (request.required_secondary_ids or request.required_secondary_id_groups)
         and final_record_generator is None
@@ -1779,6 +1790,7 @@ def collect_effect_seed_page(
     pivot_seed_collector_chunk_trials: int = 8_000_000,
     prefer_d3d11_fixed_draw: bool = False,
     allow_cpu_fallback: bool = False,
+    tables: EffectGenerationTableIndex | None = None,
 ) -> EffectSeedPage:
     """Collect a bounded, non-overlapping page from the exact candidate stream."""
 
@@ -1786,7 +1798,7 @@ def collect_effect_seed_page(
         raise ValueError("page_size must be positive")
     if start_after_trial < 0:
         raise ValueError("start_after_trial cannot be negative")
-    validate_effect_request_feasibility(request)
+    validate_effect_request_feasibility(request, tables=tables)
     constraints = fixed_draw_constraints(
         request,
         grace_mapping=grace_mapping,
@@ -1839,6 +1851,7 @@ def collect_effect_seed_page(
         pivot_seed_collector_chunk_trials=pivot_seed_collector_chunk_trials,
         prefer_d3d11_fixed_draw=prefer_d3d11_fixed_draw,
         allow_cpu_fallback=allow_cpu_fallback,
+        tables=tables,
     )
     collected: list[EffectSeedCandidate] = []
     for candidate in iterator:

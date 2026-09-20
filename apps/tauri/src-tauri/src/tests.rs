@@ -184,6 +184,7 @@ async fn real_worker_search_validation_and_private_transfers() {
         .unwrap();
     let data = std::env::temp_dir().join(format!("nioh3-tauri-test-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&data).unwrap();
+    let _identity = bind_development_worker_identity();
     let broker = Broker::new(root, data, false);
     let hello = broker
         .dispatch("core:handshake", json!(null))
@@ -361,6 +362,69 @@ async fn dead_protected_worker_is_replaced_only_after_its_process_exits() {
     let _ = std::fs::remove_dir_all(data);
 }
 
+/// A protected host owns live game or save state, so a broken pipe may only
+/// close its input and let it finish: the process is never force-killed, and a
+/// transport failure is never reported as a proven safe close.
+#[tokio::test]
+async fn a_broken_pipe_never_force_kills_a_protected_host() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let data = std::env::temp_dir().join(format!("nioh3-guard-{}", uuid::Uuid::new_v4()));
+    let broker = Broker::new(root, data.clone(), false);
+    let host = broker.host("save").await.unwrap();
+    host.handshake().await.unwrap();
+    host.disconnect_for_test().await; // EOF, exactly the Tauri broken-pipe rule.
+    assert!(
+        !host.close().await,
+        "a dead protected transport must never report a proven safe close"
+    );
+    for _ in 0..200 {
+        if host.can_replace().await {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    assert!(
+        host.can_replace().await,
+        "the protected host must exit on EOF"
+    );
+    let status = host
+        .exit_status()
+        .await
+        .expect("the protected host must have exited");
+    assert_eq!(
+        status.code(),
+        Some(0),
+        "a protected host must finish by itself, never by force"
+    );
+    let _ = std::fs::remove_dir_all(data);
+}
+
+/// The read-only search worker owns no game or save state, so it stays the one
+/// role a transport failure may reap.
+#[tokio::test]
+async fn a_broken_pipe_reclaims_the_readonly_search_worker() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let data = std::env::temp_dir().join(format!("nioh3-reap-{}", uuid::Uuid::new_v4()));
+    let _identity = bind_development_worker_identity();
+    let broker = Broker::new(root, data.clone(), false);
+    let host = broker.host("offline_search").await.unwrap();
+    host.handshake().await.unwrap();
+    host.disconnect_for_test().await;
+    for _ in 0..200 {
+        if host.can_replace().await {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    assert!(host.can_replace().await);
+    let status = host.exit_status().await.expect("the search worker exited");
+    assert!(
+        !status.success(),
+        "the read-only worker is the role this layer may terminate"
+    );
+    let _ = std::fs::remove_dir_all(data);
+}
+
 /// The development Rust worker selection never changes the shipped product and
 /// never silently falls back to Python once an operator has asked for it.
 #[test]
@@ -369,8 +433,7 @@ fn a_packaged_host_without_a_staged_manifest_keeps_the_shipped_search_worker() {
     let named = RustSearchEnv {
         executable: Some(root.join("Cargo.toml").display().to_string()),
         data_root: Some("elsewhere".to_string()),
-        contract_dir: None,
-        accelerator: None,
+        ..RustSearchEnv::default()
     };
     assert_eq!(
         search_backend(root, true, &named).unwrap(),
@@ -463,6 +526,7 @@ fn the_development_rust_launch_names_the_binary_and_its_paths() {
             data_root: Some("/tmp/data".to_string()),
             contract_dir: Some("/tmp/contracts".to_string()),
             accelerator: Some("/tmp/accelerator.dll".to_string()),
+            ..RustSearchEnv::default()
         },
     )
     .unwrap();
@@ -488,8 +552,7 @@ fn a_packaged_host_without_a_staged_manifest_keeps_the_shipped_protected_worker(
     let named = RustProtectedEnv {
         executable: Some(root.join("Cargo.toml").display().to_string()),
         data_root: Some("elsewhere".to_string()),
-        contract_dir: None,
-        accelerator: None,
+        ..RustProtectedEnv::default()
     };
     assert_eq!(
         protected_backend(root, true, &named).unwrap(),
@@ -583,6 +646,63 @@ fn the_development_protected_launch_names_the_binary_and_its_paths() {
 /// Build a minimal but structurally real staged Rust package: the manifest the
 /// staging tool writes, both declared worker EXEs at their packaged names, and
 /// the package-confined data/contract/helper roots the workers resolve.
+/// The lock every test that binds, forces, or observes the packaged session
+/// version holds.
+///
+/// The packaged session value is process-wide by design - one session, one
+/// identity - so a test that installs one must not overlap another test that
+/// reads the same value. Tests that need a resolved session take this guard for
+/// their whole body, which makes a parallel run deterministic without changing
+/// the production shape under test.
+fn session_version_guard() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// The game build the real development-graph tests bind their workers to.
+///
+/// The development Python search graph refuses to start without an identity, and
+/// a parallel test must not write process-wide state, so a test that starts that
+/// graph names this build explicitly on its own thread. It is a game build, never
+/// a product version.
+const DEVELOPMENT_GAME_FILE_VERSION: &str = "2.0.2.0";
+
+/// Bind the explicit development identity a real-worker test starts under.
+///
+/// The guard restores whatever was bound before, so the binding never outlives
+/// the test that asked for it.
+fn bind_development_worker_identity() -> crate::worker::DevelopmentGameFileVersionBinding {
+    crate::worker::bind_development_game_file_version_for_test(DEVELOPMENT_GAME_FILE_VERSION)
+}
+
+/// Install a resolved packaged session version for one test.
+///
+/// The packaged resolvers in this module always establish the session's
+/// installed version before they hand an argv to a worker; the real source reads
+/// the game executable this machine happens to have. A test that only wants the
+/// resolver's argv shape therefore installs a fixed version through the same
+/// test hook the packaged resolver reads, so the argv under test is the argv a
+/// host with a verified install would spawn.
+///
+/// The pinned value is the Tauri package version, which is the only four-part
+/// spelling already recorded in this crate. It keeps every test that binds a
+/// session version in agreement without teaching them a product version.
+fn bind_packaged_session_version(version: &str) {
+    crate::worker::set_packaged_game_file_version_for_test(Some(version.to_string()))
+        .expect("the test hook installs the session version");
+    crate::worker::set_packaged_game_file_version_error_for_test(None)
+        .expect("the test hook clears the forced failure");
+}
+
+/// Release the packaged session version a test installed, so no later test can
+/// inherit it. Every test that binds one calls this before it returns.
+fn release_packaged_session_version() {
+    crate::worker::set_packaged_game_file_version_for_test(None)
+        .expect("the test hook releases the session version");
+    crate::worker::set_packaged_game_file_version_error_for_test(None)
+        .expect("the test hook releases the forced failure");
+}
+
 fn staged_rust_package(name: &str) -> std::path::PathBuf {
     use std::path::Path;
     let root = std::env::temp_dir().join(format!("nioh3-staged-{name}-{}", uuid::Uuid::new_v4()));
@@ -660,6 +780,7 @@ fn staged_rust_package(name: &str) -> std::path::PathBuf {
 #[test]
 fn packaged_manifest_resolves_every_role_to_the_staged_binary_and_roots() {
     use crate::worker::{normalize_path, resolve_role_launch, staged_backend_manifest};
+    let _guard = session_version_guard();
     let root = staged_rust_package("packaged-resolve");
     let staged = staged_backend_manifest(&root)
         .unwrap()
@@ -675,6 +796,7 @@ fn packaged_manifest_resolves_every_role_to_the_staged_binary_and_roots() {
         .join("runtime")
         .join("bin")
         .join("nioh3_seed_accelerator.dll");
+    bind_packaged_session_version("0.7.5.0");
     assert_eq!(normalize_path(&staged.data_root), staged_data);
     assert_eq!(normalize_path(&staged.contract_dir), staged_contracts);
     assert_eq!(normalize_path(&staged.accelerator), staged_helper);
@@ -725,7 +847,10 @@ fn packaged_manifest_resolves_every_role_to_the_staged_binary_and_roots() {
                 .iter()
                 .any(|token| token == "--dev-protected-only"));
         }
+        // The staged resolution carries the session's resolved identity too.
+        assert_eq!(value("--game-file-version"), "0.7.5.0");
     }
+    release_packaged_session_version();
     let _ = std::fs::remove_dir_all(&root);
 }
 
@@ -734,7 +859,9 @@ fn packaged_manifest_resolves_every_role_to_the_staged_binary_and_roots() {
 #[test]
 fn packaged_manifest_fails_closed_for_missing_or_escaping_declarations() {
     use crate::worker::{search_backend, staged_backend_manifest, RustSearchEnv};
+    let _guard = session_version_guard();
     let root = staged_rust_package("packaged-refuse");
+    bind_packaged_session_version("0.7.5.0");
     assert!(search_backend(&root, true, &RustSearchEnv::default()).is_ok());
 
     let missing = staged_rust_package("packaged-missing");
@@ -787,6 +914,7 @@ fn packaged_manifest_fails_closed_for_missing_or_escaping_declarations() {
     for path in [&missing, &escaping, &unsupported, &plain] {
         let _ = std::fs::remove_dir_all(path);
     }
+    release_packaged_session_version();
     let _ = std::fs::remove_dir_all(&outside);
 }
 
@@ -796,7 +924,9 @@ fn packaged_manifest_fails_closed_for_missing_or_escaping_declarations() {
 #[test]
 fn packaged_manifest_refuses_a_binary_that_changed_after_staging() {
     use crate::worker::{resolve_role_launch, staged_backend_manifest, verify_declared_binary};
+    let _guard = session_version_guard();
     let root = staged_rust_package("packaged-mutation");
+    bind_packaged_session_version("0.7.5.0");
     let manifest = staged_backend_manifest(&root)
         .unwrap()
         .expect("staged manifest");
@@ -821,6 +951,7 @@ fn packaged_manifest_refuses_a_binary_that_changed_after_staging() {
     )
     .expect_err("the resolver must refuse a changed binary");
     assert!(error.starts_with("RUST_WORKER_CHANGED"), "{error}");
+    release_packaged_session_version();
     let _ = std::fs::remove_dir_all(&root);
 }
 
@@ -833,6 +964,7 @@ fn packaged_manifest_refuses_a_binary_that_changed_after_staging() {
 #[test]
 fn packaged_manifest_resolves_placeholder_paths_under_a_canonical_root() {
     use crate::worker::{normalize_path, resolve_role_launch, staged_backend_manifest};
+    let _guard = session_version_guard();
     let root = std::env::temp_dir().join(format!("nioh3-canonical-{}", uuid::Uuid::new_v4()));
     let write = |relative: &str, body: &str| {
         let path = root.join(relative);
@@ -914,6 +1046,7 @@ fn packaged_manifest_resolves_placeholder_paths_under_a_canonical_root() {
     assert!(staged.contract_dir.is_dir());
     assert!(staged.accelerator.is_file());
     let state = std::env::temp_dir().join("nioh3-canonical-state");
+    bind_packaged_session_version("0.7.5.0");
     for role in ["offline_search", "save", "runtime"] {
         let (executable, arguments) = resolve_role_launch(&canonical, role, true, &state)
             .unwrap_or_else(|error| panic!("{role} did not resolve: {error}"));
@@ -937,7 +1070,808 @@ fn packaged_manifest_resolves_placeholder_paths_under_a_canonical_root() {
         assert!(std::path::Path::new(&value("--contract-dir")).is_dir());
         assert!(std::path::Path::new(&value("--accelerator")).is_file());
     }
+    release_packaged_session_version();
     let _ = std::fs::remove_dir_all(&root);
+}
+
+/// The installed-version grammar is exactly the four-component spelling the
+/// worker binaries parse, so a value this host produces is never refused
+/// downstream for its shape.
+#[test]
+fn the_game_version_grammar_accepts_only_four_numeric_components() {
+    use crate::game_version::GameFileVersion;
+    assert_eq!(
+        GameFileVersion::parse("2.0.2.0").unwrap().dotted(),
+        "2.0.2.0"
+    );
+    assert_eq!(
+        GameFileVersion::parse("65535.0.65535.1").unwrap().dotted(),
+        "65535.0.65535.1"
+    );
+    assert_eq!(
+        GameFileVersion::parse("0.0.0.0").unwrap().to_string(),
+        "0.0.0.0",
+        "an all-zero build is still a four-component spelling"
+    );
+
+    for rejected in [
+        "2.02",           // two components
+        "2.0.2",          // three components
+        "2.0.2.0.1",      // five components
+        "2.0.2.0.0.0",    // six components
+        "",               // empty
+        "2.0..0",         // empty component
+        "2.0.2.x",        // non-numeric
+        "2.0.2.-1",       // signed
+        "2.0.2.65536",    // above u16
+        "2.0.2.99999999", // far above u16
+        "v2.0.2.0",       // prefixed
+        "2.0.2.0 ",       // trailing space
+        " 2.0.2.0",       // leading space
+        "  2.0.1.0  ",    // surrounding space
+        "2.0. 2.0",       // inner space
+        "2.0.2.0\t",      // trailing tab
+        "\t2.0.2.0",      // leading tab
+        "2.0.2.0\n",      // trailing newline
+        "\n2.0.2.0",      // leading newline
+    ] {
+        let error = GameFileVersion::parse(rejected).unwrap_err();
+        assert!(
+            error.starts_with("GAME_VERSION_MALFORMED"),
+            "{rejected:?} was accepted or mislabelled: {error}"
+        );
+    }
+}
+
+/// The host grammar sits inside the worker grammar, with no trimming on either
+/// side.
+///
+/// Both parsers split on `.` and require four components; the workers then parse
+/// each component with `u16::from_str`
+/// (`crates/nioh3-worker/src/main.rs:182-198`,
+/// `crates/nioh3-protected/src/main.rs:187-202`), which reads no whitespace. The
+/// host is stricter in exactly one direction: it never produces the leading `+`
+/// a component may carry, so refusing that spelling keeps the host value one both
+/// workers accept.
+#[test]
+fn the_host_grammar_stays_inside_the_worker_grammar() {
+    use crate::game_version::GameFileVersion;
+
+    // The worker's own shape, spelled out here so the direction of the relation
+    // is executed rather than asserted in prose.
+    fn worker_accepts(raw: &str) -> bool {
+        let parts: Vec<&str> = raw.split('.').collect();
+        parts.len() == 4 && parts.iter().all(|part| part.parse::<u16>().is_ok())
+    }
+
+    for accepted in ["2.0.2.0", "0.0.0.0", "65535.65535.65535.65535", "2.0.1.0"] {
+        assert!(GameFileVersion::parse(accepted).is_ok(), "{accepted:?}");
+        assert!(worker_accepts(accepted), "{accepted:?}");
+    }
+    for raw in [
+        "2.0.2.0 ",
+        " 2.0.2.0",
+        "  2.0.1.0  ",
+        "2.0.2.0\t",
+        "2.0.2.0\n",
+        "\n2.0.2.0",
+        "2.0. 2.0",
+    ] {
+        assert!(
+            GameFileVersion::parse(raw).is_err(),
+            "the host must not trim: {raw:?}"
+        );
+        assert!(
+            !worker_accepts(raw),
+            "the worker parser does not trim either: {raw:?}"
+        );
+    }
+    // The single place the two accepted sets differ, in the safe direction.
+    assert!(worker_accepts("+2.0.1.0"));
+    assert!(GameFileVersion::parse("+2.0.1.0").is_err());
+}
+
+/// One session reads the installed executable once and every later question is
+/// answered from that same value, so all roles share one identity.
+#[test]
+fn the_session_version_is_detected_once_and_then_cached() {
+    use crate::game_version::{
+        FileVersionReader, GameFileVersion, GameFileVersionSource, GameVersionSource,
+    };
+    use std::path::Path;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    struct Counting {
+        reads: AtomicUsize,
+        answer: Result<GameFileVersion, String>,
+    }
+    impl FileVersionReader for Counting {
+        fn read(&self, _executable: &Path) -> Result<GameFileVersion, String> {
+            self.reads.fetch_add(1, Ordering::SeqCst);
+            self.answer.clone()
+        }
+    }
+
+    // A real file is required because the source refuses a non-file path before
+    // it ever asks the reader.
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let executable = root.join("Cargo.toml");
+    let reader = Counting {
+        reads: AtomicUsize::new(0),
+        answer: Ok(GameFileVersion::parse("2.0.2.0").unwrap()),
+    };
+    let source = GameFileVersionSource::new(
+        reader,
+        GameVersionSource::with_development_executable(Some(executable)),
+    );
+    for _ in 0..5 {
+        assert_eq!(source.resolve().unwrap().dotted(), "2.0.2.0");
+    }
+    assert_eq!(
+        source.reads_for_test(),
+        1,
+        "the executable must be read exactly once per session"
+    );
+
+    // A failure is cached the same way: a session that cannot establish the
+    // identity must not retry into a different answer.
+    let failing_reader = Counting {
+        reads: AtomicUsize::new(0),
+        answer: Err("GAME_VERSION_UNREADABLE: no version resource".to_string()),
+    };
+    let failing = GameFileVersionSource::new(
+        failing_reader,
+        GameVersionSource::with_development_executable(Some(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml"),
+        )),
+    );
+    for _ in 0..3 {
+        let error = failing.resolve().unwrap_err();
+        assert_eq!(error.code, "GAME_VERSION_UNREADABLE");
+    }
+    assert_eq!(
+        failing.reads_for_test(),
+        1,
+        "a failed resolution is cached rather than retried"
+    );
+}
+
+/// Every production role receives the identical resolved version, and the
+/// packaged resolver never falls back to a constant or to the legacy identity.
+#[test]
+fn every_packaged_role_receives_the_same_resolved_game_file_version() {
+    use crate::worker::{
+        launch_command, protected_backend, resolve_role_launch, search_backend, ProtectedBackend,
+        RustSearchEnv, SearchBackend,
+    };
+    let _guard = session_version_guard();
+    bind_packaged_session_version("0.7.5.0");
+    let root = staged_rust_package("version-plumbing");
+    let state = std::env::temp_dir().join("nioh3-version-plumbing-state");
+
+    let search = search_backend(&root, true, &RustSearchEnv::default()).unwrap();
+    let protected =
+        protected_backend(&root, true, &crate::worker::RustProtectedEnv::default()).unwrap();
+    let SearchBackend::Rust(search_launch) = &search else {
+        panic!("a staged package must select the Rust search backend");
+    };
+    assert_eq!(
+        search_launch.game_file_version.as_deref(),
+        Some("0.7.5.0"),
+        "the packaged search launch must carry the resolved version"
+    );
+    assert!(
+        !search_launch.legacy_test_context,
+        "packaged production must never select the legacy identity"
+    );
+    let ProtectedBackend::Rust(protected_launch) = &protected else {
+        panic!("a staged package must select the Rust protected backend");
+    };
+    assert_eq!(
+        protected_launch.game_file_version.as_deref(),
+        Some("0.7.5.0")
+    );
+    assert!(!protected_launch.legacy_test_context);
+
+    // The value the argv carries must be byte-identical for all three roles.
+    let mut seen: Vec<String> = Vec::new();
+    for role in ["offline_search", "save", "runtime"] {
+        let (_, arguments) = launch_command(&root, role, true, &search, &protected, &state);
+        let index = arguments
+            .iter()
+            .position(|token| token == "--game-file-version")
+            .unwrap_or_else(|| panic!("{role} argv lacks the version flag: {arguments:?}"));
+        seen.push(arguments[index + 1].clone());
+        assert!(
+            !arguments
+                .iter()
+                .any(|token| token == "--legacy-test-context"),
+            "{role} must not carry the legacy opt-in: {arguments:?}"
+        );
+    }
+    assert_eq!(
+        seen,
+        vec![
+            "0.7.5.0".to_string(),
+            "0.7.5.0".to_string(),
+            "0.7.5.0".to_string()
+        ],
+        "every production role must receive the same version"
+    );
+
+    // `resolve_role_launch` is the packaged gate's entry point; it must agree.
+    let (_, arguments) = resolve_role_launch(&root, "runtime", true, &state).unwrap();
+    let index = arguments
+        .iter()
+        .position(|token| token == "--game-file-version")
+        .expect("the gate entry point must carry the version");
+    assert_eq!(arguments[index + 1], "0.7.5.0");
+
+    release_packaged_session_version();
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// A host that cannot establish the installed identity refuses before any
+/// worker starts, rather than passing a default or an environment guess.
+#[test]
+fn a_packaged_role_without_a_resolved_version_fails_closed() {
+    use crate::worker::{packaged_rust_launch, staged_backend_manifest};
+    let root = staged_rust_package("version-fail-closed");
+    let manifest = staged_backend_manifest(&root)
+        .unwrap()
+        .expect("staged manifest");
+    // The packaged constructor has no version-less shape: it takes the resolved
+    // value, so a session that cannot resolve one cannot build a launch at all.
+    let launch = packaged_rust_launch(&manifest, "offline_search", "2.0.0.2")
+        .unwrap()
+        .1;
+    assert_eq!(launch.game_file_version.as_deref(), Some("2.0.0.2"));
+    assert!(
+        !launch.legacy_test_context,
+        "the packaged shape must never carry the legacy opt-in"
+    );
+    let arguments = launch.arguments();
+    assert!(arguments.contains(&"--game-file-version".to_string()));
+    assert!(arguments.contains(&"2.0.0.2".to_string()));
+    // There is no fallback constant anywhere in the produced argv.
+    assert!(
+        !arguments
+            .iter()
+            .any(|token| token == "--legacy-test-context"),
+        "{arguments:?}"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// The packaged gate refuses before it can hand any worker an argv that names no
+/// version. The refusal is the resolver's structured failure, not a placeholder
+/// version and not the legacy opt-in.
+#[test]
+fn the_packaged_gate_refuses_when_the_session_version_is_unavailable() {
+    use crate::worker::{
+        resolve_role_launch, set_packaged_game_file_version_error_for_test,
+        set_packaged_game_file_version_for_test,
+    };
+    let _guard = session_version_guard();
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let state = std::env::temp_dir().join("nioh3-unavailable-version-state");
+    set_packaged_game_file_version_for_test(None).unwrap();
+    // A staged manifest would let the resolver's packaged branch answer first;
+    // the shape under test is a package whose manifest is not there, so the
+    // gate is the only thing that can establish the session version.
+    set_packaged_game_file_version_error_for_test(Some(
+        "GAME_EXECUTABLE_NOT_FOUND: no installed Nioh3.exe under the known Steam roots".to_string(),
+    ))
+    .unwrap();
+    for role in ["offline_search", "save", "runtime"] {
+        let error = resolve_role_launch(root, role, true, &state)
+            .expect_err("a packaged role without a resolved version must be refused");
+        assert!(
+            error.starts_with("GAME_EXECUTABLE_NOT_FOUND"),
+            "{role} was refused with the wrong code: {error}"
+        );
+    }
+    set_packaged_game_file_version_error_for_test(None).unwrap();
+}
+
+/// One session resolves the installed version once, and every role - Rust
+/// search, Rust protected, and the shipped Python search worker - receives that
+/// same value, so no two workers can bind to different identities.
+#[test]
+fn the_session_resolves_one_version_and_every_role_carries_it() {
+    use crate::game_version::{
+        FileVersionReader, GameFileVersion, GameFileVersionSource, GameVersionSource,
+    };
+    use crate::worker::{launch_command, resolve_role_launch, ProtectedBackend, SearchBackend};
+    use std::path::Path;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let _guard = session_version_guard();
+
+    struct Counting {
+        reads: AtomicUsize,
+    }
+    impl FileVersionReader for Counting {
+        fn read(&self, _executable: &Path) -> Result<GameFileVersion, String> {
+            self.reads.fetch_add(1, Ordering::SeqCst);
+            GameFileVersion::parse("0.7.5.0")
+        }
+    }
+
+    // A real file is required because the source refuses a non-file path before
+    // it ever asks the reader.
+    let source = GameFileVersionSource::new(
+        Counting {
+            reads: AtomicUsize::new(0),
+        },
+        GameVersionSource::with_development_executable(Some(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml"),
+        )),
+    );
+    let resolved = source.resolve().expect("the fake reader answers").dotted();
+
+    // The packaged resolvers repeat the one session value this host established.
+    bind_packaged_session_version(&resolved);
+    let root = staged_rust_package("session-one-version");
+    let state = std::env::temp_dir().join("nioh3-session-one-version-state");
+    let search = search_backend(&root, true, &RustSearchEnv::default()).unwrap();
+    let protected =
+        protected_backend(&root, true, &crate::worker::RustProtectedEnv::default()).unwrap();
+
+    // The packaged argv for every role names that one value.
+    let mut seen: Vec<(String, String)> = Vec::new();
+    for role in ["offline_search", "save", "runtime"] {
+        let (_, arguments) = launch_command(&root, role, true, &search, &protected, &state);
+        let index = arguments
+            .iter()
+            .position(|token| token == "--game-file-version")
+            .unwrap_or_else(|| panic!("{role} argv lacks the version flag: {arguments:?}"));
+        seen.push((role.to_string(), arguments[index + 1].clone()));
+    }
+    // The shipped Python search worker is the fallback graph: it runs the same
+    // role through the same argv builder and must answer identically.
+    let (_, python_arguments) = launch_command(
+        &root,
+        "offline_search",
+        true,
+        &SearchBackend::Python,
+        &ProtectedBackend::Python,
+        &state,
+    );
+    let python_index = python_arguments
+        .iter()
+        .position(|token| token == "--game-file-version")
+        .expect("the Python search argv must name the session version");
+    seen.push((
+        "python-offline_search".to_string(),
+        python_arguments[python_index + 1].clone(),
+    ));
+    for (role, version) in &seen {
+        assert_eq!(
+            version, &resolved,
+            "{role} must receive the session's one resolved version"
+        );
+    }
+    assert!(
+        resolve_role_launch(&root, "offline_search", true, &state)
+            .expect("the packaged gate resolves the Python graph")
+            .1
+            .iter()
+            .any(|token| token == "--game-file-version"),
+        "the packaged gate's argv names the session version for the Python graph"
+    );
+    assert_eq!(
+        source.reads_for_test(),
+        1,
+        "the session must read the executable exactly once"
+    );
+    release_packaged_session_version();
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// If a packaged role ever reached the argv builder without a resolved version,
+/// the argv it produced would carry an explicit non-version token. No worker
+/// parser accepts that token, so the worker refuses to start instead of
+/// accepting jobs under an undefined identity - and the legacy opt-in is still
+/// never selected.
+#[test]
+fn an_unresolved_version_never_becomes_a_version_or_the_legacy_opt_in() {
+    use crate::worker::{
+        push_python_identity_for_test, set_packaged_game_file_version_error_for_test,
+    };
+    let _guard = session_version_guard();
+    set_packaged_game_file_version_error_for_test(Some(
+        "GAME_VERSION_UNREADABLE: no version resource on D:\\Games\\Nioh3\\Nioh3.exe".to_string(),
+    ))
+    .unwrap();
+    let mut arguments: Vec<String> = Vec::new();
+    push_python_identity_for_test(&mut arguments, true, None, false);
+    assert_eq!(
+        arguments.first().map(String::as_str),
+        Some("--game-file-version"),
+        "the flag is named even when the value is unavailable: {arguments:?}"
+    );
+    let token = arguments.get(1).cloned().unwrap_or_default();
+    assert!(
+        token.starts_with("GAME_VERSION_UNAVAILABLE:"),
+        "the unavailable identity must be typed: {token}"
+    );
+    assert!(
+        !token.contains("GAME_EXECUTABLE_UNREADABLE"),
+        "the token must keep the resolver's own code, not the generic one: {token}"
+    );
+    assert!(
+        crate::game_version::GameFileVersion::parse(&token).is_err(),
+        "no worker may read the unavailable token as a version"
+    );
+    assert!(
+        !arguments
+            .iter()
+            .any(|argument| argument == "--legacy-test-context"),
+        "packaged production must never select the legacy identity: {arguments:?}"
+    );
+    set_packaged_game_file_version_error_for_test(None).unwrap();
+}
+
+/// Discovery reads only Steam roots that can be named without walking a
+/// filesystem, and the version resource parse is exact.
+#[test]
+fn discovery_is_bounded_to_named_steam_roots() {
+    use crate::game_version::GameFileVersionSource;
+    use crate::game_version::GameVersionSource;
+    use crate::game_version::WindowsFileVersionReader;
+
+    // A version source for a directory, not a file, refuses by name.
+    let source = GameFileVersionSource::new(
+        WindowsFileVersionReader,
+        GameVersionSource::with_development_executable(Some(std::path::PathBuf::from(env!(
+            "CARGO_MANIFEST_DIR"
+        )))),
+    );
+    let error = source.resolve().unwrap_err();
+    assert_eq!(
+        error.code,
+        "GAME_EXECUTABLE_UNREADABLE",
+        "{}",
+        error.message()
+    );
+
+    // The named-executable override does not silently become a disk search: an
+    // absent file is a refusal, never a fallback to discovery.
+    let missing = GameFileVersionSource::new(
+        WindowsFileVersionReader,
+        GameVersionSource::with_development_executable(Some(std::path::PathBuf::from(
+            r"D:\definitely-absent\Nioh3.exe",
+        ))),
+    );
+    let error = missing.resolve().unwrap_err();
+    assert_eq!(
+        error.code,
+        "GAME_EXECUTABLE_UNREADABLE",
+        "{}",
+        error.message()
+    );
+}
+
+/// The `libraryfolders.vdf` reader takes only Valve's `path` pairs.
+#[test]
+fn libraryfolders_reader_takes_only_declared_paths() {
+    let vdf = r#"
+"libraryfolders"
+{
+	"0"
+	{
+		"path"		"C:\\Program Files (x86)\\Steam"
+		"label"		""
+		"apps"
+		{
+			"1325200"		"123"
+		}
+	}
+	"1"
+	{
+		"path"		"D:\\SteamLibrary"
+	}
+}
+"#;
+    let declared = crate::game_version::declared_libraries_for_test(vdf);
+    assert_eq!(
+        declared,
+        vec![
+            std::path::PathBuf::from(r"C:\Program Files (x86)\Steam"),
+            std::path::PathBuf::from(r"D:\SteamLibrary"),
+        ],
+        "only path pairs are library roots, and each appears once"
+    );
+    assert!(
+        !declared
+            .iter()
+            .any(|path| path.to_string_lossy().contains("1325200")),
+        "an app id is not a library root"
+    );
+}
+
+/// Discovery derives one exact expected path per known Steam root and library,
+/// takes only the candidates that exist, and deduplicates by the directory a
+/// candidate actually resolves to - so one install never reads as an ambiguous
+/// pair and two installs never read as one.
+#[test]
+fn discovery_derives_exact_candidate_paths_from_temp_fixtures() {
+    use crate::game_version::derive_candidate_paths_for_test;
+    use std::path::PathBuf;
+
+    let libraries: Vec<PathBuf> = vec![
+        PathBuf::from(r"C:\Program Files (x86)\Steam"),
+        PathBuf::from(r"D:\SteamLibrary"),
+        // A library named twice in different spellings is still one library.
+        PathBuf::from(r"d:\steamlibrary"),
+    ];
+    let candidates = derive_candidate_paths_for_test(&libraries);
+    assert_eq!(
+        candidates,
+        vec![
+            PathBuf::from(r"C:\Program Files (x86)\Steam")
+                .join("steamapps")
+                .join("common")
+                .join("Nioh3")
+                .join("Nioh3.exe"),
+            PathBuf::from(r"D:\SteamLibrary")
+                .join("steamapps")
+                .join("common")
+                .join("Nioh3")
+                .join("Nioh3.exe"),
+        ],
+        "one exact expected path per distinct library, in declaration order"
+    );
+    for candidate in &candidates {
+        assert_eq!(
+            candidate
+                .file_name()
+                .map(|name| name.to_string_lossy().to_string()),
+            Some("Nioh3.exe".to_string()),
+            "every candidate is the exact game executable, never a directory scan"
+        );
+        assert!(
+            candidate
+                .to_string_lossy()
+                .replace('/', "\\")
+                .ends_with(r"steamapps\common\Nioh3\Nioh3.exe"),
+            "every candidate is the Steam install layout: {}",
+            candidate.display()
+        );
+    }
+}
+
+/// Zero, one, and more than one trustworthy candidate are three different
+/// answers, and only exactly one is an identity this host will bind to.
+#[test]
+fn discovery_answers_zero_one_and_many_distinctly() {
+    use crate::game_version::{trustworthy_game_executable_for_test, GameFileVersionSource};
+    use std::path::PathBuf;
+
+    let empty: Vec<PathBuf> = Vec::new();
+    let error =
+        trustworthy_game_executable_for_test(&empty).expect_err("no candidate is not an identity");
+    assert!(
+        error.starts_with("GAME_EXECUTABLE_NOT_FOUND"),
+        "zero candidates must be named as not-found: {error}"
+    );
+
+    let root = std::env::temp_dir().join(format!("nioh3-candidates-{}", uuid::Uuid::new_v4()));
+    let make = |relative: &str| {
+        let path = root.join(relative);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, "not a real executable").unwrap();
+        path
+    };
+    let first = make("one/Nioh3.exe");
+    let one = trustworthy_game_executable_for_test(std::slice::from_ref(&first))
+        .expect("exactly one candidate is the identity");
+    assert_eq!(
+        one.canonicalize().unwrap(),
+        first.canonicalize().unwrap(),
+        "a single candidate is canonicalized before it is returned"
+    );
+
+    // The same file named twice is still one install, not an ambiguous pair.
+    let aliased = trustworthy_game_executable_for_test(&[first.clone(), first.clone()])
+        .expect("one install named twice is not ambiguous");
+    assert_eq!(aliased.canonicalize().unwrap(), one.canonicalize().unwrap());
+
+    let second = make("two/Nioh3.exe");
+    let error = trustworthy_game_executable_for_test(&[first.clone(), second.clone()])
+        .expect_err("two distinct installs are ambiguous");
+    assert!(
+        error.starts_with("GAME_EXECUTABLE_AMBIGUOUS"),
+        "two candidates must be named as ambiguous: {error}"
+    );
+
+    // A named candidate that is present but is not a readable file is refused by
+    // name, and the refusal never resolves to a different candidate. A directory
+    // is the shape of a wrong file name, so it must not be reported as "not
+    // found" - that text would send a player to reinstall a game they have.
+    let directory = root.join("three");
+    std::fs::create_dir_all(&directory).unwrap();
+    let error = trustworthy_game_executable_for_test(&[directory])
+        .expect_err("a directory is not an executable");
+    assert!(
+        error.starts_with("GAME_EXECUTABLE_UNREADABLE"),
+        "an unusable candidate must be named: {error}"
+    );
+
+    // A candidate set where nothing was ever present is still "not found".
+    let absent = root.join("four").join("Nioh3.exe");
+    let error = trustworthy_game_executable_for_test(&[absent])
+        .expect_err("an absent candidate is not an identity");
+    assert!(
+        error.starts_with("GAME_EXECUTABLE_NOT_FOUND"),
+        "absence must stay distinct from an unusable install: {error}"
+    );
+
+    // The reader is never consulted for a candidate set this host refused, and
+    // the source refuses a directory before it ever asks the reader.
+    let source = GameFileVersionSource::new(
+        crate::game_version::WindowsFileVersionReader,
+        crate::game_version::GameVersionSource::with_development_executable(Some(
+            root.join("three"),
+        )),
+    );
+    let error = source.resolve().unwrap_err();
+    assert_eq!(
+        error.code,
+        "GAME_EXECUTABLE_UNREADABLE",
+        "{}",
+        error.message()
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// Every refusal a player reads has to be actionable in this host, so none of
+/// them names an environment override: a packaged host reads no executable
+/// variable, and a dead-end instruction is worse than no instruction.
+#[test]
+fn the_discovery_refusals_name_no_environment_override() {
+    use crate::game_version::trustworthy_game_executable_for_test;
+
+    let root = std::env::temp_dir().join(format!("nioh3-refusals-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    let make = |relative: &str| {
+        let path = root.join(relative);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, "not a real executable").unwrap();
+        path
+    };
+
+    let not_found = trustworthy_game_executable_for_test(&[root.join("absent/Nioh3.exe")])
+        .expect_err("an absent candidate is not an identity");
+    let unreadable = trustworthy_game_executable_for_test(std::slice::from_ref(&root))
+        .expect_err("a directory is not an executable");
+    let ambiguous =
+        trustworthy_game_executable_for_test(&[make("one/Nioh3.exe"), make("two/Nioh3.exe")])
+            .expect_err("two distinct installs are ambiguous");
+
+    for message in [&not_found, &unreadable, &ambiguous] {
+        assert!(
+            !message.contains("NIOH3_"),
+            "a refusal must not name a variable this host does not read: {message}"
+        );
+        assert!(
+            !message.contains("environment"),
+            "a refusal must not point at an override this host cannot apply: {message}"
+        );
+    }
+    // The two refusals a player can act on name the bounded Steam lookup and the
+    // Steam-side repair, so the text describes what this host really does.
+    for message in [&not_found, &unreadable] {
+        assert!(message.contains("Steam"), "{message}");
+    }
+    assert!(
+        unreadable.contains(&root.display().to_string()),
+        "the unreadable refusal names the path it refused: {unreadable}"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// A Windows system executable whose version resource every supported install
+/// ships, chosen under the system directory instead of a hardcoded drive path.
+#[cfg(windows)]
+fn system_executable_with_a_version_resource() -> std::path::PathBuf {
+    let system_root = std::env::var("SystemRoot").unwrap_or_else(|_| r"C:\Windows".to_string());
+    let system32 = std::path::Path::new(&system_root).join("System32");
+    for name in [
+        "whoami.exe",
+        "cmd.exe",
+        "reg.exe",
+        "icacls.exe",
+        "tasklist.exe",
+    ] {
+        let candidate = system32.join(name);
+        if candidate.is_file() {
+            return candidate;
+        }
+    }
+    panic!("no system executable under {}", system32.display());
+}
+
+/// The shipped reader executes the real Windows version-resource API, and the
+/// source a packaged host caches answers every later question from that one read.
+///
+/// The executable comes from the system directory, so this test needs no game
+/// install and copies nothing into the repository, and it asserts the structural
+/// shape - four `u16` components that survive the argv grammar - rather than any
+/// particular OS version.
+#[cfg(windows)]
+#[test]
+fn the_shipped_reader_reads_a_real_system_executable_once_per_session() {
+    use crate::game_version::{
+        FileVersionReader, GameFileVersion, GameFileVersionSource, GameVersionSource,
+        WindowsFileVersionReader,
+    };
+
+    let executable = system_executable_with_a_version_resource();
+    let direct = WindowsFileVersionReader
+        .read(&executable)
+        .unwrap_or_else(|error| {
+            panic!(
+                "the shipped reader must read {}: {error}",
+                executable.display()
+            )
+        });
+    let dotted = direct.dotted();
+    let components: Vec<&str> = dotted.split('.').collect();
+    assert_eq!(components.len(), 4, "{dotted}");
+    for component in &components {
+        assert!(
+            component.parse::<u16>().is_ok(),
+            "{component:?} in {dotted} is not a 16-bit component"
+        );
+    }
+    assert_eq!(
+        GameFileVersion::parse(&dotted).expect("the argv grammar reads what the reader produced"),
+        direct,
+        "the reader's value and the worker-facing spelling agree"
+    );
+
+    // The session source a packaged host caches answers from its first read, so
+    // one launch binds every role to one identity without touching the disk
+    // again.
+    let source = GameFileVersionSource::new(
+        WindowsFileVersionReader,
+        GameVersionSource::with_development_executable(Some(executable)),
+    );
+    let resolved = source.resolve().expect("a real system executable resolves");
+    assert_eq!(source.reads_for_test(), 1, "the first resolve reads once");
+    assert_eq!(
+        source
+            .resolve()
+            .expect("a cached answer is still an answer"),
+        resolved
+    );
+    assert_eq!(
+        source.reads_for_test(),
+        1,
+        "every later resolve answers from the session cache"
+    );
+    assert_eq!(
+        resolved.dotted(),
+        dotted,
+        "the cached value is the read value"
+    );
+}
+
+/// Off Windows there is no version-resource API to run, so the shipped reader
+/// has to refuse by name; this keeps that branch covered rather than skipped.
+#[cfg(not(windows))]
+#[test]
+fn the_shipped_reader_refuses_a_windows_version_resource_off_windows() {
+    use crate::game_version::{FileVersionReader, WindowsFileVersionReader};
+
+    let error = WindowsFileVersionReader
+        .read(std::path::Path::new(r"C:\Windows\System32\whoami.exe"))
+        .expect_err("a Windows version resource cannot be read off Windows");
+    assert!(
+        error.starts_with("GAME_VERSION_UNSUPPORTED_PLATFORM"),
+        "{error}"
+    );
 }
 
 /// Acceptance probe for the Python packaged gate.
@@ -953,6 +1887,15 @@ fn dump_role_launch_for_acceptance() {
     let root = std::path::PathBuf::from(std::env::var("NIOH3_ACCEPTANCE_ROOT").unwrap());
     let role = std::env::var("NIOH3_ACCEPTANCE_ROLE").unwrap();
     let packaged = std::env::var("NIOH3_ACCEPTANCE_PACKAGED").as_deref() == Ok("1");
+    // The dump exists so a gate compares the real resolver's argv. A packaged
+    // dump therefore names the installed version this host must resolve, taken
+    // from the gate's environment rather than from a constant in this file.
+    if packaged {
+        bind_packaged_session_version(
+            &std::env::var("NIOH3_ACCEPTANCE_GAME_FILE_VERSION")
+                .expect("a packaged dump must name the game file version under test"),
+        );
+    }
     let state = std::env::var("NIOH3_ACCEPTANCE_STATE_ROOT")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|_| std::env::temp_dir().join("nioh3-acceptance-state"));
@@ -969,4 +1912,106 @@ fn dump_role_launch_for_acceptance() {
             "argv": arguments,
         })
     );
+}
+
+/// The shipped Python search worker takes the same identity flag and value as
+/// the Rust replacement, so one session's version reaches every launch shape.
+#[test]
+fn the_python_search_launch_carries_the_same_resolved_game_file_version() {
+    use crate::worker::{launch_command, ProtectedBackend, RustSearchEnv, SearchBackend};
+    let _guard = session_version_guard();
+    bind_packaged_session_version("0.7.5.0");
+    let root = staged_rust_package("python-identity");
+    let state = std::env::temp_dir().join("nioh3-python-identity-state");
+    // The Python shape is the fallback graph: neither backend selects Rust.
+    let search = SearchBackend::Python;
+    let protected = ProtectedBackend::Python;
+
+    // Packaged: the shipped worker EXE gets the session's exact version.
+    let (executable, arguments) =
+        launch_command(&root, "offline_search", true, &search, &protected, &state);
+    assert_eq!(
+        executable,
+        root.join("worker/nioh3-search-worker.exe"),
+        "packaged Python search runs the shipped EXE"
+    );
+    let index = arguments
+        .iter()
+        .position(|token| token == "--game-file-version")
+        .unwrap_or_else(|| panic!("packaged Python argv lacks the version: {arguments:?}"));
+    assert_eq!(arguments[index + 1], "0.7.5.0");
+    assert!(
+        !arguments
+            .iter()
+            .any(|token| token == "--legacy-test-context"),
+        "packaged production must never select the legacy identity: {arguments:?}"
+    );
+    assert!(
+        !arguments.iter().any(|token| token.contains("UNAVAILABLE")),
+        "a resolved session must not report an unavailable version: {arguments:?}"
+    );
+    // The packaged acceptance entry point resolves the same way, so the argv the
+    // gate observes is the argv the host would spawn for the Python graph too.
+    let (_, gate_arguments) =
+        crate::worker::resolve_role_launch(&root, "offline_search", true, &state)
+            .expect("the packaged Python search role must resolve");
+    let gate_index = gate_arguments
+        .iter()
+        .position(|token| token == "--game-file-version")
+        .unwrap_or_else(|| panic!("gate argv lacks the version: {gate_arguments:?}"));
+    assert_eq!(gate_arguments[gate_index + 1], "0.7.5.0");
+
+    // A packaged protected role keeps its own shipped shape and no version flag.
+    let (protected_executable, protected_arguments) =
+        launch_command(&root, "save", true, &search, &protected, &state);
+    assert_eq!(
+        protected_executable,
+        root.join("worker/nioh3-protected-worker.exe")
+    );
+    assert_eq!(protected_arguments[0], "--role");
+    assert_eq!(protected_arguments[1], "save");
+    assert!(
+        !protected_arguments
+            .iter()
+            .any(|token| token == "--legacy-test-context"),
+        "packaged production must never select the legacy identity"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+
+    // Development follows the explicit environment selection. The launcher reads
+    // process env, so drive it through the same accessor the host uses.
+    let _ = RustSearchEnv::default();
+    release_packaged_session_version();
+}
+
+/// The Python branch's development shape passes the explicit environment
+/// version through and uses the legacy flag only when that opt-in is set.
+#[test]
+fn the_python_search_launch_development_shape_is_explicit() {
+    use crate::worker::push_python_identity_for_test;
+
+    // A development host reads its explicit environment selection, so the test
+    // drives the accessor the resolver uses rather than a copy of its rules.
+    let env = RustSearchEnv::default();
+    let mut versioned: Vec<String> = Vec::new();
+    push_python_identity_for_test(&mut versioned, false, Some("2.0.1.0"), false);
+    assert_eq!(
+        versioned,
+        vec!["--game-file-version".to_string(), "2.0.1.0".to_string()]
+    );
+
+    let mut legacy: Vec<String> = Vec::new();
+    push_python_identity_for_test(&mut legacy, false, None, true);
+    assert_eq!(legacy, vec!["--legacy-test-context".to_string()]);
+
+    // A development launch with neither selection sends no identity flag; the
+    // worker refuses it, which is the intended fail-closed shape.
+    let mut bare: Vec<String> = Vec::new();
+    push_python_identity_for_test(&mut bare, false, None, false);
+    assert!(bare.is_empty(), "{bare:?}");
+
+    // A development host does not read the packaged session value, so an unset
+    // environment is not permission to invent a version or the legacy opt-in.
+    assert_eq!(env.game_file_version, None);
+    assert!(!env.legacy_test_context);
 }

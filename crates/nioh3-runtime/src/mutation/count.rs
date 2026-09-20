@@ -178,6 +178,11 @@ impl<P: CountProcesses> WindowsCountMemory<P> {
             // `WindowsCountMemory.capture` reads its counters with the shipped
             // fixed layout: acquisition order first, serial at +8.
             serial_counter_offset: 8,
+            // The count slice is validated for PC v2.01 only, whose inventory
+            // global reaches the data object through the manager object.
+            inventory_global_mode: Some(
+                crate::mutation::inventory::INVENTORY_GLOBAL_MODE_MANAGER_OBJECT,
+            ),
         }
     }
 
@@ -206,10 +211,24 @@ impl<P: CountProcesses> WindowsCountMemory<P> {
             return Err(RuntimeError::CountInstanceUnavailable { serial });
         }
         let entry = matches[0].clone();
-        let manager_address = module_base + layout.manager_pointer_rva;
         let reader = self.reader()?;
-        let manager = read_u64(reader, manager_address)?;
-        let data = read_u64(reader, manager)?;
+        let pointers = {
+            let mut view = crate::mutation::inventory::ReadView {
+                pid,
+                module_base,
+                reader: &mut **reader,
+            };
+            crate::mutation::inventory::resolve_inventory_pointers(&mut view, &inventory_layout)?
+        };
+        // The count write targets the manager-owned container. A direct-data
+        // candidate has no manager object and fails closed here instead of
+        // dereferencing a guessed owner.
+        let manager = pointers
+            .manager_address
+            .ok_or_else(|| RuntimeError::InventoryInvalid {
+                detail: "Count edits require the manager-object inventory ABI".to_string(),
+            })?;
+        let data = pointers.data_address;
         let address =
             data + layout.container_offset + (entry.slot_index * layout.record_size) as u64;
         let record = reader.read(address, layout.record_size)?;
@@ -273,20 +292,6 @@ impl<P: CountProcesses> WindowsCountMemory<P> {
             None => "unknown".to_string(),
         })
     }
-}
-
-fn read_u64(
-    reader: &mut Box<dyn crate::mutation::memory::TargetProcess>,
-    address: u64,
-) -> Result<u64, RuntimeError> {
-    let raw = reader.read(address, 8)?;
-    Ok(u64::from_le_bytes(raw[..8].try_into().map_err(|_| {
-        RuntimeError::MemoryRead {
-            address,
-            size: 8,
-            code: 0,
-        }
-    })?))
 }
 
 /// The Windows opener: a read view and, per explicit write, the minimal write

@@ -12,7 +12,7 @@ use nioh3_domain::preview::{
 use serde_json::{json, Map, Value};
 
 use crate::capabilities::Capabilities;
-use crate::context::GenerationContext;
+use crate::engine::EngineContext;
 use crate::jobs::JobView;
 use crate::model::{candidate_identity, Candidate, CandidateEffect};
 
@@ -33,7 +33,7 @@ pub const CACHED_RARITY5_PLAYTHROUGHS: [u8; 2] = [4, 5];
 /// write path. Absent optional fields are omitted rather than faked.
 pub fn handshake_result(
     contract_digest: &str,
-    context: &GenerationContext,
+    context: &EngineContext,
     capabilities: Capabilities,
 ) -> Value {
     json!({
