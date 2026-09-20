@@ -3,9 +3,31 @@ import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { WorkerClient } from '../src/worker-client';
 
+/**
+ * The exact game file version a packaged worker must be launched with.
+ *
+ * Required rather than defaulted: a packaged gate that offers an EXE but no
+ * version would otherwise exercise an identity-free launch.
+ */
+function packagedGameFileVersion(): string {
+  const raw = process.env.NIOH3_PARITY_GAME_FILE_VERSION ?? '';
+  if (!/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/.test(raw)) {
+    throw new Error('Set NIOH3_PARITY_GAME_FILE_VERSION to the packaged worker\'s exact four-part game file version');
+  }
+  return raw;
+}
+
+/** A packaged EXE carries its identity on the argv; a source launch opts in. */
+function workerArgv(packaged: boolean): string[] {
+  return packaged ? ['--game-file-version', packagedGameFileVersion()] : ['--legacy-test-context'];
+}
+
 test('displayed level selector uses the exact worker curve without clamping', { timeout: 30000 }, async () => {
   const executable = process.env.NIOH3_WORKER_EXE;
-  const worker = new WorkerClient(resolve('.'), executable || process.env.NIOH3_PYTHON || 'python', !!executable);
+  // A source launch requires one explicit identity: the standalone gate uses the
+  // worker's non-production test opt-in, and a packaged EXE its own version.
+  const worker = new WorkerClient(resolve('.'), executable || process.env.NIOH3_PYTHON || 'python', !!executable, undefined,
+    workerArgv(!!executable));
   try {
     const catalog = await worker.catalog(4, 'en-US');
     assert.equal(catalog.recommended_level.minimum_displayed_level, 142);

@@ -5,6 +5,26 @@ import { WorkerClient, type StartParams } from '../src/worker-client';
 
 const python = process.env.NIOH3_PYTHON || 'python';
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * The exact game file version a packaged worker must be launched with.
+ *
+ * Required rather than defaulted: a packaged gate that offers an EXE but no
+ * version would otherwise exercise an identity-free launch.
+ */
+function packagedGameFileVersion(): string {
+  const raw = process.env.NIOH3_PARITY_GAME_FILE_VERSION ?? '';
+  if (!/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/.test(raw)) {
+    throw new Error('Set NIOH3_PARITY_GAME_FILE_VERSION to the packaged worker\'s exact four-part game file version');
+  }
+  return raw;
+}
+
+/** A packaged EXE carries its identity on the argv; a source launch opts in. */
+function workerArgv(packaged: boolean): string[] {
+  return packaged ? ['--game-file-version', packagedGameFileVersion()] : ['--legacy-test-context'];
+}
+
 function params(digest: string): StartParams {
   return { context_digest: digest, result_count: 2, page_trials: 100000, job_trials: 1000000, allow_cpu_fallback: true, resume_token: null,
     query: { playthrough: 3, rarity: 4, level: 180, primary_effect_ids: [44634], required_secondary_ids: [], required_secondary_id_groups: [],
@@ -13,7 +33,9 @@ function params(digest: string): StartParams {
 
 test('real Python IPC: handshake, search, resume, cancellation, validation and exit', { timeout: 45000 }, async () => {
   const executable = process.env.NIOH3_WORKER_EXE;
-  const worker = new WorkerClient(resolve('.'), executable || python, !!executable);
+  // A source launch requires one explicit identity: the standalone gate uses the
+  // worker's non-production test opt-in, and a packaged EXE its own version.
+  const worker = new WorkerClient(resolve('.'), executable || python, !!executable, undefined, workerArgv(!!executable));
   try {
     const hello = await worker.handshake();
     assert.equal(hello.role, 'offline_search');

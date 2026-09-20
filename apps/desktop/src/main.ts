@@ -34,6 +34,11 @@ const root = app.isPackaged ? process.resourcesPath : resolve(__dirname, '../../
 const primaryInstance = app.requestSingleInstanceLock();
 if (!primaryInstance) app.quit();
 const workerPath = app.isPackaged ? resolve(root, 'worker/nioh3-search-worker.exe') : (process.env.NIOH3_PYTHON || 'python');
+// This Electron host is the legacy development shell. A source launch can only
+// opt into the worker's explicit, visibly non-production test identity. Its
+// withdrawn packaged branch retains the historical empty argv and is not part
+// of the current Tauri release path.
+const workerArgv = app.isPackaged ? [] : ['--legacy-test-context'];
 let worker: WorkerClient;
 let window: BrowserWindow;
 let quitting = false;
@@ -76,7 +81,7 @@ app.whenReady().then(async () => {
   runtimeLog = new RollingLog(resolve(app.getPath('userData'),'logs'));
   runtimeLog.write('startup',version);
   updater=new PortableUpdate(resolve(app.getPath('userData'),'updates'),version,resolve(__dirname,'extract-update.ps1'));
-  worker = new WorkerClient(root, workerPath, app.isPackaged,message=>runtimeLog?.write('search-stderr',message));
+  worker = new WorkerClient(root, workerPath, app.isPackaged,message=>runtimeLog?.write('search-stderr',message), workerArgv);
   window = new BrowserWindow({ width: reviewMode ? 1600 : 1100, height: reviewMode ? 1000 : 800, show: !process.env.NIOH3_ELECTRON_TEST, minWidth:1100, minHeight:740, frame:!reviewMode, icon:resolve(root,'assets/nioh3-scroll-generator-icon.png'),
     webPreferences: { preload: resolve(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, webviewTag: false },
   });
@@ -137,7 +142,7 @@ app.whenReady().then(async () => {
   register('core:cancel', (value) => worker.cancel(value as string));
   register('core:restart', async () => {
     restarting = true;
-    try { await worker.close(); worker = new WorkerClient(root, workerPath, app.isPackaged,message=>runtimeLog?.write('search-stderr',message)); return await worker.handshake(); }
+    try { await worker.close(); worker = new WorkerClient(root, workerPath, app.isPackaged,message=>runtimeLog?.write('search-stderr',message), workerArgv); return await worker.handshake(); }
     finally { restarting = false; }
   });
   const publicMethods = new Set(['runtime.count_execute','runtime.count_status','runtime.count_recover','save.recycle_backups', 'save.discover', 'save.inventory', 'save.prepare_edit', 'save.prepare_delete',

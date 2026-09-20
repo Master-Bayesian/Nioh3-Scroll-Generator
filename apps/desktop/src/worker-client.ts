@@ -13,6 +13,34 @@ export type StartParams = Extract<WorkerRequest, { method: 'search.start' }>['pa
 const ajv = new Ajv({ strict: false });
 const validRequest = ajv.compile(requestSchema);
 const validResponse = ajv.compile(responseSchema);
+/**
+ * The opt-in, non-production identity the shipped contract names but does not
+ * model.
+ *
+ * `response.schema.json` types the version-bound production handshake, whose
+ * four proof fields (`game_file_version`, `versioned_resource_dir`,
+ * `bundle_digest`, `versioned_digest`) are required. Both worker backends also
+ * serve the legacy capture that the schema's own `production_authority`
+ * description calls out: that payload already declares
+ * `production_authority: false` and carries every other field, but it has no
+ * version-bound proof fields at all. This derivation therefore relaxes exactly
+ * those four requirements, keeping `production_authority` pinned to `false` so
+ * the variant stays explicitly non-production.
+ *
+ * It is consulted only for a source launch whose argv is exactly
+ * `--legacy-test-context`; packaged launches, any other source argv, and every
+ * production response still have to satisfy the shipped schema unchanged.
+ */
+const LEGACY_CONTEXT_FIELDS = ['game_file_version', 'versioned_resource_dir', 'bundle_digest', 'versioned_digest'];
+const legacyResponseSchema = structuredClone(responseSchema) as unknown as {
+  definitions: { Handshake: { properties: { context: { required: string[]; properties: Record<string, unknown> } } } };
+};
+{
+  const context = legacyResponseSchema.definitions.Handshake.properties.context;
+  context.required = context.required.filter((name) => !LEGACY_CONTEXT_FIELDS.includes(name));
+  context.properties.production_authority = { const: false };
+}
+const validLegacyResponse = ajv.compile(legacyResponseSchema);
 const MAX_FRAME = 4 * 1024 * 1024;
 const MAX_PENDING = 8;
 
@@ -24,14 +52,17 @@ export class WorkerClient {
   private closing = false;
   private handshakeValue: Handshake | null = null;
   private submitted: { jobId: string; params: StartParams } | null = null;
+  private readonly legacyTestIdentity: boolean;
   readonly stderr: string[] = [];
 
   constructor(readonly root: string, python: string, executable = false, log?:(message:string)=>void, argv: string[] = []) {
-    // The shipped Python worker starts with no arguments; a packaged worker EXE
-    // carries its own launch-mode acknowledgement and resource roots, so the
-    // caller passes them through `argv`. The default keeps the Python behaviour
-    // byte-for-byte.
-    this.child = spawn(python, executable ? argv : ['-u', '-m', 'nioh3_scroll_editor.search_worker'], {
+    this.legacyTestIdentity = !executable && argv.length === 1 && argv[0] === '--legacy-test-context';
+    // A packaged worker EXE carries its own launch-mode acknowledgement and
+    // resource roots, so `argv` *is* its command line. The source worker always
+    // launches the module, then receives `argv` verbatim: the worker refuses to
+    // start without one explicit identity, so an omitted source argv is a
+    // deliberate refusal rather than an implicit default.
+    this.child = spawn(python, executable ? argv : ['-u', '-m', 'nioh3_scroll_editor.search_worker', ...argv], {
       cwd: root, shell: false, windowsHide: true, stdio: 'pipe',
       env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
     });
@@ -74,7 +105,9 @@ export class WorkerClient {
       this.buffer = this.buffer.subarray(size + 4);
       try {
         const value: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
-        if (!validResponse(value)) throw new Error('INVALID_WORKER_RESPONSE');
+        // Only the exact non-production test opt-in may serve that documented
+        // variant; every other launch keeps the shipped contract's strict shape.
+        if (!validResponse(value) && !(this.legacyTestIdentity && validLegacyResponse(value))) throw new Error('INVALID_WORKER_RESPONSE');
         const response = value as WorkerResponse;
         const item = response.id ? this.pending.get(response.id) : undefined;
         if (!item) throw new Error('UNEXPECTED_RESPONSE_ID');

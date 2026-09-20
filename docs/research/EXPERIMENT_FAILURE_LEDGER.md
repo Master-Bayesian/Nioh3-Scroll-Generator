@@ -2669,3 +2669,70 @@ this entry does not claim the full RC is accepted.
 **Follow-up state:** Closed for this failure cause; full RC gate pending.
 
 **Skill promotion:** None.
+
+## 2026-09-20: clean v0.8.0 RC candidate Node gate failed on stale source-worker call sites
+
+**Objective:** Run the desktop Node gate for clean v0.8.0 RC candidate
+`28103fff5124d06acb2bc279853ea660e36e6deb` at
+`D:\Nioh3_v080_deliverables\source-28103ff-local-rc` with `NIOH3_PYTHON`
+correctly supplied.
+
+**Observed symptom:** The direct project `tsc` run passed, but the full
+`apps/desktop/tests/*.test.ts` run returned 67 passed, 5 failed, 1 skipped out
+of 73. The five failures were recommended-level, save-workflow, the two
+worker-client-call-shape source tests, and worker IPC; every one reported
+`WORKER_EXITED: 2`.
+
+**Root cause:** The TypeScript source-worker call sites and API are stale after
+the Python worker adopted fail-closed explicit identity via
+`--game-file-version` or `--legacy-test-context`. The earlier run without
+`NIOH3_PYTHON` was only an invocation setup error and is not the recorded
+product or test failure.
+
+**Evidence:** Clean worktree `D:\Nioh3_v080_deliverables\source-28103ff-local-rc`
+at candidate `28103fff5124d06acb2bc279853ea660e36e6deb`; the passing direct
+`tsc` run; and the full `apps/desktop/tests/*.test.ts` totals with the five
+`WORKER_EXITED: 2` failures listed above.
+
+**Disposition:** Open. A bounded 7-file fix is delegated: preserve fail-closed
+semantics, use explicit legacy opt-in for source tests and local dev, bind the
+source to the packaged handshake `game_file_version` in packaged parity, and
+leave packaged argv behavior unchanged.
+
+**Reproduction status:** Reproduced in the clean candidate with `NIOH3_PYTHON`
+correctly set; the direct project `tsc` passed in the same tree.
+
+**Follow-up state:** Open. The full clean RC must be refrozen and retested after
+the fix.
+
+**Skill promotion:** None.
+
+## 2026-09-20: closure - source-worker call sites and identity injection repaired
+
+**Objective:** Close the recorded failure cause from this entry, "clean v0.8.0
+RC candidate Node gate failed on stale source-worker call sites".
+
+**Closure evidence:** The fix expanded beyond the initial 7-file estimate to
+include the workflow and runbook after independent review found the packaged
+parity path still lacked staged Rust worker identity injection. `WorkerClient` now
+forwards explicit source argv; only exact source argv
+`['--legacy-test-context']` may validate the non-production legacy response,
+while all production and source `--game-file-version` and packaged responses
+remain strict. Packaged parity requires a four-part
+`NIOH3_PARITY_GAME_FILE_VERSION`, injects it into staged argv and source argv,
+and asserts `production_authority` true.
+
+**Verification on the working tree:** The bundled Codex node `tsc --noEmit`
+exited 0. The full `apps/desktop/tests/*.test.ts` run with explicit project
+Python and version yielded 73 total, 72 passed, 0 failed, and 1 env-gated
+packaged skip.
+
+**Disposition:** Closed as the recorded failure cause. The actual current
+staged packaged parity remains pending a final rebuilt artifact, so the full
+clean RC and the rebuilt packaged parity are still pending and are not claimed
+accepted here.
+
+**Follow-up state:** Closed for this failure cause; full clean RC and rebuilt
+packaged parity pending.
+
+**Skill promotion:** None.

@@ -13,6 +13,25 @@ import { publicCurrentJob, requirePublicJob } from '../src/public-operation-jobs
 import type { OperationsApi } from '../src/operations-api';
 import type { SaveReference } from '../../../packages/contracts/protected-responses';
 
+/**
+ * The exact game file version a packaged worker must be launched with.
+ *
+ * Required rather than defaulted: a packaged gate that offers an EXE but no
+ * version would otherwise exercise an identity-free launch.
+ */
+function packagedGameFileVersion(): string {
+  const raw = process.env.NIOH3_PARITY_GAME_FILE_VERSION ?? '';
+  if (!/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/.test(raw)) {
+    throw new Error('Set NIOH3_PARITY_GAME_FILE_VERSION to the packaged worker\'s exact four-part game file version');
+  }
+  return raw;
+}
+
+/** A packaged EXE carries its identity on the argv; a source launch opts in. */
+function workerArgv(packaged: boolean): string[] {
+  return packaged ? ['--game-file-version', packagedGameFileVersion()] : ['--legacy-test-context'];
+}
+
 test('real encrypted synthetic save: review, edit, receipt recovery, delete, restore and search installation through IPC', { timeout: 60000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'nioh3-save-workflow-'));
   const previous = process.env.NIOH3_STATE_ROOT;
@@ -68,7 +87,10 @@ test('real encrypted synthetic save: review, edit, receipt recovery, delete, res
     assert.deepEqual(await readFile(path), edited);
     await session.refresh(); assert.equal(session.getSnapshot().inventory!.entries.length, 1);
     const searchExecutable = process.env.NIOH3_WORKER_EXE;
-    source = new WorkerClient(resolve('.'), searchExecutable || process.env.NIOH3_PYTHON || 'python', !!searchExecutable);
+    // A source launch requires one explicit identity: this standalone gate uses
+    // the worker's non-production test opt-in, and a packaged EXE its own version.
+    source = new WorkerClient(resolve('.'), searchExecutable || process.env.NIOH3_PYTHON || 'python', !!searchExecutable, undefined,
+      workerArgv(!!searchExecutable));
     const hello = await source.handshake();
     const params: StartParams = { context_digest: hello.context.context_digest, result_count: 1,
       page_trials: 100000, job_trials: 1000000, allow_cpu_fallback: true, resume_token: null,

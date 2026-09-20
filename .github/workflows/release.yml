@@ -26,6 +26,9 @@ jobs:
     env:
       PYTHONUTF8: '1'
       NIOH3_PARITY_ALLOW_CPU: '1'
+      # The exact selected generation resource / game file version the packaged
+      # stage is built for; it must move with the pinned current resource version.
+      NIOH3_PARITY_GAME_FILE_VERSION: '2.0.2.0'
       NIOH3_REQUIRE_CLEAN_SOURCE: '1'
     steps:
       - uses: actions/checkout@v4
@@ -109,9 +112,9 @@ jobs:
       - name: Verify the release binaries
         shell: pwsh
         env:
-          # The packaged-parity gate selects the packaged worker's launch argv
-          # from the staged manifest when this names `rust`; unset keeps the
-          # shipped no-argument spawn byte-for-byte.
+          # The packaged-parity gate selects the staged manifest argv when this
+          # names `rust`; every backend also receives the explicitly pinned game
+          # file version required for this comparison.
           NIOH3_WORKER_BACKEND: ${{ inputs.worker_backend }}
         run: |
           $env:NIOH3_WORKER_EXE=Join-Path $PWD 'deliverables/release/portable/worker/nioh3-search-worker.exe'

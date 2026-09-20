@@ -93,13 +93,17 @@ local candidate merely to repeat the hosted compilation.
 
 Build the portable directory once, test its real workers and WebView2 host, then
 derive both downloadable artifacts from that same verified directory. Set the
-clean-source and packaged-parity flags here, keep the external
+clean-source and packaged-parity flags here, pin the game file version the
+packaged-parity gate launches both workers with, keep the external
 `CARGO_TARGET_DIR` from section 2, and default the dispatch-equivalent worker
 backend to the shipped `rust` graph:
 
 ```powershell
 $env:NIOH3_REQUIRE_CLEAN_SOURCE = '1'
 $env:NIOH3_PARITY_ALLOW_CPU = '1'
+# The exact selected generation resource / game file version the packaged stage
+# is built for; it must move with the pinned current resource version.
+$env:NIOH3_PARITY_GAME_FILE_VERSION = '2.0.2.0'
 $env:NIOH3_WORKER_BACKEND = 'rust'
 
 # The Tauri builder does not read NIOH3_REQUIRE_CLEAN_SOURCE itself, so repeat
