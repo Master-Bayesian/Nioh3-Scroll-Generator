@@ -6,7 +6,7 @@ import { SearchController } from '../src/search-controller';
 import type { StartParams } from '../src/worker-client';
 
 const hello: Handshake = { protocol: 1, role: 'offline_search', contract_digest: 'digest',
-  context: { product_version: 'test', game_profile: 'test', resources_digest: 'test', algorithm_version: 'test', policy_version: 'test', seed_accelerator_abi: 2, seed_accelerator_build_id: 'test', context_digest: 'a'.repeat(64) },
+  context: { product_version: 'test', game_profile: 'test', game_file_version: '2.0.2.0', versioned_resource_dir: 'r4_finalizer/pc_v2_02/resource_v1', bundle_digest: 'b'.repeat(64), versioned_digest: 'c'.repeat(64), resources_digest: 'test', algorithm_version: 'test', policy_version: 'test', context_digest: 'a'.repeat(64), legacy_context_digest: 'd'.repeat(64), production_authority: true, seed_accelerator_abi: 2, seed_accelerator_build_id: 'test' },
   capabilities: { playthroughs: [3], rarities: [3, 4, 5], cuda_pivot_and_auxiliary: false, directcompute_effect_filter: false, cpu_exact_replay: true, bulk_cpu_requires_opt_in: true, save_write: false, runtime_calls: false } };
 const job: JobSnapshot = { job_id: 'job', state: 'running', sequence: 5, query_digest: 'query', context_digest: 'context', start_cursor: 0, cursor: 0, candidates: [], progress: null, stop_reason: null, error: null, resume_token: null, elapsed_ms: 0 };
 const params = { query: { level: 180 }, resume_token: null } as unknown as StartParams;

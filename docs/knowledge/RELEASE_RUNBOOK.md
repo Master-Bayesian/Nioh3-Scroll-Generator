@@ -44,25 +44,42 @@ to draft. Never infer the current latest download from an old publication note.
 
 ## 2. Run local checks in failure-cost order
 
-Use an explicit Python executable through `NIOH3_PYTHON`; do not assume `python`
-is on PATH. Run:
+Prepare an isolated Python 3.12 environment from
+`packaging/requirements-v2.lock.txt` and `requirements-dev.txt`, then use its
+explicit executable through `NIOH3_PYTHON`; do not assume `python` is on PATH.
+Run every Python tool and test through `tools/run_python_tests.ps1`, and keep
+`CARGO_TARGET_DIR` on an external target rooted on
+the D: delivery volume for this section and the build in section 3, never in the
+checkout or the `C:` system temp:
 
 ```powershell
-python tools/export_knowledge_catalog_manifest.py
-python tools/export_v2_ui_locales.py
+$env:PYTHONUTF8 = '1'
+$env:NIOH3_PYTHON = '<python-environment>/Scripts/python.exe'
+$env:NIOH3_BUILD_ROOT = '<D:-rooted build root, e.g. D:\<build-root>>'
+$env:CARGO_TARGET_DIR = Join-Path $env:NIOH3_BUILD_ROOT 'build-cache/tauri-target'
+
+npm ci --no-fund
+npm run contracts
+./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -ScriptPath tools/export_knowledge_catalog_manifest.py
+./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -ScriptPath tools/export_v2_ui_locales.py
+git diff --exit-code -- packages/contracts apps/workshop/ui-locales.json
 node tools/audit_v2_ui_locales.mjs
-python tools/verify_native_build_manifest.py
-python tools/write_test_inventory.py --output deliverables/release/test-inventory.json
-python tools/run_cpu_only_tests.py
-python -m unittest discover -s tests -t . -v
+./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -ScriptPath tools/verify_native_build_manifest.py
+./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -ScriptPath tools/write_test_inventory.py -ScriptArgument @('--output','deliverables/release/test-inventory.json')
+./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -ScriptPath tools/run_cpu_only_tests.py
+./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -TestPath @('tests') -PytestArgument @('-q')
+./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -TestPath @('tests/test_title_save_observer.py','tests/test_title_save_capture_tools.py')
 npm test
 npm run typecheck
+node apps/tauri/build.mjs
 cargo test --locked --manifest-path apps/tauri/src-tauri/Cargo.toml
 cargo test --locked --manifest-path apps/launcher/Cargo.toml
-./tools/verify_native_faults.ps1
+./tools/verify_native_faults.ps1 -Python $env:NIOH3_PYTHON
 ```
 
-Regenerated contracts, catalogs, and locales must produce no tracked diff.
+Regenerated contracts, catalogs, and locales must produce no tracked diff; the
+`git diff --exit-code -- packages/contracts apps/workshop/ui-locales.json` above
+is that gate.
 Native source/DLL/ABI identity must remain exact. Do not update identity hashes
 to bless a CRLF checkout or a modified binary. Record unique Python test count
 and hardware skips separately from untracked developer tests.
@@ -75,19 +92,66 @@ update, and live-game acceptance before publication; do not build a redundant
 local candidate merely to repeat the hosted compilation.
 
 Build the portable directory once, test its real workers and WebView2 host, then
-derive both downloadable artifacts from that same verified directory:
+derive both downloadable artifacts from that same verified directory. Set the
+clean-source and packaged-parity flags here, keep the external
+`CARGO_TARGET_DIR` from section 2, and default the dispatch-equivalent worker
+backend to the shipped `rust` graph:
 
 ```powershell
-./tools/build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output deliverables/release/portable
-python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/Nioh3Studio-<version>-win-x64.zip
-python tools/build_tauri_onefile.py deliverables/release/Nioh3Studio-<version>-win-x64.zip deliverables/release/Nioh3Studio-<version>-win-x64.exe
+$env:NIOH3_REQUIRE_CLEAN_SOURCE = '1'
+$env:NIOH3_PARITY_ALLOW_CPU = '1'
+$env:NIOH3_WORKER_BACKEND = 'rust'
+
+# The Tauri builder does not read NIOH3_REQUIRE_CLEAN_SOURCE itself, so repeat
+# the workflow's own clean-checkout assertion before packaging.
+if (git status --porcelain) { throw 'Source checkout is dirty' }
+./tools/build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output deliverables/release/portable -WorkerBackend $env:NIOH3_WORKER_BACKEND
+
+$workers = 'deliverables/release/portable/worker'
+$workerManifest = Get-Content -LiteralPath (Join-Path $workers 'worker-backend.json') -Raw | ConvertFrom-Json
+if ($workerManifest.backend -ne 'rust') { throw "OPTIN_BACKEND_INVALID: $($workerManifest.backend)" }
+if (-not $workerManifest.excludedProductionResources -or
+    $workerManifest.excludedProductionResources -notcontains 'packaging/search-worker.spec' -or
+    $workerManifest.excludedProductionResources -notcontains 'packaging/protected-worker.spec') {
+  throw 'OPTIN_EXCLUSIONS_UNDECLARED'
+}
+foreach ($entry in $workerManifest.binaries) {
+  $binary = Join-Path $workers $entry.packagedName
+  if (-not (Test-Path -LiteralPath $binary)) { throw "OPTIN_WORKER_MISSING: $($entry.packagedName)" }
+  if ((Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLower() -ne $entry.sha256) { throw "OPTIN_WORKER_HASH_MISMATCH: $($entry.packagedName)" }
+}
+if (Test-Path -LiteralPath (Join-Path $workers 'python-build-environment.json')) { throw 'OPTIN_PYTHON_RESOURCE_PRESENT' }
+if (Get-ChildItem -LiteralPath $workers -Directory -Recurse -Filter '_internal' -ErrorAction SilentlyContinue) { throw 'OPTIN_PYINSTALLER_OUTPUT_PRESENT' }
+
+./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -ScriptPath tools/archive_frontend_v2.py -ScriptArgument @('deliverables/release/portable','deliverables/release/Nioh3Studio-<version>-win-x64.zip')
+./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -ScriptPath tools/build_tauri_onefile.py -ScriptArgument @('deliverables/release/Nioh3Studio-<version>-win-x64.zip','deliverables/release/Nioh3Studio-<version>-win-x64.exe')
+
+$env:NIOH3_WORKER_EXE = Join-Path $PWD 'deliverables/release/portable/worker/nioh3-search-worker.exe'
+$env:NIOH3_PROTECTED_WORKER_EXE = Join-Path $PWD 'deliverables/release/portable/worker/nioh3-protected-worker.exe'
+$env:NIOH3_TAURI_EXE = Join-Path $PWD 'deliverables/release/portable/Nioh3Studio.exe'
 npm run test:packaged
 node apps/tauri/verify.mjs
+$env:NIOH3_UI_OUTPUT = Join-Path $PWD 'deliverables/frontend-v2/tauri-acceptance/add-layout'
+node apps/tauri/verify-add-layout.mjs
 node apps/tauri/verify-update.mjs
+
+New-Item -ItemType Directory -Force -Path 'deliverables/frontend-v2/tauri-acceptance/rust-packaged' | Out-Null
+$env:NIOH3_WORKER_IDENTITY_OPT_IN = '1'
+node apps/tauri/verify-host-package.mjs --package deliverables/release/portable --exe $env:NIOH3_TAURI_EXE --out deliverables/frontend-v2/tauri-acceptance/rust-packaged/host-package.json
+foreach ($role in @('offline_search','save','runtime')) {
+  node apps/tauri/verify-worker-identity.mjs --runtime deliverables/release/portable --role $role --out "deliverables/frontend-v2/tauri-acceptance/rust-packaged/identity-$role.json"
+}
+node apps/tauri/verify-packaged-frontend.mjs --package deliverables/release/portable --exe $env:NIOH3_TAURI_EXE --python $env:NIOH3_PYTHON --out deliverables/frontend-v2/tauri-acceptance/rust-packaged
+
 $env:NIOH3_ONEFILE_EXE=Join-Path $PWD 'deliverables/release/Nioh3Studio-<version>-win-x64.exe'
 node apps/tauri/verify-onefile.mjs
 node apps/tauri/verify-onefile-update.mjs
+node apps/tauri/verify-onefile-rollback.mjs
 ```
+
+`NIOH3_WORKER_IDENTITY_OPT_IN` mirrors the hosted gate; a staged Rust manifest
+already asserts the identity by default, and `NIOH3_WORKER_IDENTITY_PROTECTED`
+remains the explicit override for a package that carries no manifest.
 
 The outer EXE is the default player download: it launches directly without
 installation or manual extraction. The ZIP remains the signed internal input to
@@ -111,14 +175,15 @@ files. The manifest must record the exact candidate SHA and `dirty: false`.
 Push the candidate branch and dispatch `release.yml` on that exact ref:
 
 ```powershell
-gh workflow run release.yml --ref codex/tauri2-migration
+gh workflow run release.yml --ref <candidate-branch>
 gh run list --commit <candidate-sha> --json databaseId,headSha,status,conclusion,workflowName
 ```
 
 Inspect runs by exact commit SHA. The workflow installs locked dependencies,
-runs source and native-fault tests, builds from a clean Windows checkout, tests
-the packaged workers and app, builds both downloads, and signs
-`tauri-update.json`. It prepares artifacts only; it does not publish a release.
+runs source and native-fault tests, builds from a clean Windows checkout, accepts
+the packaged workers, host graph, worker identities, shipped frontend and one-file
+behavior, builds both downloads, and signs `tauri-update.json`. It prepares
+artifacts only; it does not publish a release.
 
 There is no candidate-reuse branch in the current workflow. The v0.7.1
 signing-only rescue route was tied to one historical acceptance record and was

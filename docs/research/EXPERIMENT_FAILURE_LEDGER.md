@@ -2561,3 +2561,111 @@ and absent from the rebuilt archive.
 **Skill promotion:** None. The correction lives in the owning deterministic
 exporter; the symptom remains a packaging failure record, not an active product
 rule.
+
+## 2026-09-20: local v0.8.0 RC clean-checkout Python gate failed on a missing ignored test oracle
+
+**Objective:** Run the full Python gate for the local v0.8.0 RC candidate
+`ade0dd205b2ca7c00ead2c00a25a6153e43d5029` from a clean worktree at
+`D:\Nioh3_v080_deliverables\source-ade0dd2-local-rc`.
+
+**Observed symptom:** The gate ran through the project runner
+(`tools/run_python_tests.ps1`) with an explicit project Python over `tests` and
+pytest `-x -vv`. It stopped on the first failure,
+`tests/migration/test_application_worker_parity.py::ApplicationWorkerParityTests::test_search_catalog_matches_the_frozen_zh_reference`,
+with `FileNotFoundError` for `deliverables/m23c-application/catalog_reference_zh.json`.
+That path is git-ignored, so it is absent from a clean checkout even though it
+exists in populated developer worktrees.
+
+**Root cause:** The test oracle depends on a build artifact that a clean
+checkout does not contain. This is a fixture-hermeticity defect, not a
+product-code failure; no product behavior has failed.
+
+**Evidence:** Clean worktree `D:\Nioh3_v080_deliverables\source-ade0dd2-local-rc`
+at candidate commit `ade0dd205b2ca7c00ead2c00a25a6153e43d5029`; the failing node
+id and its `FileNotFoundError` for the ignored
+`deliverables/m23c-application/catalog_reference_zh.json`.
+
+**Disposition:** Open. A bounded fixture-hermeticity repair is assigned; the
+failure is a test-oracle dependency on an ignored artifact, so no backend lane
+is reopened.
+
+**Reproduction status:** Reproduced in the clean checkout. `-x` stopped the run
+at this first failure, so the remaining tests were not exercised.
+
+**Follow-up state:** Open. Targeted repair of the oracle fixture, then a rerun
+of the same gate; no backend reopening.
+
+**Skill promotion:** None. This is a bounded test-hermeticity failure record.
+
+## 2026-09-20: clean v0.8.0 RC candidate TypeScript gate failed on stale test fixtures
+
+**Objective:** Typecheck the clean v0.8.0 RC candidate `ade0dd2` at
+`D:\Nioh3_v080_deliverables\source-ade0dd2-local-rc` before running its tests.
+
+**Observed symptom:** The gate failed before any test executed. Running the
+direct project dependency `tsc.cmd --noEmit` reported `TS2740` in
+`apps/desktop/tests/controller.test.ts` (near line 9) and
+`apps/desktop/tests/search-policy.test.ts` (near line 21): the test context
+fixtures omit required resolved-generation fields (`game_file_version`,
+`versioned_resource_dir`, `bundle_digest`, `versioned_digest`,
+`legacy_context_digest`, `production_authority`).
+
+**Root cause:** The two test fixtures are stale relative to the expanded
+resolved-generation contract. Production code is not implicated at this point;
+only the fixture shape failed the typecheck.
+
+**Evidence:** Clean worktree `D:\Nioh3_v080_deliverables\source-ade0dd2-local-rc`
+at candidate `ade0dd2`; the `tsc.cmd --noEmit` run and its two `TS2740` reports
+against `apps/desktop/tests/controller.test.ts` and
+`apps/desktop/tests/search-policy.test.ts`.
+
+**Disposition:** Open. A bounded two-file fixture repair is delegated, after
+which the typecheck and the affected tests are rerun. The contract is not
+weakened to make the fixtures pass.
+
+**Reproduction status:** Reproduced in the clean checkout; the gate stopped at
+the typecheck, so no test ran.
+
+**Follow-up state:** Open. Repair the two fixtures, rerun `tsc.cmd --noEmit`,
+then rerun the affected desktop tests.
+
+**Skill promotion:** None. This is a bounded stale-fixture failure record.
+
+## 2026-09-20: closure - repository catalog oracle promoted to a tracked fixture
+
+**Objective:** Close the recorded failure cause from the earlier entry
+"local v0.8.0 RC clean-checkout Python gate failed on a missing ignored test
+oracle".
+
+**Closure evidence:** The ignored oracle was promoted byte-exactly to
+`tests/fixtures/m23c-application/catalog_reference_zh.json` (172,037 bytes,
+SHA-256 `8E81756E6DC36E79C025D203CAF44BABE48EC254D3F2E40353F78ED3230484C5`),
+and its test now points there. The combined targeted rerun over
+`test_application_worker_parity.py`, `test_live_add_identity.py` and
+`test_game_version_v202_resources.py` passed 22/22 in 47.62s through
+`tools/run_python_tests.ps1`.
+
+**Disposition:** Closed as the recorded fixture-hermeticity failure cause. The
+clean-checkout full RC gate still remains to run as the normal release gate;
+this entry does not claim the full RC is accepted.
+
+**Follow-up state:** Closed for this failure cause; full RC gate pending.
+
+**Skill promotion:** None.
+
+## 2026-09-20: closure - Handshake test fixtures gained the resolved-context fields
+
+**Objective:** Close the recorded failure cause from the earlier entry
+"clean v0.8.0 RC candidate TypeScript gate failed on stale test fixtures".
+
+**Closure evidence:** The two Handshake fixtures gained the six required
+resolved-context fields without weakening the contract. The direct project
+`tsc --noEmit` passed, and the two targeted TypeScript test files passed 6/6.
+
+**Disposition:** Closed as the recorded stale-fixture failure cause. The
+clean-checkout full RC gate still remains to run as the normal release gate;
+this entry does not claim the full RC is accepted.
+
+**Follow-up state:** Closed for this failure cause; full RC gate pending.
+
+**Skill promotion:** None.

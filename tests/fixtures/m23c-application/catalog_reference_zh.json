@@ -1,0 +1,8095 @@
+{
+ "3": {
+  "auxiliary": {
+   "enemy_options": [
+    {
+     "lookup_key": 2633,
+     "name": "幕府兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 3199,
+     "name": "阴阳师",
+     "role": 0
+    },
+    {
+     "lookup_key": 3842,
+     "name": "饿鬼",
+     "role": 0
+    },
+    {
+     "lookup_key": 4262,
+     "name": "武田士兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 6150,
+     "name": "炼金术师",
+     "role": 1
+    },
+    {
+     "lookup_key": 6837,
+     "name": "妖蟹",
+     "role": 1
+    },
+    {
+     "lookup_key": 7742,
+     "name": "独眼小僧",
+     "role": 0
+    },
+    {
+     "lookup_key": 9553,
+     "name": "镰仓武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 12014,
+     "name": "忍者",
+     "role": 0
+    },
+    {
+     "lookup_key": 14625,
+     "name": "血刀修罗",
+     "role": 5
+    },
+    {
+     "lookup_key": 15003,
+     "name": "旗本武士",
+     "role": 0
+    },
+    {
+     "lookup_key": 16102,
+     "name": "源赖朝",
+     "role": 5
+    },
+    {
+     "lookup_key": 16707,
+     "name": "旗本武士",
+     "role": 2
+    },
+    {
+     "lookup_key": 17288,
+     "name": "蜘蛛",
+     "role": 0
+    },
+    {
+     "lookup_key": 25067,
+     "name": "妖蟹",
+     "role": 3
+    },
+    {
+     "lookup_key": 25275,
+     "name": "旗本武士",
+     "role": 3
+    },
+    {
+     "lookup_key": 25428,
+     "name": "叛军浪士",
+     "role": 2
+    },
+    {
+     "lookup_key": 25693,
+     "name": "武田士兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 26012,
+     "name": "武田士兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 26204,
+     "name": "油伞妖",
+     "role": 0
+    },
+    {
+     "lookup_key": 27700,
+     "name": "镰仓武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 27859,
+     "name": "独脚踏鞴",
+     "role": 1
+    },
+    {
+     "lookup_key": 34805,
+     "name": "外道兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 38227,
+     "name": "穴泽盛秀",
+     "role": 4
+    },
+    {
+     "lookup_key": 38687,
+     "name": "旗本武士",
+     "role": 3
+    },
+    {
+     "lookup_key": 39499,
+     "name": "叛军浪士",
+     "role": 0
+    },
+    {
+     "lookup_key": 42179,
+     "name": "新选组队士",
+     "role": 1
+    },
+    {
+     "lookup_key": 42450,
+     "name": "武田信玄",
+     "role": 5
+    },
+    {
+     "lookup_key": 43957,
+     "name": "武田士兵",
+     "role": 3
+    },
+    {
+     "lookup_key": 47997,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 48041,
+     "name": "叛军浪士",
+     "role": 0
+    },
+    {
+     "lookup_key": 52104,
+     "name": "妖蟹",
+     "role": 0
+    },
+    {
+     "lookup_key": 56972,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 60140,
+     "name": "阴阳师",
+     "role": 0
+    },
+    {
+     "lookup_key": 60383,
+     "name": "荒木又右卫门",
+     "role": 4
+    },
+    {
+     "lookup_key": 63693,
+     "name": "炼金术师",
+     "role": 3
+    },
+    {
+     "lookup_key": 63946,
+     "name": "金井半兵卫",
+     "role": 4
+    },
+    {
+     "lookup_key": 64722,
+     "name": "防人",
+     "role": 0
+    },
+    {
+     "lookup_key": 64826,
+     "name": "前田光高",
+     "role": 4
+    },
+    {
+     "lookup_key": 67870,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 78388,
+     "name": "叛军浪士",
+     "role": 2
+    },
+    {
+     "lookup_key": 79485,
+     "name": "新选组队士",
+     "role": 3
+    },
+    {
+     "lookup_key": 83158,
+     "name": "棘饿鬼",
+     "role": 0
+    },
+    {
+     "lookup_key": 83953,
+     "name": "飞缘魔",
+     "role": 5
+    },
+    {
+     "lookup_key": 84246,
+     "name": "武田士兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 88040,
+     "name": "武田士兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 89935,
+     "name": "武田士兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 89951,
+     "name": "盗贼",
+     "role": 0
+    },
+    {
+     "lookup_key": 96465,
+     "name": "旗本武士",
+     "role": 0
+    },
+    {
+     "lookup_key": 96759,
+     "name": "金井半兵卫",
+     "role": 5
+    },
+    {
+     "lookup_key": 96976,
+     "name": "女郎蜘蛛",
+     "role": 5
+    },
+    {
+     "lookup_key": 97344,
+     "name": "叛军浪士",
+     "role": 0
+    },
+    {
+     "lookup_key": 97403,
+     "name": "铁鼠",
+     "role": 2
+    },
+    {
+     "lookup_key": 97634,
+     "name": "新选组队士",
+     "role": 0
+    },
+    {
+     "lookup_key": 98643,
+     "name": "邪马台国兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 100757,
+     "name": "邪马台国兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 100898,
+     "name": "千眼方术士",
+     "role": 4
+    },
+    {
+     "lookup_key": 107238,
+     "name": "狱卒鬼",
+     "role": 0
+    },
+    {
+     "lookup_key": 109203,
+     "name": "猿鬼",
+     "role": 1
+    },
+    {
+     "lookup_key": 112396,
+     "name": "小海坊主",
+     "role": 0
+    },
+    {
+     "lookup_key": 115893,
+     "name": "猥裸",
+     "role": 1
+    },
+    {
+     "lookup_key": 122675,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 123232,
+     "name": "叛军浪士",
+     "role": 1
+    },
+    {
+     "lookup_key": 125223,
+     "name": "幕府兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 128461,
+     "name": "新选组队士",
+     "role": 1
+    },
+    {
+     "lookup_key": 128741,
+     "name": "近藤勇",
+     "role": 4
+    },
+    {
+     "lookup_key": 131751,
+     "name": "服部半藏",
+     "role": 5
+    },
+    {
+     "lookup_key": 132808,
+     "name": "田鹤夫人",
+     "role": 4
+    },
+    {
+     "lookup_key": 141706,
+     "name": "饿鬼大将",
+     "role": 1
+    },
+    {
+     "lookup_key": 141708,
+     "name": "叛军浪士",
+     "role": 2
+    },
+    {
+     "lookup_key": 143228,
+     "name": "鬼火",
+     "role": 0
+    },
+    {
+     "lookup_key": 144085,
+     "name": "狱卒鬼",
+     "role": 2
+    },
+    {
+     "lookup_key": 148645,
+     "name": "镰仓武士",
+     "role": 0
+    },
+    {
+     "lookup_key": 151680,
+     "name": "武田士兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 158738,
+     "name": "狱卒鬼",
+     "role": 1
+    },
+    {
+     "lookup_key": 159531,
+     "name": "旗本武士",
+     "role": 0
+    },
+    {
+     "lookup_key": 160943,
+     "name": "新选组队士",
+     "role": 0
+    },
+    {
+     "lookup_key": 163259,
+     "name": "赤河童",
+     "role": 0
+    },
+    {
+     "lookup_key": 164356,
+     "name": "亡骸武者",
+     "role": 0
+    },
+    {
+     "lookup_key": 165464,
+     "name": "旗本武士",
+     "role": 2
+    },
+    {
+     "lookup_key": 168450,
+     "name": "旗本武士",
+     "role": 0
+    },
+    {
+     "lookup_key": 168877,
+     "name": "忍者",
+     "role": 0
+    },
+    {
+     "lookup_key": 169276,
+     "name": "新选组队士",
+     "role": 1
+    },
+    {
+     "lookup_key": 174304,
+     "name": "盗贼",
+     "role": 2
+    },
+    {
+     "lookup_key": 175598,
+     "name": "武田士兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 176894,
+     "name": "邪马台国兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 179841,
+     "name": "镰仓武士",
+     "role": 2
+    },
+    {
+     "lookup_key": 180025,
+     "name": "阴阳师",
+     "role": 2
+    },
+    {
+     "lookup_key": 181458,
+     "name": "邪马台国兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 181600,
+     "name": "外道兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 183178,
+     "name": "阴阳师",
+     "role": 0
+    },
+    {
+     "lookup_key": 183574,
+     "name": "棘饿鬼",
+     "role": 0
+    },
+    {
+     "lookup_key": 185713,
+     "name": "夜行兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 188177,
+     "name": "阴阳师",
+     "role": 0
+    },
+    {
+     "lookup_key": 188219,
+     "name": "外道兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 188508,
+     "name": "妖鬼",
+     "role": 1
+    },
+    {
+     "lookup_key": 188826,
+     "name": "外道兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 189627,
+     "name": "怨嗟武人",
+     "role": 4
+    },
+    {
+     "lookup_key": 190373,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 192113,
+     "name": "镰仓武士",
+     "role": 2
+    },
+    {
+     "lookup_key": 192469,
+     "name": "阴阳师",
+     "role": 0
+    },
+    {
+     "lookup_key": 193768,
+     "name": "幕府兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 193845,
+     "name": "河童",
+     "role": 1
+    },
+    {
+     "lookup_key": 196792,
+     "name": "朱盆",
+     "role": 2
+    },
+    {
+     "lookup_key": 197107,
+     "name": "阴阳师",
+     "role": 2
+    },
+    {
+     "lookup_key": 198204,
+     "name": "雪入道",
+     "role": 3
+    },
+    {
+     "lookup_key": 198738,
+     "name": "太原雪斋",
+     "role": 4
+    },
+    {
+     "lookup_key": 200413,
+     "name": "炼造武士",
+     "role": 4
+    },
+    {
+     "lookup_key": 201350,
+     "name": "炼金术师",
+     "role": 0
+    },
+    {
+     "lookup_key": 204634,
+     "name": "以津真天",
+     "role": 1
+    },
+    {
+     "lookup_key": 205650,
+     "name": "盗贼",
+     "role": 0
+    },
+    {
+     "lookup_key": 209408,
+     "name": "叛军浪士",
+     "role": 2
+    },
+    {
+     "lookup_key": 210329,
+     "name": "盗贼",
+     "role": 0
+    },
+    {
+     "lookup_key": 210803,
+     "name": "大蛤蟆",
+     "role": 5
+    },
+    {
+     "lookup_key": 223221,
+     "name": "土方岁三",
+     "role": 4
+    },
+    {
+     "lookup_key": 225591,
+     "name": "阴阳师",
+     "role": 2
+    },
+    {
+     "lookup_key": 226987,
+     "name": "忍者",
+     "role": 0
+    },
+    {
+     "lookup_key": 231529,
+     "name": "旗本武士",
+     "role": 0
+    },
+    {
+     "lookup_key": 236383,
+     "name": "那须与一",
+     "role": 4
+    },
+    {
+     "lookup_key": 240225,
+     "name": "新选组·服部武雄",
+     "role": 4
+    },
+    {
+     "lookup_key": 241127,
+     "name": "盗贼",
+     "role": 0
+    },
+    {
+     "lookup_key": 242104,
+     "name": "妖蟹",
+     "role": 2
+    },
+    {
+     "lookup_key": 242335,
+     "name": "旗本武士",
+     "role": 3
+    },
+    {
+     "lookup_key": 242572,
+     "name": "亡骸武者",
+     "role": 2
+    },
+    {
+     "lookup_key": 243822,
+     "name": "独眼鬼",
+     "role": 3
+    },
+    {
+     "lookup_key": 244333,
+     "name": "阴阳师",
+     "role": 2
+    },
+    {
+     "lookup_key": 245775,
+     "name": "异想的贝伦加莉亚",
+     "role": 4
+    },
+    {
+     "lookup_key": 249725,
+     "name": "狱卒鬼",
+     "role": 2
+    },
+    {
+     "lookup_key": 250251,
+     "name": "乌鸦天狗",
+     "role": 1
+    },
+    {
+     "lookup_key": 252006,
+     "name": "幕府兵",
+     "role": 3
+    },
+    {
+     "lookup_key": 257162,
+     "name": "见越入道",
+     "role": 1
+    },
+    {
+     "lookup_key": 257993,
+     "name": "夜行兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 262783,
+     "name": "武田士兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 262925,
+     "name": "幕府兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 264763,
+     "name": "怨灵鬼",
+     "role": 5
+    },
+    {
+     "lookup_key": 268425,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 268880,
+     "name": "德川庆喜",
+     "role": 5
+    },
+    {
+     "lookup_key": 269224,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 269750,
+     "name": "大天狗",
+     "role": 5
+    },
+    {
+     "lookup_key": 270192,
+     "name": "地狱蜂",
+     "role": 0
+    },
+    {
+     "lookup_key": 271157,
+     "name": "幕府兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 274818,
+     "name": "防人",
+     "role": 0
+    },
+    {
+     "lookup_key": 274906,
+     "name": "高坂昌信",
+     "role": 4
+    },
+    {
+     "lookup_key": 277309,
+     "name": "镰仓武士",
+     "role": 0
+    },
+    {
+     "lookup_key": 279619,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 281182,
+     "name": "阴阳师",
+     "role": 0
+    },
+    {
+     "lookup_key": 283529,
+     "name": "武田士兵",
+     "role": 3
+    },
+    {
+     "lookup_key": 286854,
+     "name": "武田士兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 287588,
+     "name": "碓井贞光",
+     "role": 4
+    },
+    {
+     "lookup_key": 289577,
+     "name": "盗贼",
+     "role": 0
+    },
+    {
+     "lookup_key": 290685,
+     "name": "河童",
+     "role": 0
+    },
+    {
+     "lookup_key": 295344,
+     "name": "山彦",
+     "role": 2
+    },
+    {
+     "lookup_key": 303080,
+     "name": "邪马台国兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 304465,
+     "name": "外道兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 304704,
+     "name": "外道兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 304746,
+     "name": "野槌",
+     "role": 1
+    },
+    {
+     "lookup_key": 306199,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 306399,
+     "name": "比留呼",
+     "role": 5
+    },
+    {
+     "lookup_key": 307259,
+     "name": "山县昌景",
+     "role": 5
+    },
+    {
+     "lookup_key": 309651,
+     "name": "镰仓武士",
+     "role": 0
+    },
+    {
+     "lookup_key": 314396,
+     "name": "血烟阿银",
+     "role": 4
+    },
+    {
+     "lookup_key": 314729,
+     "name": "武田士兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 315104,
+     "name": "叛军浪士",
+     "role": 0
+    },
+    {
+     "lookup_key": 315139,
+     "name": "妖蟹",
+     "role": 1
+    },
+    {
+     "lookup_key": 316202,
+     "name": "叛军浪士",
+     "role": 1
+    },
+    {
+     "lookup_key": 316563,
+     "name": "旗本武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 317568,
+     "name": "忍者",
+     "role": 0
+    },
+    {
+     "lookup_key": 321472,
+     "name": "杉谷善住坊",
+     "role": 4
+    },
+    {
+     "lookup_key": 321979,
+     "name": "武田士兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 324626,
+     "name": "镰仓武士",
+     "role": 0
+    },
+    {
+     "lookup_key": 325975,
+     "name": "叛军浪士",
+     "role": 2
+    },
+    {
+     "lookup_key": 328716,
+     "name": "亡骸武者",
+     "role": 0
+    },
+    {
+     "lookup_key": 332112,
+     "name": "新选组队士",
+     "role": 2
+    },
+    {
+     "lookup_key": 334318,
+     "name": "石川五右卫门",
+     "role": 4
+    },
+    {
+     "lookup_key": 340807,
+     "name": "朱盆",
+     "role": 0
+    },
+    {
+     "lookup_key": 342264,
+     "name": "武田士兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 343233,
+     "name": "地狱蜂",
+     "role": 0
+    },
+    {
+     "lookup_key": 344330,
+     "name": "外道兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 344876,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 345505,
+     "name": "夜行兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 348015,
+     "name": "外道兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 352443,
+     "name": "盗贼",
+     "role": 0
+    },
+    {
+     "lookup_key": 352684,
+     "name": "独脚踏鞴",
+     "role": 1
+    },
+    {
+     "lookup_key": 353008,
+     "name": "叛军浪士",
+     "role": 0
+    },
+    {
+     "lookup_key": 353832,
+     "name": "独眼小僧",
+     "role": 0
+    },
+    {
+     "lookup_key": 354195,
+     "name": "亡骸武者",
+     "role": 0
+    },
+    {
+     "lookup_key": 354265,
+     "name": "幕府兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 355777,
+     "name": "旗本武士",
+     "role": 2
+    },
+    {
+     "lookup_key": 356127,
+     "name": "垢尝",
+     "role": 0
+    },
+    {
+     "lookup_key": 357327,
+     "name": "独眼小僧",
+     "role": 0
+    },
+    {
+     "lookup_key": 358297,
+     "name": "邪马台国兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 364280,
+     "name": "旗本武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 365788,
+     "name": "见越入道",
+     "role": 1
+    },
+    {
+     "lookup_key": 367292,
+     "name": "叛军浪士",
+     "role": 1
+    },
+    {
+     "lookup_key": 368726,
+     "name": "雷兽",
+     "role": 1
+    },
+    {
+     "lookup_key": 370181,
+     "name": "武田士兵",
+     "role": 3
+    },
+    {
+     "lookup_key": 371449,
+     "name": "惧鬼",
+     "role": 5
+    },
+    {
+     "lookup_key": 375229,
+     "name": "新选组队士",
+     "role": 0
+    },
+    {
+     "lookup_key": 379736,
+     "name": "阴阳师",
+     "role": 2
+    },
+    {
+     "lookup_key": 381554,
+     "name": "邪马台国兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 381593,
+     "name": "丸桥忠弥",
+     "role": 4
+    },
+    {
+     "lookup_key": 383854,
+     "name": "忍者妖鬼",
+     "role": 3
+    },
+    {
+     "lookup_key": 384489,
+     "name": "炼金术师",
+     "role": 0
+    },
+    {
+     "lookup_key": 384687,
+     "name": "武田士兵",
+     "role": 3
+    },
+    {
+     "lookup_key": 386349,
+     "name": "朱盆",
+     "role": 0
+    },
+    {
+     "lookup_key": 389078,
+     "name": "邪马台国兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 389942,
+     "name": "叛军浪士",
+     "role": 0
+    },
+    {
+     "lookup_key": 392871,
+     "name": "涂佛",
+     "role": 5
+    },
+    {
+     "lookup_key": 396433,
+     "name": "邪马台国兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 396801,
+     "name": "朱盆",
+     "role": 2
+    },
+    {
+     "lookup_key": 398485,
+     "name": "阴阳师",
+     "role": 2
+    },
+    {
+     "lookup_key": 403097,
+     "name": "敷次郎",
+     "role": 2
+    },
+    {
+     "lookup_key": 404914,
+     "name": "叛军浪士",
+     "role": 3
+    },
+    {
+     "lookup_key": 405836,
+     "name": "赤河童",
+     "role": 1
+    },
+    {
+     "lookup_key": 406587,
+     "name": "阴阳师",
+     "role": 2
+    },
+    {
+     "lookup_key": 410613,
+     "name": "山狗",
+     "role": 1
+    },
+    {
+     "lookup_key": 412493,
+     "name": "柳生十兵卫",
+     "role": 5
+    },
+    {
+     "lookup_key": 412903,
+     "name": "叛军浪士",
+     "role": 0
+    },
+    {
+     "lookup_key": 414204,
+     "name": "邪马台国兵",
+     "role": 3
+    },
+    {
+     "lookup_key": 416882,
+     "name": "阴阳师",
+     "role": 0
+    },
+    {
+     "lookup_key": 419646,
+     "name": "幕府兵",
+     "role": 3
+    },
+    {
+     "lookup_key": 421249,
+     "name": "邪马台国兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 422917,
+     "name": "武田士兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 425426,
+     "name": "叛军浪士",
+     "role": 2
+    },
+    {
+     "lookup_key": 426025,
+     "name": "外道兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 428785,
+     "name": "由井正雪",
+     "role": 5
+    },
+    {
+     "lookup_key": 429222,
+     "name": "姑获鸟",
+     "role": 1
+    },
+    {
+     "lookup_key": 429497,
+     "name": "武田士兵",
+     "role": 3
+    },
+    {
+     "lookup_key": 429725,
+     "name": "武田士兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 433499,
+     "name": "以津真天",
+     "role": 1
+    },
+    {
+     "lookup_key": 434889,
+     "name": "亡骸武者",
+     "role": 1
+    },
+    {
+     "lookup_key": 434972,
+     "name": "邪马台国兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 437524,
+     "name": "外道兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 439646,
+     "name": "油伞妖",
+     "role": 0
+    },
+    {
+     "lookup_key": 443136,
+     "name": "古笼火",
+     "role": 1
+    },
+    {
+     "lookup_key": 445093,
+     "name": "祸津武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 445508,
+     "name": "炼金术师",
+     "role": 0
+    },
+    {
+     "lookup_key": 446930,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 450193,
+     "name": "一目连",
+     "role": 1
+    },
+    {
+     "lookup_key": 451004,
+     "name": "两面宿傩",
+     "role": 5
+    },
+    {
+     "lookup_key": 453218,
+     "name": "武田士兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 455015,
+     "name": "见越入道",
+     "role": 1
+    },
+    {
+     "lookup_key": 457404,
+     "name": "镰仓武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 460253,
+     "name": "轮入道",
+     "role": 1
+    },
+    {
+     "lookup_key": 466641,
+     "name": "武田信玄",
+     "role": 5
+    },
+    {
+     "lookup_key": 474027,
+     "name": "妖蟹",
+     "role": 2
+    },
+    {
+     "lookup_key": 474184,
+     "name": "阴阳师",
+     "role": 2
+    },
+    {
+     "lookup_key": 477936,
+     "name": "阴阳师",
+     "role": 0
+    },
+    {
+     "lookup_key": 478292,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 479718,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 479721,
+     "name": "镰仓武士",
+     "role": 0
+    },
+    {
+     "lookup_key": 482715,
+     "name": "独眼鬼",
+     "role": 1
+    },
+    {
+     "lookup_key": 482895,
+     "name": "马场信春",
+     "role": 5
+    },
+    {
+     "lookup_key": 485842,
+     "name": "新选组队士",
+     "role": 2
+    },
+    {
+     "lookup_key": 485999,
+     "name": "熊谷直义",
+     "role": 4
+    },
+    {
+     "lookup_key": 488136,
+     "name": "镰仓武士",
+     "role": 0
+    },
+    {
+     "lookup_key": 488671,
+     "name": "烟烟罗",
+     "role": 5
+    },
+    {
+     "lookup_key": 491486,
+     "name": "幽鬼",
+     "role": 0
+    },
+    {
+     "lookup_key": 491623,
+     "name": "武田士兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 492278,
+     "name": "马头鬼",
+     "role": 5
+    },
+    {
+     "lookup_key": 498036,
+     "name": "旗本武士",
+     "role": 0
+    },
+    {
+     "lookup_key": 502003,
+     "name": "内藤昌丰",
+     "role": 4
+    },
+    {
+     "lookup_key": 505853,
+     "name": "幕府兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 505864,
+     "name": "阴阳师",
+     "role": 2
+    },
+    {
+     "lookup_key": 507280,
+     "name": "外道兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 510357,
+     "name": "执心鬼",
+     "role": 5
+    },
+    {
+     "lookup_key": 512653,
+     "name": "伊东一刀斋",
+     "role": 4
+    },
+    {
+     "lookup_key": 513855,
+     "name": "镰仓武士",
+     "role": 0
+    },
+    {
+     "lookup_key": 517456,
+     "name": "阴阳师",
+     "role": 2
+    },
+    {
+     "lookup_key": 521334,
+     "name": "冰柱女",
+     "role": 1
+    },
+    {
+     "lookup_key": 521440,
+     "name": "邪马台国兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 523857,
+     "name": "幕府兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 524660,
+     "name": "新选组队士",
+     "role": 3
+    },
+    {
+     "lookup_key": 524713,
+     "name": "高岛秋帆",
+     "role": 4
+    },
+    {
+     "lookup_key": 528612,
+     "name": "蜘蛛",
+     "role": 0
+    },
+    {
+     "lookup_key": 529514,
+     "name": "忍者",
+     "role": 0
+    },
+    {
+     "lookup_key": 530144,
+     "name": "忍者妖鬼",
+     "role": 1
+    },
+    {
+     "lookup_key": 531205,
+     "name": "饿鬼大将",
+     "role": 1
+    },
+    {
+     "lookup_key": 531482,
+     "name": "武田士兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 534403,
+     "name": "敷次郎",
+     "role": 1
+    },
+    {
+     "lookup_key": 536709,
+     "name": "狂骨",
+     "role": 1
+    },
+    {
+     "lookup_key": 538214,
+     "name": "武田士兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 541379,
+     "name": "镰仓武士",
+     "role": 2
+    },
+    {
+     "lookup_key": 542032,
+     "name": "幕府兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 545053,
+     "name": "镰仓武士",
+     "role": 2
+    },
+    {
+     "lookup_key": 547557,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 560912,
+     "name": "夜叉",
+     "role": 1
+    },
+    {
+     "lookup_key": 561851,
+     "name": "亡骸武者",
+     "role": 2
+    },
+    {
+     "lookup_key": 562295,
+     "name": "叛军浪士",
+     "role": 1
+    },
+    {
+     "lookup_key": 564866,
+     "name": "叛军浪士",
+     "role": 2
+    },
+    {
+     "lookup_key": 566824,
+     "name": "斩鬼武士",
+     "role": 4
+    },
+    {
+     "lookup_key": 567653,
+     "name": "邪马台国兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 572468,
+     "name": "古笼火",
+     "role": 1
+    },
+    {
+     "lookup_key": 572569,
+     "name": "亡骸武者",
+     "role": 2
+    },
+    {
+     "lookup_key": 572983,
+     "name": "野槌",
+     "role": 1
+    },
+    {
+     "lookup_key": 573959,
+     "name": "阴阳师",
+     "role": 2
+    },
+    {
+     "lookup_key": 574056,
+     "name": "镰仓武士",
+     "role": 3
+    },
+    {
+     "lookup_key": 576354,
+     "name": "叛军浪士",
+     "role": 0
+    },
+    {
+     "lookup_key": 578081,
+     "name": "鬼火",
+     "role": 0
+    },
+    {
+     "lookup_key": 586715,
+     "name": "巴御前",
+     "role": 4
+    },
+    {
+     "lookup_key": 587292,
+     "name": "叛军浪士",
+     "role": 0
+    },
+    {
+     "lookup_key": 595316,
+     "name": "见越入道",
+     "role": 1
+    },
+    {
+     "lookup_key": 596583,
+     "name": "见越入道",
+     "role": 1
+    },
+    {
+     "lookup_key": 597505,
+     "name": "新选组队士",
+     "role": 2
+    },
+    {
+     "lookup_key": 597530,
+     "name": "忍者妖鬼",
+     "role": 1
+    },
+    {
+     "lookup_key": 598115,
+     "name": "山县昌景",
+     "role": 5
+    },
+    {
+     "lookup_key": 602366,
+     "name": "河原十郎兵卫",
+     "role": 4
+    },
+    {
+     "lookup_key": 603223,
+     "name": "武田士兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 606073,
+     "name": "比留呼",
+     "role": 5
+    },
+    {
+     "lookup_key": 609165,
+     "name": "武田士兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 613533,
+     "name": "山田真龙轩",
+     "role": 4
+    },
+    {
+     "lookup_key": 614441,
+     "name": "永仓新八",
+     "role": 4
+    },
+    {
+     "lookup_key": 615938,
+     "name": "邪马台国兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 616652,
+     "name": "旗本武士",
+     "role": 2
+    },
+    {
+     "lookup_key": 618519,
+     "name": "叛军浪士",
+     "role": 3
+    },
+    {
+     "lookup_key": 619563,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 621270,
+     "name": "朱盆",
+     "role": 0
+    },
+    {
+     "lookup_key": 624623,
+     "name": "新选组队士",
+     "role": 1
+    },
+    {
+     "lookup_key": 626327,
+     "name": "毛利玄达",
+     "role": 4
+    },
+    {
+     "lookup_key": 626769,
+     "name": "阴阳师",
+     "role": 0
+    },
+    {
+     "lookup_key": 629059,
+     "name": "狱卒鬼",
+     "role": 0
+    },
+    {
+     "lookup_key": 629808,
+     "name": "棘饿鬼",
+     "role": 0
+    },
+    {
+     "lookup_key": 633726,
+     "name": "盗贼",
+     "role": 2
+    },
+    {
+     "lookup_key": 639271,
+     "name": "幕府兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 642223,
+     "name": "镰仓武士",
+     "role": 3
+    },
+    {
+     "lookup_key": 645943,
+     "name": "饿鬼",
+     "role": 2
+    },
+    {
+     "lookup_key": 646459,
+     "name": "忍者",
+     "role": 0
+    },
+    {
+     "lookup_key": 653829,
+     "name": "独眼小僧",
+     "role": 0
+    },
+    {
+     "lookup_key": 656503,
+     "name": "草薙",
+     "role": 5
+    },
+    {
+     "lookup_key": 660021,
+     "name": "邪马台国兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 663148,
+     "name": "一反木棉",
+     "role": 0
+    },
+    {
+     "lookup_key": 664083,
+     "name": "叛军浪士",
+     "role": 0
+    },
+    {
+     "lookup_key": 665148,
+     "name": "牛头鬼",
+     "role": 5
+    },
+    {
+     "lookup_key": 666330,
+     "name": "阴阳师",
+     "role": 2
+    },
+    {
+     "lookup_key": 667790,
+     "name": "盗贼",
+     "role": 2
+    },
+    {
+     "lookup_key": 671570,
+     "name": "斋藤福",
+     "role": 5
+    },
+    {
+     "lookup_key": 672359,
+     "name": "旗本武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 675633,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 682367,
+     "name": "朱盆",
+     "role": 0
+    },
+    {
+     "lookup_key": 683482,
+     "name": "狱卒鬼",
+     "role": 0
+    },
+    {
+     "lookup_key": 686399,
+     "name": "阴阳师",
+     "role": 2
+    },
+    {
+     "lookup_key": 686458,
+     "name": "泽村保佑",
+     "role": 4
+    },
+    {
+     "lookup_key": 688134,
+     "name": "镰仓武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 690227,
+     "name": "妖蟹",
+     "role": 0
+    },
+    {
+     "lookup_key": 697167,
+     "name": "撒沙婆婆",
+     "role": 1
+    },
+    {
+     "lookup_key": 698145,
+     "name": "叛军浪士",
+     "role": 1
+    },
+    {
+     "lookup_key": 705732,
+     "name": "叛军浪士",
+     "role": 0
+    },
+    {
+     "lookup_key": 705826,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 707465,
+     "name": "夜行兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 713508,
+     "name": "旗本武士",
+     "role": 2
+    },
+    {
+     "lookup_key": 714984,
+     "name": "外道兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 715969,
+     "name": "炼金术师",
+     "role": 0
+    },
+    {
+     "lookup_key": 717003,
+     "name": "幕府兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 724394,
+     "name": "梶原景时",
+     "role": 5
+    },
+    {
+     "lookup_key": 725112,
+     "name": "武田士兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 727023,
+     "name": "幕府兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 731314,
+     "name": "幕府兵",
+     "role": 3
+    },
+    {
+     "lookup_key": 732138,
+     "name": "叛军浪士",
+     "role": 2
+    },
+    {
+     "lookup_key": 732255,
+     "name": "武田士兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 733597,
+     "name": "盗贼",
+     "role": 2
+    },
+    {
+     "lookup_key": 736146,
+     "name": "旗本武士",
+     "role": 2
+    },
+    {
+     "lookup_key": 736304,
+     "name": "盗贼",
+     "role": 0
+    },
+    {
+     "lookup_key": 738381,
+     "name": "幕府兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 742079,
+     "name": "阴阳师",
+     "role": 0
+    },
+    {
+     "lookup_key": 745563,
+     "name": "比留呼",
+     "role": 5
+    },
+    {
+     "lookup_key": 745986,
+     "name": "斋藤一",
+     "role": 4
+    },
+    {
+     "lookup_key": 751526,
+     "name": "狱卒鬼",
+     "role": 2
+    },
+    {
+     "lookup_key": 763322,
+     "name": "旗本武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 765402,
+     "name": "见越入道",
+     "role": 1
+    },
+    {
+     "lookup_key": 765992,
+     "name": "冒疾鬼",
+     "role": 5
+    },
+    {
+     "lookup_key": 766640,
+     "name": "中根正盛",
+     "role": 4
+    },
+    {
+     "lookup_key": 771222,
+     "name": "狱卒鬼",
+     "role": 1
+    },
+    {
+     "lookup_key": 772215,
+     "name": "蜘蛛",
+     "role": 0
+    },
+    {
+     "lookup_key": 773211,
+     "name": "亡骸武者",
+     "role": 1
+    },
+    {
+     "lookup_key": 775268,
+     "name": "外道兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 775966,
+     "name": "盗贼",
+     "role": 0
+    },
+    {
+     "lookup_key": 776661,
+     "name": "柳生宗矩",
+     "role": 5
+    },
+    {
+     "lookup_key": 778951,
+     "name": "高杉晋作",
+     "role": 5
+    },
+    {
+     "lookup_key": 784697,
+     "name": "棘饿鬼",
+     "role": 2
+    },
+    {
+     "lookup_key": 785624,
+     "name": "叛军浪士",
+     "role": 3
+    },
+    {
+     "lookup_key": 787876,
+     "name": "外道兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 787992,
+     "name": "狱卒鬼",
+     "role": 1
+    },
+    {
+     "lookup_key": 792745,
+     "name": "人鱼",
+     "role": 1
+    },
+    {
+     "lookup_key": 793268,
+     "name": "武田士兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 793547,
+     "name": "盗贼",
+     "role": 2
+    },
+    {
+     "lookup_key": 797582,
+     "name": "叛军浪士",
+     "role": 2
+    },
+    {
+     "lookup_key": 798417,
+     "name": "炼金术师",
+     "role": 3
+    },
+    {
+     "lookup_key": 799359,
+     "name": "阴摩罗鬼",
+     "role": 5
+    },
+    {
+     "lookup_key": 799497,
+     "name": "新选组队士",
+     "role": 1
+    },
+    {
+     "lookup_key": 800450,
+     "name": "亲鸾",
+     "role": 4
+    },
+    {
+     "lookup_key": 802805,
+     "name": "妖蟹",
+     "role": 3
+    },
+    {
+     "lookup_key": 804607,
+     "name": "绿影剑鬼",
+     "role": 4
+    },
+    {
+     "lookup_key": 806228,
+     "name": "镰仓武士",
+     "role": 3
+    },
+    {
+     "lookup_key": 810814,
+     "name": "傲岸鬼",
+     "role": 5
+    },
+    {
+     "lookup_key": 816820,
+     "name": "镰鼬",
+     "role": 5
+    },
+    {
+     "lookup_key": 817228,
+     "name": "幕府兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 822057,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 822274,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 826751,
+     "name": "风魔小太郎",
+     "role": 4
+    },
+    {
+     "lookup_key": 829576,
+     "name": "火车",
+     "role": 5
+    },
+    {
+     "lookup_key": 829851,
+     "name": "炼金术师",
+     "role": 1
+    },
+    {
+     "lookup_key": 831642,
+     "name": "亡骸武者",
+     "role": 2
+    },
+    {
+     "lookup_key": 832684,
+     "name": "武田士兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 834187,
+     "name": "旗本武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 835188,
+     "name": "阴阳师",
+     "role": 0
+    },
+    {
+     "lookup_key": 836952,
+     "name": "叛军浪士",
+     "role": 0
+    },
+    {
+     "lookup_key": 838145,
+     "name": "镰仓武士",
+     "role": 2
+    },
+    {
+     "lookup_key": 839688,
+     "name": "幕府兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 842043,
+     "name": "亡骸武者",
+     "role": 2
+    },
+    {
+     "lookup_key": 847048,
+     "name": "镰仓武士",
+     "role": 2
+    },
+    {
+     "lookup_key": 847229,
+     "name": "灵窟修验者",
+     "role": 4
+    },
+    {
+     "lookup_key": 853881,
+     "name": "狱卒鬼",
+     "role": 1
+    },
+    {
+     "lookup_key": 854502,
+     "name": "阴阳师",
+     "role": 0
+    },
+    {
+     "lookup_key": 857698,
+     "name": "独脚踏鞴",
+     "role": 1
+    },
+    {
+     "lookup_key": 859282,
+     "name": "阴阳师",
+     "role": 0
+    },
+    {
+     "lookup_key": 859974,
+     "name": "蛤蟆附身",
+     "role": 0
+    },
+    {
+     "lookup_key": 863061,
+     "name": "山姥",
+     "role": 1
+    },
+    {
+     "lookup_key": 863964,
+     "name": "叛军浪士",
+     "role": 0
+    },
+    {
+     "lookup_key": 865761,
+     "name": "服部半藏",
+     "role": 5
+    },
+    {
+     "lookup_key": 870037,
+     "name": "镰仓武士",
+     "role": 0
+    },
+    {
+     "lookup_key": 871444,
+     "name": "盗贼",
+     "role": 0
+    },
+    {
+     "lookup_key": 871539,
+     "name": "雪入道",
+     "role": 1
+    },
+    {
+     "lookup_key": 874309,
+     "name": "武田士兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 875240,
+     "name": "濡女",
+     "role": 1
+    },
+    {
+     "lookup_key": 877041,
+     "name": "外道兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 877853,
+     "name": "鬼火",
+     "role": 0
+    },
+    {
+     "lookup_key": 879999,
+     "name": "地狱蜂",
+     "role": 0
+    },
+    {
+     "lookup_key": 881469,
+     "name": "阴阳师",
+     "role": 0
+    },
+    {
+     "lookup_key": 881539,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 881955,
+     "name": "炼金术师",
+     "role": 3
+    },
+    {
+     "lookup_key": 884683,
+     "name": "盗贼",
+     "role": 0
+    },
+    {
+     "lookup_key": 889237,
+     "name": "冲田总司",
+     "role": 5
+    },
+    {
+     "lookup_key": 894462,
+     "name": "茨木童子",
+     "role": 5
+    },
+    {
+     "lookup_key": 898981,
+     "name": "盗贼",
+     "role": 2
+    },
+    {
+     "lookup_key": 900089,
+     "name": "阴阳师",
+     "role": 2
+    },
+    {
+     "lookup_key": 903881,
+     "name": "镰仓武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 904088,
+     "name": "肉瘤怪",
+     "role": 1
+    },
+    {
+     "lookup_key": 911307,
+     "name": "外道兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 912221,
+     "name": "叛军浪士",
+     "role": 0
+    },
+    {
+     "lookup_key": 912389,
+     "name": "幕府兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 912932,
+     "name": "山彦",
+     "role": 0
+    },
+    {
+     "lookup_key": 914005,
+     "name": "朱盆",
+     "role": 2
+    },
+    {
+     "lookup_key": 916093,
+     "name": "炼金术师",
+     "role": 3
+    },
+    {
+     "lookup_key": 919120,
+     "name": "外道兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 920500,
+     "name": "朱盆",
+     "role": 2
+    },
+    {
+     "lookup_key": 924346,
+     "name": "狱卒鬼",
+     "role": 0
+    },
+    {
+     "lookup_key": 926616,
+     "name": "旗本武士",
+     "role": 0
+    },
+    {
+     "lookup_key": 929389,
+     "name": "敷次郎",
+     "role": 0
+    },
+    {
+     "lookup_key": 931689,
+     "name": "亡骸武者",
+     "role": 2
+    },
+    {
+     "lookup_key": 931704,
+     "name": "忍者",
+     "role": 0
+    },
+    {
+     "lookup_key": 935409,
+     "name": "炼金术师",
+     "role": 1
+    },
+    {
+     "lookup_key": 936488,
+     "name": "阴阳师",
+     "role": 0
+    },
+    {
+     "lookup_key": 937021,
+     "name": "幕府兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 939474,
+     "name": "鬼火",
+     "role": 0
+    },
+    {
+     "lookup_key": 939630,
+     "name": "武田士兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 944599,
+     "name": "武田士兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 945986,
+     "name": "狱卒鬼",
+     "role": 2
+    },
+    {
+     "lookup_key": 947280,
+     "name": "蛇骨婆",
+     "role": 5
+    },
+    {
+     "lookup_key": 950461,
+     "name": "高桥泥舟",
+     "role": 4
+    },
+    {
+     "lookup_key": 952527,
+     "name": "忍者",
+     "role": 0
+    },
+    {
+     "lookup_key": 953893,
+     "name": "狱卒鬼",
+     "role": 0
+    },
+    {
+     "lookup_key": 954425,
+     "name": "阴阳师",
+     "role": 2
+    },
+    {
+     "lookup_key": 954629,
+     "name": "幕府兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 955262,
+     "name": "幕府兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 955921,
+     "name": "炼金术师",
+     "role": 1
+    },
+    {
+     "lookup_key": 956697,
+     "name": "武田士兵",
+     "role": 1
+    },
+    {
+     "lookup_key": 966721,
+     "name": "肉户景俊",
+     "role": 4
+    },
+    {
+     "lookup_key": 970164,
+     "name": "小海坊主",
+     "role": 0
+    },
+    {
+     "lookup_key": 970350,
+     "name": "武田士兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 970966,
+     "name": "乌鸦天狗",
+     "role": 1
+    },
+    {
+     "lookup_key": 972465,
+     "name": "亡骸武者",
+     "role": 0
+    },
+    {
+     "lookup_key": 972886,
+     "name": "传林坊赖庆",
+     "role": 4
+    },
+    {
+     "lookup_key": 977294,
+     "name": "子泣爷爷",
+     "role": 1
+    },
+    {
+     "lookup_key": 977921,
+     "name": "叛军浪士",
+     "role": 1
+    },
+    {
+     "lookup_key": 979110,
+     "name": "武田士兵",
+     "role": 3
+    },
+    {
+     "lookup_key": 982853,
+     "name": "穴山信君",
+     "role": 4
+    },
+    {
+     "lookup_key": 983905,
+     "name": "本多忠胜",
+     "role": 5
+    },
+    {
+     "lookup_key": 986563,
+     "name": "饿鬼",
+     "role": 0
+    },
+    {
+     "lookup_key": 988713,
+     "name": "武田士兵",
+     "role": 0
+    },
+    {
+     "lookup_key": 989823,
+     "name": "德川国松",
+     "role": 5
+    },
+    {
+     "lookup_key": 991293,
+     "name": "新选组队士",
+     "role": 3
+    },
+    {
+     "lookup_key": 993311,
+     "name": "新选组队士",
+     "role": 0
+    },
+    {
+     "lookup_key": 996446,
+     "name": "野武士",
+     "role": 1
+    },
+    {
+     "lookup_key": 996646,
+     "name": "外道兵",
+     "role": 2
+    },
+    {
+     "lookup_key": 996710,
+     "name": "狱卒鬼",
+     "role": 1
+    },
+    {
+     "lookup_key": 998859,
+     "name": "旗本武士",
+     "role": 0
+    },
+    {
+     "lookup_key": 999088,
+     "name": "妖鬼",
+     "role": 1
+    }
+   ],
+   "special_rule_families": [
+    {
+     "keys": [
+      886,
+      12598,
+      18464
+     ],
+     "name": "一难横行（刀）"
+    },
+    {
+     "keys": [
+      24594,
+      36726,
+      62910
+     ],
+     "name": "一难横行（双刀）"
+    },
+    {
+     "keys": [
+      5015,
+      19982,
+      21491
+     ],
+     "name": "一难横行（大太刀）"
+    },
+    {
+     "keys": [
+      25826,
+      37094,
+      38145
+     ],
+     "name": "一难横行（头部防具）"
+    },
+    {
+     "keys": [
+      392,
+      33031,
+      35224
+     ],
+     "name": "一难横行（忍刀）"
+    },
+    {
+     "keys": [
+      12266,
+      23040,
+      28569
+     ],
+     "name": "一难横行（忍双刀）"
+    },
+    {
+     "keys": [
+      8245,
+      56758,
+      57211
+     ],
+     "name": "一难横行（忍盾矛）"
+    },
+    {
+     "keys": [
+      16430,
+      38471,
+      46770
+     ],
+     "name": "一难横行（手斧）"
+    },
+    {
+     "keys": [
+      37083,
+      53912,
+      61502
+     ],
+     "name": "一难横行（手甲钩）"
+    },
+    {
+     "keys": [
+      8502,
+      15500,
+      22927
+     ],
+     "name": "一难横行（手甲）"
+    },
+    {
+     "keys": [
+      4355,
+      27205,
+      40547
+     ],
+     "name": "一难横行（手臂防具）"
+    },
+    {
+     "keys": [
+      9640,
+      14300,
+      36991
+     ],
+     "name": "一难横行（斧）"
+    },
+    {
+     "keys": [
+      7941,
+      30410,
+      50355
+     ],
+     "name": "一难横行（旋棍）"
+    },
+    {
+     "keys": [
+      24753,
+      33176,
+      43347
+     ],
+     "name": "一难横行（机关棍）"
+    },
+    {
+     "keys": [
+      44968,
+      45629,
+      48079
+     ],
+     "name": "一难横行（枪）"
+    },
+    {
+     "keys": [
+      7191,
+      40298,
+      48297
+     ],
+     "name": "一难横行（盾矛）"
+    },
+    {
+     "keys": [
+      4876,
+      11618,
+      22114
+     ],
+     "name": "一难横行（腿部防具）"
+    },
+    {
+     "keys": [
+      18630,
+      56598,
+      63850
+     ],
+     "name": "一难横行（薙刀镰）"
+    },
+    {
+     "keys": [
+      20786,
+      33246,
+      45196
+     ],
+     "name": "一难横行（足部防具）"
+    },
+    {
+     "keys": [
+      22405,
+      26798,
+      46468
+     ],
+     "name": "一难横行（身体防具）"
+    },
+    {
+     "keys": [
+      31061,
+      41755,
+      45839
+     ],
+     "name": "一难横行（远距离武器）"
+    },
+    {
+     "keys": [
+      1667,
+      20429,
+      64956
+     ],
+     "name": "一难横行（配件）"
+    },
+    {
+     "keys": [
+      16516,
+      38734,
+      48196
+     ],
+     "name": "一难横行（锁镰）"
+    },
+    {
+     "keys": [
+      9321,
+      20650,
+      40002
+     ],
+     "name": "优先掉落率上升（不动明王的恩宠）"
+    },
+    {
+     "keys": [
+      8513,
+      54052,
+      63456
+     ],
+     "name": "优先掉落率上升（九头龙的恩宠）"
+    },
+    {
+     "keys": [
+      14825,
+      37889,
+      45792
+     ],
+     "name": "优先掉落率上升（八幡神的恩宠）"
+    },
+    {
+     "keys": [
+      43399,
+      49573,
+      50347
+     ],
+     "name": "优先掉落率上升（大绵津见的恩宠）"
+    },
+    {
+     "keys": [
+      19203,
+      22992,
+      48742
+     ],
+     "name": "优先掉落率上升（大黑天的恩宠）"
+    },
+    {
+     "keys": [
+      30449,
+      35884,
+      56997
+     ],
+     "name": "优先掉落率上升（天照大神的恩宠）"
+    },
+    {
+     "keys": [
+      26818,
+      30300,
+      34368
+     ],
+     "name": "优先掉落率上升（天钿女的恩宠）"
+    },
+    {
+     "keys": [
+      13561,
+      13723,
+      46323
+     ],
+     "name": "优先掉落率上升（寿老人的恩宠）"
+    },
+    {
+     "keys": [
+      11727,
+      48878,
+      60107
+     ],
+     "name": "优先掉落率上升（布袋尊的恩宠）"
+    },
+    {
+     "keys": [
+      14039,
+      50597,
+      52790
+     ],
+     "name": "优先掉落率上升（建御雷的恩宠）"
+    },
+    {
+     "keys": [
+      5953,
+      41875,
+      53699
+     ],
+     "name": "优先掉落率上升（弁才天的恩宠）"
+    },
+    {
+     "keys": [
+      26288,
+      27781,
+      52348
+     ],
+     "name": "优先掉落率上升（惠比寿的恩宠）"
+    },
+    {
+     "keys": [
+      5535,
+      9089,
+      55966
+     ],
+     "name": "优先掉落率上升（摩利支天的恩宠）"
+    },
+    {
+     "keys": [
+      3888,
+      32497,
+      58359
+     ],
+     "name": "优先掉落率上升（月读的恩宠）"
+    },
+    {
+     "keys": [
+      13845,
+      49413,
+      53128
+     ],
+     "name": "优先掉落率上升（毘沙门天的恩宠）"
+    },
+    {
+     "keys": [
+      54136,
+      57980,
+      64680
+     ],
+     "name": "优先掉落率上升（祸津日的恩宠）"
+    },
+    {
+     "keys": [
+      11345,
+      15343,
+      46221
+     ],
+     "name": "优先掉落率上升（福禄寿的恩宠）"
+    },
+    {
+     "keys": [
+      11119,
+      12791,
+      19571
+     ],
+     "name": "优先掉落率上升（稻荷神的恩宠）"
+    },
+    {
+     "keys": [
+      3272,
+      6191,
+      20893
+     ],
+     "name": "优先掉落率上升（素盏呜尊的恩宠）"
+    },
+    {
+     "keys": [
+      22402,
+      30813,
+      61115
+     ],
+     "name": "优先掉落率上升（迦具土的恩宠）"
+    },
+    {
+     "keys": [
+      44595
+     ],
+     "name": "同行者（卑弥呼）"
+    },
+    {
+     "keys": [
+      44061
+     ],
+     "name": "同行者（德川国松）"
+    },
+    {
+     "keys": [
+      61143
+     ],
+     "name": "同行者（德川家康）"
+    },
+    {
+     "keys": [
+      40555
+     ],
+     "name": "同行者（服部半藏）"
+    },
+    {
+     "keys": [
+      9609
+     ],
+     "name": "同行者（本多忠胜）"
+    },
+    {
+     "keys": [
+      25229
+     ],
+     "name": "同行者（柳生十兵卫）"
+    },
+    {
+     "keys": [
+      17437
+     ],
+     "name": "同行者（柳生宗矩）"
+    },
+    {
+     "keys": [
+      47704
+     ],
+     "name": "同行者（梶原景时）"
+    },
+    {
+     "keys": [
+      25759
+     ],
+     "name": "同行者（源义经）"
+    },
+    {
+     "keys": [
+      18901
+     ],
+     "name": "同行者（藤堂平助）"
+    },
+    {
+     "keys": [
+      32191
+     ],
+     "name": "同行者（风魔小太郎）"
+    },
+    {
+     "keys": [
+      18272
+     ],
+     "name": "同行者（高杉晋作）"
+    },
+    {
+     "keys": [
+      13200
+     ],
+     "name": "同行者（龙麻吕）"
+    },
+    {
+     "keys": [
+      24142
+     ],
+     "name": "圆猫之法"
+    },
+    {
+     "keys": [
+      10066,
+      28213,
+      30840
+     ],
+     "name": "威猛强敌"
+    },
+    {
+     "keys": [
+      19759,
+      43109,
+      56190
+     ],
+     "name": "属性伤害与异常状态累积增加"
+    },
+    {
+     "keys": [
+      0
+     ],
+     "name": "无"
+    },
+    {
+     "keys": [
+      26504,
+      63489,
+      64466
+     ],
+     "name": "正面与负面效果强化"
+    },
+    {
+     "keys": [
+      8966,
+      57412,
+      62405
+     ],
+     "name": "正面效果持续时间延长"
+    },
+    {
+     "keys": [
+      466,
+      2845,
+      25256
+     ],
+     "name": "灵力槽逐渐减少·积攒量增加"
+    },
+    {
+     "keys": [
+      113,
+      32751,
+      51543
+     ],
+     "name": "神器掉落率上升"
+    },
+    {
+     "keys": [
+      24945,
+      34644,
+      60696
+     ],
+     "name": "移动加速"
+    },
+    {
+     "keys": [
+      32693,
+      36790,
+      47034
+     ],
+     "name": "精力恢复强化"
+    },
+    {
+     "keys": [
+      449,
+      26627,
+      42234
+     ],
+     "name": "自动发动（从水符）"
+    },
+    {
+     "keys": [
+      10369,
+      12647,
+      18183
+     ],
+     "name": "自动发动（从火符）"
+    },
+    {
+     "keys": [
+      21408,
+      31908,
+      42111
+     ],
+     "name": "自动发动（从雷符）"
+    },
+    {
+     "keys": [
+      49859,
+      50714,
+      52142
+     ],
+     "name": "自动发动（从风符）"
+    },
+    {
+     "keys": [
+      5976,
+      13110,
+      27859
+     ],
+     "name": "自动发动（修罗符）"
+    },
+    {
+     "keys": [
+      23768,
+      30080,
+      42732
+     ],
+     "name": "自动发动（养身符）"
+    },
+    {
+     "keys": [
+      3630,
+      21576,
+      26446
+     ],
+     "name": "自动发动（刚力符）"
+    },
+    {
+     "keys": [
+      19086,
+      32819,
+      51071
+     ],
+     "name": "自动发动（召水符）"
+    },
+    {
+     "keys": [
+      31632,
+      50574,
+      59852
+     ],
+     "name": "自动发动（召火符）"
+    },
+    {
+     "keys": [
+      4289,
+      11764,
+      20363
+     ],
+     "name": "自动发动（召雷符）"
+    },
+    {
+     "keys": [
+      15690,
+      24721,
+      36918
+     ],
+     "name": "自动发动（召风符）"
+    },
+    {
+     "keys": [
+      5189,
+      47516,
+      55336
+     ],
+     "name": "自动发动（回生符）"
+    },
+    {
+     "keys": [
+      15701,
+      23785,
+      60526
+     ],
+     "name": "自动发动（夺灵符）"
+    },
+    {
+     "keys": [
+      8195,
+      43960,
+      53849
+     ],
+     "name": "自动发动（拳力符）"
+    },
+    {
+     "keys": [
+      25154,
+      25420,
+      38392
+     ],
+     "name": "自动发动（斥风符）"
+    },
+    {
+     "keys": [
+      17382,
+      22554,
+      38612
+     ],
+     "name": "自动发动（斩冲符）"
+    },
+    {
+     "keys": [
+      972,
+      4618,
+      28907
+     ],
+     "name": "自动发动（昂灵符）"
+    },
+    {
+     "keys": [
+      16445,
+      53379,
+      59283
+     ],
+     "name": "自动发动（未识别阴阳术（原生编号 0x3011，可生成））"
+    },
+    {
+     "keys": [
+      12653,
+      22078,
+      59147
+     ],
+     "name": "自动发动（波动符）"
+    },
+    {
+     "keys": [
+      34576
+     ],
+     "name": "自动发动（神箭符）"
+    },
+    {
+     "keys": [
+      4106,
+      4895,
+      57979
+     ],
+     "name": "自动发动（禁水符）"
+    },
+    {
+     "keys": [
+      16178,
+      17289,
+      34666
+     ],
+     "name": "自动发动（禁火符）"
+    },
+    {
+     "keys": [
+      759,
+      33035,
+      41929
+     ],
+     "name": "自动发动（禁雷符）"
+    },
+    {
+     "keys": [
+      9398,
+      26398,
+      61664
+     ],
+     "name": "自动发动（禁风符）"
+    },
+    {
+     "keys": [
+      34001,
+      52953,
+      60442
+     ],
+     "name": "自动发动（粹然符）"
+    },
+    {
+     "keys": [
+      19663,
+      33153,
+      61542
+     ],
+     "name": "自动发动（迅足符）"
+    },
+    {
+     "keys": [
+      14303,
+      53252,
+      54395
+     ],
+     "name": "自动发动（金刚符）"
+    },
+    {
+     "keys": [
+      11261,
+      25280,
+      33560
+     ],
+     "name": "自动恢复阴阳术与箭弹"
+    },
+    {
+     "keys": [
+      17318,
+      18489,
+      33810
+     ],
+     "name": "获得金钱增加"
+    },
+    {
+     "keys": [
+      20066,
+      24396,
+      61110
+     ],
+     "name": "负面效果持续时间延长"
+    },
+    {
+     "keys": [
+      8989,
+      13722,
+      57076
+     ],
+     "name": "赋予吸取体力"
+    },
+    {
+     "keys": [
+      40509,
+      48656,
+      51817
+     ],
+     "name": "追击和近身刺击伤害增加"
+    },
+    {
+     "keys": [
+      6040,
+      28848,
+      40884
+     ],
+     "name": "造成的水属性伤害增加"
+    },
+    {
+     "keys": [
+      17202,
+      56299,
+      65245
+     ],
+     "name": "造成的火属性伤害增加"
+    },
+    {
+     "keys": [
+      18040,
+      46495,
+      62326
+     ],
+     "name": "造成的雷属性伤害增加"
+    },
+    {
+     "keys": [
+      32938,
+      37985,
+      44065
+     ],
+     "name": "造成的风属性伤害增加"
+    },
+    {
+     "keys": [
+      10187,
+      10368,
+      26916
+     ],
+     "name": "魂核掉落率上升"
+    }
+   ],
+   "special_rule_options": [
+    {
+     "key": 0,
+     "name": "无",
+     "variant": {
+      "display_grade": null,
+      "display_unit": null,
+      "display_value": null,
+      "key": 0,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": null,
+      "row_index": 0,
+      "value_source_offset": null
+     }
+    },
+    {
+     "key": 113,
+     "name": "神器掉落率上升",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 113,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 100.0,
+      "row_index": 240,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 392,
+     "name": "一难横行（忍刀）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 392,
+      "qualifier_key": 66848854,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 170,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 449,
+     "name": "自动发动（从水符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 449,
+      "qualifier_key": 49082,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 65,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 466,
+     "name": "灵力槽逐渐减少·积攒量增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 20.0,
+      "key": 466,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 200.0,
+      "row_index": 208,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 759,
+     "name": "自动发动（禁雷符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 759,
+      "qualifier_key": 2096,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 17,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 886,
+     "name": "一难横行（刀）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 886,
+      "qualifier_key": 63257925,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 136,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 972,
+     "name": "自动发动（昂灵符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 972,
+      "qualifier_key": 40618,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 26,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 1667,
+     "name": "一难横行（配件）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 1667,
+      "qualifier_key": 65554450,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 158,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 2845,
+     "name": "灵力槽逐渐减少·积攒量增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 2845,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 500.0,
+      "row_index": 210,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 3272,
+     "name": "优先掉落率上升（素盏呜尊的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 3272,
+      "qualifier_key": 52840,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 271,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 3630,
+     "name": "自动发动（刚力符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 3630,
+      "qualifier_key": 29341,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 14,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 3888,
+     "name": "优先掉落率上升（月读的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 3888,
+      "qualifier_key": 47805,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 280,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 4106,
+     "name": "自动发动（禁水符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 4106,
+      "qualifier_key": 36754,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 29,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 4289,
+     "name": "自动发动（召雷符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 4289,
+      "qualifier_key": 62544,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 57,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 4355,
+     "name": "一难横行（手臂防具）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 4355,
+      "qualifier_key": 63914903,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 155,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 4618,
+     "name": "自动发动（昂灵符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 4618,
+      "qualifier_key": 40618,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 94,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 4876,
+     "name": "一难横行（腿部防具）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 4876,
+      "qualifier_key": 66295533,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 179,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 4895,
+     "name": "自动发动（禁水符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 4895,
+      "qualifier_key": 36754,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 97,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 5015,
+     "name": "一难横行（大太刀）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 5015,
+      "qualifier_key": 66873073,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 164,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 5189,
+     "name": "自动发动（回生符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 5189,
+      "qualifier_key": 8088,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 109,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 5535,
+     "name": "优先掉落率上升（摩利支天的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 5535,
+      "qualifier_key": 32462,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 298,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 5953,
+     "name": "优先掉落率上升（弁才天的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 5953,
+      "qualifier_key": 10982,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 242,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 5976,
+     "name": "自动发动（修罗符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 5976,
+      "qualifier_key": 4318,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 77,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 6040,
+     "name": "造成的水属性伤害增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 6040,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 300.0,
+      "row_index": 220,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 6191,
+     "name": "优先掉落率上升（素盏呜尊的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 6191,
+      "qualifier_key": 52840,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 251,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 7191,
+     "name": "一难横行（盾矛）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 7191,
+      "qualifier_key": 65368862,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 196,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 7941,
+     "name": "一难横行（旋棍）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 7941,
+      "qualifier_key": 65322435,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 165,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 8195,
+     "name": "自动发动（拳力符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 8195,
+      "qualifier_key": 9609,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 25,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 8245,
+     "name": "一难横行（忍盾矛）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 8245,
+      "qualifier_key": 66868145,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 174,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 8502,
+     "name": "一难横行（手甲）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 8502,
+      "qualifier_key": 62961695,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 169,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 8513,
+     "name": "优先掉落率上升（九头龙的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 8513,
+      "qualifier_key": 59627,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 289,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 8966,
+     "name": "正面效果持续时间延长",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 20.0,
+      "key": 8966,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 200.0,
+      "row_index": 202,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 8989,
+     "name": "赋予吸取体力",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 3.0,
+      "key": 8989,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 30.0,
+      "row_index": 10,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 9089,
+     "name": "优先掉落率上升（摩利支天的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 9089,
+      "qualifier_key": 32462,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 258,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 9321,
+     "name": "优先掉落率上升（不动明王的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 9321,
+      "qualifier_key": 29174,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 275,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 9398,
+     "name": "自动发动（禁风符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 9398,
+      "qualifier_key": 35184,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 28,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 9609,
+     "name": "同行者（本多忠胜）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": null,
+      "display_value": null,
+      "key": 9609,
+      "qualifier_key": 532910,
+      "qualifier_kind": "enemy",
+      "raw_value": null,
+      "row_index": 117,
+      "value_source_offset": null
+     }
+    },
+    {
+     "key": 9640,
+     "name": "一难横行（斧）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 9640,
+      "qualifier_key": 66433429,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 139,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 10066,
+     "name": "威猛强敌",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 10066,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 100.0,
+      "row_index": 7,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 10187,
+     "name": "魂核掉落率上升",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 10187,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 100.0,
+      "row_index": 237,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 10368,
+     "name": "魂核掉落率上升",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 2.5,
+      "key": 10368,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 25.0,
+      "row_index": 235,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 10369,
+     "name": "自动发动（从火符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 10369,
+      "qualifier_key": 30150,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 70,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 11119,
+     "name": "优先掉落率上升（稻荷神的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 11119,
+      "qualifier_key": 20387,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 248,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 11261,
+     "name": "自动恢复阴阳术与箭弹",
+     "variant": {
+      "display_grade": "C",
+      "display_unit": "grade",
+      "display_value": null,
+      "key": 11261,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 15600.0,
+      "row_index": 229,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 11345,
+     "name": "优先掉落率上升（福禄寿的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 11345,
+      "qualifier_key": 31722,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 285,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 11618,
+     "name": "一难横行（腿部防具）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 11618,
+      "qualifier_key": 66295533,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 133,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 11727,
+     "name": "优先掉落率上升（布袋尊的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 11727,
+      "qualifier_key": 22796,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 247,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 11764,
+     "name": "自动发动（召雷符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 11764,
+      "qualifier_key": 62544,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 23,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 12266,
+     "name": "一难横行（忍双刀）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 12266,
+      "qualifier_key": 66168494,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 194,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 12598,
+     "name": "一难横行（刀）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 12598,
+      "qualifier_key": 63257925,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 159,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 12647,
+     "name": "自动发动（从火符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 12647,
+      "qualifier_key": 30150,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 104,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 12653,
+     "name": "自动发动（波动符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 12653,
+      "qualifier_key": 30809,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 45,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 12791,
+     "name": "优先掉落率上升（稻荷神的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 12791,
+      "qualifier_key": 20387,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 288,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 13110,
+     "name": "自动发动（修罗符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 13110,
+      "qualifier_key": 4318,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 111,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 13200,
+     "name": "同行者（龙麻吕）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": null,
+      "display_value": null,
+      "key": 13200,
+      "qualifier_key": 170511,
+      "qualifier_kind": "enemy",
+      "raw_value": null,
+      "row_index": 129,
+      "value_source_offset": null
+     }
+    },
+    {
+     "key": 13561,
+     "name": "优先掉落率上升（寿老人的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 13561,
+      "qualifier_key": 45647,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 286,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 13722,
+     "name": "赋予吸取体力",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 9.0,
+      "key": 13722,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 90.0,
+      "row_index": 11,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 13723,
+     "name": "优先掉落率上升（寿老人的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 13723,
+      "qualifier_key": 45647,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 266,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 13845,
+     "name": "优先掉落率上升（毘沙门天的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 13845,
+      "qualifier_key": 9189,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 281,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 14039,
+     "name": "优先掉落率上升（建御雷的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 14039,
+      "qualifier_key": 61162,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 257,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 14300,
+     "name": "一难横行（斧）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 14300,
+      "qualifier_key": 66433429,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 162,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 14303,
+     "name": "自动发动（金刚符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 14303,
+      "qualifier_key": 45053,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 40,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 14825,
+     "name": "优先掉落率上升（八幡神的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 14825,
+      "qualifier_key": 45545,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 284,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 15343,
+     "name": "优先掉落率上升（福禄寿的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 15343,
+      "qualifier_key": 31722,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 265,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 15500,
+     "name": "一难横行（手甲）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 15500,
+      "qualifier_key": 62961695,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 146,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 15690,
+     "name": "自动发动（召风符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 15690,
+      "qualifier_key": 62314,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 58,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 15701,
+     "name": "自动发动（夺灵符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 15701,
+      "qualifier_key": 35242,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 88,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 16178,
+     "name": "自动发动（禁火符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 16178,
+      "qualifier_key": 16502,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 50,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 16430,
+     "name": "一难横行（手斧）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 16430,
+      "qualifier_key": 65063783,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 189,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 16445,
+     "name": "自动发动（未识别阴阳术（原生编号 0x3011，可生成））",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 16445,
+      "qualifier_key": 12305,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 112,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 16516,
+     "name": "一难横行（锁镰）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 16516,
+      "qualifier_key": 64364197,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 140,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 17202,
+     "name": "造成的火属性伤害增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 17202,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 100.0,
+      "row_index": 211,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 17289,
+     "name": "自动发动（禁火符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 17289,
+      "qualifier_key": 16502,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 16,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 17318,
+     "name": "获得金钱增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 17318,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 500.0,
+      "row_index": 232,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 17382,
+     "name": "自动发动（斩冲符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 17382,
+      "qualifier_key": 23694,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 67,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 17437,
+     "name": "同行者（柳生宗矩）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": null,
+      "display_value": null,
+      "key": 17437,
+      "qualifier_key": 696121,
+      "qualifier_kind": "enemy",
+      "raw_value": null,
+      "row_index": 128,
+      "value_source_offset": null
+     }
+    },
+    {
+     "key": 18040,
+     "name": "造成的雷属性伤害增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 18040,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 100.0,
+      "row_index": 213,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 18183,
+     "name": "自动发动（从火符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 18183,
+      "qualifier_key": 30150,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 36,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 18272,
+     "name": "同行者（高杉晋作）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": null,
+      "display_value": null,
+      "key": 18272,
+      "qualifier_key": 233423,
+      "qualifier_kind": "enemy",
+      "raw_value": null,
+      "row_index": 119,
+      "value_source_offset": null
+     }
+    },
+    {
+     "key": 18464,
+     "name": "一难横行（刀）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 18464,
+      "qualifier_key": 63257925,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 182,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 18489,
+     "name": "获得金钱增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 100.0,
+      "key": 18489,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 1000.0,
+      "row_index": 233,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 18630,
+     "name": "一难横行（薙刀镰）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 18630,
+      "qualifier_key": 67021275,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 167,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 18901,
+     "name": "同行者（藤堂平助）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": null,
+      "display_value": null,
+      "key": 18901,
+      "qualifier_key": 607333,
+      "qualifier_kind": "enemy",
+      "raw_value": null,
+      "row_index": 127,
+      "value_source_offset": null
+     }
+    },
+    {
+     "key": 19086,
+     "name": "自动发动（召水符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 19086,
+      "qualifier_key": 52163,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 56,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 19203,
+     "name": "优先掉落率上升（大黑天的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 19203,
+      "qualifier_key": 20498,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 290,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 19571,
+     "name": "优先掉落率上升（稻荷神的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 19571,
+      "qualifier_key": 20387,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 268,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 19663,
+     "name": "自动发动（迅足符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 19663,
+      "qualifier_key": 2007,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 86,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 19759,
+     "name": "属性伤害与异常状态累积增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 19759,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 100.0,
+      "row_index": 226,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 19982,
+     "name": "一难横行（大太刀）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 19982,
+      "qualifier_key": 66873073,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 187,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 20066,
+     "name": "负面效果持续时间延长",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 35.0,
+      "key": 20066,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 350.0,
+      "row_index": 206,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 20363,
+     "name": "自动发动（召雷符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 20363,
+      "qualifier_key": 62544,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 91,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 20429,
+     "name": "一难横行（配件）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 20429,
+      "qualifier_key": 65554450,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 135,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 20650,
+     "name": "优先掉落率上升（不动明王的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 20650,
+      "qualifier_key": 29174,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 295,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 20786,
+     "name": "一难横行（足部防具）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 20786,
+      "qualifier_key": 65365993,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 134,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 20893,
+     "name": "优先掉落率上升（素盏呜尊的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 20893,
+      "qualifier_key": 52840,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 291,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 21408,
+     "name": "自动发动（从雷符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 21408,
+      "qualifier_key": 31359,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 19,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 21491,
+     "name": "一难横行（大太刀）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 21491,
+      "qualifier_key": 66873073,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 141,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 21576,
+     "name": "自动发动（刚力符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 21576,
+      "qualifier_key": 29341,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 82,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 22078,
+     "name": "自动发动（波动符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 22078,
+      "qualifier_key": 30809,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 113,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 22114,
+     "name": "一难横行（腿部防具）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 22114,
+      "qualifier_key": 66295533,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 156,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 22402,
+     "name": "优先掉落率上升（迦具土的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 22402,
+      "qualifier_key": 5858,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 252,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 22405,
+     "name": "一难横行（身体防具）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 22405,
+      "qualifier_key": 67058952,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 177,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 22554,
+     "name": "自动发动（斩冲符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 22554,
+      "qualifier_key": 23694,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 101,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 22927,
+     "name": "一难横行（手甲）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 22927,
+      "qualifier_key": 62961695,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 192,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 22992,
+     "name": "优先掉落率上升（大黑天的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 22992,
+      "qualifier_key": 20498,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 250,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 23040,
+     "name": "一难横行（忍双刀）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 23040,
+      "qualifier_key": 66168494,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 171,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 23768,
+     "name": "自动发动（养身符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 23768,
+      "qualifier_key": 11665,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 80,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 23785,
+     "name": "自动发动（夺灵符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 23785,
+      "qualifier_key": 35242,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 20,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 24142,
+     "name": "圆猫之法",
+     "variant": {
+      "display_grade": null,
+      "display_unit": null,
+      "display_value": null,
+      "key": 24142,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": null,
+      "row_index": 13,
+      "value_source_offset": null
+     }
+    },
+    {
+     "key": 24396,
+     "name": "负面效果持续时间延长",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 20.0,
+      "key": 24396,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 200.0,
+      "row_index": 205,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 24594,
+     "name": "一难横行（双刀）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 24594,
+      "qualifier_key": 64565987,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 137,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 24721,
+     "name": "自动发动（召风符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 24721,
+      "qualifier_key": 62314,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 24,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 24753,
+     "name": "一难横行（机关棍）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 24753,
+      "qualifier_key": 65069436,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 145,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 24945,
+     "name": "移动加速",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 24945,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 100.0,
+      "row_index": 1,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 25154,
+     "name": "自动发动（斥风符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 25154,
+      "qualifier_key": 2121,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 110,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 25229,
+     "name": "同行者（柳生十兵卫）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": null,
+      "display_value": null,
+      "key": 25229,
+      "qualifier_key": 84323,
+      "qualifier_kind": "enemy",
+      "raw_value": null,
+      "row_index": 124,
+      "value_source_offset": null
+     }
+    },
+    {
+     "key": 25256,
+     "name": "灵力槽逐渐减少·积攒量增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 35.0,
+      "key": 25256,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 350.0,
+      "row_index": 209,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 25280,
+     "name": "自动恢复阴阳术与箭弹",
+     "variant": {
+      "display_grade": "A",
+      "display_unit": "grade",
+      "display_value": null,
+      "key": 25280,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 18000.0,
+      "row_index": 231,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 25420,
+     "name": "自动发动（斥风符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 25420,
+      "qualifier_key": 2121,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 76,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 25759,
+     "name": "同行者（源义经）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": null,
+      "display_value": null,
+      "key": 25759,
+      "qualifier_key": 723587,
+      "qualifier_kind": "enemy",
+      "raw_value": null,
+      "row_index": 126,
+      "value_source_offset": null
+     }
+    },
+    {
+     "key": 25826,
+     "name": "一难横行（头部防具）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 25826,
+      "qualifier_key": 66072120,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 176,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 26288,
+     "name": "优先掉落率上升（惠比寿的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 26288,
+      "qualifier_key": 36044,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 263,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 26398,
+     "name": "自动发动（禁风符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 26398,
+      "qualifier_key": 35184,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 62,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 26446,
+     "name": "自动发动（刚力符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 26446,
+      "qualifier_key": 29341,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 48,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 26504,
+     "name": "正面与负面效果强化",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 35.0,
+      "key": 26504,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 350.0,
+      "row_index": 225,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 26627,
+     "name": "自动发动（从水符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 26627,
+      "qualifier_key": 49082,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 31,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 26798,
+     "name": "一难横行（身体防具）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 26798,
+      "qualifier_key": 67058952,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 154,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 26818,
+     "name": "优先掉落率上升（天钿女的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 26818,
+      "qualifier_key": 20452,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 294,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 26916,
+     "name": "魂核掉落率上升",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 5.0,
+      "key": 26916,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 50.0,
+      "row_index": 236,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 27205,
+     "name": "一难横行（手臂防具）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 27205,
+      "qualifier_key": 63914903,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 178,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 27781,
+     "name": "优先掉落率上升（惠比寿的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 27781,
+      "qualifier_key": 36044,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 283,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 27859,
+     "name": "自动发动（修罗符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 27859,
+      "qualifier_key": 4318,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 43,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 28213,
+     "name": "威猛强敌",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 28213,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 500.0,
+      "row_index": 9,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 28569,
+     "name": "一难横行（忍双刀）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 28569,
+      "qualifier_key": 66168494,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 148,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 28848,
+     "name": "造成的水属性伤害增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 28848,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 150.0,
+      "row_index": 216,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 28907,
+     "name": "自动发动（昂灵符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 28907,
+      "qualifier_key": 40618,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 60,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 30080,
+     "name": "自动发动（养身符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 30080,
+      "qualifier_key": 11665,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 114,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 30300,
+     "name": "优先掉落率上升（天钿女的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 30300,
+      "qualifier_key": 20452,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 254,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 30410,
+     "name": "一难横行（旋棍）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 30410,
+      "qualifier_key": 65322435,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 142,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 30449,
+     "name": "优先掉落率上升（天照大神的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 30449,
+      "qualifier_key": 25939,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 299,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 30813,
+     "name": "优先掉落率上升（迦具土的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 30813,
+      "qualifier_key": 5858,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 292,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 30840,
+     "name": "威猛强敌",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 25.0,
+      "key": 30840,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 250.0,
+      "row_index": 8,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 31061,
+     "name": "一难横行（远距离武器）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 31061,
+      "qualifier_key": 66900695,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 152,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 31632,
+     "name": "自动发动（召火符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 31632,
+      "qualifier_key": 55312,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 89,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 31908,
+     "name": "自动发动（从雷符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 31908,
+      "qualifier_key": 31359,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 87,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 32191,
+     "name": "同行者（风魔小太郎）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": null,
+      "display_value": null,
+      "key": 32191,
+      "qualifier_key": 319859,
+      "qualifier_kind": "enemy",
+      "raw_value": null,
+      "row_index": 122,
+      "value_source_offset": null
+     }
+    },
+    {
+     "key": 32497,
+     "name": "优先掉落率上升（月读的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 32497,
+      "qualifier_key": 47805,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 300,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 32693,
+     "name": "精力恢复强化",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 32693,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 500.0,
+      "row_index": 6,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 32751,
+     "name": "神器掉落率上升",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 5.0,
+      "key": 32751,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 50.0,
+      "row_index": 239,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 32819,
+     "name": "自动发动（召水符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 32819,
+      "qualifier_key": 52163,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 22,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 32938,
+     "name": "造成的风属性伤害增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 32938,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 300.0,
+      "row_index": 222,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 33031,
+     "name": "一难横行（忍刀）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 33031,
+      "qualifier_key": 66848854,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 193,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 33035,
+     "name": "自动发动（禁雷符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 33035,
+      "qualifier_key": 2096,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 85,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 33153,
+     "name": "自动发动（迅足符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 33153,
+      "qualifier_key": 2007,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 18,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 33176,
+     "name": "一难横行（机关棍）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 33176,
+      "qualifier_key": 65069436,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 191,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 33246,
+     "name": "一难横行（足部防具）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 33246,
+      "qualifier_key": 65365993,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 157,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 33560,
+     "name": "自动恢复阴阳术与箭弹",
+     "variant": {
+      "display_grade": "B",
+      "display_unit": "grade",
+      "display_value": null,
+      "key": 33560,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 16800.0,
+      "row_index": 230,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 33810,
+     "name": "获得金钱增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 200.0,
+      "key": 33810,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 2000.0,
+      "row_index": 234,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 34001,
+     "name": "自动发动（粹然符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 34001,
+      "qualifier_key": 42414,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 81,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 34368,
+     "name": "优先掉落率上升（天钿女的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 34368,
+      "qualifier_key": 20452,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 274,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 34576,
+     "name": "自动发动（神箭符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 34576,
+      "qualifier_key": 11106,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 105,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 34644,
+     "name": "移动加速",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 25.0,
+      "key": 34644,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 250.0,
+      "row_index": 3,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 34666,
+     "name": "自动发动（禁火符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 34666,
+      "qualifier_key": 16502,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 84,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 35224,
+     "name": "一难横行（忍刀）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 35224,
+      "qualifier_key": 66848854,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 147,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 35884,
+     "name": "优先掉落率上升（天照大神的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 35884,
+      "qualifier_key": 25939,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 259,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 36726,
+     "name": "一难横行（双刀）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 36726,
+      "qualifier_key": 64565987,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 183,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 36790,
+     "name": "精力恢复强化",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 20.0,
+      "key": 36790,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 200.0,
+      "row_index": 4,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 36918,
+     "name": "自动发动（召风符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 36918,
+      "qualifier_key": 62314,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 92,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 36991,
+     "name": "一难横行（斧）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 36991,
+      "qualifier_key": 66433429,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 185,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 37083,
+     "name": "一难横行（手甲钩）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 37083,
+      "qualifier_key": 67101245,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 195,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 37094,
+     "name": "一难横行（头部防具）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 37094,
+      "qualifier_key": 66072120,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 153,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 37889,
+     "name": "优先掉落率上升（八幡神的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 37889,
+      "qualifier_key": 45545,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 264,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 37985,
+     "name": "造成的风属性伤害增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 37985,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 100.0,
+      "row_index": 214,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 38145,
+     "name": "一难横行（头部防具）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 38145,
+      "qualifier_key": 66072120,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 130,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 38392,
+     "name": "自动发动（斥风符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 38392,
+      "qualifier_key": 2121,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 42,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 38471,
+     "name": "一难横行（手斧）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 38471,
+      "qualifier_key": 65063783,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 166,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 38612,
+     "name": "自动发动（斩冲符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 38612,
+      "qualifier_key": 23694,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 33,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 38734,
+     "name": "一难横行（锁镰）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 38734,
+      "qualifier_key": 64364197,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 163,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 40002,
+     "name": "优先掉落率上升（不动明王的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 40002,
+      "qualifier_key": 29174,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 255,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 40298,
+     "name": "一难横行（盾矛）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 40298,
+      "qualifier_key": 65368862,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 173,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 40509,
+     "name": "追击和近身刺击伤害增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 40509,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 300.0,
+      "row_index": 199,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 40547,
+     "name": "一难横行（手臂防具）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 40547,
+      "qualifier_key": 63914903,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 132,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 40555,
+     "name": "同行者（服部半藏）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": null,
+      "display_value": null,
+      "key": 40555,
+      "qualifier_key": 712531,
+      "qualifier_kind": "enemy",
+      "raw_value": null,
+      "row_index": 118,
+      "value_source_offset": null
+     }
+    },
+    {
+     "key": 40884,
+     "name": "造成的水属性伤害增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 40884,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 100.0,
+      "row_index": 212,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 41755,
+     "name": "一难横行（远距离武器）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 41755,
+      "qualifier_key": 66900695,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 198,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 41875,
+     "name": "优先掉落率上升（弁才天的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 41875,
+      "qualifier_key": 10982,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 282,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 41929,
+     "name": "自动发动（禁雷符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 41929,
+      "qualifier_key": 2096,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 51,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 42111,
+     "name": "自动发动（从雷符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 42111,
+      "qualifier_key": 31359,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 53,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 42234,
+     "name": "自动发动（从水符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 42234,
+      "qualifier_key": 49082,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 99,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 42732,
+     "name": "自动发动（养身符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 42732,
+      "qualifier_key": 11665,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 46,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 43109,
+     "name": "属性伤害与异常状态累积增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 20.0,
+      "key": 43109,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 200.0,
+      "row_index": 227,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 43347,
+     "name": "一难横行（机关棍）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 43347,
+      "qualifier_key": 65069436,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 168,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 43399,
+     "name": "优先掉落率上升（大绵津见的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 43399,
+      "qualifier_key": 18412,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 296,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 43960,
+     "name": "自动发动（拳力符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 43960,
+      "qualifier_key": 9609,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 93,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 44061,
+     "name": "同行者（德川国松）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": null,
+      "display_value": null,
+      "key": 44061,
+      "qualifier_key": 667837,
+      "qualifier_kind": "enemy",
+      "raw_value": null,
+      "row_index": 121,
+      "value_source_offset": null
+     }
+    },
+    {
+     "key": 44065,
+     "name": "造成的风属性伤害增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 44065,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 150.0,
+      "row_index": 218,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 44595,
+     "name": "同行者（卑弥呼）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": null,
+      "display_value": null,
+      "key": 44595,
+      "qualifier_key": 835773,
+      "qualifier_kind": "enemy",
+      "raw_value": null,
+      "row_index": 120,
+      "value_source_offset": null
+     }
+    },
+    {
+     "key": 44968,
+     "name": "一难横行（枪）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 44968,
+      "qualifier_key": 63043850,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 161,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 45196,
+     "name": "一难横行（足部防具）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 45196,
+      "qualifier_key": 65365993,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 180,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 45629,
+     "name": "一难横行（枪）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 45629,
+      "qualifier_key": 63043850,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 138,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 45792,
+     "name": "优先掉落率上升（八幡神的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 45792,
+      "qualifier_key": 45545,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 244,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 45839,
+     "name": "一难横行（远距离武器）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 45839,
+      "qualifier_key": 66900695,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 175,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 46221,
+     "name": "优先掉落率上升（福禄寿的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 46221,
+      "qualifier_key": 31722,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 245,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 46323,
+     "name": "优先掉落率上升（寿老人的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 46323,
+      "qualifier_key": 45647,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 246,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 46468,
+     "name": "一难横行（身体防具）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 46468,
+      "qualifier_key": 67058952,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 131,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 46495,
+     "name": "造成的雷属性伤害增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 46495,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 150.0,
+      "row_index": 217,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 46770,
+     "name": "一难横行（手斧）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 46770,
+      "qualifier_key": 65063783,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 143,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 47034,
+     "name": "精力恢复强化",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 35.0,
+      "key": 47034,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 350.0,
+      "row_index": 5,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 47516,
+     "name": "自动发动（回生符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 240.0,
+      "key": 47516,
+      "qualifier_key": 8088,
+      "qualifier_kind": "item",
+      "raw_value": 14400.0,
+      "row_index": 41,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 47704,
+     "name": "同行者（梶原景时）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": null,
+      "display_value": null,
+      "key": 47704,
+      "qualifier_key": 90358,
+      "qualifier_kind": "enemy",
+      "raw_value": null,
+      "row_index": 123,
+      "value_source_offset": null
+     }
+    },
+    {
+     "key": 48079,
+     "name": "一难横行（枪）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 48079,
+      "qualifier_key": 63043850,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 184,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 48196,
+     "name": "一难横行（锁镰）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 48196,
+      "qualifier_key": 64364197,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 186,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 48297,
+     "name": "一难横行（盾矛）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 48297,
+      "qualifier_key": 65368862,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 150,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 48656,
+     "name": "追击和近身刺击伤害增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 60.0,
+      "key": 48656,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 600.0,
+      "row_index": 200,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 48742,
+     "name": "优先掉落率上升（大黑天的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 48742,
+      "qualifier_key": 20498,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 270,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 48878,
+     "name": "优先掉落率上升（布袋尊的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 48878,
+      "qualifier_key": 22796,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 267,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 49413,
+     "name": "优先掉落率上升（毘沙门天的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 49413,
+      "qualifier_key": 9189,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 261,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 49573,
+     "name": "优先掉落率上升（大绵津见的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 49573,
+      "qualifier_key": 18412,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 276,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 49859,
+     "name": "自动发动（从风符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 49859,
+      "qualifier_key": 5071,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 102,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 50347,
+     "name": "优先掉落率上升（大绵津见的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 50347,
+      "qualifier_key": 18412,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 256,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 50355,
+     "name": "一难横行（旋棍）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 50355,
+      "qualifier_key": 65322435,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 188,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 50574,
+     "name": "自动发动（召火符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 50574,
+      "qualifier_key": 55312,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 55,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 50597,
+     "name": "优先掉落率上升（建御雷的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 50597,
+      "qualifier_key": 61162,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 277,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 50714,
+     "name": "自动发动（从风符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 50714,
+      "qualifier_key": 5071,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 34,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 51071,
+     "name": "自动发动（召水符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 51071,
+      "qualifier_key": 52163,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 90,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 51543,
+     "name": "神器掉落率上升",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 2.5,
+      "key": 51543,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 25.0,
+      "row_index": 238,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 51817,
+     "name": "追击和近身刺击伤害增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 100.0,
+      "key": 51817,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 1000.0,
+      "row_index": 201,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 52142,
+     "name": "自动发动（从风符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 52142,
+      "qualifier_key": 5071,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 68,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 52348,
+     "name": "优先掉落率上升（惠比寿的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 52348,
+      "qualifier_key": 36044,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 243,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 52790,
+     "name": "优先掉落率上升（建御雷的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 52790,
+      "qualifier_key": 61162,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 297,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 52953,
+     "name": "自动发动（粹然符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 52953,
+      "qualifier_key": 42414,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 47,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 53128,
+     "name": "优先掉落率上升（毘沙门天的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 53128,
+      "qualifier_key": 9189,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 241,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 53252,
+     "name": "自动发动（金刚符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 53252,
+      "qualifier_key": 45053,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 108,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 53379,
+     "name": "自动发动（未识别阴阳术（原生编号 0x3011，可生成））",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 53379,
+      "qualifier_key": 12305,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 78,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 53699,
+     "name": "优先掉落率上升（弁才天的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 53699,
+      "qualifier_key": 10982,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 262,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 53849,
+     "name": "自动发动（拳力符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 53849,
+      "qualifier_key": 9609,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 59,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 53912,
+     "name": "一难横行（手甲钩）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 53912,
+      "qualifier_key": 67101245,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 172,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 54052,
+     "name": "优先掉落率上升（九头龙的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 54052,
+      "qualifier_key": 59627,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 269,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 54136,
+     "name": "优先掉落率上升（祸津日的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 54136,
+      "qualifier_key": 60257,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 293,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 54395,
+     "name": "自动发动（金刚符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 54395,
+      "qualifier_key": 45053,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 74,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 55336,
+     "name": "自动发动（回生符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 180.0,
+      "key": 55336,
+      "qualifier_key": 8088,
+      "qualifier_kind": "item",
+      "raw_value": 10800.0,
+      "row_index": 75,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 55966,
+     "name": "优先掉落率上升（摩利支天的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 55966,
+      "qualifier_key": 32462,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 278,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 56190,
+     "name": "属性伤害与异常状态累积增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 56190,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 300.0,
+      "row_index": 228,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 56299,
+     "name": "造成的火属性伤害增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 56299,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 150.0,
+      "row_index": 215,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 56598,
+     "name": "一难横行（薙刀镰）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 56598,
+      "qualifier_key": 67021275,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 144,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 56758,
+     "name": "一难横行（忍盾矛）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 56758,
+      "qualifier_key": 66868145,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 151,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 56997,
+     "name": "优先掉落率上升（天照大神的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 56997,
+      "qualifier_key": 25939,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 279,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 57076,
+     "name": "赋予吸取体力",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 57076,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 150.0,
+      "row_index": 12,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 57211,
+     "name": "一难横行（忍盾矛）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 57211,
+      "qualifier_key": 66868145,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 197,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 57412,
+     "name": "正面效果持续时间延长",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 57412,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 500.0,
+      "row_index": 204,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 57979,
+     "name": "自动发动（禁水符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 57979,
+      "qualifier_key": 36754,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 63,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 57980,
+     "name": "优先掉落率上升（祸津日的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 57980,
+      "qualifier_key": 60257,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 273,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 58359,
+     "name": "优先掉落率上升（月读的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 58359,
+      "qualifier_key": 47805,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 260,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 59147,
+     "name": "自动发动（波动符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 59147,
+      "qualifier_key": 30809,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 79,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 59283,
+     "name": "自动发动（未识别阴阳术（原生编号 0x3011，可生成））",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 59283,
+      "qualifier_key": 12305,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 44,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 59852,
+     "name": "自动发动（召火符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 120.0,
+      "key": 59852,
+      "qualifier_key": 55312,
+      "qualifier_kind": "item",
+      "raw_value": 7200.0,
+      "row_index": 21,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 60107,
+     "name": "优先掉落率上升（布袋尊的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 60107,
+      "qualifier_key": 22796,
+      "qualifier_kind": "effect",
+      "raw_value": 300.0,
+      "row_index": 287,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 60442,
+     "name": "自动发动（粹然符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 60442,
+      "qualifier_key": 42414,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 115,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 60526,
+     "name": "自动发动（夺灵符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 60526,
+      "qualifier_key": 35242,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 54,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 60696,
+     "name": "移动加速",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 60696,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 150.0,
+      "row_index": 2,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 61110,
+     "name": "负面效果持续时间延长",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 61110,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 500.0,
+      "row_index": 207,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 61115,
+     "name": "优先掉落率上升（迦具土的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 15.0,
+      "key": 61115,
+      "qualifier_key": 5858,
+      "qualifier_kind": "effect",
+      "raw_value": 150.0,
+      "row_index": 272,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 61143,
+     "name": "同行者（德川家康）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": null,
+      "display_value": null,
+      "key": 61143,
+      "qualifier_key": 553084,
+      "qualifier_kind": "enemy",
+      "raw_value": null,
+      "row_index": 125,
+      "value_source_offset": null
+     }
+    },
+    {
+     "key": 61502,
+     "name": "一难横行（手甲钩）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 50.0,
+      "key": 61502,
+      "qualifier_key": 67101245,
+      "qualifier_kind": "text",
+      "raw_value": 500.0,
+      "row_index": 149,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 61542,
+     "name": "自动发动（迅足符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 60.0,
+      "key": 61542,
+      "qualifier_key": 2007,
+      "qualifier_kind": "item",
+      "raw_value": 3600.0,
+      "row_index": 52,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 61664,
+     "name": "自动发动（禁风符）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "seconds",
+      "display_value": 30.0,
+      "key": 61664,
+      "qualifier_key": 35184,
+      "qualifier_kind": "item",
+      "raw_value": 1800.0,
+      "row_index": 96,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 62326,
+     "name": "造成的雷属性伤害增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 62326,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 300.0,
+      "row_index": 221,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 62405,
+     "name": "正面效果持续时间延长",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 35.0,
+      "key": 62405,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 350.0,
+      "row_index": 203,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 62910,
+     "name": "一难横行（双刀）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 65.0,
+      "key": 62910,
+      "qualifier_key": 64565987,
+      "qualifier_kind": "text",
+      "raw_value": 650.0,
+      "row_index": 160,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 63456,
+     "name": "优先掉落率上升（九头龙的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 63456,
+      "qualifier_key": 59627,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 249,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 63489,
+     "name": "正面与负面效果强化",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 25.0,
+      "key": 63489,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 250.0,
+      "row_index": 224,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 63850,
+     "name": "一难横行（薙刀镰）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 63850,
+      "qualifier_key": 67021275,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 190,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 64466,
+     "name": "正面与负面效果强化",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 64466,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 100.0,
+      "row_index": 223,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 64680,
+     "name": "优先掉落率上升（祸津日的恩宠）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 10.0,
+      "key": 64680,
+      "qualifier_key": 60257,
+      "qualifier_kind": "effect",
+      "raw_value": 100.0,
+      "row_index": 253,
+      "value_source_offset": 24
+     }
+    },
+    {
+     "key": 64956,
+     "name": "一难横行（配件）",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 80.0,
+      "key": 64956,
+      "qualifier_key": 65554450,
+      "qualifier_kind": "text",
+      "raw_value": 800.0,
+      "row_index": 181,
+      "value_source_offset": 28
+     }
+    },
+    {
+     "key": 65245,
+     "name": "造成的火属性伤害增加",
+     "variant": {
+      "display_grade": null,
+      "display_unit": "percent",
+      "display_value": 30.0,
+      "key": 65245,
+      "qualifier_key": null,
+      "qualifier_kind": null,
+      "raw_value": 300.0,
+      "row_index": 219,
+      "value_source_offset": 24
+     }
+    }
+   ],
+   "terrain_options": [
+    {
+     "aggregate": false,
+     "effect_keys": [
+      36
+     ],
+     "name": "地狱",
+     "option_id": "exact:24"
+    },
+    {
+     "aggregate": false,
+     "effect_keys": [],
+     "name": "无地形效果",
+     "option_id": "exact:"
+    },
+    {
+     "aggregate": false,
+     "effect_keys": [
+      36,
+      57
+     ],
+     "name": "地狱 + 火",
+     "option_id": "exact:24,39"
+    },
+    {
+     "aggregate": false,
+     "effect_keys": [
+      88
+     ],
+     "name": "恶臭",
+     "option_id": "exact:58"
+    },
+    {
+     "aggregate": false,
+     "effect_keys": [
+      36,
+      927
+     ],
+     "name": "地狱 + 瘴血",
+     "option_id": "exact:24,39F"
+    },
+    {
+     "aggregate": true,
+     "effect_keys": [
+      36
+     ],
+     "name": "包含地狱",
+     "option_id": "contains:24"
+    }
+   ]
+  },
+  "grace_effects_ids": [],
+  "ordinary_effects": [
+   {
+    "effect_id": 30543,
+    "name": "一难的解除时间延长"
+   },
+   {
+    "effect_id": 28203,
+    "name": "不消耗仙药"
+   },
+   {
+    "effect_id": 27875,
+    "name": "不消耗使役符"
+   },
+   {
+    "effect_id": 10449,
+    "name": "九十九化身持续时间延长"
+   },
+   {
+    "effect_id": 17991,
+    "name": "伤害反映（忍术威力）"
+   },
+   {
+    "effect_id": 24591,
+    "name": "伤害反映（阴阳术术力）"
+   },
+   {
+    "effect_id": 56002,
+    "name": "体之深奥"
+   },
+   {
+    "effect_id": 42813,
+    "name": "体力"
+   },
+   {
+    "effect_id": 54289,
+    "name": "冲刺精力消耗降低"
+   },
+   {
+    "effect_id": 9192,
+    "name": "刚之深奥"
+   },
+   {
+    "effect_id": 11014,
+    "name": "咒之深奥"
+   },
+   {
+    "effect_id": 59987,
+    "name": "坚忍度"
+   },
+   {
+    "effect_id": 29849,
+    "name": "对人战术"
+   },
+   {
+    "effect_id": 41041,
+    "name": "对妖战术"
+   },
+   {
+    "effect_id": 54421,
+    "name": "属性攻击伤害"
+   },
+   {
+    "effect_id": 16193,
+    "name": "属性攻击伤害降低"
+   },
+   {
+    "effect_id": 18386,
+    "name": "幸运"
+   },
+   {
+    "effect_id": 16437,
+    "name": "强攻击伤害"
+   },
+   {
+    "effect_id": 39485,
+    "name": "强攻击精力消耗降低"
+   },
+   {
+    "effect_id": 46611,
+    "name": "心之深奥"
+   },
+   {
+    "effect_id": 44634,
+    "name": "技之深奥"
+   },
+   {
+    "effect_id": 47147,
+    "name": "敌人精力耗尽时赋予受到伤害增加"
+   },
+   {
+    "effect_id": 27311,
+    "name": "智之深奥"
+   },
+   {
+    "effect_id": 57328,
+    "name": "武之深奥"
+   },
+   {
+    "effect_id": 52762,
+    "name": "武技伤害"
+   },
+   {
+    "effect_id": 14990,
+    "name": "武技精力伤害"
+   },
+   {
+    "effect_id": 19630,
+    "name": "武技精力消耗降低"
+   },
+   {
+    "effect_id": 4949,
+    "name": "灵力增加量"
+   },
+   {
+    "effect_id": 15994,
+    "name": "精力恢复速度"
+   },
+   {
+    "effect_id": 48209,
+    "name": "精华槽增加量"
+   },
+   {
+    "effect_id": 63934,
+    "name": "精髓并存（共通）"
+   },
+   {
+    "effect_id": 60020,
+    "name": "精髓并存（忍者）"
+   },
+   {
+    "effect_id": 20781,
+    "name": "精髓并存（武士）"
+   },
+   {
+    "effect_id": 10436,
+    "name": "绝妙追杀"
+   },
+   {
+    "effect_id": 37600,
+    "name": "获得精华"
+   },
+   {
+    "effect_id": 33156,
+    "name": "装备品掉落率"
+   },
+   {
+    "effect_id": 22587,
+    "name": "负面效果持续时间缩短"
+   },
+   {
+    "effect_id": 56096,
+    "name": "近距离攻击伤害"
+   },
+   {
+    "effect_id": 41127,
+    "name": "近距离攻击打倒敌人时恢复体力"
+   },
+   {
+    "effect_id": 54282,
+    "name": "近距离攻击的精力消耗降低"
+   },
+   {
+    "effect_id": 27627,
+    "name": "近距离攻击精力伤害"
+   },
+   {
+    "effect_id": 12028,
+    "name": "远距离伤害"
+   },
+   {
+    "effect_id": 61335,
+    "name": "速攻击伤害"
+   },
+   {
+    "effect_id": 45955,
+    "name": "速攻击精力消耗降低"
+   },
+   {
+    "effect_id": 45971,
+    "name": "道具掉落率"
+   },
+   {
+    "effect_id": 23724,
+    "name": "闪避动作精力消耗降低"
+   },
+   {
+    "effect_id": 13555,
+    "name": "防御时的属性攻击伤害降低"
+   },
+   {
+    "effect_id": 64494,
+    "name": "防御精力消耗降低"
+   },
+   {
+    "effect_id": 6410,
+    "name": "阴阳术伤害"
+   }
+  ],
+  "recommended_level": {
+   "evidence": "captured_native_curve_prediction",
+   "maximum_displayed_level": 356,
+   "maximum_internal_level": 600,
+   "minimum_displayed_level": 142,
+   "minimum_internal_level": 156,
+   "selection_policy": "lowest_canonical_internal_level"
+  }
+ },
+ "4": {
+  "grace_effects_ids": [
+   5858,
+   9189,
+   10982,
+   16786,
+   18412,
+   20387,
+   20452,
+   20498,
+   22796,
+   25939,
+   29174,
+   31722,
+   32462,
+   36044,
+   45545,
+   45647,
+   47805,
+   52840,
+   59627,
+   60257,
+   61162
+  ],
+  "ordinary_effects": [
+   {
+    "effect_id": 30543,
+    "name": "一难的解除时间延长"
+   },
+   {
+    "effect_id": 28203,
+    "name": "不消耗仙药"
+   },
+   {
+    "effect_id": 27875,
+    "name": "不消耗使役符"
+   },
+   {
+    "effect_id": 10449,
+    "name": "九十九化身持续时间延长"
+   },
+   {
+    "effect_id": 17991,
+    "name": "伤害反映（忍术威力）"
+   },
+   {
+    "effect_id": 24591,
+    "name": "伤害反映（阴阳术术力）"
+   },
+   {
+    "effect_id": 56002,
+    "name": "体之深奥"
+   },
+   {
+    "effect_id": 42813,
+    "name": "体力"
+   },
+   {
+    "effect_id": 54289,
+    "name": "冲刺精力消耗降低"
+   },
+   {
+    "effect_id": 9192,
+    "name": "刚之深奥"
+   },
+   {
+    "effect_id": 18364,
+    "name": "合轴可继承稀有度"
+   },
+   {
+    "effect_id": 11014,
+    "name": "咒之深奥"
+   },
+   {
+    "effect_id": 59987,
+    "name": "坚忍度"
+   },
+   {
+    "effect_id": 29849,
+    "name": "对人战术"
+   },
+   {
+    "effect_id": 41041,
+    "name": "对妖战术"
+   },
+   {
+    "effect_id": 54421,
+    "name": "属性攻击伤害"
+   },
+   {
+    "effect_id": 16193,
+    "name": "属性攻击伤害降低"
+   },
+   {
+    "effect_id": 18386,
+    "name": "幸运"
+   },
+   {
+    "effect_id": 16437,
+    "name": "强攻击伤害"
+   },
+   {
+    "effect_id": 39485,
+    "name": "强攻击精力消耗降低"
+   },
+   {
+    "effect_id": 46611,
+    "name": "心之深奥"
+   },
+   {
+    "effect_id": 44634,
+    "name": "技之深奥"
+   },
+   {
+    "effect_id": 47147,
+    "name": "敌人精力耗尽时赋予受到伤害增加"
+   },
+   {
+    "effect_id": 27311,
+    "name": "智之深奥"
+   },
+   {
+    "effect_id": 57328,
+    "name": "武之深奥"
+   },
+   {
+    "effect_id": 52762,
+    "name": "武技伤害"
+   },
+   {
+    "effect_id": 14990,
+    "name": "武技精力伤害"
+   },
+   {
+    "effect_id": 19630,
+    "name": "武技精力消耗降低"
+   },
+   {
+    "effect_id": 4949,
+    "name": "灵力增加量"
+   },
+   {
+    "effect_id": 15994,
+    "name": "精力恢复速度"
+   },
+   {
+    "effect_id": 48209,
+    "name": "精华槽增加量"
+   },
+   {
+    "effect_id": 63934,
+    "name": "精髓并存（共通）"
+   },
+   {
+    "effect_id": 60020,
+    "name": "精髓并存（忍者）"
+   },
+   {
+    "effect_id": 20781,
+    "name": "精髓并存（武士）"
+   },
+   {
+    "effect_id": 10436,
+    "name": "绝妙追杀"
+   },
+   {
+    "effect_id": 37600,
+    "name": "获得精华"
+   },
+   {
+    "effect_id": 33156,
+    "name": "装备品掉落率"
+   },
+   {
+    "effect_id": 22587,
+    "name": "负面效果持续时间缩短"
+   },
+   {
+    "effect_id": 56096,
+    "name": "近距离攻击伤害"
+   },
+   {
+    "effect_id": 41127,
+    "name": "近距离攻击打倒敌人时恢复体力"
+   },
+   {
+    "effect_id": 54282,
+    "name": "近距离攻击的精力消耗降低"
+   },
+   {
+    "effect_id": 27627,
+    "name": "近距离攻击精力伤害"
+   },
+   {
+    "effect_id": 12028,
+    "name": "远距离伤害"
+   },
+   {
+    "effect_id": 61335,
+    "name": "速攻击伤害"
+   },
+   {
+    "effect_id": 45955,
+    "name": "速攻击精力消耗降低"
+   },
+   {
+    "effect_id": 45971,
+    "name": "道具掉落率"
+   },
+   {
+    "effect_id": 23724,
+    "name": "闪避动作精力消耗降低"
+   },
+   {
+    "effect_id": 13555,
+    "name": "防御时的属性攻击伤害降低"
+   },
+   {
+    "effect_id": 64494,
+    "name": "防御精力消耗降低"
+   },
+   {
+    "effect_id": 6410,
+    "name": "阴阳术伤害"
+   }
+  ]
+ },
+ "5": {
+  "grace_effects_ids": [
+   5858,
+   16786,
+   18412,
+   20452,
+   25939,
+   29174,
+   32462,
+   47805,
+   52840,
+   60257,
+   61162
+  ],
+  "ordinary_effects": [
+   {
+    "effect_id": 30543,
+    "name": "一难的解除时间延长"
+   },
+   {
+    "effect_id": 28203,
+    "name": "不消耗仙药"
+   },
+   {
+    "effect_id": 27875,
+    "name": "不消耗使役符"
+   },
+   {
+    "effect_id": 10449,
+    "name": "九十九化身持续时间延长"
+   },
+   {
+    "effect_id": 17991,
+    "name": "伤害反映（忍术威力）"
+   },
+   {
+    "effect_id": 24591,
+    "name": "伤害反映（阴阳术术力）"
+   },
+   {
+    "effect_id": 56002,
+    "name": "体之深奥"
+   },
+   {
+    "effect_id": 42813,
+    "name": "体力"
+   },
+   {
+    "effect_id": 54289,
+    "name": "冲刺精力消耗降低"
+   },
+   {
+    "effect_id": 9192,
+    "name": "刚之深奥"
+   },
+   {
+    "effect_id": 18364,
+    "name": "合轴可继承稀有度"
+   },
+   {
+    "effect_id": 11014,
+    "name": "咒之深奥"
+   },
+   {
+    "effect_id": 59987,
+    "name": "坚忍度"
+   },
+   {
+    "effect_id": 29849,
+    "name": "对人战术"
+   },
+   {
+    "effect_id": 41041,
+    "name": "对妖战术"
+   },
+   {
+    "effect_id": 54421,
+    "name": "属性攻击伤害"
+   },
+   {
+    "effect_id": 16193,
+    "name": "属性攻击伤害降低"
+   },
+   {
+    "effect_id": 18386,
+    "name": "幸运"
+   },
+   {
+    "effect_id": 16437,
+    "name": "强攻击伤害"
+   },
+   {
+    "effect_id": 39485,
+    "name": "强攻击精力消耗降低"
+   },
+   {
+    "effect_id": 46611,
+    "name": "心之深奥"
+   },
+   {
+    "effect_id": 44634,
+    "name": "技之深奥"
+   },
+   {
+    "effect_id": 47147,
+    "name": "敌人精力耗尽时赋予受到伤害增加"
+   },
+   {
+    "effect_id": 27311,
+    "name": "智之深奥"
+   },
+   {
+    "effect_id": 57328,
+    "name": "武之深奥"
+   },
+   {
+    "effect_id": 52762,
+    "name": "武技伤害"
+   },
+   {
+    "effect_id": 14990,
+    "name": "武技精力伤害"
+   },
+   {
+    "effect_id": 19630,
+    "name": "武技精力消耗降低"
+   },
+   {
+    "effect_id": 4949,
+    "name": "灵力增加量"
+   },
+   {
+    "effect_id": 15994,
+    "name": "精力恢复速度"
+   },
+   {
+    "effect_id": 48209,
+    "name": "精华槽增加量"
+   },
+   {
+    "effect_id": 63934,
+    "name": "精髓并存（共通）"
+   },
+   {
+    "effect_id": 60020,
+    "name": "精髓并存（忍者）"
+   },
+   {
+    "effect_id": 20781,
+    "name": "精髓并存（武士）"
+   },
+   {
+    "effect_id": 10436,
+    "name": "绝妙追杀"
+   },
+   {
+    "effect_id": 37600,
+    "name": "获得精华"
+   },
+   {
+    "effect_id": 33156,
+    "name": "装备品掉落率"
+   },
+   {
+    "effect_id": 22587,
+    "name": "负面效果持续时间缩短"
+   },
+   {
+    "effect_id": 56096,
+    "name": "近距离攻击伤害"
+   },
+   {
+    "effect_id": 41127,
+    "name": "近距离攻击打倒敌人时恢复体力"
+   },
+   {
+    "effect_id": 54282,
+    "name": "近距离攻击的精力消耗降低"
+   },
+   {
+    "effect_id": 27627,
+    "name": "近距离攻击精力伤害"
+   },
+   {
+    "effect_id": 12028,
+    "name": "远距离伤害"
+   },
+   {
+    "effect_id": 61335,
+    "name": "速攻击伤害"
+   },
+   {
+    "effect_id": 45955,
+    "name": "速攻击精力消耗降低"
+   },
+   {
+    "effect_id": 45971,
+    "name": "道具掉落率"
+   },
+   {
+    "effect_id": 23724,
+    "name": "闪避动作精力消耗降低"
+   },
+   {
+    "effect_id": 13555,
+    "name": "防御时的属性攻击伤害降低"
+   },
+   {
+    "effect_id": 64494,
+    "name": "防御精力消耗降低"
+   },
+   {
+    "effect_id": 6410,
+    "name": "阴阳术伤害"
+   }
+  ]
+ }
+}

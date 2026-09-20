@@ -8,7 +8,7 @@ the whole search-application surface:
   certified rarity (3, 4, 5), including the ordered effect, terrain, enemy and
   special-rule arrays and every localized string inside them,
 * the same payloads against the frozen zh-CN capture in
-  `deliverables/m23c-application/catalog_reference_zh.json`, so a later change
+  `tests/fixtures/m23c-application/catalog_reference_zh.json`, so a later change
   to the Python oracle cannot silently redefine what "correct" means,
 * `recommended_level.resolve` over the captured exact, unreachable, saturated,
   clamping and out-of-range inputs,
@@ -43,7 +43,11 @@ ACCELERATOR = ROOT / "bin" / "nioh3_seed_accelerator.dll"
 # Both roles pin the same explicit production version and the same accelerator
 # policy, so the resolved context identity is comparable field-for-field.
 PRODUCTION_GAME_FILE_VERSION = "2.0.2.0"
-CATALOG_REFERENCE = ROOT / "deliverables" / "m23c-application" / "catalog_reference_zh.json"
+# Tracked fixture: the frozen capture must be present in a clean checkout, and
+# `deliverables/` is ignored and absent outside the capture host.
+CATALOG_REFERENCE = (
+    ROOT / "tests" / "fixtures" / "m23c-application" / "catalog_reference_zh.json"
+)
 
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))

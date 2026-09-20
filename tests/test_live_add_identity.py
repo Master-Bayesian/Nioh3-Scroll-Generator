@@ -15,20 +15,17 @@ V201_RESOURCE = REPO / "nioh3_scroll_editor/data/live_add_pc_v201_identity.json"
 V202_RESOURCE = REPO / "nioh3_scroll_editor/data/live_add_pc_v202_identity.json"
 MAPPING_EVIDENCE = (
     REPO
-    / "deliverables/game-version-update-20260919"
-    / "go-v202-candidate-profile/identity-mapping.json"
+    / "tests/fixtures/game-version-update-20260919"
+    / "identity-mapping.json"
 )
-EXPORTER = (
-    REPO
-    / "deliverables/game-version-update-20260919"
-    / "go-v202-candidate-profile/export_v202_identity_resource.py"
-)
+EXPORTER = REPO / "tools/export_v202_identity_resource.py"
 V202_TEXT = Path(
     r"D:\Nioh3_v080_deliverables\deliverables\game-version-update-20260919"
     r"\sections-live\Nioh3_v2.0.2.0.text.bin"
 )
 
 V201_RESOURCE_SHA = "03EB144A66E36A15CA3B8262463B9DB211F7C3ECA7B7910F753E38849ECE27AD"
+V202_MAPPING_SHA = "1F0DB8EB22D8300A561B5FA921D26343431AD9BAF9C2676074C5C696EDE20588"
 
 
 def _load_exporter():
@@ -70,6 +67,7 @@ def test_v202_resource_is_complete_or_honest_about_what_it_covers():
 
 
 def test_mapping_evidence_records_the_gap_precisely():
+    assert _sha256(MAPPING_EVIDENCE) == V202_MAPPING_SHA
     mapping = json.loads(MAPPING_EVIDENCE.read_text(encoding="utf-8"))
     assert mapping["schema"] == "nioh3-live-add-identity-mapping/v1"
     assert mapping["profile_id"] == "pc-v2.02-live-add-candidate"

@@ -34,8 +34,11 @@ from nioh3_scroll_editor.r4_finalizer_resource import (
 
 REPO = Path(__file__).resolve().parents[1]
 PROFILE = REPO / "nioh3_scroll_editor/data/game_versions/pc_v2_02.json"
-LANE = REPO / "deliverables/game-version-update-20260919"
-COMPARISON = LANE / "reports/resource-comparison-v2.02-ng3.json"
+COMPARISON = (
+    REPO
+    / "tests/fixtures/game-version-update-20260919"
+    / "reports/resource-comparison-v2.02-ng3.json"
+)
 
 V202 = (2, 0, 2, 0)
 EXE_SHA = "E22C4A635E4EC1E27A177B76E27D7F6A637F426C0ED3928B60F5693BC52AE130"

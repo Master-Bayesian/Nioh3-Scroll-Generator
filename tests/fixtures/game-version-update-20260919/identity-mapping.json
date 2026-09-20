@@ -1,0 +1,788 @@
+{
+  "entries": [
+    {
+      "candidates": [
+        1002940
+      ],
+      "method": "unique-shape-match",
+      "size": 190,
+      "v201_rva": 1002940,
+      "v201_sha256": "683CCCA20EABB105C8BD40D34CA05109E1C589F28AC1E18DC7F5E2CAA41EC0D8",
+      "v202_rva": 1002940,
+      "v202_sha256": "6F958AA34ED34259DE5B6EF696BF74BC4B2E04496EF0852E7B34A98BC96B0B97"
+    },
+    {
+      "candidates": [
+        1004628
+      ],
+      "method": "unique-shape-match",
+      "size": 64,
+      "v201_rva": 1004628,
+      "v201_sha256": "05D5D0161C421626FA7E43920C654385739B4CBAF547BAC52D6E9BC09641F2BB",
+      "v202_rva": 1004628,
+      "v202_sha256": "05D5D0161C421626FA7E43920C654385739B4CBAF547BAC52D6E9BC09641F2BB"
+    },
+    {
+      "candidates": [
+        2639876
+      ],
+      "method": "unique-shape-match",
+      "size": 318,
+      "v201_rva": 2640076,
+      "v201_sha256": "703BC52E851D0E84629B29BB55C4541233FFBCEDBE8ED256BA2E148AE893AAEF",
+      "v202_rva": 2639876,
+      "v202_sha256": "D3E4D716DE9781F9F897284B573E7681C93E98F8F273C84B132148339BE27D4D"
+    },
+    {
+      "candidates": [
+        2640196
+      ],
+      "method": "unique-shape-match",
+      "size": 263,
+      "v201_rva": 2640396,
+      "v201_sha256": "F5B03245BCB810D1594F4DC0D7410210791B9A34CC66126B3237913D13F29BAC",
+      "v202_rva": 2640196,
+      "v202_sha256": "E1FC06094917866702FC21E3007CABC77FB602EB4B883BD7F7AC35D1FC8F759F"
+    },
+    {
+      "candidates": [
+        3122516
+      ],
+      "method": "unique-shape-match",
+      "size": 43,
+      "v201_rva": 3122724,
+      "v201_sha256": "DE723ED18901317AC979085BFF1304318D588C8BFAD5928B73B0BABE48450513",
+      "v202_rva": 3122516,
+      "v202_sha256": "DE723ED18901317AC979085BFF1304318D588C8BFAD5928B73B0BABE48450513"
+    },
+    {
+      "candidates": [
+        3463992
+      ],
+      "method": "unique-shape-match",
+      "size": 263,
+      "v201_rva": 3463960,
+      "v201_sha256": "EC456A3919C21F1222DEF1302E714AC2E68C2F5963D58CEFCBA50CE518B64F3B",
+      "v202_rva": 3463992,
+      "v202_sha256": "EB963427A56A58CE36198B27490F5450C080C904C560E1E7B29B251A89EBBAA9"
+    },
+    {
+      "candidates": [
+        3632236
+      ],
+      "method": "unique-shape-match",
+      "size": 342,
+      "v201_rva": 3632204,
+      "v201_sha256": "F515BABC2D14EE3E0F84BEEE01220E3745AAED6E08F121AAC861C354B23F935F",
+      "v202_rva": 3632236,
+      "v202_sha256": "28142A0780A59F7A2C5CB24447054B095D6F300ADD4260A02BFDBAA2B8417392"
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 63,
+      "v201_rva": 4178628,
+      "v201_sha256": "D651C6ED421E25E21D1F13B515107731B304AC925E3FAAA6ACA30FEC224A23F3",
+      "v202_rva": 4178660,
+      "v202_sha256": "D651C6ED421E25E21D1F13B515107731B304AC925E3FAAA6ACA30FEC224A23F3"
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 76,
+      "v201_rva": 4179192,
+      "v201_sha256": "96E656EC8B7C403C533B473D969E9BFEE49DA0CC776028F2EA034913354AF018",
+      "v202_rva": 4179224,
+      "v202_sha256": "781F579EEA15D39E0B1EF0D6A2DF1075F63775D9CE76BDC11C1A2972D5B39F4B"
+    },
+    {
+      "candidates": [
+        2804916,
+        2910588,
+        3364180,
+        3623136,
+        4180792,
+        6300192,
+        7230500,
+        7543580,
+        9379676
+      ],
+      "method": "ambiguous-shape-match",
+      "size": 49,
+      "v201_rva": 4180760,
+      "v201_sha256": "F50484F89BF3758467288EC88FF4AF8EDF7C5A561F2090CBADC811F146D70818",
+      "v202_rva": null
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 50,
+      "v201_rva": 5551524,
+      "v201_sha256": "C30BA5CF9F51F122A7ADA6B5D23A3C199C30AC69364B759EF76ACCAF47E69EEB",
+      "v202_rva": 5551668,
+      "v202_sha256": "C30BA5CF9F51F122A7ADA6B5D23A3C199C30AC69364B759EF76ACCAF47E69EEB"
+    },
+    {
+      "candidates": [
+        5553768
+      ],
+      "method": "unique-shape-match",
+      "size": 272,
+      "v201_rva": 5553624,
+      "v201_sha256": "4B4A03B83774C3A8394DF12A1A154997132DA011EE2AD7911865291E517B5E09",
+      "v202_rva": 5553768,
+      "v202_sha256": "A194BF8ED92370C001DFAAA71E089C446262DC53A0EA524B064FAC6B14BA7CD3"
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 50,
+      "v201_rva": 5554876,
+      "v201_sha256": "9711709E090D2D5C3CB0D1AF57000002A0E0C3D58C93E5D5ADE2AB976E6A1DBF",
+      "v202_rva": 5555020,
+      "v202_sha256": "9711709E090D2D5C3CB0D1AF57000002A0E0C3D58C93E5D5ADE2AB976E6A1DBF"
+    },
+    {
+      "candidates": [
+        5555072
+      ],
+      "method": "unique-shape-match",
+      "size": 65,
+      "v201_rva": 5554928,
+      "v201_sha256": "27298CCC3CF80810533EB7021A00D60642C9C261038A9B2E7DAF84A7268C22E7",
+      "v202_rva": 5555072,
+      "v202_sha256": "0A2924865A4AA391A69A665011E14736C67982626F7A75FC8FACD9D9FF47A66D"
+    },
+    {
+      "candidates": [
+        5559076
+      ],
+      "method": "unique-shape-match",
+      "size": 3607,
+      "v201_rva": 5558932,
+      "v201_sha256": "058052247C8FD1851850698D3C594BEADF0D721F1EF265C96F4DCA7A3FF2359C",
+      "v202_rva": 5559076,
+      "v202_sha256": "B075ED4032BD3C7EFCFC6E62D2D8C1C622D7978DE96A60AAD39DADE90CF3AE3F"
+    },
+    {
+      "candidates": [
+        5563764
+      ],
+      "method": "unique-shape-match",
+      "size": 142,
+      "v201_rva": 5563620,
+      "v201_sha256": "242ED3C6635425A4B6453DFDA47776490CC07B344F7EA1B84F01289DFAE5EB12",
+      "v202_rva": 5563764,
+      "v202_sha256": "3551DA94E57E6A7E915A70F95D628B814E4D59608648DD5FDDD5461E99BD1A21"
+    },
+    {
+      "candidates": [
+        5564060
+      ],
+      "method": "unique-shape-match",
+      "size": 138,
+      "v201_rva": 5563916,
+      "v201_sha256": "92B170E54641837F8B9BF7D89FC32D25F6CD59E8E0976EF45BA4A61E10FC63AB",
+      "v202_rva": 5564060,
+      "v202_sha256": "8A46E8995C07BE32383649F25419F5519D443C04DCA523ACC7339F673DE05C84"
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 225,
+      "v201_rva": 5565932,
+      "v201_sha256": "84264BDAE4C3B80043E1C29E74DFF02C6B75F585485330CE590E5DCBA42ADE05",
+      "v202_rva": 5566076,
+      "v202_sha256": "74B757150FB0A9D3517CC643FFE7C0F364E3F94A11F48F508B6E77224E02EDCA"
+    },
+    {
+      "candidates": [
+        5575056
+      ],
+      "method": "unique-shape-match",
+      "size": 172,
+      "v201_rva": 5574856,
+      "v201_sha256": "F544C6A70C268B3B0C01269030DD7F6A947BAA2E39FE7D5A46B25BB0B92CED30",
+      "v202_rva": 5575056,
+      "v202_sha256": "FA99E5B71F60720C0319B659AF221221B9BAE987BC0AD99B1C7019B147A5C8D3"
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 32,
+      "v201_rva": 5575244,
+      "v201_sha256": "10C3DE4F185EE77D2AD17242F74A73F079ADADBCC9B03060BAF52D0BC1997994",
+      "v202_rva": 5575444,
+      "v202_sha256": "B4B3D9FE51EF335AEFCE88A085474B0B13D29513EA618D76A6935FE918896EC9"
+    },
+    {
+      "candidates": [
+        5576872
+      ],
+      "method": "unique-shape-match",
+      "size": 354,
+      "v201_rva": 5576664,
+      "v201_sha256": "DD6B4B79CCD960103E45B29DFDB868B1E22A912F854B057E06E1B581325E759F",
+      "v202_rva": 5576872,
+      "v202_sha256": "5F1F1DFBF4816BE19A77E381C5BA510E672A77C9DB2CCDB11EC55EB44D7D8728"
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 90,
+      "v201_rva": 5582808,
+      "v201_sha256": "65207D706A92925BBDBFAB5290473BFCA2AE3BEA2C20A8CDD42962EA5C88B051",
+      "v202_rva": 5583016,
+      "v202_sha256": "1A42307288DD27822FA2B2C5BA781396013487EB8A6EDA8F94ED106F2D576C2F"
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 95,
+      "v201_rva": 5582900,
+      "v201_sha256": "72B7F6CBE1817A1F744B8BC4B192C620208FA584D988BA64E5A7F008BAF61894",
+      "v202_rva": 5583108,
+      "v202_sha256": "72B7F6CBE1817A1F744B8BC4B192C620208FA584D988BA64E5A7F008BAF61894"
+    },
+    {
+      "candidates": [
+        5602720
+      ],
+      "method": "unique-shape-match",
+      "size": 55,
+      "v201_rva": 5602512,
+      "v201_sha256": "6A1A480AD5BD1BB43D569B5E28F3A37F45A0B414B2AD83E7DC07CF018CE23470",
+      "v202_rva": 5602720,
+      "v202_sha256": "898D65A31327DB9931102DB9A8BDE6531FD5A771C08ED635B027AD2DB761BB61"
+    },
+    {
+      "candidates": [
+        906608,
+        2625520,
+        5602776
+      ],
+      "method": "ambiguous-shape-match",
+      "size": 182,
+      "v201_rva": 5602568,
+      "v201_sha256": "FCF94C82B0989E9480AE6BC4CEA3781E7D47EE7AE3B95B27F0D51AD1A9945427",
+      "v202_rva": null
+    },
+    {
+      "candidates": [
+        5606480
+      ],
+      "method": "unique-shape-match",
+      "size": 185,
+      "v201_rva": 5606272,
+      "v201_sha256": "9A0CCF6C27C88DB16AEFE1FD4CAE59602C628B61BDA37ACA5CDDB6F88E301A3A",
+      "v202_rva": 5606480,
+      "v202_sha256": "32E275FDD4A7E157FEAD509FC0B9E8F009EE0E3EB89845810AC40E66383CE1AA"
+    },
+    {
+      "candidates": [
+        5608100
+      ],
+      "method": "unique-shape-match",
+      "size": 158,
+      "v201_rva": 5607892,
+      "v201_sha256": "542C0EA7C2DB3621EE307509AD5B96E14982B6BB4B3581AEF296BA171E948F3F",
+      "v202_rva": 5608100,
+      "v202_sha256": "7ADA2868377DEF754AA36CA85B193073F0596E413D00C8C3619A2E68C198AF30"
+    },
+    {
+      "candidates": [
+        5993192
+      ],
+      "method": "unique-shape-match",
+      "size": 37,
+      "v201_rva": 5992984,
+      "v201_sha256": "F2CA120AC69B0C7A9C07661AE3901A7247FDFA24D3B9EAB973E5FC082B38AD76",
+      "v202_rva": 5993192,
+      "v202_sha256": "1802AD0B611A365B7C4765BC497F924908428DB5130A830516D7F8B6D85F22F9"
+    },
+    {
+      "candidates": [
+        6311752
+      ],
+      "method": "unique-shape-match",
+      "size": 56,
+      "v201_rva": 6311544,
+      "v201_sha256": "0B3CD82AD5FC0BA8BBB26E1575562A58983CEBBACA70A41E3DCAEC438919C00E",
+      "v202_rva": 6311752,
+      "v202_sha256": "0B3CD82AD5FC0BA8BBB26E1575562A58983CEBBACA70A41E3DCAEC438919C00E"
+    },
+    {
+      "candidates": [
+        6311808
+      ],
+      "method": "unique-shape-match",
+      "size": 33,
+      "v201_rva": 6311600,
+      "v201_sha256": "6FFDA845ED32CF59B3D7FBED1AE051DA5778AF356C792F5B80F2F1F5B904F460",
+      "v202_rva": 6311808,
+      "v202_sha256": "6FFDA845ED32CF59B3D7FBED1AE051DA5778AF356C792F5B80F2F1F5B904F460"
+    },
+    {
+      "candidates": [
+        6311988
+      ],
+      "method": "unique-shape-match",
+      "size": 196,
+      "v201_rva": 6311780,
+      "v201_sha256": "63F4A8496A7CFE98DCF2E9D2AB4F091F654222DA9F2E2650A180D0D813D9DC47",
+      "v202_rva": 6311988,
+      "v202_sha256": "27A6B39AF00AA5940048A76D236691F1849C2DC8713C099360570C8721913295"
+    },
+    {
+      "candidates": [
+        6312704
+      ],
+      "method": "unique-shape-match",
+      "size": 65,
+      "v201_rva": 6312496,
+      "v201_sha256": "3FEE3B395C45A888636DA0DF81155187B72AAFF5D880F9107B35979C9610F214",
+      "v202_rva": 6312704,
+      "v202_sha256": "4AEBEB36A300159E3F45B526A678F27C736027002C0572D834B405B4F2EB0FE7"
+    },
+    {
+      "candidates": [
+        6325440
+      ],
+      "method": "unique-shape-match",
+      "size": 31,
+      "v201_rva": 6325232,
+      "v201_sha256": "11B7DB08FB7F6A84DB423E49D12B2B3DDC82F61FC7F55FAA859CBEB26EDB893C",
+      "v202_rva": 6325440,
+      "v202_sha256": "11B7DB08FB7F6A84DB423E49D12B2B3DDC82F61FC7F55FAA859CBEB26EDB893C"
+    },
+    {
+      "candidates": [
+        6427620
+      ],
+      "method": "unique-shape-match",
+      "size": 46,
+      "v201_rva": 6427412,
+      "v201_sha256": "306C8C1A927991DC89E339C5371B34FAC96094F97C4D64F2994FF0468081CCBE",
+      "v202_rva": 6427620,
+      "v202_sha256": "6F6804D6B7932CEFD520F860C0416C168AB48085BDAD5A2D4F226CBB6AAE672E"
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 66,
+      "v201_rva": 6440008,
+      "v201_sha256": "D9457BDA47028BE2CD643F59F96D52A4E33497FC29DF23B1669F585D89945C95",
+      "v202_rva": 6440216,
+      "v202_sha256": "840BCA864E3406630B6D61A63856157E0C92B54107DD8619247232F451BA5DD1"
+    },
+    {
+      "candidates": [
+        3623740,
+        7155328,
+        9213008,
+        9263096,
+        10675468
+      ],
+      "method": "ambiguous-shape-match",
+      "size": 155,
+      "v201_rva": 7155200,
+      "v201_sha256": "98CFF61A30DCDA99687F15AED9567658F50703DC629FFE629E9532040C062884",
+      "v202_rva": null
+    },
+    {
+      "candidates": [
+        7155260,
+        7155500
+      ],
+      "method": "ambiguous-shape-match",
+      "size": 66,
+      "v201_rva": 7155372,
+      "v201_sha256": "C52820C2DE4AC3C92E6BF78E5B80440B5F2619376D2CE0EF0235B7FD85CB84DA",
+      "v202_rva": null
+    },
+    {
+      "candidates": [
+        7350108
+      ],
+      "method": "unique-shape-match",
+      "size": 355,
+      "v201_rva": 7349980,
+      "v201_sha256": "E9BF4D2EC893F260E86419726A1A2AA8FDBE6C68305BE6FB8F9467DCFDEA9213",
+      "v202_rva": 7350108,
+      "v202_sha256": "187BCA36BDA6CA2C7069751951969D31A4D953807E74ECB0B3FD84159F5D274E"
+    },
+    {
+      "candidates": [
+        5598412,
+        8687896,
+        9379756,
+        9519140,
+        10030244,
+        10418640,
+        10446428,
+        10814052
+      ],
+      "method": "ambiguous-shape-match",
+      "size": 97,
+      "v201_rva": 10418336,
+      "v201_sha256": "5F44BADA1C0078876D06A5CF4BE5A887911BE75C2C47AA8AE93BFD70F1C20918",
+      "v202_rva": null
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 86,
+      "v201_rva": 10552696,
+      "v201_sha256": "F889548DE0E72EABDE2D8B6E46B46077DCFA2166FDE804F0EB1A7166DEDDE604",
+      "v202_rva": 10553000,
+      "v202_sha256": "87FAAF53147B4A37AF56B4F17856B9A459A5DE414C7BF2DB007A17CEF3AE50D2"
+    },
+    {
+      "candidates": [],
+      "method": "decode-mismatch",
+      "size": 33414,
+      "v201_rva": 10622268,
+      "v201_sha256": "777B49C0CF4D59846E7B55B5CC7C899C9BCB167EE8862C990048197928A0BA0E",
+      "v202_rva": null
+    },
+    {
+      "candidates": [
+        10696388
+      ],
+      "method": "unique-shape-match",
+      "size": 945,
+      "v201_rva": 10696084,
+      "v201_sha256": "198220A8C8CAF5FF9734C3AA0CB6FED4824B379ED1AA0ABB0E12F868BA1A2E37",
+      "v202_rva": 10696388,
+      "v202_sha256": "CAA4F8D965C9FB87E569AE5810A08A86A625CA6F3C6D8093209A68F68DE8C127"
+    },
+    {
+      "candidates": [
+        10709704
+      ],
+      "method": "unique-shape-match",
+      "size": 82,
+      "v201_rva": 10709400,
+      "v201_sha256": "C2A97EC8CED43ECC067F13EA2FBA02FE460310E489EC2678A548002D517B27AF",
+      "v202_rva": 10709704,
+      "v202_sha256": "ED242E2EEC4335FB7D218C89A695E99D14B556D06C2A7CE3F53702FEC8713D74"
+    },
+    {
+      "candidates": [
+        11926332,
+        11926368,
+        11926404,
+        11926440,
+        11926512
+      ],
+      "method": "ambiguous-shape-match",
+      "size": 35,
+      "v201_rva": 11926064,
+      "v201_sha256": "6B2EB67D098F78D30F9ADF5FD2DBE84AC8BB540B45068716C7AC4007FD752212",
+      "v202_rva": null
+    },
+    {
+      "candidates": [
+        12128992
+      ],
+      "method": "unique-shape-match",
+      "size": 30,
+      "v201_rva": 12128688,
+      "v201_sha256": "67A1967407E9BB34D1C4E3D55A27B8DBEBB3AF5A7C8BF6760F0F23B1760911D0",
+      "v202_rva": 12128992,
+      "v202_sha256": "202D49C37C051C363528F69A3B37CD0706D6A2D41A2C9453F0DCD7EB7ECD8824"
+    },
+    {
+      "candidates": [
+        12140288
+      ],
+      "method": "unique-shape-match",
+      "size": 400,
+      "v201_rva": 12139984,
+      "v201_sha256": "F5D22FE89069D8308A8E4C4803156A8DFE63D73F64C2C23873F958385C7F709B",
+      "v202_rva": 12140288,
+      "v202_sha256": "3C04769CFA6A9FD47C48F0AEE38D713CDA6F86FB053C32D001C83FB2F03D23FA"
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 263,
+      "v201_rva": 17254304,
+      "v201_sha256": "49C9213526C8D7ED61F289BEBE3E2C4B89AE045CAD385408C36BE53FFC11D503",
+      "v202_rva": 17263040,
+      "v202_sha256": "1EE5FC29872A8AB9FBA6743916DD88EB782224D23D75ADFC2348342599BAC96D"
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 791,
+      "v201_rva": 17254304,
+      "v201_sha256": "7585BF18B58C96A3CB12477FE9090E83030E1C7B36E532675A38CD67639B278E",
+      "v202_rva": 17263040,
+      "v202_sha256": "ACD00D5881D331F49A054E2D7D091CBF4B12C6A32EE8D7A23D77B11E15C0699C"
+    },
+    {
+      "candidates": [
+        19452320
+      ],
+      "method": "unique-shape-match",
+      "size": 128,
+      "v201_rva": 19438480,
+      "v201_sha256": "E6DFD7C28DC99E340A5F56C1627649552F5A01BD3CFF0726447DD7D3E5F7ED68",
+      "v202_rva": 19452320,
+      "v202_sha256": "AAC7EB457EB637CF72A121BE138F238EAEB28B0A1D58FC56B40D0F7B222C7AD4"
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 37,
+      "v201_rva": 31354848,
+      "v201_sha256": "BEA51069CCEC9273C706D80114CD297088DF28F6056B2B1D35A44DF46AE81DED",
+      "v202_rva": 31368776,
+      "v202_sha256": "DDF79D0F6C34D01A495CB47404E62FF12DEC34BF5FF848AA8F86711899B7AB58"
+    },
+    {
+      "candidates": [
+        33216332,
+        34874432,
+        42971840
+      ],
+      "method": "ambiguous-shape-match",
+      "size": 358,
+      "v201_rva": 34860256,
+      "v201_sha256": "D4B9709923CFE04786DA2416E7C008DBEB567F045B01398B484B6A2D3B9FD94B",
+      "v202_rva": null
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 228,
+      "v201_rva": 35064640,
+      "v201_sha256": "59117DAC3EF12BC6EDBC2B9B7278A8D919D995F6384DD9AFCAB60157874B79C8",
+      "v202_rva": 35078828,
+      "v202_sha256": "96C2CE82653C2B51BEA7ABA39C1235AE4F1F92DFE8F255480113DAB448214D18"
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 39,
+      "v201_rva": 35101032,
+      "v201_sha256": "A080B12FB2DFEFD59261C628BEBAB9DD470E452F4708A1DA21155017A6F956DA",
+      "v202_rva": 35115220,
+      "v202_sha256": "609AB301FA12566FC48BF5F6B1A0AA17A42579903976A2337FD7F87521E119AE"
+    },
+    {
+      "candidates": [
+        635152,
+        635180,
+        635808,
+        635836,
+        2327204,
+        5918864,
+        7353008,
+        8667448,
+        9563648
+      ],
+      "method": "ambiguous-shape-match",
+      "size": 28,
+      "v201_rva": 35296960,
+      "v201_sha256": "135C0544F26B2CFFE5D90946CBC8930F63FD9BA789598E6C8A37D42B61AF3CAE",
+      "v202_rva": null
+    },
+    {
+      "candidates": [
+        35302324,
+        35311396
+      ],
+      "method": "ambiguous-shape-match",
+      "size": 46,
+      "v201_rva": 35297204,
+      "v201_sha256": "F407B6C369E919B34AFD388BDB5E9647D25D865354A3CA065B85DC951EF57EA6",
+      "v202_rva": null
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 635,
+      "v201_rva": 36160716,
+      "v201_sha256": "3F05AD434CE638FF70AF2D9170516B964661BBFA51258583754FFA504CC8BFB6",
+      "v202_rva": 36174940,
+      "v202_sha256": "CCC66F5483E5A03EB7F5ADFE3B9BE20A69E7DCBE01F971DF05FBD9B662C9A423"
+    },
+    {
+      "candidates": [
+        36184144
+      ],
+      "method": "unique-shape-match",
+      "size": 46,
+      "v201_rva": 36169920,
+      "v201_sha256": "93D3D0F24FD1FCAB71D77AD619F069AB50945BD1CC081C34BA7E6F145F31E172",
+      "v202_rva": 36184144,
+      "v202_sha256": "A6540D30A6C0ED0CFEF139694556569EE85E80FA0136524EF9A8DE2D2D73E1BE"
+    },
+    {
+      "candidates": [],
+      "method": "accepted-mapping",
+      "size": 39,
+      "v201_rva": 36191760,
+      "v201_sha256": "74EE094F90E0544127854FC22D99438A63C9F30BC110CE70179BC0784906E110",
+      "v202_rva": 36205964,
+      "v202_sha256": "FDBA128B84C84257B6AF8F8C017DF81BA68CD44BAD637804E58E314F28EFA792"
+    },
+    {
+      "candidates": [
+        36206004
+      ],
+      "method": "unique-shape-match",
+      "size": 102,
+      "v201_rva": 36191800,
+      "v201_sha256": "058CC790209B524B5FC9C6B91BA642AA34145D6ED1EFF00D2168C453BA7FCD9C",
+      "v202_rva": 36206004,
+      "v202_sha256": "BC83EF2D54CDE3AE8BAF8174409AEC70F71998785BFDE5AF5929D5130FB1B633"
+    },
+    {
+      "candidates": [
+        36387760
+      ],
+      "method": "unique-shape-match",
+      "size": 80,
+      "v201_rva": 36373556,
+      "v201_sha256": "EA61725ABD55CBA49C2A195298429B6AC2C99BA0CE8CE059CE94225388B2A215",
+      "v202_rva": 36387760,
+      "v202_sha256": "6A8E8B3CEA53532A78013E16BC144A06254E671C181D2503706CFBB9C744C12A"
+    }
+  ],
+  "profile_id": "pc-v2.02-live-add-candidate",
+  "schema": "nioh3-live-add-identity-mapping/v1",
+  "sources": {
+    "accepted_v2.01_resource": "03EB144A66E36A15CA3B8262463B9DB211F7C3ECA7B7910F753E38849ECE27AD",
+    "accepted_v2.02_mapping": "A5807D8705505B9FEC815EFC2D6643E4748A4EF3967E92095401D2A49424B009",
+    "installed_executable": "E22C4A635E4EC1E27A177B76E27D7F6A637F426C0ED3928B60F5693BC52AE130",
+    "v2.01_text": "F8799B5DB54A9CA46F52BCD6C037B2AD9B413DC83A26F1D3F0E61251BFB48023",
+    "v2.02_text": "4CEC8FB6AD867417A76DF8201C1D4F54172443884910463C1953ACAD91AE6C29"
+  },
+  "totals": {
+    "from_accepted_mapping": 17,
+    "from_unique_shape_match": 33,
+    "mapped": 50,
+    "ranges": 60,
+    "unmapped": 10
+  },
+  "unmapped": [
+    {
+      "candidates": [
+        2804916,
+        2910588,
+        3364180,
+        3623136,
+        4180792,
+        6300192,
+        7230500,
+        7543580,
+        9379676
+      ],
+      "reason": "ambiguous-shape-match",
+      "size": 49,
+      "v201_rva": 4180760
+    },
+    {
+      "candidates": [
+        906608,
+        2625520,
+        5602776
+      ],
+      "reason": "ambiguous-shape-match",
+      "size": 182,
+      "v201_rva": 5602568
+    },
+    {
+      "candidates": [
+        3623740,
+        7155328,
+        9213008,
+        9263096,
+        10675468
+      ],
+      "reason": "ambiguous-shape-match",
+      "size": 155,
+      "v201_rva": 7155200
+    },
+    {
+      "candidates": [
+        7155260,
+        7155500
+      ],
+      "reason": "ambiguous-shape-match",
+      "size": 66,
+      "v201_rva": 7155372
+    },
+    {
+      "candidates": [
+        5598412,
+        8687896,
+        9379756,
+        9519140,
+        10030244,
+        10418640,
+        10446428,
+        10814052
+      ],
+      "reason": "ambiguous-shape-match",
+      "size": 97,
+      "v201_rva": 10418336
+    },
+    {
+      "candidates": [],
+      "reason": "decode-mismatch",
+      "size": 33414,
+      "v201_rva": 10622268
+    },
+    {
+      "candidates": [
+        11926332,
+        11926368,
+        11926404,
+        11926440,
+        11926512
+      ],
+      "reason": "ambiguous-shape-match",
+      "size": 35,
+      "v201_rva": 11926064
+    },
+    {
+      "candidates": [
+        33216332,
+        34874432,
+        42971840
+      ],
+      "reason": "ambiguous-shape-match",
+      "size": 358,
+      "v201_rva": 34860256
+    },
+    {
+      "candidates": [
+        635152,
+        635180,
+        635808,
+        635836,
+        2327204,
+        5918864,
+        7353008,
+        8667448,
+        9563648
+      ],
+      "reason": "ambiguous-shape-match",
+      "size": 28,
+      "v201_rva": 35296960
+    },
+    {
+      "candidates": [
+        35302324,
+        35311396
+      ],
+      "reason": "ambiguous-shape-match",
+      "size": 46,
+      "v201_rva": 35297204
+    }
+  ]
+}

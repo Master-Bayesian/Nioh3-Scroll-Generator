@@ -25,3 +25,7 @@ research/owned_breakpoint_lifecycle_ce.lua text eol=lf
 # Preserve downloaded third-party notices byte-for-byte for provenance hashes.
 third_party/rust-notices/** -text
 third_party/rust-notices/**/provenance.json text eol=lf
+
+# Frozen evidence fixtures retain their captured byte identity.
+tests/fixtures/m23c-application/catalog_reference_zh.json -text whitespace=cr-at-eol
+tests/fixtures/game-version-update-20260919/reports/resource-comparison-v2.02-ng3.json -text whitespace=cr-at-eol

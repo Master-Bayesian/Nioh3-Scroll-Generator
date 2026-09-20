@@ -1,0 +1,400 @@
+{
+  "schema": "nioh3-game-version-resource-comparison/v1",
+  "created_at_utc": "2026-09-19T10:20:29.156558+00:00",
+  "inputs": {
+    "baseline_r4": "F:\\Nioh3_ScrollEditor\\nioh3_scroll_editor\\data\\r4_finalizer\\pc_v2_00_02\\resource_v1\\manifest.json",
+    "target_r4": "D:\\Nioh3_v080_deliverables\\deliverables\\game-version-update-20260919\\resource-v2.02-r4\\manifest.json",
+    "baseline_auxiliary": "F:\\Nioh3_ScrollEditor\\nioh3_scroll_editor\\data\\auxiliary_generation\\pc_v2_00_02\\resource_v3\\manifest.json",
+    "target_capture": "D:\\Nioh3_v080_deliverables\\deliverables\\game-version-update-20260919\\capture-v2.02-title-r4\\manifest.json"
+  },
+  "r4": {
+    "files": [
+      {
+        "filename": "bonus_curve/index.bin",
+        "kind": "static",
+        "baseline": {
+          "filename": "bonus_curve/index.bin",
+          "size": 2648,
+          "sha256": "5641EECCEC693E2251152B26E5156EE8E18B73D39DE607C5656DD8BF2E1702AE"
+        },
+        "target": {
+          "filename": "bonus_curve/index.bin",
+          "size": 2648,
+          "sha256": "5641EECCEC693E2251152B26E5156EE8E18B73D39DE607C5656DD8BF2E1702AE"
+        },
+        "equal": true
+      },
+      {
+        "filename": "bonus_curve/rows.bin",
+        "kind": "static",
+        "baseline": {
+          "filename": "bonus_curve/rows.bin",
+          "size": 58256,
+          "sha256": "7F489037FCB47F5ACA7F1EACD5182E896F0E4061971811DE94E44ACF26DC774E"
+        },
+        "target": {
+          "filename": "bonus_curve/rows.bin",
+          "size": 58256,
+          "sha256": "7F489037FCB47F5ACA7F1EACD5182E896F0E4061971811DE94E44ACF26DC774E"
+        },
+        "equal": true
+      },
+      {
+        "filename": "globals/playthrough_progress.bin",
+        "kind": "transient_progress",
+        "baseline": {
+          "filename": "globals/playthrough_progress.bin",
+          "size": 80,
+          "sha256": "8D79225D565B912127C0AAEAA8B7C41FED83CE54C74D1304F2130BE961E7E698"
+        },
+        "target": {
+          "filename": "globals/playthrough_progress.bin",
+          "size": 80,
+          "sha256": "155C9293CDB44DF191F14EFAFD1DF7DD8D89960D963C0A101F337644FFE53C27"
+        },
+        "equal": false
+      },
+      {
+        "filename": "tables/category.bin",
+        "kind": "static",
+        "baseline": {
+          "filename": "tables/category.bin",
+          "size": 1844,
+          "sha256": "D241B12AD80D134EEFD79E497DA888B547CA5D1C3913B6230D67EB652BF433D7"
+        },
+        "target": {
+          "filename": "tables/category.bin",
+          "size": 1844,
+          "sha256": "D241B12AD80D134EEFD79E497DA888B547CA5D1C3913B6230D67EB652BF433D7"
+        },
+        "equal": true
+      },
+      {
+        "filename": "tables/category_count_multiplier.bin",
+        "kind": "static",
+        "baseline": {
+          "filename": "tables/category_count_multiplier.bin",
+          "size": 200,
+          "sha256": "B2E7FD2ACEAE4B499CFD4C86C851DAA1EF784801EBEA108C63619527F95E7CA2"
+        },
+        "target": {
+          "filename": "tables/category_count_multiplier.bin",
+          "size": 200,
+          "sha256": "B2E7FD2ACEAE4B499CFD4C86C851DAA1EF784801EBEA108C63619527F95E7CA2"
+        },
+        "equal": true
+      },
+      {
+        "filename": "tables/effect.bin",
+        "kind": "static",
+        "baseline": {
+          "filename": "tables/effect.bin",
+          "size": 779552,
+          "sha256": "D25D988C5C2A39D079B3D02933EAF6292421B92C5B84F5BF097AC1B8B8792912"
+        },
+        "target": {
+          "filename": "tables/effect.bin",
+          "size": 779552,
+          "sha256": "D25D988C5C2A39D079B3D02933EAF6292421B92C5B84F5BF097AC1B8B8792912"
+        },
+        "equal": true
+      },
+      {
+        "filename": "tables/effect_group.bin",
+        "kind": "static",
+        "baseline": {
+          "filename": "tables/effect_group.bin",
+          "size": 129032,
+          "sha256": "331E0320DA0A4E552684962CAC56D2B70EDDE063B568F62468450E51EC802629"
+        },
+        "target": {
+          "filename": "tables/effect_group.bin",
+          "size": 129032,
+          "sha256": "331E0320DA0A4E552684962CAC56D2B70EDDE063B568F62468450E51EC802629"
+        },
+        "equal": true
+      },
+      {
+        "filename": "tables/item.bin",
+        "kind": "static",
+        "baseline": {
+          "filename": "tables/item.bin",
+          "size": 1398600,
+          "sha256": "1CDAEF2A12D88A602F5B1E5E4198A042C8D8BC1C25AC23A0309C5A05FEC21938"
+        },
+        "target": {
+          "filename": "tables/item.bin",
+          "size": 1398600,
+          "sha256": "F680966B0A21AB64EADF31A26E80F83E2EEEAAC1446E305BB87B9E64617B53CE"
+        },
+        "equal": false
+      },
+      {
+        "filename": "tables/level_curve.bin",
+        "kind": "static",
+        "baseline": {
+          "filename": "tables/level_curve.bin",
+          "size": 5018,
+          "sha256": "E5E098E176C1F299C8A53B7388C02CF26D02EDFFAABF1CA366783E13DDAC9921"
+        },
+        "target": {
+          "filename": "tables/level_curve.bin",
+          "size": 5018,
+          "sha256": "E5E098E176C1F299C8A53B7388C02CF26D02EDFFAABF1CA366783E13DDAC9921"
+        },
+        "equal": true
+      },
+      {
+        "filename": "tables/optional_multiplier.bin",
+        "kind": "static",
+        "baseline": {
+          "filename": "tables/optional_multiplier.bin",
+          "size": 94440,
+          "sha256": "5B5B3D90D506FB24390A7114F552E2B5382F6231EC0AEF8BBE6C8CA1187A9252"
+        },
+        "target": {
+          "filename": "tables/optional_multiplier.bin",
+          "size": 94536,
+          "sha256": "DF3F3F261B84C416F12DC9433BFC5427069B9E6E1AC9528EB1F4D01A3B8B7EEA"
+        },
+        "equal": false
+      },
+      {
+        "filename": "tables/rarity_roll.bin",
+        "kind": "static",
+        "baseline": {
+          "filename": "tables/rarity_roll.bin",
+          "size": 1496,
+          "sha256": "EE21D1749973973FCDA962C13F18FD9C874260DD12F4EE47D66DE2CE4772796F"
+        },
+        "target": {
+          "filename": "tables/rarity_roll.bin",
+          "size": 1496,
+          "sha256": "EE21D1749973973FCDA962C13F18FD9C874260DD12F4EE47D66DE2CE4772796F"
+        },
+        "equal": true
+      },
+      {
+        "filename": "tables/special_context.bin",
+        "kind": "static",
+        "baseline": {
+          "filename": "tables/special_context.bin",
+          "size": 344,
+          "sha256": "E5588CEBA9C7AFB5F251EDDD018FF7DC3CF735C78323E174249AF0432FAEB94C"
+        },
+        "target": {
+          "filename": "tables/special_context.bin",
+          "size": 344,
+          "sha256": "E5588CEBA9C7AFB5F251EDDD018FF7DC3CF735C78323E174249AF0432FAEB94C"
+        },
+        "equal": true
+      }
+    ],
+    "float_constants": [
+      {
+        "name": "forty_six",
+        "baseline_bits": "0x42380000",
+        "target_bits": "0x42380000",
+        "equal": true
+      },
+      {
+        "name": "hundred",
+        "baseline_bits": "0x42C80000",
+        "target_bits": "0x42C80000",
+        "equal": true
+      },
+      {
+        "name": "one_over_100",
+        "baseline_bits": "0x3C23D70A",
+        "target_bits": "0x3C23D70A",
+        "equal": true
+      },
+      {
+        "name": "one_over_1000",
+        "baseline_bits": "0x3A83126F",
+        "target_bits": "0x3A83126F",
+        "equal": true
+      },
+      {
+        "name": "one_over_65536",
+        "baseline_bits": "0x37800000",
+        "target_bits": "0x37800000",
+        "equal": true
+      },
+      {
+        "name": "twenty",
+        "baseline_bits": "0x41A00000",
+        "target_bits": "0x41A00000",
+        "equal": true
+      }
+    ],
+    "mode_gate_bytes": {
+      "baseline": [
+        0,
+        0,
+        0
+      ],
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "equal": true
+    },
+    "static_payloads_equal": false,
+    "playthrough_progress": {
+      "target_effective_selector": 3,
+      "vectors": [
+        {
+          "selector": 1,
+          "baseline": [
+            6510,
+            0,
+            0,
+            6510
+          ],
+          "target": [
+            6510,
+            7710,
+            0,
+            7710
+          ],
+          "equal": false
+        },
+        {
+          "selector": 2,
+          "baseline": [
+            6510,
+            0,
+            0,
+            6510
+          ],
+          "target": [
+            6510,
+            7710,
+            0,
+            7710
+          ],
+          "equal": false
+        },
+        {
+          "selector": 3,
+          "baseline": [
+            6510,
+            7710,
+            0,
+            7710
+          ],
+          "target": [
+            6510,
+            7710,
+            0,
+            7710
+          ],
+          "equal": true
+        },
+        {
+          "selector": 4,
+          "baseline": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "target": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "equal": true
+        },
+        {
+          "selector": 5,
+          "baseline": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "target": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "equal": true
+        }
+      ],
+      "all_equal": false,
+      "effective_selector_equal": true
+    },
+    "playthrough_progress_equal": true,
+    "all_captured_playthrough_progress_equal": false
+  },
+  "auxiliary": {
+    "tables": [
+      {
+        "name": "auxiliary_enemy_candidate",
+        "baseline_row_size": 28,
+        "target_row_size": 28,
+        "baseline_row_count": 487,
+        "target_row_count": 487,
+        "baseline_sha256": "EFB0672B86A5F87D419D752E3B2FD75A51F5182CC1F809705C1627B0D4E9785D",
+        "target_sha256": "EFB0672B86A5F87D419D752E3B2FD75A51F5182CC1F809705C1627B0D4E9785D",
+        "equal": true
+      },
+      {
+        "name": "auxiliary_rule_conflict",
+        "baseline_row_size": 24,
+        "target_row_size": 24,
+        "baseline_row_count": 29,
+        "target_row_count": 29,
+        "baseline_sha256": "DC17F1A2E2B3653DDDEFEC830308CE51E51E1428127248AF98354693D79F5E63",
+        "target_sha256": "DC17F1A2E2B3653DDDEFEC830308CE51E51E1428127248AF98354693D79F5E63",
+        "equal": true
+      },
+      {
+        "name": "auxiliary_terrain",
+        "baseline_row_size": 52,
+        "target_row_size": 52,
+        "baseline_row_count": 20,
+        "target_row_count": 20,
+        "baseline_sha256": "9B7739ED461FD8B6AD82B433655D89D26C073ABB6B14D1C7509868B95AA2F755",
+        "target_sha256": "9B7739ED461FD8B6AD82B433655D89D26C073ABB6B14D1C7509868B95AA2F755",
+        "equal": true
+      },
+      {
+        "name": "scroll_special_rule",
+        "baseline_row_size": 56,
+        "target_row_size": 56,
+        "baseline_row_count": 301,
+        "target_row_count": 301,
+        "baseline_sha256": "E9EB646565CD5BDB24F0D284968BA0D2A5B67A35FB1196C29753C80F2405E46E",
+        "target_sha256": "E9EB646565CD5BDB24F0D284968BA0D2A5B67A35FB1196C29753C80F2405E46E",
+        "equal": true
+      },
+      {
+        "name": "special_context",
+        "baseline_row_size": 48,
+        "target_row_size": 48,
+        "baseline_row_count": 7,
+        "target_row_count": 7,
+        "baseline_sha256": "E5588CEBA9C7AFB5F251EDDD018FF7DC3CF735C78323E174249AF0432FAEB94C",
+        "target_sha256": "E5588CEBA9C7AFB5F251EDDD018FF7DC3CF735C78323E174249AF0432FAEB94C",
+        "equal": true
+      }
+    ],
+    "all_equal": true
+  },
+  "gates": {
+    "static_generation_resources_equal": false,
+    "playthrough_context_equal": true,
+    "product_enablement_allowed": false
+  },
+  "limitations": [
+    "Equal tables do not prove that native control flow is unchanged.",
+    "Native parity and save-layout validation remain separate gates.",
+    "The playthrough context depends on the save loaded by the game process."
+  ]
+}
