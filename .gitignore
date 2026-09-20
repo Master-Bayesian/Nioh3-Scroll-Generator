@@ -114,7 +114,6 @@ research/enemy_states_v201/**/__pycache__/
 !research/test_vectors/r4_seed_183696634_records_sanitized.json
 
 node_modules/
-apps/desktop/dist/
 apps/desktop/test-results/
 apps/tauri/dist/
 apps/tauri/src-tauri/target/

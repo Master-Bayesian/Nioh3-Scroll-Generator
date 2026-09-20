@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import type { UpdateState } from "../desktop/src/portable-update";
+import type { UpdateState } from "../desktop/src/update-state";
 import { localize } from "./presentation";
 import { StartupUpdateCheck } from "./startup-update-check";
 export function UpdateNotice({ onOpen }: { onOpen: () => void }) {

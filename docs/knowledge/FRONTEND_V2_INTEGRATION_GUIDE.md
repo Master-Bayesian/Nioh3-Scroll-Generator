@@ -100,18 +100,17 @@ It is not a playable-save or in-game acceptance test.
 ## Build and diagnostics
 
 Use Node 24 and an isolated Python 3.12 environment installed from
-`packaging/requirements-v2.lock.txt`, plus `npm ci`. Build with:
+`packaging/requirements-v2.lock.txt`, plus `npm ci`. The withdrawn Electron
+packager is gone; build the current Tauri 2 product with:
 
 ```powershell
-./tools/build_frontend_v2.ps1 -Python 'absolute/path/to/python.exe' -Output 'deliverables/frontend-v2/new-portable-directory'
-node tools/verify_frontend_v2.mjs 'deliverables/frontend-v2/new-portable-directory'
+./tools/build_tauri.ps1 -Python 'absolute/path/to/python.exe' -Output 'deliverables/release/portable'
 ```
 
-Output must be a new directory. The script builds both workers and the desktop,
-records locked dependencies and their available license notices, then verifies
-all manifest files. Startup repeats verification before constructing workers.
-Electron uses `original-fs` for physical ASAR verification; its virtual filesystem
-would otherwise classify an archive as a directory. The manifest detects
+Output must be a new directory. The builder compiles the Tauri host and launcher,
+stages both packaged workers for the selected backend, and writes the locked
+dependency/license inventories plus the SHA-256 build manifest. The packaged
+host verifies that manifest before constructing workers. The manifest detects
 accidental differences, not malicious replacement of an unsigned distribution.
 
 One instance owns the normal application profile. Diagnostics export is local
@@ -120,10 +119,11 @@ stderr, environment variables or memory addresses. It never attaches to the
 game or starts a protected host just to collect diagnostics.
 
 The workflow in `.github/workflows/frontend-v2.yml` includes source tests,
-sanitized live-vector replay, locked worker builds, packaged IPC/parity and
-actual portable Electron smoke. Hosted parity explicitly permits CPU fallback;
-local strict-GPU parity is a separate recorded gate. The workflow has not been
-run remotely as part of this working-tree task.
+sanitized live-vector replay, contract/locale regeneration checks and
+`npm run typecheck`; packaged host acceptance belongs to the signed Tauri
+preparation workflow. Hosted parity explicitly permits CPU fallback; local
+strict-GPU parity is a separate recorded gate. The workflow has not been run
+remotely as part of this working-tree task.
 
 ## Remaining scope
 
@@ -159,10 +159,11 @@ and `liveAddGateway` compose the existing `OperationController` for React-indepe
 review, uncertainty handling and local reference restoration. Store only the UUID
 and digest in view preferences; keep plans, raw evidence and backups in the host.
 
-Configure the optional local executor with `configure-live-add.ps1` in a portable
-build (or `tools/configure_live_add.ps1` in source). Its generated README explains
-CE attachment, the local bootstrap and V2 launcher. CE remains open until remote
-ownership is released. Ordinary search/save features do not require CE. Do not
-expose this as universally accepted gameplay: the integration was completed after
-the user closed the game. Final Figma controls should present the existing
+The optional CE transport is selected by the host environment
+(`NIOH3_LIVE_ADD_EXECUTOR=ce` with a matching `NIOH3_LIVE_ADD_PIPE` name and
+`NIOH3_LIVE_ADD_TOKEN`); the withdrawn launcher/configuration helper is removed
+from the tree, so that setup is manual. CE remains open until remote ownership
+is released. Ordinary search/save features do not require CE. Do not expose this
+as universally accepted gameplay: the integration was completed after the user
+closed the game. Final Figma controls should present the existing
 preparation/commit/result flow without redesigning its backend semantics.

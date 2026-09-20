@@ -828,8 +828,10 @@ approval. The retained acceptance is automated debug WebView2 functional
 evidence on synthetic saves. No manual visual acceptance, one-file user
 installation/startup acceptance, real game, real user save, full global Python
 rerun, push, tag, update-feed change, or release acceptance is claimed. PC v2.02
-protected writes remain disabled and unapproved. The old Electron/Python
-source-development launch remains a non-shipped explicit-version follow-up.
+protected writes remain disabled and unapproved. The withdrawn Electron
+source-development launch and its packaging and acceptance tools are removed
+from the tree; the product runtime, build, package and acceptance paths are
+Tauri 2 only.
 
 ## Agent orchestration note
 

@@ -1,4 +1,4 @@
-import type { UpdateState } from "../desktop/src/portable-update";
+import type { UpdateState } from "../desktop/src/update-state";
 
 export type UpdateResult = UpdateState & { canApply: boolean };
 export type UpdateRequest = (params: {

@@ -1,5 +1,5 @@
 /** Native WebView2 acceptance for the v0.7.5 search-continuation hotfix. */
-import { chromium, _electron as electron } from "playwright";
+import { chromium } from "playwright";
 import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, realpath, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -8,7 +8,6 @@ import { createServer } from "node:net";
 import assert from "node:assert/strict";
 
 const seed = Number(process.env.NIOH3_SEARCH_SEED || 226061463);
-const target = process.env.NIOH3_UI_TARGET || "tauri";
 const searchTimeoutMs = Number(process.env.NIOH3_SEARCH_TIMEOUT_MS || 15 * 60 * 1000);
 const cancelWatchMs = Number(process.env.NIOH3_CANCEL_WATCH_MS || 8000);
 const output = resolve(
@@ -34,12 +33,11 @@ const rules = [
 const root = await realpath(await mkdtemp(join(tmpdir(), "nioh3-search-ui-")));
 let child;
 let browser;
-let app;
 let page;
 const timeline = [];
 const report = {
   seed,
-  target,
+  target: "tauri",
   rules: rules.map((rule) => ({ name: rule.name, key: rule.key, label: rule.label })),
   steps: {},
   timeline,
@@ -83,7 +81,7 @@ async function launchTauri() {
   const present = await stat(executable).catch(() => null);
   assert(
     present?.isFile(),
-    `WebView2 target not built: ${executable}. Build the packaged application, or set NIOH3_TAURI_EXE, or run NIOH3_UI_TARGET=electron for a local pre-package check.`,
+    `WebView2 target not built: ${executable}. Build the packaged application or set NIOH3_TAURI_EXE.`,
   );
   const server = createServer();
   await new Promise((done) => server.listen(0, "127.0.0.1", done));
@@ -120,33 +118,8 @@ async function launchTauri() {
   throw Error("WebView2 opened without a page target");
 }
 
-async function launchElectron() {
-  const { _electron } = await import("playwright");
-  let executable;
-  try {
-    executable = await _electron.launch({
-      args: [resolve("apps/desktop/dist/main.cjs")],
-      env: {
-        ...process.env,
-        NIOH3_REVIEW_UI: "1",
-        NIOH3_PYTHON: python,
-        NIOH3_STATE_ROOT: join(root, "state"),
-        LOCALAPPDATA: join(root, "local"),
-      },
-    });
-  } catch (error) {
-    throw Error(`Electron target unavailable: ${String(error)}`);
-  }
-  app = executable;
-  page = await app.firstWindow();
-  await app.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false),
-  );
-}
-
 try {
-  if (target === "tauri") await launchTauri();
-  else await launchElectron();
+  await launchTauri();
   await page
     .getByText("后端已连接，请选择筛选条件。", { exact: true })
     .waitFor({ timeout: 60000 });
@@ -314,9 +287,7 @@ try {
   report.passed = true;
   report.passedAt = new Date().toISOString();
   report.hostPassThrough =
-    target === "tauri"
-      ? "submitted params are read back from the Tauri host (core:current retains the request it forwarded), so this record proves the packaged bridge passed the continuation fields unchanged"
-      : "submitted params come from the Electron worker client; the packaged Tauri pass-through is covered by the same driver on the tauri target";
+    "submitted params are read back from the Tauri host (core:current retains the request it forwarded), so this record proves the packaged bridge passed the continuation fields unchanged";
   await writeFile(
     join(output, "verification.json"),
     `${JSON.stringify(report, null, 2)}\n`,
@@ -331,7 +302,6 @@ try {
   ).catch(() => {});
   throw error;
 } finally {
-  if (app) await app.close().catch(() => {});
   if (browser) await browser.close().catch(() => {});
   if (child && child.exitCode === null) child.kill();
 }

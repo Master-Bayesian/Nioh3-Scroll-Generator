@@ -3,7 +3,7 @@ import type {ProtectedResult} from './operations-api';
 export type CandidateView=JobSnapshot['candidates'][number];
 export interface ReviewApi {
  favorites(params:{action:'list'|'add'|'remove';sample?:import('../../workshop/model').Sample;reference_id?:string;key?:string}):Promise<import('../../workshop/model').Sample[]>;
- update(params:{action:'status'|'check'|'download'|'apply';channel:'stable'|'beta'}):Promise<import('./portable-update').UpdateState & {canApply:boolean}>;
+ update(params:{action:'status'|'check'|'download'|'apply';channel:'stable'|'beta'}):Promise<import('./update-state').UpdateState & {canApply:boolean}>;
  auxiliary(params:{seed:number;playthrough:number}):Promise<NonNullable<CandidateView['auxiliary']>&{initial_challenge_capacity:number}>;
  dataDirectory(action:'inspect'|'set'|'reset'|'open'):Promise<{data_directory:string;restart_required:boolean}|null>;
  openSaveFolder(params:{save_id:string;snapshot_id:string}):Promise<void>;

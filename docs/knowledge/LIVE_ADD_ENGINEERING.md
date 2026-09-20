@@ -126,10 +126,12 @@ Operation and receipt content have consistency digests; these are accidental
 corruption checks, not signatures. Claimed operations remain uncertain across
 host restart until reconciled and cannot be dispatched again.
 
-Connection setup is explicit and optional through `configure-live-add.ps1`.
-It generates a local CE bootstrap and a launcher with an ephemeral connection
-token. The transport permits only ping/preview/insert/status/release/stop; it
-does not interpret request text as Lua. I/O is bounded even if CE stops replying.
+Connection setup is explicit and optional: the host selects the CE executor
+(`NIOH3_LIVE_ADD_EXECUTOR=ce`) and supplies a matching ephemeral
+`NIOH3_LIVE_ADD_PIPE` name and `NIOH3_LIVE_ADD_TOKEN`; the withdrawn
+launcher/configuration helper is removed from the tree. The transport permits
+only ping/preview/insert/status/release/stop; it does not interpret request text
+as Lua. I/O is bounded even if CE stops replying.
 No arbitrary Lua, addresses or raw records are exposed to React. CE owns remote
 execution independently of renderer lifetime. Unacknowledged execution retains
 its allocation; process exit can make host shutdown safe without fabricating a
