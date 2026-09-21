@@ -2820,3 +2820,90 @@ restarts: rename the admin directory back to its original id and run
 
 **Skill promotion:** None. One-off operator failure; recorded for the bounded
 allowlist and delete-pending lessons only.
+
+## 2026-09-20: packaging environment - `pnpm run` converted the shared `node_modules` during the v0.8.0 RC build
+
+**Objective:** Build and verify the final local v0.8.0 Tauri 2 RC from the
+isolated checkout `D:\Nioh3_v080_deliverables\source-03174b9-lf-rc` (detached
+`03174b9201958ebbab65fc4ede4054d5b9dba675`) using the bundled/project dependency
+environment, no `C:` writes and no `node_modules` copy; a temporary junction to
+the shared `F:\Nioh3_ScrollEditor\node_modules` was allowed for resolution.
+
+**Symptom:** The first build attempt stopped immediately because
+`tools/build_tauri.ps1` runs `npm.cmd run typecheck` and this host provides no
+`npm` CLI on `PATH`. To obtain a script runner, `pnpm run typecheck` was invoked
+with the bundled pnpm. Instead of only running the script, pnpm began an install
+over the npm-shaped shared tree (`Progress: resolved 101, reused 39, added 38`),
+moved the direct dependencies into
+`F:\Nioh3_ScrollEditor\node_modules\.ignored\<name>`, created
+`node_modules\.pnpm\...`, and aborted with
+`ERR_PNPM_EISDIR [symlinkAllModules] ... symlink '...\@tauri-apps+cli-win32-x64-msvc@2.11.4\...'`.
+The top-level packages were then absent while no replacement symlinks existed.
+
+**Root cause:** Unverified environment assumption inside a bounded packaging
+ticket. The ticket required the existing dependency tree and no install, but did
+not check which package managers exist before linking that tree. pnpm treats an
+existing npm-installed `node_modules` as an import source and rewrites it
+(move to `.ignored` plus a `.pnpm` virtual store) as part of its dependency-status
+check, so `pnpm run <script>` can mutate a shared dependency cache even when the
+script itself only reads. The shared tree was reachable through a junction from
+the candidate checkout, so the mutation looked local while it affected the
+user's main workspace.
+
+**Impact:** Temporary damage to the shared dependency cache: ten direct-dependency
+directories were relocated and their transitive packages duplicated into
+`.pnpm`. No tracked file, product source, save, or artifact changed; no build
+output was written to `C:`; the RC bytes were unaffected. pnpm also refreshed its
+own cache directory under `C:\Users\oudeb\AppData\Local\pnpm`, which is a `C:`
+cache write against the ticket's no-`C:`-writes intent.
+
+**Evidence:** the incident and repair are recorded for the same candidate in
+`D:\Nioh3_v080_deliverables\deliverables\v080-local-rc-03174b9\REPORT.md`; the
+workaround shim is `D:\Nioh3_v080_deliverables\tmp\v080-03174b9-package\shim\npm.cmd`
+with `npm-shim.js`; the restored tree is `F:\Nioh3_ScrollEditor\node_modules`
+(only `.bin` and `.package-lock.json` hidden entries remain) and the successful
+same-candidate gates are under the same RC directory. The first attempt's console
+error and the pnpm `ERR_PNPM_EISDIR` text exist only in the session transcript:
+that run's `logs\build-tauri.log` was overwritten by the successful rebuild, so
+the ledger entry is its durable record.
+
+**Repair:** Every entry of `node_modules\.ignored` was moved back to the tree
+root, including the nested `@tauri-apps\{api,cli}` and
+`@types\{node,react,react-dom}` packages; `.pnpm` and `.ignored` were deleted
+with verified literal paths inside the `node_modules` root. A minimal
+`npm run <script>` shim (outside the checkout, `cmd.exe` with
+`node_modules\.bin` on `PATH`, exactly as npm executes a script) completed the
+build, and the candidate's `node_modules` junction was removed after
+verification.
+
+**Verification:** `node -e require.resolve(...)` resolves every pinned
+dependency (`typescript`, `esbuild`, `playwright`, `tsx`, `react`, `react-dom`,
+`ajv`, `json-schema-to-typescript`, `@tauri-apps/api`); `tsc --noEmit` exits 0 in
+the shared checkout and `tsx --version` reports `v4.23.13`. The frozen RC stayed
+at `03174b9` with `git status --porcelain --untracked-files=all` empty before and
+after, and every same-candidate package gate passed (packaged parity, WebView2
+shell, add-layout, portable update, host package, three worker identities,
+packaged frontend, one-file launch/update/rollback, native faults).
+
+**Prevention:** Never invoke `pnpm` or `pnpm run` in this npm-lock/npm-shaped
+shared dependency tree. Preflight package-manager availability before linking a
+shared `node_modules`, and prefer the documented bundled `npm` shim or explicit
+`node <entrypoint>` invocations for repository scripts. Treat dependency-cache
+mutation as forbidden during RC builds: link a shared tree read-only, never let
+the runner's own dependency-status check run against it, and remove the junction
+before finishing.
+
+**Reproduction status:** The missing `npm.cmd` is deterministic on this host. The
+pnpm layout conversion reproduced once, partially, and was not retried; the
+package-relocation step is pnpm's documented behaviour for an npm-shaped tree,
+so a repeat is expected if pnpm is used again there.
+
+**Follow-up state:** Closed. The shared tree is functional, the candidate
+junction is removed, and the RC is unaffected and still frozen at `03174b9`.
+No repository, runbook, or skill file was changed by this incident; the
+prevention rules above are the candidate promotion if a later packaging ticket
+needs them.
+
+**Skill promotion:** None for skills. This is a packaging-environment mistake,
+not a reusable workflow; if it recurs, add the package-manager preflight to the
+release runbook instead of a skill.
