@@ -1,7 +1,15 @@
-param([string]$Python='python')
+param(
+    [string]$Python='python',
+    # Where the synthetic fixture is compiled and the fault matrix runs. The
+    # release workflow passes the resolved project build root so no native-fault
+    # output lands in the checkout; the empty default keeps the historical
+    # developer location for every other caller (including the frontend CI job,
+    # which invokes this script with no arguments).
+    [string]$Output
+)
 $ErrorActionPreference='Stop'
 $root=Split-Path -Parent $PSScriptRoot
-$output=Join-Path $root '.codex_tmp/native-fault-ci'
+$output=if([string]::IsNullOrWhiteSpace($Output)){Join-Path $root '.codex_tmp/native-fault-ci'}else{$Output}
 New-Item -ItemType Directory -Force -Path $output | Out-Null
 $locator=Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
 $installation=& $locator -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath

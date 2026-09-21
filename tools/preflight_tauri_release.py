@@ -15,6 +15,10 @@ from typing import Any, Callable
 
 SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
 VERSION_PATTERN = re.compile(r"\d+\.\d+\.\d+(?:-(?:beta|rc)\.\d+)?")
+# The game-identity fixture must be created and read early *without* exporting
+# the synthetic Steam root; matching the invocation keeps a prose mention of the
+# switch from tripping the guard.
+IDENTITY_EXPORT_PATTERN = re.compile(r"prepare_ci_game_identity\.ps1[^\n]*-ExportForActions")
 TAURI_PACKAGE = "nioh3-studio"
 LAUNCHER_PACKAGE = "nioh3-onefile-launcher"
 ARTIFACT_STEM = "Nioh3Studio-${{ steps.version.outputs.value }}-win-x64"
@@ -115,8 +119,33 @@ def _check_update_identity(root: Path) -> dict[str, Any]:
     return {"projectUrl": project_url, "publicKeyBase64": public_key}
 
 
+def _contains(text: str, marker: str | tuple[str, ...]) -> bool:
+    """True when any accepted spelling of one contract marker is present."""
+
+    candidates = marker if isinstance(marker, tuple) else (marker,)
+    return any(candidate in text for candidate in candidates)
+
+
+def _ordered(text: str, earlier: str, later: str) -> bool:
+    """True when both markers exist and `earlier` precedes `later`."""
+
+    first = text.find(earlier)
+    second = text.find(later)
+    return first != -1 and second != -1 and first < second
+
+
 def _check_workflow(root: Path) -> dict[str, Any]:
+    """The bounded release pipeline the workflow must still describe.
+
+    This is the regular Rust/Tauri preparation graph: cheap source and identity
+    checks, one shared external build root, the packaged acceptance legs, and a
+    signing step that runs last. The full unit suites belong to the independent
+    Tests workflow, so their commands are asserted *absent* here rather than
+    counted: a release run that pays for them again is the regression.
+    """
+
     workflow = (root / ".github/workflows/release.yml").read_text(encoding="utf-8").replace("\r\n", "\n")
+    tests = (root / ".github/workflows/tests.yml").read_text(encoding="utf-8").replace("\r\n", "\n")
     required = {
         # `workflow_dispatch` may be written inline or as a mapping that carries
         # its inputs; both are manual-only and both are accepted here.
@@ -135,20 +164,106 @@ def _check_workflow(root: Path) -> dict[str, Any]:
         "production manifest builder": "node tools/build_tauri_update_manifest.mjs $zip",
         "outer verification": "node apps/tauri/verify-onefile.mjs",
         "outer update verification": "node apps/tauri/verify-onefile-update.mjs",
+        "outer rollback verification": "node apps/tauri/verify-onefile-rollback.mjs",
+        "packaged frontend verification": "node apps/tauri/verify-packaged-frontend.mjs",
         "update manifest upload": "deliverables/release/tauri-update.json",
         "test inventory upload": "deliverables/release/test-inventory.json",
+        # The bounded dispatch contract: one explicit, defaulted acceptance
+        # profile rather than a full extended run on every preparation.
+        "extended search input": "extended_search:",
+        "boolean dispatch input": "type: boolean",
+        "bounded profile default": "default: false",
+        "explicit profile mapping": (
+            "NIOH3_UI_PROFILE: ${{ inputs.extended_search && 'extended' || 'release' }}"
+        ),
+        "profile flag": "--profile $env:NIOH3_UI_PROFILE",
+        # One shared external build root and Cargo target for every step, cached
+        # by its real path instead of the unused workspace `target/` dirs.
+        "shared build root": "NIOH3_BUILD_ROOT=$root",
+        "shared Cargo target": "CARGO_TARGET_DIR=$target",
+        "cached Cargo target": (
+            "cache-directories: ${{ runner.temp }}/nioh3-release-build/build-cache/tauri-target"
+        ),
+        # Failure evidence: the exact unsigned candidate bytes and the
+        # acceptance evidence are retained separately from the signed artifact.
+        "durable failure candidate": "tauri-candidate-for-diagnosis",
+        "retained acceptance evidence": "if: always()",
+        # The synthetic Steam root is activated explicitly, after the build.
+        "late game identity activation": "ProgramFiles(x86)=$programFiles",
     }
-    missing = [
-        name
-        for name, marker in required.items()
-        if not any(
-            candidate in workflow
-            for candidate in (marker if isinstance(marker, tuple) else (marker,))
-        )
-    ]
+    # Commands the independent Tests workflow already runs. Finding them here
+    # again means the release job re-acquired a duplicate unit pass or the
+    # retired Python backend lane.
+    retired = {
+        "retired Python backend dispatch": "worker_backend",
+        "duplicated npm unit suite": "npm test",
+        "duplicated cargo unit suite": "cargo test",
+        "legacy full Python suite": "python -m unittest",
+        "legacy old-backend regression": "run_cpu_only_tests.py",
+        "PyInstaller worker build": "-m pyinstaller",
+    }
+    # Cheap prerequisites and the shared environment must precede the expensive
+    # build, and signing must follow every acceptance leg.
+    order = {
+        "hosted WebView2 before the build": ("./tools/prepare_webview2_test.ps1", "build_tauri.ps1"),
+        "synthetic game identity before the build": ("prepare_ci_game_identity.ps1", "build_tauri.ps1"),
+        "shared build root before the build": ("NIOH3_BUILD_ROOT=$root", "build_tauri.ps1"),
+        "packaged frontend acceptance before signing": (
+            "verify-packaged-frontend.mjs",
+            "build_tauri_update_manifest.mjs",
+        ),
+        "one-file rollback acceptance before signing": (
+            "verify-onefile-rollback.mjs",
+            "build_tauri_update_manifest.mjs",
+        ),
+        "failure candidate retained after signing": (
+            "build_tauri_update_manifest.mjs",
+            "tauri-candidate-for-diagnosis",
+        ),
+        "game identity activated only after the build": (
+            "build_tauri.ps1",
+            "ProgramFiles(x86)=$programFiles",
+        ),
+    }
+    independent = {
+        "windows-tests": "windows-tests:",
+        "rust-crates": "rust-crates:",
+        "rust-packaging": "rust-packaging:",
+    }
+
+    failures = []
+    missing = [name for name, marker in required.items() if not _contains(workflow, marker)]
     if missing:
-        raise ValueError("Release workflow contract is missing: " + ", ".join(missing))
-    return {"artifactStem": ARTIFACT_STEM, "markers": sorted(required)}
+        failures.append("Release workflow contract is missing: " + ", ".join(missing))
+    returned = [name for name, marker in retired.items() if _contains(workflow, marker)]
+    if returned:
+        failures.append("Release workflow re-added retired or duplicated gates: " + ", ".join(returned))
+    misordered = [
+        name for name, (earlier, later) in order.items() if not _ordered(workflow, earlier, later)
+    ]
+    if misordered:
+        failures.append("Release workflow step order is wrong: " + ", ".join(misordered))
+    if IDENTITY_EXPORT_PATTERN.search(workflow) is not None:
+        failures.append(
+            "The synthetic game identity must be created and read early without "
+            "-ExportForActions; exporting it as ProgramFiles(x86) before the build "
+            "would repoint compiler and SDK discovery"
+        )
+    absent_jobs = [name for name, marker in independent.items() if not _contains(tests, marker)]
+    if absent_jobs:
+        failures.append(
+            "The independent Tests workflow no longer owns the full unit lanes: "
+            + ", ".join(absent_jobs)
+        )
+    if failures:
+        raise ValueError("; ".join(failures))
+    return {
+        "artifactStem": ARTIFACT_STEM,
+        "markers": sorted(required),
+        "retiredAbsent": sorted(retired),
+        "ordered": sorted(order),
+        "independentTestsJobs": sorted(independent),
+    }
 
 
 def _check_git(root: Path, expected_sha: str | None, require_clean: bool) -> dict[str, Any]:

@@ -1,346 +1,170 @@
 # Windows Tauri release runbook
 
-This is the authoritative release procedure for the current Tauri 2 product.
-The withdrawn Electron v0.7.0 and the legacy Tk executable use different
-package and update formats and must never enter this workflow.
+This is the procedure for the Rust-backed Tauri 2 single-EXE product. Current
+release status belongs in [CURRENT_HANDOFF](CURRENT_HANDOFF.md); completed
+releases have separate immutable publication records. The v0.8.0 evidence is
+[here](TAURI_V080_PUBLICATION_20260921.md).
 
-The default product is now one install-free outer EXE. Read
-`TAURI_ONEFILE_DELIVERY_20260912.md`. Every release requires explicit owner
-authorization before pushing the candidate, creating a tag, or publishing
-assets. A local review artifact or a successful workflow is not publication
-authorization. The v0.7.3 local-review-only boundary ended when the owner
-authorized and completed its publication; do not carry that historical gate
-forward as current project status.
+## 1. Choose the work, then its acceptance
 
-See `V070_HOSTED_BUILD_FIXES_20260909.md` for the historical failures that
-established the source, line-ending, native-identity, and hosted WebView2 gates.
-See `TAURI_V073_PUBLICATION_20260912.md` for the exact v0.7.3 hosted failures,
-successful run, promoted hashes, and public-redownload verification.
+A release verifies that reviewed behavior survives packaging and delivery. It
+does not restart reverse engineering or exhaustively rediscover known seeds.
 
-Current release: `v0.8.0` is published from the immutable commit
-`3798693c48cef2238480da66dc0cc0d2a098c78b`, hosted release run `35625590622`
-success, with an unauthenticated public re-download re-verified at 27/27 checks
-(see `TAURI_V080_PUBLICATION_20260921.md`). The next release starts from this
-baseline and still needs its own candidate. The Rust backend with the Tauri 2 shell is the sole shipping
-architecture; its live-game acceptance covers exactly the PC v2.02 native
-add/persistence path at seed `123456`, with every other native write unverified
-and disabled, so the procedure below is a release-and-verify path rather than
-blanket game acceptance or an architecture review.
+| Lane | Purpose | Normal trigger |
+| --- | --- | --- |
+| Source checks | Versions, generated contracts/locales, resource/ABI identity, type checking | Before the release build |
+| Bounded release E2E | Known-seed generation, small searches/continuation, actual packaged UI/worker graph, isolated save flows, one-file launch/update/rollback | Every candidate |
+| Extended search | Full rare-condition search and solver/performance investigation | Explicitly selected for a relevant solver change or investigation |
+| Development/reference | Broad unit, migration, Python-reference and research suites | Independent development CI, not duplicated in release |
+| Live game | Version-matched acceptance of changed native writes | When that implementation or supported game contract changes |
 
-## 1. Freeze one candidate commit
+An actual product failure remains a blocker regardless of which lane finds it.
+Choose a check for a named risk, not for a larger test count. Known seeds are
+inputs to generation checks, not prizes to rediscover in millions of CPU trials.
+Synthetic fixtures, test inventory and offline parity retain their named scope;
+none alone proves game legality or real-save acceptance.
 
-1. Read `CURRENT_HANDOFF.md`, the previous publication record, and the release
-   notes.
-2. Inspect `git status`, the complete diff, remote `main`, existing tags, and
-   GitHub authentication. Stage only reviewed source, tests, generated contracts,
-   generated locales, and release documentation. Never use `git add .` in this
-   research checkout.
-3. Keep saves, captures, private dumps, signing keys, `.codex_tmp`, local build
-   output, and unrelated research outside the commit.
-4. Synchronize the version in `package.json`, `package-lock.json`,
-   `nioh3_scroll_editor/version.py`, `apps/tauri/src-tauri/Cargo.toml`,
-   `Cargo.lock`, `tauri.conf.json`, `apps/launcher/Cargo.toml` and its lockfile,
-   the visible-version acceptance, README files,
-   and release notes.
-5. Commit before packaging. Any later product-code change creates a new candidate
-   and invalidates the previous build evidence.
+## 2. Freeze and check cheap prerequisites
 
-The official builder sets `NIOH3_REQUIRE_CLEAN_SOURCE=1`. A build from a dirty
-tree is not a release artifact even if its tests pass.
+Read the current version scope and intended diff. Preserve unrelated work.
+Synchronize package/lock files, Python version metadata, both Rust packages and
+lockfiles, Tauri config and release notes. Stage an explicit whitelist.
 
-Query the current GitHub release state before selecting a version: publication
-records describe the event, but an owner can subsequently withdraw a release
-to draft. Never infer the current latest download from an old publication note.
-
-## 2. Run local checks in failure-cost order
-
-Prepare an isolated Python 3.12 environment from
-`packaging/requirements-v2.lock.txt` and `requirements-dev.txt`, then use its
-explicit executable through `NIOH3_PYTHON`; do not assume `python` is on PATH.
-Run every Python tool and test through `tools/run_python_tests.ps1`, and keep
-`CARGO_TARGET_DIR` on an external target rooted on
-the D: delivery volume for this section and the build in section 3, never in the
-checkout or the `C:` system temp:
+Use PowerShell 7 and the actual project Python environment:
 
 ```powershell
-$env:PYTHONUTF8 = '1'
-$env:NIOH3_PYTHON = '<python-environment>/Scripts/python.exe'
-$env:NIOH3_BUILD_ROOT = '<D:-rooted build root, e.g. D:\<build-root>>'
-$env:CARGO_TARGET_DIR = Join-Path $env:NIOH3_BUILD_ROOT 'build-cache/tauri-target'
-
-npm ci --no-fund
-npm run contracts
-./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -ScriptPath tools/export_knowledge_catalog_manifest.py
-./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -ScriptPath tools/export_v2_ui_locales.py
-git diff --exit-code -- packages/contracts apps/workshop/ui-locales.json
-node tools/audit_v2_ui_locales.mjs
-./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -ScriptPath tools/verify_native_build_manifest.py
-./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -ScriptPath tools/write_test_inventory.py -ScriptArgument @('--output','deliverables/release/test-inventory.json')
-./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -ScriptPath tools/run_cpu_only_tests.py
-./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -TestPath @('tests') -PytestArgument @('-q')
-./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -TestPath @('tests/test_title_save_observer.py','tests/test_title_save_capture_tools.py')
-npm test
-npm run typecheck
-node apps/tauri/build.mjs
-cargo test --locked --manifest-path apps/tauri/src-tauri/Cargo.toml
-cargo test --locked --manifest-path apps/launcher/Cargo.toml
-./tools/verify_native_faults.ps1 -Python $env:NIOH3_PYTHON
+$env:NIOH3_PYTHON = '<project-environment>/Scripts/python.exe'
+./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -ScriptPath tools/preflight_tauri_release.py
 ```
 
-Regenerated contracts, catalogs, and locales must produce no tracked diff; the
-`git diff --exit-code -- packages/contracts apps/workshop/ui-locales.json` above
-is that gate.
-Native source/DLL/ABI identity must remain exact. Do not update identity hashes
-to bless a CRLF checkout or a modified binary. Record unique Python test count
-and hardware skips separately from untracked developer tests.
+During development a dirty observation is expected. A candidate build uses a
+clean checkout with `--require-clean --expected-sha <full-sha>`. Source changes
+produce a new candidate identity; the build manifest must name its real source.
 
-Two gate lanes exist side by side. The shipped `rust` selection gates the six
-packaged crates (`nioh3-domain`, `nioh3-data`, `nioh3-worker`, `nioh3-save`,
-`nioh3-runtime`, `nioh3-protected`) directly on the release job with the crate
-test commands the Tests `rust-crates` job also runs. The legacy `python`
-backend is the development/parity/oracle lane: its `tools/run_cpu_only_tests.py`
-regression, full `tests` unittest discovery, and title-save research tests run
-there and in the independent Tests lane as reference evidence, never as the
-arbiter of the Rust product, and `cargo clippy`/`cargo fmt` stay in the Tests
-`rust-crates` job rather than being repeated in the release run.
+The project build-root resolver keeps local Cargo targets, staging and test
+temporary files off the checkout and C: system temp. Routine builds reuse the
+shared target. Explicit NIOH3_BUILD_ROOT/CARGO_TARGET_DIR take precedence.
+An exceptional isolated Cargo target is disposable and cleaned when finished.
 
-## 3. Build and validate from a clean checkout
+Before compilation, the workflow checks versions, generated files, native
+resource identity and tool availability. Hosted Windows has neither the game
+nor a GPU. Its setup resolves the real WebView2 runtime first, then creates a
+never-executed game-version PE in an isolated Steam tree with
+`tools/prepare_ci_game_identity.ps1`. This supplies VERSIONINFO for normal host
+discovery only; it supplies no native-write authority. Create and verify it early,
+but activate its discovery environment only after compilation so compiler/SDK
+discovery retains the real Windows environment. Local acceptance uses the
+actual installed game instead of adding a second, ambiguous installation.
 
-The hosted workflow may perform the one clean release build after local source
-checks. In that case download its exact artifacts for local WebView2, one-file,
-update, and live-game acceptance before publication; do not build a redundant
-local candidate merely to repeat the hosted compilation.
+## 3. Prepare once, accept the actual bytes
 
-Build the portable directory once, test its real workers and WebView2 host, then
-derive both downloadable artifacts from that same verified directory. Set the
-clean-source and packaged-parity flags here, pin the game file version the
-packaged-parity gate launches both workers with, keep the external
-`CARGO_TARGET_DIR` from section 2, and default the dispatch-equivalent worker
-backend to the shipped `rust` graph:
+After authorization to push/dispatch, use `.github/workflows/release.yml`.
+Normal preparation uses bounded release acceptance; extended search is opt-in.
 
 ```powershell
-$env:NIOH3_REQUIRE_CLEAN_SOURCE = '1'
-$env:NIOH3_PARITY_ALLOW_CPU = '1'
-# The exact selected generation resource / game file version the packaged stage
-# is built for; it must move with the pinned current resource version.
-$env:NIOH3_PARITY_GAME_FILE_VERSION = '2.0.2.0'
-$env:NIOH3_WORKER_BACKEND = 'rust'
-
-# The Tauri builder does not read NIOH3_REQUIRE_CLEAN_SOURCE itself, so repeat
-# the workflow's own clean-checkout assertion before packaging.
-if (git status --porcelain) { throw 'Source checkout is dirty' }
-./tools/build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output deliverables/release/portable -WorkerBackend $env:NIOH3_WORKER_BACKEND
-
-$workers = 'deliverables/release/portable/worker'
-$workerManifest = Get-Content -LiteralPath (Join-Path $workers 'worker-backend.json') -Raw | ConvertFrom-Json
-if ($workerManifest.backend -ne 'rust') { throw "OPTIN_BACKEND_INVALID: $($workerManifest.backend)" }
-if (-not $workerManifest.excludedProductionResources -or
-    $workerManifest.excludedProductionResources -notcontains 'packaging/search-worker.spec' -or
-    $workerManifest.excludedProductionResources -notcontains 'packaging/protected-worker.spec') {
-  throw 'OPTIN_EXCLUSIONS_UNDECLARED'
-}
-foreach ($entry in $workerManifest.binaries) {
-  $binary = Join-Path $workers $entry.packagedName
-  if (-not (Test-Path -LiteralPath $binary)) { throw "OPTIN_WORKER_MISSING: $($entry.packagedName)" }
-  if ((Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLower() -ne $entry.sha256) { throw "OPTIN_WORKER_HASH_MISMATCH: $($entry.packagedName)" }
-}
-if (Test-Path -LiteralPath (Join-Path $workers 'python-build-environment.json')) { throw 'OPTIN_PYTHON_RESOURCE_PRESENT' }
-if (Get-ChildItem -LiteralPath $workers -Directory -Recurse -Filter '_internal' -ErrorAction SilentlyContinue) { throw 'OPTIN_PYINSTALLER_OUTPUT_PRESENT' }
-
-./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -ScriptPath tools/archive_frontend_v2.py -ScriptArgument @('deliverables/release/portable','deliverables/release/Nioh3Studio-<version>-win-x64.zip')
-./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -ScriptPath tools/build_tauri_onefile.py -ScriptArgument @('deliverables/release/Nioh3Studio-<version>-win-x64.zip','deliverables/release/Nioh3Studio-<version>-win-x64.exe')
-
-$env:NIOH3_WORKER_EXE = Join-Path $PWD 'deliverables/release/portable/worker/nioh3-search-worker.exe'
-$env:NIOH3_PROTECTED_WORKER_EXE = Join-Path $PWD 'deliverables/release/portable/worker/nioh3-protected-worker.exe'
-$env:NIOH3_TAURI_EXE = Join-Path $PWD 'deliverables/release/portable/Nioh3Studio.exe'
-npm run test:packaged
-node apps/tauri/verify.mjs
-$env:NIOH3_UI_OUTPUT = Join-Path $PWD 'deliverables/frontend-v2/tauri-acceptance/add-layout'
-node apps/tauri/verify-add-layout.mjs
-node apps/tauri/verify-update.mjs
-
-New-Item -ItemType Directory -Force -Path 'deliverables/frontend-v2/tauri-acceptance/rust-packaged' | Out-Null
-$env:NIOH3_WORKER_IDENTITY_OPT_IN = '1'
-node apps/tauri/verify-host-package.mjs --package deliverables/release/portable --exe $env:NIOH3_TAURI_EXE --out deliverables/frontend-v2/tauri-acceptance/rust-packaged/host-package.json
-foreach ($role in @('offline_search','save','runtime')) {
-  node apps/tauri/verify-worker-identity.mjs --runtime deliverables/release/portable --role $role --out "deliverables/frontend-v2/tauri-acceptance/rust-packaged/identity-$role.json"
-}
-node apps/tauri/verify-packaged-frontend.mjs --package deliverables/release/portable --exe $env:NIOH3_TAURI_EXE --python $env:NIOH3_PYTHON --out deliverables/frontend-v2/tauri-acceptance/rust-packaged
-
-$env:NIOH3_ONEFILE_EXE=Join-Path $PWD 'deliverables/release/Nioh3Studio-<version>-win-x64.exe'
-node apps/tauri/verify-onefile.mjs
-node apps/tauri/verify-onefile-update.mjs
-node apps/tauri/verify-onefile-rollback.mjs
+gh workflow run release.yml --ref <candidate-branch> -f extended_search=false
+gh run list --workflow release.yml --commit <full-sha> --json databaseId,headSha,status,conclusion
 ```
 
-`NIOH3_WORKER_IDENTITY_OPT_IN` mirrors the hosted gate; a staged Rust manifest
-already asserts the identity by default, and `NIOH3_WORKER_IDENTITY_PROTECTED`
-remains the explicit override for a package that carries no manifest.
+Follow the exact run ID. One worker can wait for its completion and report the
+result or first concrete failure; the root does not repeatedly read all logs.
 
-On GitHub runners only, run this in a separate Actions step before the UI gates:
+The workflow is the executable command source of truth. Its stages are:
+
+1. Cheap source/environment preflight.
+2. One clean portable build using the shared external Cargo cache.
+3. Archive that same directory and wrap its ZIP with its own launcher.
+4. Bounded real packaged E2E, with isolated writable state and retained evidence.
+5. Verify limits and sign the update manifest; upload the six release assets.
+
+The frontend driver accepts `--profile release` or `--profile extended` and
+records the selected scope. Keep its direct known-seed assertions and small
+search/cancel/resume flows separate from the optional long solver search.
+Release-mode driver results identify an actual release host, not a debug one.
+
+Retain candidate and diagnostic artifacts when a later stage fails. Inspect the
+existing bytes before deciding whether compilation is needed again. A product
+change invalidates prior product acceptance; a harness/environment repair needs
+its own truthful evidence. Every required release gate must pass before signing
+and promotion. Earlier successes cannot substitute for a failed gate.
+
+The current preparation workflow does not resume from an injected candidate.
+Its retained unsigned artifact supports diagnosis and focused local retesting;
+a fresh dispatch rebuilds at the selected ref using the shared Cargo cache.
+Promotion is separate and consumes a successful run without rebuilding.
+
+### Failure handling
+
+Record source SHA, run/step, error and evidence path. For UI failures preserve
+page state, worker status/progress and logs. Synchronize asynchronous acceptance
+on real responses/process outcomes, not tiny timing windows. A measured,
+intentionally long workload belongs in the extended lane rather than acquiring
+an ever-larger routine-release timeout.
+
+An observation or network timeout first checks the same live run or transfer.
+Use bounded retries for transport, not for known deterministic failures.
+One factual ledger entry records the defect and repair. Historical failure
+catalogs are references for matching issues, not instructions loaded every time.
+
+## 4. Verify and promote without rebuilding
+
+`.github/workflows/publish-release.yml` is manual only. Its inputs identify the
+successful preparation run, full product SHA and version. Publication defaults
+off; the corresponding PowerShell helper also defaults to a read-only plan.
 
 ```powershell
-./tools/prepare_ci_game_identity.ps1 -Root (Join-Path $env:RUNNER_TEMP 'nioh3-game-identity') -GameFileVersion '2.0.2.0' -ExportForActions
+./tools/publish_tauri_release.ps1 -RunId <successful-run-id> -ExpectedSha <full-sha> -Version <version> -Output <fresh-deliverables-directory> -Python $env:NIOH3_PYTHON
 ```
 
-`tools/prepare_ci_game_identity.ps1` writes a Windows `VERSIONINFO` resource onto
-a synthetic, never-executed executable inside an isolated Steam root and exports
-that root for subsequent Actions steps. It supplies only the game identity the packaged
-host discovers and reads; it is not game acceptance and not native-write
-acceptance, and no product override or game authority comes from it. The workflow
-runs `tools/prepare_webview2_test.ps1` earlier to resolve the real WebView2 runtime
-before replacing the Steam-discovery environment value. Local verification uses
-the actual installed game instead of adding this fixture alongside it.
+The helper checks the exact repository, workflow, successful run and source,
+downloads the prepared artifact, and emits a plan. It verifies:
 
-The outer EXE is the default player download: it launches directly without
-installation or manual extraction. The ZIP remains the signed internal input to
-the updater, including older Tauri directory-mode clients. Keep the manifest-owned
-`launcher/Nioh3Launcher.exe` inside that ZIP so a one-file update can reconstruct
-the new outer EXE. Never advertise the inner application EXE as self-contained.
-Do not run the archived NSIS builder against the new candidate; it patches the
-inner application and would invalidate the already verified package.
+- exactly six assets: outer EXE, EXE sidecar, update ZIP, ZIP sidecar,
+  tauri-update.json and test-inventory.json;
+- production Ed25519 authenticity, stable version/platform and official URLs;
+- both sidecars, ZIP CRC and unique safe paths, every manifest member's size/hash;
+- clean source SHA, outer footer/payload and exact manifest-owned launcher;
+- the 60 MiB EXE/ZIP limits and branch/tag state.
 
-Verify direct launch with isolated local app data, no installation registration,
-cache reuse/pruning, and the real WebView2 acceptance driver. Verify both the
-legacy directory updater and outer-EXE replacement, acknowledgement, rollback
-and cleanup. Keep previous installer artifacts only as historical local evidence.
+After explicit authorization, add `-Publish` using a fresh output directory,
+or dispatch the publication workflow with its explicit publication switch.
+That path promotes the immutable source, uploads those same six files and
+makes the release public/latest. It never recompiles or creates a new signature.
 
-Limits: ZIP and outer EXE must each be at most 60 MiB. Every manifest entry must
-match its size and SHA-256; the archive must contain no traversal paths or extra
-files. The manifest must record the exact candidate SHA and `dirty: false`.
+An existing matching public release is verification-only. Conflicting tags,
+assets or unexplained partial state stop with an actionable report; automation
+does not overwrite them or move a released tag. A full release authorization
+covers the agreed sequence, including in-scope repairs. A new version, target,
+destructive replacement or safety boundary needs a new owner decision, not
+repeated approval of the same operation.
 
-## 4. Prepare signed hosted artifacts
+## 5. Verify public delivery and close
 
-Push the candidate branch and dispatch `release.yml` on that exact ref:
+Publication is complete only when public downloads and the latest stable feed
+agree with the accepted bytes. The verifier can also run independently:
 
 ```powershell
-gh workflow run release.yml --ref <candidate-branch>
-gh run list --commit <candidate-sha> --json databaseId,headSha,status,conclusion,workflowName
+./tools/run_python_tests.ps1 -Python $env:NIOH3_PYTHON -ScriptPath tools/verify_release_artifacts.py -ScriptArgument @('--directory','<six-assets-directory>','--version','<version>','--expected-sha','<full-sha>','--report','<verification.json>','--public','--public-download-dir','<fresh-public-directory>')
 ```
 
-Inspect runs by exact commit SHA. The workflow installs locked dependencies,
-runs source and native-fault tests, builds from a clean Windows checkout, accepts
-the packaged workers, host graph, worker identities, shipped frontend and one-file
-behavior, builds both downloads, and signs `tauri-update.json`. It prepares
-artifacts only; it does not publish a release.
+Persist the plan, verification JSON and acceptance artifacts. Report the actual
+gate scope, especially extended checks not run. Test inventory is a catalog,
+not a claim that every listed test ran.
 
-There is no candidate-reuse branch in the current workflow. The v0.7.1
-signing-only rescue route was tied to one historical acceptance record and was
-removed so it cannot accidentally emit a later release with hard-coded v0.7.1
-names.
+Update the publication record and current handoff in a documentation-only
+commit after the immutable product tag. Report published/not published first,
+with the outer EXE and Release links. Disable the release-specific wakeup.
+A workflow, tag or signed local file alone is not a completed public release.
 
-If the run fails, inspect `gh run view <run-id> --log-failed`, fix the observed
-cause, commit the fix, and dispatch the new SHA. Do not repeatedly rebuild the
-same known-bad commit. UI timeouts require captured UI/log evidence; retries do
-not turn a failed acceptance into a pass.
+## Product boundaries retained
 
-Packaged WebView2 acceptance passes its isolated debugging port through
-`NIOH3_TAURI_TEST_DEBUG_PORT`. The application applies that value directly to
-the test-only WebView builder when `NIOH3_TAURI_TEST_ROOT` is also present.
-Do not replace this with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`: GitHub hosted
-Windows runners have launched a healthy application while silently omitting
-the environment-only remote-debugging switch, leaving Playwright unable to
-inspect the running UI.
+The supported download is the outer single EXE, not the inner app from the ZIP.
+It needs no adjacent user-managed runtime files. Its launcher uses a verified,
+bounded LocalAppData cache; the ZIP remains the internal signed updater input.
+Updates preserve startup acknowledgement, rollback and exact cleanup.
 
-After the debugging endpoint becomes reachable, wait for WebView2 to publish
-its first page target before selecting the page. Hosted runners can expose
-`/json/version` several seconds before the Tauri page appears.
-
-UI search acceptance must allow a bounded search to complete before the test
-can press Cancel. The hosted runner can finish an auxiliary-only page faster
-than a local workstation, so a disabled Cancel button is a valid completed
-state rather than an acceptance failure.
-
-### 4.1 Hosted Windows failure patterns retained from v0.7.3
-
-The failed v0.7.3 runs are reusable release-gate evidence, not disposable CI
-noise:
-
-| Run | Symptom | Root cause | Permanent rule |
-| --- | --- | --- | --- |
-| `34687187920` | Ten save-race tests failed only on the hosted runner. | Windows temporary paths appeared in both long and 8.3 short forms, so textual path comparison rejected the same resolved file. | Resolve fixture and observed paths before comparing file identities. Never weaken the transaction assertions merely because the runner uses short paths. |
-| `34687811828` | The native maximize assertion failed on a 1024x768 desktop. | The initial 1028x779 window was already larger than the work area, so a correct maximize operation reduced rather than enlarged it. | Validate that the maximized window matches or stays within the work area. Do not require width or height growth. |
-| `34688734252` | The layout gate found a one-pixel sidebar drift and controls below the initial fold. | A real CSS alignment regression was mixed with an invalid assumption that every reachable control must fit in the first viewport on the small native desktop. | Keep exact alignment checks for geometry defects, but test first-viewport fit and scroll reachability as separate contracts. |
-| `34689783181` | Comprehensive WebView2 acceptance could not find a CPU setting. | The UI had correctly changed the control from an ARIA checkbox to a switch, while two acceptance drivers retained the obsolete role. | Locate controls by their shipped semantic role and update every acceptance driver in the same product change. Do not replace the role check with an unscoped text selector. |
-
-After any hosted failure, preserve the run ID and evidence, commit the actual
-fix, and dispatch a new clean candidate SHA. v0.7.3 was published only from the
-subsequent successful run `34690776011` at
-`893996e4c11a9b0c20b125c696c89a0a47ec9048`.
-
-## 5. Verify, promote, and publish exact bytes
-
-Download `nioh3-tauri-release` into a new directory. Verify:
-
-- ZIP and outer EXE SHA-256 sidecars and the embedded ZIP footer/hash;
-- `tauri-update.json` through the production Ed25519 public key;
-- signed manifest version, filename, official GitHub tag URL, size, and ZIP hash;
-- every ZIP member against `build-manifest.json` and ZIP CRC;
-- clean source SHA equals the candidate commit;
-- extracted package startup, direct outer-EXE startup, and updater acceptance.
-
-Refresh remote `main`. Require `origin/main` to be an ancestor of the candidate.
-Create an annotated version tag at the verified SHA, then push `main` and the tag
-atomically. Never move an existing release tag.
-
-```powershell
-git fetch origin main
-git merge-base --is-ancestor origin/main <candidate-sha>
-git tag -a v<version> <candidate-sha> -m "Release v<version>"
-git push --atomic origin <candidate-sha>:refs/heads/main refs/tags/v<version>
-```
-
-Create the GitHub release from the already verified workflow downloads. Upload
-the outer EXE, its SHA sidecar, the internal update ZIP, its SHA sidecar,
-`tauri-update.json`, and the test inventory. Do not rebuild during publication.
-
-Treat release state as an explicit progression:
-
-1. Pushing the candidate branch makes source available remotely; it does not
-   create a version tag, a GitHub Release, downloadable assets, or an update
-   feed.
-2. A successful `release.yml` run produces hosted artifacts; it still does not
-   publish them.
-3. An annotated tag fixes the immutable product commit; it does not by itself
-   create a GitHub Release page or upload files.
-4. A public, non-prerelease GitHub Release with all six verified assets makes
-   the player EXE and update metadata public.
-5. Publication is complete only after `/releases/latest` resolves to the new
-   tag and all public downloads pass the same hash, signature, archive, and
-   source-commit checks as the hosted artifacts.
-
-The six expected assets are the outer EXE, EXE SHA-256 sidecar, update ZIP, ZIP
-SHA-256 sidecar, `tauri-update.json`, and `test-inventory.json`. The update feed
-is not considered published merely because a signed manifest exists in a
-workflow artifact; the matching manifest and ZIP must be attached to the public
-release at their signed URL.
-
-After publishing, query the release again, download its public assets, and repeat
-hash, signature, ZIP-member, source-SHA, and latest-stable checks. Record the
-release URL, tag commit, workflow URL, artifact sizes and SHA-256 values in a new
-publication record and update `CURRENT_HANDOFF.md` without moving the tag. The
-documentation commit may follow the immutable product tag and move `main`
-forward; record that separation so the later branch head is not mistaken for
-the tagged product source.
-
-## 6. Product safety gates
-
-- Tests and package smoke checks are bounded evidence. Keep earlier in-game
-  acceptance only when the native implementation is unchanged.
-- New or changed memory writes require matching live-game acceptance.
-- Generated-scroll append, permanent edits/deletions, and backup restoration
-  permit title-screen use or a closed game. The UI collects the appropriate acknowledgement; process presence
-  is not a native title-screen detector.
-- The owner closed the unreproduced title-save and intermittent live-add reports
-  pending a fresh affected save and log. They are not release blockers; closure
-  is not a proven root-cause fix. Preserve automatic verified backups,
-  pre-restore checkpoints, transaction identities and no-replay recovery. Do not
-  restart deferred native-save/possessed-enemy research as a packaging gate.
-- Live addition requires the game to be running, creates a verified backup,
-  retries only a non-mutating released preview miss, and never replays an actual
-  insertion.
-- The updater authenticates the complete ZIP, replaces the outer EXE in one-file
-  mode or the runtime directory in legacy mode, and retains a
-  rollback copy until startup handshake, then removes the previous version and
-  download cache. Authenticode signing is not currently provided; do not claim
-  a Windows publisher certificate.
+Keep automatic backups, transaction identities, no-replay recovery and
+GenerationContext. Changed native writes require their own matching live-game
+acceptance; unchanged packaging does not reopen settled game research.
+Production Ed25519 authenticates updates; no Authenticode publisher certificate
+is claimed. Older Electron/Tk packaging is outside this release workflow.

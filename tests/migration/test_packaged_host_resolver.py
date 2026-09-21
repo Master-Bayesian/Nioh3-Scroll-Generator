@@ -749,6 +749,10 @@ class PackagedHostResolverTests(unittest.TestCase):
         save plan on the synthetic encrypted fixture. Development-build evidence:
         the host executable is the debug build and the run writes only into its
         own temporary profile. No real game process and no user save are touched.
+
+        This gate asserts the published seed *and cursor*, so it drives the
+        verifier's `extended` profile; the default `release` profile previews that
+        seed directly and claims no cursor.
         """
 
         node = node_executable()
@@ -779,6 +783,8 @@ class PackagedHostResolverTests(unittest.TestCase):
                 python,
                 "--out",
                 str(out),
+                "--profile",
+                "extended",
                 "--timeout",
                 "120",
             ],
@@ -805,6 +811,8 @@ class PackagedHostResolverTests(unittest.TestCase):
                     python,
                     "--out",
                     str(out),
+                    "--profile",
+                    "extended",
                     "--timeout",
                     "120",
                 ],

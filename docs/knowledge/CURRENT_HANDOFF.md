@@ -2,6 +2,15 @@
 
 ## Current release status
 
+Release automation follow-up: the working tree now separates bounded preparation
+(`release.yml`, `extended_search=false`) from promotion of an exact successful run
+(`publish-release.yml`, publication off by default). Read the
+[release runbook](RELEASE_RUNBOOK.md) and `nioh3-release` skill before the next
+version. These tooling changes do not modify the published v0.8.0 bytes; they
+are carried on candidate branch
+`codex/release-pipeline-20260921`; hosted preparation of that candidate is
+pending, and promotion of any run still requires explicit authorization.
+
 `v0.8.0` is published: immutable product commit
 `3798693c48cef2238480da66dc0cc0d2a098c78b`, annotated tag object
 `8f5c1d0c39a9c2081d7895eda5af71794e81f2a6`, hosted release run `35625590622`

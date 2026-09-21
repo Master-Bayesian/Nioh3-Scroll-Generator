@@ -1,0 +1,153 @@
+name: Publish verified Tauri Windows release
+
+# Promotes already-built, already-verified release bytes. It never compiles,
+# builds, or signs: it consumes the existing `nioh3-tauri-release` artifact of
+# one exact `release.yml` run and calls tools/publish_tauri_release.ps1.
+#
+# Run this only under explicit owner authorization. The `verify` job is
+# read-only; the `publish` job is the only job granted `contents: write` and it
+# runs only when `publish` is dispatched as true.
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful release.yml run id that built the candidate.
+        required: true
+        type: string
+      expected_sha:
+        description: Full 40-character candidate commit the run built from.
+        required: true
+        type: string
+      version:
+        description: Release version without the leading v (for example 0.8.0).
+        required: true
+        type: string
+      publish:
+        description: >-
+          Promote the verified bytes to main, an annotated tag, and a public
+          release. Leave false for a read-only verification plan.
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      actions: read
+    env:
+      PYTHONUTF8: '1'
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      # Dispatch inputs are never interpolated into an executable body; they
+      # arrive as environment variables and are validated against anchored
+      # patterns before any other step runs.
+      - name: Validate dispatch inputs
+        shell: pwsh
+        env:
+          INPUT_RUN_ID: ${{ inputs.run_id }}
+          INPUT_EXPECTED_SHA: ${{ inputs.expected_sha }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if ($env:INPUT_RUN_ID -notmatch '^[0-9]{1,20}$') { throw 'INPUT_INVALID: run_id' }
+          if ($env:INPUT_EXPECTED_SHA -notmatch '^[0-9a-f]{40}$') { throw 'INPUT_INVALID: expected_sha' }
+          if ($env:INPUT_VERSION -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') { throw 'INPUT_INVALID: version' }
+      # Run the *current* trusted helper from the default branch, not from the
+      # candidate checkout: an older candidate may predate these tools. The
+      # candidate stays bound by `expected_sha`; the helper fetches its commit
+      # into a temporary ref without moving HEAD or the worktree.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # Environment only: the helper runs the verifier through
+      # tools/run_python_tests.ps1, which requires the project's dev environment.
+      # Nothing is built, compiled, or signed here.
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Verify the exact run and its six assets (read-only)
+        shell: pwsh
+        env:
+          INPUT_RUN_ID: ${{ inputs.run_id }}
+          INPUT_EXPECTED_SHA: ${{ inputs.expected_sha }}
+          INPUT_VERSION: ${{ inputs.version }}
+          PROMOTION_REPOSITORY: ${{ github.repository }}
+        run: |
+          ./tools/publish_tauri_release.ps1 `
+            -RunId $env:INPUT_RUN_ID `
+            -ExpectedSha $env:INPUT_EXPECTED_SHA `
+            -Version $env:INPUT_VERSION `
+            -Output 'deliverables/release-promotion' `
+            -Repository $env:PROMOTION_REPOSITORY `
+            -Python (Get-Command python).Source
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-promotion-evidence
+          path: deliverables/release-promotion
+
+  publish:
+    needs: verify
+    if: ${{ inputs.publish }}
+    runs-on: windows-latest
+    # The only place this workflow writes to the repository, and only when the
+    # dispatch explicitly authorizes publication.
+    permissions:
+      contents: write
+      actions: read
+    env:
+      PYTHONUTF8: '1'
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Validate dispatch inputs
+        shell: pwsh
+        env:
+          INPUT_RUN_ID: ${{ inputs.run_id }}
+          INPUT_EXPECTED_SHA: ${{ inputs.expected_sha }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if ($env:INPUT_RUN_ID -notmatch '^[0-9]{1,20}$') { throw 'INPUT_INVALID: run_id' }
+          if ($env:INPUT_EXPECTED_SHA -notmatch '^[0-9a-f]{40}$') { throw 'INPUT_INVALID: expected_sha' }
+          if ($env:INPUT_VERSION -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') { throw 'INPUT_INVALID: version' }
+      # Same reasoning as the verify job: the trusted helper comes from the
+      # default branch while `expected_sha` still binds the promoted bytes.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Promote the verified bytes and re-verify the public release
+        shell: pwsh
+        env:
+          INPUT_RUN_ID: ${{ inputs.run_id }}
+          INPUT_EXPECTED_SHA: ${{ inputs.expected_sha }}
+          INPUT_VERSION: ${{ inputs.version }}
+          PROMOTION_REPOSITORY: ${{ github.repository }}
+        run: |
+          ./tools/publish_tauri_release.ps1 `
+            -RunId $env:INPUT_RUN_ID `
+            -ExpectedSha $env:INPUT_EXPECTED_SHA `
+            -Version $env:INPUT_VERSION `
+            -Output 'deliverables/release-promotion' `
+            -Repository $env:PROMOTION_REPOSITORY `
+            -Python (Get-Command python).Source `
+            -Publish
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-publish-evidence
+          path: deliverables/release-promotion

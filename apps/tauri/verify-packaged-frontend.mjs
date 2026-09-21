@@ -1,3 +1,19 @@
+/*
+ * Failure cases recorded before the profile split below, each an observable
+ * outcome rather than an internal state:
+ *
+ * release (the default) - the published regression seed previews without one of
+ *   rules 64956/113/20893, or is not installable, or leaves the effect-sequence
+ *   stage, or loses its context; a bounded job exceeds its trial or result
+ *   budget, matches nothing, returns a candidate without the requested rule,
+ *   publishes no resume token, resumes before its checkpoint, or is never
+ *   observed as cancelled; or the record implies the published search and
+ *   cursor were reproduced.
+ * extended - the 158M-trial search misses the seed, lands off cursor 158614759
+ *   or exceeds its deadline; the long cancel/resume leg replays or skips a page.
+ *
+ * A profile that cannot distinguish these outcomes is not evidence.
+ */
 /**
  * Frontend acceptance against the real `rust-packaged` worker graph.
  *
@@ -15,7 +31,19 @@
  * Usage:
  *   node apps/tauri/verify-packaged-frontend.mjs --package <app root> \
  *     --exe <host exe> --python <python.exe> --out <dir> [--host debug|release]
- *     [--screenshots <dir>] [--artifact-exe <path>] [--artifact-zip <path>]
+ *     [--profile release|extended] [--screenshots <dir>]
+ *     [--artifact-exe <path>] [--artifact-zip <path>]
+ *
+ * `--profile release` (the default) is the shipped-package gate: catalogs,
+ * preview, a direct preview of the published regression seed, a bounded
+ * search/resume/cancel fixture with strict trial and result budgets, the save
+ * legs on the synthetic fixture, the read-only update check and persistence.
+ * It never runs the published 158M-trial search, so it makes no claim about
+ * that search or about the published cursor.
+ *
+ * `--profile extended` adds the published v0.7.5 search regression with its
+ * exact seed/cursor assertions and the CPU/GPU deadline that bounds it, plus
+ * the long 200M-trial cancel/resume leg.
  *
  * `--package` is the app root the host resolves: the staged portable directory
  * for the opt-in development runtime, or the extracted one-file runtime (the
@@ -38,6 +66,27 @@ import assert from 'node:assert/strict';
 const ROLES = ['offline_search', 'save', 'runtime'];
 const REGRESSION_SEED = 226061463;
 const REGRESSION_TRIAL = 158614759;
+/** The three special rules the published v0.7.5 regression searches for. */
+const REGRESSION_RULE_KEYS = [64956, 113, 20893];
+/**
+ * Release-profile continuation fixture: one common rule, a one-result page
+ * inside a two-page job budget. Measured against the packaged CPU fallback this
+ * keeps the whole leg near a second while its bounds stay strict.
+ */
+const CONTINUATION_RULE_KEY = 113;
+const CONTINUATION_PAGE_TRIALS = 200000;
+const CONTINUATION_JOB_TRIALS = 400000;
+const CONTINUATION_RESULT_COUNT = 1;
+const CONTINUATION_DEADLINE_MS = 120000;
+/**
+ * Cancel-probe sizing: the job must still be running when the cancel lands, and
+ * the collector only polls cancellation between native chunks, so the window
+ * targets a fixed wall-clock window from the measured scan rate instead of an
+ * assumed throughput.
+ */
+const CANCEL_TARGET_MS = 1500;
+const CANCEL_WINDOW_MIN_TRIALS = 2000000;
+const CANCEL_WINDOW_MAX_TRIALS = 50000000;
 const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 
 function parseArgs(argv) {
@@ -49,6 +98,7 @@ function parseArgs(argv) {
     else if (key === '--python') options.python = argv[++index];
     else if (key === '--out') options.out = argv[++index];
     else if (key === '--host') options.host = argv[++index];
+    else if (key === '--profile') options.profile = argv[++index];
     else if (key === '--screenshots') options.screenshots = argv[++index];
     else if (key === '--artifact-exe') options.artifactExe = argv[++index];
     else if (key === '--artifact-zip') options.artifactZip = argv[++index];
@@ -56,6 +106,9 @@ function parseArgs(argv) {
     else throw new Error(`unknown argument: ${key}`);
   }
   if (!options.package) throw new Error('--package is required');
+  if (options.profile !== undefined && !['release', 'extended'].includes(options.profile)) {
+    throw new Error(`--profile must be release or extended, got ${options.profile}`);
+  }
   return options;
 }
 
@@ -126,6 +179,9 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const staged = resolve(options.package);
   const hostMode = options.host === 'release' ? 'release' : 'debug';
+  // The profile scopes the search evidence only. Catalog, preview, save, cart,
+  // favorites, update and persistence legs run identically in both profiles.
+  const runProfile = options.profile === 'extended' ? 'extended' : 'release';
   const executable = resolve(
     options.exe || join(staged, 'Nioh3Studio.exe'),
   );
@@ -232,6 +288,7 @@ async function main() {
   const evidence = {
     graph: 'rust-packaged',
     hostMode,
+    profile: runProfile,
     developmentBuild: hostMode !== 'release',
     releaseCandidate: hostMode === 'release',
     executable,
@@ -490,8 +547,10 @@ async function main() {
       )).length,
     };
 
-    // The v0.7.5 continuation regression: the three named rules must be found,
-    // and a resume after cancellation must continue without replaying.
+    // The v0.7.5 regression evidence, scoped by profile (see the failure-case
+    // block at the top of this file). `extended` runs the published search and
+    // asserts its exact seed/cursor pair; `release` previews the published seed
+    // directly and claims only what that preview observes.
     const regressionQuery = {
       playthrough: 3,
       rarity: 4,
@@ -504,84 +563,168 @@ async function main() {
       auxiliary: {
         required_terrain_effect_keys: [],
         required_terrain_effect_key_groups: [],
-        required_special_rule_keys: [64956, 113, 20893],
+        required_special_rule_keys: REGRESSION_RULE_KEYS,
         required_special_rule_key_groups: [],
         required_enemy_lookup_keys: [],
         required_enemy_lookup_key_groups: [],
       },
     };
     const allowCpu = !identity.capabilities.cuda_pivot_and_auxiliary;
-    // The same 158M-trial regression runs on CPU-only hosted machines. Keep
-    // the exact seed/cursor assertions; use the existing worker parity gate's
-    // 15-minute CPU bound instead of assuming workstation GPU throughput.
-    const regressionTimeout = allowCpu ? 900000 : 180000;
-    const regressionStarted = Date.now();
-    const regression = await page.evaluate(
-      async ({query, digest, allowCpu}) => {
-        const params = {
-          query,
-          context_digest: digest,
-          result_count: 1,
-          // The published first match sits at trial 158,614,759. The job budget
-          // must cover that window, and the shipped protocol caps one page at
-          // 100M trials, so the job is asked to continue across pages.
-          page_trials: 10000000,
-          job_trials: 100000000,
-          continue_until_complete: true,
-          allow_cpu_fallback: allowCpu,
-          resume_token: null,
-        };
-        try {
-          return await window.nioh.startSearch(params);
-        } catch (error) {
-          throw new Error(
-            `regression start refused: ${error} | params=${JSON.stringify(params)} ` +
-              `| queryKeys=${Object.keys(params.query).join(',')} ` +
-              `| auxKeys=${Object.keys(params.query.auxiliary).join(',')}`,
-          );
+    // One job lifecycle helper for both profiles: the shipped
+    // start/snapshot/cancel/resume surface the UI drives, not a second harness.
+    const startSearchJob = async (params) => {
+      try {
+        return await page.evaluate((value) => window.nioh.startSearch(value), params);
+      } catch (error) {
+        throw new Error(`search start refused: ${error} | params=${JSON.stringify(params)}`);
+      }
+    };
+    const waitSearchJob = async (jobId, timeout, label) => {
+      const deadline = Date.now() + timeout;
+      let state = await page.evaluate((id) => window.nioh.snapshot(id), jobId);
+      while (!['completed', 'cancelled', 'failed'].includes(state.state)) {
+        if (Date.now() > deadline) {
+          throw new Error(`${label} stayed ${state.state}: ${JSON.stringify(state).slice(0, 300)}`);
         }
-      },
-      {query: regressionQuery, digest: identity.context.context_digest, allowCpu},
-    );
-    const regressionJob = await page.evaluate(
-      async ({jobId, timeout}) => {
-        const deadline = Date.now() + timeout;
-        let state = await window.nioh.snapshot(jobId);
-        while (!['completed', 'cancelled', 'failed'].includes(state.state)) {
-          if (Date.now() > deadline) throw new Error(`regression deadline: ${JSON.stringify(state)}`);
-          await new Promise((ready) => setTimeout(ready, 200));
-          state = await window.nioh.snapshot(jobId);
-        }
-        return state;
-      },
-      {jobId: regression.job_id, timeout: regressionTimeout},
-    );
-    assert.equal(
-      regressionJob.state,
-      'completed',
-      JSON.stringify(regressionJob).slice(0, 400),
-    );
-    const hit = regressionJob.candidates.find(
-      (candidate) => candidate.seed === REGRESSION_SEED,
-    );
-    assert.ok(
-      hit,
-      `the v0.7.5 seed must be found: ${regressionJob.candidates.map((c) => c.seed)}`,
-    );
-    assert.equal(hit.cursor, REGRESSION_TRIAL, 'the published cursor must be reproduced');
-    // Cart/save source: the real search candidate, which carries the playthrough
-    // and stage the install gate requires. The fixed preview seed does not carry
-    // that context, so it is kept as the preview leg only.
-    const cartSeed = hit.seed;
-    const cartPreview = await page.evaluate(
-      ({seed, rarity, level}) =>
-        window.review.preview({seed, rarity, level, retain: true}),
-      {seed: cartSeed, rarity: hit.rarity, level: hit.level ?? 180},
-    );
+        await new Promise((ready) => setTimeout(ready, 100));
+        state = await page.evaluate((id) => window.nioh.snapshot(id), jobId);
+      }
+      return state;
+    };
+
+    // Cart/save source: a real retained preview of the regression candidate,
+    // which carries the playthrough and stage the install gate requires. The
+    // fixed preview seed does not carry that context, so it stays the preview
+    // leg only. `extended` sources it from the search hit; `release` from the
+    // direct preview, which is already retained.
+    let regressionSource;
+    if (runProfile === 'extended') {
+      // The same 158M-trial regression runs on CPU-only hosted machines. Keep
+      // the exact seed/cursor assertions; use the existing worker parity gate's
+      // 15-minute CPU bound instead of assuming workstation GPU throughput.
+      const regressionTimeout = allowCpu ? 900000 : 180000;
+      const regressionStarted = Date.now();
+      const regressionJob = await waitSearchJob(
+        (
+          await startSearchJob({
+            query: regressionQuery,
+            context_digest: identity.context.context_digest,
+            result_count: 1,
+            // The published first match sits at trial 158,614,759. The job budget
+            // must cover that window, and the shipped protocol caps one page at
+            // 100M trials, so the job is asked to continue across pages.
+            page_trials: 10000000,
+            job_trials: 100000000,
+            continue_until_complete: true,
+            allow_cpu_fallback: allowCpu,
+            resume_token: null,
+          })
+        ).job_id,
+        regressionTimeout,
+        'the published regression search',
+      );
+      assert.equal(
+        regressionJob.state,
+        'completed',
+        JSON.stringify(regressionJob).slice(0, 400),
+      );
+      const hit = regressionJob.candidates.find((entry) => entry.seed === REGRESSION_SEED);
+      assert.ok(
+        hit,
+        `the v0.7.5 seed must be found: ${regressionJob.candidates.map((c) => c.seed)}`,
+      );
+      assert.equal(hit.cursor, REGRESSION_TRIAL, 'the published cursor must be reproduced');
+      regressionSource = {seed: hit.seed, rarity: hit.rarity, level: hit.level ?? 180};
+      evidence.regression = {
+        profile: runProfile,
+        scope: 'published search regression',
+        allowCpu,
+        timeoutMs: regressionTimeout,
+        elapsedMs: Date.now() - regressionStarted,
+        seed: hit.seed,
+        cursor: hit.cursor,
+        stopReason: regressionJob.stop_reason,
+        cursorAfter: regressionJob.cursor,
+        candidateInstallable: hit.installable,
+        candidatePlaythrough: hit.playthrough,
+        candidateStage: hit.record_stage,
+      };
+    } else {
+      // Direct preview of the published regression seed: the same certified
+      // offline composition the search would materialize for it, so the reported
+      // rules, the install gate and the context are checkable without paying for
+      // the search. This profile never reproduces the published cursor.
+      const regressionStarted = Date.now();
+      const direct = await page.evaluate(
+        ({seed, rarity, level}) =>
+          window.review.preview({seed, rarity, level, retain: true}),
+        {seed: REGRESSION_SEED, rarity: 4, level: 180},
+      );
+      const candidate = direct.candidate;
+      const observedRules = (candidate.auxiliary?.special_rules ?? []).map((rule) => rule.key);
+      for (const [field, expected] of Object.entries({
+        seed: REGRESSION_SEED,
+        playthrough: 3,
+        record_stage: 'effect_sequence_only',
+        installable: true,
+        install_blocker: null,
+        context_digest: identity.context.context_digest,
+      })) {
+        assert.equal(
+          candidate[field],
+          expected,
+          `the regression candidate must report ${field}=${expected}: ${JSON.stringify(candidate).slice(0, 300)}`,
+        );
+      }
+      for (const key of REGRESSION_RULE_KEYS) {
+        assert.ok(
+          observedRules.includes(key),
+          `the regression candidate must carry special rule ${key}: ${observedRules.join(', ')}`,
+        );
+      }
+      assert.match(direct.reference_id, /^[0-9a-f]{64}$/);
+      regressionSource = {
+        seed: candidate.seed,
+        rarity: candidate.rarity,
+        level: 180,
+        preview: direct,
+      };
+      evidence.regression = {
+        profile: runProfile,
+        scope: 'direct preview of the published regression seed',
+        seed: candidate.seed,
+        playthrough: candidate.playthrough,
+        recordStage: candidate.record_stage,
+        installable: candidate.installable,
+        contextDigest: candidate.context_digest,
+        rulesRequired: REGRESSION_RULE_KEYS,
+        rulesObserved: observedRules,
+        referenceId: direct.reference_id,
+        elapsedMs: Date.now() - regressionStarted,
+        // This profile runs no search, so it neither produces nor claims the
+        // published cursor.
+        claimedCursor: null,
+        notClaimed: [
+          'the published 158M-trial search',
+          `the published cursor ${REGRESSION_TRIAL}`,
+        ],
+      };
+    }
+    const cartPreview =
+      regressionSource.preview ??
+      (await page.evaluate(
+        ({seed, rarity, level}) =>
+          window.review.preview({seed, rarity, level, retain: true}),
+        {
+          seed: regressionSource.seed,
+          rarity: regressionSource.rarity,
+          level: regressionSource.level,
+        },
+      ));
     evidence.cartSource = {
-      seed: cartSeed,
-      rarity: hit.rarity,
-      level: hit.level ?? 180,
+      seed: regressionSource.seed,
+      rarity: regressionSource.rarity,
+      level: regressionSource.level,
       referenceId: cartPreview.reference_id,
       candidatePlaythrough: cartPreview.candidate.playthrough,
       candidateStage: cartPreview.candidate.record_stage,
@@ -593,109 +736,220 @@ async function main() {
       `${JSON.stringify(evidence, null, 2)}\n`,
       'utf8',
     );
-    evidence.regression = {
-      allowCpu,
-      timeoutMs: regressionTimeout,
-      elapsedMs: Date.now() - regressionStarted,
-      seed: hit.seed,
-      cursor: hit.cursor,
-      stopReason: regressionJob.stop_reason,
-      cursorAfter: regressionJob.cursor,
-      candidateInstallable: hit.installable,
-      candidatePlaythrough: hit.playthrough,
-      candidateStage: hit.record_stage,
-    };
 
-    // A cancelled page then a resume from its token must continue, not replay.
-    const longQuery = {
-      ...regressionQuery,
-      auxiliary: {
-        ...regressionQuery.auxiliary,
-        required_special_rule_keys: [113],
-      },
-    };
-    const longParams = {
-      query: longQuery,
-      context_digest: identity.context.context_digest,
-      result_count: 50,
-      page_trials: 1000000,
-      job_trials: 200000000,
-      allow_cpu_fallback: allowCpu,
-      resume_token: null,
-    };
-    const longJob = await page.evaluate(
-      async ({params}) => {
-        try {
-          return await window.nioh.startSearch(params);
-        } catch (error) {
-          throw new Error(
-            `cancel-search start refused: ${error} | params=${JSON.stringify(params)}`,
-          );
-        }
-      },
-      {params: longParams},
-    );
-    await page.evaluate((id) => window.nioh.cancelSearch(id), longJob.job_id);
-    const stopped = await page.evaluate(
-      async ({jobId, timeout}) => {
-        const deadline = Date.now() + timeout;
-        let state = await window.nioh.snapshot(jobId);
-        while (!['completed', 'cancelled', 'failed'].includes(state.state)) {
-          if (Date.now() > deadline) throw new Error(`cancel job stayed ${state.state}`);
-          await new Promise((ready) => setTimeout(ready, 200));
-          state = await window.nioh.snapshot(jobId);
-        }
-        return state;
-      },
-      {jobId: longJob.job_id, timeout: 120000},
-    );
-    assert.equal(stopped.state, 'cancelled', JSON.stringify(stopped).slice(0, 300));
-    assert.ok(stopped.resume_token, 'a cancelled job must publish a resume token');
-    const resumed = await page.evaluate(
-      async ({query, digest, allowCpu, token}) => {
-        try {
-          return await window.nioh.startSearch({
-            query,
-            context_digest: digest,
-            result_count: 1,
-            page_trials: 1000000,
-            job_trials: 10000000,
-            allow_cpu_fallback: allowCpu,
-            resume_token: token,
-          });
-        } catch (error) {
-          throw new Error(`resume refused token=${String(token).slice(0, 16)}: ${error}`);
-        }
-      },
-      {
+    if (runProfile === 'extended') {
+      // A cancelled page then a resume from its token must continue, not replay.
+      const longQuery = {
+        ...regressionQuery,
+        auxiliary: {
+          ...regressionQuery.auxiliary,
+          required_special_rule_keys: [113],
+        },
+      };
+      const longParams = {
         query: longQuery,
-        digest: identity.context.context_digest,
-        allowCpu,
-        token: stopped.resume_token,
-      },
-    );
-    const resumedState = await page.evaluate(
-      async ({jobId, timeout}) => {
-        const deadline = Date.now() + timeout;
-        let state = await window.nioh.snapshot(jobId);
-        while (!['completed', 'cancelled', 'failed'].includes(state.state)) {
-          if (Date.now() > deadline) throw new Error(`resume job stayed ${state.state}`);
-          await new Promise((ready) => setTimeout(ready, 200));
-          state = await window.nioh.snapshot(jobId);
-        }
-        return state;
-      },
-      {jobId: resumed.job_id, timeout: 120000},
-    );
-    assert.ok(
-      resumedState.start_cursor >= stopped.cursor,
-      `a resume must continue from the checkpoint: ${resumedState.start_cursor} < ${stopped.cursor}`,
-    );
-    evidence.continuation = {
-      cancelledCursor: stopped.cursor,
-      resumedFrom: resumedState.start_cursor,
-      state: resumedState.state,
-    };
+        context_digest: identity.context.context_digest,
+        result_count: 50,
+        page_trials: 1000000,
+        job_trials: 200000000,
+        allow_cpu_fallback: allowCpu,
+        resume_token: null,
+      };
+      const longJob = await startSearchJob(longParams);
+      await page.evaluate((id) => window.nioh.cancelSearch(id), longJob.job_id);
+      const stopped = await waitSearchJob(longJob.job_id, 120000, 'the long cancel probe');
+      assert.equal(stopped.state, 'cancelled', JSON.stringify(stopped).slice(0, 300));
+      assert.ok(stopped.resume_token, 'a cancelled job must publish a resume token');
+      const resumed = await startSearchJob({
+        query: longQuery,
+        context_digest: identity.context.context_digest,
+        result_count: 1,
+        page_trials: 1000000,
+        job_trials: 10000000,
+        allow_cpu_fallback: allowCpu,
+        resume_token: stopped.resume_token,
+      });
+      const resumedState = await waitSearchJob(
+        resumed.job_id,
+        120000,
+        'the long resume',
+      );
+      assert.ok(
+        resumedState.start_cursor >= stopped.cursor,
+        `a resume must continue from the checkpoint: ${resumedState.start_cursor} < ${stopped.cursor}`,
+      );
+      evidence.continuation = {
+        profile: runProfile,
+        scope: 'published long cancel/resume leg',
+        trialBudget: {
+          pageTrials: 1000000,
+          jobTrials: 200000000,
+          resultCount: 50,
+        },
+        cancelledCursor: stopped.cursor,
+        resumedFrom: resumedState.start_cursor,
+        state: resumedState.state,
+      };
+    } else {
+      // The bounded continuation fixture: one common special rule, a one-result
+      // page inside a two-page job budget. It drives the same shipped
+      // start/snapshot/cancel/resume path the UI does, with trial and result
+      // budgets small enough to be strict, deterministic and cheap. The
+      // published 158M-trial search is deliberately not part of this profile.
+      const boundedQuery = {
+        ...regressionQuery,
+        auxiliary: {
+          ...regressionQuery.auxiliary,
+          required_special_rule_keys: [CONTINUATION_RULE_KEY],
+        },
+      };
+      const continuationStarted = Date.now();
+      const baseParams = {
+        query: boundedQuery,
+        context_digest: identity.context.context_digest,
+        result_count: CONTINUATION_RESULT_COUNT,
+        page_trials: CONTINUATION_PAGE_TRIALS,
+        job_trials: CONTINUATION_JOB_TRIALS,
+        continue_until_complete: false,
+        allow_cpu_fallback: allowCpu,
+        resume_token: null,
+      };
+      const boundedJob = await startSearchJob(baseParams);
+      const bounded = await waitSearchJob(
+        boundedJob.job_id,
+        CONTINUATION_DEADLINE_MS,
+        'the bounded job',
+      );
+      const boundedCandidates = bounded.candidates ?? [];
+      const boundedScan = bounded.cursor - bounded.start_cursor;
+      assert.equal(bounded.state, 'completed', JSON.stringify(bounded).slice(0, 400));
+      assert.ok(
+        ['result_limit', 'budget_reached'].includes(bounded.stop_reason),
+        `the bounded job must stop on a bound, not on an error: ${JSON.stringify(bounded).slice(0, 400)}`,
+      );
+      assert.ok(
+        boundedScan <= CONTINUATION_JOB_TRIALS,
+        `the bounded job must stay inside its trial budget: ${boundedScan} > ${CONTINUATION_JOB_TRIALS}`,
+      );
+      assert.ok(
+        boundedCandidates.length >= 1 && boundedCandidates.length <= CONTINUATION_RESULT_COUNT,
+        `the bounded job must return 1..${CONTINUATION_RESULT_COUNT} candidates: ${JSON.stringify(bounded).slice(0, 400)}`,
+      );
+      assert.ok(bounded.resume_token, 'a bounded job must publish a resume token');
+      const boundedRules = (boundedCandidates[0].auxiliary?.special_rules ?? []).map(
+        (rule) => rule.key,
+      );
+      assert.ok(
+        boundedRules.includes(CONTINUATION_RULE_KEY),
+        `the returned candidate must carry the requested rule ${CONTINUATION_RULE_KEY}: ${boundedRules.join(', ')}`,
+      );
+
+      // Resume from the bounded job's own token: the checkpoint must be exact.
+      const resumedJob = await startSearchJob(
+        {...baseParams, resume_token: bounded.resume_token},
+      );
+      const resumed = await waitSearchJob(
+        resumedJob.job_id,
+        CONTINUATION_DEADLINE_MS,
+        'the bounded resume',
+      );
+      assert.equal(
+        resumed.start_cursor,
+        bounded.cursor,
+        'a resume must continue from the published checkpoint',
+      );
+      assert.ok(
+        resumed.cursor - resumed.start_cursor <= CONTINUATION_JOB_TRIALS
+          && (resumed.candidates ?? []).length <= CONTINUATION_RESULT_COUNT,
+        `the resumed job must stay inside its own budgets: ${JSON.stringify(resumed).slice(0, 300)}`,
+      );
+
+      // Cancel/resume. The window is sized from the worker's own measured scan
+      // rate so the cancel lands while the job is still running on both the CPU
+      // fallback and a CUDA host, and the trial budget it introduces is explicit
+      // and bounded either way.
+      const measuredTrialsPerMs =
+        CONTINUATION_PAGE_TRIALS
+        / Math.max(1, Number(bounded.elapsed_ms) || boundedScan || 1);
+      const cancelWindow = Math.min(
+        CANCEL_WINDOW_MAX_TRIALS,
+        Math.max(
+          CANCEL_WINDOW_MIN_TRIALS,
+          Math.round(measuredTrialsPerMs * CANCEL_TARGET_MS),
+        ),
+      );
+      const cancelStarted = Date.now();
+      const cancelJob = await startSearchJob({
+        ...baseParams,
+        page_trials: cancelWindow,
+        job_trials: cancelWindow,
+      });
+      await page.evaluate((id) => window.nioh.cancelSearch(id), cancelJob.job_id);
+      const cancelled = await waitSearchJob(
+        cancelJob.job_id,
+        CONTINUATION_DEADLINE_MS,
+        'the cancel probe',
+      );
+      const cancelledCandidates = cancelled.candidates ?? [];
+      const cancelledScan = cancelled.cursor - cancelled.start_cursor;
+      assert.equal(cancelled.state, 'cancelled', JSON.stringify(cancelled).slice(0, 300));
+      assert.ok(cancelled.resume_token, 'a cancelled job must publish a resume token');
+      assert.ok(
+        cancelledScan <= cancelWindow && cancelledCandidates.length <= CONTINUATION_RESULT_COUNT,
+        `the cancel probe must stay inside its budgets: ${JSON.stringify(cancelled).slice(0, 300)}`,
+      );
+      const cancelResumeJob = await startSearchJob({
+        ...baseParams,
+        resume_token: cancelled.resume_token,
+      });
+      const cancelResumed = await waitSearchJob(
+        cancelResumeJob.job_id,
+        CONTINUATION_DEADLINE_MS,
+        'the resume after cancel',
+      );
+      assert.ok(
+        cancelResumed.start_cursor >= cancelled.cursor,
+        `a resume must continue from the cancelled checkpoint: ${cancelResumed.start_cursor} < ${cancelled.cursor}`,
+      );
+      evidence.continuation = {
+        profile: runProfile,
+        scope: 'bounded search, resume and cancel/resume',
+        trialBudget: {
+          playthrough: 3,
+          rarity: 4,
+          level: 180,
+          requiredSpecialRuleKeys: [CONTINUATION_RULE_KEY],
+          pageTrials: CONTINUATION_PAGE_TRIALS,
+          jobTrials: CONTINUATION_JOB_TRIALS,
+          resultCount: CONTINUATION_RESULT_COUNT,
+          cancelWindowTrials: cancelWindow,
+          cancelTargetMs: CANCEL_TARGET_MS,
+        },
+        bounded: {
+          state: bounded.state,
+          stopReason: bounded.stop_reason,
+          startCursor: bounded.start_cursor,
+          cursor: bounded.cursor,
+          scannedTrials: boundedScan,
+          candidates: boundedCandidates.length,
+          candidateSeed: boundedCandidates[0].seed,
+          candidateRules: boundedRules,
+          workerElapsedMs: bounded.elapsed_ms ?? null,
+        },
+        resume: {startCursor: resumed.start_cursor, cursor: resumed.cursor},
+        cancel: {
+          measuredTrialsPerMs,
+          state: cancelled.state,
+          stopReason: cancelled.stop_reason,
+          cursor: cancelled.cursor,
+          scannedTrials: cancelledScan,
+          candidates: cancelledCandidates.length,
+          resumedFrom: cancelResumed.start_cursor,
+          elapsedMs: Date.now() - cancelStarted,
+        },
+        elapsedMs: Date.now() - continuationStarted,
+      };
+    }
 
     // Protected save roles through the staged protected worker, on the fixture.
     // Discovery first (the shipped convention), then the explicit product

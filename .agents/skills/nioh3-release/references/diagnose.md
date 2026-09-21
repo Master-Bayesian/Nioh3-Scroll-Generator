@@ -1,25 +1,25 @@
-# Diagnose mode
+# Diagnose
 
-Diagnose the failed stage and preserve its evidence. Do not dispatch, rebuild, publish, or weaken a gate merely to obtain a green result.
+Read the failed stage, not the whole repository. Capture the full source SHA,
+run ID, step, error, preceding successful stages and retained artifact paths.
 
-## Evidence first
+Classify the cause before selecting a repair:
 
-Collect the full candidate SHA, workflow and run IDs, exact failed step, failed logs, artifact names and hashes if any, and the preceding successful gates. For hosted failures, use read-only GitHub queries keyed by exact commit SHA; do not select a run only by branch name or recency.
+| Cause | Next action |
+| --- | --- |
+| Product behavior or artifact identity | Repair the implementation, verify affected behavior, freeze a new candidate. |
+| Runner prerequisite or harness | Reproduce against the retained candidate; fix setup or observation. Preserve meaningful assertions and label the evidence scope. |
+| Unbounded workload on CPU CI | Move the expensive investigation to the explicit extended lane; use direct known-seed and bounded workflow checks for release. |
+| Asynchronous observation race | Observe protocol responses, terminal reports and actual process completion instead of tiny scheduling windows. |
+| Network or interrupted observation | Check the same run/asset first; resume a bounded transfer where safe instead of launching another build. |
+| Signing or promotion | Stop mutation; retain the exact state and report whether tag, draft, assets or public feed already changed. |
 
-Classify the failure before editing:
+For UI failures, retain page state, worker status/cursor and logs. Increasing a
+timeout is justified only by measured progress and the workload's intended lane;
+it is not a replacement for selecting an appropriate release check.
 
-- checkout cleanliness, generated files, line endings, version, or source/native identity;
-- dependency installation, locked toolchain, or hosted environment;
-- unit, integration, native-fault, WebView2, packaged, or one-file acceptance;
-- archive, manifest, filename/URL, download-budget, hash, or signature identity;
-- upload, permissions, tag, or publication state.
-
-Read only the matching section of [hosted build fixes](../../../../docs/knowledge/V070_HOSTED_BUILD_FIXES_20260909.md). Preserve the gate that exposed the failure: do not bless a modified hash, force a click, broaden a retry, strip canonical path prefixes, substitute an environment-only WebView2 switch, or accept repeated test IDs.
-
-## Stop and repair
-
-A SHA with a failed release acceptance run is not publishable. Record the run and cause, retain failed binaries only for diagnosis, and never dispatch the same known-bad SHA again. If a repair is requested, make the narrow fix, run focused regression coverage, commit it as a new SHA, and return to prepare mode. If the task asks only for diagnosis, report the cause and required repair without implementing it.
-
-For a UI timeout, require the captured UI state and logs. For a signature failure, distinguish missing or wrong secret material from filename/URL/version/hash metadata rejection. Never replace the production key with a test key or claim authenticity from a SHA-256 digest alone.
-
-End with the exact failed SHA/run, supported root cause, evidence, whether any artifact is non-promotable, and the next gate for a new candidate. Mark uncertainty explicitly when evidence is incomplete.
+Use existing candidate bytes for focused diagnosis when product code is
+unchanged. Every required gate must eventually pass against the promoted bytes;
+an old or failed candidate never inherits success by assertion. Keep repairs
+bounded, retain reproducible results and delegate a factual failure-ledger entry.
+Load historical hosted-fix documents only when their specific issue is relevant.

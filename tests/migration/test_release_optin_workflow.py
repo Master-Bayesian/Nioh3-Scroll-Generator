@@ -1,22 +1,24 @@
-"""Deterministic gate for the release workflow's worker-backend branches.
+"""Deterministic gate for the bounded regular release workflow.
 
-This evaluates the workflow's **step graph** rather than counting substrings:
-the steps are parsed out of the YAML, each step's `if:` is resolved for both
-`worker_backend` values, and the resulting step lists are asserted. The packaged
-resource names the Rust branch checks are cross-checked against the stager's own
-declarations, so the workflow cannot drift from the tool it calls.
+The release job prepares one signed Rust/Tauri candidate from one exact commit.
+It is deliberately *not* a second run of the full unit suites and no longer
+dispatches the retired Python worker graph, so this gate parses the workflow's
+**step graph** out of the YAML and asserts three things a comment cannot:
 
-It also asserts the thing that matters most now that the Rust graph is the
-shipped default: `rust` is the dispatch default, selecting `python` yields the
-development/parity step set, and every retired-Python requirement (contracts,
-locales, native manifest, tests, native faults, size budget, signing, one-file
-identity) is retained on **both** branches.
+1. the bounded acceptance legs and the signing step are present, and signing
+   follows every acceptance leg;
+2. the cheap prerequisites and the shared external build root precede the
+   expensive build, and the packaged resources the workflow checks still match
+   `tools/stage_rust_workers.py`'s own declarations;
+3. no duplicated unit suite, legacy Python lane or PyInstaller invocation came
+   back: those belong to the independent Tests workflow.
 """
 
 from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import re
 import unittest
 
 
@@ -24,55 +26,62 @@ ROOT = Path(__file__).resolve().parents[2]
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 STAGER = ROOT / "tools" / "stage_rust_workers.py"
 
-# The `if:` forms this gate can evaluate. Anything else fails the gate rather
-# than being silently treated as always-on.
-RUST_ONLY = "inputs.worker_backend == 'rust'"
-PYTHON_ONLY = "inputs.worker_backend != 'rust'"
-# Conditions that are backend-independent.
+# The only `if:` forms the bounded workflow may carry; anything else would be an
+# unevaluated condition rather than a documented step.
 BACKEND_INDEPENDENT = ("always()", "failure()", "success()")
 
-# Gates that must survive on either backend, with the marker that proves the
-# command is really present in that step list.
-RETAINED_GATES = {
+# Cheap prerequisites, resolved before the expensive build, with the marker that
+# proves the step exists and the step it must precede.
+PREREQUISITES = {
+    "hosted WebView2 runtime": "./tools/prepare_webview2_test.ps1",
+    "synthetic game identity": "prepare_ci_game_identity.ps1",
+    "shared external build root": "NIOH3_BUILD_ROOT=$root",
+}
+BUILD_STEP = "build_tauri.ps1"
+
+# The packaged acceptance legs the regular pipeline still owns.
+ACCEPTANCE_GATES = {
+    "packaged parity": "npm run test:packaged",
+    "packaged host": "node apps/tauri/verify.mjs",
+    "add layout": "node apps/tauri/verify-add-layout.mjs",
+    "update check": "node apps/tauri/verify-update.mjs",
+    "host package record": "node apps/tauri/verify-host-package.mjs",
+    "packaged worker identity": "node apps/tauri/verify-worker-identity.mjs",
+    "packaged frontend": "node apps/tauri/verify-packaged-frontend.mjs",
+    "one-file launch": "node apps/tauri/verify-onefile.mjs",
+    "one-file update": "node apps/tauri/verify-onefile-update.mjs",
+    "one-file rollback": "node apps/tauri/verify-onefile-rollback.mjs",
+}
+
+# Source identity checks that stay on the release job.
+SOURCE_GATES = {
     "contracts": "npm run contracts",
     "locale export": "python tools/export_v2_ui_locales.py",
     "locale audit": "node tools/audit_v2_ui_locales.mjs",
     "native build manifest": "python tools/verify_native_build_manifest.py",
     "test inventory": "python tools/write_test_inventory.py",
-    "node tests": "npm test",
     "typecheck": "npm run typecheck",
     "native fault gate": "./tools/verify_native_faults.ps1",
-    "tauri crate tests": "cargo test --locked --manifest-path apps/tauri/src-tauri/Cargo.toml",
-    "launcher crate tests": "cargo test --locked --manifest-path apps/launcher/Cargo.toml",
-    "clean checkout build": "build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output",
-    "archive identity": "python tools/archive_frontend_v2.py ",
-    "one-file identity": "python tools/build_tauri_onefile.py ",
-    "outer verification": "node apps/tauri/verify-onefile.mjs",
-    "outer update verification": "node apps/tauri/verify-onefile-update.mjs",
-    "outer rollback verification": "node apps/tauri/verify-onefile-rollback.mjs",
-    "size budget and signing": "build_tauri_update_manifest.mjs $zip",
 }
 
-# The pre-Rust Python backend's own suites are the reference/legacy lane. They
-# run on the `python` selection and in the Tests workflow, but they are never
-# the arbiter of Rust product correctness and they must not run in the shipped
-# `rust` selection, where they could only block or mask the real gates.
-LEGACY_PYTHON_GATES = {
-    "cpu-only old-backend regression": "python tools/run_cpu_only_tests.py",
-    "full Python suite": "python -m unittest discover",
+# Commands the independent Tests workflow owns. Finding one of these in the
+# release workflow again means the release job re-acquired a duplicate unit
+# pass or the retired development/parity backend lane.
+RETIRED_GATES = {
+    "retired python backend dispatch": "worker_backend",
+    "node unit suite": "npm test",
+    "cargo unit suite": "cargo test",
+    "full Python suite": "python -m unittest",
+    "old-backend regression": "python tools/run_cpu_only_tests.py",
     "title-save research tests": "pytest -q tests\\test_title_save_observer.py",
 }
 
-# The crates the release actually ships must be gated on the release job
-# itself, with the same commands the Tests workflow runs.
-SHIPPED_CRATE_GATES = {
-    "domain": "crates/nioh3-domain/Cargo.toml",
-    "data": "crates/nioh3-data/Cargo.toml",
-    "worker": "crates/nioh3-worker/Cargo.toml",
-    "save": "crates/nioh3-save/Cargo.toml",
-    "runtime": "crates/nioh3-runtime/Cargo.toml",
-    "protected": "crates/nioh3-protected/Cargo.toml",
-}
+SIGNING_STEP = "build_tauri_update_manifest.mjs $zip"
+FAILURE_ARTIFACT = "tauri-candidate-for-diagnosis"
+
+# The fixture is invoked without its environment-export switch; matching the
+# invocation keeps the surrounding prose from tripping the guard.
+IDENTITY_EXPORT = re.compile(r"prepare_ci_game_identity\.ps1[^\n]*-ExportForActions")
 
 
 def parse_steps(text: str) -> list[dict]:
@@ -116,29 +125,10 @@ def parse_steps(text: str) -> list[dict]:
     return steps
 
 
-def step_is_active(step: dict, backend: str) -> bool:
-    condition = step.get("if")
-    if condition is None:
-        return True
-    if condition == RUST_ONLY:
-        return backend == "rust"
-    if condition == PYTHON_ONLY:
-        return backend == "python"
-    if condition in BACKEND_INDEPENDENT:
-        return True
-    raise AssertionError(f"unsupported step condition: {condition!r}")
-
-
-def selected(steps: list[dict], backend: str) -> list[dict]:
-    return [step for step in steps if step_is_active(step, backend)]
-
-
 def joined(steps: list[dict]) -> str:
     """Every captured key of every step, so `env:`/`with:` count as content."""
 
-    return "\n".join(
-        f"{key}: {value}" for step in steps for key, value in step.items()
-    )
+    return "\n".join(f"{key}: {value}" for step in steps for key, value in step.items())
 
 
 def load_stager():
@@ -149,150 +139,115 @@ def load_stager():
     return module
 
 
-class ReleaseOptInWorkflowTests(unittest.TestCase):
+class ReleaseWorkflowTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.text = RELEASE_WORKFLOW.read_text(encoding="utf-8")
         cls.steps = parse_steps(cls.text)
+        cls.body = joined(cls.steps)
 
-    def test_the_dispatch_input_defaults_to_the_shipped_backend(self) -> None:
-        self.assertIn("worker_backend:", self.text)
-        self.assertIn("default: rust", self.text)
-        self.assertIn("type: choice", self.text)
-        options = self.text.split("options:", 1)[1].split("\n", 4)
-        self.assertIn("- python", "\n".join(options))
-        self.assertIn("- rust", "\n".join(options))
-        # Manual dispatch only: no schedule, push or pull_request trigger.
+    def test_the_workflow_is_manual_dispatch_only(self) -> None:
         on_block = self.text.split("permissions:", 1)[0]
-        self.assertNotIn("push:", on_block)
-        self.assertNotIn("pull_request:", on_block)
-        self.assertNotIn("schedule:", on_block)
+        self.assertIn("workflow_dispatch:", on_block)
+        for trigger in ("push:", "pull_request:", "schedule:"):
+            self.assertNotIn(trigger, on_block)
 
     def test_every_step_condition_is_one_the_gate_can_evaluate(self) -> None:
         for step in self.steps:
             condition = step.get("if")
             if condition is not None:
-                self.assertIn(
-                    condition,
-                    (RUST_ONLY, PYTHON_ONLY, *BACKEND_INDEPENDENT),
-                    step.get("name"),
-                )
+                self.assertIn(condition, BACKEND_INDEPENDENT, step.get("name"))
 
-    def test_the_python_selection_is_the_shipped_step_set(self) -> None:
-        python = joined(selected(self.steps, "python"))
-        for name, marker in RETAINED_GATES.items():
-            self.assertIn(marker, python, f"the python path lost {name}")
-        # The shipped path never stages or builds the Rust workers.
-        self.assertNotIn("stage_rust_workers.py", python)
-        self.assertNotIn("crates/nioh3-protected/Cargo.toml", python)
-        self.assertNotIn("crates/nioh3-worker/Cargo.toml", python)
-        # The packaged Rust graph assertion is Rust-only.
-        self.assertNotIn("OPTIN_MANIFEST_MISSING", python)
+    def test_the_bounded_acceptance_graph_is_present(self) -> None:
+        for name, marker in {**SOURCE_GATES, **ACCEPTANCE_GATES}.items():
+            self.assertIn(marker, self.body, f"the release job lost {name}")
+        # The shipped Rust graph is asserted on the packaged output.
+        for marker in ("OPTIN_MANIFEST_MISSING", "OPTIN_PYTHON_RESOURCE_PRESENT", "OPTIN_PYINSTALLER_OUTPUT_PRESENT"):
+            self.assertIn(marker, self.body)
+        self.assertIn("-WorkerBackend rust", self.body)
+        self.assertIn("NIOH3_WORKER_BACKEND: rust", self.body)
 
-    def test_the_rust_selection_keeps_every_retired_python_gate(self) -> None:
-        rust = joined(selected(self.steps, "rust"))
-        for name, marker in RETAINED_GATES.items():
-            self.assertIn(marker, rust, f"the rust path lost {name}")
-        # The backend choice is passed through to the one build entry point.
-        self.assertIn("-WorkerBackend ${{ inputs.worker_backend }}", rust)
-        # The Rust branch validates the packaged resource graph itself.
-        self.assertIn("OPTIN_MANIFEST_MISSING", rust)
-        self.assertIn("OPTIN_PYINSTALLER_OUTPUT_PRESENT", rust)
-        self.assertIn("OPTIN_PYTHON_RESOURCE_PRESENT", rust)
-        # ...and then accepts the real product, not the graph alone: the host's
-        # own resolution record, each packaged role's identity, and the shipped
-        # frontend against the packaged graph.
-        for gate in (
-            "verify-host-package.mjs --package $portable --exe $exe",
-            "verify-worker-identity.mjs --runtime $portable --role $role",
-            "verify-packaged-frontend.mjs --package $portable --exe $exe",
-            "foreach($role in @('offline_search','save','runtime'))",
-            "--role $role",
-        ):
-            self.assertIn(gate, rust, f"the rust acceptance is missing {gate!r}")
-        # The one-file gate asserts the staged Rust identity from inside the
-        # single-file product.
-        self.assertIn("NIOH3_WORKER_IDENTITY_OPT_IN", rust)
-        self.assertIn("NIOH3_WORKER_IDENTITY_PROTECTED", rust)
-        # The packaged-parity gate is backend-agnostic in the workflow: the
-        # dispatch input is bound into its environment, and the gate itself
-        # decides whether to derive the staged argv.
-        self.assertIn("NIOH3_WORKER_BACKEND: ${{ inputs.worker_backend }}", rust)
-        python = joined(selected(self.steps, "python"))
-        self.assertIn("verify-onefile.mjs", python)
-        self.assertIn("NIOH3_WORKER_BACKEND: ${{ inputs.worker_backend }}", python)
+    def test_cheap_prerequisites_precede_the_expensive_build(self) -> None:
+        build = self.body.index(BUILD_STEP)
+        for name, marker in PREREQUISITES.items():
+            self.assertIn(marker, self.body, f"the release job lost the {name} step")
+            self.assertLess(self.body.index(marker), build, f"{name} must precede the build")
+        # The synthetic Steam root is activated only after the build: exporting
+        # it as `ProgramFiles(x86)` earlier would repoint the compiler and SDK
+        # discovery Cargo/MSVC rely on.
+        self.assertIsNone(
+            IDENTITY_EXPORT.search(self.body),
+            "the synthetic game identity must not be exported before the build",
+        )
+        self.assertIn("ProgramFiles(x86)=$programFiles", self.body)
+        self.assertLess(
+            build,
+            self.body.index("ProgramFiles(x86)=$programFiles"),
+            "the synthetic game identity must be activated after the build",
+        )
+
+    def test_signing_follows_every_acceptance_leg(self) -> None:
+        signing = self.body.index(SIGNING_STEP)
+        for name, marker in ACCEPTANCE_GATES.items():
+            self.assertLess(self.body.index(marker), signing, f"{name} must precede signing")
+        # The exact unsigned candidate is retained for retest only after the
+        # signed artifact exists, so a failure never publishes signed bytes.
+        self.assertLess(signing, self.body.index(FAILURE_ARTIFACT))
+
+    def test_the_dispatch_profile_is_explicit_and_bounded(self) -> None:
+        self.assertIn("extended_search:", self.text)
+        self.assertIn("type: boolean", self.text)
+        self.assertIn("default: false", self.text)
+        self.assertIn(
+            "NIOH3_UI_PROFILE: ${{ inputs.extended_search && 'extended' || 'release' }}",
+            self.text,
+        )
+        self.assertIn("--profile $env:NIOH3_UI_PROFILE", self.body)
+
+    def test_the_shared_external_cargo_target_is_mapped(self) -> None:
+        self.assertIn("NIOH3_BUILD_ROOT=$root", self.body)
+        self.assertIn("CARGO_TARGET_DIR=$target", self.body)
+        self.assertIn(
+            "cache-directories: ${{ runner.temp }}/nioh3-release-build/build-cache/tauri-target",
+            self.body,
+        )
+
+    def test_the_duplicated_unit_suites_and_legacy_lane_stay_retired(self) -> None:
+        for name, marker in RETIRED_GATES.items():
+            self.assertNotIn(marker, self.body, f"the release job re-added the {name}")
 
     def test_no_workflow_step_invokes_pyinstaller(self) -> None:
         # PyInstaller lives behind `build_tauri.ps1`'s python branch, so the
-        # workflow never invokes it on either selection. The check is on
-        # invocations, not on the word: the Rust branch legitimately *names* the
-        # spec files it requires to be absent.
-        for backend in ("python", "rust"):
-            body = joined(selected(self.steps, backend)).lower()
-            for invocation in (
-                "-m pyinstaller",
-                "pyinstaller --",
-                "pyinstaller.exe",
-                "pyinstaller.cmd",
-            ):
-                self.assertNotIn(
-                    invocation, body, f"{backend} selection invokes {invocation!r}"
-                )
-        rust = joined(selected(self.steps, "rust")).lower()
-        # Each spec name appears exactly once, as the exclusion the stager
-        # declares - not as something to run.
+        # workflow never invokes it. The check is on invocations, not on the
+        # word: the Rust graph legitimately *names* the spec files it requires
+        # to be absent.
+        body = self.body.lower()
+        for invocation in ("-m pyinstaller", "pyinstaller --", "pyinstaller.exe", "pyinstaller.cmd"):
+            self.assertNotIn(invocation, body, f"the release job invokes {invocation!r}")
         for spec in ("packaging/search-worker.spec", "packaging/protected-worker.spec"):
             self.assertEqual(
-                rust.count(spec), 1, f"{spec} must appear only in the exclusion check"
+                self.body.count(spec), 1, f"{spec} must appear only in the exclusion check"
             )
-
-    def test_the_rust_selection_retires_the_legacy_lane_and_gates_the_shipped_crates(
-        self,
-    ) -> None:
-        rust = joined(selected(self.steps, "rust"))
-        python = joined(selected(self.steps, "python"))
-        # The legacy lane is absent from the shipped selection rather than
-        # skipped inside it, so it can neither block nor mask the crate gate.
-        for name, marker in LEGACY_PYTHON_GATES.items():
-            self.assertIn(marker, python, f"the python selection lost its {name}")
-            self.assertNotIn(
-                marker, rust, f"the shipped rust selection must not run the {name}"
-            )
-        for name, marker in SHIPPED_CRATE_GATES.items():
-            self.assertIn(
-                marker, rust, f"the rust selection does not gate the shipped {name} crate"
-            )
-        self.assertIn("Verify the shipped Rust crate suites", rust)
-        # The release gate holds the crate *tests* only. Lint and formatting
-        # live once, in the independent Tests `rust-crates` job, so the release
-        # run does not pay for a duplicated `clippy`/`fmt` pass.
-        self.assertNotIn("cargo clippy", rust)
-        self.assertNotIn("cargo fmt", rust)
 
     def test_the_rust_graph_assertion_matches_the_stager_declarations(self) -> None:
-        rust = joined(selected(self.steps, "rust"))
         stager = load_stager()
         # Every packaged binary name the stager produces must be checked, and
         # the exclusions it declares must be the ones the workflow requires.
         for _cargo, packaged, _crate in stager.ROLES:
             self.assertIn(
                 packaged,
-                rust,
+                self.body,
                 f"the workflow does not assert the packaged name {packaged}",
             )
-        for spec in (
-            "packaging/search-worker.spec",
-            "packaging/protected-worker.spec",
-        ):
-            self.assertIn(spec, rust, f"the workflow does not require {spec} be excluded")
-        self.assertIn("$manifest.backend -ne 'rust'", rust)
+        for spec in ("packaging/search-worker.spec", "packaging/protected-worker.spec"):
+            self.assertIn(spec, self.body, f"the workflow does not require {spec} be excluded")
+        self.assertIn("$manifest.backend -ne 'rust'", self.body)
 
     def test_the_workflow_and_stager_agree_on_the_marker_files(self) -> None:
-        rust = joined(selected(self.steps, "rust"))
         # The stager refuses to mix backends when these exist; the workflow
         # asserts the packaged output does not contain them.
-        self.assertIn("python-build-environment.json", rust)
-        self.assertIn("_internal", rust)
+        self.assertIn("python-build-environment.json", self.body)
+        self.assertIn("_internal", self.body)
 
 
 if __name__ == "__main__":

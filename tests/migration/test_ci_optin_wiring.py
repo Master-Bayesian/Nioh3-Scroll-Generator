@@ -77,17 +77,15 @@ class CiOptInWiringTests(unittest.TestCase):
             "the frontend bundle must be built before the packaging host",
         )
 
-    def test_the_release_workflow_defaults_to_the_rust_graph(self) -> None:
-        # The release workflow now packages the Rust worker by default: the
-        # input defaults to `rust`, the Rust-only steps are conditional so the
-        # development/parity `python` selection still has a complete step set,
-        # and the build, archive and signing markers are all still present.
+    def test_the_release_workflow_ships_only_the_rust_graph(self) -> None:
+        # The release workflow packages the Rust worker as its only graph. The
+        # retired Python backend is no longer dispatchable, and the build,
+        # archive and signing markers are all still present.
         release = RELEASE_WORKFLOW.read_text(encoding="utf-8")
         self.assertNotIn("m4-optin", release)
-        self.assertIn("default: rust", release)
-        self.assertIn("if: inputs.worker_backend == 'rust'", release)
+        self.assertNotIn("worker_backend", release)
         self.assertIn("build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output", release)
-        self.assertIn("-WorkerBackend ${{ inputs.worker_backend }}", release)
+        self.assertIn("-WorkerBackend rust", release)
         self.assertIn("nioh3-search-worker.exe", release)
         # The published identity path is unchanged.
         self.assertIn("python tools/archive_frontend_v2.py deliverables/release/portable", release)

@@ -1,56 +1,132 @@
 name: Signed Tauri Windows release preparation
+
+# Manual dispatch only. This job prepares a signed candidate from one exact
+# commit; it never publishes, tags or replaces an update feed.
 on:
   workflow_dispatch:
     inputs:
-      worker_backend:
+      extended_search:
         description: >-
-          Packaged worker backend. `rust` is the shipped default (the packaged
-          host selects its graph from the staged manifest); `python` keeps the
-          previous PyInstaller graph for development, parity and oracle use and
-          is not a shipped product graph.
+          Run the extended packaged-frontend acceptance. The default `false`
+          runs the bounded `release` profile, which drives the same packaged
+          host/worker/frontend graph without the long 158M-trial regression.
+          `true` selects the `extended` profile that keeps that regression.
         required: false
-        default: rust
-        type: choice
-        options:
-          - python
-          - rust
+        default: false
+        type: boolean
 permissions:
   contents: read
   actions: read
 concurrency:
   group: tauri-release-${{ github.ref }}
   cancel-in-progress: false
+env:
+  PYTHONUTF8: '1'
+  NIOH3_PARITY_ALLOW_CPU: '1'
+  # The exact selected generation resource / game file version the packaged
+  # stage is built for; it must move with the pinned current resource version.
+  NIOH3_PARITY_GAME_FILE_VERSION: '2.0.2.0'
+  NIOH3_REQUIRE_CLEAN_SOURCE: '1'
 jobs:
   release:
     runs-on: windows-latest
+    # The dispatch input is mapped once to the profile name the packaged
+    # frontend verifier accepts, so the selection is explicit, not inferred.
     env:
-      PYTHONUTF8: '1'
-      NIOH3_PARITY_ALLOW_CPU: '1'
-      # The exact selected generation resource / game file version the packaged
-      # stage is built for; it must move with the pinned current resource version.
-      NIOH3_PARITY_GAME_FILE_VERSION: '2.0.2.0'
-      NIOH3_REQUIRE_CLEAN_SOURCE: '1'
+      NIOH3_UI_PROFILE: ${{ inputs.extended_search && 'extended' || 'release' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Check out the candidate source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: pip
-      - uses: actions/setup-node@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+
+      - name: Set up the Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Restore the shared external Cargo cache
+        uses: Swatinem/rust-cache@v2
         with:
+          # Every release step builds into ONE external Cargo target
+          # (`CARGO_TARGET_DIR`, resolved two steps below). The workspace
+          # `target/` directories this action caches by default are never
+          # written here, which is exactly the cache miss this mapping fixes,
+          # so the real external target is cached by absolute path and the
+          # unused workspace directories are left alone. The listed workspaces
+          # still drive the dependency and lockfile cache key.
           workspaces: |
             apps/tauri/src-tauri
             apps/launcher
+            crates/nioh3-worker
+            crates/nioh3-protected
+          cache-targets: false
+          cache-directories: ${{ runner.temp }}/nioh3-release-build/build-cache/tauri-target
           cache-on-failure: true
-      - run: python -m pip install -r packaging/requirements-v2.lock.txt
-      - run: python -m pip install -r requirements-dev.txt
-      - run: npm ci --no-fund
-      - run: ./tools/prepare_webview2_test.ps1
+
+      - name: Resolve the shared external build root, Cargo target and test temp
+        shell: pwsh
+        run: |
+          # One external build root for the whole run, following the project
+          # resolver (tests/migration/cargo_target.py: an explicit
+          # NIOH3_BUILD_ROOT wins, otherwise a CI host keeps its platform temp
+          # root). Neither the checkout volume nor the C: system temp may take
+          # the write, so the shared Cargo target, this run's child test temp and
+          # the native-fault fixture all live under the runner temp directory as
+          # `<root>/build-cache/tauri-target`, `<root>/tmp` and
+          # `<root>/native-fault-ci`. TEMP/TMP are repointed after the directory
+          # exists so every later child process inherits the resolved root.
+          $root = Join-Path $env:RUNNER_TEMP 'nioh3-release-build'
+          $target = Join-Path $root 'build-cache/tauri-target'
+          $temp = Join-Path $root 'tmp'
+          New-Item -ItemType Directory -Force -Path $target,$temp | Out-Null
+          "NIOH3_BUILD_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CARGO_TARGET_DIR=$target" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "TEMP=$temp" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "TMP=$temp" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Release build root: $root"
+          Write-Host "Release Cargo target: $target"
+          Write-Host "Release test temp: $temp"
+
+      - name: Resolve the hosted WebView2 runtime
+        # Cheap prerequisite, deliberately ahead of the expensive build: a
+        # missing or untrusted runtime must fail here, not after compilation.
+        run: ./tools/prepare_webview2_test.ps1
+
+      - name: Prepare the synthetic game identity
+        # Cheap prerequisite, also ahead of the build: the fixture proves the
+        # game version resource compiles and reads back exactly. It is created
+        # without `-ExportForActions` on purpose: exporting the fixture as
+        # `ProgramFiles(x86)` before the build would repoint the compiler and
+        # SDK discovery that Cargo/MSVC use. The isolated Steam root is
+        # activated later, after the build, from this same fixture. The fixture
+        # is never executed and grants no game or native-write authority.
+        shell: pwsh
+        run: |
+          $fixtureRoot = Join-Path $env:RUNNER_TEMP 'nioh3-game-identity'
+          ./tools/prepare_ci_game_identity.ps1 -Root $fixtureRoot -GameFileVersion $env:NIOH3_PARITY_GAME_FILE_VERSION
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          $evidence='deliverables/frontend-v2/tauri-acceptance'
+          New-Item -ItemType Directory -Force -Path $evidence | Out-Null
+          Copy-Item -LiteralPath (Join-Path $fixtureRoot 'identity.json') -Destination (Join-Path $evidence 'ci-game-identity.json')
+
+      - name: Install the locked Python packaging environment
+        run: python -m pip install -r packaging/requirements-v2.lock.txt
+
+      - name: Install the locked Python development environment
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Install the locked Node packages
+        run: npm ci --no-fund
+
       - name: Validate versions and Python path
         id: version
         shell: pwsh
@@ -64,69 +140,49 @@ jobs:
           $launcherVersion = python -c "import tomllib; print(tomllib.load(open('apps/launcher/Cargo.toml','rb'))['package']['version'])"
           if($LASTEXITCODE -ne 0 -or $version -ne $launcherVersion){throw 'Launcher version mismatch'}
           "value=$version" >> $env:GITHUB_OUTPUT
-      - run: npm run contracts
-      - run: python tools/export_v2_ui_locales.py
-      - run: git diff --exit-code -- packages/contracts apps/workshop/ui-locales.json
-      - run: node tools/audit_v2_ui_locales.mjs
-      - run: python tools/verify_native_build_manifest.py
-      - run: python tools/write_test_inventory.py --output deliverables/release/test-inventory.json
-      # The shipped backend is the Rust graph, so the legacy Python backend's
-      # full suite, its old-backend regression file and the title-save research
-      # tests are the reference/dev lane: they run on the `python` selection and
-      # in the Tests workflow, and they are never the arbiter of whether the
-      # Rust product is correct. They are not skipped by `continue-on-error`.
-      - if: inputs.worker_backend != 'rust'
-        run: python tools/run_cpu_only_tests.py
-      - if: inputs.worker_backend != 'rust'
-        run: python -m unittest discover -s tests -t . -v
-      - if: inputs.worker_backend != 'rust'
-        run: python -m pytest -q tests\test_title_save_observer.py tests\test_title_save_capture_tools.py
-      - run: npm test
-      - run: npm run typecheck
-      - run: ./tools/verify_native_faults.ps1
-      - run: node apps/tauri/build.mjs
-      - run: cargo test --locked --manifest-path apps/tauri/src-tauri/Cargo.toml
-      - run: cargo test --locked --manifest-path apps/launcher/Cargo.toml
-      - name: Verify the shipped Rust crate suites
-        if: inputs.worker_backend == 'rust'
-        shell: pwsh
-        run: |
-          # The crates this release ships are gated on the release job itself,
-          # with the same `cargo test` commands the Tests workflow runs, so no
-          # legacy Python result can short-circuit them. Lint and formatting
-          # stay in the independent Tests `rust-crates` job rather than being
-          # repeated here. The target stays on the runner temp volume like the
-          # other crate gates.
-          $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'rust-release-crates-target'
-          cargo fetch --locked --manifest-path crates/nioh3-data/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo fetch --locked --manifest-path crates/nioh3-worker/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo fetch --locked --manifest-path crates/nioh3-save/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked --offline --manifest-path crates/nioh3-domain/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked --offline --manifest-path crates/nioh3-data/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked --offline --manifest-path crates/nioh3-worker/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked --offline --manifest-path crates/nioh3-save/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo fetch --locked --manifest-path crates/nioh3-runtime/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked --offline --features test-helper --manifest-path crates/nioh3-runtime/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo fetch --locked --manifest-path crates/nioh3-protected/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked --offline --manifest-path crates/nioh3-protected/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Build once from a clean checkout
+
+      # Source, contract and locale identity. The full unit suites belong to the
+      # independent Tests workflow (`windows-tests`, `rust-crates`,
+      # `rust-packaging`); this release job runs the bounded source checks and
+      # then accepts the packaged product, so it never pays for a duplicated
+      # Python/Cargo/npm unit pass. The retired Python worker graph is not a
+      # shipped graph and is no longer dispatchable here at all.
+      - name: Regenerate contracts
+        run: npm run contracts
+
+      - name: Regenerate UI locales
+        run: python tools/export_v2_ui_locales.py
+
+      - name: Require no generated diff
+        run: git diff --exit-code -- packages/contracts apps/workshop/ui-locales.json
+
+      - name: Audit UI locales
+        run: node tools/audit_v2_ui_locales.mjs
+
+      - name: Verify the native build manifest
+        run: python tools/verify_native_build_manifest.py
+
+      - name: Record the test inventory
+        run: python tools/write_test_inventory.py --output deliverables/release/test-inventory.json
+
+      - name: Typecheck the frontend
+        run: npm run typecheck
+
+      - name: Verify the native fault matrix
+        # The fixture is compiled into the resolved build root, never the
+        # checkout: the release tree stays clean for the clean-source assertion.
+        run: ./tools/verify_native_faults.ps1 -Python $env:NIOH3_PYTHON -Output (Join-Path $env:NIOH3_BUILD_ROOT 'native-fault-ci')
+
+      - name: Build the frontend bundle the host embeds
+        run: node apps/tauri/build.mjs
+
+      - name: Build the candidate from a clean checkout
         shell: pwsh
         run: |
           if(git status --porcelain){throw 'Source checkout is dirty'}
-          ./tools/build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output deliverables/release/portable -WorkerBackend ${{ inputs.worker_backend }}
+          ./tools/build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output deliverables/release/portable -WorkerBackend rust
+
       - name: Assert the packaged Rust worker graph carries no Python worker
-        if: inputs.worker_backend == 'rust'
         shell: pwsh
         run: |
           $workers='deliverables/release/portable/worker'
@@ -146,27 +202,35 @@ jobs:
           if(Test-Path -LiteralPath (Join-Path $workers 'python-build-environment.json')){throw 'OPTIN_PYTHON_RESOURCE_PRESENT'}
           if(Get-ChildItem -LiteralPath $workers -Directory -Recurse -Filter '_internal' -ErrorAction SilentlyContinue){throw 'OPTIN_PYINSTALLER_OUTPUT_PRESENT'}
           Write-Host "OPTIN_GRAPH_OK backend=$($manifest.backend) workers=$($manifest.binaries.Count)"
+
       - name: Archive the verified internal update payload
         run: python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.zip
+
       - name: Build the install-free single executable
         run: python tools/build_tauri_onefile.py deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.zip deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.exe
-      - name: Prepare the synthetic game identity for packaged UI acceptance
-        if: inputs.worker_backend == 'rust'
+
+      - name: Activate the synthetic game identity for the packaged UI gates
+        # Late activation, after the build: the isolated Steam root replaces
+        # `ProgramFiles(x86)` only for the packaged UI verifiers that discover
+        # the game, so Cargo/MSVC toolchain discovery already ran against the
+        # real environment. This reuses the fixture created before the build;
+        # nothing is recompiled or recreated here.
         shell: pwsh
         run: |
           $fixtureRoot = Join-Path $env:RUNNER_TEMP 'nioh3-game-identity'
-          ./tools/prepare_ci_game_identity.ps1 -Root $fixtureRoot -GameFileVersion $env:NIOH3_PARITY_GAME_FILE_VERSION -ExportForActions
-          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
-          $evidence='deliverables/frontend-v2/tauri-acceptance'
-          New-Item -ItemType Directory -Force -Path $evidence | Out-Null
-          Copy-Item -LiteralPath (Join-Path $fixtureRoot 'identity.json') -Destination (Join-Path $evidence 'ci-game-identity.json')
+          $programFiles = Join-Path $fixtureRoot 'ProgramFiles'
+          if(-not (Test-Path -LiteralPath (Join-Path $fixtureRoot 'identity.json') -PathType Leaf)){throw 'the synthetic game identity was not prepared before the build'}
+          if(-not (Test-Path -LiteralPath (Join-Path $programFiles 'Steam/steamapps/common/Nioh3/Nioh3.exe') -PathType Leaf)){throw 'the synthetic Steam root is incomplete'}
+          "ProgramFiles(x86)=$programFiles" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Packaged UI game identity root: $programFiles"
+
       - name: Verify the release binaries
         shell: pwsh
         env:
-          # The packaged-parity gate selects the staged manifest argv when this
-          # names `rust`; every backend also receives the explicitly pinned game
-          # file version required for this comparison.
-          NIOH3_WORKER_BACKEND: ${{ inputs.worker_backend }}
+          # The packaged-parity gate selects the staged manifest argv for the
+          # shipped Rust graph; the run also carries the explicitly pinned game
+          # file version that comparison launches both workers with.
+          NIOH3_WORKER_BACKEND: rust
         run: |
           $env:NIOH3_WORKER_EXE=Join-Path $PWD 'deliverables/release/portable/worker/nioh3-search-worker.exe'
           $env:NIOH3_PROTECTED_WORKER_EXE=Join-Path $PWD 'deliverables/release/portable/worker/nioh3-protected-worker.exe'
@@ -180,15 +244,16 @@ jobs:
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node apps/tauri/verify-update.mjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+
       - name: Verify the packaged Rust identity, host graph and frontend
-        if: inputs.worker_backend == 'rust'
         shell: pwsh
         run: |
-          # The Rust branch must be accepted on the real shipped product, not on
-          # the resource graph alone: the host's own startup record must name the
-          # rust-packaged graph and the exact argv, each packaged role must answer
-          # its representative request under the staged manifest, and the shipped
-          # frontend must run against that graph. A blocked leg fails this step.
+          # The shipped Rust graph is accepted on the real product, not on the
+          # resource graph alone: the host's own startup record must name the
+          # rust-packaged graph and the exact argv, each packaged role must
+          # answer its representative request under the staged manifest, and
+          # the shipped frontend must run against that graph in the selected
+          # acceptance profile (`release` by default, `extended` on request).
           $portable='deliverables/release/portable'
           $exe=Join-Path $PWD "$portable/Nioh3Studio.exe"
           $evidence='deliverables/frontend-v2/tauri-acceptance/rust-packaged'
@@ -200,16 +265,17 @@ jobs:
             node apps/tauri/verify-worker-identity.mjs --runtime $portable --role $role --out (Join-Path $evidence "identity-$role.json")
             if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           }
-          node apps/tauri/verify-packaged-frontend.mjs --host release --package $portable --exe $exe --python $env:NIOH3_PYTHON --out $evidence
+          node apps/tauri/verify-packaged-frontend.mjs --host release --package $portable --exe $exe --python $env:NIOH3_PYTHON --profile $env:NIOH3_UI_PROFILE --out $evidence
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+
       - name: Verify direct one-file launch, runtime cache and outer updates
         shell: pwsh
         env:
           # The staged manifest alone already makes `verify-onefile.mjs` assert
           # the Rust worker identity from inside the single-file product; these
           # flags stay as an explicit override for a graph without a manifest.
-          NIOH3_WORKER_IDENTITY_OPT_IN: ${{ inputs.worker_backend == 'rust' && '1' || '' }}
-          NIOH3_WORKER_IDENTITY_PROTECTED: ${{ inputs.worker_backend == 'rust' && '1' || '' }}
+          NIOH3_WORKER_IDENTITY_OPT_IN: '1'
+          NIOH3_WORKER_IDENTITY_PROTECTED: '1'
         run: |
           $env:NIOH3_ONEFILE_EXE=Join-Path $PWD 'deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.exe'
           node apps/tauri/verify-onefile.mjs
@@ -218,7 +284,10 @@ jobs:
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node apps/tauri/verify-onefile-rollback.mjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
-      - name: Enforce download budget and sign
+
+      - name: Enforce the download budget and sign the update manifest
+        # The signed artifact is produced only after every release E2E leg above
+        # has passed; no earlier step can emit a signed release artifact.
         shell: pwsh
         env:
           NIOH3_UPDATE_PRIVATE_KEY_BASE64: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY_BASE64 }}
@@ -227,22 +296,71 @@ jobs:
           if((Get-Item $zip).Length -gt 60MB){throw 'Release exceeds 60 MiB download budget'}
           node tools/build_tauri_update_manifest.mjs $zip '${{ steps.version.outputs.value }}' packaging/release-notes.md deliverables/release/tauri-update.json
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload the signed release artifact
+        uses: actions/upload-artifact@v4
         with:
           name: nioh3-tauri-release
+          if-no-files-found: error
           path: |
             deliverables/release/*.zip
             deliverables/release/*.exe
             deliverables/release/*.sha256
             deliverables/release/tauri-update.json
             deliverables/release/test-inventory.json
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload the acceptance evidence
         if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: tauri-acceptance-evidence
+          if-no-files-found: ignore
           path: deliverables/frontend-v2/tauri-acceptance
-      - uses: actions/upload-artifact@v4
+
+      - name: Retain the exact unsigned candidate for retest
+        # Failure evidence, always retained: the bytes this run actually built,
+        # so a diagnosis or a bounded retest never has to rebuild or reuse an
+        # older artifact. It stays separate from the signed release artifact.
         if: failure()
+        uses: actions/upload-artifact@v4
         with:
           name: tauri-candidate-for-diagnosis
-          path: deliverables/release/portable
+          if-no-files-found: ignore
+          path: |
+            deliverables/release/portable
+            deliverables/release/*.zip
+            deliverables/release/*.exe
+            deliverables/release/*.sha256
+
+      - name: Record the release preparation summary
+        if: always()
+        shell: pwsh
+        run: |
+          $profile = if([string]::IsNullOrWhiteSpace($env:NIOH3_UI_PROFILE)){'unset'}else{$env:NIOH3_UI_PROFILE}
+          $root = if([string]::IsNullOrWhiteSpace($env:NIOH3_BUILD_ROOT)){'unset'}else{$env:NIOH3_BUILD_ROOT}
+          $target = if([string]::IsNullOrWhiteSpace($env:CARGO_TARGET_DIR)){'unset'}else{$env:CARGO_TARGET_DIR}
+          $summary = [System.Collections.Generic.List[string]]::new()
+          $summary.Add('## Tauri release preparation')
+          $summary.Add('')
+          $summary.Add('| Item | Value |')
+          $summary.Add('| --- | --- |')
+          $summary.Add('| Candidate SHA | ' + '${{ github.sha }}' + ' |')
+          $summary.Add('| Dispatch input | extended_search=' + '${{ inputs.extended_search }}' + ' |')
+          $summary.Add('| UI profile | ' + $profile + ' |')
+          $summary.Add('| Build root | ' + $root + ' |')
+          $summary.Add('| Cargo target | ' + $target + ' |')
+          $artifacts = Get-ChildItem -LiteralPath 'deliverables/release' -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -in '.zip','.exe','.json','.sha256' } | Sort-Object Name
+          if($artifacts){
+            $summary.Add('')
+            $summary.Add('| Artifact | Bytes | SHA-256 |')
+            $summary.Add('| --- | --- | --- |')
+            foreach($artifact in $artifacts){
+              $digest = if($artifact.Extension -eq '.sha256'){''}else{(Get-FileHash -LiteralPath $artifact.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}
+              $summary.Add('| ' + $artifact.Name + ' | ' + $artifact.Length + ' | ' + $digest + ' |')
+            }
+          }
+          $summary.Add('')
+          $summary.Add('Acceptance evidence is retained unconditionally as `tauri-acceptance-evidence`; the exact unsigned candidate bytes are retained as `tauri-candidate-for-diagnosis` when any leg fails. The signed artifact is produced only after every release E2E leg passes.')
+          $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          $summary | ForEach-Object { Write-Host $_ }

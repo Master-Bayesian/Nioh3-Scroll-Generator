@@ -60,27 +60,78 @@ class TauriReleasePreflightTests(unittest.TestCase):
             "apps/tauri/src-tauri/src/update.rs",
             f'.decode("{PUBLIC_KEY}"); "{PROJECT_URL}/releases/download/v{{}}/{{}}";',
         )
+        # The independent Tests workflow keeps its own full unit lanes; the
+        # release job must not re-acquire them.
+        self._write(
+            ".github/workflows/tests.yml",
+            textwrap.dedent(
+                """\
+                name: Tests
+                jobs:
+                  windows-tests:
+                    runs-on: windows-latest
+                  rust-crates:
+                    runs-on: windows-latest
+                  rust-packaging:
+                    runs-on: windows-latest
+                """
+            ),
+        )
         self._write(
             ".github/workflows/release.yml",
             textwrap.dedent(
-                f'''\
-                on: workflow_dispatch
+                """\
+                on:
+                  workflow_dispatch:
+                    inputs:
+                      extended_search:
+                        default: false
+                        type: boolean
                 permissions:
                   contents: read
                 env:
                   NIOH3_REQUIRE_CLEAN_SOURCE: '1'
-                steps:
-                  - run: python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/{ARTIFACT}.zip
-                  - run: python tools/build_tauri_onefile.py deliverables/release/{ARTIFACT}.zip deliverables/release/{ARTIFACT}.exe
-                  - run: node apps/tauri/verify-onefile.mjs
-                  - run: node apps/tauri/verify-onefile-update.mjs
-                  - run: |
-                      $zip='deliverables/release/{ARTIFACT}.zip'
-                      node tools/build_tauri_update_manifest.mjs $zip '0.7.3' notes.md deliverables/release/tauri-update.json
-                  - run: deliverables/release/tauri-update.json
-                  - run: deliverables/release/test-inventory.json
-                '''
-            ),
+                jobs:
+                  release:
+                    env:
+                      NIOH3_UI_PROFILE: ${{ inputs.extended_search && 'extended' || 'release' }}
+                    steps:
+                      - name: External build root
+                        run: |
+                          NIOH3_BUILD_ROOT=$root
+                          CARGO_TARGET_DIR=$target
+                      - name: Hosted WebView2 runtime
+                        run: ./tools/prepare_webview2_test.ps1
+                      - name: Synthetic game identity
+                        run: ./tools/prepare_ci_game_identity.ps1 -Root $fixtureRoot
+                      - name: Shared external Cargo cache
+                        uses: Swatinem/rust-cache@v2
+                        with:
+                          cache-directories: ${{ runner.temp }}/nioh3-release-build/build-cache/tauri-target
+                      - name: Build the candidate
+                        run: ./tools/build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output deliverables/release/portable
+                      - name: Activate the synthetic game identity
+                        run: |
+                          ProgramFiles(x86)=$programFiles
+                      - run: python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/@ARTIFACT@.zip
+                      - run: python tools/build_tauri_onefile.py deliverables/release/@ARTIFACT@.zip deliverables/release/@ARTIFACT@.exe
+                      - run: node apps/tauri/verify-packaged-frontend.mjs --profile $env:NIOH3_UI_PROFILE
+                      - run: node apps/tauri/verify-onefile.mjs
+                      - run: node apps/tauri/verify-onefile-update.mjs
+                      - run: node apps/tauri/verify-onefile-rollback.mjs
+                      - name: Enforce the download budget and sign
+                        run: |
+                          $zip='deliverables/release/@ARTIFACT@.zip'
+                          node tools/build_tauri_update_manifest.mjs $zip '0.7.3' notes.md deliverables/release/tauri-update.json
+                      - uses: actions/upload-artifact@v4
+                        with:
+                          name: tauri-candidate-for-diagnosis
+                      - if: always()
+                        run: |
+                          deliverables/release/tauri-update.json
+                          deliverables/release/test-inventory.json
+                """
+            ).replace("@ARTIFACT@", ARTIFACT),
         )
 
     @staticmethod
