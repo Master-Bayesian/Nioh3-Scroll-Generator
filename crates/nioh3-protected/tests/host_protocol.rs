@@ -42,6 +42,8 @@ struct Signals {
     /// When true, `finalize` panics instead of answering. The panic must be
     /// contained and turned into a retained attempt, never an exit proof.
     panic_finalize: Arc<AtomicBool>,
+    /// Deterministic panic injection for the first N finalization attempts.
+    panic_finalize_until: Arc<AtomicU32>,
     /// When true, `finalize` answers an unretainable step instead of retrying.
     finalize_terminal: Arc<AtomicBool>,
 }
@@ -57,6 +59,7 @@ impl Signals {
             finalize_attempts: Arc::new(AtomicU32::new(0)),
             finalize_gate: Arc::new(AtomicU32::new(u32::MAX)),
             panic_finalize: Arc::new(AtomicBool::new(false)),
+            panic_finalize_until: Arc::new(AtomicU32::new(0)),
             finalize_terminal: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -181,7 +184,9 @@ impl RoleApplication for Scripted {
             .finalize_attempts
             .fetch_add(1, Ordering::SeqCst)
             + 1;
-        if self.signals.panic_finalize.load(Ordering::SeqCst) {
+        if self.signals.panic_finalize.load(Ordering::SeqCst)
+            || attempts <= self.signals.panic_finalize_until.load(Ordering::SeqCst)
+        {
             panic!("injected finalization panic");
         }
         if self.signals.allow_finalize.load(Ordering::SeqCst) {
@@ -283,18 +288,42 @@ fn handshake_is_contract_valid() {
 
 #[test]
 fn handshake_then_job_current_and_shutdown() {
-    // The action runs on its own thread, so poll `job.current` until the owner
-    // reports a terminal state instead of assuming it finished in one step.
-    let mut input = vec![
-        request("1", "handshake", json!({})),
-        request("2", "save.register", json!({"path": "SAVEDATA.BIN"})),
-    ];
-    for index in 0..200 {
-        input.push(request(&format!("p{index}"), "job.current", json!({})));
-    }
-    let (out, _) = drive(input, Role::Save);
-    assert_eq!(out.len(), 202);
-    let started = &out[1];
+    // Failure modes: a queued burst can finish before the job is scheduled;
+    // terminal state can precede thread exit; an invalid response or a genuinely
+    // stuck job must still fail. Drive actual responses with bounded deadlines,
+    // keeping the same host alive through registration, observation and shutdown.
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let signals = Signals::new();
+    let application = scripted_application(Role::Save, &signals, false);
+    let (sender, receiver) = mpsc::channel();
+    let sink = Arc::new(Mutex::new(Vec::new()));
+    let host_sink = Arc::clone(&sink);
+    let host = std::thread::spawn(move || {
+        serve(
+            application,
+            &contract,
+            &mut ChannelReader::new(receiver),
+            &mut SharedSink(host_sink),
+        )
+        .expect("serve succeeds");
+    });
+    let mut count = 0;
+    let mut exchange = |method: &str, params: Value| {
+        count += 1;
+        let id = count.to_string();
+        sender
+            .send(frame(&request(&id, method, params)))
+            .expect("send a framed request");
+        let out = wait_for_responses(&sink, count);
+        assert_eq!(out.len(), count, "one response per request");
+        let response = out.last().expect("response arrives").clone();
+        assert_eq!(response["id"], id);
+        assert_eq!(response["ok"], true, "request refused: {response}");
+        response
+    };
+    let handshake = exchange("handshake", json!({}));
+    assert_eq!(handshake["result"]["role"], "save");
+    let started = exchange("save.register", json!({"path": "SAVEDATA.BIN"}));
     assert_eq!(started["ok"], true, "job start refused: {started}");
     assert_eq!(started["result"]["kind"], "save.register");
     assert_eq!(started["result"]["state"], "running");
@@ -305,26 +334,40 @@ fn handshake_then_job_current_and_shutdown() {
         "job id {job_id} is not 32 lowercase hex characters"
     );
 
-    let last = out.last().expect("a response per request");
-    let job = &last["result"]["job"];
+    let deadline = Instant::now() + Duration::from_secs(30);
+    let job = loop {
+        let current = exchange("job.current", json!({}));
+        let job = current["result"]["job"].clone();
+        assert_eq!(job["job_id"], job_id);
+        if job["state"] != "running" {
+            break job;
+        }
+        assert!(Instant::now() < deadline, "job never completed: {job}");
+        std::thread::sleep(Duration::from_millis(5));
+    };
     assert_eq!(job["job_id"], job_id);
     assert_eq!(job["state"], "completed", "job never completed: {job}");
     assert_eq!(job["result"]["path"], "SAVEDATA.BIN");
     assert!(job["sequence"].as_u64().unwrap() >= 1);
 
-    // `job.current` never mutates the owner, so a shutdown is still accepted.
-    let mut shutdown_input = vec![
-        request("1", "handshake", json!({})),
-        request("2", "save.register", json!({"path": "SAVEDATA.BIN"})),
-    ];
-    for index in 0..200 {
-        shutdown_input.push(request(&format!("s{index}"), "job.current", json!({})));
+    // A terminal record does not itself prove that its thread has exited.
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let shutdown = exchange("shutdown", json!({}));
+        if shutdown["result"]["safe_to_shutdown"] == true {
+            break;
+        }
+        assert_eq!(shutdown["result"]["error"], "Operation still running");
+        assert!(Instant::now() < deadline, "shutdown never became safe");
+        std::thread::sleep(Duration::from_millis(5));
     }
-    shutdown_input.push(request("shutdown", "shutdown", json!({})));
-    let shutdown = drive(shutdown_input, Role::Save).0;
-    assert_eq!(
-        shutdown.last().expect("shutdown response")["result"]["safe_to_shutdown"],
-        true
+    drop(sender);
+    host.join().expect("the host exits after safe shutdown");
+    assert!(signals.finalized.load(Ordering::SeqCst));
+    println!(
+        "HOST_PROTOCOL_E2E_OK {}",
+        serde_json::to_string(&complete_responses(&sink.lock().expect("sink lock")))
+            .expect("serialize the repeatable protocol transcript")
     );
 }
 
@@ -389,14 +432,11 @@ fn runtime_status_is_answered_inline() {
 
 #[test]
 fn a_failed_job_reports_its_own_error() {
-    let mut input = vec![
+    let input = vec![
         request("1", "handshake", json!({})),
         request("2", "save.inventory", json!({"save_id": "0".repeat(32)})),
     ];
-    for index in 0..200 {
-        input.push(request(&format!("p{index}"), "job.current", json!({})));
-    }
-    let (out, _) = drive(input, Role::Save);
+    let out = drive_completed_job(input, Vec::new(), Role::Save, &Signals::new(), false);
     let job = &out.last().expect("a response per request")["result"]["job"];
     assert_eq!(job["state"], "failed");
     // `protected_jobs.py` answers a failed job with `OPERATION_FAILED`.
@@ -595,6 +635,71 @@ fn scripted_application(
     })
 }
 
+// A burst of queued polls is not elapsed time and may starve the job entirely.
+// Keep each response observable, stop only on a terminal record, and preserve
+// failure/panic/retained-cleanup payloads for the caller's original assertions.
+fn drive_completed_job(
+    before: Vec<Value>,
+    after: Vec<Value>,
+    role: Role,
+    signals: &Signals,
+    panic_job: bool,
+) -> Vec<Value> {
+    let contract = Contract::load(&contract_dir()).expect("contract loads");
+    let application = scripted_application(role, signals, panic_job);
+    let (sender, receiver) = mpsc::channel();
+    let sink = Arc::new(Mutex::new(Vec::new()));
+    let host_sink = Arc::clone(&sink);
+    let host = std::thread::spawn(move || {
+        serve(
+            application,
+            &contract,
+            &mut ChannelReader::new(receiver),
+            &mut SharedSink(host_sink),
+        )
+        .expect("interactive protocol host");
+    });
+    let mut count = 0;
+    let mut exchange = |value: Value| {
+        count += 1;
+        sender.send(frame(&value)).expect("send framed request");
+        let out = wait_for_responses(&sink, count);
+        assert_eq!(out.len(), count);
+        let response = out.last().expect("response").clone();
+        assert_eq!(response["id"], value["id"]);
+        assert_eq!(response["ok"], true, "request refused: {response}");
+        response
+    };
+    for value in before {
+        exchange(value);
+    }
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let response = exchange(request("poll", "job.current", json!({})));
+        let job = &response["result"]["job"];
+        assert!(!job.is_null(), "the started job must remain observable");
+        if job["state"] != "running" {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "job never became terminal: {job}"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    for value in after {
+        exchange(value);
+    }
+    drop(sender);
+    host.join().expect("EOF finalizes the host");
+    let out = complete_responses(&sink.lock().expect("sink lock"));
+    println!(
+        "HOST_PROTOCOL_E2E_OK {}",
+        serde_json::to_string(&out).unwrap()
+    );
+    out
+}
+
 #[test]
 fn normal_eof_enters_finalization() {
     let contract = Contract::load(&contract_dir()).expect("contract loads");
@@ -713,25 +818,12 @@ fn application_panic_crosses_the_boundary_only_after_finalization() {
 
 #[test]
 fn job_panic_is_terminal_and_host_finalization_still_runs() {
-    let contract = Contract::load(&contract_dir()).expect("contract loads");
     let signals = Signals::new();
-    let mut input = vec![
+    let input = vec![
         request("1", "handshake", json!({})),
         request("2", "save.register", json!({"path": "SAVEDATA.BIN"})),
     ];
-    for index in 0..100 {
-        input.push(request(&format!("p{index}"), "job.current", json!({})));
-    }
-    let mut source = Cursor::new(frames(&input));
-    let mut sink = Vec::new();
-    serve(
-        scripted_application(Role::Save, &signals, true),
-        &contract,
-        &mut source,
-        &mut sink,
-    )
-    .expect("job panic is represented by the job record");
-    let out = responses(&sink);
+    let out = drive_completed_job(input, Vec::new(), Role::Save, &signals, true);
     let job = &out.last().expect("current job response")["result"]["job"];
     assert_eq!(job["state"], "failed");
     assert_eq!(job["error"]["code"], "OPERATION_REJECTED");
@@ -902,22 +994,9 @@ fn a_released_owner_exits_on_the_first_finalization_attempt() {
 fn a_panicking_finalize_is_reported_and_never_becomes_an_exit_proof() {
     let contract = Contract::load(&contract_dir()).expect("contract loads");
     let signals = Signals::new();
-    signals.panic_finalize.store(true, Ordering::SeqCst);
-    // The panic is contained by the host and becomes a retained attempt. The
-    // owner is released right after, so the run terminates deterministically
-    // instead of leaving a retained thread behind.
-    let release = std::thread::spawn({
-        let signals = signals.clone();
-        move || {
-            let deadline = Instant::now() + Duration::from_secs(5);
-            while signals.finalize_attempts.load(Ordering::SeqCst) < 2 && Instant::now() < deadline
-            {
-                std::thread::sleep(Duration::from_millis(1));
-            }
-            signals.panic_finalize.store(false, Ordering::SeqCst);
-            signals.allow_finalize.store(true, Ordering::SeqCst);
-        }
-    });
+    // Inject exactly two panics; a separately scheduled releaser can miss the
+    // second attempt and incorrectly make the expected count timing-dependent.
+    signals.panic_finalize_until.store(2, Ordering::SeqCst);
     let mut source = Cursor::new(Vec::<u8>::new());
     let mut sink = Vec::new();
     serve_with_plan_and_degraded_poll(
@@ -932,7 +1011,6 @@ fn a_panicking_finalize_is_reported_and_never_becomes_an_exit_proof() {
         Duration::from_millis(5),
     )
     .expect("clean EOF is not a transport error");
-    release.join().expect("releaser thread");
     assert_eq!(
         signals.finalize_attempts.load(Ordering::SeqCst),
         3,
@@ -1024,9 +1102,8 @@ fn blocking_native_job_keeps_status_and_cancel_responsive() {
 
 #[test]
 fn business_success_with_unknown_cleanup_keeps_both_facts() {
-    let contract = Contract::load(&contract_dir()).expect("contract loads");
     let signals = Signals::new();
-    let mut input = vec![
+    let input = vec![
         request("1", "handshake", json!({})),
         request(
             "2",
@@ -1034,20 +1111,13 @@ fn business_success_with_unknown_cleanup_keeps_both_facts() {
             json!({"operation_id": "00000000-0000-0000-0000-000000000001"}),
         ),
     ];
-    for index in 0..100 {
-        input.push(request(&format!("p{index}"), "job.current", json!({})));
-    }
-    input.push(request("status", "runtime.status", json!({})));
-    let mut source = Cursor::new(frames(&input));
-    let mut sink = Vec::new();
-    serve(
-        scripted_application(Role::Runtime, &signals, false),
-        &contract,
-        &mut source,
-        &mut sink,
-    )
-    .expect("projection host");
-    let out = responses(&sink);
+    let out = drive_completed_job(
+        input,
+        vec![request("status", "runtime.status", json!({}))],
+        Role::Runtime,
+        &signals,
+        false,
+    );
     let job = out
         .iter()
         .rev()

@@ -3397,3 +3397,38 @@ tests, with exit 0. Both code changes are confined to test modules.
 the failed run is not re-dispatched and its artifacts are not promoted.
 
 **Skill promotion:** None. Bounded defect record.
+
+## 2026-09-21: hosted run 35615344505 - protected protocol test pre-seeded its own polls
+
+**Objective:** explain the single protected failure in hosted run 35615344505 at
+commit `e90ada6` without disturbing the shipped protocol surface.
+
+**Observed symptom:** the first five crates passed;
+`crates/nioh3-protected/tests/host_protocol.rs`
+`handshake_then_job_current_and_shutdown` failed 24/25 with `job remains
+running`.
+
+**Root cause:** the existing acceptance scripted the 200 `job.current` requests by
+pre-loading them into a `Cursor` and never waited for the background job to be
+scheduled, so it could assert before the host had work in flight. That shape
+does not demonstrate a production job hang, and no product path is implicated.
+
+**Repair:** the root agent rewrote the existing protocol acceptance using
+`ChannelReader`/`SharedSink`, response-driven polling with a deadline, and the
+same host through completion and safe shutdown. Three other tests with the
+same pre-queued-poll defect now use the shared interactive driver. The panic
+finalization fixture injects exactly two panics instead of depending on a
+separately scheduled releaser to produce an exact retry count. Original
+result/error/ownership assertions remain. Only test code changed.
+
+**Evidence:** the 25 protocol tests passed on a single core; the full protected
+suite subsequently passed 30 library, 5 binary and 25 protocol tests. Commands,
+the `HOST_PROTOCOL_E2E_OK` JSON transcripts and full output are retained under
+`D:/Nioh3_v080_deliverables/deliverables/protected-protocol-sync/` in
+`host-protocol-single-core.log` and `protected-all.log`.
+
+**Disposition:** source-level closed; hosted publication still requires a new
+successful run. No product logic changed, no test was skipped, and the failed
+run is not re-dispatched.
+
+**Skill promotion:** None. Bounded defect record.
