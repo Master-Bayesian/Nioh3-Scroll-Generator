@@ -1636,15 +1636,17 @@ mod tests {
     /// This is the deterministic version of the operator-visible symptom. The
     /// framed main loop dispatches one request at a time, so the only path to
     /// concurrent `start` calls is a caller that issues them in parallel, which
-    /// is what the two threads below do. The collector sleeps before returning
-    /// so the first job cannot finish underneath the race.
+    /// is what the two threads below do. The collector waits for an explicit
+    /// release after both starts return, so scheduling cannot end the first
+    /// job underneath the race.
     #[test]
     fn concurrent_starts_admit_exactly_one_job() {
         const RACES: usize = 128;
         let payload = query_payload(4, "flat");
         let mut refusals = 0usize;
         for _ in 0..RACES {
-            let store = open_store(Arc::new(SlowStartCollector));
+            let collector = GatedCollector::new();
+            let store = open_store(collector.clone());
             let barrier = Arc::new(std::sync::Barrier::new(2));
             let mut handles = Vec::new();
             for _ in 0..2 {
@@ -1660,6 +1662,7 @@ mod tests {
                 .into_iter()
                 .map(|handle| handle.join().expect("start thread"))
                 .collect();
+            collector.release();
             let mut accepted = Vec::new();
             let mut refused = Vec::new();
             for outcome in outcomes {
@@ -1683,32 +1686,11 @@ mod tests {
             let current = store.current().expect("one job survives");
             assert_eq!(current.job_id, accepted[0].job_id);
             wait_terminal(&store, &current.job_id);
+            // Publishing terminal state precedes the owner's thread exit.
+            wait_for(|| !store.is_alive());
             assert!(!store.is_alive(), "the job thread ends with its job");
         }
         assert_eq!(refusals, RACES, "every race produced exactly one BUSY");
-    }
-
-    /// A collector that keeps the first job non-terminal across the race.
-    struct SlowStartCollector;
-
-    impl SearchCollector for SlowStartCollector {
-        fn collect(
-            &self,
-            request: &BatchRequest<'_>,
-            _progress: &mut dyn FnMut(&IntersectionReport),
-            _cancelled: &dyn Fn() -> bool,
-        ) -> Result<SearchBatch, CollectorError> {
-            thread::sleep(Duration::from_millis(4));
-            let next = request.start_after_trial + 16;
-            Ok(SearchBatch {
-                matches: Vec::new(),
-                next_start_after_trial: Some(next),
-                // A complete page report ends the job, so the race window is the
-                // sleep above rather than a long scan.
-                intersection_report: Some(report(true, request.start_after_trial, next, 1 << 20)),
-                streamed: false,
-            })
-        }
     }
 
     #[test]

@@ -3359,3 +3359,41 @@ isolation from the legacy Python worker is being handled by the preview agent
 and is not claimed complete here.
 
 **Skill promotion:** None. Bounded defect record.
+
+## 2026-09-21: hosted run 35613544980 - worker policy test raced its own prober
+
+**Objective:** explain the single worker failure in hosted run 35613544980 at
+commit `8363b81` before the next dispatch.
+
+**Observed symptom:** `WORKER` failed 129/130 on
+`native_search::policy_consistency_tests::`
+`a_load_probe_cannot_cancel_or_leak_the_policy_guard`, panicking at the
+`"no load probe ran"` assertion on `probes > 0`. The other 129 worker tests
+passed; the later release stages did not run.
+
+**Root cause:** the regression test raced its own probe thread, not a product
+or algorithm defect. The prober was spawned without a start/first-probe
+handshake, so on a fast or single-core host the main thread could finish all 64
+guard cycles and reach the assertion before the prober recorded its first
+probe. This failure did not demonstrate a product policy error. The final
+strict-GPU assertion was after the failing assertion and was not reached.
+
+**Repair:** the root agent added a start plus first-probe-completion channel to that
+test and waits for both probes to complete while the first `AllowBulkCpu` guard
+is held, so the observation the assertion needs exists before the loop
+proceeds. No assertion was skipped or deleted and no product code changed.
+
+**Evidence:** with a single core and `CUDA_VISIBLE_DEVICES=-1`, that test
+passed 10/10 repetitions. The three policy tests also passed. The full
+single-core run then exposed a separate test scheduling assumption in
+`jobs::tests::concurrent_starts_admit_exactly_one_job`: terminal status can
+precede the owner's thread exit. That test now reuses the existing gated
+collector instead of a four-millisecond sleep and waits for actual owner
+exit before asserting it. All original acceptance assertions remain. The
+subsequent single-core, no-CUDA worker run passed 130 library plus 6 binary
+tests, with exit 0. Both code changes are confined to test modules.
+
+**Disposition:** closed as a test-synchronisation defect under the same freeze;
+the failed run is not re-dispatched and its artifacts are not promoted.
+
+**Skill promotion:** None. Bounded defect record.

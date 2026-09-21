@@ -2073,17 +2073,25 @@ mod policy_consistency_tests {
 
         let stop = Arc::new(AtomicBool::new(false));
         let probes = Arc::new(AtomicUsize::new(0));
+        let (start_tx, start_rx) = mpsc::channel::<()>();
+        let (first_probe_tx, first_probe_rx) = mpsc::channel::<()>();
         let prober = {
             let root = root.clone();
             let module = library.module.clone();
             let stop = Arc::clone(&stop);
             let probes = Arc::clone(&probes);
             thread::spawn(move || {
+                start_rx.recv().expect("start probing while the guard is held");
+                let mut first = true;
                 while !stop.load(Ordering::Relaxed) {
                     // Both shipped probe paths, each re-installing the policy.
                     let _ = crate::native::probe_seed_accelerator(&root, Some(&module));
                     let _ = Accelerator::load(&root, Some(&module));
                     probes.fetch_add(1, Ordering::Relaxed);
+                    if first {
+                        first_probe_tx.send(()).expect("acknowledge the first probe");
+                        first = false;
+                    }
                 }
             })
         };
@@ -2106,11 +2114,20 @@ mod policy_consistency_tests {
             assert_eq!(backend, NativeBackend::NativeCpu);
         };
 
-        for _ in 0..63 {
+        for iteration in 0..63 {
             let guard = accelerator
                 .pin_policy(ExecutionPolicy::AllowBulkCpu)
                 .expect("the explicit bulk-CPU opt-in is accepted");
             assert_eq!(accelerator.pinned_policy(), ExecutionPolicy::AllowBulkCpu);
+            if iteration == 0 {
+                // Thread creation does not guarantee that it has run. Hold the
+                // opt-in until both real probe paths have completed on the
+                // other thread, even on a busy or single-core runner.
+                start_tx.send(()).expect("start the load probe");
+                first_probe_rx
+                    .recv_timeout(Duration::from_secs(30))
+                    .expect("both load probes must finish while the guard is held");
+            }
             held_window(&root, &library.module);
             drop(guard);
         }
