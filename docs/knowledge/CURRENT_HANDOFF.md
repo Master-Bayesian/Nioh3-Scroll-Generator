@@ -1,5 +1,23 @@
 # Current project handoff — 2026-09-20
 
+## Current release status
+
+`v0.8.0` is published: immutable product commit
+`3798693c48cef2238480da66dc0cc0d2a098c78b`, annotated tag object
+`8f5c1d0c39a9c2081d7895eda5af71794e81f2a6`, hosted release run `35625590622`
+success, public release published 2026-09-21T16:58:39Z and re-verified from an
+unauthenticated re-download (27/27 checks); `/releases/latest` now resolves to
+`v0.8.0`. Read [the publication record](TAURI_V080_PUBLICATION_20260921.md).
+The Rust backend with the Tauri 2 shell is the sole shipping
+architecture. Its live-game acceptance covers exactly the PC v2.02 native
+add/persistence path at seed `123456`; every other native write stays unverified
+and disabled, so this is not blanket game acceptance and no further architecture
+audit is required.
+
+Everything below records how the project reached this candidate. Earlier
+sections carry their own dates and present-tense wording from the time they were
+written; read them as chronology, not as current status.
+
 ## v0.7.5 published release
 
 The 0.7.5 emergency release fixes two shipped problems: NG3 searches that

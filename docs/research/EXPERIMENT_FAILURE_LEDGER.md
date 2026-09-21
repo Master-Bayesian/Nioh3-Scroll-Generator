@@ -3432,3 +3432,124 @@ successful run. No product logic changed, no test was skipped, and the failed
 run is not re-dispatched.
 
 **Skill promotion:** None. Bounded defect record.
+
+## 2026-09-21: hosted run 35617410872 - verify.mjs waited on a host without the game
+
+**Objective:** explain the packaged-UI timeout in hosted run 35617410872 at
+commit `07b74236315847ca491c4b966e0b986995160a72`.
+
+**Observed symptom:** all six Rust suites and the packaged R3/R4/R5 parity gate
+passed, but `node apps/tauri/verify.mjs` timed out waiting for backend ready and
+never produced its acceptance.
+
+**Root cause:** the hosted runner has no installed game. `desktop.log` records
+`GAME_EXECUTABLE_NOT_FOUND: no installed Nioh3.exe under the Steam roots this
+host checks` for the `worker-backend` resolution and for the `search.catalog`,
+`save.discover` and `operations:execute` calls, so the shell rendered but no
+backend could become ready. The missing input is the game's PE `VERSIONINFO`
+that the packaged host reads from an installed executable; this is an
+environment gap, not a product defect.
+
+**Repair in progress:** the owner is adding
+`tools/prepare_ci_game_identity.ps1` plus a `release.yml` step that stages a
+synthetic, never-executed version PE inside an isolated Steam root, with no
+product override and no game authority. Compiler and version validation passed
+under `deliverables/ci-game-identity-validation` on the D root; the hosted
+retest is still pending and this record does not claim it passes.
+
+**Evidence:** `deliverables/v080-ui-diagnosis-07b7423/failure.txt` and
+`deliverables/v080-ui-diagnosis-07b7423/failed-logs/desktop.log` on the D root.
+
+**Disposition:** open pending the hosted retest; no product logic changed and no
+assertion or skip was removed.
+
+**Skill promotion:** None. Bounded defect record.
+
+## 2026-09-21: hosted run 35620759369 - protected retention test raced its own sampling window
+
+**Objective:** explain the protected-suite failure in hosted run 35620759369 at
+commit `0f3457a93248a86038a72295a17085665f7327cd`.
+
+**Observed symptom:** the exact test expected `firstRetainedAttempt == 1` and
+observed `2`; its bounded sibling carried the same vulnerability.
+
+**Root cause:** a test race, not a product defect. The assertion sampled the
+cumulative `finalize_attempts` counter inside a 5 ms window, which can already
+include valid degraded polls that occur after the terminal or bound event, so the
+sampled value is not the first retained attempt the test meant to pin.
+
+**Repair:** the owner rewrote the two existing integration tests as subprocess
+acceptance that reads the actual first retained attempt from the child's stderr
+report (accepting exactly `1` or `3`), asserts the process is live before the
+owner releases it, and asserts a clean exit after the stdin release. The
+`HOST_PROTOCOL_E2E_OK` transcripts from the earlier single-core run remain the
+protocol evidence, and the new
+`deliverables/protected-protocol-sync/retained-process-e2e.log` carries the
+`FINALIZATION_E2E_OK` machine JSON. The 25/25 `host_protocol` run passed on a
+single core with the explicit D-root cargo target `build-cache/migration`.
+Production code was not changed.
+
+**Disposition:** closed as a test-synchronisation defect; the failed run is not
+re-dispatched. A new immutable candidate
+`789844856c52c5ed48aae0f5a78a884aec42347e` was pushed and its hosted runs
+`35622344384` and `35622344428` started; nothing is published from either until
+their promoted bytes are proven.
+
+**Skill promotion:** None. Bounded defect record.
+
+## 2026-09-21: hosted run 35622344384 - packaged-frontend CPU gate used the GPU deadline
+
+**Objective:** explain the packaged-frontend timeout in hosted run 35622344384 at
+commit `789844856c52c5ed48aae0f5a78a884aec42347e`.
+
+**Observed symptom:** the crate suites, the CI game fixture, the packaged
+R3/R4/R5 parity gate, `verify.mjs`, the add-layout and update gates, the host
+resolution check and all three worker-identity roles passed; the packaged-frontend
+regression then timed out at 180000 ms while a CPU-only search was still running.
+The old error did not retain its cursor; 158614759 is the required match cursor,
+not an observed timeout cursor.
+
+**Root cause:** the acceptance driver applied its 180 s GPU deadline to a
+CPU-only search, while the sibling worker-parity lane already bounds the same
+search at 900 s. The gate was too short for the CPU path, not a stalled search.
+
+**Repair:** the driver's CPU bound is now 900000 ms, matching the existing
+900 s worker-parity bound, and a timeout now emits a snapshot instead of only
+failing. The exact expectations stay in force: seed `226061463` at cursor
+`158614759`. The GPU bound is unchanged at 180000 ms. The pipeline now passes an
+explicit `--host release`, so its evidence cannot be mislabelled as a debug
+build.
+
+**Evidence:** the hosted failure is preserved under
+`D:/Nioh3_v080_deliverables/deliverables/v080-final-7898448/`.
+The successful local CPU replay is
+`D:/Nioh3_v080_deliverables/deliverables/v080-cpu-frontend-7898448/packaged-frontend.json`;
+its regression record contains the CPU flag, deadline, elapsed time, exact seed
+and exact cursor. The full driver also passed the remaining synthetic save,
+updater and persistence flows (`TAURI_PACKAGED_FRONTEND_OK`).
+
+**Disposition:** local CPU acceptance passed using the existing diagnostic
+portable; hosted retest of a new immutable candidate remains required. No
+production code changed and the failed run will not be re-dispatched.
+
+**Skill promotion:** None. Bounded defect record.
+
+## 2026-09-21: closure - hosted run 35625590622 passed the open gates
+
+The open items above are resolved by the v0.8.0 release run, not by a new
+mechanism: hosted run `35625590622` at commit
+`3798693c48cef2238480da66dc0cc0d2a098c78b` succeeded in 29m40s with every
+required gate passing, including the CI game-identity fixture that closed
+`35617410872` and the packaged-frontend regression that closed `35622344384`
+(CPU-only search, allow-CPU true, seed `226061463` at cursor `158614759`,
+158,765 ms). The three legacy Python steps were intentionally skipped as the
+retired parity/oracle lane. The six suite results, the packaged parity gate and
+the host/identity checks all passed in that same run.
+
+The public release was then re-verified from an unauthenticated re-download
+(27/27 checks) at
+`D:/Nioh3_v080_deliverables/deliverables/v080-final-3798693/PUBLIC_VERIFICATION.json`.
+No production code changed for either closure, and no failed run was
+re-dispatched.
+
+**Skill promotion:** None. Bounded defect record.

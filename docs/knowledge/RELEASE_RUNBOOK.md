@@ -17,6 +17,16 @@ established the source, line-ending, native-identity, and hosted WebView2 gates.
 See `TAURI_V073_PUBLICATION_20260912.md` for the exact v0.7.3 hosted failures,
 successful run, promoted hashes, and public-redownload verification.
 
+Current release: `v0.8.0` is published from the immutable commit
+`3798693c48cef2238480da66dc0cc0d2a098c78b`, hosted release run `35625590622`
+success, with an unauthenticated public re-download re-verified at 27/27 checks
+(see `TAURI_V080_PUBLICATION_20260921.md`). The next release starts from this
+baseline and still needs its own candidate. The Rust backend with the Tauri 2 shell is the sole shipping
+architecture; its live-game acceptance covers exactly the PC v2.02 native
+add/persistence path at seed `123456`, with every other native write unverified
+and disabled, so the procedure below is a release-and-verify path rather than
+blanket game acceptance or an architecture review.
+
 ## 1. Freeze one candidate commit
 
 1. Read `CURRENT_HANDOFF.md`, the previous publication record, and the release
@@ -166,6 +176,21 @@ node apps/tauri/verify-onefile-rollback.mjs
 `NIOH3_WORKER_IDENTITY_OPT_IN` mirrors the hosted gate; a staged Rust manifest
 already asserts the identity by default, and `NIOH3_WORKER_IDENTITY_PROTECTED`
 remains the explicit override for a package that carries no manifest.
+
+On GitHub runners only, run this in a separate Actions step before the UI gates:
+
+```powershell
+./tools/prepare_ci_game_identity.ps1 -Root (Join-Path $env:RUNNER_TEMP 'nioh3-game-identity') -GameFileVersion '2.0.2.0' -ExportForActions
+```
+
+`tools/prepare_ci_game_identity.ps1` writes a Windows `VERSIONINFO` resource onto
+a synthetic, never-executed executable inside an isolated Steam root and exports
+that root for subsequent Actions steps. It supplies only the game identity the packaged
+host discovers and reads; it is not game acceptance and not native-write
+acceptance, and no product override or game authority comes from it. The workflow
+runs `tools/prepare_webview2_test.ps1` earlier to resolve the real WebView2 runtime
+before replacing the Steam-discovery environment value. Local verification uses
+the actual installed game instead of adding this fixture alongside it.
 
 The outer EXE is the default player download: it launches directly without
 installation or manual extraction. The ZIP remains the signed internal input to
