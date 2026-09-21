@@ -93,9 +93,25 @@ class CiOptInWiringTests(unittest.TestCase):
         self.assertIn("python tools/archive_frontend_v2.py deliverables/release/portable", release)
         self.assertIn("node tools/build_tauri_update_manifest.mjs $zip", release)
         tests = TESTS_WORKFLOW.read_text(encoding="utf-8")
-        default_block = job_block(tests, "windows-tests")
-        self.assertIn("./tools/run_python_tests.ps1", default_block)
-        self.assertIn("crates/nioh3-protected/Cargo.toml", default_block)
+        legacy_block = job_block(tests, "windows-tests")
+        crate_block = job_block(tests, "rust-crates")
+        # The legacy lane keeps the pre-Rust Python suite and holds no Rust
+        # gate, so a failure there cannot short-circuit the shipped crates.
+        self.assertIn("python -m unittest discover", legacy_block)
+        self.assertNotIn("cargo test", legacy_block)
+        self.assertIn("./tools/run_python_tests.ps1", crate_block)
+        # The single crate lint/format pass stays in this independent job.
+        self.assertIn("cargo clippy", crate_block)
+        self.assertIn("cargo fmt", crate_block)
+        for crate in (
+            "nioh3-domain",
+            "nioh3-data",
+            "nioh3-worker",
+            "nioh3-save",
+            "nioh3-runtime",
+            "nioh3-protected",
+        ):
+            self.assertIn(f"crates/{crate}/Cargo.toml", crate_block)
 
 
 if __name__ == "__main__":

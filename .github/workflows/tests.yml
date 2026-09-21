@@ -9,6 +9,11 @@ permissions:
 
 jobs:
   windows-tests:
+    # Legacy/reference backend lane: the pre-Rust Python backend's full suite,
+    # its old-backend regression file and the title-save research tests live
+    # here. The Rust crate suites are the separate `rust-crates` job, so a
+    # failure in this lane can never short-circuit them, and these results are
+    # reference evidence rather than the arbiter of Rust product correctness.
     runs-on: windows-latest
     steps:
       - name: Check out source
@@ -47,6 +52,36 @@ jobs:
 
       - name: Run title-save observer research tests
         run: python -m pytest -q tests\test_title_save_observer.py tests\test_title_save_capture_tools.py
+
+      - name: Record collected test IDs and environment
+        if: always()
+        run: python tools\write_test_inventory.py --output test-results\test-inventory.json
+
+      - name: Upload test inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unittest-inventory-windows-py312
+          path: test-results/test-inventory.json
+
+  rust-crates:
+    # Independent Rust gate for the crates the release ships. It holds the same
+    # commands the release job's own crate gate runs, and it is deliberately a
+    # separate job so the legacy Python lane above can neither short-circuit it
+    # nor stand in for its result.
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
 
       - name: Set up Rust for domain migration
         uses: dtolnay/rust-toolchain@stable
@@ -90,17 +125,6 @@ jobs:
           cargo fmt --check --manifest-path crates/nioh3-protected/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -TestPath tests/migration
-
-      - name: Record collected test IDs and environment
-        if: always()
-        run: python tools\write_test_inventory.py --output test-results\test-inventory.json
-
-      - name: Upload test inventory
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: unittest-inventory-windows-py312
-          path: test-results/test-inventory.json
 
   rust-packaging:
     # Required gate for the shipped packaging graph. The packaged product selects

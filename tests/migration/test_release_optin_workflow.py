@@ -39,9 +39,6 @@ RETAINED_GATES = {
     "locale audit": "node tools/audit_v2_ui_locales.mjs",
     "native build manifest": "python tools/verify_native_build_manifest.py",
     "test inventory": "python tools/write_test_inventory.py",
-    "cpu-only tests": "python tools/run_cpu_only_tests.py",
-    "unit tests": "python -m unittest discover",
-    "title-save tests": "pytest -q tests\\test_title_save_observer.py",
     "node tests": "npm test",
     "typecheck": "npm run typecheck",
     "native fault gate": "./tools/verify_native_faults.ps1",
@@ -54,6 +51,27 @@ RETAINED_GATES = {
     "outer update verification": "node apps/tauri/verify-onefile-update.mjs",
     "outer rollback verification": "node apps/tauri/verify-onefile-rollback.mjs",
     "size budget and signing": "build_tauri_update_manifest.mjs $zip",
+}
+
+# The pre-Rust Python backend's own suites are the reference/legacy lane. They
+# run on the `python` selection and in the Tests workflow, but they are never
+# the arbiter of Rust product correctness and they must not run in the shipped
+# `rust` selection, where they could only block or mask the real gates.
+LEGACY_PYTHON_GATES = {
+    "cpu-only old-backend regression": "python tools/run_cpu_only_tests.py",
+    "full Python suite": "python -m unittest discover",
+    "title-save research tests": "pytest -q tests\\test_title_save_observer.py",
+}
+
+# The crates the release actually ships must be gated on the release job
+# itself, with the same commands the Tests workflow runs.
+SHIPPED_CRATE_GATES = {
+    "domain": "crates/nioh3-domain/Cargo.toml",
+    "data": "crates/nioh3-data/Cargo.toml",
+    "worker": "crates/nioh3-worker/Cargo.toml",
+    "save": "crates/nioh3-save/Cargo.toml",
+    "runtime": "crates/nioh3-runtime/Cargo.toml",
+    "protected": "crates/nioh3-protected/Cargo.toml",
 }
 
 
@@ -227,6 +245,29 @@ class ReleaseOptInWorkflowTests(unittest.TestCase):
             self.assertEqual(
                 rust.count(spec), 1, f"{spec} must appear only in the exclusion check"
             )
+
+    def test_the_rust_selection_retires_the_legacy_lane_and_gates_the_shipped_crates(
+        self,
+    ) -> None:
+        rust = joined(selected(self.steps, "rust"))
+        python = joined(selected(self.steps, "python"))
+        # The legacy lane is absent from the shipped selection rather than
+        # skipped inside it, so it can neither block nor mask the crate gate.
+        for name, marker in LEGACY_PYTHON_GATES.items():
+            self.assertIn(marker, python, f"the python selection lost its {name}")
+            self.assertNotIn(
+                marker, rust, f"the shipped rust selection must not run the {name}"
+            )
+        for name, marker in SHIPPED_CRATE_GATES.items():
+            self.assertIn(
+                marker, rust, f"the rust selection does not gate the shipped {name} crate"
+            )
+        self.assertIn("Verify the shipped Rust crate suites", rust)
+        # The release gate holds the crate *tests* only. Lint and formatting
+        # live once, in the independent Tests `rust-crates` job, so the release
+        # run does not pay for a duplicated `clippy`/`fmt` pass.
+        self.assertNotIn("cargo clippy", rust)
+        self.assertNotIn("cargo fmt", rust)
 
     def test_the_rust_graph_assertion_matches_the_stager_declarations(self) -> None:
         rust = joined(selected(self.steps, "rust"))

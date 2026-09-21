@@ -84,6 +84,16 @@ Native source/DLL/ABI identity must remain exact. Do not update identity hashes
 to bless a CRLF checkout or a modified binary. Record unique Python test count
 and hardware skips separately from untracked developer tests.
 
+Two gate lanes exist side by side. The shipped `rust` selection gates the six
+packaged crates (`nioh3-domain`, `nioh3-data`, `nioh3-worker`, `nioh3-save`,
+`nioh3-runtime`, `nioh3-protected`) directly on the release job with the crate
+test commands the Tests `rust-crates` job also runs. The legacy `python`
+backend is the development/parity/oracle lane: its `tools/run_cpu_only_tests.py`
+regression, full `tests` unittest discovery, and title-save research tests run
+there and in the independent Tests lane as reference evidence, never as the
+arbiter of the Rust product, and `cargo clippy`/`cargo fmt` stay in the Tests
+`rust-crates` job rather than being repeated in the release run.
+
 ## 3. Build and validate from a clean checkout
 
 The hosted workflow may perform the one clean release build after local source

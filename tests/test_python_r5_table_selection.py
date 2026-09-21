@@ -310,6 +310,17 @@ class ThreeRouteTablePropagationTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.v202 = effect_generation_tables_for_game_version(V202)
 
+    def setUp(self) -> None:
+        # These routes reach the shipped ABI-v2 Seed accelerator DLL, whose
+        # default policy is strict GPU. A hosted runner has no CUDA device, so
+        # the DLL would refuse this valid request before the selected index is
+        # used. Opt this fixture into the bulk-CPU fallback the same way the
+        # product does when a search allows CPU replay and the sibling fixture
+        # above does; the product default stays strict and
+        # tests/test_backend_freeze.py keeps asserting that strict GPU never
+        # silently enters the CPU loop.
+        self.enterContext(seed_acceleration_execution_policy(allow_bulk_cpu=True))
+
     def _collector_page(self, playthrough: int, tables, monkey) -> None:
         request = EffectSeedRequest(
             playthrough=playthrough,

@@ -70,15 +70,56 @@ jobs:
       - run: node tools/audit_v2_ui_locales.mjs
       - run: python tools/verify_native_build_manifest.py
       - run: python tools/write_test_inventory.py --output deliverables/release/test-inventory.json
-      - run: python tools/run_cpu_only_tests.py
-      - run: python -m unittest discover -s tests -t . -v
-      - run: python -m pytest -q tests\test_title_save_observer.py tests\test_title_save_capture_tools.py
+      # The shipped backend is the Rust graph, so the legacy Python backend's
+      # full suite, its old-backend regression file and the title-save research
+      # tests are the reference/dev lane: they run on the `python` selection and
+      # in the Tests workflow, and they are never the arbiter of whether the
+      # Rust product is correct. They are not skipped by `continue-on-error`.
+      - if: inputs.worker_backend != 'rust'
+        run: python tools/run_cpu_only_tests.py
+      - if: inputs.worker_backend != 'rust'
+        run: python -m unittest discover -s tests -t . -v
+      - if: inputs.worker_backend != 'rust'
+        run: python -m pytest -q tests\test_title_save_observer.py tests\test_title_save_capture_tools.py
       - run: npm test
       - run: npm run typecheck
       - run: ./tools/verify_native_faults.ps1
       - run: node apps/tauri/build.mjs
       - run: cargo test --locked --manifest-path apps/tauri/src-tauri/Cargo.toml
       - run: cargo test --locked --manifest-path apps/launcher/Cargo.toml
+      - name: Verify the shipped Rust crate suites
+        if: inputs.worker_backend == 'rust'
+        shell: pwsh
+        run: |
+          # The crates this release ships are gated on the release job itself,
+          # with the same `cargo test` commands the Tests workflow runs, so no
+          # legacy Python result can short-circuit them. Lint and formatting
+          # stay in the independent Tests `rust-crates` job rather than being
+          # repeated here. The target stays on the runner temp volume like the
+          # other crate gates.
+          $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'rust-release-crates-target'
+          cargo fetch --locked --manifest-path crates/nioh3-data/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fetch --locked --manifest-path crates/nioh3-worker/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fetch --locked --manifest-path crates/nioh3-save/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --offline --manifest-path crates/nioh3-domain/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --offline --manifest-path crates/nioh3-data/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --offline --manifest-path crates/nioh3-worker/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --offline --manifest-path crates/nioh3-save/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fetch --locked --manifest-path crates/nioh3-runtime/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --offline --features test-helper --manifest-path crates/nioh3-runtime/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fetch --locked --manifest-path crates/nioh3-protected/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test --locked --offline --manifest-path crates/nioh3-protected/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build once from a clean checkout
         shell: pwsh
         run: |

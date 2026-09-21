@@ -3322,3 +3322,40 @@ checkouts and no-CUDA runs) and verified fixed by the same gates.
 own acceptance before any publication claim.
 
 **Skill promotion:** None. Bounded defect record.
+
+## 2026-09-21: hosted run 35608064429 - Python unittest fixture missed the bulk-CPU policy
+
+**Objective:** explain the three Python `unittest` failures in hosted run
+35608064429 before the next candidate dispatch.
+
+**Observed symptom:** `tests/test_python_r5_table_selection.py::`
+`ThreeRouteTablePropagationTests` failed through `_collector_page` ->
+`collect_offline_rarity5_search_batch` -> `collect_effect_seed_page` ->
+`joint_solver` -> `seed_accelerator.collect_natural_pivot_seeds` with
+`RuntimeError: native Seed accelerator rejected a valid pivot range`; the NG4
+and NG5 subtests failed the same way.
+
+**Root cause:** test isolation, not a Rust or product defect. The fixture calls
+the rarity-5 collector directly with `allow_cpu_fallback=True` but never
+installed the DLL's `AllowBulkCpu` policy, unlike its sibling fixture in the
+same file. Product callers install that policy (SearchJobs and the packaged
+app) whenever CPU replay is allowed, so no product path is exposed. The
+defect only became visible because the explicit CPU allowance now selects the
+certified native enumeration instead of the DirectCompute fixed-draw route.
+
+**Repair:** 11 added lines in `tests/test_python_r5_table_selection.py`: a
+`setUp` that enters `seed_acceleration_execution_policy(allow_bulk_cpu=True)`,
+mirroring the sibling fixture and the product contract. No assertion or skip
+was removed, and no Rust, product or GPU-policy file was touched.
+
+**Evidence:** with `CUDA_VISIBLE_DEVICES=-1` and the project interpreter the
+module reports 11 passed, and `python -m unittest discover -s tests -t .`
+(same no-CUDA shape as CI, D: temp and cargo cache) reports `Ran 766 tests ...
+OK (skipped=4)` in 104 s.
+
+**Disposition:** closed as a test-configuration defect under freeze of the CPU
+parity repair; the failed run's artifacts are not promoted. Release-pipeline
+isolation from the legacy Python worker is being handled by the preview agent
+and is not claimed complete here.
+
+**Skill promotion:** None. Bounded defect record.
