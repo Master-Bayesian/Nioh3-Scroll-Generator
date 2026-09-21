@@ -200,7 +200,7 @@ jobs:
             node apps/tauri/verify-worker-identity.mjs --runtime $portable --role $role --out (Join-Path $evidence "identity-$role.json")
             if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           }
-          node apps/tauri/verify-packaged-frontend.mjs --package $portable --exe $exe --python $env:NIOH3_PYTHON --out $evidence
+          node apps/tauri/verify-packaged-frontend.mjs --host release --package $portable --exe $exe --python $env:NIOH3_PYTHON --out $evidence
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Verify direct one-file launch, runtime cache and outer updates
         shell: pwsh

@@ -511,6 +511,11 @@ async function main() {
       },
     };
     const allowCpu = !identity.capabilities.cuda_pivot_and_auxiliary;
+    // The same 158M-trial regression runs on CPU-only hosted machines. Keep
+    // the exact seed/cursor assertions; use the existing worker parity gate's
+    // 15-minute CPU bound instead of assuming workstation GPU throughput.
+    const regressionTimeout = allowCpu ? 900000 : 180000;
+    const regressionStarted = Date.now();
     const regression = await page.evaluate(
       async ({query, digest, allowCpu}) => {
         const params = {
@@ -543,13 +548,13 @@ async function main() {
         const deadline = Date.now() + timeout;
         let state = await window.nioh.snapshot(jobId);
         while (!['completed', 'cancelled', 'failed'].includes(state.state)) {
-          if (Date.now() > deadline) throw new Error(`regression job stayed ${state.state}`);
+          if (Date.now() > deadline) throw new Error(`regression deadline: ${JSON.stringify(state)}`);
           await new Promise((ready) => setTimeout(ready, 200));
           state = await window.nioh.snapshot(jobId);
         }
         return state;
       },
-      {jobId: regression.job_id, timeout: 180000},
+      {jobId: regression.job_id, timeout: regressionTimeout},
     );
     assert.equal(
       regressionJob.state,
@@ -589,6 +594,9 @@ async function main() {
       'utf8',
     );
     evidence.regression = {
+      allowCpu,
+      timeoutMs: regressionTimeout,
+      elapsedMs: Date.now() - regressionStarted,
       seed: hit.seed,
       cursor: hit.cursor,
       stopReason: regressionJob.stop_reason,
