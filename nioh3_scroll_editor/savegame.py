@@ -44,6 +44,16 @@ SCROLL_INVENTORY_KEY_OFFSET = 0x1C
 SCROLL_INVENTORY_KEY_MAX = 0xFFFF
 SCROLL_GENERATION_SERIAL_OFFSET = 0x28
 SCROLL_GENERATION_SERIAL_MAX = 0xFFFFFFFC
+# Lifecycle flag word (`+0x18`..`+0x1B`) of a newly installed scroll.
+#
+# The native pickup/insertion path ORs the insertion bits `0x04000080` into the
+# builder's `0x02800002` descriptor state, so a freshly inserted record carries
+# `0x06800082` before any reveal or view (DLC acquisition capture and the
+# accepted native live-add delta, `live_add_evidence`).  A direct save write
+# must reproduce that inventory state; inheriting the donor template's word
+# instead would copy another scroll's reveal/seen/owned flags onto the new one.
+SCROLL_FLAG_WORD_OFFSET = 0x18
+POST_INSERTION_FLAG_WORD = 0x06800082
 BACKUP_MANIFEST_SCHEMA = "nioh3-scroll-backup/v2"
 SAVE_SCHEMA_PROFILE = "nioh3-pc-v2.00.02-v2.01/save-layout-v1"
 SAVE_QUIESCENCE_SECONDS = 0.20
@@ -225,6 +235,22 @@ def write_scroll_generation_serial(record: bytes, generation_serial: int) -> byt
         SCROLL_GENERATION_SERIAL_OFFSET,
         generation_serial,
     )
+    return bytes(output)
+
+
+def write_post_insertion_state(record: bytes) -> bytes:
+    """Return one complete record carrying the post-insertion flag word.
+
+    Written only by the installation boundary.  Generation bytes, the
+    rarity/stage-one payload and every donor-unrelated field are preserved; the
+    game's own insertion path never leaves the donor's lifecycle flags on a new
+    record.
+    """
+
+    if len(record) != SCROLL_RECORD_SIZE:
+        raise ValueError("候选绘卷记录必须为 0xE8 字节")
+    output = bytearray(record)
+    struct.pack_into("<I", output, SCROLL_FLAG_WORD_OFFSET, POST_INSERTION_FLAG_WORD)
     return bytes(output)
 
 
@@ -2290,7 +2316,10 @@ class SaveInstaller:
             )
             installed_records = tuple(
                 write_scroll_generation_serial(
-                    write_scroll_inventory_key(record, inventory_key),
+                    write_scroll_inventory_key(
+                        write_post_insertion_state(record),
+                        inventory_key,
+                    ),
                     generation_serial,
                 )
                 for record, inventory_key, generation_serial in zip(
@@ -2451,8 +2480,10 @@ class SaveInstaller:
             if slot_index not in inventory.empty_slots:
                 raise RuntimeError("下一个绘卷栏位已占用，已拒绝写入")
             record_offset = SCROLL_GROUP_OFFSET + slot_index * SCROLL_RECORD_SIZE
-            record = prepare_candidate_for_install(
-                candidate_record, transfer_count=transfer_count
+            record = write_post_insertion_state(
+                prepare_candidate_for_install(
+                    candidate_record, transfer_count=transfer_count
+                )
             )
             inventory_key = allocate_scroll_inventory_keys(
                 inventory.decrypted,

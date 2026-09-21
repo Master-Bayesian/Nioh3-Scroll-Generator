@@ -706,13 +706,25 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
         ]
 
     @staticmethod
-    def masked_record(record_hex: str) -> bytes:
+    def masked_bytes(record: bytes) -> bytes:
+        """A record with the installer-owned fields zeroed for comparison.
+
+        The installation boundary owns three words of a new record: the
+        post-insertion lifecycle state at `+0x18`, the freshly allocated
+        inventory key at `+0x1C` and the generation serial at `+0x28`.
+        """
+
+        masked = bytearray(record)
+        masked[0x18:0x1C] = bytes(4)
+        masked[0x1C:0x20] = bytes(4)
+        masked[0x28:0x2C] = bytes(4)
+        return bytes(masked)
+
+    @classmethod
+    def masked_record(cls, record_hex: str) -> bytes:
         """A record with the installer-owned identity fields zeroed."""
 
-        record = bytearray(bytes.fromhex(record_hex))
-        record[0x1C:0x20] = bytes(4)
-        record[0x28:0x2C] = bytes(4)
-        return bytes(record)
+        return cls.masked_bytes(bytes.fromhex(record_hex))
 
     def installed_slots(self, plaintext: bytes) -> list[int]:
         return [
@@ -953,15 +965,14 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
             for index, slot in enumerate(slots):
                 record = self.record_at(plaintext, slot)
                 self.assertEqual(
-                    bytes(
-                        bytearray(record)[:0x1C]
-                        + bytes(4)
-                        + bytearray(record)[0x20:0x28]
-                        + bytes(4)
-                        + bytearray(record)[0x2C:]
-                    ),
+                    self.masked_bytes(record),
                     self.masked_record(materialized[index]["installation_record_hex"]),
                     f"slot {slot} must carry the G4 installation record",
+                )
+                self.assertEqual(
+                    record[0x18:0x1C],
+                    (0x06800082).to_bytes(4, "little"),
+                    "a newly installed scroll must carry the post-insertion state",
                 )
                 self.assertNotEqual(
                     record[0x1C:0x20], bytes(4), "the inventory key must be written"
@@ -1363,15 +1374,14 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
             self.assertEqual(len(slots), 1, slots)
             record = self.record_at(plaintext, slots[0])
             self.assertEqual(
-                bytes(
-                    bytearray(record)[:0x1C]
-                    + bytes(4)
-                    + bytearray(record)[0x20:0x28]
-                    + bytes(4)
-                    + bytearray(record)[0x2C:]
-                ),
+                self.masked_bytes(record),
                 self.masked_record(materialized["installation_record_hex"]),
                 "the installed record must be the stage-one installation record",
+            )
+            self.assertEqual(
+                record[0x18:0x1C],
+                (0x06800082).to_bytes(4, "little"),
+                "a newly installed scroll must carry the post-insertion state",
             )
             self.assertNotIn(
                 bytes.fromhex(materialized["record_hex"]),

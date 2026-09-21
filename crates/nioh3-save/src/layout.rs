@@ -25,6 +25,10 @@ pub const TEMPLATE_RECORD_TYPE: u16 = 0xE604;
 /// Byte offset of the inventory key inside one record (`+0x1C`).
 pub const RECORD_INVENTORY_KEY_OFFSET: usize = 0x1C;
 
+/// Byte offset of the little-endian lifecycle flag word inside one record
+/// (`+0x18`..`+0x1B`): new-item marker, insertion bits, reveal state.
+pub const RECORD_FLAG_WORD_OFFSET: usize = 0x18;
+
 /// Byte offset of one inventory slot inside the decrypted save.
 ///
 /// Returns `None` when the index is outside `0..SCROLL_SLOT_COUNT`, so a caller

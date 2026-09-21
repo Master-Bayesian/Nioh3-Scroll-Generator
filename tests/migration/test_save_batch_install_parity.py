@@ -324,6 +324,16 @@ class BatchInstallParityTests(BatchInstallFixture):
             self.assertEqual(record.hex(), installed[index])
             self.assertEqual(struct.unpack_from("<I", record, 0x1C)[0], keys[index])
             self.assertEqual(struct.unpack_from("<I", record, 0x28)[0], serials[index])
+            # A newly installed scroll carries the game's post-insertion state,
+            # never the candidate's or donor's lifecycle word.
+            word = struct.unpack_from("<I", record, 0x18)[0]
+            self.assertEqual(
+                word,
+                0x06800082,
+                "the installed record must read as freshly inserted",
+            )
+            self.assertEqual(word & 0x04000080, 0x04000080)
+            self.assertEqual(word & 0x00000900, 0, "the record is not revealed")
             self.assertNotEqual(struct.unpack_from("<H", record, 0x00)[0], 0)
 
         # The checksum field is our own derived value, not the tool's leftovers.
@@ -352,6 +362,41 @@ class BatchInstallParityTests(BatchInstallFixture):
                 self.installed_region(result["plaintext"], [slot]),
                 self.installed_region(self.base_blob, [slot]),
                 f"slot {slot} was rewritten by a batch install",
+            )
+
+    def test_installed_scroll_carries_the_post_insertion_state(self) -> None:
+        """A revealed lifecycle word on the input never survives the install.
+
+        The engine's own pickup path leaves a new record in
+        `0x06800082` (`0x02800002 | 0x04000080`); both installers must write
+        that state instead of the incoming word, for rarity 3 and rarity 4, and
+        must still match each other byte for byte.
+        """
+
+        import struct
+
+        candidates = []
+        for name, seed in (("r3", 0x0A0A0001), ("r4", 0x0B0B0002)):
+            record = bytearray(self.candidate_for(name, seed))
+            struct.pack_into("<I", record, 0x18, 0x0F800080)
+            candidates.append(bytes(record))
+
+        result = self.assert_matches_python(candidates, "post-insertion")
+        for index, slot in enumerate(result["slots"]):
+            installed = self.installed_region(result["plaintext"], [slot])
+            self.assertEqual(
+                installed[0x34:0xDC],
+                candidates[index][0x34:0xDC],
+                "generated effect bytes must survive the install",
+            )
+        # Source preservation: every slot outside the appended run is untouched.
+        for slot in range(400):
+            if slot in result["slots"]:
+                continue
+            self.assertEqual(
+                self.installed_region(result["plaintext"], [slot]),
+                self.installed_region(self.base_blob, [slot]),
+                f"slot {slot} was rewritten while installing a new scroll",
             )
 
     def test_subset_and_repeat_candidates_match_python(self) -> None:

@@ -24,8 +24,8 @@ use serde::{Deserialize, Serialize};
 use crate::codec::{
     allocate_scroll_generation_serials, allocate_scroll_inventory_keys,
     clear_native_free_scroll_slot, insert_scroll_record, patch_user_checksum,
-    prepare_candidate_for_install, scroll_slot_is_empty, write_scroll_generation_serial,
-    write_scroll_inventory_key, SCROLL_GENERATION_SERIAL_MAX,
+    prepare_candidate_for_install, scroll_slot_is_empty, write_post_insertion_state,
+    write_scroll_generation_serial, write_scroll_inventory_key, SCROLL_GENERATION_SERIAL_MAX,
 };
 use crate::crypto;
 use crate::error::SaveReadError;
@@ -388,7 +388,11 @@ impl SaveTransformHost {
             .zip(allocated_keys.iter())
             .zip(allocated_serials.iter())
             .map(|((record, key), serial)| {
-                let keyed = write_scroll_inventory_key(record, *key)?;
+                // The game's own insertion path leaves a new record in the
+                // post-insertion lifecycle state; a direct save write must
+                // reproduce it instead of inheriting the donor's flags.
+                let inserted = write_post_insertion_state(record)?;
+                let keyed = write_scroll_inventory_key(&inserted, *key)?;
                 write_scroll_generation_serial(&keyed, *serial)
             })
             .collect::<Result<_, SaveReadError>>()?;
@@ -725,6 +729,77 @@ mod tests {
             0xE604
         );
         assert_ne!(planned.checksum.0, u32::MAX);
+    }
+
+    /// A newly installed scroll must read like the game's own insertion result.
+    ///
+    /// The donor's lifecycle word (`+0x18`..`+0x1B`) is never inherited: the
+    /// builder state `0x02800002` plus the engine insertion bits `0x04000080`
+    /// is what a pickup leaves behind, so the installed record must read
+    /// `0x06800082` with its generated effect bytes untouched.
+    #[test]
+    fn install_writes_the_post_insertion_lifecycle_word() {
+        let mut donor = record(0xE604, 1);
+        donor[0x18..0x1C].copy_from_slice(&0x0F80_0080u32.to_le_bytes());
+        donor[0x28..0x2C].copy_from_slice(&40u32.to_le_bytes());
+
+        let mut candidate = record(0xE604, 0x2222);
+        candidate[0x18..0x1C].copy_from_slice(&0x0F80_0080u32.to_le_bytes());
+        for index in 0..SCROLL_RECORD_BYTES - 0x34 {
+            candidate[0x34 + index] = (index % 251) as u8;
+        }
+        let candidate_effects = candidate[0x34..0xDC].to_vec();
+
+        let host = host_over(blob(&[(0, donor)]));
+        let planned = host
+            .install(&InstallRequest {
+                candidate_record: candidate,
+                transfer_count: 7,
+            })
+            .expect("install");
+        assert_eq!(planned.slot_indices, vec![1]);
+        let offset = slot_offset(1).expect("in range");
+        let installed = &planned.plaintext[offset..offset + SCROLL_RECORD_BYTES];
+
+        let word = u32::from_le_bytes([
+            installed[0x18],
+            installed[0x19],
+            installed[0x1A],
+            installed[0x1B],
+        ]);
+        assert_eq!(word, crate::codec::POST_INSERTION_FLAG_WORD);
+        assert_eq!(installed[0x18] & 0x02, 0x02, "the new-item marker is set");
+        assert_eq!(
+            word & 0x0400_0080,
+            0x0400_0080,
+            "the engine insertion bits are set"
+        );
+        assert_eq!(
+            word & 0x0000_0900,
+            0,
+            "the installed record is not revealed"
+        );
+        assert_eq!(
+            &installed[0x34..0xDC],
+            candidate_effects.as_slice(),
+            "generated effect bytes must survive the install"
+        );
+        assert_eq!(
+            u32::from_le_bytes([
+                installed[0xDC],
+                installed[0xDD],
+                installed[0xDE],
+                installed[0xDF],
+            ]),
+            7,
+            "the transfer count is still written"
+        );
+        let donor_offset = slot_offset(0).expect("in range");
+        assert_eq!(
+            &planned.plaintext[donor_offset + 0x18..donor_offset + 0x1C],
+            &0x0F80_0080u32.to_le_bytes(),
+            "the donor record must not change"
+        );
     }
 
     #[test]

@@ -14,8 +14,8 @@
 
 use crate::error::SaveReadError;
 use crate::layout::{
-    slot_offset, RECORD_INVENTORY_KEY_OFFSET, SCROLL_RECORD_BYTES, SCROLL_SLOT_COUNT,
-    USER_SAVE_BYTES, USER_SAVE_MAGIC,
+    slot_offset, RECORD_FLAG_WORD_OFFSET, RECORD_INVENTORY_KEY_OFFSET, SCROLL_RECORD_BYTES,
+    SCROLL_SLOT_COUNT, USER_SAVE_BYTES, USER_SAVE_MAGIC,
 };
 
 /// Body window covered by the user-save checksum, mirroring
@@ -33,6 +33,14 @@ pub const RECORD_GENERATION_SERIAL_OFFSET: usize = 0x28;
 pub const SCROLL_INVENTORY_KEY_MAX: u32 = 0xFFFF;
 /// Highest allocation-compatible generation serial (`SCROLL_GENERATION_SERIAL_MAX`).
 pub const SCROLL_GENERATION_SERIAL_MAX: u32 = 0xFFFF_FFFC;
+/// Post-native-insertion lifecycle word for a newly installed scroll.
+///
+/// Mirrors `savegame.POST_INSERTION_FLAG_WORD`. The game's own pickup path ORs
+/// the insertion bits `0x04000080` into the builder's `0x02800002` descriptor
+/// state, so a freshly inserted record reads `0x06800082` before any reveal or
+/// view. A direct save write must reproduce that inventory state instead of
+/// inheriting the donor template's lifecycle/reveal flags.
+pub const POST_INSERTION_FLAG_WORD: u32 = 0x0680_0082;
 
 fn require_save_blob(decrypted: &[u8]) -> Result<(), SaveReadError> {
     if decrypted.len() != USER_SAVE_BYTES {
@@ -229,6 +237,30 @@ pub fn write_scroll_inventory_key(
     let mut owned = [0u8; SCROLL_RECORD_BYTES];
     owned.copy_from_slice(record);
     write_u32(&mut owned, RECORD_INVENTORY_KEY_OFFSET, inventory_key)?;
+    Ok(owned)
+}
+
+/// Return one complete record carrying the post-insertion lifecycle word.
+///
+/// Mirrors `savegame.write_post_insertion_state`. Written only by the
+/// installation boundary: generation bytes, the rarity/stage-one payload and
+/// every donor-unrelated field are preserved.
+pub fn write_post_insertion_state(
+    record: &[u8],
+) -> Result<[u8; SCROLL_RECORD_BYTES], SaveReadError> {
+    if record.len() != SCROLL_RECORD_BYTES {
+        return Err(SaveReadError::RecordLength {
+            expected: SCROLL_RECORD_BYTES,
+            actual: record.len(),
+        });
+    }
+    let mut owned = [0u8; SCROLL_RECORD_BYTES];
+    owned.copy_from_slice(record);
+    write_u32(
+        &mut owned,
+        RECORD_FLAG_WORD_OFFSET,
+        POST_INSERTION_FLAG_WORD,
+    )?;
     Ok(owned)
 }
 
@@ -511,6 +543,32 @@ mod tests {
         assert_eq!(old, 0);
         // A zero body sums to zero, so the folded value is zero.
         assert_eq!(new, 0);
+    }
+
+    /// `write_post_insertion_state` rewrites one word and nothing else.
+    #[test]
+    fn post_insertion_state_preserves_every_other_byte() {
+        let mut candidate = record(0xE604, 5, 6);
+        for (index, byte) in candidate.iter_mut().enumerate() {
+            *byte = byte.wrapping_add((index % 97) as u8);
+        }
+        candidate[RECORD_FLAG_WORD_OFFSET..RECORD_FLAG_WORD_OFFSET + 4]
+            .copy_from_slice(&0x0F80_0080u32.to_le_bytes());
+
+        let written = write_post_insertion_state(&candidate).expect("state");
+        assert_eq!(
+            &written[RECORD_FLAG_WORD_OFFSET..RECORD_FLAG_WORD_OFFSET + 4],
+            &POST_INSERTION_FLAG_WORD.to_le_bytes()
+        );
+        assert_eq!(
+            &written[..RECORD_FLAG_WORD_OFFSET],
+            &candidate[..RECORD_FLAG_WORD_OFFSET]
+        );
+        assert_eq!(
+            &written[RECORD_FLAG_WORD_OFFSET + 4..],
+            &candidate[RECORD_FLAG_WORD_OFFSET + 4..]
+        );
+        assert!(write_post_insertion_state(&candidate[..SCROLL_RECORD_BYTES - 1]).is_err());
     }
 
     #[test]
