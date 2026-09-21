@@ -5,6 +5,7 @@ import unittest
 from nioh3_scroll_editor.effect_path_inverse import (
     FullCompositionRequest,
     OneWildcardCompositionRequest,
+    PrimaryPivotFamily,
     U16Run,
     compile_full_composition_plans,
     compile_ng3_rarity3_primary_pivot_families,
@@ -25,6 +26,11 @@ from nioh3_seed_math import state_after_draw_from_seed
 # (``tests/migration/test_search_worker_parity.py``): the shipped full-family
 # route served this rarity-3 primary search from the whole 2**32 Seed family.
 PARITY_PRIMARY_EFFECT = 60020
+
+# The parity gate's rule-route primary (`PRIMARY_ROUTE_EFFECT`): drawable both
+# before and behind the promotion shuffle, so its cursor owns one un-promoted
+# and one promoted family.
+TWO_FAMILY_PRIMARY_EFFECT = 30543
 
 
 def _seed_state_in_family(family, seed: int) -> bool:
@@ -151,6 +157,133 @@ class EffectPathInverseTests(unittest.TestCase):
                 )
                 self.assertEqual(len(owners), 1)
                 self.assertTrue(_seed_state_in_family(owners[0], seed))
+
+    def _assert_pivot_family_matches_full_composition(
+        self,
+        primary_effect_id: int,
+        secondary_effect_ids: tuple[int, ...],
+        expected_states: tuple[int | None, ...],
+    ) -> PrimaryPivotFamily:
+        """Check one compiled pivot family against the shipped reference compiler.
+
+        ``compile_full_composition_plans`` is the authoritative compiler for the
+        whole ordinary set: for every legal promotion outcome its first path's
+        first constraint is the exact position-0 primary-lottery preimage. This
+        fixture must make the reference emit one plan per state of one draw, so
+        the pivot compiler's matching family can be compared exactly: same
+        states, same order, same draw, and exactly the union of those high-16
+        values. A shared drift between the two workers cannot hide here, because
+        the expectation comes from the shipped compiler, not from the family
+        compiler's own pins.
+        """
+
+        request = FullCompositionRequest(3, primary_effect_id, secondary_effect_ids)
+        plans = compile_full_composition_plans(request)
+        authoritative = tuple(
+            (plan.paths[0].promoted_slot, plan.paths[0].constraints[0])
+            for plan in plans
+        )
+        self.assertEqual(
+            tuple(state for state, _ in authoritative),
+            expected_states,
+            "the reference compiler's legal states for this fixture changed",
+        )
+        draw_indexes = {constraint.draw_index for _, constraint in authoritative}
+        self.assertEqual(
+            len(draw_indexes),
+            1,
+            "one reference request must prove exactly one promotion draw",
+        )
+        draw_index = next(iter(draw_indexes))
+
+        families = compile_ng3_rarity3_primary_pivot_families(
+            frozenset((primary_effect_id,))
+        )
+        owners = tuple(
+            family for family in families if family.pivot_draw_index == draw_index
+        )
+        self.assertEqual(
+            len(owners),
+            1,
+            "the pivot compiler must own the reference draw exactly once",
+        )
+        family = owners[0]
+        # The reference covers every state this family claims, so this is an
+        # exact association, not a containment: no missing and no extra state.
+        self.assertEqual(tuple(family.promoted_states), expected_states)
+        self.assertEqual(family.promotion_draw_index, plans[0].promotion_draw_index)
+
+        expected_values = {
+            value
+            for _state, constraint in authoritative
+            for run in constraint.allowed_u16
+            for value in range(run.start, run.end + 1)
+        }
+        actual_values = {
+            value
+            for run in family.pivot_allowed_u16
+            for value in range(run.start, run.end + 1)
+        }
+        self.assertEqual(
+            actual_values,
+            expected_values,
+            f"the draw-{draw_index} family must match the reference intervals",
+        )
+        # The runs must stay in canonical merged form so the set equality above
+        # also pins the exact interval list.
+        self.assertTrue(all(run.start <= run.end for run in family.pivot_allowed_u16))
+        self.assertTrue(
+            all(
+                family.pivot_allowed_u16[index].end + 1
+                < family.pivot_allowed_u16[index + 1].start
+                for index in range(len(family.pivot_allowed_u16) - 1)
+            ),
+            "the family runs must be sorted, disjoint and non-adjacent",
+        )
+        return family
+
+    def test_rarity3_primary_pivot_families_match_the_full_composition_plans(
+        self,
+    ) -> None:
+        """The compiled families must equal the shipped full-composition pivot.
+
+        The migration fixture pins the two workers against each other, so a
+        shared derivation error would pass it. This gate instead derives the
+        expected promotion states, order, draws and high-16 intervals from
+        ``compile_full_composition_plans``.
+
+        The reference compiler only proves the states whose layout the whole
+        request can reach, so one fixture covers the un-promoted draw-2 family,
+        one covers the promoted draw-9 family of an ordinary primary, and one
+        covers the promoted-slot-0 family of a promoted primary.
+        """
+
+        known = generate_ng3_rarity3_effect_sequence(1)
+        secondary_effect_ids = tuple(effect.effect_id for effect in known.secondaries)
+
+        un_promoted = self._assert_pivot_family_matches_full_composition(
+            TWO_FAMILY_PRIMARY_EFFECT,
+            secondary_effect_ids,
+            (None,),
+        )
+        self.assertEqual(un_promoted.pivot_draw_index, 2)
+
+        # A promoted-pool secondary lets the reference compile the promoted
+        # layouts, which is the only way its first constraint can prove the
+        # ordinary primary's draw-9 family.
+        promoted = self._assert_pivot_family_matches_full_composition(
+            TWO_FAMILY_PRIMARY_EFFECT,
+            (PARITY_PRIMARY_EFFECT, *secondary_effect_ids[:2]),
+            (1, 2, 3),
+        )
+        self.assertEqual(promoted.pivot_draw_index, 9)
+
+        promoted_slot_zero = self._assert_pivot_family_matches_full_composition(
+            PARITY_PRIMARY_EFFECT,
+            secondary_effect_ids,
+            (0,),
+        )
+        self.assertEqual(promoted_slot_zero.pivot_draw_index, 9)
 
 
 if __name__ == "__main__":
