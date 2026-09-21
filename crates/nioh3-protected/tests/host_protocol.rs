@@ -8,8 +8,9 @@
 //! exercised without a game process or a save file. Methods are real
 //! `protected-request` methods so the request validator is genuinely applied.
 
-use std::io::{self, Cursor, Read, Write};
+use std::io::{self, BufRead, Cursor, Read, Write};
 use std::path::PathBuf;
+use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -870,100 +871,111 @@ fn unresolved_owner_keeps_the_host_alive_until_release_is_proven() {
 
 #[test]
 fn bounded_finalization_reports_a_degraded_state_instead_of_spinning_forever() {
-    // RED-before: the shipped loop retried a 250 ms sleep with no counter, no
-    // log and no bound, so an unresolvable owner was never reported. The bounded
-    // schedule must stop the *active* phase and publish the retained state while
-    // the host keeps running.
-    let contract = Contract::load(&contract_dir()).expect("contract loads");
-    let signals = Signals::new();
-    signals.allow_finalize.store(false, Ordering::SeqCst);
-    let thread_signals = signals.clone();
-    let handle = std::thread::spawn(move || {
-        let mut source = Cursor::new(Vec::<u8>::new());
-        let mut sink = Vec::new();
-        serve_with_plan_and_degraded_poll(
-            scripted_application(Role::Runtime, &thread_signals, false),
-            &contract,
-            &mut source,
-            &mut sink,
-            FinalizePlan {
-                max_attempts: 3,
-                retry_interval: Duration::from_millis(1),
-            },
-            Duration::from_millis(5),
-        )
-    });
-    let deadline = Instant::now() + Duration::from_secs(5);
-    while signals.finalize_attempts.load(Ordering::SeqCst) < 3 && Instant::now() < deadline {
-        std::thread::sleep(Duration::from_millis(2));
-    }
-    // Freeze the observed counter while the retained host keeps watching the
-    // owner at the degraded cadence. A schedule that kept retrying at the fast
-    // cadence would already have added attempts here.
-    assert_eq!(
-        signals.finalize_attempts.load(Ordering::SeqCst),
+    accept_retained_process(
+        "bounded_finalization_reports_a_degraded_state_instead_of_spinning_forever",
         3,
-        "the active phase must stop after the bound instead of busy-spinning"
+        u32::MAX,
+        3,
     );
-    assert!(
-        !handle.is_finished(),
-        "the process must stay retained and observable, not exit with an unresolved owner"
-    );
-    // The retained process is still watching the owner, just at the degraded
-    // cadence instead of the tight retry: the release is noticed and honored.
-    signals.allow_finalize.store(true, Ordering::SeqCst);
-    handle
-        .join()
-        .expect("host thread")
-        .expect("release permits exit");
 }
 
 #[test]
 fn a_terminal_finalize_step_ends_the_active_phase_without_waiting_out_the_bound() {
-    // A non-Windows runtime host can never resolve its owner. It must reach the
-    // degraded terminal state on the first attempt, not retry a bound it cannot
-    // use, and it must still never exit.
-    let contract = Contract::load(&contract_dir()).expect("contract loads");
-    let signals = Signals::new();
-    signals.allow_finalize.store(false, Ordering::SeqCst);
-    signals.finalize_gate.store(1, Ordering::SeqCst);
-    let thread_signals = signals.clone();
-    let handle = std::thread::spawn(move || {
-        let mut source = Cursor::new(Vec::<u8>::new());
-        let mut sink = Vec::new();
+    accept_retained_process(
+        "a_terminal_finalize_step_ends_the_active_phase_without_waiting_out_the_bound",
+        8,
+        1,
+        1,
+    );
+}
+
+// Failure modes: a missing/wrong first retained report, exiting with unresolved
+// ownership, and failing to exit after release. Observe the actual host report
+// in a child process: sampling a shared counter within a 5 ms window confuses
+// valid degraded polls with active retries when the parent is descheduled.
+fn accept_retained_process(name: &str, max_attempts: u32, terminal_at: u32, expected: u32) {
+    const CHILD_KEY: &str = "NIOH3_FINALIZATION_ACCEPTANCE_CHILD";
+    if std::env::var(CHILD_KEY).ok().as_deref() == Some(name) {
+        let contract = Contract::load(&contract_dir()).expect("contract loads");
+        let signals = Signals::new();
+        signals.allow_finalize.store(false, Ordering::SeqCst);
+        signals.finalize_gate.store(terminal_at, Ordering::SeqCst);
+        let release_signals = signals.clone();
+        std::thread::spawn(move || {
+            let mut release = String::new();
+            io::stdin().read_line(&mut release).expect("release input");
+            assert_eq!(release.trim(), "release");
+            release_signals.allow_finalize.store(true, Ordering::SeqCst);
+        });
         serve_with_plan_and_degraded_poll(
-            scripted_application(Role::Runtime, &thread_signals, false),
+            scripted_application(Role::Runtime, &signals, false),
             &contract,
-            &mut source,
-            &mut sink,
+            &mut Cursor::new(Vec::<u8>::new()),
+            &mut Vec::new(),
             FinalizePlan {
-                max_attempts: 8,
+                max_attempts,
                 retry_interval: Duration::from_millis(1),
             },
             Duration::from_millis(5),
         )
-    });
-    let deadline = Instant::now() + Duration::from_secs(5);
-    while signals.finalize_attempts.load(Ordering::SeqCst) == 0 && Instant::now() < deadline {
-        std::thread::sleep(Duration::from_millis(2));
+        .expect("release permits exit");
+        return;
     }
-    // A terminal decision ends the active phase on its first attempt. The
-    // retained host then watches only at the degraded cadence, so the counter
-    // cannot have advanced past one while the fast phase is over.
-    assert_eq!(
-        signals.finalize_attempts.load(Ordering::SeqCst),
-        1,
-        "a terminal decision must end the active phase immediately"
+    struct ChildGuard(Child);
+    impl Drop for ChildGuard {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+        }
+    }
+    let mut child = ChildGuard(
+        Command::new(std::env::current_exe().expect("test executable"))
+            .args(["--exact", name, "--nocapture"])
+            .env(CHILD_KEY, name)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("start finalization acceptance child"),
+    );
+    let stderr = child.0.stderr.take().expect("child stderr");
+    let (reports, received) = mpsc::channel();
+    std::thread::spawn(move || {
+        for line in io::BufReader::new(stderr).lines() {
+            let Ok(line) = line else { break };
+            if line.contains("bounded finalization ended after") {
+                let _ = reports.send(line);
+            }
+        }
+    });
+    let report = received
+        .recv_timeout(Duration::from_secs(10))
+        .expect("retained report");
+    assert!(
+        report.contains(&format!("ended after {expected} attempt(s)")),
+        "the first retained report must name the exact active-phase bound: {report}"
     );
     assert!(
-        !handle.is_finished(),
-        "a terminal decision is not permission to exit with an unresolved owner"
+        child.0.try_wait().expect("child status").is_none(),
+        "unresolved ownership must retain the process"
     );
-    signals.allow_finalize.store(true, Ordering::SeqCst);
-    handle
-        .join()
-        .expect("host thread")
-        .expect("release permits exit");
+    writeln!(child.0.stdin.take().expect("child stdin"), "release").expect("release owner");
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        if let Some(status) = child.0.try_wait().expect("released child status") {
+            assert!(
+                status.success(),
+                "released host must exit successfully: {status}"
+            );
+            break;
+        }
+        assert!(Instant::now() < deadline, "released host did not exit");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    println!(
+        "FINALIZATION_E2E_OK {}",
+        json!({"test":name,"firstRetainedAttempts":expected,"retainedReport":report,"releasedExitCode":0})
+    );
 }
 
 #[test]
