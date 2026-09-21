@@ -3114,3 +3114,126 @@ the dispatch descriptor from the normalized record
 not evidence of a product live-add defect. The next live acceptance uses real
 product materialization with a genuine bound context rather than a standalone
 example.
+
+## 2026-09-21: hosted signed-release preparation failed at the source-test gate
+
+**Objective:** Prepare the hosted signed Windows release for the v0.8.0
+candidate `df7a2bd8fc42ab36b9d9fa67498e57d5fe77dc92` on
+`codex/v080-rust-backend` through `.github/workflows/release.yml`.
+
+**Observed symptom:** Workflow run
+[#35593863273](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/actions/runs/35593863273)
+(`workflow_dispatch`, `worker_backend=rust`) failed at the step
+`python -m unittest discover -s tests -t . -v`, reporting
+`Ran 762 tests in 127.070s` / `FAILED (failures=6, errors=1, skipped=4)`.
+Every step before it passed (checkout, Python 3.12 and Node 24 setup,
+`pip install packaging/requirements-v2.lock.txt`, `pip install
+requirements-dev.txt`, `npm ci`, version validation). Every step after it was
+skipped, so no build, package, verification, signature or upload step ran and
+no release artifact exists for this SHA.
+
+**Failing node IDs (all Python, single gate):**
+
+- `ERROR tests.test_python_r5_table_selection.SelectedTablesReachTheSequenceTests.test_batched_primary_ids_use_the_selected_index`
+  - `RuntimeError: native primary batch accelerator rejected valid input`,
+  raised from `nioh3_scroll_editor/seed_accelerator.py` line 593 via
+  `generate_ng3_primary_effect_ids_native` and
+  `effect_sequence.py` line 1148.
+- `FAIL tests.test_resolved_context.CanonicalEncodingTests.test_pinned_goldens_for_both_versions`
+- `FAIL tests.test_resolved_context.CanonicalEncodingTests.test_python_payload_matches_rust_golden_bytes_and_digest`
+- `FAIL tests.test_resolved_context.LegacyIsProofOnlyTests.test_legacy_capture_is_not_the_shipped_production_identity`
+- `FAIL tests.test_resolved_context.LegacyIsProofOnlyTests.test_legacy_digest_matches_rust_and_is_not_the_primary_digest`
+- `FAIL tests.test_resolved_context.LegacyIsProofOnlyTests.test_production_payload_declares_authority_and_carries_proof_fields`
+- `FAIL tests.test_python_production_context_wiring.GoldenIdentityTests.test_worker_context_matches_both_pinned_version_goldens`
+  - observed `AssertionError: '2c2cc737a1b5783920806125f085ccd7b0242d270e1a33c3c60011388b2198fb'
+  != '6f1292895f25937005f736b3170ccfd11b295aa7c284d3744339f6bbfd1a8712'` on
+  `v202.context_digest` against a pinned golden.
+
+The six failures form one resolved-context family (pinned digests and the
+worker-context wiring that asserts them). The R5 error is a separate native
+accelerator rejection on the same gate.
+
+**Root cause:** Not yet known. This is recorded objectively at the point of
+failure, before any repair report. Correlation with the candidate's
+`nioh3_scroll_editor/data/game_versions/pc_v2_02.json` resource change is only
+a hypothesis: the tree was seen to be dirty on that file during the run window,
+and the mismatched pinned digests could be either a stale golden or a real
+resolved-context change. No cause is asserted here. The R5 accelerator error is
+likewise unexplained by this record; a prior worker statement that the
+accelerator identity was unaffected is not yet proven.
+
+**Measured cause - resolved-context family (2026-09-21, follow-up):** The
+candidate had written the PC v2.02 approval into its own profile document.
+`runtime_resource_digest` (`nioh3_scroll_editor/core_services.py:104-126`)
+hashes *every* file under the runtime data root, so that one document edit moved
+`resources_digest` `411866d7...` -> `b175d07b...`; the value propagates through
+`legacy_context_digest` and `context_digest`, so all six pinned-golden and
+wiring assertions moved together. Measured, not inferred: the digest returned
+`b175d07b...` with the edit and `411866d7...` after the edit was reverted, and
+the hosted log's observed value equals the edited value exactly. The pinned
+goldens themselves were never wrong, and they were not re-pinned.
+
+**Measured cause - R5 accelerator error (2026-09-21, follow-up):** The batched
+route reaches the shipped ABI-v2 Seed accelerator DLL, whose default execution
+policy is strict GPU. The hosted runner has no CUDA device - the same log skips
+four CUDA/GPU-device-gated tests (`test_cuda_special_rule_masks_match_exact_python_replay`,
+`test_cuda_and_explicit_cpu_preserve_exact_pivot_cursor_results`,
+`test_amd_d3d11_device_round_trip_when_present`,
+`test_ng3_rarity5_fixed_solver_needs_no_game_or_save`) - so the fixture's valid
+batch request was refused before the selected index was used. On this host
+`cuda_seed_acceleration_available()` is `True` and the same gate ran with zero
+skips, which is why the error never reproduced locally.
+
+**EOL/CRLF hypothesis:** Refuted for this failure. `.gitattributes` pins
+`*.json text eol=lf`; `git ls-files --eol` reports `i/lf w/lf` for the document
+with zero CRLF bytes; and a CRLF variant would have produced a third digest
+rather than the edited-value digest the run reported.
+
+**Repair:** Two bounded changes. The operation-scoped approval moved out of the
+hashed data root into `crates/nioh3-runtime/src/profile.rs` as
+`LIVE_ADD_APPROVED_VERSIONS = [FileVersion::new(2, 0, 2, 0)]`, consumed by
+`ProfilePurpose::LiveAdd` while `NativeWrites` still requires the document's
+blanket approval, with a new `file_version` guard so a renamed or misplaced
+document cannot resolve. The profile document is restored byte-identically
+(blob `2d963e040373b6c96f2a8b3c6c86bac841037d6d`, identical to the
+pre-approval revision `d66b070`). The R5 fixture opts into the accelerator's
+existing bulk-CPU policy, and a new regression
+(`HostedNoGpuBatchRouteTests.test_cpu_opt_in_carries_the_batch_and_strict_gpu_still_refuses`)
+forces the CUDA-failure path so the no-device condition is exercised on a host
+that does have a device; the product default stays strict.
+
+**Evidence:** Hosted run `35593863273` (job `106314122392`) and its failed-step
+log preserved at
+`D:\Nioh3_v080_deliverables\deliverables\v080-hosted-release-20260921\run-35593863273-log-failed.txt`,
+summarized in `FAILURE_35593863273.md` in the same directory.
+
+**Disposition:** Repaired in the v0.8.0 freeze commit that follows `df7a2bd`
+(7 files: the restored profile document, the version-scoped live-add approval
+in `profile.rs`, the two test files, the two docs and this entry). The failed
+SHA `df7a2bd` is non-promotable and was not re-dispatched.
+
+**Clean-checkout reproduction:** A clean-checkout harness
+(`D:\Nioh3_v080_deliverables\deliverables\v080-hosted-release-20260921\run_hosted_gate.ps1`)
+runs the exact hosted step `python -m unittest discover -s tests -t . -v`
+through the project Python runner in a detached LF worktree.
+
+- Failed candidate `df7a2bd`: reproduced the same six resolved-context
+  failures, `Ran 762 tests in 127.360s`, zero checkout-converted CRLF files
+  (the hosted R5 error did not reproduce, because this host has a CUDA device -
+  the one environment difference, now covered by the forced-failure
+  regression).
+- Repaired 7-file tree: `Ran 763 tests`, `OK`, exit 0, zero checkout-converted
+  CRLF files, and every previously failing node green, on two independent runs
+  (136.2s and 128.8s). The hosted-equivalent
+  `--require-clean --expected-sha <candidate>` preflight also returned
+  `ok: true` with `dirtyEntries: 0`.
+
+**Reproduction status:** Reproduced on both sides - failure on the old SHA,
+clean pass on the repaired SHA - from clean checkouts. Line endings are
+measured, not assumed (`git ls-files --eol`: 0 files converted to CRLF).
+
+**Follow-up state:** Source-level closed. The repaired SHA still needs the
+hosted run and the re-checked artifacts; this entry claims only the local
+source-gate reproduction, not a release acceptance.
+
+**Skill promotion:** None. This is a bounded hosted-gate failure record.

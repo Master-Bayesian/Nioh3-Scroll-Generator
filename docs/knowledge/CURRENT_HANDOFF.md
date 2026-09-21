@@ -42,9 +42,16 @@ frozen, and publication awaits explicit owner authorization. Readiness:
 `D:\Nioh3_v080_deliverables\deliverables\v080-next-rc-prep\PUBLICATION_READINESS.md`.
 
 **Accepted native live-add scope (2026-09-21).** PC v2.02 native live addition is
-enabled against the approved profile document (`approval_status` approved,
-`product_enablement_allowed` false at the top level and in `gates`,
-`live_add_enablement_allowed` true in both). Every other unverified PC v2.02
+enabled by a compile-time, exact-version approval in the runtime's central
+authority (`profile::LIVE_ADD_APPROVED_VERSIONS` = `2.0.2.0`), consumed through
+`profile_for_game_version_for(..., ProfilePurpose::LiveAdd)`. The profile
+document itself stays `approval_status` candidate with
+`product_enablement_allowed` false at the top level and in `gates`: it must not
+carry the approval, because `resources_digest` hashes every file under the
+runtime data root and an approval written there would move the pinned production
+generation identity. The document must still name the requested `file_version`
+and carry its validated sites, and the executor still proves the profile id and
+the pinned PC v2.02 executable digest. Every other unverified PC v2.02
 native write or override still refuses with `PROFILE_NOT_APPROVED`, and the
 offline generation/save path is unchanged. The purpose-aware live-add lookup
 (`profile_for_game_version_for`) also fixes the v2.01 live-add profile directory

@@ -68,15 +68,14 @@ def test_v202_profile_is_approved_for_exact_version_selection() -> None:
     assert profile["profile_id"] == "pc_v2_02"
     assert profile["display_version"] == "PC v2.02"
     assert profile["file_version"] == list(V202)
-    # The 2026-09-21 decision approves this document, which is the gate
-    # profile_for_game_version reads before the product may select the version.
-    assert profile["approval_status"] == "approved"
-    # The approval is operation-specific: the exact native live-add path only.
-    # Every other native write or override keeps refusing for PC v2.02.
+    # The document itself stays identity-neutral: `resources_digest` hashes every
+    # file under the runtime data root, so an approval written here would move
+    # the pinned production generation identity. The exact-version live-add
+    # approval lives in `profile::LIVE_ADD_APPROVED_VERSIONS` instead, and the
+    # document keeps describing the unapproved candidate it always did.
+    assert profile["approval_status"] == "candidate"
     assert profile["product_enablement_allowed"] is False
     assert profile["gates"]["product_enablement_allowed"] is False
-    assert profile["live_add_enablement_allowed"] is True
-    assert profile["gates"]["live_add_enablement_allowed"] is True
     # The separate save-layout gate stays false: this approval does not claim the
     # product's own PC v2.02 save write/restore path is validated.
     assert profile["gates"]["save_layout_validated"] is False

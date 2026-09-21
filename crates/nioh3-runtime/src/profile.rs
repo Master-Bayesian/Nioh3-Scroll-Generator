@@ -45,6 +45,16 @@ pub const SUPPORTED_GAME_VERSIONS: [(FileVersion, &str); 3] = [
 /// Display version the offline algorithms target.
 pub const SUPPORTED_GAME_VERSION: &str = "2.01";
 
+/// Exact versions whose native live-addition path this line has accepted.
+///
+/// The approval is recorded here rather than in the profile document because
+/// `resources_digest` hashes every file under the runtime data root, so writing
+/// an approval into `game_versions/*.json` would move the pinned production
+/// generation identity. This is the single place that grants it, it is scoped
+/// to one exact version, and the document must still carry its validated sites
+/// for the profile to load at all.
+pub const LIVE_ADD_APPROVED_VERSIONS: [FileVersion; 1] = [FileVersion::new(2, 0, 2, 0)];
+
 /// What one profile resolution is for.
 ///
 /// The approval a document grants is operation-specific: a blanket
@@ -356,12 +366,32 @@ pub fn profile_for_game_version_for(
                 == Some(true)
     };
     let blanket = enabled("product_enablement_allowed");
-    let approved = payload.get("approval_status").and_then(Value::as_str) == Some("approved")
+    // The document has to describe the version that was asked for, whatever the
+    // purpose, so a misplaced or renamed document can never resolve.
+    let documented_version = payload
+        .get("file_version")
+        .and_then(Value::as_array)
+        .and_then(|parts| {
+            let numbers: Vec<u64> = parts.iter().filter_map(Value::as_u64).collect();
+            (numbers.len() == 4).then(|| {
+                FileVersion::new(
+                    numbers[0] as u16,
+                    numbers[1] as u16,
+                    numbers[2] as u16,
+                    numbers[3] as u16,
+                )
+            })
+        });
+    let approved = documented_version == Some(version)
         && match purpose {
             // A blanket approval covers live addition too, so the shipped v2.01
-            // document keeps working unchanged.
-            ProfilePurpose::LiveAdd => blanket || enabled("live_add_enablement_allowed"),
-            ProfilePurpose::NativeWrites => blanket,
+            // document keeps working unchanged; PC v2.02 is approved for the
+            // live-add path alone by the version-scoped list above.
+            ProfilePurpose::LiveAdd => blanket || LIVE_ADD_APPROVED_VERSIONS.contains(&version),
+            ProfilePurpose::NativeWrites => {
+                payload.get("approval_status").and_then(Value::as_str) == Some("approved")
+                    && blanket
+            }
         };
     if !approved {
         return Err(RuntimeError::ProfileNotApproved {
@@ -595,6 +625,43 @@ mod tests {
     /// Adding a version to the registry never approves it: the document's own
     /// three flags decide, and a candidate document refuses before its sites are
     /// trusted.
+    ///
+    /// A document that describes another version is refused for every purpose,
+    /// so a renamed or misplaced profile file can never resolve under the
+    /// version-scoped live-add approval.
+    #[test]
+    fn a_document_for_another_version_never_resolves() -> Result<(), RuntimeError> {
+        let root = scratch_dir("version-mismatch");
+        let shipped = std::fs::read_to_string(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("..")
+                .join("nioh3_scroll_editor")
+                .join("data")
+                .join("game_versions")
+                .join("pc_v2_02.json"),
+        )
+        .expect("shipped v2.02 profile");
+        let mut payload: serde_json::Value =
+            serde_json::from_str(&shipped).expect("valid profile json");
+        payload["file_version"] = serde_json::json!([2, 0, 1, 0]);
+        std::fs::write(root.join("pc_v2_02.json"), payload.to_string()).expect("scratch profile");
+
+        let refused = profile_for_game_version_for(
+            FileVersion::new(2, 0, 2, 0),
+            &root,
+            ProfilePurpose::LiveAdd,
+        );
+        let _ = std::fs::remove_dir_all(&root);
+        assert_eq!(
+            refused.err(),
+            Some(RuntimeError::ProfileNotApproved {
+                profile: "PC v2.02".to_string(),
+            })
+        );
+        Ok(())
+    }
+
     #[test]
     fn an_unapproved_document_still_refuses_its_version() -> Result<(), RuntimeError> {
         let root = scratch_dir("unapproved");

@@ -8,9 +8,8 @@
     2,
     0
   ],
-  "approval_status": "approved",
+  "approval_status": "candidate",
   "product_enablement_allowed": false,
-  "live_add_enablement_allowed": true,
   "provenance": {
     "baseline_profile": "nioh3_scroll_editor/data/game_versions/pc_v2_01.json",
     "candidate_report": "deliverables/game-version-update-20260919/reports/pc-v2.02-candidate.unapproved.json",
@@ -270,8 +269,7 @@
     "parameter_tables_compared": true,
     "native_parity_validated": true,
     "save_layout_validated": false,
-    "product_enablement_allowed": false,
-    "live_add_enablement_allowed": true
+    "product_enablement_allowed": false
   },
   "known_version_differences": [
     "tables/item.bin row 3358 field +0x84 changed 0x380 -> 0x0.",
@@ -286,7 +284,7 @@
     "The recommended-level curve is point-for-point identical to the shipped resource."
   ],
   "limitations": [
-    "Approval is operation-specific: `live_add_enablement_allowed` enables the exact native live-add path for PC v2.02 and nothing else. The document sites were validated by the migration lanes (anchor relocation, relocated site signatures, runtime data sites, parameter tables, native parity) and the binding itself was observed end to end.",
-    "`product_enablement_allowed` stays false, so every other native write or override path for PC v2.02 keeps refusing; the profile is not blanket-approved. `save_layout_validated` stays false as well: a PC v2.02 save written by the game after the addition was read back and checked (45 records, all 44 previous records preserved, one added record at the expected slot with the documented new-marker clear; deliverables/v202-final-native-acceptance-20260921-070153/PERSISTENCE_FINAL.md), which validates the read side only."
+    "No PC v2.02 save written by the new build was available, so the save layout and revision semantics remain unvalidated for this version.",
+    "Product enablement stays false: the compatibility registry, the live path and the runtime write gate are unchanged by this profile."
   ]
 }

@@ -18,10 +18,12 @@ the old tables.
 
 from __future__ import annotations
 
+import ctypes
 import sys
 from pathlib import Path
 import unittest
 
+from nioh3_scroll_editor import seed_accelerator
 from nioh3_scroll_editor.effect_generation_tables import (
     EffectGenerationTableIndex,
     effect_generation_tables_for_game_version,
@@ -42,6 +44,10 @@ from nioh3_scroll_editor.search_application import (
 )
 from nioh3_scroll_editor.search_jobs import SearchJobs
 from nioh3_scroll_editor.search_worker import resolve_worker_context
+from nioh3_scroll_editor.seed_accelerator import (
+    native_seed_acceleration_available,
+    seed_acceleration_execution_policy,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -159,6 +165,16 @@ class SelectedTablesReachTheSequenceTests(unittest.TestCase):
         cls.v202 = effect_generation_tables_for_game_version(V202)
         cls.shipped = load_default_effect_generation_tables()
 
+    def setUp(self) -> None:
+        # The batch route reaches the shipped ABI-v2 Seed accelerator DLL, whose
+        # default policy is strict GPU. A hosted runner has no CUDA device, so the
+        # DLL would refuse this valid request before the selected index is used.
+        # Opt this fixture into the DLL's bulk-CPU fallback the same way
+        # tests/test_auxiliary_generation.py does; the product default stays
+        # strict, and tests/test_backend_freeze.py keeps asserting that strict GPU
+        # never silently enters the CPU loop.
+        self.enterContext(seed_acceleration_execution_policy(allow_bulk_cpu=True))
+
     def test_marker_index_is_the_one_used_for_effect_pools(self) -> None:
         marked = _RecordingTables(self.v202, "v2.02")
 
@@ -231,6 +247,60 @@ class SelectedTablesReachTheSequenceTests(unittest.TestCase):
             for seed, effect_id in zip(seeds, fixed)
         )
         self.assertTrue(single, "batched and single-Seed primary routes disagree")
+
+
+@unittest.skipUnless(
+    native_seed_acceleration_available(),
+    "native Seed accelerator is unavailable",
+)
+class HostedNoGpuBatchRouteTests(unittest.TestCase):
+    """The hosted no-CUDA condition, reproduced deterministically.
+
+    The hosted runner loads the same tracked ABI-v2 DLL but has no CUDA device,
+    while the DLL's default policy is strict GPU, so a valid batch request was
+    refused with "native primary batch accelerator rejected valid input". The
+    DLL's own test hook reproduces that condition on a machine that does have a
+    device, so this proves the fixture opt-in carries the route while the
+    product default still refuses.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.v202 = effect_generation_tables_for_game_version(V202)
+
+    def test_cpu_opt_in_carries_the_batch_and_strict_gpu_still_refuses(self) -> None:
+        library = seed_accelerator._load_accelerator()
+        if library is None:
+            self.skipTest("ABI-v2 Seed accelerator DLL is unavailable")
+        force_failure = library.seed_accelerator_test_force_cuda_failure
+        force_failure.argtypes = (ctypes.c_int,)
+        force_failure.restype = None
+        marked = _RecordingTables(self.v202, "v2.02")
+        seeds = (SEED, SEED + 1, SEED + 2)
+        force_failure(1)
+        try:
+            # Strict GPU is still fail-closed: the same valid request is refused,
+            # so nothing in the product default entered the CPU loop.
+            with seed_acceleration_execution_policy(allow_bulk_cpu=False):
+                with self.assertRaises(RuntimeError):
+                    generate_rarity5_grace_primary_effect_ids(
+                        seeds, playthrough=3, grace_id=0x6553, tables=marked
+                    )
+            with seed_acceleration_execution_policy(allow_bulk_cpu=True):
+                fixed = generate_rarity5_grace_primary_effect_ids(
+                    seeds, playthrough=3, grace_id=0x6553, tables=marked
+                )
+                any_grace = generate_rarity5_any_grace_primary_effect_ids(
+                    seeds, playthrough=3, tables=marked
+                )
+        finally:
+            force_failure(0)
+            library.seed_accelerator_set_execution_policy(
+                seed_accelerator.EXECUTION_POLICY_STRICT_GPU
+            )
+        self.assertEqual(len(fixed), len(seeds))
+        self.assertEqual(len(any_grace), len(seeds))
+        self.assertTrue(all(0 <= effect_id <= 0xFFFF for effect_id in any_grace))
 
 
 class ThreeRouteTablePropagationTests(unittest.TestCase):
