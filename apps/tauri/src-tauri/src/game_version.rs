@@ -179,6 +179,34 @@ fn read_file_version(executable: &Path) -> Result<GameFileVersion, String> {
 /// Every entry is either an environment-named install, one of the two shipped
 /// default locations, or the path Steam itself records for the current user.
 /// Missing entries are skipped; nothing here enumerates a directory.
+/// Whether two library roots name the same directory for deduplication.
+///
+/// Windows path identity is case-insensitive, but `canonicalize` only reports
+/// the on-disk spelling of a directory that is present: when a root does not
+/// exist yet (a temp fixture, or a machine that lacks the drive) the same
+/// library supplied as `D:\SteamLibrary` and `d:\steamlibrary` used to read as
+/// two. The canonical form is still tried first - so a real junction, an 8.3
+/// name, or a case-only difference on a present directory folds exactly as
+/// before - and only the unavailable case falls back to a case-insensitive
+/// comparison of the whole path, prefix included. Nothing is stripped, and
+/// non-Windows builds keep exact comparison.
+fn same_library_directory(left: &Path, right: &Path) -> bool {
+    let left = left.canonicalize().unwrap_or_else(|_| left.to_path_buf());
+    let right = right.canonicalize().unwrap_or_else(|_| right.to_path_buf());
+    if left == right {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        left.to_string_lossy()
+            .eq_ignore_ascii_case(&right.to_string_lossy())
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
 fn steam_roots() -> Vec<PathBuf> {
     let mut roots: Vec<PathBuf> = Vec::new();
     let from_env = |key: &str| {
@@ -206,11 +234,14 @@ fn steam_roots() -> Vec<PathBuf> {
     let mut unique: Vec<PathBuf> = Vec::new();
     let mut seen: Vec<PathBuf> = Vec::new();
     for root in roots {
-        let resolved = root.canonicalize().unwrap_or_else(|_| root.clone());
-        if !seen.contains(&resolved) {
-            seen.push(resolved);
-            unique.push(root);
+        if seen
+            .iter()
+            .any(|candidate| same_library_directory(candidate, &root))
+        {
+            continue;
         }
+        seen.push(root.clone());
+        unique.push(root);
     }
     unique
 }
@@ -352,11 +383,14 @@ fn library_roots() -> Vec<PathBuf> {
     // place differently must be one library, not two.
     let mut seen: Vec<PathBuf> = Vec::new();
     let push = |root: PathBuf, seen: &mut Vec<PathBuf>, roots: &mut Vec<PathBuf>| {
-        let resolved = root.canonicalize().unwrap_or_else(|_| root.clone());
-        if !seen.contains(&resolved) {
-            seen.push(resolved);
-            roots.push(root);
+        if seen
+            .iter()
+            .any(|candidate| same_library_directory(candidate, &root))
+        {
+            return;
         }
+        seen.push(root.clone());
+        roots.push(root);
     };
     for steam_root in steam_roots() {
         let vdf = steam_root.join("steamapps").join("libraryfolders.vdf");
@@ -595,11 +629,13 @@ pub fn derive_candidate_paths_for_test(libraries: &[PathBuf]) -> Vec<PathBuf> {
     let mut seen: Vec<PathBuf> = Vec::new();
     let mut candidates: Vec<PathBuf> = Vec::new();
     for library in libraries {
-        let resolved = library.canonicalize().unwrap_or_else(|_| library.clone());
-        if seen.contains(&resolved) {
+        if seen
+            .iter()
+            .any(|candidate| same_library_directory(candidate, library))
+        {
             continue;
         }
-        seen.push(resolved);
+        seen.push(library.clone());
         candidates.push(expected_game_executable(library.clone()));
     }
     candidates

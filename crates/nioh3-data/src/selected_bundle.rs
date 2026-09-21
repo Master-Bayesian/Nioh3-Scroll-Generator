@@ -163,7 +163,7 @@ fn collect_versioned_files(root: &Path, out: &mut Vec<SelectedFile>) -> Result<(
     // One read: the bytes folded into the identity are the bytes that declared
     // the records selected below.
     let (manifest_path, manifest_bytes, manifest) = read_manifest_snapshot(root, R4_SCHEMA)?;
-    push_file(manifest_path, &manifest_bytes, true, out);
+    let mut spellings: Vec<ManifestSpelling> = Vec::new();
 
     let tables = manifest
         .get("tables")
@@ -181,24 +181,38 @@ fn collect_versioned_files(root: &Path, out: &mut Vec<SelectedFile>) -> Result<(
     for descriptor in resource_descriptor::R4_TABLES {
         let name = descriptor.name;
         let table = r4_table(&manifest, name)?;
-        collect_declared_file(root, field(table, "file", name)?, name, true, out)?;
+        spellings.push(collect_declared_file(
+            root,
+            field(table, "file", name)?,
+            name,
+            true,
+            out,
+        )?);
     }
 
     for record in resource_descriptor::R4_COMPANION_RECORDS {
-        collect_declared_file(
+        spellings.push(collect_declared_file(
             root,
             resource_descriptor::manifest_record(&manifest, record)?,
             record.label,
             true,
             out,
-        )?;
+        )?);
     }
+    // The manifest is folded by the spellings it declares, so a within-root
+    // alias of one payload keeps one manifest input and one bundle identity.
+    push_file(
+        manifest_path,
+        &fold_manifest_spellings(&manifest_bytes, &spellings),
+        true,
+        out,
+    );
     Ok(())
 }
 
 fn collect_auxiliary_files(root: &Path, out: &mut Vec<SelectedFile>) -> Result<(), Box<dyn Error>> {
     let (manifest_path, manifest_bytes, manifest) = read_manifest_snapshot(root, AUXILIARY_SCHEMA)?;
-    push_file(manifest_path, &manifest_bytes, false, out);
+    let mut spellings: Vec<ManifestSpelling> = Vec::new();
 
     let tables: &Map<String, Value> = manifest
         .get("tables")
@@ -213,15 +227,21 @@ fn collect_auxiliary_files(root: &Path, out: &mut Vec<SelectedFile>) -> Result<(
     for descriptor in resource_descriptor::AUXILIARY_TABLES {
         let name = descriptor.name;
         let table = auxiliary_table(tables, name)?;
-        collect_declared_file(root, field(table, "file", name)?, name, false, out)?;
+        spellings.push(collect_declared_file(
+            root,
+            field(table, "file", name)?,
+            name,
+            false,
+            out,
+        )?);
         if descriptor.keys {
-            collect_declared_file(
+            spellings.push(collect_declared_file(
                 root,
                 field(table, "keys_file", name)?,
                 &format!("{name} keys"),
                 false,
                 out,
-            )?;
+            )?);
         }
     }
 
@@ -229,13 +249,19 @@ fn collect_auxiliary_files(root: &Path, out: &mut Vec<SelectedFile>) -> Result<(
     let gate = manifest
         .get(gate_section)
         .ok_or("enemy_parameter_gate: manifest has no enemy parameter gate")?;
-    collect_declared_file(
+    spellings.push(collect_declared_file(
         root,
         field(gate, resource_descriptor::AUXILIARY_GATE_KEY, gate_section)?,
         resource_descriptor::AUXILIARY_GATE_LABEL,
         false,
         out,
-    )?;
+    )?);
+    push_file(
+        manifest_path,
+        &fold_manifest_spellings(&manifest_bytes, &spellings),
+        false,
+        out,
+    );
     Ok(())
 }
 
@@ -270,16 +296,86 @@ fn require_exact_names(
     Ok(())
 }
 
+/// One declared filename spelling and the canonical resource-root-relative
+/// spelling the resolver actually read.
+struct ManifestSpelling {
+    declared: String,
+    canonical_relative: String,
+}
+
+/// Fold the declared path spellings inside a manifest snapshot onto the spelling
+/// the resolver read, so two spellings of one within-root payload keep one
+/// manifest input and therefore one bundle identity.
+///
+/// Only the declared filename strings can change: every other byte of the
+/// snapshot is preserved, and a manifest that already spells its targets
+/// canonically is returned byte-identical.
+fn fold_manifest_spellings(manifest_bytes: &[u8], spellings: &[ManifestSpelling]) -> Vec<u8> {
+    let mut bytes = manifest_bytes.to_vec();
+    for spelling in spellings {
+        if spelling.declared == spelling.canonical_relative {
+            continue;
+        }
+        let from = json_string_literal(&spelling.declared);
+        let to = json_string_literal(&spelling.canonical_relative);
+        bytes = replace_bytes(&bytes, from.as_bytes(), to.as_bytes());
+    }
+    bytes
+}
+
+/// The JSON string literal for one declared filename.
+fn json_string_literal(value: &str) -> String {
+    let mut out = String::with_capacity(value.len() + 2);
+    out.push('"');
+    for character in value.chars() {
+        if character == '"' || character == '\\' {
+            out.push('\\');
+        }
+        out.push(character);
+    }
+    out.push('"');
+    out
+}
+
+fn replace_bytes(bytes: &[u8], from: &[u8], to: &[u8]) -> Vec<u8> {
+    if from.is_empty() || bytes.len() < from.len() {
+        return bytes.to_vec();
+    }
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index..].starts_with(from) {
+            out.extend_from_slice(to);
+            index += from.len();
+        } else {
+            out.push(bytes[index]);
+            index += 1;
+        }
+    }
+    out
+}
+
 fn collect_declared_file(
     root: &Path,
     record: &Value,
     label: &str,
     versioned: bool,
     out: &mut Vec<SelectedFile>,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<ManifestSpelling, Box<dyn Error>> {
+    let declared = field_str(record, "filename", label)?.to_string();
     let (path, bytes) = read_declared_blob(root, record, label)?;
+    let canonical_relative = path
+        .strip_prefix(root)
+        .map_err(|_| {
+            format!("{label}: declared path escapes the resource root")
+        })?
+        .to_string_lossy()
+        .replace('\\', "/");
     push_file(path, &bytes, versioned, out);
-    Ok(())
+    Ok(ManifestSpelling {
+        declared,
+        canonical_relative,
+    })
 }
 
 fn collect_plain_file(
@@ -1200,6 +1296,35 @@ mod tests {
         assert_eq!(
             before.files, after.files,
             "a within-root alias of the same bytes is identity-neutral"
+        );
+    }
+
+    /// The same fold on a host where file symlinks cannot be created: Windows
+    /// resolves a differently-cased declaration to the same file, so the
+    /// canonical spelling must still keep the manifest input identity-neutral.
+    #[cfg(windows)]
+    #[test]
+    fn a_case_folded_declaration_is_identity_neutral() {
+        let root = write_fixture("case-alias");
+        let target_relative = "tables/auxiliary_rule_conflict_keys.bin";
+        let alias_relative = "tables/AUXILIARY_RULE_CONFLICT_KEYS.BIN";
+        let before = resolve(&root, (2, 0, 0, 2));
+        repoint_declared_record(
+            &root,
+            AUXILIARY_RESOURCE_DIR,
+            target_relative,
+            alias_relative,
+        );
+        let after = resolve(&root, (2, 0, 0, 2));
+
+        assert_eq!(
+            selected_paths(&after),
+            LEGACY_SELECTION.to_vec(),
+            "the declared spelling folds to the on-disk spelling"
+        );
+        assert_eq!(
+            before.files, after.files,
+            "a case-folded declaration of the same bytes is identity-neutral"
         );
     }
 
