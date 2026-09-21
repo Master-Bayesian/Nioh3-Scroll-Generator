@@ -291,7 +291,7 @@ mod imp {
     use nioh3_runtime::mutation::session::{OverrideSession, WindowsSessionMemory};
     use nioh3_runtime::mutation::trampoline::{EnemyGroup, OverrideProfile};
     use nioh3_runtime::mutation::{
-        catalog::DomainCatalogPolicy, native_abi::PC_V201_LIVE_ADD,
+        catalog::DomainCatalogPolicy, native_abi::live_add_binding_for_game_version,
         native_executor::NativeDebugTransport, native_executor::NativeLiveAddExecutor,
         ChallengeOverrideProfile, LiveAddBatch,
     };
@@ -305,9 +305,6 @@ mod imp {
     use crate::scan::{
         AuxiliaryCriteria, AuxiliarySource, ScanFilters, ScanMatch, ScanProgress, ScanRequest,
     };
-
-    /// The shipped live-add executor binding the product builds for PC v2.01.
-    const LIVE_ADD_DISPLAY_VERSION: &str = "PC v2.01";
 
     /// The game session the scan's batch oracle drives.
     type RemoteSession = nioh3_runtime::mutation::win_session::WindowsRemoteSession;
@@ -512,6 +509,33 @@ mod imp {
             nioh3_runtime::identify_running_game(&self.data_root).map_err(HostError::from_runtime)
         }
 
+        /// The game identity the native live-add path uses.
+        ///
+        /// Live addition resolves the profile for its own purpose and from the
+        /// profile-document directory, so a document approved for live addition
+        /// only is reachable while every other native path keeps the existing
+        /// blanket resolution and its refusals. The executable, version, module
+        /// and process-identity checks are identical to [`Self::identity`]; only
+        /// the profile approval purpose differs, and the executor still proves
+        /// the profile id and, where pinned, the exact executable digest before
+        /// any read or dispatch.
+        fn live_add_identity(&self) -> Result<GameIdentity, HostError> {
+            // Workers are launched with `--data-root <runtime>/data` while the
+            // profile documents live in `data/game_versions`; a root that
+            // already names the profile directory is used unchanged.
+            let nested = self.data_root.join("game_versions");
+            let profile_dir = if nested.is_dir() {
+                nested
+            } else {
+                self.data_root.clone()
+            };
+            nioh3_runtime::identify_running_game_for(
+                &profile_dir,
+                nioh3_runtime::profile::ProfilePurpose::LiveAdd,
+            )
+            .map_err(HostError::from_runtime)
+        }
+
         /// `_enemy_role_by_lookup_key` over the shipped roster.
         fn roster_roles(&mut self) -> Result<&BTreeMap<u32, u8>, HostError> {
             if self.roster_roles.is_none() {
@@ -702,27 +726,54 @@ mod imp {
             Ok(sessions)
         }
 
+        /// The live-add binding the host selects for one resolved executable
+        /// version.
+        ///
+        /// Selection only. It returns the identifiers the executor already
+        /// accepts, and the executor still proves the advertised profile id and,
+        /// where the binding pins one, the exact executable digest before any
+        /// read or dispatch. Split out so the selection is unit-testable with no
+        /// running game and no native call.
+        pub(crate) fn live_add_binding_for_version(
+            file_version: nioh3_runtime::FileVersion,
+        ) -> Result<
+            (
+                &'static nioh3_runtime::mutation::native_abi::LiveAddLayout,
+                &'static str,
+            ),
+            HostError,
+        > {
+            live_add_binding_for_game_version(file_version.tuple()).ok_or_else(|| {
+                HostError::rejected("Live addition is not accepted for this game version")
+            })
+        }
+
         /// The reviewed live-addition application, built on first use.
+        ///
+        /// The binding is selected by the exact running executable version:
+        /// PC v2.01 keeps the shipped layout and PC v2.02 selects the same
+        /// accepted binding the native acceptance observed. Every other version
+        /// selects nothing and refuses here. The executor still proves the
+        /// profile id and, for a pinned binding, the exact executable digest
+        /// before any read or dispatch.
         ///
         /// Construction needs the real game identity because the native
         /// transport attaches to that process; with no game this is the shipped
         /// process-absence failure rather than a refusal to serve.
         fn live_add_application(&mut self) -> Result<&mut LiveAddApplication, HostError> {
             if self.live_add.is_none() {
-                let identity = self.identity()?;
+                let identity = self.live_add_identity()?;
+                let (layout, display_version) =
+                    Self::live_add_binding_for_version(identity.file_version)?;
                 let directory = self.state_root.join("live-add").join("native-executor");
                 let transport = NativeDebugTransport::new(
                     identity.identity.pid,
-                    PC_V201_LIVE_ADD,
+                    *layout,
                     nioh3_runtime::GAME_MODULE_NAME,
                     &directory,
                 )
                 .map_err(HostError::from_runtime)?;
-                let executor = NativeLiveAddExecutor::new(
-                    transport,
-                    PC_V201_LIVE_ADD,
-                    LIVE_ADD_DISPLAY_VERSION,
-                );
+                let executor = NativeLiveAddExecutor::new(transport, *layout, display_version);
                 let application = LiveAddApplication::new(
                     &self.state_root,
                     self.context.digest(),
@@ -1531,6 +1582,60 @@ mod imp {
             FinalizeStep::Terminal {
                 reason: NON_WINDOWS_OWNERSHIP_REASON.to_string(),
             }
+        }
+    }
+}
+
+/// Product-selection coverage for the host's live-add binding.
+///
+/// This proves which identifiers the host builds its executor with. It is
+/// selection evidence only: it does not run a native dispatch, and the native
+/// path plus disk persistence are observed separately by the acceptance run.
+#[cfg(all(test, windows))]
+mod live_add_selection_tests {
+    #![allow(clippy::expect_used, clippy::unwrap_used)]
+
+    use nioh3_runtime::mutation::native_abi::{LiveAddLayout, PC_V202_LIVE_ADD_CANDIDATE};
+    use nioh3_runtime::FileVersion;
+
+    use super::RuntimeApplication;
+
+    fn select(version: FileVersion) -> (&'static LiveAddLayout, &'static str) {
+        RuntimeApplication::live_add_binding_for_version(version)
+            .expect("this version selects a binding")
+    }
+
+    #[test]
+    fn the_host_selects_one_live_add_binding_per_exact_version() {
+        let (layout, display) = select(FileVersion::new(2, 0, 1, 0));
+        assert_eq!(layout.profile_id, "pc-v2.01-live-add-r1");
+        assert_eq!(display, "PC v2.01");
+
+        let (layout, display) = select(FileVersion::new(2, 0, 2, 0));
+        assert_eq!(layout.profile_id, "pc-v2.02-live-add-candidate");
+        assert_eq!(display, "PC v2.02");
+        // The selected v2.02 layout is field-for-field the accepted constant the
+        // native acceptance observed - not a renamed twin or a re-derived one.
+        assert_eq!(*layout, PC_V202_LIVE_ADD_CANDIDATE);
+        // ... and the accepted binding still attaches the pinned executable
+        // digest, so the wrong build refuses before any read or dispatch.
+        let binding = nioh3_runtime::mutation::native_executor::accepted_live_add_binding(
+            layout, display,
+        )
+        .expect("the accepted binding table names this pair");
+        assert_eq!(
+            binding.executable_sha256,
+            Some("E22C4A635E4EC1E27A177B76E27D7F6A637F426C0ED3928B60F5693BC52AE130")
+        );
+
+        for (major, minor, build, revision) in [(2, 0, 0, 2), (2, 0, 2, 1), (2, 0, 3, 0)] {
+            assert!(
+                RuntimeApplication::live_add_binding_for_version(FileVersion::new(
+                    major, minor, build, revision
+                ))
+                .is_err(),
+                "{major}.{minor}.{build}.{revision} must select nothing"
+            );
         }
     }
 }

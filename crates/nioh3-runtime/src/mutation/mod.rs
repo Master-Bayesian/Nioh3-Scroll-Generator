@@ -20,6 +20,8 @@ pub mod catalog;
 pub mod count;
 pub mod descriptor;
 pub mod evidence;
+#[cfg(any(windows, feature = "test-fake"))]
+pub mod historical_preview;
 pub mod inventory;
 pub mod live_add;
 pub mod live_batch;
@@ -43,6 +45,8 @@ pub mod live_fakes;
 mod live_tests;
 #[cfg(test)]
 mod native_executor_tests;
+#[cfg(test)]
+mod historical_preview_tests;
 #[cfg(any(test, feature = "test-fake"))]
 pub mod native_fakes;
 #[cfg(test)]
@@ -57,7 +61,11 @@ pub use descriptor::{
     assembly_descriptor, new_assembly_record, verify_assembly_preview, ASSEMBLY_FLAGS,
     DESCRIPTOR_SIZE,
 };
-pub use evidence::{defined, verify, verify_dispatch, verify_persistence, REGISTERS};
+pub use evidence::{
+    defined, preview_rejection_complete, preview_rejection_decided, verify, verify_dispatch,
+    verify_dispatch_evidence, verify_persistence, PREVIEW_PHASE_AFTER, PREVIEW_PHASE_BEFORE,
+    PREVIEW_PHASE_REJECTED_AFTER, PREVIEW_SETTLEMENT_REJECTED, REGISTERS,
+};
 pub use inventory::{
     capture_index, capture_inventory, capture_read_only, index_entries, inventory_entries,
     inventory_json, resolve_inventory_pointers, Inventory, InventoryEntry, InventoryGlobalMode,

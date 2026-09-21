@@ -22,12 +22,18 @@
 //!   allocation or debug session is still retained.
 
 use crate::error::RuntimeError;
-use crate::mutation::count::{new_operation_id, read_bytes, read_json, sha256_hex};
+use crate::mutation::count::{
+    is_canonical_uuid, new_operation_id, read_bytes, read_json, sha256_hex,
+};
 use crate::mutation::descriptor::{assembly_descriptor, verify_assembly_preview};
-use crate::mutation::evidence::verify_dispatch;
+use crate::mutation::evidence::{
+    preview_fingerprints_agree, preview_owner_fingerprint, preview_rejection_decided,
+    verify_dispatch, verify_dispatch_evidence, PREVIEW_PHASE_AFTER, PREVIEW_PHASE_BEFORE,
+    PREVIEW_PHASE_REJECTED_AFTER, PREVIEW_SETTLEMENT_REJECTED,
+};
 use crate::mutation::inventory::{
     capture_read_only, hex_decode, Inventory, InventoryLayout, InventoryProcess, NativeIndex,
-    RECORD_SIZE,
+    RECORD_SIZE, SERIAL_OFFSET,
 };
 use crate::mutation::live_add::{InstallationCandidate, LiveAddExecutor};
 use crate::mutation::native_abi::{
@@ -40,6 +46,7 @@ use crate::mutation::native_abi::{
 };
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// The three modes the shipped transport accepts.
@@ -128,6 +135,14 @@ fn retained_owner_error(operation_id: &str, receipt: &Value) -> RuntimeError {
 const COMPLETED_CLEANUP_STATES: [&str; 4] =
     ["original_restored", "exited", "not_armed", "handle_reused"];
 
+/// Whether one per-thread cleanup state is a completed retirement.
+///
+/// The historical classification verifier reads the same set the settled
+/// predicate does, so "terminal cleanup" has one definition.
+pub fn cleanup_state_complete(state: &str) -> bool {
+    COMPLETED_CLEANUP_STATES.contains(&state)
+}
+
 /// `released`, `inactive` and zero breakpoints: the shipped settled predicate.
 pub fn settled(value: &Value) -> bool {
     value.get("released").and_then(Value::as_bool) == Some(true)
@@ -160,6 +175,34 @@ pub fn settled(value: &Value) -> bool {
                         .is_some_and(|state| COMPLETED_CLEANUP_STATES.contains(&state))
                 })
             })
+}
+
+/// The preview descriptor byte `assembly_descriptor(record, false)` writes: `1`
+/// selects the non-allocating envelope, `0` would allocate an instance serial.
+pub const PREVIEW_NO_ALLOCATE_DESCRIPTOR_OFFSET: usize = 0x21;
+
+/// The preview intent one dispatch request carries, as durable evidence.
+///
+/// `builder_code_sha256` is the digest of the reviewed code bytes the
+/// pre-redirect gate proved the target carries, and `preview_target` records the
+/// digest the target itself produced, so the settlement can require the two to
+/// be the same identity rather than trusting one string.
+fn preview_intent(params: &Value, layout: &LiveAddLayout, builder_code_sha256: &str) -> Value {
+    let text = |key: &str| params.get(key).and_then(Value::as_str).unwrap_or_default();
+    json!({
+        "mode": "preview",
+        "profile_id": layout.profile_id,
+        "descriptor_sha256": sha256_hex(text("descriptor_hex").as_bytes()),
+        "expected_record_sha256": sha256_hex(text("expected_record_hex").as_bytes()),
+        "builder_code_sha256": builder_code_sha256,
+        "allocate_serial": false,
+        "insertion_args_present": false,
+        "expected_context_identity": {
+            "process_creation_time": text("process_creation_time"),
+            "parent_operation_id": params.get("parent_operation_id").cloned().unwrap_or(Value::Null),
+            "candidate_id": params.get("candidate_id").cloned().unwrap_or(Value::Null),
+        },
+    })
 }
 
 /// `live_add_profile.live_add_profile((2, 0, 1, 0))` acceptance.
@@ -221,7 +264,9 @@ pub trait LiveAddTransport {
 
     fn read(&mut self, address: u64, size: usize) -> Result<Vec<u8>, RuntimeError>;
 
-    /// `ping`: the endpoint identity plus whether any native work is owned.
+    /// `ping`: the endpoint identity, whether any native work is owned, and the
+    /// exact operation a durable unresolved receipt still names when the
+    /// transport can prove one.
     fn ping(&mut self) -> Result<Value, RuntimeError>;
 
     /// `preview` / `insert` / `noop`. Admission happens here.
@@ -258,6 +303,16 @@ pub trait LiveAddTransport {
     /// transport that cannot prove the identity fails closed with `None`.
     fn executable_sha256(&mut self) -> Result<Option<String>, RuntimeError> {
         Ok(None)
+    }
+
+    /// Every durable preview receipt this transport left for one parent
+    /// operation. Read-only: it never dispatches and never writes.
+    ///
+    /// A preview may retry its own explicit zero-redirect idle miss under a fresh
+    /// identity, so one parent can own more than one child. A transport without a
+    /// durable receipt store returns none.
+    fn preview_receipts(&mut self, _parent_operation_id: &str) -> Result<Vec<Value>, RuntimeError> {
+        Ok(Vec::new())
     }
 }
 
@@ -368,7 +423,16 @@ impl<T: LiveAddTransport> NativeLiveAddExecutor<T> {
             });
         }
         if let Some(expected) = binding.executable_sha256 {
-            if self.transport.executable_sha256()?.as_deref() != Some(expected) {
+            // The pinned identity is a hex digest, so a transport may render it in
+            // either case: the real one returns `sha256_hex` (lower case) while the
+            // pinned constant is upper case. Absent proof and a different digest
+            // both still refuse.
+            let matches = self
+                .transport
+                .executable_sha256()?
+                .as_deref()
+                .is_some_and(|actual| actual.eq_ignore_ascii_case(expected));
+            if !matches {
                 return Err(refusal(
                     "Candidate live addition requires the pinned PC v2.02 executable",
                 ));
@@ -399,7 +463,28 @@ impl<T: LiveAddTransport> NativeLiveAddExecutor<T> {
     /// is still owned, so a receipt alone never clears `pending` and never lets
     /// a recovery report success.
     fn owner_released(&mut self, receipt: &Value) -> bool {
-        settled(receipt) && !self.transport.owner_retained()
+        // The same authoritative reading admission and the store use: a native
+        // settled receipt, or the explicit historical classification.
+        (settled(receipt)
+            || crate::mutation::historical_preview::classification_is_terminal(receipt))
+            && !self.transport.owner_retained()
+    }
+
+    /// The one existing operation this executor already owns, when one exists.
+    ///
+    /// The authority is the transport's durable unresolved receipt; the adapter's
+    /// own pending marker is the fallback for an owner whose receipt the store no
+    /// longer reports, because a receipt is never release proof. Both are bounded
+    /// to a single, defined operation: the pending marker first, then the first
+    /// unsettled receipt the store reports.
+    fn unresolved_owner_id(&self, endpoint: &Value) -> Option<String> {
+        self.pending.clone().or_else(|| {
+            endpoint
+                .get("unresolved_operation_id")
+                .and_then(Value::as_str)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+        })
     }
 
     /// Mark `operation_id` as the adapter's pending owner. The marker survives a
@@ -519,11 +604,21 @@ impl<T: LiveAddTransport> NativeLiveAddExecutor<T> {
         let busy = endpoint.get("busy").and_then(Value::as_bool) == Some(true);
         if endpoint.get("pid").and_then(Value::as_u64) != Some(u64::from(pid))
             || endpoint.get("profile_id").and_then(Value::as_str) != Some(self.layout.profile_id)
-            || busy
         {
             return Err(dispatch_error(
                 "Live-add executor is busy or attached to a different process/profile",
             ));
+        }
+        if busy {
+            // The owned operation is the authority, not a generic busy fact: name
+            // the exact operation this executor still owns so the caller can
+            // recover it. Nothing is released or unblocked here.
+            return Err(match self.unresolved_owner_id(&endpoint) {
+                Some(operation_id) => RuntimeError::LiveAddUncertain { operation_id },
+                None => dispatch_error(
+                    "Live-add executor is busy or attached to a different process/profile",
+                ),
+            });
         }
         let module_base = self.transport.module_base()?;
         let creation_time = self.transport.creation_time()?;
@@ -656,13 +751,25 @@ impl<T: LiveAddTransport> LiveAddExecutor for NativeLiveAddExecutor<T> {
 
     /// `LiveAddAdapter.preview`: only the explicit, fully released,
     /// zero-redirect idle miss retries, and every attempt keeps its receipt.
+    ///
+    /// A caller that must own the child operation before the side effect pins
+    /// `preview_operation_id` in the plan; attempt 0 uses it and the retries use
+    /// fresh identities, so the pinned child is never replayed.
     fn preview(&mut self, plan: &Value, assembly_record: &[u8]) -> Result<Value, RuntimeError> {
         let expected_record = hex(assembly_record);
         let descriptor = hex(&assembly_descriptor(assembly_record, false)?);
         let pid = plan.get("pid").and_then(Value::as_u64).unwrap_or(0) as u32;
+        let pinned = plan
+            .get("preview_operation_id")
+            .and_then(Value::as_str)
+            .filter(|value| is_canonical_uuid(value))
+            .map(str::to_string);
         let mut last = None;
         for attempt in 0..3 {
-            let operation_id = new_operation_id()?;
+            let operation_id = match (attempt, &pinned) {
+                (0, Some(pinned)) => pinned.clone(),
+                _ => new_operation_id()?,
+            };
             let mut fields = plan_fields(
                 plan,
                 &[
@@ -691,7 +798,15 @@ impl<T: LiveAddTransport> LiveAddExecutor for NativeLiveAddExecutor<T> {
                 last = Some(result);
                 continue;
             }
-            verify_dispatch(&result)?;
+            if result.get("settlement").and_then(Value::as_str) == Some(PREVIEW_SETTLEMENT_REJECTED) {
+                // The dispatch, its return/register proof and its cleanup are
+                // complete; the business result is the mismatch the assembly
+                // comparison below reports. Verify the native proof itself
+                // instead of a phase word rewritten to satisfy the gate.
+                verify_dispatch_evidence(&result)?;
+            } else {
+                verify_dispatch(&result)?;
+            }
             let source = hex_decode(
                 result
                     .get("source_hex")
@@ -791,14 +906,25 @@ impl<T: LiveAddTransport> LiveAddExecutor for NativeLiveAddExecutor<T> {
         let receipt = self.transport.status(operation_id)?;
         if self.owner_released(&receipt) {
             self.clear_pending();
-            return Ok(normalize(receipt));
+            // Only a native settled receipt takes the adapter's derived
+            // `breakpoints` view; an authoritative historical classification is
+            // returned exactly as it was recorded, under its own schema.
+            return Ok(if settled(&receipt) {
+                normalize(receipt)
+            } else {
+                receipt
+            });
         }
         // Verification only: the transport re-reads the target and settles the
         // receipt when it can prove the outcome. It never dispatches again.
         let released = self.transport.release(operation_id)?;
         if self.owner_released(&released) {
             self.clear_pending();
-            return Ok(normalize(released));
+            return Ok(if settled(&released) {
+                normalize(released)
+            } else {
+                released
+            });
         }
         // Business verification is useful evidence, but it cannot recreate or
         // release the old allocation/debugger/thread owner, and a settled
@@ -817,6 +943,14 @@ impl<T: LiveAddTransport> LiveAddExecutor for NativeLiveAddExecutor<T> {
     /// `LiveAddAdapter.submission_absent`: local knowledge only.
     fn submission_absent(&mut self, operation_id: &str) -> bool {
         !self.transport.operation_known(operation_id)
+    }
+
+    /// Every durable preview child this parent operation owns, read-only.
+    fn preview_children(
+        &mut self,
+        parent_operation_id: &str,
+    ) -> Result<Vec<Value>, RuntimeError> {
+        self.transport.preview_receipts(parent_operation_id)
     }
 
     fn safe_to_shutdown(&mut self) -> bool {
@@ -919,6 +1053,16 @@ impl ReceiptStore {
         self.directory.join(format!("{operation_id}.json"))
     }
 
+    /// `<directory>/<operation_id>.classification.json`.
+    ///
+    /// The one place the historical classification's file name is built, so a
+    /// classification is a sidecar beside the receipt it classifies and never a
+    /// second receipt.
+    pub fn classification_path(&self, operation_id: &str) -> PathBuf {
+        self.directory
+            .join(format!("{operation_id}.classification.json"))
+    }
+
     /// `NativeLiveAddTransport._save`: a temporary file, then a rename.
     pub fn save(&self, receipt: &Value) -> Result<(), RuntimeError> {
         let operation_id = receipt
@@ -931,10 +1075,21 @@ impl ReceiptStore {
             path: temporary.display().to_string(),
             detail: error.to_string(),
         })?;
-        std::fs::write(&temporary, text.as_bytes()).map_err(|error| RuntimeError::Io {
+        // Write, flush the bytes to the device, then rename: a receipt the caller
+        // has been told is durable is on disk, not only in a cache.
+        let mut file = std::fs::File::create(&temporary).map_err(|error| RuntimeError::Io {
             path: temporary.display().to_string(),
             detail: error.to_string(),
         })?;
+        file.write_all(text.as_bytes()).map_err(|error| RuntimeError::Io {
+            path: temporary.display().to_string(),
+            detail: error.to_string(),
+        })?;
+        file.sync_all().map_err(|error| RuntimeError::Io {
+            path: temporary.display().to_string(),
+            detail: error.to_string(),
+        })?;
+        drop(file);
         std::fs::rename(&temporary, &path).map_err(|error| RuntimeError::Io {
             path: path.display().to_string(),
             detail: error.to_string(),
@@ -950,20 +1105,41 @@ impl ReceiptStore {
     }
 
     /// `_unresolved_owner`: every receipt that still owns the target.
+    ///
+    /// The one authoritative admission reading: a native settled receipt and an
+    /// explicit historical classification whose binding still holds both mean the
+    /// operation no longer owns the target. A sidecar that exists but does not
+    /// bind is an error, never a silent "not classified".
     pub fn unresolved_owner(&self) -> Result<Option<String>, RuntimeError> {
         for value in self.all()? {
-            if settled(&value) {
+            let operation_id = value
+                .get("operation_id")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            if self.authoritative_state(&value)?.is_some() {
                 continue;
             }
-            return Ok(Some(
-                value
-                    .get("operation_id")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default()
-                    .to_string(),
-            ));
+            return Ok(Some(operation_id));
         }
         Ok(None)
+    }
+
+    /// The one authoritative terminal reading of one durable receipt.
+    ///
+    /// `Ok(Some(value))` means this operation is finished: the native receipt
+    /// itself when it is settled, or the explicit historical classification when
+    /// that classification still binds to the exact bytes on disk. `Ok(None)` is
+    /// an owner that is still open. The historical value is returned unchanged
+    /// and stays a distinct schema: it never claims the native receipt settled.
+    pub fn authoritative_state(&self, receipt: &Value) -> Result<Option<Value>, RuntimeError> {
+        if settled(receipt) {
+            return Ok(Some(receipt.clone()));
+        }
+        let Some(operation_id) = receipt.get("operation_id").and_then(Value::as_str) else {
+            return Ok(None);
+        };
+        crate::mutation::historical_preview::valid_classification(self, operation_id)
     }
 
     /// Every receipt in the directory, in file-name order.
@@ -980,6 +1156,14 @@ impl ReceiptStore {
             })?;
             let path = entry.path();
             if path.extension().and_then(|value| value.to_str()) != Some("json") {
+                continue;
+            }
+            if path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.ends_with(".classification.json"))
+            {
+                // A classification is a sidecar, never a second receipt.
                 continue;
             }
             let value = read_json(&path)?;
@@ -1386,6 +1570,88 @@ mod windows_transport {
         Ok(u32::from_le_bytes(bytes))
     }
 
+    /// The inventory reader over one debug session.
+    ///
+    /// The native index must be read through the shipped traversal, not derived
+    /// from the container, so the preview baseline uses the same
+    /// `capture_index`/`inspect_index` path the product's read-only capture does.
+    struct SessionInventoryView<'a, S: RuntimeOwnerSession + ?Sized> {
+        session: &'a mut S,
+        module_base: u64,
+        creation_time: String,
+    }
+
+    impl<S: RuntimeOwnerSession + ?Sized> InventoryProcess for SessionInventoryView<'_, S> {
+        fn pid(&self) -> u32 {
+            self.session.pid()
+        }
+
+        fn module_base(&self) -> u64 {
+            self.module_base
+        }
+
+        fn creation_time(&mut self) -> Result<String, RuntimeError> {
+            Ok(self.creation_time.clone())
+        }
+
+        fn read(&mut self, address: u64, size: usize) -> Result<Vec<u8>, RuntimeError> {
+            self.session.read(address, size)
+        }
+    }
+
+    /// One preview fingerprint read from the live owner over the given session.
+    ///
+    /// The container and both counters come from the same owner the dispatch is
+    /// about to redirect, so a rejection can be decided against the actual
+    /// manager/data object instead of a caller-supplied description of it.
+    fn capture_preview_fingerprint<S: RuntimeOwnerSession>(
+        session: &mut S,
+        layout: &LiveAddLayout,
+        module_base: u64,
+        manager: u64,
+        data: u64,
+        process_creation_time: &str,
+        capture_phase: &str,
+    ) -> Result<Value, RuntimeError> {
+        let container = session.read(
+            data + layout.container_offset,
+            layout.capacity as usize * layout.record_size,
+        )?;
+        let serial_counter = read_session_u64(session, data + layout.serial_counter_offset)?;
+        let acquisition_order_counter = read_session_u32(session, data)?;
+        // The *actual* native serial index, captured at the same stop through the
+        // shipped traversal: the container and the index can disagree, so the
+        // index is read here rather than derived from the records.
+        let inventory_layout = inventory_layout(layout);
+        let game_version = crate::mutation::inventory::accepted_inventory_version(&inventory_layout)
+            .ok_or_else(|| {
+                dispatch_error("Preview baseline has no accepted inventory version")
+            })?;
+        let native_index = {
+            let mut view = SessionInventoryView {
+                session,
+                module_base,
+                creation_time: process_creation_time.to_string(),
+            };
+            crate::mutation::inventory::capture_index(&mut view, &inventory_layout, game_version)?
+                .to_json()
+        };
+        Ok(preview_owner_fingerprint(
+            &container,
+            serial_counter,
+            acquisition_order_counter,
+            &inventory_layout,
+            layout.profile_id,
+            session.pid(),
+            process_creation_time,
+            manager,
+            data,
+            module_base,
+            &native_index,
+            capture_phase,
+        ))
+    }
+
     impl LiveAddTransport for NativeDebugTransport {
         fn pid(&self) -> u32 {
             self.pid
@@ -1411,12 +1677,17 @@ mod windows_transport {
         }
 
         fn ping(&mut self) -> Result<Value, RuntimeError> {
+            let unresolved_owner = self.store.unresolved_owner()?;
             Ok(json!({
                 "pid": self.pid,
                 "profile_id": self.layout.profile_id,
                 "busy": self.retained.is_some()
                     || self.retained_session.is_some()
-                    || self.store.unresolved_owner()?.is_some(),
+                    || unresolved_owner.is_some(),
+                // The authoritative operation the target is still owned by, when
+                // the durable record proves one. A caller refuses admission and
+                // names this exact operation instead of a generic busy fact.
+                "unresolved_operation_id": unresolved_owner,
             }))
         }
 
@@ -1525,16 +1796,22 @@ mod windows_transport {
         }
 
         fn status(&mut self, operation_id: &str) -> Result<Value, RuntimeError> {
-            if self.store.exists(operation_id) {
-                return self.store.read(operation_id);
+            if !self.store.exists(operation_id) {
+                return Err(dispatch_error("Unknown native operation"));
             }
-            Err(dispatch_error("Unknown native operation"))
+            let receipt = self.store.read(operation_id)?;
+            // One authoritative reading: a classified historical receipt answers
+            // with its own distinct terminal state, never the raw unsettled one.
+            Ok(self.store.authoritative_state(&receipt)?.unwrap_or(receipt))
         }
 
         fn release(&mut self, operation_id: &str) -> Result<Value, RuntimeError> {
             let mut value = self.store.read(operation_id)?;
-            if settled(&value) {
-                return Ok(value);
+            if let Some(terminal) = self.store.authoritative_state(&value)? {
+                // A settled native receipt, or the explicit historical
+                // classification: both are already terminal, and neither is
+                // re-observed or rewritten here.
+                return Ok(terminal);
             }
             // Verification only: one read view decides the outcome, and the
             // receipt is rewritten in place. Nothing is dispatched.
@@ -1563,6 +1840,24 @@ mod windows_transport {
 
         fn operation_known(&mut self, operation_id: &str) -> bool {
             self.store.exists(operation_id)
+        }
+
+        /// Every durable preview receipt this parent owns, listed from the
+        /// receipt directory. Verification only: nothing is dispatched.
+        fn preview_receipts(
+            &mut self,
+            parent_operation_id: &str,
+        ) -> Result<Vec<Value>, RuntimeError> {
+            Ok(self
+                .store
+                .all()?
+                .into_iter()
+                .filter(|receipt| {
+                    receipt.get("mode").and_then(Value::as_str) == Some("preview")
+                        && receipt.get("parent_operation_id").and_then(Value::as_str)
+                            == Some(parent_operation_id)
+                })
+                .collect())
         }
 
         /// The two owners this binding can still hold: the allocation an
@@ -1608,6 +1903,11 @@ mod windows_transport {
         let mut redirected = false;
         let mut acknowledged = false;
         let mut failure: Option<RuntimeError> = None;
+        // The preview review result, known only after the acknowledgement.
+        let mut preview_review: Option<&'static str> = None;
+        // The reviewed builder bytes' digest, proved equal to the target's before
+        // the redirect and recorded with the intent.
+        let mut preview_builder_code_sha256: Option<String> = None;
         let started = std::time::Instant::now();
         let mut diagnostics = DispatchDiagnostics::default();
 
@@ -1701,6 +2001,35 @@ mod windows_transport {
                         "Native precondition changed at {container:#x}"
                     )));
                 }
+            }
+            if mode == DispatchMode::Preview {
+                // The preview contract is the non-allocating envelope. The
+                // descriptor must select it and the target builder bytes must be
+                // the reviewed ones before anything is redirected: a preview
+                // that could allocate a serial is not this contract.
+                let descriptor = descriptor
+                    .as_ref()
+                    .ok_or_else(|| rejected("Incomplete assembly input"))?;
+                if descriptor[PREVIEW_NO_ALLOCATE_DESCRIPTOR_OFFSET] != 1 {
+                    return Err(rejected(
+                        "Preview requires the non-allocating descriptor envelope",
+                    ));
+                }
+                let builder = hex_decode(
+                    params
+                        .get("builder_code_hex")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default(),
+                )?;
+                if builder.is_empty()
+                    || session.read(base + layout.builder_rva, builder.len())? != builder
+                {
+                    return Err(dispatch_error(format!(
+                        "Native precondition changed at {:#x}",
+                        base + layout.builder_rva
+                    )));
+                }
+                preview_builder_code_sha256 = Some(sha256_hex(&builder));
             }
             let address = session.allocate(REMOTE_CODE_SIZE as usize)?;
             allocation = Some(address);
@@ -1906,6 +2235,41 @@ mod windows_transport {
                             }
                         }
                         diagnostics.entry_hits_accepted += 1;
+                        if mode == DispatchMode::Preview {
+                            // The accepted idle window is the only owner that can
+                            // see the true container: capture and persist the
+                            // baseline here, before the redirect makes the run
+                            // irreversible, and never after it.
+                            let fingerprint = capture_preview_fingerprint(
+                                session,
+                                layout,
+                                base,
+                                manager,
+                                data,
+                                &planned_creation,
+                                PREVIEW_PHASE_BEFORE,
+                            )?;
+                            let target_builder = session.read(
+                                base + layout.builder_rva,
+                                layout.builder_size as usize,
+                            )?;
+                            let reviewed =
+                                preview_builder_code_sha256.clone().unwrap_or_default();
+                            if let Some(object) = receipt.as_object_mut() {
+                                object.insert(
+                                    "preview_intent".to_string(),
+                                    preview_intent(params, layout, &reviewed),
+                                );
+                                object.insert(
+                                    "preview_target".to_string(),
+                                    json!({
+                                        "module_base": base,
+                                        "builder_code_sha256": sha256_hex(&target_builder),
+                                    }),
+                                );
+                                object.insert("preview_before".to_string(), fingerprint);
+                            }
+                        }
                         if let Some(object) = receipt.as_object_mut() {
                             object.insert("phase".to_string(), json!("redirected"));
                             object.insert("redirect_count".to_string(), json!(1));
@@ -1914,6 +2278,22 @@ mod windows_transport {
                             object.insert("allocation".to_string(), json!(address));
                         }
                         store.save(receipt)?;
+                        if mode == DispatchMode::Preview {
+                            // Confirm the baseline is durable and readable before
+                            // the redirect makes the run irreversible.
+                            let stored = store.read(receipt_operation_id(receipt)?)?;
+                            let digest = |value: &Value| {
+                                value
+                                    .get("preview_before")
+                                    .and_then(|entry| entry.get("canonical_index_digest"))
+                                    .cloned()
+                            };
+                            if digest(&stored) != digest(receipt) {
+                                return Err(dispatch_error(
+                                    "Preview baseline did not persist before the redirect",
+                                ));
+                            }
+                        }
                         redirected = true;
                         context.rip = address;
                     }
@@ -1934,6 +2314,7 @@ mod windows_transport {
                         object.insert("source_hex".to_string(), json!(hex(&source)));
                         object.insert("status".to_string(), json!(status));
                     }
+                    let mut record_review: Option<&'static str> = None;
                     if let Some(expected) = &expected_record {
                         let planned_serial = params
                             .get("serial")
@@ -1949,10 +2330,39 @@ mod windows_transport {
                         let differs = source[..0x24] != expected[..0x24]
                             || source[0x30..0xE4] != expected[0x30..0xE4]
                             || actual_serial != wanted;
+                        record_review = Some(if differs { "mismatch" } else { "matched" });
                         if differs {
                             failure = Some(dispatch_error(
                                 "Native builder output differs from reviewed record",
                             ));
+                        }
+                    }
+                    if mode == DispatchMode::Preview {
+                        // The authoritative after read is taken on the
+                        // acknowledgement path itself, for every preview, so a
+                        // rejection is decided from the real post-run container
+                        // and never from a caller-supplied field.
+                        let fingerprint = capture_preview_fingerprint(
+                            session,
+                            layout,
+                            base,
+                            manager,
+                            data,
+                            &planned_creation,
+                            PREVIEW_PHASE_AFTER,
+                        )?;
+                        let review = record_review.unwrap_or("not_observed");
+                        preview_review = Some(review);
+                        if let Some(object) = receipt.as_object_mut() {
+                            object.insert("preview_after".to_string(), fingerprint);
+                            object.insert(
+                                "preview_review".to_string(),
+                                json!({
+                                    "outcome": review,
+                                    "source_serial_sentinel": source[0x28..0x30] == [0xFFu8; 8],
+                                    "status": status,
+                                }),
+                            );
                         }
                     }
                     if mode == DispatchMode::Insert {
@@ -2022,12 +2432,18 @@ mod windows_transport {
             }
         }
 
-        let error_text = match (&outcome, &failure, &cleanup_error) {
-            (_, _, Some(error)) => Some(error.message()),
-            (Err(error), _, None) => Some(error.message()),
-            (Ok(()), Some(error), None) => Some(error.message()),
-            (Ok(()), None, None) => None,
+        // The first failure is the cause; the cleanup failure is what that cause
+        // prevented. Both are recorded, so a receipt never hides a capture or read
+        // error behind the generic cleanup wording.
+        let primary_error = match (&outcome, &failure) {
+            (Err(error), _) => Some(error.message()),
+            (Ok(()), Some(error)) => Some(error.message()),
+            (Ok(()), None) => None,
         };
+        let cleanup_error_text = cleanup_error.as_ref().map(RuntimeError::message);
+        let error_text = primary_error
+            .clone()
+            .or_else(|| cleanup_error_text.clone());
         if diagnostics.stop_reason.is_empty() {
             // An error path that broke out of the loop without its own label.
             diagnostics.stop_reason = if outcome.is_err() {
@@ -2041,17 +2457,6 @@ mod windows_transport {
         let threads_clean = thread_cleanup_complete(&snapshot);
         let debugger_clean = matches!(snapshot.debugger_state, "detached" | "not_attached");
         let released = allocation.is_none() && threads_clean && debugger_clean;
-        let business_outcome = if acknowledged && outcome.is_ok() && failure.is_none() {
-            if mode == DispatchMode::Insert {
-                "committed"
-            } else {
-                "completed"
-            }
-        } else if !redirected {
-            "rejected"
-        } else {
-            "unknown"
-        };
         let remote_execution = if acknowledged {
             "quiescent"
         } else if redirected {
@@ -2066,27 +2471,25 @@ mod windows_transport {
         } else {
             "not_allocated"
         };
-        let phase = if released && matches!(business_outcome, "committed" | "completed") {
-            "completed"
-        } else if released && business_outcome == "rejected" {
-            "rejected"
-        } else {
-            "uncertain"
-        };
+        // Every fact a reader can re-derive goes into the receipt before the
+        // settlement is decided from it, so a rejection is never claimed from a
+        // field the settlement itself wrote.
         if let Some(object) = receipt.as_object_mut() {
             object.insert(
                 "diagnostics".to_string(),
                 diagnostics_json(&diagnostics, elapsed),
             );
-            object.insert("phase".to_string(), json!(phase));
             object.insert("error".to_string(), json!(error_text));
+            object.insert(
+                "cleanup_error".to_string(),
+                json!(cleanup_error_text.clone()),
+            );
             object.insert("active".to_string(), json!(false));
             object.insert("released".to_string(), json!(released));
             object.insert(
                 "breakpoint_count".to_string(),
                 json!(if threads_clean { 0 } else { -1 }),
             );
-            object.insert("business_outcome".to_string(), json!(business_outcome));
             object.insert("remote_execution".to_string(), json!(remote_execution));
             object.insert("allocation_state".to_string(), json!(allocation_state));
             object.insert("debugger_state".to_string(), json!(snapshot.debugger_state));
@@ -2099,11 +2502,83 @@ mod windows_transport {
                 },
             );
         }
+
+        // A preview mismatch is a formal rejection only with the complete proof:
+        // the acknowledged dispatch's own return/register frame, the
+        // non-allocating source sentinel, and two fingerprints that agree over
+        // the same process, profile, inventory owner and layout. Anything
+        // missing keeps the record an unknown.
+        if mode == DispatchMode::Preview && preview_review == Some("mismatch") {
+            let return_and_register_verified = verify_dispatch_evidence(receipt).is_ok();
+            let source_serial_sentinel = receipt
+                .get("source_hex")
+                .and_then(Value::as_str)
+                .map(|text| {
+                    hex_decode(text).is_ok_and(|raw| {
+                        raw.len() == RECORD_SIZE
+                            && raw[SERIAL_OFFSET..SERIAL_OFFSET + 8] == [0xFFu8; 8]
+                    })
+                })
+                .unwrap_or(false);
+            let inventory_fingerprints_agree = preview_fingerprints_agree(receipt);
+            if let Some(object) = receipt.as_object_mut() {
+                object.insert(
+                    "preview_dispatch_proof".to_string(),
+                    json!({
+                        "return_and_register_verified": return_and_register_verified,
+                        "source_serial_sentinel": source_serial_sentinel,
+                        "inventory_fingerprints_agree": inventory_fingerprints_agree,
+                    }),
+                );
+            }
+        }
+        let preview_rejected = preview_rejection_decided(receipt);
+        let business_outcome = if preview_rejected {
+            // The dispatch and its cleanup are terminal and the container is
+            // provably unchanged: the failure is the reviewed output, not the
+            // dispatch, so the business result is the rejection it is.
+            "rejected"
+        } else if acknowledged && outcome.is_ok() && failure.is_none() {
+            if mode == DispatchMode::Insert {
+                "committed"
+            } else {
+                "completed"
+            }
+        } else if !redirected {
+            "rejected"
+        } else {
+            "unknown"
+        };
+        let phase = if preview_rejected {
+            PREVIEW_PHASE_REJECTED_AFTER
+        } else if released && matches!(business_outcome, "committed" | "completed") {
+            "completed"
+        } else if released && business_outcome == "rejected" {
+            "rejected"
+        } else {
+            "uncertain"
+        };
+        if let Some(object) = receipt.as_object_mut() {
+            object.insert("phase".to_string(), json!(phase));
+            object.insert("business_outcome".to_string(), json!(business_outcome));
+            if preview_rejected {
+                object.insert("settlement".to_string(), json!(PREVIEW_SETTLEMENT_REJECTED));
+            }
+        }
         store.save(receipt)?;
         if !released {
-            return Err(dispatch_error(
+            // The retained owner is the fact; the cause and the cleanup failure
+            // are both named, so the caller never has to guess which one it was.
+            let mut detail = String::from(
                 "Native dispatch cleanup is unresolved; retain ownership and do not retry",
-            ));
+            );
+            if let Some(primary) = primary_error.as_deref() {
+                detail.push_str(&format!("; primary error: {primary}"));
+            }
+            if let Some(cleanup) = cleanup_error_text.as_deref() {
+                detail.push_str(&format!("; cleanup error: {cleanup}"));
+            }
+            return Err(dispatch_error(detail));
         }
         match (outcome, failure) {
             (Err(error), _) => Err(error),
@@ -2735,6 +3210,504 @@ mod windows_transport {
                     "{state}"
                 );
             }
+        }
+
+        use crate::mutation::evidence::preview_rejection_complete;
+        use crate::mutation::live_fakes::InventoryFixture;
+        use crate::mutation::native_fakes::FakeSessionScript;
+
+        /// What the isolated builder leaves as the shim's own source output.
+        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        enum SourceShape {
+            /// The reviewed record with no serial allocated: a matched preview.
+            Matched,
+            /// A changed byte with the serial sentinel intact: a mismatch.
+            Mismatch,
+            /// A builder that allocated a serial: not this preview envelope.
+            Allocated,
+        }
+
+        /// The arithmetic flags a `push/push/sub` replay of this stack leaves.
+        fn arithmetic_eflags(before_rsp: u64) -> u64 {
+            let left = before_rsp.wrapping_sub(16);
+            let result = left.wrapping_sub(0x38);
+            let low = (result & 0xFF) as u8;
+            u64::from(left < 0x38)
+                | u64::from(low.count_ones().is_multiple_of(2)) << 2
+                | u64::from((left ^ 0x38 ^ result) & 16 != 0) << 4
+                | u64::from(result == 0) << 6
+                | ((result >> 63) & 1) << 7
+                | u64::from((left ^ 0x38) & (left ^ result) & (1u64 << 63) != 0) << 11
+        }
+
+        /// One reviewed installation record, arbitrary but stable.
+        fn reviewed_record() -> Vec<u8> {
+            let mut record = vec![0x11u8; RECORD_SIZE];
+            record[0] = 0x82;
+            record[1] = 0x1E;
+            record
+        }
+
+        /// The preview's non-allocating descriptor envelope.
+        fn preview_descriptor(layout: &LiveAddLayout) -> Vec<u8> {
+            let mut descriptor = vec![0u8; layout.descriptor_size];
+            descriptor[PREVIEW_NO_ALLOCATE_DESCRIPTOR_OFFSET] = 1;
+            descriptor
+        }
+
+        /// One preview over the shipped loop, with a scripted acknowledgement.
+        fn run_preview(
+            name: &str,
+            shape: SourceShape,
+            container_byte: Option<u8>,
+            fail_container_read: bool,
+            faults: RuntimeOwnerFaults,
+        ) -> (Result<(), RuntimeError>, Value, FakeDebugSession) {
+            run_preview_with_builder(name, shape, container_byte, fail_container_read, faults, None)
+        }
+
+        /// The same run with a caller-chosen length for the committed builder
+        /// bytes. A length shorter than `layout.builder_size` makes the accepted
+        /// entry's own builder read fail, which is the mid-event failure class the
+        /// real disposable helper hit.
+        fn run_preview_with_builder(
+            name: &str,
+            shape: SourceShape,
+            container_byte: Option<u8>,
+            fail_container_read: bool,
+            faults: RuntimeOwnerFaults,
+            builder_len: Option<usize>,
+        ) -> (Result<(), RuntimeError>, Value, FakeDebugSession) {
+            let directory = scratch(name);
+            let store = ReceiptStore::new(&directory).expect("receipt store");
+            let layout = PC_V202_LIVE_ADD_CANDIDATE;
+            let entry = FIXTURE_BASE + layout.dispatch_rva;
+            let target = entry + 7;
+            let reviewed = reviewed_record();
+            let mut source = reviewed.clone();
+            source[0x28..0x30].copy_from_slice(&[0xFF; 8]);
+            match shape {
+                SourceShape::Matched => {}
+                SourceShape::Mismatch => source[0x20] ^= 0xFF,
+                SourceShape::Allocated => source[0x28..0x30].copy_from_slice(&7u64.to_le_bytes()),
+            }
+            // The reviewed builder bytes the target must carry: the whole region
+            // the gate compares, not a prefix.
+            let builder = vec![0xB8u8; builder_len.unwrap_or(layout.builder_size as usize)];
+            let mut inventory = InventoryFixture::new_for_layout(
+                crate::mutation::inventory::PC_V202_INVENTORY_LAYOUT_CANDIDATE,
+                &[(4, 0x1234, 0xF00D), (5, 0x4321, 0xBEEF)],
+                0x3345,
+                11,
+            );
+            inventory
+                .memory
+                .write(FIXTURE_BASE + layout.dispatch_rva, &layout.dispatch_signature);
+            inventory
+                .memory
+                .write(FIXTURE_BASE + layout.builder_rva, &builder);
+            let container_address =
+                FIXTURE_BASE + 0x2_0000 + layout.container_offset + 0x40 * layout.record_size as u64;
+            let mut session = FakeDebugSession::new(&inventory);
+            session.script = Some(FakeSessionScript {
+                ack_tid: 2,
+                source: Some(source),
+                container_byte: container_byte.map(|value| (container_address, value)),
+                fail_container_read,
+                applied: false,
+            });
+            session.owner.faults = faults;
+            session.events.push_back(thread_event(0));
+            session.events.push_back(thread_event(1));
+            session.events.push_back(step_event(1));
+            session.events.push_back(step_event(2));
+            let before_rsp = 0x1000_0008u64;
+            session.contexts.insert(
+                1,
+                ThreadContext {
+                    rip: entry,
+                    dr6: 1,
+                    rsp: before_rsp,
+                    eflags: 0x202,
+                    ..ThreadContext::default()
+                },
+            );
+            session.contexts.insert(
+                2,
+                ThreadContext {
+                    rip: target,
+                    dr6: 2,
+                    rsp: before_rsp - 0x48,
+                    eflags: 0x202 | arithmetic_eflags(before_rsp),
+                    ..ThreadContext::default()
+                },
+            );
+            let params = json!({
+                "operation_id": "test-preview",
+                "process_creation_time": FIXTURE_CREATION.to_string(),
+                "descriptor_hex": hex(&preview_descriptor(&layout)),
+                "expected_record_hex": hex(&reviewed),
+                "builder_code_hex": hex(&builder),
+            });
+            let mut receipt = json!({
+                "operation_id": "test-preview",
+                "pid": FIXTURE_PID,
+                "process_creation_time": FIXTURE_CREATION.to_string(),
+                "phase": "preparing",
+                "active": true,
+                "released": false,
+                "redirect_count": 0,
+                "breakpoint_count": -1,
+                "mode": "preview",
+            });
+            let outcome = run_dispatch(
+                &mut session,
+                &store,
+                &layout,
+                DispatchWindow::PRODUCT,
+                DispatchMode::Preview,
+                &params,
+                &mut receipt,
+            );
+            (outcome, receipt, session)
+        }
+
+        /// The matched control: the reviewed record is reproduced, the stopped
+        /// owner is captured before the redirect, the acknowledgement re-reads it
+        /// and nothing is written.
+        #[test]
+        fn a_matched_preview_settles_completed_over_the_real_loop() {
+            let (outcome, receipt, _session) = run_preview(
+                "preview-matched",
+                SourceShape::Matched,
+                None,
+                false,
+                RuntimeOwnerFaults::default(),
+            );
+            assert!(outcome.is_ok(), "{outcome:?}");
+            assert_eq!(receipt["phase"], "completed");
+            assert_eq!(receipt["business_outcome"], "completed");
+            assert_eq!(receipt["redirect_count"], 1);
+            assert!(settled(&receipt));
+            assert_eq!(receipt["preview_review"]["outcome"], "matched");
+            assert_eq!(
+                receipt["preview_before"]["container_sha256"],
+                receipt["preview_after"]["container_sha256"],
+                "the acknowledgement reads the same container the baseline did"
+            );
+            assert_eq!(
+                receipt["preview_before"]["canonical_index_digest"],
+                receipt["preview_after"]["canonical_index_digest"]
+            );
+            assert_eq!(
+                receipt["preview_before"]["manager"], receipt["preview_after"]["manager"],
+                "both fingerprints name the same inventory owner"
+            );
+            assert!(!preview_rejection_complete(&receipt));
+        }
+
+        /// The bounded repair: a mismatch that left the complete proof settles as
+        /// a formal rejection, never as a rejection-before-dispatch.
+        #[test]
+        fn a_preview_mismatch_settles_as_rejected_after_preview() {
+            let (outcome, receipt, _session) = run_preview(
+                "preview-mismatch",
+                SourceShape::Mismatch,
+                None,
+                false,
+                RuntimeOwnerFaults::default(),
+            );
+            let error = outcome.expect_err("the reviewed output is not reproduced");
+            assert_eq!(error.message(), "Native builder output differs from reviewed record");
+            assert_eq!(receipt["phase"], "rejected_after_preview");
+            assert_eq!(receipt["business_outcome"], "rejected");
+            assert_eq!(receipt["settlement"], "rejected_after_preview");
+            assert_eq!(receipt["redirect_count"], 1);
+            assert_eq!(receipt["preview_dispatch_proof"]["return_and_register_verified"], true);
+            assert_eq!(receipt["preview_dispatch_proof"]["source_serial_sentinel"], true);
+            assert_eq!(receipt["preview_dispatch_proof"]["inventory_fingerprints_agree"], true);
+            assert!(settled(&receipt), "the terminal rejection releases its owner");
+            assert!(preview_rejection_complete(&receipt));
+        }
+
+        /// Every incomplete proof keeps the same mismatch an unknown: a container
+        /// change, a failed acknowledgement read, an allocated serial and an
+        /// unresolved cleanup each block the settlement.
+        #[test]
+        fn an_incomplete_preview_mismatch_stays_unknown() {
+            let (drifted, drifted_receipt, _fixed) = run_preview(
+                "preview-drift",
+                SourceShape::Mismatch,
+                Some(1),
+                false,
+                RuntimeOwnerFaults::default(),
+            );
+            assert!(drifted.is_err());
+            assert_ne!(
+                drifted_receipt["preview_before"]["container_sha256"],
+                drifted_receipt["preview_after"]["container_sha256"],
+                "the container really changed"
+            );
+            assert_eq!(drifted_receipt["business_outcome"], "unknown");
+            assert_eq!(drifted_receipt["phase"], "uncertain");
+            assert!(!settled(&drifted_receipt));
+            assert!(!preview_rejection_complete(&drifted_receipt));
+
+            let (unreadable, unreadable_receipt, _fixed) = run_preview(
+                "preview-unreadable",
+                SourceShape::Mismatch,
+                None,
+                true,
+                RuntimeOwnerFaults::default(),
+            );
+            let error = unreadable.expect_err("the after read failed");
+            // The failed acknowledgement keeps the allocation, so the loop
+            // reports the retained owner rather than a settled outcome.
+            assert!(!error.message().is_empty(), "{error}");
+            assert_eq!(unreadable_receipt["business_outcome"], "unknown");
+            assert_eq!(unreadable_receipt["allocation_state"], "retained");
+            assert!(!preview_rejection_complete(&unreadable_receipt));
+
+            let (allocated, allocated_receipt, _fixed) = run_preview(
+                "preview-allocated",
+                SourceShape::Allocated,
+                None,
+                false,
+                RuntimeOwnerFaults::default(),
+            );
+            assert!(allocated.is_err());
+            assert_eq!(
+                allocated_receipt["preview_dispatch_proof"]["source_serial_sentinel"], false,
+                "an allocated serial is not this preview envelope"
+            );
+            assert!(!preview_rejection_complete(&allocated_receipt));
+
+            let (unresolved, unresolved_receipt, _fixed) = run_preview(
+                "preview-unresolved-cleanup",
+                SourceShape::Mismatch,
+                None,
+                false,
+                RuntimeOwnerFaults {
+                    restore_tid: Some(2),
+                    detach: false,
+                },
+            );
+            assert!(unresolved.is_err());
+            assert_eq!(unresolved_receipt["released"], false);
+            assert_eq!(unresolved_receipt["business_outcome"], "unknown");
+            assert!(!preview_rejection_complete(&unresolved_receipt));
+        }
+
+        /// The real disposable helper's failure class: a read fails inside the
+        /// accepted entry's own handling, so one debug event is still pending when
+        /// cleanup starts. The pending event is continued exactly as the loop
+        /// would, the primary read error survives in the receipt, cleanup
+        /// completes, and the session detaches instead of retaining a frozen owner
+        /// whose drop could not finish.
+        #[test]
+        fn a_failure_inside_the_accepted_entry_is_reported_and_cleaned_up() {
+            let (failed, receipt, session) = run_preview_with_builder(
+                "preview-entry-read-failure",
+                SourceShape::Mismatch,
+                None,
+                false,
+                RuntimeOwnerFaults::default(),
+                Some(16),
+            );
+            let error = failed.expect_err("the accepted entry's builder read failed");
+            assert!(!error.message().is_empty(), "{error}");
+            assert_eq!(diagnostic(&receipt, "entry_hits_accepted"), 1);
+            assert_eq!(receipt["redirect_count"], 0, "the redirect never persisted");
+            let primary = receipt["error"].as_str().unwrap_or_default().to_string();
+            assert!(
+                primary.contains("ReadProcessMemory") || primary.contains("read"),
+                "the primary read error is preserved: {primary}"
+            );
+            assert_eq!(
+                receipt["cleanup_error"], Value::Null,
+                "cleanup completed instead of being refused for the pending event"
+            );
+            assert_eq!(receipt["released"], true);
+            assert_eq!(receipt["allocation_state"], "freed");
+            assert_eq!(receipt["debugger_state"], "detached");
+            assert!(!session.owner.attached, "the session detached");
+        }
+
+        /// A durable-write failure cannot settle the operation: the loop keeps
+        /// the owner and the stored record never becomes the rejection.
+        #[test]
+        fn a_failed_settlement_write_keeps_the_owner_fenced() {
+            let directory = scratch("preview-write-failure");
+            let store = ReceiptStore::new(&directory).expect("receipt store");
+            // The store cannot accept any write from here on.
+            std::fs::remove_dir_all(&directory).expect("remove store directory");
+            let layout = PC_V202_LIVE_ADD_CANDIDATE;
+            let entry = FIXTURE_BASE + layout.dispatch_rva;
+            let target = entry + 7;
+            let reviewed = reviewed_record();
+            let mut source = reviewed.clone();
+            source[0x28..0x30].copy_from_slice(&[0xFF; 8]);
+            source[0x20] ^= 0xFF;
+            let builder = vec![0xB8u8; layout.builder_size as usize];
+            let mut inventory = InventoryFixture::new_for_layout(
+                crate::mutation::inventory::PC_V202_INVENTORY_LAYOUT_CANDIDATE,
+                &[(4, 0x1234, 0xF00D)],
+                0x3345,
+                11,
+            );
+            inventory
+                .memory
+                .write(FIXTURE_BASE + layout.dispatch_rva, &layout.dispatch_signature);
+            inventory
+                .memory
+                .write(FIXTURE_BASE + layout.builder_rva, &builder);
+            let mut session = FakeDebugSession::new(&inventory);
+            session.events.push_back(thread_event(0));
+            session.events.push_back(thread_event(1));
+            session.events.push_back(step_event(1));
+            session.events.push_back(step_event(2));
+            let before_rsp = 0x1000_0008u64;
+            session.contexts.insert(
+                1,
+                ThreadContext {
+                    rip: entry,
+                    dr6: 1,
+                    rsp: before_rsp,
+                    eflags: 0x202,
+                    ..ThreadContext::default()
+                },
+            );
+            session.contexts.insert(
+                2,
+                ThreadContext {
+                    rip: target,
+                    dr6: 2,
+                    rsp: before_rsp - 0x48,
+                    eflags: 0x202 | arithmetic_eflags(before_rsp),
+                    ..ThreadContext::default()
+                },
+            );
+            let params = json!({
+                "operation_id": "test-preview",
+                "process_creation_time": FIXTURE_CREATION.to_string(),
+                "descriptor_hex": hex(&preview_descriptor(&layout)),
+                "expected_record_hex": hex(&reviewed),
+                "builder_code_hex": hex(&builder),
+            });
+            let mut receipt = json!({
+                "operation_id": "test-preview",
+                "pid": FIXTURE_PID,
+                "process_creation_time": FIXTURE_CREATION.to_string(),
+                "phase": "preparing",
+                "active": true,
+                "released": false,
+                "redirect_count": 0,
+                "breakpoint_count": -1,
+                "mode": "preview",
+            });
+            let outcome = run_dispatch(
+                &mut session,
+                &store,
+                &layout,
+                DispatchWindow::PRODUCT,
+                DispatchMode::Preview,
+                &params,
+                &mut receipt,
+            );
+            assert!(outcome.is_err(), "a durable-write failure is an error");
+            assert!(
+                !store.exists("test-preview"),
+                "no settlement reached the store"
+            );
+            assert!(
+                store.unresolved_owner().is_err(),
+                "an unusable receipt store keeps admission fenced"
+            );
+        }
+
+        /// The real transport and its real receipt store: an unsettled preview
+        /// receipt the target is still owned by must make admission refuse *and*
+        /// name that exact child, instead of the generic busy fact. Nothing is
+        /// released, and the durable owner is still the fence.
+        #[test]
+        fn an_unresolved_native_receipt_is_named_by_the_admission_refusal() {
+            let directory = scratch("unnamed-busy-owner");
+            let child = "3f2a8c1e-0d4b-4c6a-9f1e-5b7d2a9c4e10";
+            let store = ReceiptStore::new(&directory).expect("receipt store");
+            store
+                .save(&json!({
+                    "operation_id": child,
+                    "pid": FIXTURE_PID,
+                    "process_creation_time": FIXTURE_CREATION.to_string(),
+                    "phase": "uncertain",
+                    "active": false,
+                    "released": false,
+                    "redirect_count": 1,
+                    "breakpoint_count": -1,
+                    "business_outcome": "unknown",
+                    "remote_execution": "unknown",
+                    "allocation_state": "retained",
+                    "debugger_state": "unknown",
+                    "thread_cleanup": {},
+                    "mode": "preview",
+                }))
+                .expect("durable receipt");
+            let stored = store.read(child).expect("read back");
+            assert!(!settled(&stored), "the receipt is still an owner");
+            assert_eq!(store.unresolved_owner().expect("owner"), Some(child.to_string()));
+
+            let mut transport =
+                NativeDebugTransport::new(FIXTURE_PID, PC_V201_LIVE_ADD, "Nioh3.exe", &directory)
+                    .expect("transport");
+            let endpoint = transport.ping().expect("ping");
+            assert_eq!(endpoint["busy"], true);
+            assert_eq!(endpoint["unresolved_operation_id"], child);
+
+            let mut executor =
+                NativeLiveAddExecutor::new(transport, PC_V201_LIVE_ADD, PRODUCT_DISPLAY_VERSION);
+            let error = executor
+                .inspect()
+                .err()
+                .unwrap_or(RuntimeError::RuntimeBusy);
+            assert_eq!(error.code(), "LIVE_ADD_UNCERTAIN", "{error:?}");
+            assert!(
+                error.message().contains(child),
+                "the refusal names the exact child: {error}"
+            );
+            assert_eq!(
+                store.unresolved_owner().expect("owner"),
+                Some(child.to_string()),
+                "the refusal released nothing"
+            );
+        }
+
+        /// The adapter's own pending marker is the fallback when the durable
+        /// store cannot prove an owner: the retained target is still named by the
+        /// operation the adapter is waiting on, and shutdown stays unsafe.
+        #[test]
+        fn the_adapter_pending_owner_is_named_when_no_receipt_proves_it() {
+            let directory = scratch("pending-busy-owner");
+            let child = "9c1f0b23-6a4d-4e58-8c37-1d2e4f6a8b90";
+            let mut transport =
+                NativeDebugTransport::new(FIXTURE_PID, PC_V201_LIVE_ADD, "Nioh3.exe", &directory)
+                    .expect("transport");
+            // The allocation is retained in this process; the durable record of it
+            // is gone, exactly the case a receipt is not release proof for.
+            transport.retained = Some(FIXTURE_BASE + 0x1_0000_0000);
+            let mut executor =
+                NativeLiveAddExecutor::new(transport, PC_V201_LIVE_ADD, PRODUCT_DISPLAY_VERSION);
+            let creation = FIXTURE_CREATION.to_string();
+            executor.retain_pending(child, FIXTURE_PID, Some(&creation));
+            let error = executor
+                .inspect()
+                .err()
+                .unwrap_or(RuntimeError::RuntimeBusy);
+            assert_eq!(error.code(), "LIVE_ADD_UNCERTAIN", "{error:?}");
+            assert!(error.message().contains(child), "{error}");
+            assert!(
+                !executor.safe_to_shutdown(),
+                "the retained allocation still fences shutdown"
+            );
         }
     }
 }

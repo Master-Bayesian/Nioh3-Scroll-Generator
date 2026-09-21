@@ -645,3 +645,218 @@ fn the_count_adapter_resolves_its_record_through_the_inventory_gate() {
         "COUNT_INSTANCE_UNAVAILABLE"
     );
 }
+
+/// The preview children one application owns, read from its state root.
+fn preview_children(application: &LiveAddApplication) -> Vec<String> {
+    let mut children: Vec<String> = std::fs::read_dir(application.operations().root())
+        .expect("operations root")
+        .map(|entry| entry.expect("entry").path())
+        .filter(|path| path.join("preview-child.json").is_file())
+        .filter_map(|path| {
+            path.file_name()
+                .map(|name| name.to_string_lossy().to_string())
+        })
+        .collect();
+    children.sort();
+    children
+}
+
+/// The application records the reviewed facts one live-addition payload names.
+fn preview_payload(seed: u32) -> Value {
+    let record = assembly_record(0x1E82, seed, 4);
+    candidate_payload(
+        CONTEXT_DIGEST,
+        seed,
+        4,
+        &record,
+        None,
+        CandidateStage::FinalRecord,
+    )
+    .expect("payload")
+}
+
+/// A rejected preview leaves a durable, non-dispatchable child an operator can
+/// find and recover, and never publishes the insertion plan.
+#[test]
+fn a_rejected_preview_leaves_a_discoverable_child() {
+    let root = scratch("live-add-preview-rejected");
+    let save = save_path(&root);
+    let fixture = InventoryFixture::new(&[(0, 0x1000, 0x11)], 0x1001, 5);
+    let saved = decrypted_save(&fixture).expect("saved records");
+    std::fs::write(&save, &saved).expect("save");
+    let mut application = fixture_application(
+        &root,
+        FakeLiveAddExecutor::with_faults(
+            fixture,
+            LiveAddFaults {
+                preview_mismatch: true,
+                ..LiveAddFaults::default()
+            },
+        ),
+        FakeSaveBackup::new(&root),
+    );
+
+    let error = application
+        .prepare(&preview_payload(0x0BAD), &save, None)
+        .expect_err("the reviewed output is not reproduced");
+    assert_eq!(error.code(), "LIVE_ADD_REJECTED", "{error:?}");
+
+    let children = preview_children(&application);
+    assert_eq!(children.len(), 1, "one durable preview child");
+    let child = &children[0];
+    assert!(
+        error.message().contains(child.as_str()),
+        "the failure names the child it left behind: {error}"
+    );
+    // No insertion plan was published: the child is the only operation record.
+    assert_eq!(
+        std::fs::read_dir(application.operations().root())
+            .expect("operations root")
+            .count(),
+        1
+    );
+
+    let snapshot = application.status(child).expect("child status");
+    assert_eq!(snapshot.state, OperationState::RejectedAfterPreview);
+    assert!(!snapshot.can_dispatch, "a preview child is never dispatchable");
+    assert!(!snapshot.can_cancel);
+
+    // Recovering the child is read-only and idempotent, and the child can never
+    // be claimed or executed as an insertion.
+    let recovered = application.recover(child).expect("read-only recovery");
+    assert_eq!(recovered.state, OperationState::RejectedAfterPreview);
+    let again = application.recover(child).expect("idempotent recovery");
+    assert_eq!(again.state, OperationState::RejectedAfterPreview);
+    assert!(application.operations().claim(child, "digest").is_err());
+    assert!(application.execute(child, "digest").is_err());
+}
+
+/// A preview that matched leaves its own terminal, non-dispatchable child: the
+/// review is durable and it never fences the next preparation.
+#[test]
+fn a_matched_preview_leaves_a_terminal_child() {
+    let root = scratch("live-add-preview-completed");
+    let save = save_path(&root);
+    let fixture = InventoryFixture::new(&[(0, 0x1000, 0x11)], 0x1001, 5);
+    let saved = decrypted_save(&fixture).expect("saved records");
+    std::fs::write(&save, &saved).expect("save");
+    let mut application = fixture_application(
+        &root,
+        FakeLiveAddExecutor::new(fixture),
+        FakeSaveBackup::new(&root),
+    );
+    let (_prepared, _digest) = prepared(&mut application, &save, 0x0BAD);
+
+    let children = preview_children(&application);
+    assert_eq!(children.len(), 1, "the attempt's child is durable");
+    let snapshot = application.status(&children[0]).expect("child status");
+    assert_eq!(snapshot.state, OperationState::PreviewCompleted);
+    assert!(!snapshot.can_dispatch);
+    assert!(
+        application
+            .operations()
+            .unresolved_ids()
+            .expect("unresolved ids")
+            .is_empty(),
+        "a terminal preview child never fences the next preparation"
+    );
+}
+
+/// The window between the pre-registration and the durable native receipt: the
+/// child owns no plan, so the refusal must name it instead of failing to read a
+/// plan that never existed.
+#[test]
+fn a_crash_after_preview_registration_still_names_the_child() {
+    let root = scratch("live-add-preview-orphan");
+    let save = save_path(&root);
+    let fixture = InventoryFixture::new(&[(0, 0x1000, 0x11)], 0x1001, 5);
+    let saved = decrypted_save(&fixture).expect("saved records");
+    std::fs::write(&save, &saved).expect("save");
+    let mut application = fixture_application(
+        &root,
+        FakeLiveAddExecutor::new(fixture),
+        FakeSaveBackup::new(&root),
+    );
+    let child = crate::mutation::count::new_operation_id().expect("child id");
+    application
+        .operations()
+        .register_preview_child(
+            &child,
+            &json!({
+                "parent_operation_id": "11111111-1111-4111-8111-111111111111",
+                "mode": "preview",
+                "pid": 4321,
+                "process_creation_time": crate::mutation::live_fakes::FIXTURE_CREATION.to_string(),
+            }),
+        )
+        .expect("child record");
+    assert!(
+        application.operations().unresolved_ids().expect("ids").contains(&child),
+        "the orphan child fences admission"
+    );
+    assert!(!application
+        .operations()
+        .directory(&child)
+        .expect("directory")
+        .join("plan.json")
+        .is_file());
+
+    let error = application
+        .prepare(&preview_payload(0x0BAD), &save, None)
+        .expect_err("the orphan child blocks the next preparation");
+    assert_eq!(error.code(), "LIVE_ADD_UNCERTAIN", "{error:?}");
+    assert!(
+        error.message().contains(&child),
+        "the refusal names the plan-less child: {error}"
+    );
+    assert_eq!(
+        application.status(&child).expect("child status").state,
+        OperationState::PreparingPreview
+    );
+    assert!(
+        application.recover(&child).is_err(),
+        "no native receipt means no settlement"
+    );
+}
+
+/// An uncertain preview child — the preview ran but left no complete proof —
+/// blocks the next preparation by naming itself, not by failing on a plan.
+#[test]
+fn an_uncertain_preview_child_blocks_the_next_prepare_by_id() {
+    let root = scratch("live-add-preview-uncertain");
+    let save = save_path(&root);
+    let fixture = InventoryFixture::new(&[(0, 0x1000, 0x11)], 0x1001, 5);
+    let saved = decrypted_save(&fixture).expect("saved records");
+    std::fs::write(&save, &saved).expect("save");
+    let mut application = fixture_application(
+        &root,
+        FakeLiveAddExecutor::with_faults(
+            fixture,
+            LiveAddFaults {
+                preview_incomplete: true,
+                ..LiveAddFaults::default()
+            },
+        ),
+        FakeSaveBackup::new(&root),
+    );
+    let first = application
+        .prepare(&preview_payload(0x0BAD), &save, None)
+        .expect_err("the preview leaves no complete proof");
+    assert_eq!(first.code(), "LIVE_ADD_VERIFICATION", "{first:?}");
+
+    let children = preview_children(&application);
+    assert_eq!(children.len(), 1);
+    let child = &children[0];
+    let snapshot = application.status(child).expect("child status");
+    assert_eq!(snapshot.state, OperationState::Uncertain);
+    assert!(!snapshot.can_dispatch);
+
+    let second = application
+        .prepare(&preview_payload(0x0BAD), &save, None)
+        .expect_err("the uncertain child blocks the next preparation");
+    assert_eq!(second.code(), "LIVE_ADD_UNCERTAIN", "{second:?}");
+    assert!(
+        second.message().contains(child.as_str()),
+        "the refusal names the child: {second}"
+    );
+}

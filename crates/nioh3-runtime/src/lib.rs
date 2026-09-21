@@ -38,7 +38,8 @@ pub mod status;
 
 pub use error::RuntimeError;
 pub use platform::{
-    discover_process_ids, file_version, identify_running_game, identify_running_game_named,
+    discover_process_ids, file_version, identify_running_game, identify_running_game_for,
+    identify_running_game_named, identify_running_game_named_for,
     module_range, process_creation_filetime, query_image_path, single_process_id,
     verify_game_executable, FileVersion, GameCompatibility, GameExecutableStatus, GameIdentity,
     ModuleRange, ProcessIdentity, ValidatedProcess, GAME_IMAGE_NAME, GAME_MODULE_NAME,

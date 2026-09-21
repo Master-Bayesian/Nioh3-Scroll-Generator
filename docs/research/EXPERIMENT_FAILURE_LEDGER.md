@@ -2503,6 +2503,27 @@ all-features gate with 148 tests passed across the library and integration binar
 
 **Skill promotion:** None. The correction is executable in the owning integration test rather than prose guidance.
 
+**Follow-up (2026-09-21, preview disposable-helper acceptance).** A new bounded
+acceptance - real Windows debug session over the owned disposable helper, no game
+- first stopped inside the accepted preview window with `entry_hits_accepted` 1
+and `redirect_count` 0. Root corrected the attribution: the helper fixture had
+collapsed the product's two pointer hops, so the manager slot named the data
+object directly and the second hop read the acquisition counter (11) as the data
+address; the container then resolved to `0x224A6B` and the capacity cell to
+`0x23B4EB`, both `ReadProcessMemory` error 299. Fixed in the helper with a
+separate manager object holding the data address. Two product defects were
+separated from that fixture bug and repaired independently by the runtime owner:
+cleanup refused `DebugBreakProcess` while a debug event was still pending (the
+genuine negative-path defect; the primary error is now recorded beside
+`cleanup_error`), and the preview fingerprint derived its digest from container
+bytes instead of the real native serial index, so the proof now reads the
+shipped `capture_index` traversal under the stopped owner and records
+`native_index_digest`, `index_node_count` and `index_bucket_count`. Result: four
+real-OS acceptance cases pass (matched; mismatch to `rejected_after_preview`
+with unchanged container and index digests, terminal cleanup and zero builder
+reruns on recovery; no-ack stays unknown) and the five existing helper cases
+still pass. No game was attached and no save was touched.
+
 ## 2026-09-20: r5 archive initially carried a nested checksum manifest
 
 **Objective:** Validate the self-contained r5 Pro review directory and ZIP with both repository and package-local
@@ -2907,3 +2928,189 @@ needs them.
 **Skill promotion:** None for skills. This is a packaging-environment mistake,
 not a reusable workflow; if it recurs, add the package-manager preflight to the
 release runbook instead of a skill.
+
+## 2026-09-21: v2.02 candidate insertion refused before dispatch by an upper-case pinned executable hash
+
+**Objective:** Execute one root-authorized research insertion of R4 seed
+`226061463` on game PC v2.02 through the reviewed runner
+(`runtime_read_probe.exe --live-add-candidate-insert`), to exercise the
+candidate live-add binding with the real (non-fake) transport.
+
+**Symptom:** The runner exited `0` but refused before dispatch:
+`NATIVE_DISPATCH  Candidate live addition requires the pinned PC v2.02 executable`
+with `dispatch_failed true`. Nothing was dispatched and nothing was written.
+
+**Root cause:** A case-sensitive executable-hash comparison in the product
+binding gate. `native_abi.rs:150-151` pins
+`PC_V202_CANDIDATE_EXECUTABLE_SHA256` in upper case (`E22C4A63...130`), while
+`NativeDebugTransport::executable_sha256` (`native_executor.rs:1427-1430`)
+returns the lower-case `sha256_hex` output (`count.rs:910-918`), and
+`require_accepted_binding` (`native_executor.rs:370-375`) compares the pair with
+exact equality. With the real transport the comparison can never succeed
+(`e22c4a63...` != `E22C4A63...`). The refusal happens inside
+`LiveAddApplication::prepare` -> `executor.inspect()` -> `require_accepted_binding`,
+so it precedes the checkpoint, the preview dispatch and any write-capable handle.
+It was not seen earlier because the offline dry run builds
+`FakeLiveAddTransport` with the same upper-case constant, the probe's own noop
+path compares with `eq_ignore_ascii_case`, and the shipped PC v2.01 binding sets
+`executable_sha256: None`.
+
+**Impact:** Zero writes. Before/after inventory is identical (44 entries, serial
+`2500807`, acquisition order `51151`, container `c61b6b93...`; `records_added 0`,
+`serial_advanced false`, `container_changed false`), 46 index nodes on both
+sides, no new operation directory or backup, no new receipt
+(`unsettled_receipts 0`), `debugger_attached false`, the same game process
+(pid `40936`) still responding, and the game save untouched. The save/live
+agreement question stays open because the refusal precedes the save read.
+
+**Evidence:** `D:\Nioh3_v080_deliverables\deliverables\v202-native-acceptance-20260921\INSERT_ATTEMPT_20260921-042809.md`,
+with `insert-request-20260921-042809.json`, `insert-stdout-20260921-042809.txt`,
+`insert-report-20260921-042809.json`,
+`insert-inventory-{before,after}-20260921-042809.json`,
+`go-post-insert-preflight.txt` and the earlier settled
+`stale-receipt-v202-noop-39932.json` in the same directory.
+
+**Repair:** Assigned as a runtime-crate change (normalize the comparison or the
+returned digest); not implemented, reviewed, or accepted in this ticket, and the
+two fix options remain the recorded candidates in the attempt file. The attempt
+was not retried, re-armed or replayed.
+
+Later status: the runtime-crate hash-case fix was accepted through its
+regression, and the next authorized attempt cleared this gate (see the attempt-3
+entry below).
+
+**Verification:** The no-write state is verified by the attempt's before/after
+preflight. The assigned repair has no accepted verification yet, so this entry
+records the refusal, not a fix.
+
+Later status: the fix is accepted via its regression, and attempt 3 progressed
+past the executable-identity gate and past the save/live agreement gate that had
+also been blocked.
+
+**Prevention:** None promoted. A single casing mismatch does not justify a rule;
+if the same exact-equality-against-a-pinned-digest pattern blocks another
+candidate run, treat it as recurring before writing any guidance.
+
+**Reproduction status:** Not reproduced. The authorized attempt is a single run
+under the standing no-replay rule; the mismatch is deterministic from the named
+constants, so the same comparison would refuse again until the assigned repair
+lands.
+
+**Follow-up state:** Closed for this gate. The runtime-crate hash-case fix was
+accepted through its regression, and the next authorized attempt (attempt 3,
+2026-09-21) progressed past the executable-identity gate and past the save/live
+agreement gate that had also been blocked. The candidate insertion itself
+remains open: attempt 3 stopped at the preview builder-output review gate and
+left an unsettled preview receipt (see the entry below).
+
+**Skill promotion:** None. Recorded for the casing-mismatch and fake-transport
+blind-spot lessons only; no skill, runbook, or product rule was changed.
+
+## 2026-09-21: v2.02 candidate insertion attempt 3 stopped at the preview builder-output review gate
+
+**Objective:** Run the authorized R4 seed `226061463` candidate insertion on game
+PC v2.02 (after the owner's normal in-game save) now that the
+executable-identity case fix and the save/live agreement gate were cleared.
+
+**Symptom:** The runner stopped at the preview review gate with
+`NATIVE_DISPATCH  Native builder output differs from reviewed record` and
+`dispatch_failed true`. No insertion happened: no serial, no slot, no new
+record. No replay or reconciliation was attempted.
+
+**Observed divergence:** The preview dispatch did run (redirect 1, entry hit and
+accepted, 90 ms), then the loop rejected its own builder output against the
+reviewed record at `native_executor.rs` (`source[..0x24] != expected[..0x24]`).
+Exactly one byte differs in `[0x00,0x24)`: `+0x1B` is `0x02` in the reviewed
+record and `0x00` in the game builder output, i.e. the lifecycle word reads
+`0x02800002` reviewed versus `0x00800002` emitted. The `[0x24,0x30)` window is
+excluded from the comparison (the builder writes `0xFFFFFFFFFFFFFFFF` and the
+preview path expects exactly that because no serial is allocated), and
+`[0x30,0xE4)` is byte-identical, as are type, seed and rarity. The single bit is
+`0x02000000`; its runtime meaning is **not established by this attempt**, and
+this entry does not claim an unrevealed-state or new-item explanation for it.
+Whether the reviewed preview expectation should carry the builder-consistent
+word or keep the bit is a root/owner decision.
+
+**Impact:** No insertion and no write. Inventory is identical before and after
+(44 entries, serial `2501562`, container `c61b6b93...`, index 46;
+`records_added 0`, `serial_advanced false`, `container_changed false`), the
+debugger is detached, the same game process (pid `40936`) is responding, and the
+game save was not written by this path (the new backup checkpoint
+`f27a475f-...-001` copy hash equals both its manifest hash and the fresh save
+hash `6afd998f...`; the decryptor ran only on that copy).
+
+**Receipt and cleanup:** Remote cleanup was clean - preview receipt
+`state\live-add\native-executor\178625a6-1f46-4edc-9c45-6e61f6b7f38f.json` reports
+`mode preview`, `released true`, `active false`, `breakpoint_count 0`,
+allocation `null`/`freed`, `debugger_state detached`, `remote_execution
+quiescent`, `redirect_count 1`, with thread cleanup 337 `original_restored`,
+1 `not_armed`, 1 `exited`. The receipt is nevertheless **not settled**:
+`phase uncertain` because `business_outcome` is `unknown` for a preview whose
+output was rejected, so the post-attempt preflight reports `receipt_files 2`,
+`unsettled_receipts 1` (`unsettled 178625a6-...json`). The unsettled receipt was
+preserved deliberately; any further dispatch on that state root would refuse
+until root decides how to reconcile it.
+
+**Evidence:** `D:\Nioh3_v080_deliverables\deliverables\v202-native-acceptance-20260921\INSERT3_ATTEMPT_20260921-043528.md`,
+with `insert3-request-20260921-043528.json`,
+`insert3-stdout-20260921-043528.txt`, `insert3-report-20260921-043528.json` and
+`insert3-inventory-{before,after}-20260921-043528.json` in the same directory.
+The attempt-2 save/live agreement refusal (`INSERT2_ATTEMPT_20260921-043238.md`
+and its `insert2-*` files) is an ordinary unsaved-state gate and is not recorded
+as an incident.
+
+**Repair:** None attempted. The expectation for the preview lifecycle word and
+the reconciliation of the unsettled preview receipt are root/owner decisions,
+and the attempt was not retried, re-armed or replayed.
+
+**Verification:** The no-insertion state is verified by the attempt's
+before/after inventory and the receipt's released/detached cleanup; the
+unsettled receipt is intentionally left unresolved, so this entry records a
+fail-closed stop, not a fix.
+
+**Prevention:** None promoted, and no skill, runbook or product rule was
+changed. The useful pattern - a preview that dispatches and then rejects its own
+builder output must leave a durable unsettled receipt instead of rewriting one -
+is already how the shipped review gate behaves.
+
+**Reproduction status:** Not reproduced. This is a single authorized attempt
+under the standing no-replay rule; the one-byte divergence is deterministic for
+the reviewed record and descriptor that were used, so the same gate would stop
+again until the expectation is decided.
+
+**Follow-up state:** Open. Pending root/owner decisions on the preview
+lifecycle-word expectation and on reconciling the preserved unsettled preview
+receipt; the candidate insertion has still not been performed.
+
+**Skill promotion:** None.
+
+**Corrected diagnosis (static follow-up, 2026-09-21).** An offline read of the
+pinned PC v2.02 runtime text (`4CEC8FB6...`) settled the mechanism this attempt
+left open and corrected two earlier readings. The builder has one verified
+conditional bit-25 writer: `0x227FD96 cmp rdx, r8` / `0x227FD99 jne` guard
+`0x227FD9E call 0x228758C`, which passes `{out+0x18, 0x19}, true` to the
+`.pdata`-bounded `0x1A7D7F4` (`0x1A7D7F4..0x1A7D812`, 30 bytes); that function
+is a thin adapter onto the bitfield helper `0x4273E8`, and index 25 in the set
+direction ORs exactly `0x02000000` into the dword at `out+0x18`. Bits 1
+(`0x55315A`) and 23 (`0x227FDBF`) explain the observed `0x00800002`; bit 25
+additionally needs that identity-equality branch to be taken.
+
+The reviewed record's identity instead came from the tracked corpus donor
+(`test_fixtures/r4_native_corpus`, sanitized origin-account bytes equal to the
+repository test constant `1111222233334444`), not from an account read. The
+ambient identity `A` was never observed, so "this run's `J` differed from `A`,
+so the wrapper was skipped" remains an inference about this one historical run,
+not a proven v2.02 version change; nothing here shows the builder stopped
+producing bit 25. Production flags are unchanged, no constant or comparison was
+altered, and the unsettled preview receipt `178625a6-...` plus preview
+settlement remain a separate fix.
+
+A later offline zero-template artifact (the Rust product materializer driven
+with a product-shaped donor) is retained only as non-submittable research
+output. Its raw record was rejected by a direct descriptor call, but that call
+bypassed the application's `new_assembly_record` normalization - the app builds
+the dispatch descriptor from the normalized record
+(`live_add_application.py:50-51`, `live_add_adapter.py:253`) - so the refusal is
+not evidence of a product live-add defect. The next live acceptance uses real
+product materialization with a genuine bound context rather than a standalone
+example.

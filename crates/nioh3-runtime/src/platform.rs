@@ -143,7 +143,7 @@ mod imp {
     };
     use crate::error::RuntimeError;
     use crate::profile::{
-        profile_for_game_version, supported_display_version, NativeRuntimeProfile,
+        profile_for_game_version_for, supported_display_version, NativeRuntimeProfile,
     };
     use std::path::Path;
     use std::ptr;
@@ -432,6 +432,26 @@ mod imp {
         module_name: &str,
         profile_dir: &Path,
     ) -> Result<GameIdentity, RuntimeError> {
+        identify_running_game_named_for(
+            image_name,
+            module_name,
+            profile_dir,
+            crate::profile::ProfilePurpose::NativeWrites,
+        )
+    }
+
+    /// Port of `runtime_application.running_game_identity`, resolved for one
+    /// explicit profile purpose.
+    ///
+    /// Only the profile gate differs from [`identify_running_game_named`]: the
+    /// executable, version, module and process identity are verified exactly the
+    /// same way, so a purpose never bypasses a pin or a signature check.
+    pub fn identify_running_game_named_for(
+        image_name: &str,
+        module_name: &str,
+        profile_dir: &Path,
+        purpose: crate::profile::ProfilePurpose,
+    ) -> Result<GameIdentity, RuntimeError> {
         let pid = single_process_id(image_name)?;
         let executable = query_image_path(pid)?;
         let status = verify_game_executable(&executable);
@@ -444,7 +464,7 @@ mod imp {
                 })
             }
         };
-        let profile = profile_for_game_version(version, profile_dir)?;
+        let profile = profile_for_game_version_for(version, profile_dir, purpose)?;
         let module = module_range(pid, module_name)?;
         let creation_filetime =
             process_creation_filetime(pid)?.ok_or(RuntimeError::ProcessGone { pid })?;
@@ -639,6 +659,19 @@ mod imp {
     pub fn identify_running_game(profile_dir: &Path) -> Result<GameIdentity, RuntimeError> {
         identify_running_game_named(super::GAME_IMAGE_NAME, super::GAME_MODULE_NAME, profile_dir)
     }
+
+    /// The same wrapper for one explicit profile purpose.
+    pub fn identify_running_game_for(
+        profile_dir: &Path,
+        purpose: crate::profile::ProfilePurpose,
+    ) -> Result<GameIdentity, RuntimeError> {
+        identify_running_game_named_for(
+            super::GAME_IMAGE_NAME,
+            super::GAME_MODULE_NAME,
+            profile_dir,
+            purpose,
+        )
+    }
 }
 
 #[cfg(not(windows))]
@@ -689,6 +722,22 @@ mod imp {
     }
 
     pub fn identify_running_game(_profile_dir: &Path) -> Result<GameIdentity, RuntimeError> {
+        Err(RuntimeError::UnsupportedPlatform)
+    }
+
+    pub fn identify_running_game_named_for(
+        _image_name: &str,
+        _module_name: &str,
+        _profile_dir: &Path,
+        _purpose: crate::profile::ProfilePurpose,
+    ) -> Result<GameIdentity, RuntimeError> {
+        Err(RuntimeError::UnsupportedPlatform)
+    }
+
+    pub fn identify_running_game_for(
+        _profile_dir: &Path,
+        _purpose: crate::profile::ProfilePurpose,
+    ) -> Result<GameIdentity, RuntimeError> {
         Err(RuntimeError::UnsupportedPlatform)
     }
 

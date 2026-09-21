@@ -8,12 +8,17 @@
 
 use crate::error::RuntimeError;
 use crate::mutation::descriptor::verify_assembly_preview;
-use crate::mutation::evidence::verify_dispatch;
+use crate::mutation::evidence::{
+    preview_owner_fingerprint, preview_rejection_receipt, verify_dispatch, PREVIEW_PHASE_AFTER,
+    PREVIEW_PHASE_BEFORE,
+};
 use crate::mutation::inventory::{hex_decode, RECORD_SIZE};
 use crate::mutation::live_add::LIVE_ADD_DISPLAY_VERSION;
-use crate::mutation::live_fakes::{ByteMemory, InventoryFixture, FIXTURE_BASE, FIXTURE_PID};
-use crate::mutation::native_abi::{hex, LiveAddLayout, PC_V201_LIVE_ADD};
-use crate::mutation::native_executor::{settled, DispatchMode, LiveAddTransport, ReceiptStore};
+use crate::mutation::live_fakes::{
+    ByteMemory, InventoryFixture, FIXTURE_BASE, FIXTURE_PID, FIXTURE_PROFILE_ID,
+};
+use crate::mutation::native_abi::{hex, LiveAddLayout, DISPATCH_SOURCE_OFFSET, PC_V201_LIVE_ADD};
+use crate::mutation::native_executor::{DispatchMode, LiveAddTransport, ReceiptStore};
 use crate::mutation::win_session::{
     DebugEvent, DebugSession, OwnerThreadSnapshot, RemoteSession, RuntimeOwnerSession,
     RuntimeOwnerSnapshot, ThreadContext, EXCEPTION_BREAKPOINT, EXCEPTION_SINGLE_STEP,
@@ -26,6 +31,10 @@ use std::path::{Path, PathBuf};
 pub struct NativeFaults {
     /// The insertion happened, the receipt was never acknowledged.
     pub reply_lost: bool,
+    /// The isolated preview's builder output differs from the reviewed record.
+    pub preview_mismatch: bool,
+    /// The preview leaves an unsettled receipt that still owns the target.
+    pub preview_incomplete: bool,
     /// The periodic idle window was missed: nothing was dispatched.
     pub idle_miss: bool,
     /// The submission never reached the target: no receipt exists.
@@ -200,10 +209,12 @@ impl LiveAddTransport for FakeLiveAddTransport {
     }
 
     fn ping(&mut self) -> Result<Value, RuntimeError> {
+        let unresolved_owner = self.store.unresolved_owner()?;
         Ok(json!({
             "pid": FIXTURE_PID,
             "profile_id": self.layout.profile_id,
-            "busy": self.live_owner.is_some() || self.store.unresolved_owner()?.is_some(),
+            "busy": self.live_owner.is_some() || unresolved_owner.is_some(),
+            "unresolved_operation_id": unresolved_owner,
         }))
     }
 
@@ -262,8 +273,104 @@ impl LiveAddTransport for FakeLiveAddTransport {
             "mode": mode.receipt_mode(),
             "serial": params.get("serial").cloned().unwrap_or(Value::Null),
             "slot": params.get("slot").cloned().unwrap_or(Value::Null),
+            "candidate_id": params.get("candidate_id").cloned().unwrap_or(Value::Null),
+            "parent_operation_id": params
+                .get("parent_operation_id")
+                .cloned()
+                .unwrap_or(Value::Null),
         });
         self.write_receipt(&receipt)?;
+        if mode == DispatchMode::Preview
+            && (self.faults.preview_mismatch || self.faults.preview_incomplete)
+        {
+            let assembly = hex_decode(
+                params
+                    .get("expected_record_hex")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default(),
+            )?;
+            let mut source = assembly;
+            source[0x28..0x30].copy_from_slice(&[0xFF; 8]);
+            let creation = self.current_creation_time.clone();
+            if self.faults.preview_mismatch {
+                // The isolated builder output differs from the reviewed record:
+                // the run settles as a formal rejection with every proof present.
+                source[0x20] ^= 0xFF;
+                // The fixture's own native index through the shipped traversal, so
+                // the fixture's index evidence is the real index too.
+                let (inventory, index) = self.fixture.capture()?;
+                let native_index = index.to_json();
+                let before = preview_owner_fingerprint(
+                    &self.fixture.container()?,
+                    self.fixture.serial_counter()?,
+                    inventory.acquisition_order_counter,
+                    &self.fixture.layout,
+                    FIXTURE_PROFILE_ID,
+                    FIXTURE_PID,
+                    &creation,
+                    self.fixture.manager()?,
+                    self.fixture.data()?,
+                    FIXTURE_BASE,
+                    &native_index,
+                    PREVIEW_PHASE_BEFORE,
+                );
+                let after = preview_owner_fingerprint(
+                    &self.fixture.container()?,
+                    self.fixture.serial_counter()?,
+                    inventory.acquisition_order_counter,
+                    &self.fixture.layout,
+                    FIXTURE_PROFILE_ID,
+                    FIXTURE_PID,
+                    &creation,
+                    self.fixture.manager()?,
+                    self.fixture.data()?,
+                    FIXTURE_BASE,
+                    &native_index,
+                    PREVIEW_PHASE_AFTER,
+                );
+                let rejected = preview_rejection_receipt(
+                    &operation_id,
+                    params.get("parent_operation_id").and_then(Value::as_str),
+                    FIXTURE_PID,
+                    &creation,
+                    params
+                        .get("descriptor_hex")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default(),
+                    params
+                        .get("expected_record_hex")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default(),
+                    params
+                        .get("builder_code_hex")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default(),
+                    &source,
+                    before,
+                    after,
+                )?;
+                self.write_receipt(&rejected)?;
+                return Ok(rejected);
+            }
+            // An unsettled preview: the target owner is not proven released, so
+            // the child must stay blocked instead of being settled.
+            if let Some(object) = receipt.as_object_mut() {
+                object.insert("phase".to_string(), json!("uncertain"));
+                object.insert("released".to_string(), json!(false));
+                object.insert("active".to_string(), json!(false));
+                object.insert("business_outcome".to_string(), json!("unknown"));
+                object.insert("remote_execution".to_string(), json!("unknown"));
+                object.insert("allocation_state".to_string(), json!("retained"));
+                object.insert("debugger_state".to_string(), json!("unknown"));
+                object.insert("breakpoint_count".to_string(), json!(-1));
+                object.insert("source_hex".to_string(), json!(hex(&source)));
+            }
+            self.live_owner = Some(operation_id.clone());
+            self.write_receipt(&receipt)?;
+            return Err(RuntimeError::NativeDispatch {
+                detail: "native preview result is uncertain; query the receipt".to_string(),
+            });
+        }
         if self.faults.idle_miss {
             if let Some(object) = receipt.as_object_mut() {
                 object.insert("phase".to_string(), json!("rejected"));
@@ -385,7 +492,8 @@ impl LiveAddTransport for FakeLiveAddTransport {
 
     fn status(&mut self, operation_id: &str) -> Result<Value, RuntimeError> {
         if self.store.exists(operation_id) {
-            return self.receipt(operation_id);
+            let receipt = self.receipt(operation_id)?;
+            return Ok(self.store.authoritative_state(&receipt)?.unwrap_or(receipt));
         }
         Err(RuntimeError::NativeDispatch {
             detail: "Unknown native operation".to_string(),
@@ -396,8 +504,8 @@ impl LiveAddTransport for FakeLiveAddTransport {
     /// record plus the advanced serial prove the outcome, or its absence does.
     fn release(&mut self, operation_id: &str) -> Result<Value, RuntimeError> {
         let mut value = self.store.read(operation_id)?;
-        if settled(&value) {
-            return Ok(value);
+        if let Some(terminal) = self.store.authoritative_state(&value)? {
+            return Ok(terminal);
         }
         let slot = value.get("slot").and_then(Value::as_u64).unwrap_or(0) as usize;
         let planned = value.get("serial").and_then(Value::as_u64).unwrap_or(0);
@@ -453,6 +561,23 @@ impl LiveAddTransport for FakeLiveAddTransport {
     fn safe_to_shutdown(&mut self) -> bool {
         !self.owner_retained()
     }
+
+    /// Every durable preview receipt this parent owns, read-only.
+    fn preview_receipts(
+        &mut self,
+        parent_operation_id: &str,
+    ) -> Result<Vec<Value>, RuntimeError> {
+        Ok(self
+            .store
+            .all()?
+            .into_iter()
+            .filter(|receipt| {
+                receipt.get("mode").and_then(Value::as_str) == Some("preview")
+                    && receipt.get("parent_operation_id").and_then(Value::as_str)
+                        == Some(parent_operation_id)
+            })
+            .collect())
+    }
 }
 
 /// `dispatch_evidence.verify_dispatch`'s accepted register frame.
@@ -484,6 +609,25 @@ pub fn frame_for(function_address: u64, _entry: u64) -> Value {
     json!({"before": before, "after": after})
 }
 
+/// The one deferred mutation a scripted session applies at the acknowledgement.
+///
+/// It exists so a test can present the shim's own builder output, drift the
+/// container between the stopped baseline and the acknowledgement, or fail the
+/// acknowledgement's container read, all through the shipped dispatch loop.
+#[derive(Debug, Clone, Default)]
+pub struct FakeSessionScript {
+    /// The acknowledgement thread whose first context read applies the script.
+    pub ack_tid: u32,
+    /// Bytes written over the shim's source area when the script applies.
+    pub source: Option<Vec<u8>>,
+    /// A container byte written when the script applies.
+    pub container_byte: Option<(u64, u8)>,
+    /// Fail the container-sized read that follows the acknowledgement.
+    pub fail_container_read: bool,
+    /// Set once the script has run.
+    pub applied: bool,
+}
+
 /// A byte-addressable debug session: no syscall, same contract.
 pub struct FakeDebugSession {
     pub pid: u32,
@@ -495,6 +639,8 @@ pub struct FakeDebugSession {
     pub contexts: std::collections::BTreeMap<u32, ThreadContext>,
     pub owner: FakeRuntimeOwner,
     pub freed: Vec<u64>,
+    /// The deferred acknowledgement script, when a test provides one.
+    pub script: Option<FakeSessionScript>,
 }
 
 impl FakeDebugSession {
@@ -509,6 +655,7 @@ impl FakeDebugSession {
             contexts: std::collections::BTreeMap::new(),
             owner: FakeRuntimeOwner::default(),
             freed: Vec::new(),
+            script: None,
         }
     }
 
@@ -523,6 +670,7 @@ impl FakeDebugSession {
             contexts: std::collections::BTreeMap::new(),
             owner: FakeRuntimeOwner::default(),
             freed: Vec::new(),
+            script: None,
         }
     }
 }
@@ -541,6 +689,16 @@ impl DebugSession for FakeDebugSession {
     }
 
     fn read(&mut self, address: u64, size: usize) -> Result<Vec<u8>, RuntimeError> {
+        if let Some(script) = &self.script {
+            if script.fail_container_read
+                && script.applied
+                && size == crate::mutation::inventory::CAPACITY as usize * RECORD_SIZE
+            {
+                return Err(RuntimeError::NativeDispatch {
+                    detail: "the acknowledgement's container read failed".to_string(),
+                });
+            }
+        }
         self.memory.read(address, size)
     }
 
@@ -622,6 +780,26 @@ impl DebugSession for FakeDebugSession {
 
     fn set_context(&mut self, tid: u32, context: &ThreadContext) -> Result<(), RuntimeError> {
         self.owner.set_context(tid, context)?;
+        if let Some(mut script) = self.script.clone() {
+            let pending_acknowledgement = self.owner.current_event.as_ref().is_some_and(|event| {
+                event.tid == tid && event.exception_code == Some(EXCEPTION_SINGLE_STEP)
+            });
+            if !script.applied && tid == script.ack_tid && pending_acknowledgement {
+                // Apply between the acknowledgement's context and its reads, so
+                // the stopped baseline has already been captured.
+                if let Some(source) = &script.source {
+                    self.memory.write(
+                        self.base + 0x1_0000_0000 + DISPATCH_SOURCE_OFFSET,
+                        source,
+                    );
+                }
+                if let Some((address, value)) = script.container_byte {
+                    self.memory.write(address, &[value]);
+                }
+                script.applied = true;
+                self.script = Some(script);
+            }
+        }
         self.contexts.insert(tid, *context);
         Ok(())
     }
@@ -683,10 +861,28 @@ impl DebugSession for FakeDebugSession {
 
 impl RuntimeOwnerSession for FakeDebugSession {
     fn begin_cleanup_barrier(&mut self) -> Result<(), RuntimeError> {
-        if self.owner.current_event.is_some() {
-            return Err(RuntimeError::NativeDispatch {
-                detail: "fake debug break requires no pending event".to_string(),
-            });
+        // A fallible step can fail while one event is still pending. The shipped
+        // loop would have continued it; do the same here, with the same owned
+        // single-step treatment, before asking the fake for its stop barrier.
+        if let Some(event) = self.owner.current_event {
+            let handled = if event.is_exception() {
+                match event.exception_code {
+                    Some(EXCEPTION_SINGLE_STEP) => {
+                        let mut context = self.contexts.get(&event.tid).copied().unwrap_or_default();
+                        if context.dr6 & 3 != 0 {
+                            context.dr6 &= !3;
+                            context.eflags |= 0x10000;
+                            self.set_context(event.tid, &context)?;
+                        }
+                        true
+                    }
+                    Some(EXCEPTION_BREAKPOINT) => true,
+                    _ => false,
+                }
+            } else {
+                true
+            };
+            self.resume(&event, handled)?;
         }
         let tid = self
             .owner

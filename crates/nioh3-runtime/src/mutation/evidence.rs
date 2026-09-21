@@ -8,8 +8,8 @@
 use crate::error::RuntimeError;
 use crate::mutation::count::sha256_hex;
 use crate::mutation::inventory::{
-    hex_decode, index_entries, inventory_entries, Inventory, InventoryEntry, NativeIndex,
-    RECORD_SIZE,
+    hex_decode, index_entries, inventory_entries, Inventory, InventoryEntry, InventoryLayout,
+    NativeIndex, RECORD_SIZE, SERIAL_OFFSET,
 };
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -19,6 +19,17 @@ pub const REGISTERS: [&str; 15] = [
     "RAX", "RBX", "RCX", "RDX", "RSI", "RDI", "RBP", "R8", "R9", "R10", "R11", "R12", "R13", "R14",
     "R15",
 ];
+
+/// `capture_phase` for the two fingerprints a live-add preview keeps: the
+/// stopped owner before the redirect, and the acknowledged owner after it.
+pub const PREVIEW_PHASE_BEFORE: &str = "stopped_before_redirect";
+pub const PREVIEW_PHASE_AFTER: &str = "stopped_after_acknowledgement";
+
+/// The phase and the settlement a preview mismatch leaves once every proof
+/// exists. The phase is its own terminal word: the dispatch mechanics completed,
+/// but the business result is a rejection, and neither is presented as the other.
+pub const PREVIEW_PHASE_REJECTED_AFTER: &str = "rejected_after_preview";
+pub const PREVIEW_SETTLEMENT_REJECTED: &str = "rejected_after_preview";
 
 fn failed(detail: &str) -> RuntimeError {
     RuntimeError::LiveAddVerification {
@@ -50,23 +61,26 @@ fn record_hex(value: &Value, key: &str, message: &str) -> Result<Vec<u8>, Runtim
     Ok(raw)
 }
 
-/// Port of `dispatch_evidence.verify_dispatch`.
+/// The return, source and register proof of one acknowledged redirect.
 ///
-/// Exactly one acknowledged redirect, a fully released allocation, no remaining
-/// breakpoint, identical general registers, the expected stack prologue and
-/// arithmetic flags that match a `push/push/sub` replay.
-pub fn verify_dispatch(execution: &Value) -> Result<(), RuntimeError> {
-    if execution.get("phase").and_then(Value::as_str) != Some("completed")
-        || execution.get("redirect_count").and_then(Value::as_u64) != Some(1)
-    {
+/// This is [`verify_dispatch`] without its terminal-phase gate. A preview whose
+/// dispatch completed and whose cleanup is terminal carries the same proof, so
+/// a caller can verify it without rewriting the phase to satisfy a gate.
+pub fn verify_dispatch_evidence(execution: &Value) -> Result<(), RuntimeError> {
+    if execution.get("redirect_count").and_then(Value::as_u64) != Some(1) {
         return Err(failed("Exactly one acknowledged redirect is required"));
     }
     let released = execution.get("released").and_then(Value::as_bool) == Some(true);
-    let breakpoints = execution
+    // The breakpoint axis is the same fact in two shapes: the stored receipt
+    // carries `breakpoint_count`, and the adapter's normalized view derives the
+    // empty `breakpoints` list from it. Either one proves the axis is clear.
+    let breakpoints_clear = execution
         .get("breakpoints")
         .and_then(Value::as_array)
-        .map(Vec::len);
-    if !released || breakpoints != Some(0) {
+        .map(Vec::is_empty)
+        == Some(true)
+        || execution.get("breakpoint_count").and_then(Value::as_i64) == Some(0);
+    if !released || !breakpoints_clear {
         return Err(failed("Allocation or breakpoint cleanup is not confirmed"));
     }
     let before = execution
@@ -116,11 +130,287 @@ pub fn verify_dispatch(execution: &Value) -> Result<(), RuntimeError> {
     Ok(())
 }
 
+/// Port of `dispatch_evidence.verify_dispatch`.
+///
+/// Exactly one acknowledged redirect, a fully released allocation, no remaining
+/// breakpoint, identical general registers, the expected stack prologue and
+/// arithmetic flags that match a `push/push/sub` replay, and a terminal phase.
+pub fn verify_dispatch(execution: &Value) -> Result<(), RuntimeError> {
+    if execution.get("phase").and_then(Value::as_str) != Some("completed") {
+        return Err(failed("Exactly one acknowledged redirect is required"));
+    }
+    verify_dispatch_evidence(execution)
+}
+
 /// `live_add_evidence.defined`.
 pub fn defined(raw: &[u8]) -> Vec<u8> {
     let mut result = raw[..0x24].to_vec();
     result.extend_from_slice(&raw[0x28..0xE4]);
     result
+}
+
+/// One preview inventory fingerprint over a raw container image, the two
+/// counters and the *actual* native serial index, all read in the same stopped
+/// owner.
+///
+/// The index digest comes from the native index's own `serial -> slot` entries,
+/// never from the container. A container and an index can disagree - the same
+/// records with a remapped index is exactly the case a container-only proof
+/// misses - so a container-derived mapping is not independent index evidence.
+pub fn preview_inventory_fingerprint(
+    container: &[u8],
+    serial_counter: u64,
+    acquisition_order_counter: u32,
+    layout: &InventoryLayout,
+    native_index: &Value,
+) -> Value {
+    let mapping = index_entries(native_index).ok();
+    let native_index_digest = mapping.as_ref().map(|mapping| {
+        let canonical = mapping
+            .iter()
+            .map(|(serial, slot)| format!("{serial}:{slot}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        sha256_hex(canonical.as_bytes())
+    });
+    json!({
+        "container_sha256": sha256_hex(container),
+        "capacity": layout.capacity,
+        "record_size": layout.record_size,
+        "serial_counter": serial_counter.to_string(),
+        "acquisition_order_counter": acquisition_order_counter,
+        "native_index_digest": native_index_digest,
+        "index_node_count": native_index.get("node_count").and_then(Value::as_u64),
+        "index_bucket_count": native_index.get("bucket_count").and_then(Value::as_u64),
+    })
+}
+
+/// One fingerprint that names the exact owner, layout and code identity it was
+/// read from.
+#[allow(clippy::too_many_arguments)]
+pub fn preview_owner_fingerprint(
+    container: &[u8],
+    serial_counter: u64,
+    acquisition_order_counter: u32,
+    layout: &InventoryLayout,
+    profile_id: &str,
+    pid: u32,
+    process_creation_time: &str,
+    manager: u64,
+    data: u64,
+    module_base: u64,
+    native_index: &Value,
+    capture_phase: &str,
+) -> Value {
+    let mut fingerprint = preview_inventory_fingerprint(
+        container,
+        serial_counter,
+        acquisition_order_counter,
+        layout,
+        native_index,
+    );
+    if let Some(object) = fingerprint.as_object_mut() {
+        object.insert("capture_phase".to_string(), json!(capture_phase));
+        object.insert("pid".to_string(), json!(pid));
+        object.insert(
+            "process_creation_time".to_string(),
+            json!(process_creation_time),
+        );
+        object.insert("profile_id".to_string(), json!(profile_id));
+        object.insert("manager".to_string(), json!(manager));
+        object.insert("data".to_string(), json!(data));
+        object.insert("module_base".to_string(), json!(module_base));
+    }
+    fingerprint
+}
+
+/// The exact terminal receipt a preview mismatch leaves.
+///
+/// The fault-injecting transports use it so an offline run can present the shape
+/// the settlement writes without a game process; the production path builds the
+/// same shape incrementally inside `run_dispatch`. The helper refuses to hand
+/// back a receipt its own predicate does not accept, so the two cannot drift.
+#[cfg(any(test, feature = "test-fake"))]
+#[allow(clippy::too_many_arguments)]
+pub fn preview_rejection_receipt(
+    operation_id: &str,
+    parent_operation_id: Option<&str>,
+    pid: u32,
+    process_creation_time: &str,
+    descriptor_hex: &str,
+    expected_record_hex: &str,
+    builder_code_hex: &str,
+    source: &[u8],
+    before: Value,
+    after: Value,
+) -> Result<Value, RuntimeError> {
+    let frame = crate::mutation::native_fakes::frame_for(0, 0);
+    let builder_code_sha256 = sha256_hex(&hex_decode(builder_code_hex).unwrap_or_default());
+    let mut receipt = json!({
+        "operation_id": operation_id,
+        "pid": pid,
+        "process_creation_time": process_creation_time,
+        "phase": PREVIEW_PHASE_REJECTED_AFTER,
+        "settlement": PREVIEW_SETTLEMENT_REJECTED,
+        "active": false,
+        "released": true,
+        "redirect_count": 1,
+        "breakpoint_count": 0,
+        "business_outcome": "rejected",
+        "remote_execution": "quiescent",
+        "allocation_state": "freed",
+        "debugger_state": "detached",
+        "thread_cleanup": {},
+        "executor": "windows-native",
+        "mode": "preview",
+        "parent_operation_id": parent_operation_id,
+        "source_save_path": Value::Null,
+        "candidate_id": Value::Null,
+        "expected_record_hex": expected_record_hex,
+        "serial": Value::Null,
+        "slot": Value::Null,
+        "status": 3,
+        "source_hex": crate::mutation::native_abi::hex(source),
+        "preview_intent": {
+            "mode": "preview",
+            "descriptor_sha256": sha256_hex(descriptor_hex.as_bytes()),
+            "expected_record_sha256": sha256_hex(expected_record_hex.as_bytes()),
+            "builder_code_sha256": builder_code_sha256,
+            "allocate_serial": false,
+            "insertion_args_present": false,
+        },
+        "preview_target": {"builder_code_sha256": builder_code_sha256},
+        "preview_before": before,
+        "preview_after": after,
+        "preview_review": {"outcome": "mismatch", "source_serial_sentinel": true},
+        "preview_dispatch_proof": {
+            "return_and_register_verified": true,
+            "inventory_fingerprints_agree": true,
+        },
+    });
+    if let (Some(object), Some(frame_object)) = (receipt.as_object_mut(), frame.as_object()) {
+        for (key, value) in frame_object {
+            object.insert(key.clone(), value.clone());
+        }
+    }
+    if !preview_rejection_complete(&receipt) {
+        return Err(failed("Preview rejection fixture is not self-consistent"));
+    }
+    Ok(receipt)
+}
+
+/// Two preview fingerprints that agree: the same process lifetime, profile,
+/// inventory owner and layout, and an unchanged container, mapping and counters.
+pub fn preview_fingerprints_agree(receipt: &Value) -> bool {
+    let (Some(before), Some(after)) =
+        (receipt.get("preview_before"), receipt.get("preview_after"))
+    else {
+        return false;
+    };
+    if before.get("pid").is_none()
+        || before.get("process_creation_time").is_none()
+        || before.get("pid") != after.get("pid")
+        || before.get("pid") != receipt.get("pid")
+        || before.get("process_creation_time") != after.get("process_creation_time")
+        || before.get("process_creation_time") != receipt.get("process_creation_time")
+        || before.get("profile_id").is_none()
+        || before.get("profile_id") != after.get("profile_id")
+        || before.get("manager").is_none()
+        || before.get("manager") != after.get("manager")
+        || before.get("data").is_none()
+        || before.get("data") != after.get("data")
+        || before.get("module_base").is_none()
+        || before.get("module_base") != after.get("module_base")
+        || before.get("capture_phase").and_then(Value::as_str) != Some(PREVIEW_PHASE_BEFORE)
+        || after.get("capture_phase").and_then(Value::as_str) != Some(PREVIEW_PHASE_AFTER)
+    {
+        return false;
+    }
+    [
+        "container_sha256",
+        "capacity",
+        "record_size",
+        "serial_counter",
+        "acquisition_order_counter",
+        "index_node_count",
+        "index_bucket_count",
+    ]
+    .iter()
+    .all(|key| {
+        before.get(*key).is_some_and(|value| !value.is_null())
+            && before.get(*key) == after.get(*key)
+    })
+        && before
+            .get("native_index_digest")
+            .and_then(Value::as_str)
+            .is_some_and(|digest| {
+                digest.len() == 64 && before.get("native_index_digest") == after.get("native_index_digest")
+            })
+}
+
+/// The evidence that decides a preview rejection, derived from the receipt
+/// alone: the one acknowledged redirect, the dispatch's own return/source and
+/// register frame, the non-allocating serial sentinel, two fingerprints that
+/// agree, and a released owner.
+///
+/// The settlement words are deliberately absent so a producer can decide from
+/// the same facts a reader re-derives.
+pub fn preview_rejection_decided(receipt: &Value) -> bool {
+    receipt.get("redirect_count").and_then(Value::as_u64) == Some(1)
+        && receipt.get("released").and_then(Value::as_bool) == Some(true)
+        && receipt
+            .get("preview_review")
+            .and_then(|value| value.get("outcome"))
+            .and_then(Value::as_str)
+            == Some("mismatch")
+        && receipt
+            .get("source_hex")
+            .and_then(Value::as_str)
+            .map(|text| {
+                hex_decode(text).is_ok_and(|raw| {
+                    raw.len() == RECORD_SIZE && raw[SERIAL_OFFSET..SERIAL_OFFSET + 8] == [0xFFu8; 8]
+                })
+            })
+            .unwrap_or(false)
+        && receipt
+            .get("preview_dispatch_proof")
+            .and_then(|value| value.get("return_and_register_verified"))
+            .and_then(Value::as_bool)
+            == Some(true)
+        && receipt
+            .get("preview_dispatch_proof")
+            .and_then(|value| value.get("inventory_fingerprints_agree"))
+            .and_then(Value::as_bool)
+            == Some(true)
+        // The code identity the gate verified at the target must be the reviewed
+        // one the intent recorded, not a caller-supplied string.
+        && receipt
+            .get("preview_target")
+            .and_then(|value| value.get("builder_code_sha256"))
+            .and_then(Value::as_str)
+            .is_some_and(|target| {
+                target.len() == 64
+                    && receipt
+                        .get("preview_intent")
+                        .and_then(|value| value.get("builder_code_sha256"))
+                        .and_then(Value::as_str)
+                        == Some(target)
+            })
+        && preview_fingerprints_agree(receipt)
+        && verify_dispatch_evidence(receipt).is_ok()
+}
+
+/// The complete, immutable evidence a preview mismatch must leave behind before
+/// the operation may be settled as a formal rejection.
+///
+/// This is [`preview_rejection_decided`] plus the recorded mode and terminal
+/// words, so a stored receipt says both what was proved and what was concluded.
+pub fn preview_rejection_complete(receipt: &Value) -> bool {
+    receipt.get("mode").and_then(Value::as_str) == Some("preview")
+        && receipt.get("phase").and_then(Value::as_str) == Some(PREVIEW_PHASE_REJECTED_AFTER)
+        && receipt.get("settlement").and_then(Value::as_str) == Some(PREVIEW_SETTLEMENT_REJECTED)
+        && receipt.get("business_outcome").and_then(Value::as_str) == Some("rejected")
+        && preview_rejection_decided(receipt)
 }
 
 fn u16_at(raw: &[u8], offset: usize) -> u16 {

@@ -15,6 +15,10 @@ path = "src/lib.rs"
 name = "runtime_read_probe"
 path = "examples/runtime_read_probe.rs"
 
+[[example]]
+name = "historical_preview_classify"
+path = "examples/historical_preview_classify.rs"
+
 [features]
 # Compiles the fault-injecting adapter into the probe so the cross-language
 # gate can drive scripted mutation scenarios. Off by default.

@@ -1,6 +1,6 @@
 # Nioh 3 Studio 0.8.0
 
-This release candidate moves the packaged worker graph to Rust while preserving
+This release moves the packaged worker graph to Rust while preserving
 the v0.7.5 search, preview, collection, editor, backup, and update workflows. It
 also adds explicit resource selection for the current PC v2.02 game build.
 
@@ -22,7 +22,9 @@ version starts successfully.
   package manifest instead of shipping the legacy Python worker.
 - **PC v2.02 resources are selected from the installed game version.** The host
   reads the exact `Nioh3.exe` file version, binds it into generation identity,
-  and fails closed when the version or packaged resource graph is unknown.
+  and fails closed when the version or packaged resource graph is unknown. On the
+  approved PC v2.02 build, live addition is enabled; every other PC v2.02 native
+  write or override is still refused rather than guessed at.
 - **The PC v2.02 recommendation cap is 356.** This matches the game's current
   native cap and avoids producing the former 700-level presentation that the
   updated game normalizes down to 356.
@@ -31,17 +33,23 @@ version starts successfully.
   cancellation; Next batch resumes from the returned cursor.
 - **The high-resolution application icon remains in use.** Windows no longer
   enlarges the 16x16 bitmap for the window and taskbar.
-- **Save and runtime ownership are stricter.** Protected operations retain
-  verified backups, exact readback, no-replay recovery, process-lifetime
-  binding, and fail-closed behavior for ambiguous or unsupported writes.
+- **Rarity-3 primary searches are served.** The packaged Rust worker answers
+  rarity-3 primary searches and the unconstrained full-family replay that the
+  earlier backend refused outright, while the v0.7.5 search behavior is
+  preserved.
+- **Transaction, recovery, and ownership safety are stricter.** The repair
+  wave's save fence/journal, unknown-thread-identity, and selected-resource
+  exact-replay fixes ship with verified backups, exact readback, no-replay
+  recovery, process-lifetime binding, and fail-closed handling of ambiguous or
+  unsupported writes.
 - The visible product version and generation identity report 0.8.0.
 
-## Current RC boundary
+## Compatibility and limits
 
-- Search and preview use the PC v2.02 resource bundle.
-- Protected writes against PC v2.02 remain disabled until version-matched live
-  game and real-save acceptance is completed. The application refuses these
-  operations instead of guessing compatibility.
+- Search, preview, live addition, and the save editor continue to work on the
+  supported builds. Unverified PC v2.02 native mutating operations and overrides
+  stay disabled, and unsupported builds or unknown resource graphs are refused
+  rather than guessed at.
 - Offline tests, synthetic encrypted saves, and packaged startup checks do not
   establish real-game or real-user-save acceptance.
 
@@ -53,4 +61,4 @@ editor, backup manager, automatic update prompt, manual update check, three
 languages, and the install-free single-EXE delivery contract.
 
 Equipment generation, Soul Core generation, noncanonical affix editing, and the
-new Divine-scroll `添画` mechanism are outside this release candidate.
+new Divine-scroll `添画` mechanism are outside this release.

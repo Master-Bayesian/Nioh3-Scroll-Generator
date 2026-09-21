@@ -779,11 +779,63 @@ mod windows_impl {
                 ));
             }
         }
+
+        /// Continue the one debug event a failed iteration left pending.
+        ///
+        /// The shipped dispatch loop continues every event it consumes. When a
+        /// fallible step inside an event's handling fails, the event is still
+        /// pending, and cleanup must perform the same continuation - including the
+        /// owned single-step treatment - before it can establish its own stop
+        /// barrier. Otherwise `DebugBreakProcess` is refused for a reason no
+        /// caller can act on, and the verified detach cannot run either.
+        ///
+        /// This skips no verification: the continuation and the register
+        /// treatment are exactly what the normal path performs for that event.
+        fn continue_pending_event(&mut self) -> Result<Option<DebugEvent>, RuntimeError> {
+            let Some(event) = self.pending_event else {
+                return Ok(None);
+            };
+            let handled = if event.is_exception() {
+                match event.exception_code {
+                    Some(code) if code == super::EXCEPTION_SINGLE_STEP => {
+                        let mut context = <Self as DebugSession>::context(self, event.tid)?;
+                        if context.dr6 & 3 != 0 {
+                            context.dr6 &= !3;
+                            context.eflags |= 0x10000;
+                            <Self as DebugSession>::set_context(self, event.tid, &context)?;
+                        }
+                        true
+                    }
+                    // A breakpoint the debugger owns is continued as handled;
+                    // anything else keeps the loop's not-handled continuation.
+                    Some(code) if code == super::EXCEPTION_BREAKPOINT => true,
+                    _ => false,
+                }
+            } else {
+                true
+            };
+            <Self as DebugSession>::resume(self, &event, handled)?;
+            Ok(Some(event))
+        }
     }
 
     impl Drop for WindowsDebugSession {
         fn drop(&mut self) {
-            self.detach().ok();
+            if <Self as DebugSession>::detach(self).is_err() {
+                // The verified detach refused: a debug event is still pending or a
+                // thread's debug registers are not confirmed restored. Drop cannot
+                // report that, and leaving the target frozen inside a debug event
+                // nobody will continue is worse than a bounded best-effort release.
+                // Continue the pending event exactly as the shipped loop would,
+                // then stop debugging. This claims no verification: the durable
+                // receipt already recorded the retained owner.
+                let _ = self.continue_pending_event();
+                if self.attached {
+                    unsafe { DebugActiveProcessStop(self.pid) };
+                    self.attached = false;
+                    self.debugger_state = "detached_unverified";
+                }
+            }
             for thread in self.threads.drain(..) {
                 unsafe { CloseHandle(thread.handle) };
             }
@@ -1444,6 +1496,9 @@ mod windows_impl {
 
     impl RuntimeOwnerSession for WindowsDebugSession {
         fn begin_cleanup_barrier(&mut self) -> Result<(), RuntimeError> {
+            // A fallible step can fail while one debug event is still pending;
+            // continue it exactly as the loop would before asking for the barrier.
+            self.continue_pending_event()?;
             <Self as DebugSession>::debug_break(self)
         }
 

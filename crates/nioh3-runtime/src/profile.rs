@@ -30,13 +30,36 @@ pub const SIGNATURE_SITE_NAMES: [&str; 8] = [
 ];
 
 /// Fixed executable versions the shipped product verifies.
-pub const SUPPORTED_GAME_VERSIONS: [(FileVersion, &str); 2] = [
+///
+/// PC v2.02 is listed here because the product now selects its live-add binding
+/// by exact executable version. Listing a version only makes the executable
+/// *recognisable*; the native runtime profile for it still has to pass its own
+/// approval gate in [`profile_for_game_version`], so an unapproved document
+/// keeps refusing.
+pub const SUPPORTED_GAME_VERSIONS: [(FileVersion, &str); 3] = [
     (FileVersion::new(2, 0, 0, 2), "2.00.02"),
     (FileVersion::new(2, 0, 1, 0), "2.01"),
+    (FileVersion::new(2, 0, 2, 0), "2.02"),
 ];
 
 /// Display version the offline algorithms target.
 pub const SUPPORTED_GAME_VERSION: &str = "2.01";
+
+/// What one profile resolution is for.
+///
+/// The approval a document grants is operation-specific: a blanket
+/// `product_enablement_allowed` covers every native write and override the
+/// profile drives, while `live_add_enablement_allowed` covers the single
+/// reviewed native live-add path. Resolving for a purpose the document does not
+/// approve fails closed, so adding a version to the registry can never widen an
+/// unrelated capability.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProfilePurpose {
+    /// Native writes and overrides outside live addition.
+    NativeWrites,
+    /// The reviewed native live-add path.
+    LiveAdd,
+}
 
 /// One resolved site: a stable name, a module-relative address and the bytes
 /// captured there on the verified executable.
@@ -280,16 +303,42 @@ pub fn profile_for_game_version(
     version: FileVersion,
     profile_dir: &Path,
 ) -> Result<NativeRuntimeProfile, RuntimeError> {
+    // The conservative default: a caller that did not name a purpose gets the
+    // blanket product approval, so nothing outside live addition can be enabled
+    // by accident.
+    profile_for_game_version_for(version, profile_dir, ProfilePurpose::NativeWrites)
+}
+
+/// Resolve one version's profile for one explicit purpose.
+///
+/// The document's `approval_status` always has to be `approved`; the purpose
+/// then decides which enablement flag it must also carry - the blanket
+/// `product_enablement_allowed`, or the operation-specific
+/// `live_add_enablement_allowed`. A document approved for live addition only
+/// therefore resolves for [`ProfilePurpose::LiveAdd`] and refuses for
+/// [`ProfilePurpose::NativeWrites`].
+pub fn profile_for_game_version_for(
+    version: FileVersion,
+    profile_dir: &Path,
+    purpose: ProfilePurpose,
+) -> Result<NativeRuntimeProfile, RuntimeError> {
     if version == FileVersion::new(2, 0, 0, 2) {
         return Ok(default_pc_v2_00_02());
     }
-    if version != FileVersion::new(2, 0, 1, 0) {
-        return Err(RuntimeError::UnsupportedGameVersion {
-            display: version.display(),
-        });
-    }
+    // One branch per approved document-bearing version; the approval gate below
+    // is applied identically to every one of them, so adding a version here can
+    // never turn into an unreviewed approval.
+    let (file_name, display_version) = match version {
+        candidate if candidate == FileVersion::new(2, 0, 1, 0) => ("pc_v2_01.json", "PC v2.01"),
+        candidate if candidate == FileVersion::new(2, 0, 2, 0) => ("pc_v2_02.json", "PC v2.02"),
+        _ => {
+            return Err(RuntimeError::UnsupportedGameVersion {
+                display: version.display(),
+            })
+        }
+    };
 
-    let path = profile_dir.join("pc_v2_01.json");
+    let path = profile_dir.join(file_name);
     let text = std::fs::read_to_string(&path).map_err(|error| RuntimeError::Io {
         path: path.display().to_string(),
         detail: error.to_string(),
@@ -298,19 +347,25 @@ pub fn profile_for_game_version(
         serde_json::from_str(&text).map_err(|error| RuntimeError::ProfileIntegrity {
             detail: format!("native runtime profile is not valid JSON: {error}"),
         })?;
+    let enabled = |name: &str| {
+        payload.get(name).and_then(Value::as_bool) == Some(true)
+            && payload
+                .get("gates")
+                .and_then(|gates| gates.get(name))
+                .and_then(Value::as_bool)
+                == Some(true)
+    };
+    let blanket = enabled("product_enablement_allowed");
     let approved = payload.get("approval_status").and_then(Value::as_str) == Some("approved")
-        && payload
-            .get("product_enablement_allowed")
-            .and_then(Value::as_bool)
-            == Some(true)
-        && payload
-            .get("gates")
-            .and_then(|gates| gates.get("product_enablement_allowed"))
-            .and_then(Value::as_bool)
-            == Some(true);
+        && match purpose {
+            // A blanket approval covers live addition too, so the shipped v2.01
+            // document keeps working unchanged.
+            ProfilePurpose::LiveAdd => blanket || enabled("live_add_enablement_allowed"),
+            ProfilePurpose::NativeWrites => blanket,
+        };
     if !approved {
         return Err(RuntimeError::ProfileNotApproved {
-            profile: "PC v2.01".to_string(),
+            profile: display_version.to_string(),
         });
     }
     NativeRuntimeProfile::from_research_profile_json(&text)
@@ -355,9 +410,12 @@ fn parse_hex(text: &str) -> Option<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used, clippy::unwrap_used)]
+
     use super::{
-        default_pc_v2_00_02, profile_for_game_version, supported_display_version,
-        NativeRuntimeProfile, PROFILE_SCHEMA, SIGNATURE_SITE_NAMES,
+        default_pc_v2_00_02, profile_for_game_version, profile_for_game_version_for,
+        supported_display_version, NativeRuntimeProfile, ProfilePurpose, PROFILE_SCHEMA,
+        SIGNATURE_SITE_NAMES,
     };
     use crate::error::RuntimeError;
     use crate::platform::FileVersion;
@@ -434,6 +492,10 @@ mod tests {
         );
         assert_eq!(
             supported_display_version(FileVersion::new(2, 0, 2, 0)),
+            Some("2.02")
+        );
+        assert_eq!(
+            supported_display_version(FileVersion::new(2, 0, 2, 1)),
             None
         );
         assert_eq!(
@@ -465,6 +527,91 @@ mod tests {
             NativeRuntimeProfile::from_research_profile_json("{}").err(),
             Some(RuntimeError::ProfileSchema {
                 schema: String::new()
+            })
+        );
+        Ok(())
+    }
+
+    fn scratch_dir(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "nioh3-profile-{name}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|value| value.as_nanos())
+                .unwrap_or_default()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("scratch directory");
+        root
+    }
+
+    /// The shipped PC v2.02 document is the one the product selects by exact
+    /// version; it resolves to the same profile shape the v2.01 document does.
+    #[test]
+    fn the_shipped_v2_02_document_resolves_for_its_exact_version() -> Result<(), RuntimeError> {
+        let directory = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("nioh3_scroll_editor")
+            .join("data")
+            .join("game_versions");
+        // The v2.02 document is approved for live addition only, so the default
+        // (blanket) resolution must refuse it while the live-add purpose
+        // resolves it to the same profile shape the v2.01 document has.
+        assert_eq!(
+            profile_for_game_version(FileVersion::new(2, 0, 2, 0), &directory).err(),
+            Some(RuntimeError::ProfileNotApproved {
+                profile: "PC v2.02".to_string(),
+            })
+        );
+        let profile = profile_for_game_version_for(
+            FileVersion::new(2, 0, 2, 0),
+            &directory,
+            ProfilePurpose::LiveAdd,
+        )?;
+        assert_eq!(profile.display_version, "PC v2.02");
+        assert_eq!(profile.canonicalize.rva, 0x20E524C);
+        assert_eq!(profile.site("assemble_scroll").map(|site| site.rva), Some(0x227FC5C));
+        assert_eq!(profile.text_sites().len(), 11);
+        assert_eq!(profile.identity_digest().len(), 64);
+        // The shipped v2.01 document keeps working for both purposes.
+        assert_eq!(
+            profile_for_game_version(FileVersion::new(2, 0, 1, 0), &directory)?.display_version,
+            "PC v2.01"
+        );
+        assert_eq!(
+            profile_for_game_version_for(
+                FileVersion::new(2, 0, 1, 0),
+                &directory,
+                ProfilePurpose::LiveAdd
+            )?
+            .display_version,
+            "PC v2.01"
+        );
+        Ok(())
+    }
+
+    /// Adding a version to the registry never approves it: the document's own
+    /// three flags decide, and a candidate document refuses before its sites are
+    /// trusted.
+    #[test]
+    fn an_unapproved_document_still_refuses_its_version() -> Result<(), RuntimeError> {
+        let root = scratch_dir("unapproved");
+        let shipped = std::fs::read_to_string(shipped_profile_path()).expect("shipped profile");
+        let mut payload: serde_json::Value =
+            serde_json::from_str(&shipped).expect("valid profile json");
+        payload["approval_status"] = serde_json::json!("candidate");
+        payload["product_enablement_allowed"] = serde_json::json!(false);
+        payload["gates"]["product_enablement_allowed"] = serde_json::json!(false);
+        std::fs::write(root.join("pc_v2_01.json"), payload.to_string()).expect("scratch profile");
+
+        let refused = profile_for_game_version(FileVersion::new(2, 0, 1, 0), &root);
+        let _ = std::fs::remove_dir_all(&root);
+        assert_eq!(
+            refused.err(),
+            Some(RuntimeError::ProfileNotApproved {
+                profile: "PC v2.01".to_string(),
             })
         );
         Ok(())

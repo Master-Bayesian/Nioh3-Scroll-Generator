@@ -199,6 +199,319 @@ thread_local! {
     static LAST_ORACLE_CODE: std::cell::RefCell<Vec<u8>> = const { std::cell::RefCell::new(Vec::new()) };
 }
 
+// ---------------------------------------------------------------------------
+// Bounded live-add dispatch target for the disposable debug acceptance.
+//
+// This presents the *accepted PC v2.01 live-add layout* over the helper's own
+// image so a real `NativeDebugTransport` debug session can run one preview
+// dispatch against it: the executor arms Dr0 at the dispatch entry and Dr1 at
+// its acknowledgement, the shim it allocates calls the builder below, and the
+// worker thread executes the entry whenever a debugger is attached. It never
+// touches Nioh 3, a game, or a save, and it is compiled only with `test-helper`.
+
+/// RVAs taken verbatim from the accepted PC v2.01 live-add layout.
+const LIVE_ADD_DISPATCH_RVA: u64 = 0x12E6840;
+const LIVE_ADD_BUILDER_RVA: u64 = 0x227C4CC;
+const LIVE_ADD_BUILDER_SIZE: usize = 0x27B;
+const LIVE_ADD_MANAGER_RVA: u64 = 0x474D4E0;
+const LIVE_ADD_INSERTION_RVA: u64 = 0x54D294;
+const LIVE_ADD_CAPACITY_OFFSET: u64 = 0x16A80;
+const LIVE_ADD_CAPACITY: u64 = 400;
+/// The shipped insertion signature every product inventory capture verifies.
+const LIVE_ADD_INSERTION_SIGNATURE: [u8; 16] = [
+    0x40, 0x55, 0x53, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57, 0x48, 0x8D, 0xAC,
+];
+const LIVE_ADD_DATA_SIZE: usize = 0x24_0000;
+const LIVE_ADD_TEMPLATE_OFFSET: u64 = 0x1000;
+const LIVE_ADD_COUNTER_OFFSET: u64 = 0x2000;
+const LIVE_ADD_CONTAINER_OFFSET: u64 = 0x224A60;
+const LIVE_ADD_SERIAL_INDEX_OFFSET: u64 = 0x23B5E8;
+const LIVE_ADD_RECORD_SIZE: usize = 0xE8;
+/// `40 53 57 48 83 EC 38` - the executor verifies exactly these seven bytes.
+const LIVE_ADD_PROLOGUE: [u8; 7] = [0x40, 0x53, 0x57, 0x48, 0x83, 0xEC, 0x38];
+/// `48 83 C4 38 5F 5B C3` - add rsp,0x38; pop rdi; pop rbx; ret.
+const LIVE_ADD_EPILOGUE: [u8; 7] = [0x48, 0x83, 0xC4, 0x38, 0x5F, 0x5B, 0xC3];
+
+struct LiveAddRuntime {
+    entry: u64,
+    data: u64,
+    counter: u64,
+    builder_hex: String,
+    creation: String,
+}
+
+static LIVE_ADD: std::sync::Mutex<Option<LiveAddRuntime>> = std::sync::Mutex::new(None);
+
+/// Commit one 64 KiB region covering `address`, which need not be aligned.
+#[cfg(windows)]
+fn commit_fixed(address: u64) -> Result<(), String> {
+    use windows_sys::Win32::System::Memory::{
+        VirtualAlloc, MEM_COMMIT, MEM_RESERVE, PAGE_EXECUTE_READWRITE,
+    };
+    let aligned = address & !0xFFFF;
+    let page = unsafe {
+        VirtualAlloc(
+            aligned as *const std::ffi::c_void,
+            0x1_0000,
+            MEM_COMMIT | MEM_RESERVE,
+            PAGE_EXECUTE_READWRITE,
+        )
+    };
+    if page.is_null() || page as u64 != aligned {
+        return Err(format!("VirtualAlloc could not commit {aligned:#x}"));
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn commit_fixed(_address: u64) -> Result<(), String> {
+    Err("the helper is Windows-only".to_string())
+}
+
+#[cfg(windows)]
+fn commit_read_write(size: usize) -> Result<u64, String> {
+    use windows_sys::Win32::System::Memory::{
+        VirtualAlloc, MEM_COMMIT, MEM_RESERVE, PAGE_READWRITE,
+    };
+    let region = unsafe {
+        VirtualAlloc(
+            std::ptr::null(),
+            size,
+            MEM_COMMIT | MEM_RESERVE,
+            PAGE_READWRITE,
+        )
+    };
+    if region.is_null() {
+        return Err("VirtualAlloc could not commit the live-add region".to_string());
+    }
+    Ok(region as u64)
+}
+
+#[cfg(not(windows))]
+fn commit_read_write(_size: usize) -> Result<u64, String> {
+    Err("the helper is Windows-only".to_string())
+}
+
+/// A builder stand-in with the game builder's calling convention: `rcx` is the
+/// output record, `rdx` the descriptor. It copies the recorded template into the
+/// output, increments the call counter, and returns the output pointer. The
+/// `hang` variant stops after the copy so the shim can never reach its
+/// acknowledgement - the bounded "no acknowledgement" negative.
+fn live_add_builder_code(template: u64, counter: u64, hang: bool) -> Vec<u8> {
+    let mut code: Vec<u8> = Vec::new();
+    code.extend_from_slice(&[0x48, 0x89, 0xCA]); // mov rdx, rcx
+    code.push(0x48);
+    code.push(0xB8);
+    code.extend_from_slice(&template.to_le_bytes()); // mov rax, template
+    code.extend_from_slice(&[0x31, 0xC9]); // xor ecx, ecx
+    let loop_at = code.len();
+    code.extend_from_slice(&[0x44, 0x8A, 0x04, 0x08]); // mov r8b, [rax+rcx]
+    code.extend_from_slice(&[0x44, 0x88, 0x04, 0x0A]); // mov [rdx+rcx], r8b
+    code.extend_from_slice(&[0x48, 0xFF, 0xC1]); // inc rcx
+    code.extend_from_slice(&[0x48, 0x81, 0xF9]);
+    code.extend_from_slice(&(LIVE_ADD_RECORD_SIZE as u32).to_le_bytes()); // cmp rcx, 0xE8
+    let jne_at = code.len();
+    code.extend_from_slice(&[0x75, 0x00]); // jne loop
+    let delta = loop_at as i64 - (jne_at as i64 + 2);
+    code[jne_at + 1] = delta as i8 as u8;
+    code.push(0x48);
+    code.push(0xB8);
+    code.extend_from_slice(&counter.to_le_bytes()); // mov rax, counter
+    code.extend_from_slice(&[0xF0, 0x48, 0xFF, 0x00]); // lock inc qword [rax]
+    if hang {
+        code.extend_from_slice(&[0xEB, 0xFE]); // jmp $
+    } else {
+        code.extend_from_slice(&[0x48, 0x89, 0xD0]); // mov rax, rdx
+        code.push(0xC3); // ret
+    }
+    code
+}
+
+/// Write `bytes` at `address` in this process.
+fn write_bytes(address: u64, bytes: &[u8]) {
+    write_page(address, bytes);
+}
+
+/// The smallest native serial-index shape `live_inventory.inspect` accepts: one
+/// FNV bucket holding the whole doubly-linked list, mirroring
+/// `live_fakes::InventoryFixture::seed_index` field for field, including the
+/// header, bucket, sentinel and node offsets the product's own traversal reads.
+fn seed_live_add_index(header: u64, records: &[(u64, u64)]) {
+    let count = records.len() as u64;
+    let nodes: Vec<u64> = (0..count)
+        .map(|index| header + 0x1000 + index * 0x40)
+        .collect();
+    let sentinel = header + 0x100;
+    write_page(header, &[0u8; 0x40]);
+    write_page(header + 0x40, &[0u8; 16]);
+    write_page(sentinel, &[0u8; 0x20]);
+    for node in &nodes {
+        write_page(*node, &[0u8; 0x20]);
+    }
+    write_u64_at(header + 8, sentinel);
+    write_u64_at(header + 16, count);
+    write_u64_at(header + 24, header + 0x40);
+    write_u64_at(header + 0x30, 0);
+    write_u64_at(header + 0x38, 1);
+    let first = nodes.first().copied();
+    let last = nodes.last().copied();
+    let (Some(first), Some(last)) = (first, last) else {
+        // The empty shape: the sentinel is its own predecessor and successor.
+        write_u64_at(sentinel, sentinel);
+        write_u64_at(sentinel + 8, sentinel);
+        return;
+    };
+    write_u64_at(sentinel, first);
+    write_u64_at(sentinel + 8, last);
+    for (index, ((slot, serial), node)) in records.iter().zip(nodes.iter()).enumerate() {
+        let next = nodes.get(index + 1).copied().unwrap_or(sentinel);
+        let previous = if index == 0 {
+            sentinel
+        } else {
+            nodes
+                .get(index.wrapping_sub(1))
+                .copied()
+                .unwrap_or(sentinel)
+        };
+        write_u64_at(*node, next);
+        write_u64_at(*node + 8, previous);
+        write_u64_at(*node + 0x10, *serial);
+        write_u32_at(*node + 0x18, *slot as u32);
+    }
+    // The bucket walks the backward (`previous`) chain, so `first` is the
+    // chain's end in list order and `current` is its newest node.
+    write_u64_at(header + 0x40, first);
+    write_u64_at(header + 0x48, last);
+}
+
+fn read_u64_at(address: u64) -> u64 {
+    unsafe { std::ptr::read_unaligned(address as *const u64) }
+}
+
+fn write_u32_at(address: u64, value: u32) {
+    write_page(address, &value.to_le_bytes());
+}
+
+fn write_u64_at(address: u64, value: u64) {
+    write_page(address, &value.to_le_bytes());
+}
+
+/// Present the accepted PC v2.01 live-add layout over this helper's own image.
+#[cfg(windows)]
+fn live_add_setup(
+    module_base: u64,
+    mode: &str,
+    source: &[u8],
+) -> Result<LiveAddRuntime, String> {
+    if module_base == 0 {
+        return Err("the helper has no module base".to_string());
+    }
+    if source.len() != LIVE_ADD_RECORD_SIZE {
+        return Err("the live-add source must be exactly one 232-byte record".to_string());
+    }
+    let entry = module_base + LIVE_ADD_DISPATCH_RVA;
+    let builder_address = module_base + LIVE_ADD_BUILDER_RVA;
+    let manager_slot = module_base + LIVE_ADD_MANAGER_RVA;
+    let insertion_site = module_base + LIVE_ADD_INSERTION_RVA;
+    commit_fixed(entry)?;
+    commit_fixed(builder_address)?;
+    commit_fixed(manager_slot)?;
+    commit_fixed(insertion_site)?;
+    write_bytes(insertion_site, &LIVE_ADD_INSERTION_SIGNATURE);
+
+    let data = commit_read_write(LIVE_ADD_DATA_SIZE)?;
+    // The product resolves two hops: the manager slot names a manager object,
+    // and the manager object's first eight bytes name the data object. Collapsing
+    // the two would make the data address the counter value instead.
+    let manager = commit_read_write(0x1000)?;
+    write_u64_at(manager, data);
+    write_u32_at(data, 11);
+    write_u64_at(data + 8, 0x3345);
+    write_u64_at(
+        data + LIVE_ADD_CONTAINER_OFFSET + LIVE_ADD_CAPACITY_OFFSET,
+        LIVE_ADD_CAPACITY,
+    );
+    for (slot, serial, seed) in [(4usize, 0x1234u64, 0xF00Du32), (100, 0x5678, 0x2222)] {
+        let mut record = [0u8; LIVE_ADD_RECORD_SIZE];
+        record[0] = 0x82;
+        record[1] = 0x1E;
+        record[0x18] = 0x02;
+        record[0x1A] = 0x80;
+        record[0x1C..0x20].copy_from_slice(&11u32.to_le_bytes());
+        record[0x20..0x24].copy_from_slice(&seed.to_le_bytes());
+        record[0x28..0x30].copy_from_slice(&serial.to_le_bytes());
+        record[0x30] = 4;
+        record[0x33] = 2;
+        write_bytes(
+            data + LIVE_ADD_CONTAINER_OFFSET + (slot * LIVE_ADD_RECORD_SIZE) as u64,
+            &record,
+        );
+    }
+    // The real native serial index the product's capture_index walks, with the
+    // same two records as the container (decimal serial forms are 4660 and
+    // 22136).
+    seed_live_add_index(
+        data + LIVE_ADD_SERIAL_INDEX_OFFSET,
+        &[(4, 0x1234), (100, 0x5678)],
+    );
+    write_u64_at(manager_slot, manager);
+
+    let template = data + LIVE_ADD_TEMPLATE_OFFSET;
+    let counter = data + LIVE_ADD_COUNTER_OFFSET;
+    write_bytes(template, source);
+    write_u64_at(counter, 0);
+
+    let hang = mode == "noack";
+    let builder = live_add_builder_code(template, counter, hang);
+    if builder.len() > LIVE_ADD_BUILDER_SIZE {
+        return Err("the builder stand-in does not fit the reviewed region".to_string());
+    }
+    let mut padded = vec![0xCCu8; LIVE_ADD_BUILDER_SIZE];
+    padded[..builder.len()].copy_from_slice(&builder);
+    write_bytes(builder_address, &padded);
+    write_bytes(entry, &LIVE_ADD_PROLOGUE);
+    write_bytes(entry + LIVE_ADD_PROLOGUE.len() as u64, &LIVE_ADD_EPILOGUE);
+
+    // One owned worker thread calls the entry whenever a debugger is attached.
+    // It only enters once Dr0 can intercept it, so the entry's own fall-through
+    // is never executed while the acknowledgement breakpoint is armed.
+    std::thread::spawn(move || {
+        use windows_sys::Win32::System::Diagnostics::Debug::IsDebuggerPresent;
+        while unsafe { IsDebuggerPresent() } == 0 {
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        let call: extern "C" fn() = unsafe { std::mem::transmute(entry as usize) };
+        for _ in 0..4_000 {
+            call();
+            if read_u64_at(counter) > 0 {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+    });
+
+    let creation = nioh3_runtime::platform::process_creation_filetime(std::process::id())
+        .map_err(|error| error.message().to_string())?
+        .ok_or("the helper has no creation time")?
+        .to_string();
+    Ok(LiveAddRuntime {
+        entry,
+        data,
+        counter,
+        builder_hex: hex(&padded),
+        creation,
+    })
+}
+
+#[cfg(not(windows))]
+fn live_add_setup(
+    _module_base: u64,
+    _mode: &str,
+    _source: &[u8],
+) -> Result<LiveAddRuntime, String> {
+    Err("the helper is Windows-only".to_string())
+}
+
 #[cfg(not(windows))]
 fn allocate_oracle_page(_module_base: u64, _slow: bool) -> Result<(u64, u64), String> {
     Err("the helper is Windows-only".to_string())
@@ -304,6 +617,54 @@ fn main() -> std::process::ExitCode {
                         println!("poked\t{address:x}\t{}", hex(&bytes));
                     }
                     _ => println!("error\tpoke-at needs an address and hex bytes"),
+                }
+                let _ = std::io::stdout().flush();
+            }
+            "live-add" => {
+                // `live-add <matched|mismatch|noack> <232-byte source record>`:
+                // present the accepted PC v2.01 live-add layout over this owned
+                // helper so a real debug session can run one preview against it.
+                let rest = parts.next().unwrap_or_default();
+                let mut tokens = rest.split_whitespace();
+                let mode = tokens.next().unwrap_or_default().to_string();
+                let source = tokens.next().and_then(parse_hex);
+                match (mode.as_str(), source) {
+                    (
+                        "matched" | "mismatch" | "noack",
+                        Some(source),
+                    ) => match live_add_setup(module_base, &mode, &source) {
+                        Ok(runtime) => {
+                            println!(
+                                "live-add\t{:x}\t{}\t{:x}\t{}\t{:x}",
+                                runtime.entry,
+                                runtime.builder_hex,
+                                runtime.counter,
+                                runtime.creation,
+                                runtime.data
+                            );
+                            let mut guard = LIVE_ADD
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner);
+                            *guard = Some(runtime);
+                        }
+                        Err(error) => println!("error\t{error}"),
+                    },
+                    _ => println!(
+                        "error\tlive-add needs <matched|mismatch|noack> and a 232-byte hex record"
+                    ),
+                }
+                let _ = std::io::stdout().flush();
+            }
+            "live-add-calls" => {
+                // The builder's own execution count, read from this process.
+                let counter = LIVE_ADD
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .as_ref()
+                    .map(|runtime| runtime.counter);
+                match counter {
+                    Some(counter) => println!("live-add-calls\t{}", read_u64_at(counter)),
+                    None => println!("error\tno live-add target"),
                 }
                 let _ = std::io::stdout().flush();
             }

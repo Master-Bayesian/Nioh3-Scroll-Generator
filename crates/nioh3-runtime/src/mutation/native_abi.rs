@@ -168,6 +168,29 @@ pub const PRODUCT_DISPLAY_VERSION: &str = "PC v2.01";
 /// gate, and no product path names it.
 pub const CANDIDATE_DISPLAY_VERSION: &str = "PC v2.02";
 
+/// The product live-add binding one exact executable version selects.
+///
+/// Selection only: it returns identifiers the executor already accepts, and the
+/// executor still proves the profile id and, where the binding pins one, the
+/// exact executable digest before any read or dispatch.
+///
+/// PC v2.02 deliberately reuses the *same* accepted identifiers the native
+/// acceptance observed - [`PC_V202_LIVE_ADD_CANDIDATE`],
+/// [`CANDIDATE_DISPLAY_VERSION`] and [`PC_V202_CANDIDATE_EXECUTABLE_SHA256`] -
+/// so nothing is renamed, the recorded `pc-v2.02-live-add-candidate` profile id
+/// and any durable receipt that names it stay valid, and the product selects
+/// byte-for-byte the binding that was tested. Every other version selects
+/// nothing and the host keeps refusing.
+pub fn live_add_binding_for_game_version(
+    version: (u16, u16, u16, u16),
+) -> Option<(&'static LiveAddLayout, &'static str)> {
+    match version {
+        (2, 0, 1, 0) => Some((&PC_V201_LIVE_ADD, PRODUCT_DISPLAY_VERSION)),
+        (2, 0, 2, 0) => Some((&PC_V202_LIVE_ADD_CANDIDATE, CANDIDATE_DISPLAY_VERSION)),
+        _ => None,
+    }
+}
+
 /// Owning lane for every version-owned value of
 /// [`PC_V202_LIVE_ADD_CANDIDATE`].
 ///
@@ -1022,21 +1045,42 @@ mod tests {
         assert!(!named.contains(&"profile_id"));
     }
 
-    /// The disabled candidate leaves the product's version gates exactly as
-    /// they were: `2.0.2.0` resolves nothing and the shipped layout is
-    /// byte-for-byte the accepted PC v2.01 profile.
+    /// Product selection is exact-version: `2.0.2.0` selects the v2.02 binding
+    /// that was tested, `2.0.1.0` keeps the v2.01 layout byte-for-byte, and
+    /// nothing else selects anything.
     #[test]
-    fn the_v2_02_candidate_stays_unreachable_from_product_selection() {
+    fn the_product_selects_one_binding_per_exact_version() {
         use crate::platform::FileVersion;
 
         let v2_02 = FileVersion::new(2, 0, 2, 0);
-        assert_eq!(crate::profile::supported_display_version(v2_02), None);
         assert_eq!(
-            crate::profile::profile_for_game_version(v2_02, std::path::Path::new(".")).err(),
-            Some(RuntimeError::UnsupportedGameVersion {
-                display: "2.0.2.0".to_string(),
-            })
+            crate::profile::supported_display_version(v2_02),
+            Some("2.02")
         );
+        // `2.0.2.0` is no longer refused as an unsupported version: with no
+        // profile directory the failure is the ordinary missing-document I/O
+        // error, and an unapproved document would fail on its own gate.
+        let missing = crate::profile::profile_for_game_version(v2_02, std::path::Path::new("."));
+        assert!(
+            matches!(missing.err(), Some(RuntimeError::Io { .. })),
+            "2.0.2.0 must no longer be refused as an unsupported version"
+        );
+        assert_eq!(
+            live_add_binding_for_game_version((2, 0, 1, 0)).map(|(layout, version)| (
+                layout.profile_id,
+                version
+            )),
+            Some(("pc-v2.01-live-add-r1", "PC v2.01"))
+        );
+        assert_eq!(
+            live_add_binding_for_game_version((2, 0, 2, 0)).map(|(layout, version)| (
+                layout.profile_id,
+                version
+            )),
+            Some(("pc-v2.02-live-add-candidate", "PC v2.02"))
+        );
+        assert_eq!(live_add_binding_for_game_version((2, 0, 2, 1)), None);
+        assert_eq!(live_add_binding_for_game_version((2, 0, 1, 1)), None);
         let shipped = PC_V201_LIVE_ADD;
         assert_eq!(shipped.profile_id, "pc-v2.01-live-add-r1");
         assert_eq!(shipped.dispatch_rva, 0x12E6840);

@@ -62,15 +62,23 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest().upper()
 
 
-def test_v202_profile_is_present_and_fail_closed() -> None:
+def test_v202_profile_is_approved_for_exact_version_selection() -> None:
     profile = json.loads(PROFILE.read_text(encoding="utf-8"))
     assert profile["schema"] == "nioh3-game-version-research-profile/v1"
     assert profile["profile_id"] == "pc_v2_02"
     assert profile["display_version"] == "PC v2.02"
     assert profile["file_version"] == list(V202)
-    assert profile["approval_status"] == "candidate"
+    # The 2026-09-21 decision approves this document, which is the gate
+    # profile_for_game_version reads before the product may select the version.
+    assert profile["approval_status"] == "approved"
+    # The approval is operation-specific: the exact native live-add path only.
+    # Every other native write or override keeps refusing for PC v2.02.
     assert profile["product_enablement_allowed"] is False
     assert profile["gates"]["product_enablement_allowed"] is False
+    assert profile["live_add_enablement_allowed"] is True
+    assert profile["gates"]["live_add_enablement_allowed"] is True
+    # The separate save-layout gate stays false: this approval does not claim the
+    # product's own PC v2.02 save write/restore path is validated.
     assert profile["gates"]["save_layout_validated"] is False
     assert profile["provenance"]["executable_sha256"] == EXE_SHA
     assert len(profile["text_sites"]) == 22

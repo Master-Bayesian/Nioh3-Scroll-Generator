@@ -13,7 +13,7 @@
 use crate::error::RuntimeError;
 use crate::mutation::count::{exclusive_json, new_operation_id, read_bytes, read_json, sha256_hex};
 use crate::mutation::descriptor::{assembly_descriptor, new_assembly_record};
-use crate::mutation::evidence::{verify, verify_persistence};
+use crate::mutation::evidence::{preview_rejection_complete, verify, verify_persistence};
 use crate::mutation::inventory::{
     index_entries, inventory_entries, inventory_json, Inventory, NativeIndex, RECORD_SIZE,
 };
@@ -307,6 +307,18 @@ pub trait LiveAddExecutor {
         false
     }
 
+    /// Every durable preview child this parent operation owns, read-only.
+    ///
+    /// A preview retries only its own explicit zero-redirect idle miss, under a
+    /// fresh identity, so the parent enumerates every attempted child here
+    /// instead of trusting only the identity it pinned. Never dispatches.
+    fn preview_children(
+        &mut self,
+        _parent_operation_id: &str,
+    ) -> Result<Vec<Value>, RuntimeError> {
+        Ok(Vec::new())
+    }
+
     /// `safe_to_shutdown`.
     fn safe_to_shutdown(&mut self) -> bool;
 
@@ -459,6 +471,26 @@ impl LiveAddApplication {
         let (candidate, assembly) = self.validate_candidate(payload)?;
         let (context, before, index_before) = self.executor.inspect()?;
         for operation_id in self.operations.unresolved_ids()? {
+            // A preview child owns no insertion plan: it is discovered by its own
+            // durable record and recovered through the preview route, so it must
+            // never be routed through the plan reader. The refusal names the
+            // child so the caller can recover it instead of seeing an IO error.
+            if self.operations.preview_child_known(&operation_id)? {
+                let child = self.operations.preview_child(&operation_id)?;
+                let recorded = child
+                    .get("pid")
+                    .and_then(Value::as_u64)
+                    .zip(child.get("process_creation_time").and_then(Value::as_str));
+                let current = context
+                    .get("pid")
+                    .and_then(Value::as_u64)
+                    .zip(context.get("process_creation_time").and_then(Value::as_str));
+                if matches!(recorded, Some(instance) if Some(instance) != current) {
+                    // Another process lifetime's child cannot be recovered here.
+                    continue;
+                }
+                return Err(RuntimeError::LiveAddUncertain { operation_id });
+            }
             let (_digest, plan) = self.operations.plan(&operation_id)?;
             if (
                 plan.get("pid").cloned(),
@@ -563,8 +595,47 @@ impl LiveAddApplication {
         let saved_records = saved_scroll_records(&checkpoint.decrypted)?;
         verify_persistence(&persistence_baseline, &saved_records, false)?;
 
+        // The preview child is durable and non-dispatchable *before* the native
+        // side effect, so a crash mid-preview still leaves the parent and child
+        // identities on disk and keeps admission closed until a read-only
+        // recovery. It is deliberately not a plan: it can never be claimed.
+        let preview_child_id = new_operation_id()?;
+        self.operations.register_preview_child(
+            &preview_child_id,
+            &json!({
+                "parent_operation_id": operation_id,
+                "candidate_id": candidate.candidate_id,
+                "mode": "preview",
+                "pid": context.get("pid").cloned().unwrap_or(Value::Null),
+                "process_creation_time": context
+                    .get("process_creation_time")
+                    .cloned()
+                    .unwrap_or(Value::Null),
+                "source_save_sha256": source_sha256,
+            }),
+        )?;
+        plan.insert(
+            "preview_operation_id".to_string(),
+            json!(preview_child_id.clone()),
+        );
         let plan_value = Value::Object(plan.clone());
-        let preview = self.executor.preview(&plan_value, &assembly)?;
+        let attempted = self.executor.preview(&plan_value, &assembly);
+        let rejected_child = self.reconcile_preview_children(&operation_id, &preview_child_id)?;
+        let preview = match attempted {
+            Ok(receipt) => receipt,
+            Err(error) => {
+                return Err(match rejected_child {
+                    Some(child_id) => rejected(&format!(
+                        "Native preview for {operation_id} was rejected after dispatch \
+                         (child {child_id}); its container and serial index are proven \
+                         unchanged and its cleanup is terminal, so recover {child_id} \
+                         (read-only) instead of replaying it: {}",
+                        error.message()
+                    )),
+                    None => error,
+                });
+            }
+        };
         let (after_preview, after_index) = self.executor.readback()?;
         let before_json = inventory_json(&before, self.executor.display_version());
         let after_json = inventory_json(&after_preview, self.executor.display_version());
@@ -624,6 +695,79 @@ impl LiveAddApplication {
             backup_path: checkpoint.backup_path.display().to_string(),
             instance_serial: serial,
         })
+    }
+
+    /// Reconcile every durable native preview child this parent owns.
+    ///
+    /// The pinned child is registered before the side effect; a retried idle miss
+    /// uses a fresh identity, so the parent reads the transport's durable preview
+    /// receipts and registers any child it has not seen. Each child records its
+    /// own native result, and a child without one stays blocked. Returns the first
+    /// child that ended as a formal `rejected_after_preview`.
+    fn reconcile_preview_children(
+        &mut self,
+        parent_operation_id: &str,
+        pinned_child_id: &str,
+    ) -> Result<Option<String>, RuntimeError> {
+        let mut child_ids: Vec<String> = Vec::new();
+        for receipt in self.executor.preview_children(parent_operation_id)? {
+            let Some(child_id) = receipt.get("operation_id").and_then(Value::as_str) else {
+                continue;
+            };
+            let child_id = child_id.to_string();
+            if !self.operations.preview_child_known(&child_id)? {
+                self.operations.register_preview_child(
+                    &child_id,
+                    &json!({
+                        "parent_operation_id": parent_operation_id,
+                        "mode": "preview",
+                        "pid": receipt.get("pid").cloned().unwrap_or(Value::Null),
+                        "process_creation_time": receipt
+                            .get("process_creation_time")
+                            .cloned()
+                            .unwrap_or(Value::Null),
+                        "recovered_from_receipt": true,
+                    }),
+                )?;
+            }
+            self.operations
+                .record_preview_outcome(&child_id, &preview_child_receipt(&receipt))?;
+            child_ids.push(child_id);
+        }
+        if !child_ids.iter().any(|child_id| child_id == pinned_child_id) {
+            child_ids.push(pinned_child_id.to_string());
+            if self.operations.snapshot(pinned_child_id)?.state == OperationState::PreparingPreview
+            {
+                self.recover_preview_child(pinned_child_id)?;
+            }
+        }
+        Ok(child_ids.into_iter().find(|child_id| {
+            self.operations
+                .snapshot(child_id)
+                .map(|snapshot| snapshot.state == OperationState::RejectedAfterPreview)
+                .unwrap_or(false)
+        }))
+    }
+
+    /// Settle one preview child through the read-only recovery chain. It re-reads
+    /// the target and never dispatches; a child the transport cannot prove is
+    /// recorded as uncertain and stays blocked.
+    fn recover_preview_child(&mut self, child_id: &str) -> Result<OperationSnapshot, RuntimeError> {
+        let child = self.operations.preview_child(child_id)?;
+        let pid = child.get("pid").and_then(Value::as_u64).unwrap_or(0) as u32;
+        let creation = child
+            .get("process_creation_time")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        match self.executor.recover(child_id, pid, creation.as_deref()) {
+            Ok(receipt) => self
+                .operations
+                .record_preview_outcome(child_id, &preview_child_receipt(&receipt)),
+            Err(error) => self.operations.record_preview_outcome(
+                child_id,
+                &preview_uncertain_receipt(child_id, &error.message()),
+            ),
+        }
     }
 
     /// `LiveAddApplication.execute`. A claimed operation is never replayed.
@@ -831,6 +975,22 @@ impl LiveAddApplication {
     /// `LiveAddApplication.recover`: read the receipt, never dispatch again.
     pub fn recover(&mut self, operation_id: &str) -> Result<OperationSnapshot, RuntimeError> {
         let snapshot = self.operations.snapshot(operation_id)?;
+        let preview_child = matches!(snapshot.state, OperationState::PreparingPreview)
+            || (matches!(snapshot.state, OperationState::Uncertain)
+                && snapshot
+                    .receipt
+                    .as_ref()
+                    .and_then(|receipt| receipt.get("state").and_then(Value::as_str))
+                    == Some("preview_uncertain"));
+        if preview_child {
+            let recovered = self.recover_preview_child(operation_id)?;
+            if recovered.state == OperationState::Uncertain {
+                return Err(rejected(
+                    "Native preview evidence is incomplete; the preview child stays blocked",
+                ));
+            }
+            return Ok(recovered);
+        }
         if snapshot.state != OperationState::Uncertain {
             return Ok(snapshot);
         }
@@ -909,4 +1069,38 @@ fn hex(bytes: &[u8]) -> String {
         rendered.push_str(&format!("{byte:02x}"));
     }
     rendered
+}
+
+/// The application-level child record one native preview receipt resolves to.
+///
+/// The classification is the receipt's own evidence: a complete rejection, a
+/// matched completion, its explicit zero-redirect idle miss, or anything else,
+/// which stays blocked.
+fn preview_child_receipt(native: &Value) -> Value {
+    let state = if preview_rejection_complete(native) {
+        "rejected_after_preview"
+    } else if native.get("business_outcome").and_then(Value::as_str) == Some("completed") {
+        "preview_completed"
+    } else if native.get("business_outcome").and_then(Value::as_str) == Some("rejected")
+        && native.get("redirect_count").and_then(Value::as_u64) == Some(0)
+    {
+        "preview_no_dispatch"
+    } else {
+        "preview_uncertain"
+    };
+    let mut receipt = native.clone();
+    if let Some(object) = receipt.as_object_mut() {
+        object.insert("state".to_string(), json!(state));
+    }
+    receipt
+}
+
+/// The child record for a preview whose native evidence is incomplete.
+fn preview_uncertain_receipt(child_id: &str, detail: &str) -> Value {
+    json!({
+        "operation_id": child_id,
+        "state": "preview_uncertain",
+        "mode": "preview",
+        "detail": detail,
+    })
 }

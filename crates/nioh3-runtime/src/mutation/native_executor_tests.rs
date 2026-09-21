@@ -3,7 +3,11 @@
 use crate::error::RuntimeError;
 use crate::mutation::count::new_operation_id;
 use crate::mutation::descriptor::new_assembly_record;
-use crate::mutation::inventory::hex_decode;
+use crate::mutation::evidence::{
+    preview_owner_fingerprint, preview_rejection_complete, preview_rejection_decided,
+    preview_rejection_receipt, PREVIEW_PHASE_AFTER, PREVIEW_PHASE_BEFORE,
+};
+use crate::mutation::inventory::{hex_decode, PC_V201_INVENTORY_LAYOUT, RECORD_SIZE, SERIAL_OFFSET};
 use crate::mutation::live_add::LiveAddExecutor;
 use crate::mutation::live_fakes::{assembly_record, InventoryFixture, FIXTURE_CREATION};
 use crate::mutation::native_abi::{
@@ -582,14 +586,25 @@ fn a_second_operation_is_refused_while_one_receipt_is_unresolved() -> Result<(),
     )?;
     let (plan, _before, _index) = executor.inspect()?;
     let plan = prepared_plan(&plan, &assembly);
+    let operation_id = plan
+        .get("operation_id")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
+        .to_string();
     assert!(executor.insert(&plan).is_err());
     // A dispatch that owns an unresolved receipt also blocks inspection, and a
-    // replayed plan is refused before it reaches the transport.
+    // replayed plan is refused before it reaches the transport. The refusal names
+    // the exact unsettled operation instead of a generic busy fact, so a caller
+    // can recover it rather than guess.
     let refused = executor
         .inspect()
         .err()
         .unwrap_or(RuntimeError::RuntimeBusy);
-    assert_eq!(refused.code(), "NATIVE_DISPATCH");
+    assert_eq!(refused.code(), "LIVE_ADD_UNCERTAIN");
+    assert!(
+        refused.message().contains(&operation_id),
+        "the refusal names the unsettled operation: {refused}"
+    );
     let error = executor
         .insert(&plan)
         .err()
@@ -746,6 +761,63 @@ fn the_pinned_candidate_binding_plans_and_inserts() -> Result<(), RuntimeError> 
     Ok(())
 }
 
+/// The pinned identity is a hex digest, so a transport may render it in either
+/// case: the real `NativeDebugTransport` returns `sha256_hex` (lower case) while
+/// the pinned constant is upper case. A different digest and a missing proof must
+/// still be refused before any target read.
+#[test]
+fn the_pinned_executable_identity_compares_hex_case_insensitively() -> Result<(), RuntimeError> {
+    let pinned = PC_V202_CANDIDATE_EXECUTABLE_SHA256;
+    let lower = pinned.to_lowercase();
+    assert_ne!(lower, pinned, "the two renderings differ in case");
+
+    let fixture = Fixture::new("candidate-identity-lower-case");
+    let transport = transport_for_layout(&fixture, PC_V202_LIVE_ADD_CANDIDATE, Some(&lower))?;
+    let mut executor = NativeLiveAddExecutor::candidate(transport).with_budget(budget());
+    let (plan, _before, _index) = executor.inspect()?;
+    assert_eq!(
+        plan.get("profile_id").and_then(serde_json::Value::as_str),
+        Some("pc-v2.02-live-add-candidate"),
+        "a lower-case rendering of the pinned digest is the same identity"
+    );
+
+    let mut other = lower.clone();
+    other.replace_range(0..1, if lower.starts_with('e') { "f" } else { "e" });
+    assert_ne!(other, lower, "the probed digest really differs");
+    let fixture = Fixture::new("candidate-identity-other-digest");
+    let transport = transport_for_layout(&fixture, PC_V202_LIVE_ADD_CANDIDATE, Some(&other))?;
+    let mut executor = NativeLiveAddExecutor::candidate(transport).with_budget(budget());
+    let error = executor
+        .inspect()
+        .err()
+        .unwrap_or(RuntimeError::RuntimeBusy);
+    assert_eq!(
+        error.code(),
+        "NATIVE_DISPATCH",
+        "a different digest refuses"
+    );
+    assert_eq!(
+        executor.transport().reads,
+        0,
+        "a different digest is refused before any target read"
+    );
+
+    let fixture = Fixture::new("candidate-identity-missing-proof");
+    let transport = transport_for_layout(&fixture, PC_V202_LIVE_ADD_CANDIDATE, None)?;
+    let mut executor = NativeLiveAddExecutor::candidate(transport).with_budget(budget());
+    let error = executor
+        .inspect()
+        .err()
+        .unwrap_or(RuntimeError::RuntimeBusy);
+    assert_eq!(error.code(), "NATIVE_DISPATCH", "missing proof refuses");
+    assert_eq!(
+        executor.transport().reads,
+        0,
+        "missing proof is refused before any target read"
+    );
+    Ok(())
+}
+
 /// Neither half of the binding authorizes the other, and the candidate half
 /// additionally requires the exact executable: every unbound combination is
 /// refused before a single target read or any dispatch.
@@ -817,5 +889,253 @@ fn an_unbound_live_add_pair_is_refused_before_any_read_or_dispatch() -> Result<(
         );
         assert!(executor.safe_to_shutdown(), "{label}");
     }
+    Ok(())
+}
+
+/// Build the executor over one layout, with the injected faults the caller
+/// chooses and the fixture the preview tests read.
+fn preview_executor(
+    fixture: &Fixture,
+    faults: NativeFaults,
+) -> Result<NativeLiveAddExecutor<FakeLiveAddTransport>, RuntimeError> {
+    let inventory = InventoryFixture::new(&[(4, 0x1234, 0xF00D)], 0x3345, 11);
+    let transport = FakeLiveAddTransport::with_faults(&fixture.root, inventory, faults)?;
+    Ok(
+        NativeLiveAddExecutor::new(transport, PC_V201_LIVE_ADD, REQUIRED_DISPLAY_VERSION)
+            .with_budget(budget()),
+    )
+}
+
+/// The durable preview receipt the transport left, whatever its identity.
+fn preview_receipt(
+    executor: &NativeLiveAddExecutor<FakeLiveAddTransport>,
+) -> Result<serde_json::Value, RuntimeError> {
+    let receipts = executor.transport().store.all()?;
+    assert_eq!(receipts.len(), 1, "exactly one durable preview receipt");
+    Ok(receipts[0].clone())
+}
+
+/// A preview whose builder output differs settles as a formal rejection over the
+/// shipped adapter and recovery settles it read-only, twice, without replay.
+#[test]
+fn a_preview_mismatch_settles_and_recovers_read_only() -> Result<(), RuntimeError> {
+    let fixture = Fixture::new("preview-rejection");
+    let mut executor = preview_executor(
+        &fixture,
+        NativeFaults {
+            preview_mismatch: true,
+            ..NativeFaults::default()
+        },
+    )?;
+    let assembly = assembly_record(0x1E82, 0x0BAD_F00D, 4);
+    let (plan, before, _index) = executor.inspect()?;
+    let plan = prepared_plan(&plan, &assembly);
+    let native = new_assembly_record(&assembly)?;
+    let error = executor
+        .preview(&plan, &native)
+        .err()
+        .unwrap_or(RuntimeError::RuntimeBusy);
+    assert_eq!(error.code(), "LIVE_ADD_VERIFICATION", "{error:?}");
+
+    let receipt = preview_receipt(&executor)?;
+    assert!(preview_rejection_complete(&receipt), "{receipt}");
+    assert!(settled(&receipt), "the rejection is a terminal receipt");
+    assert_eq!(receipt["redirect_count"], 1);
+    assert_eq!(receipt["business_outcome"], "rejected");
+    assert_eq!(receipt["phase"], "rejected_after_preview");
+    let child = receipt["operation_id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+
+    let creation = FIXTURE_CREATION.to_string();
+    let recovered = executor.recover(&child, 4321, Some(&creation))?;
+    assert_eq!(recovered["settlement"], "rejected_after_preview");
+    assert_eq!(recovered["redirect_count"], 1);
+    // The same id recovers again and dispatches nothing at all.
+    let _ = executor.recover(&child, 4321, Some(&creation))?;
+    assert_eq!(
+        executor.transport().submissions.len(),
+        1,
+        "recovery never submits: one preview, no replay"
+    );
+    let (after, _index) = executor.readback()?;
+    assert_eq!(before, after, "a rejected preview wrote nothing");
+    assert!(executor.safe_to_shutdown());
+    Ok(())
+}
+
+/// A preview without the complete proof keeps the owner and never claims a
+/// rejection, while the read-only recovery still refuses it.
+#[test]
+fn a_preview_without_complete_evidence_stays_blocked() -> Result<(), RuntimeError> {
+    let fixture = Fixture::new("preview-incomplete");
+    let mut executor = preview_executor(
+        &fixture,
+        NativeFaults {
+            preview_incomplete: true,
+            ..NativeFaults::default()
+        },
+    )?;
+    let assembly = assembly_record(0x1E82, 0x0BAD_F00D, 4);
+    let (plan, _before, _index) = executor.inspect()?;
+    let plan = prepared_plan(&plan, &assembly);
+    let native = new_assembly_record(&assembly)?;
+    assert!(executor.preview(&plan, &native).is_err());
+
+    let receipt = preview_receipt(&executor)?;
+    assert!(
+        !preview_rejection_complete(&receipt),
+        "an incomplete proof is never a formal rejection"
+    );
+    assert!(
+        !preview_rejection_decided(&receipt),
+        "the decision is derived from the evidence, not the words"
+    );
+    assert!(!settled(&receipt));
+    let child = receipt["operation_id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let creation = FIXTURE_CREATION.to_string();
+    assert!(
+        executor.recover(&child, 4321, Some(&creation)).is_err(),
+        "the retained owner refuses recovery"
+    );
+    assert_eq!(
+        executor.transport().submissions.len(),
+        1,
+        "the blocked preview was never replayed"
+    );
+    assert!(!executor.safe_to_shutdown());
+    Ok(())
+}
+
+/// Every clause of the rejection predicate has to hold: an absent baseline, a
+/// changed mapping with an unchanged node count, another process lifetime, an
+/// allocated serial and a redirect of zero each refuse it.
+#[test]
+fn a_preview_rejection_requires_every_proof_clause() -> Result<(), RuntimeError> {
+    let layout = PC_V201_INVENTORY_LAYOUT;
+    let mut container = vec![0u8; layout.capacity as usize * layout.record_size];
+    for (slot, serial) in [(4usize, 0x1234u64), (5, 0x4321)] {
+        let start = slot * layout.record_size;
+        container[start] = 0x82;
+        container[start + 1] = 0x1E;
+        container[start + SERIAL_OFFSET..start + SERIAL_OFFSET + 8]
+            .copy_from_slice(&serial.to_le_bytes());
+    }
+    let mut source = vec![0x11u8; RECORD_SIZE];
+    source[0x28..0x30].copy_from_slice(&[0xFF; 8]);
+    // The *actual* native index at the same stop: two nodes in one bucket. The
+    // fingerprint's index evidence is this mapping, not the container.
+    let native_index = json!({
+        "schema": "nioh3-native-serial-index/v1",
+        "pid": 4321,
+        "process_creation_time": "134338049984156850",
+        "node_count": 2,
+        "bucket_count": 1,
+        "entries": [
+            {"serial": "4660", "slot": 4},
+            {"serial": "17185", "slot": 5},
+        ],
+    });
+    let native_index_before = native_index.clone();
+    let fingerprint = |phase: &str| {
+        preview_owner_fingerprint(
+            &container,
+            0x3345,
+            11,
+            &layout,
+            "pc-v2.01-live-add-r1",
+            4321,
+            "134338049984156850",
+            0x7FF0_0000_0001_0000,
+            0x7FF0_0000_0002_0000,
+            0x7FF0_0000_0000,
+            &native_index_before,
+            phase,
+        )
+    };
+    let receipt = preview_rejection_receipt(
+        "child-1",
+        Some("parent-1"),
+        4321,
+        "134338049984156850",
+        "descriptor",
+        "record",
+        "builder",
+        &source,
+        fingerprint(PREVIEW_PHASE_BEFORE),
+        fingerprint(PREVIEW_PHASE_AFTER),
+    )?;
+    assert!(preview_rejection_complete(&receipt), "{receipt}");
+    assert_eq!(
+        receipt["preview_before"]["index_node_count"],
+        receipt["preview_after"]["index_node_count"]
+    );
+    assert_eq!(
+        receipt["preview_before"]["index_bucket_count"],
+        receipt["preview_after"]["index_bucket_count"]
+    );
+    assert_eq!(
+        receipt["preview_before"]["container_sha256"],
+        receipt["preview_after"]["container_sha256"]
+    );
+    assert!(
+        receipt["preview_before"]["native_index_digest"]
+            .as_str()
+            .is_some_and(|digest| digest.len() == 64),
+        "the native index digest is recorded: {receipt}"
+    );
+
+    // A remapped *index* with the same container and the same node count is still
+    // a change: the index is read from its own graph, not derived from records.
+    let mut remapped = receipt.clone();
+    remapped["preview_after"]["native_index_digest"] = json!("00".repeat(32));
+    assert_eq!(
+        remapped["preview_before"]["index_node_count"],
+        remapped["preview_after"]["index_node_count"]
+    );
+    assert_eq!(
+        remapped["preview_before"]["container_sha256"],
+        remapped["preview_after"]["container_sha256"]
+    );
+    assert!(!preview_rejection_decided(&remapped));
+
+    // The same index with a changed node count is a change too.
+    let mut resized = receipt.clone();
+    resized["preview_after"]["index_node_count"] = json!(3);
+    assert!(!preview_rejection_decided(&resized));
+
+    // An index that could not be read at all leaves no digest to agree on.
+    let mut absent_index = receipt.clone();
+    absent_index["preview_after"]["native_index_digest"] = serde_json::Value::Null;
+    assert!(!preview_rejection_decided(&absent_index));
+
+    let mut other_lifetime = receipt.clone();
+    other_lifetime["preview_after"]["process_creation_time"] = json!("other");
+    assert!(!preview_rejection_decided(&other_lifetime));
+
+    let mut absent_baseline = receipt.clone();
+    if let Some(object) = absent_baseline.as_object_mut() {
+        object.remove("preview_before");
+    }
+    assert!(!preview_rejection_decided(&absent_baseline));
+
+    let mut allocated = receipt.clone();
+    let mut allocated_source = source.clone();
+    allocated_source[0x28..0x30].copy_from_slice(&7u64.to_le_bytes());
+    allocated["source_hex"] = json!(hex(&allocated_source));
+    assert!(!preview_rejection_decided(&allocated));
+
+    let mut before_dispatch = receipt.clone();
+    before_dispatch["redirect_count"] = json!(0);
+    assert!(!preview_rejection_decided(&before_dispatch));
+    assert!(!preview_rejection_complete(&before_dispatch));
+
+    let mut unproved = receipt.clone();
+    unproved["preview_dispatch_proof"]["return_and_register_verified"] = json!(false);
+    assert!(!preview_rejection_decided(&unproved));
     Ok(())
 }

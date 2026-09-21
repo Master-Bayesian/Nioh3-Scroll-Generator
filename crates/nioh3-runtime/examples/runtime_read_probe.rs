@@ -49,6 +49,8 @@ fn usage() -> String {
         "  --live-add-candidate-dry-run <json>    pinned PC v2.02 candidate dry run (test-fake build)\n",
         "  --live-add-candidate-preflight <json>  read-only real-process candidate preflight\n",
         "  --live-add-candidate-noop <json>       bounded real noop dispatch (no inventory mutation)\n",
+        "  --live-add-candidate-payload <json>    canonical candidate payload and its identity digest\n",
+        "  --live-add-candidate-insert <json>     opt-in real insertion of one reviewed candidate\n",
     )
     .to_string()
 }
@@ -276,6 +278,28 @@ fn dispatch(args: &[String]) -> Result<(), String> {
                 payload.to_string()
             };
             live_add_candidate_noop(&text)
+        }
+        "--live-add-candidate-payload" => {
+            let payload = argument(rest, 0)?;
+            let path = Path::new(payload);
+            let text = if path.is_file() {
+                std::fs::read_to_string(path)
+                    .map_err(|error| format!("candidate payload {}: {error}", path.display()))?
+            } else {
+                payload.to_string()
+            };
+            live_add_candidate_payload(&text)
+        }
+        "--live-add-candidate-insert" => {
+            let payload = argument(rest, 0)?;
+            let path = Path::new(payload);
+            let text = if path.is_file() {
+                std::fs::read_to_string(path)
+                    .map_err(|error| format!("insert payload {}: {error}", path.display()))?
+            } else {
+                payload.to_string()
+            };
+            live_add_candidate_insert(&text)
         }
         other => Err(format!("unknown mode {other}\n{}", usage())),
     }
@@ -1137,16 +1161,29 @@ fn live_add_candidate_preflight(payload: &str) -> Result<(), String> {
         "no debugger is attached to the target (fresh, not stale)",
     );
 
-    // 10. Recovery and backup availability on the product's state root.
-    let state_root = product_state_root();
+    // 10. Recovery and backup availability on the state root. The default is
+    // the product root; a bounded research run may name its own root so the
+    // product's durable receipts are neither spent nor rewritten.
+    let explicit_state_root = request.get("state_root").and_then(Value::as_str).is_some();
+    let state_root = request
+        .get("state_root")
+        .and_then(Value::as_str)
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(product_state_root);
     let native_executor = state_root.join("live-add").join("native-executor");
     let backups = state_root.join("backups");
-    let receipts = receipt_names(&native_executor);
+    let receipts = scan_receipts(&native_executor);
     println!("state_root\t{}", state_root.display());
     println!("native_executor_dir\t{}", native_executor.is_dir());
-    println!("unresolved_receipts\t{}", receipts.len());
-    for name in &receipts {
+    println!("receipt_files\t{}", receipts.total);
+    for name in &receipts.names {
         println!("receipt\t{name}");
+    }
+    // Only a receipt the shipped `settled` predicate rejects may own the
+    // executor; the file count alone is not the admission fact.
+    println!("unsettled_receipts\t{}", receipts.unsettled.len());
+    for name in &receipts.unsettled {
+        println!("unsettled\t{name}");
     }
     println!("backups_dir\t{}", backups.is_dir());
     println!("backup_sets\t{}", backup_set_count(&backups));
@@ -1154,17 +1191,24 @@ fn live_add_candidate_preflight(payload: &str) -> Result<(), String> {
         "native_executor_dir".to_string(),
         json!(native_executor.is_dir()),
     );
-    facts.insert("unresolved_receipts".to_string(), json!(receipts.len()));
+    facts.insert("receipt_files".to_string(), json!(receipts.total));
+    facts.insert("unsettled_receipts".to_string(), json!(receipts.unsettled));
     facts.insert("backups_dir".to_string(), json!(backups.is_dir()));
     facts.insert("backup_sets".to_string(), json!(backup_set_count(&backups)));
     expect_exact(
-        receipts.is_empty(),
-        "no unresolved native receipt owns the executor",
+        receipts.unsettled.is_empty(),
+        "no unsettled native receipt owns the executor",
     );
-    expect_exact(
-        backups.is_dir(),
-        "save-backup root exists for the checkpoint",
-    );
+    // A caller-named run root is created by the run's own first checkpoint, so
+    // only the product root must already carry the backup tree.
+    if explicit_state_root {
+        println!("backups_present\t{}", backups.is_dir());
+    } else {
+        expect_exact(
+            backups.is_dir(),
+            "save-backup root exists for the checkpoint",
+        );
+    }
     expect_exact(
         SAVE_GENERATION_SERIAL_MAX == 0xFFFF_FFFC,
         "serial guard mirrors the save format cap",
@@ -1230,9 +1274,59 @@ fn receipt_names(directory: &std::path::Path) -> Vec<String> {
     let mut names: Vec<String> = entries
         .filter_map(Result::ok)
         .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .filter(|name| {
+            name.ends_with(".json") && !name.ends_with(".classification.json")
+        })
         .collect();
     names.sort();
     names
+}
+
+/// The receipt files in one executor directory and the subset that still owns
+/// the target.
+struct ReceiptScan {
+    total: usize,
+    names: Vec<String>,
+    unsettled: Vec<String>,
+}
+
+/// Classify every durable receipt by the store's one authoritative reading.
+///
+/// `unsettled` is exactly what `ReceiptStore::unresolved_owner` refuses on, so
+/// admission can be predicted without dispatching anything: the native settled
+/// receipt, or the explicit historical classification while its sidecar still
+/// binds to the bytes on disk. A receipt that cannot be read or parsed, and a
+/// classification that does not bind or is malformed, both count as unsettled:
+/// a durable record is never reinterpreted as a release, and an unknown owner is
+/// never silently ignored.
+fn scan_receipts(directory: &std::path::Path) -> ReceiptScan {
+    let names = receipt_names(directory);
+    let unsettled: Vec<String> = names
+        .iter()
+        .filter(|name| !receipt_is_settled(directory, name))
+        .cloned()
+        .collect();
+    ReceiptScan {
+        total: names.len(),
+        names,
+        unsettled,
+    }
+}
+
+fn receipt_is_settled(directory: &std::path::Path, name: &str) -> bool {
+    let Ok(text) = std::fs::read_to_string(directory.join(name)) else {
+        return false;
+    };
+    let Ok(value) = serde_json::from_str::<Value>(&text) else {
+        return false;
+    };
+    let Ok(store) = nioh3_runtime::mutation::native_executor::ReceiptStore::new(directory) else {
+        return false;
+    };
+    store
+        .authoritative_state(&value)
+        .map(|state| state.is_some())
+        .unwrap_or(false)
 }
 
 fn backup_set_count(root: &std::path::Path) -> usize {
@@ -1480,6 +1574,793 @@ fn live_add_candidate_noop(payload: &str) -> Result<(), String> {
         println!("report\t{path}");
     }
     Ok(())
+}
+
+/// The decrypted user save the product's persistence gate compares against the
+/// live inventory: `emaki_exchange.require_decrypted_user_save`.
+const USER_SAVE_SIZE: usize = 0x90_01B0;
+const USER_SAVE_MAGIC: &[u8] = b"RNNUSR";
+
+/// One reviewed candidate, one reviewed insertion.
+///
+/// Opt-in research only, and the only path this probe offers that changes the
+/// inventory. The request must prove the pinned executable identity, the planned
+/// process instance, an explicit state root, a save whose backup was copied and
+/// hash-verified, and the shipped decryptor that produces the plaintext the
+/// product's persistence gate reads. The insertion always goes through
+/// `LiveAddApplication` (`prepare` then `execute`), so the preview, the serial
+/// allocation, the durable no-replay receipt and the recovery contract are the
+/// shipped ones; the probe never dispatches `DispatchMode::Insert` directly.
+fn live_add_candidate_insert(payload: &str) -> Result<(), String> {
+    use nioh3_runtime::mutation::catalog::DomainCatalogPolicy;
+    use nioh3_runtime::mutation::live_add::LiveAddApplication;
+    use nioh3_runtime::mutation::native_abi::PC_V202_LIVE_ADD_CANDIDATE;
+    use nioh3_runtime::mutation::native_executor::NativeLiveAddExecutor;
+    use nioh3_runtime::mutation::OperationSnapshot;
+
+    let request: Value = serde_json::from_str(payload)
+        .map_err(|error| format!("insert input is not valid JSON: {error}"))?;
+    let plan = match validate_insert_request(&request) {
+        Ok(plan) => plan,
+        Err(message) => {
+            println!("refused\t{message}");
+            return Ok(());
+        }
+    };
+
+    // Identity, single owner and instance before any handle with write rights.
+    let target = match require_candidate_target(plan.pid, &plan.process_creation_time) {
+        Ok(target) => target,
+        Err(message) => {
+            println!("refused\t{message}");
+            return Ok(());
+        }
+    };
+    println!("pid\t{}", target.pid);
+    println!("creation\t{}", target.creation);
+    println!("module\t{:x}\t{:x}", target.module_base, target.module_size);
+    println!("executable_sha256\t{}", target.executable_sha256);
+    println!("candidate_id\t{}", plan.candidate_id);
+    println!("candidate_seed\t{}", plan.seed);
+    println!("candidate_rarity\t{}", plan.rarity);
+    println!("candidate_stage\t{}", plan.stage);
+
+    // Raw read-only inventory before anything is prepared.
+    let before = capture_candidate_snapshot(plan.pid, target.module_base)?;
+    println!("before_entries\t{}", before.entries);
+    println!("before_serial\t{}", before.serial_counter);
+    println!("before_acquisition\t{}", before.acquisition_order_counter);
+    println!("before_container\t{}", before.container_sha256);
+    println!("before_index_nodes\t{}", before.index_nodes);
+    if let Some(path) = &plan.inventory_before {
+        write_json(path, &before.value)?;
+        println!("inventory_before\t{}", path.display());
+    }
+
+    let executor_directory = plan.state_root.join("live-add").join("native-executor");
+    let transport = nioh3_runtime::mutation::native_executor::NativeDebugTransport::new(
+        plan.pid,
+        PC_V202_LIVE_ADD_CANDIDATE,
+        nioh3_runtime::platform::GAME_MODULE_NAME,
+        &executor_directory,
+    )
+    .map_err(|error| error.message())?;
+    println!("receipt_dir\t{}", executor_directory.display());
+    let executor = NativeLiveAddExecutor::candidate(transport);
+    let backup = ProbeSaveBackup::new(&plan.state_root, &plan.decryptor);
+    let mut application = LiveAddApplication::new(
+        &plan.state_root,
+        &plan.context_digest,
+        Box::new(executor),
+        Box::new(backup),
+        Box::new(DomainCatalogPolicy::new()),
+    )
+    .map_err(|error| error.message())?;
+
+    let mut failure: Option<String> = None;
+    let mut prepared_state = String::from("-");
+    let mut operation_id = String::new();
+    let mut plan_digest = String::new();
+    let mut backup_path = String::new();
+    let mut execution: Option<OperationSnapshot> = None;
+    match application.prepare(&plan.candidate, &plan.save_path, None) {
+        Ok(prepared) => {
+            prepared_state = prepared.snapshot.state.as_str().to_string();
+            operation_id = prepared.snapshot.operation_id.clone();
+            plan_digest = prepared.snapshot.plan_digest.clone();
+            backup_path = prepared.backup_path.clone();
+            println!("prepared_state\t{prepared_state}");
+            println!("prepared_seed\t{}", prepared.seed);
+            println!("prepared_rarity\t{}", prepared.rarity);
+            println!("count_before\t{}", prepared.count_before);
+            println!("instance_serial\t{}", prepared.instance_serial);
+            println!("backup_path\t{backup_path}");
+            println!("operation_id\t{operation_id}");
+            println!("plan_digest\t{plan_digest}");
+        }
+        Err(error) => {
+            failure = Some(error.message());
+            print_error(&error);
+            println!("dispatch_failed\ttrue");
+        }
+    }
+    if failure.is_none() {
+        match application.execute(&operation_id, &plan_digest) {
+            Ok(snapshot) => {
+                println!("execution_state\t{}", snapshot.state.as_str());
+                execution = Some(snapshot);
+            }
+            Err(error) => {
+                failure = Some(error.message());
+                print_error(&error);
+                println!("execution_failed\ttrue");
+            }
+        }
+    }
+    // A failed or claimed operation still has a durable snapshot; read it back
+    // so the report carries the real state instead of nothing.
+    if execution.is_none() && !operation_id.is_empty() {
+        if let Ok(snapshot) = application.status(&operation_id) {
+            println!("status_state\t{}", snapshot.state.as_str());
+            execution = Some(snapshot);
+        }
+    }
+
+    // Raw read-only inventory after the attempt; never repaired, never retried.
+    let after = capture_candidate_snapshot(plan.pid, target.module_base)?;
+    println!("after_entries\t{}", after.entries);
+    println!("after_serial\t{}", after.serial_counter);
+    println!("after_acquisition\t{}", after.acquisition_order_counter);
+    println!("after_container\t{}", after.container_sha256);
+    println!("after_index_nodes\t{}", after.index_nodes);
+    if let Some(path) = &plan.inventory_after {
+        write_json(path, &after.value)?;
+        println!("inventory_after\t{}", path.display());
+    }
+    let receipt_settled = execution
+        .as_ref()
+        .and_then(|snapshot| snapshot.receipt.as_ref())
+        .map(nioh3_runtime::mutation::native_executor::settled)
+        .unwrap_or(false);
+    let records_added = after.entries.saturating_sub(before.entries);
+    let serial_advanced = before.serial_counter != after.serial_counter;
+    println!("receipt_settled\t{receipt_settled}");
+    println!("records_added\t{records_added}");
+    println!("serial_advanced\t{serial_advanced}");
+    println!(
+        "container_changed\t{}",
+        before.container_sha256 != after.container_sha256
+    );
+
+    if let Some(path) = &plan.report {
+        let report = json!({
+            "schema": "nioh3-live-add-v202-insert/v1",
+            "pid": target.pid,
+            "creation_filetime": target.creation,
+            "module_base": target.module_base,
+            "module_size": target.module_size,
+            "executable_sha256": target.executable_sha256,
+            "profile_id": PC_V202_LIVE_ADD_CANDIDATE.profile_id,
+            "candidate_id": plan.candidate_id,
+            "seed": plan.seed,
+            "rarity": plan.rarity,
+            "stage": plan.stage,
+            "save_path": plan.save_path.display().to_string(),
+            "backup_path": backup_path,
+            "operation_id": operation_id,
+            "plan_digest": plan_digest,
+            "prepared_state": prepared_state,
+            "execution": execution.map(|snapshot| snapshot.to_json()),
+            "failure": failure,
+            "receipt_settled": receipt_settled,
+            "before_entries": before.entries,
+            "after_entries": after.entries,
+            "before_serial": before.serial_counter,
+            "after_serial": after.serial_counter,
+            "before_container_sha256": before.container_sha256,
+            "after_container_sha256": after.container_sha256,
+            "records_added": records_added,
+            "serial_advanced": serial_advanced,
+            "scope": "One reviewed PC v2.02 candidate through LiveAddApplication; inventory mutation is the insertion itself",
+        });
+        write_json(path, &report)?;
+        println!("report\t{}", path.display());
+    }
+    Ok(())
+}
+
+/// Everything the insert request must prove before a plan is even built.
+#[derive(Debug)]
+struct InsertRequest {
+    pid: u32,
+    process_creation_time: String,
+    state_root: std::path::PathBuf,
+    save_path: std::path::PathBuf,
+    decryptor: std::path::PathBuf,
+    candidate: Value,
+    context_digest: String,
+    candidate_id: String,
+    seed: u32,
+    rarity: u8,
+    stage: String,
+    report: Option<std::path::PathBuf>,
+    inventory_before: Option<std::path::PathBuf>,
+    inventory_after: Option<std::path::PathBuf>,
+}
+
+/// The insert request, validated without touching the target.
+///
+/// One candidate, one planned instance, one explicit state root, one attested
+/// save shape and one attested decryptor: every field that decides what gets
+/// written is named by the caller rather than defaulted.
+fn validate_insert_request(request: &Value) -> Result<InsertRequest, String> {
+    if request.get("arm").and_then(Value::as_str) != Some("insert") {
+        return Err("insert mode requires arm \"insert\"".to_string());
+    }
+    let pid = request
+        .get("pid")
+        .and_then(Value::as_u64)
+        .filter(|pid| *pid != 0 && *pid <= u64::from(u32::MAX))
+        .ok_or_else(|| "the insert request needs the planned pid".to_string())?
+        as u32;
+    let process_creation_time = required_string(request, "process_creation_time")?;
+    let state_root = std::path::PathBuf::from(required_string(request, "state_root")?);
+    let save_path = std::path::PathBuf::from(required_string(request, "save_path")?);
+    let decryptor = std::path::PathBuf::from(required_string(request, "decryptor")?);
+    require_user_save_path(&save_path)?;
+    if !decryptor.is_file() {
+        return Err(format!(
+            "the shipped decryptor {} is missing",
+            decryptor.display()
+        ));
+    }
+    let raw_candidate =
+        candidate_argument(request.get("candidate").ok_or_else(|| {
+            "the insert request needs exactly one candidate payload".to_string()
+        })?)?;
+    let mut candidate = candidate_from_fields(&raw_candidate)?;
+    let identity = candidate.identity().map_err(|error| error.message())?;
+    if !candidate.candidate_id.is_empty() && candidate.candidate_id != identity {
+        return Err("Candidate identity does not match the transferred payload".to_string());
+    }
+    // The transfer format always carries the derived identity; a request that
+    // omitted it is completed here rather than at the insertion boundary.
+    candidate.candidate_id = identity.clone();
+    let seed = candidate.seed;
+    let rarity = candidate.rarity;
+    let stage = candidate.stage.value().to_string();
+    Ok(InsertRequest {
+        pid,
+        process_creation_time,
+        state_root,
+        save_path,
+        decryptor,
+        context_digest: candidate.context_digest.clone(),
+        candidate_id: identity,
+        seed,
+        rarity,
+        stage,
+        candidate: canonical_candidate_payload(&candidate),
+        report: optional_path(request, "report"),
+        inventory_before: optional_path(request, "inventory_before"),
+        inventory_after: optional_path(request, "inventory_after"),
+    })
+}
+
+/// The canonical candidate payload plus its identity digest.
+///
+/// Offline and pure. A run names the reviewed record bytes and this fills in the
+/// `candidate_id` the transfer format requires, so no run ever hand-writes an
+/// identity or an arbitrary constant.
+fn live_add_candidate_payload(payload: &str) -> Result<(), String> {
+    let request: Value = serde_json::from_str(payload)
+        .map_err(|error| format!("candidate payload input is not valid JSON: {error}"))?;
+    let mut candidate = candidate_from_fields(&request)?;
+    let identity = candidate.identity().map_err(|error| error.message())?;
+    if !candidate.candidate_id.is_empty() && candidate.candidate_id != identity {
+        return Err("Candidate identity does not match the transferred payload".to_string());
+    }
+    candidate.candidate_id = identity.clone();
+    println!("candidate_id\t{identity}");
+    println!("seed\t{}", candidate.seed);
+    println!("rarity\t{}", candidate.rarity);
+    println!("stage\t{}", candidate.stage.value());
+    println!("record_bytes\t{}", candidate.record.len());
+    println!(
+        "installation_record_bytes\t{}",
+        candidate
+            .installation_record
+            .as_ref()
+            .map(Vec::len)
+            .unwrap_or(0)
+    );
+    // The two record-shaped gates the shipped application applies before it
+    // plans anything, reported offline so a candidate can be judged before a run.
+    match candidate.require_search_candidate_ready() {
+        Ok(()) => println!("search_ready\tok"),
+        Err(error) => println!("search_ready\t{}", error.message()),
+    }
+    match candidate.record_blocker() {
+        Ok(None) => println!("record_gate\tok"),
+        Ok(Some(blocker)) => println!("record_gate\t{blocker}"),
+        Err(error) => println!("record_gate\t{}", error.message()),
+    }
+    println!(
+        "payload\t{}",
+        serde_json::to_string(&canonical_candidate_payload(&candidate))
+            .map_err(|error| error.to_string())?
+    );
+    Ok(())
+}
+
+/// Parse the transfer fields into the shipped candidate type.
+///
+/// `CandidateStage::parse` is crate-private, so the three labels are mirrored
+/// here and a unit test pins them against `CandidateStage::value`.
+fn candidate_from_fields(
+    payload: &Value,
+) -> Result<nioh3_runtime::mutation::InstallationCandidate, String> {
+    use nioh3_runtime::mutation::{CandidateEffect, InstallationCandidate};
+
+    let text = |key: &str| -> Result<String, String> {
+        payload
+            .get(key)
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| format!("the candidate payload needs a {key} string"))
+    };
+    let number = |key: &str| -> Result<u64, String> {
+        payload
+            .get(key)
+            .and_then(Value::as_u64)
+            .ok_or_else(|| format!("the candidate payload needs a {key} number"))
+    };
+    let stage = candidate_stage(&text("record_stage")?)
+        .ok_or_else(|| "the candidate payload names an unknown record_stage".to_string())?;
+    let record = parse_hex_bytes(&text("record_hex")?).map_err(|error| error.message())?;
+    let installation_record = match payload.get("installation_record_hex") {
+        Some(Value::String(value)) if !value.is_empty() => {
+            Some(parse_hex_bytes(value).map_err(|error| error.message())?)
+        }
+        _ => None,
+    };
+    let mut effects = Vec::new();
+    for item in payload
+        .get("effects")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+    {
+        let field = |key: &str| -> Result<u32, String> {
+            item.get(key)
+                .and_then(Value::as_u64)
+                .map(|value| value as u32)
+                .ok_or_else(|| format!("each candidate effect needs a {key} number"))
+        };
+        effects.push(CandidateEffect {
+            slot: field("slot")?,
+            effect_id: field("effect_id")?,
+            value: field("value")?,
+            metadata: field("metadata")?,
+            prefix: field("prefix")?,
+            tail_0: field("tail_0")?,
+            tail_1: field("tail_1")?,
+        });
+    }
+    Ok(InstallationCandidate {
+        candidate_id: payload
+            .get("candidate_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+        context_digest: text("context_digest")?,
+        level: number("level")? as u32,
+        seed: number("seed")? as u32,
+        playthrough: payload
+            .get("playthrough")
+            .and_then(Value::as_u64)
+            .map(|value| value as u32),
+        rarity: number("rarity")? as u8,
+        stage,
+        record,
+        installation_record,
+        effects,
+    })
+}
+
+fn candidate_stage(text: &str) -> Option<nioh3_runtime::mutation::CandidateStage> {
+    use nioh3_runtime::mutation::CandidateStage;
+
+    match text {
+        "final_record" => Some(CandidateStage::FinalRecord),
+        "native_stage_one" => Some(CandidateStage::NativeStageOne),
+        "effect_sequence_only" => Some(CandidateStage::EffectSequenceOnly),
+        _ => None,
+    }
+}
+
+fn canonical_candidate_payload(
+    candidate: &nioh3_runtime::mutation::InstallationCandidate,
+) -> Value {
+    json!({
+        "candidate_id": candidate.candidate_id,
+        "context_digest": candidate.context_digest,
+        "level": candidate.level,
+        "seed": candidate.seed,
+        "playthrough": candidate.playthrough,
+        "rarity": candidate.rarity,
+        "record_stage": candidate.stage.value(),
+        "record_hex": hex(&candidate.record),
+        "installation_record_hex": candidate
+            .installation_record
+            .as_ref()
+            .map(|bytes| hex(bytes)),
+        "effects": candidate
+            .effects
+            .iter()
+            .map(|effect| json!({
+                "slot": effect.slot,
+                "effect_id": effect.effect_id,
+                "value": effect.value,
+                "metadata": effect.metadata,
+                "prefix": effect.prefix,
+                "tail_0": effect.tail_0,
+                "tail_1": effect.tail_1,
+            }))
+            .collect::<Vec<Value>>(),
+    })
+}
+
+fn candidate_argument(value: &Value) -> Result<Value, String> {
+    match value {
+        Value::Object(_) => Ok(value.clone()),
+        Value::String(path) => {
+            let path = std::path::PathBuf::from(path);
+            let text = std::fs::read_to_string(&path)
+                .map_err(|error| format!("candidate payload {}: {error}", path.display()))?;
+            serde_json::from_str(&text)
+                .map_err(|error| format!("candidate payload {}: {error}", path.display()))
+        }
+        _ => Err("the candidate must be a payload object or a payload file".to_string()),
+    }
+}
+
+/// The product's own `<account>/SAVEDATA<nn>/SAVEDATA.BIN` shape, so a checkpoint
+/// is never taken from a file the product could not restore.
+fn require_user_save_path(path: &std::path::Path) -> Result<(), String> {
+    let parts: Vec<String> = path
+        .to_string_lossy()
+        .split(['\\', '/'])
+        .map(str::to_string)
+        .filter(|part| !part.is_empty())
+        .collect();
+    if parts.len() < 3 {
+        return Err(format!(
+            "{} is not an <account>/SAVEDATA<nn>/SAVEDATA.BIN path",
+            path.display()
+        ));
+    }
+    let Some(file) = parts.last() else {
+        return Err("the save path has no file name".to_string());
+    };
+    if file != "SAVEDATA.BIN" {
+        return Err(format!(
+            "{} is not an <account>/SAVEDATA<nn>/SAVEDATA.BIN path",
+            path.display()
+        ));
+    }
+    let slot = parts.get(parts.len() - 2).map(String::as_str).unwrap_or("");
+    let digits = slot.strip_prefix("SAVEDATA").unwrap_or("");
+    if digits.len() != 2 || !digits.chars().all(|digit| digit.is_ascii_digit()) {
+        return Err(format!(
+            "{} is not an <account>/SAVEDATA<nn>/SAVEDATA.BIN path",
+            path.display()
+        ));
+    }
+    if parts.get(parts.len() - 3).is_none_or(String::is_empty) {
+        return Err(format!(
+            "{} names no Steam account directory",
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
+fn required_string(value: &Value, key: &str) -> Result<String, String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .filter(|text| !text.is_empty())
+        .ok_or_else(|| format!("the insert request needs a non-empty {key}"))
+}
+
+fn optional_path(value: &Value, key: &str) -> Option<std::path::PathBuf> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .filter(|text| !text.is_empty())
+        .map(std::path::PathBuf::from)
+}
+
+/// The pinned identity every real candidate run proves before it opens a handle
+/// with write rights.
+struct CandidateTarget {
+    pid: u32,
+    creation: String,
+    module_base: u64,
+    module_size: u64,
+    executable_sha256: String,
+}
+
+fn require_candidate_target(pid: u32, expected_creation: &str) -> Result<CandidateTarget, String> {
+    use nioh3_runtime::mutation::inventory::{InventoryProcess, ReadView};
+    use nioh3_runtime::mutation::native_abi::{
+        PC_V202_CANDIDATE_EXECUTABLE_SHA256, PC_V202_LIVE_ADD_CANDIDATE,
+    };
+    use nioh3_runtime::platform::{
+        module_range, process_creation_filetime, query_image_path, single_process_id,
+        GAME_IMAGE_NAME, GAME_MODULE_NAME,
+    };
+
+    match single_process_id(GAME_IMAGE_NAME) {
+        Ok(owner) if owner == pid => {}
+        Ok(owner) => {
+            return Err(format!(
+                "the planned pid {pid} is not the single owner (owner is {owner})"
+            ))
+        }
+        Err(error) => return Err(error.message()),
+    }
+    let executable = query_image_path(pid).map_err(|error| error.message())?;
+    let bytes = std::fs::read(&executable).map_err(|error| error.to_string())?;
+    let sha = nioh3_runtime::mutation::count::sha256_hex(&bytes);
+    if !sha.eq_ignore_ascii_case(PC_V202_CANDIDATE_EXECUTABLE_SHA256) {
+        return Err("executable identity is not the pinned candidate build".to_string());
+    }
+    let creation = process_creation_filetime(pid)
+        .map_err(|error| error.message())?
+        .ok_or_else(|| "target process is gone".to_string())?;
+    if creation.to_string() != expected_creation {
+        return Err(
+            "PROCESS_INSTANCE_CHANGED: the planned process instance is not the live one"
+                .to_string(),
+        );
+    }
+    let module = module_range(pid, GAME_MODULE_NAME).map_err(|error| error.message())?;
+    let layout = PC_V202_LIVE_ADD_CANDIDATE;
+    let mut reader =
+        nioh3_runtime::mutation::WindowsProcess::open_read(pid).map_err(|e| e.message())?;
+    let dispatch = {
+        let mut view = ReadView {
+            pid,
+            module_base: module.base,
+            reader: &mut reader,
+        };
+        view.read(
+            module.base + layout.dispatch_rva,
+            layout.dispatch_signature.len(),
+        )
+        .map_err(|error| error.message())?
+    };
+    drop(reader);
+    if dispatch != layout.dispatch_signature {
+        return Err(
+            "dispatch prologue does not match the accepted candidate signature".to_string(),
+        );
+    }
+    if debugger_state(pid).0 {
+        return Err("a debugger is already attached to the target".to_string());
+    }
+    Ok(CandidateTarget {
+        pid,
+        creation: creation.to_string(),
+        module_base: module.base,
+        module_size: module.size,
+        executable_sha256: sha.to_uppercase(),
+    })
+}
+
+/// One raw read-only inventory and index snapshot.
+struct CandidateSnapshot {
+    entries: usize,
+    serial_counter: String,
+    acquisition_order_counter: u32,
+    container_sha256: String,
+    index_nodes: usize,
+    value: Value,
+}
+
+fn capture_candidate_snapshot(pid: u32, module_base: u64) -> Result<CandidateSnapshot, String> {
+    use nioh3_runtime::mutation::inventory::{
+        capture_index, capture_inventory, inventory_json, ReadView,
+        PC_V202_INVENTORY_LAYOUT_CANDIDATE,
+    };
+    use nioh3_runtime::mutation::native_abi::CANDIDATE_DISPLAY_VERSION;
+
+    let mut reader =
+        nioh3_runtime::mutation::WindowsProcess::open_read(pid).map_err(|e| e.message())?;
+    let (inventory, index) = {
+        let mut view = ReadView {
+            pid,
+            module_base,
+            reader: &mut reader,
+        };
+        let inventory = capture_inventory(
+            &mut view,
+            &PC_V202_INVENTORY_LAYOUT_CANDIDATE,
+            CANDIDATE_DISPLAY_VERSION,
+        )
+        .map_err(|error| error.message())?;
+        let index = capture_index(
+            &mut view,
+            &PC_V202_INVENTORY_LAYOUT_CANDIDATE,
+            CANDIDATE_DISPLAY_VERSION,
+        )
+        .map_err(|error| error.message())?;
+        (inventory, index)
+    };
+    drop(reader);
+    Ok(CandidateSnapshot {
+        entries: inventory.entries.len(),
+        serial_counter: inventory.serial_counter.clone(),
+        acquisition_order_counter: inventory.acquisition_order_counter,
+        container_sha256: inventory.container_sha256.clone(),
+        index_nodes: index.entries.len(),
+        value: json!({
+            "inventory": inventory_json(&inventory, CANDIDATE_DISPLAY_VERSION),
+            "index": index.to_json(),
+        }),
+    })
+}
+
+/// The probe's checkpoint: a restorable copy, hash-verified in both directions,
+/// plus the plaintext the product's persistence gate reads. The cipher is never
+/// reimplemented here; the request names the shipped audited component.
+struct ProbeSaveBackup {
+    state_root: std::path::PathBuf,
+    decryptor: std::path::PathBuf,
+    counter: u64,
+}
+
+impl ProbeSaveBackup {
+    fn new(state_root: &std::path::Path, decryptor: &std::path::Path) -> Self {
+        Self {
+            state_root: state_root.to_path_buf(),
+            decryptor: decryptor.to_path_buf(),
+            counter: 0,
+        }
+    }
+}
+
+impl nioh3_runtime::mutation::SaveBackup for ProbeSaveBackup {
+    fn checkpoint(
+        &mut self,
+        source: &std::path::Path,
+        raw: &[u8],
+        operation_id: &str,
+    ) -> Result<nioh3_runtime::mutation::SaveCheckpoint, runtime::RuntimeError> {
+        require_user_save_path(source)
+            .map_err(|detail| runtime::RuntimeError::LiveAddRejected { detail })?;
+        self.counter += 1;
+        let directory = self
+            .state_root
+            .join("backups")
+            .join(format!("{operation_id}-{:03}", self.counter));
+        std::fs::create_dir_all(&directory).map_err(|error| io_error(&directory, error))?;
+        let backup_path = directory.join("SAVEDATA.BIN");
+        write_exclusive(&backup_path, raw)?;
+        let copied = std::fs::read(&backup_path).map_err(|error| io_error(&backup_path, error))?;
+        if copied != raw {
+            return Err(runtime::RuntimeError::LiveAddRejected {
+                detail: "Automatic save backup verification failed".to_string(),
+            });
+        }
+        let current = std::fs::read(source).map_err(|error| io_error(source, error))?;
+        if current != raw {
+            return Err(runtime::RuntimeError::LiveAddRejected {
+                detail: "Source save changed during backup".to_string(),
+            });
+        }
+        let manifest = json!({
+            "backup_manifest_schema": "nioh3-live-add-backup/v1",
+            "operation_id": operation_id,
+            "source_path": source.display().to_string(),
+            "backup_file": "SAVEDATA.BIN",
+            "size": raw.len(),
+            "sha256": nioh3_runtime::mutation::count::sha256_hex(raw).to_uppercase(),
+        });
+        let text = serde_json::to_string_pretty(&manifest).map_err(|error| {
+            runtime::RuntimeError::LiveAddRejected {
+                detail: error.to_string(),
+            }
+        })?;
+        write_exclusive(&directory.join("backup-manifest.json"), text.as_bytes())?;
+        let decrypted = decrypt_user_save(&self.decryptor, &backup_path, &directory)?;
+        write_exclusive(&directory.join("decrypted.bin"), &decrypted)?;
+        Ok(nioh3_runtime::mutation::SaveCheckpoint {
+            directory,
+            backup_path,
+            decrypted,
+        })
+    }
+}
+
+/// `SaveCrypto.transform` in Python: stage the input inside a private directory,
+/// run the shipped component with `-i`/`-o`, and refuse anything that is not a
+/// plaintext RNNUSR user save of the shipped size.
+fn decrypt_user_save(
+    decryptor: &std::path::Path,
+    source: &std::path::Path,
+    directory: &std::path::Path,
+) -> Result<Vec<u8>, runtime::RuntimeError> {
+    use std::io::Write;
+
+    let work = directory.join("crypt");
+    std::fs::create_dir_all(&work).map_err(|error| io_error(&work, error))?;
+    let staged = work.join("input.bin");
+    std::fs::copy(source, &staged).map_err(|error| io_error(&staged, error))?;
+    let output_name = "output.bin";
+    let mut child = std::process::Command::new(decryptor)
+        .arg("-i")
+        .arg(&staged)
+        .arg("-o")
+        .arg(output_name)
+        .current_dir(&work)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|error| io_error(decryptor, error))?;
+    if let Some(stdin) = child.stdin.as_mut() {
+        let _ = stdin.write_all(b"\n");
+    }
+    let output = child
+        .wait_with_output()
+        .map_err(|error| io_error(decryptor, error))?;
+    let _ = std::fs::remove_file(&staged);
+    if !output.status.success() {
+        return Err(runtime::RuntimeError::LiveAddRejected {
+            detail: format!(
+                "the shipped decryptor failed: {}{}",
+                String::from_utf8_lossy(&output.stdout).trim(),
+                String::from_utf8_lossy(&output.stderr).trim()
+            ),
+        });
+    }
+    let produced = work.join(output_name);
+    let plaintext = std::fs::read(&produced).map_err(|error| io_error(&produced, error))?;
+    if plaintext.len() != USER_SAVE_SIZE || !plaintext.starts_with(USER_SAVE_MAGIC) {
+        return Err(runtime::RuntimeError::LiveAddRejected {
+            detail: "the shipped decryptor did not produce a plaintext user save".to_string(),
+        });
+    }
+    Ok(plaintext)
+}
+
+fn io_error(path: &std::path::Path, error: std::io::Error) -> runtime::RuntimeError {
+    runtime::RuntimeError::Io {
+        path: path.display().to_string(),
+        detail: error.to_string(),
+    }
+}
+
+/// A durable artifact is created exclusively, so a partial write can never be
+/// mistaken for a finished one.
+fn write_exclusive(path: &std::path::Path, bytes: &[u8]) -> Result<(), runtime::RuntimeError> {
+    use std::io::Write;
+
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(|error| io_error(path, error))?;
+    file.write_all(bytes).map_err(|error| io_error(path, error))
+}
+
+fn write_json(path: &std::path::Path, value: &Value) -> Result<(), String> {
+    let text = serde_json::to_string_pretty(value).map_err(|error| error.to_string())?;
+    std::fs::write(path, text).map_err(|error| format!("{}: {error}", path.display()))
 }
 
 fn build_trampoline(request: &Value) -> Result<Vec<u8>, runtime::RuntimeError> {
@@ -1846,4 +2727,280 @@ fn parse_version(text: &str) -> Result<runtime::FileVersion, String> {
     Ok(runtime::FileVersion::new(
         values[0], values[1], values[2], values[3],
     ))
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|value| value.as_nanos())
+            .unwrap_or(0);
+        let root =
+            std::env::temp_dir().join(format!("nioh3-probe-{name}-{}-{stamp}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("scratch root");
+        root
+    }
+
+    /// A receipt the shipped predicate accepts: the shape a settled noop leaves.
+    fn settled_receipt() -> Value {
+        json!({
+            "operation_id": "v202-noop-settled",
+            "phase": "completed",
+            "active": false,
+            "released": true,
+            "breakpoint_count": 0,
+            "business_outcome": "completed",
+            "remote_execution": "quiescent",
+            "allocation_state": "freed",
+            "debugger_state": "detached",
+            "thread_cleanup": {},
+        })
+    }
+
+    #[test]
+    fn only_unsettled_receipts_block_admission() {
+        let root = scratch("receipts");
+        std::fs::write(root.join("a-settled.json"), settled_receipt().to_string()).expect("write");
+        std::fs::write(
+            root.join("b-uncertain.json"),
+            json!({
+                "operation_id": "v202-noop-27988",
+                "phase": "uncertain",
+                "active": false,
+                "released": false,
+                "breakpoint_count": -1,
+                "thread_cleanup": {},
+            })
+            .to_string(),
+        )
+        .expect("write");
+        // A leftover temporary file is not a durable receipt.
+        std::fs::write(root.join("c-pending.json.tmp"), "{").expect("write");
+
+        let scan = scan_receipts(&root);
+        assert_eq!(scan.total, 2, "only durable .json receipts are counted");
+        assert_eq!(scan.unsettled, vec!["b-uncertain.json".to_string()]);
+    }
+
+    #[test]
+    fn an_unreadable_receipt_is_never_read_as_a_release() {
+        let root = scratch("unreadable");
+        std::fs::write(root.join("broken.json"), "{ not json").expect("write");
+        let scan = scan_receipts(&root);
+        assert_eq!(scan.unsettled, vec!["broken.json".to_string()]);
+    }
+
+    /// The preflight reads the store's authoritative state, so an explicitly
+    /// classified historical receipt is terminal here instead of being reported
+    /// unsettled - and a sidecar that does not bind never releases the fence.
+    #[test]
+    fn a_classified_receipt_is_not_reported_unsettled() {
+        use nioh3_runtime::mutation::historical_preview::{
+            CLASSIFICATION_ACTION, CLASSIFICATION_CLAIM, CLASSIFICATION_LIMITS,
+            CLASSIFICATION_SCHEMA,
+        };
+        let root = scratch("classified");
+        let operation = "178625a6-1f46-4edc-9c45-6e61f6b7f38f";
+        let bytes = serde_json::to_vec(&json!({
+            "operation_id": operation,
+            "pid": 40936,
+            "process_creation_time": "134344509389235036",
+            "mode": "preview",
+            "redirect_count": 1,
+            "phase": "uncertain",
+            "active": false,
+            "released": false,
+            "breakpoint_count": -1,
+            "business_outcome": "unknown",
+            "thread_cleanup": {},
+        }))
+        .expect("json");
+        std::fs::write(root.join(format!("{operation}.json")), &bytes).expect("write");
+        let record = json!({
+            "schema": CLASSIFICATION_SCHEMA,
+            "state": "historical_preview_rejected",
+            "decision": CLASSIFICATION_ACTION,
+            "business_outcome": "rejected",
+            "review": "mismatch",
+            "inventory_effect": "unchanged_with_historical_external_evidence",
+            "claim": CLASSIFICATION_CLAIM,
+            "limits": CLASSIFICATION_LIMITS,
+            "operation_id": operation,
+            "parent_operation_id": "f27a475f-4603-4150-bdd0-73d92d39bbec",
+            "candidate_id": "ab".repeat(32),
+            "receipt_sha256": nioh3_runtime::mutation::count::sha256_hex(&bytes),
+            "receipt_bytes": bytes.len(),
+            "identity": {
+                "pid": 40936,
+                "process_creation_time": "134344509389235036",
+                "mode": "preview",
+                "redirect_count": 1,
+            },
+            "evidence": {
+                "inventory_before_sha256": "aa".repeat(32),
+                "inventory_after_sha256": "aa".repeat(32),
+                "runner_report_sha256": "bb".repeat(32),
+                "runner_request_sha256": "cc".repeat(32),
+                "runner_stdout_sha256": "dd".repeat(32),
+            },
+            "same_run": {},
+            "evidence_kind": "historical_external_snapshots_not_a_native_durable_baseline",
+        });
+        let sidecar = root.join(format!("{operation}.classification.json"));
+        std::fs::write(&sidecar, serde_json::to_vec(&record).expect("json")).expect("write");
+        let scan = scan_receipts(&root);
+        assert_eq!(scan.total, 1, "a classification sidecar is not a receipt");
+        assert!(
+            scan.unsettled.is_empty(),
+            "the classified operation is terminal for the preflight"
+        );
+        let mut unbound = record.clone();
+        unbound["receipt_sha256"] = json!("00".repeat(32));
+        std::fs::write(&sidecar, serde_json::to_vec(&unbound).expect("json")).expect("write");
+        let scan = scan_receipts(&root);
+        assert_eq!(
+            scan.unsettled,
+            vec![format!("{operation}.json")],
+            "a sidecar that does not bind never releases the fence"
+        );
+    }
+
+    #[test]
+    fn the_stage_labels_mirror_the_shipped_type() {
+        for stage in [
+            nioh3_runtime::mutation::CandidateStage::FinalRecord,
+            nioh3_runtime::mutation::CandidateStage::NativeStageOne,
+            nioh3_runtime::mutation::CandidateStage::EffectSequenceOnly,
+        ] {
+            assert_eq!(candidate_stage(stage.value()), Some(stage));
+        }
+        assert_eq!(candidate_stage("native_final"), None);
+    }
+
+    #[test]
+    fn a_foreign_save_shape_is_refused_before_any_copy() {
+        for path in [
+            "C:/nowhere/SAVEDATA.BIN",
+            "C:/nowhere/76561198000000000/SAVEDATA0/SAVEDATA.BIN",
+            "C:/nowhere/76561198000000000/SAVEDATA00/OTHER.BIN",
+            "SAVEDATA00/SAVEDATA.BIN",
+        ] {
+            assert!(
+                require_user_save_path(std::path::Path::new(path)).is_err(),
+                "{path} must be refused"
+            );
+        }
+        assert!(require_user_save_path(std::path::Path::new(
+            r"C:\saves\76561198000000000\SAVEDATA00\SAVEDATA.BIN"
+        ))
+        .is_ok());
+    }
+
+    #[test]
+    fn insert_requires_the_opt_in_arm_and_every_named_field() {
+        let root = scratch("insert-request");
+        let decryptor = root.join("decryptor.exe");
+        std::fs::write(&decryptor, b"stub").expect("write");
+        let candidate = root.join("candidate.json");
+        std::fs::write(&candidate, candidate_field_json().to_string()).expect("write");
+
+        let base = |arm: &str| {
+            json!({
+                "arm": arm,
+                "pid": 40936,
+                "process_creation_time": "134344509389235036",
+                "state_root": root.display().to_string(),
+                "save_path": r"C:\saves\76561198000000000\SAVEDATA00\SAVEDATA.BIN",
+                "decryptor": decryptor.display().to_string(),
+                "candidate": candidate.display().to_string(),
+            })
+        };
+
+        assert!(validate_insert_request(&base("noop")).is_err());
+        assert!(validate_insert_request(&base("insert")).is_ok());
+        for field in [
+            "pid",
+            "process_creation_time",
+            "state_root",
+            "save_path",
+            "decryptor",
+            "candidate",
+        ] {
+            let mut request = base("insert");
+            request.as_object_mut().expect("object").remove(field);
+            let error =
+                validate_insert_request(&request).expect_err(&format!("{field} must be required"));
+            assert!(
+                error.contains(field),
+                "{field} refusal must name the field: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_candidate_identity_is_derived_and_a_declared_mismatch_is_refused() {
+        let fields = candidate_field_json();
+        let candidate = candidate_from_fields(&fields).expect("candidate");
+        let identity = candidate.identity().expect("identity");
+        assert_eq!(identity.len(), 64);
+
+        let mut declared = fields.clone();
+        declared["candidate_id"] = json!(identity.clone());
+        let accepted = candidate_from_fields(&declared).expect("candidate");
+        assert_eq!(accepted.identity().expect("identity"), identity);
+
+        let root = scratch("identity");
+        let decryptor = root.join("decryptor.exe");
+        std::fs::write(&decryptor, b"stub").expect("write");
+        let mut request = json!({
+            "arm": "insert",
+            "pid": 1,
+            "process_creation_time": "1",
+            "state_root": root.display().to_string(),
+            "save_path": r"C:\saves\76561198000000000\SAVEDATA00\SAVEDATA.BIN",
+            "decryptor": decryptor.display().to_string(),
+            "candidate": fields,
+        });
+        let accepted = validate_insert_request(&request).expect("a derived identity is accepted");
+        assert_eq!(accepted.candidate_id, identity);
+        assert_eq!(
+            accepted
+                .candidate
+                .get("candidate_id")
+                .and_then(Value::as_str),
+            Some(identity.as_str()),
+            "the published payload carries the derived identity"
+        );
+
+        request["candidate"]["candidate_id"] = json!("0".repeat(64));
+        let error = validate_insert_request(&request).expect_err("a mismatch must be refused");
+        assert!(error.contains("identity"), "{error}");
+    }
+
+    /// The reviewed record bytes the first insertion would name: a 0xE8 record
+    /// carrying the seeded identity fields the shipped record gate reads.
+    fn candidate_field_json() -> Value {
+        let mut record = vec![0u8; 0xE8];
+        record[0..2].copy_from_slice(&0x1E82u16.to_le_bytes());
+        record[0x20..0x24].copy_from_slice(&226_061_463u32.to_le_bytes());
+        record[0x30] = 4;
+        let mut installation = record.clone();
+        installation[0x18..0x1C].copy_from_slice(&0x0280_0002u32.to_le_bytes());
+        json!({
+            "context_digest": "0f1e2d3c4b5a69788796a5b4c3d2e1f0",
+            "level": 180,
+            "seed": 226_061_463u32,
+            "playthrough": 3,
+            "rarity": 4,
+            "record_stage": "final_record",
+            "record_hex": hex(&record),
+            "installation_record_hex": hex(&installation),
+            "effects": [],
+        })
+    }
 }

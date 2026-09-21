@@ -6,8 +6,12 @@
 //! capture produces, without a game process.
 
 use crate::error::RuntimeError;
+use crate::mutation::count::{is_canonical_uuid, new_operation_id};
 use crate::mutation::descriptor::{assembly_descriptor, verify_assembly_preview};
-use crate::mutation::evidence::{verify_dispatch, REGISTERS};
+use crate::mutation::evidence::{
+    preview_owner_fingerprint, preview_rejection_receipt, verify_dispatch, PREVIEW_PHASE_AFTER,
+    PREVIEW_PHASE_BEFORE, REGISTERS,
+};
 use crate::mutation::inventory::{
     capture_read_only, hex_decode, Inventory, InventoryLayout, InventoryProcess, NativeIndex,
     CAPACITY, INSERTION_SIGNATURE, RECORD_SIZE,
@@ -386,6 +390,11 @@ pub fn assembly_record(record_type: u16, seed: u32, rarity: u8) -> Vec<u8> {
 pub struct LiveAddFaults {
     /// The write happened, the reply did not: the operation stays uncertain.
     pub reply_lost: bool,
+    /// The isolated preview's builder output differs from the reviewed record.
+    /// The dispatch settles as a formal rejection with every proof present.
+    pub preview_mismatch: bool,
+    /// The preview leaves an unsettled receipt, so its child stays blocked.
+    pub preview_incomplete: bool,
     /// The transport can prove the submission never reached the target.
     pub submission_absent: bool,
     /// The periodic idle window was missed; nothing was dispatched.
@@ -541,6 +550,41 @@ impl FakeLiveAddExecutor {
         verify_dispatch(&receipt)?;
         Ok(receipt)
     }
+
+    /// The identity the parent pinned for this preview attempt, or a fresh one.
+    fn preview_child_id(plan: &Value) -> Result<String, RuntimeError> {
+        match plan
+            .get("preview_operation_id")
+            .and_then(Value::as_str)
+            .filter(|value| is_canonical_uuid(value))
+        {
+            Some(pinned) => Ok(pinned.to_string()),
+            None => new_operation_id(),
+        }
+    }
+
+    /// One owner-named preview fingerprint over the fixture's stopped container.
+    fn preview_fingerprint(&self, plan: &Value, phase: &str) -> Result<Value, RuntimeError> {
+        // The fixture's own native index, through the shipped capture traversal:
+        // the fingerprint's index evidence is the real index, not the container.
+        let (inventory, index) = self.fixture.capture()?;
+        Ok(preview_owner_fingerprint(
+            &self.fixture.container()?,
+            self.fixture.serial_counter()?,
+            inventory.acquisition_order_counter,
+            &self.fixture.layout,
+            self.fixture.profile_id,
+            FIXTURE_PID,
+            plan.get("process_creation_time")
+                .and_then(Value::as_str)
+                .unwrap_or(self.current_creation_time.as_str()),
+            self.fixture.manager()?,
+            self.fixture.data()?,
+            self.fixture.base,
+            &index.to_json(),
+            phase,
+        ))
+    }
 }
 
 impl LiveAddExecutor for FakeLiveAddExecutor {
@@ -551,9 +595,104 @@ impl LiveAddExecutor for FakeLiveAddExecutor {
     }
 
     fn preview(&mut self, plan: &Value, assembly_record: &[u8]) -> Result<Value, RuntimeError> {
+        let operation_id = Self::preview_child_id(plan)?;
         let source = Self::preview_source(assembly_record)?;
+        if self.faults.preview_mismatch {
+            // The isolated builder output differs from the reviewed record. The
+            // run settles as a formal rejection with every proof present, and the
+            // adapter returns the same comparison failure the real one does.
+            let mut mismatched = source.clone();
+            mismatched[0x20] ^= 0xFF;
+            let receipt = preview_rejection_receipt(
+                &operation_id,
+                plan.get("parent_operation_id").and_then(Value::as_str),
+                FIXTURE_PID,
+                plan.get("process_creation_time")
+                    .and_then(Value::as_str)
+                    .unwrap_or(self.current_creation_time.as_str()),
+                plan.get("descriptor_hex")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default(),
+                plan.get("expected_record_hex")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default(),
+                plan.get("builder_code_hex")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default(),
+                &mismatched,
+                self.preview_fingerprint(plan, PREVIEW_PHASE_BEFORE)?,
+                self.preview_fingerprint(plan, PREVIEW_PHASE_AFTER)?,
+            )?;
+            self.receipts.insert(operation_id.clone(), receipt);
+            return Err(RuntimeError::LiveAddVerification {
+                detail: "Native assembly differs from the expected installation record"
+                    .to_string(),
+            });
+        }
+        if self.faults.preview_incomplete {
+            // An unsettled receipt: ownership is not proven ended, so the child
+            // stays blocked instead of being settled.
+            let mut receipt = self.preview_receipt(plan, &source)?;
+            if let Some(object) = receipt.as_object_mut() {
+                object.insert("operation_id".to_string(), json!(operation_id.clone()));
+                object.insert("mode".to_string(), json!("preview"));
+                object.insert("phase".to_string(), json!("uncertain"));
+                object.insert("released".to_string(), json!(false));
+                object.insert("business_outcome".to_string(), json!("unknown"));
+                object.insert("remote_execution".to_string(), json!("unknown"));
+                object.insert("allocation_state".to_string(), json!("retained"));
+                object.insert("debugger_state".to_string(), json!("unknown"));
+                object.insert("thread_cleanup".to_string(), json!({}));
+                object.insert("breakpoint_count".to_string(), json!(-1));
+                object.insert("slot".to_string(), json!(0));
+                object.insert("serial".to_string(), json!(0));
+            }
+            self.receipts.insert(operation_id.clone(), receipt);
+            return Err(RuntimeError::LiveAddVerification {
+                detail: "Native dispatch result is uncertain; allocation retained, do not retry"
+                    .to_string(),
+            });
+        }
         verify_assembly_preview(assembly_record, &source)?;
-        self.preview_receipt(plan, &source)
+        let mut receipt = self.preview_receipt(plan, &source)?;
+        if let Some(object) = receipt.as_object_mut() {
+            object.insert("operation_id".to_string(), json!(operation_id.clone()));
+            object.insert("mode".to_string(), json!("preview"));
+            object.insert(
+                "parent_operation_id".to_string(),
+                plan.get("parent_operation_id").cloned().unwrap_or(Value::Null),
+            );
+            object.insert("business_outcome".to_string(), json!("completed"));
+            object.insert("breakpoint_count".to_string(), json!(0));
+            object.insert("remote_execution".to_string(), json!("quiescent"));
+            object.insert("allocation_state".to_string(), json!("freed"));
+            object.insert("debugger_state".to_string(), json!("detached"));
+            object.insert("thread_cleanup".to_string(), json!({}));
+            object.insert(
+                "process_creation_time".to_string(),
+                plan.get("process_creation_time")
+                    .cloned()
+                    .unwrap_or(json!(self.current_creation_time.clone())),
+            );
+        }
+        self.receipts.insert(operation_id.clone(), receipt.clone());
+        Ok(receipt)
+    }
+
+    fn preview_children(
+        &mut self,
+        parent_operation_id: &str,
+    ) -> Result<Vec<Value>, RuntimeError> {
+        Ok(self
+            .receipts
+            .values()
+            .filter(|receipt| {
+                receipt.get("mode").and_then(Value::as_str) == Some("preview")
+                    && receipt.get("parent_operation_id").and_then(Value::as_str)
+                        == Some(parent_operation_id)
+            })
+            .cloned()
+            .collect())
     }
 
     fn insert(&mut self, plan: &Value) -> Result<Value, RuntimeError> {
