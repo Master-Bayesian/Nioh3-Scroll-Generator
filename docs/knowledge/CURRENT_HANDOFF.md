@@ -6,10 +6,13 @@ Release automation follow-up: the working tree now separates bounded preparation
 (`release.yml`, `extended_search=false`) from promotion of an exact successful run
 (`publish-release.yml`, publication off by default). Read the
 [release runbook](RELEASE_RUNBOOK.md) and `nioh3-release` skill before the next
-version. These tooling changes do not modify the published v0.8.0 bytes; they
-are carried on candidate branch
-`codex/release-pipeline-20260921`; hosted preparation of that candidate is
-pending, and promotion of any run still requires explicit authorization.
+version. These tooling changes do not modify the published v0.8.0 bytes.
+Bounded hosted preparation completed on
+`33040400fe3243b6ced7549d4c5e353e0c2fb38b` (run `35633923489`), which is now
+`main`, and the read-only promotion path was exercised successfully (run
+`35636033524`, `publish=false`). See
+[release pipeline acceptance](RELEASE_PIPELINE_ACCEPTANCE_20260921.md).
+Promoting any run still requires explicit authorization.
 
 `v0.8.0` is published: immutable product commit
 `3798693c48cef2238480da66dc0cc0d2a098c78b`, annotated tag object
