@@ -307,7 +307,7 @@
   ],
   "scope": "PC v2.02 live-add code identity. Primary identity is the exact installed Nioh3.exe 2.0.2.0 (SHA-256 E22C4A635E4EC1E27A177B76E27D7F6A637F426C0ED3928B60F5693BC52AE130); the listed ranges are the ones additionally relocated to unique v2.02 code by accepted mapping or unique instruction-shape match. Ranges listed under unverified_ranges could not be identified and are covered only by the executable identity. Read-only derivation.",
   "derivation": {
-    "accepted_v2.01_resource_sha256": "03EB144A66E36A15CA3B8262463B9DB211F7C3ECA7B7910F753E38849ECE27AD",
+    "accepted_v2.01_resource_sha256": "6AC687BCFE842234F4A4AD3933A44B4A47B6FB30C3BEF6F861E33816477D8799",
     "accepted_v2.02_mapping_sha256": "A5807D8705505B9FEC815EFC2D6643E4748A4EF3967E92095401D2A49424B009",
     "v2.01_text_sha256": "F8799B5DB54A9CA46F52BCD6C037B2AD9B413DC83A26F1D3F0E61251BFB48023",
     "v2.02_text_sha256": "4CEC8FB6AD867417A76DF8201C1D4F54172443884910463C1953ACAD91AE6C29",

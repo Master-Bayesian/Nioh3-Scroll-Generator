@@ -473,13 +473,13 @@ mod tests {
     /// The shipped identity digests, as established by the review and the
     /// independent recomputation. Preserved so an encoding drift fails closed.
     const LEGACY_VERSIONED_DIGEST: &str =
-        "915756776dc7c7a236bee49bef5f5ab19dd3a676bdcd405cf88c0fefed977532";
+        "46d6765e79ad79227e0acf2d5956290f99834283dc570de559f88b15d6d31ae3";
     const LEGACY_BUNDLE_DIGEST: &str =
-        "5e81a56c268a18a6f799447fdd7c445fea949c24ae555e0cfa75cf9016d5cd92";
+        "40fa95202f987edc50f62c329dd81871e51f759fcfad36227f7e089b19a4a531";
     const V202_VERSIONED_DIGEST: &str =
         "09fa65803a0c058880f4d38900290b152eab89febb03615ce2576f4b020b358b";
     const V202_BUNDLE_DIGEST: &str =
-        "df15220de9e356755bd8b4e2ec33f4617cf0e7c140347898b8374fd75515acbf";
+        "d1fb81af3bfc8e577239c2facdb097c320c9ab8b0a88e9fea792b1819c5584b2";
 
     fn resolve(root: &Path, version: (u16, u16, u16, u16)) -> SelectedGenerationBundle {
         resolve_selected_generation_bundle(root, version)

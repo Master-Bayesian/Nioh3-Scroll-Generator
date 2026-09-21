@@ -819,30 +819,30 @@ mod tests {
     fn production_canonical_payload_and_digest_are_pinned_goldens() {
         const V202_CANONICAL: &str = concat!(
             "{\"algorithm_version\":\"scroll-generation-v0.7-native-completion-1\",",
-            "\"bundle_digest\":\"df15220de9e356755bd8b4e2ec33f4617cf0e7c140347898b8374fd75515acbf\",",
+            "\"bundle_digest\":\"d1fb81af3bfc8e577239c2facdb097c320c9ab8b0a88e9fea792b1819c5584b2\",",
             "\"game_file_version\":\"2.0.2.0\",",
             "\"game_profile\":\"pc-v2.00.02-v2.01\",",
             "\"policy_version\":\"operation-policy-v1\",",
             "\"product_version\":\"0.8.0\",",
-            "\"resources_digest\":\"a1e535ced07f15ebfe97b7d567dc081dc719448abbf4db6f57d1e76a826e32c3\",",
+            "\"resources_digest\":\"411866d772e8e2450c1f4becd4c5e79761600f7766ab0659438bcbde21997048\",",
             "\"seed_accelerator_abi\":null,",
             "\"seed_accelerator_build_id\":null,",
             "\"versioned_digest\":\"09fa65803a0c058880f4d38900290b152eab89febb03615ce2576f4b020b358b\",",
             "\"versioned_resource_dir\":\"r4_finalizer/pc_v2_02/resource_v1\"}",
         );
         const V202_CONTEXT_DIGEST: &str =
-            "1903eeaffde48d3b10ba5f9edbef88dae6205dcf2f2460d7fe69fc3361bb588e";
+            "6f1292895f25937005f736b3170ccfd11b295aa7c284d3744339f6bbfd1a8712";
         const LEGACY_CANONICAL: &str = concat!(
             "{\"algorithm_version\":\"scroll-generation-v0.7-native-completion-1\",",
             "\"game_profile\":\"pc-v2.00.02-v2.01\",",
             "\"policy_version\":\"operation-policy-v1\",",
             "\"product_version\":\"0.8.0\",",
-            "\"resources_digest\":\"a1e535ced07f15ebfe97b7d567dc081dc719448abbf4db6f57d1e76a826e32c3\",",
+            "\"resources_digest\":\"411866d772e8e2450c1f4becd4c5e79761600f7766ab0659438bcbde21997048\",",
             "\"seed_accelerator_abi\":null,",
             "\"seed_accelerator_build_id\":null}",
         );
         const LEGACY_DIGEST: &str =
-            "7c70ff81cc33efc06fdcad5b848ee598db2f15d30e5afb990513eaeadc5f47a8";
+            "4a38a6d3d14b3a2c24bbb946c9595d30b1098662b07299af2b617e927052d61f";
 
         let context = capture_resolved_context(
             SUPPORTED_GAME_PROFILE,

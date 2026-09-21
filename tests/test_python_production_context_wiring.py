@@ -37,9 +37,9 @@ V20002 = (2, 0, 0, 2)
 
 # Pinned for the v0.8.0 product identity and re-asserted on the Python side in
 # tests/test_resolved_context.py.
-V202_CONTEXT_DIGEST = "1903eeaffde48d3b10ba5f9edbef88dae6205dcf2f2460d7fe69fc3361bb588e"
-V20002_CONTEXT_DIGEST = "61b50195316954103a3768f50da59dd6dd3aa8726487c798aa98c11f26b7b7c4"
-SHARED_LEGACY_DIGEST = "7c70ff81cc33efc06fdcad5b848ee598db2f15d30e5afb990513eaeadc5f47a8"
+V202_CONTEXT_DIGEST = "6f1292895f25937005f736b3170ccfd11b295aa7c284d3744339f6bbfd1a8712"
+V20002_CONTEXT_DIGEST = "d866b3445427d264dfd58b4da29681075d8b1d8d227c67c3b4e409bc10f1174c"
+SHARED_LEGACY_DIGEST = "4a38a6d3d14b3a2c24bbb946c9595d30b1098662b07299af2b617e927052d61f"
 
 # The pinned goldens were captured with no accelerator; this host may have the
 # DLL loaded, so the goldens are only meaningful for the accelerator-free

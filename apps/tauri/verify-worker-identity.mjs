@@ -102,6 +102,27 @@ function parseArgs(argv) {
   return options;
 }
 
+const GAME_FILE_VERSION_PATTERN = /^\d+\.\d+\.\d+\.\d+$/;
+
+/** The packaged host's exact resolved four-part game file version. */
+function parityGameFileVersion() {
+  const raw = (process.env.NIOH3_PARITY_GAME_FILE_VERSION ?? '').trim();
+  if (!GAME_FILE_VERSION_PATTERN.test(raw)) {
+    throw new Error(
+      "NIOH3_PARITY_GAME_FILE_VERSION must be the staged worker's exact " +
+        'four-part game file version, for example 2.0.2.0',
+    );
+  }
+  return raw;
+}
+
+/** Whether one argv already selects the worker's generation identity. */
+function hasIdentitySelection(argv) {
+  return (
+    argv.includes('--game-file-version') || argv.includes('--legacy-test-context')
+  );
+}
+
 function writeFrame(stream, value) {
   const body = Buffer.from(JSON.stringify(value), 'utf8');
   const header = Buffer.alloc(4);
@@ -388,6 +409,13 @@ export async function verifyWorkerIdentity({
     if (value === '<state root>') return isolatedState;
     return value.replace('<runtime>', root);
   });
+  // The packaged host injects this session's exact resolved version onto the
+  // staged argv; the identity acceptance emulates that injection whenever the
+  // manifest does not already name an identity selection. An explicit
+  // --legacy-test-context stays untouched.
+  if (!hasIdentitySelection(args)) {
+    args.push('--game-file-version', parityGameFileVersion());
+  }
   const environment = {...process.env};
   if (localAppData) environment.LOCALAPPDATA = resolve(localAppData);
   delete environment.NIOH3_PYTHON;

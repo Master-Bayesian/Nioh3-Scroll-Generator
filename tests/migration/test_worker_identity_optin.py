@@ -135,6 +135,9 @@ class RealWorkerIdentityTests(unittest.TestCase):
         out = self.temp / f"identity-{role}{'-shipped' if shipped else ''}.json"
         environment = dict(os.environ)
         environment.pop("NIOH3_WORKER_IDENTITY_OPT_IN", None)
+        # The staged manifest never carries the identity selection, so the
+        # acceptance harness injects this exact four-part version at spawn.
+        environment.setdefault("NIOH3_PARITY_GAME_FILE_VERSION", "2.0.2.0")
         if opt_in:
             environment["NIOH3_WORKER_IDENTITY_OPT_IN"] = "1"
         argv = [
@@ -264,6 +267,7 @@ class RealWorkerIdentityTests(unittest.TestCase):
         def run_save(method: str | None, params: dict | None) -> tuple[int, str, str, dict | None]:
             out = self.temp / f"roundtrip-{method or 'none'}.json"
             environment = dict(os.environ)
+            environment.setdefault("NIOH3_PARITY_GAME_FILE_VERSION", "2.0.2.0")
             environment["NIOH3_WORKER_IDENTITY_OPT_IN"] = "1"
             argv = [
                 "node",
@@ -328,6 +332,36 @@ class RealWorkerIdentityTests(unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertIn("contract digest mismatch", stderr)
         schema.write_bytes(original)
+
+    def test_missing_or_malformed_parity_version_is_refused(self) -> None:
+        """The harness refuses to spawn a worker with an unvalidated identity."""
+
+        for raw in ("", "2.0.2", "2.0.2.0.0", "2.0.x.0"):
+            with self.subTest(version=raw):
+                out = self.temp / "identity-invalid.json"
+                environment = dict(os.environ)
+                environment["NIOH3_WORKER_IDENTITY_OPT_IN"] = "1"
+                environment["NIOH3_PARITY_GAME_FILE_VERSION"] = raw
+                completed = subprocess.run(
+                    [
+                        "node",
+                        str(IDENTITY),
+                        "--runtime",
+                        str(self.runtime),
+                        "--role",
+                        "offline_search",
+                        "--out",
+                        str(out),
+                    ],
+                    cwd=str(ROOT),
+                    env=environment,
+                    capture_output=True,
+                    text=True,
+                    timeout=600,
+                )
+                self.assertNotEqual(completed.returncode, 0)
+                self.assertIn("four-part game file version", completed.stderr)
+                self.assertFalse(out.is_file(), "a refused spawn writes no report")
 
     def test_shipped_default_reports_unverified_instead_of_fabricating(self) -> None:
         # Witness the default graph's truthfulness: the shipped worker name holds
