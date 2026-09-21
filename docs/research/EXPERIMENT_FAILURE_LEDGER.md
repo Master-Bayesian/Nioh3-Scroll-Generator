@@ -2736,3 +2736,87 @@ accepted here.
 packaged parity pending.
 
 **Skill promotion:** None.
+
+## 2026-09-20: local-RC cleanup probe crossed the exact allowlist and deleted a live Git admin directory
+
+**Objective:** During local-RC source prep, recover D: space by removing exactly
+four obsolete registered detached worktrees
+(`D:\Nioh3_v080_deliverables\source-ade0dd2-local-rc`,
+`source-28103ff-local-rc`, `source-5dc3bff-local-rc`,
+`source-1b94181-local-rc`) with `git worktree remove --force`, plus the verified
+temporary Cargo target `D:\Nioh3_v080_deliverables\build-cache\save-parity`,
+while leaving the F: main checkout, `build-cache\tauri-target` and the live
+`D:\Nioh3_v080_deliverables\v080-candidate-source` candidate worktree intact.
+
+**Observed symptom:** After the four removals, the deleted worktrees' Git admin
+directories under `F:\Nioh3_ScrollEditor\.git\worktrees\` were still visible by
+name while every read failed with access denied. A diagnostic loop meant to
+compare one of those names with one live entry also carried the recursive delete
+call, so it ran `[System.IO.Directory]::Delete(<admin dir>, $true)` against
+`F:\Nioh3_ScrollEditor\.git\worktrees\v080-candidate-source`, the admin
+directory of the live `v080-candidate-source` worktree, which was not on the
+removal list. That name then held in the Windows delete-pending state and
+`git worktree list` no longer registered the worktree.
+
+**Root cause:** Operator error, not a product or tooling defect. The probe loop
+enumerated one path outside the prevalidated exact allowlist and executed a
+recursive delete on each entry instead of only inspecting it. A misread symptom
+invited the wider probe: while the Codex host process holds directory handles on
+the workspace, any delete under `.git\worktrees` reports as Windows
+delete-pending (name visible, access denied, ACL unreadable), which reads like a
+stale ACL or ownership problem rather than a completed deletion.
+
+**Impact:** No tracked content and no working-tree file changed.
+`D:\Nioh3_v080_deliverables\v080-candidate-source` and every file in it stayed
+intact. Lost were that worktree's Git admin metadata: `HEAD`, `index`, `logs/`,
+`ORIG_HEAD` and `FETCH_HEAD` for the detached commit
+`28fe2500ec06a308fd545a131c78140f4961b04e`.
+
+**Evidence:** `F:\Nioh3_ScrollEditor\.git\worktrees\v080-candidate-source`
+(deleted, now a delete-pending name) and
+`F:\Nioh3_ScrollEditor\.git\worktrees\v080-candidate-source-recovered`
+(rebuilt `HEAD` = `28fe2500ec06a308fd545a131c78140f4961b04e`); the unchanged
+worktree `D:\Nioh3_v080_deliverables\v080-candidate-source`; and the cleanup
+report to `/root` for the same session. The incident exists only as filesystem
+and Git metadata state, so this ledger entry is its repository record.
+
+**Repair:** Recreated the admin directory as
+`F:\Nioh3_ScrollEditor\.git\worktrees\v080-candidate-source-recovered` with
+`gitdir` pointing at the worktree's `.git` file, `commondir` = `../..` and
+`HEAD` = `28fe2500ec06a308fd545a131c78140f4961b04e`; repointed
+`D:\Nioh3_v080_deliverables\v080-candidate-source\.git` at that directory; and
+rebuilt the index with `git -C <worktree> read-tree HEAD`.
+
+**Verification:** `git worktree list --porcelain` registers
+`D:/Nioh3_v080_deliverables/v080-candidate-source` again at detached
+`HEAD 28fe2500ec06a308fd545a131c78140f4961b04e`, and
+`git status --porcelain` in that worktree is empty, so it was clean and no
+staged or unstaged work was lost. Only the reflog and the `ORIG_HEAD` /
+`FETCH_HEAD` caches are unrecoverable. The assigned cleanup still completed on
+the same pass: four obsolete worktrees (138.02 MiB), the `save-parity` target
+(1429.48 MiB) and a new clean detached worktree at `ea50b19` were all verified.
+
+**Prevention:** Never probe or delete `.git/worktrees` entries outside the
+prevalidated exact list; the allowlist is per entry, never "everything that
+looks stale". Remove worktrees only through `git worktree remove --force <exact
+absolute path>` and never run a recursive delete against an admin directory.
+Unlink a worktree's `node_modules` junction before removal so no shared
+dependency tree can be traversed. Treat a delete-pending name (exists, access
+denied, ACL unreadable) as already deleted and closed until the host process
+restarts rather than probing it. Pending names dissolve on host restart; the
+repaired admin directory keeps the non-standard id
+`v080-candidate-source-recovered` until then.
+
+**Reproduction status:** The delete-pending behaviour reproduced deterministically
+with a fresh empty probe directory under the same parent (created, deleted, then
+still visible and unreadable). The accidental deletion of the live admin
+directory is a one-off operator error and is not reproducible as a product or
+gate failure.
+
+**Follow-up state:** Closed for the incident. The worktree is functional and the
+RC/source state is unaffected. Optional cosmetic follow-up after the Codex host
+restarts: rename the admin directory back to its original id and run
+`git worktree repair`.
+
+**Skill promotion:** None. One-off operator failure; recorded for the bounded
+allowlist and delete-pending lessons only.
