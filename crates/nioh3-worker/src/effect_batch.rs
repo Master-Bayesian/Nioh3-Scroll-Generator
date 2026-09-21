@@ -1077,7 +1077,9 @@ mod tests {
         }))
         .expect("the Grace-only rarity-5 request is valid");
         let compiled = compiler
-            .compile(&query, &accelerator)
+            // The Grace-filtered route is rarity 5, so the
+            // DirectCompute-gated rarity-3 pivot never applies.
+            .compile(&query, &accelerator, false)
             .expect("the Grace partial route compiles");
         assert_eq!(
             compiled.route,

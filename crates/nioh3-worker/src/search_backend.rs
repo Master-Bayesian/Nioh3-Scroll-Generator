@@ -14,7 +14,7 @@ use nioh3_domain::rng::A_INV;
 
 use crate::effect_batch::{EffectMaskSpec, PartialEffectVerifier, PREDICATE_BATCH_SIZE};
 use crate::effect_path::{
-    native_path_descriptors, CompiledEffectPlan, EffectPathError, PreimageVerifier,
+    native_path_descriptors, CompiledEffectPlan, EffectPathError, PreimageVerifier, U16Run,
 };
 use crate::native_search::{
     absent_capabilities, Accelerator, AuxiliaryPivotSpec, ExecutionPolicy, ExecutionPolicyGuard,
@@ -23,7 +23,7 @@ use crate::native_search::{
     MAX_R4_PRIMARY_TRIALS,
 };
 use crate::preimage::{
-    PreimageAccelerator, PreimageError, PreimagePlanParams, PreimagePolicy,
+    EffectPathInput, PreimageAccelerator, PreimageError, PreimagePlanParams, PreimagePolicy,
     DEFAULT_OUTPUT_CAPACITY, MAX_OUTPUT_CAPACITY, MAX_PREIMAGE_TRIALS,
 };
 
@@ -74,6 +74,40 @@ pub enum NativePivotQuery {
         plans: Arc<Vec<CompiledEffectPlan>>,
         verifier: Arc<PreimageVerifier>,
     },
+    /// NG3 rarity-3 named-primary pivot families
+    /// (`search_application.collect_offline_ng3_rarity3_primary_pivot_search_batch`).
+    ///
+    /// The cursor space is the concatenation of every compiled family, in
+    /// family order: a one-based trial is `family_offset + local native trial`,
+    /// exactly like the shipped `CompiledPivotFamily` cursor. The
+    /// accelerator's own trials are pivot-value-major (value index major, the
+    /// state's low sixteen bits minor), so every returned pair is re-derived
+    /// here from its trial before the page hands it on.
+    PrimaryPivot {
+        families: Arc<Vec<PrimaryPivotFamilySpec>>,
+    },
+}
+
+/// One NG3 rarity-3 primary-pivot family in its native form.
+///
+/// `values` is the family's ascending high-16 bucket list (the pivot table
+/// the fixed-draw collector enumerates), `descriptors` are the packed path
+/// constraints that enforce the family's promotion interval, and `params`
+/// carries the same scalar configuration the shipped synthetic plan uses.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrimaryPivotFamilySpec {
+    pub values: Vec<u16>,
+    pub descriptors: Vec<EffectPathInput>,
+    pub params: PreimagePlanParams,
+    /// The family's promotion interval, kept for diagnostics and tests.
+    pub promotion_u16_runs: Vec<U16Run>,
+}
+
+impl PrimaryPivotFamilySpec {
+    /// `PrimaryPivotFamily.pivot_state_count`: the family's 65,536-trial states.
+    pub fn pivot_state_count(&self) -> u64 {
+        self.values.len() as u64 * 0x1_0000
+    }
 }
 
 impl NativePivotQuery {
@@ -87,6 +121,10 @@ impl NativePivotQuery {
             // families, not one permuted value table: it reports no flat value
             // table, and its acceptance check is the certified recomposition.
             NativePivotQuery::EffectPreimage { .. } => &[],
+            // The primary-pivot route's cursor space is the concatenation of
+            // its own families, so it reports no single flat value table
+            // either; its acceptance check is the family replay below.
+            NativePivotQuery::PrimaryPivot { .. } => &[],
         }
     }
 
@@ -97,6 +135,10 @@ impl NativePivotQuery {
             // Each plan family is enumerated low16-minor by the accelerator, so
             // the stride is one; no cursor replay uses it on this route.
             NativePivotQuery::EffectPreimage { .. } => 1,
+            // The fixed-draw collector owns the low-16 order of a pivot family
+            // (the shipped adapter discards `low16_stride`), so this value is
+            // unused by the route.
+            NativePivotQuery::PrimaryPivot { .. } => 1,
             _ => R4_PRIMARY_LOW16_STRIDE,
         }
     }
@@ -107,6 +149,10 @@ impl NativePivotQuery {
             NativePivotQuery::EffectPreimage { plans, .. } => plans
                 .iter()
                 .map(CompiledEffectPlan::pivot_state_count)
+                .sum(),
+            NativePivotQuery::PrimaryPivot { families } => families
+                .iter()
+                .map(PrimaryPivotFamilySpec::pivot_state_count)
                 .sum(),
             query => query.values().len() as u64 * 0x1_0000,
         }
@@ -130,6 +176,7 @@ impl NativePivotQuery {
             NativePivotQuery::R4Primary { .. } => MAX_R4_PRIMARY_TRIALS,
             NativePivotQuery::Auxiliary { .. } => MAX_AUXILIARY_TRIALS,
             NativePivotQuery::EffectPreimage { .. } => MAX_PREIMAGE_TRIALS,
+            NativePivotQuery::PrimaryPivot { .. } => MAX_PRIMARY_PIVOT_TRIALS,
         }
     }
 }
@@ -138,6 +185,12 @@ impl NativePivotQuery {
 pub const R4_PRIMARY_LOW16_STRIDE: u16 = 0x9E37;
 /// `low16_stride` the fused auxiliary route uses.
 pub const AUXILIARY_LOW16_STRIDE: u16 = 0x9E37;
+/// Largest window one fixed-draw pivot-family call may scan.
+///
+/// `effect_preimage_accelerator.collect_fixed_draw_pivot_seeds_d3d11` refuses a
+/// chunk above 8,000,000 trials, and the shipped pivot-family collector
+/// (`CompiledPivotFamily` with its 8,000,000-trial chunk) never exceeds it.
+pub const MAX_PRIMARY_PIVOT_TRIALS: u64 = 8_000_000;
 
 /// One bounded page request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -446,7 +499,7 @@ impl SearchBackend {
             }
             accumulate(&mut stage_counts, &counts)?;
 
-            let accepted = match filter {
+            let filtered = match filter {
                 Some(filter) => filter_matches(
                     accelerator,
                     self.preimage(),
@@ -457,9 +510,30 @@ impl SearchBackend {
                         .page_size
                         .saturating_sub(matches.len())
                         .saturating_add(1),
+                    cancelled,
                 )?,
-                None => page.matches,
+                None => FilteredMatches {
+                    matches: page.matches,
+                    stopped_at: None,
+                },
             };
+            if let Some(stopped_at) = filtered.stopped_at {
+                // Cancellation was observed while the window was being decided.
+                // The page keeps every accepted match and reports the exclusive
+                // cursor it actually decided through, so a resume re-decides the
+                // interrupted raw match and can neither replay a published
+                // candidate nor skip an undecided one.
+                matches.extend(filtered.matches);
+                cursor = stopped_at;
+                cancelled_observed = true;
+                progress(&ChunkProgress {
+                    inspected_through_trial: cursor,
+                    stage_counts: stage_counts.clone(),
+                    matches: matches.len(),
+                });
+                break;
+            }
+            let accepted = filtered.matches;
             let remaining = request.page_size - matches.len();
             if accepted.len() > remaining {
                 // The preimage window already reports its verified matches in
@@ -495,18 +569,26 @@ impl SearchBackend {
                 for matched in &recount.matches {
                     verify_window_match(query, &recount_window, *matched)?;
                 }
+                // The recount is the bounded exact prefix that proves the cut,
+                // so it always runs to completion; a cancellation that lands
+                // inside it is observed by the caller's own check after the
+                // page returns, exactly like a chunk boundary.
                 let recount_accepted = match filter {
-                    Some(filter) => filter_matches(
-                        accelerator,
-                        self.preimage(),
-                        self.pinned_preimage_policy(),
-                        filter,
-                        &recount.matches,
-                        request
-                            .page_size
-                            .saturating_sub(matches.len())
-                            .saturating_add(1),
-                    )?,
+                    Some(filter) => {
+                        filter_matches(
+                            accelerator,
+                            self.preimage(),
+                            self.pinned_preimage_policy(),
+                            filter,
+                            &recount.matches,
+                            request
+                                .page_size
+                                .saturating_sub(matches.len())
+                                .saturating_add(1),
+                            &|| false,
+                        )?
+                        .matches
+                    }
                     None => recount.matches,
                 };
                 if recount_accepted.len() != remaining {
@@ -604,6 +686,11 @@ impl NativePivotQuery {
             NativePivotQuery::EffectPreimage { plans, .. } => {
                 plans.first().map_or(1, |plan| plan.pivot_draw_index)
             }
+            // Each family carries its own pivot draw; the first family's is the
+            // declared draw of the shipped combined cursor.
+            NativePivotQuery::PrimaryPivot { families } => families
+                .first()
+                .map_or(1, |family| family.params.pivot_draw_index),
         }
     }
 }
@@ -641,10 +728,29 @@ pub struct MatchFilter<'a> {
     pub effect_verifier: Option<&'a PartialEffectVerifier>,
 }
 
+/// The outcome of deciding one window's raw native matches.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FilteredMatches {
+    /// The accepted matches, in trial order, never more than the caller's limit.
+    matches: Vec<PivotMatch>,
+    /// `Some(cursor)` when cancellation stopped the decision: the exclusive
+    /// cursor the page has really decided through. `None` when the whole window
+    /// was decided.
+    stopped_at: Option<u64>,
+}
+
 /// Decide one window's raw native matches with the shipped predicates.
 ///
 /// Runs inside the page loop, so the caller already holds the native call lock
 /// and passes the accelerator directly.
+///
+/// The window is decided in `PREDICATE_BATCH_SIZE` slices, exactly like the
+/// shipped `_iter_solution_prefetch` batches, and `cancelled` is polled before
+/// every slice and before every survivor's recomposition. That placement is the
+/// shipped one: a cancellation never waits for a whole window's verification,
+/// and the checkpoint it produces is the exclusive cursor of the last decided
+/// raw match, so a resume re-decides the interrupted match instead of replaying
+/// a published candidate or skipping an undecided one.
 fn filter_matches(
     accelerator: &Accelerator,
     preimage: Result<&Arc<PreimageAccelerator>, &PreimageError>,
@@ -652,38 +758,50 @@ fn filter_matches(
     filter: &MatchFilter<'_>,
     raw: &[PivotMatch],
     limit: usize,
-) -> Result<Vec<PivotMatch>, NativeSearchError> {
+    cancelled: &dyn Fn() -> bool,
+) -> Result<FilteredMatches, NativeSearchError> {
+    let mut accepted: Vec<PivotMatch> = Vec::with_capacity(limit.min(raw.len()));
     if raw.is_empty() || limit == 0 {
-        return Ok(Vec::new());
+        return Ok(FilteredMatches {
+            matches: accepted,
+            stopped_at: None,
+        });
     }
-    let mut kept: Vec<PivotMatch> = raw.to_vec();
-    if let Some(mask) = filter.effect_mask {
-        kept = effect_mask_matches(preimage, policy, mask, kept)?;
-        if kept.is_empty() {
-            return Ok(kept);
+    let mut index = 0usize;
+    while index < raw.len() && accepted.len() < limit {
+        if cancelled() {
+            return Ok(FilteredMatches {
+                matches: accepted,
+                stopped_at: Some(raw[index].trial - 1),
+            });
         }
-    }
-    if let Some(primary) = filter.primary {
-        let seeds: Vec<u32> = kept.iter().map(|matched| matched.seed).collect();
-        let selected = accelerator.primary_effect_selected(primary, &seeds)?;
-        kept = kept
-            .into_iter()
-            .zip(selected)
-            .filter_map(|(matched, keep)| keep.then_some(matched))
-            .collect();
-    }
-    if let Some(auxiliary) = filter.auxiliary {
-        if !kept.is_empty() {
-            let seeds: Vec<u32> = kept.iter().map(|matched| matched.seed).collect();
-            let selected = accelerator.auxiliary_criteria_selected(auxiliary, &seeds)?;
-            kept = kept
-                .into_iter()
-                .zip(selected)
-                .filter_map(|(matched, keep)| keep.then_some(matched))
-                .collect();
+        let batch_end = (index + PREDICATE_BATCH_SIZE).min(raw.len());
+        let mut kept: Vec<PivotMatch> = raw[index..batch_end].to_vec();
+        if let Some(mask) = filter.effect_mask {
+            kept = effect_mask_matches(preimage, policy, mask, kept)?;
         }
-    }
-    if let Some(verifier) = filter.effect_verifier {
+        if let Some(primary) = filter.primary {
+            if !kept.is_empty() {
+                let seeds: Vec<u32> = kept.iter().map(|matched| matched.seed).collect();
+                let selected = accelerator.primary_effect_selected(primary, &seeds)?;
+                kept = kept
+                    .into_iter()
+                    .zip(selected)
+                    .filter_map(|(matched, keep)| keep.then_some(matched))
+                    .collect();
+            }
+        }
+        if let Some(auxiliary) = filter.auxiliary {
+            if !kept.is_empty() {
+                let seeds: Vec<u32> = kept.iter().map(|matched| matched.seed).collect();
+                let selected = accelerator.auxiliary_criteria_selected(auxiliary, &seeds)?;
+                kept = kept
+                    .into_iter()
+                    .zip(selected)
+                    .filter_map(|(matched, keep)| keep.then_some(matched))
+                    .collect();
+            }
+        }
         // The native mask is never the acceptance decision: every survivor is
         // re-composed with the certified generator and re-checked against every
         // query criterion. A composition failure is an error, not a rejection.
@@ -693,22 +811,32 @@ fn filter_matches(
         // `page_size` accepted matches, and one more to prove it must cut the
         // cursor at an accepted trial. Without this bound a bounded page pays
         // for every survivor of its whole window.
-        let mut accepted: Vec<PivotMatch> = Vec::with_capacity(kept.len());
         for matched in kept {
-            if accepted.len() >= limit {
-                break;
+            if cancelled() {
+                return Ok(FilteredMatches {
+                    matches: accepted,
+                    stopped_at: Some(matched.trial - 1),
+                });
             }
-            if verifier
-                .accepts(matched.seed)
-                .map_err(|error| map_effect_path_error(&error))?
-            {
+            let keep = match filter.effect_verifier {
+                Some(verifier) => verifier
+                    .accepts(matched.seed)
+                    .map_err(|error| map_effect_path_error(&error))?,
+                None => true,
+            };
+            if keep {
                 accepted.push(matched);
+                if accepted.len() >= limit {
+                    break;
+                }
             }
         }
-        kept = accepted;
+        index = batch_end;
     }
-    kept.truncate(limit);
-    Ok(kept)
+    Ok(FilteredMatches {
+        matches: accepted,
+        stopped_at: None,
+    })
 }
 
 /// Apply the accelerator's batched forward filter to the surviving Seeds.
@@ -818,8 +946,60 @@ fn verify_window_match(
     }
     match query {
         NativePivotQuery::EffectPreimage { .. } => Ok(()),
+        NativePivotQuery::PrimaryPivot { families } => {
+            let expected = replay_primary_pivot_seed(families, matched.trial)?;
+            if expected != matched.seed {
+                return Err(NativeSearchError::Rejected {
+                    call: "native_primary_pivot_replay",
+                });
+            }
+            Ok(())
+        }
         other => verify_pivot_match(other.values(), window, matched),
     }
+}
+
+/// Derive the Seed a one-based global trial must produce on the pivot-family
+/// route, using the domain LCG inverse the shipped ABI uses.
+///
+/// The fixed-draw collector's cursor is pivot-value-major: for a zero-based
+/// family-local trial the bucket index is `trial / 65,536` into the family's
+/// ascending bucket list and the minor key is `trial % 65,536` (the state's
+/// low sixteen bits). The state at the family's pivot draw is therefore
+/// reconstructed exactly, and the Seed is that state inverted back through the
+/// LCG.
+pub fn replay_primary_pivot_seed(
+    families: &[PrimaryPivotFamilySpec],
+    trial: u64,
+) -> Result<u32, NativeSearchError> {
+    if trial == 0 {
+        return Err(NativeSearchError::InvalidInput(
+            "invalid native pivot range",
+        ));
+    }
+    let mut offset: u64 = 0;
+    for family in families {
+        let family_size = family.pivot_state_count();
+        if trial > offset && trial <= offset + family_size {
+            let local = trial - offset - 1;
+            let index = (local / 0x1_0000) as usize;
+            let low16 = (local % 0x1_0000) as u32;
+            let Some(high16) = family.values.get(index).copied() else {
+                return Err(NativeSearchError::InvalidInput(
+                    "invalid native pivot range",
+                ));
+            };
+            let mut state = (u32::from(high16) << 16) | low16;
+            for _ in 0..family.params.pivot_draw_index {
+                state = A_INV.wrapping_mul(state.wrapping_sub(1));
+            }
+            return Ok(state);
+        }
+        offset += family_size;
+    }
+    Err(NativeSearchError::InvalidInput(
+        "native match outside the compiled pivot families",
+    ))
 }
 
 /// Map one plan-compiler failure onto the search error the collector reports.
@@ -914,6 +1094,66 @@ fn collect_preimage_window(
     Ok(matches)
 }
 
+/// One pivot-family window: the concatenated families the window covers.
+///
+/// `window` is expressed in the route's global cursor space, so every family
+/// is clipped to the window and swept with its own pivot parameters and
+/// promotion descriptors. The reported trial is `family_offset + local trial`,
+/// which is exactly the shipped one-based `CompiledPivotFamily` cursor, and the
+/// result capacity per family call is the shipped
+/// `max(100,000, ceil(window / 8))`, so a window can never be truncated below
+/// the shipped route's own bound.
+fn collect_primary_pivot_window(
+    preimage: Result<&Arc<PreimageAccelerator>, &PreimageError>,
+    policy: PreimagePolicy,
+    families: &[PrimaryPivotFamilySpec],
+    window: &PivotWindow,
+    _page_size: usize,
+) -> Result<Vec<PivotMatch>, NativeSearchError> {
+    let accelerator =
+        preimage.map_err(|error| NativeSearchError::PreimageUnavailable(error.to_string()))?;
+    accelerator
+        .require_backend(policy)
+        .map_err(|error| NativeSearchError::PreimageUnavailable(error.to_string()))?;
+    let mut matches: Vec<PivotMatch> = Vec::new();
+    let mut offset: u64 = 0;
+    for family in families {
+        let family_size = family.pivot_state_count();
+        let family_start = offset;
+        let family_stop = offset + family_size;
+        offset = family_stop;
+        let local_start = window.start_index.max(family_start);
+        let local_stop = window.stop_index.min(family_stop);
+        if local_start >= local_stop {
+            continue;
+        }
+        let span = local_stop - local_start;
+        let capacity = span
+            .div_ceil(8)
+            .clamp(DEFAULT_OUTPUT_CAPACITY as u64, MAX_OUTPUT_CAPACITY as u64)
+            as usize;
+        let hits = accelerator
+            .collect_matches(
+                &family.values,
+                &family.descriptors,
+                &family.params,
+                local_start - family_start,
+                local_stop - family_start,
+                capacity,
+                accelerator.configured_vendor_id(),
+            )
+            .map_err(|error| NativeSearchError::PreimageUnavailable(error.to_string()))?;
+        for (seed, local_trial) in hits {
+            matches.push(PivotMatch {
+                seed,
+                trial: family_start + local_trial + 1,
+            });
+        }
+    }
+    matches.sort_by_key(|matched| matched.trial);
+    Ok(matches)
+}
+
 fn collect_window(
     accelerator: &Accelerator,
     preimage: Result<&Arc<PreimageAccelerator>, &PreimageError>,
@@ -958,6 +1198,22 @@ fn collect_window(
         NativePivotQuery::EffectPreimage { plans, verifier } => {
             let matches =
                 collect_preimage_window(preimage, policy, plans, verifier, window, page_size)?;
+            let counts = Vec::new();
+            Ok((
+                crate::native_search::AuxiliaryPivotPage {
+                    matches,
+                    stage_counts: counts.clone(),
+                    // The seed accelerator did not run for this route; the
+                    // accelerator that did is reported by
+                    // `PreimageAccelerator::last_backend()`.
+                    backend: NativeBackend::NotUsed,
+                },
+                counts,
+            ))
+        }
+        NativePivotQuery::PrimaryPivot { families } => {
+            let matches =
+                collect_primary_pivot_window(preimage, policy, families, window, page_size)?;
             let counts = Vec::new();
             Ok((
                 crate::native_search::AuxiliaryPivotPage {

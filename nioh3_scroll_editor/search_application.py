@@ -5,13 +5,14 @@ from dataclasses import dataclass
 from typing import Callable
 from .auxiliary_generation import generate_complete_auxiliary, generate_matching_auxiliary
 from .catalog import contextual_effect_name
-from .effect_seed_solver import EffectSeedCandidate, EffectSeedIntersectionReport, EffectSeedRequest, collect_auxiliary_only_seed_page, collect_effect_seed_page, merge_intersection_reports
+from .effect_seed_solver import CompiledPivotFamily, EffectSeedCandidate, EffectSeedIntersectionReport, EffectSeedRequest, collect_auxiliary_only_seed_page, collect_effect_seed_page, merge_intersection_reports
 from .effect_batch_filter import match_partial_effect_constraints_batch
-from .effect_path_inverse import FullCompositionRequest, OneWildcardCompositionRequest, compile_full_composition_plans, compile_one_wildcard_composition_plans
-from .effect_preimage_accelerator import d3d11_effect_acceleration_available, reset_effect_preimage_backend
+from .effect_path_inverse import FullCompositionRequest, OneWildcardCompositionRequest, compile_full_composition_plans, compile_ng3_rarity3_primary_pivot_families, compile_one_wildcard_composition_plans
+from .effect_preimage_accelerator import collect_fixed_draw_pivot_seeds_d3d11, d3d11_effect_acceleration_available, reset_effect_preimage_backend
 from .effect_preimage_search import collect_full_composition_preimage_page, collect_one_wildcard_composition_preimage_page
 from .effect_generation_tables import EffectGenerationTableIndex
 from .effect_sequence import EffectSequenceResult, collect_ng3_r4_primary_pivot_seeds, generate_ng3_certified_effect_sequence, generate_ng3_rarity34_primary_effect_ids, generate_rarity5_any_grace_primary_effect_ids, generate_rarity5_grace_effect_sequence, generate_rarity5_grace_primary_effect_id, generate_rarity5_grace_primary_effect_ids
+from .joint_solver import U16Runs
 from .models import CandidateRecordStage, ScrollCandidate, candidate_matches
 from .grace_map import GraceOutputMap
 from .seed_accelerator import cuda_seed_acceleration_available
@@ -830,6 +831,180 @@ def collect_offline_rarity5_search_batch(
         streamed=candidate_found is not None,
     )
 
+
+def collect_offline_ng3_rarity3_primary_pivot_search_batch(
+    request: EffectSeedRequest,
+    *,
+    grace_mapping: GraceOutputMap | None,
+    level: int,
+    result_count: int,
+    max_trials_per_batch: int,
+    start_after_trial: int = 0,
+    intersection_progress: Callable[[EffectSeedIntersectionReport], None] | None = None,
+    candidate_found: Callable[[ScrollCandidate], None] | None = None,
+    cancelled: Callable[[], bool] | None = None,
+    allow_cpu_fallback: bool = False,
+    tables: EffectGenerationTableIndex | None = None,
+) -> SearchBatchResult | None:
+    """Serve one named NG3 rarity-3 primary through its compiled pivot family.
+
+    Rarity 3 draws its first ordinary lottery at draw 2, or behind the
+    promotion shuffle at draw 9, so its legal primary preimages are a
+    disjunction of promotion-state families.  They compile into one cursor
+    space whose promotion outcome is an ordinary draw-1 interval, and the
+    shipped exact-solver page runs it unchanged: the certified constraints stay
+    Python-side filters, the batched GPU prefilters and the certified replay
+    stay in place, and the cursor, report, cancellation, and resumption
+    behaviour are the generic route's own.  A family that is not strictly
+    smaller than the full 2**32 Seed family, or a missing DirectCompute
+    backend, keeps the shipped full-family route.
+    """
+
+    if (
+        request.rarity != 3
+        or request.playthrough != 3
+        or request.grace_effect_id is not None
+        or not request.primary_effect_ids
+        or not request.natural_only
+    ):
+        return None
+    if not d3d11_effect_acceleration_available():
+        return None
+    families = compile_ng3_rarity3_primary_pivot_families(
+        request.primary_effect_ids,
+        tables=tables,
+    )
+    state_count = sum(
+        sum(run.bucket_count for run in family.pivot_allowed_u16)
+        for family in families
+    )
+    if not families or state_count >= 0x10000:
+        return None
+    offsets: list[int] = []
+    running = 0
+    for family in families:
+        offsets.append(running)
+        running += family.pivot_state_count
+    family_values = tuple(
+        tuple(
+            U16Runs.from_ranges(
+                (run.start, run.end) for run in family.pivot_allowed_u16
+            ).iter_values()
+        )
+        for family in families
+    )
+    family_promotion_runs = tuple(
+        (
+            (
+                family.promotion_draw_index,
+                tuple((run.start, run.end) for run in family.promotion_u16_runs),
+            ),
+        )
+        for family in families
+    )
+
+    def collect_pivot_seeds(
+        values: tuple[int, ...],
+        *,
+        start_index: int,
+        stop_index: int,
+        low16_stride: int,
+    ) -> tuple[tuple[int, int], ...] | None:
+        """Enumerate the compiled families that intersect one cursor chunk."""
+
+        del values  # the compiled families own the enumeration order
+        collected: list[tuple[int, int]] = []
+        for index, family in enumerate(families):
+            offset = offsets[index]
+            local_start = max(start_index - offset, 0)
+            local_stop = min(stop_index - offset, family.pivot_state_count)
+            if local_start >= local_stop:
+                continue
+            accelerated = collect_fixed_draw_pivot_seeds_d3d11(
+                family_values[index],
+                start_index=local_start,
+                stop_index=local_stop,
+                low16_stride=low16_stride,
+                pivot_draw_index=family.pivot_draw_index,
+                other_constraints=family_promotion_runs[index],
+            )
+            if accelerated is None:
+                raise RuntimeError(
+                    "DirectCompute GPU 求解器在计算中不可用；已停止计算，"
+                    "不会回退到慢速 CPU/Python。"
+                )
+            collected.extend(
+                (seed, trial + offset) for seed, trial in accelerated
+            )
+        return tuple(collected)
+
+    materialized: dict[int, ScrollCandidate] = {}
+
+    def materialize(match: EffectSeedCandidate) -> ScrollCandidate:
+        cached = materialized.get(match.pivot_trial)
+        if cached is not None:
+            return cached
+        if match.effect_sequence is None:
+            raise RuntimeError("offline NG3 solver returned no effect sequence")
+        candidate = ScrollCandidate.from_effect_sequence(
+            match.effect_sequence,
+            auxiliary=match.auxiliary or generate_complete_auxiliary(match.seed, 3),
+            joint_search_trial=match.pivot_trial,
+        )
+        materialized[match.pivot_trial] = candidate
+        return candidate
+
+    def emit_match(match: EffectSeedCandidate) -> None:
+        if candidate_found is not None:
+            candidate_found(materialize(match))
+
+    page = collect_effect_seed_page(
+        request,
+        page_size=result_count,
+        grace_mapping=grace_mapping,
+        effect_sequence_generator=lambda seed: generate_ng3_certified_effect_sequence(
+            seed,
+            rarity=request.rarity,
+            level=level,
+            tables=tables,
+        ),
+        primary_effect_id_batch_generator=lambda seeds: (
+            generate_ng3_rarity34_primary_effect_ids(
+                seeds,
+                rarity=request.rarity,
+            )
+        ),
+        effect_constraint_mask_batch_generator=partial_effect_batch_generator(
+            request,
+            grace_mapping=grace_mapping,
+            level=level,
+            allow_cpu_fallback=allow_cpu_fallback,
+            tables=tables,
+        ),
+        allow_full_seed_family=request.grace_effect_id is None,
+        start_after_trial=start_after_trial,
+        max_trials=max_trials_per_batch,
+        intersection_progress=intersection_progress,
+        candidate_found=emit_match,
+        cancelled=cancelled,
+        pivot_family=CompiledPivotFamily(
+            name="primary_pivot",
+            draw_index=families[0].pivot_draw_index,
+            state_count=state_count,
+            collector=collect_pivot_seeds,
+        ),
+        allow_cpu_fallback=allow_cpu_fallback,
+        tables=tables,
+    )
+    return SearchBatchResult(
+        candidates=tuple(materialize(match) for match in page.candidates),
+        requested_count=result_count,
+        next_start_after_trial=page.next_start_after_trial,
+        intersection_report=page.intersection_report,
+        streamed=candidate_found is not None,
+    )
+
+
 def collect_offline_ng3_search_batch(
     request: EffectSeedRequest,
     *,
@@ -917,6 +1092,25 @@ def collect_offline_ng3_search_batch(
             start_after_trial=start_after_trial,
             candidate_found=candidate_found,
             cancelled=cancelled,
+            tables=tables,
+        )
+        if d3d11_effect_acceleration_available() or not allow_cpu_fallback
+        else None
+    )
+    if accelerated is not None:
+        return accelerated
+    accelerated = (
+        collect_offline_ng3_rarity3_primary_pivot_search_batch(
+            request,
+            grace_mapping=grace_mapping,
+            level=level,
+            result_count=result_count,
+            max_trials_per_batch=max_trials_per_batch,
+            start_after_trial=start_after_trial,
+            intersection_progress=intersection_progress,
+            candidate_found=candidate_found,
+            cancelled=cancelled,
+            allow_cpu_fallback=allow_cpu_fallback,
             tables=tables,
         )
         if d3d11_effect_acceleration_available() or not allow_cpu_fallback

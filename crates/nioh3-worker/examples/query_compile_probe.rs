@@ -92,6 +92,11 @@ fn main() -> ExitCode {
             return ExitCode::from(3);
         }
     };
+    // The shipped dispatch gates the rarity-3 named-primary pivot on the real
+    // `d3d11_effect_acceleration_available` probe; the probe passes the same
+    // answer the worker's factory would.
+    let preimage_available =
+        nioh3_worker::capabilities::probe(application_root, None, None).directcompute_probe;
 
     let expected_values = payload["values_sha256"].as_str().unwrap_or_default();
     let mut failures: Vec<Value> = Vec::new();
@@ -107,7 +112,7 @@ fn main() -> ExitCode {
                 continue;
             }
         };
-        let compiled = match compiler.compile(&query, &accelerator) {
+        let compiled = match compiler.compile(&query, &accelerator, preimage_available) {
             Ok(compiled) => compiled,
             Err(error) => {
                 failures.push(json!({"name": name, "compile_error": error.to_string()}));
@@ -122,6 +127,7 @@ fn main() -> ExitCode {
             Route::CompletePreimage => "complete_preimage",
             Route::OneWildcardPreimage => "one_wildcard_preimage",
             Route::FullFamily => "full_family",
+            Route::R3PrimaryPivot => "r3_primary_pivot",
             Route::PartialEffectFilter => "partial_effect_filter",
         };
         if route != route_name {
@@ -165,6 +171,10 @@ fn main() -> ExitCode {
             // (tests/migration/test_search_worker_parity.py and the worker's
             // effect_path tests), not by this pivot-values probe.
             NativePivotQuery::EffectPreimage { .. } => false,
+            // The rarity-3 named-primary pivot is verified by the migration
+            // parity gate against the shipped worker's own cursor, not by this
+            // pivot-values probe.
+            NativePivotQuery::PrimaryPivot { .. } => false,
         };
 
         let mut window_results = Vec::new();
@@ -237,6 +247,7 @@ fn main() -> ExitCode {
                 }
                 NativePivotQuery::Natural { .. } => (Vec::new(), true),
                 NativePivotQuery::EffectPreimage { .. } => (Vec::new(), true),
+                NativePivotQuery::PrimaryPivot { .. } => (Vec::new(), true),
             };
             let matches_ok = actual_matches == expected_matches;
             if !matches_ok || !stage_ok {

@@ -61,10 +61,11 @@ TERMINAL_STATES = ("completed", "cancelled", "failed")
 POLL_SECONDS = 0.05
 
 # The supported routes are the NG3 auxiliary route (terrain keys, special rule
-# keys and groups, enemy lookup keys and groups), the R4 primary route, and the
-# shipped full-family replay that serves a rarity-3 primary search and an
-# unconstrained query. Rarity-5 effect searches, secondary/roll routes and the
-# effect-preimage family stay refused with their own named reasons.
+# keys and groups, enemy lookup keys and groups), the R4 primary route, the
+# shipped full-family replay that serves an unconstrained query, the NG3
+# rarity-3 named-primary pivot, and the partial-effect forward filter.
+# Rarity-5 effect searches, secondary/roll routes and the effect-preimage
+# family stay refused with their own named reasons.
 RULE_ROUTE_KEY = 113
 PRIMARY_ROUTE_EFFECT = 30543
 
@@ -89,13 +90,19 @@ RARITY5_DEEP_ONLY_PRIMARY = 41041
 RARITY5_DEEP_ONLY_SECONDARY_IDS = (13555, 15994, 44634, 54282)
 
 # Partial-effect forward filter: a rarity-3 request that names only some of its
-# ordinary slots. The expected Seed and cursor are the shipped solver's own
-# answer for a 100M-trial window
-# (`deliverables/m23d-preimage/scripts/probe_forward_filter_route.py`).
+# ordinary slots. Effect 60020 is only drawable through the promoted source
+# slot 0, so the shipped named-primary pivot compiles this request into one
+# finite family: 6,553 draw-9 buckets (`52430..=58982`) times 65,536 trials =
+# 429,457,408 states. The pinned Seed and cursor are that route's own answer for
+# this query on both workers; the family cursor is pivot-value-major, so the
+# Seed's trial is `(bucket - 52430) * 65,536 + low16 + 1`. The retired
+# full-family sweep's answer for the same query is still recorded by
+# `deliverables/m23d-preimage/scripts/probe_forward_filter_route.py`.
 PARTIAL_FILTER_PRIMARY = 60020
 PARTIAL_FILTER_SECONDARY = 12028
-PARTIAL_FILTER_SEED = 90790139
-PARTIAL_FILTER_CURSOR = 26885
+PARTIAL_FILTER_SEED = 226727520
+PARTIAL_FILTER_CURSOR = 18266
+PARTIAL_FILTER_FAMILY_SIZE = 429457408
 
 
 def complete_rarity5_query() -> dict:
@@ -981,15 +988,17 @@ class SearchWorkerParityTests(unittest.TestCase):
         )
 
     def test_partial_effect_forward_filter_matches_the_python_worker(self) -> None:
-        """The partial-effect forward filter serves a request the pivots cannot.
+        """The partial-effect forward filter serves a request no preimage can.
 
         A rarity-3 request that names only some ordinary slots has no
-        complete-composition preimage, so the shipped worker sweeps the full seed
-        family with the DirectCompute constraint mask and certifies every
-        survivor with the forward generator. The expected cursor and candidate
-        below come from the shipped solver itself
-        (`deliverables/m23d-preimage/scripts/probe_forward_filter_route.py`), so
-        this gate pins the route even if both workers drift together.
+        complete-composition preimage. Effect 60020 is only drawable through the
+        promoted source slot 0, so the shipped worker compiles the legal
+        promotion-state families into one finite cursor (the 6,553 draw-9
+        buckets that can produce the effect), sweeps it with the DirectCompute
+        constraint mask, and certifies every survivor with the forward
+        generator. The pinned Seed and cursor below are that route's own answer
+        for this query, so this gate pins the finite family cursor even if both
+        workers drift together.
         """
 
         query = base_query(
@@ -1043,6 +1052,29 @@ class SearchWorkerParityTests(unittest.TestCase):
         )
         self.assertEqual(rust_snapshot["cursor"], python_snapshot["cursor"])
         self.assertEqual(rust_snapshot["stop_reason"], python_snapshot["stop_reason"])
+        # The cursor space itself must be the compiled family, not the full
+        # 2**32 Seed family, and both workers must inspect through the same
+        # trial.
+        rust_progress = rust_snapshot["progress"]
+        python_progress = python_snapshot["progress"]
+        self.assertIsNotNone(rust_progress)
+        self.assertIsNotNone(python_progress)
+        self.assertEqual(
+            rust_progress["family_size"],
+            PARTIAL_FILTER_FAMILY_SIZE,
+            "the partial-effect cursor space must be the compiled pivot family",
+        )
+        self.assertEqual(rust_progress["family_size"], python_progress["family_size"])
+        self.assertEqual(
+            rust_progress["inspected_through_trial"],
+            PARTIAL_FILTER_CURSOR,
+            "the page must stop inside the family at the accepted trial",
+        )
+        self.assertEqual(
+            rust_progress["inspected_through_trial"],
+            python_progress["inspected_through_trial"],
+        )
+        self.assertEqual(rust_progress["exhausted_family"], python_progress["exhausted_family"])
 
     def test_partial_effect_secondary_only_query_matches_the_python_worker(self) -> None:
         """A partial request with no primary still runs the forward filter.
@@ -1299,11 +1331,14 @@ class SearchWorkerParityTests(unittest.TestCase):
     def test_partial_effect_cancel_and_resume_continue_without_replay(self) -> None:
         """A cancelled partial-effect page resumes exactly where it stopped.
 
-        The forward-filter route scans the whole seed family, so a cancel lands
-        inside a long page rather than after a short one. The union of the
+        The forward-filter route sweeps one long pivot-family page, so a cancel
+        lands inside it rather than after a short one. The union of the
         cancelled page and the resumed job must equal the shipped worker's
         single continuing run, which is only possible if the checkpoint really
-        is the accepted-match cursor and nothing is replayed.
+        is the accepted-match cursor and nothing is replayed. The first
+        candidate of this query is the pinned `PARTIAL_FILTER_SEED` at
+        `PARTIAL_FILTER_CURSOR`, so the union's head pins the resumed cursor
+        space to the same compiled family.
         """
 
         query = base_query(
@@ -1387,6 +1422,23 @@ class SearchWorkerParityTests(unittest.TestCase):
             )
             python_seeds = candidate_seeds(python_snapshot)
             self.assertTrue(union_seeds, "the cancelled run published nothing to check")
+            # The family's first accepted candidate is the pinned fixture, so
+            # the union's head proves the resumed page walked the same compiled
+            # family as the single continuing shipped run.
+            self.assertEqual(
+                union_seeds[0],
+                PARTIAL_FILTER_SEED,
+                "the first partial-effect candidate must be the pinned fixture Seed",
+            )
+            union_cursors = candidate_cursors(cancelled) + candidate_cursors(
+                resumed_snapshot
+            )
+            self.assertEqual(
+                union_cursors,
+                sorted(set(union_cursors)),
+                "cancel plus resume must publish strictly increasing cursor trials",
+            )
+            self.assertEqual(union_cursors[0], PARTIAL_FILTER_CURSOR)
             # A resumed job carries its own `job_trials` budget from the
             # checkpoint, so the two runs need not cover the same number of
             # trials; what must hold is that both enumerate the same accepted
@@ -1908,11 +1960,12 @@ class SearchWorkerParityTests(unittest.TestCase):
     def test_effect_routes_match_or_refuse_like_the_python_worker(self) -> None:
         """Effect routes either answer with the Python worker's result or refuse.
 
-        The shipped full-family replay serves a rarity-3 primary search and an
-        unconstrained query (batched primary ids, then the auxiliary masks), and
-        the partial-effect forward filter serves a request that names only some
-        ordinary slots at rarity 3, 4 and 5. Every served case carries the
-        shipped solver's own cursor and Seed
+        The shipped full-family replay serves an unconstrained query (batched
+        primary ids, then the auxiliary masks), the rarity-3 named-primary
+        pivot serves a named rarity-3 primary, and the partial-effect forward
+        filter serves a request that names only some ordinary slots at rarity
+        3, 4 and 5. Every served case carries the shipped solver's own cursor
+        and Seed where one is pinned
         (`deliverables/m23d-preimage/scripts/probe_forward_filter_route.py`), so
         the gate pins the route even if both workers drift together. Routes that
         remain unported still reject with INVALID_REQUEST and their own reason.

@@ -25,10 +25,16 @@ from nioh3_scroll_editor.effect_batch_filter import (
 from nioh3_scroll_editor.effect_path_inverse import (
     FullCompositionRequest,
     OneWildcardCompositionRequest,
+    PrimaryPivotFamily,
+    U16Run,
     compile_full_composition_plans,
+    compile_ng3_rarity3_primary_pivot_families,
     compile_one_wildcard_composition_plans,
     seed_satisfies_compiled_plan,
     verify_complete_matches,
+)
+from nioh3_scroll_editor.search_application import (
+    collect_offline_ng3_rarity3_primary_pivot_search_batch,
 )
 from nioh3_scroll_editor.effect_preimage_accelerator import (
     AMD_VENDOR_ID,
@@ -65,6 +71,45 @@ def _product_pivot_trial_for_seed(seed: int, pivot) -> int:
     rotation = low_index % len(values)
     bucket_index = (values.index(state >> 16) - rotation) % len(values)
     return low_index * len(values) + bucket_index + 1
+
+
+# The parity gate's partial-effect fixture
+# (``tests/migration/test_search_worker_parity.py``).
+RARITY3_PIVOT_PRIMARY = 60020
+RARITY3_PIVOT_SECONDARY = 12028
+RARITY3_PIVOT_SEED = 90790139
+RARITY3_PIVOT_FAMILY_SIZE = 429_457_408
+
+
+def rarity3_pivot_query() -> EffectSeedRequest:
+    """Return the parity gate's partial-effect fixture as a shipped query."""
+
+    return EffectSeedRequest(
+        playthrough=3,
+        rarity=3,
+        primary_effect_ids=frozenset((RARITY3_PIVOT_PRIMARY,)),
+        required_secondary_ids=frozenset((RARITY3_PIVOT_SECONDARY,)),
+    )
+
+
+def rarity3_pivot_trial(seed: int) -> int:
+    """Return the Seed's one-based trial in the compiled primary pivot cursor."""
+
+    families = compile_ng3_rarity3_primary_pivot_families(
+        frozenset((RARITY3_PIVOT_PRIMARY,))
+    )
+    offset = 0
+    for family in families:
+        values = tuple(
+            value
+            for run in family.pivot_allowed_u16
+            for value in range(run.start, run.end + 1)
+        )
+        state = state_after_draw_from_seed(seed, family.pivot_draw_index)
+        if (state >> 16) in values:
+            return offset + values.index(state >> 16) * 0x10000 + (state & 0xFFFF) + 1
+        offset += family.pivot_state_count
+    raise AssertionError("the fixture Seed is outside every compiled pivot family")
 
 
 class EffectPreimageAcceleratorTests(unittest.TestCase):
@@ -510,6 +555,144 @@ class EffectPreimageAcceleratorTests(unittest.TestCase):
             Path(__file__).resolve().parents[1] / "packaging" / "Nioh3ScrollGenerator.spec"
         ).read_text(encoding="utf-8")
         self.assertIn("nioh3_effect_preimage_accelerator.dll", spec)
+
+    def test_rarity3_primary_pivot_round_trip_and_family_shrink(self) -> None:
+        if not d3d11_effect_acceleration_available():
+            self.skipTest("no Direct3D 11 compute adapter")
+        trial = rarity3_pivot_trial(RARITY3_PIVOT_SEED)
+        result = collect_offline_ng3_search_batch(
+            rarity3_pivot_query(),
+            grace_mapping=None,
+            level=180,
+            result_count=1,
+            max_trials_per_batch=64,
+            start_after_trial=trial - 1,
+        )
+        self.assertEqual(
+            tuple(candidate.seed for candidate in result.candidates),
+            (RARITY3_PIVOT_SEED,),
+        )
+        self.assertEqual(result.candidates[0].joint_search_trial, trial)
+        self.assertEqual(result.next_start_after_trial, trial)
+        report = result.intersection_report
+        self.assertIsNotNone(report)
+        assert report is not None
+        self.assertEqual(report.family_size, RARITY3_PIVOT_FAMILY_SIZE)
+        self.assertFalse(report.exhausted_family)
+
+    def test_rarity3_primary_pivot_cursor_resumes_without_replay(self) -> None:
+        if not d3d11_effect_acceleration_available():
+            self.skipTest("no Direct3D 11 compute adapter")
+        trial = rarity3_pivot_trial(RARITY3_PIVOT_SEED)
+        first = collect_offline_ng3_search_batch(
+            rarity3_pivot_query(),
+            grace_mapping=None,
+            level=180,
+            result_count=1,
+            max_trials_per_batch=128,
+            start_after_trial=trial - 160,
+        )
+        self.assertEqual(first.next_start_after_trial, trial - 32)
+        resumed = collect_offline_ng3_search_batch(
+            rarity3_pivot_query(),
+            grace_mapping=None,
+            level=180,
+            result_count=1,
+            max_trials_per_batch=128,
+            start_after_trial=first.next_start_after_trial,
+        )
+        self.assertGreaterEqual(
+            resumed.next_start_after_trial,
+            first.next_start_after_trial,
+        )
+        self.assertLessEqual(resumed.next_start_after_trial, trial + 32)
+        for candidate in resumed.candidates:
+            self.assertGreater(
+                candidate.joint_search_trial,
+                first.next_start_after_trial,
+            )
+        follow_up = collect_offline_ng3_search_batch(
+            rarity3_pivot_query(),
+            grace_mapping=None,
+            level=180,
+            result_count=5,
+            max_trials_per_batch=64,
+            start_after_trial=trial,
+        )
+        self.assertNotIn(
+            RARITY3_PIVOT_SEED,
+            tuple(candidate.seed for candidate in follow_up.candidates),
+        )
+
+    def test_rarity3_primaryless_search_keeps_the_full_seed_family(self) -> None:
+        if not (
+            d3d11_effect_acceleration_available()
+            or cuda_seed_acceleration_available()
+        ):
+            self.skipTest("no GPU search backend")
+        result = collect_offline_ng3_search_batch(
+            EffectSeedRequest(
+                playthrough=3,
+                rarity=3,
+                required_secondary_ids=frozenset((RARITY3_PIVOT_SECONDARY,)),
+            ),
+            grace_mapping=None,
+            level=180,
+            result_count=1,
+            max_trials_per_batch=1,
+        )
+        report = result.intersection_report
+        self.assertIsNotNone(report)
+        assert report is not None
+        self.assertEqual(report.family_size, 2**32)
+
+    def test_rarity3_primary_pivot_falls_back_when_family_is_not_smaller(self) -> None:
+        """A cursor space that is not strictly smaller keeps the shipped route."""
+
+        if not (
+            d3d11_effect_acceleration_available()
+            or cuda_seed_acceleration_available()
+        ):
+            self.skipTest("no GPU search backend")
+        full_family = PrimaryPivotFamily(
+            promoted_states=(0,),
+            pivot_draw_index=9,
+            pivot_allowed_u16=(U16Run(0, 0xFFFF),),
+            promotion_draw_index=1,
+            promotion_u16_runs=(U16Run(0, 0xFFFF),),
+        )
+        with patch(
+            "nioh3_scroll_editor.search_application."
+            "compile_ng3_rarity3_primary_pivot_families",
+            return_value=(full_family,),
+        ):
+            result = collect_offline_ng3_search_batch(
+                rarity3_pivot_query(),
+                grace_mapping=None,
+                level=180,
+                result_count=1,
+                max_trials_per_batch=1,
+            )
+        report = result.intersection_report
+        self.assertIsNotNone(report)
+        assert report is not None
+        self.assertEqual(report.family_size, 2**32)
+
+    def test_rarity3_primary_pivot_requires_the_directcompute_backend(self) -> None:
+        with patch(
+            "nioh3_scroll_editor.search_application."
+            "d3d11_effect_acceleration_available",
+            return_value=False,
+        ):
+            self.assertIsNone(
+                collect_offline_ng3_rarity3_primary_pivot_search_batch(
+                    rarity3_pivot_query(),
+                    grace_mapping=None,
+                    level=180,
+                    result_count=1,
+                    max_trials_per_batch=1,
+                )
+            )
 
 
 if __name__ == "__main__":

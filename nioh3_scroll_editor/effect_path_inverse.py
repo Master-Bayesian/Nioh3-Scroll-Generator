@@ -271,6 +271,44 @@ def weighted_lottery_u16_runs(
     return (U16Run(start, end),)
 
 
+def _lottery_start_draw(rarity: int, promoted_slot: int | None) -> int:
+    """Return the first ordinary-lottery draw for one promotion outcome.
+
+    A successful promotion trial inserts the seven-draw shuffle before the
+    lotteries, so the first lottery moves from draw 2/3 to draw 9/10.
+    """
+
+    if rarity == 3:
+        return 9 if promoted_slot is not None else 2
+    return 10 if promoted_slot is not None else 3
+
+
+def _lottery_candidate_pool(
+    *,
+    tables: EffectGenerationTableIndex,
+    record_type: int,
+    rarity: int,
+    playthrough: int,
+    position: int,
+    promoted: bool,
+    remaining_category_capacities: Iterable[int],
+    existing_effect_ids: Iterable[int],
+    special_effect_id: int,
+) -> tuple[WeightedEffectCandidate, ...]:
+    """Build one slot pool with the destination flags the native path uses."""
+
+    return tables.weighted_candidate_pool(
+        record_type=record_type,
+        rarity=rarity,
+        playthrough=playthrough,
+        destination_category_and_flags=0x40 if position == 0 else 0,
+        destination_effect_flags=0x04 if promoted else 0,
+        remaining_category_capacities=remaining_category_capacities,
+        existing_effect_ids=existing_effect_ids,
+        special_effect_id=special_effect_id,
+    )
+
+
 def _compile_paths_for_promotion_slot(
     request: FullCompositionRequest,
     *,
@@ -280,13 +318,11 @@ def _compile_paths_for_promotion_slot(
     special_id = request.stage_special_effect_id or 0x0001
     if request.rarity == 3:
         source_slots = (0, 1, 2, 3)
-        lottery_start_draw = 9 if promoted_slot is not None else 2
     elif request.rarity == 4:
         source_slots = (1, 2, 3, 4)
-        lottery_start_draw = 10 if promoted_slot is not None else 3
     else:
         source_slots = (1, 2, 3, 4, 5)
-        lottery_start_draw = 10 if promoted_slot is not None else 3
+    lottery_start_draw = _lottery_start_draw(request.rarity, promoted_slot)
     draw_indexes = tuple(
         lottery_start_draw + 3 * index for index in range(len(source_slots))
     )
@@ -306,12 +342,13 @@ def _compile_paths_for_promotion_slot(
         for position, (source_slot, effect_id, draw_index) in enumerate(
             zip(source_slots, ordered, draw_indexes, strict=True)
         ):
-            pool = tables.weighted_candidate_pool(
+            pool = _lottery_candidate_pool(
+                tables=tables,
                 record_type=record_type,
                 rarity=request.rarity,
                 playthrough=request.playthrough,
-                destination_category_and_flags=0x40 if position == 0 else 0,
-                destination_effect_flags=0x04 if source_slot == promoted_slot else 0,
+                position=position,
+                promoted=source_slot == promoted_slot,
                 remaining_category_capacities=capacities,
                 existing_effect_ids=accepted,
                 special_effect_id=special_id,
@@ -344,6 +381,137 @@ def _compile_paths_for_promotion_slot(
                 )
             )
     return tuple(built)
+
+
+NG3_RARITY3_PROMOTION_STATES: tuple[int | None, ...] = (None, 0, 1, 2, 3)
+
+
+@dataclass(frozen=True, slots=True)
+class PrimaryPivotFamily:
+    """One NG3 rarity-3 primary family inside a DirectCompute cursor.
+
+    Rarity 3 draws its first ordinary lottery at draw 2, and a successful
+    promotion trial moves that lottery behind the seven-draw shuffle to draw 9.
+    A family therefore owns both an ordinary promotion outcome at
+    ``promotion_draw_index`` and the allowed high-16 states at
+    ``pivot_draw_index``.  Both parts are plain high-16 intervals, so the
+    DirectCompute fixed-draw collector enforces them without any per-Seed
+    Python filter; the certified forward generator still replays every
+    reported Seed before it is published.
+    """
+
+    promoted_states: tuple[int | None, ...]
+    pivot_draw_index: int
+    pivot_allowed_u16: tuple[U16Run, ...]
+    promotion_draw_index: int
+    promotion_u16_runs: tuple[U16Run, ...]
+
+    @property
+    def requires_promotion(self) -> bool:
+        return None not in self.promoted_states
+
+    @property
+    def pivot_state_count(self) -> int:
+        return sum(run.bucket_count for run in self.pivot_allowed_u16) * 0x10000
+
+
+def _merge_u16_runs(runs: Iterable[U16Run]) -> tuple[U16Run, ...]:
+    """Return sorted, coalesced runs for one union of allowed states."""
+
+    merged: list[list[int]] = []
+    for run in sorted(runs, key=lambda item: (item.start, item.end)):
+        if merged and run.start <= merged[-1][1] + 1:
+            merged[-1][1] = max(merged[-1][1], run.end)
+        else:
+            merged.append([run.start, run.end])
+    return tuple(U16Run(start, end) for start, end in merged)
+
+
+@lru_cache(maxsize=32)
+def compile_ng3_rarity3_primary_pivot_families(
+    primary_effect_ids: frozenset[int],
+    *,
+    tables: EffectGenerationTableIndex | None = None,
+) -> tuple[PrimaryPivotFamily, ...]:
+    """Compile the NG3 rarity-3 primary families for every promotion state.
+
+    The position-0 pool of ``compile_full_composition_plans`` is reused
+    verbatim: the un-promoted lottery draws at draw 2 with the ordinary
+    destination flags, and a promoted source slot 0 draws at draw 9 with the
+    promoted effect flag, so the promoted outcome owns a second allowed-state
+    set.  States that share a draw merge into one sorted run set, each family
+    also carries the draw-1 promotion interval of ``compile_full_composition_plans``,
+    and the returned order is stable: the un-promoted family first, then the
+    promoted family.
+    """
+
+    requested = frozenset(primary_effect_ids)
+    if not requested:
+        raise ValueError("a primary pivot requires at least one effect ID")
+    if tables is None:
+        tables = load_default_effect_generation_tables()
+    definition = tables.rarity_generation[3]
+    if definition.promotion_trials != 1:
+        raise ValueError("path inversion requires the verified one-trial layout")
+    promotion_threshold = int(definition.promotion_probability_percent) * 100
+    # ``random_int(u16, 10_000) < threshold`` is monotone in the draw-1 state,
+    # so the promotion outcome is one contiguous high-16 interval.
+    promotion_end = _first_u16_with_random_int_at_least(10_000, promotion_threshold)
+    record_type = CATEGORY_TO_TYPE[3]
+    capacities = tables.category_capacities(record_type=record_type, rarity=3)
+    draw_states: dict[int, list[int | None]] = {}
+    draw_runs: dict[int, list[U16Run]] = {}
+    for promoted_slot in NG3_RARITY3_PROMOTION_STATES:
+        pool = _lottery_candidate_pool(
+            tables=tables,
+            record_type=record_type,
+            rarity=3,
+            playthrough=3,
+            position=0,
+            promoted=promoted_slot == 0,
+            remaining_category_capacities=capacities,
+            existing_effect_ids=(),
+            special_effect_id=0x0001,
+        )
+        runs = tuple(
+            run
+            for effect_id in sorted(requested)
+            for run in weighted_lottery_u16_runs(pool, effect_id)
+        )
+        if not runs:
+            continue
+        draw_index = _lottery_start_draw(3, promoted_slot)
+        draw_states.setdefault(draw_index, []).append(promoted_slot)
+        draw_runs.setdefault(draw_index, []).extend(runs)
+    families: list[PrimaryPivotFamily] = []
+    for draw_index in (_lottery_start_draw(3, None), _lottery_start_draw(3, 0)):
+        states = draw_states.get(draw_index)
+        if not states:
+            continue
+        if None in states:
+            # The un-promoted family needs the draw-1 promotion trial to fail.
+            promotion_u16_runs = (
+                (U16Run(promotion_end, 0xFFFF),)
+                if promotion_end < 0x10000
+                else ()
+            )
+        else:
+            # Every remaining state is a successful promotion outcome.
+            promotion_u16_runs = (
+                (U16Run(0, promotion_end - 1),) if promotion_end > 0 else ()
+            )
+        if not promotion_u16_runs:
+            continue
+        families.append(
+            PrimaryPivotFamily(
+                promoted_states=tuple(states),
+                pivot_draw_index=draw_index,
+                pivot_allowed_u16=_merge_u16_runs(draw_runs[draw_index]),
+                promotion_draw_index=1,
+                promotion_u16_runs=promotion_u16_runs,
+            )
+        )
+    return tuple(families)
 
 
 def _build_plan(
@@ -823,9 +991,12 @@ __all__ = [
     "CompiledEffectPlan",
     "FullCompositionRequest",
     "LotteryConstraint",
+    "NG3_RARITY3_PROMOTION_STATES",
     "OneWildcardCompositionRequest",
+    "PrimaryPivotFamily",
     "U16Run",
     "compile_full_composition_plans",
+    "compile_ng3_rarity3_primary_pivot_families",
     "compile_one_wildcard_composition_plans",
     "lcg_affine_for_draw",
     "seed_from_state_at_draw",

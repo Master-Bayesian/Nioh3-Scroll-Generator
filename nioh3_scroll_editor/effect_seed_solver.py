@@ -181,6 +181,46 @@ CandidateFoundCallback = Callable[[EffectSeedCandidate], None]
 PivotSeedCollector = Callable[..., tuple[tuple[int, int], ...] | None]
 
 
+@dataclass(frozen=True, slots=True)
+class CompiledPivotFamily:
+    """A caller-compiled pivot cursor space for one exact solver pass.
+
+    ``state_count`` is the number of 65,536-trial states the family contains
+    and ``collector`` returns the family's natural Seeds as ``(seed, one-based
+    trial)`` pairs in pivot-major order.  A family must be strictly smaller
+    than the full ``2**32`` Seed family, so it always fits the uint16 cursor
+    extent the intersection engine counts.  The pass keeps every certified
+    constraint as a Python-side filter and replaces only the derived pivot:
+    ``name``/``draw_index`` are the provenance the count cursor reports.
+    """
+
+    name: str
+    draw_index: int
+    state_count: int
+    collector: PivotSeedCollector
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("a compiled pivot family requires a name")
+        if self.draw_index <= 0:
+            raise ValueError("a compiled pivot draw index must be positive")
+        if not 1 <= self.state_count <= 0xFFFF:
+            raise ValueError(
+                "a compiled pivot family must be strictly smaller than the "
+                "full Seed family"
+            )
+
+    @property
+    def constraint(self) -> DrawConstraint:
+        """Return the declared cursor extent one pass pivots on."""
+
+        return DrawConstraint(
+            self.name,
+            self.draw_index,
+            U16Runs(((0, self.state_count - 1),)),
+        )
+
+
 def validate_effect_request_feasibility(
     request: EffectSeedRequest,
     *,
@@ -1406,6 +1446,7 @@ def iter_effect_seed_candidates(
     pivot_seed_collector: PivotSeedCollector | None = None,
     pivot_seed_collector_chunk_trials: int = 8_000_000,
     prefer_d3d11_fixed_draw: bool = False,
+    pivot_family: CompiledPivotFamily | None = None,
     allow_cpu_fallback: bool = False,
     tables: EffectGenerationTableIndex | None = None,
 ) -> Iterator[EffectSeedCandidate]:
@@ -1439,7 +1480,27 @@ def iter_effect_seed_candidates(
         ),
         allow_full_seed_family=allow_full_seed_family,
     )
-    pivot_seed_collector_uses_pivot_major_order = False
+    if pivot_family is not None:
+        # A caller-compiled cursor space (for example a disjunction of
+        # promotion-state families) replaces the derived pivot.  Every
+        # certified constraint stays a Python-side filter, the caller's
+        # collector owns the enumeration, and the pass keeps the ordinary
+        # counting, replay, reporting, and resumption behaviour.
+        if any(
+            constraint.allowed_u16.bucket_count <= pivot_family.state_count
+            for constraint in constraints
+        ):
+            raise ValueError(
+                "a compiled pivot family must be smaller than every certified "
+                "constraint"
+            )
+        constraints = (*constraints, pivot_family.constraint)
+        pivot_seed_collector = pivot_family.collector
+        pivot_seed_collector_chunk_trials = min(
+            pivot_seed_collector_chunk_trials,
+            8_000_000,
+        )
+    pivot_seed_collector_uses_pivot_major_order = pivot_family is not None
     if (
         pivot_seed_collector is None
         and prefer_d3d11_fixed_draw
@@ -1789,6 +1850,7 @@ def collect_effect_seed_page(
     pivot_seed_collector: PivotSeedCollector | None = None,
     pivot_seed_collector_chunk_trials: int = 8_000_000,
     prefer_d3d11_fixed_draw: bool = False,
+    pivot_family: CompiledPivotFamily | None = None,
     allow_cpu_fallback: bool = False,
     tables: EffectGenerationTableIndex | None = None,
 ) -> EffectSeedPage:
@@ -1811,7 +1873,11 @@ def collect_effect_seed_page(
         ),
         allow_full_seed_family=allow_full_seed_family,
     )
-    pivot_family_size = choose_pivot(constraints).allowed_u16.bucket_count * 0x10000
+    pivot_family_size = (
+        pivot_family.state_count * 0x10000
+        if pivot_family is not None
+        else choose_pivot(constraints).allowed_u16.bucket_count * 0x10000
+    )
     supports_intersection_report = (
         effect_sequence_generator is not None
         and request.playthrough in (3, 4, 5)
@@ -1850,6 +1916,7 @@ def collect_effect_seed_page(
         pivot_seed_collector=pivot_seed_collector,
         pivot_seed_collector_chunk_trials=pivot_seed_collector_chunk_trials,
         prefer_d3d11_fixed_draw=prefer_d3d11_fixed_draw,
+        pivot_family=pivot_family,
         allow_cpu_fallback=allow_cpu_fallback,
         tables=tables,
     )
@@ -1896,6 +1963,7 @@ def collect_effect_seed_page(
 
 
 __all__ = [
+    "CompiledPivotFamily",
     "EffectSeedCandidate",
     "EffectConstraintMaskBatchGenerator",
     "EffectSeedIntersectionReport",

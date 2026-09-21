@@ -41,7 +41,9 @@ use crate::native_search::{
 };
 use crate::preimage::{PreimagePolicy, MAX_PREIMAGE_TRIALS};
 use crate::query::SearchQuery;
-use crate::search_backend::{MatchFilter, NativePivotQuery, PageRequest, SearchBackend};
+use crate::search_backend::{
+    MatchFilter, NativePivotQuery, PageRequest, PrimaryPivotFamilySpec, SearchBackend,
+};
 
 /// NG3 scroll record type (`NG3_RECORD_TYPE`).
 pub const NG3_RECORD_TYPE: u16 = 0xE604;
@@ -93,6 +95,10 @@ pub enum Route {
     /// Plain natural pivot over the full family with the shipped batched
     /// predicates: a rarity-3 primary search or an unconstrained search.
     FullFamily,
+    /// NG3 rarity-3 named-primary pivot families: the shipped finite cursor
+    /// space of the legal promotion outcomes, with the partial-effect
+    /// acceptance deciding the caller's own criteria.
+    R3PrimaryPivot,
     /// Partial ordinary-effect search: the full seed family swept with the
     /// accelerator's batched constraint mask, then certified per Seed by the
     /// ported forward composition (`partial_effect_batch_generator`).
@@ -176,6 +182,17 @@ impl CompileError {
 
     fn data(message: impl Into<String>) -> Self {
         CompileError::Data(message.into())
+    }
+}
+
+/// Map one plan-compile failure onto the error the query compiler reports.
+fn map_effect_path_compile_error(error: crate::effect_path::EffectPathError) -> CompileError {
+    match error {
+        crate::effect_path::EffectPathError::Unsupported(message) => {
+            CompileError::unsupported(message)
+        }
+        crate::effect_path::EffectPathError::Rejected(message) => CompileError::Rejected(message),
+        crate::effect_path::EffectPathError::Data(message) => CompileError::data(message),
     }
 }
 
@@ -341,10 +358,17 @@ impl QueryCompiler {
     }
 
     /// Compile one validated query, or explain why it cannot be compiled.
+    ///
+    /// `effect_preimage_available` is the real probe of the verified
+    /// effect-preimage helper (`d3d11_effect_acceleration_available`). Routes
+    /// the shipped worker gates on that probe use it the same way, so a machine
+    /// without a DirectCompute backend keeps the shipped fallback instead of
+    /// being promised a route it cannot run.
     pub fn compile(
         &self,
         query: &SearchQuery,
         accelerator: &Accelerator,
+        effect_preimage_available: bool,
     ) -> Result<CompiledQuery, CompileError> {
         match self.cached_playthrough {
             // A cache-bound compiler serves exactly the playthrough its
@@ -404,6 +428,15 @@ impl QueryCompiler {
         }
         if self.one_wildcard_eligible(query) {
             return self.compile_one_wildcard_preimage(query);
+        }
+        // The shipped NG3 rarity-3 named-primary pivot is tried next: a
+        // primary that is drawable only before or only behind the promotion
+        // shuffle compiles into a finite family set, and the shipped
+        // partial-effect acceptance then decides the caller's own criteria.
+        // The method returns `None` for every other shape and for every
+        // fallback the shipped guard keeps, so the arms below stay unchanged.
+        if let Some(compiled) = self.compile_primary_pivot(query, effect_preimage_available)? {
+            return Ok(compiled);
         }
         // The rarity-4 primary pivot serves a primary-only request; a request
         // that also names secondaries or rolls is the shipped partial-effect
@@ -991,6 +1024,58 @@ impl QueryCompiler {
             }
             None => self.full_family_values(),
         };
+        let (page_filter, has_terrain_constraint) =
+            self.partial_effect_page_filter(query, special_mapping)?;
+        // The shipped dispatch picks the pivot from the platform: with CUDA the
+        // rarity-4 primary-conditioned collector enumerates the family, and
+        // without it the DirectCompute fixed-draw collector walks the whole
+        // seed family. Mirroring that choice keeps the cursor space identical.
+        let (native, chunk_trials) = if query.rarity == RARITY_FINALIZABLE
+            && !query.primary_effect_ids.is_empty()
+            && accelerator.capabilities().cuda_seed_acceleration
+        {
+            let spec = self.r4_primary_spec(accelerator, &query.primary_effect_ids)?;
+            (
+                NativePivotQuery::R4Primary {
+                    values: pivot_values,
+                    spec,
+                },
+                R4_PRIMARY_CHUNK_TRIALS,
+            )
+        } else {
+            (
+                NativePivotQuery::Natural {
+                    values: pivot_values,
+                },
+                FULL_FAMILY_CHUNK_TRIALS,
+            )
+        };
+        Ok(CompiledQuery {
+            route: Route::PartialEffectFilter,
+            digest: query.digest.clone(),
+            native,
+            playthrough: query.playthrough,
+            rarity: query.rarity,
+            has_terrain_constraint,
+            stage_specs: Vec::new(),
+            chunk_trials,
+            page_filter: Some(page_filter),
+            post_acceptance_filters: partial_effect_post_acceptance_filters(query),
+        })
+    }
+
+    /// The page-time acceptance every route whose pivot does not pack the
+    /// caller's own effect criteria shares with the shipped solver
+    /// (`partial_effect_batch_generator` plus `_iter_solution_prefetch`).
+    ///
+    /// The batched constraint mask is acceleration, never the decision, so the
+    /// certified recomposition is always carried. A request whose only
+    /// constraint is a job-layer filter composes nothing.
+    fn partial_effect_page_filter(
+        &self,
+        query: &SearchQuery,
+        special_mapping: Option<&GraceMap>,
+    ) -> Result<(PageFilter, bool), CompileError> {
         let mask = crate::effect_batch::plan_effect_mask(
             &self.effect_index,
             special_mapping,
@@ -1050,47 +1135,88 @@ impl QueryCompiler {
         let has_terrain_constraint = auxiliary
             .as_ref()
             .is_some_and(|spec| spec.has_terrain_constraint);
-        // The shipped dispatch picks the pivot from the platform: with CUDA the
-        // rarity-4 primary-conditioned collector enumerates the family, and
-        // without it the DirectCompute fixed-draw collector walks the whole
-        // seed family. Mirroring that choice keeps the cursor space identical.
-        let (native, chunk_trials) = if query.rarity == RARITY_FINALIZABLE
-            && !query.primary_effect_ids.is_empty()
-            && accelerator.capabilities().cuda_seed_acceleration
-        {
-            let spec = self.r4_primary_spec(accelerator, &query.primary_effect_ids)?;
-            (
-                NativePivotQuery::R4Primary {
-                    values: pivot_values,
-                    spec,
-                },
-                R4_PRIMARY_CHUNK_TRIALS,
-            )
-        } else {
-            (
-                NativePivotQuery::Natural {
-                    values: pivot_values,
-                },
-                FULL_FAMILY_CHUNK_TRIALS,
-            )
-        };
-        Ok(CompiledQuery {
-            route: Route::PartialEffectFilter,
-            digest: query.digest.clone(),
-            native,
-            playthrough: query.playthrough,
-            rarity: query.rarity,
-            has_terrain_constraint,
-            stage_specs: Vec::new(),
-            chunk_trials,
-            page_filter: Some(PageFilter {
+        Ok((
+            PageFilter {
                 primary: None,
                 auxiliary,
                 effect_mask: mask.map(Arc::new),
                 effect_verifier: verifier.map(Arc::new),
-            }),
+            },
+            has_terrain_constraint,
+        ))
+    }
+
+    /// The shipped NG3 rarity-3 named-primary pivot
+    /// (`search_application.collect_offline_ng3_rarity3_primary_pivot_search_batch`).
+    ///
+    /// A rarity-3 request that names a primary and no Grace compiles its legal
+    /// promotion-state families into one finite cursor space; the shipped
+    /// exact-solver page then runs it unchanged, so the certified constraints
+    /// stay page-side filters and the certified replay still decides every
+    /// published Seed. Every shape the shipped guard keeps, a missing
+    /// DirectCompute backend, and a cursor space that is not strictly smaller
+    /// than the full 2**32 Seed family all return `None` so the caller
+    /// continues down the shipped dispatch.
+    fn compile_primary_pivot(
+        &self,
+        query: &SearchQuery,
+        effect_preimage_available: bool,
+    ) -> Result<Option<CompiledQuery>, CompileError> {
+        if !effect_preimage_available
+            || query.rarity != RARITY_GROWING
+            || query.playthrough != 3
+            || query.grace_effect_id.is_some()
+            || query.primary_effect_ids.is_empty()
+        {
+            return Ok(None);
+        }
+        let families = crate::effect_path::compile_ng3_rarity3_primary_pivot_families(
+            &query.primary_effect_ids,
+            &self.effect_index,
+        )
+        .map_err(map_effect_path_compile_error)?;
+        let state_count: u64 = families
+            .iter()
+            .map(|family| {
+                family
+                    .pivot_allowed_u16
+                    .iter()
+                    .map(|run| u64::from(run.bucket_count()))
+                    .sum::<u64>()
+            })
+            .sum();
+        if families.is_empty() || state_count >= 0x1_0000 {
+            return Ok(None);
+        }
+        let mut specs: Vec<PrimaryPivotFamilySpec> = Vec::with_capacity(families.len());
+        for family in &families {
+            let plan = crate::effect_path::primary_pivot_native_plan(family)
+                .map_err(map_effect_path_compile_error)?;
+            specs.push(PrimaryPivotFamilySpec {
+                values: plan.values,
+                descriptors: plan.descriptors,
+                params: plan.params,
+                promotion_u16_runs: family.promotion_u16_runs.clone(),
+            });
+        }
+        // Rarity 3 has no capture-backed special mapping, so the shared
+        // partial-effect acceptance is built exactly as the full-family route
+        // builds it.
+        let (page_filter, has_terrain_constraint) = self.partial_effect_page_filter(query, None)?;
+        Ok(Some(CompiledQuery {
+            route: Route::R3PrimaryPivot,
+            digest: query.digest.clone(),
+            native: NativePivotQuery::PrimaryPivot {
+                families: Arc::new(specs),
+            },
+            playthrough: query.playthrough,
+            rarity: query.rarity,
+            has_terrain_constraint,
+            stage_specs: Vec::new(),
+            chunk_trials: crate::search_backend::MAX_PRIMARY_PIVOT_TRIALS,
+            page_filter: Some(page_filter),
             post_acceptance_filters: partial_effect_post_acceptance_filters(query),
-        })
+        }))
     }
 
     /// `_ng3_rarity34_primary_lookup` plus the shipped rarity-3 draw parameters.
@@ -1742,6 +1868,18 @@ impl NativeSearchFactory {
             compiler: QueryCompiler::load(data_root),
         }
     }
+
+    /// The real DirectCompute probe the shipped dispatch gates routes on
+    /// (`d3d11_effect_acceleration_available`).
+    ///
+    /// The helper is hash-verified at load, so a substituted artifact reports
+    /// `false` here exactly as it refuses every other route.
+    fn effect_preimage_available(&self) -> bool {
+        self.preimage
+            .as_ref()
+            .map(|accelerator| accelerator.available())
+            .unwrap_or(false)
+    }
 }
 
 impl SearchFactory for NativeSearchFactory {
@@ -1762,7 +1900,7 @@ impl SearchFactory for NativeSearchFactory {
         crate::feasibility::validate_query_feasibility(query, &compiler.effect_index)
             .map_err(|error| CollectorError::new("INVALID_REQUEST", error))?;
         let compiled = compiler
-            .compile(query, accelerator)
+            .compile(query, accelerator, self.effect_preimage_available())
             .map_err(|error| CollectorError::new("INVALID_REQUEST", error.to_string()))?;
         let backend = SearchBackend::new(Some(Arc::clone(accelerator)), self.preimage.clone());
         Ok(Arc::new(NativeCollector { backend, compiled }))
@@ -1804,7 +1942,7 @@ impl SearchFactory for NativeSearchFactory {
         crate::feasibility::validate_query_feasibility(query, bound.effect_index())
             .map_err(|error| CollectorError::new("INVALID_REQUEST", error))?;
         let compiled = bound
-            .compile(query, accelerator)
+            .compile(query, accelerator, self.effect_preimage_available())
             .map_err(|error| CollectorError::new("INVALID_REQUEST", error.to_string()))?;
         let backend = SearchBackend::new(Some(Arc::clone(accelerator)), self.preimage.clone());
         Ok(Arc::new(NativeCollector { backend, compiled }))
@@ -2051,7 +2189,10 @@ mod tests {
         }))
         .expect("the NG4 rarity-5 request is valid");
         let compiled = bound
-            .compile(&query, &accelerator)
+            // This test drives the save-bound rarity-5 cache route, which never
+            // uses the DirectCompute-gated rarity-3 pivot, so the probe is not
+            // part of what it measures.
+            .compile(&query, &accelerator, false)
             .expect("the cached route compiles");
         assert_eq!(compiled.route, Route::PartialEffectFilter);
         match &compiled.native {
@@ -2141,7 +2282,9 @@ mod tests {
         for (primary, rules, expect_accepted) in cases {
             let query = combined_query(primary, &rules);
             let compiled = compiler
-                .compile(&query, &accelerator)
+                // The combined auxiliary query is rarity 4, so the
+                // DirectCompute-gated rarity-3 pivot never applies.
+                .compile(&query, &accelerator, false)
                 .expect("the combined route compiles");
             let predicate = compiled
                 .page_filter
@@ -2194,5 +2337,429 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// The parity gate's partial-effect fixture
+    /// (`tests/migration/test_search_worker_parity.py`).
+    /// The shipped `PRIMARY_ROUTE_EFFECT` the parity gate searches by name.
+    const PRIMARY_ROUTE_EFFECT: u32 = 30543;
+    const PARITY_PRIMARY: u32 = 60020;
+    const PARITY_SECONDARY: u32 = 12028;
+    const PARITY_SEED: u32 = 226_727_520;
+    const PARITY_TRIAL: u64 = 18_266;
+    const PARITY_FAMILY_SIZE: u64 = 429_457_408;
+
+    fn pivot_query(primary: &[u32], secondary: &[u32]) -> SearchQuery {
+        SearchQuery::from_payload(&json!({
+            "playthrough": 3,
+            "rarity": 3,
+            "level": 180,
+            "primary_effect_ids": primary,
+            "required_secondary_ids": secondary,
+            "required_secondary_id_groups": [],
+            "grace_effect_id": null,
+            "minimum_roll_percent_by_effect_id": [],
+            "auxiliary": {
+                "required_terrain_effect_keys": [],
+                "required_terrain_effect_key_groups": [],
+                "required_special_rule_keys": [],
+                "required_special_rule_key_groups": [],
+                "required_enemy_lookup_keys": [],
+                "required_enemy_lookup_key_groups": [],
+            },
+        }))
+        .expect("the rarity-3 primary query is valid")
+    }
+
+    fn pivot_backend(root: &std::path::Path) -> SearchBackend {
+        let preimage_path = crate::capabilities::effect_preimage_path(root, None);
+        let preimage =
+            crate::preimage::PreimageAccelerator::load(root, Some(&preimage_path)).map(Arc::new);
+        SearchBackend::new(
+            Some(Arc::new(
+                Accelerator::load(root, None).expect("the shipped seed accelerator loads"),
+            )),
+            preimage,
+        )
+    }
+
+    fn page_filter_of(compiled: &CompiledQuery) -> Option<MatchFilter<'_>> {
+        compiled.page_filter.as_ref().map(|filter| MatchFilter {
+            primary: filter.primary.as_ref(),
+            auxiliary: filter.auxiliary.as_ref(),
+            effect_mask: filter.effect_mask.as_deref(),
+            effect_verifier: filter.effect_verifier.as_deref(),
+        })
+    }
+
+    /// The compiled rarity-3 families of one named primary must reproduce the
+    /// shipped `compile_ng3_rarity3_primary_pivot_families` pair exactly: the
+    /// promotion interval, the pivot draw, the bucket interval and the state
+    /// count of the parity fixture's own effect.
+    #[test]
+    fn the_rarity3_primary_pivot_family_matches_the_shipped_pair() {
+        let root = repo_root();
+        let compiler = QueryCompiler::load(&root.join("nioh3_scroll_editor").join("data"))
+            .expect("the shipped tables load");
+        let families = crate::effect_path::compile_ng3_rarity3_primary_pivot_families(
+            &[PARITY_PRIMARY],
+            &compiler.effect_index,
+        )
+        .expect("the parity family compiles");
+        assert_eq!(families.len(), 1);
+        let family = &families[0];
+        assert_eq!(family.promoted_states, vec![Some(0)]);
+        assert!(family.requires_promotion());
+        assert_eq!(family.pivot_draw_index, 9);
+        assert_eq!(
+            family.pivot_allowed_u16,
+            vec![crate::effect_path::U16Run {
+                start: 52430,
+                end: 58982
+            }]
+        );
+        assert_eq!(family.promotion_draw_index, 1);
+        assert_eq!(
+            family.promotion_u16_runs,
+            vec![crate::effect_path::U16Run {
+                start: 0,
+                end: 6553
+            }]
+        );
+        assert_eq!(family.pivot_state_count(), PARITY_FAMILY_SIZE);
+        assert!(family.pivot_state_count() < 0x1_0000_0000);
+    }
+
+    /// The two-family case partitions the draw-1 promotion states: the
+    /// un-promoted family comes first (draw 2, promotion failed) and the
+    /// promoted family second (draw 9, promotion succeeded), exactly like the
+    /// shipped family order the cursor concatenates.
+    #[test]
+    fn the_rarity3_primary_pivot_families_partition_the_promotion_states() {
+        let root = repo_root();
+        let compiler = QueryCompiler::load(&root.join("nioh3_scroll_editor").join("data"))
+            .expect("the shipped tables load");
+        let families = crate::effect_path::compile_ng3_rarity3_primary_pivot_families(
+            &[PRIMARY_ROUTE_EFFECT],
+            &compiler.effect_index,
+        )
+        .expect("the two-family primary compiles");
+        assert_eq!(families.len(), 2);
+        let (unpromoted, promoted) = (&families[0], &families[1]);
+        assert!(!unpromoted.requires_promotion());
+        assert!(promoted.requires_promotion());
+        assert_eq!(unpromoted.pivot_draw_index, 2);
+        assert_eq!(promoted.pivot_draw_index, 9);
+        assert_eq!(unpromoted.pivot_allowed_u16, promoted.pivot_allowed_u16);
+        assert_eq!(unpromoted.promotion_draw_index, 1);
+        assert_eq!(promoted.promotion_draw_index, 1);
+        assert_eq!(
+            unpromoted.promotion_u16_runs,
+            vec![crate::effect_path::U16Run {
+                start: 6554,
+                end: 0xFFFF
+            }]
+        );
+        assert_eq!(
+            promoted.promotion_u16_runs,
+            vec![crate::effect_path::U16Run {
+                start: 0,
+                end: 6553
+            }]
+        );
+        // The two intervals partition the draw-1 states with no overlap.
+        assert_eq!(
+            promoted.promotion_u16_runs[0].end + 1,
+            unpromoted.promotion_u16_runs[0].start
+        );
+        let state_count: u64 = families.iter().map(|item| item.pivot_state_count()).sum();
+        assert_eq!(state_count, 220_332_032);
+        assert!(state_count < 0x1_0000_0000);
+    }
+
+    /// The route must select the compiled families for a named rarity-3
+    /// primary, and a page over its cursor space must publish the shipped
+    /// fixture's Seed at the shipped fixture's trial.
+    #[test]
+    fn the_rarity3_primary_pivot_page_publishes_the_shipped_fixture() {
+        let root = repo_root();
+        let data_root = root.join("nioh3_scroll_editor").join("data");
+        let compiler = QueryCompiler::load(&data_root).expect("the shipped tables load");
+        let accelerator = Accelerator::load(&root, None).expect("the shipped accelerator loads");
+        let query = pivot_query(&[PARITY_PRIMARY], &[PARITY_SECONDARY]);
+        let compiled = compiler
+            .compile(&query, &accelerator, true)
+            .expect("the rarity-3 primary pivot compiles");
+        assert_eq!(compiled.route, Route::R3PrimaryPivot);
+        assert_eq!(compiled.native.family_size(), PARITY_FAMILY_SIZE);
+        assert_eq!(
+            compiled.chunk_trials,
+            crate::search_backend::MAX_PRIMARY_PIVOT_TRIALS
+        );
+        match &compiled.native {
+            NativePivotQuery::PrimaryPivot { families } => {
+                assert_eq!(families.len(), 1);
+                assert_eq!(families[0].values.len(), 6553);
+                assert_eq!(families[0].values[0], 52430);
+                assert_eq!(families[0].values[6552], 58982);
+            }
+            other => panic!("the rarity-3 primary pivot must walk its families: {other:?}"),
+        }
+        // Without the DirectCompute probe the shipped full-family route stays.
+        assert_eq!(
+            compiler
+                .compile(&query, &accelerator, false)
+                .expect("the fallback compiles")
+                .route,
+            Route::PartialEffectFilter
+        );
+
+        let backend = pivot_backend(&root);
+        let filter = page_filter_of(&compiled);
+        let page = backend
+            .collect_page_filtered(
+                &compiled.native,
+                &PageRequest::chunk(0, 10_000_000, compiled.chunk_trials, 1),
+                &|| false,
+                &mut |_| {},
+                filter.as_ref(),
+            )
+            .expect("the pivot page runs");
+        assert_eq!(page.matches.len(), 1);
+        assert_eq!(page.matches[0].seed, PARITY_SEED);
+        assert_eq!(page.matches[0].trial, PARITY_TRIAL);
+        assert_eq!(page.next_cursor, PARITY_TRIAL);
+        assert!(!page.exhausted);
+        assert_eq!(page.fixed_seed_count, 0);
+        assert!(page.stage_counts.is_empty());
+    }
+
+    /// The exact verifier: a trial's Seed must re-derive from the family
+    /// cursor alone, and a wrong pair must be refused.
+    #[test]
+    fn the_rarity3_primary_pivot_cursor_replays_from_the_families() {
+        let root = repo_root();
+        let compiler = QueryCompiler::load(&root.join("nioh3_scroll_editor").join("data"))
+            .expect("the shipped tables load");
+        let families = crate::effect_path::compile_ng3_rarity3_primary_pivot_families(
+            &[PARITY_PRIMARY],
+            &compiler.effect_index,
+        )
+        .expect("the parity family compiles");
+        let mut specs: Vec<PrimaryPivotFamilySpec> = Vec::new();
+        for family in &families {
+            let plan = crate::effect_path::primary_pivot_native_plan(family)
+                .expect("the native plan builds");
+            specs.push(PrimaryPivotFamilySpec {
+                values: plan.values,
+                descriptors: plan.descriptors,
+                params: plan.params,
+                promotion_u16_runs: family.promotion_u16_runs.clone(),
+            });
+        }
+        assert_eq!(
+            crate::search_backend::replay_primary_pivot_seed(&specs, PARITY_TRIAL)
+                .expect("the fixture trial replays"),
+            PARITY_SEED
+        );
+        assert!(crate::search_backend::replay_primary_pivot_seed(&specs, 0).is_err());
+        assert!(
+            crate::search_backend::replay_primary_pivot_seed(&specs, PARITY_FAMILY_SIZE + 1)
+                .is_err(),
+            "a trial outside the family has no Seed"
+        );
+
+        // The second family pair: the two-family primary's first two shipped
+        // matches sit at trials 1 and 18 of the concatenated cursor.
+        let two = crate::effect_path::compile_ng3_rarity3_primary_pivot_families(
+            &[PRIMARY_ROUTE_EFFECT],
+            &compiler.effect_index,
+        )
+        .expect("the two-family primary compiles");
+        let mut two_specs: Vec<PrimaryPivotFamilySpec> = Vec::new();
+        for family in &two {
+            let plan = crate::effect_path::primary_pivot_native_plan(family)
+                .expect("the native plan builds");
+            two_specs.push(PrimaryPivotFamilySpec {
+                values: plan.values,
+                descriptors: plan.descriptors,
+                params: plan.params,
+                promotion_u16_runs: family.promotion_u16_runs.clone(),
+            });
+        }
+        assert_eq!(
+            crate::search_backend::replay_primary_pivot_seed(&two_specs, 1)
+                .expect("trial 1 replays"),
+            67_687_138
+        );
+        assert_eq!(
+            crate::search_backend::replay_primary_pivot_seed(&two_specs, 18)
+                .expect("trial 18 replays"),
+            76_331_659
+        );
+    }
+
+    /// A cancelled page keeps its checkpoint and the resume continues without
+    /// replaying the candidate it already passed.
+    #[test]
+    fn the_rarity3_primary_pivot_page_resumes_without_replay() {
+        let root = repo_root();
+        let data_root = root.join("nioh3_scroll_editor").join("data");
+        let compiler = QueryCompiler::load(&data_root).expect("the shipped tables load");
+        let accelerator = Accelerator::load(&root, None).expect("the shipped accelerator loads");
+        let query = pivot_query(&[PARITY_PRIMARY], &[PARITY_SECONDARY]);
+        let compiled = compiler
+            .compile(&query, &accelerator, true)
+            .expect("the rarity-3 primary pivot compiles");
+        let backend = pivot_backend(&root);
+        let filter = page_filter_of(&compiled);
+
+        // A first page that stops short of the fixture's trial publishes
+        // nothing and reports the scan boundary as its resume cursor.
+        let prefix = backend
+            .collect_page_filtered(
+                &compiled.native,
+                &PageRequest::chunk(0, 4096, compiled.chunk_trials, 1),
+                &|| false,
+                &mut |_| {},
+                filter.as_ref(),
+            )
+            .expect("the prefix page runs");
+        assert!(prefix.matches.is_empty());
+        assert_eq!(prefix.next_cursor, 4096);
+
+        let resumed = backend
+            .collect_page_filtered(
+                &compiled.native,
+                &PageRequest::chunk(prefix.next_cursor, 10_000_000, compiled.chunk_trials, 1),
+                &|| false,
+                &mut |_| {},
+                filter.as_ref(),
+            )
+            .expect("the resumed page runs");
+        assert_eq!(resumed.matches.len(), 1);
+        assert_eq!(resumed.matches[0].seed, PARITY_SEED);
+        assert_eq!(resumed.matches[0].trial, PARITY_TRIAL);
+        assert_eq!(resumed.next_cursor, PARITY_TRIAL);
+
+        // Resuming at the published trial skips it rather than replaying it.
+        let after = backend
+            .collect_page_filtered(
+                &compiled.native,
+                &PageRequest::chunk(PARITY_TRIAL, 10_000_000, compiled.chunk_trials, 1),
+                &|| false,
+                &mut |_| {},
+                filter.as_ref(),
+            )
+            .expect("the follow-up page runs");
+        assert!(
+            after
+                .matches
+                .iter()
+                .all(|matched| matched.trial > PARITY_TRIAL),
+            "a resumed page must not replay the published candidate"
+        );
+
+        // A cancel inside a long page keeps the accepted matches and the exact
+        // checkpoint it already reached.
+        let cancelled = backend
+            .collect_page_filtered(
+                &compiled.native,
+                &PageRequest::chunk(0, 10_000_000, compiled.chunk_trials, 25),
+                &|| true,
+                &mut |_| {},
+                filter.as_ref(),
+            )
+            .expect("a cancelled page reports its checkpoint");
+        assert!(cancelled.cancelled);
+        assert_eq!(cancelled.next_cursor, 0);
+        assert!(cancelled.matches.is_empty());
+    }
+
+    /// A cancellation observed while a long window is being decided stops the
+    /// page inside that window: the checkpoint is the exclusive cursor the page
+    /// really decided through, and the resume re-decides the interrupted raw
+    /// match rather than replaying a published candidate or skipping one.
+    #[test]
+    fn the_rarity3_primary_pivot_cancels_inside_a_window_without_replay() {
+        let root = repo_root();
+        let data_root = root.join("nioh3_scroll_editor").join("data");
+        let compiler = QueryCompiler::load(&data_root).expect("the shipped tables load");
+        let accelerator = Accelerator::load(&root, None).expect("the shipped accelerator loads");
+        let query = pivot_query(&[PARITY_PRIMARY], &[PARITY_SECONDARY]);
+        let compiled = compiler
+            .compile(&query, &accelerator, true)
+            .expect("the rarity-3 primary pivot compiles");
+        let backend = pivot_backend(&root);
+        let filter = page_filter_of(&compiled);
+
+        // The uninterrupted page is the reference candidate stream.
+        let full = backend
+            .collect_page_filtered(
+                &compiled.native,
+                &PageRequest::chunk(0, 10_000_000, compiled.chunk_trials, 5),
+                &|| false,
+                &mut |_| {},
+                filter.as_ref(),
+            )
+            .expect("the reference page runs");
+        assert_eq!(full.matches.len(), 5);
+
+        // The decision loop polls cancellation before each survivor, so the
+        // third poll lands after the window was swept and its first batch masked
+        // but before the first survivor is decided.
+        let calls = std::cell::Cell::new(0usize);
+        let cancelled = || {
+            let seen = calls.get();
+            calls.set(seen + 1);
+            seen >= 2
+        };
+        let interrupted = backend
+            .collect_page_filtered(
+                &compiled.native,
+                &PageRequest::chunk(0, 10_000_000, compiled.chunk_trials, 5),
+                &cancelled,
+                &mut |_| {},
+                filter.as_ref(),
+            )
+            .expect("the interrupted page runs");
+        assert!(
+            interrupted.cancelled,
+            "the decision loop must observe the cancellation"
+        );
+        assert!(
+            interrupted.next_cursor < PARITY_TRIAL,
+            "the checkpoint must stay inside the interrupted window: {}",
+            interrupted.next_cursor
+        );
+        assert_eq!(interrupted.matches, full.matches[..0]);
+
+        // The resume re-decides the interrupted raw match and publishes the
+        // reference stream's head, with nothing replayed and nothing skipped.
+        let remaining = 5 - interrupted.matches.len();
+        let resumed = backend
+            .collect_page_filtered(
+                &compiled.native,
+                &PageRequest::chunk(
+                    interrupted.next_cursor,
+                    10_000_000,
+                    compiled.chunk_trials,
+                    remaining,
+                ),
+                &|| false,
+                &mut |_| {},
+                filter.as_ref(),
+            )
+            .expect("the resumed page runs");
+        let union: Vec<crate::native_search::PivotMatch> = interrupted
+            .matches
+            .iter()
+            .chain(resumed.matches.iter())
+            .copied()
+            .collect();
+        assert_eq!(
+            union, full.matches,
+            "cancel plus resume must reproduce the uninterrupted stream"
+        );
     }
 }

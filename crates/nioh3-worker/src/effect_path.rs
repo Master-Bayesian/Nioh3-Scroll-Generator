@@ -23,7 +23,9 @@ use nioh3_domain::sequence::{
 use std::sync::Arc;
 
 use crate::grace_map::CATEGORY_TO_TYPE;
-use crate::preimage::{EffectPathInput, PathConstraintInput, PATH_CONSTRAINT_LIMIT};
+use crate::preimage::{
+    EffectPathInput, PathConstraintInput, PreimagePlanParams, PATH_CONSTRAINT_LIMIT,
+};
 
 /// `LCG_MULTIPLIER` from the shipped seed math.
 pub const LCG_MULTIPLIER: u32 = 0x0001_0DCD;
@@ -413,6 +415,301 @@ pub fn weighted_lottery_u16_runs(
         start: start as u16,
         end: end as u16,
     }])
+}
+
+/// `NG3_RARITY3_PROMOTION_STATES`: every promotion outcome a rarity-3 primary
+/// lottery can follow, in the shipped order (`None` is "no promotion").
+pub const NG3_RARITY3_PROMOTION_STATES: [Option<u8>; 5] =
+    [None, Some(0), Some(1), Some(2), Some(3)];
+
+/// One NG3 rarity-3 primary family inside a DirectCompute cursor
+/// (`effect_path_inverse.PrimaryPivotFamily`).
+///
+/// Rarity 3 draws its first ordinary lottery at draw 2, and a successful
+/// promotion trial moves that lottery behind the seven-draw shuffle to draw 9.
+/// A family therefore owns both an ordinary promotion outcome at
+/// [`Self::promotion_draw_index`] and the allowed high-16 states at
+/// [`Self::pivot_draw_index`]. Both parts are plain high-16 intervals, so the
+/// fixed-draw collector enforces them without any per-Seed Python filter; the
+/// certified forward generator still replays every reported Seed before it is
+/// published.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrimaryPivotFamily {
+    /// The promotion outcomes this family covers.
+    pub promoted_states: Vec<Option<u8>>,
+    /// The draw whose high-16 buckets this family enumerates.
+    pub pivot_draw_index: u32,
+    /// The allowed high-16 buckets, sorted and coalesced.
+    pub pivot_allowed_u16: Vec<U16Run>,
+    /// The promotion trial's draw index (the first draw).
+    pub promotion_draw_index: u32,
+    /// The draw-1 high-16 interval that selects this family's outcome.
+    pub promotion_u16_runs: Vec<U16Run>,
+}
+
+impl PrimaryPivotFamily {
+    /// `PrimaryPivotFamily.requires_promotion`.
+    pub fn requires_promotion(&self) -> bool {
+        !self.promoted_states.contains(&None)
+    }
+
+    /// `PrimaryPivotFamily.pivot_state_count`: the family's 65,536-trial states.
+    pub fn pivot_state_count(&self) -> u64 {
+        self.pivot_allowed_u16
+            .iter()
+            .map(|run| u64::from(run.bucket_count()))
+            .sum::<u64>()
+            * 0x1_0000
+    }
+
+    /// The family's high-16 buckets in ascending native order.
+    pub fn values(&self) -> Vec<u16> {
+        self.pivot_allowed_u16
+            .iter()
+            .flat_map(|run| run.start..=run.end)
+            .collect()
+    }
+}
+
+/// `_merge_u16_runs`: sorted, coalesced runs for one union of allowed states.
+fn merge_u16_runs(runs: &[U16Run]) -> Vec<U16Run> {
+    let mut sorted = runs.to_vec();
+    sorted.sort_unstable();
+    let mut merged: Vec<U16Run> = Vec::with_capacity(sorted.len());
+    for run in sorted {
+        if let Some(last) = merged.last_mut() {
+            if u32::from(run.start) <= u32::from(last.end) + 1 {
+                last.end = last.end.max(run.end);
+                continue;
+            }
+        }
+        merged.push(run);
+    }
+    merged
+}
+
+/// The draw the ordinary primary lottery moves to for one promotion outcome
+/// (`_lottery_start_draw` for rarity 3).
+fn rarity3_lottery_start_draw(promoted_slot: Option<u8>) -> u32 {
+    if promoted_slot.is_some() {
+        9
+    } else {
+        2
+    }
+}
+
+/// `_lottery_candidate_pool`: the position-0 pool of one promotion outcome.
+fn lottery_candidate_pool(
+    tables: &EffectTableIndex,
+    record_type: u16,
+    rarity: u8,
+    promoted: bool,
+    remaining_category_capacities: [u16; 32],
+) -> Result<Vec<WeightedEffectCandidate>, EffectPathError> {
+    let request = CandidatePoolRequest {
+        context: NativeWeightContext {
+            record_type,
+            rarity,
+            playthrough: 3,
+            restricted_destination_slot: false,
+            extra_selector: 0,
+            rarity5_type_floor: 0,
+        },
+        destination_category_and_flags: 0x40,
+        destination_effect_flags: if promoted { EFFECT_FLAG_PROMOTED } else { 0 },
+        remaining_category_capacities,
+        special_effect_id: Some(RARITY3_GROWING_TOKEN),
+        alternate_runtime_context: false,
+    };
+    tables
+        .weighted_candidate_pool(&request, &[])
+        .map_err(|error| EffectPathError::Data(format!("primary pivot candidate pool: {error:?}")))
+}
+
+/// `compile_ng3_rarity3_primary_pivot_families`.
+///
+/// Compiles the NG3 rarity-3 primary families for every promotion state. The
+/// position-0 pool of [`compile_full_composition_plans`] is reused verbatim:
+/// the un-promoted lottery draws at draw 2 with the ordinary destination
+/// flags, and a promoted source slot 0 draws at draw 9 with the promoted
+/// effect flag, so the promoted outcome owns a second allowed-state set.
+/// States that share a draw merge into one sorted run set, each family also
+/// carries the draw-1 promotion interval of the full composition compiler, and
+/// the returned order is stable: the un-promoted family first, then the
+/// promoted family.
+pub fn compile_ng3_rarity3_primary_pivot_families(
+    primary_effect_ids: &[u32],
+    tables: &EffectTableIndex,
+) -> Result<Vec<PrimaryPivotFamily>, EffectPathError> {
+    let mut requested = primary_effect_ids.to_vec();
+    requested.sort_unstable();
+    requested.dedup();
+    if requested.is_empty() {
+        return Err(EffectPathError::Rejected(
+            "a primary pivot requires at least one effect ID".to_string(),
+        ));
+    }
+    let promotion_threshold = promotion_layout(tables, RARITY_GROWING)? * 100;
+    // `random_int(u16, 10_000) < threshold` is monotone in the draw-1 state, so
+    // the promotion outcome is one contiguous high-16 interval.
+    let promotion_end = first_u16_with_random_int_at_least(10_000, promotion_threshold);
+    let record_type = CATEGORY_TO_TYPE[usize::from(RARITY_GROWING)];
+    let capacities = tables
+        .category_capacities(record_type, RARITY_GROWING)
+        .map_err(|error| EffectPathError::Data(format!("category capacities: {error:?}")))?;
+    // The un-promoted draw first, then the promoted draw, exactly like the
+    // shipped family order.
+    let unpromoted_draw = rarity3_lottery_start_draw(None);
+    let promoted_draw = rarity3_lottery_start_draw(Some(0));
+    let mut draw_states: Vec<(u32, Vec<Option<u8>>, Vec<U16Run>)> = vec![
+        (unpromoted_draw, Vec::new(), Vec::new()),
+        (promoted_draw, Vec::new(), Vec::new()),
+    ];
+    for promoted_slot in NG3_RARITY3_PROMOTION_STATES {
+        let pool = lottery_candidate_pool(
+            tables,
+            record_type,
+            RARITY_GROWING,
+            promoted_slot == Some(0),
+            capacities,
+        )?;
+        let mut runs: Vec<U16Run> = Vec::new();
+        for effect_id in &requested {
+            runs.extend(weighted_lottery_u16_runs(&pool, *effect_id)?);
+        }
+        if runs.is_empty() {
+            continue;
+        }
+        let draw_index = rarity3_lottery_start_draw(promoted_slot);
+        let entry = draw_states
+            .iter_mut()
+            .find(|(candidate, _, _)| *candidate == draw_index)
+            .ok_or_else(|| {
+                EffectPathError::Data(format!("no compiled pivot family for draw {draw_index}"))
+            })?;
+        entry.1.push(promoted_slot);
+        entry.2.extend(runs);
+    }
+    let mut families: Vec<PrimaryPivotFamily> = Vec::with_capacity(draw_states.len());
+    for (draw_index, states, runs) in draw_states {
+        if states.is_empty() {
+            continue;
+        }
+        let promotion_u16_runs = if states.contains(&None) {
+            // The un-promoted family needs the draw-1 promotion trial to fail.
+            if promotion_end < 0x1_0000 {
+                vec![U16Run {
+                    start: promotion_end as u16,
+                    end: 0xFFFF,
+                }]
+            } else {
+                Vec::new()
+            }
+        } else if promotion_end > 0 {
+            // Every remaining state is a successful promotion outcome.
+            vec![U16Run {
+                start: 0,
+                end: (promotion_end - 1) as u16,
+            }]
+        } else {
+            Vec::new()
+        };
+        if promotion_u16_runs.is_empty() {
+            continue;
+        }
+        families.push(PrimaryPivotFamily {
+            promoted_states: states,
+            pivot_draw_index: draw_index,
+            pivot_allowed_u16: merge_u16_runs(&runs),
+            promotion_draw_index: 1,
+            promotion_u16_runs,
+        });
+    }
+    Ok(families)
+}
+
+/// The native sweep of one pivot family: its value table, descriptors and
+/// scalar parameters.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PrimaryPivotNativePlan {
+    /// The family's high-16 buckets in ascending order (the pivot table).
+    pub values: Vec<u16>,
+    /// The packed path descriptors the fixed-draw collector evaluates.
+    pub descriptors: Vec<EffectPathInput>,
+    /// The scalar parameters of the same native call.
+    pub params: PreimagePlanParams,
+}
+
+/// Build the native sweep of one compiled family.
+///
+/// Mirrors the synthetic plan
+/// `effect_preimage_accelerator.collect_fixed_draw_pivot_seeds_d3d11` builds
+/// for the same family: one path whose only constraints are the family's
+/// promotion interval, no promotion probability of its own, the family's
+/// bucket list as the pivot table, and the shipped rarity-3 slot layout.
+pub fn primary_pivot_native_plan(
+    family: &PrimaryPivotFamily,
+) -> Result<PrimaryPivotNativePlan, EffectPathError> {
+    let constraints: Vec<LotteryConstraint> = family
+        .promotion_u16_runs
+        .iter()
+        .map(|run| LotteryConstraint {
+            source_slot: 0,
+            draw_index: family.promotion_draw_index,
+            effect_id: 0,
+            candidate_count: 0,
+            total_weight: 0,
+            allowed_u16: vec![*run],
+        })
+        .collect();
+    let request = FullCompositionRequest {
+        rarity: RARITY_GROWING,
+        primary_effect_id: 0,
+        secondary_effect_ids: vec![1, 2, 3],
+        stage_special_effect_id: None,
+        natural_only: true,
+        playthrough: 3,
+    };
+    let pivot_values: Vec<U16Run> = family
+        .pivot_allowed_u16
+        .iter()
+        .flat_map(|run| {
+            (run.start..=run.end).map(|value| U16Run {
+                start: value,
+                end: value,
+            })
+        })
+        .collect();
+    let plan = build_plan(
+        CompositionRequest::Full(request),
+        vec![CompiledEffectPath {
+            ordered_effect_ids: Vec::new(),
+            promoted_slot: None,
+            constraints,
+        }],
+        Vec::new(),
+        family.promotion_draw_index,
+        0,
+        1,
+        4,
+        family.pivot_draw_index,
+        pivot_values,
+    );
+    Ok(PrimaryPivotNativePlan {
+        values: family.values(),
+        descriptors: native_path_descriptors(&plan)?,
+        params: PreimagePlanParams {
+            pivot_draw_index: plan.pivot_draw_index,
+            pivot_affine_addend: plan.pivot_affine_addend,
+            pivot_inverse_multiplier: plan.pivot_inverse_multiplier,
+            promotion_draw_index: plan.promotion_draw_index,
+            promotion_probability_percent: plan.promotion_probability_percent,
+            shuffle_draw_start: plan.shuffle_draw_start,
+            rarity: RARITY_GROWING,
+            slot_limit: plan.slot_limit,
+            maximum_draw: family.promotion_draw_index,
+        },
+    })
 }
 
 /// Whether every requested secondary can be drawn into a normal ordinary slot.
