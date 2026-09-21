@@ -150,6 +150,16 @@ jobs:
         run: python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.zip
       - name: Build the install-free single executable
         run: python tools/build_tauri_onefile.py deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.zip deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.exe
+      - name: Prepare the synthetic game identity for packaged UI acceptance
+        if: inputs.worker_backend == 'rust'
+        shell: pwsh
+        run: |
+          $fixtureRoot = Join-Path $env:RUNNER_TEMP 'nioh3-game-identity'
+          ./tools/prepare_ci_game_identity.ps1 -Root $fixtureRoot -GameFileVersion $env:NIOH3_PARITY_GAME_FILE_VERSION -ExportForActions
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          $evidence='deliverables/frontend-v2/tauri-acceptance'
+          New-Item -ItemType Directory -Force -Path $evidence | Out-Null
+          Copy-Item -LiteralPath (Join-Path $fixtureRoot 'identity.json') -Destination (Join-Path $evidence 'ci-game-identity.json')
       - name: Verify the release binaries
         shell: pwsh
         env:
