@@ -38,7 +38,7 @@ REVEALED_DONOR_WORD = 0x0F800080
 # Engine insertion result before the item is viewed (`0x02800002 | 0x04000080`).
 NEW_ITEM_BIT = 0x02
 INSERTION_BITS = 0x04000080
-REVEAL_BITS = 0x0000_0900  # +0x1B bits 0x01|0x08
+REVEAL_BITS = 0x09000000  # +0x1B bits 0x01|0x08
 
 
 class FixtureCrypto:
@@ -121,6 +121,20 @@ class PostInsertionStateTests(unittest.TestCase):
             word & INSERTION_BITS, INSERTION_BITS, "engine insertion bits are missing"
         )
         self.assertEqual(word & REVEAL_BITS, 0, "the installed record is already revealed")
+
+    def test_reveal_mask_flags_the_revealed_word_and_clears_the_install_word(self) -> None:
+        """The reveal mask must discriminate the captured words.
+
+        A mask on the wrong byte left both the captured first-reveal word and the
+        installed word at zero, which made the reveal assertion vacuous.
+        """
+
+        self.assertEqual(
+            REVEALED_DONOR_WORD & REVEAL_BITS,
+            0x09000000,
+            "the captured first-reveal word must be caught by the reveal mask",
+        )
+        self.assertEqual(POST_INSERTION_FLAG_WORD & REVEAL_BITS, 0)
 
     def test_install_replaces_revealed_donor_word_for_rarity_3_and_4(self) -> None:
         for rarity, seed in ((3, 10030609), (4, 43723117)):

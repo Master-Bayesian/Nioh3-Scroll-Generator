@@ -775,7 +775,7 @@ mod tests {
             "the engine insertion bits are set"
         );
         assert_eq!(
-            word & 0x0000_0900,
+            word & 0x0900_0000,
             0,
             "the installed record is not revealed"
         );

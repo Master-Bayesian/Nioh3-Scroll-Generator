@@ -333,7 +333,7 @@ class BatchInstallParityTests(BatchInstallFixture):
                 "the installed record must read as freshly inserted",
             )
             self.assertEqual(word & 0x04000080, 0x04000080)
-            self.assertEqual(word & 0x00000900, 0, "the record is not revealed")
+            self.assertEqual(word & 0x09000000, 0, "the record is not revealed")
             self.assertNotEqual(struct.unpack_from("<H", record, 0x00)[0], 0)
 
         # The checksum field is our own derived value, not the tool's leftovers.
