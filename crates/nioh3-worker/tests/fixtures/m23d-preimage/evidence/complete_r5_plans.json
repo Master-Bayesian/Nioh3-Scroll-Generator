@@ -1,0 +1,1929 @@
+{
+ "family_size": 107413504,
+ "grace_runs": [
+  [
+   0,
+   5963
+  ]
+ ],
+ "level": 180,
+ "ordinary_slots": [
+  41041,
+  54282,
+  13555,
+  15994,
+  44634
+ ],
+ "plans": [
+  {
+   "paths": [
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 13,
+       "effect_id": 44634,
+       "source_slot": 2,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         53834,
+         56173
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 16,
+       "effect_id": 13555,
+       "source_slot": 3,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         42851,
+         45371
+        ]
+       ],
+       "candidate_count": 26,
+       "draw_index": 19,
+       "effect_id": 15994,
+       "source_slot": 4,
+       "total_weight": 520000
+      },
+      {
+       "allowed_u16": [
+        [
+         15729,
+         18350
+        ]
+       ],
+       "candidate_count": 25,
+       "draw_index": 22,
+       "effect_id": 54282,
+       "source_slot": 5,
+       "total_weight": 500000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      44634,
+      13555,
+      15994,
+      54282
+     ],
+     "promoted_slot": 2
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 13,
+       "effect_id": 44634,
+       "source_slot": 2,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         53834,
+         56173
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 16,
+       "effect_id": 13555,
+       "source_slot": 3,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         15124,
+         17644
+        ]
+       ],
+       "candidate_count": 26,
+       "draw_index": 19,
+       "effect_id": 54282,
+       "source_slot": 4,
+       "total_weight": 520000
+      },
+      {
+       "allowed_u16": [
+        [
+         37450,
+         40569
+        ]
+       ],
+       "candidate_count": 21,
+       "draw_index": 22,
+       "effect_id": 15994,
+       "source_slot": 5,
+       "total_weight": 420000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      44634,
+      13555,
+      54282,
+      15994
+     ],
+     "promoted_slot": 2
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 13,
+       "effect_id": 44634,
+       "source_slot": 2,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         42131,
+         44470
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 16,
+       "effect_id": 15994,
+       "source_slot": 3,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         53400,
+         55826
+        ]
+       ],
+       "candidate_count": 27,
+       "draw_index": 19,
+       "effect_id": 13555,
+       "source_slot": 4,
+       "total_weight": 540000
+      },
+      {
+       "allowed_u16": [
+        [
+         15729,
+         18350
+        ]
+       ],
+       "candidate_count": 25,
+       "draw_index": 22,
+       "effect_id": 54282,
+       "source_slot": 5,
+       "total_weight": 500000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      44634,
+      15994,
+      13555,
+      54282
+     ],
+     "promoted_slot": 2
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 13,
+       "effect_id": 44634,
+       "source_slot": 2,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         42131,
+         44470
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 16,
+       "effect_id": 15994,
+       "source_slot": 3,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         14564,
+         16990
+        ]
+       ],
+       "candidate_count": 27,
+       "draw_index": 19,
+       "effect_id": 54282,
+       "source_slot": 4,
+       "total_weight": 540000
+      },
+      {
+       "allowed_u16": [
+        [
+         50642,
+         53620
+        ]
+       ],
+       "candidate_count": 22,
+       "draw_index": 22,
+       "effect_id": 13555,
+       "source_slot": 5,
+       "total_weight": 440000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      44634,
+      15994,
+      54282,
+      13555
+     ],
+     "promoted_slot": 2
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 13,
+       "effect_id": 44634,
+       "source_slot": 2,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         14044,
+         16384
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 16,
+       "effect_id": 54282,
+       "source_slot": 3,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         51290,
+         54138
+        ]
+       ],
+       "candidate_count": 23,
+       "draw_index": 19,
+       "effect_id": 13555,
+       "source_slot": 4,
+       "total_weight": 460000
+      },
+      {
+       "allowed_u16": [
+        [
+         37450,
+         40569
+        ]
+       ],
+       "candidate_count": 21,
+       "draw_index": 22,
+       "effect_id": 15994,
+       "source_slot": 5,
+       "total_weight": 420000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      44634,
+      54282,
+      13555,
+      15994
+     ],
+     "promoted_slot": 2
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 13,
+       "effect_id": 44634,
+       "source_slot": 2,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         14044,
+         16384
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 16,
+       "effect_id": 54282,
+       "source_slot": 3,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         37043,
+         39891
+        ]
+       ],
+       "candidate_count": 23,
+       "draw_index": 19,
+       "effect_id": 15994,
+       "source_slot": 4,
+       "total_weight": 460000
+      },
+      {
+       "allowed_u16": [
+        [
+         50642,
+         53620
+        ]
+       ],
+       "candidate_count": 22,
+       "draw_index": 22,
+       "effect_id": 13555,
+       "source_slot": 5,
+       "total_weight": 440000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      44634,
+      54282,
+      15994,
+      13555
+     ],
+     "promoted_slot": 2
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         53834,
+         56173
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 13555,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 16,
+       "effect_id": 44634,
+       "source_slot": 3,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         42851,
+         45371
+        ]
+       ],
+       "candidate_count": 26,
+       "draw_index": 19,
+       "effect_id": 15994,
+       "source_slot": 4,
+       "total_weight": 520000
+      },
+      {
+       "allowed_u16": [
+        [
+         15729,
+         18350
+        ]
+       ],
+       "candidate_count": 25,
+       "draw_index": 22,
+       "effect_id": 54282,
+       "source_slot": 5,
+       "total_weight": 500000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      13555,
+      44634,
+      15994,
+      54282
+     ],
+     "promoted_slot": 3
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         53834,
+         56173
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 13555,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 16,
+       "effect_id": 44634,
+       "source_slot": 3,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         15124,
+         17644
+        ]
+       ],
+       "candidate_count": 26,
+       "draw_index": 19,
+       "effect_id": 54282,
+       "source_slot": 4,
+       "total_weight": 520000
+      },
+      {
+       "allowed_u16": [
+        [
+         37450,
+         40569
+        ]
+       ],
+       "candidate_count": 21,
+       "draw_index": 22,
+       "effect_id": 15994,
+       "source_slot": 5,
+       "total_weight": 420000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      13555,
+      44634,
+      54282,
+      15994
+     ],
+     "promoted_slot": 3
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         42131,
+         44470
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 15994,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 16,
+       "effect_id": 44634,
+       "source_slot": 3,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         53400,
+         55826
+        ]
+       ],
+       "candidate_count": 27,
+       "draw_index": 19,
+       "effect_id": 13555,
+       "source_slot": 4,
+       "total_weight": 540000
+      },
+      {
+       "allowed_u16": [
+        [
+         15729,
+         18350
+        ]
+       ],
+       "candidate_count": 25,
+       "draw_index": 22,
+       "effect_id": 54282,
+       "source_slot": 5,
+       "total_weight": 500000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      15994,
+      44634,
+      13555,
+      54282
+     ],
+     "promoted_slot": 3
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         42131,
+         44470
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 15994,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 16,
+       "effect_id": 44634,
+       "source_slot": 3,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         14564,
+         16990
+        ]
+       ],
+       "candidate_count": 27,
+       "draw_index": 19,
+       "effect_id": 54282,
+       "source_slot": 4,
+       "total_weight": 540000
+      },
+      {
+       "allowed_u16": [
+        [
+         50642,
+         53620
+        ]
+       ],
+       "candidate_count": 22,
+       "draw_index": 22,
+       "effect_id": 13555,
+       "source_slot": 5,
+       "total_weight": 440000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      15994,
+      44634,
+      54282,
+      13555
+     ],
+     "promoted_slot": 3
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         14044,
+         16384
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 54282,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 16,
+       "effect_id": 44634,
+       "source_slot": 3,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         51290,
+         54138
+        ]
+       ],
+       "candidate_count": 23,
+       "draw_index": 19,
+       "effect_id": 13555,
+       "source_slot": 4,
+       "total_weight": 460000
+      },
+      {
+       "allowed_u16": [
+        [
+         37450,
+         40569
+        ]
+       ],
+       "candidate_count": 21,
+       "draw_index": 22,
+       "effect_id": 15994,
+       "source_slot": 5,
+       "total_weight": 420000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      54282,
+      44634,
+      13555,
+      15994
+     ],
+     "promoted_slot": 3
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         14044,
+         16384
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 54282,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 16,
+       "effect_id": 44634,
+       "source_slot": 3,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         37043,
+         39891
+        ]
+       ],
+       "candidate_count": 23,
+       "draw_index": 19,
+       "effect_id": 15994,
+       "source_slot": 4,
+       "total_weight": 460000
+      },
+      {
+       "allowed_u16": [
+        [
+         50642,
+         53620
+        ]
+       ],
+       "candidate_count": 22,
+       "draw_index": 22,
+       "effect_id": 13555,
+       "source_slot": 5,
+       "total_weight": 440000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      54282,
+      44634,
+      15994,
+      13555
+     ],
+     "promoted_slot": 3
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         53834,
+         56173
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 13555,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         42851,
+         45371
+        ]
+       ],
+       "candidate_count": 26,
+       "draw_index": 16,
+       "effect_id": 15994,
+       "source_slot": 3,
+       "total_weight": 520000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 19,
+       "effect_id": 44634,
+       "source_slot": 4,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         15729,
+         18350
+        ]
+       ],
+       "candidate_count": 25,
+       "draw_index": 22,
+       "effect_id": 54282,
+       "source_slot": 5,
+       "total_weight": 500000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      13555,
+      15994,
+      44634,
+      54282
+     ],
+     "promoted_slot": 4
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         53834,
+         56173
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 13555,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         15124,
+         17644
+        ]
+       ],
+       "candidate_count": 26,
+       "draw_index": 16,
+       "effect_id": 54282,
+       "source_slot": 3,
+       "total_weight": 520000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 19,
+       "effect_id": 44634,
+       "source_slot": 4,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         37450,
+         40569
+        ]
+       ],
+       "candidate_count": 21,
+       "draw_index": 22,
+       "effect_id": 15994,
+       "source_slot": 5,
+       "total_weight": 420000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      13555,
+      54282,
+      44634,
+      15994
+     ],
+     "promoted_slot": 4
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         42131,
+         44470
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 15994,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         53400,
+         55826
+        ]
+       ],
+       "candidate_count": 27,
+       "draw_index": 16,
+       "effect_id": 13555,
+       "source_slot": 3,
+       "total_weight": 540000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 19,
+       "effect_id": 44634,
+       "source_slot": 4,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         15729,
+         18350
+        ]
+       ],
+       "candidate_count": 25,
+       "draw_index": 22,
+       "effect_id": 54282,
+       "source_slot": 5,
+       "total_weight": 500000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      15994,
+      13555,
+      44634,
+      54282
+     ],
+     "promoted_slot": 4
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         42131,
+         44470
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 15994,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         14564,
+         16990
+        ]
+       ],
+       "candidate_count": 27,
+       "draw_index": 16,
+       "effect_id": 54282,
+       "source_slot": 3,
+       "total_weight": 540000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 19,
+       "effect_id": 44634,
+       "source_slot": 4,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         50642,
+         53620
+        ]
+       ],
+       "candidate_count": 22,
+       "draw_index": 22,
+       "effect_id": 13555,
+       "source_slot": 5,
+       "total_weight": 440000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      15994,
+      54282,
+      44634,
+      13555
+     ],
+     "promoted_slot": 4
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         14044,
+         16384
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 54282,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         51290,
+         54138
+        ]
+       ],
+       "candidate_count": 23,
+       "draw_index": 16,
+       "effect_id": 13555,
+       "source_slot": 3,
+       "total_weight": 460000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 19,
+       "effect_id": 44634,
+       "source_slot": 4,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         37450,
+         40569
+        ]
+       ],
+       "candidate_count": 21,
+       "draw_index": 22,
+       "effect_id": 15994,
+       "source_slot": 5,
+       "total_weight": 420000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      54282,
+      13555,
+      44634,
+      15994
+     ],
+     "promoted_slot": 4
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         14044,
+         16384
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 54282,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         37043,
+         39891
+        ]
+       ],
+       "candidate_count": 23,
+       "draw_index": 16,
+       "effect_id": 15994,
+       "source_slot": 3,
+       "total_weight": 460000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 19,
+       "effect_id": 44634,
+       "source_slot": 4,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         50642,
+         53620
+        ]
+       ],
+       "candidate_count": 22,
+       "draw_index": 22,
+       "effect_id": 13555,
+       "source_slot": 5,
+       "total_weight": 440000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      54282,
+      15994,
+      44634,
+      13555
+     ],
+     "promoted_slot": 4
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         53834,
+         56173
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 13555,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         42851,
+         45371
+        ]
+       ],
+       "candidate_count": 26,
+       "draw_index": 16,
+       "effect_id": 15994,
+       "source_slot": 3,
+       "total_weight": 520000
+      },
+      {
+       "allowed_u16": [
+        [
+         15729,
+         18350
+        ]
+       ],
+       "candidate_count": 25,
+       "draw_index": 19,
+       "effect_id": 54282,
+       "source_slot": 4,
+       "total_weight": 500000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 22,
+       "effect_id": 44634,
+       "source_slot": 5,
+       "total_weight": 60000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      13555,
+      15994,
+      54282,
+      44634
+     ],
+     "promoted_slot": 5
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         53834,
+         56173
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 13555,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         15124,
+         17644
+        ]
+       ],
+       "candidate_count": 26,
+       "draw_index": 16,
+       "effect_id": 54282,
+       "source_slot": 3,
+       "total_weight": 520000
+      },
+      {
+       "allowed_u16": [
+        [
+         37450,
+         40569
+        ]
+       ],
+       "candidate_count": 21,
+       "draw_index": 19,
+       "effect_id": 15994,
+       "source_slot": 4,
+       "total_weight": 420000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 22,
+       "effect_id": 44634,
+       "source_slot": 5,
+       "total_weight": 60000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      13555,
+      54282,
+      15994,
+      44634
+     ],
+     "promoted_slot": 5
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         42131,
+         44470
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 15994,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         53400,
+         55826
+        ]
+       ],
+       "candidate_count": 27,
+       "draw_index": 16,
+       "effect_id": 13555,
+       "source_slot": 3,
+       "total_weight": 540000
+      },
+      {
+       "allowed_u16": [
+        [
+         15729,
+         18350
+        ]
+       ],
+       "candidate_count": 25,
+       "draw_index": 19,
+       "effect_id": 54282,
+       "source_slot": 4,
+       "total_weight": 500000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 22,
+       "effect_id": 44634,
+       "source_slot": 5,
+       "total_weight": 60000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      15994,
+      13555,
+      54282,
+      44634
+     ],
+     "promoted_slot": 5
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         42131,
+         44470
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 15994,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         14564,
+         16990
+        ]
+       ],
+       "candidate_count": 27,
+       "draw_index": 16,
+       "effect_id": 54282,
+       "source_slot": 3,
+       "total_weight": 540000
+      },
+      {
+       "allowed_u16": [
+        [
+         50642,
+         53620
+        ]
+       ],
+       "candidate_count": 22,
+       "draw_index": 19,
+       "effect_id": 13555,
+       "source_slot": 4,
+       "total_weight": 440000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 22,
+       "effect_id": 44634,
+       "source_slot": 5,
+       "total_weight": 60000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      15994,
+      54282,
+      13555,
+      44634
+     ],
+     "promoted_slot": 5
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         14044,
+         16384
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 54282,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         51290,
+         54138
+        ]
+       ],
+       "candidate_count": 23,
+       "draw_index": 16,
+       "effect_id": 13555,
+       "source_slot": 3,
+       "total_weight": 460000
+      },
+      {
+       "allowed_u16": [
+        [
+         37450,
+         40569
+        ]
+       ],
+       "candidate_count": 21,
+       "draw_index": 19,
+       "effect_id": 15994,
+       "source_slot": 4,
+       "total_weight": 420000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 22,
+       "effect_id": 44634,
+       "source_slot": 5,
+       "total_weight": 60000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      54282,
+      13555,
+      15994,
+      44634
+     ],
+     "promoted_slot": 5
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         11469,
+         13107
+        ]
+       ],
+       "candidate_count": 40,
+       "draw_index": 10,
+       "effect_id": 41041,
+       "source_slot": 1,
+       "total_weight": 800000
+      },
+      {
+       "allowed_u16": [
+        [
+         14044,
+         16384
+        ]
+       ],
+       "candidate_count": 28,
+       "draw_index": 13,
+       "effect_id": 54282,
+       "source_slot": 2,
+       "total_weight": 560000
+      },
+      {
+       "allowed_u16": [
+        [
+         37043,
+         39891
+        ]
+       ],
+       "candidate_count": 23,
+       "draw_index": 16,
+       "effect_id": 15994,
+       "source_slot": 3,
+       "total_weight": 460000
+      },
+      {
+       "allowed_u16": [
+        [
+         50642,
+         53620
+        ]
+       ],
+       "candidate_count": 22,
+       "draw_index": 19,
+       "effect_id": 13555,
+       "source_slot": 4,
+       "total_weight": 440000
+      },
+      {
+       "allowed_u16": [
+        [
+         26216,
+         32768
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 22,
+       "effect_id": 44634,
+       "source_slot": 5,
+       "total_weight": 60000
+      }
+     ],
+     "ordered_effect_ids": [
+      41041,
+      54282,
+      15994,
+      13555,
+      44634
+     ],
+     "promoted_slot": 5
+    }
+   ],
+   "pivot_affine_addend": 3788989926,
+   "pivot_allowed_u16": [
+    [
+     11469,
+     13107
+    ]
+   ],
+   "pivot_draw_index": 10,
+   "pivot_inverse_multiplier": 2966872313,
+   "pivot_state_count": 107413504,
+   "promotion_draw_index": 2,
+   "promotion_probability_percent": 50,
+   "shared_constraints": [
+    [
+     1,
+     [
+      [
+       0,
+       5963
+      ]
+     ]
+    ]
+   ],
+   "shuffle_draw_start": 3,
+   "slot_limit": 6
+  }
+ ],
+ "playthrough": 3,
+ "primary_effect_id": 41041,
+ "rarity": 5,
+ "secondary_effect_ids": [
+  13555,
+  15994,
+  44634,
+  54282
+ ],
+ "seed": 1,
+ "source": "nioh3_scroll_editor.effect_path_inverse",
+ "stage_special_effect_id": 25939,
+ "window_matches": [
+  [
+   48135696,
+   12085367
+  ],
+  [
+   7898609,
+   23619744
+  ],
+  [
+   76175780,
+   25369003
+  ]
+ ],
+ "window_next_start_after_trial": 33554432,
+ "window_trials": 33554432,
+ "window_verified_seeds": [
+  7898609,
+  48135696,
+  76175780
+ ]
+}

@@ -2216,6 +2216,13 @@ mod tests {
             effect_mask: filter.effect_mask.as_deref(),
             effect_verifier: filter.effect_verifier.as_deref(),
         });
+        // This page must also run on a host without a CUDA device, so the test
+        // pins its own explicit bulk-CPU policy. The production default stays
+        // StrictGpu and the strict-refusal tests keep asserting that a strict
+        // request refuses.
+        let _policy = backend
+            .pin_policy(ExecutionPolicy::AllowBulkCpu)
+            .expect("the test's explicit bulk-CPU policy is accepted");
         let page = backend
             .collect_page_filtered(
                 &compiled.native,
@@ -2291,6 +2298,12 @@ mod tests {
                 .as_ref()
                 .and_then(|filter| filter.auxiliary.as_ref())
                 .expect("the combined route carries the native predicate");
+            // The page must also run on a host without a CUDA device, so the test
+            // pins its own explicit bulk-CPU policy; the production default stays
+            // StrictGpu.
+            let _policy = backend
+                .pin_policy(ExecutionPolicy::AllowBulkCpu)
+                .expect("the test's explicit bulk-CPU policy is accepted");
             let page = backend
                 .collect_page(
                     &compiled.native,

@@ -434,12 +434,11 @@ impl Accelerator {
         &self,
         policy: ExecutionPolicy,
     ) -> Result<ExecutionPolicyGuard<'_>, NativeSearchError> {
-        let previous = policy_lock::acquire();
-        if self.native.set_policy(policy.raw()) != 0 {
-            policy_lock::release();
-            return Err(NativeSearchError::PolicyRejected);
-        }
-        policy_lock::note(policy.raw());
+        // The native install and the lock's mirror change together under one
+        // acquisition, so no concurrent load probe can read a policy the
+        // library is not already holding.
+        let previous = policy_lock::install(policy.raw(), |raw| self.native.set_policy(raw))
+            .map_err(|()| NativeSearchError::PolicyRejected)?;
         Ok(ExecutionPolicyGuard {
             accelerator: self,
             previous,
@@ -1007,16 +1006,21 @@ pub struct ExecutionPolicyGuard<'a> {
 
 impl Drop for ExecutionPolicyGuard<'_> {
     fn drop(&mut self) {
-        self.accelerator.native.set_policy(self.previous);
-        // The lock's active value is the authoritative mirror used by nested
-        // guards. Restore it while this thread still owns the re-entrant lock,
-        // so the native policy and the mirror cannot diverge between drops.
-        policy_lock::note(self.previous);
-        policy_lock::release();
+        // Restore the native policy and the lock's mirror under one
+        // acquisition: a probe racing this drop must not read the policy this
+        // guard installed and write it back after the restore.
+        policy_lock::restore(self.previous, |raw| self.accelerator.native.set_policy(raw));
     }
 }
 
 /// Re-entrant, thread-aware policy lock mirroring Python's `RLock`.
+///
+/// The lock owns the authoritative execution policy for the process, and every
+/// mutation of the native policy runs inside one acquisition: a guard
+/// installing an opt-in, a guard restoring it on drop, and a load or identity
+/// probe re-installing the policy it finds. Holding the lock across the native
+/// call is what keeps the lock's mirror and the loaded library in agreement
+/// when a probe runs during an operation.
 mod policy_lock {
     use std::sync::{Condvar, Mutex};
     use std::thread::{self, ThreadId};
@@ -1035,27 +1039,41 @@ mod policy_lock {
         SLOT.lock().unwrap_or_else(|error| error.into_inner())
     }
 
-    /// Acquire the policy lock for the calling thread, returning the policy
-    /// that was active before this acquisition.
-    pub(super) fn acquire() -> i32 {
+    /// Install `policy` and return the policy that was active before.
+    ///
+    /// `set` is the native `seed_accelerator_set_execution_policy` call. It runs
+    /// under the lock, so a probe re-installing the active policy and a guard
+    /// changing it are serialized rather than interleaved. A policy the library
+    /// rejects leaves the lock untouched.
+    pub(super) fn install<F>(policy: i32, set: F) -> Result<i32, ()>
+    where
+        F: FnOnce(i32) -> i32,
+    {
         let me = thread::current().id();
         let mut guard = lock_slot();
         loop {
             match *guard {
                 None => {
+                    if set(policy) != 0 {
+                        return Err(());
+                    }
                     *guard = Some(Slot {
                         owner: Some(me),
                         depth: 1,
-                        active: super::EXECUTION_POLICY_STRICT_GPU,
+                        active: policy,
                     });
-                    return super::EXECUTION_POLICY_STRICT_GPU;
+                    return Ok(super::EXECUTION_POLICY_STRICT_GPU);
                 }
                 Some(slot) if slot.owner == Some(me) => {
                     let previous = slot.active;
+                    if set(policy) != 0 {
+                        return Err(());
+                    }
                     if let Some(slot) = guard.as_mut() {
                         slot.depth += 1;
+                        slot.active = policy;
                     }
-                    return previous;
+                    return Ok(previous);
                 }
                 Some(_) => {
                     guard = WAKE.wait(guard).unwrap_or_else(|error| error.into_inner());
@@ -1064,25 +1082,20 @@ mod policy_lock {
         }
     }
 
-    /// Record the policy now installed by the innermost guard.
-    pub(super) fn note(policy: i32) {
-        let mut guard = lock_slot();
-        if let Some(slot) = guard.as_mut() {
-            slot.active = policy;
-        }
-    }
-
-    /// The policy currently installed for the lock owner.
-    pub(super) fn active() -> i32 {
-        lock_slot().map_or(super::EXECUTION_POLICY_STRICT_GPU, |slot| slot.active)
-    }
-
-    /// Release one acquisition; the last release wakes one waiter.
-    pub(super) fn release() {
+    /// Restore `previous` for one guard drop and release one acquisition.
+    ///
+    /// The native restore runs under the lock too, so the mirror never
+    /// advertises a policy the loaded library has not been given.
+    pub(super) fn restore<F>(previous: i32, set: F)
+    where
+        F: FnOnce(i32) -> i32,
+    {
         let wake = {
             let mut guard = lock_slot();
+            let _ = set(previous);
             match guard.as_mut() {
                 Some(slot) => {
+                    slot.active = previous;
                     slot.depth = slot.depth.saturating_sub(1);
                     if slot.depth == 0 {
                         *guard = None;
@@ -1098,6 +1111,26 @@ mod policy_lock {
             WAKE.notify_one();
         }
     }
+
+    /// Re-install the active policy for a load or identity probe.
+    ///
+    /// Reading the policy and writing it back is one acquisition: a guard
+    /// installing or restoring the native policy in between would otherwise be
+    /// cancelled (a fresh opt-in) or leaked (a released one).
+    #[cfg(windows)]
+    pub(super) fn with_active<F>(set: F) -> i32
+    where
+        F: FnOnce(i32) -> i32,
+    {
+        let guard = lock_slot();
+        let active = guard.map_or(super::EXECUTION_POLICY_STRICT_GPU, |slot| slot.active);
+        set(active)
+    }
+
+    /// The policy currently installed for the lock owner.
+    pub(super) fn active() -> i32 {
+        lock_slot().map_or(super::EXECUTION_POLICY_STRICT_GPU, |slot| slot.active)
+    }
 }
 
 impl Default for NativeCapabilities {
@@ -1112,6 +1145,23 @@ impl Default for NativeCapabilities {
 /// the worker can always answer `handshake` and still refuse search.
 pub fn absent_capabilities() -> NativeCapabilities {
     NativeCapabilities::absent()
+}
+
+/// Re-install the policy the process-global policy lock currently holds.
+///
+/// A load or identity probe must not hard-code strict GPU: an operation-scoped
+/// bulk-CPU guard may already be installed, and cancelling that opt-in would
+/// fail the running operation. `set_policy` is the probe's resolved native
+/// `seed_accelerator_set_execution_policy`; the read and the write run inside
+/// one lock acquisition, so a guard installing or restoring the native policy
+/// between them can neither be cancelled nor leaked. Strict GPU is the value
+/// installed while no guard is active.
+#[cfg(windows)]
+pub(crate) fn reinstate_active_policy<F>(set_policy: F) -> i32
+where
+    F: FnOnce(i32) -> i32,
+{
+    policy_lock::with_active(set_policy)
 }
 
 /// The platform ABI. All raw FFI lives here.
@@ -1334,8 +1384,11 @@ mod platform {
                     return None;
                 }
                 // The product always starts from strict GPU; only an explicit
-                // operation-scoped guard may opt into the bulk CPU path.
-                if set_policy(super::EXECUTION_POLICY_STRICT_GPU) != 0 {
+                // operation-scoped guard may opt into the bulk CPU path. A load
+                // must not cancel an opt-in a job already installed, so it
+                // re-installs the policy the lock's owner holds, which is
+                // strict GPU while no guard is active, under one acquisition.
+                if super::reinstate_active_policy(|policy| set_policy(policy)) != 0 {
                     return None;
                 }
                 let raw = build_id();
@@ -1871,5 +1924,254 @@ mod platform {
         ) -> i32 {
             -1
         }
+    }
+}
+
+/// Execution-policy consistency between a load probe and an operation guard.
+///
+/// The release failure this covers was silent: a probe wrote strict GPU
+/// straight into the loaded library while the lock's mirror still advertised
+/// the operation's opt-in, so the mirror alone cannot prove the invariant. The
+/// first test drives a controllable setter and the second observes the library
+/// itself through a real call.
+#[cfg(all(test, windows))]
+mod policy_consistency_tests {
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    use std::sync::{mpsc, Arc, Mutex};
+    use std::thread;
+    use std::time::Duration;
+
+    use super::{
+        Accelerator, ExecutionPolicy, NativeBackend, NativeSearchError, PivotWindow,
+        EXECUTION_POLICY_ALLOW_BULK_CPU, EXECUTION_POLICY_STRICT_GPU,
+    };
+
+    /// A pivot table and window the native collector serves cheaply.
+    const VALUES: [u16; 5] = [0x1234, 0xABCD, 0x0001, 0xFFFE, 0x00FF];
+    const STRIDE: u16 = 0x9E37;
+
+    fn window() -> PivotWindow {
+        PivotWindow {
+            start_index: 0,
+            stop_index: 2_000,
+            low16_stride: STRIDE,
+            draw_index: 1,
+        }
+    }
+
+    fn repo_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+    }
+
+    /// A private copy of the shipped library.
+    ///
+    /// The installed policy and the forced-CUDA-failure hook are globals inside
+    /// the loaded module, so this test drives its own instance instead of the
+    /// one every other test in this crate shares.
+    struct PrivateLibrary {
+        directory: PathBuf,
+        module: PathBuf,
+    }
+
+    impl PrivateLibrary {
+        fn new() -> Option<Self> {
+            let source = repo_root()
+                .join("bin")
+                .join("nioh3_seed_accelerator.dll");
+            if !source.is_file() {
+                return None;
+            }
+            let directory = std::env::temp_dir().join(format!(
+                "nioh3-policy-consistency-{}",
+                std::process::id()
+            ));
+            fs::create_dir_all(&directory).ok()?;
+            let module = directory.join("nioh3_seed_accelerator.dll");
+            fs::copy(&source, &module).ok()?;
+            Some(Self { directory, module })
+        }
+    }
+
+    impl Drop for PrivateLibrary {
+        fn drop(&mut self) {
+            // The module stays mapped for the process lifetime, so cleanup is
+            // best effort and never a test failure.
+            let _ = fs::remove_file(&self.module);
+            let _ = fs::remove_dir(&self.directory);
+        }
+    }
+
+    /// A probe setter must not run between an install and its mirror update.
+    #[test]
+    fn a_probe_setter_cannot_interleave_an_install() {
+        let (entered_tx, entered_rx) = mpsc::channel::<()>();
+        let (release_tx, release_rx) = mpsc::channel::<()>();
+        let (restore_tx, restore_rx) = mpsc::channel::<()>();
+        let observed = Arc::new(Mutex::new(None));
+
+        let installer = thread::spawn(move || {
+            let previous = super::policy_lock::install(
+                EXECUTION_POLICY_ALLOW_BULK_CPU,
+                |_policy| {
+                    entered_tx.send(()).expect("signal the install");
+                    release_rx.recv().expect("hold the setter open");
+                    0
+                },
+            )
+            .expect("the lock installs the opt-in");
+            // Hold the guard until the probe has been observed, then restore so
+            // the process-global lock is left idle for the rest of the suite.
+            restore_rx.recv().expect("hold the guard");
+            super::policy_lock::restore(previous, |_policy| 0);
+            previous
+        });
+        entered_rx.recv().expect("the install reached its setter");
+
+        let (probe_tx, probe_rx) = mpsc::channel::<i32>();
+        let prober = {
+            let observed = Arc::clone(&observed);
+            thread::spawn(move || {
+                let accepted = super::policy_lock::with_active(|policy| {
+                    *observed.lock().expect("probe record") = Some(policy);
+                    0
+                });
+                probe_tx.send(accepted).expect("report the probe");
+            })
+        };
+        assert!(
+            probe_rx.recv_timeout(Duration::from_millis(250)).is_err(),
+            "a probe wrote the native policy while an install was still in flight"
+        );
+        release_tx.send(()).expect("release the install");
+        assert_eq!(probe_rx.recv().expect("the probe finishes"), 0);
+        assert_eq!(
+            *observed.lock().expect("probe record"),
+            Some(EXECUTION_POLICY_ALLOW_BULK_CPU),
+            "the mirror must be updated before the install releases the lock"
+        );
+        restore_tx.send(()).expect("release the guard");
+        assert_eq!(
+            installer.join().expect("the installer finishes"),
+            EXECUTION_POLICY_STRICT_GPU
+        );
+        prober.join().expect("the prober finishes");
+    }
+
+    /// A concurrent load probe must not cancel an installed opt-in, and the
+    /// outermost drop must return the library to strict GPU.
+    #[test]
+    fn a_load_probe_cannot_cancel_or_leak_the_policy_guard() {
+        let Some(library) = PrivateLibrary::new() else {
+            eprintln!("skipping: the shipped seed accelerator is not staged");
+            return;
+        };
+        let root = repo_root();
+        let accelerator = Accelerator::load(&root, Some(&library.module))
+            .expect("the private copy of the shipped accelerator loads");
+
+        let stop = Arc::new(AtomicBool::new(false));
+        let probes = Arc::new(AtomicUsize::new(0));
+        let prober = {
+            let root = root.clone();
+            let module = library.module.clone();
+            let stop = Arc::clone(&stop);
+            let probes = Arc::clone(&probes);
+            thread::spawn(move || {
+                while !stop.load(Ordering::Relaxed) {
+                    // Both shipped probe paths, each re-installing the policy.
+                    let _ = crate::native::probe_seed_accelerator(&root, Some(&module));
+                    let _ = Accelerator::load(&root, Some(&module));
+                    probes.fetch_add(1, Ordering::Relaxed);
+                }
+            })
+        };
+
+        // A window that runs both shipped probe paths while one opt-in guard is
+        // installed, then serves a call only a library holding the bulk-CPU
+        // policy can answer.
+        let held_window = |root: &Path, module: &Path| {
+            let _ = crate::native::probe_seed_accelerator(root, Some(module));
+            let _ = Accelerator::load(root, Some(module));
+            accelerator.force_cuda_failure(true);
+            let served = accelerator.collect_natural_pivot_page(&VALUES, window());
+            let backend = accelerator.last_backend();
+            accelerator.force_cuda_failure(false);
+            assert!(
+                served.is_ok(),
+                "a load probe cancelled the installed opt-in: {:?}",
+                served.err()
+            );
+            assert_eq!(backend, NativeBackend::NativeCpu);
+        };
+
+        for _ in 0..63 {
+            let guard = accelerator
+                .pin_policy(ExecutionPolicy::AllowBulkCpu)
+                .expect("the explicit bulk-CPU opt-in is accepted");
+            assert_eq!(accelerator.pinned_policy(), ExecutionPolicy::AllowBulkCpu);
+            held_window(&root, &library.module);
+            drop(guard);
+        }
+        // The final window keeps its guard installed until the prober has been
+        // stopped, so the last write to the private library is that guard's own
+        // restore rather than a probe racing the drop.
+        let guard = accelerator
+            .pin_policy(ExecutionPolicy::AllowBulkCpu)
+            .expect("the explicit bulk-CPU opt-in is accepted");
+        assert_eq!(accelerator.pinned_policy(), ExecutionPolicy::AllowBulkCpu);
+        held_window(&root, &library.module);
+        stop.store(true, Ordering::Relaxed);
+        prober.join().expect("the prober finishes");
+        assert!(probes.load(Ordering::Relaxed) > 0, "no load probe ran");
+        drop(guard);
+
+        // The outermost drop restores strict GPU, again observed by a real call.
+        // Only this test writes this private copy, and its probes stopped above,
+        // so the library itself is the evidence: the mirror is not enough.
+        accelerator.force_cuda_failure(true);
+        let strict = accelerator.collect_natural_pivot_page(&VALUES, window());
+        accelerator.force_cuda_failure(false);
+        assert!(
+            matches!(strict, Err(NativeSearchError::CudaUnavailable { .. })),
+            "the strict GPU default was not restored: {strict:?}"
+        );
+    }
+
+    /// The lock is re-entrant per thread and wakes one waiter per release.
+    #[test]
+    fn the_policy_lock_nests_and_releases_by_owner() {
+        let outer = super::policy_lock::install(EXECUTION_POLICY_ALLOW_BULK_CPU, |_policy| 0)
+            .expect("the outer opt-in installs");
+        assert_eq!(outer, EXECUTION_POLICY_STRICT_GPU);
+        let inner = super::policy_lock::install(EXECUTION_POLICY_STRICT_GPU, |_policy| 0)
+            .expect("a nested strict pin installs");
+        assert_eq!(inner, EXECUTION_POLICY_ALLOW_BULK_CPU);
+        assert_eq!(
+            super::policy_lock::active(),
+            EXECUTION_POLICY_STRICT_GPU,
+            "the mirror must follow the innermost guard"
+        );
+        super::policy_lock::restore(inner, |_policy| 0);
+        assert_eq!(
+            super::policy_lock::active(),
+            EXECUTION_POLICY_ALLOW_BULK_CPU,
+            "dropping the inner guard must restore the outer policy"
+        );
+        // A rejected policy must not take the lock or change the mirror.
+        assert!(super::policy_lock::install(EXECUTION_POLICY_ALLOW_BULK_CPU, |_policy| -1).is_err());
+        assert_eq!(
+            super::policy_lock::active(),
+            EXECUTION_POLICY_ALLOW_BULK_CPU,
+            "a rejected install must leave the lock untouched"
+        );
+        super::policy_lock::restore(outer, |_policy| 0);
+        // This thread no longer holds the lock, so the next acquisition is a
+        // fresh one and reports the strict GPU default it installs from.
+        let fresh = super::policy_lock::install(EXECUTION_POLICY_ALLOW_BULK_CPU, |_policy| 0)
+            .expect("the lock is free after the outermost drop");
+        assert_eq!(fresh, EXECUTION_POLICY_STRICT_GPU);
+        super::policy_lock::restore(fresh, |_policy| 0);
     }
 }

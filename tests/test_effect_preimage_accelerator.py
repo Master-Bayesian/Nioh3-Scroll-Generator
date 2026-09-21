@@ -58,7 +58,12 @@ from nioh3_scroll_editor.effect_sequence import (
 )
 from nioh3_scroll_editor.grace_map import load_grace_output_map
 from nioh3_scroll_editor.joint_solver import _permuted_values, choose_pivot
-from nioh3_scroll_editor.seed_accelerator import cuda_seed_acceleration_available
+from nioh3_scroll_editor.seed_accelerator import (
+    cuda_seed_acceleration_available,
+    last_seed_acceleration_backend,
+    native_seed_acceleration_available,
+    seed_acceleration_execution_policy,
+)
 from nioh3_seed_math import state_after_draw_from_seed
 
 
@@ -693,6 +698,133 @@ class EffectPreimageAcceleratorTests(unittest.TestCase):
                     max_trials_per_batch=1,
                 )
             )
+
+
+class ExplicitCpuAllowancePivotRouteTests(unittest.TestCase):
+    """An explicit CPU allowance keeps the canonical candidate cursor.
+
+    The DirectCompute fixed-draw collector publishes a pivot-value-major
+    cursor, so substituting it for the canonical low16-major enumeration
+    whenever CUDA is missing published a different first candidate for one
+    identical request. The shipped parity gate compares that candidate against
+    the ported worker, so the substitution has to stay a strict-GPU fallback.
+    """
+
+    R4_PRIMARY = 44634
+
+    def _first_r4_primary_page(
+        self,
+        *,
+        directcompute: bool,
+        allow_cpu_fallback: bool,
+    ):
+        """Run the parity gate's R4 primary query with CUDA reported absent."""
+
+        request = EffectSeedRequest(
+            playthrough=3,
+            rarity=4,
+            primary_effect_ids=frozenset((self.R4_PRIMARY,)),
+        )
+        with (
+            patch(
+                "nioh3_scroll_editor.search_application."
+                "cuda_seed_acceleration_available",
+                return_value=False,
+            ),
+            patch(
+                "nioh3_scroll_editor.search_application."
+                "d3d11_effect_acceleration_available",
+                return_value=directcompute,
+            ),
+            # The generic solver decides between the DirectCompute fixed-draw
+            # collector and the native enumeration through its own import.
+            patch(
+                "nioh3_scroll_editor.effect_seed_solver."
+                "d3d11_effect_acceleration_available",
+                return_value=directcompute,
+            ),
+            seed_acceleration_execution_policy(allow_bulk_cpu=True),
+        ):
+            return collect_offline_ng3_search_batch(
+                request,
+                grace_mapping=load_grace_output_map(rarity=4),
+                level=180,
+                result_count=1,
+                max_trials_per_batch=100_000,
+                allow_cpu_fallback=allow_cpu_fallback,
+            )
+
+    def test_explicit_cpu_allowance_keeps_the_canonical_candidate(self) -> None:
+        if not native_seed_acceleration_available():
+            self.skipTest("no native Seed accelerator")
+        accelerated = self._first_r4_primary_page(
+            directcompute=True,
+            allow_cpu_fallback=True,
+        )
+        native = self._first_r4_primary_page(
+            directcompute=False,
+            allow_cpu_fallback=True,
+        )
+        self.assertTrue(accelerated.candidates, "the R4 primary route found nothing")
+        self.assertEqual(
+            tuple(candidate.seed for candidate in accelerated.candidates),
+            tuple(candidate.seed for candidate in native.candidates),
+            "an explicit CPU allowance must not reorder the candidate stream",
+        )
+        self.assertEqual(
+            accelerated.next_start_after_trial,
+            native.next_start_after_trial,
+            "an explicit CPU allowance must not change the resume cursor",
+        )
+        self.assertNotEqual(
+            last_seed_acceleration_backend(),
+            "not_used",
+            "the explicit CPU allowance must reach the certified native "
+            "enumeration instead of the DirectCompute fixed-draw substitution",
+        )
+
+    def test_explicit_cpu_allowance_matches_the_accelerated_route(self) -> None:
+        if not cuda_seed_acceleration_available():
+            self.skipTest("no CUDA Seed accelerator on this host")
+        accelerated = self._first_r4_primary_page(
+            directcompute=True,
+            allow_cpu_fallback=True,
+        )
+        request = EffectSeedRequest(
+            playthrough=3,
+            rarity=4,
+            primary_effect_ids=frozenset((self.R4_PRIMARY,)),
+        )
+        cuda = collect_offline_ng3_search_batch(
+            request,
+            grace_mapping=load_grace_output_map(rarity=4),
+            level=180,
+            result_count=1,
+            max_trials_per_batch=100_000,
+            allow_cpu_fallback=True,
+        )
+        self.assertEqual(last_seed_acceleration_backend(), "cuda")
+        self.assertEqual(
+            tuple(candidate.seed for candidate in accelerated.candidates),
+            tuple(candidate.seed for candidate in cuda.candidates),
+        )
+        self.assertEqual(
+            accelerated.next_start_after_trial,
+            cuda.next_start_after_trial,
+        )
+
+    def test_strict_gpu_keeps_the_directcompute_pivot_route(self) -> None:
+        if not d3d11_effect_acceleration_available():
+            self.skipTest("no Direct3D 11 compute adapter")
+        page = self._first_r4_primary_page(
+            directcompute=True,
+            allow_cpu_fallback=False,
+        )
+        self.assertTrue(page.candidates, "the R4 primary route found nothing")
+        self.assertTrue(
+            last_effect_preimage_backend().startswith("d3d11_"),
+            "the strict GPU default must keep the DirectCompute pivot route",
+        )
 
 
 if __name__ == "__main__":

@@ -948,6 +948,16 @@ mod tests {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
     }
 
+    /// The tracked offline vectors these tests read, beside the crate because
+    /// `deliverables/` is git-ignored and therefore absent from a clean checkout.
+    fn fixtures_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("m23d-preimage")
+            .join("evidence")
+    }
+
     fn data_root() -> PathBuf {
         repo_root().join("nioh3_scroll_editor").join("data")
     }
@@ -958,11 +968,7 @@ mod tests {
     }
 
     fn vector() -> serde_json::Value {
-        let path = repo_root()
-            .join("deliverables")
-            .join("m23d-preimage")
-            .join("evidence")
-            .join("complete_r3_plans.json");
+        let path = fixtures_root().join("complete_r3_plans.json");
         serde_json::from_str(&std::fs::read_to_string(&path).expect("vector")).expect("json")
     }
 
@@ -1052,14 +1058,8 @@ mod tests {
             return;
         }
         let window: serde_json::Value = serde_json::from_str(
-            &std::fs::read_to_string(
-                repo_root()
-                    .join("deliverables")
-                    .join("m23d-preimage")
-                    .join("evidence")
-                    .join("preimage_windows.json"),
-            )
-            .expect("window vector"),
+            &std::fs::read_to_string(fixtures_root().join("preimage_windows.json"))
+                .expect("window vector"),
         )
         .expect("json");
         let plan_vector = vector();
@@ -1144,14 +1144,8 @@ mod tests {
             return;
         }
         let vector: serde_json::Value = serde_json::from_str(
-            &std::fs::read_to_string(
-                repo_root()
-                    .join("deliverables")
-                    .join("m23d-preimage")
-                    .join("evidence")
-                    .join("forward_filter_masks.json"),
-            )
-            .expect("mask vector"),
+            &std::fs::read_to_string(fixtures_root().join("forward_filter_masks.json"))
+                .expect("mask vector"),
         )
         .expect("json");
         let typed = |key: &str, fields: usize| -> Vec<Vec<u32>> {

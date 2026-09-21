@@ -2,7 +2,8 @@
 //!
 //! Mirrors `nioh3_scroll_editor/seed_accelerator.py`: the optional
 //! `nioh3_seed_accelerator.dll` is loaded, its exported ABI must be 2, it must
-//! accept the strict-GPU execution policy, and only then do its ABI number and
+//! accept the authoritative execution policy (strict GPU unless an
+//! operation-scoped guard holds an opt-in), and only then do its ABI number and
 //! build identity join the generation context. A missing, ABI-mismatched or
 //! policy-rejecting library contributes `None` instead of a fabricated value.
 
@@ -17,7 +18,7 @@ pub struct AcceleratorIdentity {
 
 /// ABI version the product accepts (`SEED_ACCELERATOR_ABI_VERSION`).
 pub const SEED_ACCELERATOR_ABI_VERSION: i32 = 2;
-/// `EXECUTION_POLICY_STRICT_GPU`, the policy the identity probe installs.
+/// `EXECUTION_POLICY_STRICT_GPU`, the policy in force while no guard is active.
 pub const EXECUTION_POLICY_STRICT_GPU: i32 = 0;
 
 #[cfg(windows)]
@@ -26,7 +27,7 @@ mod platform {
     use std::os::windows::ffi::OsStrExt;
     use std::path::Path;
 
-    use super::{AcceleratorIdentity, EXECUTION_POLICY_STRICT_GPU, SEED_ACCELERATOR_ABI_VERSION};
+    use super::{AcceleratorIdentity, SEED_ACCELERATOR_ABI_VERSION};
 
     #[link(name = "kernel32")]
     extern "system" {
@@ -60,7 +61,13 @@ mod platform {
         if unsafe { abi_version() } != SEED_ACCELERATOR_ABI_VERSION {
             return None;
         }
-        if unsafe { set_policy(EXECUTION_POLICY_STRICT_GPU) } != 0 {
+        // The product starts from strict GPU, but the process-global policy may
+        // already belong to an operation-scoped guard. Re-installing the
+        // authoritative policy - read and written under one lock acquisition -
+        // keeps the probe from cancelling that opt-in.
+        let accepted =
+            crate::native_search::reinstate_active_policy(|policy| unsafe { set_policy(policy) });
+        if accepted != 0 {
             return None;
         }
         let raw = unsafe { build_id() };

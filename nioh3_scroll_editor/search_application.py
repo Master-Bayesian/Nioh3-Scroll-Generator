@@ -518,6 +518,23 @@ def require_accelerated_generic_search(
             "已停止计算，不会回退到慢速 CPU。"
         )
 
+
+def _prefer_directcompute_fixed_draw(*, allow_cpu_fallback: bool) -> bool:
+    """Whether the generic route enumerates through DirectCompute.
+
+    The DirectCompute fixed-draw collector publishes a pivot-value-major
+    cursor that deliberately differs from the canonical low16-major cursor the
+    CUDA accelerator, the native CPU enumeration and the ported worker share.
+    Choosing it merely because CUDA is absent would publish a different first
+    candidate for one identical request, so it stays the cross-vendor GPU
+    route only while CPU replay is refused. An explicit CPU allowance takes
+    the certified native enumeration instead, which keeps the cursor and the
+    candidate order identical on every host.
+    """
+
+    return not cuda_seed_acceleration_available() and not allow_cpu_fallback
+
+
 def request_is_auxiliary_only(request: EffectSeedRequest) -> bool:
     """Return whether every selected condition belongs to auxiliary output."""
 
@@ -792,9 +809,11 @@ def collect_offline_rarity5_search_batch(
             candidate_found=emit_match,
             cancelled=cancelled,
             # CUDA has substantially lower setup cost for pivot enumeration on
-            # NVIDIA. DirectCompute remains the cross-vendor path when CUDA is
-            # unavailable; neither route is allowed to fall back to bulk CPU.
-            prefer_d3d11_fixed_draw=not cuda_seed_acceleration_available(),
+            # NVIDIA, so it wins when present; otherwise DirectCompute stays the
+            # cross-vendor GPU path while CPU replay is refused.
+            prefer_d3d11_fixed_draw=_prefer_directcompute_fixed_draw(
+                allow_cpu_fallback=allow_cpu_fallback,
+            ),
             allow_cpu_fallback=allow_cpu_fallback,
             tables=tables,
         )
@@ -1207,9 +1226,11 @@ def collect_offline_ng3_search_batch(
             ),
             pivot_seed_collector_chunk_trials=50_000_000,
             # CUDA has substantially lower setup cost for pivot enumeration on
-            # NVIDIA. DirectCompute remains the cross-vendor path when CUDA is
-            # unavailable; neither route may fall back to bulk CPU.
-            prefer_d3d11_fixed_draw=not cuda_seed_acceleration_available(),
+            # NVIDIA, so it wins when present; otherwise DirectCompute stays the
+            # cross-vendor GPU path while CPU replay is refused.
+            prefer_d3d11_fixed_draw=_prefer_directcompute_fixed_draw(
+                allow_cpu_fallback=allow_cpu_fallback,
+            ),
             allow_cpu_fallback=allow_cpu_fallback,
             tables=tables,
         )

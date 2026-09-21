@@ -717,12 +717,21 @@ mod tests {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
     }
 
-    fn evidence(name: &str) -> Value {
-        let path = repo_root()
-            .join("deliverables")
+    /// The tracked offline vectors these tests read.
+    ///
+    /// `deliverables/` is git-ignored, so a clean checkout has no
+    /// `deliverables/m23d-preimage/evidence`. The smallest complete set of
+    /// vectors these tests read is tracked beside the crate instead.
+    fn fixtures_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
             .join("m23d-preimage")
             .join("evidence")
-            .join(name);
+    }
+
+    fn evidence(name: &str) -> Value {
+        let path = fixtures_root().join(name);
         let text = std::fs::read_to_string(&path)
             .unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
         serde_json::from_str(&text).expect("evidence is valid JSON")
@@ -1050,6 +1059,7 @@ mod tests {
     #[test]
     fn the_grace_filtered_rarity5_page_finds_the_shipped_seed() {
         use crate::native_search::Accelerator;
+        use crate::native_search::ExecutionPolicy;
         use crate::query::SearchQuery;
         use crate::search_backend::{MatchFilter, PageRequest, SearchBackend};
 
@@ -1097,6 +1107,12 @@ mod tests {
             effect_verifier: filter.effect_verifier.as_deref(),
         });
         let request = PageRequest::chunk(0, 100_000, compiled.chunk_trials, 1);
+        // This page must run on a host without a CUDA device, so the test pins its
+        // own explicit bulk-CPU policy. The production default stays StrictGpu and
+        // the strict-refusal tests keep asserting that a strict request refuses.
+        let _policy = backend
+            .pin_policy(ExecutionPolicy::AllowBulkCpu)
+            .expect("the test's explicit bulk-CPU policy is accepted");
         let page = backend
             .collect_page_filtered(
                 &compiled.native,

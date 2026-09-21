@@ -3237,3 +3237,88 @@ hosted run and the re-checked artifacts; this entry claims only the local
 source-gate reproduction, not a release acceptance.
 
 **Skill promotion:** None. This is a bounded hosted-gate failure record.
+
+## 2026-09-21: no-CUDA hosts - CI frontend ordering, ignored vectors, missing test policy, DirectCompute preference
+
+**Objective:** make the CI host gate and the packaged parity gate pass on a
+runner without a usable CUDA device, without changing any shipped Rust
+semantics.
+
+**Observed symptoms:**
+
+1. Run `35600529595` (Tests / `rust-packaging`), step "Build and verify the
+   packaged Rust graph": compiling `nioh3-studio` died with
+   `error: proc macro panicked ... The frontendDist configuration is set to
+   "../dist" but this path doesn't exist` (`main.rs:502`,
+   `tauri.conf.json` `build.frontendDist = "../dist"`).
+2. A clean checkout also lacks the offline preimage vectors the worker's own
+   tests read, because they lived under the git-ignored
+   `deliverables/m23d-preimage/evidence`.
+3. On a host without CUDA, three worker tests (`query_compile.rs` twice,
+   `search_backend.rs` once) inherited the strict-GPU default and refused a
+   valid page: 124/127 of the masked worker tests passed.
+4. Run `35600538284` (release, step 31 `npm run test:packaged`): packaged-worker
+   vs source-Python parity failed on `auxiliary.enemy_groups[*]` and
+   `special_rules[*]` plus the candidate DTOs at seed 168712443.
+
+**Root causes:** (1) that CI job builds the Tauri host but never built
+`apps/tauri/dist`, which the host embeds at compile time; `release.yml` already
+built the frontend first, which is why the release build got past it. (2) and
+(3) are test-hermeticity and environment defects: the vectors existed only under
+a git-ignored path, and the three tests carried no explicit execution policy, so
+they silently depended on a usable CUDA device. (4) the legacy Python reference
+preferred the DirectCompute fixed-draw collector whenever CUDA was absent; that
+collector publishes a pivot-value-major cursor which deliberately differs from
+the canonical low16-major cursor shared by the CUDA accelerator, the native CPU
+enumeration and the ported worker, so one identical request produced different
+candidates on a no-GPU host.
+
+**Repair (bounded):** the CI job builds the
+frontend (`setup-node` 24, `npm ci --no-fund`, `node apps/tauri/build.mjs`)
+before the host build, with a contract assertion in
+`tests/migration/test_ci_optin_wiring.py`; the six offline vectors are tracked
+beside the crate at `crates/nioh3-worker/tests/fixtures/m23d-preimage/evidence`
+(1.30 MiB, synthetic numeric masks/plans, no user or account data) and the
+preimage/effect test modules read them there; the three tests pin
+`ExecutionPolicy::AllowBulkCpu` for their own page while the production default
+stays `StrictGpu` and the strict-refusal tests keep asserting refusal; and the
+Python reference keeps the DirectCompute route only while CPU replay is refused,
+taking the certified native enumeration under an explicit CPU allowance so
+cursor and candidate order are host-independent. The Rust worker additionally
+changed in `native.rs` and `native_search.rs`: the accelerator load/identity
+probe no longer writes hard-coded strict GPU into the loaded library, because
+that cancelled the bulk-CPU opt-in of an operation-scoped guard that was already
+installed. A probe now re-installs the authoritative policy - strict GPU while
+no guard is active - so a load racing an operation cannot break it.
+
+**Independent follow-up on that policy re-install (verified):** the first form
+of the repair read the lock's mirror and then called the setter separately, and
+independent review showed the same defect could still occur in that window: a
+probe could re-install an opt-in after the owning guard restored strict GPU
+(leaking CPU allowance past the guard) or overwrite a freshly installed one. The
+accepted repair makes every native policy mutation happen inside one acquisition
+of the process-global policy lock: a guard install, a guard restore on drop, and
+a probe re-install each read the mirror, write the library and write the mirror
+under the same lock; a rejection leaves the lock untouched; nested same-owner
+depth is preserved so the outermost drop still restores strict GPU. Three
+permanent regressions were added in `native_search.rs`
+(`a_probe_setter_cannot_interleave_an_install`,
+`a_load_probe_cannot_cancel_or_leak_the_policy_guard`,
+`the_policy_lock_nests_and_releases_by_owner`), the crate's 130 library tests
+pass across the eight runs and clippy is clean, and the two negative controls
+fail deterministically. Because these two files are production code, this
+record does not claim that shipped Rust semantics are unchanged.
+
+**Evidence and disposition:** the packaged parity gate now passes both normally
+and with `CUDA_VISIBLE_DEVICES=-1` against the actual hosted workers with
+unchanged assertions, and the Python gates (26 + 178 + 151) pass. Closed for
+these causes in the freeze commit that follows the last non-promotable SHA; the
+failed SHAs are not re-dispatched.
+
+**Reproduction status:** all four reproduced (two in hosted runs, two in clean
+checkouts and no-CUDA runs) and verified fixed by the same gates.
+
+**Follow-up state:** source-level closed; hosted signed bytes still need their
+own acceptance before any publication claim.
+
+**Skill promotion:** None. Bounded defect record.

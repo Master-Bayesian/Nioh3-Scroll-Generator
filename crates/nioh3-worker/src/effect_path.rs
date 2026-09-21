@@ -1783,12 +1783,18 @@ mod tests {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
     }
 
-    fn evidence(name: &str) -> Value {
-        let path = repo_root()
-            .join("deliverables")
+    /// The tracked offline vectors these tests read, beside the crate because
+    /// `deliverables/` is git-ignored and therefore absent from a clean checkout.
+    fn fixtures_root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
             .join("m23d-preimage")
             .join("evidence")
-            .join(name);
+    }
+
+    fn evidence(name: &str) -> Value {
+        let path = fixtures_root().join(name);
         let text = std::fs::read_to_string(&path)
             .unwrap_or_else(|error| panic!("missing vector {}: {error}", path.display()));
         serde_json::from_str(&text).expect("vector is valid JSON")

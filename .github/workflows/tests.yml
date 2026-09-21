@@ -123,6 +123,21 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
 
+      # The Tauri host embeds `apps/tauri/dist` at compile time
+      # (`frontendDist: ../dist`), so the bundle has to exist before the host is
+      # built here, exactly as release.yml orders it.
+      - name: Set up Node for the frontend bundle
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci --no-fund
+
+      - name: Build the frontend bundle the host embeds
+        run: node apps/tauri/build.mjs
+
       - name: Set up Rust for the packaged workers
         uses: dtolnay/rust-toolchain@stable
 

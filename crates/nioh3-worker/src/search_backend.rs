@@ -1781,6 +1781,12 @@ mod tests {
         };
         let backend = loaded();
         let oversized = PageRequest::chunk(0, MAX_NATURAL_TRIALS + 3, MAX_NATURAL_TRIALS + 3, 4);
+        // The clamped page must also run on a host without a CUDA device, so the
+        // test pins its own explicit bulk-CPU policy; the production default
+        // stays StrictGpu.
+        let _policy = backend
+            .pin_policy(ExecutionPolicy::AllowBulkCpu)
+            .expect("the test's explicit bulk-CPU policy is accepted");
         let page = backend
             .collect_page(&query, &oversized, &|| false)
             .expect("clamped page");

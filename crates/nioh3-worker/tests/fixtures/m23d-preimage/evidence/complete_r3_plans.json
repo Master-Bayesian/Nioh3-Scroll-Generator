@@ -1,0 +1,582 @@
+{
+ "affine_draw_1": [
+  69069,
+  1
+ ],
+ "descriptors": [
+  {
+   "count": 6,
+   "rows": [
+    {
+     "constraint_count": 4,
+     "constraints": [
+      [
+       9,
+       52430,
+       58982
+      ],
+      [
+       12,
+       33609,
+       35288
+      ],
+      [
+       15,
+       17247,
+       18971
+      ],
+      [
+       18,
+       10083,
+       12603
+      ]
+     ],
+     "promoted_slot": 0
+    },
+    {
+     "constraint_count": 4,
+     "constraints": [
+      [
+       9,
+       52430,
+       58982
+      ],
+      [
+       12,
+       33609,
+       35288
+      ],
+      [
+       15,
+       20696,
+       22420
+      ],
+      [
+       18,
+       19860,
+       21845
+      ]
+     ],
+     "promoted_slot": 0
+    },
+    {
+     "constraint_count": 4,
+     "constraints": [
+      [
+       9,
+       52430,
+       58982
+      ],
+      [
+       12,
+       16805,
+       18484
+      ],
+      [
+       15,
+       26700,
+       29127
+      ],
+      [
+       18,
+       10083,
+       12603
+      ]
+     ],
+     "promoted_slot": 0
+    },
+    {
+     "constraint_count": 4,
+     "constraints": [
+      [
+       9,
+       52430,
+       58982
+      ],
+      [
+       12,
+       16805,
+       18484
+      ],
+      [
+       15,
+       9710,
+       12136
+      ],
+      [
+       18,
+       17874,
+       20852
+      ]
+     ],
+     "promoted_slot": 0
+    },
+    {
+     "constraint_count": 4,
+     "constraints": [
+      [
+       9,
+       52430,
+       58982
+      ],
+      [
+       12,
+       20165,
+       21845
+      ],
+      [
+       15,
+       28913,
+       30840
+      ],
+      [
+       18,
+       19860,
+       21845
+      ]
+     ],
+     "promoted_slot": 0
+    },
+    {
+     "constraint_count": 4,
+     "constraints": [
+      [
+       9,
+       52430,
+       58982
+      ],
+      [
+       12,
+       20165,
+       21845
+      ],
+      [
+       15,
+       19276,
+       21202
+      ],
+      [
+       18,
+       17874,
+       20852
+      ]
+     ],
+     "promoted_slot": 0
+    }
+   ]
+  }
+ ],
+ "family_size": 429457408,
+ "level": 180,
+ "plans": [
+  {
+   "paths": [
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         52430,
+         58982
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 9,
+       "effect_id": 60020,
+       "source_slot": 0,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         33609,
+         35288
+        ]
+       ],
+       "candidate_count": 39,
+       "draw_index": 12,
+       "effect_id": 12028,
+       "source_slot": 1,
+       "total_weight": 780000
+      },
+      {
+       "allowed_u16": [
+        [
+         17247,
+         18971
+        ]
+       ],
+       "candidate_count": 38,
+       "draw_index": 15,
+       "effect_id": 16437,
+       "source_slot": 2,
+       "total_weight": 760000
+      },
+      {
+       "allowed_u16": [
+        [
+         10083,
+         12603
+        ]
+       ],
+       "candidate_count": 26,
+       "draw_index": 18,
+       "effect_id": 39485,
+       "source_slot": 3,
+       "total_weight": 520000
+      }
+     ],
+     "ordered_effect_ids": [
+      60020,
+      12028,
+      16437,
+      39485
+     ],
+     "promoted_slot": 0
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         52430,
+         58982
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 9,
+       "effect_id": 60020,
+       "source_slot": 0,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         33609,
+         35288
+        ]
+       ],
+       "candidate_count": 39,
+       "draw_index": 12,
+       "effect_id": 12028,
+       "source_slot": 1,
+       "total_weight": 780000
+      },
+      {
+       "allowed_u16": [
+        [
+         20696,
+         22420
+        ]
+       ],
+       "candidate_count": 38,
+       "draw_index": 15,
+       "effect_id": 39485,
+       "source_slot": 2,
+       "total_weight": 760000
+      },
+      {
+       "allowed_u16": [
+        [
+         19860,
+         21845
+        ]
+       ],
+       "candidate_count": 33,
+       "draw_index": 18,
+       "effect_id": 16437,
+       "source_slot": 3,
+       "total_weight": 660000
+      }
+     ],
+     "ordered_effect_ids": [
+      60020,
+      12028,
+      39485,
+      16437
+     ],
+     "promoted_slot": 0
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         52430,
+         58982
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 9,
+       "effect_id": 60020,
+       "source_slot": 0,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         16805,
+         18484
+        ]
+       ],
+       "candidate_count": 39,
+       "draw_index": 12,
+       "effect_id": 16437,
+       "source_slot": 1,
+       "total_weight": 780000
+      },
+      {
+       "allowed_u16": [
+        [
+         26700,
+         29127
+        ]
+       ],
+       "candidate_count": 27,
+       "draw_index": 15,
+       "effect_id": 12028,
+       "source_slot": 2,
+       "total_weight": 540000
+      },
+      {
+       "allowed_u16": [
+        [
+         10083,
+         12603
+        ]
+       ],
+       "candidate_count": 26,
+       "draw_index": 18,
+       "effect_id": 39485,
+       "source_slot": 3,
+       "total_weight": 520000
+      }
+     ],
+     "ordered_effect_ids": [
+      60020,
+      16437,
+      12028,
+      39485
+     ],
+     "promoted_slot": 0
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         52430,
+         58982
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 9,
+       "effect_id": 60020,
+       "source_slot": 0,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         16805,
+         18484
+        ]
+       ],
+       "candidate_count": 39,
+       "draw_index": 12,
+       "effect_id": 16437,
+       "source_slot": 1,
+       "total_weight": 780000
+      },
+      {
+       "allowed_u16": [
+        [
+         9710,
+         12136
+        ]
+       ],
+       "candidate_count": 27,
+       "draw_index": 15,
+       "effect_id": 39485,
+       "source_slot": 2,
+       "total_weight": 540000
+      },
+      {
+       "allowed_u16": [
+        [
+         17874,
+         20852
+        ]
+       ],
+       "candidate_count": 22,
+       "draw_index": 18,
+       "effect_id": 12028,
+       "source_slot": 3,
+       "total_weight": 440000
+      }
+     ],
+     "ordered_effect_ids": [
+      60020,
+      16437,
+      39485,
+      12028
+     ],
+     "promoted_slot": 0
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         52430,
+         58982
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 9,
+       "effect_id": 60020,
+       "source_slot": 0,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         20165,
+         21845
+        ]
+       ],
+       "candidate_count": 39,
+       "draw_index": 12,
+       "effect_id": 39485,
+       "source_slot": 1,
+       "total_weight": 780000
+      },
+      {
+       "allowed_u16": [
+        [
+         28913,
+         30840
+        ]
+       ],
+       "candidate_count": 34,
+       "draw_index": 15,
+       "effect_id": 12028,
+       "source_slot": 2,
+       "total_weight": 680000
+      },
+      {
+       "allowed_u16": [
+        [
+         19860,
+         21845
+        ]
+       ],
+       "candidate_count": 33,
+       "draw_index": 18,
+       "effect_id": 16437,
+       "source_slot": 3,
+       "total_weight": 660000
+      }
+     ],
+     "ordered_effect_ids": [
+      60020,
+      39485,
+      12028,
+      16437
+     ],
+     "promoted_slot": 0
+    },
+    {
+     "constraints": [
+      {
+       "allowed_u16": [
+        [
+         52430,
+         58982
+        ]
+       ],
+       "candidate_count": 10,
+       "draw_index": 9,
+       "effect_id": 60020,
+       "source_slot": 0,
+       "total_weight": 60000
+      },
+      {
+       "allowed_u16": [
+        [
+         20165,
+         21845
+        ]
+       ],
+       "candidate_count": 39,
+       "draw_index": 12,
+       "effect_id": 39485,
+       "source_slot": 1,
+       "total_weight": 780000
+      },
+      {
+       "allowed_u16": [
+        [
+         19276,
+         21202
+        ]
+       ],
+       "candidate_count": 34,
+       "draw_index": 15,
+       "effect_id": 16437,
+       "source_slot": 2,
+       "total_weight": 680000
+      },
+      {
+       "allowed_u16": [
+        [
+         17874,
+         20852
+        ]
+       ],
+       "candidate_count": 22,
+       "draw_index": 18,
+       "effect_id": 12028,
+       "source_slot": 3,
+       "total_weight": 440000
+      }
+     ],
+     "ordered_effect_ids": [
+      60020,
+      39485,
+      16437,
+      12028
+     ],
+     "promoted_slot": 0
+    }
+   ],
+   "pivot_affine_addend": 2044158073,
+   "pivot_allowed_u16": [
+    [
+     52430,
+     58982
+    ]
+   ],
+   "pivot_draw_index": 9,
+   "pivot_inverse_multiplier": 1719127141,
+   "pivot_state_count": 429457408,
+   "promotion_draw_index": 1,
+   "promotion_probability_percent": 10,
+   "shared_constraints": [],
+   "shuffle_draw_start": 2,
+   "slot_limit": 4
+  }
+ ],
+ "playthrough": 3,
+ "primary_effect_ids": [
+  60020
+ ],
+ "rarity": 3,
+ "required_secondary_ids": [
+  12028,
+  16437,
+  39485
+ ],
+ "seed": 1,
+ "source": "nioh3_scroll_editor.effect_path_inverse"
+}

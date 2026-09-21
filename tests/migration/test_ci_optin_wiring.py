@@ -61,6 +61,22 @@ class CiOptInWiringTests(unittest.TestCase):
         ):
             self.assertNotIn(command, block, f"the packaging job must not run {command!r}")
 
+    def test_packaging_job_builds_the_frontend_bundle_before_the_host(self) -> None:
+        # The Tauri host embeds `apps/tauri/dist` at compile time
+        # (`frontendDist: ../dist`), so the bundle must exist before the host is
+        # built here or `tauri::generate_context!` panics in the packaging job.
+        block = job_block(TESTS_WORKFLOW.read_text(encoding="utf-8"), "rust-packaging")
+        self.assertIn("npm ci --no-fund", block)
+        bundle = block.index("node apps/tauri/build.mjs")
+        host = block.index(
+            "cargo build --locked --manifest-path apps/tauri/src-tauri/Cargo.toml"
+        )
+        self.assertLess(
+            bundle,
+            host,
+            "the frontend bundle must be built before the packaging host",
+        )
+
     def test_the_release_workflow_defaults_to_the_rust_graph(self) -> None:
         # The release workflow now packages the Rust worker by default: the
         # input defaults to `rust`, the Rust-only steps are conditional so the
