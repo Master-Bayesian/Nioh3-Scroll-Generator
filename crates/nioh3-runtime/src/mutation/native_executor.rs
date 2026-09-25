@@ -1238,6 +1238,22 @@ impl ReceiptStore {
                 // A classification is a sidecar, never a second receipt.
                 continue;
             }
+            // Every product receipt is `<canonical operation UUID>.json`. Anything
+            // else (a research probe's receipt, say) can be neither classified
+            // nor recovered here, so it is named and refused instead of failing
+            // later with an anonymous identity error.
+            if !path
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .is_some_and(is_canonical_uuid)
+            {
+                return Err(rejected(format!(
+                    "Foreign native receipt {} is not a live-add operation; \
+                     move it out of {} and retry",
+                    path.display(),
+                    self.directory.display()
+                )));
+            }
             let value = read_json(&path)?;
             if value.get("pid").and_then(Value::as_u64).is_none() {
                 return Err(rejected(format!(

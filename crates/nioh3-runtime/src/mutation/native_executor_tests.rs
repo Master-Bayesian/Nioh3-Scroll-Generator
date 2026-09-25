@@ -1257,3 +1257,21 @@ fn every_accepted_builder_binds_its_own_identity_chain() {
         assert_eq!(old.1.len(), new.1.len());
     }
 }
+
+/// A research probe's receipt left in the product store is named, not read as
+/// an anonymous operation identity.
+#[test]
+#[allow(clippy::unwrap_used)]
+fn a_foreign_receipt_in_the_store_is_named() {
+    let fixture = Fixture::new("foreign-receipt");
+    let directory = fixture.root.join("native-executor");
+    let store = crate::mutation::native_executor::ReceiptStore::new(&directory).unwrap();
+    std::fs::write(
+        directory.join("v202-noop-8056.json"),
+        br#"{"operation_id":"v202-noop-8056","pid":18956,"mode":"noop","phase":"rejected"}"#,
+    )
+    .unwrap();
+    let error = store.unresolved_owner().unwrap_err();
+    assert!(error.message().contains("v202-noop-8056.json"));
+    assert!(error.message().contains("not a live-add operation"));
+}

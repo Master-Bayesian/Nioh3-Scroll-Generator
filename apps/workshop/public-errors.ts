@@ -38,6 +38,10 @@ export function publicError(message: string): string {
       "自动备份无法通过校验，本次没有继续添加。请重新核对添加。",
     ],
     [
+      /Foreign native receipt/,
+      "实时添加的状态目录里有不属于本工具操作的回执文件，添加已停止，游戏没有被改动。请复制日志反馈。",
+    ],
+    [
       /was rejected after dispatch|Native builder output differs|Native assembly differs/i,
       "游戏生成的绘卷与预期不一致，这次没有添加，背包和存档都没有改动，可以直接重试。若反复出现，请复制日志反馈。",
     ],
