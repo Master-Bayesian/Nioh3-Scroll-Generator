@@ -2591,6 +2591,10 @@
     "这个词条组合在游戏里不可能出现，请调整筛选条件后再搜索。": [
       "This effect combination can never appear in game. Adjust the conditions and search again.",
       "この効果の組み合わせはゲーム内で出現しません。条件を調整して再検索してください。"
+    ],
+    "知道了": [
+      "Got it",
+      "了解"
     ]
   },
   "game": {

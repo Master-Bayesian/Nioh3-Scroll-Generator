@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { desktop } from "./desktop-bridge";
 import { isFailureText, publicError, stripErrorPrefix } from "./public-errors";
 
@@ -25,6 +25,8 @@ export function Notice({
   className?: string;
 }) {
   const [feedback, setFeedback] = useState<"" | "busy" | "saved" | "failed">("");
+  // A new message replaces the previous one together with its feedback hint.
+  useEffect(() => setFeedback(""), [text]);
   if (!text.trim()) return null;
   const effective = tone ?? (isFailureText(text) ? "error" : "info");
   const display = stripErrorPrefix(text).trim();
@@ -63,7 +65,7 @@ export function Notice({
           )}
         </div>
       )}
-      {feedback === "saved" && <FeedbackSaved />}
+      {feedback === "saved" && <FeedbackSaved onDismiss={() => setFeedback("")} />}
       {feedback === "failed" && (
         <p className="notice-hint">反馈文件没有导出成功，请在“设置”里再试一次。</p>
       )}
@@ -72,7 +74,7 @@ export function Notice({
 }
 
 /** Where the feedback file went and where to send it. */
-export function FeedbackSaved() {
+export function FeedbackSaved({ onDismiss }: { onDismiss?: () => void }) {
   return (
     <div className="notice-hint">
       <p>反馈文件已保存，所在文件夹已经打开。把这个文件和出问题前的操作步骤一起发到 QQ 群或 GitHub 即可。</p>
@@ -83,6 +85,11 @@ export function FeedbackSaved() {
         <button type="button" onClick={() => void window.review.openLink("github")}>
           GitHub
         </button>
+        {onDismiss && (
+          <button type="button" onClick={onDismiss}>
+            知道了
+          </button>
+        )}
       </div>
     </div>
   );

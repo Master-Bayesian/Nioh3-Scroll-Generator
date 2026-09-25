@@ -30,6 +30,10 @@ export class OperationController {
   }
   connect() { this.disposed = false; return this.recover(); }
   async run(operation: () => Promise<ProtectedResult | null>, operationId: string | null = null) {
+    // A refused or unanswered submission leaves the observer interrupted. That
+    // must not lock every later operation: reading the worker's current state
+    // (recovery never replays) settles it, and only real ownership still refuses.
+    if (this.state.phase === 'interrupted') await this.recover();
     if (!this.canStart()) throw new Error('BUSY: recover the protected operation before continuing');
     const epoch = this.epoch + 1;
     await this.start(operation, operationId);

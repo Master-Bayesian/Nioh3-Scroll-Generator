@@ -2342,7 +2342,7 @@ function App() {
                       反馈问题
                     </button>
                     {feedbackState === "saved" ? (
-                      <FeedbackSaved />
+                      <FeedbackSaved onDismiss={() => setFeedbackState("")} />
                     ) : (
                       <p className="settings-note">
                         遇到问题时点这里，会生成一个反馈文件（包含版本信息和最近的操作记录，不含存档内容）。

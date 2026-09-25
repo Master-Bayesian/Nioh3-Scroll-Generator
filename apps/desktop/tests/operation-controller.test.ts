@@ -31,6 +31,22 @@ test('protected interruption retains job identity and never replays an operation
   } finally { controller.dispose(); }
 });
 
+test('a refused submission does not lock later operations, and a running job still does', async () => {
+  let busy = false;
+  const controller = new OperationController('runtime', api({
+    current: async () => (busy ? { job: running, busy: true } : { job: null, busy: false }),
+  }), 1);
+  try {
+    await assert.rejects(controller.run(async () => { throw new Error('INVALID_REQUEST: refused'); }));
+    assert.equal(controller.getSnapshot().phase, 'interrupted');
+    // The next operation settles the interruption by reading, then proceeds.
+    assert.equal(await controller.run(async () => null), null);
+    await assert.rejects(controller.run(async () => { throw new Error('INVALID_REQUEST: refused'); }));
+    busy = true;
+    await assert.rejects(controller.run(async () => null), /BUSY/);
+  } finally { controller.dispose(); }
+});
+
 test('stale polling cannot undo cancellation, and save writes cannot be cancelled', async () => {
   let cancels = 0;
   const controller = new OperationController('runtime', api({ cancel: async () => {

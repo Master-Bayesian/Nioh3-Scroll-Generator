@@ -138,6 +138,14 @@ closing.
 - With several saves, the last chosen save is selected again, and the picker
   says how many saves it found instead of silently selecting nothing.
 - The search status no longer mentions the backend.
+- An infeasible effect set is explained with the clashing effect names (the
+  worker now lists the members of an overfull native category) instead of raw
+  English or a generic error code.
+- The feedback hint closes with the message it belongs to, or with "知道了".
+- A refused or unanswered submission left `OperationController` interrupted,
+  so every later save or runtime operation failed with `BUSY` ("另一项操作仍在
+  进行") until something called `recover()`. `run()` now recovers first
+  (read-only, never a replay); a genuinely running job still refuses.
 
 ## PC v2.02 temporary-override evidence
 
