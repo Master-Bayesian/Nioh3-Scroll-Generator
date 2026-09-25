@@ -80,8 +80,9 @@ inserted into slot 33 (serial 2505498) with stored flags `0x06800082`, and
 after a normal in-game save the decrypted `SAVEDATA.BIN` held the same record
 and passed `verify_persistence` against the verified live inventory (47/47).
 A second online addition with the test6 build (seed 114514, slot 35, serial
-2506389, stored flags `0x06800082`) also verified live; it had not yet been
-saved in game when checked. **Still open:** the offline branch (`A = 0`) live.
+2506389, stored flags `0x06800082`) also verified live, and after a normal
+in-game save the decrypted save held it and passed `verify_persistence`
+(48/48). **Still open:** the offline branch (`A = 0`) live.
 
 The same machine first failed with `Use a canonical operation UUID`: four
 research `v202-noop-<pid>.json` receipts in `live-add/native-executor/`
