@@ -124,6 +124,22 @@ impl RetiredOracleOwner {
     }
 }
 
+/// The directory that holds the `game_versions/*.json` runtime profiles.
+///
+/// Workers are launched with `--data-root <runtime>/data`, while the profile
+/// documents live in `data/game_versions`; a root that already names the
+/// profile directory is used unchanged. Every runtime identity resolves its
+/// profile through this one rule, so no path joins `data/pc_v2_02.json`.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) fn profile_dir_for(data_root: &Path) -> PathBuf {
+    let nested = data_root.join("game_versions");
+    if nested.is_dir() {
+        nested
+    } else {
+        data_root.to_path_buf()
+    }
+}
+
 impl RuntimeApplication {
     /// Build the runtime role for one state root and data root.
     pub fn new(
@@ -160,15 +176,24 @@ impl RuntimeApplication {
     /// process-absence error instead of fabricating a plan.
     #[cfg(windows)]
     fn count_editor_for_game(&self) -> Result<nioh3_runtime::mutation::CountEditor, HostError> {
-        let pid = nioh3_runtime::single_process_id(nioh3_runtime::GAME_IMAGE_NAME)
-            .map_err(HostError::from_runtime)?;
-        let base = nioh3_runtime::module_range(pid, nioh3_runtime::GAME_MODULE_NAME)
-            .map_err(HostError::from_runtime)?
-            .base;
+        // The count edit reads the same manager-owned inventory the live-add
+        // binding reads, so it resolves the game under that purpose and picks
+        // the layout of the exact running version; any other build is refused
+        // instead of being read through the PC v2.01 addresses.
+        let identity = nioh3_runtime::identify_running_game_for(
+            &profile_dir_for(&self.data_root),
+            nioh3_runtime::profile::ProfilePurpose::LiveAdd,
+        )
+        .map_err(HostError::from_runtime)?;
+        let version = identity.file_version.tuple();
+        let layout =
+            nioh3_runtime::mutation::count_layout_for_game_version(version).ok_or_else(|| {
+                HostError::rejected("Count editing is not accepted for this game version")
+            })?;
         let memory = nioh3_runtime::mutation::WindowsCountMemory::new(
-            pid,
-            base,
-            nioh3_runtime::mutation::PC_V201_COUNT_LAYOUT,
+            identity.identity.pid,
+            identity.module.base,
+            layout,
             nioh3_runtime::mutation::WindowsCountProcesses,
         );
         nioh3_runtime::mutation::CountEditor::new(&self.state_root, Box::new(memory))
@@ -505,8 +530,27 @@ mod imp {
 
     impl RuntimeApplication {
         /// `running_game_identity()`: exactly one verified supported game.
+        ///
+        /// The profile loader wants the `game_versions` directory; passing the
+        /// data root itself made it look for `data/pc_v2_02.json` (v0.8.0).
         fn identity(&self) -> Result<GameIdentity, HostError> {
-            nioh3_runtime::identify_running_game(&self.data_root).map_err(HostError::from_runtime)
+            nioh3_runtime::identify_running_game(&super::profile_dir_for(&self.data_root))
+                .map_err(HostError::from_runtime)
+        }
+
+        /// The game identity the temporary override hooks use.
+        ///
+        /// Resolved for [`ProfilePurpose::TemporaryOverride`], so a version
+        /// approved only for these hooks is reachable here while every other
+        /// native path keeps its own approval gate.
+        ///
+        /// [`ProfilePurpose::TemporaryOverride`]: nioh3_runtime::profile::ProfilePurpose::TemporaryOverride
+        fn override_identity(&self) -> Result<GameIdentity, HostError> {
+            nioh3_runtime::identify_running_game_for(
+                &super::profile_dir_for(&self.data_root),
+                nioh3_runtime::profile::ProfilePurpose::TemporaryOverride,
+            )
+            .map_err(HostError::from_runtime)
         }
 
         /// The game identity the native live-add path uses.
@@ -520,17 +564,8 @@ mod imp {
         /// the profile id and, where pinned, the exact executable digest before
         /// any read or dispatch.
         fn live_add_identity(&self) -> Result<GameIdentity, HostError> {
-            // Workers are launched with `--data-root <runtime>/data` while the
-            // profile documents live in `data/game_versions`; a root that
-            // already names the profile directory is used unchanged.
-            let nested = self.data_root.join("game_versions");
-            let profile_dir = if nested.is_dir() {
-                nested
-            } else {
-                self.data_root.clone()
-            };
             nioh3_runtime::identify_running_game_for(
-                &profile_dir,
+                &super::profile_dir_for(&self.data_root),
                 nioh3_runtime::profile::ProfilePurpose::LiveAdd,
             )
             .map_err(HostError::from_runtime)
@@ -607,7 +642,7 @@ mod imp {
                 identity,
                 profile: runtime_profile,
                 ..
-            } = self.identity()?;
+            } = self.override_identity()?;
             let sessions = self.build_sessions(profile, identity.pid, runtime_profile)?;
             let status = self
                 .host
@@ -1637,5 +1672,63 @@ mod live_add_selection_tests {
                 "{major}.{minor}.{build}.{revision} must select nothing"
             );
         }
+    }
+}
+
+/// The runtime identity must read its profile from `data/game_versions`.
+///
+/// v0.8.0 passed the worker's `--data-root` (`.../data`) straight to the
+/// profile loader, which then opened `data/pc_v2_02.json` and failed with an OS
+/// "file not found" before any approval decision. These tests pin the shared
+/// resolver against the shipped tree and prove the resolved directory reaches
+/// the real loader for each purpose.
+#[cfg(test)]
+mod profile_dir_tests {
+    #![allow(clippy::expect_used, clippy::unwrap_used)]
+
+    use nioh3_runtime::profile::{profile_for_game_version_for, ProfilePurpose};
+    use nioh3_runtime::FileVersion;
+    use std::path::Path;
+
+    use super::profile_dir_for;
+
+    fn data_root() -> std::path::PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("nioh3_scroll_editor")
+            .join("data")
+    }
+
+    #[test]
+    fn the_worker_data_root_resolves_to_the_profile_directory() {
+        let data_root = data_root();
+        let profile_dir = profile_dir_for(&data_root);
+        assert_eq!(profile_dir, data_root.join("game_versions"));
+        assert!(profile_dir.join("pc_v2_02.json").is_file());
+        // A root that already names the profile directory is used unchanged.
+        assert_eq!(profile_dir_for(&profile_dir), profile_dir);
+    }
+
+    #[test]
+    fn the_resolved_directory_reaches_the_version_approval_gate() {
+        let profile_dir = profile_dir_for(&data_root());
+        let v202 = FileVersion::new(2, 0, 2, 0);
+        // The temporary overrides are approved for PC v2.02 ...
+        let resolved =
+            profile_for_game_version_for(v202, &profile_dir, ProfilePurpose::TemporaryOverride)
+                .expect("the override purpose resolves the shipped v2.02 profile");
+        assert_eq!(resolved.display_version, "PC v2.02");
+        // ... while the blanket native-write purpose still refuses it by name,
+        // never with an IO error about a misplaced file.
+        let refused =
+            profile_for_game_version_for(v202, &profile_dir, ProfilePurpose::NativeWrites)
+                .expect_err("PC v2.02 is not blanket-approved");
+        assert_eq!(
+            refused,
+            nioh3_runtime::RuntimeError::ProfileNotApproved {
+                profile: "PC v2.02".to_string(),
+            }
+        );
     }
 }

@@ -129,6 +129,35 @@ pub const PC_V201_COUNT_LAYOUT: CountLayout = CountLayout {
     count_offset: COUNT_OFFSET,
 };
 
+/// PC v2.02: the inventory addresses of the natively accepted PC v2.02
+/// live-add binding, which reads and verifies this same manager-owned
+/// container. The record layout and count byte are unchanged.
+pub const PC_V202_COUNT_LAYOUT: CountLayout = {
+    let live = crate::mutation::native_abi::PC_V202_LIVE_ADD_CANDIDATE;
+    CountLayout {
+        manager_pointer_rva: live.manager_pointer_rva,
+        container_offset: live.container_offset,
+        capacity_offset: live.capacity_offset,
+        insertion_rva: live.insertion_rva,
+        capacity: live.capacity,
+        record_size: RECORD_SIZE,
+        count_offset: COUNT_OFFSET,
+    }
+};
+
+/// The count layout of one exact executable version, or `None` when this
+/// version has no verified inventory binding.
+///
+/// Using the PC v2.01 addresses on another build would read an unrelated
+/// global, so every other version is refused instead of defaulted.
+pub fn count_layout_for_game_version(version: (u16, u16, u16, u16)) -> Option<CountLayout> {
+    match version {
+        (2, 0, 1, 0) => Some(PC_V201_COUNT_LAYOUT),
+        (2, 0, 2, 0) => Some(PC_V202_COUNT_LAYOUT),
+        _ => None,
+    }
+}
+
 /// Port of `runtime_count_edit.WindowsCountMemory` over the shipped address
 /// math: module base + `manager_pointer_rva`, then `container_offset`, then the
 /// fixed-capacity record array.

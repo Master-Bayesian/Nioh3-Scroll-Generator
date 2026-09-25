@@ -28,10 +28,25 @@ pub const COUNTER_RESERVE: usize = 8;
 
 /// `runtime_challenge_override.CAPACITY_RVA`.
 pub const CAPACITY_RVA: u64 = 0x1028E30;
+/// The PC v2.02 challenge-capacity getter.
+///
+/// The function body is byte-identical to the PC v2.01 getter at
+/// [`CAPACITY_RVA`] apart from rel32/RIP-relative displacements, and its
+/// relocation-free prefix occurs exactly once in the v2.02 `.text`.
+pub const PC_V202_CAPACITY_RVA: u64 = 0x102AD60;
 /// `runtime_challenge_override.CAPACITY_SIGNATURE`.
 pub const CAPACITY_SIGNATURE: [u8; 5] = [0x48, 0x89, 0x5C, 0x24, 0x08];
-/// The only display version the challenge getter is verified against.
+/// The display version the challenge getter was first verified against.
 pub const CHALLENGE_DISPLAY_VERSION: &str = "PC v2.01";
+
+/// The challenge-capacity getter of one verified display version.
+pub fn challenge_capacity_rva(display_version: &str) -> Option<u64> {
+    match display_version {
+        CHALLENGE_DISPLAY_VERSION => Some(CAPACITY_RVA),
+        "PC v2.02" => Some(PC_V202_CAPACITY_RVA),
+        _ => None,
+    }
+}
 
 /// How a session obtains the target: module base, pre-write identity, handle.
 ///
@@ -120,7 +135,7 @@ impl<F: SessionMemory> OverrideSession<F> {
         ))
     }
 
-    /// Challenge capacity session; verified PC v2.01 only.
+    /// Challenge capacity session for a version with a verified getter.
     pub fn challenge(
         profile: ChallengeOverrideProfile,
         pid: u32,
@@ -128,9 +143,10 @@ impl<F: SessionMemory> OverrideSession<F> {
         factory: F,
     ) -> Result<Self, RuntimeError> {
         profile.validate()?;
-        if runtime_profile.display_version != CHALLENGE_DISPLAY_VERSION {
+        if challenge_capacity_rva(&runtime_profile.display_version).is_none() {
             return Err(RuntimeError::InvalidOverrideProfile {
-                detail: "Challenge capacity override requires verified PC v2.01".to_string(),
+                detail: "Challenge capacity override requires verified PC v2.01 or PC v2.02"
+                    .to_string(),
             });
         }
         Ok(Self::new(
@@ -423,7 +439,13 @@ impl<F: SessionMemory> OverrideSession<F> {
                 self.runtime_profile.descriptor_complete.rva,
                 self.runtime_profile.descriptor_complete.signature.clone(),
             ),
-            SessionSite::ChallengeCapacity => (CAPACITY_RVA, CAPACITY_SIGNATURE.to_vec()),
+            // `challenge` refuses any other version, so the fallback is never
+            // reached; it keeps the shipped v2.01 site rather than inventing one.
+            SessionSite::ChallengeCapacity => (
+                challenge_capacity_rva(&self.runtime_profile.display_version)
+                    .unwrap_or(CAPACITY_RVA),
+                CAPACITY_SIGNATURE.to_vec(),
+            ),
         }
     }
 

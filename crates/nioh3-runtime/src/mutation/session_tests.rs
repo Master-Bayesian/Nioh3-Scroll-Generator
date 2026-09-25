@@ -10,7 +10,8 @@
 use super::fake::{FakeMemoryFactory, Faults, FAKE_MODULE_BASE};
 use super::session::{
     ChallengeOverrideProfile, OverrideGroup, OverrideSession, RuntimeMutationHost, SessionSite,
-    CAPACITY_RVA, CAPACITY_SIGNATURE, COUNTER_RESERVE, REMOTE_ALLOCATION_SIZE,
+    CAPACITY_RVA, CAPACITY_SIGNATURE, COUNTER_RESERVE, PC_V202_CAPACITY_RVA,
+    REMOTE_ALLOCATION_SIZE,
 };
 use super::trampoline::OverrideProfile;
 use crate::error::RuntimeError;
@@ -290,6 +291,42 @@ fn the_challenge_session_hooks_the_capacity_site() -> Result<(), RuntimeError> {
     Ok(())
 }
 
+/// The PC v2.02 getter body is the PC v2.01 body relocated, so the session
+/// hooks the v2.02 address with the same verified entry bytes.
+#[test]
+fn the_pc_v2_02_challenge_session_hooks_the_relocated_getter() -> Result<(), RuntimeError> {
+    let factory = FakeMemoryFactory::new();
+    factory
+        .state
+        .borrow_mut()
+        .seed(FAKE_MODULE_BASE + PC_V202_CAPACITY_RVA, &CAPACITY_SIGNATURE);
+    let mut profile = default_pc_v2_00_02();
+    profile.display_version = "PC v2.02".to_string();
+    let mut session = OverrideSession::challenge(
+        ChallengeOverrideProfile {
+            seed: 7,
+            capacity: 5,
+        },
+        4242,
+        profile,
+        factory_for(&factory),
+    )?;
+    session.start()?;
+    assert_eq!(
+        session.hook_address(),
+        FAKE_MODULE_BASE + PC_V202_CAPACITY_RVA
+    );
+    session.stop()?;
+    assert_eq!(
+        factory
+            .state
+            .borrow()
+            .bytes(FAKE_MODULE_BASE + PC_V202_CAPACITY_RVA, 5),
+        CAPACITY_SIGNATURE.to_vec()
+    );
+    Ok(())
+}
+
 #[test]
 fn a_challenge_session_requires_verified_pc_v2_01() {
     let outcome = OverrideSession::challenge(
@@ -303,13 +340,14 @@ fn a_challenge_session_requires_verified_pc_v2_01() {
     );
     assert!(
         outcome.is_err(),
-        "the capacity getter is only verified on PC v2.01"
+        "the capacity getter is only verified on PC v2.01 and PC v2.02"
     );
     let error = outcome.err().unwrap_or(RuntimeError::RuntimeBusy);
     assert_eq!(
         error,
         RuntimeError::InvalidOverrideProfile {
-            detail: "Challenge capacity override requires verified PC v2.01".to_string(),
+            detail: "Challenge capacity override requires verified PC v2.01 or PC v2.02"
+                .to_string(),
         }
     );
 }

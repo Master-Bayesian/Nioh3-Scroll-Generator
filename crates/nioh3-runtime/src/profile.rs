@@ -55,6 +55,24 @@ pub const SUPPORTED_GAME_VERSION: &str = "2.01";
 /// for the profile to load at all.
 pub const LIVE_ADD_APPROVED_VERSIONS: [FileVersion; 1] = [FileVersion::new(2, 0, 2, 0)];
 
+/// Exact versions whose temporary runtime overrides (the auxiliary descriptor
+/// override and the challenge-capacity override) this line accepts.
+///
+/// Like [`LIVE_ADD_APPROVED_VERSIONS`] this is recorded here rather than in the
+/// profile document, it is scoped to the one purpose, and the document must
+/// still carry its validated sites for the profile to load.
+///
+/// PC v2.02 evidence: the two hooked functions are byte-identical to the
+/// verified PC v2.01 bodies apart from rel32 call and RIP-relative
+/// displacements - 0x500 bytes around `descriptor_complete` (v2.01
+/// `0x20E195C` -> v2.02 `0x20E50B8`, the relocation the profile already
+/// resolves) and 0x400 bytes of the capacity getter (v2.01 `0x1028E30` ->
+/// v2.02 `0x102AD60`, whose 0x26-byte relocation-free prefix is unique in
+/// the v2.02 `.text`). Register and stack use at both hooks is therefore
+/// unchanged, and every session still re-reads the exact hook bytes in the
+/// live process before it writes. No live-game acceptance is claimed.
+pub const TEMPORARY_OVERRIDE_APPROVED_VERSIONS: [FileVersion; 1] = [FileVersion::new(2, 0, 2, 0)];
+
 /// What one profile resolution is for.
 ///
 /// The approval a document grants is operation-specific: a blanket
@@ -69,6 +87,8 @@ pub enum ProfilePurpose {
     NativeWrites,
     /// The reviewed native live-add path.
     LiveAdd,
+    /// The temporary auxiliary / challenge-capacity override hooks.
+    TemporaryOverride,
 }
 
 /// One resolved site: a stable name, a module-relative address and the bytes
@@ -388,6 +408,9 @@ pub fn profile_for_game_version_for(
             // document keeps working unchanged; PC v2.02 is approved for the
             // live-add path alone by the version-scoped list above.
             ProfilePurpose::LiveAdd => blanket || LIVE_ADD_APPROVED_VERSIONS.contains(&version),
+            ProfilePurpose::TemporaryOverride => {
+                blanket || TEMPORARY_OVERRIDE_APPROVED_VERSIONS.contains(&version)
+            }
             ProfilePurpose::NativeWrites => {
                 payload.get("approval_status").and_then(Value::as_str) == Some("approved")
                     && blanket
@@ -605,6 +628,23 @@ mod tests {
         assert_eq!(profile.site("assemble_scroll").map(|site| site.rva), Some(0x227FC5C));
         assert_eq!(profile.text_sites().len(), 11);
         assert_eq!(profile.identity_digest().len(), 64);
+        // The temporary overrides hook `descriptor_complete` and the capacity
+        // getter only; PC v2.02 is approved for exactly that purpose, and the
+        // resolved profile is the same document the live-add purpose sees.
+        let temporary = profile_for_game_version_for(
+            FileVersion::new(2, 0, 2, 0),
+            &directory,
+            ProfilePurpose::TemporaryOverride,
+        )?;
+        assert_eq!(temporary, profile);
+        assert_eq!(temporary.descriptor_complete.rva, 0x20E50B8);
+        // An unknown version is never approved for the overrides.
+        assert!(profile_for_game_version_for(
+            FileVersion::new(2, 0, 3, 0),
+            &directory,
+            ProfilePurpose::TemporaryOverride,
+        )
+        .is_err());
         // The shipped v2.01 document keeps working for both purposes.
         assert_eq!(
             profile_for_game_version(FileVersion::new(2, 0, 1, 0), &directory)?.display_version,

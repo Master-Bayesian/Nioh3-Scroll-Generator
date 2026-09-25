@@ -55,7 +55,7 @@ mod session_tests;
 pub use count::{
     canonical_json, stable_identity, CountEditor, CountLayout, CountMemory, CountPlan,
     CountProcesses, CountState, CountStatus, TargetCapture, WindowsCountMemory,
-    PC_V201_COUNT_LAYOUT,
+    count_layout_for_game_version, PC_V201_COUNT_LAYOUT, PC_V202_COUNT_LAYOUT,
 };
 pub use descriptor::{
     assembly_descriptor, new_assembly_record, verify_assembly_preview, ASSEMBLY_FLAGS,
@@ -86,7 +86,8 @@ pub use count::{WindowsCountMemoryAdapter, WindowsCountProcesses};
 pub use memory::{TargetProcess, COUNT_WRITE_ACCESS, OVERRIDE_ACCESS, READ_ACCESS};
 pub use session::{
     ChallengeOverrideProfile, OverrideGroup, OverrideSession, RuntimeMutationHost, SessionMemory,
-    SessionSite, CAPACITY_RVA, CAPACITY_SIGNATURE, CHALLENGE_DISPLAY_VERSION, COUNTER_RESERVE,
+    challenge_capacity_rva, SessionSite, CAPACITY_RVA, CAPACITY_SIGNATURE,
+    CHALLENGE_DISPLAY_VERSION, COUNTER_RESERVE, PC_V202_CAPACITY_RVA,
     REMOTE_ALLOCATION_SIZE,
 };
 pub use trampoline::{
