@@ -700,8 +700,15 @@ impl SaveApplication {
             let original = *entry.record_bytes();
             let header = header_patch(edit)?;
             let after_header = header_json(&header);
-            let patch =
-                patch_local_scroll_header(&original, &header).map_err(HostError::from_save)?;
+            // The editor always sends the whole header. When every field equals
+            // the stored record the header is untouched, so its bytes -
+            // including the `+0x08`/`+0x12`/`+0x31` mirrors - stay exactly as
+            // stored instead of being re-normalized by an effect-only edit.
+            let patch = if after_header == local_header(&original)? {
+                original
+            } else {
+                patch_local_scroll_header(&original, &header).map_err(HostError::from_save)?
+            };
             let replacement = patch_local_scroll_record(&patch, &effect_patches(edit)?)
                 .map_err(HostError::from_save)?;
             changes.push(json!({

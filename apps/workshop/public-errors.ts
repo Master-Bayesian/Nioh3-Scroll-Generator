@@ -59,3 +59,33 @@ export function publicError(message: string): string {
     return "操作未完成，请复制日志排查；涉及写入时，请先核对操作结果。";
   return message;
 }
+
+/**
+ * A non-empty display text for any rejection value.
+ *
+ * Tauri commands reject with plain strings and the diagnostic invoker rethrows
+ * them unchanged, so `(error as Error).message` is `undefined` for most
+ * backend failures and a status line would silently go blank. Structured
+ * `{ code, message }` payloads keep their code.
+ */
+export function errorText(
+  error: unknown,
+  fallback = "操作未完成，且没有返回错误说明；请复制日志排查。",
+): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  if (error !== null && typeof error === "object") {
+    const value = error as Record<string, unknown>;
+    if (typeof value.message === "string" && value.message.trim())
+      return typeof value.code === "string" && value.code.trim()
+        ? `${value.code}: ${value.message}`
+        : value.message;
+    try {
+      const text = JSON.stringify(error);
+      if (text && text !== "{}") return text;
+    } catch {
+      // Fall through to the fallback below.
+    }
+  }
+  return fallback;
+}

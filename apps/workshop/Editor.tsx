@@ -12,6 +12,7 @@ import {
   enrichEntry,
 } from "./save-workspace";
 import { SavePicker } from "./CartActions";
+import { errorText } from "./public-errors";
 import type { ProtectedParams } from "../desktop/src/protected-client";
 import rawCatalog from "./editor-values.json";
 const rawData = rawCatalog as {
@@ -87,8 +88,10 @@ function fromSample(s: Sample): Draft {
     seed: s.seed,
     ng: String(entry?.header.playthrough || s.playthrough || 3),
     rarity: String(s.rarity),
-    level: String(entry?.header.level || s.level || 180),
-    recommended: String(entry?.derived.recommended_displayed_level || 350),
+    // A stored level of 0 is a legal value the editor accepts; `||` used to
+    // turn it into 180 and rewrite an untouched header field.
+    level: String(entry?.header.level ?? s.level ?? 180),
+    recommended: String(entry?.derived.recommended_displayed_level ?? 350),
     transfers: entry
       ? String(
           entry.header.transfer_count === 0xffffffff
@@ -149,6 +152,12 @@ export function Editor({ cart }: { cart: Sample[] }) {
   const [message, setMessage] = useState(""),
     [review, setReview] = useState(false),
     [pending, setPending] = useState<Sample | null>(null);
+  // The confirmation lives in the side panel; bring it into view whenever a
+  // reviewed plan opens it, so a successful check is never invisible.
+  const reviewPrompt = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (review) reviewPrompt.current?.scrollIntoView?.({ block: "nearest" });
+  }, [review]);
   const [records, setRecords] = useState<Record<string, Draft>>({});
   useEffect(() => {
     setReview(false);
@@ -231,11 +240,12 @@ export function Editor({ cart }: { cart: Sample[] }) {
           setCurrent(enriched);
           setTemporaryRaw(temporaryFromSample(enriched));
         })
-        .catch((e) => setMessage(String(e)));
+        .catch((e) => setMessage(errorText(e)));
     }
   }
   async function validate() {
     const identity = draftIdentity.current;
+    setMessage("正在核对修改…");
     try {
       toRecordTransferCount(Number(draft.transfers));
       for (const [key] of fields) {
@@ -285,11 +295,21 @@ export function Editor({ cart }: { cart: Sample[] }) {
       if (desktop) {
         if (!current.saveEntry) throw Error("请先读取真实存档。");
         setBackendBusy(true);
-        const level = await window.nioh.resolveRecommendedLevel(
-          Number(draft.recommended),
-        );
-        if (level.status !== "exact" || level.selected_internal_level === null)
-          throw Error("推荐等级无法转换。");
+        // An untouched recommended level keeps its stored raw value, so it
+        // needs no conversion; only a changed level asks the search worker.
+        let recommendedRaw = storedRaw;
+        if (!preservingStoredRaw) {
+          setMessage("正在转换推荐等级…");
+          const level = await window.nioh.resolveRecommendedLevel(
+            Number(draft.recommended),
+          );
+          if (
+            level.status !== "exact" ||
+            level.selected_internal_level === null
+          )
+            throw Error("推荐等级无法转换。");
+          recommendedRaw = level.selected_internal_level;
+        }
         const edit = {
           slot_index: current.saveEntry.slot_index,
           header: {
@@ -297,9 +317,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
             playthrough: Number(draft.ng),
             rarity: Number(draft.rarity),
             level: Number(draft.level),
-            recommended_level: preservingStoredRaw
-              ? storedRaw!
-              : level.selected_internal_level,
+            recommended_level: recommendedRaw!,
             transfer_count: toRecordTransferCount(Number(draft.transfers)),
           },
           effects: draft.slots.map((slot, i) => ({
@@ -312,6 +330,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
             tail_1: Number(slot.tail1),
           })),
         } as ProtectedParams<"save.prepare_edit">["edits"][number];
+        setMessage("正在生成写入计划…");
         const plan = await saveSession!.prepareEdit([edit]);
         if (identity !== draftIdentity.current)
           throw Error("内容已改变，请重新核对修改。");
@@ -319,9 +338,16 @@ export function Editor({ cart }: { cart: Sample[] }) {
         setSaveStateConfirmed(false);
       }
       setReview(true);
-      setMessage("");
+      setMessage(
+        desktop
+          ? `已核对 ${changes.length} 项变化，尚未写入存档。请在右侧“确认修改”中确认后写入。`
+          : "",
+      );
     } catch (e) {
-      setMessage((e as Error).message);
+      // Backend failures reject with plain strings; never leave the status
+      // line blank, or the button looks like it did nothing.
+      setReview(false);
+      setMessage(errorText(e, "核对失败，且没有返回错误说明；请复制日志排查。"));
     } finally {
       setBackendBusy(false);
     }
@@ -348,7 +374,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
       setTemporary(temporaryFromSample(sample));
       setMessage("已预览当前种子的副本内容。");
     } catch (e) {
-      setMessage(String(e));
+      setMessage(errorText(e));
     } finally {
       setBackendBusy(false);
     }
@@ -364,7 +390,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
           `临时修改：${({ stopped: "未开启", armed_no_hit: "等待打开绘卷", applied_hit: "已生效", unknown: "状态待核对" } as Record<string, string>)[result.override_state] || result.override_state} · 触发 ${result.hit_count} 次 · 待完成调用 ${result.pending_remote_calls}`,
         );
     } catch (e) {
-      setMessage(String(e));
+      setMessage(errorText(e));
     }
   }
   const native = nativeValues(
@@ -475,7 +501,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
       );
       setMessage("临时修改已开启。停止修改后重新打开绘卷，或退出游戏即可恢复。");
     } catch (error) {
-      setMessage(String(error));
+      setMessage(errorText(error));
     } finally {
       setBackendBusy(false);
     }
@@ -491,7 +517,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
       );
       setMessage("临时修改已停止。");
     } catch (error) {
-      setMessage(String(error));
+      setMessage(errorText(error));
     } finally {
       setBackendBusy(false);
     }
@@ -503,15 +529,18 @@ export function Editor({ cart }: { cart: Sample[] }) {
       const receipt = await saveSession!.commit(reviewedPlan);
       setReview(false);
       setReviewedPlan(null);
+      // A warning never means "not written": do not invite a second write.
       setMessage(
-        receipt.commit_status.startsWith("committed")
-          ? "修改已写入存档。"
-          : "写入结果尚未确认，请核对操作回执。",
+        receipt.commit_status === "committed_with_warning"
+          ? `修改已写入存档，但有警告：${receipt.warning || "请核对操作回执"}。请勿重复写入。`
+          : receipt.commit_status === "committed"
+            ? "修改已写入存档。"
+            : "写入结果尚未确认，请核对操作回执。",
       );
       if (receipt.commit_status.startsWith("committed"))
         await saveSession!.refresh();
     } catch (error) {
-      setMessage(String(error));
+      setMessage(errorText(error));
     } finally {
       setBackendBusy(false);
     }
@@ -531,7 +560,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
       setSaveStateConfirmed(false);
       setMessage(`将删除 ${deleteSlots.length || 1} 张绘卷，请核对后确认。`);
     } catch (error) {
-      setMessage(String(error));
+      setMessage(errorText(error));
     } finally {
       setBackendBusy(false);
     }
@@ -548,7 +577,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
       );
       if (result && "backups" in result) setBackups(result.backups);
     } catch (error) {
-      setMessage(String(error));
+      setMessage(errorText(error));
     }
   }
   async function prepareRestore(backupId: string) {
@@ -559,7 +588,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
       setSaveStateConfirmed(false);
       setMessage("将恢复选中的备份，请核对后确认。");
     } catch (error) {
-      setMessage(String(error));
+      setMessage(errorText(error));
     }
   }
   if (desktop && !saveState?.inventory?.entries.length)
@@ -1178,7 +1207,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
           <p>选择词条或修改基础信息，即可在这里核对。</p>
         )}
         {review && (
-          <div className="editor-prompt">
+          <div className="editor-prompt" ref={reviewPrompt} role="region" aria-label="确认修改">
             <h3>确认修改</h3>
             <p>{desktop ? message : `本次将应用 ${changes.length} 项变化。`}</p>
             {desktop ? (

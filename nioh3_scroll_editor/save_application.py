@@ -176,7 +176,13 @@ class SaveApplication:
             if entry is None:
                 raise ValueError('Only occupied scroll slots may be edited')
             header = edit['header']
-            replacement = patch_local_scroll_header(entry.record, **header)
+            # An untouched header keeps its stored bytes, including the level,
+            # recommended-level and rarity mirrors, instead of being
+            # re-normalized by an effect-only edit.
+            if asdict(read_local_scroll_header(entry.record)) == dict(header):
+                replacement = entry.record
+            else:
+                replacement = patch_local_scroll_header(entry.record, **header)
             replacement = patch_local_scroll_record(replacement, [LocalEffectEdit(**effect) for effect in edit['effects']])
             replacements.append((entry.slot_index, entry.record, replacement))
             preview.append({'slot_index': entry.slot_index,
