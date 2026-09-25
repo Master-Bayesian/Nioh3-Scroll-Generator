@@ -632,6 +632,7 @@ fn the_count_adapter_resolves_its_record_through_the_inventory_gate() {
         capacity: 400,
         record_size: RECORD_SIZE,
         count_offset: 0x33,
+        display_version: "PC v2.01",
     };
     let processes = FixtureProcesses::new(&fixture);
     let mut memory = WindowsCountMemory::new(4321, fixture.base, layout, processes);
@@ -941,4 +942,30 @@ fn a_batch_over_a_diverged_disk_checkpoint_verifies_every_item() {
     .expect("executed");
     assert_eq!(receipt["state"], json!("complete"));
     assert_eq!(receipt["verified_count"], json!(3));
+}
+
+/// Each version's count layout reads the inventory through exactly the
+/// `(layout, version)` pair the inventory gate accepts, so PC v2.02 is not
+/// refused by a hard-coded PC v2.01 name and cannot borrow another build's.
+#[test]
+fn each_count_layout_reads_its_own_accepted_inventory_pair() {
+    use crate::mutation::count::{WindowsCountMemory, PC_V201_COUNT_LAYOUT, PC_V202_COUNT_LAYOUT};
+    use crate::mutation::inventory::{
+        accepted_inventory_version, PC_V201_INVENTORY_LAYOUT, PC_V202_INVENTORY_LAYOUT_CANDIDATE,
+    };
+    use crate::mutation::live_fakes::FixtureProcesses;
+    let fixture = InventoryFixture::new(&[(4, 0x1234, 0xF00D)], 0x1235, 12);
+    for (layout, inventory, version) in [
+        (PC_V201_COUNT_LAYOUT, PC_V201_INVENTORY_LAYOUT, "PC v2.01"),
+        (
+            PC_V202_COUNT_LAYOUT,
+            PC_V202_INVENTORY_LAYOUT_CANDIDATE,
+            "PC v2.02",
+        ),
+    ] {
+        let memory = WindowsCountMemory::new(1, 0, layout, FixtureProcesses::new(&fixture));
+        assert_eq!(memory.inventory_layout(), inventory);
+        assert_eq!(layout.display_version, version);
+        assert_eq!(accepted_inventory_version(&inventory), Some(version));
+    }
 }

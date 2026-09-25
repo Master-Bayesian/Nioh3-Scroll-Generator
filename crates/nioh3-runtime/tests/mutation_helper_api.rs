@@ -224,7 +224,7 @@ fn a_confirmed_helper_exit_releases_the_owner() -> Result<(), RuntimeError> {
 }
 
 #[test]
-fn the_challenge_session_still_requires_verified_pc_v2_01() {
+fn the_challenge_session_still_requires_a_verified_capacity_getter() {
     let error = OverrideSession::challenge(
         ChallengeOverrideProfile {
             seed: 1,
@@ -239,7 +239,8 @@ fn the_challenge_session_still_requires_verified_pc_v2_01() {
     assert_eq!(
         error,
         RuntimeError::InvalidOverrideProfile {
-            detail: "Challenge capacity override requires verified PC v2.01".to_string(),
+            detail: "Challenge capacity override requires verified PC v2.01 or PC v2.02"
+                .to_string(),
         }
     );
 }

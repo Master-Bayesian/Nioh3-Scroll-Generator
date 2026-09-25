@@ -116,6 +116,10 @@ pub struct CountLayout {
     pub capacity: u32,
     pub record_size: usize,
     pub count_offset: usize,
+    /// The display version this layout is read under. The inventory gate
+    /// accepts only its exact `(layout, version)` pair, so a layout can never
+    /// be read under another build's name.
+    pub display_version: &'static str,
 }
 
 /// `live_add_profile.PC_V201`, the only layout the product validates.
@@ -127,6 +131,7 @@ pub const PC_V201_COUNT_LAYOUT: CountLayout = CountLayout {
     capacity: 400,
     record_size: RECORD_SIZE,
     count_offset: COUNT_OFFSET,
+    display_version: crate::mutation::native_abi::PRODUCT_DISPLAY_VERSION,
 };
 
 /// PC v2.02: the inventory addresses of the natively accepted PC v2.02
@@ -142,6 +147,7 @@ pub const PC_V202_COUNT_LAYOUT: CountLayout = {
         capacity: live.capacity,
         record_size: RECORD_SIZE,
         count_offset: COUNT_OFFSET,
+        display_version: crate::mutation::native_abi::CANDIDATE_DISPLAY_VERSION,
     }
 };
 
@@ -194,7 +200,7 @@ impl<P: CountProcesses> WindowsCountMemory<P> {
     }
 
     /// The inventory layout this adapter validates against.
-    fn inventory_layout(&self) -> crate::mutation::inventory::InventoryLayout {
+    pub(crate) fn inventory_layout(&self) -> crate::mutation::inventory::InventoryLayout {
         crate::mutation::inventory::InventoryLayout {
             insertion_rva: self.layout.insertion_rva,
             manager_pointer_rva: self.layout.manager_pointer_rva,
@@ -207,8 +213,8 @@ impl<P: CountProcesses> WindowsCountMemory<P> {
             // `WindowsCountMemory.capture` reads its counters with the shipped
             // fixed layout: acquisition order first, serial at +8.
             serial_counter_offset: 8,
-            // The count slice is validated for PC v2.01 only, whose inventory
-            // global reaches the data object through the manager object.
+            // Both accepted builds (PC v2.01, PC v2.02) reach the inventory data
+            // object through the manager object.
             inventory_global_mode: Some(
                 crate::mutation::inventory::INVENTORY_GLOBAL_MODE_MANAGER_OBJECT,
             ),
@@ -228,7 +234,11 @@ impl<P: CountProcesses> WindowsCountMemory<P> {
                 module_base,
                 reader: &mut **reader,
             };
-            crate::mutation::inventory::capture_inventory(&mut view, &inventory_layout, "PC v2.01")?
+            crate::mutation::inventory::capture_inventory(
+                &mut view,
+                &inventory_layout,
+                layout.display_version,
+            )?
         };
         let matches: Vec<crate::mutation::inventory::InventoryEntry> = inventory
             .entries
