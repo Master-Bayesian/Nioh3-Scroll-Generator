@@ -124,7 +124,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo fmt --check --manifest-path crates/nioh3-protected/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -TestPath tests/migration
+          # The packaged host gate needs the host's own dependencies, the
+          # frontend bundle and a game identity fixture; rust-packaging runs it.
+          ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -TestPath tests/migration -PytestArgument '-q','--ignore=tests/migration/test_packaged_host_resolver.py'
 
   rust-packaging:
     # Required gate for the shipped packaging graph. The packaged product selects

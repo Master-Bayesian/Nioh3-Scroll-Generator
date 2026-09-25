@@ -46,6 +46,7 @@ from nioh3_scroll_editor.grace_map import build_live_grace_output_map  # noqa: E
 from nioh3_scroll_editor.models import CandidateRecordStage, ScrollCandidate  # noqa: E402
 from nioh3_scroll_editor.auxiliary_generation import AuxiliarySearchCriteria  # noqa: E402
 from nioh3_scroll_editor.seed_accelerator import (  # noqa: E402
+    cuda_seed_acceleration_available,
     native_seed_acceleration_available,
     seed_accelerator_identity,
 )
@@ -643,6 +644,10 @@ class RuntimeScanPerformanceParity(unittest.TestCase):
         self.assertLess(ratio, MAX_SLOWDOWN)
 
     def test_accelerated_routes_match(self) -> None:
+        if not cuda_seed_acceleration_available():
+            # The Python reference refuses bulk CPU pivots without an opt-in,
+            # so these accelerated routes only run on a CUDA host.
+            self.skipTest("the accelerated Python routes need a CUDA device")
         grace_hit = {
             "route": "grace_accelerated",
             "label": "hit",

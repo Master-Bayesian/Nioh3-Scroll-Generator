@@ -2488,6 +2488,10 @@ class SearchWorkerParityTests(unittest.TestCase):
         # The canonical sparse query keeps one 100M-trial page busy for about
         # two seconds on this machine, so a cancel issued after 250 ms is
         # genuinely in flight (v0.7.5 measured 31 ms to cancel such a page).
+        if not type(self).cuda_available:
+            # The bound was measured with CUDA pages; a CPU-fallback page is
+            # far longer and is only interruptible between native calls.
+            self.skipTest("the cancel latency bound is a CUDA-host measurement")
         query = base_query(
             auxiliary={
                 "required_terrain_effect_keys": [],
