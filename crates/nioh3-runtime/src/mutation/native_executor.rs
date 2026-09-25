@@ -1244,6 +1244,43 @@ impl ReceiptStore {
         Ok(None)
     }
 
+    /// The unresolved receipt that still owns the process instance `pid`
+    /// created at `creation` (`None` when no such process runs any more).
+    ///
+    /// A receipt dispatched into another process lifetime cannot own this one:
+    /// its memory, debugger session and allocation ended with that process, and
+    /// the durable record stays here for recovery either way. A receipt that
+    /// does not name its instance is still treated as an owner.
+    pub fn unresolved_owner_of(
+        &self,
+        pid: u32,
+        creation: Option<&str>,
+    ) -> Result<Option<String>, RuntimeError> {
+        let Some(creation) = creation else {
+            return Ok(None);
+        };
+        for value in self.all()? {
+            if self.authoritative_state(&value)?.is_some() {
+                continue;
+            }
+            let recorded_pid = value.get("pid").and_then(Value::as_u64);
+            let recorded_creation = value.get("process_creation_time").and_then(Value::as_str);
+            if let (Some(recorded_pid), Some(recorded_creation)) = (recorded_pid, recorded_creation) {
+                if (recorded_pid, recorded_creation) != (u64::from(pid), creation) {
+                    continue;
+                }
+            }
+            return Ok(Some(
+                value
+                    .get("operation_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+            ));
+        }
+        Ok(None)
+    }
+
     /// The one authoritative terminal reading of one durable receipt.
     ///
     /// `Ok(Some(value))` means this operation is finished: the native receipt
@@ -1590,6 +1627,13 @@ mod windows_transport {
         /// The exact debugger/process owner for unresolved cleanup. A new
         /// process view cannot recreate its pending event or adopted handles.
         retained_session: Option<WindowsDebugSession>,
+        /// The creation time of the live instance a pid names, `None` once it
+        /// exits. Only that instance's unresolved receipts own this target.
+        instance_probe: fn(u32) -> Result<Option<String>, RuntimeError>,
+    }
+
+    fn live_instance(pid: u32) -> Result<Option<String>, RuntimeError> {
+        Ok(crate::platform::process_creation_filetime(pid)?.map(|time| time.to_string()))
     }
 
     impl NativeDebugTransport {
@@ -1606,11 +1650,18 @@ mod windows_transport {
                 store: ReceiptStore::new(directory)?,
                 retained: None,
                 retained_session: None,
+                instance_probe: live_instance,
             })
         }
 
         pub fn receipts(&self) -> &ReceiptStore {
             &self.store
+        }
+
+        /// The unresolved receipt that still owns the running target instance.
+        fn unresolved_target_owner(&self) -> Result<Option<String>, RuntimeError> {
+            let instance = (self.instance_probe)(self.pid)?;
+            self.store.unresolved_owner_of(self.pid, instance.as_deref())
         }
 
         fn open(&self) -> Result<WindowsDebugSession, RuntimeError> {
@@ -1812,7 +1863,7 @@ mod windows_transport {
         }
 
         fn ping(&mut self) -> Result<Value, RuntimeError> {
-            let unresolved_owner = self.store.unresolved_owner()?;
+            let unresolved_owner = self.unresolved_target_owner()?;
             Ok(json!({
                 "pid": self.pid,
                 "profile_id": self.layout.profile_id,
@@ -1850,7 +1901,7 @@ mod windows_transport {
                 ));
             }
             let _admission = AdmissionLock::acquire(&self.store.directory)?;
-            if let Some(unresolved) = self.store.unresolved_owner()? {
+            if let Some(unresolved) = self.unresolved_target_owner()? {
                 return Err(dispatch_error(format!(
                     "Previous native operation {unresolved} is unresolved; recover it, never replay"
                 )));
@@ -1998,19 +2049,16 @@ mod windows_transport {
         /// The two owners this binding can still hold: the allocation an
         /// unresolved redirect retained, and the exact debugger/process session
         /// retained for unresolved cleanup. The durable half of the same fact is
-        /// `ReceiptStore::unresolved_owner`, which admission already consults.
+        /// `ReceiptStore::unresolved_owner_of`, which admission already consults.
         fn owner_retained(&mut self) -> bool {
             self.retained.is_some() || self.retained_session.is_some()
         }
 
+        /// Only what lives in this process fences shutdown. A durable unresolved
+        /// receipt survives a restart unchanged and stays recoverable, so keeping
+        /// the app open for it protects nothing.
         fn safe_to_shutdown(&mut self) -> bool {
-            self.retained.is_none()
-                && self.retained_session.is_none()
-                && self
-                    .store
-                    .unresolved_owner()
-                    .map(|owner| owner.is_none())
-                    .unwrap_or(false)
+            self.retained.is_none() && self.retained_session.is_none()
         }
     }
 
@@ -3819,6 +3867,7 @@ mod windows_transport {
             let mut transport =
                 NativeDebugTransport::new(FIXTURE_PID, PC_V201_LIVE_ADD, "Nioh3.exe", &directory)
                     .expect("transport");
+            transport.instance_probe = |_| Ok(Some(FIXTURE_CREATION.to_string()));
             let endpoint = transport.ping().expect("ping");
             assert_eq!(endpoint["busy"], true);
             assert_eq!(endpoint["unresolved_operation_id"], child);
@@ -3838,6 +3887,64 @@ mod windows_transport {
                 store.unresolved_owner().expect("owner"),
                 Some(child.to_string()),
                 "the refusal released nothing"
+            );
+        }
+
+        /// An unresolved receipt from a game process that has since exited or
+        /// restarted owns nothing in the running instance: it neither refuses
+        /// the new instance nor fences shutdown, and it stays on disk unchanged.
+        #[test]
+        fn an_earlier_process_lifetime_neither_blocks_nor_fences_shutdown() {
+            let directory = scratch("earlier-lifetime-owner");
+            let child = "5d0c7e21-8b3f-4a96-9e14-2c6b8f0a7d35";
+            let store = ReceiptStore::new(&directory).expect("receipt store");
+            store
+                .save(&json!({
+                    "operation_id": child,
+                    "pid": FIXTURE_PID,
+                    "process_creation_time": FIXTURE_CREATION.to_string(),
+                    "phase": "uncertain",
+                    "active": false,
+                    "released": false,
+                    "redirect_count": 1,
+                    "breakpoint_count": -1,
+                    "business_outcome": "unknown",
+                    "remote_execution": "unknown",
+                    "allocation_state": "retained",
+                    "debugger_state": "unknown",
+                    "thread_cleanup": {},
+                    "mode": "insert",
+                }))
+                .expect("durable receipt");
+
+            let mut restarted =
+                NativeDebugTransport::new(FIXTURE_PID, PC_V201_LIVE_ADD, "Nioh3.exe", &directory)
+                    .expect("transport");
+            restarted.instance_probe = |_| Ok(Some((FIXTURE_CREATION + 1).to_string()));
+            let endpoint = restarted.ping().expect("ping");
+            assert_eq!(endpoint["busy"], false);
+            assert!(endpoint["unresolved_operation_id"].is_null());
+            assert!(restarted.safe_to_shutdown());
+
+            let mut exited =
+                NativeDebugTransport::new(FIXTURE_PID, PC_V201_LIVE_ADD, "Nioh3.exe", &directory)
+                    .expect("transport");
+            exited.instance_probe = |_| Ok(None);
+            assert_eq!(exited.ping().expect("ping")["busy"], false);
+
+            let mut same =
+                NativeDebugTransport::new(FIXTURE_PID, PC_V201_LIVE_ADD, "Nioh3.exe", &directory)
+                    .expect("transport");
+            same.instance_probe = |_| Ok(Some(FIXTURE_CREATION.to_string()));
+            assert_eq!(same.ping().expect("ping")["unresolved_operation_id"], child);
+            assert!(
+                same.safe_to_shutdown(),
+                "a durable record alone never keeps the app open"
+            );
+            assert_eq!(
+                store.unresolved_owner().expect("owner"),
+                Some(child.to_string()),
+                "the record stays for recovery"
             );
         }
 

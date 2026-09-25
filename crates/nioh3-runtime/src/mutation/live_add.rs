@@ -402,8 +402,14 @@ pub struct LiveAddOwnership {
 
 impl LiveAddOwnership {
     /// The boolean `RuntimeOwnership::set_live_add_unsafe` takes.
+    ///
+    /// Only native ownership held by this process counts. An unresolved
+    /// operation is a durable record: it stays recoverable across a restart,
+    /// and `LiveAddApplication::prepare` still refuses a new addition into the
+    /// same game process while it is open, so it neither keeps the app from
+    /// closing nor turns the whole runtime host busy.
     pub fn unsafe_ownership(&self) -> bool {
-        !self.safe_to_shutdown || !self.unresolved.is_empty()
+        !self.safe_to_shutdown
     }
 }
 

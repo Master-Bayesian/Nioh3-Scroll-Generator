@@ -326,7 +326,7 @@ async fn desktop_request(
             }
             Ok(result)
         }
-        "support:diagnostics" | "support:export" | "review:copy-log" => {
+        "support:diagnostics" | "support:export" | "review:copy-log" | "review:feedback" => {
             let verification = if state.packaged {
                 match package::verify(&broker.root) {
                     Ok(m) => {
@@ -366,6 +366,27 @@ async fn desktop_request(
                     ))
                     .map_err(|e| e.to_string())?;
                 Ok(Value::Null)
+            } else if channel == "review:feedback" {
+                // One file a player can drag into a chat or an issue, shown in
+                // Explorer so they never have to find the data directory.
+                let tail = storage::support_log_tail(&broker.data, 1_000_000);
+                let report = serde_json::to_string_pretty(&report).map_err(|e| e.to_string())?;
+                let directory = broker.data.join("feedback");
+                std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+                let stamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|elapsed| elapsed.as_secs())
+                    .unwrap_or_default();
+                let path = directory.join(format!("nioh3-feedback-{stamp}.txt"));
+                std::fs::write(
+                    &path,
+                    format!(
+                        "=== Nioh 3 Studio feedback ===\n{report}\n\n=== Operation log (latest 1000000 bytes, including rotated files) ===\n{tail}"
+                    ),
+                )
+                .map_err(|e| e.to_string())?;
+                let _ = app.opener().reveal_item_in_dir(&path);
+                Ok(json!({"path": path}))
             } else {
                 Ok(report)
             }
@@ -402,18 +423,10 @@ async fn desktop_request(
     }
 }
 
-/// The close refusal in the user's interface language (default Chinese).
-fn close_blocked_message(data: &std::path::Path) -> &'static str {
-    let locale = std::fs::read(data.join("v2-preferences.json"))
-        .ok()
-        .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
-        .and_then(|v| v["locale"].as_str().map(str::to_string));
-    match locale.as_deref() {
-        Some("en-US") => "An addition or save write has not been confirmed yet, so the app stays open to keep it recoverable. Use \"Check last live addition\" in the add panel (or check the last write under Backup & Management), then close again.",
-        Some("ja-JP") => "追加またはセーブ書き込みの結果がまだ確認されていないため、閉じられません。追加画面の「前回のライブ追加を確認」（またはバックアップと管理で前回の書き込みを確認）を行ってから、もう一度閉じてください。",
-        _ => "有一次添加或存档写入的结果还没有确认，为了之后还能核对，现在不能关闭。请先在添加界面点“核对上次实时添加”（或在“备份与管理”里核对上次写入），完成后再关闭。",
-    }
-}
+/// How long closing waits for workers to finish what they are doing. Closing
+/// is never refused: durable records stay recoverable after a restart, and
+/// this only gives an in-flight operation the chance to finish cleanly.
+const CLOSE_GRACE: std::time::Duration = std::time::Duration::from_secs(20);
 
 fn main() {
     tauri::Builder::default()
@@ -497,17 +510,29 @@ fn main() {
                 api.prevent_close();
                 if state.closing.swap(true, Ordering::SeqCst) { return; }
                 let app = window.app_handle().clone();
+                let window = window.clone();
                 tauri::async_runtime::spawn(async move {
                     let state = app.state::<State>();
-                    if state.broker.shutdown().await {
-                        if state.apply_update.load(Ordering::SeqCst) {
-                            let target=std::env::current_exe().ok().and_then(|p|p.parent().map(std::path::Path::to_path_buf));
-                            let result=match target {Some(target)=>state.updater.launch(&target).await,None=>Err("UPDATE_TARGET_INVALID".into())};
-                            if let Err(error)=result {state.apply_update.store(false,Ordering::SeqCst);state.closing.store(false,Ordering::SeqCst);app.dialog().message(error).blocking_show();return;}
+                    let deadline = std::time::Instant::now() + CLOSE_GRACE;
+                    let mut clean = state.broker.shutdown().await;
+                    if !clean {
+                        // The player asked to close: the window goes away now and
+                        // an in-flight operation gets a bounded chance to finish.
+                        let _ = window.hide();
+                        while !clean && std::time::Instant::now() < deadline {
+                            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                            clean = state.broker.shutdown().await;
                         }
-                        state.quitting.store(true, Ordering::SeqCst); app.exit(0);
+                        if !clean {
+                            storage::log(&state.broker.data, "shutdown", "workers still busy after the close grace period; exiting anyway");
+                        }
                     }
-                    else { state.closing.store(false, Ordering::SeqCst); app.dialog().message(close_blocked_message(&state.broker.data)).blocking_show(); }
+                    if clean && state.apply_update.load(Ordering::SeqCst) {
+                        let target=std::env::current_exe().ok().and_then(|p|p.parent().map(std::path::Path::to_path_buf));
+                        let result=match target {Some(target)=>state.updater.launch(&target).await,None=>Err("UPDATE_TARGET_INVALID".into())};
+                        if let Err(error)=result {state.apply_update.store(false,Ordering::SeqCst);state.closing.store(false,Ordering::SeqCst);let _ = window.show();app.dialog().message(error).blocking_show();return;}
+                    }
+                    state.quitting.store(true, Ordering::SeqCst); app.exit(0);
                 });
             }
         })
