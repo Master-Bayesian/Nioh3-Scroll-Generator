@@ -196,7 +196,9 @@ impl JobStore {
         };
         Ok(match factory.feasibility(&query) {
             None => unchecked,
-            Some(Ok(())) => serde_json::json!({ "checked": true, "feasible": true, "reason": null }),
+            Some(Ok(())) => {
+                serde_json::json!({ "checked": true, "feasible": true, "reason": null })
+            }
             Some(Err(reason)) => {
                 serde_json::json!({ "checked": true, "feasible": false, "reason": reason })
             }
@@ -524,9 +526,14 @@ impl JobStore {
                 reason = "cancelled";
                 break;
             }
+            // One native unit per page, so each unit's matches reach the job
+            // (and the interface) as soon as it finishes.
+            let requested = collector
+                .native_unit_trials()
+                .map_or(params.page_trials, |unit| params.page_trials.min(unit));
             let page_budget = match stop {
-                None => params.page_trials,
-                Some(stop) => params.page_trials.min(stop - cursor),
+                None => requested,
+                Some(stop) => requested.min(stop - cursor),
             };
             let remaining = params.result_count.saturating_sub(self.committed());
             let mut progress = |report: &IntersectionReport| {
@@ -1497,6 +1504,52 @@ mod tests {
         );
         assert_eq!(job.stop_reason, Some("budget_reached"));
         assert_eq!(collector.seen(), vec![(0, 500_000, 1)]);
+    }
+
+    /// A collector's native unit caps each page, so matches are published per
+    /// unit; the covered trials and the final cursor are the same.
+    #[test]
+    fn pages_are_capped_at_the_native_unit_so_matches_stream() {
+        struct Unit(Arc<ScriptedCollector>);
+        impl SearchCollector for Unit {
+            fn native_unit_trials(&self) -> Option<u64> {
+                Some(250_000)
+            }
+            fn collect(
+                &self,
+                request: &BatchRequest<'_>,
+                progress: &mut dyn FnMut(&IntersectionReport),
+                cancelled: &dyn Fn() -> bool,
+            ) -> Result<SearchBatch, CollectorError> {
+                self.0.collect(request, progress, cancelled)
+            }
+        }
+        let scripted = ScriptedCollector::new(vec![
+            Ok(page(250_000, Vec::new(), false)),
+            Ok(page(500_000, Vec::new(), false)),
+        ]);
+        let store = open_store_with(Some(Arc::new(FixedFactory(Arc::new(Unit(
+            scripted.clone(),
+        ))))));
+        let mut start = params(false);
+        start.page_trials = 1_000_000;
+        start.job_trials = 500_000;
+        let job = wait_terminal(
+            &store,
+            &store
+                .start(&query_payload(4, "flat"), &start)
+                .expect("start")
+                .job_id,
+        );
+        assert_eq!(job.cursor, 500_000);
+        assert_eq!(
+            scripted
+                .seen()
+                .iter()
+                .map(|(start, budget, _)| (*start, *budget))
+                .collect::<Vec<_>>(),
+            vec![(0, 250_000), (250_000, 250_000)]
+        );
     }
 
     /// The job layer's half of the policy-restoration property: each job's own

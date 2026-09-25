@@ -464,21 +464,24 @@ function App() {
         setIndex(0);
         if (!pendingQuery.current) setQ(submittedForm);
       }
-      setResults(
-        job.candidates
-          .map((c) =>
-            candidateSample(
-              c,
-              state.submitted?.query.level || 180,
-              job.job_id,
-              undefined,
-              submittedForm.enemyVariant,
-            ),
-          )
-          .sort(
-            (a, b) => score(b, sorting.current) - score(a, sorting.current),
+      const next = job.candidates
+        .map((c) =>
+          candidateSample(
+            c,
+            state.submitted?.query.level || 180,
+            job.job_id,
+            undefined,
+            submittedForm.enemyVariant,
           ),
+        )
+        .sort(
+          (a, b) => score(b, sorting.current) - score(a, sorting.current),
+        );
+      setResults(next);
+      const viewed = next.findIndex(
+        (s) => s.seed + ":" + s.rarity === viewedSeed.current,
       );
+      if (viewed >= 0) setIndex(viewed);
       setResumeAvailable(!!job.resume_token);
       setResultSource("真实搜索结果");
       setStatus(searchStatusText(job));
@@ -640,6 +643,10 @@ function App() {
     setQ((prev) => ({ ...prev, [key]: value }));
   const dirty = JSON.stringify(q) !== JSON.stringify(submitted);
   const selected = results[index];
+  // Results arrive while a search runs and are re-sorted each time; the scroll
+  // being viewed keeps its place instead of being swapped out underneath.
+  const viewedSeed = useRef<string | null>(null);
+  viewedSeed.current = selected ? selected.seed + ":" + selected.rarity : null;
   const patchEffect = (i: number, p: Partial<SelectedEffect>) =>
     change(
       "effects",

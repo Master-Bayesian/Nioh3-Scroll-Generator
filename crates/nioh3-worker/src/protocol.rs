@@ -240,7 +240,10 @@ pub fn parse_request(payload: &Value, schema: &RequestSchema) -> Result<Request,
         }),
         "search.feasibility" => Ok(Request::SearchFeasibility {
             id,
-            query: params.get("query").cloned().expect("schema requires the query"),
+            query: params
+                .get("query")
+                .cloned()
+                .expect("schema requires the query"),
         }),
         "job.current" => Ok(Request::JobCurrent { id }),
         "job.snapshot" => Ok(Request::JobSnapshot {

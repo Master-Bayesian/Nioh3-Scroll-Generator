@@ -112,6 +112,14 @@ pub trait SearchCollector: Send + Sync {
         progress: &mut dyn FnMut(&IntersectionReport),
         cancelled: &dyn Fn() -> bool,
     ) -> Result<SearchBatch, CollectorError>;
+
+    /// The largest page this collector scans as one native unit. The job caps
+    /// each page there, so matches are published as each unit finishes instead
+    /// of once per (much larger) requested page; the scanned trials, their
+    /// order and the checkpoint semantics are unchanged.
+    fn native_unit_trials(&self) -> Option<u64> {
+        None
+    }
 }
 
 /// A materialized match: the candidate record kept privately plus the exact

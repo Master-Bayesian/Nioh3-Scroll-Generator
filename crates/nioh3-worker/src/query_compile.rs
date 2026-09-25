@@ -2041,6 +2041,10 @@ struct NativeCollector {
 }
 
 impl SearchCollector for NativeCollector {
+    fn native_unit_trials(&self) -> Option<u64> {
+        Some(self.compiled.chunk_trials).filter(|trials| *trials > 0)
+    }
+
     fn collect(
         &self,
         request: &BatchRequest<'_>,
