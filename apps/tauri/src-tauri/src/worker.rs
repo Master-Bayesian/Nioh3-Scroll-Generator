@@ -1332,9 +1332,7 @@ impl Worker {
             return true;
         }
         if self.dead.load(Ordering::SeqCst) {
-            // An exited worker owns nothing any more; the operating system has
-            // already released its handles and any debugger attachment.
-            return true;
+            return false;
         }
         match self.call("shutdown", json!({})).await {
             Ok(value) if value["safe_to_shutdown"] == true => {

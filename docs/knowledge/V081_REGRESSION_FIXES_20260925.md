@@ -117,7 +117,9 @@ closing.
   operations is unresolved, so duplicate protection is unchanged. This matches
   the Python `RuntimeApplication`, which never counted durable ids.
 - Closing hides the window at once, gives busy workers up to 20 s
-  (`CLOSE_GRACE`) to finish, then exits; an exited worker counts as closed.
+  (`CLOSE_GRACE`) to finish, then exits either way. A worker whose pipe broke
+  still never reports a proven safe close (its process may still be finishing);
+  it only costs the grace period, with the window already hidden.
 - The add view shows "核对上次实时添加" only while its reminder is set; when
   that check fails (for example after the game restarted), the player can
   dismiss the reminder after checking the in-game inventory.
