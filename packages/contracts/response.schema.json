@@ -2,6 +2,35 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "WorkerResponse",
   "definitions": {
+    "Feasibility": {
+      "title": "Feasibility",
+      "description": "search.feasibility: whether the structural preflight judged the query, and its refusal when it can have no solution.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "checked": {
+          "type": "boolean"
+        },
+        "feasible": {
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "checked",
+        "feasible",
+        "reason"
+      ]
+    },
     "JobSnapshot": {
       "type": "object",
       "additionalProperties": false,
@@ -1255,6 +1284,9 @@
             },
             {
               "$ref": "#/definitions/RecommendedLevelResolution"
+            },
+            {
+              "$ref": "#/definitions/Feasibility"
             },
             {
               "type": "object",

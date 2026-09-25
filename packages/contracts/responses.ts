@@ -20,6 +20,7 @@ export type WorkerResponse =
         | CandidateTransfer
         | CacheReference
         | RecommendedLevelResolution
+        | Feasibility
         | {
             job: JobSnapshot | null;
           }
@@ -626,4 +627,12 @@ export interface CandidateTransfer {
 }
 export interface CacheReference {
   cache_id: string;
+}
+/**
+ * search.feasibility: whether the structural preflight judged the query, and its refusal when it can have no solution.
+ */
+export interface Feasibility {
+  checked: boolean;
+  feasible: boolean;
+  reason: string | null;
 }
