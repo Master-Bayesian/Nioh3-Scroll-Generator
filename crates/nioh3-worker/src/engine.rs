@@ -840,6 +840,15 @@ impl Engine {
                     Err(error) => self.failure(&id, error),
                 }
             }
+            Request::SearchFeasibility { query, .. } => {
+                if !self.negotiated {
+                    return self.failure(&id, RequestError::handshake_required());
+                }
+                match self.jobs.feasibility(&query) {
+                    Ok(result) => Outcome::Reply(payload::success_frame(&id, result)),
+                    Err(error) => self.failure(&id, error),
+                }
+            }
             Request::JobCurrent { .. } => {
                 if !self.negotiated {
                     return self.failure(&id, RequestError::handshake_required());

@@ -3,7 +3,7 @@ import { createDiagnosticInvoker } from '../desktop/src/invoke-with-diagnostics'
 const call = createDiagnosticInvoker((channel, value = null) => invoke('desktop_request', { channel, value })) as (channel: string, value?: unknown) => Promise<any>;
 window.nioh = {
   handshake: () => call('core:handshake'), searchCatalog: (rarity, locale) => call('core:catalog', { rarity, locale }),
-  resolveRecommendedLevel: v => call('core:recommended-level', v), startSearch: p => call('core:start', p),
+  resolveRecommendedLevel: v => call('core:recommended-level', v), checkFeasibility: q => call('core:feasibility', q), startSearch: p => call('core:start', p),
   currentSearch: () => call('core:current'), snapshot: id => call('core:snapshot', id), cancelSearch: id => call('core:cancel', id), restartWorker: () => call('core:restart'),
 };
 window.operations = {

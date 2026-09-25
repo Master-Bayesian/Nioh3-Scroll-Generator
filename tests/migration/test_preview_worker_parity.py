@@ -127,6 +127,8 @@ def schema_valid_params(method: str, context_digest: str) -> dict:
         return {"cache_json": "{}"}
     if method == "candidate.preview":
         return {"seed": 1, "rarity": 4, "level": 180}
+    if method == "search.feasibility":
+        return {"query": schema_valid_params("search.start", context_digest)["query"]}
     if method == "search.start":
         return {
             "query": {
@@ -248,6 +250,8 @@ SUPPORTED_METHODS = (
     "handshake",
     "candidate.preview",
     "search.start",
+    # Read-only structural preflight of one search query (no job).
+    "search.feasibility",
     "job.snapshot",
     "job.current",
     "job.cancel",

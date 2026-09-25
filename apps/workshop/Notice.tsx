@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { desktop } from "./desktop-bridge";
-import { isFailureText, publicError, stripErrorPrefix } from "./public-errors";
+import {
+  isFailureText,
+  isUserCorrectable,
+  publicError,
+  stripErrorPrefix,
+} from "./public-errors";
 
 export type NoticeTone = "info" | "success" | "warning" | "error";
 
@@ -28,7 +33,9 @@ export function Notice({
   // A new message replaces the previous one together with its feedback hint.
   useEffect(() => setFeedback(""), [text]);
   if (!text.trim()) return null;
-  const effective = tone ?? (isFailureText(text) ? "error" : "info");
+  const effective =
+    tone ??
+    (isUserCorrectable(text) ? "warning" : isFailureText(text) ? "error" : "info");
   const display = stripErrorPrefix(text).trim();
   const technical = publicError(display) !== display ? display : "";
   async function exportFeedback() {

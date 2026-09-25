@@ -14,6 +14,7 @@ const pause = () => new Promise(resolve => setTimeout(resolve, 200));
 
 test('submitted query is isolated, stale progress cannot undo cancel, restart clears session', async () => {
   const api: DesktopApi = { handshake: async () => hello, restartWorker: async () => hello,
+    checkFeasibility: async () => ({ checked: false, feasible: true, reason: null }),
     currentSearch: async () => ({ job: null, submitted: null }),
     searchCatalog: async () => ({ context_digest: 'context', ordinary_effects: [], grace_effects: [], recommended_level: {
       minimum_internal_level: 156, maximum_internal_level: 600, minimum_displayed_level: 142, maximum_displayed_level: 356,

@@ -1048,6 +1048,1004 @@ export type WorkerRequest =
   | {
       protocol: 1;
       id: string;
+      method: "search.feasibility";
+      /**
+       * Read-only structural preflight of one search query, the same check search.start applies before a job exists. It never starts or changes a job.
+       */
+      params: {
+        query: {
+          playthrough: 3 | 4 | 5;
+          rarity: 3 | 4 | 5;
+          level: number;
+          /**
+           * @maxItems 32
+           */
+          primary_effect_ids: number[];
+          /**
+           * @maxItems 32
+           */
+          required_secondary_ids: number[];
+          /**
+           * @maxItems 8
+           */
+          required_secondary_id_groups:
+            | []
+            | [[number, ...number[]]]
+            | [[number, ...number[]], [number, ...number[]]]
+            | [[number, ...number[]], [number, ...number[]], [number, ...number[]]]
+            | [[number, ...number[]], [number, ...number[]], [number, ...number[]], [number, ...number[]]]
+            | [
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]]
+              ]
+            | [
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]]
+              ]
+            | [
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]]
+              ]
+            | [
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]],
+                [number, ...number[]]
+              ];
+          grace_effect_id: number | null;
+          /**
+           * @maxItems 32
+           */
+          minimum_roll_percent_by_effect_id: [number, number][];
+          auxiliary: {
+            /**
+             * @maxItems 32
+             */
+            required_terrain_effect_keys: number[];
+            /**
+             * @maxItems 8
+             */
+            required_terrain_effect_key_groups:
+              | []
+              | [[number, ...number[]]]
+              | [[number, ...number[]], [number, ...number[]]]
+              | [[number, ...number[]], [number, ...number[]], [number, ...number[]]]
+              | [[number, ...number[]], [number, ...number[]], [number, ...number[]], [number, ...number[]]]
+              | [
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]]
+                ]
+              | [
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]]
+                ]
+              | [
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]]
+                ]
+              | [
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]]
+                ];
+            /**
+             * @maxItems 32
+             */
+            required_special_rule_keys: number[];
+            /**
+             * @maxItems 8
+             */
+            required_special_rule_key_groups:
+              | []
+              | [[number, ...number[]]]
+              | [[number, ...number[]], [number, ...number[]]]
+              | [[number, ...number[]], [number, ...number[]], [number, ...number[]]]
+              | [[number, ...number[]], [number, ...number[]], [number, ...number[]], [number, ...number[]]]
+              | [
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]]
+                ]
+              | [
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]]
+                ]
+              | [
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]]
+                ]
+              | [
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]]
+                ];
+            /**
+             * @maxItems 32
+             */
+            required_enemy_lookup_keys: number[];
+            /**
+             * @maxItems 8
+             */
+            required_enemy_lookup_key_groups:
+              | []
+              | [[number, ...number[]]]
+              | [[number, ...number[]], [number, ...number[]]]
+              | [[number, ...number[]], [number, ...number[]], [number, ...number[]]]
+              | [[number, ...number[]], [number, ...number[]], [number, ...number[]], [number, ...number[]]]
+              | [
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]]
+                ]
+              | [
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]]
+                ]
+              | [
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]]
+                ]
+              | [
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]],
+                  [number, ...number[]]
+                ];
+          };
+          /**
+           * @maxItems 32
+           */
+          terrain_selection_ids?: string[];
+          /**
+           * Optional offline search filter on seed-derived initial capacity; empty accepts any. Does not edit the remaining byte.
+           *
+           * @maxItems 4
+           */
+          initial_challenge_counts?:
+            [] | [number] | [number, number] | [number, number, number] | [number, number, number, number];
+          /**
+           * Optional OR set of final grace IDs, applied to completed candidates. Empty accepts any grace.
+           *
+           * @maxItems 64
+           */
+          grace_effect_ids?: number[];
+          /**
+           * @maxItems 24
+           */
+          effect_occurrences?: {
+            scope: "primary" | "secondary" | "any";
+            /**
+             * @minItems 1
+             * @maxItems 24
+             */
+            alternatives: [
+              {
+                effect_id: number;
+                minimum_roll_percent: number;
+              },
+              ...{
+                effect_id: number;
+                minimum_roll_percent: number;
+              }[]
+            ];
+          }[];
+          /**
+           * Explicit roster variant for enemy occurrence search and preview.
+           */
+          enemy_variant?: "solo" | "expedition";
+          /**
+           * Mandatory groups of enemy occurrence alternatives. Curse remains schema-visible but is rejected while Seed-only state is unknown.
+           *
+           * @maxItems 8
+           */
+          enemy_occurrence_groups?:
+            | []
+            | [
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ]
+              ]
+            | [
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ]
+              ]
+            | [
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ]
+              ]
+            | [
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ]
+              ]
+            | [
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ]
+              ]
+            | [
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ]
+              ]
+            | [
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ]
+              ]
+            | [
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ],
+                [
+                  {
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  },
+                  ...{
+                    /**
+                     * @minItems 1
+                     * @maxItems 32
+                     */
+                    lookup_keys: [number, ...number[]];
+                    state: "any" | "possessed" | "curse";
+                    availability: "any" | "base" | "expedition_only";
+                  }[]
+                ]
+              ];
+        };
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
       method: "job.snapshot";
       params: {
         job_id: string;

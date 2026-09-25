@@ -188,6 +188,14 @@ pub const MISSING_COLLECTOR_MESSAGE: &str = "offline search requires the bounded
 pub trait SearchFactory: Send + Sync {
     fn collector(&self, query: &SearchQuery) -> Result<Arc<dyn SearchCollector>, CollectorError>;
 
+    /// The structural preflight `collector` applies before compiling, on its
+    /// own: `Some(Err(reason))` when the query can have no solution, and `None`
+    /// when this factory cannot judge it.
+    fn feasibility(&self, query: &SearchQuery) -> Option<Result<(), String>> {
+        let _ = query;
+        None
+    }
+
     /// Compile the save-bound cache route for a playthrough-4/5 rarity-5 job.
     ///
     /// The measured-map pivot belongs to the native compiler, which owns

@@ -2595,6 +2595,10 @@
     "知道了": [
       "Got it",
       "了解"
+    ],
+    "当前条件组合不可能出现，请先按上方提示调整": [
+      "This condition combination can never appear; adjust it as the hint above says",
+      "この条件の組み合わせは出現しません。上の案内に従って調整してください"
     ]
   },
   "game": {

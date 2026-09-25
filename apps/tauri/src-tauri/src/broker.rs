@@ -20,6 +20,7 @@ impl Broker {
                 | "job.current"
                 | "job.snapshot"
                 | "search.catalog"
+                | "search.feasibility"
                 | "recommended_level.resolve"
         )
     }
@@ -194,6 +195,11 @@ impl Broker {
                     json!({"playthrough":3,"rarity":p["rarity"],"locale":p["locale"]}),
                 )
                 .await
+            }
+            // Asked on every condition change, so it is neither traced nor a job.
+            "core:feasibility" => {
+                self.call("offline_search", "search.feasibility", json!({"query": p}))
+                    .await
             }
             "core:recommended-level" => {
                 self.call(

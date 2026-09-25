@@ -38,6 +38,7 @@ import { BackupManager } from "./BackupManager";
 import { Editor } from "./Editor";
 import { DesktopCartActions, SavePicker } from "./CartActions";
 import { FeedbackSaved, Notice } from "./Notice";
+import { publicError } from "./public-errors";
 import {
   desktop,
   searchController,
@@ -767,6 +768,44 @@ function App() {
       setBusy(false);
     }
   }
+  // The worker's own structural preflight, asked as the conditions change, so
+  // an impossible combination is explained while the player is still picking
+  // instead of after a search. The worker stays the only judge.
+  const [conditionProblem, setConditionProblem] = useState("");
+  useEffect(() => {
+    if (!desktop || q.ng !== 3 || !connected) {
+      setConditionProblem("");
+      return;
+    }
+    let query: ReturnType<typeof workerQuery>;
+    try {
+      query = workerQuery(q);
+    } catch {
+      setConditionProblem("");
+      return;
+    }
+    let stale = false;
+    const timer = setTimeout(() => {
+      void window.nioh
+        .checkFeasibility(query)
+        .then((result) => {
+          if (!stale)
+            setConditionProblem(
+              result.checked && !result.feasible && result.reason
+                ? publicError(result.reason)
+                : "",
+            );
+        })
+        .catch(() => {
+          // A preflight that cannot answer must not block searching.
+          if (!stale) setConditionProblem("");
+        });
+    }, 200);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [q, connected]);
   async function search(next = false) {
     const problem = queryProblem(q, desktop);
     if (problem) {
@@ -1186,6 +1225,13 @@ function App() {
                 拖动词条到一起分组，拖出取消分组
               </span>
             </div>
+            {conditionProblem && (
+              <Notice
+                text={conditionProblem}
+                tone="warning"
+                className="condition-problem"
+              />
+            )}
             <div className="selected-body">
               <div className="selected-effects">
                 {q.effects.length ? (
@@ -1978,7 +2024,8 @@ function App() {
             <div className="search-actions">
               <button
                 className="primary-button"
-                disabled={busy || !connected}
+                disabled={busy || !connected || !!conditionProblem}
+                title={conditionProblem ? "当前条件组合不可能出现，请先按上方提示调整" : undefined}
                 onClick={() => void search()}
               >
                 ⌕ 开始搜索

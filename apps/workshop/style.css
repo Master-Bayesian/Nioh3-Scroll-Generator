@@ -920,3 +920,4 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .settings-note{margin:4px 0 0;color:#5b6773;font-size:11px;line-height:1.5;max-width:260px}
 .side-popup .notice-hint{border-top:0;padding-top:4px;max-width:260px;font-size:12px}
 .status>.notice-info,.status>.notice-success{padding:0;border:0;background:none}
+.selection>.condition-problem{margin:6px 12px 0;padding:6px 10px}

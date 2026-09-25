@@ -52,6 +52,16 @@ function infeasibleConditions(detail: string): string {
   return "这个词条组合在游戏里不可能出现，请调整筛选条件后再搜索。";
 }
 
+/**
+ * A refusal the player resolves by changing their own choices. It is shown
+ * as a hint, never as a failure to report.
+ */
+export function isUserCorrectable(message: string): boolean {
+  return /no solution in the native generation structure|原生生成结构中无解|FAVORITES_CAPACITY_REACHED|CART_CAPACITY_REACHED|Possessed is available only/i.test(
+    message,
+  );
+}
+
 /** User-facing next steps; the broker keeps full technical errors in rolling logs. */
 export function publicError(message: string): string {
   if (hasCjk(message)) message = stripErrorPrefix(message);

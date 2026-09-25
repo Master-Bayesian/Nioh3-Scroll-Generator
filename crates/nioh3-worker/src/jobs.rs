@@ -179,6 +179,30 @@ impl JobStore {
         Ok(serde_json::json!({ "cache_id": cache_id }))
     }
 
+    /// `search.feasibility`: the structural preflight `start` applies, alone.
+    ///
+    /// Read-only and independent of the running job: it neither claims the
+    /// worker nor touches any job. A query this preflight cannot judge (the
+    /// save-bound NG4/NG5 route, or tables that failed to load) answers
+    /// `checked: false` rather than a guess.
+    pub fn feasibility(&self, query_payload: &Value) -> Result<Value, RequestError> {
+        let mut query = SearchQuery::from_payload(query_payload)?;
+        let unchecked = serde_json::json!({ "checked": false, "feasible": true, "reason": null });
+        if query.playthrough > 3 || self.source.resolve_query(&mut query).is_err() {
+            return Ok(unchecked);
+        }
+        let Some(factory) = &self.factory else {
+            return Ok(unchecked);
+        };
+        Ok(match factory.feasibility(&query) {
+            None => unchecked,
+            Some(Ok(())) => serde_json::json!({ "checked": true, "feasible": true, "reason": null }),
+            Some(Err(reason)) => {
+                serde_json::json!({ "checked": true, "feasible": false, "reason": reason })
+            }
+        })
+    }
+
     /// `SearchJobs.start`.
     pub fn start(
         self: &Arc<Self>,
@@ -1296,6 +1320,40 @@ mod tests {
                 format!("this development worker cannot pack the {} filter", self.0),
             ))
         }
+    }
+
+    /// Judges every query infeasible, like the native structural preflight.
+    struct InfeasibleFactory;
+
+    impl SearchFactory for InfeasibleFactory {
+        fn feasibility(&self, _query: &SearchQuery) -> Option<Result<(), String>> {
+            Some(Err("category overflow".to_string()))
+        }
+
+        fn collector(
+            &self,
+            _query: &SearchQuery,
+        ) -> Result<Arc<dyn SearchCollector>, CollectorError> {
+            Err(CollectorError::new("INVALID_REQUEST", "category overflow"))
+        }
+    }
+
+    #[test]
+    fn feasibility_answers_without_claiming_the_worker() {
+        let store = open_store_with(Some(Arc::new(InfeasibleFactory)));
+        let refused = store
+            .feasibility(&query_payload(4, "flat"))
+            .expect("a schema-valid query is judged");
+        assert_eq!(refused["checked"], true);
+        assert_eq!(refused["feasible"], false);
+        assert_eq!(refused["reason"], "category overflow");
+        assert!(!store.alive.load(Ordering::Acquire), "no job was claimed");
+
+        let unjudged = open_store_with(Some(Arc::new(RejectingFactory("any"))))
+            .feasibility(&query_payload(4, "flat"))
+            .expect("judged");
+        assert_eq!(unjudged["checked"], false);
+        assert_eq!(unjudged["feasible"], true);
     }
 
     fn open_store_with(factory: Option<Arc<dyn SearchFactory>>) -> Arc<JobStore> {

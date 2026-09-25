@@ -1960,6 +1960,14 @@ impl NativeSearchFactory {
 }
 
 impl SearchFactory for NativeSearchFactory {
+    fn feasibility(&self, query: &SearchQuery) -> Option<Result<(), String>> {
+        let compiler = self.compiler.as_ref().ok()?;
+        Some(crate::feasibility::validate_query_feasibility(
+            query,
+            &compiler.effect_index,
+        ))
+    }
+
     fn collector(&self, query: &SearchQuery) -> Result<Arc<dyn SearchCollector>, CollectorError> {
         let compiler = self
             .compiler

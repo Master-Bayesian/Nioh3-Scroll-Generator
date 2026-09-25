@@ -17,12 +17,13 @@ use crate::schema::RequestSchema;
 pub const PROTOCOL_VERSION: i64 = 1;
 /// Methods this development worker actually serves. Every method the shipped
 /// contract can express is served, so [`UNIMPLEMENTED_METHODS`] is empty.
-pub const SUPPORTED_METHODS: [&str; 11] = [
+pub const SUPPORTED_METHODS: [&str; 12] = [
     "handshake",
     "recommended_level.resolve",
     "cache.register",
     "candidate.preview",
     "search.start",
+    "search.feasibility",
     "search.catalog",
     "job.current",
     "job.snapshot",
@@ -150,6 +151,11 @@ pub enum Request {
         id: String,
         cache_json: String,
     },
+    /// `search.feasibility`: the read-only structural preflight of one query.
+    SearchFeasibility {
+        id: String,
+        query: Value,
+    },
     /// `search.catalog`: the context-bound option catalog for one rarity.
     SearchCatalog {
         id: String,
@@ -172,6 +178,7 @@ impl Request {
             Request::Handshake { id }
             | Request::CandidatePreview { id, .. }
             | Request::SearchStart { id, .. }
+            | Request::SearchFeasibility { id, .. }
             | Request::JobCurrent { id }
             | Request::JobSnapshot { id, .. }
             | Request::JobCancel { id, .. }
@@ -230,6 +237,10 @@ pub fn parse_request(payload: &Value, schema: &RequestSchema) -> Result<Request,
         "search.start" => Ok(Request::SearchStart {
             id,
             params: params.clone(),
+        }),
+        "search.feasibility" => Ok(Request::SearchFeasibility {
+            id,
+            query: params.get("query").cloned().expect("schema requires the query"),
         }),
         "job.current" => Ok(Request::JobCurrent { id }),
         "job.snapshot" => Ok(Request::JobSnapshot {
