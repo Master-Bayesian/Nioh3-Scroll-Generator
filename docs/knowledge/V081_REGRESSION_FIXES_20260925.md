@@ -146,6 +146,32 @@ closing.
   so every later save or runtime operation failed with `BUSY` ("另一项操作仍在
   进行") until something called `recover()`. `run()` now recovers first
   (read-only, never a replay); a genuinely running job still refuses.
+- Impossible effect combinations are reported while effects are picked
+  (`search.feasibility`, a read-only worker method that never claims the job
+  slot), as a hint without an error code, and the search button waits for a
+  valid set. Each effect can be selected once.
+
+## Search results stream per native unit
+
+A continuing job used to publish matches once per 100M-trial page. The job now
+hands each native unit of a page (the window one native call scans) to the
+collector separately, so matches reach the interface as each unit finishes.
+The page grid is unchanged: units restart at every page start, so the scanned
+windows and each checkpoint equal one call per page. A first version restarted
+the unit grid at trial zero and stopped the migration regression query at
+160M instead of the Python worker's 164M;
+`test_regression_query_completes_inside_one_continuing_job` now passes again.
+Streaming throughput on a real GPU is not separately measured.
+
+## Migration parity run (2026-09-25)
+
+`tests/migration` (excluding `test_packaged_host_resolver`): 321 passed, 2
+skipped, 4 failed before the two fixes above. The contract-method failure was
+the missing `search.feasibility` response definition; the cursor failure is
+described above; both pass on re-run. The two `test_runtime_read_parity`
+failures (`--identify` and `--verify-signatures` with the v2.01 profile)
+occurred while a PC v2.02 game was running; with no game running they pass,
+and they need a re-run with the game open to be closed.
 
 ## PC v2.02 temporary-override evidence
 
