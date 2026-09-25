@@ -1500,7 +1500,10 @@ function App() {
                         </span>
                         <button
                           aria-label={"添加词条" + e.name + " " + e.id}
-                          disabled={q.effects.length >= 24}
+                          disabled={
+                            q.effects.length >= 24 ||
+                            q.effects.some((x) => x.id === e.id)
+                          }
                           onClick={() =>
                             change("effects", [
                               ...q.effects,
@@ -1514,7 +1517,7 @@ function App() {
                             ])
                           }
                         >
-                          ＋
+                          {q.effects.some((x) => x.id === e.id) ? "已选" : "＋"}
                         </button>
                       </div>
                     ))}
