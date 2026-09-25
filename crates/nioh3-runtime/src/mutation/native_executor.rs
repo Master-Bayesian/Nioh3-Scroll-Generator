@@ -1104,6 +1104,9 @@ fn read_u64<T: LiveAddTransport + ?Sized>(
     Ok(u64::from_le_bytes(bytes))
 }
 
+/// Where [`ReceiptStore`] keeps receipts it did not write (research probes).
+pub const FOREIGN_RECEIPT_DIRECTORY: &str = "foreign-receipts";
+
 /// The durable receipt store: `<operation_id>.json`, written atomically.
 pub struct ReceiptStore {
     pub directory: PathBuf,
@@ -1115,9 +1118,53 @@ impl ReceiptStore {
             path: directory.display().to_string(),
             detail: error.to_string(),
         })?;
-        Ok(Self {
+        let store = Self {
             directory: directory.to_path_buf(),
-        })
+        };
+        store.set_aside_foreign_receipts()?;
+        Ok(store)
+    }
+
+    /// Move receipts this product never writes into [`FOREIGN_RECEIPT_DIRECTORY`].
+    ///
+    /// Every product receipt is `<canonical operation UUID>.json` (plus its
+    /// `.classification.json` sidecar). A research probe run against the same
+    /// state root leaves `v202-noop-<pid>.json` and the like, which no product
+    /// path can classify or recover; left in place they would refuse every
+    /// later live addition. They are kept, not deleted, and never read again.
+    fn set_aside_foreign_receipts(&self) -> Result<(), RuntimeError> {
+        let io = |path: &Path, error: std::io::Error| RuntimeError::Io {
+            path: path.display().to_string(),
+            detail: error.to_string(),
+        };
+        let entries =
+            std::fs::read_dir(&self.directory).map_err(|error| io(&self.directory, error))?;
+        for entry in entries {
+            let path = entry.map_err(|error| io(&self.directory, error))?.path();
+            let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+                continue;
+            };
+            let Some(stem) = name.strip_suffix(".json") else {
+                continue;
+            };
+            let stem = stem.strip_suffix(".classification").unwrap_or(stem);
+            if !path.is_file() || is_canonical_uuid(stem) {
+                continue;
+            }
+            let aside = self.directory.join(FOREIGN_RECEIPT_DIRECTORY);
+            std::fs::create_dir_all(&aside).map_err(|error| io(&aside, error))?;
+            let target = aside.join(name);
+            if target.exists() {
+                return Err(rejected(format!(
+                    "Foreign native receipt {} is not a live-add operation; \
+                     move it out of {} and retry",
+                    path.display(),
+                    self.directory.display()
+                )));
+            }
+            std::fs::rename(&path, &target).map_err(|error| io(&path, error))?;
+        }
+        Ok(())
     }
 
     pub fn path(&self, operation_id: &str) -> PathBuf {

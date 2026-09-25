@@ -72,8 +72,21 @@ that one plan record, so no gate keeps the old expectation. Only bit 25
 follows the rule; every other byte is still compared exactly. Python mirrors
 the rule for parity.
 
-**Not yet done:** a live offline and online addition on PC v2.02 with a save
-backup, then a normal save and reload.
+**Live acceptance, online branch (2026-09-25, owner machine, test4 build):**
+the running game read `A = <own account>` (session state 2, gate 1, kind
+`0x101`, class 1) with all four helper bodies byte-identical in memory. One
+live addition (seed 102271721, R4) previewed `0x02800002 == 0x02800002`,
+inserted into slot 33 (serial 2505498) with stored flags `0x06800082`, and
+after a normal in-game save the decrypted `SAVEDATA.BIN` held the same record
+and passed `verify_persistence` against the verified live inventory (47/47).
+**Still open:** the offline branch (`A = 0`) live.
+
+The same machine first failed with `Use a canonical operation UUID`: four
+research `v202-noop-<pid>.json` receipts in `live-add/native-executor/`
+(written only by `examples/runtime_read_probe.rs`, never by a shipped build)
+were read as operations. The receipt store now moves such files into
+`foreign-receipts/` when it opens (kept, never read again) and names any that
+appear later.
 
 Also in this change: a game that exited or restarted no longer pins the
 cached live-add executor to the dead process (`QueryFullProcessImageNameW ...

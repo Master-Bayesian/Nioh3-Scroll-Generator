@@ -1258,20 +1258,29 @@ fn every_accepted_builder_binds_its_own_identity_chain() {
     }
 }
 
-/// A research probe's receipt left in the product store is named, not read as
-/// an anonymous operation identity.
+/// A research probe's receipt left in the product store is set aside, kept,
+/// and no longer blocks live addition; one that appears later is named.
 #[test]
 #[allow(clippy::unwrap_used)]
-fn a_foreign_receipt_in_the_store_is_named() {
+fn a_foreign_receipt_is_set_aside_and_a_late_one_is_named() {
+    use crate::mutation::native_executor::{ReceiptStore, FOREIGN_RECEIPT_DIRECTORY};
     let fixture = Fixture::new("foreign-receipt");
     let directory = fixture.root.join("native-executor");
-    let store = crate::mutation::native_executor::ReceiptStore::new(&directory).unwrap();
-    std::fs::write(
-        directory.join("v202-noop-8056.json"),
-        br#"{"operation_id":"v202-noop-8056","pid":18956,"mode":"noop","phase":"rejected"}"#,
-    )
-    .unwrap();
+    std::fs::create_dir_all(&directory).unwrap();
+    let foreign =
+        br#"{"operation_id":"v202-noop-8056","pid":18956,"mode":"noop","phase":"uncertain"}"#;
+    std::fs::write(directory.join("v202-noop-8056.json"), foreign).unwrap();
+    let sidecar = "0123abcd-0000-4000-8000-000000000000.classification.json";
+    std::fs::write(directory.join(sidecar), b"{}").unwrap();
+    let store = ReceiptStore::new(&directory).unwrap();
+    assert_eq!(store.unresolved_owner().unwrap(), None);
+    let kept = directory
+        .join(FOREIGN_RECEIPT_DIRECTORY)
+        .join("v202-noop-8056.json");
+    assert_eq!(std::fs::read(kept).unwrap(), foreign.to_vec());
+    assert!(directory.join(sidecar).is_file(), "a product sidecar stays");
+
+    std::fs::write(directory.join("v202-noop-9.json"), br#"{"pid":9}"#).unwrap();
     let error = store.unresolved_owner().unwrap_err();
-    assert!(error.message().contains("v202-noop-8056.json"));
-    assert!(error.message().contains("not a live-add operation"));
+    assert!(error.message().contains("v202-noop-9.json"));
 }
