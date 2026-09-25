@@ -699,8 +699,15 @@ class RuntimeReadParityTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 running_game_identity()
             return
+        try:
+            pid, profile, path = running_game_identity()
+        except ValueError:
+            # The running executable has no approved profile (PC v2.02 is still
+            # a candidate): the shipped helper refuses, and so must the port,
+            # by name rather than with a generic failure.
+            self.assertEqual(row[:2], ["error", "PROFILE_NOT_APPROVED"])
+            return
         self.assertEqual(row[0], "identity")
-        pid, profile, path = running_game_identity()
         self.assertEqual(int(row[1]), pid)
         self.assertEqual(row[3], path)
         self.assertEqual(int(row[6], 16), profile.canonicalize_rva)
@@ -708,13 +715,29 @@ class RuntimeReadParityTests(unittest.TestCase):
 
     @unittest.skipUnless(sys.platform == "win32", "the process adapter is Windows-only")
     def test_signature_verification_is_read_only_and_reports_absence(self) -> None:
-        row = self.single_row(
-            "--verify-signatures", str(PROFILE_V201), "Nioh3.exe", "Nioh3.exe"
-        )
+        # Every shipped runtime profile against whichever game is running: the
+        # running image matches exactly one profile and refuses the others.
+        rows = {
+            path.name: self.single_row(
+                "--verify-signatures", str(path), "Nioh3.exe", "Nioh3.exe"
+            )
+            for path in sorted(PROFILE_DIR.glob("pc_v*.json"))
+            if ".research." not in path.name
+        }
+        self.assertIn(PROFILE_V201.name, rows)
         if not find_nioh3_pids():
-            self.assertEqual(row, ["absent", "0"])
+            for name, row in rows.items():
+                self.assertEqual(row, ["absent", "0"], name)
             return
-        self.assertEqual(row, ["verified", str(VERIFIED_SITE_COUNT)])
+        verified = [
+            name
+            for name, row in rows.items()
+            if row == ["verified", str(VERIFIED_SITE_COUNT)]
+        ]
+        self.assertEqual(len(verified), 1, rows)
+        for name, row in rows.items():
+            if name not in verified:
+                self.assertEqual(row[:2], ["error", "SIGNATURE_MISMATCH"], name)
 
 
 if __name__ == "__main__":
