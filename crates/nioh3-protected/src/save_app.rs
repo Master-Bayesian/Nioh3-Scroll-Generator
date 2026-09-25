@@ -951,10 +951,13 @@ impl SaveApplication {
             if entry.account_id != Some(account) || entry.save_slot_index != Some(slot) {
                 continue;
             }
-            let directory = self.transaction_root.join("backups").join(&entry.backup_id);
+            // `savegame.list_backup_entries` publishes the directory name, which
+            // is the UTC creation stamp, as the timestamp. The shared backups live
+            // under the state root, so the previous mtime lookup under
+            // `protected-internal/backups` always produced an empty string.
             backups.push(json!({
+                "timestamp": entry.backup_id.clone(),
                 "backup_id": entry.backup_id,
-                "timestamp": directory_timestamp(&directory),
                 "action": entry.action,
                 "manifest_schema": entry.manifest_schema.unwrap_or_default(),
                 "file_count": entry.file_count,
@@ -1096,20 +1099,39 @@ impl SaveApplication {
                 .filter_map(|entry| entry.ok().map(|entry| entry.path()))
                 .filter(|path| path.extension().and_then(|value| value.to_str()) == Some("json"))
                 .collect();
-            paths.sort_by(|left, right| right.cmp(left));
+            // Newest first, like `SaveApplication.operations`. Operation ids are
+            // random, so ordering by file name showed an arbitrary window.
+            let modified = |path: &PathBuf| {
+                std::fs::metadata(path)
+                    .and_then(|metadata| metadata.modified())
+                    .ok()
+            };
+            paths.sort_by(|left, right| {
+                modified(right)
+                    .cmp(&modified(left))
+                    .then_with(|| right.cmp(left))
+            });
             for path in paths {
                 let stem = path
                     .file_stem()
                     .and_then(|value| value.to_str())
                     .map(str::to_string);
                 let Some(stem) = stem else { continue };
-                if let Ok(receipt) = self.operation(&stem) {
-                    if receipt.get("save_id").and_then(Value::as_str) == Some(save_id) {
-                        receipts.push(receipt);
-                    }
+                let Ok(receipt) = self.operation(&stem) else {
+                    continue;
+                };
+                if receipt.get("save_id").and_then(Value::as_str) != Some(save_id) {
+                    continue;
                 }
-                if receipts.len() == 128 {
-                    break;
+                // The display window is 128 receipts, but an unresolved
+                // operation is never hidden by it: the client decides whether a
+                // write is still uncertain from this list.
+                let unresolved = matches!(
+                    receipt.get("commit_status").and_then(Value::as_str),
+                    Some("unknown" | "executing")
+                );
+                if receipts.len() < 128 || unresolved {
+                    receipts.push(receipt);
                 }
             }
         }
@@ -2529,15 +2551,6 @@ fn new_snapshot_id() -> String {
         rendered.push_str(&format!("{byte:02x}"));
     }
     rendered
-}
-
-fn directory_timestamp(directory: &Path) -> String {
-    std::fs::metadata(directory)
-        .and_then(|metadata| metadata.modified())
-        .ok()
-        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
-        .map(|duration| duration.as_secs().to_string())
-        .unwrap_or_default()
 }
 
 fn hex(bytes: &[u8]) -> String {

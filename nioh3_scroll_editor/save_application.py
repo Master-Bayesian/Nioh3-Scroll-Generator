@@ -356,10 +356,12 @@ class SaveApplication:
                 result = self.operation(path.stem)
             except (ValueError, OSError):
                 continue
-            if result.get('save_id') == save_id:
+            if result.get('save_id') != save_id:
+                continue
+            # The display window is 128 receipts, but an unresolved operation
+            # is never hidden by it: clients decide uncertainty from this list.
+            if len(results) < 128 or result.get('commit_status') in ('unknown', 'executing'):
                 results.append(result)
-            if len(results) == 128:
-                break
         return {'operations': results}
 
     def commit(self, plan_id):
