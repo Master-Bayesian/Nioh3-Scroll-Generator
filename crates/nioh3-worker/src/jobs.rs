@@ -521,16 +521,22 @@ impl JobStore {
         let collector =
             job_collector.ok_or_else(|| CollectorError::unavailable(MISSING_COLLECTOR_MESSAGE))?;
 
+        // The job keeps the shipped grid of `page_trials` pages, each scanned
+        // in native units from its own start, but hands every unit to the
+        // collector separately so its matches reach the job (and the
+        // interface) as soon as it finishes. The scanned trials, their order
+        // and every checkpoint match one call per page.
+        let unit = collector.native_unit_trials();
+        let mut page_end = cursor;
         while stop.is_none_or(|stop| cursor < stop) {
             if self.cancel.load(Ordering::SeqCst) {
                 reason = "cancelled";
                 break;
             }
-            // One native unit per page, so each unit's matches reach the job
-            // (and the interface) as soon as it finishes.
-            let requested = collector
-                .native_unit_trials()
-                .map_or(params.page_trials, |unit| params.page_trials.min(unit));
+            if unit.is_none() || cursor >= page_end {
+                page_end = cursor.saturating_add(params.page_trials);
+            }
+            let requested = unit.map_or(page_end - cursor, |unit| unit.min(page_end - cursor));
             let page_budget = match stop {
                 None => requested,
                 Some(stop) => requested.min(stop - cursor),
@@ -1527,13 +1533,15 @@ mod tests {
         let scripted = ScriptedCollector::new(vec![
             Ok(page(250_000, Vec::new(), false)),
             Ok(page(500_000, Vec::new(), false)),
+            Ok(page(600_000, Vec::new(), false)),
+            Ok(page(850_000, Vec::new(), false)),
         ]);
         let store = open_store_with(Some(Arc::new(FixedFactory(Arc::new(Unit(
             scripted.clone(),
         ))))));
         let mut start = params(false);
-        start.page_trials = 1_000_000;
-        start.job_trials = 500_000;
+        start.page_trials = 600_000;
+        start.job_trials = 850_000;
         let job = wait_terminal(
             &store,
             &store
@@ -1541,14 +1549,21 @@ mod tests {
                 .expect("start")
                 .job_id,
         );
-        assert_eq!(job.cursor, 500_000);
+        assert_eq!(job.cursor, 850_000);
+        // A unit never crosses a page boundary: the second page restarts the
+        // unit grid at 600,000, exactly where one call per page would.
         assert_eq!(
             scripted
                 .seen()
                 .iter()
                 .map(|(start, budget, _)| (*start, *budget))
                 .collect::<Vec<_>>(),
-            vec![(0, 250_000), (250_000, 250_000)]
+            vec![
+                (0, 250_000),
+                (250_000, 250_000),
+                (500_000, 100_000),
+                (600_000, 250_000)
+            ]
         );
     }
 

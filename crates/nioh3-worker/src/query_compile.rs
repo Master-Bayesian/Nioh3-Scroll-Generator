@@ -2042,7 +2042,13 @@ struct NativeCollector {
 
 impl SearchCollector for NativeCollector {
     fn native_unit_trials(&self) -> Option<u64> {
-        Some(self.compiled.chunk_trials).filter(|trials| *trials > 0)
+        // The window each native call scans (`PageRequest::effective_chunk`).
+        Some(
+            self.compiled
+                .chunk_trials
+                .min(self.compiled.native.max_chunk_trials()),
+        )
+        .filter(|trials| *trials > 0)
     }
 
     fn collect(
