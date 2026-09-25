@@ -1,3 +1,4 @@
+import { Notice } from "./Notice";
 import React, { useEffect, useRef, useState } from "react";
 import type { UpdateState } from "../desktop/src/update-state";
 import { localize } from "./presentation";
@@ -114,7 +115,7 @@ export function Updates({ onClose }: { onClose?: () => void }) {
       {state.phase === "ready" && !state.canApply && (
         <p>源码启动版请使用发行包测试安装更新。</p>
       )}
-      {(error || state.error) && <p role="alert">{error || state.error}</p>}
+      <Notice text={error || state.error || ""} tone="error" />
     </section>
   );
 }

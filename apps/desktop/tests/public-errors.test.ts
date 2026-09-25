@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { errorText, publicError } from "../../workshop/public-errors";
+import { errorText, isFailureText, publicError } from "../../workshop/public-errors";
 
 test("errorText never returns an empty status for a rejection", () => {
   assert.equal(errorText(new Error("推荐等级无法转换。")), "推荐等级无法转换。");
@@ -53,4 +53,20 @@ test("an expired save snapshot asks for a refresh", () => {
     publicError('Error: {"code":"OPERATION_FAILED","message":"Snapshot expired; refresh inventory"}'),
     /重新读取/,
   );
+});
+
+test("a thrown Chinese message loses the Error prefix and still reads as a failure", () => {
+  assert.equal(publicError("Error: 没有待核对的实时添加。"), "没有待核对的实时添加。");
+  assert.ok(isFailureText("Error: 请先选择并读取存档。"));
+  assert.ok(!isFailureText("已验证添加 1 / 1 张。"));
+  assert.ok(!isFailureText(""));
+});
+
+test("an unexplained backend failure names its error code and the way to report it", () => {
+  const text = publicError("OPERATION_REJECTED: Unknown operation job");
+  assert.match(text, /OPERATION_REJECTED/);
+  assert.match(text, /导出反馈文件/);
+  assert.ok(isFailureText("OPERATION_REJECTED: Unknown operation job"));
+  // Ordinary interface text without Chinese is never rewritten.
+  for (const plain of ["R4", "GitHub", "Lv.180", "10030565"]) assert.equal(publicError(plain), plain);
 });

@@ -1,3 +1,4 @@
+import { Notice } from "./Notice";
 import React, {
   useEffect,
   useRef,
@@ -18,7 +19,7 @@ export function BackupManager() {
     return (
       <section className="backup-page">
         <h2>存档备份与管理</h2>
-        <p>请打开后端版查看本机备份。</p>
+        <p>请在桌面版中查看本机备份。</p>
       </section>
     );
   return <ConnectedBackups />;
@@ -278,7 +279,7 @@ function ConnectedBackups() {
           </button>
         </div>
       )}
-      {message && <p role="status">{message}</p>}
+      <Notice text={message} />
     </section>
   );
 }

@@ -189,7 +189,7 @@ test("status wording distinguishes stop reasons without claiming false exhaustio
   assert.match(running, /正在搜索，已找到 0 张绘卷…/);
   assert.match(cancelled, /已取消，保留已找到的绘卷。/);
   assert.equal(failed, "worker unavailable");
-  assert.equal(failedWithoutError, "搜索失败，请重试或复制诊断信息。");
+  assert.equal(failedWithoutError, "搜索失败，请重试；反复出现请导出反馈文件发给开发者。");
   // A bounded or unknown batch with no candidates must not read as exhausted.
   // The exhausted wording is scoped to the current batch, never a global total.
   for (const text of [bounded, unknown, running, failedWithoutError])
@@ -211,7 +211,7 @@ test("every canonical status fragment has both shipped translations", () => {
     "张绘卷；条件尚未穷尽，可继续搜索下一批，耗时",
     "张绘卷，已达候选数量，耗时",
     "搜索范围已穷尽，本批找到",
-    "搜索失败，请重试或复制诊断信息。",
+    "搜索失败，请重试；反复出现请导出反馈文件发给开发者。",
   ];
   for (const fragment of fragments) {
     const entry = (locales.ui as Record<string, string[]>)[fragment];
@@ -220,8 +220,8 @@ test("every canonical status fragment has both shipped translations", () => {
     assert.ok(entry.every((value) => value.trim().length > 0));
   }
   // The failed fallback must be genuinely translated, not a Chinese fallback.
-  const failed = (locales.ui as Record<string, string[]>)["搜索失败，请重试或复制诊断信息。"];
+  const failed = (locales.ui as Record<string, string[]>)["搜索失败，请重试；反复出现请导出反馈文件发给开发者。"];
   assert.doesNotMatch(failed[0], /[\u3400-\u9fff]/);
-  assert.notEqual(failed[1], "搜索失败，请重试或复制诊断信息。");
+  assert.notEqual(failed[1], "搜索失败，请重试；反复出现请导出反馈文件发给开发者。");
   assert.ok(failed[1].includes("検索"));
 });

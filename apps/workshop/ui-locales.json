@@ -272,9 +272,9 @@
       "Accept any",
       "すべて許可"
     ],
-    "筛选条件无法提交。请更新应用；若仍出现，请复制日志反馈。": [
-      "The filters could not be submitted. Update the app; if this continues, copy the log and report it.",
-      "検索条件を送信できません。アプリを更新し、解決しない場合はログをコピーして報告してください。"
+    "筛选条件无法提交。请更新应用；若仍出现，请导出反馈文件发给开发者。": [
+      "The filters could not be submitted. Update the app; if this continues, export a feedback file and send it to the developer.",
+      "検索条件を送信できません。アプリを更新し、解決しない場合はフィードバックファイルを書き出して開発者に送ってください。"
     ],
     "规则组合": [
       "Rule matching",
@@ -1596,7 +1596,7 @@
       "Save backups and management",
       "セーブのバックアップと管理"
     ],
-    "请打开后端版查看本机备份。": [
+    "请在桌面版中查看本机备份。": [
       "Open the desktop app to view local backups.",
       "ローカルのバックアップを見るにはデスクトップ版を開いてください。"
     ],
@@ -1856,13 +1856,9 @@
       "Mapping loaded for this save. Offline search is available.",
       "このセーブの対応表を読み込みました。オフライン検索が可能です。"
     ],
-    "后端已连接，请选择筛选条件。": [
-      "Ready. Choose search conditions.",
-      "準備完了。検索条件を選択してください。"
-    ],
-    "正在连接后端…": [
-      "Connecting…",
-      "接続中…"
+    "正在启动…": [
+      "Starting…",
+      "起動中…"
     ],
     "真实搜索结果": [
       "Search results",
@@ -1908,9 +1904,9 @@
       "The search range is exhausted; this batch found",
       "検索範囲をすべて探索しました。今回の検出数"
     ],
-    "搜索失败，请重试或复制诊断信息。": [
-      "The search failed. Retry, or copy the diagnostics.",
-      "検索に失敗しました。再試行するか、診断情報をコピーしてください。"
+    "搜索失败，请重试；反复出现请导出反馈文件发给开发者。": [
+      "The search failed. Retry; if it keeps happening, export a feedback file and send it to the developer.",
+      "検索に失敗しました。再試行し、繰り返し発生する場合はフィードバックファイルを書き出して開発者に送ってください。"
     ],
     "群号已复制，若未自动跳转，可在 QQ 中手动加群。": [
       "Group number copied. If QQ does not open, join manually using this number.",
@@ -2212,13 +2208,9 @@
       "This game version is not supported. Check for updates.",
       "このゲームバージョンは未対応です。更新を確認してください。"
     ],
-    "收藏夹文件无法读取，原文件已保留。请复制日志排查。": [
-      "Favorites could not be read. The original file is preserved; copy the log for diagnosis.",
-      "お気に入りを読み込めません。元のファイルは保持しています。ログをコピーして確認してください。"
-    ],
-    "操作未完成，请复制日志排查；涉及写入时，请先核对操作结果。": [
-      "The operation failed. Copy the log for diagnosis; check any write outcome before retrying.",
-      "操作を完了できませんでした。ログをコピーしてください。書き込みの場合は再実行前に結果を確認してください。"
+    "收藏夹文件无法读取，原文件已保留。请导出反馈文件发给开发者。": [
+      "Favorites could not be read. The original file is preserved; please export a feedback file and send it to the developer.",
+      "お気に入りを読み込めません。元のファイルは保持しています。フィードバックファイルを書き出して開発者に送ってください。"
     ],
     "挑战次数上限应为 1–7。": [
       "Maximum attempts must be 1–7.",
@@ -2424,9 +2416,9 @@
       "change(s); nothing is written yet. Confirm in “Confirm changes” on the right to write them.",
       "件の変更。まだセーブには書き込まれていません。右側の「変更を確認」で確定すると書き込みます。"
     ],
-    "核对失败，且没有返回错误说明；请复制日志排查。": [
-      "The check failed without an error description; copy the log to investigate.",
-      "確認に失敗しましたが、エラーの説明がありません。ログをコピーして調査してください。"
+    "核对失败，也没有返回原因；请导出反馈文件发给开发者。": [
+      "The check failed without giving a reason; please export a feedback file and send it to the developer.",
+      "確認に失敗し、理由も返されませんでした。フィードバックファイルを書き出して開発者に送ってください。"
     ],
     "修改已写入存档，但有警告：": [
       "Changes saved with a warning:",
@@ -2440,29 +2432,113 @@
       ". Do not write again.",
       "。重複して書き込まないでください。"
     ],
-    "操作未完成，且没有返回错误说明；请复制日志排查。": [
-      "The operation did not finish and returned no error description; copy the log to investigate.",
-      "操作は完了せず、エラーの説明もありません。ログをコピーして調査してください。"
+    "操作没有完成，也没有返回原因；请导出反馈文件发给开发者。": [
+      "The operation did not finish and gave no reason; please export a feedback file and send it to the developer.",
+      "操作は完了せず、理由も返されませんでした。フィードバックファイルを書き出して開発者に送ってください。"
     ],
     "这个存档里已有绘卷的序列号重复，为避免改动已有绘卷，“添加到存档”已停止，存档没有被修改。请改用“游戏内实时添加”。": [
       "This save already has scrolls that share a serial. To avoid changing existing scrolls, \"Add to save\" stopped and the save was not modified. Use \"Add in game\" instead.",
       "このセーブには既にシリアルが重複した絵巻があります。既存の絵巻を変更しないよう「セーブに追加」を中止し、セーブは変更されていません。「ゲーム内に直接追加」を使ってください。"
     ],
-    "游戏生成的绘卷与预期不一致，这次没有添加，背包和存档都没有改动，可以直接重试。若反复出现，请复制日志反馈。": [
-      "The scroll the game built did not match the expected one, so nothing was added and neither the inventory nor the save changed. You can retry; if it keeps happening, copy the log and report it.",
-      "ゲームが生成した絵巻が想定と一致しなかったため、追加していません。所持品もセーブも変更されていません。再試行できます。繰り返し発生する場合はログをコピーして報告してください。"
+    "游戏生成的绘卷与预期不一致，这次没有添加，背包和存档都没有改动，可以直接重试。若反复出现，请导出反馈文件发给开发者。": [
+      "The scroll the game built did not match the expected one, so nothing was added and neither the inventory nor the save changed. You can retry; if it keeps happening, export a feedback file and send it to the developer.",
+      "ゲームが生成した絵巻が想定と一致しなかったため、追加していません。所持品もセーブも変更されていません。再試行できます。繰り返し発生する場合はフィードバックファイルを書き出して開発者に送ってください。"
     ],
     "游戏已退出或重新启动。请进入角色存档后重新核对添加。": [
       "The game exited or restarted. Load your character save, then review the addition again.",
       "ゲームが終了または再起動しました。キャラクターのセーブを読み込んでから、もう一度追加を確認してください。"
     ],
-    "实时添加的状态目录里有不属于本工具操作的回执文件，添加已停止，游戏没有被改动。请复制日志反馈。": [
-      "The live-add state folder contains a receipt that is not one of this tool's operations. Adding stopped and the game was not changed. Copy the log and report it.",
-      "ライブ追加の状態フォルダーに、このツールの操作ではない受領ファイルがあります。追加を中止し、ゲームは変更されていません。ログをコピーして報告してください。"
+    "实时添加的状态目录里有不属于本工具操作的回执文件，添加已停止，游戏没有被改动。请导出反馈文件发给开发者。": [
+      "The live-add state folder contains a receipt that is not one of this tool's operations. Adding stopped and the game was not changed. Please export a feedback file and send it to the developer.",
+      "ライブ追加の状態フォルダーに、このツールの操作ではない受領ファイルがあります。追加を中止し、ゲームは変更されていません。フィードバックファイルを書き出して開発者に送ってください。"
     ],
     "存档在游戏里保存后已经变化，请点“重新读取”后再添加。": [
       "The save changed after the game saved. Click \"Reload\" and add again.",
       "ゲームで保存したためセーブが変わりました。「再読み込み」してから追加してください。"
+    ],
+    "存档": [
+      "Save",
+      "セーブ"
+    ],
+    "）· 账户": [
+      ") · Account",
+      "）· アカウント"
+    ],
+    "检测到": [
+      "Found",
+      "検出:"
+    ],
+    "个存档，请在上面选择你正在玩的那一个；选过一次后会自动记住。": [
+      "saves. Choose the one you are playing above; the choice is remembered.",
+      "件のセーブ。プレイ中のセーブを上で選んでください。一度選ぶと記憶されます。"
+    ],
+    "没有找到存档。请先启动一次游戏并进入角色，或点“手动定位”选择 SAVEDATA.BIN。": [
+      "No save was found. Start the game and load a character once, or use \"Browse…\" to pick SAVEDATA.BIN.",
+      "セーブが見つかりません。一度ゲームを起動してキャラクターに入るか、「手動で指定」で SAVEDATA.BIN を選んでください。"
+    ],
+    "游戏背包里已经能看到；之后在游戏里正常存档（例如在神社休息），它才会写进存档文件。": [
+      "It is already in your in-game inventory; it is written to the save file once you save normally in game (for example by resting at a shrine).",
+      "ゲーム内の所持品にすでに表示されています。ゲーム内で通常どおりセーブ（社で休むなど）すると、セーブファイルに書き込まれます。"
+    ],
+    "正在读取存档…": [
+      "Reading the save…",
+      "セーブを読み込み中…"
+    ],
+    "先在上面选好目标存档，才能核对添加。": [
+      "Choose the target save above before checking the addition.",
+      "追加を確認する前に、上で対象のセーブを選んでください。"
+    ],
+    "上次实时添加的结果还没有确认。请先点“核对上次实时添加”，确认后才能继续添加，避免重复。": [
+      "The last in-game addition has not been confirmed yet. Use \"Check last in-game addition\" first so nothing is added twice.",
+      "前回のゲーム内追加の結果がまだ確認されていません。重複を避けるため、先に「前回のゲーム内追加を確認」を押してください。"
+    ],
+    "如果游戏已经重启过，上次的结果可能无法再核对。可以先在游戏背包里看那张绘卷在不在，再决定是否继续。": [
+      "If the game has restarted since, the last result may no longer be checkable. Look for that scroll in your in-game inventory, then decide whether to continue.",
+      "ゲームを再起動している場合、前回の結果は確認できないことがあります。ゲーム内の所持品でその絵巻があるか確かめてから、続けるか決めてください。"
+    ],
+    "已不再提醒上次的实时添加。继续添加前，请先在游戏背包里确认上次那张是否已经加进去，避免重复。": [
+      "The reminder for the last in-game addition is dismissed. Before adding again, check your in-game inventory for that scroll so nothing is added twice.",
+      "前回のゲーム内追加の確認を解除しました。重複を避けるため、追加の前にゲーム内の所持品で前回の絵巻があるか確認してください。"
+    ],
+    "不再核对，继续添加": [
+      "Stop checking and continue",
+      "確認をやめて続行"
+    ],
+    "反馈问题": [
+      "Report a problem",
+      "問題を報告"
+    ],
+    "遇到问题时点这里，会生成一个反馈文件（包含版本信息和最近的操作记录，不含存档内容）。": [
+      "Creates one feedback file with the app version and recent activity log (no save data).",
+      "アプリのバージョンと最近の操作記録を含むフィードバックファイルを作成します（セーブデータは含みません）。"
+    ],
+    "技术详情": [
+      "Technical details",
+      "技術的な詳細"
+    ],
+    "导出反馈文件": [
+      "Export feedback file",
+      "フィードバックファイルを書き出す"
+    ],
+    "反馈文件没有导出成功，请在“设置”里再试一次。": [
+      "The feedback file could not be exported. Try again from Settings.",
+      "フィードバックファイルを書き出せませんでした。設定からもう一度お試しください。"
+    ],
+    "反馈文件已保存，所在文件夹已经打开。把这个文件和出问题前的操作步骤一起发到 QQ 群或 GitHub 即可。": [
+      "The feedback file is saved and its folder is open. Send it to the QQ group or GitHub together with the steps that led to the problem.",
+      "フィードバックファイルを保存し、そのフォルダーを開きました。問題が起きるまでの操作手順と一緒に QQ グループまたは GitHub に送ってください。"
+    ],
+    "操作没有完成。": [
+      "The operation did not finish.",
+      "操作は完了しませんでした。"
+    ],
+    "错误代码：": [
+      "Error code: ",
+      "エラーコード："
+    ],
+    "涉及写入时，请先核对结果再重试；反复出现请导出反馈文件发给开发者。": [
+      "If it involved a write, check the result before retrying; if it keeps happening, export a feedback file and send it to the developer.",
+      "書き込みを伴う場合は結果を確認してから再試行してください。繰り返し発生する場合はフィードバックファイルを書き出して開発者に送ってください。"
     ]
   },
   "game": {

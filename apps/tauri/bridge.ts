@@ -16,7 +16,7 @@ window.preferences = { getLocale: () => call('preferences:locale'), setLocale: v
 window.support = { diagnostics: () => call('support:diagnostics'), exportDiagnostics: () => call('support:export') };
 window.review = {
   favorites: p => call('review:favorites', p), update: p => call('review:update', p), auxiliary: p => call('review:auxiliary', p), dataDirectory: p => call('review:data-directory', p),
-  openSaveFolder: p => call('review:save-folder', p), log: p => call('review:log', p), copyLog: () => call('review:copy-log'), windowAction: p => call('review:window', p),
+  openSaveFolder: p => call('review:save-folder', p), log: p => call('review:log', p), copyLog: () => call('review:copy-log'), exportFeedback: () => call('review:feedback'),windowAction: p => call('review:window', p),
   retain: p => call('review:retain', p), release: p => call('review:release', p), preview: p => call('review:preview', p), prepareCart: p => call('review:prepare-cart', p),
   openBackupFolder: () => call('review:backup-folder'), openLink: p => call('review:link', p), copyText: p => call('review:copy', p),
 };

@@ -893,3 +893,30 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
   .favorites-toolbar .finder { width: 100%; }
   .favorites-review > .compare-grid { grid-template-columns: 1fr; }
 }
+
+/* Notices: one look for every status and failure message. */
+.notice{display:grid;gap:6px;margin:6px 0 0;padding:7px 10px;border:1px solid #c9d3de;border-left-width:4px;border-radius:6px;background:#f6f8fb;color:#2c3a47;font-size:12px;line-height:1.55;text-align:left;min-width:0}
+.notice>p{margin:0;overflow-wrap:anywhere}
+.notice-info{border-left-color:#7d95ad}
+.notice-success{border-left-color:#3f8f63;background:#f1f8f3}
+.notice-warning{border-left-color:#c08a2c;background:#fcf7ec}
+.notice-error{border-color:#e3b9bd;border-left-color:#b8434f;background:#fdf3f4;color:#5c1f26}
+.notice-actions{display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px 10px}
+.notice-actions>button,.notice-links>button{width:auto;margin:0;padding:3px 10px;font-size:12px;line-height:1.5}
+.notice details{flex:1 1 100%;min-width:0}
+.notice summary{cursor:pointer;color:#6b4b50;font-size:11px;user-select:none}
+.notice code{display:block;margin-top:4px;padding:6px 8px;max-height:120px;overflow:auto;background:#fff;border:1px solid #ead3d6;border-radius:4px;font:11px/1.45 Consolas,"Cascadia Mono",monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:#4a3a3c;user-select:text}
+.notice-hint{display:grid;gap:6px;margin:0;padding-top:6px;border-top:1px dashed #d7c3c6;color:#39434d}
+.notice-hint>p{margin:0}
+.notice-links{display:flex;gap:6px}
+.status>.notice{margin:0;flex:1;min-width:0}
+.status:has(.notice-error){align-items:flex-start}
+.save-picker>.notice,.save-picker>.save-picker-hint{grid-column:1/-1;flex-basis:100%;width:100%}
+.save-picker-hint,.cart-hint{margin:4px 0 0;padding:6px 9px;border-radius:6px;background:#eef3f8;color:#34506a;font-size:12px;line-height:1.5}
+.save-picker>p.save-picker-hint{color:#34506a}
+.cart-forget{display:grid;gap:6px;margin-top:6px;padding:8px 10px;border:1px dashed #c9a86b;border-radius:6px;background:#fcf7ec;font-size:12px}
+.cart-forget>p{margin:0}
+.cart-forget>button{justify-self:start;width:auto}
+.settings-note{margin:4px 0 0;color:#5b6773;font-size:11px;line-height:1.5;max-width:260px}
+.side-popup .notice-hint{border-top:0;padding-top:4px;max-width:260px;font-size:12px}
+.status>.notice-info,.status>.notice-success{padding:0;border:0;background:none}

@@ -2,6 +2,7 @@ type Invoke = (channel: string, value?: unknown) => Promise<unknown>;
 
 const REPORTING_CHANNELS = new Set([
   "review:copy-log",
+  "review:feedback",
   "review:log",
   "review:copy",
   "review:window",
@@ -117,10 +118,9 @@ export function createDiagnosticInvoker(rawInvoke: Invoke, diagnosticTimeoutMs =
     previousFailure = signature;
     previousFailureAt = now;
     if (reporting) return reporting;
-    reporting = (async () => {
-      await write(`[automatic-failure] ${channel}: ${failure}`);
-      await bestEffort(() => rawInvoke("review:copy-log", null), diagnosticTimeoutMs);
-    })().finally(() => { reporting = null; });
+    // The failure is written to the rolling log only. The player's clipboard is
+    // theirs: a feedback file is exported when they ask for one.
+    reporting = write(`[automatic-failure] ${channel}: ${failure}`).finally(() => { reporting = null; });
     return reporting;
   };
 

@@ -37,6 +37,7 @@ import "./style.css";
 import { BackupManager } from "./BackupManager";
 import { Editor } from "./Editor";
 import { DesktopCartActions, SavePicker } from "./CartActions";
+import { FeedbackSaved, Notice } from "./Notice";
 import {
   desktop,
   searchController,
@@ -322,6 +323,7 @@ function ConditionGroups<T extends { id: string; mode?: number }>({
 function App() {
   const locale = useUiLocale();
   useEffect(()=>{document.documentElement.lang=locale;document.title=localize('独脚踏鞴工作室');if(desktop)void window.preferences.setLocale(locale).catch(error=>window.review.log(String(error)))},[locale]);
+  const [feedbackState, setFeedbackState] = useState<"" | "busy" | "saved">("");
   const [q, setQ] = useState<Query>(initialQuery),
     [submitted, setSubmitted] = useState<Query>(initialQuery),
     [results, setResults] = useState<Sample[]>(
@@ -447,7 +449,7 @@ function App() {
       }
       if (!state.job) {
         setStatus(
-          state.handshake ? "后端已连接，请选择筛选条件。" : "正在连接后端…",
+          state.handshake ? "请选择筛选条件。" : "正在启动…",
         );
         return;
       }
@@ -574,6 +576,7 @@ function App() {
   const [page, setPage] = useState("search"),
     [sortMode, setSortMode] = useState("primary"),
     [popup, setPopup] = useState("");
+  useEffect(() => setFeedbackState(""), [popup]);
   const [appVersion, setAppVersion] = useState("");
   useEffect(() => {
     if (!desktop) return;
@@ -2067,9 +2070,9 @@ function App() {
               </button>
             </div>
           </section>
-          <div className="status" role="status">
+          <div className="status">
             {busy && <progress aria-label="搜索进度" />}
-            {status}
+            <Notice text={status} />
           </div>
         </main>
         <aside
@@ -2321,17 +2324,36 @@ function App() {
                   onChange={setShowIds}
                 />
                 <hr />
-                <button
-                  onClick={() =>
-                    void (desktop
-                      ? window.review
-                          .copyLog()
-                          .then(() => setStatus("日志已复制。"))
-                      : copy(logs.current.join("\n")))
-                  }
-                >
-                  复制日志
-                </button>
+                {desktop ? (
+                  <>
+                    <button
+                      disabled={feedbackState === "busy"}
+                      onClick={() => {
+                        setFeedbackState("busy");
+                        void window.review
+                          .exportFeedback()
+                          .then(() => setFeedbackState("saved"))
+                          .catch((e) => {
+                            setFeedbackState("");
+                            setStatus(String(e));
+                          });
+                      }}
+                    >
+                      反馈问题
+                    </button>
+                    {feedbackState === "saved" ? (
+                      <FeedbackSaved />
+                    ) : (
+                      <p className="settings-note">
+                        遇到问题时点这里，会生成一个反馈文件（包含版本信息和最近的操作记录，不含存档内容）。
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <button onClick={() => void copy(logs.current.join("\n"))}>
+                    复制日志
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     if (desktop) {

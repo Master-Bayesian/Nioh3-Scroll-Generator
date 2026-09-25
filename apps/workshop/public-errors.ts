@@ -1,5 +1,24 @@
+const hasCjk = (text: string) => /[㐀-鿿]/.test(text);
+
+/** The message without the `Error:` prefix `String(error)` adds. */
+export function stripErrorPrefix(message: string): string {
+  return message.replace(/^\s*(?:Uncaught\s+)?Error:\s*/, "");
+}
+
+/**
+ * Whether a status value reports a failure. Interface texts are authored in
+ * Chinese, so a value with no Chinese at all came from a backend failure.
+ */
+export function isFailureText(message: string): boolean {
+  const text = message.trim();
+  if (!text) return false;
+  const stripped = stripErrorPrefix(text);
+  return stripped !== text || !hasCjk(stripped) || publicError(stripped) !== stripped;
+}
+
 /** User-facing next steps; the broker keeps full technical errors in rolling logs. */
 export function publicError(message: string): string {
+  if (hasCjk(message)) message = stripErrorPrefix(message);
   const cases: [RegExp, string][] = [
     [
       /GAME_RUNNING|GAME_STATE_UNKNOWN/,
@@ -15,7 +34,7 @@ export function publicError(message: string): string {
     ],
     [
       /INVALID_REQUEST:\s*search\.start/i,
-      "筛选条件无法提交。请更新应用；若仍出现，请复制日志反馈。",
+      "筛选条件无法提交。请更新应用；若仍出现，请导出反馈文件发给开发者。",
     ],
     [
       /Saved defined record fields differ|Saved inventory serial set differs/i,
@@ -43,11 +62,11 @@ export function publicError(message: string): string {
     ],
     [
       /Foreign native receipt/,
-      "实时添加的状态目录里有不属于本工具操作的回执文件，添加已停止，游戏没有被改动。请复制日志反馈。",
+      "实时添加的状态目录里有不属于本工具操作的回执文件，添加已停止，游戏没有被改动。请导出反馈文件发给开发者。",
     ],
     [
       /was rejected after dispatch|Native builder output differs|Native assembly differs/i,
-      "游戏生成的绘卷与预期不一致，这次没有添加，背包和存档都没有改动，可以直接重试。若反复出现，请复制日志反馈。",
+      "游戏生成的绘卷与预期不一致，这次没有添加，背包和存档都没有改动，可以直接重试。若反复出现，请导出反馈文件发给开发者。",
     ],
     [
       /QueryFullProcessImageNameW|PROCESS_INSTANCE_CHANGED|replaced by a different process instance/i,
@@ -68,17 +87,24 @@ export function publicError(message: string): string {
     ],
     [
       /FAVORITE.*INVALID|Unexpected token.*JSON/,
-      "收藏夹文件无法读取，原文件已保留。请复制日志排查。",
+      "收藏夹文件无法读取，原文件已保留。请导出反馈文件发给开发者。",
     ],
   ];
   for (const [pattern, text] of cases) if (pattern.test(message)) return text;
   if (
-    /^Error(?: invoking remote method|:)/.test(message) &&
+    (/^Error(?: invoking remote method|:)/.test(message) ||
+      /^[A-Z][A-Z0-9_]{3,}:/.test(message)) &&
     !/[\u3400-\u9fff]/.test(message)
-  )
-    return "操作未完成，请复制日志排查；涉及写入时，请先核对操作结果。";
+  ) {
+    const code = message.match(/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/)?.[0];
+    return `操作没有完成。${code ? `错误代码：${code}。` : ""}${FAILURE_ADVICE}`;
+  }
   return message;
 }
+
+/** The next step every unexplained failure ends with. */
+export const FAILURE_ADVICE =
+  "涉及写入时，请先核对结果再重试；反复出现请导出反馈文件发给开发者。";
 
 /**
  * A non-empty display text for any rejection value.
@@ -90,7 +116,7 @@ export function publicError(message: string): string {
  */
 export function errorText(
   error: unknown,
-  fallback = "操作未完成，且没有返回错误说明；请复制日志排查。",
+  fallback = "操作没有完成，也没有返回原因；请导出反馈文件发给开发者。",
 ): string {
   if (error instanceof Error && error.message.trim()) return error.message;
   if (typeof error === "string" && error.trim()) return error;

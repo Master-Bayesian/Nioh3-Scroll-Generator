@@ -1,3 +1,4 @@
+import { Notice } from "./Notice";
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import type { CountEdit } from "../../packages/contracts/protected-responses";
 import type { Sample } from "./model";
@@ -201,7 +202,7 @@ export function CountEditor({ sample }: { sample: Sample }) {
             </button>
           </div>
         )}
-        {message && <p role="status">{message}</p>}
+        <Notice text={message} />
       </div>
     </details>
   );

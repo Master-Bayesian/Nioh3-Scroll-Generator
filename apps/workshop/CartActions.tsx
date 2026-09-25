@@ -1,4 +1,5 @@
 import {collectionKey} from "./collections";
+import { Notice } from "./Notice";
 import { PreparedLiveBatchOwner } from "./prepared-live-batch";
 import React, { useState, useSyncExternalStore, useEffect, useRef } from "react";
 import {
@@ -80,7 +81,7 @@ export function SavePicker({ compact = false }: { compact?: boolean }) {
               : []),
           ].map((s) => (
             <option key={s.save_id} value={s.save_id}>
-              账户 {s.account_id} · 存档 {s.save_slot + 1}
+              存档 {s.save_slot + 1}（SAVEDATA{String(s.save_slot).padStart(2, "0")}）· 账户 {s.account_id}
             </option>
           ))}
         </select>
@@ -113,7 +114,17 @@ export function SavePicker({ compact = false }: { compact?: boolean }) {
           核对上次写入结果
         </button>
       )}
-      {(error || state.error) && <p role="alert">{error || state.error}</p>}
+      {!loading && !state.selected && saves.length > 1 && (
+        <p className="save-picker-hint">
+          检测到 {saves.length} 个存档，请在上面选择你正在玩的那一个；选过一次后会自动记住。
+        </p>
+      )}
+      {!loading && !saves.length && !state.selected && !(error || state.error) && (
+        <p className="save-picker-hint">
+          没有找到存档。请先启动一次游戏并进入角色，或点“手动定位”选择 SAVEDATA.BIN。
+        </p>
+      )}
+      <Notice text={error || state.error || ""} tone="error" />
     </div>
   );
 }
@@ -150,6 +161,7 @@ export function DesktopCartActions({
   const [uncertain, setUncertain] = useState(
     () => !!localStorage.getItem("nioh3-review-live-batch"),
   );
+  const [inspectFailed, setInspectFailed] = useState(false);
   const preparedOwner = useRef<PreparedLiveBatchOwner | null>(null);
   if (!preparedOwner.current) {
     preparedOwner.current = new PreparedLiveBatchOwner(async batch => {
@@ -327,7 +339,7 @@ export function DesktopCartActions({
         if (result.live_batch.state !== "uncertain")
           localStorage.removeItem("nioh3-review-live-batch");
         setMessage(
-          `已验证添加 ${result.live_batch.verified_count} / ${result.live_batch.count} 张。${result.live_batch.state === "complete" ? "请在游戏中正常保存。" : "其余操作尚未全部确认，请先核对结果，不要重复添加。"}`,
+          `已验证添加 ${result.live_batch.verified_count} / ${result.live_batch.count} 张。${result.live_batch.state === "complete" ? "游戏背包里已经能看到；之后在游戏里正常存档（例如在神社休息），它才会写进存档文件。" : "其余操作尚未全部确认，请先核对结果，不要重复添加。"}`,
         );
       }
     } catch (error) {
@@ -337,12 +349,17 @@ export function DesktopCartActions({
     }
   }
   async function inspect() {
+    const ref = JSON.parse(
+      localStorage.getItem("nioh3-review-live-batch") || "null",
+    );
+    if (!ref) {
+      // Nothing is waiting: that is an answer, not a failure.
+      setUncertain(false);
+      setMessage("没有待核对的实时添加。");
+      return;
+    }
     setBusy(true);
     try {
-      const ref = JSON.parse(
-        localStorage.getItem("nioh3-review-live-batch") || "null",
-      );
-      if (!ref) throw Error("没有待核对的实时添加。");
       await runtimeObserver!.recover();
       const result = await runtimeObserver!.run(() =>
         window.operations.execute({
@@ -402,6 +419,7 @@ export function DesktopCartActions({
       // Only an unsettled marker keeps new additions closed; a check that found
       // nothing to settle must not lock the view until it is reopened.
       setUncertain(!!localStorage.getItem("nioh3-review-live-batch"));
+      setInspectFailed(true);
       setMessage(String(error));
     } finally {
       setBusy(false);
@@ -444,16 +462,45 @@ export function DesktopCartActions({
           请先回到标题界面。检测到游戏正在同步存档时，程序会无损中止并提示重试。
         </p>
       )}
+      {!state.inventory && (
+        <p className="cart-hint">
+          {state.busy ? "正在读取存档…" : "先在上面选好目标存档，才能核对添加。"}
+        </p>
+      )}
+      {uncertain && (
+        <p className="cart-hint">
+          上次实时添加的结果还没有确认。请先点“核对上次实时添加”，确认后才能继续添加，避免重复。
+        </p>
+      )}
       <button
         disabled={busy || !samples.length || !state.inventory || uncertain}
         onClick={() => void prepare()}
       >
         核对添加
       </button>
-      {(mode === "live" || uncertain) && (
+      {uncertain && (
         <button disabled={busy} onClick={() => void inspect()}>
           核对上次实时添加
         </button>
+      )}
+      {uncertain && inspectFailed && !busy && (
+        <div className="cart-forget">
+          <p>
+            如果游戏已经重启过，上次的结果可能无法再核对。可以先在游戏背包里看那张绘卷在不在，再决定是否继续。
+          </p>
+          <button
+            onClick={() => {
+              // The durable record stays in the backend for later recovery;
+              // only this view's reminder is dropped, at the player's request.
+              localStorage.removeItem("nioh3-review-live-batch");
+              setUncertain(false);
+              setInspectFailed(false);
+              setMessage("已不再提醒上次的实时添加。继续添加前，请先在游戏背包里确认上次那张是否已经加进去，避免重复。");
+            }}
+          >
+            不再核对，继续添加
+          </button>
+        </div>
       )}
       {plan && (
         <div className="prepared-cart">
@@ -486,7 +533,7 @@ export function DesktopCartActions({
           </button>
         </div>
       )}
-      {message && <p role="status">{message}</p>}
+      <Notice text={message} />
     </section>
   );
 }

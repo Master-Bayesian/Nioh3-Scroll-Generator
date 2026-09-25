@@ -9,6 +9,8 @@ export interface ReviewApi {
  openSaveFolder(params:{save_id:string;snapshot_id:string}):Promise<void>;
  log(message:string):Promise<void>;
  copyLog():Promise<void>;
+ /** Write one feedback file (diagnostics and recent log) and show it in Explorer. */
+ exportFeedback():Promise<{path:string}>;
  windowAction(action:'minimize'|'maximize'|'close'):Promise<void>;
  retain(params:{job_id:string;candidate_id:string;source?:'runtime'|'search'}):Promise<{reference_id:string}>;
  release(referenceId:string):Promise<void>;

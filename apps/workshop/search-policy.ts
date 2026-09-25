@@ -49,7 +49,7 @@ export function searchStatusText(job: SearchStatusJob): string {
   const found = job.candidates.length;
   const seconds = (job.elapsed_ms / 1000).toFixed(1);
   if (job.error) return job.error.message;
-  if (job.state === "failed") return "搜索失败，请重试或复制诊断信息。";
+  if (job.state === "failed") return "搜索失败，请重试；反复出现请导出反馈文件发给开发者。";
   if (job.state === "cancelled" || job.stop_reason === "cancelled")
     return "已取消，保留已找到的绘卷。";
   if (job.state !== "completed") return `正在搜索，已找到 ${found} 张绘卷…`;

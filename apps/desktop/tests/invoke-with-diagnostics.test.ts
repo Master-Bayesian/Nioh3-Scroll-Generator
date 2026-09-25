@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createDiagnosticInvoker } from "../src/invoke-with-diagnostics";
 
-test("request failures are logged and copied without replacing the original error", async () => {
+test("request failures are logged without replacing the original error or the clipboard", async () => {
   const calls: Array<{ channel: string; value: unknown }> = [];
   const failure = new Error("BROKER_FAILED");
   const invoke = createDiagnosticInvoker(async (channel, value) => {
@@ -16,7 +16,6 @@ test("request failures are logged and copied without replacing the original erro
     "core:start",
     "review:log",
     "review:log",
-    "review:copy-log",
   ]);
   assert.match(String(calls[0].value), /\[operation\] start/);
   assert.match(String(calls[2].value), /\[operation\] error/);
@@ -36,7 +35,6 @@ test("a failed job payload triggers one automatic capture", async () => {
   assert.deepEqual(calls, [
     "core:snapshot",
     "review:log",
-    "review:copy-log",
     "core:snapshot",
   ]);
 });
@@ -71,13 +69,16 @@ test("nested business failures trigger capture even in a completed worker job", 
     { live_batch: { state: "partial", batch_id: "batch-1" } },
   ]) {
     const captured: string[] = [];
+    const logged: string[] = [];
     const job = { job_id: "j", state: "completed", result };
-    const invoke = createDiagnosticInvoker(async channel => {
+    const invoke = createDiagnosticInvoker(async (channel, value) => {
       captured.push(channel);
+      if (channel === "review:log") logged.push(String(value));
       return channel === "operations:snapshot" ? job : null;
     });
     assert.equal(await invoke("operations:snapshot"), job);
-    assert.equal(captured.filter(c => c === "review:copy-log").length, 1);
+    assert.equal(logged.filter(line => line.startsWith("[automatic-failure]")).length, 1);
+    assert.ok(!captured.includes("review:copy-log"));
   }
 });
 

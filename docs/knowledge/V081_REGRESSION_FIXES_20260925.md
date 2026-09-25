@@ -79,7 +79,9 @@ live addition (seed 102271721, R4) previewed `0x02800002 == 0x02800002`,
 inserted into slot 33 (serial 2505498) with stored flags `0x06800082`, and
 after a normal in-game save the decrypted `SAVEDATA.BIN` held the same record
 and passed `verify_persistence` against the verified live inventory (47/47).
-**Still open:** the offline branch (`A = 0`) live.
+A second online addition with the test6 build (seed 114514, slot 35, serial
+2506389, stored flags `0x06800082`) also verified live; it had not yet been
+saved in game when checked. **Still open:** the offline branch (`A = 0`) live.
 
 The same machine first failed with `Use a canonical operation UUID`: four
 research `v202-noop-<pid>.json` receipts in `live-add/native-executor/`
@@ -93,6 +95,46 @@ cached live-add executor to the dead process (`QueryFullProcessImageNameW ...
 error 31`) when that executor owns no native state; "核对上次实时添加" with
 nothing to check no longer locks "核对添加"; a rejected preview now says that
 nothing was added.
+
+## Closing and stale records never trap the player (owner direction)
+
+The owner's rule: the app must not use its own unresolved state to refuse the
+player. Before, one durable unsettled receipt anywhere in
+`live-add/native-executor/` made the runtime host "busy" (`Live addition
+requires an idle runtime host`), made `safe_to_shutdown` false, and so refused
+both every later addition and closing the window, even when the receipt
+belonged to a game process that had long exited. A dead worker also refused
+closing.
+
+- `ReceiptStore::unresolved_owner_of(pid, creation)`: an unsettled receipt owns
+  only the exact process instance it dispatched into. The Windows transport
+  reads the running instance's creation time and uses it for `ping` busy and
+  dispatch admission. A receipt without an instance still owns (fail closed).
+- `safe_to_shutdown` counts only what lives in this process (a retained
+  allocation or debugger session); `LiveAddOwnership::unsafe_ownership` no
+  longer counts durable unresolved operation ids. `LiveAddApplication::prepare`
+  still refuses a new addition into the same process instance while one of its
+  operations is unresolved, so duplicate protection is unchanged. This matches
+  the Python `RuntimeApplication`, which never counted durable ids.
+- Closing hides the window at once, gives busy workers up to 20 s
+  (`CLOSE_GRACE`) to finish, then exits; an exited worker counts as closed.
+- The add view shows "核对上次实时添加" only while its reminder is set; when
+  that check fails (for example after the game restarted), the player can
+  dismiss the reminder after checking the in-game inventory.
+
+## Interface messages and feedback
+
+- One `Notice` component for status and failure text: failures are styled as
+  such, drop the `Error:` prefix, keep the raw technical text under a
+  collapsed "技术详情", and offer "导出反馈文件".
+- `review:feedback` writes one `feedback/nioh3-feedback-<unix>.txt`
+  (diagnostics plus the last 1 MB of logs) and shows it in Explorer; Settings
+  has the same entry ("反馈问题"). Unexplained failures now name their error
+  code and point to this instead of "请复制日志".
+- A failure no longer copies 128 KB of log into the player's clipboard.
+- With several saves, the last chosen save is selected again, and the picker
+  says how many saves it found instead of silently selecting nothing.
+- The search status no longer mentions the backend.
 
 ## PC v2.02 temporary-override evidence
 

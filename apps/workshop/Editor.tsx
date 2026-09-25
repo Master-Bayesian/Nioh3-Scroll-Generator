@@ -1,3 +1,4 @@
+import { Notice } from "./Notice";
 import {CountEditor} from "./CountEditor";
 import { localize } from "./presentation";
 import { useDialogBackdropDismiss } from "./use-dialog-backdrop-dismiss";
@@ -347,7 +348,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
       // Backend failures reject with plain strings; never leave the status
       // line blank, or the button looks like it did nothing.
       setReview(false);
-      setMessage(errorText(e, "核对失败，且没有返回错误说明；请复制日志排查。"));
+      setMessage(errorText(e, "核对失败，也没有返回原因；请导出反馈文件发给开发者。"));
     } finally {
       setBackendBusy(false);
     }
@@ -1178,7 +1179,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
             核对修改
           </button>
         </div>
-        <p role="status">{message}</p>
+        <Notice text={message} className="editor-notice" />
       </section>
       <aside className="editor-review">
         <h2>修改预览</h2>
