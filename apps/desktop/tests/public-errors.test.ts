@@ -97,3 +97,11 @@ test("an impossible condition set names the clashing effects and what to change"
     /互相冲突/,
   );
 });
+
+test("save and runtime refusals from the Rust layers read like the Python backend did", () => {
+  assert.match(publicError('OPERATION_FAILED: there is no contiguous run of 2 free scroll slots starting at 399'), /400 张/);
+  assert.match(publicError('OPERATION_FAILED: C:\\x\\SAVEDATA.BIN changed after the operation was prepared; refresh before committing'), /重新读取/);
+  assert.match(publicError('OPERATION_FAILED: exactly one Nioh3.exe must be running, but 2 were found'), /多个《仁王3》/);
+  assert.match(publicError('OPERATION_FAILED: OpenProcess(1234) failed with error 5'), /管理员/);
+  assert.match(publicError('OPERATION_FAILED: no authentic scroll template is available for playthrough 3'), /模板/);
+});

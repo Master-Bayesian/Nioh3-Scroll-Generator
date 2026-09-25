@@ -648,3 +648,15 @@ R5 绘卷只有一个深层词条位置，而且它会成为主词条，所以	A
 这个词条组合在游戏里不可能出现，请调整筛选条件后再搜索。	This effect combination can never appear in game. Adjust the conditions and search again.	この効果の組み合わせはゲーム内で出現しません。条件を調整して再検索してください。
 知道了	Got it	了解
 当前条件组合不可能出现，请先按上方提示调整	This condition combination can never appear; adjust it as the hint above says	この条件の組み合わせは出現しません。上の案内に従って調整してください
+存档里没有足够的空绘卷栏位（最多 400 张），本次没有写入。请先在游戏里处理掉一些绘卷再添加。	The save has too few empty scroll slots (400 at most), so nothing was written. Dispose of some scrolls in game first.	空いている絵巻枠が足りません（最大 400 枚）。書き込みは行っていません。先にゲーム内で絵巻を減らしてください。
+目标绘卷栏位已被占用（存档可能刚被游戏修改），已拒绝写入。请点“重新读取”后再试。	The target scroll slot is already taken (the game may have just changed the save), so nothing was written. Use "Reload" and try again.	対象の絵巻枠がすでに使われています（ゲームがセーブを変更した可能性があります）。書き込みを中止しました。「再読み込み」してから再試行してください。
+这个存档里可分配给新绘卷的编号已经用尽，无法再添加，存档没有被修改。	This save has no identifiers left for new scrolls, so nothing can be added. The save was not changed.	このセーブには新しい絵巻に割り当てる番号が残っていません。追加できず、セーブは変更されていません。
+准备期间游戏存档发生了变化（游戏可能刚保存过），本次没有写入。请点“重新读取”后再试。	The save changed while this was being prepared (the game may have just saved), so nothing was written. Use "Reload" and try again.	準備中にセーブが変わりました（ゲームがセーブした可能性があります）。書き込みは行っていません。「再読み込み」してから再試行してください。
+存档里没有可作为模板的同周目绘卷（至少需要一张现有绘卷），本次没有写入。	The save has no scroll of this playthrough to use as a template (at least one is needed), so nothing was written.	テンプレートにできる同じ周回の絵巻がセーブにありません（1枚以上必要です）。書き込みは行っていません。
+无法从这个路径识别存档。请用“手动定位”选择 Savedata\<数字账号>\SAVEDATAxx\SAVEDATA.BIN。	This path is not a recognizable save. Use "Browse…" to pick Savedata\<numeric account>\SAVEDATAxx\SAVEDATA.BIN.	このパスからセーブを識別できません。「手動で指定」で Savedata\<数字のアカウント>\SAVEDATAxx\SAVEDATA.BIN を選んでください。
+这个文件不是《仁王3》的角色存档，或者存档版本不受支持。存档没有被修改。	This file is not a Nioh 3 character save, or its version is not supported. The save was not changed.	このファイルは『仁王3』のキャラクターセーブではないか、未対応のバージョンです。セーブは変更されていません。
+这个备份属于其他账号或其他存档栏位，不能恢复到当前存档。	This backup belongs to another account or save slot and cannot be restored here.	このバックアップは別のアカウントまたはセーブ枠のものなので、ここには復元できません。
+备份文件校验失败（文件可能被改动或损坏），已停止恢复，当前存档没有被修改。	The backup failed its integrity check (it may be altered or damaged). Restore stopped and the current save was not changed.	バックアップの検証に失敗しました（改変または破損の可能性があります）。復元を中止し、現在のセーブは変更されていません。
+检测到同时运行了多个《仁王3》，请只保留一个再试。	More than one Nioh 3 is running. Keep only one and try again.	『仁王3』が複数起動しています。1つだけにしてから再試行してください。
+系统拒绝访问游戏进程。如果游戏或 Steam 是以管理员身份运行的，请也以管理员身份运行本工具。	Windows denied access to the game process. If the game or Steam runs as administrator, run this tool as administrator too.	ゲームプロセスへのアクセスが拒否されました。ゲームまたは Steam を管理者として実行している場合は、このツールも管理者として実行してください。
+游戏还没有完全启动，请进入角色存档后再试。	The game has not finished starting. Load your character and try again.	ゲームの起動がまだ完了していません。キャラクターをロードしてから再試行してください。

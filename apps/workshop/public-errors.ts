@@ -68,6 +68,60 @@ export function publicError(message: string): string {
   const infeasible = message.match(/no solution in the native generation structure: ([\s\S]*)$/);
   if (infeasible) return infeasibleConditions(infeasible[1]);
   const cases: [RegExp, string][] = [
+    // The Rust save and runtime layers report in English; these restore the
+    // explanations the Python backend gave players for the same refusals.
+    [
+      /no contiguous run of \d+ free scroll slots|All 400 scroll slots/i,
+      "存档里没有足够的空绘卷栏位（最多 400 张），本次没有写入。请先在游戏里处理掉一些绘卷再添加。",
+    ],
+    [
+      /slot \d+ is occupied|is not fully zeroed, so it cannot receive/i,
+      "目标绘卷栏位已被占用（存档可能刚被游戏修改），已拒绝写入。请点“重新读取”后再试。",
+    ],
+    [
+      /no unused .+ remains in this save/i,
+      "这个存档里可分配给新绘卷的编号已经用尽，无法再添加，存档没有被修改。",
+    ],
+    [
+      /changed after the operation was prepared/i,
+      "准备期间游戏存档发生了变化（游戏可能刚保存过），本次没有写入。请点“重新读取”后再试。",
+    ],
+    [
+      /no authentic scroll template is available/i,
+      "存档里没有可作为模板的同周目绘卷（至少需要一张现有绘卷），本次没有写入。",
+    ],
+    [
+      /has no numeric Steam account directory|is not a SAVEDATA\?\? directory entry|is not a readable save root directory/i,
+      "无法从这个路径识别存档。请用“手动定位”选择 Savedata\\<数字账号>\\SAVEDATAxx\\SAVEDATA.BIN。",
+    ],
+    [
+      /not a shipped container size|must (?:start with|decrypt to a buffer starting with) RNNUSR|save is too small for the fixed inventory region/i,
+      "这个文件不是《仁王3》的角色存档，或者存档版本不受支持。存档没有被修改。",
+    ],
+    [
+      /backup account \d+ slot \d+|does not match the save path account/i,
+      "这个备份属于其他账号或其他存档栏位，不能恢复到当前存档。",
+    ],
+    [
+      /digest mismatch: expected/i,
+      "备份文件校验失败（文件可能被改动或损坏），已停止恢复，当前存档没有被修改。",
+    ],
+    [
+      /commit finished in an unprovable state/i,
+      "写入结果无法确认。请先核对存档和操作记录，不要重复添加。",
+    ],
+    [
+      /exactly one .+ must be running, but \d+ were found|AMBIGUOUS_PROCESS/,
+      "检测到同时运行了多个《仁王3》，请只保留一个再试。",
+    ],
+    [
+      /OpenProcess\(\d+\) failed with error 5\b/,
+      "系统拒绝访问游戏进程。如果游戏或 Steam 是以管理员身份运行的，请也以管理员身份运行本工具。",
+    ],
+    [
+      /module .+ was not found in process/i,
+      "游戏还没有完全启动，请进入角色存档后再试。",
+    ],
     [
       /GAME_RUNNING|GAME_STATE_UNKNOWN/,
       "请完全关闭《仁王3》后再写入存档。本次没有修改存档。",
