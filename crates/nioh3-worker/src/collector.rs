@@ -160,6 +160,19 @@ pub trait CandidateSource: Send + Sync {
         trial: u64,
         grace: Option<&nioh3_domain::effect::GraceMap>,
     ) -> Result<MaterializedCandidate, CollectorError>;
+
+    /// Resolve the parts of a parsed query that need the context-bound tables.
+    ///
+    /// `SearchQuery.from_payload` resolves terrain option ids to their exact
+    /// row union and checks every selected Grace against the rarity's final
+    /// Grace set. The parser cannot see the tables, so the job layer calls this
+    /// once, before the query is compiled, and the compiler, the page filters
+    /// and the final acceptance all read the same resolved query. The default
+    /// leaves the query unchanged, for sources that carry no tables.
+    fn resolve_query(&self, query: &mut SearchQuery) -> Result<(), CollectorError> {
+        let _ = query;
+        Ok(())
+    }
 }
 
 /// Message a failed job reports while no bounded collector is compiled in.
@@ -206,6 +219,12 @@ pub fn native_factory(
     application_root: &Path,
     accelerator_override: Option<&Path>,
     data_root: &Path,
+    resource_version: Option<(u16, u16, u16, u16)>,
 ) -> Option<Arc<dyn SearchFactory>> {
-    crate::query_compile::native_factory(application_root, accelerator_override, data_root)
+    crate::query_compile::native_factory(
+        application_root,
+        accelerator_override,
+        data_root,
+        resource_version,
+    )
 }

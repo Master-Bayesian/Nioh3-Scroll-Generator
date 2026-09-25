@@ -291,6 +291,45 @@ impl Materializer {
 }
 
 impl CandidateSource for Materializer {
+    /// Resolve terrain options and check Grace choices against this context's
+    /// own tables, exactly as `SearchQuery.from_payload` does with the shipped
+    /// resolver and Grace maps.
+    fn resolve_query(&self, query: &mut crate::query::SearchQuery) -> Result<(), CollectorError> {
+        let resources = self
+            .resources()
+            .map_err(|error| CollectorError::new(error.code, error.message))?;
+        query.auxiliary.terrain_row_indices = crate::terrain::resolve_terrain_selections(
+            &resources.preview.roster.terrains,
+            &query.terrain_selection_ids,
+        )
+        .map_err(|message| CollectorError::new("INVALID_REQUEST", message))?;
+        if !query.grace_effect_ids.is_empty() {
+            // Rarity 4 offers the verified final Grace ids, never the raw
+            // stage-one output codes; rarity 5 offers its measured map's ids.
+            let allowed: Vec<u32> = match query.rarity {
+                4 => catalog::R4_FINAL_GRACE_IDS.to_vec(),
+                5 => resources
+                    .effect
+                    .grace_maps
+                    .get(1)
+                    .map(|map| map.ranges.iter().map(|range| range.effect_id).collect())
+                    .unwrap_or_default(),
+                _ => Vec::new(),
+            };
+            if query
+                .grace_effect_ids
+                .iter()
+                .any(|effect_id| !allowed.contains(effect_id))
+            {
+                return Err(CollectorError::new(
+                    "INVALID_REQUEST",
+                    "Grace choices do not belong to this rarity",
+                ));
+            }
+        }
+        Ok(())
+    }
+
     fn materialize(
         &self,
         query: &crate::query::SearchQuery,
@@ -415,6 +454,14 @@ fn auxiliary_criteria_match(
             &terrain,
             &query.auxiliary.required_terrain_effect_key_groups,
         )
+    {
+        return false;
+    }
+    // `AuxiliarySearchCriteria.matches_terrain`: a resolved option selection
+    // is an exact row union on top of the key requirements above.
+    if !query.auxiliary.terrain_row_indices.is_empty()
+        && !u32::try_from(auxiliary.terrain.selected_row_index)
+            .is_ok_and(|row| query.auxiliary.terrain_row_indices.contains(&row))
     {
         return false;
     }
@@ -689,7 +736,15 @@ impl Engine {
         ));
         let jobs = JobStore::new(
             &context_digest,
-            collector::native_factory(application_root, accelerator_path.as_deref(), data_root),
+            // The compiler reads the same resource bundle the materializer
+            // composes from, so a search never filters on one version's
+            // tables and publishes candidates built from another's.
+            collector::native_factory(
+                application_root,
+                accelerator_path.as_deref(),
+                data_root,
+                materializer.resource_version(),
+            ),
             Arc::clone(&materializer) as Arc<dyn CandidateSource>,
         )
         .ok_or_else(|| {

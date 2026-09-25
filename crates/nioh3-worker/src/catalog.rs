@@ -35,8 +35,7 @@ use std::sync::{Arc, Mutex};
 
 use nioh3_data::PreviewResources;
 use nioh3_domain::auxiliary::{
-    describe_special_rule, legal_special_rule_keys, terrain_display_effect_keys, SpecialRuleEntry,
-    SpecialRuleTables,
+    describe_special_rule, legal_special_rule_keys, SpecialRuleEntry, SpecialRuleTables,
 };
 use nioh3_domain::effect::{
     EffectResourceBytes, EffectTableIndex, NativeWeightContext, SCROLL_RECORD_TYPES,
@@ -74,12 +73,10 @@ const SELF_QUALIFIER_TEXT_ID: &str = "0x034ba650";
 ///
 /// A rarity-4 map lists a stage-one output code per bucket; only the ids that
 /// are verified final Grace ids may be presented as selectable Graces.
-const R4_FINAL_GRACE_IDS: [u32; 21] = [
+pub(crate) const R4_FINAL_GRACE_IDS: [u32; 21] = [
     0x6553, 0xCE68, 0xBABD, 0xEEEA, 0x16E2, 0x4192, 0x47EC, 0x4FE4, 0xEB61, 0x23E5, 0x2AE6, 0x8CCC,
     0xB24F, 0x5012, 0x7BEA, 0x590C, 0x4FA3, 0xB1E9, 0xE8EB, 0x7ECE, 0x71F6,
 ];
-/// Terrain `+0x30` magnitude byte inside one 52-byte terrain row.
-const TERRAIN_VALUE_OFFSET: usize = 0x30;
 
 /// `catalog.py` `BETA_EFFECTS`: the curated player-facing name overlay.
 ///
@@ -1034,65 +1031,39 @@ fn grace_effects(
 }
 
 /// `catalog_application.terrain_choices` rendered for one locale.
+///
+/// The option ids and their order come from [`crate::terrain::terrain_choices`],
+/// the same resolver the search uses, so a published option always selects the
+/// rows it names.
 fn terrain_options(
     roster: &RosterTables,
     names: &AuxiliaryNameCatalog,
     locale: &str,
 ) -> Vec<Value> {
-    // First occurrence order of each key tuple, exactly like the reference's
-    // insertion-ordered dict.
-    let mut combinations: Vec<Vec<u16>> = Vec::new();
-    for row in roster.terrains.iter() {
-        let keys = terrain_display_effect_keys(row, row[TERRAIN_VALUE_OFFSET]);
-        if !combinations.contains(&keys) {
-            combinations.push(keys);
-        }
-    }
-    let aggregate_keys: BTreeSet<u16> = combinations
-        .iter()
-        .flat_map(|keys| keys.iter().copied())
-        .collect();
-
-    let mut options: Vec<Value> = Vec::new();
-    for keys in &combinations {
-        let display = keys
-            .iter()
-            .map(|key| names.terrain_effect_name(*key))
-            .collect::<Vec<_>>()
-            .join(" + ");
-        let display = if display.is_empty() {
-            render_label(locale, "no_terrain", None, None)
-        } else {
-            display
-        };
-        options.push(json!({
-            "option_id": format!(
-                "exact:{}",
-                keys.iter().map(|key| format!("{key:X}")).collect::<Vec<_>>().join(",")
-            ),
-            "name": display,
-            "effect_keys": keys,
-            "aggregate": false,
-        }));
-    }
-    for key in aggregate_keys {
-        if combinations
-            .iter()
-            .filter(|keys| keys.contains(&key))
-            .count()
-            <= 1
-        {
-            continue;
-        }
-        let display = names.terrain_effect_name(key);
-        options.push(json!({
-            "option_id": format!("contains:{key:X}"),
-            "name": render_label(locale, "contains", Some(&display), None),
-            "effect_keys": [key],
-            "aggregate": true,
-        }));
-    }
-    options
+    crate::terrain::terrain_choices(&roster.terrains)
+        .into_iter()
+        .map(|choice| {
+            let display = choice
+                .keys
+                .iter()
+                .map(|key| names.terrain_effect_name(*key))
+                .collect::<Vec<_>>()
+                .join(" + ");
+            let name = if choice.aggregate {
+                render_label(locale, "contains", Some(&display), None)
+            } else if display.is_empty() {
+                render_label(locale, "no_terrain", None, None)
+            } else {
+                display
+            };
+            json!({
+                "option_id": choice.option_id,
+                "name": name,
+                "effect_keys": choice.keys,
+                "aggregate": choice.aggregate,
+            })
+        })
+        .collect()
 }
 
 /// `catalog_application.auxiliary_catalog`'s `enemy_options`.

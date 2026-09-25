@@ -212,13 +212,23 @@ impl JobStore {
                 "Refresh the worker handshake before searching",
             ));
         }
-        let query = match SearchQuery::from_payload(query_payload) {
+        let mut query = match SearchQuery::from_payload(query_payload) {
             Ok(query) => query,
             Err(error) => {
                 self.alive.store(false, Ordering::Release);
                 return Err(error);
             }
         };
+        // Terrain options and Grace choices are resolved against the same
+        // context-bound tables the candidates are composed from, once, so the
+        // compiler, the page filters and the final acceptance agree.
+        if let Err(error) = self.source.resolve_query(&mut query) {
+            self.alive.store(false, Ordering::Release);
+            return Err(match error.code.as_str() {
+                "INVALID_REQUEST" => RequestError::invalid_request_message(error.message),
+                _ => RequestError::new("RESOURCE_MISMATCH", error.message),
+            });
+        }
         // `SearchJobs.start`'s cache binding. NG4/NG5 runs only against an exact
         // save-bound rarity-5 map whose record type matches the playthrough;
         // NG3 always uses its certified bundled map and never takes a cache.
@@ -718,6 +728,20 @@ fn accepts(query: &SearchQuery, materialized: &MaterializedCandidate) -> bool {
     {
         return false;
     }
+    // `c.grace is not None and c.grace.effect_id in query.grace_effect_ids`.
+    // The UI always sends a single choice in the list as well; a lone
+    // `grace_effect_id` is held to the same final-Grace test so no route can
+    // publish a candidate whose actual Grace differs from the selection.
+    let graces: Vec<u32> = if query.grace_effect_ids.is_empty() {
+        query.grace_effect_id.into_iter().collect()
+    } else {
+        query.grace_effect_ids.clone()
+    };
+    if !graces.is_empty()
+        && !candidate_grace(candidate).is_some_and(|effect_id| graces.contains(&effect_id))
+    {
+        return false;
+    }
     if !query.grouped_rolls.is_empty() {
         // `c.effects[0 if not query.request.primary_effect_ids else 1:]`.
         let offset = usize::from(!query.primary_effect_ids.is_empty());
@@ -746,6 +770,24 @@ fn accepts(query: &SearchQuery, materialized: &MaterializedCandidate) -> bool {
         return false;
     }
     true
+}
+
+/// `models.ScrollCandidate.grace`: the final Grace a composed candidate carries.
+///
+/// Rarity 5 always ends in its Grace (zero-based index 5). A rarity-4 record
+/// keeps a Grace only when its fifth effect survived finalization as a
+/// verified final Grace id with the fixed bit set; a slot the finalizer
+/// replaced with an ordinary effect is not a Grace even if the id coincides.
+pub(crate) fn candidate_grace(candidate: &Candidate) -> Option<u32> {
+    match candidate.rarity {
+        5 => candidate.effects.get(5).map(|effect| effect.effect_id),
+        4 => candidate.effects.get(4).and_then(|effect| {
+            (crate::catalog::R4_FINAL_GRACE_IDS.contains(&effect.effect_id)
+                && (effect.metadata >> 16) & 0x02 != 0)
+                .then_some(effect.effect_id)
+        }),
+        _ => None,
+    }
 }
 
 /// `effect_occurrences.matches_occurrences`: display-slot requirements without
@@ -1988,5 +2030,75 @@ mod tests {
             binding("digest", CONTEXT, true, false, Some("cache")),
             format!("digest:{CONTEXT}:True:False:cache")
         );
+    }
+
+    fn grace_effect(slot: u32, effect_id: u32, effect_flags: u32) -> CandidateEffect {
+        CandidateEffect {
+            slot,
+            effect_id,
+            value: 1,
+            metadata: effect_flags << 16,
+            prefix: 0,
+            tail_0: 0,
+            tail_1: 0,
+            roll_percent: Some(0),
+        }
+    }
+
+    fn graced(rarity: u8, effects: Vec<CandidateEffect>) -> MaterializedCandidate {
+        MaterializedCandidate {
+            candidate: Candidate {
+                seed: 1,
+                playthrough: Some(3),
+                rarity,
+                record_stage: RecordStage::EffectSequenceOnly,
+                record: Vec::new(),
+                installation_record: None,
+                effects,
+                joint_search_trial: Some(1),
+            },
+            payload: Value::Null,
+            auxiliary_match: Some(true),
+            enemy_occurrence_match: Some(true),
+        }
+    }
+
+    /// `c.grace is not None and c.grace.effect_id in query.grace_effect_ids`:
+    /// the rarity-5 Grace is the sixth effect; a rarity-4 Grace exists only when
+    /// the fifth effect survived as a verified final Grace with the fixed bit.
+    #[test]
+    fn the_final_grace_filter_matches_the_shipped_candidate_grace() {
+        let query = |rarity: u8, graces: Value| {
+            let mut payload = query_payload(rarity, "flat");
+            payload["grace_effect_ids"] = graces;
+            SearchQuery::from_payload(&payload).expect("valid")
+        };
+        let ordinary = |slot| grace_effect(slot, 0x1000 + slot, 0);
+
+        let r5 = query(5, json!([0x6553, 0xCE68]));
+        let mut effects: Vec<CandidateEffect> = (1..=5).map(ordinary).collect();
+        effects.push(grace_effect(6, 0xCE68, 0x02));
+        assert!(accepts(&r5, &graced(5, effects.clone())));
+        effects[5].effect_id = 0xBABD;
+        assert!(!accepts(&r5, &graced(5, effects)));
+        assert!(
+            !accepts(&r5, &graced(5, (1..=5).map(ordinary).collect())),
+            "a candidate with no Grace never matches a Grace selection"
+        );
+
+        let r4 = query(4, json!([0x6553]));
+        let mut effects: Vec<CandidateEffect> = (1..=4).map(ordinary).collect();
+        effects.push(grace_effect(5, 0x6553, 0x02));
+        assert!(accepts(&r4, &graced(4, effects.clone())));
+        effects[4].metadata = 0;
+        assert!(
+            !accepts(&r4, &graced(4, effects)),
+            "a slot the finalizer replaced is not a Grace even if the id coincides"
+        );
+        // An ordinary effect that happens to carry the id elsewhere is not a
+        // Grace either.
+        let mut effects: Vec<CandidateEffect> = vec![grace_effect(1, 0x6553, 0x02)];
+        effects.extend((2..=5).map(ordinary));
+        assert!(!accepts(&r4, &graced(4, effects)));
     }
 }

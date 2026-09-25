@@ -17,7 +17,10 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
-use nioh3_data::{load_effect_resource, load_preview_resources};
+use nioh3_data::{
+    load_effect_resource, load_effect_resource_for_file_version, load_preview_resources,
+    load_preview_resources_for_file_version,
+};
 use nioh3_domain::auxiliary::terrain_display_effect_keys_for_row;
 use nioh3_domain::effect::{
     CandidatePoolRequest, EffectTableIndex, GraceMap, NativeWeightContext, EFFECT_FLAG_PROMOTED,
@@ -239,12 +242,37 @@ pub struct QueryCompiler {
 }
 
 impl QueryCompiler {
-    /// Load and verify every table the compiler consumes.
+    /// Load and verify every table the compiler consumes, from the shipped
+    /// legacy v2.00.02 payload.
+    ///
+    /// Kept for the historical fixtures; a production worker compiles with
+    /// [`QueryCompiler::load_for_resource_version`] so its searches read the
+    /// same tables its candidates are composed from.
     pub fn load(data_root: &Path) -> Result<Self, CompileError> {
-        let preview = load_preview_resources(data_root)
-            .map_err(|error| CompileError::data(format!("preview resources: {error}")))?;
-        let effect_bytes = load_effect_resource(data_root)
-            .map_err(|error| CompileError::data(format!("effect resource: {error}")))?;
+        Self::load_for_resource_version(data_root, None)
+    }
+
+    /// Load the tables bound to one exact executable version.
+    ///
+    /// `resource_version` is the value the worker hands its `Materializer`, so
+    /// the compiler, the page filters and the composed candidates all consume
+    /// one resource bundle. `None` selects the shipped legacy payload for both
+    /// halves, exactly like `Materializer::with_resource_version(.., None)`;
+    /// an unregistered version fails closed and never falls back to it.
+    pub fn load_for_resource_version(
+        data_root: &Path,
+        resource_version: Option<(u16, u16, u16, u16)>,
+    ) -> Result<Self, CompileError> {
+        let preview = match resource_version {
+            Some(version) => load_preview_resources_for_file_version(data_root, version),
+            None => load_preview_resources(data_root),
+        }
+        .map_err(|error| CompileError::data(format!("preview resources: {error}")))?;
+        let effect_bytes = match resource_version {
+            Some(version) => load_effect_resource_for_file_version(data_root, version),
+            None => load_effect_resource(data_root),
+        }
+        .map_err(|error| CompileError::data(format!("effect resource: {error}")))?;
         let effect_index = EffectTableIndex::from_resource(&effect_bytes)
             .map_err(|error| CompileError::data(format!("effect tables: {error:?}")))?;
         let r4_grace = effect_bytes
@@ -407,10 +435,14 @@ impl QueryCompiler {
                 "Grace choices do not belong to this rarity",
             ));
         }
-        if !query.terrain_selection_ids.is_empty() {
-            return Err(CompileError::unsupported(
-                "terrain option ids have no shipped reference implementation to compile against \
-                 yet; this development worker rejects them instead of guessing a row mapping",
+        // Terrain option ids arrive resolved: the job layer turned them into
+        // `auxiliary.terrain_row_indices` with the shared `crate::terrain`
+        // resolver. A selection that was never resolved must not be dropped.
+        if !query.terrain_selection_ids.is_empty() && query.auxiliary.terrain_row_indices.is_empty()
+        {
+            return Err(CompileError::Rejected(
+                "terrain options were not resolved against the context-bound terrain table"
+                    .to_string(),
             ));
         }
 
@@ -467,7 +499,12 @@ impl QueryCompiler {
         {
             return self.compile_full_family(query, accelerator);
         }
-        if query.rarity != 5 && !query_has_effect_constraints(query) {
+        // An unconstrained search - or one whose only criteria are job-layer
+        // filters such as a challenge count - is the shipped fixed-draw replay
+        // over the full seed family at every rarity. The rarity-5 record and its
+        // Grace are composed per accepted Seed from the context-bound map (or the
+        // registered save-bound map on the cached NG4/NG5 route).
+        if !query_has_effect_constraints(query) {
             return self.compile_full_family(query, accelerator);
         }
         // Everything left names at least one ordinary-effect criterion, so it is
@@ -476,13 +513,6 @@ impl QueryCompiler {
         // named, and the certified recomposition of every survivor.
         if query_has_effect_constraints(query) {
             return self.compile_partial_effect_filter(query, accelerator);
-        }
-        if query.rarity == 5 {
-            return Err(CompileError::unsupported(
-                "an unconstrained rarity-5 search needs the shipped fixed-draw replay over the \
-                 full seed family with the rarity-5 Grace context, which this development worker \
-                 does not compile yet",
-            ));
         }
         // The arms above cover every shape this worker compiles; anything that
         // reaches here is refused by the arm that owns its missing route rather
@@ -911,13 +941,17 @@ impl QueryCompiler {
             values: self.full_family_values(),
             spec,
         };
+        let has_terrain_constraint = page_filter
+            .auxiliary
+            .as_ref()
+            .is_some_and(|spec| spec.has_terrain_constraint);
         Ok(CompiledQuery {
             route: Route::R4Primary,
             digest: query.digest.clone(),
             native,
             playthrough: query.playthrough,
             rarity: query.rarity,
-            has_terrain_constraint: false,
+            has_terrain_constraint,
             stage_specs: Vec::new(),
             chunk_trials: R4_PRIMARY_CHUNK_TRIALS,
             page_filter: Some(page_filter),
@@ -1021,6 +1055,35 @@ impl QueryCompiler {
                         query.rarity
                     ))
                 })?
+            }
+            // Several selected Graces are an OR: the pivot is the union of each
+            // Grace's draw-1 preimage, walked in the permuted family order so the
+            // cursor space is deterministic. The exact final Grace is decided by
+            // the job layer's `grace_effect_ids` acceptance.
+            None if !query.grace_effect_ids.is_empty() => {
+                let map = special_mapping.ok_or_else(|| {
+                    CompileError::data(format!(
+                        "the rarity-{} Grace map is not present in the product resource",
+                        query.rarity
+                    ))
+                })?;
+                let mut allowed = std::collections::BTreeSet::new();
+                for grace in sorted_unique(&query.grace_effect_ids) {
+                    // A Grace this map can never produce contributes no Seed.
+                    if let Ok(values) = crate::effect_path::grace_pivot_values(grace, map) {
+                        allowed.extend(values);
+                    }
+                }
+                if allowed.is_empty() {
+                    return Err(CompileError::Rejected(format!(
+                        "none of the selected rarity-{} Graces has a draw-1 preimage",
+                        query.rarity
+                    )));
+                }
+                self.full_family_values()
+                    .into_iter()
+                    .filter(|value| allowed.contains(value))
+                    .collect()
             }
             None => self.full_family_values(),
         };
@@ -1478,7 +1541,11 @@ impl QueryCompiler {
                 return Ok(false);
             }
         }
-        Ok(true)
+        // `terrain_row_matches_criteria`: the resolved option rows are an exact
+        // row union on top of the key requirements.
+        Ok(criteria.terrain_row_indices.is_empty()
+            || u32::try_from(row_index)
+                .is_ok_and(|row| criteria.terrain_row_indices.contains(&row)))
     }
 
     fn optional_multiplier_threshold(&self, key: u32) -> Result<i32, CompileError> {
@@ -1700,12 +1767,14 @@ pub fn auxiliary_is_empty(criteria: &crate::query::AuxiliaryCriteria) -> bool {
         && criteria.required_special_rule_key_groups.is_empty()
         && criteria.required_enemy_lookup_keys.is_empty()
         && criteria.required_enemy_lookup_key_groups.is_empty()
+        && criteria.terrain_row_indices.is_empty()
 }
 
 /// `_has_terrain_constraints`.
 pub fn auxiliary_has_terrain(criteria: &crate::query::AuxiliaryCriteria) -> bool {
     !criteria.required_terrain_effect_keys.is_empty()
         || !criteria.required_terrain_effect_key_groups.is_empty()
+        || !criteria.terrain_row_indices.is_empty()
 }
 
 /// Whether the query carries any effect constraint of its own.
@@ -1740,6 +1809,9 @@ pub fn post_acceptance_filters(query: &SearchQuery) -> Vec<&'static str> {
     }
     if !query.initial_challenge_counts.is_empty() {
         filters.push("initial_challenge_counts");
+    }
+    if !query.grace_effect_ids.is_empty() {
+        filters.push("grace_effect_ids");
     }
     filters
 }
@@ -1837,11 +1909,13 @@ pub fn native_factory(
     application_root: &Path,
     accelerator_override: Option<&Path>,
     data_root: &Path,
+    resource_version: Option<(u16, u16, u16, u16)>,
 ) -> Option<Arc<dyn SearchFactory>> {
     Some(Arc::new(NativeSearchFactory::new(
         application_root,
         accelerator_override,
         data_root,
+        resource_version,
     )))
 }
 
@@ -1853,10 +1927,13 @@ pub struct NativeSearchFactory {
 }
 
 impl NativeSearchFactory {
+    /// `resource_version` must be the version the worker's `Materializer`
+    /// composes candidates with; see [`QueryCompiler::load_for_resource_version`].
     pub fn new(
         application_root: &Path,
         accelerator_override: Option<&Path>,
         data_root: &Path,
+        resource_version: Option<(u16, u16, u16, u16)>,
     ) -> Self {
         Self {
             accelerator: Accelerator::load(application_root, accelerator_override).map(Arc::new),
@@ -1865,7 +1942,7 @@ impl NativeSearchFactory {
                 crate::preimage::PreimageAccelerator::load(application_root, Some(&path))
                     .map(Arc::new)
             },
-            compiler: QueryCompiler::load(data_root),
+            compiler: QueryCompiler::load_for_resource_version(data_root, resource_version),
         }
     }
 
@@ -2774,5 +2851,279 @@ mod tests {
             union, full.matches,
             "cancel plus resume must reproduce the uninterrupted stream"
         );
+    }
+
+    /// The production worker hands its compiler the exact version its
+    /// materializer composes with. PC v2.02 changed the `optional_multiplier`
+    /// table, so a compiler that silently kept the legacy payload would pack
+    /// different thresholds than the candidates it publishes were built from.
+    #[test]
+    fn the_compiler_reads_the_materializer_resource_version() {
+        let data_root = repo_root().join("nioh3_scroll_editor").join("data");
+        let legacy = QueryCompiler::load(&data_root).expect("the legacy tables load");
+        let current = QueryCompiler::load_for_resource_version(
+            &data_root,
+            Some(nioh3_data::CURRENT_RESOURCE_VERSION),
+        )
+        .expect("the current tables load");
+        let current_resource = nioh3_data::load_preview_resources_for_file_version(
+            &data_root,
+            nioh3_data::CURRENT_RESOURCE_VERSION,
+        )
+        .expect("the current preview tables load");
+        assert_eq!(
+            current.optional_multipliers, current_resource.context.optional_multipliers,
+            "the compiler consumes the selected version's optional multipliers"
+        );
+        assert_ne!(
+            current.optional_multipliers, legacy.optional_multipliers,
+            "PC v2.02 owns a different optional_multiplier table"
+        );
+        // An unregistered version fails closed instead of reusing the legacy
+        // payload.
+        assert!(QueryCompiler::load_for_resource_version(&data_root, Some((9, 9, 9, 9))).is_err());
+    }
+
+    fn resolved(materializer: &Materializer, payload: serde_json::Value) -> SearchQuery {
+        let mut query = SearchQuery::from_payload(&payload).expect("the query shape is valid");
+        materializer
+            .resolve_query(&mut query)
+            .expect("the query resolves against the context tables");
+        query
+    }
+
+    fn base_payload(rarity: u8) -> serde_json::Value {
+        json!({
+            "playthrough": 3,
+            "rarity": rarity,
+            "level": 180,
+            "primary_effect_ids": [],
+            "required_secondary_ids": [],
+            "required_secondary_id_groups": [],
+            "grace_effect_id": null,
+            "minimum_roll_percent_by_effect_id": [],
+            "auxiliary": {
+                "required_terrain_effect_keys": [],
+                "required_terrain_effect_key_groups": [],
+                "required_special_rule_keys": [],
+                "required_special_rule_key_groups": [],
+                "required_enemy_lookup_keys": [],
+                "required_enemy_lookup_key_groups": [],
+            },
+        })
+    }
+
+    /// Terrain option ids used to be refused outright. They now resolve to the
+    /// reference row union, the fused native mask carries exactly those rows,
+    /// and on the R4 primary route (which does not pivot on the auxiliary
+    /// criteria) the native predicate and the composed final acceptance agree
+    /// on every match of a bounded window.
+    #[test]
+    fn terrain_options_compile_to_their_row_union_and_are_enforced() {
+        let root = repo_root();
+        let data_root = root.join("nioh3_scroll_editor").join("data");
+        let version = Some(nioh3_data::CURRENT_RESOURCE_VERSION);
+        let compiler = QueryCompiler::load_for_resource_version(&data_root, version)
+            .expect("the current tables load");
+        let materializer =
+            Materializer::with_resource_version(&data_root, "terrain-option-test", version);
+        let accelerator = Accelerator::load(&root, None).expect("the shipped accelerator loads");
+        let backend = SearchBackend::from_shared(Arc::new(
+            Accelerator::load(&root, None).expect("the shipped accelerator loads twice"),
+        ));
+
+        let choices = crate::terrain::terrain_choices(&compiler.terrains);
+        let aggregate = choices
+            .iter()
+            .find(|choice| choice.aggregate)
+            .expect("the shipped table publishes a contains: option");
+        let none = choices
+            .iter()
+            .find(|choice| choice.option_id == "exact:")
+            .expect("the shipped table publishes the no-effect option");
+
+        // Auxiliary-only: the fused route's mask is exactly the row union.
+        let mut payload = base_payload(4);
+        payload["terrain_selection_ids"] = json!([aggregate.option_id, none.option_id]);
+        let query = resolved(&materializer, payload);
+        let expected: Vec<u32> = aggregate.rows.union(&none.rows).copied().collect();
+        assert_eq!(query.auxiliary.terrain_row_indices, expected);
+        let compiled = compiler
+            .compile(&query, &accelerator, false)
+            .expect("a terrain-only query compiles");
+        assert_eq!(compiled.route, Route::Auxiliary);
+        assert!(compiled.has_terrain_constraint);
+        let NativePivotQuery::Auxiliary { spec, .. } = &compiled.native else {
+            panic!("a terrain-only query takes the fused auxiliary route");
+        };
+        let masked: Vec<u32> = spec
+            .allowed_terrain_rows
+            .iter()
+            .enumerate()
+            .filter(|(_, allowed)| **allowed != 0)
+            .map(|(row, _)| row as u32)
+            .collect();
+        assert_eq!(masked, expected);
+
+        // An unknown option is refused, never guessed.
+        let mut unknown = SearchQuery::from_payload(&{
+            let mut payload = base_payload(4);
+            payload["terrain_selection_ids"] = json!(["exact:1"]);
+            payload
+        })
+        .expect("the shape is valid");
+        let error = materializer
+            .resolve_query(&mut unknown)
+            .expect_err("an unknown option id is refused");
+        assert!(error.message.contains("Unknown terrain option"));
+
+        // R4 primary plus terrain: the page filter decides the terrain and the
+        // composed acceptance agrees with it seed for seed.
+        let mut payload = base_payload(4);
+        payload["primary_effect_ids"] = json!([0x774F]);
+        payload["terrain_selection_ids"] = json!([aggregate.option_id]);
+        let query = resolved(&materializer, payload);
+        let compiled = compiler
+            .compile(&query, &accelerator, false)
+            .expect("the R4 primary route compiles with a terrain option");
+        assert_eq!(compiled.route, Route::R4Primary);
+        assert!(compiled.has_terrain_constraint);
+        let predicate = compiled
+            .page_filter
+            .as_ref()
+            .and_then(|filter| filter.auxiliary.as_ref())
+            .expect("the R4 primary route carries the terrain predicate");
+        let _policy = backend
+            .pin_policy(ExecutionPolicy::AllowBulkCpu)
+            .expect("the test's explicit bulk-CPU policy is accepted");
+        let page = backend
+            .collect_page(
+                &compiled.native,
+                &PageRequest::chunk(0, 100_000, compiled.chunk_trials, 1_000_000),
+                &|| false,
+            )
+            .expect("a bounded R4 primary page");
+        let seeds: Vec<u32> = page.matches.iter().map(|matched| matched.seed).collect();
+        let selected = backend
+            .auxiliary_criteria_selected(predicate, &seeds)
+            .expect("the native predicate runs");
+        let (mut accepted, mut rejected) = (0usize, 0usize);
+        for (matched, keep) in page.matches.iter().zip(&selected) {
+            let materialized = materializer
+                .materialize(&query, matched.seed, matched.trial, None)
+                .expect("every R4 primary match composes");
+            assert_eq!(*keep, materialized.auxiliary_match == Some(true));
+            if *keep {
+                let preview = materializer
+                    .compose(matched.seed, 4, 180, None)
+                    .expect("an accepted seed composes")
+                    .3;
+                assert!(aggregate
+                    .rows
+                    .contains(&(preview.auxiliary.terrain.selected_row_index as u32)));
+                accepted += 1;
+            } else {
+                rejected += 1;
+            }
+        }
+        assert!(
+            accepted > 0 && rejected > 0,
+            "the window must exercise both verdicts ({accepted} accepted, {rejected} rejected)"
+        );
+    }
+
+    /// Several selected Graces are an OR. The partial-effect route pivots on
+    /// the union of their draw-1 preimages, and the job layer's final Grace
+    /// acceptance keeps exactly the candidates whose actual Grace is selected.
+    #[test]
+    fn several_selected_graces_pivot_on_their_union_and_filter_the_final_grace() {
+        let root = repo_root();
+        let data_root = root.join("nioh3_scroll_editor").join("data");
+        let version = Some(nioh3_data::CURRENT_RESOURCE_VERSION);
+        let compiler = QueryCompiler::load_for_resource_version(&data_root, version)
+            .expect("the current tables load");
+        let materializer =
+            Materializer::with_resource_version(&data_root, "grace-union-test", version);
+        let accelerator = Accelerator::load(&root, None).expect("the shipped accelerator loads");
+        let backend = SearchBackend::from_shared(Arc::new(
+            Accelerator::load(&root, None).expect("the shipped accelerator loads twice"),
+        ));
+        let _policy = backend
+            .pin_policy(ExecutionPolicy::AllowBulkCpu)
+            .expect("the test's explicit bulk-CPU policy is accepted");
+
+        for (rarity, map) in [
+            (5u8, compiler.r5_grace.clone()),
+            (4u8, compiler.r4_grace.clone()),
+        ] {
+            let map = map.expect("the product resource carries the Grace map");
+            let mut offered: Vec<u32> = map.ranges.iter().map(|range| range.effect_id).collect();
+            offered.sort_unstable();
+            offered.dedup();
+            if rarity == 4 {
+                offered.retain(|id| crate::catalog::R4_FINAL_GRACE_IDS.contains(id));
+            }
+            let selected = vec![offered[0], offered[1]];
+            let mut payload = base_payload(rarity);
+            payload["grace_effect_ids"] = json!(selected);
+            let query = resolved(&materializer, payload);
+            let compiled = compiler
+                .compile(&query, &accelerator, false)
+                .expect("a Grace-only multi-selection compiles");
+            assert_eq!(compiled.route, Route::PartialEffectFilter);
+            assert!(compiled
+                .post_acceptance_filters
+                .contains(&"grace_effect_ids"));
+            let NativePivotQuery::Natural { values } = &compiled.native else {
+                panic!("the Grace union is a natural pivot without CUDA primaries");
+            };
+            let mut expected = std::collections::BTreeSet::new();
+            for grace in &selected {
+                expected.extend(
+                    crate::effect_path::grace_pivot_values(*grace, &map).expect("a preimage"),
+                );
+            }
+            assert_eq!(values.len(), expected.len());
+            assert!(values.iter().all(|value| expected.contains(value)));
+
+            let page = backend
+                .collect_page(
+                    &compiled.native,
+                    &PageRequest::chunk(0, 20_000, compiled.chunk_trials, 1_000_000),
+                    &|| false,
+                )
+                .expect("a bounded Grace page");
+            assert!(!page.matches.is_empty());
+            let mut kept = 0usize;
+            for matched in &page.matches {
+                let materialized = materializer
+                    .materialize(&query, matched.seed, matched.trial, None)
+                    .expect("every Grace match composes");
+                let grace = crate::jobs::candidate_grace(&materialized.candidate);
+                if grace.is_some_and(|id| selected.contains(&id)) {
+                    kept += 1;
+                }
+            }
+            assert!(kept > 0, "rarity {rarity}: the union keeps real matches");
+        }
+    }
+
+    /// An unconstrained rarity-5 request is the full-family replay like every
+    /// other rarity, instead of an "unimplemented" refusal.
+    #[test]
+    fn an_unconstrained_rarity5_search_takes_the_full_family() {
+        let root = repo_root();
+        let data_root = root.join("nioh3_scroll_editor").join("data");
+        let compiler = QueryCompiler::load_for_resource_version(
+            &data_root,
+            Some(nioh3_data::CURRENT_RESOURCE_VERSION),
+        )
+        .expect("the current tables load");
+        let accelerator = Accelerator::load(&root, None).expect("the shipped accelerator loads");
+        let query = SearchQuery::from_payload(&base_payload(5)).expect("valid");
+        let compiled = compiler
+            .compile(&query, &accelerator, false)
+            .expect("an unconstrained rarity-5 query compiles");
+        assert_eq!(compiled.route, Route::FullFamily);
     }
 }

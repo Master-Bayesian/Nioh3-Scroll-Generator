@@ -41,6 +41,14 @@ pub struct AuxiliaryCriteria {
     pub required_special_rule_key_groups: Vec<Vec<u32>>,
     pub required_enemy_lookup_keys: Vec<u32>,
     pub required_enemy_lookup_key_groups: Vec<Vec<u32>>,
+    /// `AuxiliarySearchCriteria.terrain_row_indices`: the exact terrain-row
+    /// union the caller's `terrain_selection_ids` resolve to, sorted and unique.
+    ///
+    /// The parser never fills this: the option ids are resolved against the
+    /// context-bound terrain table by [`crate::terrain::resolve_terrain_selections`]
+    /// before the query is compiled. Empty means "no row restriction"; a
+    /// non-empty selection always resolves to at least one row.
+    pub terrain_row_indices: Vec<u32>,
 }
 
 /// Display-slot scope one occurrence requirement may occupy.
@@ -179,15 +187,6 @@ impl SearchQuery {
         };
         let grace_effect_ids = u32_list(payload, "grace_effect_ids").unwrap_or_default();
 
-        check_roll_constraints(
-            &rolls,
-            &primary_effect_ids,
-            &required_secondary_ids,
-            &required_secondary_id_groups,
-        )?;
-        check_secondary_groups(&required_secondary_id_groups, &required_secondary_ids)?;
-        check_grace_filter(rarity, grace_effect_id, &grace_effect_ids)?;
-
         let grouped_ids: Vec<u32> = {
             let mut ids: Vec<u32> = required_secondary_id_groups
                 .iter()
@@ -208,6 +207,21 @@ impl SearchQuery {
             .copied()
             .filter(|(effect_id, _)| !grouped_ids.contains(effect_id))
             .collect::<Vec<_>>();
+
+        // `SearchQuery.from_payload` checks roll uniqueness over every pair, then
+        // hands only the plain (ungrouped) pairs to `EffectSeedRequest`; the
+        // grouped pairs are thresholds the job layer applies to the any-of
+        // group's actual member, so they never reach the request invariants.
+        check_unique_rolls(&rolls)?;
+        check_roll_constraints(
+            &plain_rolls,
+            &primary_effect_ids,
+            &required_secondary_ids,
+            &required_secondary_id_groups,
+        )?;
+        check_grouped_rolls(&grouped_rolls)?;
+        check_secondary_groups(&required_secondary_id_groups, &required_secondary_ids)?;
+        check_grace_filter(rarity, grace_effect_id, &grace_effect_ids)?;
 
         let initial_challenge_counts = payload
             .get("initial_challenge_counts")
@@ -332,6 +346,7 @@ fn parse_auxiliary(payload: &Value) -> Result<AuxiliaryCriteria, RequestError> {
             auxiliary,
             "required_enemy_lookup_key_groups",
         )?,
+        terrain_row_indices: Vec::new(),
     })
 }
 
@@ -479,25 +494,55 @@ fn check_roll_constraints(
     Ok(())
 }
 
-/// Grace-selection membership. The map-backed rarities fail closed until the
-/// corresponding map primitive is ported.
+/// `SearchQuery.from_payload`'s uniqueness check over every roll pair.
+fn check_unique_rolls(rolls: &[(u32, u32)]) -> Result<(), RequestError> {
+    let mut seen: Vec<u32> = Vec::with_capacity(rolls.len());
+    for (effect_id, _) in rolls {
+        if seen.contains(effect_id) {
+            return Err(RequestError::invalid_request_message(
+                "roll constraints must contain unique effect IDs",
+            ));
+        }
+        seen.push(*effect_id);
+    }
+    Ok(())
+}
+
+/// A grouped threshold is a roll percent like any other.
+fn check_grouped_rolls(grouped_rolls: &[(u32, u32)]) -> Result<(), RequestError> {
+    if grouped_rolls.iter().any(|(_, minimum)| *minimum > 100) {
+        return Err(RequestError::invalid_request_message(
+            "minimum roll percent must be in 0..100",
+        ));
+    }
+    Ok(())
+}
+
+/// The payload-only half of `SearchQuery.from_payload`'s Grace checks.
+///
+/// Only rarities 4 and 5 have Grace choices, and a single selection that is
+/// not part of the list is a conflict. Membership of each id in the rarity's
+/// final Grace set needs the context-bound Grace map, so it is decided by
+/// [`crate::collector::CandidateSource::resolve_query`] before compilation.
 fn check_grace_filter(
     rarity: u8,
-    _grace_effect_id: Option<u32>,
+    grace_effect_id: Option<u32>,
     grace_effect_ids: &[u32],
 ) -> Result<(), RequestError> {
     if grace_effect_ids.is_empty() {
         return Ok(());
     }
-    match rarity {
-        4 | 5 => Err(RequestError::invalid_request_message(
-            "Grace filtering needs the rarity-specific Grace output map, which this \
-             development worker does not load yet",
-        )),
-        _ => Err(RequestError::invalid_request_message(
+    if !matches!(rarity, 4 | 5) {
+        return Err(RequestError::invalid_request_message(
             "Grace choices do not belong to this rarity",
-        )),
+        ));
     }
+    if grace_effect_id.is_some_and(|single| !grace_effect_ids.contains(&single)) {
+        return Err(RequestError::invalid_request_message(
+            "Conflicting grace filters",
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -592,13 +637,62 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_map_grace_filter_fails_closed_with_a_named_message() {
-        let grace = SearchQuery::from_payload(&query(json!({
-            "grace_effect_ids": [5858]
+    fn a_grace_list_is_carried_to_the_context_bound_resolver() {
+        // The UI sends the single choice both ways; neither may be refused by
+        // the parser, which cannot see the context-bound Grace map.
+        let single = SearchQuery::from_payload(&query(json!({
+            "grace_effect_id": 0x6553,
+            "grace_effect_ids": [0x6553]
         })))
-        .expect_err("rarity-5/4 Grace filtering needs the output map");
-        assert!(grace.message.contains("Grace output map"));
-        assert_eq!(grace.code, "INVALID_REQUEST");
+        .expect("a single rarity-4 Grace is a normal query");
+        assert_eq!(single.grace_effect_id, Some(0x6553));
+        assert_eq!(single.grace_effect_ids, vec![0x6553]);
+
+        let several = SearchQuery::from_payload(&query(json!({
+            "rarity": 5,
+            "grace_effect_ids": [0x6553, 0xCE68]
+        })))
+        .expect("several rarity-5 Graces are a normal query");
+        assert_eq!(several.grace_effect_id, None);
+        assert_eq!(several.grace_effect_ids, vec![0x6553, 0xCE68]);
+    }
+
+    #[test]
+    fn grace_filters_keep_their_structural_refusals() {
+        let rarity = SearchQuery::from_payload(&query(json!({
+            "rarity": 3,
+            "grace_effect_ids": [0x6553]
+        })))
+        .expect_err("rarity 3 has no Grace");
+        assert!(rarity.message.contains("do not belong to this rarity"));
+        assert_eq!(rarity.code, "INVALID_REQUEST");
+
+        let conflict = SearchQuery::from_payload(&query(json!({
+            "grace_effect_id": 0xCE68,
+            "grace_effect_ids": [0x6553]
+        })))
+        .expect_err("a single choice outside the list conflicts");
+        assert!(conflict.message.contains("Conflicting grace filters"));
+    }
+
+    #[test]
+    fn grouped_roll_thresholds_are_accepted_and_split_out() {
+        // `workerQuery` sends a threshold for an any-of member; the shipped
+        // parser moves it to `grouped_rolls` instead of refusing the request.
+        let parsed = SearchQuery::from_payload(&query(json!({
+            "required_secondary_id_groups": [[11, 12]],
+            "minimum_roll_percent_by_effect_id": [[11, 60]]
+        })))
+        .expect("a grouped threshold is a normal query");
+        assert_eq!(parsed.grouped_rolls, vec![(11, 60)]);
+        assert!(parsed.minimum_roll_percent_by_effect_id.is_empty());
+
+        let duplicate = SearchQuery::from_payload(&query(json!({
+            "required_secondary_id_groups": [[11, 12]],
+            "minimum_roll_percent_by_effect_id": [[11, 60], [11, 70]]
+        })))
+        .expect_err("roll ids stay unique across plain and grouped pairs");
+        assert!(duplicate.message.contains("unique effect IDs"));
     }
 
     #[test]

@@ -36,6 +36,7 @@ pub mod query_compile;
 pub mod recommended_level;
 pub mod schema;
 pub mod search_backend;
+pub mod terrain;
 pub mod transport;
 
 pub use capabilities::Capabilities;
