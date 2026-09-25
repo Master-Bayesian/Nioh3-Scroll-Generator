@@ -184,6 +184,14 @@ jobs:
           # the workers it spawns are the same real binaries built above.
           cargo build --locked --manifest-path apps/tauri/src-tauri/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # The host resolves the worker graph for the installed game version,
+          # and a hosted runner has no Nioh3.exe. Give it the same synthetic
+          # VERSIONINFO fixture release.yml uses (never executed, no native-write
+          # authority), scoped to this step's environment only.
+          $fixtureRoot = Join-Path $env:RUNNER_TEMP 'nioh3-game-identity'
+          ./tools/prepare_ci_game_identity.ps1 -Root $fixtureRoot -GameFileVersion '2.0.2.0'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ${env:ProgramFiles(x86)} = Join-Path $fixtureRoot 'ProgramFiles'
           ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -TestPath tests/migration/test_packaged_host_resolver.py -PytestArgument -q
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         env:
