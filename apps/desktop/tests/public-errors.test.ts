@@ -47,3 +47,10 @@ test("a vanished game process asks for the game again", () => {
     /重新启动/,
   );
 });
+
+test("an expired save snapshot asks for a refresh", () => {
+  assert.match(
+    publicError('Error: {"code":"OPERATION_FAILED","message":"Snapshot expired; refresh inventory"}'),
+    /重新读取/,
+  );
+});

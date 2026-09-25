@@ -2459,6 +2459,10 @@
     "实时添加的状态目录里有不属于本工具操作的回执文件，添加已停止，游戏没有被改动。请复制日志反馈。": [
       "The live-add state folder contains a receipt that is not one of this tool's operations. Adding stopped and the game was not changed. Copy the log and report it.",
       "ライブ追加の状態フォルダーに、このツールの操作ではない受領ファイルがあります。追加を中止し、ゲームは変更されていません。ログをコピーして報告してください。"
+    ],
+    "存档在游戏里保存后已经变化，请点“重新读取”后再添加。": [
+      "The save changed after the game saved. Click \"Reload\" and add again.",
+      "ゲームで保存したためセーブが変わりました。「再読み込み」してから追加してください。"
     ]
   },
   "game": {

@@ -184,14 +184,16 @@ export function DesktopCartActions({
     return () => window.removeEventListener("nioh3-live-batch-cancelled", cancelled);
   }, []);
   const references = samples.map((s) => s.backend?.referenceId || "");
-  const signature = JSON.stringify([
-    mode,
-    references,
-    query.recommended,
-    query.transfers,
-    state.selected?.save_id,
-    state.inventory?.snapshot_id,
-  ]);
+  const signatureFor = (snapshotId: string | undefined) =>
+    JSON.stringify([
+      mode,
+      references,
+      query.recommended,
+      query.transfers,
+      state.selected?.save_id,
+      snapshotId,
+    ]);
+  const signature = signatureFor(state.inventory?.snapshot_id);
   const initialPreparation = useRef(false);
   useEffect(() => {
     if (!autoPrepare || initialPreparation.current || !state.inventory || state.busy || busy || uncertain)
@@ -207,7 +209,7 @@ export function DesktopCartActions({
       if (uncertain) throw Error("请先核对上次添加结果。");
       if (mode === "live" && samples.some((s) => (s.playthrough || 3) > 3))
         throw Error("四、五周目的研究候选不能添加。");
-      const inventory = state.inventory;
+      let inventory = state.inventory;
       if (!inventory) throw Error("请先选择并读取存档。");
       if (references.some((r) => !r))
         throw Error("候选已失效，请重新搜索后添加。");
@@ -220,38 +222,54 @@ export function DesktopCartActions({
         resolution.selected_internal_level === null
       )
         throw Error("推荐等级无法转换。");
-      const params = {
+      const level = resolution.selected_internal_level;
+      const paramsFor = (snapshot: NonNullable<typeof inventory>) => ({
         mode: mode as "save" | "live",
-        save_id: inventory.save_id,
-        snapshot_id: inventory.snapshot_id,
+        save_id: snapshot.save_id,
+        snapshot_id: snapshot.snapshot_id,
         references,
-        recommended_level: resolution.selected_internal_level,
+        recommended_level: level,
         transfer_count: toRecordTransferCount(query.transfers),
-      };
+      });
       if (preparedOwner.current!.closed) return;
+      // An in-game save or a restarted save worker retires the snapshot this
+      // view read. That is not a failure the player can act on: read the save
+      // again and prepare once more against the fresh snapshot.
+      const prepareFor = (params: ReturnType<typeof paramsFor>) =>
+        mode === "save"
+          ? saveSession!.prepareCart(
+              async () =>
+                (await saveObserver!.run(() =>
+                  window.review.prepareCart(params),
+                )) as NonNullable<ProtectedJob["result"]>,
+            )
+          : runtimeObserver!.run(() => window.review.prepareCart(params));
+      let prepared;
+      try {
+        prepared = await prepareFor(paramsFor(inventory));
+      } catch (error) {
+        if (!/Snapshot expired/.test(String(error))) throw error;
+        inventory = await saveSession!.refresh();
+        if (!inventory || preparedOwner.current!.closed) return;
+        prepared = await prepareFor(paramsFor(inventory));
+      }
+      const preparedSignature = signatureFor(inventory.snapshot_id);
       if (mode === "save") {
-        const prepared = await saveSession!.prepareCart(
-          async () =>
-            (await saveObserver!.run(() =>
-              window.review.prepareCart(params),
-            )) as NonNullable<ProtectedJob["result"]>,
-        );
+        if (!prepared || !("plan_id" in prepared)) throw Error("未收到添加计划。");
         setPlan({
-          signature,
+          signature: preparedSignature,
           savePlan: prepared.plan_id,
           count: samples.length,
         });
       } else {
-        const result = await runtimeObserver!.run(() =>
-          window.review.prepareCart(params),
-        );
+        const result = prepared;
         if (!result || !("live_batch" in result))
           throw Error("未收到添加计划。");
         // A prepared batch has dispatched nothing and the backend never treats
         // it as unresolved, so no recovery marker is written until execution
         // starts; an abandoned preview must not block later additions.
         if (!await preparedOwner.current!.adopt(result.live_batch)) return;
-        setPlan({ signature, batch: result.live_batch, count: samples.length });
+        setPlan({ signature: preparedSignature, batch: result.live_batch, count: samples.length });
       }
       setTitleConfirmed(false);
     } catch (error) {

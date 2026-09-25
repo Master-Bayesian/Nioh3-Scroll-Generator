@@ -38,6 +38,10 @@ export function publicError(message: string): string {
       "自动备份无法通过校验，本次没有继续添加。请重新核对添加。",
     ],
     [
+      /Snapshot expired/,
+      "存档在游戏里保存后已经变化，请点“重新读取”后再添加。",
+    ],
+    [
       /Foreign native receipt/,
       "实时添加的状态目录里有不属于本工具操作的回执文件，添加已停止，游戏没有被改动。请复制日志反馈。",
     ],

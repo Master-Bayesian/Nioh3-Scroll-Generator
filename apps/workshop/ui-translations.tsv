@@ -613,3 +613,4 @@ R5 · 橙色	R5 · Orange	R5 · 橙
 游戏生成的绘卷与预期不一致，这次没有添加，背包和存档都没有改动，可以直接重试。若反复出现，请复制日志反馈。	The scroll the game built did not match the expected one, so nothing was added and neither the inventory nor the save changed. You can retry; if it keeps happening, copy the log and report it.	ゲームが生成した絵巻が想定と一致しなかったため、追加していません。所持品もセーブも変更されていません。再試行できます。繰り返し発生する場合はログをコピーして報告してください。
 游戏已退出或重新启动。请进入角色存档后重新核对添加。	The game exited or restarted. Load your character save, then review the addition again.	ゲームが終了または再起動しました。キャラクターのセーブを読み込んでから、もう一度追加を確認してください。
 实时添加的状态目录里有不属于本工具操作的回执文件，添加已停止，游戏没有被改动。请复制日志反馈。	The live-add state folder contains a receipt that is not one of this tool's operations. Adding stopped and the game was not changed. Copy the log and report it.	ライブ追加の状態フォルダーに、このツールの操作ではない受領ファイルがあります。追加を中止し、ゲームは変更されていません。ログをコピーして報告してください。
+存档在游戏里保存后已经变化，请点“重新读取”后再添加。	The save changed after the game saved. Click "Reload" and add again.	ゲームで保存したためセーブが変わりました。「再読み込み」してから追加してください。
