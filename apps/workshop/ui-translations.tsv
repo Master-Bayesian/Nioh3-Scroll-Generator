@@ -609,3 +609,4 @@ R5 · 橙色	R5 · Orange	R5 · 橙
 请核对操作回执	check the operation receipt	操作レシートを確認してください
 。请勿重复写入。	. Do not write again.	。重複して書き込まないでください。
 操作未完成，且没有返回错误说明；请复制日志排查。	The operation did not finish and returned no error description; copy the log to investigate.	操作は完了せず、エラーの説明もありません。ログをコピーして調査してください。
+这个存档里已有绘卷的序列号重复，为避免改动已有绘卷，“添加到存档”已停止，存档没有被修改。请改用“游戏内实时添加”。	This save already has scrolls that share a serial. To avoid changing existing scrolls, "Add to save" stopped and the save was not modified. Use "Add in game" instead.	このセーブには既にシリアルが重複した絵巻があります。既存の絵巻を変更しないよう「セーブに追加」を中止し、セーブは変更されていません。「ゲーム内に直接追加」を使ってください。

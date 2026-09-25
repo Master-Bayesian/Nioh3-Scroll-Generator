@@ -247,14 +247,9 @@ export function DesktopCartActions({
         );
         if (!result || !("live_batch" in result))
           throw Error("未收到添加计划。");
-        localStorage.setItem(
-          "nioh3-review-live-batch",
-          JSON.stringify({
-            batch_id: result.live_batch.batch_id,
-            plan_digest: result.live_batch.plan_digest,
-            keys:samples.map(collectionKey),
-          }),
-        );
+        // A prepared batch has dispatched nothing and the backend never treats
+        // it as unresolved, so no recovery marker is written until execution
+        // starts; an abandoned preview must not block later additions.
         if (!await preparedOwner.current!.adopt(result.live_batch)) return;
         setPlan({ signature, batch: result.live_batch, count: samples.length });
       }
@@ -282,6 +277,16 @@ export function DesktopCartActions({
         }
       } else if (plan.batch) {
         preparedOwner.current!.beginExecution(plan.batch.batch_id);
+        // From here the outcome must be confirmed from receipts before another
+        // addition, even if this view closes mid-way.
+        localStorage.setItem(
+          "nioh3-review-live-batch",
+          JSON.stringify({
+            batch_id: plan.batch.batch_id,
+            plan_digest: plan.batch.plan_digest,
+            keys: samples.map(collectionKey),
+          }),
+        );
         setUncertain(true);
         const result = await runtimeObserver!.run(() =>
           window.operations.execute({

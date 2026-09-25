@@ -41,6 +41,10 @@ export function publicError(message: string): string {
       /uncertain|unresolved|already submitted/i,
       "上次操作尚未确认，请先核对结果，不要重复添加。",
     ],
+    [
+      /APPEND_ONLY_REPAIR_REQUIRED|duplicate serials/i,
+      "这个存档里已有绘卷的序列号重复，为避免改动已有绘卷，“添加到存档”已停止，存档没有被修改。请改用“游戏内实时添加”。",
+    ],
     [/BUSY|occupied/i, "另一项操作仍在进行，请等待完成。"],
     [
       /not a verified supported version|requires verified|requires accepted|profile changed/i,
