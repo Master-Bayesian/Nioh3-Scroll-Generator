@@ -2403,6 +2403,46 @@
     "敌人状态与常世同行预览目前仅支持三周目。": [
       "Enemy states and Expedition previews are currently supported only in NG+2.",
       "敵の状態と常世同行プレビューは現在3周目のみ対応しています。"
+    ],
+    "正在核对修改…": [
+      "Checking changes…",
+      "変更を確認しています…"
+    ],
+    "正在转换推荐等级…": [
+      "Converting the recommended level…",
+      "推奨レベルを変換しています…"
+    ],
+    "正在生成写入计划…": [
+      "Preparing the write plan…",
+      "書き込み計画を作成しています…"
+    ],
+    "已核对": [
+      "Checked",
+      "確認済み："
+    ],
+    "项变化，尚未写入存档。请在右侧“确认修改”中确认后写入。": [
+      "change(s); nothing is written yet. Confirm in “Confirm changes” on the right to write them.",
+      "件の変更。まだセーブには書き込まれていません。右側の「変更を確認」で確定すると書き込みます。"
+    ],
+    "核对失败，且没有返回错误说明；请复制日志排查。": [
+      "The check failed without an error description; copy the log to investigate.",
+      "確認に失敗しましたが、エラーの説明がありません。ログをコピーして調査してください。"
+    ],
+    "修改已写入存档，但有警告：": [
+      "Changes saved with a warning:",
+      "変更はセーブに保存されましたが、警告があります："
+    ],
+    "请核对操作回执": [
+      "check the operation receipt",
+      "操作レシートを確認してください"
+    ],
+    "。请勿重复写入。": [
+      ". Do not write again.",
+      "。重複して書き込まないでください。"
+    ],
+    "操作未完成，且没有返回错误说明；请复制日志排查。": [
+      "The operation did not finish and returned no error description; copy the log to investigate.",
+      "操作は完了せず、エラーの説明もありません。ログをコピーして調査してください。"
     ]
   },
   "game": {
