@@ -27,6 +27,10 @@ pub const SCROLL_GROUP_OFFSET: usize = 0x176CCE;
 /// `savegame.SCROLL_SLOT_COUNT`.
 pub const SCROLL_SLOT_COUNT: usize = 400;
 
+/// Plan field holding `D0`: the occupied scroll slots of the byte-identified
+/// disk checkpoint, captured from the decrypted backup of the selected save.
+pub const DISK_PERSISTENCE_BASELINE_FIELD: &str = "disk_persistence_baseline";
+
 /// Display version the live-add layout is accepted for.
 pub const LIVE_ADD_DISPLAY_VERSION: &str = crate::mutation::native_abi::PRODUCT_DISPLAY_VERSION;
 
@@ -541,7 +545,14 @@ impl LiveAddApplication {
             "candidate_id".to_string(),
             json!(candidate.candidate_id.clone()),
         );
-        let mut persistence_baseline = before.clone();
+        // The disk checkpoint (`D0`) and this operation's live-before state
+        // (`Li`, `Ii`) are different objects: the running game may legitimately
+        // differ from the last normal save (unsaved pickups, or a rarity-5
+        // record stored 5/5 that the game loads as 4/4). Prepare therefore
+        // records the actual disk slots instead of requiring `D0 == Li`;
+        // execute and readback still require exactly `Li` plus one planned item.
+        let saved_records = saved_scroll_records(&checkpoint.decrypted)?;
+        let disk_baseline = disk_persistence_baseline(&saved_records);
         if let Some(previous_operation_id) = previous_operation_id {
             let previous = self.operations.snapshot(previous_operation_id)?;
             if previous.state != OperationState::Verified {
@@ -585,15 +596,33 @@ impl LiveAddApplication {
             if mapping != index_entries(&verified_index)? {
                 return Err(rejected("Native index changed between batch items"));
             }
-            persistence_baseline = Inventory::from_json(
-                parent
-                    .get("persistence_baseline")
-                    .or_else(|| parent.get("before"))
-                    .ok_or_else(|| rejected("Stored plan content changed"))?,
-            )?;
+            match parent.get(DISK_PERSISTENCE_BASELINE_FIELD) {
+                // A new-style parent recorded the checkpoint it was prepared
+                // against. The source path and raw hash already match, so the
+                // capture must be identical; a present but different value is
+                // refused and never reinterpreted as a legacy plan.
+                Some(parent_baseline) => {
+                    if *parent_baseline != disk_baseline {
+                        return Err(rejected("Batch disk checkpoint changed"));
+                    }
+                }
+                // A legacy parent proved its stored inventory baseline against
+                // this same (hash-pinned) checkpoint. Require that historical
+                // proof again; `before` stands in only when the field is absent,
+                // and a present null or malformed field is refused. The actual
+                // disk capture above is kept: the legacy multiset check never
+                // proved disk slot order or the excluded padding bytes.
+                None => {
+                    let legacy = Inventory::from_json(
+                        parent
+                            .get("persistence_baseline")
+                            .or_else(|| parent.get("before"))
+                            .ok_or_else(|| rejected("Stored plan content changed"))?,
+                    )?;
+                    verify_persistence(&legacy, &saved_records, false)?;
+                }
+            }
         }
-        let saved_records = saved_scroll_records(&checkpoint.decrypted)?;
-        verify_persistence(&persistence_baseline, &saved_records, false)?;
 
         // The preview child is durable and non-dispatchable *before* the native
         // side effect, so a crash mid-preview still leaves the parent and child
@@ -672,10 +701,7 @@ impl LiveAddApplication {
             "backup_path".to_string(),
             json!(checkpoint.backup_path.display().to_string()),
         );
-        plan.insert(
-            "persistence_baseline".to_string(),
-            inventory_json(&persistence_baseline, self.executor.display_version()),
-        );
+        plan.insert(DISK_PERSISTENCE_BASELINE_FIELD.to_string(), disk_baseline);
         plan.insert(
             "previous_operation_id".to_string(),
             match previous_operation_id {
@@ -1047,6 +1073,18 @@ impl LiveAddApplication {
         )?;
         verify_persistence(&baseline, &saved_scroll_records(decrypted)?, false)
     }
+}
+
+/// `D0` for one checkpoint: every occupied scroll slot with its raw bytes, in
+/// slot order. It is a record of the selected file, never a desired output.
+pub fn disk_persistence_baseline(saved_records: &[Vec<u8>]) -> Value {
+    let slots: Vec<Value> = saved_records
+        .iter()
+        .enumerate()
+        .filter(|(_, raw)| raw.len() >= 2 && !(raw[0] == 0 && raw[1] == 0))
+        .map(|(slot_index, raw)| json!({"slot_index": slot_index, "record_hex": hex(raw)}))
+        .collect();
+    json!({ "slots": slots })
 }
 
 /// The 400 scroll records inside a decrypted save.

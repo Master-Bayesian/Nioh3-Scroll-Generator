@@ -20,6 +20,12 @@ from .savegame import (SaveCrypto, default_crypto_tool, SCROLL_GROUP_OFFSET,
                        account_id_from_save_path, save_slot_index_from_path)
 
 
+def _disk_persistence_baseline(saved_records):
+    """D0: every occupied scroll slot of the disk checkpoint, in slot order."""
+    return {'slots': [{'slot_index': index, 'record_hex': bytes(raw).hex()}
+                      for index, raw in enumerate(saved_records) if raw[:2] != b'\0\0']}
+
+
 class LiveAddApplication:
     def __init__(self, state_root, context_digest, *, adapter=None, crypto=None):
         self.state_root = Path(state_root)
@@ -86,7 +92,14 @@ class LiveAddApplication:
                 'source_role': 'main_save', 'backup_file': 'SAVEDATA.BIN',
                 'size': len(raw), 'sha256': hashlib.sha256(raw).hexdigest().upper(),
             }], action='v2-live-add', operation_id=operation_id)
-            persistence_baseline = before
+            # The disk checkpoint (D0) and this operation's live-before state
+            # (Li, Ii) are different objects: the running game may legitimately
+            # differ from the last normal save (unsaved pickups, or a rarity-5
+            # record stored 5/5 that the game loads as 4/4). Prepare records the
+            # actual disk slots instead of requiring D0 == Li; execute and
+            # readback still require exactly Li plus one planned item.
+            saved_records = [saved[SCROLL_GROUP_OFFSET+i*232:SCROLL_GROUP_OFFSET+(i+1)*232] for i in range(400)]
+            disk_persistence_baseline = _disk_persistence_baseline(saved_records)
             if previous_operation_id is not None:
                 previous = self.operations.snapshot(previous_operation_id)
                 if previous['state'] != 'verified':
@@ -105,8 +118,20 @@ class LiveAddApplication:
                         raise ValueError('Inventory changed between batch items')
                 if mapping != index_entries(verified_index):
                     raise ValueError('Native index changed between batch items')
-                persistence_baseline = parent.get('persistence_baseline', parent['before'])
-            verify_persistence(persistence_baseline, [saved[SCROLL_GROUP_OFFSET+i*232:SCROLL_GROUP_OFFSET+(i+1)*232] for i in range(400)])
+                if 'disk_persistence_baseline' in parent:
+                    # Same source path and raw hash: the capture must be identical.
+                    # A present but different value is never reinterpreted as legacy.
+                    if parent['disk_persistence_baseline'] != disk_persistence_baseline:
+                        raise ValueError('Batch disk checkpoint changed')
+                else:
+                    # A legacy parent proved its stored baseline against this same
+                    # hash-pinned checkpoint; require that proof again and keep the
+                    # actual disk capture. `before` stands in only when the field is
+                    # absent; a present null or malformed value is refused.
+                    legacy = parent['persistence_baseline'] if 'persistence_baseline' in parent else parent.get('before')
+                    if legacy is None:
+                        raise ValueError('Stored plan content changed')
+                    verify_persistence(legacy, saved_records)
             plan.update(parent_operation_id=operation_id, source_save_path=str(source), candidate_id=candidate['candidate_id'])
             preview = adapter.preview(plan, record)
             after_preview, after_index = adapter.readback()
@@ -119,7 +144,7 @@ class LiveAddApplication:
                         expected_record_hex=record.hex(), before=before, index_before=index_before,
                         source_save_path=str(source), source_save_sha256=hashlib.sha256(raw).hexdigest(),
                         backup_path=str(directory / 'SAVEDATA.BIN'), candidate_id=candidate['candidate_id'],
-                        persistence_baseline=persistence_baseline, previous_operation_id=previous_operation_id)
+                        disk_persistence_baseline=disk_persistence_baseline, previous_operation_id=previous_operation_id)
             exclusive_json(directory / 'preview.json', preview)
             snapshot = self.operations.prepare(operation_id, plan)
             return {**snapshot, 'seed': value.seed, 'rarity': value.rarity,

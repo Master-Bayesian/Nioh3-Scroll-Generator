@@ -718,7 +718,10 @@ fn a_rejected_preview_leaves_a_discoverable_child() {
 
     let snapshot = application.status(child).expect("child status");
     assert_eq!(snapshot.state, OperationState::RejectedAfterPreview);
-    assert!(!snapshot.can_dispatch, "a preview child is never dispatchable");
+    assert!(
+        !snapshot.can_dispatch,
+        "a preview child is never dispatchable"
+    );
     assert!(!snapshot.can_cancel);
 
     // Recovering the child is read-only and idempotent, and the child can never
@@ -791,7 +794,11 @@ fn a_crash_after_preview_registration_still_names_the_child() {
         )
         .expect("child record");
     assert!(
-        application.operations().unresolved_ids().expect("ids").contains(&child),
+        application
+            .operations()
+            .unresolved_ids()
+            .expect("ids")
+            .contains(&child),
         "the orphan child fences admission"
     );
     assert!(!application
@@ -859,4 +866,79 @@ fn an_uncertain_preview_child_blocks_the_next_prepare_by_id() {
         second.message().contains(child.as_str()),
         "the refusal names the child: {second}"
     );
+}
+
+/// The live inventory with its slot-0 record's rarity bytes rewritten on disk,
+/// the shape the PC v2.02 diagnosis observed (disk 5/5, live 4/4).
+fn diverged_disk(fixture: &InventoryFixture) -> Vec<u8> {
+    let mut saved = decrypted_save(fixture).expect("saved records");
+    let start = SCROLL_GROUP_OFFSET;
+    saved[start + 0x30] = 5;
+    saved[start + 0x31] = 5;
+    saved
+}
+
+/// Prepare records the actual disk checkpoint (`D0`) and no longer requires it
+/// to equal the live-before inventory (`Li`); execution still verifies exactly
+/// `Li` plus the one planned record.
+#[test]
+fn a_disk_checkpoint_that_differs_from_live_does_not_block_prepare() {
+    let root = scratch("live-add-disk-live");
+    let save = save_path(&root);
+    let fixture = InventoryFixture::new(&[(0, 0x1000, 0x11), (3, 0x1002, 0x12)], 0x1003, 5);
+    let saved = diverged_disk(&fixture);
+    std::fs::write(&save, &saved).expect("save");
+    let mut application = fixture_application(
+        &root,
+        FakeLiveAddExecutor::new(fixture),
+        FakeSaveBackup::new(&root),
+    );
+    let (prepared, digest) = prepared(&mut application, &save, 0x0BAD);
+    let (_digest, plan) = application
+        .operations()
+        .plan(&prepared.snapshot.operation_id)
+        .expect("stored plan");
+    let expected = disk_persistence_baseline(&saved_scroll_records(&saved).expect("records"));
+    assert_eq!(plan[DISK_PERSISTENCE_BASELINE_FIELD], expected);
+    assert_eq!(expected["slots"].as_array().expect("slots").len(), 2);
+    assert_eq!(expected["slots"][1]["slot_index"], json!(3));
+    // The live-before snapshot is no longer mislabelled as a disk baseline.
+    assert!(plan.get("persistence_baseline").is_none());
+
+    let receipt = application
+        .execute(&prepared.snapshot.operation_id, &digest)
+        .expect("execute");
+    assert_eq!(receipt.state, OperationState::Verified);
+}
+
+/// Every batch child inherits the first checkpoint: the source path and raw
+/// hash pin the bytes, and the recorded `D0` must match the new capture.
+#[test]
+fn a_batch_over_a_diverged_disk_checkpoint_verifies_every_item() {
+    let root = scratch("live-batch-disk-live");
+    let save = save_path(&root);
+    let fixture = InventoryFixture::new(&[(0, 0x7000, 0x77)], 0x7001, 3);
+    std::fs::write(&save, diverged_disk(&fixture)).expect("save");
+    let mut application = fixture_application(
+        &root,
+        FakeLiveAddExecutor::new(fixture),
+        FakeSaveBackup::new(&root),
+    );
+    let candidates = batch_candidates(3);
+    let prepared = LiveAddBatch::prepare(&mut application, &candidates, &save).expect("prepared");
+    let batch_id = prepared["batch_id"].as_str().expect("batch id").to_string();
+    let digest = prepared["plan_digest"]
+        .as_str()
+        .expect("digest")
+        .to_string();
+    let receipt = LiveAddBatch::execute(
+        &mut application,
+        &batch_id,
+        &digest,
+        &mut || false,
+        &mut |_| {},
+    )
+    .expect("executed");
+    assert_eq!(receipt["state"], json!("complete"));
+    assert_eq!(receipt["verified_count"], json!(3));
 }

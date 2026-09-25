@@ -74,9 +74,10 @@ pub use inventory::{
     PC_V201_INVENTORY_LAYOUT,
 };
 pub use live_add::{
-    saved_scroll_records, CandidateEffect, CandidateStage, CatalogPolicy, InstallationCandidate,
+    disk_persistence_baseline, saved_scroll_records, CandidateEffect, CandidateStage, CatalogPolicy, InstallationCandidate,
     LiveAddApplication, LiveAddExecutor, PreparedLiveAdd, SaveBackup, SaveCheckpoint,
-    LIVE_ADD_DISPLAY_VERSION, SCROLL_GROUP_OFFSET, SCROLL_SLOT_COUNT,
+    DISK_PERSISTENCE_BASELINE_FIELD, LIVE_ADD_DISPLAY_VERSION, SCROLL_GROUP_OFFSET,
+    SCROLL_SLOT_COUNT,
 };
 pub use live_batch::LiveAddBatch;
 pub use operations::{LiveAddOperations, OperationSnapshot, OperationState};

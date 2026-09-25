@@ -145,6 +145,23 @@ class LiveAddApplicationTests(unittest.TestCase):
         self.assertEqual(self.app.recover(prepared['operation_id'])['state'], 'verified')
         self.assertEqual(self.adapter.calls, 1)
 
+    def test_a_disk_checkpoint_that_differs_from_live_does_not_block_prepare(self):
+        # The live inventory is empty while the selected save holds one scroll
+        # (an unsaved change, or a record the game loads differently). The disk
+        # checkpoint D0 is recorded, not required to equal the live-before Li.
+        saved = bytearray(self.save.read_bytes())
+        record = bytearray(self.e.raw)
+        record[0x30] = record[0x31] = 5
+        saved[SCROLL_GROUP_OFFSET + 3 * 232:SCROLL_GROUP_OFFSET + 4 * 232] = record
+        self.save.write_bytes(bytes(saved))
+        prepared = self.prepare()
+        plan = self.app.operations.plan(prepared['operation_id'])['plan']
+        self.assertEqual(plan['disk_persistence_baseline'],
+                         {'slots': [{'slot_index': 3, 'record_hex': bytes(record).hex()}]})
+        self.assertNotIn('persistence_baseline', plan)
+        result = self.app.execute(prepared['operation_id'], prepared['plan_digest'])
+        self.assertEqual(result['state'], 'verified')
+
     def test_cancel_and_changed_inventory_never_dispatch(self):
         prepared = self.prepare()
         self.app.cancel(prepared['operation_id'])
