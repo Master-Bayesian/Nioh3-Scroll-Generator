@@ -93,7 +93,7 @@ export function publicError(message: string): string {
   for (const [pattern, text] of cases) if (pattern.test(message)) return text;
   if (
     (/^Error(?: invoking remote method|:)/.test(message) ||
-      /^[A-Z][A-Z0-9_]{3,}:/.test(message)) &&
+      /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+(?::|$)/.test(message)) &&
     !/[\u3400-\u9fff]/.test(message)
   ) {
     const code = message.match(/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/)?.[0];

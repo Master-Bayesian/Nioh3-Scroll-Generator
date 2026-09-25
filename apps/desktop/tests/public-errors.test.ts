@@ -67,6 +67,7 @@ test("an unexplained backend failure names its error code and the way to report 
   assert.match(text, /OPERATION_REJECTED/);
   assert.match(text, /导出反馈文件/);
   assert.ok(isFailureText("OPERATION_REJECTED: Unknown operation job"));
+  assert.match(publicError("CATALOG_UNAVAILABLE"), /错误代码：CATALOG_UNAVAILABLE/);
   // Ordinary interface text without Chinese is never rewritten.
   for (const plain of ["R4", "GitHub", "Lv.180", "10030565"]) assert.equal(publicError(plain), plain);
 });
