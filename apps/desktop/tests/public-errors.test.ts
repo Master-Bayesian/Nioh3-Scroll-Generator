@@ -71,3 +71,29 @@ test("an unexplained backend failure names its error code and the way to report 
   // Ordinary interface text without Chinese is never rewritten.
   for (const plain of ["R4", "GitHub", "Lv.180", "10030565"]) assert.equal(publicError(plain), plain);
 });
+
+test("an impossible condition set names the clashing effects and what to change", () => {
+  const text = publicError(
+    "INVALID_REQUEST: the selected effect combination has no solution in the native generation structure: " +
+      "the selected effects 0x2614、0x6CE3 share native category 0x0C, which holds at most 1, but 2 were selected",
+  );
+  assert.match(text, /“一难的解除时间延长”、“不消耗使役符”/);
+  assert.match(text, /最多只有 1 个/);
+  assert.match(text, /去掉其中 1 个/);
+  assert.doesNotMatch(text, /错误代码/);
+  // The shipped worker text without member names still explains itself.
+  assert.match(
+    publicError(
+      "INVALID_REQUEST: the selected effect combination has no solution in the native generation structure: " +
+        "the selected effects share native category 0x0C, which holds at most 1, but 2 were selected",
+    ),
+    /所选词条中有 2 个/,
+  );
+  assert.match(
+    publicError(
+      "INVALID_REQUEST: the selected effect combination has no solution in the native generation structure: " +
+        "0x2614 and 0x6CE3 belong to native conflict groups and cannot appear together",
+    ),
+    /互相冲突/,
+  );
+});

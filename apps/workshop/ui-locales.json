@@ -2539,6 +2539,58 @@
     "涉及写入时，请先核对结果再重试；反复出现请导出反馈文件发给开发者。": [
       "If it involved a write, check the result before retrying; if it keeps happening, export a feedback file and send it to the developer.",
       "書き込みを伴う場合は結果を確認してから再試行してください。繰り返し発生する場合はフィードバックファイルを書き出して開発者に送ってください。"
+    ],
+    "所选的": [
+      "The selected effects",
+      "選択した"
+    ],
+    "所选词条中有": [
+      "Among the selected effects,",
+      "選択した効果のうち"
+    ],
+    "个词条": [
+      "effects",
+      "件の効果が"
+    ],
+    "在游戏里属于同一类词条，一张绘卷上这一类最多只有": [
+      "belong to the same in-game effect category, and one scroll holds at most",
+      "はゲーム内で同じ分類の効果で、1枚の絵巻にはこの分類が最大"
+    ],
+    "个，所以它们不可能同时出现。请去掉其中": [
+      "of them, so they can never appear together. Remove",
+      "個までのため、同時に出現することはありません。そのうち"
+    ],
+    "个再搜索。": [
+      "of them and search again.",
+      "個を外して再検索してください。"
+    ],
+    "在游戏里互相冲突，不会出现在同一张绘卷上。请去掉其中一个再搜索。": [
+      "conflict in game and never appear on the same scroll. Remove one of them and search again.",
+      "はゲーム内で互いに競合し、同じ絵巻には出現しません。どちらかを外して再検索してください。"
+    ],
+    "选的副词条太多了：这种绘卷最多只有": [
+      "Too many secondary effects: this kind of scroll has at most",
+      "副効果が多すぎます。この種類の絵巻の通常副効果枠は最大"
+    ],
+    "个普通副词条位置。请减少副词条再搜索。": [
+      "ordinary secondary slots. Select fewer secondary effects and search again.",
+      "個です。副効果を減らして再検索してください。"
+    ],
+    "不会出现在当前周目和稀有度的绘卷上。请换一个周目或稀有度，或去掉这个词条。": [
+      "cannot appear on scrolls of the current playthrough and rarity. Change the playthrough or rarity, or remove this effect.",
+      "は現在の周回とレアリティの絵巻には出現しません。周回かレアリティを変えるか、この効果を外してください。"
+    ],
+    "R5 绘卷只有一个深层词条位置，而且它会成为主词条，所以": [
+      "An R5 scroll has a single deep slot and it becomes the primary effect, so",
+      "R5 の絵巻には深層枠が1つしかなく、それが主効果になるため、"
+    ],
+    "只能作为主词条出现。请把它设为主词条，或去掉它再搜索。": [
+      "can only appear as the primary effect. Make it the primary effect, or remove it and search again.",
+      "は主効果としてのみ出現します。主効果にするか、外して再検索してください。"
+    ],
+    "这个词条组合在游戏里不可能出现，请调整筛选条件后再搜索。": [
+      "This effect combination can never appear in game. Adjust the conditions and search again.",
+      "この効果の組み合わせはゲーム内で出現しません。条件を調整して再検索してください。"
     ]
   },
   "game": {

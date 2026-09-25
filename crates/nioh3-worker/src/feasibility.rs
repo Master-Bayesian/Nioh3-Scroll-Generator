@@ -261,6 +261,7 @@ fn validate_option(
         }
     }
     let mut counts = [0u32; 32];
+    let mut members: [Vec<u32>; 32] = std::array::from_fn(|_| Vec::new());
     for effect_id in &ordinary {
         let group = match tables.group_for_effect_u32(*effect_id) {
             Ok(group) => group,
@@ -277,12 +278,19 @@ fn validate_option(
             ));
         }
         counts[category] += 1;
+        members[category].push(*effect_id);
     }
     for (category, count) in counts.iter().enumerate() {
         if *count > u32::from(capacities[category]) {
+            // Name the members so the interface can say which effects clash.
+            let effects = members[category]
+                .iter()
+                .map(|effect_id| format!("0x{effect_id:04X}"))
+                .collect::<Vec<String>>()
+                .join("、");
             return Some(format!(
-                "the selected effects share native category 0x{category:02X}, which holds at most \
-                 {}, but {count} were selected",
+                "the selected effects {effects} share native category 0x{category:02X}, which \
+                 holds at most {}, but {count} were selected",
                 capacities[category]
             ));
         }

@@ -1,4 +1,6 @@
-const hasCjk = (text: string) => /[㐀-鿿]/.test(text);
+import { data } from "./model";
+
+const hasCjk =(text: string) => /[㐀-鿿]/.test(text);
 
 /** The message without the `Error:` prefix `String(error)` adds. */
 export function stripErrorPrefix(message: string): string {
@@ -16,9 +18,45 @@ export function isFailureText(message: string): boolean {
   return stripped !== text || !hasCjk(stripped) || publicError(stripped) !== stripped;
 }
 
+/** The display name of an effect the worker names as `0xNNNN`. */
+function effectName(hex: string): string {
+  const id = String(parseInt(hex, 16));
+  const found =
+    data.editorEffects.find((effect) => effect.id === id) ||
+    Object.values(data.contexts)
+      .flatMap((context) => [...context.effects, ...context.graces])
+      .find((effect) => effect.id === id);
+  return found ? `“${found.name}”` : hex;
+}
+
+const effectNames = (text: string) =>
+  (text.match(/0x[0-9A-F]{4}\b/gi) || []).map(effectName).join("、");
+
+/** Why the search worker refused a condition set, in the player's terms. */
+function infeasibleConditions(detail: string): string {
+  const category = detail.match(/holds at most (\d+), but (\d+) were selected/);
+  if (category) {
+    const [capacity, count] = [Number(category[1]), Number(category[2])];
+    const names = effectNames(detail.split("share native category")[0]);
+    return `${names ? `所选的 ${names} ` : `所选词条中有 ${count} 个词条`}在游戏里属于同一类词条，一张绘卷上这一类最多只有 ${capacity} 个，所以它们不可能同时出现。请去掉其中 ${count - capacity} 个再搜索。`;
+  }
+  if (/belong to native conflict groups/.test(detail))
+    return `${effectNames(detail)} 在游戏里互相冲突，不会出现在同一张绘卷上。请去掉其中一个再搜索。`;
+  const slots = detail.match(/ordinary secondary slots but this structure has only (\d+)/);
+  if (slots)
+    return `选的副词条太多了：这种绘卷最多只有 ${slots[1]} 个普通副词条位置。请减少副词条再搜索。`;
+  if (/cannot be generated for this scroll type|weight 0 for this playthrough and rarity|not in the native parameter table/.test(detail))
+    return `${effectNames(detail)} 不会出现在当前周目和稀有度的绘卷上。请换一个周目或稀有度，或去掉这个词条。`;
+  if (/rarity 5 has a single deep slot/.test(detail))
+    return `R5 绘卷只有一个深层词条位置，而且它会成为主词条，所以 ${effectNames(detail)} 只能作为主词条出现。请把它设为主词条，或去掉它再搜索。`;
+  return "这个词条组合在游戏里不可能出现，请调整筛选条件后再搜索。";
+}
+
 /** User-facing next steps; the broker keeps full technical errors in rolling logs. */
 export function publicError(message: string): string {
   if (hasCjk(message)) message = stripErrorPrefix(message);
+  const infeasible = message.match(/no solution in the native generation structure: ([\s\S]*)$/);
+  if (infeasible) return infeasibleConditions(infeasible[1]);
   const cases: [RegExp, string][] = [
     [
       /GAME_RUNNING|GAME_STATE_UNKNOWN/,
