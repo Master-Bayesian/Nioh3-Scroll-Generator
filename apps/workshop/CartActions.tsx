@@ -381,7 +381,9 @@ export function DesktopCartActions({
         setPlan(null);
       }
     } catch (error) {
-      setUncertain(true);
+      // Only an unsettled marker keeps new additions closed; a check that found
+      // nothing to settle must not lock the view until it is reopened.
+      setUncertain(!!localStorage.getItem("nioh3-review-live-batch"));
       setMessage(String(error));
     } finally {
       setBusy(false);

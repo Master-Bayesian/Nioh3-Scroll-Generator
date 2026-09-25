@@ -38,6 +38,14 @@ export function publicError(message: string): string {
       "自动备份无法通过校验，本次没有继续添加。请重新核对添加。",
     ],
     [
+      /was rejected after dispatch|Native builder output differs|Native assembly differs/i,
+      "游戏生成的绘卷与预期不一致，这次没有添加，背包和存档都没有改动，可以直接重试。若反复出现，请复制日志反馈。",
+    ],
+    [
+      /QueryFullProcessImageNameW|PROCESS_INSTANCE_CHANGED|replaced by a different process instance/i,
+      "游戏已退出或重新启动。请进入角色存档后重新核对添加。",
+    ],
+    [
       /uncertain|unresolved|already submitted/i,
       "上次操作尚未确认，请先核对结果，不要重复添加。",
     ],

@@ -7,7 +7,10 @@
 
 use crate::error::RuntimeError;
 use crate::mutation::count::{is_canonical_uuid, new_operation_id};
-use crate::mutation::descriptor::{assembly_descriptor, verify_assembly_preview};
+use crate::mutation::descriptor::{
+    assembly_descriptor, verify_assembly_preview, BUILDER_AMBIENT_IDENTITY_FIELD,
+    BUILDER_OWN_IDENTITY_FLAG,
+};
 use crate::mutation::evidence::{
     preview_owner_fingerprint, preview_rejection_receipt, verify_dispatch, PREVIEW_PHASE_AFTER,
     PREVIEW_PHASE_BEFORE, REGISTERS,
@@ -421,6 +424,10 @@ pub struct FakeLiveAddExecutor {
     pub receipts: BTreeMap<String, Value>,
     pub current_creation_time: String,
     pub submissions: Vec<String>,
+    /// The game's ambient identity. When set, inspection reports it and the
+    /// fake builder applies the PC v2.02 bit-25 rule to its own output instead
+    /// of echoing the reviewed record.
+    pub ambient_identity: Option<u64>,
 }
 
 impl FakeLiveAddExecutor {
@@ -432,6 +439,7 @@ impl FakeLiveAddExecutor {
             receipts: BTreeMap::new(),
             current_creation_time: current,
             submissions: Vec::new(),
+            ambient_identity: None,
         }
     }
 
@@ -450,7 +458,7 @@ impl FakeLiveAddExecutor {
         let data = self.fixture.data()?;
         let serial = self.fixture.serial_counter()?;
         let slot = self.fixture.first_empty_slot()?;
-        Ok(json!({
+        let mut context = json!({
             "pid": FIXTURE_PID,
             "profile_id": self.fixture.profile_id,
             "manager": manager,
@@ -466,7 +474,14 @@ impl FakeLiveAddExecutor {
                 &assembly_record(0x1E82, 1, 4),
                 false,
             )?),
-        }))
+        });
+        if let (Some(ambient), Some(object)) = (self.ambient_identity, context.as_object_mut()) {
+            object.insert(
+                BUILDER_AMBIENT_IDENTITY_FIELD.to_string(),
+                json!(ambient.to_string()),
+            );
+        }
+        Ok(context)
     }
 
     /// The register frame `dispatch_evidence.verify_dispatch` accepts.
@@ -514,6 +529,29 @@ impl FakeLiveAddExecutor {
         }
         source[0x28..0x30].copy_from_slice(&[0xFF; 8]);
         Ok(source)
+    }
+
+    /// What the builder writes into `+0x18`: with an ambient identity, bit 25
+    /// follows the builder's own `J == A` test on the record identity.
+    fn build_flags(&self, source: &mut [u8]) {
+        let Some(ambient) = self.ambient_identity else {
+            return;
+        };
+        let identity = u64::from(u32::from_le_bytes([
+            source[0x14],
+            source[0x15],
+            source[0x16],
+            source[0x17],
+        ])) | (u64::from(u16::from_le_bytes([source[4], source[5]])) << 32)
+            | (u64::from(u16::from_le_bytes([source[2], source[3]])) << 48);
+        let mut flags =
+            u32::from_le_bytes([source[0x18], source[0x19], source[0x1A], source[0x1B]]);
+        if identity == ambient {
+            flags |= BUILDER_OWN_IDENTITY_FLAG;
+        } else {
+            flags &= !BUILDER_OWN_IDENTITY_FLAG;
+        }
+        source[0x18..0x1C].copy_from_slice(&flags.to_le_bytes());
     }
 
     /// The accepted insertion source: the assembly record with its allocated
@@ -605,7 +643,8 @@ impl LiveAddExecutor for FakeLiveAddExecutor {
 
     fn preview(&mut self, plan: &Value, assembly_record: &[u8]) -> Result<Value, RuntimeError> {
         let operation_id = Self::preview_child_id(plan)?;
-        let source = Self::preview_source(assembly_record)?;
+        let mut source = Self::preview_source(assembly_record)?;
+        self.build_flags(&mut source);
         if self.faults.preview_mismatch {
             // The isolated builder output differs from the reviewed record. The
             // run settles as a formal rejection with every proof present, and the
@@ -755,7 +794,8 @@ impl LiveAddExecutor for FakeLiveAddExecutor {
                     detail: "Stored plan content changed".to_string(),
                 })?,
         )?;
-        let source = Self::insert_source(plan, &assembly)?;
+        let mut source = Self::insert_source(plan, &assembly)?;
+        self.build_flags(&mut source);
         let mut destination = source.clone();
         let flags = u32::from_le_bytes([
             destination[0x18],

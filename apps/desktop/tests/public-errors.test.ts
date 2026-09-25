@@ -30,3 +30,20 @@ test("duplicate-serial refusals explain themselves instead of asking for the log
     assert.doesNotMatch(text, /复制日志/);
   }
 });
+
+test("a rejected native preview says nothing was added", () => {
+  const text = publicError(
+    "Error: CANDIDATE_REJECTED: Native preview for 15998f73 was rejected after dispatch (child 8ec444b1); " +
+      "its container and serial index are proven unchanged and its cleanup is terminal, so recover 8ec444b1 " +
+      "(read-only) instead of replaying it: Native builder output differs from reviewed record",
+  );
+  assert.match(text, /没有添加/);
+  assert.doesNotMatch(text, /不要重复添加/);
+});
+
+test("a vanished game process asks for the game again", () => {
+  assert.match(
+    publicError("Error: OPERATION_FAILED: QueryFullProcessImageNameW(28160) failed with error 31"),
+    /重新启动/,
+  );
+});

@@ -1029,3 +1029,111 @@ fn a_next_serial_that_an_existing_record_uses_is_refused() {
         .expect_err("a taken serial is refused");
     assert!(error.message().contains("Native serial index differs"));
 }
+
+fn record_identity(record: &[u8]) -> u64 {
+    u64::from(u32::from_le_bytes(record[0x14..0x18].try_into().unwrap()))
+        | (u64::from(u16::from_le_bytes([record[4], record[5]])) << 32)
+        | (u64::from(u16::from_le_bytes([record[2], record[3]])) << 48)
+}
+
+fn flags(record: &[u8]) -> u32 {
+    u32::from_le_bytes(record[0x18..0x1C].try_into().unwrap())
+}
+
+/// PC v2.02 sets bit 25 only when the descriptor identity is the game's
+/// ambient identity; offline (`A == 0`) the builder writes `0x00800002`.
+#[test]
+fn the_builder_metadata_follows_the_ambient_identity() {
+    let record = assembly_record(0x1E82, 0x0BAD, 4);
+    let own = record_identity(&record);
+    assert_ne!(own, 0);
+    let offline = crate::mutation::new_assembly_record_for_ambient(&record, 0).unwrap();
+    assert_eq!(flags(&offline), 0x0080_0002);
+    let online = crate::mutation::new_assembly_record_for_ambient(&record, own).unwrap();
+    assert_eq!(flags(&online), crate::mutation::ASSEMBLY_FLAGS);
+    let other = crate::mutation::new_assembly_record_for_ambient(&record, own ^ 1).unwrap();
+    assert_eq!(flags(&other), 0x0080_0002);
+    // Only the flag word differs from the reviewed constant record.
+    let reviewed = crate::mutation::new_assembly_record(&record).unwrap();
+    assert_eq!(offline[..0x18], reviewed[..0x18]);
+    assert_eq!(offline[0x1C..], reviewed[0x1C..]);
+
+    // An identity-less descriptor takes the ambient identity, so bit 25 is set.
+    let mut anonymous = record.clone();
+    anonymous[2..6].fill(0);
+    anonymous[0x14..0x18].fill(0);
+    let built = crate::mutation::new_assembly_record_for_ambient(&anonymous, 0x0110_0001_1234_5678)
+        .unwrap();
+    assert_eq!(flags(&built), crate::mutation::ASSEMBLY_FLAGS);
+
+    // A plan without the field keeps the reviewed constant; a malformed field
+    // is refused rather than read as offline.
+    let legacy = crate::mutation::assembly_record_in_context(&record, &json!({})).unwrap();
+    assert_eq!(legacy, reviewed);
+    for malformed in [
+        json!({"builder_ambient_identity": 0}),
+        json!({"builder_ambient_identity": "x"}),
+        json!({"builder_ambient_identity": "+1"}),
+    ] {
+        assert!(crate::mutation::assembly_record_in_context(&record, &malformed).is_err());
+    }
+}
+
+fn ambient_application(root: &Path, save: &Path, ambient: u64) -> LiveAddApplication {
+    let fixture = InventoryFixture::new(&[(0, 0x1000, 0x11)], 0x1001, 5);
+    std::fs::write(save, decrypted_save(&fixture).expect("saved")).expect("save");
+    let mut executor = FakeLiveAddExecutor::new(fixture);
+    executor.ambient_identity = Some(ambient);
+    fixture_application(root, executor, FakeSaveBackup::new(root))
+}
+
+/// The reported failure: an offline player's builder leaves bit 25 clear, and
+/// the plan now expects exactly that, so preview, insertion and verification
+/// all accept the game's own output.
+#[test]
+fn an_offline_builder_output_is_expected_and_verified() {
+    let root = scratch("live-add-offline");
+    let save = save_path(&root);
+    let mut application = ambient_application(&root, &save, 0);
+    let (prepared, digest) = prepared(&mut application, &save, 0x0BAD);
+    let (_digest, plan) = application
+        .operations()
+        .plan(&prepared.snapshot.operation_id)
+        .expect("plan");
+    assert_eq!(plan["builder_ambient_identity"], json!("0"));
+    let expected = crate::mutation::inventory::hex_decode(
+        plan["expected_record_hex"]
+            .as_str()
+            .expect("expected record"),
+    )
+    .expect("hex");
+    assert_eq!(flags(&expected), 0x0080_0002);
+    let receipt = application
+        .execute(&prepared.snapshot.operation_id, &digest)
+        .expect("execute");
+    assert_eq!(receipt.state, OperationState::Verified);
+}
+
+#[test]
+fn an_online_builder_output_keeps_the_own_identity_flag() {
+    let root = scratch("live-add-online");
+    let save = save_path(&root);
+    let own = record_identity(&assembly_record(0x1E82, 0x0BAD, 4));
+    let mut application = ambient_application(&root, &save, own);
+    let (prepared, digest) = prepared(&mut application, &save, 0x0BAD);
+    let (_digest, plan) = application
+        .operations()
+        .plan(&prepared.snapshot.operation_id)
+        .expect("plan");
+    let expected = crate::mutation::inventory::hex_decode(
+        plan["expected_record_hex"]
+            .as_str()
+            .expect("expected record"),
+    )
+    .expect("hex");
+    assert_eq!(flags(&expected), crate::mutation::ASSEMBLY_FLAGS);
+    let receipt = application
+        .execute(&prepared.snapshot.operation_id, &digest)
+        .expect("execute");
+    assert_eq!(receipt.state, OperationState::Verified);
+}

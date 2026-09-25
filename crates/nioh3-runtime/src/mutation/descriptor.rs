@@ -5,6 +5,7 @@
 //! record before a serial is allocated.
 
 use crate::error::RuntimeError;
+use serde_json::Value;
 
 /// `SCROLL_RECORD_SIZE`.
 pub const RECORD_SIZE: usize = 0xE8;
@@ -43,6 +44,63 @@ pub fn new_assembly_record(record: &[u8]) -> Result<Vec<u8>, RuntimeError> {
     result[0x18..0x1C].copy_from_slice(&ASSEMBLY_FLAGS.to_le_bytes());
     result[0x1C..0x20].copy_from_slice(&0u32.to_le_bytes());
     Ok(result)
+}
+
+/// Record flag bit 25, which the PC v2.02 builder sets only when the effective
+/// descriptor identity equals the game's ambient identity.
+pub const BUILDER_OWN_IDENTITY_FLAG: u32 = 0x0200_0000;
+
+/// The plan field carrying the ambient identity the executor read, as a
+/// decimal string (the value is a 64-bit account id).
+pub const BUILDER_AMBIENT_IDENTITY_FIELD: &str = "builder_ambient_identity";
+
+/// Port of `new_assembly_record_for_ambient`: the builder metadata one
+/// descriptor produces against one ambient identity.
+///
+/// The builder takes `J` from descriptor `+0x18` (falling back to `A` only
+/// when `J == 0` and descriptor `+0x20` is clear) and sets bit 25 exactly when
+/// `J == A`; every other metadata bit is the reviewed [`ASSEMBLY_FLAGS`].
+pub fn new_assembly_record_for_ambient(
+    record: &[u8],
+    ambient: u64,
+) -> Result<Vec<u8>, RuntimeError> {
+    let descriptor = assembly_descriptor(record, false)?;
+    let mut identity = u64::from_le_bytes(
+        descriptor[0x18..0x20]
+            .try_into()
+            .map_err(|_| rejected("Expected one canonical scroll installation record"))?,
+    );
+    if identity == 0 && descriptor[0x20] == 0 {
+        identity = ambient;
+    }
+    let flags = if identity == ambient {
+        ASSEMBLY_FLAGS
+    } else {
+        ASSEMBLY_FLAGS & !BUILDER_OWN_IDENTITY_FLAG
+    };
+    let mut result = new_assembly_record(record)?;
+    result[0x18..0x1C].copy_from_slice(&flags.to_le_bytes());
+    Ok(result)
+}
+
+/// Port of `assembly_record_in_context`: the record the native builder is
+/// expected to produce for this inspected process.
+///
+/// A plan without [`BUILDER_AMBIENT_IDENTITY_FIELD`] comes from a layout whose
+/// builder has no reviewed identity chain and keeps the fixed metadata. A
+/// present field must be a decimal `u64`; anything else is refused.
+pub fn assembly_record_in_context(record: &[u8], context: &Value) -> Result<Vec<u8>, RuntimeError> {
+    match context.get(BUILDER_AMBIENT_IDENTITY_FIELD) {
+        None => new_assembly_record(record),
+        Some(value) => {
+            let ambient = value
+                .as_str()
+                .filter(|text| !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit()))
+                .and_then(|text| text.parse::<u64>().ok())
+                .ok_or_else(|| rejected("Prepared live-add plan expired; prepare a new plan"))?;
+            new_assembly_record_for_ambient(record, ambient)
+        }
+    }
 }
 
 /// Port of `assembly_descriptor`.

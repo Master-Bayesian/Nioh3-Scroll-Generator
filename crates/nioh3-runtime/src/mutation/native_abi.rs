@@ -154,6 +154,107 @@ pub const PC_V202_CANDIDATE_EXECUTABLE_SHA256: &str =
 pub const PC_V202_CANDIDATE_TEXT_SHA256: &str =
     "4CEC8FB6AD867417A76DF8201C1D4F54172443884910463C1953ACAD91AE6C29";
 
+/// Where a builder reads the ambient identity `A` its bit-25 guard compares.
+///
+/// The PC v2.02 builder (`0x227FD5B..0x227FD9E`) sets record flag bit 25
+/// (`0x0200_0000`) only when the effective descriptor identity `J` equals `A`,
+/// and `A` is `0` unless the game's online session and account identity are
+/// both available. A player offline therefore gets `0x00800002`, not the
+/// `0x02800002` an online player gets for the same descriptor. The executor
+/// reads `A` through exactly the decoded chain below, after proving the code
+/// that computes it is byte-identical to the reviewed image.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BuilderIdentityLayout {
+    /// `0x654E94`: `mov rcx, [session]`; null means no session.
+    pub session_pointer_rva: u64,
+    /// `0x654EA2`: the session state byte; only `2` and `4` read `A`.
+    pub session_state_offset: u64,
+    /// `0x5B72EC`: `A` is `0` while this byte is clear.
+    pub online_gate_rva: u64,
+    /// `0x649B64`: the identity object's lazy-initialization flag.
+    pub identity_ready_rva: u64,
+    /// `0x649B71`: the identity object (`qword` value, `u16 @0x10` kind,
+    /// `u8 @0x12` class).
+    pub identity_rva: u64,
+    /// `(rva, bytes)` of every reviewed function on the chain.
+    pub code: &'static [(u64, &'static str)],
+}
+
+/// PC v2.02 ambient-identity chain, decoded from the pinned runtime `.text`
+/// ([`PC_V202_CANDIDATE_TEXT_SHA256`]).
+pub const PC_V202_BUILDER_IDENTITY: BuilderIdentityLayout = BuilderIdentityLayout {
+    session_pointer_rva: 0x4BD0B08,
+    session_state_offset: 0xD8,
+    online_gate_rva: 0x45BA280,
+    identity_ready_rva: 0x45C8430,
+    identity_rva: 0x4B5AD58,
+    code: &[
+        // Session predicate: session != 0 && (state - 2) & 0xFD == 0.
+        (
+            0x654E94,
+            "488b0d6dbc570433c04885c9740d8a81d80000002c02a8fd0f94c0c3",
+        ),
+        // A = gate ? kind_check(identity()) : 0.
+        (
+            0x5B72E8,
+            "4883ec28803d8d2f0004007411e866280900488bc84883c428e90a00000033c04883c428c3",
+        ),
+        // kind_check: (kind & 0xFF00) == 0x100 ? class_check : 0.
+        (
+            0x5B7310,
+            "8164240cffff0fffba00ff00000fb7411083642408006623c2c644240f00ba000100008164240c0000f0ff663bc20f840c280900488b442408c3",
+        ),
+        // class_check: class in {1, 2} ? *identity : 0; then identity().
+        (
+            0x649B50,
+            "8a4112fec83c017704488b01c333c0c34883ec28803dc5e8f703000f844b3f2d01488d05e01151044883c428c3",
+        ),
+    ],
+};
+
+/// PC v2.01 ambient-identity chain, decoded from the retained v2.01 runtime
+/// `.text` (SHA-256 `F8799B5D...48023`). The builder guard at `0x227C5CB` and
+/// every function below are the PC v2.02 bodies with relocated displacements.
+pub const PC_V201_BUILDER_IDENTITY: BuilderIdentityLayout = BuilderIdentityLayout {
+    session_pointer_rva: 0x4BCCAB8,
+    session_state_offset: 0xD8,
+    online_gate_rva: 0x45B6240,
+    identity_ready_rva: 0x45C43F0,
+    identity_rva: 0x4B56D08,
+    code: &[
+        (
+            0x654E14,
+            "488b0d9d7c570433c04885c9740d8a81d80000002c02a8fd0f94c0c3",
+        ),
+        (
+            0x5B7218,
+            "4883ec28803d1df0ff03007411e8b6280900488bc84883c428e90a00000033c04883c428c3",
+        ),
+        (
+            0x5B7240,
+            "8164240cffff0fffba00ff00000fb7411083642408006623c2c644240f00ba000100008164240c0000f0ff663bc20f845c280900488b442408c3",
+        ),
+        (
+            0x649AD0,
+            "8a4112fec83c017704488b01c333c0c34883ec28803d05a9f703000f8491092d01488d0510d250044883c428c3",
+        ),
+    ],
+};
+
+/// The ambient-identity chain a live-add layout's builder uses.
+///
+/// Both accepted builders carry the same `J == A` bit-25 guard, so neither
+/// may be expected to produce a fixed flag word for every player.
+pub fn builder_identity_for(layout: &LiveAddLayout) -> Option<&'static BuilderIdentityLayout> {
+    if layout.profile_id == PC_V202_LIVE_ADD_CANDIDATE.profile_id {
+        Some(&PC_V202_BUILDER_IDENTITY)
+    } else if layout.profile_id == PC_V201_LIVE_ADD.profile_id {
+        Some(&PC_V201_BUILDER_IDENTITY)
+    } else {
+        None
+    }
+}
+
 /// Display version of the accepted product build.
 ///
 /// One accepted layout pairs with one display version: a version string alone

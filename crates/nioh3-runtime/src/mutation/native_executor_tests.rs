@@ -744,6 +744,8 @@ fn the_pinned_candidate_binding_plans_and_inserts() -> Result<(), RuntimeError> 
             .and_then(serde_json::Value::as_u64),
         Some(0x7FF0_0000_0000 + PC_V202_LIVE_ADD_CANDIDATE.insertion_rva)
     );
+    // No online session in the fixture: the builder identity reads as offline.
+    assert_eq!(plan["builder_ambient_identity"], json!("0"));
     assert_eq!(
         executor.display_version(),
         CANDIDATE_DISPLAY_VERSION,
@@ -1140,4 +1142,118 @@ fn a_preview_rejection_requires_every_proof_clause() -> Result<(), RuntimeError>
     unproved["preview_dispatch_proof"]["return_and_register_verified"] = json!(false);
     assert!(!preview_rejection_decided(&unproved));
     Ok(())
+}
+
+/// Fixture memory for the PC v2.02 ambient-identity chain.
+#[allow(clippy::unwrap_used)]
+fn identity_memory(
+    session_state: Option<u8>,
+    gate: u8,
+    ready: u8,
+    kind: u16,
+    class: u8,
+) -> std::collections::BTreeMap<u64, u8> {
+    use crate::mutation::native_abi::PC_V202_BUILDER_IDENTITY as LAYOUT;
+    const BASE: u64 = 0x7FF6_0000_0000;
+    const SESSION: u64 = 0x2_0000_0000;
+    let mut memory = std::collections::BTreeMap::new();
+    let mut put = |address: u64, bytes: &[u8]| {
+        for (offset, byte) in bytes.iter().enumerate() {
+            memory.insert(address + offset as u64, *byte);
+        }
+    };
+    for (rva, code) in LAYOUT.code {
+        put(BASE + rva, &hex_decode(code).unwrap());
+    }
+    let session = if session_state.is_some() { SESSION } else { 0 };
+    put(BASE + LAYOUT.session_pointer_rva, &session.to_le_bytes());
+    put(
+        SESSION + LAYOUT.session_state_offset,
+        &[session_state.unwrap_or(0)],
+    );
+    put(BASE + LAYOUT.online_gate_rva, &[gate]);
+    put(BASE + LAYOUT.identity_ready_rva, &[ready]);
+    let mut identity = 0x0110_0001_1234_5678u64.to_le_bytes().to_vec();
+    identity.extend_from_slice(&[0; 8]);
+    identity.extend_from_slice(&kind.to_le_bytes());
+    identity.push(class);
+    put(BASE + LAYOUT.identity_rva, &identity);
+    memory
+}
+
+fn ambient_of(memory: &std::collections::BTreeMap<u64, u8>) -> Result<u64, RuntimeError> {
+    use crate::mutation::native_abi::PC_V202_BUILDER_IDENTITY;
+    use crate::mutation::native_executor::read_builder_ambient_identity;
+    read_builder_ambient_identity(
+        &mut |address, size| {
+            (address..address + size as u64)
+                .map(|at| {
+                    memory
+                        .get(&at)
+                        .copied()
+                        .ok_or_else(|| RuntimeError::NativeDispatch {
+                            detail: format!("unmapped {at:#x}"),
+                        })
+                })
+                .collect()
+        },
+        0x7FF6_0000_0000,
+        &PC_V202_BUILDER_IDENTITY,
+    )
+}
+
+#[test]
+#[allow(clippy::unwrap_used)]
+fn the_ambient_identity_follows_the_decoded_chain() {
+    let account = 0x0110_0001_1234_5678u64;
+    assert_eq!(
+        ambient_of(&identity_memory(Some(2), 1, 1, 0x0100, 1)).unwrap(),
+        account
+    );
+    assert_eq!(
+        ambient_of(&identity_memory(Some(4), 1, 1, 0x01AB, 2)).unwrap(),
+        account
+    );
+    // Every branch the game takes to `A = 0`.
+    for memory in [
+        identity_memory(None, 1, 1, 0x0100, 1),
+        identity_memory(Some(3), 1, 1, 0x0100, 1),
+        identity_memory(Some(0), 1, 1, 0x0100, 1),
+        identity_memory(Some(2), 0, 1, 0x0100, 1),
+        identity_memory(Some(2), 1, 1, 0x0200, 1),
+        identity_memory(Some(2), 1, 1, 0x0100, 3),
+        identity_memory(Some(2), 1, 1, 0x0100, 0),
+    ] {
+        assert_eq!(ambient_of(&memory).unwrap(), 0);
+    }
+    // An identity the game has not initialized is refused, not guessed.
+    assert!(ambient_of(&identity_memory(Some(2), 1, 0, 0x0100, 1)).is_err());
+    // A different function body on the chain is refused before any data read.
+    let mut patched = identity_memory(Some(2), 1, 1, 0x0100, 1);
+    patched.insert(0x7FF6_0000_0000 + 0x654E94, 0x90);
+    assert!(ambient_of(&patched).is_err());
+}
+
+/// Both accepted builders carry the bit-25 guard, so both bind a chain.
+#[test]
+fn every_accepted_builder_binds_its_own_identity_chain() {
+    use crate::mutation::native_abi::{
+        builder_identity_for, PC_V201_BUILDER_IDENTITY, PC_V202_BUILDER_IDENTITY,
+    };
+    assert_eq!(
+        builder_identity_for(&PC_V201_LIVE_ADD),
+        Some(&PC_V201_BUILDER_IDENTITY)
+    );
+    assert_eq!(
+        builder_identity_for(&PC_V202_LIVE_ADD_CANDIDATE),
+        Some(&PC_V202_BUILDER_IDENTITY)
+    );
+    // The reviewed bodies differ only in their relocated displacements.
+    for (old, new) in PC_V201_BUILDER_IDENTITY
+        .code
+        .iter()
+        .zip(PC_V202_BUILDER_IDENTITY.code)
+    {
+        assert_eq!(old.1.len(), new.1.len());
+    }
 }

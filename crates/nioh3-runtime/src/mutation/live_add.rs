@@ -12,7 +12,9 @@
 
 use crate::error::RuntimeError;
 use crate::mutation::count::{exclusive_json, new_operation_id, read_bytes, read_json, sha256_hex};
-use crate::mutation::descriptor::{assembly_descriptor, new_assembly_record};
+use crate::mutation::descriptor::{
+    assembly_descriptor, assembly_record_in_context, new_assembly_record,
+};
 use crate::mutation::evidence::{preview_rejection_complete, verify, verify_persistence};
 use crate::mutation::inventory::{
     index_entries, index_resolves, inventory_json, inventory_slots, Inventory, NativeIndex,
@@ -470,8 +472,12 @@ impl LiveAddApplication {
         save_path: &Path,
         previous_operation_id: Option<&str>,
     ) -> Result<PreparedLiveAdd, RuntimeError> {
-        let (candidate, assembly) = self.validate_candidate(payload)?;
+        let (candidate, _reviewed) = self.validate_candidate(payload)?;
         let (context, before, index_before) = self.executor.inspect()?;
+        // The builder metadata depends on the inspected process (PC v2.02 sets
+        // bit 25 only for its ambient identity), so the record every native
+        // gate compares is built from this plan's context, never a constant.
+        let assembly = assembly_record_in_context(candidate.install_record(), &context)?;
         for operation_id in self.operations.unresolved_ids()? {
             // A preview child owns no insertion plan: it is discovered by its own
             // durable record and recovered through the preview route, so it must

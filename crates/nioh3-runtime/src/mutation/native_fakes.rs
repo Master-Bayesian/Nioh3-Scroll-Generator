@@ -120,6 +120,20 @@ impl FakeLiveAddTransport {
         fixture
             .memory
             .write(fixture.base + layout.insertion_rva, &insertion);
+        // A layout with a reviewed ambient-identity chain gets its exact code
+        // and no online session, so the builder identity reads as offline.
+        if let Some(identity) = crate::mutation::native_abi::builder_identity_for(&layout) {
+            for (rva, code) in identity.code {
+                fixture.memory.write(
+                    fixture.base + rva,
+                    &crate::mutation::inventory::hex_decode(code)?,
+                );
+            }
+            fixture.memory.write(
+                fixture.base + identity.session_pointer_rva,
+                &0u64.to_le_bytes(),
+            );
+        }
         let current = fixture.creation_time.to_string();
         Ok(Self {
             fixture,

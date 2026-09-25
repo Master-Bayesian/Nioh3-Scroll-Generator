@@ -40,6 +40,47 @@ or a live-game write, and it claims no live-game acceptance.
   equal the live-before inventory; batch and legacy-parent rules follow the
   reviewed admission table. Execute/readback are unchanged.
 
+## Live-add builder flag bit 25 (community receipts, 2026-09-25)
+
+Four community preview receipts (two seeds typed by hand, two from search) were
+all rejected with `Native builder output differs from reviewed record`. Byte
+for byte the only compared difference was record `+0x1B`: the plan expected
+the fixed `ASSEMBLY_FLAGS = 0x02800002`, the game built `0x00800002`
+(bit 25 clear). Every effect byte matched and each preview settled as
+`rejected_after_preview` with its container and index unchanged.
+
+Cause, from the pinned runtime `.text` (static decode, both versions):
+
+- The builder (v2.02 `0x227FD5B..0x227FD9E`, v2.01 `0x227C5CB..0x227C60E`) sets
+  bit 25 only when the descriptor identity `J` (record `+0x02/+0x04/+0x14`)
+  equals the ambient identity `A`.
+- `A` is `0` unless: the session pointer (v2.02 `0x4BD0B08`, v2.01
+  `0x4BCCAB8`) is set and its state byte `+0xD8` is 2 or 4; the online gate
+  byte (`0x45BA280` / `0x45B6240`) is set; and the identity object
+  (`0x4B5AD58` / `0x4B56D08`) has kind `(u16 +0x10 & 0xFF00) == 0x100` and
+  class `+0x12` in {1, 2}. Then `A = u64 +0x00`.
+- So an online player whose save identity is their own account gets
+  `0x02800002`, and an offline player (or a foreign save identity) gets
+  `0x00800002`. The fixed constant only ever matched the first case.
+
+Fix: inspection reads `A` through exactly that chain after proving the four
+helper bodies byte-identical to the reviewed image (and refuses an identity
+the game has not initialized yet), stores it in the plan as
+`builder_ambient_identity`, and prepare builds the expected record with
+`assembly_record_in_context`. Preview, insertion and verification all compare
+that one plan record, so no gate keeps the old expectation. Only bit 25
+follows the rule; every other byte is still compared exactly. Python mirrors
+the rule for parity.
+
+**Not yet done:** a live offline and online addition on PC v2.02 with a save
+backup, then a normal save and reload.
+
+Also in this change: a game that exited or restarted no longer pins the
+cached live-add executor to the dead process (`QueryFullProcessImageNameW ...
+error 31`) when that executor owns no native state; "核对上次实时添加" with
+nothing to check no longer locks "核对添加"; a rejected preview now says that
+nothing was added.
+
 ## PC v2.02 temporary-override evidence
 
 Static, from the retained section dumps (`Nioh3_v2.0.1.0.text.bin`, SHA-256

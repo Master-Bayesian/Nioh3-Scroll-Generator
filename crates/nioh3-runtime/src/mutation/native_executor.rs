@@ -25,7 +25,9 @@ use crate::error::RuntimeError;
 use crate::mutation::count::{
     is_canonical_uuid, new_operation_id, read_bytes, read_json, sha256_hex,
 };
-use crate::mutation::descriptor::{assembly_descriptor, verify_assembly_preview};
+use crate::mutation::descriptor::{
+    assembly_descriptor, verify_assembly_preview, BUILDER_AMBIENT_IDENTITY_FIELD,
+};
 use crate::mutation::evidence::{
     preview_fingerprints_agree, preview_owner_fingerprint, preview_rejection_decided,
     verify_dispatch, verify_dispatch_evidence, PREVIEW_PHASE_AFTER, PREVIEW_PHASE_BEFORE,
@@ -37,12 +39,12 @@ use crate::mutation::inventory::{
 };
 use crate::mutation::live_add::{InstallationCandidate, LiveAddExecutor};
 use crate::mutation::native_abi::{
-    build_dispatch_code, hex, InsertionArgs, LiveAddLayout, BUILDER_RESULT_OFFSET,
-    CANDIDATE_DISPLAY_VERSION, DISPATCH_CANARIES, DISPATCH_DESCRIPTOR_OFFSET,
-    DISPATCH_MARKER_OFFSET, DISPATCH_REMAINDER_OFFSET, DISPATCH_SLOT_OFFSET,
-    DISPATCH_SOURCE_OFFSET, DISPATCH_STATUS_OFFSET, INSERTION_RESULT_OFFSET, PC_V201_LIVE_ADD,
-    PC_V202_CANDIDATE_EXECUTABLE_SHA256, PC_V202_LIVE_ADD_CANDIDATE, PRODUCT_DISPLAY_VERSION,
-    REMOTE_CODE_SIZE,
+    build_dispatch_code, builder_identity_for, hex, BuilderIdentityLayout, InsertionArgs,
+    LiveAddLayout, BUILDER_RESULT_OFFSET, CANDIDATE_DISPLAY_VERSION, DISPATCH_CANARIES,
+    DISPATCH_DESCRIPTOR_OFFSET, DISPATCH_MARKER_OFFSET, DISPATCH_REMAINDER_OFFSET,
+    DISPATCH_SLOT_OFFSET, DISPATCH_SOURCE_OFFSET, DISPATCH_STATUS_OFFSET, INSERTION_RESULT_OFFSET,
+    PC_V201_LIVE_ADD, PC_V202_CANDIDATE_EXECUTABLE_SHA256, PC_V202_LIVE_ADD_CANDIDATE,
+    PRODUCT_DISPLAY_VERSION, REMOTE_CODE_SIZE,
 };
 use serde_json::{json, Map, Value};
 use std::collections::BTreeMap;
@@ -697,7 +699,15 @@ impl<T: LiveAddTransport> NativeLiveAddExecutor<T> {
             module_base + self.layout.builder_rva,
             self.layout.builder_size as usize,
         )?;
-        let plan = json!({
+        let ambient = match builder_identity_for(&self.layout) {
+            Some(identity) => Some(read_builder_ambient_identity(
+                &mut |address, size| self.transport.read(address, size),
+                module_base,
+                identity,
+            )?),
+            None => None,
+        };
+        let mut plan = json!({
             "pid": pid,
             "profile_id": self.layout.profile_id,
             "manager": manager,
@@ -711,6 +721,12 @@ impl<T: LiveAddTransport> NativeLiveAddExecutor<T> {
             "insertion_code_hex": hex(&insertion_code),
             "builder_code_hex": hex(&builder_code),
         });
+        if let (Some(ambient), Some(object)) = (ambient, plan.as_object_mut()) {
+            object.insert(
+                BUILDER_AMBIENT_IDENTITY_FIELD.to_string(),
+                json!(ambient.to_string()),
+            );
+        }
         Ok((plan, inventory, index))
     }
 
@@ -1019,6 +1035,63 @@ pub fn inventory_layout(layout: &LiveAddLayout) -> InventoryLayout {
             crate::mutation::inventory::INVENTORY_GLOBAL_MODE_MANAGER_OBJECT,
         ),
     }
+}
+
+/// Read the builder's ambient identity `A` exactly as the reviewed chain
+/// computes it, after proving every function on that chain is byte-identical
+/// to the decoded image.
+///
+/// `A` is `0` without a session, outside session states 2 and 4, while the
+/// online gate is clear, or for an identity of another kind or class. An
+/// identity object the game has not initialized yet is refused rather than
+/// guessed, since the builder would initialize it first.
+pub(crate) fn read_builder_ambient_identity(
+    read: &mut dyn FnMut(u64, usize) -> Result<Vec<u8>, RuntimeError>,
+    module_base: u64,
+    layout: &BuilderIdentityLayout,
+) -> Result<u64, RuntimeError> {
+    for (rva, code) in layout.code {
+        let expected = hex_decode(code)?;
+        if read(module_base + rva, expected.len())? != expected {
+            return Err(dispatch_error("Builder identity code differs"));
+        }
+    }
+    let u64_at = |raw: &[u8], offset: usize| -> Result<u64, RuntimeError> {
+        raw.get(offset..offset + 8)
+            .and_then(|bytes| bytes.try_into().ok())
+            .map(u64::from_le_bytes)
+            .ok_or_else(|| dispatch_error("Partial builder identity read"))
+    };
+    let byte_at = |raw: Vec<u8>| -> Result<u8, RuntimeError> {
+        raw.first()
+            .copied()
+            .ok_or_else(|| dispatch_error("Partial builder identity read"))
+    };
+    let session = u64_at(&read(module_base + layout.session_pointer_rva, 8)?, 0)?;
+    if session == 0 {
+        return Ok(0);
+    }
+    let state = byte_at(read(session + layout.session_state_offset, 1)?)?;
+    if state != 2 && state != 4 {
+        return Ok(0);
+    }
+    if byte_at(read(module_base + layout.online_gate_rva, 1)?)? == 0 {
+        return Ok(0);
+    }
+    if byte_at(read(module_base + layout.identity_ready_rva, 1)?)? == 0 {
+        return Err(rejected(
+            "The game has not initialized its player identity yet; try again shortly",
+        ));
+    }
+    let identity = read(module_base + layout.identity_rva, 0x13)?;
+    if identity.len() != 0x13 {
+        return Err(dispatch_error("Partial builder identity read"));
+    }
+    let kind = u16::from_le_bytes([identity[0x10], identity[0x11]]);
+    if kind & 0xFF00 != 0x100 || !matches!(identity[0x12], 1 | 2) {
+        return Ok(0);
+    }
+    u64_at(&identity, 0)
 }
 
 fn read_u64<T: LiveAddTransport + ?Sized>(

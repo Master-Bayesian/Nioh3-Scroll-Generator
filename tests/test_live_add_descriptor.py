@@ -4,7 +4,10 @@ from pathlib import Path
 import struct
 import unittest
 
-from nioh3_scroll_editor.live_add_descriptor import assembly_descriptor, verify_assembly_preview, new_assembly_record
+from nioh3_scroll_editor.live_add_descriptor import (
+    assembly_descriptor, assembly_record_in_context, new_assembly_record, new_assembly_record_for_ambient,
+    verify_assembly_preview,
+)
 from nioh3_scroll_editor.live_add_ce_transport import encode_request, read_exact
 from nioh3_scroll_editor.live_add_profile import PC_V201
 
@@ -32,6 +35,21 @@ class LiveAddDescriptorTests(unittest.TestCase):
         self.assertEqual(d[0x21], 1)
         other = bytearray(d);other[0x21] = 0
         self.assertEqual(assembly_descriptor(r, allocate_serial=True), bytes(other))
+
+    def test_builder_bit25_follows_the_ambient_identity(self):
+        r = self.source()
+        flags = lambda record: struct.unpack_from('<I', record, 0x18)[0]
+        self.assertEqual(flags(new_assembly_record_for_ambient(r, 0)), 0x00800002)
+        self.assertEqual(flags(new_assembly_record_for_ambient(r, 0x1122334455667788)), 0x02800002)
+        self.assertEqual(flags(new_assembly_record_for_ambient(r, 0x1122334455667789)), 0x00800002)
+        anonymous = bytearray(r);anonymous[2:6] = bytes(4);anonymous[0x14:0x18] = bytes(4)
+        self.assertEqual(flags(new_assembly_record_for_ambient(bytes(anonymous), 7)), 0x02800002)
+        self.assertEqual(assembly_record_in_context(r, {}), new_assembly_record(r))
+        self.assertEqual(assembly_record_in_context(r, {'builder_ambient_identity': '0'}),
+                         new_assembly_record_for_ambient(r, 0))
+        for bad in (0, 'x', '-1', str(1 << 64)):
+            with self.assertRaises(ValueError):
+                assembly_record_in_context(r, {'builder_ambient_identity': bad})
 
     def test_new_record_drops_only_template_inventory_metadata(self):
         old = bytearray(self.source())

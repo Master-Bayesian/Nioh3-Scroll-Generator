@@ -11,7 +11,7 @@ from .candidate_transfer import import_candidate
 from .core_services import OperationPolicy, OperationCommand
 from .models import CandidateRecordStage
 from .live_add_adapter import CELiveAddAdapter
-from .live_add_descriptor import assembly_descriptor, new_assembly_record
+from .live_add_descriptor import assembly_descriptor, assembly_record_in_context, new_assembly_record
 from .live_add_evidence import verify, verify_persistence, inventory_slots, index_entries, index_resolves
 from .live_add_operations import LiveAddOperations, exclusive_json
 from .search_application import require_search_candidate_ready
@@ -58,9 +58,13 @@ class LiveAddApplication:
 
     def prepare(self, candidate, save_path, *, previous_operation_id=None):
         with self.lock:
-            value, record = self.validate_candidate(candidate)
+            value, _reviewed = self.validate_candidate(candidate)
             adapter = self.executor()
             plan, before, index_before = adapter.inspect()
+            # The builder metadata depends on the inspected process (PC v2.02 sets
+            # bit 25 only for its ambient identity), so the record every native
+            # gate compares is built from this plan's context, never a constant.
+            record = assembly_record_in_context(value.installation_record or value.record, plan)
             for operation_id in self.operations.unresolved_ids():
                 old = self.operations.plan(operation_id)['plan']
                 if (old.get('pid'), old.get('process_creation_time')) == (plan['pid'], plan['process_creation_time']):

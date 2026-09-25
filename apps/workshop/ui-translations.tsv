@@ -610,3 +610,5 @@ R5 · 橙色	R5 · Orange	R5 · 橙
 。请勿重复写入。	. Do not write again.	。重複して書き込まないでください。
 操作未完成，且没有返回错误说明；请复制日志排查。	The operation did not finish and returned no error description; copy the log to investigate.	操作は完了せず、エラーの説明もありません。ログをコピーして調査してください。
 这个存档里已有绘卷的序列号重复，为避免改动已有绘卷，“添加到存档”已停止，存档没有被修改。请改用“游戏内实时添加”。	This save already has scrolls that share a serial. To avoid changing existing scrolls, "Add to save" stopped and the save was not modified. Use "Add in game" instead.	このセーブには既にシリアルが重複した絵巻があります。既存の絵巻を変更しないよう「セーブに追加」を中止し、セーブは変更されていません。「ゲーム内に直接追加」を使ってください。
+游戏生成的绘卷与预期不一致，这次没有添加，背包和存档都没有改动，可以直接重试。若反复出现，请复制日志反馈。	The scroll the game built did not match the expected one, so nothing was added and neither the inventory nor the save changed. You can retry; if it keeps happening, copy the log and report it.	ゲームが生成した絵巻が想定と一致しなかったため、追加していません。所持品もセーブも変更されていません。再試行できます。繰り返し発生する場合はログをコピーして報告してください。
+游戏已退出或重新启动。请进入角色存档后重新核对添加。	The game exited or restarted. Load your character save, then review the addition again.	ゲームが終了または再起動しました。キャラクターのセーブを読み込んでから、もう一度追加を確認してください。

@@ -76,6 +76,9 @@ pub struct RuntimeApplication {
     /// The reviewed live-addition application, created on first use.
     #[cfg(windows)]
     live_add: Option<nioh3_runtime::mutation::LiveAddApplication>,
+    /// The game process lifetime `(pid, creation time)` `live_add` is bound to.
+    #[cfg(windows)]
+    live_add_process: Option<(u32, u64)>,
     /// The product tables the offline preview composition reads, loaded once.
     #[cfg(windows)]
     preview: Option<Box<nioh3_data::PreviewResources>>,
@@ -158,6 +161,8 @@ impl RuntimeApplication {
             roster_roles: None,
             #[cfg(windows)]
             live_add: None,
+            #[cfg(windows)]
+            live_add_process: None,
             #[cfg(windows)]
             preview: None,
             #[cfg(windows)]
@@ -796,6 +801,25 @@ mod imp {
         /// transport attaches to that process; with no game this is the shipped
         /// process-absence failure rather than a refusal to serve.
         fn live_add_application(&mut self) -> Result<&mut LiveAddApplication, HostError> {
+            // The cached executor is bound to one game process lifetime. When the
+            // game has since exited or restarted and the executor owns no native
+            // state, rebuild it for the running game instead of querying a dead
+            // process forever. An executor that still owns native state keeps its
+            // lifetime, and durable operations stay bound to the process they
+            // were planned against.
+            if self.live_add.is_some() {
+                if let Ok(current) = self.live_add_identity() {
+                    let running = (current.identity.pid, current.identity.creation_filetime);
+                    if self.live_add_process != Some(running)
+                        && self
+                            .live_add
+                            .as_mut()
+                            .is_some_and(|application| application.safe_to_shutdown())
+                    {
+                        self.live_add = None;
+                    }
+                }
+            }
             if self.live_add.is_none() {
                 let identity = self.live_add_identity()?;
                 let (layout, display_version) =
@@ -820,6 +844,8 @@ mod imp {
                 )
                 .map_err(HostError::from_runtime)?;
                 self.live_add = Some(application);
+                self.live_add_process =
+                    Some((identity.identity.pid, identity.identity.creation_filetime));
             }
             self.live_add
                 .as_mut()

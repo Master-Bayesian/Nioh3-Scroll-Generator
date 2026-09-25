@@ -19,6 +19,42 @@ def new_assembly_record(record: bytes) -> bytes:
     return bytes(result)
 
 
+BUILDER_OWN_IDENTITY_FLAG = 0x02000000
+BUILDER_AMBIENT_IDENTITY_FIELD = 'builder_ambient_identity'
+
+
+def new_assembly_record_for_ambient(record: bytes, ambient: int) -> bytes:
+    """Builder metadata for one descriptor against one ambient identity.
+
+    The PC v2.02 builder takes `J` from descriptor `+0x18` (falling back to
+    `A` only when `J == 0` and descriptor `+0x20` is clear) and sets bit 25
+    exactly when `J == A`; every other metadata bit is the reviewed word.
+    """
+    descriptor = assembly_descriptor(record)
+    identity = struct.unpack_from('<Q', descriptor, 0x18)[0]
+    if identity == 0 and descriptor[0x20] == 0:
+        identity = ambient
+    flags = 0x02800002 if identity == ambient else 0x02800002 & ~BUILDER_OWN_IDENTITY_FLAG
+    result = bytearray(new_assembly_record(record))
+    struct.pack_into('<I', result, 0x18, flags)
+    return bytes(result)
+
+
+def assembly_record_in_context(record: bytes, context) -> bytes:
+    """The record the native builder is expected to produce for this plan.
+
+    A plan without the ambient field comes from a layout with no reviewed
+    identity chain and keeps the fixed metadata; a present field must be a
+    decimal u64 string.
+    """
+    if BUILDER_AMBIENT_IDENTITY_FIELD not in context:
+        return new_assembly_record(record)
+    value = context[BUILDER_AMBIENT_IDENTITY_FIELD]
+    if not isinstance(value, str) or not (value.isascii() and value.isdigit()) or int(value) >= 1 << 64:
+        raise ValueError('Prepared live-add plan expired; prepare a new plan')
+    return new_assembly_record_for_ambient(record, int(value))
+
+
 def assembly_descriptor(record: bytes, *, allocate_serial=False) -> bytes:
     if len(record) != 0xE8:
         raise ValueError('Expected one canonical scroll installation record')

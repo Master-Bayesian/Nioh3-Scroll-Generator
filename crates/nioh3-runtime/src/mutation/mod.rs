@@ -58,8 +58,9 @@ pub use count::{
     WindowsCountMemory, PC_V201_COUNT_LAYOUT, PC_V202_COUNT_LAYOUT,
 };
 pub use descriptor::{
-    assembly_descriptor, new_assembly_record, verify_assembly_preview, ASSEMBLY_FLAGS,
-    DESCRIPTOR_SIZE,
+    assembly_descriptor, assembly_record_in_context, new_assembly_record,
+    new_assembly_record_for_ambient, verify_assembly_preview, ASSEMBLY_FLAGS,
+    BUILDER_AMBIENT_IDENTITY_FIELD, BUILDER_OWN_IDENTITY_FLAG, DESCRIPTOR_SIZE,
 };
 pub use evidence::{
     defined, preview_rejection_complete, preview_rejection_decided, verify, verify_dispatch,
