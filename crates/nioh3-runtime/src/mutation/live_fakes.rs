@@ -219,6 +219,15 @@ impl InventoryFixture {
     /// A single FNV bucket holding the whole list, which is the smallest shape
     /// `live_inventory.inspect` accepts.
     fn seed_index(memory: &mut ByteMemory, header: u64, records: &[(usize, u64, u32)]) {
+        // The index is a map: records sharing a serial resolve through one node,
+        // the first occurrence, like a save that carries duplicate serials.
+        let mut unique: Vec<(usize, u64, u32)> = Vec::new();
+        for record in records {
+            if !unique.iter().any(|kept| kept.1 == record.1) {
+                unique.push(*record);
+            }
+        }
+        let records = unique.as_slice();
         let nodes: Vec<u64> = (0..records.len() as u64)
             .map(|index| header + 0x1000 + index * 0x40)
             .collect();

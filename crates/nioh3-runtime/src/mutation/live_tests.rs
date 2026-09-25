@@ -969,3 +969,63 @@ fn each_count_layout_reads_its_own_accepted_inventory_pair() {
         assert_eq!(accepted_inventory_version(&inventory), Some(version));
     }
 }
+
+/// Saves in the wild carry scroll records that share a `+0x28` serial, and the
+/// game loads them. Live addition keys old records by slot, so such an
+/// inventory is prepared and verified record for record; only the new serial
+/// must be unused.
+#[test]
+fn an_inventory_with_duplicate_serials_accepts_one_live_addition() {
+    let root = scratch("live-add-duplicates");
+    let save = save_path(&root);
+    let fixture = InventoryFixture::new(
+        &[(0, 0x1000, 0x11), (2, 0x1000, 0x12), (5, 0x1001, 0x13)],
+        0x1002,
+        5,
+    );
+    let (inventory, _index) = fixture.capture().expect("capture");
+    assert_eq!(inventory.duplicate_scroll_serials, vec!["4096".to_string()]);
+    std::fs::write(&save, decrypted_save(&fixture).expect("saved")).expect("save");
+    let mut application = fixture_application(
+        &root,
+        FakeLiveAddExecutor::new(fixture),
+        FakeSaveBackup::new(&root),
+    );
+    let (prepared, digest) = prepared(&mut application, &save, 0x0BAD);
+    assert_eq!(prepared.count_before, 3);
+    let receipt = application
+        .execute(&prepared.snapshot.operation_id, &digest)
+        .expect("execute");
+    assert_eq!(receipt.state, OperationState::Verified);
+    let receipt = receipt.receipt.expect("receipt");
+    assert_eq!(receipt["previous_records_preserved"], json!(3));
+    assert_eq!(receipt["count_after"], json!(4));
+}
+
+/// The serial the game would allocate next must not already name a record.
+#[test]
+fn a_next_serial_that_an_existing_record_uses_is_refused() {
+    let root = scratch("live-add-serial-taken");
+    let save = save_path(&root);
+    let fixture = InventoryFixture::new(&[(0, 0x1000, 0x11), (2, 0x1000, 0x12)], 0x1000, 5);
+    std::fs::write(&save, decrypted_save(&fixture).expect("saved")).expect("save");
+    let mut application = fixture_application(
+        &root,
+        FakeLiveAddExecutor::new(fixture),
+        FakeSaveBackup::new(&root),
+    );
+    let record = assembly_record(0x1E82, 0x0BAD, 4);
+    let payload = candidate_payload(
+        CONTEXT_DIGEST,
+        0x0BAD,
+        4,
+        &record,
+        None,
+        CandidateStage::FinalRecord,
+    )
+    .expect("payload");
+    let error = application
+        .prepare(&payload, &save, None)
+        .expect_err("a taken serial is refused");
+    assert!(error.message().contains("Native serial index differs"));
+}

@@ -27,6 +27,37 @@ def inventory_entries(value):
     return entries
 
 
+def inventory_slots(value):
+    """Occupied slot -> validated entry.
+
+    Unlike :func:`inventory_entries` this keeps records that share an existing
+    ``+0x28`` serial: saves in the wild carry such duplicates and the game
+    loads them. Live addition keys old records by their physical slot and only
+    requires the *new* serial to be unused.
+    """
+    slots = {}
+    if value['capacity'] != 400:
+        raise ValueError('Invalid inventory capacity')
+    for entry in value['entries']:
+        raw = record(entry['record_hex'])
+        slot = entry['slot_index']
+        if (slot in slots or not 0 <= slot < 400
+                or str(struct.unpack_from('<Q', raw, 0x28)[0]) != entry['serial']
+                or struct.unpack_from('<I', raw, 0x20)[0] != entry['seed']
+                or not struct.unpack_from('<H', raw)[0]):
+            raise ValueError('Invalid or duplicate occupied record')
+        slots[slot] = entry
+    return slots
+
+
+def index_resolves(index, slots):
+    """Every occupied serial maps to its slot, or to one slot of its duplicate group."""
+    groups = {}
+    for slot, entry in slots.items():
+        groups.setdefault(entry['serial'], set()).add(slot)
+    return all(index.get(serial) in group for serial, group in groups.items())
+
+
 def index_entries(value):
     entries = {item['serial']: item['slot'] for item in value['entries']}
     if len(entries) != len(value['entries']) or len(entries) != value['node_count']:
@@ -46,13 +77,18 @@ def verify(plan, execution, before, after, index_before, index_after):
         raise ValueError('Insertion acknowledgement does not match the plan')
     if any(item['pid'] != plan['pid'] for item in (execution, before, after, index_before, index_after)):
         raise ValueError('Process identity differs')
-    old, new = inventory_entries(before), inventory_entries(after)
+    # Old records are keyed by physical slot, so existing duplicate serials
+    # are preserved record for record; the new serial must be unused.
+    old, new = inventory_slots(before), inventory_slots(after)
     serial = str(plan['serial'])
-    if serial in old or set(new) != set(old) | {serial}:
+    added_slots = set(new) - set(old)
+    if (any(item['serial'] == serial for item in old.values()) or set(old) - set(new)
+            or len(added_slots) != 1 or new[min(added_slots)]['serial'] != serial):
         raise ValueError('Expected exactly one newly allocated serial')
-    if any(old[key] != new[key] for key in old):
+    if any(old[slot] != new[slot] for slot in old):
         raise ValueError('An existing record changed')
-    if new[serial]['slot_index'] != plan['slot']:
+    added_slot = min(added_slots)
+    if added_slot != plan['slot']:
         raise ValueError('The added record occupies another slot')
     baseline = bytes.fromhex(plan['container_hex'])
     if len(baseline) != 400 * 0xE8 or hashlib.sha256(baseline).hexdigest() != before['container_sha256']:
@@ -67,7 +103,7 @@ def verify(plan, execution, before, after, index_before, index_after):
     destination = record(execution['destination_hex'])
     source = record(execution['source_hex'])
     remainder = record(execution['remainder_hex'])
-    if destination != record(new[serial]['record_hex']) or remainder[:2] != b'\0\0':
+    if destination != record(new[added_slot]['record_hex']) or remainder[:2] != b'\0\0':
         raise ValueError('Destination or remainder disagrees with the receipt')
     if struct.unpack_from('<Q', source, 0x28)[0] != plan['serial']:
         raise ValueError('Builder source serial differs')
@@ -87,10 +123,10 @@ def verify(plan, execution, before, after, index_before, index_after):
     old_index, new_index = index_entries(index_before), index_entries(index_after)
     if serial in old_index or new_index != dict(old_index, **{serial: plan['slot']}):
         raise ValueError('Native index change is not exactly the new full serial')
-    if any(new_index.get(key) != item['slot_index'] for key, item in new.items()):
+    if not index_resolves(new_index, new):
         raise ValueError('Native index does not resolve occupied records')
     return {'schema': 'nioh3-live-add-verification/v1', 'operation_id': plan['operation_id'],
-            'serial': serial, 'seed': new[serial]['seed'], 'slot': plan['slot'],
+            'serial': serial, 'seed': new[added_slot]['seed'], 'slot': plan['slot'],
             'previous_records_preserved': len(old), 'count_after': len(new),
             'full_container_and_native_index_verified': True, 'dispatch_and_cleanup_verified': True,
             'persistence_verified': False,

@@ -12,7 +12,7 @@ from .core_services import OperationPolicy, OperationCommand
 from .models import CandidateRecordStage
 from .live_add_adapter import CELiveAddAdapter
 from .live_add_descriptor import assembly_descriptor, new_assembly_record
-from .live_add_evidence import verify, verify_persistence, inventory_entries, index_entries
+from .live_add_evidence import verify, verify_persistence, inventory_slots, index_entries, index_resolves
 from .live_add_operations import LiveAddOperations, exclusive_json
 from .search_application import require_search_candidate_ready
 from .savegame import (SaveCrypto, default_crypto_tool, SCROLL_GROUP_OFFSET,
@@ -66,7 +66,12 @@ class LiveAddApplication:
                 if (old.get('pid'), old.get('process_creation_time')) == (plan['pid'], plan['process_creation_time']):
                     raise RuntimeError(f'Uncertain insertion {operation_id}; recover its receipt before preparing another')
             mapping = index_entries(index_before)
-            if str(plan['serial']) in mapping or any(mapping.get(key) != item['slot_index'] for key, item in inventory_entries(before).items()):
+            # Existing records may share a serial (the game loads such saves); the
+            # index must resolve each to one of its slots, and the serial this
+            # insertion will allocate must be unused by records and index alike.
+            occupied = inventory_slots(before)
+            if (str(plan['serial']) in mapping or not index_resolves(mapping, occupied)
+                    or any(item['serial'] == str(plan['serial']) for item in occupied.values())):
                 raise ValueError('Native serial index differs from inventory')
             operation_id = str(uuid4())
             # Backup lives outside the operation directory until the complete

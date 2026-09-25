@@ -801,6 +801,66 @@ pub fn capture_inventory<M: InventoryProcess + ?Sized>(
     })
 }
 
+/// Port of `live_add_evidence.inventory_slots`: occupied slot -> validated entry.
+///
+/// Unlike [`inventory_entries`] this keeps records that share an existing
+/// `+0x28` serial: saves in the wild carry such duplicates and the game loads
+/// them. Live addition keys old records by their physical slot and only
+/// requires the *new* serial to be unused.
+pub fn inventory_slots(
+    inventory: &Inventory,
+) -> Result<BTreeMap<usize, InventoryEntry>, RuntimeError> {
+    if inventory.capacity != CAPACITY {
+        return Err(invalid("Invalid inventory capacity"));
+    }
+    let mut slots: BTreeMap<usize, InventoryEntry> = BTreeMap::new();
+    for entry in &inventory.entries {
+        let raw = hex_decode(&entry.record_hex)?;
+        if raw.len() != RECORD_SIZE {
+            return Err(invalid("Invalid scroll record length"));
+        }
+        let serial = u64::from_le_bytes(
+            raw[SERIAL_OFFSET..SERIAL_OFFSET + 8]
+                .try_into()
+                .map_err(|_| invalid("Invalid scroll record length"))?,
+        )
+        .to_string();
+        let seed = u32::from_le_bytes(
+            raw[SEED_OFFSET..SEED_OFFSET + 4]
+                .try_into()
+                .map_err(|_| invalid("Invalid scroll record length"))?,
+        );
+        if slots.contains_key(&entry.slot_index)
+            || entry.slot_index >= CAPACITY as usize
+            || serial != entry.serial
+            || seed != entry.seed
+            || u16::from_le_bytes([raw[0], raw[1]]) == 0
+        {
+            return Err(invalid("Invalid or duplicate occupied record"));
+        }
+        slots.insert(entry.slot_index, entry.clone());
+    }
+    Ok(slots)
+}
+
+/// Port of `live_add_evidence.index_resolves`: every occupied serial maps to
+/// its slot, or to one slot of its duplicate group.
+pub fn index_resolves(
+    index: &BTreeMap<String, u32>,
+    slots: &BTreeMap<usize, InventoryEntry>,
+) -> bool {
+    let mut groups: BTreeMap<&str, Vec<u32>> = BTreeMap::new();
+    for (slot, entry) in slots {
+        groups
+            .entry(entry.serial.as_str())
+            .or_default()
+            .push(*slot as u32);
+    }
+    groups
+        .iter()
+        .all(|(serial, group)| index.get(*serial).is_some_and(|slot| group.contains(slot)))
+}
+
 /// Port of `live_add_evidence.inventory_entries`: serial -> validated entry.
 pub fn inventory_entries(
     inventory: &Inventory,

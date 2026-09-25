@@ -15,7 +15,8 @@ use crate::mutation::count::{exclusive_json, new_operation_id, read_bytes, read_
 use crate::mutation::descriptor::{assembly_descriptor, new_assembly_record};
 use crate::mutation::evidence::{preview_rejection_complete, verify, verify_persistence};
 use crate::mutation::inventory::{
-    index_entries, inventory_entries, inventory_json, Inventory, NativeIndex, RECORD_SIZE,
+    index_entries, index_resolves, inventory_json, inventory_slots, Inventory, NativeIndex,
+    RECORD_SIZE,
 };
 use crate::mutation::operations::{LiveAddOperations, OperationSnapshot, OperationState};
 use serde_json::{json, Map, Value};
@@ -509,10 +510,13 @@ impl LiveAddApplication {
             .and_then(Value::as_u64)
             .ok_or_else(|| rejected("Prepared live-add plan expired; prepare a new plan"))?
             .to_string();
+        // Existing records may share a serial (the game loads such saves); the
+        // index must resolve each to one of its slots, and the serial this
+        // insertion will allocate must be unused by records and index alike.
+        let occupied = inventory_slots(&before)?;
         if mapping.contains_key(&serial)
-            || inventory_entries(&before)?
-                .iter()
-                .any(|(key, entry)| mapping.get(key).copied() != Some(entry.slot_index as u32))
+            || !index_resolves(&mapping, &occupied)
+            || occupied.values().any(|entry| entry.serial == serial)
         {
             return Err(candidate_rejected(
                 "Native serial index differs from inventory",

@@ -63,6 +63,30 @@ class InsertionEvidenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.run_verify()
 
+    def test_existing_duplicate_serials_are_kept_record_for_record(self):
+        # Two existing records share one serial (saves in the wild carry this);
+        # the insertion is verified slot by slot and the new serial is unused.
+        old = bytearray(self.raw)
+        struct.pack_into('<Q', old, 40, 99)
+        old = bytes(old)
+        entries = [{'serial': '99', 'slot_index': slot, 'seed': 123, 'record_hex': old.hex()}
+                   for slot in (1, 2)]
+        container = bytes(232) + old + old + bytes(397 * 232)
+        self.plan['container_hex'] = container.hex()
+        self.before.update(entries=entries, duplicate_scroll_serials=['99'],
+                           container_sha256=hashlib.sha256(container).hexdigest())
+        self.after.update(entries=[*self.after['entries'], *entries], duplicate_scroll_serials=['99'],
+                          container_sha256=hashlib.sha256(self.destination + old + old + bytes(397 * 232)).hexdigest())
+        self.index_before = {'pid': 1, 'node_count': 1, 'entries': [{'serial': '99', 'slot': 1}]}
+        self.index_after = {'pid': 1, 'node_count': 2, 'entries': [*self.index_before['entries'],
+                                                                *self.index_after['entries']]}
+        result = self.run_verify()
+        self.assertEqual((result['previous_records_preserved'], result['count_after']), (2, 3))
+        # Changing one of the duplicated records is still caught.
+        self.after['entries'][2] = dict(entries[1], seed=124)
+        with self.assertRaises(ValueError):
+            self.run_verify()
+
     def test_an_unoccupied_byte_change_is_not_ignored(self):
         self.after['container_sha256'] = hashlib.sha256(self.destination+bytes(399*232-1)+b'\1').hexdigest()
         with self.assertRaises(ValueError):

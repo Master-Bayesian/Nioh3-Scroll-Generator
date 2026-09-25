@@ -8,8 +8,8 @@
 use crate::error::RuntimeError;
 use crate::mutation::count::sha256_hex;
 use crate::mutation::inventory::{
-    hex_decode, index_entries, inventory_entries, Inventory, InventoryEntry, InventoryLayout,
-    NativeIndex, RECORD_SIZE, SERIAL_OFFSET,
+    hex_decode, index_entries, index_resolves, inventory_entries, inventory_slots, Inventory,
+    InventoryLayout, NativeIndex, RECORD_SIZE, SERIAL_OFFSET,
 };
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -475,21 +475,34 @@ pub fn verify(
     {
         return Err(failed("Process identity differs"));
     }
-    let old = inventory_entries(before)?;
-    let new = inventory_entries(after)?;
+    // Old records are keyed by physical slot, so existing duplicate serials are
+    // preserved record for record; the new serial must be unused.
+    let old = inventory_slots(before)?;
+    let new = inventory_slots(after)?;
     let plan_serial = field_u64(plan, "serial")?;
     let serial = plan_serial.to_string();
-    if old.contains_key(&serial) || set_of(&new) != union_of(&old, &serial) {
+    let added_slots: Vec<usize> = new
+        .keys()
+        .filter(|slot| !old.contains_key(slot))
+        .copied()
+        .collect();
+    if old.values().any(|entry| entry.serial == serial)
+        || old.keys().any(|slot| !new.contains_key(slot))
+        || added_slots.len() != 1
+        || new
+            .get(&added_slots[0])
+            .is_none_or(|entry| entry.serial != serial)
+    {
         return Err(failed("Expected exactly one newly allocated serial"));
     }
     if old
         .iter()
-        .any(|(key, entry)| new.get(key).is_none_or(|other| other != entry))
+        .any(|(slot, entry)| new.get(slot).is_none_or(|other| other != entry))
     {
         return Err(failed("An existing record changed"));
     }
     let added = new
-        .get(&serial)
+        .get(&added_slots[0])
         .ok_or_else(|| failed("Expected exactly one newly allocated serial"))?;
     if added.slot_index as u64 != plan_slot {
         return Err(failed("The added record occupies another slot"));
@@ -582,10 +595,7 @@ pub fn verify(
             "Native index change is not exactly the new full serial",
         ));
     }
-    if new
-        .iter()
-        .any(|(key, item)| new_index.get(key).copied() != Some(item.slot_index as u32))
-    {
+    if !index_resolves(&new_index, &new) {
         return Err(failed("Native index does not resolve occupied records"));
     }
     Ok(json!({
@@ -604,19 +614,6 @@ pub fn verify(
             "Persistence requires independent normal save and reload evidence.",
         ],
     }))
-}
-
-fn set_of(entries: &BTreeMap<String, InventoryEntry>) -> Vec<String> {
-    let mut keys: Vec<String> = entries.keys().cloned().collect();
-    keys.sort();
-    keys
-}
-
-fn union_of(entries: &BTreeMap<String, InventoryEntry>, serial: &str) -> Vec<String> {
-    let mut keys = set_of(entries);
-    keys.push(serial.to_string());
-    keys.sort();
-    keys
 }
 
 /// Port of `live_add_evidence.verify_persistence`.
