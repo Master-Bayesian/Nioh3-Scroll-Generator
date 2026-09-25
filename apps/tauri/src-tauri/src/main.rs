@@ -402,6 +402,19 @@ async fn desktop_request(
     }
 }
 
+/// The close refusal in the user's interface language (default Chinese).
+fn close_blocked_message(data: &std::path::Path) -> &'static str {
+    let locale = std::fs::read(data.join("v2-preferences.json"))
+        .ok()
+        .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
+        .and_then(|v| v["locale"].as_str().map(str::to_string));
+    match locale.as_deref() {
+        Some("en-US") => "An addition or save write has not been confirmed yet, so the app stays open to keep it recoverable. Use \"Check last live addition\" in the add panel (or check the last write under Backup & Management), then close again.",
+        Some("ja-JP") => "追加またはセーブ書き込みの結果がまだ確認されていないため、閉じられません。追加画面の「前回のライブ追加を確認」（またはバックアップと管理で前回の書き込みを確認）を行ってから、もう一度閉じてください。",
+        _ => "有一次添加或存档写入的结果还没有确认，为了之后还能核对，现在不能关闭。请先在添加界面点“核对上次实时添加”（或在“备份与管理”里核对上次写入），完成后再关闭。",
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -494,7 +507,7 @@ fn main() {
                         }
                         state.quitting.store(true, Ordering::SeqCst); app.exit(0);
                     }
-                    else { state.closing.store(false, Ordering::SeqCst); app.dialog().message("A protected operation still owns the game or save. Finish or recover it before closing.").blocking_show(); }
+                    else { state.closing.store(false, Ordering::SeqCst); app.dialog().message(close_blocked_message(&state.broker.data)).blocking_show(); }
                 });
             }
         })
