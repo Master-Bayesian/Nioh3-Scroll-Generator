@@ -809,7 +809,7 @@ impl NativeBatchOracle {
                     detail: "游戏原生批量最终化函数返回了错误数量的记录".to_string(),
                 });
             }
-            for (candidate, output) in eligible.iter().zip(outputs.into_iter()) {
+            for (candidate, output) in eligible.iter().zip(outputs) {
                 if output[effect_flag_offset(index)] & 0x04 != 0 {
                     completed[*candidate] = output;
                     pending.retain(|value| value != candidate);

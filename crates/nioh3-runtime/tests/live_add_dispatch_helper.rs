@@ -22,11 +22,11 @@ use nioh3_runtime::mutation::native_abi::{PC_V201_LIVE_ADD, SCROLL_RECORD_SIZE};
 use nioh3_runtime::mutation::native_executor::{
     settled, NativeDebugTransport, NativeLiveAddExecutor,
 };
+use nioh3_runtime::mutation::win_session::{RemoteSession, WindowsRemoteSession};
 use nioh3_runtime::mutation::{
     preview_rejection_complete, LiveAddExecutor, INVENTORY_GLOBAL_MODE_MANAGER_OBJECT,
     LIVE_ADD_DISPLAY_VERSION,
 };
-use nioh3_runtime::mutation::win_session::{RemoteSession, WindowsRemoteSession};
 use nioh3_runtime::RuntimeError;
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Write};
@@ -334,7 +334,10 @@ fn a_real_preview_mismatch_settles_rejected_and_recovers_without_the_builder(
         Some(1),
         "the rejection is after the dispatch, never before it"
     );
-    assert!(settled(&receipt), "the terminal rejection releases its owner");
+    assert!(
+        settled(&receipt),
+        "the terminal rejection releases its owner"
+    );
     assert!(preview_rejection_complete(&receipt), "{receipt}");
 
     // The inventory fingerprint pair is unchanged and names the same owner.
@@ -450,7 +453,10 @@ fn a_real_preview_without_acknowledgement_stays_blocked() -> Result<(), RuntimeE
         Some("unknown"),
         "{receipt}"
     );
-    assert!(!settled(&receipt), "an unacknowledged preview never settles");
+    assert!(
+        !settled(&receipt),
+        "an unacknowledged preview never settles"
+    );
     assert!(!preview_rejection_complete(&receipt));
     helper.quit();
     Ok(())
@@ -500,11 +506,13 @@ fn a_disposable_helper_presents_the_exact_preview_baseline_reads() -> Result<(),
 
     // The two pointer hops `resolve_inventory_pointers` makes, with values.
     let manager_slot = base + layout.manager_pointer_rva;
-    let manager_value =
-        u64::from_le_bytes(session.read(manager_slot, 8)?.try_into().unwrap_or_default());
-    eprintln!(
-        "PROBE manager slot {manager_slot:#x} = {manager_value:#x} (helper data {data:#x})"
+    let manager_value = u64::from_le_bytes(
+        session
+            .read(manager_slot, 8)?
+            .try_into()
+            .unwrap_or_default(),
     );
+    eprintln!("PROBE manager slot {manager_slot:#x} = {manager_value:#x} (helper data {data:#x})");
     match session.read(manager_value, 8) {
         Ok(raw) => eprintln!(
             "PROBE data via manager = {:#x}",
@@ -548,7 +556,11 @@ fn a_disposable_helper_presents_the_exact_preview_baseline_reads() -> Result<(),
             layout.dispatch_signature.len(),
         ),
         ("manager pointer", base + layout.manager_pointer_rva, 8),
-        ("insertion signature site", base + layout.insertion_rva, 0x20),
+        (
+            "insertion signature site",
+            base + layout.insertion_rva,
+            0x20,
+        ),
         (
             "container capacity cell",
             data + layout.container_offset + layout.capacity_offset,
@@ -559,10 +571,19 @@ fn a_disposable_helper_presents_the_exact_preview_baseline_reads() -> Result<(),
     let mut failures: Vec<String> = Vec::new();
     for (name, address, size) in reads {
         match session.read(address, size) {
-            Ok(bytes) => eprintln!("PROBE ok   {name}: {address:#x} len {size} -> {}", bytes.len()),
+            Ok(bytes) => eprintln!(
+                "PROBE ok   {name}: {address:#x} len {size} -> {}",
+                bytes.len()
+            ),
             Err(error) => {
-                eprintln!("PROBE FAIL {name}: {address:#x} len {size} -> {}", error.message());
-                failures.push(format!("{name}: {address:#x} len {size} -> {}", error.message()));
+                eprintln!(
+                    "PROBE FAIL {name}: {address:#x} len {size} -> {}",
+                    error.message()
+                );
+                failures.push(format!(
+                    "{name}: {address:#x} len {size} -> {}",
+                    error.message()
+                ));
             }
         }
     }

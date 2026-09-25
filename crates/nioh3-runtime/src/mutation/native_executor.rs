@@ -798,7 +798,8 @@ impl<T: LiveAddTransport> LiveAddExecutor for NativeLiveAddExecutor<T> {
                 last = Some(result);
                 continue;
             }
-            if result.get("settlement").and_then(Value::as_str) == Some(PREVIEW_SETTLEMENT_REJECTED) {
+            if result.get("settlement").and_then(Value::as_str) == Some(PREVIEW_SETTLEMENT_REJECTED)
+            {
                 // The dispatch, its return/register proof and its cleanup are
                 // complete; the business result is the mismatch the assembly
                 // comparison below reports. Verify the native proof itself
@@ -946,10 +947,7 @@ impl<T: LiveAddTransport> LiveAddExecutor for NativeLiveAddExecutor<T> {
     }
 
     /// Every durable preview child this parent operation owns, read-only.
-    fn preview_children(
-        &mut self,
-        parent_operation_id: &str,
-    ) -> Result<Vec<Value>, RuntimeError> {
+    fn preview_children(&mut self, parent_operation_id: &str) -> Result<Vec<Value>, RuntimeError> {
         self.transport.preview_receipts(parent_operation_id)
     }
 
@@ -1081,10 +1079,11 @@ impl ReceiptStore {
             path: temporary.display().to_string(),
             detail: error.to_string(),
         })?;
-        file.write_all(text.as_bytes()).map_err(|error| RuntimeError::Io {
-            path: temporary.display().to_string(),
-            detail: error.to_string(),
-        })?;
+        file.write_all(text.as_bytes())
+            .map_err(|error| RuntimeError::Io {
+                path: temporary.display().to_string(),
+                detail: error.to_string(),
+            })?;
         file.sync_all().map_err(|error| RuntimeError::Io {
             path: temporary.display().to_string(),
             detail: error.to_string(),
@@ -1623,10 +1622,10 @@ mod windows_transport {
         // shipped traversal: the container and the index can disagree, so the
         // index is read here rather than derived from the records.
         let inventory_layout = inventory_layout(layout);
-        let game_version = crate::mutation::inventory::accepted_inventory_version(&inventory_layout)
-            .ok_or_else(|| {
-                dispatch_error("Preview baseline has no accepted inventory version")
-            })?;
+        let game_version = crate::mutation::inventory::accepted_inventory_version(
+            &inventory_layout,
+        )
+        .ok_or_else(|| dispatch_error("Preview baseline has no accepted inventory version"))?;
         let native_index = {
             let mut view = SessionInventoryView {
                 session,
@@ -2249,12 +2248,9 @@ mod windows_transport {
                                 &planned_creation,
                                 PREVIEW_PHASE_BEFORE,
                             )?;
-                            let target_builder = session.read(
-                                base + layout.builder_rva,
-                                layout.builder_size as usize,
-                            )?;
-                            let reviewed =
-                                preview_builder_code_sha256.clone().unwrap_or_default();
+                            let target_builder = session
+                                .read(base + layout.builder_rva, layout.builder_size as usize)?;
+                            let reviewed = preview_builder_code_sha256.clone().unwrap_or_default();
                             if let Some(object) = receipt.as_object_mut() {
                                 object.insert(
                                     "preview_intent".to_string(),
@@ -2441,9 +2437,7 @@ mod windows_transport {
             (Ok(()), None) => None,
         };
         let cleanup_error_text = cleanup_error.as_ref().map(RuntimeError::message);
-        let error_text = primary_error
-            .clone()
-            .or_else(|| cleanup_error_text.clone());
+        let error_text = primary_error.clone().or_else(|| cleanup_error_text.clone());
         if diagnostics.stop_reason.is_empty() {
             // An error path that broke out of the loop without its own label.
             diagnostics.stop_reason = if outcome.is_err() {
@@ -3263,7 +3257,14 @@ mod windows_transport {
             fail_container_read: bool,
             faults: RuntimeOwnerFaults,
         ) -> (Result<(), RuntimeError>, Value, FakeDebugSession) {
-            run_preview_with_builder(name, shape, container_byte, fail_container_read, faults, None)
+            run_preview_with_builder(
+                name,
+                shape,
+                container_byte,
+                fail_container_read,
+                faults,
+                None,
+            )
         }
 
         /// The same run with a caller-chosen length for the committed builder
@@ -3300,14 +3301,17 @@ mod windows_transport {
                 0x3345,
                 11,
             );
-            inventory
-                .memory
-                .write(FIXTURE_BASE + layout.dispatch_rva, &layout.dispatch_signature);
+            inventory.memory.write(
+                FIXTURE_BASE + layout.dispatch_rva,
+                &layout.dispatch_signature,
+            );
             inventory
                 .memory
                 .write(FIXTURE_BASE + layout.builder_rva, &builder);
-            let container_address =
-                FIXTURE_BASE + 0x2_0000 + layout.container_offset + 0x40 * layout.record_size as u64;
+            let container_address = FIXTURE_BASE
+                + 0x2_0000
+                + layout.container_offset
+                + 0x40 * layout.record_size as u64;
             let mut session = FakeDebugSession::new(&inventory);
             session.script = Some(FakeSessionScript {
                 ack_tid: 2,
@@ -3418,15 +3422,30 @@ mod windows_transport {
                 RuntimeOwnerFaults::default(),
             );
             let error = outcome.expect_err("the reviewed output is not reproduced");
-            assert_eq!(error.message(), "Native builder output differs from reviewed record");
+            assert_eq!(
+                error.message(),
+                "Native builder output differs from reviewed record"
+            );
             assert_eq!(receipt["phase"], "rejected_after_preview");
             assert_eq!(receipt["business_outcome"], "rejected");
             assert_eq!(receipt["settlement"], "rejected_after_preview");
             assert_eq!(receipt["redirect_count"], 1);
-            assert_eq!(receipt["preview_dispatch_proof"]["return_and_register_verified"], true);
-            assert_eq!(receipt["preview_dispatch_proof"]["source_serial_sentinel"], true);
-            assert_eq!(receipt["preview_dispatch_proof"]["inventory_fingerprints_agree"], true);
-            assert!(settled(&receipt), "the terminal rejection releases its owner");
+            assert_eq!(
+                receipt["preview_dispatch_proof"]["return_and_register_verified"],
+                true
+            );
+            assert_eq!(
+                receipt["preview_dispatch_proof"]["source_serial_sentinel"],
+                true
+            );
+            assert_eq!(
+                receipt["preview_dispatch_proof"]["inventory_fingerprints_agree"],
+                true
+            );
+            assert!(
+                settled(&receipt),
+                "the terminal rejection releases its owner"
+            );
             assert!(preview_rejection_complete(&receipt));
         }
 
@@ -3524,7 +3543,8 @@ mod windows_transport {
                 "the primary read error is preserved: {primary}"
             );
             assert_eq!(
-                receipt["cleanup_error"], Value::Null,
+                receipt["cleanup_error"],
+                Value::Null,
                 "cleanup completed instead of being refused for the pending event"
             );
             assert_eq!(receipt["released"], true);
@@ -3555,9 +3575,10 @@ mod windows_transport {
                 0x3345,
                 11,
             );
-            inventory
-                .memory
-                .write(FIXTURE_BASE + layout.dispatch_rva, &layout.dispatch_signature);
+            inventory.memory.write(
+                FIXTURE_BASE + layout.dispatch_rva,
+                &layout.dispatch_signature,
+            );
             inventory
                 .memory
                 .write(FIXTURE_BASE + layout.builder_rva, &builder);
@@ -3654,7 +3675,10 @@ mod windows_transport {
                 .expect("durable receipt");
             let stored = store.read(child).expect("read back");
             assert!(!settled(&stored), "the receipt is still an owner");
-            assert_eq!(store.unresolved_owner().expect("owner"), Some(child.to_string()));
+            assert_eq!(
+                store.unresolved_owner().expect("owner"),
+                Some(child.to_string())
+            );
 
             let mut transport =
                 NativeDebugTransport::new(FIXTURE_PID, PC_V201_LIVE_ADD, "Nioh3.exe", &directory)

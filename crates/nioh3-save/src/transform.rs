@@ -618,10 +618,13 @@ pub fn read_local_effect_slots(record: &[u8]) -> Result<Vec<LocalEffectSlot>, Sa
     for slot_index in 0..EFFECT_SLOT_COUNT {
         let base = EFFECT_SLOT_BASE + slot_index * EFFECT_SLOT_STRIDE;
         let mut fields = [0u32; 6];
-        for (index, chunk) in record[base..base + 0x18].chunks_exact(4).enumerate() {
-            let mut window = [0u8; 4];
-            window.copy_from_slice(chunk);
-            fields[index] = u32::from_le_bytes(window);
+        for (index, chunk) in record[base..base + 0x18]
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .enumerate()
+        {
+            fields[index] = u32::from_le_bytes(*chunk);
         }
         slots.push(LocalEffectSlot {
             slot_index,

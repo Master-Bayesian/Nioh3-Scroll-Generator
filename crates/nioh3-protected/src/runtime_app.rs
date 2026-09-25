@@ -1654,10 +1654,9 @@ mod live_add_selection_tests {
         assert_eq!(*layout, PC_V202_LIVE_ADD_CANDIDATE);
         // ... and the accepted binding still attaches the pinned executable
         // digest, so the wrong build refuses before any read or dispatch.
-        let binding = nioh3_runtime::mutation::native_executor::accepted_live_add_binding(
-            layout, display,
-        )
-        .expect("the accepted binding table names this pair");
+        let binding =
+            nioh3_runtime::mutation::native_executor::accepted_live_add_binding(layout, display)
+                .expect("the accepted binding table names this pair");
         assert_eq!(
             binding.executable_sha256,
             Some("E22C4A635E4EC1E27A177B76E27D7F6A637F426C0ED3928B60F5693BC52AE130")

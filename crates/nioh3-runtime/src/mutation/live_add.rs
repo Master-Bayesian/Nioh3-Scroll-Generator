@@ -316,10 +316,7 @@ pub trait LiveAddExecutor {
     /// A preview retries only its own explicit zero-redirect idle miss, under a
     /// fresh identity, so the parent enumerates every attempted child here
     /// instead of trusting only the identity it pinned. Never dispatches.
-    fn preview_children(
-        &mut self,
-        _parent_operation_id: &str,
-    ) -> Result<Vec<Value>, RuntimeError> {
+    fn preview_children(&mut self, _parent_operation_id: &str) -> Result<Vec<Value>, RuntimeError> {
         Ok(Vec::new())
     }
 

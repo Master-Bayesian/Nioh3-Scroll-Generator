@@ -39,23 +39,23 @@ pub mod win_session;
 mod count_tests;
 #[cfg(any(test, feature = "test-fake"))]
 mod fake;
+#[cfg(test)]
+mod historical_preview_tests;
 #[cfg(any(test, feature = "test-fake"))]
 pub mod live_fakes;
 #[cfg(test)]
 mod live_tests;
 #[cfg(test)]
 mod native_executor_tests;
-#[cfg(test)]
-mod historical_preview_tests;
 #[cfg(any(test, feature = "test-fake"))]
 pub mod native_fakes;
 #[cfg(test)]
 mod session_tests;
 
 pub use count::{
-    canonical_json, stable_identity, CountEditor, CountLayout, CountMemory, CountPlan,
-    CountProcesses, CountState, CountStatus, TargetCapture, WindowsCountMemory,
-    count_layout_for_game_version, PC_V201_COUNT_LAYOUT, PC_V202_COUNT_LAYOUT,
+    canonical_json, count_layout_for_game_version, stable_identity, CountEditor, CountLayout,
+    CountMemory, CountPlan, CountProcesses, CountState, CountStatus, TargetCapture,
+    WindowsCountMemory, PC_V201_COUNT_LAYOUT, PC_V202_COUNT_LAYOUT,
 };
 pub use descriptor::{
     assembly_descriptor, new_assembly_record, verify_assembly_preview, ASSEMBLY_FLAGS,
@@ -74,10 +74,10 @@ pub use inventory::{
     PC_V201_INVENTORY_LAYOUT,
 };
 pub use live_add::{
-    disk_persistence_baseline, saved_scroll_records, CandidateEffect, CandidateStage, CatalogPolicy, InstallationCandidate,
-    LiveAddApplication, LiveAddExecutor, PreparedLiveAdd, SaveBackup, SaveCheckpoint,
-    DISK_PERSISTENCE_BASELINE_FIELD, LIVE_ADD_DISPLAY_VERSION, SCROLL_GROUP_OFFSET,
-    SCROLL_SLOT_COUNT,
+    disk_persistence_baseline, saved_scroll_records, CandidateEffect, CandidateStage,
+    CatalogPolicy, InstallationCandidate, LiveAddApplication, LiveAddExecutor, PreparedLiveAdd,
+    SaveBackup, SaveCheckpoint, DISK_PERSISTENCE_BASELINE_FIELD, LIVE_ADD_DISPLAY_VERSION,
+    SCROLL_GROUP_OFFSET, SCROLL_SLOT_COUNT,
 };
 pub use live_batch::LiveAddBatch;
 pub use operations::{LiveAddOperations, OperationSnapshot, OperationState};
@@ -86,10 +86,9 @@ pub use operations::{LiveAddOperations, OperationSnapshot, OperationState};
 pub use count::{WindowsCountMemoryAdapter, WindowsCountProcesses};
 pub use memory::{TargetProcess, COUNT_WRITE_ACCESS, OVERRIDE_ACCESS, READ_ACCESS};
 pub use session::{
-    ChallengeOverrideProfile, OverrideGroup, OverrideSession, RuntimeMutationHost, SessionMemory,
-    challenge_capacity_rva, SessionSite, CAPACITY_RVA, CAPACITY_SIGNATURE,
-    CHALLENGE_DISPLAY_VERSION, COUNTER_RESERVE, PC_V202_CAPACITY_RVA,
-    REMOTE_ALLOCATION_SIZE,
+    challenge_capacity_rva, ChallengeOverrideProfile, OverrideGroup, OverrideSession,
+    RuntimeMutationHost, SessionMemory, SessionSite, CAPACITY_RVA, CAPACITY_SIGNATURE,
+    CHALLENGE_DISPLAY_VERSION, COUNTER_RESERVE, PC_V202_CAPACITY_RVA, REMOTE_ALLOCATION_SIZE,
 };
 pub use trampoline::{
     build_challenge_trampoline, build_override_trampoline, build_relative_jump, EnemyGroup,

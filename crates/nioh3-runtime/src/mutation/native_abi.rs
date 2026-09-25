@@ -1066,17 +1066,13 @@ mod tests {
             "2.0.2.0 must no longer be refused as an unsupported version"
         );
         assert_eq!(
-            live_add_binding_for_game_version((2, 0, 1, 0)).map(|(layout, version)| (
-                layout.profile_id,
-                version
-            )),
+            live_add_binding_for_game_version((2, 0, 1, 0))
+                .map(|(layout, version)| (layout.profile_id, version)),
             Some(("pc-v2.01-live-add-r1", "PC v2.01"))
         );
         assert_eq!(
-            live_add_binding_for_game_version((2, 0, 2, 0)).map(|(layout, version)| (
-                layout.profile_id,
-                version
-            )),
+            live_add_binding_for_game_version((2, 0, 2, 0))
+                .map(|(layout, version)| (layout.profile_id, version)),
             Some(("pc-v2.02-live-add-candidate", "PC v2.02"))
         );
         assert_eq!(live_add_binding_for_game_version((2, 0, 2, 1)), None);

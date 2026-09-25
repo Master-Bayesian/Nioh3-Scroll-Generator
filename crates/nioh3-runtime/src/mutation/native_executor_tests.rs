@@ -7,7 +7,9 @@ use crate::mutation::evidence::{
     preview_owner_fingerprint, preview_rejection_complete, preview_rejection_decided,
     preview_rejection_receipt, PREVIEW_PHASE_AFTER, PREVIEW_PHASE_BEFORE,
 };
-use crate::mutation::inventory::{hex_decode, PC_V201_INVENTORY_LAYOUT, RECORD_SIZE, SERIAL_OFFSET};
+use crate::mutation::inventory::{
+    hex_decode, PC_V201_INVENTORY_LAYOUT, RECORD_SIZE, SERIAL_OFFSET,
+};
 use crate::mutation::live_add::LiveAddExecutor;
 use crate::mutation::live_fakes::{assembly_record, InventoryFixture, FIXTURE_CREATION};
 use crate::mutation::native_abi::{

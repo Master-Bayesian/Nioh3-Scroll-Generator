@@ -241,8 +241,8 @@ impl Drop for Fixture {
 fn a_valid_historical_fixture_classifies_without_touching_the_receipt() {
     let fixture = Fixture::new("valid");
     let before_bytes = fixture.receipt_bytes();
-    let proposed =
-        verify_historical_preview(&fixture.store, &fixture.parsed(), &fixture.paths).expect("dry run");
+    let proposed = verify_historical_preview(&fixture.store, &fixture.parsed(), &fixture.paths)
+        .expect("dry run");
     assert!(classification_is_terminal(&proposed), "{proposed}");
     assert_eq!(proposed["claim"], CLASSIFICATION_CLAIM);
     assert!(
@@ -261,7 +261,11 @@ fn a_valid_historical_fixture_classifies_without_touching_the_receipt() {
         stored["evidence_kind"], "historical_external_snapshots_not_a_native_durable_baseline",
         "the record never claims a native baseline"
     );
-    assert_eq!(fixture.receipt_bytes(), before_bytes, "the receipt is immutable");
+    assert_eq!(
+        fixture.receipt_bytes(),
+        before_bytes,
+        "the receipt is immutable"
+    );
     assert_eq!(
         fixture.store.unresolved_owner().expect("owner"),
         None,
@@ -334,7 +338,9 @@ fn missing_evidence_is_refused() {
     let fixture = Fixture::new("missing-evidence");
     std::fs::remove_file(&fixture.paths.inventory_after).expect("remove");
     assert!(verify_historical_preview(&fixture.store, &fixture.parsed(), &fixture.paths).is_err());
-    assert!(classify_historical_preview(&fixture.store, &fixture.parsed(), &fixture.paths).is_err());
+    assert!(
+        classify_historical_preview(&fixture.store, &fixture.parsed(), &fixture.paths).is_err()
+    );
     assert_eq!(
         fixture.store.unresolved_owner().expect("owner"),
         Some(OPERATION.to_string()),
@@ -477,7 +483,9 @@ fn a_malformed_or_extra_sidecar_is_an_error_not_a_hidden_owner() {
 fn a_failed_persist_keeps_the_fence() {
     let fixture = Fixture::new("atomic");
     std::fs::create_dir_all(fixture.store.classification_path(OPERATION)).expect("block");
-    assert!(classify_historical_preview(&fixture.store, &fixture.parsed(), &fixture.paths).is_err());
+    assert!(
+        classify_historical_preview(&fixture.store, &fixture.parsed(), &fixture.paths).is_err()
+    );
     assert_eq!(
         fixture.store.unresolved_owner().expect("owner"),
         Some(OPERATION.to_string()),

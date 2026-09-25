@@ -1274,9 +1274,7 @@ fn receipt_names(directory: &std::path::Path) -> Vec<String> {
     let mut names: Vec<String> = entries
         .filter_map(Result::ok)
         .map(|entry| entry.file_name().to_string_lossy().into_owned())
-        .filter(|name| {
-            name.ends_with(".json") && !name.ends_with(".classification.json")
-        })
+        .filter(|name| name.ends_with(".json") && !name.ends_with(".classification.json"))
         .collect();
     names.sort();
     names

@@ -625,8 +625,7 @@ impl LiveAddExecutor for FakeLiveAddExecutor {
             )?;
             self.receipts.insert(operation_id.clone(), receipt);
             return Err(RuntimeError::LiveAddVerification {
-                detail: "Native assembly differs from the expected installation record"
-                    .to_string(),
+                detail: "Native assembly differs from the expected installation record".to_string(),
             });
         }
         if self.faults.preview_incomplete {
@@ -660,7 +659,9 @@ impl LiveAddExecutor for FakeLiveAddExecutor {
             object.insert("mode".to_string(), json!("preview"));
             object.insert(
                 "parent_operation_id".to_string(),
-                plan.get("parent_operation_id").cloned().unwrap_or(Value::Null),
+                plan.get("parent_operation_id")
+                    .cloned()
+                    .unwrap_or(Value::Null),
             );
             object.insert("business_outcome".to_string(), json!("completed"));
             object.insert("breakpoint_count".to_string(), json!(0));
@@ -679,10 +680,7 @@ impl LiveAddExecutor for FakeLiveAddExecutor {
         Ok(receipt)
     }
 
-    fn preview_children(
-        &mut self,
-        parent_operation_id: &str,
-    ) -> Result<Vec<Value>, RuntimeError> {
+    fn preview_children(&mut self, parent_operation_id: &str) -> Result<Vec<Value>, RuntimeError> {
         Ok(self
             .receipts
             .values()

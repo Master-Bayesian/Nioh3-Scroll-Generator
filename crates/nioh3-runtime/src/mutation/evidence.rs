@@ -302,8 +302,7 @@ pub fn preview_rejection_receipt(
 /// Two preview fingerprints that agree: the same process lifetime, profile,
 /// inventory owner and layout, and an unchanged container, mapping and counters.
 pub fn preview_fingerprints_agree(receipt: &Value) -> bool {
-    let (Some(before), Some(after)) =
-        (receipt.get("preview_before"), receipt.get("preview_after"))
+    let (Some(before), Some(after)) = (receipt.get("preview_before"), receipt.get("preview_after"))
     else {
         return false;
     };
@@ -339,13 +338,13 @@ pub fn preview_fingerprints_agree(receipt: &Value) -> bool {
     .all(|key| {
         before.get(*key).is_some_and(|value| !value.is_null())
             && before.get(*key) == after.get(*key)
-    })
-        && before
-            .get("native_index_digest")
-            .and_then(Value::as_str)
-            .is_some_and(|digest| {
-                digest.len() == 64 && before.get("native_index_digest") == after.get("native_index_digest")
-            })
+    }) && before
+        .get("native_index_digest")
+        .and_then(Value::as_str)
+        .is_some_and(|digest| {
+            digest.len() == 64
+                && before.get("native_index_digest") == after.get("native_index_digest")
+        })
 }
 
 /// The evidence that decides a preview rejection, derived from the receipt

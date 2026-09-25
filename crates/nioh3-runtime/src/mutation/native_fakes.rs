@@ -563,10 +563,7 @@ impl LiveAddTransport for FakeLiveAddTransport {
     }
 
     /// Every durable preview receipt this parent owns, read-only.
-    fn preview_receipts(
-        &mut self,
-        parent_operation_id: &str,
-    ) -> Result<Vec<Value>, RuntimeError> {
+    fn preview_receipts(&mut self, parent_operation_id: &str) -> Result<Vec<Value>, RuntimeError> {
         Ok(self
             .store
             .all()?
@@ -788,10 +785,8 @@ impl DebugSession for FakeDebugSession {
                 // Apply between the acknowledgement's context and its reads, so
                 // the stopped baseline has already been captured.
                 if let Some(source) = &script.source {
-                    self.memory.write(
-                        self.base + 0x1_0000_0000 + DISPATCH_SOURCE_OFFSET,
-                        source,
-                    );
+                    self.memory
+                        .write(self.base + 0x1_0000_0000 + DISPATCH_SOURCE_OFFSET, source);
                 }
                 if let Some((address, value)) = script.container_byte {
                     self.memory.write(address, &[value]);
@@ -868,7 +863,8 @@ impl RuntimeOwnerSession for FakeDebugSession {
             let handled = if event.is_exception() {
                 match event.exception_code {
                     Some(EXCEPTION_SINGLE_STEP) => {
-                        let mut context = self.contexts.get(&event.tid).copied().unwrap_or_default();
+                        let mut context =
+                            self.contexts.get(&event.tid).copied().unwrap_or_default();
                         if context.dr6 & 3 != 0 {
                             context.dr6 &= !3;
                             context.eflags |= 0x10000;

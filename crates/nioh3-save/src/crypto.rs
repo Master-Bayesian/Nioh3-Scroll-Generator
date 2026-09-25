@@ -121,7 +121,7 @@ impl BlockCipher {
 
 /// `flip_32bit_endianness`: reverse each 4-byte group.
 fn flip_32bit_endianness(block: &mut [u8; BLOCK_BYTES]) {
-    for group in block.chunks_exact_mut(4) {
+    for group in block.as_chunks_mut::<4>().0 {
         group.reverse();
     }
 }

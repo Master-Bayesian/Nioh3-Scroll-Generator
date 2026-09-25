@@ -625,7 +625,10 @@ mod tests {
         )?;
         assert_eq!(profile.display_version, "PC v2.02");
         assert_eq!(profile.canonicalize.rva, 0x20E524C);
-        assert_eq!(profile.site("assemble_scroll").map(|site| site.rva), Some(0x227FC5C));
+        assert_eq!(
+            profile.site("assemble_scroll").map(|site| site.rva),
+            Some(0x227FC5C)
+        );
         assert_eq!(profile.text_sites().len(), 11);
         assert_eq!(profile.identity_digest().len(), 64);
         // The temporary overrides hook `descriptor_complete` and the capacity

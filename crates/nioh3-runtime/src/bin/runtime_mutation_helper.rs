@@ -398,11 +398,7 @@ fn write_u64_at(address: u64, value: u64) {
 
 /// Present the accepted PC v2.01 live-add layout over this helper's own image.
 #[cfg(windows)]
-fn live_add_setup(
-    module_base: u64,
-    mode: &str,
-    source: &[u8],
-) -> Result<LiveAddRuntime, String> {
+fn live_add_setup(module_base: u64, mode: &str, source: &[u8]) -> Result<LiveAddRuntime, String> {
     if module_base == 0 {
         return Err("the helper has no module base".to_string());
     }
@@ -629,26 +625,25 @@ fn main() -> std::process::ExitCode {
                 let mode = tokens.next().unwrap_or_default().to_string();
                 let source = tokens.next().and_then(parse_hex);
                 match (mode.as_str(), source) {
-                    (
-                        "matched" | "mismatch" | "noack",
-                        Some(source),
-                    ) => match live_add_setup(module_base, &mode, &source) {
-                        Ok(runtime) => {
-                            println!(
-                                "live-add\t{:x}\t{}\t{:x}\t{}\t{:x}",
-                                runtime.entry,
-                                runtime.builder_hex,
-                                runtime.counter,
-                                runtime.creation,
-                                runtime.data
-                            );
-                            let mut guard = LIVE_ADD
-                                .lock()
-                                .unwrap_or_else(std::sync::PoisonError::into_inner);
-                            *guard = Some(runtime);
+                    ("matched" | "mismatch" | "noack", Some(source)) => {
+                        match live_add_setup(module_base, &mode, &source) {
+                            Ok(runtime) => {
+                                println!(
+                                    "live-add\t{:x}\t{}\t{:x}\t{}\t{:x}",
+                                    runtime.entry,
+                                    runtime.builder_hex,
+                                    runtime.counter,
+                                    runtime.creation,
+                                    runtime.data
+                                );
+                                let mut guard = LIVE_ADD
+                                    .lock()
+                                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                                *guard = Some(runtime);
+                            }
+                            Err(error) => println!("error\t{error}"),
                         }
-                        Err(error) => println!("error\t{error}"),
-                    },
+                    }
                     _ => println!(
                         "error\tlive-add needs <matched|mismatch|noack> and a 232-byte hex record"
                     ),

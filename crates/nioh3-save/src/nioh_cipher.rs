@@ -243,7 +243,7 @@ impl RoundCipher {
                 ^ self.round_keys[NR * NB + row];
         }
         let mut out = [0u8; 16];
-        for (row, chunk) in out.chunks_exact_mut(4).enumerate() {
+        for (row, chunk) in out.as_chunks_mut::<4>().0.iter_mut().enumerate() {
             chunk.copy_from_slice(&state[row].to_le_bytes());
         }
         out

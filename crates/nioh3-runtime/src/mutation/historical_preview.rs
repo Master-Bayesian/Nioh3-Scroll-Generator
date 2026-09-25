@@ -26,8 +26,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// The authorization document's schema. One schema, one decision.
-pub const AUTHORIZATION_SCHEMA: &str =
-    "nioh3-historical-preview-classification-authorization/v1";
+pub const AUTHORIZATION_SCHEMA: &str = "nioh3-historical-preview-classification-authorization/v1";
 /// The classification record's schema. Distinct from the native receipt's own
 /// shape on purpose: this is a historical decision, not a native settlement.
 pub const CLASSIFICATION_SCHEMA: &str = "nioh3-historical-preview-classification/v1";
@@ -131,15 +130,17 @@ fn object<'a>(value: &'a Value, key: &str, what: &str) -> Result<&'a Value, Runt
 
 fn json_value(path: &Path, what: &str) -> Result<Value, RuntimeError> {
     let raw = read_bytes(path)?;
-    serde_json::from_slice(&raw)
-        .map_err(|error| refused(format!("{what} {} is not valid JSON: {error}", path.display())))
+    serde_json::from_slice(&raw).map_err(|error| {
+        refused(format!(
+            "{what} {} is not valid JSON: {error}",
+            path.display()
+        ))
+    })
 }
 
 /// Parse one authorization document. Unknown keys are refused: an authorization
 /// is an explicitly restricted request, not a bag of options.
-pub fn parse_authorization(
-    value: &Value,
-) -> Result<HistoricalPreviewAuthorization, RuntimeError> {
+pub fn parse_authorization(value: &Value) -> Result<HistoricalPreviewAuthorization, RuntimeError> {
     const ALLOWED: [&str; 13] = [
         "schema",
         "action",
@@ -201,9 +202,7 @@ pub fn parse_authorization(
     }
     let candidate_id = text(value, "candidate_id", "Authorization")?.to_string();
     if !is_sha256(&candidate_id) {
-        return Err(refused(
-            "Authorization needs the candidate identity digest",
-        ));
+        return Err(refused("Authorization needs the candidate identity digest"));
     }
     let evidence_value = object(value, "evidence", "Authorization")?;
     let evidence = HistoricalPreviewEvidenceHashes {
@@ -257,8 +256,7 @@ pub fn parse_authorization(
         receipt_bytes: u64_field(value, "receipt_bytes", "Authorization")?,
         pid: u32::try_from(u64_field(value, "pid", "Authorization")?)
             .map_err(|_| refused("Authorization pid is out of range"))?,
-        process_creation_time: text(value, "process_creation_time", "Authorization")?
-            .to_string(),
+        process_creation_time: text(value, "process_creation_time", "Authorization")?.to_string(),
         parent_operation_id,
         candidate_id,
         expected_error: text(value, "expected_error", "Authorization")?.to_string(),
@@ -293,9 +291,10 @@ pub fn classification_is_terminal(value: &Value) -> bool {
         "evidence_kind",
     ];
     // An unknown key is a malformed sidecar, not a richer valid one.
-    if !value.as_object().is_some_and(|map| {
-        map.keys().all(|key| KEYS.contains(&key.as_str()))
-    }) {
+    if !value
+        .as_object()
+        .is_some_and(|map| map.keys().all(|key| KEYS.contains(&key.as_str())))
+    {
         return false;
     }
     let bounded = |limits: &Value| {
@@ -454,11 +453,7 @@ pub fn valid_classification(
 }
 
 /// Read one evidence file and prove its authorized raw bytes.
-fn evidence_bytes(
-    path: &Path,
-    expected: &str,
-    what: &str,
-) -> Result<Vec<u8>, RuntimeError> {
+fn evidence_bytes(path: &Path, expected: &str, what: &str) -> Result<Vec<u8>, RuntimeError> {
     let raw = read_bytes(path).map_err(|error| {
         refused(format!(
             "{what} evidence is missing or unreadable ({}): {error}",
@@ -503,9 +498,7 @@ fn verify_same_run_inventory(
                 "the {label} snapshot belongs to another process"
             )));
         }
-        if text(snapshot, "process_creation_time", label)?
-            != authorization.process_creation_time
-        {
+        if text(snapshot, "process_creation_time", label)? != authorization.process_creation_time {
             return Err(refused(format!(
                 "the {label} snapshot belongs to another process lifetime"
             )));
@@ -523,10 +516,17 @@ fn verify_same_run_inventory(
     if before_serial != text(after_inventory, "serial_counter", "after snapshot")? {
         return Err(refused("the serial counter changed across the run"));
     }
-    let before_acquisition =
-        u64_field(before_inventory, "acquisition_order_counter", "before snapshot")?;
+    let before_acquisition = u64_field(
+        before_inventory,
+        "acquisition_order_counter",
+        "before snapshot",
+    )?;
     if before_acquisition
-        != u64_field(after_inventory, "acquisition_order_counter", "after snapshot")?
+        != u64_field(
+            after_inventory,
+            "acquisition_order_counter",
+            "after snapshot",
+        )?
     {
         return Err(refused("the acquisition counter changed across the run"));
     }
@@ -557,7 +557,9 @@ fn verify_same_run_inventory(
     }
     let mapping = index_mapping(before_index)?;
     if mapping != index_mapping(after_index)? {
-        return Err(refused("the canonical index mapping changed across the run"));
+        return Err(refused(
+            "the canonical index mapping changed across the run",
+        ));
     }
     let mapping_digest = sha256_hex(canonical_json(&json!(mapping)).as_bytes());
     Ok(json!({
@@ -583,9 +585,7 @@ fn verify_runner_record(
         || text(request, "process_creation_time", "runner request")?
             != authorization.process_creation_time
     {
-        return Err(refused(
-            "the runner request names another process lifetime",
-        ));
+        return Err(refused("the runner request names another process lifetime"));
     }
     let store_root = store
         .directory
@@ -617,7 +617,9 @@ fn verify_runner_record(
     }
     if u64_field(report, "records_added", "runner report")? != 0
         || report.get("serial_advanced").and_then(Value::as_bool) != Some(false)
-        || report.get("execution").is_some_and(|entry| !entry.is_null())
+        || report
+            .get("execution")
+            .is_some_and(|entry| !entry.is_null())
         || report.get("receipt_settled").and_then(Value::as_bool) != Some(false)
     {
         return Err(refused(
@@ -650,8 +652,7 @@ fn verify_receipt(
     if receipt.get("operation_id").and_then(Value::as_str) != Some(&authorization.operation_id)
         || receipt.get("parent_operation_id").and_then(Value::as_str)
             != Some(&authorization.parent_operation_id)
-        || receipt.get("candidate_id").and_then(Value::as_str)
-            != Some(&authorization.candidate_id)
+        || receipt.get("candidate_id").and_then(Value::as_str) != Some(&authorization.candidate_id)
         || u64_field(&receipt, "pid", "receipt")? != u64::from(authorization.pid)
         || text(&receipt, "process_creation_time", "receipt")?
             != authorization.process_creation_time
@@ -708,9 +709,7 @@ fn verify_receipt(
         ));
     }
     if source == expected {
-        return Err(refused(
-            "the receipt records no builder-output difference",
-        ));
+        return Err(refused("the receipt records no builder-output difference"));
     }
     let threads = receipt
         .get("thread_cleanup")
@@ -780,13 +779,7 @@ pub fn verify_historical_preview(
     let runner_request = json_value(&paths.runner_request, "runner request")?;
     let runner_report = json_value(&paths.runner_report, "runner report")?;
     let same_run = verify_same_run_inventory(&before, &after, authorization)?;
-    verify_runner_record(
-        &runner_request,
-        &runner_report,
-        paths,
-        store,
-        authorization,
-    )?;
+    verify_runner_record(&runner_request, &runner_report, paths, store, authorization)?;
 
     let record = json!({
         "schema": CLASSIFICATION_SCHEMA,
@@ -819,9 +812,7 @@ pub fn verify_historical_preview(
         "evidence_kind": "historical_external_snapshots_not_a_native_durable_baseline",
     });
     if !classification_is_terminal(&record) {
-        return Err(refused(
-            "the classification record is not self-consistent",
-        ));
+        return Err(refused("the classification record is not self-consistent"));
     }
     Ok(record)
 }

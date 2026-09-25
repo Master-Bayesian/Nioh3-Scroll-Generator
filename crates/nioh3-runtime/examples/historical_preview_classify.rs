@@ -118,10 +118,7 @@ fn parse_options() -> Result<Options, ExitCode> {
 
 fn run() -> Result<(), String> {
     let options = parse_options().map_err(|_| "invalid arguments".to_string())?;
-    let store_directory = options
-        .state_root
-        .join("live-add")
-        .join("native-executor");
+    let store_directory = options.state_root.join("live-add").join("native-executor");
     let store = ReceiptStore::new(&store_directory).map_err(|error| error.message())?;
     let authorization_bytes =
         std::fs::read(&options.authorization).map_err(|error| error.to_string())?;
@@ -137,7 +134,10 @@ fn run() -> Result<(), String> {
         Ok(receipt) => match store.authoritative_state(&receipt) {
             Ok(Some(state)) => println!(
                 "authoritative\t{}",
-                state.get("state").and_then(serde_json::Value::as_str).unwrap_or("native_settled")
+                state
+                    .get("state")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("native_settled")
             ),
             Ok(None) => println!("authoritative\topen"),
             Err(error) => println!("authoritative\terror\t{}", error.message()),
@@ -170,7 +170,11 @@ fn run() -> Result<(), String> {
     );
     println!(
         "outcome\t{}",
-        if options.apply { "classified" } else { "verified" }
+        if options.apply {
+            "classified"
+        } else {
+            "verified"
+        }
     );
     Ok(())
 }
