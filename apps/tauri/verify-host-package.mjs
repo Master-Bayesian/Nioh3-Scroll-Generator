@@ -154,7 +154,7 @@ async function main() {
   if (evidence.backend !== 'rust-packaged') {
     throw new Error(
       `the packaged host resolved ${evidence.backend}, not the staged Rust graph; ` +
-        `stderr=${stderr.slice(-2000)}`,
+        `stderr=${stderr.slice(-2000)}; desktop.log=${log.slice(-2000) || '(empty)'}`,
     );
   }
   for (const role of ROLES) {
