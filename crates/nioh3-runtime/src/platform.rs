@@ -16,6 +16,7 @@
 //! (`0x1000`) for identity, and `PROCESS_QUERY_INFORMATION | PROCESS_VM_READ`
 //! for the validated reader. No write right is ever requested.
 
+use crate::error::RuntimeError;
 use crate::profile::NativeRuntimeProfile;
 
 /// Image name of the game process.
@@ -125,6 +126,37 @@ impl ModuleRange {
     }
 }
 
+/// SHA-256 of a file, uppercase hex, or a typed I/O failure.
+///
+/// The runtime inventory surface pins one exact executable build, so the
+/// adapter has to hash the image it is about to read. `sha2` is already a
+/// dependency of this crate for the profile identity digest, so no new
+/// dependency is added for it.
+pub fn file_sha256(path: &str) -> Result<String, RuntimeError> {
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+
+    let io = |error: std::io::Error| RuntimeError::Io {
+        path: path.to_string(),
+        detail: error.to_string(),
+    };
+    let mut file = std::fs::File::open(path).map_err(io)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = vec![0u8; 1 << 20];
+    loop {
+        let read = file.read(&mut buffer).map_err(io)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    let mut rendered = String::with_capacity(64);
+    for byte in hasher.finalize() {
+        rendered.push_str(&format!("{byte:02X}"));
+    }
+    Ok(rendered)
+}
+
 /// Everything `running_game_identity` returns, with the process instance added.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GameIdentity {
@@ -143,7 +175,7 @@ mod imp {
     };
     use crate::error::RuntimeError;
     use crate::profile::{
-        profile_for_game_version_for, supported_display_version, NativeRuntimeProfile,
+        profile_for_game_version_for, supported_display_version, NativeRuntimeProfile, ProfileSite,
     };
     use std::path::Path;
     use std::ptr;
@@ -213,6 +245,79 @@ mod imp {
             pid,
             code: last_error(),
         })
+    }
+
+    /// Read exactly `size` bytes, or answer the typed read failure.
+    ///
+    /// Shared by the profile-validated reader and the bounded heap reader so
+    /// both keep one implementation of short-read and failure semantics.
+    fn read_exact(handle: HANDLE, address: u64, size: usize) -> Result<Vec<u8>, RuntimeError> {
+        if size == 0 {
+            return Ok(Vec::new());
+        }
+        let mut buffer = vec![0u8; size];
+        let mut read: usize = 0;
+        let ok = unsafe {
+            ReadProcessMemory(
+                handle,
+                address as *const core::ffi::c_void,
+                buffer.as_mut_ptr() as *mut core::ffi::c_void,
+                size,
+                &mut read,
+            )
+        };
+        if ok == 0 {
+            return Err(RuntimeError::MemoryRead {
+                address,
+                size,
+                code: last_error(),
+            });
+        }
+        if read != size {
+            return Err(RuntimeError::ShortRead {
+                address,
+                expected: size,
+                actual: read,
+            });
+        }
+        Ok(buffer)
+    }
+
+    /// `PAGE_*` values this adapter treats as readable, in the low byte of the
+    /// protection word (`PAGE_READONLY` .. `PAGE_EXECUTE_WRITECOPY`).
+    const READABLE_PROTECTIONS: [u32; 6] = [0x02, 0x04, 0x08, 0x20, 0x40, 0x80];
+    /// `PAGE_GUARD`; a guarded page traps on touch and is never read.
+    const PAGE_GUARD: u32 = 0x100;
+    /// `MEM_COMMIT`.
+    const MEM_COMMIT: u32 = 0x1000;
+
+    /// The extent of the committed, readable region that contains `address`.
+    ///
+    /// `VirtualQueryEx` answers the region containing the address, so a read
+    /// that leaves this extent is refused before it is attempted.
+    fn query_readable_region(handle: HANDLE, address: u64) -> Option<(u64, u64)> {
+        use windows_sys::Win32::System::Memory::{VirtualQueryEx, MEMORY_BASIC_INFORMATION};
+        let mut info: MEMORY_BASIC_INFORMATION = unsafe { std::mem::zeroed() };
+        let written = unsafe {
+            VirtualQueryEx(
+                handle,
+                address as *const core::ffi::c_void,
+                &mut info,
+                std::mem::size_of::<MEMORY_BASIC_INFORMATION>(),
+            )
+        };
+        if written == 0 {
+            return None;
+        }
+        if info.State != MEM_COMMIT {
+            return None;
+        }
+        let protection = info.Protect;
+        if protection & PAGE_GUARD != 0 || !READABLE_PROTECTIONS.contains(&(protection & 0xFF)) {
+            return None;
+        }
+        let base = info.BaseAddress as u64;
+        Some((base, info.RegionSize as u64))
     }
 
     fn creation_time_from_handle(pid: u32, handle: HANDLE) -> Result<u64, RuntimeError> {
@@ -587,35 +692,7 @@ mod imp {
         }
 
         fn read_checked(&self, address: u64, size: usize) -> Result<Vec<u8>, RuntimeError> {
-            if size == 0 {
-                return Ok(Vec::new());
-            }
-            let mut buffer = vec![0u8; size];
-            let mut read: usize = 0;
-            let ok = unsafe {
-                ReadProcessMemory(
-                    self.handle.raw(),
-                    address as *const core::ffi::c_void,
-                    buffer.as_mut_ptr() as *mut core::ffi::c_void,
-                    size,
-                    &mut read,
-                )
-            };
-            if ok == 0 {
-                return Err(RuntimeError::MemoryRead {
-                    address,
-                    size,
-                    code: last_error(),
-                });
-            }
-            if read != size {
-                return Err(RuntimeError::ShortRead {
-                    address,
-                    expected: size,
-                    actual: read,
-                });
-            }
-            Ok(buffer)
+            read_exact(self.handle.raw(), address, size)
         }
 
         /// Verify the captured signatures of the validated profile.
@@ -627,6 +704,138 @@ mod imp {
             for site in &sites {
                 let actual = self.read_module(site.rva, site.signature.len())?;
                 if actual != site.signature {
+                    return Err(RuntimeError::SignatureMismatch {
+                        site: site.name.to_string(),
+                        rva: site.rva,
+                    });
+                }
+            }
+            Ok(sites.len())
+        }
+    }
+
+    /// A read-only process view validated against an explicit site set.
+    ///
+    /// This is the reader the runtime inventory snapshot uses. It keeps the
+    /// same open order as [`ValidatedProcess`] - live creation FILETIME,
+    /// process-instance equality, module extent, then the read handle, then the
+    /// creation time re-checked on that handle - but it verifies
+    /// caller-supplied sites instead of the generation profile, and it can read
+    /// a bounded heap region outside the module image.
+    ///
+    /// It never requests a write right, never allocates in the target, starts no
+    /// thread and injects no code.
+    pub struct ReadOnlyProcess {
+        identity: ProcessIdentity,
+        module: ModuleRange,
+        handle: OwnedHandle,
+    }
+
+    impl ReadOnlyProcess {
+        /// Open a bounded read-only view. No profile is consulted.
+        pub fn open(
+            pid: u32,
+            module_name: &str,
+            expected_creation: Option<u64>,
+        ) -> Result<Self, RuntimeError> {
+            let creation =
+                process_creation_filetime(pid)?.ok_or(RuntimeError::ProcessGone { pid })?;
+            if let Some(expected) = expected_creation {
+                if expected != creation {
+                    return Err(RuntimeError::ProcessInstanceChanged { pid });
+                }
+            }
+            let module = module_range(pid, module_name)?;
+            let handle = open_process(pid, READER_ACCESS)?;
+            let recheck = creation_time_from_handle(pid, handle.raw())?;
+            if recheck != creation {
+                return Err(RuntimeError::ProcessInstanceChanged { pid });
+            }
+            Ok(Self {
+                identity: ProcessIdentity {
+                    pid,
+                    creation_filetime: creation,
+                },
+                module,
+                handle,
+            })
+        }
+
+        pub fn identity(&self) -> ProcessIdentity {
+            self.identity
+        }
+
+        pub fn module_range(&self) -> ModuleRange {
+            self.module
+        }
+
+        /// Re-read the creation FILETIME through the handle the reads use, so a
+        /// recycled pid cannot be read as the same instance.
+        pub fn creation_filetime(&self) -> Result<u64, RuntimeError> {
+            creation_time_from_handle(self.identity.pid, self.handle.raw())
+        }
+
+        /// The image path of the process this read handle actually names.
+        ///
+        /// Queried through the same handle every read uses, so the path that
+        /// gets versioned and hashed is the path of the process this reader can
+        /// read. A caller that needs "these bytes are this image" binds the
+        /// digest to this value instead of to a separately opened identity
+        /// handle's view of the pid.
+        pub fn image_path(&self) -> Result<String, RuntimeError> {
+            let mut buffer = vec![0u16; 32768];
+            let mut size = buffer.len() as u32;
+            let ok = unsafe {
+                QueryFullProcessImageNameW(self.handle.raw(), 0, buffer.as_mut_ptr(), &mut size)
+            };
+            if ok == 0 {
+                return Err(RuntimeError::QueryImageName {
+                    pid: self.identity.pid,
+                    code: last_error(),
+                });
+            }
+            let length = (size as usize).min(buffer.len());
+            Ok(String::from_utf16_lossy(&buffer[..length]))
+        }
+
+        /// Read `size` bytes at an absolute address inside one committed,
+        /// readable region.
+        ///
+        /// The region is queried first. A range that leaves the region, or a
+        /// region that is uncommitted, guarded or unreadable, is refused
+        /// without a read.
+        pub fn read_bounded(&self, address: u64, size: usize) -> Result<Vec<u8>, RuntimeError> {
+            let end = address
+                .checked_add(size as u64)
+                .ok_or(RuntimeError::RegionNotReadable { address, size })?;
+            let (base, extent) = query_readable_region(self.handle.raw(), address)
+                .ok_or(RuntimeError::RegionNotReadable { address, size })?;
+            let limit = base
+                .checked_add(extent)
+                .ok_or(RuntimeError::RegionNotReadable { address, size })?;
+            if address < base || end > limit {
+                return Err(RuntimeError::RegionNotReadable { address, size });
+            }
+            read_exact(self.handle.raw(), address, size)
+        }
+
+        /// Verify a caller-supplied site set against the loaded module image.
+        ///
+        /// Returns the number of verified sites. The first mismatch is a typed
+        /// `SignatureMismatch` naming the site, so a shifted or wrapper-patched
+        /// image is never read as if it were the verified build.
+        pub fn verify_sites(&self, sites: &[ProfileSite]) -> Result<usize, RuntimeError> {
+            for site in sites {
+                let address =
+                    self.module
+                        .absolute(site.rva)
+                        .ok_or(RuntimeError::RangeOutOfBounds {
+                            offset: site.rva,
+                            size: site.signature.len() as u64,
+                            limit: self.module.size,
+                        })?;
+                let value = self.read_bounded(address, site.signature.len())?;
+                if value != site.signature {
                     return Err(RuntimeError::SignatureMismatch {
                         site: site.name.to_string(),
                         rva: site.rva,
@@ -678,7 +887,7 @@ mod imp {
 mod imp {
     use super::{GameExecutableStatus, GameIdentity, ModuleRange, ProcessIdentity};
     use crate::error::RuntimeError;
-    use crate::profile::NativeRuntimeProfile;
+    use crate::profile::{NativeRuntimeProfile, ProfileSite};
     use std::path::Path;
 
     pub fn process_creation_filetime(_pid: u32) -> Result<Option<u64>, RuntimeError> {
@@ -761,6 +970,45 @@ mod imp {
         }
 
         pub fn verify_profile_signatures(&self) -> Result<usize, RuntimeError> {
+            Err(RuntimeError::UnsupportedPlatform)
+        }
+    }
+
+    /// Placeholder so the crate compiles off Windows; every constructor fails.
+    pub struct ReadOnlyProcess {
+        _process_identity: ProcessIdentity,
+    }
+
+    impl ReadOnlyProcess {
+        pub fn open(
+            _pid: u32,
+            _module_name: &str,
+            _expected_creation: Option<u64>,
+        ) -> Result<Self, RuntimeError> {
+            Err(RuntimeError::UnsupportedPlatform)
+        }
+
+        pub fn identity(&self) -> ProcessIdentity {
+            self._process_identity
+        }
+
+        pub fn module_range(&self) -> ModuleRange {
+            ModuleRange { base: 0, size: 0 }
+        }
+
+        pub fn creation_filetime(&self) -> Result<u64, RuntimeError> {
+            Err(RuntimeError::UnsupportedPlatform)
+        }
+
+        pub fn image_path(&self) -> Result<String, RuntimeError> {
+            Err(RuntimeError::UnsupportedPlatform)
+        }
+
+        pub fn read_bounded(&self, _address: u64, _size: usize) -> Result<Vec<u8>, RuntimeError> {
+            Err(RuntimeError::UnsupportedPlatform)
+        }
+
+        pub fn verify_sites(&self, _sites: &[ProfileSite]) -> Result<usize, RuntimeError> {
             Err(RuntimeError::UnsupportedPlatform)
         }
     }

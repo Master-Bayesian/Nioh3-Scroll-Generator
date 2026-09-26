@@ -3,6 +3,7 @@ import type {
   JobSnapshot,
   SearchCatalog,
 } from "../../packages/contracts/responses";
+import type { InventorySnapshot } from "../../packages/contracts/protected-responses";
 import "../desktop/src/api";
 import "../desktop/src/review-api";
 import "../desktop/src/operations-api";
@@ -417,4 +418,32 @@ export function formQuery(params: StartParams): Query {
     transfers: -1,
     count: params.result_count,
   } as Query;
+}
+
+/**
+ * Read-only live-memory inventory snapshot: `runtime.inventory_snapshot` through
+ * `operations:execute`. This is a runtime memory read, not the save-file layout
+ * and not the scroll region. The response shape comes from the shared contract.
+ */
+export const EQUIPMENT_PAGE_SIZE = 64;
+function isInventorySnapshot(value: unknown): value is InventorySnapshot {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    candidate.status === "observed" &&
+    candidate.read_only === true &&
+    Array.isArray(candidate.rows) &&
+    typeof candidate.next_start !== "undefined"
+  );
+}
+export async function equipmentInventorySnapshot(
+  start: number,
+): Promise<InventorySnapshot> {
+  if (!desktop) throw new Error("DESKTOP_REQUIRED");
+  const result = await window.operations.execute({
+    method: "runtime.inventory_snapshot",
+    params: { start, limit: EQUIPMENT_PAGE_SIZE },
+  });
+  if (!isInventorySnapshot(result)) throw new Error("UNEXPECTED_INVENTORY_SNAPSHOT");
+  return result;
 }

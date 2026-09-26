@@ -1,5 +1,122 @@
 # Current project handoff — 2026-09-20
 
+## Active development: v0.8.1
+
+The owner has started the first one-stop-trainer integration release. See the
+[v0.8.1 engineering record](../product/releases/v0.8.1.md), the
+[complete source feature matrix](V081_SOURCE_FEATURE_MATRIX.md) and the
+[Pro response acceptance record](V081_PRO_RESPONSE_ACCEPTANCE_20260921.md).
+Static intake, the private Pro handoff and the Pro response reproduction are
+complete: 22 static/synthetic and 43 delivery checks passed on re-run, deep-equal
+to the shipped outputs, and three decisive upstream conflicts are confirmed. P2
+found 0 disk matches because the installed `.text` is wrapper-protected; the
+reused 2026-09-19 runtime capture localises the CT AOB and three trainer sites
+without proving ownership, stride or persistence. The read-only catalog adapter
+T2 is implemented internal, not shipped: it adds no UI, IPC, writer, product
+resource or external database. P3 has completed one bounded read-only candidate
+observation (identity 2.0.2.0, four of four sites, count 2500 before and after,
+byte-equal re-reads); its three candidates matched catalog names at the declared
+offsets, which is not owner or write acceptance. The owner then answered "有" to
+the exact UI question whether the backpack holds a level-180 +20 spear with the
+千鸟 name, confirming raw slot 0 (`0xF6E8`, level 180, +20, 千鸟十字枪 /
+Birdflight Cross Spear) by presence, with one supplied screenshot retained as a
+private copy (`interpretation/evidence/p3_slot0_ui_confirmation_20260921.png`,
+SHA-256 `795fbb99…87a4`): one sample's basic-field read correlation is UI-confirmed,
+and four of the five displayed effect names match the decoded non-sentinel slot-0
+ids in order with position 3 (`0x7B14`) unresolved and no raw-scalar validation,
+while soul-core fields, rarity/effects, widths above 255, inventory
+bounds/identity, writes and persistence stay unproven. Read-only equipment
+browsing is implemented internal and now has one bounded native debug-host
+acceptance: one UI page over the first 64 candidate slots through
+`runtime.inventory_snapshot` (start 0 / limit 64, exactly one bridge call)
+returned a `runtime` envelope with `observed` /
+`read_only` / `reread_equal`, game version 2.0.2.0, `observed_slot_count` 2500,
+64 rows, `next_start` 64, a meta row matching the envelope, and raw slot 0
+`0xF6E8` / level 180 / plus 20 matching the earlier UI-confirmed sample by
+presence only. The page derives names from shipped resources only with an
+exact-ID fallback. This is one page of one session on a debug host, not the
+one-file build: no packaged acceptance, no whole-inventory capacity claim, no
+write, and no logical-identity claim (the only item statement is that raw
+presence), and no equipment feature is shipped or user-facing. The command recipe and safety
+bounds are recorded in
+[v081-equipment-browser integration PREPARE](D:/Nioh3_v080_deliverables/deliverables/v081-equipment-browser-20260921/integration/PREPARE.md).
+The narrow transaction outcome repair is complete with focused
+synthetic E2E evidence: unchanged targets report `not_committed` without a false
+restore claim; unproven non-owned bytes remain untouched and `uncertain`.
+Current-version acceptance is pending; no new product feature is shipped or
+user-facing.
+
+**Continuation decision record (2026-09-21).** The browser continuation repair is
+complete internally: stale page state clears before reads, sessions bind to PID,
+creation FILETIME and observed count, mixed-session responses reject with reload,
+and the bounded artifact records 48 E2E checks plus TypeScript/locale checks
+([browser triage](D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/browser-triage/REPORT.md)).
+The retained P3 raw slot-0 `0xF0` record is byte-identical to one private
+decrypted-save candidate (240/240 bytes); this is one read-only same-item
+correlation, not owner, region, capacity, write or save/reload proof
+([correlation](D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/save-correlation/REPORT.md)).
+General equipment names remain numeric by default. `CATALOG-LOCAL-IMPORT` is
+implemented for a user-selected `items_little_endian.json` file read as raw
+bytes, not an arbitrary-directory, CT, or 7z importer. Its separate native
+catalog run records 60 checks and 696 locale messages; this is not packaged or
+release acceptance. A user-provided local file does not require a
+redistribution grant; bundling vendor data does, and this path never writes a
+game/save ([catalog decision](D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/continuation/catalog-source/REPORT.md)).
+`INVENTORY-LEGALITY-AUDIT` is **in_progress** and remains a scroll-only bounded
+slice with backend protected-dispatch evidence (snapshot/source SHA/context
+proof), a UI six-row fixture accepted by 28 focused checks across zh-CN, en-US
+and ja-JP, and a corrected native debug route reaching
+`save.inventory`/`save.operations`/`save.audit_scrolls`. All current rows
+remain `INSUFFICIENT_DATA`; packaged acceptance and evidence for the actual
+normal-input domain remain open: PC `2.0.2.0`, type `0xE604`, NG3 R3/R4 with R4
+stage-one/final separate. R5, equipment and soul-core hard rules remain
+unsupported. The native-normal-generation Pro packet is delivered as
+static/offline research, not current-game generation acceptance. See the
+[backend dispatch artifact](D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/scroll-audit/e2e-audit-result.json),
+[UI acceptance report](D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/scroll-audit-ui/REPORT.md),
+and the sanitized [native continuation summary](D:/Nioh3_v080_deliverables/deliverables/v081-integration-remaining-20260921/handoff/evidence/continuation/native-summary.json).
+The complete source-family disposition and remaining gates are in
+[`V081_INTEGRATION_CONTINUATION_20260921.md`](V081_INTEGRATION_CONTINUATION_20260921.md).
+
+The generation-legality intake is accepted and the offline P0/P1 handoff is
+ready at `D:/Nioh3_v080_deliverables/deliverables/v081-generation-p0p1-20260921`.
+It remains static/identity evidence only: no P2 live tracing, normal equipment
+generator, legality enablement, game/save write, or publication is established.
+See [the acceptance record](V081_GENERATION_LEGALITY_ACCEPTANCE_20260921.md).
+
+The A-only equipment bridge follow-up is now captured and packaged at
+`D:/Nioh3_v080_deliverables/deliverables/v081-equipment-bridge-20260921`.
+The three selected calls are instruction-boundary validated in caller
+`0x2188610..0x21889B9`; five bodies (8,026 raw bytes), the `0x5513F7 ->
+0x551404` continuation, and 203 residual non-exported direct calls are
+retained. This remains static evidence only: normal source, first producer,
+same-record alias, legality, persistence, and product enablement remain open.
+See [the bridge acceptance record](V081_EQUIPMENT_UPSTREAM_ACCEPTANCE_20260921.md).
+
+The converter follow-up is now packaged as a separate offline Pro handoff at
+`D:\Nioh3_v080_deliverables\deliverables\v081-equipment-converter-20260921`.
+Its reviewed local facts cover the 561-byte converter, parent lookup, three
+helper bodies, and the resolved key-2 cold branch; normal-source provenance,
+allowed input domain, same-record identity through uninspected calls, legality,
+persistence, and product enablement remain open. See the
+[converter acceptance record](V081_EQUIPMENT_CONVERTER_ACCEPTANCE_20260921.md)
+and the packet's `FINAL_REPORT.md` for the immutable archive receipt.
+
+Owner product-scope update (2026-09-21): equipment/soul-core browsing and
+editing are one feature, with the read-only page above as its delivered read
+stage; editing stays a future slice. Two planned features are now tracked in
+[FEATURES.md](../product/FEATURES.md): `LEGAL-EQUIPMENT-GENERATION`, with two
+proposed routes (native natural-drop generation under legitimate inputs/context,
+or offline replay/inverse search of items attainable for requested effects, not
+native insertion of a custom 512-byte draft), and `INVENTORY-LEGALITY-AUDIT`, an
+independent read-only scan of scrolls and equipment that reports one of four
+honest outcomes and never brands provenance, promises anti-cheat safety, or
+auto-repairs. Both share one versioned generation/rule dataset. This is planned
+scope, not a v0.8.1 shipping commitment, and nothing is implemented by it.
+
+Existing v0.8.0 publication and native write approval remain unchanged; source
+visibility is not current-version runtime acceptance.
+
 ## Current release status
 
 **v0.8.1 is published (2026-09-26)**: product commit `522536a`, tag `v0.8.1`,

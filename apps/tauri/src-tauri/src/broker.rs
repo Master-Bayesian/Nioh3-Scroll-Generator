@@ -247,12 +247,14 @@ impl Broker {
             "operations:execute" => {
                 let method = p["method"].as_str().ok_or("PRIVATE_OR_UNKNOWN_OPERATION")?;
                 const PUBLIC: &[&str] = &[
+                    "catalog.import_names",
                     "runtime.count_execute",
                     "runtime.count_status",
                     "runtime.count_recover",
                     "save.recycle_backups",
                     "save.discover",
                     "save.inventory",
+                    "save.audit_scrolls",
                     "save.prepare_edit",
                     "save.prepare_delete",
                     "save.backups",
@@ -262,6 +264,7 @@ impl Broker {
                     "save.operation",
                     "save.operations",
                     "runtime.status",
+                    "runtime.inventory_snapshot",
                     "runtime.start_override",
                     "runtime.stop_override",
                     "runtime.live_batch_execute",
@@ -276,7 +279,7 @@ impl Broker {
                     return Err("PRIVATE_OR_UNKNOWN_OPERATION".into());
                 }
                 self.call(
-                    if method.starts_with("save.") {
+                    if method.starts_with("save.") || method == "catalog.import_names" {
                         "save"
                     } else {
                         "runtime"
@@ -550,6 +553,7 @@ fn require_public(job: &Value) -> Result<(), String> {
         "save.discover",
         "save.register",
         "save.inventory",
+        "save.audit_scrolls",
         "save.prepare_edit",
         "save.prepare_delete",
         "save.prepare_install_many",

@@ -434,6 +434,17 @@ fn dispatch(
         return Err(HostError::handshake_required());
     }
 
+    // Local catalog import is a pure in-memory read. It is exposed through the
+    // existing protected save host so the renderer gets the same framed,
+    // schema-validated boundary, but it never touches SaveApplication state,
+    // a save path, a game process, or the job/ownership machine.
+    if method == "catalog.import_names" {
+        if role != Role::Save {
+            return Err(HostError::role_mismatch());
+        }
+        return Ok((crate::catalog::import_names(&params)?, false));
+    }
+
     match method {
         "job.snapshot" => {
             let job_id = params
@@ -473,6 +484,13 @@ fn dispatch(
                     try_refresh_runtime_status(application, control);
                 }
                 return Ok((control.snapshot(), false));
+            }
+            // A read-only inventory page is answered inline like `runtime.status`:
+            // it owns no native call and must not occupy the single-owner job
+            // machine or block a running write.
+            if method == "runtime.inventory_snapshot" {
+                let mut guard = lock(application).map_err(HostError::rejected)?;
+                return Ok((guard.direct(method, &params)?, false));
             }
             let operation = method
                 .split_once('.')

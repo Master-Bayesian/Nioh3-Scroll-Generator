@@ -4,6 +4,24 @@ import type { OperationsApi, PublicOperation } from './operations-api';
 import { OperationController } from './operation-controller';
 
 type Result = NonNullable<ProtectedJob['result']>;
+
+/** Keep save inventory state bound to the save.inventory response shape. */
+function isSaveInventoryResult(value: unknown): value is SaveInventory {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const candidate = value as Partial<SaveInventory>;
+  return typeof candidate.save_id === 'string' &&
+    typeof candidate.snapshot_id === 'string' &&
+    typeof candidate.source_sha256 === 'string' &&
+    typeof candidate.account_id === 'string' &&
+    typeof candidate.empty_slots === 'number' &&
+    Array.isArray(candidate.entries) &&
+    candidate.entries.every(entry => {
+      if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) return false;
+      const value = entry as { effects?: unknown };
+      return Array.isArray(value.effects) && value.effects.length === 7;
+    });
+}
+
 export interface SaveGateway {
   execute(command: PublicOperation, operationId?: string): Promise<Result>;
   prepareInstall(params: Parameters<OperationsApi['prepareInstall']>[0]): Promise<Result>;
@@ -72,7 +90,8 @@ export class SaveSession {
   private async loadInventory() {
     if (!this.state.selected) throw new Error('SAVE_SELECTION_REQUIRED');
     const result = await this.gateway.execute({ method: 'save.inventory', params: { save_id: this.state.selected.save_id } });
-    if (!('snapshot_id' in result) || result.save_id !== this.state.selected.save_id) throw new Error('SAVE_IDENTITY_MISMATCH');
+    if (!isSaveInventoryResult(result)) throw new Error('SAVE_INVENTORY_EXPECTED');
+    if (result.save_id !== this.state.selected.save_id) throw new Error('SAVE_IDENTITY_MISMATCH');
     const history = await this.gateway.execute({ method: 'save.operations', params: { save_id: result.save_id } });
     if (!('operations' in history)) throw new Error('OPERATION_HISTORY_EXPECTED');
     const unresolved = history.operations.find(receipt => receipt.save_id === result.save_id &&

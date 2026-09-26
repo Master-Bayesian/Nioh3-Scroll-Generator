@@ -31,19 +31,25 @@
 //! models stay portable and unit-testable everywhere.
 
 pub mod error;
+pub mod inventory;
 pub mod mutation;
 pub mod platform;
 pub mod profile;
 pub mod status;
 
 pub use error::RuntimeError;
+pub use inventory::{
+    inventory_sites, snapshot, FixtureMemory, InventoryMemory, InventoryProcess, InventoryRequest,
+    ProcessInventoryMemory, DEFAULT_LIMIT, INVENTORY_EXECUTABLE_SHA256, INVENTORY_GAME_VERSION,
+    MAX_LIMIT, MAX_START, SLOT_SAFETY_CEILING,
+};
 pub use platform::{
-    discover_process_ids, file_version, identify_running_game, identify_running_game_for,
-    identify_running_game_named, identify_running_game_named_for, module_range,
-    process_creation_filetime, query_image_path, single_process_id, verify_game_executable,
-    FileVersion, GameCompatibility, GameExecutableStatus, GameIdentity, ModuleRange,
-    ProcessIdentity, ValidatedProcess, GAME_IMAGE_NAME, GAME_MODULE_NAME, IDENTITY_ACCESS,
-    READER_ACCESS,
+    discover_process_ids, file_sha256, file_version, identify_running_game,
+    identify_running_game_for, identify_running_game_named, identify_running_game_named_for,
+    module_range, process_creation_filetime, query_image_path, single_process_id,
+    verify_game_executable, FileVersion, GameCompatibility, GameExecutableStatus, GameIdentity,
+    ModuleRange, ProcessIdentity, ReadOnlyProcess, ValidatedProcess, GAME_IMAGE_NAME,
+    GAME_MODULE_NAME, IDENTITY_ACCESS, READER_ACCESS,
 };
 pub use profile::{
     default_pc_v2_00_02, load_research_profile, profile_for_game_version,

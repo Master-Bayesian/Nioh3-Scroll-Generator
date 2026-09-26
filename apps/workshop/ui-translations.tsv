@@ -687,3 +687,98 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 上一次的临时修改还在生效，或游戏里还有调用没完成。请先点“停止临时修改”，稍等片刻再试。	The previous temporary change is still active, or the game is still finishing a call. Use "Stop temporary changes" first, wait a moment, and try again.	前回の一時的な変更がまだ有効か、ゲーム内の呼び出しが完了していません。先に「一時変更を停止」を押し、少し待ってから再試行してください。
 增益效果	Buff	強化効果
 异常状态	Ailment	状態異常
+装备浏览	Equipment browser	装備ブラウザ
+装备	Equipment	装備
+刷新	Refresh	更新
+加载装备	Load equipment	装備を読み込む
+本地名称目录（可选）	Local name catalog (optional)	ローカル名カタログ（任意）
+声明版本	Declared version	申告バージョン
+名称语言	Name language	名前の言語
+选择 items_little_endian.json	Select items_little_endian.json	items_little_endian.json を選択
+移除本地目录	Remove local catalog	ローカルカタログを削除
+仅读取你选择的 items_little_endian.json（上限 2 MiB）；不读取路径、不写入游戏或存档。	Reads only the selected items_little_endian.json (2 MiB limit); no path access and no game or save writes.	選択した items_little_endian.json のみを読み取ります（上限 2 MiB）。パスにはアクセスせず、ゲームやセーブにも書き込みません。
+名称来源：	Name source:	名前の出典：
+· 声明版本	· Declared version	· 申告バージョン
+个可显示名称。仅名称显示，不代表游戏兼容性或合法性。	displayable names. Names only; this does not establish game compatibility or legitimacy.	件の表示可能な名前。名前表示のみで、ゲーム互換性や正当性を示すものではありません。
+本地名称目录已加载。	Local name catalog loaded.	ローカル名カタログを読み込みました。
+本地名称目录已加载，但浏览器存储不可用；本次会话仍可使用。	Local name catalog loaded, but browser storage was unavailable; it remains available for this session.	ローカル名カタログを読み込みましたが、ブラウザー保存領域を利用できません。今回のセッションでは使用できます。
+本地名称目录已移除。仅名称显示已恢复为数字 ID。	Local name catalog removed. Names are shown as numeric IDs again.	ローカル名カタログを削除しました。名前は数字ID表示に戻ります。
+导入失败：	Import failed:	インポートに失敗しました：
+本地目录只为精确匹配的物品 ID 提供名称；未匹配项仍显示十六进制 ID。	The local catalog names only exact item-ID matches; unmatched items still show their hexadecimal IDs.	ローカルカタログはアイテムIDの完全一致だけに名前を付け、一致しない項目は16進IDで表示します。
+本页搜索（名称或十六进制 ID）	Search this page (name or hex ID)	このページ内を検索（名前または16進ID）
+例如 0xF6E8	e.g. 0xF6E8	例: 0xF6E8
+只读实验功能：读取运行中的游戏内存，不写入存档。	Read-only experimental view of running game memory; nothing is written.	読み取り専用の実験機能：実行中のゲームメモリを読み取るだけで、書き込みは行いません。
+读取失败：	Read failed:	読み取りに失敗しました：
+游戏会话或槽位范围已变化，请点击加载装备按钮重新加载装备。	The game session or slot range changed; select Load equipment to read it again.	ゲームセッションまたはスロット範囲が変わりました。「装備を読み込む」を選んで再読み込みしてください。
+正在读取…	Reading...	読み込み中...
+已加载	Loaded	読み込み済み
+尚未加载。请点击加载装备按钮读取当前背包。	Nothing loaded yet. Select Load equipment to read the current bag.	未読み込みです。「装備を読み込む」を選ぶと現在の袋を読み取ります。
+游戏版本	Game version	ゲームバージョン
+观测时间	Observed at	観測時刻
+原始槽位总数	Raw slot count	生スロット総数
+本页行数	Rows on this page	このページの行数
+一致性	Consistency	一貫性
+二次读取一致	Re-read equal	再読み取り一致
+只读	Read-only	読み取り専用
+是	Yes	はい
+上一页	Previous page	前のページ
+槽位范围	Slot range	スロット範囲
+下一页	Next page	次のページ
+槽位	Slot	スロット
+物品 ID	Item ID	アイテムID
+等级（原始）	Level (raw)	レベル（生値）
+强化（原始）	Upgrade (raw)	強化（生値）
+数量（原始）	Quantity (raw)	個数（生値）
+稀有度（原始）	Rarity (raw)	レア度（生値）
+记录摘要	Record digest	レコード要約
+未知物品	Unknown item	不明なアイテム
+本页没有匹配的行。	No rows on this page match the search.	検索に一致する行はこのページにありません。
+本页没有可显示的槽位。	No slots to show on this page.	このページに表示できるスロットはありません。
+原始字段	Raw fields	生のフィールド
+词条槽位	Effect slots	効果スロット
+原始值	Raw value	生値
+选择一行查看原始字段。	Select a row to inspect its raw fields.	行を選ぶと生のフィールドを表示します。
+物品名称尚未收录，暂以十六进制 ID 显示。	Item names are not catalogued yet, so the hex ID is shown.	アイテム名は未収録のため、16進IDを表示します。
+名称未收录	Name unavailable	名前未収録
+以下数值为内存原始值，未按游戏内显示换算。	These values are raw memory values, not converted to the in-game display.	以下の値はメモリ上の生値で、ゲーム内表示への換算はしていません。
+槽位序号为读取到的原始槽位，不代表玩家背包已占用数量或认证容量。	The slot index is the raw slot read from memory; it is not the player's occupied count or a certified capacity.	スロット番号は読み取った生のスロットで、プレイヤーの使用数や認定容量ではありません。
+绘卷生成核对（实验）	Scroll generation check (experimental)	絵巻生成チェック（実験）
+仅支持当前版本 NG3 R3/R4 已实现的字段投影。	Only the implemented field projection for the current NG3 R3/R4 version is supported.	現バージョン NG3 R3/R4 で実装済みのフィールド投影のみ対応します。
+匹配不代表完整规则判定，且不会修改存档。	A match is diagnostic only; it is not a complete rule verdict, and the save is not modified.	一致は診断情報であり、完全なルール判定を意味しません。セーブは変更しません。
+生成核对	Generation check	生成チェック
+正在核对…	Checking…	照合中…
+重新读取存档后重试。	Refresh the save and try again.	セーブを再読み込みしてから再試行してください。
+尚未加载存档。	No save snapshot loaded.	セーブスナップショット未読み込み。
+未提供	Not provided	提供なし
+否	No	いいえ
+不支持	Unsupported	非対応
+生成核对匹配	Generation check matched	生成チェック一致
+生成核对未匹配	Generation check did not match	生成チェック不一致
+匹配	Matched	一致
+未匹配	Not matched	不一致
+种子	Seed	シード
+记录类型	Record type	レコード種別
+重放阶段	Replay phase	リプレイ段階
+原因：	Reasons:	理由：
+比对字段：	Compared fields:	比較フィールド：
+阶段结果	Phase results	段階結果
+状态：	Status:	状態：
+范围：	Scope:	範囲：
+存档：	Save:	セーブ：
+快照：	Snapshot:	スナップショット：
+源摘要：	Source digest:	ソースダイジェスト：
+上下文证据	Context proof	コンテキスト証拠
+正常取得条件尚未验证	Normal acquisition conditions are not verified	通常取得条件は未検証です
+记录类型暂不支持	Record type is not supported	レコード種別は未対応です
+周目暂不支持	Playthrough is not supported	周回は未対応です
+稀有度暂不支持	Rarity is not supported	レア度は未対応です
+游戏文件版本不支持	Game file version is not supported	ゲームファイルバージョンは未対応です
+当前上下文不是生产环境	The current context is not production-authoritative	現在のコンテキストは本番権限ではありません
+缺少重放所需上下文	Replay context is unavailable	リプレイ用コンテキストがありません
+重放匹配	Replay matched	リプレイ一致
+重放不匹配	Replay mismatch	リプレイ不一致
+重放错误：	Replay error:	リプレイエラー：
+原始原因代码	Raw reason codes	生の理由コード
+用于核对 PC v2.02 三周目 R3/R4 绘卷词条是否与当前生成器一致。	Checks whether PC v2.02 NG+2 R3/R4 scroll effects match the current generator.	PC v2.02の3周目R3/R4絵巻効果が現在の生成器と一致するかを確認します。
+技术范围与摘要	Technical scope and digest	技術範囲とダイジェスト
+技术记录字段	Technical record fields	技術レコードフィールド

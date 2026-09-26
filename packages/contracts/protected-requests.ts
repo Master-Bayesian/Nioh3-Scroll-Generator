@@ -65,6 +65,27 @@ export type ProtectedRequest =
   | {
       protocol: 1;
       id: string;
+      method: "catalog.import_names";
+      params: {
+        role: "save_active_items" | "ct_equipment" | "trainer_equipment";
+        content_base64: string;
+        source_label: string;
+        declared_version: string;
+        locale: "zh-CN" | "en-US" | "ja-JP";
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "save.audit_scrolls";
+      params: {
+        save_id: string;
+        snapshot_id: string;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
       method: "save.prepare_edit";
       params: {
         save_id: string;
@@ -3321,5 +3342,14 @@ export type ProtectedRequest =
       method: "runtime.count_recover";
       params: {
         operation_id: string;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.inventory_snapshot";
+      params: {
+        start?: number;
+        limit?: number;
       };
     };

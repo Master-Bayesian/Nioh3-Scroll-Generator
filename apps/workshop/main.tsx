@@ -36,6 +36,8 @@ import {
 import "./style.css";
 import { BackupManager } from "./BackupManager";
 import { Editor } from "./Editor";
+import { EquipmentBrowser } from "./EquipmentBrowser";
+import { ScrollGenerationAudit } from "./ScrollGenerationAudit";
 import { DesktopCartActions, SavePicker } from "./CartActions";
 import { FeedbackSaved, Notice } from "./Notice";
 import { publicError } from "./public-errors";
@@ -1049,6 +1051,14 @@ function App() {
           <button onClick={() => open("收藏夹")} aria-label="收藏夹">
             <span className="nav-icon" aria-hidden="true"><StarIcon /></span><span>收藏夹（{favorites.length}）</span>
           </button>
+          <button
+            className={page === "equipment" ? "active" : ""}
+            onClick={() => setPage("equipment")}
+            aria-label="装备"
+            title="装备"
+          >
+            <span className="nav-icon" aria-hidden="true">▦</span><span>装备</span>
+          </button>
           <button className="coming-soon" disabled>
             <span className="nav-icon" aria-hidden="true">♜</span>
             <span>敬请期待</span>
@@ -1129,7 +1139,9 @@ function App() {
             ? "绘卷搜索"
             : page === "backups"
               ? "备份与管理"
-              : "绘卷编辑"}
+              : page === "equipment"
+                ? "装备浏览"
+                : "绘卷编辑"}
         </h1>
         <div className="toplinks">
           <span className="credits">作者：MasterBayesian · Saber_Li</span>
@@ -2351,6 +2363,7 @@ function App() {
         </aside>
       </div>
       <div className="editor-host" hidden={page !== "editor"}>
+        <ScrollGenerationAudit active={page === "editor"} />
         <Editor cart={cart} />
       </div>
       {popup && (
@@ -2455,6 +2468,7 @@ function App() {
         </>
       )}
       {page === "backups" && <BackupManager />}
+      {page === "equipment" && <EquipmentBrowser />}
       <div className="toast" role="status" hidden={!toast}>
         {toast}
         <button aria-label="关闭提示" onClick={() => setToast("")}>

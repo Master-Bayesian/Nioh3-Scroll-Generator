@@ -576,6 +576,78 @@ mod imp {
             .map_err(HostError::from_runtime)
         }
 
+        /// `runtime.inventory_snapshot`: one bounded read-only page of raw
+        /// inventory slots.
+        ///
+        /// Read-only and non-mutating. It validates the request first, then
+        /// detects the sole game and opens one `PROCESS_QUERY_INFORMATION |
+        /// PROCESS_VM_READ` handle. Everything after that is bound to that
+        /// handle: its image path is queried through it, the fixed-file version
+        /// and the pinned SHA-256 are derived from that path, and only then are
+        /// the four declared sites and the heap page read.
+        ///
+        /// It resolves no generation profile, so the generation and live-add
+        /// site sets, their approvals and their identity digests are untouched.
+        /// The client can choose only `start` and `limit`: the process, the
+        /// module, the digest, the profile and the slot domain are fixed here.
+        fn inventory_snapshot(&self, params: &Value) -> Result<Value, HostError> {
+            use nioh3_runtime::inventory::{
+                snapshot, InventoryRequest, ProcessInventoryMemory, INVENTORY_EXECUTABLE_SHA256,
+            };
+            use nioh3_runtime::{FileVersion, GameCompatibility, RuntimeError};
+
+            // A malformed request must never open a handle.
+            let request = InventoryRequest::from_json(params).map_err(HostError::from_runtime)?;
+            let pid = nioh3_runtime::single_process_id(nioh3_runtime::GAME_IMAGE_NAME)
+                .map_err(HostError::from_runtime)?;
+            let creation = nioh3_runtime::process_creation_filetime(pid)
+                .map_err(HostError::from_runtime)?
+                .ok_or_else(|| HostError::from_runtime(RuntimeError::ProcessGone { pid }))?;
+            // One read-only handle owns the identity below: the birth guard is
+            // re-checked on it, the image path is queried through it, and the
+            // pinned version and digest come from that path, so the bytes that
+            // get versioned and hashed are the bytes this reader can read.
+            let process = nioh3_runtime::ReadOnlyProcess::open(
+                pid,
+                nioh3_runtime::GAME_MODULE_NAME,
+                Some(creation),
+            )
+            .map_err(HostError::from_runtime)?;
+            let executable = process.image_path().map_err(HostError::from_runtime)?;
+            let status = nioh3_runtime::verify_game_executable(&executable);
+            let version = match (status.state, status.file_version) {
+                (GameCompatibility::Supported, Some(version)) => version,
+                (state, _) => {
+                    return Err(HostError::from_runtime(
+                        RuntimeError::GameExecutableUnsupported {
+                            path: executable,
+                            state: state.as_str(),
+                        },
+                    ))
+                }
+            };
+            if version != FileVersion::new(2, 0, 2, 0) {
+                return Err(HostError::from_runtime(
+                    RuntimeError::UnsupportedGameVersion {
+                        display: version.display(),
+                    },
+                ));
+            }
+            let digest =
+                nioh3_runtime::file_sha256(&executable).map_err(HostError::from_runtime)?;
+            if !digest.eq_ignore_ascii_case(INVENTORY_EXECUTABLE_SHA256) {
+                return Err(HostError::from_runtime(
+                    RuntimeError::ExecutableDigestMismatch {
+                        path: executable,
+                        expected: INVENTORY_EXECUTABLE_SHA256.to_string(),
+                        actual: digest,
+                    },
+                ));
+            }
+            let memory = ProcessInventoryMemory::new(&process);
+            snapshot(&memory, &request).map_err(HostError::from_runtime)
+        }
+
         /// `_enemy_role_by_lookup_key` over the shipped roster.
         fn roster_roles(&mut self) -> Result<&BTreeMap<u32, u8>, HostError> {
             if self.roster_roles.is_none() {
@@ -1342,9 +1414,12 @@ mod imp {
             crate::app::protected_context_payload(&self.context)
         }
 
-        fn direct(&mut self, method: &str, _params: &Value) -> Result<Value, HostError> {
+        fn direct(&mut self, method: &str, params: &Value) -> Result<Value, HostError> {
             if method == "runtime.status" {
                 return self.status();
+            }
+            if method == "runtime.inventory_snapshot" {
+                return self.inventory_snapshot(params);
             }
             Err(HostError::rejected(format!(
                 "INVALID_REQUEST: {method} is not an inline protected method"
@@ -1578,6 +1653,10 @@ mod imp {
         pub(super) fn safe_to_shutdown(&mut self) -> Result<bool, HostError> {
             Self::unsupported()
         }
+
+        pub(super) fn inventory_snapshot(&mut self, _params: &Value) -> Result<Value, HostError> {
+            Self::unsupported()
+        }
     }
 
     impl RoleApplication for RuntimeApplication {
@@ -1589,9 +1668,12 @@ mod imp {
             crate::app::protected_context_payload(&self.context)
         }
 
-        fn direct(&mut self, method: &str, _params: &Value) -> Result<Value, HostError> {
+        fn direct(&mut self, method: &str, params: &Value) -> Result<Value, HostError> {
             if method == "runtime.status" {
                 return self.status();
+            }
+            if method == "runtime.inventory_snapshot" {
+                return self.inventory_snapshot(params);
             }
             Err(HostError::rejected(format!(
                 "INVALID_REQUEST: {method} is not an inline protected method"
@@ -1618,9 +1700,8 @@ mod imp {
                 | "capture_grace" | "live_add_prepare" | "live_add_execute" | "live_add_status"
                 | "live_add_recover" | "live_add_cancel" | "live_batch_prepare"
                 | "live_batch_execute" | "live_batch_cancel" | "live_batch_status"
-                | "count_prepare" | "count_execute" | "count_status" | "count_recover" => {
-                    Self::unsupported()
-                }
+                | "count_prepare" | "count_execute" | "count_status" | "count_recover"
+                | "inventory_snapshot" => Self::unsupported(),
                 other => Err(HostError::rejected(format!(
                     "OPERATION_REJECTED: runtime.{other} is not a method the protected \
                      runtime contract can express"

@@ -52,7 +52,7 @@ export async function verifySidebarAlignment(page, { outputDirectory } = {}) {
   await setCollapsed(page, false);
   const restored = await measureSidebar(page);
   if (outputDirectory) await writeFile(join(outputDirectory, 'sidebar-geometry.json'), JSON.stringify({ expanded, collapsed, restored }, null, 2));
-  assert.equal(Object.keys(expanded).length, 8, 'Every sidebar control must be measured');
+  assert.equal(Object.keys(expanded).length, 9, 'Every sidebar control must be measured');
   for (const [name, initial] of Object.entries(expanded)) {
     for (const [mode, values] of Object.entries({ expanded, collapsed, restored })) {
       const control = values[name];

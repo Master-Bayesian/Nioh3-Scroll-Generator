@@ -100,6 +100,21 @@ pub enum RuntimeError {
     InvalidCount { value: i64 },
     /// The save, record or instance changed since the plan was prepared.
     CountSourceChanged { detail: String },
+    /// The read-only runtime inventory chain could not be trusted for this read.
+    ///
+    /// `detail` states the exact refusal (a null root, a count outside the
+    /// safety ceiling, a root that moved between reads, a page buffer that did
+    /// not re-read byte-equal). Nothing is published as a snapshot.
+    InventoryChain { detail: String },
+    /// A bounded heap read is not inside one committed, readable region.
+    ///
+    /// The read-only adapter refuses the read instead of widening it: the
+    /// region is queried first (state, protection, extent) and a range that
+    /// crosses the region boundary, is uncommitted, guarded or unreadable is
+    /// never dereferenced.
+    RegionNotReadable { address: u64, size: usize },
+    /// The runtime inventory request parameters are not the supported shape.
+    InvalidInventoryRequest { detail: String },
     /// The instance is no longer the one the plan captured.
     CountInstanceChanged,
     /// The serial is not present in the current inventory.
@@ -139,6 +154,12 @@ pub enum RuntimeError {
     GameExecutableUnsupported { path: String, state: &'static str },
     /// The executable's fixed file version is outside the verified range.
     UnsupportedGameVersion { display: String },
+    /// The running executable's digest is not the digest this surface pins.
+    ExecutableDigestMismatch {
+        path: String,
+        expected: String,
+        actual: String,
+    },
     /// The version's runtime profile is not approved for product use.
     ProfileNotApproved { profile: String },
     /// The profile document uses an unsupported schema.
@@ -197,6 +218,9 @@ impl RuntimeError {
             Self::RuntimeBusy => "RUNTIME_BUSY",
             Self::InvalidCount { .. } => "INVALID_COUNT",
             Self::CountSourceChanged { .. } => "COUNT_SOURCE_CHANGED",
+            Self::InventoryChain { .. } => "INVENTORY_CHAIN",
+            Self::RegionNotReadable { .. } => "REGION_NOT_READABLE",
+            Self::InvalidInventoryRequest { .. } => "INVALID_INVENTORY_REQUEST",
             Self::CountInstanceChanged => "COUNT_INSTANCE_CHANGED",
             Self::CountInstanceUnavailable { .. } => "COUNT_INSTANCE_UNAVAILABLE",
             Self::InventoryInvalid { .. } => "INVENTORY_INVALID",
@@ -211,6 +235,7 @@ impl RuntimeError {
             Self::FileVersionUnreadable { .. } => "FILE_VERSION_UNREADABLE",
             Self::GameExecutableUnsupported { .. } => "GAME_EXECUTABLE_UNSUPPORTED",
             Self::UnsupportedGameVersion { .. } => "UNSUPPORTED_GAME_VERSION",
+            Self::ExecutableDigestMismatch { .. } => "EXECUTABLE_DIGEST_MISMATCH",
             Self::ProfileNotApproved { .. } => "PROFILE_NOT_APPROVED",
             Self::ProfileSchema { .. } => "PROFILE_SCHEMA",
             Self::ProfileUnresolved { .. } => "PROFILE_UNRESOLVED",
@@ -321,6 +346,13 @@ impl RuntimeError {
                 format!("Remaining count must be an integer from 0 to 7, not {value}")
             }
             Self::CountSourceChanged { detail } => detail.clone(),
+            Self::InventoryChain { detail } => detail.clone(),
+            Self::RegionNotReadable { address, size } => format!(
+                "read of {size:#x} bytes at {address:#x} is not inside one committed, readable region"
+            ),
+            Self::InvalidInventoryRequest { detail } => {
+                format!("INVALID_REQUEST: {detail}")
+            }
             Self::CountInstanceChanged => "count recovery process or instance differs".to_string(),
             Self::CountInstanceUnavailable { serial } => {
                 format!("Scroll instance {serial} is no longer in the current inventory")
@@ -347,6 +379,13 @@ impl RuntimeError {
             Self::UnsupportedGameVersion { display } => {
                 format!("unsupported Nioh 3 executable version: {display}")
             }
+            Self::ExecutableDigestMismatch {
+                path,
+                expected,
+                actual,
+            } => format!(
+                "running game executable {path} has SHA-256 {actual}, not the digest this surface pins ({expected})"
+            ),
             Self::ProfileNotApproved { profile } => {
                 format!("{profile} runtime profile is not approved for product use")
             }

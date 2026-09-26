@@ -415,6 +415,7 @@ version = "0.1.0"
 name = "nioh3-protected"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "jsonschema",
  "nioh3-data",
  "nioh3-domain",

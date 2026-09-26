@@ -1393,31 +1393,65 @@ impl SaveTransactionHost {
                 } else {
                     Ok(())
                 };
-                let outcome = if replaced {
-                    "uncertain"
+                // A skipped rollback is terminal only when the target is
+                // positively unchanged, and the checkpoint this commit wrote is
+                // the preimage that proves it. Anything else — a file that no
+                // longer matches the checkpoint, or a checkpoint or target that
+                // could not be read — stays unresolved, because neither the
+                // commit nor its absence can be established. No path here
+                // overwrites bytes that are not provably this commit's own, and
+                // no path claims a restore it did not perform.
+                let unchanged = if replaced {
+                    None
                 } else {
-                    "not_committed"
+                    self.target_matches_checkpoint(&plan.save_path, &backup_id)
                 };
-                // The journal must not claim a success the commit never
-                // reached. The shipped product separates a clean rollback from
-                // one that could not be proven, so a later reader can tell them
-                // apart; a failure to record it never masks the real error.
+                let (outcome, message, installed_sha256) = if replaced {
+                    (
+                        "uncertain",
+                        match rollback {
+                            Ok(()) => format!("{error}; checkpoint restored"),
+                            Err(rollback_error) => {
+                                format!("{error}; rollback also failed: {rollback_error}")
+                            }
+                        },
+                        None,
+                    )
+                } else if unchanged == Some(true) {
+                    (
+                        "not_committed",
+                        format!(
+                            "{error}; no restore was performed: the target still holds its \
+                             pre-commit checkpoint"
+                        ),
+                        None,
+                    )
+                } else {
+                    (
+                        "uncertain",
+                        format!(
+                            "{error}; rollback skipped: the file on disk is not provably this \
+                             commit's bytes, so it was left untouched and no restore was performed"
+                        ),
+                        Some(owned_sha256.clone()),
+                    )
+                };
+                // The journal must not claim a success the commit never reached,
+                // and an unresolved receipt keeps the digest of the bytes this
+                // commit prepared so a later reconciler can still prove the file
+                // holds neither this commit's output nor its checkpoint instead
+                // of rounding the operation to `unknown`.
                 let receipt = OperationReceipt {
                     operation_id: plan.plan_id.clone(),
                     kind: plan.kind.label().to_string(),
                     outcome: outcome.to_string(),
-                    installed_sha256: None,
+                    installed_sha256,
                     backup_id: Some(backup_id),
-                    message: Some(match rollback {
-                        Ok(()) => format!("{error}; checkpoint restored"),
-                        Err(rollback_error) => {
-                            format!("{error}; rollback also failed: {rollback_error}")
-                        }
-                    }),
+                    message: Some(message),
                     committed: Some(false),
                 };
                 self.write_receipt(&receipt)?;
-                if replaced {
+                if outcome == "uncertain" {
                     Err(SaveReadError::CommitUncertain {
                         message: receipt.message.clone().unwrap_or_default(),
                     })
@@ -2282,6 +2316,22 @@ impl SaveTransactionHost {
             });
         }
         replace_durable_bytes(&source, save_path, &bytes)
+    }
+
+    /// Whether the target still holds the checkpoint this commit wrote.
+    ///
+    /// `Some(true)` is positive proof the target is unchanged, which lets a
+    /// commit that failed before its replacement be recorded as not committed
+    /// instead of fencing the save. `Some(false)` means the file is readable but
+    /// is not the checkpoint, and `None` means the checkpoint or the target
+    /// could not be read, so neither outcome is proven.
+    fn target_matches_checkpoint(&self, save_path: &Path, backup_id: &str) -> Option<bool> {
+        let checkpoint = self
+            .backup_dir(backup_id)
+            .join(crate::backup::role_backup_file(SaveRole::Main));
+        let expected = fs::read(&checkpoint).ok()?;
+        let current = fs::read(save_path).ok()?;
+        Some(current == expected)
     }
 
     fn require_quiescent(&self, save_path: &Path) -> Result<Vec<FileFingerprint>, SaveReadError> {

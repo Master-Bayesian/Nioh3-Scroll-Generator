@@ -274,6 +274,112 @@
           "maxLength": 64
         },
         "method": {
+          "const": "catalog.import_names"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "role": {
+              "enum": [
+                "save_active_items",
+                "ct_equipment",
+                "trainer_equipment"
+              ]
+            },
+            "content_base64": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2796204
+            },
+            "source_label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "declared_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "locale": {
+              "enum": [
+                "zh-CN",
+                "en-US",
+                "ja-JP"
+              ]
+            }
+          },
+          "required": [
+            "role",
+            "content_base64",
+            "source_label",
+            "declared_version",
+            "locale"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "save.audit_scrolls"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "save_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32,64}$"
+            },
+            "snapshot_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32,64}$"
+            }
+          },
+          "required": [
+            "save_id",
+            "snapshot_id"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
           "const": "save.prepare_edit"
         },
         "params": {
@@ -3075,6 +3181,46 @@
           "required": [
             "operation_id"
           ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "runtime.inventory_snapshot"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "start": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2499
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            }
+          },
+          "required": []
         }
       },
       "required": [

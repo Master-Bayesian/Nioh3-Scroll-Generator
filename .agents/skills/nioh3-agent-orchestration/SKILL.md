@@ -1,11 +1,11 @@
 ---
 name: nioh3-agent-orchestration
-description: Route and review Nioh 3 Studio multi-agent work on the Astra-root and DeepSeek-worker split. Use when delegating to or reviewing worker agents in this repository; not for single-agent edits.
+description: Route and review Nioh 3 Studio multi-agent work on the Astra-root and native Luna-worker split. Use when delegating to or reviewing worker agents in this repository; not for single-agent edits.
 ---
 
 # Nioh 3 agent orchestration
 
-Use this for repository work split across an Astra root and DeepSeek worker
+Use this for repository work split across an Astra root and native worker
 agents. `AGENTS.md` routes here for the detail; read it and the current
 `docs/knowledge/CURRENT_HANDOFF.md` state.
 
@@ -13,18 +13,14 @@ agents. `AGENTS.md` routes here for the detail; read it and the current
 
 - The root runs on Astra and owns outcome, dependencies, ticket design,
   prioritization, risk and uncertainty decisions, and acceptance.
-- Workers run on DeepSeek V4.1 Flash and execute coding, tests, documentation,
-  packaging, and bounded evidence collection. Routing is operational, not a
-  claim that Flash cannot reason.
-- The default and only worker route is the official
-  `router_deepseek_deepseek_v4_1_flash` role with model
-  `deepseek/deepseek-v4.1-flash`, set by the owner. Do not select another
-  DeepSeek provider or a quota fallback.
-- Preserve the actual parent model and the router's model-scoped resolution; do
-  not make Flash a global root default or change provider or global config from
-  this repository.
-- Workers may run a different model, so keep tickets self-contained instead of
-  relying on inference.
+- Workers execute coding, tests, documentation, packaging, and bounded evidence
+  collection on `gpt-5.6-luna` with `reasoning_effort: max`.
+- The default worker route is the native `worker`/default role. Spawn with
+  `fork_turns: none` unless bounded context is explicitly needed. Do not select
+  DeepSeek or any router/provider fallback without the owner's decision.
+- Preserve the actual parent model; do not make Luna a global root default or
+  change provider or global config from this repository.
+- Keep tickets self-contained instead of relying on model inference.
 
 ## Shape each ticket
 
@@ -88,8 +84,8 @@ retry in a loop while waiting for the answer.
 
 - A substantive research, build, packaging, or release failure (not an ordinary
   expected test failure) gets a bounded
-  `docs/research/EXPERIMENT_FAILURE_LEDGER.md` entry, delegated to a DeepSeek
-  agent. Include the objective, observed symptom, root cause or `unknown`,
+  `docs/research/EXPERIMENT_FAILURE_LEDGER.md` entry, delegated to a native
+  Luna worker. Include the objective, observed symptom, root cause or `unknown`,
   evidence paths, disposition, reproduction status, and follow-up state. The
   ledger is non-canonical, normally unloaded, and never blocks the main task.
 - Skills record successful workflows. Keep a one-off failure in the ledger
@@ -101,7 +97,7 @@ retry in a loop while waiting for the answer.
 - When a task exposes a stable, reusable workflow improvement, update the
   matching skill, runbook, or executable check.
 - Validate any changed skill with the system skill validator. Delegate simple
-  documentation, archival, and audit work to DeepSeek when practical.
+  documentation, archival, and audit work to a native Luna worker when practical.
 
 ## Cost
 

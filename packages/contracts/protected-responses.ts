@@ -13,6 +13,8 @@ export type ProtectedResponse =
       result:
         | ProtectedJob
         | RuntimeStatus
+        | InventorySnapshot
+        | LocalNameCatalog
         | ShutdownStatus
         | ProtectedHandshake
         | {
@@ -70,6 +72,7 @@ export interface ProtectedJob {
     | "save.discover"
     | "save.register"
     | "save.inventory"
+    | "save.audit_scrolls"
     | "save.prepare_edit"
     | "save.prepare_delete"
     | "save.prepare_install"
@@ -119,6 +122,7 @@ export interface ProtectedJob {
     | RuntimeStatus
     | SaveReference
     | SaveInventory
+    | ScrollAudit
     | SavePlan
     | OperationReceipt
     | CandidateTransfer
@@ -351,6 +355,107 @@ export interface SaveInventory {
       recommended_raw_level?: number;
     };
   }[];
+}
+export interface ScrollAudit {
+  save_id: string;
+  snapshot_id: string;
+  source_sha256: string;
+  status: "proven_reachable" | "proven_rule_violation" | "no_violation_found_unproven" | "insufficient_data";
+  coverage_scope: "generated_effect_projection";
+  context: AuditContextProof;
+  /**
+   * @maxItems 400
+   */
+  rows: ScrollAuditRow[];
+}
+export interface AuditContextProof {
+  product_version: string;
+  game_profile: string;
+  game_file_version: string | null;
+  versioned_resource_dir: string | null;
+  bundle_digest: string | null;
+  versioned_digest: string | null;
+  resources_digest: string;
+  algorithm_version: string;
+  policy_version: string;
+  context_digest: string;
+  legacy_context_digest: string | null;
+  production_authority: boolean;
+  seed_accelerator_abi: number | null;
+  seed_accelerator_build_id: string | null;
+}
+export interface ScrollAuditRow {
+  slot_index: number;
+  record_offset: number;
+  record_sha256: string;
+  record_type: number;
+  playthrough: number | null;
+  seed: number;
+  level: number;
+  rarity: number;
+  coverage_scope: "generated_effect_projection";
+  status: "proven_reachable" | "proven_rule_violation" | "no_violation_found_unproven" | "insufficient_data";
+  /**
+   * @maxItems 32
+   */
+  reasons: string[];
+  replay_evidence: AuditReplayEvidence;
+}
+export interface AuditReplayEvidence {
+  attempted: boolean;
+  matched: boolean;
+  matched_phase: ("R3" | "stage_one" | "final") | null;
+  /**
+   * @maxItems 32
+   */
+  compared_fields: string[];
+  /**
+   * @maxItems 32
+   */
+  ignored_fields: string[];
+  observed_projection: AuditProjection | null;
+  /**
+   * @maxItems 2
+   */
+  phase_results: [] | [AuditPhaseResult] | [AuditPhaseResult, AuditPhaseResult];
+}
+export interface AuditProjection {
+  record_type: number;
+  playthrough: number;
+  seed: number;
+  level: number;
+  rarity: number;
+  /**
+   * @minItems 7
+   * @maxItems 7
+   */
+  effects: [
+    AuditEffectProjection,
+    AuditEffectProjection,
+    AuditEffectProjection,
+    AuditEffectProjection,
+    AuditEffectProjection,
+    AuditEffectProjection,
+    AuditEffectProjection
+  ];
+}
+export interface AuditEffectProjection {
+  slot_index: number;
+  prefix: number;
+  effect_id: number;
+  value: number;
+  metadata: number;
+  tail_0: number;
+  tail_1: number;
+}
+export interface AuditPhaseResult {
+  phase: "R3" | "stage_one" | "final";
+  matched: boolean;
+  expected_projection: AuditProjection | null;
+  /**
+   * @maxItems 32
+   */
+  mismatches: string[];
 }
 export interface SavePlan {
   plan_id: string;
@@ -749,6 +854,141 @@ export interface CountEdit {
   old_count: number;
   new_count: number;
   error: string | null;
+}
+export interface InventorySnapshot {
+  status: "observed";
+  game_version: "2.0.2.0";
+  observed_at: string;
+  process: {
+    pid: number;
+    creation_filetime: string;
+  };
+  start: number;
+  limit: number;
+  observed_slot_count: number;
+  next_start: number | null;
+  /**
+   * @maxItems 64
+   */
+  rows: InventorySnapshotRow[];
+  consistency: "reread_equal";
+  read_only: true;
+}
+export interface InventorySnapshotRow {
+  slot: number;
+  item_id: number;
+  level_raw: number;
+  plus_raw: number;
+  quantity_raw: number;
+  rarity_raw: number;
+  record_sha256: string;
+  /**
+   * @minItems 7
+   * @maxItems 7
+   */
+  effects: [
+    {
+      slot: number;
+      id: number;
+      raw_value: number;
+    },
+    {
+      slot: number;
+      id: number;
+      raw_value: number;
+    },
+    {
+      slot: number;
+      id: number;
+      raw_value: number;
+    },
+    {
+      slot: number;
+      id: number;
+      raw_value: number;
+    },
+    {
+      slot: number;
+      id: number;
+      raw_value: number;
+    },
+    {
+      slot: number;
+      id: number;
+      raw_value: number;
+    },
+    {
+      slot: number;
+      id: number;
+      raw_value: number;
+    }
+  ];
+}
+export interface LocalNameCatalog {
+  schema: "nioh3-local-name-catalog-v1";
+  status: "ok";
+  source: LocalNameCatalogSource;
+  /**
+   * @maxItems 10000
+   */
+  rows: LocalNameCatalogRow[];
+  counts: LocalNameCatalogCounts;
+  /**
+   * @maxItems 128
+   */
+  warnings: string[];
+  /**
+   * @maxItems 10000
+   */
+  conflicts: LocalNameCatalogConflict[];
+  claim_boundary: string;
+}
+export interface LocalNameCatalogSource {
+  role: "save_active_items" | "ct_equipment" | "trainer_equipment";
+  namespace: "save_item_u16_le_bytes" | "ct_raw_bytes" | "trainer_numeric";
+  source_label: string;
+  declared_version: string;
+  locale: "zh-CN" | "en-US" | "ja-JP";
+  bytes: number;
+  sha256: string;
+}
+export interface LocalNameCatalogRow {
+  input_index: number;
+  row_index: number;
+  source_role: "save_active_items" | "ct_equipment" | "trainer_equipment";
+  namespace: "save_item_u16_le_bytes" | "ct_raw_bytes" | "trainer_numeric";
+  raw_key: string;
+  key_bytes_hex: string;
+  id: number | null;
+  display_id: number | null;
+  high_word: number | null;
+  name: string | null;
+  state: "accepted" | "sentinel_zero" | "sentinel_all_ones" | "unparsable_key" | "unsupported_width" | "out_of_range";
+  quarantine_reason: string | null;
+  displayable: boolean;
+}
+export interface LocalNameCatalogCounts {
+  input_rows: number;
+  accepted_rows: number;
+  display_rows: number;
+  sentinel_rows: number;
+  quarantined_rows: number;
+  conflict_rows: number;
+  conflict_ids: number;
+}
+export interface LocalNameCatalogConflict {
+  id: number;
+  namespace: "save_item_u16_le_bytes" | "ct_raw_bytes" | "trainer_numeric";
+  /**
+   * @minItems 2
+   * @maxItems 10000
+   */
+  names: [string, string, ...string[]];
+  /**
+   * @minItems 2
+   * @maxItems 10000
+   */
+  row_indices: [number, number, ...number[]];
 }
 export interface ShutdownStatus {
   safe_to_shutdown: boolean;

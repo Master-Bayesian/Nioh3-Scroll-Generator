@@ -23,6 +23,8 @@ use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
 
 mod effect_resource;
+/// Offline, read-only normalization of the v0.8.1 equipment catalog artifacts.
+pub mod equipment_catalog;
 #[cfg(test)]
 mod install_materialize_parity;
 mod selected_bundle;

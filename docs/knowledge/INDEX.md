@@ -128,6 +128,26 @@ global semantic key.
 
 ### Active research/handoff
 
+- [v0.8.1 source feature matrix](V081_SOURCE_FEATURE_MATRIX.md) - complete
+  source-family inventory for the supplied CT, pinned save editor and reviewed
+  Pro equipment result. Static source availability is not PC v2.02 acceptance;
+  the [version record](../product/releases/v0.8.1.md) owns integration order and
+  links the private Pro contract handoff, its manifest and validation reports.
+- [Pro response acceptance (v0.8.1)](V081_PRO_RESPONSE_ACCEPTANCE_20260921.md) —
+  bounded reproduction of the Pro response (22 static/synthetic and 43 delivery
+  checks), P2 disk and reused-runtime identity results, and the offline catalog
+  adapter's internal-only status and evidence boundary. Artifact and static
+  evidence, not product or current-game acceptance.
+- [Equipment upstream bridge acceptance (v0.8.1)](V081_EQUIPMENT_UPSTREAM_ACCEPTANCE_20260921.md)
+  — A-only PC v2.02 caller/continuation capture with five bounded bodies;
+  normal provenance and same-record flow remain open.
+- [Equipment converter handoff acceptance (v0.8.1)](V081_EQUIPMENT_CONVERTER_ACCEPTANCE_20260921.md)
+  — final local converter/parent/helper packet; normal-source provenance and
+  same-record closure remain open.
+- [v0.8.1 integration continuation (2026-09-21)](V081_INTEGRATION_CONTINUATION_20260921.md)
+  — compact decision map for browser-session repair, the private P3/save
+  candidate correlation, scroll-only legality audit status, catalog local-read
+  option, and remaining source-family gates.
 - [UI follow-up transfer](UI_FOLLOWUP_HANDOFF_20260912.md) — current transfer
   for the remaining fullscreen/DPI, modal, settings, and card issues.
 - [Crucible possessed-enemy research](CRUCIBLE_POSSESSED_ENEMY_RESEARCH_20260910.md)

@@ -1,8 +1,12 @@
 # Product feature catalog
 
-Status: **shipped feature catalog for the published v0.7.4 stable release; unreleased v0.8.0 work is recorded in [releases/v0.8.0.md](releases/v0.8.0.md)**
+Status: **historical v0.7.4 behavior catalog; the current published baseline is
+[v0.8.0](releases/v0.8.0.md). New integration work is tracked in
+[v0.8.1](releases/v0.8.1.md) and is not shipped behavior.**
 
-Last updated: 2026-09-15
+Status updated: 2026-09-21. Existing entries have not been fully reconciled with
+the Rust migration; historical Python implementation anchors below are not a
+claim that the released product still uses that backend.
 
 This file is the durable index of shipped product behavior. It is deliberately compact: detailed technical and reverse-engineering evidence stays in `docs/knowledge/`, while planning state stays in the shared spreadsheet.
 
@@ -24,6 +28,54 @@ The initial entries below are grounded in the current player README and current 
 | `APP-UPDATE` | Update and replace the install-free application executable through the signed update flow. | Update UI and Settings | After updater startup readiness, each launch checks once and prompts once when a newer update is available; the prompt is deferred while another dialog is open. Settings retains a manual `Check for updates` action. The update is verified before replacement, waits for the running process, supports rollback, and cleans bounded caches after successful startup. | `apps/workshop/Updates.tsx`; `apps/workshop/main.tsx`; `apps/launcher/`; `apps/tauri/` |
 | `SUPPORT-DIAGNOSTICS` | Copy a bounded support log when an operation fails or when the player requests diagnostics. | Settings and automatic failure handling | Logs are size-bounded and rotated; copied diagnostics include enough operation context for support without proving a root cause. | `apps/workshop/main.tsx`; `apps/workshop/public-errors.ts`; desktop broker logging |
 | `LOCALIZATION` | Use the desktop UI in Simplified Chinese, English, or Japanese. | Settings | Language choice applies to shipped product surfaces; native-speaker review remains separate acceptance. The separate interface-font-size setting has been removed; preview label/value typography is fixed and bounded by the current UI acceptance. | `apps/workshop/ui-locales.json`; `apps/workshop/ui-translations.tsv` |
+
+## In-development capabilities (not shipped)
+
+These are being built against the v0.8.1 engineering record and are **not shipped
+behavior**. An entry moves into the shipped table above only after its workflow
+and safety bounds are accepted. Until then it stays unavailable to players.
+
+| ID | Capability and intended outcome | Entry point | Essential bound | Primary anchors |
+| --- | --- | --- | --- | --- |
+| `EQUIPMENT-READ` | Browse owned equipment records and read their raw fields. This is the read stage of the single equipment/soul-core browsing-and-editing feature, not an independent product; soul-core field coverage is unverified. | In-development, read-only experimental equipment page | Read-only; no hidden developer-mode flag is required. Reuses the protected `runtime` read path (`runtime.inventory_snapshot`); adds no write, no new IPC write route, and no bundled catalog. Names come from shipped resources only, with an exact-ID fallback when a name is unknown. Internal browser continuation now clears stale state, anchors pages to process identity/container count, and rejects mixed sessions; the bounded E2E artifact records 48 checks. A private P3 slot-0/save record is byte-correlated as a candidate only. This remains one page of one debug session, not a whole-inventory capacity claim, not a write, not the one-file build, and not shipped or user-facing. Stable owner/key identity is a gate for future `EQUIPMENT-EDIT` and create, not a reason to hide this read-only browser; this source remains internal and not release-validated. | `crates/nioh3-data/src/equipment_catalog.rs`; `crates/nioh3-runtime/src/inventory.rs`; `crates/nioh3-protected/src/runtime_app.rs`; `apps/workshop/EquipmentBrowser.tsx`; `apps/workshop/desktop-bridge.ts`; `apps/tauri/verify-equipment-browser.mjs`; `D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/browser-triage/REPORT.md`; `D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/save-correlation/REPORT.md` |
+| `CATALOG-LOCAL-IMPORT` | Read a user-selected `items_little_endian.json` file as raw bytes for offline name lookup. | **Internal implementation complete; no release entry point** | Not bundled and never a game/save write. The adapter retains source/hash/version/locale/ID-namespace provenance and keeps unknown IDs numeric. The bounded native catalog run is a separate debug acceptance (60 checks, 696 locale messages), not packaged or live-game acceptance. This is a selected-file local-read path only: not an arbitrary-directory, CT, or 7z importer, and not permission to bundle supplied vendor catalogs. A user-provided local file does not require a redistribution grant; bundling vendor data does. | `crates/nioh3-data/src/equipment_catalog.rs`; `apps/workshop/LocalCatalogImport.tsx`; `D:/Nioh3_v080_deliverables/deliverables/v081-local-catalog-20260921/ui/REPORT.md`; `D:/Nioh3_v080_deliverables/deliverables/v081-local-catalog-20260921/native/native-v081-evidence.json` |
+| `LEGAL-EQUIPMENT-GENERATION` | Generate equipment only through supported legitimate game paths. Two proposed routes are tracked: actual native natural-drop generation under legitimate inputs/context, and offline replay/inverse search of items attainable for requested effects. | Planned; no entry point | The native-generation Pro package is delivered as static/offline evidence, not current-game generation acceptance. This must not be conflated with native inventory insertion of a custom 512-byte draft: the reviewed trainer-side add call shape `(manager, out512, in512, 0, 7)` is not a game-side insertion ABI, and natural RNG, legal roll ranges and exclusions remain unrecovered. Shares one versioned generation/rule dataset with `INVENTORY-LEGALITY-AUDIT`; no UI, writer or bundled catalog is added by this entry. | `D:/Nioh3_v080_deliverables/deliverables/v081-generation-p0p1-20260921`; `V081_INTEGRATION_CONTINUATION_20260921.md` |
+| `INVENTORY-LEGALITY-AUDIT` | Independently scan owned scrolls and equipment (soul-core coverage explicit and unverified until captured) for impossible effect combinations and other validated rule violations. | **In progress; bounded backend/UI/native debug evidence complete; no release entry point** | The bounded slice has synthetic protected dispatch with snapshot/source SHA/context proof, a UI six-row fixture accepted by 28 focused checks, TypeScript and 682-message locale audit across zh-CN/en-US/ja-JP, and a corrected native debug route that reaches `save.inventory`, `save.operations`, and `save.audit_scrolls`. All six current rows remain `INSUFFICIENT_DATA`; packaged/release acceptance and actual normal-input-domain evidence remain open. Replay matches are diagnostic only. R5, equipment and soul-core hard rules remain unsupported (`equipment_hard_terminal_rules_enabled = 0`). Mismatch, timeout, missing Seed/context, or version drift never becomes an illegal verdict. No write, repair, anti-cheat claim, or whole-record history proof is enabled. | `D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/scroll-audit/e2e-audit-result.json`; `D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/scroll-audit-ui/REPORT.md`; `D:/Nioh3_v080_deliverables/deliverables/v081-integration-remaining-20260921/handoff/evidence/continuation/native-summary.json`; `V081_INTEGRATION_CONTINUATION_20260921.md` |
+
+### Planned/in-progress: equipment legality generation and inventory audit
+
+Owner-requested product scope, recorded 2026-09-21 and not yet scheduled. Browsing
+and editing owned equipment/soul-core records are treated as **one** feature; the
+read-only page above is its delivered read stage, and editing remains a future
+slice. Two separate planned features build on one shared, versioned
+generation/rule dataset so no two divergent rulesets appear:
+
+- `LEGAL-EQUIPMENT-GENERATION` explores two routes: driving the game's own natural
+  drop generation with legitimate inputs and context, or replaying/inverting
+  generation offline to find equipment attainable for requested effects. It is not
+  the same as inserting a custom 512-byte draft into native inventory, and native
+  insertion, natural RNG, legal roll ranges and exclusions stay unrecovered.
+- `INVENTORY-LEGALITY-AUDIT` performs an independent read-only scan and reports a
+  limited verdict only: proven reachable, a known rule violation with a precise
+  reason, no violation found within the documented checks, or insufficient data.
+  It keeps structural memory validity, incomplete rule coverage and proven PRNG
+  reachability separate, and it never accuses provenance, guarantees anti-cheat
+  safety, or edits the inventory.
+
+Scroll rules and replay are the first target. The backend protected dispatch,
+UI bounded acceptance and corrected native debug route are complete for the
+diagnostic slice; all current rows remain `INSUFFICIENT_DATA` pending packaged
+acceptance and actual normal-input-domain evidence. Equipment rules have zero
+enabled hard-terminal rules. Neither feature is a shipping commitment to
+v0.8.1, and no write path or full rules engine is implemented by this record.
+
+### v0.8.1 continuation record (2026-09-21)
+
+The compact disposition and evidence map is maintained in
+[`V081_INTEGRATION_CONTINUATION_20260921.md`](../knowledge/V081_INTEGRATION_CONTINUATION_20260921.md).
+It records the completed browser-session repair and 48-check artifact, the
+private 240-byte P3/save candidate correlation, the catalog local-read option,
+the source-family remaining gates, and the scroll-only legality audit status.
 
 ## Known reconciliation work
 

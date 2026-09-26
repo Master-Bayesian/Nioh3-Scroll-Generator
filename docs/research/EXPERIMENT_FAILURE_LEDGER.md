@@ -3323,6 +3323,45 @@ own acceptance before any publication claim.
 
 **Skill promotion:** None. Bounded defect record.
 
+## 2026-09-21: Supplied Pro-response validators are locale-dependent and die on a GBK host
+
+**Objective:** Re-run the two bounded validators shipped inside
+`Nioh3_v081_Integration_Contracts_Pro_Response_20260921.zip` against the frozen v0.8.1 input
+package, to reproduce its 22 + 43 checks.
+
+**Observed symptom:** Both scripts failed before doing any work. `validation/audit_inputs.py`
+raised `UnicodeDecodeError: 'gbk' codec can't decode byte 0x80 in position 724565` at
+`audit_inputs.py:82` while reading `evidence/ct/features.json`; `validation/validate_response.py`
+raised `UnicodeDecodeError: 'gbk' codec can't decode byte 0xae in position 2571` at
+`validate_response.py:22`. Exit code 1 for both, with no check executed.
+
+**Root cause:** The scripts call `Path.read_text()` without an encoding in several places, so they
+inherit the interpreter's locale default. This host's default is GBK, while the package's JSON and
+Markdown files are UTF-8. The failure is in the tooling's portability, not in the frozen input: the
+same inputs decoded correctly once the interpreter ran in UTF-8 mode. Two other reads in the same
+scripts already pass `encoding='utf-8-sig'`, so the omission is local and inconsistent rather than
+a deliberate contract.
+
+**Evidence:** `deliverables/v081-pro-response-20260921/acceptance/REPRODUCTION.json` records both
+verbatim tracebacks, the remedy, and the reproduced results; the rerun outputs are
+`acceptance/STATIC_AUDIT_RESULTS.rerun.json` (22 checks, 86 manifest entries) and
+`acceptance/DELIVERY_VALIDATION.rerun.json` (43 checks, 0 failures), both deep-equal to the
+versions shipped in the response.
+
+**Disposition:** Worked around, not fixed: the response package is being accepted as delivered, so
+its scripts were left byte-identical and the runs were made with `PYTHONUTF8=1` through
+`tools/run_python_tests.ps1` with the explicit repository interpreter. Any future run of these two
+scripts on a non-UTF-8 default host needs the same setting, or an encoding argument added to the
+offending reads.
+
+**Reproduction status:** Deterministic. The failure reproduces whenever `PYTHONUTF8` is unset on a
+GBK-default host, and the pass reproduces whenever it is set.
+
+**Follow-up state:** Open only as a note for the response author. No repository code depends on
+these scripts, so nothing here blocks product work.
+
+**Skill promotion:** None. Environment-portability record, not a reusable technique.
+
 ## 2026-09-21: hosted run 35608064429 - Python unittest fixture missed the bulk-CPU policy
 
 **Objective:** explain the three Python `unittest` failures in hosted run
@@ -3553,3 +3592,114 @@ No production code changed for either closure, and no failed run was
 re-dispatched.
 
 **Skill promotion:** None. Bounded defect record.
+
+## 2026-09-21: v0.8.1 reader worker - out-of-scope rustfmt, CRLF stat noise, and a disposable Cargo target
+
+**Objective:** add the read-only `runtime.inventory_snapshot` operation to the
+Rust protected worker (`crates/nioh3-runtime`, `crates/nioh3-protected`).
+
+**Observed symptom:** a `rustfmt` invocation meant for the new worker files was
+given `crates/nioh3-runtime/src/lib.rs`, so it followed the module tree and
+reformatted twelve files outside the ticket. They were restored with
+`git restore --source=HEAD --` on exactly those twelve paths; because
+`core.autocrlf=true`, that smudged them to CRLF, so `git status` kept listing
+them as modified while `git diff` and `git diff --cached` were both empty. A
+task-named Cargo target, `build-cache/v081-reader`, was also created instead of
+reusing an existing shared gate target.
+
+**Root cause:** rustfmt recursion from a crate root file, and choosing a fresh
+target name from the resolver rather than reusing an established gate cache.
+
+**Evidence:** the twelve paths are `crates/nioh3-runtime/src/profile.rs` and
+`crates/nioh3-runtime/src/mutation/{evidence,historical_preview,historical_preview_tests,live_add,live_fakes,live_tests,mod,native_abi,native_executor,native_executor_tests,native_fakes}.rs`.
+For each, `git diff --quiet` and `git diff --cached --quiet` both exit 0,
+`git ls-files --eol` reports `i/lf w/crlf` (untouched clean files report
+`w/lf`), and disk size exceeds blob size by the CRLF expansion. The initial
+session status listed none of them as modified.
+
+**Disposition:** no substantive content loss found; the twelve files are left
+as-is on owner instruction (line-ending/index-stat noise only) and no further
+restore is authorized. The disposable target was removed after resolving and
+verifying it strictly below `D:/Nioh3_v080_deliverables/build-cache` with
+`cargo clean --manifest-path crates/nioh3-runtime/Cargo.toml --target-dir
+D:/Nioh3_v080_deliverables/build-cache/v081-reader`: 4114 files, 1.8 GiB
+recovered. The external JSON evidence under `deliverables/` is untouched.
+Future runs should format only their own files, never a crate root, and reuse
+an existing shared Cargo target.
+
+**Skill promotion:** None. Bounded defect record.
+
+## 2026-09-21: v0.8.1 equipment-browser host - absolute frontendDist directory embeds no assets
+
+**Objective:** build an authorized debug Tauri host whose embedded frontend is
+the equipment-browser bundle produced on the D: delivery volume, so the
+read-only `runtime.inventory_snapshot` acceptance never writes build output into
+the checkout.
+
+**Observed symptom:** with `TAURI_CONFIG` overriding `build.frontendDist` to the
+absolute D directory, three debug-host launches rendered a blank shell at
+`http://tauri.localhost/`; the page body was the literal text `asset not found:
+index.html` and the console reported two HTTP 500s. `#root` never existed.
+
+**Root cause:** the absolute `frontendDist` **directory** form does not produce a
+usable embedded asset set in this configuration, while the config-file relative
+`../dist` does. The checkout volume is exFAT, so the relative default could not
+be redirected to D with a junction or symlink (`New-Item -ItemType Junction`
+failed with "Incorrect function"), and `apps/tauri/build.mjs` hardcodes
+`apps/tauri/dist` with no outdir override.
+
+**Evidence:** single-variable rebuild plus probe for each variant.
+`{"build":{"frontendDist":"D:/.../integration/dist"}}` -> `asset not found:
+index.html`; the same key with the relative `../dist` -> shell renders;
+`{"build":{"frontendDist":["D:/.../dist/index.html","D:/.../dist/app.js",
+"D:/.../dist/app.css"]}}` -> shell renders with all six nav entries including the
+equipment page. `tauri-build-2.6.3/src/lib.rs:487` and
+`tauri-codegen-2.6.3/src/lib.rs:83` merge `TAURI_CONFIG`; the directory branch is
+`tauri-codegen-2.6.3/src/context.rs:182-192`.
+
+**Successful configuration:** the `frontendDist` **file-list** form with absolute
+D file paths, then `cargo build --manifest-path apps/tauri/src-tauri/Cargo.toml`.
+Recorded in the integration `PREPARE.md`; no repository file was edited and
+`apps/tauri/dist` on F: was left untouched.
+
+**Superseded artifact:** `integration/verify/equipment-failure.png` is the blank
+shell from the superseded absolute-directory attempt. It is retained on owner
+instruction and labelled historical in `integration/verify/visual-review.md`; it
+is not evidence for the passing run.
+
+**Skill promotion:** None. Bounded build-configuration defect record.
+
+## 2026-09-21: v0.8.1 equipment-browser native bundle - esbuild define expression
+
+**Objective:** build the first D-rooted debug Tauri host with the reviewed
+equipment-browser frontend for bounded native UI acceptance.
+
+**Observed symptom:** the host launched, but the CDP page reported
+`production is not defined` and the document remained an empty
+`<div id="root"></div>`. No game, runtime, save, or write path was reached.
+
+**Root cause:** the helper invocation passed the esbuild define value as the
+identifier expression `'production'` instead of the JSON string literal
+`'"production"'`; the generated `app.js` therefore referenced an undefined
+identifier at runtime. This is an invocation/build-input defect, not a product
+runtime failure.
+
+**Evidence:**
+`D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/scroll-audit/native/native-v081-evidence.json`
+(run `NSPKmY`, 2026-09-21 23:24–23:26 local) records the page error and empty
+root. The affected D-root bundle/host workspace is under
+`D:/Nioh3_v080_deliverables/deliverables/v081-local-catalog-20260921/native/`.
+
+**Disposition:** repair in progress. The native worker corrected the define to
+the JSON-string expression, rebuilt/re-embedded the host, and will retry the
+bounded acceptance. No repository product source, game process, save, or native
+write was changed by the failed attempt.
+
+**Reproduction status:** reproduced once in the first D-root helper invocation;
+the corrected invocation has not yet been accepted in this entry.
+
+**Follow-up state:** open pending the native worker's corrected build and
+focused rerun. Do not promote this one-off helper mistake to a product rule or
+skill.
+
+**Skill promotion:** None. Bounded build-input failure record.

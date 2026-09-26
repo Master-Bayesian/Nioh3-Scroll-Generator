@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SaveSession, type SaveGateway } from '../src/save-session';
-import type { SaveReference, SaveInventory, SavePlan, OperationReceipt } from '../../../packages/contracts/protected-responses';
+import type { SaveReference, SaveInventory, SavePlan, ScrollAudit, OperationReceipt } from '../../../packages/contracts/protected-responses';
 
 const reference: SaveReference = { save_id: 'a'.repeat(64), account_id: '123', path: 'test/SAVEDATA.BIN', save_slot: 0 };
 const inventory: SaveInventory = { save_id: reference.save_id, account_id: '123', snapshot_id: 'b'.repeat(32),
@@ -11,12 +11,27 @@ const plan: SavePlan = { plan_id: 'd'.repeat(32), save_id: reference.save_id, ki
 const receipt: OperationReceipt = { operation_id: plan.plan_id, save_id: reference.save_id, commit_status: 'committed', warning: null, details: {} };
 function fixture() {
   const calls: string[] = [];
-  let failCommit = false, returnedPlan = plan, history: OperationReceipt[] = [], returnedReceipt = receipt;
+  let failCommit = false, returnedPlan = plan, history: OperationReceipt[] = [], returnedReceipt = receipt, returnAuditAsInventory = false;
+  const audit: ScrollAudit = {
+    save_id: reference.save_id,
+    snapshot_id: inventory.snapshot_id,
+    source_sha256: inventory.source_sha256,
+    status: 'insufficient_data',
+    coverage_scope: 'generated_effect_projection',
+    context: {
+      product_version: 'test', game_profile: 'pc', game_file_version: '2.0.2.0',
+      versioned_resource_dir: 'resources/2.0.2.0', bundle_digest: null, versioned_digest: null,
+      resources_digest: 'e'.repeat(64), algorithm_version: 'test', policy_version: 'test',
+      context_digest: 'f'.repeat(64), legacy_context_digest: null, production_authority: false,
+      seed_accelerator_abi: null, seed_accelerator_build_id: null,
+    },
+    rows: [],
+  };
   const gateway: SaveGateway = {
     prepareInstall: async () => returnedPlan,
     execute: async (command, operationId) => {
       calls.push(command.method);
-      if (command.method === 'save.inventory') return structuredClone(inventory);
+      if (command.method === 'save.inventory') return returnAuditAsInventory ? structuredClone(audit) : structuredClone(inventory);
       if (command.method === 'save.operations') return { operations: history };
       if (command.method === 'save.discard') return { discarded: true };
       if (command.method.startsWith('save.prepare_')) return structuredClone(returnedPlan);
@@ -30,10 +45,20 @@ function fixture() {
     },
   };
   return { gateway, calls, fail: () => { failCommit = true; },
+    returnAudit: () => { returnAuditAsInventory = true; },
     setPlan: (value: SavePlan) => { returnedPlan = value; },
     setHistory: (value: OperationReceipt[]) => { history = value; },
     setReceipt: (value: OperationReceipt) => { returnedReceipt = value; } };
 }
+
+test('a scroll audit payload cannot replace the inventory snapshot', async () => {
+  const f = fixture(), session = new SaveSession(f.gateway);
+  await session.select(reference);
+  f.returnAudit();
+  await assert.rejects(session.refresh(), /SAVE_INVENTORY_EXPECTED/);
+  assert.equal(session.getSnapshot().inventory, null);
+  assert.equal(session.getSnapshot().selected?.save_id, reference.save_id);
+});
 
 test('save changes require the exact reviewed plan, and commit invalidates its snapshot', async () => {
   const f = fixture(), session = new SaveSession(f.gateway);

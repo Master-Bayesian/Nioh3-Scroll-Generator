@@ -13,10 +13,12 @@ A short router: state what changes a decision, and leave procedure to the linked
 
 ## Routing
 
-- The Astra root owns outcome, ticket design, prioritization, risk decisions, and acceptance; official DeepSeek V4.1 Flash
-  workers execute implementation, tests, docs, packaging, and bounded evidence collection.
+- The Astra root owns outcome, ticket design, prioritization, risk decisions, and acceptance; native workers on
+  `gpt-5.6-luna` at `reasoning_effort: max` execute implementation, tests, docs, packaging, and bounded evidence collection.
 - Use `$nioh3-agent-orchestration` (`.agents/skills/nioh3-agent-orchestration/SKILL.md`) for role and model IDs,
-  ticket shape, parallelism, context, review, and reporting; workers may be a different model, so keep tickets self-contained.
+  ticket shape, parallelism, context, review, and reporting; use the native `worker`/default role with `fork_turns: none`
+  unless bounded context is needed, and keep tickets self-contained. Do not select DeepSeek or a router/provider fallback
+  without the owner's decision.
 
 ## Context
 
@@ -35,7 +37,7 @@ A short router: state what changes a decision, and leave procedure to the linked
 - Research produces the self-contained Pro handoff; verify Pro conclusions before integrating them.
 - Do not push, tag, publish assets, replace an update feed, or announce a release without explicit owner authorization; release reporting detail is in `$nioh3-release`.
 - A substantive research, build, packaging, or release failure gets a bounded `docs/research/EXPERIMENT_FAILURE_LEDGER.md`
-  entry, delegated to a DeepSeek agent; fields are in `$nioh3-agent-orchestration`, and it never blocks the main task.
+  entry, delegated to a native Luna worker; fields are in `$nioh3-agent-orchestration`, and it never blocks the main task.
 - Work the task through implementation, verification, and repair until done or a real owner decision is needed; define completion up front.
 - Report on completion or a genuine blocker with a proportionate summary (conclusion, files, evidence, checks, remaining decisions; no padding or raw logs).
 - Workers in the shared worktree must not run `git stash`, `git clean`, reset, or checkout/restore another owner's paths, or make any other worktree-wide state change; when isolation is needed, ask root for a managed worktree, or limit edits to explicitly owned paths.

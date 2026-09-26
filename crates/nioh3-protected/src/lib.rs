@@ -21,6 +21,7 @@
 //!   carries the finalized record pair the search side produced.
 
 pub mod app;
+pub mod catalog;
 pub mod composition;
 pub mod contract;
 pub mod error;

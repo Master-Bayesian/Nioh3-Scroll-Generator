@@ -2,13 +2,26 @@ import {OperationController} from '../desktop/src/operation-controller';
 import {SaveSession,saveGateway} from '../desktop/src/save-session';
 import {desktop,previewSeed} from './desktop-bridge';
 import {data,type Sample} from './model';
+import type {ProtectedResult} from '../desktop/src/operations-api';
 import type {SaveInventory,SaveReference} from '../../packages/contracts/protected-responses';
 export const saveObserver=desktop?new OperationController('save',window.operations):null;
 export const runtimeObserver=desktop?new OperationController('runtime',window.operations):null;
 export const saveSession=desktop?new SaveSession(saveGateway(window.operations,saveObserver!)):null;
 export async function selectSave(){const result=await saveObserver!.run(()=>window.operations.selectSave());if(result&&'save_id' in result&&'account_id' in result&&'path' in result)await saveSession!.select(result as SaveReference)}
 export function entrySample(entry:SaveInventory['entries'][number]):Sample{return {seed:String(entry.header.seed),rarity:entry.header.rarity,level:entry.header.level,playthrough:entry.header.playthrough,saveEntry:entry,effects:entry.effects.filter(e=>e.effect_id!==0xFFFFFFFF).map((e,i)=>({id:String(e.effect_id),name:data.editorEffects.find(v=>v.id===String(e.effect_id))?.name||'未知词条',raw:e.value,roll:e.metadata&255,role:i===0?'主词条':'副词条'})),capacity:entry.derived.initial_challenge_capacity,enemyKeys:[],enemySlotKeys:[],enemies:[],terrainKeys:[],rules:[]}}
-export async function enrichEntry(sample:Sample){const aux=await window.review.auxiliary({seed:Number(sample.seed),playthrough:sample.playthrough||3});return {...sample,capacity:aux.initial_challenge_capacity,enemyKeys:aux.enemy_groups.flatMap(g=>g.map(e=>e.lookup_key)),enemySlotKeys:aux.enemy_groups.map(g=>g[0]?.lookup_key).filter(k=>k!==undefined),enemies:aux.enemy_groups.flatMap(g=>g.map(e=>data.enemies.find(v=>v.keys.includes(e.lookup_key))?.name||String(e.lookup_key))),terrainKeys:aux.terrain.display_effect_keys,rules:aux.special_rules.map(rule=>({key:rule.key,name:data.rules.find(r=>r.keys.includes(rule.key))?.name||String(rule.key),value:rule.display_value===null?rule.display_grade||'':String(rule.display_value)+(rule.display_unit==='percent'?'%':rule.display_unit==='seconds'?' 秒':'')}))}}
+async function readAuxiliary(params:{seed:number;playthrough:number}){
+  if(!desktop||!saveObserver)return window.review.auxiliary(params);
+  let failed=false;
+  let failure:unknown;
+  const result=await saveObserver.run(async()=>{
+    try{return await window.review.auxiliary(params) as unknown as ProtectedResult}
+    catch(error){failed=true;failure=error;return null}
+  });
+  if(failed)throw failure;
+  if(!result||typeof result!=='object')throw new Error('AUXILIARY_EXPECTED');
+  return result as unknown as Awaited<ReturnType<typeof window.review.auxiliary>>;
+}
+export async function enrichEntry(sample:Sample){const aux=await readAuxiliary({seed:Number(sample.seed),playthrough:sample.playthrough||3});return {...sample,capacity:aux.initial_challenge_capacity,enemyKeys:aux.enemy_groups.flatMap(g=>g.map(e=>e.lookup_key)),enemySlotKeys:aux.enemy_groups.map(g=>g[0]?.lookup_key).filter(k=>k!==undefined),enemies:aux.enemy_groups.flatMap(g=>g.map(e=>data.enemies.find(v=>v.keys.includes(e.lookup_key))?.name||String(e.lookup_key))),terrainKeys:aux.terrain.display_effect_keys,rules:aux.special_rules.map(rule=>({key:rule.key,name:data.rules.find(r=>r.keys.includes(rule.key))?.name||String(rule.key),value:rule.display_value===null?rule.display_grade||'':String(rule.display_value)+(rule.display_unit==='percent'?'%':rule.display_unit==='seconds'?' 秒':'')}))}}
 
 // The save the player last chose is chosen again on the next start, so a
 // player with several character saves picks once instead of every session.

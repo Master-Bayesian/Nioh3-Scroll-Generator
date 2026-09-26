@@ -37,6 +37,7 @@ nioh3-domain = { path = "../nioh3-domain" }
 nioh3-data = { path = "../nioh3-data" }
 serde_json = "1"
 serde = "1"
+base64 = "0.22"
 sha2 = "0.10"
 jsonschema = { version = "0.33", default-features = false }
 

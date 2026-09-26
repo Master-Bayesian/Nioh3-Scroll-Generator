@@ -39,8 +39,11 @@ use nioh3_domain::install_materialize::{
     InstallMaterializeError,
 };
 use nioh3_domain::preview::{compose_auxiliary_preview, PreviewTables};
-use nioh3_domain::record::{EFFECT_SLOT_BASE, EFFECT_SLOT_COUNT, EFFECT_SLOT_STRIDE};
+use nioh3_domain::record::{
+    ScrollRecordBytes, EFFECT_SLOT_BASE, EFFECT_SLOT_COUNT, EFFECT_SLOT_STRIDE,
+};
 use nioh3_domain::sequence::generate_challenge_attempt_count;
+use nioh3_domain::sequence::materialize_ng3_rarity4_stage_one_record;
 use nioh3_save::backup::{list_backup_entries, move_backup_to_recycle_bin};
 use nioh3_save::codec::prepare_candidate_for_install;
 use nioh3_save::error::SaveReadError;
@@ -54,6 +57,7 @@ use nioh3_save::transform::{
 use nioh3_worker::engine::EngineContext;
 use nioh3_worker::grace_map as worker_grace_map;
 use nioh3_worker::recommended_level::RecommendedLevelCurve;
+use nioh3_worker::GameFileVersion;
 
 use crate::app::{JobContext, Role, RoleApplication};
 use crate::error::HostError;
@@ -81,6 +85,26 @@ const RECOMMENDED_LEVEL_REFUSAL: &str = "Regenerate candidate with the selected 
 const STALE_INTENT_WARNING: &str =
     "Previous process ended before recording the outcome; inspect backups and \
      current save before further writes";
+const AUDIT_COVERAGE_SCOPE: &str = "generated_effect_projection";
+const AUDIT_STATUS_INSUFFICIENT: &str = "insufficient_data";
+const AUDIT_COMPARED_FIELDS: [&str; 6] = [
+    "record_type",
+    "playthrough",
+    "seed",
+    "level",
+    "rarity",
+    "effects[*].(prefix,effect_id,value,metadata,tail_0,tail_1)",
+];
+const AUDIT_IGNORED_FIELDS: [&str; 8] = [
+    "recommended_level",
+    "generation_serial",
+    "transfer_count",
+    "completion_salt",
+    "account_id",
+    "inventory_key",
+    "challenge_count",
+    "unmodelled_history",
+];
 
 struct Snapshot {
     snapshot_id: String,
@@ -298,6 +322,39 @@ impl SaveApplication {
             },
         );
         Ok(response)
+    }
+
+    /// `save.audit_scrolls`: read-only generation replay bound to the retained
+    /// save snapshot and the host's exact production context. This operation
+    /// intentionally reports replay evidence separately from legality: the
+    /// current normal-input domain is not proven, so every row remains
+    /// `insufficient_data` even when the generated projection matches.
+    fn audit_scrolls(&mut self, save_id: &str, snapshot_id: &str) -> Result<Value, HostError> {
+        let source_sha256 = self
+            .current_snapshot_hash(save_id, snapshot_id)?
+            .to_lowercase();
+        let (_, inventory) = self.snapshot_copy(save_id, snapshot_id)?;
+        let context = audit_context_payload(&self.context);
+        let context_reason = audit_context_reason(&self.context);
+        let resources = if context_reason.is_none() {
+            Some(self.materialization_resources()?)
+        } else {
+            None
+        };
+        let rows = inventory
+            .scroll_entries(false)
+            .into_iter()
+            .map(|entry| audit_entry(&entry, context_reason, resources))
+            .collect::<Result<Vec<_>, HostError>>()?;
+        Ok(json!({
+            "save_id": save_id,
+            "snapshot_id": snapshot_id,
+            "source_sha256": source_sha256,
+            "status": AUDIT_STATUS_INSUFFICIENT,
+            "coverage_scope": AUDIT_COVERAGE_SCOPE,
+            "context": context,
+            "rows": rows,
+        }))
     }
 
     fn entry_json(&self, entry: &ScrollInventoryEntry) -> Result<Value, HostError> {
@@ -1392,6 +1449,10 @@ impl SaveApplication {
             }
             "discover" => Ok(self.discover()),
             "inventory" => self.inventory(&param_str(&params, "save_id")?),
+            "audit_scrolls" => self.audit_scrolls(
+                &param_str(&params, "save_id")?,
+                &param_str(&params, "snapshot_id")?,
+            ),
             "template" => {
                 let playthrough = param_u64(&params, "playthrough")? as u8;
                 self.template(
@@ -1546,6 +1607,254 @@ fn effect_json(effect: LocalEffectSlot) -> Value {
         "tail_0": effect.tail_0,
         "tail_1": effect.tail_1,
     })
+}
+
+fn audit_context_value(payload: &Value, key: &str) -> Value {
+    payload.get(key).cloned().unwrap_or(Value::Null)
+}
+
+fn audit_context_payload(context: &EngineContext) -> Value {
+    let payload = context.to_payload();
+    json!({
+        "product_version": audit_context_value(&payload, "product_version"),
+        "game_profile": audit_context_value(&payload, "game_profile"),
+        "game_file_version": audit_context_value(&payload, "game_file_version"),
+        "versioned_resource_dir": audit_context_value(&payload, "versioned_resource_dir"),
+        "bundle_digest": audit_context_value(&payload, "bundle_digest"),
+        "versioned_digest": audit_context_value(&payload, "versioned_digest"),
+        "resources_digest": audit_context_value(&payload, "resources_digest"),
+        "algorithm_version": audit_context_value(&payload, "algorithm_version"),
+        "policy_version": audit_context_value(&payload, "policy_version"),
+        "context_digest": audit_context_value(&payload, "context_digest"),
+        "legacy_context_digest": audit_context_value(&payload, "legacy_context_digest"),
+        "production_authority": audit_context_value(&payload, "production_authority"),
+        "seed_accelerator_abi": audit_context_value(&payload, "seed_accelerator_abi"),
+        "seed_accelerator_build_id": audit_context_value(&payload, "seed_accelerator_build_id"),
+    })
+}
+
+fn audit_context_reason(context: &EngineContext) -> Option<&'static str> {
+    match context {
+        EngineContext::Production(context)
+            if context.game_file_version == GameFileVersion(2, 0, 2, 0) =>
+        {
+            None
+        }
+        EngineContext::Production(_) => Some("unsupported_game_file_version"),
+        EngineContext::LegacyTest(_) => Some("context_not_production"),
+    }
+}
+
+fn audit_projection(record: &ScrollRecordBytes, playthrough: u8) -> Result<Value, String> {
+    let effects = read_local_effect_slots(record.as_bytes())
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .map(|effect| {
+            json!({
+                "slot_index": effect.slot_index,
+                "prefix": effect.prefix,
+                "effect_id": effect.effect_id,
+                "value": effect.value,
+                "metadata": effect.metadata,
+                "tail_0": effect.tail_0,
+                "tail_1": effect.tail_1,
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(json!({
+        "record_type": record.record_type(),
+        "playthrough": playthrough,
+        "seed": record.displayed_seed(),
+        "level": record.level(),
+        "rarity": record.rarity(),
+        "effects": effects,
+    }))
+}
+
+fn audit_record_mismatches(observed: &Value, expected: &Value) -> Vec<String> {
+    let mut mismatches = Vec::new();
+    for field in ["record_type", "playthrough", "seed", "level", "rarity"] {
+        if observed.get(field) != expected.get(field) {
+            mismatches.push(field.to_string());
+        }
+    }
+    let observed_effects = observed.get("effects").and_then(Value::as_array);
+    let expected_effects = expected.get("effects").and_then(Value::as_array);
+    match (observed_effects, expected_effects) {
+        (Some(observed), Some(expected)) => {
+            for index in 0..observed.len().max(expected.len()) {
+                if observed.get(index) != expected.get(index) {
+                    mismatches.push(format!("effects[{index}]"));
+                }
+            }
+        }
+        _ => mismatches.push("effects".to_string()),
+    }
+    mismatches
+}
+
+fn audit_phase_result(phase: &str, observed: &Value, expected: &Value) -> Value {
+    let mismatches = audit_record_mismatches(observed, expected);
+    json!({
+        "phase": phase,
+        "matched": mismatches.is_empty(),
+        "expected_projection": expected,
+        "mismatches": mismatches,
+    })
+}
+
+fn audit_replay(
+    entry: &ScrollInventoryEntry,
+    resources: &MaterializationResources,
+    observed: &Value,
+) -> Result<Vec<Value>, String> {
+    let template = entry.record();
+    let seed = entry.seed();
+    let level = template.level();
+    let recommended_level = template.recommended_level();
+    let generation_serial = entry.generation_serial();
+    let transfer_count = entry.transfer_count();
+    let grace_map = resources
+        .effect
+        .grace_maps
+        .first()
+        .ok_or_else(|| "v2.02 R4 grace map is unavailable".to_string())?;
+    match entry.rarity() {
+        3 => {
+            let (record, _) = materialize_ng3_certified_record(
+                &resources.index,
+                grace_map,
+                template,
+                3,
+                seed,
+                level,
+                recommended_level,
+                generation_serial,
+                transfer_count,
+            )
+            .map_err(|error| format!("{error:?}"))?;
+            let expected = audit_projection(&record, 3)?;
+            Ok(vec![audit_phase_result("R3", observed, &expected)])
+        }
+        4 => {
+            let (stage_record, _) = materialize_ng3_rarity4_stage_one_record(
+                &resources.index,
+                grace_map,
+                template,
+                seed,
+                level,
+                recommended_level,
+                generation_serial,
+                transfer_count,
+            )
+            .map_err(|error| format!("{error:?}"))?;
+            let (final_record, _) = materialize_ng3_certified_record(
+                &resources.index,
+                grace_map,
+                template,
+                4,
+                seed,
+                level,
+                recommended_level,
+                generation_serial,
+                transfer_count,
+            )
+            .map_err(|error| error.to_string())?;
+            let stage = audit_projection(&stage_record, 3)?;
+            let final_projection = audit_projection(&final_record, 3)?;
+            Ok(vec![
+                audit_phase_result("stage_one", observed, &stage),
+                audit_phase_result("final", observed, &final_projection),
+            ])
+        }
+        _ => Err("unsupported rarity for replay".to_string()),
+    }
+}
+
+fn audit_entry(
+    entry: &ScrollInventoryEntry,
+    context_reason: Option<&'static str>,
+    resources: Option<&MaterializationResources>,
+) -> Result<Value, HostError> {
+    let record = entry.record();
+    let record_type = entry.record_type();
+    let playthrough = entry.playthrough();
+    let observed_projection = playthrough
+        .map(|value| audit_projection(record, value))
+        .transpose()
+        .map_err(|error| HostError::rejected(format!("audit projection failed: {error}")))?;
+    let mut reasons = vec!["normal_input_domain_unproven".to_string()];
+    if let Some(reason) = context_reason {
+        reasons.push(reason.to_string());
+    }
+    if record_type != nioh3_domain::sequence::NG3_RECORD_TYPE {
+        reasons.push("unsupported_record_type".to_string());
+    } else if playthrough != Some(nioh3_domain::sequence::NG3_PLAYTHROUGH) {
+        reasons.push("unsupported_playthrough".to_string());
+    } else if !matches!(entry.rarity(), 3 | 4) {
+        reasons.push("unsupported_rarity".to_string());
+    }
+
+    let mut attempted = false;
+    let mut matched = false;
+    let mut matched_phase = None;
+    let mut phase_results = Vec::new();
+    if context_reason.is_none()
+        && record_type == nioh3_domain::sequence::NG3_RECORD_TYPE
+        && playthrough == Some(nioh3_domain::sequence::NG3_PLAYTHROUGH)
+        && matches!(entry.rarity(), 3 | 4)
+    {
+        attempted = true;
+        if let (Some(resources), Some(observed)) = (resources, observed_projection.as_ref()) {
+            match audit_replay(entry, resources, observed) {
+                Ok(phases) => {
+                    phase_results = phases;
+                    matched_phase = phase_results.iter().find_map(|phase| {
+                        (phase["matched"] == Value::Bool(true))
+                            .then(|| phase["phase"].as_str().unwrap_or_default().to_string())
+                    });
+                    matched = matched_phase.is_some();
+                }
+                Err(error) => reasons.push(format!("replay_error:{error}")),
+            }
+        } else {
+            reasons.push("context_unavailable_for_replay".to_string());
+        }
+    }
+    if attempted {
+        if matched {
+            reasons.push("replay_match".to_string());
+        } else if !reasons
+            .iter()
+            .any(|reason| reason.starts_with("replay_error:"))
+        {
+            reasons.push("replay_mismatch".to_string());
+        }
+    }
+    let observed_projection = observed_projection.unwrap_or(Value::Null);
+    let record_sha256 = format!("{:x}", Sha256::digest(record.as_bytes()));
+    Ok(json!({
+        "slot_index": entry.slot_index,
+        "record_offset": entry.record_offset,
+        "record_sha256": record_sha256,
+        "record_type": record_type,
+        "playthrough": playthrough,
+        "seed": entry.seed(),
+        "level": record.level(),
+        "rarity": entry.rarity(),
+        "coverage_scope": AUDIT_COVERAGE_SCOPE,
+        "status": AUDIT_STATUS_INSUFFICIENT,
+        "reasons": reasons,
+        "replay_evidence": {
+            "attempted": attempted,
+            "matched": matched,
+            "matched_phase": matched_phase,
+            "compared_fields": AUDIT_COMPARED_FIELDS,
+            "ignored_fields": AUDIT_IGNORED_FIELDS,
+            "observed_projection": observed_projection,
+            "phase_results": phase_results,
+        },
+    }))
 }
 
 fn install_record(

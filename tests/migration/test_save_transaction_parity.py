@@ -2006,6 +2006,52 @@ class SaveFaultGateTests(_ProductFixture):
         expected = patch_local_scroll_record(expected, [LocalEffectEdit(slot_index=0, value=4242)])
         return offset, SCROLL_RECORD_SIZE, expected
 
+    def test_a_failure_before_the_replacement_never_claims_a_restore(self) -> None:
+        # The install fails before the replacement lands, so the target still
+        # holds its pre-commit generation and the rollback is skipped. That is
+        # positively provable against the checkpoint this commit wrote, so the
+        # failure stays a terminal `not_committed` rather than fencing the save
+        # — but the shipped text still claimed `checkpoint restored` even though
+        # no restore ran. The wording must state what actually happened.
+        #
+        # A directory at the staged path makes the staged write fail without
+        # touching the target, which is the deterministic way to reach the
+        # branch without a timing race or an injected fault at a write stage.
+        plan_id = self.plan_edit(1)
+        before = self.save_path.read_bytes()
+        staged = self.save_path.with_name(self.save_path.name + ".scroll-generator.tmp")
+        staged.mkdir()
+        try:
+            completed = self.commit(plan_id)
+        finally:
+            staged.rmdir()
+        self.assertNotEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        receipt = self.receipt(plan_id)
+        self.assertEqual(
+            receipt["outcome"],
+            "not_committed",
+            "a pre-replacement failure leaves the target unchanged, so it is not committed",
+        )
+        self.assertNotIn(
+            "checkpoint restored",
+            receipt["message"],
+            "no restore ran, so the receipt may not claim one",
+        )
+        self.assertIn(
+            "no restore was performed",
+            receipt["message"],
+            "the truthful wording states that the target already held the checkpoint",
+        )
+        self.assertIsNone(
+            receipt["installed_sha256"],
+            "a terminal unchanged failure carries no unresolved generation",
+        )
+        self.assertEqual(
+            self.save_path.read_bytes(),
+            before,
+            "the target must be left exactly as it was found",
+        )
+
     def test_injected_fault_at_each_stage_recovers_exactly(self) -> None:
         # `after-checkpoint` fires after the checkpoint exists but before the
         # durable receipt is written, so it is the one stage with no receipt.
