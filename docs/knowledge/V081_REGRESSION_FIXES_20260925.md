@@ -207,12 +207,13 @@ versions by code, unresponsive workers, failed update verification and an
 unreadable game executable. Internal invariants (record lengths, id ranges)
 still surface as an error code with the feedback path.
 
-## Known test flake
+## Accelerator test isolation
 
-`search_backend::tests::policy_guard_concurrency_isolates_threads_and_finishes_strict_gpu`
-can fail when the whole worker library runs in parallel: its lock serializes
-only its own module, while other modules drive the same process-global
-accelerator diagnostics. It passes alone. Unchanged by this branch.
+failed intermittently (locally and once in the hosted rust-crates job): its lock
+serialized only its own module, while tests in , ,
+ and  drive the same process-global execution
+policy and forced-CUDA-failure hook. All 32 tests that load the real
+accelerator now share .
 
 ## PC v2.02 temporary-override evidence
 

@@ -1251,14 +1251,11 @@ mod tests {
     use super::*;
     use crate::native_search::SEED_ACCELERATOR_ABI_VERSION;
 
-    /// The DLL keeps process-global diagnostics, so no two tests may overlap.
-    static DLL_LOCK: Mutex<()> = Mutex::new(());
-
     const VALUES: [u16; 5] = [0x1234, 0xABCD, 0x0001, 0xFFFE, 0x00FF];
     const STRIDE: u16 = 0x9E37;
 
     fn lock() -> MutexGuard<'static, ()> {
-        DLL_LOCK.lock().unwrap_or_else(|error| error.into_inner())
+        crate::accelerator_test_lock()
     }
 
     fn repo_root() -> PathBuf {

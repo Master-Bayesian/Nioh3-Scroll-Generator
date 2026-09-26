@@ -976,6 +976,7 @@ mod tests {
     /// substitution.
     #[test]
     fn a_missing_library_reports_a_named_absence() {
+        let _accelerator = crate::accelerator_test_lock();
         let missing = repo_root()
             .join("bin")
             .join("not-the-preimage-accelerator.dll");
@@ -989,6 +990,7 @@ mod tests {
     /// it can execute, and the report names both hashes.
     #[test]
     fn an_unknown_override_is_rejected_by_hash() {
+        let _accelerator = crate::accelerator_test_lock();
         let other = repo_root().join("bin").join("nioh3_seed_accelerator.dll");
         let error = PreimageAccelerator::load(&repo_root(), Some(&other))
             .expect_err("a different artifact cannot load");
@@ -1008,6 +1010,7 @@ mod tests {
     /// documented exports.
     #[test]
     fn the_shipped_library_loads_with_the_pinned_identity() {
+        let _accelerator = crate::accelerator_test_lock();
         let accelerator =
             PreimageAccelerator::load(&repo_root(), None).expect("the shipped library loads");
         let identity = accelerator.identity();
@@ -1021,6 +1024,7 @@ mod tests {
     /// unusable backend can never be reported as usable.
     #[test]
     fn the_capability_probe_is_real() {
+        let _accelerator = crate::accelerator_test_lock();
         let accelerator =
             PreimageAccelerator::load(&repo_root(), None).expect("the shipped library loads");
         let available = accelerator.available();
@@ -1046,6 +1050,7 @@ mod tests {
     /// DirectCompute sweep must reproduce the shipped reference window exactly.
     #[test]
     fn the_real_sweep_reproduces_the_reference_window() {
+        let _accelerator = crate::accelerator_test_lock();
         let accelerator =
             PreimageAccelerator::load(&repo_root(), None).expect("the shipped library loads");
         if !accelerator.available() {
@@ -1138,6 +1143,7 @@ mod tests {
     /// The forward filter binding must reproduce the shipped mask batch.
     #[test]
     fn the_forward_filter_reproduces_the_reference_masks() {
+        let _accelerator = crate::accelerator_test_lock();
         let accelerator =
             PreimageAccelerator::load(&repo_root(), None).expect("the shipped library loads");
         if !accelerator.available() {

@@ -2057,6 +2057,7 @@ mod policy_consistency_tests {
     /// outermost drop must return the library to strict GPU.
     #[test]
     fn a_load_probe_cannot_cancel_or_leak_the_policy_guard() {
+        let _accelerator = crate::accelerator_test_lock();
         let Some(library) = PrivateLibrary::new() else {
             eprintln!("skipping: the shipped seed accelerator is not staged");
             return;

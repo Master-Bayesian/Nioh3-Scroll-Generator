@@ -2245,6 +2245,7 @@ mod tests {
     /// on this exact synthetic map returned (seed 182,147,323 at trial 11).
     #[test]
     fn the_cached_ng4_route_pages_like_the_shipped_solver() {
+        let _accelerator = crate::accelerator_test_lock();
         use crate::native_search::Accelerator;
         use crate::search_backend::{MatchFilter, NativePivotQuery, PageRequest, SearchBackend};
 
@@ -2366,6 +2367,7 @@ mod tests {
     /// rejected seeds so the comparison is not vacuous.
     #[test]
     fn the_native_auxiliary_predicate_agrees_with_the_composed_acceptance() {
+        let _accelerator = crate::accelerator_test_lock();
         let root = repo_root();
         let data_root = root.join("nioh3_scroll_editor").join("data");
         let compiler = QueryCompiler::load(&data_root).expect("the shipped tables load");
@@ -2590,6 +2592,7 @@ mod tests {
     /// fixture's Seed at the shipped fixture's trial.
     #[test]
     fn the_rarity3_primary_pivot_page_publishes_the_shipped_fixture() {
+        let _accelerator = crate::accelerator_test_lock();
         let root = repo_root();
         let data_root = root.join("nioh3_scroll_editor").join("data");
         let compiler = QueryCompiler::load(&data_root).expect("the shipped tables load");
@@ -2711,6 +2714,7 @@ mod tests {
     /// replaying the candidate it already passed.
     #[test]
     fn the_rarity3_primary_pivot_page_resumes_without_replay() {
+        let _accelerator = crate::accelerator_test_lock();
         let root = repo_root();
         let data_root = root.join("nioh3_scroll_editor").join("data");
         let compiler = QueryCompiler::load(&data_root).expect("the shipped tables load");
@@ -2790,6 +2794,7 @@ mod tests {
     /// match rather than replaying a published candidate or skipping one.
     #[test]
     fn the_rarity3_primary_pivot_cancels_inside_a_window_without_replay() {
+        let _accelerator = crate::accelerator_test_lock();
         let root = repo_root();
         let data_root = root.join("nioh3_scroll_editor").join("data");
         let compiler = QueryCompiler::load(&data_root).expect("the shipped tables load");
@@ -2938,6 +2943,7 @@ mod tests {
     /// on every match of a bounded window.
     #[test]
     fn terrain_options_compile_to_their_row_union_and_are_enforced() {
+        let _accelerator = crate::accelerator_test_lock();
         let root = repo_root();
         let data_root = root.join("nioh3_scroll_editor").join("data");
         let version = Some(nioh3_data::CURRENT_RESOURCE_VERSION);
@@ -3055,6 +3061,7 @@ mod tests {
     /// acceptance keeps exactly the candidates whose actual Grace is selected.
     #[test]
     fn several_selected_graces_pivot_on_their_union_and_filter_the_final_grace() {
+        let _accelerator = crate::accelerator_test_lock();
         let root = repo_root();
         let data_root = root.join("nioh3_scroll_editor").join("data");
         let version = Some(nioh3_data::CURRENT_RESOURCE_VERSION);
@@ -3130,6 +3137,7 @@ mod tests {
     /// other rarity, instead of an "unimplemented" refusal.
     #[test]
     fn an_unconstrained_rarity5_search_takes_the_full_family() {
+        let _accelerator = crate::accelerator_test_lock();
         let root = repo_root();
         let data_root = root.join("nioh3_scroll_editor").join("data");
         let compiler = QueryCompiler::load_for_resource_version(

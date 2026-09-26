@@ -1058,6 +1058,7 @@ mod tests {
     /// must publish exactly that pair.
     #[test]
     fn the_grace_filtered_rarity5_page_finds_the_shipped_seed() {
+        let _accelerator = crate::accelerator_test_lock();
         use crate::native_search::Accelerator;
         use crate::native_search::ExecutionPolicy;
         use crate::query::SearchQuery;

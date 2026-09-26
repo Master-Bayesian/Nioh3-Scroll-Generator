@@ -63,3 +63,14 @@ pub use query::SearchQuery;
 pub use schema::RequestSchema;
 pub use search_backend::{CollectedPage, NativePivotQuery, PageRequest, SearchBackend};
 pub use transport::{read_frame, write_frame, TransportError, MAX_FRAME_BYTES};
+
+/// Serializes the tests that drive the real accelerator DLLs.
+///
+/// The library's execution policy, forced-CUDA-failure hook and diagnostics
+/// are process-global, so a test that pins the bulk-CPU opt-in or forces a CUDA
+/// failure changes what every concurrently running accelerator test observes.
+#[cfg(test)]
+pub(crate) fn accelerator_test_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    LOCK.lock().unwrap_or_else(|error| error.into_inner())
+}
