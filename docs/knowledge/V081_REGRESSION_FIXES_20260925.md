@@ -170,8 +170,49 @@ skipped, 4 failed before the two fixes above. The contract-method failure was
 the missing `search.feasibility` response definition; the cursor failure is
 described above; both pass on re-run. The two `test_runtime_read_parity`
 failures (`--identify` and `--verify-signatures` with the v2.01 profile)
-occurred while a PC v2.02 game was running; with no game running they pass,
-and they need a re-run with the game open to be closed.
+occurred while a PC v2.02 game was running. Both tests assumed a v2.01 game:
+with v2.02 at the title screen, the shipped helper and the port both refuse
+identity (the v2.02 profile is a candidate; the port names
+`PROFILE_NOT_APPROVED`), and the v2.02 profile verifies 10/10 signatures. The
+tests now follow the running version; all 15 runtime-read checks pass with
+the game open.
+
+## Search speed against the Python worker
+
+Release worker vs the Python worker with its accelerator DLL, app-shaped
+requests (25 results, continuing job), one host:
+
+| Query | Python | Rust before | Rust now |
+| --- | --- | --- | --- |
+| three special rules | 36.0 s | 25.6 s | (GPU shared with the game in later runs) |
+| R4 one primary | 2.7 s | 0.34 s | 0.33 s |
+| R4 one / two secondaries | 2.8 s | 1.1 s | 1.0 s |
+| R5 four secondaries + Grace | 3.7 s | 5.0 s | 2.6 s |
+
+Streaming per native unit costs nothing measurable (v0.8.0 worker: 4.9 s on
+the R5 query). The R5 gap was the port dropping the Python tables'
+`_base_candidate_pool_cache`: every one of 10,440 pool builds in the
+one-wildcard compile recomputed all row weights (2.4 s in `search.start`, on
+every search). The context-only rows are memoized again under the same key;
+candidate seeds and cursors are unchanged.
+
+## More restored messages
+
+The Python backend's Chinese explanations were also restored for search
+refusals (no legal native path, a Grace with no draw-1 preimage, too many
+special rules, no GPU acceleration), temporary-override hooks (changed by
+another program, restore unverified), live-add and count edits (character not
+loaded, scroll left the inventory), backup restore and deletion, unsupported
+versions by code, unresponsive workers, failed update verification and an
+unreadable game executable. Internal invariants (record lengths, id ranges)
+still surface as an error code with the feedback path.
+
+## Known test flake
+
+`search_backend::tests::policy_guard_concurrency_isolates_threads_and_finishes_strict_gpu`
+can fail when the whole worker library runs in parallel: its lock serializes
+only its own module, while other modules drive the same process-global
+accelerator diagnostics. It passes alone. Unchanged by this branch.
 
 ## PC v2.02 temporary-override evidence
 
