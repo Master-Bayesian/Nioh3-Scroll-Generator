@@ -994,3 +994,28 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .scroll-audit-reasons-raw{display:block;margin-top:4px;overflow-wrap:anywhere;color:#687b8b;font-size:10px;white-space:pre-wrap}
 .scroll-audit-row ul{margin:5px 0 0;padding-left:18px;line-height:1.5}
 @media(max-width:680px){.editor-host>.scroll-audit{margin:7px 8px 0;max-height:45vh}.scroll-audit-rows{grid-template-columns:1fr}.scroll-audit-row dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Character & equipment: live and save-file edits. */
+.character-modes{display:inline-flex;width:max-content;margin:0 0 8px;border:1px solid #c5d1e0;border-radius:6px;overflow:hidden}
+.character-modes>button{width:auto;margin:0;padding:6px 16px;border:0;border-radius:0;background:#f8fafc;color:#214d63}
+.character-modes>button+button{border-left:1px solid #c5d1e0}
+.character-modes>button.active{background:#3c745f;color:#fff}
+.character-page h3{margin:16px 0 6px;font-size:14px}
+.character-page .equipment-toolbar>button{width:auto}
+.character-currencies,.character-fields{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 16px;margin:6px 0}
+.character-currencies>h3{flex-basis:100%;margin:10px 0 0}
+.character-currencies label,.character-fields label{display:flex;flex-direction:column;gap:4px;color:#58717b;font-size:11px}
+.character-currencies input{width:210px;font-variant-numeric:tabular-nums}
+.character-fields input{width:120px;font-variant-numeric:tabular-nums}
+.character-currencies>button{width:auto}
+.character-detail{padding:10px 12px;border:1px solid #c5d1e0;border-radius:6px;background:#fbfdff}
+.character-detail>h3{margin-top:0}
+.character-detail .equipment-effects input{width:100%;min-width:0;box-sizing:border-box}
+.character-detail .equipment-effects td:first-child{width:28px}
+.character-detail>button{width:auto}
+.character-modded{display:flex;align-items:flex-start;gap:8px;margin:10px 0;padding:8px 10px;border:1px dashed #c08a2c;border-radius:6px;background:#fcf7ec;color:#5b4a2c;font-size:12px;line-height:1.5}
+.character-modded>input{width:auto;margin:2px 0 0}
+.character-plan{margin:14px 0;padding:10px 12px;border:1px solid #c9a86b;border-radius:6px;background:#fcf7ec}
+.character-plan>h3{margin-top:0}
+.character-plan-lines{margin:6px 0 10px;padding-left:18px;font-size:12px;line-height:1.7;font-variant-numeric:tabular-nums}
+.character-plan>button{width:auto;margin-right:8px}
