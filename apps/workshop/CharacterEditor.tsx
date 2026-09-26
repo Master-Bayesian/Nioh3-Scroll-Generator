@@ -5,6 +5,7 @@ import type {
   SaveCharacter,
 } from "../../packages/contracts/protected-responses";
 import { data } from "./model";
+import itemNames from "./item-names.json";
 import { desktop } from "./desktop-bridge";
 import { fillTemplateSlots, plainGameText } from "./game-text";
 import { LocalCatalogImport, type ActiveLocalCatalog } from "./LocalCatalogImport";
@@ -36,6 +37,15 @@ function kindOf(typeClass: number | null | undefined): Kind {
   if (typeClass === 39 || typeClass === 40) return "饰品";
   if (typeClass >= 54 && typeClass <= 57) return "魂核";
   return "其他";
+}
+
+const itemCatalog = (itemNames as { items: Record<string, string[]> }).items;
+/** The game's own Chinese name and sub-type of an item, when the bundled catalog has one. */
+function itemName(id: number, catalog: ActiveLocalCatalog | null): string {
+  return itemCatalog[String(id)]?.[0] || catalog?.entries.get(id) || "";
+}
+function itemSubtype(id: number): string {
+  return itemCatalog[String(id)]?.[2] ?? "";
 }
 
 function hex(value: number) {
@@ -165,7 +175,7 @@ export function CharacterEditor() {
     if (!needle) return all.slice(0, 300);
     return all
       .filter(entry => {
-        const name = catalog?.entries.get(entry.item_id) ?? "";
+        const name = itemName(entry.item_id, catalog) + " " + itemSubtype(entry.item_id);
         const text = [hex(entry.item_id), name, ...entry.effects.map(effect => effectLabel(effect.effect_id))].join(" ");
         return text.toLowerCase().includes(needle);
       })
@@ -349,7 +359,10 @@ export function CharacterEditor() {
                 {character.equipment.length} / {character.equipment_slots}
               </span>
             </div>
-            <LocalCatalogImport onCatalogChange={setCatalog} />
+            <details className="character-names">
+              <summary>补充物品名称（可选）</summary>
+              <LocalCatalogImport onCatalogChange={setCatalog} />
+            </details>
             <table className="equipment-table">
               <thead>
                 <tr><th>槽位</th><th>类别</th><th>物品</th><th>等级</th><th>+值</th><th>稀有度</th><th>词条</th></tr>
@@ -358,8 +371,8 @@ export function CharacterEditor() {
                 {rows.map(entry => (
                   <tr key={entry.slot_index} className={entry.slot_index === selected ? "selected" : ""}>
                     <td><button onClick={() => { setSelected(entry.slot_index); setDraft(draftOf(entry)); setModded(false); }}>{entry.slot_index}</button></td>
-                    <td>{kindOf(entry.type_class)}</td>
-                    <td><code>{hex(entry.item_id)}</code>{catalog?.entries.get(entry.item_id) && <span className="equipment-item-name">{catalog.entries.get(entry.item_id)}</span>}</td>
+                    <td>{itemSubtype(entry.item_id) || kindOf(entry.type_class)}</td>
+                    <td>{itemName(entry.item_id, catalog) ? <span className="equipment-item-name character-item-name">{itemName(entry.item_id, catalog)}</span> : <code>{hex(entry.item_id)}</code>}</td>
                     <td>{entry.level}</td>
                     <td>{entry.plus}</td>
                     <td>{entry.rarity}</td>
@@ -370,7 +383,7 @@ export function CharacterEditor() {
             </table>
             {row && draft && (
               <div className="equipment-detail character-detail">
-                <h3>编辑装备</h3>
+                <h3>{"编辑装备"}{itemName(row.item_id, catalog) ? "：" + itemName(row.item_id, catalog) : ""}</h3>
                 <div className="character-fields">
                   {([
                     ["level", "等级"],

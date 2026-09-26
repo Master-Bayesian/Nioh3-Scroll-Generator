@@ -1019,3 +1019,4 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-plan>h3{margin-top:0}
 .character-plan-lines{margin:6px 0 10px;padding-left:18px;font-size:12px;line-height:1.7;font-variant-numeric:tabular-nums}
 .character-plan>button{width:auto;margin-right:8px}
+.character-page .character-item-name{margin-left:0}

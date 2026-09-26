@@ -99,3 +99,21 @@ Soul cores therefore live in the same 2,500-slot array with the same `0xF0`
 record layout (for example slot 1, Bloodedge Demon Soul Core `0x6D36`: effect
 ids at `+0x38/+0x50/+0x68` with values at `+4`), so the equipment edit path
 already reaches them.
+
+## Offline: the forged values match the native value table
+
+The 2026-09-02 catalog export (`effect_value_ranges_level_180.csv` in
+`deliverables/catalogs/Nioh3_PC_v2.01_catalog_resume_20260902.zip`) lists a
+single raw value for each of the forged/re-rolled effects at rarity 3–5:
+`0xA166` 15, `0x02E3` 2, `0x3576` 58, `0x8D2B` 4 — exactly the values the game
+wrote. The same export's equipment effect-pool enumeration (effect flags
+0x40/0x80, item flags 0x0800/0x1000, slot weight by item row `+0x15C`) is the
+starting rule set for the deferred equipment legality audit.
+
+## Bundled item names
+
+`apps/workshop/item-names.json` carries the 2,727 Simplified Chinese item names
+and native groups of `仁王3_PC_v2.01_全物品列表_简体中文_20260902.xlsx`, captured from
+the game's runtime localization pool like the shipped effect names. Items added
+after PC v2.01 fall back to the item-type group and the hex id; the optional
+local catalog import remains for supplementing names.

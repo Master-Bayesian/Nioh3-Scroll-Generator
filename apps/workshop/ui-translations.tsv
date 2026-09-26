@@ -838,3 +838,4 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 实时添加绘卷还没结束，请等它完成后再修改角色。	A live scroll addition is still running. Wait for it to finish before editing the character.	絵巻のライブ追加がまだ終わっていません。完了してからキャラクターを編集してください。
 存档文件刚刚发生了变化（可能是游戏存了档）。请重新读取后再修改。	The save file just changed (the game may have saved). Read it again before editing.	セーブファイルが変更されました（ゲームがセーブした可能性があります）。再読み込みしてから編集してください。
 这个装备格是空的，不能修改。	This equipment slot is empty and cannot be edited.	この装備スロットは空のため編集できません。
+补充物品名称（可选）	Add item names (optional)	アイテム名を追加（任意）
