@@ -156,7 +156,7 @@ diffs are in `deliverables/v082-ce-research/` (`trace-drop*.tsv`,
 - The converter `convert_to_hell` (+0x2287870, rcx = drop context, rdx = record,
   r8d = level):
   1. raises rarity via +0x9F070C(4), adjusts the pre-forge level and plus;
-  2. rebuilds the 7 slot templates with categories `8F 8F D5 00 80 8F 50`;
+  2. re-initializes the 7 effect entries;
   3. calls `init_generation_context` (+0x2287A55) and `generate_effects`
      (+0x2287A91) with the **same seed** as the normal drop, mode flags from
      context `+0x23/+0x25` and a type of 3;
