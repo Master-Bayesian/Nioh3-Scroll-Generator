@@ -897,6 +897,10 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 /* Notices: one look for every status and failure message. */
 .notice{display:grid;gap:6px;margin:6px 0 0;padding:7px 10px;border:1px solid #c9d3de;border-left-width:4px;border-radius:6px;background:#f6f8fb;color:#2c3a47;font-size:12px;line-height:1.55;text-align:left;min-width:0}
 .notice>p{margin:0;overflow-wrap:anywhere}
+.notice-error{position:relative}
+.notice-error>p{padding-right:22px}
+.notice .notice-close{position:absolute;top:3px;right:4px;width:22px;height:22px;margin:0;padding:0;border:0;border-radius:4px;background:none;color:#8a5a60;font-size:16px;line-height:22px;cursor:pointer}
+.notice .notice-close:hover{background:#f3dfe1;color:#5c1f26}
 .notice-info{border-left-color:#7d95ad}
 .notice-success{border-left-color:#3f8f63;background:#f1f8f3}
 .notice-warning{border-left-color:#c08a2c;background:#fcf7ec}

@@ -30,9 +30,14 @@ export function Notice({
   className?: string;
 }) {
   const [feedback, setFeedback] = useState<"" | "busy" | "saved" | "failed">("");
-  // A new message replaces the previous one together with its feedback hint.
-  useEffect(() => setFeedback(""), [text]);
-  if (!text.trim()) return null;
+  const [dismissed, setDismissed] = useState(false);
+  // A new message replaces the previous one together with its feedback hint,
+  // and shows again even if the player closed the previous one.
+  useEffect(() => {
+    setFeedback("");
+    setDismissed(false);
+  }, [text]);
+  if (!text.trim() || dismissed) return null;
   const effective =
     tone ??
     (isUserCorrectable(text) ? "warning" : isFailureText(text) ? "error" : "info");
@@ -52,6 +57,17 @@ export function Notice({
       className={`notice notice-${effective} ${className}`.trim()}
       role={effective === "error" ? "alert" : "status"}
     >
+      {effective === "error" && (
+        <button
+          type="button"
+          className="notice-close"
+          aria-label="关闭提示"
+          title="关闭提示"
+          onClick={() => setDismissed(true)}
+        >
+          ×
+        </button>
+      )}
       <p>{display}</p>
       {effective === "error" && (
         <div className="notice-actions">

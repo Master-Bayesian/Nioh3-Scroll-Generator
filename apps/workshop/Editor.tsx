@@ -478,6 +478,24 @@ export function Editor({ cart }: { cart: Sample[] }) {
       ];
       if (temporary.terrainEnabled !== false && terrain === undefined)
         throw Error("请选择有效地形。");
+      // Applying again replaces the active change: the backend only starts
+      // from a stopped override, so stop the current one first. A stop that
+      // cannot be confirmed fails here and nothing new is applied.
+      const status = await window.operations.execute({
+        method: "runtime.status",
+        params: {},
+      });
+      const replacing =
+        !!status &&
+        "override_state" in status &&
+        status.override_state !== "stopped";
+      if (replacing)
+        await runtimeObserver!.run(() =>
+          window.operations.execute({
+            method: "runtime.stop_override",
+            params: {},
+          }),
+        );
       await runtimeObserver!.run(() =>
         window.operations.execute({
           method: "runtime.start_override",
@@ -500,7 +518,11 @@ export function Editor({ cart }: { cart: Sample[] }) {
           },
         }),
       );
-      setMessage("临时修改已开启。停止修改后重新打开绘卷，或退出游戏即可恢复。");
+      setMessage(
+        replacing
+          ? "临时修改已更新为当前内容。停止修改后重新打开绘卷，或退出游戏即可恢复。"
+          : "临时修改已开启。停止修改后重新打开绘卷，或退出游戏即可恢复。",
+      );
     } catch (error) {
       setMessage(errorText(error));
     } finally {

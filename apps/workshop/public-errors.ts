@@ -96,6 +96,10 @@ export function publicError(message: string): string {
     ],
     [/SESSION_NOT_OPEN|override session is not open/i, "临时修改已经停止。"],
     [
+      /stop the existing override and wait for pending native calls/i,
+      "上一次的临时修改还在生效，或游戏里还有调用没完成。请先点“停止临时修改”，稍等片刻再试。",
+    ],
+    [
       /has not initialized its player identity yet/i,
       "游戏还没有加载好角色。请进入角色存档、能自由行动后再试。",
     ],
