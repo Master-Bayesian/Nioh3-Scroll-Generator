@@ -132,3 +132,19 @@ test("rarer Rust refusals keep the explanations the Python backend gave", () => 
   assert.ok(isUserCorrectable("INVALID_REQUEST: the complete rarity-5 composition has no legal native path: x"));
   assert.ok(isUserCorrectable("INVALID_REQUEST: rarity-5 Grace 0x6553 has no draw-1 preimage: x"));
 });
+
+test("character editing refusals are explained in the player's terms", () => {
+  const cases: [string, RegExp][] = [
+    ["OPERATION_REJECTED: no running process matches Nioh3.exe", /没有检测到正在运行的仁王3/],
+    ["OPERATION_REJECTED: inventory chain: character layout: no character is loaded", /还没有读档进入角色/],
+    ["OPERATION_REJECTED: character layout: the player object's vtable does not match this build", /游戏没有被改动/],
+    ["the game changed a value since it was read; reload and try again", /重新读取/],
+    ["The equipment changed in game since it was read; reload and try again", /重新读取/],
+    ["the game process changed since the character was read", /游戏已经重启过/],
+    ["a written value did not read back as written", /结果不确定/],
+    ["OPERATION_REJECTED: Save changed since it was read; reload the character", /存档文件刚刚发生了变化/],
+    ["OPERATION_REJECTED: Only occupied equipment slots may be edited", /装备格是空的/],
+    ["OPERATION_REJECTED: Nothing to change", /没有需要修改的内容/],
+  ];
+  for (const [raw, expected] of cases) assert.match(publicError(raw), expected, raw);
+});

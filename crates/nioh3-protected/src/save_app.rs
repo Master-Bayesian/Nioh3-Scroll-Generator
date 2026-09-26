@@ -357,7 +357,8 @@ impl SaveApplication {
                 continue;
             }
             let fields = equipment_fields(record).map_err(HostError::from_save)?;
-            equipment.push(equipment_json(slot_index, &fields));
+            let class = crate::item_kinds::type_class(&self.data_root, fields.item_id);
+            equipment.push(equipment_json(slot_index, &fields, class));
         }
         Ok(json!({
             "save_id": save_id,
@@ -441,8 +442,8 @@ impl SaveApplication {
             let after = equipment_fields(&replacement).map_err(HostError::from_save)?;
             equipment_changes.push(json!({
                 "slot_index": slot_index,
-                "before": equipment_json(slot_index, &before),
-                "after": equipment_json(slot_index, &after),
+                "before": equipment_json(slot_index, &before, None),
+                "after": equipment_json(slot_index, &after, None),
             }));
             edits.push(CharacterEdit::Equipment {
                 slot_index,
@@ -1738,7 +1739,11 @@ impl SaveApplication {
     }
 }
 
-pub(crate) fn equipment_json(slot_index: usize, fields: &EquipmentFields) -> Value {
+pub(crate) fn equipment_json(
+    slot_index: usize,
+    fields: &EquipmentFields,
+    type_class: Option<u32>,
+) -> Value {
     let effects: Vec<Value> = fields
         .effects
         .iter()
@@ -1763,6 +1768,7 @@ pub(crate) fn equipment_json(slot_index: usize, fields: &EquipmentFields) -> Val
         "inventory_key": fields.inventory_key,
         "seed": fields.seed,
         "rarity": fields.rarity,
+        "type_class": type_class,
         "effects": effects,
     })
 }

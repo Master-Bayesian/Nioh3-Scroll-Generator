@@ -166,6 +166,18 @@
           "minimum": 0,
           "maximum": 255
         },
+        "type_class": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 64
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "effects": {
           "type": "array",
           "items": {

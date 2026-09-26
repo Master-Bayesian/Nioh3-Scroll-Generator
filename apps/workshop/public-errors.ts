@@ -99,6 +99,22 @@ export function publicError(message: string): string {
       /stop the existing override and wait for pending native calls/i,
       "上一次的临时修改还在生效，或游戏里还有调用没完成。请先点“停止临时修改”，稍等片刻再试。",
     ],
+    [/no running process matches Nioh3\.exe/i, "没有检测到正在运行的仁王3。请先启动游戏并读档进入角色。"],
+    [/character layout: no character is loaded/i, "游戏里还没有读档进入角色。请读档后再试。"],
+    [
+      /character layout: (?:the player object's vtable does not match|the equipment container does not sit)/i,
+      "当前游戏版本的角色数据位置与本工具不一致，已停止读取，游戏没有被改动。",
+    ],
+    [
+      /the character changed during the read|the game changed a value since it was read|equipment changed in game since it was read/i,
+      "游戏里的数值刚好在变化（例如正在拾取物品）。请在游戏里停下来后重新读取，再修改。",
+    ],
+    [/the game process changed since the character was read/i, "游戏已经重启过。请重新读取角色后再修改。"],
+    [/a written value did not read back as written/i, "写入后核对不一致，结果不确定。请重新读取角色核对当前数值。"],
+    [/Finish the live scroll addition before editing the character/i, "实时添加绘卷还没结束，请等它完成后再修改角色。"],
+    [/Save changed (?:since it was read|while reading the character)/i, "存档文件刚刚发生了变化（可能是游戏存了档）。请重新读取后再修改。"],
+    [/Only occupied equipment slots may be edited/i, "这个装备格是空的，不能修改。"],
+    [/(?:^|:\s*)Nothing to change$/i, "没有需要修改的内容。"],
     [
       /has not initialized its player identity yet/i,
       "游戏还没有加载好角色。请进入角色存档、能自由行动后再试。",

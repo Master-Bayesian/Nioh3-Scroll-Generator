@@ -680,7 +680,8 @@ mod imp {
                 }
                 let fields = nioh3_save::character::equipment_fields(record)
                     .map_err(HostError::from_save)?;
-                let mut row = crate::save_app::equipment_json(slot_index, &fields);
+                let class = crate::item_kinds::type_class(&self.data_root, fields.item_id);
+                let mut row = crate::save_app::equipment_json(slot_index, &fields, class);
                 row["record_sha256"] = json!(format!("{:x}", Sha256::digest(record)));
                 equipment.push(row);
             }
@@ -789,8 +790,8 @@ mod imp {
                     .map_err(HostError::from_save)?;
                 equipment_changes.push(json!({
                     "slot_index": slot_index,
-                    "before": crate::save_app::equipment_json(slot_index, &before),
-                    "after": crate::save_app::equipment_json(slot_index, &after),
+                    "before": crate::save_app::equipment_json(slot_index, &before, None),
+                    "after": crate::save_app::equipment_json(slot_index, &after, None),
                 }));
                 edits.push(LiveEdit::Equipment {
                     slot_index,

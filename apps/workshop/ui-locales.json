@@ -3283,6 +3283,82 @@
     "角色与装备": [
       "Character & equipment",
       "キャラクターと装備"
+    ],
+    "武器": [
+      "Weapon",
+      "武器"
+    ],
+    "头部": [
+      "Head",
+      "頭"
+    ],
+    "躯干": [
+      "Body",
+      "胴"
+    ],
+    "手部": [
+      "Arms",
+      "腕"
+    ],
+    "腰部": [
+      "Waist",
+      "腰"
+    ],
+    "腿部": [
+      "Legs",
+      "脚"
+    ],
+    "饰品": [
+      "Accessory",
+      "装飾品"
+    ],
+    "魂核": [
+      "Soul core",
+      "魂核"
+    ],
+    "其他": [
+      "Other",
+      "その他"
+    ],
+    "类别": [
+      "Type",
+      "種類"
+    ],
+    "没有检测到正在运行的仁王3。请先启动游戏并读档进入角色。": [
+      "Nioh 3 is not running. Start the game and load your character first.",
+      "仁王3が起動していません。ゲームを起動してキャラクターをロードしてください。"
+    ],
+    "游戏里还没有读档进入角色。请读档后再试。": [
+      "No character is loaded in the game yet. Load your save and try again.",
+      "ゲームでまだキャラクターがロードされていません。ロードしてから再試行してください。"
+    ],
+    "当前游戏版本的角色数据位置与本工具不一致，已停止读取，游戏没有被改动。": [
+      "The character data of this game version is not where this tool expects it, so reading stopped. The game was not changed.",
+      "このゲームバージョンのキャラクターデータの位置が本ツールと一致しないため、読み込みを中止しました。ゲームは変更されていません。"
+    ],
+    "游戏里的数值刚好在变化（例如正在拾取物品）。请在游戏里停下来后重新读取，再修改。": [
+      "A value was changing in the game (for example while picking up items). Stand still in the game, read again, then edit.",
+      "ゲーム内の数値が変化中でした（アイテムを拾っているときなど）。ゲーム内で動きを止めてから再読み込みし、編集してください。"
+    ],
+    "游戏已经重启过。请重新读取角色后再修改。": [
+      "The game has restarted. Read the character again before editing.",
+      "ゲームが再起動されました。キャラクターを再読み込みしてから編集してください。"
+    ],
+    "写入后核对不一致，结果不确定。请重新读取角色核对当前数值。": [
+      "The check after writing did not match, so the result is uncertain. Read the character again to check the current values.",
+      "書き込み後の確認が一致せず、結果が不明です。キャラクターを再読み込みして現在の数値を確認してください。"
+    ],
+    "实时添加绘卷还没结束，请等它完成后再修改角色。": [
+      "A live scroll addition is still running. Wait for it to finish before editing the character.",
+      "絵巻のライブ追加がまだ終わっていません。完了してからキャラクターを編集してください。"
+    ],
+    "存档文件刚刚发生了变化（可能是游戏存了档）。请重新读取后再修改。": [
+      "The save file just changed (the game may have saved). Read it again before editing.",
+      "セーブファイルが変更されました（ゲームがセーブした可能性があります）。再読み込みしてから編集してください。"
+    ],
+    "这个装备格是空的，不能修改。": [
+      "This equipment slot is empty and cannot be edited.",
+      "この装備スロットは空のため編集できません。"
     ]
   },
   "game": {

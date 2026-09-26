@@ -26,6 +26,18 @@ for (const row of data.editorEffects as { id: string; name: string }[]) {
 }
 const effectOptions = [...effectNames].map(([id, name]) => hex(id) + " " + name);
 
+/** Coarse item group from the shipped item table's type class. */
+const KINDS = ["武器", "头部", "躯干", "手部", "腰部", "腿部", "饰品", "魂核", "其他"] as const;
+type Kind = (typeof KINDS)[number];
+function kindOf(typeClass: number | null | undefined): Kind {
+  if (typeClass == null) return "其他";
+  if (typeClass <= 22) return "武器";
+  if (typeClass >= 24 && typeClass <= 38) return (["头部", "躯干", "手部", "腰部", "腿部"] as const)[Math.floor((typeClass - 24) / 3)];
+  if (typeClass === 39 || typeClass === 40) return "饰品";
+  if (typeClass >= 54 && typeClass <= 57) return "魂核";
+  return "其他";
+}
+
 function hex(value: number) {
   return "0x" + value.toString(16).toUpperCase().padStart(4, "0");
 }
@@ -135,6 +147,7 @@ export function CharacterEditor() {
   const [message, setMessage] = useState("");
   const [currencyDraft, setCurrencyDraft] = useState<Record<Currency, string>>({ amrita: "", gold: "" });
   const [query, setQuery] = useState("");
+  const [kind, setKind] = useState<Kind | "">("");
   const [selected, setSelected] = useState<number | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [modded, setModded] = useState(false);
@@ -148,7 +161,7 @@ export function CharacterEditor() {
   const row = character?.equipment.find(entry => entry.slot_index === selected) ?? null;
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const all = character?.equipment ?? [];
+    const all = (character?.equipment ?? []).filter(entry => !kind || kindOf(entry.type_class) === kind);
     if (!needle) return all.slice(0, 300);
     return all
       .filter(entry => {
@@ -157,7 +170,7 @@ export function CharacterEditor() {
         return text.toLowerCase().includes(needle);
       })
       .slice(0, 300);
-  }, [character, query, catalog]);
+  }, [character, query, catalog, kind]);
 
   function adopt(next: Character) {
     setCharacter(next);
@@ -325,6 +338,13 @@ export function CharacterEditor() {
                 <span>搜索</span>
                 <input value={query} onChange={event => setQuery(event.target.value)} placeholder="物品 ID、名称或词条" />
               </label>
+              <label className="equipment-search">
+                <span>类别</span>
+                <select value={kind} onChange={event => setKind(event.target.value as Kind | "")}>
+                  <option value="">全部</option>
+                  {KINDS.map(value => <option key={value} value={value}>{value}</option>)}
+                </select>
+              </label>
               <span className="equipment-range">
                 {character.equipment.length} / {character.equipment_slots}
               </span>
@@ -332,12 +352,13 @@ export function CharacterEditor() {
             <LocalCatalogImport onCatalogChange={setCatalog} />
             <table className="equipment-table">
               <thead>
-                <tr><th>槽位</th><th>物品</th><th>等级</th><th>+值</th><th>稀有度</th><th>词条</th></tr>
+                <tr><th>槽位</th><th>类别</th><th>物品</th><th>等级</th><th>+值</th><th>稀有度</th><th>词条</th></tr>
               </thead>
               <tbody>
                 {rows.map(entry => (
                   <tr key={entry.slot_index} className={entry.slot_index === selected ? "selected" : ""}>
                     <td><button onClick={() => { setSelected(entry.slot_index); setDraft(draftOf(entry)); setModded(false); }}>{entry.slot_index}</button></td>
+                    <td>{kindOf(entry.type_class)}</td>
                     <td><code>{hex(entry.item_id)}</code>{catalog?.entries.get(entry.item_id) && <span className="equipment-item-name">{catalog.entries.get(entry.item_id)}</span>}</td>
                     <td>{entry.level}</td>
                     <td>{entry.plus}</td>

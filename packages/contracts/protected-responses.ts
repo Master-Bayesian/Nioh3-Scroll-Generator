@@ -294,6 +294,7 @@ export interface CharacterEquipment {
   inventory_key: number;
   seed: number;
   rarity: number;
+  type_class?: number | null;
   /**
    * @maxItems 7
    */

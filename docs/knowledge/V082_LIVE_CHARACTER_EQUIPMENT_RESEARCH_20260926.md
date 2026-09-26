@@ -75,3 +75,27 @@ one byte off. Observed keys:
   persistent container copy: id 0xA166 -> 0x8D2B (承受伤害增加灵力), value 15 -> 4 (C),
   both u16 rolls re-drawn. The player chooses the effect from a candidate list; the value
   is re-rolled by the game.
+
+## Offline: the forged item's resource row
+
+`nioh3_scroll_editor/data/r4_finalizer/pc_v2_02/resource_v1/tables/item.bin`
+(8-byte header, 3,362 rows of 0x1A0) holds every item, not only scrolls; the
+domain index currently keeps just the scroll rows. 甲斐国江 is row 42 with
+`+0x152 = 0x8D5B` (the same record-type key the scroll rows use) and
+`+0x154 = 0xD524` (风林火山), which is the fixed first effect the forge call
+produced. So `ScrollItemDefinition::field_154` is the item's fixed/set effect.
+The per-entry bytes the forge caller pre-set at slot `+0x13`
+(`54 3F BE D1 54 BA 2D`) do not occur in the row; they are presumably drawn by
+the caller before `generate_effects`, which a live trace of the caller
+(`+0x20C8949` -> `+0x20C82C5`) has to confirm.
+
+## Offline: soul cores share the equipment array
+
+Classifying the 1,318 occupied owned-equipment records of the owner's save by the
+CT's item-ID dump (`Equipment_Items_v2.00.02CE_RawDump.txt`) gives 369 weapons,
+265 + 41 samurai and 181 + 18 ninja armour pieces, 204 accessories, 164 + 20
+soul cores (base game + Hell Rising) and 56 ids the v2.00.02 dump does not name.
+Soul cores therefore live in the same 2,500-slot array with the same `0xF0`
+record layout (for example slot 1, Bloodedge Demon Soul Core `0x6D36`: effect
+ids at `+0x38/+0x50/+0x68` with values at `+4`), so the equipment edit path
+already reaches them.

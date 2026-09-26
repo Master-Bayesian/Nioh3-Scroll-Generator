@@ -27,6 +27,7 @@ pub mod contract;
 pub mod error;
 pub mod grace_capture;
 pub mod host;
+pub mod item_kinds;
 pub mod jobs;
 pub mod maps;
 pub mod oracle;
