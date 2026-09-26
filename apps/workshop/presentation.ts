@@ -23,7 +23,13 @@ export function setUiLocale(value: UiLocale) {
   document.documentElement.lang = value;
   listeners.forEach((fn) => fn());
 }
-const plainGameText = (text: string) => fillTemplateSlots(plainText(text), locale);
+// Generic names for a template's unfilled buff/ailment argument, per locale.
+const slotWord = (word: "增益效果" | "异常状态") =>
+  locale === "zh-CN"
+    ? word
+    : (resources.ui as Record<string, string[]>)[word]?.[locale === "en-US" ? 0 : 1] ?? word;
+const plainGameText = (text: string) =>
+  fillTemplateSlots(plainText(text), slotWord("增益效果"), slotWord("异常状态"));
 const maps = new Map<string, Record<string, string>>(),
   patterns = new Map<string, RegExp>();
 export function localize(text: string): string {

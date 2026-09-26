@@ -685,3 +685,5 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 无法读取《仁王3》游戏程序的版本信息。请确认游戏文件完整（可在 Steam 里验证游戏文件），然后重启本工具。	The version of Nioh 3's game program cannot be read. Make sure the game files are intact (Steam can verify them), then restart this tool.	『仁王3』のゲームプログラムのバージョン情報を読み取れません。ゲームファイルが正常か確認し（Steam で整合性を確認できます）、ツールを再起動してください。
 临时修改已更新为当前内容。停止修改后重新打开绘卷，或退出游戏即可恢复。	The temporary change now uses the current content. Stop it and reopen the scroll, or quit the game, to restore the original.	一時的な変更を現在の内容に更新しました。停止して絵巻を開き直すか、ゲームを終了すると元に戻ります。
 上一次的临时修改还在生效，或游戏里还有调用没完成。请先点“停止临时修改”，稍等片刻再试。	The previous temporary change is still active, or the game is still finishing a call. Use "Stop temporary changes" first, wait a moment, and try again.	前回の一時的な変更がまだ有効か、ゲーム内の呼び出しが完了していません。先に「一時変更を停止」を押し、少し待ってから再試行してください。
+增益效果	Buff	強化効果
+异常状态	Ailment	状態異常

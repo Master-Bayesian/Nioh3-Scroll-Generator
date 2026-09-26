@@ -2747,6 +2747,14 @@
     "上一次的临时修改还在生效，或游戏里还有调用没完成。请先点“停止临时修改”，稍等片刻再试。": [
       "The previous temporary change is still active, or the game is still finishing a call. Use \"Stop temporary changes\" first, wait a moment, and try again.",
       "前回の一時的な変更がまだ有効か、ゲーム内の呼び出しが完了していません。先に「一時変更を停止」を押し、少し待ってから再試行してください。"
+    ],
+    "增益效果": [
+      "Buff",
+      "強化効果"
+    ],
+    "异常状态": [
+      "Ailment",
+      "状態異常"
     ]
   },
   "game": {

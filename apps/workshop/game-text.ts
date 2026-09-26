@@ -1,9 +1,6 @@
-const TEMPLATE_SLOT = /\^09~(BUFF|DEBUFF)~\{\}\^09~~/g;
-const SLOT_WORDS: Record<string, [string, string]> = {
-  "zh-CN": ["增益效果", "异常状态"],
-  "en-US": ["Buff", "Ailment"],
-  "ja-JP": ["強化効果", "状態異常"],
-};
+// The slot of a native sentence template, with the state word that follows an
+// ailment slot in Chinese ("陷入…状态时"), which the generic word already carries.
+const TEMPLATE_SLOT = /\^09~(BUFF|DEBUFF)~\{\}\^09~~(?:状态)?/g;
 
 /** Whether a native string still carries an unfilled buff/ailment argument. */
 export function hasTemplateSlot(text: string): boolean {
@@ -15,12 +12,8 @@ export function hasTemplateSlot(text: string): boolean {
  * game fills it from a parameter row this tool does not resolve, so the raw
  * control markup is never shown.
  */
-export function fillTemplateSlots(text: string, locale: string): string {
-  const [buff, ailment] = SLOT_WORDS[locale] ?? SLOT_WORDS["zh-CN"];
-  return text
-    .replace(TEMPLATE_SLOT, (_, kind) => (kind === "BUFF" ? buff : ailment))
-    // "陷入^09~DEBUFF~{}^09~~状态时" already names the state after the slot.
-    .replaceAll("异常状态状态", "异常状态");
+export function fillTemplateSlots(text: string, buff: string, ailment: string): string {
+  return text.replace(TEMPLATE_SLOT, (slot) => (slot.includes("~BUFF~") ? buff : ailment));
 }
 
 /** Keep the base Japanese spelling, without the game's font/ruby instructions. */
