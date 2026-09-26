@@ -2,6 +2,21 @@
 
 ## Active development: v0.8.2
 
+**Status 2026-09-26 (branch `claude/v082-integration`, not pushed).** Codex's
+uncommitted v0.8.1 integration work was imported onto the published v0.8.1
+(`ffdd93b`). The owner's scope for v0.8.2: equipment and soul-core legal
+generation and legal re-roll first, plus opt-in modded edits; Amrita editing for
+the character; both live and save-file modes. Implemented and tested offline:
+live and save-file editing of Amrita, gold and owned equipment/soul-core fields
+(`save.character`, `save.prepare_character_edit`, `runtime.character_snapshot`,
+`runtime.character_edit`) on a new 角色与装备 page with the game's Chinese item
+names. Live evidence and offline findings are in
+[the live research record](V082_LIVE_CHARACTER_EQUIPMENT_RESEARCH_20260926.md).
+Not yet accepted in game: the new live/save edit paths (test build
+`deliverables/claude-v082-test3`). Open research: forge slot-category bytes,
+the re-roll candidate list, native equipment generation and item insertion.
+The scroll legality audit panel is unmounted (deferred by the owner).
+
 The owner has started the first one-stop-trainer integration release. See the
 [v0.8.2 engineering record](../product/releases/v0.8.2.md), the
 [complete source feature matrix](V081_SOURCE_FEATURE_MATRIX.md) and the
