@@ -2,6 +2,13 @@
 
 ## Current release status
 
+**v0.8.1 is published (2026-09-26)**: product commit `522536a`, tag `v0.8.1`,
+run `36208738081`, public release re-verified 53/53. It fixes the v0.8.0
+regressions, streams search results, and restores lost Python messages; see
+the [publication record](TAURI_V081_PUBLICATION_20260926.md) and the
+[engineering record](V081_REGRESSION_FIXES_20260925.md). The equipment and
+one-stop integration work planned as v0.8.1 moves to v0.8.2.
+
 Release automation follow-up: the working tree now separates bounded preparation
 (`release.yml`, `extended_search=false`) from promotion of an exact successful run
 (`publish-release.yml`, publication off by default). Read the
