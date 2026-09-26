@@ -110,6 +110,14 @@ mod windows_impl {
             Self::open_with(pid, COUNT_WRITE_ACCESS)
         }
 
+        /// Open the minimal handle a live character field edit writes through.
+        ///
+        /// Same rights as the count edit: limited query, VM operation and VM
+        /// write, with no read, code-protection or thread rights.
+        pub fn open_field_write(pid: u32) -> Result<Self, RuntimeError> {
+            Self::open_with(pid, COUNT_WRITE_ACCESS)
+        }
+
         /// Open the read view used to locate and read back a record.
         pub fn open_read(pid: u32) -> Result<Self, RuntimeError> {
             Self::open_with(pid, super::READ_ACCESS)

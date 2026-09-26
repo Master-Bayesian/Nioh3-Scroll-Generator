@@ -144,6 +144,12 @@ export class SaveSession {
     return this.prepare(snapshot => this.gateway.prepareInstall({ ...selected, save_id: snapshot.save_id, snapshot_id: snapshot.snapshot_id }));
   }
   prepareCart(action:(snapshot:SaveInventory)=>Promise<Result>){return this.prepare(action)}
+  /** Currency and modded equipment edits, bound to the inventory snapshot's source digest. */
+  prepareCharacterEdit(edit: Omit<ProtectedParams<'save.prepare_character_edit'>, 'save_id' | 'source_sha256'>) {
+    const draft = structuredClone(edit);
+    return this.prepare(snapshot => this.gateway.execute({ method: 'save.prepare_character_edit', params: {
+      ...draft, save_id: snapshot.save_id, source_sha256: snapshot.source_sha256 } }));
+  }
   commit(reviewedPlanId: string) {
     return this.perform(async () => {
       this.requireReviewedOutcome(); const snapshot = this.snapshot(), plan = this.state.plan;

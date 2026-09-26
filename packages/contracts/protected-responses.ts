@@ -13,6 +13,7 @@ export type ProtectedResponse =
       result:
         | ProtectedJob
         | RuntimeStatus
+        | LiveCharacter
         | InventorySnapshot
         | LocalNameCatalog
         | ShutdownStatus
@@ -111,7 +112,10 @@ export interface ProtectedJob {
     | "runtime.count_prepare"
     | "runtime.count_execute"
     | "runtime.count_status"
-    | "runtime.count_recover";
+    | "runtime.count_recover"
+    | "save.character"
+    | "save.prepare_character_edit"
+    | "runtime.character_edit";
   state: "running" | "cancel_requested" | "completed" | "failed";
   sequence: number;
   cancellable: boolean;
@@ -119,6 +123,8 @@ export interface ProtectedJob {
     [k: string]: unknown;
   } | null;
   result:
+    | LiveCharacterEdit
+    | SaveCharacter
     | RuntimeStatus
     | SaveReference
     | SaveInventory
@@ -248,6 +254,85 @@ export interface ProtectedJob {
     code: string;
     message: string;
   } | null;
+}
+export interface LiveCharacterEdit {
+  character_edit: {
+    state: "verified" | "rejected" | "uncertain";
+    process_id: number;
+    currencies: {
+      [k: string]: unknown;
+    }[];
+    equipment: {
+      [k: string]: unknown;
+    }[];
+    error: string | null;
+  };
+}
+export interface SaveCharacter {
+  save_id: string;
+  source_sha256: string;
+  currencies: CharacterCurrencies;
+  equipment_slots: number;
+  /**
+   * @maxItems 2500
+   */
+  equipment: CharacterEquipment[];
+}
+export interface CharacterCurrencies {
+  amrita: number | null;
+  gold: number | null;
+}
+export interface CharacterEquipment {
+  slot_index: number;
+  item_id: number;
+  appearance_id: number;
+  quantity: number;
+  level: number;
+  level_before_forge: number;
+  plus: number;
+  familiarity: number;
+  inventory_key: number;
+  seed: number;
+  rarity: number;
+  /**
+   * @maxItems 7
+   */
+  effects:
+    | []
+    | [CharacterEquipmentEffect]
+    | [CharacterEquipmentEffect, CharacterEquipmentEffect]
+    | [CharacterEquipmentEffect, CharacterEquipmentEffect, CharacterEquipmentEffect]
+    | [CharacterEquipmentEffect, CharacterEquipmentEffect, CharacterEquipmentEffect, CharacterEquipmentEffect]
+    | [
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect
+      ]
+    | [
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect
+      ]
+    | [
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect
+      ];
+  record_sha256?: string;
+}
+export interface CharacterEquipmentEffect {
+  index: number;
+  effect_id: number;
+  value: number;
 }
 export interface RuntimeStatus {
   override_state: "stopped" | "armed_no_hit" | "applied_hit" | "unknown";
@@ -854,6 +939,17 @@ export interface CountEdit {
   old_count: number;
   new_count: number;
   error: string | null;
+}
+export interface LiveCharacter {
+  source: "runtime";
+  game_version: string;
+  process_id: number;
+  currencies: CharacterCurrencies;
+  equipment_slots: number;
+  /**
+   * @maxItems 2500
+   */
+  equipment: CharacterEquipment[];
 }
 export interface InventorySnapshot {
   status: "observed";

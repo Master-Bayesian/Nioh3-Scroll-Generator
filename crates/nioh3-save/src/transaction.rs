@@ -170,10 +170,22 @@ pub struct SavePlan {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(clippy::large_enum_variant)]
 pub enum ProductPlanData {
-    Edit { edits: Vec<SlotEdit> },
-    Delete { slots: Vec<usize> },
-    Install { request: InstallRequest },
-    InstallMany { requests: Vec<InstallRequest> },
+    Edit {
+        edits: Vec<SlotEdit>,
+    },
+    Delete {
+        slots: Vec<usize>,
+    },
+    Install {
+        request: InstallRequest,
+    },
+    InstallMany {
+        requests: Vec<InstallRequest>,
+    },
+    /// Currency and owned-equipment edits of the character block.
+    Character {
+        edits: Vec<crate::character::CharacterEdit>,
+    },
 }
 
 /// The product operation a plan represents.
@@ -1209,6 +1221,21 @@ impl SaveTransactionHost {
         )
     }
 
+    /// Prepare currency and owned-equipment edits.
+    pub fn plan_character_edit(
+        &self,
+        save_path: &Path,
+        expected_source_sha256: &str,
+        edits: Vec<crate::character::CharacterEdit>,
+    ) -> Result<SavePlan, SaveReadError> {
+        self.plan_product(
+            PlanKind::Edit,
+            save_path,
+            expected_source_sha256,
+            ProductPlanData::Character { edits },
+        )
+    }
+
     /// Prepare an in-place delete of occupied slots.
     pub fn plan_delete(
         &self,
@@ -2168,6 +2195,7 @@ impl SaveTransactionHost {
                     ProductPlanData::Delete { slots } => host.delete(slots)?,
                     ProductPlanData::Install { request } => host.install(request)?,
                     ProductPlanData::InstallMany { requests } => host.install_many(requests)?,
+                    ProductPlanData::Character { edits } => host.edit_character(edits)?,
                 };
                 let container = crate::crypto::encrypt_container(&planned.plaintext)?;
                 Ok(PreparedBytes {

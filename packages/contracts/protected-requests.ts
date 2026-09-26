@@ -3352,4 +3352,392 @@ export type ProtectedRequest =
         start?: number;
         limit?: number;
       };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "save.character";
+      params: {
+        save_id: string;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "save.prepare_character_edit";
+      params: {
+        save_id: string;
+        source_sha256: string;
+        currencies?: {
+          amrita?: number;
+          gold?: number;
+        };
+        /**
+         * @maxItems 64
+         */
+        equipment?: {
+          slot_index: number;
+          patch: {
+            level?: number;
+            level_before_forge?: number;
+            plus?: number;
+            familiarity?: number;
+            rarity?: number;
+            /**
+             * @maxItems 7
+             */
+            effects?:
+              | []
+              | [
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  }
+                ]
+              | [
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  }
+                ]
+              | [
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  }
+                ]
+              | [
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  }
+                ]
+              | [
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  }
+                ]
+              | [
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  }
+                ]
+              | [
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  }
+                ];
+          };
+        }[];
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.character_snapshot";
+      params: {};
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.character_edit";
+      params: {
+        process_id: number;
+        currencies?: {
+          amrita?: number;
+          gold?: number;
+        };
+        /**
+         * @maxItems 64
+         */
+        equipment?: {
+          slot_index: number;
+          expected_record_sha256: string;
+          patch: {
+            level?: number;
+            level_before_forge?: number;
+            plus?: number;
+            familiarity?: number;
+            rarity?: number;
+            /**
+             * @maxItems 7
+             */
+            effects?:
+              | []
+              | [
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  }
+                ]
+              | [
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  }
+                ]
+              | [
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  }
+                ]
+              | [
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  }
+                ]
+              | [
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  }
+                ]
+              | [
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  }
+                ]
+              | [
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  },
+                  {
+                    index: number;
+                    effect_id: number;
+                    value: number;
+                  }
+                ];
+          };
+        }[];
+        expected_currencies?: {
+          amrita?: number;
+          gold?: number;
+        };
+      };
     };

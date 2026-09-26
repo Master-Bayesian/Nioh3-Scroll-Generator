@@ -3135,6 +3135,154 @@
     "技术记录字段": [
       "Technical record fields",
       "技術レコードフィールド"
+    ],
+    "（空）": [
+      "(empty)",
+      "（空き）"
+    ],
+    "请输入有效的数值。": [
+      "Enter a valid number.",
+      "有効な数値を入力してください。"
+    ],
+    "请输入有效的词条 ID 和数值。": [
+      "Enter a valid effect ID and value.",
+      "有効な特殊効果 ID と数値を入力してください。"
+    ],
+    "精华": [
+      "Amrita",
+      "アムリタ"
+    ],
+    "持有金钱": [
+      "Gold",
+      "所持金"
+    ],
+    "锻造前等级": [
+      "Level before forging",
+      "鍛造前レベル"
+    ],
+    "+值": [
+      "Plus",
+      "+値"
+    ],
+    "爱用度": [
+      "Familiarity",
+      "愛用度"
+    ],
+    "已写入游戏。到神社存档即可保存到存档文件。": [
+      "Written to the game. Rest at a shrine to save it to the save file.",
+      "ゲームに書き込みました。社でセーブするとセーブデータに保存されます。"
+    ],
+    "没有写入：": [
+      "Nothing was written: ",
+      "書き込んでいません："
+    ],
+    "写入结果不确定，请重新读取后核对：": [
+      "The write result is uncertain; read again and check: ",
+      "書き込み結果が不明です。再読み込みして確認してください："
+    ],
+    "已生成修改计划。核对下方内容后点击“写入存档”。游戏必须关闭。": [
+      "A change plan is ready. Review it below, then click \"Write to save\". The game must be closed.",
+      "変更プランを作成しました。下の内容を確認して「セーブに書き込む」を押してください。ゲームは終了している必要があります。"
+    ],
+    "没有需要修改的内容。": [
+      "Nothing to change.",
+      "変更する内容がありません。"
+    ],
+    "请先勾选确认这是魔改修改。": [
+      "First confirm that this is a modded edit.",
+      "先に改造編集であることを確認してチェックしてください。"
+    ],
+    "已写入存档，并已自动备份原存档。": [
+      "Written to the save. The original save was backed up first.",
+      "セーブに書き込みました。元のセーブは自動でバックアップ済みです。"
+    ],
+    "写入结果不确定，请在备份与管理中核对操作结果。": [
+      "The write result is uncertain; check the operation result under Backups and management.",
+      "書き込み結果が不明です。「バックアップと管理」で操作結果を確認してください。"
+    ],
+    "请在桌面版中使用此功能。": [
+      "Use this feature in the desktop app.",
+      "この機能はデスクトップ版で使用してください。"
+    ],
+    "游戏内实时修改": [
+      "Edit the running game",
+      "ゲーム内でリアルタイム編集"
+    ],
+    "修改存档文件": [
+      "Edit the save file",
+      "セーブファイルを編集"
+    ],
+    "直接修改正在运行的游戏，需要先读档进入游戏。修改后到神社存档即可保存。": [
+      "Changes the running game directly; load your character first. Rest at a shrine afterwards to save.",
+      "起動中のゲームを直接変更します。先にセーブをロードしてください。変更後は社でセーブすると保存されます。"
+    ],
+    "修改存档文件，游戏必须关闭。写入前会自动备份原存档。": [
+      "Changes the save file; the game must be closed. The original save is backed up before writing.",
+      "セーブファイルを変更します。ゲームは終了している必要があります。書き込み前に元のセーブを自動でバックアップします。"
+    ],
+    "读取角色": [
+      "Read character",
+      "キャラクターを読み込む"
+    ],
+    "货币": [
+      "Currency",
+      "通貨"
+    ],
+    "修改货币": [
+      "Change currency",
+      "通貨を変更"
+    ],
+    "搜索": [
+      "Search",
+      "検索"
+    ],
+    "物品 ID、名称或词条": [
+      "Item ID, name or effect",
+      "アイテム ID、名前または特殊効果"
+    ],
+    "物品": [
+      "Item",
+      "アイテム"
+    ],
+    "编辑装备": [
+      "Edit equipment",
+      "装備を編集"
+    ],
+    "当前": [
+      "Current",
+      "現在"
+    ],
+    "留空表示空槽": [
+      "Leave blank for an empty slot",
+      "空欄で空きスロット"
+    ],
+    "原始数值按游戏内部单位填写，例如百分比词条 15 表示 1.5%。": [
+      "Raw values use the game's internal units; for a percentage effect, 15 means 1.5%.",
+      "生の数値はゲーム内部の単位で入力します。たとえば割合の特殊効果では 15 が 1.5% です。"
+    ],
+    "我了解这是魔改修改：结果不受游戏生成规则约束，可能无法自然获得。": [
+      "I understand this is a modded edit: the result is not bound by the game's generation rules and may not be obtainable naturally.",
+      "これは改造編集であり、結果はゲームの生成ルールに従わず、自然には入手できない可能性があることを理解しています。"
+    ],
+    "修改装备": [
+      "Change equipment",
+      "装備を変更"
+    ],
+    "修改计划": [
+      "Change plan",
+      "変更プラン"
+    ],
+    "写入存档": [
+      "Write to save",
+      "セーブに書き込む"
+    ],
+    "放弃": [
+      "Discard",
+      "破棄"
+    ],
+    "角色与装备": [
+      "Character & equipment",
+      "キャラクターと装備"
     ]
   },
   "game": {

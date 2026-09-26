@@ -11,6 +11,8 @@ export type PublicOperation =
   | { method: 'save.discover'; params: ProtectedParams<'save.discover'> }
   | { method: 'save.inventory'; params: ProtectedParams<'save.inventory'> }
   | { method: 'save.audit_scrolls'; params: ProtectedParams<'save.audit_scrolls'> }
+  | { method: 'save.character'; params: ProtectedParams<'save.character'> }
+  | { method: 'save.prepare_character_edit'; params: ProtectedParams<'save.prepare_character_edit'> }
   | { method: 'save.prepare_edit'; params: ProtectedParams<'save.prepare_edit'> }
   | { method: 'save.prepare_delete'; params: ProtectedParams<'save.prepare_delete'> }
   | { method: 'save.recycle_backups'; params: ProtectedParams<'save.recycle_backups'> }
@@ -25,6 +27,8 @@ export type PublicOperation =
   | { method: 'runtime.live_batch_cancel'; params: ProtectedParams<'runtime.live_batch_cancel'> }
   | { method: 'runtime.status'; params: ProtectedParams<'runtime.status'> }
   | { method: 'runtime.inventory_snapshot'; params: ProtectedParams<'runtime.inventory_snapshot'> }
+  | { method: 'runtime.character_snapshot'; params: ProtectedParams<'runtime.character_snapshot'> }
+  | { method: 'runtime.character_edit'; params: ProtectedParams<'runtime.character_edit'> }
   | { method: 'runtime.live_add_execute'; params: ProtectedParams<'runtime.live_add_execute'> }
   | { method: 'runtime.live_add_status'; params: ProtectedParams<'runtime.live_add_status'> }
   | { method: 'runtime.live_add_recover'; params: ProtectedParams<'runtime.live_add_recover'> }

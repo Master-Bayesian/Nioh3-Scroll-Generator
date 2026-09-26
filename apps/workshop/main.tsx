@@ -36,8 +36,7 @@ import {
 import "./style.css";
 import { BackupManager } from "./BackupManager";
 import { Editor } from "./Editor";
-import { EquipmentBrowser } from "./EquipmentBrowser";
-import { ScrollGenerationAudit } from "./ScrollGenerationAudit";
+import { CharacterEditor } from "./CharacterEditor";
 import { DesktopCartActions, SavePicker } from "./CartActions";
 import { FeedbackSaved, Notice } from "./Notice";
 import { publicError } from "./public-errors";
@@ -1054,10 +1053,10 @@ function App() {
           <button
             className={page === "equipment" ? "active" : ""}
             onClick={() => setPage("equipment")}
-            aria-label="装备"
-            title="装备"
+            aria-label="角色与装备"
+            title="角色与装备"
           >
-            <span className="nav-icon" aria-hidden="true">▦</span><span>装备</span>
+            <span className="nav-icon" aria-hidden="true">▦</span><span>角色与装备</span>
           </button>
           <button className="coming-soon" disabled>
             <span className="nav-icon" aria-hidden="true">♜</span>
@@ -1140,7 +1139,7 @@ function App() {
             : page === "backups"
               ? "备份与管理"
               : page === "equipment"
-                ? "装备浏览"
+                ? "角色与装备"
                 : "绘卷编辑"}
         </h1>
         <div className="toplinks">
@@ -2363,7 +2362,6 @@ function App() {
         </aside>
       </div>
       <div className="editor-host" hidden={page !== "editor"}>
-        <ScrollGenerationAudit active={page === "editor"} />
         <Editor cart={cart} />
       </div>
       {popup && (
@@ -2468,7 +2466,7 @@ function App() {
         </>
       )}
       {page === "backups" && <BackupManager />}
-      {page === "equipment" && <EquipmentBrowser />}
+      {page === "equipment" && <CharacterEditor />}
       <div className="toast" role="status" hidden={!toast}>
         {toast}
         <button aria-label="关闭提示" onClick={() => setToast("")}>

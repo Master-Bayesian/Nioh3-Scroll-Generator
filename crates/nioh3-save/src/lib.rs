@@ -14,6 +14,7 @@
 //! sides cannot drift.
 
 pub mod backup;
+pub mod character;
 pub mod codec;
 pub mod crypto;
 pub mod error;
@@ -29,6 +30,11 @@ pub use backup::{
     backups_root, list_backup_entries, list_backups_for, move_backup_to_recycle_bin,
     read_backup_manifest, role_backup_file, write_backup_manifest, BackupEntry, BackupFileEntry,
     BackupManifest, BACKUP_MANIFEST_SCHEMA, SAVE_SCHEMA_PROFILE,
+};
+pub use character::{
+    apply_character_edits, equipment_fields, equipment_record, equipment_slot_is_empty,
+    patch_equipment, read_currency, CharacterEdit, Currency, EquipmentEffectPatch, EquipmentFields,
+    EquipmentPatch, EQUIPMENT_GROUP_OFFSET, EQUIPMENT_RECORD_BYTES, EQUIPMENT_SLOT_COUNT,
 };
 pub use codec::{
     allocate_scroll_generation_serials, allocate_scroll_inventory_keys,

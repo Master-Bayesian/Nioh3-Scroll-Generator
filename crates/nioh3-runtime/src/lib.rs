@@ -30,6 +30,7 @@
 //! and return [`RuntimeError::UnsupportedPlatform`], so the state and profile
 //! models stay portable and unit-testable everywhere.
 
+pub mod character;
 pub mod error;
 pub mod inventory;
 pub mod mutation;

@@ -262,6 +262,16 @@ impl SaveTransformHost {
         Ok(self.finish(edited, slots, checksum))
     }
 
+    /// Apply currency and owned-equipment edits under their original gates.
+    pub fn edit_character(
+        &self,
+        edits: &[crate::character::CharacterEdit],
+    ) -> Result<PlannedWrite, SaveReadError> {
+        let (mut edited, slots) = crate::character::apply_character_edits(&self.plaintext, edits)?;
+        let checksum = patch_user_checksum(&mut edited)?;
+        Ok(self.finish(edited, slots, checksum))
+    }
+
     /// Clear occupied records in place without compacting the array.
     ///
     /// Mirrors `prepare_delete` / `delete_many`.

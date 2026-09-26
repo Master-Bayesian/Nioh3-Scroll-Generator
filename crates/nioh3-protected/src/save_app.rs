@@ -45,6 +45,10 @@ use nioh3_domain::record::{
 use nioh3_domain::sequence::generate_challenge_attempt_count;
 use nioh3_domain::sequence::materialize_ng3_rarity4_stage_one_record;
 use nioh3_save::backup::{list_backup_entries, move_backup_to_recycle_bin};
+use nioh3_save::character::{
+    equipment_fields, equipment_record, equipment_slot_is_empty, patch_equipment, read_currency,
+    CharacterEdit, Currency, EquipmentFields, EquipmentPatch, EQUIPMENT_SLOT_COUNT,
+};
 use nioh3_save::codec::prepare_candidate_for_install;
 use nioh3_save::error::SaveReadError;
 use nioh3_save::inventory::{SaveInventory, ScrollInventoryEntry};
@@ -322,6 +326,149 @@ impl SaveApplication {
             },
         );
         Ok(response)
+    }
+
+    /// `save.character`: the stored currencies and every owned equipment record.
+    ///
+    /// Bound to the encrypted file digest it was read from; an edit must name
+    /// that digest, so a save that changed since the read is never patched.
+    fn character(&mut self, save_id: &str) -> Result<Value, HostError> {
+        let save_path = self.save_path(save_id)?;
+        let before = sha256_file(&save_path)?;
+        let bytes = read_bytes(&save_path)?;
+        let decrypted = DecryptedSave::from_container(&bytes).map_err(HostError::from_save)?;
+        if before != sha256_file(&save_path)? {
+            return Err(HostError::rejected(
+                "Save changed while reading the character",
+            ));
+        }
+        let plain = decrypted.as_bytes();
+        let mut currencies = serde_json::Map::new();
+        for currency in Currency::ALL {
+            let value = read_currency(plain, currency)
+                .map(|value| json!(value))
+                .unwrap_or(Value::Null);
+            currencies.insert(currency.label().to_string(), value);
+        }
+        let mut equipment = Vec::new();
+        for slot_index in 0..EQUIPMENT_SLOT_COUNT {
+            let record = equipment_record(plain, slot_index).map_err(HostError::from_save)?;
+            if equipment_slot_is_empty(record) {
+                continue;
+            }
+            let fields = equipment_fields(record).map_err(HostError::from_save)?;
+            equipment.push(equipment_json(slot_index, &fields));
+        }
+        Ok(json!({
+            "save_id": save_id,
+            "source_sha256": before,
+            "currencies": currencies,
+            "equipment_slots": EQUIPMENT_SLOT_COUNT,
+            "equipment": equipment,
+        }))
+    }
+
+    /// `save.prepare_character_edit`: currency and modded equipment edits.
+    ///
+    /// Each edit is gated on the value read from the named source generation;
+    /// the plan commits through the ordinary backup/commit path.
+    fn prepare_character_edit(&mut self, params: &Value) -> Result<Value, HostError> {
+        let save_id = param_str(params, "save_id")?;
+        let source_hash = param_str(params, "source_sha256")?;
+        let save_path = self.save_path(&save_id)?;
+        let bytes = read_bytes(&save_path)?;
+        if !format!("{:x}", Sha256::digest(&bytes)).eq_ignore_ascii_case(&source_hash) {
+            return Err(HostError::rejected(
+                "Save changed since it was read; reload the character",
+            ));
+        }
+        let decrypted = DecryptedSave::from_container(&bytes).map_err(HostError::from_save)?;
+        let plain = decrypted.as_bytes();
+        let mut edits = Vec::new();
+        let mut currency_changes = Vec::new();
+        if let Some(requested) = params.get("currencies").and_then(Value::as_object) {
+            for (label, value) in requested {
+                let currency =
+                    Currency::from_label(label).ok_or_else(HostError::invalid_request)?;
+                let replacement = value.as_u64().ok_or_else(HostError::invalid_request)?;
+                let expected = read_currency(plain, currency).map_err(HostError::from_save)?;
+                if expected == replacement {
+                    continue;
+                }
+                currency_changes.push(json!({
+                    "currency": currency.label(),
+                    "before": expected,
+                    "after": replacement,
+                }));
+                edits.push(CharacterEdit::Currency {
+                    currency,
+                    expected,
+                    replacement,
+                });
+            }
+        }
+        let mut equipment_changes = Vec::new();
+        for requested in params
+            .get("equipment")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            let slot_index = requested
+                .get("slot_index")
+                .and_then(Value::as_u64)
+                .ok_or_else(HostError::invalid_request)? as usize;
+            let patch: EquipmentPatch = serde_json::from_value(
+                requested
+                    .get("patch")
+                    .cloned()
+                    .ok_or_else(HostError::invalid_request)?,
+            )
+            .map_err(|_| HostError::invalid_request())?;
+            let original = equipment_record(plain, slot_index)
+                .map_err(HostError::from_save)?
+                .to_vec();
+            if equipment_slot_is_empty(&original) {
+                return Err(HostError::rejected(
+                    "Only occupied equipment slots may be edited",
+                ));
+            }
+            let replacement = patch_equipment(&original, &patch).map_err(HostError::from_save)?;
+            if replacement == original {
+                continue;
+            }
+            let before = equipment_fields(&original).map_err(HostError::from_save)?;
+            let after = equipment_fields(&replacement).map_err(HostError::from_save)?;
+            equipment_changes.push(json!({
+                "slot_index": slot_index,
+                "before": equipment_json(slot_index, &before),
+                "after": equipment_json(slot_index, &after),
+            }));
+            edits.push(CharacterEdit::Equipment {
+                slot_index,
+                expected_original: original,
+                replacement,
+            });
+        }
+        if edits.is_empty() {
+            return Err(HostError::rejected("Nothing to change"));
+        }
+        let plan = self
+            .host()
+            .plan_character_edit(&save_path, &source_hash, edits)
+            .map_err(HostError::from_save)?;
+        let modded = !equipment_changes.is_empty();
+        Ok(self.plan_payload(
+            &save_id,
+            &source_hash,
+            "edit",
+            plan,
+            json!({
+                "currencies": currency_changes,
+                "equipment": equipment_changes,
+                "modded": modded,
+            }),
+        ))
     }
 
     /// `save.audit_scrolls`: read-only generation replay bound to the retained
@@ -1449,6 +1596,8 @@ impl SaveApplication {
             }
             "discover" => Ok(self.discover()),
             "inventory" => self.inventory(&param_str(&params, "save_id")?),
+            "character" => self.character(&param_str(&params, "save_id")?),
+            "prepare_character_edit" => self.prepare_character_edit(&params),
             "audit_scrolls" => self.audit_scrolls(
                 &param_str(&params, "save_id")?,
                 &param_str(&params, "snapshot_id")?,
@@ -1587,6 +1736,35 @@ impl SaveApplication {
             ))),
         }
     }
+}
+
+pub(crate) fn equipment_json(slot_index: usize, fields: &EquipmentFields) -> Value {
+    let effects: Vec<Value> = fields
+        .effects
+        .iter()
+        .enumerate()
+        .map(|(index, (effect_id, value))| {
+            json!({
+                "index": index,
+                "effect_id": effect_id,
+                "value": value,
+            })
+        })
+        .collect();
+    json!({
+        "slot_index": slot_index,
+        "item_id": fields.item_id,
+        "appearance_id": fields.appearance_id,
+        "quantity": fields.quantity,
+        "level": fields.level,
+        "level_before_forge": fields.level_before_forge,
+        "plus": fields.plus,
+        "familiarity": fields.familiarity,
+        "inventory_key": fields.inventory_key,
+        "seed": fields.seed,
+        "rarity": fields.rarity,
+        "effects": effects,
+    })
 }
 
 fn effects_json(record: &[u8; RECORD_BYTES]) -> Result<Vec<Value>, HostError> {

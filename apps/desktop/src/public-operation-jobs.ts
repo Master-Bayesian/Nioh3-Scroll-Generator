@@ -4,6 +4,7 @@ import type { ProtectedJob } from '../../../packages/contracts/protected-respons
 const publicKinds = new Set<ProtectedJob['kind']>([
   'runtime.count_prepare','runtime.count_execute','runtime.count_status','runtime.count_recover',
   'save.recycle_backups', 'save.discover', 'save.register', 'save.inventory', 'save.prepare_edit', 'save.prepare_delete',
+  'save.character', 'save.prepare_character_edit', 'runtime.character_edit',
   'save.prepare_install_many','runtime.live_batch_prepare','runtime.live_batch_execute','runtime.live_batch_status','runtime.live_batch_cancel',
   'save.prepare_install', 'save.backups', 'save.prepare_restore', 'save.discard', 'save.commit',
   'save.operation', 'save.operations', 'runtime.generate', 'runtime.search', 'runtime.capture_grace',

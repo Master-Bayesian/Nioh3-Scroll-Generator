@@ -488,7 +488,7 @@ fn dispatch(
             // A read-only inventory page is answered inline like `runtime.status`:
             // it owns no native call and must not occupy the single-owner job
             // machine or block a running write.
-            if method == "runtime.inventory_snapshot" {
+            if method == "runtime.inventory_snapshot" || method == "runtime.character_snapshot" {
                 let mut guard = lock(application).map_err(HostError::rejected)?;
                 return Ok((guard.direct(method, &params)?, false));
             }

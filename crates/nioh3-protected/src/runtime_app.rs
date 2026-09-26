@@ -316,6 +316,7 @@ mod imp {
     use std::collections::BTreeMap;
 
     use serde_json::{json, Value};
+    use sha2::{Digest, Sha256};
 
     use nioh3_runtime::mutation::live_add::LiveAddApplication;
     use nioh3_runtime::mutation::session::{OverrideSession, WindowsSessionMemory};
@@ -591,13 +592,21 @@ mod imp {
         /// The client can choose only `start` and `limit`: the process, the
         /// module, the digest, the profile and the slot domain are fixed here.
         fn inventory_snapshot(&self, params: &Value) -> Result<Value, HostError> {
-            use nioh3_runtime::inventory::{
-                snapshot, InventoryRequest, ProcessInventoryMemory, INVENTORY_EXECUTABLE_SHA256,
-            };
-            use nioh3_runtime::{FileVersion, GameCompatibility, RuntimeError};
+            use nioh3_runtime::inventory::{snapshot, InventoryRequest, ProcessInventoryMemory};
 
             // A malformed request must never open a handle.
             let request = InventoryRequest::from_json(params).map_err(HostError::from_runtime)?;
+            let process = Self::open_supported_reader()?;
+            let memory = ProcessInventoryMemory::new(&process);
+            snapshot(&memory, &request).map_err(HostError::from_runtime)
+        }
+
+        /// One read-only handle on the sole game, verified as PC v2.0.2.0 with
+        /// the pinned executable digest before any game memory is read.
+        fn open_supported_reader() -> Result<nioh3_runtime::ReadOnlyProcess, HostError> {
+            use nioh3_runtime::inventory::INVENTORY_EXECUTABLE_SHA256;
+            use nioh3_runtime::{FileVersion, GameCompatibility, RuntimeError};
+
             let pid = nioh3_runtime::single_process_id(nioh3_runtime::GAME_IMAGE_NAME)
                 .map_err(HostError::from_runtime)?;
             let creation = nioh3_runtime::process_creation_filetime(pid)
@@ -644,8 +653,171 @@ mod imp {
                     },
                 ));
             }
+            Ok(process)
+        }
+
+        /// `runtime.character_snapshot`: the loaded character's currencies and
+        /// every owned equipment record, read twice and published only when
+        /// both reads agree.
+        fn character_snapshot(&self) -> Result<Value, HostError> {
+            use nioh3_runtime::character::{read_character, CHARACTER_GAME_VERSION};
+            use nioh3_runtime::inventory::ProcessInventoryMemory;
+
+            let process = Self::open_supported_reader()?;
             let memory = ProcessInventoryMemory::new(&process);
-            snapshot(&memory, &request).map_err(HostError::from_runtime)
+            let read = read_character(&memory).map_err(HostError::from_runtime)?;
+            let mut currencies = serde_json::Map::new();
+            for (currency, value) in &read.currencies {
+                currencies.insert(currency.label().to_string(), json!(value));
+            }
+            let mut equipment = Vec::new();
+            for slot_index in 0..nioh3_runtime::character::EQUIPMENT_SLOTS {
+                let Some(record) = read.record(slot_index) else {
+                    continue;
+                };
+                if nioh3_save::character::equipment_slot_is_empty(record) {
+                    continue;
+                }
+                let fields = nioh3_save::character::equipment_fields(record)
+                    .map_err(HostError::from_save)?;
+                let mut row = crate::save_app::equipment_json(slot_index, &fields);
+                row["record_sha256"] = json!(format!("{:x}", Sha256::digest(record)));
+                equipment.push(row);
+            }
+            Ok(json!({
+                "source": "runtime",
+                "game_version": CHARACTER_GAME_VERSION,
+                "process_id": read.pid,
+                "currencies": currencies,
+                "equipment_slots": nioh3_runtime::character::EQUIPMENT_SLOTS,
+                "equipment": equipment,
+            }))
+        }
+
+        /// `runtime.character_edit`: compare-and-swap writes of currencies and
+        /// modded equipment fields into the running game.
+        ///
+        /// Every target must still hold the value the caller reviewed; the
+        /// write handle carries only VM write rights and each target is read
+        /// back. The game saves the new values itself.
+        fn character_edit(&mut self, params: &Value) -> Result<Value, HostError> {
+            use nioh3_runtime::character::{
+                apply_live_edits, read_character, LiveCurrency, LiveEdit, LiveEditOutcome,
+            };
+            use nioh3_runtime::inventory::ProcessInventoryMemory;
+
+            if !self.safe_to_shutdown()? {
+                return Err(HostError::rejected(
+                    "Finish the live scroll addition before editing the character",
+                ));
+            }
+            let expected_pid = params
+                .get("process_id")
+                .and_then(Value::as_u64)
+                .and_then(|pid| u32::try_from(pid).ok())
+                .ok_or_else(HostError::invalid_request)?;
+            let process = Self::open_supported_reader()?;
+            let memory = ProcessInventoryMemory::new(&process);
+            let read = read_character(&memory).map_err(HostError::from_runtime)?;
+            let mut edits = Vec::new();
+            let mut currency_changes = Vec::new();
+            let reviewed = params.get("expected_currencies").and_then(Value::as_object);
+            if let Some(requested) = params.get("currencies").and_then(Value::as_object) {
+                for (label, value) in requested {
+                    let currency =
+                        LiveCurrency::from_label(label).ok_or_else(HostError::invalid_request)?;
+                    let replacement = value.as_u64().ok_or_else(HostError::invalid_request)?;
+                    let expected = reviewed
+                        .and_then(|values| values.get(label))
+                        .and_then(Value::as_u64)
+                        .ok_or_else(HostError::invalid_request)?;
+                    if expected == replacement {
+                        continue;
+                    }
+                    currency_changes.push(json!({
+                        "currency": label,
+                        "before": expected,
+                        "after": replacement,
+                    }));
+                    edits.push(LiveEdit::Currency {
+                        currency,
+                        expected,
+                        replacement,
+                    });
+                }
+            }
+            let mut equipment_changes = Vec::new();
+            for requested in params
+                .get("equipment")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                let slot_index = requested
+                    .get("slot_index")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(HostError::invalid_request)?
+                    as usize;
+                let reviewed_sha = requested
+                    .get("expected_record_sha256")
+                    .and_then(Value::as_str)
+                    .ok_or_else(HostError::invalid_request)?;
+                let patch: nioh3_save::character::EquipmentPatch = serde_json::from_value(
+                    requested
+                        .get("patch")
+                        .cloned()
+                        .ok_or_else(HostError::invalid_request)?,
+                )
+                .map_err(|_| HostError::invalid_request())?;
+                let original = read
+                    .record(slot_index)
+                    .ok_or_else(HostError::invalid_request)?
+                    .to_vec();
+                if !format!("{:x}", Sha256::digest(&original)).eq_ignore_ascii_case(reviewed_sha) {
+                    return Err(HostError::rejected(
+                        "The equipment changed in game since it was read; reload and try again",
+                    ));
+                }
+                let replacement = nioh3_save::character::patch_equipment(&original, &patch)
+                    .map_err(HostError::from_save)?;
+                if replacement == original {
+                    continue;
+                }
+                let before = nioh3_save::character::equipment_fields(&original)
+                    .map_err(HostError::from_save)?;
+                let after = nioh3_save::character::equipment_fields(&replacement)
+                    .map_err(HostError::from_save)?;
+                equipment_changes.push(json!({
+                    "slot_index": slot_index,
+                    "before": crate::save_app::equipment_json(slot_index, &before),
+                    "after": crate::save_app::equipment_json(slot_index, &after),
+                }));
+                edits.push(LiveEdit::Equipment {
+                    slot_index,
+                    expected: original,
+                    replacement,
+                });
+            }
+            if edits.is_empty() {
+                return Err(HostError::rejected("Nothing to change"));
+            }
+            let mut writer =
+                nioh3_runtime::mutation::memory::WindowsProcess::open_field_write(expected_pid)
+                    .map_err(HostError::from_runtime)?;
+            let outcome = apply_live_edits(&memory, &mut writer, expected_pid, &edits);
+            nioh3_runtime::mutation::memory::TargetProcess::close(&mut writer);
+            let (state, error) = match outcome {
+                LiveEditOutcome::Verified => ("verified", Value::Null),
+                LiveEditOutcome::Rejected(message) => ("rejected", json!(message)),
+                LiveEditOutcome::Uncertain(message) => ("uncertain", json!(message)),
+            };
+            Ok(json!({"character_edit": {
+                "state": state,
+                "process_id": expected_pid,
+                "currencies": currency_changes,
+                "equipment": equipment_changes,
+                "error": error,
+            }}))
         }
 
         /// `_enemy_role_by_lookup_key` over the shipped roster.
@@ -1421,6 +1593,9 @@ mod imp {
             if method == "runtime.inventory_snapshot" {
                 return self.inventory_snapshot(params);
             }
+            if method == "runtime.character_snapshot" {
+                return self.character_snapshot();
+            }
             Err(HostError::rejected(format!(
                 "INVALID_REQUEST: {method} is not an inline protected method"
             )))
@@ -1434,6 +1609,7 @@ mod imp {
         ) -> Result<Value, HostError> {
             match operation {
                 "status" => self.status(),
+                "character_edit" => self.character_edit(&params),
                 "stop_override" => self.stop_override(),
                 "start_override" => {
                     let profile = params
@@ -1657,6 +1833,10 @@ mod imp {
         pub(super) fn inventory_snapshot(&mut self, _params: &Value) -> Result<Value, HostError> {
             Self::unsupported()
         }
+
+        pub(super) fn character_snapshot(&mut self) -> Result<Value, HostError> {
+            Self::unsupported()
+        }
     }
 
     impl RoleApplication for RuntimeApplication {
@@ -1674,6 +1854,9 @@ mod imp {
             }
             if method == "runtime.inventory_snapshot" {
                 return self.inventory_snapshot(params);
+            }
+            if method == "runtime.character_snapshot" {
+                return self.character_snapshot();
             }
             Err(HostError::rejected(format!(
                 "INVALID_REQUEST: {method} is not an inline protected method"
@@ -1701,7 +1884,7 @@ mod imp {
                 | "live_add_recover" | "live_add_cancel" | "live_batch_prepare"
                 | "live_batch_execute" | "live_batch_cancel" | "live_batch_status"
                 | "count_prepare" | "count_execute" | "count_status" | "count_recover"
-                | "inventory_snapshot" => Self::unsupported(),
+                | "inventory_snapshot" | "character_edit" => Self::unsupported(),
                 other => Err(HostError::rejected(format!(
                     "OPERATION_REJECTED: runtime.{other} is not a method the protected \
                      runtime contract can express"

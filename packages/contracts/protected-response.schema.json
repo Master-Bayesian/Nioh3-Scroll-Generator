@@ -81,6 +81,278 @@
         { "type": "null" }
       ]
     },
+    "CharacterEquipmentEffect": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+        },
+        "effect_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        }
+      },
+      "required": [
+        "index",
+        "effect_id",
+        "value"
+      ]
+    },
+    "CharacterEquipment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "slot_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2499
+        },
+        "item_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "appearance_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "level_before_forge": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "plus": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "familiarity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "inventory_key": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "rarity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CharacterEquipmentEffect"
+          },
+          "maxItems": 7
+        },
+        "record_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64}$"
+        }
+      },
+      "required": [
+        "slot_index",
+        "item_id",
+        "appearance_id",
+        "quantity",
+        "level",
+        "level_before_forge",
+        "plus",
+        "familiarity",
+        "inventory_key",
+        "seed",
+        "rarity",
+        "effects"
+      ]
+    },
+    "CharacterCurrencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "amrita": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gold": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "amrita",
+        "gold"
+      ]
+    },
+    "SaveCharacter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "save_id": {
+          "type": "string"
+        },
+        "source_sha256": {
+          "type": "string"
+        },
+        "currencies": {
+          "$ref": "#/definitions/CharacterCurrencies"
+        },
+        "equipment_slots": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2500
+        },
+        "equipment": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CharacterEquipment"
+          },
+          "maxItems": 2500
+        }
+      },
+      "required": [
+        "save_id",
+        "source_sha256",
+        "currencies",
+        "equipment_slots",
+        "equipment"
+      ]
+    },
+    "LiveCharacter": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "const": "runtime"
+        },
+        "game_version": {
+          "type": "string"
+        },
+        "process_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "currencies": {
+          "$ref": "#/definitions/CharacterCurrencies"
+        },
+        "equipment_slots": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2500
+        },
+        "equipment": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CharacterEquipment"
+          },
+          "maxItems": 2500
+        }
+      },
+      "required": [
+        "source",
+        "game_version",
+        "process_id",
+        "currencies",
+        "equipment_slots",
+        "equipment"
+      ]
+    },
+    "LiveCharacterEdit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "character_edit": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "enum": [
+                "verified",
+                "rejected",
+                "uncertain"
+              ]
+            },
+            "process_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "currencies": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "equipment": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "error": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "state",
+            "process_id",
+            "currencies",
+            "equipment",
+            "error"
+          ]
+        }
+      },
+      "required": [
+        "character_edit"
+      ]
+    },
     "ProtectedJob": {
       "type": "object",
       "additionalProperties": false,
@@ -137,7 +409,10 @@
             "runtime.count_prepare",
             "runtime.count_execute",
             "runtime.count_status",
-            "runtime.count_recover"
+            "runtime.count_recover",
+            "save.character",
+            "save.prepare_character_edit",
+            "runtime.character_edit"
           ]
         },
         "state": {
@@ -168,6 +443,12 @@
         },
         "result": {
           "anyOf": [
+            {
+              "$ref": "#/definitions/LiveCharacterEdit"
+            },
+            {
+              "$ref": "#/definitions/SaveCharacter"
+            },
             {
               "$ref": "#/definitions/RuntimeStatus"
             },
@@ -3158,6 +3439,9 @@
             },
             {
               "$ref": "#/definitions/RuntimeStatus"
+            },
+            {
+              "$ref": "#/definitions/LiveCharacter"
             },
             {
               "$ref": "#/definitions/InventorySnapshot"
