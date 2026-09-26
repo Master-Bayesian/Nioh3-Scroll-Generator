@@ -1,9 +1,9 @@
 # Current project handoff — 2026-09-20
 
-## Active development: v0.8.1
+## Active development: v0.8.2
 
 The owner has started the first one-stop-trainer integration release. See the
-[v0.8.1 engineering record](../product/releases/v0.8.1.md), the
+[v0.8.2 engineering record](../product/releases/v0.8.2.md), the
 [complete source feature matrix](V081_SOURCE_FEATURE_MATRIX.md) and the
 [Pro response acceptance record](V081_PRO_RESPONSE_ACCEPTANCE_20260921.md).
 Static intake, the private Pro handoff and the Pro response reproduction are
@@ -112,7 +112,7 @@ native insertion of a custom 512-byte draft), and `INVENTORY-LEGALITY-AUDIT`, an
 independent read-only scan of scrolls and equipment that reports one of four
 honest outcomes and never brands provenance, promises anti-cheat safety, or
 auto-repairs. Both share one versioned generation/rule dataset. This is planned
-scope, not a v0.8.1 shipping commitment, and nothing is implemented by it.
+scope, not a v0.8.2 shipping commitment, and nothing is implemented by it.
 
 Existing v0.8.0 publication and native write approval remain unchanged; source
 visibility is not current-version runtime acceptance.

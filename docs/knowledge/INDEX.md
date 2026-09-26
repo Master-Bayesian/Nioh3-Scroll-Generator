@@ -128,10 +128,15 @@ global semantic key.
 
 ### Active research/handoff
 
+- [v0.8.2 live character and equipment research (2026-09-26)](V082_LIVE_CHARACTER_EQUIPMENT_RESEARCH_20260926.md)
+  — PC v2.02 player struct (Amrita, gold, stats, level, glory, skill points),
+  the tagged save stream, the equipment container and record layout, forge
+  generation through the shared effect generator, and the blacksmith re-roll
+  write site. One save and one session; owner-authorized writes are listed.
 - [v0.8.1 source feature matrix](V081_SOURCE_FEATURE_MATRIX.md) - complete
   source-family inventory for the supplied CT, pinned save editor and reviewed
   Pro equipment result. Static source availability is not PC v2.02 acceptance;
-  the [version record](../product/releases/v0.8.1.md) owns integration order and
+  the [version record](../product/releases/v0.8.2.md) owns integration order and
   links the private Pro contract handoff, its manifest and validation reports.
 - [Pro response acceptance (v0.8.1)](V081_PRO_RESPONSE_ACCEPTANCE_20260921.md) —
   bounded reproduction of the Pro response (22 static/synthetic and 43 delivery

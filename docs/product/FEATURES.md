@@ -2,7 +2,7 @@
 
 Status: **historical v0.7.4 behavior catalog; the current published baseline is
 [v0.8.0](releases/v0.8.0.md). New integration work is tracked in
-[v0.8.1](releases/v0.8.1.md) and is not shipped behavior.**
+[v0.8.2](releases/v0.8.2.md) and is not shipped behavior.**
 
 Status updated: 2026-09-21. Existing entries have not been fully reconciled with
 the Rust migration; historical Python implementation anchors below are not a
@@ -31,7 +31,7 @@ The initial entries below are grounded in the current player README and current 
 
 ## In-development capabilities (not shipped)
 
-These are being built against the v0.8.1 engineering record and are **not shipped
+These are being built against the v0.8.2 engineering record and are **not shipped
 behavior**. An entry moves into the shipped table above only after its workflow
 and safety bounds are accepted. Until then it stays unavailable to players.
 
