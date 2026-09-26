@@ -6,7 +6,9 @@
 //! Field offsets mirror `nioh3_scroll_editor/effect_generation_tables.py` and
 //! `nioh3_scroll_editor/r4_finalizer_reference.py` at the M2.1 baseline.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
+use std::fmt;
+use std::sync::{Arc, Mutex};
 
 use crate::rng::LcgStream;
 
@@ -727,6 +729,48 @@ pub struct EffectTableIndex {
     pub playthrough_progress: Vec<[u32; 4]>,
     /// Level-curve rows: three `u16` selectors per curve level.
     pub level_curve: Vec<[u16; 3]>,
+    base_pools: BasePoolCache,
+}
+
+/// The inputs that decide the context-only part of a candidate pool: the
+/// reference's `_base_candidate_pool_cache` key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct BasePoolKey {
+    record_type: u16,
+    rarity: u8,
+    playthrough: u8,
+    promoted: bool,
+    requested_category: u8,
+    alternate_runtime_context: bool,
+    extra_selector: u8,
+    rarity5_type_floor: u8,
+}
+
+/// One weighted row that passed the context-only filters, with its category.
+#[derive(Debug, Clone, Copy)]
+struct BasePoolEntry {
+    candidate: WeightedEffectCandidate,
+    category_key: u16,
+}
+
+/// Memo of the context-only candidate rows, in table order.
+///
+/// Path inversion builds thousands of pools that differ only in the accepted
+/// effects and remaining capacities; recomputing every row's weight for each
+/// made a rarity-5 compile take seconds. A clone starts empty.
+#[derive(Default)]
+struct BasePoolCache(Mutex<HashMap<BasePoolKey, Arc<[BasePoolEntry]>>>);
+
+impl Clone for BasePoolCache {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl fmt::Debug for BasePoolCache {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("BasePoolCache")
+    }
 }
 
 impl EffectTableIndex {
@@ -989,6 +1033,7 @@ impl EffectTableIndex {
             special_context,
             playthrough_progress,
             level_curve,
+            base_pools: BasePoolCache::default(),
         })
     }
 
@@ -1394,7 +1439,56 @@ impl EffectTableIndex {
         }
         let promoted = request.destination_effect_flags & EFFECT_FLAG_PROMOTED != 0;
         let requested_category = request.destination_category_and_flags & 0x3F;
+        let base = self.base_candidate_pool(request, promoted, requested_category)?;
         let mut result = Vec::new();
+        for entry in base.iter() {
+            let capacity = usize::from(entry.category_key);
+            if capacity >= CATEGORY_CAPACITY_SLOTS
+                || request.remaining_category_capacities[capacity] == 0
+            {
+                continue;
+            }
+            if !self.is_compatible(
+                entry.candidate.effect_id,
+                existing_effect_ids,
+                request.special_effect_id,
+            )? {
+                continue;
+            }
+            result.push(entry.candidate);
+        }
+        Ok(result)
+    }
+
+    /// The rows of [`Self::weighted_candidate_pool`] that depend only on the
+    /// table context, not on accepted effects or remaining capacities.
+    fn base_candidate_pool(
+        &self,
+        request: &CandidatePoolRequest,
+        promoted: bool,
+        requested_category: u8,
+    ) -> Result<Arc<[BasePoolEntry]>, EffectError> {
+        let key = BasePoolKey {
+            record_type: request.context.record_type,
+            rarity: request.context.rarity,
+            playthrough: request.context.playthrough,
+            promoted,
+            requested_category: if promoted { 0 } else { requested_category },
+            alternate_runtime_context: request.alternate_runtime_context,
+            extra_selector: request.context.extra_selector,
+            rarity5_type_floor: request.context.rarity5_type_floor,
+        };
+        let cached = self
+            .base_pools
+            .0
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .get(&key)
+            .cloned();
+        if let Some(base) = cached {
+            return Ok(base);
+        }
+        let mut built = Vec::new();
         for effect in &self.effects_in_row_order {
             if effect.row_index == 0 {
                 continue;
@@ -1431,25 +1525,21 @@ impl EffectTableIndex {
             if weight == 0 {
                 continue;
             }
-            let capacity = usize::from(category_key);
-            if capacity >= CATEGORY_CAPACITY_SLOTS
-                || request.remaining_category_capacities[capacity] == 0
-            {
-                continue;
-            }
-            if !self.is_compatible(
-                effect.effect_id,
-                existing_effect_ids,
-                request.special_effect_id,
-            )? {
-                continue;
-            }
-            result.push(WeightedEffectCandidate {
-                effect_id: effect.effect_id,
-                weight,
+            built.push(BasePoolEntry {
+                candidate: WeightedEffectCandidate {
+                    effect_id: effect.effect_id,
+                    weight,
+                },
+                category_key,
             });
         }
-        Ok(result)
+        let built: Arc<[BasePoolEntry]> = built.into();
+        self.base_pools
+            .0
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .insert(key, Arc::clone(&built));
+        Ok(built)
     }
 
     /// Inclusive `0..=total` lottery at RVA 0x57830D..0x57833A.
