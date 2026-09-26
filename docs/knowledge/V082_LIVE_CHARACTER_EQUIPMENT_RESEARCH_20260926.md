@@ -168,3 +168,20 @@ diffs are in `deliverables/v082-ce-research/` (`trace-drop*.tsv`,
   level, `+0x1E` weight 10, plus six float multipliers (0.2/1.0) selected by a
   per-player byte. Katana (key 6409) has `0xC0C1`, `0x3435`, `0xAC06`; all three
   appeared on this session's hell katanas.
+
+## Natural-drop legality check against the static exports (2026-09-26)
+
+`validate_drops.py` (in `deliverables/v082-ce-research/`) checked the 87 captured drop
+records (341 effects, levels 167–173) against the 2026-09-02 pool enumeration
+(`equipment-effect-pools-v2.json`) and the level-180 value export:
+
+- Values: all 341 fall inside the exported raw range (normal 291/291, star
+  10/10, hell 4/4); most ranges are a single raw value.
+- Pool: every star and hell effect and 228 of 291 ordinary effects are listed in the pool
+  for the item's type class (item row `+0x15C`). The remainder are structural:
+  slot 0 is the item's innate effect from item row `+0x158`; the last slot
+  is the set effect from row `+0x154`, or, on rarity-4 items without a set,
+  a divine-blessing set effect (惠比寿/月读/毘沙门天的恩宠 …) that needs its own table.
+- Slot templates seen: normal drops `92 D1 80 D1 41 D1 3F`, hell conversion
+  `8F 8F D5 00 80 8F 50`; the rarity decides how many template slots are
+  filled.
