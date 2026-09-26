@@ -117,3 +117,54 @@ and native groups of `仁王3_PC_v2.01_全物品列表_简体中文_20260902.xls
 the game's runtime localization pool like the shipped effect names. Items added
 after PC v2.01 fall back to the item-type group and the hex id; the optional
 local catalog import remains for supplementing names.
+
+## Drop generation, star effects and hell weapons (live, 2026-09-26)
+
+Owner session with a trainer one-hit-kill: normal map, then a hell-environment
+katana scroll. The drop probe (entry breakpoints on `generate_effects` and
+`init_generation_context`, plus the drop return +0x625164) and before/after
+snapshots of the owned-equipment array captured about 90 new records. Traces and decoded
+diffs are in `deliverables/v082-ce-research/` (`trace-drop*.tsv`,
+`container-diffs.jsonl`, `dis-hell*.txt`, `hell-skill-table.json`).
+
+- Every enemy drop runs `init_generation_context` from +0x625136 and
+  `generate_effects` from +0x625164 (mode 0, 7 slot templates). Set items take a
+  different route into +0x625136 (stack via +0x2849ED) and carry `0x5B` in the
+  pre-context.
+- Star (green ✦) effects are separate effect ids, not a flag on the ordinary
+  effect: group 0x9AE9 (武技精力伤害) has the star row `0x31D0` (effect-row
+  `+0x20 = 0x1B`, rarity weights 0/0/0/0.5/0.75/1…, so no star below rarity 3)
+  and the hell row `0x3790`. In the record the star slot's byte `slot+0xE` (entry `+0xA`)
+  is `0x04`, and the record flag byte `+0x18` gains `0x04` (`0x80` → `0x84`,
+  `0x82` → `0x86`). Weapons and armour both follow this rule (for example 宫司净衣 头冠
+  速攻击精力消耗降低 value 180 = −18.0%).
+- Hell weapons: record `+0x10` u16 is the hell martial skill id and record
+  `+0x1A` is `0x10`; all other records have both zero. Hell effects proper are
+  effect rows with effect flags `+0x1C = 0x50` (bit 0x10) and weight 1 on all weapon
+  columns (for example `0x3790` 武技精力伤害, `0x89C2` 地狱武器掉落率). Effects
+  whose names end in “（地狱）” (`0xA166`, `0x36E6`, `0x044D`, …) are ordinary
+  `0x40` rows with weight 200 and also occur on non-hell drops.
+- Hell conversion is a second pass, not a separate drop generator.
+  `try_hell_convert` (+0x2285E58, only caller of the converter at +0x2285FFD)
+  runs after the normal drops of one kill:
+  1. gate on a param-table lookup (id 0x2A05);
+  2. chance = `[arg2+0x18]` + (context `+0xD8` ? param 0x9F1 × const : 0) +
+     the player's hell-drop-rate stat (`+0x1D0` × const), out of 10000;
+  3. candidates are the just-dropped records whose item row `+0x182` is 1 or 2,
+     item flags `+0xB0 & 0x02` set, and record `+0x18 & 0x400000` clear;
+     one is picked uniformly and converted.
+- The converter `convert_to_hell` (+0x2287870, rcx = drop context, rdx = record,
+  r8d = level):
+  1. raises rarity via +0x9F070C(4), adjusts the pre-forge level and plus;
+  2. rebuilds the 7 slot templates with categories `8F 8F D5 00 80 8F 50`;
+  3. calls `init_generation_context` (+0x2287A55) and `generate_effects`
+     (+0x2287A91) with the **same seed** as the normal drop, mode flags from
+     context `+0x23/+0x25` and a type of 3;
+  4. picks the hell martial skill at +0x2286D6C and stores it at record `+0x10`.
+  The three converted katanas re-used the seeds `0xDF4A`, `0x3F40` and `0xB049` of their normal
+  generation.
+- Hell martial skill table (`[[Nioh3.exe+0x45B9E30]+0x5A8]`, 39 rows of 0x20):
+  `+0x18` skill id, `+0x1A` weapon-type key (item row `+0x58`), `+0x1C` minimum
+  level, `+0x1E` weight 10, plus six float multipliers (0.2/1.0) selected by a
+  per-player byte. Katana (key 6409) has `0xC0C1`, `0x3435`, `0xAC06`; all three
+  appeared on this session's hell katanas.
