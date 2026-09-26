@@ -54,6 +54,9 @@ Plan, result and verification reports:
   the 0.8.1 product identity in Rust and Python.
 - Live game (PC v2.02, owner's machine): two online live additions persisted
   after an in-game save; temporary overrides applied, replaced and stopped.
-- Not established: the foreign-identity/offline bit-25 live-add branch; rule-only
-  search throughput with the game closed; any claim beyond the bounded release
-  profile (extended search was not selected).
+- Search speed with the game closed (measured after publication with the
+  shipped worker): every benchmark query is faster than the Python worker, and
+  all implementations return identical results
+  ([benchmark](V081_REGRESSION_FIXES_20260925.md#search-speed-against-the-python-worker)).
+- Not established: the foreign-identity/offline bit-25 live-add branch; any
+  claim beyond the bounded release profile (extended search was not selected).

@@ -190,7 +190,24 @@ requests (25 results, continuing job), one host:
 | R5 four secondaries + Grace | 3.7 s | 5.0 s | 2.6 s |
 
 Streaming per native unit costs nothing measurable (v0.8.0 worker: 4.9 s on
-the R5 query). The R5 gap was the port dropping the Python tables'
+the R5 query).
+
+A second run after publication, with the game closed (the GPU otherwise idle) used
+the shipped v0.8.1 worker, the v0.8.0 release worker and the Python worker on
+the same queries (`D:\Nioh3_v080_deliverables\tmp\claude-bench\bench.py`, 180 s
+limit). All three returned the same 25 candidate seeds on every query:
+
+| Query | Python | v0.8.0 | v0.8.1 |
+| --- | --- | --- | --- |
+| three special rules | 33.4 s (105.8M trials/s), first match 2.1 s | 21.6 s | 21.9 s (161.3M trials/s), first match 1.2 s |
+| R4 one primary | 2.4 s | 0.30 s | 0.30 s |
+| R4 one secondary | 2.5 s | 0.92 s | 0.89 s |
+| R4 two secondaries | 2.6 s | 0.98 s | 0.89 s |
+| R5 four secondaries + Grace | 3.1 s | 4.2 s | 1.45 s |
+
+The rule-only query runs about 1.5x the Python accelerator's rate, and
+streaming does not change its throughput. The R5 query with a Grace was the
+only case where v0.8.0 was slower than Python. The R5 gap was the port dropping the Python tables'
 `_base_candidate_pool_cache`: every one of 10,440 pool builds in the
 one-wildcard compile recomputed all row weights (2.4 s in `search.start`, on
 every search). The context-only rows are memoized again under the same key;
