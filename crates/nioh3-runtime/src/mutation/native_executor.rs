@@ -1265,7 +1265,8 @@ impl ReceiptStore {
             }
             let recorded_pid = value.get("pid").and_then(Value::as_u64);
             let recorded_creation = value.get("process_creation_time").and_then(Value::as_str);
-            if let (Some(recorded_pid), Some(recorded_creation)) = (recorded_pid, recorded_creation) {
+            if let (Some(recorded_pid), Some(recorded_creation)) = (recorded_pid, recorded_creation)
+            {
                 if (recorded_pid, recorded_creation) != (u64::from(pid), creation) {
                     continue;
                 }
@@ -1661,7 +1662,8 @@ mod windows_transport {
         /// The unresolved receipt that still owns the running target instance.
         fn unresolved_target_owner(&self) -> Result<Option<String>, RuntimeError> {
             let instance = (self.instance_probe)(self.pid)?;
-            self.store.unresolved_owner_of(self.pid, instance.as_deref())
+            self.store
+                .unresolved_owner_of(self.pid, instance.as_deref())
         }
 
         fn open(&self) -> Result<WindowsDebugSession, RuntimeError> {

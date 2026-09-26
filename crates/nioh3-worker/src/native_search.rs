@@ -1977,16 +1977,12 @@ mod policy_consistency_tests {
 
     impl PrivateLibrary {
         fn new() -> Option<Self> {
-            let source = repo_root()
-                .join("bin")
-                .join("nioh3_seed_accelerator.dll");
+            let source = repo_root().join("bin").join("nioh3_seed_accelerator.dll");
             if !source.is_file() {
                 return None;
             }
-            let directory = std::env::temp_dir().join(format!(
-                "nioh3-policy-consistency-{}",
-                std::process::id()
-            ));
+            let directory = std::env::temp_dir()
+                .join(format!("nioh3-policy-consistency-{}", std::process::id()));
             fs::create_dir_all(&directory).ok()?;
             let module = directory.join("nioh3_seed_accelerator.dll");
             fs::copy(&source, &module).ok()?;
@@ -2012,15 +2008,13 @@ mod policy_consistency_tests {
         let observed = Arc::new(Mutex::new(None));
 
         let installer = thread::spawn(move || {
-            let previous = super::policy_lock::install(
-                EXECUTION_POLICY_ALLOW_BULK_CPU,
-                |_policy| {
+            let previous =
+                super::policy_lock::install(EXECUTION_POLICY_ALLOW_BULK_CPU, |_policy| {
                     entered_tx.send(()).expect("signal the install");
                     release_rx.recv().expect("hold the setter open");
                     0
-                },
-            )
-            .expect("the lock installs the opt-in");
+                })
+                .expect("the lock installs the opt-in");
             // Hold the guard until the probe has been observed, then restore so
             // the process-global lock is left idle for the rest of the suite.
             restore_rx.recv().expect("hold the guard");
@@ -2081,7 +2075,9 @@ mod policy_consistency_tests {
             let stop = Arc::clone(&stop);
             let probes = Arc::clone(&probes);
             thread::spawn(move || {
-                start_rx.recv().expect("start probing while the guard is held");
+                start_rx
+                    .recv()
+                    .expect("start probing while the guard is held");
                 let mut first = true;
                 while !stop.load(Ordering::Relaxed) {
                     // Both shipped probe paths, each re-installing the policy.
@@ -2089,7 +2085,9 @@ mod policy_consistency_tests {
                     let _ = Accelerator::load(&root, Some(&module));
                     probes.fetch_add(1, Ordering::Relaxed);
                     if first {
-                        first_probe_tx.send(()).expect("acknowledge the first probe");
+                        first_probe_tx
+                            .send(())
+                            .expect("acknowledge the first probe");
                         first = false;
                     }
                 }
@@ -2177,7 +2175,9 @@ mod policy_consistency_tests {
             "dropping the inner guard must restore the outer policy"
         );
         // A rejected policy must not take the lock or change the mirror.
-        assert!(super::policy_lock::install(EXECUTION_POLICY_ALLOW_BULK_CPU, |_policy| -1).is_err());
+        assert!(
+            super::policy_lock::install(EXECUTION_POLICY_ALLOW_BULK_CPU, |_policy| -1).is_err()
+        );
         assert_eq!(
             super::policy_lock::active(),
             EXECUTION_POLICY_ALLOW_BULK_CPU,

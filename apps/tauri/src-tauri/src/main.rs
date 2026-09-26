@@ -431,7 +431,11 @@ const CLOSE_GRACE: std::time::Duration = std::time::Duration::from_secs(20);
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(window)=app.get_webview_window("main"){let _=window.unminimize();let _=window.show();let _=window.set_focus();}
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -446,32 +450,48 @@ fn main() {
             // binary run directly by a user with both variables set would take it;
             // that is a test-build configuration, not part of the shipped graph.
             let package_override = (!packaged)
-                .then(|| {
-                    std::env::var_os("NIOH3_TAURI_PACKAGE_ROOT").map(std::path::PathBuf::from)
-                })
+                .then(|| std::env::var_os("NIOH3_TAURI_PACKAGE_ROOT").map(std::path::PathBuf::from))
                 .flatten()
                 .filter(|_| std::env::var_os("NIOH3_TAURI_TEST_ROOT").is_some());
             let packaged = packaged || package_override.is_some();
             let root = match package_override {
                 Some(root) => root,
                 None if packaged => app.path().resource_dir()?,
-                None => std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..").canonicalize()?,
+                None => std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../..")
+                    .canonicalize()?,
             };
-            let arguments:Vec<_>=std::env::args_os().collect();
-            let profile=arguments.windows(2).find(|p|p[0]=="--user-data-dir").map(|p|std::path::PathBuf::from(&p[1]));
-            if profile.as_ref().is_some_and(|p|!p.is_absolute()){return Err("Profile directory must be absolute".into());}
-            let explicit_profile=profile.is_some();
-            let data = if let Some(path)=profile {path} else if cfg!(debug_assertions) {
-                std::env::var_os("NIOH3_TAURI_TEST_ROOT").map(std::path::PathBuf::from).unwrap_or(app.path().app_data_dir()?)
-            } else { app.path().app_data_dir()? };
+            let arguments: Vec<_> = std::env::args_os().collect();
+            let profile = arguments
+                .windows(2)
+                .find(|p| p[0] == "--user-data-dir")
+                .map(|p| std::path::PathBuf::from(&p[1]));
+            if profile.as_ref().is_some_and(|p| !p.is_absolute()) {
+                return Err("Profile directory must be absolute".into());
+            }
+            let explicit_profile = profile.is_some();
+            let data = if let Some(path) = profile {
+                path
+            } else if cfg!(debug_assertions) {
+                std::env::var_os("NIOH3_TAURI_TEST_ROOT")
+                    .map(std::path::PathBuf::from)
+                    .unwrap_or(app.path().app_data_dir()?)
+            } else {
+                app.path().app_data_dir()?
+            };
             std::fs::create_dir_all(&data)?;
             // Copy only small broker-owned files, never the Chromium profile.
             if !explicit_profile && std::env::var_os("NIOH3_TAURI_TEST_ROOT").is_none() {
                 if let Some(roaming) = std::env::var_os("APPDATA") {
                     let previous = std::path::PathBuf::from(roaming).join("nioh3-scroll-editor-v2");
                     for name in ["favorites.json", "v2-preferences.json"] {
-                        let source = previous.join(name); let target = data.join(name);
-                        if !target.exists() && std::fs::metadata(&source).map(|m| m.is_file() && m.len() <= 4_000_000).unwrap_or(false) {
+                        let source = previous.join(name);
+                        let target = data.join(name);
+                        if !target.exists()
+                            && std::fs::metadata(&source)
+                                .map(|m| m.is_file() && m.len() <= 4_000_000)
+                                .unwrap_or(false)
+                        {
                             std::fs::copy(source, target)?;
                         }
                     }
@@ -482,23 +502,43 @@ fn main() {
             // can then read the identity of the worker the *host* resolved
             // instead of inferring it from a separately spawned binary.
             log_resolved_workers(&root, &data, packaged);
-            if packaged && package::verify(&root).map_err(std::io::Error::other)?.version != env!("CARGO_PKG_VERSION") {return Err("PACKAGE_VERSION_MISMATCH".into());}
-            if let Some(executable) = std::env::var_os("NIOH3_ONEFILE_EXE") {
-                storage::log(&data, "onefile-runtime", &format!("executable={} runtime={} launcher_pid={}", std::path::Path::new(&executable).display(), root.display(), std::env::var("NIOH3_ONEFILE_PID").unwrap_or_default()));
+            if packaged
+                && package::verify(&root)
+                    .map_err(std::io::Error::other)?
+                    .version
+                    != env!("CARGO_PKG_VERSION")
+            {
+                return Err("PACKAGE_VERSION_MISMATCH".into());
             }
-            let updater=update::Updater::new(data.join("updates"));
-            let webview_data=data.join("webview");
-            app.manage(State { broker: Arc::new(Broker::new(root.clone(), data, packaged)), updater, packaged, update_ready:AtomicBool::new(!packaged), apply_update:AtomicBool::new(false), quitting: AtomicBool::new(false), closing: AtomicBool::new(false) });
-            let mut window = tauri::WebviewWindowBuilder::from_config(
-                app,
-                &app.config().app.windows[0],
-            )?
-            .data_directory(webview_data)
-            .on_navigation(trusted);
+            if let Some(executable) = std::env::var_os("NIOH3_ONEFILE_EXE") {
+                storage::log(
+                    &data,
+                    "onefile-runtime",
+                    &format!(
+                        "executable={} runtime={} launcher_pid={}",
+                        std::path::Path::new(&executable).display(),
+                        root.display(),
+                        std::env::var("NIOH3_ONEFILE_PID").unwrap_or_default()
+                    ),
+                );
+            }
+            let updater = update::Updater::new(data.join("updates"));
+            let webview_data = data.join("webview");
+            app.manage(State {
+                broker: Arc::new(Broker::new(root.clone(), data, packaged)),
+                updater,
+                packaged,
+                update_ready: AtomicBool::new(!packaged),
+                apply_update: AtomicBool::new(false),
+                quitting: AtomicBool::new(false),
+                closing: AtomicBool::new(false),
+            });
+            let mut window =
+                tauri::WebviewWindowBuilder::from_config(app, &app.config().app.windows[0])?
+                    .data_directory(webview_data)
+                    .on_navigation(trusted);
             if let Some(port) = test_debug_port() {
-                window = window.additional_browser_args(&format!(
-                    "--remote-debugging-port={port}"
-                ));
+                window = window.additional_browser_args(&format!("--remote-debugging-port={port}"));
             }
             window.build()?;
             Ok(())
@@ -506,9 +546,13 @@ fn main() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let state = window.state::<State>();
-                if state.quitting.load(Ordering::SeqCst) { return; }
+                if state.quitting.load(Ordering::SeqCst) {
+                    return;
+                }
                 api.prevent_close();
-                if state.closing.swap(true, Ordering::SeqCst) { return; }
+                if state.closing.swap(true, Ordering::SeqCst) {
+                    return;
+                }
                 let app = window.app_handle().clone();
                 let window = window.clone();
                 tauri::async_runtime::spawn(async move {
@@ -524,18 +568,35 @@ fn main() {
                             clean = state.broker.shutdown().await;
                         }
                         if !clean {
-                            storage::log(&state.broker.data, "shutdown", "workers still busy after the close grace period; exiting anyway");
+                            storage::log(
+                                &state.broker.data,
+                                "shutdown",
+                                "workers still busy after the close grace period; exiting anyway",
+                            );
                         }
                     }
                     if clean && state.apply_update.load(Ordering::SeqCst) {
-                        let target=std::env::current_exe().ok().and_then(|p|p.parent().map(std::path::Path::to_path_buf));
-                        let result=match target {Some(target)=>state.updater.launch(&target).await,None=>Err("UPDATE_TARGET_INVALID".into())};
-                        if let Err(error)=result {state.apply_update.store(false,Ordering::SeqCst);state.closing.store(false,Ordering::SeqCst);let _ = window.show();app.dialog().message(error).blocking_show();return;}
+                        let target = std::env::current_exe()
+                            .ok()
+                            .and_then(|p| p.parent().map(std::path::Path::to_path_buf));
+                        let result = match target {
+                            Some(target) => state.updater.launch(&target).await,
+                            None => Err("UPDATE_TARGET_INVALID".into()),
+                        };
+                        if let Err(error) = result {
+                            state.apply_update.store(false, Ordering::SeqCst);
+                            state.closing.store(false, Ordering::SeqCst);
+                            let _ = window.show();
+                            app.dialog().message(error).blocking_show();
+                            return;
+                        }
                     }
-                    state.quitting.store(true, Ordering::SeqCst); app.exit(0);
+                    state.quitting.store(true, Ordering::SeqCst);
+                    app.exit(0);
                 });
             }
         })
         .invoke_handler(tauri::generate_handler![desktop_request])
-        .run(tauri::generate_context!()).expect("Tauri application startup failed");
+        .run(tauri::generate_context!())
+        .expect("Tauri application startup failed");
 }

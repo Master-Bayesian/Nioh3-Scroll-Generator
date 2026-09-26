@@ -366,9 +366,7 @@ fn collect_declared_file(
     let (path, bytes) = read_declared_blob(root, record, label)?;
     let canonical_relative = path
         .strip_prefix(root)
-        .map_err(|_| {
-            format!("{label}: declared path escapes the resource root")
-        })?
+        .map_err(|_| format!("{label}: declared path escapes the resource root"))?
         .to_string_lossy()
         .replace('\\', "/");
     push_file(path, &bytes, versioned, out);
