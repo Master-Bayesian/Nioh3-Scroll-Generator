@@ -75,7 +75,7 @@ try {
     await new Promise(r=>setTimeout(r,200));
   }
   if(!p) throw Error('WebView2 debugging endpoint opened without a page target');
-  await p.getByText('后端已连接，请选择筛选条件。',{exact:true}).waitFor({timeout:45000});
+  await p.getByText('请选择筛选条件。',{exact:true}).waitFor({timeout:45000});
   await p.locator('.app-version').waitFor();
   assert.equal(await p.locator('.app-version').innerText(),`v${expectedVersion}`);
   assert.equal(await p.locator('.selected-body .selected-row').count(),0,'Fresh startup has no preselected effects');

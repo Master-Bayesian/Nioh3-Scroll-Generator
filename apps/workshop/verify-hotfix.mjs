@@ -60,7 +60,7 @@ try {
   const context = browser.contexts()[0];
   const page = context.pages()[0] || (await context.waitForEvent("page"));
   await page
-    .getByText("后端已连接，请选择筛选条件。", { exact: true })
+    .getByText("请选择筛选条件。", { exact: true })
     .waitFor({ timeout: 30000 });
 
   console.log("HOTFIX_ACCEPTANCE_STAGE japanese-favorite");

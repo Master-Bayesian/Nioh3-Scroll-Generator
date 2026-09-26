@@ -192,7 +192,7 @@ try {
   }
   assert(page, "WebView2 opened without a page target");
   await page
-    .getByText("后端已连接，请选择筛选条件。", { exact: true })
+    .getByText("请选择筛选条件。", { exact: true })
     .waitFor({ timeout: 45000 });
   assert.equal(await page.locator(".intro").count(), 0);
   assert.equal(

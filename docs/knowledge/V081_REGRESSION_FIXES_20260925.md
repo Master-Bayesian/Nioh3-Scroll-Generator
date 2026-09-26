@@ -209,11 +209,12 @@ still surface as an error code with the feedback path.
 
 ## Accelerator test isolation
 
+`search_backend::tests::policy_guard_concurrency_isolates_threads_and_finishes_strict_gpu`
 failed intermittently (locally and once in the hosted rust-crates job): its lock
-serialized only its own module, while tests in , ,
- and  drive the same process-global execution
+serialized only its own module, while tests in `query_compile`, `preimage`,
+`effect_batch` and `native_search` drive the same process-global execution
 policy and forced-CUDA-failure hook. All 32 tests that load the real
-accelerator now share .
+accelerator now share `crate::accelerator_test_lock`.
 
 ## PC v2.02 temporary-override evidence
 

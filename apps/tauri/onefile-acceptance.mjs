@@ -48,7 +48,7 @@ export async function connect(port, child) {
     await pause(200);
   }
   assert(page, 'WebView2 opened without a page target');
-  await page.getByText('后端已连接，请选择筛选条件。', {exact:true}).waitFor({timeout:45000});
+  await page.getByText('请选择筛选条件。', {exact:true}).waitFor({timeout:45000});
   const diagnostics = await page.evaluate(() => window.support.diagnostics());
   assert.equal(diagnostics.packageVerification.ok, true, JSON.stringify(diagnostics.packageVerification));
   let ready;

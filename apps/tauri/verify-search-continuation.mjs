@@ -121,7 +121,7 @@ async function launchTauri() {
 try {
   await launchTauri();
   await page
-    .getByText("后端已连接，请选择筛选条件。", { exact: true })
+    .getByText("请选择筛选条件。", { exact: true })
     .waitFor({ timeout: 60000 });
   report.steps.connected = true;
 

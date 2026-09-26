@@ -175,7 +175,7 @@ try {
   assert(target, 'WebView2 must expose the application page');
   session = { browser, page: target };
   const page = session.page;
-  await page.getByText('后端已连接，请选择筛选条件。', { exact: true }).waitFor({ timeout: 45000 });
+  await page.getByText('请选择筛选条件。', { exact: true }).waitFor({ timeout: 45000 });
   const diagnostics = await page.evaluate(() => window.support.diagnostics());
   if (process.env.NIOH3_TAURI_EXE && process.env.NIOH3_UI_SOURCE_BUILD !== '1')
     assert.equal(diagnostics.packageVerification?.ok, true);
