@@ -182,6 +182,48 @@ records (341 effects, levels 167–173) against the 2026-09-02 pool enumeration
   slot 0 is the item's innate effect from item row `+0x158`; the last slot
   is the set effect from row `+0x154`, or, on rarity-4 items without a set,
   a divine-blessing set effect (惠比寿/月读/毘沙门天的恩宠 …) that needs its own table.
-- Slot templates seen: normal drops `92 D1 80 D1 41 D1 3F`, hell conversion
-  `8F 8F D5 00 80 8F 50`; the rarity decides how many template slots are
-  filled.
+- The per-slot byte at slot `+0xF` (the earlier "category" byte, and the
+  "templates" `92 D1 80 D1 ...` / `8F 8F D5 ...`) is uninitialized stack: the entry
+  constructor +0x551314 never writes it and the values are fragments of
+  `0x7FF7D1...` pointers. It carries no meaning and must not be validated.
+
+## Native generate-and-build preview (live, 2026-09-26)
+
+The game's own item-grant routine +0x2188610 (loops a reward list; the chain the
+2026-09-21 Pro upstream response located) builds each item as:
+
+1. compact descriptor `C` (stack, ~0xCC bytes): `+0` u16 item id, `+4` u32
+   level, `+8` u32 plus, `+0xC` u8 rarity, `+0xD..+0x12` trait flags, `+0x13`
+   u8 *no-serial* flag, `+0x14` u16 hell skill, `+0x18`/`+0x1C` bytes,
+   `+0x20` u32 flag/seed word, `+0x24` seven 0x18 effect entries built by
+   +0x551314;
+2. `init_generation_context(ctx, id, rarity, seed_word)` (+0x5513C8), where
+   `seed_word` is the record's `+0x20` u32 (low u16 flag `1`, high u16 seed);
+   the drop path then stores drop-source fields at `ctx+8` (qword),
+   `ctx+0x10` and `ctx+0x18` (observed `{1|5|0, 0x2710|0x7D0}`,
+   `0x07D0 | area<<16` with area 0xA6 normal map / 0x116 hell scroll, `0`);
+3. `generate_effects(&C+0x20, &C+0x24, ctx, 0)` (+0x557F34);
+4. `build_record(record, &C)` (+0x5515FC) fills the 0xF0 record, applies level
+   scaling, sets the star flag (`slot+0xE` bit 0x04 from effect row `+0x20`
+   bit 0x08) and, only when `C+0x13 == 0`, takes a serial from
+   `[[Nioh3.exe+0x4751530]]+8` into record `+0x28`;
+5. `insert(manager, out, record, &slot, 0)` (+0x54D324), the same insertion
+   the v2.02 scroll live-add candidate uses.
+
+A remote-thread preview of steps 1–4 into a private buffer
+(`deliverables/v082-ce-research/equip_preview.lua`, `run_preview.py`,
+`preview-reproduction.json`) reproduced five captured natural drops whose
+drop context had been traced (忍者手斧, 念珠丸恒次, 扇子 with 惠比寿的恩宠,
+足轻中铠 膝甲, 勾玉): every effect id, value, star/set flag and roll is
+byte-identical. The only differing bytes are insertion-owned (`+0x18` flags,
+`+0x1C` key, `+0x28` serial), the meaningless slot `+0xF` bytes and `+0xE8/+0xEC`.
+The three drops without a traced context did not match, which shows the
+drop-source fields take part in the effect draw. The first previews ran with
+`C+0x13 = 0` and advanced the live serial counter by 27 (0x2677C1 → 0x2677DC); with
+`C+0x13 = 1` the record keeps serial `UINT64_MAX` and the counter is untouched.
+No inventory, save or other global state was written.
+
+Open for product use: game-thread dispatch of step 5 (reuse the scroll
+live-add scheduler hook), the meaning of the drop-source fields (the reward
+routine leaves them zero), and hell conversion (+0x2287870 needs its drop
+context `+0x1C/+0x23/+0x25/+0xDB`).
