@@ -1,5 +1,20 @@
 import catalog from "./catalog.json";
+import { hasTemplateSlot } from "./game-text";
 export const data = catalog;
+
+// The editor lists every native effect by its raw native string, and some of
+// those are sentence templates ("...赋予^09~BUFF~{}^09~~") whose argument the
+// game fills from another row. Where the search catalog carries the curated
+// name for the same effect (the reference's player-ready overlay), use it.
+{
+  const curated = new Map<string, string>();
+  for (const context of Object.values(data.contexts))
+    for (const effect of [...context.effects, ...context.graces])
+      if (!hasTemplateSlot(effect.name)) curated.set(effect.id, effect.name);
+  for (const effect of data.editorEffects)
+    if (hasTemplateSlot(effect.name) && curated.has(effect.id))
+      effect.name = curated.get(effect.id)!;
+}
 export function toRecordTransferCount(value: number): number {
   if (!Number.isInteger(value) || value < -1 || value > 0xffffffff)
     throw new RangeError("Invalid transfer count");

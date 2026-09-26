@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import resources from "./ui-locales.json";
 import { publicError } from "./public-errors";
-import { plainGameText } from "./game-text";
+import { fillTemplateSlots, plainGameText as plainText } from "./game-text";
 export type UiLocale = "zh-CN" | "en-US" | "ja-JP";
 let locale: UiLocale =
   typeof localStorage !== "undefined" &&
@@ -23,6 +23,7 @@ export function setUiLocale(value: UiLocale) {
   document.documentElement.lang = value;
   listeners.forEach((fn) => fn());
 }
+const plainGameText = (text: string) => fillTemplateSlots(plainText(text), locale);
 const maps = new Map<string, Record<string, string>>(),
   patterns = new Map<string, RegExp>();
 export function localize(text: string): string {
