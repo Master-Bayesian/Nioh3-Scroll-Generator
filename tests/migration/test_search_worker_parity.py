@@ -3324,7 +3324,9 @@ class SearchWorkerParityTests(unittest.TestCase):
                 ),
                 label="rust cached continuing",
             )
-            time.sleep(0.25)
+            # Cancel at once: this query meets its 25 results within the first few
+            # hundred trials, so the whole job takes about 0.1 s and any fixed wait
+            # races its completion.
             inflight = rust.result("job.snapshot", {"job_id": started["job_id"]})
             self.assertNotIn(
                 inflight["state"],

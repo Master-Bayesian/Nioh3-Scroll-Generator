@@ -57,7 +57,7 @@ function infeasibleConditions(detail: string): string {
  * as a hint, never as a failure to report.
  */
 export function isUserCorrectable(message: string): boolean {
-  return /no solution in the native generation structure|原生生成结构中无解|FAVORITES_CAPACITY_REACHED|CART_CAPACITY_REACHED|Possessed is available only/i.test(
+  return /no solution in the native generation structure|原生生成结构中无解|no legal native path|compiled no plan family|has no draw-1 preimage|at most 32 scratch keys|FAVORITES_CAPACITY_REACHED|CART_CAPACITY_REACHED|Possessed is available only/i.test(
     message,
   );
 }
@@ -70,6 +70,92 @@ export function publicError(message: string): string {
   const cases: [RegExp, string][] = [
     // The Rust save and runtime layers report in English; these restore the
     // explanations the Python backend gave players for the same refusals.
+    [
+      /no legal native path|compiled no plan family/i,
+      "所选词条在游戏里无法组成一张合法的绘卷（无论哪个作为主词条，生成到一半都会冲突或无词条可抽）。请调整词条后再搜索。",
+    ],
+    [
+      /has no draw-1 preimage/i,
+      "所选恩宠不会出现在这种绘卷上。请换一个恩宠或稀有度后再搜索。",
+    ],
+    [
+      /at most 32 scratch keys/i,
+      "选择的特殊规则太多了（最多 32 条）。请减少特殊规则后再搜索。",
+    ],
+    [
+      /SEARCH_BACKEND_UNAVAILABLE|accelerator refused to run|accelerator is (?:unavailable|missing)|CPU fallback is disabled/i,
+      "没有可用的显卡搜索加速，已停止搜索。请更新显卡驱动后重试；也可以在“设置”里打开“允许使用 CPU 搜索”（会慢很多）。",
+    ],
+    [
+      /HOOK_MODIFIED|was changed by another program/i,
+      "游戏里的同一处代码已被其他程序（例如 Cheat Engine 脚本）修改，本工具不会覆盖它。请先关闭相关脚本或重启游戏再试。",
+    ],
+    [
+      /HOOK_RESTORE_UNVERIFIED|HOOK_NOT_RESTORED|could not be read or restored|temporary override at 0x[0-9a-f]+ was not removed/i,
+      "无法确认临时修改已经撤销。为安全起见，请直接退出游戏；重启游戏后临时修改会自然消失。",
+    ],
+    [/SESSION_NOT_OPEN|override session is not open/i, "临时修改已经停止。"],
+    [
+      /has not initialized its player identity yet/i,
+      "游戏还没有加载好角色。请进入角色存档、能自由行动后再试。",
+    ],
+    [
+      /COUNT_INSTANCE_UNAVAILABLE|is no longer in the current inventory/i,
+      "这张绘卷已不在当前背包里（可能已被使用或丢弃）。请重新读取后再试。",
+    ],
+    [
+      /COUNT_SOURCE_CHANGED|COUNT_INSTANCE_CHANGED/,
+      "游戏里的绘卷状态已经变化。请重新读取后再试。",
+    ],
+    [
+      /manifest does not declare the v2 schema/i,
+      "这是旧版本工具创建的备份，缺少身份清单，不能自动恢复。当前存档没有被修改。",
+    ],
+    [
+      /manifest save-layout profile differs from this build/i,
+      "这个备份的存档结构版本与当前程序不一致，不能恢复。当前存档没有被修改。",
+    ],
+    [
+      /restore bundle is missing role|restore bundle must declare exactly three roles|is missing or is not a regular file/i,
+      "备份文件不完整（缺少文件），不能恢复。当前存档没有被修改。",
+    ],
+    [
+      /has an invalid SHA-256|manifest operation id is not 32 lowercase|is declared more than once|unknown restore role/i,
+      "备份清单格式无效，不能恢复。当前存档没有被修改。",
+    ],
+    [
+      /selected restore bundle changed after preparation/i,
+      "所选备份在准备恢复后又发生了变化，已停止恢复。请重新选择备份。",
+    ],
+    [
+      /escapes the managed backups root|is a link to another location|backup path .* is unsafe or aliased/i,
+      "拒绝操作不在本工具备份目录里的备份。",
+    ],
+    [/recycle-bin move was cancelled/i, "已取消删除备份。"],
+    [
+      /Windows refused the recycle-bin move/i,
+      "Windows 拒绝把备份移入回收站，备份没有被删除。",
+    ],
+    [
+      /WORKER_TIMEOUT|WORKER_PIPE_CLOSED|OFFLINE_WORKER_CLOSED|RUST_(?:PROTECTED_)?WORKER_MISSING/,
+      "后台组件没有响应或意外退出。如果刚才在写入，请先核对结果再重试；请重启本工具，反复出现请导出反馈文件发给开发者。",
+    ],
+    [
+      /UPDATE_(?:HASH_MISMATCH|SIGNATURE_INVALID|ARCHIVE_INVALID|MANIFEST_INVALID|ASSET_INVALID|ASSET_ORIGIN_INVALID|KEY_INVALID|TOO_LARGE|RESPONSE_TOO_LARGE|TOO_MANY_FILES)/,
+      "更新文件没有通过校验，已停止更新，当前版本不受影响。请稍后重试，或到 GitHub 手动下载新版本。",
+    ],
+    [
+      /GAME_EXECUTABLE_NOT_FOUND/,
+      "没有找到《仁王3》的游戏程序，无法确认游戏版本。请确认游戏已安装，然后重启本工具。",
+    ],
+    [
+      /GAME_EXECUTABLE_AMBIGUOUS/,
+      "找到了多个《仁王3》游戏程序，无法确定使用哪一个。请只保留一个安装后重启本工具。",
+    ],
+    [
+      /GAME_EXECUTABLE_UNREADABLE|GAME_VERSION_(?:UNREADABLE|MALFORMED)|FILE_VERSION_UNREADABLE/,
+      "无法读取《仁王3》游戏程序的版本信息。请确认游戏文件完整（可在 Steam 里验证游戏文件），然后重启本工具。",
+    ],
     [
       /no contiguous run of \d+ free scroll slots|All 400 scroll slots/i,
       "存档里没有足够的空绘卷栏位（最多 400 张），本次没有写入。请先在游戏里处理掉一些绘卷再添加。",
@@ -171,7 +257,7 @@ export function publicError(message: string): string {
       "游戏生成的绘卷与预期不一致，这次没有添加，背包和存档都没有改动，可以直接重试。若反复出现，请导出反馈文件发给开发者。",
     ],
     [
-      /QueryFullProcessImageNameW|PROCESS_INSTANCE_CHANGED|replaced by a different process instance/i,
+      /QueryFullProcessImageNameW|PROCESS_INSTANCE_CHANGED|PROCESS_GONE|replaced by a different process instance|is no longer running/i,
       "游戏已退出或重新启动。请进入角色存档后重新核对添加。",
     ],
     [
@@ -184,7 +270,7 @@ export function publicError(message: string): string {
     ],
     [/BUSY|occupied/i, "另一项操作仍在进行，请等待完成。"],
     [
-      /not a verified supported version|requires verified|requires accepted|profile changed/i,
+      /not a verified supported version|requires verified|requires accepted|profile changed|UNSUPPORTED_GAME_VERSION|GAME_EXECUTABLE_UNSUPPORTED|PROFILE_NOT_APPROVED|PROFILE_INTEGRITY|PROFILE_UNRESOLVED|SIGNATURE_MISMATCH|unsupported Nioh 3 executable version/i,
       "当前游戏版本尚未支持，请检查更新。",
     ],
     [

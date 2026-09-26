@@ -2647,6 +2647,98 @@
     "游戏还没有完全启动，请进入角色存档后再试。": [
       "The game has not finished starting. Load your character and try again.",
       "ゲームの起動がまだ完了していません。キャラクターをロードしてから再試行してください。"
+    ],
+    "所选词条在游戏里无法组成一张合法的绘卷（无论哪个作为主词条，生成到一半都会冲突或无词条可抽）。请调整词条后再搜索。": [
+      "The selected effects cannot form a legal scroll in the game (whichever one is the primary, generation runs into a conflict or an empty pool). Adjust the effects and search again.",
+      "選択した効果ではゲーム内で正しい絵巻を構成できません（どれを主効果にしても、生成の途中で競合するか抽選できる効果がなくなります）。効果を調整してから検索してください。"
+    ],
+    "所选恩宠不会出现在这种绘卷上。请换一个恩宠或稀有度后再搜索。": [
+      "The selected Grace never appears on this kind of scroll. Pick another Grace or rarity and search again.",
+      "選択した恩寵はこの種類の絵巻には出現しません。別の恩寵またはレア度を選んでから検索してください。"
+    ],
+    "选择的特殊规则太多了（最多 32 条）。请减少特殊规则后再搜索。": [
+      "Too many special rules are selected (32 at most). Select fewer and search again.",
+      "特殊ルールの選択が多すぎます（最大 32 件）。減らしてから検索してください。"
+    ],
+    "没有可用的显卡搜索加速，已停止搜索。请更新显卡驱动后重试；也可以在“设置”里打开“允许使用 CPU 搜索”（会慢很多）。": [
+      "No GPU search acceleration is available, so the search stopped. Update your graphics driver and retry, or turn on \"Allow CPU search\" in Settings (much slower).",
+      "GPU による検索高速化が利用できないため、検索を中止しました。グラフィックドライバーを更新して再試行するか、「設定」で「CPU 検索を許可」をオンにしてください（大幅に遅くなります）。"
+    ],
+    "游戏里的同一处代码已被其他程序（例如 Cheat Engine 脚本）修改，本工具不会覆盖它。请先关闭相关脚本或重启游戏再试。": [
+      "Another program (such as a Cheat Engine script) has changed the same game code, and this tool will not overwrite it. Disable that script or restart the game, then try again.",
+      "別のプログラム（Cheat Engine のスクリプトなど）がゲームの同じ箇所を変更しているため、このツールは上書きしません。そのスクリプトを無効にするかゲームを再起動してから再試行してください。"
+    ],
+    "无法确认临时修改已经撤销。为安全起见，请直接退出游戏；重启游戏后临时修改会自然消失。": [
+      "The temporary change could not be confirmed as removed. To be safe, quit the game; it disappears when the game restarts.",
+      "一時的な変更が解除されたことを確認できません。安全のためゲームを終了してください。ゲームを再起動すれば変更は消えます。"
+    ],
+    "临时修改已经停止。": [
+      "The temporary change has already stopped.",
+      "一時的な変更はすでに停止しています。"
+    ],
+    "游戏还没有加载好角色。请进入角色存档、能自由行动后再试。": [
+      "The game has not loaded your character yet. Load your character and try again once you can move freely.",
+      "ゲームがまだキャラクターを読み込んでいません。キャラクターをロードし、自由に動けるようになってから再試行してください。"
+    ],
+    "这张绘卷已不在当前背包里（可能已被使用或丢弃）。请重新读取后再试。": [
+      "This scroll is no longer in the current inventory (it may have been used or discarded). Reload and try again.",
+      "この絵巻は現在の所持品にありません（使用または破棄された可能性があります）。再読み込みしてから再試行してください。"
+    ],
+    "游戏里的绘卷状态已经变化。请重新读取后再试。": [
+      "The scroll's state in the game has changed. Reload and try again.",
+      "ゲーム内の絵巻の状態が変わりました。再読み込みしてから再試行してください。"
+    ],
+    "这是旧版本工具创建的备份，缺少身份清单，不能自动恢复。当前存档没有被修改。": [
+      "This backup was made by an older version and has no identity manifest, so it cannot be restored automatically. The current save was not changed.",
+      "このバックアップは旧バージョンで作成され、識別用のマニフェストがないため自動復元できません。現在のセーブは変更されていません。"
+    ],
+    "这个备份的存档结构版本与当前程序不一致，不能恢复。当前存档没有被修改。": [
+      "This backup's save layout version differs from this program, so it cannot be restored. The current save was not changed.",
+      "このバックアップのセーブ構造のバージョンが本プログラムと一致しないため、復元できません。現在のセーブは変更されていません。"
+    ],
+    "备份文件不完整（缺少文件），不能恢复。当前存档没有被修改。": [
+      "The backup is incomplete (files are missing), so it cannot be restored. The current save was not changed.",
+      "バックアップが不完全（ファイルが不足）なため、復元できません。現在のセーブは変更されていません。"
+    ],
+    "备份清单格式无效，不能恢复。当前存档没有被修改。": [
+      "The backup manifest is invalid, so it cannot be restored. The current save was not changed.",
+      "バックアップのマニフェストが無効なため、復元できません。現在のセーブは変更されていません。"
+    ],
+    "所选备份在准备恢复后又发生了变化，已停止恢复。请重新选择备份。": [
+      "The selected backup changed after the restore was prepared, so the restore stopped. Select the backup again.",
+      "復元の準備後に選択したバックアップが変更されたため、復元を中止しました。バックアップを選び直してください。"
+    ],
+    "拒绝操作不在本工具备份目录里的备份。": [
+      "Refused: that backup is not inside this tool's backup folder.",
+      "このツールのバックアップフォルダーにないバックアップは操作できません。"
+    ],
+    "已取消删除备份。": [
+      "Backup deletion was cancelled.",
+      "バックアップの削除をキャンセルしました。"
+    ],
+    "Windows 拒绝把备份移入回收站，备份没有被删除。": [
+      "Windows refused to move the backup to the Recycle Bin, so it was not deleted.",
+      "Windows がバックアップのごみ箱への移動を拒否したため、削除されていません。"
+    ],
+    "后台组件没有响应或意外退出。如果刚才在写入，请先核对结果再重试；请重启本工具，反复出现请导出反馈文件发给开发者。": [
+      "A background component stopped responding or exited unexpectedly. If you were writing, check the result before retrying. Restart this tool; if it keeps happening, export a feedback file and send it to the developer.",
+      "バックグラウンドの処理が応答しないか、予期せず終了しました。書き込み中だった場合は結果を確認してから再試行してください。ツールを再起動し、繰り返し発生する場合はフィードバックファイルを書き出して開発者に送ってください。"
+    ],
+    "更新文件没有通过校验，已停止更新，当前版本不受影响。请稍后重试，或到 GitHub 手动下载新版本。": [
+      "The update failed verification, so it stopped; the current version is unaffected. Retry later or download the new version from GitHub.",
+      "更新ファイルの検証に失敗したため、更新を中止しました。現在のバージョンには影響ありません。後で再試行するか、GitHub から新しいバージョンをダウンロードしてください。"
+    ],
+    "没有找到《仁王3》的游戏程序，无法确认游戏版本。请确认游戏已安装，然后重启本工具。": [
+      "Nioh 3's game program was not found, so the game version cannot be confirmed. Make sure the game is installed, then restart this tool.",
+      "『仁王3』のゲームプログラムが見つからないため、ゲームのバージョンを確認できません。ゲームがインストールされていることを確認し、ツールを再起動してください。"
+    ],
+    "找到了多个《仁王3》游戏程序，无法确定使用哪一个。请只保留一个安装后重启本工具。": [
+      "More than one Nioh 3 game program was found, so the tool cannot tell which to use. Keep one installation and restart this tool.",
+      "『仁王3』のゲームプログラムが複数見つかったため、どれを使うか判断できません。インストールを 1 つだけにしてからツールを再起動してください。"
+    ],
+    "无法读取《仁王3》游戏程序的版本信息。请确认游戏文件完整（可在 Steam 里验证游戏文件），然后重启本工具。": [
+      "The version of Nioh 3's game program cannot be read. Make sure the game files are intact (Steam can verify them), then restart this tool.",
+      "『仁王3』のゲームプログラムのバージョン情報を読み取れません。ゲームファイルが正常か確認し（Steam で整合性を確認できます）、ツールを再起動してください。"
     ]
   },
   "game": {

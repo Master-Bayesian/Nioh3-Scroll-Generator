@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { errorText, isFailureText, publicError } from "../../workshop/public-errors";
+import { errorText, isFailureText, isUserCorrectable, publicError } from "../../workshop/public-errors";
 
 test("errorText never returns an empty status for a rejection", () => {
   assert.equal(errorText(new Error("推荐等级无法转换。")), "推荐等级无法转换。");
@@ -104,4 +104,31 @@ test("save and runtime refusals from the Rust layers read like the Python backen
   assert.match(publicError('OPERATION_FAILED: exactly one Nioh3.exe must be running, but 2 were found'), /多个《仁王3》/);
   assert.match(publicError('OPERATION_FAILED: OpenProcess(1234) failed with error 5'), /管理员/);
   assert.match(publicError('OPERATION_FAILED: no authentic scroll template is available for playthrough 3'), /模板/);
+});
+test("rarer Rust refusals keep the explanations the Python backend gave", () => {
+  const cases: [string, RegExp][] = [
+    ["INVALID_REQUEST: the one-wildcard rarity-5 composition has no legal native path: x", /无法组成一张合法的绘卷/],
+    ["INVALID_REQUEST: rarity-5 Grace 0x6553 has no draw-1 preimage: x", /恩宠不会出现/],
+    ["SEARCH_BACKEND_UNAVAILABLE: natural: the native seed accelerator refused to run (CudaUnavailable); CPU fallback is disabled", /允许使用 CPU 搜索/],
+    ["HOOK_MODIFIED: the hook at 0x1234 was changed by another program; it will not be overwritten", /Cheat Engine/],
+    ["HOOK_RESTORE_UNVERIFIED: the temporary override could not be read or restored and the process has not exited (x)", /退出游戏/],
+    ["LIVE_ADD_REJECTED: The game has not initialized its player identity yet; try again shortly", /还没有加载好角色/],
+    ["COUNT_INSTANCE_UNAVAILABLE: Scroll instance 12 is no longer in the current inventory", /不在当前背包/],
+    ["PROCESS_GONE: process 1234 is no longer running", /游戏已退出/],
+    ["PROFILE_NOT_APPROVED: PC v2.02 runtime profile is not approved for product use", /尚未支持/],
+    ["OPERATION_FAILED: the stored backup manifest failed validation: the manifest does not declare the v2 schema", /旧版本工具创建的备份/],
+    ["OPERATION_FAILED: the restore bundle is missing role main", /备份文件不完整/],
+    ["OPERATION_FAILED: the recycle-bin move was cancelled", /已取消删除备份/],
+    ["WORKER_TIMEOUT: outcome unknown; do not replay writes", /先核对结果/],
+    ["UPDATE_HASH_MISMATCH: x", /没有通过校验/],
+    ["GAME_EXECUTABLE_NOT_FOUND: no candidate", /没有找到《仁王3》的游戏程序/],
+  ];
+  for (const [raw, expected] of cases) {
+    const text = publicError(raw);
+    assert.match(text, expected, raw);
+    assert.doesNotMatch(text, /错误代码/, raw);
+  }
+  // Refusals the player fixes by changing the selection are hints, not failures.
+  assert.ok(isUserCorrectable("INVALID_REQUEST: the complete rarity-5 composition has no legal native path: x"));
+  assert.ok(isUserCorrectable("INVALID_REQUEST: rarity-5 Grace 0x6553 has no draw-1 preimage: x"));
 });
