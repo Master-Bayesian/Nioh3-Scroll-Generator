@@ -187,21 +187,26 @@ try {
     catch(error) { return String(error); }
   });
   assert.match(rejectedRequest,/INVALID_REQUEST: save\.inventory/);
-  let supportClipboard='';
-  const clipboardDeadline=Date.now()+15000;
+  // A failure is logged with its context but never replaces the player's
+  // clipboard; the feedback file carries the same diagnostics on request.
+  let failureLog='';
+  const logDeadline=Date.now()+15000;
   do {
-    supportClipboard=readClipboardText();
-    if(supportClipboard.includes('INVALID_REQUEST: save.inventory'))break;
+    failureLog=(await Promise.all((await readdir(join(root,'profile/logs'))).map(name=>readFile(join(root,'profile/logs',name),'utf8').catch(()=>'')))).join('\n');
+    if(/\[automatic-failure\] operations:execute/.test(failureLog))break;
     await new Promise(resolve=>setTimeout(resolve,200));
-  }while(Date.now()<clipboardDeadline);
-  assert.notEqual(supportClipboard,clipboardSentinel,'The failure must automatically replace the existing clipboard');
-  assert.match(supportClipboard,/\[automatic-failure\] operations:execute/);
-  assert.match(supportClipboard,/\[worker-error\].*role=save method=save\.inventory/);
-  assert.match(supportClipboard,/INVALID_REQUEST: save\.inventory/);
-  assert.ok(supportClipboard.includes('"version": "'+expectedVersion+'"'));
-  assert.match(supportClipboard,/"workers":/);
+  }while(Date.now()<logDeadline);
+  assert.match(failureLog,/\[automatic-failure\] operations:execute/);
+  assert.equal(readClipboardText(),clipboardSentinel,'A failure must not replace the player\'s clipboard');
+  const feedback=await p.evaluate(()=>window.review.exportFeedback());
+  const feedbackText=await readFile(feedback.path,'utf8');
+  assert.match(feedbackText,/\[automatic-failure\] operations:execute/);
+  assert.match(feedbackText,/\[worker-error\].*role=save method=save\.inventory/);
+  assert.match(feedbackText,/INVALID_REQUEST: save\.inventory/);
+  assert.ok(feedbackText.includes('"version": "'+expectedVersion+'"'));
+  assert.match(feedbackText,/"workers":/);
   assert.deepEqual(await readFile(fixture.path),deletedSave,'The rejected read request must not change the save');
-  await writeFile(join(output,'verification.json'),JSON.stringify({webview2:true,pythonHandshake:true,realSeed:76634363,favorites:true,isolatedInventory:true,privateMethodRefused:true,backupRestore:{confirmationGate:true,prepareReadOnly:true,exactBytes:true,automaticCheckpoint:true,committedJournal:true,inventoryReadback:true,scope:'Synthetic save only; no running-game restoration acceptance'},permanentEdit:{titleScreenConfirmation:true,prepareReadOnly:true,automaticBackup:true,scope:'Synthetic save only; no running-game editing acceptance'},scrollDelete:{titleScreenConfirmation:true,prepareReadOnly:true,automaticBackup:true,emptyInventoryReadback:true,scope:'Synthetic save only; no running-game deletion acceptance'},automaticLogClipboard:{overwritesExisting:true,workerFailureContext:true,diagnosticVersion:true,readOnlyFailure:true},gameWrites:0},null,2));
+  await writeFile(join(output,'verification.json'),JSON.stringify({webview2:true,pythonHandshake:true,realSeed:76634363,favorites:true,isolatedInventory:true,privateMethodRefused:true,backupRestore:{confirmationGate:true,prepareReadOnly:true,exactBytes:true,automaticCheckpoint:true,committedJournal:true,inventoryReadback:true,scope:'Synthetic save only; no running-game restoration acceptance'},permanentEdit:{titleScreenConfirmation:true,prepareReadOnly:true,automaticBackup:true,scope:'Synthetic save only; no running-game editing acceptance'},scrollDelete:{titleScreenConfirmation:true,prepareReadOnly:true,automaticBackup:true,emptyInventoryReadback:true,scope:'Synthetic save only; no running-game deletion acceptance'},failureFeedback:{clipboardPreserved:true,loggedFailure:true,feedbackFile:true,workerFailureContext:true,diagnosticVersion:true,readOnlyFailure:true},gameWrites:0},null,2));
   await p.evaluate(()=>window.review.windowAction('close'));
   console.log('TAURI_WEBVIEW2_SEARCH_FAVORITES_INVENTORY_RESTORE_OK');
 } catch(error) {
