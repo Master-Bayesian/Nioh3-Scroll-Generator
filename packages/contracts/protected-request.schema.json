@@ -3387,6 +3387,14 @@
                           ]
                         },
                         "maxItems": 7
+                      },
+                      "hell": {
+                        "type": "boolean"
+                      },
+                      "hell_skill": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65535
                       }
                     }
                   }
@@ -3723,6 +3731,14 @@
                           ]
                         },
                         "maxItems": 7
+                      },
+                      "hell": {
+                        "type": "boolean"
+                      },
+                      "hell_skill": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65535
                       }
                     }
                   }

@@ -3739,6 +3739,50 @@
     "自动发动（削气符）": [
       "Auto Trigger (Item 0x3011)",
       "自動発動（アイテム 0x3011）"
+    ],
+    "页码": [
+      "Page",
+      "ページ"
+    ],
+    "页": [
+      "",
+      "ページ"
+    ],
+    "地狱武器": [
+      "Hell weapon",
+      "地獄武器"
+    ],
+    "地狱武技": [
+      "Hell skill",
+      "地獄武技"
+    ],
+    "其他武技": [
+      "Other skill",
+      "その他の武技"
+    ],
+    "地狱武器：": [
+      "Hell weapon: ",
+      "地獄武器："
+    ],
+    "地狱武技：": [
+      "Hell skill: ",
+      "地獄武技："
+    ],
+    "这件装备不会自然成为地狱武器": [
+      "This equipment never becomes a hell weapon naturally",
+      "この装備は自然には地獄武器になりません"
+    ],
+    "这个地狱武技不会出现在这类武器上": [
+      "This hell skill does not occur on this weapon type",
+      "この地獄武技はこの武器種には出現しません"
+    ],
+    "切换后第一个位置变为地狱词条，请在下方选择。": [
+      "The first slot becomes the hell effect; choose it below.",
+      "最初の枠が地獄効果になります。下で選択してください。"
+    ],
+    "这件装备不会自然成为地狱武器，只能在魔改模式下切换。": [
+      "This equipment never becomes a hell weapon naturally; switch it only in modded mode.",
+      "この装備は自然には地獄武器にならないため、改造モードでのみ切り替えられます。"
     ]
   },
   "game": {

@@ -1110,3 +1110,18 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-effects th{white-space:nowrap}
 /* Card rows have a fixed height; a long rule name stays on one line instead of spilling over the row above. */
 .scroll .scroll-rule>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* One-screen character page: the list area takes the remaining height and is paged to fit it. */
+@media (min-width:1101px){
+.equipment-page.character-page{display:flex;flex-direction:column;overflow:hidden}
+.character-page>.character-body{flex:1;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
+.character-list{display:flex;flex-direction:column;min-height:0}
+.character-list>.character-filters,.character-list>.character-tabs,.character-list>.character-pager,.character-list>.character-names{flex-shrink:0}
+.character-table-wrap{flex:1;min-height:0;overflow:auto}
+.character-side{position:static;max-height:none;height:100%;overflow:auto}
+}
+.character-pager input{width:52px;margin:0 6px;text-align:center;font-variant-numeric:tabular-nums}
+.character-pager{margin:6px 0}
+.character-hell-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:6px 0 8px}
+.character-toggle{display:flex;align-items:center;gap:6px;font-weight:600;color:#7a1f1f}
+.character-toggle>input{width:auto;margin:0}
+.character-hell-row>select{width:auto}

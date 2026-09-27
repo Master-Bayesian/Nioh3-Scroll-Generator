@@ -1847,6 +1847,8 @@ pub(crate) fn equipment_json(
         "inventory_key": fields.inventory_key,
         "seed": fields.seed,
         "rarity": fields.rarity,
+        "hell": fields.hell,
+        "hell_skill": fields.hell_skill,
         "type_class": type_class,
         "effects": effects,
     })

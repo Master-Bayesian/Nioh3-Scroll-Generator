@@ -30,13 +30,21 @@ pub const EQUIPMENT_RECORD_BYTES: usize = 0xF0;
 
 /// One item record (consumables, materials, books, key items).
 pub const ITEM_RECORD_BYTES: usize = 0xE8;
-/// Every record array is followed by a u64 count before the next array.
+/// Every record array is followed by a u64 that equals its capacity (observed
+/// live: 2500 after the equipment, 1500 after held items, 4000 after the
+/// storehouse equipment, 400 after stored items).
 const ARRAY_COUNT_BYTES: u64 = 8;
+/// Storehouse equipment between the held and the stored items (0xE8 records).
+const STOREHOUSE_EQUIPMENT_SLOTS: usize = 4000;
 /// Item flags: a u32 count at `+4`, or a record always counted as one.
 const ITEM_COUNT_FLAGS: u32 = 0x20_0000 | 0x80_0000;
 
-/// The two item arrays that follow the owned equipment inside the player
-/// object, laid out as in the save (`nioh3_save::character::ItemContainer`).
+/// The held and stored item arrays inside the player object. Live order:
+/// equipment, held items, storehouse equipment (4000), stored items; the save
+/// omits the storehouse equipment between them, so the live storage offset
+/// cannot be taken from the save layout (it pointed at storehouse equipment
+/// and the capacity check refused it, 2026-09-27). Records are identical to
+/// the save's (`nioh3_save::character::ItemContainer`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LiveItemContainer {
     /// 持有.
@@ -76,8 +84,21 @@ impl LiveItemContainer {
         match self {
             Self::Held => held,
             Self::Storage => {
-                held + (Self::Held.slots() * ITEM_RECORD_BYTES) as u64 + ARRAY_COUNT_BYTES
+                let storehouse_equipment =
+                    held + (Self::Held.slots() * ITEM_RECORD_BYTES) as u64 + ARRAY_COUNT_BYTES;
+                storehouse_equipment
+                    + (STOREHOUSE_EQUIPMENT_SLOTS * ITEM_RECORD_BYTES) as u64
+                    + ARRAY_COUNT_BYTES
             }
+        }
+    }
+
+    /// The u64 in front of the array and the value it must hold: the capacity
+    /// of the array before it.
+    const fn preceding_capacity(self) -> u64 {
+        match self {
+            Self::Held => EQUIPMENT_SLOTS as u64,
+            Self::Storage => STOREHOUSE_EQUIPMENT_SLOTS as u64,
         }
     }
 
@@ -202,15 +223,18 @@ fn read_item_array(
     let array = memory
         .read(start, container.bytes())
         .map_err(|error| error.to_string())?;
-    let count = memory
-        .read(start + container.bytes() as u64, 8)
-        .map_err(|error| error.to_string())
-        .and_then(|bytes| u64_at(&bytes).map_err(|error| error.to_string()))?;
-    if count > container.slots() as u64 {
+    let word = |address: u64| {
+        memory
+            .read(address, 8)
+            .map_err(|error| error.to_string())
+            .and_then(|bytes| u64_at(&bytes).map_err(|error| error.to_string()))
+    };
+    let before = word(start - ARRAY_COUNT_BYTES)?;
+    let after = word(start + container.bytes() as u64)?;
+    if before != container.preceding_capacity() || after != container.slots() as u64 {
         return Err(format!(
-            "the {} item array count {count} exceeds its {} slots",
-            container.label(),
-            container.slots()
+            "the {} item array is not framed by the expected capacities ({before}, {after})",
+            container.label()
         ));
     }
     for record in array.chunks_exact(ITEM_RECORD_BYTES) {
@@ -559,6 +583,15 @@ mod tests {
             fake.put(PLAYER + 0x18, &19_072_714u64.to_le_bytes());
             let record = PLAYER + EQUIPMENT_OFFSET + 5 * EQUIPMENT_RECORD_BYTES as u64;
             fake.put(record, &0x8D5Bu16.to_le_bytes());
+            // The capacity words that frame each live array.
+            for container in LiveItemContainer::ALL {
+                let start = PLAYER + container.offset();
+                fake.put(start - 8, &container.preceding_capacity().to_le_bytes());
+                fake.put(
+                    start + container.bytes() as u64,
+                    &(container.slots() as u64).to_le_bytes(),
+                );
+            }
             fake
         }
 
@@ -718,6 +751,14 @@ mod tests {
         // Held starts right after the equipment array and its count, as the
         // hovered 火男面具 did live (container + 0x927C8).
         assert_eq!(LiveItemContainer::Held.offset(), EQUIPMENT_OFFSET + 0x927C8);
+        // Stored items sit after the 4000-slot storehouse equipment, where the
+        // owner's 36 stored stacks were found live (player + 0x201118).
+        assert_eq!(LiveItemContainer::Storage.offset(), 0x20_1118);
+
+        let shifted = Fake::new();
+        let start = PLAYER + LiveItemContainer::Storage.offset();
+        shifted.put(start - 8, &0u64.to_le_bytes());
+        assert!(read_character(&shifted).unwrap().items.is_err());
 
         let broken = Fake::new();
         let at = PLAYER + LiveItemContainer::Storage.offset();

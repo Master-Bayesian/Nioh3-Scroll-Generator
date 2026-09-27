@@ -158,6 +158,10 @@ pub struct EquipmentFields {
     pub rarity: u8,
     /// `(effect id, raw value)` per entry; an unused entry has id `u32::MAX`.
     pub effects: Vec<(u32, u32)>,
+    /// The hell-weapon marker (`+0x1A` bit `0x10`).
+    pub hell: bool,
+    /// The hell martial skill (`+0x10`).
+    pub hell_skill: u16,
 }
 
 fn u16_at(record: &[u8], offset: usize) -> u16 {
@@ -193,6 +197,8 @@ pub fn equipment_fields(record: &[u8]) -> Result<EquipmentFields, SaveReadError>
         inventory_key: u16_at(record, 0x1C),
         seed: u16_at(record, 0x22),
         rarity: record[0x30],
+        hell: record[0x1A] & 0x10 != 0,
+        hell_skill: u16_at(record, 0x10),
         effects: (0..EQUIPMENT_EFFECT_COUNT)
             .map(|index| {
                 let offset = effect_offset(index);
@@ -229,6 +235,12 @@ pub struct EquipmentPatch {
     pub rarity: Option<u8>,
     #[serde(default)]
     pub effects: Vec<EquipmentEffectPatch>,
+    /// Record byte `+0x1A` bit `0x10`: the hell-weapon marker.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hell: Option<bool>,
+    /// Record `+0x10` (u16): the hell martial skill; 0 on a normal weapon.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hell_skill: Option<u16>,
 }
 
 /// Apply `patch` to a copy of `record`.
@@ -251,6 +263,12 @@ pub fn patch_equipment(record: &[u8], patch: &EquipmentPatch) -> Result<Vec<u8>,
     }
     if let Some(rarity) = patch.rarity {
         patched[0x30] = rarity;
+    }
+    if let Some(hell) = patch.hell {
+        patched[0x1A] = (patched[0x1A] & !0x10) | if hell { 0x10 } else { 0 };
+    }
+    if let Some(skill) = patch.hell_skill {
+        patched[0x10..0x12].copy_from_slice(&skill.to_le_bytes());
     }
     let mut seen = Vec::new();
     for effect in &patch.effects {
@@ -666,6 +684,33 @@ mod tests {
             ..EquipmentPatch::default()
         };
         assert!(patch_equipment(&record, &repeated).is_err());
+    }
+
+    #[test]
+    fn a_patch_can_toggle_the_hell_marker_and_skill_only() {
+        let record = forged_record();
+        assert!(!equipment_fields(&record).unwrap().hell);
+        let to_hell = EquipmentPatch {
+            hell: Some(true),
+            hell_skill: Some(0xC0C1),
+            ..EquipmentPatch::default()
+        };
+        let hell = patch_equipment(&record, &to_hell).unwrap();
+        let fields = equipment_fields(&hell).unwrap();
+        assert!(fields.hell);
+        assert_eq!(fields.hell_skill, 0xC0C1);
+        let changed: Vec<usize> = (0..record.len())
+            .filter(|i| record[*i] != hell[*i])
+            .collect();
+        assert!(changed
+            .iter()
+            .all(|offset| matches!(offset, 0x10 | 0x11 | 0x1A)));
+        let back = EquipmentPatch {
+            hell: Some(false),
+            hell_skill: Some(0),
+            ..EquipmentPatch::default()
+        };
+        assert_eq!(patch_equipment(&hell, &back).unwrap(), record);
     }
 
     #[test]

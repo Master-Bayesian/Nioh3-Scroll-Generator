@@ -337,6 +337,7 @@ export interface CharacterEquipment {
       ];
   record_sha256?: string;
   hell?: boolean;
+  hell_skill?: number;
   audit?: {
     verdict?: "natural" | "unverified" | "unnatural";
     natural: boolean;

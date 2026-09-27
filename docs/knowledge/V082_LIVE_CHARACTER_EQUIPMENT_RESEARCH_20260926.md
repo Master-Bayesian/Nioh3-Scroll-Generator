@@ -341,9 +341,15 @@ in-game inventory menu ("持有物品").
 - Live layout: each array is followed by a u64 count, so held items start at
   `player + 0x370E0 + 0x927C8`. The cursor pointers captured while following the
   selection (火男面具 slot 161, 高贵粪球 179, 黏胶 539) land exactly on held
-  records. Storage (`held + 1500 * 0xE8 + 8`) is derived from the save layout and
-  guarded by a structure check (counts within capacity, every occupied record
-  carries a count flag); it has not been written live yet.
+  records. The live storage array is NOT where the save layout suggests: live
+  order is equipment (2500 x 0xF0), held items (1500 x 0xE8), storehouse
+  equipment (4000 x 0xE8, flags like 0x100084), stored items (400 x 0xE8) at
+  `player + 0x201118`; each array is followed by a u64 equal to its capacity.
+  The first build derived storage from the save and its capacity check refused
+  the storehouse equipment it landed on (owner report 2026-09-27); a bounded
+  read-only search near the player found the 36 stored stacks byte-identical
+  to the save. The reader now requires the exact capacity words around both
+  item arrays.
 - Count: the game's getter `+2FA554` returns 1 for flag `0x800000`, the u32 at
   `+4` for flag `0x200000` (all observed records; materials reach 47,213,196), and
   the u16 at `+4` otherwise. The same item id appears in both arrays as separate

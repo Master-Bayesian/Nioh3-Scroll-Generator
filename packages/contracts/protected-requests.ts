@@ -3598,6 +3598,8 @@ export type ProtectedRequest =
                     star?: boolean;
                   }
                 ];
+            hell?: boolean;
+            hell_skill?: number;
           };
         }[];
         /**
@@ -3880,6 +3882,8 @@ export type ProtectedRequest =
                     star?: boolean;
                   }
                 ];
+            hell?: boolean;
+            hell_skill?: number;
           };
         }[];
         expected_currencies?: {

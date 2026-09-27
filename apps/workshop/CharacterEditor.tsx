@@ -134,6 +134,8 @@ interface Draft {
   plus: string;
   rarity: string;
   familiarity: string;
+  hell: boolean;
+  hell_skill: number;
   effects: DraftEffect[];
 }
 function draftOf(row: CharacterEquipment): Draft {
@@ -143,6 +145,8 @@ function draftOf(row: CharacterEquipment): Draft {
     plus: String(row.plus),
     rarity: String(row.rarity),
     familiarity: String(row.familiarity),
+    hell: row.hell ?? false,
+    hell_skill: row.hell_skill ?? 0,
     effects: row.effects.map(effect => ({
       id: effect.effect_id === EMPTY_EFFECT ? "" : hex(effect.effect_id),
       value: String(effect.value),
@@ -167,6 +171,8 @@ function patchOf(row: CharacterEquipment, draft: Draft) {
     if (value === null || value < min) return { error: "请输入有效的数值。" };
     if (value !== row[key]) patch[key] = value;
   }
+  if (draft.hell !== (row.hell ?? false)) patch.hell = draft.hell;
+  if (draft.hell_skill !== (row.hell_skill ?? 0)) patch.hell_skill = draft.hell_skill;
   const effects = [];
   for (const [index, effect] of draft.effects.entries()) {
     const id = parseEffectId(effect.id);
@@ -256,6 +262,31 @@ function EffectPicker({ value, candidates, label, onPick }: {
   );
 }
 
+/** Previous / page number box / next; the box jumps on Enter or blur. */
+function Pager({ page, pages, onChange }: { page: number; pages: number; onChange: (page: number) => void }) {
+  const [text, setText] = useState(String(page + 1));
+  useEffect(() => setText(String(page + 1)), [page]);
+  const commit = () => {
+    const value = Number(text);
+    if (Number.isInteger(value) && value >= 1 && value <= pages) onChange(value - 1);
+    else setText(String(page + 1));
+  };
+  if (pages <= 1) return null;
+  return (
+    <div className="character-pager">
+      <button onClick={() => onChange(Math.max(0, page - 1))} disabled={page === 0}>上一页</button>
+      <span>
+        第
+        <input aria-label="页码" inputMode="numeric" value={text}
+          onChange={event => setText(event.target.value)} onBlur={commit}
+          onKeyDown={event => { if (event.key === "Enter") commit(); }} />
+        / {pages} 页
+      </span>
+      <button onClick={() => onChange(Math.min(pages - 1, page + 1))} disabled={page >= pages - 1}>下一页</button>
+    </div>
+  );
+}
+
 const valueCache = new Map<string, Promise<EffectValues | null>>();
 function legalValues(effectId: number, rarity: number, level: number): Promise<EffectValues | null> {
   const key = effectId + ":" + rarity + ":" + level;
@@ -337,9 +368,31 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       return text.toLowerCase().includes(needle);
     });
   }, [character, query, catalog, major, middle, minor, showIds]);
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  // Rows per page: as many as fit the list area, so a page never needs the
+  // wheel. The single-column layout scrolls the page instead.
+  const tableWrap = useRef<HTMLDivElement>(null);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
+  useEffect(() => {
+    const wrap = tableWrap.current;
+    if (!wrap || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      if (window.matchMedia?.("(max-width: 1100px)").matches) {
+        setPageSize(PAGE_SIZE);
+        return;
+      }
+      const head = wrap.querySelector("thead")?.getBoundingClientRect().height ?? 28;
+      const heights = [...wrap.querySelectorAll("tbody tr")].map(row => row.getBoundingClientRect().height);
+      const row = heights.length ? Math.max(...heights) : 30;
+      setPageSize(Math.max(5, Math.floor((wrap.clientHeight - head - 2) / row)));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(wrap);
+    return () => observer.disconnect();
+  }, [tab, character]);
+  const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const shownPage = Math.min(page, pages - 1);
-  const rows = filtered.slice(shownPage * PAGE_SIZE, (shownPage + 1) * PAGE_SIZE);
+  const rows = filtered.slice(shownPage * pageSize, (shownPage + 1) * pageSize);
   useEffect(() => setPage(0), [query, major, middle, minor]);
 
   // Items: one row per item id, held and stored stacks side by side.
@@ -369,9 +422,9 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       return !needle || [itemText(entry.item_id), a, b].join(" ").toLowerCase().includes(needle);
     });
   }, [itemRows, itemQuery, itemMajor, catalog, showIds]);
-  const itemPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
+  const itemPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
   const shownItemPage = Math.min(itemPage, itemPages - 1);
-  const pagedItems = filteredItems.slice(shownItemPage * PAGE_SIZE, (shownItemPage + 1) * PAGE_SIZE);
+  const pagedItems = filteredItems.slice(shownItemPage * pageSize, (shownItemPage + 1) * pageSize);
   useEffect(() => setItemPage(0), [itemQuery, itemMajor]);
   const itemRow = itemRows.find(entry => entry.item_id === selectedItem) ?? null;
   const itemDraftOf = (entry: ItemRow | null): Record<Container, string> => ({
@@ -478,27 +531,28 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     const index = list.indexOf(target.key);
     if (index < 0) return;
     revealRef.current = null;
-    (target.tab === "equipment" ? setPage : setItemPage)(Math.floor(index / PAGE_SIZE));
+    (target.tab === "equipment" ? setPage : setItemPage)(Math.floor(index / pageSize));
     window.setTimeout(
       () => document.querySelector(`tr[data-row="${target.tab}-${target.key}"]`)?.scrollIntoView({ block: "nearest" }),
       50,
     );
-  }, [filtered, filteredItems, selected, selectedItem]);
+  }, [filtered, filteredItems, selected, selectedItem, pageSize]);
 
   const rarity = draft ? parseAmount(draft.rarity, 255) : null;
   const level = draft ? parseAmount(draft.level, 65535) : null;
+  const draftHell = draft?.hell ?? false;
 
-  // Rules follow the item, rarity and level being edited.
+  // Rules follow the item, rarity, level and hell state being edited.
   useEffect(() => {
     setRules(null);
     if (!row || rarity === null || level === null) return;
     let live = true;
     window.operations
-      .execute({ method: "runtime.equipment_rules", params: { item_id: row.item_id, rarity, level, hell: row.hell ?? false } })
+      .execute({ method: "runtime.equipment_rules", params: { item_id: row.item_id, rarity, level, hell: draftHell } })
       .then(result => { if (live && result && "known" in result) setRules(result as EquipmentRules); })
       .catch(() => {});
     return () => { live = false; };
-  }, [row?.slot_index, row?.item_id, rarity, level]);
+  }, [row?.slot_index, row?.item_id, rarity, level, draftHell]);
 
   // Legal values of every chosen effect.
   const effectKey = draft?.effects.map(effect => effect.id).join(",") ?? "";
@@ -592,8 +646,19 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       if (legal && !legal.some(entry => String(entry.value) === effect.value.trim()))
         notes.push("#" + (index + 1) + " " + "数值不是自然生成能出现的值");
     });
+    if (draft.hell && !rules.hell_capable) notes.push("这件装备不会自然成为地狱武器");
+    if (draft.hell && !(rules.hell_skills ?? []).includes(draft.hell_skill))
+      notes.push("这个地狱武技不会出现在这类武器上");
     return notes;
   }, [draft, rules, values, modded]);
+
+  /** Turn the draft into (or out of) a hell weapon, keeping a legal skill. */
+  function setHell(on: boolean) {
+    if (!draft) return;
+    const skills = rules?.hell_skills ?? [];
+    const skill = on ? (skills.includes(draft.hell_skill) ? draft.hell_skill : skills[0] ?? draft.hell_skill) : 0;
+    setDraft({ ...draft, hell: on, hell_skill: skill });
+  }
 
   function adopt(next: Character) {
     setCharacter(next);
@@ -762,6 +827,10 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       lines.push(itemText(change.item_id) + " " + CONTAINER_LABEL[change.container] + "数量：" + change.before + " → " + change.after);
     for (const change of equipment) {
       const prefix = itemText(change.before.item_id);
+      if ((change.before.hell ?? false) !== (change.after.hell ?? false))
+        lines.push(prefix + " 地狱武器：" + (change.before.hell ? "是" : "否") + " → " + (change.after.hell ? "是" : "否"));
+      if ((change.before.hell_skill ?? 0) !== (change.after.hell_skill ?? 0))
+        lines.push(prefix + " 地狱武技：" + hex(change.before.hell_skill ?? 0) + " → " + hex(change.after.hell_skill ?? 0));
       for (const [key, label] of FIELD_LABEL)
         if (change.before[key] !== change.after[key])
           lines.push(prefix + " " + label + "：" + change.before[key] + " → " + change.after[key]);
@@ -829,6 +898,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           <span className="equipment-range">{filtered.length} / {character?.equipment.length ?? 0}</span>
         </div>
       </div>
+      <div className="character-table-wrap" ref={tableWrap}>
       <table className="equipment-table character-table">
         <thead>
           <tr><th>物品</th><th>类别</th><th>等级</th><th>稀有度</th><th>判定</th></tr>
@@ -857,13 +927,8 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           })}
         </tbody>
       </table>
-      {pages > 1 && (
-        <div className="character-pager">
-          <button onClick={() => setPage(Math.max(0, shownPage - 1))} disabled={shownPage === 0}>上一页</button>
-          <span>{shownPage + 1} / {pages}</span>
-          <button onClick={() => setPage(Math.min(pages - 1, shownPage + 1))} disabled={shownPage >= pages - 1}>下一页</button>
-        </div>
-      )}
+      </div>
+      <Pager page={shownPage} pages={pages} onChange={setPage} />
       <details className="character-names">
         <summary>补充物品名称（可选）</summary>
         <LocalCatalogImport onCatalogChange={setCatalog} />
@@ -887,6 +952,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           <span className="equipment-range">{filteredItems.length} / {itemRows.length}</span>
         </div>
       </div>
+      <div className="character-table-wrap" ref={tableWrap}>
       <table className="equipment-table character-table">
         <thead>
           <tr><th>道具</th><th>类别</th><th>持有</th><th>仓库</th></tr>
@@ -906,13 +972,8 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           })}
         </tbody>
       </table>
-      {itemPages > 1 && (
-        <div className="character-pager">
-          <button onClick={() => setItemPage(Math.max(0, shownItemPage - 1))} disabled={shownItemPage === 0}>上一页</button>
-          <span>{shownItemPage + 1} / {itemPages}</span>
-          <button onClick={() => setItemPage(Math.min(itemPages - 1, shownItemPage + 1))} disabled={shownItemPage >= itemPages - 1}>下一页</button>
-        </div>
-      )}
+      </div>
+      <Pager page={shownItemPage} pages={itemPages} onChange={setItemPage} />
     </>
   );
 
@@ -939,6 +1000,34 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           </label>
         ))}
       </div>
+      {(itemGroups(row.item_id, row.type_class)[0] === "武器" || rules?.hell_capable || draft.hell) && (
+        <div className="character-hell-row">
+          <label className="character-toggle">
+            <input type="checkbox" checked={draft.hell}
+              disabled={!draft.hell && !rules?.hell_capable && !modded}
+              onChange={event => setHell(event.target.checked)} />
+            地狱武器
+          </label>
+          {draft.hell && (
+            <select value={draft.hell_skill} aria-label="地狱武技"
+              onChange={event => setDraft({ ...draft, hell_skill: Number(event.target.value) })}>
+              {[...new Set([...(rules?.hell_skills ?? []), ...(draft.hell_skill ? [draft.hell_skill] : [])])].map((skill, index) => (
+                <option key={skill} value={skill}>
+                  {(rules?.hell_skills ?? []).includes(skill) ? "地狱武技 " + (index + 1) : "其他武技"}
+                  {showIds ? " " + hex(skill) : ""}
+                </option>
+              ))}
+            </select>
+          )}
+          <span className="character-muted">
+            {!rules?.known
+              ? ""
+              : rules.hell_capable
+                ? "切换后第一个位置变为地狱词条，请在下方选择。"
+                : "这件装备不会自然成为地狱武器，只能在魔改模式下切换。"}
+          </span>
+        </div>
+      )}
       <table className="equipment-effects character-effects">
         <thead><tr><th>位置</th><th>词条</th><th>数值</th><th>合法范围</th></tr></thead>
         <tbody>

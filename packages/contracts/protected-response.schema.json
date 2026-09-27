@@ -192,6 +192,11 @@
         "hell": {
           "type": "boolean"
         },
+        "hell_skill": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
         "audit": {
           "anyOf": [
             {
