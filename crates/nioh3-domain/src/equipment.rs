@@ -187,6 +187,14 @@ pub enum Finding {
         slot: usize,
         roll: u8,
     },
+    /// The entry's group marker (`+0x00`) or category bits (`+0x0D`) belong to
+    /// another effect: only the id was replaced, which slot normalization never
+    /// leaves behind. `original` is an effect of the recorded group.
+    ReplacedEffect {
+        slot: usize,
+        recorded_group: u16,
+        original: Option<u16>,
+    },
 }
 
 /// Record flag bits at `+0x18` whose items follow rules not modelled here:
@@ -566,6 +574,21 @@ impl<'a> EquipmentRules<'a> {
             .resolved_effect_value(u32::from(effect_id), roll, level)
     }
 
+    /// An effect's group and conflict masks: two drawn effects exclude each
+    /// other when they share a group or any mask bit (`is_compatible`).
+    pub fn conflict_key(&self, effect_id: u16) -> Option<(u16, [u32; 2])> {
+        let group = self.index.group_for_effect(effect_id)?;
+        Some((group.group_key, [group.conflict_mask_0, group.conflict_mask_1]))
+    }
+
+    /// The group and category bits slot normalization writes for an effect
+    /// (entry `+0x00` and the low six bits of `+0x0D`).
+    pub fn effect_marker(&self, effect_id: u16) -> Option<(u16, u8)> {
+        let group = self.effect(effect_id)?.group_key;
+        let category = self.index.groups_by_key.get(&group)?.category_key;
+        Some((group, (category & 0x3F) as u8))
+    }
+
     /// Group peers of an effect (its ordinary, star and hell variants).
     pub fn group_peers(&self, effect_id: u16) -> &[u16] {
         self.effect(effect_id)
@@ -602,6 +625,9 @@ impl<'a> EquipmentRules<'a> {
         let mut structural: Vec<Finding> = Vec::new();
         let mut values: Vec<Finding> = Vec::new();
         let mut unverified: Vec<Finding> = Vec::new();
+        // Findings no special route explains: the game rewrites an entry's group
+        // marker whenever it writes the entry, blacksmith replacements included.
+        let mut definite: Vec<Finding> = Vec::new();
         if hell && !item.hell_capable() {
             structural.push(Finding::HellOnIneligibleItem);
         }
@@ -657,6 +683,25 @@ impl<'a> EquipmentRules<'a> {
                 SlotRole::Random
             };
             audit.roles.push(Some(role));
+            let entry = &record[EFFECT_ENTRY_OFFSET + slot * EFFECT_ENTRY_BYTES..][..EFFECT_ENTRY_BYTES];
+            let recorded_group = u16::from_le_bytes([entry[0], entry[1]]);
+            let category_matches = self
+                .index
+                .groups_by_key
+                .get(&effect.group_key)
+                .is_none_or(|group| entry[0xD] & 0x3F == (group.category_key & 0x3F) as u8);
+            if recorded_group != effect.group_key || !category_matches {
+                definite.push(Finding::ReplacedEffect {
+                    slot,
+                    recorded_group,
+                    original: self
+                        .index
+                        .effects_by_id
+                        .values()
+                        .find(|other| other.group_key == recorded_group)
+                        .map(|other| other.effect_id),
+                });
+            }
             let is_star = effect.normalization_flags & STAR_NORMALIZATION_FLAG != 0;
             if is_star != (entry_flags & STAR_ENTRY_FLAG != 0) {
                 structural.push(Finding::StarFlagMismatch { slot });
@@ -695,7 +740,8 @@ impl<'a> EquipmentRules<'a> {
                     .map(|entry| i64::from(entry.value))
                     .max()
                     .is_some_and(|max| i64::from(value) > max);
-                if is_star && above {
+                // Only an effect with optional addition fields can exceed the base formula.
+                if is_star && above && effect.addition_fields.iter().any(|field| *field != 0) {
                     unverified.push(Finding::ValueAboveFormula { slot, value });
                 } else {
                     values.push(Finding::ValueNotNatural { slot, value });
@@ -757,6 +803,7 @@ impl<'a> EquipmentRules<'a> {
                 }
             }
         }
+        audit.findings.extend(definite);
         if special {
             unverified.extend(structural);
             unverified.extend(values);

@@ -950,3 +950,8 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 未识别阴阳术	Unidentified onmyo magic	未識別の陰陽術
 这个绘卷 ID 不是游戏能生成的：ID 的低 4 位十六进制不能全为 0，也不能大于 0x0FFFFFFF。	The game cannot generate this scroll ID: its low four hex digits cannot all be 0, and it cannot exceed 0x0FFFFFFF.	この絵巻 ID はゲームで生成されません。ID の下位 4 桁（16 進）がすべて 0 であってはならず、0x0FFFFFFF を超えてもいけません。
 其他武技	Other skill	その他の武技
+词条被替换过，游戏自己生成不会留下这种痕迹	The effect was replaced; the game never leaves this trace itself	効果が差し替えられています。ゲーム自身はこの痕跡を残しません
+词条被替换过（槽位里还留着原词条「	The effect was replaced (the slot still carries the mark of the original effect “	効果が差し替えられています（枠に元の効果「
+」的标记），游戏自己生成不会这样	”); the game never does this itself	」の印が残っています）。ゲーム自身はこうなりません
+与 #	and #	と #
+互斥，游戏不会同时生成这两条	exclude each other; the game never generates both	は排他です。ゲームは両方を同時に生成しません

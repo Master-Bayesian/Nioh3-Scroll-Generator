@@ -37,6 +37,14 @@ interface Candidate {
   star?: boolean;
   min?: number;
   max?: number;
+  /** Group and conflict masks of a drawn (random or hell) candidate. */
+  group?: number;
+  masks?: number[];
+}
+/** The generator's exclusion: drawn effects sharing a group or any mask bit never appear together. */
+function excludes(a: Candidate, b: Candidate) {
+  if (a.group == null || b.group == null || !a.masks || !b.masks) return false;
+  return a.group === b.group || (a.masks[0] & b.masks[0]) !== 0 || (a.masks[1] & b.masks[1]) !== 0;
 }
 const EMPTY_EFFECT = 0xffffffff;
 const PAGE_SIZE = 40;
@@ -121,6 +129,7 @@ const FINDING_LABEL: Record<string, string> = {
   value_not_natural: "数值不是自然生成能出现的值",
   value_above_formula: "数值高于公式（可能有额外加成）",
   roll_out_of_range: "分位超出该稀有度范围",
+  replaced_effect: "词条被替换过，游戏自己生成不会留下这种痕迹",
 };
 const VERDICT_LABEL: Record<string, string> = { natural: "自然", unverified: "待确认", unnatural: "非自然" };
 
@@ -589,10 +598,14 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     if (role === "innate") list = (rules.innate ?? []).map(id => ({ id }));
     else if (role === "set") list = rules.set_effect == null ? [] : [{ id: rules.set_effect }];
     else if (role === "grace") list = (rules.graces ?? []).map(id => ({ id }));
-    else if (role === "hell") list = (rules.hell_pool ?? []).map(entry => ({ id: entry.effect_id, min: entry.min, max: entry.max }));
+    else if (role === "hell")
+      list = (rules.hell_pool ?? []).map(entry => ({ id: entry.effect_id, min: entry.min, max: entry.max, group: entry.group, masks: entry.masks }));
     else if (role === "random")
-      list = (rules.random_pool ?? []).map(entry => ({ id: entry.effect_id, star: entry.star, min: entry.min, max: entry.max }));
+      list = (rules.random_pool ?? []).map(entry => ({ id: entry.effect_id, star: entry.star, min: entry.min, max: entry.max, group: entry.group, masks: entry.masks }));
     if (natural) return list;
+    // Drop candidates the other drawn slots exclude.
+    const others = drawnOthers(index);
+    list = list.filter(candidate => !others.some(other => excludes(candidate, other)));
     // Same name, marker and range read identically; keep one of them.
     const seen = new Set<string>();
     return list.filter(candidate => {
@@ -600,6 +613,21 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
+    });
+  }
+
+  /** The drawn (random or hell) effects of every slot but `index`, with their exclusion keys. */
+  function drawnOthers(index: number): Candidate[] {
+    if (!draft || !rules?.roles) return [];
+    const keyed = new Map<number, Candidate>();
+    for (const entry of [...(rules.random_pool ?? []), ...(rules.hell_pool ?? [])])
+      keyed.set(entry.effect_id, { id: entry.effect_id, group: entry.group, masks: entry.masks });
+    return draft.effects.flatMap((effect, slot) => {
+      const role = rules.roles?.[slot];
+      const id = parseEffectId(effect.id);
+      if (slot === index || (role !== "random" && role !== "hell") || id === null) return [];
+      const key = keyed.get(id);
+      return key ? [key] : [];
     });
   }
 
@@ -660,11 +688,23 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       if (legal && !legal.some(entry => String(entry.value) === effect.value.trim()))
         notes.push("#" + (index + 1) + " " + "数值不是自然生成能出现的值");
     });
+    draft.effects.forEach((effect, index) => {
+      const id = parseEffectId(effect.id);
+      const mine = candidatesFor(index, true).find(candidate => candidate.id === id);
+      const clash = mine && draft.effects.findIndex((other, slot) =>
+        slot < index && drawnOthers(index).some(key => key.id === parseEffectId(other.id) && excludes(mine, key)));
+      if (clash != null && clash >= 0) notes.push("#" + (index + 1) + " 与 #" + (clash + 1) + " 互斥，游戏不会同时生成这两条");
+    });
+    // An unedited slot that only had its id swapped; writing it again repairs the marker.
+    for (const finding of row?.audit?.findings ?? [])
+      if (finding.code === "replaced_effect" && finding.slot != null
+        && draft.effects[finding.slot] && parseEffectId(draft.effects[finding.slot].id) === row!.effects[finding.slot]?.effect_id)
+        notes.push(findingText(finding));
     if (draft.hell && !rules.hell_capable) notes.push("这件装备不会自然成为地狱武器");
     if (draft.hell && !(rules.hell_skills ?? []).includes(draft.hell_skill))
       notes.push("这个地狱武技不会出现在这类武器上");
     return notes;
-  }, [draft, rules, values, modded]);
+  }, [draft, rules, values, modded, row]);
 
   /** Turn the draft into (or out of) a hell weapon, keeping a legal skill. */
   function setHell(on: boolean) {
@@ -860,7 +900,10 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   }
 
   function findingText(finding: Finding) {
-    return (finding.slot == null ? "" : "#" + (finding.slot + 1) + " ") + (FINDING_LABEL[finding.code] ?? finding.code);
+    const slot = finding.slot == null ? "" : "#" + (finding.slot + 1) + " ";
+    if (finding.code === "replaced_effect" && finding.original != null)
+      return slot + "词条被替换过（槽位里还留着原词条「" + effectText(finding.original) + "」的标记），游戏自己生成不会这样";
+    return slot + (FINDING_LABEL[finding.code] ?? finding.code);
   }
   function verdictCell(entry: CharacterEquipment) {
     const audit = entry.audit;

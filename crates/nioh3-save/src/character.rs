@@ -220,6 +220,13 @@ pub struct EquipmentEffectPatch {
     /// Entry byte `+0xE` bit `0x04`: the star (✦) marker.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub star: Option<bool>,
+    /// Entry `+0x00` (u16): the effect's group, which the game shows the icon
+    /// from. Filled by the host from the effect tables, never by the caller.
+    #[serde(skip)]
+    pub group: Option<u16>,
+    /// Entry byte `+0x0D` low six bits: the group's category.
+    #[serde(skip)]
+    pub category: Option<u8>,
 }
 
 /// Field overwrites for one equipment record. `None` leaves a field as stored.
@@ -291,6 +298,14 @@ pub fn patch_equipment(record: &[u8], patch: &EquipmentPatch) -> Result<Vec<u8>,
         }
         if let Some(star) = effect.star {
             patched[offset + 0xA] = (patched[offset + 0xA] & !0x04) | if star { 0x04 } else { 0 };
+        }
+        // Slot normalization clears the group of an unused entry.
+        let group = if effect.effect_id == EMPTY_EFFECT_ID { Some(0) } else { effect.group };
+        if let Some(group) = group {
+            patched[offset - 4..offset - 2].copy_from_slice(&group.to_le_bytes());
+        }
+        if let Some(category) = effect.category {
+            patched[offset + 9] = (patched[offset + 9] & !0x3F) | (category & 0x3F);
         }
     }
     Ok(patched)
@@ -656,6 +671,8 @@ mod tests {
                     value: 4,
                     roll: None,
                     star: None,
+                    group: None,
+                    category: None,
                 },
                 EquipmentEffectPatch {
                     index: 3,
@@ -663,6 +680,8 @@ mod tests {
                     value: 9,
                     roll: None,
                     star: None,
+                    group: None,
+                    category: None,
                 },
             ],
             ..EquipmentPatch::default()
@@ -676,9 +695,12 @@ mod tests {
         let changed: Vec<usize> = (0..record.len())
             .filter(|index| record[*index] != patched[*index])
             .collect();
+        // Clearing entry 3 also clears its group marker at 0x7C.
         assert!(changed.iter().all(|offset| (0x0A..0x0C).contains(offset)
             || (0x38..0x40).contains(offset)
+            || (0x7C..0x7E).contains(offset)
             || (0x80..0x88).contains(offset)));
+        assert_eq!(&patched[0x7C..0x7E], &[0, 0]);
         let repeated = EquipmentPatch {
             effects: vec![patch.effects[0], patch.effects[0]],
             ..EquipmentPatch::default()
@@ -723,6 +745,8 @@ mod tests {
                 value: 180,
                 roll: Some(84),
                 star: Some(star),
+                group: None,
+                category: None,
             }],
             ..EquipmentPatch::default()
         };
@@ -733,6 +757,28 @@ mod tests {
         assert_eq!(starred[0x4C + 0xE] & !0x04, record[0x4C + 0xE] & !0x04);
         let plain = patch_equipment(&starred, &with(false)).unwrap();
         assert_eq!(plain[0x4C + 0xE] & 0x04, 0);
+    }
+
+    #[test]
+    fn an_effect_patch_writes_the_group_marker_and_category_bits() {
+        let record = forged_record();
+        let patch = EquipmentPatch {
+            effects: vec![EquipmentEffectPatch {
+                index: 1,
+                effect_id: 0xD4F0,
+                value: 126,
+                roll: Some(86),
+                star: Some(true),
+                group: Some(0x766B),
+                category: Some(0x1F),
+            }],
+            ..EquipmentPatch::default()
+        };
+        let patched = patch_equipment(&record, &patch).unwrap();
+        // Entry 1 starts at 0x4C: group +0, category bits in +0xD.
+        assert_eq!(&patched[0x4C..0x4E], &0x766Bu16.to_le_bytes());
+        assert_eq!(patched[0x4C + 0xD] & 0x3F, 0x1F);
+        assert_eq!(patched[0x4C + 0xD] & 0xC0, record[0x4C + 0xD] & 0xC0);
     }
 
     fn plain_with_items() -> Vec<u8> {

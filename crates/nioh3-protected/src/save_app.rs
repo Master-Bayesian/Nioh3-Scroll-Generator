@@ -425,13 +425,14 @@ impl SaveApplication {
                 .get("slot_index")
                 .and_then(Value::as_u64)
                 .ok_or_else(HostError::invalid_request)? as usize;
-            let patch: EquipmentPatch = serde_json::from_value(
+            let mut patch: EquipmentPatch = serde_json::from_value(
                 requested
                     .get("patch")
                     .cloned()
                     .ok_or_else(HostError::invalid_request)?,
             )
             .map_err(|_| HostError::invalid_request())?;
+            crate::equipment_rules::fill_effect_markers(&self.data_root, &mut patch);
             let original = equipment_record(plain, slot_index)
                 .map_err(HostError::from_save)?
                 .to_vec();

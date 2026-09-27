@@ -841,13 +841,14 @@ mod imp {
                     .get("expected_record_sha256")
                     .and_then(Value::as_str)
                     .ok_or_else(HostError::invalid_request)?;
-                let patch: nioh3_save::character::EquipmentPatch = serde_json::from_value(
+                let mut patch: nioh3_save::character::EquipmentPatch = serde_json::from_value(
                     requested
                         .get("patch")
                         .cloned()
                         .ok_or_else(HostError::invalid_request)?,
                 )
                 .map_err(|_| HostError::invalid_request())?;
+                crate::equipment_rules::fill_effect_markers(&self.data_root, &mut patch);
                 let original = read
                     .record(slot_index)
                     .ok_or_else(HostError::invalid_request)?

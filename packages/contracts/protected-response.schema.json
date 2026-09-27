@@ -242,6 +242,14 @@
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 7
+                      },
+                      "original": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 65535
                       }
                     },
                     "required": [
@@ -279,6 +287,14 @@
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 7
+                      },
+                      "original": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 65535
                       }
                     },
                     "required": [
@@ -416,6 +432,21 @@
                 "type": "integer",
                 "minimum": -2147483648,
                 "maximum": 2147483647
+              },
+              "group": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "masks": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
               }
             },
             "required": [
@@ -448,6 +479,21 @@
                 "type": "integer",
                 "minimum": -2147483648,
                 "maximum": 2147483647
+              },
+              "group": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "masks": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
               }
             },
             "required": [

@@ -605,6 +605,10 @@ pub struct EffectDefinition {
     pub type_multipliers: [f32; 4],
     /// Level-curve selector at `+0x06`.
     pub curve_selector: u16,
+    /// The two optional value additions of slot normalization: `+0x0E..+0x12`
+    /// (flagged addition) and `+0x14..+0x1A` (curve-scaled addition). All zero
+    /// means the base formula is the only value the effect can take.
+    pub addition_fields: [i16; 7],
     /// Row index inside the effect table; row 0 is the unused sentinel row.
     pub row_index: usize,
 }
@@ -921,6 +925,7 @@ impl EffectTableIndex {
                 rarity_weights,
                 type_multipliers,
                 curve_selector: u16_at(row, 0x06),
+                addition_fields: std::array::from_fn(|index| i16_at(row, 0x0E + index * 2)),
                 row_index,
             };
             insert_unique(

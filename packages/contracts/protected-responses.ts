@@ -350,6 +350,7 @@ export interface CharacterEquipment {
       other?: number;
       expected?: number;
       actual?: number;
+      original?: number | null;
     }[];
     /**
      * @maxItems 64
@@ -360,6 +361,7 @@ export interface CharacterEquipment {
       other?: number;
       expected?: number;
       actual?: number;
+      original?: number | null;
     }[];
   } | null;
 }
@@ -1058,6 +1060,12 @@ export interface EquipmentRules {
     star: boolean;
     min?: number;
     max?: number;
+    group?: number;
+    /**
+     * @minItems 2
+     * @maxItems 2
+     */
+    masks?: [number, number];
   }[];
   /**
    * @maxItems 4096
@@ -1067,6 +1075,12 @@ export interface EquipmentRules {
     star: boolean;
     min?: number;
     max?: number;
+    group?: number;
+    /**
+     * @minItems 2
+     * @maxItems 2
+     */
+    masks?: [number, number];
   }[];
   /**
    * @maxItems 4096

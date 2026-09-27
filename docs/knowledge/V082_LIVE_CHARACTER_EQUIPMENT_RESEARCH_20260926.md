@@ -404,3 +404,25 @@ in-game inventory menu ("持有物品").
   锚击 `0x60A3`, 乱舞落 `0xC67A`, 龟翔 `0x35C5`.
 - Bundled as `apps/workshop/hell-skill-names.json`. Helper scripts:
   `tmp/claude-ce/find_pool.py`, `resolve_skill_names.py`.
+
+## Effect entry markers and replaced effects (live, owner present, 2026-09-27)
+
+- Slot normalization (v2.02 `+0x5518A8`, v2.00.02 `+0x5712D8`) writes entry
+  `+0x00` = the effect row's group (`+0x02`) and the low six bits of `+0x0D` =
+  that group row's category (`+0x24`). Its two optional additions are
+  `+0x550484` (curve-scaled, effect fields `+0x14..+0x1A`) and the flagged one
+  (`+0x0E..+0x12`, sets entry `+0x0E` bit `0x10`); star rows such as `0xD4F0`
+  have both zero, so their only value is the base formula.
+- Owner's equipment (1406 records): 5474 entries follow the marker rule; 19
+  carry another effect's group (8 plain, 2 blacksmith-processed and 2 unique
+  records, 12 records in all). Their groups name the original effects (八咫镜
+  slot 3 was 火抗性, 八尺琼勾玉 was 水抗性), and every value above the base
+  formula sits in one of them.
+- A live blacksmith replacement (种子岛枪, 灵力 → 火枪伤害 `0xB3DB`) wrote group
+  `0x90D7`, category `0x1B`, roll 99 and value 33, and set record `+0x18` bit
+  `0x04` and `+0x1A` bit `0x02`; it audits natural. Accessory effects cannot
+  be replaced in game, and graces can only be replaced away, never onto.
+- So a stale group marker means only the id was written by a tool:
+  `Finding::ReplacedEffect` is unnatural even for unique or blacksmith records.
+  The editor now writes the marker and category with each effect, which also
+  makes the game show the new effect's icon (it kept the old one before).

@@ -32,6 +32,23 @@ pub fn rules(data_root: &Path) -> Option<&'static EquipmentRules<'static>> {
     RULES.get_or_init(|| load(data_root)).as_ref()
 }
 
+/// Give each written effect the group marker and category bits slot
+/// normalization would, so the game shows the new effect's icon.
+pub fn fill_effect_markers(data_root: &Path, patch: &mut nioh3_save::character::EquipmentPatch) {
+    let Some(rules) = rules(data_root) else {
+        return;
+    };
+    for effect in &mut patch.effects {
+        if let Some((group, category)) = u16::try_from(effect.effect_id)
+            .ok()
+            .and_then(|id| rules.effect_marker(id))
+        {
+            effect.group = Some(group);
+            effect.category = Some(category);
+        }
+    }
+}
+
 fn role_name(role: SlotRole) -> &'static str {
     match role {
         SlotRole::Innate => "innate",
@@ -74,6 +91,9 @@ fn finding_json(finding: &Finding) -> Value {
         }
         Finding::RollOutOfRange { slot, .. } => {
             json!({ "code": "roll_out_of_range", "slot": slot })
+        }
+        Finding::ReplacedEffect { slot, original, .. } => {
+            json!({ "code": "replaced_effect", "slot": slot, "original": original })
         }
     }
 }
@@ -129,21 +149,29 @@ pub fn equipment_rules_json(data_root: &Path, params: &Value) -> Result<Value, H
                 Some((min, max))
             })
     };
+    // Each drawn candidate carries its exclusion key so the editor can apply
+    // the generator's group exclusion between slots.
+    let candidate = |effect_id: u16, star: bool| {
+        let (min, max) = range(effect_id).unwrap_or((0, 0));
+        let (group, masks) = rules.conflict_key(effect_id).unwrap_or((0, [0, 0]));
+        json!({
+            "effect_id": effect_id,
+            "star": star,
+            "min": min,
+            "max": max,
+            "group": group,
+            "masks": masks,
+        })
+    };
     let random = rules
         .random_pool(&item, rarity)
         .into_iter()
-        .map(|effect| {
-            let (min, max) = range(effect.effect_id).unwrap_or((0, 0));
-            json!({ "effect_id": effect.effect_id, "star": effect.star, "min": min, "max": max })
-        })
+        .map(|effect| candidate(effect.effect_id, effect.star))
         .collect::<Vec<_>>();
     let hell_pool = rules
         .hell_pool(&item)
         .into_iter()
-        .map(|effect_id| {
-            let (min, max) = range(effect_id).unwrap_or((0, 0));
-            json!({ "effect_id": effect_id, "star": false, "min": min, "max": max })
-        })
+        .map(|effect_id| candidate(effect_id, false))
         .collect::<Vec<_>>();
     Ok(json!({
         "item_id": item_id,
@@ -224,6 +252,36 @@ mod tests {
             .unwrap()
             .iter()
             .any(|entry| entry["effect_id"] == 0x31D0 && entry["star"] == true));
+        // Every drawn candidate carries its exclusion key; the star 武技精力伤害
+        // shares group 0x9AE9 with its ordinary row.
+        let pool = rules["random_pool"].as_array().unwrap();
+        assert!(pool
+            .iter()
+            .all(|entry| entry["group"].is_u64() && entry["masks"].as_array().unwrap().len() == 2));
+        assert!(pool
+            .iter()
+            .any(|entry| entry["effect_id"] == 0x31D0 && entry["group"] == 0x9AE9));
+    }
+
+    #[test]
+    fn written_effects_get_the_marker_the_blacksmith_writes() {
+        // Live PC v2.02: a blacksmith replacement to 火枪伤害 0xB3DB wrote
+        // group 0x90D7 and category bits 0x1B into the entry.
+        let mut patch = nioh3_save::character::EquipmentPatch {
+            effects: vec![nioh3_save::character::EquipmentEffectPatch {
+                index: 3,
+                effect_id: 0xB3DB,
+                value: 33,
+                roll: Some(99),
+                star: Some(false),
+                group: None,
+                category: None,
+            }],
+            ..Default::default()
+        };
+        fill_effect_markers(&data(), &mut patch);
+        assert_eq!(patch.effects[0].group, Some(0x90D7));
+        assert_eq!(patch.effects[0].category, Some(0x1B));
     }
 
     #[test]
