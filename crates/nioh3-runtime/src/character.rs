@@ -28,6 +28,64 @@ pub const EQUIPMENT_SLOTS: usize = 2500;
 /// One equipment record.
 pub const EQUIPMENT_RECORD_BYTES: usize = 0xF0;
 
+/// One item record (consumables, materials, books, key items).
+pub const ITEM_RECORD_BYTES: usize = 0xE8;
+/// Every record array is followed by a u64 count before the next array.
+const ARRAY_COUNT_BYTES: u64 = 8;
+/// Item flags: a u32 count at `+4`, or a record always counted as one.
+const ITEM_COUNT_FLAGS: u32 = 0x20_0000 | 0x80_0000;
+
+/// The two item arrays that follow the owned equipment inside the player
+/// object, laid out as in the save (`nioh3_save::character::ItemContainer`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LiveItemContainer {
+    /// 持有.
+    Held,
+    /// 仓库.
+    Storage,
+}
+
+impl LiveItemContainer {
+    pub const ALL: [Self; 2] = [Self::Held, Self::Storage];
+
+    pub const fn slots(self) -> usize {
+        match self {
+            Self::Held => 1500,
+            Self::Storage => 400,
+        }
+    }
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Held => "held",
+            Self::Storage => "storage",
+        }
+    }
+
+    pub fn from_label(label: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|container| container.label() == label)
+    }
+
+    /// First record, relative to the player object.
+    pub const fn offset(self) -> u64 {
+        let held = EQUIPMENT_OFFSET
+            + (EQUIPMENT_SLOTS * EQUIPMENT_RECORD_BYTES) as u64
+            + ARRAY_COUNT_BYTES;
+        match self {
+            Self::Held => held,
+            Self::Storage => {
+                held + (Self::Held.slots() * ITEM_RECORD_BYTES) as u64 + ARRAY_COUNT_BYTES
+            }
+        }
+    }
+
+    const fn bytes(self) -> usize {
+        self.slots() * ITEM_RECORD_BYTES
+    }
+}
+
 /// A currency the player object stores as a 64-bit value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LiveCurrency {
@@ -112,6 +170,9 @@ pub struct CharacterRead {
     pub currencies: Vec<(LiveCurrency, u64)>,
     /// All `EQUIPMENT_SLOTS` records, occupied or not.
     pub equipment: Vec<u8>,
+    /// The held and stored item arrays, or why they did not pass the layout
+    /// check. Equipment and currencies stay usable either way.
+    pub items: Result<[Vec<u8>; 2], String>,
 }
 
 impl CharacterRead {
@@ -119,6 +180,50 @@ impl CharacterRead {
         let start = slot_index.checked_mul(EQUIPMENT_RECORD_BYTES)?;
         self.equipment.get(start..start + EQUIPMENT_RECORD_BYTES)
     }
+
+    pub fn item(&self, container: LiveItemContainer, slot_index: usize) -> Option<&[u8]> {
+        let arrays = self.items.as_ref().ok()?;
+        let array = match container {
+            LiveItemContainer::Held => &arrays[0],
+            LiveItemContainer::Storage => &arrays[1],
+        };
+        let start = slot_index.checked_mul(ITEM_RECORD_BYTES)?;
+        array.get(start..start + ITEM_RECORD_BYTES)
+    }
+}
+
+/// Read one item array and check it looks like item records.
+fn read_item_array(
+    memory: &dyn InventoryMemory,
+    player: u64,
+    container: LiveItemContainer,
+) -> Result<Vec<u8>, String> {
+    let start = player + container.offset();
+    let array = memory
+        .read(start, container.bytes())
+        .map_err(|error| error.to_string())?;
+    let count = memory
+        .read(start + container.bytes() as u64, 8)
+        .map_err(|error| error.to_string())
+        .and_then(|bytes| u64_at(&bytes).map_err(|error| error.to_string()))?;
+    if count > container.slots() as u64 {
+        return Err(format!(
+            "the {} item array count {count} exceeds its {} slots",
+            container.label(),
+            container.slots()
+        ));
+    }
+    for record in array.chunks_exact(ITEM_RECORD_BYTES) {
+        let occupied = record[0] != 0 || record[1] != 0;
+        let flags = u32::from_le_bytes([record[0x18], record[0x19], record[0x1A], record[0x1B]]);
+        if occupied && flags & ITEM_COUNT_FLAGS == 0 {
+            return Err(format!(
+                "the {} item array holds a record without item count flags",
+                container.label()
+            ));
+        }
+    }
+    Ok(array)
 }
 
 fn read_once(memory: &dyn InventoryMemory, player: u64) -> Result<CharacterRead, RuntimeError> {
@@ -131,6 +236,9 @@ fn read_once(memory: &dyn InventoryMemory, player: u64) -> Result<CharacterRead,
         player + EQUIPMENT_OFFSET,
         EQUIPMENT_SLOTS * EQUIPMENT_RECORD_BYTES,
     )?;
+    let items = read_item_array(memory, player, LiveItemContainer::Held).and_then(|held| {
+        read_item_array(memory, player, LiveItemContainer::Storage).map(|stored| [held, stored])
+    });
     let process = memory.process();
     Ok(CharacterRead {
         pid: process.pid,
@@ -138,6 +246,7 @@ fn read_once(memory: &dyn InventoryMemory, player: u64) -> Result<CharacterRead,
         player,
         currencies,
         equipment,
+        items,
     })
 }
 
@@ -184,7 +293,13 @@ pub enum MenuSelection {
     Closed,
     /// An owned equipment record.
     Equipment { slot_index: usize, item_id: u16 },
-    /// Something outside the equipment container (consumables, materials, ...).
+    /// A held or stored item record.
+    Item {
+        container: LiveItemContainer,
+        slot_index: usize,
+        item_id: u16,
+    },
+    /// Something outside the known arrays.
     Other { item_id: u16 },
 }
 
@@ -208,7 +323,9 @@ pub fn read_menu_selection(memory: &dyn InventoryMemory) -> Result<MenuSelection
         return Ok(MenuSelection::Closed);
     }
     if u64_at(&memory.read(menu, 8)?)? != base + INVENTORY_MENU_VTABLE_RVA {
-        return Err(layout("the inventory menu's vtable does not match this build"));
+        return Err(layout(
+            "the inventory menu's vtable does not match this build",
+        ));
     }
     let closed = memory.read(menu + MENU_CLOSED_FLAG_OFFSET, 1)?[0];
     let open = memory.read(menu + MENU_OPEN_FLAG_OFFSET, 1)?[0];
@@ -230,12 +347,28 @@ pub fn read_menu_selection(memory: &dyn InventoryMemory) -> Result<MenuSelection
     if (container..container + span).contains(&item) {
         let offset = item - container;
         if !offset.is_multiple_of(EQUIPMENT_RECORD_BYTES as u64) {
-            return Err(layout("the selected item is not aligned to an equipment record"));
+            return Err(layout(
+                "the selected item is not aligned to an equipment record",
+            ));
         }
         return Ok(MenuSelection::Equipment {
             slot_index: (offset / EQUIPMENT_RECORD_BYTES as u64) as usize,
             item_id,
         });
+    }
+    for container in LiveItemContainer::ALL {
+        let start = player + container.offset();
+        if (start..start + container.bytes() as u64).contains(&item) {
+            let offset = item - start;
+            if !offset.is_multiple_of(ITEM_RECORD_BYTES as u64) {
+                return Err(layout("the selected item is not aligned to an item record"));
+            }
+            return Ok(MenuSelection::Item {
+                container,
+                slot_index: (offset / ITEM_RECORD_BYTES as u64) as usize,
+                item_id,
+            });
+        }
     }
     Ok(MenuSelection::Other { item_id })
 }
@@ -249,6 +382,13 @@ pub enum LiveEdit {
         replacement: u64,
     },
     Equipment {
+        slot_index: usize,
+        expected: Vec<u8>,
+        replacement: Vec<u8>,
+    },
+    /// A count change of one item record; only bytes `+4..+8` may differ.
+    Item {
+        container: LiveItemContainer,
         slot_index: usize,
         expected: Vec<u8>,
         replacement: Vec<u8>,
@@ -280,13 +420,29 @@ impl LiveEdit {
                 let offset = EQUIPMENT_OFFSET + (*slot_index * EQUIPMENT_RECORD_BYTES) as u64;
                 Ok((player + offset, replacement.clone()))
             }
+            Self::Item {
+                container,
+                slot_index,
+                expected,
+                replacement,
+            } => {
+                let only_count = expected.len() == ITEM_RECORD_BYTES
+                    && replacement.len() == ITEM_RECORD_BYTES
+                    && expected[..4] == replacement[..4]
+                    && expected[8..] == replacement[8..];
+                if *slot_index >= container.slots() || !only_count {
+                    return Err(layout("an item edit may change only one record's count"));
+                }
+                let offset = container.offset() + (*slot_index * ITEM_RECORD_BYTES) as u64;
+                Ok((player + offset, replacement.clone()))
+            }
         }
     }
 
     fn expected_bytes(&self) -> Vec<u8> {
         match self {
             Self::Currency { expected, .. } => expected.to_le_bytes().to_vec(),
-            Self::Equipment { expected, .. } => expected.clone(),
+            Self::Equipment { expected, .. } | Self::Item { expected, .. } => expected.clone(),
         }
     }
 }
@@ -529,6 +685,113 @@ mod tests {
         assert!(read_menu_selection(&fake).is_err());
         let fake = with_open_menu(record + 8);
         assert!(read_menu_selection(&fake).is_err());
+    }
+
+    fn put_item(
+        fake: &Fake,
+        container: LiveItemContainer,
+        slot: usize,
+        id: u16,
+        count: u32,
+    ) -> u64 {
+        let at = PLAYER + container.offset() + (slot * ITEM_RECORD_BYTES) as u64;
+        fake.put(at, &id.to_le_bytes());
+        fake.put(at + 4, &count.to_le_bytes());
+        fake.put(at + 0x18, &0x20_0000u32.to_le_bytes());
+        at
+    }
+
+    #[test]
+    fn item_arrays_are_read_after_the_equipment() {
+        let fake = Fake::new();
+        put_item(&fake, LiveItemContainer::Held, 161, 0x24AF, 3);
+        put_item(&fake, LiveItemContainer::Storage, 2, 0x05E7, 6734);
+        let read = read_character(&fake).unwrap();
+        assert_eq!(
+            &read.item(LiveItemContainer::Held, 161).unwrap()[..2],
+            &0x24AFu16.to_le_bytes()
+        );
+        assert_eq!(
+            &read.item(LiveItemContainer::Storage, 2).unwrap()[4..8],
+            &6734u32.to_le_bytes()
+        );
+        // Held starts right after the equipment array and its count, as the
+        // hovered 火男面具 did live (container + 0x927C8).
+        assert_eq!(LiveItemContainer::Held.offset(), EQUIPMENT_OFFSET + 0x927C8);
+
+        let broken = Fake::new();
+        let at = PLAYER + LiveItemContainer::Storage.offset();
+        broken.put(at, &0x1234u16.to_le_bytes());
+        let read = read_character(&broken).unwrap();
+        assert!(read.items.is_err());
+        assert!(read.record(5).is_some());
+    }
+
+    #[test]
+    fn the_menu_cursor_resolves_to_an_item_slot() {
+        let fake = with_open_menu(0);
+        let at = put_item(&fake, LiveItemContainer::Held, 161, 0x24AF, 3);
+        fake.put(
+            MENU + DETAIL_WIDGET_OFFSET + DETAIL_ITEM_OFFSET,
+            &at.to_le_bytes(),
+        );
+        assert_eq!(
+            read_menu_selection(&fake).unwrap(),
+            MenuSelection::Item {
+                container: LiveItemContainer::Held,
+                slot_index: 161,
+                item_id: 0x24AF
+            }
+        );
+    }
+
+    #[test]
+    fn an_item_edit_writes_only_the_count() {
+        let fake = Fake::new();
+        let at = put_item(&fake, LiveItemContainer::Storage, 2, 0x05E7, 6734);
+        let read = read_character(&fake).unwrap();
+        let original = read.item(LiveItemContainer::Storage, 2).unwrap().to_vec();
+        let mut replacement = original.clone();
+        replacement[4..8].copy_from_slice(&9999u32.to_le_bytes());
+        let mut writer = Writer {
+            fake: &fake,
+            writes: Vec::new(),
+            creation: 77,
+        };
+        let edit = LiveEdit::Item {
+            container: LiveItemContainer::Storage,
+            slot_index: 2,
+            expected: original.clone(),
+            replacement: replacement.clone(),
+        };
+        assert_eq!(
+            apply_live_edits(&fake, &mut writer, 42, &[edit]),
+            LiveEditOutcome::Verified
+        );
+        assert_eq!(writer.writes, vec![(at + 4, vec![0x0F, 0x27])]);
+
+        let mut sneaky = replacement;
+        sneaky[0] = 0x99;
+        let rejected = LiveEdit::Item {
+            container: LiveItemContainer::Storage,
+            slot_index: 2,
+            expected: read_character(&fake)
+                .unwrap()
+                .item(LiveItemContainer::Storage, 2)
+                .unwrap()
+                .to_vec(),
+            replacement: sneaky,
+        };
+        let mut writer = Writer {
+            fake: &fake,
+            writes: Vec::new(),
+            creation: 77,
+        };
+        assert!(matches!(
+            apply_live_edits(&fake, &mut writer, 42, &[rejected]),
+            LiveEditOutcome::Rejected(_)
+        ));
+        assert!(writer.writes.is_empty());
     }
 
     #[test]

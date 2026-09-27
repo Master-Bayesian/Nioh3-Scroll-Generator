@@ -660,8 +660,11 @@ mod imp {
         /// every owned equipment record, read twice and published only when
         /// both reads agree.
         fn character_snapshot(&self) -> Result<Value, HostError> {
-            use nioh3_runtime::character::{read_character, CHARACTER_GAME_VERSION};
+            use nioh3_runtime::character::{
+                read_character, LiveItemContainer, CHARACTER_GAME_VERSION,
+            };
             use nioh3_runtime::inventory::ProcessInventoryMemory;
+            use nioh3_save::character::ItemContainer;
 
             let process = Self::open_supported_reader()?;
             let memory = ProcessInventoryMemory::new(&process);
@@ -687,6 +690,30 @@ mod imp {
                 row["hell"] = json!(record.get(0x1A).is_some_and(|flags| flags & 0x10 != 0));
                 equipment.push(row);
             }
+            let items = match &read.items {
+                Ok(_) => {
+                    let mut items = Vec::new();
+                    for container in LiveItemContainer::ALL {
+                        for slot_index in 0..container.slots() {
+                            let Some(record) = read.item(container, slot_index) else {
+                                continue;
+                            };
+                            if !nioh3_save::character::equipment_slot_is_empty(record) {
+                                items.push(crate::save_app::item_json(
+                                    match container {
+                                        LiveItemContainer::Held => ItemContainer::Held,
+                                        LiveItemContainer::Storage => ItemContainer::Storage,
+                                    },
+                                    slot_index,
+                                    record,
+                                ));
+                            }
+                        }
+                    }
+                    Value::Array(items)
+                }
+                Err(_) => Value::Null,
+            };
             Ok(json!({
                 "source": "runtime",
                 "game_version": CHARACTER_GAME_VERSION,
@@ -694,6 +721,7 @@ mod imp {
                 "currencies": currencies,
                 "equipment_slots": nioh3_runtime::character::EQUIPMENT_SLOTS,
                 "equipment": equipment,
+                "items": items,
             }))
         }
 
@@ -715,6 +743,18 @@ mod imp {
                 } => json!({
                     "process_id": process_id,
                     "menu_open": true,
+                    "container": "equipment",
+                    "slot_index": slot_index,
+                    "item_id": item_id,
+                }),
+                MenuSelection::Item {
+                    container,
+                    slot_index,
+                    item_id,
+                } => json!({
+                    "process_id": process_id,
+                    "menu_open": true,
+                    "container": container.label(),
                     "slot_index": slot_index,
                     "item_id": item_id,
                 }),
@@ -736,6 +776,7 @@ mod imp {
         fn character_edit(&mut self, params: &Value) -> Result<Value, HostError> {
             use nioh3_runtime::character::{
                 apply_live_edits, read_character, LiveCurrency, LiveEdit, LiveEditOutcome,
+                LiveItemContainer,
             };
             use nioh3_runtime::inventory::ProcessInventoryMemory;
 
@@ -831,6 +872,63 @@ mod imp {
                     replacement,
                 });
             }
+            let mut item_changes = Vec::new();
+            for requested in params
+                .get("items")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+            {
+                let container = requested
+                    .get("container")
+                    .and_then(Value::as_str)
+                    .and_then(LiveItemContainer::from_label)
+                    .ok_or_else(HostError::invalid_request)?;
+                let slot_index = requested
+                    .get("slot_index")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(HostError::invalid_request)?
+                    as usize;
+                let reviewed_sha = requested
+                    .get("expected_record_sha256")
+                    .and_then(Value::as_str)
+                    .ok_or_else(HostError::invalid_request)?;
+                let quantity = requested
+                    .get("quantity")
+                    .and_then(Value::as_u64)
+                    .and_then(|value| u32::try_from(value).ok())
+                    .ok_or_else(HostError::invalid_request)?;
+                let original = match &read.items {
+                    Ok(_) => read
+                        .item(container, slot_index)
+                        .ok_or_else(HostError::invalid_request)?
+                        .to_vec(),
+                    Err(reason) => return Err(HostError::rejected(reason.clone())),
+                };
+                if !format!("{:x}", Sha256::digest(&original)).eq_ignore_ascii_case(reviewed_sha) {
+                    return Err(HostError::rejected(
+                        "The item changed in game since it was read; reload and try again",
+                    ));
+                }
+                let replacement = nioh3_save::character::patch_item_quantity(&original, quantity)
+                    .map_err(HostError::from_save)?;
+                if replacement == original {
+                    continue;
+                }
+                item_changes.push(json!({
+                    "container": container.label(),
+                    "slot_index": slot_index,
+                    "item_id": u16::from_le_bytes([original[0], original[1]]),
+                    "before": nioh3_save::character::item_quantity(&original),
+                    "after": quantity,
+                }));
+                edits.push(LiveEdit::Item {
+                    container,
+                    slot_index,
+                    expected: original,
+                    replacement,
+                });
+            }
             if edits.is_empty() {
                 return Err(HostError::rejected("Nothing to change"));
             }
@@ -849,6 +947,7 @@ mod imp {
                 "process_id": expected_pid,
                 "currencies": currency_changes,
                 "equipment": equipment_changes,
+                "items": item_changes,
                 "error": error,
             }}))
         }

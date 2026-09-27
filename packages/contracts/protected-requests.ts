@@ -3600,6 +3600,14 @@ export type ProtectedRequest =
                 ];
           };
         }[];
+        /**
+         * @maxItems 64
+         */
+        items?: {
+          container: "held" | "storage";
+          slot_index: number;
+          quantity: number;
+        }[];
       };
     }
   | {
@@ -3878,5 +3886,14 @@ export type ProtectedRequest =
           amrita?: number;
           gold?: number;
         };
+        /**
+         * @maxItems 64
+         */
+        items?: {
+          container: "held" | "storage";
+          slot_index: number;
+          expected_record_sha256: string;
+          quantity: number;
+        }[];
       };
     };

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type {
   CharacterEquipment,
+  CharacterItem,
   EffectValues,
   EquipmentRules,
   LiveCharacter,
@@ -16,8 +17,17 @@ import { SavePicker } from "./CartActions";
 import { runtimeObserver, saveObserver, saveSession } from "./save-workspace";
 
 type Mode = "live" | "save";
+type Tab = "equipment" | "items";
 type Character = (LiveCharacter | SaveCharacter) & { mode: Mode };
 type Currency = "amrita" | "gold";
+type Container = CharacterItem["container"];
+/** One item id with its held and stored stacks. */
+interface ItemRow {
+  item_id: number;
+  held?: CharacterItem;
+  storage?: CharacterItem;
+}
+const CONTAINER_LABEL: Record<Container, string> = { held: "持有", storage: "仓库" };
 type LegalValue = EffectValues["values"][number];
 type Finding = NonNullable<CharacterEquipment["audit"]>["findings"][number];
 interface Candidate {
@@ -278,6 +288,12 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const [values, setValues] = useState<(EffectValues | null)[]>([]);
   const [plan, setPlan] = useState<{ plan_id: string; preview: Record<string, unknown> } | null>(null);
   const [catalog, setCatalog] = useState<ActiveLocalCatalog | null>(null);
+  const [tab, setTab] = useState<Tab>("equipment");
+  const [itemQuery, setItemQuery] = useState("");
+  const [itemMajor, setItemMajor] = useState("");
+  const [itemPage, setItemPage] = useState(0);
+  const [selectedItem, setSelectedItem] = useState<number | null>(null);
+  const [itemDraft, setItemDraft] = useState<Record<Container, string>>({ held: "", storage: "" });
   const save = useSyncExternalStore(
     saveSession ? saveSession.subscribe : () => () => {},
     saveSession ? saveSession.getSnapshot : () => null,
@@ -326,18 +342,68 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const rows = filtered.slice(shownPage * PAGE_SIZE, (shownPage + 1) * PAGE_SIZE);
   useEffect(() => setPage(0), [query, major, middle, minor]);
 
+  // Items: one row per item id, held and stored stacks side by side.
+  const itemRows = useMemo(() => {
+    const byId = new Map<number, ItemRow>();
+    for (const stack of character?.items ?? []) {
+      const entry = byId.get(stack.item_id) ?? { item_id: stack.item_id };
+      if (!entry[stack.container]) entry[stack.container] = stack;
+      byId.set(stack.item_id, entry);
+    }
+    // Books are learned recipes, not counted stock; single-count records have no count to edit.
+    return [...byId.values()].filter(
+      entry =>
+        itemGroups(entry.item_id, null)[0] !== "书籍与指南" &&
+        (entry.held?.quantity != null || entry.storage?.quantity != null),
+    );
+  }, [character]);
+  const itemMajors = useMemo(
+    () => [...new Set(itemRows.map(entry => itemGroups(entry.item_id, null)[0]))],
+    [itemRows],
+  );
+  const filteredItems = useMemo(() => {
+    const needle = itemQuery.trim().toLowerCase();
+    return itemRows.filter(entry => {
+      const [a, b] = itemGroups(entry.item_id, null);
+      if (itemMajor && a !== itemMajor) return false;
+      return !needle || [itemText(entry.item_id), a, b].join(" ").toLowerCase().includes(needle);
+    });
+  }, [itemRows, itemQuery, itemMajor, catalog, showIds]);
+  const itemPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
+  const shownItemPage = Math.min(itemPage, itemPages - 1);
+  const pagedItems = filteredItems.slice(shownItemPage * PAGE_SIZE, (shownItemPage + 1) * PAGE_SIZE);
+  useEffect(() => setItemPage(0), [itemQuery, itemMajor]);
+  const itemRow = itemRows.find(entry => entry.item_id === selectedItem) ?? null;
+  const itemDraftOf = (entry: ItemRow | null): Record<Container, string> => ({
+    held: entry?.held?.quantity == null ? "" : String(entry.held.quantity),
+    storage: entry?.storage?.quantity == null ? "" : String(entry.storage.quantity),
+  });
+  function selectItem(entry: ItemRow) {
+    setSelectedItem(entry.item_id);
+    setItemDraft(itemDraftOf(entry));
+  }
+
   // Follow the item under the in-game inventory cursor (live mode, read-only).
   const [follow, setFollow] = useState(false);
   const [followNote, setFollowNote] = useState("");
-  const revealRef = useRef<number | null>(null);
-  const missingRef = useRef<number | null>(null);
-  const dirty = !!(draft && row && JSON.stringify(draft) !== JSON.stringify(draftOf(row)));
-  const latest = useRef({ selected, dirty, character, busy, filtered });
-  latest.current = { selected, dirty, character, busy, filtered };
+  const revealRef = useRef<{ tab: Tab; key: number } | null>(null);
+  const missingRef = useRef<string | null>(null);
+  const dirty =
+    !!(draft && row && JSON.stringify(draft) !== JSON.stringify(draftOf(row))) ||
+    !!(itemRow && JSON.stringify(itemDraft) !== JSON.stringify(itemDraftOf(itemRow)));
+  const latest = useRef({ selected, selectedItem, dirty, character, busy, filtered, filteredItems, itemRows });
+  latest.current = { selected, selectedItem, dirty, character, busy, filtered, filteredItems, itemRows };
   useEffect(() => {
     if (!follow || mode !== "live" || !character) return;
     let inFlight = false;
     let stopped = false;
+    const reloadOnce = (key: string) => {
+      setFollowNote("游戏内选中的物品不在已读取的列表中，正在重新读取");
+      if (missingRef.current !== key) {
+        missingRef.current = key;
+        load("live");
+      }
+    };
     const timer = window.setInterval(async () => {
       if (inFlight || latest.current.busy) return;
       inFlight = true;
@@ -346,27 +412,43 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         if (stopped || !result || !("menu_open" in result)) return;
         const now = latest.current;
         if (!result.menu_open) { setFollowNote("游戏内的持有物品菜单未打开"); return; }
-        if (result.slot_index == null) { setFollowNote("游戏内选中的不是装备"); return; }
-        const entry = now.character?.equipment.find(item => item.slot_index === result.slot_index);
-        if (!entry) {
-          setFollowNote("游戏内选中的装备不在已读取的列表中，请重新读取");
-          if (missingRef.current !== result.slot_index) {
-            missingRef.current = result.slot_index;
-            load("live");
+        if (result.slot_index == null || result.item_id == null) { setFollowNote("游戏内选中的物品无法修改"); return; }
+        if (result.container === "held" || result.container === "storage") {
+          const entry = now.itemRows.find(item => item.item_id === result.item_id);
+          if (!entry) {
+            if (now.character?.items?.some(stack => stack.item_id === result.item_id)) {
+              setFollowNote("游戏内选中的物品没有可修改的数量");
+              return;
+            }
+            return reloadOnce(result.container + result.slot_index);
           }
+          missingRef.current = null;
+          if (entry.item_id === now.selectedItem) { setFollowNote(""); setTab("items"); return; }
+          if (now.dirty) { setFollowNote("当前有未应用的修改，已暂停跟随"); return; }
+          setFollowNote("");
+          setTab("items");
+          if (!now.filteredItems.some(item => item.item_id === entry.item_id)) {
+            setItemQuery("");
+            setItemMajor("");
+          }
+          revealRef.current = { tab: "items", key: entry.item_id };
+          selectItem(entry);
           return;
         }
+        const entry = now.character?.equipment.find(item => item.slot_index === result.slot_index);
+        if (!entry) return reloadOnce("equipment" + result.slot_index);
         missingRef.current = null;
-        if (entry.slot_index === now.selected) { setFollowNote(""); return; }
-        if (now.dirty) { setFollowNote("当前装备有未应用的修改，已暂停跟随"); return; }
+        if (entry.slot_index === now.selected) { setFollowNote(""); setTab("equipment"); return; }
+        if (now.dirty) { setFollowNote("当前有未应用的修改，已暂停跟随"); return; }
         setFollowNote("");
+        setTab("equipment");
         if (!now.filtered.some(item => item.slot_index === entry.slot_index)) {
           setQuery("");
           setMajor(itemGroups(entry.item_id, entry.type_class)[0]);
           setMiddle("");
           setMinor("");
         }
-        revealRef.current = entry.slot_index;
+        revealRef.current = { tab: "equipment", key: entry.slot_index };
         setSelected(entry.slot_index);
         setDraft(draftOf(entry));
         setModded(false);
@@ -380,16 +462,28 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     }, 300);
     return () => { stopped = true; window.clearInterval(timer); };
   }, [follow, mode, character]);
-  // Turn to the page holding a followed item and bring its row into view.
+  // In the single-column layout the editor sits below the list; bring it up.
+  useEffect(() => {
+    if (selected == null && selectedItem == null) return;
+    if (!window.matchMedia?.("(max-width: 1100px)").matches) return;
+    document.querySelector(".character-side")?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [selected, selectedItem]);
+  // Turn to the page holding a followed row and bring it into view.
   useEffect(() => {
     const target = revealRef.current;
-    if (target == null) return;
-    const index = filtered.findIndex(item => item.slot_index === target);
+    if (!target) return;
+    const list = target.tab === "equipment"
+      ? filtered.map(item => item.slot_index)
+      : filteredItems.map(item => item.item_id);
+    const index = list.indexOf(target.key);
     if (index < 0) return;
     revealRef.current = null;
-    setPage(Math.floor(index / PAGE_SIZE));
-    window.setTimeout(() => document.querySelector(`tr[data-slot="${target}"]`)?.scrollIntoView({ block: "nearest" }), 50);
-  }, [filtered, selected]);
+    (target.tab === "equipment" ? setPage : setItemPage)(Math.floor(index / PAGE_SIZE));
+    window.setTimeout(
+      () => document.querySelector(`tr[data-row="${target.tab}-${target.key}"]`)?.scrollIntoView({ block: "nearest" }),
+      50,
+    );
+  }, [filtered, filteredItems, selected, selectedItem]);
 
   const rarity = draft ? parseAmount(draft.rarity, 255) : null;
   const level = draft ? parseAmount(draft.level, 65535) : null;
@@ -510,6 +604,12 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     const kept = next.equipment.find(entry => entry.slot_index === selected);
     setDraft(kept ? draftOf(kept) : null);
     if (!kept) setSelected(null);
+    const stacks = (next.items ?? []).filter(stack => stack.item_id === selectedItem);
+    if (stacks.length) {
+      const entry: ItemRow = { item_id: stacks[0].item_id };
+      for (const stack of stacks) entry[stack.container] ??= stack;
+      setItemDraft(itemDraftOf(entry));
+    } else setSelectedItem(null);
   }
 
   async function run(task: () => Promise<void>) {
@@ -548,18 +648,28 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     setFollow(false);
     setCharacter(null);
     setSelected(null);
+    setSelectedItem(null);
     setDraft(null);
     setPlan(null);
     setMessage("");
   }
 
-  async function submit(edit: { currencies?: Record<string, number>; equipment?: { slot_index: number; patch: Record<string, unknown> }[] }) {
+  async function submit(edit: {
+    currencies?: Record<string, number>;
+    equipment?: { slot_index: number; patch: Record<string, unknown> }[];
+    items?: { container: Container; slot_index: number; quantity: number }[];
+  }) {
     if (!character) return;
     if (character.mode === "live") {
       const live = character as LiveCharacter & { mode: Mode };
       const equipment = (edit.equipment ?? []).map(item => ({
         ...item,
         expected_record_sha256: live.equipment.find(entry => entry.slot_index === item.slot_index)?.record_sha256 ?? "",
+      }));
+      const items = (edit.items ?? []).map(item => ({
+        ...item,
+        expected_record_sha256:
+          live.items?.find(stack => stack.container === item.container && stack.slot_index === item.slot_index)?.record_sha256 ?? "",
       }));
       const expected: Record<string, number> = {};
       for (const key of Object.keys(edit.currencies ?? {})) expected[key] = Number(live.currencies[key as Currency]);
@@ -570,6 +680,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
             process_id: live.process_id,
             ...(edit.currencies ? { currencies: edit.currencies, expected_currencies: expected } : {}),
             ...(equipment.length ? { equipment } : {}),
+            ...(items.length ? { items } : {}),
           },
         }),
       );
@@ -584,7 +695,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       const result = await saveSession!.prepareCharacterEdit(edit);
       if (!("plan_id" in result)) throw new Error("UNEXPECTED_CHARACTER_PLAN");
       setPlan({ plan_id: result.plan_id, preview: result.preview as Record<string, unknown> });
-      setMessage("已生成修改计划。核对下方内容后点击“写入存档”。游戏必须关闭。");
+      setMessage("已生成修改计划。核对右侧内容后点击“写入存档”。游戏必须关闭。");
     }
   }
 
@@ -609,6 +720,22 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     });
   }
 
+  function applyItems() {
+    return run(async () => {
+      if (!itemRow) return;
+      const items: { container: Container; slot_index: number; quantity: number }[] = [];
+      for (const container of ["held", "storage"] as const) {
+        const stack = itemRow[container];
+        if (!stack || stack.quantity == null) continue;
+        const value = parseAmount(itemDraft[container], stack.limit);
+        if (value === null) throw new Error("请输入有效的数量。");
+        if (value !== stack.quantity) items.push({ container, slot_index: stack.slot_index, quantity: value });
+      }
+      if (!items.length) throw new Error("没有需要修改的内容。");
+      await submit({ items });
+    });
+  }
+
   function commitPlan() {
     return run(async () => {
       if (!plan) return;
@@ -627,9 +754,12 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   function planLines(preview: Record<string, unknown>) {
     const currencies = (preview.currencies ?? []) as { currency: string; before: number; after: number }[];
     const equipment = (preview.equipment ?? []) as { slot_index: number; before: CharacterEquipment; after: CharacterEquipment }[];
+    const items = (preview.items ?? []) as { container: Container; item_id: number; before: number; after: number }[];
     const lines: string[] = [];
     for (const change of currencies)
       lines.push((CURRENCY_LABEL[change.currency] ?? change.currency) + "：" + change.before + " → " + change.after);
+    for (const change of items)
+      lines.push(itemText(change.item_id) + " " + CONTAINER_LABEL[change.container] + "数量：" + change.before + " → " + change.after);
     for (const change of equipment) {
       const prefix = itemText(change.before.item_id);
       for (const [key, label] of FIELD_LABEL)
@@ -664,9 +794,241 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         ? [...(groups.get(major)?.get(middle) ?? [])]
         : [...(groups.get(major)?.values() ?? [])].flatMap(set => [...set]))]
     : [];
+  const selectEquipment = (entry: CharacterEquipment) => {
+    setSelected(entry.slot_index);
+    setDraft(draftOf(entry));
+    setModded(false);
+  };
+  const quantityText = (stack?: CharacterItem) => (stack ? (stack.quantity == null ? "1" : String(stack.quantity)) : "—");
+
+  const equipmentList = (
+    <>
+      <div className="character-filters">
+        <div className="character-chips">
+          <button className={!major ? "active" : ""} onClick={() => { setMajor(""); setMiddle(""); setMinor(""); }}>全部</button>
+          {[...groups.keys()].map(value => (
+            <button key={value} className={major === value ? "active" : ""} onClick={() => { setMajor(value); setMiddle(""); setMinor(""); }}>{value}</button>
+          ))}
+        </div>
+        {middles.length > 1 && (
+          <div className="character-chips small">
+            <button className={!middle ? "active" : ""} onClick={() => { setMiddle(""); setMinor(""); }}>全部</button>
+            {middles.map(value => (
+              <button key={value} className={middle === value ? "active" : ""} onClick={() => { setMiddle(value); setMinor(""); }}>{value}</button>
+            ))}
+          </div>
+        )}
+        <div className="character-search">
+          <input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索物品名称或词条" />
+          {minors.length > 0 && (
+            <select value={minor} onChange={event => setMinor(event.target.value)} aria-label="小类">
+              <option value="">全部小类</option>
+              {minors.map(value => <option key={value} value={value}>{value}</option>)}
+            </select>
+          )}
+          <span className="equipment-range">{filtered.length} / {character?.equipment.length ?? 0}</span>
+        </div>
+      </div>
+      <table className="equipment-table character-table">
+        <thead>
+          <tr><th>物品</th><th>类别</th><th>等级</th><th>稀有度</th><th>判定</th></tr>
+        </thead>
+        <tbody>
+          {rows.map(entry => {
+            const [a, b, c] = itemGroups(entry.item_id, entry.type_class);
+            const effects = entry.effects.filter(effect => effect.effect_id !== EMPTY_EFFECT).map(effect => effectText(effect.effect_id)).join("、");
+            return (
+              <tr key={entry.slot_index} data-row={"equipment-" + entry.slot_index}
+                className={entry.slot_index === selected ? "selected" : ""} onClick={() => selectEquipment(entry)}>
+                <td className="character-item-cell">
+                  <span className="character-item-name">
+                    {itemText(entry.item_id)}
+                    {entry.hell ? <span className="character-hell">地狱</span> : null}
+                    {showIds ? <small> #{entry.slot_index}</small> : null}
+                  </span>
+                  <span className="character-item-effects" title={effects}>{effects}</span>
+                </td>
+                <td className="character-kind">{c || b || a}</td>
+                <td className="character-num">{entry.level}{entry.plus ? <small> +{entry.plus}</small> : null}</td>
+                <td className="character-num">{entry.rarity}</td>
+                <td>{verdictCell(entry)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {pages > 1 && (
+        <div className="character-pager">
+          <button onClick={() => setPage(Math.max(0, shownPage - 1))} disabled={shownPage === 0}>上一页</button>
+          <span>{shownPage + 1} / {pages}</span>
+          <button onClick={() => setPage(Math.min(pages - 1, shownPage + 1))} disabled={shownPage >= pages - 1}>下一页</button>
+        </div>
+      )}
+      <details className="character-names">
+        <summary>补充物品名称（可选）</summary>
+        <LocalCatalogImport onCatalogChange={setCatalog} />
+      </details>
+    </>
+  );
+
+  const itemList = character?.items == null ? (
+    <p className="character-empty">道具区域没有通过布局校验，暂时无法读取。装备和精华不受影响。</p>
+  ) : (
+    <>
+      <div className="character-filters">
+        <div className="character-chips">
+          <button className={!itemMajor ? "active" : ""} onClick={() => setItemMajor("")}>全部</button>
+          {itemMajors.map(value => (
+            <button key={value} className={itemMajor === value ? "active" : ""} onClick={() => setItemMajor(value)}>{value}</button>
+          ))}
+        </div>
+        <div className="character-search">
+          <input value={itemQuery} onChange={event => setItemQuery(event.target.value)} placeholder="搜索道具名称" />
+          <span className="equipment-range">{filteredItems.length} / {itemRows.length}</span>
+        </div>
+      </div>
+      <table className="equipment-table character-table">
+        <thead>
+          <tr><th>道具</th><th>类别</th><th>持有</th><th>仓库</th></tr>
+        </thead>
+        <tbody>
+          {pagedItems.map(entry => {
+            const [a, b] = itemGroups(entry.item_id, null);
+            return (
+              <tr key={entry.item_id} data-row={"items-" + entry.item_id}
+                className={entry.item_id === selectedItem ? "selected" : ""} onClick={() => selectItem(entry)}>
+                <td className="character-item-name">{itemText(entry.item_id)}</td>
+                <td className="character-kind">{b || a}</td>
+                <td className="character-num">{quantityText(entry.held)}</td>
+                <td className="character-num">{quantityText(entry.storage)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {itemPages > 1 && (
+        <div className="character-pager">
+          <button onClick={() => setItemPage(Math.max(0, shownItemPage - 1))} disabled={shownItemPage === 0}>上一页</button>
+          <span>{shownItemPage + 1} / {itemPages}</span>
+          <button onClick={() => setItemPage(Math.min(itemPages - 1, shownItemPage + 1))} disabled={shownItemPage >= itemPages - 1}>下一页</button>
+        </div>
+      )}
+    </>
+  );
+
+  const equipmentDetail = row && draft ? (
+    <div className="character-detail">
+      <div className="character-detail-head">
+        <h3>{itemText(row.item_id)}{row.hell ? <span className="character-hell">地狱</span> : null}</h3>
+        {verdictCell(row)}
+        <div className="character-edit-modes" role="tablist">
+          <button className={!modded ? "active" : ""} onClick={() => setModded(false)}>合法修改</button>
+          <button className={modded ? "active" : ""} onClick={() => setModded(true)}>魔改</button>
+        </div>
+      </div>
+      <p className="equipment-notes">
+        {modded
+          ? "魔改：任何词条、任何数值都可以填写，不受游戏生成规则约束，结果可能无法自然获得。"
+          : "合法修改：每个位置只列出这件装备能自然出现的词条，数值填在合法范围内。"}
+      </p>
+      <div className="character-fields">
+        {FIELD_LABEL.map(([key, label]) => (
+          <label key={key}>
+            <span>{label}</span>
+            <input inputMode="numeric" value={draft[key as keyof Draft] as string} onChange={event => setDraft({ ...draft, [key]: event.target.value })} />
+          </label>
+        ))}
+      </div>
+      <table className="equipment-effects character-effects">
+        <thead><tr><th>位置</th><th>词条</th><th>数值</th><th>合法范围</th></tr></thead>
+        <tbody>
+          {draft.effects.map((effect, index) => {
+            const role = rules?.roles?.[index];
+            const legal = values[index]?.values ?? [];
+            const fixed = role === "set" || role === "grace";
+            const chosen = legal.find(entry => String(entry.value) === effect.value.trim());
+            const top = best(index);
+            const id = parseEffectId(effect.id);
+            return (
+              <tr key={index}>
+                <td>{role ? ROLE_LABEL[role] ?? role : "—"}</td>
+                <td><EffectPicker value={effect.id} candidates={candidatesFor(index)} label={candidateLabel} onPick={candidate => pickEffect(index, candidate)} /></td>
+                <td>
+                  {id === EMPTY_EFFECT ? null : fixed ? <span className="character-muted">—</span> : (
+                    <span className="character-value">
+                      <input inputMode="numeric" value={effect.value} onChange={event => chooseValue(index, event.target.value)} />
+                      {top && !modded ? <button type="button" onClick={() => chooseValue(index, String(top.value))}>最高</button> : null}
+                    </span>
+                  )}
+                </td>
+                <td className="character-range">
+                  {id === EMPTY_EFFECT || fixed || !legal.length ? null : (
+                    <>
+                      {rangeText(legal[0].value, legal[legal.length - 1].value)}
+                      {chosen
+                        ? <small>{" · 前 " + percent(chosen.top_fraction)}</small>
+                        : <small className="character-unnatural">{" · 非自然值"}</small>}
+                    </>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {draftNotes.length > 0 && (
+        <ul className="character-findings">{draftNotes.map(note => <li key={note}>{note}</li>)}</ul>
+      )}
+      <div className="character-actions">
+        <button onClick={maximize} disabled={busy || !values.some(Boolean)}>全部取理论最高</button>
+        <button className="primary" onClick={applyEquipment} disabled={busy}>{modded ? "写入魔改" : "写入"}</button>
+        {dirty ? <button onClick={() => setDraft(draftOf(row))} disabled={busy}>还原</button> : null}
+      </div>
+      <p className="equipment-notes">
+        数值按游戏内部单位填写，例如百分比词条 15 表示 1.5%。“前 X%”表示自然生成时得到这个值或更好值的概率。
+      </p>
+    </div>
+  ) : (
+    <p className="character-empty">在左侧列表中点选一件装备，这里会显示它的词条和修改选项。</p>
+  );
+
+  const itemDetail = itemRow ? (
+    <div className="character-detail">
+      <div className="character-detail-head">
+        <h3>{itemText(itemRow.item_id)}</h3>
+        <span className="character-muted">{itemGroups(itemRow.item_id, null).filter(Boolean).slice(0, 2).join(" · ")}</span>
+      </div>
+      <div className="character-fields">
+        {(["held", "storage"] as const).map(container => {
+          const stack = itemRow[container];
+          return (
+            <label key={container}>
+              <span>{CONTAINER_LABEL[container]}数量</span>
+              {stack && stack.quantity != null ? (
+                <input inputMode="numeric" value={itemDraft[container]}
+                  onChange={event => setItemDraft({ ...itemDraft, [container]: event.target.value })} />
+              ) : (
+                <span className="character-muted character-no-stack">{stack ? "固定为 1" : "没有这条记录"}</span>
+              )}
+            </label>
+          );
+        })}
+      </div>
+      <p className="equipment-notes">
+        只修改已有的记录，不会新增：持有或仓库里没有这件道具时，对应一栏不能填写。游戏里各道具有自己的携带上限，超出的数量可能被游戏自动调整。
+      </p>
+      <div className="character-actions">
+        <button className="primary" onClick={applyItems} disabled={busy}>写入</button>
+        {dirty ? <button onClick={() => setItemDraft(itemDraftOf(itemRow))} disabled={busy}>还原</button> : null}
+      </div>
+    </div>
+  ) : (
+    <p className="character-empty">在左侧列表中点选一件道具，这里可以修改它的持有数量和仓库数量。</p>
+  );
+
   return (
     <main className="equipment-page character-page">
-      <div className="character-top">
+      <div className="character-toolbar">
         <div className="character-modes" role="tablist">
           <button className={mode === "live" ? "active" : ""} onClick={() => switchMode("live")} disabled={busy}>游戏内实时修改</button>
           <button className={mode === "save" ? "active" : ""} onClick={() => switchMode("save")} disabled={busy}>修改存档文件</button>
@@ -679,168 +1041,51 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
             {follow ? "停止跟随" : "跟随游戏内选中"}
           </button>
         )}
-        {follow && followNote && <span className="character-follow-note">{followNote}</span>}
-        <span className="equipment-description">
-          {mode === "live"
-            ? "直接修改正在运行的游戏，需要先读档进入游戏。修改后到神社存档即可保存。"
-            : "修改存档文件，游戏必须关闭。写入前会自动备份原存档。"}
-        </span>
-      </div>
-      {mode === "save" && <SavePicker compact />}
-      <Notice text={message} />
-      {character && (
-        <>
-          <section className="character-currencies">
+        {character && (
+          <div className="character-currencies">
             {(["amrita", "gold"] as const).map(key => (
               <label key={key}>
                 <span>{CURRENCY_LABEL[key]}</span>
                 <input inputMode="numeric" value={currencyDraft[key]} onChange={event => setCurrencyDraft({ ...currencyDraft, [key]: event.target.value })} />
-                <button onClick={() => applyCurrency(key)} disabled={busy}>{key === "amrita" ? "修改精华" : "修改金钱"}</button>
+                <button onClick={() => applyCurrency(key)} disabled={busy}>修改</button>
               </label>
             ))}
-          </section>
-          <section className="character-equipment">
-            <div className="character-filters">
-              <div className="character-chips">
-                <button className={!major ? "active" : ""} onClick={() => { setMajor(""); setMiddle(""); setMinor(""); }}>全部</button>
-                {[...groups.keys()].map(value => (
-                  <button key={value} className={major === value ? "active" : ""} onClick={() => { setMajor(value); setMiddle(""); setMinor(""); }}>{value}</button>
-                ))}
-              </div>
-              {middles.length > 1 && (
-                <div className="character-chips small">
-                  <button className={!middle ? "active" : ""} onClick={() => { setMiddle(""); setMinor(""); }}>全部</button>
-                  {middles.map(value => (
-                    <button key={value} className={middle === value ? "active" : ""} onClick={() => { setMiddle(value); setMinor(""); }}>{value}</button>
-                  ))}
-                </div>
-              )}
-              <div className="character-search">
-                {minors.length > 0 && (
-                  <select value={minor} onChange={event => setMinor(event.target.value)} aria-label="小类">
-                    <option value="">全部小类</option>
-                    {minors.map(value => <option key={value} value={value}>{value}</option>)}
-                  </select>
-                )}
-                <input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索物品名称或词条" />
-                <span className="equipment-range">{filtered.length} / {character.equipment.length}</span>
-              </div>
+          </div>
+        )}
+      </div>
+      <p className="character-hint">
+        {mode === "live"
+          ? "直接修改正在运行的游戏，需要先读档进入游戏。修改后到神社存档即可保存。"
+          : "修改存档文件，游戏必须关闭。写入前会自动备份原存档。"}
+        {follow && followNote ? <span className="character-follow-note">{followNote}</span> : null}
+      </p>
+      {mode === "save" && <SavePicker compact />}
+      <Notice text={message} />
+      {character && (
+        <div className="character-body">
+          <section className="character-list">
+            <div className="character-tabs" role="tablist">
+              <button className={tab === "equipment" ? "active" : ""} onClick={() => setTab("equipment")}>
+                装备 <small>{character.equipment.length}</small>
+              </button>
+              <button className={tab === "items" ? "active" : ""} onClick={() => setTab("items")}>
+                道具 <small>{itemRows.length}</small>
+              </button>
             </div>
-            <table className="equipment-table character-table">
-              <thead>
-                <tr><th>类别</th><th>物品</th><th>等级</th><th>+值</th><th>稀有度</th><th>词条</th><th>判定</th></tr>
-              </thead>
-              <tbody>
-                {rows.map(entry => {
-                  const [a, b, c] = itemGroups(entry.item_id, entry.type_class);
-                  return (
-                    <tr key={entry.slot_index} data-slot={entry.slot_index} className={entry.slot_index === selected ? "selected" : ""}
-                      onClick={() => { setSelected(entry.slot_index); setDraft(draftOf(entry)); setModded(false); }}>
-                      <td>{c || b || a}{entry.hell ? <span className="character-hell">地狱</span> : null}</td>
-                      <td className="character-item-name">{itemText(entry.item_id)}{showIds ? <small> #{entry.slot_index}</small> : null}</td>
-                      <td>{entry.level}</td>
-                      <td>{entry.plus}</td>
-                      <td>{entry.rarity}</td>
-                      <td className="character-effects-cell">{entry.effects.filter(effect => effect.effect_id !== EMPTY_EFFECT).map(effect => effectText(effect.effect_id)).join("、")}</td>
-                      <td>{verdictCell(entry)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {pages > 1 && (
-              <div className="character-pager">
-                <button onClick={() => setPage(Math.max(0, shownPage - 1))} disabled={shownPage === 0}>上一页</button>
-                <span>{shownPage + 1} / {pages}</span>
-                <button onClick={() => setPage(Math.min(pages - 1, shownPage + 1))} disabled={shownPage >= pages - 1}>下一页</button>
-              </div>
-            )}
-            <details className="character-names">
-              <summary>补充物品名称（可选）</summary>
-              <LocalCatalogImport onCatalogChange={setCatalog} />
-            </details>
-            {row && draft && (
-              <div className="equipment-detail character-detail">
-                <div className="character-detail-head">
-                  <h3>{itemText(row.item_id)}</h3>
-                  {verdictCell(row)}
-                  <div className="character-edit-modes" role="tablist">
-                    <button className={!modded ? "active" : ""} onClick={() => setModded(false)}>合法修改</button>
-                    <button className={modded ? "active" : ""} onClick={() => setModded(true)}>魔改</button>
-                  </div>
-                </div>
-                <p className="equipment-notes">
-                  {modded
-                    ? "魔改：任何词条、任何数值都可以填写，不受游戏生成规则约束，结果可能无法自然获得。"
-                    : "合法修改：每个位置只列出这件装备能自然出现的词条，数值填在合法范围内。"}
-                </p>
-                <div className="character-fields">
-                  {FIELD_LABEL.map(([key, label]) => (
-                    <label key={key}>
-                      <span>{label}</span>
-                      <input inputMode="numeric" value={draft[key as keyof Draft] as string} onChange={event => setDraft({ ...draft, [key]: event.target.value })} />
-                    </label>
-                  ))}
-                </div>
-                <table className="equipment-effects character-effects">
-                  <thead><tr><th>位置</th><th>词条</th><th>数值</th><th>合法范围</th></tr></thead>
-                  <tbody>
-                    {draft.effects.map((effect, index) => {
-                      const role = rules?.roles?.[index];
-                      const legal = values[index]?.values ?? [];
-                      const fixed = role === "set" || role === "grace";
-                      const chosen = legal.find(entry => String(entry.value) === effect.value.trim());
-                      const top = best(index);
-                      const id = parseEffectId(effect.id);
-                      return (
-                        <tr key={index}>
-                          <td>{role ? ROLE_LABEL[role] ?? role : "—"}</td>
-                          <td><EffectPicker value={effect.id} candidates={candidatesFor(index)} label={candidateLabel} onPick={candidate => pickEffect(index, candidate)} /></td>
-                          <td>
-                            {id === EMPTY_EFFECT ? null : fixed ? <span className="character-muted">—</span> : (
-                              <span className="character-value">
-                                <input inputMode="numeric" value={effect.value} onChange={event => chooseValue(index, event.target.value)} />
-                                {top && !modded ? <button type="button" onClick={() => chooseValue(index, String(top.value))}>最高</button> : null}
-                              </span>
-                            )}
-                          </td>
-                          <td className="character-range">
-                            {id === EMPTY_EFFECT || fixed || !legal.length ? null : (
-                              <>
-                                {rangeText(legal[0].value, legal[legal.length - 1].value)}
-                                {chosen
-                                  ? <small>{" · 前 " + percent(chosen.top_fraction)}</small>
-                                  : <small className="character-unnatural">{" · 非自然值"}</small>}
-                              </>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                <p className="equipment-notes">
-                  数值按游戏内部单位填写，例如百分比词条 15 表示 1.5%。“前 X%”表示自然生成时得到这个值或更好值的概率。
-                </p>
-                {draftNotes.length > 0 && (
-                  <ul className="character-findings">{draftNotes.map(note => <li key={note}>{note}</li>)}</ul>
-                )}
-                <div className="character-actions">
-                  <button onClick={maximize} disabled={busy || !values.some(Boolean)}>全部取理论最高</button>
-                  <button onClick={applyEquipment} disabled={busy}>{modded ? "写入魔改" : "写入"}</button>
-                </div>
-              </div>
-            )}
+            {tab === "equipment" ? equipmentList : itemList}
           </section>
-          {plan && (
-            <section className="character-plan">
-              <h3>修改计划</h3>
-              <ul className="character-plan-lines">{planLines(plan.preview).map(line => <li key={line}>{line}</li>)}</ul>
-              <button onClick={commitPlan} disabled={busy}>写入存档</button>
-              <button onClick={() => { setPlan(null); void saveSession!.discard(); }} disabled={busy}>放弃</button>
-            </section>
-          )}
-        </>
+          <aside className="character-side">
+            {plan && (
+              <section className="character-plan">
+                <h3>修改计划</h3>
+                <ul className="character-plan-lines">{planLines(plan.preview).map(line => <li key={line}>{line}</li>)}</ul>
+                <button className="primary" onClick={commitPlan} disabled={busy}>写入存档</button>
+                <button onClick={() => { setPlan(null); void saveSession!.discard(); }} disabled={busy}>放弃</button>
+              </section>
+            )}
+            {tab === "equipment" ? equipmentDetail : itemDetail}
+          </aside>
+        </div>
       )}
     </main>
   );

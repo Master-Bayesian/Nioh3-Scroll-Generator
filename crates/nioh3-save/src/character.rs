@@ -278,6 +278,149 @@ pub fn patch_equipment(record: &[u8], patch: &EquipmentPatch) -> Result<Vec<u8>,
     Ok(patched)
 }
 
+/// One item record (consumables, materials, books, key items).
+pub const ITEM_RECORD_BYTES: usize = 0xE8;
+/// Each record array in the save is preceded by `tag u32 | size + 4 u32 | size u32`.
+pub const CONTAINER_HEADER_BYTES: usize = 0xC;
+/// A record whose count spans `+4..+8` (u32) instead of `+4..+6` (u16).
+pub const ITEM_WIDE_COUNT_FLAG: u32 = 0x20_0000;
+/// A record the game always counts as one.
+pub const ITEM_SINGLE_FLAG: u32 = 0x80_0000;
+
+/// The two item arrays that follow the owned equipment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ItemContainer {
+    /// 持有: what the character carries.
+    Held,
+    /// 仓库: the storehouse.
+    Storage,
+}
+
+impl ItemContainer {
+    pub const ALL: [Self; 2] = [Self::Held, Self::Storage];
+
+    pub const fn slots(self) -> usize {
+        match self {
+            Self::Held => 1500,
+            Self::Storage => 400,
+        }
+    }
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Held => "held",
+            Self::Storage => "storage",
+        }
+    }
+
+    pub fn from_label(label: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|container| container.label() == label)
+    }
+
+    /// First record of the array in the decrypted save.
+    pub const fn save_offset(self) -> usize {
+        let held = EQUIPMENT_REGION_END + CONTAINER_HEADER_BYTES;
+        match self {
+            Self::Held => held,
+            Self::Storage => held + Self::Held.slots() * ITEM_RECORD_BYTES + CONTAINER_HEADER_BYTES,
+        }
+    }
+}
+
+/// Check the size words in front of an item array, then return its bytes.
+pub fn item_region(plain: &[u8], container: ItemContainer) -> Result<&[u8], SaveReadError> {
+    let start = container.save_offset();
+    let size = container.slots() * ITEM_RECORD_BYTES;
+    let region =
+        plain
+            .get(start - 8..start + size)
+            .ok_or(SaveReadError::InventoryRegionTruncated {
+                needed: start + size,
+                actual: plain.len(),
+            })?;
+    let declared = u32_at(region, 0) as usize;
+    let payload = u32_at(region, 4) as usize;
+    if declared != size + 4 || payload != size {
+        return Err(SaveReadError::InvalidTransform {
+            message: format!(
+                "the {} item array header declares {payload:#x} bytes, not {size:#x}",
+                container.label()
+            ),
+        });
+    }
+    Ok(&region[8..])
+}
+
+/// One item record.
+pub fn item_record(
+    plain: &[u8],
+    container: ItemContainer,
+    slot_index: usize,
+) -> Result<&[u8], SaveReadError> {
+    if slot_index >= container.slots() {
+        return Err(SaveReadError::SlotIndex { index: slot_index });
+    }
+    let offset = slot_index * ITEM_RECORD_BYTES;
+    Ok(&item_region(plain, container)?[offset..offset + ITEM_RECORD_BYTES])
+}
+
+/// The count the game shows, or `None` for a record it always counts as one.
+pub fn item_quantity(record: &[u8]) -> Option<u32> {
+    let flags = u32_at(record, 0x18);
+    if flags & ITEM_SINGLE_FLAG != 0 {
+        None
+    } else if flags & ITEM_WIDE_COUNT_FLAG != 0 {
+        Some(u32_at(record, 0x04))
+    } else {
+        Some(u32::from(u16_at(record, 0x04)))
+    }
+}
+
+/// The largest count one record can hold.
+pub fn item_quantity_limit(record: &[u8]) -> u32 {
+    if u32_at(record, 0x18) & ITEM_WIDE_COUNT_FLAG != 0 {
+        u32::MAX
+    } else {
+        u32::from(u16::MAX)
+    }
+}
+
+/// A copy of `record` with a new count; nothing else changes.
+pub fn patch_item_quantity(record: &[u8], quantity: u32) -> Result<Vec<u8>, SaveReadError> {
+    if record.len() != ITEM_RECORD_BYTES {
+        return Err(SaveReadError::RecordLength {
+            expected: ITEM_RECORD_BYTES,
+            actual: record.len(),
+        });
+    }
+    if equipment_slot_is_empty(record) {
+        return Err(SaveReadError::RecordTypeZero);
+    }
+    if item_quantity(record).is_none() || quantity > item_quantity_limit(record) {
+        return Err(SaveReadError::InvalidTransform {
+            message: format!("this item cannot hold a count of {quantity}"),
+        });
+    }
+    let mut patched = record.to_vec();
+    if item_quantity_limit(record) == u32::MAX {
+        patched[0x04..0x08].copy_from_slice(&quantity.to_le_bytes());
+    } else {
+        patched[0x04..0x06].copy_from_slice(&(quantity as u16).to_le_bytes());
+    }
+    Ok(patched)
+}
+
+/// True when two item records differ only in their count bytes.
+pub fn only_count_differs(original: &[u8], replacement: &[u8]) -> bool {
+    original.len() == ITEM_RECORD_BYTES
+        && replacement.len() == ITEM_RECORD_BYTES
+        && original[..0x04] == replacement[..0x04]
+        && original[0x08..] == replacement[0x08..]
+}
+
 /// One change of the character block, gated on the stored original.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "target", rename_all = "snake_case")]
@@ -292,6 +435,13 @@ pub enum CharacterEdit {
         expected_original: Vec<u8>,
         replacement: Vec<u8>,
     },
+    /// A count change of one item record; every other byte must stay.
+    Item {
+        container: ItemContainer,
+        slot_index: usize,
+        expected_original: Vec<u8>,
+        replacement: Vec<u8>,
+    },
 }
 
 impl CharacterEdit {
@@ -299,6 +449,11 @@ impl CharacterEdit {
         match self {
             Self::Currency { currency, .. } => format!("currency {}", currency.label()),
             Self::Equipment { slot_index, .. } => format!("equipment slot {slot_index}"),
+            Self::Item {
+                container,
+                slot_index,
+                ..
+            } => format!("{} item slot {slot_index}", container.label()),
         }
     }
 }
@@ -378,6 +533,33 @@ pub fn apply_character_edits(
                     .ok_or(SaveReadError::SlotIndex { index: *slot_index })?;
                 edited[offset..offset + EQUIPMENT_RECORD_BYTES].copy_from_slice(replacement);
                 slots.push(*slot_index);
+            }
+            CharacterEdit::Item {
+                container,
+                slot_index,
+                expected_original,
+                replacement,
+            } => {
+                let current = item_record(plain, *container, *slot_index)?;
+                if equipment_slot_is_empty(current) {
+                    return Err(SaveReadError::EmptyRecord {
+                        slot_index: *slot_index,
+                    });
+                }
+                if current != expected_original.as_slice() {
+                    return Err(SaveReadError::IntegrityMismatch {
+                        path: target,
+                        expected: crate::save::sha256_hex(expected_original),
+                        actual: crate::save::sha256_hex(current),
+                    });
+                }
+                if !only_count_differs(current, replacement) {
+                    return Err(SaveReadError::InvalidTransform {
+                        message: format!("{target}: only the count may change"),
+                    });
+                }
+                let offset = container.save_offset() + slot_index * ITEM_RECORD_BYTES;
+                edited[offset..offset + ITEM_RECORD_BYTES].copy_from_slice(replacement);
             }
         }
     }
@@ -506,6 +688,107 @@ mod tests {
         assert_eq!(starred[0x4C + 0xE] & !0x04, record[0x4C + 0xE] & !0x04);
         let plain = patch_equipment(&starred, &with(false)).unwrap();
         assert_eq!(plain[0x4C + 0xE] & 0x04, 0);
+    }
+
+    fn plain_with_items() -> Vec<u8> {
+        let end = ItemContainer::Storage.save_offset()
+            + ItemContainer::Storage.slots() * ITEM_RECORD_BYTES;
+        let mut plain = vec![0u8; end + 0x10];
+        for container in ItemContainer::ALL {
+            let start = container.save_offset();
+            let size = (container.slots() * ITEM_RECORD_BYTES) as u32;
+            plain[start - 8..start - 4].copy_from_slice(&(size + 4).to_le_bytes());
+            plain[start - 4..start].copy_from_slice(&size.to_le_bytes());
+        }
+        // 仙药 held x8 (wide count), 铁甲片 held 623127, 仙药 stored x6734.
+        let put = |plain: &mut Vec<u8>,
+                   container: ItemContainer,
+                   slot: usize,
+                   id: u16,
+                   count: u32,
+                   flags: u32| {
+            let at = container.save_offset() + slot * ITEM_RECORD_BYTES;
+            plain[at..at + 2].copy_from_slice(&id.to_le_bytes());
+            plain[at + 4..at + 8].copy_from_slice(&count.to_le_bytes());
+            plain[at + 0x18..at + 0x1C].copy_from_slice(&flags.to_le_bytes());
+            plain[at + 0x40] = 0x5A;
+        };
+        put(&mut plain, ItemContainer::Held, 0, 0x05E7, 8, 0x20_0000);
+        put(
+            &mut plain,
+            ItemContainer::Held,
+            86,
+            0xCE16,
+            623_127,
+            0x20_0000,
+        );
+        put(
+            &mut plain,
+            ItemContainer::Storage,
+            2,
+            0x05E7,
+            6734,
+            0x20_0002,
+        );
+        put(&mut plain, ItemContainer::Held, 5, 0x1234, 1, 0x80_0000);
+        plain
+    }
+
+    #[test]
+    fn item_arrays_follow_the_equipment_and_carry_counts() {
+        assert_eq!(ItemContainer::Held.save_offset(), 0x30_2832);
+        assert_eq!(ItemContainer::Storage.save_offset(), 0x35_779E);
+        let plain = plain_with_items();
+        let held = item_record(&plain, ItemContainer::Held, 86).unwrap();
+        assert_eq!(item_quantity(held), Some(623_127));
+        let stored = item_record(&plain, ItemContainer::Storage, 2).unwrap();
+        assert_eq!(item_quantity(stored), Some(6734));
+        let single = item_record(&plain, ItemContainer::Held, 5).unwrap();
+        assert_eq!(item_quantity(single), None);
+        assert!(patch_item_quantity(single, 3).is_err());
+        let mut broken = plain.clone();
+        let start = ItemContainer::Storage.save_offset();
+        broken[start - 4] ^= 1;
+        assert!(item_record(&broken, ItemContainer::Storage, 2).is_err());
+    }
+
+    #[test]
+    fn item_edits_change_only_the_count() {
+        let plain = plain_with_items();
+        let original = item_record(&plain, ItemContainer::Storage, 2)
+            .unwrap()
+            .to_vec();
+        let replacement = patch_item_quantity(&original, 9999).unwrap();
+        let edit = CharacterEdit::Item {
+            container: ItemContainer::Storage,
+            slot_index: 2,
+            expected_original: original.clone(),
+            replacement: replacement.clone(),
+        };
+        let (edited, _) = apply_character_edits(&plain, &[edit]).unwrap();
+        let after = item_record(&edited, ItemContainer::Storage, 2).unwrap();
+        assert_eq!(item_quantity(after), Some(9999));
+        assert_eq!(
+            item_record(&edited, ItemContainer::Held, 0).unwrap(),
+            item_record(&plain, ItemContainer::Held, 0).unwrap()
+        );
+
+        let mut sneaky = replacement.clone();
+        sneaky[0] = 0x99;
+        let rejected = CharacterEdit::Item {
+            container: ItemContainer::Storage,
+            slot_index: 2,
+            expected_original: original.clone(),
+            replacement: sneaky,
+        };
+        assert!(apply_character_edits(&plain, &[rejected]).is_err());
+        let stale = CharacterEdit::Item {
+            container: ItemContainer::Storage,
+            slot_index: 2,
+            expected_original: replacement.clone(),
+            replacement,
+        };
+        assert!(apply_character_edits(&plain, &[stale]).is_err());
     }
 
     #[test]

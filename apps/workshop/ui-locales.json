@@ -3655,6 +3655,86 @@
     "当前装备有未应用的修改，已暂停跟随": [
       "Following paused: this item has unapplied changes",
       "未適用の変更があるため追従を一時停止しました"
+    ],
+    "持有": [
+      "Held",
+      "所持"
+    ],
+    "仓库": [
+      "Storage",
+      "倉庫"
+    ],
+    "道具": [
+      "Items",
+      "アイテム"
+    ],
+    "还原": [
+      "Revert",
+      "元に戻す"
+    ],
+    "修改": [
+      "Change",
+      "変更"
+    ],
+    "持有数量": [
+      "Held quantity",
+      "所持数"
+    ],
+    "仓库数量": [
+      "Storage quantity",
+      "倉庫の数"
+    ],
+    "固定为 1": [
+      "Always 1",
+      "常に 1"
+    ],
+    "没有这条记录": [
+      "No record",
+      "記録なし"
+    ],
+    "搜索道具名称": [
+      "Search items",
+      "アイテム名で検索"
+    ],
+    "请输入有效的数量。": [
+      "Enter a valid quantity.",
+      "有効な数量を入力してください。"
+    ],
+    "游戏内选中的物品不在已读取的列表中，正在重新读取": [
+      "The selected item is not in the loaded list; reloading",
+      "選択中のアイテムが一覧にないため再読み込みしています"
+    ],
+    "游戏内选中的物品无法修改": [
+      "The in-game selection cannot be edited",
+      "ゲーム内で選択中のものは編集できません"
+    ],
+    "游戏内选中的物品没有可修改的数量": [
+      "The selected item has no editable quantity",
+      "選択中のアイテムには編集できる数量がありません"
+    ],
+    "当前有未应用的修改，已暂停跟随": [
+      "Following paused: there are unapplied changes",
+      "未適用の変更があるため追従を一時停止しました"
+    ],
+    "已生成修改计划。核对右侧内容后点击“写入存档”。游戏必须关闭。": [
+      "Plan ready. Review it on the right, then click “Write to save”. The game must be closed.",
+      "変更計画を作成しました。右側の内容を確認してから「セーブに書き込む」を押してください。ゲームは閉じておく必要があります。"
+    ],
+    "道具区域没有通过布局校验，暂时无法读取。装备和精华不受影响。": [
+      "The item area failed the layout check and cannot be read. Equipment and Amrita are unaffected.",
+      "アイテム領域がレイアウト検証に通らなかったため読み込めません。装備と精髄には影響しません。"
+    ],
+    "在左侧列表中点选一件装备，这里会显示它的词条和修改选项。": [
+      "Pick equipment on the left to see its effects and edit options here.",
+      "左の一覧から装備を選ぶと、ここに効果と編集項目が表示されます。"
+    ],
+    "在左侧列表中点选一件道具，这里可以修改它的持有数量和仓库数量。": [
+      "Pick an item on the left to change its held and storage quantities here.",
+      "左の一覧からアイテムを選ぶと、ここで所持数と倉庫の数を変更できます。"
+    ],
+    "只修改已有的记录，不会新增：持有或仓库里没有这件道具时，对应一栏不能填写。游戏里各道具有自己的携带上限，超出的数量可能被游戏自动调整。": [
+      "Only existing records change; nothing is added. A column is disabled when that place has no such item. Items have their own carry limits in game, and larger counts may be adjusted by the game.",
+      "既存の記録だけを変更し、新規追加はしません。所持または倉庫にそのアイテムがない場合、その欄は入力できません。アイテムごとに所持上限があり、超えた数はゲームが調整する場合があります。"
     ]
   },
   "game": {

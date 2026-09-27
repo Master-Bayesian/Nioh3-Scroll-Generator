@@ -46,8 +46,10 @@ use nioh3_domain::sequence::generate_challenge_attempt_count;
 use nioh3_domain::sequence::materialize_ng3_rarity4_stage_one_record;
 use nioh3_save::backup::{list_backup_entries, move_backup_to_recycle_bin};
 use nioh3_save::character::{
-    equipment_fields, equipment_record, equipment_slot_is_empty, patch_equipment, read_currency,
-    CharacterEdit, Currency, EquipmentFields, EquipmentPatch, EQUIPMENT_SLOT_COUNT,
+    equipment_fields, equipment_record, equipment_slot_is_empty, item_quantity,
+    item_quantity_limit, item_record, item_region, patch_equipment, patch_item_quantity,
+    read_currency, CharacterEdit, Currency, EquipmentFields, EquipmentPatch, ItemContainer,
+    EQUIPMENT_SLOT_COUNT, ITEM_RECORD_BYTES,
 };
 use nioh3_save::codec::prepare_candidate_for_install;
 use nioh3_save::error::SaveReadError;
@@ -369,6 +371,7 @@ impl SaveApplication {
             "currencies": currencies,
             "equipment_slots": EQUIPMENT_SLOT_COUNT,
             "equipment": equipment,
+            "items": save_items_json(plain),
         }))
     }
 
@@ -454,6 +457,49 @@ impl SaveApplication {
                 replacement,
             });
         }
+        let mut item_changes = Vec::new();
+        for requested in params
+            .get("items")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            let container = requested
+                .get("container")
+                .and_then(Value::as_str)
+                .and_then(ItemContainer::from_label)
+                .ok_or_else(HostError::invalid_request)?;
+            let slot_index = requested
+                .get("slot_index")
+                .and_then(Value::as_u64)
+                .ok_or_else(HostError::invalid_request)? as usize;
+            let quantity = requested
+                .get("quantity")
+                .and_then(Value::as_u64)
+                .and_then(|value| u32::try_from(value).ok())
+                .ok_or_else(HostError::invalid_request)?;
+            let original = item_record(plain, container, slot_index)
+                .map_err(HostError::from_save)?
+                .to_vec();
+            let replacement =
+                patch_item_quantity(&original, quantity).map_err(HostError::from_save)?;
+            if replacement == original {
+                continue;
+            }
+            item_changes.push(json!({
+                "container": container.label(),
+                "slot_index": slot_index,
+                "item_id": u16::from_le_bytes([original[0], original[1]]),
+                "before": item_quantity(&original),
+                "after": quantity,
+            }));
+            edits.push(CharacterEdit::Item {
+                container,
+                slot_index,
+                expected_original: original,
+                replacement,
+            });
+        }
         if edits.is_empty() {
             return Err(HostError::rejected("Nothing to change"));
         }
@@ -470,6 +516,7 @@ impl SaveApplication {
             json!({
                 "currencies": currency_changes,
                 "equipment": equipment_changes,
+                "items": item_changes,
                 "modded": modded,
             }),
         ))
@@ -1740,6 +1787,35 @@ impl SaveApplication {
             ))),
         }
     }
+}
+
+/// One occupied item record for the character page.
+pub(crate) fn item_json(container: ItemContainer, slot_index: usize, record: &[u8]) -> Value {
+    json!({
+        "container": container.label(),
+        "slot_index": slot_index,
+        "item_id": u16::from_le_bytes([record[0], record[1]]),
+        "quantity": item_quantity(record),
+        "limit": item_quantity_limit(record),
+        "record_sha256": format!("{:x}", Sha256::digest(record)),
+    })
+}
+
+/// Every occupied held and stored item, or `null` when an array header does
+/// not match the expected layout.
+fn save_items_json(plain: &[u8]) -> Value {
+    let mut items = Vec::new();
+    for container in ItemContainer::ALL {
+        let Ok(region) = item_region(plain, container) else {
+            return Value::Null;
+        };
+        for (slot_index, record) in region.chunks_exact(ITEM_RECORD_BYTES).enumerate() {
+            if !equipment_slot_is_empty(record) {
+                items.push(item_json(container, slot_index, record));
+            }
+        }
+    }
+    Value::Array(items)
 }
 
 pub(crate) fn equipment_json(

@@ -3396,6 +3396,37 @@
                   "patch"
                 ]
               }
+            },
+            "items": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "container": {
+                    "enum": [
+                      "held",
+                      "storage"
+                    ]
+                  },
+                  "slot_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1499
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  }
+                },
+                "required": [
+                  "container",
+                  "slot_index",
+                  "quantity"
+                ]
+              }
             }
           },
           "required": [
@@ -3717,6 +3748,42 @@
                   "minimum": 0,
                   "maximum": 9007199254740991
                 }
+              }
+            },
+            "items": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "container": {
+                    "enum": [
+                      "held",
+                      "storage"
+                    ]
+                  },
+                  "slot_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1499
+                  },
+                  "expected_record_sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-fA-F]{64}$"
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  }
+                },
+                "required": [
+                  "container",
+                  "slot_index",
+                  "expected_record_sha256",
+                  "quantity"
+                ]
               }
             }
           },

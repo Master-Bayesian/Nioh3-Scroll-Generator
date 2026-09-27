@@ -330,3 +330,26 @@ in-game inventory menu ("持有物品").
   returns `{menu_open, slot_index, item_id}`; the character page polls it every
   300 ms when "跟随游戏内选中" is on. Only the inventory menu is covered; the
   equip-slot screen may use a different menu object.
+
+## Held and stored item quantities (offline + live cursor evidence, 2026-09-27)
+
+- Save layout: every record array is preceded by `tag u32 | size + 4 u32 | size u32`.
+  Held items ("持有") start at `0x302832` (equipment end + 0xC), 1500 records of
+  0xE8 bytes; storage ("仓库") starts at `0x35779E`, 400 records (the header says
+  `0x16A80`; the third-party editor's 393 is short). The header words are checked
+  before any read.
+- Live layout: each array is followed by a u64 count, so held items start at
+  `player + 0x370E0 + 0x927C8`. The cursor pointers captured while following the
+  selection (火男面具 slot 161, 高贵粪球 179, 黏胶 539) land exactly on held
+  records. Storage (`held + 1500 * 0xE8 + 8`) is derived from the save layout and
+  guarded by a structure check (counts within capacity, every occupied record
+  carries a count flag); it has not been written live yet.
+- Count: the game's getter `+2FA554` returns 1 for flag `0x800000`, the u32 at
+  `+4` for flag `0x200000` (all observed records; materials reach 47,213,196), and
+  the u16 at `+4` otherwise. The same item id appears in both arrays as separate
+  records (36 in the owner's save). Books ("书籍与指南") are learned recipes with
+  count 0 and are not offered for editing.
+- Product: `save.character` / `runtime.character_snapshot` list the stacks;
+  `save.prepare_character_edit` and `runtime.character_edit` accept
+  `items: [{container, slot_index, quantity}]` and refuse any change outside
+  bytes `+4..+8`. Existing records only; nothing is created.

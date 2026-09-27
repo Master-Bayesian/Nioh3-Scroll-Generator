@@ -570,7 +570,14 @@
             }
           ]
         },
-        "item_id": {
+"container": {
+          "enum": [
+            "equipment",
+            "held",
+            "storage"
+          ]
+        },
+                "item_id": {
           "type": "integer",
           "minimum": 0,
           "maximum": 65535
@@ -579,6 +586,57 @@
       "required": [
         "process_id",
         "menu_open"
+      ]
+    },
+    "CharacterItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "container": {
+          "enum": [
+            "held",
+            "storage"
+          ]
+        },
+        "slot_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1499
+        },
+        "item_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "quantity": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "record_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64}$"
+        }
+      },
+      "required": [
+        "container",
+        "slot_index",
+        "item_id",
+        "quantity",
+        "limit",
+        "record_sha256"
       ]
     },
     "CharacterCurrencies": {
@@ -639,6 +697,20 @@
             "$ref": "#/definitions/CharacterEquipment"
           },
           "maxItems": 2500
+        },
+        "items": {
+          "anyOf": [
+            {
+              "type": "array",
+              "maxItems": 1900,
+              "items": {
+                "$ref": "#/definitions/CharacterItem"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -678,6 +750,20 @@
             "$ref": "#/definitions/CharacterEquipment"
           },
           "maxItems": 2500
+        },
+        "items": {
+          "anyOf": [
+            {
+              "type": "array",
+              "maxItems": 1900,
+              "items": {
+                "$ref": "#/definitions/CharacterItem"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -721,7 +807,13 @@
                 "type": "object"
               }
             },
-            "error": {
+  "items": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+                    "error": {
               "type": [
                 "string",
                 "null"

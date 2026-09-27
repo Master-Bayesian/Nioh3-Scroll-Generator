@@ -268,6 +268,9 @@ export interface LiveCharacterEdit {
     equipment: {
       [k: string]: unknown;
     }[];
+    items?: {
+      [k: string]: unknown;
+    }[];
     error: string | null;
   };
 }
@@ -280,6 +283,7 @@ export interface SaveCharacter {
    * @maxItems 2500
    */
   equipment: CharacterEquipment[];
+  items?: CharacterItem[] | null;
 }
 export interface CharacterCurrencies {
   amrita: number | null;
@@ -362,6 +366,14 @@ export interface CharacterEquipmentEffect {
   index: number;
   effect_id: number;
   value: number;
+}
+export interface CharacterItem {
+  container: "held" | "storage";
+  slot_index: number;
+  item_id: number;
+  quantity: number | null;
+  limit: number;
+  record_sha256: string;
 }
 export interface RuntimeStatus {
   override_state: "stopped" | "armed_no_hit" | "applied_hit" | "unknown";
@@ -979,6 +991,7 @@ export interface LiveCharacter {
    * @maxItems 2500
    */
   equipment: CharacterEquipment[];
+  items?: CharacterItem[] | null;
 }
 export interface EquipmentRules {
   item_id: number;
@@ -1079,6 +1092,7 @@ export interface MenuSelection {
   process_id: number;
   menu_open: boolean;
   slot_index?: number | null;
+  container?: "equipment" | "held" | "storage";
   item_id?: number;
 }
 export interface InventorySnapshot {
