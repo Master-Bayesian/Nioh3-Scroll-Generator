@@ -331,16 +331,16 @@ impl ScrollRecord {
         self.effects.first()
     }
 
-    /// Serialize the seven-slot NG3 rarity-4 stage-one layout.
+    /// Serialize the seven-slot rarity-4 stage-one layout.
     ///
     /// Mirrors `serialize_ng3_rarity4_stage_one_effect_slots`, including its
-    /// context guard and its use of positional order rather than the slot
-    /// field.
+    /// context guard (generalized to the record's own playthrough type) and its
+    /// use of positional order rather than the slot field.
     pub fn serialize_rarity4_stage_one_slots(
         &self,
     ) -> Result<[u8; EFFECT_AREA_BYTES], RecordError> {
-        if self.playthrough != crate::sequence::NG3_PLAYTHROUGH
-            || self.record_type != crate::sequence::NG3_RECORD_TYPE
+        if crate::sequence::record_type_for_playthrough(self.playthrough).ok()
+            != Some(self.record_type)
             || self.rarity != crate::sequence::RARITY_FINALIZABLE
             || self.effects.len() != RARITY4_FINAL_EFFECT_COUNT
         {

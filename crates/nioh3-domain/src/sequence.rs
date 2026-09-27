@@ -49,7 +49,7 @@ pub enum SequenceError {
     DisplayedSeedOutOfRange(u64),
     /// A table problem surfaced while preparing the sequence.
     Table(EffectError),
-    /// A rarity-5 sequence requested a playthrough outside 3..=5.
+    /// A sequence requested a playthrough outside 1..=5.
     UnsupportedPlaythrough(u8),
     /// The supplied Grace map is not the context the path requires.
     GraceMapContext { field: &'static str },
@@ -85,6 +85,14 @@ impl From<crate::r4_finalizer::R4FinalizerError> for SequenceError {
     }
 }
 
+/// Scroll record type of playthrough 1..=5 (`CATEGORY_TO_TYPE`).
+pub fn record_type_for_playthrough(playthrough: u8) -> Result<u16, SequenceError> {
+    match playthrough {
+        1..=5 => Ok(CATEGORY_TO_TYPE[usize::from(playthrough)]),
+        other => Err(SequenceError::UnsupportedPlaythrough(other)),
+    }
+}
+
 /// Scoped Seed transformation at native RVA 0x10283FA.
 pub fn derive_challenge_count_seed(displayed_seed: u32) -> u32 {
     (displayed_seed & CHALLENGE_COUNT_SEED_MASK) << 7
@@ -117,11 +125,23 @@ pub fn generate_ng3_rarity3_effect_sequence(
     seed: u32,
     level: u16,
 ) -> Result<ScrollRecord, SequenceError> {
+    generate_rarity3_effect_sequence(index, NG3_PLAYTHROUGH, seed, level)
+}
+
+/// The rarity-3 growing sequence for any playthrough's scroll type. Only NG3 is
+/// certified; other playthroughs are held to live native parity per context.
+pub fn generate_rarity3_effect_sequence(
+    index: &EffectTableIndex,
+    playthrough: u8,
+    seed: u32,
+    level: u16,
+) -> Result<ScrollRecord, SequenceError> {
+    let record_type = record_type_for_playthrough(playthrough)?;
     let mut rng = LcgStream::new(seed);
     let source_effect_flags = [0u8, 0, 0, 0, RARITY3_TOKEN_EFFECT_FLAGS, 0, 0];
     let promoted = index.select_promoted_slot_indexes(
         PromotedSlotRequest {
-            record_type: NG3_RECORD_TYPE,
+            record_type,
             rarity: RARITY_GROWING,
             category_and_flags: &[0u8; 7],
             effect_flags: &source_effect_flags,
@@ -132,17 +152,17 @@ pub fn generate_ng3_rarity3_effect_sequence(
         },
         &mut rng,
     )?;
-    let capacities = index.category_capacities(NG3_RECORD_TYPE, RARITY_GROWING)?;
+    let capacities = index.category_capacities(record_type, RARITY_GROWING)?;
     let mut builder = SequenceBuilder::new(
         index,
         rng,
         SequenceIdentity {
-            record_type: NG3_RECORD_TYPE,
+            record_type,
             rarity: RARITY_GROWING,
-            playthrough: NG3_PLAYTHROUGH,
+            playthrough,
             level,
             primary_source_index: 0,
-            special_effect_id: RARITY3_GROWING_TOKEN,
+            special_effect_id: Some(RARITY3_GROWING_TOKEN),
         },
         capacities,
         promoted,
@@ -175,7 +195,20 @@ pub fn generate_ng3_rarity4_stage_one_effect_sequence(
     seed: u32,
     level: u16,
 ) -> Result<ScrollRecord, SequenceError> {
-    validate_rarity4_stage_one_map(grace_map)?;
+    generate_rarity4_stage_one_effect_sequence(index, grace_map, NG3_PLAYTHROUGH, seed, level)
+}
+
+/// The rarity-4 stage-one sequence for any playthrough's scroll type, with that
+/// context's captured stage-one map.
+pub fn generate_rarity4_stage_one_effect_sequence(
+    index: &EffectTableIndex,
+    grace_map: &GraceMap,
+    playthrough: u8,
+    seed: u32,
+    level: u16,
+) -> Result<ScrollRecord, SequenceError> {
+    let record_type = record_type_for_playthrough(playthrough)?;
+    validate_rarity4_stage_one_map(grace_map, record_type)?;
 
     let mut rng = LcgStream::new(seed);
     let first_u16 = rng.u16();
@@ -185,7 +218,7 @@ pub fn generate_ng3_rarity4_stage_one_effect_sequence(
     let source_effect_flags = [SOURCE_GRACE_EFFECT_FLAGS, 0, 0, 0, 0, 0, 0];
     let promoted = index.select_promoted_slot_indexes(
         PromotedSlotRequest {
-            record_type: NG3_RECORD_TYPE,
+            record_type,
             rarity: RARITY_FINALIZABLE,
             category_and_flags: &[0u8; 7],
             effect_flags: &source_effect_flags,
@@ -194,17 +227,17 @@ pub fn generate_ng3_rarity4_stage_one_effect_sequence(
         },
         &mut rng,
     )?;
-    let capacities = index.category_capacities(NG3_RECORD_TYPE, RARITY_FINALIZABLE)?;
+    let capacities = index.category_capacities(record_type, RARITY_FINALIZABLE)?;
     let mut builder = SequenceBuilder::new(
         index,
         rng,
         SequenceIdentity {
-            record_type: NG3_RECORD_TYPE,
+            record_type,
             rarity: RARITY_FINALIZABLE,
-            playthrough: NG3_PLAYTHROUGH,
+            playthrough,
             level,
             primary_source_index: 1,
-            special_effect_id: special_id,
+            special_effect_id: Some(special_id),
         },
         capacities,
         promoted,
@@ -227,7 +260,7 @@ pub fn generate_ng3_rarity4_stage_one_effect_sequence(
     builder.finish(seed, RARITY_FINALIZABLE, level, effects, random_draws, true)
 }
 
-/// Ordered rarity-5 effects for one NG3/NG4/NG5 Grace context.
+/// Ordered rarity-5 effects for one playthrough's Grace context.
 ///
 /// The returned order is the normalized display/save order: primary, ordinary
 /// effects (including any promoted effect), then Grace.
@@ -238,10 +271,7 @@ pub fn generate_rarity5_grace_effect_sequence(
     seed: u32,
     level: u16,
 ) -> Result<ScrollRecord, SequenceError> {
-    if !(3..=5).contains(&playthrough) {
-        return Err(SequenceError::UnsupportedPlaythrough(playthrough));
-    }
-    let record_type = CATEGORY_TO_TYPE[usize::from(playthrough)];
+    let record_type = record_type_for_playthrough(playthrough)?;
     validate_grace_map(grace_map, playthrough)?;
 
     let mut rng = LcgStream::new(seed);
@@ -271,7 +301,7 @@ pub fn generate_rarity5_grace_effect_sequence(
             playthrough,
             level,
             primary_source_index: 1,
-            special_effect_id: grace_id,
+            special_effect_id: Some(grace_id),
         },
         capacities,
         promoted,
@@ -292,6 +322,51 @@ pub fn generate_rarity5_grace_effect_sequence(
 
     let random_draws = 1 + 1 + if builder.promoted.is_empty() { 0 } else { 7 } + 5 * 3;
     builder.finish(seed, RARITY_DIVINE, level, effects, random_draws, true)
+}
+
+/// Rarity-5 records without a Grace (NG1/NG2 scroll types): six ordinary
+/// effects, source 0 primary, and no draw-1 special. Held to live parity
+/// against the native generator per context.
+pub fn generate_rarity5_plain_effect_sequence(
+    index: &EffectTableIndex,
+    playthrough: u8,
+    seed: u32,
+    level: u16,
+) -> Result<ScrollRecord, SequenceError> {
+    let record_type = record_type_for_playthrough(playthrough)?;
+    let mut rng = LcgStream::new(seed);
+    let promoted = index.select_promoted_slot_indexes(
+        PromotedSlotRequest {
+            record_type,
+            rarity: RARITY_DIVINE,
+            category_and_flags: &[0u8; 7],
+            effect_flags: &[0u8; 7],
+            slot_limit: Some(6),
+            rarity5_type_floor: 0,
+        },
+        &mut rng,
+    )?;
+    let capacities = index.category_capacities(record_type, RARITY_DIVINE)?;
+    let mut builder = SequenceBuilder::new(
+        index,
+        rng,
+        SequenceIdentity {
+            record_type,
+            rarity: RARITY_DIVINE,
+            playthrough,
+            level,
+            primary_source_index: 0,
+            special_effect_id: None,
+        },
+        capacities,
+        promoted,
+    );
+    let mut effects = Vec::with_capacity(usize::from(EFFECT_SLOT_COUNT));
+    for source_index in 0..6u8 {
+        effects.push(builder.ordinary_slot(source_index, source_index + 1)?);
+    }
+    let random_draws = 1 + if builder.promoted.is_empty() { 0 } else { 7 } + 6 * 3;
+    builder.finish(seed, RARITY_DIVINE, level, effects, random_draws, false)
 }
 
 /// Backward-compatible verified NG3 rarity-5 entry point.
@@ -330,14 +405,46 @@ pub fn materialize_ng3_rarity4_stage_one_record(
     generation_serial: u32,
     transfer_count: u32,
 ) -> Result<(ScrollRecordBytes, ScrollRecord), SequenceError> {
+    materialize_rarity4_stage_one_record(
+        index,
+        stage_one_grace_map,
+        NG3_PLAYTHROUGH,
+        template,
+        seed,
+        level,
+        recommended_level,
+        generation_serial,
+        transfer_count,
+    )
+}
+
+/// [`materialize_ng3_rarity4_stage_one_record`] for any playthrough; the
+/// template must carry that playthrough's scroll type.
+#[allow(clippy::too_many_arguments)]
+pub fn materialize_rarity4_stage_one_record(
+    index: &EffectTableIndex,
+    stage_one_grace_map: &GraceMap,
+    playthrough: u8,
+    template: &ScrollRecordBytes,
+    seed: u32,
+    level: u16,
+    recommended_level: u16,
+    generation_serial: u32,
+    transfer_count: u32,
+) -> Result<(ScrollRecordBytes, ScrollRecord), SequenceError> {
     let template_type = template.record_type();
-    if template_type != NG3_RECORD_TYPE {
+    if template_type != record_type_for_playthrough(playthrough)? {
         return Err(SequenceError::TemplateRecordType {
             record_type: template_type,
         });
     }
-    let sequence =
-        generate_ng3_rarity4_stage_one_effect_sequence(index, stage_one_grace_map, seed, level)?;
+    let sequence = generate_rarity4_stage_one_effect_sequence(
+        index,
+        stage_one_grace_map,
+        playthrough,
+        seed,
+        level,
+    )?;
 
     let mut record = template.clone();
     // +0x0C is the R4 completion salt, not a lineage field. A newly generated
@@ -394,6 +501,34 @@ pub fn materialize_ng3_rarity4_final_record(
     Ok(finalizer.build_rarity4_pair(&stage_one, sequence.final_rng_state)?)
 }
 
+/// [`materialize_ng3_rarity4_final_record`] for any playthrough.
+#[allow(clippy::too_many_arguments)]
+pub fn materialize_rarity4_final_record(
+    index: &EffectTableIndex,
+    stage_one_grace_map: &GraceMap,
+    playthrough: u8,
+    template: &ScrollRecordBytes,
+    seed: u32,
+    level: u16,
+    recommended_level: u16,
+    generation_serial: u32,
+    transfer_count: u32,
+) -> Result<Rarity4RecordPair, SequenceError> {
+    let (stage_one, sequence) = materialize_rarity4_stage_one_record(
+        index,
+        stage_one_grace_map,
+        playthrough,
+        template,
+        seed,
+        level,
+        recommended_level,
+        generation_serial,
+        transfer_count,
+    )?;
+    let finalizer = crate::r4_finalizer::R4FinalizerEngine::for_playthrough(index, playthrough)?;
+    Ok(finalizer.build_rarity4_pair(&stage_one, sequence.final_rng_state)?)
+}
+
 /// Challenge attempt count as the serialized byte at `+0x33`.
 fn challenge_attempt_count_byte(seed: u32) -> u8 {
     // `generate_challenge_attempt_count` is bounded by
@@ -410,7 +545,7 @@ struct SequenceIdentity {
     level: u16,
     /// Source index that carries the 0x40 primary flag.
     primary_source_index: u8,
-    special_effect_id: u32,
+    special_effect_id: Option<u32>,
 }
 
 /// Mutable state shared by the three ordinary sequence loops.
@@ -465,7 +600,7 @@ impl<'a> SequenceBuilder<'a> {
             destination_category_and_flags: category_and_flags,
             destination_effect_flags: effect_flags,
             remaining_category_capacities: self.capacities,
-            special_effect_id: Some(self.identity.special_effect_id),
+            special_effect_id: self.identity.special_effect_id,
             alternate_runtime_context: false,
         };
         let pool = self
@@ -573,8 +708,11 @@ fn category_of(index: &EffectTableIndex, effect_id: u32) -> Result<u8, SequenceE
 }
 
 /// Rarity-4 stage-one map gate, mirroring `_validate_rarity4_stage_mapping`.
-fn validate_rarity4_stage_one_map(grace_map: &GraceMap) -> Result<(), SequenceError> {
-    if grace_map.record_type != u32::from(NG3_RECORD_TYPE) {
+fn validate_rarity4_stage_one_map(
+    grace_map: &GraceMap,
+    record_type: u16,
+) -> Result<(), SequenceError> {
+    if grace_map.record_type != u32::from(record_type) {
         return Err(SequenceError::GraceMapContext {
             field: "record_type",
         });
@@ -807,12 +945,40 @@ mod sequence_tests {
     }
 
     #[test]
+    fn ng1_and_ng2_rarity5_draw_six_ordinary_effects_and_no_grace() {
+        // Live PC v2.02: native NG1/NG2 rarity-5 records carry six ordinary
+        // effects, the primary in the first slot, and an empty seventh slot.
+        let index = synthetic_index();
+        for playthrough in [1u8, 2] {
+            let record = generate_rarity5_plain_effect_sequence(&index, playthrough, 1, 180)
+                .expect("the plain rarity-5 path generates");
+            assert_eq!(record.record_type, CATEGORY_TO_TYPE[usize::from(playthrough)]);
+            assert_eq!(record.playthrough, playthrough);
+            assert_eq!(record.effects.len(), 6);
+            assert!(!record.terminal_is_special);
+            assert_eq!(
+                record.effects[0].category_and_flags & EFFECT_FLAG_PRIMARY,
+                EFFECT_FLAG_PRIMARY
+            );
+            let promotion = if record.promoted_source_indexes.is_empty() { 0 } else { 7 };
+            assert_eq!(record.random_draws, 1 + promotion + 6 * 3);
+        }
+    }
+
+    #[test]
     fn unsupported_playthroughs_are_rejected_before_table_access() {
         let index = synthetic_index();
         let map = grace_map_for(NG3_RECORD_TYPE);
         assert_eq!(
+            generate_rarity5_grace_effect_sequence(&index, &map, 0, 1, 180).unwrap_err(),
+            SequenceError::UnsupportedPlaythrough(0)
+        );
+        // NG2 is a known context; the NG3 map is refused as another context's capture.
+        assert_eq!(
             generate_rarity5_grace_effect_sequence(&index, &map, 2, 1, 180).unwrap_err(),
-            SequenceError::UnsupportedPlaythrough(2)
+            SequenceError::GraceMapContext {
+                field: "record_type"
+            }
         );
         assert_eq!(
             generate_rarity5_grace_effect_sequence(&index, &map, 6, 1, 180).unwrap_err(),

@@ -142,6 +142,8 @@ impl PoolEntry {
 pub struct R4FinalizerEngine<'a> {
     index: &'a EffectTableIndex,
     playthrough: u8,
+    /// The scroll type the source record must carry for this playthrough.
+    record_type: u16,
     category_rows: Vec<&'a CategoryDefinition>,
 }
 
@@ -163,7 +165,19 @@ impl<'a> R4FinalizerEngine<'a> {
         if playthrough != SUPPORTED_PLAYTHROUGH {
             return Err(R4FinalizerError::UnsupportedPlaythrough { playthrough });
         }
-        index.item(SUPPORTED_RECORD_TYPE)?;
+        Self::for_playthrough(index, playthrough)
+    }
+
+    /// Build the engine for any playthrough 1..=5, bound to that playthrough's
+    /// scroll type. Only NG3 is certified; the other contexts are held to live
+    /// native parity before a product path may use them.
+    pub fn for_playthrough(
+        index: &'a EffectTableIndex,
+        playthrough: u8,
+    ) -> Result<Self, R4FinalizerError> {
+        let record_type = crate::sequence::record_type_for_playthrough(playthrough)
+            .map_err(|_| R4FinalizerError::UnsupportedPlaythrough { playthrough })?;
+        index.item(record_type)?;
         index.playthrough_progress(playthrough)?;
         index.rarity_generation(SUPPORTED_RARITY)?;
         let mut category_rows: Vec<&CategoryDefinition> =
@@ -172,6 +186,7 @@ impl<'a> R4FinalizerEngine<'a> {
         Ok(Self {
             index,
             playthrough,
+            record_type,
             category_rows,
         })
     }
@@ -485,10 +500,10 @@ impl<'a> R4FinalizerEngine<'a> {
         ))
     }
 
-    /// The finalizer is certified only for type `0xE604`, rarity 4.
+    /// The source must be this playthrough's scroll type at rarity 4.
     fn validate_source(&self, source: &ScrollRecordBytes) -> Result<(), R4FinalizerError> {
         let record_type = source.record_type();
-        if record_type != SUPPORTED_RECORD_TYPE {
+        if record_type != self.record_type {
             return Err(R4FinalizerError::UnsupportedRecordType { record_type });
         }
         let rarity = source.rarity();

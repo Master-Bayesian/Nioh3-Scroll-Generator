@@ -23,9 +23,11 @@ use crate::record::{
     EFFECT_SLOT_BASE, EFFECT_SLOT_COUNT, EFFECT_SLOT_STRIDE, EMPTY_EFFECT_ID,
 };
 use crate::sequence::{
-    generate_ng3_rarity3_effect_sequence, generate_ng3_rarity5_effect_sequence,
-    materialize_ng3_rarity4_final_record, materialize_ng3_rarity4_stage_one_record, SequenceError,
-    NG3_PLAYTHROUGH, NG3_RECORD_TYPE, RARITY_DIVINE, RARITY_FINALIZABLE, RARITY_GROWING,
+    generate_rarity3_effect_sequence, generate_rarity5_grace_effect_sequence,
+    generate_rarity5_plain_effect_sequence,
+    materialize_ng3_rarity4_final_record, materialize_ng3_rarity4_stage_one_record,
+    record_type_for_playthrough, SequenceError, NG3_PLAYTHROUGH, NG3_RECORD_TYPE, RARITY_DIVINE,
+    RARITY_FINALIZABLE, RARITY_GROWING,
 };
 
 /// Fail-closed problems for one installation-record materialization.
@@ -115,11 +117,12 @@ fn serialize_effect_slots(effects: &[ScrollEffect]) -> [u8; EFFECT_AREA_BYTES] {
 /// `serialize_ng3_rarity4_stage_one_effect_slots` apply to their input.
 fn ensure_effect_context(
     sequence: &ScrollRecord,
+    playthrough: u8,
     rarity: u8,
     effect_count: usize,
 ) -> Result<(), InstallMaterializeError> {
-    if sequence.playthrough != NG3_PLAYTHROUGH
-        || sequence.record_type != NG3_RECORD_TYPE
+    if sequence.playthrough != playthrough
+        || sequence.record_type != record_type_for_playthrough(playthrough)?
         || sequence.rarity != rarity
         || sequence.effects.len() != effect_count
     {
@@ -142,8 +145,34 @@ pub fn materialize_ng3_rarity3_record(
     transfer_count: u32,
 ) -> Result<(ScrollRecordBytes, ScrollRecord), InstallMaterializeError> {
     ensure_ng3_template(template)?;
-    let sequence = generate_ng3_rarity3_effect_sequence(index, seed, level)?;
-    ensure_effect_context(&sequence, RARITY_GROWING, 5)?;
+    materialize_rarity3_record(
+        index,
+        NG3_PLAYTHROUGH,
+        template,
+        seed,
+        level,
+        recommended_level,
+        generation_serial,
+        transfer_count,
+    )
+}
+
+/// [`materialize_ng3_rarity3_record`] for any playthrough; the template must
+/// carry that playthrough's scroll type.
+#[allow(clippy::too_many_arguments)]
+pub fn materialize_rarity3_record(
+    index: &EffectTableIndex,
+    playthrough: u8,
+    template: &ScrollRecordBytes,
+    seed: u32,
+    level: u16,
+    recommended_level: u16,
+    generation_serial: u32,
+    transfer_count: u32,
+) -> Result<(ScrollRecordBytes, ScrollRecord), InstallMaterializeError> {
+    ensure_template_type(template, playthrough)?;
+    let sequence = generate_rarity3_effect_sequence(index, playthrough, seed, level)?;
+    ensure_effect_context(&sequence, playthrough, RARITY_GROWING, 5)?;
     let mut record = template.clone();
     write_lineage(
         &mut record,
@@ -172,8 +201,68 @@ pub fn materialize_ng3_rarity5_record(
     transfer_count: u32,
 ) -> Result<(ScrollRecordBytes, ScrollRecord), InstallMaterializeError> {
     ensure_ng3_template(template)?;
-    let sequence = generate_ng3_rarity5_effect_sequence(index, grace_map, seed, level)?;
-    ensure_effect_context(&sequence, RARITY_DIVINE, 6)?;
+    materialize_rarity5_record(
+        index,
+        grace_map,
+        NG3_PLAYTHROUGH,
+        template,
+        seed,
+        level,
+        recommended_level,
+        generation_serial,
+        transfer_count,
+    )
+}
+
+/// [`materialize_ng3_rarity5_record`] for any playthrough with that context's map.
+#[allow(clippy::too_many_arguments)]
+pub fn materialize_rarity5_record(
+    index: &EffectTableIndex,
+    grace_map: &GraceMap,
+    playthrough: u8,
+    template: &ScrollRecordBytes,
+    seed: u32,
+    level: u16,
+    recommended_level: u16,
+    generation_serial: u32,
+    transfer_count: u32,
+) -> Result<(ScrollRecordBytes, ScrollRecord), InstallMaterializeError> {
+    ensure_template_type(template, playthrough)?;
+    let sequence =
+        generate_rarity5_grace_effect_sequence(index, grace_map, playthrough, seed, level)?;
+    ensure_effect_context(&sequence, playthrough, RARITY_DIVINE, 6)?;
+    let mut record = template.clone();
+    write_lineage(
+        &mut record,
+        seed,
+        level,
+        recommended_level,
+        generation_serial,
+    )?;
+    record.write_u8(0x30, RARITY_DIVINE)?;
+    record.write_u8(0x31, RARITY_DIVINE)?;
+    write_challenge_count(&mut record, seed)?;
+    record.write_bytes(EFFECT_SLOT_BASE, &serialize_effect_slots(&sequence.effects))?;
+    record.write_u32(0xDC, transfer_count)?;
+    Ok((record, sequence))
+}
+
+/// The Grace-less rarity-5 layout of the NG1/NG2 scroll types: six ordinary
+/// effects and an empty seventh slot.
+#[allow(clippy::too_many_arguments)]
+pub fn materialize_rarity5_plain_record(
+    index: &EffectTableIndex,
+    playthrough: u8,
+    template: &ScrollRecordBytes,
+    seed: u32,
+    level: u16,
+    recommended_level: u16,
+    generation_serial: u32,
+    transfer_count: u32,
+) -> Result<(ScrollRecordBytes, ScrollRecord), InstallMaterializeError> {
+    ensure_template_type(template, playthrough)?;
+    let sequence = generate_rarity5_plain_effect_sequence(index, playthrough, seed, level)?;
+    ensure_effect_context(&sequence, playthrough, RARITY_DIVINE, 6)?;
     let mut record = template.clone();
     write_lineage(
         &mut record,
@@ -300,6 +389,17 @@ pub fn materialize_ng3_certified_install_record(
 }
 
 /// The `template must be a native NG3 0xE604 record` guard.
+fn ensure_template_type(
+    template: &ScrollRecordBytes,
+    playthrough: u8,
+) -> Result<(), InstallMaterializeError> {
+    let record_type = template.record_type();
+    if record_type != record_type_for_playthrough(playthrough)? {
+        return Err(InstallMaterializeError::TemplateRecordType { record_type });
+    }
+    Ok(())
+}
+
 fn ensure_ng3_template(template: &ScrollRecordBytes) -> Result<(), InstallMaterializeError> {
     let record_type = template.record_type();
     if record_type != NG3_RECORD_TYPE {
