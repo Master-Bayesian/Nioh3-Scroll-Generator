@@ -6,11 +6,16 @@ with `nioh3_scroll_editor/data/game_versions/pc_v2_02.json`.
 
 ## Method
 
-- `research/dump_playthrough_native_records_live.py` generates native records
+Scripts (not in the reviewed public `research/` allow-list) are kept with the
+evidence in `deliverables/v082-ce-research/ng12-parity/scripts/`; copy them into
+`research/` of a checkout to run them.
+
+
+- `dump_playthrough_native_records_live.py` generates native records
   for one playthrough/rarity/level from the NG3 capture template with its record
   type replaced (`CATEGORY_TO_TYPE`: NG1 `0x1E82`, NG2 `0x516D`). Rarity 4 also
   runs the native finalization (`complete_native_batch` of the NG3 R4 gate).
-- `research/capture_playthrough_special_map_live.py` measures a first-u16
+- `capture_playthrough_special_map_live.py` measures a first-u16
   special map (65536 native generations), the same loop as
   `grace_map.build_live_grace_output_map`.
 - `crates/nioh3-worker/examples/playthrough_parity.rs` regenerates every record
