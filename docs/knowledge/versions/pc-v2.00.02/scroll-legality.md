@@ -26,7 +26,7 @@ additional required ordinary effects is:
 | ---: | ---: | --- |
 | 3 | 3 | The native growth token is not an ordinary secondary. |
 | 4 | 4 without a required final Grace; 3 with one | Stage-one slot 5 is finalized before the final effect set is known. |
-| 5 | 4 | The single promoted/deep effect slot becomes the primary effect. |
+| 5 | 4 | The single promoted/deep effect slot may land in any ordinary position, primary or secondary. |
 
 An unconstrained primary means that any selected ordinary effect may occupy
 the primary slot. It does not force every selected effect to be a secondary.
@@ -43,7 +43,9 @@ Every selected ordinary effect must also pass all native gates:
   conflict mask;
 - the number of selected effects in every native category does not exceed that
   category's capacity for the selected record type and rarity;
-- rarity 5 does not place a promoted-only/deep effect in a secondary slot.
+- rarity 5 selects at most one promoted-only/deep effect; 491 of 1000 live
+  native NG3 records (PC v2.02) carry exactly one, in every ordinary position,
+  and none carries two.
 
 The application reports localized effect names and IDs for conflict and
 category-capacity failures. A raw category such as `0x03` is retained only as

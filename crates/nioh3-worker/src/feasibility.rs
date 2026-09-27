@@ -242,7 +242,11 @@ fn validate_option(
             ));
         }
     } else if query.rarity == 5 {
-        let promoted_only: Vec<u32> = effective
+        // Rarity 5 has a single deep slot, and the promoted effect it draws can
+        // land in any ordinary position: 491 of 1000 live native NG3 records
+        // carry exactly one, spread over all five ordinary slots, and none
+        // carries two.
+        let mut promoted: Vec<u32> = ordinary
             .iter()
             .copied()
             .filter(|effect_id| {
@@ -254,15 +258,17 @@ fn validate_option(
                     })
             })
             .collect();
-        if !promoted_only.is_empty() {
-            let formatted = promoted_only
+        promoted.sort_unstable();
+        promoted.dedup();
+        if promoted.len() > 1 {
+            let formatted = promoted
                 .iter()
                 .map(|effect_id| format!("0x{effect_id:04X}"))
                 .collect::<Vec<String>>()
                 .join("、");
             return Some(format!(
-                "rarity 5 has a single deep slot and it becomes the primary, so the selected \
-                 secondary {formatted} can only appear in that slot"
+                "rarity 5 has a single deep slot, so only one of the promoted effects \
+                 {formatted} can appear"
             ));
         }
     }
@@ -374,9 +380,9 @@ mod tests {
         SearchQuery::from_payload(&payload).expect("the query shape is valid")
     }
 
-    /// The two combinations the M2.3d vectors pin down: one the shipped layer
-    /// searches, and one it refuses because the only deep slot would have to
-    /// hold a secondary.
+    /// Rarity 5 has one deep slot at any ordinary position: Seed 1 composes
+    /// 0xAE5A promoted into slot 5 (offline and live native), so that set is
+    /// searched, while two promoted effects can never appear together.
     #[test]
     fn rarity5_deep_slot_combinations_are_refused_structurally() {
         let tables = tables();
@@ -387,14 +393,24 @@ mod tests {
             "grace_effect_id": 0x6553,
         }));
         assert_eq!(validate_query_feasibility(&feasible, &tables), Ok(()));
-        let deep_only = query(json!({
+        let promoted_secondary = query(json!({
             "rarity": 5,
             "primary_effect_ids": [41041],
             "required_secondary_ids": [13555, 15994, 44634, 54282],
             "grace_effect_id": 0x6553,
         }));
-        let error = validate_query_feasibility(&deep_only, &tables)
-            .expect_err("the deep-slot-only set must be refused");
+        assert_eq!(
+            validate_query_feasibility(&promoted_secondary, &tables),
+            Ok(())
+        );
+        let two_promoted = query(json!({
+            "rarity": 5,
+            "primary_effect_ids": [0xB613],
+            "required_secondary_ids": [0x23E8],
+            "grace_effect_id": 0x71F6,
+        }));
+        let error = validate_query_feasibility(&two_promoted, &tables)
+            .expect_err("two promoted effects must be refused");
         assert!(error.contains("deep slot"), "{error}");
         assert!(error.contains("no solution"), "{error}");
     }

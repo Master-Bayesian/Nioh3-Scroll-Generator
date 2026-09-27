@@ -84,10 +84,15 @@ RARITY5_SECONDARY_IDS = (6410, 12028, 28203, 41127)
 RARITY5_GRACE_ID = 0x6553
 
 # The same rarity-5 shape with a secondary only the single deep slot can
-# produce: the shipped layer refuses it before searching, so the worker must
-# refuse it by name too.
+# produce. That slot can land at any ordinary position: Seed 1 composes exactly
+# this set with 0xAE5A promoted into slot 5, offline and in the live native
+# generator, so both workers must accept it.
 RARITY5_DEEP_ONLY_PRIMARY = 41041
 RARITY5_DEEP_ONLY_SECONDARY_IDS = (13555, 15994, 44634, 54282)
+
+# Two promoted effects can never share one rarity-5 record.
+RARITY5_TWO_PROMOTED_PRIMARY = 0xB613
+RARITY5_TWO_PROMOTED_SECONDARY_IDS = (0x23E8,)
 
 # Partial-effect forward filter: a rarity-3 request that names only some of its
 # ordinary slots. Effect 60020 is only drawable through the promoted source
@@ -1737,42 +1742,64 @@ class SearchWorkerParityTests(unittest.TestCase):
             )
 
 
-    def test_complete_rarity5_deep_slot_only_set_is_refused_by_both_workers(self) -> None:
-        """A structurally impossible rarity-5 set must fail closed, not answer."""
+    def test_rarity5_single_deep_slot_rule_matches_on_both_workers(self) -> None:
+        """A promoted secondary is searched; two promoted effects fail closed."""
 
-        query = base_query(
-            rarity=5,
-            primary_effect_ids=[RARITY5_DEEP_ONLY_PRIMARY],
-            required_secondary_ids=list(RARITY5_DEEP_ONLY_SECONDARY_IDS),
-            grace_effect_id=RARITY5_GRACE_ID,
-        )
         rust = self.rust_worker()
         python = self.python_worker()
         try:
             rust_context = self.handshake_context(rust)["context_digest"]
             python_context = self.handshake_context(python)["context_digest"]
-            params = search_params(
-                query,
-                rust_context,
-                result_count=2,
-                page_trials=100_000_000,
-                job_trials=100_000_000,
-                **self.policy(),
+
+            def params_for(query: dict) -> dict:
+                return search_params(
+                    query,
+                    rust_context,
+                    result_count=2,
+                    page_trials=100_000_000,
+                    job_trials=100_000_000,
+                    **self.policy(),
+                )
+
+            accepted = params_for(
+                base_query(
+                    rarity=5,
+                    primary_effect_ids=[RARITY5_DEEP_ONLY_PRIMARY],
+                    required_secondary_ids=list(RARITY5_DEEP_ONLY_SECONDARY_IDS),
+                    grace_effect_id=RARITY5_GRACE_ID,
+                )
             )
-            reply = rust.call("search.start", params)
-            self.assertFalse(reply.get("ok"), "the worker must refuse this combination")
-            self.assertEqual(
-                reply["error"]["code"],
-                "INVALID_REQUEST",
-                reply["error"],
+            for worker, context, label in (
+                (rust, rust_context, "rust"),
+                (python, python_context, "python"),
+            ):
+                reply = worker.call("search.start", {**accepted, "context_digest": context})
+                self.assertTrue(
+                    reply.get("ok"),
+                    f"{label} refused a set Seed 1 composes natively: {reply.get('error')}",
+                )
+                job_id = reply["result"]["job_id"]
+                worker.result("job.cancel", {"job_id": job_id}, label=f"{label} cancel")
+                wait_for_terminal(worker, job_id, timeout=120)
+
+            refused = params_for(
+                base_query(
+                    rarity=5,
+                    primary_effect_ids=[RARITY5_TWO_PROMOTED_PRIMARY],
+                    required_secondary_ids=list(RARITY5_TWO_PROMOTED_SECONDARY_IDS),
+                    grace_effect_id=RARITY5_GRACE_ID,
+                )
             )
+            reply = rust.call("search.start", refused)
+            self.assertFalse(reply.get("ok"), "the worker must refuse two promoted effects")
+            self.assertEqual(reply["error"]["code"], "INVALID_REQUEST", reply["error"])
             self.assertIn(
                 "deep slot",
                 reply["error"]["message"].lower(),
                 "the refusal must name the reason it cannot be searched",
             )
             python_reply = python.call(
-                "search.start", {**params, "context_digest": python_context}
+                "search.start", {**refused, "context_digest": python_context}
             )
             self.assertFalse(
                 python_reply.get("ok"),

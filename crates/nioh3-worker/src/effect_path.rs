@@ -714,9 +714,8 @@ pub fn primary_pivot_native_plan(
 
 /// Whether every requested secondary can be drawn into a normal ordinary slot.
 ///
-/// The shipped layer refuses a set whose secondary can only occupy the single
-/// deep slot (`validate_effect_request_feasibility`), because that slot becomes
-/// the primary. The position-1 pool is the largest a normal slot can ever have:
+/// A secondary missing from every normal pool can only come from the single
+/// deep slot, which may land at any ordinary position. The position-1 pool is the largest a normal slot can ever have:
 /// every category capacity is still available and only the primary is already
 /// accepted, so conflicts can only grow and capacities can only shrink later. A
 /// secondary missing from it is therefore deep-slot-only for every position.

@@ -48,7 +48,7 @@ function infeasibleConditions(detail: string): string {
   if (/cannot be generated for this scroll type|weight 0 for this playthrough and rarity|not in the native parameter table/.test(detail))
     return `${effectNames(detail)} 不会出现在当前周目和稀有度的绘卷上。请换一个周目或稀有度，或去掉这个词条。`;
   if (/rarity 5 has a single deep slot/.test(detail))
-    return `R5 绘卷只有一个深层词条位置，而且它会成为主词条，所以 ${effectNames(detail)} 只能作为主词条出现。请把它设为主词条，或去掉它再搜索。`;
+    return `R5 绘卷只有一个深层词条位置，所以 ${effectNames(detail)} 最多只能同时出现一个。请只保留其中一个再搜索。`;
   return "这个词条组合在游戏里不可能出现，请调整筛选条件后再搜索。";
 }
 

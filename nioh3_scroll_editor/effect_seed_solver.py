@@ -324,21 +324,22 @@ def validate_effect_request_feasibility(
                     return f"词条 0x{effect_id:04X} 在当前周目/稀有度权重为 0"
 
         if request.rarity == 5:
-            promoted_only = tuple(
+            # The single deep slot can land in any ordinary position: 491 of
+            # 1000 live native NG3 records carry exactly one promoted effect,
+            # spread over all five ordinary slots, and none carries two.
+            promoted = tuple(
                 effect_id
-                for effect_id in sorted(effective_secondaries)
+                for effect_id in sorted(ordinary_ids)
                 if (
                     (definition := tables.effects_by_id.get(effect_id)) is not None
                     and bool(definition.normalization_flags & 0x08)
                 )
             )
-            if promoted_only:
-                formatted = "、".join(
-                    effect_label(effect_id) for effect_id in promoted_only
-                )
+            if len(promoted) > 1:
+                formatted = "、".join(effect_label(effect_id) for effect_id in promoted)
                 return (
-                    "稀有度5只有一个升格/深奥槽，该槽会成为主词条；"
-                    f"所选副词条 {formatted} 只能出现在这个槽位"
+                    "稀有度5只有一个升格/深奥槽，"
+                    f"所选的升格词条 {formatted} 最多只能出现一个"
                 )
 
         ordered_ids = sorted(all_ids)

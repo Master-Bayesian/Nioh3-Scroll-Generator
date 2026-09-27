@@ -283,6 +283,27 @@ class GameClosedEffectSeedSolverTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "只有一个升格/深奥槽"):
             validate_effect_request_feasibility(request)
 
+    def test_rarity5_accepts_a_promoted_secondary_the_generator_draws(self) -> None:
+        # Seed 1 composes this set with 0xAE5A promoted into ordinary slot 5,
+        # both offline and in the live native generator.
+        request = EffectSeedRequest(
+            playthrough=3,
+            rarity=5,
+            grace_effect_id=0x6553,
+            primary_effect_ids=frozenset((0xA051,)),
+            required_secondary_ids=frozenset((0xD40A, 0x34F3, 0x3E7A, 0xAE5A)),
+        )
+        validate_effect_request_feasibility(request)
+        from nioh3_scroll_editor.effect_sequence import (
+            generate_ng3_certified_effect_sequence,
+        )
+
+        result = generate_ng3_certified_effect_sequence(1, rarity=5, level=180)
+        self.assertEqual(
+            [effect.effect_id for effect in result.effects],
+            [0xA051, 0xD40A, 0x34F3, 0x3E7A, 0xAE5A, 0x6553],
+        )
+
     def test_rarity4_allows_two_promoted_effects_after_finalization(self) -> None:
         request = EffectSeedRequest(
             playthrough=3,
