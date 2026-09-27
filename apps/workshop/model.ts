@@ -1,4 +1,5 @@
 import catalog from "./catalog.json";
+import itemNames from "./item-names.json";
 import { hasTemplateSlot } from "./game-text";
 export const data = catalog;
 
@@ -14,6 +15,30 @@ export const data = catalog;
   for (const effect of data.editorEffects)
     if (hasTemplateSlot(effect.name) && curated.has(effect.id))
       effect.name = curated.get(effect.id)!;
+}
+// Special rules that name an onmyo item the auxiliary name table lacks carry a
+// placeholder ("未识别阴阳术（原生编号 0x3011，可生成）"). The bundled item names
+// know those items (0x3011 is 削气符), so show the real name instead.
+const onmyoItems = (itemNames as { items: Record<string, string[]> }).items;
+export function nameUnknownOnmyo(text: string): string {
+  if (!text.includes("未识别阴阳术")) return text;
+  return text.replace(
+    /未识别阴阳术（原生编号 0x([0-9A-F]+)，可生成）/g,
+    (whole, hex: string) => onmyoItems[String(Number.parseInt(hex, 16))]?.[0] || whole,
+  );
+}
+{
+  const walk = (value: unknown): unknown => {
+    if (typeof value === "string") return nameUnknownOnmyo(value);
+    if (Array.isArray(value)) {
+      value.forEach((entry, index) => (value[index] = walk(entry)));
+      return value;
+    }
+    if (value && typeof value === "object")
+      for (const [key, entry] of Object.entries(value)) (value as Record<string, unknown>)[key] = walk(entry);
+    return value;
+  };
+  walk(data);
 }
 export function toRecordTransferCount(value: number): number {
   if (!Number.isInteger(value) || value < -1 || value > 0xffffffff)

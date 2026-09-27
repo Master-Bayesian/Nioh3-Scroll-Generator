@@ -1108,3 +1108,5 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-side .character-range{white-space:normal}
 @media (max-width:1100px){.character-body{grid-template-columns:minmax(0,1fr)}.character-side{position:static;max-height:none}}
 .character-effects th{white-space:nowrap}
+/* Card rows have a fixed height; a long rule name stays on one line instead of spilling over the row above. */
+.scroll .scroll-rule>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

@@ -116,6 +116,7 @@ test("rarer Rust refusals keep the explanations the Python backend gave", () => 
     ["COUNT_INSTANCE_UNAVAILABLE: Scroll instance 12 is no longer in the current inventory", /不在当前背包/],
     ["PROCESS_GONE: process 1234 is no longer running", /游戏已退出/],
     ["PROFILE_NOT_APPROVED: PC v2.02 runtime profile is not approved for product use", /尚未支持/],
+    ["OPERATION_REJECTED: INVALID_SCROLL_ID: this scroll ID cannot occur in the game", /不是游戏能生成的/],
     // How a failed native search job reached a user (feedback 2026-09-27).
     ["OPERATION_FAILED: PC v2.02 runtime profile is not approved for product use", /尚未支持/],
     ["OPERATION_FAILED: the stored backup manifest failed validation: the manifest does not declare the v2 schema", /旧版本工具创建的备份/],

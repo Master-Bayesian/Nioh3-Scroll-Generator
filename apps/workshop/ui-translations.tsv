@@ -932,3 +932,4 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 在左侧列表中点选一件装备，这里会显示它的词条和修改选项。	Pick equipment on the left to see its effects and edit options here.	左の一覧から装備を選ぶと、ここに効果と編集項目が表示されます。
 在左侧列表中点选一件道具，这里可以修改它的持有数量和仓库数量。	Pick an item on the left to change its held and storage quantities here.	左の一覧からアイテムを選ぶと、ここで所持数と倉庫の数を変更できます。
 只修改已有的记录，不会新增：持有或仓库里没有这件道具时，对应一栏不能填写。游戏里各道具有自己的携带上限，超出的数量可能被游戏自动调整。	Only existing records change; nothing is added. A column is disabled when that place has no such item. Items have their own carry limits in game, and larger counts may be adjusted by the game.	既存の記録だけを変更し、新規追加はしません。所持または倉庫にそのアイテムがない場合、その欄は入力できません。アイテムごとに所持上限があり、超えた数はゲームが調整する場合があります。
+自动发动（削气符）	Auto Trigger (Item 0x3011)	自動発動（アイテム 0x3011）

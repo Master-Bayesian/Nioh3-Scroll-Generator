@@ -117,7 +117,7 @@ export function ScrollCard({
         {Array.from({ length: 3 }, (_, i) => sample.rules[i]).map((r, i) =>
           r ? (
             <p className="scroll-rule" key={i}>
-              <span>{r.name}</span>
+              <span title={r.name}>{r.name}</span>
               <strong>{r.value}</strong>
             </p>
           ) : (

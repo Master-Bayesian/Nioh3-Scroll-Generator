@@ -289,6 +289,7 @@ export function publicError(message: string): string {
       "这个存档里已有绘卷的序列号重复，为避免改动已有绘卷，“添加到存档”已停止，存档没有被修改。请改用“游戏内实时添加”。",
     ],
     [/BUSY|occupied/i, "另一项操作仍在进行，请等待完成。"],
+    [/INVALID_SCROLL_ID/, "这个绘卷 ID 不是游戏能生成的：ID 的低 4 位十六进制不能全为 0，也不能大于 0x0FFFFFFF。"],
     [
       /not a verified supported version|not approved for product use|requires verified|requires accepted|profile changed|UNSUPPORTED_GAME_VERSION|GAME_EXECUTABLE_UNSUPPORTED|PROFILE_NOT_APPROVED|PROFILE_INTEGRITY|PROFILE_UNRESOLVED|SIGNATURE_MISMATCH|unsupported Nioh 3 executable version/i,
       "当前游戏版本尚未支持，请检查更新。",

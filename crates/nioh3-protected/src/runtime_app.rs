@@ -1888,6 +1888,16 @@ mod imp {
                     if operation == "capture_grace" {
                         return self.capture_grace(&params, ctx);
                     }
+                    if operation == "generate" {
+                        let seed = param_u64(&params, "seed")?;
+                        let natural =
+                            u32::try_from(seed).is_ok_and(crate::maps::is_natural_scroll_id);
+                        if !natural {
+                            return Err(HostError::rejected(
+                                "INVALID_SCROLL_ID: this scroll ID cannot occur in the game",
+                            ));
+                        }
+                    }
                     self.run_search(operation, &params, ctx)
                 }
                 other => Err(HostError::rejected(format!(

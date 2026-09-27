@@ -8,7 +8,7 @@ import "../desktop/src/api";
 import "../desktop/src/review-api";
 import "../desktop/src/operations-api";
 import { SearchController } from "../desktop/src/search-controller";
-import { data, effectRequirements, type Query, type Sample } from "./model";
+import { data, effectRequirements, nameUnknownOnmyo, type Query, type Sample } from "./model";
 export const desktop =
   typeof window !== "undefined" && !!window.nioh && !!window.review;
 export const searchController = desktop
@@ -170,7 +170,7 @@ export function candidateSample(
     catalog?.enemy_options?.map((e) => [e.lookup_key, e.name]),
   );
   const ruleNames = new Map(
-    catalog?.special_rule_options?.map((e) => [e.key, e.name]),
+    catalog?.special_rule_options?.map((e) => [e.key, nameUnknownOnmyo(e.name)]),
   );
   const auxiliary = candidate.auxiliary;
   const enemyState = candidate.enemy_states?.[enemyVariant];

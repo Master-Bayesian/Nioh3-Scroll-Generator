@@ -3735,6 +3735,10 @@
     "只修改已有的记录，不会新增：持有或仓库里没有这件道具时，对应一栏不能填写。游戏里各道具有自己的携带上限，超出的数量可能被游戏自动调整。": [
       "Only existing records change; nothing is added. A column is disabled when that place has no such item. Items have their own carry limits in game, and larger counts may be adjusted by the game.",
       "既存の記録だけを変更し、新規追加はしません。所持または倉庫にそのアイテムがない場合、その欄は入力できません。アイテムごとに所持上限があり、超えた数はゲームが調整する場合があります。"
+    ],
+    "自动发动（削气符）": [
+      "Auto Trigger (Item 0x3011)",
+      "自動発動（アイテム 0x3011）"
     ]
   },
   "game": {

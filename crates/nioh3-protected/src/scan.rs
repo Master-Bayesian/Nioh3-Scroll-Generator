@@ -1172,11 +1172,21 @@ pub fn scan_seed_range(
                 "Native completion pass returned an unexpected record count",
             ));
         }
-        for (stage_record, record) in generated.iter().zip(finalized.iter()) {
+        for (index, (stage_record, record)) in generated.iter().zip(finalized.iter()).enumerate() {
             if seed_of(record) != seed_of(stage_record) {
                 return Err(HostError::rejected(
                     "Native batch oracle changed an accelerated source seed",
                 ));
+            }
+            // A seed the game can never hand out (zero low half, or a high
+            // nibble) makes it draw a replacement id and skip effect
+            // generation, which surfaced as an effectless "candidate" at the
+            // start of every scan from seed 0. Only the requested natural seed
+            // may become a candidate.
+            let requested =
+                batch_start.wrapping_add((index as u32).wrapping_mul(request.seed_step));
+            if !crate::maps::is_natural_scroll_id(requested) || seed_of(record) != requested {
+                continue;
             }
             // The shipped accelerated path hard-fails when the game contradicts
             // a stage-one Grace prediction; the scan mirrors that by checking
@@ -1358,6 +1368,42 @@ mod tests {
         assert_eq!(matched.record_stage, RecordStage::FinalRecord);
         // One seed range call plus one completion pass, exactly as shipped.
         assert_eq!(oracle.calls.len(), 2);
+    }
+
+    /// Live PC v2.02, 2026-09-27: every NG1 scan started at seed 0, the game
+    /// answered with a replacement id (0x0050C7CE) and no effects, and the
+    /// empty record surfaced as the first, installable candidate.
+    #[test]
+    fn an_unnatural_or_replaced_seed_never_becomes_a_candidate() {
+        let replaced = record_with_slots(0x0050_C7CE, 4, &[]);
+        let real = record_with_slots(
+            1,
+            4,
+            &[(0, 0x111), (1, 0x222), (2, 0x333), (3, 0x444), (4, 0x555)],
+        );
+        let mut oracle = ScriptedOracle::new(
+            vec![(0, replaced.clone(), replaced), (1, real.clone(), real)],
+            template(4),
+            4,
+            180,
+            183,
+            0,
+        );
+        let request = ScanRequest {
+            template: template(4),
+            start_seed: 0,
+            seed_step: 1,
+            max_seeds: 2,
+            level: 180,
+            recommended_level: 183,
+            transfer_count: 0,
+            filters: ScanFilters::new(4, Some(1)),
+            acceleration: crate::scan::ScanAcceleration::default(),
+        };
+        let matched = scan_seed_range(&mut oracle, &request, None, &mut || false, &mut |_| {})
+            .expect("scan runs")
+            .expect("seed 1 is a natural candidate");
+        assert_eq!(matched.seed, 1);
     }
 
     #[test]

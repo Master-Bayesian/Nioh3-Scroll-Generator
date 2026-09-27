@@ -353,3 +353,30 @@ in-game inventory menu ("持有物品").
   `save.prepare_character_edit` and `runtime.character_edit` accept
   `items: [{container, slot_index, quantity}]` and refuse any change outside
   bytes `+4..+8`. Existing records only; nothing is created.
+
+## Native generation oracle on PC v2.02 (live, owner present, 2026-09-27)
+
+- Trigger: a v0.8.1 user on PC v2.02 could not use native search / known-seed
+  view ("PC v2.02 runtime profile is not approved for product use"). NG1/NG2
+  scrolls are only generated natively, so the whole early-playthrough search was
+  unavailable on v2.02.
+- Evidence for `profile::NATIVE_ORACLE_APPROVED_VERSIONS` (game at the title
+  screen, pid 3404, no save access): the repository parity gates
+  `research/validate_ng3_rarity{3,4,5}_native_parity_live.py` with
+  `--runtime-profile nioh3_scroll_editor/data/game_versions/pc_v2_02.json`,
+  10,000 seeds each. R3: 0 full-record mismatches. R4: 0 stage, final and
+  accepted-index mismatches. R5: 0 effect-slot mismatches; all 10,000 records
+  differ only in the known v2.01 two-offset rarity header cap (0 unexpected), so
+  semantic parity passes. Reports:
+  `deliverables/v082-ce-research/v202-native-parity/r{3,4,5}-10000.json`.
+- Owner acceptance with the test8 build: NG1 native search and known-ID view
+  both return scrolls.
+- Bug found in that run (all versions): every scan started at seed 0 and the
+  known-ID view accepted 0. For a seed the game can never hand out it draws a
+  replacement id and skips effect generation, so the first "candidate" had an id
+  (0x0050C7CE, 134118000) but no effects and was marked installable. The scan now
+  skips unnatural seeds and any record whose seed differs from the requested one,
+  and `runtime.generate` refuses an unnatural id (`INVALID_SCROLL_ID`).
+- Native search without constraints costs about 0.5 s per result because the UI
+  starts one job per candidate and each job re-identifies the game; unchanged
+  and not version-specific.
