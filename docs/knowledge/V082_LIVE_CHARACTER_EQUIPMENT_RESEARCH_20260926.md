@@ -247,5 +247,6 @@ differing bytes are insertion-owned (`+0x18` flags `0x82`, `+0x1C` key,
 `+0x28` serial `0x267CC7`) or uninitialized entry bytes (`+2/+3`,
 `+0xF`, `+0x12/+0x13` of the entries). The owner saw the item in game and saved.
 The decrypted `SAVEDATA00` (new example `crates/nioh3-save/examples/equipment_slot.rs`)
-holds the identical record at slot 1400; the game had renumbered the live key
-from `0xC82B` to `0xC82C` after insertion, and memory and save now agree.
+holds the identical record at slot 1400. The only key difference (`0xC82B` at
+insertion, `0xC82C` in the save) comes from the owner dropping the item and
+picking it up again, which re-keys it; memory and save agree afterwards.
