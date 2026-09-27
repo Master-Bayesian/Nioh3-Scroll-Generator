@@ -3626,6 +3626,12 @@ export type ProtectedRequest =
   | {
       protocol: 1;
       id: string;
+      method: "runtime.menu_selection";
+      params: {};
+    }
+  | {
+      protocol: 1;
+      id: string;
       method: "runtime.character_snapshot";
       params: {};
     }

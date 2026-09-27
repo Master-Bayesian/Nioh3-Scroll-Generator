@@ -326,6 +326,71 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const rows = filtered.slice(shownPage * PAGE_SIZE, (shownPage + 1) * PAGE_SIZE);
   useEffect(() => setPage(0), [query, major, middle, minor]);
 
+  // Follow the item under the in-game inventory cursor (live mode, read-only).
+  const [follow, setFollow] = useState(false);
+  const [followNote, setFollowNote] = useState("");
+  const revealRef = useRef<number | null>(null);
+  const missingRef = useRef<number | null>(null);
+  const dirty = !!(draft && row && JSON.stringify(draft) !== JSON.stringify(draftOf(row)));
+  const latest = useRef({ selected, dirty, character, busy, filtered });
+  latest.current = { selected, dirty, character, busy, filtered };
+  useEffect(() => {
+    if (!follow || mode !== "live" || !character) return;
+    let inFlight = false;
+    let stopped = false;
+    const timer = window.setInterval(async () => {
+      if (inFlight || latest.current.busy) return;
+      inFlight = true;
+      try {
+        const result = await window.operations.execute({ method: "runtime.menu_selection", params: {} });
+        if (stopped || !result || !("menu_open" in result)) return;
+        const now = latest.current;
+        if (!result.menu_open) { setFollowNote("游戏内的持有物品菜单未打开"); return; }
+        if (result.slot_index == null) { setFollowNote("游戏内选中的不是装备"); return; }
+        const entry = now.character?.equipment.find(item => item.slot_index === result.slot_index);
+        if (!entry) {
+          setFollowNote("游戏内选中的装备不在已读取的列表中，请重新读取");
+          if (missingRef.current !== result.slot_index) {
+            missingRef.current = result.slot_index;
+            load("live");
+          }
+          return;
+        }
+        missingRef.current = null;
+        if (entry.slot_index === now.selected) { setFollowNote(""); return; }
+        if (now.dirty) { setFollowNote("当前装备有未应用的修改，已暂停跟随"); return; }
+        setFollowNote("");
+        if (!now.filtered.some(item => item.slot_index === entry.slot_index)) {
+          setQuery("");
+          setMajor(itemGroups(entry.item_id, entry.type_class)[0]);
+          setMiddle("");
+          setMinor("");
+        }
+        revealRef.current = entry.slot_index;
+        setSelected(entry.slot_index);
+        setDraft(draftOf(entry));
+        setModded(false);
+      } catch (error) {
+        setFollow(false);
+        setFollowNote("");
+        setMessage(String(error instanceof Error ? error.message : error));
+      } finally {
+        inFlight = false;
+      }
+    }, 300);
+    return () => { stopped = true; window.clearInterval(timer); };
+  }, [follow, mode, character]);
+  // Turn to the page holding a followed item and bring its row into view.
+  useEffect(() => {
+    const target = revealRef.current;
+    if (target == null) return;
+    const index = filtered.findIndex(item => item.slot_index === target);
+    if (index < 0) return;
+    revealRef.current = null;
+    setPage(Math.floor(index / PAGE_SIZE));
+    window.setTimeout(() => document.querySelector(`tr[data-slot="${target}"]`)?.scrollIntoView({ block: "nearest" }), 50);
+  }, [filtered, selected]);
+
   const rarity = draft ? parseAmount(draft.rarity, 255) : null;
   const level = draft ? parseAmount(draft.level, 65535) : null;
 
@@ -480,6 +545,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
 
   function switchMode(next: Mode) {
     setMode(next);
+    setFollow(false);
     setCharacter(null);
     setSelected(null);
     setDraft(null);
@@ -608,6 +674,12 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         <button onClick={() => load()} disabled={busy || (mode === "save" && !save?.selected)}>
           {character ? "重新读取" : "读取角色"}
         </button>
+        {mode === "live" && character && (
+          <button className={follow ? "active" : ""} onClick={() => { setFollow(!follow); setFollowNote(""); }}>
+            {follow ? "停止跟随" : "跟随游戏内选中"}
+          </button>
+        )}
+        {follow && followNote && <span className="character-follow-note">{followNote}</span>}
         <span className="equipment-description">
           {mode === "live"
             ? "直接修改正在运行的游戏，需要先读档进入游戏。修改后到神社存档即可保存。"
@@ -662,7 +734,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
                 {rows.map(entry => {
                   const [a, b, c] = itemGroups(entry.item_id, entry.type_class);
                   return (
-                    <tr key={entry.slot_index} className={entry.slot_index === selected ? "selected" : ""}
+                    <tr key={entry.slot_index} data-slot={entry.slot_index} className={entry.slot_index === selected ? "selected" : ""}
                       onClick={() => { setSelected(entry.slot_index); setDraft(draftOf(entry)); setModded(false); }}>
                       <td>{c || b || a}{entry.hell ? <span className="character-hell">地狱</span> : null}</td>
                       <td className="character-item-name">{itemText(entry.item_id)}{showIds ? <small> #{entry.slot_index}</small> : null}</td>

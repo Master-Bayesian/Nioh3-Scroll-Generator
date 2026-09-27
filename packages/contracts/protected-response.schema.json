@@ -546,6 +546,41 @@
         "values"
       ]
     },
+    "MenuSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "process_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "menu_open": {
+          "type": "boolean"
+        },
+        "slot_index": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2499
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "item_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        }
+      },
+      "required": [
+        "process_id",
+        "menu_open"
+      ]
+    },
     "CharacterCurrencies": {
       "type": "object",
       "additionalProperties": false,
@@ -3801,6 +3836,9 @@
             },
             {
               "$ref": "#/definitions/EffectValues"
+            },
+            {
+              "$ref": "#/definitions/MenuSelection"
             },
             {
               "$ref": "#/definitions/InventorySnapshot"

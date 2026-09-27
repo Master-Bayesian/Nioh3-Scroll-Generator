@@ -268,6 +268,7 @@ impl Broker {
                     "runtime.status",
                     "runtime.inventory_snapshot",
                     "runtime.character_snapshot",
+                    "runtime.menu_selection",
                     "runtime.character_edit",
                     "runtime.equipment_rules",
                     "runtime.effect_values",

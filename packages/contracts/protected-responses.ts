@@ -16,6 +16,7 @@ export type ProtectedResponse =
         | LiveCharacter
         | EquipmentRules
         | EffectValues
+        | MenuSelection
         | InventorySnapshot
         | LocalNameCatalog
         | ShutdownStatus
@@ -1073,6 +1074,12 @@ export interface EffectValues {
     probability: number;
     top_fraction: number;
   }[];
+}
+export interface MenuSelection {
+  process_id: number;
+  menu_open: boolean;
+  slot_index?: number | null;
+  item_id?: number;
 }
 export interface InventorySnapshot {
   status: "observed";

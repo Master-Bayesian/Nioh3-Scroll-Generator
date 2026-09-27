@@ -160,6 +160,86 @@ pub fn read_character(memory: &dyn InventoryMemory) -> Result<CharacterRead, Run
     Ok(first)
 }
 
+/// Module global holding the inventory ("持有物品") menu, which lives for the
+/// whole session whether or not it is on screen.
+pub const INVENTORY_MENU_RVA: u64 = 0x45C_91A0;
+/// The inventory menu's vtable.
+pub const INVENTORY_MENU_VTABLE_RVA: u64 = 0x401_1278;
+/// The item-detail widget embedded in the inventory menu.
+pub const DETAIL_WIDGET_OFFSET: u64 = 0x6850;
+/// The widget's pointer to the item it displays, i.e. the item under the cursor.
+pub const DETAIL_ITEM_OFFSET: u64 = 0x1B0;
+/// Menu bytes observed as 0/1 while open and 1/0 while closed.
+pub const MENU_CLOSED_FLAG_OFFSET: u64 = 0x1C;
+pub const MENU_OPEN_FLAG_OFFSET: u64 = 0x60F8;
+/// The widget refresh reads its item pointer here (`mov rax,[rcx+0x1B0]`);
+/// checking the bytes pins the field offset to this build.
+pub const DETAIL_READ_SITE_RVA: u64 = 0x22A_EB47;
+pub const DETAIL_READ_SITE_BYTES: [u8; 7] = [0x48, 0x8B, 0x81, 0xB0, 0x01, 0x00, 0x00];
+
+/// What the inventory menu's cursor is on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MenuSelection {
+    /// The inventory menu is not on screen.
+    Closed,
+    /// An owned equipment record.
+    Equipment { slot_index: usize, item_id: u16 },
+    /// Something outside the equipment container (consumables, materials, ...).
+    Other { item_id: u16 },
+}
+
+/// Read the item under the inventory menu's cursor without touching the game.
+///
+/// Evidence: `docs/knowledge/V082_LIVE_CHARACTER_EQUIPMENT_RESEARCH_20260926.md`
+/// ("Following the in-game selection"). Any mismatch fails closed.
+pub fn read_menu_selection(memory: &dyn InventoryMemory) -> Result<MenuSelection, RuntimeError> {
+    let base = memory.module_base();
+    if memory.read(base + DETAIL_READ_SITE_RVA, DETAIL_READ_SITE_BYTES.len())?
+        != DETAIL_READ_SITE_BYTES
+    {
+        return Err(RuntimeError::SignatureMismatch {
+            site: "inventory_detail_item_read".to_string(),
+            rva: DETAIL_READ_SITE_RVA,
+        });
+    }
+    let player = locate_player(memory)?;
+    let menu = u64_at(&memory.read(base + INVENTORY_MENU_RVA, 8)?)?;
+    if menu == 0 {
+        return Ok(MenuSelection::Closed);
+    }
+    if u64_at(&memory.read(menu, 8)?)? != base + INVENTORY_MENU_VTABLE_RVA {
+        return Err(layout("the inventory menu's vtable does not match this build"));
+    }
+    let closed = memory.read(menu + MENU_CLOSED_FLAG_OFFSET, 1)?[0];
+    let open = memory.read(menu + MENU_OPEN_FLAG_OFFSET, 1)?[0];
+    if closed != 0 || open != 1 {
+        return Ok(MenuSelection::Closed);
+    }
+    let item = u64_at(&memory.read(menu + DETAIL_WIDGET_OFFSET + DETAIL_ITEM_OFFSET, 8)?)?;
+    if item == 0 {
+        return Ok(MenuSelection::Closed);
+    }
+    let item_id = u16::from_le_bytes(
+        memory
+            .read(item, 2)?
+            .try_into()
+            .map_err(|_| layout("short item read"))?,
+    );
+    let container = player + EQUIPMENT_OFFSET;
+    let span = (EQUIPMENT_SLOTS * EQUIPMENT_RECORD_BYTES) as u64;
+    if (container..container + span).contains(&item) {
+        let offset = item - container;
+        if !offset.is_multiple_of(EQUIPMENT_RECORD_BYTES as u64) {
+            return Err(layout("the selected item is not aligned to an equipment record"));
+        }
+        return Ok(MenuSelection::Equipment {
+            slot_index: (offset / EQUIPMENT_RECORD_BYTES as u64) as usize,
+            item_id,
+        });
+    }
+    Ok(MenuSelection::Other { item_id })
+}
+
 /// One reviewed change.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LiveEdit {
@@ -398,6 +478,57 @@ mod tests {
         assert_eq!(read.player, PLAYER);
         assert_eq!(read.currencies[1], (LiveCurrency::Gold, 19_072_714));
         assert_eq!(&read.record(5).unwrap()[..2], &0x8D5Bu16.to_le_bytes());
+    }
+
+    const MENU: u64 = 0x4_0000_0000;
+
+    fn with_open_menu(item: u64) -> Fake {
+        let fake = Fake::new();
+        fake.put(BASE + DETAIL_READ_SITE_RVA, &DETAIL_READ_SITE_BYTES);
+        fake.put(BASE + INVENTORY_MENU_RVA, &MENU.to_le_bytes());
+        fake.put(MENU, &(BASE + INVENTORY_MENU_VTABLE_RVA).to_le_bytes());
+        fake.put(MENU + MENU_OPEN_FLAG_OFFSET, &[1]);
+        fake.put(
+            MENU + DETAIL_WIDGET_OFFSET + DETAIL_ITEM_OFFSET,
+            &item.to_le_bytes(),
+        );
+        fake
+    }
+
+    #[test]
+    fn the_menu_cursor_resolves_to_an_equipment_slot() {
+        let record = PLAYER + EQUIPMENT_OFFSET + 5 * EQUIPMENT_RECORD_BYTES as u64;
+        assert_eq!(
+            read_menu_selection(&with_open_menu(record)).unwrap(),
+            MenuSelection::Equipment {
+                slot_index: 5,
+                item_id: 0x8D5B
+            }
+        );
+        let elsewhere = 0x5_0000_0000u64;
+        let fake = with_open_menu(elsewhere);
+        fake.put(elsewhere, &0x24AFu16.to_le_bytes());
+        assert_eq!(
+            read_menu_selection(&fake).unwrap(),
+            MenuSelection::Other { item_id: 0x24AF }
+        );
+    }
+
+    #[test]
+    fn a_closed_menu_or_foreign_build_does_not_follow() {
+        let record = PLAYER + EQUIPMENT_OFFSET;
+        let fake = with_open_menu(record);
+        fake.put(MENU + MENU_CLOSED_FLAG_OFFSET, &[1]);
+        fake.put(MENU + MENU_OPEN_FLAG_OFFSET, &[0]);
+        assert_eq!(read_menu_selection(&fake).unwrap(), MenuSelection::Closed);
+        let fake = with_open_menu(record);
+        fake.put(MENU, &0u64.to_le_bytes());
+        assert!(read_menu_selection(&fake).is_err());
+        let fake = with_open_menu(record);
+        fake.put(BASE + DETAIL_READ_SITE_RVA, &[0x90]);
+        assert!(read_menu_selection(&fake).is_err());
+        let fake = with_open_menu(record + 8);
+        assert!(read_menu_selection(&fake).is_err());
     }
 
     #[test]

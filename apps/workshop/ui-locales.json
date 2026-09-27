@@ -3631,6 +3631,30 @@
     "数值按游戏内部单位填写，例如百分比词条 15 表示 1.5%。“前 X%”表示自然生成时得到这个值或更好值的概率。": [
       "Values use the game's internal units; for a percentage effect 15 means 1.5%. \"Top X%\" is the chance natural generation gives this value or better.",
       "数値はゲーム内部の単位です。割合の効果では 15 が 1.5% です。「上位 X%」は自然生成でこの値以上が出る確率です。"
+    ],
+    "跟随游戏内选中": [
+      "Follow in-game selection",
+      "ゲーム内の選択に追従"
+    ],
+    "停止跟随": [
+      "Stop following",
+      "追従を停止"
+    ],
+    "游戏内的持有物品菜单未打开": [
+      "The in-game inventory menu is not open",
+      "ゲーム内の所持品メニューが開いていません"
+    ],
+    "游戏内选中的不是装备": [
+      "The in-game selection is not equipment",
+      "ゲーム内で選択中のものは装備ではありません"
+    ],
+    "游戏内选中的装备不在已读取的列表中，请重新读取": [
+      "The selected equipment is not in the loaded list; reload",
+      "選択中の装備は読み込んだ一覧にありません。再読み込みしてください"
+    ],
+    "当前装备有未应用的修改，已暂停跟随": [
+      "Following paused: this item has unapplied changes",
+      "未適用の変更があるため追従を一時停止しました"
     ]
   },
   "game": {

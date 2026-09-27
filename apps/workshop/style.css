@@ -1077,3 +1077,4 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-muted{color:#9aa9b0}
 .character-actions{display:flex;gap:8px;margin-top:8px}
 .character-actions>button{width:auto}
+.character-follow-note{align-self:center;font-size:12px;color:var(--muted,#8a8a8a)}

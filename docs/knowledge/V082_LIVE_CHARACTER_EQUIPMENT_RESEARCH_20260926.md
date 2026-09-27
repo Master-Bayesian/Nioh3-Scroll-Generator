@@ -292,3 +292,41 @@ hell-weapon effects. The legal value set of an effect on an item of level L and
 rarity r is therefore `{f(effect, roll, L) : roll in roll_range(r)}`, and a
 value's quantile is its roll position, exactly as for scrolls. Rarity 5 adds
 the param `0x98FE` level bonus inside `build_record` (not yet sampled live).
+
+## Following the in-game selection (live, owner present, 2026-09-26/27)
+
+Goal: the editor selects whichever equipment the player's cursor is on in the
+in-game inventory menu ("持有物品").
+
+- Chain (read-only): `menu = [Nioh3.exe+45C91A0]` (vtable `+4011278`), item
+  detail widget at `menu+0x6850`, displayed item pointer at `widget+0x1B0`.
+  `+45C91A0` is the first entry of a static table of UI singletons created at
+  startup, so the chain exists whether or not the menu is on screen.
+- The widget refresh `+22AEB34` reads `mov rax,[rcx+0x1B0]` at `+22AEB47`; its
+  seven bytes are checked before every read. The CT "Equipment Editor" hooks the
+  next instruction (`cmp [rax],si`, CT offset `+22AC437` was an older build).
+- Verification: a temporary logging cave at `+22AEB47` (installed with the
+  process suspended and every thread's RIP checked, removed the same way)
+  followed 26 cursor moves across weapons, armour, soul cores and consumables.
+  The widget address never changed; for equipment the pointer was the record in
+  the owned-equipment array, so `slot = (item - container) / 0xF0`; other items
+  point into neighbouring containers. The cave was removed and the original
+  bytes confirmed.
+- Open/closed: the pointer keeps the last item after the menu closes. Two open
+  snapshots and one closed snapshot of the menu object agree on
+  `menu+0x1C == 0 && menu+0x60F8 == 1` while open (`1`/`0` when closed). `+0x1C`
+  is not a generic visibility flag for the other menus in the table.
+- Failed attempt (do not repeat): CE Lua-callback hardware read breakpoints on a
+  record froze the game twice; the second attempt also crashed CE (exception
+  0xE0465043) while a pumping Lua loop ran inside the plugin call.
+- FLiNG trainer (for reference): it installs all 23 hooks at attach time as
+  absolute-jump caves (`FF 25`) in private RWX pages, so option toggles change no
+  game code. "Edit item quantity on click" hooks the menu item-command handler
+  `+1EA0E00` (`rdx` = the clicked item record, `r8d` = command 1/0x2A/0x2B/0x2C)
+  and the quantity getter `+2FA554`, gated by the caller `+1F52759`. It follows
+  clicks, not the cursor. The on-disk `.text` is encrypted (SteamStub), so
+  comparing live code with the file is meaningless.
+- Product: `runtime.menu_selection` (`nioh3_runtime::character::read_menu_selection`)
+  returns `{menu_open, slot_index, item_id}`; the character page polls it every
+  300 ms when "跟随游戏内选中" is on. Only the inventory menu is covered; the
+  equip-slot screen may use a different menu object.

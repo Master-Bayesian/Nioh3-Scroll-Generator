@@ -697,6 +697,36 @@ mod imp {
             }))
         }
 
+        /// `runtime.menu_selection`: the item under the in-game inventory menu's
+        /// cursor, read-only, so the editor can follow the player's selection.
+        fn menu_selection(&self) -> Result<Value, HostError> {
+            use nioh3_runtime::character::{read_menu_selection, MenuSelection};
+            use nioh3_runtime::inventory::{InventoryMemory, ProcessInventoryMemory};
+
+            let process = Self::open_supported_reader()?;
+            let memory = ProcessInventoryMemory::new(&process);
+            let selection = read_menu_selection(&memory).map_err(HostError::from_runtime)?;
+            let process_id = memory.process().pid;
+            Ok(match selection {
+                MenuSelection::Closed => json!({ "process_id": process_id, "menu_open": false }),
+                MenuSelection::Equipment {
+                    slot_index,
+                    item_id,
+                } => json!({
+                    "process_id": process_id,
+                    "menu_open": true,
+                    "slot_index": slot_index,
+                    "item_id": item_id,
+                }),
+                MenuSelection::Other { item_id } => json!({
+                    "process_id": process_id,
+                    "menu_open": true,
+                    "slot_index": null,
+                    "item_id": item_id,
+                }),
+            })
+        }
+
         /// `runtime.character_edit`: compare-and-swap writes of currencies and
         /// modded equipment fields into the running game.
         ///
@@ -1599,6 +1629,9 @@ mod imp {
             if method == "runtime.character_snapshot" {
                 return self.character_snapshot();
             }
+            if method == "runtime.menu_selection" {
+                return self.menu_selection();
+            }
             if method == "runtime.equipment_rules" {
                 return crate::equipment_rules::equipment_rules_json(&self.data_root, params);
             }
@@ -1846,6 +1879,10 @@ mod imp {
         pub(super) fn character_snapshot(&mut self) -> Result<Value, HostError> {
             Self::unsupported()
         }
+
+        pub(super) fn menu_selection(&mut self) -> Result<Value, HostError> {
+            Self::unsupported()
+        }
     }
 
     impl RoleApplication for RuntimeApplication {
@@ -1866,6 +1903,9 @@ mod imp {
             }
             if method == "runtime.character_snapshot" {
                 return self.character_snapshot();
+            }
+            if method == "runtime.menu_selection" {
+                return self.menu_selection();
             }
             if method == "runtime.equipment_rules" {
                 return crate::equipment_rules::equipment_rules_json(&self.data_root, params);
