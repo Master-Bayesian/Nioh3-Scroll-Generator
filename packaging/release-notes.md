@@ -1,60 +1,49 @@
-# Nioh 3 Studio 0.8.1
+# Nioh 3 Studio 0.8.2
 
-A fix release for 0.8.0: it repairs the regressions players reported after the
-move to the Rust backend, makes failures explain themselves, and restores
-behavior the migration had lost.
+The first release that goes beyond scrolls: a new Character & Equipment page
+edits Amrita, gold, items, equipment and soul cores, both in the running game
+and in a save file. Scroll search now also covers playthroughs 1 and 2.
 
 ## Direct launch and updates
 
-Use `Nioh3Studio-0.8.1-win-x64.exe` directly. No installation, extraction,
-Python, Node.js, Electron, or Cheat Engine setup is required. 0.8.0 offers this
+Use `Nioh3Studio-0.8.2-win-x64.exe` directly. No installation, extraction,
+Python, Node.js, Electron, or Cheat Engine setup is required. 0.8.1 offers this
 update automatically after its startup checks, or from Settings.
 
-## Fixed
+## New: Character & Equipment
 
-- **Grace and terrain filters work again.** Searches with a selected Grace or
-  terrain effect are no longer refused or silently widened.
-- **Temporary changes work on PC v2.02.** Enemy, terrain, special-rule and
-  challenge-count overrides under "副本内容 · 临时修改" no longer fail with a
-  missing-profile error.
-- **Live addition is more reliable.** Inventories whose existing scrolls share a
-  serial accept additions; a prepared but unfinished batch, stale records from
-  an earlier game session, or another program's receipt no longer block later
-  additions or closing the app; an expired save snapshot is re-read and the
-  addition prepared again.
-- **Closing never traps you.** The window closes at once; busy background work
-  gets a short grace period and the app then exits either way.
-- **A refused operation no longer locks the app** into "another operation is
-  still running".
-- **The editor's review step reports every outcome** and keeps untouched record
-  bytes, and the count editor reads the inventory with the selected game
-  version's layout.
+- **Two modes.** "游戏内实时修改" edits the running game; "修改存档文件" edits a
+  save file with the same automatic backup and review step as scroll edits.
+- **Character opens ready.** Entering the page reads the character at once;
+  "重新读取" reads it again. Following the item selected in game is on by
+  default.
+- **Amrita (精华) and gold** can be set directly.
+- **Items:** change the held and stored quantity of consumables and materials.
+- **Equipment and soul cores:** browse owned gear by type with the game's own
+  item names, then edit level, +value, rarity, familiarity and effects.
+  - **Legal mode** (default) only offers values and effects the game can
+    generate naturally for that item, with the legal range shown next to each
+    value and "全部取理论最高" to max every value at once.
+  - **Modded mode** is an explicit opt-in for values outside natural rules.
+  - Mutually exclusive effects are filtered out, effects a tool replaced are
+    flagged, and edited effects now show the right icon in game.
+  - Hell weapons show their real hell martial skill names.
 
-## Searching
+## Scroll search
 
-- **Results appear as they are found** instead of all at once at the end.
-- **Impossible effect combinations are flagged while you pick them,** naming the
-  effects that clash and what to change, before you start a search.
-- **Each effect can be selected once.**
-- **Rarity-5 searches with a Grace start about twice as fast** (a cache the
-  migration had dropped is restored); results are unchanged.
-
-## Messages and feedback
-
-- Failures explain what happened and what to do next in your language,
-  including the save, backup, game-process and search explanations the earlier
-  Python backend gave. Technical details stay available under a collapsed
-  section.
-- **Settings → Report a problem** (and the button under any failure) writes one
-  feedback file with diagnostics and recent logs and shows it in Explorer; the
-  app no longer copies logs to the clipboard on its own.
-- With several saves, the last save you chose is selected again.
+- **Playthroughs 1 and 2 are searchable offline**, with install and known-seed
+  preview, matching the game's own generator byte for byte on 10,000 records
+  per rarity. Rarity-5 scrolls of these playthroughs carry six ordinary effects
+  and no Grace, and the search refuses combinations they can never have.
+- **Rarity-5 searches accept a promoted effect as a secondary.** The game can
+  place its single promoted effect in any slot; the earlier rule wrongly
+  required it to be the primary.
 
 ## Compatibility and limits
 
 - Supported game build: PC v2.02 (and the earlier approved builds). Unsupported
   builds and unknown resource graphs are refused rather than guessed at.
+- Accessories cannot be re-rolled in game, so an accessory whose effects were
+  changed by a tool is reported as not natural.
 - Offline tests, synthetic encrypted saves, and packaged startup checks do not
   establish real-game or real-user-save acceptance for every path.
-
-Equipment browsing, editing and generation are planned for a later release.
