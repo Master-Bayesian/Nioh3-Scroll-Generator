@@ -1235,7 +1235,7 @@ impl EffectTableIndex {
                 return Ok(base);
             }
             f32_div(
-                f32_sub(f32_of(f64::from(roll_percent)), f32_of(20.0)),
+                f32_sub(f32_of(f64::from(roll_percent)), f32_of(80.0)),
                 f32_of(20.0),
             )
         } else {

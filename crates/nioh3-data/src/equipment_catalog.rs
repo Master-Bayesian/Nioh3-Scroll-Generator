@@ -906,7 +906,7 @@ pub fn normalize_ct_token(raw: &str) -> KeyOutcome {
     for (index, byte) in bytes.iter().enumerate() {
         id |= u32::from(*byte) << (8 * index);
     }
-    let high_word = (bytes.len() == 4).then(|| (id >> 16) as u16);
+    let high_word = (bytes.len() == 4).then_some((id >> 16) as u16);
     KeyOutcome::Key(NormalizedKey {
         namespace: IdNamespace::CtRawBytes,
         key_bytes: bytes,
