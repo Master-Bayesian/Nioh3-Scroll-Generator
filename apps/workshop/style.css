@@ -1087,10 +1087,10 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-hint{margin:2px 0 8px;color:#58717b;font-size:12px}
 .character-hint .character-follow-note{margin-left:12px;color:#b0761e;font-weight:600}
 .character-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,.95fr);gap:14px;align-items:start}
-.character-list{min-width:0}
+.character-list{min-width:0;padding:10px 12px;border:1px solid #c5d1e0;border-radius:6px;background:#fbfdff}
 .character-side{position:sticky;top:0;max-height:calc(100vh - 24px);overflow:auto;min-width:0}
 .character-side .character-detail,.character-side .character-plan{margin:0 0 10px}
-.character-tabs{display:inline-flex;margin:0 0 6px;border:1px solid #c5d1e0;border-radius:6px;overflow:hidden}
+.character-tabs{display:inline-flex;align-self:flex-start;margin:0 0 8px;border:1px solid #c5d1e0;border-radius:6px;overflow:hidden}
 .character-tabs>button{width:auto;margin:0;padding:6px 18px;border:0;border-radius:0;background:#f8fafc;color:#214d63;font-weight:600}
 .character-tabs>button+button{border-left:1px solid #c5d1e0}
 .character-tabs>button.active{background:#214d63;color:#fff}
@@ -1117,7 +1117,11 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-list{display:flex;flex-direction:column;min-height:0}
 .character-list>.character-filters,.character-list>.character-tabs,.character-list>.character-pager{flex-shrink:0}
 .character-table-wrap{flex:1;min-height:0;overflow:auto}
-.character-side{position:static;max-height:none;height:100%;overflow:auto}
+.character-side{position:static;max-height:none;height:100%;overflow:hidden;display:flex;flex-direction:column}
+/* Both columns are cards of the same height, so their top and bottom edges line up. */
+.character-side>.character-detail,.character-side>.character-empty{flex:1;min-height:0;overflow:auto;margin:0}
+.character-side>.character-plan{flex-shrink:0;max-height:45%;overflow:auto}
+.character-list>.character-pager{margin:8px 0 0}
 }
 .character-pager input{width:52px;margin:0 6px;text-align:center;font-variant-numeric:tabular-nums}
 .character-pager{margin:6px 0}

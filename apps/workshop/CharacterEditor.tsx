@@ -444,8 +444,15 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   }
 
   // Follow the item under the in-game inventory cursor (live mode, read-only).
-  const [follow, setFollow] = useState(false);
+  const [follow, setFollow] = useState(true);
   const [followNote, setFollowNote] = useState("");
+  // Opening the page, switching mode or picking a save reads the character once;
+  // the toolbar button re-reads it.
+  const saveId = mode === "save" ? save?.selected?.save_id ?? null : null;
+  useEffect(() => {
+    if (character || busy || (mode === "save" && !saveId)) return;
+    void load();
+  }, [mode, saveId]);
   const revealRef = useRef<{ tab: Tab; key: number } | null>(null);
   const missingRef = useRef<string | null>(null);
   const dirty =
@@ -717,7 +724,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
 
   function switchMode(next: Mode) {
     setMode(next);
-    setFollow(false);
+    setFollow(next === "live");
     setCharacter(null);
     setSelected(null);
     setSelectedItem(null);
@@ -1128,7 +1135,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           <button className={mode === "save" ? "active" : ""} onClick={() => switchMode("save")} disabled={busy}>修改存档文件</button>
         </div>
         <button onClick={() => load()} disabled={busy || (mode === "save" && !save?.selected)}>
-          {character ? "重新读取" : "读取角色"}
+          重新读取
         </button>
         {mode === "live" && character && (
           <button className={follow ? "active" : ""} onClick={() => { setFollow(!follow); setFollowNote(""); }}>
