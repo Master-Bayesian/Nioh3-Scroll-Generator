@@ -250,3 +250,24 @@ The decrypted `SAVEDATA00` (new example `crates/nioh3-save/examples/equipment_sl
 holds the identical record at slot 1400. The only key difference (`0xC82B` at
 insertion, `0xC82C` in the save) comes from the owner dropping the item and
 picking it up again, which re-keys it; memory and save agree afterwards.
+
+## Hell conversion context and a crash (live, 2026-09-26)
+
+A probe on `try_hell_convert`/`convert_to_hell` in a hell scroll (9 kills, 2
+conversions) showed that both take one persistent drop-manager object whose only
+fields the converter reads were `+0x1C = 0x0249` and `+0x23/+0x25/+0xDB = 0`; the level
+argument was 175. Conversion re-runs `build_record` with serial allocation on,
+so a converted item takes a second serial, and sets record flag `+0x18` bit
+`0x100000` (the `+0x1A = 0x10` byte). The two conversions drew skills
+`0x3FB9` and `0x8D12` and raised level 160 → 163 and rarity 2 → 4.
+
+The first hell insertion (备前传太刀, fake converter context with only `+0x1C`
+set) inserted correctly (status 3, slot 1423, record serial = planned + 1,
+counter = planned + 2), but the game then crashed with `0xC0000005` at
+`0x7F000002302A`. Cause: the cave had grown past `0x300`, where the script also
+kept its runtime result cells; the builder-result write overwrote the cave's
+own resume pointer, so the dispatch thread jumped to a garbage address. The
+item was never saved; the last save (21:04:44, before the crash) decrypts and
+still holds the earlier inserted 扇子. The script now keeps every runtime-written
+cell at `+0x2C00`, separate from code, and refuses to arm when the assembled
+cave ends past `+0x1000`.
