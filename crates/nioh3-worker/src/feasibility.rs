@@ -25,13 +25,6 @@ pub fn validate_query_feasibility(
     query: &SearchQuery,
     tables: &EffectTableIndex,
 ) -> Result<(), String> {
-    // The slot counts and the rarity-5 deep-slot rule below are the NG3 layout;
-    // NG1/NG2 rarity 5 has five secondaries and no Grace. Their searches are
-    // decided per Seed by the generic composition, so an impossible request
-    // just finds nothing instead of being refused by a rule not proven there.
-    if query.playthrough < 3 {
-        return Ok(());
-    }
     let Some(max_secondaries) = max_secondaries(query) else {
         return Ok(());
     };
@@ -99,6 +92,8 @@ fn max_secondaries(query: &SearchQuery) -> Option<usize> {
         } else {
             4
         }),
+        // NG1/NG2 rarity 5 carries six ordinary effects and no Grace.
+        5 if query.playthrough < 3 => Some(5),
         5 => Some(4),
         _ => None,
     }
@@ -223,7 +218,30 @@ fn validate_option(
             }
         }
     }
-    if query.rarity == 5 {
+    // NG1/NG2 rarity 5 never draws a promoted (star) effect in any slot: none of
+    // 20000 live native records carries one, and the generic composition that
+    // matches them byte for byte agrees.
+    if query.rarity == 5 && query.playthrough < 3 {
+        let promoted: Vec<String> = all
+            .iter()
+            .filter(|effect_id| {
+                tables
+                    .effects_by_id
+                    .get(&(**effect_id as u16))
+                    .is_some_and(|definition| {
+                        definition.normalization_flags & PROMOTED_SLOT_FLAG != 0
+                    })
+            })
+            .map(|effect_id| format!("0x{effect_id:04X}"))
+            .collect();
+        if !promoted.is_empty() {
+            return Some(format!(
+                "playthrough-{} rarity-5 scrolls never carry the promoted effect {}",
+                query.playthrough,
+                promoted.join("、")
+            ));
+        }
+    } else if query.rarity == 5 {
         let promoted_only: Vec<u32> = effective
             .iter()
             .copied()
@@ -410,6 +428,124 @@ mod tests {
         assert!(
             error.contains("not in the native parameter table"),
             "{error}"
+        );
+    }
+
+    fn tables_v202() -> EffectTableIndex {
+        let bytes = nioh3_data::load_effect_resource_for_file_version(
+            &repo_root().join("nioh3_scroll_editor").join("data"),
+            (2, 0, 2, 0),
+        )
+        .expect("v2.02 effect resource loads");
+        EffectTableIndex::from_resource(&bytes).expect("effect tables decode")
+    }
+
+    /// No live native NG1/NG2 record may be refused: a query naming exactly a
+    /// record's own primary and ordinary secondaries must pass the preflight.
+    #[test]
+    fn every_live_ng12_record_passes_its_own_preflight() {
+        let tables = tables_v202();
+        let fixture: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(
+                repo_root().join("crates/nioh3-data/tests/fixtures/ng12_native_records_v202.json"),
+            )
+            .expect("fixture"),
+        )
+        .expect("fixture json");
+        let mut checked = 0;
+        for context in fixture["contexts"].as_array().expect("contexts") {
+            let playthrough = context["playthrough"].as_u64().expect("playthrough");
+            let rarity = context["rarity"].as_u64().expect("rarity");
+            for entry in context["records"].as_object().expect("records").values() {
+                let hex = entry
+                    .as_str()
+                    .or_else(|| entry["final"].as_str())
+                    .expect("record");
+                let record: Vec<u8> = (0..hex.len())
+                    .step_by(2)
+                    .map(|index| u8::from_str_radix(&hex[index..index + 2], 16).expect("hex"))
+                    .collect();
+                // Ordinary effects: skip empty slots, the rarity-3 token and Graces.
+                let ordinary: Vec<u32> = (0..7)
+                    .map(|slot| &record[0x34 + slot * 0x18..0x34 + (slot + 1) * 0x18])
+                    .filter(|entry| entry[0xE] & 0x02 == 0)
+                    .map(|entry| u32::from_le_bytes(entry[4..8].try_into().expect("id")))
+                    .filter(|effect_id| *effect_id != u32::MAX && *effect_id != 1)
+                    .collect();
+                let query = query(json!({
+                    "playthrough": playthrough,
+                    "rarity": rarity,
+                    "primary_effect_ids": [ordinary[0]],
+                    "required_secondary_ids": ordinary[1..],
+                }));
+                assert_eq!(
+                    validate_query_feasibility(&query, &tables),
+                    Ok(()),
+                    "NG{playthrough} R{rarity} {ordinary:04X?} occurs natively"
+                );
+                checked += 1;
+            }
+        }
+        assert_eq!(checked, 24);
+    }
+
+    /// Impossible NG1/NG2 requests are refused by name: two effects of one
+    /// capacity-1 category (never together in 10000 native NG2 R4 records) and a
+    /// promoted effect in rarity 5, which NG1/NG2 never draws.
+    #[test]
+    fn impossible_ng12_requests_are_refused() {
+        let tables = tables_v202();
+        let category = validate_query_feasibility(
+            &query(json!({
+                "playthrough": 2,
+                "rarity": 4,
+                "primary_effect_ids": [0x6E2B],
+                "required_secondary_ids": [0x6CE3],
+            })),
+            &tables,
+        )
+        .expect_err("the pair never occurs");
+        assert!(category.contains("share native category"), "{category}");
+        let star = tables
+            .effects_in_row_order
+            .iter()
+            // A promoted effect the NG1 rarity-5 context weighs, so only the
+            // promotion rule can refuse it.
+            .find(|effect| {
+                effect.normalization_flags & PROMOTED_SLOT_FLAG != 0
+                    && effect.effect_id != 0
+                    && tables
+                        .candidate_context_allowed(effect.effect_id, 0x1E82, false)
+                        .unwrap_or(false)
+                    && tables
+                        .native_effect_weight(
+                            effect.effect_id,
+                            NativeWeightContext {
+                                record_type: 0x1E82,
+                                rarity: 5,
+                                playthrough: 1,
+                                restricted_destination_slot: false,
+                                extra_selector: 0,
+                                rarity5_type_floor: 0,
+                            },
+                        )
+                        .unwrap_or(0)
+                        > 0
+            })
+            .expect("a promoted effect exists")
+            .effect_id;
+        let promoted = validate_query_feasibility(
+            &query(json!({
+                "playthrough": 1,
+                "rarity": 5,
+                "required_secondary_ids": [star],
+            })),
+            &tables,
+        )
+        .expect_err("NG1 rarity 5 never draws a promoted effect");
+        assert!(
+            promoted.contains("never carry the promoted effect"),
+            "{promoted}"
         );
     }
 }

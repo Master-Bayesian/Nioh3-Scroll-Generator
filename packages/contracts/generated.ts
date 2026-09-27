@@ -42,7 +42,7 @@ export type WorkerRequest =
       method: "search.start";
       params: {
         query: {
-          playthrough: 3 | 4 | 5;
+          playthrough: 1 | 2 | 3 | 4 | 5;
           rarity: 3 | 4 | 5;
           level: number;
           /**
@@ -1054,7 +1054,7 @@ export type WorkerRequest =
        */
       params: {
         query: {
-          playthrough: 3 | 4 | 5;
+          playthrough: 1 | 2 | 3 | 4 | 5;
           rarity: 3 | 4 | 5;
           level: number;
           /**

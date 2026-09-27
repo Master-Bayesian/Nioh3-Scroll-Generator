@@ -781,7 +781,7 @@ function App() {
   // instead of after a search. The worker stays the only judge.
   const [conditionProblem, setConditionProblem] = useState("");
   useEffect(() => {
-    if (!desktop || q.ng !== 3 || !connected) {
+    if (!desktop || q.ng >= 4 || !connected) {
       setConditionProblem("");
       return;
     }
