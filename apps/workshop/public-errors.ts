@@ -290,7 +290,7 @@ export function publicError(message: string): string {
     ],
     [/BUSY|occupied/i, "另一项操作仍在进行，请等待完成。"],
     [
-      /not a verified supported version|requires verified|requires accepted|profile changed|UNSUPPORTED_GAME_VERSION|GAME_EXECUTABLE_UNSUPPORTED|PROFILE_NOT_APPROVED|PROFILE_INTEGRITY|PROFILE_UNRESOLVED|SIGNATURE_MISMATCH|unsupported Nioh 3 executable version/i,
+      /not a verified supported version|not approved for product use|requires verified|requires accepted|profile changed|UNSUPPORTED_GAME_VERSION|GAME_EXECUTABLE_UNSUPPORTED|PROFILE_NOT_APPROVED|PROFILE_INTEGRITY|PROFILE_UNRESOLVED|SIGNATURE_MISMATCH|unsupported Nioh 3 executable version/i,
       "当前游戏版本尚未支持，请检查更新。",
     ],
     [

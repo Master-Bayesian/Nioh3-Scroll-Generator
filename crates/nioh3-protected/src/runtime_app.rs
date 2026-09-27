@@ -535,13 +535,18 @@ mod imp {
     }
 
     impl RuntimeApplication {
-        /// `running_game_identity()`: exactly one verified supported game.
+        /// The game identity the native generation oracle uses (native search,
+        /// known-seed generation, grace-map capture). Resolved for
+        /// [`ProfilePurpose::NativeOracle`] so its scoped approval reaches only
+        /// this path.
         ///
-        /// The profile loader wants the `game_versions` directory; passing the
-        /// data root itself made it look for `data/pc_v2_02.json` (v0.8.0).
-        fn identity(&self) -> Result<GameIdentity, HostError> {
-            nioh3_runtime::identify_running_game(&super::profile_dir_for(&self.data_root))
-                .map_err(HostError::from_runtime)
+        /// [`ProfilePurpose::NativeOracle`]: nioh3_runtime::profile::ProfilePurpose::NativeOracle
+        fn oracle_identity(&self) -> Result<GameIdentity, HostError> {
+            nioh3_runtime::identify_running_game_for(
+                &super::profile_dir_for(&self.data_root),
+                nioh3_runtime::profile::ProfilePurpose::NativeOracle,
+            )
+            .map_err(HostError::from_runtime)
         }
 
         /// The game identity the temporary override hooks use.
@@ -1352,7 +1357,7 @@ mod imp {
                     release_file,
                 });
             }
-            let identity = self.identity()?;
+            let identity = self.oracle_identity()?;
             let mut oracle = NativeOracle::new(
                 identity.identity.pid,
                 identity.module.base,
@@ -2162,6 +2167,10 @@ mod profile_dir_tests {
             profile_for_game_version_for(v202, &profile_dir, ProfilePurpose::TemporaryOverride)
                 .expect("the override purpose resolves the shipped v2.02 profile");
         assert_eq!(resolved.display_version, "PC v2.02");
+        // ... and so is the native generation oracle ...
+        let oracle = profile_for_game_version_for(v202, &profile_dir, ProfilePurpose::NativeOracle)
+            .expect("the oracle purpose resolves the shipped v2.02 profile");
+        assert_eq!(oracle, resolved);
         // ... while the blanket native-write purpose still refuses it by name,
         // never with an IO error about a misplaced file.
         let refused =

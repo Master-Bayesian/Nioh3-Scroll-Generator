@@ -73,6 +73,20 @@ pub const LIVE_ADD_APPROVED_VERSIONS: [FileVersion; 1] = [FileVersion::new(2, 0,
 /// live process before it writes. No live-game acceptance is claimed.
 pub const TEMPORARY_OVERRIDE_APPROVED_VERSIONS: [FileVersion; 1] = [FileVersion::new(2, 0, 2, 0)];
 
+/// Exact versions whose native generation oracle (native search, known-seed
+/// generation and grace-map capture) this line accepts.
+///
+/// NG1/NG2 scrolls can only be generated natively, so without this PC v2.02
+/// players could not search those playthroughs at all (user report
+/// 2026-09-27). The oracle calls the same validated chain sites the approved
+/// live-add path uses, inside isolated remote buffers, and never touches a
+/// save; every session re-reads the exact site bytes before calling. Like the
+/// other scoped approvals it lives here, not in the profile document, so the
+/// pinned generation identity does not move. Acceptance evidence is the live
+/// NG3 native-vs-offline parity run recorded in
+/// `docs/knowledge/V082_LIVE_CHARACTER_EQUIPMENT_RESEARCH_20260926.md`.
+pub const NATIVE_ORACLE_APPROVED_VERSIONS: [FileVersion; 1] = [FileVersion::new(2, 0, 2, 0)];
+
 /// What one profile resolution is for.
 ///
 /// The approval a document grants is operation-specific: a blanket
@@ -89,6 +103,9 @@ pub enum ProfilePurpose {
     LiveAdd,
     /// The temporary auxiliary / challenge-capacity override hooks.
     TemporaryOverride,
+    /// The native generation oracle: native search, known-seed generation and
+    /// grace-map capture.
+    NativeOracle,
 }
 
 /// One resolved site: a stable name, a module-relative address and the bytes
@@ -411,6 +428,9 @@ pub fn profile_for_game_version_for(
             ProfilePurpose::TemporaryOverride => {
                 blanket || TEMPORARY_OVERRIDE_APPROVED_VERSIONS.contains(&version)
             }
+            ProfilePurpose::NativeOracle => {
+                blanket || NATIVE_ORACLE_APPROVED_VERSIONS.contains(&version)
+            }
             ProfilePurpose::NativeWrites => {
                 payload.get("approval_status").and_then(Value::as_str) == Some("approved")
                     && blanket
@@ -641,6 +661,20 @@ mod tests {
         )?;
         assert_eq!(temporary, profile);
         assert_eq!(temporary.descriptor_complete.rva, 0x20E50B8);
+        // The native generation oracle is approved for PC v2.02 on its own and
+        // sees the same document; an unknown version is still refused.
+        let oracle = profile_for_game_version_for(
+            FileVersion::new(2, 0, 2, 0),
+            &directory,
+            ProfilePurpose::NativeOracle,
+        )?;
+        assert_eq!(oracle, profile);
+        assert!(profile_for_game_version_for(
+            FileVersion::new(2, 0, 3, 0),
+            &directory,
+            ProfilePurpose::NativeOracle,
+        )
+        .is_err());
         // An unknown version is never approved for the overrides.
         assert!(profile_for_game_version_for(
             FileVersion::new(2, 0, 3, 0),
