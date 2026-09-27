@@ -3960,6 +3960,11 @@ mod windows_transport {
             let mut transport =
                 NativeDebugTransport::new(FIXTURE_PID, PC_V201_LIVE_ADD, "Nioh3.exe", &directory)
                     .expect("transport");
+            // The target instance is probed through the seam, never the host's
+            // process table: the fixture pid can alias a live system process.
+            // It is the same instance the pending marker records, so only the
+            // missing receipt leaves the owner unproven.
+            transport.instance_probe = |_| Ok(Some(FIXTURE_CREATION.to_string()));
             // The allocation is retained in this process; the durable record of it
             // is gone, exactly the case a receipt is not release proof for.
             transport.retained = Some(FIXTURE_BASE + 0x1_0000_0000);
