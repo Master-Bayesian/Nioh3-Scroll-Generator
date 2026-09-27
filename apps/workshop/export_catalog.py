@@ -61,6 +61,11 @@ for family in catalog["special_rule_families"]:
     families.append({"id":str(min(keys)),"name":name,"category":base,"keys":keys,
         "variants":[{"key":k,"label":rule_value(rule_entries[k]["variant"])} for k in keys]})
 
+# NG1/NG2 rarity 4 finalizes to the ten Graces of its stage-one map (live PC v2.02
+# native records, docs/knowledge/V082_NG12_OFFLINE_PARITY_20260927.md), not the
+# 21 NG3 final Graces.
+NG12_R4_GRACE_IDS = (9189, 10982, 20387, 20498, 22796, 31722, 36044, 45545, 45647, 59627)
+
 contexts = {}
 for ng in range(1,6):
     for rarity in (3,4,5):
@@ -68,7 +73,7 @@ for ng in range(1,6):
         grace_ids = []
         if (rarity == 4 and ng <= 3) or (rarity == 5 and ng >= 3):
             mapping = load_grace_output_map(rarity=rarity)
-            grace_ids = sorted(R4_FINAL_GRACE_IDS) if ng in (1, 2) and rarity == 4 else sorted({r.grace_id for r in mapping.ranges if rarity != 4 or r.grace_id in R4_FINAL_GRACE_IDS})
+            grace_ids = sorted(NG12_R4_GRACE_IDS) if ng in (1, 2) and rarity == 4 else sorted({r.grace_id for r in mapping.ranges if rarity != 4 or r.grace_id in R4_FINAL_GRACE_IDS})
         contexts[f'{ng}-{rarity}'] = {"effects":effects,"graces":[{"id":str(i),"name":native_effect_name(i,"zh-CN") or f'0x{i:X}'} for i in grace_ids]}
 
 samples=[]

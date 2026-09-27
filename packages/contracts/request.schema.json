@@ -1124,6 +1124,14 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 180
+            },
+            "playthrough": {
+              "enum": [
+                1,
+                2,
+                3
+              ],
+              "description": "Playthrough of the previewed scroll; omitted means 3. NG1/NG2 match the native generator offline."
             }
           },
           "required": [

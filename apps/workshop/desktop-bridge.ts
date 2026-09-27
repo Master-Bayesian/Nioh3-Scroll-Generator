@@ -262,6 +262,7 @@ export async function retainSample(sample: Sample) {
       sample.level || 180,
       true,
       sample.enemyVariant || "solo",
+      sample.playthrough || 3,
     );
   const ref = await window.review.retain({
     job_id: sample.backend.jobId!,
@@ -278,6 +279,7 @@ export async function previewSeed(
   level: number,
   retain = false,
   enemyVariant: Query["enemyVariant"] = "solo",
+  playthrough = 3,
 ) {
   await loadDesktopCatalog(rarity);
   const result = await window.review.preview({
@@ -285,6 +287,8 @@ export async function previewSeed(
     rarity: rarity as 3 | 4 | 5,
     level,
     retain,
+    // NG1/NG2 preview offline like NG3; omitted keeps the NG3 contract.
+    ...(playthrough === 3 ? {} : { playthrough: playthrough as 1 | 2 }),
   });
   return candidateSample(
     result.candidate,

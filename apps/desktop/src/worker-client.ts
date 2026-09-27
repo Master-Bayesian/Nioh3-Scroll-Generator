@@ -189,7 +189,7 @@ export class WorkerClient {
     if (!('record_hex' in result)) throw new Error('CANDIDATE_TRANSFER_EXPECTED');
     return result;
   }
-  async previewSeed(params: {seed:number;rarity:3|4|5;level:number}) {
+  async previewSeed(params: {seed:number;rarity:3|4|5;level:number;playthrough?:1|2|3}) {
     await this.handshake(); const result=await this.result('candidate.preview',params);
     if(!('transfer' in result))throw new Error('PREVIEW_RESPONSE_EXPECTED');return result;
   }

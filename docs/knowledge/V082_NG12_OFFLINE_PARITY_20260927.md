@@ -58,3 +58,34 @@ Reports: `deliverables/v082-ce-research/ng12-parity/parity-*.json`.
 materializers and `R4FinalizerEngine::for_playthrough`. The NG3 entry points
 and their certification are unchanged; the search worker still gates NG1/NG2
 until its product integration lands.
+
+## Product integration
+
+- Search worker: NG1/NG2 queries compile to the forward filter over the full
+  seed family (`QueryCompiler::compile_early_playthrough`). Every Seed is
+  decided by `compose_preview_sequence`; none of the NG3 accelerators (preimage
+  families, primary pivots, batched effect mask, packed auxiliary pivot) runs,
+  and the job layer's composed auxiliary acceptance decides terrain, rules and
+  enemies. `ng1_and_ng2_searches_publish_exactly_the_composed_matches` compares
+  published windows with an independent sweep for all six contexts. The NG3
+  structural preflight (`feasibility.rs`) is skipped for NG1/NG2 because its
+  slot counts are the NG3 layout (NG1/NG2 rarity 5 has five secondaries).
+- R4 finalizer: the Seed-independent candidate rows are cached in the table
+  index (`FinalizerPoolCache`): about 2.5 ms to 30 us per finalized rarity-4
+  composition, parity reports unchanged.
+- Grace choices: NG1/NG2 rarity 4 has exactly the ten stage-one Graces (all
+  20000 native finals equal their stage one); the catalog's 1-4/2-4 lists were
+  corrected from 21 to these ten. Rarity 5 has none, and a Grace request is
+  refused by name.
+- Install and live batch: `can_materialize_for_install` accepts playthroughs 1
+  to 3; the save's own NG1/NG2 template (an authentic scroll of that type) is
+  required, as for native NG1/NG2 candidates. `ng12_native_parity.rs` keeps 24
+  live native records byte-exact under the certified materializers.
+- `candidate.preview` takes an optional `playthrough` (1 to 3, default 3), so a
+  known seed previews offline for NG1/NG2.
+- UI: NG1-NG3 search and preview offline, with roll thresholds and score
+  sorting; NG4/NG5 keep the native path unless a rarity-5 map is cached.
+  Enemy-state filters and live insertion stay NG3-only as before.
+
+Per-Seed cost (release, one thread): R3 about 13 us, R4 about 29 us, R5 about
+20 us, against roughly 0.5 ms per Seed for the native NG1/NG2 search.

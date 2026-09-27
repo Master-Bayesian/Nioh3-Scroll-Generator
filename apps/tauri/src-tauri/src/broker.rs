@@ -352,12 +352,13 @@ impl Broker {
                 Ok(Value::Null)
             }
             "review:preview" => {
+                let mut params = json!({"seed":p["seed"],"rarity":p["rarity"],"level":p["level"]});
+                // Omitted means NG3; the contract takes playthrough 1 to 3.
+                if !p["playthrough"].is_null() {
+                    params["playthrough"] = p["playthrough"].clone();
+                }
                 let value = self
-                    .call(
-                        "offline_search",
-                        "candidate.preview",
-                        json!({"seed":p["seed"],"rarity":p["rarity"],"level":p["level"]}),
-                    )
+                    .call("offline_search", "candidate.preview", params)
                     .await?;
                 let reference = if p["retain"] == false {
                     Value::Null

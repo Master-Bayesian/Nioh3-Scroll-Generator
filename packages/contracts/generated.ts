@@ -2090,5 +2090,9 @@ export type WorkerRequest =
         seed: number;
         rarity: 3 | 4 | 5;
         level: number;
+        /**
+         * Playthrough of the previewed scroll; omitted means 3. NG1/NG2 match the native generator offline.
+         */
+        playthrough?: 1 | 2 | 3;
       };
     };

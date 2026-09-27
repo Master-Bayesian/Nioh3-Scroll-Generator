@@ -14,7 +14,7 @@ export interface ReviewApi {
  windowAction(action:'minimize'|'maximize'|'close'):Promise<void>;
  retain(params:{job_id:string;candidate_id:string;source?:'runtime'|'search'}):Promise<{reference_id:string}>;
  release(referenceId:string):Promise<void>;
- preview(params:{seed:number;rarity:3|4|5;level:number;retain?:boolean}):Promise<{candidate:CandidateView;reference_id:string|null}>;
+ preview(params:{seed:number;rarity:3|4|5;level:number;retain?:boolean;playthrough?:1|2|3}):Promise<{candidate:CandidateView;reference_id:string|null}>;
  prepareCart(params:{mode:'save'|'live';save_id:string;snapshot_id:string;references:string[];recommended_level:number;transfer_count:number}):Promise<ProtectedResult>;
  openBackupFolder():Promise<void>;
  openLink(name:'github'|'qq'|'updates'):Promise<void>;

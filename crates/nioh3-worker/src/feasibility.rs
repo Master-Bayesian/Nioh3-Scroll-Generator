@@ -25,6 +25,13 @@ pub fn validate_query_feasibility(
     query: &SearchQuery,
     tables: &EffectTableIndex,
 ) -> Result<(), String> {
+    // The slot counts and the rarity-5 deep-slot rule below are the NG3 layout;
+    // NG1/NG2 rarity 5 has five secondaries and no Grace. Their searches are
+    // decided per Seed by the generic composition, so an impossible request
+    // just finds nothing instead of being refused by a rule not proven there.
+    if query.playthrough < 3 {
+        return Ok(());
+    }
     let Some(max_secondaries) = max_secondaries(query) else {
         return Ok(());
     };

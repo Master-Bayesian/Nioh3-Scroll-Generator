@@ -182,10 +182,29 @@ impl Materializer {
         level: u16,
         joint_search_trial: Option<u64>,
     ) -> Result<(Candidate, Value, Value, ComposedPreview), EngineError> {
+        self.compose_for(seed, rarity, level, NG3_PLAYTHROUGH, joint_search_trial)
+    }
+
+    /// [`Self::compose`] for playthroughs 1 to 3, whose offline generation
+    /// matches the native generator.
+    pub fn compose_for(
+        &self,
+        seed: u32,
+        rarity: u8,
+        level: u16,
+        playthrough: u8,
+        joint_search_trial: Option<u64>,
+    ) -> Result<(Candidate, Value, Value, ComposedPreview), EngineError> {
+        if !(1..=NG3_PLAYTHROUGH).contains(&playthrough) {
+            return Err(EngineError::new(
+                "INVALID_REQUEST",
+                format!("offline preview covers playthroughs 1 to 3, not {playthrough}"),
+            ));
+        }
         let resources = self.resources()?;
         let tables = preview_tables(&resources);
-        let auxiliary = compose_auxiliary_preview(seed, NG3_PLAYTHROUGH, &tables)
-            .map_err(unsupported_preview)?;
+        let auxiliary =
+            compose_auxiliary_preview(seed, playthrough, &tables).map_err(unsupported_preview)?;
         self.compose_from_auxiliary(
             &resources,
             &tables,
@@ -194,7 +213,7 @@ impl Materializer {
             level,
             joint_search_trial,
             auxiliary,
-            NG3_PLAYTHROUGH,
+            playthrough,
             None,
         )
     }
@@ -278,8 +297,15 @@ impl Materializer {
     }
 
     /// `candidate.preview`: `{"candidate": ..., "transfer": ...}`.
-    pub fn preview(&self, seed: u32, rarity: u8, level: u16) -> Result<Value, EngineError> {
-        let (_, candidate, transfer, _) = self.compose(seed, rarity, level, None)?;
+    pub fn preview(
+        &self,
+        seed: u32,
+        rarity: u8,
+        level: u16,
+        playthrough: u8,
+    ) -> Result<Value, EngineError> {
+        let (_, candidate, transfer, _) =
+            self.compose_for(seed, rarity, level, playthrough, None)?;
         Ok(serde_json::json!({
             "candidate": candidate,
             "transfer": transfer,
@@ -817,12 +843,13 @@ impl Engine {
                 seed,
                 rarity,
                 level,
+                playthrough,
                 ..
             } => {
                 if !self.negotiated {
                     return self.failure(&id, RequestError::handshake_required());
                 }
-                match self.materializer.preview(seed, rarity, level) {
+                match self.materializer.preview(seed, rarity, level, playthrough) {
                     Ok(result) => Outcome::Reply(payload::success_frame(&id, result)),
                     Err(error) => {
                         Outcome::Reply(payload::error_frame(&id, error.code, &error.message))
@@ -1163,7 +1190,7 @@ mod tests {
             Some(nioh3_data::CURRENT_RESOURCE_VERSION)
         );
         let payload = current
-            .preview(10030700, 4, 180)
+            .preview(10030700, 4, 180, 3)
             .expect("completed preview");
         assert!(
             payload.is_object(),
@@ -1177,7 +1204,7 @@ mod tests {
 
         let legacy = Materializer::with_resource_version(&data_root, "engine-test-context", None);
         assert_eq!(legacy.resource_version(), None);
-        let legacy_payload = legacy.preview(10030700, 4, 180).expect("legacy preview");
+        let legacy_payload = legacy.preview(10030700, 4, 180, 3).expect("legacy preview");
         assert!(
             legacy_payload.is_object(),
             "the explicit legacy selector must still compose a record"
@@ -1339,17 +1366,17 @@ mod tests {
         };
         let v2_02_materializer = materializer(&v2_02.context_digest, (2, 0, 2, 0));
         let first = v2_02_materializer
-            .preview(10030700, 4, 180)
+            .preview(10030700, 4, 180, 3)
             .expect("v2.02 preview");
         let second = v2_02_materializer
-            .preview(10030700, 4, 180)
+            .preview(10030700, 4, 180, 3)
             .expect("v2.02 preview again");
         assert_eq!(
             first, second,
             "the same explicit context must stay deterministic"
         );
         let v2_00_02_first = materializer(&v2_00_02.context_digest, (2, 0, 0, 2))
-            .preview(10030700, 4, 180)
+            .preview(10030700, 4, 180, 3)
             .expect("v2.00.02 preview");
         assert_ne!(
             first, v2_00_02_first,

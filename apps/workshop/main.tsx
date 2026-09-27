@@ -702,7 +702,7 @@ function App() {
     const c = data.contexts[`${ng}-${rarity}` as keyof typeof data.contexts];
     const kept = q.effects
       .filter((e) => c.effects.some((v) => v.id === e.id))
-      .map((e) => (ng === 3 ? e : { ...e, roll: 0 }));
+      .map((e) => (ng <= 3 ? e : { ...e, roll: 0 }));
     setQ({
       ...q,
       ng,
@@ -720,7 +720,7 @@ function App() {
             })),
     });
     setStatus(
-      ng === 3
+      ng <= 3
         ? "周目／稀有度已切换，目录已更新。"
         : "当前周目使用原生生成，支持词条组合筛选；抽取评分暂不可用，数值已设为不限。",
     );
@@ -833,10 +833,12 @@ function App() {
     } finally {
       archiveBusy.current = false;
     }
+    // NG1-NG3 search offline (their generation matches the native generator);
+    // NG4/NG5 stay native unless a measured rarity-5 map is cached.
     if (
       desktop &&
-      q.ng !== 3 &&
-      !(q.ng >= 4 && q.rarity === 5 && cache?.key === cacheKey())
+      q.ng >= 4 &&
+      !(q.rarity === 5 && cache?.key === cacheKey())
     ) {
       await nativeSearch(next);
       setBusy(false);
@@ -950,7 +952,7 @@ function App() {
         )}
         <Select
           label={e.name + "数值门槛"}
-          disabled={q.ng !== 3}
+          disabled={q.ng >= 4}
           value={e.roll}
           options={[
             ["0", "数值不限"],
@@ -1936,7 +1938,7 @@ function App() {
               </div>
             </div>
           </PanelContext.Provider>
-          {desktop && q.ng !== 3 && (
+          {desktop && q.ng >= 4 && (
             <div className="native-search-source">
               <SavePicker />
               {q.ng >= 4 && q.rarity === 5 && (
@@ -2099,7 +2101,7 @@ function App() {
                 disabled={busy}
                 onClick={() => {
                   if (desktop) {
-                    if (q.ng !== 3) {
+                    if (q.ng >= 4) {
                       void nativeSearch(false, true);
                       return;
                     }
@@ -2110,6 +2112,7 @@ function App() {
                       q.level,
                       false,
                       q.enemyVariant,
+                      q.ng,
                     )
                       .then((sample) => {
                         setResults([sample]);
@@ -2168,7 +2171,7 @@ function App() {
             </button>
             <Select
               label="结果排序"
-              disabled={submitted.ng !== 3}
+              disabled={submitted.ng >= 4}
               value={sortMode}
               options={[
                 ["primary", "主词条评分 ↓"],

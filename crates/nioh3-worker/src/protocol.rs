@@ -117,6 +117,8 @@ pub enum Request {
         seed: u32,
         rarity: u8,
         level: u16,
+        /// Omitted means NG3, the shipped contract before playthrough 1/2 joined.
+        playthrough: u8,
     },
     /// Carries the schema-checked `search.start` params verbatim; the job layer
     /// runs the cross-field query validation in the shipped order, after its
@@ -233,6 +235,10 @@ pub fn parse_request(payload: &Value, schema: &RequestSchema) -> Result<Request,
             seed: integer(params, "seed") as u32,
             rarity: integer(params, "rarity") as u8,
             level: integer(params, "level") as u16,
+            playthrough: params
+                .get("playthrough")
+                .and_then(Value::as_u64)
+                .map_or(3, |value| value as u8),
         }),
         "search.start" => Ok(Request::SearchStart {
             id,
@@ -325,9 +331,31 @@ mod tests {
                 id: "b".to_string(),
                 seed: 1,
                 rarity: 4,
-                level: 180
+                level: 180,
+                playthrough: 3
             })
         );
+        // Playthroughs 1 and 2 preview offline too; 4 is outside the contract.
+        assert_eq!(
+            parse_request(
+                &json!({"protocol":1,"id":"b","method":"candidate.preview",
+                                  "params":{"seed":1,"rarity":5,"level":180,"playthrough":1}}),
+                &schema
+            ),
+            Ok(Request::CandidatePreview {
+                id: "b".to_string(),
+                seed: 1,
+                rarity: 5,
+                level: 180,
+                playthrough: 1
+            })
+        );
+        assert!(parse_request(
+            &json!({"protocol":1,"id":"b","method":"candidate.preview",
+                              "params":{"seed":1,"rarity":5,"level":180,"playthrough":4}}),
+            &schema
+        )
+        .is_err());
         // JSON Schema integer accepts an integral JSON number.
         assert!(matches!(
             parse_request(
