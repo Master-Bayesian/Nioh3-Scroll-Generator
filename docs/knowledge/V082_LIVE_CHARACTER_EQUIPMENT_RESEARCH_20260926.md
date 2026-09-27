@@ -227,3 +227,25 @@ Open for product use: game-thread dispatch of step 5 (reuse the scroll
 live-add scheduler hook), the meaning of the drop-source fields (the reward
 routine leaves them zero), and hell conversion (+0x2287870 needs its drop
 context `+0x1C/+0x23/+0x25/+0xDB`).
+
+## First native equipment insertion (live, owner present, 2026-09-26)
+
+`equip_insert_once.lua` (in `deliverables/v082-ce-research/`) reuses the scroll
+live-add dispatch point: a debug-register breakpoint on the pickup dispatch
+`+0x12E9E50` (return `+0x20BB1C`, empty pickup queue, scheduler `+0x1408 == 0`
+and `+0x1629 == 1`) redirects RIP once into a cave. The cave runs steps 1–4
+above with serial allocation on, requires `build_record` to return the record
+with `+0x28 == planned serial` and the counter at `serial + 1`, then calls
+`insert(manager=[+0x4751530], out, record, &slot, 0)`, replays the original
+prologue `40 53 57 48 83 EC 38` and resumes. No code bytes are patched.
+
+Sample: the natural 扇子 (`0x7B72`, Lv170 +18, rarity 4, seed word
+`0xAF640001`, 惠比寿的恩宠) re-generated in PID 19820. Result: status 3, slot
+1400 (the first empty slot, as planned), registers preserved. A container
+diff shows exactly one changed slot; against the natural record, the only
+differing bytes are insertion-owned (`+0x18` flags `0x82`, `+0x1C` key,
+`+0x28` serial `0x267CC7`) or uninitialized entry bytes (`+2/+3`,
+`+0xF`, `+0x12/+0x13` of the entries). The owner saw the item in game and saved.
+The decrypted `SAVEDATA00` (new example `crates/nioh3-save/examples/equipment_slot.rs`)
+holds the identical record at slot 1400; the game had renumbered the live key
+from `0xC82B` to `0xC82C` after insertion, and memory and save now agree.
