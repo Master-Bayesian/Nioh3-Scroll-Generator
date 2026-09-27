@@ -1115,7 +1115,7 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .equipment-page.character-page{display:flex;flex-direction:column;overflow:hidden}
 .character-page>.character-body{flex:1;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
 .character-list{display:flex;flex-direction:column;min-height:0}
-.character-list>.character-filters,.character-list>.character-tabs,.character-list>.character-pager,.character-list>.character-names{flex-shrink:0}
+.character-list>.character-filters,.character-list>.character-tabs,.character-list>.character-pager{flex-shrink:0}
 .character-table-wrap{flex:1;min-height:0;overflow:auto}
 .character-side{position:static;max-height:none;height:100%;overflow:auto}
 }

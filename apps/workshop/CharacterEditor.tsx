@@ -9,9 +9,9 @@ import type {
 } from "../../packages/contracts/protected-responses";
 import { data } from "./model";
 import itemNames from "./item-names.json";
+import hellSkillNames from "./hell-skill-names.json";
 import { desktop } from "./desktop-bridge";
 import { fillTemplateSlots, plainGameText } from "./game-text";
-import { LocalCatalogImport, type ActiveLocalCatalog } from "./LocalCatalogImport";
 import { Notice } from "./Notice";
 import { SavePicker } from "./CartActions";
 import { runtimeObserver, saveObserver, saveSession } from "./save-workspace";
@@ -27,6 +27,8 @@ interface ItemRow {
   held?: CharacterItem;
   storage?: CharacterItem;
 }
+/** Hell martial-skill names by skill id (PC v2.02, read from the game). */
+const HELL_SKILL_NAMES: Record<string, string> = hellSkillNames.skills;
 const CONTAINER_LABEL: Record<Container, string> = { held: "持有", storage: "仓库" };
 type LegalValue = EffectValues["values"][number];
 type Finding = NonNullable<CharacterEquipment["audit"]>["findings"][number];
@@ -318,7 +320,6 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const [rules, setRules] = useState<EquipmentRules | null>(null);
   const [values, setValues] = useState<(EffectValues | null)[]>([]);
   const [plan, setPlan] = useState<{ plan_id: string; preview: Record<string, unknown> } | null>(null);
-  const [catalog, setCatalog] = useState<ActiveLocalCatalog | null>(null);
   const [tab, setTab] = useState<Tab>("equipment");
   const [itemQuery, setItemQuery] = useState("");
   const [itemMajor, setItemMajor] = useState("");
@@ -337,8 +338,14 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     return showIds ? name + " " + hex(id) : name;
   };
   const itemText = (id: number) => {
-    const name = itemCatalog[String(id)]?.[0] || catalog?.entries.get(id) || "";
+    const name = itemCatalog[String(id)]?.[0] || "";
     if (!name) return "未收录物品 " + hex(id);
+    return showIds ? name + " " + hex(id) : name;
+  };
+  const skillText = (id: number) => {
+    if (!id) return "无";
+    const name = HELL_SKILL_NAMES[String(id)];
+    if (!name) return "其他武技 " + hex(id);
     return showIds ? name + " " + hex(id) : name;
   };
   const candidateLabel = (candidate: Candidate) => {
@@ -367,7 +374,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       const text = [itemText(entry.item_id), a, b, c, ...entry.effects.map(effect => effectText(effect.effect_id))].join(" ");
       return text.toLowerCase().includes(needle);
     });
-  }, [character, query, catalog, major, middle, minor, showIds]);
+  }, [character, query, major, middle, minor, showIds]);
   // Rows per page: as many as fit the list area, so a page never needs the
   // wheel. The single-column layout scrolls the page instead.
   const tableWrap = useRef<HTMLDivElement>(null);
@@ -421,7 +428,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       if (itemMajor && a !== itemMajor) return false;
       return !needle || [itemText(entry.item_id), a, b].join(" ").toLowerCase().includes(needle);
     });
-  }, [itemRows, itemQuery, itemMajor, catalog, showIds]);
+  }, [itemRows, itemQuery, itemMajor, showIds]);
   const itemPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
   const shownItemPage = Math.min(itemPage, itemPages - 1);
   const pagedItems = filteredItems.slice(shownItemPage * pageSize, (shownItemPage + 1) * pageSize);
@@ -830,7 +837,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       if ((change.before.hell ?? false) !== (change.after.hell ?? false))
         lines.push(prefix + " 地狱武器：" + (change.before.hell ? "是" : "否") + " → " + (change.after.hell ? "是" : "否"));
       if ((change.before.hell_skill ?? 0) !== (change.after.hell_skill ?? 0))
-        lines.push(prefix + " 地狱武技：" + hex(change.before.hell_skill ?? 0) + " → " + hex(change.after.hell_skill ?? 0));
+        lines.push(prefix + " 地狱武技：" + skillText(change.before.hell_skill ?? 0) + " → " + skillText(change.after.hell_skill ?? 0));
       for (const [key, label] of FIELD_LABEL)
         if (change.before[key] !== change.after[key])
           lines.push(prefix + " " + label + "：" + change.before[key] + " → " + change.after[key]);
@@ -929,10 +936,6 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       </table>
       </div>
       <Pager page={shownPage} pages={pages} onChange={setPage} />
-      <details className="character-names">
-        <summary>补充物品名称（可选）</summary>
-        <LocalCatalogImport onCatalogChange={setCatalog} />
-      </details>
     </>
   );
 
@@ -1011,10 +1014,10 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           {draft.hell && (
             <select value={draft.hell_skill} aria-label="地狱武技"
               onChange={event => setDraft({ ...draft, hell_skill: Number(event.target.value) })}>
-              {[...new Set([...(rules?.hell_skills ?? []), ...(draft.hell_skill ? [draft.hell_skill] : [])])].map((skill, index) => (
+              {[...new Set([...(rules?.hell_skills ?? []), ...(draft.hell_skill ? [draft.hell_skill] : [])])].map(skill => (
                 <option key={skill} value={skill}>
-                  {(rules?.hell_skills ?? []).includes(skill) ? "地狱武技 " + (index + 1) : "其他武技"}
-                  {showIds ? " " + hex(skill) : ""}
+                  {skillText(skill)}
+                  {(rules?.hell_skills ?? []).includes(skill) ? "" : "（不会自然出现）"}
                 </option>
               ))}
             </select>
@@ -1022,9 +1025,11 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           <span className="character-muted">
             {!rules?.known
               ? ""
-              : rules.hell_capable
-                ? "切换后第一个位置变为地狱词条，请在下方选择。"
-                : "这件装备不会自然成为地狱武器，只能在魔改模式下切换。"}
+              : !rules.hell_capable
+                ? "这件装备不会自然成为地狱武器，只能在魔改模式下切换。"
+                : draft.hell && !row.hell
+                  ? "切换后第一个位置变为地狱词条，请在下方选择。"
+                  : ""}
           </span>
         </div>
       )}

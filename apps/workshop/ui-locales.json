@@ -3360,10 +3360,6 @@
       "This equipment slot is empty and cannot be edited.",
       "この装備スロットは空のため編集できません。"
     ],
-    "补充物品名称（可选）": [
-      "Add item names (optional)",
-      "アイテム名を追加（任意）"
-    ],
     "物品不在当前版本的物品表中": [
       "Item is not in this game version's item table",
       "このバージョンのアイテム表にないアイテム"
@@ -3756,10 +3752,6 @@
       "Hell skill",
       "地獄武技"
     ],
-    "其他武技": [
-      "Other skill",
-      "その他の武技"
-    ],
     "地狱武器：": [
       "Hell weapon: ",
       "地獄武器："
@@ -3783,6 +3775,38 @@
     "这件装备不会自然成为地狱武器，只能在魔改模式下切换。": [
       "This equipment never becomes a hell weapon naturally; switch it only in modded mode.",
       "この装備は自然には地獄武器にならないため、改造モードでのみ切り替えられます。"
+    ],
+    "（不会自然出现）": [
+      " (never occurs naturally)",
+      "（自然には出現しません）"
+    ],
+    "防具": [
+      "Armor",
+      "防具"
+    ],
+    "书籍与指南": [
+      "Books and guides",
+      "書物と指南"
+    ],
+    "数量：": [
+      "Quantity: ",
+      "数量："
+    ],
+    "数量": [
+      "Quantity",
+      "数量"
+    ],
+    "未识别阴阳术": [
+      "Unidentified onmyo magic",
+      "未識別の陰陽術"
+    ],
+    "这个绘卷 ID 不是游戏能生成的：ID 的低 4 位十六进制不能全为 0，也不能大于 0x0FFFFFFF。": [
+      "The game cannot generate this scroll ID: its low four hex digits cannot all be 0, and it cannot exceed 0x0FFFFFFF.",
+      "この絵巻 ID はゲームで生成されません。ID の下位 4 桁（16 進）がすべて 0 であってはならず、0x0FFFFFFF を超えてもいけません。"
+    ],
+    "其他武技": [
+      "Other skill",
+      "その他の武技"
     ]
   },
   "game": {

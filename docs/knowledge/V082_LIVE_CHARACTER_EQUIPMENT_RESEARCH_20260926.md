@@ -386,3 +386,21 @@ in-game inventory menu ("持有物品").
 - Native search without constraints costs about 0.5 s per result because the UI
   starts one job per candidate and each job re-identifies the game; unchanged
   and not version-specific.
+
+## Hell martial-skill names (live, read-only, 2026-09-27)
+
+- The parameter manager `[Nioh3.exe+0x45B9E30]` holds table contexts; each
+  store is `u32 tag 0x20042200 | u32 count | rows`. `+0x5A8` is the hell-skill
+  table (`HELL_SKILLS_V202`); `+0x598` is the martial-skill table with 0x94-byte
+  rows: `u32 skill id | u32 1 | u32 0 | u32 name text ID | ...`.
+- Name text IDs resolve in the zh-CN localization pool
+  (`u32 text id | u32 UTF-16 units | text`). This run found the pool in the
+  6.4 GB private region about 47 MB past `LOCALIZATION_POOL_RELATIVE_HINT`, by
+  searching a ±128 MB window for the known entry 无想剑 (`0x02FF5EEC`, which is
+  also item `0x9047`'s text ID). The old v2.00.02 text-ID anchors did not match.
+- All 39 natural hell skills resolved. The 33 also in the trainer table
+  `Hell/Hell.json` match it exactly; the six shield-spear skills (weapon types
+  4866 and 13257) are 粉碎刺击 `0x5841`, 震霆 `0x99AF`, 地裂挑击 `0x490D`,
+  锚击 `0x60A3`, 乱舞落 `0xC67A`, 龟翔 `0x35C5`.
+- Bundled as `apps/workshop/hell-skill-names.json`. Helper scripts:
+  `tmp/claude-ce/find_pool.py`, `resolve_skill_names.py`.
