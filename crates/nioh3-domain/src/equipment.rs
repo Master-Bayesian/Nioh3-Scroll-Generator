@@ -31,8 +31,13 @@ pub const STAR_NORMALIZATION_FLAG: u32 = 0x08;
 pub const STAR_ENTRY_FLAG: u8 = 0x04;
 /// Record byte `+0x1A` marking a hell weapon.
 pub const HELL_RECORD_FLAG: u8 = 0x10;
-/// Effects per natural record, by rarity 0..=5 (fixed, set and grace included).
-pub const NATURAL_EFFECT_COUNT: [usize; 6] = [2, 3, 3, 4, 5, 6];
+/// Random effects per natural record, by rarity 0..=5 (innate, set and grace excluded).
+///
+/// Read from 1,406 records of the owner's PC v2.02 inventory; rarity 5 follows
+/// the pattern but has no sample yet.
+pub const RANDOM_EFFECT_COUNT: [usize; 6] = [1, 2, 2, 3, 3, 4];
+/// Weight column the game substitutes for restricted slots (`NativeWeightContext`).
+pub const RESTRICTED_WEIGHT_SLOT: usize = 0x29;
 /// Lowest rarity whose items without a set carry a grace (恩宠) in the last slot.
 pub const GRACE_MIN_RARITY: u8 = 4;
 /// Draws per roll lottery operand (RVA 0x110A275: two `draw_int(46)` draws).
@@ -83,6 +88,11 @@ impl EquipmentItem {
         })
     }
 
+    /// Soul cores (weight columns 54..=57) follow their own slot layout.
+    pub fn soul_core(&self) -> bool {
+        (54..=57).contains(&self.weight_slot)
+    }
+
     /// Whether the hell conversion (`+0x2285E58`) may pick this item.
     pub fn hell_capable(&self) -> bool {
         matches!(self.hell_class, 1 | 2) && self.item_flags & 0x02 != 0
@@ -119,44 +129,99 @@ pub enum SlotRole {
     Grace,
 }
 
-/// One finding about a record. Every finding means "natural generation cannot
-/// produce this"; none of them blocks an edit.
+/// One finding about a record. A finding means "natural drop generation does
+/// not produce this"; none of them blocks an edit.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Finding {
     UnknownItem,
     UnsupportedRarity,
-    EffectCount { expected: usize, actual: usize },
-    UnknownEffect { slot: usize, effect_id: u32 },
-    WrongInnate { slot: usize, expected: u16 },
-    WrongSet { slot: usize, expected: u16 },
-    NotGrace { slot: usize },
-    NotInPool { slot: usize },
-    HellEffectOutsideHellSlot { slot: usize },
+    EffectCount {
+        expected: usize,
+        actual: usize,
+    },
+    UnknownEffect {
+        slot: usize,
+        effect_id: u32,
+    },
+    MissingInnate {
+        expected: u16,
+    },
+    MissingSet {
+        expected: u16,
+    },
+    MissingGrace,
+    /// A set, grace or innate effect the item does not naturally carry.
+    UnexpectedFixed {
+        slot: usize,
+    },
+    NotInPool {
+        slot: usize,
+    },
+    HellEffectOnNormal {
+        slot: usize,
+    },
     MissingHellEffect,
     HellOnIneligibleItem,
-    StarBelowRarity { slot: usize },
+    StarBelowRarity {
+        slot: usize,
+    },
     MultipleStars,
-    StarFlagMismatch { slot: usize },
-    GroupConflict { slot: usize, other: usize },
-    ValueNotNatural { slot: usize, value: u32 },
-    RollOutOfRange { slot: usize, roll: u8 },
-    HellSkillNotNatural { skill: u16 },
+    StarFlagMismatch {
+        slot: usize,
+    },
+    GroupConflict {
+        slot: usize,
+        other: usize,
+    },
+    ValueNotNatural {
+        slot: usize,
+        value: u32,
+    },
+    /// A star value above the base formula: the unmodelled optional addition
+    /// (`+0x5712D8`) can explain it, so it is reported as unverified.
+    ValueAboveFormula {
+        slot: usize,
+        value: u32,
+    },
+    RollOutOfRange {
+        slot: usize,
+        roll: u8,
+    },
 }
 
-/// The audit of one record against natural generation.
+/// Record flag bits at `+0x18` whose items follow rules not modelled here:
+/// `0x20000` (processed at the blacksmith) and `0x400000` (unique items, which
+/// the hell conversion also skips).
+pub const SPECIAL_RECORD_FLAGS: u32 = 0x0002_0000 | 0x0040_0000;
+
+/// The audit of one record against natural drop generation.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RecordAudit {
+    /// Differences natural generation cannot explain.
     pub findings: Vec<Finding>,
-    /// The role natural generation gives each occupied slot, in slot order.
+    /// Differences the modelled rules cannot decide (special items, optional
+    /// value additions); neither natural nor unnatural.
+    pub unverified: Vec<Finding>,
+    /// The role each occupied slot plays, in slot order.
     pub roles: Vec<Option<SlotRole>>,
 }
 
 impl RecordAudit {
     pub fn natural(&self) -> bool {
-        self.findings.is_empty()
+        self.findings.is_empty() && self.unverified.is_empty()
+    }
+
+    /// `natural`, `unverified` or `unnatural`.
+    pub fn verdict(&self) -> &'static str {
+        if !self.findings.is_empty() {
+            "unnatural"
+        } else if !self.unverified.is_empty() {
+            "unverified"
+        } else {
+            "natural"
+        }
     }
 }
-
 /// Hell martial-skill rows read live from `[[Nioh3.exe+0x45B9E30]+0x5A8]` (PC v2.02):
 /// `(skill id, weapon-type key, minimum level)`. Every row has weight 10.
 pub const HELL_SKILLS_V202: [(u16, u16, u16); 39] = [
@@ -320,7 +385,8 @@ impl<'a> EquipmentRules<'a> {
         if effect.flags & 0x08 != 0 && item.item_flags & 0x1000 == 0 {
             return false;
         }
-        effect.slot_weight(usize::from(item.weight_slot)) != 0
+        (effect.slot_weight(usize::from(item.weight_slot)) != 0
+            || effect.slot_weight(RESTRICTED_WEIGHT_SLOT) != 0)
             && effect.type_multipliers.iter().any(|value| *value > 0.0)
             && self.progress_reachable(effect)
     }
@@ -329,7 +395,6 @@ impl<'a> EquipmentRules<'a> {
         effect.effect_id != 0
             && effect.flags & (0x40 | 0x80) != 0
             && effect.flags & HELL_EFFECT_FLAG == 0
-            && effect.normalization_flags & STAR_NORMALIZATION_FLAG == 0
             && self.weighted_for(effect, item)
     }
 
@@ -342,7 +407,7 @@ impl<'a> EquipmentRules<'a> {
                 direct_groups.insert(effect.group_key);
                 pool.push(PoolEffect {
                     effect_id: effect.effect_id,
-                    star: false,
+                    star: effect.normalization_flags & STAR_NORMALIZATION_FLAG != 0,
                 });
             }
         }
@@ -350,6 +415,7 @@ impl<'a> EquipmentRules<'a> {
             if effect.normalization_flags & STAR_NORMALIZATION_FLAG == 0
                 || effect.rarity_weight(rarity) == 0.0
                 || !direct_groups.contains(&effect.group_key)
+                || pool.iter().any(|entry| entry.effect_id == effect.effect_id)
             {
                 continue;
             }
@@ -386,43 +452,47 @@ impl<'a> EquipmentRules<'a> {
 
     /// The role natural generation gives each slot, in slot order.
     ///
-    /// Innate effects come first and a set or grace effect last; every other
-    /// slot is random. An item with neither innate nor set effects has one slot
-    /// fewer. The hell conversion replaces the first innate effect with a
-    /// hell-only effect; a hell weapon without innate effects has no hell slot.
+    /// Innate effects first, then [`RANDOM_EFFECT_COUNT`] random effects; from
+    /// rarity [`GRACE_MIN_RARITY`] one more slot holds a grace, or a random
+    /// effect when the item has a set; a set effect comes last. Soul cores carry
+    /// `min(2, rarity + 1)` innate and `rarity - 1` random effects. The hell
+    /// conversion replaces the first innate effect with a hell-only effect; a
+    /// hell weapon without innate effects has no hell slot.
     pub fn slot_roles(
         &self,
         item: &EquipmentItem,
         rarity: u8,
         hell: bool,
     ) -> Option<Vec<SlotRole>> {
-        let natural = *NATURAL_EFFECT_COUNT.get(usize::from(rarity))?;
+        let random = *RANDOM_EFFECT_COUNT.get(usize::from(rarity))?;
         let innate: Vec<u16> = item.innate_effects.iter().flatten().copied().collect();
-        let count = if innate.is_empty() && item.set_effect.is_none() {
-            natural - 1
-        } else {
-            natural
-        };
-        let mut front: Vec<SlotRole> = innate.iter().map(|_| SlotRole::Innate).collect();
+        let mut roles = Vec::new();
+        if item.soul_core() {
+            let innate_count = innate.len().min(usize::from(rarity) + 1);
+            roles.extend(std::iter::repeat_n(SlotRole::Innate, innate_count));
+            roles.extend(std::iter::repeat_n(
+                SlotRole::Random,
+                usize::from(rarity).saturating_sub(1),
+            ));
+            return Some(roles);
+        }
+        roles.extend(innate.iter().map(|_| SlotRole::Innate));
         if hell {
-            if let Some(first) = front.first_mut() {
+            if let Some(first) = roles.first_mut() {
                 *first = SlotRole::Hell;
             }
         }
-        let back = if item.set_effect.is_some() {
-            Some(SlotRole::Set)
-        } else if rarity >= GRACE_MIN_RARITY {
-            Some(SlotRole::Grace)
-        } else {
-            None
-        };
-        let fixed = front.len() + usize::from(back.is_some());
-        let mut roles = front;
-        roles.extend(std::iter::repeat_n(
-            SlotRole::Random,
-            count.saturating_sub(fixed),
-        ));
-        roles.extend(back);
+        roles.extend(std::iter::repeat_n(SlotRole::Random, random));
+        if rarity >= GRACE_MIN_RARITY {
+            roles.push(if item.set_effect.is_some() {
+                SlotRole::Random
+            } else {
+                SlotRole::Grace
+            });
+        }
+        if item.set_effect.is_some() {
+            roles.push(SlotRole::Set);
+        }
         Some(roles)
     }
 
@@ -504,7 +574,11 @@ impl<'a> EquipmentRules<'a> {
             .unwrap_or(&[])
     }
 
-    /// Audit one 0xF0 record against natural generation.
+    /// Audit one 0xF0 record against natural drop generation.
+    ///
+    /// Slots are classified by content, not position: the game keeps every
+    /// effect when a record is reordered, so only the counts of innate, hell,
+    /// set, grace and random effects and each effect's pool and value matter.
     pub fn audit(&self, record: &[u8]) -> RecordAudit {
         let mut audit = RecordAudit::default();
         if record.len() < EQUIPMENT_RECORD_BYTES {
@@ -514,19 +588,22 @@ impl<'a> EquipmentRules<'a> {
         let item_id = u16::from_le_bytes([record[0], record[1]]);
         let level = u16::from_le_bytes([record[6], record[7]]);
         let rarity = record[0x30];
+        let flags = u32::from_le_bytes([record[0x18], record[0x19], record[0x1A], record[0x1B]]);
         let hell = record[0x1A] & HELL_RECORD_FLAG != 0;
+        let special = flags & SPECIAL_RECORD_FLAGS != 0;
         let Some(item) = self.item(item_id).copied() else {
             audit.findings.push(Finding::UnknownItem);
             return audit;
         };
-        if hell {
-            if !item.hell_capable() {
-                audit.findings.push(Finding::HellOnIneligibleItem);
-            }
-            let skill = u16::from_le_bytes([record[0x10], record[0x11]]);
-            if !self.hell_skills(&item, level).contains(&skill) {
-                audit.findings.push(Finding::HellSkillNotNatural { skill });
-            }
+        let Some(expected_roles) = self.slot_roles(&item, rarity, hell) else {
+            audit.findings.push(Finding::UnsupportedRarity);
+            return audit;
+        };
+        let mut structural: Vec<Finding> = Vec::new();
+        let mut values: Vec<Finding> = Vec::new();
+        let mut unverified: Vec<Finding> = Vec::new();
+        if hell && !item.hell_capable() {
+            structural.push(Finding::HellOnIneligibleItem);
         }
         let entries: Vec<(usize, u32, u32, u8, u8)> = (0..EFFECT_ENTRY_COUNT)
             .filter_map(|slot| {
@@ -539,133 +616,155 @@ impl<'a> EquipmentRules<'a> {
                 })
             })
             .collect();
-        let Some(roles) = self.slot_roles(&item, rarity, hell) else {
-            audit.findings.push(Finding::UnsupportedRarity);
-            return audit;
-        };
-        if roles.len() != entries.len() {
-            audit.findings.push(Finding::EffectCount {
-                expected: roles.len(),
+        if expected_roles.len() != entries.len() {
+            structural.push(Finding::EffectCount {
+                expected: expected_roles.len(),
                 actual: entries.len(),
             });
         }
+        let count = |role: SlotRole| expected_roles.iter().filter(|r| **r == role).count();
+        let innate: Vec<u16> = item.innate_effects.iter().flatten().copied().collect();
+        let expected_innate: Vec<u16> = innate
+            .iter()
+            .copied()
+            .skip(count(SlotRole::Hell))
+            .take(count(SlotRole::Innate))
+            .collect();
         let pool = self.random_pool(&item, rarity);
         let hell_pool = self.hell_pool(&item);
-        let mut stars = 0;
-        for (position, (slot, effect_id, value, roll, flags)) in entries.iter().copied().enumerate()
-        {
-            let role = roles.get(position).copied();
-            audit.roles.push(role);
+        let mut innate_seen: Vec<u16> = Vec::new();
+        let (mut hell_seen, mut set_seen, mut grace_seen, mut stars) = (0, 0, 0, 0);
+        for (slot, effect_id, value, roll, entry_flags) in entries.iter().copied() {
             let Some(effect) = u16::try_from(effect_id).ok().and_then(|id| self.effect(id)) else {
-                audit
-                    .findings
-                    .push(Finding::UnknownEffect { slot, effect_id });
+                structural.push(Finding::UnknownEffect { slot, effect_id });
+                audit.roles.push(None);
                 continue;
             };
             let id = effect.effect_id;
+            let role = if expected_innate.contains(&id) && !innate_seen.contains(&id) {
+                innate_seen.push(id);
+                SlotRole::Innate
+            } else if Some(id) == item.set_effect {
+                set_seen += 1;
+                SlotRole::Set
+            } else if self.graces.contains(&id) {
+                grace_seen += 1;
+                SlotRole::Grace
+            } else if effect.flags & HELL_EFFECT_FLAG != 0 {
+                hell_seen += 1;
+                SlotRole::Hell
+            } else {
+                SlotRole::Random
+            };
+            audit.roles.push(Some(role));
             let is_star = effect.normalization_flags & STAR_NORMALIZATION_FLAG != 0;
-            if is_star != (flags & STAR_ENTRY_FLAG != 0) {
-                audit.findings.push(Finding::StarFlagMismatch { slot });
+            if is_star != (entry_flags & STAR_ENTRY_FLAG != 0) {
+                structural.push(Finding::StarFlagMismatch { slot });
             }
             if is_star {
                 stars += 1;
-                if self.index.rarity_generation(rarity).is_err()
-                    || effect.rarity_weight(rarity) == 0.0
-                {
-                    audit.findings.push(Finding::StarBelowRarity { slot });
+                if effect.rarity_weight(rarity) == 0.0 {
+                    structural.push(Finding::StarBelowRarity { slot });
                 }
             }
-            if effect.flags & HELL_EFFECT_FLAG != 0 && role != Some(SlotRole::Hell) {
-                audit
-                    .findings
-                    .push(Finding::HellEffectOutsideHellSlot { slot });
+            match role {
+                SlotRole::Hell if !hell || !hell_pool.contains(&id) => {
+                    structural.push(Finding::HellEffectOnNormal { slot });
+                }
+                SlotRole::Random if !pool.iter().any(|entry| entry.effect_id == id) => {
+                    structural.push(Finding::NotInPool { slot });
+                }
+                _ => {}
             }
-            let valued = match role {
-                Some(SlotRole::Innate) => {
-                    let expected = item.innate_effects[position.min(1)];
-                    if Some(id) != expected {
-                        audit.findings.push(Finding::WrongInnate {
-                            slot,
-                            expected: expected.unwrap_or(0),
-                        });
-                    }
-                    true
+            if matches!(role, SlotRole::Set | SlotRole::Grace) {
+                if value != 0 {
+                    values.push(Finding::ValueNotNatural { slot, value });
                 }
-                Some(SlotRole::Set) => {
-                    if Some(id) != item.set_effect {
-                        audit.findings.push(Finding::WrongSet {
-                            slot,
-                            expected: item.set_effect.unwrap_or(0),
-                        });
-                    }
-                    false
+                continue;
+            }
+            if !matches!(self.roll_reachable(rarity, roll), Ok(true)) {
+                values.push(Finding::RollOutOfRange { slot, roll });
+            }
+            let legal = self.legal_values(id, rarity, level).unwrap_or_default();
+            if !legal
+                .iter()
+                .any(|entry| i64::from(entry.value) == i64::from(value))
+            {
+                let above = legal
+                    .iter()
+                    .map(|entry| i64::from(entry.value))
+                    .max()
+                    .is_some_and(|max| i64::from(value) > max);
+                if is_star && above {
+                    unverified.push(Finding::ValueAboveFormula { slot, value });
+                } else {
+                    values.push(Finding::ValueNotNatural { slot, value });
                 }
-                Some(SlotRole::Grace) => {
-                    if !self.graces.contains(&id) {
-                        audit.findings.push(Finding::NotGrace { slot });
-                    }
-                    false
-                }
-                Some(SlotRole::Hell) => {
-                    if !hell_pool.contains(&id) {
-                        audit.findings.push(Finding::MissingHellEffect);
-                    }
-                    true
-                }
-                Some(SlotRole::Random) | None => {
-                    if !pool.iter().any(|candidate| candidate.effect_id == id) {
-                        audit.findings.push(Finding::NotInPool { slot });
-                    }
-                    true
-                }
+            }
+        }
+        for expected in &expected_innate {
+            if !innate_seen.contains(expected) {
+                structural.push(Finding::MissingInnate {
+                    expected: *expected,
+                });
+            }
+        }
+        if count(SlotRole::Hell) > hell_seen {
+            structural.push(Finding::MissingHellEffect);
+        }
+        if let Some(set) = item.set_effect {
+            if set_seen == 0 {
+                structural.push(Finding::MissingSet { expected: set });
+            }
+        }
+        if count(SlotRole::Grace) > grace_seen {
+            structural.push(Finding::MissingGrace);
+        }
+        for (position, role) in audit.roles.iter().enumerate() {
+            let excess = match role {
+                Some(SlotRole::Set) => set_seen > count(SlotRole::Set),
+                Some(SlotRole::Grace) => grace_seen > count(SlotRole::Grace),
+                _ => false,
             };
-            if valued {
-                match self.roll_reachable(rarity, roll) {
-                    Ok(true) => {}
-                    _ => audit.findings.push(Finding::RollOutOfRange { slot, roll }),
-                }
-                let natural = self
-                    .legal_values(id, rarity, level)
-                    .map(|values| {
-                        values
-                            .iter()
-                            .any(|legal| i64::from(legal.value) == i64::from(value))
-                    })
-                    .unwrap_or(false);
-                if !natural {
-                    audit
-                        .findings
-                        .push(Finding::ValueNotNatural { slot, value });
-                }
-            } else if value != 0 {
-                audit
-                    .findings
-                    .push(Finding::ValueNotNatural { slot, value });
+            if excess {
+                structural.push(Finding::UnexpectedFixed {
+                    slot: entries[position].0,
+                });
             }
         }
         if stars > 1 {
-            audit.findings.push(Finding::MultipleStars);
+            structural.push(Finding::MultipleStars);
         }
-        for (left_position, (left_slot, left, ..)) in entries.iter().enumerate() {
-            for (right_slot, right, ..) in entries.iter().skip(left_position + 1) {
-                let (Ok(left), Ok(right)) = (u16::try_from(*left), u16::try_from(*right)) else {
-                    continue;
-                };
-                if self.effect(left).is_none() || self.effect(right).is_none() {
-                    continue;
-                }
+        // Innate, set and grace effects are fixed by the item; only drawn
+        // effects are subject to group exclusion.
+        let drawn: Vec<(usize, u16)> = entries
+            .iter()
+            .zip(&audit.roles)
+            .filter(|(_, role)| matches!(role, Some(SlotRole::Random | SlotRole::Hell)))
+            .filter_map(|((slot, id, ..), _)| u16::try_from(*id).ok().map(|id| (*slot, id)))
+            .collect();
+        for (position, (left_slot, left)) in drawn.iter().enumerate() {
+            for (right_slot, right) in drawn.iter().skip(position + 1) {
                 if !self
                     .index
-                    .is_compatible(left, &[u32::from(right)], None)
+                    .is_compatible(*left, &[u32::from(*right)], None)
                     .unwrap_or(true)
                 {
-                    audit.findings.push(Finding::GroupConflict {
+                    structural.push(Finding::GroupConflict {
                         slot: *right_slot,
                         other: *left_slot,
                     });
                 }
             }
         }
+        if special {
+            unverified.extend(structural);
+            unverified.extend(values);
+        } else {
+            audit.findings.extend(structural);
+            audit.findings.extend(values);
+        }
+        audit.unverified = unverified;
         audit
     }
 }

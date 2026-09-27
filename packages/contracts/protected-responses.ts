@@ -333,11 +333,22 @@ export interface CharacterEquipment {
   record_sha256?: string;
   hell?: boolean;
   audit?: {
+    verdict?: "natural" | "unverified" | "unnatural";
     natural: boolean;
     /**
      * @maxItems 64
      */
     findings: {
+      code: string;
+      slot?: number;
+      other?: number;
+      expected?: number;
+      actual?: number;
+    }[];
+    /**
+     * @maxItems 64
+     */
+    unverified?: {
       code: string;
       slot?: number;
       other?: number;
@@ -1030,11 +1041,18 @@ export interface EquipmentRules {
   random_pool?: {
     effect_id: number;
     star: boolean;
+    min?: number;
+    max?: number;
   }[];
   /**
    * @maxItems 4096
    */
-  hell_pool?: number[];
+  hell_pool?: {
+    effect_id: number;
+    star: boolean;
+    min?: number;
+    max?: number;
+  }[];
   /**
    * @maxItems 4096
    */

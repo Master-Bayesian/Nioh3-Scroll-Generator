@@ -198,10 +198,54 @@
               "type": "object",
               "additionalProperties": false,
               "properties": {
+                "verdict": {
+                  "enum": [
+                    "natural",
+                    "unverified",
+                    "unnatural"
+                  ]
+                },
                 "natural": {
                   "type": "boolean"
                 },
                 "findings": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "maxLength": 64
+                      },
+                      "slot": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 6
+                      },
+                      "other": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 6
+                      },
+                      "expected": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 7
+                      },
+                      "actual": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 7
+                      }
+                    },
+                    "required": [
+                      "code"
+                    ]
+                  },
+                  "maxItems": 64
+                },
+                "unverified": {
                   "type": "array",
                   "items": {
                     "type": "object",
@@ -357,6 +401,16 @@
               },
               "star": {
                 "type": "boolean"
+              },
+              "min": {
+                "type": "integer",
+                "minimum": -2147483648,
+                "maximum": 2147483647
+              },
+              "max": {
+                "type": "integer",
+                "minimum": -2147483648,
+                "maximum": 2147483647
               }
             },
             "required": [
@@ -367,12 +421,35 @@
         },
         "hell_pool": {
           "type": "array",
+          "maxItems": 4096,
           "items": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 65535
-          },
-          "maxItems": 4096
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "effect_id": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "star": {
+                "type": "boolean"
+              },
+              "min": {
+                "type": "integer",
+                "minimum": -2147483648,
+                "maximum": 2147483647
+              },
+              "max": {
+                "type": "integer",
+                "minimum": -2147483648,
+                "maximum": 2147483647
+              }
+            },
+            "required": [
+              "effect_id",
+              "star"
+            ]
+          }
         },
         "hell_skills": {
           "type": "array",

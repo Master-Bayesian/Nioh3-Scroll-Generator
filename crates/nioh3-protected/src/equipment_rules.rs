@@ -50,12 +50,13 @@ fn finding_json(finding: &Finding) -> Value {
             json!({ "code": "effect_count", "expected": expected, "actual": actual })
         }
         Finding::UnknownEffect { slot, .. } => json!({ "code": "unknown_effect", "slot": slot }),
-        Finding::WrongInnate { slot, .. } => json!({ "code": "wrong_innate", "slot": slot }),
-        Finding::WrongSet { slot, .. } => json!({ "code": "wrong_set", "slot": slot }),
-        Finding::NotGrace { slot } => json!({ "code": "not_grace", "slot": slot }),
+        Finding::MissingInnate { .. } => json!({ "code": "missing_innate" }),
+        Finding::MissingSet { .. } => json!({ "code": "missing_set" }),
+        Finding::MissingGrace => json!({ "code": "missing_grace" }),
+        Finding::UnexpectedFixed { slot } => json!({ "code": "unexpected_fixed", "slot": slot }),
         Finding::NotInPool { slot } => json!({ "code": "not_in_pool", "slot": slot }),
-        Finding::HellEffectOutsideHellSlot { slot } => {
-            json!({ "code": "hell_effect_outside_hell_slot", "slot": slot })
+        Finding::HellEffectOnNormal { slot } => {
+            json!({ "code": "hell_effect_on_normal", "slot": slot })
         }
         Finding::MissingHellEffect => json!({ "code": "missing_hell_effect" }),
         Finding::HellOnIneligibleItem => json!({ "code": "hell_on_ineligible_item" }),
@@ -68,13 +69,14 @@ fn finding_json(finding: &Finding) -> Value {
         Finding::ValueNotNatural { slot, .. } => {
             json!({ "code": "value_not_natural", "slot": slot })
         }
+        Finding::ValueAboveFormula { slot, .. } => {
+            json!({ "code": "value_above_formula", "slot": slot })
+        }
         Finding::RollOutOfRange { slot, .. } => {
             json!({ "code": "roll_out_of_range", "slot": slot })
         }
-        Finding::HellSkillNotNatural { .. } => json!({ "code": "hell_skill_not_natural" }),
     }
 }
-
 /// The audit a character row carries, or `null` when the tables are missing.
 pub fn audit_json(data_root: &Path, record: &[u8]) -> Value {
     let Some(rules) = rules(data_root) else {
@@ -83,7 +85,9 @@ pub fn audit_json(data_root: &Path, record: &[u8]) -> Value {
     let audit = rules.audit(record);
     json!({
         "natural": audit.natural(),
+        "verdict": audit.verdict(),
         "findings": audit.findings.iter().map(finding_json).collect::<Vec<_>>(),
+        "unverified": audit.unverified.iter().map(finding_json).collect::<Vec<_>>(),
     })
 }
 
@@ -113,10 +117,33 @@ pub fn equipment_rules_json(data_root: &Path, params: &Value) -> Result<Value, H
     let roles = rules
         .slot_roles(&item, rarity, hell)
         .map(|roles| roles.into_iter().map(role_name).collect::<Vec<_>>());
+    // The natural value range of each candidate at this rarity and level, so
+    // same-named variants can be told apart.
+    let range = |effect_id: u16| {
+        rules
+            .legal_values(effect_id, rarity.min(5), level)
+            .ok()
+            .and_then(|values| {
+                let min = values.iter().map(|value| value.value).min()?;
+                let max = values.iter().map(|value| value.value).max()?;
+                Some((min, max))
+            })
+    };
     let random = rules
         .random_pool(&item, rarity)
         .into_iter()
-        .map(|effect| json!({ "effect_id": effect.effect_id, "star": effect.star }))
+        .map(|effect| {
+            let (min, max) = range(effect.effect_id).unwrap_or((0, 0));
+            json!({ "effect_id": effect.effect_id, "star": effect.star, "min": min, "max": max })
+        })
+        .collect::<Vec<_>>();
+    let hell_pool = rules
+        .hell_pool(&item)
+        .into_iter()
+        .map(|effect_id| {
+            let (min, max) = range(effect_id).unwrap_or((0, 0));
+            json!({ "effect_id": effect_id, "star": false, "min": min, "max": max })
+        })
         .collect::<Vec<_>>();
     Ok(json!({
         "item_id": item_id,
@@ -130,7 +157,7 @@ pub fn equipment_rules_json(data_root: &Path, params: &Value) -> Result<Value, H
         "set_effect": item.set_effect,
         "graces": rules.graces().collect::<Vec<_>>(),
         "random_pool": random,
-        "hell_pool": rules.hell_pool(&item),
+        "hell_pool": hell_pool,
         "hell_skills": rules.hell_skills(&item, level),
     }))
 }
@@ -190,11 +217,13 @@ mod tests {
         assert!(rules["hell_pool"]
             .as_array()
             .unwrap()
-            .contains(&json!(0x8641)));
+            .iter()
+            .any(|entry| entry["effect_id"] == 0x8641 && entry["max"].as_i64() > Some(0)));
         assert!(rules["random_pool"]
             .as_array()
             .unwrap()
-            .contains(&json!({ "effect_id": 0x31D0, "star": true })));
+            .iter()
+            .any(|entry| entry["effect_id"] == 0x31D0 && entry["star"] == true));
     }
 
     #[test]

@@ -105,7 +105,11 @@ fn edits_that_natural_generation_cannot_produce_are_reported() {
         .iter()
         .find(|(_, record)| {
             let audit = rules.audit(record);
-            audit.natural() && audit.roles.len() == 5 && audit.roles[1] == Some(SlotRole::Random)
+            audit.natural()
+                && audit.roles.len() == 5
+                && audit.roles[1] == Some(SlotRole::Random)
+                && audit.roles[2] == Some(SlotRole::Random)
+                && record[EFFECT_ENTRY_OFFSET + EFFECT_ENTRY_BYTES + 0xE] & 0x04 == 0
         })
         .expect("a natural rarity-4 record");
 

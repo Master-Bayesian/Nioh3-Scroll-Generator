@@ -885,3 +885,24 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 随机	Random	ランダム
 套装	Set	セット
 原始数值按游戏内部单位填写，例如百分比词条 15 表示 1.5%。“前 X%”表示自然生成时得到这个值或更好值的概率。	Enter raw values in the game's internal units; for a percentage effect 15 means 1.5%. "Top X%" is the chance natural generation gives this value or better.	数値はゲーム内部の単位で入力します。割合の効果では 15 が 1.5% です。「上位 X%」は自然生成でこの値以上が出る確率です。
+多出不该有的套装或恩宠效果	Has a set or grace it should not	余分なセット効果または恩寵がある
+地狱词条只会出现在地狱武器上	Hell effects only appear on hell weapons	地獄効果は地獄武器にのみ出る
+地狱武器缺少地狱词条	Hell weapon lacks its hell effect	地獄武器に地獄効果がない
+数值高于公式（可能有额外加成）	Value above the formula (may carry a bonus)	数値が計算式より高い（追加補正の可能性）
+缺少该物品自带的固有词条	Missing this item's innate effect	このアイテム固有の効果がない
+缺少该物品自带的套装效果	Missing this item's set effect	このアイテムのセット効果がない
+缺少恩宠效果	Missing the grace	恩寵がない
+待确认	Unverified	要確認
+请输入有效的词条和数值。	Enter a valid effect and value.	有効な効果と数値を入力してください。
+输入名称筛选	Type a name to filter	名前で絞り込み
+未收录物品	Unlisted item	未収録のアイテム
+全部小类	All types	すべての小分類
+搜索物品名称或词条	Search item or effect names	アイテム名・効果名で検索
+判定	Verdict	判定
+合法修改：每个位置只列出这件装备能自然出现的词条，数值填在合法范围内。	Legal edit: each slot lists only effects this item can naturally have; keep values inside the legal range.	合法な変更：各位置にはこの装備に自然に出る効果だけを表示します。数値は合法範囲内で入力します。
+合法范围	Legal range	合法範囲
+最高	Max	最大
+· 前	· top	· 上位
+· 非自然值	· unnatural value	· 非自然な数値
+（特定对象）	(specific target)	（特定の対象）
+数值按游戏内部单位填写，例如百分比词条 15 表示 1.5%。“前 X%”表示自然生成时得到这个值或更好值的概率。	Values use the game's internal units; for a percentage effect 15 means 1.5%. "Top X%" is the chance natural generation gives this value or better.	数値はゲーム内部の単位です。割合の効果では 15 が 1.5% です。「上位 X%」は自然生成でこの値以上が出る確率です。

@@ -2466,7 +2466,7 @@ function App() {
         </>
       )}
       {page === "backups" && <BackupManager />}
-      {page === "equipment" && <CharacterEditor />}
+      {page === "equipment" && <CharacterEditor showIds={showIds} />}
       <div className="toast" role="status" hidden={!toast}>
         {toast}
         <button aria-label="关闭提示" onClick={() => setToast("")}>
