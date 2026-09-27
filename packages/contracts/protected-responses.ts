@@ -14,6 +14,8 @@ export type ProtectedResponse =
         | ProtectedJob
         | RuntimeStatus
         | LiveCharacter
+        | EquipmentRules
+        | EffectValues
         | InventorySnapshot
         | LocalNameCatalog
         | ShutdownStatus
@@ -329,6 +331,20 @@ export interface CharacterEquipment {
         CharacterEquipmentEffect
       ];
   record_sha256?: string;
+  hell?: boolean;
+  audit?: {
+    natural: boolean;
+    /**
+     * @maxItems 64
+     */
+    findings: {
+      code: string;
+      slot?: number;
+      other?: number;
+      expected?: number;
+      actual?: number;
+    }[];
+  } | null;
 }
 export interface CharacterEquipmentEffect {
   index: number;
@@ -951,6 +967,94 @@ export interface LiveCharacter {
    * @maxItems 2500
    */
   equipment: CharacterEquipment[];
+}
+export interface EquipmentRules {
+  item_id: number;
+  known: boolean;
+  rarity?: number;
+  level?: number;
+  hell?: boolean;
+  hell_capable?: boolean;
+  roles?:
+    | []
+    | ["innate" | "hell" | "random" | "set" | "grace"]
+    | ["innate" | "hell" | "random" | "set" | "grace", "innate" | "hell" | "random" | "set" | "grace"]
+    | [
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace"
+      ]
+    | [
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace"
+      ]
+    | [
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace"
+      ]
+    | [
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace"
+      ]
+    | [
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace",
+        "innate" | "hell" | "random" | "set" | "grace"
+      ]
+    | null;
+  /**
+   * @maxItems 4096
+   */
+  innate?: number[];
+  set_effect?: number | null;
+  /**
+   * @maxItems 4096
+   */
+  graces?: number[];
+  /**
+   * @maxItems 4096
+   */
+  random_pool?: {
+    effect_id: number;
+    star: boolean;
+  }[];
+  /**
+   * @maxItems 4096
+   */
+  hell_pool?: number[];
+  /**
+   * @maxItems 4096
+   */
+  hell_skills?: number[];
+}
+export interface EffectValues {
+  effect_id: number;
+  rarity: number;
+  level: number;
+  star: boolean | null;
+  /**
+   * @maxItems 256
+   */
+  values: {
+    value: number;
+    roll_min: number;
+    roll_max: number;
+    probability: number;
+    top_fraction: number;
+  }[];
 }
 export interface InventorySnapshot {
   status: "observed";

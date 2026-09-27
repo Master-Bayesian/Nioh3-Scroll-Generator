@@ -269,6 +269,8 @@ impl Broker {
                     "runtime.inventory_snapshot",
                     "runtime.character_snapshot",
                     "runtime.character_edit",
+                    "runtime.equipment_rules",
+                    "runtime.effect_values",
                     "runtime.start_override",
                     "runtime.stop_override",
                     "runtime.live_batch_execute",

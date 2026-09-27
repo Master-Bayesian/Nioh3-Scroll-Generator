@@ -3393,6 +3393,8 @@ export type ProtectedRequest =
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   }
                 ]
               | [
@@ -3400,11 +3402,15 @@ export type ProtectedRequest =
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   }
                 ]
               | [
@@ -3412,16 +3418,22 @@ export type ProtectedRequest =
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   }
                 ]
               | [
@@ -3429,21 +3441,29 @@ export type ProtectedRequest =
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   }
                 ]
               | [
@@ -3451,26 +3471,36 @@ export type ProtectedRequest =
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   }
                 ]
               | [
@@ -3478,31 +3508,43 @@ export type ProtectedRequest =
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   }
                 ]
               | [
@@ -3510,40 +3552,75 @@ export type ProtectedRequest =
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   }
                 ];
           };
         }[];
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.equipment_rules";
+      params: {
+        item_id: number;
+        rarity: number;
+        level: number;
+        hell?: boolean;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.effect_values";
+      params: {
+        effect_id: number;
+        rarity: number;
+        level: number;
       };
     }
   | {
@@ -3584,6 +3661,8 @@ export type ProtectedRequest =
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   }
                 ]
               | [
@@ -3591,11 +3670,15 @@ export type ProtectedRequest =
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   }
                 ]
               | [
@@ -3603,16 +3686,22 @@ export type ProtectedRequest =
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   }
                 ]
               | [
@@ -3620,21 +3709,29 @@ export type ProtectedRequest =
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   }
                 ]
               | [
@@ -3642,26 +3739,36 @@ export type ProtectedRequest =
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   }
                 ]
               | [
@@ -3669,31 +3776,43 @@ export type ProtectedRequest =
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   }
                 ]
               | [
@@ -3701,36 +3820,50 @@ export type ProtectedRequest =
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   },
                   {
                     index: number;
                     effect_id: number;
                     value: number;
+                    roll?: number;
+                    star?: boolean;
                   }
                 ];
           };

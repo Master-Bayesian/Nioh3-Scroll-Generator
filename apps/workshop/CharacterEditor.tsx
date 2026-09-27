@@ -1,6 +1,8 @@
-import React, { useMemo, useState, useSyncExternalStore } from "react";
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type {
   CharacterEquipment,
+  EffectValues,
+  EquipmentRules,
   LiveCharacter,
   SaveCharacter,
 } from "../../packages/contracts/protected-responses";
@@ -16,7 +18,7 @@ import { runtimeObserver, saveObserver, saveSession } from "./save-workspace";
 type Mode = "live" | "save";
 type Character = (LiveCharacter | SaveCharacter) & { mode: Mode };
 type Currency = "amrita" | "gold";
-const CURRENCIES: Currency[] = ["amrita", "gold"];
+type LegalValue = EffectValues["values"][number];
 const EMPTY_EFFECT = 0xffffffff;
 
 const effectNames = new Map<number, string>();
@@ -25,27 +27,26 @@ for (const row of data.editorEffects as { id: string; name: string }[]) {
   if (Number.isInteger(id) && row.name && !effectNames.has(id))
     effectNames.set(id, fillTemplateSlots(plainGameText(row.name), "增益效果", "异常状态"));
 }
-const effectOptions = [...effectNames].map(([id, name]) => hex(id) + " " + name);
+const ALL_EFFECTS = [...effectNames.keys()];
 
 /** Coarse item group from the shipped item table's type class. */
-const KINDS = ["武器", "头部", "躯干", "手部", "腰部", "腿部", "饰品", "魂核", "其他"] as const;
-type Kind = (typeof KINDS)[number];
-function kindOf(typeClass: number | null | undefined): Kind {
+function kindOf(typeClass: number | null | undefined): string {
   if (typeClass == null) return "其他";
   if (typeClass <= 22) return "武器";
-  if (typeClass >= 24 && typeClass <= 38) return (["头部", "躯干", "手部", "腰部", "腿部"] as const)[Math.floor((typeClass - 24) / 3)];
+  if (typeClass >= 24 && typeClass <= 38) return "防具";
   if (typeClass === 39 || typeClass === 40) return "饰品";
   if (typeClass >= 54 && typeClass <= 57) return "魂核";
   return "其他";
 }
 
 const itemCatalog = (itemNames as { items: Record<string, string[]> }).items;
-/** The game's own Chinese name and sub-type of an item, when the bundled catalog has one. */
+/** `[major, middle, minor]` from the bundled catalog, falling back to the type class. */
+function itemGroups(id: number, typeClass: number | null | undefined): [string, string, string] {
+  const entry = itemCatalog[String(id)];
+  return [entry?.[1] || kindOf(typeClass), entry?.[3] ?? "", entry?.[2] ?? ""];
+}
 function itemName(id: number, catalog: ActiveLocalCatalog | null): string {
   return itemCatalog[String(id)]?.[0] || catalog?.entries.get(id) || "";
-}
-function itemSubtype(id: number): string {
-  return itemCatalog[String(id)]?.[2] ?? "";
 }
 
 function hex(value: number) {
@@ -55,7 +56,7 @@ function effectLabel(id: number) {
   if (id === EMPTY_EFFECT) return "（空）";
   return effectNames.get(id) ?? hex(id);
 }
-/** An effect field accepts `0xA166`, `41318`, or a datalist entry that starts with either. */
+/** An effect field accepts `0xA166`, `41318`, or a picker entry that starts with either. */
 function parseEffectId(text: string): number | null {
   const token = text.trim().split(/\s+/)[0] ?? "";
   if (!token) return EMPTY_EFFECT;
@@ -67,14 +68,56 @@ function parseAmount(text: string, max: number): number | null {
   const value = Number(text.trim());
   return Number.isSafeInteger(value) && value <= max ? value : null;
 }
+function percent(fraction: number) {
+  const value = fraction * 100;
+  return (value >= 10 ? value.toFixed(0) : value >= 1 ? value.toFixed(1) : value.toFixed(2)) + "%";
+}
 
+const ROLE_LABEL: Record<string, string> = {
+  innate: "固有",
+  hell: "地狱",
+  random: "随机",
+  set: "套装",
+  grace: "恩宠",
+};
+const FINDING_LABEL: Record<string, string> = {
+  unknown_item: "物品不在当前版本的物品表中",
+  unsupported_rarity: "稀有度超出自然范围",
+  effect_count: "词条数量与该稀有度不符",
+  unknown_effect: "词条 ID 不存在",
+  wrong_innate: "固有词条不是该物品自带的",
+  wrong_set: "套装效果不是该物品自带的",
+  not_grace: "该位置应为恩宠效果",
+  not_in_pool: "该词条不会出现在这类装备上",
+  hell_effect_outside_hell_slot: "地狱词条只能出现在地狱武器第一条",
+  missing_hell_effect: "地狱武器第一条应为地狱词条",
+  hell_on_ineligible_item: "该物品不能成为地狱武器",
+  star_below_rarity: "星号词条需要更高稀有度",
+  multiple_stars: "星号词条超过一条",
+  star_flag_mismatch: "星号标记与词条不一致",
+  group_conflict: "与另一条词条互斥",
+  value_not_natural: "数值不是自然生成能出现的值",
+  roll_out_of_range: "分位超出该稀有度范围",
+  hell_skill_not_natural: "地狱武技不属于该武器",
+};
+function findingText(finding: { code: string; slot?: number; other?: number }) {
+  const where = finding.slot == null ? "" : "#" + (finding.slot + 1) + " ";
+  return where + (FINDING_LABEL[finding.code] ?? finding.code);
+}
+
+interface DraftEffect {
+  id: string;
+  value: string;
+  roll: number | null;
+  star: boolean | null;
+}
 interface Draft {
   level: string;
   level_before_forge: string;
   plus: string;
   rarity: string;
   familiarity: string;
-  effects: { id: string; value: string }[];
+  effects: DraftEffect[];
 }
 function draftOf(row: CharacterEquipment): Draft {
   return {
@@ -86,6 +129,8 @@ function draftOf(row: CharacterEquipment): Draft {
     effects: row.effects.map(effect => ({
       id: effect.effect_id === EMPTY_EFFECT ? "" : hex(effect.effect_id),
       value: String(effect.value),
+      roll: null,
+      star: null,
     })),
   };
 }
@@ -111,8 +156,14 @@ function patchOf(row: CharacterEquipment, draft: Draft) {
     const value = id === EMPTY_EFFECT ? 0 : parseAmount(effect.value, 4294967295);
     if (id === null || value === null) return { error: "请输入有效的词条 ID 和数值。" };
     const before = row.effects[index];
-    if (!before || before.effect_id !== id || (id !== EMPTY_EFFECT && before.value !== value))
-      effects.push({ index, effect_id: id, value });
+    if (!before || before.effect_id !== id || (id !== EMPTY_EFFECT && before.value !== value) || effect.roll !== null)
+      effects.push({
+        index,
+        effect_id: id,
+        value,
+        ...(effect.roll !== null && id !== EMPTY_EFFECT ? { roll: effect.roll } : {}),
+        ...(effect.star !== null && id !== EMPTY_EFFECT ? { star: effect.star } : {}),
+      });
   }
   if (effects.length) patch.effects = effects;
   return { patch };
@@ -150,6 +201,79 @@ function PlanPreview({ preview }: { preview: Record<string, unknown> }) {
   return <ul className="character-plan-lines">{lines.map(line => <li key={line}>{line}</li>)}</ul>;
 }
 
+/**
+ * Effect picker: opening it always lists every candidate; only text typed after
+ * opening filters the list, so the current effect never hides the others.
+ */
+function EffectPicker({ value, candidates, onPick }: {
+  value: string;
+  candidates: { id: number; star?: boolean }[];
+  onPick: (id: number | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState("");
+  const box = useRef<HTMLDivElement>(null);
+  const current = parseEffectId(value);
+  const label = current === null ? value : current === EMPTY_EFFECT ? "" : hex(current) + " " + effectLabel(current);
+  const shown = useMemo(() => {
+    const needle = filter.trim().toLowerCase();
+    const list = needle
+      ? candidates.filter(candidate => (hex(candidate.id) + " " + effectLabel(candidate.id)).toLowerCase().includes(needle))
+      : candidates;
+    return list.slice(0, 400);
+  }, [candidates, filter]);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (box.current && !box.current.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+  return (
+    <div className="effect-picker" ref={box}>
+      <input
+        value={open ? filter : label}
+        placeholder={open ? "输入名称或 ID 筛选" : "（空）"}
+        onFocus={() => { setFilter(""); setOpen(true); }}
+        onChange={event => setFilter(event.target.value)}
+        onKeyDown={event => {
+          if (event.key === "Escape") setOpen(false);
+          if (event.key === "Enter" && shown[0]) { onPick(shown[0].id); setOpen(false); }
+        }}
+      />
+      {open && (
+        <ul className="effect-picker-list" role="listbox">
+          <li><button type="button" onMouseDown={() => { onPick(EMPTY_EFFECT); setOpen(false); }}>（空）</button></li>
+          {shown.map(candidate => (
+            <li key={candidate.id}>
+              <button type="button" className={candidate.id === current ? "current" : ""}
+                onMouseDown={() => { onPick(candidate.id); setOpen(false); }}>
+                {candidate.star ? "✦ " : ""}{hex(candidate.id)} {effectLabel(candidate.id)}
+              </button>
+            </li>
+          ))}
+          {shown.length === 0 && <li className="effect-picker-empty">没有匹配的词条</li>}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+const valueCache = new Map<string, Promise<EffectValues | null>>();
+function legalValues(effectId: number, rarity: number, level: number): Promise<EffectValues | null> {
+  const key = effectId + ":" + rarity + ":" + level;
+  let pending = valueCache.get(key);
+  if (!pending) {
+    pending = window.operations
+      .execute({ method: "runtime.effect_values", params: { effect_id: effectId, rarity, level } })
+      .then(result => (result && "values" in result ? (result as EffectValues) : null))
+      .catch(() => null);
+    valueCache.set(key, pending);
+  }
+  return pending;
+}
+
 export function CharacterEditor() {
   const [mode, setMode] = useState<Mode>("live");
   const [character, setCharacter] = useState<Character | null>(null);
@@ -157,10 +281,14 @@ export function CharacterEditor() {
   const [message, setMessage] = useState("");
   const [currencyDraft, setCurrencyDraft] = useState<Record<Currency, string>>({ amrita: "", gold: "" });
   const [query, setQuery] = useState("");
-  const [kind, setKind] = useState<Kind | "">("");
+  const [major, setMajor] = useState("");
+  const [middle, setMiddle] = useState("");
+  const [minor, setMinor] = useState("");
   const [selected, setSelected] = useState<number | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [modded, setModded] = useState(false);
+  const [rules, setRules] = useState<EquipmentRules | null>(null);
+  const [values, setValues] = useState<(EffectValues | null)[]>([]);
   const [plan, setPlan] = useState<{ plan_id: string; preview: Record<string, unknown> } | null>(null);
   const [catalog, setCatalog] = useState<ActiveLocalCatalog | null>(null);
   const save = useSyncExternalStore(
@@ -169,18 +297,122 @@ export function CharacterEditor() {
   );
 
   const row = character?.equipment.find(entry => entry.slot_index === selected) ?? null;
+  const groups = useMemo(() => {
+    const tree = new Map<string, Map<string, Set<string>>>();
+    for (const entry of character?.equipment ?? []) {
+      const [a, b, c] = itemGroups(entry.item_id, entry.type_class);
+      if (!tree.has(a)) tree.set(a, new Map());
+      const middles = tree.get(a)!;
+      if (!middles.has(b)) middles.set(b, new Set());
+      if (c) middles.get(b)!.add(c);
+    }
+    return tree;
+  }, [character]);
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const all = (character?.equipment ?? []).filter(entry => !kind || kindOf(entry.type_class) === kind);
+    const all = (character?.equipment ?? []).filter(entry => {
+      const [a, b, c] = itemGroups(entry.item_id, entry.type_class);
+      return (!major || a === major) && (!middle || b === middle) && (!minor || c === minor);
+    });
     if (!needle) return all.slice(0, 300);
     return all
       .filter(entry => {
-        const name = itemName(entry.item_id, catalog) + " " + itemSubtype(entry.item_id);
+        const name = itemName(entry.item_id, catalog) + " " + itemGroups(entry.item_id, entry.type_class).join(" ");
         const text = [hex(entry.item_id), name, ...entry.effects.map(effect => effectLabel(effect.effect_id))].join(" ");
         return text.toLowerCase().includes(needle);
       })
       .slice(0, 300);
-  }, [character, query, catalog, kind]);
+  }, [character, query, catalog, major, middle, minor]);
+
+  const rarity = draft ? parseAmount(draft.rarity, 255) : null;
+  const level = draft ? parseAmount(draft.level, 65535) : null;
+
+  // Rules follow the item, rarity and level being edited.
+  useEffect(() => {
+    setRules(null);
+    if (!row || rarity === null || level === null) return;
+    let live = true;
+    window.operations
+      .execute({ method: "runtime.equipment_rules", params: { item_id: row.item_id, rarity, level, hell: row.hell ?? false } })
+      .then(result => { if (live && result && "known" in result) setRules(result as EquipmentRules); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [row?.slot_index, row?.item_id, rarity, level]);
+
+  // Legal values of every chosen effect, for the value pickers.
+  const effectKey = draft?.effects.map(effect => effect.id).join(",") ?? "";
+  useEffect(() => {
+    if (!draft || rarity === null || level === null || rarity > 5) { setValues([]); return; }
+    let live = true;
+    Promise.all(draft.effects.map(effect => {
+      const id = parseEffectId(effect.id);
+      return id === null || id === EMPTY_EFFECT || id > 0xffff ? Promise.resolve(null) : legalValues(id, rarity, level);
+    })).then(list => { if (live) setValues(list); });
+    return () => { live = false; };
+  }, [effectKey, rarity, level]);
+
+  /** Candidates for one slot; `natural` ignores the modded switch. */
+  function candidatesFor(index: number, natural = false): { id: number; star?: boolean }[] {
+    if (!rules?.known || !rules.roles) return natural ? [] : ALL_EFFECTS.map(id => ({ id }));
+    if (modded && !natural) return ALL_EFFECTS.map(id => ({ id }));
+    const role = rules.roles[index];
+    if (role === "innate") return (rules.innate ?? []).map(id => ({ id }));
+    if (role === "set") return rules.set_effect == null ? [] : [{ id: rules.set_effect }];
+    if (role === "grace") return (rules.graces ?? []).map(id => ({ id }));
+    if (role === "hell") return (rules.hell_pool ?? []).map(id => ({ id }));
+    if (role === "random") return (rules.random_pool ?? []).map(entry => ({ id: entry.effect_id, star: entry.star }));
+    return [];
+  }
+
+  function setEffect(index: number, next: Partial<DraftEffect>) {
+    if (!draft) return;
+    const effects = draft.effects.slice();
+    effects[index] = { ...effects[index], ...next };
+    setDraft({ ...draft, effects });
+  }
+
+  function pickEffect(index: number, id: number | null) {
+    if (id === null) return;
+    const star = rules?.random_pool?.find(entry => entry.effect_id === id)?.star ?? null;
+    setEffect(index, { id: id === EMPTY_EFFECT ? "" : hex(id), roll: null, star: id === EMPTY_EFFECT ? null : star });
+  }
+
+  function pickValue(index: number, value: LegalValue) {
+    setEffect(index, { value: String(value.value), roll: value.roll_max, star: values[index]?.star ?? null });
+  }
+
+  function maximize() {
+    if (!draft) return;
+    const effects = draft.effects.map((effect, index) => {
+      const list = values[index]?.values;
+      const role = rules?.roles?.[index];
+      if (!list?.length || role === "set" || role === "grace") return effect;
+      const best = list[list.length - 1];
+      return { ...effect, value: String(best.value), roll: best.roll_max, star: values[index]?.star ?? null };
+    });
+    setDraft({ ...draft, effects });
+  }
+
+  /** Client-side notes for the draft; the saved record is re-audited on reload. */
+  const draftNotes = useMemo(() => {
+    if (!draft || !rules?.known) return [] as string[];
+    const notes: string[] = [];
+    const used = draft.effects.filter(effect => parseEffectId(effect.id) !== EMPTY_EFFECT).length;
+    if (rules.roles && used !== rules.roles.length) notes.push("词条数量与该稀有度不符" + " (" + used + "/" + rules.roles.length + ")");
+    draft.effects.forEach((effect, index) => {
+      const id = parseEffectId(effect.id);
+      if (id === null || id === EMPTY_EFFECT) return;
+      const natural = candidatesFor(index, true);
+      if (!natural.some(candidate => candidate.id === id))
+        notes.push("#" + (index + 1) + " " + "该词条不会自然出现在这个位置");
+      const legal = values[index]?.values;
+      const role = rules.roles?.[index];
+      if (role === "set" || role === "grace") return;
+      if (legal && !legal.some(entry => String(entry.value) === effect.value.trim()))
+        notes.push("#" + (index + 1) + " " + "数值不是自然生成能出现的值");
+    });
+    return notes;
+  }, [draft, rules, values, modded]);
 
   function adopt(next: Character) {
     setCharacter(next);
@@ -268,24 +500,20 @@ export function CharacterEditor() {
     }
   }
 
-  function applyCurrencies() {
+  function applyCurrency(key: Currency) {
     return run(async () => {
       if (!character) return;
-      const currencies: Record<string, number> = {};
-      for (const key of CURRENCIES) {
-        const value = parseAmount(currencyDraft[key], 9007199254740991);
-        if (value === null) throw new Error("请输入有效的数值。");
-        if (value !== character.currencies[key]) currencies[key] = value;
-      }
-      if (!Object.keys(currencies).length) throw new Error("没有需要修改的内容。");
-      await submit({ currencies });
+      const value = parseAmount(currencyDraft[key], 9007199254740991);
+      if (value === null) throw new Error("请输入有效的数值。");
+      if (value === character.currencies[key]) throw new Error("没有需要修改的内容。");
+      await submit({ currencies: { [key]: value } });
     });
   }
 
   function applyEquipment() {
     return run(async () => {
       if (!row || !draft) return;
-      if (!modded) throw new Error("请先勾选确认这是魔改修改。");
+      if (draftNotes.length && !modded) throw new Error("当前修改不符合自然规则。如需保留，请切换到“魔改”。");
       const result = patchOf(row, draft);
       if ("error" in result) throw new Error(result.error);
       if (!Object.keys(result.patch).length) throw new Error("没有需要修改的内容。");
@@ -309,6 +537,8 @@ export function CharacterEditor() {
   }
 
   if (!desktop) return <main className="equipment-page"><Notice text="请在桌面版中使用此功能。" /></main>;
+  const middles = major ? [...(groups.get(major)?.keys() ?? [])].filter(Boolean) : [];
+  const minors = major ? [...(groups.get(major)?.get(middle)?.values() ?? (middle ? [] : [...(groups.get(major)?.values() ?? [])].flatMap(set => [...set])))] : [];
   return (
     <main className="equipment-page character-page">
       <div className="character-modes" role="tablist">
@@ -331,15 +561,13 @@ export function CharacterEditor() {
         <>
           <section className="character-currencies">
             <h3>货币</h3>
-            <label>
-              <span>精华</span>
-              <input inputMode="numeric" value={currencyDraft.amrita} onChange={event => setCurrencyDraft({ ...currencyDraft, amrita: event.target.value })} />
-            </label>
-            <label>
-              <span>持有金钱</span>
-              <input inputMode="numeric" value={currencyDraft.gold} onChange={event => setCurrencyDraft({ ...currencyDraft, gold: event.target.value })} />
-            </label>
-            <button onClick={applyCurrencies} disabled={busy}>修改货币</button>
+            {(["amrita", "gold"] as const).map(key => (
+              <label key={key}>
+                <span>{CURRENCY_LABEL[key]}</span>
+                <input inputMode="numeric" value={currencyDraft[key]} onChange={event => setCurrencyDraft({ ...currencyDraft, [key]: event.target.value })} />
+                <button onClick={() => applyCurrency(key)} disabled={busy}>{key === "amrita" ? "修改精华" : "修改金钱"}</button>
+              </label>
+            ))}
           </section>
           <section className="character-equipment">
             <h3>装备</h3>
@@ -349,12 +577,30 @@ export function CharacterEditor() {
                 <input value={query} onChange={event => setQuery(event.target.value)} placeholder="物品 ID、名称或词条" />
               </label>
               <label className="equipment-search">
-                <span>类别</span>
-                <select value={kind} onChange={event => setKind(event.target.value as Kind | "")}>
+                <span>大类</span>
+                <select value={major} onChange={event => { setMajor(event.target.value); setMiddle(""); setMinor(""); }}>
                   <option value="">全部</option>
-                  {KINDS.map(value => <option key={value} value={value}>{value}</option>)}
+                  {[...groups.keys()].map(value => <option key={value} value={value}>{value}</option>)}
                 </select>
               </label>
+              {middles.length > 0 && (
+                <label className="equipment-search">
+                  <span>中类</span>
+                  <select value={middle} onChange={event => { setMiddle(event.target.value); setMinor(""); }}>
+                    <option value="">全部</option>
+                    {middles.map(value => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </label>
+              )}
+              {minors.length > 0 && (
+                <label className="equipment-search">
+                  <span>小类</span>
+                  <select value={minor} onChange={event => setMinor(event.target.value)}>
+                    <option value="">全部</option>
+                    {[...new Set(minors)].map(value => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </label>
+              )}
               <span className="equipment-range">
                 {character.equipment.length} / {character.equipment_slots}
               </span>
@@ -365,71 +611,99 @@ export function CharacterEditor() {
             </details>
             <table className="equipment-table">
               <thead>
-                <tr><th>槽位</th><th>类别</th><th>物品</th><th>等级</th><th>+值</th><th>稀有度</th><th>词条</th></tr>
+                <tr><th>槽位</th><th>类别</th><th>物品</th><th>等级</th><th>+值</th><th>稀有度</th><th>词条</th><th>自然</th></tr>
               </thead>
               <tbody>
-                {rows.map(entry => (
-                  <tr key={entry.slot_index} className={entry.slot_index === selected ? "selected" : ""}>
-                    <td><button onClick={() => { setSelected(entry.slot_index); setDraft(draftOf(entry)); setModded(false); }}>{entry.slot_index}</button></td>
-                    <td>{itemSubtype(entry.item_id) || kindOf(entry.type_class)}</td>
-                    <td>{itemName(entry.item_id, catalog) ? <span className="equipment-item-name character-item-name">{itemName(entry.item_id, catalog)}</span> : <code>{hex(entry.item_id)}</code>}</td>
-                    <td>{entry.level}</td>
-                    <td>{entry.plus}</td>
-                    <td>{entry.rarity}</td>
-                    <td>{entry.effects.filter(effect => effect.effect_id !== EMPTY_EFFECT).map(effect => effectLabel(effect.effect_id)).join("、")}</td>
-                  </tr>
-                ))}
+                {rows.map(entry => {
+                  const [a, b, c] = itemGroups(entry.item_id, entry.type_class);
+                  const audit = entry.audit;
+                  return (
+                    <tr key={entry.slot_index} className={entry.slot_index === selected ? "selected" : ""}>
+                      <td><button onClick={() => { setSelected(entry.slot_index); setDraft(draftOf(entry)); setModded(false); }}>{entry.slot_index}</button></td>
+                      <td>{c || b || a}</td>
+                      <td>{itemName(entry.item_id, catalog) ? <span className="equipment-item-name character-item-name">{itemName(entry.item_id, catalog)}</span> : <code>{hex(entry.item_id)}</code>}</td>
+                      <td>{entry.level}</td>
+                      <td>{entry.plus}</td>
+                      <td>{entry.rarity}</td>
+                      <td>{entry.effects.filter(effect => effect.effect_id !== EMPTY_EFFECT).map(effect => effectLabel(effect.effect_id)).join("、")}</td>
+                      <td title={audit ? audit.findings.map(findingText).join("\n") : "规则未载入"}>
+                        {audit == null ? "—" : audit.natural ? "自然" : <span className="character-unnatural">非自然</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             {row && draft && (
               <div className="equipment-detail character-detail">
                 <h3>{"编辑装备"}{itemName(row.item_id, catalog) ? "：" + itemName(row.item_id, catalog) : ""}</h3>
+                {row.audit && !row.audit.natural && (
+                  <ul className="character-findings">
+                    {row.audit.findings.map((finding, index) => <li key={index}>{findingText(finding)}</li>)}
+                  </ul>
+                )}
+                <div className="character-edit-modes" role="tablist">
+                  <button className={!modded ? "active" : ""} onClick={() => setModded(false)}>合法修改</button>
+                  <button className={modded ? "active" : ""} onClick={() => setModded(true)}>魔改</button>
+                </div>
+                <p className="equipment-notes">
+                  {modded
+                    ? "魔改：任何词条、任何数值都可以填写，不受游戏生成规则约束，结果可能无法自然获得。"
+                    : "合法修改：每个位置只列出这件装备能自然出现的词条，数值从自然生成能出现的值中选择。"}
+                </p>
                 <div className="character-fields">
-                  {([
-                    ["level", "等级"],
-                    ["level_before_forge", "锻造前等级"],
-                    ["plus", "+值"],
-                    ["rarity", "稀有度"],
-                    ["familiarity", "爱用度"],
-                  ] as const).map(([key, label]) => (
+                  {FIELD_LABEL.map(([key, label]) => (
                     <label key={key}>
                       <span>{label}</span>
-                      <input inputMode="numeric" value={draft[key]} onChange={event => setDraft({ ...draft, [key]: event.target.value })} />
+                      <input inputMode="numeric" value={draft[key as keyof Draft] as string} onChange={event => setDraft({ ...draft, [key]: event.target.value })} />
                     </label>
                   ))}
                 </div>
-                <datalist id="character-effect-names">
-                  {effectOptions.map(option => <option key={option} value={option} />)}
-                </datalist>
                 <table className="equipment-effects">
-                  <thead><tr><th>#</th><th>词条</th><th>原始数值</th><th>当前</th></tr></thead>
+                  <thead><tr><th>#</th><th>位置</th><th>词条</th><th>数值</th><th>当前</th></tr></thead>
                   <tbody>
-                    {draft.effects.map((effect, index) => (
-                      <tr key={index}>
-                        <td>{index + 1}</td>
-                        <td><input list="character-effect-names" value={effect.id} placeholder="留空表示空槽" onChange={event => {
-                          const effects = draft.effects.slice();
-                          effects[index] = { ...effect, id: event.target.value };
-                          setDraft({ ...draft, effects });
-                        }} /></td>
-                        <td><input inputMode="numeric" value={effect.value} onChange={event => {
-                          const effects = draft.effects.slice();
-                          effects[index] = { ...effect, value: event.target.value };
-                          setDraft({ ...draft, effects });
-                        }} /></td>
-                        <td>{effectLabel(row.effects[index]?.effect_id ?? EMPTY_EFFECT)}</td>
-                      </tr>
-                    ))}
+                    {draft.effects.map((effect, index) => {
+                      const role = rules?.roles?.[index];
+                      const legal = values[index]?.values ?? [];
+                      const chosen = legal.find(entry => String(entry.value) === effect.value.trim());
+                      return (
+                        <tr key={index}>
+                          <td>{index + 1}</td>
+                          <td>{role ? ROLE_LABEL[role] ?? role : "—"}</td>
+                          <td><EffectPicker value={effect.id} candidates={candidatesFor(index)} onPick={id => pickEffect(index, id)} /></td>
+                          <td>
+                            {!modded && legal.length > 0 && role !== "set" && role !== "grace" ? (
+                              <select value={chosen ? String(chosen.value) : ""} onChange={event => {
+                                const next = legal.find(entry => String(entry.value) === event.target.value);
+                                if (next) pickValue(index, next);
+                              }}>
+                                {!chosen && <option value="">{effect.value}（非自然）</option>}
+                                {legal.slice().reverse().map(entry => (
+                                  <option key={entry.value} value={String(entry.value)}>
+                                    {entry.value + " （前 " + percent(entry.top_fraction) + "）"}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input inputMode="numeric" value={effect.value} onChange={event => setEffect(index, { value: event.target.value, roll: null })} />
+                            )}
+                          </td>
+                          <td>{effectLabel(row.effects[index]?.effect_id ?? EMPTY_EFFECT)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
                 <p className="equipment-notes">
-                  原始数值按游戏内部单位填写，例如百分比词条 15 表示 1.5%。
+                  原始数值按游戏内部单位填写，例如百分比词条 15 表示 1.5%。“前 X%”表示自然生成时得到这个值或更好值的概率。
                 </p>
-                <label className="character-modded">
-                  <input type="checkbox" checked={modded} onChange={event => setModded(event.target.checked)} />
-                  <span>我了解这是魔改修改：结果不受游戏生成规则约束，可能无法自然获得。</span>
-                </label>
-                <button onClick={applyEquipment} disabled={busy || !modded}>修改装备</button>
+                {draftNotes.length > 0 && (
+                  <ul className="character-findings">{draftNotes.map(note => <li key={note}>{note}</li>)}</ul>
+                )}
+                <div className="equipment-toolbar">
+                  <button onClick={maximize} disabled={busy || !values.some(Boolean)}>全部取理论最高</button>
+                  <button onClick={applyEquipment} disabled={busy}>{modded ? "写入魔改" : "写入"}</button>
+                </div>
               </div>
             )}
           </section>

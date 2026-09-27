@@ -188,6 +188,66 @@
         "record_sha256": {
           "type": "string",
           "pattern": "^[0-9a-fA-F]{64}$"
+        },
+        "hell": {
+          "type": "boolean"
+        },
+        "audit": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "natural": {
+                  "type": "boolean"
+                },
+                "findings": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "maxLength": 64
+                      },
+                      "slot": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 6
+                      },
+                      "other": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 6
+                      },
+                      "expected": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 7
+                      },
+                      "actual": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 7
+                      }
+                    },
+                    "required": [
+                      "code"
+                    ]
+                  },
+                  "maxItems": 64
+                }
+              },
+              "required": [
+                "natural",
+                "findings"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -203,6 +263,210 @@
         "seed",
         "rarity",
         "effects"
+      ]
+    },
+    "EquipmentRules": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "item_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "known": {
+          "type": "boolean"
+        },
+        "rarity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "hell": {
+          "type": "boolean"
+        },
+        "hell_capable": {
+          "type": "boolean"
+        },
+        "roles": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "innate",
+                  "hell",
+                  "random",
+                  "set",
+                  "grace"
+                ]
+              },
+              "maxItems": 7
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "innate": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "maxItems": 4096
+        },
+        "set_effect": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "graces": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "maxItems": 4096
+        },
+        "random_pool": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "effect_id": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
+              "star": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "effect_id",
+              "star"
+            ]
+          }
+        },
+        "hell_pool": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "maxItems": 4096
+        },
+        "hell_skills": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "item_id",
+        "known"
+      ]
+    },
+    "EffectValues": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "effect_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "rarity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "star": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "values": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "value": {
+                "type": "integer",
+                "minimum": -2147483648,
+                "maximum": 2147483647
+              },
+              "roll_min": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              },
+              "roll_max": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              },
+              "probability": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "top_fraction": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1.000001
+              }
+            },
+            "required": [
+              "value",
+              "roll_min",
+              "roll_max",
+              "probability",
+              "top_fraction"
+            ]
+          }
+        }
+      },
+      "required": [
+        "effect_id",
+        "rarity",
+        "level",
+        "star",
+        "values"
       ]
     },
     "CharacterCurrencies": {
@@ -3454,6 +3718,12 @@
             },
             {
               "$ref": "#/definitions/LiveCharacter"
+            },
+            {
+              "$ref": "#/definitions/EquipmentRules"
+            },
+            {
+              "$ref": "#/definitions/EffectValues"
             },
             {
               "$ref": "#/definitions/InventorySnapshot"

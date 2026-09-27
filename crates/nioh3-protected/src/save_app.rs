@@ -358,7 +358,10 @@ impl SaveApplication {
             }
             let fields = equipment_fields(record).map_err(HostError::from_save)?;
             let class = crate::item_kinds::type_class(&self.data_root, fields.item_id);
-            equipment.push(equipment_json(slot_index, &fields, class));
+            let mut row = equipment_json(slot_index, &fields, class);
+            row["audit"] = crate::equipment_rules::audit_json(&self.data_root, record);
+            row["hell"] = json!(record.get(0x1A).is_some_and(|flags| flags & 0x10 != 0));
+            equipment.push(row);
         }
         Ok(json!({
             "save_id": save_id,

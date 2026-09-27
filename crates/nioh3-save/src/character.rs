@@ -208,6 +208,12 @@ pub struct EquipmentEffectPatch {
     pub index: usize,
     pub effect_id: u32,
     pub value: u32,
+    /// Entry byte `+0xC`: the roll percent the value was derived from.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub roll: Option<u8>,
+    /// Entry byte `+0xE` bit `0x04`: the star (✦) marker.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub star: Option<bool>,
 }
 
 /// Field overwrites for one equipment record. `None` leaves a field as stored.
@@ -262,6 +268,12 @@ pub fn patch_equipment(record: &[u8], patch: &EquipmentPatch) -> Result<Vec<u8>,
             effect.value
         };
         patched[offset + 4..offset + 8].copy_from_slice(&value.to_le_bytes());
+        if let Some(roll) = effect.roll {
+            patched[offset + 8] = roll;
+        }
+        if let Some(star) = effect.star {
+            patched[offset + 0xA] = (patched[offset + 0xA] & !0x04) | if star { 0x04 } else { 0 };
+        }
     }
     Ok(patched)
 }
@@ -442,11 +454,15 @@ mod tests {
                     index: 0,
                     effect_id: 0x8D2B,
                     value: 4,
+                    roll: None,
+                    star: None,
                 },
                 EquipmentEffectPatch {
                     index: 3,
                     effect_id: EMPTY_EFFECT_ID,
                     value: 9,
+                    roll: None,
+                    star: None,
                 },
             ],
             ..EquipmentPatch::default()
@@ -468,6 +484,28 @@ mod tests {
             ..EquipmentPatch::default()
         };
         assert!(patch_equipment(&record, &repeated).is_err());
+    }
+
+    #[test]
+    fn an_effect_patch_can_set_the_roll_and_star_marker() {
+        let record = forged_record();
+        let with = |star: bool| EquipmentPatch {
+            effects: vec![EquipmentEffectPatch {
+                index: 1,
+                effect_id: 0x010A,
+                value: 180,
+                roll: Some(84),
+                star: Some(star),
+            }],
+            ..EquipmentPatch::default()
+        };
+        let starred = patch_equipment(&record, &with(true)).unwrap();
+        // Entry 1 starts at 0x4C: id +4, value +8, roll +0xC, flags +0xE.
+        assert_eq!(starred[0x4C + 0xC], 84);
+        assert_eq!(starred[0x4C + 0xE] & 0x04, 0x04);
+        assert_eq!(starred[0x4C + 0xE] & !0x04, record[0x4C + 0xE] & !0x04);
+        let plain = patch_equipment(&starred, &with(false)).unwrap();
+        assert_eq!(plain[0x4C + 0xE] & 0x04, 0);
     }
 
     #[test]

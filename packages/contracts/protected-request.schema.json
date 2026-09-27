@@ -3370,6 +3370,14 @@
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 4294967295
+                            },
+                            "roll": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 255
+                            },
+                            "star": {
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -3393,6 +3401,107 @@
           "required": [
             "save_id",
             "source_sha256"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "runtime.equipment_rules"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "item_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "rarity": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "level": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "hell": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "item_id",
+            "rarity",
+            "level"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "runtime.effect_values"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "effect_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "rarity": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            },
+            "level": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            }
+          },
+          "required": [
+            "effect_id",
+            "rarity",
+            "level"
           ]
         }
       },
@@ -3537,6 +3646,14 @@
                               "type": "integer",
                               "minimum": 0,
                               "maximum": 4294967295
+                            },
+                            "roll": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 255
+                            },
+                            "star": {
+                              "type": "boolean"
                             }
                           },
                           "required": [

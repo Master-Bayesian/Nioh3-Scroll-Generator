@@ -683,6 +683,8 @@ mod imp {
                 let class = crate::item_kinds::type_class(&self.data_root, fields.item_id);
                 let mut row = crate::save_app::equipment_json(slot_index, &fields, class);
                 row["record_sha256"] = json!(format!("{:x}", Sha256::digest(record)));
+                row["audit"] = crate::equipment_rules::audit_json(&self.data_root, record);
+                row["hell"] = json!(record.get(0x1A).is_some_and(|flags| flags & 0x10 != 0));
                 equipment.push(row);
             }
             Ok(json!({
@@ -1597,6 +1599,12 @@ mod imp {
             if method == "runtime.character_snapshot" {
                 return self.character_snapshot();
             }
+            if method == "runtime.equipment_rules" {
+                return crate::equipment_rules::equipment_rules_json(&self.data_root, params);
+            }
+            if method == "runtime.effect_values" {
+                return crate::equipment_rules::effect_values_json(&self.data_root, params);
+            }
             Err(HostError::rejected(format!(
                 "INVALID_REQUEST: {method} is not an inline protected method"
             )))
@@ -1858,6 +1866,12 @@ mod imp {
             }
             if method == "runtime.character_snapshot" {
                 return self.character_snapshot();
+            }
+            if method == "runtime.equipment_rules" {
+                return crate::equipment_rules::equipment_rules_json(&self.data_root, params);
+            }
+            if method == "runtime.effect_values" {
+                return crate::equipment_rules::effect_values_json(&self.data_root, params);
             }
             Err(HostError::rejected(format!(
                 "INVALID_REQUEST: {method} is not an inline protected method"

@@ -3363,6 +3363,190 @@
     "补充物品名称（可选）": [
       "Add item names (optional)",
       "アイテム名を追加（任意）"
+    ],
+    "物品不在当前版本的物品表中": [
+      "Item is not in this game version's item table",
+      "このバージョンのアイテム表にないアイテム"
+    ],
+    "稀有度超出自然范围": [
+      "Rarity is outside the natural range",
+      "レア度が自然な範囲外"
+    ],
+    "词条数量与该稀有度不符": [
+      "Effect count does not match the rarity",
+      "効果の数がレア度と一致しない"
+    ],
+    "词条 ID 不存在": [
+      "Effect ID does not exist",
+      "効果IDが存在しない"
+    ],
+    "固有词条不是该物品自带的": [
+      "Innate effect is not this item's own",
+      "固有効果がこのアイテム本来のものではない"
+    ],
+    "套装效果不是该物品自带的": [
+      "Set effect is not this item's own",
+      "セット効果がこのアイテム本来のものではない"
+    ],
+    "该位置应为恩宠效果": [
+      "This slot should hold a grace",
+      "この位置は恩寵であるべき"
+    ],
+    "该词条不会出现在这类装备上": [
+      "This effect never appears on this kind of equipment",
+      "この種類の装備には出ない効果"
+    ],
+    "地狱词条只能出现在地狱武器第一条": [
+      "Hell effects only appear first on hell weapons",
+      "地獄効果は地獄武器の先頭にのみ出る"
+    ],
+    "地狱武器第一条应为地狱词条": [
+      "A hell weapon's first effect should be a hell effect",
+      "地獄武器の先頭は地獄効果であるべき"
+    ],
+    "该物品不能成为地狱武器": [
+      "This item cannot become a hell weapon",
+      "このアイテムは地獄武器にならない"
+    ],
+    "星号词条需要更高稀有度": [
+      "Star effects need a higher rarity",
+      "★効果にはより高いレア度が必要"
+    ],
+    "星号词条超过一条": [
+      "More than one star effect",
+      "★効果が2つ以上"
+    ],
+    "星号标记与词条不一致": [
+      "Star marker does not match the effect",
+      "★マークが効果と一致しない"
+    ],
+    "与另一条词条互斥": [
+      "Conflicts with another effect",
+      "他の効果と排他"
+    ],
+    "数值不是自然生成能出现的值": [
+      "Value cannot occur naturally",
+      "自然には出ない数値"
+    ],
+    "分位超出该稀有度范围": [
+      "Roll is outside this rarity's range",
+      "ロールがこのレア度の範囲外"
+    ],
+    "地狱武技不属于该武器": [
+      "Hell martial skill does not belong to this weapon",
+      "地獄武技がこの武器のものではない"
+    ],
+    "该词条不会自然出现在这个位置": [
+      "This effect never appears naturally in this slot",
+      "この位置には自然に出ない効果"
+    ],
+    "输入名称或 ID 筛选": [
+      "Type a name or ID to filter",
+      "名前またはIDで絞り込み"
+    ],
+    "没有匹配的词条": [
+      "No matching effect",
+      "一致する効果なし"
+    ],
+    "当前修改不符合自然规则。如需保留，请切换到“魔改”。": [
+      "This edit breaks natural generation rules. Switch to Modded to keep it.",
+      "この変更は自然生成の規則に合いません。残す場合は「改造」に切り替えてください。"
+    ],
+    "修改精华": [
+      "Change Amrita",
+      "アムリタを変更"
+    ],
+    "修改金钱": [
+      "Change gold",
+      "お金を変更"
+    ],
+    "大类": [
+      "Category",
+      "大分類"
+    ],
+    "中类": [
+      "Group",
+      "中分類"
+    ],
+    "小类": [
+      "Type",
+      "小分類"
+    ],
+    "自然": [
+      "Natural",
+      "自然"
+    ],
+    "规则未载入": [
+      "Rules not loaded",
+      "規則が未読み込み"
+    ],
+    "非自然": [
+      "Unnatural",
+      "非自然"
+    ],
+    "合法修改": [
+      "Legal edit",
+      "合法な変更"
+    ],
+    "魔改": [
+      "Modded",
+      "改造"
+    ],
+    "魔改：任何词条、任何数值都可以填写，不受游戏生成规则约束，结果可能无法自然获得。": [
+      "Modded: any effect and any value are allowed. The result ignores the game's generation rules and may be unobtainable.",
+      "改造：どの効果・数値も入力できます。ゲームの生成規則に縛られず、自然には入手できない結果になることがあります。"
+    ],
+    "合法修改：每个位置只列出这件装备能自然出现的词条，数值从自然生成能出现的值中选择。": [
+      "Legal edit: each slot lists only effects this item can naturally have, and values come from those natural generation can produce.",
+      "合法な変更：各位置にはこの装備に自然に出る効果だけを表示し、数値も自然生成で出る値から選びます。"
+    ],
+    "位置": [
+      "Slot",
+      "位置"
+    ],
+    "数值": [
+      "Value",
+      "数値"
+    ],
+    "（前": [
+      "(top",
+      "（上位"
+    ],
+    "（非自然）": [
+      "(unnatural)",
+      "（非自然）"
+    ],
+    "全部取理论最高": [
+      "Set all to the theoretical maximum",
+      "すべて理論最大にする"
+    ],
+    "写入魔改": [
+      "Write modded",
+      "改造を書き込む"
+    ],
+    "写入": [
+      "Write",
+      "書き込む"
+    ],
+    "固有": [
+      "Innate",
+      "固有"
+    ],
+    "地狱": [
+      "Hell",
+      "地獄"
+    ],
+    "随机": [
+      "Random",
+      "ランダム"
+    ],
+    "套装": [
+      "Set",
+      "セット"
+    ],
+    "原始数值按游戏内部单位填写，例如百分比词条 15 表示 1.5%。“前 X%”表示自然生成时得到这个值或更好值的概率。": [
+      "Enter raw values in the game's internal units; for a percentage effect 15 means 1.5%. \"Top X%\" is the chance natural generation gives this value or better.",
+      "数値はゲーム内部の単位で入力します。割合の効果では 15 が 1.5% です。「上位 X%」は自然生成でこの値以上が出る確率です。"
     ]
   },
   "game": {

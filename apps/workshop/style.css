@@ -1020,3 +1020,20 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-plan-lines{margin:6px 0 10px;padding-left:18px;font-size:12px;line-height:1.7;font-variant-numeric:tabular-nums}
 .character-plan>button{width:auto;margin-right:8px}
 .character-page .character-item-name{margin-left:0}
+.character-currencies label{flex-direction:row;align-items:flex-end;gap:8px}
+.character-currencies label>span{align-self:center;min-width:52px}
+.character-currencies label>button{width:auto}
+.character-edit-modes{display:inline-flex;width:max-content;margin:4px 0 6px;border:1px solid #c5d1e0;border-radius:6px;overflow:hidden}
+.character-edit-modes>button{width:auto;margin:0;padding:5px 14px;border:0;border-radius:0;background:#f8fafc;color:#214d63}
+.character-edit-modes>button+button{border-left:1px solid #c5d1e0}
+.character-edit-modes>button.active{background:#3c745f;color:#fff}
+.character-edit-modes>button.active:last-child{background:#a0612a}
+.character-findings{margin:6px 0;padding:6px 10px 6px 26px;border:1px dashed #c08a2c;border-radius:6px;background:#fcf7ec;color:#5b4a2c;font-size:12px;line-height:1.6}
+.character-unnatural{color:#a0402a;font-weight:600}
+.character-detail .equipment-effects select{width:100%;min-width:0}
+.effect-picker{position:relative}
+.effect-picker>input{width:100%;box-sizing:border-box}
+.effect-picker-list{position:absolute;z-index:20;left:0;right:0;top:100%;max-height:280px;overflow:auto;margin:2px 0 0;padding:2px 0;list-style:none;border:1px solid #c5d1e0;border-radius:6px;background:#fff;box-shadow:0 6px 18px rgba(20,40,60,.14)}
+.effect-picker-list button{display:block;width:100%;margin:0;padding:4px 8px;border:0;border-radius:0;background:transparent;color:#1d3440;text-align:left;font-size:12px}
+.effect-picker-list button:hover,.effect-picker-list button.current{background:#e8f1ee}
+.effect-picker-empty{padding:6px 8px;color:#7a8b93;font-size:12px}
