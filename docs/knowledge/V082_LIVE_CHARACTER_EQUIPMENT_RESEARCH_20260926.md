@@ -279,3 +279,16 @@ The record is a natural-shaped hell weapon: hell skill `0x3435` (one of the
 three katana rows), `+0x1A = 0x10`, flags `0x00100082`, rarity 4, plus 22, slot 0 the
 hell-only effect `0x8641` 赋予雷属性 (effect flags `0x50`), then 强攻击精力消耗降低,
 地狱武器掉落率, 中段武技精力伤害 and 布袋尊的恩宠. The owner confirmed the weapon in game.
+
+## Equipment values use the scroll value formula (offline, 2026-09-26)
+
+`value_parity.py` evaluated `EffectGenerationTableIndex.resolved_effect_value`
+(the recovered normalization at RVA `0x571478`, PC v2.02 tables) with the
+entry's roll byte at slot `+0xC` and the record level `+6` for every nonzero
+effect in the captured records: 408 of 408 match the stored value. `roll_ranges.py`
+shows every observed roll inside the scroll rarity roll table
+(r0 0–30, r1 30–50, r2 50–80, r3 60–100, r4 80–100, r5 90–100), including star and
+hell-weapon effects. The legal value set of an effect on an item of level L and
+rarity r is therefore `{f(effect, roll, L) : roll in roll_range(r)}`, and a
+value's quantile is its roll position, exactly as for scrolls. Rarity 5 adds
+the param `0x98FE` level bonus inside `build_record` (not yet sampled live).
