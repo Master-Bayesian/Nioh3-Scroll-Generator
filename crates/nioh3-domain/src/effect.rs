@@ -734,6 +734,8 @@ pub struct EffectTableIndex {
     /// Level-curve rows: three `u16` selectors per curve level.
     pub level_curve: Vec<[u16; 3]>,
     base_pools: BasePoolCache,
+    /// Seed-independent rarity-4 finalizer rows (see `crate::r4_finalizer`).
+    pub(crate) finalizer_pools: crate::r4_finalizer::FinalizerPoolCache,
 }
 
 /// The inputs that decide the context-only part of a candidate pool: the
@@ -1039,6 +1041,7 @@ impl EffectTableIndex {
             playthrough_progress,
             level_curve,
             base_pools: BasePoolCache::default(),
+            finalizer_pools: crate::r4_finalizer::FinalizerPoolCache::default(),
         })
     }
 

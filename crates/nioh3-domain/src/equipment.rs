@@ -578,7 +578,10 @@ impl<'a> EquipmentRules<'a> {
     /// other when they share a group or any mask bit (`is_compatible`).
     pub fn conflict_key(&self, effect_id: u16) -> Option<(u16, [u32; 2])> {
         let group = self.index.group_for_effect(effect_id)?;
-        Some((group.group_key, [group.conflict_mask_0, group.conflict_mask_1]))
+        Some((
+            group.group_key,
+            [group.conflict_mask_0, group.conflict_mask_1],
+        ))
     }
 
     /// The group and category bits slot normalization writes for an effect
@@ -683,7 +686,8 @@ impl<'a> EquipmentRules<'a> {
                 SlotRole::Random
             };
             audit.roles.push(Some(role));
-            let entry = &record[EFFECT_ENTRY_OFFSET + slot * EFFECT_ENTRY_BYTES..][..EFFECT_ENTRY_BYTES];
+            let entry =
+                &record[EFFECT_ENTRY_OFFSET + slot * EFFECT_ENTRY_BYTES..][..EFFECT_ENTRY_BYTES];
             let recorded_group = u16::from_le_bytes([entry[0], entry[1]]);
             let category_matches = self
                 .index

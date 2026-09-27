@@ -105,7 +105,7 @@ impl Candidate {
     /// Whether a preview can be bound to a live save at install time.
     pub fn can_materialize_for_install(&self) -> bool {
         self.record_stage == RecordStage::EffectSequenceOnly
-            && self.playthrough == Some(3)
+            && matches!(self.playthrough, Some(1..=3))
             && matches!(self.rarity, 3..=5)
     }
 

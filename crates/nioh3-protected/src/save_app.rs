@@ -35,8 +35,8 @@ use sha2::{Digest, Sha256};
 use nioh3_data::PreviewResources;
 use nioh3_domain::effect::{EffectResourceBytes, EffectTableIndex, GraceMap};
 use nioh3_domain::install_materialize::{
-    materialize_ng3_certified_install_record, materialize_ng3_certified_record,
-    InstallMaterializeError,
+    materialize_certified_install_record, materialize_certified_record,
+    materialize_ng3_certified_record, InstallMaterializeError,
 };
 use nioh3_domain::preview::{compose_auxiliary_preview, PreviewTables};
 use nioh3_domain::record::{
@@ -2483,9 +2483,12 @@ fn import_candidate(
 }
 
 /// `models.ScrollCandidate.can_materialize_for_install`.
+///
+/// Playthroughs 1 and 2 join NG3: their offline generation matches the native
+/// generator byte for byte (`docs/knowledge/V082_NG12_OFFLINE_PARITY_20260927.md`).
 fn can_materialize_for_install(candidate: &TransferredCandidate) -> bool {
     candidate.stage == STAGE_EFFECT_SEQUENCE_ONLY
-        && candidate.playthrough == Some(3)
+        && matches!(candidate.playthrough, Some(1..=3))
         && matches!(candidate.rarity, 3..=5)
 }
 
@@ -2624,15 +2627,23 @@ fn materialize_one(
         ));
     }
 
+    let playthrough = source.playthrough.unwrap_or(3);
     let template = inventory
-        .template_record_for_playthrough(3)
+        .template_record_for_playthrough(playthrough)
         .map_err(HostError::from_save)?;
-    let grace_map = grace_map_for_rarity(resources, source.rarity)?;
+    // NG3 binds its bundled maps; NG1/NG2 need none (embedded rarity-4 map, no
+    // rarity-5 Grace).
+    let grace_map = if playthrough == 3 {
+        Some(grace_map_for_rarity(resources, source.rarity)?)
+    } else {
+        None
+    };
     let level = level as u16;
     // `materialize_effect_sequence_candidate`: the stage-one record the save
     // must receive, validated against the solver preview.
-    let (install_record, installed_preview) = materialize_ng3_certified_install_record(
+    let (install_record, installed_preview) = materialize_certified_install_record(
         &resources.index,
+        playthrough,
         grace_map,
         &template,
         source.rarity,
@@ -2652,8 +2663,9 @@ fn materialize_one(
     // `materialize_ng3_certified_record`: the completed record the reveal path
     // produces. The shipped producer allocates this serial separately, so the
     // pair is never collapsed into one record.
-    let (finalized, _completed) = materialize_ng3_certified_record(
+    let (finalized, _completed) = materialize_certified_record(
         &resources.index,
+        playthrough,
         grace_map,
         &template,
         source.rarity,
@@ -2669,7 +2681,7 @@ fn materialize_one(
         context_digest,
         u64::from(level),
         finalized.displayed_seed(),
-        Some(3),
+        Some(playthrough),
         finalized.rarity(),
         STAGE_FINAL_RECORD,
         finalized.as_bytes(),
@@ -3190,20 +3202,23 @@ mod tests {
             "当前候选只包含离线词条序列，而且该周目/稀有度尚未通过完整记录原生一致性门禁，\
 暂不允许写入。"
         );
-        let refused = effect_sequence_candidate(Some(2));
+        // A sequence that names no playthrough cannot be bound to a template.
+        let refused = effect_sequence_candidate(None);
         assert_eq!(
             install_blocker(&refused).as_deref(),
             Some(EFFECT_SEQUENCE_REFUSAL)
         );
         let failure = require_installable(&refused)
             .err()
-            .unwrap_or_else(|| HostError::rejected("playthrough 2 must be refused"));
+            .unwrap_or_else(|| HostError::rejected("an unknown playthrough must be refused"));
         assert_eq!(failure.job_code(), "CANDIDATE_NOT_INSTALLABLE");
         assert_eq!(failure.message, EFFECT_SEQUENCE_REFUSAL);
-        // The certified three-playthrough context passes the same gate, so the
-        // refusal above comes from the materialization eligibility and not from
-        // a blanket rejection.
-        assert!(install_blocker(&effect_sequence_candidate(Some(3))).is_none());
+        // Playthroughs 1 to 3 match the native generator, so they pass the same
+        // gate: the refusal above comes from the materialization eligibility
+        // and not from a blanket rejection.
+        for playthrough in 1..=3 {
+            assert!(install_blocker(&effect_sequence_candidate(Some(playthrough))).is_none());
+        }
     }
 
     /// The non-materializing branch refuses any other recommended level.

@@ -145,9 +145,13 @@ fn edits_that_natural_generation_cannot_produce_are_reported() {
     let other_group: [u8; 2] = entry_mut(&mut replaced, 2)[0..2].try_into().unwrap();
     entry_mut(&mut replaced, 1)[0..2].copy_from_slice(&other_group);
     let recorded_group = u16::from_le_bytes(other_group);
-    assert!(rules.audit(&replaced).findings.iter().any(|finding| matches!(
-        finding,
-        Finding::ReplacedEffect { slot: 1, recorded_group: group, original: Some(_) }
-            if *group == recorded_group
-    )));
+    assert!(rules
+        .audit(&replaced)
+        .findings
+        .iter()
+        .any(|finding| matches!(
+            finding,
+            Finding::ReplacedEffect { slot: 1, recorded_group: group, original: Some(_) }
+                if *group == recorded_group
+        )));
 }

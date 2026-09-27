@@ -137,6 +137,33 @@ impl PoolEntry {
     }
 }
 
+/// The Seed-independent part of the finalizer's candidate pools.
+///
+/// Which rows pass the context gate and what weight they carry depend only on
+/// the record type, rarity, playthrough and weight slot; the per-Seed pool then
+/// only drops the source effect, full categories and conflicts. Keeping this in
+/// the table index lets every engine built from it reuse the rows, so a
+/// search that composes rarity 4 for every Seed does not recompute them.
+#[derive(Default)]
+pub struct FinalizerPoolCache {
+    rows: std::sync::Mutex<
+        std::collections::HashMap<(u16, u8, u8, usize), std::sync::Arc<Vec<PoolEntry>>>,
+    >,
+}
+
+impl Clone for FinalizerPoolCache {
+    /// A cloned index recomputes its own rows.
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl std::fmt::Debug for FinalizerPoolCache {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("FinalizerPoolCache")
+    }
+}
+
 /// Deterministic offline implementation of the captured R4 finalizer.
 #[derive(Debug)]
 pub struct R4FinalizerEngine<'a> {
@@ -690,6 +717,48 @@ impl<'a> R4FinalizerEngine<'a> {
             .map(|effect_id| self.index.group_for_effect_u32(*effect_id))
             .collect::<Result<_, EffectError>>()?;
 
+        let weight_slot = usize::try_from(weight_slot).unwrap_or(usize::MAX);
+        let rows = self.weighted_rows(record_type, rarity, weight_slot)?;
+
+        let mut result = Vec::new();
+        for entry in rows.iter() {
+            if u32::from(entry.effect_id) == source_effect_id {
+                continue;
+            }
+            let category = usize::from(entry.category_key);
+            if category >= capacities.len() || capacities[category] == 0 {
+                continue;
+            }
+            if conflict_groups
+                .iter()
+                .any(|existing| entry.conflicts_with(existing))
+            {
+                continue;
+            }
+            result.push(*entry);
+        }
+        Ok(result)
+    }
+
+    /// The context-allowed, non-zero-weight rows in table order, computed once
+    /// per record type, rarity, playthrough and weight slot.
+    fn weighted_rows(
+        &self,
+        record_type: u16,
+        rarity: u8,
+        weight_slot: usize,
+    ) -> Result<std::sync::Arc<Vec<PoolEntry>>, R4FinalizerError> {
+        let key = (record_type, rarity, self.playthrough, weight_slot);
+        if let Some(rows) = self
+            .index
+            .finalizer_pools
+            .rows
+            .lock()
+            .expect("finalizer pool cache")
+            .get(&key)
+        {
+            return Ok(std::sync::Arc::clone(rows));
+        }
         let context = NativeWeightContext {
             record_type,
             rarity,
@@ -698,9 +767,7 @@ impl<'a> R4FinalizerEngine<'a> {
             extra_selector: 0,
             rarity5_type_floor: 0,
         };
-        let weight_slot = usize::try_from(weight_slot).unwrap_or(usize::MAX);
-
-        let mut result = Vec::new();
+        let mut rows = Vec::new();
         for effect in &self.index.effects_in_row_order {
             if effect.row_index == 0 {
                 continue;
@@ -724,30 +791,23 @@ impl<'a> R4FinalizerEngine<'a> {
                     group_key: effect.group_key,
                 },
             )?;
-            if u32::from(effect.effect_id) == source_effect_id {
-                continue;
-            }
-            let category = usize::from(group.category_key);
-            if category >= capacities.len() || capacities[category] == 0 {
-                continue;
-            }
-            let entry = PoolEntry {
+            rows.push(PoolEntry {
                 effect_id: effect.effect_id,
                 weight,
                 group_key: group.group_key,
                 category_key: group.category_key,
                 conflict_mask_0: group.conflict_mask_0,
                 conflict_mask_1: group.conflict_mask_1,
-            };
-            if conflict_groups
-                .iter()
-                .any(|existing| entry.conflicts_with(existing))
-            {
-                continue;
-            }
-            result.push(entry);
+            });
         }
-        Ok(result)
+        let rows = std::sync::Arc::new(rows);
+        self.index
+            .finalizer_pools
+            .rows
+            .lock()
+            .expect("finalizer pool cache")
+            .insert(key, std::sync::Arc::clone(&rows));
+        Ok(rows)
     }
 
     /// Write the accepted effect into one slot.

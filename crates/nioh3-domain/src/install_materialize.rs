@@ -24,10 +24,9 @@ use crate::record::{
 };
 use crate::sequence::{
     generate_rarity3_effect_sequence, generate_rarity5_grace_effect_sequence,
-    generate_rarity5_plain_effect_sequence,
-    materialize_ng3_rarity4_final_record, materialize_ng3_rarity4_stage_one_record,
-    record_type_for_playthrough, SequenceError, NG3_PLAYTHROUGH, NG3_RECORD_TYPE, RARITY_DIVINE,
-    RARITY_FINALIZABLE, RARITY_GROWING,
+    generate_rarity5_plain_effect_sequence, materialize_ng3_rarity4_final_record,
+    materialize_ng3_rarity4_stage_one_record, record_type_for_playthrough, SequenceError,
+    NG3_PLAYTHROUGH, NG3_RECORD_TYPE, RARITY_DIVINE, RARITY_FINALIZABLE, RARITY_GROWING,
 };
 
 /// Fail-closed problems for one installation-record materialization.
@@ -378,6 +377,151 @@ pub fn materialize_ng3_certified_install_record(
     let pair = materialize_ng3_rarity4_final_record(
         index,
         grace_map,
+        template,
+        seed,
+        level,
+        recommended_level,
+        generation_serial,
+        transfer_count,
+    )?;
+    Ok((install_record, pair.preview_sequence().clone()))
+}
+
+/// The rarity-4 stage-one map of a context: the captured one for NG3, the
+/// embedded live measurement for NG1/NG2.
+fn rarity4_map(
+    playthrough: u8,
+    captured: Option<&GraceMap>,
+) -> Result<std::borrow::Cow<'_, GraceMap>, InstallMaterializeError> {
+    match (playthrough, captured) {
+        (1 | 2, _) => Ok(std::borrow::Cow::Owned(
+            crate::sequence::ng12_rarity4_stage_one_map(playthrough)?,
+        )),
+        (_, Some(map)) => Ok(std::borrow::Cow::Borrowed(map)),
+        (_, None) => Err(SequenceError::GraceMapContext { field: "ranges" }.into()),
+    }
+}
+
+/// [`materialize_ng3_certified_record`] for playthroughs 1 to 3, whose offline
+/// generation matches the native generator. `captured_map` is the rarity's
+/// captured map (NG3 rarity 4 and 5); NG1/NG2 need none.
+#[allow(clippy::too_many_arguments)]
+pub fn materialize_certified_record(
+    index: &EffectTableIndex,
+    playthrough: u8,
+    captured_map: Option<&GraceMap>,
+    template: &ScrollRecordBytes,
+    rarity: u8,
+    seed: u32,
+    level: u16,
+    recommended_level: u16,
+    generation_serial: u32,
+    transfer_count: u32,
+) -> Result<(ScrollRecordBytes, ScrollRecord), InstallMaterializeError> {
+    ensure_template_type(template, playthrough)?;
+    match rarity {
+        RARITY_GROWING => materialize_rarity3_record(
+            index,
+            playthrough,
+            template,
+            seed,
+            level,
+            recommended_level,
+            generation_serial,
+            transfer_count,
+        ),
+        RARITY_FINALIZABLE => {
+            let map = rarity4_map(playthrough, captured_map)?;
+            let pair = crate::sequence::materialize_rarity4_final_record(
+                index,
+                &map,
+                playthrough,
+                template,
+                seed,
+                level,
+                recommended_level,
+                generation_serial,
+                transfer_count,
+            )?;
+            Ok((
+                pair.preview_record().clone(),
+                pair.preview_sequence().clone(),
+            ))
+        }
+        RARITY_DIVINE if !crate::sequence::rarity5_has_grace(playthrough) => {
+            materialize_rarity5_plain_record(
+                index,
+                playthrough,
+                template,
+                seed,
+                level,
+                recommended_level,
+                generation_serial,
+                transfer_count,
+            )
+        }
+        RARITY_DIVINE => materialize_rarity5_record(
+            index,
+            captured_map.ok_or(SequenceError::GraceMapContext { field: "ranges" })?,
+            playthrough,
+            template,
+            seed,
+            level,
+            recommended_level,
+            generation_serial,
+            transfer_count,
+        ),
+        other => Err(InstallMaterializeError::UnsupportedRarity(other)),
+    }
+}
+
+/// [`materialize_ng3_certified_install_record`] for playthroughs 1 to 3: the
+/// record the save must receive (rarity 4's stage one) and the preview the
+/// reveal path produces.
+#[allow(clippy::too_many_arguments)]
+pub fn materialize_certified_install_record(
+    index: &EffectTableIndex,
+    playthrough: u8,
+    captured_map: Option<&GraceMap>,
+    template: &ScrollRecordBytes,
+    rarity: u8,
+    seed: u32,
+    level: u16,
+    recommended_level: u16,
+    generation_serial: u32,
+    transfer_count: u32,
+) -> Result<(ScrollRecordBytes, ScrollRecord), InstallMaterializeError> {
+    if rarity != RARITY_FINALIZABLE {
+        return materialize_certified_record(
+            index,
+            playthrough,
+            captured_map,
+            template,
+            rarity,
+            seed,
+            level,
+            recommended_level,
+            generation_serial,
+            transfer_count,
+        );
+    }
+    ensure_template_type(template, playthrough)?;
+    let map = rarity4_map(playthrough, captured_map)?;
+    let (install_record, _stage_one) = crate::sequence::materialize_rarity4_stage_one_record(
+        index,
+        &map,
+        playthrough,
+        template,
+        seed,
+        level,
+        recommended_level,
+        generation_serial,
+        transfer_count,
+    )?;
+    let pair = crate::sequence::materialize_rarity4_final_record(
+        index,
+        &map,
+        playthrough,
         template,
         seed,
         level,

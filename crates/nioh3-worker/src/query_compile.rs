@@ -407,13 +407,14 @@ impl QueryCompiler {
                     query.playthrough
                 )))
             }
-            None if query.playthrough != 3 => {
+            None if !matches!(query.playthrough, 1..=3) => {
                 return Err(CompileError::unsupported(format!(
-                    "offline NG3 search requires playthrough 3, not {}; NG4/NG5 needs its \
+                    "offline search covers playthroughs 1 to 3, not {}; NG4/NG5 needs its \
                      save-bound rarity-5 cache",
                     query.playthrough
                 )))
             }
+            None if query.playthrough != 3 => return self.compile_early_playthrough(query),
             _ => {}
         }
         if !(3..=5).contains(&query.rarity) {
@@ -521,6 +522,123 @@ impl QueryCompiler {
             "this rarity-{} search does not match any route this development worker compiles",
             query.rarity
         )))
+    }
+
+    /// NG1/NG2: the forward filter over the full seed family, every Seed decided
+    /// by the playthrough-generic composition that matches the native generator
+    /// (`docs/knowledge/V082_NG12_OFFLINE_PARITY_20260927.md`).
+    ///
+    /// The NG3 accelerators (preimage families, primary pivots, the batched
+    /// effect mask and the packed auxiliary pivot) encode NG3 sequence shapes,
+    /// so none of them runs here: the certified verifier decides the effect
+    /// criteria and the job layer's composed acceptance decides the auxiliary
+    /// ones. Slower than NG3, but no Seed can be dropped by an unproven filter.
+    fn compile_early_playthrough(
+        &self,
+        query: &SearchQuery,
+    ) -> Result<CompiledQuery, CompileError> {
+        if !(RARITY_GROWING..=RARITY_DIVINE).contains(&query.rarity) {
+            return Err(CompileError::unsupported(format!(
+                "offline search requires rarity 3, 4 or 5, not {}",
+                query.rarity
+            )));
+        }
+        let graces_requested =
+            query.grace_effect_id.is_some() || !query.grace_effect_ids.is_empty();
+        if graces_requested && query.rarity != RARITY_FINALIZABLE {
+            return Err(CompileError::Rejected(format!(
+                "playthrough-{} rarity-{} scrolls carry no Grace",
+                query.playthrough, query.rarity
+            )));
+        }
+        if !query.terrain_selection_ids.is_empty() && query.auxiliary.terrain_row_indices.is_empty()
+        {
+            return Err(CompileError::Rejected(
+                "terrain options were not resolved against the context-bound terrain table"
+                    .to_string(),
+            ));
+        }
+        let stage_one_map = if query.rarity == RARITY_FINALIZABLE {
+            Some(
+                nioh3_domain::sequence::ng12_rarity4_stage_one_map(query.playthrough)
+                    .map_err(|error| CompileError::data(format!("{error:?}")))?,
+            )
+        } else {
+            None
+        };
+        let pivot_values = match (query.grace_effect_id, stage_one_map.as_ref()) {
+            (Some(grace), Some(map)) => crate::effect_path::grace_pivot_values(grace, map)
+                .map_err(|error| {
+                    CompileError::Rejected(format!(
+                        "rarity-4 Grace 0x{grace:04X} has no draw-1 preimage: {error}"
+                    ))
+                })?,
+            (None, Some(map)) if !query.grace_effect_ids.is_empty() => {
+                let mut allowed = std::collections::BTreeSet::new();
+                for grace in sorted_unique(&query.grace_effect_ids) {
+                    if let Ok(values) = crate::effect_path::grace_pivot_values(grace, map) {
+                        allowed.extend(values);
+                    }
+                }
+                if allowed.is_empty() {
+                    return Err(CompileError::Rejected(
+                        "none of the selected rarity-4 Graces has a draw-1 preimage".to_string(),
+                    ));
+                }
+                self.full_family_values()
+                    .into_iter()
+                    .filter(|value| allowed.contains(value))
+                    .collect()
+            }
+            _ => self.full_family_values(),
+        };
+        let criteria = crate::effect_batch::PartialEffectCriteria {
+            primary_effect_ids: sorted_unique(&query.primary_effect_ids),
+            required_secondary_ids: sorted_unique(&query.required_secondary_ids),
+            required_secondary_id_groups: query
+                .required_secondary_id_groups
+                .iter()
+                .map(|group| sorted_unique(group))
+                .collect(),
+            grace_effect_id: query.grace_effect_id,
+            minimum_roll_percent_by_effect_id: query.minimum_roll_percent_by_effect_id.clone(),
+        };
+        let has_composition_criteria = !criteria.primary_effect_ids.is_empty()
+            || !criteria.required_secondary_ids.is_empty()
+            || !criteria.required_secondary_id_groups.is_empty()
+            || !criteria.minimum_roll_percent_by_effect_id.is_empty()
+            || criteria.grace_effect_id.is_some();
+        let verifier = has_composition_criteria.then(|| {
+            Arc::new(crate::effect_batch::PartialEffectVerifier::build(
+                Arc::clone(&self.effect_index),
+                query.rarity,
+                query.playthrough,
+                query.level,
+                criteria,
+                // NG1/NG2 compose without captured maps.
+                None,
+                None,
+            ))
+        });
+        Ok(CompiledQuery {
+            route: Route::PartialEffectFilter,
+            digest: query.digest.clone(),
+            native: NativePivotQuery::Natural {
+                values: pivot_values,
+            },
+            playthrough: query.playthrough,
+            rarity: query.rarity,
+            has_terrain_constraint: auxiliary_has_terrain(&query.auxiliary),
+            stage_specs: Vec::new(),
+            chunk_trials: FULL_FAMILY_CHUNK_TRIALS,
+            page_filter: Some(PageFilter {
+                primary: None,
+                auxiliary: None,
+                effect_mask: None,
+                effect_verifier: verifier,
+            }),
+            post_acceptance_filters: partial_effect_post_acceptance_filters(query),
+        })
     }
 
     fn compile_auxiliary(&self, query: &SearchQuery) -> Result<CompiledQuery, CompileError> {
@@ -3151,5 +3269,134 @@ mod tests {
             .compile(&query, &accelerator, false)
             .expect("an unconstrained rarity-5 query compiles");
         assert_eq!(compiled.route, Route::FullFamily);
+    }
+
+    fn early_query(playthrough: u8, rarity: u8, primary: &[u32], secondary: &[u32]) -> SearchQuery {
+        SearchQuery::from_payload(&json!({
+            "playthrough": playthrough,
+            "rarity": rarity,
+            "level": 180,
+            "primary_effect_ids": primary,
+            "required_secondary_ids": secondary,
+            "required_secondary_id_groups": [],
+            "grace_effect_id": null,
+            "minimum_roll_percent_by_effect_id": [],
+            "auxiliary": {
+                "required_terrain_effect_keys": [],
+                "required_terrain_effect_key_groups": [],
+                "required_special_rule_keys": [],
+                "required_special_rule_key_groups": [],
+                "required_enemy_lookup_keys": [],
+                "required_enemy_lookup_key_groups": [],
+            },
+        }))
+        .expect("the early-playthrough query is valid")
+    }
+
+    /// NG1/NG2 run the forward filter with no NG3 accelerator, and inside one
+    /// trial window it publishes exactly the Seeds whose generic composition
+    /// (the one matching the native generator) satisfies the request: nothing
+    /// missed, nothing extra, for every rarity.
+    #[test]
+    fn ng1_and_ng2_searches_publish_exactly_the_composed_matches() {
+        let _accelerator = crate::accelerator_test_lock();
+        let root = repo_root();
+        let compiler = QueryCompiler::load(&root.join("nioh3_scroll_editor").join("data"))
+            .expect("the shipped tables load");
+        let accelerator = Accelerator::load(&root, None).expect("the shipped accelerator loads");
+        let backend = pivot_backend(&root);
+        const WINDOW: u64 = 60_000;
+        for playthrough in [1u8, 2] {
+            for rarity in [3u8, 4, 5] {
+                let compose = |seed: u32| {
+                    nioh3_domain::sequence::compose_preview_sequence(
+                        &compiler.effect_index,
+                        playthrough,
+                        rarity,
+                        seed,
+                        180,
+                        None,
+                        None,
+                    )
+                    .expect("the generic composition succeeds")
+                };
+                // The request names the primary and first secondary of a real Seed.
+                let sample = compose(6_096_970);
+                let primary = sample.effects[0].effect_id;
+                let secondary = sample.effects[1].effect_id;
+                for (label, query) in [
+                    ("primary", early_query(playthrough, rarity, &[primary], &[])),
+                    (
+                        "primary+secondary",
+                        early_query(playthrough, rarity, &[primary], &[secondary]),
+                    ),
+                ] {
+                    let compiled = compiler
+                        .compile(&query, &accelerator, true)
+                        .expect("the early-playthrough query compiles");
+                    assert_eq!(compiled.route, Route::PartialEffectFilter);
+                    let filter = compiled.page_filter.as_ref().expect("a page filter");
+                    assert!(filter.primary.is_none() && filter.auxiliary.is_none());
+                    assert!(filter.effect_mask.is_none() && filter.effect_verifier.is_some());
+
+                    let every = backend
+                        .collect_page_filtered(
+                            &compiled.native,
+                            &PageRequest::chunk(0, WINDOW, compiled.chunk_trials, WINDOW as usize),
+                            &|| false,
+                            &mut |_| {},
+                            None,
+                        )
+                        .expect("the unfiltered window runs");
+                    let expected: Vec<u32> = every
+                        .matches
+                        .iter()
+                        .map(|found| found.seed)
+                        .filter(|seed| {
+                            let record = compose(*seed);
+                            record.effects[0].effect_id == primary
+                                && (label == "primary"
+                                    || record.effects[1..]
+                                        .iter()
+                                        .any(|effect| effect.effect_id == secondary))
+                        })
+                        .collect();
+                    let published = backend
+                        .collect_page_filtered(
+                            &compiled.native,
+                            &PageRequest::chunk(0, WINDOW, compiled.chunk_trials, WINDOW as usize),
+                            &|| false,
+                            &mut |_| {},
+                            page_filter_of(&compiled).as_ref(),
+                        )
+                        .expect("the filtered window runs");
+                    let published: Vec<u32> =
+                        published.matches.iter().map(|found| found.seed).collect();
+                    assert!(
+                        !expected.is_empty(),
+                        "NG{playthrough} R{rarity} {label}: the window holds no match to compare"
+                    );
+                    assert_eq!(
+                        published, expected,
+                        "NG{playthrough} R{rarity} {label}: published Seeds differ from the composed matches"
+                    );
+                }
+            }
+        }
+    }
+
+    /// NG1/NG2 rarity 5 carries no Grace, so a Grace request is refused by name.
+    #[test]
+    fn an_early_rarity5_grace_request_is_refused() {
+        let root = repo_root();
+        let compiler = QueryCompiler::load(&root.join("nioh3_scroll_editor").join("data"))
+            .expect("the shipped tables load");
+        let accelerator = Accelerator::load(&root, None).expect("the shipped accelerator loads");
+        let mut query = early_query(1, 5, &[], &[]);
+        query.grace_effect_id = Some(0x6553);
+        let error = compiler
+            .compile(&query, &accelerator, true)
+            .expect_err("NG1 rarity 5 has no Grace");
+        assert!(format!("{error}").contains("carry no Grace"));
     }
 }

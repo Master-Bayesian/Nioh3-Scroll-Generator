@@ -19,7 +19,9 @@ use nioh3_domain::install_materialize::{
     materialize_rarity3_record, materialize_rarity5_plain_record, materialize_rarity5_record,
 };
 use nioh3_domain::record::ScrollRecordBytes;
-use nioh3_domain::sequence::{materialize_rarity4_final_record, materialize_rarity4_stage_one_record};
+use nioh3_domain::sequence::{
+    materialize_rarity4_final_record, materialize_rarity4_stage_one_record,
+};
 
 const RUNTIME_HEADER_OFFSET: usize = 0x1B;
 
@@ -50,7 +52,8 @@ fn differences(native: &[u8], offline: &[u8]) -> (Vec<usize>, bool) {
 
 /// A research capture (`record_type`, `rarity`, `effect_slot`, `ranges`).
 fn load_map(path: &Path, rarity: u8) -> GraceMap {
-    let payload: Value = serde_json::from_slice(&std::fs::read(path).expect("map file")).expect("map json");
+    let payload: Value =
+        serde_json::from_slice(&std::fs::read(path).expect("map file")).expect("map json");
     let map = GraceMap {
         format: "nioh3-grace-first-u16-map-v2".to_string(),
         game_version: "2.02".to_string(),
@@ -77,16 +80,19 @@ fn load_map(path: &Path, rarity: u8) -> GraceMap {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let data_root = Path::new(&args[1]);
-    let dump: Value = serde_json::from_slice(&std::fs::read(&args[2]).expect("dump")).expect("dump json");
+    let dump: Value =
+        serde_json::from_slice(&std::fs::read(&args[2]).expect("dump")).expect("dump json");
     let playthrough = dump["playthrough"].as_u64().expect("playthrough") as u8;
     let rarity = dump["rarity"].as_u64().expect("rarity") as u8;
     let level = dump["level"].as_u64().expect("level") as u16;
     let recommended = dump["recommended_level"].as_u64().expect("recommended") as u16;
-    let template = ScrollRecordBytes::from_slice(&hex_bytes(dump["template_hex"].as_str().expect("template")))
-        .expect("template record");
+    let template =
+        ScrollRecordBytes::from_slice(&hex_bytes(dump["template_hex"].as_str().expect("template")))
+            .expect("template record");
     let map = args.get(3).map(|path| load_map(Path::new(path), rarity));
 
-    let resource = nioh3_data::load_effect_resource_for_file_version(data_root, (2, 0, 2, 0)).expect("v2.02 resource");
+    let resource = nioh3_data::load_effect_resource_for_file_version(data_root, (2, 0, 2, 0))
+        .expect("v2.02 resource");
     let index = EffectTableIndex::from_resource(&resource).expect("index");
 
     let mut mismatches = 0usize;
@@ -101,45 +107,52 @@ fn main() {
         // The native generator writes its own recommended level at +0x10; take
         // it so a level pair the game rewrites cannot mask the effect bytes.
         let first_native = hex_bytes(
-            if rarity == 4 { entry["stage"].as_str() } else { entry.as_str() }.expect("record"),
+            if rarity == 4 {
+                entry["stage"].as_str()
+            } else {
+                entry.as_str()
+            }
+            .expect("record"),
         );
         let native_recommended = u16::from_le_bytes([first_native[0x10], first_native[0x11]]);
         if native_recommended != recommended {
             adopted += 1;
         }
         let recommended = native_recommended;
-        let mut compare = |label: &str, native: &[u8], offline: Result<Vec<u8>, String>| match offline {
-            Err(error) => {
-                errors += 1;
-                if samples.len() < 24 {
-                    samples.push(json!({ "seed": seed, "stage": label, "error": error }));
-                }
-            }
-            Ok(offline) => {
-                let (mut offsets, runtime) = differences(native, &offline);
-                // The documented rarity-5 header cap: the isolated native path
-                // stores 4/4 at +0x30/+0x31 where the save record holds 5/5.
-                if rarity == 5
-                    && offsets == [0x30, 0x31]
-                    && native[0x30..0x32] == [4, 4]
-                    && offline[0x30..0x32] == [5, 5]
-                {
-                    header_cap += 1;
-                    offsets.clear();
-                }
-                if runtime && offsets.is_empty() {
-                    runtime_only += 1;
-                }
-                if !offsets.is_empty() {
-                    mismatches += 1;
+        let mut compare = |label: &str, native: &[u8], offline: Result<Vec<u8>, String>| {
+            match offline {
+                Err(error) => {
+                    errors += 1;
                     if samples.len() < 24 {
-                        samples.push(json!({
+                        samples.push(json!({ "seed": seed, "stage": label, "error": error }));
+                    }
+                }
+                Ok(offline) => {
+                    let (mut offsets, runtime) = differences(native, &offline);
+                    // The documented rarity-5 header cap: the isolated native path
+                    // stores 4/4 at +0x30/+0x31 where the save record holds 5/5.
+                    if rarity == 5
+                        && offsets == [0x30, 0x31]
+                        && native[0x30..0x32] == [4, 4]
+                        && offline[0x30..0x32] == [5, 5]
+                    {
+                        header_cap += 1;
+                        offsets.clear();
+                    }
+                    if runtime && offsets.is_empty() {
+                        runtime_only += 1;
+                    }
+                    if !offsets.is_empty() {
+                        mismatches += 1;
+                        if samples.len() < 24 {
+                            samples.push(json!({
                             "seed": seed,
                             "stage": label,
                             "offsets": offsets.iter().map(|offset| format!("0x{offset:02X}")).collect::<Vec<_>>(),
                             "native": hex(native),
                             "offline": hex(&offline),
                         }));
+                        }
                     }
                 }
             }
@@ -148,8 +161,14 @@ fn main() {
             3 => {
                 let native = hex_bytes(entry.as_str().expect("record"));
                 let offline = materialize_rarity3_record(
-                    &index, playthrough, &template, seed, level, recommended,
-                    u32_at(&native, 0x28), u32_at(&native, 0xDC),
+                    &index,
+                    playthrough,
+                    &template,
+                    seed,
+                    level,
+                    recommended,
+                    u32_at(&native, 0x28),
+                    u32_at(&native, 0xDC),
                 )
                 .map(|(record, _)| record.as_bytes().to_vec())
                 .map_err(|error| error.to_string());
@@ -161,13 +180,29 @@ fn main() {
                 let map = map.as_ref().expect("rarity 4 needs the stage-one map");
                 let (serial, transfer) = (u32_at(&stage, 0x28), u32_at(&stage, 0xDC));
                 let offline_stage = materialize_rarity4_stage_one_record(
-                    &index, map, playthrough, &template, seed, level, recommended, serial, transfer,
+                    &index,
+                    map,
+                    playthrough,
+                    &template,
+                    seed,
+                    level,
+                    recommended,
+                    serial,
+                    transfer,
                 )
                 .map(|(record, _)| record.as_bytes().to_vec())
                 .map_err(|error| format!("{error:?}"));
                 compare("stage", &stage, offline_stage);
                 let offline_final = materialize_rarity4_final_record(
-                    &index, map, playthrough, &template, seed, level, recommended, serial, transfer,
+                    &index,
+                    map,
+                    playthrough,
+                    &template,
+                    seed,
+                    level,
+                    recommended,
+                    serial,
+                    transfer,
                 )
                 .map(|pair| pair.preview_record().as_bytes().to_vec())
                 .map_err(|error| format!("{error:?}"));
@@ -179,10 +214,25 @@ fn main() {
                 // Without a map the context is the Grace-less NG1/NG2 layout.
                 let offline = match map.as_ref() {
                     Some(map) => materialize_rarity5_record(
-                        &index, map, playthrough, &template, seed, level, recommended, serial, transfer,
+                        &index,
+                        map,
+                        playthrough,
+                        &template,
+                        seed,
+                        level,
+                        recommended,
+                        serial,
+                        transfer,
                     ),
                     None => materialize_rarity5_plain_record(
-                        &index, playthrough, &template, seed, level, recommended, serial, transfer,
+                        &index,
+                        playthrough,
+                        &template,
+                        seed,
+                        level,
+                        recommended,
+                        serial,
+                        transfer,
                     ),
                 }
                 .map(|(record, _)| record.as_bytes().to_vec())

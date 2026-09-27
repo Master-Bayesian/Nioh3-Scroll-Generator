@@ -369,6 +369,110 @@ pub fn generate_rarity5_plain_effect_sequence(
     builder.finish(seed, RARITY_DIVINE, level, effects, random_draws, false)
 }
 
+/// NG1/NG2 rarity-4 stage-one special map `(first u16 start, end, Grace)`.
+///
+/// Measured live on PC v2.02 at the title screen (65536 native generations per
+/// context): identical for NG1 and NG2 and at levels 180 and 120, and the same
+/// method reproduces the shipped NG3 map range for range. Evidence:
+/// `docs/knowledge/V082_NG12_OFFLINE_PARITY_20260927.md`.
+const NG12_RARITY4_STAGE_ONE_RANGES: [(u16, u16, u32); 10] = [
+    (0, 6559, 0x23E5),
+    (6560, 13112, 0x2AE6),
+    (13113, 19665, 0x8CCC),
+    (19666, 26218, 0xB24F),
+    (26219, 32771, 0x5012),
+    (32772, 39324, 0x7BEA),
+    (39325, 45877, 0x590C),
+    (45878, 52430, 0x4FA3),
+    (52431, 58983, 0xB1E9),
+    (58984, 65535, 0xE8EB),
+];
+
+/// The embedded rarity-4 stage-one map of playthrough 1 or 2.
+pub fn ng12_rarity4_stage_one_map(playthrough: u8) -> Result<GraceMap, SequenceError> {
+    if !matches!(playthrough, 1 | 2) {
+        return Err(SequenceError::UnsupportedPlaythrough(playthrough));
+    }
+    Ok(GraceMap {
+        format: "nioh3-grace-first-u16-map-v2".to_string(),
+        game_version: "2.02".to_string(),
+        record_type: u32::from(record_type_for_playthrough(playthrough)?),
+        rarity: RARITY_FINALIZABLE,
+        capture_state: "ng12-live-native-title-screen".to_string(),
+        effect_slot: RARITY4_STAGE_ONE_SLOT,
+        ranges: NG12_RARITY4_STAGE_ONE_RANGES
+            .iter()
+            .map(|&(start, end, effect_id)| crate::effect::GraceRange {
+                start,
+                end,
+                effect_id,
+            })
+            .collect(),
+    })
+}
+
+/// Whether rarity-5 records of this playthrough carry a Grace (NG3 and later).
+pub fn rarity5_has_grace(playthrough: u8) -> bool {
+    playthrough >= NG3_PLAYTHROUGH
+}
+
+/// The preview sequence one Seed composes to in a playthrough/rarity context:
+/// rarity 3 as generated, rarity 4 finalized, rarity 5 with or without its
+/// Grace. `r4_map`/`r5_map` are the context's captured maps; NG1/NG2 need none
+/// (their rarity-4 map is embedded and their rarity 5 has no Grace).
+pub fn compose_preview_sequence(
+    index: &EffectTableIndex,
+    playthrough: u8,
+    rarity: u8,
+    seed: u32,
+    level: u16,
+    r4_map: Option<&GraceMap>,
+    r5_map: Option<&GraceMap>,
+) -> Result<ScrollRecord, SequenceError> {
+    let record_type = record_type_for_playthrough(playthrough)?;
+    match rarity {
+        RARITY_GROWING => generate_rarity3_effect_sequence(index, playthrough, seed, level),
+        RARITY_FINALIZABLE => {
+            let embedded;
+            let map = match r4_map {
+                Some(map) => map,
+                None => {
+                    embedded = ng12_rarity4_stage_one_map(playthrough).map_err(|_| {
+                        SequenceError::GraceMapContext {
+                            field: "record_type",
+                        }
+                    })?;
+                    &embedded
+                }
+            };
+            let mut template = ScrollRecordBytes::zeroed();
+            template.write_u16(0x00, record_type)?;
+            let pair = materialize_rarity4_final_record(
+                index,
+                map,
+                playthrough,
+                &template,
+                seed,
+                level,
+                0,
+                0,
+                0,
+            )?;
+            Ok(pair.preview_sequence().clone())
+        }
+        RARITY_DIVINE if !rarity5_has_grace(playthrough) => {
+            generate_rarity5_plain_effect_sequence(index, playthrough, seed, level)
+        }
+        RARITY_DIVINE => {
+            let map = r5_map.ok_or(SequenceError::GraceMapContext { field: "ranges" })?;
+            generate_rarity5_grace_effect_sequence(index, map, playthrough, seed, level)
+        }
+        other => Err(SequenceError::Table(EffectError::UnsupportedRarity {
+            rarity: other,
+        })),
+    }
+}
+
 /// Backward-compatible verified NG3 rarity-5 entry point.
 pub fn generate_ng3_rarity5_effect_sequence(
     index: &EffectTableIndex,
@@ -945,6 +1049,38 @@ mod sequence_tests {
     }
 
     #[test]
+    fn the_embedded_ng12_rarity4_map_is_the_live_capture() {
+        // `map-ng1-r4.json` / `map-ng2-r4.json` of the live capture, in decimal.
+        let captured: [(u16, u16, u32); 10] = [
+            (0, 6559, 9189),
+            (6560, 13112, 10982),
+            (13113, 19665, 36044),
+            (19666, 26218, 45647),
+            (26219, 32771, 20498),
+            (32772, 39324, 31722),
+            (39325, 45877, 22796),
+            (45878, 52430, 20387),
+            (52431, 58983, 45545),
+            (58984, 65535, 59627),
+        ];
+        for playthrough in [1u8, 2] {
+            let map = ng12_rarity4_stage_one_map(playthrough).unwrap();
+            map.validate_partition().unwrap();
+            assert_eq!(
+                map.record_type,
+                u32::from(CATEGORY_TO_TYPE[usize::from(playthrough)])
+            );
+            let ranges: Vec<(u16, u16, u32)> = map
+                .ranges
+                .iter()
+                .map(|range| (range.start, range.end, range.effect_id))
+                .collect();
+            assert_eq!(ranges, captured);
+        }
+        assert!(ng12_rarity4_stage_one_map(3).is_err());
+    }
+
+    #[test]
     fn ng1_and_ng2_rarity5_draw_six_ordinary_effects_and_no_grace() {
         // Live PC v2.02: native NG1/NG2 rarity-5 records carry six ordinary
         // effects, the primary in the first slot, and an empty seventh slot.
@@ -952,7 +1088,10 @@ mod sequence_tests {
         for playthrough in [1u8, 2] {
             let record = generate_rarity5_plain_effect_sequence(&index, playthrough, 1, 180)
                 .expect("the plain rarity-5 path generates");
-            assert_eq!(record.record_type, CATEGORY_TO_TYPE[usize::from(playthrough)]);
+            assert_eq!(
+                record.record_type,
+                CATEGORY_TO_TYPE[usize::from(playthrough)]
+            );
             assert_eq!(record.playthrough, playthrough);
             assert_eq!(record.effects.len(), 6);
             assert!(!record.terminal_is_special);
@@ -960,7 +1099,11 @@ mod sequence_tests {
                 record.effects[0].category_and_flags & EFFECT_FLAG_PRIMARY,
                 EFFECT_FLAG_PRIMARY
             );
-            let promotion = if record.promoted_source_indexes.is_empty() { 0 } else { 7 };
+            let promotion = if record.promoted_source_indexes.is_empty() {
+                0
+            } else {
+                7
+            };
             assert_eq!(record.random_draws, 1 + promotion + 6 * 3);
         }
     }

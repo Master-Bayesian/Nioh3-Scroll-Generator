@@ -16,11 +16,8 @@ use nioh3_domain::preview::{
     compose_auxiliary_preview, compose_enemy_state_preview, effect_previews, AuxiliaryPreview,
     EnemyStatePreview, PreviewTables,
 };
-use nioh3_domain::record::{materialize_ng3_rarity4_final_record, ScrollRecord, ScrollRecordBytes};
-use nioh3_domain::sequence::{
-    generate_challenge_attempt_count, generate_ng3_rarity3_effect_sequence,
-    generate_rarity5_grace_effect_sequence, NG3_RECORD_TYPE,
-};
+use nioh3_domain::record::ScrollRecord;
+use nioh3_domain::sequence::{compose_preview_sequence, generate_challenge_attempt_count};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -306,9 +303,15 @@ impl CandidateSource for Materializer {
         if !query.grace_effect_ids.is_empty() {
             // Rarity 4 offers the verified final Grace ids, never the raw
             // stage-one output codes; rarity 5 offers its measured map's ids.
-            let allowed: Vec<u32> = match query.rarity {
-                4 => catalog::R4_FINAL_GRACE_IDS.to_vec(),
-                5 => resources
+            // NG1/NG2 rarity 4 finalizes to its stage-one Graces unchanged (all
+            // 20000 live native finals), and its rarity 5 has no Grace.
+            let allowed: Vec<u32> = match (query.rarity, query.playthrough) {
+                (4, 1 | 2) => nioh3_domain::sequence::ng12_rarity4_stage_one_map(query.playthrough)
+                    .map(|map| map.ranges.iter().map(|range| range.effect_id).collect())
+                    .unwrap_or_default(),
+                (5, 1 | 2) => Vec::new(),
+                (4, _) => catalog::R4_FINAL_GRACE_IDS.to_vec(),
+                (5, _) => resources
                     .effect
                     .grace_maps
                     .get(1)
@@ -1022,40 +1025,25 @@ fn build_sequence(
     playthrough: u8,
     cached_grace: Option<&nioh3_domain::effect::GraceMap>,
 ) -> Result<ScrollRecord, EngineError> {
-    match rarity {
-        3 => generate_ng3_rarity3_effect_sequence(index, seed, level)
-            .map_err(|error| EngineError::new("INVALID_REQUEST", format!("{error:?}"))),
-        4 => {
-            let mut template = ScrollRecordBytes::zeroed();
-            template
-                .write_u16(0x00, NG3_RECORD_TYPE)
-                .map_err(|error| EngineError::new("INVALID_REQUEST", format!("{error:?}")))?;
-            let pair = materialize_ng3_rarity4_final_record(
-                index,
-                &effect.grace_maps[0],
-                &template,
-                seed,
-                level,
-                0,
-                0,
-                0,
-            )
-            .map_err(|error| EngineError::new("INVALID_REQUEST", format!("{error:?}")))?;
-            Ok(pair.preview_sequence().clone())
-        }
-        5 => generate_rarity5_grace_effect_sequence(
-            index,
-            cached_grace.unwrap_or(&effect.grace_maps[1]),
-            playthrough,
-            seed,
-            level,
-        )
-        .map_err(|error| EngineError::new("INVALID_REQUEST", format!("{error:?}"))),
-        other => Err(EngineError::new(
+    if !(3..=5).contains(&rarity) {
+        return Err(EngineError::new(
             "INVALID_REQUEST",
-            format!("certified offline preview supports rarity 3, 4 or 5, not {other}"),
-        )),
+            format!("certified offline preview supports rarity 3, 4 or 5, not {rarity}"),
+        ));
     }
+    // NG3 composes from the bundled maps and NG4/NG5 rarity 5 from the
+    // registered save-bound map; NG1/NG2 need none (their rarity-4 map is
+    // embedded in the domain and their rarity 5 carries no Grace).
+    let (r4_map, r5_map) = if playthrough == 3 {
+        (
+            Some(&effect.grace_maps[0]),
+            Some(cached_grace.unwrap_or(&effect.grace_maps[1])),
+        )
+    } else {
+        (None, cached_grace)
+    };
+    compose_preview_sequence(index, playthrough, rarity, seed, level, r4_map, r5_map)
+        .map_err(|error| EngineError::new("INVALID_REQUEST", format!("{error:?}")))
 }
 
 /// `CONTRACT_DIGEST` = SHA-256 of the request schema bytes then the response

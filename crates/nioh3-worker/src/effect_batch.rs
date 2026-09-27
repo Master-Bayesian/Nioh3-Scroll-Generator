@@ -17,11 +17,8 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use nioh3_domain::effect::{EffectTableIndex, GraceMap, NativeWeightContext};
-use nioh3_domain::record::{ScrollRecord, ScrollRecordBytes};
-use nioh3_domain::sequence::{
-    generate_ng3_rarity3_effect_sequence, generate_rarity5_grace_effect_sequence,
-    materialize_ng3_rarity4_final_record, NG3_RECORD_TYPE,
-};
+use nioh3_domain::record::ScrollRecord;
+use nioh3_domain::sequence::compose_preview_sequence;
 
 use crate::effect_path::EffectPathError;
 use crate::grace_map::CATEGORY_TO_TYPE;
@@ -576,53 +573,37 @@ impl PartialEffectVerifier {
     /// shipped layer, because a Seed the generator cannot compose must never
     /// silently disappear from the result set.
     fn compose(&self, seed: u32) -> Result<ScrollRecord, EffectPathError> {
-        let composed = match self.rarity {
-            3 => generate_ng3_rarity3_effect_sequence(&self.tables, seed, self.level),
-            4 => {
-                let grace = self.r4_grace.as_ref().ok_or_else(|| {
-                    EffectPathError::Unsupported(
-                        "the rarity-4 partial-effect route needs its captured draw-1 Grace map"
-                            .to_string(),
-                    )
-                })?;
-                let mut template = ScrollRecordBytes::zeroed();
-                template.write_u16(0x00, NG3_RECORD_TYPE).map_err(|error| {
-                    EffectPathError::Data(format!("rarity-4 template: {error:?}"))
-                })?;
-                materialize_ng3_rarity4_final_record(
-                    &self.tables,
-                    grace,
-                    &template,
-                    seed,
-                    self.level,
-                    0,
-                    0,
-                    0,
-                )
-                .map(|pair| pair.preview_sequence().clone())
-            }
-            5 => {
-                let grace = self.r5_grace.as_ref().ok_or_else(|| {
-                    EffectPathError::Unsupported(
-                        "the rarity-5 partial-effect route needs its captured draw-1 Grace map"
-                            .to_string(),
-                    )
-                })?;
-                generate_rarity5_grace_effect_sequence(
-                    &self.tables,
-                    grace,
-                    self.playthrough,
-                    seed,
-                    self.level,
-                )
-            }
-            other => {
-                return Err(EffectPathError::Unsupported(format!(
-                    "the certified partial-effect composition is implemented for rarities 3, 4 \
-                     and 5, not rarity {other}"
-                )))
-            }
+        if !(3..=5).contains(&self.rarity) {
+            return Err(EffectPathError::Unsupported(format!(
+                "the certified partial-effect composition is implemented for rarities 3, 4 \
+                 and 5, not rarity {}",
+                self.rarity
+            )));
+        }
+        // NG3 and later compose from the captured maps this verifier carries;
+        // NG1/NG2 need none (embedded rarity-4 map, no rarity-5 Grace).
+        let map_missing = |rarity: u8| {
+            EffectPathError::Unsupported(format!(
+                "the rarity-{rarity} partial-effect route needs its captured draw-1 Grace map"
+            ))
         };
+        if self.playthrough >= 3 {
+            if self.rarity == 4 && self.r4_grace.is_none() {
+                return Err(map_missing(4));
+            }
+            if self.rarity == 5 && self.r5_grace.is_none() {
+                return Err(map_missing(5));
+            }
+        }
+        let composed = compose_preview_sequence(
+            &self.tables,
+            self.playthrough,
+            self.rarity,
+            seed,
+            self.level,
+            self.r4_grace.as_ref().filter(|_| self.playthrough >= 3),
+            self.r5_grace.as_ref().filter(|_| self.playthrough >= 3),
+        );
         composed.map_err(|error| {
             EffectPathError::Data(format!(
                 "certified rarity-{} partial composition: {error:?}",
