@@ -271,3 +271,11 @@ item was never saved; the last save (21:04:44, before the crash) decrypts and
 still holds the earlier inserted 扇子. The script now keeps every runtime-written
 cell at `+0x2C00`, separate from code, and refuses to arm when the assembled
 cave ends past `+0x1000`.
+With the fixed layout the retry (PID 45248, 备前传太刀 `0x4BF7`, Lv170, rarity 3,
+random seed word `0x698C0001`, hell-scroll drop context, converter context
+`+0x1C = 0x0249`, level 175) completed and was acknowledged: slot 1401 (planned),
+registers preserved, one container slot changed, serial `0x268364` (planned + 1).
+The record is a natural-shaped hell weapon: hell skill `0x3435` (one of the
+three katana rows), `+0x1A = 0x10`, flags `0x00100082`, rarity 4, plus 22, slot 0 the
+hell-only effect `0x8641` 赋予雷属性 (effect flags `0x50`), then 强攻击精力消耗降低,
+地狱武器掉落率, 中段武技精力伤害 and 布袋尊的恩宠. The owner confirmed the weapon in game.
