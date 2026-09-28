@@ -1059,6 +1059,10 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-table .character-item-name small{margin-left:4px;color:#7a8b93;font-weight:400}
 .character-effects-cell{color:#3b525c}
 .character-hell{margin-left:6px;padding:0 5px;border-radius:8px;background:#7a1f1f;color:#fff;font-size:11px}
+.character-worn{margin-left:6px;padding:0 5px;border-radius:8px;background:#2f5f7a;color:#fff;font-size:11px;font-weight:400}
+.character-table th>.character-sort{width:auto;min-height:0;padding:0;border:0;background:none;color:inherit;font:inherit;font-weight:600;cursor:pointer;white-space:nowrap}
+.character-table th>.character-sort:hover{color:#2f6f57;background:none}
+.character-table th>.character-sort.active{color:#2f6f57}
 .character-verdict{white-space:nowrap;font-weight:600}
 .character-verdict.natural{color:#3c745f}
 .character-verdict.unverified{color:#b0761e}

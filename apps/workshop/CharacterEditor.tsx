@@ -133,6 +133,14 @@ const FINDING_LABEL: Record<string, string> = {
   replaced_effect: "词条被替换过，游戏自己生成不会留下这种痕迹",
 };
 const VERDICT_LABEL: Record<string, string> = { natural: "自然", unverified: "待确认", unnatural: "非自然" };
+const VERDICT_ORDER = ["unnatural", "unverified", "natural"];
+type SortKey = "level" | "rarity";
+
+function verdictOf(entry: CharacterEquipment): string | null {
+  const audit = entry.audit;
+  if (!audit) return null;
+  return audit.verdict ?? (audit.natural ? "natural" : "unnatural");
+}
 
 interface DraftEffect {
   id: string;
@@ -397,16 +405,46 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     }
     return tree;
   }, [character]);
+  const [verdictFilter, setVerdictFilter] = useState("");
+  const [sort, setSort] = useState<{ key: SortKey; descending: boolean } | null>(null);
+  const verdictCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const entry of character?.equipment ?? []) {
+      const verdict = verdictOf(entry);
+      if (verdict) counts[verdict] = (counts[verdict] ?? 0) + 1;
+    }
+    return counts;
+  }, [character]);
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return (character?.equipment ?? []).filter(entry => {
+    const matches = (character?.equipment ?? []).filter(entry => {
       const [a, b, c] = itemGroups(entry.item_id, entry.type_class);
       if ((major && a !== major) || (middle && b !== middle) || (minor && c !== minor)) return false;
+      if (verdictFilter && verdictOf(entry) !== verdictFilter) return false;
       if (!needle) return true;
       const text = [itemText(entry.item_id), a, b, c, ...entry.effects.map(effect => effectText(effect.effect_id))].join(" ");
       return text.toLowerCase().includes(needle);
     });
-  }, [character, query, major, middle, minor, showIds]);
+    if (!sort) return matches;
+    // Ties keep the game's inventory order (the sort is stable).
+    const sign = sort.descending ? -1 : 1;
+    const key = (entry: CharacterEquipment) => sort.key === "level" ? entry.level * 100 + (entry.plus ?? 0) : entry.rarity;
+    return [...matches].sort((left, right) => sign * (key(left) - key(right)));
+  }, [character, query, major, middle, minor, verdictFilter, sort, showIds]);
+  // Descending first, then ascending, then back to the game's order.
+  const toggleSort = (key: SortKey) =>
+    setSort(current => current?.key !== key ? { key, descending: true } : current.descending ? { key, descending: false } : null);
+  const sortHeader = (key: SortKey, label: string) => {
+    const active = sort?.key === key;
+    return (
+      <th aria-sort={active ? (sort.descending ? "descending" : "ascending") : "none"}>
+        <button type="button" className={"character-sort" + (active ? " active" : "")} onClick={() => toggleSort(key)}
+          title="点击排序：从高到低 → 从低到高 → 游戏顺序">
+          {label}<span aria-hidden="true">{active ? (sort.descending ? " ▼" : " ▲") : " ↕"}</span>
+        </button>
+      </th>
+    );
+  };
   // Rows per page: as many as fit the list area, so a page never needs the
   // wheel. The single-column layout scrolls the page instead.
   const tableWrap = useRef<HTMLDivElement>(null);
@@ -432,7 +470,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const shownPage = Math.min(page, pages - 1);
   const rows = filtered.slice(shownPage * pageSize, (shownPage + 1) * pageSize);
-  useEffect(() => setPage(0), [query, major, middle, minor]);
+  useEffect(() => setPage(0), [query, major, middle, minor, verdictFilter, sort]);
 
   // Items: one row per item id, held and stored stacks side by side.
   const itemRows = useMemo(() => {
@@ -982,8 +1020,8 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   }
   function verdictCell(entry: CharacterEquipment) {
     const audit = entry.audit;
-    if (!audit) return <span title="规则未载入">—</span>;
-    const verdict = audit.verdict ?? (audit.natural ? "natural" : "unnatural");
+    const verdict = verdictOf(entry);
+    if (!audit || !verdict) return <span title="规则未载入">—</span>;
     const reasons = [...audit.findings, ...(audit.unverified ?? [])].map(findingText).join("\n");
     return <span className={"character-verdict " + verdict} title={reasons}>{VERDICT_LABEL[verdict]}</span>;
   }
@@ -1027,13 +1065,19 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
               {minors.map(value => <option key={value} value={value}>{value}</option>)}
             </select>
           )}
+          <select value={verdictFilter} onChange={event => setVerdictFilter(event.target.value)} aria-label="判定">
+            <option value="">全部判定</option>
+            {VERDICT_ORDER.map(value => (
+              <option key={value} value={value}>{VERDICT_LABEL[value]}（{verdictCounts[value] ?? 0}）</option>
+            ))}
+          </select>
           <span className="equipment-range">{filtered.length} / {character?.equipment.length ?? 0}</span>
         </div>
       </div>
       <div className="character-table-wrap" ref={tableWrap}>
       <table className="equipment-table character-table">
         <thead>
-          <tr><th>物品</th><th>类别</th><th>等级</th><th>稀有度</th><th>判定</th></tr>
+          <tr><th>物品</th><th>类别</th>{sortHeader("level", "等级")}{sortHeader("rarity", "稀有度")}<th>判定</th></tr>
         </thead>
         <tbody>
           {rows.map(entry => {
@@ -1046,6 +1090,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
                   <span className="character-item-name">
                     {itemText(entry.item_id)}
                     {entry.hell ? <span className="character-hell">地狱</span> : null}
+                    {entry.worn ? <span className="character-worn" title="正在装备中，不能移除">装备中</span> : null}
                     {showIds ? <small> #{entry.slot_index}</small> : null}
                   </span>
                   <span className="character-item-effects" title={effects}>{effects}</span>
@@ -1108,7 +1153,11 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const equipmentDetail = row && draft ? (
     <div className="character-detail">
       <div className="character-detail-head">
-        <h3>{itemText(row.item_id)}{row.hell ? <span className="character-hell">地狱</span> : null}</h3>
+        <h3>
+          {itemText(row.item_id)}
+          {row.hell ? <span className="character-hell">地狱</span> : null}
+          {row.worn ? <span className="character-worn" title="正在装备中，不能移除">装备中</span> : null}
+        </h3>
         {verdictCell(row)}
         <div className="character-edit-modes" role="tablist">
           <button className={!modded ? "active" : ""} onClick={() => setModded(false)}>合法修改</button>

@@ -3935,6 +3935,22 @@
     "正在装备中的物品不能移除。": [
       "Equipped items cannot be removed.",
       "装備中のアイテムは削除できません。"
+    ],
+    "全部判定": [
+      "All verdicts",
+      "すべての判定"
+    ],
+    "装备中": [
+      "Equipped",
+      "装備中"
+    ],
+    "正在装备中，不能移除": [
+      "Currently equipped; cannot be removed",
+      "装備中のため削除できません"
+    ],
+    "点击排序：从高到低 → 从低到高 → 游戏顺序": [
+      "Click to sort: high to low → low to high → game order",
+      "クリックで並べ替え：高い順 → 低い順 → ゲーム内の順"
     ]
   },
   "game": {
