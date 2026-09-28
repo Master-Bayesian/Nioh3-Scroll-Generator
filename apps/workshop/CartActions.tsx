@@ -28,11 +28,23 @@ function saveInstallMessage(receipt: OperationReceipt): string {
   return receipt.warning || "本次没有写入，请回到标题界面后重试。";
 }
 
+/** What checking or acknowledging an unconfirmed write concluded. */
+function resolutionMessage(receipt: OperationReceipt): string {
+  if (receipt.commit_status.startsWith("committed"))
+    return "已确认：上次写入已经成功写入存档，存档已解锁。";
+  if (receipt.commit_status === "not_committed")
+    return "已确认：上次写入没有写进存档，存档保持原样，已解锁。";
+  if (receipt.commit_status === "acknowledged")
+    return "已记录你的确认，存档已解锁。";
+  return "仍无法自动判断。请进游戏检查这个存档，没问题就点“我已检查，继续使用”。";
+}
+
 export function SavePicker({ compact = false }: { compact?: boolean }) {
   const state = useSyncExternalStore(
     saveSession!.subscribe,
     saveSession!.getSnapshot,
   );
+  const [resolution, setResolution] = useState("");
   const [error, setError] = useState(""),
     [saves, setSaves] = useState<SaveReference[]>([]),
     [loading, setLoading] = useState(true);
@@ -106,14 +118,40 @@ export function SavePicker({ compact = false }: { compact?: boolean }) {
         </button>
       )}
       {state.uncertainOperationId && (
-        <button
-          onClick={() =>
-            void saveSession!.recoverReceipt().catch((e) => setError(String(e)))
-          }
-        >
-          核对上次写入结果
-        </button>
+        <div className="uncertain-operation" role="region" aria-label="未确认的写入">
+          <p>
+            <b>有一次写入没有记录结果。</b>
+            写入时工具可能被关闭或崩溃了。为避免在不确定的存档上继续修改，这个存档暂时锁定。
+          </p>
+          <ol>
+            <li>先点“核对上次写入结果”，工具会对比存档内容自动判断。</li>
+            <li>仍无法判断时，进游戏检查这个存档（绘卷、装备等是否正常），没问题就点“我已检查，继续使用”。</li>
+          </ol>
+          <button
+            disabled={state.busy}
+            onClick={() =>
+              void saveSession!
+                .recoverReceipt()
+                .then((receipt) => setResolution(resolutionMessage(receipt as OperationReceipt)))
+                .catch((e) => setError(String(e)))
+            }
+          >
+            核对上次写入结果
+          </button>
+          <button
+            disabled={state.busy}
+            onClick={() =>
+              void saveSession!
+                .acknowledgeOperation()
+                .then((receipt) => setResolution(resolutionMessage(receipt as OperationReceipt)))
+                .catch((e) => setError(String(e)))
+            }
+          >
+            我已检查，继续使用
+          </button>
+        </div>
       )}
+      {resolution && <Notice text={resolution} />}
       {!loading && !state.selected && saves.length > 1 && (
         <p className="save-picker-hint">
           检测到 {saves.length} 个存档，请在上面选择你正在玩的那一个；选过一次后会自动记住。

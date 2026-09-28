@@ -598,7 +598,7 @@ export interface SavePlan {
 }
 export interface OperationReceipt {
   operation_id: string;
-  commit_status: "executing" | "committed" | "committed_with_warning" | "not_committed" | "unknown";
+  commit_status: "executing" | "committed" | "committed_with_warning" | "not_committed" | "unknown" | "acknowledged";
   warning: string | null;
   details: {
     [k: string]: unknown;

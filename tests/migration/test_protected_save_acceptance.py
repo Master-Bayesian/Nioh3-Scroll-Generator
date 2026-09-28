@@ -2195,7 +2195,9 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
         a restart the operation is queryable, a new plan for the same save is
         refused with the per-role classification, an unrelated slot may still be
         planned, an external write is named instead of being overwritten, and the
-        same operation id never writes again.
+        same operation id never writes again. Bytes that prove neither generation
+        leave the query `unknown`; only the user's acknowledgement then releases
+        the fence, and it never rewrites the save.
         """
 
         save, state = self.isolated("fence-protected")
@@ -2228,11 +2230,6 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
             self.handshake_digest(restarted)
             registered = self.register(restarted, save)
             registered_other = self.register(restarted, other)
-
-            # Queryable, and never a fabricated success.
-            receipt = self.drive(restarted, "save.operation", {"plan_id": plan_id})
-            self.assertEqual(receipt["commit_status"], "unknown", receipt)
-            self.assertTrue(receipt["warning"], receipt)
 
             # Same target: refused, naming the operation and what the bytes show.
             save_id, inventory, materialized = self.install_materialized_candidates(
@@ -2280,9 +2277,41 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
                 },
             )
             self.assertIn("main_save=external_C", blocked["message"])
+
+            # Queryable, and never a fabricated success: C proves neither
+            # generation, so the operation stays open.
+            receipt = self.drive(restarted, "save.operation", {"plan_id": plan_id})
+            self.assertEqual(receipt["commit_status"], "unknown", receipt)
+            self.assertTrue(receipt["warning"], receipt)
             retried = self.drive(restarted, "save.commit", {"plan_id": plan_id})
             self.assertEqual(retried["commit_status"], "unknown", retried)
             self.assertEqual(sha256_file(save), external_digest)
+
+            # The user checked the save and accepts it: the fence is released for
+            # this operation only, durably, and the save bytes are untouched.
+            acknowledged = self.drive(
+                restarted, "save.operation", {"plan_id": plan_id, "acknowledge": True}
+            )
+            self.assertEqual(acknowledged["commit_status"], "acknowledged", acknowledged)
+            self.assertEqual(acknowledged["details"]["resolution"], "acknowledged")
+            self.assertEqual(sha256_file(save), external_digest)
+            core = json.loads(
+                (
+                    state
+                    / RUST_BACKUP_SUBDIR.parent
+                    / "v2-operations"
+                    / f"{plan_id}.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(core["outcome"], "acknowledged", core)
+            retried = self.drive(restarted, "save.commit", {"plan_id": plan_id})
+            self.assertEqual(retried["commit_status"], "acknowledged", retried)
+            self.assertEqual(sha256_file(save), external_digest)
+            save_id, inventory, materialized = self.install_materialized_candidates(
+                restarted, save
+            )
+            released = self.prepare_install_plan(restarted, save_id, inventory, materialized)
+            self.assertEqual(released["kind"], "install_many")
         finally:
             restarted.terminate()
 
@@ -2497,14 +2526,20 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
                 restarted_registered = self.register(restarted, save)
                 receipt = self.drive(restarted, "save.operation", {"plan_id": plan_id})
                 observed[side] = receipt["commit_status"]
+                # The Rust host settles an interrupted operation from the bytes on
+                # disk, so a save still holding its reviewed source is proven
+                # `not_committed`; the checks below keep that word to that case.
                 self.assertIn(
                     receipt["commit_status"],
-                    ("unknown", "committed"),
+                    ("unknown", "committed", "not_committed"),
                     f"{side}: an interrupted operation must never read as a fresh success",
                 )
+                if receipt["commit_status"] == "not_committed":
+                    self.assertEqual(side, "rust", receipt)
+                    self.assertEqual(killed_at, hashlib.sha256(self.container).hexdigest(), receipt)
                 if receipt["commit_status"] == "unknown":
                     self.assertTrue(receipt["warning"], receipt)
-                if killed_at != self.container:
+                if killed_at != hashlib.sha256(self.container).hexdigest():
                     self.assertNotEqual(
                         receipt["commit_status"],
                         "not_committed",
@@ -2529,7 +2564,11 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
                 except AssertionError:
                     retried = None
                 if retried is not None:
-                    self.assertIn(retried["commit_status"], ("committed", "unknown"), retried)
+                    self.assertIn(
+                        retried["commit_status"],
+                        ("committed", "unknown", "not_committed"),
+                        retried,
+                    )
                 self.assertEqual(
                     sha256_file(save),
                     killed_at,
@@ -2673,14 +2712,17 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
         finally:
             worker.terminate()
 
-    def test_smoke_write_boundary_death_reports_unknown_like_the_shipped_host(self) -> None:
+    def test_smoke_write_boundary_death_is_never_replayed_and_rust_proves_it(self) -> None:
         """Smoke: kill both hosts the instant the write lands, then compare.
 
         This is a real write boundary: the atomic replace is on disk and the
         terminal receipt has not been written. The shipped host answers `unknown`
         plus its warning from the durable `executing` receipt it wrote before the
-        write; the Rust host must publish the same public response, list the
-        operation, and answer a retry with that receipt instead of writing again.
+        write. The Rust host settles the same operation from the bytes on disk:
+        the save holds exactly the bytes its durable intent prepared, so it
+        answers `committed` with a `proven` resolution instead of leaving the save
+        fenced forever. Both hosts list the operation and answer a retry with
+        that receipt instead of writing again.
 
         The kill point here is timing-relative to a measured commit, so this test
         is a smoke probe rather than the authoritative cut. The deterministic cuts
@@ -2775,15 +2817,25 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
                     {"operation_id", "save_id", "commit_status", "warning", "details"},
                     receipt,
                 )
-                self.assertEqual(receipt["commit_status"], "unknown", receipt)
-                self.assertEqual(receipt["warning"], shipped_warning, receipt)
+                expected_status = "committed" if side == "rust" else "unknown"
+                self.assertEqual(receipt["commit_status"], expected_status, receipt)
+                if side == "rust":
+                    self.assertIn("Settled from the bytes on disk", receipt["warning"], receipt)
+                    self.assertEqual(receipt["details"]["resolution"], "proven", receipt)
+                    self.assertEqual(
+                        set(receipt["details"]),
+                        {"save_path", "reviewed_source_sha256", "resolution"},
+                        receipt,
+                    )
+                else:
+                    self.assertEqual(receipt["warning"], shipped_warning, receipt)
+                    self.assertEqual(
+                        set(receipt["details"]),
+                        {"save_path", "reviewed_source_sha256"},
+                        receipt,
+                    )
                 self.assertEqual(receipt["operation_id"], plan_id)
                 self.assertEqual(receipt["save_id"], restarted_registered["save_id"])
-                self.assertEqual(
-                    set(receipt["details"]),
-                    {"save_path", "reviewed_source_sha256"},
-                    receipt,
-                )
                 operations = self.drive(
                     restarted,
                     "save.operations",
@@ -2792,13 +2844,13 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
                 self.assertTrue(
                     any(
                         entry["operation_id"] == plan_id
-                        and entry["commit_status"] == "unknown"
+                        and entry["commit_status"] == expected_status
                         for entry in operations["operations"]
                     ),
                     f"{side}: the interrupted operation must be listed: {operations}",
                 )
                 retried = self.drive(restarted, "save.commit", {"plan_id": plan_id})
-                self.assertEqual(retried["commit_status"], "unknown", retried)
+                self.assertEqual(retried["commit_status"], expected_status, retried)
                 self.assertEqual(
                     sha256_file(save),
                     killed_at,
@@ -2808,11 +2860,14 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
             finally:
                 restarted.terminate()
 
+        # The public receipt shape is shared; only the Rust host can prove the
+        # outcome, and it names the generations it compared.
         self.assertEqual(set(observed["rust"]), set(observed["python"]))
-        self.assertEqual(observed["rust"]["commit_status"], observed["python"]["commit_status"])
-        self.assertEqual(observed["rust"]["warning"], observed["python"]["warning"])
+        self.assertEqual(observed["python"]["commit_status"], "unknown")
+        self.assertEqual(observed["rust"]["commit_status"], "committed")
         self.assertEqual(
-            set(observed["rust"]["details"]), set(observed["python"]["details"])
+            set(observed["rust"]["details"]) - {"resolution"},
+            set(observed["python"]["details"]),
         )
 
     def test_app_level_lifecycle_performance(self) -> None:

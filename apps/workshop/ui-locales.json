@@ -3827,6 +3827,54 @@
     "互斥，游戏不会同时生成这两条": [
       "exclude each other; the game never generates both",
       "は排他です。ゲームは両方を同時に生成しません"
+    ],
+    "未确认的写入": [
+      "Unconfirmed write",
+      "未確認の書き込み"
+    ],
+    "有一次写入没有记录结果。": [
+      "A write did not record its outcome.",
+      "書き込みの結果が記録されていません。"
+    ],
+    "写入时工具可能被关闭或崩溃了。为避免在不确定的存档上继续修改，这个存档暂时锁定。": [
+      "The app may have been closed or crashed while writing. To avoid editing a save in an unknown state, this save is locked for now.",
+      "書き込み中にアプリが終了またはクラッシュした可能性があります。状態が不明なセーブをさらに編集しないよう、このセーブは一時的にロックされています。"
+    ],
+    "先点“核对上次写入结果”，工具会对比存档内容自动判断。": [
+      "First click \"Check last write\"; the app compares the save contents to decide automatically.",
+      "まず「前回の書き込みを確認」を押してください。セーブの内容を比較して自動で判定します。"
+    ],
+    "仍无法判断时，进游戏检查这个存档（绘卷、装备等是否正常），没问题就点“我已检查，继续使用”。": [
+      "If it still cannot tell, check this save in game (scrolls, equipment and so on). If it looks right, click \"I checked it, continue\".",
+      "それでも判定できない場合は、ゲーム内でこのセーブ（絵巻や装備など）を確認し、問題なければ「確認済み、続ける」を押してください。"
+    ],
+    "我已检查，继续使用": [
+      "I checked it, continue",
+      "確認済み、続ける"
+    ],
+    "（范围": [
+      "(range",
+      "（範囲"
+    ],
+    "范围": [
+      "Range",
+      "範囲"
+    ],
+    "已确认：上次写入已经成功写入存档，存档已解锁。": [
+      "Confirmed: the last write reached the save. The save is unlocked.",
+      "確認しました：前回の書き込みはセーブに反映されています。セーブのロックを解除しました。"
+    ],
+    "已确认：上次写入没有写进存档，存档保持原样，已解锁。": [
+      "Confirmed: the last write did not reach the save, which is unchanged. The save is unlocked.",
+      "確認しました：前回の書き込みはセーブに反映されておらず、セーブは元のままです。ロックを解除しました。"
+    ],
+    "已记录你的确认，存档已解锁。": [
+      "Your confirmation is recorded. The save is unlocked.",
+      "確認を記録しました。セーブのロックを解除しました。"
+    ],
+    "仍无法自动判断。请进游戏检查这个存档，没问题就点“我已检查，继续使用”。": [
+      "Still cannot tell automatically. Check this save in game, and if it looks right, click \"I checked it, continue\".",
+      "まだ自動で判定できません。ゲーム内でこのセーブを確認し、問題なければ「確認済み、続ける」を押してください。"
     ]
   },
   "game": {

@@ -719,6 +719,95 @@ impl SaveTransactionHost {
         Ok(Some(receipt))
     }
 
+    /// Settle one unresolved operation on `save_path` from the bytes on disk.
+    ///
+    /// An interrupted process leaves a `pending` or `uncertain` receipt that
+    /// fences every later write to its save. The current bytes can still prove
+    /// the outcome: a write whose target holds exactly the bytes it prepared
+    /// committed, and one whose target holds its pre-write generation (the
+    /// reviewed source or its checkpoint) never landed; a restore is proven only
+    /// when every role agrees. Without proof the receipt stays unresolved,
+    /// unless `acknowledge` records that the user reviewed the save and accepts
+    /// its current contents. That is terminal for this operation only and keeps
+    /// the receipt's original evidence. `None` means there is no core receipt.
+    pub fn settle_unresolved(
+        &self,
+        operation_id: &str,
+        save_path: &Path,
+        reviewed_source_sha256: Option<&str>,
+        acknowledge: bool,
+    ) -> Result<Option<OperationReceipt>, SaveReadError> {
+        // No commit may be in flight while its receipt is being settled.
+        let _commit_guard = COMMIT_SERIALIZER.lock().map_err(|_| SaveReadError::Io {
+            path: self.state_root.display().to_string(),
+            message: "the save commit serializer is poisoned".to_string(),
+        })?;
+        let Some(mut receipt) = self.receipt(operation_id)? else {
+            return Ok(None);
+        };
+        validate_receipt(&receipt)?;
+        if !is_unresolved_outcome(&receipt.outcome) {
+            return Ok(Some(receipt));
+        }
+        let requested = [save_path.to_path_buf()];
+        let Some(fence) = self.classify_unresolved_operation(&receipt, &requested)? else {
+            // Provably about another save: it does not fence this one.
+            return Ok(Some(receipt));
+        };
+        let current = read_digest_if_present(save_path)?;
+        let same = |digest: Option<&str>| matches!((digest, current.as_deref()), (Some(left), Some(right)) if left.eq_ignore_ascii_case(right));
+        let proof = if receipt.kind == PlanKind::Restore.label() {
+            if !fence.roles.is_empty() && fence.roles.iter().all(|role| role.state == "A_source") {
+                Some(("committed", true))
+            } else if !fence.roles.is_empty()
+                && fence.roles.iter().all(|role| role.state == "B_checkpoint")
+            {
+                Some(("not_committed", false))
+            } else {
+                None
+            }
+        } else {
+            let checkpoint = fence
+                .roles
+                .iter()
+                .find(|role| role.role == SaveRole::Main.label())
+                .and_then(|role| role.checkpoint_sha256.as_deref());
+            if same(receipt.installed_sha256.as_deref()) {
+                Some(("committed", true))
+            } else if same(reviewed_source_sha256) || same(checkpoint) {
+                Some(("not_committed", false))
+            } else {
+                None
+            }
+        };
+        let evidence = format!(
+            "current save {}; roles: {}",
+            current.as_deref().unwrap_or("missing"),
+            fence.role_summary()
+        );
+        match proof {
+            Some((outcome, committed)) => {
+                receipt.message = Some(format!(
+                    "Settled from the bytes on disk after an interrupted process: the save \
+                     holds this operation's {} generation ({evidence})",
+                    if committed { "output" } else { "pre-write" }
+                ));
+                receipt.outcome = outcome.to_string();
+                receipt.committed = Some(committed);
+            }
+            None if acknowledge => {
+                receipt.message = Some(format!(
+                    "The outcome could not be proven from the bytes on disk ({evidence}); the \
+                     user reviewed the save and accepted its current contents"
+                ));
+                receipt.outcome = "acknowledged".to_string();
+            }
+            None => return Ok(Some(receipt)),
+        }
+        self.write_receipt(&receipt)?;
+        Ok(Some(receipt))
+    }
+
     /// Every unresolved operation that may have written `save_path`.
     ///
     /// A `pending` or `uncertain` receipt means an earlier process claimed a
@@ -2937,12 +3026,16 @@ pub fn is_sha256(value: &str) -> bool {
 }
 
 /// Every outcome a recorded receipt may carry.
-pub const VALID_OUTCOMES: [&str; 5] = [
+///
+/// `acknowledged` is terminal: the bytes could not prove what an interrupted
+/// operation did, and the user reviewed the save and accepted it as it is.
+pub const VALID_OUTCOMES: [&str; 6] = [
     "pending",
     "committed",
     "uncertain",
     "not_committed",
     "discarded",
+    "acknowledged",
 ];
 
 /// Validate one receipt as untrusted ledger input.
@@ -3109,9 +3202,103 @@ mod tests {
         for outcome in ["pending", "uncertain"] {
             assert!(is_unresolved_outcome(outcome), "{outcome} must fence");
         }
-        for outcome in ["committed", "not_committed", "discarded", "unknown"] {
+        for outcome in [
+            "committed",
+            "not_committed",
+            "discarded",
+            "acknowledged",
+            "unknown",
+        ] {
             assert!(!is_unresolved_outcome(outcome), "{outcome} is terminal");
         }
+    }
+
+    /// A pending write left by a killed process, whose checkpoint bundle is
+    /// gone (the user recycled it), so the fence cannot identify its target.
+    fn orphan_pending(host: &SaveTransactionHost, operation_id: &str, installed: &str) {
+        let mut intent = receipt_record(operation_id, "pending", None);
+        intent.installed_sha256 = Some(installed.to_string());
+        host.write_receipt(&intent).unwrap();
+    }
+
+    fn fenced(host: &SaveTransactionHost, save: &Path) -> bool {
+        matches!(
+            host.require_no_unresolved_operation(save, WriteScope::MainOnly),
+            Err(SaveReadError::UnresolvedTargetOperation { .. })
+        )
+    }
+
+    #[test]
+    fn an_interrupted_write_is_settled_from_the_bytes_on_disk() {
+        let root = TempRoot::new("settle-proof");
+        let save = write_generation(&root.0.join("saves"));
+        let current = sha256_hex(&fs::read(&save).unwrap());
+        let other = "c".repeat(64);
+        let host = SaveTransactionHost::new(&root.0.join("state"));
+
+        // The save holds exactly the bytes the operation prepared: it committed.
+        let landed = "11111111111111111111111111111111";
+        orphan_pending(&host, landed, &current);
+        assert!(fenced(&host, &save));
+        let receipt = host
+            .settle_unresolved(landed, &save, Some(&other), false)
+            .unwrap()
+            .unwrap();
+        assert_eq!(receipt.outcome, "committed");
+        assert_eq!(receipt.committed, Some(true));
+        assert!(!fenced(&host, &save));
+
+        // The save still holds the reviewed pre-write bytes: it never landed.
+        let skipped = "22222222222222222222222222222222";
+        orphan_pending(&host, skipped, &other);
+        let receipt = host
+            .settle_unresolved(skipped, &save, Some(&current), false)
+            .unwrap()
+            .unwrap();
+        assert_eq!(receipt.outcome, "not_committed");
+        assert_eq!(receipt.committed, Some(false));
+        assert!(!fenced(&host, &save));
+        // A settled receipt is durable and a later settle leaves it alone.
+        assert_eq!(host.receipt(skipped).unwrap().unwrap(), receipt);
+    }
+
+    #[test]
+    fn an_unprovable_write_stays_fenced_until_the_user_acknowledges_it() {
+        let root = TempRoot::new("settle-acknowledge");
+        let save = write_generation(&root.0.join("saves"));
+        let host = SaveTransactionHost::new(&root.0.join("state"));
+        let operation_id = "33333333333333333333333333333333";
+        // The game saved since: the bytes are neither generation.
+        orphan_pending(&host, operation_id, &"c".repeat(64));
+
+        let receipt = host
+            .settle_unresolved(operation_id, &save, Some(&"d".repeat(64)), false)
+            .unwrap()
+            .unwrap();
+        assert_eq!(receipt.outcome, "pending", "no proof, no acknowledgement");
+        assert!(fenced(&host, &save));
+
+        let receipt = host
+            .settle_unresolved(operation_id, &save, Some(&"d".repeat(64)), true)
+            .unwrap()
+            .unwrap();
+        assert_eq!(receipt.outcome, "acknowledged");
+        assert_eq!(receipt.committed, None, "acknowledgement proves nothing");
+        assert_eq!(
+            receipt.installed_sha256,
+            Some("c".repeat(64)),
+            "evidence kept"
+        );
+        assert!(receipt.message.unwrap().contains("user reviewed the save"));
+        validate_receipt(&host.receipt(operation_id).unwrap().unwrap()).unwrap();
+        assert!(!fenced(&host, &save));
+
+        // An unknown operation id has nothing to settle.
+        assert_eq!(
+            host.settle_unresolved("44444444444444444444444444444444", &save, None, true)
+                .unwrap(),
+            None
+        );
     }
 
     #[test]

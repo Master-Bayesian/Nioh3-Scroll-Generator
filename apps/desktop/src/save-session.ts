@@ -179,6 +179,25 @@ export class SaveSession {
       return this.acceptReceipt(result, id);
     });
   }
+  /**
+   * The user checked the save in game and accepts it as it is. The protected
+   * host first tries to prove the outcome from the bytes on disk; only an
+   * unprovable operation is recorded as acknowledged, durably, so the save is
+   * no longer fenced by it after a restart. The inventory is then re-read.
+   */
+  acknowledgeOperation() {
+    return this.perform(async () => {
+      const id = this.state.uncertainOperationId;
+      if (!id) throw new Error('NO_UNCERTAIN_OPERATION');
+      const result = await this.gateway.execute({ method: 'save.operation', params: { plan_id: id, acknowledge: true } }, id);
+      const receipt = this.acceptReceipt(result, id);
+      if (!this.state.uncertainOperationId) {
+        this.update({ inventory: null, refreshedAfterUncertainty: false });
+        await this.loadInventory();
+      }
+      return receipt;
+    });
+  }
   acknowledgeReviewedUncertainty(operationId: string) {
     if (this.state.busy || this.state.uncertainOperationId !== operationId || !this.state.refreshedAfterUncertainty) {
       throw new Error('REFRESH_AND_REVIEW_REQUIRED');

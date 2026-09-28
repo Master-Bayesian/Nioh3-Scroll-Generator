@@ -91,6 +91,17 @@ const RECOMMENDED_LEVEL_REFUSAL: &str = "Regenerate candidate with the selected 
 const STALE_INTENT_WARNING: &str =
     "Previous process ended before recording the outcome; inspect backups and \
      current save before further writes";
+const ACKNOWLEDGED_WARNING: &str =
+    "The outcome could not be proven from the bytes on disk; the user reviewed the save \
+     and accepted its current contents";
+
+/// Whether an outer receipt still leaves its save's outcome open.
+fn is_unresolved_status(receipt: &Value) -> bool {
+    matches!(
+        receipt.get("commit_status").and_then(Value::as_str),
+        Some("unknown" | "executing")
+    )
+}
 const AUDIT_COVERAGE_SCOPE: &str = "generated_effect_projection";
 const AUDIT_STATUS_INSUFFICIENT: &str = "insufficient_data";
 const AUDIT_COMPARED_FIELDS: [&str; 6] = [
@@ -1263,9 +1274,11 @@ impl SaveApplication {
         json!({"discarded": true})
     }
 
-    fn operation(&mut self, plan_id: &str) -> Result<Value, HostError> {
+    fn operation(&mut self, plan_id: &str, acknowledge: bool) -> Result<Value, HostError> {
         if let Some(receipt) = self.receipts.get(plan_id) {
-            return Ok(receipt.clone());
+            if !is_unresolved_status(receipt) {
+                return Ok(receipt.clone());
+            }
         }
         if plan_id.len() != 32 || !plan_id.chars().all(|c| c.is_ascii_hexdigit()) {
             return Err(HostError::rejected("Invalid operation ID"));
@@ -1293,8 +1306,104 @@ impl SaveApplication {
                 );
             }
         }
+        if is_unresolved_status(&value) {
+            self.settle(plan_id, &mut value, acknowledge);
+        }
         self.receipts.insert(plan_id.to_string(), value.clone());
         Ok(value)
+    }
+
+    /// Settle an `unknown` outer receipt from the bytes on disk, or record the
+    /// user's acknowledgement when the bytes cannot prove the outcome.
+    ///
+    /// The core receipt stays the authority: a proven or acknowledged outcome
+    /// is written there first, and only then projected onto the outer ledger. A
+    /// missing core receipt means the core never recorded its intent, so only
+    /// the reviewed source generation can prove the save was not written.
+    fn settle(&self, plan_id: &str, value: &mut Value, acknowledge: bool) {
+        let details = value.get("details").cloned().unwrap_or(Value::Null);
+        let save_path = details
+            .get("save_path")
+            .and_then(Value::as_str)
+            .map(PathBuf::from);
+        let reviewed = details
+            .get("reviewed_source_sha256")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        let settled = match save_path.as_deref() {
+            Some(save_path) => match self.host().settle_unresolved(
+                plan_id,
+                save_path,
+                reviewed.as_deref(),
+                acknowledge,
+            ) {
+                Ok(Some(receipt)) => match receipt.outcome.as_str() {
+                    "committed" | "not_committed" | "acknowledged" => {
+                        Some((receipt.outcome.clone(), receipt.message.clone()))
+                    }
+                    _ => None,
+                },
+                Ok(None) => {
+                    let current = std::fs::read(save_path)
+                        .ok()
+                        .map(|bytes| format!("{:x}", Sha256::digest(bytes)));
+                    let unchanged = matches!(
+                        (current.as_deref(), reviewed.as_deref()),
+                        (Some(current), Some(reviewed)) if current.eq_ignore_ascii_case(reviewed)
+                    );
+                    if unchanged {
+                        Some((
+                            "not_committed".to_string(),
+                            Some(
+                                "Settled from the bytes on disk: the save still holds the \
+                                 reviewed source generation"
+                                    .to_string(),
+                            ),
+                        ))
+                    } else if acknowledge {
+                        Some((
+                            "acknowledged".to_string(),
+                            Some(ACKNOWLEDGED_WARNING.to_string()),
+                        ))
+                    } else {
+                        None
+                    }
+                }
+                Err(error) => {
+                    eprintln!(
+                        "protected save host: could not settle {plan_id}: {}",
+                        HostError::from_save(error).message
+                    );
+                    None
+                }
+            },
+            None if acknowledge => Some((
+                "acknowledged".to_string(),
+                Some(ACKNOWLEDGED_WARNING.to_string()),
+            )),
+            None => None,
+        };
+        let Some((outcome, message)) = settled else {
+            return;
+        };
+        value["commit_status"] = json!(outcome);
+        value["warning"] = json!(message);
+        if let Some(details) = value.get_mut("details").and_then(Value::as_object_mut) {
+            details.insert(
+                "resolution".to_string(),
+                json!(if outcome == "acknowledged" {
+                    "acknowledged"
+                } else {
+                    "proven"
+                }),
+            );
+        }
+        if let Err(error) = self.write_ledger(plan_id, value, true) {
+            eprintln!(
+                "protected save host: could not persist the settled receipt for {plan_id}: {}",
+                error.message
+            );
+        }
     }
 
     /// Project the save-core receipt onto a stale outer intent.
@@ -1373,7 +1482,7 @@ impl SaveApplication {
                     .and_then(|value| value.to_str())
                     .map(str::to_string);
                 let Some(stem) = stem else { continue };
-                let Ok(receipt) = self.operation(&stem) else {
+                let Ok(receipt) = self.operation(&stem, false) else {
                     continue;
                 };
                 if receipt.get("save_id").and_then(Value::as_str) != Some(save_id) {
@@ -1402,7 +1511,7 @@ impl SaveApplication {
             // core's own `committed` state instead of a blanket `unknown` that a
             // later retry could try to replay. A terminal outer record is
             // returned exactly as written.
-            return self.operation(plan_id);
+            return self.operation(plan_id, false);
         }
         let plan = self
             .plans
@@ -1764,7 +1873,11 @@ impl SaveApplication {
             }
             "operation" => {
                 let plan_id = param_str(&params, "plan_id")?;
-                self.operation(&plan_id)
+                let acknowledge = params
+                    .get("acknowledge")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false);
+                self.operation(&plan_id, acknowledge)
             }
             "operations" => self.operations(&param_str(&params, "save_id")?),
             "data_directory" => {

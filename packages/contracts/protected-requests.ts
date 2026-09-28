@@ -643,6 +643,10 @@ export type ProtectedRequest =
       method: "save.operation";
       params: {
         plan_id: string;
+        /**
+         * Record that the user reviewed the save and accepts it when the bytes cannot prove an interrupted operation's outcome.
+         */
+        acknowledge?: boolean;
       };
     }
   | {

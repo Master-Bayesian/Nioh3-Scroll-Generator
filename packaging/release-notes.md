@@ -39,6 +39,21 @@ update automatically after its startup checks, or from Settings.
   place its single promoted effect in any slot; the earlier rule wrongly
   required it to be the primary.
 
+## Scroll editor
+
+- **Every effect shows its natural value range** (lowest–highest for the
+  scroll's rarity and level) next to its value, in the effect list and in the
+  preview, so you can judge how good a value is.
+
+## Fixed
+
+- **A save locked by an interrupted write can be unlocked.** If the app was
+  closed while writing, the save stayed locked for good once its backup was
+  gone. The app now compares the save with the write's before and after
+  contents and settles it on its own; when it cannot tell, check the save in
+  game and click "我已检查，继续使用". Your confirmation is recorded and only
+  that one write is released.
+
 ## Compatibility and limits
 
 - Supported game build: PC v2.02 (and the earlier approved builds). Unsupported

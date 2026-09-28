@@ -109,6 +109,30 @@ test('a restarted view surfaces unknown history and requires refresh before expl
   await session.prepareDelete([0]); assert.equal(f.calls.includes('save.commit'), false);
 });
 
+test('an acknowledged unprovable operation is durable and unlocks the save', async () => {
+  const f = fixture(), session = new SaveSession(f.gateway);
+  const unknown: OperationReceipt = { ...receipt, commit_status: 'unknown' };
+  f.setHistory([unknown]); f.setReceipt(unknown);
+  await session.select(reference);
+  // Checking again cannot prove it, so the save stays locked.
+  await session.recoverReceipt();
+  assert.equal(session.getSnapshot().uncertainOperationId, plan.plan_id);
+  await assert.rejects(session.prepareDelete([0]), /UNCERTAIN_OPERATION/);
+  // The host records the user's acknowledgement; the history now reads it back.
+  const acknowledged: OperationReceipt = { ...receipt, commit_status: 'acknowledged' };
+  f.setReceipt(acknowledged); f.setHistory([acknowledged]);
+  const settled = await session.acknowledgeOperation();
+  assert.equal(settled.commit_status, 'acknowledged');
+  assert.equal(session.getSnapshot().uncertainOperationId, null);
+  assert.ok(session.getSnapshot().inventory, 'the save is re-read after acknowledgement');
+  // A new session (a restart) is not locked again by the acknowledged record.
+  const restarted = new SaveSession(f.gateway);
+  await restarted.select(reference);
+  assert.equal(restarted.getSnapshot().uncertainOperationId, null);
+  await restarted.prepareDelete([0]);
+  assert.equal(f.calls.includes('save.commit'), false);
+});
+
 test('unrelated receipts cannot resolve the submitted operation', async () => {
   const f = fixture(), session = new SaveSession(f.gateway);
   await session.select(reference); await session.prepareDelete([0]);

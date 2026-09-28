@@ -37,6 +37,13 @@ function nativeValues(
     return;
   return rawData.sets[rawData.patterns[pattern][level * 3 + rarity - 3]];
 }
+/** The natural "min–max" of one effect at this rarity and level, or "". */
+function nativeRange(id: string, rarity: number, level: number): string {
+  const values = nativeValues(id, rarity, level);
+  if (!values?.length) return "";
+  const min = values[0], max = values[values.length - 1];
+  return min === max ? String(min) : `${min}–${max}`;
+}
 
 type Slot = {
   id: string;
@@ -399,6 +406,8 @@ export function Editor({ cart }: { cart: Sample[] }) {
     Number(draft.rarity),
     Number(draft.level),
   );
+  const slotRange = (slot: Slot) =>
+    slot.id === "4294967295" ? "" : nativeRange(slot.id, Number(draft.rarity), Number(draft.level));
   function replaceEffect(effect: { id: string; name: string }) {
     const identity = (
       data.editorIdentities as Record<
@@ -807,7 +816,10 @@ export function Editor({ cart }: { cart: Sample[] }) {
                 >
                   <span>{i + 1}</span>
                   <b>{s.name}</b>
-                  <small>{s.raw}</small>
+                  <small>
+                    {s.raw}
+                    {slotRange(s) && <em className="value-range">（范围 {slotRange(s)}）</em>}
+                  </small>
                 </button>
               ))}
             </div>
@@ -1215,7 +1227,10 @@ export function Editor({ cart }: { cart: Sample[] }) {
             <div className="effect-line" key={i}>
               <span>{i + 1}</span>
               <div>{s.name}</div>
-              <strong title="原始数值">{s.raw}</strong>
+              <strong title="原始数值">
+                {s.raw}
+                {slotRange(s) && <small className="value-range">范围 {slotRange(s)}</small>}
+              </strong>
             </div>
           ))}
         </div>

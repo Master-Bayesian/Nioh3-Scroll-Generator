@@ -1129,3 +1129,5 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-toggle{display:flex;align-items:center;gap:6px;font-weight:600;color:#7a1f1f}
 .character-toggle>input{width:auto;margin:0}
 .character-hell-row>select{width:auto}
+.editor-review .scroll .effect-line strong{text-align:right;line-height:1.25}.editor-review .scroll .value-range{display:block;font-size:10px;font-weight:400;color:#a7aebb}.slot-list .value-range{font-style:normal;margin-left:4px;color:#8a96a8}
+.uncertain-operation{flex-basis:100%;display:grid;gap:6px;padding:10px;background:#fff4de;border:1px solid #dbc79a;border-radius:7px;font-size:12px;line-height:1.6;color:#5d4a23}.uncertain-operation p,.uncertain-operation ol{margin:0}.uncertain-operation ol{padding-left:18px}.uncertain-operation button{width:100%}

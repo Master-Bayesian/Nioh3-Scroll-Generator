@@ -2744,7 +2744,8 @@
             "committed",
             "committed_with_warning",
             "not_committed",
-            "unknown"
+            "unknown",
+            "acknowledged"
           ]
         },
         "warning": {
