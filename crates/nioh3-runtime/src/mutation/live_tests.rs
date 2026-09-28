@@ -1053,6 +1053,17 @@ fn the_builder_metadata_follows_the_ambient_identity() {
     assert_eq!(flags(&online), crate::mutation::ASSEMBLY_FLAGS);
     let other = crate::mutation::new_assembly_record_for_ambient(&record, own ^ 1).unwrap();
     assert_eq!(flags(&other), 0x0080_0002);
+    // A used template's counter is not a builder input; the builder starts it
+    // at zero (a player's PC v2.02 preview wrote 0 where the template had 2).
+    let mut used = record.clone();
+    used[0x32] = 2;
+    let fresh = crate::mutation::new_assembly_record(&used).unwrap();
+    assert_eq!(fresh[0x32], 0);
+    assert_eq!(
+        fresh,
+        crate::mutation::new_assembly_record(&record).unwrap()
+    );
+
     // Only the flag word differs from the reviewed constant record.
     let reviewed = crate::mutation::new_assembly_record(&record).unwrap();
     assert_eq!(offline[..0x18], reviewed[..0x18]);

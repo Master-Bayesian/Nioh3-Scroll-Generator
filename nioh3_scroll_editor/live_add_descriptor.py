@@ -16,6 +16,8 @@ def new_assembly_record(record: bytes) -> bytes:
     assembly_descriptor(record)
     result = bytearray(record)
     struct.pack_into('<II', result, 0x18, 0x02800002, 0)
+    # A used scroll counts +0x32 up; the builder starts it at zero.
+    result[0x32] = 0
     return bytes(result)
 
 

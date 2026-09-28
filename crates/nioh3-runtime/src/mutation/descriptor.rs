@@ -13,6 +13,10 @@ pub const RECORD_SIZE: usize = 0xE8;
 pub const DESCRIPTOR_SIZE: usize = 0xCC;
 /// The builder metadata `new_assembly_record` installs: `0x02800002`, `0`.
 pub const ASSEMBLY_FLAGS: u32 = 0x0280_0002;
+/// Record byte a used scroll counts up and the builder starts at zero. It is
+/// not a descriptor input, so a template's value never reaches the new record
+/// (a player's PC v2.02 NG3 scrolls carry 1 or 2 here).
+pub const BUILDER_ZEROED_BYTE: usize = 0x32;
 
 fn u16_at(raw: &[u8], offset: usize) -> u16 {
     u16::from_le_bytes([raw[offset], raw[offset + 1]])
@@ -43,6 +47,7 @@ pub fn new_assembly_record(record: &[u8]) -> Result<Vec<u8>, RuntimeError> {
     let mut result = record.to_vec();
     result[0x18..0x1C].copy_from_slice(&ASSEMBLY_FLAGS.to_le_bytes());
     result[0x1C..0x20].copy_from_slice(&0u32.to_le_bytes());
+    result[BUILDER_ZEROED_BYTE] = 0;
     Ok(result)
 }
 

@@ -45,6 +45,8 @@ class LiveAddDescriptorTests(unittest.TestCase):
         anonymous = bytearray(r);anonymous[2:6] = bytes(4);anonymous[0x14:0x18] = bytes(4)
         self.assertEqual(flags(new_assembly_record_for_ambient(bytes(anonymous), 7)), 0x02800002)
         self.assertEqual(assembly_record_in_context(r, {}), new_assembly_record(r))
+        used = bytearray(r);used[0x32] = 2
+        self.assertEqual(new_assembly_record(bytes(used)), new_assembly_record(r))
         self.assertEqual(assembly_record_in_context(r, {'builder_ambient_identity': '0'}),
                          new_assembly_record_for_ambient(r, 0))
         for bad in (0, 'x', '-1', str(1 << 64)):
