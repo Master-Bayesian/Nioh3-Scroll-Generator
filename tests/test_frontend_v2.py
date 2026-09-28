@@ -41,7 +41,7 @@ class ProtocolTests(unittest.TestCase):
         p = parameters()
         validate_request({'protocol': 1, 'id': '1', 'method': 'search.start', 'params': p})
         for mutate in (lambda p: p.update(result_count=True), lambda p: p.update(exec='bad'),
-                       lambda p: p['query'].update(playthrough=1), lambda p: p.update(page_trials=100000001),
+                       lambda p: p['query'].update(playthrough=6), lambda p: p.update(page_trials=100000001),
                        lambda p: p.update(continue_until_complete='yes')):
             bad = deepcopy(p); mutate(bad)
             with self.assertRaises(RequestError):

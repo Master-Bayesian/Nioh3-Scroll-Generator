@@ -300,7 +300,11 @@ pub fn patch_equipment(record: &[u8], patch: &EquipmentPatch) -> Result<Vec<u8>,
             patched[offset + 0xA] = (patched[offset + 0xA] & !0x04) | if star { 0x04 } else { 0 };
         }
         // Slot normalization clears the group of an unused entry.
-        let group = if effect.effect_id == EMPTY_EFFECT_ID { Some(0) } else { effect.group };
+        let group = if effect.effect_id == EMPTY_EFFECT_ID {
+            Some(0)
+        } else {
+            effect.group
+        };
         if let Some(group) = group {
             patched[offset - 4..offset - 2].copy_from_slice(&group.to_le_bytes());
         }

@@ -3305,6 +3305,10 @@ mod tests {
             .expect("the shipped tables load");
         let accelerator = Accelerator::load(&root, None).expect("the shipped accelerator loads");
         let backend = pivot_backend(&root);
+        // Hosted runners have no GPU; the window is small enough for the CPU.
+        let _policy = backend
+            .pin_policy(ExecutionPolicy::AllowBulkCpu)
+            .expect("the test's explicit bulk-CPU policy is accepted");
         const WINDOW: u64 = 60_000;
         for playthrough in [1u8, 2] {
             for rarity in [3u8, 4, 5] {
