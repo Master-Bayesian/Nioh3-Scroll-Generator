@@ -779,8 +779,8 @@ mod imp {
         /// Every target must still hold the value the caller reviewed; the
         /// write handle carries only VM write rights and each target is read
         /// back. The game saves the new values itself. A removal leaves the
-        /// slot exactly as the game frees one and is refused while the
-        /// inventory menu is open or either equipment set wears the item.
+        /// slot exactly as the game frees one and is refused while either
+        /// equipment set wears the item.
         fn character_edit(&mut self, params: &Value) -> Result<Value, HostError> {
             use nioh3_runtime::character::{
                 apply_live_edits, read_character, LiveCurrency, LiveEdit, LiveEditOutcome,
@@ -887,18 +887,6 @@ mod imp {
                 .and_then(Value::as_array)
                 .map(Vec::as_slice)
                 .unwrap_or_default();
-            if !removals.is_empty() {
-                use nioh3_runtime::character::{read_menu_selection, MenuSelection};
-                match read_menu_selection(&memory) {
-                    Ok(MenuSelection::Closed) => {}
-                    Ok(_) => {
-                        return Err(HostError::rejected(
-                            "Close the in-game menu before removing equipment",
-                        ))
-                    }
-                    Err(error) => return Err(HostError::from_runtime(error)),
-                }
-            }
             for requested in removals {
                 let slot_index = requested
                     .get("slot_index")

@@ -477,8 +477,6 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
 
   // Follow the item under the in-game inventory cursor (live mode, read-only).
   const removeDialog = useRef<HTMLDialogElement>(null);
-  /** Whether the in-game inventory menu is open, from the follow poll; null when unknown. */
-  const [menuOpen, setMenuOpen] = useState<boolean | null>(null);
   /** The outcome of the last removal attempt, shown beside the button that started it. */
   const [removeNote, setRemoveNote] = useState("");
   const [follow, setFollow] = useState(true);
@@ -515,7 +513,6 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         const result = await window.operations.execute({ method: "runtime.menu_selection", params: {} });
         if (stopped || !result || !("menu_open" in result)) return;
         const now = latest.current;
-        setMenuOpen(result.menu_open);
         if (!result.menu_open) { setFollowNote("游戏内的持有物品菜单未打开"); return; }
         if (result.slot_index == null || result.item_id == null) { setFollowNote("游戏内选中的物品无法修改"); return; }
         if (result.container === "held" || result.container === "storage") {
@@ -1223,16 +1220,10 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         <div className="modal-body">
           <p>确定要从游戏里移除「{itemText(row.item_id)}」（Lv.{row.level}）吗？</p>
           <p>移除后它会立即从游戏的装备栏里消失，无法恢复。到神社存档后，这个改动才会写进存档文件。</p>
-          <p className={"remove-menu-state" + (menuOpen ? " open" : "")}>
-            {menuOpen
-              ? "游戏里的菜单还开着：请先关闭游戏菜单，程序已经记住了这件装备，关闭后再点“确认移除”。"
-              : menuOpen === false
-                ? "游戏菜单已关闭，可以移除。"
-                : "移除前请先关闭游戏里的菜单。"}
-          </p>
+          <p className="muted">正在装备中的物品不能移除。</p>
           <div className="character-actions">
             <button onClick={() => removeDialog.current?.close()}>取消</button>
-            <button className="danger" onClick={removeEquipment} disabled={menuOpen === true}>确认移除</button>
+            <button className="danger" onClick={removeEquipment}>确认移除</button>
           </div>
         </div>
       </dialog>

@@ -1081,8 +1081,6 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-actions>button.danger{background:#fff;border-color:#b5483a;color:#a03a2c}
 .character-actions>button.danger:hover:not(:disabled){background:#b5483a;color:#fff}
 .remove-dialog{width:420px}
-.remove-dialog .remove-menu-state{padding:6px 10px;border-radius:6px;background:#eef4ee;color:#2f5a3c}
-.remove-dialog .remove-menu-state.open{background:#fbefe6;color:#8a4a1c;font-weight:600}
 .character-remove-note{margin:6px 0;padding:6px 10px;border:1px solid #d9a38f;border-radius:6px;background:#fbefe9;color:#8a3a26;font-size:12px;line-height:1.6}
 .character-follow-note{align-self:center;font-size:12px;color:var(--muted,#8a8a8a)}
 .character-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 2px}
