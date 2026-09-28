@@ -2747,7 +2747,12 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
             # the attempts bracket the moment the atomic replace lands and stay
             # clear of the terminal ledger write.
             commit_seconds = self.measure_commit_seconds(side)
-            delays = (0.35 * commit_seconds, 0.6 * commit_seconds, 0.85 * commit_seconds)
+            # The two late attempts keep a slow hosted runner from finishing every
+            # kill before the replace: a kill after it still leaves the shipped
+            # host's `executing` ledger, and the Rust host proves the write.
+            delays = tuple(
+                fraction * commit_seconds for fraction in (0.35, 0.6, 0.85, 0.95, 1.1)
+            )
             # Each attempt runs on its own fixture and its own fresh plan: an
             # attempt the host was killed inside leaves an unresolved operation,
             # and the same-target fence refuses to stack a second plan on it.

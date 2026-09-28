@@ -1260,7 +1260,9 @@ class ProtectedRuntimeScanTests(unittest.TestCase):
                 "runtime.search",
                 {
                     "template": request_template,
-                    "seed": 0,
+                    # Seed 0 is an id the game never hands out, so the scan skips
+                    # it; the first natural seed is 1.
+                    "seed": 1,
                     "playthrough": 3,
                     "rarity": 4,
                     "level": 180,
