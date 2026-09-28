@@ -237,7 +237,7 @@ fn read_item_array(
             container.label()
         ));
     }
-    for record in array.chunks_exact(ITEM_RECORD_BYTES) {
+    for record in array.as_chunks::<ITEM_RECORD_BYTES>().0 {
         let occupied = record[0] != 0 || record[1] != 0;
         let flags = u32::from_le_bytes([record[0x18], record[0x19], record[0x1A], record[0x1B]]);
         if occupied && flags & ITEM_COUNT_FLAGS == 0 {

@@ -1923,7 +1923,7 @@ fn save_items_json(plain: &[u8]) -> Value {
         let Ok(region) = item_region(plain, container) else {
             return Value::Null;
         };
-        for (slot_index, record) in region.chunks_exact(ITEM_RECORD_BYTES).enumerate() {
+        for (slot_index, record) in region.as_chunks::<ITEM_RECORD_BYTES>().0.iter().enumerate() {
             if !equipment_slot_is_empty(record) {
                 items.push(item_json(container, slot_index, record));
             }
