@@ -2,6 +2,14 @@
 
 ## Active development: v0.8.2
 
+**v0.8.2 is published (2026-09-28)**: product commit `3e181cb`, tag `v0.8.2`,
+run `36369277500`, public release re-verified 53 checks; see the
+[publication record](TAURI_V082_PUBLICATION_20260928.md). It ships the
+character and equipment page (live and save-file edits), NG1/NG2 offline
+search, the rarity-5 promoted-secondary preflight fix, effect value ranges in
+the scroll editor, and settlement or user acknowledgement of a save fenced by
+an interrupted write. The paragraphs below are the development history.
+
 **Status 2026-09-26 (branch `claude/v082-integration`, not pushed).** Codex's
 uncommitted v0.8.1 integration work was imported onto the published v0.8.1
 (`ffdd93b`). The owner's scope for v0.8.2: equipment and soul-core legal
@@ -133,6 +141,9 @@ Existing v0.8.0 publication and native write approval remain unchanged; source
 visibility is not current-version runtime acceptance.
 
 ## Current release status
+
+**v0.8.2 is published (2026-09-28)**; see the section above. The v0.8.1 entry
+below is kept for history.
 
 **v0.8.1 is published (2026-09-26)**: product commit `522536a`, tag `v0.8.1`,
 run `36208738081`, public release re-verified 53/53. It fixes the v0.8.0
