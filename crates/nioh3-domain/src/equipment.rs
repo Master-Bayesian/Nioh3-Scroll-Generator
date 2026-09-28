@@ -782,7 +782,10 @@ impl<'a> EquipmentRules<'a> {
                 });
             }
         }
-        if stars > 1 {
+        // A drop carries at most one star, but re-rolling a soul core's random
+        // effect offers star candidates whatever the other slots hold (player
+        // report, PC v2.02: 伤害反映（心） plus a re-rolled 水属性伤害 0x4AE3).
+        if stars > 1 && !item.soul_core() {
             structural.push(Finding::MultipleStars);
         }
         // Innate, set and grace effects are fixed by the item; only drawn

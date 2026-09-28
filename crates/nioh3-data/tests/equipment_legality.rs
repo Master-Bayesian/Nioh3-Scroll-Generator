@@ -155,3 +155,71 @@ fn edits_that_natural_generation_cannot_produce_are_reported() {
                 if *group == recorded_group
         )));
 }
+
+#[test]
+fn a_soul_core_re_rolled_to_a_second_star_is_not_unnatural() {
+    let resource = resource();
+    let index = EffectTableIndex::from_resource(&resource).unwrap();
+    let rules = EquipmentRules::new(&index, &resource.item, graces(&resource));
+    // 姑获鸟魂核 at rarity 3: two innate effects, then two random slots. A
+    // player re-rolled the second random slot to the star 水属性伤害 0x4AE3
+    // (16.0%) while the first already held the star 对伤害的反映（心） 0xE021.
+    let item = *rules.item(31705).expect("姑获鸟魂核");
+    assert!(item.soul_core());
+    let (rarity, level) = (3u8, 170u16);
+    let mut record = vec![0u8; 0xF0];
+    record[0..2].copy_from_slice(&31705u16.to_le_bytes());
+    record[6..8].copy_from_slice(&level.to_le_bytes());
+    record[0x18] = 0x84;
+    record[0x30] = rarity;
+    for slot in 0..7 {
+        set_u32(entry_mut(&mut record, slot), 4, u32::MAX);
+    }
+    let innate: Vec<u16> = item.innate_effects.iter().flatten().copied().collect();
+    let effects = [innate[0], innate[1], 0xE021, 0x4AE3];
+    for (slot, effect_id) in effects.iter().copied().enumerate() {
+        let best = *rules
+            .legal_values(effect_id, rarity, level)
+            .unwrap()
+            .last()
+            .unwrap();
+        let (group, category) = rules.effect_marker(effect_id).unwrap();
+        let star = rules.effect(effect_id).unwrap().normalization_flags & 0x08 != 0;
+        let entry = entry_mut(&mut record, slot);
+        entry[0..2].copy_from_slice(&group.to_le_bytes());
+        set_u32(entry, 4, u32::from(effect_id));
+        set_u32(entry, 8, best.value as u32);
+        entry[0xC] = best.roll_max;
+        entry[0xD] = category;
+        entry[0xE] = if star { 0x04 } else { 0 };
+    }
+    let audit = rules.audit(&record);
+    assert!(
+        audit.natural(),
+        "{:?} {:?}",
+        audit.findings,
+        audit.unverified
+    );
+
+    // Other equipment still carries at most one star.
+    let (_, natural) = records()
+        .into_iter()
+        .find(|(_, record)| {
+            let item = u16::from_le_bytes([record[0], record[1]]);
+            let audit = rules.audit(record);
+            audit.natural()
+                && !rules.item(item).unwrap().soul_core()
+                && audit.roles.len() >= 3
+                && audit.roles[1] == Some(SlotRole::Random)
+                && audit.roles[2] == Some(SlotRole::Random)
+                && record[EFFECT_ENTRY_OFFSET + EFFECT_ENTRY_BYTES + 0xE] & 0x04 != 0
+        })
+        .expect("a natural record with a star in its first random slot");
+    let mut doubled = natural.clone();
+    let star = entry_mut(&mut doubled, 1).to_vec();
+    entry_mut(&mut doubled, 2).copy_from_slice(&star);
+    assert!(rules
+        .audit(&doubled)
+        .findings
+        .contains(&Finding::MultipleStars));
+}
