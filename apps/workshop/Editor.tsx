@@ -721,7 +721,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
             ))}
         </div>
         <button
-          disabled={backendBusy || (desktop && !current.saveEntry)}
+          disabled={backendBusy || !!saveState?.busy || (desktop && !current.saveEntry)}
           onClick={() =>
             desktop
               ? void prepareDelete()
@@ -1207,7 +1207,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
             放弃修改
           </button>
           <button
-            disabled={!changed || backendBusy}
+            disabled={!changed || backendBusy || !!saveState?.busy}
             onClick={() => void validate()}
           >
             核对修改

@@ -35,7 +35,7 @@ test('a refused submission does not lock later operations, and a running job sti
   let busy = false;
   const controller = new OperationController('runtime', api({
     current: async () => (busy ? { job: running, busy: true } : { job: null, busy: false }),
-  }), 1);
+  }), 1, 20);
   try {
     await assert.rejects(controller.run(async () => { throw new Error('INVALID_REQUEST: refused'); }));
     assert.equal(controller.getSnapshot().phase, 'interrupted');
@@ -44,6 +44,24 @@ test('a refused submission does not lock later operations, and a running job sti
     await assert.rejects(controller.run(async () => { throw new Error('INVALID_REQUEST: refused'); }));
     busy = true;
     await assert.rejects(controller.run(async () => null), /BUSY/);
+  } finally { controller.dispose(); }
+});
+
+test('an action queues behind a running read and starts once it completes', async () => {
+  let finished = false;
+  const controller = new OperationController('runtime', api({
+    snapshot: async () => (finished ? { ...running, state: 'completed', sequence: 6, result: { candidate: null } } : running),
+  }), 1, 5_000);
+  try {
+    await controller.start(async () => running);
+    assert.equal(controller.canStart(), false);
+    let ran = 0;
+    const queued = controller.run(async () => { ran++; return null; });
+    await pause();
+    assert.equal(ran, 0, 'the queued action waits for the running job');
+    finished = true;
+    assert.equal(await queued, null);
+    assert.equal(ran, 1, 'it then runs exactly once');
   } finally { controller.dispose(); }
 });
 

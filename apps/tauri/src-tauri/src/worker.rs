@@ -29,6 +29,11 @@ pub const WORKER_BACKEND_MANIFEST: &str = "worker/worker-backend.json";
 
 /// The two roles one packaged manifest may map onto the staged binaries.
 const PROTECTED_ROLES: [&str; 2] = ["save", "runtime"];
+/// The refusal a protected host returns before starting a second job.
+const HOST_BUSY: &str = "BUSY: protected operation is still running";
+/// Up to three seconds of waiting for a short background job to finish.
+const BUSY_RETRIES: u32 = 40;
+const BUSY_RETRY_MILLIS: u64 = 75;
 
 /// Strip the Windows extended-length prefix so a canonicalized path can be
 /// compared against an unresolved package root.
@@ -1308,7 +1313,19 @@ impl Worker {
     }
     pub async fn call(&self, method: &str, params: Value) -> Reply {
         self.handshake().await?;
-        self.request(method, params).await
+        // A protected host runs one job at a time and refuses a second one
+        // before starting it, so waiting out a short background job (a scroll's
+        // content preview, for example) can never replay work.
+        let mut attempts = 0;
+        loop {
+            match self.request(method, params.clone()).await {
+                Err(error) if attempts < BUSY_RETRIES && error.contains(HOST_BUSY) => {
+                    attempts += 1;
+                    tokio::time::sleep(Duration::from_millis(BUSY_RETRY_MILLIS)).await;
+                }
+                result => return result,
+            }
+        }
     }
     pub async fn run(&self, method: &str, params: Value) -> Reply {
         let mut job = self.call(method, params).await?;

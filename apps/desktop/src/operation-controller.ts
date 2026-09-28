@@ -21,7 +21,7 @@ export class OperationController {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private waiters = new Set<(state: OperationState) => void>();
   constructor(readonly role: OperationRole, private api: Pick<OperationsApi, 'snapshot' | 'cancel' | 'current' | 'execute'>,
-    private pollMs = 150) {}
+    private pollMs = 150, private startWaitMs = 10_000) {}
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private update(values: Partial<OperationState>) {
@@ -34,6 +34,9 @@ export class OperationController {
     // must not lock every later operation: reading the worker's current state
     // (recovery never replays) settles it, and only real ownership still refuses.
     if (this.state.phase === 'interrupted') await this.recover();
+    // A background read (an inventory refresh, a backup list) may still be
+    // settling when the user acts. Queue behind it instead of refusing.
+    if (!this.canStart()) await this.whenStartable(this.startWaitMs);
     if (!this.canStart()) throw new Error('BUSY: recover the protected operation before continuing');
     const epoch = this.epoch + 1;
     await this.start(operation, operationId);
@@ -52,6 +55,15 @@ export class OperationController {
     });
   }
   canStart() { return !this.disposed && ['idle', 'completed', 'failed'].includes(this.state.phase); }
+  /** Resolve once a new operation may start, or after `timeoutMs`. It never starts one. */
+  private whenStartable(timeoutMs: number) {
+    return new Promise<void>(resolve => {
+      const done = () => { clearTimeout(timer); this.waiters.delete(check); resolve(); };
+      const check = () => { if (this.disposed || this.canStart()) done(); };
+      const timer = setTimeout(done, timeoutMs);
+      this.waiters.add(check); check();
+    });
+  }
   private interrupted(error: unknown) {
     // A missing response does not prove that a protected write failed or stopped.
     this.update({ phase: 'interrupted', error: String(error) });
