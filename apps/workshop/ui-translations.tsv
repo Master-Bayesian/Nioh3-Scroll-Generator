@@ -981,3 +981,8 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 移除后它会立即从游戏的装备栏里消失，无法恢复。到神社存档后，这个改动才会写进存档文件。	It disappears from the game at once and cannot be restored. The change reaches the save file when you save at a shrine.	削除するとすぐにゲームの装備一覧から消え、元に戻せません。社でセーブすると、この変更がセーブファイルに書き込まれます。
 请先关闭游戏内的菜单；正在装备中的物品不能移除。	Close the in-game menu first; equipped items cannot be removed.	先にゲーム内のメニューを閉じてください。装備中のアイテムは削除できません。
 确认移除	Remove	削除する
+游戏里的菜单还开着：请先关闭游戏菜单，程序已经记住了这件装备，关闭后再点“确认移除”。	The in-game menu is still open: close it first. This item stays selected here; then click "Remove".	ゲーム内のメニューが開いたままです。先にメニューを閉じてください。この装備は選択されたままなので、閉じてから「削除する」を押してください。
+游戏菜单已关闭，可以移除。	The in-game menu is closed; the item can be removed.	ゲーム内のメニューは閉じています。削除できます。
+移除前请先关闭游戏里的菜单。	Close the in-game menu before removing.	削除する前にゲーム内のメニューを閉じてください。
+游戏里的菜单还开着。请先关闭游戏菜单（程序会记住你选中的装备），再点“确认移除”。	The in-game menu is still open. Close it first (the selected item stays selected here), then click "Remove".	ゲーム内のメニューが開いたままです。先にメニューを閉じてから（選んだ装備は選択されたままです）「削除する」を押してください。
+这件装备正在装备中，请先在游戏里卸下再移除。	This item is equipped. Unequip it in the game before removing it.	この装備は装備中です。削除する前にゲーム内で外してください。

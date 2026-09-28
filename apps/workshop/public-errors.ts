@@ -57,7 +57,7 @@ function infeasibleConditions(detail: string): string {
  * as a hint, never as a failure to report.
  */
 export function isUserCorrectable(message: string): boolean {
-  return /no solution in the native generation structure|原生生成结构中无解|no legal native path|compiled no plan family|has no draw-1 preimage|at most 32 scratch keys|FAVORITES_CAPACITY_REACHED|CART_CAPACITY_REACHED|Possessed is available only/i.test(
+  return /no solution in the native generation structure|原生生成结构中无解|no legal native path|compiled no plan family|has no draw-1 preimage|at most 32 scratch keys|FAVORITES_CAPACITY_REACHED|CART_CAPACITY_REACHED|Possessed is available only|Close the in-game menu before removing equipment|Unequip the item in game before removing it/i.test(
     message,
   );
 }
@@ -114,6 +114,11 @@ export function publicError(message: string): string {
     [/Finish the live scroll addition before editing the character/i, "实时添加绘卷还没结束，请等它完成后再修改角色。"],
     [/Save changed (?:since it was read|while reading the character)/i, "存档文件刚刚发生了变化（可能是游戏存了档）。请重新读取后再修改。"],
     [/Only occupied equipment slots may be edited/i, "这个装备格是空的，不能修改。"],
+    [
+      /Close the in-game menu before removing equipment/i,
+      "游戏里的菜单还开着。请先关闭游戏菜单（程序会记住你选中的装备），再点“确认移除”。",
+    ],
+    [/Unequip the item in game before removing it|an equipped item cannot be removed/i, "这件装备正在装备中，请先在游戏里卸下再移除。"],
     [/(?:^|:\s*)Nothing to change$/i, "没有需要修改的内容。"],
     [
       /has not initialized its player identity yet/i,
