@@ -706,8 +706,14 @@ impl<'a> EquipmentRules<'a> {
                         .map(|other| other.effect_id),
                 });
             }
-            let is_star = effect.normalization_flags & STAR_NORMALIZATION_FLAG != 0;
-            if is_star != (entry_flags & STAR_ENTRY_FLAG != 0) {
+            let marked = entry_flags & STAR_ENTRY_FLAG != 0;
+            // Re-rolling a soul core's random effect writes it without the star
+            // marker even when it is a star row, and the game then shows it as
+            // an ordinary effect (a player's PC v2.02 save: three re-rolled
+            // 水属性伤害 0x4AE3 next to a marked 对伤害的反映).
+            let re_rolled = item.soul_core() && role == SlotRole::Random && !marked;
+            let is_star = effect.normalization_flags & STAR_NORMALIZATION_FLAG != 0 && !re_rolled;
+            if is_star != marked {
                 structural.push(Finding::StarFlagMismatch { slot });
             }
             if is_star {
@@ -782,10 +788,7 @@ impl<'a> EquipmentRules<'a> {
                 });
             }
         }
-        // A drop carries at most one star, but re-rolling a soul core's random
-        // effect offers star candidates whatever the other slots hold (player
-        // report, PC v2.02: 伤害反映（心） plus a re-rolled 水属性伤害 0x4AE3).
-        if stars > 1 && !item.soul_core() {
+        if stars > 1 {
             structural.push(Finding::MultipleStars);
         }
         // Innate, set and grace effects are fixed by the item; only drawn

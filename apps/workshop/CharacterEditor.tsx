@@ -190,13 +190,16 @@ function patchOf(row: CharacterEquipment, draft: Draft) {
     const value = id === EMPTY_EFFECT ? 0 : parseAmount(effect.value, 4294967295);
     if (id === null || value === null) return { error: "请输入有效的词条和数值。" };
     const before = row.effects[index];
+    // An unchanged effect keeps the star marker it has: a re-rolled soul-core
+    // effect is unmarked even on a star row, and the game shows it that way.
+    const star = before?.effect_id === id ? null : effect.star;
     if (!before || before.effect_id !== id || (id !== EMPTY_EFFECT && before.value !== value) || effect.roll !== null)
       effects.push({
         index,
         effect_id: id,
         value,
         ...(effect.roll !== null && id !== EMPTY_EFFECT ? { roll: effect.roll } : {}),
-        ...(effect.star !== null && id !== EMPTY_EFFECT ? { star: effect.star } : {}),
+        ...(star !== null && id !== EMPTY_EFFECT ? { star } : {}),
       });
   }
   if (effects.length) patch.effects = effects;
@@ -216,8 +219,10 @@ const FIELD_LABEL: [keyof CharacterEquipment, string][] = [
  * Effect picker: opening it always lists every candidate; only text typed after
  * opening filters the list, so the current effect never hides the others.
  */
-function EffectPicker({ value, candidates, label, onPick }: {
+function EffectPicker({ value, star, candidates, label, onPick }: {
   value: string;
+  /** The saved star marker of the current effect, when it is unchanged. */
+  star?: boolean;
   candidates: Candidate[];
   label: (candidate: Candidate) => string;
   onPick: (candidate: Candidate) => void;
@@ -227,7 +232,11 @@ function EffectPicker({ value, candidates, label, onPick }: {
   const box = useRef<HTMLDivElement>(null);
   const current = parseEffectId(value);
   const currentLabel =
-    current === null ? value : current === EMPTY_EFFECT ? "" : label(candidates.find(candidate => candidate.id === current) ?? { id: current });
+    current === null
+      ? value
+      : current === EMPTY_EFFECT
+        ? ""
+        : label({ ...(candidates.find(candidate => candidate.id === current) ?? { id: current }), ...(star === undefined ? {} : { star }) });
   const shown = useMemo(() => {
     const needle = filter.trim().toLowerCase();
     const list = needle
@@ -1096,7 +1105,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
             return (
               <tr key={index}>
                 <td>{role ? ROLE_LABEL[role] ?? role : "—"}</td>
-                <td><EffectPicker value={effect.id} candidates={candidatesFor(index)} label={candidateLabel} onPick={candidate => pickEffect(index, candidate)} /></td>
+                <td><EffectPicker value={effect.id} star={row?.effects[index]?.effect_id === parseEffectId(effect.id) ? row?.effects[index]?.star : undefined} candidates={candidatesFor(index)} label={candidateLabel} onPick={candidate => pickEffect(index, candidate)} /></td>
                 <td>
                   {id === EMPTY_EFFECT ? null : fixed ? <span className="character-muted">—</span> : (
                     <span className="character-value">

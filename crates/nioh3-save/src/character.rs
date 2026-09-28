@@ -158,6 +158,8 @@ pub struct EquipmentFields {
     pub rarity: u8,
     /// `(effect id, raw value)` per entry; an unused entry has id `u32::MAX`.
     pub effects: Vec<(u32, u32)>,
+    /// The star (✦) marker of each entry, as the game shows it.
+    pub stars: Vec<bool>,
     /// The hell-weapon marker (`+0x1A` bit `0x10`).
     pub hell: bool,
     /// The hell martial skill (`+0x10`).
@@ -204,6 +206,9 @@ pub fn equipment_fields(record: &[u8]) -> Result<EquipmentFields, SaveReadError>
                 let offset = effect_offset(index);
                 (u32_at(record, offset), u32_at(record, offset + 4))
             })
+            .collect(),
+        stars: (0..EQUIPMENT_EFFECT_COUNT)
+            .map(|index| record[effect_offset(index) + 0xA] & 0x04 != 0)
             .collect(),
     })
 }

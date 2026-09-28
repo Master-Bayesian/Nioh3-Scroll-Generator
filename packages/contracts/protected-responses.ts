@@ -369,6 +369,10 @@ export interface CharacterEquipmentEffect {
   index: number;
   effect_id: number;
   value: number;
+  /**
+   * The entry's star marker, as the game shows it.
+   */
+  star?: boolean;
 }
 export interface CharacterItem {
   container: "held" | "storage";

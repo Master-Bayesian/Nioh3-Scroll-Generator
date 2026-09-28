@@ -157,13 +157,13 @@ fn edits_that_natural_generation_cannot_produce_are_reported() {
 }
 
 #[test]
-fn a_soul_core_re_rolled_to_a_second_star_is_not_unnatural() {
+fn a_re_rolled_soul_core_effect_is_unmarked_even_on_a_star_row() {
     let resource = resource();
     let index = EffectTableIndex::from_resource(&resource).unwrap();
     let rules = EquipmentRules::new(&index, &resource.item, graces(&resource));
-    // 姑获鸟魂核 at rarity 3: two innate effects, then two random slots. A
-    // player re-rolled the second random slot to the star 水属性伤害 0x4AE3
-    // (16.0%) while the first already held the star 对伤害的反映（心） 0xE021.
+    // A player's PC v2.02 姑获鸟魂核 (rarity 3, level 170): the marked star
+    // 对伤害的反映（心） 0xE021 and a re-rolled 水属性伤害 0x4AE3 of 16.0%. The
+    // re-roll left the star row unmarked, and the game shows it as ordinary.
     let item = *rules.item(31705).expect("姑获鸟魂核");
     assert!(item.soul_core());
     let (rarity, level) = (3u8, 170u16);
@@ -176,22 +176,22 @@ fn a_soul_core_re_rolled_to_a_second_star_is_not_unnatural() {
         set_u32(entry_mut(&mut record, slot), 4, u32::MAX);
     }
     let innate: Vec<u16> = item.innate_effects.iter().flatten().copied().collect();
-    let effects = [innate[0], innate[1], 0xE021, 0x4AE3];
-    for (slot, effect_id) in effects.iter().copied().enumerate() {
-        let best = *rules
-            .legal_values(effect_id, rarity, level)
-            .unwrap()
-            .last()
-            .unwrap();
+    // (effect, value, roll, star marker) as the save holds them.
+    let effects = [
+        (innate[0], 45, 100, false),
+        (innate[1], 85, 100, false),
+        (0x4AE3, 160, 63, false),
+        (0xE021, 6, 71, true),
+    ];
+    for (slot, (effect_id, value, roll, marked)) in effects.iter().copied().enumerate() {
         let (group, category) = rules.effect_marker(effect_id).unwrap();
-        let star = rules.effect(effect_id).unwrap().normalization_flags & 0x08 != 0;
         let entry = entry_mut(&mut record, slot);
         entry[0..2].copy_from_slice(&group.to_le_bytes());
         set_u32(entry, 4, u32::from(effect_id));
-        set_u32(entry, 8, best.value as u32);
-        entry[0xC] = best.roll_max;
+        set_u32(entry, 8, value);
+        entry[0xC] = roll;
         entry[0xD] = category;
-        entry[0xE] = if star { 0x04 } else { 0 };
+        entry[0xE] = if marked { 0x04 } else { 0 };
     }
     let audit = rules.audit(&record);
     assert!(
@@ -201,7 +201,15 @@ fn a_soul_core_re_rolled_to_a_second_star_is_not_unnatural() {
         audit.unverified
     );
 
-    // Other equipment still carries at most one star.
+    // Marked as well, it would be a second star, which no core carries.
+    let mut two_stars = record.clone();
+    entry_mut(&mut two_stars, 2)[0xE] = 0x04;
+    assert!(rules
+        .audit(&two_stars)
+        .findings
+        .contains(&Finding::MultipleStars));
+
+    // Other equipment has no re-roll: an unmarked star row stays a mismatch.
     let (_, natural) = records()
         .into_iter()
         .find(|(_, record)| {
@@ -209,17 +217,15 @@ fn a_soul_core_re_rolled_to_a_second_star_is_not_unnatural() {
             let audit = rules.audit(record);
             audit.natural()
                 && !rules.item(item).unwrap().soul_core()
-                && audit.roles.len() >= 3
+                && audit.roles.len() >= 2
                 && audit.roles[1] == Some(SlotRole::Random)
-                && audit.roles[2] == Some(SlotRole::Random)
                 && record[EFFECT_ENTRY_OFFSET + EFFECT_ENTRY_BYTES + 0xE] & 0x04 != 0
         })
         .expect("a natural record with a star in its first random slot");
-    let mut doubled = natural.clone();
-    let star = entry_mut(&mut doubled, 1).to_vec();
-    entry_mut(&mut doubled, 2).copy_from_slice(&star);
+    let mut unmarked = natural.clone();
+    entry_mut(&mut unmarked, 1)[0xE] &= !0x04;
     assert!(rules
-        .audit(&doubled)
+        .audit(&unmarked)
         .findings
-        .contains(&Finding::MultipleStars));
+        .contains(&Finding::StarFlagMismatch { slot: 1 }));
 }

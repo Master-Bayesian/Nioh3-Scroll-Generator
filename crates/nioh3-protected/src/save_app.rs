@@ -1946,6 +1946,7 @@ pub(crate) fn equipment_json(
                 "index": index,
                 "effect_id": effect_id,
                 "value": value,
+                "star": fields.stars.get(index).copied().unwrap_or(false),
             })
         })
         .collect();
