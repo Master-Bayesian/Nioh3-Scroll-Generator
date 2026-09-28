@@ -3888,9 +3888,9 @@
       "More than one star marker; the game never produces such equipment",
       "★の印が2つ以上あります。ゲームはこのような装備を生成しません"
     ],
-    "已从游戏中移除。到神社存档即可保存到存档文件。": [
-      "Removed from the game. Save at a shrine to keep it in the save file.",
-      "ゲームから削除しました。社でセーブするとセーブファイルに保存されます。"
+    "已从游戏中移除。在游戏里切换一下菜单页即可看到它消失；到神社存档即可保存到存档文件。": [
+      "Removed from the game. Switch the in-game menu page once to see it gone; save at a shrine to keep it in the save file.",
+      "ゲームから削除しました。ゲーム内でメニューのページを一度切り替えると消えたことを確認できます。社でセーブするとセーブファイルに保存されます。"
     ],
     "这件装备正在装备中，请先在游戏里卸下。": [
       "This item is equipped. Unequip it in the game first.",

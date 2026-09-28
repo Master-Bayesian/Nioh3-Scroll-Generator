@@ -970,7 +970,7 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 这是星号词条，但游戏里不显示星号：游戏洗魂核词条时不会更新星号标记（游戏自身的 bug），这是正常结果。	This is a star effect, but the game shows no star: re-rolling a soul core never updates the star marker (a bug in the game), so this is expected.	これは★効果ですが、ゲームでは★が表示されません。魂核の効果を再抽選しても★の印は更新されないため（ゲーム側の不具合）、正常な結果です。
 这不是星号词条，但游戏里仍显示星号：游戏洗魂核词条时不会去掉原来的星号标记（游戏自身的 bug），这是正常结果。	This is not a star effect, but the game still shows a star: re-rolling a soul core keeps the old star marker (a bug in the game), so this is expected.	これは★効果ではありませんが、ゲームでは★が表示されたままです。魂核の効果を再抽選しても元の★の印は消えないため（ゲーム側の不具合）、正常な結果です。
 星号标记超过一个，游戏不会生成这样的装备	More than one star marker; the game never produces such equipment	★の印が2つ以上あります。ゲームはこのような装備を生成しません
-已从游戏中移除。到神社存档即可保存到存档文件。	Removed from the game. Save at a shrine to keep it in the save file.	ゲームから削除しました。社でセーブするとセーブファイルに保存されます。
+已从游戏中移除。在游戏里切换一下菜单页即可看到它消失；到神社存档即可保存到存档文件。	Removed from the game. Switch the in-game menu page once to see it gone; save at a shrine to keep it in the save file.	ゲームから削除しました。ゲーム内でメニューのページを一度切り替えると消えたことを確認できます。社でセーブするとセーブファイルに保存されます。
 这件装备正在装备中，请先在游戏里卸下。	This item is equipped. Unequip it in the game first.	この装備は装備中です。先にゲーム内で外してください。
 这件装备正在装备中，请先在游戏里卸下	This item is equipped. Unequip it in the game first	この装備は装備中です。先にゲーム内で外してください
 这件装备正在装备中，要移除请先在游戏里卸下。	This item is equipped. To remove it, unequip it in the game first.	この装備は装備中です。削除するには先にゲーム内で外してください。

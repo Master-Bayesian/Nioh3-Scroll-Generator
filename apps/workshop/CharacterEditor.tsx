@@ -863,7 +863,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       if (outcome.state === "verified" && remove.length) {
         setSelected(null);
         setDraft(null);
-        setMessage("已从游戏中移除。到神社存档即可保存到存档文件。");
+        setMessage("已从游戏中移除。在游戏里切换一下菜单页即可看到它消失；到神社存档即可保存到存档文件。");
       } else if (outcome.state === "verified") setMessage("已写入游戏。到神社存档即可保存到存档文件。");
       else if (outcome.state === "rejected") setMessage("没有写入：" + (outcome.error ?? ""));
       else setMessage("写入结果不确定，请重新读取后核对：" + (outcome.error ?? ""));

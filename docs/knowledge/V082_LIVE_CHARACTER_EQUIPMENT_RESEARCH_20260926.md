@@ -426,3 +426,32 @@ in-game inventory menu ("持有物品").
   `Finding::ReplacedEffect` is unnatural even for unique or blacksmith records.
   The editor now writes the marker and category with each effect, which also
   makes the game show the new effect's icon (it kept the old one before).
+
+## Equipped markers and removing equipment (live, owner present, 2026-09-28)
+
+- Worn state lives in the record itself: `+0xE8` and `+0xEC` (u32) are the
+  item's position in each of the two equipment sets, `0x11` when that set does
+  not wear it. Swapping one helmet in each set (two read-only dumps of the
+  player object, 2 MiB each) changed only these words on the four helmets,
+  plus `+0x18` bit `0x02` cleared on the newly worn ones. Each set had exactly
+  ten worn positions (0, 1, 4-10, 13), one item each. The player object holds
+  no pointer into the equipment array and only three stray key matches, so
+  there is no separate loadout list to keep in step.
+- Record `+0x18` bit `0x01` (24 records in the owner's save, most with
+  `0x20000`) is not the worn marker; it is probably a lock/favourite flag.
+- A free slot: item id 0, header zero except `+0x0F = 0x40`, `+0x18 = 0x02`
+  and `+0x28..=+0x30 = 0xFF`; each effect entry has id `0xFFFFFFFF` and zero
+  fields except entry bytes `+0x2/+0x3/+0xE/+0xF/+0x12/+0x13`, which keep the
+  last item's bytes; both set words are `0x11`. This rule
+  (`nioh3_save::character::free_equipment_slot`) reproduces all 1,094 free
+  slots of the live inventory byte for byte.
+- Live removal (`runtime.character_edit` `remove`) writes that free slot with
+  the usual compare-and-swap and read-back, refusing worn items. Removing the
+  item under the open inventory menu's cursor worked: the item disappears when
+  the menu page is switched. Community saves showed why it is needed: CE edits
+  had turned two equipment records into book ids (制作指南 石块 `0x8DB5`,
+  锻造书 石动 `0x1834`) that the game can no longer open or discard.
+- Soul-core re-roll (a player's save, 2026-09-28): re-rolling a random effect
+  replaces its id and value but keeps the slot's star marker (`+0xE` bit
+  `0x04`), so a star row can show unstarred and an ordinary row can keep a
+  star; a core still carries at most one marker.
