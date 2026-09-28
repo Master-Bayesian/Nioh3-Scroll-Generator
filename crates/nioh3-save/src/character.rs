@@ -134,6 +134,57 @@ pub fn equipment_slot_is_empty(record: &[u8]) -> bool {
     record.len() < 2 || u16::from_le_bytes([record[0], record[1]]) == 0
 }
 
+/// Record `+0xE8` and `+0xEC` (u32): the item's position in each of the two
+/// equipment sets, or this value when that set does not wear it (PC v2.02,
+/// live: swapping one helmet per set changed only these words).
+pub const EQUIPMENT_NOT_WORN: u32 = 0x11;
+/// The two equipment-set position words.
+pub const EQUIPMENT_SET_OFFSETS: [usize; 2] = [0xE8, 0xEC];
+
+/// Whether either equipment set wears this record.
+pub fn equipment_is_worn(record: &[u8]) -> bool {
+    record.len() >= EQUIPMENT_RECORD_BYTES
+        && EQUIPMENT_SET_OFFSETS
+            .iter()
+            .any(|offset| u32_at(record, *offset) != EQUIPMENT_NOT_WORN)
+}
+
+/// Bytes of each effect entry a free slot keeps from its last item; the game
+/// never clears them (1,094 free slots of a live PC v2.02 inventory differ
+/// only there).
+const FREE_SLOT_KEPT_ENTRY_BYTES: [usize; 6] = [0x2, 0x3, 0xE, 0xF, 0x12, 0x13];
+
+/// The record as the game leaves a slot it frees: item id zero, every field
+/// cleared to the free-slot values, each effect entry emptied and both
+/// equipment-set words set to "not worn". A worn or already free record is
+/// refused.
+pub fn free_equipment_slot(record: &[u8]) -> Result<Vec<u8>, SaveReadError> {
+    equipment_fields(record)?;
+    if equipment_slot_is_empty(record) {
+        return Err(SaveReadError::RecordTypeZero);
+    }
+    if equipment_is_worn(record) {
+        return Err(SaveReadError::InvalidTransform {
+            message: "an equipped item cannot be removed".to_string(),
+        });
+    }
+    let mut freed = vec![0u8; EQUIPMENT_RECORD_BYTES];
+    freed[0x0F] = 0x40;
+    freed[0x18] = 0x02;
+    freed[0x28..=0x30].fill(0xFF);
+    for index in 0..EQUIPMENT_EFFECT_COUNT {
+        let entry = EQUIPMENT_EFFECT_ID_OFFSET - 4 + index * EQUIPMENT_EFFECT_STRIDE;
+        freed[entry + 4..entry + 8].fill(0xFF);
+        for kept in FREE_SLOT_KEPT_ENTRY_BYTES {
+            freed[entry + kept] = record[entry + kept];
+        }
+    }
+    for offset in EQUIPMENT_SET_OFFSETS {
+        freed[offset..offset + 4].copy_from_slice(&EQUIPMENT_NOT_WORN.to_le_bytes());
+    }
+    Ok(freed)
+}
+
 /// Effect entries in one equipment record.
 pub const EQUIPMENT_EFFECT_COUNT: usize = 7;
 /// Distance between effect entries.
@@ -164,6 +215,8 @@ pub struct EquipmentFields {
     pub hell: bool,
     /// The hell martial skill (`+0x10`).
     pub hell_skill: u16,
+    /// Whether either equipment set wears the item.
+    pub worn: bool,
 }
 
 fn u16_at(record: &[u8], offset: usize) -> u16 {
@@ -201,6 +254,7 @@ pub fn equipment_fields(record: &[u8]) -> Result<EquipmentFields, SaveReadError>
         rarity: record[0x30],
         hell: record[0x1A] & 0x10 != 0,
         hell_skill: u16_at(record, 0x10),
+        worn: equipment_is_worn(record),
         effects: (0..EQUIPMENT_EFFECT_COUNT)
             .map(|index| {
                 let offset = effect_offset(index);
@@ -964,5 +1018,61 @@ mod tests {
             replacement: cleared,
         };
         assert!(apply_character_edits(&plain, &[clearing]).is_err());
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
+mod free_slot_tests {
+    use super::*;
+
+    /// A free slot of a live PC v2.02 inventory, as the game left it.
+    const LIVE_FREE_SLOT: &str = "00000000000000000000000000000040000000000000000002000000000000000000000000000000ffffffffffffffffff00000000000000ffffffff000000000000000f000000000000000000000000ffffffff0000000000000000000000000000000000000000ffffffff000000000000000f000000000000000000000000ffffffff0000000000000041000000000000000000000000ffffffff00000000000000ef000000000000000000000000ffffffff000000000000000f000000000000000000000000ffffffff000000000000003f0000a63f000000000000000000000000000000001100000011000000";
+
+    fn live_free_slot() -> Vec<u8> {
+        (0..LIVE_FREE_SLOT.len())
+            .step_by(2)
+            .map(|index| u8::from_str_radix(&LIVE_FREE_SLOT[index..index + 2], 16).unwrap())
+            .collect()
+    }
+
+    /// The slot with an item in it: every byte the game clears is filled.
+    fn occupied_from(free: &[u8]) -> Vec<u8> {
+        let mut record = free.to_vec();
+        record[0..0x28].copy_from_slice(&[0x5A; 0x28]);
+        record[0x28..0x34].copy_from_slice(&[0x07; 0x0C]);
+        for index in 0..EQUIPMENT_EFFECT_COUNT {
+            let entry = 0x34 + index * EQUIPMENT_EFFECT_STRIDE;
+            record[entry..entry + 2].copy_from_slice(&[0x12, 0x34]);
+            record[entry + 4..entry + 0xE].copy_from_slice(&[0x21; 0x0A]);
+            record[entry + 0x10..entry + 0x12].copy_from_slice(&[0x43, 0x65]);
+            record[entry + 0x14..entry + 0x18].copy_from_slice(&[0x66; 4]);
+        }
+        record[0xDC..0xE8].copy_from_slice(&[0x77; 0x0C]);
+        record
+    }
+
+    #[test]
+    fn a_freed_record_is_the_slot_the_game_leaves() {
+        let free = live_free_slot();
+        let occupied = occupied_from(&free);
+        assert!(!equipment_slot_is_empty(&occupied));
+        assert!(!equipment_is_worn(&occupied));
+        assert_eq!(free_equipment_slot(&occupied).unwrap(), free);
+        assert!(
+            free_equipment_slot(&free).is_err(),
+            "a free slot is not freed again"
+        );
+    }
+
+    #[test]
+    fn a_worn_record_is_refused() {
+        for offset in EQUIPMENT_SET_OFFSETS {
+            let mut worn = occupied_from(&live_free_slot());
+            worn[offset..offset + 4].copy_from_slice(&4u32.to_le_bytes());
+            assert!(equipment_is_worn(&worn));
+            assert!(equipment_fields(&worn).unwrap().worn);
+            assert!(free_equipment_slot(&worn).is_err());
+        }
     }
 }

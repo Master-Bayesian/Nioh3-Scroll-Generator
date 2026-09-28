@@ -3903,5 +3903,14 @@ export type ProtectedRequest =
           expected_record_sha256: string;
           quantity: number;
         }[];
+        /**
+         * Unworn equipment to remove; each slot is freed as the game frees one.
+         *
+         * @maxItems 64
+         */
+        remove?: {
+          slot_index: number;
+          expected_record_sha256: string;
+        }[];
       };
     };

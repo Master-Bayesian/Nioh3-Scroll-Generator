@@ -3887,6 +3887,50 @@
     "星号标记超过一个，游戏不会生成这样的装备": [
       "More than one star marker; the game never produces such equipment",
       "★の印が2つ以上あります。ゲームはこのような装備を生成しません"
+    ],
+    "已从游戏中移除。到神社存档即可保存到存档文件。": [
+      "Removed from the game. Save at a shrine to keep it in the save file.",
+      "ゲームから削除しました。社でセーブするとセーブファイルに保存されます。"
+    ],
+    "这件装备正在装备中，请先在游戏里卸下。": [
+      "This item is equipped. Unequip it in the game first.",
+      "この装備は装備中です。先にゲーム内で外してください。"
+    ],
+    "这件装备正在装备中，请先在游戏里卸下": [
+      "This item is equipped. Unequip it in the game first",
+      "この装備は装備中です。先にゲーム内で外してください"
+    ],
+    "这件装备正在装备中，要移除请先在游戏里卸下。": [
+      "This item is equipped. To remove it, unequip it in the game first.",
+      "この装備は装備中です。削除するには先にゲーム内で外してください。"
+    ],
+    "移除装备": [
+      "Remove equipment",
+      "装備を削除"
+    ],
+    "关闭": [
+      "Close",
+      "閉じる"
+    ],
+    "确定要从游戏里移除「": [
+      "Remove \"",
+      "次の装備をゲームから削除しますか：「"
+    ],
+    "）吗？": [
+      ") from the game?",
+      "）"
+    ],
+    "移除后它会立即从游戏的装备栏里消失，无法恢复。到神社存档后，这个改动才会写进存档文件。": [
+      "It disappears from the game at once and cannot be restored. The change reaches the save file when you save at a shrine.",
+      "削除するとすぐにゲームの装備一覧から消え、元に戻せません。社でセーブすると、この変更がセーブファイルに書き込まれます。"
+    ],
+    "请先关闭游戏内的菜单；正在装备中的物品不能移除。": [
+      "Close the in-game menu first; equipped items cannot be removed.",
+      "先にゲーム内のメニューを閉じてください。装備中のアイテムは削除できません。"
+    ],
+    "确认移除": [
+      "Remove",
+      "削除する"
     ]
   },
   "game": {

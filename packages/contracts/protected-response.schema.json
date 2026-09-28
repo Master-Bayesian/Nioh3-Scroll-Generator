@@ -201,6 +201,10 @@
           "minimum": 0,
           "maximum": 65535
         },
+        "worn": {
+          "type": "boolean",
+          "description": "Either equipment set wears the item."
+        },
         "audit": {
           "anyOf": [
             {
@@ -861,6 +865,12 @@
               }
             },
             "equipment": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "removed": {
               "type": "array",
               "items": {
                 "type": "object"

@@ -475,6 +475,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   }
 
   // Follow the item under the in-game inventory cursor (live mode, read-only).
+  const removeDialog = useRef<HTMLDialogElement>(null);
   const [follow, setFollow] = useState(true);
   const [followNote, setFollowNote] = useState("");
   // Opening the page, switching mode or picking a save reads the character once;
@@ -822,6 +823,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     currencies?: Record<string, number>;
     equipment?: { slot_index: number; patch: Record<string, unknown> }[];
     items?: { container: Container; slot_index: number; quantity: number }[];
+    remove?: number[];
   }) {
     if (!character) return;
     if (character.mode === "live") {
@@ -835,6 +837,10 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         expected_record_sha256:
           live.items?.find(stack => stack.container === item.container && stack.slot_index === item.slot_index)?.record_sha256 ?? "",
       }));
+      const remove = (edit.remove ?? []).map(slot_index => ({
+        slot_index,
+        expected_record_sha256: live.equipment.find(entry => entry.slot_index === slot_index)?.record_sha256 ?? "",
+      }));
       const expected: Record<string, number> = {};
       for (const key of Object.keys(edit.currencies ?? {})) expected[key] = Number(live.currencies[key as Currency]);
       const result = await runtimeObserver!.run(() =>
@@ -845,12 +851,17 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
             ...(edit.currencies ? { currencies: edit.currencies, expected_currencies: expected } : {}),
             ...(equipment.length ? { equipment } : {}),
             ...(items.length ? { items } : {}),
+            ...(remove.length ? { remove } : {}),
           },
         }),
       );
       const outcome = result && "character_edit" in result ? result.character_edit : null;
       if (!outcome) throw new Error("UNEXPECTED_CHARACTER_EDIT");
-      if (outcome.state === "verified") setMessage("已写入游戏。到神社存档即可保存到存档文件。");
+      if (outcome.state === "verified" && remove.length) {
+        setSelected(null);
+        setDraft(null);
+        setMessage("已从游戏中移除。到神社存档即可保存到存档文件。");
+      } else if (outcome.state === "verified") setMessage("已写入游戏。到神社存档即可保存到存档文件。");
       else if (outcome.state === "rejected") setMessage("没有写入：" + (outcome.error ?? ""));
       else setMessage("写入结果不确定，请重新读取后核对：" + (outcome.error ?? ""));
       const refreshed = await window.operations.execute({ method: "runtime.character_snapshot", params: {} });
@@ -881,6 +892,16 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       if ("error" in result) throw new Error(result.error);
       if (!Object.keys(result.patch).length) throw new Error("没有需要修改的内容。");
       await submit({ equipment: [{ slot_index: row.slot_index, patch: result.patch }] });
+    });
+  }
+
+  /** Remove the selected unworn equipment from the running game, after the dialog confirms it. */
+  function removeEquipment() {
+    removeDialog.current?.close();
+    return run(async () => {
+      if (!row || character?.mode !== "live") return;
+      if (row.worn) throw new Error("这件装备正在装备中，请先在游戏里卸下。");
+      await submit({ remove: [row.slot_index] });
     });
   }
 
@@ -1175,7 +1196,27 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         <button onClick={maximize} disabled={busy || !values.some(Boolean)}>全部取理论最高</button>
         <button className="primary" onClick={applyEquipment} disabled={busy}>{modded ? "写入魔改" : "写入"}</button>
         {dirty ? <button onClick={() => setDraft(draftOf(row))} disabled={busy}>还原</button> : null}
+        {character?.mode === "live" && (
+          <button className="danger" onClick={() => removeDialog.current?.showModal()} disabled={busy || !!row.worn}
+            title={row.worn ? "这件装备正在装备中，请先在游戏里卸下" : undefined}>移除</button>
+        )}
       </div>
+      {character?.mode === "live" && row.worn && <p className="equipment-notes">这件装备正在装备中，要移除请先在游戏里卸下。</p>}
+      <dialog ref={removeDialog} className="remove-dialog">
+        <header>
+          <h2>移除装备</h2>
+          <button aria-label="关闭" onClick={() => removeDialog.current?.close()}>×</button>
+        </header>
+        <div className="modal-body">
+          <p>确定要从游戏里移除「{itemText(row.item_id)}」（Lv.{row.level}）吗？</p>
+          <p>移除后它会立即从游戏的装备栏里消失，无法恢复。到神社存档后，这个改动才会写进存档文件。</p>
+          <p className="muted">请先关闭游戏内的菜单；正在装备中的物品不能移除。</p>
+          <div className="character-actions">
+            <button onClick={() => removeDialog.current?.close()}>取消</button>
+            <button className="danger" onClick={removeEquipment}>确认移除</button>
+          </div>
+        </div>
+      </dialog>
       <p className="equipment-notes">
         数值按游戏内部单位填写，例如百分比词条 15 表示 1.5%。“前 X%”表示自然生成时得到这个值或更好值的概率。
       </p>

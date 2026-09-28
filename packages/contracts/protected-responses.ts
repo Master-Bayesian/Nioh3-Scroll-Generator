@@ -268,6 +268,9 @@ export interface LiveCharacterEdit {
     equipment: {
       [k: string]: unknown;
     }[];
+    removed?: {
+      [k: string]: unknown;
+    }[];
     items?: {
       [k: string]: unknown;
     }[];
@@ -338,6 +341,10 @@ export interface CharacterEquipment {
   record_sha256?: string;
   hell?: boolean;
   hell_skill?: number;
+  /**
+   * Either equipment set wears the item.
+   */
+  worn?: boolean;
   audit?: {
     verdict?: "natural" | "unverified" | "unnatural";
     natural: boolean;

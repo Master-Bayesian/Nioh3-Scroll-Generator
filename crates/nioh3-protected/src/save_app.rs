@@ -1964,6 +1964,7 @@ pub(crate) fn equipment_json(
         "rarity": fields.rarity,
         "hell": fields.hell,
         "hell_skill": fields.hell_skill,
+        "worn": fields.worn,
         "type_class": type_class,
         "effects": effects,
     })

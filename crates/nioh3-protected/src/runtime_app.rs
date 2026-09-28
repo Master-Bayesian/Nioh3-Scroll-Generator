@@ -773,11 +773,14 @@ mod imp {
         }
 
         /// `runtime.character_edit`: compare-and-swap writes of currencies and
-        /// modded equipment fields into the running game.
+        /// modded equipment fields into the running game, and removal of
+        /// unworn equipment.
         ///
         /// Every target must still hold the value the caller reviewed; the
         /// write handle carries only VM write rights and each target is read
-        /// back. The game saves the new values itself.
+        /// back. The game saves the new values itself. A removal leaves the
+        /// slot exactly as the game frees one and is refused while the
+        /// inventory menu is open or either equipment set wears the item.
         fn character_edit(&mut self, params: &Value) -> Result<Value, HostError> {
             use nioh3_runtime::character::{
                 apply_live_edits, read_character, LiveCurrency, LiveEdit, LiveEditOutcome,
@@ -878,6 +881,67 @@ mod imp {
                     replacement,
                 });
             }
+            let mut removed = Vec::new();
+            let removals = params
+                .get("remove")
+                .and_then(Value::as_array)
+                .map(Vec::as_slice)
+                .unwrap_or_default();
+            if !removals.is_empty() {
+                use nioh3_runtime::character::{read_menu_selection, MenuSelection};
+                match read_menu_selection(&memory) {
+                    Ok(MenuSelection::Closed) => {}
+                    Ok(_) => {
+                        return Err(HostError::rejected(
+                            "Close the in-game menu before removing equipment",
+                        ))
+                    }
+                    Err(error) => return Err(HostError::from_runtime(error)),
+                }
+            }
+            for requested in removals {
+                let slot_index = requested
+                    .get("slot_index")
+                    .and_then(Value::as_u64)
+                    .ok_or_else(HostError::invalid_request)?
+                    as usize;
+                let reviewed_sha = requested
+                    .get("expected_record_sha256")
+                    .and_then(Value::as_str)
+                    .ok_or_else(HostError::invalid_request)?;
+                if edits.iter().any(|edit| {
+                    matches!(edit, LiveEdit::Equipment { slot_index: other, .. } if *other == slot_index)
+                }) {
+                    return Err(HostError::invalid_request());
+                }
+                let original = read
+                    .record(slot_index)
+                    .ok_or_else(HostError::invalid_request)?
+                    .to_vec();
+                if !format!("{:x}", Sha256::digest(&original)).eq_ignore_ascii_case(reviewed_sha) {
+                    return Err(HostError::rejected(
+                        "The equipment changed in game since it was read; reload and try again",
+                    ));
+                }
+                if nioh3_save::character::equipment_is_worn(&original) {
+                    return Err(HostError::rejected(
+                        "Unequip the item in game before removing it",
+                    ));
+                }
+                let replacement = nioh3_save::character::free_equipment_slot(&original)
+                    .map_err(HostError::from_save)?;
+                let before = nioh3_save::character::equipment_fields(&original)
+                    .map_err(HostError::from_save)?;
+                removed.push(json!({
+                    "slot_index": slot_index,
+                    "before": crate::save_app::equipment_json(slot_index, &before, None),
+                }));
+                edits.push(LiveEdit::Equipment {
+                    slot_index,
+                    expected: original,
+                    replacement,
+                });
+            }
             let mut item_changes = Vec::new();
             for requested in params
                 .get("items")
@@ -953,6 +1017,7 @@ mod imp {
                 "process_id": expected_pid,
                 "currencies": currency_changes,
                 "equipment": equipment_changes,
+                "removed": removed,
                 "items": item_changes,
                 "error": error,
             }}))
