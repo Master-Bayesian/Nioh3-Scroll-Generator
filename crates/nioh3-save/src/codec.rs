@@ -41,6 +41,10 @@ pub const SCROLL_GENERATION_SERIAL_MAX: u32 = 0xFFFF_FFFC;
 /// view. A direct save write must reproduce that inventory state instead of
 /// inheriting the donor template's lifecycle/reveal flags.
 pub const POST_INSERTION_FLAG_WORD: u32 = 0x0680_0082;
+/// Record byte a used scroll counts up. The native builder starts a new
+/// scroll at zero, so an installed record never inherits the template's value
+/// (mirrors `savegame.SCROLL_USAGE_BYTE_OFFSET`).
+pub const SCROLL_USAGE_BYTE_OFFSET: usize = 0x32;
 
 fn require_save_blob(decrypted: &[u8]) -> Result<(), SaveReadError> {
     if decrypted.len() != USER_SAVE_BYTES {
@@ -240,7 +244,8 @@ pub fn write_scroll_inventory_key(
     Ok(owned)
 }
 
-/// Return one complete record carrying the post-insertion lifecycle word.
+/// Return one complete record carrying the post-insertion lifecycle word and
+/// a fresh usage byte.
 ///
 /// Mirrors `savegame.write_post_insertion_state`. Written only by the
 /// installation boundary: generation bytes, the rarity/stage-one payload and
@@ -261,6 +266,7 @@ pub fn write_post_insertion_state(
         RECORD_FLAG_WORD_OFFSET,
         POST_INSERTION_FLAG_WORD,
     )?;
+    owned[SCROLL_USAGE_BYTE_OFFSET] = 0;
     Ok(owned)
 }
 
@@ -545,7 +551,8 @@ mod tests {
         assert_eq!(new, 0);
     }
 
-    /// `write_post_insertion_state` rewrites one word and nothing else.
+    /// `write_post_insertion_state` rewrites the lifecycle word and the usage
+    /// byte and nothing else.
     #[test]
     fn post_insertion_state_preserves_every_other_byte() {
         let mut candidate = record(0xE604, 5, 6);
@@ -565,8 +572,14 @@ mod tests {
             &candidate[..RECORD_FLAG_WORD_OFFSET]
         );
         assert_eq!(
-            &written[RECORD_FLAG_WORD_OFFSET + 4..],
-            &candidate[RECORD_FLAG_WORD_OFFSET + 4..]
+            &written[RECORD_FLAG_WORD_OFFSET + 4..SCROLL_USAGE_BYTE_OFFSET],
+            &candidate[RECORD_FLAG_WORD_OFFSET + 4..SCROLL_USAGE_BYTE_OFFSET]
+        );
+        assert_ne!(candidate[SCROLL_USAGE_BYTE_OFFSET], 0);
+        assert_eq!(written[SCROLL_USAGE_BYTE_OFFSET], 0);
+        assert_eq!(
+            &written[SCROLL_USAGE_BYTE_OFFSET + 1..],
+            &candidate[SCROLL_USAGE_BYTE_OFFSET + 1..]
         );
         assert!(write_post_insertion_state(&candidate[..SCROLL_RECORD_BYTES - 1]).is_err());
     }

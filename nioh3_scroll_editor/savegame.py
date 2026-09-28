@@ -54,6 +54,8 @@ SCROLL_GENERATION_SERIAL_MAX = 0xFFFFFFFC
 # instead would copy another scroll's reveal/seen/owned flags onto the new one.
 SCROLL_FLAG_WORD_OFFSET = 0x18
 POST_INSERTION_FLAG_WORD = 0x06800082
+# A used scroll counts this byte up; the native builder starts a new one at 0.
+SCROLL_USAGE_BYTE_OFFSET = 0x32
 BACKUP_MANIFEST_SCHEMA = "nioh3-scroll-backup/v2"
 SAVE_SCHEMA_PROFILE = "nioh3-pc-v2.00.02-v2.01/save-layout-v1"
 SAVE_QUIESCENCE_SECONDS = 0.20
@@ -241,6 +243,8 @@ def write_scroll_generation_serial(record: bytes, generation_serial: int) -> byt
 def write_post_insertion_state(record: bytes) -> bytes:
     """Return one complete record carrying the post-insertion flag word.
 
+    The usage byte `+0x32` starts at zero, as the native builder leaves it.
+
     Written only by the installation boundary.  Generation bytes, the
     rarity/stage-one payload and every donor-unrelated field are preserved; the
     game's own insertion path never leaves the donor's lifecycle flags on a new
@@ -251,6 +255,7 @@ def write_post_insertion_state(record: bytes) -> bytes:
         raise ValueError("候选绘卷记录必须为 0xE8 字节")
     output = bytearray(record)
     struct.pack_into("<I", output, SCROLL_FLAG_WORD_OFFSET, POST_INSERTION_FLAG_WORD)
+    output[SCROLL_USAGE_BYTE_OFFSET] = 0
     return bytes(output)
 
 

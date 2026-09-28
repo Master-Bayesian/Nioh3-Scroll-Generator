@@ -72,6 +72,7 @@ class PostInsertionStateTests(unittest.TestCase):
         struct.pack_into("<H", donor, 0, 0xE604)
         struct.pack_into("<I", donor, 0x28, 40)
         struct.pack_into("<I", donor, 0x18, donor_word)
+        donor[0x32] = 2  # a used template, as players' NG3 scrolls carry
         data[
             SCROLL_GROUP_OFFSET : SCROLL_GROUP_OFFSET + SCROLL_RECORD_SIZE
         ] = donor
@@ -121,6 +122,7 @@ class PostInsertionStateTests(unittest.TestCase):
             word & INSERTION_BITS, INSERTION_BITS, "engine insertion bits are missing"
         )
         self.assertEqual(word & REVEAL_BITS, 0, "the installed record is already revealed")
+        self.assertEqual(installed[0x32], 0, "a new scroll must not inherit the usage byte")
 
     def test_reveal_mask_flags_the_revealed_word_and_clears_the_install_word(self) -> None:
         """The reveal mask must discriminate the captured words.
