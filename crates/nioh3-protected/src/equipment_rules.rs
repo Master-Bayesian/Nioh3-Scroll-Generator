@@ -180,6 +180,7 @@ pub fn equipment_rules_json(data_root: &Path, params: &Value) -> Result<Value, H
         "level": level,
         "hell": hell,
         "hell_capable": item.hell_capable(),
+        "soul_core": item.soul_core(),
         "roles": roles,
         "innate": item.innate_effects.iter().flatten().collect::<Vec<_>>(),
         "set_effect": item.set_effect,
@@ -237,6 +238,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(rules["known"], true);
+        assert_eq!(rules["soul_core"], false);
         assert_eq!(
             rules["roles"],
             json!(["hell", "random", "random", "random", "grace"])

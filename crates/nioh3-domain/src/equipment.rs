@@ -707,21 +707,23 @@ impl<'a> EquipmentRules<'a> {
                 });
             }
             let marked = entry_flags & STAR_ENTRY_FLAG != 0;
-            // Re-rolling a soul core's random effect writes it without the star
-            // marker even when it is a star row, and the game then shows it as
-            // an ordinary effect (a player's PC v2.02 save: three re-rolled
-            // 水属性伤害 0x4AE3 next to a marked 对伤害的反映).
-            let re_rolled = item.soul_core() && role == SlotRole::Random && !marked;
-            let is_star = effect.normalization_flags & STAR_NORMALIZATION_FLAG != 0 && !re_rolled;
-            if is_star != marked {
+            let star_row = effect.normalization_flags & STAR_NORMALIZATION_FLAG != 0;
+            // Re-rolling a soul core's random effect replaces the id and value
+            // but keeps the slot's star marker, so the marker may disagree with
+            // the effect either way and the game shows the marker (a game bug;
+            // a player's PC v2.02 save has three re-rolled 水属性伤害 0x4AE3
+            // left unmarked). A core still carries at most one marker.
+            let re_rolled = item.soul_core() && role == SlotRole::Random;
+            if star_row != marked && !re_rolled {
                 structural.push(Finding::StarFlagMismatch { slot });
             }
-            if is_star {
+            if if re_rolled { marked } else { star_row } {
                 stars += 1;
-                if effect.rarity_weight(rarity) == 0.0 {
-                    structural.push(Finding::StarBelowRarity { slot });
-                }
             }
+            if star_row && (marked || !re_rolled) && effect.rarity_weight(rarity) == 0.0 {
+                structural.push(Finding::StarBelowRarity { slot });
+            }
+            let is_star = star_row;
             match role {
                 SlotRole::Hell if !hell || !hell_pool.contains(&id) => {
                     structural.push(Finding::HellEffectOnNormal { slot });

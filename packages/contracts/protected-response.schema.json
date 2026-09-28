@@ -362,6 +362,10 @@
         "hell_capable": {
           "type": "boolean"
         },
+        "soul_core": {
+          "type": "boolean",
+          "description": "A soul core, whose random effects are re-rolled keeping each slot's star marker."
+        },
         "roles": {
           "anyOf": [
             {

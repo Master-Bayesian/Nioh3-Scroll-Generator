@@ -1029,6 +1029,7 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-edit-modes>button.active{background:#3c745f;color:#fff}
 .character-edit-modes>button.active:last-child{background:#a0612a}
 .character-findings{margin:6px 0;padding:6px 10px 6px 26px;border:1px dashed #c08a2c;border-radius:6px;background:#fcf7ec;color:#5b4a2c;font-size:12px;line-height:1.6}
+.character-marker-notes{margin:6px 0;padding:6px 10px 6px 26px;border:1px dashed #6f8fb3;border-radius:6px;background:#eef4fb;color:#2f4661;font-size:12px;line-height:1.6}
 .character-unnatural{color:#a0402a;font-weight:600}
 .character-detail .equipment-effects select{width:100%;min-width:0}
 .effect-picker{position:relative}

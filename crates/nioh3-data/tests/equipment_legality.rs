@@ -157,7 +157,7 @@ fn edits_that_natural_generation_cannot_produce_are_reported() {
 }
 
 #[test]
-fn a_re_rolled_soul_core_effect_is_unmarked_even_on_a_star_row() {
+fn a_re_rolled_soul_core_effect_keeps_the_slot_star_marker() {
     let resource = resource();
     let index = EffectTableIndex::from_resource(&resource).unwrap();
     let rules = EquipmentRules::new(&index, &resource.item, graces(&resource));
@@ -194,6 +194,26 @@ fn a_re_rolled_soul_core_effect_is_unmarked_even_on_a_star_row() {
         entry[0xE] = if marked { 0x04 } else { 0 };
     }
     let audit = rules.audit(&record);
+    assert!(
+        audit.natural(),
+        "{:?} {:?}",
+        audit.findings,
+        audit.unverified
+    );
+
+    // The re-roll keeps the slot's marker, so a star re-rolled into an ordinary
+    // effect leaves the ordinary effect marked (another player's 姑获鸟魂核 has
+    // the ordinary 0x8ABB at 15 in this slot).
+    let mut stale = record.clone();
+    let (group, category) = rules.effect_marker(0x8ABB).unwrap();
+    let entry = entry_mut(&mut stale, 3);
+    entry[0..2].copy_from_slice(&group.to_le_bytes());
+    set_u32(entry, 4, 0x8ABB);
+    set_u32(entry, 8, 15);
+    entry[0xC] = 83;
+    entry[0xD] = category;
+    assert_eq!(entry[0xE], 0x04);
+    let audit = rules.audit(&stale);
     assert!(
         audit.natural(),
         "{:?} {:?}",

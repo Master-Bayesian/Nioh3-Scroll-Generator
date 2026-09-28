@@ -1007,6 +1007,10 @@ export interface EquipmentRules {
   level?: number;
   hell?: boolean;
   hell_capable?: boolean;
+  /**
+   * A soul core, whose random effects are re-rolled keeping each slot's star marker.
+   */
+  soul_core?: boolean;
   roles?:
     | []
     | ["innate" | "hell" | "random" | "set" | "grace"]

@@ -3875,6 +3875,18 @@
     "仍无法自动判断。请进游戏检查这个存档，没问题就点“我已检查，继续使用”。": [
       "Still cannot tell automatically. Check this save in game, and if it looks right, click \"I checked it, continue\".",
       "まだ自動で判定できません。ゲーム内でこのセーブを確認し、問題なければ「確認済み、続ける」を押してください。"
+    ],
+    "这是星号词条，但游戏里不显示星号：游戏洗魂核词条时不会更新星号标记（游戏自身的 bug），这是正常结果。": [
+      "This is a star effect, but the game shows no star: re-rolling a soul core never updates the star marker (a bug in the game), so this is expected.",
+      "これは★効果ですが、ゲームでは★が表示されません。魂核の効果を再抽選しても★の印は更新されないため（ゲーム側の不具合）、正常な結果です。"
+    ],
+    "这不是星号词条，但游戏里仍显示星号：游戏洗魂核词条时不会去掉原来的星号标记（游戏自身的 bug），这是正常结果。": [
+      "This is not a star effect, but the game still shows a star: re-rolling a soul core keeps the old star marker (a bug in the game), so this is expected.",
+      "これは★効果ではありませんが、ゲームでは★が表示されたままです。魂核の効果を再抽選しても元の★の印は消えないため（ゲーム側の不具合）、正常な結果です。"
+    ],
+    "星号标记超过一个，游戏不会生成这样的装备": [
+      "More than one star marker; the game never produces such equipment",
+      "★の印が2つ以上あります。ゲームはこのような装備を生成しません"
     ]
   },
   "game": {

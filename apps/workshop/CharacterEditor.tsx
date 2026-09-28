@@ -167,8 +167,21 @@ function draftOf(row: CharacterEquipment): Draft {
   };
 }
 
+/**
+ * The star marker slot `index` will carry: an unchanged effect keeps its own,
+ * and so does a slot the game re-rolls in place (`keepsMarker`, a soul core's
+ * random slot); a new effect elsewhere takes the marker a drop would give it.
+ */
+function markerOf(row: CharacterEquipment, draft: Draft, index: number, keepsMarker: boolean, rowStar?: boolean | null) {
+  const id = parseEffectId(draft.effects[index].id);
+  const before = row.effects[index];
+  if (id === null || id === EMPTY_EFFECT) return false;
+  if (before?.effect_id === id || keepsMarker) return before?.star ?? false;
+  return draft.effects[index].star ?? rowStar ?? false;
+}
+
 /** The changed fields of one record, or an error message when a field is invalid. */
-function patchOf(row: CharacterEquipment, draft: Draft) {
+function patchOf(row: CharacterEquipment, draft: Draft, keepsMarker: (index: number) => boolean = () => false) {
   const patch: Record<string, unknown> = {};
   const fields: [keyof Draft & keyof CharacterEquipment, number, number][] = [
     ["level", 1, 65535],
@@ -192,7 +205,7 @@ function patchOf(row: CharacterEquipment, draft: Draft) {
     const before = row.effects[index];
     // An unchanged effect keeps the star marker it has: a re-rolled soul-core
     // effect is unmarked even on a star row, and the game shows it that way.
-    const star = before?.effect_id === id ? null : effect.star;
+    const star = before?.effect_id === id ? null : keepsMarker(index) ? markerOf(row, draft, index, true) : effect.star;
     if (!before || before.effect_id !== id || (id !== EMPTY_EFFECT && before.value !== value) || effect.roll !== null)
       effects.push({
         index,
@@ -680,6 +693,25 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     setDraft({ ...draft, effects });
   }
 
+  /** A soul core's random slot keeps its star marker when the game re-rolls it. */
+  const keepsMarker = (index: number) => !!rules?.soul_core && rules.roles?.[index] === "random";
+
+  /** Slots whose shown star disagrees with the effect: the game's re-roll bug. */
+  const markerNotes = useMemo(() => {
+    if (!draft || !row || !rules?.soul_core) return [] as string[];
+    const notes: string[] = [];
+    draft.effects.forEach((effect, index) => {
+      const starRow = values[index]?.star;
+      if (!keepsMarker(index) || starRow == null) return;
+      const marked = markerOf(row, draft, index, true);
+      if (marked === starRow) return;
+      notes.push("#" + (index + 1) + " " + (starRow
+        ? "这是星号词条，但游戏里不显示星号：游戏洗魂核词条时不会更新星号标记（游戏自身的 bug），这是正常结果。"
+        : "这不是星号词条，但游戏里仍显示星号：游戏洗魂核词条时不会去掉原来的星号标记（游戏自身的 bug），这是正常结果。"));
+    });
+    return notes;
+  }, [draft, row, rules, values]);
+
   /** Why the draft is not natural; empty when it is. */
   const draftNotes = useMemo(() => {
     if (!draft || !rules?.known) return [] as string[];
@@ -709,6 +741,10 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       if (finding.code === "replaced_effect" && finding.slot != null
         && draft.effects[finding.slot] && parseEffectId(draft.effects[finding.slot].id) === row!.effects[finding.slot]?.effect_id)
         notes.push(findingText(finding));
+    if (row) {
+      const markers = draft.effects.filter((_, index) => markerOf(row, draft, index, keepsMarker(index), values[index]?.star)).length;
+      if (markers > 1) notes.push("星号标记超过一个，游戏不会生成这样的装备");
+    }
     if (draft.hell && !rules.hell_capable) notes.push("这件装备不会自然成为地狱武器");
     if (draft.hell && !(rules.hell_skills ?? []).includes(draft.hell_skill))
       notes.push("这个地狱武技不会出现在这类武器上");
@@ -841,7 +877,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     return run(async () => {
       if (!row || !draft) return;
       if (draftNotes.length && !modded) throw new Error("当前修改不符合自然规则。如需保留，请切换到“魔改”。");
-      const result = patchOf(row, draft);
+      const result = patchOf(row, draft, keepsMarker);
       if ("error" in result) throw new Error(result.error);
       if (!Object.keys(result.patch).length) throw new Error("没有需要修改的内容。");
       await submit({ equipment: [{ slot_index: row.slot_index, patch: result.patch }] });
@@ -1105,7 +1141,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
             return (
               <tr key={index}>
                 <td>{role ? ROLE_LABEL[role] ?? role : "—"}</td>
-                <td><EffectPicker value={effect.id} star={row?.effects[index]?.effect_id === parseEffectId(effect.id) ? row?.effects[index]?.star : undefined} candidates={candidatesFor(index)} label={candidateLabel} onPick={candidate => pickEffect(index, candidate)} /></td>
+                <td><EffectPicker value={effect.id} star={row && (keepsMarker(index) || row.effects[index]?.effect_id === parseEffectId(effect.id)) ? markerOf(row, draft, index, true) : undefined} candidates={candidatesFor(index)} label={candidateLabel} onPick={candidate => pickEffect(index, candidate)} /></td>
                 <td>
                   {id === EMPTY_EFFECT ? null : fixed ? <span className="character-muted">—</span> : (
                     <span className="character-value">
@@ -1131,6 +1167,9 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       </table>
       {draftNotes.length > 0 && (
         <ul className="character-findings">{draftNotes.map(note => <li key={note}>{note}</li>)}</ul>
+      )}
+      {markerNotes.length > 0 && (
+        <ul className="character-marker-notes">{markerNotes.map(note => <li key={note}>{note}</li>)}</ul>
       )}
       <div className="character-actions">
         <button onClick={maximize} disabled={busy || !values.some(Boolean)}>全部取理论最高</button>
