@@ -1,6 +1,7 @@
 import catalog from "./catalog.json";
 import itemNames from "./item-names.json";
-import { hasTemplateSlot } from "./game-text";
+import effectArguments from "./effect-arguments.json";
+import { hasTemplateSlot, withTemplateArgument } from "./game-text";
 export const data = catalog;
 
 // The editor lists every native effect by its raw native string, and some of
@@ -15,6 +16,14 @@ export const data = catalog;
   for (const effect of data.editorEffects)
     if (hasTemplateSlot(effect.name) && curated.has(effect.id))
       effect.name = curated.get(effect.id)!;
+  // The rest name the buff or ailment the game fills in, resolved from each
+  // effect's group row ("吸收精华后赋予{}" -> "吸收精华后赋予{承受伤害减少}").
+  const resolved = (effectArguments as { names: Record<string, string> }).names;
+  for (const effect of [
+    ...data.editorEffects,
+    ...Object.values(data.contexts).flatMap((context) => [...context.effects, ...context.graces]),
+  ])
+    if (resolved[effect.id]) effect.name = withTemplateArgument(effect.name, resolved[effect.id]);
 }
 // Special rules that name an onmyo item the auxiliary name table lacks carry a
 // placeholder ("未识别阴阳术（原生编号 0x3011，可生成）"). The bundled item names

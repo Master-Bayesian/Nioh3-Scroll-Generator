@@ -478,3 +478,18 @@ the ground), same session, compared byte for byte:
 
 So a save-file insertion must take the key and serial from these counters and
 advance them; a save-file removal needs nothing beyond the free slot.
+
+## Buff and ailment template arguments (live, read-only, 2026-09-29)
+
+- 620 effect names are templates (`…赋予^09~BUFF~{}^09~~`,
+  `使敌人陷入^09~DEBUFF~{}^09~~状态时…`); the editor showed them as the generic
+  增益效果/异常状态, so the 45 variants of 吸收精华后赋予 were indistinguishable.
+- The argument is the effect's group, not its value: every templated effect's
+  `effect_group` row (`+0x0C` key) carries the buff or ailment name text ID at
+  `+0x38` and its description at `+0x48`. All 145 such groups resolved in the
+  live zh-CN localization pool to 26 names (承受伤害减少, 昂灵, 毒, 麻痹, …).
+- Bundled as `apps/workshop/effect-arguments.json` (effect ID -> zh-CN name);
+  `model.ts` writes each name into its template slot and the Chinese UI shows
+  it (吸收精华后赋予昂灵, 使敌人陷入毒状态时增加灵力). English and Japanese keep the
+  generic wording until their pools are captured the same way. Helper scripts:
+  `tmp/claude-ce/resolve_buff_text.py`, `make_effect_arguments.py`.

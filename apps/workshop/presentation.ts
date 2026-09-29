@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import resources from "./ui-locales.json";
 import { publicError } from "./public-errors";
-import { fillTemplateSlots, plainGameText as plainText } from "./game-text";
+import { fillTemplateSlots, plainGameText as plainText, withoutTemplateArguments } from "./game-text";
 export type UiLocale = "zh-CN" | "en-US" | "ja-JP";
 let locale: UiLocale =
   typeof localStorage !== "undefined" &&
@@ -36,6 +36,9 @@ export function localize(text: string): string {
   text=text.replace(/\s+/g,' ');
   text = publicError(text);
   if (locale === "zh-CN" || !text) return plainGameText(text);
+  // Resolved template arguments are Chinese game names; the other locales keep
+  // the generic wording until their own names are captured.
+  text = withoutTemplateArguments(text);
   if (!maps.has(locale)) {
     const entries = {
       ...resources.game[locale],

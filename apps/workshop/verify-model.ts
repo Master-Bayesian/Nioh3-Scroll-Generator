@@ -28,3 +28,10 @@ assert.ok(enemyCombinationProblem({...q,enemies:must(middle.slice(0,3))}));
 assert.ok(queryProblem({...q,enemies:must(high.slice(0,4))}).includes('不可能同时出现'));
 assert.equal(enemyCombinationProblem({...q,enemies:must(high.slice(0,4)).map(e=>({...e,mode:1}))}),'');
 console.log('16 query semantic checks passed');
+{
+  // Templated effects name the buff or ailment the game fills in.
+  const named=(id:string)=>data.editorEffects.find(effect=>effect.id===id)!.name;
+  assert.equal(named('2143'),'吸收精华后赋予^09~BUFF~{昂灵}^09~~');
+  assert.ok(data.editorEffects.filter(effect=>/~(?:DE)?BUFF~\{\}/.test(effect.name)).length===0,'every templated editor effect is resolved');
+  console.log('effect template arguments resolved');
+}
