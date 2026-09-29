@@ -21,7 +21,8 @@ use sha2::{Digest, Sha256};
 use nioh3_domain::record::ScrollRecordBytes;
 use nioh3_protected::{serve, Contract, RoleApplication, SaveApplication};
 use nioh3_save::character::{
-    equipment_fields, equipment_offset, read_currency, Currency, EQUIPMENT_RECORD_BYTES,
+    equipment_counters, equipment_fields, equipment_offset, equipment_record, read_currency,
+    Currency, EQUIPMENT_RECORD_BYTES, NEXT_GENERATION_SERIAL_OFFSET, NEXT_INVENTORY_KEY_OFFSET,
 };
 use nioh3_save::{
     decrypt_container, encrypt_container,
@@ -141,6 +142,11 @@ fn fixture_save(root: &Path) -> PathBuf {
     }
     let slot = equipment_offset(SLOT).unwrap();
     clear[slot..slot + EQUIPMENT_RECORD_BYTES].copy_from_slice(&forged_record());
+    // The save-wide counters a new item takes its key and serial from.
+    clear[NEXT_INVENTORY_KEY_OFFSET..NEXT_INVENTORY_KEY_OFFSET + 4]
+        .copy_from_slice(&0xC86Fu32.to_le_bytes());
+    clear[NEXT_GENERATION_SERIAL_OFFSET..NEXT_GENERATION_SERIAL_OFFSET + 4]
+        .copy_from_slice(&0x26_B007u32.to_le_bytes());
     nioh3_save::patch_user_checksum(&mut clear).unwrap();
 
     let save_path = root
@@ -361,6 +367,79 @@ fn character_edits_commit_through_the_save_transaction() {
         })
         .collect();
     assert!(unexpected.is_empty(), "removal changed {unexpected:x?}");
+
+    // Adding equipment writes a new record into the first free slot after the
+    // occupied tail and advances the key and serial counters, as a purchase does.
+    let character = job(&mut exchange, "save.character", json!({"save_id": save_id}));
+    let source = character["result"]["source_sha256"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let unknown = job(
+        &mut exchange,
+        "save.prepare_character_edit",
+        json!({"save_id": save_id, "source_sha256": source,
+               "add": [{"item_id": 1, "level": 175, "rarity": 3, "effects": []}]}),
+    );
+    assert_eq!(unknown["state"], "failed", "{unknown}");
+    let wooden_sword = json!({"item_id": 0x27BF, "level": 175, "rarity": 3, "effects": [
+        {"effect_id": 0x68F1, "value": 42},
+        {"effect_id": 0x1589, "value": 80},
+        {"effect_id": 0x16E5, "value": 11},
+    ]});
+    let addition = job(
+        &mut exchange,
+        "save.prepare_character_edit",
+        json!({"save_id": save_id, "source_sha256": source, "add": [wooden_sword]}),
+    );
+    assert_eq!(addition["state"], "completed", "{addition}");
+    let added = addition["result"]["preview"]["added"].as_array().unwrap();
+    assert_eq!(added.len(), 1);
+    let new_slot = added[0]["slot_index"].as_u64().unwrap() as usize;
+    assert_eq!(added[0]["after"]["item_id"], 0x27BF);
+    assert!(added[0]["audit"].is_object(), "{addition}");
+    let before = std::fs::read(&save_path).unwrap();
+    let receipt = job(
+        &mut exchange,
+        "save.commit",
+        json!({"plan_id": addition["result"]["plan_id"].as_str().unwrap()}),
+    );
+    assert_eq!(receipt["result"]["commit_status"], "committed", "{receipt}");
+    let before = decrypt_container(&before).unwrap();
+    let after = decrypt_container(&std::fs::read(&save_path).unwrap()).unwrap();
+    let record = equipment_record(&after, new_slot).unwrap();
+    let fields = equipment_fields(record).unwrap();
+    assert_eq!(
+        (
+            fields.item_id,
+            fields.level,
+            fields.rarity,
+            fields.inventory_key
+        ),
+        (0x27BF, 175, 3, 0xC86F)
+    );
+    assert_eq!(
+        fields
+            .effects
+            .iter()
+            .filter(|(id, _)| *id != u32::MAX)
+            .count(),
+        3
+    );
+    assert!(!fields.worn);
+    assert_eq!(equipment_counters(&after).unwrap(), (0xC870, 0x26_B008));
+    let new_at = equipment_offset(new_slot).unwrap();
+    let unexpected: Vec<usize> = (0..before.len())
+        .filter(|index| before[*index] != after[*index])
+        .filter(|offset| {
+            !((new_at..new_at + EQUIPMENT_RECORD_BYTES).contains(offset)
+                || (NEXT_INVENTORY_KEY_OFFSET..NEXT_INVENTORY_KEY_OFFSET + 4).contains(offset)
+                || (NEXT_GENERATION_SERIAL_OFFSET..NEXT_GENERATION_SERIAL_OFFSET + 4)
+                    .contains(offset)
+                || (checksum..checksum + 4).contains(offset))
+        })
+        .collect();
+    assert!(unexpected.is_empty(), "addition changed {unexpected:x?}");
 
     let shutdown = exchange("shutdown", json!({}));
     assert_eq!(shutdown["result"]["safe_to_shutdown"], true, "{shutdown}");

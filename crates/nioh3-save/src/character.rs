@@ -195,6 +195,182 @@ pub fn free_equipment_slot_unequipping(record: &[u8]) -> Result<Vec<u8>, SaveRea
     Ok(freed)
 }
 
+/// The save-wide counter of the next inventory key (`+0x1C`), a u32 whose
+/// value stays within u16 (PC v2.02: one blacksmith purchase took `0xC86F`
+/// and left `0xC870`).
+pub const NEXT_INVENTORY_KEY_OFFSET: usize = 0x36_E226;
+/// The save-wide counter of the next generation serial (`+0x28`); opening a
+/// shop advances it past its whole stock.
+pub const NEXT_GENERATION_SERIAL_OFFSET: usize = 0x36_E232;
+
+/// The counters the game takes a new equipment record's key and serial from.
+pub fn equipment_counters(plain: &[u8]) -> Result<(u32, u32), SaveReadError> {
+    let read = |offset: usize| {
+        plain
+            .get(offset..offset + 4)
+            .map(|bytes| u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+            .ok_or(SaveReadError::InventoryRegionTruncated {
+                needed: offset + 4,
+                actual: plain.len(),
+            })
+    };
+    Ok((
+        read(NEXT_INVENTORY_KEY_OFFSET)?,
+        read(NEXT_GENERATION_SERIAL_OFFSET)?,
+    ))
+}
+
+/// Where the game puts a new item: the first free slot after the occupied
+/// tail (live purchase, PC v2.02), else the first free slot at all. Slots in
+/// `taken` are treated as occupied.
+pub fn next_free_equipment_slot(plain: &[u8], taken: &[usize]) -> Option<usize> {
+    let free = |slot: usize| {
+        !taken.contains(&slot) && equipment_record(plain, slot).is_ok_and(equipment_slot_is_empty)
+    };
+    let tail = (0..EQUIPMENT_SLOT_COUNT).rev().find(|slot| !free(*slot));
+    let after = tail.map_or(0, |slot| slot + 1);
+    (after..EQUIPMENT_SLOT_COUNT)
+        .chain(0..after)
+        .find(|slot| free(*slot))
+}
+
+/// The role an entry of a new record plays, which fixes its marker bits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NewEntryRole {
+    Innate,
+    Hell,
+    Random,
+    /// Entry `+0x0E` bit `0x02`; never carries a forge-material marker.
+    Grace,
+    /// Entry `+0x0E` bit `0x01` and the `+0x0D` marker `0x40`, as on every set
+    /// entry of the owner's equipment.
+    Set,
+}
+
+/// One effect entry of a new equipment record, markers already resolved.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewEquipmentEffect {
+    pub role: NewEntryRole,
+    pub effect_id: u32,
+    pub value: u32,
+    pub roll: u8,
+    pub star: bool,
+    pub group: u16,
+    pub category: u8,
+}
+
+/// Everything a new equipment record is built from besides its identity.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewEquipment {
+    pub item_id: u16,
+    pub level: u16,
+    pub plus: u16,
+    pub rarity: u8,
+    pub hell: bool,
+    pub hell_skill: u16,
+    pub effects: Vec<NewEquipmentEffect>,
+}
+
+/// Build a new equipment record over the free slot it will occupy.
+///
+/// The layout follows a record the game wrote for a purchase: item and
+/// appearance, count 1, level and pre-forge level, `+0x18` flags with the new
+/// marker (`0x82`, as on a fresh drop; `+0x1A` bit `0x10` for a hell weapon),
+/// key, `+0x20 = 1`, a seed, the serial, rarity, the entries and both set
+/// words `0x11`. Unused entries carry the empty id. Bytes the game leaves
+/// undefined (entry `+0x0F`, for example) keep what the free slot holds.
+pub fn build_equipment_record(
+    free: &[u8],
+    new: &NewEquipment,
+    key: u32,
+    serial: u32,
+) -> Result<Vec<u8>, SaveReadError> {
+    if free.len() != EQUIPMENT_RECORD_BYTES {
+        return Err(SaveReadError::RecordLength {
+            expected: EQUIPMENT_RECORD_BYTES,
+            actual: free.len(),
+        });
+    }
+    if !equipment_slot_is_empty(free) {
+        return Err(SaveReadError::InvalidTransform {
+            message: "a new item needs a free equipment slot".to_string(),
+        });
+    }
+    if new.item_id == 0 || new.effects.len() > EQUIPMENT_EFFECT_COUNT {
+        return Err(SaveReadError::InvalidTransform {
+            message: "a new item needs an item id and at most seven effects".to_string(),
+        });
+    }
+    let mut record = free.to_vec();
+    let put16 = |record: &mut Vec<u8>, offset: usize, value: u16| {
+        record[offset..offset + 2].copy_from_slice(&value.to_le_bytes());
+    };
+    let put32 = |record: &mut Vec<u8>, offset: usize, value: u32| {
+        record[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+    };
+    put16(&mut record, 0x00, new.item_id);
+    put16(&mut record, 0x02, new.item_id);
+    put16(&mut record, 0x04, 1);
+    put16(&mut record, 0x06, new.level);
+    put16(&mut record, 0x08, new.level);
+    put16(&mut record, 0x0A, new.plus);
+    put16(&mut record, 0x0C, 0);
+    record[0x0E] = 0;
+    record[0x0F] = 0x40;
+    put16(&mut record, 0x10, if new.hell { new.hell_skill } else { 0 });
+    put16(&mut record, 0x12, 0);
+    put32(&mut record, 0x14, 0);
+    put32(
+        &mut record,
+        0x18,
+        0x82 | if new.hell { 0x10_0000 } else { 0 },
+    );
+    put32(&mut record, 0x1C, key);
+    put16(&mut record, 0x20, 1);
+    // Any value is natural; derive it from the serial so a plan is repeatable.
+    put16(
+        &mut record,
+        0x22,
+        (serial.wrapping_mul(0x9E37_79B1) >> 16) as u16,
+    );
+    put32(&mut record, 0x24, 0);
+    put32(&mut record, 0x28, serial);
+    put32(&mut record, 0x2C, 0);
+    record[0x30] = new.rarity;
+    record[0x31..0x34].fill(0);
+    for index in 0..EQUIPMENT_EFFECT_COUNT {
+        let entry = EQUIPMENT_EFFECT_ID_OFFSET - 4 + index * EQUIPMENT_EFFECT_STRIDE;
+        put32(&mut record, entry, 0);
+        put32(&mut record, entry + 4, EMPTY_EFFECT_ID);
+        put32(&mut record, entry + 8, 0);
+        record[entry + 0x0C..entry + 0x0F].fill(0);
+        record[entry + 0x10..entry + EQUIPMENT_EFFECT_STRIDE].fill(0);
+        let Some(effect) = new.effects.get(index) else {
+            continue;
+        };
+        put16(&mut record, entry, effect.group);
+        put32(&mut record, entry + 4, effect.effect_id);
+        put32(&mut record, entry + 8, effect.value);
+        record[entry + 0x0C] = effect.roll;
+        let marker = if effect.role == NewEntryRole::Set {
+            0x40
+        } else {
+            0
+        };
+        record[entry + 0x0D] = (effect.category & 0x3F) | marker;
+        record[entry + 0x0E] = match effect.role {
+            NewEntryRole::Set => 0x01,
+            NewEntryRole::Grace => 0x02,
+            _ => 0,
+        } | if effect.star { 0x04 } else { 0 };
+    }
+    for offset in EQUIPMENT_SET_OFFSETS {
+        put32(&mut record, offset, EQUIPMENT_NOT_WORN);
+    }
+    equipment_fields(&record)?;
+    Ok(record)
+}
+
 /// Effect entries in one equipment record.
 pub const EQUIPMENT_EFFECT_COUNT: usize = 7;
 /// Distance between effect entries.
@@ -547,6 +723,17 @@ pub enum CharacterEdit {
         slot_index: usize,
         expected_original: Vec<u8>,
     },
+    /// Write a new equipment record into a free slot and advance the save-wide
+    /// key and serial counters past it, as the game does for a new item. The
+    /// record was built for exactly `expected_free` and the counters `key` and
+    /// `serial`; adds in one plan chain their counters in order.
+    AddEquipment {
+        slot_index: usize,
+        expected_free: Vec<u8>,
+        record: Vec<u8>,
+        key: u32,
+        serial: u32,
+    },
     /// A count change of one item record; every other byte must stay.
     Item {
         container: ItemContainer,
@@ -560,9 +747,9 @@ impl CharacterEdit {
     fn describe(&self) -> String {
         match self {
             Self::Currency { currency, .. } => format!("currency {}", currency.label()),
-            Self::Equipment { slot_index, .. } | Self::RemoveEquipment { slot_index, .. } => {
-                format!("equipment slot {slot_index}")
-            }
+            Self::Equipment { slot_index, .. }
+            | Self::RemoveEquipment { slot_index, .. }
+            | Self::AddEquipment { slot_index, .. } => format!("equipment slot {slot_index}"),
             Self::Item {
                 container,
                 slot_index,
@@ -670,6 +857,74 @@ pub fn apply_character_edits(
                 let offset = equipment_offset(*slot_index)
                     .ok_or(SaveReadError::SlotIndex { index: *slot_index })?;
                 edited[offset..offset + EQUIPMENT_RECORD_BYTES].copy_from_slice(&freed);
+                slots.push(*slot_index);
+            }
+            CharacterEdit::AddEquipment {
+                slot_index,
+                expected_free,
+                record,
+                key,
+                serial,
+            } => {
+                // The slot and the counters are read from the plan so far, so
+                // several adds take consecutive keys and serials.
+                let current = equipment_record(&edited, *slot_index)?;
+                if !equipment_slot_is_empty(current) {
+                    return Err(SaveReadError::SlotOccupied {
+                        slot_index: *slot_index,
+                    });
+                }
+                if current != expected_free.as_slice() {
+                    return Err(SaveReadError::IntegrityMismatch {
+                        path: target,
+                        expected: crate::save::sha256_hex(expected_free),
+                        actual: crate::save::sha256_hex(current),
+                    });
+                }
+                let counters = equipment_counters(&edited)?;
+                if counters != (*key, *serial) {
+                    return Err(SaveReadError::IntegrityMismatch {
+                        path: "equipment key and serial counters".to_string(),
+                        expected: format!("{key:#x}/{serial:#x}"),
+                        actual: format!("{:#x}/{:#x}", counters.0, counters.1),
+                    });
+                }
+                let stored = |offset: usize| {
+                    record
+                        .get(offset..offset + 4)
+                        .map(|bytes| u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+                };
+                if record.len() != EQUIPMENT_RECORD_BYTES
+                    || equipment_slot_is_empty(record)
+                    || stored(0x1C) != Some(*key)
+                    || stored(0x28) != Some(*serial)
+                {
+                    return Err(SaveReadError::InvalidTransform {
+                        message: format!(
+                            "{target}: the new record does not carry its key and serial"
+                        ),
+                    });
+                }
+                // The key counter holds a u16; never step it past what the game
+                // itself can store.
+                if *key == 0 || *key >= u32::from(u16::MAX) {
+                    return Err(SaveReadError::AllocationExhausted {
+                        kind: "inventory key",
+                    });
+                }
+                let next_serial =
+                    serial
+                        .checked_add(1)
+                        .ok_or(SaveReadError::AllocationExhausted {
+                            kind: "generation serial",
+                        })?;
+                let offset = equipment_offset(*slot_index)
+                    .ok_or(SaveReadError::SlotIndex { index: *slot_index })?;
+                edited[offset..offset + EQUIPMENT_RECORD_BYTES].copy_from_slice(record);
+                edited[NEXT_INVENTORY_KEY_OFFSET..NEXT_INVENTORY_KEY_OFFSET + 4]
+                    .copy_from_slice(&(key + 1).to_le_bytes());
+                edited[NEXT_GENERATION_SERIAL_OFFSET..NEXT_GENERATION_SERIAL_OFFSET + 4]
+                    .copy_from_slice(&next_serial.to_le_bytes());
                 slots.push(*slot_index);
             }
             CharacterEdit::Item {
@@ -1065,8 +1320,11 @@ mod tests {
             slot_index: 3,
             expected_original: equipment_record(&plain, 3).unwrap().to_vec(),
         };
-        let (removed, slots) = apply_character_edits(&plain, std::slice::from_ref(&removal)).unwrap();
-        assert!(equipment_slot_is_empty(equipment_record(&removed, 3).unwrap()));
+        let (removed, slots) =
+            apply_character_edits(&plain, std::slice::from_ref(&removal)).unwrap();
+        assert!(equipment_slot_is_empty(
+            equipment_record(&removed, 3).unwrap()
+        ));
         assert_eq!(slots, vec![3]);
         let stale = CharacterEdit::RemoveEquipment {
             slot_index: 3,
@@ -1154,7 +1412,159 @@ mod free_slot_tests {
         let mut worn = occupied_from(&free);
         worn[0xE8..0xEC].copy_from_slice(&4u32.to_le_bytes());
         assert_eq!(free_equipment_slot_unequipping(&worn).unwrap(), free);
-        assert!(!equipment_is_worn(&free_equipment_slot_unequipping(&worn).unwrap()));
+        assert!(!equipment_is_worn(
+            &free_equipment_slot_unequipping(&worn).unwrap()
+        ));
         assert!(free_equipment_slot_unequipping(&free).is_err());
+    }
+
+    /// PC v2.02, owner's save: slot 1464 before and after one blacksmith
+    /// purchase of 木刀 (`0x27BF`), key `0xC86F`, serial `0x26B007`.
+    const PURCHASE_FREE: &str = "00000000000000000000000000000040000000000000000002000000000000000000000000000000ffffffffffffffffff00000000000000ffffffff000000000000000f000000000000000000000000ffffffff0000000000000000000000000000000000000000ffffffff000000000000000f000000000000000000000000ffffffff0000000000000041000000000000000000000000ffffffff00000000000000ef000000000000000000000000ffffffff000000000000000f000000000000000000000000ffffffff000000000000003f0000a63f000000000000000000000000000000001100000011000000";
+    const PURCHASE_RECORD: &str = "bf27bf270100af00af000000000000400000000000000000800100006fc800000100affc0000000007b026000000000003000000093c0000f16800002a0000004f8300d50000000000000000d0a78c3f8915000050000000419f003f0000803f00000000a9610000e51600000b000000530900a0000000000000000000000000ffffffff00000000000000f4000000000000000000000000ffffffff00000000000000d5000000000000000000000000ffffffff000000000000009c000000000000000000000000ffffffff00000000000000ae00000000000000000000000000000000000000001100000011000000";
+
+    fn unhex(text: &str) -> Vec<u8> {
+        (0..text.len())
+            .step_by(2)
+            .map(|at| u8::from_str_radix(&text[at..at + 2], 16).unwrap())
+            .collect()
+    }
+
+    fn purchased_item() -> NewEquipment {
+        let random =
+            |group: u16, effect_id: u32, value: u32, roll: u8, category: u8| NewEquipmentEffect {
+                role: NewEntryRole::Random,
+                effect_id,
+                value,
+                roll,
+                star: false,
+                group,
+                category,
+            };
+        NewEquipment {
+            item_id: 0x27BF,
+            level: 0xAF,
+            plus: 0,
+            rarity: 3,
+            hell: false,
+            hell_skill: 0,
+            effects: vec![
+                random(0x3C09, 0x68F1, 42, 79, 0x03),
+                random(0xA7D0, 0x1589, 80, 65, 0x1F),
+                random(0x61A9, 0x16E5, 11, 83, 0x09),
+            ],
+        }
+    }
+
+    #[test]
+    fn a_new_record_matches_the_one_the_game_wrote_for_a_purchase() {
+        let free = unhex(PURCHASE_FREE);
+        let game = unhex(PURCHASE_RECORD);
+        let built = build_equipment_record(&free, &purchased_item(), 0xC86F, 0x26B007).unwrap();
+        // Bytes the game fills from state this tool does not model: the
+        // purchase flag (0x180 against a drop's 0x82), the seed, and per entry
+        // the second group word, the forge-material marker bits, the
+        // undefined +0x0F byte and the optional scaled fields +0x10..+0x17.
+        let mut unmodelled = vec![0x18, 0x19, 0x22, 0x23];
+        for index in 0..EQUIPMENT_EFFECT_COUNT {
+            let entry = EQUIPMENT_EFFECT_ID_OFFSET - 4 + index * EQUIPMENT_EFFECT_STRIDE;
+            unmodelled.extend([entry + 2, entry + 3, entry + 0x0F]);
+            unmodelled.extend(entry + 0x10..entry + EQUIPMENT_EFFECT_STRIDE);
+        }
+        for (offset, (ours, theirs)) in built.iter().zip(&game).enumerate() {
+            if unmodelled.contains(&offset) {
+                continue;
+            }
+            let mask =
+                if (0x34..0x34 + 7 * 0x18).contains(&offset) && (offset - 0x34) % 0x18 == 0x0D {
+                    0x3F
+                } else {
+                    0xFF
+                };
+            assert_eq!(ours & mask, theirs & mask, "byte {offset:#x}");
+        }
+        let fields = equipment_fields(&built).unwrap();
+        assert_eq!(
+            (
+                fields.item_id,
+                fields.level,
+                fields.rarity,
+                fields.inventory_key
+            ),
+            (0x27BF, 0xAF, 3, 0xC86F)
+        );
+        assert!(!fields.worn);
+    }
+
+    fn plain_with_counters(key: u32, serial: u32) -> Vec<u8> {
+        let mut plain = vec![0u8; NEXT_GENERATION_SERIAL_OFFSET + 0x10];
+        let free = unhex(PURCHASE_FREE);
+        for slot in 0..4 {
+            let at = equipment_offset(slot).unwrap();
+            plain[at..at + EQUIPMENT_RECORD_BYTES].copy_from_slice(&free);
+        }
+        let at = equipment_offset(1).unwrap();
+        plain[at..at + EQUIPMENT_RECORD_BYTES].copy_from_slice(&unhex(PURCHASE_RECORD));
+        plain[NEXT_INVENTORY_KEY_OFFSET..NEXT_INVENTORY_KEY_OFFSET + 4]
+            .copy_from_slice(&key.to_le_bytes());
+        plain[NEXT_GENERATION_SERIAL_OFFSET..NEXT_GENERATION_SERIAL_OFFSET + 4]
+            .copy_from_slice(&serial.to_le_bytes());
+        plain
+    }
+
+    #[test]
+    fn new_items_go_after_the_occupied_tail_and_take_consecutive_counters() {
+        let plain = plain_with_counters(0x100, 0x5000);
+        assert_eq!(equipment_counters(&plain).unwrap(), (0x100, 0x5000));
+        let first = next_free_equipment_slot(&plain, &[]).unwrap();
+        assert_eq!(first, 2, "the first free slot after the occupied tail");
+        let second = next_free_equipment_slot(&plain, &[first]).unwrap();
+        assert_eq!(second, 3);
+        let add = |slot: usize, key: u32, serial: u32| CharacterEdit::AddEquipment {
+            slot_index: slot,
+            expected_free: equipment_record(&plain, slot).unwrap().to_vec(),
+            record: build_equipment_record(&unhex(PURCHASE_FREE), &purchased_item(), key, serial)
+                .unwrap(),
+            key,
+            serial,
+        };
+        let (edited, slots) = apply_character_edits(
+            &plain,
+            &[add(first, 0x100, 0x5000), add(second, 0x101, 0x5001)],
+        )
+        .unwrap();
+        assert_eq!(slots, vec![first, second]);
+        assert_eq!(equipment_counters(&edited).unwrap(), (0x102, 0x5002));
+        assert_eq!(
+            equipment_fields(equipment_record(&edited, second).unwrap())
+                .unwrap()
+                .inventory_key,
+            0x101
+        );
+        // Nothing outside the two slots and the counters changed.
+        for (offset, (before, after)) in plain.iter().zip(&edited).enumerate() {
+            let inside = [first, second].iter().any(|slot| {
+                let at = equipment_offset(*slot).unwrap();
+                (at..at + EQUIPMENT_RECORD_BYTES).contains(&offset)
+            }) || (NEXT_INVENTORY_KEY_OFFSET..NEXT_INVENTORY_KEY_OFFSET + 4)
+                .contains(&offset)
+                || (NEXT_GENERATION_SERIAL_OFFSET..NEXT_GENERATION_SERIAL_OFFSET + 4)
+                    .contains(&offset);
+            if !inside {
+                assert_eq!(before, after, "byte {offset:#x}");
+            }
+        }
+        // A plan built for other counters, an occupied slot, or a repeat is refused.
+        assert!(apply_character_edits(&plain, &[add(first, 0x101, 0x5001)]).is_err());
+        assert!(apply_character_edits(&plain, &[add(1, 0x100, 0x5000)]).is_err());
+        assert!(apply_character_edits(
+            &plain,
+            &[add(first, 0x100, 0x5000), add(first, 0x101, 0x5001)]
+        )
+        .is_err());
+        assert!(
+            apply_character_edits(&plain_with_counters(0xFFFF, 1), &[add(first, 0xFFFF, 1)])
+                .is_err()
+        );
     }
 }

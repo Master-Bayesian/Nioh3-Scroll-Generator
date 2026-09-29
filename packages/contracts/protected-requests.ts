@@ -3622,6 +3622,178 @@ export type ProtectedRequest =
         remove?: {
           slot_index: number;
         }[];
+        /**
+         * New equipment; each takes the next free slot after the occupied tail and the save's next inventory key and serial, as a new item in game does.
+         *
+         * @maxItems 64
+         */
+        add?: {
+          item_id: number;
+          level: number;
+          plus?: number;
+          rarity: number;
+          hell?: boolean;
+          hell_skill?: number;
+          /**
+           * @maxItems 7
+           */
+          effects:
+            | []
+            | [
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                }
+              ]
+            | [
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                }
+              ]
+            | [
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                }
+              ]
+            | [
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                }
+              ]
+            | [
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                }
+              ]
+            | [
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                }
+              ]
+            | [
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                },
+                {
+                  effect_id: number;
+                  value: number;
+                  star?: boolean;
+                }
+              ];
+        }[];
       };
     }
   | {

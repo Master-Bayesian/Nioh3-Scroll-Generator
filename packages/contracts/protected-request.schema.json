@@ -3458,6 +3458,78 @@
                   "slot_index"
                 ]
               }
+            },
+            "add": {
+              "type": "array",
+              "maxItems": 64,
+              "description": "New equipment; each takes the next free slot after the occupied tail and the save's next inventory key and serial, as a new item in game does.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "item_id": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "level": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "plus": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  "rarity": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5
+                  },
+                  "hell": {
+                    "type": "boolean"
+                  },
+                  "hell_skill": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  "effects": {
+                    "type": "array",
+                    "maxItems": 7,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "effect_id": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 65535
+                        },
+                        "value": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4294967295
+                        },
+                        "star": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "effect_id",
+                        "value"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "item_id",
+                  "level",
+                  "rarity",
+                  "effects"
+                ]
+              }
             }
           },
           "required": [

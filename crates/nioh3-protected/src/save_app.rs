@@ -46,10 +46,11 @@ use nioh3_domain::sequence::generate_challenge_attempt_count;
 use nioh3_domain::sequence::materialize_ng3_rarity4_stage_one_record;
 use nioh3_save::backup::{list_backup_entries, move_backup_to_recycle_bin};
 use nioh3_save::character::{
-    equipment_fields, equipment_record, equipment_slot_is_empty, free_equipment_slot_unequipping,
-    item_quantity, item_quantity_limit, item_record, item_region, patch_equipment,
-    patch_item_quantity, read_currency, CharacterEdit, Currency, EquipmentFields, EquipmentPatch,
-    ItemContainer, EQUIPMENT_SLOT_COUNT, ITEM_RECORD_BYTES,
+    build_equipment_record, equipment_counters, equipment_fields, equipment_record,
+    equipment_slot_is_empty, free_equipment_slot_unequipping, item_quantity, item_quantity_limit,
+    item_record, item_region, next_free_equipment_slot, patch_equipment, patch_item_quantity,
+    read_currency, CharacterEdit, Currency, EquipmentFields, EquipmentPatch, ItemContainer,
+    EQUIPMENT_SLOT_COUNT, ITEM_RECORD_BYTES,
 };
 use nioh3_save::codec::prepare_candidate_for_install;
 use nioh3_save::error::SaveReadError;
@@ -550,6 +551,53 @@ impl SaveApplication {
                 expected_original: original,
             });
         }
+        let mut added = Vec::new();
+        let requested_adds = params
+            .get("add")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        if requested_adds.len() > 16 {
+            return Err(HostError::rejected("Add at most 16 items at a time"));
+        }
+        if !requested_adds.is_empty() {
+            let (mut key, mut serial) = equipment_counters(plain).map_err(HostError::from_save)?;
+            let mut taken: Vec<usize> = edits
+                .iter()
+                .filter_map(|edit| match edit {
+                    CharacterEdit::RemoveEquipment { slot_index, .. } => Some(*slot_index),
+                    _ => None,
+                })
+                .collect();
+            for requested in &requested_adds {
+                let new = crate::equipment_rules::new_equipment(&self.data_root, requested)?;
+                let slot_index = next_free_equipment_slot(plain, &taken)
+                    .ok_or_else(|| HostError::rejected("The equipment inventory is full"))?;
+                taken.push(slot_index);
+                let free = equipment_record(plain, slot_index)
+                    .map_err(HostError::from_save)?
+                    .to_vec();
+                let record = build_equipment_record(&free, &new, key, serial)
+                    .map_err(HostError::from_save)?;
+                let after = equipment_fields(&record).map_err(HostError::from_save)?;
+                added.push(json!({
+                    "slot_index": slot_index,
+                    "after": equipment_json(slot_index, &after, None),
+                    "audit": crate::equipment_rules::audit_json(&self.data_root, &record),
+                }));
+                edits.push(CharacterEdit::AddEquipment {
+                    slot_index,
+                    expected_free: free,
+                    record,
+                    key,
+                    serial,
+                });
+                key = key.checked_add(1).ok_or_else(HostError::invalid_request)?;
+                serial = serial
+                    .checked_add(1)
+                    .ok_or_else(HostError::invalid_request)?;
+            }
+        }
         if edits.is_empty() {
             return Err(HostError::rejected("Nothing to change"));
         }
@@ -557,7 +605,10 @@ impl SaveApplication {
             .host()
             .plan_character_edit(&save_path, &source_hash, edits)
             .map_err(HostError::from_save)?;
-        let modded = !equipment_changes.is_empty();
+        let modded = !equipment_changes.is_empty()
+            || added
+                .iter()
+                .any(|entry| entry["audit"]["natural"] != Value::Bool(true));
         Ok(self.plan_payload(
             &save_id,
             &source_hash,
@@ -568,6 +619,7 @@ impl SaveApplication {
                 "equipment": equipment_changes,
                 "items": item_changes,
                 "removed": removed,
+                "added": added,
                 "modded": modded,
             }),
         ))

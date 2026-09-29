@@ -111,6 +111,118 @@ pub fn audit_json(data_root: &Path, record: &[u8]) -> Value {
     })
 }
 
+/// A new equipment record's content from an editor request.
+///
+/// Each requested effect takes the role natural generation gives its entry
+/// (innate, random, grace, set, or the hell entry), its group marker and
+/// category, and the roll its value comes from (the highest roll giving that
+/// value, or 100 for a value natural generation never gives). The request is
+/// not held to natural values: the preview audits the record like any edit.
+pub fn new_equipment(
+    data_root: &Path,
+    params: &Value,
+) -> Result<nioh3_save::character::NewEquipment, HostError> {
+    use nioh3_save::character::{NewEntryRole, NewEquipment, NewEquipmentEffect, EMPTY_EFFECT_ID};
+    let rules = loaded(data_root)?;
+    let item_id = param_u64(params, "item_id", u64::from(u16::MAX))? as u16;
+    let rarity = param_u64(params, "rarity", 5)? as u8;
+    let level = param_u64(params, "level", u64::from(u16::MAX))? as u16;
+    let plus = params
+        .get("plus")
+        .and_then(Value::as_u64)
+        .unwrap_or(0)
+        .min(u64::from(u16::MAX)) as u16;
+    let hell = params.get("hell").and_then(Value::as_bool).unwrap_or(false);
+    let hell_skill = params
+        .get("hell_skill")
+        .and_then(Value::as_u64)
+        .unwrap_or(0)
+        .min(u64::from(u16::MAX)) as u16;
+    let item = rules.item(item_id).copied().ok_or_else(|| {
+        HostError::rejected("This item cannot be added: it is not in the equipment tables")
+    })?;
+    if hell && !item.hell_capable() {
+        return Err(HostError::rejected(
+            "This item cannot be added as a hell weapon",
+        ));
+    }
+    let roles = rules
+        .slot_roles(&item, rarity, hell)
+        .ok_or_else(|| HostError::rejected("This item cannot be added at this rarity"))?;
+    let requested = params
+        .get("effects")
+        .and_then(Value::as_array)
+        .ok_or_else(HostError::invalid_request)?;
+    if requested.len() > nioh3_save::character::EQUIPMENT_EFFECT_COUNT {
+        return Err(HostError::invalid_request());
+    }
+    let mut effects = Vec::new();
+    for (index, effect) in requested.iter().enumerate() {
+        let effect_id = effect
+            .get("effect_id")
+            .and_then(Value::as_u64)
+            .and_then(|value| u16::try_from(value).ok())
+            .ok_or_else(HostError::invalid_request)?;
+        if u32::from(effect_id) == EMPTY_EFFECT_ID {
+            return Err(HostError::invalid_request());
+        }
+        let value = effect
+            .get("value")
+            .and_then(Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok())
+            .ok_or_else(HostError::invalid_request)?;
+        let (group, category) = rules
+            .effect_marker(effect_id)
+            .ok_or_else(|| HostError::rejected(format!("Unknown effect {effect_id:#06x}")))?;
+        let role = match roles.get(index).copied().unwrap_or(SlotRole::Random) {
+            SlotRole::Innate => NewEntryRole::Innate,
+            SlotRole::Hell => NewEntryRole::Hell,
+            SlotRole::Random => NewEntryRole::Random,
+            SlotRole::Grace => NewEntryRole::Grace,
+            SlotRole::Set => NewEntryRole::Set,
+        };
+        let roll = match role {
+            NewEntryRole::Grace | NewEntryRole::Set => 0,
+            _ => rules
+                .legal_values(effect_id, rarity, level)
+                .ok()
+                .and_then(|values| {
+                    values
+                        .iter()
+                        .find(|legal| i64::from(legal.value) == i64::from(value))
+                        .map(|legal| legal.roll_max)
+                })
+                .unwrap_or(100),
+        };
+        let star = effect
+            .get("star")
+            .and_then(Value::as_bool)
+            .unwrap_or_else(|| {
+                rules
+                    .effect(effect_id)
+                    .is_some_and(|definition| definition.normalization_flags & 0x08 != 0)
+            });
+        effects.push(NewEquipmentEffect {
+            role,
+            effect_id: u32::from(effect_id),
+            value,
+            roll,
+            star,
+            group,
+            category,
+        });
+    }
+    Ok(NewEquipment {
+        item_id,
+        level,
+        plus,
+        rarity,
+        hell,
+        hell_skill,
+        effects,
+    })
+}
+
 fn param_u64(params: &Value, key: &str, max: u64) -> Result<u64, HostError> {
     params
         .get(key)
