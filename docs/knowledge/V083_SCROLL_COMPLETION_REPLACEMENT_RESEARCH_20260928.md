@@ -107,8 +107,9 @@ more effect. It can happen at any completion, not only the last one.
   the roll draws 416 against 2999, so its first ordinary completion must add
   an effect. Declining, the model gave 近距离攻击伤害 `0xDB20` value 57 roll 93
   with selector `0x3D` and 近距离攻击打倒敌人时恢复体力 `0xA0A7` with `0x3B`; the
-  game added 近距离攻击伤害, which settles the selector. (Byte-level check of
-  value and roll pending the next save.)
+  game added 近距离攻击伤害 value 57 roll 93 in front of the grace, which settles
+  the selector. The saved record also shows the success path: `+0x0C` 0 -> 1,
+  `+0x32` stayed 0, `+0x33` 6 -> 5 and `+0x18` gained `0x20000000`.
 
 ## Reveal (揭秘) completions
 
