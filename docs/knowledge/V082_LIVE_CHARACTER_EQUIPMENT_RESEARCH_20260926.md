@@ -455,3 +455,26 @@ in-game inventory menu ("持有物品").
   replaces its id and value but keeps the slot's star marker (`+0xE` bit
   `0x04`), so a star row can show unstarred and an ordinary row can keep a
   star; a core still carries at most one marker.
+
+## Game-side add and discard in the save (owner present, 2026-09-29)
+
+Two decrypted saves around one blacksmith purchase and one discard (dropped on
+the ground), same session, compared byte for byte:
+
+- The discarded record (slot 1461) became exactly the free-slot layout that
+  `free_equipment_slot` writes. Nothing else in the save names it: its key,
+  serial and effect bytes occur nowhere after the save, so an item dropped on
+  the ground is not persisted.
+- The purchase landed in the first free slot after the occupied tail
+  (slot 1464) with flags `+0x18 = 0x180`, key `+0x1C = 0xC86F`, `+0x20 = 1`,
+  seed `+0x22`, serial `+0x28 = 0x26B007`, set words `0x11`/`0x11`.
+- Two save-wide counters live next to each other: `+0x36E226` (u16 in a u32)
+  is the next inventory key and advanced `0xC86F -> 0xC870`; `+0x36E232`
+  (u32) is the next generation serial and advanced `0x26A79F -> 0x26B228`,
+  because opening the shop generates its whole stock. Neither counter is the
+  maximum of the stored records (the highest stored serial was `0x26A447`).
+- Unrelated diffs: another record lost its new-item bit `+0x18 & 0x02`, plus
+  world and play-time state.
+
+So a save-file insertion must take the key and serial from these counters and
+advance them; a save-file removal needs nothing beyond the free slot.
