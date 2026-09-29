@@ -321,11 +321,72 @@ export function publicError(message: string): string {
       /FAVORITE.*INVALID|Unexpected token.*JSON/,
       "收藏夹文件无法读取，原文件已保留。请导出反馈文件发给开发者。",
     ],
+    // Broader groups, after every specific explanation above: refusals the
+    // player clears with one step of their own, grouped by that step. Every
+    // other backend failure falls through to the generic advice below, so
+    // none of them is ever shown as raw English or JSON alone.
+    [
+      /Save changed after preparation|Save changed while reading inventory|Batch source save changed|Plan expired|Unknown save ID/i,
+      "存档刚被游戏改写，或这次的计划已经过期。请点“重新读取”，然后重新核对。",
+    ],
+    [
+      /changed in game since it was read|changed during capture|changed between batch items|index changed during preview|Preview changed inventory|Inventory owner changed|Batch process context changed|Batch disk checkpoint changed|retry at rest/i,
+      "游戏里的背包刚好在变化（例如正在拾取、使用或整理物品）。请在游戏里停下来、关闭菜单，然后重新核对。",
+    ],
+    [
+      /Insufficient scroll capacity/i,
+      "游戏里的绘卷背包没有足够的空位。请先在游戏里出售或丢弃一些绘卷，再重新核对。",
+    ],
+    [
+      /Inventory data is not loaded|Item manager is not loaded|Unexpected inventory owner/i,
+      "游戏还没有加载好角色。请进入角色存档、能自由行动后再试。",
+    ],
+    [
+      /(?:Live addition|Count editing) is not accepted for this game version|Equipment rules are unavailable for this game version|PC v2\.01 is required|validated only for PC v2\.01|UNSUPPORTED_CONTEXT|RESOURCE_MISMATCH/,
+      "当前游戏版本尚未支持，请检查更新。",
+    ],
+    [
+      /requires an idle runtime host|Resolve existing runtime ownership|CLOSING: protected host|wait for its commit outcome/i,
+      "上一项游戏内操作还没有结束。请等它完成后再试；一直这样的话，请完全关闭本程序后重新打开。",
+    ],
+    [
+      /Native candidate expired|regenerate before installation|Materialize and finalize the candidate|CANDIDATE_NOT_INSTALLABLE|Candidate record length is invalid/i,
+      "这个候选已经失效。请重新搜索或重新生成后再添加。",
+    ],
+    [
+      /Previous batch item has not been verified/i,
+      "上次操作尚未确认，请先核对结果，不要重复添加。",
+    ],
+    [
+      /Backup does not belong to the selected save|Select backups belonging to this save/i,
+      "选中的备份不属于当前存档。请先在上面选对存档，再选择它的备份。",
+    ],
+    [/Select a character SAVEDATA\.BIN/i, "请选择角色存档文件 SAVEDATA.BIN。"],
+    [
+      /os error 32\b|being used by another process/i,
+      "文件正被其他程序占用（例如游戏正在存档，或云同步、杀毒软件正在读取）。请稍等片刻再试。",
+    ],
+    [
+      /os error 5\b|Access is denied/i,
+      "没有权限读写这个文件。请检查杀毒软件是否拦截了本程序，或文件夹是否设为只读。",
+    ],
+    [/os error 112\b|not enough space on the disk/i, "磁盘空间不足。请清理磁盘后再试。"],
+    [/os error 2\b|No such file or directory/i, "找不到需要的文件。请点“重新检测”或重新选择存档后再试。"],
+    [
+      /WORKER_BACKEND_|WORKER_UNAVAILABLE|HANDSHAKE_REQUIRED|CONTRACT_MISMATCH/,
+      "程序的后台组件没有正常启动。请完全关闭本程序后重新打开；仍不行请重新下载安装。",
+    ],
+    [
+      /UPDATE_[A-Z_]+/,
+      "更新没有完成，当前版本不受影响。请稍后再试，或到 GitHub 下载最新版本。",
+    ],
   ];
   for (const [pattern, text] of cases) if (pattern.test(message)) return text;
   if (
     (/^Error(?: invoking remote method|:)/.test(message) ||
-      /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+(?::|$)/.test(message)) &&
+      /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+(?::|$)/.test(message) ||
+      // A structured `{ code, message }` failure serialized for display.
+      /^\{\s*"code"\s*:\s*"[A-Z][A-Z0-9_]*"/.test(message)) &&
     !/[\u3400-\u9fff]/.test(message)
   ) {
     const code = message.match(/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b/)?.[0];

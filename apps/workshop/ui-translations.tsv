@@ -1020,3 +1020,16 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 还有一次实时添加正在进行。请等几秒后再点一次“重置实时添加状态”；仍不行请完全关闭本程序后重新打开，或重启电脑。	A live addition is still in progress. Wait a few seconds and click "Reset live addition state" again; if that does not help, close this app completely and reopen it, or restart the computer.	リアルタイム追加がまだ進行中です。数秒待ってからもう一度「リアルタイム追加の状態をリセット」を押してください。解決しない場合は本アプリを完全に終了して開き直すか、PCを再起動してください。
 已打开数据文件夹：	Opened the data folder: 	データフォルダーを開きました：
 当前数据目录：	Current data folder: 	現在のデータフォルダー：
+存档刚被游戏改写，或这次的计划已经过期。请点“重新读取”，然后重新核对。	The game has just rewritten the save, or this plan has expired. Click "Reload", then review again.	ゲームがセーブを書き換えたか、この計画の期限が切れました。「再読み込み」を押してから、もう一度確認してください。
+游戏里的背包刚好在变化（例如正在拾取、使用或整理物品）。请在游戏里停下来、关闭菜单，然后重新核对。	The in-game inventory was changing (for example, picking up, using or sorting items). Stand still in the game, close the menus, then review again.	ゲーム内の所持品が変化している最中でした（アイテムの拾得・使用・整理など）。ゲーム内で立ち止まってメニューを閉じてから、もう一度確認してください。
+游戏里的绘卷背包没有足够的空位。请先在游戏里出售或丢弃一些绘卷，再重新核对。	The in-game scroll inventory does not have enough free slots. Sell or discard some scrolls in the game first, then review again.	ゲーム内の絵巻の所持枠が足りません。先にゲーム内で絵巻をいくつか売却または破棄してから、もう一度確認してください。
+上一项游戏内操作还没有结束。请等它完成后再试；一直这样的话，请完全关闭本程序后重新打开。	The previous in-game operation has not finished. Wait for it to complete and try again; if this keeps happening, close this app completely and reopen it.	前回のゲーム内操作がまだ終わっていません。完了するまで待ってから再度お試しください。解決しない場合は本アプリを完全に終了して開き直してください。
+这个候选已经失效。请重新搜索或重新生成后再添加。	This candidate is no longer valid. Search or generate again, then add it.	この候補は無効になりました。もう一度検索または生成してから追加してください。
+选中的备份不属于当前存档。请先在上面选对存档，再选择它的备份。	The selected backup does not belong to the current save. Choose the right save above first, then select one of its backups.	選択したバックアップは現在のセーブのものではありません。先に上で正しいセーブを選び、そのバックアップを選択してください。
+请选择角色存档文件 SAVEDATA.BIN。	Select a character save file, SAVEDATA.BIN.	キャラクターのセーブファイル SAVEDATA.BIN を選択してください。
+文件正被其他程序占用（例如游戏正在存档，或云同步、杀毒软件正在读取）。请稍等片刻再试。	The file is in use by another program (for example the game is saving, or cloud sync or antivirus software is reading it). Wait a moment and try again.	ファイルが他のプログラムに使用されています（ゲームのセーブ中、クラウド同期やウイルス対策ソフトの読み取り中など）。少し待ってから再度お試しください。
+没有权限读写这个文件。请检查杀毒软件是否拦截了本程序，或文件夹是否设为只读。	No permission to read or write this file. Check whether antivirus software is blocking this app, or whether the folder is read-only.	このファイルを読み書きする権限がありません。ウイルス対策ソフトが本アプリをブロックしていないか、フォルダーが読み取り専用になっていないか確認してください。
+磁盘空间不足。请清理磁盘后再试。	Not enough disk space. Free up some space and try again.	ディスクの空き容量が不足しています。空き容量を確保してから再度お試しください。
+找不到需要的文件。请点“重新检测”或重新选择存档后再试。	A required file could not be found. Click "Scan again" or select the save again, then retry.	必要なファイルが見つかりません。「再検出」を押すか、セーブを選び直してから再度お試しください。
+程序的后台组件没有正常启动。请完全关闭本程序后重新打开；仍不行请重新下载安装。	A background component of the app did not start correctly. Close this app completely and reopen it; if that does not help, download and install it again.	アプリのバックグラウンドコンポーネントが正常に起動しませんでした。本アプリを完全に終了して開き直してください。解決しない場合は再ダウンロードしてインストールしてください。
+更新没有完成，当前版本不受影响。请稍后再试，或到 GitHub 下载最新版本。	The update did not finish; the current version is not affected. Try again later, or download the latest version from GitHub.	アップデートは完了しませんでした。現在のバージョンには影響ありません。後でもう一度お試しいただくか、GitHub から最新版をダウンロードしてください。

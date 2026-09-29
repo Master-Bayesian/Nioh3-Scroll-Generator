@@ -180,3 +180,31 @@ test("a save the game wrote after preview is a stale snapshot, not a failure to 
   }
   assert.ok(!isStaleSnapshotError("Save changed since it was read"));
 });
+
+test("refusals the player can clear say which step clears them", () => {
+  const cases: [string, RegExp][] = [
+    ["Save changed after preparation; no write attempted", /重新读取/],
+    ["Inventory changed between batch items", /停下来/],
+    ["Insufficient scroll capacity", /空位/],
+    ["Inventory data is not loaded", /进入角色/],
+    ["Live addition is not accepted for this game version", /检查更新/],
+    ["Live addition requires an idle runtime host", /还没有结束/],
+    ["Native candidate expired; generate again", /重新搜索/],
+    ["Access is denied. (os error 5)", /权限/],
+    ["另一个程序正在使用此文件，进程无法访问。 (os error 32)", /占用/],
+  ];
+  for (const [raw, expected] of cases)
+    for (const form of [
+      `Error: ${raw}`,
+      JSON.stringify({ code: "OPERATION_FAILED", message: raw }),
+    ])
+      assert.match(publicError(form), expected, form);
+});
+
+test("an unexplained structured failure still reads as a Chinese next step", () => {
+  const raw = '{"code":"OPERATION_FAILED","message":"Duplicate full serial index key"}';
+  const text = publicError(raw);
+  assert.match(text, /^操作没有完成/);
+  assert.match(text, /导出反馈文件/);
+  assert.ok(isFailureText(raw));
+});
