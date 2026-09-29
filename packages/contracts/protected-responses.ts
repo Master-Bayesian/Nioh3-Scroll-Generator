@@ -17,6 +17,7 @@ export type ProtectedResponse =
         | EquipmentRules
         | EffectValues
         | MenuSelection
+        | LiveAddLockReset
         | InventorySnapshot
         | LocalNameCatalog
         | ShutdownStatus
@@ -1124,6 +1125,9 @@ export interface MenuSelection {
   slot_index?: number | null;
   container?: "equipment" | "held" | "storage";
   item_id?: number;
+}
+export interface LiveAddLockReset {
+  state: "absent" | "cleared" | "held";
 }
 export interface InventorySnapshot {
   status: "observed";

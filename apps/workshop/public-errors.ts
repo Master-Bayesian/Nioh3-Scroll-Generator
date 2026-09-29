@@ -62,6 +62,14 @@ export function isUserCorrectable(message: string): boolean {
   );
 }
 
+/** A live addition refused because another executor holds its admission lock. */
+const LIVE_ADD_LOCK = /Another native executor is admitting an operation/i;
+
+/** Whether the player can clear the refusal with the live-add lock reset. */
+export function isLiveAddLockError(message: string): boolean {
+  return LIVE_ADD_LOCK.test(message);
+}
+
 /** User-facing next steps; the broker keeps full technical errors in rolling logs. */
 export function publicError(message: string): string {
   if (hasCjk(message)) message = stripErrorPrefix(message);
@@ -280,6 +288,10 @@ export function publicError(message: string): string {
     [
       /QueryFullProcessImageNameW|PROCESS_INSTANCE_CHANGED|PROCESS_GONE|replaced by a different process instance|is no longer running/i,
       "游戏已退出或重新启动。请进入角色存档后重新核对添加。",
+    ],
+    [
+      LIVE_ADD_LOCK,
+      "实时添加被上一次没有正常结束的操作锁住了（例如添加时程序被强制关闭）。请点下面的“重置实时添加状态”，然后重新操作一次。",
     ],
     [
       /uncertain|unresolved|already submitted/i,

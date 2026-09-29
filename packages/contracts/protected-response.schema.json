@@ -609,6 +609,22 @@
         "values"
       ]
     },
+    "LiveAddLockReset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "enum": [
+            "absent",
+            "cleared",
+            "held"
+          ]
+        }
+      },
+      "required": [
+        "state"
+      ]
+    },
     "MenuSelection": {
       "type": "object",
       "additionalProperties": false,
@@ -4001,6 +4017,9 @@
             },
             {
               "$ref": "#/definitions/MenuSelection"
+            },
+            {
+              "$ref": "#/definitions/LiveAddLockReset"
             },
             {
               "$ref": "#/definitions/InventorySnapshot"

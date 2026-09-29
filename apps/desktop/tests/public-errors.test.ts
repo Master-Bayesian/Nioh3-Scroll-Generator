@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { errorText, isFailureText, isUserCorrectable, publicError } from "../../workshop/public-errors";
+import {
+  errorText,
+  isFailureText,
+  isLiveAddLockError,
+  isUserCorrectable,
+  publicError,
+} from "../../workshop/public-errors";
 
 test("errorText never returns an empty status for a rejection", () => {
   assert.equal(errorText(new Error("推荐等级无法转换。")), "推荐等级无法转换。");
@@ -150,4 +156,15 @@ test("character editing refusals are explained in the player's terms", () => {
     ["OPERATION_REJECTED: Nothing to change", /没有需要修改的内容/],
   ];
   for (const [raw, expected] of cases) assert.match(publicError(raw), expected, raw);
+});
+
+test("a stale live-add lock names the reset the player can press", () => {
+  const raw =
+    'OPERATION_FAILED: Another native executor is admitting an operation';
+  assert.ok(isLiveAddLockError(raw));
+  assert.ok(isFailureText(raw));
+  const text = publicError(raw);
+  assert.match(text, /重置实时添加状态/);
+  assert.doesNotMatch(text, /Another native executor/);
+  assert.ok(!isLiveAddLockError("Previous native operation x is unresolved; recover it, never replay"));
 });

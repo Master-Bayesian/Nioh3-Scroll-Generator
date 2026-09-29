@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { desktop } from "./desktop-bridge";
 import {
   isFailureText,
+  isLiveAddLockError,
   isUserCorrectable,
   publicError,
   stripErrorPrefix,
@@ -31,11 +32,13 @@ export function Notice({
 }) {
   const [feedback, setFeedback] = useState<"" | "busy" | "saved" | "failed">("");
   const [dismissed, setDismissed] = useState(false);
+  const [lockReset, setLockReset] = useState<"" | "busy" | "cleared" | "held" | "failed">("");
   // A new message replaces the previous one together with its feedback hint,
   // and shows again even if the player closed the previous one.
   useEffect(() => {
     setFeedback("");
     setDismissed(false);
+    setLockReset("");
   }, [text]);
   if (!text.trim() || dismissed) return null;
   const effective =
@@ -43,6 +46,20 @@ export function Notice({
     (isUserCorrectable(text) ? "warning" : isFailureText(text) ? "error" : "info");
   const display = stripErrorPrefix(text).trim();
   const technical = publicError(display) !== display ? display : "";
+  async function resetLiveAddLock() {
+    setLockReset("busy");
+    try {
+      const result = await window.operations.execute({
+        method: "runtime.reset_live_add_lock",
+        params: {},
+      });
+      setLockReset(
+        result && "state" in result && result.state === "held" ? "held" : "cleared",
+      );
+    } catch {
+      setLockReset("failed");
+    }
+  }
   async function exportFeedback() {
     setFeedback("busy");
     try {
@@ -77,6 +94,15 @@ export function Notice({
               <Technical text={technical} />
             </details>
           )}
+          {desktop && isLiveAddLockError(text) && (
+            <button
+              type="button"
+              disabled={lockReset === "busy"}
+              onClick={() => void resetLiveAddLock()}
+            >
+              重置实时添加状态
+            </button>
+          )}
           {desktop && (
             <button
               type="button"
@@ -87,6 +113,15 @@ export function Notice({
             </button>
           )}
         </div>
+      )}
+      {lockReset === "cleared" && (
+        <p className="notice-hint">已重置。请重新操作一次（例如再点“核对添加”）；如果还是出现这个提示，请导出反馈文件发给开发者。</p>
+      )}
+      {lockReset === "held" && (
+        <p className="notice-hint">还有一次实时添加正在进行。请等几秒后再点一次“重置实时添加状态”；仍不行请完全关闭本程序后重新打开，或重启电脑。</p>
+      )}
+      {lockReset === "failed" && (
+        <p className="notice-hint">重置没有成功。请完全关闭本程序后重新打开再试；仍不行请导出反馈文件发给开发者。</p>
       )}
       {feedback === "saved" && <FeedbackSaved onDismiss={() => setFeedback("")} />}
       {feedback === "failed" && (

@@ -3616,6 +3616,35 @@
           "maxLength": 64
         },
         "method": {
+          "const": "runtime.reset_live_add_lock"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {},
+          "required": []
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
           "const": "runtime.character_snapshot"
         },
         "params": {

@@ -143,6 +143,11 @@ pub(crate) fn profile_dir_for(data_root: &Path) -> PathBuf {
     }
 }
 
+/// Where every native live-add executor keeps its receipts and admission lock.
+fn native_executor_directory(state_root: &Path) -> PathBuf {
+    state_root.join("live-add").join("native-executor")
+}
+
 impl RuntimeApplication {
     /// Build the runtime role for one state root and data root.
     pub fn new(
@@ -150,6 +155,12 @@ impl RuntimeApplication {
         data_root: &Path,
         context: EngineContext,
     ) -> Result<Self, HostError> {
+        // A live add whose process died (in this or any earlier version) may
+        // have left its admission lock behind; one nobody holds is cleared
+        // here so it can never block the player's next addition.
+        let _ = nioh3_runtime::mutation::native_executor::AdmissionLock::reset(
+            &native_executor_directory(&state_root),
+        );
         Ok(Self {
             state_root,
             data_root: data_root.to_path_buf(),
@@ -172,6 +183,15 @@ impl RuntimeApplication {
             #[cfg(windows)]
             retired_oracles: Vec::new(),
         })
+    }
+
+    /// Clear a live-add admission lock no running executor holds.
+    fn reset_live_add_lock(&self) -> Result<Value, HostError> {
+        let state = nioh3_runtime::mutation::native_executor::AdmissionLock::reset(
+            &native_executor_directory(&self.state_root),
+        )
+        .map_err(HostError::from_runtime)?;
+        Ok(serde_json::json!({ "state": state.as_str() }))
     }
 
     /// A count editor bound to the running game.
@@ -1259,7 +1279,7 @@ mod imp {
                 let identity = self.live_add_identity()?;
                 let (layout, display_version) =
                     Self::live_add_binding_for_version(identity.file_version)?;
-                let directory = self.state_root.join("live-add").join("native-executor");
+                let directory = super::native_executor_directory(&self.state_root);
                 let transport = NativeDebugTransport::new(
                     identity.identity.pid,
                     *layout,
@@ -1790,6 +1810,9 @@ mod imp {
             if method == "runtime.menu_selection" {
                 return self.menu_selection();
             }
+            if method == "runtime.reset_live_add_lock" {
+                return self.reset_live_add_lock();
+            }
             if method == "runtime.equipment_rules" {
                 return crate::equipment_rules::equipment_rules_json(&self.data_root, params);
             }
@@ -2074,6 +2097,9 @@ mod imp {
             }
             if method == "runtime.menu_selection" {
                 return self.menu_selection();
+            }
+            if method == "runtime.reset_live_add_lock" {
+                return self.reset_live_add_lock();
             }
             if method == "runtime.equipment_rules" {
                 return crate::equipment_rules::equipment_rules_json(&self.data_root, params);

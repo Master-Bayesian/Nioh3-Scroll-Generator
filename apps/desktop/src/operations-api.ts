@@ -29,6 +29,7 @@ export type PublicOperation =
   | { method: 'runtime.inventory_snapshot'; params: ProtectedParams<'runtime.inventory_snapshot'> }
   | { method: 'runtime.character_snapshot'; params: ProtectedParams<'runtime.character_snapshot'> }
   | { method: 'runtime.menu_selection'; params: ProtectedParams<'runtime.menu_selection'> }
+  | { method: 'runtime.reset_live_add_lock'; params: ProtectedParams<'runtime.reset_live_add_lock'> }
   | { method: 'runtime.character_edit'; params: ProtectedParams<'runtime.character_edit'> }
   | { method: 'runtime.equipment_rules'; params: ProtectedParams<'runtime.equipment_rules'> }
   | { method: 'runtime.effect_values'; params: ProtectedParams<'runtime.effect_values'> }

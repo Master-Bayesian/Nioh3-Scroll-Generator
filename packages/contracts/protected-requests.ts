@@ -3654,6 +3654,12 @@ export type ProtectedRequest =
   | {
       protocol: 1;
       id: string;
+      method: "runtime.reset_live_add_lock";
+      params: {};
+    }
+  | {
+      protocol: 1;
+      id: string;
       method: "runtime.character_snapshot";
       params: {};
     }

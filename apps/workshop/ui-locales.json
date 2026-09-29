@@ -4059,6 +4059,26 @@
     "点“确认移除”后会先生成修改计划，核对后点“写入存档”才会真正写入；写入前会自动备份原存档。游戏必须关闭。": [
       "“Confirm removal” first prepares a change plan; nothing is written until you check it and click “Write save”. The original save is backed up first. The game must be closed.",
       "「削除を確定」を押すと、まず変更計画を作成します。内容を確認して「セーブに書き込む」を押すまで書き込まれません。書き込み前に元のセーブを自動でバックアップします。ゲームは終了しておく必要があります。"
+    ],
+    "实时添加被上一次没有正常结束的操作锁住了（例如添加时程序被强制关闭）。请点下面的“重置实时添加状态”，然后重新操作一次。": [
+      "Live addition is locked by an earlier operation that did not finish (for example, the app was force-closed while adding). Click \"Reset live addition state\" below, then try again.",
+      "前回正常に終了しなかった操作（追加中にアプリが強制終了された場合など）により、リアルタイム追加がロックされています。下の「リアルタイム追加の状態をリセット」を押してから、もう一度操作してください。"
+    ],
+    "重置实时添加状态": [
+      "Reset live addition state",
+      "リアルタイム追加の状態をリセット"
+    ],
+    "已重置。请重新操作一次（例如再点“核对添加”）；如果还是出现这个提示，请导出反馈文件发给开发者。": [
+      "Reset done. Try the action again (for example, click \"Review addition\" again). If this message appears again, export a feedback file and send it to the developer.",
+      "リセットしました。もう一度操作してください（例：「追加を確認」をもう一度押す）。それでもこのメッセージが出る場合は、フィードバックファイルを書き出して開発者に送ってください。"
+    ],
+    "重置没有成功。请完全关闭本程序后重新打开再试；仍不行请导出反馈文件发给开发者。": [
+      "The reset did not succeed. Close this app completely, reopen it and try again; if that does not help, export a feedback file and send it to the developer.",
+      "リセットできませんでした。本アプリを完全に終了して再度開いてからお試しください。解決しない場合はフィードバックファイルを書き出して開発者に送ってください。"
+    ],
+    "还有一次实时添加正在进行。请等几秒后再点一次“重置实时添加状态”；仍不行请完全关闭本程序后重新打开，或重启电脑。": [
+      "A live addition is still in progress. Wait a few seconds and click \"Reset live addition state\" again; if that does not help, close this app completely and reopen it, or restart the computer.",
+      "リアルタイム追加がまだ進行中です。数秒待ってからもう一度「リアルタイム追加の状態をリセット」を押してください。解決しない場合は本アプリを完全に終了して開き直すか、PCを再起動してください。"
     ]
   },
   "game": {

@@ -493,6 +493,7 @@ fn dispatch(
                 "runtime.inventory_snapshot"
                     | "runtime.character_snapshot"
                     | "runtime.menu_selection"
+                    | "runtime.reset_live_add_lock"
                     | "runtime.equipment_rules"
                     | "runtime.effect_values"
             ) {

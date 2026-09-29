@@ -1363,6 +1363,27 @@ pub struct AdmissionLock {
     file: Option<std::fs::File>,
 }
 
+/// What [`AdmissionLock::reset`] found.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AdmissionReset {
+    /// No lock file existed.
+    Absent,
+    /// A lock file nobody held was removed.
+    Cleared,
+    /// A running executor holds the lock; nothing was changed.
+    Held,
+}
+
+impl AdmissionReset {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Absent => "absent",
+            Self::Cleared => "cleared",
+            Self::Held => "held",
+        }
+    }
+}
+
 /// `ERROR_SHARING_VIOLATION`: another open handle refuses to share the file.
 #[cfg(windows)]
 const ERROR_SHARING_VIOLATION: i32 = 32;
@@ -1382,6 +1403,32 @@ impl AdmissionLock {
             Err(error) if Self::held_elsewhere(&error) => Err(rejected(
                 "Another native executor is admitting an operation",
             )),
+            Err(error) => Err(RuntimeError::Io {
+                path: path.display().to_string(),
+                detail: error.to_string(),
+            }),
+        }
+    }
+
+    /// Remove a lock file no live process holds, and report what was found.
+    ///
+    /// Runs at runtime start and when the player asks for a reset. It never
+    /// reads or touches a receipt, so an unresolved operation stays fenced by
+    /// its receipt exactly as before.
+    pub fn reset(directory: &Path) -> Result<AdmissionReset, RuntimeError> {
+        let path = directory.join("admission.lock");
+        if !path.exists() {
+            return Ok(AdmissionReset::Absent);
+        }
+        match Self::open_exclusive(&path) {
+            Ok(file) => {
+                drop(Self {
+                    path,
+                    file: Some(file),
+                });
+                Ok(AdmissionReset::Cleared)
+            }
+            Err(error) if Self::held_elsewhere(&error) => Ok(AdmissionReset::Held),
             Err(error) => Err(RuntimeError::Io {
                 path: path.display().to_string(),
                 detail: error.to_string(),
@@ -1433,7 +1480,7 @@ impl Drop for AdmissionLock {
 #[cfg(all(test, windows))]
 #[allow(clippy::expect_used, clippy::unwrap_used)]
 mod admission_lock_tests {
-    use super::AdmissionLock;
+    use super::{AdmissionLock, AdmissionReset};
 
     fn scratch(name: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!(
@@ -1473,6 +1520,33 @@ mod admission_lock_tests {
             .expect("a lock file nobody holds open is not an owner");
         drop(admission);
         assert!(!path.exists(), "the stale file is cleaned up on release");
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn a_reset_clears_only_a_lock_nobody_holds_and_never_a_receipt() {
+        let directory = scratch("reset");
+        assert_eq!(
+            AdmissionLock::reset(&directory).expect("reset"),
+            AdmissionReset::Absent
+        );
+        let path = directory.join("admission.lock");
+        let receipt = directory.join("3f2a8c1e-0d4b-4c6a-9f1e-5b7d2a9c4e10.json");
+        std::fs::write(&receipt, b"{}").expect("receipt");
+        std::fs::write(&path, b"").expect("stale lock file");
+        assert_eq!(
+            AdmissionLock::reset(&directory).expect("reset"),
+            AdmissionReset::Cleared
+        );
+        assert!(!path.exists(), "the stale lock is gone");
+        assert!(receipt.exists(), "a receipt is never touched");
+        let held = AdmissionLock::acquire(&directory).expect("admission");
+        assert_eq!(
+            AdmissionLock::reset(&directory).expect("reset"),
+            AdmissionReset::Held
+        );
+        assert!(path.exists(), "a held lock is left in place");
+        drop(held);
         let _ = std::fs::remove_dir_all(&directory);
     }
 }
