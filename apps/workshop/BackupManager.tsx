@@ -177,7 +177,9 @@ function ConnectedBackups() {
                     setMessage(
                       value.restart_required
                         ? "数据目录将在重启应用后生效，原目录中的备份会保留。"
-                        : value.data_directory,
+                        : action === "open"
+                          ? `已打开数据文件夹：${value.data_directory}`
+                          : `当前数据目录：${value.data_directory}`,
                     );
                 })
                 .catch((e) => setMessage(String(e)))

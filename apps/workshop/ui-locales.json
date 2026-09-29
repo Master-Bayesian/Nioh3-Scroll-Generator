@@ -4079,6 +4079,14 @@
     "还有一次实时添加正在进行。请等几秒后再点一次“重置实时添加状态”；仍不行请完全关闭本程序后重新打开，或重启电脑。": [
       "A live addition is still in progress. Wait a few seconds and click \"Reset live addition state\" again; if that does not help, close this app completely and reopen it, or restart the computer.",
       "リアルタイム追加がまだ進行中です。数秒待ってからもう一度「リアルタイム追加の状態をリセット」を押してください。解決しない場合は本アプリを完全に終了して開き直すか、PCを再起動してください。"
+    ],
+    "已打开数据文件夹：": [
+      "Opened the data folder: ",
+      "データフォルダーを開きました："
+    ],
+    "当前数据目录：": [
+      "Current data folder: ",
+      "現在のデータフォルダー："
     ]
   },
   "game": {
