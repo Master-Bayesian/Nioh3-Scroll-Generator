@@ -4,6 +4,7 @@ import {
   errorText,
   isFailureText,
   isLiveAddLockError,
+  isStaleSnapshotError,
   isUserCorrectable,
   publicError,
 } from "../../workshop/public-errors";
@@ -167,4 +168,15 @@ test("a stale live-add lock names the reset the player can press", () => {
   assert.match(text, /重置实时添加状态/);
   assert.doesNotMatch(text, /Another native executor/);
   assert.ok(!isLiveAddLockError("Previous native operation x is unresolved; recover it, never replay"));
+});
+
+test("a save the game wrote after preview is a stale snapshot, not a failure to report", () => {
+  for (const raw of [
+    '{"code":"OPERATION_FAILED","message":"Save changed after preview; refresh inventory"}',
+    "OPERATION_FAILED: Snapshot expired; refresh inventory",
+  ]) {
+    assert.ok(isStaleSnapshotError(raw));
+    assert.match(publicError(raw), /重新读取/);
+  }
+  assert.ok(!isStaleSnapshotError("Save changed since it was read"));
 });

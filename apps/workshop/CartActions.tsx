@@ -1,5 +1,6 @@
 import {collectionKey} from "./collections";
 import { Notice } from "./Notice";
+import { isStaleSnapshotError } from "./public-errors";
 import { PreparedLiveBatchOwner } from "./prepared-live-batch";
 import React, { useState, useSyncExternalStore, useEffect, useRef } from "react";
 import {
@@ -283,8 +284,9 @@ export function DesktopCartActions({
       });
       if (preparedOwner.current!.closed) return;
       // An in-game save or a restarted save worker retires the snapshot this
-      // view read. That is not a failure the player can act on: read the save
-      // again and prepare once more against the fresh snapshot.
+      // view read; while the game runs its autosave does so within minutes.
+      // That is not a failure the player can act on: read the save again and
+      // prepare once more against the fresh snapshot.
       const prepareFor = (params: ReturnType<typeof paramsFor>) =>
         mode === "save"
           ? saveSession!.prepareCart(
@@ -298,7 +300,7 @@ export function DesktopCartActions({
       try {
         prepared = await prepareFor(paramsFor(inventory));
       } catch (error) {
-        if (!/Snapshot expired/.test(String(error))) throw error;
+        if (!isStaleSnapshotError(String(error))) throw error;
         inventory = await saveSession!.refresh();
         if (!inventory || preparedOwner.current!.closed) return;
         prepared = await prepareFor(paramsFor(inventory));

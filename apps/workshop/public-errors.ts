@@ -62,6 +62,16 @@ export function isUserCorrectable(message: string): boolean {
   );
 }
 
+/**
+ * The save file changed since this view read it (the game saved, or the save
+ * worker restarted). Reading the save again is the whole remedy.
+ */
+const STALE_SNAPSHOT = /Snapshot expired|Save changed after preview/i;
+
+export function isStaleSnapshotError(message: string): boolean {
+  return STALE_SNAPSHOT.test(message);
+}
+
 /** A live addition refused because another executor holds its admission lock. */
 const LIVE_ADD_LOCK = /Another native executor is admitting an operation/i;
 
@@ -274,7 +284,7 @@ export function publicError(message: string): string {
       "自动备份无法通过校验，本次没有继续添加。请重新核对添加。",
     ],
     [
-      /Snapshot expired/,
+      STALE_SNAPSHOT,
       "存档在游戏里保存后已经变化，请点“重新读取”后再添加。",
     ],
     [
