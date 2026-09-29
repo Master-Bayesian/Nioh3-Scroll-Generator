@@ -221,6 +221,10 @@
                 "natural": {
                   "type": "boolean"
                 },
+                "replayed": {
+                  "type": "boolean",
+                  "description": "Natural because the game's generator reproduces the record from its own seed."
+                },
                 "findings": {
                   "type": "array",
                   "items": {
@@ -529,6 +533,49 @@
         "known"
       ]
     },
+    "EquipmentSeeds": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "runtime.equipment_seeds: how many of the 65536 seeds give the item every wanted effect, and the best of them.",
+      "properties": {
+        "item_id": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "rarity": { "type": "integer", "minimum": 0, "maximum": 5 },
+        "level": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "difficulty": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "seeds": { "type": "integer", "minimum": 0, "maximum": 65536 },
+        "empty": { "type": "integer", "minimum": 0, "maximum": 65536 },
+        "matches": { "type": "integer", "minimum": 0, "maximum": 65536 },
+        "outcomes": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "seed": { "type": "integer", "minimum": 0, "maximum": 65535 },
+              "effects": {
+                "type": "array",
+                "maxItems": 7,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "effect_id": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+                    "value": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+                    "roll": { "type": "integer", "minimum": 0, "maximum": 255 },
+                    "star": { "type": "boolean" },
+                    "role": { "enum": ["innate", "random", "grace", "set"] }
+                  },
+                  "required": ["effect_id", "value", "roll", "star", "role"]
+                }
+              }
+            },
+            "required": ["seed", "effects"]
+          }
+        }
+      },
+      "required": ["item_id", "rarity", "level", "difficulty", "seeds", "empty", "matches", "outcomes"]
+    },
     "EffectValues": {
       "type": "object",
       "additionalProperties": false,
@@ -785,6 +832,40 @@
               "items": {
                 "$ref": "#/definitions/CharacterItem"
               }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "generation": {
+          "description": "The difficulty the character is on and the progress of each difficulty an item could have dropped on (the equipment generator's player state).",
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "difficulty": { "type": "integer", "minimum": 1, "maximum": 5 },
+                "difficulties": {
+                  "type": "array",
+                  "maxItems": 5,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "difficulty": { "type": "integer", "minimum": 1, "maximum": 5 },
+                      "progress": {
+                        "type": "array",
+                        "minItems": 4,
+                        "maxItems": 4,
+                        "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+                      }
+                    },
+                    "required": ["difficulty", "progress"]
+                  }
+                }
+              },
+              "required": ["difficulty", "difficulties"]
             },
             {
               "type": "null"
@@ -4014,6 +4095,9 @@
             },
             {
               "$ref": "#/definitions/EffectValues"
+            },
+            {
+              "$ref": "#/definitions/EquipmentSeeds"
             },
             {
               "$ref": "#/definitions/MenuSelection"

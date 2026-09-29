@@ -342,8 +342,36 @@ export function publicError(message: string): string {
       "游戏还没有加载好角色。请进入角色存档、能自由行动后再试。",
     ],
     [
-      /(?:Live addition|Count editing) is not accepted for this game version|Equipment rules are unavailable for this game version|PC v2\.01 is required|validated only for PC v2\.01|UNSUPPORTED_CONTEXT|RESOURCE_MISMATCH/,
+      /(?:Live addition|Count editing) is not accepted for this game version|Equipment (?:rules|generation) (?:are|is) unavailable for this game version|PC v2\.01 is required|validated only for PC v2\.01|UNSUPPORTED_CONTEXT|RESOURCE_MISMATCH/,
       "当前游戏版本尚未支持，请检查更新。",
+    ],
+    [
+      /This item cannot be generated: it is not equipment/,
+      "这件物品不是装备，不能按游戏规则生成。请在列表里换一件武器、防具、饰品或魂核。",
+    ],
+    [
+      /This item cannot be generated at this rarity|The difficulty must be 1 to 5/,
+      "稀有度请填 0–5，难度请在下拉框里选择，然后重新查找。",
+    ],
+    [
+      /The save's difficulty and progress could not be read/,
+      "没有从存档里读到难度和进度，不能按游戏规则生成。请点“重新读取”后再试；仍然不行的话，可以改用“魔改”添加。",
+    ],
+    [
+      /The character has not played this difficulty/,
+      "这个角色还没有玩过所选难度，这个难度的掉落不算自然。请换一个难度后重新查找。",
+    ],
+    [
+      /A hell weapon cannot be generated from a seed/,
+      "地狱武器不能按种子生成。请取消“地狱武器”，或改用“魔改”添加。",
+    ],
+    [
+      /This seed gives the item no effects/,
+      "这个种子生成的装备没有词条，游戏不会这样掉落。请重新查找并选择其他结果。",
+    ],
+    [
+      /Ask for at most seven effects/,
+      "想要的词条最多 7 个。请去掉一些后重新查找。",
     ],
     [
       /requires an idle runtime host|Resolve existing runtime ownership|CLOSING: protected host|wait for its commit outcome/i,

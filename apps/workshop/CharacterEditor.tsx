@@ -4,6 +4,7 @@ import type {
   CharacterItem,
   EffectValues,
   EquipmentRules,
+  EquipmentSeeds,
   LiveCharacter,
   SaveCharacter,
 } from "../../packages/contracts/protected-responses";
@@ -60,7 +61,15 @@ interface NewEquipmentRequest {
   rarity: number;
   hell?: boolean;
   hell_skill?: number;
-  effects: { effect_id: number; value: number; star?: boolean }[];
+  effects?: { effect_id: number; value: number; star?: boolean }[];
+  /** Generate the item as the game does from this seed (legal adds). */
+  seed?: number;
+  difficulty?: number;
+}
+/** One wanted effect: ids that read the same, any of which counts. */
+interface WantedEffect {
+  key: string;
+  ids: number[];
 }
 /** The selection of an item being added to the save; it has no slot yet. */
 const NEW_SLOT = -1;
@@ -283,13 +292,14 @@ const FIELD_LABEL: [keyof CharacterEquipment, string][] = [
  * Effect picker: opening it always lists every candidate; only text typed after
  * opening filters the list, so the current effect never hides the others.
  */
-function EffectPicker({ value, star, candidates, label, onPick }: {
+function EffectPicker({ value, star, candidates, label, onPick, placeholder = "（空）" }: {
   value: string;
   /** The saved star marker of the current effect, when it is unchanged. */
   star?: boolean;
   candidates: Candidate[];
   label: (candidate: Candidate) => string;
   onPick: (candidate: Candidate) => void;
+  placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
@@ -320,7 +330,7 @@ function EffectPicker({ value, star, candidates, label, onPick }: {
     <div className="effect-picker" ref={box}>
       <input
         value={open ? filter : currentLabel}
-        placeholder={open ? "输入名称筛选" : "（空）"}
+        placeholder={open ? "输入名称筛选" : placeholder}
         onFocus={() => { setFilter(""); setOpen(true); }}
         onChange={event => setFilter(event.target.value)}
         onKeyDown={event => {
@@ -419,6 +429,11 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const queueKey = useRef(0);
   /** The player confirmed the game is at the title screen or closed. */
   const [titleConfirmed, setTitleConfirmed] = useState(false);
+  /** Legal adds: the effects wanted, the difficulty, and the seed search. */
+  const [wanted, setWanted] = useState<WantedEffect[]>([]);
+  const [difficulty, setDifficulty] = useState<number | null>(null);
+  const [seedResult, setSeedResult] = useState<(EquipmentSeeds & { plus: number }) | null>(null);
+  const [chosenSeed, setChosenSeed] = useState<number | null>(null);
   /** The slot to select once the character is read again after an add. */
   const pendingSelect = useRef<number | null>(null);
   const save = useSyncExternalStore(
@@ -750,6 +765,53 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     if (changed) setDraft({ ...draft, effects });
   }, [values]);
 
+  /** The generator's player state, read from the save. */
+  const generation = character && "generation" in character ? character.generation ?? null : null;
+  /** A legal add is generated from a seed, as the game does. */
+  const seedMode = adding && !modded;
+  const draftPlus = draft ? parseAmount(draft.plus, 65535) : null;
+  const wantedKey = wanted.map(entry => entry.key).join(";");
+  useEffect(() => setDifficulty(generation?.difficulty ?? null), [generation?.difficulty]);
+  useEffect(() => setWanted([]), [newItem?.item_id]);
+  // A search answers one item, rarity, level, + and difficulty; any change needs a new one.
+  useEffect(() => {
+    setSeedResult(null);
+    setChosenSeed(null);
+  }, [newItem?.item_id, rarity, level, draftPlus, difficulty, wantedKey]);
+
+  /** Effects a legal add can ask for, rows that read the same merged into one choice. */
+  const wantOptions = useMemo(() => {
+    const options = new Map<string, { candidate: Candidate; ids: number[] }>();
+    if (!rules?.known) return options;
+    const pool: Candidate[] = (rules.random_pool ?? []).map(entry => ({
+      id: entry.effect_id, star: entry.star, min: entry.min, max: entry.max, group: entry.group, masks: entry.masks,
+    }));
+    const graces: Candidate[] = rarity !== null && rarity >= 4 && rules.set_effect == null && !rules.soul_core
+      ? (rules.graces ?? []).map(id => ({ id }))
+      : [];
+    for (const candidate of [...pool, ...graces]) {
+      const key = effectNames.get(candidate.id) + "|" + !!candidate.star + "|" + candidate.min + "|" + candidate.max;
+      const option = options.get(key);
+      if (option) option.ids.push(candidate.id);
+      else options.set(key, { candidate, ids: [candidate.id] });
+    }
+    return options;
+  }, [rules, rarity]);
+  const wantCandidates = useMemo(() => {
+    const chosen = wanted.flatMap(entry => wantOptions.get(entry.key)?.candidate ?? []);
+    return [...wantOptions.entries()]
+      .filter(([key, option]) => !wanted.some(entry => entry.key === key) && !chosen.some(other => excludes(option.candidate, other)))
+      .map(([, option]) => option.candidate);
+  }, [wantOptions, wantedKey]);
+  function pickWanted(candidate: Candidate) {
+    if (candidate.id === EMPTY_EFFECT || wanted.length >= 7) return;
+    for (const [key, option] of wantOptions) {
+      if (option.candidate.id !== candidate.id) continue;
+      if (!wanted.some(entry => entry.key === key)) setWanted([...wanted, { key, ids: option.ids }]);
+      return;
+    }
+  }
+
   /** Natural candidates for one slot, or every effect in modded mode. */
   function candidatesFor(index: number, natural = false): Candidate[] {
     if (!rules?.known || !rules.roles) return natural ? [] : ALL_EFFECTS;
@@ -1080,6 +1142,53 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     });
   }
 
+  /** Run the game's generator over every seed and keep the ones with every wanted effect. */
+  function findSeeds() {
+    return run(async () => {
+      if (!row || !draft) return;
+      if (!generation) throw new Error("没有从存档里读到难度和进度，不能按游戏规则生成。请点“重新读取”后再试；仍然不行的话，可以改用“魔改”添加。");
+      const level = parseAmount(draft.level, 180);
+      const plus = parseAmount(draft.plus, 65535);
+      const rarity = parseAmount(draft.rarity, 5);
+      if (level === null || level < 1 || plus === null || rarity === null) throw new Error("请填写有效的等级（1–180）、+ 数值和稀有度（0–5）。");
+      const chosen = generation.difficulties.find(entry => entry.difficulty === (difficulty ?? generation.difficulty));
+      if (!chosen) throw new Error("存档里没有这个难度的进度。请换一个难度后重新查找。");
+      const result = await window.operations.execute({
+        method: "runtime.equipment_seeds",
+        params: {
+          item_id: row.item_id, rarity, level, plus,
+          difficulty: chosen.difficulty,
+          progress: chosen.progress as [number, number, number, number],
+          want: wanted.map(entry => entry.ids) as never,
+          limit: 40,
+        },
+      });
+      if (!result || !("outcomes" in result) || !("matches" in result)) throw new Error("UNEXPECTED_SEED_SEARCH");
+      const found = result as EquipmentSeeds;
+      setSeedResult({ ...found, plus });
+      setChosenSeed(found.outcomes[0]?.seed ?? null);
+    });
+  }
+
+  /** Queue the item the chosen seed gives. */
+  function addSeeded() {
+    return run(async () => {
+      if (!row || !seedResult || chosenSeed === null) return;
+      if (queue.length >= ADD_LIMIT) throw new Error("待添加清单最多 " + ADD_LIMIT + " 件。请先写入存档，再继续添加。");
+      const request: NewEquipmentRequest = {
+        item_id: row.item_id,
+        level: seedResult.level,
+        plus: seedResult.plus,
+        rarity: seedResult.rarity,
+        seed: chosenSeed,
+        difficulty: seedResult.difficulty,
+      };
+      setQueue([...queue, { key: ++queueKey.current, request, modded: false }]);
+      setPlan(null);
+      setMessage("已加入待添加清单。可以继续挑选其他装备，全部选好后点“生成修改计划”。");
+    });
+  }
+
   /**
    * Remove the selected equipment after the dialog confirms it: live for an
    * unworn item, or as a save plan, where a worn item also leaves its sets.
@@ -1179,12 +1288,13 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     const equipment = (preview.equipment ?? []) as { slot_index: number; before: CharacterEquipment; after: CharacterEquipment }[];
     const items = (preview.items ?? []) as { container: Container; item_id: number; before: number; after: number }[];
     const removed = (preview.removed ?? []) as { slot_index: number; before: CharacterEquipment }[];
-    const added = (preview.added ?? []) as { slot_index: number; after: CharacterEquipment; audit?: CharacterEquipment["audit"] | null }[];
+    const added = (preview.added ?? []) as { slot_index: number; after: CharacterEquipment; audit?: CharacterEquipment["audit"] | null; seeded?: boolean }[];
     const lines: string[] = [];
     for (const change of added) {
       const item = change.after;
       lines.push("新增 " + itemText(item.item_id) + "（Lv." + item.level + (item.plus ? " +" + item.plus : "") +
         "，稀有度 " + item.rarity + (item.hell ? "，地狱武器" : "") + "）" +
+        (change.seeded ? "，按游戏的掉落规则生成" : "") +
         (change.audit ? (change.audit.natural ? "，判定为自然" : "，判定为非自然") : ""));
       item.effects.forEach((effect, index) => {
         if (effect.effect_id !== EMPTY_EFFECT)
@@ -1431,7 +1541,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
 
   const addHint = (
     <p className="character-empty">
-      在左侧列表中点选要添加的装备。之后可以设置等级、稀有度和词条：“合法”只给出这件装备自然掉落时能出现的词条和数值（固有词条由装备决定，不能更换），得到的就是一件游戏里真正可能掉落的装备；“魔改”则可以随意填写。设置好后加入待添加清单，可以一次添加多件。
+      在左侧列表中点选要添加的装备。“合法”按游戏的掉落规则生成：选等级、稀有度和掉落难度，挑想要的词条后查找，从游戏真正可能掉落的结果里选一件；“魔改”则可以随意填写词条和数值。设置好后加入待添加清单，可以一次添加多件。
     </p>
   );
 
@@ -1443,7 +1553,9 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         {queue.map(entry => (
           <li key={entry.key}>
             {itemText(entry.request.item_id)}（Lv.{entry.request.level}，稀有度 {entry.request.rarity}
-            {entry.request.hell ? "，地狱武器" : ""}）{entry.modded ? <span className="character-unnatural">魔改</span> : <span className="character-muted">合法</span>}
+            {entry.request.hell ? "，地狱武器" : ""}
+            {entry.request.seed != null ? "，第 " + entry.request.difficulty + " 难度掉落" : ""}）
+            {entry.modded ? <span className="character-unnatural">魔改</span> : <span className="character-muted">合法</span>}
             <button type="button" className="character-queue-remove" aria-label="从清单移除"
               onClick={() => { setQueue(queue.filter(other => other.key !== entry.key)); setPlan(null); }} disabled={busy}>×</button>
           </li>
@@ -1453,6 +1565,63 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       <button onClick={() => { setQueue([]); setPlan(null); }} disabled={busy}>清空</button>
     </section>
   ) : null;
+
+  const seedSummary = !seedResult
+    ? ""
+    : seedResult.empty === seedResult.seeds
+      ? "这件装备在稀有度 " + seedResult.rarity + " 时不会自然掉落：游戏生成时抽不到词条，全部 " + seedResult.seeds + " 个种子得到的都是空装备。请换一个稀有度。"
+      : seedResult.matches === 0
+        ? "不存在：第 " + seedResult.difficulty + " 难度、稀有度 " + seedResult.rarity + " 时，没有任何种子能让这件装备同时带有所选的词条。可以减少词条，或换稀有度、难度后再查找。"
+        : (wanted.length
+          ? "全部 " + seedResult.seeds + " 个种子中，有 " + seedResult.matches + " 个（" + percent(seedResult.matches / seedResult.seeds) + "）同时带有所选词条。"
+          : "这件装备有 " + seedResult.matches + " 种自然掉落结果。") +
+          "下面按随机词条的分位从高到低列出前 " + seedResult.outcomes.length + " 个，点选一个后加入清单。";
+  const seedPanel = (
+    <div className="seed-panel">
+      {!generation ? (
+        <p className="character-remove-note">没有从存档里读到难度和进度，不能按游戏规则生成。请点“重新读取”后再试；仍然不行的话，可以改用“魔改”添加。</p>
+      ) : null}
+      <div className="seed-want">
+        <span className="seed-want-label">想要的词条（可不选，最多 7 个）</span>
+        <div className="seed-want-chips">
+          {wanted.map(entry => (
+            <span key={entry.key} className="seed-chip">
+              {candidateLabel(wantOptions.get(entry.key)?.candidate ?? { id: entry.ids[0] })}
+              <button type="button" aria-label="移除" onClick={() => setWanted(wanted.filter(other => other.key !== entry.key))}>×</button>
+            </span>
+          ))}
+          {wanted.length < 7 ? (
+            <EffectPicker value="" candidates={wantCandidates} label={candidateLabel} onPick={pickWanted} placeholder="点这里添加想要的词条" />
+          ) : null}
+        </div>
+      </div>
+      <div className="character-actions">
+        <button className="primary" onClick={findSeeds} disabled={busy || !generation || !rules?.known}>查找</button>
+        {seedResult ? (
+          <button onClick={addSeeded} disabled={busy || chosenSeed === null}>加入待添加清单</button>
+        ) : null}
+      </div>
+      {seedResult ? <p className="seed-summary">{seedSummary}</p> : null}
+      {seedResult?.outcomes.length ? (
+        <ul className="seed-outcomes" role="listbox" aria-label="掉落结果">
+          {seedResult.outcomes.map(outcome => (
+            <li key={outcome.seed}>
+              <button type="button" role="option" aria-selected={chosenSeed === outcome.seed}
+                className={chosenSeed === outcome.seed ? "chosen" : ""} onClick={() => setChosenSeed(outcome.seed)}>
+                {outcome.effects.map((effect, index) => (
+                  <span key={index} className={"seed-effect" + (wanted.some(entry => entry.ids.includes(effect.effect_id)) ? " wanted" : "")}>
+                    {effect.star ? "✦ " : ""}{effectText(effect.effect_id)}
+                    {effect.role === "set" || effect.role === "grace" ? null : <small> {effect.value}</small>}
+                  </span>
+                ))}
+                {showIds ? <small className="seed-id">种子 {hex(outcome.seed)}</small> : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
 
   const equipmentDetail = adding && !newItem ? addHint : row && draft ? (
     <div className="character-detail">
@@ -1473,7 +1642,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         {modded
           ? "魔改：任何词条、任何数值都可以填写，不受游戏生成规则约束，结果可能无法自然获得。同名词条后面的〔〕注明它会出现在哪类装备的哪种位置，以及它的数值（稀有度 4、等级 180 时）；“非装备掉落”表示掉落的装备上不会出现。"
           : adding
-            ? "合法：和游戏掉落一样生成。固有词条由装备决定；其余每个位置只列出自然能出现的词条，数值在合法范围内。"
+            ? "合法：和游戏掉落完全一样。每件装备都由 65536 个种子之一生成；挑几个想要的词条后点“查找”，会在全部种子里找出同时带有它们的结果，没有就告诉你不存在。写入的就是游戏用这个种子生成的那件装备，词条、数值和星级都与真实掉落一致。"
             : "合法修改：每个位置只列出这件装备能自然出现的词条，数值填在合法范围内。"}
       </p>
       {adding && rules && !rules.known ? (
@@ -1486,8 +1655,20 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
             <input inputMode="numeric" value={draft[key as keyof Draft] as string} onChange={event => setDraft({ ...draft, [key]: event.target.value })} />
           </label>
         ))}
+        {seedMode && generation ? (
+          <label>
+            <span>掉落难度</span>
+            <select value={difficulty ?? generation.difficulty} onChange={event => setDifficulty(Number(event.target.value))}>
+              {generation.difficulties.map(entry => (
+                <option key={entry.difficulty} value={entry.difficulty}>
+                  第 {entry.difficulty} 难度{entry.difficulty === generation.difficulty ? "（当前）" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
       </div>
-      {(itemGroups(row.item_id, row.type_class)[0] === "武器" || rules?.hell_capable || draft.hell) && (
+      {!seedMode && (itemGroups(row.item_id, row.type_class)[0] === "武器" || rules?.hell_capable || draft.hell) && (
         <div className="character-hell-row">
           <label className="character-toggle">
             <input type="checkbox" checked={draft.hell}
@@ -1517,6 +1698,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           </span>
         </div>
       )}
+      {seedMode ? seedPanel : <>
       <table className="equipment-effects character-effects">
         <thead><tr><th>位置</th><th>词条</th><th>数值</th><th>合法范围</th></tr></thead>
         <tbody>
@@ -1560,7 +1742,8 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       {markerNotes.length > 0 && (
         <ul className="character-marker-notes">{markerNotes.map(note => <li key={note}>{note}</li>)}</ul>
       )}
-      {adding ? (
+      </>}
+      {adding && !seedMode ? (
         <div className="character-actions">
           <button onClick={maximize} disabled={busy || !values.some(Boolean)}>全部取理论最高</button>
           <button className="primary" onClick={applyEquipment} disabled={busy || !rules?.known}>

@@ -50,7 +50,11 @@ fn tag(roles: &BTreeMap<&str, BTreeSet<&str>>, range: Option<(i32, i32)>) -> Str
         let named: Vec<&str> = if KINDS.iter().all(|kind| kinds.contains(kind)) {
             vec!["全部装备"]
         } else {
-            KINDS.iter().copied().filter(|kind| kinds.contains(kind)).collect()
+            KINDS
+                .iter()
+                .copied()
+                .filter(|kind| kinds.contains(kind))
+                .collect()
         };
         parts.push(format!("{}{}", named.join("·"), text));
     }
@@ -86,7 +90,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let names: Value = serde_json::from_slice(&std::fs::read(
         root.join("apps").join("workshop").join("item-names.json"),
     )?)?;
-    let catalog = names["items"].as_object().ok_or("item-names.json has no items")?;
+    let catalog = names["items"]
+        .as_object()
+        .ok_or("item-names.json has no items")?;
 
     let mut usage: BTreeMap<u16, BTreeMap<&str, BTreeSet<&str>>> = BTreeMap::new();
     for item_id in 0..=u16::MAX {
@@ -151,12 +157,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "provenance": "crates/nioh3-protected/examples/effect_sources.rs over the PC v2.02 tables; values at rarity 4, level 180",
         "sources": sources,
     });
-    let path = root.join("apps").join("workshop").join("effect-sources.json");
+    let path = root
+        .join("apps")
+        .join("workshop")
+        .join("effect-sources.json");
     std::fs::write(&path, serde_json::to_string(&out)? + "\n")?;
     println!("{} effects -> {}", sources_len(&out), path.display());
     Ok(())
 }
 
 fn sources_len(out: &Value) -> usize {
-    out["sources"].as_object().map_or(0, |sources| sources.len())
+    out["sources"]
+        .as_object()
+        .map_or(0, |sources| sources.len())
 }

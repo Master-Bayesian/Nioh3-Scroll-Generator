@@ -33,6 +33,7 @@ export type PublicOperation =
   | { method: 'runtime.character_edit'; params: ProtectedParams<'runtime.character_edit'> }
   | { method: 'runtime.equipment_rules'; params: ProtectedParams<'runtime.equipment_rules'> }
   | { method: 'runtime.effect_values'; params: ProtectedParams<'runtime.effect_values'> }
+  | { method: 'runtime.equipment_seeds'; params: ProtectedParams<'runtime.equipment_seeds'> }
   | { method: 'runtime.live_add_execute'; params: ProtectedParams<'runtime.live_add_execute'> }
   | { method: 'runtime.live_add_status'; params: ProtectedParams<'runtime.live_add_status'> }
   | { method: 'runtime.live_add_recover'; params: ProtectedParams<'runtime.live_add_recover'> }

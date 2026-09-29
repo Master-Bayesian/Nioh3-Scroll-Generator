@@ -16,6 +16,7 @@ export type ProtectedResponse =
         | LiveCharacter
         | EquipmentRules
         | EffectValues
+        | EquipmentSeeds
         | MenuSelection
         | LiveAddLockReset
         | InventorySnapshot
@@ -288,6 +289,147 @@ export interface SaveCharacter {
    */
   equipment: CharacterEquipment[];
   items?: CharacterItem[] | null;
+  /**
+   * The difficulty the character is on and the progress of each difficulty an item could have dropped on (the equipment generator's player state).
+   */
+  generation?: {
+    difficulty: number;
+    /**
+     * @maxItems 5
+     */
+    difficulties:
+      | []
+      | [
+          {
+            difficulty: number;
+            /**
+             * @minItems 4
+             * @maxItems 4
+             */
+            progress: [number, number, number, number];
+          }
+        ]
+      | [
+          {
+            difficulty: number;
+            /**
+             * @minItems 4
+             * @maxItems 4
+             */
+            progress: [number, number, number, number];
+          },
+          {
+            difficulty: number;
+            /**
+             * @minItems 4
+             * @maxItems 4
+             */
+            progress: [number, number, number, number];
+          }
+        ]
+      | [
+          {
+            difficulty: number;
+            /**
+             * @minItems 4
+             * @maxItems 4
+             */
+            progress: [number, number, number, number];
+          },
+          {
+            difficulty: number;
+            /**
+             * @minItems 4
+             * @maxItems 4
+             */
+            progress: [number, number, number, number];
+          },
+          {
+            difficulty: number;
+            /**
+             * @minItems 4
+             * @maxItems 4
+             */
+            progress: [number, number, number, number];
+          }
+        ]
+      | [
+          {
+            difficulty: number;
+            /**
+             * @minItems 4
+             * @maxItems 4
+             */
+            progress: [number, number, number, number];
+          },
+          {
+            difficulty: number;
+            /**
+             * @minItems 4
+             * @maxItems 4
+             */
+            progress: [number, number, number, number];
+          },
+          {
+            difficulty: number;
+            /**
+             * @minItems 4
+             * @maxItems 4
+             */
+            progress: [number, number, number, number];
+          },
+          {
+            difficulty: number;
+            /**
+             * @minItems 4
+             * @maxItems 4
+             */
+            progress: [number, number, number, number];
+          }
+        ]
+      | [
+          {
+            difficulty: number;
+            /**
+             * @minItems 4
+             * @maxItems 4
+             */
+            progress: [number, number, number, number];
+          },
+          {
+            difficulty: number;
+            /**
+             * @minItems 4
+             * @maxItems 4
+             */
+            progress: [number, number, number, number];
+          },
+          {
+            difficulty: number;
+            /**
+             * @minItems 4
+             * @maxItems 4
+             */
+            progress: [number, number, number, number];
+          },
+          {
+            difficulty: number;
+            /**
+             * @minItems 4
+             * @maxItems 4
+             */
+            progress: [number, number, number, number];
+          },
+          {
+            difficulty: number;
+            /**
+             * @minItems 4
+             * @maxItems 4
+             */
+            progress: [number, number, number, number];
+          }
+        ];
+  } | null;
 }
 export interface CharacterCurrencies {
   amrita: number | null;
@@ -349,6 +491,10 @@ export interface CharacterEquipment {
   audit?: {
     verdict?: "natural" | "unverified" | "unnatural";
     natural: boolean;
+    /**
+     * Natural because the game's generator reproduces the record from its own seed.
+     */
+    replayed?: boolean;
     /**
      * @maxItems 64
      */
@@ -1117,6 +1263,239 @@ export interface EffectValues {
     roll_max: number;
     probability: number;
     top_fraction: number;
+  }[];
+}
+/**
+ * runtime.equipment_seeds: how many of the 65536 seeds give the item every wanted effect, and the best of them.
+ */
+export interface EquipmentSeeds {
+  item_id: number;
+  rarity: number;
+  level: number;
+  difficulty: number;
+  seeds: number;
+  empty: number;
+  matches: number;
+  /**
+   * @maxItems 200
+   */
+  outcomes: {
+    seed: number;
+    /**
+     * @maxItems 7
+     */
+    effects:
+      | []
+      | [
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          }
+        ]
+      | [
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          }
+        ]
+      | [
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          }
+        ]
+      | [
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          }
+        ]
+      | [
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          }
+        ]
+      | [
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          }
+        ]
+      | [
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          },
+          {
+            effect_id: number;
+            value: number;
+            roll: number;
+            star: boolean;
+            role: "innate" | "random" | "grace" | "set";
+          }
+        ];
   }[];
 }
 export interface MenuSelection {

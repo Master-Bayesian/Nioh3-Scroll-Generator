@@ -111,6 +111,29 @@ pub fn audit_json(data_root: &Path, record: &[u8]) -> Value {
     })
 }
 
+/// The audit of a saved record, natural when the game's generator reproduces
+/// it from its own seed on a difficulty the character played (`replayed`).
+/// The slot-layout rules cannot see every natural layout; the replay can.
+pub fn audit_json_replayed(
+    data_root: &Path,
+    record: &[u8],
+    progress: Option<&nioh3_save::character::GenerationProgress>,
+) -> Value {
+    let audit = audit_json(data_root, record);
+    if audit["natural"] == Value::Bool(true)
+        || !crate::equipment_seeds::replays_from_seed(data_root, record, progress)
+    {
+        return audit;
+    }
+    json!({
+        "natural": true,
+        "verdict": "natural",
+        "findings": [],
+        "unverified": [],
+        "replayed": true,
+    })
+}
+
 /// A new equipment record's content from an editor request.
 ///
 /// Each requested effect takes the role natural generation gives its entry

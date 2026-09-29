@@ -3495,6 +3495,18 @@
                     "minimum": 0,
                     "maximum": 65535
                   },
+                  "seed": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535,
+                    "description": "Generate the item as the game does from this seed (record +0x22); effects are then ignored."
+                  },
+                  "difficulty": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5,
+                    "description": "Difficulty the seeded item drops on; one the character played. Defaults to the current one."
+                  },
                   "effects": {
                     "type": "array",
                     "maxItems": 7,
@@ -3526,8 +3538,7 @@
                 "required": [
                   "item_id",
                   "level",
-                  "rarity",
-                  "effects"
+                  "rarity"
                 ]
               }
             }
@@ -3636,6 +3647,106 @@
             "effect_id",
             "rarity",
             "level"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "runtime.equipment_seeds"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "item_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "rarity": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            },
+            "level": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "plus": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "difficulty": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            },
+            "progress": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              }
+            },
+            "want": {
+              "type": "array",
+              "maxItems": 7,
+              "description": "Effects the item must carry; an entry that is a list is satisfied by any one of its ids (rows that read the same).",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 16,
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 65535
+                    }
+                  }
+                ]
+              }
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          "required": [
+            "item_id",
+            "rarity",
+            "level",
+            "difficulty",
+            "progress"
           ]
         }
       },

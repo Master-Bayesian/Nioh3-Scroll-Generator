@@ -364,6 +364,7 @@ impl SaveApplication {
                 .unwrap_or(Value::Null);
             currencies.insert(currency.label().to_string(), value);
         }
+        let progress = nioh3_save::character::generation_progress(plain);
         let mut equipment = Vec::new();
         for slot_index in 0..EQUIPMENT_SLOT_COUNT {
             let record = equipment_record(plain, slot_index).map_err(HostError::from_save)?;
@@ -373,7 +374,11 @@ impl SaveApplication {
             let fields = equipment_fields(record).map_err(HostError::from_save)?;
             let class = crate::item_kinds::type_class(&self.data_root, fields.item_id);
             let mut row = equipment_json(slot_index, &fields, class);
-            row["audit"] = crate::equipment_rules::audit_json(&self.data_root, record);
+            row["audit"] = crate::equipment_rules::audit_json_replayed(
+                &self.data_root,
+                record,
+                progress.as_ref(),
+            );
             row["hell"] = json!(record.get(0x1A).is_some_and(|flags| flags & 0x10 != 0));
             equipment.push(row);
         }
@@ -384,6 +389,7 @@ impl SaveApplication {
             "equipment_slots": EQUIPMENT_SLOT_COUNT,
             "equipment": equipment,
             "items": save_items_json(plain),
+            "generation": crate::equipment_seeds::generation_json(progress.as_ref()),
         }))
     }
 
@@ -569,21 +575,56 @@ impl SaveApplication {
                     _ => None,
                 })
                 .collect();
+            // Seeded adds use the character's own difficulty and progress,
+            // read from this save, whatever the request carried.
+            let progress = nioh3_save::character::generation_progress(plain);
             for requested in &requested_adds {
-                let new = crate::equipment_rules::new_equipment(&self.data_root, requested)?;
+                let seeded = requested.get("seed").is_some();
+                let new = if seeded {
+                    None
+                } else {
+                    Some(crate::equipment_rules::new_equipment(
+                        &self.data_root,
+                        requested,
+                    )?)
+                };
+                let generated = if seeded {
+                    let state =
+                        crate::equipment_seeds::state_from_save(progress.as_ref(), requested)?;
+                    Some(crate::equipment_seeds::generated_record(
+                        &self.data_root,
+                        requested,
+                        state,
+                    )?)
+                } else {
+                    None
+                };
                 let slot_index = next_free_equipment_slot(plain, &taken)
                     .ok_or_else(|| HostError::rejected("The equipment inventory is full"))?;
                 taken.push(slot_index);
                 let free = equipment_record(plain, slot_index)
                     .map_err(HostError::from_save)?
                     .to_vec();
-                let record = build_equipment_record(&free, &new, key, serial)
-                    .map_err(HostError::from_save)?;
+                let record = match (&new, &generated) {
+                    (_, Some(generated)) => {
+                        nioh3_save::character::build_generated_equipment_record(
+                            &free, generated, key, serial,
+                        )
+                    }
+                    (Some(new), None) => build_equipment_record(&free, new, key, serial),
+                    (None, None) => return Err(HostError::invalid_request()),
+                }
+                .map_err(HostError::from_save)?;
                 let after = equipment_fields(&record).map_err(HostError::from_save)?;
                 added.push(json!({
                     "slot_index": slot_index,
                     "after": equipment_json(slot_index, &after, None),
-                    "audit": crate::equipment_rules::audit_json(&self.data_root, &record),
+                    "audit": crate::equipment_rules::audit_json_replayed(
+                        &self.data_root,
+                        &record,
+                        progress.as_ref(),
+                    ),
+                    "seeded": seeded,
                 }));
                 edits.push(CharacterEdit::AddEquipment {
                     slot_index,

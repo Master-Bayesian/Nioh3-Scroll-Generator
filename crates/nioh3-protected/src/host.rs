@@ -496,6 +496,7 @@ fn dispatch(
                     | "runtime.reset_live_add_lock"
                     | "runtime.equipment_rules"
                     | "runtime.effect_values"
+                    | "runtime.equipment_seeds"
             ) {
                 let mut guard = lock(application).map_err(HostError::rejected)?;
                 return Ok((guard.direct(method, &params)?, false));

@@ -1165,3 +1165,18 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-queue .character-plan-lines>li>span{margin-left:2px}
 .character-queue-remove{width:auto;margin:0 0 0 auto;padding:0 7px;line-height:18px;border-radius:9px;background:transparent;color:#8b3a2a}
 .character-title-confirm{display:flex;align-items:center;gap:6px;margin:4px 0;font-weight:600;color:#6b4a12}
+.seed-panel{display:flex;flex-direction:column;gap:8px;margin:6px 0}
+.seed-want{display:flex;flex-direction:column;gap:5px}
+.seed-want-label{font-size:12px;color:#5b6f73}
+.seed-want-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.seed-want-chips .effect-picker{flex:1;min-width:220px}
+.seed-chip{display:inline-flex;align-items:center;gap:4px;background:#e4efe9;border:1px solid #9fc2b0;border-radius:12px;padding:2px 4px 2px 9px;font-size:12px}
+.seed-chip button{border:0;background:transparent;padding:0 5px;line-height:18px;color:#8b3a2a}
+.seed-summary{font-size:12px;color:#2f4a44;background:#eef5f1;border:1px solid #c3d8cc;border-radius:4px;padding:6px 8px}
+.seed-outcomes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:360px;overflow:auto}
+.seed-outcomes button{width:100%;text-align:left;display:flex;flex-wrap:wrap;gap:3px 10px;padding:6px 8px;background:#fbfcfd}
+.seed-outcomes button.chosen{background:#dcebe6;border-color:#39785e;box-shadow:inset 3px 0 #39785e}
+.seed-effect{font-size:12px;white-space:nowrap}
+.seed-effect small{color:#6b7f84}
+.seed-effect.wanted{color:#1f6b4d;font-weight:600}
+.seed-id{margin-left:auto;color:#8a9a9e}

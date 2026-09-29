@@ -1819,6 +1819,9 @@ mod imp {
             if method == "runtime.effect_values" {
                 return crate::equipment_rules::effect_values_json(&self.data_root, params);
             }
+            if method == "runtime.equipment_seeds" {
+                return crate::equipment_seeds::equipment_seeds_json(&self.data_root, params);
+            }
             Err(HostError::rejected(format!(
                 "INVALID_REQUEST: {method} is not an inline protected method"
             )))
@@ -2106,6 +2109,9 @@ mod imp {
             }
             if method == "runtime.effect_values" {
                 return crate::equipment_rules::effect_values_json(&self.data_root, params);
+            }
+            if method == "runtime.equipment_seeds" {
+                return crate::equipment_seeds::equipment_seeds_json(&self.data_root, params);
             }
             Err(HostError::rejected(format!(
                 "INVALID_REQUEST: {method} is not an inline protected method"

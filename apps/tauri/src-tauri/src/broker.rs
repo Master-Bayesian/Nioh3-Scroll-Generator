@@ -273,6 +273,7 @@ impl Broker {
                     "runtime.character_edit",
                     "runtime.equipment_rules",
                     "runtime.effect_values",
+                    "runtime.equipment_seeds",
                     "runtime.start_override",
                     "runtime.stop_override",
                     "runtime.live_batch_execute",
