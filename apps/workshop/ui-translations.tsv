@@ -1033,3 +1033,17 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 找不到需要的文件。请点“重新检测”或重新选择存档后再试。	A required file could not be found. Click "Scan again" or select the save again, then retry.	必要なファイルが見つかりません。「再検出」を押すか、セーブを選び直してから再度お試しください。
 程序的后台组件没有正常启动。请完全关闭本程序后重新打开；仍不行请重新下载安装。	A background component of the app did not start correctly. Close this app completely and reopen it; if that does not help, download and install it again.	アプリのバックグラウンドコンポーネントが正常に起動しませんでした。本アプリを完全に終了して開き直してください。解決しない場合は再ダウンロードしてインストールしてください。
 更新没有完成，当前版本不受影响。请稍后再试，或到 GitHub 下载最新版本。	The update did not finish; the current version is not affected. Try again later, or download the latest version from GitHub.	アップデートは完了しませんでした。現在のバージョンには影響ありません。後でもう一度お試しいただくか、GitHub から最新版をダウンロードしてください。
+防具或饰品	Armor or accessory	防具または装飾品
+新增	New	新規
+，稀有度	, rarity	、レア度
+，地狱武器	, hell weapon	、地獄武器
+，判定为自然	, audited as natural	、判定：自然
+，判定为非自然	, audited as unnatural	、判定：非自然
+添加装备	Add equipment	装備を追加
+选择要添加的装备。之后可以设置等级、稀有度和词条；“合法修改”只列出这件装备能自然出现的词条。添加会生成修改计划，核对后写入存档，写入前自动备份。游戏必须回到标题界面或关闭。	Choose the equipment to add. You can then set its level, rarity and effects; "Legal edit" lists only effects this equipment can have naturally. Adding creates a change plan; review it, then write the save. The original save is backed up first. The game must be at the title screen or closed.	追加する装備を選んでください。その後、レベル・レア度・特殊効果を設定できます。「正規の編集」ではこの装備に自然に付く効果だけを表示します。追加すると変更計画が作成され、確認後にセーブへ書き込みます。書き込み前に元のセーブを自動でバックアップします。ゲームはタイトル画面に戻すか終了してください。
+搜索装备名称，例如 八尺琼勾玉	Search equipment names, e.g. Yasakani Magatama	装備名で検索（例：八尺瓊勾玉）
+没有匹配的装备	No matching equipment	一致する装備がありません
+这件物品不在游戏的装备表里，不能添加。请换一件（名字相同的物品可能有多个，其中一个是书籍或关键道具）。	This item is not in the game's equipment tables and cannot be added. Pick another one (several items can share a name; one of them may be a book or key item).	このアイテムはゲームの装備テーブルにないため追加できません。別のものを選んでください（同じ名前のアイテムが複数あり、その一つは書物や重要アイテムの場合があります）。
+添加（魔改）	Add (modded)	追加（改造）
+换一件	Choose another	別の装備を選ぶ
+新装备会放进存档里第一个空位，按游戏自己的方式分配物品编号，并带有“新”标记。点“添加到存档”后先生成修改计划，核对后点“写入存档”才会真正写入。	The new equipment goes into the save's first free slot, takes an item number the way the game assigns one, and carries the "new" marker. "Add to save" first creates a change plan; nothing is written until you review it and click "Write save".	新しい装備はセーブの最初の空き枠に入り、ゲームと同じ方法でアイテム番号が割り当てられ、「新着」マークが付きます。「セーブに追加」を押すとまず変更計画が作成され、確認後に「セーブに書き込む」を押すまで書き込まれません。
