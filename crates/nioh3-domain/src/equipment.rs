@@ -463,7 +463,8 @@ impl<'a> EquipmentRules<'a> {
     /// Innate effects first, then [`RANDOM_EFFECT_COUNT`] random effects; from
     /// rarity [`GRACE_MIN_RARITY`] one more slot holds a grace, or a random
     /// effect when the item has a set; a set effect comes last. Soul cores carry
-    /// `min(2, rarity + 1)` innate and `rarity - 1` random effects. The hell
+    /// `min(2, rarity + 1)` innate effects and random ones up to 1, 2, 3, 4, 5,
+    /// 5 entries by rarity (so three random at rarity 4 and 5). The hell
     /// conversion replaces the first innate effect with a hell-only effect; a
     /// hell weapon without innate effects has no hell slot.
     pub fn slot_roles(
@@ -476,11 +477,15 @@ impl<'a> EquipmentRules<'a> {
         let innate: Vec<u16> = item.innate_effects.iter().flatten().copied().collect();
         let mut roles = Vec::new();
         if item.soul_core() {
+            // Rarity +0x40: the entries a soul core fills, innate ones first.
+            const SOUL_CORE_ENTRIES: [usize; 6] = [1, 2, 3, 4, 5, 5];
             let innate_count = innate.len().min(usize::from(rarity) + 1);
             roles.extend(std::iter::repeat_n(SlotRole::Innate, innate_count));
             roles.extend(std::iter::repeat_n(
                 SlotRole::Random,
-                usize::from(rarity).saturating_sub(1),
+                SOUL_CORE_ENTRIES
+                    .get(usize::from(rarity))?
+                    .saturating_sub(innate_count),
             ));
             return Some(roles);
         }

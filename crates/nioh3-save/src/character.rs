@@ -371,6 +371,122 @@ pub fn build_equipment_record(
     Ok(record)
 }
 
+/// Turn a record the game's generator builds in memory (no serial) into the
+/// record the inventory stores, over the free slot it will occupy.
+///
+/// The inventory adds what a drop gets on the way in: the new marker
+/// (`+0x18` bit `0x80`), the key, the u32 serial (the in-memory `-1` above it
+/// becomes zero) and both set words. Entry byte `+0x0F`, which the game leaves
+/// undefined, keeps what the free slot holds.
+pub fn build_generated_equipment_record(
+    free: &[u8],
+    generated: &[u8],
+    key: u32,
+    serial: u32,
+) -> Result<Vec<u8>, SaveReadError> {
+    for bytes in [free, generated] {
+        if bytes.len() != EQUIPMENT_RECORD_BYTES {
+            return Err(SaveReadError::RecordLength {
+                expected: EQUIPMENT_RECORD_BYTES,
+                actual: bytes.len(),
+            });
+        }
+    }
+    if !equipment_slot_is_empty(free) {
+        return Err(SaveReadError::InvalidTransform {
+            message: "a new item needs a free equipment slot".to_string(),
+        });
+    }
+    let mut record = generated.to_vec();
+    record[0x18] |= 0x80;
+    record[0x1C..0x20].copy_from_slice(&key.to_le_bytes());
+    record[0x28..0x2C].copy_from_slice(&serial.to_le_bytes());
+    record[0x2C..0x30].fill(0);
+    for index in 0..EQUIPMENT_EFFECT_COUNT {
+        let undefined = EQUIPMENT_EFFECT_ID_OFFSET - 4 + index * EQUIPMENT_EFFECT_STRIDE + 0x0F;
+        record[undefined] = free[undefined];
+    }
+    for offset in EQUIPMENT_SET_OFFSETS {
+        record[offset..offset + 4].copy_from_slice(&EQUIPMENT_NOT_WORN.to_le_bytes());
+    }
+    equipment_fields(&record)?;
+    Ok(record)
+}
+
+/// The difficulty the character is on and each difficulty's progress, which
+/// the game's equipment generator reads (context `+0x20` / `+0x24`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GenerationProgress {
+    /// The current difficulty, 1..=5.
+    pub difficulty: u8,
+    /// Per difficulty (index 0 unused): the three progress counters.
+    pub counters: [[u32; 8]; 3],
+}
+
+impl GenerationProgress {
+    /// The generator's progress vector on one difficulty: the three counters
+    /// and their maximum (+0x5592A4).
+    pub fn progress(&self, difficulty: u8) -> [u32; 4] {
+        let index = usize::from(difficulty).min(7);
+        let [a, b, c] = self.counters.map(|counter| counter[index]);
+        [a, b, c, a.max(b).max(c)]
+    }
+
+    /// Difficulties an item could have dropped on: the current one and every
+    /// one with progress.
+    pub fn difficulties(&self) -> Vec<u8> {
+        (1..=5)
+            .filter(|difficulty| {
+                *difficulty == self.difficulty || self.progress(*difficulty)[3] > 0
+            })
+            .collect()
+    }
+}
+
+/// Serialized field tags (name hash, payload size) of the progress object.
+const DIFFICULTY_TAG: [u8; 8] = [0x59, 0xD3, 0xC2, 0xA6, 0x01, 0x00, 0x00, 0x00];
+const COUNTER_TAGS: [[u8; 12]; 3] = [
+    [0xF8, 0xEE, 0x5E, 0xD3, 0x24, 0, 0, 0, 0x08, 0, 0, 0],
+    [0x21, 0xFD, 0xE5, 0xCE, 0x24, 0, 0, 0, 0x08, 0, 0, 0],
+    [0x80, 0xD3, 0x87, 0xB6, 0x24, 0, 0, 0, 0x08, 0, 0, 0],
+];
+
+fn find_unique(plain: &[u8], tag: &[u8]) -> Option<usize> {
+    let mut found = plain
+        .windows(tag.len())
+        .enumerate()
+        .filter(|(_, window)| *window == tag);
+    let (at, _) = found.next()?;
+    found.next().is_none().then_some(at + tag.len())
+}
+
+/// Read the generator's player state from a decrypted save (PC v2.02). `None`
+/// when any field is missing, repeated or out of range.
+pub fn generation_progress(plain: &[u8]) -> Option<GenerationProgress> {
+    let at = find_unique(plain, &DIFFICULTY_TAG)?;
+    let difficulty = *plain.get(at)?;
+    if !(1..=5).contains(&difficulty) {
+        return None;
+    }
+    let mut counters = [[0u32; 8]; 3];
+    for (counter, tag) in counters.iter_mut().zip(COUNTER_TAGS) {
+        let at = find_unique(plain, &tag)?;
+        let bytes = plain.get(at..at + 32)?;
+        for (index, value) in counter.iter_mut().enumerate() {
+            *value = u32::from_le_bytes([
+                bytes[4 * index],
+                bytes[4 * index + 1],
+                bytes[4 * index + 2],
+                bytes[4 * index + 3],
+            ]);
+        }
+    }
+    Some(GenerationProgress {
+        difficulty,
+        counters,
+    })
+}
+
 /// Effect entries in one equipment record.
 pub const EQUIPMENT_EFFECT_COUNT: usize = 7;
 /// Distance between effect entries.
@@ -1566,5 +1682,81 @@ mod free_slot_tests {
             apply_character_edits(&plain_with_counters(0xFFFF, 1), &[add(first, 0xFFFF, 1)])
                 .is_err()
         );
+    }
+}
+
+#[cfg(test)]
+mod generation_state_tests {
+    use super::*;
+
+    /// The progress object as the owner's PC v2.02 save serializes it.
+    fn serialized(difficulty: u8, a: [u32; 8], b: [u32; 8]) -> Vec<u8> {
+        let mut plain = vec![0u8; 0x40];
+        plain.extend([0xE4, 0x9C, 0x2D, 0x38, 1, 0, 0, 0, 3]);
+        plain.extend(DIFFICULTY_TAG);
+        plain.push(difficulty);
+        for (tag, values) in COUNTER_TAGS.iter().zip([a, b, [0; 8]]) {
+            plain.extend(tag);
+            for value in values {
+                plain.extend(value.to_le_bytes());
+            }
+        }
+        plain.extend([0u8; 0x40]);
+        plain
+    }
+
+    #[test]
+    fn the_generator_state_is_read_from_the_progress_object() {
+        let a = [0, 6510, 6510, 6510, 0, 0, 0, 0];
+        let b = [0, 7710, 7710, 7710, 0, 0, 0, 0];
+        let state = generation_progress(&serialized(3, a, b)).unwrap();
+        assert_eq!(state.difficulty, 3);
+        assert_eq!(state.progress(3), [6510, 7710, 0, 7710]);
+        assert_eq!(state.difficulties(), vec![1, 2, 3]);
+        // A save on difficulty 2 with difficulty 3 untouched.
+        let early = generation_progress(&serialized(
+            2,
+            [0, 6510, 2200, 0, 0, 0, 0, 0],
+            [0, 7350, 0, 0, 0, 0, 0, 0],
+        ))
+        .unwrap();
+        assert_eq!(early.progress(2), [2200, 0, 0, 2200]);
+        assert_eq!(early.difficulties(), vec![1, 2]);
+        // Missing, repeated or out-of-range fields fail closed.
+        let mut twice = serialized(3, a, b);
+        twice.extend(serialized(3, a, b));
+        assert!(generation_progress(&twice).is_none());
+        assert!(generation_progress(&serialized(0, a, b)).is_none());
+        assert!(generation_progress(&[0u8; 64]).is_none());
+    }
+
+    #[test]
+    fn a_generated_record_gets_the_inventory_fields() {
+        let mut free = vec![0u8; EQUIPMENT_RECORD_BYTES];
+        for index in 0..EQUIPMENT_EFFECT_COUNT {
+            let entry = EQUIPMENT_EFFECT_ID_OFFSET - 4 + index * EQUIPMENT_EFFECT_STRIDE;
+            free[entry + 4..entry + 8].copy_from_slice(&EMPTY_EFFECT_ID.to_le_bytes());
+            free[entry + 0x0F] = 0x3F;
+        }
+        let mut generated = vec![0u8; EQUIPMENT_RECORD_BYTES];
+        generated[0..4].copy_from_slice(&[0xBF, 0x27, 0xBF, 0x27]);
+        generated[0x0F] = 0x40;
+        generated[0x18] = 2;
+        generated[0x20..0x24].copy_from_slice(&0x3A5C_0001u32.to_le_bytes());
+        generated[0x28..0x30].fill(0xFF);
+        generated[0x30] = 4;
+        for index in 0..EQUIPMENT_EFFECT_COUNT {
+            let entry = EQUIPMENT_EFFECT_ID_OFFSET - 4 + index * EQUIPMENT_EFFECT_STRIDE;
+            generated[entry + 4..entry + 8].copy_from_slice(&EMPTY_EFFECT_ID.to_le_bytes());
+        }
+        let record = build_generated_equipment_record(&free, &generated, 0xC870, 0x26B008).unwrap();
+        assert_eq!(record[0x18], 0x82);
+        assert_eq!(&record[0x1C..0x20], &0xC870u32.to_le_bytes());
+        assert_eq!(&record[0x28..0x30], &[0x08, 0xB0, 0x26, 0, 0, 0, 0, 0]);
+        assert_eq!(&record[0x20..0x24], &0x3A5C_0001u32.to_le_bytes());
+        assert_eq!(&record[0xE8..0xF0], &[0x11, 0, 0, 0, 0x11, 0, 0, 0]);
+        assert_eq!(record[0x34 + 0x0F], 0x3F);
+        assert!(!equipment_is_worn(&record));
+        assert!(build_generated_equipment_record(&generated, &generated, 1, 1).is_err());
     }
 }
