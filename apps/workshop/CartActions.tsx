@@ -118,7 +118,8 @@ export function SavePicker({ compact = false }: { compact?: boolean }) {
           重新读取
         </button>
       )}
-      {state.uncertainOperationId && (
+      {/* A write in flight holds the same fence; it is only a question once the write has returned. */}
+      {state.uncertainOperationId && !state.busy && (
         <div className="uncertain-operation" role="region" aria-label="未确认的写入">
           <p>
             <b>有一次写入没有记录结果。</b>

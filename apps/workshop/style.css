@@ -1152,3 +1152,16 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-add-list button:hover{background:#e8f1ee}
 .character-add-list small{color:#7a8b93;white-space:nowrap}
 .character-add-list .character-muted{padding:6px 10px}
+/* Equipment page: editing what the character has and adding new equipment are peers. */
+.character-sections{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 10px}
+.character-sections>button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:auto;margin:0;padding:10px 14px;border:1px solid #c5d1e0;border-radius:8px;background:#f8fafc;color:#214d63;font-size:16px;font-weight:700;text-align:left}
+.character-sections>button small{font-size:12px;font-weight:400;color:#5b7180}
+.character-sections>button.active{border-color:#3c745f;background:#3c745f;color:#fff}
+.character-sections>button.active small{color:#e3f0ea}
+.character-add-live{padding:14px 16px;border:1px solid #c5d1e0;border-radius:8px;background:#fff}
+.character-add-live>button{width:auto;background:#3c745f;border-color:#3c745f;color:#fff}
+.character-queue{border-color:#8fb3a2;background:#f1f8f4}
+.character-queue .character-plan-lines>li{display:flex;align-items:center;gap:6px}
+.character-queue .character-plan-lines>li>span{margin-left:2px}
+.character-queue-remove{width:auto;margin:0 0 0 auto;padding:0 7px;line-height:18px;border-radius:9px;background:transparent;color:#8b3a2a}
+.character-title-confirm{display:flex;align-items:center;gap:6px;margin:4px 0;font-weight:600;color:#6b4a12}

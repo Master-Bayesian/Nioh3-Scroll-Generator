@@ -1056,10 +1056,10 @@ function App() {
           <button
             className={page === "equipment" ? "active" : ""}
             onClick={() => setPage("equipment")}
-            aria-label="角色与装备"
-            title="角色与装备"
+            aria-label="装备与道具"
+            title="装备与道具"
           >
-            <span className="nav-icon" aria-hidden="true">▦</span><span>角色与装备</span>
+            <span className="nav-icon" aria-hidden="true">▦</span><span>装备与道具</span>
           </button>
           <button className="coming-soon" disabled>
             <span className="nav-icon" aria-hidden="true">♜</span>
@@ -1142,7 +1142,7 @@ function App() {
             : page === "backups"
               ? "备份与管理"
               : page === "equipment"
-                ? "角色与装备"
+                ? "装备与道具"
                 : "绘卷编辑"}
         </h1>
         <div className="toplinks">

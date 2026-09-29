@@ -10,6 +10,7 @@ import type {
 import { data } from "./model";
 import itemNames from "./item-names.json";
 import hellSkillNames from "./hell-skill-names.json";
+import effectSources from "./effect-sources.json";
 import { desktop } from "./desktop-bridge";
 import { fillTemplateSlots, plainGameText } from "./game-text";
 import { Notice } from "./Notice";
@@ -19,6 +20,8 @@ import { runtimeObserver, saveObserver, saveSession } from "./save-workspace";
 
 type Mode = "live" | "save";
 type Tab = "equipment" | "items";
+/** Change what the character already has, or add new equipment. */
+type Section = "edit" | "add";
 type Character = (LiveCharacter | SaveCharacter) & { mode: Mode };
 type Currency = "amrita" | "gold";
 type Container = CharacterItem["container"];
@@ -74,7 +77,32 @@ for (const row of data.editorEffects as { id: string; name: string }[]) {
       fillTemplateSlots(plainGameText(row.name), "增益效果", "异常状态").replaceAll("{}", "（特定对象）"),
     );
 }
-const ALL_EFFECTS: Candidate[] = [...effectNames.keys()].map(id => ({ id }));
+/**
+ * Where natural generation can put each effect row, e.g. "武器随机 75". One
+ * group has a row per context and every row shows the group's name, so this
+ * is what tells same-named effects apart (PC v2.02, rarity 4, level 180).
+ */
+const EFFECT_SOURCES: Record<string, string> = effectSources.sources;
+const NO_DROP = "非装备掉落";
+function sourceOf(id: number) {
+  return EFFECT_SOURCES[String(id)] ?? "";
+}
+/** Every effect, same names together and rows no drop can carry last. */
+const ALL_EFFECTS: Candidate[] = [...effectNames.keys()]
+  .map(id => ({ id }))
+  .sort((a, b) =>
+    Number(sourceOf(a.id).startsWith(NO_DROP)) - Number(sourceOf(b.id).startsWith(NO_DROP)) ||
+    (effectNames.get(a.id) ?? "").localeCompare(effectNames.get(b.id) ?? "", "zh-CN") ||
+    a.id - b.id);
+/** Catalog kinds each add filter chip shows. */
+const ADD_KIND_CHIPS: [string, string[]][] = [
+  ["武器", ["武器"]],
+  ["防具", ["防具", "防具或饰品"]],
+  ["饰品", ["饰品", "防具或饰品"]],
+  ["魂核", ["魂核"]],
+];
+/** Most new items one plan adds (the request contract's limit). */
+const ADD_LIMIT = 16;
 
 /** Coarse item group from the shipped item table's type class. */
 function kindOf(typeClass: number | null | undefined): string {
@@ -383,6 +411,14 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   /** The item being added (save mode), shown as a row without a slot. */
   const [newItem, setNewItem] = useState<CharacterEquipment | null>(null);
   const [addQuery, setAddQuery] = useState("");
+  const [section, setSection] = useState<Section>("edit");
+  const [addKind, setAddKind] = useState("");
+  const [addPage, setAddPage] = useState(0);
+  /** Items waiting to be added together in one plan. */
+  const [queue, setQueue] = useState<{ key: number; request: NewEquipmentRequest; modded: boolean }[]>([]);
+  const queueKey = useRef(0);
+  /** The player confirmed the game is at the title screen or closed. */
+  const [titleConfirmed, setTitleConfirmed] = useState(false);
   /** The slot to select once the character is read again after an add. */
   const pendingSelect = useRef<number | null>(null);
   const save = useSyncExternalStore(
@@ -409,20 +445,22 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   };
   const candidateLabel = (candidate: Candidate) => {
     const range = rangeText(candidate.min, candidate.max);
-    return (candidate.star ? "✦ " : "") + effectText(candidate.id) + (range ? "（" + range + "）" : "");
+    const source = modded && !range ? sourceOf(candidate.id) : "";
+    return (candidate.star ? "✦ " : "") + effectText(candidate.id) +
+      (range ? "（" + range + "）" : source ? "〔" + source + "〕" : "");
   };
 
   const row = selected === NEW_SLOT ? newItem : character?.equipment.find(entry => entry.slot_index === selected) ?? null;
   const adding = selected === NEW_SLOT;
   const addCandidates = useMemo(() => {
-    if (!adding || newItem) return [] as { id: number; name: string; kind: string; sub: string }[];
     const needle = addQuery.trim().toLowerCase();
+    const kinds = ADD_KIND_CHIPS.find(([label]) => label === addKind)?.[1];
     return Object.entries(itemCatalog)
       .map(([id, entry]) => ({ id: Number(id), name: entry[0] ?? "", kind: entry[1] ?? "", sub: entry[3] || entry[2] || "" }))
-      .filter(item => item.name && ADDABLE_KINDS.has(item.kind))
-      .filter(item => !needle || (item.name + " " + item.kind + " " + item.sub + " " + hex(item.id)).toLowerCase().includes(needle))
-      .slice(0, 80);
-  }, [adding, newItem, addQuery]);
+      .filter(item => item.name && ADDABLE_KINDS.has(item.kind) && (!kinds || kinds.includes(item.kind)))
+      .filter(item => !needle || (item.name + " " + item.kind + " " + item.sub + " " + hex(item.id)).toLowerCase().includes(needle));
+  }, [addQuery, addKind]);
+  useEffect(() => setAddPage(0), [addQuery, addKind]);
   const groups = useMemo(() => {
     const tree = new Map<string, Map<string, Set<string>>>();
     for (const entry of character?.equipment ?? []) {
@@ -495,7 +533,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     const observer = new ResizeObserver(measure);
     observer.observe(wrap);
     return () => observer.disconnect();
-  }, [tab, character]);
+  }, [tab, character, section]);
   const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const shownPage = Math.min(page, pages - 1);
   const rows = filtered.slice(shownPage * pageSize, (shownPage + 1) * pageSize);
@@ -563,7 +601,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const latest = useRef({ selected, selectedItem, dirty, character, busy, filtered, filteredItems, itemRows });
   latest.current = { selected, selectedItem, dirty, character, busy, filtered, filteredItems, itemRows };
   useEffect(() => {
-    if (!follow || mode !== "live" || !character) return;
+    if (!follow || mode !== "live" || !character || section === "add") return;
     let inFlight = false;
     let stopped = false;
     const reloadOnce = (key: string) => {
@@ -630,7 +668,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       }
     }, 300);
     return () => { stopped = true; window.clearInterval(timer); };
-  }, [follow, mode, character]);
+  }, [follow, mode, character, section]);
   // In the single-column layout the editor sits below the list; bring it up.
   useEffect(() => {
     if (selected == null && selectedItem == null) return;
@@ -715,7 +753,12 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   /** Natural candidates for one slot, or every effect in modded mode. */
   function candidatesFor(index: number, natural = false): Candidate[] {
     if (!rules?.known || !rules.roles) return natural ? [] : ALL_EFFECTS;
-    if (modded && !natural) return ALL_EFFECTS;
+    if (modded && !natural) {
+      // What this slot can naturally hold comes first, then everything else.
+      const own = candidatesFor(index, true);
+      const ids = new Set(own.map(candidate => candidate.id));
+      return [...own, ...ALL_EFFECTS.filter(candidate => !ids.has(candidate.id))];
+    }
     const role = rules.roles[index];
     let list: Candidate[] = [];
     if (role === "innate") list = (rules.innate ?? []).map(id => ({ id }));
@@ -918,7 +961,8 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     setMode(next);
     setFollow(next === "live");
     setCharacter(null);
-    setSelected(null);
+    setSelected(section === "add" ? NEW_SLOT : null);
+    setNewItem(null);
     setSelectedItem(null);
     setDraft(null);
     setPlan(null);
@@ -984,7 +1028,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       });
       if (!("plan_id" in result)) throw new Error("UNEXPECTED_CHARACTER_PLAN");
       setPlan({ plan_id: result.plan_id, preview: result.preview as Record<string, unknown> });
-      setMessage("已生成修改计划。核对右侧内容后点击“写入存档”。游戏必须关闭。");
+      setMessage("已生成修改计划。核对右侧内容，让游戏回到标题界面或关闭游戏，勾选确认后点“写入存档”。");
     }
   }
 
@@ -1015,16 +1059,18 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           if (id === null || id > 0xffff || value === null) throw new Error("请输入有效的词条和数值。");
           effects.push({ effect_id: id, value, ...(effect.star !== null ? { star: effect.star } : {}) });
         }
-        await submit({
-          add: [{
-            item_id: row.item_id,
-            level,
-            plus,
-            rarity,
-            ...(draft.hell ? { hell: true, hell_skill: draft.hell_skill } : {}),
-            effects,
-          }],
-        });
+        if (queue.length >= ADD_LIMIT) throw new Error("待添加清单最多 " + ADD_LIMIT + " 件。请先写入存档，再继续添加。");
+        const request: NewEquipmentRequest = {
+          item_id: row.item_id,
+          level,
+          plus,
+          rarity,
+          ...(draft.hell ? { hell: true, hell_skill: draft.hell_skill } : {}),
+          effects,
+        };
+        setQueue([...queue, { key: ++queueKey.current, request, modded: modded || draftNotes.length > 0 }]);
+        setPlan(null);
+        setMessage("已加入待添加清单。可以继续挑选其他装备，全部选好后点“生成修改计划”。");
         return;
       }
       const result = patchOf(row, draft, keepsMarker);
@@ -1069,20 +1115,62 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     });
   }
 
+  /** Turn the waiting list into one save plan. */
+  function planQueue() {
+    return run(async () => {
+      if (!queue.length) throw new Error("待添加清单是空的。请先在左侧选一件装备，设置好后点“加入待添加清单”。");
+      await submit({ add: queue.map(entry => entry.request) });
+    });
+  }
+
+  /**
+   * Settle a commit that failed: a refused write (for example because the
+   * game wrote the save in the meantime) is proven from the bytes on disk, so
+   * the save is not left locked behind a question the player cannot answer.
+   */
+  async function settleFailedCommit(error: unknown): Promise<string> {
+    const reason = publicError(stripErrorPrefix(String(error instanceof Error ? error.message : error)));
+    if (!saveSession!.getSnapshot().uncertainOperationId) return reason;
+    try {
+      const receipt = await saveSession!.recoverReceipt();
+      if (receipt.commit_status === "not_committed") return reason + "（已核对：存档没有改动。）";
+      if (receipt.commit_status.startsWith("committed")) return "";
+    } catch {
+      // The banner above the list stays and explains how to check by hand.
+    }
+    return reason + " 写入结果暂时无法确认，请按上方黄色提示核对。";
+  }
+
   function commitPlan() {
     return run(async () => {
       if (!plan) return;
-      const receipt = await saveSession!.commit(plan.plan_id);
+      if (!titleConfirmed) throw new Error("请先让游戏回到标题界面或关闭游戏，然后勾选“游戏已回到标题界面或已关闭”。");
       const added = (plan.preview.added ?? []) as { slot_index: number }[];
-      if (receipt.commit_status === "committed" && added.length) pendingSelect.current = added[0].slot_index;
+      let committed = false;
+      let failure = "";
+      try {
+        const receipt = await saveSession!.commit(plan.plan_id);
+        committed = receipt.commit_status === "committed";
+        if (!committed) failure = "写入结果不确定，请在备份与管理中核对操作结果。";
+      } catch (error) {
+        failure = await settleFailedCommit(error);
+        committed = !failure;
+      }
       setPlan(null);
+      setTitleConfirmed(false);
+      if (committed && added.length) setQueue([]);
+      // Reading the save again clears the message, so it is set afterwards.
+      if (!saveSession!.getSnapshot().uncertainOperationId) {
+        await saveSession!.refresh();
+        await load("save");
+      }
       setMessage(
-        receipt.commit_status === "committed"
-          ? "已写入存档，并已自动备份原存档。"
-          : "写入结果不确定，请在备份与管理中核对操作结果。",
+        !committed
+          ? failure
+          : added.length
+            ? "已写入存档：新增 " + added.length + " 件装备，原存档已自动备份。进游戏读取这个存档即可看到（带“新”标记）；游戏如果一直开着，要回到标题界面重新读取。"
+            : "已写入存档，并已自动备份原存档。",
       );
-      await saveSession!.refresh();
-      await load("save");
     });
   }
 
@@ -1157,18 +1245,14 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     setModded(false);
     setNewItem(null);
   };
-  /** Open the add form: pick an item first, then its level, rarity and effects. */
-  const startAdd = () => {
-    setSelected(NEW_SLOT);
+  /** Switch between changing what the character has and adding new equipment. */
+  const openSection = (next: Section) => {
+    if (next === section) return;
+    setSection(next);
+    setSelected(next === "add" ? NEW_SLOT : null);
     setNewItem(null);
     setDraft(null);
     setModded(false);
-    setAddQuery("");
-  };
-  const cancelAdd = () => {
-    setSelected(null);
-    setNewItem(null);
-    setDraft(null);
   };
   const chooseNewItem = (itemId: number) => {
     // Start at the highest level the character's equipment has reached.
@@ -1226,9 +1310,6 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
             ))}
           </select>
           <span className="equipment-range">{filtered.length} / {character?.equipment.length ?? 0}</span>
-          {character?.mode === "save" ? (
-            <button type="button" className={adding ? "active" : ""} onClick={startAdd} disabled={busy}>添加装备</button>
-          ) : null}
         </div>
       </div>
       <div className="character-table-wrap" ref={tableWrap}>
@@ -1307,33 +1388,69 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     </>
   );
 
-  const addPicker = (
-    <div className="character-detail">
-      <div className="character-detail-head">
-        <h3>添加装备</h3>
+  const addPages = Math.max(1, Math.ceil(addCandidates.length / pageSize));
+  const shownAddPage = Math.min(addPage, addPages - 1);
+  const addList = (
+    <>
+      <div className="character-filters">
+        <div className="character-chips">
+          <button className={!addKind ? "active" : ""} onClick={() => setAddKind("")}>全部</button>
+          {ADD_KIND_CHIPS.map(([label]) => (
+            <button key={label} className={addKind === label ? "active" : ""} onClick={() => setAddKind(label)}>{label}</button>
+          ))}
+        </div>
+        <div className="character-search">
+          <input value={addQuery} onChange={event => setAddQuery(event.target.value)} placeholder="搜索装备名称，例如 八尺琼勾玉" />
+          <span className="equipment-range">{addCandidates.length} 件</span>
+        </div>
       </div>
-      <p className="equipment-notes">
-        选择要添加的装备。之后可以设置等级、稀有度和词条；“合法修改”只列出这件装备能自然出现的词条。添加会生成修改计划，核对后写入存档，写入前自动备份。游戏必须回到标题界面或关闭。
-      </p>
-      <div className="character-search">
-        <input autoFocus value={addQuery} onChange={event => setAddQuery(event.target.value)} placeholder="搜索装备名称，例如 八尺琼勾玉" />
-        <button type="button" onClick={cancelAdd}>取消</button>
+      <div className="character-table-wrap" ref={tableWrap}>
+        <table className="equipment-table character-table">
+          <thead>
+            <tr><th>装备</th><th>类别</th></tr>
+          </thead>
+          <tbody>
+            {addCandidates.slice(shownAddPage * pageSize, (shownAddPage + 1) * pageSize).map(item => (
+              <tr key={item.id} data-row={"add-" + item.id}
+                className={newItem?.item_id === item.id ? "selected" : ""} onClick={() => chooseNewItem(item.id)}>
+                <td className="character-item-name">{item.name}{showIds ? <small> {hex(item.id)}</small> : null}</td>
+                <td className="character-kind">{item.sub || item.kind}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {addCandidates.length === 0 && <p className="character-empty">没有匹配的装备</p>}
       </div>
-      <ul className="character-add-list">
-        {addCandidates.map(item => (
-          <li key={item.id}>
-            <button type="button" onClick={() => chooseNewItem(item.id)}>
-              <span>{item.name}</span>
-              <small>{[item.kind, item.sub].filter(Boolean).join(" · ")}{showIds ? " " + hex(item.id) : ""}</small>
-            </button>
-          </li>
-        ))}
-        {addCandidates.length === 0 && <li className="character-muted">没有匹配的装备</li>}
-      </ul>
-    </div>
+      <Pager page={shownAddPage} pages={addPages} onChange={setAddPage} />
+    </>
   );
 
-  const equipmentDetail = adding && !newItem ? addPicker : row && draft ? (
+  const addHint = (
+    <p className="character-empty">
+      在左侧列表中点选要添加的装备。之后可以设置等级、稀有度和词条：“合法”只给出这件装备自然掉落时能出现的词条和数值（固有词条由装备决定，不能更换），得到的就是一件游戏里真正可能掉落的装备；“魔改”则可以随意填写。设置好后加入待添加清单，可以一次添加多件。
+    </p>
+  );
+
+  /** The waiting list and the button that turns it into one plan. */
+  const queuePanel = queue.length ? (
+    <section className="character-plan character-queue">
+      <h3>待添加清单（{queue.length} / {ADD_LIMIT}）</h3>
+      <ul className="character-plan-lines">
+        {queue.map(entry => (
+          <li key={entry.key}>
+            {itemText(entry.request.item_id)}（Lv.{entry.request.level}，稀有度 {entry.request.rarity}
+            {entry.request.hell ? "，地狱武器" : ""}）{entry.modded ? <span className="character-unnatural">魔改</span> : <span className="character-muted">合法</span>}
+            <button type="button" className="character-queue-remove" aria-label="从清单移除"
+              onClick={() => { setQueue(queue.filter(other => other.key !== entry.key)); setPlan(null); }} disabled={busy}>×</button>
+          </li>
+        ))}
+      </ul>
+      <button className="primary" onClick={planQueue} disabled={busy}>生成修改计划</button>
+      <button onClick={() => { setQueue([]); setPlan(null); }} disabled={busy}>清空</button>
+    </section>
+  ) : null;
+
+  const equipmentDetail = adding && !newItem ? addHint : row && draft ? (
     <div className="character-detail">
       <div className="character-detail-head">
         <h3>
@@ -1344,14 +1461,16 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         </h3>
         {adding ? null : verdictCell(row)}
         <div className="character-edit-modes" role="tablist">
-          <button className={!modded ? "active" : ""} onClick={() => setModded(false)}>合法修改</button>
+          <button className={!modded ? "active" : ""} onClick={() => setModded(false)}>{adding ? "合法" : "合法修改"}</button>
           <button className={modded ? "active" : ""} onClick={() => setModded(true)}>魔改</button>
         </div>
       </div>
       <p className="equipment-notes">
         {modded
-          ? "魔改：任何词条、任何数值都可以填写，不受游戏生成规则约束，结果可能无法自然获得。"
-          : "合法修改：每个位置只列出这件装备能自然出现的词条，数值填在合法范围内。"}
+          ? "魔改：任何词条、任何数值都可以填写，不受游戏生成规则约束，结果可能无法自然获得。同名词条后面的〔〕注明它会出现在哪类装备的哪种位置，以及它的数值（稀有度 4、等级 180 时）；“非装备掉落”表示掉落的装备上不会出现。"
+          : adding
+            ? "合法：和游戏掉落一样生成。固有词条由装备决定；其余每个位置只列出自然能出现的词条，数值在合法范围内。"
+            : "合法修改：每个位置只列出这件装备能自然出现的词条，数值填在合法范围内。"}
       </p>
       {adding && rules && !rules.known ? (
         <p className="character-remove-note">这件物品不在游戏的装备表里，不能添加。请换一件（名字相同的物品可能有多个，其中一个是书籍或关键道具）。</p>
@@ -1441,15 +1560,13 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         <div className="character-actions">
           <button onClick={maximize} disabled={busy || !values.some(Boolean)}>全部取理论最高</button>
           <button className="primary" onClick={applyEquipment} disabled={busy || !rules?.known}>
-            {modded ? "添加（魔改）" : "添加到存档"}
+            {modded ? "加入待添加清单（魔改）" : "加入待添加清单"}
           </button>
-          <button onClick={() => setNewItem(null)} disabled={busy}>换一件</button>
-          <button onClick={cancelAdd} disabled={busy}>取消</button>
         </div>
       ) : null}
       {adding ? (
         <p className="equipment-notes">
-          新装备会放进存档里第一个空位，按游戏自己的方式分配物品编号，并带有“新”标记。点“添加到存档”后先生成修改计划，核对后点“写入存档”才会真正写入。
+          新装备会放进存档里的空位，按游戏自己的方式分配物品编号，并带有“新”标记。清单里的装备会一起生成一份修改计划，核对后点“写入存档”才会真正写入。
         </p>
       ) : null}
       {adding ? null : <>
@@ -1533,8 +1650,32 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     <p className="character-empty">在左侧列表中点选一件道具，这里可以修改它的持有数量和仓库数量。</p>
   );
 
+  const planPanel = plan ? (
+    <section className="character-plan">
+      <h3>修改计划</h3>
+      <ul className="character-plan-lines">{planLines(plan.preview).map((line, index) => <li key={index}>{line}</li>)}</ul>
+      <label className="character-toggle character-title-confirm">
+        <input type="checkbox" checked={titleConfirmed} onChange={event => setTitleConfirmed(event.target.checked)} />
+        游戏已回到标题界面或已关闭
+      </label>
+      <p className="equipment-notes">游戏在读档状态下会自己保存，写入的内容会被覆盖或被拒绝。写入后进游戏重新读取这个存档即可看到。</p>
+      <button className="primary" onClick={commitPlan} disabled={busy || !titleConfirmed}>写入存档</button>
+      <button onClick={() => { setPlan(null); setTitleConfirmed(false); void saveSession!.discard(); }} disabled={busy}>放弃</button>
+    </section>
+  ) : null;
+
   return (
     <main className="equipment-page character-page">
+      <div className="character-sections" role="tablist" aria-label="功能">
+        <button role="tab" aria-selected={section === "edit"} className={section === "edit" ? "active" : ""}
+          onClick={() => openSection("edit")} disabled={busy}>
+          修改已有物品<small>装备的词条与数值、道具数量、精华与金钱</small>
+        </button>
+        <button role="tab" aria-selected={section === "add"} className={section === "add" ? "active" : ""}
+          onClick={() => openSection("add")} disabled={busy}>
+          添加新装备<small>像游戏掉落一样生成一件新装备，或自由魔改</small>
+        </button>
+      </div>
       <div className="character-toolbar">
         <div className="character-modes" role="tablist">
           <button className={mode === "live" ? "active" : ""} onClick={() => switchMode("live")} disabled={busy}>游戏内实时修改</button>
@@ -1568,7 +1709,21 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       </p>
       {mode === "save" && <SavePicker compact />}
       <Notice text={message} />
-      {character && (
+      {section === "add" && mode === "live" ? (
+        <div className="character-add-live">
+          <p>添加新装备需要修改存档文件：游戏回到标题界面或关闭后写入，写入前会自动备份原存档。</p>
+          <button className="primary" onClick={() => switchMode("save")} disabled={busy}>切换到“修改存档文件”</button>
+        </div>
+      ) : character && section === "add" ? (
+        <div className="character-body">
+          <section className="character-list">{addList}</section>
+          <aside className="character-side">
+            {planPanel}
+            {queuePanel}
+            {equipmentDetail}
+          </aside>
+        </div>
+      ) : character && (
         <div className="character-body">
           <section className="character-list">
             <div className="character-tabs" role="tablist">
@@ -1582,14 +1737,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
             {tab === "equipment" ? equipmentList : itemList}
           </section>
           <aside className="character-side">
-            {plan && (
-              <section className="character-plan">
-                <h3>修改计划</h3>
-                <ul className="character-plan-lines">{planLines(plan.preview).map(line => <li key={line}>{line}</li>)}</ul>
-                <button className="primary" onClick={commitPlan} disabled={busy}>写入存档</button>
-                <button onClick={() => { setPlan(null); void saveSession!.discard(); }} disabled={busy}>放弃</button>
-              </section>
-            )}
+            {planPanel}
             {tab === "equipment" ? equipmentDetail : itemDetail}
           </aside>
         </div>

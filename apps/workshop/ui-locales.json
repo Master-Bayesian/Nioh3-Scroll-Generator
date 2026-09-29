@@ -4195,6 +4195,134 @@
     "新装备会放进存档里第一个空位，按游戏自己的方式分配物品编号，并带有“新”标记。点“添加到存档”后先生成修改计划，核对后点“写入存档”才会真正写入。": [
       "The new equipment goes into the save's first free slot, takes an item number the way the game assigns one, and carries the \"new\" marker. \"Add to save\" first creates a change plan; nothing is written until you review it and click \"Write save\".",
       "新しい装備はセーブの最初の空き枠に入り、ゲームと同じ方法でアイテム番号が割り当てられ、「新着」マークが付きます。「セーブに追加」を押すとまず変更計画が作成され、確認後に「セーブに書き込む」を押すまで書き込まれません。"
+    ],
+    "非装备掉落": [
+      "Not on dropped equipment",
+      "ドロップ装備には付かない"
+    ],
+    "已生成修改计划。核对右侧内容，让游戏回到标题界面或关闭游戏，勾选确认后点“写入存档”。": [
+      "Change plan created. Review it on the right, put the game at the title screen or close it, tick the confirmation, then click \"Write save\".",
+      "変更計画を作成しました。右側の内容を確認し、ゲームをタイトル画面に戻すか終了してから、確認にチェックを入れて「セーブに書き込む」を押してください。"
+    ],
+    "待添加清单最多": [
+      "The waiting list holds at most",
+      "追加待ちリストは最大"
+    ],
+    "件。请先写入存档，再继续添加。": [
+      "items. Write the save first, then add more.",
+      "件です。先にセーブへ書き込んでから追加を続けてください。"
+    ],
+    "已加入待添加清单。可以继续挑选其他装备，全部选好后点“生成修改计划”。": [
+      "Added to the waiting list. Pick more equipment if you like, then click \"Create change plan\".",
+      "追加待ちリストに入れました。ほかの装備も選べます。選び終えたら「変更計画を作成」を押してください。"
+    ],
+    "待添加清单是空的。请先在左侧选一件装备，设置好后点“加入待添加清单”。": [
+      "The waiting list is empty. Pick equipment on the left, set it up, then click \"Add to waiting list\".",
+      "追加待ちリストは空です。左側で装備を選び、設定してから「追加待ちリストに入れる」を押してください。"
+    ],
+    "（已核对：存档没有改动。）": [
+      " (Checked: the save is unchanged.)",
+      "（確認済み：セーブは変更されていません。）"
+    ],
+    "写入结果暂时无法确认，请按上方黄色提示核对。": [
+      "The outcome of the write cannot be confirmed yet; follow the yellow notice above to check it.",
+      "書き込み結果をまだ確認できません。上の黄色の案内に従って確認してください。"
+    ],
+    "请先让游戏回到标题界面或关闭游戏，然后勾选“游戏已回到标题界面或已关闭”。": [
+      "Put the game at the title screen or close it first, then tick \"The game is at the title screen or closed\".",
+      "先にゲームをタイトル画面に戻すか終了し、「ゲームはタイトル画面に戻っているか終了している」にチェックを入れてください。"
+    ],
+    "已写入存档：新增": [
+      "Save written: added",
+      "セーブに書き込みました：新規"
+    ],
+    "件装备，原存档已自动备份。进游戏读取这个存档即可看到（带“新”标记）；游戏如果一直开着，要回到标题界面重新读取。": [
+      "items of equipment; the original save was backed up. Load this save in game to see them (marked \"new\"); if the game stayed open, return to the title screen and load again.",
+      "件の装備を追加し、元のセーブは自動でバックアップしました。ゲームでこのセーブを読み込むと表示されます（「新着」マーク付き）。ゲームを開いたままの場合は、タイトル画面に戻って読み込み直してください。"
+    ],
+    "件": [
+      "items",
+      "件"
+    ],
+    "在左侧列表中点选要添加的装备。之后可以设置等级、稀有度和词条：“合法”只给出这件装备自然掉落时能出现的词条和数值（固有词条由装备决定，不能更换），得到的就是一件游戏里真正可能掉落的装备；“魔改”则可以随意填写。设置好后加入待添加清单，可以一次添加多件。": [
+      "Pick the equipment to add in the list on the left. Then set its level, rarity and effects: \"Legal\" offers only the effects and values this equipment can drop with (its innate effects are fixed by the item), so the result is equipment the game could really drop; \"Modded\" accepts anything. Put it on the waiting list; several items can be added at once.",
+      "左のリストから追加する装備を選んでください。その後、レベル・レア度・特殊効果を設定できます。「正規」ではこの装備が自然にドロップするときの効果と数値だけを選べます（固有効果は装備で決まり、変更できません）。ゲームで実際にドロップしうる装備になります。「改造」は自由に入力できます。追加待ちリストに入れれば、複数件をまとめて追加できます。"
+    ],
+    "待添加清单（": [
+      "Waiting list (",
+      "追加待ちリスト（"
+    ],
+    "合法": [
+      "Legal",
+      "正規"
+    ],
+    "从清单移除": [
+      "Remove from the list",
+      "リストから外す"
+    ],
+    "生成修改计划": [
+      "Create change plan",
+      "変更計画を作成"
+    ],
+    "魔改：任何词条、任何数值都可以填写，不受游戏生成规则约束，结果可能无法自然获得。同名词条后面的〔〕注明它会出现在哪类装备的哪种位置，以及它的数值（稀有度 4、等级 180 时）；“非装备掉落”表示掉落的装备上不会出现。": [
+      "Modded: any effect and any value can be entered, regardless of the game's generation rules; the result may be impossible to get naturally. The brackets after same-named effects say which kind of equipment and which slot each one appears in, and its value (at rarity 4, level 180); \"Not on dropped equipment\" means dropped equipment never carries it.",
+      "改造：どの効果・どの数値でも入力でき、ゲームの生成ルールに縛られません。自然には入手できない結果になることがあります。同名の効果の後ろの〔〕は、どの種類の装備のどの枠に付くか、その数値（レア度 4・レベル 180 のとき）を示します。「ドロップ装備には付かない」はドロップした装備には付かないことを表します。"
+    ],
+    "合法：和游戏掉落一样生成。固有词条由装备决定；其余每个位置只列出自然能出现的词条，数值在合法范围内。": [
+      "Legal: generated as a game drop. Innate effects come with the item; every other slot lists only the effects that can appear naturally, with values in the legal range.",
+      "正規：ゲームのドロップと同じように生成します。固有効果は装備で決まり、ほかの各枠には自然に付く効果だけを表示し、数値は正規の範囲内です。"
+    ],
+    "加入待添加清单（魔改）": [
+      "Add to waiting list (modded)",
+      "追加待ちリストに入れる（改造）"
+    ],
+    "加入待添加清单": [
+      "Add to waiting list",
+      "追加待ちリストに入れる"
+    ],
+    "新装备会放进存档里的空位，按游戏自己的方式分配物品编号，并带有“新”标记。清单里的装备会一起生成一份修改计划，核对后点“写入存档”才会真正写入。": [
+      "New equipment goes into free slots of the save, takes item numbers the way the game assigns them, and carries the \"new\" marker. Everything on the waiting list goes into one change plan; nothing is written until you review it and click \"Write save\".",
+      "新しい装備はセーブの空き枠に入り、ゲームと同じ方法でアイテム番号が割り当てられ、「新着」マークが付きます。追加待ちリストの装備はまとめて一つの変更計画になり、確認して「セーブに書き込む」を押すまで書き込まれません。"
+    ],
+    "游戏在读档状态下会自己保存，写入的内容会被覆盖或被拒绝。写入后进游戏重新读取这个存档即可看到。": [
+      "While a save is loaded the game saves on its own, so a write would be overwritten or refused. After writing, load this save in game to see the change.",
+      "セーブを読み込んだ状態ではゲームが自動でセーブするため、書き込んだ内容が上書きされたり拒否されたりします。書き込んだ後、ゲームでこのセーブを読み込み直すと反映されます。"
+    ],
+    "功能": [
+      "Features",
+      "機能"
+    ],
+    "修改已有物品": [
+      "Edit what you have",
+      "所持品を編集"
+    ],
+    "装备的词条与数值、道具数量、精华与金钱": [
+      "Equipment effects and values, item counts, Amrita and gold",
+      "装備の効果と数値、道具の数、アムリタとお金"
+    ],
+    "添加新装备": [
+      "Add new equipment",
+      "新しい装備を追加"
+    ],
+    "像游戏掉落一样生成一件新装备，或自由魔改": [
+      "Generate equipment as a game drop would, or mod it freely",
+      "ゲームのドロップと同じように装備を生成、または自由に改造"
+    ],
+    "添加新装备需要修改存档文件：游戏回到标题界面或关闭后写入，写入前会自动备份原存档。": [
+      "Adding equipment edits the save file: it is written while the game is at the title screen or closed, and the original save is backed up first.",
+      "装備の追加はセーブファイルを編集します。ゲームをタイトル画面に戻すか終了した状態で書き込み、書き込み前に元のセーブを自動でバックアップします。"
+    ],
+    "切换到“修改存档文件”": [
+      "Switch to \"Edit save file\"",
+      "「セーブファイルを編集」に切り替える"
+    ],
+    "装备与道具": [
+      "Equipment & items",
+      "装備と道具"
+    ],
+    "生成计划之后游戏又写入了存档（游戏可能没有停在标题界面），本次没有写入，存档没有改动。请让游戏回到标题界面或关闭游戏，点“重新读取”后重新生成计划。": [
+      "The game wrote the save after the plan was created (it may not have been at the title screen), so nothing was written and the save is unchanged. Put the game at the title screen or close it, click \"Reload\", then create the plan again.",
+      "計画を作成した後にゲームがセーブを書き込みました（タイトル画面に戻っていなかった可能性があります）。今回は書き込んでおらず、セーブは変更されていません。ゲームをタイトル画面に戻すか終了し、「再読み込み」を押してから計画を作り直してください。"
     ]
   },
   "game": {

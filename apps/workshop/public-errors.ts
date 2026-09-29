@@ -209,7 +209,7 @@ export function publicError(message: string): string {
     ],
     [
       /changed after the operation was prepared/i,
-      "准备期间游戏存档发生了变化（游戏可能刚保存过），本次没有写入。请点“重新读取”后再试。",
+      "生成计划之后游戏又写入了存档（游戏可能没有停在标题界面），本次没有写入，存档没有改动。请让游戏回到标题界面或关闭游戏，点“重新读取”后重新生成计划。",
     ],
     [
       /no authentic scroll template is available/i,
