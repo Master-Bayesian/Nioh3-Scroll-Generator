@@ -1353,10 +1353,19 @@ impl ReceiptStore {
 }
 
 /// `<directory>/admission.lock`, held only while one operation is admitted.
+///
+/// On Windows the lock is the open, unshared file handle rather than the
+/// file's existence, so the operating system releases it when the holder
+/// exits. A file left behind by a killed or crashed process (any earlier
+/// version included) is therefore not a holder and never fences admission.
 pub struct AdmissionLock {
     path: PathBuf,
-    held: bool,
+    file: Option<std::fs::File>,
 }
+
+/// `ERROR_SHARING_VIOLATION`: another open handle refuses to share the file.
+#[cfg(windows)]
+const ERROR_SHARING_VIOLATION: i32 = 32;
 
 impl AdmissionLock {
     pub fn acquire(directory: &Path) -> Result<Self, RuntimeError> {
@@ -1365,11 +1374,12 @@ impl AdmissionLock {
             path: directory.display().to_string(),
             detail: error.to_string(),
         })?;
-        let mut options = std::fs::OpenOptions::new();
-        options.write(true).create_new(true);
-        match options.open(&path) {
-            Ok(_) => Ok(Self { path, held: true }),
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => Err(rejected(
+        match Self::open_exclusive(&path) {
+            Ok(file) => Ok(Self {
+                path,
+                file: Some(file),
+            }),
+            Err(error) if Self::held_elsewhere(&error) => Err(rejected(
                 "Another native executor is admitting an operation",
             )),
             Err(error) => Err(RuntimeError::Io {
@@ -1378,14 +1388,92 @@ impl AdmissionLock {
             }),
         }
     }
+
+    #[cfg(windows)]
+    fn open_exclusive(path: &Path) -> std::io::Result<std::fs::File> {
+        use std::os::windows::fs::OpenOptionsExt;
+        std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .share_mode(0)
+            .open(path)
+    }
+
+    #[cfg(windows)]
+    fn held_elsewhere(error: &std::io::Error) -> bool {
+        error.raw_os_error() == Some(ERROR_SHARING_VIOLATION)
+    }
+
+    #[cfg(not(windows))]
+    fn open_exclusive(path: &Path) -> std::io::Result<std::fs::File> {
+        std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path)
+    }
+
+    #[cfg(not(windows))]
+    fn held_elsewhere(error: &std::io::Error) -> bool {
+        error.kind() == std::io::ErrorKind::AlreadyExists
+    }
 }
 
 impl Drop for AdmissionLock {
     fn drop(&mut self) {
-        if self.held {
+        if let Some(file) = self.file.take() {
+            drop(file);
+            // Best effort: an older build still treats the file's existence as
+            // the lock, so leave none behind. A racing holder keeps it open.
             let _ = std::fs::remove_file(&self.path);
-            self.held = false;
         }
+    }
+}
+
+#[cfg(all(test, windows))]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
+mod admission_lock_tests {
+    use super::AdmissionLock;
+
+    fn scratch(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "nioh3-admission-lock-{name}-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("scratch dir");
+        dir
+    }
+
+    #[test]
+    fn a_held_admission_refuses_a_second_one_until_released() {
+        let directory = scratch("held");
+        let first = AdmissionLock::acquire(&directory).expect("first admission");
+        let refused = AdmissionLock::acquire(&directory)
+            .err()
+            .expect("a second admission is refused while the first is held");
+        assert!(refused
+            .message()
+            .contains("Another native executor is admitting an operation"));
+        drop(first);
+        assert!(
+            !directory.join("admission.lock").exists(),
+            "a released admission leaves no file for older builds to trip on"
+        );
+        drop(AdmissionLock::acquire(&directory).expect("admission after release"));
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn a_lock_file_left_by_a_dead_process_does_not_fence_admission() {
+        let directory = scratch("stale");
+        let path = directory.join("admission.lock");
+        std::fs::write(&path, b"").expect("stale lock file");
+        let admission = AdmissionLock::acquire(&directory)
+            .expect("a lock file nobody holds open is not an owner");
+        drop(admission);
+        assert!(!path.exists(), "the stale file is cleaned up on release");
+        let _ = std::fs::remove_dir_all(&directory);
     }
 }
 
