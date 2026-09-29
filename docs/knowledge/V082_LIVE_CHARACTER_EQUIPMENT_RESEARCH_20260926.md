@@ -503,3 +503,26 @@ advance them; a save-file removal needs nothing beyond the free slot.
   （特定对象）. Merged into `effect-arguments.json`; helper
   `tmp/claude-ce/resolve_bare_subjects.py`. In-game checks so far: 0xF437
   幸运增加 (按司盾矛), 0x27F9 水 (凶王耳饰), 0x23AF 怪风 (凶王耳饰).
+- 奥义两立（{}） (22 effects, 11 groups): the group's `+0x20` is a weapon-type
+  key that the fully named `攻击力（刀）`-style groups share, which gives the
+  weapon (刀, 双刀, 枪, 斧, 大太刀, 锁镰, 旋棍, 手甲, 薙刀镰, 机关棍, 手斧).
+  不消耗{} names item `0x382A` (御神水, a consumable) at group `+0x18`. The
+  eight v2.02 ninjutsu effects in groups 1127 and 1138-1144 carry no subject
+  anywhere in their rows; an in-game look is pending.
+
+## Forge-material markers and adding equipment (2026-09-29)
+
+- Entry `+0x0D` high bits are the forge-material markers the game draws left
+  of an effect: `0x40` a filled hexagon, `0x80` an outline one (the tooltip:
+  changing the effect at the blacksmith needs 灵石炭). On the owner's 1552
+  records every set entry has `0x40`, every grace `0`, and random entries all
+  three about equally; the same effect varies between records, so it is not a
+  table property.
+- Adding equipment to a save (`save.prepare_character_edit` `add`) builds the
+  record over the free slot with the purchase layout above, takes the key and
+  serial from the two counters and advances them. Built from the purchase's
+  free slot and inputs, it matches the game's record except the purchase flag
+  (`0x180`; a new record gets a fresh drop's `0x82`), the seed and per-entry
+  bytes the game fills from state not modelled (second group word, forge
+  markers on random entries, `+0x0F`, `+0x10..+0x17`). New set entries carry
+  `0x40`; innate and random entries carry no marker.
