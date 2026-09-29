@@ -3614,6 +3614,14 @@ export type ProtectedRequest =
           slot_index: number;
           quantity: number;
         }[];
+        /**
+         * Equipment to remove; each slot is freed as the game frees one, and a worn item also leaves its equipment sets.
+         *
+         * @maxItems 64
+         */
+        remove?: {
+          slot_index: number;
+        }[];
       };
     }
   | {

@@ -46,7 +46,8 @@ use nioh3_domain::sequence::generate_challenge_attempt_count;
 use nioh3_domain::sequence::materialize_ng3_rarity4_stage_one_record;
 use nioh3_save::backup::{list_backup_entries, move_backup_to_recycle_bin};
 use nioh3_save::character::{
-    equipment_fields, equipment_record, equipment_slot_is_empty, item_quantity,
+    equipment_fields, equipment_record, equipment_slot_is_empty, free_equipment_slot_unequipping,
+    item_quantity,
     item_quantity_limit, item_record, item_region, patch_equipment, patch_item_quantity,
     read_currency, CharacterEdit, Currency, EquipmentFields, EquipmentPatch, ItemContainer,
     EQUIPMENT_SLOT_COUNT, ITEM_RECORD_BYTES,
@@ -512,6 +513,44 @@ impl SaveApplication {
                 replacement,
             });
         }
+        let mut removed = Vec::new();
+        for requested in params
+            .get("remove")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            let slot_index = requested
+                .get("slot_index")
+                .and_then(Value::as_u64)
+                .ok_or_else(HostError::invalid_request)? as usize;
+            if edits.iter().any(|edit| {
+                matches!(edit, CharacterEdit::Equipment { slot_index: edited, .. }
+                    | CharacterEdit::RemoveEquipment { slot_index: edited, .. } if *edited == slot_index)
+            }) {
+                return Err(HostError::invalid_request());
+            }
+            let original = equipment_record(plain, slot_index)
+                .map_err(HostError::from_save)?
+                .to_vec();
+            if equipment_slot_is_empty(&original) {
+                return Err(HostError::rejected(
+                    "Only occupied equipment slots may be edited",
+                ));
+            }
+            // Built again from the committed source at apply time; this only
+            // proves the record can be freed.
+            free_equipment_slot_unequipping(&original).map_err(HostError::from_save)?;
+            let before = equipment_fields(&original).map_err(HostError::from_save)?;
+            removed.push(json!({
+                "slot_index": slot_index,
+                "before": equipment_json(slot_index, &before, None),
+            }));
+            edits.push(CharacterEdit::RemoveEquipment {
+                slot_index,
+                expected_original: original,
+            });
+        }
         if edits.is_empty() {
             return Err(HostError::rejected("Nothing to change"));
         }
@@ -529,6 +568,7 @@ impl SaveApplication {
                 "currencies": currency_changes,
                 "equipment": equipment_changes,
                 "items": item_changes,
+                "removed": removed,
                 "modded": modded,
             }),
         ))

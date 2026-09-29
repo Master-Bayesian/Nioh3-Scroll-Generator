@@ -3439,6 +3439,25 @@
                   "quantity"
                 ]
               }
+            },
+            "remove": {
+              "type": "array",
+              "maxItems": 64,
+              "description": "Equipment to remove; each slot is freed as the game frees one, and a worn item also leaves its equipment sets.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "slot_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2499
+                  }
+                },
+                "required": [
+                  "slot_index"
+                ]
+              }
             }
           },
           "required": [

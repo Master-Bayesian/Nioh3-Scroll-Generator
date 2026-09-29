@@ -4035,6 +4035,30 @@
     "低／中／高指敌人生成池，不代表难度。必含敌人违反这些规则时会直接提示，不必等搜索跑完；符合规则也只代表“有可能”，是否真有这样的绘卷仍以搜索结果为准。任选组和常世同行追加的敌人不参与这项检查。": [
       "Low/middle/high name the enemy generation pools, not difficulty. Required enemies that break these rules are flagged at once, without waiting for a search; passing only means the combination is possible, and the search still decides whether such a scroll exists. Either-group enemies and co-op additions are not checked.",
       "低／中／高は敵の生成枠で、難易度ではありません。必須の敵がこの規則に反する場合はすぐに表示され、検索を待つ必要はありません。規則を満たしても「可能性がある」だけで、実際にその絵巻があるかは検索結果で確認してください。任意グループと常世同行で追加される敵はこの確認の対象外です。"
+    ],
+    "移除 ": [
+      "Remove ",
+      "削除 "
+    ],
+    "，并从装备栏卸下": [
+      ", and unequip it",
+      "（装備から外します）"
+    ],
+    "这件装备正在装备中，要移除请先在游戏里卸下；卸不下来的话，可以切换到“修改存档文件”移除。": [
+      "This item is equipped; unequip it in game before removing it. If it cannot be unequipped, remove it with “Edit save file”.",
+      "この装備は装備中です。削除する前にゲーム内で外してください。外せない場合は「セーブファイルを編集」で削除できます。"
+    ],
+    "确定要从存档里移除「": [
+      "Remove “",
+      "セーブから「"
+    ],
+    "它正在装备中，移除时会一并从装备栏卸下。": [
+      "It is equipped; removing it also unequips it.",
+      "装備中のため、削除すると装備からも外れます。"
+    ],
+    "点“确认移除”后会先生成修改计划，核对后点“写入存档”才会真正写入；写入前会自动备份原存档。游戏必须关闭。": [
+      "“Confirm removal” first prepares a change plan; nothing is written until you check it and click “Write save”. The original save is backed up first. The game must be closed.",
+      "「削除を確定」を押すと、まず変更計画を作成します。内容を確認して「セーブに書き込む」を押すまで書き込まれません。書き込み前に元のセーブを自動でバックアップします。ゲームは終了しておく必要があります。"
     ]
   },
   "game": {

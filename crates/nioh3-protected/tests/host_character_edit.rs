@@ -315,6 +315,56 @@ fn character_edits_commit_through_the_save_transaction() {
     let backups = job(&mut exchange, "save.backups", json!({"save_id": save_id}));
     assert_eq!(backups["state"], "completed", "{backups}");
 
+    // A save-file removal also takes a worn item out of its sets: the forged
+    // record is worn (set word +0xEC = 3), which the live path refuses.
+    assert!(fields.worn);
+    let character = job(&mut exchange, "save.character", json!({"save_id": save_id}));
+    let source = character["result"]["source_sha256"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let both = job(
+        &mut exchange,
+        "save.prepare_character_edit",
+        json!({"save_id": save_id, "source_sha256": source,
+               "equipment": [{"slot_index": SLOT, "patch": {"plus": 5}}],
+               "remove": [{"slot_index": SLOT}]}),
+    );
+    assert_eq!(both["state"], "failed", "{both}");
+    let removal = job(
+        &mut exchange,
+        "save.prepare_character_edit",
+        json!({"save_id": save_id, "source_sha256": source, "remove": [{"slot_index": SLOT}]}),
+    );
+    assert_eq!(removal["state"], "completed", "{removal}");
+    let removed = removal["result"]["preview"]["removed"].as_array().unwrap();
+    assert_eq!(removed.len(), 1);
+    assert_eq!(removed[0]["before"]["item_id"], 0x8D5B);
+    assert_eq!(removal["result"]["preview"]["modded"], false);
+    let edited = std::fs::read(&save_path).unwrap();
+    let receipt = job(
+        &mut exchange,
+        "save.commit",
+        json!({"plan_id": removal["result"]["plan_id"].as_str().unwrap()}),
+    );
+    assert_eq!(receipt["result"]["commit_status"], "committed", "{receipt}");
+    let before = decrypt_container(&edited).unwrap();
+    let after = decrypt_container(&std::fs::read(&save_path).unwrap()).unwrap();
+    let freed = &after[slot..slot + EQUIPMENT_RECORD_BYTES];
+    assert!(nioh3_save::character::equipment_slot_is_empty(freed));
+    assert!(!nioh3_save::character::equipment_is_worn(freed));
+    let unexpected: Vec<usize> = (0..before.len())
+        .filter(|index| before[*index] != after[*index])
+        .filter(|offset| {
+            !((slot..slot + EQUIPMENT_RECORD_BYTES).contains(offset)
+                || (checksum..checksum + 4).contains(offset))
+        })
+        .collect();
+    assert!(
+        unexpected.is_empty(),
+        "removal changed {unexpected:x?}"
+    );
+
     let shutdown = exchange("shutdown", json!({}));
     assert_eq!(shutdown["result"]["safe_to_shutdown"], true, "{shutdown}");
     drop(sender);

@@ -908,7 +908,11 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       const refreshed = await window.operations.execute({ method: "runtime.character_snapshot", params: {} });
       if (refreshed && "source" in refreshed && refreshed.source === "runtime") adopt({ ...refreshed, mode: "live" });
     } else {
-      const result = await saveSession!.prepareCharacterEdit(edit);
+      const { remove, ...rest } = edit;
+      const result = await saveSession!.prepareCharacterEdit({
+        ...rest,
+        ...(remove?.length ? { remove: remove.map(slot_index => ({ slot_index })) } : {}),
+      });
       if (!("plan_id" in result)) throw new Error("UNEXPECTED_CHARACTER_PLAN");
       setPlan({ plan_id: result.plan_id, preview: result.preview as Record<string, unknown> });
       setMessage("已生成修改计划。核对右侧内容后点击“写入存档”。游戏必须关闭。");
@@ -936,14 +940,17 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     });
   }
 
-  /** Remove the selected unworn equipment from the running game, after the dialog confirms it. */
+  /**
+   * Remove the selected equipment after the dialog confirms it: live for an
+   * unworn item, or as a save plan, where a worn item also leaves its sets.
+   */
   function removeEquipment() {
     removeDialog.current?.close();
     setRemoveNote("");
     return run(async () => {
-      if (!row || character?.mode !== "live") return;
+      if (!row || !character) return;
       try {
-        if (row.worn) throw new Error("这件装备正在装备中，请先在游戏里卸下。");
+        if (character.mode === "live" && row.worn) throw new Error("这件装备正在装备中，请先在游戏里卸下。");
         await submit({ remove: [row.slot_index] });
       } catch (error) {
         setRemoveNote(publicError(stripErrorPrefix(String(error instanceof Error ? error.message : error))));
@@ -987,7 +994,11 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     const currencies = (preview.currencies ?? []) as { currency: string; before: number; after: number }[];
     const equipment = (preview.equipment ?? []) as { slot_index: number; before: CharacterEquipment; after: CharacterEquipment }[];
     const items = (preview.items ?? []) as { container: Container; item_id: number; before: number; after: number }[];
+    const removed = (preview.removed ?? []) as { slot_index: number; before: CharacterEquipment }[];
     const lines: string[] = [];
+    for (const change of removed)
+      lines.push("移除 " + itemText(change.before.item_id) + "（Lv." + change.before.level + "）" +
+        (change.before.worn ? "，并从装备栏卸下" : ""));
     for (const change of currencies)
       lines.push((CURRENCY_LABEL[change.currency] ?? change.currency) + "：" + change.before + " → " + change.after);
     for (const change of items)
@@ -1254,12 +1265,13 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         <button onClick={maximize} disabled={busy || !values.some(Boolean)}>全部取理论最高</button>
         <button className="primary" onClick={applyEquipment} disabled={busy}>{modded ? "写入魔改" : "写入"}</button>
         {dirty ? <button onClick={() => setDraft(draftOf(row))} disabled={busy}>还原</button> : null}
-        {character?.mode === "live" && (
-          <button className="danger" onClick={() => { setRemoveNote(""); removeDialog.current?.showModal(); }} disabled={busy || !!row.worn}
-            title={row.worn ? "这件装备正在装备中，请先在游戏里卸下" : undefined}>移除</button>
-        )}
+        <button className="danger" onClick={() => { setRemoveNote(""); removeDialog.current?.showModal(); }}
+          disabled={busy || (character?.mode === "live" && !!row.worn)}
+          title={character?.mode === "live" && row.worn ? "这件装备正在装备中，请先在游戏里卸下" : undefined}>移除</button>
       </div>
-      {character?.mode === "live" && row.worn && <p className="equipment-notes">这件装备正在装备中，要移除请先在游戏里卸下。</p>}
+      {character?.mode === "live" && row.worn && (
+        <p className="equipment-notes">这件装备正在装备中，要移除请先在游戏里卸下；卸不下来的话，可以切换到“修改存档文件”移除。</p>
+      )}
       {removeNote && <p className="character-remove-note">{removeNote}</p>}
       <dialog ref={removeDialog} className="remove-dialog">
         <header>
@@ -1267,9 +1279,19 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           <button aria-label="关闭" onClick={() => removeDialog.current?.close()}>×</button>
         </header>
         <div className="modal-body">
-          <p>确定要从游戏里移除「{itemText(row.item_id)}」（Lv.{row.level}）吗？</p>
-          <p>移除后它会立即从游戏的装备栏里消失，无法恢复。到神社存档后，这个改动才会写进存档文件。</p>
-          <p className="muted">正在装备中的物品不能移除。</p>
+          {character?.mode === "live" ? (
+            <>
+              <p>确定要从游戏里移除「{itemText(row.item_id)}」（Lv.{row.level}）吗？</p>
+              <p>移除后它会立即从游戏的装备栏里消失，无法恢复。到神社存档后，这个改动才会写进存档文件。</p>
+              <p className="muted">正在装备中的物品不能移除。</p>
+            </>
+          ) : (
+            <>
+              <p>确定要从存档里移除「{itemText(row.item_id)}」（Lv.{row.level}）吗？</p>
+              {row.worn && <p>它正在装备中，移除时会一并从装备栏卸下。</p>}
+              <p>点“确认移除”后会先生成修改计划，核对后点“写入存档”才会真正写入；写入前会自动备份原存档。游戏必须关闭。</p>
+            </>
+          )}
           <div className="character-actions">
             <button onClick={() => removeDialog.current?.close()}>取消</button>
             <button className="danger" onClick={removeEquipment}>确认移除</button>

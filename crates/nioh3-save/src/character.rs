@@ -157,16 +157,26 @@ const FREE_SLOT_KEPT_ENTRY_BYTES: [usize; 6] = [0x2, 0x3, 0xE, 0xF, 0x12, 0x13];
 /// The record as the game leaves a slot it frees: item id zero, every field
 /// cleared to the free-slot values, each effect entry emptied and both
 /// equipment-set words set to "not worn". A worn or already free record is
-/// refused.
+/// refused; the running game still shows a worn item in its equipment sets.
 pub fn free_equipment_slot(record: &[u8]) -> Result<Vec<u8>, SaveReadError> {
     equipment_fields(record)?;
-    if equipment_slot_is_empty(record) {
-        return Err(SaveReadError::RecordTypeZero);
-    }
     if equipment_is_worn(record) {
         return Err(SaveReadError::InvalidTransform {
             message: "an equipped item cannot be removed".to_string(),
         });
+    }
+    free_equipment_slot_unequipping(record)
+}
+
+/// [`free_equipment_slot`] for a save file, where a worn item may go too.
+///
+/// Worn state lives only in the record's two set words (no other part of the
+/// save names the item), so the freed slot simply leaves both sets. This is
+/// how a record CE turned into an unequippable book gets out of a set.
+pub fn free_equipment_slot_unequipping(record: &[u8]) -> Result<Vec<u8>, SaveReadError> {
+    equipment_fields(record)?;
+    if equipment_slot_is_empty(record) {
+        return Err(SaveReadError::RecordTypeZero);
     }
     let mut freed = vec![0u8; EQUIPMENT_RECORD_BYTES];
     freed[0x0F] = 0x40;
@@ -531,6 +541,12 @@ pub enum CharacterEdit {
         expected_original: Vec<u8>,
         replacement: Vec<u8>,
     },
+    /// Free one occupied equipment slot as the game frees one, taking a worn
+    /// item out of its sets; the free slot is built from the record found.
+    RemoveEquipment {
+        slot_index: usize,
+        expected_original: Vec<u8>,
+    },
     /// A count change of one item record; every other byte must stay.
     Item {
         container: ItemContainer,
@@ -544,7 +560,9 @@ impl CharacterEdit {
     fn describe(&self) -> String {
         match self {
             Self::Currency { currency, .. } => format!("currency {}", currency.label()),
-            Self::Equipment { slot_index, .. } => format!("equipment slot {slot_index}"),
+            Self::Equipment { slot_index, .. } | Self::RemoveEquipment { slot_index, .. } => {
+                format!("equipment slot {slot_index}")
+            }
             Self::Item {
                 container,
                 slot_index,
@@ -557,8 +575,9 @@ impl CharacterEdit {
 /// Apply `edits` to a copy of `plain`, each gated on its expected original.
 ///
 /// Every target may appear once. An equipment edit must replace an occupied
-/// record with a record that still names an item; creating into or clearing a
-/// slot is a separate operation.
+/// record with a record that still names an item; clearing a slot is
+/// [`CharacterEdit::RemoveEquipment`] and creating into one is a separate
+/// operation.
 pub fn apply_character_edits(
     plain: &[u8],
     edits: &[CharacterEdit],
@@ -628,6 +647,29 @@ pub fn apply_character_edits(
                 let offset = equipment_offset(*slot_index)
                     .ok_or(SaveReadError::SlotIndex { index: *slot_index })?;
                 edited[offset..offset + EQUIPMENT_RECORD_BYTES].copy_from_slice(replacement);
+                slots.push(*slot_index);
+            }
+            CharacterEdit::RemoveEquipment {
+                slot_index,
+                expected_original,
+            } => {
+                let current = equipment_record(plain, *slot_index)?;
+                if equipment_slot_is_empty(current) {
+                    return Err(SaveReadError::EmptyRecord {
+                        slot_index: *slot_index,
+                    });
+                }
+                if current != expected_original.as_slice() {
+                    return Err(SaveReadError::IntegrityMismatch {
+                        path: target,
+                        expected: crate::save::sha256_hex(expected_original),
+                        actual: crate::save::sha256_hex(current),
+                    });
+                }
+                let freed = free_equipment_slot_unequipping(current)?;
+                let offset = equipment_offset(*slot_index)
+                    .ok_or(SaveReadError::SlotIndex { index: *slot_index })?;
+                edited[offset..offset + EQUIPMENT_RECORD_BYTES].copy_from_slice(&freed);
                 slots.push(*slot_index);
             }
             CharacterEdit::Item {
@@ -1018,6 +1060,36 @@ mod tests {
             replacement: cleared,
         };
         assert!(apply_character_edits(&plain, &[clearing]).is_err());
+
+        let removal = CharacterEdit::RemoveEquipment {
+            slot_index: 3,
+            expected_original: equipment_record(&plain, 3).unwrap().to_vec(),
+        };
+        let (removed, slots) = apply_character_edits(&plain, std::slice::from_ref(&removal)).unwrap();
+        assert!(equipment_slot_is_empty(equipment_record(&removed, 3).unwrap()));
+        assert_eq!(slots, vec![3]);
+        let stale = CharacterEdit::RemoveEquipment {
+            slot_index: 3,
+            expected_original: vec![0; EQUIPMENT_RECORD_BYTES],
+        };
+        assert!(apply_character_edits(&plain, &[stale]).is_err());
+        let free = CharacterEdit::RemoveEquipment {
+            slot_index: 4,
+            expected_original: equipment_record(&plain, 4).unwrap().to_vec(),
+        };
+        assert!(apply_character_edits(&plain, &[free]).is_err());
+        assert!(apply_character_edits(&plain, &[removal, edit_again(&plain)]).is_err());
+    }
+
+    fn edit_again(plain: &[u8]) -> CharacterEdit {
+        let original = equipment_record(plain, 3).unwrap().to_vec();
+        let mut replacement = original.clone();
+        replacement[0x0A] = 7;
+        CharacterEdit::Equipment {
+            slot_index: 3,
+            expected_original: original,
+            replacement,
+        }
     }
 }
 
@@ -1074,5 +1146,15 @@ mod free_slot_tests {
             assert!(equipment_fields(&worn).unwrap().worn);
             assert!(free_equipment_slot(&worn).is_err());
         }
+    }
+
+    #[test]
+    fn a_save_removal_takes_a_worn_record_out_of_its_sets() {
+        let free = live_free_slot();
+        let mut worn = occupied_from(&free);
+        worn[0xE8..0xEC].copy_from_slice(&4u32.to_le_bytes());
+        assert_eq!(free_equipment_slot_unequipping(&worn).unwrap(), free);
+        assert!(!equipment_is_worn(&free_equipment_slot_unequipping(&worn).unwrap()));
+        assert!(free_equipment_slot_unequipping(&free).is_err());
     }
 }
