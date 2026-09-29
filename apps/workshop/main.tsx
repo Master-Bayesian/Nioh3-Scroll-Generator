@@ -26,6 +26,7 @@ import {
   matches,
   queryProblem,
   enemyCanBePossessed,
+  enemyCombinationProblem,
   ANY_RULE_VALUE,
   ruleFamilyKeys,
   ruleFamilyValues,
@@ -1353,6 +1354,14 @@ function App() {
                     </div>
                   )}
                 </ConditionGroups>
+                {enemyCombinationProblem(q) && (
+                  <p className="enemy-combination-problem" role="alert">
+                    这组必含敌人不可能同时出现：{enemyCombinationProblem(q)}
+                    <button className="subtle" onClick={() => open("敌人组合")}>
+                      组合说明
+                    </button>
+                  </p>
+                )}
                 <ConditionGroups kind="rules" items={q.rules}>
                   {(r) => (
                     <div
@@ -2698,6 +2707,27 @@ function App() {
             <h3>多个条件怎样计算？</h3>
             <p>
               每个必含条件和每个任选组都要分别满足；绘卷中可以同时出现没有选择的其他敌人。
+            </p>
+            <h3>游戏里有哪些敌人组合？</h3>
+            <p>每张绘卷的敌人只会是下面三种结构之一：</p>
+            <table className="enemy-structure-table">
+              <thead>
+                <tr><th>结构</th><th>约占</th><th>敌人构成</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>中高手</td><td>40%</td><td>只有中手和高手，共 2～3 个，其中至少 1 个高手</td></tr>
+                <tr><td>低手 + 高手</td><td>40%</td><td>若干低手，外加最多 1 个高手，没有中手</td></tr>
+                <tr><td>纯低手</td><td>20%</td><td>只有低手</td></tr>
+              </tbody>
+            </table>
+            <p>所以：</p>
+            <ul>
+              <li>低手和中手不会出现在同一张绘卷里；</li>
+              <li>有低手的绘卷最多只有 1 个高手；</li>
+              <li>中手和高手合计最多 3 个（例如三个高手可以，四个不行），中手最多 2 个。</li>
+            </ul>
+            <p className="muted">
+              低／中／高指敌人生成池，不代表难度。必含敌人违反这些规则时会直接提示，不必等搜索跑完；符合规则也只代表“有可能”，是否真有这样的绘卷仍以搜索结果为准。任选组和常世同行追加的敌人不参与这项检查。
             </p>
           </div>
         ) : (

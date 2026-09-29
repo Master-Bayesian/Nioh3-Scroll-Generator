@@ -332,6 +332,27 @@ export function matches(sample: Sample, q: Query): boolean {
       return false;
   return true;
 }
+/**
+ * Structural check of the must-have enemies against the game's three enemy
+ * layouts (see the enemy-generation research note): middle and high pools
+ * only, 2–3 enemies with at least one high; low enemies plus at most one high;
+ * or low enemies only. Either-group enemies and co-op additions are not
+ * checked, and passing is not a promise that a matching seed exists.
+ */
+export function enemyCombinationProblem(q: Query): string {
+  if (q.enemyVariant !== "solo") return "";
+  const tiers = q.enemies
+    .filter((enemy) => !enemy.mode)
+    .map((enemy) => data.enemies.find((candidate) => candidate.id === enemy.id)?.tier ?? "");
+  const low = tiers.filter((tier) => tier === "低手").length;
+  const middle = tiers.filter((tier) => tier === "中手").length;
+  const high = tiers.filter((tier) => tier === "高手" || tier === "中／高手").length;
+  if (low && middle) return "低手和中手不会出现在同一张绘卷里。";
+  if (low && high > 1) return "有低手的绘卷最多只有 1 个高手。";
+  if (!low && middle + high > 3) return "中手和高手合计最多 3 个。";
+  if (!low && middle > 2) return "中手最多 2 个：这类绘卷里至少有 1 个高手。";
+  return "";
+}
 export function queryProblem(q: Query, realBackend = false): string {
   if (!Number.isInteger(q.count) || q.count < 1 || q.count > 25)
     return "候选数量应为 1–25。";
@@ -352,6 +373,8 @@ export function queryProblem(q: Query, realBackend = false): string {
     return "最多保留 24 个词条选项，任一组按一项逻辑要求计算。";
   if (q.enemies.some((enemy) => enemy.state === "curse"))
     return "一难状态会在每次进入时变化，无法按绘卷 ID 精确筛选。";
+  const enemyProblem = enemyCombinationProblem(q);
+  if (enemyProblem) return "这组必含敌人不可能同时出现：" + enemyProblem;
   if (
     q.enemies.some(
       (enemy) => enemy.state === "possessed" && !enemyCanBePossessed(enemy),

@@ -3951,6 +3951,90 @@
     "点击排序：从高到低 → 从低到高 → 游戏顺序": [
       "Click to sort: high to low → low to high → game order",
       "クリックで並べ替え：高い順 → 低い順 → ゲーム内の順"
+    ],
+    "这组必含敌人不可能同时出现：": [
+      "These required enemies can never appear together: ",
+      "この必須敵の組み合わせは同時に出現しません："
+    ],
+    "低手和中手不会出现在同一张绘卷里。": [
+      "Low-pool and middle-pool enemies never share a scroll.",
+      "低位と中位の敵が同じ絵巻に出ることはありません。"
+    ],
+    "有低手的绘卷最多只有 1 个高手。": [
+      "A scroll with low-pool enemies has at most one high-pool enemy.",
+      "低位の敵がいる絵巻では、高位の敵は最大 1 体です。"
+    ],
+    "中手和高手合计最多 3 个。": [
+      "At most three middle- and high-pool enemies in total.",
+      "中位と高位の敵は合計 3 体までです。"
+    ],
+    "中手最多 2 个：这类绘卷里至少有 1 个高手。": [
+      "At most two middle-pool enemies: such scrolls always have a high-pool enemy.",
+      "中位の敵は最大 2 体です（この種の絵巻には必ず高位の敵がいます）。"
+    ],
+    "游戏里有哪些敌人组合？": [
+      "Which enemy combinations exist in the game?",
+      "ゲームにはどんな敵の組み合わせがありますか？"
+    ],
+    "每张绘卷的敌人只会是下面三种结构之一：": [
+      "Every scroll's enemies follow one of these three layouts:",
+      "絵巻の敵は必ず次の 3 つの構成のいずれかです："
+    ],
+    "结构": [
+      "Layout",
+      "構成"
+    ],
+    "约占": [
+      "Share",
+      "割合"
+    ],
+    "敌人构成": [
+      "Enemies",
+      "敵の内訳"
+    ],
+    "中高手": [
+      "Middle + high",
+      "中位＋高位"
+    ],
+    "只有中手和高手，共 2～3 个，其中至少 1 个高手": [
+      "Only middle and high pool, 2–3 in total, at least one high",
+      "中位と高位のみ、合計 2～3 体、うち高位が 1 体以上"
+    ],
+    "低手 + 高手": [
+      "Low + high",
+      "低位＋高位"
+    ],
+    "若干低手，外加最多 1 个高手，没有中手": [
+      "Several low-pool enemies plus at most one high, never middle",
+      "低位が数体、高位は最大 1 体、中位なし"
+    ],
+    "纯低手": [
+      "Low only",
+      "低位のみ"
+    ],
+    "只有低手": [
+      "Only low-pool enemies",
+      "低位の敵のみ"
+    ],
+    "所以：": [
+      "So:",
+      "そのため："
+    ],
+    "低手和中手不会出现在同一张绘卷里；": [
+      "low and middle pool never share a scroll;",
+      "低位と中位が同じ絵巻に出ることはありません；"
+    ],
+    "有低手的绘卷最多只有 1 个高手；": [
+      "a scroll with low-pool enemies has at most one high;",
+      "低位がいる絵巻では高位は最大 1 体；"
+    ],
+    "中手和高手合计最多 3 个（例如三个高手可以，四个不行），中手最多 2 个。": [
+      "middle and high total at most three (three highs are possible, four are not), and at most two middle.",
+      "中位と高位は合計 3 体まで（高位 3 体は可、4 体は不可）、中位は最大 2 体です。"
+    ],
+    "低／中／高指敌人生成池，不代表难度。必含敌人违反这些规则时会直接提示，不必等搜索跑完；符合规则也只代表“有可能”，是否真有这样的绘卷仍以搜索结果为准。任选组和常世同行追加的敌人不参与这项检查。": [
+      "Low/middle/high name the enemy generation pools, not difficulty. Required enemies that break these rules are flagged at once, without waiting for a search; passing only means the combination is possible, and the search still decides whether such a scroll exists. Either-group enemies and co-op additions are not checked.",
+      "低／中／高は敵の生成枠で、難易度ではありません。必須の敵がこの規則に反する場合はすぐに表示され、検索を待つ必要はありません。規則を満たしても「可能性がある」だけで、実際にその絵巻があるかは検索結果で確認してください。任意グループと常世同行で追加される敵はこの確認の対象外です。"
     ]
   },
   "game": {
