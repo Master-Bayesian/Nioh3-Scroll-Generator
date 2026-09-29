@@ -95,19 +95,36 @@ more effect. It can happen at any completion, not only the last one.
 - Content: `0x110ED60(out, record, 5, 0, no exclusions)` on the record after
   this completion's replacement decision (counter already advanced), with no
   category draw and `(5 + counter) & 0x1F` warm-up draws (the replacement path
-  has one more). Selector `0x3B` and `0x3D` both reproduced the live sample.
-  The new effect is then sorted in front of the grace.
+  has one more), and selector `0x3D`. The new effect is then sorted in front
+  of the grace.
 - Evidence: seed 121723131 had `+0x32` = 1 before the accepted first round
   (draw 5659 against 4500: no extra painting, `+0x32` became 2) and 2 before
   the declined second round (draw 3388 against 5999: extra painting, `+0x32`
   stayed 2). The added effect, 道具掉落率 `0xB393` value 66 roll 90, matches
   the content model byte for byte.
 
+- Predicted before play, owner's NG3 R4 scroll seed 47878870 (save slot 46):
+  the roll draws 416 against 2999, so its first ordinary completion must add
+  an effect. Declining, the model gave 近距离攻击伤害 `0xDB20` value 57 roll 93
+  with selector `0x3D` and 近距离攻击打倒敌人时恢复体力 `0xA0A7` with `0x3B`; the
+  game added 近距离攻击伤害, which settles the selector. (Byte-level check of
+  value and roll pending the next save.)
+
+## Reveal (揭秘) completions
+
+The first challenge of that never-challenged scroll was a reveal, not an
+ordinary completion: `+0x0C` and `+0x32` stayed 0 (no extra-painting roll),
+`+0x33` went 7 -> 6, `+0x18` gained bits `0x09000000` (`0x06800084` ->
+`0x0F800084`), and entry 3 (防御时的属性攻击伤害降低) became 精髓并存（武士）
+`0x512D` roll 88 -- exactly the modelled replacement candidate for entry 3 at
+counter 0 with the earlier eligible slots as exclusions. A reveal therefore
+uses the same generator but no choice, no counter advance and no extra
+painting. Which records reveal, and which entry, is not yet traced (the
+`+0x18` bits are the lead).
+
 ## Open
 
-- An in-game check of an extra-painting prediction made before the
-  challenge (pending with the owner on seed 47878870).
-- Which of selectors `0x3B`/`0x3D` extra painting uses, where they differ.
+- The reveal trigger and its slot choice (see above).
 - Selector and type class for other record types and rarities (both samples
   are NG3 `0xE604`, rarity 4).
 - Research note: debugger watches on the live game crashed it once
