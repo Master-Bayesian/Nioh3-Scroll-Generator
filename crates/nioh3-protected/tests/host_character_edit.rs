@@ -360,10 +360,7 @@ fn character_edits_commit_through_the_save_transaction() {
                 || (checksum..checksum + 4).contains(offset))
         })
         .collect();
-    assert!(
-        unexpected.is_empty(),
-        "removal changed {unexpected:x?}"
-    );
+    assert!(unexpected.is_empty(), "removal changed {unexpected:x?}");
 
     let shutdown = exchange("shutdown", json!({}));
     assert_eq!(shutdown["result"]["safe_to_shutdown"], true, "{shutdown}");

@@ -47,10 +47,9 @@ use nioh3_domain::sequence::materialize_ng3_rarity4_stage_one_record;
 use nioh3_save::backup::{list_backup_entries, move_backup_to_recycle_bin};
 use nioh3_save::character::{
     equipment_fields, equipment_record, equipment_slot_is_empty, free_equipment_slot_unequipping,
-    item_quantity,
-    item_quantity_limit, item_record, item_region, patch_equipment, patch_item_quantity,
-    read_currency, CharacterEdit, Currency, EquipmentFields, EquipmentPatch, ItemContainer,
-    EQUIPMENT_SLOT_COUNT, ITEM_RECORD_BYTES,
+    item_quantity, item_quantity_limit, item_record, item_region, patch_equipment,
+    patch_item_quantity, read_currency, CharacterEdit, Currency, EquipmentFields, EquipmentPatch,
+    ItemContainer, EQUIPMENT_SLOT_COUNT, ITEM_RECORD_BYTES,
 };
 use nioh3_save::codec::prepare_candidate_for_install;
 use nioh3_save::error::SaveReadError;
