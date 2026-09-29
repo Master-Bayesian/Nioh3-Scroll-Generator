@@ -20,7 +20,7 @@ test('resolved buff and ailment arguments read like the game, unresolved ones st
   assert.equal(fillTemplateSlots(withTemplateArgument(ailment, '毒'), '增益效果', '异常状态'), '使敌人陷入毒状态时增加灵力');
   assert.equal(withoutTemplateArguments(withTemplateArgument(ailment, '毒')), ailment);
   const names = Object.values(effectArguments.names);
-  assert.equal(names.length, 795);
+  assert.equal(names.length, 819);
   for (const name of names) assert.doesNotMatch(name, /[{}~^]/);
 });
 
