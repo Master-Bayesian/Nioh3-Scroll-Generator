@@ -1273,6 +1273,10 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       hell_skill: 0,
       effects: [],
     };
+    // The previous item's rules must not lay out this one: its innate effect
+    // would be kept in a slot that is random here.
+    setRules(null);
+    setValues([]);
     setNewItem(item);
     setDraft(draftOf(item));
   };
