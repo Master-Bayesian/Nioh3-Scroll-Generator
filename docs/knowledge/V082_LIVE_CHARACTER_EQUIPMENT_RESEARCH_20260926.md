@@ -493,3 +493,13 @@ advance them; a save-file removal needs nothing beyond the free slot.
   it (吸收精华后赋予昂灵, 使敌人陷入毒状态时增加灵力). English and Japanese keep the
   generic wording until their pools are captured the same way. Helper scripts:
   `tmp/claude-ce/resolve_buff_text.py`, `make_effect_arguments.py`.
+- Bare `{}` templates (`{}计量槽增加量`, `{}造成的伤害`, `{}的持有上限`,
+  `武技成功时恢复精力（{}）`, `武技的持续时间（{}）`; 207 effects) name a
+  ninjutsu, onmyo magic or martial skill instead: the group row's `+0x14` is a
+  subject key, and a parameter row `0, 0x100, 0x100, 0, key, 1, 0, name text,
+  ?, 0, description text` carries its name. 175 resolved (怪风 for `0x23AF`,
+  checked against the owner's 凶王耳饰); 32 groups carry no subject
+  (奥义两立（{}）, 不消耗{}, five `{}造成的伤害`) and keep the generic
+  （特定对象）. Merged into `effect-arguments.json`; helper
+  `tmp/claude-ce/resolve_bare_subjects.py`. In-game checks so far: 0xF437
+  幸运增加 (按司盾矛), 0x27F9 水 (凶王耳饰), 0x23AF 怪风 (凶王耳饰).

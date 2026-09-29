@@ -20,6 +20,17 @@ test('resolved buff and ailment arguments read like the game, unresolved ones st
   assert.equal(fillTemplateSlots(withTemplateArgument(ailment, '毒'), '增益效果', '异常状态'), '使敌人陷入毒状态时增加灵力');
   assert.equal(withoutTemplateArguments(withTemplateArgument(ailment, '毒')), ailment);
   const names = Object.values(effectArguments.names);
-  assert.equal(names.length, 620);
+  assert.equal(names.length, 795);
   for (const name of names) assert.doesNotMatch(name, /[{}~^]/);
+});
+
+test('a resolved bare slot names its ninjutsu or skill, an unresolved one stays for the caller', () => {
+  const gauge = '{}计量槽增加量';
+  assert.equal(fillTemplateSlots(withTemplateArgument(gauge, '怪风'), '增益效果', '异常状态'), '怪风计量槽增加量');
+  assert.equal(fillTemplateSlots(gauge, '增益效果', '异常状态'), gauge);
+  assert.equal(withoutTemplateArguments(withTemplateArgument(gauge, '怪风')), gauge);
+  // Failure text that happens to use braces is never read as a slot.
+  const failure = '{"code":"OPERATION_FAILED","message":"x"}';
+  assert.equal(fillTemplateSlots(failure, '增益效果', '异常状态'), failure);
+  assert.equal(effectArguments.names['9135'], '怪风');
 });

@@ -33,5 +33,6 @@ console.log('16 query semantic checks passed');
   const named=(id:string)=>data.editorEffects.find(effect=>effect.id===id)!.name;
   assert.equal(named('2143'),'吸收精华后赋予^09~BUFF~{昂灵}^09~~');
   assert.ok(data.editorEffects.filter(effect=>/~(?:DE)?BUFF~\{\}/.test(effect.name)).length===0,'every templated editor effect is resolved');
+  assert.equal(named('9135'),'{怪风}计量槽增加量');
   console.log('effect template arguments resolved');
 }
