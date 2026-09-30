@@ -45,6 +45,15 @@ and safety bounds are accepted. Until then it stays unavailable to players.
 
 ### In progress: equipment legality generation and inventory audit
 
+The complete September 30 v0.8.3 candidate additionally implements these
+owner-requested entries; earlier seed-only test7 artifacts do not contain them.
+
+| ID | Behavior | Status | Boundary | Evidence |
+| --- | --- | --- | --- | --- |
+| `LIVE-EQUIPMENT-ADD` | Equipment & items -> Add new equipment -> Live editing: native seeded preview, reviewed confirmation and one insertion, with durable status/cancel/recovery. | Candidate implemented; unpublished | PC 2.0.2.0 item-grant route; exact executable/owner/code checks, separate equipment container and both counters. No scroll-index proof or new in-game persistence acceptance is claimed. Existing save addition remains available. | `crates/nioh3-runtime/src/mutation/equipment_add.rs`; `apps/workshop/LiveEquipmentAdd.tsx`; `docs/knowledge/V083_MISSING_FEATURE_INTEGRATION_20260930.md` |
+| `SCROLL-COMPLETION-PREDICTION` | Scroll editor -> Reroll & extra-painting prediction: ordinary-completion replacement choices, decline and branch simulation up to five rounds. | Candidate implemented; unpublished | PC 2.0.2.0, NG3 0xE604 R4 only; unsupported semantics reject. Revelation trigger/automatic slot and replacement-combination search remain unknown/outside this panel. Read-only simulated records cannot be installed. | `crates/nioh3-domain/src/scroll_completion.rs`; `crates/nioh3-protected/tests/host_scroll_completion.rs`; `apps/workshop/ScrollCompletion.tsx` |
+| `SCROLL-EXTRA-PAINTING-PREDICTION` | The same panel shows the painting trigger and effect after the selected completion decision. | Candidate implemented; unpublished | Retained native projections and binary32 thresholds; supported ordinary-completion scope only. Game confirmation of this new UI remains separate from historical native evidence. | `docs/knowledge/V083_SCROLL_COMPLETION_REPLACEMENT_RESEARCH_20260928.md`; `docs/knowledge/V083_MISSING_FEATURE_INTEGRATION_20260930.md` |
+
 Owner-requested scope recorded 2026-09-21. Browsing and editing owned
 equipment/soul-core records remain one feature: the read-only page above is
 the in-development read stage, while `EQUIPMENT-EDIT` retains shipped v0.8.2 editing and adds an unpublished

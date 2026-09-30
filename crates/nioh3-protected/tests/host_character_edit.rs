@@ -177,16 +177,8 @@ fn fixture_save(root: &Path) -> PathBuf {
     save_path
 }
 
-
-fn host_character_audit(
-    exchange: &mut impl FnMut(&str, Value) -> Value,
-    save_id: &str,
-) -> Value {
-    let character = job(
-        exchange,
-        "save.character",
-        json!({"save_id": save_id}),
-    );
+fn host_character_audit(exchange: &mut impl FnMut(&str, Value) -> Value, save_id: &str) -> Value {
+    let character = job(exchange, "save.character", json!({"save_id": save_id}));
     assert_eq!(character["state"], "completed", "{character}");
     character["result"]["equipment"]
         .as_array()
@@ -213,11 +205,17 @@ fn job(exchange: &mut impl FnMut(&str, Value) -> Value, method: &str, params: Va
     let started = exchange(method, params);
     assert_eq!(started["ok"], true, "{method}: {started}");
     let job_id = started["result"]["job_id"].as_str().unwrap().to_string();
+    let deadline = Instant::now() + Duration::from_secs(180);
     loop {
         let snapshot = exchange("job.snapshot", json!({"job_id": job_id}));
         if snapshot["result"]["state"] != "running" {
             return snapshot["result"].clone();
         }
+        assert!(
+            Instant::now() < deadline,
+            "character-edit job exceeded its bounded deadline"
+        );
+        thread::sleep(Duration::from_millis(100));
     }
 }
 
@@ -551,7 +549,6 @@ fn character_edits_commit_through_the_save_transaction() {
     std::fs::remove_dir_all(&root).ok();
 }
 
-
 #[test]
 fn seeded_replay_audit_preserves_natural_and_replaced_group_key_verdicts() {
     let root = build_root()
@@ -573,8 +570,8 @@ fn seeded_replay_audit_preserves_natural_and_replaced_group_key_verdicts() {
         type_class: 3,
         progress: [6510, 7710, 0, 7710],
     };
-    let generated = nioh3_protected::equipment_seeds::generated_record(&data, &request, state)
-        .unwrap();
+    let generated =
+        nioh3_protected::equipment_seeds::generated_record(&data, &request, state).unwrap();
     let natural_record = nioh3_save::character::build_generated_equipment_record(
         &vec![0; EQUIPMENT_RECORD_BYTES],
         &generated,
@@ -589,8 +586,11 @@ fn seeded_replay_audit_preserves_natural_and_replaced_group_key_verdicts() {
                 != u32::MAX
         })
         .expect("the seeded record has an occupied effect");
-    let original_group =
-        u16::from_le_bytes(natural_record[group_offset..group_offset + 2].try_into().unwrap());
+    let original_group = u16::from_le_bytes(
+        natural_record[group_offset..group_offset + 2]
+            .try_into()
+            .unwrap(),
+    );
     let mutated_group = original_group ^ 1;
     assert_ne!(original_group, mutated_group);
     let mut mutated_record = natural_record.clone();
@@ -605,8 +605,7 @@ fn seeded_replay_audit_preserves_natural_and_replaced_group_key_verdicts() {
     let encrypted = std::fs::read(&save_path).unwrap();
     let mut plain = decrypt_container(&encrypted).unwrap();
     let record_offset = equipment_offset(SLOT).unwrap();
-    plain[record_offset..record_offset + EQUIPMENT_RECORD_BYTES]
-        .copy_from_slice(&natural_record);
+    plain[record_offset..record_offset + EQUIPMENT_RECORD_BYTES].copy_from_slice(&natural_record);
     nioh3_save::patch_user_checksum(&mut plain).unwrap();
     std::fs::write(&save_path, encrypt_container(&plain).unwrap()).unwrap();
 
@@ -646,7 +645,10 @@ fn seeded_replay_audit_preserves_natural_and_replaced_group_key_verdicts() {
     };
     assert_eq!(exchange("handshake", json!({}))["ok"], true);
     let registered = job(&mut exchange, "save.register", json!({"path": save_path}));
-    let save_id = registered["result"]["save_id"].as_str().unwrap().to_string();
+    let save_id = registered["result"]["save_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
 
     let natural_audit = host_character_audit(&mut exchange, &save_id);
 
@@ -674,7 +676,9 @@ fn seeded_replay_audit_preserves_natural_and_replaced_group_key_verdicts() {
     assert!(
         mutated_audit["findings"]
             .as_array()
-            .is_some_and(|findings| findings.iter().any(|finding| finding["code"] == "replaced_effect")),
+            .is_some_and(|findings| findings
+                .iter()
+                .any(|finding| finding["code"] == "replaced_effect")),
         "the structural group mismatch finding must remain visible: {mutated_audit}"
     );
     assert_ne!(mutated_audit["replayed"], true, "{mutated_audit}");

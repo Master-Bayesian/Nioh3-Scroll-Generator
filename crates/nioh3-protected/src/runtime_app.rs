@@ -79,6 +79,8 @@ pub struct RuntimeApplication {
     /// The game process lifetime `(pid, creation time)` `live_add` is bound to.
     #[cfg(windows)]
     live_add_process: Option<(u32, u64)>,
+    #[cfg(windows)]
+    equipment_add: Option<nioh3_runtime::mutation::equipment_add::EquipmentAddition>,
     /// The product tables the offline preview composition reads, loaded once.
     #[cfg(windows)]
     preview: Option<Box<nioh3_data::PreviewResources>>,
@@ -174,6 +176,8 @@ impl RuntimeApplication {
             live_add: None,
             #[cfg(windows)]
             live_add_process: None,
+            #[cfg(windows)]
+            equipment_add: None,
             #[cfg(windows)]
             preview: None,
             #[cfg(windows)]
@@ -1066,6 +1070,17 @@ mod imp {
                 None => self.host.status(),
             };
             let mut value = status.to_json();
+            if let Some(application) = self.equipment_add.as_mut() {
+                if !application.safe_to_shutdown() {
+                    value["safe_to_shutdown"] = Value::Bool(false);
+                    value["pending_remote_calls"] =
+                        json!(value["pending_remote_calls"].as_u64().unwrap_or(0) + 1);
+                    value["error"] = json!(format!(
+                        "Equipment native owner retained; recover operation {}",
+                        application.pending_preview().unwrap_or("the last addition")
+                    ));
+                }
+            }
             if retired_count > 0 {
                 let base_pending = value
                     .get("pending_remote_calls")
@@ -1305,6 +1320,75 @@ mod imp {
             self.live_add
                 .as_mut()
                 .ok_or_else(|| HostError::rejected("live-add application unavailable"))
+        }
+
+        fn equipment_application(
+            &mut self,
+            operation: Option<&str>,
+        ) -> Result<&mut nioh3_runtime::mutation::equipment_add::EquipmentAddition, HostError>
+        {
+            use nioh3_runtime::mutation::equipment_add::EquipmentAddition;
+            let pid = if let Some(id) = operation {
+                EquipmentAddition::operation_pid(&self.state_root, id)
+                    .map_err(HostError::from_runtime)?
+            } else {
+                Self::open_supported_reader()?.identity().pid
+            };
+            if self
+                .equipment_add
+                .as_ref()
+                .is_none_or(|app| app.pid() != pid)
+            {
+                if self
+                    .equipment_add
+                    .as_mut()
+                    .is_some_and(|app| !app.safe_to_shutdown())
+                {
+                    return Err(HostError::rejected(
+                        "Equipment native owner is still retained",
+                    ));
+                }
+                self.equipment_add = Some(
+                    EquipmentAddition::new(pid, &self.state_root)
+                        .map_err(HostError::from_runtime)?,
+                );
+            }
+            self.equipment_add
+                .as_mut()
+                .ok_or_else(|| HostError::rejected("Equipment addition unavailable"))
+        }
+
+        fn equipment_add_result(&self, mut state: Value) -> Result<Value, HostError> {
+            let raw = state
+                .get("preview_record_hex")
+                .and_then(Value::as_str)
+                .map(|hex| {
+                    hex.as_bytes()
+                        .chunks_exact(2)
+                        .map(|pair| {
+                            std::str::from_utf8(pair)
+                                .ok()
+                                .and_then(|v| u8::from_str_radix(v, 16).ok())
+                                .ok_or_else(HostError::invalid_request)
+                        })
+                        .collect::<Result<Vec<u8>, _>>()
+                })
+                .transpose()?;
+            state["preview"] = if let Some(record) = raw {
+                let fields = nioh3_save::character::equipment_fields(&record)
+                    .map_err(HostError::from_save)?;
+                crate::save_app::equipment_json(
+                    state["slot_index"].as_u64().unwrap_or(0) as usize,
+                    &fields,
+                    None,
+                )
+            } else {
+                Value::Null
+            };
+            if let Some(object) = state.as_object_mut() {
+                object.remove("preview_record_hex");
+            }
+            Ok(json!({"equipment_add":state}))
         }
 
         /// `{'live_add': snapshot}`.
@@ -1822,6 +1906,13 @@ mod imp {
             if method == "runtime.equipment_seeds" {
                 return crate::equipment_seeds::equipment_seeds_json(&self.data_root, params);
             }
+            if method == "runtime.scroll_completion_predict" {
+                return crate::scroll_completion::prediction_json(
+                    &self.data_root,
+                    &self.context,
+                    params,
+                );
+            }
             Err(HostError::rejected(format!(
                 "INVALID_REQUEST: {method} is not an inline protected method"
             )))
@@ -1873,6 +1964,65 @@ mod imp {
                 "count_recover" => {
                     let operation_id = param_str(&params, "operation_id")?;
                     self.count_recover(&operation_id)
+                }
+                "equipment_add_prepare" => {
+                    if !self.safe_to_shutdown()? {
+                        return Err(HostError::rejected(
+                            "Equipment addition requires an idle runtime host",
+                        ));
+                    }
+                    if !matches!(&self.context,nioh3_worker::EngineContext::Production(c) if c.game_file_version==nioh3_worker::GameFileVersion(2,0,2,0))
+                    {
+                        return Err(HostError::rejected(
+                            "Equipment addition requires PC 2.0.2.0",
+                        ));
+                    }
+                    let item_id = params
+                        .get("item_id")
+                        .and_then(Value::as_u64)
+                        .ok_or_else(HostError::invalid_request)?
+                        as u16;
+                    let rules = crate::equipment_rules::rules(&self.data_root)
+                        .ok_or_else(|| HostError::rejected("Equipment tables unavailable"))?;
+                    if rules.item(item_id).is_none() {
+                        return Err(HostError::rejected(
+                            "Select equipment from the current game's item table",
+                        ));
+                    }
+                    let id = param_str(&params, "operation_id")?;
+                    let result = self
+                        .equipment_application(None)?
+                        .prepare(&id, &params)
+                        .map_err(HostError::from_runtime)?;
+                    self.equipment_add_result(result)
+                }
+                "equipment_add_execute" => {
+                    if !self.safe_to_shutdown()? {
+                        return Err(HostError::rejected(
+                            "Equipment addition requires an idle runtime host",
+                        ));
+                    }
+                    let id = param_str(&params, "operation_id")?;
+                    let digest = param_str(&params, "plan_digest")?;
+                    let result = self
+                        .equipment_application(Some(&id))?
+                        .execute(&id, &digest)
+                        .map_err(HostError::from_runtime)?;
+                    self.equipment_add_result(result)
+                }
+                "equipment_add_status" | "equipment_add_recover" | "equipment_add_cancel" => {
+                    let id = param_str(&params, "operation_id")?;
+                    if let Some(state)=nioh3_runtime::mutation::equipment_add::EquipmentAddition::unregistered_status(&self.state_root,&id).map_err(HostError::from_runtime)? {
+                        return self.equipment_add_result(state);
+                    }
+                    let application = self.equipment_application(Some(&id))?;
+                    let result = match operation {
+                        "equipment_add_recover" => application.recover(&id),
+                        "equipment_add_cancel" => application.cancel(&id),
+                        _ => application.status(&id),
+                    }
+                    .map_err(HostError::from_runtime)?;
+                    self.equipment_add_result(result)
                 }
                 "live_add_prepare" => {
                     if !self.safe_to_shutdown()? {
@@ -2113,6 +2263,13 @@ mod imp {
             if method == "runtime.equipment_seeds" {
                 return crate::equipment_seeds::equipment_seeds_json(&self.data_root, params);
             }
+            if method == "runtime.scroll_completion_predict" {
+                return crate::scroll_completion::prediction_json(
+                    &self.data_root,
+                    &self.context,
+                    params,
+                );
+            }
             Err(HostError::rejected(format!(
                 "INVALID_REQUEST: {method} is not an inline protected method"
             )))
@@ -2134,12 +2291,32 @@ mod imp {
                         HostError::rejected("Native candidate expired; generate again")
                     })
                 }
-                "status" | "stop_override" | "start_override" | "generate" | "search"
-                | "capture_grace" | "live_add_prepare" | "live_add_execute" | "live_add_status"
-                | "live_add_recover" | "live_add_cancel" | "live_batch_prepare"
-                | "live_batch_execute" | "live_batch_cancel" | "live_batch_status"
-                | "count_prepare" | "count_execute" | "count_status" | "count_recover"
-                | "inventory_snapshot" | "character_edit" => Self::unsupported(),
+                "status"
+                | "stop_override"
+                | "start_override"
+                | "generate"
+                | "search"
+                | "capture_grace"
+                | "live_add_prepare"
+                | "live_add_execute"
+                | "live_add_status"
+                | "equipment_add_prepare"
+                | "equipment_add_execute"
+                | "equipment_add_status"
+                | "equipment_add_recover"
+                | "equipment_add_cancel"
+                | "live_add_recover"
+                | "live_add_cancel"
+                | "live_batch_prepare"
+                | "live_batch_execute"
+                | "live_batch_cancel"
+                | "live_batch_status"
+                | "count_prepare"
+                | "count_execute"
+                | "count_status"
+                | "count_recover"
+                | "inventory_snapshot"
+                | "character_edit" => Self::unsupported(),
                 other => Err(HostError::rejected(format!(
                     "OPERATION_REJECTED: runtime.{other} is not a method the protected \
                      runtime contract can express"

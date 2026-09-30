@@ -1,5 +1,42 @@
 # Experiment failure ledger
 
+## 2026-09-30: complete v0.8.3 candidate native integration repairs
+
+**Objective:** deliver one candidate containing live equipment addition and both
+ordinary scroll predictions, rather than another seed-only package.
+
+**Failed approaches and causes:** component-only bridge mocks initially hid the
+protected job lifecycle. Equipment result definitions were absent from the job
+result union, and the Tauri public-job allowlist omitted the five new methods.
+Native source acceptance exposed both; generated contracts, public snapshot
+access and the production operation observer were repaired. A stale debug
+read-only worker caused a context-digest refusal until both workers were rebuilt.
+
+The new changed-builder-output control also exposed an invalid destination
+read at slot UINT32_MAX after a guarded build rejection. That read prevented
+cleanup proof. Invalid slots are no longer dereferenced; an acknowledged guard
+with unchanged container and released ownership closes as rejected before
+insertion, distinct from no dispatch. Insertion follows the retained copy and
+acquisition-setter semantics; opaque destination bytes are checked against the
+free slot rather than compared to scratch or ignored.
+
+**Visual failure:** native screenshots exposed a 63-pixel editor host in a
+narrow viewport. An auto grid row sized a zero-basis flex child below its fixed
+720-pixel editor. A finite, scrollable native editor viewport and matching
+equipment-page height repair keep controls reachable and the header visible.
+The source harness now checks viewport geometry, actual round identity and
+confirmation bounds, not just DOM presence. Component harnesses now use the
+same JSX localization configuration as the product and assert translated titles.
+
+**Evidence and disposition:** retained bounded artifacts and source harnesses
+are listed in `docs/knowledge/V083_MISSING_FEATURE_INTEGRATION_20260930.md`.
+Owned Windows-helper controls, framed host guards, localized browser workflows
+and native source screenshots reproduce the repairs. No game/save write was
+performed. Game persistence and final packaged acceptance stay separate.
+
+**Follow-up state:** candidate packaging follows final source/native review.
+**Skill promotion:** None; these are scoped implementation/acceptance defects.
+
 This is a non-canonical engineering notebook for failed or abandoned research
 approaches. It exists to preserve evidence without turning each failure into a
 project rule, current conclusion, or Codex instruction.

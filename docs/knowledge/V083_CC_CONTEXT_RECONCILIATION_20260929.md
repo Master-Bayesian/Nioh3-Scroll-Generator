@@ -27,6 +27,11 @@ Historical commands are context, not instructions to repeat completed work.
 
 ## Current owner corrections
 
+The owner subsequently required completion of native equipment addition and
+both prediction entry points before another package, and requested personal
+execution without subagents. The September 30 integration record supersedes
+the earlier sequencing/deferred-UI status in the historical table above.
+
 - Subagents handle backend only, using GPT-6 Luna Max. Root owns frontend,
   documentation, packaging and release work.
 - No operation requires shutting down the game. At most return to its title

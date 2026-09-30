@@ -15,5 +15,6 @@ pub mod r4_finalizer;
 pub mod record;
 pub mod rng;
 pub mod roster;
+pub mod scroll_completion;
 pub mod sequence;
 pub mod wraith;

@@ -1,5 +1,6 @@
 import { Notice } from "./Notice";
 import {CountEditor} from "./CountEditor";
+import {ScrollCompletion} from "./ScrollCompletion";
 import { localize } from "./presentation";
 import { useDialogBackdropDismiss } from "./use-dialog-backdrop-dismiss";
 import React, { useEffect, useState, useRef } from "react";
@@ -949,6 +950,11 @@ export function Editor({ cart }: { cart: Sample[] }) {
           </div>
         </details>
         {desktop && current.saveEntry && <CountEditor sample={current} />}
+        {desktop && <ScrollCompletion
+          recordHex={current.saveEntry?.record_hex}
+          identity={JSON.stringify([saveState?.inventory?.snapshot_id,current.saveEntry?.slot_index])}
+          disabled={changed || backendBusy || !!saveState?.busy}
+        />}
         <details className="module blue editor-section" name="editor-section">
           <summary>副本内容 · 临时修改</summary>
           <div className="editor-section-body">

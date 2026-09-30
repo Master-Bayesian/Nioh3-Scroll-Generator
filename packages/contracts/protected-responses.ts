@@ -52,7 +52,9 @@ export type ProtectedResponse =
               source_sha256: string;
               record_hex: string;
             };
-          };
+          }
+        | ScrollCompletionPrediction
+        | EquipmentAddition;
     }
   | {
       protocol: 1;
@@ -120,7 +122,12 @@ export interface ProtectedJob {
     | "runtime.count_recover"
     | "save.character"
     | "save.prepare_character_edit"
-    | "runtime.character_edit";
+    | "runtime.character_edit"
+    | "runtime.equipment_add_prepare"
+    | "runtime.equipment_add_execute"
+    | "runtime.equipment_add_status"
+    | "runtime.equipment_add_recover"
+    | "runtime.equipment_add_cancel";
   state: "running" | "cancel_requested" | "completed" | "failed";
   sequence: number;
   cancellable: boolean;
@@ -128,6 +135,7 @@ export interface ProtectedJob {
     [k: string]: unknown;
   } | null;
   result:
+    | EquipmentAddition
     | LiveCharacterEdit
     | SaveCharacter
     | RuntimeStatus
@@ -259,6 +267,111 @@ export interface ProtectedJob {
     code: string;
     message: string;
   } | null;
+}
+export interface EquipmentAddition {
+  equipment_add: {
+    operation_id: string;
+    plan_digest: string | null;
+    state:
+      "prepared" | "verified" | "rejected_before_dispatch" | "rejected_before_insertion" | "uncertain" | "cancelled";
+    process_id: number | null;
+    slot_index: number | null;
+    preview: CharacterEquipment | null;
+    error: string | null;
+  };
+}
+export interface CharacterEquipment {
+  slot_index: number;
+  item_id: number;
+  appearance_id: number;
+  quantity: number;
+  level: number;
+  level_before_forge: number;
+  plus: number;
+  familiarity: number;
+  inventory_key: number;
+  seed: number;
+  rarity: number;
+  type_class?: number | null;
+  /**
+   * @maxItems 7
+   */
+  effects:
+    | []
+    | [CharacterEquipmentEffect]
+    | [CharacterEquipmentEffect, CharacterEquipmentEffect]
+    | [CharacterEquipmentEffect, CharacterEquipmentEffect, CharacterEquipmentEffect]
+    | [CharacterEquipmentEffect, CharacterEquipmentEffect, CharacterEquipmentEffect, CharacterEquipmentEffect]
+    | [
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect
+      ]
+    | [
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect
+      ]
+    | [
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect,
+        CharacterEquipmentEffect
+      ];
+  record_sha256?: string;
+  hell?: boolean;
+  hell_skill?: number;
+  /**
+   * Either equipment set wears the item.
+   */
+  worn?: boolean;
+  audit?: {
+    verdict?: "natural" | "unverified" | "unnatural";
+    natural: boolean;
+    /**
+     * Natural because the game's generator reproduces the record from its own seed.
+     */
+    replayed?: boolean;
+    /**
+     * @maxItems 64
+     */
+    findings: {
+      code: string;
+      slot?: number;
+      other?: number;
+      expected?: number;
+      actual?: number;
+      original?: number | null;
+    }[];
+    /**
+     * @maxItems 64
+     */
+    unverified?: {
+      code: string;
+      slot?: number;
+      other?: number;
+      expected?: number;
+      actual?: number;
+      original?: number | null;
+    }[];
+  } | null;
+}
+export interface CharacterEquipmentEffect {
+  index: number;
+  effect_id: number;
+  value: number;
+  /**
+   * The entry's star marker, as the game shows it.
+   */
+  star?: boolean;
 }
 export interface LiveCharacterEdit {
   character_edit: {
@@ -435,99 +548,6 @@ export interface CharacterCurrencies {
   amrita: number | null;
   gold: number | null;
 }
-export interface CharacterEquipment {
-  slot_index: number;
-  item_id: number;
-  appearance_id: number;
-  quantity: number;
-  level: number;
-  level_before_forge: number;
-  plus: number;
-  familiarity: number;
-  inventory_key: number;
-  seed: number;
-  rarity: number;
-  type_class?: number | null;
-  /**
-   * @maxItems 7
-   */
-  effects:
-    | []
-    | [CharacterEquipmentEffect]
-    | [CharacterEquipmentEffect, CharacterEquipmentEffect]
-    | [CharacterEquipmentEffect, CharacterEquipmentEffect, CharacterEquipmentEffect]
-    | [CharacterEquipmentEffect, CharacterEquipmentEffect, CharacterEquipmentEffect, CharacterEquipmentEffect]
-    | [
-        CharacterEquipmentEffect,
-        CharacterEquipmentEffect,
-        CharacterEquipmentEffect,
-        CharacterEquipmentEffect,
-        CharacterEquipmentEffect
-      ]
-    | [
-        CharacterEquipmentEffect,
-        CharacterEquipmentEffect,
-        CharacterEquipmentEffect,
-        CharacterEquipmentEffect,
-        CharacterEquipmentEffect,
-        CharacterEquipmentEffect
-      ]
-    | [
-        CharacterEquipmentEffect,
-        CharacterEquipmentEffect,
-        CharacterEquipmentEffect,
-        CharacterEquipmentEffect,
-        CharacterEquipmentEffect,
-        CharacterEquipmentEffect,
-        CharacterEquipmentEffect
-      ];
-  record_sha256?: string;
-  hell?: boolean;
-  hell_skill?: number;
-  /**
-   * Either equipment set wears the item.
-   */
-  worn?: boolean;
-  audit?: {
-    verdict?: "natural" | "unverified" | "unnatural";
-    natural: boolean;
-    /**
-     * Natural because the game's generator reproduces the record from its own seed.
-     */
-    replayed?: boolean;
-    /**
-     * @maxItems 64
-     */
-    findings: {
-      code: string;
-      slot?: number;
-      other?: number;
-      expected?: number;
-      actual?: number;
-      original?: number | null;
-    }[];
-    /**
-     * @maxItems 64
-     */
-    unverified?: {
-      code: string;
-      slot?: number;
-      other?: number;
-      expected?: number;
-      actual?: number;
-      original?: number | null;
-    }[];
-  } | null;
-}
-export interface CharacterEquipmentEffect {
-  index: number;
-  effect_id: number;
-  value: number;
-  /**
-   * The entry's star marker, as the game shows it.
-   */
-  star?: boolean;
-}
 export interface CharacterItem {
   container: "held" | "storage";
   slot_index: number;
@@ -641,6 +661,7 @@ export interface SaveInventory {
       recommended_raw_was_clamped: boolean;
       recommended_raw_level?: number;
     };
+    record_hex?: string;
   }[];
 }
 export interface ScrollAudit {
@@ -1662,4 +1683,588 @@ export interface ProtectedHandshake {
     seed_accelerator_build_id: string | null;
   };
   kill_safe: false;
+}
+export interface ScrollCompletionPrediction {
+  completion_prediction: {
+    ordinary_completion_only: true;
+    reveal_status: "unknown";
+    seed: number;
+    counter: number;
+    pity: number;
+    attempts: number;
+    /**
+     * @maxItems 7
+     */
+    candidates:
+      | []
+      | [
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          }
+        ]
+      | [
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          }
+        ]
+      | [
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          }
+        ]
+      | [
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          }
+        ]
+      | [
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          }
+        ]
+      | [
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          }
+        ]
+      | [
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          },
+          {
+            slot: number;
+            effect_id: number;
+            roll: number;
+            value: number;
+          }
+        ];
+    painting: {
+      eligible: boolean;
+      draw: number;
+      threshold: number;
+      success: boolean;
+    };
+    /**
+     * @minItems 1
+     * @maxItems 8
+     */
+    branches:
+      | [
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          }
+        ]
+      | [
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          }
+        ]
+      | [
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          }
+        ]
+      | [
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          }
+        ]
+      | [
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          }
+        ]
+      | [
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          }
+        ]
+      | [
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          }
+        ]
+      | [
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          },
+          {
+            choice: number | null;
+            painting_effect: {
+              slot: number;
+              effect_id: number;
+              roll: number;
+              value: number;
+            } | null;
+            record_hex: string;
+          }
+        ];
+  };
 }

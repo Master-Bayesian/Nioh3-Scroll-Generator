@@ -39,8 +39,8 @@ use crate::mutation::inventory::{
 };
 use crate::mutation::live_add::{InstallationCandidate, LiveAddExecutor};
 use crate::mutation::native_abi::{
-    build_dispatch_code, builder_identity_for, hex, BuilderIdentityLayout, InsertionArgs,
-    LiveAddLayout, BUILDER_RESULT_OFFSET, CANDIDATE_DISPLAY_VERSION, DISPATCH_CANARIES,
+    builder_identity_for, hex, BuilderIdentityLayout, InsertionArgs, LiveAddLayout,
+    BUILDER_RESULT_OFFSET, CANDIDATE_DISPLAY_VERSION, DISPATCH_CANARIES,
     DISPATCH_DESCRIPTOR_OFFSET, DISPATCH_MARKER_OFFSET, DISPATCH_REMAINDER_OFFSET,
     DISPATCH_SLOT_OFFSET, DISPATCH_SOURCE_OFFSET, DISPATCH_STATUS_OFFSET, INSERTION_RESULT_OFFSET,
     PC_V201_LIVE_ADD, PC_V202_CANDIDATE_EXECUTABLE_SHA256, PC_V202_LIVE_ADD_CANDIDATE,
@@ -1854,8 +1854,10 @@ mod windows_transport {
                 .transpose()?;
             let container = data + layout.container_offset;
             if let (Some(slot), Some(planned), Some(source)) = (slot, planned, source) {
-                let destination =
-                    session.read(container + slot * layout.record_size as u64, RECORD_SIZE)?;
+                let destination = session.read(
+                    container + slot * layout.record_size as u64,
+                    layout.record_size,
+                )?;
                 // A present destination record plus the advanced counter proves
                 // the insertion happened; the shipment is resolved, not replayed.
                 if destination[0] == source[0]
@@ -1868,8 +1870,10 @@ mod windows_transport {
                 }
             }
             if let (Some(slot), Some(planned)) = (slot, planned) {
-                let destination =
-                    session.read(container + slot * layout.record_size as u64, RECORD_SIZE)?;
+                let destination = session.read(
+                    container + slot * layout.record_size as u64,
+                    layout.record_size,
+                )?;
                 if destination[0] == 0 && destination[1] == 0 && serial == planned {
                     // The destination is still empty and the serial did not
                     // advance: the dispatch provably did not reach insertion.
@@ -2000,6 +2004,25 @@ mod windows_transport {
             &native_index,
             capture_phase,
         ))
+    }
+
+    // Equipment does not borrow the scroll serial-index contract. These facts
+    // prove only unchanged equipment bytes/owner/counters across a nonallocating
+    // builder whose code and no-serial descriptor were verified before redirect.
+    fn equipment_fingerprint<S: RuntimeOwnerSession>(
+        session: &mut S,
+        layout: &LiveAddLayout,
+        base: u64,
+        manager: u64,
+        data: u64,
+    ) -> Result<Value, RuntimeError> {
+        Ok(
+            json!({"pid":session.pid(),"creation":session.creation_time()?,"module_base":base,
+            "manager":manager,"data":data,"profile_id":layout.profile_id,
+            "container_sha256":sha256_hex(&session.read(data+layout.container_offset,layout.capacity as usize*layout.record_size)?),
+            "serial":read_session_u64(session,data+8)?,"acquisition_order":read_session_u32(session,data)?,
+            "capacity":read_session_u64(session,data+layout.container_offset+layout.capacity_offset)?}),
+        )
     }
 
     impl LiveAddTransport for NativeDebugTransport {
@@ -2245,6 +2268,7 @@ mod windows_transport {
         params: &Value,
         receipt: &mut Value,
     ) -> Result<(), RuntimeError> {
+        let equipment = crate::mutation::native_abi::is_equipment_layout(layout);
         let mut allocation: Option<u64> = None;
         let mut allocated_once = false;
         let mut redirected = false;
@@ -2284,18 +2308,26 @@ mod windows_transport {
                         .and_then(Value::as_str)
                         .ok_or_else(|| rejected("Incomplete assembly input"))?,
                 )?;
-                let expected = hex_decode(
-                    params
-                        .get("expected_record_hex")
-                        .and_then(Value::as_str)
-                        .ok_or_else(|| rejected("Incomplete assembly input"))?,
-                )?;
+                let expected = params
+                    .get("expected_record_hex")
+                    .and_then(Value::as_str)
+                    .map(hex_decode)
+                    .transpose()?;
                 if descriptor.len() != layout.descriptor_size
-                    || expected.len() != layout.record_size
+                    || expected
+                        .as_ref()
+                        .is_some_and(|raw| raw.len() != layout.record_size)
+                    || (expected.is_none()
+                        && !(equipment
+                            && mode == DispatchMode::Preview
+                            && params
+                                .get("native_equipment_seed")
+                                .and_then(Value::as_u64)
+                                .is_some()))
                 {
                     return Err(rejected("Incomplete assembly input"));
                 }
-                expected_record = Some(expected);
+                expected_record = expected;
                 Some(descriptor)
             };
             if mode == DispatchMode::Insert {
@@ -2357,7 +2389,12 @@ mod windows_transport {
                 let descriptor = descriptor
                     .as_ref()
                     .ok_or_else(|| rejected("Incomplete assembly input"))?;
-                if descriptor[PREVIEW_NO_ALLOCATE_DESCRIPTOR_OFFSET] != 1 {
+                if descriptor[if equipment {
+                    0x13
+                } else {
+                    PREVIEW_NO_ALLOCATE_DESCRIPTOR_OFFSET
+                }] != 1
+                {
                     return Err(rejected(
                         "Preview requires the non-allocating descriptor envelope",
                     ));
@@ -2378,7 +2415,11 @@ mod windows_transport {
                 }
                 preview_builder_code_sha256 = Some(sha256_hex(&builder));
             }
-            let address = session.allocate(REMOTE_CODE_SIZE as usize)?;
+            let address = session.allocate(if equipment {
+                4096
+            } else {
+                REMOTE_CODE_SIZE as usize
+            })?;
             allocation = Some(address);
             allocated_once = true;
             let leaf = if mode == DispatchMode::Noop {
@@ -2397,11 +2438,30 @@ mod windows_transport {
             } else {
                 None
             };
-            let preserve_rarity5 = expected_record
-                .as_ref()
-                .map(|expected| expected.get(0x30..0x32) == Some(&[0x05, 0x05][..]))
-                .unwrap_or(false);
-            let code = build_dispatch_code(
+            let preserve_rarity5 = !equipment
+                && expected_record
+                    .as_ref()
+                    .map(|expected| expected.get(0x30..0x32) == Some(&[0x05, 0x05][..]))
+                    .unwrap_or(false);
+            let prefix = if equipment {
+                params
+                    .get("native_equipment_seed")
+                    .and_then(Value::as_u64)
+                    .map(|seed| {
+                        let raw = descriptor.as_ref().map(Vec::as_slice).unwrap_or_default();
+                        crate::mutation::native_abi::equipment_generation_prefix(
+                            address,
+                            base,
+                            u16::from_le_bytes([raw[0], raw[1]]),
+                            raw[12],
+                            seed as u16,
+                        )
+                    })
+                    .unwrap_or_default()
+            } else {
+                Vec::new()
+            };
+            let code = crate::mutation::native_abi::build_dispatch_code_with_prefix(
                 address,
                 target,
                 &original,
@@ -2414,12 +2474,30 @@ mod windows_transport {
                 },
                 insertion_args,
                 preserve_rarity5,
+                &prefix,
+                if equipment && mode == DispatchMode::Insert {
+                    Some(address + 0xC00)
+                } else {
+                    None
+                },
             )?;
             session.write(address, &vec![0u8; 4096])?;
             session.write(address, &code)?;
+            if equipment && mode == DispatchMode::Insert {
+                session.write(
+                    address + 0xC00,
+                    expected_record
+                        .as_deref()
+                        .ok_or_else(|| rejected("Missing reviewed equipment record"))?,
+                )?;
+            }
             if let Some(descriptor) = &descriptor {
                 session.write(address + DISPATCH_DESCRIPTOR_OFFSET, descriptor)?;
-                for canary in DISPATCH_CANARIES {
+                for canary in if equipment {
+                    [0x5F0, 0x6F0, 0x7F0, 0x8F0]
+                } else {
+                    DISPATCH_CANARIES
+                } {
                     session.write(address + canary, &[0xA5u8; 16])?;
                 }
                 session.write(address + DISPATCH_SLOT_OFFSET, &[0xFFu8; 4])?;
@@ -2541,6 +2619,43 @@ mod windows_transport {
                     context.dr6 &= !1;
                     context.eflags |= 0x10000;
                     if !redirected {
+                        if equipment {
+                            let scheduler =
+                                read_session_u64(session, base + layout.scheduler_pointer_rva)?;
+                            let caller = read_session_u64(session, context.rsp)?;
+                            let idle = scheduler != 0
+                                && context.rcx == scheduler
+                                && caller == base + layout.dispatch_return_rva
+                                && read_session_u32(
+                                    session,
+                                    scheduler + layout.scheduler_pending_offset,
+                                )? == 0
+                                && session.read(scheduler + layout.scheduler_ready_offset, 1)?
+                                    == [1]
+                                && read_session_u64(
+                                    session,
+                                    scheduler + layout.queue_begin_offset,
+                                )? == read_session_u64(
+                                    session,
+                                    scheduler + layout.queue_end_offset,
+                                )?;
+                            if !idle {
+                                session.set_context(event.tid, &context)?;
+                                session.resume(&event, true)?;
+                                continue;
+                            }
+                            let player = read_session_u64(
+                                session,
+                                base + crate::character::PLAYER_POINTER_RVA,
+                            )?;
+                            if player == 0
+                                || read_session_u64(session, player)?
+                                    != base + crate::character::PLAYER_VTABLE_RVA
+                                || player + crate::character::EQUIPMENT_OFFSET != container
+                            {
+                                return Err(dispatch_error("Equipment player ownership changed"));
+                            }
+                        }
                         // The accepted idle window: recheck every owner before
                         // the claim becomes durable.
                         let manager_now =
@@ -2582,7 +2697,65 @@ mod windows_transport {
                             }
                         }
                         diagnostics.entry_hits_accepted += 1;
-                        if mode == DispatchMode::Preview {
+                        if equipment && mode != DispatchMode::Noop {
+                            if params
+                                .get("acquisition_order")
+                                .and_then(Value::as_u64)
+                                .is_some_and(|planned| {
+                                    read_session_u32(session, data).map(u64::from).ok()
+                                        != Some(planned)
+                                })
+                            {
+                                failure =
+                                    Some(dispatch_error("Equipment acquisition counter changed"));
+                                break;
+                            }
+                            let planned =
+                                hex_decode(params["container_hex"].as_str().unwrap_or_default())?;
+                            if !planned.is_empty()
+                                && session.read(container, planned.len())? != planned
+                            {
+                                failure = Some(dispatch_error("Equipment changed before dispatch"));
+                                break;
+                            }
+                            for (rva, key) in [
+                                (layout.builder_rva, "builder_code_hex"),
+                                (layout.insertion_rva, "insertion_code_hex"),
+                            ] {
+                                let planned = hex_decode(params[key].as_str().unwrap_or_default())?;
+                                if !planned.is_empty()
+                                    && session.read(base + rva, planned.len())? != planned
+                                {
+                                    return Err(dispatch_error(
+                                        "Equipment code changed before dispatch",
+                                    ));
+                                }
+                            }
+                            if let Some(chain) =
+                                params.get("native_chain").and_then(Value::as_array)
+                            {
+                                for site in chain {
+                                    let rva = site["rva"]
+                                        .as_u64()
+                                        .ok_or_else(|| rejected("Missing native chain site"))?;
+                                    let code =
+                                        hex_decode(site["code_hex"].as_str().unwrap_or_default())?;
+                                    if code.is_empty()
+                                        || session.read(base + rva, code.len())? != code
+                                    {
+                                        return Err(dispatch_error(
+                                            "Equipment native chain changed before dispatch",
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+                        if mode != DispatchMode::Noop && equipment {
+                            let baseline =
+                                equipment_fingerprint(session, layout, base, manager, data)?;
+                            receipt["equipment_preview_before"] = baseline;
+                        }
+                        if mode == DispatchMode::Preview && !equipment {
                             // The accepted idle window is the only owner that can
                             // see the true container: capture and persist the
                             // baseline here, before the redirect makes the run
@@ -2622,7 +2795,7 @@ mod windows_transport {
                             object.insert("allocation".to_string(), json!(address));
                         }
                         store.save(receipt)?;
-                        if mode == DispatchMode::Preview {
+                        if mode == DispatchMode::Preview && !equipment {
                             // Confirm the baseline is durable and readable before
                             // the redirect makes the run irreversible.
                             let stored = store.read(receipt_operation_id(receipt)?)?;
@@ -2652,7 +2825,8 @@ mod windows_transport {
                     context.eflags |= 0x10000;
                     session.set_context(event.tid, &context)?;
                     let status = read_session_u32(session, address + DISPATCH_STATUS_OFFSET)?;
-                    let source = session.read(address + DISPATCH_SOURCE_OFFSET, RECORD_SIZE)?;
+                    let source =
+                        session.read(address + DISPATCH_SOURCE_OFFSET, layout.record_size)?;
                     if let Some(object) = receipt.as_object_mut() {
                         object.insert("after".to_string(), json!(context.registers()));
                         object.insert("source_hex".to_string(), json!(hex(&source)));
@@ -2671,8 +2845,10 @@ mod windows_transport {
                         };
                         let actual_serial =
                             u64::from_le_bytes(source[0x28..0x30].try_into().unwrap_or_default());
-                        let differs = source[..0x24] != expected[..0x24]
-                            || source[0x30..0xE4] != expected[0x30..0xE4]
+                        let end = if equipment { layout.record_size } else { 0xE4 };
+                        let header_end = if equipment { 0x28 } else { 0x24 };
+                        let differs = source[..header_end] != expected[..header_end]
+                            || source[0x30..end] != expected[0x30..end]
                             || actual_serial != wanted;
                         record_review = Some(if differs { "mismatch" } else { "matched" });
                         if differs {
@@ -2681,7 +2857,35 @@ mod windows_transport {
                             ));
                         }
                     }
-                    if mode == DispatchMode::Preview {
+                    if equipment {
+                        let mut canaries = true;
+                        for offset in [0x5F0, 0x6F0, 0x7F0, 0x8F0] {
+                            canaries &= session.read(address + offset, 16)? == [0xA5; 16];
+                        }
+                        receipt["equipment_canaries_intact"] = json!(canaries);
+                        if !canaries {
+                            failure =
+                                Some(dispatch_error("Equipment builder overran its owned record"));
+                        }
+                        receipt["equipment_preview_after"] =
+                            equipment_fingerprint(session, layout, base, manager, data)?;
+                    }
+                    if mode == DispatchMode::Preview && equipment {
+                        receipt["equipment_preview_after"] =
+                            equipment_fingerprint(session, layout, base, manager, data)?;
+                        receipt["descriptor_hex"] = json!(hex(&session
+                            .read(address + DISPATCH_DESCRIPTOR_OFFSET, layout.descriptor_size)?));
+                        if source[0x28..0x30] != [0xFF; 8]
+                            || receipt["equipment_preview_before"]
+                                != receipt["equipment_preview_after"]
+                        {
+                            failure = Some(dispatch_error(
+                                "Equipment preview changed inventory or allocated a serial",
+                            ));
+                        }
+                        preview_review = record_review;
+                    }
+                    if mode == DispatchMode::Preview && !equipment {
                         // The authoritative after read is taken on the
                         // acknowledgement path itself, for every preview, so a
                         // rejection is decided from the real post-run container
@@ -2711,12 +2915,16 @@ mod windows_transport {
                     }
                     if mode == DispatchMode::Insert {
                         let slot = read_session_u32(session, address + DISPATCH_SLOT_OFFSET)?;
-                        let remainder =
-                            session.read(address + DISPATCH_REMAINDER_OFFSET, RECORD_SIZE)?;
-                        let destination = session.read(
-                            container + u64::from(slot) * layout.record_size as u64,
-                            RECORD_SIZE,
-                        )?;
+                        let remainder = session
+                            .read(address + DISPATCH_REMAINDER_OFFSET, layout.record_size)?;
+                        let destination = if equipment && (status != 3 || slot >= layout.capacity) {
+                            Vec::new()
+                        } else {
+                            session.read(
+                                container + u64::from(slot) * layout.record_size as u64,
+                                layout.record_size,
+                            )?
+                        };
                         if let Some(object) = receipt.as_object_mut() {
                             object.insert("slot".to_string(), json!(slot));
                             object.insert("remainder_hex".to_string(), json!(hex(&remainder)));
@@ -2850,7 +3058,7 @@ mod windows_transport {
         // non-allocating source sentinel, and two fingerprints that agree over
         // the same process, profile, inventory owner and layout. Anything
         // missing keeps the record an unknown.
-        if mode == DispatchMode::Preview && preview_review == Some("mismatch") {
+        if mode == DispatchMode::Preview && !equipment && preview_review == Some("mismatch") {
             let return_and_register_verified = verify_dispatch_evidence(receipt).is_ok();
             let source_serial_sentinel = receipt
                 .get("source_hex")
@@ -2874,8 +3082,34 @@ mod windows_transport {
                 );
             }
         }
-        let preview_rejected = preview_rejection_decided(receipt);
-        let business_outcome = if preview_rejected {
+        let preview_rejected = if equipment {
+            mode == DispatchMode::Preview
+                && preview_review == Some("mismatch")
+                && released
+                && acknowledged
+                && verify_dispatch_evidence(receipt).is_ok()
+                && receipt["equipment_preview_before"].is_object()
+                && receipt["equipment_preview_before"] == receipt["equipment_preview_after"]
+                && receipt["equipment_canaries_intact"] == true
+        } else {
+            preview_rejection_decided(receipt)
+        };
+        let equipment_not_inserted = equipment
+            && mode == DispatchMode::Insert
+            && acknowledged
+            && released
+            && receipt["status"] == 1
+            && verify_dispatch_evidence(receipt).is_ok()
+            && receipt["equipment_canaries_intact"] == true
+            && receipt["equipment_preview_before"]["container_sha256"].is_string()
+            && receipt["equipment_preview_before"]["container_sha256"]
+                == receipt["equipment_preview_after"]["container_sha256"];
+        if equipment {
+            receipt["equipment_guard_rejected_before_insertion"] = json!(equipment_not_inserted);
+        }
+        let business_outcome = if equipment_not_inserted {
+            "rejected"
+        } else if preview_rejected {
             // The dispatch and its cleanup are terminal and the container is
             // provably unchanged: the failure is the reviewed output, not the
             // dispatch, so the business result is the rejection it is.

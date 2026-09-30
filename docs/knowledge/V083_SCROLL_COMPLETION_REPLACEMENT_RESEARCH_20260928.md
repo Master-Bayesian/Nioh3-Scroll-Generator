@@ -7,7 +7,10 @@ candidates. Status: the offline model reproduces the recorded live replacement
 vectors, a further predicted round was confirmed by the owner, and the
 extra-painting selector was resolved with a predicted playthrough and saved
 record comparison (see Evidence and Extra painting below). The reveal trigger
-and slot choice remain open. No prediction UI or search is shipped.
+and slot choice remain open. The v0.8.3 candidate now has an ordinary-completion
+prediction UI with branch simulation and painting; see
+[integration](V083_MISSING_FEATURE_INTEGRATION_20260930.md). Combination search
+through replacements remains outside this panel, and no release is claimed.
 
 ## Where it lives
 
@@ -59,9 +62,13 @@ RVAs are PC v2.02 (`Nioh3.exe` 2.0.2.0, image dumped from the live process).
 
 ## Evidence
 
-- Live, PC v2.02, owner's NG3 R4 scroll seed 121723131, counter 1: shown
-  技之深奥 / 不消耗使役符 +1.3% / 远距离伤害 +7.5% / 道具掉落率 +6.6%; the
-  model gives `0xAE5A` 150, `0x6CE3` 13, `0x2EFC` 75, `0xB393` 66. The applied
+- PC v2.02, owner's NG3 R4 scroll seed 121723131, counter 1: the retained
+  record has three eligible replacement slots (zero-based 1, 2, 3), giving
+  `0xAE5A` 150, `0x6CE3` 13 and `0x2EFC` 75. The earlier scratch report also
+  forced slot 4 and reported `0xB393` 66, but that retained slot is grace
+  (`entry+0x0E & 2`) and is excluded by the native eligibility rule; this fourth
+  value is not certified as an offered replacement. `0xB393` 66 is separately
+  confirmed as the later painting effect below. The applied
   slot wrote `0xAE5A`, value 150, roll 85, as modelled.
 - Archived PC v2.00.02 vector (`captures/reroll_live/seed_203900415`, counter
   1): 体之深奥 / 武之深奥 / 不消耗使役符 +1.4% / 精华槽增加量 +9.3%; the model
@@ -89,7 +96,9 @@ more effect. It can happen at any completion, not only the last one.
   `0x3472` = 100 (the three `optional_multiplier` rows new in v2.02, int at
   `+0x10`, float `+0x18` = 1.0), each times 0.01. The threshold is
   `int(min(1.00, 0.30 + 0.15 * byte(+0x32)) * 10000)` in binary32 (2999, 4500,
-  5999, 7500, 8999, 10000). A scoped LCG seeded with `~displayed_seed(+0x20)`
+  5999, 7500, 9000, 10000). The earlier 8999 value was a transcription error:
+  the retained `mulss`/`addss`/`mulss` instructions and independent binary32
+  calculation round the pity-4 result to 9000. A scoped LCG seeded with `~displayed_seed(+0x20)`
   draws `byte(+0x32) + 1` values `min(int(float01 * 10000), 9999)` and keeps
   the last; the roll succeeds when it is below the threshold and entry 5's
   group word (`+0xAC`) is zero. The roll does not depend on the counter or on

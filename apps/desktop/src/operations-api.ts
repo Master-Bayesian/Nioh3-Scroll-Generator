@@ -34,6 +34,12 @@ export type PublicOperation =
   | { method: 'runtime.equipment_rules'; params: ProtectedParams<'runtime.equipment_rules'> }
   | { method: 'runtime.effect_values'; params: ProtectedParams<'runtime.effect_values'> }
   | { method: 'runtime.equipment_seeds'; params: ProtectedParams<'runtime.equipment_seeds'> }
+  | { method: 'runtime.scroll_completion_predict'; params: ProtectedParams<'runtime.scroll_completion_predict'> }
+  | { method: 'runtime.equipment_add_prepare'; params: ProtectedParams<'runtime.equipment_add_prepare'> }
+  | { method: 'runtime.equipment_add_execute'; params: ProtectedParams<'runtime.equipment_add_execute'> }
+  | { method: 'runtime.equipment_add_status'; params: ProtectedParams<'runtime.equipment_add_status'> }
+  | { method: 'runtime.equipment_add_recover'; params: ProtectedParams<'runtime.equipment_add_recover'> }
+  | { method: 'runtime.equipment_add_cancel'; params: ProtectedParams<'runtime.equipment_add_cancel'> }
   | { method: 'runtime.live_add_execute'; params: ProtectedParams<'runtime.live_add_execute'> }
   | { method: 'runtime.live_add_status'; params: ProtectedParams<'runtime.live_add_status'> }
   | { method: 'runtime.live_add_recover'; params: ProtectedParams<'runtime.live_add_recover'> }

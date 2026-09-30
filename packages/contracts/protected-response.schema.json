@@ -6,13 +6,32 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-        "playthrough": { "type": "integer", "minimum": 1, "maximum": 5 },
-        "variant": { "enum": ["solo", "expedition"] },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "playthrough": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "variant": {
+          "enum": [
+            "solo",
+            "expedition"
+          ]
+        },
         "terrain": {
           "anyOf": [
-            { "type": "integer", "minimum": 0, "maximum": 255 },
-            { "type": "null" }
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "occurrences": {
@@ -22,49 +41,140 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "wave_index": { "type": "integer", "minimum": 0, "maximum": 255 },
-              "position": { "type": "integer", "minimum": 0, "maximum": 255 },
-              "lookup_key": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-              "role": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-              "source_row_index": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-              "availability": { "enum": ["base", "expedition_only"] },
-              "native_spawn_key": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-              "possessed": { "enum": ["yes", "no", "unknown"] },
-              "curse": { "enum": ["guaranteed", "possible", "never", "unknown"] },
-              "curse_probability": { "type": ["number", "null"] },
-              "curse_if_fresh_null_source_selector_runs": { "enum": ["guaranteed", "never", "unknown"] },
-              "evidence_grade": { "type": "string" },
-              "curse_evidence": { "type": "string" }
+              "wave_index": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              },
+              "position": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              },
+              "lookup_key": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "role": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "source_row_index": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "availability": {
+                "enum": [
+                  "base",
+                  "expedition_only"
+                ]
+              },
+              "native_spawn_key": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "possessed": {
+                "enum": [
+                  "yes",
+                  "no",
+                  "unknown"
+                ]
+              },
+              "curse": {
+                "enum": [
+                  "guaranteed",
+                  "possible",
+                  "never",
+                  "unknown"
+                ]
+              },
+              "curse_probability": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "curse_if_fresh_null_source_selector_runs": {
+                "enum": [
+                  "guaranteed",
+                  "never",
+                  "unknown"
+                ]
+              },
+              "evidence_grade": {
+                "type": "string"
+              },
+              "curse_evidence": {
+                "type": "string"
+              }
             },
             "required": [
-              "wave_index", "position", "lookup_key", "role",
-              "source_row_index", "availability", "native_spawn_key",
-              "possessed", "curse", "curse_probability",
-              "curse_if_fresh_null_source_selector_runs", "evidence_grade",
+              "wave_index",
+              "position",
+              "lookup_key",
+              "role",
+              "source_row_index",
+              "availability",
+              "native_spawn_key",
+              "possessed",
+              "curse",
+              "curse_probability",
+              "curse_if_fresh_null_source_selector_runs",
+              "evidence_grade",
               "curse_evidence"
             ]
           }
         },
-        "possessed_complete": { "type": "boolean" },
-        "missing_inputs": { "type": "array", "items": { "type": "string" }, "maxItems": 64 },
-        "curse_scope": { "type": "string" },
+        "possessed_complete": {
+          "type": "boolean"
+        },
+        "missing_inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64
+        },
+        "curse_scope": {
+          "type": "string"
+        },
         "curse_count_range": {
           "anyOf": [
             {
               "type": "array",
-              "items": { "type": "integer" },
+              "items": {
+                "type": "integer"
+              },
               "minItems": 2,
               "maxItems": 2
             },
-            { "type": "null" }
+            {
+              "type": "null"
+            }
           ]
         },
-        "curse_count_domain": { "type": ["string", "null"] }
+        "curse_count_domain": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       },
       "required": [
-        "seed", "playthrough", "variant", "terrain", "occurrences",
-        "possessed_complete", "missing_inputs", "curse_scope",
-        "curse_count_range", "curse_count_domain"
+        "seed",
+        "playthrough",
+        "variant",
+        "terrain",
+        "occurrences",
+        "possessed_complete",
+        "missing_inputs",
+        "curse_scope",
+        "curse_count_range",
+        "curse_count_domain"
       ]
     },
     "EnemyStatePreviews": {
@@ -73,12 +183,21 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "solo": { "$ref": "#/definitions/EnemyStatePreview" },
-            "expedition": { "$ref": "#/definitions/EnemyStatePreview" }
+            "solo": {
+              "$ref": "#/definitions/EnemyStatePreview"
+            },
+            "expedition": {
+              "$ref": "#/definitions/EnemyStatePreview"
+            }
           },
-          "required": ["solo", "expedition"]
+          "required": [
+            "solo",
+            "expedition"
+          ]
         },
-        { "type": "null" }
+        {
+          "type": "null"
+        }
       ]
     },
     "CharacterEquipmentEffect": {
@@ -538,13 +657,41 @@
       "additionalProperties": false,
       "description": "runtime.equipment_seeds: how many of the 65536 seeds give the item every wanted effect, and the best of them.",
       "properties": {
-        "item_id": { "type": "integer", "minimum": 0, "maximum": 65535 },
-        "rarity": { "type": "integer", "minimum": 0, "maximum": 5 },
-        "level": { "type": "integer", "minimum": 0, "maximum": 65535 },
-        "difficulty": { "type": "integer", "minimum": 1, "maximum": 5 },
-        "seeds": { "type": "integer", "minimum": 0, "maximum": 65536 },
-        "empty": { "type": "integer", "minimum": 0, "maximum": 65536 },
-        "matches": { "type": "integer", "minimum": 0, "maximum": 65536 },
+        "item_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "rarity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "difficulty": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "seeds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65536
+        },
+        "empty": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65536
+        },
+        "matches": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65536
+        },
         "outcomes": {
           "type": "array",
           "maxItems": 200,
@@ -552,7 +699,11 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "seed": { "type": "integer", "minimum": 0, "maximum": 65535 },
+              "seed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 65535
+              },
               "effects": {
                 "type": "array",
                 "maxItems": 7,
@@ -560,21 +711,60 @@
                   "type": "object",
                   "additionalProperties": false,
                   "properties": {
-                    "effect_id": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-                    "value": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
-                    "roll": { "type": "integer", "minimum": 0, "maximum": 255 },
-                    "star": { "type": "boolean" },
-                    "role": { "enum": ["innate", "random", "grace", "set"] }
+                    "effect_id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4294967295
+                    },
+                    "value": {
+                      "type": "integer",
+                      "minimum": -2147483648,
+                      "maximum": 2147483647
+                    },
+                    "roll": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 255
+                    },
+                    "star": {
+                      "type": "boolean"
+                    },
+                    "role": {
+                      "enum": [
+                        "innate",
+                        "random",
+                        "grace",
+                        "set"
+                      ]
+                    }
                   },
-                  "required": ["effect_id", "value", "roll", "star", "role"]
+                  "required": [
+                    "effect_id",
+                    "value",
+                    "roll",
+                    "star",
+                    "role"
+                  ]
                 }
               }
             },
-            "required": ["seed", "effects"]
+            "required": [
+              "seed",
+              "effects"
+            ]
           }
         }
       },
-      "required": ["item_id", "rarity", "level", "difficulty", "seeds", "empty", "matches", "outcomes"]
+      "required": [
+        "item_id",
+        "rarity",
+        "level",
+        "difficulty",
+        "seeds",
+        "empty",
+        "matches",
+        "outcomes"
+      ]
     },
     "EffectValues": {
       "type": "object",
@@ -696,14 +886,14 @@
             }
           ]
         },
-"container": {
+        "container": {
           "enum": [
             "equipment",
             "held",
             "storage"
           ]
         },
-                "item_id": {
+        "item_id": {
           "type": "integer",
           "minimum": 0,
           "maximum": 65535
@@ -845,7 +1035,11 @@
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "difficulty": { "type": "integer", "minimum": 1, "maximum": 5 },
+                "difficulty": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 5
+                },
                 "difficulties": {
                   "type": "array",
                   "maxItems": 5,
@@ -853,19 +1047,33 @@
                     "type": "object",
                     "additionalProperties": false,
                     "properties": {
-                      "difficulty": { "type": "integer", "minimum": 1, "maximum": 5 },
+                      "difficulty": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5
+                      },
                       "progress": {
                         "type": "array",
                         "minItems": 4,
                         "maxItems": 4,
-                        "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4294967295
+                        }
                       }
                     },
-                    "required": ["difficulty", "progress"]
+                    "required": [
+                      "difficulty",
+                      "progress"
+                    ]
                   }
                 }
               },
-              "required": ["difficulty", "difficulties"]
+              "required": [
+                "difficulty",
+                "difficulties"
+              ]
             },
             {
               "type": "null"
@@ -973,13 +1181,13 @@
                 "type": "object"
               }
             },
-  "items": {
-            "type": "array",
             "items": {
-              "type": "object"
-            }
-          },
-                    "error": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "error": {
               "type": [
                 "string",
                 "null"
@@ -1058,7 +1266,12 @@
             "runtime.count_recover",
             "save.character",
             "save.prepare_character_edit",
-            "runtime.character_edit"
+            "runtime.character_edit",
+            "runtime.equipment_add_prepare",
+            "runtime.equipment_add_execute",
+            "runtime.equipment_add_status",
+            "runtime.equipment_add_recover",
+            "runtime.equipment_add_cancel"
           ]
         },
         "state": {
@@ -1089,6 +1302,9 @@
         },
         "result": {
           "anyOf": [
+            {
+              "$ref": "#/definitions/EquipmentAddition"
+            },
             {
               "$ref": "#/definitions/LiveCharacterEdit"
             },
@@ -2626,6 +2842,10 @@
                   "recommended_displayed_level",
                   "recommended_raw_was_clamped"
                 ]
+              },
+              "record_hex": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{464}$"
               }
             },
             "required": [
@@ -2650,162 +2870,416 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "product_version": { "type": "string" },
-        "game_profile": { "type": "string" },
-        "game_file_version": { "type": ["string", "null"] },
-        "versioned_resource_dir": { "type": ["string", "null"] },
-        "bundle_digest": { "type": ["string", "null"] },
-        "versioned_digest": { "type": ["string", "null"] },
-        "resources_digest": { "type": "string" },
-        "algorithm_version": { "type": "string" },
-        "policy_version": { "type": "string" },
-        "context_digest": { "type": "string" },
-        "legacy_context_digest": { "type": ["string", "null"] },
-        "production_authority": { "type": "boolean" },
-        "seed_accelerator_abi": { "type": ["integer", "null"] },
-        "seed_accelerator_build_id": { "type": ["string", "null"] }
+        "product_version": {
+          "type": "string"
+        },
+        "game_profile": {
+          "type": "string"
+        },
+        "game_file_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "versioned_resource_dir": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "bundle_digest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "versioned_digest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "resources_digest": {
+          "type": "string"
+        },
+        "algorithm_version": {
+          "type": "string"
+        },
+        "policy_version": {
+          "type": "string"
+        },
+        "context_digest": {
+          "type": "string"
+        },
+        "legacy_context_digest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "production_authority": {
+          "type": "boolean"
+        },
+        "seed_accelerator_abi": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "seed_accelerator_build_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       },
       "required": [
-        "product_version", "game_profile", "game_file_version",
-        "versioned_resource_dir", "bundle_digest", "versioned_digest",
-        "resources_digest", "algorithm_version", "policy_version",
-        "context_digest", "legacy_context_digest", "production_authority",
-        "seed_accelerator_abi", "seed_accelerator_build_id"
+        "product_version",
+        "game_profile",
+        "game_file_version",
+        "versioned_resource_dir",
+        "bundle_digest",
+        "versioned_digest",
+        "resources_digest",
+        "algorithm_version",
+        "policy_version",
+        "context_digest",
+        "legacy_context_digest",
+        "production_authority",
+        "seed_accelerator_abi",
+        "seed_accelerator_build_id"
       ]
     },
     "AuditEffectProjection": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "slot_index": { "type": "integer", "minimum": 0, "maximum": 6 },
-        "prefix": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-        "effect_id": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-        "value": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-        "metadata": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-        "tail_0": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-        "tail_1": { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+        "slot_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+        },
+        "prefix": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "effect_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "metadata": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "tail_0": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "tail_1": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        }
       },
-      "required": ["slot_index", "prefix", "effect_id", "value", "metadata", "tail_0", "tail_1"]
+      "required": [
+        "slot_index",
+        "prefix",
+        "effect_id",
+        "value",
+        "metadata",
+        "tail_0",
+        "tail_1"
+      ]
     },
     "AuditProjection": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "record_type": { "type": "integer", "minimum": 0, "maximum": 65535 },
-        "playthrough": { "type": "integer", "minimum": 1, "maximum": 5 },
-        "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-        "level": { "type": "integer", "minimum": 0, "maximum": 65535 },
-        "rarity": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "record_type": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "playthrough": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "rarity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
         "effects": {
           "type": "array",
           "minItems": 7,
           "maxItems": 7,
-          "items": { "$ref": "#/definitions/AuditEffectProjection" }
+          "items": {
+            "$ref": "#/definitions/AuditEffectProjection"
+          }
         }
       },
-      "required": ["record_type", "playthrough", "seed", "level", "rarity", "effects"]
+      "required": [
+        "record_type",
+        "playthrough",
+        "seed",
+        "level",
+        "rarity",
+        "effects"
+      ]
     },
     "AuditPhaseResult": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "phase": { "enum": ["R3", "stage_one", "final"] },
-        "matched": { "type": "boolean" },
+        "phase": {
+          "enum": [
+            "R3",
+            "stage_one",
+            "final"
+          ]
+        },
+        "matched": {
+          "type": "boolean"
+        },
         "expected_projection": {
           "anyOf": [
-            { "$ref": "#/definitions/AuditProjection" },
-            { "type": "null" }
+            {
+              "$ref": "#/definitions/AuditProjection"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "mismatches": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "maxItems": 32
         }
       },
-      "required": ["phase", "matched", "expected_projection", "mismatches"]
+      "required": [
+        "phase",
+        "matched",
+        "expected_projection",
+        "mismatches"
+      ]
     },
     "AuditReplayEvidence": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "attempted": { "type": "boolean" },
-        "matched": { "type": "boolean" },
+        "attempted": {
+          "type": "boolean"
+        },
+        "matched": {
+          "type": "boolean"
+        },
         "matched_phase": {
           "anyOf": [
-            { "enum": ["R3", "stage_one", "final"] },
-            { "type": "null" }
+            {
+              "enum": [
+                "R3",
+                "stage_one",
+                "final"
+              ]
+            },
+            {
+              "type": "null"
+            }
           ]
         },
-        "compared_fields": { "type": "array", "items": { "type": "string" }, "maxItems": 32 },
-        "ignored_fields": { "type": "array", "items": { "type": "string" }, "maxItems": 32 },
+        "compared_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32
+        },
+        "ignored_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32
+        },
         "observed_projection": {
           "anyOf": [
-            { "$ref": "#/definitions/AuditProjection" },
-            { "type": "null" }
+            {
+              "$ref": "#/definitions/AuditProjection"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "phase_results": {
           "type": "array",
-          "items": { "$ref": "#/definitions/AuditPhaseResult" },
+          "items": {
+            "$ref": "#/definitions/AuditPhaseResult"
+          },
           "maxItems": 2
         }
       },
       "required": [
-        "attempted", "matched", "matched_phase", "compared_fields",
-        "ignored_fields", "observed_projection", "phase_results"
+        "attempted",
+        "matched",
+        "matched_phase",
+        "compared_fields",
+        "ignored_fields",
+        "observed_projection",
+        "phase_results"
       ]
     },
     "ScrollAuditRow": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "slot_index": { "type": "integer", "minimum": 0, "maximum": 399 },
-        "record_offset": { "type": "integer", "minimum": 0 },
-        "record_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-        "record_type": { "type": "integer", "minimum": 0, "maximum": 65535 },
-        "playthrough": { "type": ["integer", "null"], "minimum": 1, "maximum": 5 },
-        "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
-        "level": { "type": "integer", "minimum": 0, "maximum": 65535 },
-        "rarity": { "type": "integer", "minimum": 0, "maximum": 255 },
-        "coverage_scope": { "const": "generated_effect_projection" },
+        "slot_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 399
+        },
+        "record_offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "record_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "record_type": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "playthrough": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 5
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "rarity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "coverage_scope": {
+          "const": "generated_effect_projection"
+        },
         "status": {
           "enum": [
-            "proven_reachable", "proven_rule_violation",
-            "no_violation_found_unproven", "insufficient_data"
+            "proven_reachable",
+            "proven_rule_violation",
+            "no_violation_found_unproven",
+            "insufficient_data"
           ]
         },
-        "reasons": { "type": "array", "items": { "type": "string" }, "maxItems": 32 },
-        "replay_evidence": { "$ref": "#/definitions/AuditReplayEvidence" }
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32
+        },
+        "replay_evidence": {
+          "$ref": "#/definitions/AuditReplayEvidence"
+        }
       },
       "required": [
-        "slot_index", "record_offset", "record_sha256", "record_type",
-        "playthrough", "seed", "level", "rarity", "coverage_scope",
-        "status", "reasons", "replay_evidence"
+        "slot_index",
+        "record_offset",
+        "record_sha256",
+        "record_type",
+        "playthrough",
+        "seed",
+        "level",
+        "rarity",
+        "coverage_scope",
+        "status",
+        "reasons",
+        "replay_evidence"
       ]
     },
     "ScrollAudit": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "save_id": { "type": "string" },
-        "snapshot_id": { "type": "string" },
-        "source_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "save_id": {
+          "type": "string"
+        },
+        "snapshot_id": {
+          "type": "string"
+        },
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
         "status": {
           "enum": [
-            "proven_reachable", "proven_rule_violation",
-            "no_violation_found_unproven", "insufficient_data"
+            "proven_reachable",
+            "proven_rule_violation",
+            "no_violation_found_unproven",
+            "insufficient_data"
           ]
         },
-        "coverage_scope": { "const": "generated_effect_projection" },
-        "context": { "$ref": "#/definitions/AuditContextProof" },
+        "coverage_scope": {
+          "const": "generated_effect_projection"
+        },
+        "context": {
+          "$ref": "#/definitions/AuditContextProof"
+        },
         "rows": {
           "type": "array",
           "maxItems": 400,
-          "items": { "$ref": "#/definitions/ScrollAuditRow" }
+          "items": {
+            "$ref": "#/definitions/ScrollAuditRow"
+          }
         }
       },
-      "required": ["save_id", "snapshot_id", "source_sha256", "status", "coverage_scope", "context", "rows"]
+      "required": [
+        "save_id",
+        "snapshot_id",
+        "source_sha256",
+        "status",
+        "coverage_scope",
+        "context",
+        "rows"
+      ]
     },
     "SavePlan": {
       "type": "object",
@@ -4055,6 +4529,262 @@
         "new_count",
         "error"
       ]
+    },
+    "ScrollCompletionPrediction": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "completion_prediction": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ordinary_completion_only": {
+              "const": true
+            },
+            "reveal_status": {
+              "const": "unknown"
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "counter": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "pity": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "attempts": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            },
+            "candidates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "slot": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 6
+                  },
+                  "effect_id": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  "roll": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "value": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "slot",
+                  "effect_id",
+                  "roll",
+                  "value"
+                ]
+              },
+              "maxItems": 7
+            },
+            "painting": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "eligible": {
+                  "type": "boolean"
+                },
+                "draw": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9999
+                },
+                "threshold": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                "success": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "eligible",
+                "draw",
+                "threshold",
+                "success"
+              ]
+            },
+            "branches": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "choice": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 6
+                  },
+                  "painting_effect": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "slot": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 6
+                          },
+                          "effect_id": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 65535
+                          },
+                          "roll": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                          },
+                          "value": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "slot",
+                          "effect_id",
+                          "roll",
+                          "value"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "record_hex": {
+                    "type": "string",
+                    "pattern": "^[0-9a-fA-F]{464}$"
+                  }
+                },
+                "required": [
+                  "choice",
+                  "painting_effect",
+                  "record_hex"
+                ]
+              }
+            }
+          },
+          "required": [
+            "ordinary_completion_only",
+            "reveal_status",
+            "seed",
+            "counter",
+            "pity",
+            "attempts",
+            "candidates",
+            "painting",
+            "branches"
+          ]
+        }
+      },
+      "required": [
+        "completion_prediction"
+      ]
+    },
+    "EquipmentAddition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "equipment_add": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "operation_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            },
+            "plan_digest": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "state": {
+              "enum": [
+                "prepared",
+                "verified",
+                "rejected_before_dispatch", "rejected_before_insertion",
+                "uncertain",
+                "cancelled"
+              ]
+            },
+            "process_id": {
+              "type": ["integer", "null"],
+              "minimum": 1,
+              "maximum": 4294967295
+            },
+            "slot_index": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 2499
+            },
+            "preview": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/CharacterEquipment"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "error": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "operation_id",
+            "plan_digest",
+            "state",
+            "process_id",
+            "slot_index",
+            "preview",
+            "error"
+          ]
+        }
+      },
+      "required": [
+        "equipment_add"
+      ]
     }
   },
   "oneOf": [
@@ -4237,6 +4967,12 @@
               "required": [
                 "count_source"
               ]
+            },
+            {
+              "$ref": "#/definitions/ScrollCompletionPrediction"
+            },
+            {
+              "$ref": "#/definitions/EquipmentAddition"
             }
           ]
         }

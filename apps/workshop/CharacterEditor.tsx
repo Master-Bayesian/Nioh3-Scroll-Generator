@@ -15,6 +15,7 @@ import effectSources from "./effect-sources.json";
 import { desktop } from "./desktop-bridge";
 import { fillTemplateSlots, plainGameText } from "./game-text";
 import { Notice } from "./Notice";
+import { LiveEquipmentAdd } from "./LiveEquipmentAdd";
 import { errorText, publicError, stripErrorPrefix } from "./public-errors";
 import { SavePicker } from "./CartActions";
 import { runtimeObserver, saveObserver, saveSession } from "./save-workspace";
@@ -1933,10 +1934,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       {mode === "save" && <SavePicker compact />}
       <Notice text={message} />
       {section === "add" && mode === "live" ? (
-        <div className="character-add-live">
-          <p>添加新装备需要修改存档文件：游戏回到标题界面后写入，写入前会自动备份原存档。</p>
-          <button className="primary" onClick={() => switchMode("save")} disabled={busy}>切换到“修改存档文件”</button>
-        </div>
+        <LiveEquipmentAdd onBusy={setBusy} />
       ) : character && section === "add" ? (
         <div className="character-body">
           <section className="character-list">{addList}</section>

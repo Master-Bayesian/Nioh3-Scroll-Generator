@@ -497,6 +497,7 @@ fn dispatch(
                     | "runtime.equipment_rules"
                     | "runtime.effect_values"
                     | "runtime.equipment_seeds"
+                    | "runtime.scroll_completion_predict"
             ) {
                 let mut guard = lock(application).map_err(HostError::rejected)?;
                 return Ok((guard.direct(method, &params)?, false));

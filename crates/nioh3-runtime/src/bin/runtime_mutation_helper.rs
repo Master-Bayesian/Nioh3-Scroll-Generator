@@ -242,6 +242,149 @@ struct LiveAddRuntime {
 
 static LIVE_ADD: std::sync::Mutex<Option<LiveAddRuntime>> = std::sync::Mutex::new(None);
 
+/// Equipment-specific owned target. The actual descriptor no-serial byte and
+/// 0xF0 stride are used; builder/insert are stand-ins, never game functions.
+#[cfg(windows)]
+fn equipment_add_setup(module_base: u64, source: &[u8]) -> Result<serde_json::Value, String> {
+    use nioh3_runtime::mutation::native_abi::PC_V202_EQUIPMENT_ADD as layout;
+    if source.len() != 0xF0 {
+        return Err("equipment source must be 240 bytes".into());
+    }
+    for rva in [
+        layout.dispatch_rva,
+        layout.dispatch_return_rva,
+        layout.builder_rva,
+        layout.insertion_rva,
+        layout.manager_pointer_rva,
+        layout.scheduler_pointer_rva,
+    ] {
+        commit_fixed(module_base + rva)?;
+    }
+    let region = commit_read_write(0x180000)?;
+    let data = region + 0x40000;
+    let manager = region + 0x1000;
+    let scheduler = region + 0x2000;
+    let template = region + 0x3000;
+    let counter = region + 0x3200;
+    let player = data + 0x10 - nioh3_runtime::character::EQUIPMENT_OFFSET;
+    write_u64_at(module_base + layout.manager_pointer_rva, manager);
+    write_u64_at(manager, data);
+    write_u64_at(
+        module_base + nioh3_runtime::character::PLAYER_POINTER_RVA,
+        player,
+    );
+    write_u64_at(
+        player,
+        module_base + nioh3_runtime::character::PLAYER_VTABLE_RVA,
+    );
+    write_u64_at(module_base + layout.scheduler_pointer_rva, scheduler);
+    write_bytes(scheduler + layout.scheduler_ready_offset, &[1]);
+    write_u64_at(data + 8, 0x3345);
+    write_u64_at(data + 0x10 + layout.capacity_offset, 2500);
+    write_bytes(template, source);
+    // Generation stand-ins in the already committed builder page. The fixture
+    // builder supplies the result; these do not model the game's generation.
+    for rva in [0x551314, 0x5513C8, 0x557F34] {
+        write_bytes(module_base + rva, &[0xC3]);
+    }
+    let mut builder = Vec::new();
+    builder.extend_from_slice(&[0x49, 0x89, 0xD1]); // mov r9,rdx (descriptor)
+    builder.extend_from_slice(&[0x48, 0x89, 0xCA]); // mov rdx,rcx (output)
+    builder.extend_from_slice(&[0x48, 0xB8]);
+    builder.extend_from_slice(&template.to_le_bytes());
+    builder.extend_from_slice(&[0x31, 0xC9]);
+    let loop_at = builder.len();
+    builder.extend_from_slice(&[
+        0x44, 0x8A, 0x04, 0x08, 0x44, 0x88, 0x04, 0x0A, 0x48, 0xFF, 0xC1, 0x48, 0x81, 0xF9,
+    ]);
+    builder.extend_from_slice(&0xF0u32.to_le_bytes());
+    let jump = builder.len();
+    builder.extend_from_slice(&[0x75, 0]);
+    builder[jump + 1] = (loop_at as i32 - jump as i32 - 2) as u8;
+    builder.extend_from_slice(&[0x41, 0x80, 0x79, 0x13, 0x01, 0x74, 0x1A]); // no serial branch
+    builder.extend_from_slice(&[0x49, 0xBA]);
+    builder.extend_from_slice(&(data + 8).to_le_bytes());
+    builder.extend_from_slice(&[0x49, 0x8B, 0x02, 0x48, 0x89, 0x42, 0x28, 0x49, 0xFF, 0x02]);
+    // branch padding makes the no-serial path land at the call counter.
+    builder.extend_from_slice(&[0x90; 6]);
+    builder.extend_from_slice(&[0x48, 0xB8]);
+    builder.extend_from_slice(&counter.to_le_bytes());
+    builder.extend_from_slice(&[0xF0, 0x48, 0xFF, 0x00, 0x48, 0x89, 0xD0, 0xC3]);
+    let mut padded = vec![0x90; layout.builder_size as usize];
+    padded[..builder.len()].copy_from_slice(&builder);
+    write_bytes(module_base + layout.builder_rva, &padded);
+    let mut insertion = Vec::new();
+    insertion.extend_from_slice(&[0x41, 0xC7, 0x01, 0, 0, 0, 0, 0x49, 0xBA]);
+    insertion.extend_from_slice(&(data + 0x10).to_le_bytes());
+    insertion.extend_from_slice(&[0x31, 0xC9]);
+    let loop_at = insertion.len();
+    // PC202 copy 0x552DD0 leaves the two opaque ranges in the free slot.
+    insertion.extend_from_slice(&[0x83, 0xF9, 0x24, 0x72, 0]);
+    let copy_jump = insertion.len() - 1;
+    insertion.extend_from_slice(&[0x83, 0xF9, 0x28, 0x72, 0]);
+    let skip_jump = insertion.len() - 1;
+    insertion.extend_from_slice(&[0x81, 0xF9, 0xE4, 0, 0, 0, 0x73, 0]);
+    let tail_jump = insertion.len() - 1;
+    let copy_at = insertion.len();
+    insertion.extend_from_slice(&[0x41, 0x8A, 0x04, 0x08, 0x41, 0x88, 0x04, 0x0A]);
+    let advance_at = insertion.len();
+    insertion[copy_jump] = (copy_at - copy_jump - 1) as u8;
+    for jump in [skip_jump, tail_jump] {
+        insertion[jump] = (advance_at - jump - 1) as u8;
+    }
+    insertion.extend_from_slice(&[0x48, 0xFF, 0xC1, 0x48, 0x81, 0xF9]);
+    insertion.extend_from_slice(&0xF0u32.to_le_bytes());
+    let jump = insertion.len();
+    insertion.extend_from_slice(&[0x75, 0]);
+    insertion[jump + 1] = (loop_at as i32 - jump as i32 - 2) as u8;
+    // PC202 acquisition setter 0x54C380: old key, one counter increment.
+    insertion.extend_from_slice(&[0x49, 0xBB]);
+    insertion.extend_from_slice(&data.to_le_bytes());
+    insertion.extend_from_slice(&[
+        0x41, 0x8B, 0x03, 0x41, 0x89, 0x42, 0x1C, 0x41, 0xFF, 0x03, 0x41, 0x81, 0x4A, 0x18, 0x80,
+        0, 0, 0,
+    ]);
+    insertion.extend_from_slice(&[0x4C, 0x89, 0xC0, 0xC3]);
+    write_bytes(module_base + layout.insertion_rva, &insertion);
+    let entry = module_base + layout.dispatch_rva;
+    let mut entry_code = layout.dispatch_signature.to_vec();
+    entry_code.extend_from_slice(&[0x48, 0x83, 0xC4, 0x38, 0x5F, 0x5B, 0xC3]);
+    write_bytes(entry, &entry_code);
+    let call_site = module_base + layout.dispatch_return_rva - 5;
+    let thunk = call_site - 14;
+    let mut caller = vec![0x48, 0x83, 0xEC, 0x28, 0x48, 0xB9];
+    caller.extend_from_slice(&scheduler.to_le_bytes());
+    caller.push(0xE8);
+    caller.extend_from_slice(&((entry as i64 - (call_site + 5) as i64) as i32).to_le_bytes());
+    caller.extend_from_slice(&[0x48, 0x83, 0xC4, 0x28, 0xC3]);
+    write_bytes(thunk, &caller);
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        let call: extern "C" fn() = unsafe { std::mem::transmute(thunk as usize) };
+        for _ in 0..15000 {
+            call();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+    });
+    let creation = nioh3_runtime::platform::process_creation_filetime(std::process::id())
+        .map_err(|e| e.message().to_owned())?
+        .ok_or("no creation time")?
+        .to_string();
+    *LIVE_ADD
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(LiveAddRuntime {
+        entry,
+        data,
+        counter,
+        builder_hex: hex(&padded),
+        creation: creation.clone(),
+    });
+    Ok(
+        serde_json::json!({"creation":creation,"builder_hex":hex(&padded),"insertion_hex":hex(&insertion),"manager":manager,"data":data,
+        "scheduler":scheduler,"template":template,"container_hex":"00".repeat(2500*0xF0)}),
+    )
+}
+
 /// Commit one 64 KiB region covering `address`, which need not be aligned.
 #[cfg(windows)]
 fn commit_fixed(address: u64) -> Result<(), String> {
@@ -613,6 +756,19 @@ fn main() -> std::process::ExitCode {
                         println!("poked\t{address:x}\t{}", hex(&bytes));
                     }
                     _ => println!("error\tpoke-at needs an address and hex bytes"),
+                }
+                let _ = std::io::stdout().flush();
+            }
+            "equipment-add" => {
+                #[cfg(windows)]
+                match parts
+                    .next()
+                    .and_then(parse_hex)
+                    .ok_or("missing equipment record".to_string())
+                    .and_then(|source| equipment_add_setup(module_base, &source))
+                {
+                    Ok(value) => println!("{value}"),
+                    Err(error) => println!("{{\"error\":{}}}", serde_json::json!(error)),
                 }
                 let _ = std::io::stdout().flush();
             }

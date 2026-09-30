@@ -146,6 +146,75 @@ pub const PC_V202_LIVE_ADD_CANDIDATE: LiveAddLayout = LiveAddLayout {
     capacity: 400,
 };
 
+/// Equipment ABI from the two owner-present PC 2.0.2.0 native insertions.
+/// It is selected only by the equipment coordinator after executable/owner
+/// validation. Scroll profiles and their independent native index are unchanged.
+pub const PC_V202_EQUIPMENT_ADD: LiveAddLayout = LiveAddLayout {
+    profile_id: "pc-v2.02-equipment-add-r1",
+    builder_rva: 0x5515FC,
+    builder_size: 0x900,
+    container_offset: 0x10,
+    capacity_offset: 2500 * 0xF0,
+    serial_index_offset: 0,
+    record_size: 0xF0,
+    capacity: 2500,
+    ..PC_V202_LIVE_ADD_CANDIDATE
+};
+
+pub fn is_equipment_layout(layout: &LiveAddLayout) -> bool {
+    *layout == PC_V202_EQUIPMENT_ADD
+}
+
+/// Initialize and generate an equipment descriptor in owned scratch memory.
+/// The surrounding dispatch shim has already preserved registers and XMM0-5.
+pub fn equipment_generation_prefix(
+    memory: u64,
+    base: u64,
+    item: u16,
+    rarity: u8,
+    seed: u16,
+) -> Vec<u8> {
+    let descriptor = memory + DISPATCH_DESCRIPTOR_OFFSET;
+    let context = memory + 0xA00;
+    let mut code = Vec::new();
+    let mov_rcx = |code: &mut Vec<u8>, address: u64| {
+        emit_hex(code, "48 B9");
+        code.extend_from_slice(&address.to_le_bytes());
+    };
+    let call = |code: &mut Vec<u8>, rva: u64| {
+        emit_hex(code, "48 B8");
+        code.extend_from_slice(&(base + rva).to_le_bytes());
+        emit_hex(code, "FF D0");
+    };
+    for slot in 0..7 {
+        mov_rcx(&mut code, descriptor + 0x24 + slot * 0x18);
+        call(&mut code, 0x551314);
+    }
+    mov_rcx(&mut code, context);
+    code.push(0xBA);
+    code.extend_from_slice(&u32::from(item).to_le_bytes());
+    emit_hex(&mut code, "41 B8");
+    code.extend_from_slice(&u32::from(rarity).to_le_bytes());
+    emit_hex(&mut code, "41 B9");
+    code.extend_from_slice(&u32::from(seed).to_le_bytes());
+    call(&mut code, 0x5513C8);
+    // The verified item-grant route has zero drop-source context.
+    emit_hex(&mut code, "49 BA");
+    code.extend_from_slice(&context.to_le_bytes());
+    emit_hex(
+        &mut code,
+        "49 C7 42 08 00 00 00 00 41 C7 42 10 00 00 00 00 41 C7 42 18 00 00 00 00",
+    );
+    mov_rcx(&mut code, descriptor + 0x20);
+    emit_hex(&mut code, "48 BA");
+    code.extend_from_slice(&(descriptor + 0x24).to_le_bytes());
+    emit_hex(&mut code, "49 B8");
+    code.extend_from_slice(&context.to_le_bytes());
+    emit_hex(&mut code, "45 33 C9");
+    call(&mut code, 0x557F34);
+    code
+}
+
 /// The executable the PC v2.02 candidate RVAs were read from.
 pub const PC_V202_CANDIDATE_EXECUTABLE_SHA256: &str =
     "E22C4A635E4EC1E27A177B76E27D7F6A637F426C0ED3928B60F5693BC52AE130";
@@ -377,6 +446,35 @@ pub fn build_dispatch_code(
     insertion: Option<InsertionArgs>,
     preserve_rarity5: bool,
 ) -> Result<Vec<u8>, RuntimeError> {
+    build_dispatch_code_with_prefix(
+        memory,
+        resume,
+        original,
+        leaf,
+        argument,
+        second_argument,
+        insertion,
+        preserve_rarity5,
+        &[],
+        None,
+    )
+}
+
+/// Equipment generation is inserted inside the saved-register envelope. Empty
+/// prefixes preserve the shipped scroll shim byte for byte.
+#[allow(clippy::too_many_arguments)]
+pub fn build_dispatch_code_with_prefix(
+    memory: u64,
+    resume: u64,
+    original: &[u8],
+    leaf: Option<u64>,
+    argument: u64,
+    second_argument: Option<u64>,
+    insertion: Option<InsertionArgs>,
+    preserve_rarity5: bool,
+    prefix: &[u8],
+    equipment_expected: Option<u64>,
+) -> Result<Vec<u8>, RuntimeError> {
     let mut code: Vec<u8> = Vec::with_capacity(0x300);
     let mut jumps: Vec<usize> = Vec::new();
 
@@ -390,6 +488,7 @@ pub fn build_dispatch_code(
         emit_hex(&mut code, "48 81 EC");
         code.extend_from_slice(&stack_size.to_le_bytes());
         save_xmm(&mut code, 0x7F, xmm_offset);
+        code.extend_from_slice(prefix);
         emit_hex(&mut code, "48 B9");
         code.extend_from_slice(&argument.to_le_bytes());
         code.extend_from_slice(&[0x48, 0xB8]);
@@ -420,6 +519,18 @@ pub fn build_dispatch_code(
             code.extend_from_slice(&(memory + DISPATCH_SOURCE_OFFSET).to_le_bytes());
             emit_hex(&mut code, "4C 39 D0");
             reject_unless_equal(&mut code, &mut jumps);
+            if let Some(expected) = equipment_expected {
+                // Compare all 240 bytes while the game thread is stopped in
+                // this shim. A changed builder output never reaches insertion.
+                emit_hex(&mut code, "49 BB");
+                code.extend_from_slice(&expected.to_le_bytes());
+                emit_hex(&mut code, "31 C9");
+                let loop_at = code.len();
+                emit_hex(&mut code, "41 8A 14 0A 41 3A 14 0B");
+                reject_unless_equal(&mut code, &mut jumps);
+                emit_hex(&mut code, "FF C1 81 F9 F0 00 00 00 75");
+                code.push((loop_at as i64 - code.len() as i64 - 1) as i8 as u8);
+            }
             emit_hex(&mut code, "49 BB");
             code.extend_from_slice(&insertion.serial.to_le_bytes());
             emit_hex(&mut code, "4D 39 5A 28");

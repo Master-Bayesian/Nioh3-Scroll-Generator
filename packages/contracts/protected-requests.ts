@@ -6398,4 +6398,60 @@ export type ProtectedRequest =
           expected_record_sha256: string;
         }[];
       };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.scroll_completion_predict";
+      params: {
+        record_hex: string;
+        context_digest: string;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.equipment_add_prepare";
+      params: {
+        operation_id: string;
+        item_id: number;
+        level: number;
+        plus: number;
+        rarity: number;
+        seed: number;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.equipment_add_execute";
+      params: {
+        operation_id: string;
+        plan_digest: string;
+        confirmed: true;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.equipment_add_status";
+      params: {
+        operation_id: string;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.equipment_add_recover";
+      params: {
+        operation_id: string;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.equipment_add_cancel";
+      params: {
+        operation_id: string;
+      };
     };

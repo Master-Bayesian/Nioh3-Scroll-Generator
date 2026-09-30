@@ -965,6 +965,13 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .editor-host{display:flex;flex-direction:column;min-height:0}
 .editor-host>.scroll-audit{flex:0 0 auto;margin:10px 14px 0;padding:10px 12px;overflow:auto;max-height:34vh}
 .editor-host>.editor-page{height:auto;min-height:0;flex:1 1 0}
+/* At narrow native viewports, an auto grid row cannot size a zero-basis flex
+   child from its fixed-height editor. Give the host a scrollable viewport. */
+@media(max-width:1030px){
+  .editor-host{grid-row:2/-1;height:calc(100dvh - 50px);overflow:auto}
+  .editor-host>.editor-page{flex:none;overflow:visible;grid-template-columns:180px minmax(0,1fr)}
+  .equipment-page.character-page{grid-row:2/-1;height:calc(100dvh - 50px)}
+}
 .scroll-audit>header{display:flex;align-items:flex-start;gap:12px;margin:0 0 6px}
 .scroll-audit>header>div{min-width:0;flex:1}
 .scroll-audit h2{font-size:14px}
@@ -1180,3 +1187,34 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .seed-effect small{color:#6b7f84}
 .seed-effect.wanted{color:#1f6b4d;font-weight:600}
 .seed-id{margin-left:auto;color:#8a9a9e}
+.completion-boundary{color:#70571f;background:#faf4e3;padding:8px;border-radius:5px}
+.scroll-completion>summary,.scroll-completion details>summary{width:auto;height:auto;border:0;border-radius:0;text-align:left;line-height:1.5;font-size:13px;list-style:revert}
+.scroll-completion details p{position:static;width:auto;box-shadow:none;padding:6px 0;border:0;background:transparent}
+.completion-round{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.completion-round>span{margin-left:auto}
+.completion-choices{display:flex;flex-direction:column;gap:6px}
+.completion-choices>button{display:flex;flex-wrap:wrap;align-items:center;gap:6px;text-align:left;padding:8px}
+.completion-choices>button.chosen{background:#e0eee7;border-color:#39785e;box-shadow:inset 3px 0 #39785e}
+.completion-choices b{flex:1;min-width:180px}
+.completion-painting{margin:10px 0;padding:10px;background:#f1f6fb;border:1px solid #b6cbd7;border-radius:5px}
+.completion-painting>p{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.completion-actions{display:flex;flex-wrap:wrap;gap:8px}
+.live-equipment-add{padding:16px;min-width:0;min-height:0;flex:1;overflow:auto}
+.live-equipment-layout{display:grid;grid-template-columns:minmax(300px,1fr) minmax(350px,1fr);gap:20px;align-items:start}
+.live-equipment-picker,.live-equipment-form{min-width:0}
+.live-equipment-picker>label{display:flex;gap:12px;align-items:center}
+.live-equipment-picker>label input{min-width:0;flex:1}
+.live-equipment-items{list-style:none;padding:0;max-height:480px;overflow:auto}
+.live-equipment-items li button{display:flex;width:100%;justify-content:space-between;gap:12px;text-align:left}
+.live-equipment-items small{color:#637477;flex-shrink:0}
+.live-equipment-pages,.live-equipment-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0}
+.live-equipment-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.live-equipment-fields label{display:flex;flex-direction:column;gap:6px;min-width:0}
+.live-equipment-fields input{width:100%;min-width:0}
+.live-equipment-preview{margin:16px 0;padding:14px;background:#f5f8f9;border:1px solid #bdcbd0;border-radius:8px}
+.live-equipment-preview ul{list-style:none;padding:0}
+.live-equipment-preview li{display:flex;justify-content:space-between;gap:14px;margin:8px 0}
+.live-equipment-confirm{display:flex;align-items:center;gap:10px;margin:14px 0}
+.live-equipment-confirm input{width:auto;flex-shrink:0}
+.live-equipment-add code{overflow-wrap:anywhere}
+@media(max-width:900px){.live-equipment-layout{grid-template-columns:minmax(0,1fr)}.live-equipment-items{max-height:260px}}

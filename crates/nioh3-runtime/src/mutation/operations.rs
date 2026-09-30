@@ -35,6 +35,7 @@ pub enum OperationState {
     Uncertain,
     Verified,
     RejectedBeforeDispatch,
+    RejectedBeforeInsertion,
     /// A preview child that ran its native dispatch, was reviewed as a mismatch
     /// and left the complete, unchanged-inventory terminal proof.
     RejectedAfterPreview,
@@ -50,6 +51,7 @@ impl OperationState {
             Self::Uncertain => "uncertain",
             Self::Verified => "verified",
             Self::RejectedBeforeDispatch => "rejected_before_dispatch",
+            Self::RejectedBeforeInsertion => "rejected_before_insertion",
             Self::RejectedAfterPreview => "rejected_after_preview",
         }
     }
@@ -340,9 +342,31 @@ impl LiveAddOperations {
         operation_id: &str,
         receipt: &Value,
     ) -> Result<OperationSnapshot, RuntimeError> {
+        self.complete_with_contract(operation_id, receipt, false)
+    }
+
+    /// Equipment has a distinct native container/counter contract. It never
+    /// claims the independent scroll serial-index proof.
+    pub fn complete_equipment(
+        &self,
+        operation_id: &str,
+        receipt: &Value,
+    ) -> Result<OperationSnapshot, RuntimeError> {
+        self.complete_with_contract(operation_id, receipt, true)
+    }
+
+    fn complete_with_contract(
+        &self,
+        operation_id: &str,
+        receipt: &Value,
+        equipment: bool,
+    ) -> Result<OperationSnapshot, RuntimeError> {
         let directory = self.directory(operation_id)?;
         let claim = read_json(&directory.join("claim.json"))?;
-        let (digest, _plan) = self.plan(operation_id)?;
+        let (digest, plan) = self.plan(operation_id)?;
+        if equipment && plan.get("kind").and_then(Value::as_str) != Some("equipment_native_add") {
+            return Err(rejected("Equipment completion requires its own plan kind"));
+        }
         if claim.get("action").and_then(Value::as_str) != Some("dispatch")
             || claim.get("digest").and_then(Value::as_str) != Some(digest.as_str())
         {
@@ -350,14 +374,27 @@ impl LiveAddOperations {
         }
         let state = receipt.get("state").and_then(Value::as_str);
         if receipt.get("operation_id").and_then(Value::as_str) != Some(operation_id)
-            || !matches!(state, Some("verified") | Some("rejected_before_dispatch"))
+            || !(matches!(state, Some("verified") | Some("rejected_before_dispatch"))
+                || equipment && state == Some("rejected_before_insertion"))
         {
             return Err(rejected("Receipt identity or terminal state differs"));
         }
         let flagged = |key: &str| receipt.get(key).and_then(Value::as_bool) == Some(true);
+        if state == Some("rejected_before_insertion")
+            && !(flagged("equipment_container_unchanged_verified")
+                && flagged("dispatch_and_cleanup_verified")
+                && receipt["native_receipt"]["equipment_guard_rejected_before_insertion"] == true)
+        {
+            return Err(rejected(
+                "Equipment rejection lacks independent absence proof",
+            ));
+        }
         if state == Some("verified")
-            && !(flagged("full_container_and_native_index_verified")
-                && flagged("dispatch_and_cleanup_verified"))
+            && !(flagged(if equipment {
+                "equipment_container_and_counters_verified"
+            } else {
+                "full_container_and_native_index_verified"
+            }) && flagged("dispatch_and_cleanup_verified"))
         {
             return Err(rejected(
                 "Successful receipt lacks independent verification",
@@ -424,7 +461,7 @@ impl LiveAddOperations {
         if directory.join(PREVIEW_CHILD_FILE).is_file() {
             return self.preview_child_snapshot(operation_id, &directory);
         }
-        let (digest, _plan) = self.plan(operation_id)?;
+        let (digest, plan) = self.plan(operation_id)?;
         let claim_path = directory.join("claim.json");
         let receipt_path = directory.join("receipt.json");
         let mut state = OperationState::Prepared;
@@ -462,6 +499,9 @@ impl LiveAddOperations {
             state = match stored.get("state").and_then(Value::as_str) {
                 Some("verified") => OperationState::Verified,
                 Some("rejected_before_dispatch") => OperationState::RejectedBeforeDispatch,
+                Some("rejected_before_insertion") if plan["kind"] == "equipment_native_add" => {
+                    OperationState::RejectedBeforeInsertion
+                }
                 _ => {
                     return Err(rejected("Stored operation receipt changed"));
                 }

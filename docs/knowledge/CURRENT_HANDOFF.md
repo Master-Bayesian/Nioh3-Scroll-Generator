@@ -2,6 +2,15 @@
 
 ## Active development: v0.8.3
 
+**Missing-feature completion (2026-09-30).** The owner rejected delivery of
+another partial candidate. Live equipment addition and the scroll ordinary
+completion/extra-painting prediction panel are now implemented personally,
+without subagents. See [integration and bounded evidence](V083_MISSING_FEATURE_INTEGRATION_20260930.md).
+Only a matching standalone EXE containing all three features is the next
+delivery. Packaged UI acceptance and game insertion/save/reload acceptance are
+separate; historical test7 packages do not contain this scope. Do not ask the
+owner to close the game.
+
 **test7-r2 character-page repair.** The owner opened Equipment & items without
 opening the game and received a player-vtable mismatch. A residual process
 had no window and a null independent inventory global. Readiness is now checked

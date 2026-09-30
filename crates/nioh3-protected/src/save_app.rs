@@ -719,6 +719,7 @@ impl SaveApplication {
         Ok(json!({
             "slot_index": entry.slot_index,
             "header": header,
+            "record_hex": hex(&record),
             "effects": effects.into_iter().map(effect_json).collect::<Vec<_>>(),
             "derived": derived,
         }))
