@@ -92,7 +92,7 @@ const seedResponse = (params = {}) => ({
     { seed: 2222, effects: [{ effect_id: 540, value: 34, roll: 2, star: true, role: 'random' }] },
   ],
 });
-window.__seed = { calls: [], pending: [], nextMode: 'success', seedResponse };
+window.__seed = { calls: [], pending: [], nextMode: 'success', liveMode: window.__seedLiveMode || 'ready', seedResponse };
 const liveCharacter = {
   source: 'runtime', game_version: '2.0.2.0', process_id: 4242,
   currencies: { amrita: 0, gold: 0 }, equipment_slots: 0, equipment: [], items: [],
@@ -118,7 +118,12 @@ window.__seed.execute = async (command) => {
   const method = command?.method;
   const params = command?.params ?? {};
   window.__seed.calls.push({ method, params: structuredClone(params) });
-  if (method === 'runtime.character_snapshot') return structuredClone(liveCharacter);
+  if (method === 'runtime.character_snapshot') {
+    if (window.__seed.liveMode === 'missing') throw new Error('OPERATION_REJECTED: no running process matches Nioh3.exe');
+    if (window.__seed.liveMode === 'unloaded') throw new Error('OPERATION_REJECTED: character layout: no character is loaded');
+    if (window.__seed.liveMode === 'foreign') throw new Error("OPERATION_REJECTED: character layout: the player object's vtable does not match this build");
+    return structuredClone(liveCharacter);
+  }
   if (method === 'save.discover') return { saves: [structuredClone(saveReference)] };
   if (method === 'save.inventory') return structuredClone(emptyInventory);
   if (method === 'save.operations') return { operations: [] };
@@ -206,10 +211,13 @@ try {
     viewport: { width: 1440, height: 960 },
     deviceScaleFactor: 1,
   });
-  async function openEditor(locale) {
+  async function openEditor(locale, liveMode = 'ready') {
     const page = await context.newPage();
     page.on('pageerror', (error) => browserErrors.push(`${locale}: ${error.message}`));
-    await page.addInitScript((value) => localStorage.setItem('nioh3-ui-locale', value), locale);
+    await page.addInitScript(({ locale, liveMode }) => {
+      localStorage.setItem('nioh3-ui-locale', locale);
+      window.__seedLiveMode = liveMode;
+    }, { locale, liveMode });
     await page.goto(serverUrl);
     await page.waitForSelector('#root .shell', { timeout: 30000 });
     await page.locator('.nav nav > button').nth(4).click();
@@ -331,6 +339,43 @@ try {
     evidence.localeRuns[locale] = { viewport, alternativeLabel, searchParams: seedCall?.params, submittedAdd: actualAdd, screenshot };
     await page.close();
   }
+
+  for (const locale of ['zh-CN', 'en-US', 'ja-JP']) {
+    for (const liveMode of ['missing', 'unloaded']) {
+      const page = await openEditor(locale, liveMode);
+      await page.locator('.character-page .notice').waitFor();
+      const notice = await page.locator('.character-page .notice').innerText();
+      record(`${locale}: ${liveMode} character is informational and cannot be edited`,
+        await page.locator('.character-page .notice-info').count() === 1 &&
+        await page.locator('.character-page .notice[role="alert"]').count() === 0 &&
+        await page.locator('.character-currencies').count() === 0, { notice });
+      const screenshot = join(output, `character-${liveMode}-${runLabel}-${locale}.png`);
+      await page.screenshot({ path: screenshot, fullPage: false });
+      evidence.screenshots.push(screenshot);
+      if (liveMode === 'unloaded') {
+        await page.evaluate(() => { window.__seed.liveMode = 'ready'; });
+        await page.locator('.character-toolbar > button').first().click();
+        await page.locator('.character-currencies').waitFor();
+        await page.evaluate(() => { window.__seed.liveMode = 'missing'; });
+        await page.locator('.character-toolbar > button').first().click();
+        await page.waitForFunction(() => !document.querySelector('.character-toolbar > button').disabled);
+        record(`${locale}: unavailable reload clears the former live snapshot`,
+          await page.locator('.character-currencies').count() === 0 && await page.locator('.character-page .notice-info').count() === 1);
+      }
+      await page.locator('.character-modes button').nth(1).click();
+      await page.waitForFunction(() => window.__seed.calls.some(call => call.method === 'save.character'));
+      await page.locator('.character-currencies').waitFor();
+      record(`${locale}: ${liveMode} game does not prevent save-file mode`,
+        await page.locator('.character-page .notice[role="alert"]').count() === 0);
+      await page.close();
+    }
+  }
+  const foreignPage = await openEditor('zh-CN', 'foreign');
+  await foreignPage.locator('.character-page .notice').waitFor();
+  record('genuine character layout mismatch remains a diagnostic error',
+    await foreignPage.locator('.character-page .notice-error').count() === 1 &&
+    await foreignPage.locator('.character-currencies').count() === 0);
+  await foreignPage.close();
 
   const edgePage = await openEditor('zh-CN');
   await enterSaveAdd(edgePage, 'zh-CN-edge');

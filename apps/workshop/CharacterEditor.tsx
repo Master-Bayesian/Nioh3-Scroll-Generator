@@ -15,7 +15,7 @@ import effectSources from "./effect-sources.json";
 import { desktop } from "./desktop-bridge";
 import { fillTemplateSlots, plainGameText } from "./game-text";
 import { Notice } from "./Notice";
-import { publicError, stripErrorPrefix } from "./public-errors";
+import { errorText, publicError, stripErrorPrefix } from "./public-errors";
 import { SavePicker } from "./CartActions";
 import { runtimeObserver, saveObserver, saveSession } from "./save-workspace";
 
@@ -1019,9 +1019,21 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     return run(async () => {
       setPlan(null);
       if (target === "live") {
-        const result = await window.operations.execute({ method: "runtime.character_snapshot", params: {} });
-        if (!result || !("source" in result) || result.source !== "runtime") throw new Error("UNEXPECTED_CHARACTER_SNAPSHOT");
-        adopt({ ...result, mode: "live" });
+        try {
+          const result = await window.operations.execute({ method: "runtime.character_snapshot", params: {} });
+          if (!result || !("source" in result) || result.source !== "runtime") throw new Error("UNEXPECTED_CHARACTER_SNAPSHOT");
+          adopt({ ...result, mode: "live" });
+        } catch (error) {
+          const detail = errorText(error);
+          const missing = /no running process matches Nioh3\.exe/i.test(detail);
+          if (!missing && !/character layout: no character is loaded/i.test(detail)) throw error;
+          // An offline or unloaded game is a normal state. Do not leave a
+          // former live snapshot editable after the character becomes unavailable.
+          setCharacter(null);
+          setMessage(missing
+            ? "未检测到正在运行的仁王3。可以直接使用“修改存档文件”；实时修改需要启动游戏并读档。"
+            : "当前没有可读取的游戏角色。可以使用“修改存档文件”，或进入角色存档后点“重新读取”。");
+        }
       } else {
         const selectedSave = saveSession?.getSnapshot().selected;
         if (!selectedSave) throw new Error("请先选择存档。");

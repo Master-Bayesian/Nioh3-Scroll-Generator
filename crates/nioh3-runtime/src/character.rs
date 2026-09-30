@@ -162,19 +162,22 @@ pub fn locate_player(memory: &dyn InventoryMemory) -> Result<u64, RuntimeError> 
     if player == 0 {
         return Err(layout("no character is loaded"));
     }
-    let vtable = u64_at(&memory.read(player, 8)?)?;
-    if vtable != base + PLAYER_VTABLE_RVA {
-        return Err(layout(
-            "the player object's vtable does not match this build",
-        ));
-    }
     let slot = u64_at(&memory.read(base + GLOBAL_SLOT_RVA, 8)?)?;
     let root = if slot == 0 {
         0
     } else {
         u64_at(&memory.read(slot, 8)?)?
     };
-    if root == 0 || root + CONTAINER_BIAS != player + EQUIPMENT_OFFSET {
+    if root == 0 {
+        return Err(layout("no character is loaded"));
+    }
+    let vtable = u64_at(&memory.read(player, 8)?)?;
+    if vtable != base + PLAYER_VTABLE_RVA {
+        return Err(layout(
+            "the player object's vtable does not match this build",
+        ));
+    }
+    if root + CONTAINER_BIAS != player + EQUIPMENT_OFFSET {
         return Err(layout(
             "the equipment container does not sit inside the player object",
         ));

@@ -3796,3 +3796,35 @@ single-instance behavior corroborates the result.
 **Follow-up state:** resolved. Replacement candidate `7676ab7` passed native
 launch/cache and packaged offline seed-route checks after the old instance
 exited, with the game still running.
+
+## 2026-09-30: residual game process misclassified as a foreign character layout
+
+**Objective:** open the character/equipment page while no game character is loaded.
+
+**Observed symptom:** the owner's test7-r2 feedback reported a player-vtable
+mismatch immediately on page entry, despite the owner not opening the game.
+
+**Root cause:** a residual Nioh3.exe process had no main window and a null
+independent inventory global. The player pointer remained non-null with a
+vtable 0x38 below the loaded-player vtable. The runtime checked that vtable
+before identifying the unloaded inventory. This is not evidence of an
+unsupported executable or permission to relax the vtable guard.
+
+**Evidence and repair:** see
+`docs/knowledge/V083_CHARACTER_READINESS_20260930.md` and the retained intake,
+backend, UI and candidate receipts under
+`D:/Nioh3_v080_deliverables/deliverables/codex-v083-character-layout-20260930/`.
+Check readiness first, preserve foreign non-null layout rejection, and present
+only missing/unloaded errors as normal UI information. The meaningful browser
+regression changed from 52/61 (nine expected failures) to 61/61. A prior
+selector-only harness failure is retained separately.
+
+**Disposition and reproduction:** the user's feedback and read-only process
+observation corroborate the symptom; prewritten host/browser regressions and
+the replacement candidate report record repair and verification. No process
+termination, injection, game write or save write is required.
+
+**Follow-up state:** use the external candidate delivery report for final native
+package acceptance; this does not accept real-save seeded insertion.
+
+**Skill promotion:** None. Bounded runtime-readiness and UI-classification defect.

@@ -2,6 +2,15 @@
 
 ## Active development: v0.8.3
 
+**test7-r2 character-page repair.** The owner opened Equipment & items without
+opening the game and received a player-vtable mismatch. A residual process
+had no window and a null independent inventory global. Readiness is now checked
+before the loaded-player vtable; the UI presents missing/unloaded characters
+as information and keeps save-file mode available. See the
+[diagnosis and bounded evidence](V083_CHARACTER_READINESS_20260930.md).
+The replacement artifact and packaged acceptance are recorded in that task's
+external `candidate/DELIVERY.md`; do not treat test7-r2 as containing this fix.
+
 Read the [original CC conversation reconciliation](V083_CC_CONTEXT_RECONCILIATION_20260929.md)
 before continuing this handover. It restores the full v0.8.3 scope, historical
 live confirmations, equipment-first sequencing and the owner's instruction to

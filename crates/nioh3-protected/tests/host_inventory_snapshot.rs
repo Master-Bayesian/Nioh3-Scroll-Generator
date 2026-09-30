@@ -20,6 +20,7 @@ use std::path::PathBuf;
 use serde_json::{json, Value};
 
 use nioh3_protected::{serve, Contract, HostError, JobContext, Role, RoleApplication};
+use nioh3_runtime::character::read_character;
 use nioh3_runtime::inventory::{snapshot, FixtureMemory, InventoryRequest};
 
 /// The four retained-runtime sites, written here independently of the module so
@@ -42,6 +43,11 @@ const SITE_SIGNATURES: [(&str, u64, &str); 4] = [
 const GLOBAL_SLOT_RVA: u64 = 0x4751530;
 const COUNT_DISPLACEMENT: u64 = 0x927C0;
 const RECORD_SIZE: usize = 0xF0;
+
+const CHARACTER_PLAYER_POINTER_RVA: u64 = 0x4751850;
+const CHARACTER_VTABLE_RVA: u64 = 0x402DA20;
+const CHARACTER_EQUIPMENT_OFFSET: u64 = 0x370E0;
+const CHARACTER_CONTAINER_BIAS: u64 = 0x10;
 
 struct FixtureRuntime {
     memory: FixtureMemory,
@@ -88,6 +94,9 @@ impl RoleApplication for FixtureRuntime {
                     InventoryRequest::from_json(params).map_err(HostError::from_runtime)?;
                 snapshot(&self.memory, &request).map_err(HostError::from_runtime)
             }
+            "runtime.character_snapshot" => read_character(&self.memory)
+                .map(|read| json!({"player": read.player}))
+                .map_err(HostError::from_runtime),
             other => Err(HostError::rejected(format!(
                 "INVALID_REQUEST: {other} is not an inline protected method"
             ))),
@@ -267,6 +276,55 @@ fn fixture(records: &[Vec<u8>], count: u64, break_site: bool) -> Value {
         "creation_filetime": "134344988244393971",
         "regions": regions,
     })
+}
+
+/// The minimal pointer map used by the real protected wire path for a
+/// character-layout diagnosis. The object and inventory roots stay separate,
+/// matching the two independent live globals.
+fn character_layout_fixture(player: u64, vtable: u64, inventory_root: Option<u64>) -> Value {
+    let module_base: u64 = 0x7FF7_0000_0000;
+    let inventory_slot = 0x3_0000_0000u64;
+    let inventory_global = inventory_root.map_or(0, |_| inventory_slot);
+    let mut regions = vec![
+        json!({
+            "address": module_base + CHARACTER_PLAYER_POINTER_RVA,
+            "bytes": hex_text(&player.to_le_bytes()),
+        }),
+        json!({
+            "address": player,
+            "bytes": hex_text(&vtable.to_le_bytes()),
+        }),
+        json!({
+            "address": module_base + GLOBAL_SLOT_RVA,
+            "bytes": hex_text(&inventory_global.to_le_bytes()),
+        }),
+    ];
+    if let Some(root) = inventory_root {
+        regions.push(json!({
+            "address": inventory_slot,
+            "bytes": hex_text(&root.to_le_bytes()),
+        }));
+    }
+    json!({
+        "module_base": module_base,
+        "pid": 22000,
+        "creation_filetime": "134344988244393971",
+        "regions": regions,
+    })
+}
+
+fn character_snapshot_response(case: &str, fixture: &Value) -> Value {
+    let out = drive(
+        case,
+        fixture,
+        vec![
+            request("1", "handshake", json!({})),
+            request("2", "runtime.character_snapshot", json!({})),
+        ],
+    );
+    assert_eq!(out.len(), 2, "{out:?}");
+    assert_eq!(out[0]["ok"], true, "handshake refused: {}", out[0]);
+    out[1].clone()
 }
 
 fn three_records() -> Vec<Vec<u8>> {
@@ -503,4 +561,45 @@ fn a_snapshot_is_not_a_job_and_does_not_occupy_the_owner() {
     assert_eq!(out[1]["result"]["status"], "observed");
     assert!(out[1]["result"]["job_id"].is_null(), "{}", out[1]);
     assert_eq!(out[2]["result"]["override_state"], "stopped");
+}
+
+#[test]
+fn character_snapshot_reports_unloaded_before_a_stale_vtable() {
+    let player = 0x2_0000_0000u64;
+    let fixture = character_layout_fixture(player, 0x1234, None);
+    let response = character_snapshot_response("character_unloaded", &fixture);
+    assert_eq!(response["ok"], false, "{response}");
+    assert_eq!(
+        response["error"]["message"],
+        "character layout: no character is loaded"
+    );
+}
+
+#[test]
+fn character_snapshot_preserves_vtable_mismatch_with_a_non_null_chain() {
+    let player = 0x2_0000_0000u64;
+    let valid_root = player + CHARACTER_EQUIPMENT_OFFSET - CHARACTER_CONTAINER_BIAS;
+    let fixture = character_layout_fixture(player, 0x1234, Some(valid_root));
+    let response = character_snapshot_response("character_foreign_vtable", &fixture);
+    assert_eq!(response["ok"], false, "{response}");
+    assert_eq!(
+        response["error"]["message"],
+        "character layout: the player object's vtable does not match this build"
+    );
+}
+
+#[test]
+fn character_snapshot_preserves_a_non_null_wrong_container() {
+    let player = 0x2_0000_0000u64;
+    let fixture = character_layout_fixture(
+        player,
+        0x7FF7_0000_0000 + CHARACTER_VTABLE_RVA,
+        Some(player + CHARACTER_EQUIPMENT_OFFSET),
+    );
+    let response = character_snapshot_response("character_wrong_container", &fixture);
+    assert_eq!(response["ok"], false, "{response}");
+    assert_eq!(
+        response["error"]["message"],
+        "character layout: the equipment container does not sit inside the player object"
+    );
 }

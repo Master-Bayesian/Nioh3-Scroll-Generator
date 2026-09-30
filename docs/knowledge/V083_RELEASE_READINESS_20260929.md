@@ -3,6 +3,13 @@
 **Status: REPLACEMENT CANDIDATE BUILT; NATIVE STARTUP AND OFFLINE SEED ROUTE PASSED.**
 Packaged save-UI/game acceptance, signing and publication remain separate gates.
 
+**Character readiness follow-up:** test7-r2 misclassified a residual process
+with no loaded inventory as a player-vtable mismatch. See the
+[repair record](V083_CHARACTER_READINESS_20260930.md). The expanded browser
+workflow passes 61/61 checks, including missing/unloaded state handling and
+preservation of genuine layout errors. The new task's `candidate/DELIVERY.md`
+records the replacement artifact and native page acceptance separately.
+
 Candidate branch: claude/v082-integration  
 Intake source SHA: 2d133f7cd388bda390d542ea327b7f47398e049e  
 Target version: 0.8.3

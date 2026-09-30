@@ -4459,6 +4459,14 @@
     "想要的词条最多 7 个。请去掉一些后重新查找。": [
       "At most 7 wanted effects. Remove some and search again.",
       "欲しい効果は最大 7 個です。いくつか外してから検索し直してください。"
+    ],
+    "未检测到正在运行的仁王3。可以直接使用“修改存档文件”；实时修改需要启动游戏并读档。": [
+      "No running Nioh 3 game was detected. You can use \"Edit the save file\" directly. Live editing requires starting the game and loading a character.",
+      "実行中の仁王3が見つかりません。「セーブファイルを編集」はそのまま利用できます。リアルタイム編集にはゲームを起動し、キャラクターをロードしてください。"
+    ],
+    "当前没有可读取的游戏角色。可以使用“修改存档文件”，或进入角色存档后点“重新读取”。": [
+      "No game character is currently available to read. Use \"Edit the save file\", or load a character in game and click \"Reload\".",
+      "現在読み取れるゲーム内キャラクターがありません。「セーブファイルを編集」を使うか、ゲームでキャラクターをロードしてから「再読み込み」を押してください。"
     ]
   },
   "game": {
