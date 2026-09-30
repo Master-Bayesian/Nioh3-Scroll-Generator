@@ -3703,3 +3703,69 @@ focused rerun. Do not promote this one-off helper mistake to a product rule or
 skill.
 
 **Skill promotion:** None. Bounded build-input failure record.
+
+## 2026-09-29: v0.8.3 test7 one-file packaging refusal
+
+**Objective:** prepare a v0.8.3 test package from the current integration
+candidate.
+
+**Observed symptom:** the portable directory and ZIP were emitted, but the
+expected one-file EXE is absent. The test7 portable manifest and ZIP identify
+source commit 2d133f7cd388bda390d542ea327b7f47398e049e, version 0.8.2, and
+git.dirty: true. ZIP SHA-256:
+d258ce5d1b29de585c540649fb69ba5152a8dd0a1e4c94d3533fd89208c39cdb.
+
+**Diagnosis and evidence:** the package helper
+tools/build_tauri_onefile.py rejects dirty source manifests with
+One-file releases require a clean source commit. The retained manifest and ZIP
+corroborate a dirty-source refusal. The original test7 console log was not
+retained, so the exact stderr and failed command line cannot be recovered; the
+specific clean-source message is established by the helper, not by a captured
+test7 log.
+
+**Disposition:** keep the portable directory and ZIP as diagnostic evidence
+only. Do not reuse them as a release candidate. Retry packaging only after
+version sync, source/UI gates, and a clean frozen source identity. No game or
+save write was involved.
+
+**Reproduction status:** the dirty-manifest rejection is deterministic at the
+packager guard; the original test7 invocation was not replayed.
+
+**Follow-up state:** open pending a clean frozen source and a fresh package run.
+
+**Skill promotion:** None. Bounded source-state/package precondition failure.
+
+## 2026-09-29: v0.8.3 version-sync helper canonical mismatch
+
+**Objective:** synchronize product version metadata and version-bound context
+goldens from 0.8.2 to 0.8.3.
+
+**Observed symptom:** the draft task-local helper first stopped before writes at
+its V20002 self-check. After fixing that transform, the second invocation
+updated version metadata and expected context digests but failed its final
+same-process V202 check.
+
+**Root cause:** the original V20002 derivation did not replace the selected
+versioned-resource directory from pc_v2_02 to pc_v2_00_02. Its derived digest
+was e15b3275ccbff6b5e64591c8b2d03c28a16dad7f03badc650d1001b05f6129f0,
+while the canonical descriptor and pinned digest were
+8c7f29bcc478a5fd56f1458d7e2aa7d6e3319f85a8c6b0be3e6ce4cb44a384c9. The
+second final-check failure came from the helper re-importing the test module
+after same-size golden edits without bypassing Python bytecode cache.
+
+**Evidence and repair:** the current resolver reports
+r4_finalizer/pc_v2_00_02/resource_v1 and matches the corrected canonical bytes.
+The helper now reads golden assignments directly from the source AST, includes
+the correct versioned-resource path, and verifies idempotently when already at
+0.8.3. An isolated-cache resolver verification and the 0.8.3 source preflight
+pass. Only product-version metadata and the canonical expected-version digests
+changed; bundle/resource inputs and generation semantics did not.
+
+**Disposition:** repaired in the task-local helper and preserved with the
+canonical verification artifacts. No Cargo build, game operation, or package
+build was run.
+
+**Follow-up state:** closed for version synchronization; source remains dirty
+and UI/backend acceptance gates remain open.
+
+**Skill promotion:** None. Bounded preparation-helper defect.

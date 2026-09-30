@@ -209,7 +209,7 @@ export function publicError(message: string): string {
     ],
     [
       /changed after the operation was prepared/i,
-      "生成计划之后游戏又写入了存档（游戏可能没有停在标题界面），本次没有写入，存档没有改动。请让游戏回到标题界面或关闭游戏，点“重新读取”后重新生成计划。",
+      "生成计划之后游戏又写入了存档（游戏可能没有停在标题界面），本次没有写入，存档没有改动。请让游戏回到标题界面后点“重新读取”，再重新生成计划。",
     ],
     [
       /no authentic scroll template is available/i,
@@ -249,7 +249,7 @@ export function publicError(message: string): string {
     ],
     [
       /GAME_RUNNING|GAME_STATE_UNKNOWN/,
-      "请完全关闭《仁王3》后再写入存档。本次没有修改存档。",
+      "请让游戏回到标题界面后重试写入存档。本次没有修改存档。",
     ],
     [/Stop temporary overrides before editing remaining count/, "请先停止临时修改，再核对当前次数。"],
     [/Current scroll state is not supported for count editing/, "这张绘卷的当前状态暂不支持修改次数。"],

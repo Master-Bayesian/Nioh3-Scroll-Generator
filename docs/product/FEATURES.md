@@ -37,37 +37,43 @@ and safety bounds are accepted. Until then it stays unavailable to players.
 
 | ID | Capability and intended outcome | Entry point | Essential bound | Primary anchors |
 | --- | --- | --- | --- | --- |
-| `EQUIPMENT-READ` | Browse owned equipment records and read their raw fields. This is the read stage of the single equipment/soul-core browsing-and-editing feature, not an independent product; soul-core field coverage is unverified. | In-development, read-only experimental equipment page | Read-only; no hidden developer-mode flag is required. Reuses the protected `runtime` read path (`runtime.inventory_snapshot`); adds no write, no new IPC write route, and no bundled catalog. Names come from shipped resources only, with an exact-ID fallback when a name is unknown. Internal browser continuation now clears stale state, anchors pages to process identity/container count, and rejects mixed sessions; the bounded E2E artifact records 48 checks. A private P3 slot-0/save record is byte-correlated as a candidate only. This remains one page of one debug session, not a whole-inventory capacity claim, not a write, not the one-file build, and not shipped or user-facing. Stable owner/key identity is a gate for future `EQUIPMENT-EDIT` and create, not a reason to hide this read-only browser; this source remains internal and not release-validated. | `crates/nioh3-data/src/equipment_catalog.rs`; `crates/nioh3-runtime/src/inventory.rs`; `crates/nioh3-protected/src/runtime_app.rs`; `apps/workshop/EquipmentBrowser.tsx`; `apps/workshop/desktop-bridge.ts`; `apps/tauri/verify-equipment-browser.mjs`; `D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/browser-triage/REPORT.md`; `D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/save-correlation/REPORT.md` |
+| `EQUIPMENT-READ` | Browse owned equipment records and read their raw fields. This is the read stage of the single equipment/soul-core browsing-and-editing feature, not an independent product; soul-core field coverage is unverified. | In-development, read-only experimental equipment page | Read-only; no hidden developer-mode flag is required. Reuses the protected `runtime` read path (`runtime.inventory_snapshot`); adds no write, no new IPC write route, and no bundled catalog. Names come from shipped resources only, with an exact-ID fallback when a name is unknown. Internal browser continuation now clears stale state, anchors pages to process identity/container count, and rejects mixed sessions; the bounded E2E artifact records 48 checks. A private P3 slot-0/save record is byte-correlated as a candidate only. This remains one page of one debug session, not a whole-inventory capacity claim, not a write, not the one-file build, and not shipped or user-facing. Stable owner/key identity remains a gate for live-process edits and create; it is separate from the save-file candidate tracked under `EQUIPMENT-EDIT`. This source remains internal and not release-validated. | `crates/nioh3-data/src/equipment_catalog.rs`; `crates/nioh3-runtime/src/inventory.rs`; `crates/nioh3-protected/src/runtime_app.rs`; `apps/workshop/EquipmentBrowser.tsx`; `apps/workshop/desktop-bridge.ts`; `apps/tauri/verify-equipment-browser.mjs`; `D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/browser-triage/REPORT.md`; `D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/save-correlation/REPORT.md` |
 | `CATALOG-LOCAL-IMPORT` | Read a user-selected `items_little_endian.json` file as raw bytes for offline name lookup. | **Internal implementation complete; no release entry point** | Not bundled and never a game/save write. The adapter retains source/hash/version/locale/ID-namespace provenance and keeps unknown IDs numeric. The bounded native catalog run is a separate debug acceptance (60 checks, 696 locale messages), not packaged or live-game acceptance. This is a selected-file local-read path only: not an arbitrary-directory, CT, or 7z importer, and not permission to bundle supplied vendor catalogs. A user-provided local file does not require a redistribution grant; bundling vendor data does. | `crates/nioh3-data/src/equipment_catalog.rs`; `apps/workshop/LocalCatalogImport.tsx`; `D:/Nioh3_v080_deliverables/deliverables/v081-local-catalog-20260921/ui/REPORT.md`; `D:/Nioh3_v080_deliverables/deliverables/v081-local-catalog-20260921/native/native-v081-evidence.json` |
-| `LEGAL-EQUIPMENT-GENERATION` | Generate equipment only through supported legitimate game paths. Two proposed routes are tracked: actual native natural-drop generation under legitimate inputs/context, and offline replay/inverse search of items attainable for requested effects. | Planned; no entry point | The native-generation Pro package is delivered as static/offline evidence, not current-game generation acceptance. This must not be conflated with native inventory insertion of a custom 512-byte draft: the reviewed trainer-side add call shape `(manager, out512, in512, 0, 7)` is not a game-side insertion ABI, and natural RNG, legal roll ranges and exclusions remain unrecovered. Shares one versioned generation/rule dataset with `INVENTORY-LEGALITY-AUDIT`; no UI, writer or bundled catalog is added by this entry. | `D:/Nioh3_v080_deliverables/deliverables/v081-generation-p0p1-20260921`; `V081_INTEGRATION_CONTINUATION_20260921.md` |
+| `LEGAL-EQUIPMENT-GENERATION` | Generate equipment records with the game's seed-driven generator and search seeds that yield requested effects; queue generated results for a character save. | **v0.8.3 candidate implementation; unpublished; package acceptance pending** | `runtime.equipment_seeds` searches the complete 16-bit seed domain and replays candidates; `save.prepare_character_edit` regenerates and adds records through the encrypted-save transaction using save-derived progress and played-difficulty checks. The new generator evidence targets PC v2.02 (file version 2.0.2.0); no older-version parity is claimed. Offline evidence: 900-record whole-record parity, exhaustive 65,536-seed accounting, a 1,000+ case replay audit, synthetic PC v2.02 seeded-add readback, the repaired group-key mutation host regression (47.80 s before / 48.19 s after), and UI typecheck, 1,115-message locale audit, and 42/42 mocked-bridge browser checks. This does not drive live natural drops or write to live-game inventory. Real-save/game validation, in-game reload, native Tauri/package acceptance, and publication remain open; the 1,013/1,318 owner-save replay is diagnostic only. | `crates/nioh3-domain/src/equipment_generation.rs`; `crates/nioh3-protected/src/equipment_seeds.rs`; `crates/nioh3-protected/src/save_app.rs`; `apps/workshop/CharacterEditor.tsx`; `D:/Nioh3_v080_deliverables/deliverables/codex-v083-handover-20260929/backend/REPORT.md`; `D:/Nioh3_v080_deliverables/deliverables/codex-v083-handover-20260929/backend/repair-group-key/REPRODUCER.md`; `D:/Nioh3_v080_deliverables/deliverables/codex-v083-handover-20260929/ui/verify-seed-equipment-final.md`; `docs/knowledge/V083_EQUIPMENT_SEED_GENERATION_RESEARCH_20260929.md` |
+| `EQUIPMENT-EDIT` | Edit, remove, or add equipment in a selected character save. | **Character Editor: v0.8.2 shipped editing; v0.8.3 candidate add/remove** | `save.character` reads equipment and `save.prepare_character_edit` patches occupied records, removes occupied records, and adds new items through the save transaction. Seeded additions use `LEGAL-EQUIPMENT-GENERATION`; other construction does not carry that generation claim. The synthetic PC v2.02 host E2E checks an existing-record patch, removal, ordinary addition, seeded generated-record bytes, and inventory counters. The UI run uses a scripted bridge. This candidate does not establish real-save or in-game reload behavior, live-memory editing, native Tauri/package acceptance, or publication. | `crates/nioh3-protected/src/save_app.rs`; `crates/nioh3-protected/tests/host_character_edit.rs`; `apps/workshop/CharacterEditor.tsx`; `D:/Nioh3_v080_deliverables/deliverables/codex-v083-handover-20260929/backend/REPORT.md`; `D:/Nioh3_v080_deliverables/deliverables/codex-v083-handover-20260929/ui/verify-seed-equipment-final.md` |
 | `INVENTORY-LEGALITY-AUDIT` | Independently scan owned scrolls and equipment (soul-core coverage explicit and unverified until captured) for impossible effect combinations and other validated rule violations. | **In progress; bounded backend/UI/native debug evidence complete; no release entry point** | The bounded slice has synthetic protected dispatch with snapshot/source SHA/context proof, a UI six-row fixture accepted by 28 focused checks, TypeScript and 682-message locale audit across zh-CN/en-US/ja-JP, and a corrected native debug route that reaches `save.inventory`, `save.operations`, and `save.audit_scrolls`. All six current rows remain `INSUFFICIENT_DATA`; packaged/release acceptance and actual normal-input-domain evidence remain open. Replay matches are diagnostic only. R5, equipment and soul-core hard rules remain unsupported (`equipment_hard_terminal_rules_enabled = 0`). Mismatch, timeout, missing Seed/context, or version drift never becomes an illegal verdict. No write, repair, anti-cheat claim, or whole-record history proof is enabled. | `D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/scroll-audit/e2e-audit-result.json`; `D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/scroll-audit-ui/REPORT.md`; `D:/Nioh3_v080_deliverables/deliverables/v081-integration-remaining-20260921/handoff/evidence/continuation/native-summary.json`; `V081_INTEGRATION_CONTINUATION_20260921.md` |
 
-### Planned/in-progress: equipment legality generation and inventory audit
+### In progress: equipment legality generation and inventory audit
 
-Owner-requested product scope, recorded 2026-09-21 and not yet scheduled. Browsing
-and editing owned equipment/soul-core records are treated as **one** feature; the
-read-only page above is its delivered read stage, and editing remains a future
-slice. Two separate planned features build on one shared, versioned
-generation/rule dataset so no two divergent rulesets appear:
+Owner-requested scope recorded 2026-09-21. Browsing and editing owned
+equipment/soul-core records remain one feature: the read-only page above is
+the in-development read stage, while `EQUIPMENT-EDIT` retains shipped v0.8.2 editing and adds an unpublished
+v0.8.3 save-file candidate slice for existing-record edits, additions, and
+removals. This does not establish live-game editing or acceptance. Two separate
+features build on one shared, versioned generation/rule dataset:
 
-- `LEGAL-EQUIPMENT-GENERATION` explores two routes: driving the game's own natural
-  drop generation with legitimate inputs and context, or replaying/inverting
-  generation offline to find equipment attainable for requested effects. It is not
-  the same as inserting a custom 512-byte draft into native inventory, and native
-  insertion, natural RNG, legal roll ranges and exclusions stay unrecovered.
-- `INVENTORY-LEGALITY-AUDIT` performs an independent read-only scan and reports a
-  limited verdict only: proven reachable, a known rule violation with a precise
-  reason, no violation found within the documented checks, or insufficient data.
-  It keeps structural memory validity, incomplete rule coverage and proven PRNG
-  reachability separate, and it never accuses provenance, guarantees anti-cheat
-  safety, or edits the inventory.
+- `LEGAL-EQUIPMENT-GENERATION` now has a v0.8.3 candidate for seeded record
+  generation, exhaustive seed search, replay, and adding generated records
+  through the save-file transaction. Backend parity and synthetic-save checks,
+  plus the mocked-bridge browser flow, passed. Native natural-drop generation,
+  live inventory insertion, real-save/game validation, and packaged acceptance
+  remain open; see the table row for evidence and limits.
+- `INVENTORY-LEGALITY-AUDIT` performs an independent read-only scan and reports
+  a limited verdict only: proven reachable, a known rule violation with a
+  precise reason, no violation found within documented checks, or insufficient
+  data. It keeps structural memory validity, incomplete rule coverage, and
+  proven PRNG reachability separate, and never accuses provenance, guarantees
+  anti-cheat safety, or edits inventory.
 
-Scroll rules and replay are the first target. The backend protected dispatch,
-UI bounded acceptance and corrected native debug route are complete for the
-diagnostic slice; all current rows remain `INSUFFICIENT_DATA` pending packaged
-acceptance and actual normal-input-domain evidence. Equipment rules have zero
-enabled hard-terminal rules. Neither feature is a shipping commitment to
-v0.8.1, and no write path or full rules engine is implemented by this record.
+Scroll rules and replay remain the first target for
+`INVENTORY-LEGALITY-AUDIT`. The protected dispatch, bounded UI acceptance, and
+corrected native debug route are complete for that diagnostic slice; all
+current rows remain `INSUFFICIENT_DATA` pending packaged acceptance and actual
+normal-input-domain evidence. Equipment rules have zero enabled hard-terminal
+rules. The save-file edit path under `EQUIPMENT-EDIT` is separate from this
+read-only audit and does not establish legality for custom records or enable
+audit-driven repair. Neither legality feature is a v0.8.1 shipping commitment,
+and no full rules engine is implemented by this record.
 
 ### v0.8.1 continuation record (2026-09-21)
 

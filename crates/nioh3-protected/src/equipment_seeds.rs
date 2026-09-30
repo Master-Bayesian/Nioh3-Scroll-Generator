@@ -357,8 +357,8 @@ pub fn generated_record(
 
 /// Whether the record is exactly what the game generates from its own seed
 /// (`+0x22`) for this item and rarity on a difficulty the character played:
-/// every entry's effect, roll, category and set/grace/star flags in the
-/// stored order. Values follow the level at generation time and the marker
+/// every entry's group key, effect, roll, category and set/grace/star flags
+/// in the stored order. Values follow the level at generation time and the marker
 /// bits change with use, so neither is compared.
 pub fn replays_from_seed(
     data_root: &Path,
@@ -378,7 +378,8 @@ pub fn replays_from_seed(
     let same = |built: &[u8; GENERATED_RECORD_BYTES]| {
         (0..7).all(|index| {
             let at = 0x34 + index * 0x18;
-            built[at + 4..at + 8] == record[at + 4..at + 8]
+            built[at..at + 2] == record[at..at + 2]
+                && built[at + 4..at + 8] == record[at + 4..at + 8]
                 && built[at + 0x0C] == record[at + 0x0C]
                 && built[at + 0x0D] & 0x3F == record[at + 0x0D] & 0x3F
                 && built[at + 0x0E] & 7 == record[at + 0x0E] & 7

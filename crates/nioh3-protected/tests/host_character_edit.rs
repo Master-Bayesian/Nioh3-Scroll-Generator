@@ -147,6 +147,25 @@ fn fixture_save(root: &Path) -> PathBuf {
         .copy_from_slice(&0xC86Fu32.to_le_bytes());
     clear[NEXT_GENERATION_SERIAL_OFFSET..NEXT_GENERATION_SERIAL_OFFSET + 4]
         .copy_from_slice(&0x26_B007u32.to_le_bytes());
+    // The generator's player state as the owner's save serializes it:
+    // difficulty 3, progress 6510 / 7710 on difficulties 1..3.
+    let mut at = 0x73_D515;
+    clear[at..at + 9].copy_from_slice(&[0x59, 0xD3, 0xC2, 0xA6, 1, 0, 0, 0, 3]);
+    at += 9;
+    for (tag, value) in [
+        ([0xF8, 0xEE, 0x5E, 0xD3], 6510u32),
+        ([0x21, 0xFD, 0xE5, 0xCE], 7710),
+        ([0x80, 0xD3, 0x87, 0xB6], 0),
+    ] {
+        clear[at..at + 4].copy_from_slice(&tag);
+        clear[at + 4..at + 8].copy_from_slice(&0x24u32.to_le_bytes());
+        clear[at + 8..at + 12].copy_from_slice(&8u32.to_le_bytes());
+        for index in 1..=3 {
+            let slot = at + 12 + 4 * index;
+            clear[slot..slot + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        at += 44;
+    }
     nioh3_save::patch_user_checksum(&mut clear).unwrap();
 
     let save_path = root
@@ -156,6 +175,26 @@ fn fixture_save(root: &Path) -> PathBuf {
     std::fs::create_dir_all(save_path.parent().unwrap()).unwrap();
     std::fs::write(&save_path, encrypt_container(&clear).unwrap()).unwrap();
     save_path
+}
+
+
+fn host_character_audit(
+    exchange: &mut impl FnMut(&str, Value) -> Value,
+    save_id: &str,
+) -> Value {
+    let character = job(
+        exchange,
+        "save.character",
+        json!({"save_id": save_id}),
+    );
+    assert_eq!(character["state"], "completed", "{character}");
+    character["result"]["equipment"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["slot_index"] == SLOT)
+        .unwrap()["audit"]
+        .clone()
 }
 
 fn wait_response(sink: &Arc<Mutex<Vec<u8>>>, count: usize) -> Vec<Value> {
@@ -441,9 +480,202 @@ fn character_edits_commit_through_the_save_transaction() {
         .collect();
     assert!(unexpected.is_empty(), "addition changed {unexpected:x?}");
 
+    // A legal add names a seed: the plan writes the record the game's
+    // generator builds from it, with the difficulty and progress re-read
+    // from the save.
+    let character = job(&mut exchange, "save.character", json!({"save_id": save_id}));
+    let generation = &character["result"]["generation"];
+    assert_eq!(generation["difficulty"], 3, "{character}");
+    assert_eq!(
+        generation["difficulties"][2],
+        json!({"difficulty": 3, "progress": [6510, 7710, 0, 7710]})
+    );
+    let source = character["result"]["source_sha256"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let unplayed = job(
+        &mut exchange,
+        "save.prepare_character_edit",
+        json!({"save_id": save_id, "source_sha256": source,
+               "add": [{"item_id": 0x27BF, "level": 170, "rarity": 4, "seed": 0x3A5C, "difficulty": 5}]}),
+    );
+    assert_eq!(unplayed["state"], "failed", "{unplayed}");
+    let seeded = json!({"item_id": 0x27BF, "level": 170, "plus": 2, "rarity": 4, "seed": 0x3A5C, "difficulty": 3});
+    let addition = job(
+        &mut exchange,
+        "save.prepare_character_edit",
+        json!({"save_id": save_id, "source_sha256": source, "add": [seeded]}),
+    );
+    assert_eq!(addition["state"], "completed", "{addition}");
+    let added = &addition["result"]["preview"]["added"][0];
+    assert_eq!(added["seeded"], true);
+    assert_eq!(added["audit"]["natural"], true, "{addition}");
+    let seeded_slot = added["slot_index"].as_u64().unwrap() as usize;
+    let before = std::fs::read(&save_path).unwrap();
+    let receipt = job(
+        &mut exchange,
+        "save.commit",
+        json!({"plan_id": addition["result"]["plan_id"].as_str().unwrap()}),
+    );
+    assert_eq!(receipt["result"]["commit_status"], "committed", "{receipt}");
+    let before = decrypt_container(&before).unwrap();
+    let after = decrypt_container(&std::fs::read(&save_path).unwrap()).unwrap();
+    let state = nioh3_domain::equipment_generation::PlayerState {
+        type_class: 3,
+        progress: [6510, 7710, 0, 7710],
+    };
+    let generated = nioh3_protected::equipment_seeds::generated_record(
+        &repo_root().join("nioh3_scroll_editor").join("data"),
+        &seeded,
+        state,
+    )
+    .unwrap();
+    let expected = nioh3_save::character::build_generated_equipment_record(
+        equipment_record(&before, seeded_slot).unwrap(),
+        &generated,
+        0xC870,
+        0x26_B008,
+    )
+    .unwrap();
+    assert_eq!(
+        equipment_record(&after, seeded_slot).unwrap(),
+        expected.as_slice()
+    );
+    assert_eq!(equipment_counters(&after).unwrap(), (0xC871, 0x26_B009));
+
     let shutdown = exchange("shutdown", json!({}));
     assert_eq!(shutdown["result"]["safe_to_shutdown"], true, "{shutdown}");
     drop(sender);
     host.join().unwrap();
     std::fs::remove_dir_all(&root).ok();
+}
+
+
+#[test]
+fn seeded_replay_audit_preserves_natural_and_replaced_group_key_verdicts() {
+    let root = build_root()
+        .join("tmp")
+        .join(format!("nioh3-seed-group-audit-{}", std::process::id()));
+    if root.exists() {
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+    let save_path = fixture_save(&root);
+    let data = repo_root().join("nioh3_scroll_editor").join("data");
+    let contracts = repo_root().join("packages").join("contracts");
+
+    // Construct the same generated inventory record the production add path stores.
+    let request = json!({
+        "item_id": 0x27BF, "level": 170, "plus": 2, "rarity": 4,
+        "seed": 0x3A5C, "difficulty": 3,
+    });
+    let state = nioh3_domain::equipment_generation::PlayerState {
+        type_class: 3,
+        progress: [6510, 7710, 0, 7710],
+    };
+    let generated = nioh3_protected::equipment_seeds::generated_record(&data, &request, state)
+        .unwrap();
+    let natural_record = nioh3_save::character::build_generated_equipment_record(
+        &vec![0; EQUIPMENT_RECORD_BYTES],
+        &generated,
+        0xC86F,
+        0x26_B007,
+    )
+    .unwrap();
+    let group_offset = (0..7)
+        .map(|index| 0x34 + index * 0x18)
+        .find(|offset| {
+            u32::from_le_bytes(natural_record[offset + 4..offset + 8].try_into().unwrap())
+                != u32::MAX
+        })
+        .expect("the seeded record has an occupied effect");
+    let original_group =
+        u16::from_le_bytes(natural_record[group_offset..group_offset + 2].try_into().unwrap());
+    let mutated_group = original_group ^ 1;
+    assert_ne!(original_group, mutated_group);
+    let mut mutated_record = natural_record.clone();
+    mutated_record[group_offset..group_offset + 2].copy_from_slice(&mutated_group.to_le_bytes());
+    for (index, (before, after)) in natural_record.iter().zip(&mutated_record).enumerate() {
+        if !(group_offset..group_offset + 2).contains(&index) {
+            assert_eq!(before, after, "unexpected record mutation at {index:#x}");
+        }
+    }
+
+    // Install the natural record in the synthetic save, retaining a valid save checksum.
+    let encrypted = std::fs::read(&save_path).unwrap();
+    let mut plain = decrypt_container(&encrypted).unwrap();
+    let record_offset = equipment_offset(SLOT).unwrap();
+    plain[record_offset..record_offset + EQUIPMENT_RECORD_BYTES]
+        .copy_from_slice(&natural_record);
+    nioh3_save::patch_user_checksum(&mut plain).unwrap();
+    std::fs::write(&save_path, encrypt_container(&plain).unwrap()).unwrap();
+
+    let engine = Engine::load(
+        &data,
+        &contracts,
+        None,
+        ContextSelection::Production(GameFileVersion(2, 0, 2, 0)),
+    )
+    .unwrap();
+    let application: Box<dyn RoleApplication> = Box::new(
+        SaveApplication::new(root.join("state"), &data, engine.context().clone()).unwrap(),
+    );
+    let contract = Contract::load(&contracts).unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let sink = Arc::new(Mutex::new(Vec::new()));
+    let host_sink = Arc::clone(&sink);
+    let host = thread::spawn(move || {
+        serve(
+            application,
+            &contract,
+            &mut ChannelReader {
+                receiver,
+                buffer: Vec::new(),
+            },
+            &mut SharedSink(host_sink),
+        )
+        .unwrap();
+    });
+    let mut count = 0usize;
+    let mut exchange = |method: &str, params: Value| -> Value {
+        count += 1;
+        let request =
+            json!({"protocol": 1, "id": count.to_string(), "method": method, "params": params});
+        sender.send(frame(&request)).unwrap();
+        wait_response(&sink, count)[count - 1].clone()
+    };
+    assert_eq!(exchange("handshake", json!({}))["ok"], true);
+    let registered = job(&mut exchange, "save.register", json!({"path": save_path}));
+    let save_id = registered["result"]["save_id"].as_str().unwrap().to_string();
+
+    let natural_audit = host_character_audit(&mut exchange, &save_id);
+
+    // Change only one occupied entry's two-byte group key, then rewrite the
+    // synthetic encrypted save through its normal checksum/encryption format.
+    let mut plain = decrypt_container(&std::fs::read(&save_path).unwrap()).unwrap();
+    plain[record_offset + group_offset..record_offset + group_offset + 2]
+        .copy_from_slice(&mutated_group.to_le_bytes());
+    nioh3_save::patch_user_checksum(&mut plain).unwrap();
+    std::fs::write(&save_path, encrypt_container(&plain).unwrap()).unwrap();
+
+    let mutated_audit = host_character_audit(&mut exchange, &save_id);
+
+    let shutdown = exchange("shutdown", json!({}));
+    assert_eq!(shutdown["result"]["safe_to_shutdown"], true, "{shutdown}");
+    drop(sender);
+    host.join().unwrap();
+    std::fs::remove_dir_all(&root).ok();
+
+    assert_eq!(natural_audit["natural"], true, "{natural_audit}");
+    assert_eq!(
+        mutated_audit["natural"], false,
+        "changing only a generated entry's group key must invalidate replay: {mutated_audit}"
+    );
+    assert!(
+        mutated_audit["findings"]
+            .as_array()
+            .is_some_and(|findings| findings.iter().any(|finding| finding["code"] == "replaced_effect")),
+        "the structural group mismatch finding must remain visible: {mutated_audit}"
+    );
+    assert_ne!(mutated_audit["replayed"], true, "{mutated_audit}");
 }

@@ -427,13 +427,14 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   /** Items waiting to be added together in one plan. */
   const [queue, setQueue] = useState<{ key: number; request: NewEquipmentRequest; modded: boolean }[]>([]);
   const queueKey = useRef(0);
-  /** The player confirmed the game is at the title screen or closed. */
+  /** The player confirmed the game is at the title screen. */
   const [titleConfirmed, setTitleConfirmed] = useState(false);
   /** Legal adds: the effects wanted, the difficulty, and the seed search. */
   const [wanted, setWanted] = useState<WantedEffect[]>([]);
   const [difficulty, setDifficulty] = useState<number | null>(null);
   const [seedResult, setSeedResult] = useState<(EquipmentSeeds & { plus: number }) | null>(null);
   const [chosenSeed, setChosenSeed] = useState<number | null>(null);
+  const seedRequestId = useRef(0);
   /** The slot to select once the character is read again after an add. */
   const pendingSelect = useRef<number | null>(null);
   const save = useSyncExternalStore(
@@ -771,13 +772,27 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const seedMode = adding && !modded;
   const draftPlus = draft ? parseAmount(draft.plus, 65535) : null;
   const wantedKey = wanted.map(entry => entry.key).join(";");
+  const seedDifficulty = generation?.difficulties.find(entry => entry.difficulty === (difficulty ?? generation.difficulty));
+  const seedSearchIdentity = JSON.stringify({
+    item_id: newItem?.item_id ?? null,
+    rarity: draft ? parseAmount(draft.rarity, 5) : null,
+    level: draft ? parseAmount(draft.level, 180) : null,
+    plus: draftPlus,
+    difficulty: seedDifficulty?.difficulty ?? null,
+    progress: seedDifficulty?.progress ?? null,
+    want: wanted.map(entry => entry.ids),
+    limit: 40,
+  });
+  const currentSeedSearchIdentity = useRef(seedSearchIdentity);
+  currentSeedSearchIdentity.current = seedSearchIdentity;
   useEffect(() => setDifficulty(generation?.difficulty ?? null), [generation?.difficulty]);
   useEffect(() => setWanted([]), [newItem?.item_id]);
   // A search answers one item, rarity, level, + and difficulty; any change needs a new one.
   useEffect(() => {
+    seedRequestId.current += 1;
     setSeedResult(null);
     setChosenSeed(null);
-  }, [newItem?.item_id, rarity, level, draftPlus, difficulty, wantedKey]);
+  }, [seedSearchIdentity]);
 
   /** Effects a legal add can ask for, rows that read the same merged into one choice. */
   const wantOptions = useMemo(() => {
@@ -1090,7 +1105,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       });
       if (!("plan_id" in result)) throw new Error("UNEXPECTED_CHARACTER_PLAN");
       setPlan({ plan_id: result.plan_id, preview: result.preview as Record<string, unknown> });
-      setMessage("已生成修改计划。核对右侧内容，让游戏回到标题界面或关闭游戏，勾选确认后点“写入存档”。");
+      setMessage("已生成修改计划。核对右侧内容，让游戏回到标题界面后勾选确认，再点“写入存档”。");
     }
   }
 
@@ -1153,16 +1168,25 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       if (level === null || level < 1 || plus === null || rarity === null) throw new Error("请填写有效的等级（1–180）、+ 数值和稀有度（0–5）。");
       const chosen = generation.difficulties.find(entry => entry.difficulty === (difficulty ?? generation.difficulty));
       if (!chosen) throw new Error("存档里没有这个难度的进度。请换一个难度后重新查找。");
-      const result = await window.operations.execute({
-        method: "runtime.equipment_seeds",
-        params: {
-          item_id: row.item_id, rarity, level, plus,
-          difficulty: chosen.difficulty,
-          progress: chosen.progress as [number, number, number, number],
-          want: wanted.map(entry => entry.ids) as never,
-          limit: 40,
-        },
-      });
+      const params = {
+        item_id: row.item_id, rarity, level, plus,
+        difficulty: chosen.difficulty,
+        progress: chosen.progress as [number, number, number, number],
+        want: wanted.map(entry => entry.ids) as never,
+        limit: 40,
+      };
+      const requestId = ++seedRequestId.current;
+      const requestIdentity = JSON.stringify(params);
+      setSeedResult(null);
+      setChosenSeed(null);
+      let result: Awaited<ReturnType<typeof window.operations.execute>>;
+      try {
+        result = await window.operations.execute({ method: "runtime.equipment_seeds", params });
+      } catch (error) {
+        if (requestId !== seedRequestId.current || requestIdentity !== currentSeedSearchIdentity.current) return;
+        throw error;
+      }
+      if (requestId !== seedRequestId.current || requestIdentity !== currentSeedSearchIdentity.current) return;
       if (!result || !("outcomes" in result) || !("matches" in result)) throw new Error("UNEXPECTED_SEED_SEARCH");
       const found = result as EquipmentSeeds;
       setSeedResult({ ...found, plus });
@@ -1253,7 +1277,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   function commitPlan() {
     return run(async () => {
       if (!plan) return;
-      if (!titleConfirmed) throw new Error("请先让游戏回到标题界面或关闭游戏，然后勾选“游戏已回到标题界面或已关闭”。");
+      if (!titleConfirmed) throw new Error("请先让游戏回到标题界面，再勾选“游戏已回到标题界面”。");
       const added = (plan.preview.added ?? []) as { slot_index: number }[];
       let committed = false;
       let failure = "";
@@ -1785,7 +1809,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
             <>
               <p>确定要从存档里移除「{itemText(row.item_id)}」（Lv.{row.level}）吗？</p>
               {row.worn && <p>它正在装备中，移除时会一并从装备栏卸下。</p>}
-              <p>点“确认移除”后会先生成修改计划，核对后点“写入存档”才会真正写入；写入前会自动备份原存档。游戏必须关闭。</p>
+              <p>点“确认移除”后会先生成修改计划；核对后点“写入存档”才会真正写入。写入前会自动备份原存档，游戏停在标题界面即可，无需关闭。</p>
             </>
           )}
           <div className="character-actions">
@@ -1843,7 +1867,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       <ul className="character-plan-lines">{planLines(plan.preview).map((line, index) => <li key={index}>{line}</li>)}</ul>
       <label className="character-toggle character-title-confirm">
         <input type="checkbox" checked={titleConfirmed} onChange={event => setTitleConfirmed(event.target.checked)} />
-        游戏已回到标题界面或已关闭
+        游戏已回到标题界面
       </label>
       <p className="equipment-notes">游戏在读档状态下会自己保存，写入的内容会被覆盖或被拒绝。写入后进游戏重新读取这个存档即可看到。</p>
       <button className="primary" onClick={commitPlan} disabled={busy || !titleConfirmed}>写入存档</button>
@@ -1891,14 +1915,14 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       <p className="character-hint">
         {mode === "live"
           ? "直接修改正在运行的游戏，需要先读档进入游戏。修改后到神社存档即可保存。"
-          : "修改存档文件，游戏必须关闭。写入前会自动备份原存档。"}
+          : "修改存档文件，写入时让游戏停在标题界面即可，无需关闭。写入前会自动备份原存档。"}
         {follow && followNote ? <span className="character-follow-note">{followNote}</span> : null}
       </p>
       {mode === "save" && <SavePicker compact />}
       <Notice text={message} />
       {section === "add" && mode === "live" ? (
         <div className="character-add-live">
-          <p>添加新装备需要修改存档文件：游戏回到标题界面或关闭后写入，写入前会自动备份原存档。</p>
+          <p>添加新装备需要修改存档文件：游戏回到标题界面后写入，写入前会自动备份原存档。</p>
           <button className="primary" onClick={() => switchMode("save")} disabled={busy}>切换到“修改存档文件”</button>
         </div>
       ) : character && section === "add" ? (

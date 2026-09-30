@@ -363,7 +363,7 @@ R5 · 橙色	R5 · Orange	R5 · 橙
 未收到添加计划。	No addition plan received.	追加計画を受け取れませんでした。
 请确认游戏已回到标题界面。	Confirm the game is at the title screen.	ゲームがタイトル画面に戻っていることを確認してください。
 请确认游戏已完全关闭。	Confirm Nioh 3 is completely closed.	ゲームが完全に終了していることを確認してください。
-请完全关闭《仁王3》后再写入存档。本次没有修改存档。	Close Nioh 3 completely before writing the save. The save was not changed.	セーブを書き込む前にゲームを完全に終了してください。今回はセーブを変更していません。
+请让游戏回到标题界面后重试写入存档。本次没有修改存档。	Return the game to the title screen before retrying the save write. The save was not changed.	ゲームをタイトル画面に戻してから、セーブへの書き込みを再試行してください。セーブは変更されていません。
 为防止游戏退出时用内存中的旧状态覆盖存档，核对和写入前必须完全关闭游戏。	Close the game completely before reviewing and writing so its cached state cannot overwrite the edited save when it exits.	ゲーム終了時にメモリ内の古い状態でセーブが上書きされないよう、確認と書き込みの前にゲームを完全に終了してください。
 已添加到存档。	Added to save.	セーブに追加しました。
 写入尚未确认，请核对操作结果。	Write not yet confirmed. Check the result.	書き込みが未確認です。結果を確認してください。
@@ -802,7 +802,7 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 游戏内实时修改	Edit the running game	ゲーム内でリアルタイム編集
 修改存档文件	Edit the save file	セーブファイルを編集
 直接修改正在运行的游戏，需要先读档进入游戏。修改后到神社存档即可保存。	Changes the running game directly; load your character first. Rest at a shrine afterwards to save.	起動中のゲームを直接変更します。先にセーブをロードしてください。変更後は社でセーブすると保存されます。
-修改存档文件，游戏必须关闭。写入前会自动备份原存档。	Changes the save file; the game must be closed. The original save is backed up before writing.	セーブファイルを変更します。ゲームは終了している必要があります。書き込み前に元のセーブを自動でバックアップします。
+修改存档文件，写入时让游戏停在标题界面即可，无需关闭。写入前会自动备份原存档。	Edits the save file; leaving the game at the title screen is enough. It does not need to be closed. The original save is backed up first.	セーブファイルを変更します。ゲームは終了せず、タイトル画面に置いたままでかまいません。書き込み前に元のセーブを自動でバックアップします。
 读取角色	Read character	キャラクターを読み込む
 货币	Currency	通貨
 修改货币	Change currency	通貨を変更
@@ -1012,7 +1012,7 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 这件装备正在装备中，要移除请先在游戏里卸下；卸不下来的话，可以切换到“修改存档文件”移除。	This item is equipped; unequip it in game before removing it. If it cannot be unequipped, remove it with “Edit save file”.	この装備は装備中です。削除する前にゲーム内で外してください。外せない場合は「セーブファイルを編集」で削除できます。
 确定要从存档里移除「	Remove “	セーブから「
 它正在装备中，移除时会一并从装备栏卸下。	It is equipped; removing it also unequips it.	装備中のため、削除すると装備からも外れます。
-点“确认移除”后会先生成修改计划，核对后点“写入存档”才会真正写入；写入前会自动备份原存档。游戏必须关闭。	“Confirm removal” first prepares a change plan; nothing is written until you check it and click “Write save”. The original save is backed up first. The game must be closed.	「削除を確定」を押すと、まず変更計画を作成します。内容を確認して「セーブに書き込む」を押すまで書き込まれません。書き込み前に元のセーブを自動でバックアップします。ゲームは終了しておく必要があります。
+点“确认移除”后会先生成修改计划；核对后点“写入存档”才会真正写入。写入前会自动备份原存档，游戏停在标题界面即可，无需关闭。	"Confirm removal" first prepares a change plan; nothing is written until you review it and select "Write save". The original save is backed up first. The game can stay open at the title screen.	「削除を確定」を押すと、まず変更計画を作成します。内容を確認して「セーブに書き込む」を選ぶまで書き込まれません。書き込み前に元のセーブを自動でバックアップします。ゲームは終了せず、タイトル画面に置いたままでかまいません。
 实时添加被上一次没有正常结束的操作锁住了（例如添加时程序被强制关闭）。请点下面的“重置实时添加状态”，然后重新操作一次。	Live addition is locked by an earlier operation that did not finish (for example, the app was force-closed while adding). Click "Reset live addition state" below, then try again.	前回正常に終了しなかった操作（追加中にアプリが強制終了された場合など）により、リアルタイム追加がロックされています。下の「リアルタイム追加の状態をリセット」を押してから、もう一度操作してください。
 重置实时添加状态	Reset live addition state	リアルタイム追加の状態をリセット
 已重置。请重新操作一次（例如再点“核对添加”）；如果还是出现这个提示，请导出反馈文件发给开发者。	Reset done. Try the action again (for example, click "Review addition" again). If this message appears again, export a feedback file and send it to the developer.	リセットしました。もう一度操作してください（例：「追加を確認」をもう一度押す）。それでもこのメッセージが出る場合は、フィードバックファイルを書き出して開発者に送ってください。
@@ -1048,14 +1048,14 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 换一件	Choose another	別の装備を選ぶ
 新装备会放进存档里第一个空位，按游戏自己的方式分配物品编号，并带有“新”标记。点“添加到存档”后先生成修改计划，核对后点“写入存档”才会真正写入。	The new equipment goes into the save's first free slot, takes an item number the way the game assigns one, and carries the "new" marker. "Add to save" first creates a change plan; nothing is written until you review it and click "Write save".	新しい装備はセーブの最初の空き枠に入り、ゲームと同じ方法でアイテム番号が割り当てられ、「新着」マークが付きます。「セーブに追加」を押すとまず変更計画が作成され、確認後に「セーブに書き込む」を押すまで書き込まれません。
 非装备掉落	Not on dropped equipment	ドロップ装備には付かない
-已生成修改计划。核对右侧内容，让游戏回到标题界面或关闭游戏，勾选确认后点“写入存档”。	Change plan created. Review it on the right, put the game at the title screen or close it, tick the confirmation, then click "Write save".	変更計画を作成しました。右側の内容を確認し、ゲームをタイトル画面に戻すか終了してから、確認にチェックを入れて「セーブに書き込む」を押してください。
+已生成修改计划。核对右侧内容，让游戏回到标题界面后勾选确认，再点“写入存档”。	Change plan ready. Review it on the right, return the game to the title screen, check the confirmation, then select "Write save".	変更計画を作成しました。右側の内容を確認し、ゲームをタイトル画面に戻してから確認にチェックを入れ、「セーブに書き込む」を選択してください。
 待添加清单最多	The waiting list holds at most	追加待ちリストは最大
 件。请先写入存档，再继续添加。	items. Write the save first, then add more.	件です。先にセーブへ書き込んでから追加を続けてください。
 已加入待添加清单。可以继续挑选其他装备，全部选好后点“生成修改计划”。	Added to the waiting list. Pick more equipment if you like, then click "Create change plan".	追加待ちリストに入れました。ほかの装備も選べます。選び終えたら「変更計画を作成」を押してください。
 待添加清单是空的。请先在左侧选一件装备，设置好后点“加入待添加清单”。	The waiting list is empty. Pick equipment on the left, set it up, then click "Add to waiting list".	追加待ちリストは空です。左側で装備を選び、設定してから「追加待ちリストに入れる」を押してください。
 （已核对：存档没有改动。）	 (Checked: the save is unchanged.)	（確認済み：セーブは変更されていません。）
 写入结果暂时无法确认，请按上方黄色提示核对。	The outcome of the write cannot be confirmed yet; follow the yellow notice above to check it.	書き込み結果をまだ確認できません。上の黄色の案内に従って確認してください。
-请先让游戏回到标题界面或关闭游戏，然后勾选“游戏已回到标题界面或已关闭”。	Put the game at the title screen or close it first, then tick "The game is at the title screen or closed".	先にゲームをタイトル画面に戻すか終了し、「ゲームはタイトル画面に戻っているか終了している」にチェックを入れてください。
+请先让游戏回到标题界面，再勾选“游戏已回到标题界面”。	Return the game to the title screen, then check "The game is at the title screen."	ゲームをタイトル画面に戻してから、「ゲームはタイトル画面です」にチェックを入れてください。
 已写入存档：新增	Save written: added	セーブに書き込みました：新規
 件装备，原存档已自动备份。进游戏读取这个存档即可看到（带“新”标记）；游戏如果一直开着，要回到标题界面重新读取。	items of equipment; the original save was backed up. Load this save in game to see them (marked "new"); if the game stayed open, return to the title screen and load again.	件の装備を追加し、元のセーブは自動でバックアップしました。ゲームでこのセーブを読み込むと表示されます（「新着」マーク付き）。ゲームを開いたままの場合は、タイトル画面に戻って読み込み直してください。
 件	items	件
@@ -1075,10 +1075,10 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 装备的词条与数值、道具数量、精华与金钱	Equipment effects and values, item counts, Amrita and gold	装備の効果と数値、道具の数、アムリタとお金
 添加新装备	Add new equipment	新しい装備を追加
 像游戏掉落一样生成一件新装备，或自由魔改	Generate equipment as a game drop would, or mod it freely	ゲームのドロップと同じように装備を生成、または自由に改造
-添加新装备需要修改存档文件：游戏回到标题界面或关闭后写入，写入前会自动备份原存档。	Adding equipment edits the save file: it is written while the game is at the title screen or closed, and the original save is backed up first.	装備の追加はセーブファイルを編集します。ゲームをタイトル画面に戻すか終了した状態で書き込み、書き込み前に元のセーブを自動でバックアップします。
+添加新装备需要修改存档文件：游戏回到标题界面后写入，写入前会自动备份原存档。	Adding equipment edits the save file: write after returning the game to the title screen; the original save is backed up first.	装備の追加ではセーブファイルを編集します。ゲームをタイトル画面に戻してから書き込みます。書き込み前に元のセーブを自動でバックアップします。
 切换到“修改存档文件”	Switch to "Edit save file"	「セーブファイルを編集」に切り替える
 装备与道具	Equipment & items	装備と道具
-生成计划之后游戏又写入了存档（游戏可能没有停在标题界面），本次没有写入，存档没有改动。请让游戏回到标题界面或关闭游戏，点“重新读取”后重新生成计划。	The game wrote the save after the plan was created (it may not have been at the title screen), so nothing was written and the save is unchanged. Put the game at the title screen or close it, click "Reload", then create the plan again.	計画を作成した後にゲームがセーブを書き込みました（タイトル画面に戻っていなかった可能性があります）。今回は書き込んでおらず、セーブは変更されていません。ゲームをタイトル画面に戻すか終了し、「再読み込み」を押してから計画を作り直してください。
+生成计划之后游戏又写入了存档（游戏可能没有停在标题界面），本次没有写入，存档没有改动。请让游戏回到标题界面后点“重新读取”，再重新生成计划。	The game wrote the save after the plan was created (it may not have been at the title screen), so nothing was written and the save is unchanged. Return the game to the title screen, click "Reload", then create the plan again.	計画を作成した後にゲームがセーブを書き込みました（タイトル画面に戻っていなかった可能性があります）。今回は書き込んでおらず、セーブは変更されていません。ゲームをタイトル画面に戻し、「再読み込み」を押してから計画を作り直してください。
 没有从存档里读到难度和进度，不能按游戏规则生成。请点“重新读取”后再试；仍然不行的话，可以改用“魔改”添加。	The save's difficulty and progress could not be read, so the item cannot be generated by the game's rules. Click "Reload" and try again; if it still fails, add it in "Modded" mode.	セーブから難易度と進行度を読み取れなかったため、ゲームの規則で生成できません。「再読み込み」を押してからもう一度試してください。それでも駄目な場合は「改造」で追加できます。
 请填写有效的等级（1–180）、+ 数值和稀有度（0–5）。	Enter a valid level (1–180), + value and rarity (0–5).	有効なレベル（1–180）、+ の値、レアリティ（0–5）を入力してください。
 存档里没有这个难度的进度。请换一个难度后重新查找。	The save has no progress on this difficulty. Choose another difficulty and search again.	セーブにこの難易度の進行度がありません。別の難易度を選んで検索し直してください。

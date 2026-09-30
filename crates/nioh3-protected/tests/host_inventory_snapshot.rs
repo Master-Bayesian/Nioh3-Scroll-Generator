@@ -62,7 +62,7 @@ impl RoleApplication for FixtureRuntime {
 
     fn context_payload(&self) -> Value {
         json!({
-            "product_version": "0.8.2",
+            "product_version": "0.8.3",
             "game_profile": "pc-v2.00.02-v2.01",
             "resources_digest": "r",
             "algorithm_version": "a",

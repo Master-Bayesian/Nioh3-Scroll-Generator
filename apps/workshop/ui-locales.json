@@ -1460,9 +1460,9 @@
       "Confirm Nioh 3 is completely closed.",
       "ゲームが完全に終了していることを確認してください。"
     ],
-    "请完全关闭《仁王3》后再写入存档。本次没有修改存档。": [
-      "Close Nioh 3 completely before writing the save. The save was not changed.",
-      "セーブを書き込む前にゲームを完全に終了してください。今回はセーブを変更していません。"
+    "请让游戏回到标题界面后重试写入存档。本次没有修改存档。": [
+      "Return the game to the title screen before retrying the save write. The save was not changed.",
+      "ゲームをタイトル画面に戻してから、セーブへの書き込みを再試行してください。セーブは変更されていません。"
     ],
     "为防止游戏退出时用内存中的旧状态覆盖存档，核对和写入前必须完全关闭游戏。": [
       "Close the game completely before reviewing and writing so its cached state cannot overwrite the edited save when it exits.",
@@ -3216,9 +3216,9 @@
       "Changes the running game directly; load your character first. Rest at a shrine afterwards to save.",
       "起動中のゲームを直接変更します。先にセーブをロードしてください。変更後は社でセーブすると保存されます。"
     ],
-    "修改存档文件，游戏必须关闭。写入前会自动备份原存档。": [
-      "Changes the save file; the game must be closed. The original save is backed up before writing.",
-      "セーブファイルを変更します。ゲームは終了している必要があります。書き込み前に元のセーブを自動でバックアップします。"
+    "修改存档文件，写入时让游戏停在标题界面即可，无需关闭。写入前会自动备份原存档。": [
+      "Edits the save file; leaving the game at the title screen is enough. It does not need to be closed. The original save is backed up first.",
+      "セーブファイルを変更します。ゲームは終了せず、タイトル画面に置いたままでかまいません。書き込み前に元のセーブを自動でバックアップします。"
     ],
     "读取角色": [
       "Read character",
@@ -4056,9 +4056,9 @@
       "It is equipped; removing it also unequips it.",
       "装備中のため、削除すると装備からも外れます。"
     ],
-    "点“确认移除”后会先生成修改计划，核对后点“写入存档”才会真正写入；写入前会自动备份原存档。游戏必须关闭。": [
-      "“Confirm removal” first prepares a change plan; nothing is written until you check it and click “Write save”. The original save is backed up first. The game must be closed.",
-      "「削除を確定」を押すと、まず変更計画を作成します。内容を確認して「セーブに書き込む」を押すまで書き込まれません。書き込み前に元のセーブを自動でバックアップします。ゲームは終了しておく必要があります。"
+    "点“确认移除”后会先生成修改计划；核对后点“写入存档”才会真正写入。写入前会自动备份原存档，游戏停在标题界面即可，无需关闭。": [
+      "\"Confirm removal\" first prepares a change plan; nothing is written until you review it and select \"Write save\". The original save is backed up first. The game can stay open at the title screen.",
+      "「削除を確定」を押すと、まず変更計画を作成します。内容を確認して「セーブに書き込む」を選ぶまで書き込まれません。書き込み前に元のセーブを自動でバックアップします。ゲームは終了せず、タイトル画面に置いたままでかまいません。"
     ],
     "实时添加被上一次没有正常结束的操作锁住了（例如添加时程序被强制关闭）。请点下面的“重置实时添加状态”，然后重新操作一次。": [
       "Live addition is locked by an earlier operation that did not finish (for example, the app was force-closed while adding). Click \"Reset live addition state\" below, then try again.",
@@ -4200,9 +4200,9 @@
       "Not on dropped equipment",
       "ドロップ装備には付かない"
     ],
-    "已生成修改计划。核对右侧内容，让游戏回到标题界面或关闭游戏，勾选确认后点“写入存档”。": [
-      "Change plan created. Review it on the right, put the game at the title screen or close it, tick the confirmation, then click \"Write save\".",
-      "変更計画を作成しました。右側の内容を確認し、ゲームをタイトル画面に戻すか終了してから、確認にチェックを入れて「セーブに書き込む」を押してください。"
+    "已生成修改计划。核对右侧内容，让游戏回到标题界面后勾选确认，再点“写入存档”。": [
+      "Change plan ready. Review it on the right, return the game to the title screen, check the confirmation, then select \"Write save\".",
+      "変更計画を作成しました。右側の内容を確認し、ゲームをタイトル画面に戻してから確認にチェックを入れ、「セーブに書き込む」を選択してください。"
     ],
     "待添加清单最多": [
       "The waiting list holds at most",
@@ -4228,9 +4228,9 @@
       "The outcome of the write cannot be confirmed yet; follow the yellow notice above to check it.",
       "書き込み結果をまだ確認できません。上の黄色の案内に従って確認してください。"
     ],
-    "请先让游戏回到标题界面或关闭游戏，然后勾选“游戏已回到标题界面或已关闭”。": [
-      "Put the game at the title screen or close it first, then tick \"The game is at the title screen or closed\".",
-      "先にゲームをタイトル画面に戻すか終了し、「ゲームはタイトル画面に戻っているか終了している」にチェックを入れてください。"
+    "请先让游戏回到标题界面，再勾选“游戏已回到标题界面”。": [
+      "Return the game to the title screen, then check \"The game is at the title screen.\"",
+      "ゲームをタイトル画面に戻してから、「ゲームはタイトル画面です」にチェックを入れてください。"
     ],
     "已写入存档：新增": [
       "Save written: added",
@@ -4308,9 +4308,9 @@
       "Generate equipment as a game drop would, or mod it freely",
       "ゲームのドロップと同じように装備を生成、または自由に改造"
     ],
-    "添加新装备需要修改存档文件：游戏回到标题界面或关闭后写入，写入前会自动备份原存档。": [
-      "Adding equipment edits the save file: it is written while the game is at the title screen or closed, and the original save is backed up first.",
-      "装備の追加はセーブファイルを編集します。ゲームをタイトル画面に戻すか終了した状態で書き込み、書き込み前に元のセーブを自動でバックアップします。"
+    "添加新装备需要修改存档文件：游戏回到标题界面后写入，写入前会自动备份原存档。": [
+      "Adding equipment edits the save file: write after returning the game to the title screen; the original save is backed up first.",
+      "装備の追加ではセーブファイルを編集します。ゲームをタイトル画面に戻してから書き込みます。書き込み前に元のセーブを自動でバックアップします。"
     ],
     "切换到“修改存档文件”": [
       "Switch to \"Edit save file\"",
@@ -4320,9 +4320,9 @@
       "Equipment & items",
       "装備と道具"
     ],
-    "生成计划之后游戏又写入了存档（游戏可能没有停在标题界面），本次没有写入，存档没有改动。请让游戏回到标题界面或关闭游戏，点“重新读取”后重新生成计划。": [
-      "The game wrote the save after the plan was created (it may not have been at the title screen), so nothing was written and the save is unchanged. Put the game at the title screen or close it, click \"Reload\", then create the plan again.",
-      "計画を作成した後にゲームがセーブを書き込みました（タイトル画面に戻っていなかった可能性があります）。今回は書き込んでおらず、セーブは変更されていません。ゲームをタイトル画面に戻すか終了し、「再読み込み」を押してから計画を作り直してください。"
+    "生成计划之后游戏又写入了存档（游戏可能没有停在标题界面），本次没有写入，存档没有改动。请让游戏回到标题界面后点“重新读取”，再重新生成计划。": [
+      "The game wrote the save after the plan was created (it may not have been at the title screen), so nothing was written and the save is unchanged. Return the game to the title screen, click \"Reload\", then create the plan again.",
+      "計画を作成した後にゲームがセーブを書き込みました（タイトル画面に戻っていなかった可能性があります）。今回は書き込んでおらず、セーブは変更されていません。ゲームをタイトル画面に戻し、「再読み込み」を押してから計画を作り直してください。"
     ],
     "没有从存档里读到难度和进度，不能按游戏规则生成。请点“重新读取”后再试；仍然不行的话，可以改用“魔改”添加。": [
       "The save's difficulty and progress could not be read, so the item cannot be generated by the game's rules. Click \"Reload\" and try again; if it still fails, add it in \"Modded\" mode.",

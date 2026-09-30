@@ -1,6 +1,6 @@
-# Current project handoff — 2026-09-20
+# Current project handoff — 2026-09-29
 
-## Active development: v0.8.2
+## Active development: v0.8.3
 
 **v0.8.2 is published (2026-09-28)**: product commit `3e181cb`, tag `v0.8.2`,
 run `36369277500`, public release re-verified 53 checks; see the
@@ -8,7 +8,34 @@ run `36369277500`, public release re-verified 53 checks; see the
 character and equipment page (live and save-file edits), NG1/NG2 offline
 search, the rarity-5 promoted-secondary preflight fix, effect value ranges in
 the scroll editor, and settlement or user acknowledgement of a save fenced by
-an interrupted write. The paragraphs below are the development history.
+an interrupted write.
+
+**v0.8.3 intake (2026-09-29).** The intake source was branch
+`claude/v082-integration`, source `2d133f7cd388bda390d542ea327b7f47398e049e`,
+34 commits ahead of `origin/main`. At intake the checkout had two uncommitted
+tracked changes: the host character-edit E2E case and the equipment
+seed-generation research record. That was not a frozen source identity. The test7
+package attempt emitted a portable directory and ZIP whose manifest marks the
+source dirty; the one-file artifact was refused. Preserve those bytes as
+diagnostic evidence only. See the [v0.8.3 engineering record](../product/releases/v0.8.3.md),
+[readiness record](V083_RELEASE_READINESS_20260929.md), and the task evidence at
+`D:/Nioh3_v080_deliverables/deliverables/codex-v083-handover-20260929/release/`.
+
+Handover source checks now pass: Rust 900-record parity, exhaustive seed search,
+synthetic save transaction, a repaired group-key replay false positive, and
+42/42 mocked-bridge UI checks. The stale seed-results/late-response repair,
+title-screen-only guidance, type/locale checks and 0.8.3 context synchronization
+are complete. Freeze this reviewed source before fresh local packaging; the
+candidate delivery report records the resulting SHA and package acceptance.
+
+The seed-generator emulator, exact-record fixtures, and owner-save replay are
+offline evidence. They do not establish accepted live writes or save-file
+write/reload behavior. No real-save test has been scheduled by this intake.
+`SaveTransactionHost::commit` checks operation identity, account/slot identity,
+unresolved-operation fencing, stable fingerprints, backup, durable replacement,
+and readback; it has no process-exit or menu/title requirement. Do not ask the
+player to close the game. Where a specific save-file workflow needs a context
+boundary, the owner's limit is at most returning to the title screen.
 
 **Status 2026-09-26 (branch `claude/v082-integration`, not pushed).** Codex's
 uncommitted v0.8.1 integration work was imported onto the published v0.8.1
@@ -144,6 +171,10 @@ visibility is not current-version runtime acceptance.
 
 **v0.8.2 is published (2026-09-28)**; see the section above. The v0.8.1 entry
 below is kept for history.
+
+**v0.8.3 is in development and is not released.** Its exact scope, current
+evidence and unresolved acceptance gates are in the linked engineering and
+readiness records above.
 
 **v0.8.1 is published (2026-09-26)**: product commit `522536a`, tag `v0.8.1`,
 run `36208738081`, public release re-verified 53/53. It fixes the v0.8.0
