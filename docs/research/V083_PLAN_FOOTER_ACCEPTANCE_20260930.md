@@ -51,3 +51,10 @@ CDP viewport/scale emulation inside WebView2 and do not change system DPI.
 All fixtures are presentation/protocol stand-ins; no actual save or game write
 is part of this acceptance. The original user feedback is retained privately
 under the external task's `input/` directory and is not committed.
+
+Completed: 45 browser checks, 70 native/source checks and 70 matching outer-EXE
+checks, with all locale screenshots inspected. Existing SaveSession/observer
+regressions (14), typecheck and locale audit pass. The same outer EXE passed 24
+feature-entry regressions. Product commit is `ea3a42e`; the external candidate
+delivery report records hashes. A fractional-DPI restore differed by one CSS
+pixel; the older regression helper's equality gate was repaired as test-only.

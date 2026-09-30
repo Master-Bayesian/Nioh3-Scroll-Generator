@@ -1,5 +1,17 @@
 # Experiment failure ledger
 
+## 2026-09-30: fractional-DPI restore assertion during test8-r1 acceptance
+
+**Objective:** regress the complete-feature candidate after the plan-footer fix.
+**Failure:** exact viewport equality rejected native restore at DPR 1.1:
+1455 x 909 before, 1455 x 910 after. Footer/confirmation geometry was valid.
+**Evidence:** `codex-v083-plan-footer-20260930/candidate/acceptance/` and
+`candidate/regression/` contain the native geometry and packaged reports.
+**Repair:** the verifier permits at most one CSS pixel in each restored
+dimension with unchanged DPR. The same frozen EXE then passed all 24 checks;
+no product-byte change or second build was needed. **Status:** resolved,
+test-only rounding tolerance; no game/save write. **Skill promotion:** none.
+
 ## 2026-09-30: complete v0.8.3 candidate native integration repairs
 
 **Objective:** deliver one candidate containing live equipment addition and both

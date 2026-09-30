@@ -12,6 +12,13 @@ fencing the save; genuinely unknown outcomes keep receipt recovery. See
 `codex-v083-plan-footer-20260930` evidence/candidate report. Existing test8 bytes
 remain historical; these repairs need the replacement candidate.
 
+**Replacement test8-r1 accepted.** The task's `candidate/DELIVERY.md` identifies
+`Nioh3Studio-0.8.3-test8-r1-win-x64.exe`, clean product `ea3a42e`, SHA256
+`2a44b9915a7b422165d6cc057ed072c79ba8ef5f2d25b28eee83f1765ecdf5f1`.
+Its 70 packaged footer/refusal checks and 24 feature-entry regressions pass;
+all locale screenshots were inspected. Save outcomes are scripted fixtures;
+this does not add real-save/game acceptance or publication.
+
 **Missing-feature completion (2026-09-30).** The owner rejected delivery of
 another partial candidate. Live equipment addition and the scroll ordinary
 completion/extra-painting prediction panel are now implemented personally,
