@@ -75,9 +75,11 @@ pushed as the current generator; every draw below uses it.
 - A legal new item is fully determined by (item, rarity, level, seed, drop
   context, type class and progress, learned spells for column-0x29 slots).
   Level only scales values; rolls come from the seed.
-- The reward route (context zero) is a real game path and gives 65,536 results
-  per item, rarity and player state; enemy drops add the star-promotion
-  variants of step 4.
+- The reward route (context zero) is a real game path and enumerates 65,536
+  seeds per item, rarity and player state, including empty outcomes. The
+  current port uses this route; enemy and region drop contexts, including the
+  star-promotion variants of step 4, are not searched. A no-match or all-empty
+  result does not establish impossibility through other game routes.
 
 ## Verification (2026-09-29)
 
@@ -96,9 +98,13 @@ Results:
   1,500 more across difficulties 1..5 and every progress threshold.
 - Rust port against 900 emulated records (all item kinds, rarity 0..5,
   difficulties 1..5): identical (`crates/nioh3-data/tests/equipment_generation.rs`).
-- The owner's save: 1,013 of 1,318 owned items reproduce from their own seed
-  (effect, roll, category, set/grace/star flags); rarity 0..3 about 95%,
-  rarity 4 about half (enemy-drop contexts, blacksmith changes).
+- Historical owner-save replay: 1,013 of 1,318 owned items matched selected
+  fields from their own seed (effect, roll, category, set/grace/star flags);
+  rarity 0..3 about 95%, rarity 4 about half. This was a field projection,
+  not whole-record equality. Enemy-drop contexts and blacksmith changes can
+  explain nonmatches, but the cause of every nonmatch was not established.
+  These counts predate the group-key replay repair and have not been rerun
+  against the repaired comparison; they are not current audit-accuracy proof.
 
 Facts the emulation settled:
 
@@ -110,7 +116,8 @@ Facts the emulation settled:
   a second failure empties the whole item, set, grace and innate included: the
   compaction at `+0x558AE1` keeps entries whose first word is nonzero, and that
   word is always zero. Such items (for example early armor at rarity 4..5) do
-  not drop; the product reports them.
+  yield no valid record through the tested reward route; the product reports
+  that bounded result rather than ruling out other drop contexts.
 - `+0x627ADC` marks entry `pick` itself, not the pick-th eligible entry.
 - Values: `resolved_effect_value` at the stored level (capped at 180), plus
   game param `0x98FE` (10) levels at rarity 5; accessories of kind `0x2D32` add

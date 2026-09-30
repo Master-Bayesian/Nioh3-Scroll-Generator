@@ -367,7 +367,7 @@ export function publicError(message: string): string {
     ],
     [
       /This seed gives the item no effects/,
-      "这个种子生成的装备没有词条，游戏不会这样掉落。请重新查找并选择其他结果。",
+      "这个种子在当前生成路线下未生成有效装备。请重新查找并选择其他结果。",
     ],
     [
       /Ask for at most seven effects/,

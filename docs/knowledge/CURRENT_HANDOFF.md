@@ -2,6 +2,11 @@
 
 ## Active development: v0.8.3
 
+Read the [original CC conversation reconciliation](V083_CC_CONTEXT_RECONCILIATION_20260929.md)
+before continuing this handover. It restores the full v0.8.3 scope, historical
+live confirmations, equipment-first sequencing and the owner's instruction to
+finish and publish. The initial seed-focused intake was not the whole version.
+
 **v0.8.2 is published (2026-09-28)**: product commit `3e181cb`, tag `v0.8.2`,
 run `36369277500`, public release re-verified 53 checks; see the
 [publication record](TAURI_V082_PUBLICATION_20260928.md). It ships the
@@ -23,14 +28,25 @@ diagnostic evidence only. See the [v0.8.3 engineering record](../product/release
 
 Handover source checks now pass: Rust 900-record parity, exhaustive seed search,
 synthetic save transaction, a repaired group-key replay false positive, and
-42/42 mocked-bridge UI checks. The stale seed-results/late-response repair,
+45/45 route-scoped mocked-bridge UI checks. The stale seed-results/late-response repair,
 title-screen-only guidance, type/locale checks and 0.8.3 context synchronization
 are complete. Freeze this reviewed source before fresh local packaging; the
 candidate delivery report records the resulting SHA and package acceptance.
 
+The seed search uses the game's item-grant route with zero drop-source context;
+enemy/region drop variants are outside this route. No-match and all-empty
+results are limited to this route and the selected player state. Existing
+Yasakani Magatama raw effect value `1` is intentionally preserved per the owner;
+it is not an outstanding value repair or release blocker.
+
 The seed-generator emulator, exact-record fixtures, and owner-save replay are
-offline evidence. They do not establish accepted live writes or save-file
-write/reload behavior. No real-save test has been scheduled by this intake.
+offline evidence. They do not establish the new tool path's save-file
+write/reload behavior. Earlier native insertion was already demonstrated with
+the owner on September 26 through CE: a fan appeared in game and its saved
+record was verified; a corrected hell Bizen Uchigatana insertion was also
+confirmed in game. See the [live evidence](V082_LIVE_CHARACTER_EQUIPMENT_RESEARCH_20260926.md#first-native-equipment-insertion-live-owner-present-2026-09-26).
+That is native-call evidence, separate from integration and acceptance of this
+candidate's seeded save addition. No real-save test has been scheduled by this intake.
 `SaveTransactionHost::commit` checks operation identity, account/slot identity,
 unresolved-operation fencing, stable fingerprints, backup, durable replacement,
 and readback; it has no process-exit or menu/title requirement. Do not ask the

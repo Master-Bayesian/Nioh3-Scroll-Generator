@@ -272,6 +272,17 @@ try {
     const page = await openEditor(locale);
     await enterSaveAdd(page, locale);
     requireCheck(`${locale}: legal add exposes the seed panel`, (await page.locator('.seed-panel').count()) === 1);
+    const routeHint = await page.locator('.character-detail > .equipment-notes').first().innerText();
+    const routeScope = {
+      'zh-CN': /发放物品.*不包含敌人或地区掉落加成/,
+      'en-US': /item.grant.*excludes enemy and region drop bonuses/i,
+      'ja-JP': /アイテム付与.*敵や地域のドロップ補正は含みません/,
+    };
+    record(`${locale}: legal add explains the item-grant route boundary`, routeScope[locale].test(routeHint), { routeHint });
+    const scopeScreenshot = join(output, `seed-route-${runLabel}-${locale}.png`);
+    await page.locator('.character-detail > .equipment-notes').first().scrollIntoViewIfNeeded();
+    await page.screenshot({ path: scopeScreenshot, fullPage: false });
+    evidence.screenshots.push(scopeScreenshot);
     await page.locator('.character-edit-modes button').nth(1).click();
     record(`${locale}: modded add retains manual effects and hides seed-only controls`,
       (await page.locator('.seed-panel').count()) === 0 && (await page.locator('.character-effects').count()) === 1);
@@ -351,6 +362,7 @@ try {
   const noMatchSummary = await edgePage.locator('.seed-summary').innerText();
   const noMatchAdd = edgePage.locator('.seed-panel .character-actions button:nth-child(2)');
   record('zero-match response explains no legal seed and cannot be selected',
+    noMatchSummary.includes('当前生成路线无匹配') &&
     (await edgePage.locator('.seed-outcomes button[role="option"]').count()) === 0 && await noMatchAdd.isDisabled(),
     { summary: noMatchSummary, addDisabled: await noMatchAdd.isDisabled() });
 
@@ -359,7 +371,8 @@ try {
   await edgePage.locator('.seed-summary').waitFor();
   const allEmptySummary = await edgePage.locator('.seed-summary').innerText();
   record('all-empty generator result has a distinct explanation and no selectable outcome',
-    allEmptySummary !== noMatchSummary && (await edgePage.locator('.seed-outcomes button[role="option"]').count()) === 0,
+    allEmptySummary.includes('当前生成路线下') && allEmptySummary !== noMatchSummary &&
+    (await edgePage.locator('.seed-outcomes button[role="option"]').count()) === 0,
     { allEmptySummary, noMatchSummary });
 
   await edgePage.evaluate(() => { window.__seed.nextMode = 'error'; });

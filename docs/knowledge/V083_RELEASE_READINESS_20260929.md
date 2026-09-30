@@ -1,6 +1,6 @@
 # v0.8.3 release readiness — 2026-09-29
 
-**Status: SOURCE CHECKS PASSED; LOCAL PACKAGING PENDING.** Clean source freeze,
+**Status: REVISED SOURCE CHECKS PASSED; REPLACEMENT CANDIDATE PENDING.** Clean source freeze,
 fresh package, one-file acceptance, signing and publication are separate gates.
 
 Candidate branch: claude/v082-integration  
@@ -41,10 +41,10 @@ the same case reproduced the original false positive (48.19 s green), and the
 existing generated-record replay check passed again (9.37 s). See
 `D:/Nioh3_v080_deliverables/deliverables/codex-v083-handover-20260929/backend/repair-group-key/`.
 
-The browser seed workflow passed 42/42 checks using a scripted bridge, including
+The route-scoped browser seed workflow passed 45/45 checks using a scripted bridge, including
 stale input and late-response handling. TypeScript and the 1,115-message locale
 audit passed. Screenshots cover Chinese, English and Japanese at 1440 by 960.
-See `D:/Nioh3_v080_deliverables/deliverables/codex-v083-handover-20260929/ui/`.
+See `D:/Nioh3_v080_deliverables/deliverables/codex-v083-handover-20260929/ui-scope/`.
 These results are not native or packaged UI acceptance. Freeze the reviewed
 whitelist and run clean-required preflight before building a fresh candidate;
 do not reuse the dirty test7 bytes.
@@ -54,3 +54,10 @@ specific save-file workflow needs a context boundary, the owner's limit is at
 most returning to the title screen. Local preparation does not imply authority
 to push, tag or publish. The external candidate delivery report records the
 final source identity, package hashes and completed packaged checks.
+
+The original CC conversation was reviewed after the initial intake. See
+[V083_CC_CONTEXT_RECONCILIATION_20260929.md](V083_CC_CONTEXT_RECONCILIATION_20260929.md)
+for the broader version scope, existing live evidence and original publication
+instruction. Candidate 78e2dfe built successfully; its native launch was blocked
+by an existing test6 instance. The old instance has since exited, so final
+acceptance can proceed on the rebuilt outer EXE without closing the game.

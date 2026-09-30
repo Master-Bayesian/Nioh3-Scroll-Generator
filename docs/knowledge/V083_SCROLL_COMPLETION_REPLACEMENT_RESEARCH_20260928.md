@@ -3,9 +3,11 @@
 Owner goal: offline search should offer effect combinations that no natural
 scroll carries but that a few challenge-completion replacements can reach
 (bounded to about five). This records how the game builds the replacement
-candidates. Status: offline model reproduces two live vectors exactly (eight
-candidates, effect id and value); one further in-game prediction check is
-pending. Nothing is shipped.
+candidates. Status: the offline model reproduces the recorded live replacement
+vectors, a further predicted round was confirmed by the owner, and the
+extra-painting selector was resolved with a predicted playthrough and saved
+record comparison (see Evidence and Extra painting below). The reveal trigger
+and slot choice remain open. No prediction UI or search is shipped.
 
 ## Where it lives
 

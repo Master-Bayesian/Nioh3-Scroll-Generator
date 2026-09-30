@@ -3731,7 +3731,9 @@ save write was involved.
 **Reproduction status:** the dirty-manifest rejection is deterministic at the
 packager guard; the original test7 invocation was not replayed.
 
-**Follow-up state:** open pending a clean frozen source and a fresh package run.
+**Follow-up state:** the clean candidate `78e2dfe` built successfully, with an
+outer EXE recorded in the external candidate report. Preserve the failed dirty
+package; the route-wording revision is a separate candidate.
 
 **Skill promotion:** None. Bounded source-state/package precondition failure.
 
@@ -3769,3 +3771,26 @@ build was run.
 and UI/backend acceptance gates remain open.
 
 **Skill promotion:** None. Bounded preparation-helper defect.
+
+## 2026-09-29: candidate startup redirected to an existing instance
+
+**Objective:** validate the outer test7 EXE built from clean source `78e2dfe`.
+
+**Observed symptom:** `verify-onefile.mjs` reported `Launcher exited 0` before
+connecting to its isolated WebView2. Packaging itself succeeded.
+
+**Root cause and evidence:** the existing test6 process owned the product's
+single-instance registration (`tauri_plugin_single_instance`). Retained evidence:
+`D:/Nioh3_v080_deliverables/deliverables/codex-v083-handover-20260929/candidate/onefile-launch.log`
+and `DELIVERY.json`. The new launcher exited without opening the requested
+isolated window. This is not a game-process requirement.
+
+**Disposition:** preserved the candidate and reported native acceptance as
+unverified. Did not close the owner's old tool or game. The old test6 instance
+has since exited; run acceptance against the replacement candidate after its
+route-wording revision, leaving the game running.
+
+**Reproduction status:** observed once with the old tool running; source
+single-instance behavior corroborates the result.
+
+**Follow-up state:** awaiting the replacement candidate's native acceptance.

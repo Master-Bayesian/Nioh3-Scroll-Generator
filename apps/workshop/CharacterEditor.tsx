@@ -1318,7 +1318,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       const item = change.after;
       lines.push("新增 " + itemText(item.item_id) + "（Lv." + item.level + (item.plus ? " +" + item.plus : "") +
         "，稀有度 " + item.rarity + (item.hell ? "，地狱武器" : "") + "）" +
-        (change.seeded ? "，按游戏的掉落规则生成" : "") +
+        (change.seeded ? "，按游戏发放物品的规则生成" : "") +
         (change.audit ? (change.audit.natural ? "，判定为自然" : "，判定为非自然") : ""));
       item.effects.forEach((effect, index) => {
         if (effect.effect_id !== EMPTY_EFFECT)
@@ -1565,7 +1565,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
 
   const addHint = (
     <p className="character-empty">
-      在左侧列表中点选要添加的装备。“合法”按游戏的掉落规则生成：选等级、稀有度和掉落难度，挑想要的词条后查找，从游戏真正可能掉落的结果里选一件；“魔改”则可以随意填写词条和数值。设置好后加入待添加清单，可以一次添加多件。
+      在左侧列表中点选要添加的装备。“合法”按游戏发放物品的规则生成，不包含敌人或地区掉落加成：选等级、稀有度和难度，挑想要的词条后查找，再选一个结果；“魔改”可以随意填写词条和数值。设置好后加入待添加清单，可以一次添加多件。
     </p>
   );
 
@@ -1578,7 +1578,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           <li key={entry.key}>
             {itemText(entry.request.item_id)}（Lv.{entry.request.level}，稀有度 {entry.request.rarity}
             {entry.request.hell ? "，地狱武器" : ""}
-            {entry.request.seed != null ? "，第 " + entry.request.difficulty + " 难度掉落" : ""}）
+            {entry.request.seed != null ? "，第 " + entry.request.difficulty + " 难度生成" : ""}）
             {entry.modded ? <span className="character-unnatural">魔改</span> : <span className="character-muted">合法</span>}
             <button type="button" className="character-queue-remove" aria-label="从清单移除"
               onClick={() => { setQueue(queue.filter(other => other.key !== entry.key)); setPlan(null); }} disabled={busy}>×</button>
@@ -1593,13 +1593,13 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const seedSummary = !seedResult
     ? ""
     : seedResult.empty === seedResult.seeds
-      ? "这件装备在稀有度 " + seedResult.rarity + " 时不会自然掉落：游戏生成时抽不到词条，全部 " + seedResult.seeds + " 个种子得到的都是空装备。请换一个稀有度。"
+      ? "当前生成路线下，这件装备在稀有度 " + seedResult.rarity + " 时无法生成有效装备：全部 " + seedResult.seeds + " 个种子得到的都是空装备。请换一个稀有度。"
       : seedResult.matches === 0
-        ? "不存在：第 " + seedResult.difficulty + " 难度、稀有度 " + seedResult.rarity + " 时，没有任何种子能让这件装备同时带有所选的词条。可以减少词条，或换稀有度、难度后再查找。"
+        ? "当前生成路线无匹配：第 " + seedResult.difficulty + " 难度、稀有度 " + seedResult.rarity + " 时，没有任何种子能让这件装备同时带有所选的词条。可以减少词条，或换稀有度、难度后再查找。"
         : (wanted.length
           ? "全部 " + seedResult.seeds + " 个种子中，有 " + seedResult.matches + " 个（" + percent(seedResult.matches / seedResult.seeds) + "）同时带有所选词条。"
-          : "这件装备有 " + seedResult.matches + " 种自然掉落结果。") +
-          "下面按随机词条的分位从高到低列出前 " + seedResult.outcomes.length + " 个，点选一个后加入清单。";
+          : "当前生成路线下，这件装备有 " + seedResult.matches + " 种种子结果。") +
+          "下面按随机词条的分位和星级评分列出前 " + seedResult.outcomes.length + " 个，点选一个后加入清单。";
   const seedPanel = (
     <div className="seed-panel">
       {!generation ? (
@@ -1627,7 +1627,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       </div>
       {seedResult ? <p className="seed-summary">{seedSummary}</p> : null}
       {seedResult?.outcomes.length ? (
-        <ul className="seed-outcomes" role="listbox" aria-label="掉落结果">
+        <ul className="seed-outcomes" role="listbox" aria-label="生成结果">
           {seedResult.outcomes.map(outcome => (
             <li key={outcome.seed}>
               <button type="button" role="option" aria-selected={chosenSeed === outcome.seed}
@@ -1666,7 +1666,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         {modded
           ? "魔改：任何词条、任何数值都可以填写，不受游戏生成规则约束，结果可能无法自然获得。同名词条后面的〔〕注明它会出现在哪类装备的哪种位置，以及它的数值（稀有度 4、等级 180 时）；“非装备掉落”表示掉落的装备上不会出现。"
           : adding
-            ? "合法：和游戏掉落完全一样。每件装备都由 65536 个种子之一生成；挑几个想要的词条后点“查找”，会在全部种子里找出同时带有它们的结果，没有就告诉你不存在。写入的就是游戏用这个种子生成的那件装备，词条、数值和星级都与真实掉落一致。"
+            ? "合法：按游戏发放物品的规则生成，不包含敌人或地区掉落加成。选好词条后搜索全部 65536 个种子；“无匹配”仅表示当前难度、进度和稀有度下，这条生成路线没有符合条件的结果。选中的装备会按种子生成后写入存档。"
             : "合法修改：每个位置只列出这件装备能自然出现的词条，数值填在合法范围内。"}
       </p>
       {adding && rules && !rules.known ? (
