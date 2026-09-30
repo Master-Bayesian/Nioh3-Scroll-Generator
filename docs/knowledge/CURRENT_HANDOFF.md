@@ -2,6 +2,16 @@
 
 ## Active development: v0.8.3
 
+**Save-plan footer repair (2026-09-30).** Owner feedback reported that long
+equipment plans hid commit actions below all details. The candidate now scrolls
+only plan details and keeps title-screen confirmation/write/discard together in
+the footer. The attached test7-r2 report also exposed a proven pre-write refusal
+misclassified as uncertainty. The client now invalidates that plan without
+fencing the save; genuinely unknown outcomes keep receipt recovery. See
+`docs/research/V083_PLAN_FOOTER_ACCEPTANCE_20260930.md` and the external
+`codex-v083-plan-footer-20260930` evidence/candidate report. Existing test8 bytes
+remain historical; these repairs need the replacement candidate.
+
 **Missing-feature completion (2026-09-30).** The owner rejected delivery of
 another partial candidate. Live equipment addition and the scroll ordinary
 completion/extra-painting prediction panel are now implemented personally,

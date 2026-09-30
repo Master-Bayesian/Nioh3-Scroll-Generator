@@ -45,6 +45,14 @@ and safety bounds are accepted. Until then it stays unavailable to players.
 
 ### In progress: equipment legality generation and inventory audit
 
+`EQUIPMENT-EDIT` follow-up (September 30): the save-plan confirmation and
+write/discard actions stay in a fixed card footer while details scroll. Explicit
+changed-save/no-write refusals invalidate the plan and reload the save without
+a phantom uncertainty fence; other failures keep existing receipt recovery.
+Bounded UI/SaveSession/native/package evidence is recorded in
+`docs/research/V083_PLAN_FOOTER_ACCEPTANCE_20260930.md`. Seed/effect values and
+save backup/write contracts are preserved.
+
 The complete September 30 v0.8.3 candidate additionally implements these
 owner-requested entries; earlier seed-only test7 artifacts do not contain them.
 

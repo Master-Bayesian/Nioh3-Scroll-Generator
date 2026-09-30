@@ -1598,7 +1598,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           </li>
         ))}
       </ul>
-      <button className="primary" onClick={planQueue} disabled={busy}>生成修改计划</button>
+      <button className="primary" onClick={planQueue} disabled={busy || !!save?.busy}>生成修改计划</button>
       <button onClick={() => { setQueue([]); setPlan(null); }} disabled={busy}>清空</button>
     </section>
   ) : null;
@@ -1875,16 +1875,22 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   );
 
   const planPanel = plan ? (
-    <section className="character-plan">
+    <section className="character-plan character-save-plan">
       <h3>修改计划</h3>
-      <ul className="character-plan-lines">{planLines(plan.preview).map((line, index) => <li key={index}>{line}</li>)}</ul>
-      <label className="character-toggle character-title-confirm">
-        <input type="checkbox" checked={titleConfirmed} onChange={event => setTitleConfirmed(event.target.checked)} />
-        游戏已回到标题界面
-      </label>
-      <p className="equipment-notes">游戏在读档状态下会自己保存，写入的内容会被覆盖或被拒绝。写入后进游戏重新读取这个存档即可看到。</p>
-      <button className="primary" onClick={commitPlan} disabled={busy || !titleConfirmed}>写入存档</button>
-      <button onClick={() => { setPlan(null); setTitleConfirmed(false); void saveSession!.discard(); }} disabled={busy}>放弃</button>
+      <div className="character-plan-details">
+        <ul className="character-plan-lines">{planLines(plan.preview).map((line, index) => <li key={index}>{line}</li>)}</ul>
+      </div>
+      <div className="character-plan-footer">
+        <label className="character-toggle character-title-confirm">
+          <input data-action="confirm-character-plan" type="checkbox" checked={titleConfirmed} disabled={busy || !!save?.busy} onChange={event => setTitleConfirmed(event.target.checked)} />
+          游戏已回到标题界面
+        </label>
+        <p className="equipment-notes">游戏在读档状态下会自己保存，写入的内容会被覆盖或被拒绝。写入后进游戏重新读取这个存档即可看到。</p>
+        <div className="character-plan-actions">
+          <button data-action="commit-character-plan" className="primary" onClick={commitPlan} disabled={busy || !!save?.busy || !titleConfirmed}>写入存档</button>
+          <button data-action="discard-character-plan" onClick={() => { setPlan(null); setTitleConfirmed(false); void saveSession!.discard(); }} disabled={busy || !!save?.busy}>放弃</button>
+        </div>
+      </div>
     </section>
   ) : null;
 

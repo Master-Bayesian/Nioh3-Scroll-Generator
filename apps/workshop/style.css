@@ -1026,6 +1026,13 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-plan>h3{margin-top:0}
 .character-plan-lines{margin:6px 0 10px;padding-left:18px;font-size:12px;line-height:1.7;font-variant-numeric:tabular-nums}
 .character-plan>button{width:auto;margin-right:8px}
+.character-save-plan{display:flex;flex-direction:column;min-height:0;max-height:min(560px,calc(100dvh - 250px));overflow:hidden}
+.character-save-plan>h3{flex-shrink:0;margin-bottom:6px}
+.character-plan-details{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
+.character-plan-footer{flex-shrink:0;border-top:1px solid #e3d4b6;padding-top:10px;margin-top:8px}
+.character-plan-footer .equipment-notes{margin:8px 0}
+.character-plan-actions{display:flex;flex-wrap:wrap;gap:8px}
+.character-plan-actions>button{width:auto}
 .character-page .character-item-name{margin-left:0}
 .character-currencies label{flex-direction:row;align-items:flex-end;gap:8px}
 .character-currencies label>span{align-self:center;min-width:52px}
@@ -1119,7 +1126,7 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-num small{color:#58717b}
 .character-empty{margin:0;padding:28px 14px;border:1px dashed #c5d1e0;border-radius:6px;color:#7a8b93;text-align:center;font-size:13px;background:#fbfdff}
 .character-no-stack{display:inline-block;width:120px;padding:6px 0}
-.character-actions>button.primary,.character-plan>button.primary{background:#3c745f;border-color:#3c745f;color:#fff}
+.character-actions>button.primary,.character-plan>button.primary,.character-plan-actions>button.primary{background:#3c745f;border-color:#3c745f;color:#fff}
 .character-side .character-value>input{width:90px}
 .character-side .character-range{white-space:normal}
 @media (max-width:1100px){.character-body{grid-template-columns:minmax(0,1fr)}.character-side{position:static;max-height:none}}
@@ -1137,6 +1144,7 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 /* Both columns are cards of the same height, so their top and bottom edges line up. */
 .character-side>.character-detail,.character-side>.character-empty{flex:1;min-height:0;overflow:auto;margin:0}
 .character-side>.character-plan{flex-shrink:0;max-height:45%;overflow:auto}
+.character-side>.character-save-plan{flex-shrink:1;max-height:min(70%,560px);overflow:hidden}
 .character-list>.character-pager{margin:8px 0 0}
 }
 .character-pager input{width:52px;margin:0 6px;text-align:center;font-variant-numeric:tabular-nums}

@@ -159,8 +159,18 @@ export class SaveSession {
       if (!this.state.planExpiresAt || this.clock() >= this.state.planExpiresAt) throw new Error('SAVE_PLAN_EXPIRED');
       // Once submitted, an interrupted transport must not make this plan reusable.
       this.update({ plan: null, planExpiresAt: null, inventory: null, uncertainOperationId: plan.plan_id, refreshedAfterUncertainty: false });
-      const result = await this.gateway.execute({ method: 'save.commit', params: { plan_id: plan.plan_id } }, plan.plan_id);
-      return this.acceptReceipt(result, plan.plan_id);
+      try {
+        const result = await this.gateway.execute({ method: 'save.commit', params: { plan_id: plan.plan_id } }, plan.plan_id);
+        return this.acceptReceipt(result, plan.plan_id);
+      } catch (error) {
+        // This exact host refusal occurs before its durable write ledger is
+        // created. It invalidates the reviewed plan, not the save's usability.
+        // Lost responses and all other errors keep the existing recovery fence.
+        const message = error instanceof Error ? error.message : String(error);
+        if (/^(?:(?:OPERATION_REJECTED|OPERATION_FAILED):\s*)?Save changed after preparation; no write attempted$/.test(message))
+          this.update({ uncertainOperationId: null, receipt: null, refreshedAfterUncertainty: false });
+        throw error;
+      }
     });
   }
   private acceptReceipt(result: Result, operationId: string) {
