@@ -30,8 +30,12 @@ Handover source checks now pass: Rust 900-record parity, exhaustive seed search,
 synthetic save transaction, a repaired group-key replay false positive, and
 45/45 route-scoped mocked-bridge UI checks. The stale seed-results/late-response repair,
 title-screen-only guidance, type/locale checks and 0.8.3 context synchronization
-are complete. Freeze this reviewed source before fresh local packaging; the
-candidate delivery report records the resulting SHA and package acceptance.
+are complete. The replacement candidate from frozen source `7676ab7` passed
+outer-EXE launch/cache acceptance, verified Rust worker handshakes and seven
+packaged offline seed-route checks. The later strict-identity report repair
+changes the acceptance helper only, not the frozen product bytes. See
+`D:/Nioh3_v080_deliverables/deliverables/codex-v083-handover-20260929/candidate-r2/DELIVERY.md`
+for artifact hashes and remaining packaged save-UI/game acceptance.
 
 The seed search uses the game's item-grant route with zero drop-source context;
 enemy/region drop variants are outside this route. No-match and all-empty

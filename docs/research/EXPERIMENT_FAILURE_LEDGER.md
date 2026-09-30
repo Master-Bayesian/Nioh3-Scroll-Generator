@@ -3793,4 +3793,6 @@ route-wording revision, leaving the game running.
 **Reproduction status:** observed once with the old tool running; source
 single-instance behavior corroborates the result.
 
-**Follow-up state:** awaiting the replacement candidate's native acceptance.
+**Follow-up state:** resolved. Replacement candidate `7676ab7` passed native
+launch/cache and packaged offline seed-route checks after the old instance
+exited, with the game still running.

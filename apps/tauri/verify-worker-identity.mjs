@@ -453,6 +453,7 @@ export async function verifyWorkerIdentity({
   }
   return {
     role,
+    verified: true,
     binary: entry.packagedName,
     sha256: digest,
     backend: 'rust',

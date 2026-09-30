@@ -1,7 +1,7 @@
 # v0.8.3 release readiness — 2026-09-29
 
-**Status: REVISED SOURCE CHECKS PASSED; REPLACEMENT CANDIDATE PENDING.** Clean source freeze,
-fresh package, one-file acceptance, signing and publication are separate gates.
+**Status: REPLACEMENT CANDIDATE BUILT; NATIVE STARTUP AND OFFLINE SEED ROUTE PASSED.**
+Packaged save-UI/game acceptance, signing and publication remain separate gates.
 
 Candidate branch: claude/v082-integration  
 Intake source SHA: 2d133f7cd388bda390d542ea327b7f47398e049e  
@@ -55,9 +55,16 @@ most returning to the title screen. Local preparation does not imply authority
 to push, tag or publish. The external candidate delivery report records the
 final source identity, package hashes and completed packaged checks.
 
+The replacement outer EXE from product source `7676ab7` passed launch/cache E2E
+and seven packaged offline seed-route checks. Search and protected workers both
+passed strict binary/contract/handshake verification. A report-only mismatch
+was repaired in the acceptance helper and the launch E2E was rerun on the same
+EXE; no product rebuild was needed. Exact hashes and bounds are in
+`D:/Nioh3_v080_deliverables/deliverables/codex-v083-handover-20260929/candidate-r2/DELIVERY.md`.
+
 The original CC conversation was reviewed after the initial intake. See
 [V083_CC_CONTEXT_RECONCILIATION_20260929.md](V083_CC_CONTEXT_RECONCILIATION_20260929.md)
 for the broader version scope, existing live evidence and original publication
 instruction. Candidate 78e2dfe built successfully; its native launch was blocked
-by an existing test6 instance. The old instance has since exited, so final
-acceptance can proceed on the rebuilt outer EXE without closing the game.
+by an existing test6 instance. The old instance subsequently exited, and the
+replacement candidate checks ran while the game remained running.
