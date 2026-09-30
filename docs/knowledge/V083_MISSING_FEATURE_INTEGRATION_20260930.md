@@ -72,6 +72,11 @@ All artifacts are under
   visible native header. All three locale screenshots were inspected.
 - `candidate/`: matching outer EXE and final packaged acceptance, when present.
 
+The matching test8 outer EXE is now built from clean product commit `b292963`
+and accepted by 24 native packaged UI/bridge checks, 11 seed-route regressions
+and independent identity/handshake checks for offline-search, save and runtime
+workers. Exact hashes and remaining game tests are in `candidate/DELIVERY.md`.
+
 Existing native scroll helper and 190 runtime regressions pass. Synthetic
 save transaction and group-key replay host E2E pass; these are bounded save
 evidence. The locale catalog contains 1166 messages. Chinese catalog item names

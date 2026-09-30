@@ -11,6 +11,14 @@ delivery. Packaged UI acceptance and game insertion/save/reload acceptance are
 separate; historical test7 packages do not contain this scope. Do not ask the
 owner to close the game.
 
+**test8 delivery accepted (2026-09-30).** The complete standalone candidate is
+`D:/Nioh3_v080_deliverables/deliverables/codex-v083-missing-features-20260930/candidate/Nioh3Studio-0.8.3-test8-win-x64.exe`,
+built from clean product commit `b2929639e083fe94c000efa956a2584d2fb66782`.
+SHA256: `47c17408705f654d23d5bb5387022d4b22e05d69a02ea27320f94708509b5f2f`.
+Its external `DELIVERY.md` records 24 packaged UI/bridge checks, 11 seed-route
+regressions and all three Rust worker identities. Real-game insertion and
+shrine-save/reload acceptance remain owner-present tests. Publication is pending.
+
 **test7-r2 character-page repair.** The owner opened Equipment & items without
 opening the game and received a player-vtable mismatch. A residual process
 had no window and a null independent inventory global. Readiness is now checked
