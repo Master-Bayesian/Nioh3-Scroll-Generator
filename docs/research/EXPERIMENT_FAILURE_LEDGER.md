@@ -3910,4 +3910,11 @@ real game/save writes are outside this verification.
 **Follow-up:** the task's native and matching outer-EXE report owns closure and
 artifact identity. These repairs do not authorize publication.
 
+**Closure:** the synthetic-host E2E passed; native checks passed 27/27, and the
+matching test8-r2 outer EXE passed installation/context 28/28, footer/refusal
+70/70 and preserved-feature 24/24. After packaging, the helper distinguished
+the packaged inner filename and normalized the Windows extended path prefix
+when comparing the outer executable. This changed verifier spelling only;
+the frozen product and its hashes stayed unchanged. All receipts are retained.
+
 **Skill promotion:** None. Bounded acceptance and startup-error repair.

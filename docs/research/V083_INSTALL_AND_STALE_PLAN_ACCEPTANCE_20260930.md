@@ -83,3 +83,14 @@ passed. Native sessions exited; their configuration and desktop logs were also
 retained beside the receipts. Automated approval refused disposable-profile
 deletion with only "blocked by policy", so the profiles remain. The repeatable
 verifier recreates its never-executed fixtures under the project build root.
+
+Matching outer-EXE closure: clean product d5fa638 produced test8-r2, SHA256
+`354db3b0983b8683ba836e5c3aaccf50e1dd4d577f245c14f2814b466a400119`.
+Installation/context checks passed 28/28; plan-footer/no-write-refusal checks
+passed 70/70; retained feature-entry/prediction checks passed 24/24. Relevant
+locale screenshots were inspected. Native maximize/restore retained the
+existing one-CSS-pixel fractional-DPI tolerance. All three receipts identify
+the same EXE/payload hash. The helper's packaged filename/Windows extended-path
+comparison was corrected after build; no product bytes changed and the repair
+is retained separately. Source/package identity and exact repeats are in the
+external `candidate/DELIVERY.md` and `DELIVERY.json`.

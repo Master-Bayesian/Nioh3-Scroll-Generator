@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import {execFileSync,spawn} from 'node:child_process';
 import {mkdir,mkdtemp,copyFile,writeFile,readFile} from 'node:fs/promises';
-import {join,resolve} from 'node:path';
+import {basename,join,resolve} from 'node:path';
 import {parseArgs} from 'node:util';
 import {chromium} from 'playwright';
 import {isolatedEnvironment,closeSession,inspectOnefile,pause} from './onefile-acceptance.mjs';
@@ -16,6 +16,7 @@ execFileSync('pwsh',['-NoProfile','-File','tools/prepare_ci_game_identity.ps1','
 const external=join(root,'non-steam-install/Nioh3.exe');await mkdir(join(root,'non-steam-install'),{recursive:true});await copyFile(join(root,'identity/ProgramFiles/Steam/steamapps/common/Nioh3/Nioh3.exe'),external);
 const report={pass:false,packaged:values.onefile,root,boundary:'actual native host/workers; never-executed VERSIONINFO fixture; no cracked binary or game/save writes',checks:[],screenshots:[]};
 const check=(name,yes)=>{report.checks.push({name,pass:!!yes});assert(yes,name)};
+const nativePath=path=>resolve(path.replace(/^\\\\\?\\/,'')).toLowerCase();
 let child,session;
 async function open(profileRoot){
  const {env,profile,port}=await isolatedEnvironment(profileRoot);
@@ -44,8 +45,8 @@ try{
   return {label:label.toJSON(),brand:brand.toJSON(),viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio},unclipped:label.top>=brand.top&&label.bottom<=brand.bottom&&label.left>=brand.left&&label.right<=brand.right};
  });
  check('Build identity is fully visible inside the fixed brand',report.buildGeometry.unclipped);
- check('Feedback identifies inner executable',typeof diagnostics.executablePath==='string'&&diagnostics.executablePath.toLowerCase().endsWith('nioh3-studio.exe'));
- if(values.onefile)check('Feedback identifies outer executable',resolve(diagnostics.outerExecutable).toLowerCase()===resolve(values.exe).toLowerCase());
+ check('Feedback identifies inner executable',typeof diagnostics.executablePath==='string'&&basename(diagnostics.executablePath).toLowerCase()===(values.onefile?'nioh3studio.exe':'nioh3-studio.exe'));
+ if(values.onefile)check('Feedback identifies outer executable',nativePath(diagnostics.outerExecutable)===nativePath(values.exe));
  await page.locator('.settings').click();await page.locator('.game-install').waitFor();
  check('Settings show selected executable',(await page.locator('.game-install').innerText()).includes('Nioh3.exe'));
  const cdp=await page.context().newCDPSession(page);

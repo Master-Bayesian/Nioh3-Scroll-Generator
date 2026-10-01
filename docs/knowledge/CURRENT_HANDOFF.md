@@ -13,9 +13,20 @@ reset. Unknown versions reject before workers start using the shared registry;
 native-write gates remain unchanged. Sidebar/feedback now identify the source
 build and actual EXE paths. See
 `docs/research/V083_INSTALL_AND_STALE_PLAN_ACCEPTANCE_20260930.md` and external
-`codex-v083-install-selection-20260930` evidence. A new clean test8-r2 standalone
-candidate is required; preserve all prior candidate bytes. Reopen Studio to
+`codex-v083-install-selection-20260930` evidence. Preserve all prior candidate
+bytes. Reopen Studio to
 apply an installation change; never require closing the game.
+
+**Replacement test8-r2 accepted.** Clean product
+`d5fa63809cba994cd99854f99fc81446d40a1cb5` produced the standalone
+`Nioh3Studio-0.8.3-test8-r2-win-x64.exe` (11,944,104 bytes), SHA256
+`354db3b0983b8683ba836e5c3aaccf50e1dd4d577f245c14f2814b466a400119`.
+The matching outer EXE passed 28 installation/context checks, 70 plan-footer/
+refusal checks and 24 feature regressions. Relevant locale screenshots were
+inspected. The native chooser itself is not automated, save UI outcomes are
+scripted and the host refusal uses an encrypted synthetic save. No cracked
+binary, real-game write, real-save write or publication is claimed. Exact
+provenance and repeat commands are in this task's `candidate/DELIVERY.md`.
 
 **Save-plan footer repair (2026-09-30).** Owner feedback reported that long
 equipment plans hid commit actions below all details. The candidate now scrolls
