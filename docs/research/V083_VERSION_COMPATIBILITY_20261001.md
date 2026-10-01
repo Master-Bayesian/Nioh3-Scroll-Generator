@@ -81,3 +81,11 @@ configuration omission; it was corrected to match the production bundler.
 The added character-read frame was also moved before shutdown in the verifier.
 No unit tests were added after implementation. Source type/locale and focused
 release Clippy checks pass. Matching outer-EXE/helper acceptance remains pending.
+
+Closure: matching test9 from clean c56198b passed 18 running-image/consent
+checks for all three versions using an owned idle C# helper, 70 retained
+plan-footer/refusal checks and 24 feature regressions. Native equipment helper
+cases passed 3/3. Source bootstrap, worker capabilities and actual consent were
+exercised through the real native host; no real old game or community image was
+attached. Relevant screenshots were inspected. Exact bytes/hashes and repeat
+commands are in the external candidate DELIVERY.md/DELIVERY.json.

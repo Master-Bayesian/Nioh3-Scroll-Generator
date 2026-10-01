@@ -13,6 +13,16 @@ capabilities. See `docs/research/V083_VERSION_COMPATIBILITY_20261001.md` and
 external `codex-v083-compatibility-20261001` evidence. A new clean standalone
 candidate is required; test8-r2 does not include this policy.
 
+**test9 compatibility candidate accepted within scope.** Product c56198b built
+the 11,957,574-byte standalone EXE, SHA256
+9750c04471c5230c277a87b25774a2317e3331ee656daafb64cdf745307e214d.
+Matching outer-EXE running-image/consent checks (18), footer/refusal (70) and
+retained features (24) passed, alongside 42 browser checks, six framed-host
+version/backup cases and three native equipment helper cases. See the external
+codex-v083-compatibility-20261001/candidate/DELIVERY.md. Old character layouts
+and the reported modified executable have no real-game acceptance; old native
+seeded equipment addition remains unsupported. This is not publication.
+
 **Installation-selection follow-up (2026-09-30).** The owner's latest stale-plan
 feedback still identifies test7-r2 (`7676ab7`), not test8-r1. The real synthetic
 host E2E confirms that an intervening save correctly refuses the old plan before
