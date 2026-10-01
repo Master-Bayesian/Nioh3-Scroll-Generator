@@ -62,6 +62,7 @@ fn count_status_json(status: &nioh3_runtime::mutation::CountStatus) -> Value {
 
 /// The protected runtime role.
 pub struct RuntimeApplication {
+    compatibility: crate::compatibility::CompatibilitySession,
     state_root: PathBuf,
     data_root: PathBuf,
     context: EngineContext,
@@ -163,7 +164,16 @@ impl RuntimeApplication {
         let _ = nioh3_runtime::mutation::native_executor::AdmissionLock::reset(
             &native_executor_directory(&state_root),
         );
+        #[cfg(windows)]
+        let selected_resource_version = match &context {
+            EngineContext::Production(c) => {
+                let v = c.game_file_version;
+                Some((v.0, v.1, v.2, v.3))
+            }
+            _ => Some(nioh3_data::CURRENT_RESOURCE_VERSION),
+        };
         Ok(Self {
+            compatibility: Default::default(),
             state_root,
             data_root: data_root.to_path_buf(),
             context,
@@ -181,7 +191,7 @@ impl RuntimeApplication {
             #[cfg(windows)]
             preview: None,
             #[cfg(windows)]
-            resource_version: Some(nioh3_data::CURRENT_RESOURCE_VERSION),
+            resource_version: selected_resource_version,
             #[cfg(windows)]
             auxiliary_cache: HashMap::new(),
             #[cfg(windows)]
@@ -633,7 +643,6 @@ mod imp {
         /// One read-only handle on the sole game, verified as PC v2.0.2.0 with
         /// the pinned executable digest before any game memory is read.
         fn open_supported_reader() -> Result<nioh3_runtime::ReadOnlyProcess, HostError> {
-            use nioh3_runtime::inventory::INVENTORY_EXECUTABLE_SHA256;
             use nioh3_runtime::{FileVersion, GameCompatibility, RuntimeError};
 
             let pid = nioh3_runtime::single_process_id(nioh3_runtime::GAME_IMAGE_NAME)
@@ -664,40 +673,39 @@ mod imp {
                     ))
                 }
             };
-            if version != FileVersion::new(2, 0, 2, 0) {
+            if ![
+                FileVersion::new(2, 0, 0, 2),
+                FileVersion::new(2, 0, 1, 0),
+                FileVersion::new(2, 0, 2, 0),
+            ]
+            .contains(&version)
+            {
                 return Err(HostError::from_runtime(
                     RuntimeError::UnsupportedGameVersion {
                         display: version.display(),
                     },
                 ));
             }
-            let digest =
-                nioh3_runtime::file_sha256(&executable).map_err(HostError::from_runtime)?;
-            if !digest.eq_ignore_ascii_case(INVENTORY_EXECUTABLE_SHA256) {
-                return Err(HostError::from_runtime(
-                    RuntimeError::ExecutableDigestMismatch {
-                        path: executable,
-                        expected: INVENTORY_EXECUTABLE_SHA256.to_string(),
-                        actual: digest,
-                    },
-                ));
-            }
+            // Whole-file equality is advisory. Bounded reads, the loaded-player
+            // vtable and independent inventory/record checks remain authoritative.
             Ok(process)
         }
 
         /// `runtime.character_snapshot`: the loaded character's currencies and
         /// every owned equipment record, read twice and published only when
         /// both reads agree.
-        fn character_snapshot(&self) -> Result<Value, HostError> {
-            use nioh3_runtime::character::{
-                read_character, LiveItemContainer, CHARACTER_GAME_VERSION,
-            };
+        fn character_snapshot(&mut self) -> Result<Value, HostError> {
+            use nioh3_runtime::character::LiveItemContainer;
             use nioh3_runtime::inventory::ProcessInventoryMemory;
             use nioh3_save::character::ItemContainer;
 
             let process = Self::open_supported_reader()?;
             let memory = ProcessInventoryMemory::new(&process);
-            let read = read_character(&memory).map_err(HostError::from_runtime)?;
+            let executable = crate::compatibility::running_identity()?;
+            let version = nioh3_runtime::character::character_layout(&executable.version)
+                .ok_or_else(HostError::invalid_request)?;
+            let read = nioh3_runtime::character::read_character_with_layout(&memory, version)
+                .map_err(HostError::from_runtime)?;
             let mut currencies = serde_json::Map::new();
             for (currency, value) in &read.currencies {
                 currencies.insert(currency.label().to_string(), json!(value));
@@ -745,7 +753,8 @@ mod imp {
             };
             Ok(json!({
                 "source": "runtime",
-                "game_version": CHARACTER_GAME_VERSION,
+                "game_version": executable.version,
+                "compatibility": self.compatibility.report(&executable),
                 "process_id": read.pid,
                 "currencies": currencies,
                 "equipment_slots": nioh3_runtime::character::EQUIPMENT_SLOTS,
@@ -806,9 +815,10 @@ mod imp {
         /// slot exactly as the game frees one and is refused while either
         /// equipment set wears the item.
         fn character_edit(&mut self, params: &Value) -> Result<Value, HostError> {
+            let executable = crate::compatibility::running_identity()?;
+            self.compatibility.require(&executable)?;
             use nioh3_runtime::character::{
-                apply_live_edits, read_character, LiveCurrency, LiveEdit, LiveEditOutcome,
-                LiveItemContainer,
+                LiveCurrency, LiveEdit, LiveEditOutcome, LiveItemContainer,
             };
             use nioh3_runtime::inventory::ProcessInventoryMemory;
 
@@ -824,7 +834,10 @@ mod imp {
                 .ok_or_else(HostError::invalid_request)?;
             let process = Self::open_supported_reader()?;
             let memory = ProcessInventoryMemory::new(&process);
-            let read = read_character(&memory).map_err(HostError::from_runtime)?;
+            let version = nioh3_runtime::character::character_layout(&executable.version)
+                .ok_or_else(HostError::invalid_request)?;
+            let read = nioh3_runtime::character::read_character_with_layout(&memory, version)
+                .map_err(HostError::from_runtime)?;
             let mut edits = Vec::new();
             let mut currency_changes = Vec::new();
             let reviewed = params.get("expected_currencies").and_then(Value::as_object);
@@ -1017,7 +1030,13 @@ mod imp {
             let mut writer =
                 nioh3_runtime::mutation::memory::WindowsProcess::open_field_write(expected_pid)
                     .map_err(HostError::from_runtime)?;
-            let outcome = apply_live_edits(&memory, &mut writer, expected_pid, &edits);
+            let outcome = nioh3_runtime::character::apply_live_edits_with_layout(
+                &memory,
+                &mut writer,
+                expected_pid,
+                &edits,
+                version,
+            );
             nioh3_runtime::mutation::memory::TargetProcess::close(&mut writer);
             let (state, error) = match outcome {
                 LiveEditOutcome::Verified => ("verified", Value::Null),
@@ -1302,7 +1321,8 @@ mod imp {
                     &directory,
                 )
                 .map_err(HostError::from_runtime)?;
-                let executor = NativeLiveAddExecutor::new(transport, *layout, display_version);
+                let executor = NativeLiveAddExecutor::new(transport, *layout, display_version)
+                    .with_compatible_executable();
                 let application = LiveAddApplication::new(
                     &self.state_root,
                     self.context.digest(),
@@ -1350,7 +1370,8 @@ mod imp {
                 }
                 self.equipment_add = Some(
                     EquipmentAddition::new(pid, &self.state_root)
-                        .map_err(HostError::from_runtime)?,
+                        .map_err(HostError::from_runtime)?
+                        .with_compatible_executable(),
                 );
             }
             self.equipment_add
@@ -1882,6 +1903,33 @@ mod imp {
         }
 
         fn direct(&mut self, method: &str, params: &Value) -> Result<Value, HostError> {
+            if method == "runtime.compatibility" {
+                let identity = match crate::compatibility::running_identity() {
+                    Ok(value) => value,
+                    Err(error)
+                        if error.message.contains("not found")
+                            || error.message.contains("no running process") =>
+                    {
+                        return Ok(json!({"compatibility":{"present":false}}))
+                    }
+                    Err(error) => return Err(error),
+                };
+                let report = match params["action"].as_str() {
+                    Some("inspect") => self.compatibility.report(&identity),
+                    Some("prepare") => self.compatibility.prepare(
+                        &identity,
+                        &self.state_root,
+                        &crate::compatibility::automatic_sources(),
+                    ),
+                    Some("accept") => self.compatibility.accept(
+                        &identity,
+                        params["confirmed"] == true,
+                        params["backup_confirmed"] == true,
+                    )?,
+                    _ => return Err(HostError::invalid_request()),
+                };
+                return Ok(json!({"compatibility":report}));
+            }
             if method == "runtime.status" {
                 return self.status();
             }
@@ -1966,6 +2014,8 @@ mod imp {
                     self.count_recover(&operation_id)
                 }
                 "equipment_add_prepare" => {
+                    let executable = crate::compatibility::running_identity()?;
+                    self.compatibility.require(&executable)?;
                     if !self.safe_to_shutdown()? {
                         return Err(HostError::rejected(
                             "Equipment addition requires an idle runtime host",
@@ -1997,6 +2047,8 @@ mod imp {
                     self.equipment_add_result(result)
                 }
                 "equipment_add_execute" => {
+                    let executable = crate::compatibility::running_identity()?;
+                    self.compatibility.require(&executable)?;
                     if !self.safe_to_shutdown()? {
                         return Err(HostError::rejected(
                             "Equipment addition requires an idle runtime host",
@@ -2025,6 +2077,8 @@ mod imp {
                     self.equipment_add_result(result)
                 }
                 "live_add_prepare" => {
+                    let executable = crate::compatibility::running_identity()?;
+                    self.compatibility.require(&executable)?;
                     if !self.safe_to_shutdown()? {
                         return Err(HostError::rejected(
                             "Live addition requires an idle runtime host",
@@ -2046,6 +2100,8 @@ mod imp {
                     Ok(Self::live_add_result(prepared.to_json()))
                 }
                 "live_add_execute" => {
+                    let executable = crate::compatibility::running_identity()?;
+                    self.compatibility.require(&executable)?;
                     if !self.safe_to_shutdown()? {
                         return Err(HostError::rejected(
                             "Resolve existing runtime ownership before insertion",
@@ -2063,6 +2119,8 @@ mod imp {
                     self.live_add_snapshot(operation, &params)
                 }
                 "live_batch_prepare" => {
+                    let executable = crate::compatibility::running_identity()?;
+                    self.compatibility.require(&executable)?;
                     if !self.safe_to_shutdown()? {
                         return Err(HostError::rejected(
                             "Live addition requires an idle runtime host",
@@ -2085,6 +2143,8 @@ mod imp {
                     self.live_batch_status(&batch_id)
                 }
                 "live_batch_execute" => {
+                    let executable = crate::compatibility::running_identity()?;
+                    self.compatibility.require(&executable)?;
                     if !self.safe_to_shutdown()? {
                         return Err(HostError::rejected(
                             "Resolve existing runtime ownership before insertion",

@@ -24,6 +24,7 @@ pub mod app;
 pub mod catalog;
 pub mod composition;
 pub mod contract;
+pub mod compatibility;
 pub mod equipment_rules;
 pub mod equipment_seeds;
 pub mod scroll_completion;

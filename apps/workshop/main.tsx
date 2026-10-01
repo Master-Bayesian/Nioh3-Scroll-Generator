@@ -38,6 +38,7 @@ import "./style.css";
 import { BackupManager } from "./BackupManager";
 import { Editor } from "./Editor";
 import { CharacterEditor } from "./CharacterEditor";
+import { RuntimeCompatibility } from "./RuntimeCompatibility";
 import { GameInstallation } from "./GameInstallation";
 import { DesktopCartActions, SavePicker } from "./CartActions";
 import { FeedbackSaved, Notice } from "./Notice";
@@ -1023,6 +1024,7 @@ function App() {
         >
           {collapsed ? "☰" : "‹"}
         </button>
+        {desktop&&<RuntimeCompatibility/>}
         <div className="brand">
           仁王<span>3</span>
           <small>独脚踏鞴工作室</small>

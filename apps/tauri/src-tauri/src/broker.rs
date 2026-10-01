@@ -267,6 +267,7 @@ impl Broker {
                     "save.operations",
                     "runtime.status",
                     "runtime.inventory_snapshot",
+                    "runtime.compatibility",
                     "runtime.character_snapshot",
                     "runtime.menu_selection",
                     "runtime.reset_live_add_lock",

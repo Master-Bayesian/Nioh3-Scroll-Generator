@@ -50,6 +50,7 @@ export function Notice({
   const display = stripErrorPrefix(text).trim();
   const technical = publicError(display) !== display ? display : "";
   const gameInstallError=desktop&&/GAME_(?:EXECUTABLE|VERSION|INSTALL_CONFIG)_/.test(text);
+  const compatibilityError=desktop&&/COMPATIBILITY_CONFIRMATION_REQUIRED/.test(text);
   async function selectGame(){
     setGameSelecting(true);
     try{const result=await window.review.gameInstallation("select");if(result?.restart_required)setGameMessage("游戏路径已记录。请重新打开工作室后使用，游戏无需关闭。");}
@@ -122,6 +123,7 @@ export function Notice({
             </button>
           )}
           {gameInstallError&&<button disabled={gameSelecting} onClick={()=>void selectGame()}>选择游戏程序</button>}
+          {compatibilityError&&<button onClick={()=>window.dispatchEvent(new Event("nioh3:compatibility-required"))}>查看兼容提示</button>}
         </div>
       )}
       {lockReset === "cleared" && (

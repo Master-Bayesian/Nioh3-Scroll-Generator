@@ -54,7 +54,8 @@ export type ProtectedResponse =
             };
           }
         | ScrollCompletionPrediction
-        | EquipmentAddition;
+        | EquipmentAddition
+        | RuntimeCompatibility;
     }
   | {
       protocol: 1;
@@ -1174,6 +1175,9 @@ export interface LiveCharacter {
    */
   equipment: CharacterEquipment[];
   items?: CharacterItem[] | null;
+  compatibility?: {
+    [k: string]: unknown;
+  };
 }
 export interface EquipmentRules {
   item_id: number;
@@ -2266,5 +2270,10 @@ export interface ScrollCompletionPrediction {
             record_hex: string;
           }
         ];
+  };
+}
+export interface RuntimeCompatibility {
+  compatibility: {
+    [k: string]: unknown;
   };
 }

@@ -6454,4 +6454,14 @@ export type ProtectedRequest =
       params: {
         operation_id: string;
       };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.compatibility";
+      params: {
+        action: "inspect" | "prepare" | "accept";
+        confirmed?: boolean;
+        backup_confirmed?: boolean;
+      };
     };

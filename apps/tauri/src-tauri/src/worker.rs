@@ -1119,10 +1119,15 @@ impl Worker {
                 .map(|v| v["context"]["context_digest"].clone())
         });
         let pending = self.pending.try_lock().ok().map(|value| value.len());
+        let capabilities = self
+            .identity
+            .try_lock()
+            .ok()
+            .and_then(|guard| guard.as_ref().map(|v| v["capabilities"].clone()));
         json!({"role":self.role,"connection":if self.safely_closed.load(Ordering::SeqCst){"closed"}
             else if self.dead.load(Ordering::SeqCst){"unavailable"}else if context.is_some(){"ready"}else{"starting"},
             "backend":self.backend,"binarySha256":self.binary_sha256,
-            "contextDigest":context,"contractDigest":self.contract_digest,"pendingRequests":pending})
+            "contextDigest":context,"contractDigest":self.contract_digest,"pendingRequests":pending,"capabilities":capabilities})
     }
     pub async fn spawn(
         root: &Path,

@@ -2,6 +2,17 @@
 
 ## Active development: v0.8.3
 
+**Owner-authorized compatibility policy (2026-10-01).** Whole-file equality is
+advisory; unverified live writes/previews use process-bound risk/backup consent
+while code/layout/ownership/readback/receipt checks remain. Target old versions
+are 2.0.0.2 and 2.0.1.0. Old character reads/edits have an explicitly experimental
+version-selected path; old offline search/save and native 2.01 scroll bindings
+are preserved. The new native equipment builder remains 2.02-only. Bootstrap
+can use the sole running image outside Steam; diagnostics include accelerator
+capabilities. See `docs/research/V083_VERSION_COMPATIBILITY_20261001.md` and
+external `codex-v083-compatibility-20261001` evidence. A new clean standalone
+candidate is required; test8-r2 does not include this policy.
+
 **Installation-selection follow-up (2026-09-30).** The owner's latest stale-plan
 feedback still identifies test7-r2 (`7676ab7`), not test8-r1. The real synthetic
 host E2E confirms that an intervening save correctly refuses the old plan before

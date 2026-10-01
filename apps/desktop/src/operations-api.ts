@@ -27,6 +27,7 @@ export type PublicOperation =
   | { method: 'runtime.live_batch_cancel'; params: ProtectedParams<'runtime.live_batch_cancel'> }
   | { method: 'runtime.status'; params: ProtectedParams<'runtime.status'> }
   | { method: 'runtime.inventory_snapshot'; params: ProtectedParams<'runtime.inventory_snapshot'> }
+  | { method: 'runtime.compatibility'; params: ProtectedParams<'runtime.compatibility'> }
   | { method: 'runtime.character_snapshot'; params: ProtectedParams<'runtime.character_snapshot'> }
   | { method: 'runtime.menu_selection'; params: ProtectedParams<'runtime.menu_selection'> }
   | { method: 'runtime.reset_live_add_lock'; params: ProtectedParams<'runtime.reset_live_add_lock'> }

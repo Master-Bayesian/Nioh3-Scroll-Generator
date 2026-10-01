@@ -1132,6 +1132,10 @@
               "type": "null"
             }
           ]
+        },
+        "compatibility": {
+          "type": "object",
+          "additionalProperties": true
         }
       },
       "required": [
@@ -4736,13 +4740,17 @@
               "enum": [
                 "prepared",
                 "verified",
-                "rejected_before_dispatch", "rejected_before_insertion",
+                "rejected_before_dispatch",
+                "rejected_before_insertion",
                 "uncertain",
                 "cancelled"
               ]
             },
             "process_id": {
-              "type": ["integer", "null"],
+              "type": [
+                "integer",
+                "null"
+              ],
               "minimum": 1,
               "maximum": 4294967295
             },
@@ -4784,6 +4792,19 @@
       },
       "required": [
         "equipment_add"
+      ]
+    },
+    "RuntimeCompatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "compatibility": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "compatibility"
       ]
     }
   },
@@ -4973,6 +4994,9 @@
             },
             {
               "$ref": "#/definitions/EquipmentAddition"
+            },
+            {
+              "$ref": "#/definitions/RuntimeCompatibility"
             }
           ]
         }

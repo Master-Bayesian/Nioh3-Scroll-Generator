@@ -2519,6 +2519,15 @@ name = "nioh3-domain"
 version = "0.1.0"
 
 [[package]]
+name = "nioh3-runtime"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "sha2",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "nioh3-studio"
 version = "0.8.3"
 dependencies = [
@@ -2527,6 +2536,7 @@ dependencies = [
  "ed25519-dalek",
  "jsonschema",
  "nioh3-data",
+ "nioh3-runtime",
  "reqwest 0.12.28",
  "serde",
  "serde_json",

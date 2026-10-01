@@ -4333,6 +4333,51 @@
         "method",
         "params"
       ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "runtime.compatibility"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "enum": [
+                "inspect",
+                "prepare",
+                "accept"
+              ]
+            },
+            "confirmed": {
+              "type": "boolean"
+            },
+            "backup_confirmed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "action"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
     }
   ]
 }

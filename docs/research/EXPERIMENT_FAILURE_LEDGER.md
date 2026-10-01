@@ -1,5 +1,18 @@
 # Experiment failure ledger
 
+## 2026-10-01: compatibility acceptance verifier corrections
+
+The component-only browser helper did not initially use the production JSX
+configuration, so locale switching retained Chinese text. Source bundler
+configuration was aligned, explicit locale-heading checks added and the 42-case
+interaction/geometry run passed. The extended real framed-host verifier placed
+its character-read frame after shutdown, yielding eight rather than nine
+responses. That frame was moved before shutdown; no product shutdown behavior
+changed. Failure controls, scope and retained before/after receipts are in
+`docs/research/V083_VERSION_COMPATIBILITY_20261001.md` and external
+`codex-v083-compatibility-20261001`. No game or real save was modified.
+
+
 ## 2026-09-30: fractional-DPI restore assertion during test8-r1 acceptance
 
 **Objective:** regress the complete-feature candidate after the plan-footer fix.

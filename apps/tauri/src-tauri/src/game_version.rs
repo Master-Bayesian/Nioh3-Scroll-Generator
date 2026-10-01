@@ -419,6 +419,16 @@ fn library_roots() -> Vec<PathBuf> {
 /// was not found where Steam keeps it; more than one means the identity is
 /// ambiguous and picking one would be a guess.
 fn discover_game_executable() -> Result<PathBuf, String> {
+    // Prefer the actual running image over installation-directory heuristics.
+    // An explicit native-selected path still bypasses this function entirely.
+    #[cfg(windows)]
+    match nioh3_runtime::single_process_id("Nioh3.exe") {
+        Ok(pid) => return nioh3_runtime::query_image_path(pid).map(PathBuf::from)
+            .map_err(|error|format!("GAME_EXECUTABLE_UNREADABLE: {}",error.message())),
+        Err(nioh3_runtime::RuntimeError::ProcessAbsent{..}) => {},
+        Err(nioh3_runtime::RuntimeError::AmbiguousProcess{..}) => return Err("GAME_EXECUTABLE_AMBIGUOUS: more than one Nioh3.exe is running; select the actual executable explicitly".into()),
+        Err(error) => return Err(format!("GAME_EXECUTABLE_UNREADABLE: {}",error.message())),
+    }
     let candidates: Vec<PathBuf> = library_roots()
         .into_iter()
         .map(expected_game_executable)

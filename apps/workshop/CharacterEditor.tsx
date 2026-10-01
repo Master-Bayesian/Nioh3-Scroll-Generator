@@ -1023,6 +1023,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         try {
           const result = await window.operations.execute({ method: "runtime.character_snapshot", params: {} });
           if (!result || !("source" in result) || result.source !== "runtime") throw new Error("UNEXPECTED_CHARACTER_SNAPSHOT");
+          if(result.compatibility)window.dispatchEvent(new CustomEvent("nioh3:compatibility-detected",{detail:result.compatibility}));
           adopt({ ...result, mode: "live" });
         } catch (error) {
           const detail = errorText(error);

@@ -21,6 +21,36 @@ pub const CHARACTER_GAME_VERSION: &str = "2.0.2.0";
 pub const PLAYER_POINTER_RVA: u64 = 0x475_1850;
 /// The player data object's vtable.
 pub const PLAYER_VTABLE_RVA: u64 = 0x402_DA20;
+/// Legacy CT globals plus the independently versioned inventory manager.
+/// Older vtables are checked as game-owned tables of game-owned functions;
+/// consent does not substitute a current-version vtable or memory address.
+#[derive(Clone, Copy)]
+pub struct CharacterLayout {
+    pub player_pointer_rva: u64,
+    pub inventory_pointer_rva: u64,
+    pub player_vtable_rva: Option<u64>,
+}
+pub const CURRENT_CHARACTER_LAYOUT: CharacterLayout = CharacterLayout {
+    player_pointer_rva: PLAYER_POINTER_RVA,
+    inventory_pointer_rva: GLOBAL_SLOT_RVA,
+    player_vtable_rva: Some(PLAYER_VTABLE_RVA),
+};
+pub fn character_layout(version: &str) -> Option<CharacterLayout> {
+    match version {
+        "2.0.2.0" => Some(CURRENT_CHARACTER_LAYOUT),
+        "2.0.0.2" => Some(CharacterLayout {
+            player_pointer_rva: 0x4749820,
+            inventory_pointer_rva: 0x4749500,
+            player_vtable_rva: None,
+        }),
+        "2.0.1.0" => Some(CharacterLayout {
+            player_pointer_rva: 0x474D800,
+            inventory_pointer_rva: 0x474D4E0,
+            player_vtable_rva: None,
+        }),
+        _ => None,
+    }
+}
 /// Owned equipment inside the player data object.
 pub const EQUIPMENT_OFFSET: u64 = 0x3_70E0;
 /// Slots in the owned-equipment array.
@@ -154,15 +184,21 @@ fn u64_at(bytes: &[u8]) -> Result<u64, RuntimeError> {
 
 /// Resolve and verify the player data object.
 pub fn locate_player(memory: &dyn InventoryMemory) -> Result<u64, RuntimeError> {
+    locate_player_with_layout(memory, CURRENT_CHARACTER_LAYOUT)
+}
+fn locate_player_with_layout(
+    memory: &dyn InventoryMemory,
+    version: CharacterLayout,
+) -> Result<u64, RuntimeError> {
     let base = memory.module_base();
     let global = base
-        .checked_add(PLAYER_POINTER_RVA)
+        .checked_add(version.player_pointer_rva)
         .ok_or_else(|| layout("player global overflowed"))?;
     let player = u64_at(&memory.read(global, 8)?)?;
     if player == 0 {
         return Err(layout("no character is loaded"));
     }
-    let slot = u64_at(&memory.read(base + GLOBAL_SLOT_RVA, 8)?)?;
+    let slot = u64_at(&memory.read(base + version.inventory_pointer_rva, 8)?)?;
     let root = if slot == 0 {
         0
     } else {
@@ -172,7 +208,35 @@ pub fn locate_player(memory: &dyn InventoryMemory) -> Result<u64, RuntimeError> 
         return Err(layout("no character is loaded"));
     }
     let vtable = u64_at(&memory.read(player, 8)?)?;
-    if vtable != base + PLAYER_VTABLE_RVA {
+    let verified_vtable = if let Some(rva) = version.player_vtable_rva {
+        vtable == base + rva
+    } else {
+        // PE SizeOfImage supplies the actual module bounds for the legacy
+        // vtable and function pointers; no absolute vtable is guessed.
+        let dos = memory.read(base + 0x3C, 4)?;
+        let nt = u32::from_le_bytes(dos.try_into().map_err(|_| layout("short PE offset"))?) as u64;
+        if !(0x40..=0x1000).contains(&nt) {
+            return Err(layout("invalid PE header offset"));
+        }
+        let raw = memory.read(base + nt + 0x50, 4)?;
+        let size =
+            u32::from_le_bytes(raw.try_into().map_err(|_| layout("short PE image size"))?) as u64;
+        if !(0x100000..=0x20000000).contains(&size) {
+            return Err(layout("invalid PE image size"));
+        }
+        let end = base
+            .checked_add(size)
+            .ok_or_else(|| layout("module overflow"))?;
+        if vtable < base || vtable.checked_add(24).is_none_or(|p| p > end) {
+            false
+        } else {
+            memory
+                .read(vtable, 24)?
+                .chunks_exact(8)
+                .all(|raw| u64_at(raw).is_ok_and(|p| p >= base && p < end))
+        }
+    };
+    if !verified_vtable {
         return Err(layout(
             "the player object's vtable does not match this build",
         ));
@@ -279,9 +343,15 @@ fn read_once(memory: &dyn InventoryMemory, player: u64) -> Result<CharacterRead,
 
 /// Read the character twice; publish only when both reads agree.
 pub fn read_character(memory: &dyn InventoryMemory) -> Result<CharacterRead, RuntimeError> {
-    let player = locate_player(memory)?;
+    read_character_with_layout(memory, CURRENT_CHARACTER_LAYOUT)
+}
+pub fn read_character_with_layout(
+    memory: &dyn InventoryMemory,
+    version: CharacterLayout,
+) -> Result<CharacterRead, RuntimeError> {
+    let player = locate_player_with_layout(memory, version)?;
     let first = read_once(memory, player)?;
-    if locate_player(memory)? != player {
+    if locate_player_with_layout(memory, version)? != player {
         return Err(layout("the player object moved during the read"));
     }
     let second = read_once(memory, player)?;
@@ -495,6 +565,21 @@ pub fn apply_live_edits(
     expected_pid: u32,
     edits: &[LiveEdit],
 ) -> LiveEditOutcome {
+    apply_live_edits_with_layout(
+        memory,
+        writer,
+        expected_pid,
+        edits,
+        CURRENT_CHARACTER_LAYOUT,
+    )
+}
+pub fn apply_live_edits_with_layout(
+    memory: &dyn InventoryMemory,
+    writer: &mut dyn TargetProcess,
+    expected_pid: u32,
+    edits: &[LiveEdit],
+    version: CharacterLayout,
+) -> LiveEditOutcome {
     let declared = memory.process();
     if declared.pid != expected_pid || writer.pid() != expected_pid {
         return LiveEditOutcome::Rejected(
@@ -509,7 +594,7 @@ pub fn apply_live_edits(
             )
         }
     }
-    let player = match locate_player(memory) {
+    let player = match locate_player_with_layout(memory, version) {
         Ok(player) => player,
         Err(error) => return LiveEditOutcome::Rejected(error.to_string()),
     };

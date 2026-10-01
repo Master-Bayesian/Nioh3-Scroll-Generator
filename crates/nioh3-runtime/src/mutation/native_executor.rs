@@ -352,6 +352,7 @@ pub struct NativeLiveAddExecutor<T: LiveAddTransport> {
     pending_pid: Option<u32>,
     pending_creation_time: Option<String>,
     budget: DispatchBudget,
+    compatible_executable: bool,
 }
 
 impl<T: LiveAddTransport> NativeLiveAddExecutor<T> {
@@ -364,7 +365,14 @@ impl<T: LiveAddTransport> NativeLiveAddExecutor<T> {
             pending_pid: None,
             pending_creation_time: None,
             budget: DispatchBudget::PRODUCT,
+            compatible_executable: false,
         }
+    }
+
+    /// Product consent is process-bound in the host; code/owner checks remain.
+    pub fn with_compatible_executable(mut self) -> Self {
+        self.compatible_executable = true;
+        self
     }
 
     /// Research-only: the pinned PC v2.02 candidate binding.
@@ -424,7 +432,10 @@ impl<T: LiveAddTransport> NativeLiveAddExecutor<T> {
                 refusal("Live addition requires accepted PC v2.01")
             });
         }
-        if let Some(expected) = binding.executable_sha256 {
+        if let Some(expected) = binding
+            .executable_sha256
+            .filter(|_| !self.compatible_executable)
+        {
             // The pinned identity is a hex digest, so a transport may render it in
             // either case: the real one returns `sha256_hex` (lower case) while the
             // pinned constant is upper case. Absent proof and a different digest

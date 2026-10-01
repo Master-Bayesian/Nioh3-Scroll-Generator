@@ -35,6 +35,7 @@ fn text<'a>(value: &'a Value, key: &str) -> Result<&'a str, RuntimeError> {
 }
 
 pub struct EquipmentAddition {
+    compatible_executable: bool,
     transport: NativeDebugTransport,
     operations: LiveAddOperations,
     requests: PathBuf,
@@ -48,6 +49,7 @@ impl EquipmentAddition {
         let requests = root.join("requests");
         std::fs::create_dir_all(&requests).map_err(|e| rejected(e.to_string()))?;
         Ok(Self {
+            compatible_executable: false,
             transport: NativeDebugTransport::new(
                 pid,
                 LAYOUT,
@@ -60,6 +62,11 @@ impl EquipmentAddition {
             #[cfg(feature = "test-helper")]
             helper_binding: false,
         })
+    }
+    /// Enable the host's process-bound consent policy without changing sites.
+    pub fn with_compatible_executable(mut self) -> Self {
+        self.compatible_executable = true;
+        self
     }
     /// Test-only dispatch against the named disposable helper, never the game.
     #[cfg(feature = "test-helper")]
@@ -139,10 +146,11 @@ impl EquipmentAddition {
             }
             return Err(rejected("The owned helper identity changed"));
         }
-        if !self
-            .transport
-            .executable_sha256()?
-            .is_some_and(|hash| hash.eq_ignore_ascii_case(PC_V202_CANDIDATE_EXECUTABLE_SHA256))
+        if !self.compatible_executable
+            && !self
+                .transport
+                .executable_sha256()?
+                .is_some_and(|hash| hash.eq_ignore_ascii_case(PC_V202_CANDIDATE_EXECUTABLE_SHA256))
         {
             return Err(rejected(
                 "Equipment addition requires the supported PC 2.0.2.0 executable",

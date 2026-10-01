@@ -1177,3 +1177,17 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 找到了多个《仁王3》游戏程序。请在设置中选择要使用的 Nioh3.exe，重新打开工作室后生效。	Multiple Nioh 3 executables were found. Choose the intended Nioh3.exe in Settings, then reopen Studio.	仁王3の実行ファイルが複数見つかりました。設定から使用するNioh3.exeを選び、スタジオを開き直してください。
 无法读取《仁王3》游戏程序的版本信息。请在设置中重新选择实际的 Nioh3.exe，并确认文件完整。	The Nioh 3 file version could not be read. Select the actual Nioh3.exe again in Settings and check that the file is intact.	仁王3のバージョン情報を読み取れません。設定から実際のNioh3.exeを選び直し、ファイルが破損していないか確認してください。
 游戏程序路径记录无效，请在设置中重新选择实际的 Nioh3.exe。	The saved game path is invalid. Select the actual Nioh3.exe again in Settings.	保存されたゲームのパスが無効です。設定から実際のNioh3.exeを選び直してください。
+检测到旧版本或不同的游戏程序。请核对兼容范围与存档备份，再继续实时操作。	An older or different game executable was detected. Review compatibility and your save backup before live operations.	旧版または異なるゲーム実行ファイルを検出しました。互換性とセーブのバックアップを確認してからリアルタイム操作を続けてください。
+查看兼容提示	Review compatibility	互換性の注意を確認
+游戏版本兼容提示	Game compatibility notice	ゲーム版の互換性について
+这份游戏程序与已验证的版本不完全相同，继续操作可能出错。请先备份存档，并确认备份可用。	This executable differs from the verified build. Continuing may cause errors. Back up your save first and confirm that the backup is usable.	この実行ファイルは検証済みのものと異なります。続行すると問題が起きる可能性があります。先にセーブをバックアップし、利用できることを確認してください。
+游戏版本：	Game version:	ゲーム版：
+自动备份已完成，并已回读核对。请确认下面的备份包含你的当前存档。	Automatic backup completed and readback matched. Confirm that the copies below contain your current save.	自動バックアップが完了し、読み戻しも一致しました。以下のコピーが現在のセーブを含むことを確認してください。
+自动备份没有完成。请先手动备份存档，再确认继续。	Automatic backup did not complete. Make a manual backup before confirming continuation.	自動バックアップは完了していません。手動でバックアップしてから続行を確認してください。
+此旧版本可以使用已有的绘卷搜索和存档功能；实时添加装备尚未完成版本核对。	Existing scroll search and save features are available for this older version. Live equipment addition has not been verified for it.	この旧版では既存の絵巻検索とセーブ機能を利用できます。装備のリアルタイム追加は未検証です。
+我已了解版本差异和可能出错的风险	I understand the version difference and possible errors	バージョンの違いと問題が起こる可能性を理解しました
+我已确认当前存档有可用备份	I confirmed a usable backup of my current save	現在のセーブの利用可能なバックアップを確認しました
+重试自动备份	Retry automatic backup	自動バックアップを再試行
+确认使用兼容模式	Confirm compatibility mode	互換モードを確認して使用
+检测到旧版本或不同的游戏程序，请核对兼容提示和存档备份后继续。	An older or different game executable was detected. Review the compatibility notice and your backup before continuing.	旧版または異なる実行ファイルを検出しました。互換性の注意とバックアップを確認してから続行してください。
+这份游戏程序与已验证版本不同。请查看兼容提示，核对存档备份后再继续实时操作。	This executable differs from the verified build. Review compatibility and your save backup before continuing live operations.	検証済みの実行ファイルと異なります。互換性の注意とバックアップを確認してからリアルタイム操作を続けてください。

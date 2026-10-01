@@ -197,6 +197,8 @@ export function publicError(message: string): string {
     ],
     [/GAME_EXECUTABLE_SELECTION_INVALID|GAME_INSTALL_CONFIG_INVALID/,"游戏程序路径记录无效，请在设置中重新选择实际的 Nioh3.exe。"],
     [/GAME_VERSION_UNSUPPORTED/,"当前游戏版本尚未支持，请检查更新。"],
+    [/COMPATIBILITY_CONFIRMATION_REQUIRED/,"检测到旧版本或不同的游戏程序，请核对兼容提示和存档备份后继续。"],
+    [/not the digest this surface pins|EXECUTABLE_DIGEST_MISMATCH/,"这份游戏程序与已验证版本不同。请查看兼容提示，核对存档备份后再继续实时操作。"],
     [
       /no contiguous run of \d+ free scroll slots|All 400 scroll slots/i,
       "存档里没有足够的空绘卷栏位（最多 400 张），本次没有写入。请先在游戏里处理掉一些绘卷再添加。",
