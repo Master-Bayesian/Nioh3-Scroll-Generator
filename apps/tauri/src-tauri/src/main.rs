@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod broker;
+mod game_install;
 mod game_version;
 mod onefile;
 mod package;
@@ -326,11 +327,32 @@ async fn desktop_request(
             }
             Ok(result)
         }
+        "review:game-installation" => {
+            let _guard = broker.storage.lock().await;
+            match value.as_str() {
+                Some("inspect") => game_install::inspect(&broker.data),
+                Some("reset") => game_install::reset(&broker.data),
+                Some("select") => match app
+                    .dialog()
+                    .file()
+                    .add_filter("Nioh3.exe", &["exe"])
+                    .blocking_pick_file()
+                {
+                    None => Ok(Value::Null),
+                    Some(path) => game_install::choose(
+                        &broker.data,
+                        &path.into_path().map_err(|e| e.to_string())?,
+                    ),
+                },
+                _ => Err("INVALID_GAME_INSTALL_ACTION".into()),
+            }
+        }
         "support:diagnostics" | "support:export" | "review:copy-log" | "review:feedback" => {
             let verification = if state.packaged {
                 match package::verify(&broker.root) {
                     Ok(m) => {
                         json!({"ok":true,"version":m.version,"fileCount":m.files.len(),"signed":false,
+                        "sourceCommit":m.git.as_ref().map(|g|g.commit.as_str()),"sourceDirty":m.git.as_ref().map(|g|g.dirty),
                         "manifestSha256":package::hash_file(&broker.root.join("build-manifest.json")).ok()})
                     }
                     Err(error) => json!({"ok":false,"error":error}),
@@ -344,7 +366,7 @@ async fn desktop_request(
                 .map(|v| v["locale"].clone())
                 .unwrap_or(json!("zh-CN"));
             let log_directory = broker.data.join("logs");
-            let report = json!({"schema":"nioh3-v2-diagnostics/v1","version":env!("CARGO_PKG_VERSION"),"packaged":state.packaged,"locale":locale,"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"dataDirectory":broker.data,"logDirectory":log_directory,"runtimeVersions":{"tauri":"2.11.5"},"packageVerification":verification,"workers":broker.diagnostics().await,"firstSessionFailure":storage::first_failure(&broker.data)});
+            let report = json!({"schema":"nioh3-v2-diagnostics/v1","version":env!("CARGO_PKG_VERSION"),"packaged":state.packaged,"locale":locale,"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"dataDirectory":broker.data,"logDirectory":log_directory,"runtimeVersions":{"tauri":"2.11.5"},"packageVerification":verification,"workers":broker.diagnostics().await,"firstSessionFailure":storage::first_failure(&broker.data),"gameInstallation":game_install::inspect(&broker.data).ok(),"executablePath":std::env::current_exe().ok().map(|p|p.to_string_lossy().into_owned()),"outerExecutable":std::env::var("NIOH3_ONEFILE_EXE").ok()});
             if channel == "support:export" {
                 if let Some(path) = app
                     .dialog()
@@ -498,6 +520,7 @@ fn main() {
                 }
             }
             storage::log(&data, "startup", env!("CARGO_PKG_VERSION"));
+            worker::initialize_game_install(&data);
             // Record the resolved worker graph at startup. A packaged acceptance
             // can then read the identity of the worker the *host* resolved
             // instead of inferring it from a separately spawned binary.

@@ -322,6 +322,50 @@ fn character_edits_commit_through_the_save_transaction() {
     assert_eq!(plan["preview"]["currencies"].as_array().unwrap().len(), 1);
     assert_eq!(std::fs::read(&save_path).unwrap(), original);
 
+    // Real framed-host refusal: the game-like encrypted save changes after the
+    // reviewed plan, before write intent. No phantom operation is created.
+    let mut changed_plain = decrypt_container(&original).unwrap();
+    let changed_slot = equipment_offset(SLOT).unwrap();
+    changed_plain[changed_slot + 0x0A..changed_slot + 0x0C].copy_from_slice(&6u16.to_le_bytes());
+    nioh3_save::patch_user_checksum(&mut changed_plain).unwrap();
+    let changed_save = encrypt_container(&changed_plain).unwrap();
+    std::fs::write(&save_path, &changed_save).unwrap();
+    let refused = job(
+        &mut exchange,
+        "save.commit",
+        json!({"plan_id":plan["plan_id"]}),
+    );
+    assert_eq!(refused["state"], "failed", "{refused}");
+    assert_eq!(
+        refused["error"]["message"],
+        "Save changed after preparation; no write attempted"
+    );
+    assert_eq!(std::fs::read(&save_path).unwrap(), changed_save);
+    let history = job(&mut exchange, "save.operations", json!({"save_id":save_id}));
+    assert!(history["result"]["operations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|r| r["operation_id"] != plan["plan_id"]));
+    let evidence = build_root().join("deliverables/codex-v083-install-selection-20260930/backend");
+    std::fs::create_dir_all(&evidence).unwrap();
+    std::fs::write(evidence.join("stale-plan-host.json"),serde_json::to_vec_pretty(&json!({"pass":true,
+        "boundary":"real framed host, isolated synthetic encrypted save; no game/real save","refusal":refused,"history":history,"changedSaveUntouched":true})).unwrap()).unwrap();
+    std::fs::write(&save_path, &original).unwrap();
+
+    // Restoring bytes does not restore the prepared file fingerprint. A fresh
+    // review is required even after the synthetic source has its old hash.
+    let fresh = job(
+        &mut exchange,
+        "save.prepare_character_edit",
+        json!({
+            "save_id":save_id,"source_sha256":source,"currencies":{"gold":19_072_715,"amrita":0},
+            "equipment":[{"slot_index":SLOT,"patch":{"plus":20,"effects":[{"index":0,"effect_id":0x8D2B,"value":4}]}}]
+        }),
+    );
+    assert_eq!(fresh["state"], "completed", "{fresh}");
+    let plan = &fresh["result"];
+
     let receipt = job(
         &mut exchange,
         "save.commit",

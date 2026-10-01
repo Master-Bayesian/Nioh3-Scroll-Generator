@@ -3877,3 +3877,37 @@ termination, injection, game write or save write is required.
 package acceptance; this does not accept real-save seeded insertion.
 
 **Skill promotion:** None. Bounded runtime-readiness and UI-classification defect.
+
+## 2026-09-30: installation-selection and stale-plan E2E corrections
+
+**Objective:** verify non-Steam startup identity and an intervening-save refusal
+without changing the game or a real save.
+
+**Observed symptoms and causes:** restoring the synthetic save's original bytes
+did not restore its prepared file fingerprint/mtime. Reusing that old plan
+therefore failed the transaction's stronger fingerprint check. The native build
+label was clipped by the brand's fixed 80px height; English settings exceeded
+the constrained viewport. A picker assertion read the initially enabled button
+before its effect started inspection. Unsupported VERSIONINFO 9.9.9.9 exited
+workers during initialization, losing their resource refusal as a pipe error
+and delaying normal shutdown.
+
+**Repair:** prepare a new synthetic plan after restoring owned fixture bytes;
+preserve all transaction checks. Fit brand typography within its existing
+geometry and bound shared popup height/scroll. Synchronize the E2E on the actual
+inspection result. Use the worker's shared nioh3-data version registry before
+production worker spawn, retaining an actionable GAME_VERSION_UNSUPPORTED and
+all native-write gates.
+
+**Evidence and reproduction:** deterministic before/after native and real framed
+synthetic-host receipts under external
+`deliverables/codex-v083-install-selection-20260930/`, including
+`native-build-visibility-before`, `native-settings-constraint-before`,
+`native-picker-loading-race.json`, `native-unsupported-startup-before.json` and
+`backend/stale-plan-host.json`. File-dialog interaction, cracked binaries and
+real game/save writes are outside this verification.
+
+**Follow-up:** the task's native and matching outer-EXE report owns closure and
+artifact identity. These repairs do not authorize publication.
+
+**Skill promotion:** None. Bounded acceptance and startup-error repair.

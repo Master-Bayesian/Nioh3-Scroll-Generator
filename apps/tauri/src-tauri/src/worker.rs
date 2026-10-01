@@ -401,6 +401,29 @@ fn test_game_file_version() -> &'static std::sync::Mutex<Option<String>> {
 }
 
 /// The installed game version one packaged host session binds its workers to.
+#[cfg(not(test))]
+static INSTALLED_VERSION_SOURCE: std::sync::OnceLock<
+    Result<
+        crate::game_version::GameFileVersionSource<crate::game_version::WindowsFileVersionReader>,
+        String,
+    >,
+> = std::sync::OnceLock::new();
+
+/// Bind the native-picked path at bootstrap. Choosing/resetting a path later
+/// only changes next-launch configuration; existing roles keep their context.
+pub fn initialize_game_install(data: &Path) {
+    #[cfg(not(test))]
+    INSTALLED_VERSION_SOURCE.get_or_init(|| {
+        let executable = crate::game_install::selected(data)?;
+        Ok(crate::game_version::GameFileVersionSource::new(
+            crate::game_version::WindowsFileVersionReader,
+            crate::game_version::GameVersionSource::with_selected_executable(executable),
+        ))
+    });
+    #[cfg(test)]
+    let _ = data;
+}
+/// The installed game version one packaged host session binds its workers to.
 ///
 /// The value is read from the real installed executable, validated as exactly
 /// four components, and cached for the life of the process, so every role this
@@ -437,21 +460,21 @@ pub fn packaged_game_file_version() -> Result<String, String> {
     }
     #[cfg(not(test))]
     {
-        static SOURCE: std::sync::OnceLock<
-            crate::game_version::GameFileVersionSource<
-                crate::game_version::WindowsFileVersionReader,
-            >,
-        > = std::sync::OnceLock::new();
-        let source = SOURCE.get_or_init(|| {
-            crate::game_version::GameFileVersionSource::new(
-                crate::game_version::WindowsFileVersionReader,
-                crate::game_version::GameVersionSource::default(),
-            )
-        });
-        source
-            .resolve()
-            .map(|version| version.dotted())
-            .map_err(|error| error.message())
+        let source = INSTALLED_VERSION_SOURCE
+            .get_or_init(|| {
+                Ok(crate::game_version::GameFileVersionSource::new(
+                    crate::game_version::WindowsFileVersionReader,
+                    crate::game_version::GameVersionSource::default(),
+                ))
+            })
+            .as_ref()
+            .map_err(Clone::clone)?;
+        let version = source.resolve().map_err(|error| error.message())?;
+        // A worker exits before handshake for an unregistered version. Reject
+        // through the same registry here so recovery keeps an actionable error
+        // and never leaves a dead protected process in the broker.
+        version.ensure_supported()?;
+        Ok(version.dotted())
     }
 }
 

@@ -5,14 +5,16 @@
 //! is therefore never a build-time constant, an environment guess, or a
 //! hardcoded fallback: it is read from the real installed `Nioh3.exe`.
 //!
-//! Discovery is deliberately bounded. It looks only at Steam roots that can be
+//! Automatic discovery is deliberately bounded. It looks only at Steam roots
 //! named without walking a filesystem - `ProgramFiles(x86)`, the two shipped
 //! default locations, `HKCU\Software\Valve\Steam`, plus any library the Steam
 //! root's own `libraryfolders.vdf` declares - and it never descends into
 //! directories. Anything other than exactly one readable, four-part-versioned
-//! executable fails closed with a code and a Steam-side action a user can take,
-//! rather than letting a worker start against an identity nobody verified. No
-//! refusal names an environment override, because this host has none.
+//! executable fails closed with an actionable code instead of starting a worker
+//! against an unverified identity.
+//! A native-picked executable may be persisted for the next host session,
+//! including non-Steam installations. Its version is read from that real file;
+//! no released environment/version-string override exists.
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -61,6 +63,13 @@ impl GameFileVersion {
     /// The dotted spelling the worker argv carries.
     pub fn dotted(&self) -> String {
         format!("{}.{}.{}.{}", self.0, self.1, self.2, self.3)
+    }
+
+    /// Use the worker resource registry before any production process starts.
+    pub fn ensure_supported(&self) -> Result<(), String> {
+        nioh3_data::r4_resource_dir_for_file_version((self.0, self.1, self.2, self.3))
+            .map(|_| ())
+            .map_err(|error| format!("GAME_VERSION_UNSUPPORTED: {error}"))
     }
 }
 
@@ -431,15 +440,12 @@ fn expected_game_executable(library: PathBuf) -> PathBuf {
 
 /// The refusal a player reads when no install is where Steam keeps it.
 ///
-/// The text names only the roots this host actually reads and the Steam action
-/// that puts an install there. A packaged host has no executable override, so an
-/// instruction to set an environment variable would be a dead end for whoever
-/// reads the message.
+/// Name only the roots this host reads and the native picker that can explicitly
+/// select another installation. Production accepts no environment override.
 const EXECUTABLE_NOT_FOUND: &str =
     "GAME_EXECUTABLE_NOT_FOUND: no installed Nioh3.exe under the Steam roots this host \
-     checks (the shipped defaults plus the libraries this user's Steam records); install \
-     the game through Steam, or add its library folder in Steam's settings so this \
-     user's install is one this host can name";
+     checks (the shipped defaults plus the libraries this user's Steam records); select \
+     the actual Nioh3.exe in Studio settings and reopen Studio";
 
 /// The one trustworthy candidate of `candidates`, or a named refusal.
 ///
@@ -524,20 +530,27 @@ impl GameVersionError {
 /// Where one session's installed-version value comes from.
 ///
 /// A packaged production host resolves it from the installed executable. The
-/// development and test shape may name the executable explicitly; neither shape
-/// is reachable from the packaged resolver.
+/// development/test shape and native product picker may name it explicitly.
+/// The packaged product never accepts a version string or environment override.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct GameVersionSource {
-    /// The explicitly named executable a development launch may use.
+    /// An explicitly named executable (legacy field name), from development or
+    /// the native product picker. Never a renderer-supplied version string.
     pub development_executable: Option<PathBuf>,
 }
 
 impl GameVersionSource {
+    /// A path selected by the native product picker, never a version guess
+    /// or environment override. Keep the legacy field for test/API parity.
+    pub fn with_selected_executable(executable: Option<PathBuf>) -> Self {
+        Self {
+            development_executable: executable,
+        }
+    }
     /// The development/test source named by an explicit override, if any.
     ///
-    /// This is the only place a caller-supplied value can replace discovery, and
-    /// the packaged resolver never consults it: production reads the installed
-    /// executable, so an environment value cannot pin a released build.
+    /// Development may name a file independently. Packaged launches use only
+    /// the native-picked configuration constructor above, not environment input.
     #[cfg_attr(not(test), allow(dead_code))]
     pub fn with_development_executable(executable: Option<PathBuf>) -> Self {
         Self {

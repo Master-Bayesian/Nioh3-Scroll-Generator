@@ -12,7 +12,7 @@ export interface DiagnosticReport {
   platform: string;
   arch: string;
   runtimeVersions: { electron?: string; node?: string; chrome?: string; tauri?: string };
-  packageVerification: { version: string; fileCount: number; signed: boolean; manifestSha256: string } | null;
+  packageVerification: { version: string; fileCount: number; signed: boolean; manifestSha256: string; sourceCommit?:string|null; sourceDirty?:boolean|null } | null;
   workers: WorkerDiagnostic[];
 }
 export interface SupportApi {

@@ -38,6 +38,7 @@ import "./style.css";
 import { BackupManager } from "./BackupManager";
 import { Editor } from "./Editor";
 import { CharacterEditor } from "./CharacterEditor";
+import { GameInstallation } from "./GameInstallation";
 import { DesktopCartActions, SavePicker } from "./CartActions";
 import { FeedbackSaved, Notice } from "./Notice";
 import { publicError } from "./public-errors";
@@ -584,11 +585,12 @@ function App() {
     [popup, setPopup] = useState("");
   useEffect(() => setFeedbackState(""), [popup]);
   const [appVersion, setAppVersion] = useState("");
+  const [sourceCommit,setSourceCommit]=useState("");
   useEffect(() => {
     if (!desktop) return;
     void window.support
       .diagnostics()
-      .then((report) => setAppVersion(report.version))
+      .then((report) => {setAppVersion(report.version);setSourceCommit(report.packageVerification?.sourceCommit?.slice(0,7)||"")})
       .catch(() => {});
   }, []);
   const logs = useRef<string[]>([]);
@@ -1025,6 +1027,7 @@ function App() {
           仁王<span>3</span>
           <small>独脚踏鞴工作室</small>
           {appVersion && <em className="app-version">v{appVersion}</em>}
+          {sourceCommit&&<em className="app-build" title="当前程序构建">{sourceCommit}</em>}
         </div>
         <nav>
           <button
@@ -2391,6 +2394,7 @@ function App() {
             {popup === "settings" ? (
               <>
                 <h2>设置</h2>
+                {desktop&&<GameInstallation/>}
                 {desktop && (
                   <ToggleSwitch
                     label="允许使用 CPU 搜索"

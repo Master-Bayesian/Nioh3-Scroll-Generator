@@ -2506,6 +2506,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
+name = "nioh3-data"
+version = "0.1.0"
+dependencies = [
+ "nioh3-domain",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "nioh3-domain"
+version = "0.1.0"
+
+[[package]]
 name = "nioh3-studio"
 version = "0.8.3"
 dependencies = [
@@ -2513,6 +2526,7 @@ dependencies = [
  "chrono",
  "ed25519-dalek",
  "jsonschema",
+ "nioh3-data",
  "reqwest 0.12.28",
  "serde",
  "serde_json",

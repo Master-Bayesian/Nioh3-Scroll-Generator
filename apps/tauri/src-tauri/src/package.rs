@@ -14,10 +14,16 @@ pub struct FileEntry {
     pub sha256: String,
 }
 #[derive(Deserialize)]
+pub struct SourceIdentity {
+    pub commit: String,
+    pub dirty: bool,
+}
+#[derive(Deserialize)]
 pub struct Manifest {
     pub schema: String,
     pub version: String,
     pub files: Vec<FileEntry>,
+    pub git: Option<SourceIdentity>,
 }
 pub fn hash_file(path: &Path) -> Result<String, String> {
     let mut file = std::fs::File::open(path).map_err(|e| e.to_string())?;

@@ -185,16 +185,18 @@ export function publicError(message: string): string {
     ],
     [
       /GAME_EXECUTABLE_NOT_FOUND/,
-      "没有找到《仁王3》的游戏程序，无法确认游戏版本。请确认游戏已安装，然后重启本工具。",
+      "没有找到《仁王3》的游戏程序，无法确认版本。请点“选择游戏程序”，或在设置中手动选择 Nioh3.exe。",
     ],
     [
       /GAME_EXECUTABLE_AMBIGUOUS/,
-      "找到了多个《仁王3》游戏程序，无法确定使用哪一个。请只保留一个安装后重启本工具。",
+      "找到了多个《仁王3》游戏程序。请在设置中选择要使用的 Nioh3.exe，重新打开工作室后生效。",
     ],
     [
       /GAME_EXECUTABLE_UNREADABLE|GAME_VERSION_(?:UNREADABLE|MALFORMED)|FILE_VERSION_UNREADABLE/,
-      "无法读取《仁王3》游戏程序的版本信息。请确认游戏文件完整（可在 Steam 里验证游戏文件），然后重启本工具。",
+      "无法读取《仁王3》游戏程序的版本信息。请在设置中重新选择实际的 Nioh3.exe，并确认文件完整。",
     ],
+    [/GAME_EXECUTABLE_SELECTION_INVALID|GAME_INSTALL_CONFIG_INVALID/,"游戏程序路径记录无效，请在设置中重新选择实际的 Nioh3.exe。"],
+    [/GAME_VERSION_UNSUPPORTED/,"当前游戏版本尚未支持，请检查更新。"],
     [
       /no contiguous run of \d+ free scroll slots|All 400 scroll slots/i,
       "存档里没有足够的空绘卷栏位（最多 400 张），本次没有写入。请先在游戏里处理掉一些绘卷再添加。",

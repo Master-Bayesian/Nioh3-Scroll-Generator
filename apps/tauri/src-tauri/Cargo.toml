@@ -23,6 +23,7 @@ ed25519-dalek = "2"
 base64 = "0.22"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+nioh3-data = { path = "../../../crates/nioh3-data" }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [

@@ -2,6 +2,21 @@
 
 ## Active development: v0.8.3
 
+**Installation-selection follow-up (2026-09-30).** The owner's latest stale-plan
+feedback still identifies test7-r2 (`7676ab7`), not test8-r1. The real synthetic
+host E2E confirms that an intervening save correctly refuses the old plan before
+write intent, without changing that save or creating an operation. The existing
+client refusal repair stays in place. Non-Steam users reported startup discovery
+failures; Settings/startup errors now offer a native Nioh3.exe picker, actual
+file-version reading, next-launch selection and explicit automatic-discovery
+reset. Unknown versions reject before workers start using the shared registry;
+native-write gates remain unchanged. Sidebar/feedback now identify the source
+build and actual EXE paths. See
+`docs/research/V083_INSTALL_AND_STALE_PLAN_ACCEPTANCE_20260930.md` and external
+`codex-v083-install-selection-20260930` evidence. A new clean test8-r2 standalone
+candidate is required; preserve all prior candidate bytes. Reopen Studio to
+apply an installation change; never require closing the game.
+
 **Save-plan footer repair (2026-09-30).** Owner feedback reported that long
 equipment plans hid commit actions below all details. The candidate now scrolls
 only plan details and keeps title-screen confirmation/write/discard together in

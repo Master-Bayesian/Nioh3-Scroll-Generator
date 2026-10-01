@@ -4663,6 +4663,58 @@
     "替换位置": [
       "Replace slot",
       "入れ替える枠"
+    ],
+    "游戏路径已记录。请重新打开工作室后使用，游戏无需关闭。": [
+      "Game path saved. Reopen Studio to use it; the game can stay open.",
+      "ゲームのパスを保存しました。スタジオを開き直すと有効になります。ゲームの終了は不要です。"
+    ],
+    "游戏程序位置": [
+      "Game executable location",
+      "ゲーム実行ファイルの場所"
+    ],
+    "自动查找 Steam 安装；其他安装方式可手动选择实际的 Nioh3.exe。": [
+      "Steam installs are found automatically. For other installations, select the actual Nioh3.exe manually.",
+      "Steam版は自動検索します。他のインストール方法では実際のNioh3.exeを手動で選択してください。"
+    ],
+    "文件版本": [
+      "File version",
+      "ファイルバージョン"
+    ],
+    "选择游戏程序": [
+      "Select game executable",
+      "ゲーム実行ファイルを選択"
+    ],
+    "恢复自动查找": [
+      "Restore automatic discovery",
+      "自動検索に戻す"
+    ],
+    "版本从选中的文件读取。实时功能仍会检查正在运行的游戏是否匹配。": [
+      "The version is read from the selected file. Live features still verify the running game matches.",
+      "選択したファイルからバージョンを読み取ります。リアルタイム機能では実行中のゲームとの一致も確認します。"
+    ],
+    "当前程序构建": [
+      "Current application build",
+      "現在のアプリのビルド"
+    ],
+    "游戏程序没有选择成功，请到设置中重新选择。": [
+      "The executable was not selected successfully. Choose it again in Settings.",
+      "実行ファイルを選択できませんでした。設定から選択し直してください。"
+    ],
+    "没有找到《仁王3》的游戏程序，无法确认版本。请点“选择游戏程序”，或在设置中手动选择 Nioh3.exe。": [
+      "Nioh 3 was not found, so its version could not be verified. Click \"Select game executable\" or choose Nioh3.exe manually in Settings.",
+      "仁王3が見つからず、バージョンを確認できません。「ゲーム実行ファイルを選択」を押すか、設定からNioh3.exeを選択してください。"
+    ],
+    "找到了多个《仁王3》游戏程序。请在设置中选择要使用的 Nioh3.exe，重新打开工作室后生效。": [
+      "Multiple Nioh 3 executables were found. Choose the intended Nioh3.exe in Settings, then reopen Studio.",
+      "仁王3の実行ファイルが複数見つかりました。設定から使用するNioh3.exeを選び、スタジオを開き直してください。"
+    ],
+    "无法读取《仁王3》游戏程序的版本信息。请在设置中重新选择实际的 Nioh3.exe，并确认文件完整。": [
+      "The Nioh 3 file version could not be read. Select the actual Nioh3.exe again in Settings and check that the file is intact.",
+      "仁王3のバージョン情報を読み取れません。設定から実際のNioh3.exeを選び直し、ファイルが破損していないか確認してください。"
+    ],
+    "游戏程序路径记录无效，请在设置中重新选择实际的 Nioh3.exe。": [
+      "The saved game path is invalid. Select the actual Nioh3.exe again in Settings.",
+      "保存されたゲームのパスが無効です。設定から実際のNioh3.exeを選び直してください。"
     ]
   },
   "game": {
