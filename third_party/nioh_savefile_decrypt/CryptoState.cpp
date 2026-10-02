@@ -146,14 +146,11 @@ void CryptoState::deconstruct_root_key_pair(DECRYPTION_TYPE type) {
     printf("\n");
 }
 
-void CryptoState::incr_byte_array(unsigned char* arr, unsigned int incr) {
-    unsigned char a = arr[BLOCK_SIZE - incr - 1];
-    if (a == 0xFF) {
-        arr[BLOCK_SIZE - incr - 1] = 0x00;
-        incr_byte_array(arr, incr + 1);
-    }
-    else {
-        arr[BLOCK_SIZE - incr - 1]++;
+void CryptoState::incr_byte_array(unsigned char* arr) {
+    // Big-endian +1 wraps the whole 128-bit counter without leaving its buffer.
+    for (int i = BLOCK_SIZE - 1; i >= 0; --i) {
+        if (++arr[i] != 0)
+            return;
     }
 }
 
@@ -199,26 +196,26 @@ void CryptoState::decrypt_header() {
     unsigned char out[BLOCK_SIZE];
     unsigned char tmp_clear[HEADER_SIZE];
 
-    unsigned int n_rounds = HEADER_SIZE / BLOCK_SIZE + 1;
+    unsigned int n_rounds = (HEADER_SIZE + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
     printf("\n>>> STARTING HEADER DECRYPTION <<<\n");
 
     // Pass 1: Key 2 / IV 2
     memcpy_s(IV_local, BLOCK_SIZE, s_IV_2, BLOCK_SIZE);
-    for (int i = 0; i < n_rounds; i++) {
+    for (unsigned int i = 0; i < n_rounds; i++) {
         AES_ECB_encrypt(IV_local, s_key_2, out, BLOCK_SIZE);
         incr_byte_array(IV_local);
-        for (int j = 0; j < BLOCK_SIZE; j++) {
+        for (unsigned int j = 0; j < BLOCK_SIZE && BLOCK_SIZE * i + j < HEADER_SIZE; j++) {
             tmp_clear[BLOCK_SIZE * i + j] = savedata_encr[BLOCK_SIZE * i + j] ^ out[j];
         }
     }
 
     // Pass 2: Key 1 / IV 1
     memcpy_s(IV_local, BLOCK_SIZE, s_IV_1, BLOCK_SIZE);
-    for (int i = 0; i < n_rounds; i++) {
+    for (unsigned int i = 0; i < n_rounds; i++) {
         AES_ECB_encrypt(IV_local, s_key_1, out, BLOCK_SIZE);
         incr_byte_array(IV_local);
-        for (int j = 0; j < BLOCK_SIZE; j++) {
+        for (unsigned int j = 0; j < BLOCK_SIZE && BLOCK_SIZE * i + j < HEADER_SIZE; j++) {
             tmp_clear[BLOCK_SIZE * i + j] ^= out[j];
         }
     }
@@ -229,13 +226,14 @@ void CryptoState::decrypt_header() {
 void CryptoState::decrypt_body() {
     unsigned char IV_local[BLOCK_SIZE];
     unsigned char out[BLOCK_SIZE];
-    unsigned int n_rounds = (file_type == FILE_TYPE::USR) ? (USR_BODY_SIZE / BLOCK_SIZE) : (SYS_BODY_SIZE / BLOCK_SIZE + 1);
+    unsigned int body_size = (file_type == FILE_TYPE::USR) ? USR_BODY_SIZE : SYS_BODY_SIZE;
+    unsigned int n_rounds = body_size / BLOCK_SIZE;
 
     printf("\n>>> STARTING BODY DECRYPTION <<<\n");
 
     // Pass 1: Key 2
     memcpy_s(IV_local, BLOCK_SIZE, s_IV_2, BLOCK_SIZE);
-    for (int i = 0; i < n_rounds; i++) {
+    for (unsigned int i = 0; i < n_rounds; i++) {
         AES_ECB_encrypt(IV_local, s_key_2, out, BLOCK_SIZE);
         incr_byte_array(IV_local);
         for (int j = 0; j < BLOCK_SIZE; j++) {
@@ -245,13 +243,16 @@ void CryptoState::decrypt_body() {
 
     // Pass 2: Key 1
     memcpy_s(IV_local, BLOCK_SIZE, s_IV_1, BLOCK_SIZE);
-    for (int i = 0; i < n_rounds; i++) {
+    for (unsigned int i = 0; i < n_rounds; i++) {
         AES_ECB_encrypt(IV_local, s_key_1, out, BLOCK_SIZE);
         incr_byte_array(IV_local);
         for (int j = 0; j < BLOCK_SIZE; j++) {
             savedata_clear[BLOCK_SIZE * i + j + HEADER_SIZE] ^= out[j];
         }
     }
+    // The shipped USR codec leaves its final eight bytes untransformed and zero.
+    // Define those bytes explicitly instead of exposing an uninitialized tail.
+    memset(savedata_clear + HEADER_SIZE + n_rounds * BLOCK_SIZE, 0, body_size % BLOCK_SIZE);
 }
 
 void print_hex(const char* label, const unsigned char* data, size_t len) {

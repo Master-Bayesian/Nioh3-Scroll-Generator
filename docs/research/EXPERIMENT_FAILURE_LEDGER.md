@@ -1,5 +1,38 @@
 # Experiment failure ledger
 
+## 2026-10-02: test11 save-read and legacy crypto bounds validation
+
+**Objective:** reproduce current save/crypto boundary faults on frozen base
+`ed8e4671333d0ea4de70e03937008a52b2a7ca67` using owned synthetic inputs.
+
+**Reproduced product faults:** a 16 MiB unsupported save was read and hashed
+before rejection: inventory/character/prepare took about 370–380 ms, and prepare
+reported stale identity instead of invalid length
+(`save-size-before-overlimit.log`). Legacy C++ controls exposed a 352-byte
+header pass over a 344-byte temporary, all-FF counter wrap reading outside the
+counter, an extra SYS body-block read, and an untouched/uninitialized eight-byte
+USR trailer. Header/counter/SYS ASan failures and the prefilled USR-tail control
+are retained in `legacy-crypto-before-header.log`,
+`legacy-crypto-before-counter.log`, `legacy-crypto-before-system-body.log`,
+and `legacy-crypto-before-user-body.log`.
+
+**Disposition/evidence:** exact-length metadata validation now precedes save
+allocation/hash, with reads capped at that length plus one byte; seven focused
+tests pass. Legacy bounds fixes pass the full MSVC ASan suite and four synthetic
+SYS/USR parity vectors. The new delivery's
+[save-size evidence](D:/Nioh3_v080_deliverables/deliverables/codex-release-candidate-20261002/logs/save-size-evidence.md)
+and [legacy crypto evidence](D:/Nioh3_v080_deliverables/deliverables/codex-release-candidate-20261002/logs/legacy-crypto-evidence.json)
+identify the exact before/after logs and validation scope.
+
+**Harness correction:** root's new draft verifier CRLF replacement misses and
+syntax errors were harness faults; after the draft source fix was confirmed,
+reviewed browser acceptance passed 43/43, with `character-draft-before.log`,
+`character-draft-after.log`, `character-draft-final.log`, and
+`character-draft-reviewed.log` retained in the same delivery logs.
+
+**Scope/follow-up:** these are synthetic reproductions of current product faults,
+not reproductions of historical user incidents. Real-save/game writes: zero.
+Source validation is complete; packaged and live acceptance remain separate.
 ## 2026-10-01: compatibility acceptance verifier corrections
 
 The component-only browser helper did not initially use the production JSX

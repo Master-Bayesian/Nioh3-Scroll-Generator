@@ -1243,3 +1243,6 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .compatibility-dialog::backdrop{background:#12263866}.compatibility-body section{margin:14px 0;padding:10px 0;border-top:1px solid #c5d1e0}.compatibility-body h3{font-size:14px;margin:0 0 8px}.compatibility-body h4{font-size:13px;margin:12px 0 6px}.compatibility-body ul{padding-left:22px;margin:8px 0;font-size:13px;line-height:1.7}.compatibility-body details{font-size:12px;margin:6px 0}.compatibility-blocks{color:#8a3c2d}.compatibility-dialog input{flex-shrink:0}.compatibility-dialog footer button{min-width:0;white-space:normal}
 .compatibility-dialog header,.compatibility-dialog footer{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-shrink:0}
 .compatibility-body{min-height:0;overflow:auto;padding:12px 0}.compatibility-body p{margin:10px 0;line-height:1.7}.compatibility-body code{display:block;overflow-wrap:anywhere;font-size:11px;margin:8px 0;user-select:text}.compatibility-body label{display:flex;align-items:center;margin:14px 0;gap:8px;font-size:13px}
+
+.character-draft-state{font-size:12px;color:var(--muted,#8a8a8a)}
+.character-draft-state.changed{color:#b0761e;font-weight:600}

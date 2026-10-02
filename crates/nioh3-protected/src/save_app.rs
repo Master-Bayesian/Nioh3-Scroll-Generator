@@ -53,6 +53,7 @@ use nioh3_save::character::{
     EQUIPMENT_SLOT_COUNT, ITEM_RECORD_BYTES,
 };
 use nioh3_save::codec::prepare_candidate_for_install;
+use nioh3_save::crypto::{SYSTEM_CONTAINER_BYTES, USER_CONTAINER_BYTES};
 use nioh3_save::error::SaveReadError;
 use nioh3_save::inventory::{SaveInventory, ScrollInventoryEntry};
 use nioh3_save::save::DecryptedSave;
@@ -305,7 +306,7 @@ impl SaveApplication {
         let inventory = match self.inventory_cache.get(save_id) {
             Some((digest, cached)) if digest.eq_ignore_ascii_case(&before) => cached.clone(),
             _ => {
-                let bytes = read_bytes(&save_path)?;
+                let bytes = read_save_bytes(&save_path)?;
                 let decrypted =
                     DecryptedSave::from_container(&bytes).map_err(HostError::from_save)?;
                 let loaded = SaveInventory::load(&save_path, decrypted, true)
@@ -349,7 +350,7 @@ impl SaveApplication {
     fn character(&mut self, save_id: &str) -> Result<Value, HostError> {
         let save_path = self.save_path(save_id)?;
         let before = sha256_file(&save_path)?;
-        let bytes = read_bytes(&save_path)?;
+        let bytes = read_save_bytes(&save_path)?;
         let decrypted = DecryptedSave::from_container(&bytes).map_err(HostError::from_save)?;
         if before != sha256_file(&save_path)? {
             return Err(HostError::rejected(
@@ -401,7 +402,7 @@ impl SaveApplication {
         let save_id = param_str(params, "save_id")?;
         let source_hash = param_str(params, "source_sha256")?;
         let save_path = self.save_path(&save_id)?;
-        let bytes = read_bytes(&save_path)?;
+        let bytes = read_save_bytes(&save_path)?;
         if !format!("{:x}", Sha256::digest(&bytes)).eq_ignore_ascii_case(&source_hash) {
             return Err(HostError::rejected(
                 "Save changed since it was read; reload the character",
@@ -3246,8 +3247,44 @@ impl serde_json::ser::Formatter for PythonJsonFormatter {
     }
 }
 
-fn read_bytes(path: &Path) -> Result<Vec<u8>, HostError> {
-    std::fs::read(path).map_err(|error| HostError::rejected(format!("{}: {error}", path.display())))
+fn read_save_bytes(path: &Path) -> Result<Vec<u8>, HostError> {
+    let io_error = |error| HostError::rejected(format!("{}: {error}", path.display()));
+    let file = std::fs::File::open(path).map_err(io_error)?;
+    let length = file.metadata().map_err(io_error)?.len();
+    read_save_container(path, file, length)
+}
+
+/// Reject unsupported metadata before allocation or hashing. Read at most one
+/// byte past that exact length so a growing file cannot evade the boundary.
+fn read_save_container(
+    path: &Path,
+    reader: impl std::io::Read,
+    length: u64,
+) -> Result<Vec<u8>, HostError> {
+    use std::io::Read;
+
+    let expected = usize::try_from(length).map_err(|_| {
+        HostError::rejected(format!(
+            "Save container is too large to read: {length} bytes"
+        ))
+    })?;
+    if !matches!(expected, USER_CONTAINER_BYTES | SYSTEM_CONTAINER_BYTES) {
+        return Err(HostError::from_save(SaveReadError::ContainerLength {
+            actual: expected,
+        }));
+    }
+    let mut bytes = Vec::with_capacity(expected + 1);
+    reader
+        .take(length + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| HostError::rejected(format!("{}: {error}", path.display())))?;
+    if bytes.len() != expected {
+        return Err(HostError::rejected(format!(
+            "Save changed while reading: expected {expected:#x} bytes, read {:#x}; reload the save",
+            bytes.len(),
+        )));
+    }
+    Ok(bytes)
 }
 
 /// `app_settings.SETTINGS_SCHEMA`.
@@ -3361,7 +3398,7 @@ fn python_path_string(path: &Path) -> String {
 fn sha256_file(path: &Path) -> Result<String, HostError> {
     // `savegame.sha256_file` returns uppercase hex, and every
     // `source_sha256`/`reviewed_source_sha256` on the wire carries that casing.
-    Ok(sha256_bytes(&read_bytes(path)?).to_uppercase())
+    Ok(sha256_bytes(&read_save_bytes(path)?).to_uppercase())
 }
 
 fn sha256_bytes(bytes: &[u8]) -> String {
@@ -3419,6 +3456,101 @@ fn unhex(text: &str) -> Result<Vec<u8>, HostError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct CountedReader<'a> {
+        remaining: usize,
+        consumed: &'a std::cell::Cell<usize>,
+    }
+
+    impl std::io::Read for CountedReader<'_> {
+        fn read(&mut self, target: &mut [u8]) -> std::io::Result<usize> {
+            let count = self.remaining.min(target.len());
+            target[..count].fill(0x5A);
+            self.remaining -= count;
+            self.consumed.set(self.consumed.get() + count);
+            Ok(count)
+        }
+    }
+
+    #[test]
+    fn save_file_rejects_unsupported_metadata_without_reading() {
+        for length in [
+            0,
+            SYSTEM_CONTAINER_BYTES - 1,
+            SYSTEM_CONTAINER_BYTES + 1,
+            USER_CONTAINER_BYTES - 1,
+            USER_CONTAINER_BYTES + 1,
+            16 * 1024 * 1024,
+        ] {
+            let consumed = std::cell::Cell::new(0);
+            let reader = CountedReader {
+                remaining: 4096,
+                consumed: &consumed,
+            };
+            let result = read_save_container(Path::new("SAVEDATA.BIN"), reader, length as u64);
+            assert_eq!(
+                result,
+                Err(HostError::from_save(SaveReadError::ContainerLength {
+                    actual: length,
+                })),
+            );
+            assert_eq!(consumed.get(), 0, "invalid length must precede any read");
+        }
+    }
+
+    #[test]
+    fn save_file_accepts_both_exact_container_lengths() {
+        for length in [USER_CONTAINER_BYTES, SYSTEM_CONTAINER_BYTES] {
+            let consumed = std::cell::Cell::new(0);
+            let reader = CountedReader {
+                remaining: length,
+                consumed: &consumed,
+            };
+            let result = read_save_container(Path::new("SAVEDATA.BIN"), reader, length as u64);
+            assert!(result.is_ok(), "{result:?}");
+            if let Ok(bytes) = result {
+                assert_eq!(bytes.len(), length);
+                assert!(bytes.iter().all(|byte| *byte == 0x5A));
+            }
+            assert_eq!(consumed.get(), length);
+        }
+    }
+
+    #[test]
+    fn save_file_bounds_growth_after_metadata_to_one_extra_byte() {
+        for length in [USER_CONTAINER_BYTES, SYSTEM_CONTAINER_BYTES] {
+            let consumed = std::cell::Cell::new(0);
+            // The stream is finite even if the bound regresses: this is never
+            // an unbounded allocation or a race against a writer thread.
+            let reader = CountedReader {
+                remaining: length + 4096,
+                consumed: &consumed,
+            };
+            let result = read_save_container(Path::new("SAVEDATA.BIN"), reader, length as u64);
+            assert!(
+                matches!(result, Err(error) if error.message.starts_with("Save changed while reading:")),
+            );
+            assert_eq!(consumed.get(), length + 1, "growth must not read to EOF");
+        }
+    }
+
+    #[test]
+    fn save_file_refuses_shrinkage_even_to_another_shipped_size() {
+        let consumed = std::cell::Cell::new(0);
+        let reader = CountedReader {
+            remaining: SYSTEM_CONTAINER_BYTES,
+            consumed: &consumed,
+        };
+        let result = read_save_container(
+            Path::new("SAVEDATA.BIN"),
+            reader,
+            USER_CONTAINER_BYTES as u64,
+        );
+        assert!(
+            matches!(result, Err(error) if error.message.starts_with("Save changed while reading:")),
+        );
+        assert_eq!(consumed.get(), SYSTEM_CONTAINER_BYTES);
+    }
 
     fn effect_sequence_candidate(playthrough: Option<u8>) -> TransferredCandidate {
         TransferredCandidate {

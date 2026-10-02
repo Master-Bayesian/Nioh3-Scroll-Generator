@@ -47,38 +47,38 @@ try{
  check('Build identity is fully visible inside the fixed brand',report.buildGeometry.unclipped);
  check('Feedback identifies inner executable',typeof diagnostics.executablePath==='string'&&basename(diagnostics.executablePath).toLowerCase()===(values.onefile?'nioh3studio.exe':'nioh3-studio.exe'));
  if(values.onefile)check('Feedback identifies outer executable',nativePath(diagnostics.outerExecutable)===nativePath(values.exe));
- await page.locator('.settings').click();await page.locator('.game-install').waitFor();
- check('Settings show selected executable',(await page.locator('.game-install').innerText()).includes('Nioh3.exe'));
+ await page.locator('.settings').click();await page.locator('.side-popup .game-install').waitFor();
+ check('Settings show selected executable',(await page.locator('.side-popup .game-install').innerText()).includes('Nioh3.exe'));
  const cdp=await page.context().newCDPSession(page);
  report.scaleBoundary='CDP constrained viewport inside native WebView2; system DPI unchanged';
  report.settingsGeometry=[];
  for(const [locale,label]of[['zh-CN','简体中文'],['en-US','English'],['ja-JP','日本語']]){
   await page.locator('.popup-dismiss').click();
-  await page.locator('.game-install').waitFor({state:'detached'});
-  await page.locator('.language-button').click();await page.locator('.side-popup button').filter({hasText:label}).click();await page.locator('.settings').click();await page.locator('.game-install').waitFor();
-  await page.locator('.game-install code').waitFor();
-  await page.waitForFunction(()=>{const button=document.querySelector('[data-action=select-game-executable]');return button&&!button.disabled});
-  check(locale+' game picker is reachable',await page.locator('[data-action=select-game-executable]').isEnabled());
+  await page.locator('.side-popup .game-install').waitFor({state:'detached'});
+  await page.locator('.language-button').click();await page.locator('.side-popup button').filter({hasText:label}).click();await page.locator('.settings').click();await page.locator('.side-popup .game-install').waitFor();
+  await page.locator('.side-popup .game-install > p > code').waitFor();
+  await page.waitForFunction(()=>{const button=document.querySelector('.side-popup [data-action=select-game-executable]');return button&&!button.disabled});
+  check(locale+' game picker is reachable',await page.locator('.side-popup [data-action=select-game-executable]').isEnabled());
   await page.screenshot({path:join(out,'game-settings-'+locale+'.png')});report.screenshots.push('game-settings-'+locale+'.png');
   await cdp.send('Emulation.setDeviceMetricsOverride',{width:1020,height:640,deviceScaleFactor:1.5,mobile:false});
   const geometry=await page.locator('.side-popup').evaluate(e=>{const r=e.getBoundingClientRect();return {top:r.top,bottom:r.bottom,clientHeight:e.clientHeight,scrollHeight:e.scrollHeight,viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio}}});
   report.settingsGeometry.push({locale,...geometry});
   check(locale+' settings stay below the title bar at constrained height',geometry.top>=49&&geometry.bottom<=geometry.viewport.height);
-  await page.locator('[data-action=select-game-executable]').scrollIntoViewIfNeeded();
-  check(locale+' game picker is reachable at constrained height',await page.locator('[data-action=select-game-executable]').evaluate(e=>{const r=e.getBoundingClientRect();return r.top>=50&&r.bottom<=innerHeight}));
+  await page.locator('.side-popup [data-action=select-game-executable]').scrollIntoViewIfNeeded();
+  check(locale+' game picker is reachable at constrained height',await page.locator('.side-popup [data-action=select-game-executable]').evaluate(e=>{const r=e.getBoundingClientRect();return r.top>=50&&r.bottom<=innerHeight}));
   await page.screenshot({path:join(out,'game-settings-constrained-'+locale+'.png')});report.screenshots.push('game-settings-constrained-'+locale+'.png');
   await cdp.send('Emulation.clearDeviceMetricsOverride');
  }
  const search=await page.evaluate(()=>window.nioh.handshake());check('All reads retain the same session context',search.context.context_digest===handshake.context.context_digest);
- await page.locator('[data-action=reset-game-executable]').click();
- await page.locator('.game-install .notice').waitFor();
+ await page.locator('.side-popup [data-action=reset-game-executable]').click();
+ await page.locator('.side-popup .game-install .notice').waitFor();
  const afterReset=await page.evaluate(()=>window.nioh.handshake());check('Reset does not change running worker identity',afterReset.context.context_digest===handshake.context.context_digest);
  const config=JSON.parse(await readFile(join(good,'profile/game-install.json'),'utf8'));check('Reset persists automatic discovery for next launch',config.executable===null);
  await closeSession(session,child);session=null;child=null;
  const bad=join(root,'bad');await mkdir(join(bad,'profile'),{recursive:true});await writeFile(join(bad,'profile/game-install.json'),JSON.stringify({schema:'nioh3-game-install/v1',executable:join(root,'missing/Nioh3.exe')}));
  ({page}=await open(bad));const result=await page.evaluate(async()=>{try{await window.nioh.handshake();return null}catch(e){return e.message||String(e)}});
  check('Missing explicit selection refuses instead of silently using Steam',/GAME_EXECUTABLE_UNREADABLE/.test(result));
- await page.locator('.settings').click();await page.locator('.game-install code').waitFor();check('Picker remains available without worker startup',await page.locator('[data-action=select-game-executable]').isEnabled());
+ await page.locator('.settings').click();await page.locator('.side-popup .game-install > p > code').waitFor();check('Picker remains available without worker startup',await page.locator('.side-popup [data-action=select-game-executable]').isEnabled());
  await page.screenshot({path:join(out,'missing-selection.png')});report.screenshots.push('missing-selection.png');
  await closeSession(session,child);session=null;child=null;
  const malformed=join(root,'malformed');await mkdir(join(malformed,'profile'),{recursive:true});await writeFile(join(malformed,'profile/game-install.json'),JSON.stringify({schema:'nioh3-game-install/v1'}));
@@ -95,8 +95,8 @@ try{
  check('Unsupported selected version blocks only search and save',unsupportedDiagnostics.workers.every(w=>w.role==='runtime'&&w.contextDigest===null));
  const control=await page.evaluate(()=>window.operations.execute({method:'runtime.status',params:{}}));
  check('Runtime controls remain available despite unsupported installation',control.safe_to_shutdown===true);
- await page.locator('.settings').click();await page.locator('.game-install code').waitFor();
- check('Settings remain available for unsupported selected versions',await page.locator('[data-action=select-game-executable]').isEnabled());
+ await page.locator('.settings').click();await page.locator('.side-popup .game-install > p > code').waitFor();
+ check('Settings remain available for unsupported selected versions',await page.locator('.side-popup [data-action=select-game-executable]').isEnabled());
  report.pass=true;
 }catch(error){report.pass=false;report.error=error.stack||String(error);if(session){report.visibleText=await session.page.locator('body').innerText().catch(()=>null);await session.page.screenshot({path:join(out,'failure.png')}).catch(()=>{})}}
 finally{await closeSession(session,child).catch(e=>{report.pass=false;report.closeError=String(e)});await writeFile(join(out,'game-install-e2e.json'),JSON.stringify(report,null,2));}

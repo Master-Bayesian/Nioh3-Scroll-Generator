@@ -36,25 +36,25 @@ jobs:
       NIOH3_UI_PROFILE: ${{ inputs.extended_search && 'extended' || 'release' }}
     steps:
       - name: Check out the candidate source
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
           cache: pip
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '24'
           cache: npm
 
       - name: Set up the Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
 
       - name: Restore the shared external Cargo cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           # Every release step builds into ONE external Cargo target
           # (`CARGO_TARGET_DIR`, resolved two steps below). The workspace
@@ -298,7 +298,7 @@ jobs:
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
 
       - name: Upload the signed release artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: nioh3-tauri-release
           if-no-files-found: error
@@ -311,7 +311,7 @@ jobs:
 
       - name: Upload the acceptance evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: tauri-acceptance-evidence
           if-no-files-found: ignore
@@ -322,7 +322,7 @@ jobs:
         # so a diagnosis or a bounded retest never has to rebuild or reuse an
         # older artifact. It stays separate from the signed release artifact.
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: tauri-candidate-for-diagnosis
           if-no-files-found: ignore

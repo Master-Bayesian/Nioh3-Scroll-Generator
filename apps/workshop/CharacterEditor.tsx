@@ -892,11 +892,17 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     });
   }
 
-  /** Match a typed value to its roll so a legal write stays consistent. */
+  /** Match a changed value to its roll; restoring the source value clears the edit. */
+  function valueFields(index: number, text: string): Partial<DraftEffect> {
+    const before = row?.effects[index];
+    const restored = before?.effect_id === parseEffectId(draft?.effects[index].id ?? "") && String(before?.value) === text;
+    const match = values[index]?.values.find(entry => String(entry.value) === text.trim());
+    return { value: text, roll: restored ? null : match?.roll_max ?? null, star: restored ? null : values[index]?.star ?? null };
+  }
+
   function chooseValue(index: number, text: string) {
-    const legal = values[index]?.values ?? [];
-    const match = legal.find(entry => String(entry.value) === text.trim());
-    setEffect(index, { value: text, roll: match ? match.roll_max : null, star: values[index]?.star ?? null });
+    if (draft?.effects[index].value === text) return;
+    setEffect(index, valueFields(index, text));
   }
 
   function best(index: number): LegalValue | undefined {
@@ -909,8 +915,8 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     const effects = draft.effects.map((effect, index) => {
       const role = rules?.roles?.[index];
       const top = best(index);
-      if (!top || role === "set" || role === "grace") return effect;
-      return { ...effect, value: String(top.value), roll: top.roll_max, star: values[index]?.star ?? null };
+      if (!top || role === "set" || role === "grace" || effect.value === String(top.value)) return effect;
+      return { ...effect, ...valueFields(index, String(top.value)) };
     });
     setDraft({ ...draft, effects });
   }
@@ -1670,6 +1676,8 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           {row.hell ? <span className="character-hell">地狱</span> : null}
           {row.worn ? <span className="character-worn" title="正在装备中，不能移除">装备中</span> : null}
         </h3>
+        {adding ? null : <span className={"character-draft-state" + (dirty ? " changed" : "")}
+          data-draft-state={dirty ? "changed" : "unchanged"}>{dirty ? "有未应用的修改" : "尚未修改"}</span>}
         {adding ? null : verdictCell(row)}
         <div className="character-edit-modes" role="tablist">
           <button className={!modded ? "active" : ""} onClick={() => setModded(false)}>{adding ? "合法" : "合法修改"}</button>
@@ -1845,6 +1853,8 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     <div className="character-detail">
       <div className="character-detail-head">
         <h3>{itemText(itemRow.item_id)}</h3>
+        <span className={"character-draft-state" + (dirty ? " changed" : "")}
+          data-draft-state={dirty ? "changed" : "unchanged"}>{dirty ? "有未应用的修改" : "尚未修改"}</span>
         <span className="character-muted">{itemGroups(itemRow.item_id, null).filter(Boolean).slice(0, 2).join(" · ")}</span>
       </div>
       <div className="character-fields">

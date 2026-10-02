@@ -1,6 +1,30 @@
 # Current project handoff - 2026-10-02
 
-## Active development: v0.8.3 internal-test baseline
+## Active development: independent test11 candidate preparation
+
+The current source branch is `codex/test11-release-candidate-20261002` in
+`D:/Nioh3_v080_deliverables/source-codex-test11-20261002`, based on frozen
+test10 commit `ed8e4671333d0ea4de70e03937008a52b2a7ca67`. Test10's actual
+native fixture acceptance completed (installation 29/29; plan footer 70/70);
+the earlier planning snapshot below is historical and does not describe its
+final package state. No live-game or real-save write acceptance is implied.
+
+Test11 adds exact save-container size validation before allocation/hash,
+legacy C++ header/counter/system-body bounds with retained user-trailer parity,
+and a reproduced equipment maximum-action draft/follow fix plus an explicit
+equipment/item unapplied-change marker. Production-browser acceptance is 43/43
+across three locales, including existing conflict refusal before dispatch.
+Save boundary and existing framed backup/readback checks pass; the rebuilt
+legacy helper passes ASan and synthetic Python/Rust/shipped-helper byte parity.
+The Rust-only candidate does not bundle this legacy helper. Immutable Actions
+references are a local review patch; signing source-trust policy remains open.
+
+The single current acceptance/delivery report is
+`D:/Nioh3_v080_deliverables/deliverables/codex-release-candidate-20261002/CURRENT_STATUS.md`; its final freeze/build identity,
+matching-package results and owner test checklist supersede progress claims.
+No push, workflow dispatch, signing, release or real-save/game write is performed.
+
+## Historical test10 source-planning snapshot
 
 **Current decision:** prepare one independently transferable 0.8.3 source/build
 baseline, test it internally, and do not publish. Main source regression gates

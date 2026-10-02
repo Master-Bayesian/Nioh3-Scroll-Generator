@@ -36,6 +36,6 @@ private:
 	void decrypt_body();
 	void key_setup(DECRYPTION_TYPE type);
 	void deconstruct_root_key_pair(DECRYPTION_TYPE type);
-	void incr_byte_array(unsigned char* arr, unsigned int incr = 0);
+	void incr_byte_array(unsigned char* arr);
 	void flip_32bit_endianness(unsigned char* arr);
 };
