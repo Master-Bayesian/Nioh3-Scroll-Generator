@@ -402,6 +402,7 @@ pub fn replays_from_seed(
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

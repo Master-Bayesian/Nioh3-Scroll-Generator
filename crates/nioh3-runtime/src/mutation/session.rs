@@ -108,6 +108,7 @@ pub struct OverrideSession<F: SessionMemory> {
     factory: F,
     memory: Option<F::Process>,
     identity: Option<ProcessIdentity>,
+    expected_creation: Option<u64>,
     hook_address: u64,
     hook_bytes: Vec<u8>,
     allocation: u64,
@@ -176,6 +177,7 @@ impl<F: SessionMemory> OverrideSession<F> {
             factory,
             memory: None,
             identity: None,
+            expected_creation: None,
             hook_address: 0,
             hook_bytes: Vec::new(),
             allocation: 0,
@@ -191,6 +193,13 @@ impl<F: SessionMemory> OverrideSession<F> {
     /// proves the real API path against its own image, which has another name.
     pub fn with_module_name(mut self, module_name: impl Into<String>) -> Self {
         self.module_name = module_name.into();
+        self
+    }
+
+    /// Bind a new hook admission to the process instance reviewed by the host.
+    /// Stopping a retained session continues to use its existing owned handle.
+    pub fn with_expected_creation(mut self, creation: u64) -> Self {
+        self.expected_creation = Some(creation);
         self
     }
 
@@ -256,10 +265,34 @@ impl<F: SessionMemory> OverrideSession<F> {
             .factory
             .creation_filetime(self.pid)?
             .ok_or(RuntimeError::ProcessGone { pid: self.pid })?;
+        if let Some(expected) = self.expected_creation {
+            if creation != expected {
+                return Err(RuntimeError::InvalidOverrideProfile {
+                    detail: format!(
+                        "COMPATIBILITY_IDENTITY_CHANGED: override target PID {} expected creation {expected}; actual creation {creation}. Reconnect to the current game and prepare/review a new override; no hook was installed.", self.pid
+                    ),
+                });
+            }
+        }
         let mut process = self.factory.open(self.pid)?;
-        let on_handle = process.creation_filetime()?;
-        if on_handle != Some(creation) {
+        let on_handle = match process.creation_filetime() {
+            Ok(creation) => creation,
+            Err(error) => {
+                process.close();
+                return Err(error);
+            }
+        };
+        let expected = self.expected_creation.unwrap_or(creation);
+        if process.pid() != self.pid || on_handle != Some(expected) {
+            let actual_pid = process.pid();
             process.close();
+            if self.expected_creation.is_some() {
+                return Err(RuntimeError::InvalidOverrideProfile {
+                    detail: format!(
+                        "COMPATIBILITY_IDENTITY_CHANGED: override target expected PID {} creation {expected}; actual PID {actual_pid} creation {on_handle:?}. Reconnect to the current game and prepare/review a new override; no hook was installed.", self.pid
+                    ),
+                });
+            }
             return Err(RuntimeError::ProcessInstanceChanged { pid: self.pid });
         }
 

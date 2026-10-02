@@ -19,9 +19,9 @@
 pub mod catalog;
 pub mod count;
 pub mod descriptor;
-pub mod evidence;
 #[cfg(windows)]
 pub mod equipment_add;
+pub mod evidence;
 #[cfg(any(windows, feature = "test-fake"))]
 pub mod historical_preview;
 pub mod inventory;

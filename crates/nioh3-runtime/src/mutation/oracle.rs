@@ -27,6 +27,7 @@ use crate::mutation::native_abi::{
     PlaythroughChainRvas, ORACLE_BATCH_LIMIT, REMOTE_CODE_SIZE, SCROLL_RECORD_SIZE,
 };
 use crate::mutation::win_session::{RemoteSession, WAIT_INFINITE, WAIT_OBJECT_0};
+use crate::platform::{ModuleRange, ProcessIdentity};
 use crate::profile::NativeRuntimeProfile;
 use std::sync::{mpsc, Arc, Mutex};
 
@@ -290,6 +291,46 @@ impl NativeBatchOracle {
             destination_address: 0,
             retirement: OracleRetirement::new(),
         })
+    }
+
+    /// Production admission: prove the handle's process birth and all profile
+    /// ranges before any remote read, allocation, write or native invocation.
+    pub fn open_bound(
+        &mut self,
+        session: Box<dyn RemoteSession + Send>,
+        expected: ProcessIdentity,
+        module: ModuleRange,
+    ) -> Result<(), RuntimeError> {
+        if self.session.is_some() || self.remote_call_pending() {
+            return Err(RuntimeError::OracleRejected {
+                detail: "The oracle still owns a session or pending native call".to_string(),
+            });
+        }
+        let actual_birth = session.creation_filetime()?;
+        if self.pid != expected.pid
+            || session.pid() != expected.pid
+            || actual_birth != expected.creation_filetime
+        {
+            return Err(RuntimeError::OracleRejected { detail: format!(
+                "COMPATIBILITY_IDENTITY_CHANGED: expected PID {} creation {}; actual session PID {} creation {actual_birth}, oracle PID {}. Reconnect and prepare/review again; no remote read or allocation was performed.",
+                expected.pid, expected.creation_filetime, session.pid(), self.pid
+            ) });
+        }
+        if self.module_base != module.base || module.base.checked_add(module.size).is_none() {
+            return Err(RuntimeError::OracleRejected {
+                detail: "The oracle module range changed before admission".to_string(),
+            });
+        }
+        self.profile.validate_site_bounds(module.size)?;
+        let selector = self.profile.playthrough_selector_pointer_rva;
+        if !module.contains_offset(selector, 8) {
+            return Err(RuntimeError::RangeOutOfBounds {
+                offset: selector,
+                size: 8,
+                limit: module.size,
+            });
+        }
+        self.open(session)
     }
 
     /// `NativeBatchOracle.open`: verify every signature, then allocate the one
@@ -870,6 +911,11 @@ mod retirement_tests {
         fail_free: bool,
         free_calls: usize,
         closed: bool,
+        birth: Option<u64>,
+        read_calls: usize,
+        allocate_calls: usize,
+        write_calls: usize,
+        native_calls: usize,
     }
 
     struct FakeRemoteSession {
@@ -881,15 +927,28 @@ mod retirement_tests {
             7
         }
 
+        fn creation_filetime(&self) -> Result<u64, RuntimeError> {
+            self.controls
+                .lock()
+                .unwrap()
+                .birth
+                .ok_or_else(|| RuntimeError::OracleRejected {
+                    detail: "Injected unavailable process birth".to_string(),
+                })
+        }
+
         fn read(&mut self, _address: u64, size: usize) -> Result<Vec<u8>, RuntimeError> {
+            self.controls.lock().unwrap().read_calls += 1;
             Ok(vec![0; size])
         }
 
         fn write(&mut self, _address: u64, _data: &[u8]) -> Result<(), RuntimeError> {
+            self.controls.lock().unwrap().write_calls += 1;
             Ok(())
         }
 
         fn allocate(&mut self, _size: usize) -> Result<u64, RuntimeError> {
+            self.controls.lock().unwrap().allocate_calls += 1;
             Ok(0x5000)
         }
 
@@ -904,6 +963,7 @@ mod retirement_tests {
         }
 
         fn create_remote_thread(&mut self, _start: u64) -> Result<u64, RuntimeError> {
+            self.controls.lock().unwrap().native_calls += 1;
             Ok(0x7000)
         }
 
@@ -949,6 +1009,170 @@ mod retirement_tests {
         oracle.source_address = 0x6000;
         oracle.destination_address = 0x6100;
         oracle
+    }
+
+    #[test]
+    fn bound_admission_rejects_identity_and_range_failures_before_remote_access() {
+        let expected = ProcessIdentity {
+            pid: 7,
+            creation_filetime: 88,
+        };
+        let module = ModuleRange {
+            base: 0x1000,
+            size: 0x100,
+        };
+        for case in [
+            "pid",
+            "birth",
+            "unavailable",
+            "code",
+            "selector",
+            "base",
+            "overflow",
+        ] {
+            let controls = Arc::new(Mutex::new(Controls {
+                birth: match case {
+                    "birth" => Some(89),
+                    "unavailable" => None,
+                    _ => Some(88),
+                },
+                ..Controls::default()
+            }));
+            let mut candidate = profile();
+            if case == "code" {
+                candidate.canonicalize.rva = 0x100;
+            }
+            if case == "selector" {
+                candidate.playthrough_selector_pointer_rva = 0xFC;
+            }
+            let mut oracle = NativeBatchOracle::new(7, 0x1000, candidate, 1, false).unwrap();
+            let identity = if case == "pid" {
+                ProcessIdentity { pid: 8, ..expected }
+            } else {
+                expected
+            };
+            let range = match case {
+                "base" => ModuleRange {
+                    base: 0x2000,
+                    ..module
+                },
+                "overflow" => ModuleRange {
+                    size: u64::MAX,
+                    ..module
+                },
+                _ => module,
+            };
+            let result = oracle.open_bound(
+                Box::new(FakeRemoteSession {
+                    controls: Arc::clone(&controls),
+                }),
+                identity,
+                range,
+            );
+            assert!(result.is_err(), "{case}");
+            let seen = controls.lock().unwrap();
+            assert_eq!(
+                (
+                    seen.read_calls,
+                    seen.allocate_calls,
+                    seen.write_calls,
+                    seen.native_calls
+                ),
+                (0, 0, 0, 0),
+                "{case}"
+            );
+            assert!(oracle.session.is_none());
+        }
+    }
+
+    #[test]
+    fn bound_admission_checks_signatures_then_allocates_without_calling_game_code() {
+        let controls = Arc::new(Mutex::new(Controls {
+            birth: Some(88),
+            ..Controls::default()
+        }));
+        let mut candidate = profile();
+        candidate.canonicalize.signature = vec![0];
+        candidate.finalize_effect.signature = vec![0];
+        let mut oracle = NativeBatchOracle::new(7, 0x1000, candidate, 1, false).unwrap();
+        oracle
+            .open_bound(
+                Box::new(FakeRemoteSession {
+                    controls: Arc::clone(&controls),
+                }),
+                ProcessIdentity {
+                    pid: 7,
+                    creation_filetime: 88,
+                },
+                ModuleRange {
+                    base: 0x1000,
+                    size: 0x100,
+                },
+            )
+            .unwrap();
+        let seen = controls.lock().unwrap();
+        assert_eq!(
+            (
+                seen.read_calls,
+                seen.allocate_calls,
+                seen.write_calls,
+                seen.native_calls
+            ),
+            (2, 1, 0, 0)
+        );
+        drop(seen);
+        oracle.close();
+    }
+
+    #[test]
+    fn bound_admission_never_replaces_an_existing_or_uncertain_owner() {
+        let original = Arc::new(Mutex::new(Controls::default()));
+        let mut oracle = owned_oracle(Arc::clone(&original));
+        let incoming = Arc::new(Mutex::new(Controls {
+            birth: Some(88),
+            ..Controls::default()
+        }));
+        let result = oracle.open_bound(
+            Box::new(FakeRemoteSession {
+                controls: Arc::clone(&incoming),
+            }),
+            ProcessIdentity {
+                pid: 7,
+                creation_filetime: 88,
+            },
+            ModuleRange {
+                base: 0x1000,
+                size: 0x100,
+            },
+        );
+        assert!(result.is_err());
+        assert!(oracle.session.is_some());
+        assert_eq!(oracle.allocation, Some(0x5000));
+        assert_eq!(original.lock().unwrap().free_calls, 0);
+        assert_eq!(incoming.lock().unwrap().read_calls, 0);
+        assert_eq!(incoming.lock().unwrap().allocate_calls, 0);
+        oracle
+            .retire_inflight_with(0x7000, |_receiver, _retirement| {
+                Err(std::io::Error::other("injected spawn failure"))
+            })
+            .unwrap_err();
+        let result = oracle.open_bound(
+            Box::new(FakeRemoteSession {
+                controls: Arc::clone(&incoming),
+            }),
+            ProcessIdentity {
+                pid: 7,
+                creation_filetime: 88,
+            },
+            ModuleRange {
+                base: 0x1000,
+                size: 0x100,
+            },
+        );
+        assert!(result.is_err());
+        assert!(oracle.remote_call_pending());
+        assert_eq!(original.lock().unwrap().free_calls, 0);
+        assert_eq!(incoming.lock().unwrap().allocate_calls, 0);
     }
 
     #[test]

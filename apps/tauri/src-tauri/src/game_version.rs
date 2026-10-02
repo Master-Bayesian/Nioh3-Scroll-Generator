@@ -65,6 +65,10 @@ impl GameFileVersion {
         format!("{}.{}.{}.{}", self.0, self.1, self.2, self.3)
     }
 
+    pub(crate) fn tuple(&self) -> (u16, u16, u16, u16) {
+        (self.0, self.1, self.2, self.3)
+    }
+
     /// Use the worker resource registry before any production process starts.
     pub fn ensure_supported(&self) -> Result<(), String> {
         nioh3_data::r4_resource_dir_for_file_version((self.0, self.1, self.2, self.3))
@@ -418,7 +422,7 @@ fn library_roots() -> Vec<PathBuf> {
 /// Exactly one existing candidate is required. Zero candidates means the game
 /// was not found where Steam keeps it; more than one means the identity is
 /// ambiguous and picking one would be a guess.
-fn discover_game_executable() -> Result<PathBuf, String> {
+pub(crate) fn discover_game_executable() -> Result<PathBuf, String> {
     // Prefer the actual running image over installation-directory heuristics.
     // An explicit native-selected path still bypasses this function entirely.
     #[cfg(windows)]

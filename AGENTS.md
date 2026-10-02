@@ -10,6 +10,10 @@ A short router: state what changes a decision, and leave procedure to the linked
 - Build and test through the project build root only: `tools/run_python_tests.ps1` (Python/pytest temp) and `tests/migration/cargo_target.py` (Cargo targets) resolve `D:\Nioh3_v080_deliverables` on this host, or `NIOH3_BUILD_ROOT` / `CARGO_TARGET_DIR` when set; never write build or test temp into the checkout volume or the `C:` system temp.
 - Reuse the resolved shared Cargo target for routine gates; an isolated target is disposable and must be removed with `cargo clean --target-dir` when its task ends.
 - Preserve unrelated tracked and untracked work; put delivery artifacts under `deliverables/`, not the repository root.
+- Prefer a reproduced failure and the simplest explicit fix. Avoid speculative compatibility layers, repeated null checks, swallowed exceptions, silent fallbacks, and patches that conceal the root cause.
+- Keep validation at real external boundaries and report failures explicitly. Preserve save backups, rollback, single-writer locks, native DLL validation, and protected-operation recovery; reducing defensive code is not permission to remove these protections.
+- Treat a detected mismatch as the start of recovery. Safely refresh or reconcile stale state automatically when the user's intended action is clear; otherwise provide an executable recovery action or concrete steps. Preserve form inputs and task context. Never automatically replay a write whose result is unknown.
+- When continuation truly requires missing information, evidence, or a valid target, explain the actual and expected values, the affected operation, how to obtain or correct the prerequisite, and how to resume. Errors must help the user finish the task without asking the product author to diagnose a screenshot. Keep necessary write boundaries, but do not implement them as refusals with no recovery path; this principle does not grant permission to bypass security or authorization.
 
 ## Routing
 
@@ -33,6 +37,9 @@ A short router: state what changes a decision, and leave procedure to the linked
   finalized-preview/stage-one pairing, legacy Tk compatibility, and protected-operation recovery.
 - Tests, synthetic saves, packaged startup, and offline parity are bounded evidence, not live-game or visual acceptance;
   fail closed on unsupported versions, unknown record semantics, ambiguous writes, and unverified legality.
+- A version or capability without a legitimate sample and the required resource, layout, and ABI evidence remains explicitly unsupported. Diagnostic structure matches or user consent do not create support; never infer a FILEVERSION, guess bindings, or borrow the latest profile.
+- Each new compatibility addition must retain the previously verified versions' adapters, explicit mappings, required runtime data, and regression tests. Verify the existing and new capability paths together; keep experimental or missing capabilities labeled separately.
+- Version retention covers source, configuration, regression tests, and required runtime inputs; it does not require game executables, full captured binaries, or every historical installer. Share proven byte-identical data only while preserving version/context identity and regression coverage. Report repository file bytes separately from measured compiled or packaged size; see `docs/research/V083_DLC1_COMPATIBILITY_POLICY_20261002.md`.
 - Community reports are evidence, not requirements; the owner decides priority, target version, and closure needing player or game acceptance.
 - Research produces the self-contained Pro handoff; verify Pro conclusions before integrating them.
 - Do not push, tag, publish assets, replace an update feed, or announce a release without explicit owner authorization; release reporting detail is in `$nioh3-release`.

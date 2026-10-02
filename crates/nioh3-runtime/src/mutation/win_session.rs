@@ -230,6 +230,14 @@ pub(crate) trait RuntimeOwnerSession: DebugSession {
 pub trait RemoteSession {
     fn pid(&self) -> u32;
 
+    /// Process birth from the actual handle used for reads and native calls.
+    /// Adapters without that evidence cannot enter the production bound oracle.
+    fn creation_filetime(&self) -> Result<u64, RuntimeError> {
+        Err(RuntimeError::OracleRejected {
+            detail: "The remote session cannot prove its process creation identity".to_string(),
+        })
+    }
+
     fn read(&mut self, address: u64, size: usize) -> Result<Vec<u8>, RuntimeError>;
 
     fn write(&mut self, address: u64, data: &[u8]) -> Result<(), RuntimeError>;
@@ -420,7 +428,7 @@ mod windows_impl {
     // module claims it, and re-exported for the executor's own use.
     use std::ffi::c_void;
     use windows_sys::Win32::Foundation::{
-        CloseHandle, GetLastError, HANDLE, INVALID_HANDLE_VALUE, NTSTATUS,
+        CloseHandle, GetLastError, FILETIME, HANDLE, INVALID_HANDLE_VALUE, NTSTATUS,
     };
     use windows_sys::Win32::System::Diagnostics::Debug::{
         ContinueDebugEvent, DebugActiveProcess, DebugActiveProcessStop, DebugBreakProcess,
@@ -431,7 +439,8 @@ mod windows_impl {
         VirtualAllocEx, VirtualFreeEx, MEMORY_BASIC_INFORMATION,
     };
     use windows_sys::Win32::System::Threading::{
-        CreateRemoteThread, GetExitCodeThread, GetThreadId, OpenProcess, WaitForSingleObject,
+        CreateRemoteThread, GetExitCodeThread, GetProcessTimes, GetThreadId, OpenProcess,
+        WaitForSingleObject,
     };
 
     /// `DebugActiveProcess` is not a right, but the mask the shipped debug view
@@ -440,6 +449,27 @@ mod windows_impl {
 
     fn last_error() -> u32 {
         unsafe { GetLastError() }
+    }
+
+    fn process_birth(pid: u32, process: HANDLE) -> Result<u64, RuntimeError> {
+        let zero = || FILETIME {
+            dwLowDateTime: 0,
+            dwHighDateTime: 0,
+        };
+        let mut created = zero();
+        let mut exited = zero();
+        let mut kernel = zero();
+        let mut user = zero();
+        if unsafe { GetProcessTimes(process, &mut created, &mut exited, &mut kernel, &mut user) }
+            == 0
+        {
+            return Err(RuntimeError::ProcessQuery {
+                pid,
+                code: last_error(),
+                detail: "GetProcessTimes",
+            });
+        }
+        Ok((u64::from(created.dwHighDateTime) << 32) | u64::from(created.dwLowDateTime))
     }
 
     fn failed(detail: &'static str, code: u32) -> RuntimeError {
@@ -852,9 +882,7 @@ mod windows_impl {
         }
 
         fn creation_time(&mut self) -> Result<String, RuntimeError> {
-            crate::platform::process_creation_filetime(self.pid)?
-                .map(|value| value.to_string())
-                .ok_or(RuntimeError::ProcessGone { pid: self.pid })
+            process_birth(self.pid, self.process).map(|value| value.to_string())
         }
 
         fn module_base(&mut self) -> Result<u64, RuntimeError> {
@@ -1541,6 +1569,10 @@ mod windows_impl {
     impl RemoteSession for WindowsRemoteSession {
         fn pid(&self) -> u32 {
             self.pid
+        }
+
+        fn creation_filetime(&self) -> Result<u64, RuntimeError> {
+            process_birth(self.pid, self.process)
         }
 
         fn read(&mut self, address: u64, size: usize) -> Result<Vec<u8>, RuntimeError> {

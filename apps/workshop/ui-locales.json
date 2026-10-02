@@ -4771,6 +4771,482 @@
     "这份游戏程序与已验证版本不同。请查看兼容提示，核对存档备份后再继续实时操作。": [
       "This executable differs from the verified build. Review compatibility and your save backup before continuing live operations.",
       "検証済みの実行ファイルと異なります。互換性の注意とバックアップを確認してからリアルタイム操作を続けてください。"
+    ],
+    "检测来源": [
+      "Detection source",
+      "検出元"
+    ],
+    "手动选择": [
+      "Selected executable",
+      "手動で選択"
+    ],
+    "自动发现": [
+      "Automatic discovery",
+      "自動検出"
+    ],
+    "实际文件版本": [
+      "Detected file version",
+      "検出したファイルバージョン"
+    ],
+    "无法读取": [
+      "Could not read",
+      "読み取り不可"
+    ],
+    "版本兼容范围": [
+      "Version compatibility",
+      "バージョンの互換範囲"
+    ],
+    "已识别版本，请按功能查看支持范围": [
+      "Version recognized; check support for each feature",
+      "バージョンを認識しました。機能ごとの対応状況を確認してください"
+    ],
+    "尚未适配此版本": [
+      "This version is not yet supported",
+      "このバージョンは未対応です"
+    ],
+    "无法判断版本兼容性": [
+      "Could not determine compatibility",
+      "互換性を判定できません"
+    ],
+    "检测到了实际版本，但当前没有匹配的数据和运行时配置。不会借用其他版本继续操作。": [
+      "The file version was detected, but matching data and runtime profiles are unavailable. Another version's profiles will not be used.",
+      "ファイルバージョンは検出できましたが、対応するデータと実行時設定がありません。他のバージョンの設定で続行することはありません。"
+    ],
+    "版本名称": [
+      "Version name",
+      "バージョン名"
+    ],
+    "数据版本": [
+      "Data version",
+      "データバージョン"
+    ],
+    "资源目录": [
+      "Resource directory",
+      "リソースディレクトリ"
+    ],
+    "运行时配置": [
+      "Runtime profile",
+      "実行時プロファイル"
+    ],
+    "无匹配配置": [
+      "No matching profile",
+      "対応する設定なし"
+    ],
+    "离线绘卷生成": [
+      "Offline scroll generation",
+      "オフライン絵巻生成"
+    ],
+    "角色读取与编辑": [
+      "Character reading and editing",
+      "キャラクターの読み取りと編集"
+    ],
+    "实时添加绘卷": [
+      "Live scroll addition",
+      "ゲーム内に絵巻を追加"
+    ],
+    "已支持": [
+      "Supported",
+      "対応済み"
+    ],
+    "实验性支持": [
+      "Experimental",
+      "試験的対応"
+    ],
+    "未支持": [
+      "Unsupported",
+      "未対応"
+    ],
+    "不可用": [
+      "Unavailable",
+      "利用不可"
+    ],
+    "支持状态": [
+      "Support status",
+      "対応状況"
+    ],
+    "实验性支持仍需风险确认；支持状态不代表当前游戏已通过现场验证。": [
+      "Experimental support still requires risk confirmation. Support status does not mean the current game has passed live validation.",
+      "試験的対応にはリスクの確認が必要です。対応状況は、現在のゲームで実機検証が完了したことを意味しません。"
+    ],
+    "检测依据": [
+      "Detection evidence",
+      "検出の根拠"
+    ],
+    "游戏程序指纹": [
+      "Executable fingerprint",
+      "実行ファイルの指紋"
+    ],
+    "角色结构验证范围": [
+      "Character layout evidence",
+      "キャラクター構造の検証範囲"
+    ],
+    "此版本没有受支持的运行配置": [
+      "No supported runtime profile for this version",
+      "このバージョンに対応する実行時設定がありません"
+    ],
+    "需要重新创建并验证备份": [
+      "A fresh verified backup is required",
+      "バックアップの再作成と検証が必要です"
+    ],
+    "备份未通过验证": [
+      "Backup verification failed",
+      "バックアップの検証に失敗しました"
+    ],
+    "确认记录未能安全保存": [
+      "Consent could not be saved safely",
+      "同意の記録を安全に保存できませんでした"
+    ],
+    "离线绘卷搜索": [
+      "Offline scroll search",
+      "オフライン絵巻検索"
+    ],
+    "实时角色读取与编辑": [
+      "Live character reading and editing",
+      "ゲーム内キャラクターの読み取りと編集"
+    ],
+    "当前游戏进程身份": [
+      "Current game process identity",
+      "現在のゲームプロセスの識別"
+    ],
+    "原生代码位置与数据结构": [
+      "Native code locations and data layouts",
+      "ネイティブコードの位置とデータ構造"
+    ],
+    "目标归属、范围与唯一性": [
+      "Target ownership, bounds and uniqueness",
+      "対象の所属、範囲、一意性"
+    ],
+    "已验证的当前存档备份": [
+      "Verified backup of the current save",
+      "現在のセーブデータの検証済みバックアップ"
+    ],
+    "单一写入者与并发保护": [
+      "Single writer and concurrency protection",
+      "単一書き込みと同時実行の保護"
+    ],
+    "操作凭据与未知结果恢复": [
+      "Operation receipts and uncertain outcome recovery",
+      "操作記録と結果不明時の復旧"
+    ],
+    "写入后的精确回读": [
+      "Exact readback after writing",
+      "書き込み後の正確な再読み取り"
+    ],
+    "已验证基准": [
+      "Verified reference",
+      "検証済みの基準"
+    ],
+    "按版本选择的实验性结构": [
+      "Experimental layout selected by version",
+      "バージョン別に選択した試験的な構造"
+    ],
+    "发现一个结构候选": [
+      "One structural candidate found",
+      "構造の候補が1つ見つかりました"
+    ],
+    "发现多个结构候选，无法唯一判断": [
+      "Multiple structural candidates; no unique match",
+      "構造の候補が複数あり、一意に判定できません"
+    ],
+    "没有匹配的结构候选": [
+      "No matching structural candidate",
+      "一致する構造の候補はありません"
+    ],
+    "结构检查不可用": [
+      "Structural check unavailable",
+      "構造チェックを利用できません"
+    ],
+    "无需结构检查": [
+      "Structural check not needed",
+      "構造チェックは不要です"
+    ],
+    "检测到版本或程序差异。请查看支持范围、备份结果和本次兼容计划。": [
+      "Version or executable differences detected. Review support, backup results and this compatibility plan.",
+      "バージョンまたは実行ファイルに差異があります。対応範囲、バックアップ結果、今回の互換性プランを確認してください。"
+    ],
+    "兼容模式只允许跳过下方列出的差异检查。未适配功能和必要安全检查仍会阻止操作。": [
+      "Compatibility mode may skip only the differences listed below. Unsupported features and mandatory safety checks still block operations.",
+      "互換モードで省略できるのは、以下に示す差異のチェックのみです。未対応の機能と必須の安全チェックは引き続き操作を阻止します。"
+    ],
+    "检测到的差异": [
+      "Detected differences",
+      "検出された差異"
+    ],
+    "检查项目": [
+      "Check",
+      "チェック項目"
+    ],
+    "当前检测": [
+      "Current detection",
+      "現在の検出結果"
+    ],
+    "当前无法继续": [
+      "Cannot continue yet",
+      "現在は続行できません"
+    ],
+    "这些问题不能通过风险确认跳过。请先解决问题，再重新准备。": [
+      "Risk confirmation cannot bypass these issues. Resolve them, then prepare again.",
+      "リスクへの同意でこれらの問題を省略することはできません。問題を解決してから再準備してください。"
+    ],
+    "检测详情": [
+      "Detection details",
+      "検出の詳細"
+    ],
+    "只读结构检查": [
+      "Read-only structural check",
+      "読み取り専用の構造チェック"
+    ],
+    "结构匹配仅供诊断，不代表版本已适配，也不会启用原生调用或写入。": [
+      "A structural match is diagnostic evidence only. It does not establish version support or enable native calls or writes.",
+      "構造の一致は診断の根拠にすぎません。バージョンへの対応を示すものではなく、ネイティブ呼び出しや書き込みを有効にしません。"
+    ],
+    "结构匹配": [
+      "Structure matched",
+      "構造が一致"
+    ],
+    "结构未匹配": [
+      "Structure did not match",
+      "構造が不一致"
+    ],
+    "已验证备份": [
+      "Verified backup",
+      "検証済みバックアップ"
+    ],
+    "正在核对兼容计划和备份，请稍候。": [
+      "Checking the compatibility plan and backup. Please wait.",
+      "互換性プランとバックアップを確認しています。お待ちください。"
+    ],
+    "自动备份尚未通过验证，不能继续。请解决备份问题后重试；勾选确认不能跳过此限制。": [
+      "The automatic backup has not passed verification. Resolve the backup issue and retry. Checking a box cannot bypass this requirement.",
+      "自動バックアップの検証が完了していないため続行できません。問題を解決して再試行してください。チェックを入れても、この条件は省略できません。"
+    ],
+    "本次兼容计划": [
+      "This compatibility plan",
+      "今回の互換性プラン"
+    ],
+    "本次允许的功能": [
+      "Features allowed by this plan",
+      "今回許可される機能"
+    ],
+    "确认后跳过的差异检查": [
+      "Difference checks skipped after confirmation",
+      "確認後に省略される差異のチェック"
+    ],
+    "仍然必须通过的检查": [
+      "Checks that remain mandatory",
+      "引き続き必須のチェック"
+    ],
+    "确认只对当前游戏进程和本次计划有效。它不会自动执行写入，也不保证未验证版本的行为正确。": [
+      "Confirmation applies only to the current game process and this plan. It does not write automatically or guarantee correct behavior on an unverified version.",
+      "同意は現在のゲームプロセスと今回のプランにのみ有効です。自動的に書き込みを実行するものではなく、未検証バージョンでの正しい動作を保証しません。"
+    ],
+    "计划标识": [
+      "Plan identity",
+      "プラン識別子"
+    ],
+    "我已核对本次计划，了解跳过检查的范围和风险": [
+      "I reviewed this plan and understand which checks are skipped and the risks",
+      "今回のプランを確認し、省略するチェックの範囲とリスクを理解しました"
+    ],
+    "我已确认上方已验证备份包含当前存档": [
+      "I confirm the verified backup above includes my current save",
+      "上記の検証済みバックアップに現在のセーブデータが含まれることを確認しました"
+    ],
+    "重新准备并验证备份": [
+      "Prepare again and verify backup",
+      "再準備してバックアップを検証"
+    ],
+    "确认本次兼容计划": [
+      "Confirm this compatibility plan",
+      "今回の互換性プランを確認"
+    ],
+    "兼容计划已失效。请重新准备并验证备份，再核对新计划。": [
+      "The compatibility plan expired. Prepare again, verify the backup and review the new plan.",
+      "互換性プランは失効しました。再準備してバックアップを検証し、新しいプランを確認してください。"
+    ],
+    "存档备份尚未通过验证，无法确认兼容计划。请查看兼容提示，解决备份问题后重试。": [
+      "The save backup has not passed verification, so this plan cannot be confirmed. Open the compatibility notice, resolve the backup issue and retry.",
+      "セーブデータのバックアップ検証が完了していないため、プランに同意できません。互換性の案内を開き、問題を解決して再試行してください。"
+    ],
+    "兼容确认记录未能安全保存，尚未获得继续权限。请查看兼容提示并重新准备。": [
+      "Compatibility consent could not be saved safely, so continuation is not authorized. Open the compatibility notice and prepare again.",
+      "互換性への同意を安全に保存できず、続行は許可されていません。互換性の案内を開いて再準備してください。"
+    ],
+    "实时修改绘卷次数": [
+      "Live scroll count editing",
+      "ゲーム内の絵巻の回数編集"
+    ],
+    "原生绘卷生成、搜索与恩宠查询": [
+      "Native scroll generation, search and Grace queries",
+      "ネイティブ絵巻生成、検索、恩寵の照会"
+    ],
+    "临时辅助参数覆盖": [
+      "Temporary auxiliary parameter override",
+      "補助パラメーターの一時的な上書き"
+    ],
+    "临时挑战容量覆盖": [
+      "Temporary challenge capacity override",
+      "挑戦容量の一時的な上書き"
+    ],
+    "本次准备时的已验证备份快照": [
+      "Verified save snapshot from this preparation",
+      "今回の準備時点の検証済みバックアップ"
+    ],
+    "已创建并回读核对本次准备时的存档备份。确认计划时会再次核对源存档；后续操作不会自动更新这份快照。": [
+      "A backup of the save at preparation time was created and read back for verification. The source save will be checked again at confirmation; later operations do not automatically update this snapshot.",
+      "今回の準備時点のセーブデータをバックアップし、再読み取りで検証しました。プランへの同意時に元のセーブデータを再確認します。このスナップショットは、その後の操作で自動更新されません。"
+    ],
+    "我已确认上方备份对应本次准备时的存档快照": [
+      "I confirm the backup above is the save snapshot from this preparation",
+      "上記のバックアップが今回の準備時点のセーブデータであることを確認しました"
+    ],
+    "重新检测安装与版本": [
+      "Detect installation and version again",
+      "インストールとバージョンを再検出"
+    ],
+    "需要本次风险确认": [
+      "Risk confirmation required for this plan",
+      "今回のプランへのリスク確認が必要"
+    ],
+    "按此版本限制可用功能": [
+      "Available features depend on this version",
+      "利用できる機能はこのバージョンに依存"
+    ],
+    "角色功能仍属实验性": [
+      "Character features remain experimental",
+      "キャラクター機能は引き続き試験的対応"
+    ],
+    "请在设置中检查已选择的游戏程序。使用受支持版本后，重新连接并准备。": [
+      "Check the selected game executable in Settings. After a supported version is available, reconnect and prepare again.",
+      "設定で選択したゲーム実行ファイルを確認してください。対応バージョンを利用できる状態になったら、再接続して準備してください。"
+    ],
+    "请确认存档位置可读取、备份目录可写入，然后重试备份。": [
+      "Ensure the save location is readable and the backup directory is writable, then retry the backup.",
+      "セーブデータの場所を読み取れ、バックアップ先に書き込めることを確認してから、バックアップを再試行してください。"
+    ],
+    "请确认工作室数据目录可写入，然后重新准备。": [
+      "Ensure the Studio data directory is writable, then prepare again.",
+      "スタジオのデータディレクトリに書き込めることを確認してから、再準備してください。"
+    ],
+    "尚未连接到游戏。请启动游戏或等待游戏重启完成，然后点击重新连接并准备。": [
+      "The game is not connected. Start it or wait for its restart to finish, then choose Reconnect and prepare.",
+      "ゲームに接続していません。起動するか再起動の完了を待ち、「再接続して準備」を選択してください。"
+    ],
+    "影响": [
+      "Impact",
+      "影響"
+    ],
+    "请核对检测详情": [
+      "Review the detection details",
+      "検出の詳細を確認"
+    ],
+    "请核对检测详情，解决问题后重新准备。": [
+      "Review the detection details, resolve the issue and prepare again.",
+      "検出の詳細を確認し、問題を解決してから再準備してください。"
+    ],
+    "修复后重试备份": [
+      "Retry backup after fixing",
+      "解決後にバックアップを再試行"
+    ],
+    "重新连接并准备": [
+      "Reconnect and prepare",
+      "再接続して準備"
+    ],
+    "源存档": [
+      "Source save",
+      "元のセーブデータ"
+    ],
+    "备份副本": [
+      "Backup copy",
+      "バックアップのコピー"
+    ],
+    "游戏进程或程序身份已变化。请查看兼容提示，重新连接并准备新计划。结果不明的写入必须先核对恢复凭据，不能直接重试。": [
+      "The game process or executable identity changed. Open the compatibility notice, reconnect and prepare a new plan. For a write with an uncertain outcome, check its recovery receipt before retrying.",
+      "ゲームプロセスまたは実行ファイルの識別情報が変わりました。互換性の案内を開き、再接続して新しいプランを準備してください。結果不明の書き込みは、そのまま再試行せず、先に復旧記録を確認してください。"
+    ],
+    "当前游戏版本与工作室已加载的数据不一致。请在下方选择当前运行的 Nioh3.exe，再重新打开工作室并准备计划。游戏无需关闭。": [
+      "The current game version differs from Studio's loaded data. Select the currently running Nioh3.exe below, then reopen Studio and prepare a plan. The game can stay open.",
+      "現在のゲームバージョンとスタジオが読み込んだデータが一致しません。以下で現在実行中の Nioh3.exe を選択し、スタジオを開き直してプランを準備してください。ゲームの終了は不要です。"
+    ],
+    "当前版本的兼容计划不支持这项操作。请查看兼容提示中的功能范围，或在设置中选择受支持版本。": [
+      "The compatibility plan for this version does not support this operation. Review its feature scope in the compatibility notice, or select a supported version in Settings.",
+      "このバージョンの互換性プランは、この操作に対応していません。互換性の案内で機能の範囲を確認するか、設定で対応バージョンを選択してください。"
+    ],
+    "备份尚未通过验证": [
+      "Backup not yet verified",
+      "バックアップは未検証です"
+    ],
+    "已登记的文件版本": [
+      "Registered file versions",
+      "登録済みのファイルバージョン"
+    ],
+    "请核对是否选中了当前运行的 Nioh3.exe。新版本需要专属数据与运行配置，不能通过风险确认替代。": [
+      "Check that you selected the currently running Nioh3.exe. New versions require their own data and runtime profiles; risk confirmation cannot replace them.",
+      "現在実行中の Nioh3.exe を選択しているか確認してください。新しいバージョンには専用のデータと実行時設定が必要です。リスクへの同意で代用することはできません。"
+    ],
+    "当前程序与已验证版本一致，无需兼容确认；返回原操作即可继续。": [
+      "The current executable matches the verified version. No compatibility consent is needed; return to your previous operation to continue.",
+      "現在の実行ファイルは検証済みバージョンと一致しています。互換性への同意は不要です。元の操作に戻って続行できます。"
+    ],
+    "返回原操作": [
+      "Return to previous operation",
+      "元の操作に戻る"
+    ],
+    "要备份的存档路径": [
+      "Source save path for backup",
+      "バックアップ元セーブデータのパス"
+    ],
+    "留空时自动选择唯一存档；多个存档时填写当前角色的 SAVEDATA.BIN 路径。": [
+      "Leave blank to select the only save automatically. If there are multiple saves, enter the current character's SAVEDATA.BIN path.",
+      "空欄の場合は唯一のセーブデータを自動選択します。複数ある場合は、現在のキャラクターの SAVEDATA.BIN のパスを入力してください。"
+    ],
+    "已读取本次操作状态，未重新执行添加。": [
+      "This operation's status was read. Addition was not executed again.",
+      "今回の操作状態を読み取りました。追加を再実行していません。"
+    ],
+    "状态核对失败：": [
+      "Status verification failed: ",
+      "状態の確認に失敗しました："
+    ],
+    "单独核验的实时添加": [
+      "Live additions checked separately",
+      "個別に確認するリアルタイム追加"
+    ],
+    "以下添加在各自操作中核验目标和备份，无需先确认本兼容计划。请返回添加页面准备；不受支持的目标仍不会执行。": [
+      "These additions check their own target and backup. This compatibility plan does not need to be confirmed first. Return to the addition page to prepare; unsupported targets still cannot run.",
+      "以下の追加は、それぞれの操作で対象とバックアップを確認します。この互換性プランへの事前同意は不要です。追加画面に戻って準備してください。未対応の対象では引き続き実行できません。"
+    ],
+    "本兼容计划暂不可确认": [
+      "This compatibility plan cannot be confirmed yet",
+      "この互換性プランにはまだ同意できません"
+    ],
+    "这些问题会阻止确认本兼容计划。请解决后重新准备；实时添加按各自操作的检查结果处理。": [
+      "These issues prevent confirmation of this compatibility plan. Resolve them and prepare again; live additions use the checks for each operation.",
+      "これらの問題により、この互換性プランに同意できません。解決後に再準備してください。リアルタイム追加は各操作のチェック結果に従います。"
+    ],
+    "本兼容计划的备份尚未通过验证。请解决备份问题后重试；勾选确认不能跳过此限制。": [
+      "The backup for this compatibility plan has not passed verification. Resolve the backup issue and retry; checking a box cannot bypass this requirement.",
+      "この互換性プランのバックアップは検証が完了していません。問題を解決して再試行してください。チェックを入れても、この条件は省略できません。"
+    ],
+    "发现多个存档。读取添加状态并确认本次未执行后，点击“准备另一件装备”，在“要备份的存档路径”填写当前角色的 SAVEDATA.BIN 源文件路径，再生成预览；不要填写备份副本路径。": [
+      "Multiple saves were found. Read the addition status and confirm that nothing was executed, then choose “Prepare another item”. Enter the current character's original SAVEDATA.BIN in “Source save path for backup” and generate a preview; do not enter a backup copy path.",
+      "複数のセーブデータが見つかりました。追加状態を読み取り、未実行を確認してから「別の装備を準備」を選びます。「バックアップ元セーブデータのパス」に現在のキャラクターの SAVEDATA.BIN の元ファイルを入力し、プレビューを生成してください。バックアップのコピーは指定しないでください。"
+    ],
+    "未找到可读的角色存档。请查看技术详情中的搜索目录，在游戏中创建存档或恢复目录访问后重试；实时添加装备也可填写“要备份的存档路径”。": [
+      "No readable character save was found. Check the search folder in Technical details, create a save in game or restore folder access, then retry. For live equipment addition, you can also enter “Source save path for backup”.",
+      "読み取り可能なキャラクターのセーブデータが見つかりません。技術詳細の検索先を確認し、ゲームでセーブするかフォルダーへのアクセスを復旧して再試行してください。装備のリアルタイム追加では「バックアップ元セーブデータのパス」も指定できます。"
+    ],
+    "源存档已变化或无法读取。请查看技术详情中的源文件路径，等待游戏存档完成并恢复文件访问，再核对或取消旧操作并重新准备。结果不明时先恢复核对，不要重复添加。": [
+      "The source save changed or cannot be read. Check its path in Technical details, wait for the game to finish saving and restore file access, then verify or cancel the old operation and prepare again. If the result is unknown, recover verification first; do not repeat the addition.",
+      "元のセーブデータが変更されたか、読み取れません。技術詳細で元ファイルのパスを確認し、ゲームの保存完了を待ってアクセスを復旧してから、前の操作を確認またはキャンセルして準備し直してください。結果が不明な場合は先に復旧確認を行い、追加を繰り返さないでください。"
+    ],
+    "备份副本未通过校验或无法读取。请查看技术详情中的备份路径并恢复访问，再核对或取消旧操作并重新准备，生成新的已验证备份。结果不明时先恢复核对，不要重复添加。": [
+      "The backup copy failed verification or cannot be read. Check its path in Technical details and restore access, then verify or cancel the old operation and prepare again to create a new verified backup. If the result is unknown, recover verification first; do not repeat the addition.",
+      "バックアップのコピーが検証に失敗したか、読み取れません。技術詳細でバックアップのパスを確認してアクセスを復旧し、前の操作を確認またはキャンセルしてから準備し直して、新しい検証済みバックアップを作成してください。結果が不明な場合は先に復旧確認を行い、追加を繰り返さないでください。"
+    ],
+    "本次装备操作缺少有效的备份记录。请查看技术详情中的具体原因，核对或取消旧操作后，在“要备份的存档路径”填写当前角色的源存档并重新准备。结果不明时先恢复核对，不要重复添加。": [
+      "This equipment operation has no valid backup record. Check the cause in Technical details, verify or cancel the old operation, then enter the current character's source save in “Source save path for backup” and prepare again. If the result is unknown, recover verification first; do not repeat the addition.",
+      "今回の装備操作には有効なバックアップ記録がありません。技術詳細で原因を確認し、前の操作を確認またはキャンセルしてから、「バックアップ元セーブデータのパス」に現在のキャラクターの元セーブデータを指定して準備し直してください。結果が不明な場合は先に復旧確認を行い、追加を繰り返さないでください。"
     ]
   },
   "game": {

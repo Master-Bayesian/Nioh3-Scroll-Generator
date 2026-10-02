@@ -34,6 +34,64 @@ fn text<'a>(value: &'a Value, key: &str) -> Result<&'a str, RuntimeError> {
         .ok_or_else(|| rejected(format!("Missing {key}")))
 }
 
+/// Recheck the host-created checkpoint before any fresh native work.
+/// This function only reads files and never discovers or opens a game process.
+fn verify_equipment_checkpoint(id: &str, checkpoint: &Value) -> Result<(), RuntimeError> {
+    let resume = "Cancel this equipment plan, select the current character save, and prepare again; do not replay an uncertain operation.";
+    let field = |key: &str| {
+        checkpoint
+            .get(key)
+            .and_then(Value::as_str)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                rejected(format!(
+                    "Equipment save checkpoint is missing {key}. {resume}"
+                ))
+            })
+    };
+    if field("operation_id")? != id {
+        return Err(rejected(format!(
+            "Equipment save checkpoint belongs to another operation. {resume}"
+        )));
+    }
+    let expected = field("source_save_sha256")?;
+    if expected.len() != 64 || !expected.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(rejected(format!(
+            "Equipment save checkpoint has an invalid source hash. {resume}"
+        )));
+    }
+    let source = Path::new(field("source_save_path")?);
+    let backup = Path::new(field("backup_path")?);
+    let resolve = |path: &Path| {
+        path.canonicalize().map_err(|error| {
+            rejected(format!(
+                "Equipment save checkpoint cannot read {}: {error}. {resume}",
+                path.display()
+            ))
+        })
+    };
+    if resolve(source)? == resolve(backup)? {
+        return Err(rejected(format!(
+            "Equipment save checkpoint must be a separate backup file. {resume}"
+        )));
+    }
+    for (label, path) in [("Source save", source), ("Verified backup", backup)] {
+        let raw = std::fs::read(path).map_err(|error| {
+            rejected(format!(
+                "{label} cannot be read at {}: {error}. {resume}",
+                path.display()
+            ))
+        })?;
+        if !sha256_hex(&raw).eq_ignore_ascii_case(expected) {
+            return Err(rejected(format!(
+                "{label} changed after equipment preparation at {}. {resume}",
+                path.display()
+            )));
+        }
+    }
+    Ok(())
+}
+
 pub struct EquipmentAddition {
     compatible_executable: bool,
     transport: NativeDebugTransport,
@@ -63,9 +121,14 @@ impl EquipmentAddition {
             helper_binding: false,
         })
     }
-    /// Enable the host's process-bound consent policy without changing sites.
+    /// Use the host's operation-specific version admission; retain native site checks.
     pub fn with_compatible_executable(mut self) -> Self {
         self.compatible_executable = true;
+        self
+    }
+
+    pub fn with_expected_creation(mut self, creation: u64) -> Self {
+        self.transport = self.transport.with_expected_creation(creation);
         self
     }
     /// Test-only dispatch against the named disposable helper, never the game.
@@ -134,6 +197,26 @@ impl EquipmentAddition {
             "process_id":Value::Null,"preview_record_hex":Value::Null,"slot_index":Value::Null,"error":Value::Null}),
         ))
     }
+    fn require_checkpoint(
+        &self,
+        id: &str,
+        checkpoint: Option<&Value>,
+    ) -> Result<Value, RuntimeError> {
+        // The disposable helper has no save. Its constructor verifies the helper
+        // executable name; this exception is absent from production builds.
+        #[cfg(feature = "test-helper")]
+        if self.helper_binding && checkpoint.is_none_or(Value::is_null) {
+            return Ok(Value::Null);
+        }
+        let checkpoint = checkpoint.ok_or_else(|| {
+            rejected(
+                "A verified save checkpoint is required before equipment preview. Select the current character save and prepare again.",
+            )
+        })?;
+        verify_equipment_checkpoint(id, checkpoint)?;
+        Ok(checkpoint.clone())
+    }
+
     fn binding(&mut self) -> Result<(), RuntimeError> {
         #[cfg(feature = "test-helper")]
         if self.helper_binding {
@@ -282,6 +365,7 @@ impl EquipmentAddition {
         if level == 0 || level > 65535 || plus > 65535 || rarity > 5 {
             return Err(rejected("Invalid equipment generation inputs"));
         }
+        let checkpoint = self.require_checkpoint(id, input.get("save_checkpoint"))?;
         let mut capture = self.capture()?;
         let bytes = hex_decode(text(&capture, "container_hex")?)?;
         let slot = bytes
@@ -356,6 +440,7 @@ impl EquipmentAddition {
         capture["preview_record_hex"] = receipt["source_hex"].clone();
         capture["descriptor_hex"] = receipt["descriptor_hex"].clone();
         capture["slot"] = json!(slot);
+        capture["save_checkpoint"] = checkpoint;
         self.operations.prepare(id, &capture)?;
         self.public(id)
     }
@@ -368,6 +453,7 @@ impl EquipmentAddition {
         if stored != digest {
             return Err(rejected("Equipment plan digest changed"));
         }
+        self.require_checkpoint(id, plan.get("save_checkpoint"))?;
         let current = self.capture()?;
         for key in [
             "pid",
@@ -535,3 +621,7 @@ impl EquipmentAddition {
         self.public(id)
     }
 }
+
+#[cfg(test)]
+#[path = "equipment_checkpoint_tests.rs"]
+mod equipment_checkpoint_tests;

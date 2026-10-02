@@ -66,9 +66,9 @@ try {
   const {verifyWorkerIdentity, verifyShippedWorker} = await import('./verify-worker-identity.mjs');
   let workerIdentity, protectedIdentity = null;
   if (identityOptIn) {
-    workerIdentity = await verifyWorkerIdentity({runtime, role: 'offline_search'});
+    workerIdentity = await verifyWorkerIdentity({runtime, role: 'offline_search', stateRoot: join(root, 'identity-search'), localAppData: env.LOCALAPPDATA});
     if (protectedRequested) {
-      protectedIdentity = await verifyWorkerIdentity({runtime, role: 'save'});
+      protectedIdentity = await verifyWorkerIdentity({runtime, role: 'save', stateRoot: join(root, 'identity-save'), localAppData: env.LOCALAPPDATA});
     }
   } else {
     workerIdentity = await verifyShippedWorker({runtime, role: 'offline_search'});

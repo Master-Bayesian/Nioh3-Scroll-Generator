@@ -32,11 +32,11 @@ try{
  const handshake=await page.evaluate(()=>window.nioh.handshake());report.handshake=handshake;
  check('Selected non-Steam VERSIONINFO establishes production context',handshake.context.game_file_version==='2.0.2.0');
  for(const role of ['save','runtime']){
-  const current=await page.evaluate(role=>window.operations.current(role),role);check(role+' worker starts from selected file version',current&&typeof current.busy==='boolean');
+  const current=await page.evaluate(role=>window.operations.current(role),role);check(role+' worker starts independently with its role prerequisites',current&&typeof current.busy==='boolean');
  }
  await page.evaluate(()=>window.operations.execute({method:'runtime.status',params:{}}));
  const diagnostics=await page.evaluate(()=>window.support.diagnostics());report.diagnostics=diagnostics;
- check('All roles share the selected production context',diagnostics.workers.length===3&&diagnostics.workers.every(w=>w.contextDigest===handshake.context.context_digest));
+ check('Search and save share the selected context; runtime remains deferred',diagnostics.workers.length===3&&diagnostics.workers.every(w=>w.role==='runtime'?w.contextDigest===null:w.contextDigest===handshake.context.context_digest));
  check('Feedback identifies actual source commit',/^[0-9a-f]{40}$/.test(diagnostics.packageVerification.sourceCommit));
  await page.locator('.app-build').waitFor();
  check('Visible build matches verified manifest',(await page.locator('.app-build').innerText())===diagnostics.packageVerification.sourceCommit.slice(0,7));
@@ -92,7 +92,9 @@ try{
  report.unsupportedVersionError=rejected;
  check('Unsupported selected VERSIONINFO cannot establish a worker context',/GAME_VERSION_UNSUPPORTED/.test(rejected)&&rejected.includes('9.9.9.9'));
  const unsupportedDiagnostics=await page.evaluate(()=>window.support.diagnostics());report.unsupportedDiagnostics=unsupportedDiagnostics;
- check('Unsupported selected version starts no worker processes',unsupportedDiagnostics.workers.length===0);
+ check('Unsupported selected version blocks only search and save',unsupportedDiagnostics.workers.every(w=>w.role==='runtime'&&w.contextDigest===null));
+ const control=await page.evaluate(()=>window.operations.execute({method:'runtime.status',params:{}}));
+ check('Runtime controls remain available despite unsupported installation',control.safe_to_shutdown===true);
  await page.locator('.settings').click();await page.locator('.game-install code').waitFor();
  check('Settings remain available for unsupported selected versions',await page.locator('[data-action=select-game-executable]').isEnabled());
  report.pass=true;

@@ -78,12 +78,15 @@ impl NativeOracle {
         )?))
     }
 
-    /// `NativeBatchOracle.open`, including every signature check.
-    pub fn open(
+    /// Bound production admission, including process birth, module bounds and
+    /// every signature check before the first remote allocation.
+    pub fn open_bound(
         &mut self,
         session: Box<dyn nioh3_runtime::mutation::win_session::RemoteSession + Send>,
+        expected: nioh3_runtime::ProcessIdentity,
+        module: nioh3_runtime::ModuleRange,
     ) -> Result<(), RuntimeError> {
-        self.0.open(session)
+        self.0.open_bound(session, expected, module)
     }
 
     pub fn close(&mut self) {

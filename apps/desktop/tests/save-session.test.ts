@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SaveSession, type SaveGateway } from '../src/save-session';
-import type { SaveReference, SaveInventory, SavePlan, ScrollAudit, OperationReceipt } from '../../../packages/contracts/protected-responses';
+import { SaveSession, saveGateway, type SaveGateway } from '../src/save-session';
+import { OperationController } from '../src/operation-controller';
+import type { OperationsApi } from '../src/operations-api';
+import type { SaveReference, SaveInventory, SavePlan, ScrollAudit, OperationReceipt, ProtectedJob } from '../../../packages/contracts/protected-responses';
 
 const reference: SaveReference = { save_id: 'a'.repeat(64), account_id: '123', path: 'test/SAVEDATA.BIN', save_slot: 0 };
 const inventory: SaveInventory = { save_id: reference.save_id, account_id: '123', snapshot_id: 'b'.repeat(32),
@@ -140,3 +142,75 @@ test('unrelated receipts cannot resolve the submitted operation', async () => {
   await assert.rejects(session.commit(plan.plan_id), /OPERATION_RECEIPT_MISMATCH/);
   assert.equal(session.getSnapshot().uncertainOperationId, plan.plan_id);
 });
+
+function observedCommitFailure(error: NonNullable<ProtectedJob['error']>) {
+  const calls: string[] = [];
+  let returnedPlan = plan, serial = 0;
+  const failed: ProtectedJob = { job_id: 'e'.repeat(32), kind: 'save.commit', state: 'failed',
+    sequence: 2, cancellable: false, progress: null, result: null, error };
+  const completed = (kind: ProtectedJob['kind'], result: ProtectedJob['result']): ProtectedJob => ({
+    job_id: (++serial).toString(16).padStart(32, '0'), kind, state: 'completed',
+    sequence: 2, cancellable: false, progress: null, result, error: null,
+  });
+  const api: Pick<OperationsApi, 'execute' | 'prepareInstall' | 'current' | 'snapshot' | 'cancel'> = {
+    execute: async command => {
+      calls.push(command.method);
+      switch (command.method) {
+        case 'save.inventory': return completed(command.method, structuredClone(inventory));
+        case 'save.operations': return completed(command.method, { operations: [] });
+        case 'save.prepare_delete': return completed(command.method, structuredClone(returnedPlan));
+        case 'save.discard': return completed(command.method, { discarded: true });
+        case 'save.commit': return failed;
+        case 'save.operation': return completed(command.method, structuredClone(receipt));
+        default: throw new Error('Unexpected command: ' + command.method);
+      }
+    },
+    prepareInstall: async () => completed('save.prepare_install', structuredClone(returnedPlan)),
+    current: async () => ({ job: null, busy: false }),
+    snapshot: async () => failed,
+    cancel: async () => failed,
+  };
+  const observer = new OperationController('save', api);
+  // The renderer's TTL has not expired when the host rejects the plan.
+  const session = new SaveSession(saveGateway(api, observer), () => 100);
+  return { calls, session, observer, setPlan: (value: SavePlan) => { returnedPlan = value; } };
+}
+
+for (const code of ['OPERATION_REJECTED', 'OPERATION_FAILED']) {
+  test('host-expired plan releases the provisional fence (' + code + ')', async () => {
+    const f = observedCommitFailure({ code, message: 'Plan expired; prepare a new plan' });
+    try {
+      await f.session.select(reference); await f.session.prepareDelete([0]);
+      await assert.rejects(f.session.commit(plan.plan_id), /Plan expired; prepare a new plan/);
+      assert.equal(f.session.getSnapshot().uncertainOperationId, null);
+      assert.equal(f.session.getSnapshot().plan, null, 'the rejected plan cannot be reused');
+      assert.equal(f.session.getSnapshot().inventory, null, 'a fresh snapshot is required');
+      assert.equal(f.session.getSnapshot().receipt, null, 'a refusal does not invent a receipt');
+      await f.session.refresh();
+      f.setPlan({ ...plan, plan_id: 'f'.repeat(32) });
+      await f.session.prepareDelete([0]);
+      assert.equal(f.session.getSnapshot().plan?.plan_id, 'f'.repeat(32));
+      assert.equal(f.calls.filter(method => method === 'save.commit').length, 1);
+      assert.equal(f.calls.includes('save.operation'), false, 'no nonexistent ledger is queried');
+    } finally { f.observer.dispose(); }
+  });
+}
+
+for (const message of [
+  'Connection closed; diagnostic path contains Plan expired; prepare a new plan',
+  'Plan expired; prepare a new plan; commit outcome unknown',
+]) {
+  test('an expiry lookalike retains receipt recovery: ' + message, async () => {
+    const f = observedCommitFailure({ code: 'OPERATION_FAILED', message });
+    try {
+      await f.session.select(reference); await f.session.prepareDelete([0]);
+      await assert.rejects(f.session.commit(plan.plan_id));
+      assert.equal(f.session.getSnapshot().uncertainOperationId, plan.plan_id);
+      await assert.rejects(f.session.prepareDelete([0]), /UNCERTAIN_OPERATION/);
+      await f.session.recoverReceipt();
+      assert.equal(f.session.getSnapshot().uncertainOperationId, null);
+      assert.equal(f.calls.at(-1), 'save.operation');
+      assert.equal(f.calls.filter(method => method === 'save.commit').length, 1);
+    } finally { f.observer.dispose(); }
+  });
+}

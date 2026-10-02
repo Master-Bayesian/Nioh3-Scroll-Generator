@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { desktop } from "./desktop-bridge";
+import { GameInstallation } from "./GameInstallation";
 import {
   isFailureText,
   isLiveAddLockError,
@@ -25,23 +26,22 @@ export function Notice({
   text,
   tone,
   className = "",
+  installationRecovery = true,
 }: {
   text: string;
   tone?: NoticeTone;
   className?: string;
+  installationRecovery?: boolean;
 }) {
   const [feedback, setFeedback] = useState<"" | "busy" | "saved" | "failed">("");
   const [dismissed, setDismissed] = useState(false);
   const [lockReset, setLockReset] = useState<"" | "busy" | "cleared" | "held" | "failed">("");
-  const [gameSelecting,setGameSelecting]=useState(false);
-  const [gameMessage,setGameMessage]=useState("");
   // A new message replaces the previous one together with its feedback hint,
   // and shows again even if the player closed the previous one.
   useEffect(() => {
     setFeedback("");
     setDismissed(false);
     setLockReset("");
-    setGameMessage("");
   }, [text]);
   if (!text.trim() || dismissed) return null;
   const effective =
@@ -49,13 +49,8 @@ export function Notice({
     (isUserCorrectable(text) ? "warning" : isFailureText(text) ? "error" : "info");
   const display = stripErrorPrefix(text).trim();
   const technical = publicError(display) !== display ? display : "";
-  const gameInstallError=desktop&&/GAME_(?:EXECUTABLE|VERSION|INSTALL_CONFIG)_/.test(text);
-  const compatibilityError=desktop&&/COMPATIBILITY_CONFIRMATION_REQUIRED/.test(text);
-  async function selectGame(){
-    setGameSelecting(true);
-    try{const result=await window.review.gameInstallation("select");if(result?.restart_required)setGameMessage("游戏路径已记录。请重新打开工作室后使用，游戏无需关闭。");}
-    catch{setGameMessage("游戏程序没有选择成功，请到设置中重新选择。")}finally{setGameSelecting(false)}
-  }
+  const gameInstallError=desktop&&installationRecovery&&/GAME_(?:EXECUTABLE|VERSION|INSTALL_CONFIG)_|COMPATIBILITY_RESOURCE_CONTEXT_CHANGED/.test(text);
+  const compatibilityError=desktop&&/COMPATIBILITY_(?:CONFIRMATION_REQUIRED|PLAN_EXPIRED|PLAN_MISMATCH|BACKUP_REQUIRED|BACKUP_UNVERIFIED|AUDIT_FAILED|IDENTITY_CHANGED|FEATURE_UNSUPPORTED)/.test(text);
   async function resetLiveAddLock() {
     setLockReset("busy");
     try {
@@ -122,7 +117,6 @@ export function Notice({
               导出反馈文件
             </button>
           )}
-          {gameInstallError&&<button disabled={gameSelecting} onClick={()=>void selectGame()}>选择游戏程序</button>}
           {compatibilityError&&<button onClick={()=>window.dispatchEvent(new Event("nioh3:compatibility-required"))}>查看兼容提示</button>}
         </div>
       )}
@@ -136,7 +130,7 @@ export function Notice({
         <p className="notice-hint">重置没有成功。请完全关闭本程序后重新打开再试；仍不行请导出反馈文件发给开发者。</p>
       )}
       {feedback === "saved" && <FeedbackSaved onDismiss={() => setFeedback("")} />}
-      {gameMessage&&<p className="notice-hint">{gameMessage}</p>}
+      {gameInstallError&&<GameInstallation compact/>}
       {feedback === "failed" && (
         <p className="notice-hint">反馈文件没有导出成功，请在“设置”里再试一次。</p>
       )}

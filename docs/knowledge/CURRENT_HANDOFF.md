@@ -1,6 +1,78 @@
-# Current project handoff — 2026-09-29
+# Current project handoff - 2026-10-02
 
-## Active development: v0.8.3
+## Active development: v0.8.3 internal-test baseline
+
+**Current decision:** prepare one independently transferable 0.8.3 source/build
+baseline, test it internally, and do not publish. Main source regression gates
+passed; UI error mapping and no-game stored-receipt status/cancel are now
+verified. The final TypeScript and full npm reruns passed. A new local
+test10 build follows a clean commit. No current
+package or real-game/save acceptance exists. Historical package results below
+do not close those gates.
+
+Worktree: `D:/Nioh3_v080_deliverables/source-codex-astra-audit-20261002`.
+Branch: `codex/astra-audit-20261002`; base:
+`ec5575c37f340558c000d4f87ece6869802f1b96`. The base is code-identical to
+test9 product `c56198b`; their only differences are four documentation files.
+The dirty source changes still need a frozen identity and a new build. The
+[0.8.3 engineering record](../product/releases/v0.8.3.md) owns current scope;
+`D:/Nioh3_v080_deliverables/deliverables/codex-compatibility-policy-20261002/TEST_PLAN.md`
+is the transferable P0/P1 internal-test checklist.
+
+Current operation policy: known live scroll/equipment addition validates its
+own binding and reviewed transaction without a global compatibility-consent
+prerequisite. It retains backup, code/layout, same-process, owner/bounds,
+single-writer, receipt and readback protection. Equipment preview/insertion
+binds a verified source/backup checkpoint to one operation and rechecks it
+before execute. Optional generation context is deferred until needed, keeping
+control/status/recovery independent of its startup availability. Offline scroll
+completion prediction now loads its explicit 2.02 context separately without a
+running game or replacing live-generation state; the deferred-host regression
+passes. Unknown
+versions still cannot acquire a guessed binding. Other operations that use
+compatibility consent retain an exact plan, unchecked confirmations, backup
+verification and durable audit. The runtime finds a unique target automatically;
+it has no CE-style multi-PID selector. The disk executable picker is separate.
+
+Primary acceptance targets `2.0.2.0`. Preserve `2.0.1.0` offline and evidenced
+scroll/count/native bindings, with seeded equipment insertion unsupported;
+`2.0.0.2` keeps its existing offline scope. Ver2.00.01 and other missing-evidence
+versions remain unsupported, not force-adapted. Existing experimental evidence
+is not promoted. Preserve previously verified adapters, configurations, runtime
+inputs and regressions when adding future support. See the
+[compatibility matrix and retention policy](../research/V083_DLC1_COMPATIBILITY_POLICY_20261002.md).
+The space audit timestamp is `2026-10-02T09:40:36.293Z`; later source edits and
+actual package size were not measured by that receipt.
+
+**Completed source evidence:** full runtime 207/207; policy 21/21; equipment
+checkpoint 2/2 (plus six runtime checkpoint fixtures); runtime bootstrap 2/2,
+including real framed-worker startup without game/data; parser 5/5; offline
+prediction 1/1; Tauri packaged-resolution unit tests 11/11 and offline-session
+1/1; full npm 91 pass / 1 skip. Runtime/protected Clippy pass. Frozen mocked
+browser coverage is equipment 66/66, compatibility 146/146, with 1,312 locale
+messages. The [engineering record](../product/releases/v0.8.3.md) lists exact
+logs and browser receipts. Actual-error mapping now passes equipment 66/66
+and public-errors 17/17. No-game stored-receipt status/cancel passes 4/4 in
+`logs/receipt-control-protected-20261002.log`; actual recovery retains identity
+checks. Full runtime recheck passes 207/207, final protected all-target Clippy
+exits 0, and three format targets pass. Final npm passes 91 tests with one package-dependent skip; TypeScript and the 1,312-message locale audit pass in logs/operation-final-npm.log and logs/operation-final-typecheck.log.
+The failure ledger records the fixture/private-API repairs and the review-caught
+offline prediction regression. No outer-EXE or live acceptance is implied.
+
+**Next sequence:** freeze the verified source with a clean
+commit and source manifest; build local test10; record the exact outer-package identity in
+the external delivery receipt; verify that exact outer EXE with P0 and then
+P1 cases. Four package verifiers have the deferred-context, per-role-log and
+isolated-save-discovery adjustments and pass syntax checks; their outer-package
+acceptance remains pending. Real-game/save operations require their explicit controlled-test
+authorization. Preserve every previous candidate. No publication, push, tag
+or update-feed change is authorized by this internal-test request.
+
+## Historical dated handoffs
+
+The entries below retain the evidence and decisions of their named dates.
+The current section above supersedes their current-status wording; use
+`AGENTS.md` and the linked orchestration skill for current agent routing.
 
 **Owner-authorized compatibility policy (2026-10-01).** Whole-file equality is
 advisory; unverified live writes/previews use process-bound risk/backup consent

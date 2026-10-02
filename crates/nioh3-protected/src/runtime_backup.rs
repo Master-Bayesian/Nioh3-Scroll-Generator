@@ -65,10 +65,18 @@ impl SaveBackup for SaveBackupAdapter {
             }
         })?;
 
-        self.counter += 1;
-        let directory =
-            backups_root(&self.root).join(format!("{operation_id}-{:03}", self.counter));
-        std::fs::create_dir_all(&directory).map_err(|error| io_error(&directory, error))?;
+        let parent = backups_root(&self.root);
+        std::fs::create_dir_all(&parent).map_err(|error| io_error(&parent, error))?;
+        // A fresh adapter or retry must never overwrite an earlier checkpoint.
+        let directory = loop {
+            self.counter += 1;
+            let candidate = parent.join(format!("{operation_id}-{:03}", self.counter));
+            match std::fs::create_dir(&candidate) {
+                Ok(()) => break candidate,
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(error) => return Err(io_error(&candidate, error)),
+            }
+        };
 
         // The copy is written exclusively and verified against the planned
         // bytes, so a partially written backup can never look complete.
@@ -128,6 +136,39 @@ impl SaveBackup for SaveBackupAdapter {
             decrypted: plaintext,
         })
     }
+}
+
+/// Create the verified checkpoint that one equipment preview and insertion share.
+/// The protected host supplies the selected path; client backup claims are ignored.
+pub fn prepare_equipment_checkpoint(
+    state_root: &Path,
+    source: &Path,
+    operation_id: &str,
+) -> Result<serde_json::Value, RuntimeError> {
+    let canonical_id = operation_id.len() == 36
+        && operation_id
+            .bytes()
+            .enumerate()
+            .all(|(index, byte)| match index {
+                8 | 13 | 18 | 23 => byte == b'-',
+                _ => byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase(),
+            });
+    if !canonical_id {
+        return Err(RuntimeError::LiveAddRejected {
+            detail: "Use a canonical equipment operation UUID".to_string(),
+        });
+    }
+    let source = source
+        .canonicalize()
+        .map_err(|error| io_error(source, error))?;
+    let raw = std::fs::read(&source).map_err(|error| io_error(&source, error))?;
+    let checkpoint = SaveBackupAdapter::new(state_root).checkpoint(&source, &raw, operation_id)?;
+    Ok(serde_json::json!({
+        "operation_id": operation_id,
+        "source_save_path": source.display().to_string(),
+        "source_save_sha256": nioh3_save::save::sha256_hex(&raw),
+        "backup_path": checkpoint.backup_path.display().to_string(),
+    }))
 }
 
 /// `datetime.now(timezone.utc).isoformat()` in the one shape the manifest

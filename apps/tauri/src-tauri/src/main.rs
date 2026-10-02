@@ -94,30 +94,19 @@ fn test_debug_port() -> Option<u16> {
 /// it from a separately launched binary. A package that declares a backend it
 /// cannot run logs the refusal instead of falling back.
 fn log_resolved_workers(root: &std::path::Path, data: &std::path::Path, packaged: bool) {
-    let search = worker::search_backend(root, packaged, &worker::rust_search_env());
-    let protected = worker::protected_backend(root, packaged, &worker::rust_protected_env());
-    let (search_backend, protected_backend) = match (search, protected) {
-        (Ok(search), Ok(protected)) => (search, protected),
-        (Err(error), _) | (_, Err(error)) => {
-            storage::log(
-                data,
-                "worker-backend",
-                &format!("resolution failed: {error}"),
-            );
-            return;
-        }
-    };
-    let identifier = worker::backend_identifier(packaged, &search_backend, &protected_backend);
-    storage::log(data, "worker-backend", &format!("graph={identifier}"));
     for role in ["offline_search", "save", "runtime"] {
-        let (executable, arguments) = worker::launch_command(
-            root,
-            role,
-            packaged,
-            &search_backend,
-            &protected_backend,
-            data,
-        );
+        let (executable, arguments) = match worker::resolve_role_launch(root, role, packaged, data)
+        {
+            Ok(launch) => launch,
+            Err(error) => {
+                storage::log(
+                    data,
+                    "worker-backend",
+                    &format!("role={role} resolution failed: {error}"),
+                );
+                continue;
+            }
+        };
         let digest = std::fs::read(&executable)
             .ok()
             .map(|bytes| {

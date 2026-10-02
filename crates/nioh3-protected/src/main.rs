@@ -31,10 +31,10 @@ NIOH3_RUST_PROTECTED_WORKER set) additionally requires the explicit
 --dev-protected-only acknowledgement. --state-root may also be supplied as
 NIOH3_STATE_ROOT, which is the shipped broker's own variable.
 
-Identity: a production launch requires --game-file-version <A.B.C.D>, the exact
+Identity: save production requires --game-file-version <A.B.C.D>, the exact
 installed game executable version, resolved through the same loader the
 read-only worker uses. --legacy-test-context is an explicit, visibly
-non-production opt-in; there is no default identity.";
+non-production opt-in. Runtime can start without generation resources; its generation context is loaded on demand from the running game, never guessed.";
 
 #[derive(Debug)]
 struct Options {
@@ -43,7 +43,7 @@ struct Options {
     data_root: PathBuf,
     contract_dir: PathBuf,
     accelerator: Option<PathBuf>,
-    selection: ContextSelection,
+    selection: Option<ContextSelection>,
 }
 
 fn main() -> ExitCode {
@@ -154,8 +154,9 @@ fn parse_options(args: &[String], development_selected: bool) -> Result<Option<O
             .filter(|value| !value.is_empty())
             .map(PathBuf::from)
     });
+    let role = role.ok_or("--role is required")?;
     Ok(Some(Options {
-        role: role.ok_or("--role is required")?,
+        role,
         state_root: state_root.ok_or("--state-root (or NIOH3_STATE_ROOT) is required")?,
         data_root: data_root.ok_or("--data-root is required")?,
         contract_dir: contract_dir.ok_or("--contract-dir is required")?,
@@ -170,8 +171,11 @@ fn parse_options(args: &[String], development_selected: bool) -> Result<Option<O
                      --legacy-test-context, not both"
                     .to_string())
             }
-            (Some(raw), false) => ContextSelection::Production(parse_game_file_version(&raw)?),
-            (None, true) => ContextSelection::LegacyTest,
+            (Some(raw), false) => {
+                Some(ContextSelection::Production(parse_game_file_version(&raw)?))
+            }
+            (None, true) => Some(ContextSelection::LegacyTest),
+            (None, false) if role == Role::Runtime => None,
             (None, false) => {
                 return Err("refusing to start: a production launch requires \
                      --game-file-version <A.B.C.D>, the exact installed game \
@@ -210,42 +214,45 @@ fn run(options: &Options) -> ExitCode {
             return ExitCode::from(1);
         }
     };
-    // The protected host publishes the same generation identity as the shipped
-    // worker, so it captures the context through the same loader the read-only
-    // worker uses. The version selection is shared with the read-only worker:
-    // either an exact installed version or the explicitly non-production legacy
-    // identity.
-    let engine = match Engine::load(
-        &options.data_root,
-        &options.contract_dir,
-        options.accelerator.clone(),
-        options.selection,
-    ) {
-        Ok(engine) => engine,
-        Err(error) => {
-            eprintln!(
-                "protected worker startup failed: {}: {}",
-                error.code, error.message
-            );
-            return ExitCode::from(1);
-        }
-    };
-    let context = engine.context().clone();
     let application: Box<dyn RoleApplication> = match options.role {
+        Role::Runtime => match RuntimeApplication::deferred(
+            options.state_root.clone(),
+            &options.data_root,
+            &options.contract_dir,
+            options.accelerator.clone(),
+            options.selection,
+        ) {
+            Ok(application) => Box::new(application),
+            Err(error) => {
+                eprintln!("runtime startup failed: {error}");
+                return ExitCode::from(1);
+            }
+        },
         Role::Save => {
-            match SaveApplication::new(options.state_root.clone(), &options.data_root, context) {
-                Ok(application) => Box::new(application),
+            let Some(selection) = options.selection else {
+                eprintln!("Save generation context is required");
+                return ExitCode::from(1);
+            };
+            let engine = match Engine::load(
+                &options.data_root,
+                &options.contract_dir,
+                options.accelerator.clone(),
+                selection,
+            ) {
+                Ok(engine) => engine,
                 Err(error) => {
-                    eprintln!("protected worker startup failed: {error}");
+                    eprintln!("save startup failed: {}: {}", error.code, error.message);
                     return ExitCode::from(1);
                 }
-            }
-        }
-        Role::Runtime => {
-            match RuntimeApplication::new(options.state_root.clone(), &options.data_root, context) {
+            };
+            match SaveApplication::new(
+                options.state_root.clone(),
+                &options.data_root,
+                engine.context().clone(),
+            ) {
                 Ok(application) => Box::new(application),
                 Err(error) => {
-                    eprintln!("protected worker startup failed: {error}");
+                    eprintln!("save startup failed: {error}");
                     return ExitCode::from(1);
                 }
             }
@@ -319,7 +326,7 @@ mod tests {
         assert_eq!(options.accelerator, None);
         assert_eq!(
             options.selection,
-            ContextSelection::Production(GameFileVersion(2, 0, 2, 0))
+            Some(ContextSelection::Production(GameFileVersion(2, 0, 2, 0)))
         );
     }
 
@@ -348,8 +355,23 @@ mod tests {
     }
 
     #[test]
-    fn a_production_launch_requires_an_explicit_identity() {
+    fn save_requires_identity_while_runtime_can_start_unbound() {
         let missing = parse_options(
+            &args(&[
+                "--role",
+                "save",
+                "--state-root",
+                "s",
+                "--data-root",
+                "d",
+                "--contract-dir",
+                "c",
+            ]),
+            false,
+        )
+        .expect_err("no default identity is allowed");
+        assert!(missing.contains("requires --game-file-version"));
+        let runtime = parse_options(
             &args(&[
                 "--role",
                 "runtime",
@@ -362,8 +384,9 @@ mod tests {
             ]),
             false,
         )
-        .expect_err("no default identity is allowed");
-        assert!(missing.contains("requires --game-file-version"));
+        .unwrap()
+        .unwrap();
+        assert_eq!(runtime.selection, None);
         let both = parse_options(
             &args(&[
                 "--role",

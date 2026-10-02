@@ -409,11 +409,10 @@ export async function verifyWorkerIdentity({
     if (value === '<state root>') return isolatedState;
     return value.replace('<runtime>', root);
   });
-  // The packaged host injects this session's exact resolved version onto the
-  // staged argv; the identity acceptance emulates that injection whenever the
-  // manifest does not already name an identity selection. An explicit
-  // --legacy-test-context stays untouched.
-  if (!hasIdentitySelection(args)) {
+  // Search/save require the host's exact resolved generation identity. Runtime
+  // starts without one and loads operation data only when needed. Preserve any
+  // explicit identity selection instead of silently rewriting it.
+  if (role !== 'runtime' && !hasIdentitySelection(args)) {
     args.push('--game-file-version', parityGameFileVersion());
   }
   const environment = {...process.env};

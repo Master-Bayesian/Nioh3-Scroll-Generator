@@ -65,7 +65,8 @@ pub struct RuntimeApplication {
     compatibility: crate::compatibility::CompatibilitySession,
     state_root: PathBuf,
     data_root: PathBuf,
-    context: EngineContext,
+    context: Option<EngineContext>,
+    context_loader: Option<DeferredContext>,
     /// Candidates the most recent native generation published, keyed by id.
     candidates: HashMap<String, Value>,
     /// The override/live-add ownership state machine.
@@ -81,7 +82,11 @@ pub struct RuntimeApplication {
     #[cfg(windows)]
     live_add_process: Option<(u32, u64)>,
     #[cfg(windows)]
+    live_add_context: Option<String>,
+    #[cfg(windows)]
     equipment_add: Option<nioh3_runtime::mutation::equipment_add::EquipmentAddition>,
+    #[cfg(windows)]
+    equipment_add_process: Option<(u32, u64)>,
     /// The product tables the offline preview composition reads, loaded once.
     #[cfg(windows)]
     preview: Option<Box<nioh3_data::PreviewResources>>,
@@ -98,6 +103,12 @@ pub struct RuntimeApplication {
     /// released. These receipts outlive the job that produced them.
     #[cfg(windows)]
     retired_oracles: Vec<RetiredOracleOwner>,
+}
+
+struct DeferredContext {
+    contract_dir: PathBuf,
+    accelerator: Option<PathBuf>,
+    selection: Option<nioh3_worker::engine::ContextSelection>,
 }
 
 #[cfg(windows)]
@@ -151,12 +162,202 @@ fn native_executor_directory(state_root: &Path) -> PathBuf {
     state_root.join("live-add").join("native-executor")
 }
 
+#[cfg(any(windows, test))]
+fn require_same_runtime_identity(
+    expected: &crate::compatibility::ExecutableIdentity,
+    actual: &crate::compatibility::ExecutableIdentity,
+) -> Result<(), HostError> {
+    if expected.pid != actual.pid
+        || expected.creation_filetime != actual.creation_filetime
+        || !expected.path.eq_ignore_ascii_case(&actual.path)
+        || expected.version != actual.version
+        || !expected.sha256.eq_ignore_ascii_case(&actual.sha256)
+    {
+        return Err(HostError::coded("COMPATIBILITY_IDENTITY_CHANGED", format!(
+            "Expected PID {} creation {} version {} image {} SHA {}; detected PID {} creation {} version {} image {} SHA {}. Reconnect to the current game and prepare/review a new plan; recover any uncertain receipt before retrying.",
+            expected.pid, expected.creation_filetime, expected.version, expected.path, expected.sha256,
+            actual.pid, actual.creation_filetime, actual.version, actual.path, actual.sha256,
+        )));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod compatibility_identity_tests {
+    use super::require_same_runtime_identity;
+    use crate::compatibility::ExecutableIdentity;
+
+    #[test]
+    fn changed_identity_requires_reconnection_before_admission() {
+        let expected = ExecutableIdentity {
+            pid: 7,
+            creation_filetime: 88,
+            path: "D:/Game/Nioh3.exe".into(),
+            version: "2.0.2.0".into(),
+            sha256: "aabb".into(),
+        };
+        for field in ["pid", "birth", "path", "version", "hash"] {
+            let mut actual = expected.clone();
+            match field {
+                "pid" => actual.pid += 1,
+                "birth" => actual.creation_filetime += 1,
+                "path" => actual.path = "D:/Other/Nioh3.exe".into(),
+                "version" => actual.version = "2.0.1.0".into(),
+                _ => actual.sha256 = "ccdd".into(),
+            }
+            let error = require_same_runtime_identity(&expected, &actual)
+                .err()
+                .unwrap();
+            assert_eq!(error.code, Some("COMPATIBILITY_IDENTITY_CHANGED"));
+            assert!(error.message.contains("Expected PID 7 creation 88"));
+            assert!(error.message.contains("Reconnect"));
+        }
+        let mut actual = expected.clone();
+        actual.path = actual.path.to_ascii_uppercase();
+        actual.sha256 = actual.sha256.to_ascii_uppercase();
+        assert!(require_same_runtime_identity(&expected, &actual).is_ok());
+    }
+}
+
 impl RuntimeApplication {
     /// Build the runtime role for one state root and data root.
     pub fn new(
         state_root: PathBuf,
         data_root: &Path,
         context: EngineContext,
+    ) -> Result<Self, HostError> {
+        Self::with_context(state_root, data_root, Some(context), None)
+    }
+
+    /// A runtime host can inspect, recover and add equipment without loading
+    /// unrelated offline generation tables or selecting an installed image.
+    pub fn deferred(
+        state_root: PathBuf,
+        data_root: &Path,
+        contract_dir: &Path,
+        accelerator: Option<PathBuf>,
+        selection: Option<nioh3_worker::engine::ContextSelection>,
+    ) -> Result<Self, HostError> {
+        Self::with_context(
+            state_root,
+            data_root,
+            None,
+            Some(DeferredContext {
+                contract_dir: contract_dir.to_path_buf(),
+                accelerator,
+                selection,
+            }),
+        )
+    }
+
+    fn generation_context(&self) -> Result<&EngineContext, HostError> {
+        self.context.as_ref().ok_or_else(|| HostError::rejected(
+            "Generation resources are not loaded for this operation; prepare it again after selecting a supported game"))
+    }
+
+    /// Ordinary completion is a read-only PC 2.02 resource operation. It must
+    /// work with the game closed and must not replace a live target's context.
+    fn completion_prediction(&self, params: &Value) -> Result<Value, HostError> {
+        if let Some(loader) = &self.context_loader {
+            let selection =
+                loader
+                    .selection
+                    .unwrap_or(nioh3_worker::engine::ContextSelection::Production(
+                        nioh3_worker::GameFileVersion(2, 0, 2, 0),
+                    ));
+            let engine = nioh3_worker::engine::Engine::load(
+                &self.data_root,
+                &loader.contract_dir,
+                loader.accelerator.clone(),
+                selection,
+            )
+            .map_err(|error| {
+                HostError::coded(
+                    error.code,
+                    format!(
+                        "{}; restore the resource files for this operation and prepare again",
+                        error.message
+                    ),
+                )
+            })?;
+            return crate::scroll_completion::prediction_json(
+                &self.data_root,
+                engine.context(),
+                params,
+            );
+        }
+        crate::scroll_completion::prediction_json(
+            &self.data_root,
+            self.generation_context()?,
+            params,
+        )
+    }
+
+    fn ensure_generation_context(&mut self) -> Result<(), HostError> {
+        if self.context.is_some() {
+            return Ok(());
+        }
+        let loader = self
+            .context_loader
+            .as_ref()
+            .ok_or_else(HostError::invalid_request)?;
+        let selection = match loader.selection {
+            Some(value) => value,
+            None => {
+                #[cfg(windows)]
+                {
+                    let identity = crate::compatibility::running_identity()?;
+                    let version = nioh3_runtime::file_version(&identity.path)
+                        .map_err(HostError::from_runtime)?;
+                    let (a, b, c, d) = version.tuple();
+                    nioh3_worker::engine::ContextSelection::Production(
+                        nioh3_worker::GameFileVersion(a, b, c, d),
+                    )
+                }
+                #[cfg(not(windows))]
+                {
+                    return Err(HostError::from_runtime(
+                        nioh3_runtime::RuntimeError::UnsupportedPlatform,
+                    ));
+                }
+            }
+        };
+        let engine = nioh3_worker::engine::Engine::load(
+            &self.data_root,
+            &loader.contract_dir,
+            loader.accelerator.clone(),
+            selection,
+        )
+        .map_err(|error| {
+            HostError::coded(
+                error.code,
+                format!(
+                    "{}; restore the resource files for this operation and prepare again",
+                    error.message
+                ),
+            )
+        })?;
+        let context = engine.context().clone();
+        #[cfg(windows)]
+        {
+            self.resource_version = match &context {
+                EngineContext::Production(c) => {
+                    let v = c.game_file_version;
+                    Some((v.0, v.1, v.2, v.3))
+                }
+                EngineContext::LegacyTest(_) => Some(nioh3_data::CURRENT_RESOURCE_VERSION),
+            };
+        }
+        self.context = Some(context);
+        Ok(())
+    }
+
+    fn with_context(
+        state_root: PathBuf,
+        data_root: &Path,
+        context: Option<EngineContext>,
+        context_loader: Option<DeferredContext>,
     ) -> Result<Self, HostError> {
         // A live add whose process died (in this or any earlier version) may
         // have left its admission lock behind; one nobody holds is cleared
@@ -166,17 +367,19 @@ impl RuntimeApplication {
         );
         #[cfg(windows)]
         let selected_resource_version = match &context {
-            EngineContext::Production(c) => {
+            Some(EngineContext::Production(c)) => {
                 let v = c.game_file_version;
                 Some((v.0, v.1, v.2, v.3))
             }
-            _ => Some(nioh3_data::CURRENT_RESOURCE_VERSION),
+            Some(EngineContext::LegacyTest(_)) => Some(nioh3_data::CURRENT_RESOURCE_VERSION),
+            None => None,
         };
         Ok(Self {
             compatibility: Default::default(),
             state_root,
             data_root: data_root.to_path_buf(),
             context,
+            context_loader,
             candidates: HashMap::new(),
             #[cfg(windows)]
             host: nioh3_runtime::mutation::WindowsMutationHost::new(),
@@ -187,7 +390,11 @@ impl RuntimeApplication {
             #[cfg(windows)]
             live_add_process: None,
             #[cfg(windows)]
+            live_add_context: None,
+            #[cfg(windows)]
             equipment_add: None,
+            #[cfg(windows)]
+            equipment_add_process: None,
             #[cfg(windows)]
             preview: None,
             #[cfg(windows)]
@@ -214,7 +421,10 @@ impl RuntimeApplication {
     /// need the real module base; with no game this fails with the shipped
     /// process-absence error instead of fabricating a plan.
     #[cfg(windows)]
-    fn count_editor_for_game(&self) -> Result<nioh3_runtime::mutation::CountEditor, HostError> {
+    fn count_editor_for_game(
+        &self,
+        approved: &crate::compatibility::ExecutableIdentity,
+    ) -> Result<nioh3_runtime::mutation::CountEditor, HostError> {
         // The count edit reads the same manager-owned inventory the live-add
         // binding reads, so it resolves the game under that purpose and picks
         // the layout of the exact running version; any other build is refused
@@ -224,6 +434,7 @@ impl RuntimeApplication {
             nioh3_runtime::profile::ProfilePurpose::LiveAdd,
         )
         .map_err(HostError::from_runtime)?;
+        Self::require_resolved_identity(approved, &identity)?;
         let version = identity.file_version.tuple();
         let layout =
             nioh3_runtime::mutation::count_layout_for_game_version(version).ok_or_else(|| {
@@ -234,13 +445,17 @@ impl RuntimeApplication {
             identity.module.base,
             layout,
             nioh3_runtime::mutation::WindowsCountProcesses,
-        );
+        )
+        .with_expected_creation(approved.creation_filetime);
         nioh3_runtime::mutation::CountEditor::new(&self.state_root, Box::new(memory))
             .map_err(HostError::from_runtime)
     }
 
     #[cfg(not(windows))]
-    fn count_editor_for_game(&self) -> Result<(), HostError> {
+    fn count_editor_for_game(
+        &self,
+        _approved: &crate::compatibility::ExecutableIdentity,
+    ) -> Result<(), HostError> {
         Err(HostError::from_runtime(
             nioh3_runtime::RuntimeError::UnsupportedPlatform,
         ))
@@ -270,6 +485,7 @@ impl RuntimeApplication {
     }
 
     fn count_prepare(&mut self, source: &Value, new_count: i64) -> Result<Value, HostError> {
+        let approved = self.admit_runtime_feature("live_count_edit")?;
         if !self.safe_to_shutdown()? {
             return Err(HostError::rejected(
                 "Stop temporary overrides before editing remaining count",
@@ -295,7 +511,7 @@ impl RuntimeApplication {
             .state_root
             .join("count-backups")
             .join(format!("{stem}.bin"));
-        let mut editor = self.count_editor_for_game()?;
+        let mut editor = self.count_editor_for_game(&approved)?;
         let status = editor
             .prepare(
                 Path::new(save_path),
@@ -309,12 +525,13 @@ impl RuntimeApplication {
     }
 
     fn count_execute(&mut self, operation_id: &str, plan_digest: &str) -> Result<Value, HostError> {
+        let approved = self.admit_runtime_feature("live_count_edit")?;
         if !self.safe_to_shutdown()? {
             return Err(HostError::rejected(
                 "Stop temporary overrides before editing remaining count",
             ));
         }
-        let mut editor = self.count_editor_for_game()?;
+        let mut editor = self.count_editor_for_game(&approved)?;
         Ok(count_status_json(
             &editor
                 .execute(operation_id, plan_digest)
@@ -598,24 +815,6 @@ mod imp {
             .map_err(HostError::from_runtime)
         }
 
-        /// The game identity the native live-add path uses.
-        ///
-        /// Live addition resolves the profile for its own purpose and from the
-        /// profile-document directory, so a document approved for live addition
-        /// only is reachable while every other native path keeps the existing
-        /// blanket resolution and its refusals. The executable, version, module
-        /// and process-identity checks are identical to [`Self::identity`]; only
-        /// the profile approval purpose differs, and the executor still proves
-        /// the profile id and, where pinned, the exact executable digest before
-        /// any read or dispatch.
-        fn live_add_identity(&self) -> Result<GameIdentity, HostError> {
-            nioh3_runtime::identify_running_game_for(
-                &super::profile_dir_for(&self.data_root),
-                nioh3_runtime::profile::ProfilePurpose::LiveAdd,
-            )
-            .map_err(HostError::from_runtime)
-        }
-
         /// `runtime.inventory_snapshot`: one bounded read-only page of raw
         /// inventory slots.
         ///
@@ -640,20 +839,98 @@ mod imp {
             snapshot(&memory, &request).map_err(HostError::from_runtime)
         }
 
-        /// One read-only handle on the sole game, verified as PC v2.0.2.0 with
-        /// the pinned executable digest before any game memory is read.
-        fn open_supported_reader() -> Result<nioh3_runtime::ReadOnlyProcess, HostError> {
-            use nioh3_runtime::{FileVersion, GameCompatibility, RuntimeError};
+        /// Admit only the requested capability. Live addition keeps its own
+        /// target/backup/receipt checks; other capabilities retain compatibility
+        /// consent. Recovery, status, cancellation and stop never require it.
+        pub(super) fn admit_runtime_feature(
+            &mut self,
+            feature: &str,
+        ) -> Result<crate::compatibility::ExecutableIdentity, HostError> {
+            let identity = crate::compatibility::running_identity()?;
+            self.compatibility.require_feature(&identity, feature)?;
+            Ok(identity)
+        }
 
+        pub(super) fn require_resolved_identity(
+            approved: &crate::compatibility::ExecutableIdentity,
+            resolved: &GameIdentity,
+        ) -> Result<(), HostError> {
+            let actual = crate::compatibility::ExecutableIdentity {
+                pid: resolved.identity.pid,
+                creation_filetime: resolved.identity.creation_filetime,
+                path: resolved.executable.clone(),
+                version: resolved.file_version.display(),
+                sha256: nioh3_runtime::file_sha256(&resolved.executable)
+                    .map_err(HostError::from_runtime)?,
+            };
+            super::require_same_runtime_identity(approved, &actual)
+        }
+
+        fn require_resource_version(
+            &self,
+            actual: nioh3_runtime::FileVersion,
+        ) -> Result<(), HostError> {
+            if self.resource_version != Some(actual.tuple()) {
+                return Err(HostError::coded("COMPATIBILITY_RESOURCE_CONTEXT_CHANGED", format!(
+                    "Studio resources target {:?}; the running game is {}. Select the running Nioh3.exe in Settings, reopen Studio, and prepare the operation again.",
+                    self.resource_version, actual.display()
+                )));
+            }
+            Ok(())
+        }
+
+        /// A read handle on the process instance the compatibility review saw.
+        /// This also serves diagnostics, without approving a version or layout.
+        fn open_identity_reader(
+            identity: &crate::compatibility::ExecutableIdentity,
+        ) -> Result<nioh3_runtime::ReadOnlyProcess, HostError> {
+            let process = nioh3_runtime::ReadOnlyProcess::open(
+                identity.pid,
+                nioh3_runtime::GAME_MODULE_NAME,
+                Some(identity.creation_filetime),
+            )
+            .map_err(HostError::from_runtime)?;
+            if !process
+                .image_path()
+                .map_err(HostError::from_runtime)?
+                .eq_ignore_ascii_case(&identity.path)
+            {
+                return Err(HostError::rejected(
+                    "The running image changed since the compatibility review",
+                ));
+            }
+            Ok(process)
+        }
+
+        /// Read-only structural evidence, never a native binding or write grant.
+        fn compatibility_probe(identity: &crate::compatibility::ExecutableIdentity) -> Value {
+            match Self::open_identity_reader(identity) {
+                Ok(process) => {
+                    let memory = nioh3_runtime::ProcessInventoryMemory::new(&process);
+                    nioh3_runtime::compatibility_probe::probe_character_layouts(
+                        &memory,
+                        process.module_range(),
+                    )
+                }
+                Err(error) => json!({
+                    "status": "structure_only", "outcome": "unavailable",
+                    "observed_pid": identity.pid,
+                    "observed_creation_filetime": identity.creation_filetime.to_string(),
+                    "candidates": [], "note": error.message,
+                }),
+            }
+        }
+
+        /// One read-only handle on a registered build. Whole-file equality is
+        /// advisory; individual readers still enforce their own layout checks.
+        fn open_supported_reader() -> Result<nioh3_runtime::ReadOnlyProcess, HostError> {
             let pid = nioh3_runtime::single_process_id(nioh3_runtime::GAME_IMAGE_NAME)
                 .map_err(HostError::from_runtime)?;
             let creation = nioh3_runtime::process_creation_filetime(pid)
                 .map_err(HostError::from_runtime)?
-                .ok_or_else(|| HostError::from_runtime(RuntimeError::ProcessGone { pid }))?;
-            // One read-only handle owns the identity below: the birth guard is
-            // re-checked on it, the image path is queried through it, and the
-            // pinned version and digest come from that path, so the bytes that
-            // get versioned and hashed are the bytes this reader can read.
+                .ok_or_else(|| {
+                    HostError::from_runtime(nioh3_runtime::RuntimeError::ProcessGone { pid })
+                })?;
             let process = nioh3_runtime::ReadOnlyProcess::open(
                 pid,
                 nioh3_runtime::GAME_MODULE_NAME,
@@ -662,33 +939,28 @@ mod imp {
             .map_err(HostError::from_runtime)?;
             let executable = process.image_path().map_err(HostError::from_runtime)?;
             let status = nioh3_runtime::verify_game_executable(&executable);
-            let version = match (status.state, status.file_version) {
-                (GameCompatibility::Supported, Some(version)) => version,
-                (state, _) => {
-                    return Err(HostError::from_runtime(
-                        RuntimeError::GameExecutableUnsupported {
-                            path: executable,
-                            state: state.as_str(),
-                        },
-                    ))
-                }
-            };
-            if ![
-                FileVersion::new(2, 0, 0, 2),
-                FileVersion::new(2, 0, 1, 0),
-                FileVersion::new(2, 0, 2, 0),
-            ]
-            .contains(&version)
-            {
+            if !status.supported() {
                 return Err(HostError::from_runtime(
-                    RuntimeError::UnsupportedGameVersion {
-                        display: version.display(),
+                    nioh3_runtime::RuntimeError::GameExecutableUnsupported {
+                        path: executable,
+                        state: status.state.as_str(),
                     },
                 ));
             }
-            // Whole-file equality is advisory. Bounded reads, the loaded-player
-            // vtable and independent inventory/record checks remain authoritative.
             Ok(process)
+        }
+
+        fn open_supported_reader_for(
+            identity: &crate::compatibility::ExecutableIdentity,
+        ) -> Result<nioh3_runtime::ReadOnlyProcess, HostError> {
+            if !identity.supported() {
+                return Err(HostError::from_runtime(
+                    nioh3_runtime::RuntimeError::UnsupportedGameVersion {
+                        display: identity.version.clone(),
+                    },
+                ));
+            }
+            Self::open_identity_reader(identity)
         }
 
         /// `runtime.character_snapshot`: the loaded character's currencies and
@@ -699,9 +971,9 @@ mod imp {
             use nioh3_runtime::inventory::ProcessInventoryMemory;
             use nioh3_save::character::ItemContainer;
 
-            let process = Self::open_supported_reader()?;
-            let memory = ProcessInventoryMemory::new(&process);
             let executable = crate::compatibility::running_identity()?;
+            let process = Self::open_supported_reader_for(&executable)?;
+            let memory = ProcessInventoryMemory::new(&process);
             let version = nioh3_runtime::character::character_layout(&executable.version)
                 .ok_or_else(HostError::invalid_request)?;
             let read = nioh3_runtime::character::read_character_with_layout(&memory, version)
@@ -815,8 +1087,7 @@ mod imp {
         /// slot exactly as the game frees one and is refused while either
         /// equipment set wears the item.
         fn character_edit(&mut self, params: &Value) -> Result<Value, HostError> {
-            let executable = crate::compatibility::running_identity()?;
-            self.compatibility.require(&executable)?;
+            let executable = self.admit_runtime_feature("live_character")?;
             use nioh3_runtime::character::{
                 LiveCurrency, LiveEdit, LiveEditOutcome, LiveItemContainer,
             };
@@ -832,7 +1103,7 @@ mod imp {
                 .and_then(Value::as_u64)
                 .and_then(|pid| u32::try_from(pid).ok())
                 .ok_or_else(HostError::invalid_request)?;
-            let process = Self::open_supported_reader()?;
+            let process = Self::open_supported_reader_for(&executable)?;
             let memory = ProcessInventoryMemory::new(&process);
             let version = nioh3_runtime::character::character_layout(&executable.version)
                 .ok_or_else(HostError::invalid_request)?;
@@ -1127,17 +1398,32 @@ mod imp {
 
         /// `RuntimeApplication.start_override`.
         pub(super) fn start_override(&mut self, profile: &Value) -> Result<Value, HostError> {
+            let approved = self.admit_runtime_feature("temporary_override")?;
+            if profile
+                .get("challenge_capacity")
+                .is_some_and(|value| !value.is_null())
+            {
+                self.compatibility
+                    .require_feature(&approved, "challenge_capacity_override")?;
+            }
             if !self.safe_to_shutdown()? {
                 return Err(HostError::rejected(
                     "Stop the existing override and wait for pending native calls",
                 ));
             }
+            let resolved = self.override_identity()?;
+            Self::require_resolved_identity(&approved, &resolved)?;
+            self.require_resource_version(resolved.file_version)?;
             let GameIdentity {
                 identity,
                 profile: runtime_profile,
                 ..
-            } = self.override_identity()?;
-            let sessions = self.build_sessions(profile, identity.pid, runtime_profile)?;
+            } = resolved;
+            let sessions = self
+                .build_sessions(profile, identity.pid, runtime_profile)?
+                .into_iter()
+                .map(|session| session.with_expected_creation(approved.creation_filetime))
+                .collect();
             let status = self
                 .host
                 .start_override(sessions)
@@ -1277,19 +1563,26 @@ mod imp {
             })
         }
 
-        /// The reviewed live-addition application, built on first use.
-        ///
-        /// The binding is selected by the exact running executable version:
-        /// PC v2.01 keeps the shipped layout and PC v2.02 selects the same
-        /// accepted binding the native acceptance observed. Every other version
-        /// selects nothing and refuses here. The executor still proves the
-        /// profile id and, for a pinned binding, the exact executable digest
-        /// before any read or dispatch.
-        ///
-        /// Construction needs the real game identity because the native
-        /// transport attaches to that process; with no game this is the shipped
-        /// process-absence failure rather than a refusal to serve.
+        /// Build the insertion adapter from the actual process and its existing
+        /// operation-specific binding. The executor checks the target's native
+        /// code and containers, without loading a generation research profile.
+        /// Cached native owners and durable operations retain their original
+        /// process lifetime; only an idle adapter may be rebuilt after restart.
         fn live_add_application(&mut self) -> Result<&mut LiveAddApplication, HostError> {
+            // Receipt recovery needs no generation resources. A context loaded
+            // later is used only by future preparations; never discard owners.
+            let candidate_context = self
+                .context
+                .as_ref()
+                .map(|context| context.digest().to_string());
+            if self.live_add_context != candidate_context
+                && self
+                    .live_add
+                    .as_mut()
+                    .is_some_and(|app| app.safe_to_shutdown())
+            {
+                self.live_add = None;
+            }
             // The cached executor is bound to one game process lifetime. When the
             // game has since exited or restarted and the executor owns no native
             // state, rebuild it for the running game instead of querying a dead
@@ -1297,8 +1590,8 @@ mod imp {
             // lifetime, and durable operations stay bound to the process they
             // were planned against.
             if self.live_add.is_some() {
-                if let Ok(current) = self.live_add_identity() {
-                    let running = (current.identity.pid, current.identity.creation_filetime);
+                if let Ok(current) = crate::compatibility::running_identity() {
+                    let running = (current.pid, current.creation_filetime);
                     if self.live_add_process != Some(running)
                         && self
                             .live_add
@@ -1310,22 +1603,28 @@ mod imp {
                 }
             }
             if self.live_add.is_none() {
-                let identity = self.live_add_identity()?;
-                let (layout, display_version) =
-                    Self::live_add_binding_for_version(identity.file_version)?;
+                let identity = crate::compatibility::running_identity()?;
+                crate::compatibility::validate_feature(&identity, "live_scroll_add")?;
+                let process = Self::open_identity_reader(&identity)?;
+                let version =
+                    nioh3_runtime::file_version(&identity.path).map_err(HostError::from_runtime)?;
+                let (layout, display_version) = Self::live_add_binding_for_version(version)?;
+                // Prove the module belongs to this process before constructing the transport.
+                let _module = process.module_range();
                 let directory = super::native_executor_directory(&self.state_root);
                 let transport = NativeDebugTransport::new(
-                    identity.identity.pid,
+                    identity.pid,
                     *layout,
                     nioh3_runtime::GAME_MODULE_NAME,
                     &directory,
                 )
-                .map_err(HostError::from_runtime)?;
+                .map_err(HostError::from_runtime)?
+                .with_expected_creation(identity.creation_filetime);
                 let executor = NativeLiveAddExecutor::new(transport, *layout, display_version)
                     .with_compatible_executable();
                 let application = LiveAddApplication::new(
                     &self.state_root,
-                    self.context.digest(),
+                    candidate_context.as_deref().unwrap_or(""),
                     Box::new(executor),
                     Box::new(crate::runtime_backup::SaveBackupAdapter::new(
                         &self.state_root,
@@ -1334,8 +1633,26 @@ mod imp {
                 )
                 .map_err(HostError::from_runtime)?;
                 self.live_add = Some(application);
-                self.live_add_process =
-                    Some((identity.identity.pid, identity.identity.creation_filetime));
+                self.live_add_context = candidate_context;
+                self.live_add_process = Some((identity.pid, identity.creation_filetime));
+            }
+            self.live_add
+                .as_mut()
+                .ok_or_else(|| HostError::rejected("live-add application unavailable"))
+        }
+
+        fn live_add_application_for(
+            &mut self,
+            approved: &crate::compatibility::ExecutableIdentity,
+        ) -> Result<&mut LiveAddApplication, HostError> {
+            let actual = crate::compatibility::running_identity()?;
+            super::require_same_runtime_identity(approved, &actual)?;
+            self.live_add_application()?;
+            if self.live_add_process != Some((approved.pid, approved.creation_filetime)) {
+                return Err(HostError::coded("COMPATIBILITY_IDENTITY_CHANGED", format!(
+                    "Expected PID {} creation {}; the live-add adapter is bound to {:?}. Reconnect and prepare a new plan; recover any uncertain receipt before retrying.",
+                    approved.pid, approved.creation_filetime, self.live_add_process
+                )));
             }
             self.live_add
                 .as_mut()
@@ -1345,19 +1662,35 @@ mod imp {
         fn equipment_application(
             &mut self,
             operation: Option<&str>,
+            approved: Option<&crate::compatibility::ExecutableIdentity>,
         ) -> Result<&mut nioh3_runtime::mutation::equipment_add::EquipmentAddition, HostError>
         {
             use nioh3_runtime::mutation::equipment_add::EquipmentAddition;
+            if let Some(expected) = approved {
+                let actual = crate::compatibility::running_identity()?;
+                super::require_same_runtime_identity(expected, &actual)?;
+            }
             let pid = if let Some(id) = operation {
                 EquipmentAddition::operation_pid(&self.state_root, id)
                     .map_err(HostError::from_runtime)?
+            } else if let Some(expected) = approved {
+                Self::open_supported_reader_for(expected)?.identity().pid
             } else {
                 Self::open_supported_reader()?.identity().pid
             };
+            if approved.is_some_and(|expected| expected.pid != pid) {
+                return Err(HostError::coded("COMPATIBILITY_IDENTITY_CHANGED", format!(
+                    "The reviewed game PID is {}; this equipment plan belongs to PID {pid}. Reconnect and prepare a new plan; recover any uncertain receipt before retrying.",
+                    approved.map(|expected| expected.pid).unwrap_or_default()
+                )));
+            }
+            let approved_process =
+                approved.map(|identity| (identity.pid, identity.creation_filetime));
             if self
                 .equipment_add
                 .as_ref()
                 .is_none_or(|app| app.pid() != pid)
+                || (approved.is_some() && self.equipment_add_process != approved_process)
             {
                 if self
                     .equipment_add
@@ -1368,11 +1701,16 @@ mod imp {
                         "Equipment native owner is still retained",
                     ));
                 }
-                self.equipment_add = Some(
-                    EquipmentAddition::new(pid, &self.state_root)
-                        .map_err(HostError::from_runtime)?
-                        .with_compatible_executable(),
-                );
+                let application = EquipmentAddition::new(pid, &self.state_root)
+                    .map_err(HostError::from_runtime)?
+                    .with_compatible_executable();
+                self.equipment_add = Some(match approved {
+                    Some(identity) => {
+                        application.with_expected_creation(identity.creation_filetime)
+                    }
+                    None => application,
+                });
+                self.equipment_add_process = approved_process;
             }
             self.equipment_add
                 .as_mut()
@@ -1423,11 +1761,20 @@ mod imp {
             params: &Value,
         ) -> Result<Value, HostError> {
             let operation_id = param_str(params, "operation_id")?;
-            let application = self.live_add_application()?;
-            let snapshot = match operation {
-                "live_add_status" => application.status(&operation_id),
-                "live_add_recover" => application.recover(&operation_id),
-                _ => application.cancel(&operation_id),
+            let snapshot = if operation == "live_add_recover" {
+                self.live_add_application()?.recover(&operation_id)
+            } else {
+                // These application methods only read or claim the durable journal.
+                // Keep cached native ownership untouched and work after a worker restart.
+                let operations = nioh3_runtime::mutation::operations::LiveAddOperations::new(
+                    &self.state_root.join("live-add"),
+                )
+                .map_err(HostError::from_runtime)?;
+                if operation == "live_add_status" {
+                    operations.snapshot(&operation_id)
+                } else {
+                    operations.cancel(&operation_id)
+                }
             }
             .map_err(HostError::from_runtime)?;
             Ok(Self::live_add_result(snapshot.to_json()))
@@ -1435,9 +1782,12 @@ mod imp {
 
         /// `RuntimeApplication.live_batch_status`: the reduced UI envelope.
         fn live_batch_status(&mut self, batch_id: &str) -> Result<Value, HostError> {
-            let application = self.live_add_application()?;
-            let value =
-                LiveAddBatch::status(application, batch_id).map_err(HostError::from_runtime)?;
+            let operations = nioh3_runtime::mutation::operations::LiveAddOperations::new(
+                &self.state_root.join("live-add"),
+            )
+            .map_err(HostError::from_runtime)?;
+            let value = LiveAddBatch::status_from_operations(&operations, batch_id)
+                .map_err(HostError::from_runtime)?;
             let children = value
                 .get("children")
                 .and_then(Value::as_array)
@@ -1473,7 +1823,7 @@ mod imp {
                 .get("context_digest")
                 .and_then(Value::as_str)
                 .ok_or_else(HostError::invalid_request)?;
-            if digest != self.context.digest() {
+            if digest != self.generation_context()?.digest() {
                 return Err(HostError::rejected(
                     "Template context differs from the running core",
                 ));
@@ -1536,7 +1886,12 @@ mod imp {
                     release_file,
                 });
             }
+            // The scripted branch above never allocates in another process.
+            // Every real generate/search/grace capture enters through here.
+            let consent_identity = self.admit_runtime_feature("native_generation")?;
             let identity = self.oracle_identity()?;
+            Self::require_resolved_identity(&consent_identity, &identity)?;
+            self.require_resource_version(identity.file_version)?;
             let mut oracle = NativeOracle::new(
                 identity.identity.pid,
                 identity.module.base,
@@ -1546,7 +1901,7 @@ mod imp {
             let session =
                 RemoteSession::open(identity.identity.pid).map_err(HostError::from_runtime)?;
             oracle
-                .open(Box::new(session))
+                .open_bound(Box::new(session), identity.identity, identity.module)
                 .map_err(HostError::from_runtime)?;
             Ok(OracleHandle::Native(Box::new(oracle)))
         }
@@ -1666,7 +2021,7 @@ mod imp {
             };
             let mut payload = nioh3_worker::payload::candidate_payload_json(
                 &candidate,
-                self.context.digest(),
+                self.generation_context()?.digest(),
                 &composition,
             );
             // `worker_contracts.candidate_payload(candidate, service, evidence=...)`
@@ -1682,8 +2037,11 @@ mod imp {
             }
             // The shipped search also retains the broker-only transfer block so
             // `runtime.export` can hand the same candidate to the save side.
-            let wire =
-                nioh3_worker::payload::transfer_json(&candidate, self.context.digest(), level);
+            let wire = nioh3_worker::payload::transfer_json(
+                &candidate,
+                self.generation_context()?.digest(),
+                level,
+            );
             if let Some(candidate_id) = wire.get("candidate_id").and_then(Value::as_str) {
                 self.candidates
                     .insert(candidate_id.to_string(), wire.clone());
@@ -1718,7 +2076,7 @@ mod imp {
                     .and_then(Value::as_str)
                     .ok_or_else(HostError::invalid_request)?
                     .to_string();
-                let digest = self.context.digest().to_string();
+                let digest = self.generation_context()?.digest().to_string();
                 let maps = crate::maps::prepare_maps(
                     handle.batch(),
                     &self.state_root,
@@ -1874,7 +2232,7 @@ mod imp {
                 self.retired_oracles.push(owner);
             }
             let mapping = outcome?;
-            let digest = self.context.digest().to_string();
+            let digest = self.generation_context()?.digest().to_string();
             let path = crate::save_app::grace_map_cache_path(
                 &self.state_root,
                 &fingerprint,
@@ -1899,11 +2257,18 @@ mod imp {
         }
 
         fn context_payload(&self) -> Value {
-            crate::app::protected_context_payload(&self.context)
+            self.context
+                .as_ref()
+                .map(crate::app::protected_context_payload)
+                .unwrap_or(Value::Null)
         }
 
         fn direct(&mut self, method: &str, params: &Value) -> Result<Value, HostError> {
             if method == "runtime.compatibility" {
+                if params["action"] == "cancel" {
+                    self.compatibility.cancel();
+                    return Ok(json!({"compatibility":{"cancelled":true,"accepted":false}}));
+                }
                 let identity = match crate::compatibility::running_identity() {
                     Ok(value) => value,
                     Err(error)
@@ -1914,20 +2279,30 @@ mod imp {
                     }
                     Err(error) => return Err(error),
                 };
-                let report = match params["action"].as_str() {
+                let mut report = match params["action"].as_str() {
                     Some("inspect") => self.compatibility.report(&identity),
-                    Some("prepare") => self.compatibility.prepare(
-                        &identity,
-                        &self.state_root,
-                        &crate::compatibility::automatic_sources(),
-                    ),
+                    Some("prepare") => match crate::compatibility::automatic_sources() {
+                        Ok(sources) => {
+                            self.compatibility
+                                .prepare(&identity, &self.state_root, &sources)
+                        }
+                        Err(error) => self.compatibility.prepare_failed(&identity, &error.message),
+                    },
                     Some("accept") => self.compatibility.accept(
                         &identity,
+                        params["plan_id"]
+                            .as_str()
+                            .ok_or_else(HostError::invalid_request)?,
                         params["confirmed"] == true,
                         params["backup_confirmed"] == true,
                     )?,
                     _ => return Err(HostError::invalid_request()),
                 };
+                if !identity.supported()
+                    && matches!(params["action"].as_str(), Some("inspect" | "prepare"))
+                {
+                    report["probe"] = Self::compatibility_probe(&identity);
+                }
                 return Ok(json!({"compatibility":report}));
             }
             if method == "runtime.status" {
@@ -1955,11 +2330,7 @@ mod imp {
                 return crate::equipment_seeds::equipment_seeds_json(&self.data_root, params);
             }
             if method == "runtime.scroll_completion_predict" {
-                return crate::scroll_completion::prediction_json(
-                    &self.data_root,
-                    &self.context,
-                    params,
-                );
+                return self.completion_prediction(params);
             }
             Err(HostError::rejected(format!(
                 "INVALID_REQUEST: {method} is not an inline protected method"
@@ -1972,6 +2343,13 @@ mod imp {
             params: Value,
             ctx: &JobContext,
         ) -> Result<Value, HostError> {
+            if matches!(
+                operation,
+                "generate" | "search" | "capture_grace" | "start_override"
+            ) || matches!(operation, "live_add_prepare" | "live_batch_prepare")
+            {
+                self.ensure_generation_context()?;
+            }
             match operation {
                 "status" => self.status(),
                 "character_edit" => self.character_edit(&params),
@@ -2014,17 +2392,10 @@ mod imp {
                     self.count_recover(&operation_id)
                 }
                 "equipment_add_prepare" => {
-                    let executable = crate::compatibility::running_identity()?;
-                    self.compatibility.require(&executable)?;
+                    let approved = self.admit_runtime_feature("live_equipment_add")?;
                     if !self.safe_to_shutdown()? {
                         return Err(HostError::rejected(
                             "Equipment addition requires an idle runtime host",
-                        ));
-                    }
-                    if !matches!(&self.context,nioh3_worker::EngineContext::Production(c) if c.game_file_version==nioh3_worker::GameFileVersion(2,0,2,0))
-                    {
-                        return Err(HostError::rejected(
-                            "Equipment addition requires PC 2.0.2.0",
                         ));
                     }
                     let item_id = params
@@ -2040,15 +2411,33 @@ mod imp {
                         ));
                     }
                     let id = param_str(&params, "operation_id")?;
+                    let source = match params.get("save_path").and_then(Value::as_str) {
+                        Some(path) => PathBuf::from(path),
+                        None => {
+                            let sources = crate::compatibility::automatic_sources()?;
+                            match sources.as_slice() {
+                                [source] => source.clone(),
+                                _ => return Err(HostError::coded("EQUIPMENT_BACKUP_SOURCE_REQUIRED",
+                                    "More than one save was found. Select the current character's SAVEDATA.BIN backup path, then prepare again; no native preview has run.")),
+                            }
+                        }
+                    };
+                    let checkpoint = crate::runtime_backup::prepare_equipment_checkpoint(
+                        &self.state_root,
+                        &source,
+                        &id,
+                    )
+                    .map_err(HostError::from_runtime)?;
+                    let mut params = params;
+                    params["save_checkpoint"] = checkpoint;
                     let result = self
-                        .equipment_application(None)?
+                        .equipment_application(None, Some(&approved))?
                         .prepare(&id, &params)
                         .map_err(HostError::from_runtime)?;
                     self.equipment_add_result(result)
                 }
                 "equipment_add_execute" => {
-                    let executable = crate::compatibility::running_identity()?;
-                    self.compatibility.require(&executable)?;
+                    let approved = self.admit_runtime_feature("live_equipment_add")?;
                     if !self.safe_to_shutdown()? {
                         return Err(HostError::rejected(
                             "Equipment addition requires an idle runtime host",
@@ -2057,7 +2446,7 @@ mod imp {
                     let id = param_str(&params, "operation_id")?;
                     let digest = param_str(&params, "plan_digest")?;
                     let result = self
-                        .equipment_application(Some(&id))?
+                        .equipment_application(Some(&id), Some(&approved))?
                         .execute(&id, &digest)
                         .map_err(HostError::from_runtime)?;
                     self.equipment_add_result(result)
@@ -2067,7 +2456,7 @@ mod imp {
                     if let Some(state)=nioh3_runtime::mutation::equipment_add::EquipmentAddition::unregistered_status(&self.state_root,&id).map_err(HostError::from_runtime)? {
                         return self.equipment_add_result(state);
                     }
-                    let application = self.equipment_application(Some(&id))?;
+                    let application = self.equipment_application(Some(&id), None)?;
                     let result = match operation {
                         "equipment_add_recover" => application.recover(&id),
                         "equipment_add_cancel" => application.cancel(&id),
@@ -2077,8 +2466,7 @@ mod imp {
                     self.equipment_add_result(result)
                 }
                 "live_add_prepare" => {
-                    let executable = crate::compatibility::running_identity()?;
-                    self.compatibility.require(&executable)?;
+                    let approved = self.admit_runtime_feature("live_scroll_add")?;
                     if !self.safe_to_shutdown()? {
                         return Err(HostError::rejected(
                             "Live addition requires an idle runtime host",
@@ -2093,15 +2481,14 @@ mod imp {
                         .get("previous_operation_id")
                         .and_then(Value::as_str)
                         .map(str::to_string);
-                    let application = self.live_add_application()?;
+                    let application = self.live_add_application_for(&approved)?;
                     let prepared = application
                         .prepare(&candidate, &save_path, previous.as_deref())
                         .map_err(HostError::from_runtime)?;
                     Ok(Self::live_add_result(prepared.to_json()))
                 }
                 "live_add_execute" => {
-                    let executable = crate::compatibility::running_identity()?;
-                    self.compatibility.require(&executable)?;
+                    let approved = self.admit_runtime_feature("live_scroll_add")?;
                     if !self.safe_to_shutdown()? {
                         return Err(HostError::rejected(
                             "Resolve existing runtime ownership before insertion",
@@ -2109,7 +2496,7 @@ mod imp {
                     }
                     let operation_id = param_str(&params, "operation_id")?;
                     let plan_digest = param_str(&params, "plan_digest")?;
-                    let application = self.live_add_application()?;
+                    let application = self.live_add_application_for(&approved)?;
                     let snapshot = application
                         .execute(&operation_id, &plan_digest)
                         .map_err(HostError::from_runtime)?;
@@ -2119,8 +2506,7 @@ mod imp {
                     self.live_add_snapshot(operation, &params)
                 }
                 "live_batch_prepare" => {
-                    let executable = crate::compatibility::running_identity()?;
-                    self.compatibility.require(&executable)?;
+                    let approved = self.admit_runtime_feature("live_scroll_add")?;
                     if !self.safe_to_shutdown()? {
                         return Err(HostError::rejected(
                             "Live addition requires an idle runtime host",
@@ -2132,7 +2518,7 @@ mod imp {
                         .cloned()
                         .ok_or_else(HostError::invalid_request)?;
                     let save_path = PathBuf::from(param_str(&params, "save_path")?);
-                    let application = self.live_add_application()?;
+                    let application = self.live_add_application_for(&approved)?;
                     let plan = LiveAddBatch::prepare(application, &candidates, &save_path)
                         .map_err(HostError::from_runtime)?;
                     let batch_id = plan
@@ -2143,8 +2529,7 @@ mod imp {
                     self.live_batch_status(&batch_id)
                 }
                 "live_batch_execute" => {
-                    let executable = crate::compatibility::running_identity()?;
-                    self.compatibility.require(&executable)?;
+                    let approved = self.admit_runtime_feature("live_scroll_add")?;
                     if !self.safe_to_shutdown()? {
                         return Err(HostError::rejected(
                             "Resolve existing runtime ownership before insertion",
@@ -2152,7 +2537,7 @@ mod imp {
                     }
                     let batch_id = param_str(&params, "batch_id")?;
                     let plan_digest = param_str(&params, "plan_digest")?;
-                    let application = self.live_add_application()?;
+                    let application = self.live_add_application_for(&approved)?;
                     LiveAddBatch::execute(
                         application,
                         &batch_id,
@@ -2165,8 +2550,11 @@ mod imp {
                 }
                 "live_batch_cancel" => {
                     let batch_id = param_str(&params, "batch_id")?;
-                    let application = self.live_add_application()?;
-                    LiveAddBatch::cancel(application, &batch_id)
+                    let operations = nioh3_runtime::mutation::operations::LiveAddOperations::new(
+                        &self.state_root.join("live-add"),
+                    )
+                    .map_err(HostError::from_runtime)?;
+                    LiveAddBatch::cancel_from_operations(&operations, &batch_id)
                         .map_err(HostError::from_runtime)?;
                     self.live_batch_status(&batch_id)
                 }
@@ -2258,6 +2646,13 @@ mod imp {
     };
 
     impl RuntimeApplication {
+        pub(super) fn admit_runtime_feature(
+            &mut self,
+            _feature: &str,
+        ) -> Result<crate::compatibility::ExecutableIdentity, HostError> {
+            Self::unsupported()
+        }
+
         fn unsupported<T>() -> Result<T, HostError> {
             Err(HostError::from_runtime(
                 nioh3_runtime::RuntimeError::UnsupportedPlatform,
@@ -2295,7 +2690,10 @@ mod imp {
         }
 
         fn context_payload(&self) -> Value {
-            crate::app::protected_context_payload(&self.context)
+            self.context
+                .as_ref()
+                .map(crate::app::protected_context_payload)
+                .unwrap_or(Value::Null)
         }
 
         fn direct(&mut self, method: &str, params: &Value) -> Result<Value, HostError> {
@@ -2324,11 +2722,7 @@ mod imp {
                 return crate::equipment_seeds::equipment_seeds_json(&self.data_root, params);
             }
             if method == "runtime.scroll_completion_predict" {
-                return crate::scroll_completion::prediction_json(
-                    &self.data_root,
-                    &self.context,
-                    params,
-                );
+                return self.completion_prediction(params);
             }
             Err(HostError::rejected(format!(
                 "INVALID_REQUEST: {method} is not an inline protected method"
@@ -2515,5 +2909,224 @@ mod profile_dir_tests {
                 profile: "PC v2.02".to_string(),
             }
         );
+    }
+}
+
+#[cfg(all(test, windows))]
+mod receipt_control_tests {
+    #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+
+    use super::*;
+    use nioh3_runtime::mutation::native_executor::AdmissionLock;
+    use nioh3_runtime::mutation::operations::LiveAddOperations;
+    use serde_json::json;
+
+    const OPERATION: &str = "20000000-0000-4000-8000-000000000001";
+    const BATCH: &str = "20000000-0000-4000-8000-000000000002";
+
+    struct Fixture {
+        root: PathBuf,
+        operations: LiveAddOperations,
+    }
+
+    impl Fixture {
+        fn new() -> Self {
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let root = std::env::temp_dir().join(format!(
+                "nioh3-receipt-control-{}-{stamp}",
+                std::process::id()
+            ));
+            let operations = LiveAddOperations::new(&root.join("live-add")).unwrap();
+            Self { root, operations }
+        }
+
+        fn prepare(&self) -> nioh3_runtime::mutation::operations::OperationSnapshot {
+            self.operations
+                .prepare(
+                    OPERATION,
+                    &json!({
+                        "operation_id": OPERATION,
+                        "pid": u32::MAX,
+                        "process_creation_time": "owned-journal-fixture",
+                    }),
+                )
+                .unwrap()
+        }
+
+        fn batch(&self) -> PathBuf {
+            let first = self.prepare();
+            let plan = json!({
+                "batch_id": BATCH,
+                "candidates": [{"candidate_id":"owned-candidate"}],
+                "first": first.to_json(),
+                "save_path": "owned-journal-only-no-save",
+            });
+            let digest = nioh3_save::save::sha256_hex(
+                nioh3_runtime::mutation::count::canonical_json(&plan).as_bytes(),
+            );
+            let directory = self.root.join("live-add/batches").join(BATCH);
+            std::fs::create_dir_all(&directory).unwrap();
+            std::fs::write(
+                directory.join("plan.json"),
+                serde_json::to_vec(&json!({"plan":plan,"digest":digest})).unwrap(),
+            )
+            .unwrap();
+            directory
+        }
+
+        fn invoke(&self, operation: &'static str, params: Value) -> Value {
+            // Every call starts a fresh application, with no selected image,
+            // no loaded resources, and only the previous worker's journal.
+            let mut application = RuntimeApplication::deferred(
+                self.root.clone(),
+                &self.root.join("missing-data"),
+                &self.root.join("missing-contracts"),
+                None,
+                None,
+            )
+            .unwrap();
+            let jobs = crate::jobs::ProtectedJobs::new();
+            jobs.start(operation, false, move |context| {
+                let result = application.run(operation, params, context);
+                assert!(
+                    application.live_add.is_none(),
+                    "No native adapter may be created"
+                );
+                assert!(
+                    application.context.is_none(),
+                    "No generation resources may load"
+                );
+                result
+            })
+            .unwrap();
+            jobs.join();
+            jobs.current()["job"].clone()
+        }
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+
+    #[test]
+    fn a_restarted_worker_reads_and_cancels_a_prepared_scroll_without_game_or_resources() {
+        let fixture = Fixture::new();
+        let prepared = fixture.prepare();
+        let params = json!({"operation_id":OPERATION});
+        let status = fixture.invoke("live_add_status", params.clone());
+        assert_eq!(status["state"], "completed", "{status}");
+        assert_eq!(status["result"]["live_add"]["state"], "prepared");
+        assert_eq!(
+            status["result"]["live_add"]["plan_digest"],
+            prepared.plan_digest
+        );
+
+        let cancelled = fixture.invoke("live_add_cancel", params.clone());
+        assert_eq!(cancelled["state"], "completed", "{cancelled}");
+        assert_eq!(cancelled["result"]["live_add"]["state"], "cancelled");
+        let restarted = fixture.invoke("live_add_status", params);
+        assert_eq!(restarted["result"]["live_add"]["state"], "cancelled");
+    }
+
+    #[test]
+    fn a_restarted_worker_preserves_an_uncertain_scroll_claim() {
+        let fixture = Fixture::new();
+        let prepared = fixture.prepare();
+        fixture
+            .operations
+            .claim(OPERATION, &prepared.plan_digest)
+            .unwrap();
+        let claim_path = fixture
+            .operations
+            .directory(OPERATION)
+            .unwrap()
+            .join("claim.json");
+        let claim = std::fs::read(&claim_path).unwrap();
+        let params = json!({"operation_id":OPERATION});
+        let status = fixture.invoke("live_add_status", params.clone());
+        assert_eq!(status["result"]["live_add"]["state"], "uncertain");
+        let cancelled = fixture.invoke("live_add_cancel", params);
+        assert_eq!(cancelled["state"], "failed", "{cancelled}");
+        assert_eq!(std::fs::read(claim_path).unwrap(), claim);
+        assert_eq!(
+            fixture
+                .operations
+                .snapshot(OPERATION)
+                .unwrap()
+                .state
+                .as_str(),
+            "uncertain"
+        );
+    }
+
+    #[test]
+    fn a_restarted_worker_cancels_a_prepared_batch_without_releasing_a_native_lock() {
+        let fixture = Fixture::new();
+        fixture.batch();
+        let native_directory = fixture.root.join("live-add/native-executor");
+        let _held = AdmissionLock::acquire(&native_directory).unwrap();
+        let params = json!({"batch_id":BATCH});
+        let status = fixture.invoke("live_batch_status", params.clone());
+        assert_eq!(status["state"], "completed", "{status}");
+        assert_eq!(status["result"]["live_batch"]["state"], "prepared");
+        let cancelled = fixture.invoke("live_batch_cancel", params.clone());
+        assert_eq!(cancelled["state"], "completed", "{cancelled}");
+        assert_eq!(cancelled["result"]["live_batch"]["state"], "cancelled");
+        let restarted = fixture.invoke("live_batch_status", params);
+        assert_eq!(restarted["result"]["live_batch"]["state"], "cancelled");
+        assert_eq!(
+            fixture
+                .operations
+                .snapshot(OPERATION)
+                .unwrap()
+                .state
+                .as_str(),
+            "cancelled"
+        );
+        assert!(AdmissionLock::acquire(&native_directory).is_err());
+        assert!(native_directory.join("admission.lock").is_file());
+    }
+
+    #[test]
+    fn a_restarted_worker_reports_an_uncertain_batch_without_cancelling_its_child() {
+        let fixture = Fixture::new();
+        let directory = fixture.batch();
+        let (digest, _) = fixture.operations.plan(OPERATION).unwrap();
+        fixture.operations.claim(OPERATION, &digest).unwrap();
+        let envelope: Value =
+            serde_json::from_slice(&std::fs::read(directory.join("plan.json")).unwrap()).unwrap();
+        std::fs::write(
+            directory.join("claim.json"),
+            serde_json::to_vec(&json!({"digest":envelope["digest"]})).unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            directory.join("child-000.json"),
+            serde_json::to_vec(&json!({"operation_id":OPERATION})).unwrap(),
+        )
+        .unwrap();
+        let claim = std::fs::read(directory.join("claim.json")).unwrap();
+        let params = json!({"batch_id":BATCH});
+        let status = fixture.invoke("live_batch_status", params.clone());
+        assert_eq!(status["state"], "completed", "{status}");
+        assert_eq!(status["result"]["live_batch"]["state"], "uncertain");
+        let cancelled = fixture.invoke("live_batch_cancel", params);
+        assert_eq!(cancelled["state"], "failed", "{cancelled}");
+        assert_eq!(std::fs::read(directory.join("claim.json")).unwrap(), claim);
+        assert_eq!(
+            fixture
+                .operations
+                .snapshot(OPERATION)
+                .unwrap()
+                .state
+                .as_str(),
+            "uncertain"
+        );
+        assert!(!directory.join("receipt.json").exists());
     }
 }

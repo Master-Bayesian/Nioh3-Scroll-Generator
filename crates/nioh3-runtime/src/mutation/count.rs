@@ -177,6 +177,7 @@ pub struct WindowsCountMemory<P: CountProcesses> {
     layout: CountLayout,
     processes: P,
     reader: Option<Box<dyn crate::mutation::memory::TargetProcess>>,
+    expected_creation: Option<u64>,
 }
 
 impl<P: CountProcesses> WindowsCountMemory<P> {
@@ -187,14 +188,29 @@ impl<P: CountProcesses> WindowsCountMemory<P> {
             layout,
             processes,
             reader: None,
+            expected_creation: None,
         }
+    }
+
+    /// Bind new mutation admission to the process instance the host reviewed.
+    /// Receipt-only status/recovery keeps its existing unbound read adapter.
+    pub fn with_expected_creation(mut self, creation: u64) -> Self {
+        self.expected_creation = Some(creation);
+        self
     }
 
     fn reader(
         &mut self,
     ) -> Result<&mut Box<dyn crate::mutation::memory::TargetProcess>, RuntimeError> {
         if self.reader.is_none() {
-            self.reader = Some(self.processes.open_read(self.pid)?);
+            let mut reader = self.processes.open_read(self.pid)?;
+            if let Some(expected) = self.expected_creation {
+                if let Err(error) = verify_count_process(&mut *reader, self.pid, expected) {
+                    reader.close();
+                    return Err(error);
+                }
+            }
+            self.reader = Some(reader);
         }
         self.reader.as_mut().ok_or(RuntimeError::SessionNotOpen)
     }
@@ -312,15 +328,38 @@ impl<P: CountProcesses> CountMemory for WindowsCountMemory<P> {
             return Err(RuntimeError::CountInstanceChanged);
         }
         let mut writer = self.processes.open_write(self.pid)?;
-        writer.write(
-            expected.address + self.layout.count_offset as u64,
-            &[desired],
-        )?;
+        let write = (|| {
+            if let Some(creation) = self.expected_creation {
+                verify_count_process(&mut *writer, self.pid, creation)?;
+            }
+            writer.write(
+                expected.address + self.layout.count_offset as u64,
+                &[desired],
+            )
+        })();
         writer.close();
+        write?;
         let record_size = self.layout.record_size;
         let reader = self.reader()?;
         reader.read(expected.address, record_size)
     }
+}
+
+fn verify_count_process(
+    process: &mut dyn crate::mutation::memory::TargetProcess,
+    expected_pid: u32,
+    expected_creation: u64,
+) -> Result<(), RuntimeError> {
+    let actual_pid = process.pid();
+    let actual_creation = process.creation_filetime()?;
+    if actual_pid != expected_pid || actual_creation != Some(expected_creation) {
+        return Err(RuntimeError::CountSourceChanged {
+            detail: format!(
+                "COMPATIBILITY_IDENTITY_CHANGED: count target expected PID {expected_pid} creation {expected_creation}; actual PID {actual_pid} creation {actual_creation:?}. Reconnect to the current game and prepare/review a new count plan; no count write was performed."
+            ),
+        });
+    }
+    Ok(())
 }
 
 impl<P: CountProcesses> WindowsCountMemory<P> {

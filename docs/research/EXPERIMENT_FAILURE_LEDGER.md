@@ -3931,3 +3931,50 @@ when comparing the outer executable. This changed verifier spelling only;
 the frozen product and its hashes stayed unchanged. All receipts are retained.
 
 **Skill promotion:** None. Bounded acceptance and startup-error repair.
+
+## 2026-10-02: source acceptance gates exposed fixture and baseline lint issues
+
+**Objective:** validate the bounded save-refusal and compatibility repairs before integration.
+**Observed symptoms:** full TypeScript checking rejected the new fixture; protected all-target Clippy reported 13 test unwraps; formatting checking found module-order differences.
+**Causes:** SaveGateway permits a wider result union than OperationsApi; equipment_seeds test unwraps predate this task (git blame 2d133f7); lib.rs had baseline module-order drift.
+**Disposition:** return explicit, typed ProtectedJob responses in the fixture; allow unwrap_used only in the equipment_seeds test module, matching equipment_rules and retaining production denial; apply the formatter's module ordering.
+**Evidence root:** D:/Nioh3_v080_deliverables/deliverables/codex-astra-audit-20261002/logs/.
+**Reproduction:** original failures remain in typecheck.log, protected-clippy.log and protected-fmt.log; save-session-red.log preserves the separate expected regression failure before the product fix.
+**Final checks:** typecheck-final.log and protected-clippy-final.log pass; protected-fmt-final.log records successful completion; save-session-green-final.log records 18/18 targeted passes; git diff --check passes.
+**Follow-up state:** closed for these gate failures; root owns final integrated-suite reporting.
+**Boundary:** these source-gate repairs add no game, save-file or package acceptance.
+**Skill promotion:** none; bounded fixture and baseline-lint corrections.
+
+## 2026-10-02: compatibility integration exposed assertion typing and baseline lint/format issues
+
+**Objective:** verify the compatibility identity gates and retained native mutation behavior with owned fixtures only.
+**Observed symptoms and causes:** the new identity test compared `Option<&str>` with `&str`, causing E0308; runtime all-target Clippy rejected `descriptor.as_ref().map(Vec::as_slice)` with `option_as_ref_deref`. Git blame at baseline ec5575c attributes the latter expression to b2929639, before this task. The formatter also found `mutation/mod.rs` declared `evidence` before `equipment_add`; `git show ec5575c` confirms that order already existed in the baseline.
+**Disposition:** compare the error code with `Some("COMPATIBILITY_IDENTITY_CHANGED")`; replace the descriptor expression with the equivalent `descriptor.as_deref().unwrap_or_default()`; move the `evidence` declaration below the Windows-gated `equipment_add` declaration as required by rustfmt.
+**Evidence:** retained logs `compatibility-identity-green-final.log`, `runtime-clippy-final.log` and `format-diff-final.log` under `D:/Nioh3_v080_deliverables/deliverables/codex-compatibility-policy-20261002/logs/` record the original failures. The initial Clippy process produced its failure log despite the command transport reporting a disconnect.
+**Reproduction and follow-up:** the corrected identity test passed 1/1 and the subsequent full runtime library suite passed 201/201. Root's fresh runtime Clippy rerun returned exit code 0. Root's final runtime/protected formatting and changed-Tauri-file formatting checks passed (`format-diff-verified.log`); no repeated runtime test run is required for the equivalent expression or module declaration ordering.
+**Protected Clippy follow-up:** `protected-clippy-initial.log` records exit 101 for the new `nonminimal_bool` expression in `compatibility.rs:299`. Root replaced `!plan.as_ref().is_some_and(id == reviewed)` with the equivalent `plan.as_ref().is_none_or(id != reviewed)`; final protected Clippy returned exit 0 in `protected-clippy-verified.log`.
+**UI harness correction:** an earlier browser run sent Escape before `dialog.showModal()` opened the dialog. Waiting explicitly for the open dialog repaired the harness; this was not a product defect. Subsequent UI verification reported 143 passing checks and 1,298 locale entries.
+**Boundary:** no live process attachment, native game call, or real-save operation was used for these checks.
+**Skill promotion:** none; bounded assertion and baseline lint/format corrections.
+
+## 2026-10-02: operation-checkpoint fixtures and cross-crate UUID validation
+
+**Objective:** validate operation-bound equipment backups and independent runtime admission using owned fixtures.
+**Symptoms and causes:** two checkpoint helper cases omitted the plan's operation_id, so the real identity check reported "Plan operation identity differs" (4 pass / 2 fail). The protected helper also called runtime's pub(crate) UUID validator across the crate boundary, causing E0603.
+**Disposition:** populate the fixture operation identity; preserve the plan/receipt check. Validate canonical UUID shape locally at the protected request boundary without expanding the private runtime API.
+**Evidence root:** D:/Nioh3_v080_deliverables/deliverables/codex-compatibility-policy-20261002/logs/.
+**Original evidence:** equipment-checkpoint-runtime-20261002.log preserves the two fixture failures; equipment-checkpoint-protected-20261002.log preserves E0603.
+**Bounded rechecks:** equipment-checkpoint-runtime-fixed-20261002.log passes 6/6; operation-admission-first.log passes policy 21, equipment checkpoint 2 and no-install control-plane 1, exit 0.
+**Follow-up:** these bounded failures are repaired. Subsequent full runtime 207/207, policy/checkpoint 21/21 + 2/2, framed bootstrap 2/2, parser 5/5 and npm 90 pass / 1 skip are recorded in the operation follow-up logs. The later actual-error UI mapping is verified by equipment browser 66/66 and public-errors 17/17; no-game stored-receipt controls pass 4/4. Last TypeScript/full npm reruns are in progress and their final outcomes belong in the external receipt; new package/game acceptance is separate.
+**Boundary and skill promotion:** owned synthetic files/helper tests only; no game, real-save or package acceptance and no skill promotion.
+
+## 2026-10-02: deferred initialization briefly made offline prediction require a game
+
+**Objective:** decouple runtime startup from optional generation resources while preserving offline scroll completion prediction.
+**Observed issue and cause:** code review found that the deferred completion route reused live generation-context initialization, making an offline operation depend on running-game discovery and potentially filling the shared live context. This was caught in review; no retained failing test run is claimed.
+**Disposition:** load the prediction's explicit offline 2.02 context separately. Do not require a running game or populate/replace live-generation state; retain the prediction's existing supported-semantics checks.
+**Evidence:** D:/Nioh3_v080_deliverables/deliverables/codex-compatibility-policy-20261002/logs/operation-offline-prediction.log records host_scroll_completion 1/1 and runtime bootstrap 2/2, exit 0. The regression uses the deferred runtime with no process or writes.
+**Follow-up:** closed for this offline prediction regression. Later UI actual-error mapping and no-game stored-receipt status/cancel verification are complete; actual recovery retains identity checks. Receipt controls pass 4/4 in receipt-control-protected-20261002.log and the full runtime recheck passes 207/207 in receipt-control-runtime-full-20261002.log. Test10 packaging and controlled game/persistence acceptance are not established.
+**Skill promotion:** none; bounded initialization regression with a targeted regression check.
+
+**Packaging-verifier follow-up (2026-10-02):** three verification scripts were updated for deferred runtime context, per-role host logs and isolated save discovery. Syntax checks pass; their matching outer-package acceptance is pending. The temporary automatic approval-review scope issue was resolved by root applying the authorized edits; no approval blocker remains. This records verifier preparation, not a product/package pass or skill promotion.

@@ -1793,6 +1793,7 @@ mod windows_transport {
     /// The real transport: one `WindowsDebug` session per accepted dispatch.
     pub struct NativeDebugTransport {
         pid: u32,
+        expected_creation: Option<u64>,
         layout: LiveAddLayout,
         module_name: String,
         store: ReceiptStore,
@@ -1819,6 +1820,7 @@ mod windows_transport {
         ) -> Result<Self, RuntimeError> {
             Ok(Self {
                 pid,
+                expected_creation: None,
                 layout,
                 module_name: module_name.to_string(),
                 store: ReceiptStore::new(directory)?,
@@ -1832,6 +1834,13 @@ mod windows_transport {
             &self.store
         }
 
+        /// Pin fresh mutation admission to the process the host reviewed.
+        /// Receipt-only recovery can retain the existing unbound constructor.
+        pub fn with_expected_creation(mut self, creation: u64) -> Self {
+            self.expected_creation = Some(creation);
+            self
+        }
+
         /// The unresolved receipt that still owns the running target instance.
         fn unresolved_target_owner(&self) -> Result<Option<String>, RuntimeError> {
             let instance = (self.instance_probe)(self.pid)?;
@@ -1840,7 +1849,16 @@ mod windows_transport {
         }
 
         fn open(&self) -> Result<WindowsDebugSession, RuntimeError> {
-            WindowsDebugSession::open(self.pid, &self.module_name)
+            let mut session = WindowsDebugSession::open(self.pid, &self.module_name)?;
+            if let Some(expected) = self.expected_creation {
+                let actual = session.creation_time()?;
+                if actual != expected.to_string() {
+                    return Err(dispatch_error(format!(
+                        "COMPATIBILITY_IDENTITY_CHANGED: expected PID {} creation {expected}; actual creation {actual}. Reconnect and prepare a new operation; recover any uncertain receipt before retrying.", self.pid
+                    )));
+                }
+            }
+            Ok(session)
         }
 
         /// Verification-only settlement of a receipt that never acknowledged.
@@ -2459,7 +2477,7 @@ mod windows_transport {
                     .get("native_equipment_seed")
                     .and_then(Value::as_u64)
                     .map(|seed| {
-                        let raw = descriptor.as_ref().map(Vec::as_slice).unwrap_or_default();
+                        let raw = descriptor.as_deref().unwrap_or_default();
                         crate::mutation::native_abi::equipment_generation_prefix(
                             address,
                             base,

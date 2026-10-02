@@ -6419,6 +6419,7 @@ export type ProtectedRequest =
         plus: number;
         rarity: number;
         seed: number;
+        save_path?: string;
       };
     }
   | {
@@ -6460,8 +6461,9 @@ export type ProtectedRequest =
       id: string;
       method: "runtime.compatibility";
       params: {
-        action: "inspect" | "prepare" | "accept";
+        action: "inspect" | "prepare" | "accept" | "cancel";
         confirmed?: boolean;
         backup_confirmed?: boolean;
+        plan_id?: string;
       };
     };

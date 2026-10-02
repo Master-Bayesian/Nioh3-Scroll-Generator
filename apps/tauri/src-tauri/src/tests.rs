@@ -847,8 +847,14 @@ fn packaged_manifest_resolves_every_role_to_the_staged_binary_and_roots() {
                 .iter()
                 .any(|token| token == "--dev-protected-only"));
         }
-        // The staged resolution carries the session's resolved identity too.
-        assert_eq!(value("--game-file-version"), "0.7.5.0");
+        if role == "runtime" {
+            assert!(!arguments.iter().any(|token| token == "--game-file-version"));
+            assert!(!arguments
+                .iter()
+                .any(|token| token == "--legacy-test-context"));
+        } else {
+            assert_eq!(value("--game-file-version"), "0.7.5.0");
+        }
     }
     release_packaged_session_version();
     let _ = std::fs::remove_dir_all(&root);
@@ -1236,83 +1242,52 @@ fn the_session_version_is_detected_once_and_then_cached() {
     );
 }
 
-/// Every production role receives the identical resolved version, and the
-/// packaged resolver never falls back to a constant or to the legacy identity.
+/// Offline search/save retain their installed identity; packaged runtime starts
+/// without one and cannot silently inherit the offline generation context.
 #[test]
-fn every_packaged_role_receives_the_same_resolved_game_file_version() {
-    use crate::worker::{
-        launch_command, protected_backend, resolve_role_launch, search_backend, ProtectedBackend,
-        RustSearchEnv, SearchBackend,
-    };
+fn packaged_roles_resolve_only_the_identity_their_role_requires() {
+    use crate::worker::{protected_backend_for_role, resolve_role_launch};
     let _guard = session_version_guard();
     bind_packaged_session_version("0.7.5.0");
     let root = staged_rust_package("version-plumbing");
     let state = std::env::temp_dir().join("nioh3-version-plumbing-state");
-
-    let search = search_backend(&root, true, &RustSearchEnv::default()).unwrap();
-    let protected =
-        protected_backend(&root, true, &crate::worker::RustProtectedEnv::default()).unwrap();
-    let SearchBackend::Rust(search_launch) = &search else {
-        panic!("a staged package must select the Rust search backend");
-    };
-    assert_eq!(
-        search_launch.game_file_version.as_deref(),
-        Some("0.7.5.0"),
-        "the packaged search launch must carry the resolved version"
-    );
-    assert!(
-        !search_launch.legacy_test_context,
-        "packaged production must never select the legacy identity"
-    );
-    let ProtectedBackend::Rust(protected_launch) = &protected else {
-        panic!("a staged package must select the Rust protected backend");
-    };
-    assert_eq!(
-        protected_launch.game_file_version.as_deref(),
-        Some("0.7.5.0")
-    );
-    assert!(!protected_launch.legacy_test_context);
-
-    // The value the argv carries must be byte-identical for all three roles.
-    let mut seen: Vec<String> = Vec::new();
     for role in ["offline_search", "save", "runtime"] {
-        let (_, arguments) = launch_command(&root, role, true, &search, &protected, &state);
-        let index = arguments
+        let (_, arguments) = resolve_role_launch(&root, role, true, &state).unwrap();
+        let version = arguments
             .iter()
-            .position(|token| token == "--game-file-version")
-            .unwrap_or_else(|| panic!("{role} argv lacks the version flag: {arguments:?}"));
-        seen.push(arguments[index + 1].clone());
-        assert!(
-            !arguments
-                .iter()
-                .any(|token| token == "--legacy-test-context"),
-            "{role} must not carry the legacy opt-in: {arguments:?}"
-        );
+            .position(|token| token == "--game-file-version");
+        if role == "runtime" {
+            assert!(version.is_none(), "{arguments:?}");
+        } else {
+            assert_eq!(
+                arguments[version.expect("offline role version") + 1],
+                "0.7.5.0"
+            );
+        }
+        assert!(!arguments
+            .iter()
+            .any(|token| token == "--legacy-test-context"));
     }
-    assert_eq!(
-        seen,
-        vec![
-            "0.7.5.0".to_string(),
-            "0.7.5.0".to_string(),
-            "0.7.5.0".to_string()
-        ],
-        "every production role must receive the same version"
-    );
-
-    // `resolve_role_launch` is the packaged gate's entry point; it must agree.
-    let (_, arguments) = resolve_role_launch(&root, "runtime", true, &state).unwrap();
-    let index = arguments
-        .iter()
-        .position(|token| token == "--game-file-version")
-        .expect("the gate entry point must carry the version");
-    assert_eq!(arguments[index + 1], "0.7.5.0");
-
+    let ProtectedBackend::Rust(runtime) =
+        protected_backend_for_role(&root, "runtime", true, &RustProtectedEnv::default()).unwrap()
+    else {
+        panic!("staged runtime must select Rust")
+    };
+    assert!(runtime.game_file_version.is_none());
+    assert!(!runtime.legacy_test_context);
+    // The compatibility entry point keeps its original save/test semantics.
+    let ProtectedBackend::Rust(save) =
+        protected_backend(&root, true, &RustProtectedEnv::default()).unwrap()
+    else {
+        panic!("staged save must select Rust")
+    };
+    assert_eq!(save.game_file_version.as_deref(), Some("0.7.5.0"));
     release_packaged_session_version();
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// A host that cannot establish the installed identity refuses before any
-/// worker starts, rather than passing a default or an environment guess.
+/// A search launch must name its installed identity rather than passing a
+/// default or an environment guess. Runtime uses a separate deferred shape.
 #[test]
 fn a_packaged_role_without_a_resolved_version_fails_closed() {
     use crate::worker::{packaged_rust_launch, staged_backend_manifest};
@@ -1343,9 +1318,8 @@ fn a_packaged_role_without_a_resolved_version_fails_closed() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// The packaged gate refuses before it can hand any worker an argv that names no
-/// version. The refusal is the resolver's structured failure, not a placeholder
-/// version and not the legacy opt-in.
+/// Missing installed identity blocks offline search/save even on the legacy
+/// Python graph, while runtime keeps its independent role-only launch.
 #[test]
 fn the_packaged_gate_refuses_when_the_session_version_is_unavailable() {
     use crate::worker::{
@@ -1363,7 +1337,7 @@ fn the_packaged_gate_refuses_when_the_session_version_is_unavailable() {
         "GAME_EXECUTABLE_NOT_FOUND: no installed Nioh3.exe under the known Steam roots".to_string(),
     ))
     .unwrap();
-    for role in ["offline_search", "save", "runtime"] {
+    for role in ["offline_search", "save"] {
         let error = resolve_role_launch(root, role, true, &state)
             .expect_err("a packaged role without a resolved version must be refused");
         assert!(
@@ -1371,14 +1345,15 @@ fn the_packaged_gate_refuses_when_the_session_version_is_unavailable() {
             "{role} was refused with the wrong code: {error}"
         );
     }
+    let (_, runtime_arguments) = resolve_role_launch(root, "runtime", true, &state).unwrap();
+    assert_eq!(runtime_arguments, ["--role", "runtime"]);
     set_packaged_game_file_version_error_for_test(None).unwrap();
 }
 
-/// One session resolves the installed version once, and every role - Rust
-/// search, Rust protected, and the shipped Python search worker - receives that
-/// same value, so no two workers can bind to different identities.
+/// One session resolves the installed version once for offline search/save,
+/// including the shipped Python search graph. Runtime defers its own context.
 #[test]
-fn the_session_resolves_one_version_and_every_role_carries_it() {
+fn the_session_resolves_one_version_for_offline_search_and_save() {
     use crate::game_version::{
         FileVersionReader, GameFileVersion, GameFileVersionSource, GameVersionSource,
     };
@@ -1417,9 +1392,9 @@ fn the_session_resolves_one_version_and_every_role_carries_it() {
     let protected =
         protected_backend(&root, true, &crate::worker::RustProtectedEnv::default()).unwrap();
 
-    // The packaged argv for every role names that one value.
+    // Only offline search/save argv names the installed identity.
     let mut seen: Vec<(String, String)> = Vec::new();
-    for role in ["offline_search", "save", "runtime"] {
+    for role in ["offline_search", "save"] {
         let (_, arguments) = launch_command(&root, role, true, &search, &protected, &state);
         let index = arguments
             .iter()
@@ -1427,6 +1402,13 @@ fn the_session_resolves_one_version_and_every_role_carries_it() {
             .unwrap_or_else(|| panic!("{role} argv lacks the version flag: {arguments:?}"));
         seen.push((role.to_string(), arguments[index + 1].clone()));
     }
+    let (_, runtime_arguments) = resolve_role_launch(&root, "runtime", true, &state).unwrap();
+    assert!(!runtime_arguments
+        .iter()
+        .any(|token| token == "--game-file-version"));
+    assert!(!runtime_arguments
+        .iter()
+        .any(|token| token == "--legacy-test-context"));
     // The shipped Python search worker is the fallback graph: it runs the same
     // role through the same argv builder and must answer identically.
     let (_, python_arguments) = launch_command(
@@ -1888,9 +1870,9 @@ fn dump_role_launch_for_acceptance() {
     let role = std::env::var("NIOH3_ACCEPTANCE_ROLE").unwrap();
     let packaged = std::env::var("NIOH3_ACCEPTANCE_PACKAGED").as_deref() == Ok("1");
     // The dump exists so a gate compares the real resolver's argv. A packaged
-    // dump therefore names the installed version this host must resolve, taken
+    // dump names the installed version only for roles that require one, taken
     // from the gate's environment rather than from a constant in this file.
-    if packaged {
+    if packaged && role != "runtime" {
         bind_packaged_session_version(
             &std::env::var("NIOH3_ACCEPTANCE_GAME_FILE_VERSION")
                 .expect("a packaged dump must name the game file version under test"),
@@ -2014,4 +1996,88 @@ fn the_python_search_launch_development_shape_is_explicit() {
     // environment is not permission to invent a version or the legacy opt-in.
     assert_eq!(env.game_file_version, None);
     assert!(!env.legacy_test_context);
+}
+
+/// Resolver-only fixtures never execute their synthetic worker bytes.
+#[test]
+fn packaged_runtime_resolution_survives_missing_or_unsupported_installed_identity() {
+    use crate::worker::{
+        protected_backend_for_role, resolve_role_launch,
+        set_packaged_game_file_version_error_for_test,
+    };
+    let _guard = session_version_guard();
+    release_packaged_session_version();
+    let root = staged_rust_package("runtime-independent");
+    let state = root.join("owned-state");
+    let unsupported = crate::game_version::GameFileVersion::parse("9.9.9.9")
+        .unwrap()
+        .ensure_supported()
+        .unwrap_err();
+    // Inject the same cached discovery/registry failures production returns.
+    for failure in [
+        "GAME_EXECUTABLE_NOT_FOUND: selected synthetic Nioh3.exe is absent".to_string(),
+        unsupported,
+    ] {
+        set_packaged_game_file_version_error_for_test(Some(failure.clone())).unwrap();
+        let runtime =
+            protected_backend_for_role(&root, "runtime", true, &RustProtectedEnv::default())
+                .unwrap();
+        let ProtectedBackend::Rust(runtime) = runtime else {
+            panic!("staged runtime")
+        };
+        assert!(runtime.game_file_version.is_none());
+        assert!(!runtime.legacy_test_context);
+        let (executable, arguments) = resolve_role_launch(&root, "runtime", true, &state).unwrap();
+        assert_eq!(executable, root.join("worker/nioh3-protected-worker.exe"));
+        assert!(!arguments.iter().any(|token| token == "--game-file-version"));
+        assert!(!arguments
+            .iter()
+            .any(|token| token == "--legacy-test-context"));
+        assert_eq!(&arguments[..2], ["--role", "runtime"]);
+        for role in ["offline_search", "save"] {
+            assert_eq!(
+                resolve_role_launch(&root, role, true, &state).unwrap_err(),
+                failure
+            );
+        }
+    }
+    release_packaged_session_version();
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn packaged_runtime_resolution_still_rejects_changed_binary_and_invalid_manifest() {
+    use crate::worker::{
+        protected_backend_for_role, resolve_role_launch,
+        set_packaged_game_file_version_error_for_test,
+    };
+    let _guard = session_version_guard();
+    release_packaged_session_version();
+    set_packaged_game_file_version_error_for_test(Some(
+        "GAME_EXECUTABLE_NOT_FOUND: no synthetic install".into(),
+    ))
+    .unwrap();
+    for corrupt_manifest in [false, true] {
+        let root = staged_rust_package("runtime-integrity");
+        let expected = if corrupt_manifest {
+            std::fs::write(root.join("worker/worker-backend.json"), "{invalid").unwrap();
+            "WORKER_BACKEND_MALFORMED"
+        } else {
+            std::fs::write(
+                root.join("worker/nioh3-protected-worker.exe"),
+                b"changed worker bytes",
+            )
+            .unwrap();
+            "RUST_WORKER_CHANGED"
+        };
+        let error =
+            protected_backend_for_role(&root, "runtime", true, &RustProtectedEnv::default())
+                .unwrap_err();
+        assert!(error.starts_with(expected), "{error}");
+        let error =
+            resolve_role_launch(&root, "runtime", true, &root.join("owned-state")).unwrap_err();
+        assert!(error.starts_with(expected), "{error}");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+    release_packaged_session_version();
 }

@@ -31,6 +31,7 @@
 //! models stay portable and unit-testable everywhere.
 
 pub mod character;
+pub mod compatibility_probe;
 pub mod error;
 pub mod inventory;
 pub mod mutation;

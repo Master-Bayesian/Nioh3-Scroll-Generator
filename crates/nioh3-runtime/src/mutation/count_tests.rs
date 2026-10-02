@@ -18,6 +18,146 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+mod approved_handle_identity {
+    use super::*;
+    use crate::mutation::count::{
+        CountMemory, CountProcesses, WindowsCountMemory, PC_V201_COUNT_LAYOUT,
+    };
+    use crate::mutation::live_fakes::{FixtureProcesses, InventoryFixture, FIXTURE_PID};
+    use crate::mutation::memory::TargetProcess;
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    #[derive(Default)]
+    struct Observed {
+        reads: Cell<usize>,
+        writes: Cell<usize>,
+        closes: Cell<usize>,
+    }
+    struct Handles {
+        inner: FixtureProcesses,
+        reader_creation: u64,
+        writer_creation: u64,
+        observed: Rc<Observed>,
+    }
+    struct Handle {
+        inner: Box<dyn TargetProcess>,
+        creation: u64,
+        observed: Rc<Observed>,
+    }
+    impl CountProcesses for Handles {
+        fn open_read(&self, pid: u32) -> Result<Box<dyn TargetProcess>, RuntimeError> {
+            Ok(Box::new(Handle {
+                inner: self.inner.open_read(pid)?,
+                creation: self.reader_creation,
+                observed: Rc::clone(&self.observed),
+            }))
+        }
+        fn open_write(&self, pid: u32) -> Result<Box<dyn TargetProcess>, RuntimeError> {
+            Ok(Box::new(Handle {
+                inner: self.inner.open_write(pid)?,
+                creation: self.writer_creation,
+                observed: Rc::clone(&self.observed),
+            }))
+        }
+    }
+    impl TargetProcess for Handle {
+        fn pid(&self) -> u32 {
+            self.inner.pid()
+        }
+        fn read(&mut self, address: u64, size: usize) -> Result<Vec<u8>, RuntimeError> {
+            self.observed.reads.set(self.observed.reads.get() + 1);
+            self.inner.read(address, size)
+        }
+        fn write(&mut self, address: u64, data: &[u8]) -> Result<(), RuntimeError> {
+            self.observed.writes.set(self.observed.writes.get() + 1);
+            self.inner.write(address, data)
+        }
+        fn write_code(&mut self, address: u64, data: &[u8]) -> Result<(), RuntimeError> {
+            self.inner.write_code(address, data)
+        }
+        fn allocate_executable_near(
+            &mut self,
+            address: u64,
+            size: usize,
+        ) -> Result<u64, RuntimeError> {
+            self.inner.allocate_executable_near(address, size)
+        }
+        fn free_allocation(&mut self, address: u64) -> Result<(), RuntimeError> {
+            self.inner.free_allocation(address)
+        }
+        fn exited(&mut self) -> Result<bool, RuntimeError> {
+            self.inner.exited()
+        }
+        fn creation_filetime(&mut self) -> Result<Option<u64>, RuntimeError> {
+            Ok(Some(self.creation))
+        }
+        fn close(&mut self) {
+            self.observed.closes.set(self.observed.closes.get() + 1);
+            self.inner.close()
+        }
+    }
+    fn memory(
+        reader_creation: u64,
+        writer_creation: u64,
+    ) -> (WindowsCountMemory<Handles>, Rc<Observed>) {
+        let fixture = InventoryFixture::new(&[(4, 0x1234, 0xF00D)], 0x1235, 12);
+        let observed = Rc::new(Observed::default());
+        let handles = Handles {
+            inner: FixtureProcesses::new(&fixture),
+            reader_creation,
+            writer_creation,
+            observed: Rc::clone(&observed),
+        };
+        (
+            WindowsCountMemory::new(FIXTURE_PID, fixture.base, PC_V201_COUNT_LAYOUT, handles)
+                .with_expected_creation(100),
+            observed,
+        )
+    }
+    #[test]
+    fn approved_count_identity_refuses_a_restarted_reader_before_memory_access() {
+        let (mut memory, observed) = memory(200, 200);
+        let error = memory
+            .capture(0x1234)
+            .expect_err("approval belongs to the previous process");
+        assert!(error.message().contains("expected PID 4321 creation 100"));
+        assert!(error
+            .message()
+            .contains("actual PID 4321 creation Some(200)"));
+        assert!(error.message().contains("Reconnect"));
+        assert_eq!(observed.reads.get(), 0);
+        assert_eq!(observed.writes.get(), 0);
+        assert_eq!(observed.closes.get(), 1);
+    }
+    #[test]
+    fn approved_count_identity_rechecks_the_minimal_writer_then_allows_reprepare() {
+        let (mut stale, observed) = memory(100, 200);
+        let capture = stale
+            .capture(0x1234)
+            .expect("approved reader captures the reviewed record");
+        let error = stale
+            .write(&capture, 5)
+            .expect_err("writer handle belongs to a later process");
+        assert!(error
+            .message()
+            .contains("actual PID 4321 creation Some(200)"));
+        assert_eq!(observed.writes.get(), 0);
+        assert_eq!(observed.closes.get(), 1);
+        let (mut fresh, observed) = memory(200, 200);
+        fresh = fresh.with_expected_creation(200);
+        let capture = fresh
+            .capture(0x1234)
+            .expect("newly reviewed process captures");
+        assert_eq!(
+            fresh.write(&capture, 5).expect("fresh plan writes once")[0x33],
+            5
+        );
+        assert_eq!(observed.writes.get(), 1);
+        assert_eq!(observed.closes.get(), 1);
+    }
+}
+
 static SANDBOX_SEQUENCE: AtomicUsize = AtomicUsize::new(0);
 
 /// A temporary state root that removes itself.

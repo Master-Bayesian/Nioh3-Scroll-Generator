@@ -120,6 +120,7 @@ async function main() {
     throw new Error(`the staged package carries no worker-backend.json: ${manifestPath}`);
   }
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  if (manifest.backend !== 'rust') throw new Error('the staged package must declare the Rust backend');
 
   const scratch = await mkdtemp(join(tmpdir(), 'nioh3-host-package-'));
   const profile = join(scratch, 'profile');
@@ -147,20 +148,28 @@ async function main() {
     package: staged,
     developmentBuild: true,
     releaseCandidate: false,
-    backend: (/graph=(\S+)/.exec(log) || [])[1] || null,
+    backend: null,
     roles: {},
     stderrBytes: stderr.length,
   };
-  if (evidence.backend !== 'rust-packaged') {
-    throw new Error(
-      `the packaged host resolved ${evidence.backend}, not the staged Rust graph; ` +
-        `stderr=${stderr.slice(-2000)}; desktop.log=${log.slice(-2000) || '(empty)'}`,
-    );
-  }
+
   for (const role of ROLES) {
     const record = records[role];
-    if (!record) throw new Error(`the host logged no resolution for ${role}`);
-    const declared = manifest.invocation[role];
+    if (!record) {
+      throw new Error(`the host logged no resolution for ${role}; desktop.log=${log.slice(-2000) || '(empty)'}`);
+    }
+    const declared = manifest.invocation?.[role];
+    if (!declared || declared.mode !== 'packaged') {
+      throw new Error(`the staged manifest has no packaged invocation for ${role}`);
+    }
+    const selectedVersion = /--game-file-version\s+(\S+)/.exec(record.argv)?.[1];
+    if (role === 'runtime') {
+      if (selectedVersion || record.argv.includes('--legacy-test-context')) {
+        throw new Error(`packaged runtime must defer generation identity: ${record.argv}`);
+      }
+    } else if (!/^\d+\.\d+\.\d+\.\d+$/.test(selectedVersion || '')) {
+      throw new Error(`${role} argv lacks its resolved game file version: ${record.argv}`);
+    }
     const expected = join(staged, 'worker', declared.binary);
     if (!samePath(record.executable, expected)) {
       throw new Error(`${role} resolved ${record.executable}, expected ${expected}`);
@@ -203,6 +212,9 @@ async function main() {
     }
     evidence.roles[role] = record;
   }
+  // Every role independently resolved the staged path, roots, mode and bytes.
+  // A global graph log cannot prove these role-specific launch contracts.
+  evidence.backend = 'rust-packaged';
   const roleBinaries = {};
   for (const role of ROLES) {
     roleBinaries[role] = await rawHash(resolve(records[role].executable));

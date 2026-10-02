@@ -155,6 +155,62 @@ fn a_recycled_pid_is_refused_before_any_write() -> Result<(), RuntimeError> {
 }
 
 #[test]
+fn approved_override_identity_refuses_restart_before_handle_open() -> Result<(), RuntimeError> {
+    let factory = seeded(Faults {
+        creation_filetime: 200,
+        ..Faults::default()
+    });
+    let mut session = auxiliary(&factory)?.with_expected_creation(100);
+    let error = session
+        .start()
+        .expect_err("approval was for the previous process");
+    let message = error.message();
+    assert!(message.contains("expected creation 100") && message.contains("actual creation 200"));
+    assert!(message.contains("Reconnect") && message.contains("prepare/review"));
+    let state = factory.state.borrow();
+    assert_eq!(state.read_calls, 0);
+    assert_eq!(state.closed, 0, "no handle was opened");
+    assert!(state.writes.is_empty() && state.code_writes.is_empty() && state.allocated.is_empty());
+    Ok(())
+}
+
+#[test]
+fn approved_override_identity_rechecks_handle_then_allows_fresh_binding() -> Result<(), RuntimeError>
+{
+    let factory = seeded(Faults {
+        creation_filetime: 100,
+        creation_filetime_override: Some(200),
+        ..Faults::default()
+    });
+    let mut session = auxiliary(&factory)?.with_expected_creation(100);
+    let error = session
+        .start()
+        .expect_err("the handle belongs to a later process");
+    assert!(error
+        .message()
+        .contains("actual PID 4242 creation Some(200)"));
+    {
+        let state = factory.state.borrow();
+        assert_eq!(state.read_calls, 0);
+        assert_eq!(state.closed, 1);
+        assert!(state.writes.is_empty() && state.allocated.is_empty());
+    }
+    let factory = seeded(Faults {
+        creation_filetime: 200,
+        ..Faults::default()
+    });
+    let mut fresh = auxiliary(&factory)?.with_expected_creation(200);
+    fresh.start()?;
+    assert!(fresh.active());
+    fresh.stop()?;
+    assert!(
+        !fresh.active(),
+        "restoration uses the retained handle without new consent"
+    );
+    Ok(())
+}
+
+#[test]
 fn a_failed_trampoline_write_releases_the_allocation_and_leaves_the_site(
 ) -> Result<(), RuntimeError> {
     let factory = seeded(Faults {

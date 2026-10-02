@@ -86,6 +86,12 @@ export function publicError(message: string): string {
   const infeasible = message.match(/no solution in the native generation structure: ([\s\S]*)$/);
   if (infeasible) return infeasibleConditions(infeasible[1]);
   const cases: [RegExp, string][] = [
+    [/EQUIPMENT_BACKUP_SOURCE_REQUIRED/, "发现多个存档。读取添加状态并确认本次未执行后，点击“准备另一件装备”，在“要备份的存档路径”填写当前角色的 SAVEDATA.BIN 源文件路径，再生成预览；不要填写备份副本路径。"],
+    [/No save was found under .*expected <account>\/SAVEDATAxx\/SAVEDATA\.BIN/i, "未找到可读的角色存档。请查看技术详情中的搜索目录，在游戏中创建存档或恢复目录访问后重试；实时添加装备也可填写“要备份的存档路径”。"],
+    [/Source save (?:changed during backup|changed after equipment preparation)|Source save cannot be read at .*Cancel this equipment plan/i, "源存档已变化或无法读取。请查看技术详情中的源文件路径，等待游戏存档完成并恢复文件访问，再核对或取消旧操作并重新准备。结果不明时先恢复核对，不要重复添加。"],
+    [/Verified backup (?:changed after equipment preparation|cannot be read at .*Cancel this equipment plan)|Automatic save backup verification failed/i, "备份副本未通过校验或无法读取。请查看技术详情中的备份路径并恢复访问，再核对或取消旧操作并重新准备，生成新的已验证备份。结果不明时先恢复核对，不要重复添加。"],
+    [/Equipment save checkpoint (?:is missing|belongs to another operation|has an invalid source hash|cannot read|must be a separate backup file)|A verified save checkpoint is required before equipment preview/i, "本次装备操作缺少有效的备份记录。请查看技术详情中的具体原因，核对或取消旧操作后，在“要备份的存档路径”填写当前角色的源存档并重新准备。结果不明时先恢复核对，不要重复添加。"],
+    [/COMPATIBILITY_IDENTITY_CHANGED/,"游戏进程或程序身份已变化。请查看兼容提示，重新连接并准备新计划。结果不明的写入必须先核对恢复凭据，不能直接重试。"],
     // The Rust save and runtime layers report in English; these restore the
     // explanations the Python backend gave players for the same refusals.
     [
@@ -198,6 +204,11 @@ export function publicError(message: string): string {
     [/GAME_EXECUTABLE_SELECTION_INVALID|GAME_INSTALL_CONFIG_INVALID/,"游戏程序路径记录无效，请在设置中重新选择实际的 Nioh3.exe。"],
     [/GAME_VERSION_UNSUPPORTED/,"当前游戏版本尚未支持，请检查更新。"],
     [/COMPATIBILITY_CONFIRMATION_REQUIRED/,"检测到旧版本或不同的游戏程序，请核对兼容提示和存档备份后继续。"],
+    [/COMPATIBILITY_PLAN_EXPIRED|COMPATIBILITY_PLAN_MISMATCH/,"兼容计划已失效。请重新准备并验证备份，再核对新计划。"],
+    [/COMPATIBILITY_BACKUP_REQUIRED|COMPATIBILITY_BACKUP_UNVERIFIED/,"存档备份尚未通过验证，无法确认兼容计划。请查看兼容提示，解决备份问题后重试。"],
+    [/COMPATIBILITY_AUDIT_FAILED/,"兼容确认记录未能安全保存，尚未获得继续权限。请查看兼容提示并重新准备。"],
+    [/COMPATIBILITY_RESOURCE_CONTEXT_CHANGED/,"当前游戏版本与工作室已加载的数据不一致。请在下方选择当前运行的 Nioh3.exe，再重新打开工作室并准备计划。游戏无需关闭。"],
+    [/COMPATIBILITY_FEATURE_UNSUPPORTED/,"当前版本的兼容计划不支持这项操作。请查看兼容提示中的功能范围，或在设置中选择受支持版本。"],
     [/not the digest this surface pins|EXECUTABLE_DIGEST_MISMATCH/,"这份游戏程序与已验证版本不同。请查看兼容提示，核对存档备份后再继续实时操作。"],
     [
       /no contiguous run of \d+ free scroll slots|All 400 scroll slots/i,

@@ -65,8 +65,8 @@ impl Broker {
         // Spawn a new host only after positive shutdown/exit proof. No operation
         // is replayed: callers must recover their durable business receipt.
         hosts.remove(role);
-        // Only the read-only search worker has a Rust development backend; the
-        // protected save/runtime route keeps the shipped worker.
+        // Resolve only this role. Runtime admission is independent of the
+        // installed version and the offline/search-save resource context.
         let backend = if role == "offline_search" {
             worker::search_backend(&self.root, self.packaged, &worker::rust_search_env())?
         } else {
@@ -75,7 +75,12 @@ impl Broker {
         let protected = if role == "offline_search" {
             ProtectedBackend::Python
         } else {
-            worker::protected_backend(&self.root, self.packaged, &worker::rust_protected_env())?
+            worker::protected_backend_for_role(
+                &self.root,
+                role,
+                self.packaged,
+                &worker::rust_protected_env(),
+            )?
         };
         let worker = Worker::spawn(
             &self.root,

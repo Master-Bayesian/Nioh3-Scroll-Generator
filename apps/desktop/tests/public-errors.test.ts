@@ -9,6 +9,37 @@ import {
   publicError,
 } from "../../workshop/public-errors";
 
+test("compatibility refusals describe the recovery action for actual host codes", () => {
+  for (const code of ["COMPATIBILITY_PLAN_MISMATCH", "COMPATIBILITY_PLAN_EXPIRED"])
+    assert.match(publicError(code + ": stale fixture plan"), /重新准备.*新计划/);
+  for (const code of ["COMPATIBILITY_BACKUP_REQUIRED", "COMPATIBILITY_BACKUP_UNVERIFIED"])
+    assert.match(publicError(code + ": changed fixture source"), /备份.*重试/);
+  assert.match(publicError("COMPATIBILITY_AUDIT_FAILED: fixture directory"), /未能安全保存.*重新准备/);
+  assert.match(publicError("COUNT_SOURCE_CHANGED: COMPATIBILITY_IDENTITY_CHANGED: expected PID 10, actual PID 20"), /重新连接.*不能直接重试/);
+  assert.match(publicError("COMPATIBILITY_RESOURCE_CONTEXT_CHANGED: expected data 2.01, actual game 2.02"), /选择当前运行.*重新打开工作室/);
+  assert.match(publicError("COMPATIBILITY_FEATURE_UNSUPPORTED: live_equipment_add"), /不支持这项操作.*功能范围/);
+});
+
+test("equipment backup refusals identify the source, copy, and safe recovery", () => {
+  const required = publicError("EQUIPMENT_BACKUP_SOURCE_REQUIRED: More than one save was found. Select the current character's SAVEDATA.BIN backup path, then prepare again; no native preview has run.");
+  assert.match(required, /发现多个存档.*本次未执行.*准备另一件装备.*要备份的存档路径/);
+  assert.match(required, /源文件路径.*不要填写备份副本/);
+  assert.doesNotMatch(required, /发给开发者|导出反馈/);
+  assert.match(publicError("No save was found under D:/fixture; expected <account>/SAVEDATAxx/SAVEDATA.BIN. Create a save in game or restore access to this folder, then prepare again"), /搜索目录.*创建存档.*要备份的存档路径/);
+  const resume = "Cancel this equipment plan, select the current character save, and prepare again; do not replay an uncertain operation.";
+  for (const raw of ["Source save changed during backup", "Source save changed after equipment preparation at D:/source. " + resume, "Source save cannot be read at D:/source: access denied. " + resume]) {
+    assert.match(publicError(raw), /源存档.*源文件路径.*结果不明.*不要重复添加/);
+  }
+  for (const raw of ["Automatic save backup verification failed", "Verified backup changed after equipment preparation at D:/copy. " + resume, "Verified backup cannot be read at D:/copy: access denied. " + resume]) {
+    assert.match(publicError(raw), /备份副本.*备份路径.*新的已验证备份.*不要重复添加/);
+  }
+  for (const raw of ["Equipment save checkpoint is missing backup_path", "Equipment save checkpoint belongs to another operation", "Equipment save checkpoint has an invalid source hash", "Equipment save checkpoint cannot read D:/copy: access denied", "Equipment save checkpoint must be a separate backup file", "A verified save checkpoint is required before equipment preview"]) {
+    assert.match(publicError(raw), /缺少有效的备份记录.*具体原因.*源存档.*不要重复添加/);
+  }
+  // Keep unrelated file access failures outside the equipment-specific advice.
+  assert.doesNotMatch(publicError("IO_ERROR: D:/unrelated: access denied"), /要备份的存档路径/);
+});
+
 test("errorText never returns an empty status for a rejection", () => {
   assert.equal(errorText(new Error("推荐等级无法转换。")), "推荐等级无法转换。");
   // Tauri command failures reject with a plain string.

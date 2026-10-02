@@ -1,12 +1,14 @@
 # Product feature catalog
 
-Status: **historical v0.7.4 behavior catalog; the current published baseline is
-[v0.8.0](releases/v0.8.0.md). New integration work is tracked in
-[v0.8.2](releases/v0.8.2.md) and is not shipped behavior.**
+Status: **published baseline v0.8.2; v0.8.3 is an unpublished candidate with
+source/runtime/UI follow-up gates passed; final TypeScript/npm reruns passed.** See the
+[publication record](../knowledge/TAURI_V082_PUBLICATION_20260928.md) and
+[current 0.8.3 engineering record](releases/v0.8.3.md).
 
-Status updated: 2026-09-21. Existing entries have not been fully reconciled with
-the Rust migration; historical Python implementation anchors below are not a
-claim that the released product still uses that backend.
+Status updated: 2026-10-02. The historical catalog is not fully reconciled with
+the Rust migration; unchanged historical implementation anchors and entries
+below are not current acceptance claims. This update reconciles only the
+affected compatibility, installation, save-plan and live-addition slice.
 
 This file is the durable index of shipped product behavior. It is deliberately compact: detailed technical and reverse-engineering evidence stays in `docs/knowledge/`, while planning state stays in the shared spreadsheet.
 
@@ -31,9 +33,10 @@ The initial entries below are grounded in the current player README and current 
 
 ## In-development capabilities (not shipped)
 
-These are being built against the v0.8.2 engineering record and are **not shipped
-behavior**. An entry moves into the shipped table above only after its workflow
-and safety bounds are accepted. Until then it stays unavailable to players.
+The entries below mix historical development evidence with the stated version
+scope. Their individual status is authoritative: v0.8.2 editing is shipped,
+while new v0.8.3 additions remain unpublished. No current-source test or old
+package result alone promotes a candidate capability to shipped behavior.
 
 | ID | Capability and intended outcome | Entry point | Essential bound | Primary anchors |
 | --- | --- | --- | --- | --- |
@@ -44,6 +47,43 @@ and safety bounds are accepted. Until then it stays unavailable to players.
 | `INVENTORY-LEGALITY-AUDIT` | Independently scan owned scrolls and equipment (soul-core coverage explicit and unverified until captured) for impossible effect combinations and other validated rule violations. | **In progress; bounded backend/UI/native debug evidence complete; no release entry point** | The bounded slice has synthetic protected dispatch with snapshot/source SHA/context proof, a UI six-row fixture accepted by 28 focused checks, TypeScript and 682-message locale audit across zh-CN/en-US/ja-JP, and a corrected native debug route that reaches `save.inventory`, `save.operations`, and `save.audit_scrolls`. All six current rows remain `INSUFFICIENT_DATA`; packaged/release acceptance and actual normal-input-domain evidence remain open. Replay matches are diagnostic only. R5, equipment and soul-core hard rules remain unsupported (`equipment_hard_terminal_rules_enabled = 0`). Mismatch, timeout, missing Seed/context, or version drift never becomes an illegal verdict. No write, repair, anti-cheat claim, or whole-record history proof is enabled. | `D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/scroll-audit/e2e-audit-result.json`; `D:/Nioh3_v080_deliverables/deliverables/v081-integration-continuation-20260921/scroll-audit-ui/REPORT.md`; `D:/Nioh3_v080_deliverables/deliverables/v081-integration-remaining-20260921/handoff/evidence/continuation/native-summary.json`; `V081_INTEGRATION_CONTINUATION_20260921.md` |
 
 ### In progress: equipment legality generation and inventory audit
+
+October 2 admission follow-up affects `GAME-INSTALLATION`, `SCROLL-ADD`,
+`LIVE-EQUIPMENT-ADD`, `SCROLL-COUNT`, `MISSION-OVERRIDE` and native search/preview.
+Known live scroll/equipment addition validates the operation's registered
+binding and transaction evidence without global compatibility consent. Code,
+layout, identity, ownership, bounds, backups, receipts and readback remain
+mandatory. Equipment uses a source/backup checkpoint bound to the reviewed
+operation and rechecked at execution. Generation resources load only for
+operations that consume them; control/status/recovery do not depend on their
+startup availability. Other compatibility-consent paths retain their reviewed
+plan, unchecked confirmations and durable verified-backup audit.
+
+Primary current coverage is 2.0.2.0; retain evidenced 2.0.1.0 scroll/count/native
+bindings and the existing 2.0.0.2 offline scope. Older native seeded equipment
+insertion and Ver2.00.01 with missing samples/bindings remain unsupported.
+Unknown structure matches do not authorize writes. Existing support code,
+mappings, runtime data and regressions must survive each new adaptation.
+See the [version policy](../research/V083_DLC1_COMPATIBILITY_POLICY_20261002.md).
+Completed source gates: runtime 207/207, policy 21/21, checkpoint 2/2, bootstrap
+2/2, parser 5/5, offline prediction 1/1, Tauri packaged-resolution unit tests
+11/11 plus offline-session 1/1, and npm 91 pass / 1 skip. Frozen browser tests
+pass equipment 66/66 and compatibility 146/146 with 1,312 locale messages.
+Actual-error mapping is covered by the final browser run and public-errors
+17/17; no-game stored-receipt status/cancel passes 4/4. Actual recovery retains
+process identity checks. Runtime again passes 207/207; protected all-target
+Clippy and three format targets pass. Final TypeScript, the 1,312-message locale audit, and full npm (91 pass / 1 skip) pass; their logs are operation-final-typecheck.log and operation-final-npm.log. Test10 follows a clean commit;
+its exact outer-package identity and acceptance belong in the external receipt.
+No current packaged/game acceptance or publication is claimed. These changes
+are absent from test9. See the [engineering record](releases/v0.8.3.md) for logs
+and the external `TEST_PLAN.md` for acceptance cases.
+
+October 2 source follow-up for the shared save-plan workflow and compatibility
+backup confirmation: a canonical host-expired plan invalidates the review
+without leaving an unknown-write fence; explicit backup retries copy current
+sources while retaining previous copies. Lost acknowledgements still require
+receipt recovery, and backup/consent checks remain. This is isolated source-only
+acceptance, absent from test9. See [regressions and limits](../research/V083_OFFLINE_RELIABILITY_20261002.md).
 
 `EQUIPMENT-EDIT` follow-up (September 30): the save-plan confirmation and
 write/discard actions stay in a fixed card footer while details scroll. Explicit
@@ -58,10 +98,10 @@ owner-requested entries; earlier seed-only test7 artifacts do not contain them.
 
 | ID | Behavior | Status | Boundary | Evidence |
 | --- | --- | --- | --- | --- |
-| `LIVE-EQUIPMENT-ADD` | Equipment & items -> Add new equipment -> Live editing: native seeded preview, reviewed confirmation and one insertion, with durable status/cancel/recovery. | Candidate implemented; unpublished | PC 2.0.2.0 item-grant route; process-bound risk/backup consent for executable variants plus owner/code checks, separate equipment container and both counters. No scroll-index proof or new in-game persistence acceptance is claimed. Existing save addition remains available. | `crates/nioh3-runtime/src/mutation/equipment_add.rs`; `apps/workshop/LiveEquipmentAdd.tsx`; `docs/knowledge/V083_MISSING_FEATURE_INTEGRATION_20260930.md` |
-| `SCROLL-COMPLETION-PREDICTION` | Scroll editor -> Reroll & extra-painting prediction: ordinary-completion replacement choices, decline and branch simulation up to five rounds. | Candidate implemented; unpublished | PC 2.0.2.0, NG3 0xE604 R4 only; unsupported semantics reject. Revelation trigger/automatic slot and replacement-combination search remain unknown/outside this panel. Read-only simulated records cannot be installed. | `crates/nioh3-domain/src/scroll_completion.rs`; `crates/nioh3-protected/tests/host_scroll_completion.rs`; `apps/workshop/ScrollCompletion.tsx` |
+| `LIVE-EQUIPMENT-ADD` | Equipment & items -> Add new equipment -> Live editing: native seeded preview, reviewed confirmation and one insertion, with durable status/cancel/recovery. | Source integration in verification; unpublished | PC 2.0.2.0 item-grant binding; no global compatibility-consent prerequisite. The operation requires a verified source/backup checkpoint covered by its plan and rechecked before execute, plus same-process/code/owner/container/counter checks and receipt recovery. 2.01/2.00.02 seeded insertion is unsupported. Current matching-package and in-game persistence acceptance are pending; save addition remains available within its supported scope. | `crates/nioh3-runtime/src/mutation/equipment_add.rs`; `crates/nioh3-protected/src/runtime_backup.rs`; `crates/nioh3-protected/tests/equipment_checkpoint.rs`; `apps/workshop/LiveEquipmentAdd.tsx`; `docs/product/releases/v0.8.3.md` |
+| `SCROLL-COMPLETION-PREDICTION` | Scroll editor -> Reroll & extra-painting prediction: ordinary-completion replacement choices, decline and branch simulation up to five rounds. | Candidate implemented; unpublished | PC 2.0.2.0, NG3 0xE604 R4 only; unsupported semantics reject. Deferred offline prediction loads its explicit 2.02 context without a running game or replacing live-generation state; host_scroll_completion passes 1/1. Revelation trigger/automatic slot and replacement-combination search remain unknown/outside this panel. Read-only simulated records cannot be installed. | `crates/nioh3-domain/src/scroll_completion.rs`; `crates/nioh3-protected/tests/host_scroll_completion.rs`; `apps/workshop/ScrollCompletion.tsx` |
 | `SCROLL-EXTRA-PAINTING-PREDICTION` | The same panel shows the painting trigger and effect after the selected completion decision. | Candidate implemented; unpublished | Retained native projections and binary32 thresholds; supported ordinary-completion scope only. Game confirmation of this new UI remains separate from historical native evidence. | `docs/knowledge/V083_SCROLL_COMPLETION_REPLACEMENT_RESEARCH_20260928.md`; `docs/knowledge/V083_MISSING_FEATURE_INTEGRATION_20260930.md` |
-| `GAME-INSTALLATION` | Automatic sole-running-image discovery, or Settings/startup recovery -> Select game executable: explicitly name an actual Nioh3.exe outside Steam discovery; restore automatic discovery when desired. | Candidate implemented; unpublished | Path-only native selection takes effect after reopening Studio. Real VERSIONINFO and the shared supported-version registry establish worker identity; invalid selections never silently fall back. Unsupported versions start no workers; whole-file differences are advisory with process-bound risk/backup consent while code/layout/record checks remain. Feedback and sidebar expose verified package source identity and actual EXE paths. The matching test8-r2 outer EXE passed 28 installation/context E2E checks with never-executed VERSIONINFO fixtures, all locales and constrained viewport coverage. Native dialog interaction, cracked binaries and game writes remain unverified. | `apps/tauri/src-tauri/src/game_install.rs`; `apps/workshop/GameInstallation.tsx`; `apps/tauri/verify-game-install-selection.mjs`; `docs/research/V083_INSTALL_AND_STALE_PLAN_ACCEPTANCE_20260930.md` |
+| `GAME-INSTALLATION` | Automatically locate the sole running image, or select a game executable on disk from Settings/startup recovery. | Source integration in verification; unpublished | Actual FILEVERSION and operation-specific bindings determine support; invalid selection never silently falls back. Host diagnostics remain available for unsupported startup. Runtime control/status/recovery construction is independent of optional generation resources; consuming operations still validate them. No multi-PID picker is implemented. Earlier test8-r2 checks are historical; current native chooser and matching-package acceptance remain pending. | `apps/tauri/src-tauri/src/game_install.rs`; `crates/nioh3-protected/src/runtime_app.rs`; `crates/nioh3-protected/tests/runtime_operation_admission.rs`; `apps/workshop/GameInstallation.tsx`; `docs/product/releases/v0.8.3.md` |
 
 Owner-requested scope recorded 2026-09-21. Browsing and editing owned
 equipment/soul-core records remain one feature: the read-only page above is

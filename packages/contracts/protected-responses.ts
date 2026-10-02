@@ -1685,7 +1685,7 @@ export interface ProtectedHandshake {
     context_digest: string;
     seed_accelerator_abi: number | null;
     seed_accelerator_build_id: string | null;
-  };
+  } | null;
   kill_safe: false;
 }
 export interface ScrollCompletionPrediction {

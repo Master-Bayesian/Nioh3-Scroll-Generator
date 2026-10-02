@@ -4,7 +4,13 @@
 use nioh3_protected::compatibility::{CompatibilitySession, ExecutableIdentity};
 use nioh3_protected::{serve, Contract, HostError, JobContext, Role, RoleApplication};
 use serde_json::{json, Value};
-use std::{io::Cursor, path::PathBuf};
+use std::{
+    cell::RefCell,
+    collections::VecDeque,
+    io::{Cursor, Read, Write},
+    path::PathBuf,
+    rc::Rc,
+};
 
 struct Fixture {
     session: CompatibilitySession,
@@ -49,9 +55,14 @@ impl RoleApplication for Fixture {
             Some("prepare") => self.session.prepare(&self.image, &self.root, &self.sources),
             Some("accept") => self.session.accept(
                 &self.image,
+                params["plan_id"].as_str().unwrap_or(""),
                 params["confirmed"] == true,
                 params["backup_confirmed"] == true,
             )?,
+            Some("cancel") => {
+                self.session.cancel();
+                self.session.report(&self.image)
+            }
             _ => return Err(HostError::invalid_request()),
         };
         Ok(json!({"compatibility":report}))
@@ -81,6 +92,47 @@ fn decode(mut bytes: &[u8]) -> Vec<Value> {
     }
     values
 }
+
+// The fixture feeds the actual plan ID from the preceding wire response into
+// subsequent requests. Production schema and application validation stay intact.
+struct Conversation {
+    requests: VecDeque<Value>,
+    current: Cursor<Vec<u8>>,
+    replies: Rc<RefCell<Vec<u8>>>,
+    sent: Vec<Value>,
+}
+impl Read for Conversation {
+    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        if self.current.position() == self.current.get_ref().len() as u64 {
+            let Some(mut next) = self.requests.pop_front() else {
+                return Ok(0);
+            };
+            if next["params"]["plan_id"] == "$prepared_plan" {
+                let prior = decode(&self.replies.borrow());
+                let id = prior
+                    .iter()
+                    .rev()
+                    .find_map(|reply| reply["result"]["compatibility"]["plan"]["plan_id"].as_str());
+                next["params"]["plan_id"] =
+                    json!(id.map(str::to_owned).unwrap_or_else(|| "0".repeat(64)));
+            }
+            self.sent.push(next.clone());
+            self.current = Cursor::new(frame(&next));
+        }
+        self.current.read(buffer)
+    }
+}
+struct Replies(Rc<RefCell<Vec<u8>>>);
+impl Write for Replies {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.borrow_mut().extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 fn character_memory(version: &str) -> nioh3_runtime::inventory::FixtureMemory {
     let base = 0x7ff700000000u64;
     let player = 0x200000000u64;
@@ -149,27 +201,33 @@ fn compatibility_consent_and_backups_through_the_real_host() {
                 request(
                     5,
                     "runtime.compatibility",
-                    json!({"action":"accept","confirmed":true,"backup_confirmed":false}),
+                    json!({"action":"accept","plan_id":"$prepared_plan","confirmed":true,"backup_confirmed":false}),
                 ),
                 request(
                     6,
                     "runtime.compatibility",
-                    json!({"action":"accept","confirmed":true,"backup_confirmed":true}),
+                    json!({"action":"accept","plan_id":"$prepared_plan","confirmed":true,"backup_confirmed":true}),
                 ),
                 request(7, "runtime.compatibility", json!({"action":"inspect"})),
                 request(8, "runtime.character_snapshot", json!({})),
                 request(9, "shutdown", json!({})),
             ];
-            let input = requests.iter().flat_map(frame).collect::<Vec<_>>();
-            let mut output = Vec::new();
+            let output = Rc::new(RefCell::new(Vec::new()));
+            let mut input = Conversation {
+                requests: requests.into(),
+                current: Cursor::new(Vec::new()),
+                replies: output.clone(),
+                sent: Vec::new(),
+            };
             serve(
                 Box::new(app),
                 &contract,
-                &mut Cursor::new(input),
-                &mut output,
+                &mut input,
+                &mut Replies(output.clone()),
             )
             .unwrap();
-            let replies = decode(&output);
+            let replies = decode(&output.borrow());
+            let requests = input.sent;
             assert_eq!(replies.len(), 9, "{replies:?}");
             assert_eq!(
                 replies[7]["result"]["game_version"], version,
@@ -185,7 +243,13 @@ fn compatibility_consent_and_backups_through_the_real_host() {
                 replies[4]["ok"], false,
                 "missing explicit backup confirmation"
             );
-            assert_eq!(replies[5]["result"]["compatibility"]["accepted"], true);
+            assert_eq!(
+                replies[5]["ok"], found,
+                "a missing verified backup cannot be confirmed away"
+            );
+            if found {
+                assert_eq!(replies[5]["result"]["compatibility"]["accepted"], true);
+            }
             assert_eq!(
                 replies[6]["result"]["compatibility"]["accepted"], false,
                 "process birth invalidates consent"

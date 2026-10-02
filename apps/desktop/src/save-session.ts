@@ -163,11 +163,11 @@ export class SaveSession {
         const result = await this.gateway.execute({ method: 'save.commit', params: { plan_id: plan.plan_id } }, plan.plan_id);
         return this.acceptReceipt(result, plan.plan_id);
       } catch (error) {
-        // This exact host refusal occurs before its durable write ledger is
-        // created. It invalidates the reviewed plan, not the save's usability.
+        // These exact host refusals occur before its durable write ledger is
+        // created. They invalidate the reviewed plan, not the save's usability.
         // Lost responses and all other errors keep the existing recovery fence.
         const message = error instanceof Error ? error.message : String(error);
-        if (/^(?:(?:OPERATION_REJECTED|OPERATION_FAILED):\s*)?Save changed after preparation; no write attempted$/.test(message))
+        if (/^(?:(?:OPERATION_REJECTED|OPERATION_FAILED):\s*)?(?:Save changed after preparation; no write attempted|Plan expired; prepare a new plan)$/.test(message))
           this.update({ uncertainOperationId: null, receipt: null, refreshedAfterUncertainty: false });
         throw error;
       }

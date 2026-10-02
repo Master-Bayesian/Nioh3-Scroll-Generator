@@ -586,8 +586,8 @@ pub struct RustProtectedLaunch {
     pub data_root: std::path::PathBuf,
     pub contract_dir: std::path::PathBuf,
     pub accelerator: std::path::PathBuf,
-    /// The exact installed game executable version the protected host binds its
-    /// generation identity to, when the launch resolved one.
+    /// The generation version selected for save or explicitly in development.
+    /// Packaged runtime has no version until an operation resolves its target.
     pub game_file_version: Option<String>,
     /// Explicit, visibly non-production identity opt-in for development only.
     pub legacy_test_context: bool,
@@ -718,6 +718,45 @@ pub fn protected_backend(
         accelerator: path(&env.accelerator, "bin/nioh3_seed_accelerator.dll"),
         game_file_version: env.game_file_version.clone(),
         legacy_test_context: env.legacy_test_context,
+    }))
+}
+
+/// Resolve only the requested protected role. A packaged runtime starts with
+/// no generation context; operations resolve the running target and load only
+/// their required resources. Save keeps the installed-version contract.
+pub fn protected_backend_for_role(
+    root: &Path,
+    role: &str,
+    packaged: bool,
+    env: &RustProtectedEnv,
+) -> Result<ProtectedBackend, String> {
+    if !PROTECTED_ROLES.contains(&role) {
+        return Err("INVALID_ROLE".into());
+    }
+    if role != "runtime" || !packaged {
+        // Preserve explicit development version/legacy opt-ins and save's
+        // existing resolver. Neither is an implicit production fallback.
+        return protected_backend(root, packaged, env);
+    }
+    let Some(manifest) = staged_backend_manifest(root)? else {
+        return Ok(ProtectedBackend::Python);
+    };
+    let executable = manifest
+        .roles
+        .get(role)
+        .map(std::path::PathBuf::from)
+        .ok_or_else(|| format!("WORKER_BACKEND_ROLE_MISSING: {role}"))?;
+    // The broker uses this resolver directly, so actual launch admission also
+    // verifies staged bytes rather than relying on the diagnostic resolver.
+    verify_declared_binary(&manifest, role, &executable)?;
+    Ok(ProtectedBackend::Rust(RustProtectedLaunch {
+        mode: RustLaunchMode::Packaged,
+        executable,
+        data_root: manifest.data_root,
+        contract_dir: manifest.contract_dir,
+        accelerator: manifest.accelerator,
+        game_file_version: None,
+        legacy_test_context: false,
     }))
 }
 
@@ -1056,28 +1095,30 @@ pub fn resolve_role_launch(
     packaged: bool,
     state_root: &Path,
 ) -> Result<(std::path::PathBuf, Vec<String>), String> {
-    let search = search_backend(root, packaged, &rust_search_env())?;
-    let protected = protected_backend(root, packaged, &rust_protected_env())?;
-    // A packaged host must establish its session's resolved version before it
-    // hands one to a worker, whichever graph serves the role. When no staged
-    // manifest selects the Rust graph the shipped Python search worker carries
-    // the identity, so the refusal has to happen on this path too, not only in
-    // the Rust branch of `search_backend`/`protected_backend`.
-    if packaged {
+    let (search, protected) = match role {
+        "offline_search" => (
+            search_backend(root, packaged, &rust_search_env())?,
+            ProtectedBackend::Python,
+        ),
+        "save" | "runtime" => (
+            SearchBackend::Python,
+            protected_backend_for_role(root, role, packaged, &rust_protected_env())?,
+        ),
+        _ => return Err("INVALID_ROLE".into()),
+    };
+    // Offline/search-save identity remains explicit even for the legacy Python
+    // graph. Runtime does not consult this cache or borrow its generation data.
+    if packaged && role != "runtime" {
         packaged_game_file_version()?;
     }
-    // A packaged launch must run the binary the manifest declared, so the
-    // declared sha256 and the staged bytes are compared before anything spawns.
-    if packaged {
+    let launch = launch_command(root, role, packaged, &search, &protected, state_root);
+    // Runtime's role resolver already verifies its binary before broker spawn.
+    if packaged && role != "runtime" {
         if let Some(manifest) = staged_backend_manifest(root)? {
-            let (executable, _) =
-                launch_command(root, role, packaged, &search, &protected, state_root);
-            verify_declared_binary(&manifest, role, &executable)?;
+            verify_declared_binary(&manifest, role, &launch.0)?;
         }
     }
-    Ok(launch_command(
-        root, role, packaged, &search, &protected, state_root,
-    ))
+    Ok(launch)
 }
 
 impl Worker {

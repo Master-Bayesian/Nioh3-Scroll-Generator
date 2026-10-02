@@ -22,12 +22,11 @@
 
 pub mod app;
 pub mod catalog;
+pub mod compatibility;
 pub mod composition;
 pub mod contract;
-pub mod compatibility;
 pub mod equipment_rules;
 pub mod equipment_seeds;
-pub mod scroll_completion;
 pub mod error;
 pub mod grace_capture;
 pub mod host;
@@ -41,6 +40,7 @@ pub mod save_app;
 pub mod scan;
 #[cfg(feature = "test-fake")]
 pub mod scan_bench_api;
+pub mod scroll_completion;
 
 pub use app::{FinalizePlan, FinalizeStep, JobContext, Role, RoleApplication};
 pub use contract::Contract;

@@ -116,7 +116,7 @@ fn projection(record: &str) -> Value {
 }
 
 #[test]
-fn predicts_native_replacements_painting_and_simulated_branches_without_writes() {
+fn predicts_native_replacements_from_deferred_runtime_without_process_or_writes() {
     let root = build_root()
         .join("tmp")
         .join(format!("nioh3-completion-{}", std::process::id()));
@@ -132,8 +132,9 @@ fn predicts_native_replacements_painting_and_simulated_branches_without_writes()
     )
     .unwrap();
     let digest = engine.context().digest().to_owned();
-    let application: Box<dyn RoleApplication> =
-        Box::new(RuntimeApplication::new(state.clone(), &data, engine.context().clone()).unwrap());
+    let application: Box<dyn RoleApplication> = Box::new(
+        RuntimeApplication::deferred(state.clone(), &data, &contracts, None, None).unwrap(),
+    );
     let contract = Contract::load(&contracts).unwrap();
     let (sender, receiver) = mpsc::channel();
     let sink = Arc::new(Mutex::new(Vec::new()));

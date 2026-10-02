@@ -4162,6 +4162,10 @@
               "type": "integer",
               "minimum": 0,
               "maximum": 65535
+            },
+            "save_path": {
+              "type": "string",
+              "minLength": 1
             }
           },
           "required": [
@@ -4357,7 +4361,8 @@
               "enum": [
                 "inspect",
                 "prepare",
-                "accept"
+                "accept",
+                "cancel"
               ]
             },
             "confirmed": {
@@ -4365,6 +4370,10 @@
             },
             "backup_confirmed": {
               "type": "boolean"
+            },
+            "plan_id": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{64}$"
             }
           },
           "required": [

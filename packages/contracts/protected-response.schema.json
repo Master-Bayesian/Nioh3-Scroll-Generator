@@ -2589,7 +2589,10 @@
           "type": "string"
         },
         "context": {
-          "type": "object",
+          "type": [
+            "object",
+            "null"
+          ],
           "additionalProperties": false,
           "properties": {
             "product_version": {

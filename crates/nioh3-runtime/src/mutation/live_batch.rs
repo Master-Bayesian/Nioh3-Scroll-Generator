@@ -10,7 +10,7 @@ use crate::mutation::count::{
 };
 use crate::mutation::inventory::CAPACITY;
 use crate::mutation::live_add::LiveAddApplication;
-use crate::mutation::operations::{OperationSnapshot, OperationState};
+use crate::mutation::operations::{LiveAddOperations, OperationSnapshot, OperationState};
 use serde_json::{json, Value};
 use std::path::Path;
 
@@ -33,10 +33,17 @@ impl LiveAddBatch {
         application: &LiveAddApplication,
         batch_id: &str,
     ) -> Result<std::path::PathBuf, RuntimeError> {
+        Self::directory_from_operations(application.operations(), batch_id)
+    }
+
+    fn directory_from_operations(
+        operations: &LiveAddOperations,
+        batch_id: &str,
+    ) -> Result<std::path::PathBuf, RuntimeError> {
         if !is_canonical_uuid(batch_id) {
             return Err(rejected("Expected canonical batch UUID"));
         }
-        Ok(Self::root(application).join(batch_id))
+        Ok(operations.root().join("batches").join(batch_id))
     }
 
     /// `LiveAddBatch.prepare`.
@@ -209,7 +216,15 @@ impl LiveAddBatch {
         application: &mut LiveAddApplication,
         batch_id: &str,
     ) -> Result<Value, RuntimeError> {
-        let directory = Self::directory(application, batch_id)?;
+        Self::cancel_from_operations(application.operations(), batch_id)
+    }
+
+    /// Cancel through the same exclusive batch and child claims without a native adapter.
+    pub fn cancel_from_operations(
+        operations: &LiveAddOperations,
+        batch_id: &str,
+    ) -> Result<Value, RuntimeError> {
+        let directory = Self::directory_from_operations(operations, batch_id)?;
         let stored = read_json(&directory.join("plan.json"))?;
         let digest = stored
             .get("digest")
@@ -227,7 +242,7 @@ impl LiveAddBatch {
             .and_then(Value::as_str)
             .ok_or_else(|| rejected("Batch review digest differs"))?
             .to_string();
-        application.cancel(&first_id)?;
+        operations.cancel(&first_id)?;
         exclusive_json(
             &directory.join("receipt.json"),
             &json!({
@@ -237,12 +252,20 @@ impl LiveAddBatch {
                 "results": [],
             }),
         )?;
-        Self::status(application, batch_id)
+        Self::status_from_operations(operations, batch_id)
     }
 
     /// `LiveAddBatch.status`: reconciliation only, never a replay.
     pub fn status(application: &LiveAddApplication, batch_id: &str) -> Result<Value, RuntimeError> {
-        let directory = Self::directory(application, batch_id)?;
+        Self::status_from_operations(application.operations(), batch_id)
+    }
+
+    /// Reconcile only durable journals; no process or generation resources are needed.
+    pub fn status_from_operations(
+        operations: &LiveAddOperations,
+        batch_id: &str,
+    ) -> Result<Value, RuntimeError> {
+        let directory = Self::directory_from_operations(operations, batch_id)?;
         let stored = read_json(&directory.join("plan.json"))?;
         let plan = stored
             .get("plan")
@@ -268,7 +291,7 @@ impl LiveAddBatch {
                 .get("operation_id")
                 .and_then(Value::as_str)
                 .ok_or_else(|| rejected("Batch review digest differs"))?;
-            children.push(application.status(operation_id)?);
+            children.push(operations.snapshot(operation_id)?);
         }
         let receipt_path = directory.join("receipt.json");
         let receipt = if receipt_path.is_file() {
