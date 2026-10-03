@@ -10,6 +10,11 @@ import shutil
 import stat
 import struct
 import zipfile
+import sys
+
+# Both the command-line packager and imported tests resolve the same project module.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tools.verify_tauri_native_dependencies import inspect_native_imports
 
 MAGIC = b"NIOH3_ONEFILE_V1"
 FOOTER = struct.Struct("<16sQ32s")
@@ -95,6 +100,7 @@ def verify_archive(path: Path) -> tuple[dict, bytes]:
             raise ValueError("Launcher exceeds its size bound")
         launcher = archive.read(LAUNCHER_PATH)
         require_x64_pe(launcher)
+        inspect_native_imports(launcher, LAUNCHER_PATH)
         return manifest, launcher
 
 

@@ -760,6 +760,21 @@ pub fn protected_backend_for_role(
     }))
 }
 
+/// Development selectors must not veto the packaged argv or redirect its DLLs.
+/// Keep the developer shell intact; remove only overrides in this child command.
+pub(crate) fn isolate_packaged_worker_environment(command: &mut Command, packaged: bool) {
+    if packaged {
+        for name in [
+            "NIOH3_RUST_SEARCH_WORKER",
+            "NIOH3_RUST_PROTECTED_WORKER",
+            "NIOH3_SEED_ACCELERATOR",
+            "NIOH3_EFFECT_PREIMAGE_ACCELERATOR",
+        ] {
+            command.env_remove(name);
+        }
+    }
+}
+
 pub struct Worker {
     role: String,
     /// Which backend graph this launch resolved to.
@@ -1201,6 +1216,7 @@ impl Worker {
         let (executable, arguments) =
             launch_command(root, role, packaged, backend, protected, &data);
         let mut command = Command::new(&executable);
+        isolate_packaged_worker_environment(&mut command, packaged);
         command.args(&arguments);
         command
             .current_dir(root)

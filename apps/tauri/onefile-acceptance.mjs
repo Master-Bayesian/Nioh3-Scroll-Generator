@@ -60,13 +60,13 @@ export async function connect(port, child) {
   assert.equal(ready.canApply, true, 'Startup handshake and update cleanup did not finish');
   return {browser, page, diagnostics};
 }
-export async function closeSession(session, child) {
+export async function closeSession(session, child, timeoutMs = 10000) {
   if (session) {
     await session.page.evaluate(() => window.review.windowAction('close')).catch(() => {});
     await Promise.race([session.browser.close().catch(() => {}), pause(3000)]);
   }
   if (child) {
-    for (let index = 0; index < 100 && child.exitCode === null; index++) await pause(100);
+    for (let index = 0; index < Math.ceil(timeoutMs / 100) && child.exitCode === null; index++) await pause(100);
     assert.notEqual(child.exitCode, null, 'Launcher did not release its runtime lease after app exit');
     assert.equal(child.exitCode, 0);
   }

@@ -198,7 +198,7 @@ def build_commands(profile: str) -> list[list[str]]:
     """
 
     profile_flag = "--release" if profile == "release" else f"--profile={profile}"
-    return [
+    commands = [
         [
             "cargo",
             "build",
@@ -220,6 +220,11 @@ def build_commands(profile: str) -> list[list[str]]:
             "nioh3-protected-worker",
         ],
     ]
+    if profile == "release":
+        for command in commands:
+            command[1] = "rustc"
+            command.extend(["--", "-C", "target-feature=+crt-static"])
+    return commands
 
 
 def tool_version(program: str) -> str | None:

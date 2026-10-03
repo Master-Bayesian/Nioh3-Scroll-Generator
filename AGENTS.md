@@ -32,6 +32,7 @@ A short router: state what changes a decision, and leave procedure to the linked
 
 ## Boundaries
 
+- Every delivered Windows candidate must remain a usable outer single EXE. Accept the exact EXE alone in a fresh directory, from a different CWD, with isolated cold app caches/profiles and the actual UI plus all three host-owned workers/resources/DLLs traced to its embedded payload. Exercise missing-owned-cache-member repair or explicit failure. An old release folder or portable ZIP is never a substitute for this gate; internal verified extraction is allowed. Reject external VC runtime imports in the outer launcher and shipped native files. See the release runbook for the permanent acceptance command and system WebView2 prerequisite.
 - Preserve shipped behavior unless the owner approves a change; entry points, defaults, terminology, visibility, and removal are product behavior.
 - For generation, save, or live-add changes, preserve `GenerationContext`, exact RNG and replay, the R4
   finalized-preview/stage-one pairing, legacy Tk compatibility, and protected-operation recovery.

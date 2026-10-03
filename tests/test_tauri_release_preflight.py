@@ -122,6 +122,7 @@ class TauriReleasePreflightTests(unittest.TestCase):
                       - run: python tools/archive_frontend_v2.py deliverables/release/portable deliverables/release/@ARTIFACT@.zip
                       - run: python tools/build_tauri_onefile.py deliverables/release/@ARTIFACT@.zip deliverables/release/@ARTIFACT@.exe
                       - run: node apps/tauri/verify-packaged-frontend.mjs --profile $env:NIOH3_UI_PROFILE
+                      - run: node apps/tauri/verify-onefile-standalone.mjs
                       - run: node apps/tauri/verify-onefile.mjs
                       - run: node apps/tauri/verify-onefile-update.mjs
                       - run: node apps/tauri/verify-onefile-rollback.mjs
@@ -166,6 +167,20 @@ class TauriReleasePreflightTests(unittest.TestCase):
         check = next(item for item in report["checks"] if item["name"] == "signing-source-boundary")
         self.assertFalse(check["ok"], report)
         self.assertIn("Unexpected signing key exposure", check["error"])
+
+    @patch("tools.preflight_tauri_release._git")
+    def test_standalone_gate_cannot_be_removed_or_moved_after_signing(self, git_mock) -> None:
+        git_mock.side_effect = self._git_result
+        relative = ".github/workflows/release.yml"
+        original = (self.root / relative).read_text(encoding="utf-8")
+        command = next(line for line in original.splitlines() if "node apps/tauri/verify-onefile-standalone.mjs" in line) + "\n"
+        for text in (original.replace(command, ""), original.replace(command, "") + command):
+            with self.subTest(workflow=text):
+                self._write(relative, text)
+                report = inspect_repository(self.root)
+                check = next(item for item in report["checks"] if item["name"] == "release-workflow")
+                self.assertFalse(check["ok"], report)
+                self.assertIn("standalone cold-cache", check["error"])
 
     def test_repository_secret_policy_does_not_require_an_environment(self) -> None:
         workflow = (self.root / ".github/workflows/release.yml").read_text(encoding="utf-8")

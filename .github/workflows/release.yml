@@ -285,6 +285,9 @@ jobs:
           NIOH3_WORKER_IDENTITY_PROTECTED: '1'
         run: |
           $env:NIOH3_ONEFILE_EXE=Join-Path $PWD 'deliverables/release/Nioh3Studio-${{ steps.version.outputs.value }}-win-x64.exe'
+          $identity=Join-Path $env:RUNNER_TEMP 'nioh3-game-identity/identity.json'
+          node apps/tauri/verify-onefile-standalone.mjs --game-fixture $identity
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node apps/tauri/verify-onefile.mjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node apps/tauri/verify-onefile-update.mjs

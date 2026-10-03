@@ -199,6 +199,7 @@ def _check_workflow(root: Path) -> dict[str, Any]:
         ),
         "signed ZIP identity": f"$zip='deliverables/release/{ARTIFACT_STEM}.zip'",
         "production manifest builder": "node tools/build_tauri_update_manifest.mjs $zip",
+        "standalone cold-cache verification": "node apps/tauri/verify-onefile-standalone.mjs",
         "outer verification": "node apps/tauri/verify-onefile.mjs",
         "outer update verification": "node apps/tauri/verify-onefile-update.mjs",
         "outer rollback verification": "node apps/tauri/verify-onefile-rollback.mjs",
@@ -247,6 +248,10 @@ def _check_workflow(root: Path) -> dict[str, Any]:
         "shared build root before the build": ("NIOH3_BUILD_ROOT=$root", "build_tauri.ps1"),
         "packaged frontend acceptance before signing": (
             "verify-packaged-frontend.mjs",
+            "build_tauri_update_manifest.mjs",
+        ),
+        "standalone cold-cache acceptance before signing": (
+            "verify-onefile-standalone.mjs",
             "build_tauri_update_manifest.mjs",
         ),
         "one-file rollback acceptance before signing": (

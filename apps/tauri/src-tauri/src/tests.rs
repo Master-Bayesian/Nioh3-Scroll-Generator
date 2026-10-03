@@ -7,6 +7,48 @@ use base64::Engine;
 use serde_json::json;
 
 #[test]
+fn packaged_worker_environment_keeps_the_manifest_authoritative() {
+    use crate::worker::isolate_packaged_worker_environment;
+    let names = [
+        "NIOH3_RUST_SEARCH_WORKER",
+        "NIOH3_RUST_PROTECTED_WORKER",
+        "NIOH3_SEED_ACCELERATOR",
+        "NIOH3_EFFECT_PREIMAGE_ACCELERATOR",
+    ];
+    for packaged in [false, true] {
+        let mut command = tokio::process::Command::new("fixture.exe");
+        for name in names {
+            command.env(name, "old-folder-override");
+        }
+        command.env("NIOH3_SCROLL_LOCALE", "ja-JP");
+        command.env("NIOH3_STATE_ROOT", "isolated-state");
+        isolate_packaged_worker_environment(&mut command, packaged);
+        let environment = command
+            .as_std()
+            .get_envs()
+            .collect::<std::collections::HashMap<_, _>>();
+        for name in names {
+            assert_eq!(
+                environment[std::ffi::OsStr::new(name)],
+                if packaged {
+                    None
+                } else {
+                    Some(std::ffi::OsStr::new("old-folder-override"))
+                }
+            );
+        }
+        assert_eq!(
+            environment[std::ffi::OsStr::new("NIOH3_SCROLL_LOCALE")],
+            Some(std::ffi::OsStr::new("ja-JP"))
+        );
+        assert_eq!(
+            environment[std::ffi::OsStr::new("NIOH3_STATE_ROOT")],
+            Some(std::ffi::OsStr::new("isolated-state"))
+        );
+    }
+}
+
+#[test]
 fn qq_invite_accepts_only_the_official_group_protocol_shape() {
     let html = r#"<script>var qsig = "tencent:\/\/groupwpa\/?subcmd=all\u0026param=7b2267726f757055696e223a313130363330323437397d";</script>"#;
     assert_eq!(

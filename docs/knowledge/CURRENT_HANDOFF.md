@@ -1,5 +1,28 @@
 # Current project handoff - 2026-10-03
 
+## Active standalone EXE acceptance
+
+The owner requires a usable single EXE permanently. The tester put the earlier
+EXE into an old release folder to start it, so the 4f93766 startup log is mixed
+environment evidence, not independent standalone acceptance. The later 398ac31
+menu diagnostic had not been sent to that tester.
+
+Current isolated worktree: D:/Nioh3_v080_deliverables/source-codex-v083-standalone-onefile-20261003.
+The standalone gate checks fresh one-EXE directories, unrelated CWDs, isolated
+cold caches/profile, actual host-owned workers and missing-member repair.
+Packaged child commands clear four developer/DLL selectors that could veto a
+packaged launch or select an external accelerator; development launch behavior
+and all existing save/native validation remain intact. The matching external
+receipt owns actual candidate acceptance; tester startup causality remains open.
+The ZIP is auxiliary diagnosis/update input, never the final EXE replacement.
+PE import audit also found dynamic VCRUNTIME140.dll on the pre-extraction
+launcher and VCRUNTIME140/VCRUNTIME140_1 on the host/workers. Static CRT linkage
+is now required in final production Rust EXEs and checked from normal/delayed
+imports before packaging; native-dependencies.json records the actual imports.
+This supplies a concrete possible old-folder dependency without claiming the
+tester lacked VC runtime. System WebView2 remains a prerequisite. Publication
+stays paused.
+
 ## Active menu and system-save diagnostics
 
 The newest supplied log is from frozen compatibility-choice 4f93766, not the

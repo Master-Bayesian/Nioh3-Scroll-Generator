@@ -36,10 +36,12 @@ $buildTempRoot=$resolvedPaths[0].Trim()
 $env:CARGO_TARGET_DIR=$resolvedPaths[1].Trim()
 $env:NIOH3_PYTHON=$Python
 $env:PYTHONUTF8='1'
+# Only each final Windows EXE selects static CRT; cached dependencies remain reusable.
+# The package PE-import gate verifies actual bytes, including transitive native links.
 Checked 'npm.cmd' @('run','typecheck')
 Checked 'node.exe' @('apps/tauri/build.mjs')
-Checked 'cargo.exe' @('build','--release','--locked','--manifest-path','apps/launcher/Cargo.toml')
-Checked 'cargo.exe' @('build','--release','--locked','--manifest-path','apps/tauri/src-tauri/Cargo.toml')
+Checked 'cargo.exe' @('rustc','--release','--locked','--manifest-path','apps/launcher/Cargo.toml','--bin','Nioh3Launcher','--','-C','target-feature=+crt-static')
+Checked 'cargo.exe' @('rustc','--release','--locked','--manifest-path','apps/tauri/src-tauri/Cargo.toml','--bin','nioh3-studio','--','-C','target-feature=+crt-static')
 # Staging lives under the resolved build root, never inside the checkout. A
 # failed build keeps its own staging directory for diagnosis; a successful one
 # removes exactly that directory and nothing else.
@@ -50,8 +52,8 @@ $succeeded=$false
 try {
     if($WorkerBackend -eq 'rust') {
         Write-Host 'Rust worker backend: the shipped packaged graph'
-        Checked 'cargo.exe' @('build','--release','--locked','--manifest-path','crates/nioh3-worker/Cargo.toml','--bin','nioh3-readonly-worker')
-        Checked 'cargo.exe' @('build','--release','--locked','--manifest-path','crates/nioh3-protected/Cargo.toml','--bin','nioh3-protected-worker')
+        Checked 'cargo.exe' @('rustc','--release','--locked','--manifest-path','crates/nioh3-worker/Cargo.toml','--bin','nioh3-readonly-worker','--','-C','target-feature=+crt-static')
+        Checked 'cargo.exe' @('rustc','--release','--locked','--manifest-path','crates/nioh3-protected/Cargo.toml','--bin','nioh3-protected-worker','--','-C','target-feature=+crt-static')
         Checked $Python @('tools/stage_rust_workers.py','--binaries',$env:CARGO_TARGET_DIR,'--workers',$workers)
         Checked $Python @('tools/package_tauri.py',$Output,$workers,'--worker-backend','rust')
     } else {

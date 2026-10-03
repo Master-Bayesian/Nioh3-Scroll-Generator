@@ -15,6 +15,11 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
+
+# Both the command-line packager and imported tests resolve the same project module.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tools.verify_tauri_native_dependencies import verify_runtime_native_dependencies
 
 WORKER_BACKENDS = ('python', 'rust')
 
@@ -224,6 +229,9 @@ def main():
     version = json.loads((root / 'package.json').read_text(encoding='utf-8'))['version']
     worker_manifest, python_environment = worker_environment(args.workers, args.worker_backend)
     layout = assemble_layout(root, output, args.workers, args.worker_backend)
+    if args.worker_backend == 'rust':
+        native = verify_runtime_native_dependencies(output)
+        (output / 'native-dependencies.json').write_text(json.dumps(native, indent=2) + '\n', encoding='utf-8')
     javascript, pending = [], list(json.loads((root / 'package.json').read_text(encoding='utf-8'))['dependencies']) + ['@tauri-apps/api']
     visited = set()
     while pending:

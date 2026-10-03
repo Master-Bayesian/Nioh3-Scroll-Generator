@@ -10,12 +10,36 @@ import zipfile
 from tools.build_tauri_onefile import FOOTER, LAUNCHER_PATH, MAGIC, REQUIRED_PATHS, build_onefile, safe_path
 
 
-def launcher_fixture():
-    value = bytearray(128)
+def launcher_fixture(dll=None, *, delayed=False):
+    """Minimal valid x64 PE with an optional real import descriptor and thunk."""
+    value = bytearray(1024)
     value[:2] = b"MZ"
     struct.pack_into("<I", value, 0x3C, 64)
     value[64:68] = b"PE\0\0"
-    struct.pack_into("<H", value, 68, 0x8664)
+    struct.pack_into("<HH", value, 68, 0x8664, 1)
+    struct.pack_into("<HH", value, 84, 240, 0x22)
+    optional = 88
+    struct.pack_into("<H", value, optional, 0x20B)
+    struct.pack_into("<Q", value, optional + 24, 0x140000000)
+    struct.pack_into("<II", value, optional + 32, 4096, 512)
+    struct.pack_into("<II", value, optional + 56, 8192, 512)
+    struct.pack_into("<I", value, optional + 108, 16)
+    section = optional + 240
+    value[section:section+8] = b".idata\0\0"
+    struct.pack_into("<IIII", value, section + 8, 512, 0x1000, 512, 512)
+    struct.pack_into("<I", value, section + 36, 0x40000040)
+    if dll:
+        directory = 13 if delayed else 1
+        struct.pack_into("<II", value, optional + 112 + directory * 8, 0x1000, 64)
+        if delayed:
+            struct.pack_into("<IIIIIIII", value, 512, 1, 0x1080, 0, 0x10B0, 0x10A0, 0, 0, 0)
+        else:
+            struct.pack_into("<IIIII", value, 512, 0x10A0, 0, 0, 0x1080, 0x10B0)
+        name = dll.encode('ascii') + b"\0"
+        value[640:640 + len(name)] = name
+        struct.pack_into("<Q", value, 672, 0x10C0)
+        struct.pack_into("<Q", value, 688, 0x10C0)
+        value[704:712] = b"\0\0probe\0"
     return bytes(value)
 
 
@@ -58,6 +82,24 @@ class TauriOnefileTests(unittest.TestCase):
         self.assertEqual(report["sourceCommit"], "a" * 40)
         self.assertEqual(report["sha256"], hashlib.sha256(raw).hexdigest())
         self.assertIn(report["sha256"], self.output.with_suffix(".exe.sha256").read_text())
+
+    def test_wrapper_refuses_launcher_external_crt_before_creating_output(self):
+        for delayed in (False, True):
+            with self.subTest(delayed=delayed):
+                files = self.fixture()
+                files[LAUNCHER_PATH] = launcher_fixture("VCRUNTIME140.dll", delayed=delayed)
+                manifest = json.loads(zipfile.ZipFile(self.archive).read("build-manifest.json"))
+                for entry in manifest["files"]:
+                    if entry["path"] == LAUNCHER_PATH:
+                        entry["size"] = len(files[LAUNCHER_PATH])
+                        entry["sha256"] = hashlib.sha256(files[LAUNCHER_PATH]).hexdigest()
+                with zipfile.ZipFile(self.archive, "w", zipfile.ZIP_DEFLATED) as archive:
+                    for name, raw in files.items():
+                        archive.writestr(name, raw)
+                    archive.writestr("build-manifest.json", json.dumps(manifest))
+                with self.assertRaisesRegex(ValueError, "STANDALONE_EXTERNAL_CRT"):
+                    build_onefile(self.archive, self.output)
+                self.assertFalse(self.output.exists())
 
     def test_dirty_source_refused_before_output(self):
         self.fixture(dirty=True)

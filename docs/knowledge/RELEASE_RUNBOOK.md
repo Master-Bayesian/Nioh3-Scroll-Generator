@@ -93,6 +93,43 @@ Its retained unsigned artifact supports diagnosis and focused local retesting;
 a fresh dispatch rebuilds at the selected ref using the shared Cargo cache.
 Promotion is separate and consumes a successful run without rebuilding.
 
+### Permanent standalone EXE acceptance
+
+The user-facing product is always the outer single EXE. An update or diagnostic
+ZIP does not replace that deliverable. Users must not provide an old release's
+folder, sidecars, worker binaries, DLLs or resource files. Private extraction to
+the verified payload-hash cache is permitted. Microsoft Edge WebView2 is the
+existing Windows runtime prerequisite; record the actual system runtime separately
+from product files, and do not silently install it or alter system security.
+
+The launcher must start before extraction, so bundling its VC runtime dependency
+inside the ZIP would not solve startup. The production build statically links the
+VC runtime in all four final Rust EXEs. The packager checks every shipped EXE/DLL's
+normal and delayed PE imports, records native-dependencies.json, and rejects
+external VC runtime imports. The wrapper independently rejects a launcher that
+requires such a DLL. Windows system APIs/UCRT and WebView2 remain prerequisites.
+
+Before signing, run `node apps/tauri/verify-onefile-standalone.mjs` with
+`NIOH3_ONEFILE_EXE` set to the immutable outer candidate. The gate copies only
+that EXE into a fresh download directory; clears inherited product/WebView
+overrides; isolates LOCALAPPDATA, APPDATA and the explicit user profile; and
+starts from an unrelated CWD with only system directories on PATH. A second
+cold-cache launch includes inert old-folder binaries and stale developer/DLL
+selectors. It then removes three named members only from its own inactive cache
+and requires the same EXE to restore their manifest hashes on another launch.
+
+The receipt records the embedded payload hash, source/manifest identity, every
+member hash, actual UI origin, launcher-owned host, host-owned worker processes,
+worker argv and loaded product DLL paths. Read-only preview, empty isolated save
+discovery and no-game runtime status must succeed through that host. It closes
+only its own app normally. Keep the receipt and screenshots; a worker started
+separately or an EXE launched inside an old package directory cannot prove this.
+
+CI passes `--game-fixture <identity.json>` for its already prepared, never-executed
+VERSIONINFO fixture. Offline local packaging diagnosis may use that same explicit
+fixture and must retain its synthetic scope. Neither fixture grants game/save
+write acceptance. Tests leave the real user's caches and saves untouched.
+
 ### Failure handling
 
 Record source SHA, run/step, error and evidence path. For UI failures preserve
