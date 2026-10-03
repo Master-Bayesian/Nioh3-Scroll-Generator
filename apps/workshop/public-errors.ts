@@ -255,7 +255,7 @@ export function publicError(message: string): string {
       "检测到同时运行了多个《仁王3》，请只保留一个再试。",
     ],
     [
-      /OpenProcess\(\d+\) failed with error 5\b/,
+      /(?:OpenProcess\(\d+\)|CreateToolhelp32Snapshot\(modules, \d+\)) failed with error 5\b/,
       "系统拒绝访问游戏进程。如果游戏或 Steam 是以管理员身份运行的，请也以管理员身份运行本工具。",
     ],
     [

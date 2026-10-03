@@ -94,7 +94,6 @@ class TauriReleasePreflightTests(unittest.TestCase):
                 jobs:
                   release:
                     if: ${{ github.repository == 'Master-Bayesian/Nioh3-Scroll-Generator' && github.ref == 'refs/heads/main' }}
-                    environment: production-signing
                     env:
                       NIOH3_UI_PROFILE: ${{ inputs.extended_search && 'extended' || 'release' }}
                     steps:
@@ -151,7 +150,6 @@ class TauriReleasePreflightTests(unittest.TestCase):
         mutations = {
             "tag ref": ("refs/heads/main", "refs/tags/main"),
             "arbitrary ref": ("refs/heads/main", "refs/heads/candidate"),
-            "missing environment": ("environment: production-signing", "environment: other"),
             "moving checkout": ("ref: ${{ github.sha }}", "ref: main"),
             "candidate checkout": ("ref: ${{ github.sha }}", "ref: ${{ inputs.ref }}"),
             "persisted credentials": ("persist-credentials: false", "persist-credentials: true"),
@@ -168,6 +166,17 @@ class TauriReleasePreflightTests(unittest.TestCase):
         check = next(item for item in report["checks"] if item["name"] == "signing-source-boundary")
         self.assertFalse(check["ok"], report)
         self.assertIn("Unexpected signing key exposure", check["error"])
+
+    def test_repository_secret_policy_does_not_require_an_environment(self) -> None:
+        workflow = (self.root / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        self.assertNotIn("environment:", workflow)
+        result = _check_signing_boundary(self.root)
+        self.assertEqual(result["secretScope"], "repository")
+        self.assertEqual(result["trustedRef"], "refs/heads/main")
+        self.assertEqual(result["checkout"], "github.sha")
+        self.assertFalse(result["crossRefSecretIsolation"])
+        self.assertIn("trusted signers", result["trustModel"])
+        self.assertIn("#28", result["isolationFollowUp"])
 
     def test_actual_repository_signing_boundary(self) -> None:
         result = _check_signing_boundary(Path(__file__).resolve().parents[1])

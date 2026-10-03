@@ -1,6 +1,28 @@
 # Current project handoff - 2026-10-03
 
-## Active development: independent test12 candidate closure
+## Active development: independent test13 local candidate
+
+Worktree: D:/Nioh3_v080_deliverables/source-codex-test13-20261003.
+Branch: codex/test13-candidate-20261003; base frozen test12 eee3105. Test12
+source and binaries remain unchanged. The exact build identities and results
+belong to the external test13 report in
+D:/Nioh3_v080_deliverables/deliverables/codex-test13-candidate-20261003/.
+
+The reported module-snapshot error 5 occurs before live character reads.
+Test13 adds the missing conditional permission-recovery explanation without
+changing backend access, writes or guards. Source/browser regressions and
+packaged acceptance have separate receipts; this does not establish the
+Windows denial's cause or resolve it. The tester's read-only target
+path/version/elevation check is still required; publication remains paused.
+
+The owner accepted the temporary repository-secret / trusted-workflow-writer
+signing policy. The reviewed main and exact github.sha restrictions remain;
+the newly proposed mandatory environment is removed. Independent isolation
+is not complete. Keep issue #28 open and include its follow-up in root's
+release-completion handoff; see RELEASE_RUNBOOK.md for residual risk and the
+durable checklist. No online configuration, key value or permission is changed.
+
+## Historical test12 local candidate closure
 
 Worktree: D:/Nioh3_v080_deliverables/source-codex-test12-20261003.
 Branch: codex/test12-release-candidate-20261003; base test11 commit
@@ -14,12 +36,11 @@ SaveApplication encrypted-container entry retains its exact-length validation.
 Streaming digests and byte reads validate same-handle metadata before consuming
 the file and reject changes in length. Backups, locks and recovery remain.
 
-The local signed-release workflow is restricted to the official main ref and
-the exact dispatched commit, with a production-signing environment. The online
-main-only environment rules and environment-only placement of the existing key
-still require owner approval/setup; local preflight cannot certify them. See
-RELEASE_RUNBOOK.md for that single concrete decision. Unsigned test12 live tests
-do not depend on an online signing dispatch.
+At the test12 freeze, a main-only production-signing environment was the
+local proposal; no online setup occurred. That proposal is superseded in
+test13 by the owner-accepted temporary repository-secret policy above. The
+frozen test12 retains its original source and remains usable for read-only
+tester checks without an online dispatch.
 
 The character-draft verifier now records the actual native/browser boundary,
 viewport/DPR and candidate source identity directly in source. Screenshot

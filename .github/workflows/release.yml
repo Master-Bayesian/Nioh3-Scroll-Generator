@@ -2,8 +2,9 @@ name: Signed Tauri Windows release preparation
 
 # Manual dispatch only. This job prepares a signed candidate from one exact
 # reviewed main commit; it never publishes, tags or replaces an update feed.
-# Before dispatch, configure the production-signing environment exactly as
-# documented in RELEASE_RUNBOOK.md. The key must not remain repository-scoped.
+# Owner accepted the temporary repository-secret / trusted-writer policy.
+# Keep issue #28 open: independent signing isolation remains follow-up work.
+# See RELEASE_RUNBOOK.md for the accepted residual risk and retained gates.
 on:
   workflow_dispatch:
     inputs:
@@ -32,7 +33,6 @@ env:
 jobs:
   release:
     if: ${{ github.repository == 'Master-Bayesian/Nioh3-Scroll-Generator' && github.ref == 'refs/heads/main' }}
-    environment: production-signing
     runs-on: windows-latest
     # The dispatch input is mapped once to the profile name the packaged
     # frontend verifier accepts, so the selection is explicit, not inferred.

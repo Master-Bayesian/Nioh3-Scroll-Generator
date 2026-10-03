@@ -62,7 +62,7 @@ After authorization to push/dispatch, use `.github/workflows/release.yml`.
 Normal preparation uses bounded release acceptance; extended search is opt-in.
 
 ```powershell
-gh workflow run release.yml --ref <candidate-branch> -f extended_search=false
+gh workflow run release.yml --repo Master-Bayesian/Nioh3-Scroll-Generator --ref main -f extended_search=false
 gh run list --workflow release.yml --commit <full-sha> --json databaseId,headSha,status,conclusion
 ```
 
@@ -169,42 +169,56 @@ acceptance; unchanged packaging does not reopen settled game research.
 Production Ed25519 authenticates updates; no Authenticode publisher certificate
 is claimed. Older Electron/Tk packaging is outside this release workflow.
 
-## Production signing source boundary (test12 local proposal)
+## Production signing policy (owner accepted on 2026-10-03)
 
-The signed preparation workflow now accepts only the official repository's
-`refs/heads/main` and checks out the exact dispatched `github.sha` without
-persisting checkout credentials. All build and signing code therefore belongs
-to the reviewed main commit. This intentionally removes arbitrary branch/tag
-signing; unsigned local candidates remain available for review before promotion.
-The existing run id, source SHA, artifact name and publication verification
-contract remain unchanged.
+The owner accepted a temporary repository-secret policy: all repository
+workflow writers are trusted signers. Keep the existing
+`UPDATE_SIGNING_PRIVATE_KEY_BASE64` repository secret and installed public key.
+No key extraction, rotation, migration or new environment is required for
+this policy. Independent signing isolation remains incomplete in
+[issue #28](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/issues/28).
 
-The workflow requires the `production-signing` environment. Before its first
-online dispatch, the repository owner must configure that environment:
+The reviewed preparation workflow accepts only the official repository's
+`refs/heads/main`, checks out the exact dispatched `github.sha`, does not
+persist checkout credentials, and pins Actions to reviewed implementation
+SHAs. It prepares artifacts without publishing, uses read-only preparation
+permissions, retains normal source/package/rollback gates, and supplies the
+existing key only to the final manifest-signing step. The successful run ID,
+exact source SHA, six-asset artifact and public-byte verification contract
+are unchanged.
 
-- Deployment rules: selected **branch** `main` only; no tag rules or wildcards.
-- Required reviewer: `Master-Bayesian`. For a sole-maintainer approval flow,
-  allow self-review; requiring a second person needs an explicitly chosen
-  independent reviewer. Disable administrator bypass.
-- Put the existing `UPDATE_SIGNING_PRIVATE_KEY_BASE64` key in that environment,
-  then remove its repository/organization-wide exposure to this repository.
-  No key rotation or change to the installed public key is proposed.
-- Main source and workflow changes must be reviewed by the owner before a
-  signing dispatch; maintain main write restrictions appropriate to that trust.
+The local preflight audits those source controls and declares repository
+secret scope, the trusted-writer assumption, and
+`crossRefSecretIsolation: false`. It cannot certify online actor/token rights
+or server-side policy (`onlineConfigurationVerified: false`). Do not bypass
+the checker or describe the accepted policy as environment-equivalent
+isolation. A workflow writer can reference a repository secret from another
+workflow or historical ref; account/token and build-supply-chain compromise
+remain accepted residual risks. A key used only in the last step is not
+isolated from earlier code executed in the same job.
 
-An environment name or a workflow condition alone is insufficient. An arbitrary
-ref can edit its own YAML; GitHub's main-only environment rule and an
-environment-only key enforce the cross-ref boundary. A missing environment is
-created without protection rules by GitHub, so configure it before dispatch.
-The local preflight verifies source structure and explicitly reports
-`onlineConfigurationVerified: false`. It does not inspect secrets or certify
-server-side settings. This batch changes only local files and performs no
-dispatch, deployment, secret/configuration mutation, push or publication.
+Release authorization and live acceptance are separate. The new runtime
+error report still awaits the tester's read-only path/version/privilege check;
+this local policy decision does not authorize a push, dispatch, public release
+or real game/save write.
 
-Owner decision before production signing: approve this main-only,
-owner-reviewed environment configuration and authorize its online setup.
-This decision does not block the unsigned test12 candidate or owner live tests.
+### Required post-release follow-up: retain until separately verified
+
+- [ ] Root keeps issue #28 open and calls out independent signing isolation
+  in the release-completion handoff; a successful signed release does not
+  complete this work. The owner explicitly warned they may forget it.
+- [ ] Before any untrusted workflow writer is added, revisit the trusted-writer
+  policy and choose an independently enforced secret/signing boundary.
+- [ ] Plan and obtain separate authorization for the chosen isolation. A fresh
+  trusted signing job reduces build contamination, but repository-secret scope
+  still permits writer access. Stronger cross-ref protection needs an
+  independent enforced boundary, such as appropriately protected secret scope
+  or a signing service; configuration and key-scope changes are not automatic.
+- [ ] Verify the chosen isolation and its required release gates before
+  recording completion or closing #28. Do not silently migrate/remove the
+  existing key or change the installed public key.
 
 Primary GitHub references:
+- https://docs.github.com/en/actions/reference/security/secure-use
+- https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow
 - https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments
-- https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments

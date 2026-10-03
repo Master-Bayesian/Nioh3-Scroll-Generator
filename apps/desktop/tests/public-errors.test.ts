@@ -86,6 +86,22 @@ test("a vanished game process asks for the game again", () => {
   );
 });
 
+test("module-snapshot access denial gives the same recovery as process-open denial", () => {
+  const denied = "OPERATION_REJECTED: CreateToolhelp32Snapshot(modules, 107352) failed with error 5";
+  const recovery = publicError("OPERATION_REJECTED: OpenProcess(107352) failed with error 5");
+  for (const raw of [denied, `Error: ${denied}`, JSON.stringify({ code: "OPERATION_REJECTED", message: denied })]) {
+    assert.equal(publicError(raw), recovery);
+    assert.match(publicError(raw), /系统拒绝访问游戏进程.*如果.*管理员/);
+    assert.ok(isFailureText(raw));
+    assert.doesNotMatch(publicError(raw), /没有.*文件.*权限|游戏已退出|已经修复/);
+  }
+  for (const code of [24, 50, 299]) {
+    const raw = `OPERATION_REJECTED: CreateToolhelp32Snapshot(modules, 107352) failed with error ${code}`;
+    assert.doesNotMatch(publicError(raw), /管理员/);
+    assert.match(publicError(raw), /OPERATION_REJECTED/);
+  }
+});
+
 test("an expired save snapshot asks for a refresh", () => {
   assert.match(
     publicError('Error: {"code":"OPERATION_FAILED","message":"Snapshot expired; refresh inventory"}'),

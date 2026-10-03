@@ -135,11 +135,11 @@ def _ordered(text: str, earlier: str, later: str) -> bool:
 
 
 def _check_signing_boundary(root: Path) -> dict[str, Any]:
-    """Check the local signing contract; online environment rules are separate.
+    """Audit the reviewed main workflow under the accepted trusted-writer policy.
 
-    This deliberately checks the one supported release graph rather than
-    accepting arbitrary GitHub expressions. GitHub's environment branch rule
-    and environment-only secret placement are the actual cross-ref boundary.
+    Repository-secret access is not isolated from other workflow writers.
+    These checks constrain the reviewed source, not an actor who can replace it.
+    Independent signing isolation remains open in issue #28.
     """
     workflow = (root / ".github/workflows/release.yml").read_text(encoding="utf-8")
     workflow = "\n".join(line for line in workflow.splitlines() if not line.lstrip().startswith("#"))
@@ -151,8 +151,6 @@ def _check_signing_boundary(root: Path) -> dict[str, Any]:
     condition = "    if: ${{ github.repository == 'Master-Bayesian/Nioh3-Scroll-Generator' && github.ref == 'refs/heads/main' }}"
     if condition not in preamble.splitlines():
         raise ValueError("Signing must run only for the official repository's main branch")
-    if "    environment: production-signing" not in preamble.splitlines():
-        raise ValueError("Signing must require the production-signing environment")
     checkout = re.search(r"^      - name: Check out the candidate source\n(?P<body>.*?)(?=^      - |\Z)", steps, re.M | re.S)
     if checkout is None or "          ref: ${{ github.sha }}" not in checkout.group("body").splitlines():
         raise ValueError("Candidate checkout must pin the dispatched main commit")
@@ -167,8 +165,10 @@ def _check_signing_boundary(root: Path) -> dict[str, Any]:
         expected = 1 if path.name == "release.yml" else 0
         if text.count("secrets.UPDATE_SIGNING_PRIVATE_KEY_BASE64") != expected:
             raise ValueError(f"Unexpected signing key exposure in {path.name}")
-    return {"trustedRef": "refs/heads/main", "checkout": "github.sha", "environment": "production-signing",
-            "onlineConfigurationVerified": False, "requiredOnlinePolicy": "main branch only, no tags; environment-only key; owner review"}
+    return {"trustedRef": "refs/heads/main", "checkout": "github.sha",
+            "secretScope": "repository", "trustModel": "all repository workflow writers are trusted signers",
+            "crossRefSecretIsolation": False, "isolationFollowUp": "GitHub issue #28 remains open",
+            "onlineConfigurationVerified": False, "requiredOnlinePolicy": "owner-reviewed main dispatch; all workflow writers trusted"}
 
 
 def _check_workflow(root: Path) -> dict[str, Any]:
