@@ -73,8 +73,9 @@ can be resumed without consent only after an exact-reference result. Close
 failures remain explicit and late replies cannot dismiss a pending shutdown.
 The verified 2.02 inventory-menu reader now distinguishes an open menu with
 no selected item from a closed menu. Code/vtable, open/closed flags, ownership
-and slot alignment are preserved. An unnamed 0x3336 soul core retains its exact
-ID and existing-record fields; no guessed catalog name or legality is supplied.
+and slot alignment are preserved. The owner-confirmed 0x3336 Sudama core now has its catalog name and retains
+its exact ID and grouping. Other unlisted IDs retain existing-record fields;
+no item legality is inferred from a name.
 The tester environment's actual menu/profile cause remains unverified.
 
 Primary current coverage is 2.0.2.0; retain evidenced 2.0.1.0 scroll/count/native
@@ -168,3 +169,13 @@ the source-family remaining gates, and the scroll-only legality audit status.
 - Reconcile every v0.7.4 packaged screen against this catalog before the next broad UI migration is declared complete.
 - Add focused regression and acceptance links when an entry is next changed; do not perform a repository-wide evidence backfill during an unrelated fix.
 - Keep intentionally unavailable or coming-soon tools separate from shipped capabilities until their workflows and safety boundaries are accepted.
+
+### Local launcher diagnosis (not published)
+
+Critical one-file IO errors now include the operation, affected runtime path
+and native source; cached read refusals retain the cache rather than initiate
+repair. Known corrupt/missing-file repair, lease/process ownership and profile
+separation are preserved. IO guidance offers the matching full ZIP in a new
+empty writable folder without automatic elevation, ACL changes or data deletion.
+See `docs/research/V083_LAUNCHER_FEEDBACK_20261003.md`. Actual tester startup
+and remaining inventory-menu acceptance await the new diagnostic evidence.

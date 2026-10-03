@@ -210,6 +210,7 @@ fn inactive_cache_is_repaired_from_payload_but_active_cache_is_never_overwritten
         RuntimeLease::prepare(&root.path().join("cache"), &mut payload)
             .err()
             .unwrap()
+            .to_string()
             .contains("ACTIVE_CACHE")
     );
     let directory = first.directory.clone();
@@ -279,5 +280,140 @@ fn cleanup_refuses_unexpected_user_files() {
     assert_eq!(
         fs::read(directory.join("my-save.bin")).unwrap(),
         b"preserve-me"
+    );
+}
+
+#[cfg(windows)]
+#[test]
+fn diagnostic_readonly_cache_lock_reports_the_operation_path_and_error() {
+    let root = TempDir::new().unwrap();
+    let file = outer(root.path(), "readonly-lock", &product("readonly-lock", &[]));
+    let cache = root.path().join("cache");
+    fs::create_dir(&cache).unwrap();
+    let lock = cache.join(".cache.lock");
+    fs::write(&lock, b"").unwrap();
+    let original = fs::metadata(&lock).unwrap().permissions();
+    let mut readonly = original.clone();
+    readonly.set_readonly(true);
+    fs::set_permissions(&lock, readonly).unwrap();
+    let error = RuntimeLease::prepare(&cache, &mut Payload::open(&file).unwrap())
+        .err()
+        .unwrap()
+        .to_string();
+    fs::set_permissions(&lock, original).unwrap();
+    assert!(error.contains("operation=lock_open"), "{error}");
+    assert!(
+        error.contains(&lock.to_string_lossy().to_string()),
+        "{error}"
+    );
+    assert!(error.contains("os error 5"), "{error}");
+}
+
+#[cfg(windows)]
+#[test]
+fn diagnostic_locked_cache_read_keeps_verified_bytes_and_reports_the_file() {
+    use std::os::windows::fs::OpenOptionsExt;
+    let root = TempDir::new().unwrap();
+    let runtime = prepare(root.path(), "read-lock");
+    let directory = runtime.directory.clone();
+    drop(runtime);
+    let marker = fs::read(directory.join(MARKER)).unwrap();
+    let original_files = walk_regular(&directory).unwrap();
+    let image = directory.join(ENTRY);
+    let held = OpenOptions::new()
+        .read(true)
+        .share_mode(0)
+        .open(&image)
+        .unwrap();
+    let file = outer(root.path(), "read-lock", &product("read-lock", &[]));
+    let error = RuntimeLease::prepare(
+        &root.path().join("cache"),
+        &mut Payload::open(&file).unwrap(),
+    )
+    .err()
+    .unwrap()
+    .to_string();
+    let marker_preserved = directory.join(MARKER).is_file();
+    drop(held);
+    assert!(
+        error.contains("operation=file_hash_open"),
+        "{error}; marker preserved={marker_preserved}"
+    );
+    let expected_path = image.to_string_lossy();
+    let expected_path = expected_path
+        .strip_prefix(r"\\?\")
+        .unwrap_or(&expected_path);
+    assert!(
+        error.contains(expected_path),
+        "{error}; expected={expected_path}"
+    );
+    assert!(
+        marker_preserved,
+        "a read refusal must not start destructive cache repair"
+    );
+    assert_eq!(fs::read(directory.join(MARKER)).unwrap(), marker);
+    assert_eq!(walk_regular(&directory).unwrap(), original_files);
+}
+
+#[test]
+fn io_recovery_keeps_the_actual_failure_and_does_not_prescribe_download_or_elevation() {
+    let error = io_context(
+        "child_spawn",
+        Path::new("Nioh3Studio.exe"),
+        io::Error::from_raw_os_error(5),
+    );
+    assert!(error.to_string().contains("operation=child_spawn"));
+    assert!(error.to_string().contains("os error 5"));
+    assert!(std::error::Error::source(&error).is_some());
+    let hint = recovery_hint(&error);
+    assert!(hint.contains("matching complete portable ZIP"));
+    assert!(hint.contains("new empty writable folder"));
+    assert!(!hint.to_lowercase().contains("download"));
+    assert!(!hint.to_lowercase().contains("administrator"));
+}
+
+#[cfg(windows)]
+#[test]
+fn cache_errors_redact_the_account_prefix_without_hiding_the_runtime_path() {
+    let local = std::env::var_os("LOCALAPPDATA").expect("Windows test host local app data");
+    let path = PathBuf::from(&local).join("Nioh3Studio/onefile/digest/.cache.lock");
+    let message = io_context("lock_open", &path, io::Error::from_raw_os_error(5)).to_string();
+    assert!(message.contains("%LOCALAPPDATA%"));
+    assert!(message.contains("Nioh3Studio"));
+    assert!(!message.contains(&*local.to_string_lossy()));
+}
+
+#[cfg(windows)]
+#[test]
+fn diagnostic_actual_child_spawn_failure_reports_its_path_and_native_source() {
+    let root = TempDir::new().unwrap();
+    let runtime = prepare(root.path(), "not-a-native-image");
+    let error = run_runtime(
+        &runtime,
+        Path::new("synthetic-outer.exe"),
+        std::iter::empty(),
+    )
+    .err()
+    .unwrap();
+    assert!(error.to_string().contains("operation=child_spawn"));
+    assert!(error.to_string().contains(ENTRY));
+    assert!(
+        matches!(error, LaunchError::Io { operation: "child_spawn", ref source, .. } if source.raw_os_error().is_some())
+    );
+    assert!(runtime.directory.join(MARKER).is_file());
+}
+
+#[test]
+fn a_missing_owned_cache_entry_keeps_the_existing_guarded_repair_path() {
+    let root = TempDir::new().unwrap();
+    let runtime = prepare(root.path(), "missing-entry");
+    let directory = runtime.directory.clone();
+    drop(runtime);
+    fs::remove_file(directory.join(ENTRY)).unwrap();
+    let repaired = prepare(root.path(), "missing-entry");
+    assert_eq!(repaired.directory, directory);
+    assert_eq!(
+        fs::read(repaired.directory.join(ENTRY)).unwrap(),
+        b"missing-entry"
     );
 }

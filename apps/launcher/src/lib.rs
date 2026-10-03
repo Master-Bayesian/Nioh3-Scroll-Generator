@@ -25,10 +25,77 @@ const MAX_CACHE_BYTES: u64 = 2 * MAX_UNPACKED_BYTES;
 const MARKER: &str = ".onefile-cache.json";
 const STAGING_MARKER: &str = ".onefile-stage.json";
 const LEASE: &str = ".lease";
-type Result<T> = std::result::Result<T, String>;
+#[derive(Debug)]
+pub enum LaunchError {
+    Io {
+        operation: &'static str,
+        path: PathBuf,
+        source: io::Error,
+    },
+    Invalid(String),
+}
+impl std::fmt::Display for LaunchError {
+    fn fmt(&self, output: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Io {
+                operation,
+                path,
+                source,
+            } => {
+                let text = path.to_string_lossy();
+                let text = text.strip_prefix(r"\\?\").unwrap_or(&text);
+                // The affected runtime path is needed for recovery, not the account name.
+                let displayed = std::env::var_os("LOCALAPPDATA")
+                    .map(|local| text.replace(&*local.to_string_lossy(), "%LOCALAPPDATA%"))
+                    .unwrap_or_else(|| text.to_string());
+                write!(
+                    output,
+                    "ONEFILE_IO: operation={operation} path={displayed} kind={:?}: {source}",
+                    source.kind()
+                )
+            }
+            Self::Invalid(message) => output.write_str(message),
+        }
+    }
+}
+impl std::error::Error for LaunchError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Io { source, .. } => Some(source),
+            Self::Invalid(_) => None,
+        }
+    }
+}
+impl From<String> for LaunchError {
+    fn from(value: String) -> Self {
+        Self::Invalid(value)
+    }
+}
+impl From<&str> for LaunchError {
+    fn from(value: &str) -> Self {
+        Self::Invalid(value.to_string())
+    }
+}
+type Result<T> = std::result::Result<T, LaunchError>;
 
-fn io_error(error: impl std::fmt::Display) -> String {
-    error.to_string()
+fn io_error(error: impl std::fmt::Display) -> LaunchError {
+    LaunchError::Invalid(error.to_string())
+}
+fn io_context(operation: &'static str, path: &Path, source: io::Error) -> LaunchError {
+    LaunchError::Io {
+        operation,
+        path: path.to_path_buf(),
+        source,
+    }
+}
+
+pub fn recovery_hint(error: &LaunchError) -> &'static str {
+    match error {
+        LaunchError::Io { .. } => "The failed operation and affected path are shown above. If the matching complete portable ZIP is available, extract it into a new empty writable folder and run Nioh3Studio.exe to bypass the one-file cache. Keep your existing app-data folder and this launcher log.",
+        LaunchError::Invalid(message) if message.starts_with("ONEFILE_ACTIVE_CACHE_DAMAGED") || message.starts_with("ONEFILE_CACHE_BUSY") => "Let the other app window's current work finish and close that window normally, then retry. The active runtime has been preserved.",
+        LaunchError::Invalid(message) if message.starts_with("ONEFILE_FOOTER_") || message.starts_with("ONEFILE_PAYLOAD_") || message.starts_with("ONEFILE_ZIP_") => "The embedded package could not be verified. Obtain a complete copy of this portable EXE, or use its matching complete portable ZIP in a new empty folder.",
+        _ => "Keep the latest launcher log entry and this executable's filename and SHA256 to identify the failed step. A matching complete portable ZIP can be run from a new empty writable folder without removing existing app data.",
+    }
 }
 fn timestamp() -> u64 {
     SystemTime::now()
@@ -56,15 +123,21 @@ impl Payload {
             use std::os::windows::fs::OpenOptionsExt;
             options.share_mode(1); // FILE_SHARE_READ, no rewrite during hash/extraction.
         }
-        let mut file = options.open(path).map_err(io_error)?;
-        let size = file.metadata().map_err(io_error)?.len();
+        let mut file = options
+            .open(path)
+            .map_err(|error| io_context("payload_open", path, error))?;
+        let size = file
+            .metadata()
+            .map_err(|error| io_context("payload_metadata", path, error))?
+            .len();
         if size <= FOOTER_SIZE {
             return Err("ONEFILE_FOOTER_MISSING".into());
         }
         file.seek(SeekFrom::End(-(FOOTER_SIZE as i64)))
-            .map_err(io_error)?;
+            .map_err(|error| io_context("payload_footer_seek", path, error))?;
         let mut footer = [0; FOOTER_SIZE as usize];
-        file.read_exact(&mut footer).map_err(io_error)?;
+        file.read_exact(&mut footer)
+            .map_err(|error| io_context("payload_footer_read", path, error))?;
         if &footer[..16] != MAGIC {
             return Err("ONEFILE_FOOTER_INVALID".into());
         }
@@ -73,13 +146,15 @@ impl Payload {
             return Err("ONEFILE_PAYLOAD_LENGTH_INVALID".into());
         }
         let offset = size - FOOTER_SIZE - length;
-        file.seek(SeekFrom::Start(offset)).map_err(io_error)?;
+        file.seek(SeekFrom::Start(offset))
+            .map_err(|error| io_context("payload_seek", path, error))?;
         let mut digest = Sha256::new();
         let mut remaining = length;
         let mut bytes = [0; 65536];
         while remaining != 0 {
             let size = remaining.min(bytes.len() as u64) as usize;
-            file.read_exact(&mut bytes[..size]).map_err(io_error)?;
+            file.read_exact(&mut bytes[..size])
+                .map_err(|error| io_context("payload_hash_read", path, error))?;
             digest.update(&bytes[..size]);
             remaining -= size as u64;
         }
@@ -187,7 +262,8 @@ pub fn safe_relative(path: &str) -> bool {
 }
 
 fn linked(path: &Path) -> Result<bool> {
-    let metadata = fs::symlink_metadata(path).map_err(io_error)?;
+    let metadata =
+        fs::symlink_metadata(path).map_err(|error| io_context("path_metadata", path, error))?;
     #[cfg(windows)]
     {
         use std::os::windows::fs::MetadataExt;
@@ -209,13 +285,18 @@ fn walk_regular(root: &Path) -> Result<Vec<(String, u64)>> {
         if depth > 64 || linked(current)? {
             return Err("ONEFILE_CACHE_LINK_OR_DEPTH_INVALID".into());
         }
-        for entry in fs::read_dir(current).map_err(io_error)? {
-            let entry = entry.map_err(io_error)?;
+        for entry in fs::read_dir(current)
+            .map_err(|error| io_context("cache_directory_read", current, error))?
+        {
+            let entry =
+                entry.map_err(|error| io_context("cache_directory_entry", current, error))?;
             let path = entry.path();
             if linked(&path)? {
                 return Err("ONEFILE_CACHE_LINK_INVALID".into());
             }
-            let kind = entry.file_type().map_err(io_error)?;
+            let kind = entry
+                .file_type()
+                .map_err(|error| io_context("cache_file_type", &path, error))?;
             if kind.is_dir() {
                 walk(root, &path, output, depth + 1)?;
             } else if kind.is_file() {
@@ -224,7 +305,13 @@ fn walk_regular(root: &Path) -> Result<Vec<(String, u64)>> {
                     .map_err(io_error)?
                     .to_string_lossy()
                     .replace('\\', "/");
-                output.push((name, entry.metadata().map_err(io_error)?.len()));
+                output.push((
+                    name,
+                    entry
+                        .metadata()
+                        .map_err(|error| io_context("cache_file_metadata", &path, error))?
+                        .len(),
+                ));
                 if output.len() > MAX_FILES + 4 {
                     return Err("ONEFILE_CACHE_FILE_LIMIT".into());
                 }
@@ -240,11 +327,13 @@ fn walk_regular(root: &Path) -> Result<Vec<(String, u64)>> {
 }
 
 fn file_hash(path: &Path) -> Result<String> {
-    let mut file = File::open(path).map_err(io_error)?;
+    let mut file = File::open(path).map_err(|error| io_context("file_hash_open", path, error))?;
     let mut digest = Sha256::new();
     let mut buffer = [0; 65536];
     loop {
-        let n = file.read(&mut buffer).map_err(io_error)?;
+        let n = file
+            .read(&mut buffer)
+            .map_err(|error| io_context("file_hash_read", path, error))?;
         if n == 0 {
             break;
         }
@@ -256,11 +345,17 @@ fn file_hash(path: &Path) -> Result<String> {
 fn verify_runtime(root: &Path) -> Result<Manifest> {
     let files = walk_regular(root)?;
     let manifest = root.join("build-manifest.json");
-    if fs::metadata(&manifest).map_err(io_error)?.len() > MAX_MANIFEST_BYTES {
+    if fs::metadata(&manifest)
+        .map_err(|error| io_context("manifest_metadata", &manifest, error))?
+        .len()
+        > MAX_MANIFEST_BYTES
+    {
         return Err("ONEFILE_MANIFEST_TOO_LARGE".into());
     }
-    let value: Manifest =
-        serde_json::from_slice(&fs::read(manifest).map_err(io_error)?).map_err(io_error)?;
+    let value: Manifest = serde_json::from_slice(
+        &fs::read(&manifest).map_err(|error| io_context("manifest_read", &manifest, error))?,
+    )
+    .map_err(io_error)?;
     if value.schema != "nioh3-tauri-manifest/v1"
         || value.files.is_empty()
         || value.files.len() > MAX_FILES
@@ -278,12 +373,13 @@ fn verify_runtime(root: &Path) -> Result<Manifest> {
             return Err("ONEFILE_MANIFEST_PATH_INVALID".into());
         }
         let path = root.join(&entry.path);
-        let metadata = fs::symlink_metadata(&path).map_err(io_error)?;
+        let metadata = fs::symlink_metadata(&path)
+            .map_err(|error| io_context("runtime_file_metadata", &path, error))?;
         if !metadata.is_file()
             || metadata.len() != entry.size
             || file_hash(&path)? != entry.sha256.to_lowercase()
         {
-            return Err(format!("ONEFILE_PACKAGE_FILE_MISMATCH: {}", entry.path));
+            return Err(format!("ONEFILE_PACKAGE_FILE_MISMATCH: {}", entry.path).into());
         }
         total = total
             .checked_add(entry.size)
@@ -303,7 +399,7 @@ fn verify_runtime(root: &Path) -> Result<Manifest> {
         "packages/contracts/protected-response.schema.json",
     ] {
         if !names.contains(&required.to_lowercase()) {
-            return Err(format!("ONEFILE_PACKAGE_FILE_UNLISTED: {required}"));
+            return Err(format!("ONEFILE_PACKAGE_FILE_UNLISTED: {required}").into());
         }
     }
     for (name, _) in files {
@@ -313,7 +409,7 @@ fn verify_runtime(root: &Path) -> Result<Manifest> {
             && name != LEASE
             && !names.contains(&name.to_lowercase())
         {
-            return Err(format!("ONEFILE_CACHE_UNEXPECTED_FILE: {name}"));
+            return Err(format!("ONEFILE_CACHE_UNEXPECTED_FILE: {name}").into());
         }
     }
     Ok(value)
@@ -343,7 +439,7 @@ fn inspect_archive<R: Read + Seek>(archive: &mut zip::ZipArchive<R>) -> Result<A
             || (mode == 0x8000 && entry.is_dir())
             || names.insert(name.to_lowercase(), entry.is_dir()).is_some()
         {
-            return Err(format!("ONEFILE_ZIP_PATH_INVALID: {name}"));
+            return Err(format!("ONEFILE_ZIP_PATH_INVALID: {name}").into());
         }
         total = total
             .checked_add(entry.size())
@@ -388,22 +484,26 @@ fn extract(payload: &mut Payload, target: &Path) -> Result<u64> {
         let mut entry = archive.by_index(index).map_err(io_error)?;
         let path = target.join(entry.name());
         if entry.is_dir() {
-            fs::create_dir_all(path).map_err(io_error)?;
+            fs::create_dir_all(&path)
+                .map_err(|error| io_context("extract_directory_create", &path, error))?;
             continue;
         }
-        fs::create_dir_all(path.parent().ok_or("ONEFILE_ZIP_PARENT_MISSING")?).map_err(io_error)?;
+        let parent = path.parent().ok_or("ONEFILE_ZIP_PARENT_MISSING")?;
+        fs::create_dir_all(parent)
+            .map_err(|error| io_context("extract_parent_create", parent, error))?;
         let mut file = OpenOptions::new()
             .write(true)
             .create_new(true)
-            .open(path)
-            .map_err(io_error)?;
+            .open(&path)
+            .map_err(|error| io_context("extract_file_create", &path, error))?;
         let expected = entry.size();
         let copied = io::copy(&mut Read::by_ref(&mut entry).take(expected + 1), &mut file)
-            .map_err(io_error)?;
+            .map_err(|error| io_context("extract_file_write", &path, error))?;
         if copied != expected {
             return Err("ONEFILE_ZIP_SIZE_MISMATCH".into());
         }
-        file.sync_all().map_err(io_error)?;
+        file.sync_all()
+            .map_err(|error| io_context("extract_file_sync", &path, error))?;
     }
     verify_runtime(target)?;
     Ok(info.total)
@@ -419,9 +519,9 @@ fn open_lock(path: &Path) -> Result<File> {
         .create(true)
         .truncate(false)
         .open(path)
-        .map_err(io_error)
+        .map_err(|error| io_context("lock_open", path, error))
 }
-fn exclusive(file: &File, timeout: Duration) -> Result<()> {
+fn exclusive(file: &File, path: &Path, timeout: Duration) -> Result<()> {
     let deadline = Instant::now() + timeout;
     loop {
         match file.try_lock() {
@@ -432,31 +532,45 @@ fn exclusive(file: &File, timeout: Duration) -> Result<()> {
             Err(TryLockError::WouldBlock) => {
                 return Err("ONEFILE_CACHE_BUSY: another launch is preparing the runtime".into())
             }
-            Err(TryLockError::Error(error)) => return Err(io_error(error)),
+            Err(TryLockError::Error(error)) => return Err(io_context("lock_acquire", path, error)),
         }
     }
 }
 
 fn ensure_cache_root(root: &Path) -> Result<PathBuf> {
-    fs::create_dir_all(root).map_err(io_error)?;
+    fs::create_dir_all(root).map_err(|error| io_context("cache_root_create", root, error))?;
     if linked(root)? {
         return Err("ONEFILE_CACHE_ROOT_LINK_INVALID".into());
     }
-    root.canonicalize().map_err(io_error)
+    root.canonicalize()
+        .map_err(|error| io_context("cache_root_canonicalize", root, error))
 }
 fn child_path(parent: &Path, child: &Path) -> Result<()> {
-    if linked(child)? || child.canonicalize().map_err(io_error)?.parent() != Some(parent) {
+    if linked(child)?
+        || child
+            .canonicalize()
+            .map_err(|error| io_context("cache_child_canonicalize", child, error))?
+            .parent()
+            != Some(parent)
+    {
         return Err("ONEFILE_CLEANUP_PATH_INVALID".into());
     }
     Ok(())
 }
 fn read_marker(directory: &Path, name: &str) -> Result<CacheMarker> {
     let path = directory.join(name);
-    if linked(&path)? || fs::metadata(&path).map_err(io_error)?.len() > 4096 {
+    if linked(&path)?
+        || fs::metadata(&path)
+            .map_err(|error| io_context("marker_metadata", &path, error))?
+            .len()
+            > 4096
+    {
         return Err("ONEFILE_CACHE_MARKER_INVALID".into());
     }
-    let marker: CacheMarker =
-        serde_json::from_slice(&fs::read(path).map_err(io_error)?).map_err(io_error)?;
+    let marker: CacheMarker = serde_json::from_slice(
+        &fs::read(&path).map_err(|error| io_context("marker_read", &path, error))?,
+    )
+    .map_err(io_error)?;
     if marker.schema != "nioh3-onefile-cache/v1"
         || marker.payload_sha256.len() != 64
         || !marker.payload_sha256.bytes().all(|b| b.is_ascii_hexdigit())
@@ -470,10 +584,11 @@ fn write_marker(path: &Path, marker: &CacheMarker) -> Result<()> {
         .write(true)
         .create_new(true)
         .open(path)
-        .map_err(io_error)?;
+        .map_err(|error| io_context("marker_create", path, error))?;
     file.write_all(&serde_json::to_vec(marker).map_err(io_error)?)
-        .map_err(io_error)?;
-    file.sync_all().map_err(io_error)
+        .map_err(|error| io_context("marker_write", path, error))?;
+    file.sync_all()
+        .map_err(|error| io_context("marker_sync", path, error))
 }
 
 /// Shared locks belong to launcher processes, never to app profile files.
@@ -486,8 +601,9 @@ impl RuntimeLease {
     pub fn prepare(cache_root: &Path, payload: &mut Payload) -> Result<Self> {
         let info = inspect_archive(&mut zip::ZipArchive::new(payload.reader()).map_err(io_error)?)?;
         let root = ensure_cache_root(cache_root)?;
-        let global = open_lock(&root.join(".cache.lock"))?;
-        exclusive(&global, Duration::from_secs(90))?;
+        let global_path = root.join(".cache.lock");
+        let global = open_lock(&global_path)?;
+        exclusive(&global, &global_path, Duration::from_secs(90))?;
         prune_staging(&root);
         let directory = root.join(&payload.digest);
         if directory.exists() {
@@ -497,12 +613,40 @@ impl RuntimeLease {
                 return Err("ONEFILE_CACHE_IDENTITY_MISMATCH".into());
             }
             // Reusing a cache is never permission to trust changed executable bytes.
-            let valid = file_hash(&directory.join("build-manifest.json"))
-                .is_ok_and(|digest| digest == info.manifest_digest)
-                && verify_runtime(&directory).is_ok();
-            if !valid {
+            let verification = match file_hash(&directory.join("build-manifest.json")) {
+                Ok(digest) if digest == info.manifest_digest => {
+                    verify_runtime(&directory).map(|_| ())
+                }
+                Ok(_) => Err(LaunchError::Invalid(
+                    "ONEFILE_CACHE_MANIFEST_HASH_MISMATCH".into(),
+                )),
+                Err(error) => Err(error),
+            };
+            if let Err(error) = verification {
+                // An unreadable file is not evidence of damage. Keep a locked or
+                // access-denied cache intact; known missing/changed files retain repair.
+                if matches!(&error, LaunchError::Io { source, .. } if source.kind() != io::ErrorKind::NotFound)
+                {
+                    return Err(error);
+                }
                 let lease = open_lock(&directory.join(LEASE))?;
-                if lease.try_lock().is_err() || runtime_process_present(&directory) {
+                match lease.try_lock() {
+                    Ok(()) => {}
+                    Err(TryLockError::WouldBlock) => {
+                        return Err(
+                            "ONEFILE_ACTIVE_CACHE_DAMAGED: close other app windows before retrying"
+                                .into(),
+                        )
+                    }
+                    Err(TryLockError::Error(error)) => {
+                        return Err(io_context(
+                            "cache_lease_exclusive_lock",
+                            &directory.join(LEASE),
+                            error,
+                        ))
+                    }
+                }
+                if runtime_process_present(&directory) {
                     return Err(
                         "ONEFILE_ACTIVE_CACHE_DAMAGED: close other app windows before retrying"
                             .into(),
@@ -512,13 +656,13 @@ impl RuntimeLease {
                 if files.iter().any(|(name, _)| {
                     name != MARKER && name != LEASE && !info.names.contains(&name.to_lowercase())
                 }) {
-                    return Err(format!(
-                        "ONEFILE_CACHE_UNEXPECTED_FILES: {}",
-                        directory.display()
-                    ));
+                    return Err(
+                        format!("ONEFILE_CACHE_UNEXPECTED_FILES: {}", directory.display()).into(),
+                    );
                 }
                 drop(lease);
-                fs::remove_dir_all(&directory).map_err(io_error)?;
+                fs::remove_dir_all(&directory)
+                    .map_err(|error| io_context("cache_remove", &directory, error))?;
             }
         }
         if !directory.exists() {
@@ -527,7 +671,8 @@ impl RuntimeLease {
                 payload.digest,
                 uuid::Uuid::new_v4()
             ));
-            fs::create_dir(&stage).map_err(io_error)?;
+            fs::create_dir(&stage)
+                .map_err(|error| io_context("cache_stage_create", &stage, error))?;
             let marker = CacheMarker {
                 schema: "nioh3-onefile-cache/v1".into(),
                 payload_sha256: payload.digest.clone(),
@@ -546,8 +691,11 @@ impl RuntimeLease {
                         ..marker
                     },
                 )?;
-                fs::remove_file(stage.join(STAGING_MARKER)).map_err(io_error)?;
-                fs::rename(&stage, &directory).map_err(io_error)
+                fs::remove_file(stage.join(STAGING_MARKER)).map_err(|error| {
+                    io_context("stage_marker_remove", &stage.join(STAGING_MARKER), error)
+                })?;
+                fs::rename(&stage, &directory)
+                    .map_err(|error| io_context("cache_commit", &directory, error))
             })();
             if let Err(error) = prepared {
                 if child_path(&root, &stage).is_ok() && walk_regular(&stage).is_ok() {
@@ -560,8 +708,10 @@ impl RuntimeLease {
         // Touch access time without changing an active lease's bytes or lock state.
         lease
             .set_times(fs::FileTimes::new().set_modified(SystemTime::now()))
-            .map_err(io_error)?;
-        lease.lock_shared().map_err(io_error)?;
+            .map_err(|error| io_context("cache_lease_touch", &directory.join(LEASE), error))?;
+        lease.lock_shared().map_err(|error| {
+            io_context("cache_lease_shared_lock", &directory.join(LEASE), error)
+        })?;
         prune_locked(&root, &payload.digest);
         drop(global);
         Ok(Self {
@@ -730,31 +880,40 @@ pub fn default_cache_root() -> Result<PathBuf> {
 }
 
 pub fn launch(args: impl IntoIterator<Item = OsString>) -> Result<i32> {
-    let outer = std::env::current_exe()
-        .map_err(io_error)?
+    let outer = std::env::current_exe().map_err(|error| {
+        io_context(
+            "outer_executable_resolve",
+            Path::new("<current executable>"),
+            error,
+        )
+    })?;
+    let outer = outer
         .canonicalize()
-        .map_err(io_error)?;
+        .map_err(|error| io_context("outer_executable_canonicalize", &outer, error))?;
     let mut payload = Payload::open(&outer)?;
     let runtime = RuntimeLease::prepare(&default_cache_root()?, &mut payload)?;
     drop(payload); // The updater may replace the outer EXE after this launcher exits.
+    let result = run_runtime(&runtime, &outer, args);
+    // Keep the shared runtime lease through child startup and completion.
+    drop(runtime);
+    result
+}
+
+fn run_runtime(
+    runtime: &RuntimeLease,
+    outer: &Path,
+    args: impl IntoIterator<Item = OsString>,
+) -> Result<i32> {
     let status = Command::new(runtime.directory.join(ENTRY))
         .args(args)
         .current_dir(&runtime.directory)
-        .env("NIOH3_ONEFILE_EXE", &outer)
+        .env("NIOH3_ONEFILE_EXE", outer)
         .env("NIOH3_ONEFILE_PID", std::process::id().to_string())
         .env("NIOH3_ONEFILE_PAYLOAD_SHA256", &runtime.digest)
         .spawn()
-        .map_err(|e| {
-            format!(
-                "Unable to launch {}: {e}",
-                runtime.directory.join(ENTRY).display()
-            )
-        })?
+        .map_err(|error| io_context("child_spawn", &runtime.directory.join(ENTRY), error))?
         .wait()
-        .map_err(io_error)?;
-    // Runtime reuse is bounded by pruning on future launches, without touching
-    // profile state or deleting dependencies that a protected worker still uses.
-    drop(runtime);
+        .map_err(|error| io_context("child_wait", &runtime.directory.join(ENTRY), error))?;
     Ok(status.code().unwrap_or(1))
 }
 

@@ -5267,6 +5267,10 @@
     "持有物品菜单已打开，请在游戏中选中一件物品": [
       "The inventory menu is open. Select an item in the game.",
       "所持品メニューは開いています。ゲーム内でアイテムを選択してください。"
+    ],
+    "魑魅的魂核": [
+      "Sudama Soul Core",
+      "魑魅の魂核"
     ]
   },
   "game": {

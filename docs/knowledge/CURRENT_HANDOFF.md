@@ -1,6 +1,27 @@
 # Current project handoff - 2026-10-03
 
-## Active UI repair: enter compatibility mode or close the tool
+## Active launcher diagnosis and owner-confirmed Sudama core
+
+Worktree: D:/Nioh3_v080_deliverables/source-codex-v083-launcher-feedback-20261003;
+branch codex/v083-launcher-feedback-20261003, based on frozen 4f93766. The older
+candidate and original worktrees remain untouched. Publication stays paused.
+
+Three tester log entries contain only launcher 0.8.3 and OS error 5; the actual
+blocked stage remains unknown. Owned Windows regressions confirm missing IO
+context and destructive repair after a valid cached-file read was denied. IO
+failures now retain operation/path/native source; unreadable caches are preserved.
+Only existing evidenced corrupt/missing-file cache repair remains automatic.
+The matching portable ZIP in a fresh writable folder is an explicit recovery
+option. No automatic admin/antivirus/ACL changes or unknown-tree cleanup is added.
+
+The owner confirmed 0x3336 as 魑魅的魂核. Update its shared name using that
+confirmation plus the referenced game image; the image's Lv150 and earlier tool
+record's Lv146 are different evidence, not proof of the same instance. Unresolved
+source names never established placeholder status. The tester's actual menu
+selection error and item legality remain unaccepted. See
+docs/research/V083_LAUNCHER_FEEDBACK_20261003.md and the external review packet.
+
+## Historical UI repair: enter compatibility mode or close the tool
 
 Worktree: D:/Nioh3_v080_deliverables/source-codex-v083-compatibility-choice-20261003.
 Branch: codex/v083-compatibility-choice-20261003; base paused final candidate

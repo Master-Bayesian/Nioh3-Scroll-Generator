@@ -1,15 +1,17 @@
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
-use nioh3_onefile_launcher::{launch, log_launch_failure};
+use nioh3_onefile_launcher::{launch, log_launch_failure, recovery_hint};
 
 fn main() {
     match launch(std::env::args_os().skip(1)) {
         Ok(code) => std::process::exit(code),
         Err(error) => {
-            let log = log_launch_failure(&error);
+            let log = log_launch_failure(&error.to_string());
             let message = format!(
-                "Nioh 3 Studio could not start.\n\n{error}\n\nPlease download the complete portable EXE again if its contents are damaged.\n\nLauncher log: {}",
-                log.map(|p| p.display().to_string()).unwrap_or_else(|| "unavailable".into())
+                "Nioh 3 Studio could not start.\n\n{error}\n\n{}\n\nLauncher log: {}",
+                recovery_hint(&error),
+                log.map(|p| p.display().to_string())
+                    .unwrap_or_else(|| "unavailable".into())
             );
             #[cfg(windows)]
             {

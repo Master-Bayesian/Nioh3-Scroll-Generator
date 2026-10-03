@@ -1,5 +1,35 @@
 # Experiment failure ledger
 
+
+## 2026-10-03: launcher IO context and cached read refusal
+
+**Objective:** diagnose the tester's launcher error 5 separately from game
+process access, using owned files only; map the owner-confirmed Sudama core.
+**Observed:** Windows readonly global cache lock returned bare OS error 5.
+A pinned valid cache entry returned sharing error 32; verification swallowed
+the read refusal, began cache removal and deleted the marker before failing.
+Two red regressions preserve these facts in launcher-before.log. The name
+regression also fails against the earlier empty source in name-before.log.
+**Repair:** typed operation/path/native IO errors; propagate non-missing read
+failures before cache repair; retain all prior ownership/hash/lease checks.
+The owner-confirmed name uses captured Sudama enemy identity and existing UI
+terminology, with evidence/instance limits in V083_LAUNCHER_FEEDBACK_20261003.md.
+**Harness correction:** the first green launcher run was 13/14: the new display
+removes Windows extended-path prefix, while the assertion compared its raw
+canonical prefix. Compare the same normalized path; do not weaken cache-byte
+or marker preservation. The next 13/15 result exposed an incorrectly escaped
+test prefix and an over-specific invalid-image OS-code expectation; retain exact
+path, typed native source and cache-byte assertions while accepting the native
+loader's actual refusal code. Browser 52/55 showed the name correctly but the
+assertion required an ID while the existing Show IDs setting was off. Keep the
+raw-ID catalog regression and test the named-row display under its actual setting.
+These are harness corrections, not fallback product patches. Original results
+remain retained. The first Clippy pass then caught a needless borrow after the child helper took outer by reference; use outer directly without lint suppression. Final results belong to the external packet.
+**Boundary:** synthetic ZIPs and Windows handles only; no real game/save or
+tester root-cause confirmation. The same-model root performed this bounded
+entry under the owner's no-downgrade instruction; no new agent was spawned.
+
+
 ## 2026-10-03: compatibility-choice verification corrections
 
 **Scope:** isolated source based on 42603e0; scripted UI and synthetic memory,
