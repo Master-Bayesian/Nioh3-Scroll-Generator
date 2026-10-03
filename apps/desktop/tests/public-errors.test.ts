@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import {
   errorText,
   isFailureText,
@@ -91,15 +92,29 @@ test("module-snapshot access denial gives the same recovery as process-open deni
   const recovery = publicError("OPERATION_REJECTED: OpenProcess(107352) failed with error 5");
   for (const raw of [denied, `Error: ${denied}`, JSON.stringify({ code: "OPERATION_REJECTED", message: denied })]) {
     assert.equal(publicError(raw), recovery);
-    assert.match(publicError(raw), /系统拒绝访问游戏进程.*如果.*管理员/);
+    assert.match(publicError(raw), /系统拒绝访问游戏进程.*可能.*权限级别不同/);
+    assert.match(publicError(raw), /如果游戏以管理员身份运行.*以管理员身份重新启动本工具/);
+    assert.match(publicError(raw), /也可以关闭游戏的.*设置.*重新启动游戏和本工具.*重试读取/);
     assert.ok(isFailureText(raw));
-    assert.doesNotMatch(publicError(raw), /没有.*文件.*权限|游戏已退出|已经修复/);
+    assert.doesNotMatch(publicError(raw), /没有.*文件.*权限|游戏已退出|已经修复|已检测到.*权限|必须.*管理员/);
   }
   for (const code of [24, 50, 299]) {
     const raw = `OPERATION_REJECTED: CreateToolhelp32Snapshot(modules, 107352) failed with error ${code}`;
     assert.doesNotMatch(publicError(raw), /管理员/);
     assert.match(publicError(raw), /OPERATION_REJECTED/);
   }
+});
+
+test("access-denied translations offer both conditional restart paths", () => {
+  const recovery = publicError("OPERATION_REJECTED: OpenProcess(107352) failed with error 5");
+  const locales = JSON.parse(readFileSync(new URL("../../workshop/ui-locales.json", import.meta.url), "utf8"));
+  const [english, japanese] = locales.ui[recovery];
+  assert.match(english, /may have different privilege levels/);
+  assert.match(english, /If the game runs as administrator, restart this tool as administrator/);
+  assert.match(english, /alternatively, disable the game's.*setting, restart both the game and tool, then retry reading/);
+  assert.match(japanese, /権限レベルが異なる可能性/);
+  assert.match(japanese, /管理者として実行している場合.*ツールも管理者として再起動/);
+  assert.match(japanese, /または.*設定を解除.*ゲームとツールの両方を再起動.*読み取りを再試行/);
 });
 
 test("an expired save snapshot asks for a refresh", () => {

@@ -1,26 +1,33 @@
 # Current project handoff - 2026-10-03
 
-## Active development: independent test13 local candidate
+## Active release preparation: v0.8.3 final candidate
 
-Worktree: D:/Nioh3_v080_deliverables/source-codex-test13-20261003.
-Branch: codex/test13-candidate-20261003; base frozen test12 eee3105. Test12
-source and binaries remain unchanged. The exact build identities and results
-belong to the external test13 report in
-D:/Nioh3_v080_deliverables/deliverables/codex-test13-candidate-20261003/.
+Worktree: D:/Nioh3_v080_deliverables/source-codex-v083-final-20261003.
+Branch: codex/v083-final-20261003; base frozen test13 7377f4f. Test12 and
+test13 sources and binaries remain unchanged. Exact source/package identities
+and current verification belong to the external codex-v083-final-20261003
+report. Product code changes require a new immutable build.
 
-The reported module-snapshot error 5 occurs before live character reads.
-Test13 adds the missing conditional permission-recovery explanation without
-changing backend access, writes or guards. Source/browser regressions and
-packaged acceptance have separate receipts; this does not establish the
-Windows denial's cause or resolve it. The tester's read-only target
-path/version/elevation check is still required; publication remains paused.
+The final prompt preserves test13's process-open/module-snapshot error-5 match
+and offers both conditional recovery paths: restart this tool elevated when
+the game is elevated, or disable the game's administrator setting and restart
+both before retrying the read. Permission mismatch is a possible cause; no
+token state is measured. Raw diagnostic details and existing guards remain.
+Tester evidence was corrected to confirm game elevation; the subsequent retry
+and real-game/save acceptance are not independently verified here.
+
+The owner resumed release preparation and authorized scoped commit/push, the
+main-only exact-SHA signed build, and stable v0.8.3 publication after root's
+source/check review. Public notes omit private tester audit details. A release
+is complete only after the six public assets, signature/hash/source identity
+and latest feed pass verification; publication is not yet claimed here.
 
 The owner accepted the temporary repository-secret / trusted-workflow-writer
-signing policy. The reviewed main and exact github.sha restrictions remain;
-the newly proposed mandatory environment is removed. Independent isolation
-is not complete. Keep issue #28 open and include its follow-up in root's
-release-completion handoff; see RELEASE_RUNBOOK.md for residual risk and the
-durable checklist. No online configuration, key value or permission is changed.
+signing policy. Main/exact github.sha restrictions, no persisted credentials,
+pinned Actions and bounded acceptance remain. Independent isolation remains
+incomplete: keep issue #28 open and include it in root's release-completion
+handoff; the runbook retains its durable checklist. No online configuration,
+secret value, key scope or permission is changed.
 
 ## Historical test12 local candidate closure
 

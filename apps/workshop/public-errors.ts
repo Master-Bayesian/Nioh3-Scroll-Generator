@@ -256,7 +256,7 @@ export function publicError(message: string): string {
     ],
     [
       /(?:OpenProcess\(\d+\)|CreateToolhelp32Snapshot\(modules, \d+\)) failed with error 5\b/,
-      "系统拒绝访问游戏进程。如果游戏或 Steam 是以管理员身份运行的，请也以管理员身份运行本工具。",
+      "系统拒绝访问游戏进程，可能是游戏与工具的权限级别不同。如果游戏以管理员身份运行，请以管理员身份重新启动本工具；也可以关闭游戏的“以管理员身份运行”设置，再重新启动游戏和本工具，然后重试读取。",
     ],
     [
       /module .+ was not found in process/i,
