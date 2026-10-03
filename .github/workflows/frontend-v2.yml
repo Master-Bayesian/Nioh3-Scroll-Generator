@@ -34,6 +34,13 @@ jobs:
       - run: ./tools/verify_native_faults.ps1
       # Packaged host acceptance belongs to the signed Tauri preparation workflow.
       - run: npm run typecheck
+      # Fixture-only UI checks: production components in Chromium over a scripted
+      # bridge; no game, save or native host.
+      - run: npx playwright install chromium
+      - run: node apps/workshop/verify-live-equipment-add.mjs
+      - run: node apps/workshop/verify-runtime-compatibility.mjs
+      - run: node apps/workshop/verify-character-draft.mjs
+      - run: node apps/workshop/verify-scroll-completion.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

@@ -35,6 +35,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tests.migration.test_save_read_parity import (  # noqa: E402
+    assert_entries_extend,
     build_fixture_bytes,
     native_transform,
     native_transform_short,
@@ -42,6 +43,20 @@ from tests.migration.test_save_read_parity import (  # noqa: E402
 from tests.migration.cargo_target import resolved_cargo_target_dir  # noqa: E402
 
 SCHEMA_DIR = ROOT / "packages" / "contracts"
+
+
+def shipped_context_digest() -> str:
+    """The generation context digest a client sends with a runtime request.
+
+    The runtime role loads its generation context on first use, so its
+    handshake publishes ``context: null``. The product takes the digest from
+    the search worker's handshake; under ``--legacy-test-context`` that is the
+    legacy context the Python service builds from the same shipped resources.
+    """
+
+    from nioh3_scroll_editor.core_services import CandidateApplicationService
+
+    return CandidateApplicationService().context.to_payload()["context_digest"]
 MAX_FRAME_BYTES = 4 * 1024 * 1024
 FIXTURE_ROOT = Path(
     os.environ.get(
@@ -322,11 +337,7 @@ class ProtectedSaveParityTests(unittest.TestCase):
             self.assertEqual(rust_inventory["source_sha256"], python_inventory["source_sha256"])
             self.assertEqual(rust_inventory["account_id"], python_inventory["account_id"])
             self.assertEqual(rust_inventory["empty_slots"], python_inventory["empty_slots"])
-            self.assertEqual(
-                rust_inventory["entries"],
-                python_inventory["entries"],
-                "protected inventory entries must match the shipped worker exactly",
-            )
+            assert_entries_extend(self, rust_inventory["entries"], python_inventory["entries"])
 
             rust_template = self.drive(
                 rust,
@@ -762,9 +773,12 @@ class ProtectedSaveParityTests(unittest.TestCase):
             self.assertTrue(python_handshake["ok"], python_handshake)
             self.assertEqual(rust_handshake["result"]["role"], "runtime")
             self.assertEqual(rust_handshake["result"]["kill_safe"], False)
+            # The Rust runtime loads its context on first use; the handshake
+            # publishes null until then instead of a different identity.
+            self.assertIsNone(rust_handshake["result"]["context"])
             self.assertEqual(
-                rust_handshake["result"]["context"],
-                python_handshake["result"]["context"],
+                python_handshake["result"]["context"]["context_digest"],
+                shipped_context_digest(),
             )
 
             # `runtime.status` is answered inline and must publish the shipped
@@ -1067,7 +1081,7 @@ class ProtectedRuntimeScanTests(unittest.TestCase):
         try:
             handshake = worker.call("handshake")
             self.assertTrue(handshake["ok"], handshake)
-            digest = handshake["result"]["context"]["context_digest"]
+            digest = shipped_context_digest()
             request_template = {
                 "template_hex": template["template_hex"],
                 "source_sha256": template["source_sha256"],
@@ -1228,7 +1242,7 @@ class ProtectedRuntimeScanTests(unittest.TestCase):
         try:
             handshake = worker.call("handshake")
             self.assertTrue(handshake["ok"], handshake)
-            digest = handshake["result"]["context"]["context_digest"]
+            digest = shipped_context_digest()
             request_template = {
                 "template_hex": filled,
                 "source_sha256": product["source_sha256"],
@@ -1330,7 +1344,7 @@ class ProtectedRuntimeScanTests(unittest.TestCase):
         try:
             handshake = worker.call("handshake")
             self.assertTrue(handshake["ok"], handshake)
-            digest = handshake["result"]["context"]["context_digest"]
+            digest = shipped_context_digest()
             searched = drive_job(
                 self,
                 worker,
@@ -1398,7 +1412,7 @@ class ProtectedRuntimeScanTests(unittest.TestCase):
         try:
             handshake = worker.call("handshake")
             self.assertTrue(handshake["ok"], handshake)
-            digest = handshake["result"]["context"]["context_digest"]
+            digest = shipped_context_digest()
             request_template = {
                 "template_hex": filled,
                 "source_sha256": product["source_sha256"],
@@ -1484,7 +1498,7 @@ class ProtectedRuntimeScanTests(unittest.TestCase):
             self.assertTrue(handshake["ok"], handshake)
             # A protected host is never a terminate-and-retry target.
             self.assertIs(handshake["result"]["kill_safe"], False)
-            digest = handshake["result"]["context"]["context_digest"]
+            digest = shipped_context_digest()
             before = worker.call("runtime.status")
             self.assertEqual(before["result"]["pending_remote_calls"], 0)
             self.assertIs(before["result"]["safe_to_shutdown"], True)
@@ -1575,7 +1589,7 @@ class ProtectedRuntimeScanTests(unittest.TestCase):
         try:
             handshake = worker.call("handshake")
             self.assertTrue(handshake["ok"], handshake)
-            digest = handshake["result"]["context"]["context_digest"]
+            digest = shipped_context_digest()
             request_template = {
                 "template_hex": template["template_hex"],
                 "source_sha256": template["source_sha256"],
@@ -1888,7 +1902,7 @@ class ProtectedRuntimeRoutingAudit(unittest.TestCase):
         try:
             handshake = worker.call("handshake")
             self.assertTrue(handshake["ok"], handshake)
-            digest = handshake["result"]["context"]["context_digest"]
+            digest = shipped_context_digest()
             started = worker.call(
                 "runtime.generate",
                 {

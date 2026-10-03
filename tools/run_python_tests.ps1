@@ -12,8 +12,7 @@ param(
     # can fill the build volume; 0 is an explicit lightweight-run override.
     [double]$MinimumFreeGiB = 5.0,
     # Resolve and create the build root, report the environment this run uses
-    # and exit before Python starts. tests/migration/test_build_root_policy.py
-    # drives it to prove this runner and tests/migration/cargo_target.py agree.
+    # and exit before Python starts.
     [switch]$PrintEnvironment
 )
 

@@ -86,7 +86,7 @@ jobs:
       - name: Set up Rust for domain migration
         uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
 
-      - name: Verify Rust domain behavior and Python parity
+      - name: Test, lint and format the Rust crates
         shell: pwsh
         run: |
           $env:NIOH3_BUILD_ROOT = Join-Path $env:RUNNER_TEMP 'nioh3-migration-build'
@@ -125,9 +125,35 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo fmt --check --manifest-path crates/nioh3-protected/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  rust-python-parity:
+    # Rust workers against the Python reference implementation. Separate from
+    # rust-crates so the crate results arrive without waiting for it.
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+
+      - name: Run Rust/Python parity tests
+        shell: pwsh
+        run: |
+          $env:NIOH3_BUILD_ROOT = Join-Path $env:RUNNER_TEMP 'nioh3-migration-build'
+          $env:CARGO_TARGET_DIR = Join-Path $env:NIOH3_BUILD_ROOT 'cargo-target'
           # The packaged host gate needs the host's own dependencies, the
           # frontend bundle and a game identity fixture; rust-packaging runs it.
-          ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -TestPath tests/migration -PytestArgument '-q','--ignore=tests/migration/test_packaged_host_resolver.py'
+          ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -TestPath tests/migration -PytestArgument '-q','--durations=25','--ignore=tests/migration/test_packaged_host_resolver.py'
 
   rust-packaging:
     # Required gate for the shipped packaging graph. The packaged product selects

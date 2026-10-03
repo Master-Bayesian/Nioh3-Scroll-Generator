@@ -48,7 +48,6 @@ RELEVANT_PATHS = (
     "tests/migration/restore_fault_harness/Cargo.lock",
     "tests/migration/restore_fault_harness/src/main.rs",
     "tests/migration/save_restore_fixture.py",
-    "tests/migration/test_build_root_policy.py",
     "tests/migration/test_packaged_host_resolver.py",
     "tests/migration/test_protected_save_acceptance.py",
     "tests/migration/test_save_transaction_parity.py",

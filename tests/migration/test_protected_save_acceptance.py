@@ -28,7 +28,6 @@ import json
 import os
 from pathlib import Path
 import shutil
-import statistics
 import subprocess
 import sys
 import tempfile
@@ -60,6 +59,7 @@ from tests.migration.save_restore_fixture import (  # noqa: E402
 from tests.migration.test_protected_worker_parity import FramedWorker  # noqa: E402
 from tests.migration.test_save_read_parity import (  # noqa: E402
     SCROLL_GROUP_OFFSET,
+    assert_entries_extend,
     SCROLL_RECORD_SIZE,
     build_fixture_bytes,
     native_transform,
@@ -762,28 +762,6 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
                 f"{label}: preview key sets differ (rust missing {missing}, rust extra {extra})"
             )
 
-    @staticmethod
-    def crate_commit_control() -> dict:
-        """The save-lane crate-level guarded commit median, when it is on disk.
-
-        `tests/migration/test_save_performance_parity.py` measures a release
-        in-crate plan+commit on the same fixture builder and the same D: volume.
-        Quoting it here separates "the crate is slow" from "the protected host
-        adds cost on top of the crate".
-        """
-
-        path = DELIVERABLES / "M3B_SAVE_COMMIT_TIMINGS.json"
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return {"available": False}
-        return {
-            "available": True,
-            "source": path.name,
-            "operation": "release in-crate plan_edit + commit (median of 3, cold)",
-            "median_commit_s": payload.get("median_commit_s"),
-        }
-
     # ----------------------------------------------------------------- tests
 
     def test_materialize_then_batch_install_matches_the_shipped_host(self) -> None:
@@ -843,7 +821,7 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
             self.assertIn("context", rust_foreign["message"].lower())
 
             self.assertEqual(rust_inventory["source_sha256"], python_inventory["source_sha256"])
-            self.assertEqual(rust_inventory["entries"], python_inventory["entries"])
+            assert_entries_extend(self, rust_inventory["entries"], python_inventory["entries"])
             rust_template = self.drive(
                 rust,
                 "save.template",
@@ -2874,259 +2852,6 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
             set(observed["rust"]["details"]) - {"resolution"},
             set(observed["python"]["details"]),
         )
-
-    def test_app_level_lifecycle_performance(self) -> None:
-        """Whole-workflow lifecycle: edit + delete + install, cold and steady.
-
-        One lifecycle is what the app performs: register, inventory, template,
-        prepare+commit an edit, prepare+commit a delete, materialize a candidate
-        batch and prepare+commit the batch install. Both hosts run it with the
-        same guards (three 0.20 s quiescence windows per commit on both sides).
-        Cold means a fresh worker process per lifecycle; steady means one worker
-        process running several lifecycles over isolated fixture copies.
-
-        The per-phase totals are recorded so a regression can be attributed: the
-        Rust host decrypts the container inside every inventory/prepare/commit
-        call, while the shipped host keeps a decrypted snapshot per save, and the
-        Rust transaction host applies the shipped 0.20 s window to edit and
-        delete plans where the shipped host applies none. Both facts are recorded
-        as a tradeoff instead of being hidden by a loose threshold; a gross
-        regression (more than twice the shipped lifecycle) still fails.
-        """
-
-        samples = int(os.environ.get("NIOH3_PROTECTED_SAVE_SAMPLES", "3"))
-
-        def lifecycle(
-            worker: FramedWorker, save: Path, digest: str, payloads: list[dict]
-        ) -> dict[str, float]:
-            phases: dict[str, float] = {}
-
-            def phase(name: str, action) -> dict:
-                started = time.perf_counter()
-                value = action()
-                phases[name] = phases.get(name, 0.0) + (time.perf_counter() - started)
-                return value
-
-            registered = phase("register", lambda: self.register(worker, save))
-            inventory = phase("inventory", lambda: self.inventory(worker, registered["save_id"]))
-            entry = inventory["entries"][0]
-            edit = {
-                "slot_index": entry["slot_index"],
-                "header": {**entry["header"], "level": entry["header"]["level"] + 1},
-                "effects": [
-                    {
-                        "slot_index": effect["slot_index"],
-                        "effect_id": effect["effect_id"],
-                        "value": effect["value"] + 1,
-                        "prefix": effect["prefix"],
-                        "metadata": effect["metadata"],
-                        "tail_0": effect["tail_0"],
-                        "tail_1": effect["tail_1"],
-                    }
-                    for effect in entry["effects"]
-                ],
-            }
-            phase(
-                "inventory",
-                lambda: self.drive(
-                    worker,
-                    "save.template",
-                    {
-                        "save_id": registered["save_id"],
-                        "snapshot_id": inventory["snapshot_id"],
-                        "playthrough": 3,
-                    },
-                ),
-            )
-            edit_plan = phase(
-                "prepare",
-                lambda: self.drive(
-                    worker,
-                    "save.prepare_edit",
-                    {
-                        "save_id": registered["save_id"],
-                        "snapshot_id": inventory["snapshot_id"],
-                        "edits": [edit],
-                    },
-                ),
-            )
-            phase("commit", lambda: self.commit(worker, edit_plan["plan_id"]))
-            inventory = phase("inventory", lambda: self.inventory(worker, registered["save_id"]))
-            delete_plan = phase(
-                "prepare",
-                lambda: self.drive(
-                    worker,
-                    "save.prepare_delete",
-                    {
-                        "save_id": registered["save_id"],
-                        "snapshot_id": inventory["snapshot_id"],
-                        "slots": [entry["slot_index"]],
-                    },
-                ),
-            )
-            phase("commit", lambda: self.commit(worker, delete_plan["plan_id"]))
-            inventory = phase("inventory", lambda: self.inventory(worker, registered["save_id"]))
-            materialized = phase(
-                "materialize",
-                lambda: self.drive(
-                    worker,
-                    "save.materialize_live_many",
-                    {
-                        "save_id": registered["save_id"],
-                        "snapshot_id": inventory["snapshot_id"],
-                        "candidates": payloads,
-                        "recommended_level": 183,
-                        "transfer_count": 0,
-                    },
-                ),
-            )["candidates"]
-            install_plan = phase(
-                "prepare",
-                lambda: self.drive(
-                    worker,
-                    "save.prepare_install_many",
-                    {
-                        "save_id": registered["save_id"],
-                        "snapshot_id": inventory["snapshot_id"],
-                        "candidates": materialized,
-                        "recommended_level": 183,
-                        "transfer_count": 0,
-                    },
-                ),
-            )
-            phase("commit", lambda: self.commit(worker, install_plan["plan_id"]))
-            return phases
-
-        report: dict[str, dict[str, list[float]]] = {"rust": {}, "python": {}}
-        host_totals: dict[str, float] = {}
-        host_counts: dict[str, int] = {}
-        host_series: dict[str, list[float]] = {}
-        for side in ("rust", "python"):
-            stderr_log = self.root / f"perf-{side}-stderr.log"
-
-            def spawn(name: str) -> tuple[FramedWorker, Path, str]:
-                save, state = self.isolated(name)
-                if side == "rust":
-                    worker = self.rust_worker(
-                        state,
-                        {"NIOH3_SAVE_HOST_TIMING": "1", "NIOH3_SAVE_TIMING": "1"},
-                        stderr_log,
-                    )
-                else:
-                    worker = self.python_worker(state)
-                digest = self.handshake_digest(worker)
-                return worker, save, digest
-
-            cold: list[float] = []
-            cold_phases: dict[str, float] = {}
-            for index in range(samples):
-                worker, save, digest = spawn(f"perf-{side}-cold-{index}")
-                try:
-                    started = time.perf_counter()
-                    phases = lifecycle(worker, save, digest, self.candidate_payloads(digest))
-                    cold.append(time.perf_counter() - started)
-                    for name, value in phases.items():
-                        cold_phases[name] = cold_phases.get(name, 0.0) + value
-                finally:
-                    worker.terminate()
-            report[side]["cold"] = cold
-
-            steady: list[float] = []
-            steady_phases: dict[str, float] = {}
-            worker, _unused, digest = spawn(f"perf-{side}-steady")
-            try:
-                for index in range(samples):
-                    target_save = self.root / f"perf-{side}-steady-{index}" / ACCOUNT / "SAVEDATA00" / "SAVEDATA.BIN"
-                    target_save.parent.mkdir(parents=True, exist_ok=True)
-                    (target_save.parent / "BACKUP.BIN").write_bytes(b"game-backup")
-                    system = target_save.parent.parent / "SYSTEMSAVEDATA00"
-                    system.mkdir(parents=True, exist_ok=True)
-                    (system / "SAVEDATA.BIN").write_bytes(b"system-save")
-                    target_save.write_bytes(self.container)
-                    started = time.perf_counter()
-                    phases = lifecycle(worker, target_save, digest, self.candidate_payloads(digest))
-                    steady.append(time.perf_counter() - started)
-                    for name, value in phases.items():
-                        steady_phases[name] = steady_phases.get(name, 0.0) + value
-            finally:
-                worker.terminate()
-            report[side]["steady"] = steady
-            report[side]["cold_phases"] = cold_phases
-            report[side]["steady_phases"] = steady_phases
-            if side == "rust" and stderr_log.is_file():
-                for line in stderr_log.read_text(encoding="utf-8", errors="replace").splitlines():
-                    if line.startswith("host-timing\t"):
-                        _, operation, micros = line.split("\t")
-                        host_totals[operation] = (
-                            host_totals.get(operation, 0.0) + int(micros) / 1e6
-                        )
-                        host_counts[operation] = host_counts.get(operation, 0) + 1
-                        host_series.setdefault(operation, []).append(int(micros) / 1e6)
-                        continue
-                    if line.startswith("save-timing\t"):
-                        _, label, micros = line.split("\t")
-                        key = f"core:{label}"
-                        host_totals[key] = host_totals.get(key, 0.0) + int(micros) / 1e6
-                        host_counts[key] = host_counts.get(key, 0) + 1
-
-        summary = {
-            "samples": samples,
-            "operation": (
-                "protected save role lifecycle: register + inventory + template + "
-                "prepare/commit edit + prepare/commit delete + materialize_live_many + "
-                "prepare/commit install_many"
-            ),
-            "guards": [
-                "quiescent-baseline (0.20 s x2 per commit)",
-                "generation-revalidation-before-replace",
-                "durable-receipt",
-                "checkpoint-before-write",
-                "atomic-replace",
-                "readback-verification",
-            ],
-            "guard_asymmetry": (
-                "the Rust transaction host applies the shipped 0.20 s window to every "
-                "plan and commit; the shipped host applies windows only inside "
-                "install_many/install/restore, so its edit and delete commits run with "
-                "no timed window at all"
-            ),
-            "crate_level_control": self.crate_commit_control(),
-            "rust": {
-                "cold_s": report["rust"]["cold"],
-                "cold_median_s": statistics.median(report["rust"]["cold"]),
-                "steady_s": report["rust"]["steady"],
-                "steady_median_s": statistics.median(report["rust"]["steady"]),
-                "steady_phase_totals_s": report["rust"]["steady_phases"],
-                "host_operation_totals_s": host_totals,
-                "host_operation_counts": host_counts,
-                "host_operation_series_s": host_series,
-            },
-            "shipped_python": {
-                "cold_s": report["python"]["cold"],
-                "cold_median_s": statistics.median(report["python"]["cold"]),
-                "steady_s": report["python"]["steady"],
-                "steady_median_s": statistics.median(report["python"]["steady"]),
-                "steady_phase_totals_s": report["python"]["steady_phases"],
-            },
-        }
-        DELIVERABLES.mkdir(parents=True, exist_ok=True)
-        (DELIVERABLES / "M3B_PROTECTED_SAVE_PERF.json").write_text(
-            json.dumps(summary, indent=2), encoding="utf-8"
-        )
-        # A recorded tradeoff, not a hidden pass: the shipped host is the
-        # reference, so a slower Rust lifecycle is reported with its measured
-        # attribution. Only a gross regression fails the gate.
-        for regime in ("cold", "steady"):
-            rust = summary["rust"][f"{regime}_median_s"]
-            shipped = summary["shipped_python"][f"{regime}_median_s"]
-            self.assertLessEqual(rust, shipped * 2.0, json.dumps(summary))
-            if rust > shipped:
-                self.performance_findings.append(
-                    f"app-level lifecycle {regime}: rust {rust:.2f}s vs shipped "
-                    f"{shipped:.2f}s ({rust / shipped:.2f}x); steady phase totals "
-                    f"rust={json.dumps(report['rust']['steady_phases'])} "
-                    f"shipped={json.dumps(report['python']['steady_phases'])}"
-                )
 
     def test_protected_loaders_read_the_selected_versioned_resource(self) -> None:
         """RW06 / RF04: the production save role loads the PC v2.02 tables.

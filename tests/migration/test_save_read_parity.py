@@ -827,3 +827,17 @@ class SaveReadParityTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# Fields the Rust save worker adds to each inventory entry beyond the retired
+# Python worker's shape: the raw record and values derived from it.
+RUST_ONLY_ENTRY_FIELDS = frozenset({"record_hex", "derived"})
+
+
+def assert_entries_extend(test, rust_entries: list, python_entries: list) -> None:
+    """Rust entries equal the Python ones on every shared field and add only known fields."""
+
+    test.assertEqual(len(rust_entries), len(python_entries))
+    for rust_entry, python_entry in zip(rust_entries, python_entries):
+        test.assertLessEqual(set(rust_entry) - set(python_entry), RUST_ONLY_ENTRY_FIELDS)
+        test.assertEqual({key: rust_entry[key] for key in python_entry}, python_entry)

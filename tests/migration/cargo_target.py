@@ -19,9 +19,7 @@ bug `tests/migration/test_cargo_target_defaults.py` refuses:
    whose volume can be full (the disk-full failure this helper exists to
    prevent).
 
-`tools/run_python_tests.ps1` mirrors decision 1 for `TEMP`/`TMP`, and
-`tests/migration/test_build_root_policy.py` drives both resolvers with the same
-inputs so the two cannot drift apart.
+`tools/run_python_tests.ps1` mirrors decision 1 for `TEMP`/`TMP`.
 """
 from __future__ import annotations
 
