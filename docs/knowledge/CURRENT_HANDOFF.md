@@ -1,5 +1,27 @@
 # Current project handoff - 2026-10-03
 
+## Active owner-authorized 0.8.3 publication
+
+On 2026-10-03 the owner explicitly authorized commit/push/tag/workflow publication
+of 0.8.3 without waiting indefinitely for the reported environment. This overrides
+the prior release pause while preserving unsupported-format refusal and all
+save/native safety boundaries. No live-game or real-user-save writes are authorized.
+
+Publication worktree: D:/Nioh3_v080_deliverables/source-codex-v083-publication-20261003,
+based on the clean frozen standalone product 335faef. This preparation changes
+release notes and status records only. Run the existing main-only, exact-SHA,
+read-only preparation with no persisted credentials and pinned Actions, followed
+by six-asset/signature/public-byte verification. Keep the accepted temporary
+repository-secret policy and issue #28's independent-signing-isolation follow-up;
+no key, secret scope or repository permission changes are authorized here.
+
+Menu recognition and the 235896-byte account system save versus the supported
+235384-byte format remain unresolved compatibility limits. Do not claim broad
+DLC1/distribution support, a tester-specific root fix or complete live-game
+acceptance. Existing standalone receipts are prior product evidence; the exact
+release SHA/run/asset hashes and completion status will be recorded after the
+signed build and public-download verification.
+
 ## Active standalone EXE acceptance
 
 The owner requires a usable single EXE permanently. The tester put the earlier
@@ -20,8 +42,7 @@ launcher and VCRUNTIME140/VCRUNTIME140_1 on the host/workers. Static CRT linkage
 is now required in final production Rust EXEs and checked from normal/delayed
 imports before packaging; native-dependencies.json records the actual imports.
 This supplies a concrete possible old-folder dependency without claiming the
-tester lacked VC runtime. System WebView2 remains a prerequisite. Publication
-stays paused.
+tester lacked VC runtime. System WebView2 remains a prerequisite. Publication is resumed under the later owner authorization above.
 
 ## Active menu and system-save diagnostics
 
@@ -40,13 +61,13 @@ recorded in public Issue #29 without private attachments.
 Current isolated worktree: D:/Nioh3_v080_deliverables/source-codex-v083-menu-system-diagnostics-20261003.
 See docs/research/V083_MENU_SYSTEM_FEEDBACK_20261003.md and the matching external
 packet. Local original-image inspection remains blocked by Windows Library
-materialization; no successful import is claimed. Publication stays paused.
+materialization; no successful import is claimed. Publication is resumed under the later owner authorization above.
 
 ## Active launcher diagnosis and owner-confirmed Sudama core
 
 Worktree: D:/Nioh3_v080_deliverables/source-codex-v083-launcher-feedback-20261003;
 branch codex/v083-launcher-feedback-20261003, based on frozen 4f93766. The older
-candidate and original worktrees remain untouched. Publication stays paused.
+candidate and original worktrees remain untouched. Publication is resumed under the later owner authorization above.
 
 Three tester log entries contain only launcher 0.8.3 and OS error 5; the actual
 blocked stage remains unknown. Owned Windows regressions confirm missing IO
@@ -69,7 +90,7 @@ Worktree: D:/Nioh3_v080_deliverables/source-codex-v083-compatibility-choice-2026
 Branch: codex/v083-compatibility-choice-20261003; base paused final candidate
 42603e0. Frozen test12/test13 and the paused release worktree remain unchanged.
 Evidence belongs to the external codex-v083-compatibility-choice-20261003
-report. Publication remains paused pending root review and explicit resumption.
+report. Publication was paused at this historical checkpoint; the later authorization above supersedes it.
 
 The owner confirmed that the previous modal close cancelled compatibility
 consent but left the tool visible. The authorized UI contract is now enter
