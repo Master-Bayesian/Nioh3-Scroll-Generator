@@ -1,5 +1,24 @@
 # Current project handoff - 2026-10-03
 
+## Active menu and system-save diagnostics
+
+The newest supplied log is from frozen compatibility-choice 4f93766, not the
+later launcher diagnostic e4889c1. Five menu polls return false without actual
+flags. Preserve all existing guards and expose the null-global versus flag-pair
+branch, pinned to the running 2.0.2.0 executable. No tester root fix is claimed.
+
+Save editing and scroll addition independently fail at related system capture:
+235896 bytes versus the legacy 235384-byte maximum. The account system file is
+an intentional transaction member, not proof of a wrong selected character.
+No original system bytes/header/tail are provided; keep bounds and request a
+private offline copy for format investigation. Deferred terrain/spawn report is
+recorded in public Issue #29 without private attachments.
+
+Current isolated worktree: D:/Nioh3_v080_deliverables/source-codex-v083-menu-system-diagnostics-20261003.
+See docs/research/V083_MENU_SYSTEM_FEEDBACK_20261003.md and the matching external
+packet. Local original-image inspection remains blocked by Windows Library
+materialization; no successful import is claimed. Publication stays paused.
+
 ## Active launcher diagnosis and owner-confirmed Sudama core
 
 Worktree: D:/Nioh3_v080_deliverables/source-codex-v083-launcher-feedback-20261003;

@@ -3321,6 +3321,31 @@ mod tests {
     }
 
     #[test]
+    fn reported_extended_system_file_is_refused_before_reading_or_allocating() {
+        let consumed = std::cell::Cell::new(0);
+        let initialized = std::cell::Cell::new(false);
+        let result = consume_save_bytes(
+            SaveRole::System,
+            Path::new("owned-account/SYSTEMSAVEDATA00/SAVEDATA.BIN"),
+            CountedReader {
+                remaining: 235_896,
+                consumed: &consumed,
+                interrupted: false,
+            },
+            235_896,
+            None,
+            |_| initialized.set(true),
+            |_, _| {},
+        );
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("system_save"));
+        assert!(error.contains("235896 bytes"));
+        assert!(error.contains("maximum 235384 bytes"));
+        assert_eq!(consumed.get(), 0);
+        assert!(!initialized.get());
+    }
+
+    #[test]
     fn bounded_save_rejects_recorded_length_mismatch_before_reading() {
         let consumed = std::cell::Cell::new(0);
         let result = consume_save_bytes(

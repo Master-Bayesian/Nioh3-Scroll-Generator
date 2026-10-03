@@ -4118,3 +4118,16 @@ the frozen product and its hashes stayed unchanged. All receipts are retained.
 **Skill promotion:** none; bounded initialization regression with a targeted regression check.
 
 **Packaging-verifier follow-up (2026-10-02):** three verification scripts were updated for deferred runtime context, per-role host logs and isolated save discovery. Syntax checks pass; their matching outer-package acceptance is pending. The temporary automatic approval-review scope issue was resolved by root applying the authorized edits; no approval blocker remains. This records verifier preparation, not a product/package pass or skill promotion.
+
+
+## 2026-10-03: current feedback image import is blocked on Windows
+
+**Objective:** consume the owner's four current images locally through the current Library flow.
+**Observation:** image_file read returns authorized metadata/OCR and asset pointers, not local pixels. The current official transfer helper downloads then fails applying os.setxattr, absent on this Windows host; it does not successfully install the image. The separate platform attachment reader cannot authorize the returned Library backing ID.
+**Disposition:** do not repeat an unchanged failed import, bypass metadata, or claim materialization/pixel inspection. Retain IDs and the accurate blocker. The complete 1,003,905-byte text read is independently available and all complete worker payloads were parsed.
+**Evidence:** V083_MENU_SYSTEM_FEEDBACK_20261003.md and the matching external packet's feedback-analysis.json; current tool failure is AttributeError: module 'os' has no attribute 'setxattr'.
+**Boundary / follow-up:** original-image inspection remains blocked; parent inspection is separate evidence. No private attachments are included in public Issue #29. No skill promotion.
+
+**Source-review correction:** an initial draft used compatibility.running_identity for each cursor poll. Review showed that route hashes the whole executable. Before freeze, the menu probe was changed to reuse the existing read-only process handle and read only its FILEVERSION. No performance failure or tester acceptance is claimed from this draft.
+
+**Focused-check correction:** a post-review command named a nonexistent runtime_no_install_control test target. The command failed at Cargo target selection, not in a product test. Its log is retained; the corrected command uses the actual protected library and runtime_operation_admission targets. Final evidence belongs to protected-final-reader-tests.log.

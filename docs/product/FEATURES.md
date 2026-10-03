@@ -179,3 +179,15 @@ separation are preserved. IO guidance offers the matching full ZIP in a new
 empty writable folder without automatic elevation, ACL changes or data deletion.
 See `docs/research/V083_LAUNCHER_FEEDBACK_20261003.md`. Actual tester startup
 and remaining inventory-menu acceptance await the new diagnostic evidence.
+
+
+October 3 menu/system feedback follow-up: the 4f93766 tester log retains five
+closed menu responses, not NoSelection. Closed cursor responses now add exact
+observations (null global versus raw flag pair) with the running 2.0.2.0 profile;
+signature, vtable and owned-record guards remain. Actual tester menu acceptance
+is pending. Independent system-save refusal blocks save.prepare_character_edit
+and save.prepare_install_many: 235896 versus the legacy 235384 bytes. System is
+an intentional consistency/backup transaction member; no format/bound change
+is made without original header/tail evidence. Deferred terrain conversion can
+intermittently prevent enemy spawning; tracked separately in Issue #29.
+Evidence: docs/research/V083_MENU_SYSTEM_FEEDBACK_20261003.md.

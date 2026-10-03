@@ -1038,15 +1038,56 @@ mod imp {
         /// `runtime.menu_selection`: the item under the in-game inventory menu's
         /// cursor, read-only, so the editor can follow the player's selection.
         fn menu_selection(&self) -> Result<Value, HostError> {
-            use nioh3_runtime::character::{read_menu_selection, MenuSelection};
+            use nioh3_runtime::character::{
+                read_menu_selection, ClosedMenuReason, MenuSelection, CHARACTER_GAME_VERSION,
+                DETAIL_READ_SITE_RVA, INVENTORY_MENU_RVA, INVENTORY_MENU_VTABLE_RVA,
+                MENU_CLOSED_FLAG_OFFSET, MENU_OPEN_FLAG_OFFSET,
+            };
             use nioh3_runtime::inventory::{InventoryMemory, ProcessInventoryMemory};
 
             let process = Self::open_supported_reader()?;
+            // Resolve this read handle's running image. The menu poll needs its
+            // FILEVERSION, not a full executable hash or compatibility review.
+            let game_file_version = nioh3_runtime::file_version(
+                &process.image_path().map_err(HostError::from_runtime)?,
+            )
+            .map_err(HostError::from_runtime)?
+            .display();
+            if game_file_version != CHARACTER_GAME_VERSION {
+                return Err(HostError::from_runtime(
+                    nioh3_runtime::RuntimeError::UnsupportedGameVersion {
+                        display: game_file_version,
+                    },
+                ));
+            }
             let memory = ProcessInventoryMemory::new(&process);
             let selection = read_menu_selection(&memory).map_err(HostError::from_runtime)?;
             let process_id = memory.process().pid;
             Ok(match selection {
-                MenuSelection::Closed => json!({ "process_id": process_id, "menu_open": false }),
+                MenuSelection::Closed { reason } => {
+                    let observation = match reason {
+                        ClosedMenuReason::MenuPointerNull => json!({
+                            "reason": "menu_pointer_null", "menu_pointer_present": false,
+                            "menu_vtable_verified": null, "closed_flag": null, "open_flag": null,
+                        }),
+                        ClosedMenuReason::Flags { closed, open } => json!({
+                            "reason": "menu_flags", "menu_pointer_present": true,
+                            "menu_vtable_verified": true, "closed_flag": closed, "open_flag": open,
+                        }),
+                    };
+                    json!({
+                        "process_id": process_id, "menu_open": false,
+                        "diagnostics": {
+                            "game_file_version": game_file_version, "menu_profile": "pc_v2_02",
+                            "detail_signature_rva": DETAIL_READ_SITE_RVA, "detail_signature_verified": true,
+                            "player_roots_verified": true, "menu_pointer_rva": INVENTORY_MENU_RVA,
+                            "menu_vtable_rva": INVENTORY_MENU_VTABLE_RVA,
+                            "closed_flag_offset": MENU_CLOSED_FLAG_OFFSET, "open_flag_offset": MENU_OPEN_FLAG_OFFSET,
+                            "expected_closed_flag": 0, "expected_open_flag": 1,
+                            "observation": observation,
+                        },
+                    })
+                }
                 MenuSelection::NoSelection => {
                     json!({ "process_id": process_id, "menu_open": true, "slot_index": null })
                 }

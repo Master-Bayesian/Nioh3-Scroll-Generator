@@ -383,11 +383,18 @@ pub const MENU_OPEN_FLAG_OFFSET: u64 = 0x60F8;
 pub const DETAIL_READ_SITE_RVA: u64 = 0x22A_EB47;
 pub const DETAIL_READ_SITE_BYTES: [u8; 7] = [0x48, 0x8B, 0x81, 0xB0, 0x01, 0x00, 0x00];
 
+/// The actual observation that prevented inventory cursor following.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClosedMenuReason {
+    MenuPointerNull,
+    Flags { closed: u8, open: u8 },
+}
+
 /// What the inventory menu's cursor is on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MenuSelection {
     /// The inventory menu is not on screen.
-    Closed,
+    Closed { reason: ClosedMenuReason },
     /// The verified inventory menu is open, but its detail widget has no item yet.
     NoSelection,
     /// An owned equipment record.
@@ -419,7 +426,9 @@ pub fn read_menu_selection(memory: &dyn InventoryMemory) -> Result<MenuSelection
     let player = locate_player(memory)?;
     let menu = u64_at(&memory.read(base + INVENTORY_MENU_RVA, 8)?)?;
     if menu == 0 {
-        return Ok(MenuSelection::Closed);
+        return Ok(MenuSelection::Closed {
+            reason: ClosedMenuReason::MenuPointerNull,
+        });
     }
     if u64_at(&memory.read(menu, 8)?)? != base + INVENTORY_MENU_VTABLE_RVA {
         return Err(layout(
@@ -429,7 +438,9 @@ pub fn read_menu_selection(memory: &dyn InventoryMemory) -> Result<MenuSelection
     let closed = memory.read(menu + MENU_CLOSED_FLAG_OFFSET, 1)?[0];
     let open = memory.read(menu + MENU_OPEN_FLAG_OFFSET, 1)?[0];
     if closed != 0 || open != 1 {
-        return Ok(MenuSelection::Closed);
+        return Ok(MenuSelection::Closed {
+            reason: ClosedMenuReason::Flags { closed, open },
+        });
     }
     let item = u64_at(&memory.read(menu + DETAIL_WIDGET_OFFSET + DETAIL_ITEM_OFFSET, 8)?)?;
     if item == 0 {
@@ -802,7 +813,51 @@ mod tests {
         );
         fake.put(MENU + MENU_CLOSED_FLAG_OFFSET, &[1]);
         fake.put(MENU + MENU_OPEN_FLAG_OFFSET, &[0]);
-        assert_eq!(read_menu_selection(&fake).unwrap(), MenuSelection::Closed);
+        assert_eq!(
+            read_menu_selection(&fake).unwrap(),
+            MenuSelection::Closed {
+                reason: ClosedMenuReason::Flags { closed: 1, open: 0 }
+            }
+        );
+    }
+
+    #[test]
+    fn a_null_menu_pointer_has_a_distinct_closed_observation() {
+        let fake = with_open_menu(0);
+        fake.put(BASE + INVENTORY_MENU_RVA, &0u64.to_le_bytes());
+        assert_eq!(
+            read_menu_selection(&fake).unwrap(),
+            MenuSelection::Closed {
+                reason: ClosedMenuReason::MenuPointerNull
+            }
+        );
+        // The earlier signature gate is still mandatory, even without a menu.
+        fake.put(BASE + DETAIL_READ_SITE_RVA, &[0x90]);
+        assert!(matches!(
+            read_menu_selection(&fake),
+            Err(RuntimeError::SignatureMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn closed_menu_diagnostics_keep_the_exact_flag_bytes() {
+        let fake = with_open_menu(0);
+        for (closed, open) in [(1, 0), (0, 0), (1, 1), (2, 255)] {
+            fake.put(MENU + MENU_CLOSED_FLAG_OFFSET, &[closed]);
+            fake.put(MENU + MENU_OPEN_FLAG_OFFSET, &[open]);
+            assert_eq!(
+                read_menu_selection(&fake).unwrap(),
+                MenuSelection::Closed {
+                    reason: ClosedMenuReason::Flags { closed, open }
+                }
+            );
+        }
+        fake.put(MENU + MENU_CLOSED_FLAG_OFFSET, &[0]);
+        fake.put(MENU + MENU_OPEN_FLAG_OFFSET, &[1]);
+        assert_eq!(
+            read_menu_selection(&fake).unwrap(),
+            MenuSelection::NoSelection
+        );
     }
 
     #[test]
@@ -811,7 +866,12 @@ mod tests {
         let fake = with_open_menu(record);
         fake.put(MENU + MENU_CLOSED_FLAG_OFFSET, &[1]);
         fake.put(MENU + MENU_OPEN_FLAG_OFFSET, &[0]);
-        assert_eq!(read_menu_selection(&fake).unwrap(), MenuSelection::Closed);
+        assert_eq!(
+            read_menu_selection(&fake).unwrap(),
+            MenuSelection::Closed {
+                reason: ClosedMenuReason::Flags { closed: 1, open: 0 }
+            }
+        );
         let fake = with_open_menu(record);
         fake.put(MENU, &0u64.to_le_bytes());
         assert!(read_menu_selection(&fake).is_err());
