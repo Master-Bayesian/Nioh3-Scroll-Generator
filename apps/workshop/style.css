@@ -413,7 +413,7 @@ body { overflow: auto; }
 html:is([lang="en-US"], [lang="ja-JP"]) .shell:not(.nav-collapsed) {
   grid-template-columns: 150px minmax(0, 1fr) minmax(320px, 31%);
 }
-.shell > *, main, .result-pane, .editor-host, .backup-page, .equipment-page { min-width: 0; }
+.shell > *, main, .result-pane, .editor-host, .backup-page, .equipment-page, .favorites-page { min-width: 0; }
 main { overflow: auto; }
 
 @media (max-width: 1030px) {
@@ -432,7 +432,7 @@ main { overflow: auto; }
   .shell.nav-collapsed > .nav > nav > button {
     justify-content: flex-start;
   }
-  .editor-host, .backup-page, .equipment-page { grid-column: 2; overflow: visible; }
+  .editor-host, .backup-page, .equipment-page, .favorites-page { grid-column: 2; overflow: visible; }
 }
 
 @media (max-width: 680px) {
@@ -1228,12 +1228,6 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .live-equipment-confirm input{width:auto;flex-shrink:0}
 .live-equipment-add code{overflow-wrap:anywhere}
 @media(max-width:900px){.live-equipment-layout{grid-template-columns:minmax(0,1fr)}.live-equipment-items{max-height:260px}}
-.game-install{padding:10px 0;border-bottom:1px solid #c5d1e0;margin-bottom:10px}
-.game-install h3{font-size:13px;margin-bottom:8px}
-.game-install p{font-size:12px;line-height:1.6;margin:7px 0}
-.game-install code{font-size:11px;overflow-wrap:anywhere;user-select:text}
-.game-install-actions{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
-.game-install-actions button{width:auto}
 .game-install-compatibility h4{font-size:13px;margin:12px 0 6px}.game-install-profile{display:grid;grid-template-columns:minmax(90px,auto) minmax(0,1fr);gap:6px 12px;font-size:12px;margin:10px 0}.game-install-profile dt{font-weight:600}.game-install-profile dd{margin:0;overflow-wrap:anywhere}.game-install details{font-size:12px;margin:8px 0}
 .compatibility-feature-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px}.compatibility-feature-table th,.compatibility-feature-table td{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid #c5d1e0;overflow-wrap:anywhere}.compatibility-feature-table th{font-weight:600}.compatibility-feature-table [data-support="experimental"]{color:#79501d}.compatibility-feature-table [data-support="unsupported"],.compatibility-feature-table [data-support="unavailable"]{color:#8a3c2d}
 .app-build{display:block;font:normal 10px/1.2 "Segoe UI",sans-serif;letter-spacing:.4px;color:#6b879d;font-variant-numeric:tabular-nums}
@@ -1246,3 +1240,80 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 
 .character-draft-state{font-size:12px;color:var(--muted,#8a8a8a)}
 .character-draft-state.changed{color:#b0761e;font-weight:600}
+
+/* v0.8.4: settings is a small menu beside the button; game details open as a second, wider panel */
+.side-popup.settings-menu{width:260px;padding:8px}
+.side-popup.side-popup-wide{width:min(400px,calc(100vw - 160px));padding:12px 16px 14px}
+.side-popup.side-popup-wide h2{font-size:15px;margin:2px 0 10px}
+.side-popup .toggle-switch{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0;padding:8px 8px;border-radius:7px;font-size:13px}
+.side-popup .toggle-switch:hover{background:#e8eef6}
+.side-popup hr{margin:6px 4px}
+.side-popup button.menu-item{display:flex;align-items:center;gap:8px;width:100%;padding:8px 8px;border-radius:7px;font-size:13px;color:#2f4b66}
+.side-popup button.menu-item:hover:not(:disabled){background:#e8eef6}
+.side-popup button.menu-item>span{flex:1;text-align:left}
+.side-popup button.menu-item>i{font-style:normal;color:#8797a8}
+.menu-hint{font-size:11px;color:#7a8a9b;white-space:nowrap}
+.side-popup button.menu-back{width:auto;padding:2px 4px;margin:0 0 4px;font-size:12px;color:#5b7690}
+.side-popup .game-install-actions>button{display:inline-block;width:auto;text-align:center}
+
+/* v0.8.4: game installation summary */
+.game-install{display:grid;gap:8px;font-size:13px}
+.game-install p{margin:0;font-size:12px;line-height:1.6}
+.game-install code{font-size:11px;overflow-wrap:anywhere;user-select:text}
+.game-install>h3,.game-install>h4{display:none}
+.game-install-summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.game-install-summary>strong{font-size:14px}
+.game-install-badge{padding:1px 8px;border-radius:10px;font-size:11px;background:#e1ece4;color:#2f6b47}
+.game-install-badge[data-status=unknown],.game-install-badge[data-status=unavailable]{background:#f8e7d3;color:#8a5317}
+.game-install-source{margin-left:auto;font-size:11px;color:#7a8a9b}
+.game-install-path{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#5b6e82}
+.game-install-path code{font-size:11px}
+.game-install-actions{display:flex;flex-wrap:wrap;gap:8px}
+.settings-panel .game-install-actions>button,.game-install-actions>button{display:inline-block;width:auto;margin:0;padding:5px 12px;border:1px solid #c5d1e0;border-radius:6px;background:#fff;color:#2c4d6c;font-size:12px}
+.game-install-details>summary{cursor:pointer;font-size:12px;color:#4d6a87;padding:2px 0}
+.game-install-details .game-install-compatibility{margin-top:6px}
+.game-install-details dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0 0 8px;font-size:12px}
+.game-install-details dt{color:#6a7d91}
+.game-install-details dd{margin:0;overflow-wrap:anywhere}
+.game-install-details table{width:100%;font-size:12px;border-collapse:collapse}
+.game-install-details td,.game-install-details th{padding:4px 6px;border-bottom:1px solid #e1e7ef;text-align:left}
+
+/* v0.8.4: one-line save picker */
+.save-picker{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:4px 0 8px}
+.save-picker>label{display:flex;flex-direction:row;align-items:center;gap:8px;flex:1 1 380px;width:auto;min-width:0;white-space:nowrap;font-size:12px;color:#58717b}
+.save-picker>label>select{flex:1;width:auto;min-width:0;height:30px}
+.save-picker>button{width:auto;margin:0;padding:5px 12px;font-size:12px}
+.inventory-pane .save-picker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.inventory-pane .save-picker>label{grid-column:1/-1;flex-direction:column;align-items:stretch;white-space:normal}
+.inventory-pane .save-picker>button{width:100%;padding:5px 2px}
+.inventory-pane .save-picker>:is(p,div,.notice){grid-column:1/-1}
+
+/* v0.8.4: equipment filters */
+.character-chips>button small{margin-left:5px;font-size:11px;opacity:.7}
+.character-chips.small{align-items:center}
+.character-school{display:inline-flex;margin-left:auto;border:1px solid #c5d1e0;border-radius:14px;overflow:hidden}
+.character-chips .character-school>button{margin:0;padding:2px 10px;border:0;border-radius:0;background:#f8fafc;color:#214d63;font-size:12px}
+.character-chips .character-school>button+button{border-left:1px solid #c5d1e0}
+.character-chips .character-school>button.active{background:#3c745f;color:#fff}
+.character-sections>button{padding:7px 14px;font-size:15px}
+.character-sections{margin:0 0 8px}
+
+/* v0.8.4: backups toolbar — backup actions first, folder actions after */
+.backup-toolbar{flex-wrap:wrap;align-items:center}
+.backup-toolbar>button{width:auto;margin:0}
+.backup-toolbar>.backup-action{order:-1}
+.backup-toolbar>.backup-action.primary{order:-2;background:#3c745f;border-color:#3c745f;color:#fff}
+.backup-toolbar>.backup-action.primary:disabled{background:#a9c2b5;border-color:#a9c2b5}
+.backup-toolbar-gap{order:0;flex:1 1 12px}
+.backup-toolbar>button:not(.backup-action){order:1;font-size:12px}
+.backup-list td:nth-child(2){font-variant-numeric:tabular-nums}
+
+.live-equipment-filters{border:0;padding:0;margin:8px 0;min-width:0;display:grid;gap:6px}
+/* v0.8.4: edit state and follow pause are badges, not grey text (#17, #18) */
+.character-draft-state{padding:1px 8px;border-radius:10px;background:#eef2f6}
+.character-draft-state.changed{background:#fbe9cf;color:#8a5317}
+.character-dirty{margin-left:6px;padding:0 6px;border-radius:8px;background:#fbe9cf;color:#8a5317;font-size:11px;font-weight:600}
+.character-hint .character-follow-note{display:inline-block;margin-left:10px;padding:1px 10px;border-radius:10px;background:#fbe9cf;color:#8a5317;font-weight:600}
+/* v0.8.4: favorites is a page like the others (#20) */
+.favorites-page{grid-column:2/4;display:flex;flex-direction:column;min-height:0;padding:16px 20px;overflow:hidden}
+.favorites-page>.favorites-review>.compare-grid{grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:16px}

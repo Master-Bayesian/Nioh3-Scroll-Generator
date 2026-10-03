@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useRef, useState} from "react";
 import type {EquipmentAddition} from "../../packages/contracts/protected-responses";
-import itemNames from "./item-names.json";
+import {ADD_CATALOG,ADD_TYPES,FacetFilter,MAJOR_ORDER} from "./equipment-facets";
 import {data} from "./model";
 import {plainGameText} from "./game-text";
 import {Notice} from "./Notice";
@@ -10,8 +10,7 @@ import "../desktop/src/operations-api";
 
 type Addition=EquipmentAddition["equipment_add"];
 const STORAGE="nioh3-live-equipment-add";
-const kinds=["武器","防具","防具或饰品","饰品","魂核"];
-const catalog=Object.entries(itemNames.items).map(([id,row])=>({id:Number(id),name:row[0],kind:row[1]})).filter(row=>row.name&&kinds.includes(row.kind));
+const catalog=ADD_CATALOG;
 const effectName=(id:number)=>data.editorEffects.find(row=>row.id===String(id))?.name||`0x${id.toString(16).toUpperCase()}`;
 // This catalog has Chinese item names only. Keep exact game names instead of
 // translating their substrings as unrelated interface terms.
@@ -30,8 +29,8 @@ function integer(value:string,min:number,max:number):number|null {
 
 /** Durable UI ownership starts before prepare. Restoring never inserts again. */
 export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;onAdded?:()=>void}) {
-  const [query,setQuery]=useState(""),[kind,setKind]=useState("");
-  const [item,setItem]=useState<number|null>(null),[page,setPage]=useState(0);
+  const [query,setQuery]=useState(""),[kind,setKind]=useState(""),[type,setType]=useState(""),[school,setSchool]=useState("");
+  const [item,setItem]=useState<number|null>(null);
   const [level,setLevel]=useState("180"),[plus,setPlus]=useState("20"),[rarity,setRarity]=useState("4"),[seed,setSeed]=useState("0");
   const [backupPath,setBackupPath]=useState("");
   const [recoveryMessage,setRecoveryMessage]=useState("");
@@ -39,9 +38,7 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
   const [busy,setBusy]=useState(false),[confirmed,setConfirmed]=useState(false),[message,setMessage]=useState("");
   const mounted=useRef(false),running=useRef(false),current=useRef<string|null>(null);
   const callbacks=useRef({onBusy,onAdded});callbacks.current={onBusy,onAdded};
-  const rows=useMemo(()=>catalog.filter(row=>(!kind||row.kind===kind)&&(!query||(`${row.name} ${row.id} ${row.kind}`).toLowerCase().includes(query.toLowerCase()))),[query,kind]);
-  const pages=Math.max(1,Math.ceil(rows.length/40)),visiblePage=Math.min(page,pages-1);
-  useEffect(()=>setPage(0),[query,kind]);
+  const rows=useMemo(()=>catalog.filter(row=>(!kind||row.major===kind)&&(!type||row.type===type)&&(!school||row.school===school)&&(!query||(`${row.name} ${row.id} ${row.major} ${row.type}`).toLowerCase().includes(query.toLowerCase()))),[query,kind,type,school]);
   const numbers={level:integer(level,1,65535),plus:integer(plus,0,65535),rarity:integer(rarity,0,5),seed:integer(seed,0,65535)};
   const valid=item!==null&&Object.values(numbers).every(value=>value!==null);
   const locked=busy||operation!==null;
@@ -111,9 +108,8 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
     <div className="live-equipment-layout">
       <div className="live-equipment-picker">
         <label><span>搜索装备</span><input value={query} onChange={event=>setQuery(event.target.value)} disabled={locked}/></label>
-        <div className="character-filter-chips">{["",...kinds].map(value=><button key={value} className={kind===value?"active":""} disabled={locked} onClick={()=>setKind(value)}>{value||"全部"}</button>)}</div>
-        <ul className="live-equipment-items">{rows.slice(visiblePage*40,(visiblePage+1)*40).map(row=><li key={row.id}><button data-action="pick-equipment" aria-pressed={item===row.id} className={item===row.id?"active":""} disabled={locked} onClick={()=>setItem(row.id)}>{itemName(row.id)}<small>{row.kind}</small></button></li>)}</ul>
-        <div className="live-equipment-pages"><button disabled={locked||visiblePage===0} onClick={()=>setPage(visiblePage-1)}>上一页</button><span>{visiblePage+1} / {pages}</span><button disabled={locked||visiblePage+1>=pages} onClick={()=>setPage(visiblePage+1)}>下一页</button></div>
+        <fieldset className="live-equipment-filters" disabled={locked}><FacetFilter majors={MAJOR_ORDER.map(value=>[value,null])} major={kind} onMajor={value=>{setKind(value);setType("");setSchool("");}} types={(ADD_TYPES.get(kind)??[]).map(value=>[value,null])} type={type} onType={setType} school={school} onSchool={kind==="防具"?setSchool:null}/></fieldset>
+        <ul className="live-equipment-items">{rows.map(row=><li key={row.id}><button data-action="pick-equipment" aria-pressed={item===row.id} className={item===row.id?"active":""} disabled={locked} onClick={()=>setItem(row.id)}>{itemName(row.id)}<small>{[row.type||row.major,row.school].filter(Boolean).join(" · ")}</small></button></li>)}</ul>
       </div>
       <div className="live-equipment-form">
         <h3>{item===null?"请选择装备":itemName(item)}</h3>

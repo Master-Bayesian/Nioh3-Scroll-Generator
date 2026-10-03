@@ -39,7 +39,7 @@ import { BackupManager } from "./BackupManager";
 import { Editor } from "./Editor";
 import { CharacterEditor } from "./CharacterEditor";
 import { RuntimeCompatibility } from "./RuntimeCompatibility";
-import { GameInstallation } from "./GameInstallation";
+import { GameInstallation, GameVersionHint } from "./GameInstallation";
 import { DesktopCartActions, SavePicker } from "./CartActions";
 import { FeedbackSaved, Notice } from "./Notice";
 import { publicError } from "./public-errors";
@@ -1055,7 +1055,11 @@ function App() {
           >
             <span className="nav-icon" aria-hidden="true">▣</span><span>备份与管理</span>
           </button>
-          <button onClick={() => open("收藏夹")} aria-label="收藏夹">
+          <button
+            className={page === "favorites" ? "active" : ""}
+            onClick={() => setPage("favorites")}
+            aria-label="收藏夹"
+          >
             <span className="nav-icon" aria-hidden="true"><StarIcon /></span><span>收藏夹（{favorites.length}）</span>
           </button>
           <button
@@ -1131,7 +1135,7 @@ function App() {
                 left: r.right + 10,
                 bottom: window.innerHeight - r.bottom,
               });
-              setPopup(popup === "settings" ? "" : "settings");
+              setPopup(popup === "settings" || popup === "game" ? "" : "settings");
             }}
           >
             <span className="nav-icon" aria-hidden="true">⚙</span><span>设置</span>
@@ -1144,7 +1148,9 @@ function App() {
         <h1>
           {page === "search"
             ? "绘卷搜索"
-            : page === "backups"
+            : page === "favorites"
+              ? "收藏夹"
+              : page === "backups"
               ? "备份与管理"
               : page === "equipment"
                 ? "装备与道具"
@@ -2389,14 +2395,24 @@ function App() {
             onClick={() => setPopup("")}
           />
           <section
-            className="side-popup"
+            className={"side-popup" + (popup === "game" ? " side-popup-wide" : popup === "settings" ? " settings-menu" : "")}
             style={popupPosition}
-            aria-label={popup === "settings" ? "设置菜单" : "语言菜单"}
+            aria-label={popup === "settings" ? "设置菜单" : popup === "game" ? "游戏版本" : "语言菜单"}
+            onKeyDown={(event) => { if (event.key === "Escape") setPopup(popup === "game" ? "settings" : ""); }}
           >
-            {popup === "settings" ? (
+            {popup === "game" ? (
               <>
-                <h2>设置</h2>
-                {desktop&&<GameInstallation/>}
+                <button className="menu-back" onClick={() => setPopup("settings")}>‹ 设置</button>
+                <h2>游戏版本</h2>
+                <GameInstallation />
+              </>
+            ) : popup === "settings" ? (
+              <>
+                <ToggleSwitch
+                  label="显示词条与敌人 ID"
+                  checked={showIds}
+                  onChange={setShowIds}
+                />
                 {desktop && (
                   <ToggleSwitch
                     label="允许使用 CPU 搜索"
@@ -2404,43 +2420,40 @@ function App() {
                     onChange={setAllowCpu}
                   />
                 )}
-                <ToggleSwitch
-                  label="显示词条与敌人 ID"
-                  checked={showIds}
-                  onChange={setShowIds}
-                />
                 <hr />
-                {desktop ? (
-                  <>
-                    <button
-                      disabled={feedbackState === "busy"}
-                      onClick={() => {
-                        setFeedbackState("busy");
-                        void window.review
-                          .exportFeedback()
-                          .then(() => setFeedbackState("saved"))
-                          .catch((e) => {
-                            setFeedbackState("");
-                            setStatus(String(e));
-                          });
-                      }}
-                    >
-                      反馈问题
-                    </button>
-                    {feedbackState === "saved" ? (
-                      <FeedbackSaved onDismiss={() => setFeedbackState("")} />
-                    ) : (
-                      <p className="settings-note">
-                        遇到问题时点这里，会生成一个反馈文件（包含版本信息和最近的操作记录，不含存档内容）。
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <button onClick={() => void copy(logs.current.join("\n"))}>
-                    复制日志
+                {desktop && (
+                  <button className="menu-item" data-action="open-game-installation" onClick={() => setPopup("game")}>
+                    <span>游戏版本</span>
+                    <GameVersionHint />
+                    <i aria-hidden="true">›</i>
                   </button>
                 )}
+                {desktop ? (
+                  <button
+                    className="menu-item"
+                    disabled={feedbackState === "busy"}
+                    title="生成一个反馈文件（包含版本信息和最近的操作记录，不含存档内容）"
+                    onClick={() => {
+                      setFeedbackState("busy");
+                      void window.review
+                        .exportFeedback()
+                        .then(() => setFeedbackState("saved"))
+                        .catch((e) => {
+                          setFeedbackState("");
+                          setStatus(String(e));
+                        });
+                    }}
+                  >
+                    <span>反馈问题</span>
+                  </button>
+                ) : (
+                  <button className="menu-item" onClick={() => void copy(logs.current.join("\n"))}>
+                    <span>复制日志</span>
+                  </button>
+                )}
+                {feedbackState === "saved" && <FeedbackSaved onDismiss={() => setFeedbackState("")} />}
                 <button
+                  className="menu-item"
                   onClick={() => {
                     if (desktop) {
                       setPopup("");
@@ -2453,7 +2466,7 @@ function App() {
                       );
                   }}
                 >
-                  检查更新
+                  <span>检查更新</span>
                 </button>
               </>
             ) : (
@@ -2483,26 +2496,8 @@ function App() {
           </section>
         </>
       )}
-      {page === "backups" && <BackupManager />}
-      {page === "equipment" && <CharacterEditor showIds={showIds} />}
-      <div className="toast" role="status" hidden={!toast}>
-        {toast}
-        <button aria-label="关闭提示" onClick={() => setToast("")}>
-          ×
-        </button>
-      </div>
-      <dialog
-        ref={dialog}
-        {...dialogBackdropDismiss}
-        onClose={handleDialogClose}
-      >
-        <header>
-          <h2>{modal}</h2>
-          <button aria-label="关闭窗口" onClick={() => dialog.current?.close()}>
-            ×
-          </button>
-        </header>
-        {modal === "收藏夹" ? (
+      {page === "favorites" && (
+        <main className="favorites-page">
           <div className="favorites-review">
             <div className="favorites-toolbar">
               <p>{favorites.length} / 50 张绘卷</p>
@@ -2546,7 +2541,28 @@ function App() {
               ))}
             </div>
           </div>
-        ) : modal === "管理预览" ? (
+        </main>
+      )}
+      {page === "backups" && <BackupManager />}
+      {page === "equipment" && <CharacterEditor showIds={showIds} />}
+      <div className="toast" role="status" hidden={!toast}>
+        {toast}
+        <button aria-label="关闭提示" onClick={() => setToast("")}>
+          ×
+        </button>
+      </div>
+      <dialog
+        ref={dialog}
+        {...dialogBackdropDismiss}
+        onClose={handleDialogClose}
+      >
+        <header>
+          <h2>{modal}</h2>
+          <button aria-label="关闭窗口" onClick={() => dialog.current?.close()}>
+            ×
+          </button>
+        </header>
+        {modal === "管理预览" ? (
           <section className="preview-management">
             {results.map((sample) => (
               <label key={sample.seed}>

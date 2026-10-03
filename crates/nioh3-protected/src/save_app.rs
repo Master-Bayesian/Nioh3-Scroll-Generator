@@ -1352,12 +1352,19 @@ impl SaveApplication {
             if entry.account_id != Some(account) || entry.save_slot_index != Some(slot) {
                 continue;
             }
-            // `savegame.list_backup_entries` publishes the directory name, which
-            // is the UTC creation stamp, as the timestamp. The shared backups live
-            // under the state root, so the previous mtime lookup under
-            // `protected-internal/backups` always produced an empty string.
+            // The timestamp is the backup directory's modification time in Unix
+            // milliseconds. Directory names mix nanosecond stamps, dates and
+            // operation ids, so they are neither readable nor sortable.
+            let modified = std::fs::metadata(
+                nioh3_save::backup::backups_root(&self.state_root).join(&entry.backup_id),
+            )
+            .and_then(|metadata| metadata.modified())
+            .ok()
+            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|duration| duration.as_millis().to_string())
+            .unwrap_or_default();
             backups.push(json!({
-                "timestamp": entry.backup_id.clone(),
+                "timestamp": modified,
                 "backup_id": entry.backup_id,
                 "action": entry.action,
                 "manifest_schema": entry.manifest_schema.unwrap_or_default(),

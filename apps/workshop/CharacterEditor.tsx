@@ -16,6 +16,7 @@ import { desktop } from "./desktop-bridge";
 import { fillTemplateSlots, plainGameText } from "./game-text";
 import { Notice } from "./Notice";
 import { LiveEquipmentAdd } from "./LiveEquipmentAdd";
+import { ADD_CATALOG, ADD_TYPES, FacetFilter, MAJOR_ORDER, TYPE_ORDER, byOrder, facetsOf, itemCatalog, kindOf } from "./equipment-facets";
 import { errorText, publicError, stripErrorPrefix } from "./public-errors";
 import { SavePicker } from "./CartActions";
 import { runtimeObserver, saveObserver, saveSession } from "./save-workspace";
@@ -53,7 +54,6 @@ function excludes(a: Candidate, b: Candidate) {
   return a.group === b.group || (a.masks[0] & b.masks[0]) !== 0 || (a.masks[1] & b.masks[1]) !== 0;
 }
 const EMPTY_EFFECT = 0xffffffff;
-const PAGE_SIZE = 40;
 /** One item to add to a save (`save.prepare_character_edit` `add`). */
 interface NewEquipmentRequest {
   item_id: number;
@@ -74,8 +74,6 @@ interface WantedEffect {
 }
 /** The selection of an item being added to the save; it has no slot yet. */
 const NEW_SLOT = -1;
-/** Catalog kinds a new item may be picked from; the rules decide the rest. */
-const ADDABLE_KINDS = new Set(["武器", "防具", "防具或饰品", "饰品", "魂核"]);
 
 const effectNames = new Map<number, string>();
 for (const row of data.editorEffects as { id: string; name: string }[]) {
@@ -104,27 +102,9 @@ const ALL_EFFECTS: Candidate[] = [...effectNames.keys()]
     Number(sourceOf(a.id).startsWith(NO_DROP)) - Number(sourceOf(b.id).startsWith(NO_DROP)) ||
     (effectNames.get(a.id) ?? "").localeCompare(effectNames.get(b.id) ?? "", "zh-CN") ||
     a.id - b.id);
-/** Catalog kinds each add filter chip shows. */
-const ADD_KIND_CHIPS: [string, string[]][] = [
-  ["武器", ["武器"]],
-  ["防具", ["防具", "防具或饰品"]],
-  ["饰品", ["饰品", "防具或饰品"]],
-  ["魂核", ["魂核"]],
-];
 /** Most new items one plan adds (the request contract's limit). */
 const ADD_LIMIT = 16;
 
-/** Coarse item group from the shipped item table's type class. */
-function kindOf(typeClass: number | null | undefined): string {
-  if (typeClass == null) return "其他";
-  if (typeClass <= 22) return "武器";
-  if (typeClass >= 24 && typeClass <= 38) return "防具";
-  if (typeClass === 39 || typeClass === 40) return "饰品";
-  if (typeClass >= 54 && typeClass <= 57) return "魂核";
-  return "其他";
-}
-
-const itemCatalog = (itemNames as { items: Record<string, string[]> }).items;
 /** `[major, middle, minor]` from the bundled catalog, falling back to the type class. */
 function itemGroups(id: number, typeClass: number | null | undefined): [string, string, string] {
   const entry = itemCatalog[String(id)];
@@ -357,30 +337,7 @@ function EffectPicker({ value, star, candidates, label, onPick, placeholder = "�
   );
 }
 
-/** Previous / page number box / next; the box jumps on Enter or blur. */
-function Pager({ page, pages, onChange }: { page: number; pages: number; onChange: (page: number) => void }) {
-  const [text, setText] = useState(String(page + 1));
-  useEffect(() => setText(String(page + 1)), [page]);
-  const commit = () => {
-    const value = Number(text);
-    if (Number.isInteger(value) && value >= 1 && value <= pages) onChange(value - 1);
-    else setText(String(page + 1));
-  };
-  if (pages <= 1) return null;
-  return (
-    <div className="character-pager">
-      <button onClick={() => onChange(Math.max(0, page - 1))} disabled={page === 0}>上一页</button>
-      <span>
-        第
-        <input aria-label="页码" inputMode="numeric" value={text}
-          onChange={event => setText(event.target.value)} onBlur={commit}
-          onKeyDown={event => { if (event.key === "Enter") commit(); }} />
-        / {pages} 页
-      </span>
-      <button onClick={() => onChange(Math.min(pages - 1, page + 1))} disabled={page >= pages - 1}>下一页</button>
-    </div>
-  );
-}
+
 
 const valueCache = new Map<string, Promise<EffectValues | null>>();
 function legalValues(effectId: number, rarity: number, level: number): Promise<EffectValues | null> {
@@ -404,9 +361,8 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const [currencyDraft, setCurrencyDraft] = useState<Record<Currency, string>>({ amrita: "", gold: "" });
   const [query, setQuery] = useState("");
   const [major, setMajor] = useState("");
-  const [middle, setMiddle] = useState("");
-  const [minor, setMinor] = useState("");
-  const [page, setPage] = useState(0);
+  const [type, setType] = useState("");
+  const [school, setSchool] = useState("");
   const [selected, setSelected] = useState<number | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [modded, setModded] = useState(false);
@@ -416,7 +372,6 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const [tab, setTab] = useState<Tab>("equipment");
   const [itemQuery, setItemQuery] = useState("");
   const [itemMajor, setItemMajor] = useState("");
-  const [itemPage, setItemPage] = useState(0);
   const [selectedItem, setSelectedItem] = useState<number | null>(null);
   const [itemDraft, setItemDraft] = useState<Record<Container, string>>({ held: "", storage: "" });
   /** The item being added (save mode), shown as a row without a slot. */
@@ -424,7 +379,8 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const [addQuery, setAddQuery] = useState("");
   const [section, setSection] = useState<Section>("edit");
   const [addKind, setAddKind] = useState("");
-  const [addPage, setAddPage] = useState(0);
+  const [addType, setAddType] = useState("");
+  const [addSchool, setAddSchool] = useState("");
   /** Items waiting to be added together in one plan. */
   const [queue, setQueue] = useState<{ key: number; request: NewEquipmentRequest; modded: boolean }[]>([]);
   const queueKey = useRef(0);
@@ -471,21 +427,19 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const adding = selected === NEW_SLOT;
   const addCandidates = useMemo(() => {
     const needle = addQuery.trim().toLowerCase();
-    const kinds = ADD_KIND_CHIPS.find(([label]) => label === addKind)?.[1];
-    return Object.entries(itemCatalog)
-      .map(([id, entry]) => ({ id: Number(id), name: entry[0] ?? "", kind: entry[1] ?? "", sub: entry[3] || entry[2] || "" }))
-      .filter(item => item.name && ADDABLE_KINDS.has(item.kind) && (!kinds || kinds.includes(item.kind)))
-      .filter(item => !needle || (item.name + " " + item.kind + " " + item.sub + " " + hex(item.id)).toLowerCase().includes(needle));
-  }, [addQuery, addKind]);
-  useEffect(() => setAddPage(0), [addQuery, addKind]);
+    return ADD_CATALOG
+      .filter(item => (!addKind || item.major === addKind) && (!addType || item.type === addType) && (!addSchool || item.school === addSchool))
+      .filter(item => !needle || (item.name + " " + item.major + " " + item.type + " " + hex(item.id)).toLowerCase().includes(needle));
+  }, [addQuery, addKind, addType, addSchool]);
+  /** Counts per class and per type within each class, for the filter chips. */
   const groups = useMemo(() => {
-    const tree = new Map<string, Map<string, Set<string>>>();
+    const tree = new Map<string, { total: number; types: Map<string, number> }>();
     for (const entry of character?.equipment ?? []) {
-      const [a, b, c] = itemGroups(entry.item_id, entry.type_class);
-      if (!tree.has(a)) tree.set(a, new Map());
-      const middles = tree.get(a)!;
-      if (!middles.has(b)) middles.set(b, new Set());
-      if (c) middles.get(b)!.add(c);
+      const facets = facetsOf(entry.item_id, entry.type_class);
+      if (!tree.has(facets.major)) tree.set(facets.major, { total: 0, types: new Map() });
+      const group = tree.get(facets.major)!;
+      group.total++;
+      if (facets.type) group.types.set(facets.type, (group.types.get(facets.type) ?? 0) + 1);
     }
     return tree;
   }, [character]);
@@ -502,11 +456,11 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const matches = (character?.equipment ?? []).filter(entry => {
-      const [a, b, c] = itemGroups(entry.item_id, entry.type_class);
-      if ((major && a !== major) || (middle && b !== middle) || (minor && c !== minor)) return false;
+      const facets = facetsOf(entry.item_id, entry.type_class);
+      if ((major && facets.major !== major) || (type && facets.type !== type) || (school && facets.school !== school)) return false;
       if (verdictFilter && verdictOf(entry) !== verdictFilter) return false;
       if (!needle) return true;
-      const text = [itemText(entry.item_id), a, b, c, ...entry.effects.map(effect => effectText(effect.effect_id))].join(" ");
+      const text = [itemText(entry.item_id), facets.major, facets.type, ...entry.effects.map(effect => effectText(effect.effect_id))].join(" ");
       return text.toLowerCase().includes(needle);
     });
     if (!sort) return matches;
@@ -514,7 +468,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     const sign = sort.descending ? -1 : 1;
     const key = (entry: CharacterEquipment) => sort.key === "level" ? entry.level * 100 + (entry.plus ?? 0) : entry.rarity;
     return [...matches].sort((left, right) => sign * (key(left) - key(right)));
-  }, [character, query, major, middle, minor, verdictFilter, sort, showIds]);
+  }, [character, query, major, type, school, verdictFilter, sort, showIds]);
   // Descending first, then ascending, then back to the game's order.
   const toggleSort = (key: SortKey) =>
     setSort(current => current?.key !== key ? { key, descending: true } : current.descending ? { key, descending: false } : null);
@@ -529,32 +483,11 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       </th>
     );
   };
-  // Rows per page: as many as fit the list area, so a page never needs the
-  // wheel. The single-column layout scrolls the page instead.
+  // The lists scroll; a new filter starts at the top.
   const tableWrap = useRef<HTMLDivElement>(null);
-  const [pageSize, setPageSize] = useState(PAGE_SIZE);
-  useEffect(() => {
-    const wrap = tableWrap.current;
-    if (!wrap || typeof ResizeObserver === "undefined") return;
-    const measure = () => {
-      if (window.matchMedia?.("(max-width: 1100px)").matches) {
-        setPageSize(PAGE_SIZE);
-        return;
-      }
-      const head = wrap.querySelector("thead")?.getBoundingClientRect().height ?? 28;
-      const heights = [...wrap.querySelectorAll("tbody tr")].map(row => row.getBoundingClientRect().height);
-      const row = heights.length ? Math.max(...heights) : 30;
-      setPageSize(Math.max(5, Math.floor((wrap.clientHeight - head - 2) / row)));
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(wrap);
-    return () => observer.disconnect();
-  }, [tab, character, section]);
-  const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const shownPage = Math.min(page, pages - 1);
-  const rows = filtered.slice(shownPage * pageSize, (shownPage + 1) * pageSize);
-  useEffect(() => setPage(0), [query, major, middle, minor, verdictFilter, sort]);
+  // WebView2's scrollTo returns a promise, which an effect must not return.
+  useEffect(() => { tableWrap.current?.scrollTo({ top: 0 }); },
+    [query, major, type, school, verdictFilter, sort, itemQuery, itemMajor, addQuery, addKind, addType, addSchool, tab, section]);
 
   // Items: one row per item id, held and stored stacks side by side.
   const itemRows = useMemo(() => {
@@ -583,10 +516,6 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       return !needle || [itemText(entry.item_id), a, b].join(" ").toLowerCase().includes(needle);
     });
   }, [itemRows, itemQuery, itemMajor, showIds]);
-  const itemPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
-  const shownItemPage = Math.min(itemPage, itemPages - 1);
-  const pagedItems = filteredItems.slice(shownItemPage * pageSize, (shownItemPage + 1) * pageSize);
-  useEffect(() => setItemPage(0), [itemQuery, itemMajor]);
   const itemRow = itemRows.find(entry => entry.item_id === selectedItem) ?? null;
   const itemDraftOf = (entry: ItemRow | null): Record<Container, string> => ({
     held: entry?.held?.quantity == null ? "" : String(entry.held.quantity),
@@ -669,9 +598,9 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         setTab("equipment");
         if (!now.filtered.some(item => item.slot_index === entry.slot_index)) {
           setQuery("");
-          setMajor(itemGroups(entry.item_id, entry.type_class)[0]);
-          setMiddle("");
-          setMinor("");
+          setMajor(facetsOf(entry.item_id, entry.type_class).major);
+          setType("");
+          setSchool("");
         }
         revealRef.current = { tab: "equipment", key: entry.slot_index };
         setSelected(entry.slot_index);
@@ -703,12 +632,11 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     const index = list.indexOf(target.key);
     if (index < 0) return;
     revealRef.current = null;
-    (target.tab === "equipment" ? setPage : setItemPage)(Math.floor(index / pageSize));
     window.setTimeout(
       () => document.querySelector(`tr[data-row="${target.tab}-${target.key}"]`)?.scrollIntoView({ block: "nearest" }),
       50,
     );
-  }, [filtered, filteredItems, selected, selectedItem, pageSize]);
+  }, [filtered, filteredItems, selected, selectedItem]);
 
   const rarity = draft ? parseAmount(draft.rarity, 255) : null;
   const level = draft ? parseAmount(draft.level, 65535) : null;
@@ -1388,12 +1316,6 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   }
 
   if (!desktop) return <main className="equipment-page"><Notice text="请在桌面版中使用此功能。" /></main>;
-  const middles = major ? [...(groups.get(major)?.keys() ?? [])].filter(Boolean) : [];
-  const minors = major
-    ? [...new Set(middle
-        ? [...(groups.get(major)?.get(middle) ?? [])]
-        : [...(groups.get(major)?.values() ?? [])].flatMap(set => [...set]))]
-    : [];
   const selectEquipment = (entry: CharacterEquipment) => {
     setSelected(entry.slot_index);
     setDraft(draftOf(entry));
@@ -1440,28 +1362,15 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const equipmentList = (
     <>
       <div className="character-filters">
-        <div className="character-chips">
-          <button className={!major ? "active" : ""} onClick={() => { setMajor(""); setMiddle(""); setMinor(""); }}>全部</button>
-          {[...groups.keys()].map(value => (
-            <button key={value} className={major === value ? "active" : ""} onClick={() => { setMajor(value); setMiddle(""); setMinor(""); }}>{value}</button>
-          ))}
-        </div>
-        {middles.length > 1 && (
-          <div className="character-chips small">
-            <button className={!middle ? "active" : ""} onClick={() => { setMiddle(""); setMinor(""); }}>全部</button>
-            {middles.map(value => (
-              <button key={value} className={middle === value ? "active" : ""} onClick={() => { setMiddle(value); setMinor(""); }}>{value}</button>
-            ))}
-          </div>
-        )}
+        <FacetFilter
+          majors={[...groups.keys()].sort(byOrder(MAJOR_ORDER)).map(value => [value, groups.get(value)!.total])}
+          major={major} onMajor={value => { setMajor(value); setType(""); setSchool(""); }}
+          types={[...(groups.get(major)?.types.entries() ?? [])].sort(([left], [right]) => byOrder(TYPE_ORDER)(left, right))}
+          type={type} onType={setType}
+          school={school} onSchool={major === "防具" ? setSchool : null}
+        />
         <div className="character-search">
           <input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索物品名称或词条" />
-          {minors.length > 0 && (
-            <select value={minor} onChange={event => setMinor(event.target.value)} aria-label="小类">
-              <option value="">全部小类</option>
-              {minors.map(value => <option key={value} value={value}>{value}</option>)}
-            </select>
-          )}
           <select value={verdictFilter} onChange={event => setVerdictFilter(event.target.value)} aria-label="判定">
             <option value="">全部判定</option>
             {VERDICT_ORDER.map(value => (
@@ -1477,8 +1386,8 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           <tr><th>物品</th><th>类别</th>{sortHeader("level", "等级")}{sortHeader("rarity", "稀有度")}<th>判定</th></tr>
         </thead>
         <tbody>
-          {rows.map(entry => {
-            const [a, b, c] = itemGroups(entry.item_id, entry.type_class);
+          {filtered.map(entry => {
+            const facets = facetsOf(entry.item_id, entry.type_class);
             const effects = entry.effects.filter(effect => effect.effect_id !== EMPTY_EFFECT).map(effect => effectText(effect.effect_id)).join("、");
             return (
               <tr key={entry.slot_index} data-row={"equipment-" + entry.slot_index}
@@ -1488,11 +1397,12 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
                     {itemText(entry.item_id)}
                     {entry.hell ? <span className="character-hell">地狱</span> : null}
                     {entry.worn ? <span className="character-worn" title="正在装备中，不能移除">装备中</span> : null}
+                    {entry.slot_index === selected && dirty ? <span className="character-dirty" title="右侧有未应用的修改">未应用</span> : null}
                     {showIds ? <small> #{entry.slot_index}</small> : null}
                   </span>
                   <span className="character-item-effects" title={effects}>{effects}</span>
                 </td>
-                <td className="character-kind">{c || b || a}</td>
+                <td className="character-kind">{[facets.type || facets.major, facets.school].filter(Boolean).join(" · ")}</td>
                 <td className="character-num">{entry.level}{entry.plus ? <small> +{entry.plus}</small> : null}</td>
                 <td className="character-num">{entry.rarity}</td>
                 <td>{verdictCell(entry)}</td>
@@ -1502,7 +1412,6 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         </tbody>
       </table>
       </div>
-      <Pager page={shownPage} pages={pages} onChange={setPage} />
     </>
   );
 
@@ -1528,7 +1437,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           <tr><th>道具</th><th>类别</th><th>持有</th><th>仓库</th></tr>
         </thead>
         <tbody>
-          {pagedItems.map(entry => {
+          {filteredItems.map(entry => {
             const [a, b] = itemGroups(entry.item_id, null);
             return (
               <tr key={entry.item_id} data-row={"items-" + entry.item_id}
@@ -1543,21 +1452,19 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         </tbody>
       </table>
       </div>
-      <Pager page={shownItemPage} pages={itemPages} onChange={setItemPage} />
     </>
   );
 
-  const addPages = Math.max(1, Math.ceil(addCandidates.length / pageSize));
-  const shownAddPage = Math.min(addPage, addPages - 1);
   const addList = (
     <>
       <div className="character-filters">
-        <div className="character-chips">
-          <button className={!addKind ? "active" : ""} onClick={() => setAddKind("")}>全部</button>
-          {ADD_KIND_CHIPS.map(([label]) => (
-            <button key={label} className={addKind === label ? "active" : ""} onClick={() => setAddKind(label)}>{label}</button>
-          ))}
-        </div>
+        <FacetFilter
+          majors={MAJOR_ORDER.map(value => [value, null])}
+          major={addKind} onMajor={value => { setAddKind(value); setAddType(""); setAddSchool(""); }}
+          types={(ADD_TYPES.get(addKind) ?? []).map(value => [value, null])}
+          type={addType} onType={setAddType}
+          school={addSchool} onSchool={addKind === "防具" ? setAddSchool : null}
+        />
         <div className="character-search">
           <input value={addQuery} onChange={event => setAddQuery(event.target.value)} placeholder="搜索装备名称，例如 八尺琼勾玉" />
           <span className="equipment-range">{addCandidates.length} 件</span>
@@ -1569,18 +1476,17 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
             <tr><th>装备</th><th>类别</th></tr>
           </thead>
           <tbody>
-            {addCandidates.slice(shownAddPage * pageSize, (shownAddPage + 1) * pageSize).map(item => (
+            {addCandidates.map(item => (
               <tr key={item.id} data-row={"add-" + item.id}
                 className={newItem?.item_id === item.id ? "selected" : ""} onClick={() => chooseNewItem(item.id)}>
                 <td className="character-item-name">{item.name}{showIds ? <small> {hex(item.id)}</small> : null}</td>
-                <td className="character-kind">{item.sub || item.kind}</td>
+                <td className="character-kind">{[item.type || item.major, item.school].filter(Boolean).join(" · ")}</td>
               </tr>
             ))}
           </tbody>
         </table>
         {addCandidates.length === 0 && <p className="character-empty">没有匹配的装备</p>}
       </div>
-      <Pager page={shownAddPage} pages={addPages} onChange={setAddPage} />
     </>
   );
 
@@ -1949,7 +1855,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           : "修改存档文件，写入时让游戏停在标题界面即可，无需关闭。写入前会自动备份原存档。"}
         {follow && followNote ? <span className="character-follow-note">{followNote}</span> : null}
       </p>
-      {mode === "save" && <SavePicker compact />}
+      {mode === "save" && <SavePicker compact refresh={false} />}
       <Notice text={message} />
       {section === "add" && mode === "live" ? (
         <LiveEquipmentAdd onBusy={setBusy} />

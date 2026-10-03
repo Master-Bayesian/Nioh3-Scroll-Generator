@@ -40,7 +40,8 @@ function resolutionMessage(receipt: OperationReceipt): string {
   return "仍无法自动判断。请进游戏检查这个存档，没问题就点“我已检查，继续使用”。";
 }
 
-export function SavePicker({ compact = false }: { compact?: boolean }) {
+/** The save every page works on. `refresh` hides the reload button where the page has its own. */
+export function SavePicker({ compact = false, refresh = true }: { compact?: boolean; refresh?: boolean }) {
   const state = useSyncExternalStore(
     saveSession!.subscribe,
     saveSession!.getSnapshot,
@@ -108,7 +109,7 @@ export function SavePicker({ compact = false }: { compact?: boolean }) {
       >
         手动定位
       </button>
-      {state.selected && (
+      {refresh && state.selected && (
         <button
           disabled={state.busy}
           onClick={() =>

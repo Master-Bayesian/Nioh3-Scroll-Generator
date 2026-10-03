@@ -1316,3 +1316,45 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 正在关闭工具，请等待当前操作安全结束。	Closing the tool. Wait for the current operation to finish safely.	ツールを終了しています。現在の操作が安全に完了するまでお待ちください。
 持有物品菜单已打开，请在游戏中选中一件物品	The inventory menu is open. Select an item in the game.	所持品メニューは開いています。ゲーム内でアイテムを選択してください。
 魑魅的魂核	Sudama Soul Core	魑魅の魂核
+右侧有未应用的修改	The editor has unapplied changes	右側に未適用の変更があります
+未应用	Unapplied	未適用
+刀	Katana	刀
+双刀	Dual katana	二刀
+枪	Spear	槍
+大太刀	Odachi	大太刀
+斧	Axe	斧
+薙刀镰	Switchglaive	薙刀鎌
+手甲	Fists	手甲
+盾矛	Shield spear	盾矛
+忍刀	Ninja sword	忍刀
+忍双刀	Ninja dual swords	忍二刀
+锁镰	Kusarigama	鎖鎌
+手甲钩	Tekko-kagi	手甲鉤
+手斧	Hatchets	手斧
+旋棍	Tonfa	旋棍
+机关棍	Splitstaff	仕込み棍
+忍盾矛	Ninja shield spear	忍盾矛
+弓	Bow	弓
+火枪	Rifle	火縄銃
+大炮	Hand cannon	大筒
+身体	Body	胴
+手臂	Arms	腕
+足部	Feet	足
+武士饰品	Samurai accessory	武士装飾品
+忍者饰品	Ninja accessory	忍者装飾品
+通用饰品	Common accessory	共通装飾品
+武士	Samurai	武士
+忍者	Ninja	忍者
+流派	School	流派
+全部流派	All schools	全流派
+未找到游戏	Game not found	ゲームが見つかりません
+部分功能受限	Some features limited	一部機能に制限あり
+已识别	Recognized	認識済み
+未适配	Not supported yet	未対応
+无法判断	Undetermined	判定不可
+检测到了实际版本，但当前没有匹配的数据和运行时配置，不会借用其他版本继续操作。请核对是否选中了当前运行的 Nioh3.exe，或等待工具更新。	The installed version was detected, but no matching data or runtime profile exists, and another version's profile will not be borrowed. Check that the selected Nioh3.exe is the one you run, or wait for a tool update.	実際のバージョンは検出されましたが、対応するデータと実行時設定がないため、他のバージョンの設定は流用しません。選択した Nioh3.exe が実行中のものか確認するか、ツールの更新をお待ちください。
+版本详情	Version details	バージョンの詳細
+已登记版本	Registered versions	登録済みバージョン
+实验性支持仍需风险确认；支持状态不代表当前游戏已通过现场验证。实时功能仍会检查正在运行的游戏是否匹配。	Experimental support still requires a risk confirmation; a support status does not mean the current game has been verified in play. Live features still check that the running game matches.	試験的サポートにはリスク確認が必要です。サポート状況は現在のゲームで実地検証済みであることを意味しません。リアルタイム機能は実行中のゲームが一致するかを引き続き確認します。
+‹ 设置	‹ Settings	‹ 設定
+生成一个反馈文件（包含版本信息和最近的操作记录，不含存档内容）	Creates a feedback file (version information and recent activity, no save data)	フィードバックファイルを作成します（バージョン情報と最近の操作記録を含み、セーブデータは含みません）

@@ -14,6 +14,16 @@ type Backup = {
   action: string;
   file_count: number;
 };
+/** Unix milliseconds from the worker, shown in local time; older workers sent the directory name. */
+function backupTime(timestamp: string) {
+  if (!/^\d{10,}$/.test(timestamp)) return timestamp || "—";
+  const date = new Date(Number(timestamp));
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate()) + " " +
+    pad(date.getHours()) + ":" + pad(date.getMinutes()) + ":" + pad(date.getSeconds());
+}
+const newestFirst = (items: Backup[]) =>
+  [...items].sort((left, right) => (Number(right.timestamp) || 0) - (Number(left.timestamp) || 0));
 export function BackupManager() {
   if (!desktop)
     return (
@@ -52,7 +62,7 @@ function ConnectedBackups() {
         }),
       );
       if (result && "backups" in result) {
-        setItems(result.backups);
+        setItems(newestFirst(result.backups));
         setSelected([]);
       }
     } catch (e) {
@@ -121,7 +131,7 @@ function ConnectedBackups() {
         }),
       );
       if (result && "backups" in result) {
-        setItems(result.backups);
+        setItems(newestFirst(result.backups));
         setSelected([]);
         setPlan(null);
         setMessage("选中的备份已移入回收站。");
@@ -148,6 +158,7 @@ function ConnectedBackups() {
       <h2>存档备份与管理</h2>
       <SavePicker />
       <div className="backup-toolbar">
+        <span className="backup-toolbar-gap" aria-hidden="true" />
         <button
           disabled={locked || !state.inventory}
           onClick={() =>
@@ -189,12 +200,14 @@ function ConnectedBackups() {
           </button>
         ))}
         <button
+          className="backup-action"
           disabled={locked || !state.selected}
           onClick={() => void load()}
         >
           刷新备份
         </button>
         <button
+          className="backup-action"
           disabled={locked}
           onClick={() =>
             void window.review
@@ -205,12 +218,14 @@ function ConnectedBackups() {
           打开备份文件夹
         </button>
         <button
+          className="backup-action primary"
           disabled={locked || selected.length !== 1}
           onClick={() => void prepare()}
         >
           恢复选中备份
         </button>
         <button
+          className="backup-action"
           disabled={locked || !selected.length}
           onClick={() => void recycle()}
         >
@@ -247,7 +262,7 @@ function ConnectedBackups() {
                       }}
                     />
                   </td>
-                  <td>{item.timestamp}</td>
+                  <td title={item.backup_id}>{backupTime(item.timestamp)}</td>
                   <td>{labels[item.action] || "存档备份"}</td>
                   <td>{item.file_count}</td>
                 </tr>
@@ -263,7 +278,7 @@ function ConnectedBackups() {
       {plan && (
         <div className="backup-confirm">
           <p>
-            将恢复：{items.find((b) => b.backup_id === plan.backup)?.timestamp}
+            将恢复：{backupTime(items.find((b) => b.backup_id === plan.backup)?.timestamp ?? "")}
           </p>
           <label>
             <input
