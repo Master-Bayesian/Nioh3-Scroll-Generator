@@ -1318,5 +1318,4 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .favorites-page{grid-column:2/4;display:flex;flex-direction:column;min-height:0;padding:16px 20px;overflow:hidden}
 .favorites-page>.favorites-review>.compare-grid{grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:16px}
 /* v0.8.4: long sidebar labels (e.g. "Equipment & items") wrap inside the highlight */
-.nav nav button{min-width:0}
-.nav nav button>span:last-child{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.25}
+html[lang="en-US"] .nav nav button>span:last-child{white-space:normal;line-height:1.25}
