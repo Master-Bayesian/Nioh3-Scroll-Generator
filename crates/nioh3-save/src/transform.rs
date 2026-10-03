@@ -17,7 +17,7 @@
 //! once from a caller-supplied container and returns owned plaintext bytes that
 //! the transaction layer is responsible for staging, replacing and verifying.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -164,16 +164,17 @@ impl SaveTransformHost {
     ///
     /// The account and slot identity are derived from the path with the same
     /// rules as the reader, so a caller cannot hand the host a foreign identity.
-    pub fn register(save_path: &PathBuf) -> Result<Self, SaveReadError> {
+    pub fn register(save_path: &Path) -> Result<Self, SaveReadError> {
         let account_id = crate::paths::account_id_from_save_path(save_path)?;
         let save_slot = usize::from(crate::paths::save_slot_index_from_path(save_path)?);
-        let container = std::fs::read(save_path).map_err(|error| SaveReadError::Io {
-            path: save_path.display().to_string(),
-            message: error.to_string(),
-        })?;
+        let container = crate::transaction::read_save_bytes(
+            crate::transaction::SaveRole::Main,
+            save_path,
+            None,
+        )?;
         let decrypted = DecryptedSave::from_container(&container)?;
         Ok(Self {
-            save_path: save_path.clone(),
+            save_path: save_path.to_path_buf(),
             account_id,
             save_slot,
             plaintext: decrypted.as_bytes().to_vec(),

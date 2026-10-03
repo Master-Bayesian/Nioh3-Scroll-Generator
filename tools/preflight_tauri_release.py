@@ -134,6 +134,43 @@ def _ordered(text: str, earlier: str, later: str) -> bool:
     return first != -1 and second != -1 and first < second
 
 
+def _check_signing_boundary(root: Path) -> dict[str, Any]:
+    """Check the local signing contract; online environment rules are separate.
+
+    This deliberately checks the one supported release graph rather than
+    accepting arbitrary GitHub expressions. GitHub's environment branch rule
+    and environment-only secret placement are the actual cross-ref boundary.
+    """
+    workflow = (root / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    workflow = "\n".join(line for line in workflow.splitlines() if not line.lstrip().startswith("#"))
+    match = re.search(r"^  release:\n(?P<body>.*?)(?=^  [a-zA-Z_][\w-]*:\n|\Z)", workflow, re.M | re.S)
+    if match is None:
+        raise ValueError("Missing release job")
+    job = match.group("body")
+    preamble, steps = job.split("    steps:\n", 1)
+    condition = "    if: ${{ github.repository == 'Master-Bayesian/Nioh3-Scroll-Generator' && github.ref == 'refs/heads/main' }}"
+    if condition not in preamble.splitlines():
+        raise ValueError("Signing must run only for the official repository's main branch")
+    if "    environment: production-signing" not in preamble.splitlines():
+        raise ValueError("Signing must require the production-signing environment")
+    checkout = re.search(r"^      - name: Check out the candidate source\n(?P<body>.*?)(?=^      - |\Z)", steps, re.M | re.S)
+    if checkout is None or "          ref: ${{ github.sha }}" not in checkout.group("body").splitlines():
+        raise ValueError("Candidate checkout must pin the dispatched main commit")
+    if "          persist-credentials: false" not in checkout.group("body").splitlines():
+        raise ValueError("Candidate checkout must not persist repository credentials")
+    signing = re.search(r"^      - name: Enforce the download budget and sign the update manifest\n(?P<body>.*?)(?=^      - |\Z)", steps, re.M | re.S)
+    secret = "NIOH3_UPDATE_PRIVATE_KEY_BASE64: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY_BASE64 }}"
+    if signing is None or secret not in signing.group("body"):
+        raise ValueError("Release key must be exposed only to the manifest signing step")
+    for path in sorted((root / ".github/workflows").glob("*.yml")):
+        text = "\n".join(line for line in path.read_text(encoding="utf-8").splitlines() if not line.lstrip().startswith("#"))
+        expected = 1 if path.name == "release.yml" else 0
+        if text.count("secrets.UPDATE_SIGNING_PRIVATE_KEY_BASE64") != expected:
+            raise ValueError(f"Unexpected signing key exposure in {path.name}")
+    return {"trustedRef": "refs/heads/main", "checkout": "github.sha", "environment": "production-signing",
+            "onlineConfigurationVerified": False, "requiredOnlinePolicy": "main branch only, no tags; environment-only key; owner review"}
+
+
 def _check_workflow(root: Path) -> dict[str, Any]:
     """The bounded release pipeline the workflow must still describe.
 
@@ -295,6 +332,7 @@ def inspect_repository(root: Path, expected_sha: str | None = None, require_clea
     record("version-consistency", lambda: _check_versions(root))
     record("update-identity", lambda: _check_update_identity(root))
     record("release-workflow", lambda: _check_workflow(root))
+    record("signing-source-boundary", lambda: _check_signing_boundary(root))
     record("git-source", lambda: _check_git(root, expected_sha, require_clean))
     return {"schema": "nioh3-tauri-release-preflight/v1", "root": str(root), "ok": all(item["ok"] for item in checks), "checks": checks}
 

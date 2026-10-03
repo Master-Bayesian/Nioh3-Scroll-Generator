@@ -261,6 +261,14 @@ pub fn authenticate_restore_source(
         });
     }
 
+    for (role, entry) in &declared {
+        crate::transaction::validate_save_length(
+            *role,
+            &directory.join(&entry.backup_file),
+            entry.size,
+        )?;
+    }
+
     let mut files = Vec::with_capacity(3);
     for role in [SaveRole::Main, SaveRole::GameBackup, SaveRole::System] {
         let entry = declared
@@ -282,17 +290,7 @@ pub fn authenticate_restore_source(
                 message: format!("{} is missing or is not a regular file", path.display()),
             });
         }
-        let bytes = fs::read(&path).map_err(|error| SaveReadError::Io {
-            path: path.display().to_string(),
-            message: error.to_string(),
-        })?;
-        if bytes.len() as u64 != entry.size {
-            return Err(SaveReadError::IntegrityMismatch {
-                path: path.display().to_string(),
-                expected: entry.size.to_string(),
-                actual: bytes.len().to_string(),
-            });
-        }
+        let bytes = crate::transaction::read_save_bytes(role, &path, Some(entry.size))?;
         let digest = sha256_hex(&bytes);
         if !digest.eq_ignore_ascii_case(&entry.sha256) {
             return Err(SaveReadError::IntegrityMismatch {
@@ -454,9 +452,13 @@ pub fn list_backup_entries(state_root: &Path) -> Result<Vec<BackupEntry>, SaveRe
                 .iter()
                 .find(|item| item.backup_file == "SAVEDATA.BIN")
                 .map(|item| item.sha256.to_ascii_uppercase()),
-            None => fs::read(directory.join("SAVEDATA.BIN"))
-                .ok()
-                .map(|bytes| sha256_hex(&bytes).to_ascii_uppercase()),
+            None => crate::transaction::read_digest_if_present(
+                SaveRole::Main,
+                &directory.join("SAVEDATA.BIN"),
+            )
+            .ok()
+            .flatten()
+            .map(|digest| digest.to_ascii_uppercase()),
         };
         entries.push(BackupEntry {
             backup_id: name,

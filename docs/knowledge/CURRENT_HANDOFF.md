@@ -1,6 +1,40 @@
-# Current project handoff - 2026-10-02
+# Current project handoff - 2026-10-03
 
-## Active development: independent test11 candidate preparation
+## Active development: independent test12 candidate closure
+
+Worktree: D:/Nioh3_v080_deliverables/source-codex-test12-20261003.
+Branch: codex/test12-release-candidate-20261003; base test11 commit
+6364c2fe68c50753f331dc1094038afd58662022. Test10 and test11 remain frozen;
+their source and packaged bytes are preserved.
+
+Test12 closes the reproduced oversized BACKUP/SYSTEM transaction reads and
+applies the same bounded file contract to backup and restore paths. The raw
+transaction API retains its existing short opaque fixture semantics; the
+SaveApplication encrypted-container entry retains its exact-length validation.
+Streaming digests and byte reads validate same-handle metadata before consuming
+the file and reject changes in length. Backups, locks and recovery remain.
+
+The local signed-release workflow is restricted to the official main ref and
+the exact dispatched commit, with a production-signing environment. The online
+main-only environment rules and environment-only placement of the existing key
+still require owner approval/setup; local preflight cannot certify them. See
+RELEASE_RUNBOOK.md for that single concrete decision. Unsigned test12 live tests
+do not depend on an online signing dispatch.
+
+The character-draft verifier now records the actual native/browser boundary,
+viewport/DPR and candidate source identity directly in source. Screenshot
+11–53 classifications were rechecked against implementation and historical
+evidence, separating implemented behavior, fixture checks, live acceptance and
+deferred owner decisions. Public source is not a full-project license grant.
+
+The single current report remains
+D:/Nioh3_v080_deliverables/deliverables/codex-release-candidate-20261002/CURRENT_STATUS.md.
+Test12 artifacts/evidence are in the sibling codex-release-candidate-20261003
+directory; the complete test11 report snapshot is codex-v083-test11-20261003.
+The final report owns exact freeze/build identities and test results. No push,
+online configuration, signing, publication, game or real-save writes are made.
+
+## Historical test11 source-planning snapshot
 
 The current source branch is `codex/test11-release-candidate-20261002` in
 `D:/Nioh3_v080_deliverables/source-codex-test11-20261002`, based on frozen

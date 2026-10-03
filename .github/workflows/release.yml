@@ -1,7 +1,9 @@
 name: Signed Tauri Windows release preparation
 
 # Manual dispatch only. This job prepares a signed candidate from one exact
-# commit; it never publishes, tags or replaces an update feed.
+# reviewed main commit; it never publishes, tags or replaces an update feed.
+# Before dispatch, configure the production-signing environment exactly as
+# documented in RELEASE_RUNBOOK.md. The key must not remain repository-scoped.
 on:
   workflow_dispatch:
     inputs:
@@ -29,6 +31,8 @@ env:
   NIOH3_REQUIRE_CLEAN_SOURCE: '1'
 jobs:
   release:
+    if: ${{ github.repository == 'Master-Bayesian/Nioh3-Scroll-Generator' && github.ref == 'refs/heads/main' }}
+    environment: production-signing
     runs-on: windows-latest
     # The dispatch input is mapped once to the profile name the packaged
     # frontend verifier accepts, so the selection is explicit, not inferred.
@@ -37,6 +41,9 @@ jobs:
     steps:
       - name: Check out the candidate source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5

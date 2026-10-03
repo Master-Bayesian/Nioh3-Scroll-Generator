@@ -168,3 +168,43 @@ GenerationContext. Changed native writes require their own matching live-game
 acceptance; unchanged packaging does not reopen settled game research.
 Production Ed25519 authenticates updates; no Authenticode publisher certificate
 is claimed. Older Electron/Tk packaging is outside this release workflow.
+
+## Production signing source boundary (test12 local proposal)
+
+The signed preparation workflow now accepts only the official repository's
+`refs/heads/main` and checks out the exact dispatched `github.sha` without
+persisting checkout credentials. All build and signing code therefore belongs
+to the reviewed main commit. This intentionally removes arbitrary branch/tag
+signing; unsigned local candidates remain available for review before promotion.
+The existing run id, source SHA, artifact name and publication verification
+contract remain unchanged.
+
+The workflow requires the `production-signing` environment. Before its first
+online dispatch, the repository owner must configure that environment:
+
+- Deployment rules: selected **branch** `main` only; no tag rules or wildcards.
+- Required reviewer: `Master-Bayesian`. For a sole-maintainer approval flow,
+  allow self-review; requiring a second person needs an explicitly chosen
+  independent reviewer. Disable administrator bypass.
+- Put the existing `UPDATE_SIGNING_PRIVATE_KEY_BASE64` key in that environment,
+  then remove its repository/organization-wide exposure to this repository.
+  No key rotation or change to the installed public key is proposed.
+- Main source and workflow changes must be reviewed by the owner before a
+  signing dispatch; maintain main write restrictions appropriate to that trust.
+
+An environment name or a workflow condition alone is insufficient. An arbitrary
+ref can edit its own YAML; GitHub's main-only environment rule and an
+environment-only key enforce the cross-ref boundary. A missing environment is
+created without protection rules by GitHub, so configure it before dispatch.
+The local preflight verifies source structure and explicitly reports
+`onlineConfigurationVerified: false`. It does not inspect secrets or certify
+server-side settings. This batch changes only local files and performs no
+dispatch, deployment, secret/configuration mutation, push or publication.
+
+Owner decision before production signing: approve this main-only,
+owner-reviewed environment configuration and authorize its online setup.
+This decision does not block the unsigned test12 candidate or owner live tests.
+
+Primary GitHub references:
+- https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments
+- https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments

@@ -20,8 +20,8 @@ import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const defaultOutput = 'D:/Nioh3_v080_deliverables/deliverables/codex-release-candidate-20261002/evidence/character-draft';
-const defaultProfileRoot = 'D:/Nioh3_v080_deliverables/tmp/codex-test11-draft-ui';
+const defaultOutput = 'D:/Nioh3_v080_deliverables/deliverables/codex-release-candidate-20261003/evidence/character-draft';
+const defaultProfileRoot = 'D:/Nioh3_v080_deliverables/tmp/codex-test12-draft-ui';
 const runLabel = process.env.NIOH3_UI_RUN_LABEL || 'final';
 assert.match(runLabel, /^[a-z0-9-]+$/, 'NIOH3_UI_RUN_LABEL must be lowercase and path-safe');
 
@@ -39,15 +39,15 @@ await mkdir(output, { recursive: true });
 await mkdir(profileRoot, { recursive: true });
 
 const evidence = {
-  scenario: 'test11-character-draft-ui',
+  scenario: 'test12-character-draft-ui',
   runLabel,
   status: 'running',
   pass: false,
   boundary: {
-    browser: 'headless Chromium against the production workshop bundle',
+    browser: options.exe ? 'native WebView2 against the actual candidate frontend' : 'headless Chromium against the production workshop bundle',
     bridge: 'scripted read-only runtime snapshot, legal values, and inventory cursor; all writes forbidden',
-    nativeHost: false,
-    packaged: false,
+    nativeHost: Boolean(options.exe),
+    packaged: options.onefile,
     gameProcess: false,
     saveFileAccess: false,
     commitCalled: false,
@@ -237,7 +237,11 @@ try {
     nativePage = context.contexts()[0].pages()[0];
     session = { browser: context, page: nativePage };
     await nativePage.locator('.shell').waitFor();
+    const viewport = await nativePage.evaluate(() => ({ width: innerWidth, height: innerHeight, dpr: devicePixelRatio }));
+    evidence.boundary.viewportCss = { width: viewport.width, height: viewport.height };
+    evidence.boundary.deviceScaleFactor = viewport.dpr;
     evidence.packageDiagnostics = await nativePage.evaluate(() => window.support.diagnostics());
+    requireCheck('native manifest matches frozen source', evidence.packageDiagnostics.packageVerification.sourceCommit === execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim(), evidence.packageDiagnostics.packageVerification.sourceCommit, 'harness');
     requireCheck('native package hashes verified', evidence.packageDiagnostics.packageVerification.ok, null, 'harness');
     await nativePage.evaluate(() => { window.__nativeWindowAction = window.review.windowAction.bind(window.review); });
     await nativePage.evaluate(bridge);

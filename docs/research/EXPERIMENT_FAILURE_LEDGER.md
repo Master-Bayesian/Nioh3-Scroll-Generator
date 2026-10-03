@@ -1,5 +1,54 @@
 # Experiment failure ledger
 
+## 2026-10-03: test12 companion boundaries and review-tool corrections
+
+**Objective:** close the remaining owned-fixture save-boundary and local source
+review gaps while keeping prior candidate bytes frozen.
+
+**Retained reproduced product boundary:** the test11 isolated transaction-core
+plan-delete reproduction accepted owned 16 MiB BACKUP/SYSTEM companions beside
+a valid main save and fingerprinted the complete tail. Source content/mtime did
+not change and commit was not executed. Evidence is the retained
+codex-release-candidate-20261002/logs/save-companion-audit.md. Test12's shared
+read-boundary repair and companion backup/restore regressions are in progress;
+this entry does not assert the final result or reproduce a player's incident.
+
+**Review platform interruption:** root's read-only signing-review agent was
+flagged by the platform for possible cybersecurity risk. It returned no
+implementation; no signing keys were read and no online configuration changed.
+Root continued with local source and official GitHub documentation. This was
+not a sandbox automatic-approval rejection and is not a current task blocker.
+
+**Local helper correction:** root's first editing script failed with SyntaxError
+before parsing completed and before any source mutation. Correcting the string
+construction allowed the 17 synthetic preflight tests to pass. This was a helper
+failure, not evidence of a product or online-security fault.
+
+**Preflight validator correction:** the initial validator matched a misremembered
+signing step name. Its 17 synthetic fixtures passed, but the actual repository
+failed the first source preflight. No signing or configuration action occurred.
+Root aligned the name with actual source and added the
+actual_repository_signing_boundary regression; the targeted rerun passed all
+18 checks, and the actual repository preflight passed. Evidence: codex-release-candidate-20261003/logs/source-preflight-first.log
+and evidence/source-gates-initial.json in that delivery packet. This is a
+validator fault, not a newly established product/signing incident.
+
+**Boundary/follow-up:** all new conclusions here are from owned fixtures or local
+review. Real-game/real-save writes and online changes: none. Root owns the final
+backend/preflight results and matching-package acceptance; do not infer success
+from this in-progress ledger entry.
+
+**Final local gates before packaging:** the full save crate passed 75 tests
+(69 library, 6 integration), and 17 targeted cross-language backup/restore
+parity cases passed. The actual CI all-target Clippy initially exposed four
+baseline violations; the root authorized the minimal cfg(test)-only unwrap
+attribute and idiomatic Path parameter cleanup. Full all-target Clippy then
+passed without command exemptions, as did fmt. The final protected host run
+is recorded separately in the delivery receipt. Initial fixture/role borrow
+compile errors and a Windows LNK1104 caused by relinking a still-running prior
+test executable were corrected; prior execution exited 0 before serialized
+retest. Logs are test12-companion-*.log in the new packet.
+
 ## 2026-10-02: test11 save-read and legacy crypto bounds validation
 
 **Objective:** reproduce current save/crypto boundary faults on frozen base

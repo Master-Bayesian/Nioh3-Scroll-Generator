@@ -1686,6 +1686,7 @@ mod free_slot_tests {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod generation_state_tests {
     use super::*;
 

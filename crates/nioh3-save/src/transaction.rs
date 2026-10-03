@@ -90,13 +90,133 @@ pub fn related_save_paths(save_path: &Path) -> Vec<(SaveRole, PathBuf)> {
     ]
 }
 
+fn maximum_save_bytes(role: SaveRole) -> u64 {
+    match role {
+        SaveRole::Main | SaveRole::GameBackup => crate::crypto::USER_CONTAINER_BYTES as u64,
+        SaveRole::System => crate::crypto::SYSTEM_CONTAINER_BYTES as u64,
+    }
+}
+
+pub(crate) fn validate_save_length(
+    role: SaveRole,
+    path: &Path,
+    length: u64,
+) -> Result<usize, SaveReadError> {
+    let maximum = maximum_save_bytes(role);
+    if length > maximum {
+        return Err(SaveReadError::InvalidTransform {
+            message: format!(
+                "{} at {} has {length} bytes, exceeding the maximum {maximum} bytes; \
+                 select or restore a supported save generation, then retry",
+                role.label(),
+                path.display(),
+            ),
+        });
+    }
+    // Both format maxima fit usize on every supported target.
+    Ok(length as usize)
+}
+
+/// One read boundary for opaque transaction data and encrypted save containers.
+/// Exact encrypted lengths remain the codec's responsibility; this layer also
+/// serves short raw transaction fixtures. State is allocated only after both
+/// actual and recorded lengths pass the role's format maximum.
+fn consume_save_bytes<T>(
+    role: SaveRole,
+    path: &Path,
+    reader: impl std::io::Read,
+    length: u64,
+    expected_length: Option<u64>,
+    initialize: impl FnOnce(usize) -> T,
+    mut consume: impl FnMut(&mut T, &[u8]),
+) -> Result<T, SaveReadError> {
+    use std::io::Read;
+
+    let capacity = validate_save_length(role, path, length)?;
+    if let Some(expected) = expected_length {
+        validate_save_length(role, path, expected)?;
+        if length != expected {
+            return Err(SaveReadError::IntegrityMismatch {
+                path: path.display().to_string(),
+                expected: expected.to_string(),
+                actual: length.to_string(),
+            });
+        }
+    }
+    let mut state = initialize(capacity);
+    let mut reader = reader.take(length + 1);
+    let mut buffer = [0u8; 64 * 1024];
+    let mut total = 0u64;
+    loop {
+        let count = match reader.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(count) => count,
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(error) => {
+                return Err(SaveReadError::Io {
+                    path: path.display().to_string(),
+                    message: error.to_string(),
+                });
+            }
+        };
+        total += count as u64;
+        if total > length {
+            return Err(SaveReadError::SaveChanged {
+                path: path.display().to_string(),
+            });
+        }
+        consume(&mut state, &buffer[..count]);
+    }
+    if total != length {
+        return Err(SaveReadError::SaveChanged {
+            path: path.display().to_string(),
+        });
+    }
+    Ok(state)
+}
+
+/// Read bytes needed by a transform, checkpoint or restore. The same opened
+/// file supplies metadata and content; no unsupported file can size the Vec.
+pub(crate) fn read_save_bytes(
+    role: SaveRole,
+    path: &Path,
+    expected_length: Option<u64>,
+) -> Result<Vec<u8>, SaveReadError> {
+    let io_error = |error: std::io::Error| SaveReadError::Io {
+        path: path.display().to_string(),
+        message: error.to_string(),
+    };
+    let file = fs::File::open(path).map_err(io_error)?;
+    let metadata = file.metadata().map_err(io_error)?;
+    consume_save_bytes(
+        role,
+        path,
+        file,
+        metadata.len(),
+        expected_length,
+        Vec::with_capacity,
+        |bytes, chunk| bytes.extend_from_slice(chunk),
+    )
+}
+
 fn fingerprint(role: SaveRole, path: &Path) -> Result<FileFingerprint, SaveReadError> {
-    match fs::metadata(path) {
-        Ok(metadata) => {
-            let bytes = fs::read(path).map_err(|error| SaveReadError::Io {
+    use sha2::{Digest, Sha256};
+
+    match fs::File::open(path) {
+        Ok(file) => {
+            let metadata = file.metadata().map_err(|error| SaveReadError::Io {
                 path: path.display().to_string(),
                 message: error.to_string(),
             })?;
+            let digest = consume_save_bytes(
+                role,
+                path,
+                file,
+                metadata.len(),
+                None,
+                |_| Sha256::new(),
+                |digest, chunk| digest.update(chunk),
+            )?;
             let modified_nanos = metadata
                 .modified()
                 .ok()
@@ -109,7 +229,7 @@ fn fingerprint(role: SaveRole, path: &Path) -> Result<FileFingerprint, SaveReadE
                 exists: true,
                 length: metadata.len(),
                 modified_nanos,
-                sha256: sha256_hex(&bytes),
+                sha256: format!("{:x}", digest.finalize()),
             })
         }
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(FileFingerprint {
@@ -126,7 +246,6 @@ fn fingerprint(role: SaveRole, path: &Path) -> Result<FileFingerprint, SaveReadE
         }),
     }
 }
-
 /// Fingerprint the whole generation once.
 pub fn capture_related_fingerprints(
     save_path: &Path,
@@ -363,6 +482,7 @@ struct RollbackRoleIdentity {
     role: SaveRole,
     target: PathBuf,
     existed: bool,
+    length: u64,
     sha256: String,
     checkpoint_file: Option<PathBuf>,
 }
@@ -459,17 +579,13 @@ fn is_unresolved_outcome(outcome: &str) -> bool {
 }
 
 /// The lowercase SHA-256 of one file, or `None` when it does not exist.
-fn read_digest_if_present(path: &Path) -> Result<Option<String>, SaveReadError> {
-    match fs::read(path) {
-        Ok(bytes) => Ok(Some(sha256_hex(&bytes))),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(SaveReadError::Io {
-            path: path.display().to_string(),
-            message: error.to_string(),
-        }),
-    }
+pub(crate) fn read_digest_if_present(
+    role: SaveRole,
+    path: &Path,
+) -> Result<Option<String>, SaveReadError> {
+    let observed = fingerprint(role, path)?;
+    Ok(observed.exists.then_some(observed.sha256))
 }
-
 fn path_identity(path: &Path) -> String {
     fs::canonicalize(path)
         .unwrap_or_else(|_| path.to_path_buf())
@@ -754,7 +870,7 @@ impl SaveTransactionHost {
             // Provably about another save: it does not fence this one.
             return Ok(Some(receipt));
         };
-        let current = read_digest_if_present(save_path)?;
+        let current = read_digest_if_present(SaveRole::Main, save_path)?;
         let same = |digest: Option<&str>| matches!((digest, current.as_deref()), (Some(left), Some(right)) if left.eq_ignore_ascii_case(right));
         let proof = if receipt.kind == PlanKind::Restore.label() {
             if !fence.roles.is_empty() && fence.roles.iter().all(|role| role.state == "A_source") {
@@ -996,7 +1112,12 @@ impl SaveTransactionHost {
         }
 
         for role in roles.iter_mut() {
-            let current = read_digest_if_present(Path::new(&role.target_path))?;
+            let save_role =
+                SaveRole::from_label(&role.role).ok_or_else(|| SaveReadError::TamperedRecord {
+                    kind: "restore journal",
+                    message: format!("unknown save role {}", role.role),
+                })?;
+            let current = read_digest_if_present(save_role, Path::new(&role.target_path))?;
             role.state = classify_role_state(
                 current.as_deref(),
                 role.source_sha256.as_deref(),
@@ -1893,10 +2014,15 @@ impl SaveTransactionHost {
                 cleanup_staged_restore(&staged);
                 return Err(error);
             }
-            let staged_bytes = fs::read(&staged_path).map_err(|error| SaveReadError::Io {
-                path: staged_path.display().to_string(),
-                message: error.to_string(),
-            })?;
+            let staged_bytes =
+                match read_save_bytes(role, &staged_path, Some(source_file.identity.size)) {
+                    Ok(bytes) => bytes,
+                    Err(error) => {
+                        let _ = fs::remove_file(&staged_path);
+                        cleanup_staged_restore(&staged);
+                        return Err(error);
+                    }
+                };
             let staged_sha256 = sha256_hex(&staged_bytes);
             if staged_sha256 != source_file.identity.sha256 {
                 let _ = fs::remove_file(&staged_path);
@@ -2043,10 +2169,7 @@ impl SaveTransactionHost {
                         message: format!("checkpoint has no bytes for role {}", role.label()),
                     }
                 })?;
-                let bytes = fs::read(checkpoint_file).map_err(|error| SaveReadError::Io {
-                    path: checkpoint_file.display().to_string(),
-                    message: error.to_string(),
-                })?;
+                let bytes = read_save_bytes(*role, checkpoint_file, Some(saved.length))?;
                 let digest = sha256_hex(&bytes);
                 if digest != saved.sha256 {
                     return Err(SaveReadError::IntegrityMismatch {
@@ -2301,7 +2424,10 @@ impl SaveTransactionHost {
 
     fn expected_bytes(&self, plan: &SavePlan, backup_id: &str) -> Result<Vec<u8>, SaveReadError> {
         match &plan.command {
-            PlanCommand::WriteMain { bytes } => Ok(bytes.clone()),
+            PlanCommand::WriteMain { bytes } => {
+                validate_save_length(SaveRole::Main, &plan.save_path, bytes.len() as u64)?;
+                Ok(bytes.clone())
+            }
             PlanCommand::RestoreFromBackup {
                 backup_id: recorded,
             } => {
@@ -2310,9 +2436,12 @@ impl SaveTransactionHost {
                     .backup_dir(backup_id)
                     .join(crate::backup::role_backup_file(SaveRole::Main));
                 let _ = recorded;
-                fs::read(&source).map_err(|_| SaveReadError::UnknownIdentifier {
-                    kind: "backup",
-                    value: backup_id.to_string(),
+                read_save_bytes(SaveRole::Main, &source, None).map_err(|error| match error {
+                    SaveReadError::Io { .. } => SaveReadError::UnknownIdentifier {
+                        kind: "backup",
+                        value: backup_id.to_string(),
+                    },
+                    error => error,
                 })
             }
         }
@@ -2364,10 +2493,7 @@ impl SaveTransactionHost {
             });
         }
         let stage = std::time::Instant::now();
-        let readback = fs::read(save_path).map_err(|error| SaveReadError::Io {
-            path: save_path.display().to_string(),
-            message: error.to_string(),
-        })?;
+        let readback = read_save_bytes(SaveRole::Main, save_path, Some(expected.len() as u64))?;
         let digest = sha256_hex(&readback);
         // `owned_sha256` is the digest of exactly these bytes, computed once by
         // the caller; recomputing it here would hash the same buffer again.
@@ -2419,14 +2545,8 @@ impl SaveTransactionHost {
         let source = self
             .backup_dir(backup_id)
             .join(crate::backup::role_backup_file(SaveRole::Main));
-        let bytes = fs::read(&source).map_err(|error| SaveReadError::Io {
-            path: source.display().to_string(),
-            message: error.to_string(),
-        })?;
-        let current = fs::read(save_path).map_err(|error| SaveReadError::Io {
-            path: save_path.display().to_string(),
-            message: error.to_string(),
-        })?;
+        let bytes = read_save_bytes(SaveRole::Main, &source, None)?;
+        let current = read_save_bytes(SaveRole::Main, save_path, None)?;
         if !sha256_hex(&current).eq_ignore_ascii_case(expected_current_sha256) {
             return Err(SaveReadError::SaveChanged {
                 path: save_path.display().to_string(),
@@ -2446,8 +2566,8 @@ impl SaveTransactionHost {
         let checkpoint = self
             .backup_dir(backup_id)
             .join(crate::backup::role_backup_file(SaveRole::Main));
-        let expected = fs::read(&checkpoint).ok()?;
-        let current = fs::read(save_path).ok()?;
+        let expected = read_save_bytes(SaveRole::Main, &checkpoint, None).ok()?;
+        let current = read_save_bytes(SaveRole::Main, save_path, None).ok()?;
         Some(current == expected)
     }
 
@@ -2510,6 +2630,7 @@ impl SaveTransactionHost {
                 role: entry.role,
                 target: entry.path.clone(),
                 existed: entry.exists,
+                length: entry.length,
                 sha256: entry.sha256.clone(),
                 checkpoint_file: entry.exists.then(|| {
                     checkpoint_directory.join(crate::backup::role_backup_file(entry.role))
@@ -2774,10 +2895,7 @@ impl SaveTransactionHost {
             // manifest's `source_role`, not the file name.
             let backup_file = crate::backup::role_backup_file(entry.role);
             let target = directory.join(backup_file);
-            let bytes = fs::read(&entry.path).map_err(|error| SaveReadError::Io {
-                path: entry.path.display().to_string(),
-                message: error.to_string(),
-            })?;
+            let bytes = read_save_bytes(entry.role, &entry.path, Some(entry.length))?;
             write_durable(&target, &bytes)?;
             let copied_sha256 = sha256_hex(&bytes);
             if !copied_sha256.eq_ignore_ascii_case(&entry.sha256) {
@@ -3096,8 +3214,9 @@ fn file_name(path: &Path) -> Result<String, SaveReadError> {
 
 /// Whether the file at `path` holds exactly the bytes this commit wrote.
 fn replaced_by_this_commit(path: &Path, owned_sha256: &str) -> bool {
-    match fs::read(path) {
-        Ok(bytes) => sha256_hex(&bytes).eq_ignore_ascii_case(owned_sha256),
+    match read_digest_if_present(SaveRole::Main, path) {
+        Ok(Some(digest)) => digest.eq_ignore_ascii_case(owned_sha256),
+        Ok(None) => false,
         Err(_) => false,
     }
 }
@@ -3135,6 +3254,215 @@ mod tests {
     use super::*;
     use std::sync::mpsc;
 
+    struct CountedReader<'a> {
+        remaining: usize,
+        consumed: &'a std::cell::Cell<usize>,
+        interrupted: bool,
+    }
+
+    impl std::io::Read for CountedReader<'_> {
+        fn read(&mut self, target: &mut [u8]) -> std::io::Result<usize> {
+            if self.interrupted {
+                self.interrupted = false;
+                return Err(std::io::Error::from(std::io::ErrorKind::Interrupted));
+            }
+            let count = target.len().min(self.remaining);
+            target[..count].fill(0x5A);
+            self.remaining -= count;
+            self.consumed.set(self.consumed.get() + count);
+            Ok(count)
+        }
+    }
+
+    #[test]
+    fn bounded_save_rejects_metadata_before_reading_or_allocating() {
+        for (role, maximum) in [
+            (SaveRole::Main, crate::crypto::USER_CONTAINER_BYTES as u64),
+            (
+                SaveRole::GameBackup,
+                crate::crypto::USER_CONTAINER_BYTES as u64,
+            ),
+            (
+                SaveRole::System,
+                crate::crypto::SYSTEM_CONTAINER_BYTES as u64,
+            ),
+        ] {
+            for (length, expected) in [
+                (maximum + 1, None),
+                (u64::MAX, None),
+                (3, Some(maximum + 1)),
+            ] {
+                let consumed = std::cell::Cell::new(0);
+                let initialized = std::cell::Cell::new(false);
+                let result = consume_save_bytes(
+                    role,
+                    Path::new("owned-save.bin"),
+                    CountedReader {
+                        remaining: 4096,
+                        consumed: &consumed,
+                        interrupted: false,
+                    },
+                    length,
+                    expected,
+                    |_| initialized.set(true),
+                    |_, _| {},
+                );
+                assert!(matches!(
+                    result,
+                    Err(SaveReadError::InvalidTransform { .. })
+                ));
+                assert_eq!(consumed.get(), 0);
+                assert!(
+                    !initialized.get(),
+                    "invalid metadata must precede state allocation"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn bounded_save_rejects_recorded_length_mismatch_before_reading() {
+        let consumed = std::cell::Cell::new(0);
+        let result = consume_save_bytes(
+            SaveRole::System,
+            Path::new("owned-save.bin"),
+            CountedReader {
+                remaining: 3,
+                consumed: &consumed,
+                interrupted: false,
+            },
+            3,
+            Some(4),
+            |_| (),
+            |_, _| {},
+        );
+        assert!(matches!(
+            result,
+            Err(SaveReadError::IntegrityMismatch { .. })
+        ));
+        assert_eq!(consumed.get(), 0);
+    }
+
+    #[test]
+    fn bounded_save_detects_growth_and_shrinkage_without_a_race() {
+        for role in [SaveRole::Main, SaveRole::GameBackup, SaveRole::System] {
+            for remaining in [5, 4096] {
+                let consumed = std::cell::Cell::new(0);
+                let result = consume_save_bytes(
+                    role,
+                    Path::new("owned-save.bin"),
+                    CountedReader {
+                        remaining,
+                        consumed: &consumed,
+                        interrupted: false,
+                    },
+                    8,
+                    None,
+                    |_| (),
+                    |_, _| {},
+                );
+                assert!(matches!(result, Err(SaveReadError::SaveChanged { .. })));
+                assert_eq!(
+                    consumed.get(),
+                    remaining.min(9),
+                    "growth must stop after one extra byte"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn bounded_save_hashes_every_chunk_and_the_partial_tail() {
+        use sha2::{Digest, Sha256};
+
+        let mut bytes = vec![0x3C; 2 * 64 * 1024 + 17];
+        bytes[2 * 64 * 1024..].copy_from_slice(b"distinct-end-tail");
+        let digest = consume_save_bytes(
+            SaveRole::GameBackup,
+            Path::new("owned-save.bin"),
+            std::io::Cursor::new(&bytes),
+            bytes.len() as u64,
+            None,
+            |_| Sha256::new(),
+            |digest, chunk| digest.update(chunk),
+        )
+        .unwrap();
+        assert_eq!(format!("{:x}", digest.finalize()), sha256_hex(&bytes));
+        assert_ne!(sha256_hex(&bytes), sha256_hex(&bytes[..2 * 64 * 1024]));
+    }
+
+    #[test]
+    fn bounded_save_retries_an_interrupted_read() {
+        let consumed = std::cell::Cell::new(0);
+        let observed = consume_save_bytes(
+            SaveRole::Main,
+            Path::new("owned-save.bin"),
+            CountedReader {
+                remaining: 8,
+                consumed: &consumed,
+                interrupted: true,
+            },
+            8,
+            None,
+            |_| 0usize,
+            |count, chunk| *count += chunk.len(),
+        )
+        .unwrap();
+        assert_eq!(observed, 8);
+        assert_eq!(consumed.get(), 8);
+    }
+
+    #[test]
+    fn recovery_digests_bound_all_roles_and_preserve_missing_files() {
+        let root = TempRoot::new("digest-bounds");
+        let save = write_generation(&root.0);
+        for (role, path) in related_save_paths(&save) {
+            let file = fs::File::create(&path).unwrap();
+            file.set_len(maximum_save_bytes(role) + 1).unwrap();
+            drop(file);
+            let before = fs::metadata(&path).unwrap();
+            assert!(matches!(
+                read_digest_if_present(role, &path),
+                Err(SaveReadError::InvalidTransform { .. })
+            ));
+            assert_eq!(
+                fs::metadata(&path).unwrap().modified().unwrap(),
+                before.modified().unwrap()
+            );
+            fs::remove_file(&path).unwrap();
+            assert_eq!(read_digest_if_present(role, &path).unwrap(), None);
+        }
+    }
+
+    #[test]
+    fn checkpoint_copy_rechecks_role_bounds_after_the_baseline() {
+        for role in [SaveRole::GameBackup, SaveRole::System] {
+            let root = TempRoot::new("checkpoint-bounds");
+            let save = write_generation(&root.0);
+            let baseline = capture_related_fingerprints(&save).unwrap();
+            let path = related_save_paths(&save)
+                .into_iter()
+                .find(|(current, _)| *current == role)
+                .unwrap()
+                .1;
+            let file = fs::File::create(&path).unwrap();
+            file.set_len(16 * 1024 * 1024).unwrap();
+            drop(file);
+            let before = fs::metadata(&path).unwrap();
+            let host = SaveTransactionHost::new(&root.0.join("state"));
+            let result = host.write_backup(&"a".repeat(32), "edit", &baseline);
+            assert!(matches!(
+                result,
+                Err(SaveReadError::InvalidTransform { .. })
+            ));
+            assert_eq!(fs::metadata(&path).unwrap().len(), before.len());
+            assert_eq!(
+                fs::metadata(&path).unwrap().modified().unwrap(),
+                before.modified().unwrap()
+            );
+            assert_eq!(fs::read(&save).unwrap(), b"main-generation");
+        }
+    }
     /// A task-local fixture root that removes itself when the test ends.
     struct TempRoot(PathBuf);
 

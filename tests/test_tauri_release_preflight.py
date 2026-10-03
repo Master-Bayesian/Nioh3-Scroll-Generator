@@ -7,7 +7,7 @@ import textwrap
 import unittest
 from unittest.mock import patch
 
-from tools.preflight_tauri_release import inspect_repository
+from tools.preflight_tauri_release import inspect_repository, _check_signing_boundary
 
 
 SHA = "a" * 40
@@ -93,9 +93,16 @@ class TauriReleasePreflightTests(unittest.TestCase):
                   NIOH3_REQUIRE_CLEAN_SOURCE: '1'
                 jobs:
                   release:
+                    if: ${{ github.repository == 'Master-Bayesian/Nioh3-Scroll-Generator' && github.ref == 'refs/heads/main' }}
+                    environment: production-signing
                     env:
                       NIOH3_UI_PROFILE: ${{ inputs.extended_search && 'extended' || 'release' }}
                     steps:
+                      - name: Check out the candidate source
+                        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+                        with:
+                          ref: ${{ github.sha }}
+                          persist-credentials: false
                       - name: External build root
                         run: |
                           NIOH3_BUILD_ROOT=$root
@@ -119,7 +126,9 @@ class TauriReleasePreflightTests(unittest.TestCase):
                       - run: node apps/tauri/verify-onefile.mjs
                       - run: node apps/tauri/verify-onefile-update.mjs
                       - run: node apps/tauri/verify-onefile-rollback.mjs
-                      - name: Enforce the download budget and sign
+                      - name: Enforce the download budget and sign the update manifest
+                        env:
+                          NIOH3_UPDATE_PRIVATE_KEY_BASE64: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY_BASE64 }}
                         run: |
                           $zip='deliverables/release/@ARTIFACT@.zip'
                           node tools/build_tauri_update_manifest.mjs $zip '0.7.3' notes.md deliverables/release/tauri-update.json
@@ -133,6 +142,36 @@ class TauriReleasePreflightTests(unittest.TestCase):
                 """
             ).replace("@ARTIFACT@", ARTIFACT),
         )
+
+    @patch("tools.preflight_tauri_release._git")
+    def test_rejects_untrusted_signing_sources_and_key_exposure(self, git_mock) -> None:
+        git_mock.side_effect = self._git_result
+        relative = ".github/workflows/release.yml"
+        original = (self.root / relative).read_text(encoding="utf-8")
+        mutations = {
+            "tag ref": ("refs/heads/main", "refs/tags/main"),
+            "arbitrary ref": ("refs/heads/main", "refs/heads/candidate"),
+            "missing environment": ("environment: production-signing", "environment: other"),
+            "moving checkout": ("ref: ${{ github.sha }}", "ref: main"),
+            "candidate checkout": ("ref: ${{ github.sha }}", "ref: ${{ inputs.ref }}"),
+            "persisted credentials": ("persist-credentials: false", "persist-credentials: true"),
+        }
+        for label, (before, after) in mutations.items():
+            with self.subTest(label=label):
+                self._write(relative, original.replace(before, after))
+                report = inspect_repository(self.root)
+                check = next(item for item in report["checks"] if item["name"] == "signing-source-boundary")
+                self.assertFalse(check["ok"], report)
+        self._write(relative, original)
+        self._write(".github/workflows/untrusted.yml", "env: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY_BASE64 }}")
+        report = inspect_repository(self.root)
+        check = next(item for item in report["checks"] if item["name"] == "signing-source-boundary")
+        self.assertFalse(check["ok"], report)
+        self.assertIn("Unexpected signing key exposure", check["error"])
+
+    def test_actual_repository_signing_boundary(self) -> None:
+        result = _check_signing_boundary(Path(__file__).resolve().parents[1])
+        self.assertFalse(result["onlineConfigurationVerified"])
 
     @staticmethod
     def _git_result(_root: Path, *args: str) -> str:
