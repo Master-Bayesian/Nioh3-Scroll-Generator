@@ -9,7 +9,7 @@ save/native safety boundaries. No live-game or real-user-save writes are authori
 
 Publication worktree: D:/Nioh3_v080_deliverables/source-codex-v083-publication-20261003,
 based on the clean frozen standalone product 335faef. This preparation changes
-release notes/status records and the evidenced Rust 1.99 fault-flag repair. Run the existing main-only, exact-SHA,
+release records, bounded Rust 1.99 source-check repairs and exact E2E confirmation selectors. Run the existing main-only, exact-SHA,
 read-only preparation with no persisted credentials and pinned Actions, followed
 by six-asset/signature/public-byte verification. Keep the accepted temporary
 repository-secret policy and issue #28's independent-signing-isolation follow-up;

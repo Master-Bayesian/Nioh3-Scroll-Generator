@@ -232,7 +232,9 @@ fn locate_player_with_layout(
         } else {
             memory
                 .read(vtable, 24)?
-                .chunks_exact(8)
+                .as_chunks::<8>()
+                .0
+                .iter()
                 .all(|raw| u64_at(raw).is_ok_and(|p| p >= base && p < end))
         }
     };

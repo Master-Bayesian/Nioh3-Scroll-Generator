@@ -369,7 +369,9 @@ impl EquipmentAddition {
         let mut capture = self.capture()?;
         let bytes = hex_decode(text(&capture, "container_hex")?)?;
         let slot = bytes
-            .chunks_exact(0xF0)
+            .as_chunks::<0xF0>()
+            .0
+            .iter()
             .position(|record| record[0] == 0 && record[1] == 0)
             .ok_or_else(|| rejected("The equipment inventory is full"))?;
         let child = new_operation_id()?;
@@ -420,7 +422,9 @@ impl EquipmentAddition {
             ));
         }
         if raw[0x34..0xDC]
-            .chunks_exact(0x18)
+            .as_chunks::<0x18>()
+            .0
+            .iter()
             .all(|e| e[4..8] == [0xFF; 4])
         {
             return Err(rejected(

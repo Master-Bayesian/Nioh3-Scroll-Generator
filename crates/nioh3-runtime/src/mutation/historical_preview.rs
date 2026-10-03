@@ -323,7 +323,7 @@ pub fn classification_is_terminal(value: &Value) -> bool {
             .and_then(Value::as_str)
             .is_some_and(is_sha256)
         && value.get("receipt_bytes").and_then(Value::as_u64).is_some()
-        && value.get("limits").is_some_and(&bounded)
+        && value.get("limits").is_some_and(bounded)
         && value.get("evidence").is_some_and(|evidence| {
             [
                 "inventory_before_sha256",

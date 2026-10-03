@@ -1,5 +1,30 @@
 # Experiment failure ledger
 
+## 2026-10-03: remaining hosted Rust lint gates after the first repair
+
+**Observed:** 0647aea preparation run 37151088632 passes the full required release
+E2E and signing. Tests run 37151088747, job 111284964442, passes the save fix and
+runtime suites, then rejects three constant chunks_exact calls plus one needless
+closure borrow under Clippy 1.99. The signed 0647aea artifact is retained but is
+not promoted while source CI is unresolved.
+**Repair:** use typed as_chunks full-array iteration with the same discarded
+remainder behavior and remove the needless closure borrow; keep all native
+bounds, identity, preview and insertion checks. Validate with an isolated Rust
+1.99 toolchain on Arashi and the existing local Rust 1.91, without changing the
+user's default toolchain. Further current-toolchain diagnostics are recorded in
+the same bounded source repair before another hosted build is dispatched.
+**Local completion:** Rust 1.99 also identifies the protected host's two fixed-size
+hex iterators and their fixture counterpart; apply the same full-pair iteration.
+Save/runtime/protected all-target Clippy passes on 1.99. Runtime 226 and protected
+125 tests pass; the first protected run omitted NIOH3_BUILD_ROOT and stopped at
+that fixture's explicit environment prerequisite, so only its four uncompleted
+targets are rerun with the declared build root. Existing Rust 1.91 compile/lint
+also passes. The task-owned 1.99 toolchain and 3.4 GiB isolated Cargo target are
+removed; the user's default toolchain and shared caches are preserved.
+**Boundary:** no new game-version support, native ABI change, real-game write,
+secret/configuration change or model downgrade. The next final SHA and all exact
+asset identities must come from its own successful signed run.
+
 ## 2026-10-03: released-UI driver retains the old title confirmation label
 
 **Observed:** preparation run 37149738605 passes R3/R4/R5 packaged parity, then
