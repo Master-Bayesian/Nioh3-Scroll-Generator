@@ -1,26 +1,26 @@
 # Current project handoff - 2026-10-03
 
-## Active owner-authorized 0.8.3 publication
+## v0.8.3 published release
 
-On 2026-10-03 the owner explicitly authorized commit/push/tag/workflow publication
-of 0.8.3 without waiting indefinitely for the reported environment. This overrides
-the prior release pause while preserving unsupported-format refusal and all
-save/native safety boundaries. No live-game or real-user-save writes are authorized.
+**v0.8.3 is published and public-byte verified (2026-10-03)**. Product commit
+`89b16c3ac86284a98ccd7cc993924d3ae45b3d10`, annotated tag `v0.8.3`, successful
+bounded preparation `37153662165`, six stable/latest assets and 53 public
+verification checks. Read the [immutable publication record](TAURI_V083_PUBLICATION_20261003.md)
+for exact asset hashes, source repairs, acceptance receipts and test scope.
 
-Publication worktree: D:/Nioh3_v080_deliverables/source-codex-v083-publication-20261003,
-based on the clean frozen standalone product 335faef. This preparation changes
-release records, bounded Rust 1.99 source-check repairs and exact E2E confirmation selectors. Run the existing main-only, exact-SHA,
-read-only preparation with no persisted credentials and pinned Actions, followed
-by six-asset/signature/public-byte verification. Keep the accepted temporary
-repository-secret policy and issue #28's independent-signing-isolation follow-up;
-no key, secret scope or repository permission changes are authorized here.
+Final source CI `37153662482` has successful Windows and Rust packaging lanes.
+The broad Rust/Python migration lane remained running at publication; it must
+not be described as passed. Changed-core local save/runtime/protected regression
+and Rust 1.91/1.99 Clippy/format checks passed. No real game or user-save writes
+were performed, and the frozen standalone 335faef packet remains unchanged.
 
-Menu recognition and the 235896-byte account system save versus the supported
-235384-byte format remain unresolved compatibility limits. Do not claim broad
-DLC1/distribution support, a tester-specific root fix or complete live-game
-acceptance. Existing standalone receipts are prior product evidence; the exact
-release SHA/run/asset hashes and completion status will be recorded after the
-signed build and public-download verification.
+Menu recognition and the 235896/235384-byte system-save format mismatch remain
+unresolved compatibility limits. Unsupported writes continue to be refused;
+backups, locks, native validation and recovery are retained. Do not infer broad
+DLC1/distribution support or complete live-game acceptance. Independent signing
+isolation remains open in issue #28 under the owner's accepted temporary policy.
+No enabled release-specific wakeup was found. Publication records are updated
+in a separate documentation commit without moving the product tag.
 
 ## Active standalone EXE acceptance
 
