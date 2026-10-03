@@ -1,5 +1,39 @@
 # Experiment failure ledger
 
+## 2026-10-03: released-UI driver retains the old title confirmation label
+
+**Observed:** preparation run 37149738605 passes R3/R4/R5 packaged parity, then
+verify.mjs:129 times out looking for the removed "title or closed" checkbox label.
+The retained failure.txt shows the actual title-screen confirmation, and the
+host log shows save.prepare_restore completed successfully. BackupManager and
+CartActions already use the exact current title-screen label; three driver
+selectors still use the old text.
+**Repair:** match those three exact current labels. Keep every unchecked/checked
+confirmation assertion and before/after restore, backup and checkpoint byte check;
+no timeout increase, alternate-label fallback or skipped gate is introduced.
+**Evidence:** the external publication packet retains the completed failed-run
+log and ci-failure-evidence-38cf604. Verify JavaScript syntax and run the repaired
+driver in the next immutable hosted candidate; local user clipboard and saves
+are not touched for this harness diagnosis.
+
+## 2026-10-03: hosted Rust 1.99 deprecation blocks release CI
+
+**Objective:** verify the owner-authorized 0.8.3 source 38cf604 before publication.
+**Observed:** Tests run 37149739463, job 111280857714, passes the executed domain,
+data, worker and save suites, then fails save Clippy at transaction.rs:439:
+Rust 1.99 deprecates AtomicU32::fetch_update and -D warnings rejects it.
+The local reviewed compiler is Rust 1.91; adopting the new try_update name would
+raise that compiler requirement. Full failed-job logs are retained in the external
+codex-v083-publication-20261003/rust-crates-ci.log packet.
+**Repair:** each private fault counter is armed only with store(1) and starts at
+zero. Consume that one-use flag with swap(0, SeqCst), preserving one atomic
+winner and rearming without a version layer or deprecation suppression. Add a
+concurrent-clone regression for every fault point; retain all transaction checks.
+**Boundary:** this is the fault-injection gate's flag, not a save format or native
+write adaptation. Freeze a new candidate, run save tests/Clippy/format and new
+hosted CI; never promote the superseded 38cf604 bytes. The same-model root handles
+this bounded repair under the owner's no-downgrade instruction; no agent is spawned.
+
 
 ## 2026-10-03: launcher IO context and cached read refusal
 

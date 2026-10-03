@@ -435,15 +435,7 @@ impl TransactionFaults {
 
     /// Whether this armed point fires now, consuming exactly one arming.
     fn should_fire(&self, point: FaultPoint) -> bool {
-        self.counter(point)
-            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |value| {
-                if value == 0 {
-                    None
-                } else {
-                    Some(value - 1)
-                }
-            })
-            .is_ok()
+        self.counter(point).swap(0, Ordering::SeqCst) != 0
     }
 }
 
@@ -3253,6 +3245,35 @@ mod tests {
 
     use super::*;
     use std::sync::mpsc;
+
+    #[test]
+    fn fault_points_fire_once_across_concurrent_clones_and_can_be_rearmed() {
+        let faults = TransactionFaults::default();
+        for point in FaultPoint::ALL {
+            assert!(!faults.should_fire(point));
+            faults.arm(point);
+            let fired = AtomicU32::new(0);
+            let start = std::sync::Barrier::new(8);
+            std::thread::scope(|scope| {
+                for _ in 0..8 {
+                    let faults = faults.clone();
+                    let fired = &fired;
+                    let start = &start;
+                    scope.spawn(move || {
+                        start.wait();
+                        if faults.should_fire(point) {
+                            fired.fetch_add(1, Ordering::SeqCst);
+                        }
+                    });
+                }
+            });
+            assert_eq!(fired.load(Ordering::SeqCst), 1, "{}", point.label());
+            assert!(!faults.should_fire(point));
+            faults.arm(point);
+            assert!(faults.should_fire(point));
+            assert!(!faults.should_fire(point));
+        }
+    }
 
     struct CountedReader<'a> {
         remaining: usize,

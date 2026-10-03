@@ -125,7 +125,7 @@ try {
   assert.equal(await restoreButton.isDisabled(),true,'Restore requires an explicit title-screen or closed confirmation');
   assert.deepEqual(await readFile(fixture.path),beforeRestore,'Preparing restoration must leave the save unchanged');
   assert.deepEqual(await readdir(join(root,'profile/backups')),[fixture.backup_id],'Preparation must not create a restore checkpoint');
-  const confirmation = p.getByRole('checkbox',{name:'游戏已回到标题界面或已关闭',exact:true});
+  const confirmation = p.getByRole('checkbox',{name:'游戏已回到标题界面',exact:true});
   await confirmation.check();
   await confirmation.uncheck();
   assert.equal(await restoreButton.isDisabled(),true,'Removing confirmation disables restoration again');
@@ -158,7 +158,7 @@ try {
   assert.equal(await editButton.isDisabled(),true,'Permanent edits require explicit confirmation');
   assert.equal(await p.getByRole('checkbox',{name:'游戏已完全关闭',exact:true}).count(),0,'Editing must not require closing the game');
   assert.deepEqual(await readFile(fixture.path),expectedRestore,'Preparing an edit must not write the save');
-  await p.getByRole('checkbox',{name:'游戏已回到标题界面或已关闭',exact:true}).check();
+  await p.getByRole('checkbox',{name:'游戏已回到标题界面',exact:true}).check();
   await editButton.click();
   await p.getByText('修改已写入存档。',{exact:true}).waitFor({timeout:30000});
   const editedSave=await readFile(fixture.path);
@@ -171,7 +171,7 @@ try {
   assert.equal(await editButton.isDisabled(),true,'Deletion requires a new explicit confirmation');
   assert.equal(await p.getByRole('checkbox',{name:'游戏已完全关闭',exact:true}).count(),0,'Deletion must not require closing the game');
   assert.deepEqual(await readFile(fixture.path),editedSave,'Preparing deletion must not write the save');
-  await p.getByRole('checkbox',{name:'游戏已回到标题界面或已关闭',exact:true}).check();
+  await p.getByRole('checkbox',{name:'游戏已回到标题界面',exact:true}).check();
   await editButton.click();
   await p.getByText('当前存档没有绘卷，可以先从购物车添加。',{exact:true}).waitFor({timeout:30000});
   const deletedSave=await readFile(fixture.path);
