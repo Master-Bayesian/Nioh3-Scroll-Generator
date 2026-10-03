@@ -1,5 +1,33 @@
 # Experiment failure ledger
 
+## 2026-10-03: compatibility-choice verification corrections
+
+**Scope:** isolated source based on 42603e0; scripted UI and synthetic memory,
+no real game/save writes or remote publication actions.
+
+The new null-cursor reproducer failed with Closed rather than NoSelection.
+That expected red test established the classification bug; after the explicit
+open/no-selection repair, the full runtime library passed 208 tests while
+retaining signature/vtable/flag/ownership checks.
+
+The first character-browser extension incorrectly required slot 42 after an
+earlier step had followed slot 43. The fixture now compares the actual selected
+row before and after waiting; the affected production-browser run passed 52/52.
+The initial result and corrected report are retained under the external
+codex-v083-compatibility-choice-20261003/evidence directory.
+
+A concurrent full npm run exceeded the existing 10-second identity-free worker
+startup deadline and observed starting. No worker or timeout code was changed.
+With other compilation/browser checks finished and the explicit project Python
+selected, the controlled full rerun passed 93 tests with one package-dependent
+skip; the refusal arrived in 443 ms. Load/interpreter choice is a plausible
+explanation, not an established product fault. Both logs are retained.
+
+**Limits:** UI and synthetic memory do not identify the reported environment's
+actual menu/profile state or establish a name for the shared 0x3336 catalog gap.
+Publication remains paused pending root review and explicit authorization.
+
+
 ## 2026-10-03: test12 companion boundaries and review-tool corrections
 
 **Objective:** close the remaining owned-fixture save-boundary and local source

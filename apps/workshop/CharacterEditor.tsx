@@ -636,7 +636,8 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         if (stopped || !result || !("menu_open" in result)) return;
         const now = latest.current;
         if (!result.menu_open) { setFollowNote("游戏内的持有物品菜单未打开"); return; }
-        if (result.slot_index == null || result.item_id == null) { setFollowNote("游戏内选中的物品无法修改"); return; }
+        if (result.item_id == null) { setFollowNote("持有物品菜单已打开，请在游戏中选中一件物品"); return; }
+        if (result.slot_index == null) { setFollowNote("游戏内选中的物品无法修改"); return; }
         if (result.container === "held" || result.container === "storage") {
           const entry = now.itemRows.find(item => item.item_id === result.item_id);
           if (!entry) {

@@ -11,7 +11,7 @@ import { createServer } from 'node:http';
 import { execFileSync, spawn } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { isolatedEnvironment, inspectOnefile, closeSession, pause } from '../tauri/onefile-acceptance.mjs';
-const { values: options } = parseArgs({ options: { exe: { type: 'string' }, onefile: { type: 'boolean', default: false }, out: { type: 'string' } } });
+const { values: options } = parseArgs({ options: { exe: { type: 'string' }, onefile: { type: 'boolean', default: false }, out: { type: 'string' }, game: { type: 'string' } } });
 assert.ok(!options.exe || options.onefile, 'Native acceptance requires an outer one-file candidate');
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
@@ -105,7 +105,7 @@ const equipment = (slot) => ({
 window.__seed.cursor = { menu_open: true, container: 'equipment', slot_index: 42, item_id: 171 };
 const liveCharacter = {
   source: 'runtime', game_version: '2.0.2.0', process_id: 4242,
-  currencies: { amrita: 0, gold: 0 }, equipment_slots: 2, equipment: [equipment(42), equipment(43)],
+  currencies: { amrita: 0, gold: 0 }, equipment_slots: 3, equipment: [equipment(42), equipment(43), { ...equipment(44), item_id: 0x3336, type_class: 54 }],
   items: [{ container: 'held', slot_index: 3, item_id: 8001, quantity: 5, limit: 99, record_sha256: 'c'.repeat(64) }],
 };
 const saveCharacter = {
@@ -227,7 +227,11 @@ try {
     const identity = await inspectOnefile(options.exe);
     evidence.packageIdentity = { executable: resolve(options.exe), sha256: identity.sha256, payloadSha256: identity.payloadSha256 };
     const { env, port } = await isolatedEnvironment(profilePath);
-    child = spawn(resolve(options.exe), [], { env, windowsHide: true, stdio: 'ignore' });
+    if (options.game) {
+      await mkdir(env.NIOH3_TAURI_TEST_ROOT, { recursive: true });
+      await writeFile(join(env.NIOH3_TAURI_TEST_ROOT, 'game-install.json'), JSON.stringify({ schema: 'nioh3-game-install/v1', executable: resolve(options.game) }));
+    }
+    child = spawn(resolve(options.exe), ['--user-data-dir', env.NIOH3_TAURI_TEST_ROOT], { env, windowsHide: true, stdio: 'ignore' });
     for (let attempt = 0; attempt < 150; attempt++) {
       if (child.exitCode !== null) throw new Error('Candidate exited before CDP was ready: ' + child.exitCode);
       try { if ((await fetch('http://127.0.0.1:' + port + '/json/version')).ok) break; } catch {}
@@ -330,6 +334,18 @@ try {
       const refused = await page.evaluate(() => window.__seed.calls.every(call => call.method !== 'runtime.character_edit'));
       record(locale + ': legal conflict refusal does not dispatch a write', refused);
       await revert.click();
+      // Verified open state with a temporarily absent cursor must not claim a closed menu.
+      const selectionBeforeWaiting = await page.locator('[data-row^="equipment-"].selected').getAttribute('data-row');
+      await page.evaluate(() => { window.__seed.cursor = { menu_open: true, slot_index: null }; });
+      const waiting = { 'zh-CN': '持有物品菜单已打开，请在游戏中选中一件物品', 'en-US': 'The inventory menu is open. Select an item in the game.', 'ja-JP': '所持品メニューは開いています。ゲーム内でアイテムを選択してください。' };
+      await page.waitForFunction(expected => document.querySelector('.character-follow-note')?.textContent === expected, waiting[locale]);
+      record(locale + ': open menu without cursor waits without clearing the draft', await page.locator('[data-row^="equipment-"].selected').getAttribute('data-row') === selectionBeforeWaiting && await page.locator('[data-draft-state="unchanged"]').count() === 1);
+      await page.evaluate(() => { window.__seed.cursor = { menu_open: true, container: 'equipment', slot_index: 44, item_id: 0x3336 }; });
+      await move(page, 44);
+      record(locale + ': unnamed soul core keeps the exact ID and can be selected', await page.locator('[data-row="equipment-44"]').getAttribute('class') === 'selected' && (await page.locator('[data-row="equipment-44"]').innerText()).includes('0x3336'));
+      record(locale + ': unknown name does not block existing-record fields', await page.locator('.character-value input').first().isEnabled());
+      const unknownShot = join(output, 'unknown-soul-core-' + runLabel + '-' + locale + '.png'); await page.screenshot({ path: unknownShot }); evidence.screenshots.push(unknownShot);
+      await page.evaluate(() => { window.__seed.cursor = { menu_open: true, container: 'equipment', slot_index: 42, item_id: 171 }; }); await move(page, 42);
       // Quantity edits share the same explicit status, while currencies remain independent.
       await page.evaluate(() => { window.__seed.cursor.menu_open = false; });
       await page.locator('.character-tabs button').nth(1).click();

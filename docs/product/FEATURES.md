@@ -66,7 +66,16 @@ mandatory. Equipment uses a source/backup checkpoint bound to the reviewed
 operation and rechecked at execution. Generation resources load only for
 operations that consume them; control/status/recovery do not depend on their
 startup availability. Other compatibility-consent paths retain their reviewed
-plan, unchecked confirmations and durable verified-backup audit.
+plan, unchecked confirmations and durable verified-backup audit. The owner-
+approved modal choice is enter compatibility mode or close the tool: X, Esc
+and outside click use the normal native shutdown path. The original operation
+can be resumed without consent only after an exact-reference result. Close
+failures remain explicit and late replies cannot dismiss a pending shutdown.
+The verified 2.02 inventory-menu reader now distinguishes an open menu with
+no selected item from a closed menu. Code/vtable, open/closed flags, ownership
+and slot alignment are preserved. An unnamed 0x3336 soul core retains its exact
+ID and existing-record fields; no guessed catalog name or legality is supplied.
+The tester environment's actual menu/profile cause remains unverified.
 
 Primary current coverage is 2.0.2.0; retain evidenced 2.0.1.0 scroll/count/native
 bindings and the existing 2.0.0.2 offline scope. Older native seeded equipment

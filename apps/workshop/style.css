@@ -1128,7 +1128,7 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-num small{color:#58717b}
 .character-empty{margin:0;padding:28px 14px;border:1px dashed #c5d1e0;border-radius:6px;color:#7a8b93;text-align:center;font-size:13px;background:#fbfdff}
 .character-no-stack{display:inline-block;width:120px;padding:6px 0}
-.character-actions>button.primary,.character-plan>button.primary,.character-plan-actions>button.primary{background:#3c745f;border-color:#3c745f;color:#fff}
+.character-actions>button.primary,.character-plan>button.primary,.character-plan-actions>button.primary,.compatibility-dialog footer>button.primary{background:#3c745f;border-color:#3c745f;color:#fff}
 .character-side .character-value>input{width:90px}
 .character-side .character-range{white-space:normal}
 @media (max-width:1100px){.character-body{grid-template-columns:minmax(0,1fr)}.character-side{position:static;max-height:none}}

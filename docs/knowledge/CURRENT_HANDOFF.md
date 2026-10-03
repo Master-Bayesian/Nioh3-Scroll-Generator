@@ -1,33 +1,40 @@
 # Current project handoff - 2026-10-03
 
-## Active release preparation: v0.8.3 final candidate
+## Active UI repair: enter compatibility mode or close the tool
 
-Worktree: D:/Nioh3_v080_deliverables/source-codex-v083-final-20261003.
-Branch: codex/v083-final-20261003; base frozen test13 7377f4f. Test12 and
-test13 sources and binaries remain unchanged. Exact source/package identities
-and current verification belong to the external codex-v083-final-20261003
-report. Product code changes require a new immutable build.
+Worktree: D:/Nioh3_v080_deliverables/source-codex-v083-compatibility-choice-20261003.
+Branch: codex/v083-compatibility-choice-20261003; base paused final candidate
+42603e0. Frozen test12/test13 and the paused release worktree remain unchanged.
+Evidence belongs to the external codex-v083-compatibility-choice-20261003
+report. Publication remains paused pending root review and explicit resumption.
 
-The final prompt preserves test13's process-open/module-snapshot error-5 match
-and offers both conditional recovery paths: restart this tool elevated when
-the game is elevated, or disable the game's administrator setting and restart
-both before retrying the read. Permission mismatch is a possible cause; no
-token state is measured. Raw diagnostic details and existing guards remain.
-Tester evidence was corrected to confirm game elevation; the subsequent retry
-and real-game/save acceptance are not independently verified here.
+The owner confirmed that the previous modal close cancelled compatibility
+consent but left the tool visible. The authorized UI contract is now enter
+compatibility mode after verified backup/risk consent, or close the tool.
+The modal X, Esc and outside click request the normal title-bar close path;
+the native shell retains its existing worker shutdown and recovery handling.
+The renderer remains modal during shutdown, ignores late compatibility
+responses, prevents repeated close requests and exposes a close failure.
+Returning to the original operation is available only after an exact reference
+match makes compatibility consent unnecessary. Independent live additions
+retain their operation-scoped guards without a global plan prerequisite.
 
-The owner resumed release preparation and authorized scoped commit/push, the
-main-only exact-SHA signed build, and stable v0.8.3 publication after root's
-source/check review. Public notes omit private tester audit details. A release
-is complete only after the six public assets, signature/hash/source identity
-and latest feed pass verification; publication is not yet claimed here.
+A separate synthetic-memory reproducer confirms that an open inventory menu
+with no detail-widget item was reported as closed. It now returns an open
+menu with no selection; the UI asks the player to select an item. Existing
+2.02 code/vtable, exact open/closed flags and owned-slot checks remain. This
+does not establish the cause of the tester's modified-image report: the exact
+game screen/version and menu evidence remain required for that environment.
+The shared 0x3336 name gap traces to the original workbook's empty name and
+zero name-text ID; retained old/2.02 parameter rows are identical. Keep its
+unknown-ID display and existing-record editing; no guessed name is inserted.
 
-The owner accepted the temporary repository-secret / trusted-workflow-writer
-signing policy. Main/exact github.sha restrictions, no persisted credentials,
-pinned Actions and bounded acceptance remain. Independent isolation remains
-incomplete: keep issue #28 open and include it in root's release-completion
-handoff; the runbook retains its durable checklist. No online configuration,
-secret value, key scope or permission is changed.
+The prior three-language privilege-recovery wording and temporary repository-
+secret / trusted-workflow-writer signing policy are retained. Independent
+signing isolation remains incomplete in issue #28. No push, dispatch, tag,
+publication, secret/configuration change or real-game/save write is authorized
+for this UI batch. Package/visual results require their own exact evidence;
+source tests alone do not establish them.
 
 ## Historical test12 local candidate closure
 

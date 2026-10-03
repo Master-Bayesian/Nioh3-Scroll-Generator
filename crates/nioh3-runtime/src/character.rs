@@ -388,6 +388,8 @@ pub const DETAIL_READ_SITE_BYTES: [u8; 7] = [0x48, 0x8B, 0x81, 0xB0, 0x01, 0x00,
 pub enum MenuSelection {
     /// The inventory menu is not on screen.
     Closed,
+    /// The verified inventory menu is open, but its detail widget has no item yet.
+    NoSelection,
     /// An owned equipment record.
     Equipment { slot_index: usize, item_id: u16 },
     /// A held or stored item record.
@@ -431,7 +433,7 @@ pub fn read_menu_selection(memory: &dyn InventoryMemory) -> Result<MenuSelection
     }
     let item = u64_at(&memory.read(menu + DETAIL_WIDGET_OFFSET + DETAIL_ITEM_OFFSET, 8)?)?;
     if item == 0 {
-        return Ok(MenuSelection::Closed);
+        return Ok(MenuSelection::NoSelection);
     }
     let item_id = u16::from_le_bytes(
         memory
@@ -789,6 +791,18 @@ mod tests {
             read_menu_selection(&fake).unwrap(),
             MenuSelection::Other { item_id: 0x24AF }
         );
+    }
+
+    #[test]
+    fn an_open_inventory_without_a_cursor_is_not_a_closed_menu() {
+        let fake = with_open_menu(0);
+        assert_eq!(
+            read_menu_selection(&fake).unwrap(),
+            MenuSelection::NoSelection
+        );
+        fake.put(MENU + MENU_CLOSED_FLAG_OFFSET, &[1]);
+        fake.put(MENU + MENU_OPEN_FLAG_OFFSET, &[0]);
+        assert_eq!(read_menu_selection(&fake).unwrap(), MenuSelection::Closed);
     }
 
     #[test]

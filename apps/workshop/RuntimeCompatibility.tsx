@@ -32,24 +32,26 @@ const remedies:Record<string,string>={unsupported_version:"请在设置中检查
 export function RuntimeCompatibility(){
  useUiLocale();
  const [report,setReport]=useState<Report|null>(null),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
- const [risk,setRisk]=useState(false),[backed,setBacked]=useState(false);
+ const [risk,setRisk]=useState(false),[backed,setBacked]=useState(false),[closing,setClosing]=useState(false);
+ const exiting=useRef(false);
  const epoch=useRef(0),queue=useRef(Promise.resolve()),mounted=useRef(true),dialog=useRef<HTMLDialogElement>(null),visible=useRef(false),pending=useRef(false);
  const canAccept=!!report?.present&&!!report.backup?.verified&&!!report.plan?.plan_id&&!report.hard_blocks?.length;
  const referenceMatched=!busy&&report?.reference_match===true&&!report.warning&&!report.hard_blocks?.length;
 
  function action(kind:Action){
+  if(exiting.current)return;
   if(kind==="accept"&&(pending.current||!risk||!backed||!canAccept))return;
   const planId=kind==="accept"?report?.plan?.plan_id:undefined;
   const request=++epoch.current;
   pending.current=true;setBusy(true);setMessage("");setRisk(false);setBacked(false);
   if(kind!=="accept")setReport(previous=>previous?{...previous,accepted:false,reference_match:false,plan:null,backup:null}:previous);
-  // Closing invalidates the renderer immediately. The host cancel follows any
-  // already-running prepare, so that its late result cannot restore consent.
+  // Requests are serialized and epoch-bound. Reference return cancels the
+  // host plan; native close ignores late renderer replies.
   queue.current=queue.current.then(async()=>{
    if(kind!=="cancel"&&request!==epoch.current)return;
    try{
     const result=await window.operations.execute({method:"runtime.compatibility",params:{action:kind,...(kind==="accept"?{plan_id:planId,confirmed:true,backup_confirmed:true}:{})}});
-    if(!mounted.current||request!==epoch.current)return;
+    if(!mounted.current||request!==epoch.current||exiting.current)return;
     if(!("compatibility" in result))throw Error("UNEXPECTED_COMPATIBILITY_RESULT");
     const next=result.compatibility as Report;
     setReport(next);
@@ -58,17 +60,30 @@ export function RuntimeCompatibility(){
      visible.current=false;setOpen(false);window.dispatchEvent(new Event("nioh3:compatibility-accepted"));
     }
    }catch(error){
-    if(mounted.current&&request===epoch.current){setReport(previous=>previous?{...previous,accepted:false,plan:null,backup:null}:previous);setMessage(errorText(error));}
+    if(mounted.current&&request===epoch.current&&!exiting.current){setReport(previous=>previous?{...previous,accepted:false,plan:null,backup:null}:previous);setMessage(errorText(error));}
    }finally{
     if(mounted.current&&request===epoch.current){pending.current=false;setBusy(false);}
    }
   });
  }
  function show(){
-  if(visible.current&&pending.current)return;
+  if(exiting.current||visible.current&&pending.current)return;
   visible.current=true;setOpen(true);action("prepare");
  }
- function dismiss(){visible.current=false;setOpen(false);action("cancel");}
+ function returnToOperation(){
+  if(!referenceMatched||exiting.current)return;
+  visible.current=false;setOpen(false);action("cancel");
+ }
+ async function closeTool(){
+  if(exiting.current)return;
+  exiting.current=true;setClosing(true);setRisk(false);setBacked(false);setMessage("");
+  try{
+   // Use the title-bar close path: the native shell owns worker shutdown and recovery.
+   await window.review.windowAction("close");
+  }catch(error){
+   if(mounted.current){exiting.current=false;setClosing(false);setMessage(errorText(error));}
+  }
+ }
  useEffect(()=>{
   if(!desktop)return;
   mounted.current=true;action("inspect");
@@ -85,14 +100,14 @@ export function RuntimeCompatibility(){
    <button onClick={show}>查看兼容提示</button>
   </aside>}
   {!open&&message&&<Notice text={message}/>}
-  {open&&<dialog ref={dialog} className="compatibility-dialog" aria-labelledby="compatibility-title" onCancel={event=>{event.preventDefault();dismiss();}} onClick={event=>{
+  {open&&<dialog ref={dialog} className="compatibility-dialog" aria-labelledby="compatibility-title" onCancel={event=>{event.preventDefault();void closeTool();}} onClick={event=>{
    if(event.target!==event.currentTarget)return;
    const rect=event.currentTarget.getBoundingClientRect();
-   if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)dismiss();
+   if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)void closeTool();
   }}>
-   <header><h2 id="compatibility-title">游戏版本兼容提示</h2><button data-action="compatibility-close" onClick={dismiss}>关闭</button></header>
-   <div className="compatibility-body" aria-busy={busy}>
-    {referenceMatched?<Notice tone="success" text="当前程序与已验证版本一致，无需兼容确认；返回原操作即可继续。"/>:<p>兼容模式只允许跳过下方列出的差异检查。未适配功能和必要安全检查仍会阻止操作。</p>}
+   <header><h2 id="compatibility-title">游戏版本兼容提示</h2><button data-action="compatibility-close" aria-label="关闭工具" title="关闭工具" onClick={()=>void closeTool()} disabled={closing}>×</button></header>
+   <div className="compatibility-body" aria-busy={busy||closing}>
+    {referenceMatched?<Notice tone="success" text="当前程序与已验证版本一致，无需兼容确认；返回原操作即可继续。"/>:<><p>请选择进入兼容模式并继续使用，或关闭工具。按 Esc、点击弹窗外或右上角关闭按钮也会关闭工具。</p><p>兼容模式只允许跳过下方列出的差异检查。未适配功能和必要安全检查仍会阻止操作。</p></>}
     {report?.game_version&&<p><span>实际文件版本</span>：{technical(report.game_version)}</p>}
     {report?.executable&&technical(report.executable)}
     {report?.present===false&&<Notice tone="warning" text="尚未连接到游戏。请启动游戏或等待游戏重启完成，然后点击重新连接并准备。"/>}
@@ -102,7 +117,7 @@ export function RuntimeCompatibility(){
     </section>}
     {!busy&&!referenceMatched&&report&&!report.backup?.verified&&<section className="compatibility-blocks"><h3>备份尚未通过验证</h3><p>本兼容计划的备份尚未通过验证。请解决备份问题后重试；勾选确认不能跳过此限制。</p>{report.backup?.error&&technical(report.backup.error)}</section>}
     {!!report?.operation_scoped_features?.length&&<section data-section="operation-scoped-features"><h3>单独核验的实时添加</h3>
-     <p>以下添加在各自操作中核验目标和备份，无需先确认本兼容计划。请返回添加页面准备；不受支持的目标仍不会执行。</p>
+     <p>以下添加在各自操作中单独核验目标和备份。本次兼容确认不会替代这些检查，也不是这些添加的前置条件；不受支持的目标仍不会执行。</p>
      <ul>{report.operation_scoped_features.map(feature=><li key={feature}>{describe(feature)}</li>)}</ul>
     </section>}
     {!!report?.differences?.length&&<section><h3>检测到的差异</h3>
@@ -128,11 +143,12 @@ export function RuntimeCompatibility(){
      <p>确认只对当前游戏进程和本次计划有效。它不会自动执行写入，也不保证未验证版本的行为正确。</p>
      <details><summary>计划标识</summary>{technical(report.plan.plan_id)}</details>
     </section>}
-    {!referenceMatched&&<><label><input data-action="compatibility-risk" type="checkbox" checked={risk} disabled={busy||!canAccept} onChange={event=>setRisk(event.target.checked)}/>我已核对本次计划，了解跳过检查的范围和风险</label>
-    <label><input data-action="compatibility-backup" type="checkbox" checked={backed} disabled={busy||!canAccept} onChange={event=>setBacked(event.target.checked)}/>我已确认上方备份对应本次准备时的存档快照</label></>}
+    {!referenceMatched&&<><label><input data-action="compatibility-risk" type="checkbox" checked={risk} disabled={busy||closing||!canAccept} onChange={event=>setRisk(event.target.checked)}/>我已核对本次计划，了解跳过检查的范围和风险</label>
+    <label><input data-action="compatibility-backup" type="checkbox" checked={backed} disabled={busy||closing||!canAccept} onChange={event=>setBacked(event.target.checked)}/>我已确认上方备份对应本次准备时的存档快照</label></>}
     <Notice text={message}/>
+    {closing&&<p role="status">正在关闭工具，请等待当前操作安全结束。</p>}
    </div>
-   <footer><button data-action="compatibility-prepare" onClick={()=>action("prepare")} disabled={busy}>{report?.hard_blocks?.some(block=>block.code.startsWith("backup_"))?"修复后重试备份":"重新连接并准备"}</button>{referenceMatched?<button data-action="compatibility-return" onClick={dismiss}>返回原操作</button>:<button data-action="compatibility-accept" onClick={()=>action("accept")} disabled={busy||!risk||!backed||!canAccept}>确认本次兼容计划</button>}</footer>
+   <footer><button data-action="compatibility-prepare" onClick={()=>action("prepare")} disabled={busy||closing}>{report?.hard_blocks?.some(block=>block.code.startsWith("backup_"))?"修复后重试备份":"重新连接并准备"}</button><button data-action="compatibility-exit" onClick={()=>void closeTool()} disabled={closing}>关闭工具</button>{referenceMatched?<button data-action="compatibility-return" onClick={returnToOperation} disabled={closing}>返回原操作</button>:<button className="primary" data-action="compatibility-accept" onClick={()=>action("accept")} disabled={busy||closing||!risk||!backed||!canAccept}>进入兼容模式</button>}</footer>
   </dialog>}
  </>;
 }

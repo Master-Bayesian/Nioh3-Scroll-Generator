@@ -10,12 +10,18 @@ const out=join(evidence,'browser-'+new Date().toISOString().replace(/[:.]/g,'-')
 await mkdir(out,{recursive:true});
 const tmp=join(evidence,'tmp');await mkdir(tmp,{recursive:true});
 const root=await mkdtemp(join(tmp,'compatibility-ui-'));
-const bundle=await build({stdin:{contents:'import React from "react";import{createRoot}from"react-dom/client";import{RuntimeCompatibility}from"./apps/workshop/RuntimeCompatibility";import{GameInstallation}from"./apps/workshop/GameInstallation";import{Notice}from"./apps/workshop/Notice";import{setUiLocale}from"./apps/workshop/presentation";import"./apps/workshop/style.css";window.setLocale=setUiLocale;createRoot(document.getElementById("runtime")).render(<RuntimeCompatibility/>);const install=createRoot(document.getElementById("installation"));let generation=0;window.mountInstallation=(startup=false)=>{generation++;install.render(startup?<Notice key={generation} text="GAME_VERSION_UNSUPPORTED: fixture version"/>:<GameInstallation key={generation}/>);};window.mountInstallation();',resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,outdir:'out',format:'iife',platform:'browser',jsx:'transform',jsxFactory:'localizedElement',tsconfigRaw:{compilerOptions:{jsx:'react',jsxFactory:'localizedElement'}},inject:[resolve('apps/workshop/presentation-jsx.ts')],define:{'process.env.NODE_ENV':'"production"'}});
+const bundle=await build({stdin:{contents:'import React from "react";import{createRoot}from"react-dom/client";import{RuntimeCompatibility}from"./apps/workshop/RuntimeCompatibility";import{GameInstallation}from"./apps/workshop/GameInstallation";import{Notice}from"./apps/workshop/Notice";import{setUiLocale}from"./apps/workshop/presentation";import"./apps/workshop/style.css";window.setLocale=setUiLocale;const runtime=createRoot(document.getElementById("runtime"));window.mountRuntime=()=>{window.runtimeMounted=true;runtime.render(<RuntimeCompatibility/>);};window.closeRuntime=()=>{window.runtimeMounted=false;runtime.render(null);};window.mountRuntime();const install=createRoot(document.getElementById("installation"));let generation=0;window.mountInstallation=(startup=false)=>{generation++;install.render(startup?<Notice key={generation} text="GAME_VERSION_UNSUPPORTED: fixture version"/>:<GameInstallation key={generation}/>);};window.mountInstallation();',resolveDir:process.cwd(),loader:'tsx'},bundle:true,write:false,outdir:'out',format:'iife',platform:'browser',jsx:'transform',jsxFactory:'localizedElement',tsconfigRaw:{compilerOptions:{jsx:'react',jsxFactory:'localizedElement'}},inject:[resolve('apps/workshop/presentation-jsx.ts')],define:{'process.env.NODE_ENV':'"production"'}});
 const fixture=()=>{
  window.nioh={};
- window.testCase={verified:true,version:'2.0.1.0',outcome:'unique',calls:[],installCalls:[],plan:null,serial:0,active:0,maxActive:0,accepted:false,events:0,delay:false,acceptError:null};
+ window.testCase={windowCalls:[],closeError:null,closeDelay:false,verified:true,version:'2.0.1.0',outcome:'unique',calls:[],installCalls:[],plan:null,serial:0,active:0,maxActive:0,accepted:false,events:0,delay:false,acceptError:null};
  window.addEventListener('nioh3:compatibility-accepted',()=>window.testCase.events++);
- window.review={gameInstallation:async action=>{
+ window.review={windowAction:async action=>{
+  const f=window.testCase;f.windowCalls.push(action);
+  if(action!=="close")throw Error("UNEXPECTED_WINDOW_ACTION");
+  if(f.closeError){const error=f.closeError;f.closeError=null;throw Error(error);}
+  if(f.closeDelay){f.closeDelay=false;await new Promise(resolve=>{f.releaseClose=resolve;});}
+  window.closeRuntime();
+ },gameInstallation:async action=>{
   const f=window.testCase;f.installCalls.push(action);if(f.installFailure){f.installFailure=false;throw Error('GAME_EXECUTABLE_UNREADABLE: fixture temporarily unavailable');}
   const known=['2.0.0.2','2.0.1.0','2.0.2.0'].includes(f.version),current=f.version==='2.0.2.0',missing=f.version===null;
   return{executable:missing?null:'D:/fixture/Nioh3.exe',file_version:f.version,restart_required:action!=='inspect',source:action==='reset'?'automatic':'selected',identity_error:missing?{code:'GAME_EXECUTABLE_NOT_FOUND',message:'GAME_EXECUTABLE_NOT_FOUND: fixture unavailable'}:null,compatibility:{status:missing?'unavailable':known?'known':'unknown',display_version:known?'PC '+f.version:null,data_version:known?current?'PC v2.02':'PC v2.00.02':null,resource_directory:known?current?'pc-v2.02':'pc-v2.00.02':null,runtime_profile:known?f.version:null,features:{offline_scroll_generation:known?'supported':missing?'unavailable':'unsupported',character_read_edit:known?current?'supported':'experimental':missing?'unavailable':'unsupported',native_scroll_add:known?current?'supported':f.version==='2.0.1.0'?'experimental':'unsupported':missing?'unavailable':'unsupported',native_equipment_add:known?current?'supported':'unsupported':missing?'unavailable':'unsupported'},reason:'Fixture-only registry evidence; no real-game acceptance'}};
@@ -32,6 +38,7 @@ const fixture=()=>{
    }
    if(p.action==='cancel'){f.accepted=false;f.plan=null;}
    if(p.action==='accept'){
+    if(f.acceptDelay){f.acceptDelay=false;await new Promise(resolve=>{f.releaseAccept=resolve;});}
     if(f.acceptError){const error=f.acceptError;f.acceptError=null;f.plan=null;throw Error(error);}
     if(!f.verified||!known||!f.plan||p.plan_id!==f.plan.plan_id||!p.confirmed||!p.backup_confirmed)throw Error('COMPATIBILITY_PLAN_MISMATCH');
     f.accepted=true;f.plan.audit_path='D:/fixture-consent/verified.json';
@@ -53,8 +60,8 @@ try{
  await page.locator('.runtime-compatibility-banner').waitFor();await page.locator('#caller-input').fill('Retain selected equipment and value 321');
  const dialog=page.locator('.compatibility-dialog'),accept=page.locator('[data-action=compatibility-accept]'),risk=page.locator('[data-action=compatibility-risk]'),backed=page.locator('[data-action=compatibility-backup]');
  const ready=async()=>{await dialog.waitFor();await page.waitForFunction(()=>document.querySelector('.compatibility-body')?.getAttribute('aria-busy')==='false');};
- const open=async()=>{await page.evaluate(()=>window.dispatchEvent(new Event('nioh3:compatibility-required')));await ready();};
- const close=async()=>{await page.locator('[data-action=compatibility-close]').click();await dialog.waitFor({state:'detached'});await page.waitForFunction(()=>window.testCase.calls.at(-1)?.params.action==='cancel'&&window.testCase.active===0);};
+ const open=async()=>{if(!await page.evaluate(()=>window.runtimeMounted)){const count=await page.evaluate(()=>window.testCase.calls.length);await page.evaluate(()=>window.mountRuntime());await page.waitForFunction(count=>window.testCase.calls.length>count&&window.testCase.active===0,count);}await page.evaluate(()=>window.dispatchEvent(new Event('nioh3:compatibility-required')));await ready();};
+ const close=async(action='compatibility-close')=>{const count=await page.evaluate(()=>window.testCase.windowCalls.length);await page.locator('[data-action='+action+']').click();await dialog.waitFor({state:'detached'});check(action+' requests normal window close',await page.evaluate(count=>window.testCase.windowCalls.length===count+1&&window.testCase.windowCalls.at(-1)==='close'&&!window.runtimeMounted,count));};
  const screenshot=async name=>{const path=join(out,name+'.png');await page.screenshot({path});report.screenshots.push(path);};
  for(const locale of ['zh-CN','en-US','ja-JP']){
   await page.evaluate(locale=>{window.setLocale(locale);window.testCase.reference=false;window.testCase.version='2.0.1.0';window.testCase.verified=true;window.mountInstallation();},locale);
@@ -84,7 +91,7 @@ try{
   await risk.check();await backed.check();
   const current=await page.evaluate(()=>window.testCase.plan.plan_id);await accept.click();await dialog.waitFor({state:'detached'});
   check(locale+' exact current plan and confirmations sent',await page.evaluate(id=>{const p=window.testCase.calls.at(-1).params;return p.action==='accept'&&p.plan_id===id&&p.confirmed&&p.backup_confirmed;},current));
-  await open();await close();check(locale+' close invalidates host plan',await page.evaluate(()=>!window.testCase.plan&&!window.testCase.accepted));
+  await open();check(locale+' enter/exit actions are explicit',(await accept.innerText())===({'zh-CN':'进入兼容模式','en-US':'Enter compatibility mode','ja-JP':'互換モードに入る'})[locale]&&(await page.locator('[data-action=compatibility-exit]').innerText())===({'zh-CN':'关闭工具','en-US':'Close tool','ja-JP':'ツールを終了'})[locale]);await close();await open();await close('compatibility-exit');
   await page.evaluate(()=>{window.testCase.verified=false;});await open();
   check(locale+' failed backup blocks confirmations and accept',await risk.isDisabled()&&await backed.isDisabled()&&await accept.isDisabled());
   check(locale+' failed backup has no force plan',await dialog.locator('.compatibility-plan').count()===0&&(await dialog.innerText()).includes('No automatic save found'));
@@ -132,11 +139,28 @@ try{
  await page.waitForFunction(()=>typeof window.testCase.release==='function');
  await page.waitForFunction(()=>document.querySelector('.compatibility-dialog')?.open===true);
  await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});
- await page.evaluate(()=>window.testCase.release());await page.waitForFunction(()=>window.testCase.calls.at(-1)?.params.action==='cancel'&&window.testCase.active===0);
- check('Escape during prepare ignores late plan',await dialog.count()===0&&await page.evaluate(()=>!window.testCase.plan));
- await open();check('reopen after cancelled late reply starts unchecked',!await risk.isChecked()&&!await backed.isChecked());
- await page.mouse.click(3,3);await dialog.waitFor({state:'detached'});await page.waitForFunction(()=>window.testCase.calls.at(-1)?.params.action==='cancel');
- check('outside click invalidates consent',await page.evaluate(()=>!window.testCase.plan&&!window.testCase.accepted));
+ await page.evaluate(()=>window.testCase.release());await page.waitForFunction(()=>window.testCase.active===0);
+ check('Escape during prepare requests close and ignores late renderer reply',await dialog.count()===0&&await page.evaluate(()=>window.testCase.windowCalls.at(-1)==='close'&&!window.runtimeMounted));
+ await open();check('new session after late reply starts unchecked',!await risk.isChecked()&&!await backed.isChecked());
+ const outsideCount=await page.evaluate(()=>window.testCase.windowCalls.length);await page.mouse.click(3,3);await dialog.waitFor({state:'detached'});
+ check('outside click requests tool close',await page.evaluate(count=>window.testCase.windowCalls.length===count+1&&!window.runtimeMounted,outsideCount));
+ await open();await page.evaluate(()=>{window.testCase.closeError='WINDOW_CLOSE_FAILED: fixture refusal';});
+ await page.locator('[data-action=compatibility-exit]').click();await page.waitForFunction(()=>document.querySelector('.compatibility-dialog .notice')?.textContent.includes('WINDOW_CLOSE_FAILED'));
+ check('close failure stays modal with explicit retry',await dialog.isVisible()&&await page.locator('[data-action=compatibility-exit]').isEnabled()&&await accept.isDisabled());
+ await page.locator('[data-action=compatibility-prepare]').click();await ready();
+ check('close failure requires fresh unchecked consent',!await risk.isChecked()&&!await backed.isChecked());
+ await page.evaluate(()=>{window.testCase.closeDelay=true;});const delayedCloseCount=await page.evaluate(()=>window.testCase.windowCalls.length);
+ await page.locator('[data-action=compatibility-exit]').click();await page.waitForFunction(()=>typeof window.testCase.releaseClose==='function');
+ check('pending shutdown retains blocking dialog and disables actions',await dialog.isVisible()&&await accept.isDisabled()&&await page.locator('[data-action=compatibility-prepare]').isDisabled()&&await page.locator('[data-action=compatibility-exit]').isDisabled());
+ const callsBeforeReopen=await page.evaluate(()=>window.testCase.calls.length);await page.keyboard.press('Escape');await page.mouse.click(3,3);await page.evaluate(()=>window.dispatchEvent(new Event('nioh3:compatibility-required')));
+ check('repeated close/reopen cannot duplicate shutdown or rebuild consent',await page.evaluate(({count,calls})=>window.testCase.windowCalls.length===count+1&&window.testCase.calls.length===calls,{count:delayedCloseCount,calls:callsBeforeReopen}));
+ await screenshot('pending-safe-shutdown');await page.evaluate(()=>window.testCase.releaseClose());await dialog.waitFor({state:'detached'});
+ await open();await risk.check();await backed.check();await page.evaluate(()=>{window.testCase.acceptDelay=true;window.testCase.closeDelay=true;});
+ const eventsBeforeClosing=await page.evaluate(()=>window.testCase.events);await accept.click();await page.waitForFunction(()=>typeof window.testCase.releaseAccept==='function');
+ await page.locator('[data-action=compatibility-exit]').click();await page.waitForFunction(()=>typeof window.testCase.releaseClose==='function');
+ await page.evaluate(()=>window.testCase.releaseAccept());await page.waitForFunction(()=>window.testCase.active===0);
+ check('late accepted reply cannot resume the caller during shutdown',await dialog.isVisible()&&await page.evaluate(count=>window.testCase.events===count,eventsBeforeClosing));
+ await page.evaluate(()=>window.testCase.releaseClose());await dialog.waitFor({state:'detached'});
  await page.evaluate(()=>{window.testCase.gone=true;});await open();
  check('game absent offers reconnect with consent disabled',await accept.isDisabled()&&await page.locator('[data-action=compatibility-prepare]').isEnabled());
  await page.evaluate(()=>{window.testCase.gone=false;});await page.locator('[data-action=compatibility-prepare]').click();await ready();
@@ -144,7 +168,7 @@ try{
  check('caller inputs survive cancel, failure and reconnect',await page.locator('#caller-input').inputValue()==='Retain selected equipment and value 321');
  check('only one native action runs at a time',await page.evaluate(()=>window.testCase.maxActive===1));
  check('fixtures never invoke protected writes',await page.evaluate(()=>window.testCase.calls.every(c=>c.method==='runtime.compatibility')));
- report.calls=await page.evaluate(()=>window.testCase.calls);report.pass=true;
+ report.calls=await page.evaluate(()=>window.testCase.calls);report.windowCalls=await page.evaluate(()=>window.testCase.windowCalls);report.pass=true;
 }catch(error){report.error=error.stack||String(error);}
 finally{await browser?.close();await new Promise(r=>server.close(r));await writeFile(join(out,'compatibility-ui.json'),JSON.stringify(report,null,2));}
 console.log(JSON.stringify({pass:report.pass,checks:report.checks.length,out,profile:root,error:report.error}));if(!report.pass)process.exitCode=1;

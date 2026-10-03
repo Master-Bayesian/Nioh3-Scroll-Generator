@@ -1047,6 +1047,9 @@ mod imp {
             let process_id = memory.process().pid;
             Ok(match selection {
                 MenuSelection::Closed => json!({ "process_id": process_id, "menu_open": false }),
+                MenuSelection::NoSelection => {
+                    json!({ "process_id": process_id, "menu_open": true, "slot_index": null })
+                }
                 MenuSelection::Equipment {
                     slot_index,
                     item_id,
