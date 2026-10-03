@@ -31,11 +31,11 @@ export function GameInstallation({compact=false}:{compact?:boolean}){
  const status=install?.compatibility.status;
  const features=install?(Object.keys(featureNames) as (keyof typeof featureNames)[]):[];
  const limited=features.filter(key=>install!.compatibility.features[key]!=="supported");
- return <div className={"game-install"+(compact?" game-install-compact":"")} data-status={status}>
+ return <div className={"game-install"+(compact?" game-install-compact":"")}>
   {install&&<>
    <div className="game-install-summary">
     <strong>{status==="known"?install.compatibility.display_version||install.file_version:status==="unknown"?"尚未适配此版本":"未找到游戏"}</strong>
-    <span className="game-install-badge" data-status={status}>{status==="known"?(limited.length?"部分功能受限":"已识别"):status==="unknown"?"未适配":"无法判断"}</span>
+    <span className="game-install-badge" data-badge={status}>{status==="known"?(limited.length?"部分功能受限":"已识别"):status==="unknown"?"未适配":"无法判断"}</span>
     <span className="game-install-source">{install.source==="selected"?"手动选择":"自动发现"}</span>
    </div>
    {install.executable&&<p className="game-install-path" title={install.executable}>{pathText(install.executable)}</p>}
@@ -46,7 +46,7 @@ export function GameInstallation({compact=false}:{compact?:boolean}){
   <div className="game-install-actions"><button data-action="inspect-game-executable" disabled={busy} onClick={()=>void action("inspect")}>重新检测</button><button data-action="select-game-executable" disabled={busy} onClick={()=>void action("select")}>选择游戏程序</button>{!compact&&install?.source==="selected"&&<button data-action="reset-game-executable" disabled={busy} onClick={()=>void action("reset")}>恢复自动查找</button>}</div>
   {!compact&&!install&&<p className="settings-note">自动查找 Steam 安装；其他安装方式可手动选择实际的 Nioh3.exe。</p>}
   <Notice text={message} installationRecovery={false}/>
-  {install&&<details className="game-install-details">
+  {install&&<details className="game-install-details" open={status!=="known"}>
    <summary>版本详情</summary>
    <section className="game-install-compatibility" data-status={status} aria-label="版本兼容范围">
     <dl className="game-install-profile">

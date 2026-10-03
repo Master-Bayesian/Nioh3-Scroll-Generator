@@ -16,7 +16,7 @@ import { desktop } from "./desktop-bridge";
 import { fillTemplateSlots, plainGameText } from "./game-text";
 import { Notice } from "./Notice";
 import { LiveEquipmentAdd } from "./LiveEquipmentAdd";
-import { ADD_CATALOG, ADD_TYPES, FacetFilter, MAJOR_ORDER, TYPE_ORDER, byOrder, facetsOf, itemCatalog, kindOf } from "./equipment-facets";
+import { ADD_CATALOG, ADD_TYPES, FacetFilter, MAJOR_ORDER, TYPE_ORDER, byOrder, facetsOf, itemCatalog, kindOf, nameLabel } from "./equipment-facets";
 import { errorText, publicError, stripErrorPrefix } from "./public-errors";
 import { SavePicker } from "./CartActions";
 import { runtimeObserver, saveObserver, saveSession } from "./save-workspace";
@@ -409,6 +409,12 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     const name = itemCatalog[String(id)]?.[0] || "";
     if (!name) return "未收录物品 " + hex(id);
     return showIds ? name + " " + hex(id) : name;
+  };
+  // Item names are Chinese catalog text; React.createElement keeps them out of
+  // the UI translator, which would otherwise replace substrings such as 忍者.
+  const itemLabel = (id: number) => {
+    const name = itemCatalog[String(id)]?.[0];
+    return name ? React.createElement(React.Fragment, null, nameLabel(name), showIds ? " " + hex(id) : null) : itemText(id);
   };
   const skillText = (id: number) => {
     if (!id) return "无";
@@ -1394,7 +1400,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
                 className={entry.slot_index === selected ? "selected" : ""} onClick={() => selectEquipment(entry)}>
                 <td className="character-item-cell">
                   <span className="character-item-name">
-                    {itemText(entry.item_id)}
+                    {itemLabel(entry.item_id)}
                     {entry.hell ? <span className="character-hell">地狱</span> : null}
                     {entry.worn ? <span className="character-worn" title="正在装备中，不能移除">装备中</span> : null}
                     {entry.slot_index === selected && dirty ? <span className="character-dirty" title="右侧有未应用的修改">未应用</span> : null}
@@ -1442,7 +1448,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
             return (
               <tr key={entry.item_id} data-row={"items-" + entry.item_id}
                 className={entry.item_id === selectedItem ? "selected" : ""} onClick={() => selectItem(entry)}>
-                <td className="character-item-name">{itemText(entry.item_id)}</td>
+                <td className="character-item-name">{itemLabel(entry.item_id)}</td>
                 <td className="character-kind">{b || a}</td>
                 <td className="character-num">{quantityText(entry.held)}</td>
                 <td className="character-num">{quantityText(entry.storage)}</td>
@@ -1479,7 +1485,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
             {addCandidates.map(item => (
               <tr key={item.id} data-row={"add-" + item.id}
                 className={newItem?.item_id === item.id ? "selected" : ""} onClick={() => chooseNewItem(item.id)}>
-                <td className="character-item-name">{item.name}{showIds ? <small> {hex(item.id)}</small> : null}</td>
+                <td className="character-item-name">{nameLabel(item.name)}{showIds ? <small> {hex(item.id)}</small> : null}</td>
                 <td className="character-kind">{[item.type || item.major, item.school].filter(Boolean).join(" · ")}</td>
               </tr>
             ))}
@@ -1503,7 +1509,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       <ul className="character-plan-lines">
         {queue.map(entry => (
           <li key={entry.key}>
-            {itemText(entry.request.item_id)}（Lv.{entry.request.level}，稀有度 {entry.request.rarity}
+            {itemLabel(entry.request.item_id)}（Lv.{entry.request.level}，稀有度 {entry.request.rarity}
             {entry.request.hell ? "，地狱武器" : ""}
             {entry.request.seed != null ? "，第 " + entry.request.difficulty + " 难度生成" : ""}）
             {entry.modded ? <span className="character-unnatural">魔改</span> : <span className="character-muted">合法</span>}
@@ -1578,7 +1584,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     <div className="character-detail">
       <div className="character-detail-head">
         <h3>
-          {itemText(row.item_id)}
+          {itemLabel(row.item_id)}
           {adding ? <span className="character-new">新增</span> : null}
           {row.hell ? <span className="character-hell">地狱</span> : null}
           {row.worn ? <span className="character-worn" title="正在装备中，不能移除">装备中</span> : null}
@@ -1730,13 +1736,13 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         <div className="modal-body">
           {character?.mode === "live" ? (
             <>
-              <p>确定要从游戏里移除「{itemText(row.item_id)}」（Lv.{row.level}）吗？</p>
+              <p>确定要从游戏里移除「{itemLabel(row.item_id)}」（Lv.{row.level}）吗？</p>
               <p>移除后它会立即从游戏的装备栏里消失，无法恢复。到神社存档后，这个改动才会写进存档文件。</p>
               <p className="muted">正在装备中的物品不能移除。</p>
             </>
           ) : (
             <>
-              <p>确定要从存档里移除「{itemText(row.item_id)}」（Lv.{row.level}）吗？</p>
+              <p>确定要从存档里移除「{itemLabel(row.item_id)}」（Lv.{row.level}）吗？</p>
               {row.worn && <p>它正在装备中，移除时会一并从装备栏卸下。</p>}
               <p>点“确认移除”后会先生成修改计划；核对后点“写入存档”才会真正写入。写入前会自动备份原存档，游戏停在标题界面即可，无需关闭。</p>
             </>
@@ -1759,7 +1765,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const itemDetail = itemRow ? (
     <div className="character-detail">
       <div className="character-detail-head">
-        <h3>{itemText(itemRow.item_id)}</h3>
+        <h3>{itemLabel(itemRow.item_id)}</h3>
         <span className={"character-draft-state" + (dirty ? " changed" : "")}
           data-draft-state={dirty ? "changed" : "unchanged"}>{dirty ? "有未应用的修改" : "尚未修改"}</span>
         <span className="character-muted">{itemGroups(itemRow.item_id, null).filter(Boolean).slice(0, 2).join(" · ")}</span>

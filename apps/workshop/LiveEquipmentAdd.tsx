@@ -1,11 +1,12 @@
-import React, {useEffect, useMemo, useRef, useState} from "react";
+import React, {useEffect, useMemo, useRef, useState, useSyncExternalStore} from "react";
 import type {EquipmentAddition} from "../../packages/contracts/protected-responses";
-import {ADD_CATALOG,ADD_TYPES,FacetFilter,MAJOR_ORDER} from "./equipment-facets";
+import {ADD_CATALOG,ADD_TYPES,FacetFilter,MAJOR_ORDER,nameLabel} from "./equipment-facets";
 import {data} from "./model";
 import {plainGameText} from "./game-text";
 import {Notice} from "./Notice";
 import {errorText} from "./public-errors";
-import {runtimeObserver} from "./save-workspace";
+import {runtimeObserver, saveSession} from "./save-workspace";
+import {SavePicker} from "./CartActions";
 import "../desktop/src/operations-api";
 
 type Addition=EquipmentAddition["equipment_add"];
@@ -14,7 +15,7 @@ const catalog=ADD_CATALOG;
 const effectName=(id:number)=>data.editorEffects.find(row=>row.id===String(id))?.name||`0x${id.toString(16).toUpperCase()}`;
 // This catalog has Chinese item names only. Keep exact game names instead of
 // translating their substrings as unrelated interface terms.
-const itemName=(id:number)=>React.createElement("span",{lang:"zh-CN"},plainGameText(catalog.find(row=>row.id===id)?.name||String(id)));
+const itemName=(id:number)=>{const name=catalog.find(row=>row.id===id)?.name;return name?nameLabel(plainGameText(name)):String(id);};
 function storedOperation():string|null {
   const value=localStorage.getItem(STORAGE);
   if(!value)return null;
@@ -32,7 +33,9 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
   const [query,setQuery]=useState(""),[kind,setKind]=useState(""),[type,setType]=useState(""),[school,setSchool]=useState("");
   const [item,setItem]=useState<number|null>(null);
   const [level,setLevel]=useState("180"),[plus,setPlus]=useState("20"),[rarity,setRarity]=useState("4"),[seed,setSeed]=useState("0");
-  const [backupPath,setBackupPath]=useState("");
+  // The checkpoint backs up the save chosen in the shared picker; with none chosen the worker picks the only save.
+  const save=useSyncExternalStore(saveSession?saveSession.subscribe:()=>()=>{},saveSession?saveSession.getSnapshot:()=>null);
+  const backupPath=save?.selected?.path??"";
   const [recoveryMessage,setRecoveryMessage]=useState("");
   const [operation,setOperation]=useState<string|null>(null),[result,setResult]=useState<Addition|null>(null);
   const [busy,setBusy]=useState(false),[confirmed,setConfirmed]=useState(false),[message,setMessage]=useState("");
@@ -114,8 +117,8 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
       <div className="live-equipment-form">
         <h3>{item===null?"请选择装备":itemName(item)}</h3>
         <div className="live-equipment-fields">{([["level","等级",level,setLevel],["plus","强化值",plus,setPlus],["rarity","稀有度",rarity,setRarity],["seed","生成种子",seed,setSeed]] as const).map(([key,label,value,setter])=><label key={key}><span>{label}</span><input data-field={key} inputMode="numeric" value={value} disabled={locked} onChange={event=>setter(event.target.value)}/></label>)}</div>
-        <div className="live-equipment-fields"><label style={{gridColumn:"1 / -1"}}><span>要备份的存档路径</span><input data-field="backup-path" value={backupPath} disabled={locked} aria-describedby="equipment-backup-hint" onChange={event=>setBackupPath(event.target.value)}/></label></div>
-        <p id="equipment-backup-hint" className="equipment-notes">留空时自动选择唯一存档；多个存档时填写当前角色的 SAVEDATA.BIN 路径。</p>
+        {saveSession&&<fieldset className="live-equipment-save" disabled={locked}><SavePicker compact refresh={false}/></fieldset>}
+        <p className="equipment-notes">添加前会备份上面选中的存档。</p>
         <p className="equipment-notes">种子范围为 0–65535。不同种子会得到不同词条；预览没有想要的结果时，可取消后换种子。</p>
         <button data-action="prepare-equipment" className="primary" disabled={!valid||locked} onClick={prepare}>生成实时预览</button>
         <Notice text={message}/>

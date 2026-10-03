@@ -1,5 +1,18 @@
 import React from "react";
 import itemNames from "./item-names.json";
+import { localizeName } from "./presentation";
+
+/**
+ * A catalog name for display: its exact translation when the locale has one,
+ * otherwise the Chinese name. React.createElement keeps it out of the JSX
+ * translator, which would replace substrings inside the name.
+ */
+export function nameLabel(name: string) {
+  const translated = localizeName(name);
+  return translated != null
+    ? React.createElement("span", null, translated)
+    : React.createElement("span", { lang: "zh-CN" }, name);
+}
 
 /** Equipment grouping shared by the inventory, the save-file add list and the live add list. */
 export const itemCatalog = (itemNames as { items: Record<string, string[]> }).items;

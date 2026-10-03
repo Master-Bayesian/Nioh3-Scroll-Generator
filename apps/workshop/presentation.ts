@@ -32,6 +32,16 @@ const plainGameText = (text: string) =>
   fillTemplateSlots(plainText(text), slotWord("增益效果"), slotWord("异常状态"));
 const maps = new Map<string, Record<string, string>>(),
   patterns = new Map<string, RegExp>();
+/**
+ * A whole game name in the current locale, or null when the locale has no
+ * exact entry. Names must not be translated piecewise: a substring such as
+ * 忍者 or 无 inside an item name is not the interface word.
+ */
+export function localizeName(text: string): string | null {
+  if (locale === "zh-CN" || !text) return text;
+  localize(text);
+  return maps.get(locale)?.[text.trim()] ?? null;
+}
 export function localize(text: string): string {
   text=text.replace(/\s+/g,' ');
   text = publicError(text);

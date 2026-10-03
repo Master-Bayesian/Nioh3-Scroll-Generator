@@ -86,11 +86,11 @@ export function publicError(message: string): string {
   const infeasible = message.match(/no solution in the native generation structure: ([\s\S]*)$/);
   if (infeasible) return infeasibleConditions(infeasible[1]);
   const cases: [RegExp, string][] = [
-    [/EQUIPMENT_BACKUP_SOURCE_REQUIRED/, "发现多个存档。读取添加状态并确认本次未执行后，点击“准备另一件装备”，在“要备份的存档路径”填写当前角色的 SAVEDATA.BIN 源文件路径，再生成预览；不要填写备份副本路径。"],
-    [/No save was found under .*expected <account>\/SAVEDATAxx\/SAVEDATA\.BIN/i, "未找到可读的角色存档。请查看技术详情中的搜索目录，在游戏中创建存档或恢复目录访问后重试；实时添加装备也可填写“要备份的存档路径”。"],
+    [/EQUIPMENT_BACKUP_SOURCE_REQUIRED/, "发现多个存档。读取添加状态并确认本次未执行后，点击“准备另一件装备”，在“目标存档”里选中当前角色的存档，再生成预览。"],
+    [/No save was found under .*expected <account>\/SAVEDATAxx\/SAVEDATA\.BIN/i, "未找到可读的角色存档。请查看技术详情中的搜索目录，在游戏中创建存档或恢复目录访问后重试；也可以在“目标存档”旁点“手动定位”选择存档。"],
     [/Source save (?:changed during backup|changed after equipment preparation)|Source save cannot be read at .*Cancel this equipment plan/i, "源存档已变化或无法读取。请查看技术详情中的源文件路径，等待游戏存档完成并恢复文件访问，再核对或取消旧操作并重新准备。结果不明时先恢复核对，不要重复添加。"],
     [/Verified backup (?:changed after equipment preparation|cannot be read at .*Cancel this equipment plan)|Automatic save backup verification failed/i, "备份副本未通过校验或无法读取。请查看技术详情中的备份路径并恢复访问，再核对或取消旧操作并重新准备，生成新的已验证备份。结果不明时先恢复核对，不要重复添加。"],
-    [/Equipment save checkpoint (?:is missing|belongs to another operation|has an invalid source hash|cannot read|must be a separate backup file)|A verified save checkpoint is required before equipment preview/i, "本次装备操作缺少有效的备份记录。请查看技术详情中的具体原因，核对或取消旧操作后，在“要备份的存档路径”填写当前角色的源存档并重新准备。结果不明时先恢复核对，不要重复添加。"],
+    [/Equipment save checkpoint (?:is missing|belongs to another operation|has an invalid source hash|cannot read|must be a separate backup file)|A verified save checkpoint is required before equipment preview/i, "本次装备操作缺少有效的备份记录。请查看技术详情中的具体原因，核对或取消旧操作后，在“目标存档”里选中当前角色的存档并重新准备。结果不明时先恢复核对，不要重复添加。"],
     [/COMPATIBILITY_IDENTITY_CHANGED/,"游戏进程或程序身份已变化。请查看兼容提示，重新连接并准备新计划。结果不明的写入必须先核对恢复凭据，不能直接重试。"],
     // The Rust save and runtime layers report in English; these restore the
     // explanations the Python backend gave players for the same refusals.

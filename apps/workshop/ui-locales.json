@@ -5192,10 +5192,6 @@
       "Return to previous operation",
       "元の操作に戻る"
     ],
-    "要备份的存档路径": [
-      "Source save path for backup",
-      "バックアップ元セーブデータのパス"
-    ],
     "留空时自动选择唯一存档；多个存档时填写当前角色的 SAVEDATA.BIN 路径。": [
       "Leave blank to select the only save automatically. If there are multiple saves, enter the current character's SAVEDATA.BIN path.",
       "空欄の場合は唯一のセーブデータを自動選択します。複数ある場合は、現在のキャラクターの SAVEDATA.BIN のパスを入力してください。"
@@ -5228,13 +5224,13 @@
       "The backup for this compatibility plan has not passed verification. Resolve the backup issue and retry; checking a box cannot bypass this requirement.",
       "この互換性プランのバックアップは検証が完了していません。問題を解決して再試行してください。チェックを入れても、この条件は省略できません。"
     ],
-    "发现多个存档。读取添加状态并确认本次未执行后，点击“准备另一件装备”，在“要备份的存档路径”填写当前角色的 SAVEDATA.BIN 源文件路径，再生成预览；不要填写备份副本路径。": [
-      "Multiple saves were found. Read the addition status and confirm that nothing was executed, then choose “Prepare another item”. Enter the current character's original SAVEDATA.BIN in “Source save path for backup” and generate a preview; do not enter a backup copy path.",
-      "複数のセーブデータが見つかりました。追加状態を読み取り、未実行を確認してから「別の装備を準備」を選びます。「バックアップ元セーブデータのパス」に現在のキャラクターの SAVEDATA.BIN の元ファイルを入力し、プレビューを生成してください。バックアップのコピーは指定しないでください。"
+    "发现多个存档。读取添加状态并确认本次未执行后，点击“准备另一件装备”，在“目标存档”里选中当前角色的存档，再生成预览。": [
+      "Multiple saves were found. Read the addition status and confirm that nothing was executed, then choose “Prepare another item”, pick the current character's save under “Target save” and generate a preview.",
+      "複数のセーブデータが見つかりました。追加状態を読み取り、未実行を確認してから「別の装備を準備」を選び、「対象セーブ」で現在のキャラクターのセーブを選んでプレビューを生成してください。"
     ],
-    "未找到可读的角色存档。请查看技术详情中的搜索目录，在游戏中创建存档或恢复目录访问后重试；实时添加装备也可填写“要备份的存档路径”。": [
-      "No readable character save was found. Check the search folder in Technical details, create a save in game or restore folder access, then retry. For live equipment addition, you can also enter “Source save path for backup”.",
-      "読み取り可能なキャラクターのセーブデータが見つかりません。技術詳細の検索先を確認し、ゲームでセーブするかフォルダーへのアクセスを復旧して再試行してください。装備のリアルタイム追加では「バックアップ元セーブデータのパス」も指定できます。"
+    "未找到可读的角色存档。请查看技术详情中的搜索目录，在游戏中创建存档或恢复目录访问后重试；也可以在“目标存档”旁点“手动定位”选择存档。": [
+      "No readable character save was found. Check the search folder in Technical details, create a save in game or restore folder access, then retry. You can also choose “Browse…” next to “Target save” to pick the save.",
+      "読み取り可能なキャラクターのセーブデータが見つかりません。技術詳細の検索先を確認し、ゲームでセーブするかフォルダーへのアクセスを復旧して再試行してください。「対象セーブ」の横の「手動で指定」からセーブを選ぶこともできます。"
     ],
     "源存档已变化或无法读取。请查看技术详情中的源文件路径，等待游戏存档完成并恢复文件访问，再核对或取消旧操作并重新准备。结果不明时先恢复核对，不要重复添加。": [
       "The source save changed or cannot be read. Check its path in Technical details, wait for the game to finish saving and restore file access, then verify or cancel the old operation and prepare again. If the result is unknown, recover verification first; do not repeat the addition.",
@@ -5244,9 +5240,9 @@
       "The backup copy failed verification or cannot be read. Check its path in Technical details and restore access, then verify or cancel the old operation and prepare again to create a new verified backup. If the result is unknown, recover verification first; do not repeat the addition.",
       "バックアップのコピーが検証に失敗したか、読み取れません。技術詳細でバックアップのパスを確認してアクセスを復旧し、前の操作を確認またはキャンセルしてから準備し直して、新しい検証済みバックアップを作成してください。結果が不明な場合は先に復旧確認を行い、追加を繰り返さないでください。"
     ],
-    "本次装备操作缺少有效的备份记录。请查看技术详情中的具体原因，核对或取消旧操作后，在“要备份的存档路径”填写当前角色的源存档并重新准备。结果不明时先恢复核对，不要重复添加。": [
-      "This equipment operation has no valid backup record. Check the cause in Technical details, verify or cancel the old operation, then enter the current character's source save in “Source save path for backup” and prepare again. If the result is unknown, recover verification first; do not repeat the addition.",
-      "今回の装備操作には有効なバックアップ記録がありません。技術詳細で原因を確認し、前の操作を確認またはキャンセルしてから、「バックアップ元セーブデータのパス」に現在のキャラクターの元セーブデータを指定して準備し直してください。結果が不明な場合は先に復旧確認を行い、追加を繰り返さないでください。"
+    "本次装备操作缺少有效的备份记录。请查看技术详情中的具体原因，核对或取消旧操作后，在“目标存档”里选中当前角色的存档并重新准备。结果不明时先恢复核对，不要重复添加。": [
+      "This equipment operation has no valid backup record. Check the cause in Technical details, verify or cancel the old operation, then pick the current character's save under “Target save” and prepare again. If the result is unknown, recover verification first; do not repeat the addition.",
+      "今回の装備操作には有効なバックアップ記録がありません。技術詳細で原因を確認し、前の操作を確認またはキャンセルしてから、「対象セーブ」で現在のキャラクターのセーブを選んで準備し直してください。結果が不明な場合は先に復旧確認を行い、追加を繰り返さないでください。"
     ],
     "关闭工具": [
       "Close tool",
@@ -5439,6 +5435,10 @@
     "生成一个反馈文件（包含版本信息和最近的操作记录，不含存档内容）": [
       "Creates a feedback file (version information and recent activity, no save data)",
       "フィードバックファイルを作成します（バージョン情報と最近の操作記録を含み、セーブデータは含みません）"
+    ],
+    "添加前会备份上面选中的存档。": [
+      "The save selected above is backed up before the addition.",
+      "追加の前に、上で選んだセーブをバックアップします。"
     ]
   },
   "game": {

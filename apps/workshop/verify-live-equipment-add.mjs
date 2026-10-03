@@ -21,6 +21,8 @@ const fixture=()=>{
  window.nioh={};window.review={};
  const empty=(id,state)=>({operation_id:id,plan_digest:null,state,process_id:42,slot_index:null,error:null,preview:null});
  window.operations={current:async()=>({job:null,busy:false}),snapshot:async(role,id)=>window.__jobs[id],execute:async command=>{
+  // The shared save picker scans for saves; this fixture has none.
+  if(command.method==='save.discover')return{saves:[]};
   window.__calls.push(command);const p=command.params,id=p.operation_id;
   if(command.method==='runtime.equipment_add_prepare'){
    if(!localStorage.getItem('nioh3-live-equipment-add'))throw Error('UUID_NOT_PERSISTED');
@@ -51,30 +53,27 @@ try{
  for(const locale of ['zh-CN','en-US','ja-JP']){
   const page=await browser.newPage();await page.addInitScript(locale=>{localStorage.clear();localStorage.setItem('nioh3-ui-locale',locale)},locale);
   await page.goto('http://127.0.0.1:'+server.address().port);
-  const backup=page.locator('[data-field=backup-path]'),prepare=page.locator('[data-action=prepare-equipment]'),next=page.locator('[data-action=new-equipment]');
+  const backup=page.locator('[data-field=seed]'),prepare=page.locator('[data-action=prepare-equipment]'),next=page.locator('[data-action=new-equipment]');
   const settled=state=>page.waitForFunction(state=>document.querySelector('[data-state="'+state+'"]')&&!document.querySelector('[data-action=status-equipment]')?.disabled,state);
   const resetCalls=()=>page.evaluate(()=>{window.__calls=[];});
   const calls=()=>page.evaluate(()=>window.__calls.map(c=>({method:c.method,id:c.params.operation_id,path:c.params.save_path})));
   check(locale+' heading localized',(await page.locator('.live-equipment-add>h2').innerText())===({'zh-CN':'实时添加装备','en-US':'Add equipment live','ja-JP':'装備をリアルタイムで追加'})[locale]);
-  check(locale+' backup label localized',(await backup.locator('..').locator('span').innerText())===({'zh-CN':'要备份的存档路径','en-US':'Source save path for backup','ja-JP':'バックアップ元セーブデータのパス'})[locale]);
   await page.locator('[data-action=pick-equipment]').first().click();
   await page.locator('[data-field=seed]').fill('65536');check(locale+' numeric validation retained',await prepare.isDisabled());
-  await page.locator('[data-field=seed]').fill('123');await backup.fill('   ');await prepare.click();await settled('prepared');
-  check(locale+' blank backup path omitted',await page.evaluate(()=>!Object.hasOwn(window.__calls[0].params,'save_path')));
+  await page.locator('[data-field=seed]').fill('123');await prepare.click();await settled('prepared');
+  check(locale+' no selected save omits save_path',await page.evaluate(()=>!Object.hasOwn(window.__calls[0].params,'save_path')));
   check(locale+' backup input locked with prepared operation',await backup.isDisabled());
   check(locale+' preview does not add without confirmation',await page.locator('[data-action=execute-equipment]').isDisabled()&&!await page.evaluate(()=>window.__calls.some(c=>c.method.endsWith('_execute'))));
   await page.locator('[data-action=cancel-equipment]').click();await settled('cancelled');await next.click();
-  const userPath='  D:/fixture-saves/account-123/SAVEDATA00/SAVEDATA.BIN  ';
-  await backup.fill(userPath);await resetCalls();await page.evaluate(()=>{window.__fault='rejected';});await prepare.click();await settled('rejected_before_dispatch');
+  await resetCalls();await page.evaluate(()=>{window.__fault='rejected';});await prepare.click();await settled('rejected_before_dispatch');
   const rejected=await calls();
   check(locale+' rejected prepare automatically reads same UUID once',rejected.length===2&&rejected[0].method.endsWith('_prepare')&&rejected[1].method.endsWith('_status')&&rejected[0].id===rejected[1].id);
-  check(locale+' explicit backup path trimmed and sent',rejected[0].path===userPath.trim());
   check(locale+' prewrite refusal allows next preparation',await next.isEnabled()&&await page.locator('[data-action=execute-equipment]').count()===0);
-  check(locale+' source selection refusal gives localized recovery',(await page.locator('.live-equipment-form .notice p').first().innerText()).includes(({'zh-CN':'要备份的存档路径','en-US':'Source save path for backup','ja-JP':'バックアップ元セーブデータのパス'})[locale]));
+  check(locale+' source selection refusal gives localized recovery',(await page.locator('.live-equipment-form .notice p').first().innerText()).includes(({'zh-CN':'目标存档','en-US':'Target save','ja-JP':'対象セーブ'})[locale]));
   check(locale+' exact backend error retained in technical details',(await page.locator('.live-equipment-form .notice code').allTextContents()).join(' ').includes('EQUIPMENT_BACKUP_SOURCE_REQUIRED'));
-  check(locale+' path and requested seed retained',await backup.inputValue()===userPath&&await page.locator('[data-field=seed]').inputValue()==='123');
-  await backup.scrollIntoViewIfNeeded();const shot=join(output,'equipment-'+locale+'-backup-recovery.png');await page.screenshot({path:shot,fullPage:true});report.screenshots.push(shot);
-  await next.click();check(locale+' next preparation retains editable input',await backup.isEnabled()&&await backup.inputValue()===userPath);
+  check(locale+' requested seed retained',await page.locator('[data-field=seed]').inputValue()==='123');
+  await prepare.scrollIntoViewIfNeeded();const shot=join(output,'equipment-'+locale+'-backup-recovery.png');await page.screenshot({path:shot,fullPage:true});report.screenshots.push(shot);
+  await next.click();check(locale+' next preparation retains editable input',await backup.isEnabled()&&await backup.inputValue()==='123');
   await resetCalls();await prepare.click();await settled('prepared');await page.locator('[data-action=confirm-equipment]').check();await page.evaluate(()=>{window.__lost=true;});await page.locator('[data-action=execute-equipment]').click();await settled('verified');
   const lost=await calls();
   check(locale+' lost execute reply reads receipt without replay',lost.map(c=>c.method).join('|')==='runtime.equipment_add_prepare|runtime.equipment_add_execute|runtime.equipment_add_status'&&lost.every(c=>c.id===lost[0].id));
@@ -86,7 +85,7 @@ try{
   await page.locator('#mount').click();await page.locator('#mount').click();await settled('uncertain');
   check(locale+' remount only inspects retained UUID',await page.evaluate(id=>window.__calls.at(-1).method.endsWith('_status')&&window.__calls.at(-1).params.operation_id===id,unknownId));
   await page.evaluate(()=>{window.__recoverState='cancelled';});await page.locator('[data-action=recover-equipment]').click();await settled('cancelled');await next.click();
-  await page.locator('[data-action=pick-equipment]').first().click();await backup.fill(userPath);
+  await page.locator('[data-action=pick-equipment]').first().click();
   await resetCalls();await page.evaluate(()=>{window.__fault='rejected';window.__statusError='STATUS_READ_FAILED: fixture receipt unreadable';});await prepare.click();await settled('uncertain');
   const failedStatus=await calls();
   check(locale+' failed receipt query remains fenced',failedStatus.length===2&&failedStatus[1].method.endsWith('_status')&&await next.count()===0&&await backup.isDisabled());

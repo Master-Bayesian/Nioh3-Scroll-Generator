@@ -1264,7 +1264,7 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .game-install-summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .game-install-summary>strong{font-size:14px}
 .game-install-badge{padding:1px 8px;border-radius:10px;font-size:11px;background:#e1ece4;color:#2f6b47}
-.game-install-badge[data-status=unknown],.game-install-badge[data-status=unavailable]{background:#f8e7d3;color:#8a5317}
+.game-install-badge[data-badge=unknown],.game-install-badge[data-badge=unavailable]{background:#f8e7d3;color:#8a5317}
 .game-install-source{margin-left:auto;font-size:11px;color:#7a8a9b}
 .game-install-path{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#5b6e82}
 .game-install-path code{font-size:11px}
@@ -1317,3 +1317,6 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 /* v0.8.4: favorites is a page like the others (#20) */
 .favorites-page{grid-column:2/4;display:flex;flex-direction:column;min-height:0;padding:16px 20px;overflow:hidden}
 .favorites-page>.favorites-review>.compare-grid{grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:16px}
+/* v0.8.4: long sidebar labels (e.g. "Equipment & items") wrap inside the highlight */
+.nav nav button{min-width:0}
+.nav nav button>span:last-child{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:1.25}
