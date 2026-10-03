@@ -89,7 +89,8 @@ jobs:
       - name: Verify Rust domain behavior and Python parity
         shell: pwsh
         run: |
-          $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'nioh3-migration-target'
+          $env:NIOH3_BUILD_ROOT = Join-Path $env:RUNNER_TEMP 'nioh3-migration-build'
+          $env:CARGO_TARGET_DIR = Join-Path $env:NIOH3_BUILD_ROOT 'cargo-target'
           cargo fetch --locked --manifest-path crates/nioh3-data/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo fetch --locked --manifest-path crates/nioh3-worker/Cargo.toml

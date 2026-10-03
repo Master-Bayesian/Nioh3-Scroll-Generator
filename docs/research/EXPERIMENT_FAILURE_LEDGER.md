@@ -1,5 +1,19 @@
 # Experiment failure ledger
 
+## 2026-10-03: protected size fixture also needs its declared root in source CI
+
+**Observed:** local host_save_size_boundary rejects a missing NIOH3_BUILD_ROOT
+before any operation; after declaring it, all remaining protected targets pass.
+The rust-crates CI step also lacks that required variable, a deterministic
+prerequisite that earlier Clippy exits prevented it from reaching. This is an
+environment defect, not a save-size or title-state regression.
+**Repair:** declare a task-owned root below RUNNER_TEMP and put the existing
+Cargo target below it in the source-CI step. Keep all fixture refusal/deadline
+checks, pinned Actions, permissions and release-signing controls unchanged.
+The newly started e548130 task runs are superseded/cancelled before promotion;
+freeze this workflow correction before the next final dispatch. Product code
+and already verified native/save boundaries are unchanged by this correction.
+
 ## 2026-10-03: remaining hosted Rust lint gates after the first repair
 
 **Observed:** 0647aea preparation run 37151088632 passes the full required release
