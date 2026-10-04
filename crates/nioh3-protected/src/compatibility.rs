@@ -499,7 +499,35 @@ fn backup(root: &Path, sources: &[PathBuf]) -> Result<VerifiedBackup, String> {
         manifest_sha256: format!("{:x}", Sha256::digest(&bytes)),
     };
     verified.verify()?;
+    prune_backups(&parent, &directory);
     Ok(verified)
+}
+
+/// Compatibility backups kept besides the current one. A consent needs only
+/// its own backup; ordinary save writes keep separate per-operation backups.
+const KEPT_COMPATIBILITY_BACKUPS: usize = 3;
+
+/// Remove all but the newest compatibility backups. Accepting compatibility
+/// for every new game process otherwise adds a full copy of every save each
+/// launch. Directory names start with a fixed-width nanosecond timestamp.
+fn prune_backups(parent: &Path, current: &Path) {
+    let Ok(entries) = std::fs::read_dir(parent) else {
+        return;
+    };
+    let mut directories: Vec<PathBuf> = entries
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
+        .map(|entry| entry.path())
+        .filter(|path| path != current)
+        .collect();
+    directories.sort();
+    let excess = directories
+        .len()
+        .saturating_sub(KEPT_COMPATIBILITY_BACKUPS - 1);
+    for old in directories.into_iter().take(excess) {
+        // Best effort: a copy that cannot be removed now is retried next time.
+        let _ = std::fs::remove_dir_all(old);
+    }
 }
 fn persist_consent(
     plan: &PendingPlan,
@@ -579,4 +607,28 @@ pub fn running_identity() -> Result<ExecutableIdentity, HostError> {
         version,
         sha256,
     })
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod prune_tests {
+    use super::*;
+
+    #[test]
+    fn only_the_newest_compatibility_backups_remain() {
+        let root = std::env::temp_dir().join(format!("compat-prune-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let save = root.join("SAVEDATA.BIN");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(&save, b"save").unwrap();
+        let mut last = None;
+        for _ in 0..6 {
+            last = Some(backup(&root, std::slice::from_ref(&save)).unwrap());
+        }
+        let parent = root.join("compatibility-backups");
+        let kept = std::fs::read_dir(&parent).unwrap().count();
+        assert_eq!(kept, KEPT_COMPATIBILITY_BACKUPS);
+        last.unwrap().verify().unwrap();
+        std::fs::remove_dir_all(&root).unwrap();
+    }
 }
