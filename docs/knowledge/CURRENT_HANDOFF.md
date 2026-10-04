@@ -1,4 +1,13 @@
-# Current project handoff - 2026-10-03
+# Current project handoff - 2026-10-04
+
+## v0.8.4 release
+
+v0.8.4 is prepared on `claude/v084-ui` and merged to `main` for the release
+workflow; see the [engineering record](../product/releases/v0.8.4.md). It
+resolves the system-save refusal below (1 MiB companion bound, verified on a
+sandbox copy of a real updated account), and adds loadout codes, equipment
+favorites and sets, save re-sign, dark mode and the About & safety page.
+In-game acceptance of a re-signed save is still owed by the owner.
 
 ## v0.8.3 published release
 
@@ -14,8 +23,8 @@ not be described as passed. Changed-core local save/runtime/protected regression
 and Rust 1.91/1.99 Clippy/format checks passed. No real game or user-save writes
 were performed, and the frozen standalone 335faef packet remains unchanged.
 
-Menu recognition and the 235896/235384-byte system-save format mismatch remain
-unresolved compatibility limits. Unsupported writes continue to be refused;
+Menu recognition remains an unresolved compatibility limit; the
+235896/235384-byte system-save refusal is fixed in v0.8.4. Unsupported writes continue to be refused;
 backups, locks, native validation and recovery are retained. Do not infer broad
 DLC1/distribution support or complete live-game acceptance. Independent signing
 isolation remains open in issue #28 under the owner's accepted temporary policy.
@@ -51,11 +60,9 @@ later launcher diagnostic e4889c1. Five menu polls return false without actual
 flags. Preserve all existing guards and expose the null-global versus flag-pair
 branch, pinned to the running 2.0.2.0 executable. No tester root fix is claimed.
 
-Save editing and scroll addition independently fail at related system capture:
-235896 bytes versus the legacy 235384-byte maximum. The account system file is
-an intentional transaction member, not proof of a wrong selected character.
-No original system bytes/header/tail are provided; keep bounds and request a
-private offline copy for format investigation. Deferred terrain/spawn report is
+Save editing and scroll addition failed at related system capture: 235896
+bytes versus the legacy 235384-byte maximum. Resolved in v0.8.4: the system
+file is never decoded, so its bound is now 1 MiB. Deferred terrain/spawn report is
 recorded in public Issue #29 without private attachments.
 
 Current isolated worktree: D:/Nioh3_v080_deliverables/source-codex-v083-menu-system-diagnostics-20261003.

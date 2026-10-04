@@ -35,11 +35,11 @@ DATA_ROOT = ROOT / "nioh3_scroll_editor" / "data"
 V202 = (2, 0, 2, 0)
 V20002 = (2, 0, 0, 2)
 
-# Pinned for the v0.8.3 product identity and re-asserted on the Python side in
+# Pinned for the v0.8.4 product identity and re-asserted on the Python side in
 # tests/test_resolved_context.py.
-V202_CONTEXT_DIGEST = "085f807027571d4a4ddbfad6d1258014400c4b014ac92357c4acffb3dd8ad764"
-V20002_CONTEXT_DIGEST = "8f19fc9cdc19ddd558e895d73613a8786a0c68963a39a8ff647f8c58dce6080c"
-SHARED_LEGACY_DIGEST = "87353fdacdb875ab9a71e1b42b459aa23db8ed3accabc2203781686870694bad"
+V202_CONTEXT_DIGEST = "4856b2cebd4ff64784d8203bc75a3f631779ab9a569618fecbe28197147b9dc7"
+V20002_CONTEXT_DIGEST = "1980db0557df0ff6c15208b5e4656faf2ebc3fc04c50b0d01ae54fef0744c0d3"
+SHARED_LEGACY_DIGEST = "04877f4899d07c29b24fd6760789b8f635090bea8aaa9b0357f3dc5a62f01b3f"
 
 # The pinned goldens were captured with no accelerator; this host may have the
 # DLL loaded, so the goldens are only meaningful for the accelerator-free
