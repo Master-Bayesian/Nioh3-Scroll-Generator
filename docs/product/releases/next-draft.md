@@ -15,7 +15,7 @@ release are the owner's decision; this file only gathers what changed.
   skills, captured from the game in each language (#33). Item categories are
   translated, and the editor's searches accept English and Japanese.
 - Interface terms follow the game: Japanese 魂代 (not 魂核), English
-  Crucible (not Hell) for 地狱.
+  Crucible (not Hell) for 地狱, and Crucible Arts for 地狱武技.
 - Same-name enemies keep their form or generation in English and Japanese
   (Hattori Hanzo (Former), Takeda Shingen (Yokai form), ...).
 - 0xCC33 is named 火炎龙计量槽增加量. Seven ninjutsu effects that the game
@@ -60,4 +60,3 @@ release are the owner's decision; this file only gathers what changed.
 - Whether a live scroll addition caused the 2026-10-04 crash (see the failure
   ledger); a definitive "character loaded" signal to refuse live additions at
   the title screen before any native call.
-- The English name of 地狱武技.
