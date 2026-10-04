@@ -823,5 +823,18 @@
   "65319": "造成伤害增加",
   "65501": "移动速度上升",
   "65511": "幸运增加"
+ },
+ "unconfirmed_ninjutsu": {
+  "source": "Bare {} effects whose group row names no subject (v2.02 rows 2001, 2034-2038, 2050-2051). They sit in the per-ninjutsu blocks (gauge, damage, holding limit) right after the named ninjutsu, so each names one ninjutsu the tables do not identify; the editor shows them as an unconfirmed ninjutsu with the effect ID so different ones stay apart. Replace with the in-game name once read.",
+  "ids": [
+   7886,
+   15690,
+   19688,
+   24612,
+   38688,
+   48782,
+   51077,
+   52275
+  ]
  }
 }

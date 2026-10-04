@@ -34,3 +34,14 @@ test('a resolved bare slot names its ninjutsu or skill, an unresolved one stays 
   assert.equal(fillTemplateSlots(failure, '增益效果', '异常状态'), failure);
   assert.equal(effectArguments.names['9135'], '怪风');
 });
+
+test('ninjutsu rows that name no subject are told apart by their effect ID', async () => {
+  const { data } = await import('../../workshop/model');
+  const name = (id: number) => data.editorEffects.find(effect => effect.id === String(id))!.name;
+  for (const id of effectArguments.unconfirmed_ninjutsu.ids) {
+    assert.equal((effectArguments.names as Record<string, string>)[id], undefined);
+    assert.match(name(id), /^\{未确认忍术（0x[0-9A-F]{4}）\}/);
+  }
+  assert.equal(fillTemplateSlots(name(0x1ece), '增益效果', '异常状态'), '未确认忍术（0x1ECE）的持有上限');
+  assert.notEqual(name(0x1ece), name(0xc785));
+});
