@@ -289,6 +289,13 @@ impl<P: CountProcesses> WindowsCountMemory<P> {
             .filter(|entry| entry.serial == serial.to_string())
             .cloned()
             .collect();
+        // At the title screen the inventory reads empty: that is a game that has
+        // not loaded a character, not a scroll the player used up.
+        if inventory.entries.is_empty() {
+            return Err(RuntimeError::InventoryInvalid {
+                detail: "Inventory data is not loaded".to_string(),
+            });
+        }
         if matches.len() != 1 {
             return Err(RuntimeError::CountInstanceUnavailable { serial });
         }
