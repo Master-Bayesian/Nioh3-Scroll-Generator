@@ -1490,3 +1490,5 @@ NPC武器	NPC weapon	NPC武器
 游戏可能还停在标题界面：现在读到的是标题画面背后的占位角色（没有精华和金钱，装备全是 1 级）。请先读档进入游戏，再点“重新读取”。如果已经读档进入游戏，可以忽略这条提示。	The game may still be at the title screen: this is the placeholder character behind the title (no Amrita or gold, all equipment level 1). Load your save in game, then click "Reload". If you have already loaded your save, ignore this message.	ゲームがまだタイトル画面かもしれません。今読み取ったのはタイトル画面の裏にある仮のキャラクターです（アムリタと所持金がなく、装備はすべてレベル1）。ゲームでセーブをロードしてから「再読み込み」を押してください。すでにロードしている場合は、このメッセージは無視してかまいません。
 绘卷实时修改	Live scroll edit	絵巻のリアルタイム変更
 修改存档	Save edit	セーブの変更
+游戏没有及时响应添加请求，这次没有添加任何东西。请确认已经读档进入游戏（不是标题界面或读盘画面），然后重试。	The game did not answer the addition in time, and nothing was added. Make sure you have loaded your save (not the title or a loading screen), then try again.	ゲームが追加要求に時間内に応答しなかったため、何も追加されていません。セーブをロードしてゲーム内にいる（タイトル画面やロード画面ではない）ことを確認してから、もう一度お試しください。
+正在核对，需要等游戏响应，最多十几秒…	Checking; waiting for the game to answer, up to about fifteen seconds…	確認中です。ゲームの応答を待っています（最大十数秒）…

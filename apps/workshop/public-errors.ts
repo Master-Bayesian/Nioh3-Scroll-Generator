@@ -307,6 +307,10 @@ export function publicError(message: string): string {
       "实时添加的状态目录里有不属于本工具操作的回执文件，添加已停止，游戏没有被改动。请导出反馈文件发给开发者。",
     ],
     [
+      /No accepted idle dispatch before timeout/,
+      "游戏没有及时响应添加请求，这次没有添加任何东西。请确认已经读档进入游戏（不是标题界面或读盘画面），然后重试。",
+    ],
+    [
       /was rejected after dispatch|Native builder output differs|Native assembly differs/i,
       "游戏生成的绘卷与预期不一致，这次没有添加，背包和存档都没有改动，可以直接重试。若反复出现，请导出反馈文件发给开发者。",
     ],

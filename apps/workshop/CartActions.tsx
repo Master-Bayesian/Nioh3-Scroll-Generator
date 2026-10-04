@@ -509,6 +509,11 @@ export function DesktopCartActions({
           {state.busy ? "正在读取存档…" : "先在上面选好目标存档，才能核对添加。"}
         </p>
       )}
+      {busy && !plan && (
+        <p className="cart-hint" role="status">
+          正在核对，需要等游戏响应，最多十几秒…
+        </p>
+      )}
       {uncertain && (
         <p className="cart-hint">
           上次实时添加的结果还没有确认。请先点“核对上次实时添加”，确认后才能继续添加，避免重复。
