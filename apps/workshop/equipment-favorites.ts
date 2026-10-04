@@ -46,7 +46,7 @@ function write(next: EquipmentFavorite[]) {
 }
 
 /** The same item with the same values is one favorite. */
-export function favoriteKey(item: Pick<CharacterEquipment, "item_id" | "level" | "plus" | "rarity" | "effects"> & { hell?: boolean; hell_skill?: number }) {
+export function favoriteKey(item: Pick<CharacterEquipment, "item_id" | "level" | "plus" | "rarity"> & { effects: readonly { effect_id: number; value: number; star?: boolean }[]; hell?: boolean; hell_skill?: number }) {
   return [item.item_id, item.level, item.plus, item.rarity, item.hell ? item.hell_skill ?? 0 : "-",
     ...item.effects.map(effect => effect.effect_id + ":" + effect.value + (effect.star ? "*" : ""))].join("|");
 }
@@ -87,4 +87,21 @@ export function toggleEquipmentFavorite(item: CharacterEquipment): boolean {
 
 export function removeEquipmentFavorite(key: string) {
   write(read().filter(entry => entry.key !== key));
+}
+
+/** Save pieces from a loadout code; already saved pieces are skipped. */
+export function importEquipmentFavorites(pieces: Omit<EquipmentFavorite, "key" | "saved_at">[]): { added: number; existing: number } {
+  const current = read();
+  const keys = new Set(current.map(entry => entry.key));
+  const fresh: EquipmentFavorite[] = [];
+  for (const piece of pieces) {
+    const key = favoriteKey(piece);
+    if (keys.has(key)) continue;
+    keys.add(key);
+    fresh.push({ ...piece, key, saved_at: Date.now() });
+  }
+  if (current.length + fresh.length > FAVORITE_LIMIT)
+    throw new Error("装备收藏最多 " + FAVORITE_LIMIT + " 件，这个配装码有 " + fresh.length + " 件新装备，请先移除一些收藏。");
+  if (fresh.length) write([...fresh, ...current]);
+  return { added: fresh.length, existing: pieces.length - fresh.length };
 }

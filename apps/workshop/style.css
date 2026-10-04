@@ -1332,3 +1332,10 @@ html[lang="en-US"] .nav nav button>span:last-child{white-space:normal;line-heigh
 .resign-preview dt{color:#6a7d91}
 .resign-preview dd{margin:0;overflow-wrap:anywhere}
 .resign-panel .backup-confirm button{width:auto;margin-right:8px}
+
+/* v0.8.4 loadout codes (#16) */
+.loadout-import{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 8px}
+.loadout-import>input{flex:1 1 260px;min-width:0;font-family:ui-monospace,Consolas,monospace}
+.loadout-copy-one{font-size:12px;padding:2px 8px;margin-left:6px;vertical-align:middle}
+td.favorite-actions{white-space:nowrap;text-align:right}
+td.favorite-actions>.loadout-copy-one{margin:0 4px 0 0}

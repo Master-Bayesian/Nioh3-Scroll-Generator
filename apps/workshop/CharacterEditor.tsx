@@ -12,12 +12,13 @@ import { data } from "./model";
 import itemNames from "./item-names.json";
 import hellSkillNames from "./hell-skill-names.json";
 import effectSources from "./effect-sources.json";
-import { desktop } from "./desktop-bridge";
+import { copyText, desktop } from "./desktop-bridge";
 import { fillTemplateSlots, plainGameText } from "./game-text";
 import { Notice } from "./Notice";
 import { LiveEquipmentAdd } from "./LiveEquipmentAdd";
 import { StarIcon } from "./StarIcon";
-import { favoriteKey, removeEquipmentFavorite, toggleEquipmentFavorite, useEquipmentFavorites, type EquipmentFavorite } from "./equipment-favorites";
+import { favoriteKey, importEquipmentFavorites, removeEquipmentFavorite, toggleEquipmentFavorite, useEquipmentFavorites, type EquipmentFavorite } from "./equipment-favorites";
+import { decodeLoadout, encodeLoadout, type LoadoutPiece } from "./loadout-code";
 import { ADD_CATALOG, ADD_SETS, ADD_TYPES, FacetFilter, MAJOR_ORDER, SET_MAJOR, TYPE_ORDER, byOrder, facetsOf, itemCatalog, kindOf, matchesClass, nameLabel, setName, setOf } from "./equipment-facets";
 import { errorText, publicError, stripErrorPrefix } from "./public-errors";
 import { SavePicker } from "./CartActions";
@@ -76,6 +77,8 @@ interface WantedEffect {
 }
 /** The selection of an item being added to the save; it has no slot yet. */
 const NEW_SLOT = -1;
+/** Items a loadout code may name: the equipment the add list offers. */
+const ADDABLE_IDS = new Set(ADD_CATALOG.map(item => item.id));
 
 const effectNames = new Map<number, string>();
 for (const row of data.editorEffects as { id: string; name: string }[]) {
@@ -381,6 +384,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   /** The item being added (save mode), shown as a row without a slot. */
   const [newItem, setNewItem] = useState<CharacterEquipment | null>(null);
   const [addQuery, setAddQuery] = useState("");
+  const [loadoutCode, setLoadoutCode] = useState("");
   const [section, setSection] = useState<Section>("edit");
   const [addKind, setAddKind] = useState("");
   const [addType, setAddType] = useState("");
@@ -1401,6 +1405,58 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     setDraft(draftOf(item));
     setModded(true);
   };
+  /** Copy pieces as a loadout code (#16). */
+  const copyLoadout = async (pieces: LoadoutPiece[], what: string) => {
+    try {
+      await copyText(encodeLoadout(pieces));
+      setMessage("已复制" + what + "的配装码（" + pieces.length + " 件）。别人可以在“添加新装备 → 收藏”里粘贴导入。");
+    } catch (error) {
+      setMessage(errorText(error));
+    }
+  };
+  /** Check a pasted code against the shipped tables and save its pieces as favorites. */
+  const importLoadout = () => {
+    try {
+      const pieces = decodeLoadout(loadoutCode);
+      const unknownItem = pieces.find(piece => !ADDABLE_IDS.has(piece.item_id));
+      if (unknownItem) throw new Error("配装码里有本工具不认识的装备（" + hex(unknownItem.item_id) + "），可能来自更新的游戏版本。请更新工具后再导入。");
+      const unknownEffect = pieces.flatMap(piece => piece.effects).find(effect => effect.effect_id !== EMPTY_EFFECT && !effectNames.has(effect.effect_id));
+      if (unknownEffect) throw new Error("配装码里有本工具不认识的词条（" + hex(unknownEffect.effect_id) + "），可能来自更新的游戏版本。请更新工具后再导入。");
+      const { added, existing } = importEquipmentFavorites(pieces);
+      setLoadoutCode("");
+      setMessage(added
+        ? "已导入 " + added + " 件装备到收藏" + (existing ? "，另有 " + existing + " 件已经在收藏里" : "") + "。可以点“全部加入清单”一次加入，或点一件装备在右侧调整后再加入。"
+        : "这些装备已经都在收藏里了。");
+    } catch (error) {
+      setMessage(errorText(error));
+    }
+  };
+  /** Queue every listed favorite as 魔改 additions, e.g. a whole imported loadout. */
+  const queueFavorites = (favorites: EquipmentFavorite[]) => {
+    try {
+      if (queue.length + favorites.length > ADD_LIMIT)
+        throw new Error("待添加清单最多 " + ADD_LIMIT + " 件，现在还能加入 " + Math.max(0, ADD_LIMIT - queue.length) + " 件。请用搜索缩小范围，或先写入存档再继续。");
+      const entries = favorites.map(favorite => {
+        const effects = favorite.effects.filter(effect => effect.effect_id !== EMPTY_EFFECT);
+        if (favorite.rarity > 5 || effects.some(effect => effect.effect_id > 0xffff))
+          throw new Error(itemCatalog[String(favorite.item_id)]?.[0] + " 的数值无法写入存档，请点它在右侧检查。");
+        const request: NewEquipmentRequest = {
+          item_id: favorite.item_id,
+          level: Math.max(1, favorite.level),
+          plus: favorite.plus,
+          rarity: favorite.rarity,
+          ...(favorite.hell ? { hell: true, hell_skill: favorite.hell_skill } : {}),
+          effects: effects.map(effect => ({ effect_id: effect.effect_id, value: effect.value, ...(effect.star != null ? { star: effect.star } : {}) })),
+        };
+        return { key: ++queueKey.current, request, modded: true };
+      });
+      setQueue([...queue, ...entries]);
+      setPlan(null);
+      setMessage("已把 " + entries.length + " 件装备加入待添加清单（魔改）。确认无误后点“生成修改计划”。");
+    } catch (error) {
+      setMessage(errorText(error));
+    }
+  };
   const quantityText = (stack?: CharacterItem) => (stack ? (stack.quantity == null ? "1" : String(stack.quantity)) : "—");
 
   const equipmentList = (
@@ -1424,6 +1480,10 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
             ))}
           </select>
           <span className="equipment-range">{filtered.length} / {character?.equipment.length ?? 0}</span>
+          <button type="button" className="loadout-copy" data-action="copy-worn-loadout"
+            disabled={!character?.equipment.some(entry => entry.worn)}
+            title="把当前穿戴中的全部装备复制成一段配装码，可以发给别人导入"
+            onClick={() => copyLoadout(character!.equipment.filter(entry => entry.worn), "当前穿戴")}>复制穿戴配装码</button>
         </div>
       </div>
       <div className="character-table-wrap" ref={tableWrap}>
@@ -1501,6 +1561,8 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     </>
   );
 
+  const shownFavorites = equipmentFavorites
+    .filter(favorite => !addQuery.trim() || (itemCatalog[String(favorite.item_id)]?.[0] ?? "").includes(addQuery.trim()));
   const addList = (
     <>
       <div className="character-filters">
@@ -1513,9 +1575,23 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         />
         <div className="character-search">
           <input value={addQuery} onChange={event => setAddQuery(event.target.value)} placeholder="搜索装备名称，例如 八尺琼勾玉" />
-          <span className="equipment-range">{addKind === FAVORITES_MAJOR ? equipmentFavorites.length : addCandidates.length} 件</span>
+          <span className="equipment-range">{addKind === FAVORITES_MAJOR ? shownFavorites.length : addCandidates.length} 件</span>
         </div>
       </div>
+      {addKind === FAVORITES_MAJOR && (
+        <div className="loadout-import">
+          <input value={loadoutCode} onChange={event => setLoadoutCode(event.target.value)} data-field="loadout-code"
+            onKeyDown={event => { if (event.key === "Enter") importLoadout(); }}
+            placeholder="粘贴配装码（N3E1- 开头）" aria-label="配装码" />
+          <button type="button" data-action="import-loadout" disabled={!loadoutCode.trim()} onClick={importLoadout}>导入</button>
+          <button type="button" data-action="copy-favorites-loadout" disabled={!equipmentFavorites.length}
+            title="把收藏里的全部装备复制成一段配装码"
+            onClick={() => copyLoadout(equipmentFavorites, "全部收藏")}>复制全部收藏</button>
+          <button type="button" data-action="queue-favorites" disabled={!shownFavorites.length || busy}
+            title="把下面列出的收藏装备全部以魔改方式加入待添加清单"
+            onClick={() => queueFavorites(shownFavorites)}>全部加入清单</button>
+        </div>
+      )}
       {addKind === FAVORITES_MAJOR ? (
       <div className="character-table-wrap" ref={tableWrap}>
         <table className="equipment-table character-table">
@@ -1523,9 +1599,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
             <tr><th>收藏的装备</th><th>等级</th><th>稀有度</th><th></th></tr>
           </thead>
           <tbody>
-            {equipmentFavorites
-              .filter(favorite => !addQuery.trim() || (itemCatalog[String(favorite.item_id)]?.[0] ?? "").includes(addQuery.trim()))
-              .map(favorite => (
+            {shownFavorites.map(favorite => (
               <tr key={favorite.key} className={newItem && favoriteKey(newItem) === favorite.key ? "selected" : ""} onClick={() => chooseFavorite(favorite)}>
                 <td className="character-item-cell">
                   <span className="character-item-name">{itemLabel(favorite.item_id)}{favorite.hell ? <span className="character-hell">地狱</span> : null}</span>
@@ -1533,13 +1607,14 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
                 </td>
                 <td className="character-num">{favorite.level}{favorite.plus ? <small> +{favorite.plus}</small> : null}</td>
                 <td className="character-num">{favorite.rarity}</td>
-                <td><button type="button" className="character-queue-remove" aria-label="移除收藏"
+                <td className="favorite-actions"><button type="button" className="loadout-copy-one" aria-label="复制配装码" title="复制这件装备的配装码"
+                  onClick={event => { event.stopPropagation(); void copyLoadout([favorite], "这件装备"); }}>码</button><button type="button" className="character-queue-remove" aria-label="移除收藏"
                   onClick={event => { event.stopPropagation(); removeEquipmentFavorite(favorite.key); }}>×</button></td>
               </tr>
             ))}
           </tbody>
         </table>
-        {equipmentFavorites.length === 0 && <p className="character-empty">在“修改已有物品”里选中一件装备，点名称旁的 ☆ 即可收藏。收藏的装备可以在这里添加到任何角色。</p>}
+        {equipmentFavorites.length === 0 && <p className="character-empty">在“修改已有物品”里选中一件装备，点名称旁的 ☆ 即可收藏；也可以在上面粘贴别人分享的配装码。收藏的装备可以在这里添加到任何角色。</p>}
       </div>
       ) : (
       <div className="character-table-wrap" ref={tableWrap}>
@@ -1665,6 +1740,11 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
               </button>
             );
           })()}
+          {adding ? null : (
+            <button type="button" className="loadout-copy-one" data-action="copy-equipment-code"
+              title="复制这件装备的配装码（按存档里的数值，不含右侧未应用的修改）"
+              onClick={() => void copyLoadout([row], "这件装备")}>复制配装码</button>
+          )}
         </h3>
         {adding ? null : <span className={"character-draft-state" + (dirty ? " changed" : "")}
           data-draft-state={dirty ? "changed" : "unchanged"}>{dirty ? "有未应用的修改" : "尚未修改"}</span>}
