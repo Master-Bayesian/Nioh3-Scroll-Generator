@@ -1530,6 +1530,12 @@ export interface MenuSelection {
   slot_index?: number | null;
   container?: "equipment" | "held" | "storage";
   item_id?: number;
+  /**
+   * Closed-menu read diagnostics (profile, verified signatures and the observed flags); informational only.
+   */
+  diagnostics?: {
+    [k: string]: unknown;
+  };
 }
 export interface LiveAddLockReset {
   state: "absent" | "cleared" | "held";

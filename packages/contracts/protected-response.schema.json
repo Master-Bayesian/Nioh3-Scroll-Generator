@@ -897,6 +897,10 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 65535
+        },
+        "diagnostics": {
+          "type": "object",
+          "description": "Closed-menu read diagnostics (profile, verified signatures and the observed flags); informational only."
         }
       },
       "required": [
