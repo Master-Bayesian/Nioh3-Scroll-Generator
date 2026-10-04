@@ -115,6 +115,18 @@ const FAVORITES_MAJOR = "收藏";
 /** Most new items one plan adds (the request contract's limit). */
 const ADD_LIMIT = 16;
 
+/**
+ * Item classes with one sub-class (材料 is all 素材, 重要物品 all 任务或关键物品):
+ * the sub-class is only a synonym, so the list shows the class its filter names.
+ */
+const SINGLE_KIND_MAJORS = new Set(
+  Object.entries(
+    Object.values(itemCatalog).reduce<Record<string, Set<string>>>((kinds, entry) => {
+      if (entry[1] && entry[3]) (kinds[entry[1]] ??= new Set()).add(entry[3]);
+      return kinds;
+    }, {}),
+  ).filter(([, kinds]) => kinds.size === 1).map(([major]) => major),
+);
 /** `[major, middle, minor]` from the bundled catalog, falling back to the type class. */
 function itemGroups(id: number, typeClass: number | null | undefined): [string, string, string] {
   const entry = itemCatalog[String(id)];
@@ -206,7 +218,7 @@ function draftOf(row: CharacterEquipment): Draft {
     level_before_forge: String(row.level_before_forge),
     plus: String(row.plus),
     rarity: String(row.rarity),
-    familiarity: String(row.familiarity),
+    familiarity: familiarityText(row.familiarity),
     hell: row.hell ?? false,
     hell_skill: row.hell_skill ?? 0,
     effects: row.effects.map(effect => ({
@@ -239,13 +251,15 @@ function patchOf(row: CharacterEquipment, draft: Draft, keepsMarker: (index: num
     ["level_before_forge", 1, 65535],
     ["plus", 0, 65535],
     ["rarity", 0, 255],
-    ["familiarity", 0, 4294967295],
   ];
   for (const [key, min, max] of fields) {
     const value = parseAmount(draft[key] as string, max);
     if (value === null || value < min) return { error: "请输入有效的数值。" };
     if (value !== row[key]) patch[key] = value;
   }
+  const familiarity = parseFamiliarity(draft.familiarity);
+  if (familiarity === null) return { error: "请输入有效的爱用度（游戏里显示的数值，最多两位小数）。" };
+  if (familiarity !== row.familiarity) patch.familiarity = familiarity;
   if (draft.hell !== (row.hell ?? false)) patch.hell = draft.hell;
   if (draft.hell_skill !== (row.hell_skill ?? 0)) patch.hell_skill = draft.hell_skill;
   const effects = [];
@@ -268,6 +282,23 @@ function patchOf(row: CharacterEquipment, draft: Draft, keepsMarker: (index: num
   }
   if (effects.length) patch.effects = effects;
   return { patch };
+}
+
+/**
+ * The game stores familiarity in hundredths and shows whole points (99900 is
+ * 999). Show and edit it in the game's unit; a stored remainder stays as a
+ * decimal so nothing is lost.
+ */
+function familiarityText(raw: number) {
+  return raw % 100 === 0 ? String(raw / 100) : (raw / 100).toFixed(2).replace(/0$/, "");
+}
+function parseFamiliarity(text: string): number | null {
+  if (!/^\d+(\.\d{1,2})?$/.test(text.trim())) return null;
+  const raw = Math.round(Number(text.trim()) * 100);
+  return Number.isSafeInteger(raw) && raw <= 4294967295 ? raw : null;
+}
+function fieldText(key: keyof CharacterEquipment, value: unknown) {
+  return key === "familiarity" && typeof value === "number" ? familiarityText(value) : String(value);
 }
 
 const CURRENCY_LABEL: Record<string, string> = { amrita: "精华", gold: "持有金钱" };
@@ -1320,7 +1351,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         lines.push(prefix + " 地狱武技：" + skillText(change.before.hell_skill ?? 0) + " → " + skillText(change.after.hell_skill ?? 0));
       for (const [key, label] of FIELD_LABEL)
         if (change.before[key] !== change.after[key])
-          lines.push(prefix + " " + label + "：" + change.before[key] + " → " + change.after[key]);
+          lines.push(prefix + " " + label + "：" + fieldText(key, change.before[key]) + " → " + fieldText(key, change.after[key]));
       change.after.effects.forEach((effect, index) => {
         const before = change.before.effects[index];
         if (!before || before.effect_id !== effect.effect_id || before.value !== effect.value)
@@ -1556,7 +1587,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
               <tr key={entry.item_id} data-row={"items-" + entry.item_id}
                 className={entry.item_id === selectedItem ? "selected" : ""} onClick={() => selectItem(entry)}>
                 <td className="character-item-name">{itemLabel(entry.item_id)}</td>
-                <td className="character-kind">{b || a}</td>
+                <td className="character-kind">{SINGLE_KIND_MAJORS.has(a) ? a : b || a}</td>
                 <td className="character-num">{quantityText(entry.held)}</td>
                 <td className="character-num">{quantityText(entry.storage)}</td>
               </tr>
@@ -1932,7 +1963,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         <h3>{itemLabel(itemRow.item_id)}</h3>
         <span className={"character-draft-state" + (dirty ? " changed" : "")}
           data-draft-state={dirty ? "changed" : "unchanged"}>{dirty ? "有未应用的修改" : "尚未修改"}</span>
-        <span className="character-muted">{itemGroups(itemRow.item_id, null).filter(Boolean).slice(0, 2).join(" · ")}</span>
+        <span className="character-muted">{itemGroups(itemRow.item_id, null).slice(0, SINGLE_KIND_MAJORS.has(itemGroups(itemRow.item_id, null)[0]) ? 1 : 2).filter(Boolean).join(" · ")}</span>
       </div>
       <div className="character-fields">
         {(["held", "storage"] as const).map(container => {

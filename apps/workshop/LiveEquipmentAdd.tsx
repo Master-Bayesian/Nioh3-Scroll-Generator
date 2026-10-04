@@ -116,7 +116,7 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
       </div>
       <div className="live-equipment-form">
         <h3>{item===null?"请选择装备":itemName(item)}</h3>
-        <div className="live-equipment-fields">{([["level","等级",level,setLevel],["plus","强化值",plus,setPlus],["rarity","稀有度",rarity,setRarity],["seed","生成种子",seed,setSeed]] as const).map(([key,label,value,setter])=><label key={key}><span>{label}</span><input data-field={key} inputMode="numeric" value={value} disabled={locked} onChange={event=>setter(event.target.value)}/></label>)}</div>
+        <div className="live-equipment-fields">{([["level","等级",level,setLevel],["plus","+值",plus,setPlus],["rarity","稀有度",rarity,setRarity],["seed","生成种子",seed,setSeed]] as const).map(([key,label,value,setter])=><label key={key}><span>{label}</span><input data-field={key} inputMode="numeric" value={value} disabled={locked} onChange={event=>setter(event.target.value)}/></label>)}</div>
         {saveSession&&<fieldset className="live-equipment-save" disabled={locked}><SavePicker compact refresh={false}/></fieldset>}
         <p className="equipment-notes">添加前会备份上面选中的存档。</p>
         <p className="equipment-notes">种子范围为 0–65535。不同种子会得到不同词条；预览没有想要的结果时，可取消后换种子。</p>

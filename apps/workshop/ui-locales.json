@@ -4584,10 +4584,6 @@
       "Select equipment",
       "装備を選択してください"
     ],
-    "强化值": [
-      "Upgrade level",
-      "強化値"
-    ],
     "生成种子": [
       "Generation seed",
       "生成シード"
@@ -5891,6 +5887,18 @@
     "规则": [
       "Rule",
       "ルール"
+    ],
+    "请输入有效的爱用度（游戏里显示的数值，最多两位小数）。": [
+      "Enter a valid familiarity (the value the game shows, at most two decimals).",
+      "有効な愛用度を入力してください（ゲーム内の表示値、小数は2桁まで）。"
+    ],
+    "上一次次数修改还没有完成。请先点“核对上次次数修改”，确认或放弃后再修改。": [
+      "The last attempt edit is unfinished. Click \"Check previous count change\" first, then confirm or discard it before editing again.",
+      "前回の回数変更が完了していません。先に「前回の回数変更を確認」を押し、確定または破棄してから変更してください。"
+    ],
+    "核对之后数值、存档或所选绘卷有变化，这次核对已失效。请点“放弃本次核对”，再重新核对。": [
+      "The value, save or scroll changed after this review, so it no longer applies. Click \"Discard review\" and review again.",
+      "確認後に数値・セーブ・絵巻が変わったため、この確認は無効です。「確認内容を破棄」を押して、もう一度確認してください。"
     ]
   },
   "game": {

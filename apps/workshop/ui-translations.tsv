@@ -1144,7 +1144,6 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 请先读档进入角色，操作时让游戏停在菜单。添加后到神社存档即可保存，无需关闭游戏。	Load your character and leave the game in a menu during the operation. Save at a shrine after adding; the game can stay open.	キャラクターをロードし、操作中はゲームのメニューを開いてください。追加後に社でセーブすれば保存できます。ゲームの終了は不要です。
 搜索装备	Search equipment	装備を検索
 请选择装备	Select equipment	装備を選択してください
-强化值	Upgrade level	強化値
 生成种子	Generation seed	生成シード
 种子范围为 0–65535。不同种子会得到不同词条；预览没有想要的结果时，可取消后换种子。	Seeds range from 0 to 65535. Different seeds produce different effects. Cancel and try another seed if the preview is unsuitable.	シードの範囲は0～65535です。シードによって特殊効果が変わります。希望する結果でなければキャンセルして別のシードを試してください。
 生成实时预览	Generate live preview	リアルタイムプレビューを生成
@@ -1471,3 +1470,6 @@ NPC武器	NPC weapon	NPC武器
 未命名忍术（0x	Unnamed Ninjutsu (0x	名称のない忍術（0x
 敌人组	Enemy group	敵グループ
 规则	Rule	ルール
+请输入有效的爱用度（游戏里显示的数值，最多两位小数）。	Enter a valid familiarity (the value the game shows, at most two decimals).	有効な愛用度を入力してください（ゲーム内の表示値、小数は2桁まで）。
+上一次次数修改还没有完成。请先点“核对上次次数修改”，确认或放弃后再修改。	The last attempt edit is unfinished. Click "Check previous count change" first, then confirm or discard it before editing again.	前回の回数変更が完了していません。先に「前回の回数変更を確認」を押し、確定または破棄してから変更してください。
+核对之后数值、存档或所选绘卷有变化，这次核对已失效。请点“放弃本次核对”，再重新核对。	The value, save or scroll changed after this review, so it no longer applies. Click "Discard review" and review again.	確認後に数値・セーブ・絵巻が変わったため、この確認は無効です。「確認内容を破棄」を押して、もう一度確認してください。
