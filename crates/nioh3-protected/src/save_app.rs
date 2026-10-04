@@ -73,6 +73,9 @@ use crate::error::HostError;
 
 const PLAN_TTL: Duration = Duration::from_secs(600);
 const RECORD_BYTES: usize = 0xE8;
+/// The live scroll serial a count or scroll edit identifies its scroll by.
+const COUNT_SERIAL_RANGE: std::ops::Range<usize> =
+    nioh3_runtime::mutation::count::SERIAL_OFFSET..nioh3_runtime::mutation::count::SERIAL_OFFSET + 8;
 /// `cache_application.grace_map_cache_path`'s directory under the state root.
 const GRACE_MAP_CACHE_DIR: &str = "grace-output-maps";
 /// `models.CandidateRecordStage` spellings the transfer carries.
@@ -299,27 +302,7 @@ impl SaveApplication {
     }
 
     fn inventory(&mut self, save_id: &str) -> Result<Value, HostError> {
-        let save_path = self.save_path(save_id)?;
-        let before = sha256_file(&save_path)?;
-        // The decrypted inventory is a pure function of the validated container
-        // bytes: reuse it when the digest is unchanged and decrypt again the
-        // moment it is not.
-        let inventory = match self.inventory_cache.get(save_id) {
-            Some((digest, cached)) if digest.eq_ignore_ascii_case(&before) => cached.clone(),
-            _ => {
-                let bytes = read_save_bytes(&save_path)?;
-                let decrypted =
-                    DecryptedSave::from_container(&bytes).map_err(HostError::from_save)?;
-                let loaded = SaveInventory::load(&save_path, decrypted, true)
-                    .map_err(HostError::from_save)?;
-                if before != sha256_file(&save_path)? {
-                    return Err(HostError::rejected("Save changed while reading inventory"));
-                }
-                self.inventory_cache
-                    .insert(save_id.to_string(), (before.clone(), loaded.clone()));
-                loaded
-            }
-        };
+        let (before, inventory) = self.current_inventory(save_id)?;
         let snapshot_id = new_snapshot_id();
         let mut entries = Vec::new();
         for entry in inventory.scroll_entries(false) {
@@ -342,6 +325,32 @@ impl SaveApplication {
             },
         );
         Ok(response)
+    }
+
+    /// The save's inventory as it is on disk now, with its digest.
+    fn current_inventory(&mut self, save_id: &str) -> Result<(String, SaveInventory), HostError> {
+        let save_path = self.save_path(save_id)?;
+        let before = sha256_file(&save_path)?;
+        // The decrypted inventory is a pure function of the validated container
+        // bytes: reuse it when the digest is unchanged and decrypt again the
+        // moment it is not.
+        let inventory = match self.inventory_cache.get(save_id) {
+            Some((digest, cached)) if digest.eq_ignore_ascii_case(&before) => cached.clone(),
+            _ => {
+                let bytes = read_save_bytes(&save_path)?;
+                let decrypted =
+                    DecryptedSave::from_container(&bytes).map_err(HostError::from_save)?;
+                let loaded = SaveInventory::load(&save_path, decrypted, true)
+                    .map_err(HostError::from_save)?;
+                if before != sha256_file(&save_path)? {
+                    return Err(HostError::rejected("Save changed while reading inventory"));
+                }
+                self.inventory_cache
+                    .insert(save_id.to_string(), (before.clone(), loaded.clone()));
+                loaded
+            }
+        };
+        Ok((before, inventory))
     }
 
     /// `save.character`: the stored currencies and every owned equipment record.
@@ -768,10 +777,26 @@ impl SaveApplication {
         snapshot_id: &str,
         slot_index: usize,
     ) -> Result<Value, HostError> {
-        let (source_sha256, inventory) = self.snapshot_copy(save_id, snapshot_id)?;
-        let entry = inventory
+        let (snapshot_sha256, inventory) = self.snapshot_copy(save_id, snapshot_id)?;
+        let mut entry = inventory
             .entry(slot_index)
             .map_err(|_| HostError::rejected("Select an occupied scroll slot"))?;
+        let mut source_sha256 = snapshot_sha256;
+        // A live edit changes the game, not this snapshot, and the game saves on
+        // its own (shrines, autosave). Follow the same scroll, by its serial,
+        // into the save as it is now instead of refusing every edit after one.
+        let (current_sha256, current) = self.current_inventory(save_id)?;
+        if !current_sha256.eq_ignore_ascii_case(&source_sha256) {
+            let serial = &entry.record_bytes()[COUNT_SERIAL_RANGE];
+            entry = current
+                .scroll_entries(false)
+                .into_iter()
+                .find(|candidate| &candidate.record_bytes()[COUNT_SERIAL_RANGE] == serial)
+                .ok_or_else(|| {
+                    HostError::rejected("The scroll is no longer in the current inventory")
+                })?;
+            source_sha256 = current_sha256;
+        }
         Ok(json!({
             "count_source": {
                 "save_path": python_path_string(&self.save_path(save_id)?),

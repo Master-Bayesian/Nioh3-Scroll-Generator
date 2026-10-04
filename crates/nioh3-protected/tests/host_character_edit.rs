@@ -274,6 +274,39 @@ fn character_edits_commit_through_the_save_transaction() {
     let inventory = job(&mut exchange, "save.inventory", json!({"save_id": save_id}));
     assert_eq!(inventory["state"], "completed", "{inventory}");
 
+    // A live count or scroll edit follows its scroll into a save the game has
+    // written since the inventory was read, rather than refusing every edit
+    // after an autosave.
+    let snapshot_id = inventory["result"]["snapshot_id"].clone();
+    let source_of = |exchange: &mut dyn FnMut(&str, Value) -> Value| {
+        let mut call = |method: &str, params: Value| exchange(method, params);
+        job(
+            &mut call,
+            "save.count_edit_source",
+            json!({"save_id": save_id, "snapshot_id": snapshot_id, "slot_index": 0}),
+        )
+    };
+    let before_autosave = source_of(&mut exchange);
+    assert_eq!(before_autosave["state"], "completed", "{before_autosave}");
+    let mut autosaved = decrypt_container(&original).unwrap();
+    let gold = 0x3D_DBBD + 16 + 8;
+    autosaved[gold..gold + 8].copy_from_slice(&19_072_000u64.to_le_bytes());
+    nioh3_save::patch_user_checksum(&mut autosaved).unwrap();
+    let autosaved = encrypt_container(&autosaved).unwrap();
+    std::fs::write(&save_path, &autosaved).unwrap();
+    let after_autosave = source_of(&mut exchange);
+    assert_eq!(after_autosave["state"], "completed", "{after_autosave}");
+    let (old, new) = (
+        &before_autosave["result"]["count_source"],
+        &after_autosave["result"]["count_source"],
+    );
+    assert_eq!(old["record_hex"], new["record_hex"]);
+    assert!(new["source_sha256"]
+        .as_str()
+        .unwrap()
+        .eq_ignore_ascii_case(&digest(&autosaved)));
+    std::fs::write(&save_path, &original).unwrap();
+
     let character = job(&mut exchange, "save.character", json!({"save_id": save_id}));
     assert_eq!(character["state"], "completed", "{character}");
     let character = &character["result"];
