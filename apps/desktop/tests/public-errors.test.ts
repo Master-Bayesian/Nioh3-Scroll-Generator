@@ -270,3 +270,9 @@ test("an unexplained structured failure still reads as a Chinese next step", () 
   assert.match(text, /导出反馈文件/);
   assert.ok(isFailureText(raw));
 });
+
+test("a live addition the game never answered says that nothing was added and what to check", () => {
+  const text = publicError("OPERATION_FAILED: No accepted idle dispatch before timeout");
+  assert.match(text, /没有添加任何东西/);
+  assert.match(text, /读档进入游戏/);
+});
