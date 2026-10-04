@@ -8,7 +8,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use nioh3_save::crypto::{SYSTEM_CONTAINER_BYTES, USER_CONTAINER_BYTES};
+use nioh3_save::crypto::USER_CONTAINER_BYTES;
 use nioh3_save::transaction::{capture_related_fingerprints, related_save_paths, SaveRole};
 use nioh3_save::SaveTransactionHost;
 use sha2::{Digest, Sha256};
@@ -181,7 +181,8 @@ fn fingerprints_cover_full_legal_lengths_and_their_final_bytes() {
     for (role, path) in related_save_paths(&main) {
         let length = match role {
             SaveRole::Main | SaveRole::GameBackup => USER_CONTAINER_BYTES,
-            SaveRole::System => SYSTEM_CONTAINER_BYTES,
+            // The system save as the 2026-09 game update writes it.
+            SaveRole::System => 235_896,
         };
         extended_fixture(&path, length);
     }

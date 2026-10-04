@@ -90,10 +90,15 @@ pub fn related_save_paths(save_path: &Path) -> Vec<(SaveRole, PathBuf)> {
     ]
 }
 
+/// Read bound for the account system save. A transaction only fingerprints,
+/// backs up and restores it, never decodes it, so it is bounded loosely: game
+/// updates grow it (235384 bytes before, 235896 after the 2026-09 update).
+pub(crate) const SYSTEM_COMPANION_MAX_BYTES: u64 = 0x10_0000;
+
 fn maximum_save_bytes(role: SaveRole) -> u64 {
     match role {
         SaveRole::Main | SaveRole::GameBackup => crate::crypto::USER_CONTAINER_BYTES as u64,
-        SaveRole::System => crate::crypto::SYSTEM_CONTAINER_BYTES as u64,
+        SaveRole::System => SYSTEM_COMPANION_MAX_BYTES,
     }
 }
 
@@ -3303,10 +3308,7 @@ mod tests {
                 SaveRole::GameBackup,
                 crate::crypto::USER_CONTAINER_BYTES as u64,
             ),
-            (
-                SaveRole::System,
-                crate::crypto::SYSTEM_CONTAINER_BYTES as u64,
-            ),
+            (SaveRole::System, SYSTEM_COMPANION_MAX_BYTES),
         ] {
             for (length, expected) in [
                 (maximum + 1, None),
@@ -3342,7 +3344,7 @@ mod tests {
     }
 
     #[test]
-    fn reported_extended_system_file_is_refused_before_reading_or_allocating() {
+    fn system_file_grown_by_a_game_update_is_read_whole() {
         let consumed = std::cell::Cell::new(0);
         let initialized = std::cell::Cell::new(false);
         let result = consume_save_bytes(
@@ -3358,12 +3360,9 @@ mod tests {
             |_| initialized.set(true),
             |_, _| {},
         );
-        let error = result.unwrap_err().to_string();
-        assert!(error.contains("system_save"));
-        assert!(error.contains("235896 bytes"));
-        assert!(error.contains("maximum 235384 bytes"));
-        assert_eq!(consumed.get(), 0);
-        assert!(!initialized.get());
+        assert!(result.is_ok(), "{result:?}");
+        assert_eq!(consumed.get(), 235_896);
+        assert!(initialized.get());
     }
 
     #[test]
