@@ -1380,3 +1380,49 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 改为当前账号的绘卷	Scrolls moved to this account	このアカウントに移す絵巻
 游戏已回到标题界面，确认用这个存档替换上方选中的存档位	The game is at the title screen; replace the save slot selected above with this save	ゲームはタイトル画面に戻っています。上で選んだセーブ枠をこのセーブで置き換えます
 确认改签	Re-sign save	署名を変更
+已复制	Copied the	コピーしました：
+的配装码（	 loadout code (	の装備コード（
+件）。别人可以在“添加新装备 → 收藏”里粘贴导入。	 pieces). Others can paste it under "Add new equipment → Favorites".	件）。ほかの人は「新しい装備を追加 → お気に入り」に貼り付けて取り込めます。
+配装码里有本工具不认识的装备（	The code names equipment this tool does not know (	コードにこのツールが知らない装備があります（
+），可能来自更新的游戏版本。请更新工具后再导入。	), possibly from a newer game version. Update the tool, then import again.	）。新しいゲームバージョンのものかもしれません。ツールを更新してから取り込んでください。
+配装码里有本工具不认识的词条（	The code names an effect this tool does not know (	コードにこのツールが知らない効果があります（
+已导入	Imported	取り込みました：
+件装备到收藏	 pieces into Favorites	件をお気に入りへ
+，另有	; another	。ほかに
+件已经在收藏里	 were already saved	件はすでにお気に入りにあります
+。可以点“全部加入清单”一次加入，或点一件装备在右侧调整后再加入。	. Click "Queue all" to add them at once, or click a piece to adjust it on the right first.	。「すべて追加リストへ」でまとめて追加するか、装備をクリックして右側で調整してから追加できます。
+这些装备已经都在收藏里了。	All of these pieces are already in Favorites.	これらの装備はすべてお気に入りにあります。
+件，现在还能加入	 pieces; room for	件までで、今は
+件。请用搜索缩小范围，或先写入存档再继续。	 more. Narrow the list with search, or write to the save first.	件追加できます。検索で絞り込むか、先にセーブへ書き込んでください。
+的数值无法写入存档，请点它在右侧检查。	 has values the save cannot hold; click it and check it on the right.	の数値はセーブに書き込めません。クリックして右側で確認してください。
+已把	Queued	追加リストに入れました：
+件装备加入待添加清单（魔改）。确认无误后点“生成修改计划”。	 pieces as modded additions. When they look right, click "Create plan".	件（改造）。問題なければ「変更プランを作成」を押してください。
+把当前穿戴中的全部装备复制成一段配装码，可以发给别人导入	Copy everything currently equipped as one loadout code others can import	現在装備中のすべての装備を一つのコードにコピーし、ほかの人が取り込めるようにします
+当前穿戴	equipped	装備中
+复制穿戴配装码	Copy equipped loadout	装備中のコードをコピー
+粘贴配装码（N3E1- 开头）	Paste a loadout code (starts with N3E1-)	装備コードを貼り付け（N3E1- で始まる）
+配装码	Loadout code	装備コード
+导入	Import	取り込む
+把收藏里的全部装备复制成一段配装码	Copy every favorite as one loadout code	お気に入りのすべての装備を一つのコードにコピー
+全部收藏	all favorites	すべてのお気に入り
+复制全部收藏	Copy all favorites	お気に入りをすべてコピー
+把下面列出的收藏装备全部以魔改方式加入待添加清单	Queue every favorite listed below as a modded addition	下に表示中のお気に入りをすべて改造として追加リストへ入れます
+全部加入清单	Queue all	すべて追加リストへ
+复制配装码	Copy code	コードをコピー
+复制这件装备的配装码	Copy this piece's loadout code	この装備のコードをコピー
+这件装备	this piece	この装備
+码	Code	コード
+在“修改已有物品”里选中一件装备，点名称旁的 ☆ 即可收藏；也可以在上面粘贴别人分享的配装码。收藏的装备可以在这里添加到任何角色。	Select a piece under "Edit owned items" and click ☆ beside its name to save it, or paste a loadout code someone shared above. Saved pieces can be added to any character here.	「所持品を編集」で装備を選び、名前の横の ☆ で保存できます。上にほかの人が共有した装備コードを貼り付けることもできます。保存した装備はここからどのキャラクターにも追加できます。
+复制这件装备的配装码（按存档里的数值，不含右侧未应用的修改）	Copy this piece's loadout code (the values in the save, without unapplied changes on the right)	この装備のコードをコピー（セーブ内の数値。右側の未適用の変更は含みません）
+件，这个配装码有	; this code has	件までです。このコードには
+件新装备，请先移除一些收藏。	 new pieces. Remove some favorites first.	件の新しい装備があります。先にお気に入りをいくつか削除してください。
+装备数据里有无法写入配装码的数值。	The equipment has a value a loadout code cannot hold.	装備にコードへ書き込めない数値があります。
+配装码无效：可能复制不完整或被改动过。请重新完整复制以	Invalid loadout code: it may be incomplete or altered. Copy the whole text starting with	無効な装備コードです。コピーが不完全か改変されている可能性があります。
+开头的整段文字。	 again.	で始まる全文をもう一度コピーしてください。
+没有可以生成配装码的装备。	There is no equipment to make a loadout code from.	コードにできる装備がありません。
+一个配装码最多包含	A loadout code holds at most	一つのコードに入る装備は最大
+件装备。	 pieces.	件です。
+请先粘贴配装码。	Paste a loadout code first.	先に装備コードを貼り付けてください。
+这个配装码来自更新的版本，请先更新工具再导入。	This code is from a newer version. Update the tool, then import it.	このコードは新しいバージョンのものです。ツールを更新してから取り込んでください。
+这不是配装码。配装码以	This is not a loadout code. Loadout codes start with	これは装備コードではありません。装備コードは
+开头，请检查复制的内容。	; check what you copied.	で始まります。コピーした内容を確認してください。
