@@ -998,6 +998,10 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       } else {
         const selectedSave = saveSession?.getSnapshot().selected;
         if (!selectedSave) throw new Error("请先选择存档。");
+        // Edits are planned against the session snapshot's source digest, so
+        // read it again with the character; otherwise a save the game wrote
+        // after the first read stays "changed" however often this reloads.
+        await saveSession!.refresh();
         const result = await saveObserver!.run(() =>
           window.operations.execute({ method: "save.character", params: { save_id: selectedSave.save_id } }),
         );
@@ -1266,10 +1270,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       setTitleConfirmed(false);
       if (committed && added.length) setQueue([]);
       // Reading the save again clears the message, so it is set afterwards.
-      if (!saveSession!.getSnapshot().uncertainOperationId) {
-        await saveSession!.refresh();
-        await load("save");
-      }
+      if (!saveSession!.getSnapshot().uncertainOperationId) await load("save");
       setMessage(
         !committed
           ? failure

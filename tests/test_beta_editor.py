@@ -405,7 +405,7 @@ class BetaEditorTests(unittest.TestCase):
         )
         self.assertEqual(
             enemy_variant_display_name("服部半藏", 0x000202A7),
-            "服部半藏（先代／父（鬼半藏））",
+            "服部半藏（前代）",
         )
 
     def test_player_enemy_tiers_match_native_role_families(self) -> None:
