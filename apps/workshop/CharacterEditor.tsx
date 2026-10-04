@@ -38,7 +38,7 @@ interface ItemRow {
   held?: CharacterItem;
   storage?: CharacterItem;
 }
-/** Hell martial-skill names by skill id (PC v2.02, read from the game). */
+/** Crucible Arts (地狱武技) names by skill id (PC v2.02, read from the game). */
 const HELL_SKILL_NAMES: Record<string, string> = hellSkillNames.skills;
 const CONTAINER_LABEL: Record<Container, string> = { held: "持有", storage: "仓库" };
 type LegalValue = EffectValues["values"][number];

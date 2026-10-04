@@ -3425,7 +3425,7 @@
       "ロールがこのレア度の範囲外"
     ],
     "地狱武技不属于该武器": [
-      "Hell martial skill does not belong to this weapon",
+      "These Crucible Arts do not belong to this weapon",
       "地獄武技がこの武器のものではない"
     ],
     "该词条不会自然出现在这个位置": [
@@ -3745,7 +3745,7 @@
       "地獄武器"
     ],
     "地狱武技": [
-      "Hell skill",
+      "Crucible Arts",
       "地獄武技"
     ],
     "地狱武器：": [
@@ -3753,7 +3753,7 @@
       "地獄武器："
     ],
     "地狱武技：": [
-      "Hell skill: ",
+      "Crucible Arts: ",
       "地獄武技："
     ],
     "这件装备不会自然成为地狱武器": [
@@ -3761,7 +3761,7 @@
       "この装備は自然には地獄武器になりません"
     ],
     "这个地狱武技不会出现在这类武器上": [
-      "This hell skill does not occur on this weapon type",
+      "These Crucible Arts do not occur on this weapon type",
       "この地獄武技はこの武器種には出現しません"
     ],
     "切换后第一个位置变为地狱词条，请在下方选择。": [

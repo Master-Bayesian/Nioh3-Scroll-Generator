@@ -854,7 +854,7 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 与另一条词条互斥	Conflicts with another effect	他の効果と排他
 数值不是自然生成能出现的值	Value cannot occur naturally	自然には出ない数値
 分位超出该稀有度范围	Roll is outside this rarity's range	ロールがこのレア度の範囲外
-地狱武技不属于该武器	Hell martial skill does not belong to this weapon	地獄武技がこの武器のものではない
+地狱武技不属于该武器	These Crucible Arts do not belong to this weapon	地獄武技がこの武器のものではない
 该词条不会自然出现在这个位置	This effect never appears naturally in this slot	この位置には自然に出ない効果
 输入名称或 ID 筛选	Type a name or ID to filter	名前またはIDで絞り込み
 没有匹配的词条	No matching effect	一致する効果なし
@@ -934,11 +934,11 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 页码	Page	ページ
 页		ページ
 地狱武器	Crucible weapon	地獄武器
-地狱武技	Hell skill	地獄武技
+地狱武技	Crucible Arts	地獄武技
 地狱武器：	Crucible weapon: 	地獄武器：
-地狱武技：	Hell skill: 	地獄武技：
+地狱武技：	Crucible Arts: 	地獄武技：
 这件装备不会自然成为地狱武器	This equipment never becomes a Crucible weapon naturally	この装備は自然には地獄武器になりません
-这个地狱武技不会出现在这类武器上	This hell skill does not occur on this weapon type	この地獄武技はこの武器種には出現しません
+这个地狱武技不会出现在这类武器上	These Crucible Arts do not occur on this weapon type	この地獄武技はこの武器種には出現しません
 切换后第一个位置变为地狱词条，请在下方选择。	The first slot becomes the Crucible effect; choose it below.	最初の枠が地獄効果になります。下で選択してください。
 这件装备不会自然成为地狱武器，只能在魔改模式下切换。	This equipment never becomes a Crucible weapon naturally; switch it only in modded mode.	この装備は自然には地獄武器にならないため、改造モードでのみ切り替えられます。
 （不会自然出现）	 (never occurs naturally)	（自然には出現しません）
