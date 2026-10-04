@@ -165,6 +165,11 @@ pub fn is_equipment_layout(layout: &LiveAddLayout) -> bool {
     *layout == PC_V202_EQUIPMENT_ADD
 }
 
+/// The generation seed word for a 16-bit equipment seed.
+pub fn equipment_seed_word(seed: u16) -> u32 {
+    (u32::from(seed) << 16) | 1
+}
+
 /// Initialize and generate an equipment descriptor in owned scratch memory.
 /// The surrounding dispatch shim has already preserved registers and XMM0-5.
 pub fn equipment_generation_prefix(
@@ -195,8 +200,10 @@ pub fn equipment_generation_prefix(
     code.extend_from_slice(&u32::from(item).to_le_bytes());
     emit_hex(&mut code, "41 B8");
     code.extend_from_slice(&u32::from(rarity).to_le_bytes());
+    // The seed word is the record's +0x20 u32: low u16 flag 1, high u16 seed
+    // (as natural records and the 2026-09-26 live preview hold it).
     emit_hex(&mut code, "41 B9");
-    code.extend_from_slice(&u32::from(seed).to_le_bytes());
+    code.extend_from_slice(&equipment_seed_word(seed).to_le_bytes());
     call(&mut code, 0x5513C8);
     // The verified item-grant route has zero drop-source context.
     emit_hex(&mut code, "49 BA");
@@ -1052,6 +1059,22 @@ pub fn hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Natural records hold the seed in the high half of +0x20 over flag 1
+    /// (e.g. 0xAF640001); a bare seed generates a different item.
+    #[test]
+    fn generation_receives_the_seed_word_not_the_bare_seed() {
+        assert_eq!(equipment_seed_word(0xAF64), 0xAF64_0001);
+        let code = equipment_generation_prefix(0x1000_0000, 0x7FF0_0000, 14145, 4, 48129);
+        let mov_r9d = [
+            &[0x41u8, 0xB9][..],
+            &equipment_seed_word(48129).to_le_bytes(),
+        ]
+        .concat();
+        assert!(code
+            .windows(mov_r9d.len())
+            .any(|window| window == mov_r9d.as_slice()));
+    }
 
     #[test]
     fn the_batch_wrapper_loops_back_to_its_own_body() -> Result<(), RuntimeError> {

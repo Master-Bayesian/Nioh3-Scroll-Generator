@@ -10,6 +10,8 @@ setup is required. Microsoft Edge WebView2 remains a Windows prerequisite.
 - Live editing works again: following the in-game inventory selection failed
   with an "operation output does not match the protected contract" error in
   0.8.3 whenever the inventory menu was closed.
+- Live equipment addition now works in game. In 0.8.3 it never found a safe
+  moment to run, or reported "preview changed inventory"; nothing was added.
 - Compatibility mode keeps only the three newest save copies instead of adding
   a full copy every time it is confirmed.
 - Loadout codes: copy one piece, everything you have equipped, or all saved

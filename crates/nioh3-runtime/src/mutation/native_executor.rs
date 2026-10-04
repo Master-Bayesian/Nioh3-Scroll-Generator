@@ -1669,6 +1669,7 @@ mod windows_transport {
         entry_ownership_reject_manager: u64,
         entry_ownership_reject_data: u64,
         acknowledgement_hits: u64,
+        foreign_target_hits: u64,
         threads_armed: u64,
         stop_reason: &'static str,
     }
@@ -1693,6 +1694,7 @@ mod windows_transport {
             "entry_ownership_reject_manager": diagnostics.entry_ownership_reject_manager,
             "entry_ownership_reject_data": diagnostics.entry_ownership_reject_data,
             "acknowledgement_hits": diagnostics.acknowledgement_hits,
+            "foreign_target_hits": diagnostics.foreign_target_hits,
             "threads_armed": diagnostics.threads_armed,
             "elapsed_ms": elapsed.as_millis().min(u128::from(u64::MAX)) as u64,
             "stop_reason": diagnostics.stop_reason,
@@ -2652,8 +2654,13 @@ mod windows_transport {
                             let scheduler =
                                 read_session_u64(session, base + layout.scheduler_pointer_rva)?;
                             let caller = read_session_u64(session, context.rsp)?;
+                            // RCX is the dispatch's own pickup object; its queue
+                            // is the one that must be empty. The scheduler is a
+                            // separate global whose phase flags are checked here
+                            // (as the 2026-09-26 live insertion and the legacy
+                            // transport do).
                             let idle = scheduler != 0
-                                && context.rcx == scheduler
+                                && context.rcx != 0
                                 && caller == base + layout.dispatch_return_rva
                                 && read_session_u32(
                                     session,
@@ -2663,10 +2670,10 @@ mod windows_transport {
                                     == [1]
                                 && read_session_u64(
                                     session,
-                                    scheduler + layout.queue_begin_offset,
+                                    context.rcx + layout.queue_begin_offset,
                                 )? == read_session_u64(
                                     session,
-                                    scheduler + layout.queue_end_offset,
+                                    context.rcx + layout.queue_end_offset,
                                 )?;
                             if !idle {
                                 session.set_context(event.tid, &context)?;
@@ -2843,6 +2850,17 @@ mod windows_transport {
                         redirected = true;
                         context.rip = address;
                     }
+                    session.set_context(event.tid, &context)?;
+                    session.resume(&event, true)?;
+                    continue;
+                }
+                if context.rip == target && context.dr6 & 2 != 0 && !redirected {
+                    // The game reached the target by its own path, e.g. after an
+                    // entry hit outside the idle window was let through. It
+                    // never ran the stub, so it acknowledges nothing.
+                    diagnostics.foreign_target_hits += 1;
+                    context.dr6 &= !2;
+                    context.eflags |= 0x10000;
                     session.set_context(event.tid, &context)?;
                     session.resume(&event, true)?;
                     continue;
@@ -3214,6 +3232,7 @@ mod windows_transport {
             EntryOnly,
             BurstThenEntryThenAck(u32),
             ForeignThenEntryThenAck,
+            RejectedEntryThenTarget,
         }
 
         fn scratch(name: &str) -> PathBuf {
@@ -3298,6 +3317,12 @@ mod windows_transport {
                     for index in 0..count {
                         session.events.push_back(thread_event(index));
                     }
+                    session.events.push_back(step_event(1));
+                    session.events.push_back(step_event(2));
+                }
+                Script::RejectedEntryThenTarget => {
+                    session.events.push_back(thread_event(0));
+                    session.events.push_back(thread_event(1));
                     session.events.push_back(step_event(1));
                     session.events.push_back(step_event(2));
                 }
@@ -3440,6 +3465,31 @@ mod windows_transport {
                 diagnostic(&rejected_receipt, "entry_ownership_reject_manager"),
                 0
             );
+        }
+
+        /// An entry hit that was let through (here by the ownership recheck;
+        /// live, outside the idle window) runs the game's own code, which then
+        /// reaches the target. That pass never ran the stub, so it must not be
+        /// read as the stub's acknowledgement.
+        #[test]
+        fn a_target_hit_without_a_redirect_acknowledges_nothing() {
+            let window = DispatchWindow {
+                idle_deadline: Duration::from_secs(10),
+                event_safety_max: 40,
+                post_redirect_rounds: DISPATCH_POST_REDIRECT_ROUNDS,
+            };
+            let (outcome, receipt) = run(
+                "natural-target",
+                window,
+                Script::RejectedEntryThenTarget,
+                true,
+            );
+            assert!(outcome.is_err());
+            assert_eq!(receipt["redirect_count"], 0);
+            assert_eq!(diagnostic(&receipt, "entry_hits_accepted"), 0);
+            assert_eq!(diagnostic(&receipt, "foreign_target_hits"), 1);
+            assert_eq!(diagnostic(&receipt, "acknowledgement_hits"), 0);
+            assert_eq!(receipt["diagnostics"]["stop_reason"], "event_safety_bound");
         }
 
         /// The post-redirect bound is unchanged: a redirect that never

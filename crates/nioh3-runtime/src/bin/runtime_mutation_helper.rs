@@ -264,6 +264,9 @@ fn equipment_add_setup(module_base: u64, source: &[u8]) -> Result<serde_json::Va
     let data = region + 0x40000;
     let manager = region + 0x1000;
     let scheduler = region + 0x2000;
+    // The dispatch's own pickup object (RCX), distinct from the scheduler, with
+    // an empty queue (begin == end, both zero).
+    let pickup = region + 0x6000;
     let template = region + 0x3000;
     let counter = region + 0x3200;
     let player = data + 0x10 - nioh3_runtime::character::EQUIPMENT_OFFSET;
@@ -353,7 +356,7 @@ fn equipment_add_setup(module_base: u64, source: &[u8]) -> Result<serde_json::Va
     let call_site = module_base + layout.dispatch_return_rva - 5;
     let thunk = call_site - 14;
     let mut caller = vec![0x48, 0x83, 0xEC, 0x28, 0x48, 0xB9];
-    caller.extend_from_slice(&scheduler.to_le_bytes());
+    caller.extend_from_slice(&pickup.to_le_bytes());
     caller.push(0xE8);
     caller.extend_from_slice(&((entry as i64 - (call_site + 5) as i64) as i32).to_le_bytes());
     caller.extend_from_slice(&[0x48, 0x83, 0xC4, 0x28, 0xC3]);
