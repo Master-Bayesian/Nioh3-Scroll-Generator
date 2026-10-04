@@ -24,6 +24,8 @@ use nioh3_save::save::DecryptedSave;
 pub const LIVE_ADD_ACTION: &str = "v2-live-add";
 /// The action label a live remaining-count edit records.
 pub const COUNT_EDIT_ACTION: &str = "v2-count-edit";
+/// The action label a live whole-scroll edit records.
+pub const SCROLL_EDIT_ACTION: &str = "v2-scroll-edit";
 
 /// One application-owned backup bundle per reviewed live addition.
 pub struct SaveBackupAdapter {

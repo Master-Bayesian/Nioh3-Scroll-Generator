@@ -548,6 +548,82 @@ impl RuntimeApplication {
         Ok(count_status_json(&status))
     }
 
+/// `runtime.scroll_edit_prepare`: a reviewed whole-record edit of one live
+    /// scroll (header and effects, as the save editor sends them). Execution,
+    /// status and recovery are the count edit's, by operation ID.
+    fn scroll_edit_prepare(&mut self, source: &Value, edit: &Value) -> Result<Value, HostError> {
+        let approved = self.admit_runtime_feature("live_count_edit")?;
+        if !self.safe_to_shutdown()? {
+            return Err(HostError::rejected(
+                "Stop temporary overrides before editing a scroll",
+            ));
+        }
+        let save_path = source
+            .get("save_path")
+            .and_then(Value::as_str)
+            .ok_or_else(HostError::invalid_request)?;
+        let source_sha256 = source
+            .get("source_sha256")
+            .and_then(Value::as_str)
+            .ok_or_else(HostError::invalid_request)?;
+        let record_hex = source
+            .get("record_hex")
+            .and_then(Value::as_str)
+            .ok_or_else(HostError::invalid_request)?;
+        // Malformed edits are refused before any backup is taken.
+        crate::save_app::header_patch(edit)?;
+        crate::save_app::effect_patches(edit)?;
+        let raw = std::fs::read(save_path).map_err(|error| {
+            HostError::from_runtime(nioh3_runtime::RuntimeError::Io {
+                path: save_path.to_string(),
+                detail: error.to_string(),
+            })
+        })?;
+        if !nioh3_save::save::sha256_hex(&raw).eq_ignore_ascii_case(source_sha256) {
+            return Err(HostError::from_runtime(
+                nioh3_runtime::RuntimeError::CountSourceChanged {
+                    detail: "Save changed; refresh inventory".to_string(),
+                },
+            ));
+        }
+        let backup_id = format!(
+            "scroll-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|elapsed| elapsed.as_millis())
+                .unwrap_or_default()
+        );
+        let backup_path = {
+            use nioh3_runtime::mutation::live_add::SaveBackup;
+            crate::runtime_backup::SaveBackupAdapter::with_action(
+                &self.state_root,
+                crate::runtime_backup::SCROLL_EDIT_ACTION,
+            )
+            .checkpoint(Path::new(save_path), &raw, &backup_id)
+            .map_err(HostError::from_runtime)?
+            .backup_path
+        };
+        let build = |current: &[u8]| -> Result<Vec<u8>, String> {
+            let record: [u8; 0xE8] = current
+                .try_into()
+                .map_err(|_| "Expected a full scroll record".to_string())?;
+            crate::save_app::scroll_record_edit(&record, edit)
+                .map(|record| record.to_vec())
+                .map_err(|error| error.message)
+        };
+        let mut editor = self.count_editor_for_game(&approved)?;
+        let status = editor
+            .prepare_record(
+                Path::new(save_path),
+                source_sha256,
+                record_hex,
+                &backup_path,
+                &build,
+            )
+            .map_err(HostError::from_runtime)?;
+        Ok(count_status_json(&status))
+    }
+
     fn count_execute(&mut self, operation_id: &str, plan_digest: &str) -> Result<Value, HostError> {
         let approved = self.admit_runtime_feature("live_count_edit")?;
         if !self.safe_to_shutdown()? {
@@ -2453,6 +2529,17 @@ mod imp {
                     let plan_digest = param_str(&params, "plan_digest")?;
                     self.count_execute(&operation_id, &plan_digest)
                 }
+                "scroll_edit_prepare" => {
+                    let source = params
+                        .get("source")
+                        .cloned()
+                        .ok_or_else(HostError::invalid_request)?;
+                    let edit = params
+                        .get("edit")
+                        .cloned()
+                        .ok_or_else(HostError::invalid_request)?;
+                    self.scroll_edit_prepare(&source, &edit)
+                }
                 "count_status" => {
                     let operation_id = param_str(&params, "operation_id")?;
                     self.count_status(&operation_id)
@@ -2836,6 +2923,7 @@ mod imp {
                 | "live_batch_cancel"
                 | "live_batch_status"
                 | "count_prepare"
+                | "scroll_edit_prepare"
                 | "count_execute"
                 | "count_status"
                 | "count_recover"

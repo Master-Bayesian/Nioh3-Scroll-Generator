@@ -322,6 +322,18 @@ impl Broker {
                 )
                 .await
             }
+            "operations:prepare-scroll-edit" => {
+                if !p["edit"].is_object() {
+                    return Err("INVALID_SCROLL_EDIT".into());
+                }
+                let source = self.run("save", "save.count_edit_source", json!({"save_id":p["save_id"],"snapshot_id":p["snapshot_id"],"slot_index":p["slot_index"]})).await?;
+                self.call(
+                    "runtime",
+                    "runtime.scroll_edit_prepare",
+                    json!({"source":source["count_source"],"edit":p["edit"]}),
+                )
+                .await
+            }
             "operations:current" => {
                 let role = p.as_str().ok_or("INVALID_ROLE")?;
                 if !["save", "runtime"].contains(&role) {
@@ -568,6 +580,7 @@ fn require_public(job: &Value) -> Result<(), String> {
     let kind = job["kind"].as_str().unwrap_or("");
     const PUBLIC: &[&str] = &[
         "runtime.count_prepare",
+        "runtime.scroll_edit_prepare",
         "runtime.count_execute",
         "runtime.count_status",
         "runtime.count_recover",

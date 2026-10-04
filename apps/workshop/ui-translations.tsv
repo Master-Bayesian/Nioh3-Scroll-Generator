@@ -1473,3 +1473,17 @@ NPC武器	NPC weapon	NPC武器
 请输入有效的爱用度（游戏里显示的数值，最多两位小数）。	Enter a valid familiarity (the value the game shows, at most two decimals).	有効な愛用度を入力してください（ゲーム内の表示値、小数は2桁まで）。
 上一次次数修改还没有完成。请先点“核对上次次数修改”，确认或放弃后再修改。	The last attempt edit is unfinished. Click "Check previous count change" first, then confirm or discard it before editing again.	前回の回数変更が完了していません。先に「前回の回数変更を確認」を押し、確定または破棄してから変更してください。
 核对之后数值、存档或所选绘卷有变化，这次核对已失效。请点“放弃本次核对”，再重新核对。	The value, save or scroll changed after this review, so it no longer applies. Click "Discard review" and review again.	確認後に数値・セーブ・絵巻が変わったため、この確認は無効です。「確認内容を破棄」を押して、もう一度確認してください。
+修改方式	Edit mode	変更方法
+直接改正在运行的游戏，改完在游戏里存档（例如在神社休息）即可保存。	Changes the running game; save in game (for example, rest at a shrine) to keep it.	起動中のゲームを直接変更します。ゲーム内でセーブ（社で休むなど）すると保存されます。
+改存档文件，写入时让游戏停在标题界面。	Changes the save file; keep the game at the title screen while writing.	セーブファイルを変更します。書き込み中はゲームをタイトル画面にしてください。
+基础信息和主副词条会保存下来；副本内容只是临时改游戏，不会存进存档。传给其他玩家后，词条会按种子重新生成。	Basic details and effects are kept; mission details only change the game temporarily and are never saved. When shared with another player, effects regenerate from the seed.	基本情報と効果は保存されます。ミッション内容はゲームを一時的に変えるだけで、セーブには残りません。他のプレイヤーに渡すと、効果はシードから再生成されます。
+基础信息	Basic details	基本情報
+副本内容 · 临时，不进存档	Mission details · Temporary, never saved	ミッション内容 · 一時的、保存されない
+正在核对游戏里的这张绘卷…	Checking this scroll in the game…	ゲーム内のこの絵巻を確認しています…
+核对失败，请重新读取后再试。	The check failed; reload and try again.	確認に失敗しました。再読み込みしてからもう一度お試しください。
+确认写入游戏	Write to game	ゲームに書き込む
+已写入游戏。在游戏里重新打开绘卷菜单即可看到；到神社休息（游戏存档）后才会写进存档文件。	Written to the game. Reopen the scroll menu in game to see it; it reaches the save file once you rest at a shrine (the game saves).	ゲームに書き込みました。ゲーム内で絵巻メニューを開き直すと確認できます。社で休む（ゲームがセーブする）とセーブファイルに保存されます。
+没有写入，请重新核对。	Nothing was written; review again.	書き込まれていません。もう一度確認してください。
+写入结果尚未确认。请不要重复写入：点“重新读取”后核对这张绘卷，或导出反馈文件发给开发者。	The result is not confirmed yet. Do not write again: click "Reload" and check this scroll, or export a feedback file for the developer.	書き込み結果は未確認です。再度書き込まず、「再読み込み」を押してこの絵巻を確認するか、フィードバックファイルを開発者に送ってください。
+左侧列表来自存档文件；实时修改要在游戏里存档后，点“重新读取”才会显示在列表里。	The list on the left comes from the save file; a live edit shows there after the game saves and you click "Reload".	左の一覧はセーブファイルの内容です。リアルタイム変更は、ゲームでセーブした後に「再読み込み」を押すと一覧に反映されます。
+项变化，已自动备份存档，尚未写入游戏。请在右侧“确认修改”中确认后写入。	change(s) and backed up the save; nothing is written to the game yet. Confirm in “Confirm changes” on the right to write them.	件の変更。セーブをバックアップしました。まだゲームには書き込まれていません。右側の「変更を確認」で確定すると書き込みます。

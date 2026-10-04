@@ -49,6 +49,8 @@ export type PublicOperation =
   | { method: 'runtime.stop_override'; params: ProtectedParams<'runtime.stop_override'> };
 export interface OperationsApi {
   prepareCount(params: ProtectedParams<'save.count_edit_source'> & {new_count:number}):Promise<ProtectedResult>;
+  /** A reviewed live edit of one scroll's header and effects; executed like a count edit. */
+  prepareScrollEdit(params: ProtectedParams<'save.count_edit_source'> & {edit: ProtectedParams<'runtime.scroll_edit_prepare'>['edit']}):Promise<ProtectedResult>;
   prepareLiveAdd(params: { save_id: string; snapshot_id: string; source: 'search' | 'runtime'; job_id: string; candidate_id: string }): Promise<ProtectedResult>;
   selectSave(): Promise<ProtectedResult | null>;
   /** Native picker for another save, re-signed into the selected save (存档改签); null when cancelled. */

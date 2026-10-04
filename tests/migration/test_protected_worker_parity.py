@@ -1689,6 +1689,7 @@ class ProtectedRuntimeRoutingAudit(unittest.TestCase):
         "live_batch_status",
         "live_batch_cancel",
         "count_prepare",
+        "scroll_edit_prepare",
         "count_execute",
         "count_status",
         "count_recover",

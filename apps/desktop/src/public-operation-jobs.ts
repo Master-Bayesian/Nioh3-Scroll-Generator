@@ -2,7 +2,7 @@ import type { ProtectedJob } from '../../../packages/contracts/protected-respons
 
 /** Job recovery must not expose private templates, cache JSON, or raw records. */
 const publicKinds = new Set<ProtectedJob['kind']>([
-  'runtime.count_prepare','runtime.count_execute','runtime.count_status','runtime.count_recover',
+  'runtime.count_prepare','runtime.scroll_edit_prepare','runtime.count_execute','runtime.count_status','runtime.count_recover',
   'save.recycle_backups', 'save.discover', 'save.register', 'save.inventory', 'save.prepare_edit', 'save.prepare_delete',
   'save.character', 'save.prepare_character_edit', 'runtime.character_edit',
   'save.prepare_install_many','runtime.live_batch_prepare','runtime.live_batch_execute','runtime.live_batch_status','runtime.live_batch_cancel',

@@ -3336,6 +3336,97 @@ export type ProtectedRequest =
   | {
       protocol: 1;
       id: string;
+      method: "runtime.scroll_edit_prepare";
+      params: {
+        source: {
+          save_path: string;
+          source_sha256: string;
+          record_hex: string;
+        };
+        edit: {
+          header: {
+            playthrough: number;
+            level: number;
+            recommended_level: number;
+            seed: number;
+            rarity: 3 | 4 | 5;
+            transfer_count: number;
+          };
+          /**
+           * @minItems 7
+           * @maxItems 7
+           */
+          effects: [
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            }
+          ];
+        };
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
       method: "runtime.count_execute";
       params: {
         operation_id: string;

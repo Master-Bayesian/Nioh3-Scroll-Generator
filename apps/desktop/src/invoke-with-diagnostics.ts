@@ -14,6 +14,7 @@ const TRACED_CHANNELS = new Set([
   "core:restart",
   "operations:select",
   "operations:prepare-count",
+  "operations:prepare-scroll-edit",
   "operations:install",
   "operations:live-add",
   "operations:generate",

@@ -17,6 +17,22 @@ import { SavePicker } from "./CartActions";
 import { errorText } from "./public-errors";
 import type { ProtectedParams } from "../desktop/src/protected-client";
 import rawCatalog from "./editor-values.json";
+import type { CountEdit } from "../../packages/contracts/protected-responses";
+/** Where a reviewed scroll edit is written: the running game or the save file. */
+type WriteMode = "live" | "save";
+const WRITE_MODE_KEY = "nioh3-scroll-edit-mode";
+function storedWriteMode(): WriteMode {
+  try {
+    return localStorage.getItem(WRITE_MODE_KEY) === "save" ? "save" : "live";
+  } catch {
+    return "live";
+  }
+}
+function countEditOf(result: unknown): CountEdit {
+  if (!result || typeof result !== "object" || !("count_edit" in result))
+    throw Error("COUNT_RESULT_EXPECTED");
+  return (result as { count_edit: CountEdit }).count_edit;
+}
 const rawData = rawCatalog as {
   effects: Record<string, number>;
   patterns: number[][];
@@ -127,6 +143,8 @@ function fromSample(s: Sample): Draft {
 }
 export function Editor({ cart }: { cart: Sample[] }) {
   const [saveState, setSaveState] = useState(() => saveSession?.getSnapshot());
+  const [writeMode, setWriteModeRaw] = useState<WriteMode>(storedWriteMode);
+  const [livePlan, setLivePlan] = useState<{ operation_id: string; plan_digest: string } | null>(null);
   const [reviewedPlan, setReviewedPlan] = useState<string | null>(null),
     [saveStateConfirmed, setSaveStateConfirmed] = useState(false),
     [backendBusy, setBackendBusy] = useState(false);
@@ -171,8 +189,17 @@ export function Editor({ cart }: { cart: Sample[] }) {
   useEffect(() => {
     setReview(false);
     setReviewedPlan(null);
+    setLivePlan(null);
     setSaveStateConfirmed(false);
-  }, [draft]);
+  }, [draft, writeMode]);
+  function setWriteMode(next: WriteMode) {
+    setWriteModeRaw(next);
+    try {
+      localStorage.setItem(WRITE_MODE_KEY, next);
+    } catch {
+      // Remembering the mode is a convenience only.
+    }
+  }
   const [undoStack, setUndoStack] = useState<History[]>([]),
     [redoStack, setRedoStack] = useState<History[]>([]);
   function setDraft(next: Draft) {
@@ -339,17 +366,40 @@ export function Editor({ cart }: { cart: Sample[] }) {
             tail_1: Number(slot.tail1),
           })),
         } as ProtectedParams<"save.prepare_edit">["edits"][number];
-        setMessage("正在生成写入计划…");
-        const plan = await saveSession!.prepareEdit([edit]);
-        if (identity !== draftIdentity.current)
-          throw Error("内容已改变，请重新核对修改。");
-        setReviewedPlan(plan.plan_id);
-        setSaveStateConfirmed(false);
+        if (writeMode === "live") {
+          const inventory = saveState?.inventory;
+          if (!inventory) throw Error("请先读取真实存档。");
+          setMessage("正在核对游戏里的这张绘卷…");
+          const { slot_index, ...change } = edit;
+          const plan = countEditOf(
+            await runtimeObserver!.run(() =>
+              window.operations.prepareScrollEdit({
+                save_id: inventory.save_id,
+                snapshot_id: inventory.snapshot_id,
+                slot_index,
+                edit: change,
+              }),
+            ),
+          );
+          if (plan.state !== "prepared") throw Error(plan.error || "核对失败，请重新读取后再试。");
+          if (identity !== draftIdentity.current)
+            throw Error("内容已改变，请重新核对修改。");
+          setLivePlan({ operation_id: plan.operation_id, plan_digest: plan.plan_digest });
+        } else {
+          setMessage("正在生成写入计划…");
+          const plan = await saveSession!.prepareEdit([edit]);
+          if (identity !== draftIdentity.current)
+            throw Error("内容已改变，请重新核对修改。");
+          setReviewedPlan(plan.plan_id);
+          setSaveStateConfirmed(false);
+        }
       }
       setReview(true);
       setMessage(
         desktop
-          ? `已核对 ${changes.length} 项变化，尚未写入存档。请在右侧“确认修改”中确认后写入。`
+          ? writeMode === "live"
+            ? `已核对 ${changes.length} 项变化，已自动备份存档，尚未写入游戏。请在右侧“确认修改”中确认后写入。`
+            : `已核对 ${changes.length} 项变化，尚未写入存档。请在右侧“确认修改”中确认后写入。`
           : "",
       );
     } catch (e) {
@@ -549,6 +599,46 @@ export function Editor({ cart }: { cart: Sample[] }) {
         }),
       );
       setMessage("临时修改已停止。");
+    } catch (error) {
+      setMessage(errorText(error));
+    } finally {
+      setBackendBusy(false);
+    }
+  }
+  async function applyLive() {
+    if (!livePlan) return;
+    setBackendBusy(true);
+    try {
+      let result = countEditOf(
+        await runtimeObserver!.run(() =>
+          window.operations.execute({
+            method: "runtime.count_execute",
+            params: livePlan,
+          }),
+        ),
+      );
+      // A lost reply is settled by observing the game, never by writing again.
+      if (result.state === "uncertain")
+        result = countEditOf(
+          await runtimeObserver!.run(() =>
+            window.operations.execute({
+              method: "runtime.count_recover",
+              params: { operation_id: livePlan.operation_id },
+            }),
+          ),
+        );
+      setReview(false);
+      setLivePlan(null);
+      if (result.state === "verified") {
+        setSaved(structuredClone(draft));
+        setRecords({ ...records, [current.seed]: structuredClone(draft) });
+        setMessage(
+          "已写入游戏。在游戏里重新打开绘卷菜单即可看到；到神社休息（游戏存档）后才会写进存档文件。",
+        );
+      } else if (result.state === "rejected")
+        setMessage(errorText(result.error || "没有写入，请重新核对。"));
+      else
+        setMessage("写入结果尚未确认。请不要重复写入：点“重新读取”后核对这张绘卷，或导出反馈文件发给开发者。");
     } catch (error) {
       setMessage(errorText(error));
     } finally {
@@ -768,8 +858,25 @@ export function Editor({ cart }: { cart: Sample[] }) {
             选择购物车中绘卷种子
           </button>
         </div>
+        {desktop && (
+          <div className="editor-write-mode">
+            <div className="character-modes" role="group" aria-label="修改方式">
+              <button className={writeMode === "live" ? "active" : ""} onClick={() => setWriteMode("live")}>
+                游戏内实时修改
+              </button>
+              <button className={writeMode === "save" ? "active" : ""} onClick={() => setWriteMode("save")}>
+                修改存档文件
+              </button>
+            </div>
+            <span>
+              {writeMode === "live"
+                ? "直接改正在运行的游戏，改完在游戏里存档（例如在神社休息）即可保存。"
+                : "改存档文件，写入时让游戏停在标题界面。"}
+            </span>
+          </div>
+        )}
         <p className="editor-info">
-          主副词条修改可以长期保存，重启游戏仍保留。传给其他玩家后，词条会按种子重新生成。
+          基础信息和主副词条会保存下来；副本内容只是临时改游戏，不会存进存档。传给其他玩家后，词条会按种子重新生成。
         </p>
         {pending && (
           <div className="editor-prompt">
@@ -782,7 +889,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
           className="module sand editor-section editor-basics"
           name="editor-section"
         >
-          <summary>基础信息 · 长期保存</summary>
+          <summary>基础信息</summary>
           <div className="editor-section-body">
             <div className="editor-fields">
               {fields.map(([k, n]) => (
@@ -805,7 +912,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
           className="module sand editor-section editor-effects"
           name="editor-section"
         >
-          <summary>主副词条 · 长期保存</summary>
+          <summary>主副词条</summary>
           <div className="editor-section-body">
             <p>选择一行，在下方更换词条。</p>
             <div className="slot-list">
@@ -956,7 +1063,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
           disabled={changed || backendBusy || !!saveState?.busy}
         />}
         <details className="module blue editor-section" name="editor-section">
-          <summary>副本内容 · 临时修改</summary>
+          <summary>副本内容 · 临时，不进存档</summary>
           <div className="editor-section-body">
             <p className="temporary-warning">
               只修改游戏内存，不保存进绘卷。停止修改后重新打开绘卷，或退出游戏即可恢复。
@@ -1254,7 +1361,11 @@ export function Editor({ cart }: { cart: Sample[] }) {
           <div className="editor-prompt" ref={reviewPrompt} role="region" aria-label="确认修改">
             <h3>确认修改</h3>
             <p>{desktop ? message : `本次将应用 ${changes.length} 项变化。`}</p>
-            {desktop ? (
+            {desktop && writeMode === "live" && livePlan ? (
+              <button disabled={backendBusy} onClick={() => void applyLive()}>
+                确认写入游戏
+              </button>
+            ) : desktop ? (
               <>
                 <label>
                   <input
@@ -1289,7 +1400,11 @@ export function Editor({ cart }: { cart: Sample[] }) {
           </div>
         )}
         <p className="editor-boundary">
-          {desktop ? "当前存档绘卷" : "示例绘卷 · 不写入游戏存档"}
+          {desktop
+            ? writeMode === "live"
+              ? "左侧列表来自存档文件；实时修改要在游戏里存档后，点“重新读取”才会显示在列表里。"
+              : "当前存档绘卷"
+            : "示例绘卷 · 不写入游戏存档"}
         </p>
       </aside>
       <dialog

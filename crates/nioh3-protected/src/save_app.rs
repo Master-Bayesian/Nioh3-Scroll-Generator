@@ -1100,19 +1100,8 @@ impl SaveApplication {
                 .entry(slot_index)
                 .map_err(|_| HostError::rejected("Only occupied scroll slots may be edited"))?;
             let original = *entry.record_bytes();
-            let header = header_patch(edit)?;
-            let after_header = header_json(&header);
-            // The editor always sends the whole header. When every field equals
-            // the stored record the header is untouched, so its bytes -
-            // including the `+0x08`/`+0x12`/`+0x31` mirrors - stay exactly as
-            // stored instead of being re-normalized by an effect-only edit.
-            let patch = if after_header == local_header(&original)? {
-                original
-            } else {
-                patch_local_scroll_header(&original, &header).map_err(HostError::from_save)?
-            };
-            let replacement = patch_local_scroll_record(&patch, &effect_patches(edit)?)
-                .map_err(HostError::from_save)?;
+            let after_header = header_json(&header_patch(edit)?);
+            let replacement = scroll_record_edit(&original, edit)?;
             changes.push(json!({
                 "slot_index": slot_index,
                 "before_header": local_header(&original)?,
@@ -2504,7 +2493,31 @@ fn install_record_from(
     Ok((record, preview))
 }
 
-fn header_patch(edit: &Value) -> Result<HeaderPatch, HostError> {
+/// One scroll record with an editor edit (`header`, `effects`) applied.
+///
+/// The editor always sends the whole header. When every field equals the
+/// stored record the header is untouched, so its bytes - including the
+/// `+0x08`/`+0x12`/`+0x31` mirrors - stay exactly as stored instead of being
+/// re-normalized by an effect-only edit. The save edit and the live edit
+/// share it, so both write the same bytes for the same request.
+pub(crate) fn scroll_record_edit(
+    original: &[u8; RECORD_BYTES],
+    edit: &Value,
+) -> Result<[u8; RECORD_BYTES], HostError> {
+    let header = header_patch(edit)?;
+    let patch = if header_json(&header) == local_header(original)? {
+        *original
+    } else {
+        patch_local_scroll_header(original, &header).map_err(HostError::from_save)?
+    };
+    let effects = effect_patches(edit)?;
+    if effects.is_empty() {
+        return Ok(patch);
+    }
+    patch_local_scroll_record(&patch, &effects).map_err(HostError::from_save)
+}
+
+pub(crate) fn header_patch(edit: &Value) -> Result<HeaderPatch, HostError> {
     let header = edit.get("header").ok_or_else(HostError::invalid_request)?;
     let field = |name: &str| -> Result<u64, HostError> {
         header
@@ -2522,7 +2535,7 @@ fn header_patch(edit: &Value) -> Result<HeaderPatch, HostError> {
     })
 }
 
-fn header_json(header: &HeaderPatch) -> Value {
+pub(crate) fn header_json(header: &HeaderPatch) -> Value {
     json!({
         "playthrough": header.playthrough,
         "level": header.level,
@@ -2533,7 +2546,7 @@ fn header_json(header: &HeaderPatch) -> Value {
     })
 }
 
-fn effect_patches(edit: &Value) -> Result<Vec<EffectPatch>, HostError> {
+pub(crate) fn effect_patches(edit: &Value) -> Result<Vec<EffectPatch>, HostError> {
     let Some(effects) = edit.get("effects").and_then(Value::as_array) else {
         return Ok(Vec::new());
     };
@@ -2556,7 +2569,7 @@ fn effect_patches(edit: &Value) -> Result<Vec<EffectPatch>, HostError> {
     Ok(patches)
 }
 
-fn local_header(record: &[u8; RECORD_BYTES]) -> Result<Value, HostError> {
+pub(crate) fn local_header(record: &[u8; RECORD_BYTES]) -> Result<Value, HostError> {
     let record_type = u16::from_le_bytes([record[0], record[1]]);
     let playthrough = nioh3_save::transform::playthrough_of(record_type)
         .ok_or_else(|| HostError::rejected("record is not a mapped scroll"))?;

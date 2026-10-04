@@ -87,6 +87,33 @@ pub trait CountMemory {
     /// `write(expected, desired)`: revalidate the instance, write one byte with
     /// the minimum write rights, then read the whole record back.
     fn write(&mut self, expected: &TargetCapture, desired: u8) -> Result<Vec<u8>, RuntimeError>;
+
+    /// `write_record(expected, desired)`: revalidate the instance, write the
+    /// bytes of `desired` that differ from the captured record, then read the
+    /// whole record back. A whole-record scroll edit uses it.
+    fn write_record(
+        &mut self,
+        expected: &TargetCapture,
+        desired: &[u8],
+    ) -> Result<Vec<u8>, RuntimeError>;
+}
+
+/// The changed byte runs between two records, as `(offset, bytes)`.
+pub fn changed_runs(before: &[u8], after: &[u8]) -> Vec<(usize, Vec<u8>)> {
+    let mut runs = Vec::new();
+    let mut index = 0;
+    while index < after.len().min(before.len()) {
+        if before[index] == after[index] {
+            index += 1;
+            continue;
+        }
+        let start = index;
+        while index < after.len() && before[index] != after[index] {
+            index += 1;
+        }
+        runs.push((start, after[start..index].to_vec()));
+    }
+    runs
 }
 
 /// The two process views one count edit uses.
@@ -343,6 +370,44 @@ impl<P: CountProcesses> CountMemory for WindowsCountMemory<P> {
         let reader = self.reader()?;
         reader.read(expected.address, record_size)
     }
+
+    fn write_record(
+        &mut self,
+        expected: &TargetCapture,
+        desired: &[u8],
+    ) -> Result<Vec<u8>, RuntimeError> {
+        if desired.len() != self.layout.record_size {
+            return Err(RuntimeError::CountSourceChanged {
+                detail: "Expected a full scroll record".to_string(),
+            });
+        }
+        let current = self.capture_of(expected.serial)?;
+        if current.pid != expected.pid
+            || current.creation_time != expected.creation_time
+            || current.manager != expected.manager
+            || current.data != expected.data
+            || current.address != expected.address
+            || current.record_hex != expected.record_hex
+        {
+            return Err(RuntimeError::CountInstanceChanged);
+        }
+        let before = hex_decode(&current.record_hex)?;
+        let mut writer = self.processes.open_write(self.pid)?;
+        let write = (|| {
+            if let Some(creation) = self.expected_creation {
+                verify_count_process(&mut *writer, self.pid, creation)?;
+            }
+            for (offset, bytes) in changed_runs(&before, desired) {
+                writer.write(expected.address + offset as u64, &bytes)?;
+            }
+            Ok(())
+        })();
+        writer.close();
+        write?;
+        let record_size = self.layout.record_size;
+        let reader = self.reader()?;
+        reader.read(expected.address, record_size)
+    }
 }
 
 fn verify_count_process(
@@ -414,12 +479,15 @@ pub struct CountPlan {
     pub save_path: String,
     pub source_sha256: String,
     pub backup_path: String,
+    /// A whole-record scroll edit: the record to write, built from
+    /// `target.record_hex`. `None` is a remaining-count edit.
+    pub desired_record_hex: Option<String>,
 }
 
 impl CountPlan {
     /// The exact object the digest covers.
     pub fn to_json(&self) -> serde_json::Value {
-        serde_json::json!({
+        let mut plan = serde_json::json!({
             "operation_id": self.operation_id,
             "target": {
                 "pid": self.target.pid,
@@ -437,7 +505,12 @@ impl CountPlan {
             "save_path": self.save_path,
             "source_sha256": self.source_sha256,
             "backup_path": self.backup_path,
-        })
+        });
+        // Count plans keep their original shape, so their digests are unchanged.
+        if let Some(desired) = &self.desired_record_hex {
+            plan["desired_record_hex"] = serde_json::Value::String(desired.clone());
+        }
+        plan
     }
 
     pub fn digest(&self) -> String {
@@ -583,7 +656,9 @@ impl CountEditor {
                 detail: "Current record is not a full scroll record".to_string(),
             });
         }
-        if stable_identity(&current) != stable_identity(&saved_record) {
+        if stable_identity(&current) != stable_identity(&saved_record)
+            && !self.wrote_live_record(serial, source_sha256, &current)
+        {
             return Err(RuntimeError::CountSourceChanged {
                 detail: "Saved defined record fields differ".to_string(),
             });
@@ -628,6 +703,144 @@ impl CountEditor {
                 .to_string(),
             source_sha256: sha256_hex(&raw),
             backup_path: backup_path.display().to_string(),
+            desired_record_hex: None,
+        };
+        let directory = self.directory(&operation_id)?;
+        fs::create_dir_all(&directory).map_err(|error| RuntimeError::Io {
+            path: directory.display().to_string(),
+            detail: error.to_string(),
+        })?;
+        exclusive_json(
+            &directory.join("plan.json"),
+            &serde_json::json!({"digest": plan.digest(), "plan": plan.to_json()}),
+        )?;
+        self.status(&operation_id)
+    }
+
+    /// Whether `current` is the record a verified edit of this editor wrote
+    /// to `serial` over the same, still unchanged save.
+    ///
+    /// After a live edit the game holds the new record until it saves, so the
+    /// save no longer matches it; the receipt proves the difference is ours,
+    /// which keeps a second edit (or a count edit) of that scroll possible
+    /// before the game saves.
+    fn wrote_live_record(&self, serial: u64, source_sha256: &str, current: &[u8]) -> bool {
+        let Ok(entries) = fs::read_dir(&self.operations) else {
+            return false;
+        };
+        entries.flatten().any(|entry| {
+            let id = entry.file_name().to_string_lossy().to_string();
+            let Ok((_, plan)) = self.plan(&id) else {
+                return false;
+            };
+            let Some(desired) = plan.desired_record_hex.as_deref() else {
+                return false;
+            };
+            plan.target.serial == serial
+                && plan.source_sha256.eq_ignore_ascii_case(source_sha256)
+                && matches!(self.status(&id), Ok(status) if status.state == CountState::Verified)
+                && hex_decode(desired)
+                    .is_ok_and(|desired| stable_identity(&desired) == stable_identity(current))
+        })
+    }
+
+    /// Prepare a whole-record scroll edit of the live record.
+    ///
+    /// The same gates as `prepare`: the saved record must be this live
+    /// instance, the save unchanged and the automatic backup exact. `build`
+    /// makes the record to write from the live one, so bytes the game owns
+    /// at runtime (the remaining count, the new-item mark) are kept.
+    pub fn prepare_record(
+        &mut self,
+        save_path: &Path,
+        source_sha256: &str,
+        record_hex: &str,
+        backup_path: &Path,
+        build: &dyn Fn(&[u8]) -> Result<Vec<u8>, String>,
+    ) -> Result<CountStatus, RuntimeError> {
+        let saved_record = hex_decode(record_hex)?;
+        if saved_record.len() != RECORD_SIZE {
+            return Err(RuntimeError::CountSourceChanged {
+                detail: "Expected full saved record".to_string(),
+            });
+        }
+        let serial = u64::from_le_bytes(
+            saved_record[SERIAL_OFFSET..SERIAL_OFFSET + 8]
+                .try_into()
+                .map_err(|_| RuntimeError::CountSourceChanged {
+                    detail: "Expected full saved record".to_string(),
+                })?,
+        );
+        let state = self.memory.capture(serial)?;
+        let current = hex_decode(&state.record_hex)?;
+        if current.len() != RECORD_SIZE {
+            return Err(RuntimeError::CountSourceChanged {
+                detail: "Current record is not a full scroll record".to_string(),
+            });
+        }
+        if stable_identity(&current) != stable_identity(&saved_record)
+            && !self.wrote_live_record(serial, source_sha256, &current)
+        {
+            return Err(RuntimeError::CountSourceChanged {
+                detail: "Saved defined record fields differ".to_string(),
+            });
+        }
+        if current[0x0E] != 0 {
+            return Err(RuntimeError::CountSourceChanged {
+                detail: "Current scroll state is not supported for live editing".to_string(),
+            });
+        }
+        let desired = build(&current).map_err(|detail| RuntimeError::CountSourceChanged { detail })?;
+        if desired.len() != RECORD_SIZE {
+            return Err(RuntimeError::CountSourceChanged {
+                detail: "Expected a full scroll record".to_string(),
+            });
+        }
+        if desired == current {
+            return Err(RuntimeError::CountSourceChanged {
+                detail: "NO_CHANGES: the edit leaves the scroll unchanged".to_string(),
+            });
+        }
+        if desired[SERIAL_OFFSET..SERIAL_OFFSET + 8] != current[SERIAL_OFFSET..SERIAL_OFFSET + 8] {
+            return Err(RuntimeError::CountSourceChanged {
+                detail: "A live edit cannot change the scroll serial".to_string(),
+            });
+        }
+        let raw = read_bytes(save_path)?;
+        if sha256_hex(&raw).to_lowercase() != source_sha256.to_lowercase() {
+            return Err(RuntimeError::CountSourceChanged {
+                detail: "Save changed; refresh inventory".to_string(),
+            });
+        }
+        let backup = read_bytes(backup_path)?;
+        if sha256_hex(&backup) != sha256_hex(&raw) {
+            return Err(RuntimeError::BackupMismatch {
+                path: backup_path.display().to_string(),
+            });
+        }
+        let operation_id = new_operation_id()?;
+        let plan = CountPlan {
+            operation_id: operation_id.clone(),
+            target: state,
+            new_count: current[COUNT_OFFSET],
+            old_count: current[COUNT_OFFSET],
+            seed: u32::from_le_bytes(desired[0x20..0x24].try_into().map_err(|_| {
+                RuntimeError::CountSourceChanged {
+                    detail: "Expected full saved record".to_string(),
+                }
+            })?),
+            rarity: desired[0x30],
+            save_path: save_path
+                .canonicalize()
+                .map_err(|error| RuntimeError::Io {
+                    path: save_path.display().to_string(),
+                    detail: error.to_string(),
+                })?
+                .display()
+                .to_string(),
+            source_sha256: sha256_hex(&raw),
+            backup_path: backup_path.display().to_string(),
+            desired_record_hex: Some(desired.iter().map(|byte| format!("{byte:02x}")).collect()),
         };
         let directory = self.directory(&operation_id)?;
         fs::create_dir_all(&directory).map_err(|error| RuntimeError::Io {
@@ -780,18 +993,35 @@ impl CountEditor {
                 },
             });
         }
-        let after = self
-            .memory
-            .write(&current, plan.new_count)
-            .map_err(|error| AttemptFailure {
-                attempted: true,
+        let (after, expected) = if let Some(desired) = &plan.desired_record_hex {
+            let desired = hex_decode(desired).map_err(|error| AttemptFailure {
+                attempted: false,
                 error,
             })?;
-        let mut expected = hex_decode(&current.record_hex).map_err(|error| AttemptFailure {
-            attempted: true,
-            error,
-        })?;
-        expected[COUNT_OFFSET] = plan.new_count;
+            let after = self
+                .memory
+                .write_record(&current, &desired)
+                .map_err(|error| AttemptFailure {
+                    attempted: true,
+                    error,
+                })?;
+            (after, desired)
+        } else {
+            let after = self
+                .memory
+                .write(&current, plan.new_count)
+                .map_err(|error| AttemptFailure {
+                    attempted: true,
+                    error,
+                })?;
+            let mut expected =
+                hex_decode(&current.record_hex).map_err(|error| AttemptFailure {
+                    attempted: true,
+                    error,
+                })?;
+            expected[COUNT_OFFSET] = plan.new_count;
+            (after, expected)
+        };
         if after != expected {
             return Err(AttemptFailure {
                 attempted: true,
@@ -821,9 +1051,17 @@ impl CountEditor {
             return Err(RuntimeError::CountInstanceChanged);
         }
         let raw = hex_decode(&current.record_hex)?;
-        if raw[COUNT_OFFSET] != plan.new_count
-            || stable_identity(&raw) != stable_identity(&hex_decode(&plan.target.record_hex)?)
-        {
+        let written = match &plan.desired_record_hex {
+            // The game may change the count or the new-item mark afterwards;
+            // every other defined byte must be the reviewed record.
+            Some(desired) => stable_identity(&raw) == stable_identity(&hex_decode(desired)?),
+            None => {
+                raw[COUNT_OFFSET] == plan.new_count
+                    && stable_identity(&raw)
+                        == stable_identity(&hex_decode(&plan.target.record_hex)?)
+            }
+        };
+        if !written {
             return self.status(operation_id);
         }
         let directory = self.directory(operation_id)?;
@@ -876,6 +1114,10 @@ fn plan_from_json(value: &serde_json::Value) -> Result<CountPlan, RuntimeError> 
         save_path: text(value, "save_path")?,
         source_sha256: text(value, "source_sha256")?,
         backup_path: text(value, "backup_path")?,
+        desired_record_hex: match value.get("desired_record_hex") {
+            None => None,
+            Some(desired) => Some(desired.as_str().map(str::to_string).ok_or_else(conflict)?),
+        },
     })
 }
 

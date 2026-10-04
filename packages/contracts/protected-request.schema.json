@@ -3137,6 +3137,175 @@
           "maxLength": 64
         },
         "method": {
+          "const": "runtime.scroll_edit_prepare"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "source": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "save_path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "source_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-fA-F0-9]{64}$"
+                },
+                "record_hex": {
+                  "type": "string",
+                  "pattern": "^[a-fA-F0-9]{464}$"
+                }
+              },
+              "required": [
+                "save_path",
+                "source_sha256",
+                "record_hex"
+              ]
+            },
+            "edit": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "header": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "playthrough": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 5
+                    },
+                    "level": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 65535
+                    },
+                    "recommended_level": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 65535
+                    },
+                    "seed": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4294967295
+                    },
+                    "rarity": {
+                      "enum": [
+                        3,
+                        4,
+                        5
+                      ]
+                    },
+                    "transfer_count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4294967295
+                    }
+                  },
+                  "required": [
+                    "playthrough",
+                    "level",
+                    "recommended_level",
+                    "seed",
+                    "rarity",
+                    "transfer_count"
+                  ]
+                },
+                "effects": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "slot_index": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 6
+                      },
+                      "effect_id": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4294967295
+                      },
+                      "value": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4294967295
+                      },
+                      "prefix": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4294967295
+                      },
+                      "metadata": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4294967295
+                      },
+                      "tail_0": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4294967295
+                      },
+                      "tail_1": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4294967295
+                      }
+                    },
+                    "required": [
+                      "slot_index",
+                      "effect_id",
+                      "value",
+                      "prefix",
+                      "metadata",
+                      "tail_0",
+                      "tail_1"
+                    ]
+                  },
+                  "minItems": 7,
+                  "maxItems": 7,
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "header",
+                "effects"
+              ]
+            }
+          },
+          "required": [
+            "source",
+            "edit"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
           "const": "runtime.count_execute"
         },
         "params": {

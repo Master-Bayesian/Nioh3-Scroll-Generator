@@ -119,6 +119,7 @@ export interface ProtectedJob {
     | "save.auxiliary_preview"
     | "save.count_edit_source"
     | "runtime.count_prepare"
+    | "runtime.scroll_edit_prepare"
     | "runtime.count_execute"
     | "runtime.count_status"
     | "runtime.count_recover"

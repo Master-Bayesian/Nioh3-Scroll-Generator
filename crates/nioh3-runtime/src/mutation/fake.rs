@@ -344,4 +344,29 @@ impl CountMemory for FakeCountMemory {
             None => self.record.clone(),
         })
     }
+
+    fn write_record(
+        &mut self,
+        expected: &TargetCapture,
+        desired: &[u8],
+    ) -> Result<Vec<u8>, RuntimeError> {
+        self.writes += 1;
+        if expected != &self.capture_of() {
+            return Err(RuntimeError::CountInstanceChanged);
+        }
+        if self.faults.fail_write_call == Some(self.writes) {
+            return Err(RuntimeError::MemoryWrite {
+                address: self.address,
+                size: desired.len(),
+                code: 5,
+            });
+        }
+        if !self.faults.quiet_writes {
+            self.record = desired.to_vec();
+        }
+        Ok(match &self.faults.readback_after_write {
+            Some(override_record) => override_record.clone(),
+            None => self.record.clone(),
+        })
+    }
 }
