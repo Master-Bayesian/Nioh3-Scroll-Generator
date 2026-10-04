@@ -5439,6 +5439,10 @@
     "添加前会备份上面选中的存档。": [
       "The save selected above is backed up before the addition.",
       "追加の前に、上で選んだセーブをバックアップします。"
+    ],
+    "此游戏版本不再提示（之后自动备份并进入兼容模式；游戏更新后会重新提示）": [
+      "Don't show again for this game version (back up and enter compatibility mode automatically; asks again after a game update)",
+      "このゲームバージョンでは今後表示しない（以後は自動でバックアップして互換モードに入ります。ゲーム更新後は再度確認します）"
     ]
   },
   "game": {

@@ -91,6 +91,20 @@ try{
   await risk.check();await backed.check();
   const current=await page.evaluate(()=>window.testCase.plan.plan_id);await accept.click();await dialog.waitFor({state:'detached'});
   check(locale+' exact current plan and confirmations sent',await page.evaluate(id=>{const p=window.testCase.calls.at(-1).params;return p.action==='accept'&&p.plan_id===id&&p.confirmed&&p.backup_confirmed;},current));
+  // "Don't show again for this version": the next request prepares and accepts without the dialog.
+  await open();await risk.check();await backed.check();await page.locator('[data-action=compatibility-skip]').check();await accept.click();await dialog.waitFor({state:'detached'});
+  check(locale+' skip remembers this version',await page.evaluate(()=>!!localStorage.getItem('nioh3-compatibility-skip')));
+  const beforeQuiet=await page.evaluate(()=>window.testCase.calls.length);
+  await page.evaluate(()=>window.dispatchEvent(new Event('nioh3:compatibility-required')));
+  await page.waitForFunction(count=>window.testCase.calls.length>=count+2&&window.testCase.active===0,beforeQuiet);
+  check(locale+' remembered version accepts without the dialog',await dialog.count()===0&&await page.evaluate(count=>{const calls=window.testCase.calls.slice(count);return calls[0].params.action==='prepare'&&calls[1].params.action==='accept'&&calls[1].params.plan_id===window.testCase.plan.plan_id;},beforeQuiet));
+  await page.evaluate(()=>{window.testCase.verified=false;});
+  const beforeBlocked=await page.evaluate(()=>window.testCase.calls.length);
+  await page.evaluate(()=>window.dispatchEvent(new Event('nioh3:compatibility-required')));
+  await dialog.waitFor();await ready();
+  check(locale+' remembered version still shows a failed backup',await page.evaluate(count=>window.testCase.calls.slice(count).every(call=>call.params.action!=='accept'),beforeBlocked)&&await accept.isDisabled());
+  await page.evaluate(()=>{window.testCase.verified=true;localStorage.removeItem('nioh3-compatibility-skip');});
+  await page.locator('[data-action=compatibility-prepare]').click();await ready();await risk.check();await backed.check();await accept.click();await dialog.waitFor({state:'detached'});
   await open();check(locale+' enter/exit actions are explicit',(await accept.innerText())===({'zh-CN':'进入兼容模式','en-US':'Enter compatibility mode','ja-JP':'互換モードに入る'})[locale]&&(await page.locator('[data-action=compatibility-exit]').innerText())===({'zh-CN':'关闭工具','en-US':'Close tool','ja-JP':'ツールを終了'})[locale]);await close();await open();await close('compatibility-exit');
   await page.evaluate(()=>{window.testCase.verified=false;});await open();
   check(locale+' failed backup blocks confirmations and accept',await risk.isDisabled()&&await backed.isDisabled()&&await accept.isDisabled());

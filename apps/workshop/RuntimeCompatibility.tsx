@@ -25,6 +25,12 @@ const labels:Record<string,string>={
 };
 const probeNames={unique:"发现一个结构候选",multiple:"发现多个结构候选，无法唯一判断",none:"没有匹配的结构候选",unavailable:"结构检查不可用",not_needed:"无需结构检查"};
 const describe=(code:string)=>labels[code]||code;
+/** "Don't show again for this version": the game version plus the executable fingerprint the player accepted. */
+const SKIP_KEY="nioh3-compatibility-skip";
+const fingerprint=(report:Report|null)=>report?.game_version?report.game_version+"|"+(report.differences?.find(difference=>difference.code==="executable_sha256")?.actual??""):"";
+function remembered(report:Report|null){
+ try{const key=fingerprint(report);return !!key&&localStorage.getItem(SKIP_KEY)===key;}catch{return false;}
+}
 const impacts:Record<string,string>={executable_sha256:"需要本次风险确认",game_version:"按此版本限制可用功能",character_layout_evidence:"角色功能仍属实验性"};
 const remedies:Record<string,string>={unsupported_version:"请在设置中检查已选择的游戏程序。使用受支持版本后，重新连接并准备。",backup_required:"请确认存档位置可读取、备份目录可写入，然后重试备份。",backup_unverified:"请确认存档位置可读取、备份目录可写入，然后重试备份。",consent_audit_failed:"请确认工作室数据目录可写入，然后重新准备。"};
 
@@ -32,8 +38,10 @@ const remedies:Record<string,string>={unsupported_version:"请在设置中检查
 export function RuntimeCompatibility(){
  useUiLocale();
  const [report,setReport]=useState<Report|null>(null),[open,setOpen]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
- const [risk,setRisk]=useState(false),[backed,setBacked]=useState(false),[closing,setClosing]=useState(false);
+ const [risk,setRisk]=useState(false),[backed,setBacked]=useState(false),[closing,setClosing]=useState(false),[skip,setSkip]=useState(false);
  const exiting=useRef(false);
+ // The event listener is registered once; it reads the latest report through this ref.
+ const latestReport=useRef<Report|null>(null);latestReport.current=report;
  const epoch=useRef(0),queue=useRef(Promise.resolve()),mounted=useRef(true),dialog=useRef<HTMLDialogElement>(null),visible=useRef(false),pending=useRef(false);
  const canAccept=!!report?.present&&!!report.backup?.verified&&!!report.plan?.plan_id&&!report.hard_blocks?.length;
  const referenceMatched=!busy&&report?.reference_match===true&&!report.warning&&!report.hard_blocks?.length;
@@ -57,6 +65,7 @@ export function RuntimeCompatibility(){
     setReport(next);
     if(kind==="accept"){
      if(!next.accepted)throw Error("COMPATIBILITY_CONFIRMATION_REQUIRED");
+     if(skip){try{localStorage.setItem(SKIP_KEY,fingerprint(next));}catch{}}
      visible.current=false;setOpen(false);window.dispatchEvent(new Event("nioh3:compatibility-accepted"));
     }
    }catch(error){
@@ -68,7 +77,39 @@ export function RuntimeCompatibility(){
  }
  function show(){
   if(exiting.current||visible.current&&pending.current)return;
-  visible.current=true;setOpen(true);action("prepare");
+  if(!visible.current&&remembered(latestReport.current)){quietAccept();return;}
+  visible.current=true;setOpen(true);setSkip(false);action("prepare");
+ }
+ /**
+  * The player chose not to see this version's notice again: prepare and accept
+  * the same plan (fresh verified backup included) without the dialog. Any
+  * block, failed backup or a different fingerprint opens the dialog instead.
+  */
+ function quietAccept(){
+  if(pending.current)return;
+  const request=++epoch.current;
+  pending.current=true;setBusy(true);setMessage("");
+  queue.current=queue.current.then(async()=>{
+   let fallback=true;
+   try{
+    const prepared=await window.operations.execute({method:"runtime.compatibility",params:{action:"prepare"}});
+    if(!mounted.current||request!==epoch.current||exiting.current)return;
+    const plan=("compatibility" in prepared)?prepared.compatibility as Report:null;
+    if(plan)setReport(plan);
+    if(plan?.present&&plan.backup?.verified&&plan.plan?.plan_id&&!plan.hard_blocks?.length&&remembered(plan)){
+     const result=await window.operations.execute({method:"runtime.compatibility",params:{action:"accept",plan_id:plan.plan.plan_id,confirmed:true,backup_confirmed:true}});
+     if(!mounted.current||request!==epoch.current||exiting.current)return;
+     const accepted=("compatibility" in result)?result.compatibility as Report:null;
+     if(accepted)setReport(accepted);
+     if(accepted?.accepted){fallback=false;window.dispatchEvent(new Event("nioh3:compatibility-accepted"));}
+    }
+   }catch(error){
+    if(mounted.current&&request===epoch.current)setMessage(errorText(error));
+   }finally{
+    if(mounted.current&&request===epoch.current){pending.current=false;setBusy(false);}
+    if(fallback&&mounted.current&&request===epoch.current&&!exiting.current){visible.current=true;setOpen(true);setSkip(false);}
+   }
+  });
  }
  function returnToOperation(){
   if(!referenceMatched||exiting.current)return;
@@ -95,7 +136,7 @@ export function RuntimeCompatibility(){
  useEffect(()=>{if(open&&!dialog.current?.open)dialog.current?.showModal();},[open]);
  if(!desktop)return null;
  return <>
-  {report?.warning&&!report.accepted&&<aside className="runtime-compatibility-banner">
+  {report?.warning&&!report.accepted&&!remembered(report)&&<aside className="runtime-compatibility-banner">
    <span>检测到版本或程序差异。请查看支持范围、备份结果和本次兼容计划。</span>
    <button onClick={show}>查看兼容提示</button>
   </aside>}
@@ -144,7 +185,8 @@ export function RuntimeCompatibility(){
      <details><summary>计划标识</summary>{technical(report.plan.plan_id)}</details>
     </section>}
     {!referenceMatched&&<><label><input data-action="compatibility-risk" type="checkbox" checked={risk} disabled={busy||closing||!canAccept} onChange={event=>setRisk(event.target.checked)}/>我已核对本次计划，了解跳过检查的范围和风险</label>
-    <label><input data-action="compatibility-backup" type="checkbox" checked={backed} disabled={busy||closing||!canAccept} onChange={event=>setBacked(event.target.checked)}/>我已确认上方备份对应本次准备时的存档快照</label></>}
+    <label><input data-action="compatibility-backup" type="checkbox" checked={backed} disabled={busy||closing||!canAccept} onChange={event=>setBacked(event.target.checked)}/>我已确认上方备份对应本次准备时的存档快照</label>
+    <label><input data-action="compatibility-skip" type="checkbox" checked={skip} disabled={busy||closing||!report?.game_version} onChange={event=>setSkip(event.target.checked)}/>此游戏版本不再提示（之后自动备份并进入兼容模式；游戏更新后会重新提示）</label></>}
     <Notice text={message}/>
     {closing&&<p role="status">正在关闭工具，请等待当前操作安全结束。</p>}
    </div>

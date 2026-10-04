@@ -71,6 +71,11 @@ approved modal choice is enter compatibility mode or close the tool: X, Esc
 and outside click use the normal native shutdown path. The original operation
 can be resumed without consent only after an exact-reference result. Close
 failures remain explicit and late replies cannot dismiss a pending shutdown.
+Since v0.8.4 the dialog offers "don't show again for this game version"
+(owner decision 2026-10-03): it remembers the accepted game version and
+executable fingerprint locally; later requests for that fingerprint prepare
+a fresh verified backup and accept the plan without the dialog, and any
+block, failed backup or different fingerprint shows the dialog again.
 The verified 2.02 inventory-menu reader now distinguishes an open menu with
 no selected item from a closed menu. Code/vtable, open/closed flags, ownership
 and slot alignment are preserved. The owner-confirmed 0x3336 Sudama core now has its catalog name and retains

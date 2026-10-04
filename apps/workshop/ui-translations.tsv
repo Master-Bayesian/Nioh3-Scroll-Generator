@@ -1358,3 +1358,4 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 ‹ 设置	‹ Settings	‹ 設定
 生成一个反馈文件（包含版本信息和最近的操作记录，不含存档内容）	Creates a feedback file (version information and recent activity, no save data)	フィードバックファイルを作成します（バージョン情報と最近の操作記録を含み、セーブデータは含みません）
 添加前会备份上面选中的存档。	The save selected above is backed up before the addition.	追加の前に、上で選んだセーブをバックアップします。
+此游戏版本不再提示（之后自动备份并进入兼容模式；游戏更新后会重新提示）	Don't show again for this game version (back up and enter compatibility mode automatically; asks again after a game update)	このゲームバージョンでは今後表示しない（以後は自動でバックアップして互換モードに入ります。ゲーム更新後は再度確認します）
