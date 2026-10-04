@@ -1,8 +1,17 @@
 # Current project handoff - 2026-10-04
 
-## v0.8.4 published release
+## v0.8.5 published release
 
-**v0.8.4 is published and public-byte verified (2026-10-04)**: commit
+**v0.8.5 is published and public-byte verified (2026-10-04)**: commit
+`9e81a29`, tag `v0.8.5`, run `37185958576`; see the
+[publication record](TAURI_V085_PUBLICATION_20261004.md) and the
+[engineering record](../product/releases/v0.8.5.md). It fixes save-file edits
+after an in-game save, live remaining-count edits (never worked in 2.x), names
+soul cores from the game's yokai table, and localizes the launcher dialog.
+
+## v0.8.4 release (superseded)
+
+**v0.8.4 was published and public-byte verified (2026-10-04)**: commit
 `5bce8e9`, tag `v0.8.4`, run `37183134882`; see the
 [publication record](TAURI_V084_PUBLICATION_20261004.md) and the
 [engineering record](../product/releases/v0.8.4.md). Live editing, menu follow
