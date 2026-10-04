@@ -7,6 +7,11 @@ setup is required. Microsoft Edge WebView2 remains a Windows prerequisite.
 - Save-file edits and scroll installs work again after the September game
   update, which grew the account system save to 235896 bytes. The system save
   is still only fingerprinted, backed up and restored, never modified.
+- Live editing works again: following the in-game inventory selection failed
+  with an "operation output does not match the protected contract" error in
+  0.8.3 whenever the inventory menu was closed.
+- Compatibility mode keeps only the three newest save copies instead of adding
+  a full copy every time it is confirmed.
 - Loadout codes: copy one piece, everything you have equipped, or all saved
   equipment as a short `N3E1-` code. Paste a code under Add new equipment ->
   Favorites to save its pieces, then queue them together as modded additions.
