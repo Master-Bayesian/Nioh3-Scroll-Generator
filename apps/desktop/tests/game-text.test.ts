@@ -20,7 +20,7 @@ test('resolved buff and ailment arguments read like the game, unresolved ones st
   assert.equal(fillTemplateSlots(withTemplateArgument(ailment, '毒'), '增益效果', '异常状态'), '使敌人陷入毒状态时增加灵力');
   assert.equal(withoutTemplateArguments(withTemplateArgument(ailment, '毒')), ailment);
   const names = Object.values(effectArguments.names);
-  assert.equal(names.length, 819);
+  assert.equal(names.length, 820);
   for (const name of names) assert.doesNotMatch(name, /[{}~^]/);
 });
 
@@ -35,13 +35,17 @@ test('a resolved bare slot names its ninjutsu or skill, an unresolved one stays 
   assert.equal(effectArguments.names['9135'], '怪风');
 });
 
-test('ninjutsu rows that name no subject are told apart by their effect ID', async () => {
+test('ninjutsu rows the game itself leaves unnamed are told apart by their effect ID', async () => {
   const { data } = await import('../../workshop/model');
   const name = (id: number) => data.editorEffects.find(effect => effect.id === String(id))!.name;
-  for (const id of effectArguments.unconfirmed_ninjutsu.ids) {
+  for (const id of effectArguments.unnamed_in_game.ids) {
     assert.equal((effectArguments.names as Record<string, string>)[id], undefined);
-    assert.match(name(id), /^\{未确认忍术（0x[0-9A-F]{4}）\}/);
+    assert.match(name(id), /^\{未命名忍术（0x[0-9A-F]{4}）\}/);
   }
-  assert.equal(fillTemplateSlots(name(0x1ece), '增益效果', '异常状态'), '未确认忍术（0x1ECE）的持有上限');
+  assert.equal(fillTemplateSlots(name(0x1ece), '增益效果', '异常状态'), '未命名忍术（0x1ECE）的持有上限');
   assert.notEqual(name(0x1ece), name(0xc785));
+});
+
+test('the gauge row the game names in its tooltip carries that name', () => {
+  assert.equal(effectArguments.names['52275'], '火炎龙');
 });

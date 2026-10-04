@@ -19,9 +19,10 @@ export const data = catalog;
   // The rest name the buff or ailment the game fills in, resolved from each
   // effect's group row ("吸收精华后赋予{}" -> "吸收精华后赋予{承受伤害减少}").
   const resolved: Record<string, string> = { ...effectArguments.names };
-  // A few ninjutsu rows name no subject; the effect ID keeps them apart.
-  for (const id of effectArguments.unconfirmed_ninjutsu.ids)
-    resolved[id] ??= `未确认忍术（0x${id.toString(16).toUpperCase().padStart(4, "0")}）`;
+  // A few ninjutsu rows name no subject, and the game shows a bare "{}" for
+  // them; the effect ID keeps them apart.
+  for (const id of effectArguments.unnamed_in_game.ids)
+    resolved[id] ??= `未命名忍术（0x${id.toString(16).toUpperCase().padStart(4, "0")}）`;
   for (const effect of [
     ...data.editorEffects,
     ...Object.values(data.contexts).flatMap((context) => [...context.effects, ...context.graces]),

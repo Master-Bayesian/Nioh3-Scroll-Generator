@@ -648,6 +648,7 @@
   "51885": "毒",
   "52022": "火",
   "52059": "毒手里剑",
+  "52275": "火炎龙",
   "52419": "怪雷",
   "52473": "移动速度上升",
   "52976": "火",
@@ -824,8 +825,8 @@
   "65501": "移动速度上升",
   "65511": "幸运增加"
  },
- "unconfirmed_ninjutsu": {
-  "source": "Bare {} effects whose group row names no subject (v2.02 rows 2001, 2034-2038, 2050-2051). They sit in the per-ninjutsu blocks (gauge, damage, holding limit) right after the named ninjutsu, so each names one ninjutsu the tables do not identify; the editor shows them as an unconfirmed ninjutsu with the effect ID so different ones stay apart. Replace with the in-game name once read.",
+ "unnamed_in_game": {
+  "source": "Bare {} effects whose group row names no subject (v2.02 rows 2034-2038, 2050-2051). On 2026-10-04 the game itself showed them as \"{}的持有上限\" and \"{}造成的伤害\" (two 八尺琼勾玉 written live, owner screenshots), so they name no ninjutsu in game either. The same check showed 52275 as 火炎龙计量槽增加量, now in names. The editor keeps the effect ID so the rows stay apart.",
   "ids": [
    7886,
    15690,
@@ -833,8 +834,7 @@
    24612,
    38688,
    48782,
-   51077,
-   52275
+   51077
   ]
  }
 }
