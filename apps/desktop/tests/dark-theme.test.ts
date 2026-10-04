@@ -26,3 +26,12 @@ test('declaration colors become tokens; selectors and ids are untouched', () => 
   assert.match(css, /:root\[data-theme=dark\]\{--k0:#[0-9a-f]{6};/);
   assert.match(css, /@media\(prefers-color-scheme:dark\)\{:root:not\(\[data-theme=light\]\)\{/);
 });
+
+test('game-styled panels keep their colors in both themes', () => {
+  const css = withDarkTheme('.scroll{background:#222d29}.scroll-audit{color:#63798d}.scroll .x{color:#dce7e5}.result-pane{background:#fff}@media(min-width:9px){.effect-line{color:#a4cfdb}.y{color:#fff}}');
+  assert.match(css, /\.scroll\{background:#222d29\}/);
+  assert.match(css, /\.scroll \.x\{color:#dce7e5\}/);
+  assert.match(css, /\.result-pane\{background:var\(--k\w+\)\}/);
+  assert.match(css, /@media\(min-width:9px\)\{\.effect-line\{color:#a4cfdb\}\.y\{color:var\(--k\w+\)\}\}/);
+  assert.match(css, /\.scroll-audit\{color:var\(--k\w+\)\}/);
+});

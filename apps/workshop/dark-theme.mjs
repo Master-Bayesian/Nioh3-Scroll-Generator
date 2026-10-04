@@ -8,7 +8,14 @@
 const HEX = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b/g;
 // A declaration value: after a colon, up to the next `;` or `}`. Selectors end
 // at `{`, so pseudo-classes never match.
-const VALUE = /:([^;{}]+)(?=[;}])/g;
+const VALUE = /:([^;{}]+)(?=;|$)/g;
+// One rule: a selector and a declaration block without nested braces, so the
+// rules inside an @media block match one by one and its prelude stays as is.
+const RULE = /([^{}]+)\{([^{}]*)\}/g;
+// The scroll card is drawn like the game's own dark scroll, so it is dark in
+// the light theme already; flipping it (and its lines and enemy markers)
+// would turn it light in the dark one.
+const GAME_STYLED = /\.(?:scroll(?![\w-])|scroll-(?:hero|rule|terrain)\b|effect-line|enemy-lines|enemy-occurrence|enemy-state-marker|rarity(?:-|\b))/;
 
 function expand(hex) {
   let digits = hex.slice(1).toLowerCase();
@@ -69,7 +76,10 @@ export function withDarkTheme(css) {
     if (!tokens.has(digits)) tokens.set(digits, "--k" + tokens.size.toString(36));
     return `var(${tokens.get(digits)})`;
   };
-  const themed = css.replace(VALUE, (_, value) => ":" + value.replace(HEX, tokenOf));
+  // Rules of a game-styled component keep their colors in both themes.
+  const themed = css.replace(RULE, (rule, selector, body) =>
+    GAME_STYLED.test(selector) ? rule : selector + "{" + body.replace(VALUE, (_, value) => ":" + value.replace(HEX, tokenOf)) + "}",
+  );
   const light = [...tokens].map(([digits, name]) => `${name}:#${digits.endsWith("ff") ? digits.slice(0, 6) : digits}`).join(";");
   const dark = [...tokens].map(([digits, name]) => `${name}:${darkColor(digits)}`).join(";") + ";color-scheme:dark";
   return `:root{${light}}${themed}:root[data-theme=dark]{${dark}}@media(prefers-color-scheme:dark){:root:not([data-theme=light]){${dark}}}`;
