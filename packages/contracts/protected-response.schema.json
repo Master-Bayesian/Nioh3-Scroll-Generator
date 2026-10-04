@@ -2549,6 +2549,10 @@
             "string",
             "null"
           ]
+        },
+        "finalization": {
+          "type": "object",
+          "description": "Present only when host finalization retained the runtime; why, and how many shutdown attempts ran."
         }
       },
       "required": [

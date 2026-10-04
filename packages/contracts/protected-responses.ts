@@ -564,6 +564,12 @@ export interface RuntimeStatus {
   pending_remote_calls: number;
   safe_to_shutdown: boolean;
   error: string | null;
+  /**
+   * Present only when host finalization retained the runtime; why, and how many shutdown attempts ran.
+   */
+  finalization?: {
+    [k: string]: unknown;
+  };
 }
 export interface SaveReference {
   save_id: string;
