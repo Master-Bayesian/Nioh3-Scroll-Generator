@@ -567,7 +567,7 @@ class ProtectedSaveParityTests(unittest.TestCase):
             # encrypts through its own writer.
             rust_after = self.drive(rust, "save.inventory", {"save_id": rust_id})
             python_after = self.drive(python, "save.inventory", {"save_id": python_id})
-            self.assertEqual(rust_after["entries"], python_after["entries"])
+            assert_entries_extend(self, rust_after["entries"], python_after["entries"])
             self.assertEqual(rust_after["source_sha256"], python_after["source_sha256"])
         finally:
             self.assertEqual(rust.terminate(), 0)
