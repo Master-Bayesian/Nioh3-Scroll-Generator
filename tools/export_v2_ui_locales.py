@@ -68,7 +68,9 @@ def captured_names(locale, effects):
     pairs = {}
 
     def add(zh, name):
-        if zh and name:
+        # Unfinished rows share the game's placeholder text ("DUMMY"); a
+        # curated Chinese name is better than that.
+        if zh and name and not re.search(r'DUMMY|UNUSED', name):
             # localize() collapses whitespace before it looks a name up.
             pairs.setdefault(re.sub(r'\s+', ' ', zh), RUBY.sub('', name))
 

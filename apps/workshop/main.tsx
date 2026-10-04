@@ -992,19 +992,19 @@ function App() {
     q.capacities.length +
     q.graces.length;
   const effectRows = context.effects.filter((e) =>
-    `${localize(e.name)} ${hex(e.id)}`
+    `${e.name} ${localize(e.name)} ${hex(e.id)}`
       .toLowerCase()
       .includes(effectFind.toLowerCase()),
   );
   const enemyRows = data.enemies.filter(
     (e) =>
       (tier === "全部" || e.tier.includes(tier.replace("手", ""))) &&
-      `${localize(e.name)} ${hex(e.id)}`
+      `${e.name} ${localize(e.name)} ${hex(e.id)}`
         .toLowerCase()
         .includes(enemyFind.toLowerCase()),
   );
   const ruleRows = data.rules.filter((r) =>
-    localize(`${r.name} ${r.variants.map((v) => v.label).join(" ")}`)
+    `${r.name} ${localize(`${r.name} ${r.variants.map((v) => v.label).join(" ")}`)}`
       .toLowerCase()
       .includes(ruleFind.toLowerCase()),
   );
