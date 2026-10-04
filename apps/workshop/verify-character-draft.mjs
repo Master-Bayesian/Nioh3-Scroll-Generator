@@ -105,7 +105,7 @@ const equipment = (slot) => ({
 window.__seed.cursor = { menu_open: true, container: 'equipment', slot_index: 42, item_id: 171 };
 const liveCharacter = {
   source: 'runtime', game_version: '2.0.2.0', process_id: 4242,
-  currencies: { amrita: 0, gold: 0 }, equipment_slots: 4, equipment: [equipment(42), equipment(43), { ...equipment(44), item_id: 0x3336, type_class: 54 }, { ...equipment(45), item_id: 0xfffe, type_class: 54 }],
+  currencies: { amrita: 0, gold: 0 }, equipment_slots: 4, equipment: [equipment(42), equipment(43), { ...equipment(44), item_id: 0xbd6b, type_class: 54 }, { ...equipment(45), item_id: 0xfffe, type_class: 54 }],
   items: [{ container: 'held', slot_index: 3, item_id: 8001, quantity: 5, limit: 99, record_sha256: 'c'.repeat(64) }],
 };
 const saveCharacter = {

@@ -8,7 +8,8 @@ import {chromium} from 'playwright';
 
 const root=resolve(import.meta.dirname,'../..');
 const output='D:/Nioh3_v080_deliverables/deliverables/codex-v083-missing-features-20260930/ui';
-const fixture=JSON.parse(await readFile(join(output,'../backend/completion-host-e2e.json'),'utf8'));
+// Recorded host replies live in the repository so CI can replay them.
+const fixture=JSON.parse(await readFile(join(root,'test_fixtures/scroll-completion-exchanges.json'),'utf8'));
 const responses=fixture.exchanges.filter(x=>x.request.method==='runtime.scroll_completion_predict'&&x.response.ok);
 const pre=responses[0].request.params.record_hex;
 const fresh=responses.find(x=>x.response.result.completion_prediction.seed===47878870).request.params.record_hex;
