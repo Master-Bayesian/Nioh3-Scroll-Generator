@@ -124,6 +124,12 @@ test("an expired save snapshot asks for a refresh", () => {
   );
 });
 
+test("a live edit racing a game save says the game saved and asks for a refresh", () => {
+  const text = publicError("OPERATION_FAILED: Save changed; refresh inventory");
+  assert.match(text, /游戏刚刚存过档.*重新读取/);
+  assert.doesNotMatch(text, /OPERATION_FAILED/);
+});
+
 test("a thrown Chinese message loses the Error prefix and still reads as a failure", () => {
   assert.equal(publicError("Error: 没有待核对的实时添加。"), "没有待核对的实时添加。");
   assert.ok(isFailureText("Error: 请先选择并读取存档。"));
