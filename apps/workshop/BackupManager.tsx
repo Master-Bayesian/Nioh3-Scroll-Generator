@@ -190,6 +190,14 @@ function ConnectedBackups() {
     "v2-cart-install": "添加绘卷",
     "v2-live-add": "游戏内实时添加",
     "v2-count-edit": "当前可挑战次数",
+    "v2-scroll-edit": "绘卷实时修改",
+    // The save transaction's own kinds (scroll and character edits share edit).
+    edit: "修改存档",
+    delete: "删除绘卷",
+    install: "添加绘卷",
+    install_many: "添加绘卷",
+    restore: "恢复前备份",
+    resign: "存档改签",
   };
   return (
     <section className="backup-page" aria-busy={locked}>

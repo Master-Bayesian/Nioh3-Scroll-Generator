@@ -47,6 +47,25 @@ use crate::error::HostError;
 pub const NON_WINDOWS_OWNERSHIP_REASON: &str = "the runtime adapter requires Windows";
 
 /// The `{count_edit}` reply every count method returns (`CountEdit` in the contract).
+/// Remove the backup a count or scroll edit took for a plan it then refused.
+///
+/// The backup is taken before the game is read; when no plan was written it
+/// protects nothing and would only fill the backup list (one per failed
+/// review). Only the bundle this call created, named after `backup_id`, is
+/// removed.
+fn discard_unused_backup(backup_path: &Path, backup_id: &str) {
+    let Some(bundle) = backup_path.parent() else {
+        return;
+    };
+    let named = bundle
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.starts_with(backup_id));
+    if named {
+        let _ = std::fs::remove_dir_all(bundle);
+    }
+}
+
 fn count_status_json(status: &nioh3_runtime::mutation::CountStatus) -> Value {
     serde_json::json!({"count_edit": {
         "operation_id": status.operation_id,
@@ -535,20 +554,24 @@ impl RuntimeApplication {
             .map_err(HostError::from_runtime)?
             .backup_path
         };
-        let mut editor = self.count_editor_for_game(&approved)?;
-        let status = editor
-            .prepare(
-                Path::new(save_path),
-                source_sha256,
-                record_hex,
-                &backup_path,
-                new_count,
-            )
-            .map_err(HostError::from_runtime)?;
+        let status = self
+            .count_editor_for_game(&approved)
+            .and_then(|mut editor| {
+                editor
+                    .prepare(
+                        Path::new(save_path),
+                        source_sha256,
+                        record_hex,
+                        &backup_path,
+                        new_count,
+                    )
+                    .map_err(HostError::from_runtime)
+            })
+            .inspect_err(|_| discard_unused_backup(&backup_path, &backup_id))?;
         Ok(count_status_json(&status))
     }
 
-/// `runtime.scroll_edit_prepare`: a reviewed whole-record edit of one live
+    /// `runtime.scroll_edit_prepare`: a reviewed whole-record edit of one live
     /// scroll (header and effects, as the save editor sends them). Execution,
     /// status and recovery are the count edit's, by operation ID.
     fn scroll_edit_prepare(&mut self, source: &Value, edit: &Value) -> Result<Value, HostError> {
@@ -611,16 +634,20 @@ impl RuntimeApplication {
                 .map(|record| record.to_vec())
                 .map_err(|error| error.message)
         };
-        let mut editor = self.count_editor_for_game(&approved)?;
-        let status = editor
-            .prepare_record(
-                Path::new(save_path),
-                source_sha256,
-                record_hex,
-                &backup_path,
-                &build,
-            )
-            .map_err(HostError::from_runtime)?;
+        let status = self
+            .count_editor_for_game(&approved)
+            .and_then(|mut editor| {
+                editor
+                    .prepare_record(
+                        Path::new(save_path),
+                        source_sha256,
+                        record_hex,
+                        &backup_path,
+                        &build,
+                    )
+                    .map_err(HostError::from_runtime)
+            })
+            .inspect_err(|_| discard_unused_backup(&backup_path, &backup_id))?;
         Ok(count_status_json(&status))
     }
 
