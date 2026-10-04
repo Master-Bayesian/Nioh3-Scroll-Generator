@@ -58,7 +58,9 @@ global semantic key.
   acceptance, and remaining-work position.
 - [v0.8.0 Rust backend migration](V080_RUST_BACKEND_MIGRATION.md) — active
   architecture, delegation boundaries, staged parity gates and first domain slice.
-- [Tauri v0.8.3 publication](TAURI_V083_PUBLICATION_20261003.md) - current
+- [Tauri v0.8.4 publication](TAURI_V084_PUBLICATION_20261004.md) - current
+  verified public release, asset hashes and live acceptance.
+- [Tauri v0.8.3 publication](TAURI_V083_PUBLICATION_20261003.md) - previous
   verified public release evidence and remaining acceptance limits.
 - [Tauri v0.8.2 publication](TAURI_V082_PUBLICATION_20260928.md) - previous
   public release evidence.

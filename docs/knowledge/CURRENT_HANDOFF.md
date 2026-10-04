@@ -1,15 +1,19 @@
 # Current project handoff - 2026-10-04
 
-## v0.8.4 release
+## v0.8.4 published release
 
-v0.8.4 is prepared on `claude/v084-ui` and merged to `main` for the release
-workflow; see the [engineering record](../product/releases/v0.8.4.md). It
-resolves the system-save refusal below (1 MiB companion bound, verified on a
+**v0.8.4 is published and public-byte verified (2026-10-04)**: commit
+`5bce8e9`, tag `v0.8.4`, run `37183134882`; see the
+[publication record](TAURI_V084_PUBLICATION_20261004.md) and the
+[engineering record](../product/releases/v0.8.4.md). Live editing, menu follow
+and live equipment addition were accepted in game on the published bytes;
+live equipment addition had never worked before (three native dispatch
+defects). It resolves the system-save refusal below (1 MiB companion bound, verified on a
 sandbox copy of a real updated account), and adds loadout codes, equipment
 favorites and sets, save re-sign, dark mode and the About & safety page.
 In-game acceptance of a re-signed save is still owed by the owner.
 
-## v0.8.3 published release
+## v0.8.3 release (superseded)
 
 **v0.8.3 is published and public-byte verified (2026-10-03)**. Product commit
 `89b16c3ac86284a98ccd7cc993924d3ae45b3d10`, annotated tag `v0.8.3`, successful
