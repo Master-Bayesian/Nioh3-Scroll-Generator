@@ -2,20 +2,27 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import catalog from '../../workshop/item-names.json';
 import ui from '../../workshop/ui-locales.json';
-import chinese from '../../../nioh3_scroll_editor/data/auxiliary_names/zh-CN.json';
-import english from '../../../nioh3_scroll_editor/data/auxiliary_names/en-US.json';
-import japanese from '../../../nioh3_scroll_editor/data/auxiliary_names/ja-JP.json';
+import yokai from '../../../nioh3_scroll_editor/data/soul_core_yokai.json';
 
-test('owner-confirmed 0x3336 keeps soul-core classification and Sudama identity in each UI locale', () => {
-  assert.deepEqual(catalog.items['13110'], ['魑魅的魂核', '魂核', '', '魂核']);
-  assert.equal(catalog.items['48491'][0], '魑魅魂核');
-  const key = '0X00007B82';
-  assert.equal(chinese.enemies[key].name, '魑魅');
-  assert.equal(english.enemies[key].name, 'Sudama');
-  assert.equal(japanese.enemies[key].name, '魑魅');
-  assert.equal(chinese.enemies[key].text_id, english.enemies[key].text_id);
-  assert.equal(chinese.enemies[key].text_id, japanese.enemies[key].text_id);
-  const names = (ui.ui as Record<string, string[]>)['魑魅的魂核'];
-  assert.deepEqual(names, ['Sudama Soul Core', '魑魅の魂核']);
-  assert.ok(!names.some(name => /魍魉|魍魎|Kodama/.test(name)));
+type Core = { placeholder?: boolean; 'zh-CN'?: string; 'en-US'?: string; 'ja-JP'?: string };
+const cores = yokai.cores as Record<string, Core>;
+const items = catalog.items as Record<string, string[]>;
+
+test('every real soul core carries the name the game builds from its yokai ({}的魂核)', () => {
+  const real = Object.entries(cores).filter(([, core]) => !core.placeholder);
+  assert.equal(real.length, 84);
+  for (const [id, core] of real) {
+    assert.deepEqual(items[id], [core['zh-CN'] + '的魂核', '魂核', '', '魂核'], id);
+    assert.ok(core['en-US'] && core['ja-JP'], id);
+  }
+});
+
+test('placeholder soul cores stay unnamed and therefore hidden', () => {
+  for (const [id, core] of Object.entries(cores)) if (core.placeholder) assert.equal(items[id]?.[0] ?? '', '', id);
+});
+
+test('0x3336 is the Hell Wind jailer core and Sudama keeps its own item and translations', () => {
+  assert.equal(items['13110'][0], '狱卒鬼（业风）的魂核');
+  assert.equal(items['48491'][0], '魑魅的魂核');
+  assert.deepEqual((ui.ui as Record<string, string[]>)['魑魅的魂核'], ['Sudama Soul Core', '魑魅の魂核']);
 });

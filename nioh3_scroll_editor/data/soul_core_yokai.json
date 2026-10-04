@@ -1,0 +1,815 @@
+{
+ "schema": "nioh3-soul-core-yokai/v1",
+ "game_version": "2.0.2.0",
+ "provenance": "Live PC v2.02 read (2026-10-04): item row +0x180 u16 yokai key -> param manager [Nioh3.exe+0x45B9E30]+0x118 table (key map entries u16 key/u32 index, rows 0x54) -> row +0x10 name text id, as the soul-core name builder at Nioh3.exe+0x1F1730B formats it with text 0x010D29F1 ({}的魂核). Names by text id from auxiliary_names. Placeholders: key 0 (no name) or the shared 0x46DA default on non-Gaki rows.",
+ "cores": {
+  "866": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "2669": {
+   "yokai_key": "0xE8B0",
+   "yokai_text_id": "0x007FA784",
+   "zh-CN": "涂佛",
+   "en-US": "Nuribotoke",
+   "ja-JP": "塗仏"
+  },
+  "4639": {
+   "yokai_key": "0xD948",
+   "yokai_text_id": "0x007ACA91",
+   "zh-CN": "女郎蜘蛛",
+   "en-US": "Joro-gumo",
+   "ja-JP": "女郎蜘蛛"
+  },
+  "4726": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "4907": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "5151": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "5397": {
+   "yokai_key": "0xD92C",
+   "yokai_text_id": "0x00460631",
+   "zh-CN": "饿鬼大将",
+   "en-US": "Gaki Chief",
+   "ja-JP": "餓鬼大将"
+  },
+  "5659": {
+   "yokai_key": "0x75A6",
+   "yokai_text_id": "0x0070C9CA",
+   "zh-CN": "飞缘魔",
+   "en-US": "Hino-enma",
+   "ja-JP": "飛縁魔"
+  },
+  "5769": {
+   "yokai_key": "0x126B",
+   "yokai_text_id": "0x005B916A",
+   "zh-CN": "夜行兵",
+   "en-US": "Yagyo Soldier",
+   "ja-JP": "夜行兵"
+  },
+  "6041": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "6659": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "6782": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "7409": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "7643": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "9040": {
+   "yokai_key": "0xF19B",
+   "yokai_text_id": "0x0062569E",
+   "zh-CN": "雷兽",
+   "en-US": "Raiju",
+   "ja-JP": "雷獣"
+  },
+  "9893": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "10214": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "11074": {
+   "yokai_key": "0x1165",
+   "yokai_text_id": "0x007266E3",
+   "zh-CN": "马头鬼",
+   "en-US": "Mezuki",
+   "ja-JP": "馬頭鬼"
+  },
+  "11220": {
+   "yokai_key": "0xAF23",
+   "yokai_text_id": "0x0042F19F",
+   "zh-CN": "棘饿鬼",
+   "en-US": "Thorned Gaki",
+   "ja-JP": "茨餓鬼"
+  },
+  "11776": {
+   "yokai_key": "0xF512",
+   "yokai_text_id": "0x00638915",
+   "zh-CN": "妖蟹",
+   "en-US": "Bakegani",
+   "ja-JP": "化け蟹"
+  },
+  "12196": {
+   "yokai_key": "0xB20F",
+   "yokai_text_id": "0x00712C4E",
+   "zh-CN": "大蛤蟆",
+   "en-US": "Giant Toad",
+   "ja-JP": "大蝦蟇"
+  },
+  "13110": {
+   "yokai_key": "0xFAB6",
+   "yokai_text_id": "0x006B6557",
+   "zh-CN": "狱卒鬼（业风）",
+   "en-US": "Jailer Oni (Hell Wind)",
+   "ja-JP": "獄卒鬼（業風）"
+  },
+  "14436": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "15109": {
+   "yokai_key": "0x58F0",
+   "yokai_text_id": "0x007FAC72",
+   "zh-CN": "人鱼",
+   "en-US": "Mermaid",
+   "ja-JP": "人魚"
+  },
+  "15217": {
+   "yokai_key": "0x4507",
+   "yokai_text_id": "0x00594844",
+   "zh-CN": "乌鸦天狗",
+   "en-US": "Karasu Tengu",
+   "ja-JP": "烏天狗"
+  },
+  "15600": {
+   "yokai_key": "0x79D2",
+   "yokai_text_id": "0x007BABC4",
+   "zh-CN": "惧鬼",
+   "en-US": "Otoroshi",
+   "ja-JP": "おとろし"
+  },
+  "15782": {
+   "yokai_key": "0x4611",
+   "yokai_text_id": "0x0041CA96",
+   "zh-CN": "狱卒鬼（焦热）",
+   "en-US": "Jailer Oni (Hellfire)",
+   "ja-JP": "獄卒鬼（焦熱）"
+  },
+  "17919": {
+   "yokai_key": "0x0016",
+   "yokai_text_id": "0x0077485E",
+   "zh-CN": "执心鬼",
+   "en-US": "Demon of Obsession",
+   "ja-JP": "執心鬼"
+  },
+  "17953": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "18077": {
+   "yokai_key": "0xF263",
+   "yokai_text_id": "0x004ED448",
+   "zh-CN": "琵琶牧牧",
+   "en-US": "Biwa Boku-boku",
+   "ja-JP": "琵琶牧々"
+  },
+  "18518": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "19293": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "20011": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "20413": {
+   "yokai_key": "0xA232",
+   "yokai_text_id": "0x007B3C30",
+   "zh-CN": "蛤蟆附身",
+   "en-US": "Gamatsuki",
+   "ja-JP": "蝦蟇憑き"
+  },
+  "21470": {
+   "yokai_key": "0x2D8C",
+   "yokai_text_id": "0x007F8DB0",
+   "zh-CN": "野槌",
+   "en-US": "Nozuchi",
+   "ja-JP": "野槌"
+  },
+  "21666": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "22035": {
+   "yokai_key": "0xD67C",
+   "yokai_text_id": "0x004D82ED",
+   "zh-CN": "怨灵鬼",
+   "en-US": "Onryoki",
+   "ja-JP": "怨霊鬼"
+  },
+  "22697": {
+   "yokai_key": "0xD986",
+   "yokai_text_id": "0x006F5EC8",
+   "zh-CN": "烟烟罗",
+   "en-US": "Enenra",
+   "ja-JP": "煙々羅"
+  },
+  "22961": {
+   "yokai_key": "0x1B2C",
+   "yokai_text_id": "0x00695605",
+   "zh-CN": "以津真天",
+   "en-US": "Itsumade",
+   "ja-JP": "以津真天"
+  },
+  "24284": {
+   "yokai_key": "0x410F",
+   "yokai_text_id": "0x005ABAB1",
+   "zh-CN": "地狱蜂",
+   "en-US": "Crucible Wasp",
+   "ja-JP": "地獄蜂"
+  },
+  "24391": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "24567": {
+   "yokai_key": "0x83AA",
+   "yokai_text_id": "0x007C52DE",
+   "zh-CN": "肉瘤怪",
+   "en-US": "Nuppeppo",
+   "ja-JP": "ぬっぺふほふ"
+  },
+  "24625": {
+   "yokai_key": "0xF698",
+   "yokai_text_id": "0x0048C3D7",
+   "zh-CN": "泥墙",
+   "en-US": "Nurikabe",
+   "ja-JP": "ぬりかべ"
+  },
+  "24840": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "25284": {
+   "yokai_key": "0x855A",
+   "yokai_text_id": "0x00680B51",
+   "zh-CN": "祸津武士",
+   "en-US": "Magatsu Warrior",
+   "ja-JP": "禍ツ武者"
+  },
+  "25807": {
+   "yokai_key": "0xB35B",
+   "yokai_text_id": "0x00653363",
+   "zh-CN": "雪入道",
+   "en-US": "Snowclops",
+   "ja-JP": "雪入道"
+  },
+  "26845": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "27034": {
+   "yokai_key": "0x717E",
+   "yokai_text_id": "0x005F3ECF",
+   "zh-CN": "狂骨",
+   "en-US": "Kyokotsu",
+   "ja-JP": "狂骨"
+  },
+  "27271": {
+   "yokai_key": "0x48C2",
+   "yokai_text_id": "0x00470676",
+   "zh-CN": "忍者妖鬼",
+   "en-US": "Ninja Yoki",
+   "ja-JP": "忍者妖鬼"
+  },
+  "27506": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "27958": {
+   "yokai_key": "0x7F38",
+   "yokai_text_id": "0x0073E9F0",
+   "zh-CN": "血刀修罗",
+   "en-US": "Bloodedge Demon",
+   "ja-JP": "血刀修羅"
+  },
+  "28085": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "28243": {
+   "yokai_key": "0x1848",
+   "yokai_text_id": "0x007AACD5",
+   "zh-CN": "山狗",
+   "en-US": "Yamainu",
+   "ja-JP": "山狗"
+  },
+  "28426": {
+   "yokai_key": "0x52B9",
+   "yokai_text_id": "0x00486512",
+   "zh-CN": "古笼火",
+   "en-US": "Koroka",
+   "ja-JP": "古籠火"
+  },
+  "28790": {
+   "yokai_key": "0x8D36",
+   "yokai_text_id": "0x00432879",
+   "zh-CN": "火车",
+   "en-US": "Kasha",
+   "ja-JP": "火車"
+  },
+  "29834": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "30032": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "30568": {
+   "yokai_key": "0x93D3",
+   "yokai_text_id": "0x007B2F7B",
+   "zh-CN": "镰鼬",
+   "en-US": "Kamaitachi",
+   "ja-JP": "鎌鼬"
+  },
+  "30821": {
+   "yokai_key": "0x8BB0",
+   "yokai_text_id": "0x00527431",
+   "zh-CN": "千千古",
+   "en-US": "Chijiko",
+   "ja-JP": "千々古"
+  },
+  "30858": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "31315": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "31544": {
+   "yokai_key": "0x11EE",
+   "yokai_text_id": "0x00477523",
+   "zh-CN": "一反木棉",
+   "en-US": "Flying Bolt",
+   "ja-JP": "一反木綿"
+  },
+  "31705": {
+   "yokai_key": "0x35EE",
+   "yokai_text_id": "0x005B2663",
+   "zh-CN": "姑获鸟",
+   "en-US": "Ubume",
+   "ja-JP": "姑獲鳥"
+  },
+  "31726": {
+   "yokai_key": "0x6EF6",
+   "yokai_text_id": "0x007DCA68",
+   "zh-CN": "大太法师",
+   "en-US": "Daidara Bocchi",
+   "ja-JP": "ダイダラボッチ"
+  },
+  "31804": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "32283": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "32507": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "33214": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "33358": {
+   "yokai_key": "0x4CFA",
+   "yokai_text_id": "0x00586DB0",
+   "zh-CN": "亡骸武者",
+   "en-US": "Skeleton Warrior",
+   "ja-JP": "骸武者"
+  },
+  "33859": {
+   "yokai_key": "0x46DA",
+   "yokai_text_id": "0x00449683",
+   "zh-CN": "饿鬼",
+   "en-US": "Gaki",
+   "ja-JP": "餓鬼"
+  },
+  "34872": {
+   "yokai_key": "0xD74F",
+   "yokai_text_id": "0x0061F2FB",
+   "zh-CN": "防人",
+   "en-US": "Sentry",
+   "ja-JP": "防人"
+  },
+  "35723": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "36404": {
+   "yokai_key": "0x3E3E",
+   "yokai_text_id": "0x0051D831",
+   "zh-CN": "一目连",
+   "en-US": "Ichimokuren",
+   "ja-JP": "一目連"
+  },
+  "36734": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "36832": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "36913": {
+   "yokai_key": "0xB237",
+   "yokai_text_id": "0x006FD9D1",
+   "zh-CN": "鬼火（雷）",
+   "en-US": "Thunderstorm Oni-bi",
+   "ja-JP": "鬼火（雷）"
+  },
+  "36917": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "36989": {
+   "yokai_key": "0xE877",
+   "yokai_text_id": "0x00445007",
+   "zh-CN": "牛头鬼",
+   "en-US": "Gozuki",
+   "ja-JP": "牛頭鬼"
+  },
+  "37158": {
+   "yokai_key": "0xA2D0",
+   "yokai_text_id": "0x006243A0",
+   "zh-CN": "朱盆",
+   "en-US": "Shunobon",
+   "ja-JP": "朱の盆"
+  },
+  "37203": {
+   "yokai_key": "0x4932",
+   "yokai_text_id": "0x00789A59",
+   "zh-CN": "独脚踏鞴",
+   "en-US": "Ippon-Datara",
+   "ja-JP": "一本だたら"
+  },
+  "37404": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "37550": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "37955": {
+   "yokai_key": "0xDF99",
+   "yokai_text_id": "0x004EBF31",
+   "zh-CN": "狱卒鬼（八寒）",
+   "en-US": "Jailer Oni (Cold Hells)",
+   "ja-JP": "獄卒鬼（八寒）"
+  },
+  "38242": {
+   "yokai_key": "0x0371",
+   "yokai_text_id": "0x0077103E",
+   "zh-CN": "鬼火（火）",
+   "en-US": "Infernal Oni-bi",
+   "ja-JP": "鬼火（火）"
+  },
+  "38661": {
+   "yokai_key": "0x2349",
+   "yokai_text_id": "0x00564E29",
+   "zh-CN": "山姥",
+   "en-US": "Yamanba",
+   "ja-JP": "山姥"
+  },
+  "39083": {
+   "yokai_key": "0x2635",
+   "yokai_text_id": "0x0079AFA0",
+   "zh-CN": "河童",
+   "en-US": "Kappa",
+   "ja-JP": "河童"
+  },
+  "40713": {
+   "yokai_key": "0xE232",
+   "yokai_text_id": "0x007E9987",
+   "zh-CN": "赤河童",
+   "en-US": "Red Kappa",
+   "ja-JP": "赤河童"
+  },
+  "41506": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "41820": {
+   "yokai_key": "0x32BA",
+   "yokai_text_id": "0x007A5EA4",
+   "zh-CN": "濡女",
+   "en-US": "Nure-onna",
+   "ja-JP": "濡れ女"
+  },
+  "41863": {
+   "yokai_key": "0xF11E",
+   "yokai_text_id": "0x00753235",
+   "zh-CN": "猥裸",
+   "en-US": "Waira",
+   "ja-JP": "わいら"
+  },
+  "41960": {
+   "yokai_key": "0x69EB",
+   "yokai_text_id": "0x0078CF1B",
+   "zh-CN": "冒疾鬼",
+   "en-US": "Demon of Envy",
+   "ja-JP": "冒疾鬼"
+  },
+  "42052": {
+   "yokai_key": "0x8D46",
+   "yokai_text_id": "0x00560E03",
+   "zh-CN": "油伞妖",
+   "en-US": "Karakasa Umbrella",
+   "ja-JP": "唐傘お化け"
+  },
+  "42632": {
+   "yokai_key": "0x25C5",
+   "yokai_text_id": "0x004852EA",
+   "zh-CN": "小海坊主",
+   "en-US": "Lesser Umi-bozu",
+   "ja-JP": "小海坊主"
+  },
+  "42682": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "42704": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "43183": {
+   "yokai_key": "0x3F6C",
+   "yokai_text_id": "0x00608BDD",
+   "zh-CN": "猿鬼",
+   "en-US": "Enki",
+   "ja-JP": "猿鬼"
+  },
+  "45916": {
+   "yokai_key": "0x6866",
+   "yokai_text_id": "0x0058C52E",
+   "zh-CN": "敷次郎",
+   "en-US": "Dweller",
+   "ja-JP": "敷次郎"
+  },
+  "46000": {
+   "yokai_key": "0xAC24",
+   "yokai_text_id": "0x007B5D1E",
+   "zh-CN": "狱卒鬼（针山）",
+   "en-US": "Jailer Oni (Needle)",
+   "ja-JP": "獄卒鬼（針山）"
+  },
+  "47470": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "47985": {
+   "yokai_key": "0xDE0F",
+   "yokai_text_id": "0x0069C631",
+   "zh-CN": "撒沙婆婆",
+   "en-US": "Sunakake-baba",
+   "ja-JP": "砂かけ婆"
+  },
+  "48436": {
+   "yokai_key": "0xD619",
+   "yokai_text_id": "0x0060D0F5",
+   "zh-CN": "鬼火（水）",
+   "en-US": "Maelstrom Oni-bi",
+   "ja-JP": "鬼火（水）"
+  },
+  "48453": {
+   "yokai_key": "0x814D",
+   "yokai_text_id": "0x00547843",
+   "zh-CN": "冰柱女",
+   "en-US": "Tsurara-onna",
+   "ja-JP": "つらら女"
+  },
+  "48491": {
+   "yokai_key": "0xB870",
+   "yokai_text_id": "0x0065BAF6",
+   "zh-CN": "魑魅",
+   "en-US": "Sudama",
+   "ja-JP": "魑魅"
+  },
+  "48633": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "48665": {
+   "yokai_key": "0x9F8D",
+   "yokai_text_id": "0x0069A73E",
+   "zh-CN": "木灵",
+   "en-US": "Kodama",
+   "ja-JP": "木霊"
+  },
+  "49046": {
+   "yokai_key": "0x8FB3",
+   "yokai_text_id": "0x007DDBA0",
+   "zh-CN": "子泣爷爷",
+   "en-US": "Konaki-Jiji",
+   "ja-JP": "子泣き爺"
+  },
+  "49342": {
+   "yokai_key": "0xD4BC",
+   "yokai_text_id": "0x0048E31A",
+   "zh-CN": "铁鼠",
+   "en-US": "Tesso",
+   "ja-JP": "鉄鼠"
+  },
+  "49422": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "49798": {
+   "yokai_key": "0xA095",
+   "yokai_text_id": "0x00407420",
+   "zh-CN": "阴摩罗鬼",
+   "en-US": "Onmoraki",
+   "ja-JP": "陰摩羅鬼"
+  },
+  "50190": {
+   "yokai_key": "0xEC8E",
+   "yokai_text_id": "0x007F5D70",
+   "zh-CN": "蛇骨婆",
+   "en-US": "Jakotsu-baba",
+   "ja-JP": "蛇骨婆"
+  },
+  "50350": {
+   "yokai_key": "0x3D40",
+   "yokai_text_id": "0x0079B549",
+   "zh-CN": "比留呼",
+   "en-US": "Hiruko",
+   "ja-JP": "比留呼"
+  },
+  "51193": {
+   "yokai_key": "0xE895",
+   "yokai_text_id": "0x005039DA",
+   "zh-CN": "轮入道",
+   "en-US": "Wheelmonk",
+   "ja-JP": "輪入道"
+  },
+  "52475": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "52763": {
+   "yokai_key": "0x41FA",
+   "yokai_text_id": "0x00696F88",
+   "zh-CN": "外道兵",
+   "en-US": "Aberrant Soldier",
+   "ja-JP": "外道兵"
+  },
+  "53098": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "53310": {
+   "yokai_key": "0xCDA8",
+   "yokai_text_id": "0x00470ECF",
+   "zh-CN": "善擦",
+   "en-US": "Scampuss",
+   "ja-JP": "すねこすり"
+  },
+  "53328": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "53492": {
+   "yokai_key": "0x106A",
+   "yokai_text_id": "0x0049DE3E",
+   "zh-CN": "貉",
+   "en-US": "Mujina",
+   "ja-JP": "ムジナ"
+  },
+  "53754": {
+   "yokai_key": "0xBEA3",
+   "yokai_text_id": "0x006A2A5B",
+   "zh-CN": "见越入道",
+   "en-US": "Mikoshi Nyudo",
+   "ja-JP": "見越し入道"
+  },
+  "54272": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "54609": {
+   "yokai_key": "0x1BDC",
+   "yokai_text_id": "0x007D4146",
+   "zh-CN": "两面宿傩",
+   "en-US": "Ryomen Sukuna",
+   "ja-JP": "両面宿儺"
+  },
+  "54892": {
+   "yokai_key": "0x649E",
+   "yokai_text_id": "0x005A0A71",
+   "zh-CN": "鬼火（风）",
+   "en-US": "Galestorm Oni-bi",
+   "ja-JP": "鬼火（風）"
+  },
+  "55206": {
+   "yokai_key": "0x8B0C",
+   "yokai_text_id": "0x006C0532",
+   "zh-CN": "傲岸鬼",
+   "en-US": "Demon of Pride",
+   "ja-JP": "傲岸鬼"
+  },
+  "56028": {
+   "yokai_key": "0xAB28",
+   "yokai_text_id": "0x0055631E",
+   "zh-CN": "垢尝",
+   "en-US": "Akaname",
+   "ja-JP": "垢嘗"
+  },
+  "56817": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "57339": {
+   "yokai_key": "0xD51A",
+   "yokai_text_id": "0x007E8897",
+   "zh-CN": "夜叉",
+   "en-US": "Yasha",
+   "ja-JP": "夜叉"
+  },
+  "58929": {
+   "yokai_key": "0x7F9F",
+   "yokai_text_id": "0x0040E556",
+   "zh-CN": "独眼鬼",
+   "en-US": "One-eyed Oni",
+   "ja-JP": "一つ目鬼"
+  },
+  "59502": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "59749": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "60256": {
+   "yokai_key": "0x59C4",
+   "yokai_text_id": "0x00514564",
+   "zh-CN": "茨木童子",
+   "en-US": "Ibaraki Doji",
+   "ja-JP": "茨木童子"
+  },
+  "61171": {
+   "yokai_key": "0xF9DA",
+   "yokai_text_id": "0x005C4AE8",
+   "zh-CN": "大天狗",
+   "en-US": "Great Tengu",
+   "ja-JP": "大天狗"
+  },
+  "61268": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "62326": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "62703": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "62712": {
+   "yokai_key": "0x2851",
+   "yokai_text_id": "0x005890B1",
+   "zh-CN": "山彦",
+   "en-US": "Yamabiko",
+   "ja-JP": "やまびこ"
+  },
+  "62845": {
+   "yokai_key": "0x39B5",
+   "yokai_text_id": "0x00545341",
+   "zh-CN": "妖鬼",
+   "en-US": "Yoki",
+   "ja-JP": "妖鬼"
+  },
+  "63064": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  },
+  "63274": {
+   "yokai_key": "0x0000",
+   "placeholder": true
+  },
+  "63885": {
+   "yokai_key": "0x46DA",
+   "placeholder": true
+  }
+ }
+}
