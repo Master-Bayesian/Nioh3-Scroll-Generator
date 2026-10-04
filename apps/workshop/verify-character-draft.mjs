@@ -342,7 +342,7 @@ try {
       record(locale + ': open menu without cursor waits without clearing the draft', await page.locator('[data-row^="equipment-"].selected').getAttribute('data-row') === selectionBeforeWaiting && await page.locator('[data-draft-state="unchanged"]').count() === 1);
       await page.evaluate(() => { window.__seed.cursor = { menu_open: true, container: 'equipment', slot_index: 44, item_id: 0xbd6b }; });
       await move(page, 44);
-      const soulName = { 'zh-CN': '魑魅的魂核', 'en-US': 'Sudama Soul Core', 'ja-JP': '魑魅の魂核' };
+      const soulName = { 'zh-CN': '魑魅的魂核', 'en-US': 'Sudama Soul Core', 'ja-JP': '魑魅の魂代' };
       record(locale + ': Sudama core is selected with its localized name', await page.locator('[data-row="equipment-44"]').getAttribute('class') === 'selected' && (await page.locator('[data-row="equipment-44"]').innerText()).includes(soulName[locale]));
       const namedShot = join(output, 'sudama-soul-core-' + runLabel + '-' + locale + '.png'); await page.screenshot({ path: namedShot }); evidence.screenshots.push(namedShot);
       await page.evaluate(() => { window.__seed.cursor = { menu_open: true, container: 'equipment', slot_index: 45, item_id: 0xfffe }; }); await move(page, 45);

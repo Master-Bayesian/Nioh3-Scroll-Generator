@@ -24,5 +24,5 @@ test('placeholder soul cores stay unnamed and therefore hidden', () => {
 test('0x3336 is the Hell Wind jailer core and Sudama keeps its own item and translations', () => {
   assert.equal(items['13110'][0], '狱卒鬼（业风）的魂核');
   assert.equal(items['48491'][0], '魑魅的魂核');
-  assert.deepEqual((ui.ui as Record<string, string[]>)['魑魅的魂核'], ['Sudama Soul Core', '魑魅の魂核']);
+  assert.deepEqual((ui.ui as Record<string, string[]>)['魑魅的魂核'], ['Sudama Soul Core', '魑魅の魂代']);
 });

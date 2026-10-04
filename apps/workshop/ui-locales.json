@@ -3310,7 +3310,7 @@
     ],
     "魂核": [
       "Soul core",
-      "魂核"
+      "魂代"
     ],
     "其他": [
       "Other",
@@ -3389,15 +3389,15 @@
       "この種類の装備には出ない効果"
     ],
     "地狱词条只能出现在地狱武器第一条": [
-      "Hell effects only appear first on hell weapons",
+      "Crucible effects only appear first on Crucible weapons",
       "地獄効果は地獄武器の先頭にのみ出る"
     ],
     "地狱武器第一条应为地狱词条": [
-      "A hell weapon's first effect should be a hell effect",
+      "A Crucible weapon's first effect should be a Crucible effect",
       "地獄武器の先頭は地獄効果であるべき"
     ],
     "该物品不能成为地狱武器": [
-      "This item cannot become a hell weapon",
+      "This item cannot become a Crucible weapon",
       "このアイテムは地獄武器にならない"
     ],
     "星号词条需要更高稀有度": [
@@ -3525,7 +3525,7 @@
       "固有"
     ],
     "地狱": [
-      "Hell",
+      "Crucible",
       "地獄"
     ],
     "随机": [
@@ -3545,11 +3545,11 @@
       "余分なセット効果または恩寵がある"
     ],
     "地狱词条只会出现在地狱武器上": [
-      "Hell effects only appear on hell weapons",
+      "Crucible effects only appear on Crucible weapons",
       "地獄効果は地獄武器にのみ出る"
     ],
     "地狱武器缺少地狱词条": [
-      "Hell weapon lacks its hell effect",
+      "Crucible weapon lacks its Crucible effect",
       "地獄武器に地獄効果がない"
     ],
     "数值高于公式（可能有额外加成）": [
@@ -3741,7 +3741,7 @@
       "ページ"
     ],
     "地狱武器": [
-      "Hell weapon",
+      "Crucible weapon",
       "地獄武器"
     ],
     "地狱武技": [
@@ -3749,7 +3749,7 @@
       "地獄武技"
     ],
     "地狱武器：": [
-      "Hell weapon: ",
+      "Crucible weapon: ",
       "地獄武器："
     ],
     "地狱武技：": [
@@ -3757,7 +3757,7 @@
       "地獄武技："
     ],
     "这件装备不会自然成为地狱武器": [
-      "This equipment never becomes a hell weapon naturally",
+      "This equipment never becomes a Crucible weapon naturally",
       "この装備は自然には地獄武器になりません"
     ],
     "这个地狱武技不会出现在这类武器上": [
@@ -3765,11 +3765,11 @@
       "この地獄武技はこの武器種には出現しません"
     ],
     "切换后第一个位置变为地狱词条，请在下方选择。": [
-      "The first slot becomes the hell effect; choose it below.",
+      "The first slot becomes the Crucible effect; choose it below.",
       "最初の枠が地獄効果になります。下で選択してください。"
     ],
     "这件装备不会自然成为地狱武器，只能在魔改模式下切换。": [
-      "This equipment never becomes a hell weapon naturally; switch it only in modded mode.",
+      "This equipment never becomes a Crucible weapon naturally; switch it only in modded mode.",
       "この装備は自然には地獄武器にならないため、改造モードでのみ切り替えられます。"
     ],
     "（不会自然出现）": [
@@ -3874,11 +3874,11 @@
     ],
     "这是星号词条，但游戏里不显示星号：游戏洗魂核词条时不会更新星号标记（游戏自身的 bug），这是正常结果。": [
       "This is a star effect, but the game shows no star: re-rolling a soul core never updates the star marker (a bug in the game), so this is expected.",
-      "これは★効果ですが、ゲームでは★が表示されません。魂核の効果を再抽選しても★の印は更新されないため（ゲーム側の不具合）、正常な結果です。"
+      "これは★効果ですが、ゲームでは★が表示されません。魂代の効果を再抽選しても★の印は更新されないため（ゲーム側の不具合）、正常な結果です。"
     ],
     "这不是星号词条，但游戏里仍显示星号：游戏洗魂核词条时不会去掉原来的星号标记（游戏自身的 bug），这是正常结果。": [
       "This is not a star effect, but the game still shows a star: re-rolling a soul core keeps the old star marker (a bug in the game), so this is expected.",
-      "これは★効果ではありませんが、ゲームでは★が表示されたままです。魂核の効果を再抽選しても元の★の印は消えないため（ゲーム側の不具合）、正常な結果です。"
+      "これは★効果ではありませんが、ゲームでは★が表示されたままです。魂代の効果を再抽選しても元の★の印は消えないため（ゲーム側の不具合）、正常な結果です。"
     ],
     "星号标记超过一个，游戏不会生成这样的装备": [
       "More than one star marker; the game never produces such equipment",
@@ -4149,7 +4149,7 @@
       "、レア度"
     ],
     "，地狱武器": [
-      ", hell weapon",
+      ", Crucible weapon",
       "、地獄武器"
     ],
     "，判定为自然": [
@@ -4445,7 +4445,7 @@
       "このキャラクターは選んだ難易度をまだ遊んでいないため、その難易度のドロップは自然とみなされません。別の難易度を選んで検索し直してください。"
     ],
     "地狱武器不能按种子生成。请取消“地狱武器”，或改用“魔改”添加。": [
-      "A hell weapon cannot be generated from a seed. Untick \"Hell weapon\", or add it in \"Modded\" mode.",
+      "A Crucible weapon cannot be generated from a seed. Untick \"Crucible weapon\", or add it in \"Modded\" mode.",
       "地獄武器はシードから生成できません。「地獄武器」を外すか、「改造」で追加してください。"
     ],
     "这个种子在当前生成路线下未生成有效装备。请重新查找并选择其他结果。": [
@@ -5262,7 +5262,7 @@
     ],
     "魑魅的魂核": [
       "Sudama Soul Core",
-      "魑魅の魂核"
+      "魑魅の魂代"
     ],
     "右侧有未应用的修改": [
       "The editor has unapplied changes",

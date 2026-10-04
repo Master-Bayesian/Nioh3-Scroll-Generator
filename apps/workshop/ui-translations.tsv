@@ -825,7 +825,7 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 腰部	Waist	腰
 腿部	Legs	脚
 饰品	Accessory	装飾品
-魂核	Soul core	魂核
+魂核	Soul core	魂代
 其他	Other	その他
 类别	Type	種類
 没有检测到正在运行的仁王3。请先启动游戏并读档进入角色。	Nioh 3 is not running. Start the game and load your character first.	仁王3が起動していません。ゲームを起動してキャラクターをロードしてください。
@@ -845,9 +845,9 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 套装效果不是该物品自带的	Set effect is not this item's own	セット効果がこのアイテム本来のものではない
 该位置应为恩宠效果	This slot should hold a grace	この位置は恩寵であるべき
 该词条不会出现在这类装备上	This effect never appears on this kind of equipment	この種類の装備には出ない効果
-地狱词条只能出现在地狱武器第一条	Hell effects only appear first on hell weapons	地獄効果は地獄武器の先頭にのみ出る
-地狱武器第一条应为地狱词条	A hell weapon's first effect should be a hell effect	地獄武器の先頭は地獄効果であるべき
-该物品不能成为地狱武器	This item cannot become a hell weapon	このアイテムは地獄武器にならない
+地狱词条只能出现在地狱武器第一条	Crucible effects only appear first on Crucible weapons	地獄効果は地獄武器の先頭にのみ出る
+地狱武器第一条应为地狱词条	A Crucible weapon's first effect should be a Crucible effect	地獄武器の先頭は地獄効果であるべき
+该物品不能成为地狱武器	This item cannot become a Crucible weapon	このアイテムは地獄武器にならない
 星号词条需要更高稀有度	Star effects need a higher rarity	★効果にはより高いレア度が必要
 星号词条超过一条	More than one star effect	★効果が2つ以上
 星号标记与词条不一致	Star marker does not match the effect	★マークが効果と一致しない
@@ -879,13 +879,13 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 写入魔改	Write modded	改造を書き込む
 写入	Write	書き込む
 固有	Innate	固有
-地狱	Hell	地獄
+地狱	Crucible	地獄
 随机	Random	ランダム
 套装	Set	セット
 原始数值按游戏内部单位填写，例如百分比词条 15 表示 1.5%。“前 X%”表示自然生成时得到这个值或更好值的概率。	Enter raw values in the game's internal units; for a percentage effect 15 means 1.5%. "Top X%" is the chance natural generation gives this value or better.	数値はゲーム内部の単位で入力します。割合の効果では 15 が 1.5% です。「上位 X%」は自然生成でこの値以上が出る確率です。
 多出不该有的套装或恩宠效果	Has a set or grace it should not	余分なセット効果または恩寵がある
-地狱词条只会出现在地狱武器上	Hell effects only appear on hell weapons	地獄効果は地獄武器にのみ出る
-地狱武器缺少地狱词条	Hell weapon lacks its hell effect	地獄武器に地獄効果がない
+地狱词条只会出现在地狱武器上	Crucible effects only appear on Crucible weapons	地獄効果は地獄武器にのみ出る
+地狱武器缺少地狱词条	Crucible weapon lacks its Crucible effect	地獄武器に地獄効果がない
 数值高于公式（可能有额外加成）	Value above the formula (may carry a bonus)	数値が計算式より高い（追加補正の可能性）
 缺少该物品自带的固有词条	Missing this item's innate effect	このアイテム固有の効果がない
 缺少该物品自带的套装效果	Missing this item's set effect	このアイテムのセット効果がない
@@ -933,14 +933,14 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 自动发动（削气符）	Auto Trigger (Item 0x3011)	自動発動（アイテム 0x3011）
 页码	Page	ページ
 页		ページ
-地狱武器	Hell weapon	地獄武器
+地狱武器	Crucible weapon	地獄武器
 地狱武技	Hell skill	地獄武技
-地狱武器：	Hell weapon: 	地獄武器：
+地狱武器：	Crucible weapon: 	地獄武器：
 地狱武技：	Hell skill: 	地獄武技：
-这件装备不会自然成为地狱武器	This equipment never becomes a hell weapon naturally	この装備は自然には地獄武器になりません
+这件装备不会自然成为地狱武器	This equipment never becomes a Crucible weapon naturally	この装備は自然には地獄武器になりません
 这个地狱武技不会出现在这类武器上	This hell skill does not occur on this weapon type	この地獄武技はこの武器種には出現しません
-切换后第一个位置变为地狱词条，请在下方选择。	The first slot becomes the hell effect; choose it below.	最初の枠が地獄効果になります。下で選択してください。
-这件装备不会自然成为地狱武器，只能在魔改模式下切换。	This equipment never becomes a hell weapon naturally; switch it only in modded mode.	この装備は自然には地獄武器にならないため、改造モードでのみ切り替えられます。
+切换后第一个位置变为地狱词条，请在下方选择。	The first slot becomes the Crucible effect; choose it below.	最初の枠が地獄効果になります。下で選択してください。
+这件装备不会自然成为地狱武器，只能在魔改模式下切换。	This equipment never becomes a Crucible weapon naturally; switch it only in modded mode.	この装備は自然には地獄武器にならないため、改造モードでのみ切り替えられます。
 （不会自然出现）	 (never occurs naturally)	（自然には出現しません）
 防具	Armor	防具
 书籍与指南	Books and guides	書物と指南
@@ -966,8 +966,8 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 已确认：上次写入没有写进存档，存档保持原样，已解锁。	Confirmed: the last write did not reach the save, which is unchanged. The save is unlocked.	確認しました：前回の書き込みはセーブに反映されておらず、セーブは元のままです。ロックを解除しました。
 已记录你的确认，存档已解锁。	Your confirmation is recorded. The save is unlocked.	確認を記録しました。セーブのロックを解除しました。
 仍无法自动判断。请进游戏检查这个存档，没问题就点“我已检查，继续使用”。	Still cannot tell automatically. Check this save in game, and if it looks right, click "I checked it, continue".	まだ自動で判定できません。ゲーム内でこのセーブを確認し、問題なければ「確認済み、続ける」を押してください。
-这是星号词条，但游戏里不显示星号：游戏洗魂核词条时不会更新星号标记（游戏自身的 bug），这是正常结果。	This is a star effect, but the game shows no star: re-rolling a soul core never updates the star marker (a bug in the game), so this is expected.	これは★効果ですが、ゲームでは★が表示されません。魂核の効果を再抽選しても★の印は更新されないため（ゲーム側の不具合）、正常な結果です。
-这不是星号词条，但游戏里仍显示星号：游戏洗魂核词条时不会去掉原来的星号标记（游戏自身的 bug），这是正常结果。	This is not a star effect, but the game still shows a star: re-rolling a soul core keeps the old star marker (a bug in the game), so this is expected.	これは★効果ではありませんが、ゲームでは★が表示されたままです。魂核の効果を再抽選しても元の★の印は消えないため（ゲーム側の不具合）、正常な結果です。
+这是星号词条，但游戏里不显示星号：游戏洗魂核词条时不会更新星号标记（游戏自身的 bug），这是正常结果。	This is a star effect, but the game shows no star: re-rolling a soul core never updates the star marker (a bug in the game), so this is expected.	これは★効果ですが、ゲームでは★が表示されません。魂代の効果を再抽選しても★の印は更新されないため（ゲーム側の不具合）、正常な結果です。
+这不是星号词条，但游戏里仍显示星号：游戏洗魂核词条时不会去掉原来的星号标记（游戏自身的 bug），这是正常结果。	This is not a star effect, but the game still shows a star: re-rolling a soul core keeps the old star marker (a bug in the game), so this is expected.	これは★効果ではありませんが、ゲームでは★が表示されたままです。魂代の効果を再抽選しても元の★の印は消えないため（ゲーム側の不具合）、正常な結果です。
 星号标记超过一个，游戏不会生成这样的装备	More than one star marker; the game never produces such equipment	★の印が2つ以上あります。ゲームはこのような装備を生成しません
 已从游戏中移除。在游戏里切换一下菜单页即可看到它消失；到神社存档即可保存到存档文件。	Removed from the game. Switch the in-game menu page once to see it gone; save at a shrine to keep it in the save file.	ゲームから削除しました。ゲーム内でメニューのページを一度切り替えると消えたことを確認できます。社でセーブするとセーブファイルに保存されます。
 这件装备正在装备中，请先在游戏里卸下。	This item is equipped. Unequip it in the game first.	この装備は装備中です。先にゲーム内で外してください。
@@ -1035,7 +1035,7 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 防具或饰品	Armor or accessory	防具または装飾品
 新增	New	新規
 ，稀有度	, rarity	、レア度
-，地狱武器	, hell weapon	、地獄武器
+，地狱武器	, Crucible weapon	、地獄武器
 ，判定为自然	, audited as natural	、判定：自然
 ，判定为非自然	, audited as unnatural	、判定：非自然
 添加装备	Add equipment	装備を追加
@@ -1109,7 +1109,7 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 这件物品不是装备，不能按游戏规则生成。请在列表里换一件武器、防具、饰品或魂核。	This item is not equipment and cannot be generated by the game's rules. Choose a weapon, armor, accessory or soul core from the list.	このアイテムは装備ではないため、ゲームの規則で生成できません。一覧から武器、防具、装飾品、魂代を選んでください。
 稀有度请填 0–5，难度请在下拉框里选择，然后重新查找。	Enter a rarity of 0–5 and choose the difficulty in the list, then search again.	レアリティは 0–5 を入力し、難易度は一覧から選んでから検索し直してください。
 这个角色还没有玩过所选难度，这个难度的掉落不算自然。请换一个难度后重新查找。	This character has not played the chosen difficulty, so its drops would not be natural. Choose another difficulty and search again.	このキャラクターは選んだ難易度をまだ遊んでいないため、その難易度のドロップは自然とみなされません。別の難易度を選んで検索し直してください。
-地狱武器不能按种子生成。请取消“地狱武器”，或改用“魔改”添加。	A hell weapon cannot be generated from a seed. Untick "Hell weapon", or add it in "Modded" mode.	地獄武器はシードから生成できません。「地獄武器」を外すか、「改造」で追加してください。
+地狱武器不能按种子生成。请取消“地狱武器”，或改用“魔改”添加。	A Crucible weapon cannot be generated from a seed. Untick "Crucible weapon", or add it in "Modded" mode.	地獄武器はシードから生成できません。「地獄武器」を外すか、「改造」で追加してください。
 这个种子在当前生成路线下未生成有效装备。请重新查找并选择其他结果。	This seed produces no valid equipment under the current generation route. Search again and choose another result.	このシードでは現在の生成経路で有効な装備を生成できません。検索し直して別の結果を選んでください。
 想要的词条最多 7 个。请去掉一些后重新查找。	At most 7 wanted effects. Remove some and search again.	欲しい効果は最大 7 個です。いくつか外してから検索し直してください。
 未检测到正在运行的仁王3。可以直接使用“修改存档文件”；实时修改需要启动游戏并读档。	No running Nioh 3 game was detected. You can use "Edit the save file" directly. Live editing requires starting the game and loading a character.	実行中の仁王3が見つかりません。「セーブファイルを編集」はそのまま利用できます。リアルタイム編集にはゲームを起動し、キャラクターをロードしてください。
@@ -1313,7 +1313,7 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 请选择进入兼容模式并继续使用，或关闭工具。按 Esc、点击弹窗外或右上角关闭按钮也会关闭工具。	Choose to enter compatibility mode and continue, or close the tool. Esc, clicking outside this dialog or its top-right close button also closes the tool.	互換モードに入って続行するか、ツールを終了してください。Esc キー、ダイアログの外側のクリック、右上の閉じるボタンでもツールを終了します。
 正在关闭工具，请等待当前操作安全结束。	Closing the tool. Wait for the current operation to finish safely.	ツールを終了しています。現在の操作が安全に完了するまでお待ちください。
 持有物品菜单已打开，请在游戏中选中一件物品	The inventory menu is open. Select an item in the game.	所持品メニューは開いています。ゲーム内でアイテムを選択してください。
-魑魅的魂核	Sudama Soul Core	魑魅の魂核
+魑魅的魂核	Sudama Soul Core	魑魅の魂代
 右侧有未应用的修改	The editor has unapplied changes	右側に未適用の変更があります
 未应用	Unapplied	未適用
 刀	Katana	刀
