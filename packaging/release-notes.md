@@ -1,41 +1,22 @@
-# Nioh 3 Studio 0.8.4
+# Nioh 3 Studio 0.8.5
 
-Download `Nioh3Studio-0.8.4-win-x64.exe` and run it directly, or use the signed
+Download `Nioh3Studio-0.8.5-win-x64.exe` and run it directly, or use the signed
 in-app updater. No manual extraction, Python, Node.js, Electron or Cheat Engine
 setup is required. Microsoft Edge WebView2 remains a Windows prerequisite.
 
-- Save-file edits and scroll installs work again after the September game
-  update, which grew the account system save to 235896 bytes. The system save
-  is still only fingerprinted, backed up and restored, never modified.
-- Live editing works again: following the in-game inventory selection failed
-  with an "operation output does not match the protected contract" error in
-  0.8.3 whenever the inventory menu was closed.
-- Live equipment addition now works in game. In 0.8.3 it never found a safe
-  moment to run, or reported "preview changed inventory"; nothing was added.
-- Compatibility mode keeps only the three newest save copies instead of adding
-  a full copy every time it is confirmed.
-- Loadout codes: copy one piece, everything you have equipped, or all saved
-  equipment as a short `N3E1-` code. Paste a code under Add new equipment ->
-  Favorites to save its pieces, then queue them together as modded additions.
-- Equipment favorites: star an owned piece to add it to any character later.
-- Equipment sets: a Sets filter groups set pieces across weapons, armor and
-  accessories by set effect. Lists filter by class, then weapon type, armor
-  slot or accessory kind, with a samurai/ninja choice for armor, and scroll
-  instead of paging.
-- Saves page (formerly Backups) with save re-sign: import a character save
-  from another account into the selected slot, re-signed to this account.
-  The slot is backed up first. Re-signed saves have not yet been accepted
-  in game; try it on an unimportant slot.
-- Dark mode: Settings -> Appearance follows Windows or forces light or dark.
-- Settings is a small menu beside its button, with game version details and
-  a new About & safety page (free, official download sources, what the tool
-  reads, writes and connects to).
-- Favorites is a sidebar page.
-- The compatibility notice can be hidden for the current game version; it
-  returns after a game update or if a backup fails.
-- Live equipment addition backs up the save chosen in the save picker.
-- The equipment editor marks a row with unapplied changes; backups show
-  readable times, newest first.
+- Adding or editing equipment in a save file no longer keeps failing with
+  "the save changed" after the game saved once (for example after a live
+  addition). Reload on the equipment page now reads the save again; there is
+  no need to restart the tool.
+- Live remaining-count edits work. In earlier 2.x releases they always
+  failed before writing anything. The save is backed up first, as with live
+  additions.
+- Soul cores carry the name the game shows, such as 一目连的魂核. Six that
+  had no name are now listed and can be added: 一目连, 铁鼠, 垢尝, 雪入道,
+  蛤蟆附身 and 大蛤蟆. Item 0x3336 is 狱卒鬼（业风）的魂核.
+- The earlier Hattori Hanzo is shown as 服部半藏（前代）, as in game.
+- If the single EXE cannot start, the message is now in Chinese and says
+  what to do.
 
 ## Supported scope and known limitations
 

@@ -73,7 +73,7 @@ impl RoleApplication for Scripted {
 
     fn context_payload(&self) -> Value {
         json!({
-            "product_version": "0.8.4",
+            "product_version": "0.8.5",
             "game_profile": "pc-v2.00.02-v2.01",
             "resources_digest": "r",
             "algorithm_version": "a",

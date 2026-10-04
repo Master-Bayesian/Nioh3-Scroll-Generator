@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import catalog from '../../workshop/item-names.json';
 import ui from '../../workshop/ui-locales.json';
-import yokai from '../../../nioh3_scroll_editor/data/soul_core_yokai.json';
+import yokai from '../../../test_fixtures/soul_core_yokai.json';
 
 type Core = { placeholder?: boolean; 'zh-CN'?: string; 'en-US'?: string; 'ja-JP'?: string };
 const cores = yokai.cores as Record<string, Core>;
