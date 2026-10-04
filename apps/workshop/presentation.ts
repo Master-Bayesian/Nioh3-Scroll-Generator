@@ -84,6 +84,6 @@ export function localize(text: string): string {
     (part) => entries[part],
   );
   return plainGameText(locale === "en-US"
-    ? translated.replaceAll("（", "(").replaceAll("）", ")").replaceAll("、", ", ")
+    ? translated.replace(/(?<=[A-Za-z0-9])（/g, " (").replaceAll("（", "(").replaceAll("）", ")").replaceAll("、", ", ")
     : translated);
 }

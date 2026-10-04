@@ -56,13 +56,13 @@ ENEMY_VARIANT_QUALIFIERS: dict[int, dict[str, str]] = {
     },
     0x000D35E1: {
         "zh-CN": "现任／子",
-        "ja-JP": "現任／息子",
-        "en-US": "Current / son",
+        "ja-JP": "当代",
+        "en-US": "Current",
     },
     0x000202A7: {
         "zh-CN": "前代",
-        "ja-JP": "先代／父（鬼半蔵）",
-        "en-US": "Former / father (Demon Hanzo)",
+        "ja-JP": "先代",
+        "en-US": "Former",
     },
 }
 

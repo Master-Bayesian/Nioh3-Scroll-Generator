@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT))
 from nioh3_scroll_editor.catalog import native_effect_name
 from nioh3_scroll_editor.auxiliary_catalog import load_auxiliary_name_catalog
 from nioh3_scroll_editor.catalog_application import auxiliary_catalog
+from nioh3_scroll_editor.enemy_variants import enemy_variant_qualifier
 
 base = ROOT / 'apps/workshop'
 source = json.loads((base / 'catalog.json').read_text(encoding='utf-8'))
@@ -136,7 +137,12 @@ for locale in ('en-US', 'ja-JP'):
         if name:
             translated[row['name']] = name
     for row in source['enemies']:
-        translated[row['name']] = names.enemy_name(row['keys'][0])
+        name = names.enemy_name(row['keys'][0])
+        # Same-name forms (人形/妖怪形态, 前代/现任) keep their qualifier.
+        qualifier = enemy_variant_qualifier(row['keys'][0], locale)
+        if name and qualifier:
+            name = f'{name} ({qualifier})' if locale == 'en-US' else f'{name}（{qualifier}）'
+        translated[row['name']] = name
     for row in source['rules']:
         translated[row['name']] = names.special_rule_name(row['keys'][0])
     for row in auxiliary_catalog(3, locale)['terrain_options']:

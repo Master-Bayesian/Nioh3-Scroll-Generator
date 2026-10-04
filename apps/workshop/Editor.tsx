@@ -1035,7 +1035,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
                     .filter((e) => e.key !== undefined);
                   return (
                     <label key={i}>
-                      第 {i + 1} 组
+                      敌人组 {i + 1}
                       <select
                         disabled={temporary.enemyEnabled === false}
                         aria-label={"临时修改敌人" + (i + 1)}
@@ -1115,7 +1115,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
                 </legend>
                 {temporary.rules.map((key, i) => (
                   <label key={i}>
-                    第 {i + 1} 条
+                    规则 {i + 1}
                     <select
                       disabled={temporary.rulesEnabled === false}
                       aria-label={"临时修改特殊规则" + (i + 1)}
