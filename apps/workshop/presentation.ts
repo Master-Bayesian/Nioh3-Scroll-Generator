@@ -40,15 +40,13 @@ const maps = new Map<string, Record<string, string>>(),
 export function localizeName(text: string): string | null {
   if (locale === "zh-CN" || !text) return text;
   localize(text);
-  return maps.get(locale)?.[text.trim()] ?? null;
+  const names = maps.get(locale);
+  return names?.[text.trim()] ?? names?.[text.replace(/\s+/g, " ").trim()] ?? null;
 }
 export function localize(text: string): string {
   text=text.replace(/\s+/g,' ');
   text = publicError(text);
   if (locale === "zh-CN" || !text) return plainGameText(text);
-  // Resolved template arguments are Chinese game names; the other locales keep
-  // the generic wording until their own names are captured.
-  text = withoutTemplateArguments(text);
   if (!maps.has(locale)) {
     const entries = {
       ...resources.game[locale],
@@ -72,6 +70,13 @@ export function localize(text: string): string {
     );
   }
   const entries = maps.get(locale)!;
+  // A whole game name, its arguments filled as the Chinese UI shows it
+  // ("缝影的持有上限"), has the game's own name in this locale.
+  const filled = fillTemplateSlots(plainText(text), "增益效果", "异常状态").trim();
+  if (entries[filled]) return plainGameText(text.replace(text.trim(), entries[filled]));
+  // Otherwise resolved arguments are Chinese game names; drop them for the
+  // generic wording.
+  text = withoutTemplateArguments(text);
   if (entries[text.trim()])
     return plainGameText(text.replace(text.trim(), entries[text.trim()]));
   const translated = text.replace(
@@ -79,6 +84,6 @@ export function localize(text: string): string {
     (part) => entries[part],
   );
   return plainGameText(locale === "en-US"
-    ? translated.replaceAll("（", "(").replaceAll("）", ")")
+    ? translated.replaceAll("（", "(").replaceAll("）", ")").replaceAll("、", ", ")
     : translated);
 }

@@ -21,6 +21,7 @@ import { favoriteKey, importEquipmentFavorites, removeEquipmentFavorite, toggleE
 import { decodeLoadout, encodeLoadout, type LoadoutPiece } from "./loadout-code";
 import { ADD_CATALOG, ADD_SETS, ADD_TYPES, FacetFilter, MAJOR_ORDER, SET_MAJOR, TYPE_ORDER, byOrder, facetsOf, itemCatalog, kindOf, matchesClass, nameLabel, setName, setOf } from "./equipment-facets";
 import { errorText, publicError, stripErrorPrefix } from "./public-errors";
+import { localize } from "./presentation";
 import { SavePicker } from "./CartActions";
 import { runtimeObserver, saveObserver, saveSession } from "./save-workspace";
 
@@ -77,6 +78,8 @@ interface WantedEffect {
 }
 /** The selection of an item being added to the save; it has no slot yet. */
 const NEW_SLOT = -1;
+/** Search text in Chinese and in the interface language, so either finds a name. */
+const searchable = (text: string) => text + " " + localize(text);
 /** Items a loadout code may name: the equipment the add list offers. */
 const ADDABLE_IDS = new Set(ADD_CATALOG.map(item => item.id));
 
@@ -302,7 +305,7 @@ function EffectPicker({ value, star, candidates, label, onPick, placeholder = "�
   const shown = useMemo(() => {
     const needle = filter.trim().toLowerCase();
     const list = needle
-      ? candidates.filter(candidate => (label(candidate) + " " + hex(candidate.id)).toLowerCase().includes(needle))
+      ? candidates.filter(candidate => searchable(label(candidate) + " " + hex(candidate.id)).toLowerCase().includes(needle))
       : candidates;
     return list.slice(0, 400);
   }, [candidates, filter, label]);
@@ -317,7 +320,7 @@ function EffectPicker({ value, star, candidates, label, onPick, placeholder = "�
   return (
     <div className="effect-picker" ref={box}>
       <input
-        value={open ? filter : currentLabel}
+        value={open ? filter : localize(currentLabel)}
         placeholder={open ? "输入名称筛选" : placeholder}
         onFocus={() => { setFilter(""); setOpen(true); }}
         onChange={event => setFilter(event.target.value)}
@@ -444,7 +447,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     const needle = addQuery.trim().toLowerCase();
     return ADD_CATALOG
       .filter(item => matchesClass(item.id, item, addKind, addType) && (!addSchool || item.school === addSchool))
-      .filter(item => !needle || (item.name + " " + item.major + " " + item.type + " " + hex(item.id)).toLowerCase().includes(needle));
+      .filter(item => !needle || searchable(item.name + " " + item.major + " " + item.type + " " + hex(item.id)).toLowerCase().includes(needle));
   }, [addQuery, addKind, addType, addSchool]);
   /** Counts per class and per type within each class, for the filter chips. */
   const groups = useMemo(() => {
@@ -485,7 +488,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       if (verdictFilter && verdictOf(entry) !== verdictFilter) return false;
       if (!needle) return true;
       const text = [itemText(entry.item_id), facets.major, facets.type, ...entry.effects.map(effect => effectText(effect.effect_id))].join(" ");
-      return text.toLowerCase().includes(needle);
+      return searchable(text).toLowerCase().includes(needle);
     });
     if (!sort) return matches;
     // Ties keep the game's inventory order (the sort is stable).
@@ -537,7 +540,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     return itemRows.filter(entry => {
       const [a, b] = itemGroups(entry.item_id, null);
       if (itemMajor && a !== itemMajor) return false;
-      return !needle || [itemText(entry.item_id), a, b].join(" ").toLowerCase().includes(needle);
+      return !needle || searchable([itemText(entry.item_id), a, b].join(" ")).toLowerCase().includes(needle);
     });
   }, [itemRows, itemQuery, itemMajor, showIds]);
   const itemRow = itemRows.find(entry => entry.item_id === selectedItem) ?? null;

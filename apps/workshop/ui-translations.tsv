@@ -1444,3 +1444,28 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 跟随系统	System	システム
 浅色	Light	ライト
 深色	Dark	ダーク
+忍者防具	Ninja armor	忍者防具
+武士防具	Samurai armor	武士防具
+忍者武器	Ninja weapon	忍者武器
+武士武器	Samurai weapon	武士武器
+其他或系统项	Other or system	その他・システム
+秘传书	Secret technique scroll	秘伝書
+锻造书	Forging scroll	鍛造書
+材料	Materials	素材
+素材	Material	素材
+NPC武器	NPC weapon	NPC武器
+忍术或阴阳术道具	Ninjutsu or onmyo item	忍術・陰陽術アイテム
+近战武器	Melee weapon	近接武器
+可使用道具	Consumable	消費アイテム
+重要物品	Key items	貴重品
+任务或关键物品	Quest or key item	クエスト・貴重品
+制作指南	Crafting guide	製作指南
+远程武器	Ranged weapon	遠距離武器
+弹药	Ammunition	弾薬
+内部或占位	Internal or placeholder	内部・仮
+未确认	Unconfirmed	未確認
+模式0x0C待确认	Unconfirmed type 0x0C	未確認の種類 0x0C
+模式0x0D待确认	Unconfirmed type 0x0D	未確認の種類 0x0D
+模式0x10待确认	Unconfirmed type 0x10	未確認の種類 0x10
+模式0x13待确认	Unconfirmed type 0x13	未確認の種類 0x13
+未命名忍术（0x	Unnamed Ninjutsu (0x	名称のない忍術（0x
