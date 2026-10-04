@@ -1360,3 +1360,6 @@ td.favorite-actions>.loadout-copy-one{margin:0 4px 0 0}
 .count-hint{color:#8a5a00;font-size:12px;margin:6px 0}
 .editor-write-mode{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px}
 .editor-write-mode>span{font-size:12px;color:#5d6b7a}
+/* Cards in the cart and history dialogs read like the result pane's card. */
+.compare-grid .scroll .scroll-hero p{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;font-size:12px;line-height:1.4;margin:2px 0}
+.compare-grid .scroll .scroll-hero strong{font:600 12px/1.4 "Microsoft YaHei UI","Microsoft YaHei","Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
