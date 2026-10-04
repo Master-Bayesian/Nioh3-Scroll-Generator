@@ -22,11 +22,14 @@ use nioh3_save::save::DecryptedSave;
 
 /// The action label the shipped `prepare` records for a live addition.
 pub const LIVE_ADD_ACTION: &str = "v2-live-add";
+/// The action label a live remaining-count edit records.
+pub const COUNT_EDIT_ACTION: &str = "v2-count-edit";
 
 /// One application-owned backup bundle per reviewed live addition.
 pub struct SaveBackupAdapter {
     root: PathBuf,
     counter: u64,
+    action: &'static str,
 }
 
 impl SaveBackupAdapter {
@@ -34,6 +37,15 @@ impl SaveBackupAdapter {
         Self {
             root: state_root.to_path_buf(),
             counter: 0,
+            action: LIVE_ADD_ACTION,
+        }
+    }
+
+    /// The same verified bundle, recorded under another operation's action.
+    pub fn with_action(state_root: &Path, action: &'static str) -> Self {
+        Self {
+            action,
+            ..Self::new(state_root)
         }
     }
 }
@@ -113,7 +125,7 @@ impl SaveBackup for SaveBackupAdapter {
             save_schema_profile: SAVE_SCHEMA_PROFILE.to_string(),
             operation_id: operation_id.to_string(),
             created_at_utc: created_at_utc(),
-            action: LIVE_ADD_ACTION.to_string(),
+            action: self.action.to_string(),
             steam_account_id: account,
             save_slot_index: slot,
             backup_files: vec![BackupFileEntry {

@@ -46,9 +46,9 @@ use crate::error::HostError;
 /// drift apart.
 pub const NON_WINDOWS_OWNERSHIP_REASON: &str = "the runtime adapter requires Windows";
 
-/// The `CountEdit` object the protected contract publishes for `runtime.count_*`.
+/// The `{count_edit}` reply every count method returns (`CountEdit` in the contract).
 fn count_status_json(status: &nioh3_runtime::mutation::CountStatus) -> Value {
-    serde_json::json!({
+    serde_json::json!({"count_edit": {
         "operation_id": status.operation_id,
         "plan_digest": status.plan_digest,
         "state": status.state.as_str(),
@@ -57,7 +57,7 @@ fn count_status_json(status: &nioh3_runtime::mutation::CountStatus) -> Value {
         "old_count": status.old_count,
         "new_count": status.new_count,
         "error": status.error,
-    })
+    }})
 }
 
 /// The protected runtime role.
@@ -503,14 +503,38 @@ impl RuntimeApplication {
             .get("record_hex")
             .and_then(Value::as_str)
             .ok_or_else(HostError::invalid_request)?;
-        let stem = Path::new(save_path)
-            .file_stem()
-            .and_then(|value| value.to_str())
-            .unwrap_or("save");
-        let backup_path = self
-            .state_root
-            .join("count-backups")
-            .join(format!("{stem}.bin"));
+        // The editor only verifies a backup; take the verified, restorable
+        // checkpoint of exactly the planned bytes here, as live addition does.
+        let raw = std::fs::read(save_path).map_err(|error| {
+            HostError::from_runtime(nioh3_runtime::RuntimeError::Io {
+                path: save_path.to_string(),
+                detail: error.to_string(),
+            })
+        })?;
+        if !nioh3_save::save::sha256_hex(&raw).eq_ignore_ascii_case(source_sha256) {
+            return Err(HostError::from_runtime(
+                nioh3_runtime::RuntimeError::CountSourceChanged {
+                    detail: "Save changed; refresh inventory".to_string(),
+                },
+            ));
+        }
+        let backup_id = format!(
+            "count-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|elapsed| elapsed.as_millis())
+                .unwrap_or_default()
+        );
+        let backup_path = {
+            use nioh3_runtime::mutation::live_add::SaveBackup;
+            crate::runtime_backup::SaveBackupAdapter::with_action(
+                &self.state_root,
+                crate::runtime_backup::COUNT_EDIT_ACTION,
+            )
+            .checkpoint(Path::new(save_path), &raw, &backup_id)
+            .map_err(HostError::from_runtime)?
+            .backup_path
+        };
         let mut editor = self.count_editor_for_game(&approved)?;
         let status = editor
             .prepare(
@@ -3174,5 +3198,43 @@ mod receipt_control_tests {
             "uncertain"
         );
         assert!(!directory.join("receipt.json").exists());
+    }
+}
+
+#[cfg(test)]
+mod count_reply_tests {
+    #![allow(clippy::unwrap_used)]
+
+    use nioh3_runtime::mutation::{CountState, CountStatus};
+    use serde_json::json;
+
+    /// Every `runtime.count_*` reply must pass the protected contract; until
+    /// v0.8.5 the bare status object failed it, so live count edits never ran.
+    #[test]
+    fn count_replies_pass_the_contract() {
+        let contract = crate::Contract::load(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packages/contracts"),
+        )
+        .unwrap();
+        for state in [
+            CountState::Prepared,
+            CountState::Verified,
+            CountState::Rejected,
+            CountState::Uncertain,
+        ] {
+            let reply = super::count_status_json(&CountStatus {
+                operation_id: "9335f8e1-772c-4774-b401-b9e01d9afd36".to_string(),
+                plan_digest: "c4a0501c263a4fbd380a5c5df415550031cb97035b9eac10fbf55b7427857b08"
+                    .to_string(),
+                state,
+                seed: 170_827_512,
+                rarity: 3,
+                old_count: 6,
+                new_count: 5,
+                error: None,
+            });
+            let frame = json!({"protocol": 1, "id": "count", "ok": true, "result": reply});
+            assert!(contract.response_valid(&frame), "{frame}");
+        }
     }
 }
