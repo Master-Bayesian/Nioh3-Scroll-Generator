@@ -55,9 +55,11 @@ impl SaveJobs {
 
 #[test]
 fn rejects_unsupported_save_sizes_before_digest_checks_and_keeps_jobs_usable() {
+    // The project build root when set, otherwise Cargo's own per-target temp
+    // directory (inside the target directory, never the checkout).
     let build_root = std::env::var_os("NIOH3_BUILD_ROOT")
         .map(PathBuf::from)
-        .expect("set NIOH3_BUILD_ROOT to the project build volume");
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_TARGET_TMPDIR")));
     let root = build_root
         .join("tmp")
         .join(format!("nioh3-save-size-{}", std::process::id()));
