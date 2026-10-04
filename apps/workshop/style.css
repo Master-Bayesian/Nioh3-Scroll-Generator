@@ -1357,3 +1357,4 @@ td.favorite-actions>.loadout-copy-one{margin:0 4px 0 0}
 .side-popup .theme-choice>button:last-of-type{border-radius:0 5px 5px 0}
 .side-popup .theme-choice>button+button{border-left-width:0}
 .side-popup .theme-choice>button.active{background:#3c745f;border-color:#3c745f;color:#fff}
+.count-hint{color:#8a5a00;font-size:12px;margin:6px 0}

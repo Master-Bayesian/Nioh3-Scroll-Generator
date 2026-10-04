@@ -410,10 +410,12 @@ async fn desktop_request(
                     .map(|elapsed| elapsed.as_secs())
                     .unwrap_or_default();
                 let path = directory.join(format!("nioh3-feedback-{stamp}.txt"));
+                let live_add = serde_json::to_string_pretty(&storage::live_add_digest(&broker.data, 8))
+                    .map_err(|e| e.to_string())?;
                 std::fs::write(
                     &path,
                     format!(
-                        "=== Nioh 3 Studio feedback ===\n{report}\n\n=== Operation log (latest 1000000 bytes, including rotated files) ===\n{tail}"
+                        "=== Nioh 3 Studio feedback ===\n{report}\n\n=== Latest live additions (expected and built records) ===\n{live_add}\n\n=== Operation log (latest 1000000 bytes, including rotated files) ===\n{tail}"
                     ),
                 )
                 .map_err(|e| e.to_string())?;

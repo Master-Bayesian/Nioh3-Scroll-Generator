@@ -2123,3 +2123,29 @@ fn packaged_runtime_resolution_still_rejects_changed_binary_and_invalid_manifest
     }
     release_packaged_session_version();
 }
+
+#[test]
+fn feedback_carries_the_expected_and_built_records_of_recent_live_additions() {
+    let data = std::env::temp_dir().join(format!("nioh3-live-add-digest-{}", uuid::Uuid::new_v4()));
+    let operation = data.join("live-add").join("eefeee57-ffd6-4251-b61c-cbdf58973ca7");
+    std::fs::create_dir_all(&operation).unwrap();
+    std::fs::create_dir_all(data.join("live-add").join("native-executor")).unwrap();
+    std::fs::write(
+        operation.join("plan.json"),
+        r#"{"digest":"x","plan":{"expected_record_hex":"821e","profile_id":"pc-v2.02","before":{"entries":[1,2,3]}}}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        operation.join("execution.json"),
+        r#"{"destination_hex":"821f","business_outcome":"rejected","diagnostics":{"x":1}}"#,
+    )
+    .unwrap();
+    let digest = crate::storage::live_add_digest(&data, 8);
+    let entry = &digest["eefeee57-ffd6-4251-b61c-cbdf58973ca7"];
+    assert_eq!(entry["plan.json"]["expected_record_hex"], "821e");
+    assert_eq!(entry["execution.json"]["destination_hex"], "821f");
+    assert_eq!(entry["execution.json"]["business_outcome"], "rejected");
+    assert!(entry["plan.json"].get("before").is_none());
+    assert!(digest.get("native-executor").is_none());
+    let _ = std::fs::remove_dir_all(data);
+}

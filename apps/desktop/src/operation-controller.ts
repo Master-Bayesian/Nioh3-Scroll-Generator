@@ -144,7 +144,9 @@ export class OperationController {
     } catch (error) { if (epoch === this.epoch) this.interrupted(error); }
   }
   async recover() {
-    if (this.disposed || this.state.phase === 'submitting') return;
+    // A job this observer is already polling needs no recovery, and restarting
+    // the epoch would reject the caller still waiting for it.
+    if (this.disposed || this.state.phase === 'submitting' || this.state.phase === 'running') return;
     const epoch = ++this.epoch;
     clearTimeout(this.timer);
     this.update({ error: null, recovered: true });

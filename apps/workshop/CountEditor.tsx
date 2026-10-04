@@ -177,6 +177,11 @@ export function CountEditor({ sample }: { sample: Sample }) {
             核对上次次数修改
           </button>
         )}
+        {ref && !plan && (
+          <p className="count-hint">
+            上一次次数修改还没有完成。请先点“核对上次次数修改”，确认或放弃后再修改。
+          </p>
+        )}
         {plan?.state === "prepared" && (
           <div className="prepared-cart">
             <p>
@@ -184,6 +189,11 @@ export function CountEditor({ sample }: { sample: Sample }) {
               {plan.new_count}
             </p>
             <p>自动备份已完成。</p>
+            {scope !== ref?.scope && (
+              <p className="count-hint">
+                核对之后数值、存档或所选绘卷有变化，这次核对已失效。请点“放弃本次核对”，再重新核对。
+              </p>
+            )}
             <button
               disabled={busy || scope !== ref?.scope}
               onClick={() => void execute()}

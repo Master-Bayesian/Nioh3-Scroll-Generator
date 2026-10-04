@@ -114,3 +114,18 @@ test('private job recovery exposes neither template data nor raw candidate/cache
   }
   assert.deepEqual(publicCurrentJob(running), { job: running, busy: true });
 });
+
+test('recovering while a job is polled leaves its waiter to finish', async () => {
+  let finished = false;
+  const controller = new OperationController('runtime', api({
+    snapshot: async () => (finished ? { ...running, state: 'completed', sequence: 6, result: { candidate: null } } : running),
+  }), 1, 5_000);
+  try {
+    const waiting = controller.run(async () => running);
+    await pause();
+    // Another panel recovers before starting its own action.
+    await controller.recover();
+    finished = true;
+    assert.deepEqual(await waiting, { candidate: null });
+  } finally { controller.dispose(); }
+});

@@ -60,7 +60,6 @@ export function GameInstallation({compact=false}:{compact?:boolean}){
      {features.map(key=><tr key={key} data-feature={key}><td>{featureNames[key]}</td><td data-support={install.compatibility.features[key]}>{supportNames[install.compatibility.features[key]]}</td></tr>)}
     </tbody></table>
     <p className="settings-note">实验性支持仍需风险确认；支持状态不代表当前游戏已通过现场验证。实时功能仍会检查正在运行的游戏是否匹配。</p>
-    <p className="settings-note">{pathText(install.compatibility.reason)}</p>
    </section>
   </details>}
  </div>;

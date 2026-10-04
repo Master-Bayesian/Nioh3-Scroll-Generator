@@ -198,3 +198,53 @@ impl Utf8LogDecoder {
         text
     }
 }
+
+/// The latest live-add operations for a feedback file: the record the tool
+/// expected, the one the game built and how each ended. A failed preview
+/// otherwise reaches the developer as one sentence, without the two records
+/// that show what differed.
+pub fn live_add_digest(root: &Path, newest: usize) -> Value {
+    const FIELDS: [&str; 12] = [
+        "expected_record_hex", "destination_hex", "descriptor_hex", "container_hex",
+        "business_outcome", "state", "error", "reason", "cleanup_error", "profile_id",
+        "candidate_id", "seed",
+    ];
+    let Ok(entries) = std::fs::read_dir(root.join("live-add")) else {
+        return Value::Null;
+    };
+    let mut operations: Vec<_> = entries
+        .flatten()
+        .filter(|entry| entry.path().is_dir())
+        .filter_map(|entry| Some((entry.metadata().ok()?.modified().ok()?, entry.path())))
+        .filter(|(_, path)| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.len() == 36 && name.matches('-').count() == 4)
+        })
+        .collect();
+    operations.sort_by(|left, right| right.0.cmp(&left.0));
+    let mut digest = serde_json::Map::new();
+    for (_, path) in operations.into_iter().take(newest) {
+        let mut files = serde_json::Map::new();
+        for name in ["receipt.json", "execution.json", "plan.json", "claim.json"] {
+            let Some(value) = std::fs::read(path.join(name))
+                .ok()
+                .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
+            else {
+                continue;
+            };
+            let mut picked = serde_json::Map::new();
+            for scope in [&value, &value["plan"], &value["receipt"]] {
+                for field in FIELDS {
+                    if let Some(found) = scope.get(field).filter(|found| !found.is_null()) {
+                        picked.entry(field).or_insert_with(|| found.clone());
+                    }
+                }
+            }
+            files.insert(name.into(), Value::Object(picked));
+        }
+        let name = path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
+        digest.insert(name, Value::Object(files));
+    }
+    Value::Object(digest)
+}
