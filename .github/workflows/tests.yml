@@ -146,6 +146,15 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
 
+      - name: Fetch Rust dependencies
+        # The parity helpers build the crates offline.
+        shell: pwsh
+        run: |
+          foreach ($crate in 'nioh3-domain','nioh3-data','nioh3-worker','nioh3-save','nioh3-runtime','nioh3-protected') {
+            cargo fetch --locked --manifest-path "crates/$crate/Cargo.toml"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
       - name: Run Rust/Python parity tests
         shell: pwsh
         run: |
