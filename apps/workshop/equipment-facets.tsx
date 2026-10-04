@@ -90,9 +90,15 @@ export function byOrder(order: string[]) {
   return (left: string, right: string) => rank(left) - rank(right) || left.localeCompare(right, "zh-CN");
 }
 
+/**
+ * Unfinished items with a curated name but only the game's placeholder text
+ * (0x0110475F): the game shows them as "DUMMY", one with 0 attack (in game,
+ * 2026-10-04). They stay named where a save already has them.
+ */
+const PLACEHOLDER_ITEMS = new Set([32935, 48324, 28098, 45919, 55092, 51892]);
 /** Named equipment a new item may be picked from, by class, type and name. */
 export const ADD_CATALOG = Object.entries(itemCatalog)
-  .filter(([, entry]) => entry[0] && ADDABLE_KINDS.has(entry[1] ?? ""))
+  .filter(([id, entry]) => entry[0] && ADDABLE_KINDS.has(entry[1] ?? "") && !PLACEHOLDER_ITEMS.has(Number(id)))
   .map(([id, entry]) => ({ id: Number(id), name: entry[0], ...facetsOf(Number(id), null) }))
   .sort((left, right) =>
     byOrder(MAJOR_ORDER)(left.major, right.major) ||
