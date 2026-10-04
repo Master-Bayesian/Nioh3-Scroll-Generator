@@ -1015,6 +1015,9 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   }
 
   function switchMode(next: Mode) {
+    // The current mode's button changes nothing; clearing here would leave an
+    // empty page with no reload.
+    if (next === mode) return;
     setMode(next);
     setFollow(next === "live");
     setCharacter(null);
