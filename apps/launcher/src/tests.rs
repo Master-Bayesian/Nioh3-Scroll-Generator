@@ -366,10 +366,10 @@ fn io_recovery_keeps_the_actual_failure_and_does_not_prescribe_download_or_eleva
     assert!(error.to_string().contains("os error 5"));
     assert!(std::error::Error::source(&error).is_some());
     let hint = recovery_hint(&error);
-    assert!(hint.contains("matching complete portable ZIP"));
-    assert!(hint.contains("new empty writable folder"));
-    assert!(!hint.to_lowercase().contains("download"));
-    assert!(!hint.to_lowercase().contains("administrator"));
+    assert!(hint.contains("完整便携 ZIP"));
+    assert!(hint.contains("新的空文件夹"));
+    assert!(!hint.contains("下载"));
+    assert!(!hint.contains("管理员"));
 }
 
 #[cfg(windows)]

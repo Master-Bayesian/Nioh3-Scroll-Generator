@@ -91,10 +91,10 @@ fn io_context(operation: &'static str, path: &Path, source: io::Error) -> Launch
 
 pub fn recovery_hint(error: &LaunchError) -> &'static str {
     match error {
-        LaunchError::Io { .. } => "The failed operation and affected path are shown above. If the matching complete portable ZIP is available, extract it into a new empty writable folder and run Nioh3Studio.exe to bypass the one-file cache. Keep your existing app-data folder and this launcher log.",
-        LaunchError::Invalid(message) if message.starts_with("ONEFILE_ACTIVE_CACHE_DAMAGED") || message.starts_with("ONEFILE_CACHE_BUSY") => "Let the other app window's current work finish and close that window normally, then retry. The active runtime has been preserved.",
-        LaunchError::Invalid(message) if message.starts_with("ONEFILE_FOOTER_") || message.starts_with("ONEFILE_PAYLOAD_") || message.starts_with("ONEFILE_ZIP_") => "The embedded package could not be verified. Obtain a complete copy of this portable EXE, or use its matching complete portable ZIP in a new empty folder.",
-        _ => "Keep the latest launcher log entry and this executable's filename and SHA256 to identify the failed step. A matching complete portable ZIP can be run from a new empty writable folder without removing existing app data.",
+        LaunchError::Io { .. } => "上面写明了失败的步骤和路径。可以改用同版本的完整便携 ZIP（Nioh3Studio-版本号-win-x64.zip）：解压到一个新的空文件夹（要有写入权限），运行里面的 Nioh3Studio.exe，就能绕过单文件缓存。不要删除原来的应用数据文件夹，也请保留这份启动日志，以便反馈。",
+        LaunchError::Invalid(message) if message.starts_with("ONEFILE_ACTIVE_CACHE_DAMAGED") || message.starts_with("ONEFILE_CACHE_BUSY") => "另一个本工具窗口正在使用运行文件。请等它当前的操作完成、正常关闭那个窗口后再重试。正在使用的运行文件没有被改动。",
+        LaunchError::Invalid(message) if message.starts_with("ONEFILE_FOOTER_") || message.starts_with("ONEFILE_PAYLOAD_") || message.starts_with("ONEFILE_ZIP_") => "内置程序包校验失败，这个 EXE 可能不完整。请重新获取完整的同版本 EXE，或把同版本的完整便携 ZIP 解压到一个新的空文件夹运行。",
+        _ => "请保留最新的启动日志，以及这个 EXE 的文件名和 SHA256，反馈时用来确定失败的步骤。也可以把同版本的完整便携 ZIP 解压到一个新的空文件夹（要有写入权限）运行，不需要删除原有的应用数据。",
     }
 }
 fn timestamp() -> u64 {

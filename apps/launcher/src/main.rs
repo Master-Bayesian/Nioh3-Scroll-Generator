@@ -8,10 +8,10 @@ fn main() {
         Err(error) => {
             let log = log_launch_failure(&error.to_string());
             let message = format!(
-                "Nioh 3 Studio could not start.\n\n{error}\n\n{}\n\nLauncher log: {}",
+                "独脚踏鞴工作室无法启动。\n\n{error}\n\n{}\n\n启动日志：{}",
                 recovery_hint(&error),
                 log.map(|p| p.display().to_string())
-                    .unwrap_or_else(|| "unavailable".into())
+                    .unwrap_or_else(|| "无法写入".into())
             );
             #[cfg(windows)]
             {
