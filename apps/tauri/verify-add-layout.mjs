@@ -483,22 +483,8 @@ try {
     container: '.favorites-review', outputDirectory: join(output, 'collection-favorites'),
     label: 'favorites', minimumCards: 3, verifyPreview: false,
   });
-  const activeDialog = page.locator('dialog[open]');
-  await activeDialog.evaluate(element => { element.scrollTop = 0; });
-  const favoriteHeading = activeDialog.locator(':scope > header > h2');
-  await favoriteHeading.click();
-  assert.equal(await activeDialog.count(), 1, 'Interacting with modal content does not dismiss it');
-  const favoritePoints = await dialogPoints(activeDialog);
-  const heading = await favoriteHeading.boundingBox();
-  assert(heading, 'Favorites heading must remain reachable');
-  await page.mouse.move(heading.x + heading.width / 2, heading.y + heading.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(favoritePoints.outside.x, favoritePoints.outside.y);
-  await page.mouse.up();
-  assert.equal(await activeDialog.count(), 1, 'A press begun inside and released on the backdrop does not dismiss the modal');
-  await page.mouse.click(favoritePoints.outside.x, favoritePoints.outside.y);
-  await page.locator('dialog[open]').waitFor({ state: 'detached' });
-  check('Favorites dismisses on a complete backdrop click without false inside-release dismissal', true);
+  // Favorites is a sidebar page (#20); return to search for the history dialog.
+  await page.getByRole('button', { name: '绘卷搜索', exact: true }).click();
 
   await page.getByRole('button', { name: '历史', exact: true }).click();
   await page.screenshot({ path: join(output, 'collection-history.png') });
@@ -506,7 +492,22 @@ try {
     container: '.history-pages', outputDirectory: join(output, 'collection-history'),
     label: 'history', minimumCards: 2, verifyPreview: false,
   });
-  await page.getByRole('button', { name: '关闭窗口', exact: true }).click();
+  const activeDialog = page.locator('dialog[open]');
+  await activeDialog.evaluate(element => { element.scrollTop = 0; });
+  const historyHeading = activeDialog.locator(':scope > header > h2');
+  await historyHeading.click();
+  assert.equal(await activeDialog.count(), 1, 'Interacting with modal content does not dismiss it');
+  const historyPoints = await dialogPoints(activeDialog);
+  const heading = await historyHeading.boundingBox();
+  assert(heading, 'History heading must remain reachable');
+  await page.mouse.move(heading.x + heading.width / 2, heading.y + heading.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(historyPoints.outside.x, historyPoints.outside.y);
+  await page.mouse.up();
+  assert.equal(await activeDialog.count(), 1, 'A press begun inside and released on the backdrop does not dismiss the modal');
+  await page.mouse.click(historyPoints.outside.x, historyPoints.outside.y);
+  await page.locator('dialog[open]').waitFor({ state: 'detached' });
+  check('History dismisses on a complete backdrop click without false inside-release dismissal', true);
   collections = { knownVariants, cart: cartLayout, favorites: favoritesLayout, history: historyLayout };
   check('Cart, favorites, and history cards keep equal geometry, complete enemy labels, and reachable action rows', true);
 
@@ -516,7 +517,7 @@ try {
   const seedDialogPoints = await dialogPoints(seedDialog);
   await page.mouse.click(seedDialogPoints.outside.x, seedDialogPoints.outside.y);
   await seedDialog.waitFor({ state: 'detached' });
-  modalDismissal = { favorites: 'backdrop dismissed; inside-to-outside press preserved',
+  modalDismissal = { history: 'backdrop dismissed; inside-to-outside press preserved',
     seedCart: 'backdrop dismissed', pointerSequence: 'pointerdown and pointerup must both be on backdrop' };
   check('The editor seed-selection dialog also dismisses from its backdrop', true);
 
