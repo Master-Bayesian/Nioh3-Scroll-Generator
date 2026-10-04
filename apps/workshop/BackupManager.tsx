@@ -28,7 +28,7 @@ export function BackupManager() {
   if (!desktop)
     return (
       <section className="backup-page">
-        <h2>存档备份与管理</h2>
+        <h2>存档管理</h2>
         <p>请在桌面版中查看本机备份。</p>
       </section>
     );
@@ -155,7 +155,7 @@ function ConnectedBackups() {
   };
   return (
     <section className="backup-page" aria-busy={locked}>
-      <h2>存档备份与管理</h2>
+      <h2>存档管理</h2>
       <SavePicker />
       <div className="backup-toolbar">
         <span className="backup-toolbar-gap" aria-hidden="true" />

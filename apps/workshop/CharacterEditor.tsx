@@ -16,7 +16,9 @@ import { desktop } from "./desktop-bridge";
 import { fillTemplateSlots, plainGameText } from "./game-text";
 import { Notice } from "./Notice";
 import { LiveEquipmentAdd } from "./LiveEquipmentAdd";
-import { ADD_CATALOG, ADD_TYPES, FacetFilter, MAJOR_ORDER, TYPE_ORDER, byOrder, facetsOf, itemCatalog, kindOf, nameLabel } from "./equipment-facets";
+import { StarIcon } from "./StarIcon";
+import { favoriteKey, removeEquipmentFavorite, toggleEquipmentFavorite, useEquipmentFavorites, type EquipmentFavorite } from "./equipment-favorites";
+import { ADD_CATALOG, ADD_SETS, ADD_TYPES, FacetFilter, MAJOR_ORDER, SET_MAJOR, TYPE_ORDER, byOrder, facetsOf, itemCatalog, kindOf, matchesClass, nameLabel, setName, setOf } from "./equipment-facets";
 import { errorText, publicError, stripErrorPrefix } from "./public-errors";
 import { SavePicker } from "./CartActions";
 import { runtimeObserver, saveObserver, saveSession } from "./save-workspace";
@@ -102,6 +104,8 @@ const ALL_EFFECTS: Candidate[] = [...effectNames.keys()]
     Number(sourceOf(a.id).startsWith(NO_DROP)) - Number(sourceOf(b.id).startsWith(NO_DROP)) ||
     (effectNames.get(a.id) ?? "").localeCompare(effectNames.get(b.id) ?? "", "zh-CN") ||
     a.id - b.id);
+/** The add-list chip that shows saved equipment (#21). */
+const FAVORITES_MAJOR = "收藏";
 /** Most new items one plan adds (the request contract's limit). */
 const ADD_LIMIT = 16;
 
@@ -381,6 +385,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const [addKind, setAddKind] = useState("");
   const [addType, setAddType] = useState("");
   const [addSchool, setAddSchool] = useState("");
+  const equipmentFavorites = useEquipmentFavorites();
   /** Items waiting to be added together in one plan. */
   const [queue, setQueue] = useState<{ key: number; request: NewEquipmentRequest; modded: boolean }[]>([]);
   const queueKey = useRef(0);
@@ -434,7 +439,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const addCandidates = useMemo(() => {
     const needle = addQuery.trim().toLowerCase();
     return ADD_CATALOG
-      .filter(item => (!addKind || item.major === addKind) && (!addType || item.type === addType) && (!addSchool || item.school === addSchool))
+      .filter(item => matchesClass(item.id, item, addKind, addType) && (!addSchool || item.school === addSchool))
       .filter(item => !needle || (item.name + " " + item.major + " " + item.type + " " + hex(item.id)).toLowerCase().includes(needle));
   }, [addQuery, addKind, addType, addSchool]);
   /** Counts per class and per type within each class, for the filter chips. */
@@ -448,6 +453,15 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       if (facets.type) group.types.set(facets.type, (group.types.get(facets.type) ?? 0) + 1);
     }
     return tree;
+  }, [character]);
+  /** Owned set pieces per set id, for the 套装 filter. */
+  const ownedSets = useMemo(() => {
+    const sets = new Map<string, number>();
+    for (const entry of character?.equipment ?? []) {
+      const set = setOf(entry.item_id);
+      if (set != null) sets.set(String(set), (sets.get(String(set)) ?? 0) + 1);
+    }
+    return sets;
   }, [character]);
   const [verdictFilter, setVerdictFilter] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; descending: boolean } | null>(null);
@@ -463,7 +477,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     const needle = query.trim().toLowerCase();
     const matches = (character?.equipment ?? []).filter(entry => {
       const facets = facetsOf(entry.item_id, entry.type_class);
-      if ((major && facets.major !== major) || (type && facets.type !== type) || (school && facets.school !== school)) return false;
+      if (!matchesClass(entry.item_id, facets, major, type) || (school && facets.school !== school)) return false;
       if (verdictFilter && verdictOf(entry) !== verdictFilter) return false;
       if (!needle) return true;
       const text = [itemText(entry.item_id), facets.major, facets.type, ...entry.effects.map(effect => effectText(effect.effect_id))].join(" ");
@@ -1239,7 +1253,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       try {
         const receipt = await saveSession!.commit(plan.plan_id);
         committed = receipt.commit_status === "committed";
-        if (!committed) failure = "写入结果不确定，请在备份与管理中核对操作结果。";
+        if (!committed) failure = "写入结果不确定，请在存档管理中核对操作结果。";
       } catch (error) {
         failure = await settleFailedCommit(error);
         committed = !failure;
@@ -1363,15 +1377,41 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     setNewItem(item);
     setDraft(draftOf(item));
   };
+  /** Load a saved favorite into the add editor; its values are kept, so it starts in 魔改. */
+  const chooseFavorite = (favorite: EquipmentFavorite) => {
+    const item: CharacterEquipment = {
+      slot_index: NEW_SLOT,
+      item_id: favorite.item_id,
+      appearance_id: favorite.item_id,
+      quantity: 1,
+      level: favorite.level,
+      level_before_forge: favorite.level_before_forge,
+      plus: favorite.plus,
+      familiarity: 0,
+      inventory_key: 0,
+      seed: 0,
+      rarity: favorite.rarity,
+      hell: favorite.hell,
+      hell_skill: favorite.hell_skill,
+      effects: favorite.effects.map((effect, index) => ({ index, ...effect })) as CharacterEquipment["effects"],
+    };
+    setRules(null);
+    setValues([]);
+    setNewItem(item);
+    setDraft(draftOf(item));
+    setModded(true);
+  };
   const quantityText = (stack?: CharacterItem) => (stack ? (stack.quantity == null ? "1" : String(stack.quantity)) : "—");
 
   const equipmentList = (
     <>
       <div className="character-filters">
         <FacetFilter
-          majors={[...groups.keys()].sort(byOrder(MAJOR_ORDER)).map(value => [value, groups.get(value)!.total])}
+          majors={[...[...groups.keys()].sort(byOrder(MAJOR_ORDER)).map((value): [string, number] => [value, groups.get(value)!.total]), ...(ownedSets.size ? [[SET_MAJOR, [...ownedSets.values()].reduce((sum, count) => sum + count, 0)] as [string, number]] : [])]}
           major={major} onMajor={value => { setMajor(value); setType(""); setSchool(""); }}
-          types={[...(groups.get(major)?.types.entries() ?? [])].sort(([left], [right]) => byOrder(TYPE_ORDER)(left, right))}
+          types={major === SET_MAJOR
+            ? [...ownedSets.entries()].sort(([left], [right]) => setName(Number(left)).localeCompare(setName(Number(right)), "zh-CN"))
+            : [...(groups.get(major)?.types.entries() ?? [])].sort(([left], [right]) => byOrder(TYPE_ORDER)(left, right))}
           type={type} onType={setType}
           school={school} onSchool={major === "防具" ? setSchool : null}
         />
@@ -1465,17 +1505,43 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     <>
       <div className="character-filters">
         <FacetFilter
-          majors={MAJOR_ORDER.map(value => [value, null])}
+          majors={[...[...MAJOR_ORDER, SET_MAJOR].map((value): [string, number | null] => [value, null]), [FAVORITES_MAJOR, equipmentFavorites.length]]}
           major={addKind} onMajor={value => { setAddKind(value); setAddType(""); setAddSchool(""); }}
-          types={(ADD_TYPES.get(addKind) ?? []).map(value => [value, null])}
+          types={addKind === SET_MAJOR ? ADD_SETS : (ADD_TYPES.get(addKind) ?? []).map(value => [value, null])}
           type={addType} onType={setAddType}
           school={addSchool} onSchool={addKind === "防具" ? setAddSchool : null}
         />
         <div className="character-search">
           <input value={addQuery} onChange={event => setAddQuery(event.target.value)} placeholder="搜索装备名称，例如 八尺琼勾玉" />
-          <span className="equipment-range">{addCandidates.length} 件</span>
+          <span className="equipment-range">{addKind === FAVORITES_MAJOR ? equipmentFavorites.length : addCandidates.length} 件</span>
         </div>
       </div>
+      {addKind === FAVORITES_MAJOR ? (
+      <div className="character-table-wrap" ref={tableWrap}>
+        <table className="equipment-table character-table">
+          <thead>
+            <tr><th>收藏的装备</th><th>等级</th><th>稀有度</th><th></th></tr>
+          </thead>
+          <tbody>
+            {equipmentFavorites
+              .filter(favorite => !addQuery.trim() || (itemCatalog[String(favorite.item_id)]?.[0] ?? "").includes(addQuery.trim()))
+              .map(favorite => (
+              <tr key={favorite.key} className={newItem && favoriteKey(newItem) === favorite.key ? "selected" : ""} onClick={() => chooseFavorite(favorite)}>
+                <td className="character-item-cell">
+                  <span className="character-item-name">{itemLabel(favorite.item_id)}{favorite.hell ? <span className="character-hell">地狱</span> : null}</span>
+                  <span className="character-item-effects">{favorite.effects.filter(effect => effect.effect_id !== EMPTY_EFFECT).map(effect => effectText(effect.effect_id)).join("、")}</span>
+                </td>
+                <td className="character-num">{favorite.level}{favorite.plus ? <small> +{favorite.plus}</small> : null}</td>
+                <td className="character-num">{favorite.rarity}</td>
+                <td><button type="button" className="character-queue-remove" aria-label="移除收藏"
+                  onClick={event => { event.stopPropagation(); removeEquipmentFavorite(favorite.key); }}>×</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {equipmentFavorites.length === 0 && <p className="character-empty">在“修改已有物品”里选中一件装备，点名称旁的 ☆ 即可收藏。收藏的装备可以在这里添加到任何角色。</p>}
+      </div>
+      ) : (
       <div className="character-table-wrap" ref={tableWrap}>
         <table className="equipment-table character-table">
           <thead>
@@ -1493,6 +1559,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         </table>
         {addCandidates.length === 0 && <p className="character-empty">没有匹配的装备</p>}
       </div>
+      )}
     </>
   );
 
@@ -1588,6 +1655,16 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           {adding ? <span className="character-new">新增</span> : null}
           {row.hell ? <span className="character-hell">地狱</span> : null}
           {row.worn ? <span className="character-worn" title="正在装备中，不能移除">装备中</span> : null}
+          {adding ? null : (() => {
+            const saved = equipmentFavorites.some(favorite => favorite.key === favoriteKey(row));
+            return (
+              <button type="button" className="favorite-button equipment-favorite" aria-pressed={saved}
+                aria-label={saved ? "取消收藏装备" : "收藏装备"} title={saved ? "取消收藏装备" : "收藏装备"}
+                onClick={() => { try { setMessage(toggleEquipmentFavorite(row) ? "已收藏。可以在“添加新装备”的“收藏”里把它添加到任何角色。" : "已取消收藏。"); } catch (error) { setMessage(errorText(error)); } }}>
+                <StarIcon filled={saved} />
+              </button>
+            );
+          })()}
         </h3>
         {adding ? null : <span className={"character-draft-state" + (dirty ? " changed" : "")}
           data-draft-state={dirty ? "changed" : "unchanged"}>{dirty ? "有未应用的修改" : "尚未修改"}</span>}

@@ -114,7 +114,7 @@ try {
   await p.screenshot({path:join(output,'editor.png'),timeout:15000});
   await p.locator('.language-button').click();
   await p.locator('.side-popup').getByRole('button',{name:'简体中文',exact:true}).click();
-  await p.getByRole('button',{name:'备份与管理',exact:true}).click();
+  await p.getByRole('button',{name:'存档管理',exact:true}).click();
   const backupRow = p.getByRole('checkbox',{name:`选择备份${fixture.backup_id}`,exact:true});
   await backupRow.waitFor({timeout:30000});
   await p.locator('.backup-page[aria-busy="false"]').waitFor();

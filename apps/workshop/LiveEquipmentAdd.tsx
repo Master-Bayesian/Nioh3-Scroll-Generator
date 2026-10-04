@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useRef, useState, useSyncExternalStore} from "react";
 import type {EquipmentAddition} from "../../packages/contracts/protected-responses";
-import {ADD_CATALOG,ADD_TYPES,FacetFilter,MAJOR_ORDER,nameLabel} from "./equipment-facets";
+import {ADD_CATALOG,ADD_SETS,ADD_TYPES,FacetFilter,MAJOR_ORDER,SET_MAJOR,matchesClass,nameLabel} from "./equipment-facets";
 import {data} from "./model";
 import {plainGameText} from "./game-text";
 import {Notice} from "./Notice";
@@ -41,7 +41,7 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
   const [busy,setBusy]=useState(false),[confirmed,setConfirmed]=useState(false),[message,setMessage]=useState("");
   const mounted=useRef(false),running=useRef(false),current=useRef<string|null>(null);
   const callbacks=useRef({onBusy,onAdded});callbacks.current={onBusy,onAdded};
-  const rows=useMemo(()=>catalog.filter(row=>(!kind||row.major===kind)&&(!type||row.type===type)&&(!school||row.school===school)&&(!query||(`${row.name} ${row.id} ${row.major} ${row.type}`).toLowerCase().includes(query.toLowerCase()))),[query,kind,type,school]);
+  const rows=useMemo(()=>catalog.filter(row=>matchesClass(row.id,row,kind,type)&&(!school||row.school===school)&&(!query||(`${row.name} ${row.id} ${row.major} ${row.type}`).toLowerCase().includes(query.toLowerCase()))),[query,kind,type,school]);
   const numbers={level:integer(level,1,65535),plus:integer(plus,0,65535),rarity:integer(rarity,0,5),seed:integer(seed,0,65535)};
   const valid=item!==null&&Object.values(numbers).every(value=>value!==null);
   const locked=busy||operation!==null;
@@ -111,7 +111,7 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
     <div className="live-equipment-layout">
       <div className="live-equipment-picker">
         <label><span>搜索装备</span><input value={query} onChange={event=>setQuery(event.target.value)} disabled={locked}/></label>
-        <fieldset className="live-equipment-filters" disabled={locked}><FacetFilter majors={MAJOR_ORDER.map(value=>[value,null])} major={kind} onMajor={value=>{setKind(value);setType("");setSchool("");}} types={(ADD_TYPES.get(kind)??[]).map(value=>[value,null])} type={type} onType={setType} school={school} onSchool={kind==="防具"?setSchool:null}/></fieldset>
+        <fieldset className="live-equipment-filters" disabled={locked}><FacetFilter majors={[...MAJOR_ORDER,SET_MAJOR].map(value=>[value,null])} major={kind} onMajor={value=>{setKind(value);setType("");setSchool("");}} types={kind===SET_MAJOR?ADD_SETS:(ADD_TYPES.get(kind)??[]).map(value=>[value,null])} type={type} onType={setType} school={school} onSchool={kind==="防具"?setSchool:null}/></fieldset>
         <ul className="live-equipment-items">{rows.map(row=><li key={row.id}><button data-action="pick-equipment" aria-pressed={item===row.id} className={item===row.id?"active":""} disabled={locked} onClick={()=>setItem(row.id)}>{itemName(row.id)}<small>{[row.type||row.major,row.school].filter(Boolean).join(" · ")}</small></button></li>)}</ul>
       </div>
       <div className="live-equipment-form">

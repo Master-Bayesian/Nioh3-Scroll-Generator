@@ -148,9 +148,9 @@
       "Scroll editor",
       "絵巻編集"
     ],
-    "备份与管理": [
-      "Backups",
-      "バックアップ管理"
+    "存档管理": [
+      "Saves",
+      "セーブ管理"
     ],
     "收藏夹": [
       "Favorites",
@@ -1591,10 +1591,6 @@
     "原生搜索未返回结果。": [
       "Native search returned no result.",
       "ゲーム内生成の検索から結果が返りませんでした。"
-    ],
-    "存档备份与管理": [
-      "Save backups and management",
-      "セーブのバックアップと管理"
     ],
     "请在桌面版中查看本机备份。": [
       "Open the desktop app to view local backups.",
@@ -3196,9 +3192,9 @@
       "Written to the save. The original save was backed up first.",
       "セーブに書き込みました。元のセーブは自動でバックアップ済みです。"
     ],
-    "写入结果不确定，请在备份与管理中核对操作结果。": [
-      "The write result is uncertain; check the operation result under Backups and management.",
-      "書き込み結果が不明です。「バックアップと管理」で操作結果を確認してください。"
+    "写入结果不确定，请在存档管理中核对操作结果。": [
+      "The write result is uncertain; check the operation result under Saves.",
+      "書き込み結果が不明です。「セーブ管理」で操作結果を確認してください。"
     ],
     "请在桌面版中使用此功能。": [
       "Use this feature in the desktop app.",
@@ -5443,6 +5439,50 @@
     "此游戏版本不再提示（之后自动备份并进入兼容模式；游戏更新后会重新提示）": [
       "Don't show again for this game version (back up and enter compatibility mode automatically; asks again after a game update)",
       "このゲームバージョンでは今後表示しない（以後は自動でバックアップして互換モードに入ります。ゲーム更新後は再度確認します）"
+    ],
+    "收藏": [
+      "Saved",
+      "お気に入り"
+    ],
+    "收藏的装备": [
+      "Saved equipment",
+      "お気に入りの装備"
+    ],
+    "移除收藏": [
+      "Remove from saved",
+      "お気に入りから外す"
+    ],
+    "在“修改已有物品”里选中一件装备，点名称旁的 ☆ 即可收藏。收藏的装备可以在这里添加到任何角色。": [
+      "Select a piece under “Edit what you have” and press ☆ next to its name to save it. Saved equipment can be added to any character here.",
+      "「所持品を編集」で装備を選び、名前の横の ☆ を押すとお気に入りに入ります。お気に入りの装備はここからどのキャラクターにも追加できます。"
+    ],
+    "取消收藏装备": [
+      "Remove equipment from saved",
+      "装備をお気に入りから外す"
+    ],
+    "收藏装备": [
+      "Save equipment",
+      "装備をお気に入りに追加"
+    ],
+    "已收藏。可以在“添加新装备”的“收藏”里把它添加到任何角色。": [
+      "Saved. Add it to any character from “Saved” under “Add new equipment”.",
+      "お気に入りに追加しました。「新しい装備を追加」の「お気に入り」からどのキャラクターにも追加できます。"
+    ],
+    "已取消收藏。": [
+      "Removed from saved.",
+      "お気に入りから外しました。"
+    ],
+    "全部套装（": [
+      "All sets (",
+      "すべてのセット（"
+    ],
+    "装备收藏最多": [
+      "Saved equipment holds at most",
+      "お気に入りの装備は最大"
+    ],
+    "件，请先移除一些。": [
+      "items; remove some first.",
+      "件です。先にいくつか外してください。"
     ]
   },
   "game": {

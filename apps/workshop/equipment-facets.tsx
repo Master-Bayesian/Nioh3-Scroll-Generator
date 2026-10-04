@@ -1,5 +1,8 @@
 import React from "react";
 import itemNames from "./item-names.json";
+import itemSets from "./item-sets.json";
+import { data } from "./model";
+import { plainGameText } from "./game-text";
 import { localizeName } from "./presentation";
 
 /**
@@ -18,6 +21,29 @@ export function nameLabel(name: string) {
 export const itemCatalog = (itemNames as { items: Record<string, string[]> }).items;
 /** Catalog kinds a new item may be picked from; the rules decide the rest. */
 const ADDABLE_KINDS = new Set(["武器", "防具", "防具或饰品", "饰品", "魂核"]);
+
+/** The class chip that groups set pieces across weapons, armor and accessories (#30). */
+export const SET_MAJOR = "套装";
+const SET_OF = (itemSets as { items: Record<string, number> }).items;
+/** The set effect an item carries in the item table, or null. */
+export function setOf(id: number): number | null {
+  return SET_OF[String(id)] ?? null;
+}
+const SET_NAMES = new Map<number, string>();
+for (const row of data.editorEffects as { id: string; name: string }[])
+  if (!SET_NAMES.has(Number(row.id))) SET_NAMES.set(Number(row.id), plainGameText(row.name));
+/** A set's name is its set effect's name. */
+export function setName(set: number): string {
+  return SET_NAMES.get(set) || "套装 " + set;
+}
+/** Whether an item passes the class/type filter; under 套装 the type is a set id. */
+export function matchesClass(id: number, facets: Facets, major: string, type: string): boolean {
+  if (major === SET_MAJOR) {
+    const set = setOf(id);
+    return set != null && (!type || String(set) === type);
+  }
+  return (!major || facets.major === major) && (!type || facets.type === type);
+}
 
 /** Coarse item group from the shipped item table's type class. */
 export function kindOf(typeClass: number | null | undefined): string {
@@ -73,6 +99,12 @@ export const ADD_CATALOG = Object.entries(itemCatalog)
     byOrder(TYPE_ORDER)(left.type, right.type) ||
     left.name.localeCompare(right.name, "zh-CN") ||
     left.id - right.id);
+/** Sets with pieces in the add catalog, by name. */
+export const ADD_SETS: [string, number][] = [...ADD_CATALOG.reduce((sets, item) => {
+  const set = setOf(item.id);
+  if (set != null) sets.set(String(set), (sets.get(String(set)) ?? 0) + 1);
+  return sets;
+}, new Map<string, number>())].sort(([left], [right]) => setName(Number(left)).localeCompare(setName(Number(right)), "zh-CN"));
 /** Types present in each class of the add catalog, in menu order. */
 export const ADD_TYPES = new Map(MAJOR_ORDER.map(major => [
   major,
@@ -104,7 +136,17 @@ export function FacetFilter({ majors, major, onMajor, types, type, onType, schoo
         {chip("全部", null, !major, () => onMajor(""))}
         {majors.map(([value, count]) => chip(value, count, major === value, () => onMajor(value)))}
       </div>
-      {major && (types.length > 1 || onSchool) && (
+      {major === SET_MAJOR && (
+        <div className="character-chips small">
+          <select className="character-set-select" value={type} onChange={event => onType(event.target.value)} aria-label="套装">
+            <option value="">全部套装（{types.length}）</option>
+            {types.map(([value, count]) => (
+              <option key={value} value={value}>{setName(Number(value))}{count != null ? "（" + count + "）" : ""}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      {major && major !== SET_MAJOR && (types.length > 1 || onSchool) && (
         <div className="character-chips small">
           {types.length > 1 && chip("全部", null, !type, () => onType(""))}
           {types.length > 1 && types.map(([value, count]) => chip(value, count, type === value, () => onType(value)))}

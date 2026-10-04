@@ -1319,3 +1319,7 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .favorites-page>.favorites-review>.compare-grid{grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:16px}
 /* v0.8.4: long sidebar labels (e.g. "Equipment & items") wrap inside the highlight */
 html[lang="en-US"] .nav nav button>span:last-child{white-space:normal;line-height:1.25}
+/* v0.8.4: set filter and equipment favorites (#30, #21) */
+.character-set-select{min-width:260px;max-width:100%;height:28px}
+.character-detail-head h3 .equipment-favorite{margin-left:6px;min-width:0;padding:1px 4px;border:0;background:transparent;color:#8a6a10;vertical-align:middle}
+.character-detail-head h3 .equipment-favorite .star-icon{width:18px;height:18px}

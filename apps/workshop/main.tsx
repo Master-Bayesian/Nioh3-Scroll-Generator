@@ -1051,9 +1051,9 @@ function App() {
           <button
             className={page === "backups" ? "active" : ""}
             onClick={() => setPage("backups")}
-            aria-label="备份与管理"
+            aria-label="存档管理"
           >
-            <span className="nav-icon" aria-hidden="true">▣</span><span>备份与管理</span>
+            <span className="nav-icon" aria-hidden="true">▣</span><span>存档管理</span>
           </button>
           <button
             className={page === "favorites" ? "active" : ""}
@@ -1151,7 +1151,7 @@ function App() {
             : page === "favorites"
               ? "收藏夹"
               : page === "backups"
-              ? "备份与管理"
+              ? "存档管理"
               : page === "equipment"
                 ? "装备与道具"
                 : "绘卷编辑"}
