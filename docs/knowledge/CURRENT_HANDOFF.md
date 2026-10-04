@@ -1,5 +1,15 @@
 # Current project handoff - 2026-10-04
 
+## Unreleased work after v0.8.5
+
+Local branch `claude/v085` carries about twenty commits after `e29688f`,
+not pushed: live scroll editing, English/Japanese game names (#33), the
+desktop dark theme, and an audit's worth of fixes. The owner asked to release
+only once the build has no visible flaw left. See the
+[next-release draft](../product/releases/next-draft.md) for the list, what was
+verified and what still needs the game loaded. A crash one minute after a
+live NG1 scroll addition is recorded in the failure ledger (2026-10-04).
+
 ## v0.8.5 published release
 
 **v0.8.5 is published and public-byte verified (2026-10-04)**: commit
