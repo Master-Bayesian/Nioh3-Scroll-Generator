@@ -59,6 +59,7 @@ import { runtimeObserver, saveSession } from "./save-workspace";
 import { terminal } from "../desktop/src/search-controller";
 import { searchStartParams, searchStatusText } from "./search-policy";
 import { useConditionDrag } from "./condition-drag";
+import { useTheme, type Theme } from "./theme";
 const hex = (id: string) =>
   "0x" + Number(id).toString(16).toUpperCase().padStart(4, "0");
 function score(sample: Sample, mode: string) {
@@ -341,6 +342,7 @@ function App() {
     [tier, setTier] = useState("全部"),
     [ruleFind, setRuleFind] = useState(""),
     [favoriteFind, setFavoriteFind] = useState("");
+  const [theme, setTheme] = useTheme();
   const [showIds, setShowIds] = useState(false),
     [modal, setModal] = useState(""),
     [status, setStatus] = useState("请选择筛选条件。"),
@@ -2432,6 +2434,13 @@ function App() {
               </>
             ) : popup === "settings" ? (
               <>
+                <div className="theme-choice" role="radiogroup" aria-label="外观">
+                  <span>外观</span>
+                  {([["system", "跟随系统"], ["light", "浅色"], ["dark", "深色"]] as [Theme, string][]).map(([value, label]) => (
+                    <button key={value} role="radio" aria-checked={theme === value} data-theme-choice={value}
+                      className={theme === value ? "active" : ""} onClick={() => setTheme(value)}>{label}</button>
+                  ))}
+                </div>
                 <ToggleSwitch
                   label="显示词条与敌人 ID"
                   checked={showIds}

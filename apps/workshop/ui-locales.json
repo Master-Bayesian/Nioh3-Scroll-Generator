@@ -5767,6 +5767,22 @@
     "源码公开在 GitHub 上，欢迎查看。": [
       "The source code is public on GitHub.",
       "ソースコードは GitHub で公開されています。"
+    ],
+    "外观": [
+      "Appearance",
+      "外観"
+    ],
+    "跟随系统": [
+      "System",
+      "システム"
+    ],
+    "浅色": [
+      "Light",
+      "ライト"
+    ],
+    "深色": [
+      "Dark",
+      "ダーク"
     ]
   },
   "game": {

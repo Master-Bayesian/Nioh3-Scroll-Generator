@@ -1440,3 +1440,7 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 关于报毒	About antivirus warnings	ウイルス検出について
 修改游戏存档和内存的工具，常被杀毒软件按“行为可疑”拦截，被拦截不一定代表文件有害。官方下载的文件可以在 GitHub 发布页核对 SHA-256；如果仍不放心，可以把文件提交到 VirusTotal 等多引擎扫描网站自行检查。	Antivirus software often blocks tools that change game saves and memory as "suspicious behavior"; being blocked does not by itself mean a file is harmful. You can check an official download against the SHA-256 on the GitHub releases page, or submit it to a multi-engine scanner such as VirusTotal yourself.	ゲームのセーブやメモリを変更するツールは、ウイルス対策ソフトに「不審な動作」としてブロックされることがよくあります。ブロックされたことだけでファイルが有害とは限りません。公式のダウンロードは GitHub のリリースページの SHA-256 と照合できます。心配なら VirusTotal などのマルチエンジン検査サイトで自分で確認してください。
 源码公开在 GitHub 上，欢迎查看。	The source code is public on GitHub.	ソースコードは GitHub で公開されています。
+外观	Appearance	外観
+跟随系统	System	システム
+浅色	Light	ライト
+深色	Dark	ダーク

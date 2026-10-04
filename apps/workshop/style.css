@@ -1348,3 +1348,12 @@ td.favorite-actions>.loadout-copy-one{margin:0 4px 0 0}
 .about-safety ul{padding-left:18px}
 .about-safety .about-source{color:var(--muted,#667)}
 .side-popup .about-safety .about-link{display:inline;padding:0;border:0;background:none;color:var(--accent,#2f6f9f);text-decoration:underline;cursor:pointer;font:inherit}
+
+/* v0.8.4 appearance (#14) */
+.theme-choice{display:flex;align-items:center;padding:6px 8px 8px;font-size:13px;color:#2f4b66}
+.theme-choice>span{flex:1;white-space:nowrap}
+.side-popup .theme-choice>button{display:inline-block;width:auto;text-align:center;border:1px solid #c5d1e0;border-radius:0;padding:3px 9px;font-size:12px;background:#f8fafc;color:#2f4b66}
+.side-popup .theme-choice>button:first-of-type{border-radius:5px 0 0 5px}
+.side-popup .theme-choice>button:last-of-type{border-radius:0 5px 5px 0}
+.side-popup .theme-choice>button+button{border-left-width:0}
+.side-popup .theme-choice>button.active{background:#3c745f;border-color:#3c745f;color:#fff}
