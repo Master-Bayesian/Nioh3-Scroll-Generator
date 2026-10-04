@@ -204,8 +204,9 @@ impl Utf8LogDecoder {
 /// otherwise reaches the developer as one sentence, without the two records
 /// that show what differed.
 pub fn live_add_digest(root: &Path, newest: usize) -> Value {
-    const FIELDS: [&str; 12] = [
-        "expected_record_hex", "destination_hex", "descriptor_hex", "container_hex",
+    const FIELDS: [&str; 14] = [
+        "expected_record_hex", "source_hex", "record_review", "destination_hex",
+        "descriptor_hex", "container_hex",
         "business_outcome", "state", "error", "reason", "cleanup_error", "profile_id",
         "candidate_id", "seed",
     ];
@@ -226,8 +227,17 @@ pub fn live_add_digest(root: &Path, newest: usize) -> Value {
     let mut digest = serde_json::Map::new();
     for (_, path) in operations.into_iter().take(newest) {
         let mut files = serde_json::Map::new();
-        for name in ["receipt.json", "execution.json", "plan.json", "claim.json"] {
-            let Some(value) = std::fs::read(path.join(name))
+        let name = path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
+        // The native executor keeps its own receipt beside the operation,
+        // holding the record the game built (`source_hex`).
+        let executor = path.with_file_name("native-executor").join(format!("{name}.json"));
+        for (label, file) in [
+            ("receipt.json", path.join("receipt.json")),
+            ("execution.json", path.join("execution.json")),
+            ("plan.json", path.join("plan.json")),
+            ("native-executor.json", executor),
+        ] {
+            let Some(value) = std::fs::read(&file)
                 .ok()
                 .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
             else {
@@ -241,9 +251,8 @@ pub fn live_add_digest(root: &Path, newest: usize) -> Value {
                     }
                 }
             }
-            files.insert(name.into(), Value::Object(picked));
+            files.insert(label.into(), Value::Object(picked));
         }
-        let name = path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
         digest.insert(name, Value::Object(files));
     }
     Value::Object(digest)

@@ -2140,8 +2140,15 @@ fn feedback_carries_the_expected_and_built_records_of_recent_live_additions() {
         r#"{"destination_hex":"821f","business_outcome":"rejected","diagnostics":{"x":1}}"#,
     )
     .unwrap();
+    std::fs::write(
+        data.join("live-add").join("native-executor").join("eefeee57-ffd6-4251-b61c-cbdf58973ca7.json"),
+        r#"{"source_hex":"821d","record_review":"mismatch","after":{"RAX":1}}"#,
+    )
+    .unwrap();
     let digest = crate::storage::live_add_digest(&data, 8);
     let entry = &digest["eefeee57-ffd6-4251-b61c-cbdf58973ca7"];
+    assert_eq!(entry["native-executor.json"]["source_hex"], "821d");
+    assert_eq!(entry["native-executor.json"]["record_review"], "mismatch");
     assert_eq!(entry["plan.json"]["expected_record_hex"], "821e");
     assert_eq!(entry["execution.json"]["destination_hex"], "821f");
     assert_eq!(entry["execution.json"]["business_outcome"], "rejected");
