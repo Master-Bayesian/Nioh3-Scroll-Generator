@@ -55,8 +55,8 @@ release are the owner's decision; this file only gathers what changed.
 
 ## Not yet verified (needs the game loaded)
 
-- A live scroll edit in game, its persistence after a save and reload, and
-  a second edit before the game saves.
+- How a live scroll edit looks in the game menu on a revealed scroll (the
+  tested scroll was unrevealed).
 - Whether a live scroll addition caused the 2026-10-04 crash (see the failure
   ledger); a definitive "character loaded" signal to refuse live additions at
   the title screen before any native call.
