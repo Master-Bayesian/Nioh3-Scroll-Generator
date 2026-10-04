@@ -32,6 +32,8 @@ release are the owner's decision; this file only gathers what changed.
   warns when it reads the title screen's placeholder character.
 - Feedback files carry the record the tool expected and the record the game
   built for recent live additions, so a failed addition can be diagnosed.
+- A second live edit after the game autosaved was refused with a bare
+  OPERATION_FAILED; the edit now follows the scroll into the current save.
 - Fixes: clicking the current mode emptied the equipment page; a count review
   started during another read failed with OPERATION_OBSERVER_DISPOSED; a
   refused count or scroll review left an empty backup behind; the cart and
@@ -42,6 +44,9 @@ release are the owner's decision; this file only gathers what changed.
 
 - Live (owner's PC v2.02 game, through the interface): gold, item quantity,
   equipment effect, remaining count, live equipment add/remove.
+- Live scroll edit in game (2026-10-04): an effect written live was in the
+  save after a shrine save; two consecutive live edits before the next save
+  both verified and the save then held the final value.
 - Save mode with the game at the title screen: equipment familiarity and a
   scroll effect written and restored, backups taken.
 - Gates: frontend tests (95/108; the 12 local IPC failures predate this
