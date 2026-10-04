@@ -5955,6 +5955,10 @@
     "项变化，已自动备份存档，尚未写入游戏。请在右侧“确认修改”中确认后写入。": [
       "change(s) and backed up the save; nothing is written to the game yet. Confirm in “Confirm changes” on the right to write them.",
       "件の変更。セーブをバックアップしました。まだゲームには書き込まれていません。右側の「変更を確認」で確定すると書き込みます。"
+    ],
+    "游戏可能还停在标题界面：现在读到的是标题画面背后的占位角色（没有精华和金钱，装备全是 1 级）。请先读档进入游戏，再点“重新读取”。如果已经读档进入游戏，可以忽略这条提示。": [
+      "The game may still be at the title screen: this is the placeholder character behind the title (no Amrita or gold, all equipment level 1). Load your save in game, then click \"Reload\". If you have already loaded your save, ignore this message.",
+      "ゲームがまだタイトル画面かもしれません。今読み取ったのはタイトル画面の裏にある仮のキャラクターです（アムリタと所持金がなく、装備はすべてレベル1）。ゲームでセーブをロードしてから「再読み込み」を押してください。すでにロードしている場合は、このメッセージは無視してかまいません。"
     ]
   },
   "game": {

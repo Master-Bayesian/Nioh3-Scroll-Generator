@@ -190,6 +190,22 @@ const VERDICT_LABEL: Record<string, string> = { natural: "自然", unverified: "
 const VERDICT_ORDER = ["unnatural", "unverified", "natural"];
 type SortKey = "level" | "rarity";
 
+/**
+ * At the title screen the game holds a placeholder character: no Amrita or
+ * gold, a few level-1 rarity-0 pieces and almost no items (PC v2.02, seen
+ * live 2026-10-04). A brand-new character can look the same, so this only
+ * warns.
+ */
+function looksLikeTitlePlaceholder(character: Character) {
+  return (
+    !character.currencies.amrita &&
+    !character.currencies.gold &&
+    character.equipment.length <= 12 &&
+    character.equipment.every(entry => entry.level <= 1 && entry.rarity === 0) &&
+    (character.items?.length ?? 0) <= 2
+  );
+}
+
 function verdictOf(entry: CharacterEquipment): string | null {
   const audit = entry.audit;
   if (!audit) return null;
@@ -2057,6 +2073,12 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         {follow && followNote ? <span className="character-follow-note">{followNote}</span> : null}
       </p>
       {mode === "save" && <SavePicker compact refresh={false} />}
+      {character?.mode === "live" && looksLikeTitlePlaceholder(character) && (
+        <Notice
+          tone="warning"
+          text="游戏可能还停在标题界面：现在读到的是标题画面背后的占位角色（没有精华和金钱，装备全是 1 级）。请先读档进入游戏，再点“重新读取”。如果已经读档进入游戏，可以忽略这条提示。"
+        />
+      )}
       <Notice text={message} />
       {section === "add" && mode === "live" ? (
         <LiveEquipmentAdd onBusy={setBusy} />
