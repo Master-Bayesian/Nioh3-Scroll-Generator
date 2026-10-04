@@ -230,6 +230,27 @@ async fn desktop_request(
                 }
             }
         }
+        "operations:resign" => {
+            // The source save is chosen in the native picker; the renderer only
+            // names the target save and snapshot.
+            match app
+                .dialog()
+                .file()
+                .add_filter("SAVEDATA.BIN", &["BIN"])
+                .blocking_pick_file()
+            {
+                None => Ok(Value::Null),
+                Some(path) => {
+                    broker
+                        .call(
+                            "save",
+                            "save.prepare_resign",
+                            json!({"save_id":value["save_id"],"snapshot_id":value["snapshot_id"],"source_path":path.into_path().map_err(|e| e.to_string())?}),
+                        )
+                        .await
+                }
+            }
+        }
         "review:log" => {
             let text = value
                 .as_str()

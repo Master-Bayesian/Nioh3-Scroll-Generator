@@ -7,7 +7,7 @@ window.nioh = {
   currentSearch: () => call('core:current'), snapshot: id => call('core:snapshot', id), cancelSearch: id => call('core:cancel', id), restartWorker: () => call('core:restart'),
 };
 window.operations = {
-  prepareCount: p => call('operations:prepare-count', p), selectSave: () => call('operations:select'), execute: p => call('operations:execute', p),
+  prepareCount: p => call('operations:prepare-count', p), selectSave: () => call('operations:select'), resignSave: p => call('operations:resign', p), execute: p => call('operations:execute', p),
   snapshot: (role, jobId) => call('operations:snapshot', {role, jobId}), cancel: (role, jobId) => call('operations:cancel', {role, jobId}), current: role => call('operations:current', role),
   prepareInstall: p => call('operations:install', p), prepareLiveAdd: p => call('operations:live-add', p), generate: p => call('operations:generate', p), searchNative: p => call('operations:native-search', p),
   captureGrace: p => call('operations:capture-grace', p), bindCachedSearch: p => call('operations:bind-cache', p),

@@ -48,7 +48,9 @@ function ConnectedBackups() {
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [plan, setPlan] = useState<{ id: string; backup: string } | null>(null),
-    [confirmed, setConfirmed] = useState(false);
+    [confirmed, setConfirmed] = useState(false),
+    [resign, setResign] = useState<{ id: string; preview: Record<string, unknown> } | null>(null),
+    [resignConfirmed, setResignConfirmed] = useState(false);
   const loadedSnapshot = useRef("");
   const locked = busy || state.busy || !saveObserver!.canStart();
   async function load() {
@@ -106,6 +108,42 @@ function ConnectedBackups() {
         receipt.commit_status.startsWith("committed")
           ? "备份已恢复。"
           : "恢复结果尚未确认，请核对操作回执。",
+      );
+      if (receipt.commit_status.startsWith("committed")) {
+        const inventory = await saveSession!.refresh();
+        loadedSnapshot.current = inventory.snapshot_id;
+        await load();
+      }
+    } catch (e) {
+      setMessage(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function prepareResign() {
+    setBusy(true);
+    setResign(null);
+    setResignConfirmed(false);
+    try {
+      const p = await saveSession!.prepareResign();
+      setResign({ id: p.plan_id, preview: (p as { preview?: Record<string, unknown> }).preview ?? {} });
+      setMessage("");
+    } catch (e) {
+      if (!String(e).includes("RESIGN_CANCELLED")) setMessage(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function commitResign() {
+    if (!resign || !resignConfirmed) return;
+    setBusy(true);
+    try {
+      const receipt = await saveSession!.commit(resign.id);
+      setResign(null);
+      setMessage(
+        receipt.commit_status.startsWith("committed")
+          ? "改签完成。进游戏读取这个存档即可；原来的内容已备份，可以在上方列表恢复。"
+          : "改签结果尚未确认，请核对操作回执。",
       );
       if (receipt.commit_status.startsWith("committed")) {
         const inventory = await saveSession!.refresh();
@@ -296,6 +334,34 @@ function ConnectedBackups() {
           </button>
         </div>
       )}
+      <section className="resign-panel">
+        <h3>存档改签</h3>
+        <p>
+          把其他账号（或朋友分享）的角色存档导入到上方选中的存档位，并改成当前账号的签名，之后就能在这个账号下读取。
+          这个存档位原来的内容会先自动备份。别人分享给你的绘卷保持原主人不变。
+        </p>
+        <button disabled={locked || !state.inventory} onClick={() => void prepareResign()}>
+          选择要导入的存档…
+        </button>
+        {resign && (
+          <div className="backup-confirm">
+            <dl className="resign-preview">
+              <dt>来源文件</dt><dd><code>{String(resign.preview.source_path ?? "")}</code></dd>
+              <dt>原账号</dt><dd>{String(resign.preview.from_account ?? "")}</dd>
+              <dt>改签为</dt><dd>{String(resign.preview.to_account ?? "")}</dd>
+              <dt>改为当前账号的绘卷</dt><dd>{String(resign.preview.rebound_scrolls ?? 0)} 张</dd>
+            </dl>
+            <label>
+              <input type="checkbox" checked={resignConfirmed} onChange={(e) => setResignConfirmed(e.target.checked)} />
+              游戏已回到标题界面，确认用这个存档替换上方选中的存档位
+            </label>
+            <button className="primary" disabled={!resignConfirmed || locked} onClick={() => void commitResign()}>
+              确认改签
+            </button>
+            <button disabled={locked} onClick={() => { setResign(null); void saveSession!.discard(); }}>取消</button>
+          </div>
+        )}
+      </section>
       <Notice text={message} />
     </section>
   );

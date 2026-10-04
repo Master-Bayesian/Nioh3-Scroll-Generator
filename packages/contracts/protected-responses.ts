@@ -87,6 +87,7 @@ export interface ProtectedJob {
     | "save.prepare_install"
     | "save.backups"
     | "save.prepare_restore"
+    | "save.prepare_resign"
     | "save.template"
     | "save.discard"
     | "save.commit"
@@ -769,7 +770,7 @@ export interface AuditPhaseResult {
 export interface SavePlan {
   plan_id: string;
   save_id: string;
-  kind: "edit" | "delete" | "install" | "restore" | "install_many";
+  kind: "edit" | "delete" | "install" | "restore" | "install_many" | "resign";
   source_sha256: string;
   expires_in_seconds: number;
   preview: {

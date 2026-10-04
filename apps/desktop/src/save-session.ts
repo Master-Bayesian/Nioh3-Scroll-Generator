@@ -25,8 +25,9 @@ function isSaveInventoryResult(value: unknown): value is SaveInventory {
 export interface SaveGateway {
   execute(command: PublicOperation, operationId?: string): Promise<Result>;
   prepareInstall(params: Parameters<OperationsApi['prepareInstall']>[0]): Promise<Result>;
+  resign?(params: Parameters<OperationsApi['resignSave']>[0]): Promise<Result | null>;
 }
-export function saveGateway(api: Pick<OperationsApi, 'execute' | 'prepareInstall'>, observer: OperationController): SaveGateway {
+export function saveGateway(api: Pick<OperationsApi, 'execute' | 'prepareInstall'> & Partial<Pick<OperationsApi, 'resignSave'>>, observer: OperationController): SaveGateway {
   return {
     execute: async (command, operationId) => {
       if (command.method === 'save.operation' && !observer.canStart() &&
@@ -37,6 +38,7 @@ export function saveGateway(api: Pick<OperationsApi, 'execute' | 'prepareInstall
       return await observer.run(() => api.execute(command), operationId) as Result;
     },
     prepareInstall: async params => await observer.run(() => api.prepareInstall(params)) as Result,
+    resign: async params => await observer.run(() => api.resignSave!(params)) as Result | null,
   };
 }
 export interface SaveSessionState {
@@ -134,6 +136,15 @@ export class SaveSession {
     const selected = structuredClone(slots);
     return this.prepare(snapshot => this.gateway.execute({ method: 'save.prepare_delete', params: {
       save_id: snapshot.save_id, snapshot_id: snapshot.snapshot_id, slots: selected } }));
+  }
+  /** Pick another save and plan replacing the selected one with it, re-signed to this account. */
+  /** Throws RESIGN_CANCELLED when the player closes the picker. */
+  prepareResign() {
+    return this.prepare(async snapshot => {
+      const result = await this.gateway.resign?.({ save_id: snapshot.save_id, snapshot_id: snapshot.snapshot_id });
+      if (!result) throw new Error('RESIGN_CANCELLED');
+      return result;
+    });
   }
   prepareRestore(backupId: string) {
     return this.prepare(snapshot => this.gateway.execute({ method: 'save.prepare_restore', params: {

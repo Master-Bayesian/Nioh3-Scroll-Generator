@@ -377,7 +377,7 @@ pub fn account_id_from_record(record: &ScrollRecordBytes) -> u64 {
 /// Mirrors `write_account_id`: the save bytes are never touched, only the
 /// returned copy.
 #[allow(clippy::expect_used)]
-fn rebind_account_id(record: &ScrollRecordBytes, account_id: u64) -> ScrollRecordBytes {
+pub(crate) fn rebind_account_id(record: &ScrollRecordBytes, account_id: u64) -> ScrollRecordBytes {
     if account_id_from_record(record) == account_id {
         return record.clone();
     }

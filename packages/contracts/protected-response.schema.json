@@ -1234,6 +1234,7 @@
             "save.prepare_install",
             "save.backups",
             "save.prepare_restore",
+            "save.prepare_resign",
             "save.template",
             "save.discard",
             "save.commit",
@@ -3304,7 +3305,8 @@
             "delete",
             "install",
             "restore",
-            "install_many"
+            "install_many",
+            "resign"
           ]
         },
         "source_sha256": {

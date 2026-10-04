@@ -1369,3 +1369,14 @@ Windows 拒绝把备份移入回收站，备份没有被删除。	Windows refuse
 全部套装（	All sets (	すべてのセット（
 装备收藏最多	Saved equipment holds at most	お気に入りの装備は最大
 件，请先移除一些。	items; remove some first.	件です。先にいくつか外してください。
+改签完成。进游戏读取这个存档即可；原来的内容已备份，可以在上方列表恢复。	Re-sign complete. Load this save in the game; the previous contents were backed up and can be restored from the list above.	署名の変更が完了しました。ゲームでこのセーブを読み込んでください。元の内容はバックアップ済みで、上の一覧から復元できます。
+改签结果尚未确认，请核对操作回执。	The re-sign result is not confirmed yet; check the operation receipt.	署名変更の結果はまだ確認できていません。操作レシートを確認してください。
+存档改签	Re-sign a save	セーブの署名変更
+把其他账号（或朋友分享）的角色存档导入到上方选中的存档位，并改成当前账号的签名，之后就能在这个账号下读取。 这个存档位原来的内容会先自动备份。别人分享给你的绘卷保持原主人不变。	Import a character save from another account (or one a friend shared) into the save slot selected above and sign it to this account so it loads here. The slot's current contents are backed up first. Scrolls shared by other players keep their owner.	別のアカウント（または友人が共有した）キャラクターのセーブを上で選んだセーブ枠に取り込み、このアカウントの署名に変更して読み込めるようにします。この枠の現在の内容は先に自動でバックアップされます。他のプレイヤーから共有された絵巻の所有者はそのままです。
+选择要导入的存档…	Choose a save to import…	取り込むセーブを選択…
+来源文件	Source file	元ファイル
+原账号	Original account	元のアカウント
+改签为	Re-signed to	変更後のアカウント
+改为当前账号的绘卷	Scrolls moved to this account	このアカウントに移す絵巻
+游戏已回到标题界面，确认用这个存档替换上方选中的存档位	The game is at the title screen; replace the save slot selected above with this save	ゲームはタイトル画面に戻っています。上で選んだセーブ枠をこのセーブで置き換えます
+确认改签	Re-sign save	署名を変更

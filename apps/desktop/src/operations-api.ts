@@ -51,6 +51,8 @@ export interface OperationsApi {
   prepareCount(params: ProtectedParams<'save.count_edit_source'> & {new_count:number}):Promise<ProtectedResult>;
   prepareLiveAdd(params: { save_id: string; snapshot_id: string; source: 'search' | 'runtime'; job_id: string; candidate_id: string }): Promise<ProtectedResult>;
   selectSave(): Promise<ProtectedResult | null>;
+  /** Native picker for another save, re-signed into the selected save (存档改签); null when cancelled. */
+  resignSave(params: { save_id: string; snapshot_id: string }): Promise<ProtectedResult | null>;
   execute(command: PublicOperation): Promise<ProtectedResult>;
   snapshot(role: 'save' | 'runtime', jobId: string): Promise<ProtectedJob>;
   cancel(role: 'save' | 'runtime', jobId: string): Promise<ProtectedJob>;

@@ -22,6 +22,7 @@ pub mod inventory;
 pub mod layout;
 pub mod nioh_cipher;
 pub mod paths;
+pub mod resign;
 pub mod save;
 pub mod transaction;
 pub mod transform;

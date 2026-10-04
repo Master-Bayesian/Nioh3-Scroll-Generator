@@ -119,3 +119,26 @@ def resolved_cargo_target_dir(name: str = "migration") -> str:
     """The cargo target directory one gate must build into."""
 
     return str(cargo_target_dir(name))
+
+
+_BUILT: dict[tuple[str, str, str, str], Path] = {}
+
+
+def built_cargo_binary(manifest: Path, target: str, *, example: str | None = None, binary: str | None = None) -> Path:
+    """Build one debug example or binary once per test process and return its path.
+
+    Calling the built executable directly avoids a `cargo run` freshness check
+    on every call, which dominated the transaction parity runtime.
+    """
+
+    import subprocess
+
+    key = (str(manifest), target, example or "", binary or "")
+    if key not in _BUILT:
+        command = ["cargo", "build", "--offline", "--quiet", "--manifest-path", str(manifest)]
+        command += ["--example", example] if example else (["--bin", binary] if binary else [])
+        subprocess.run(command, check=True, env={**os.environ, "CARGO_TARGET_DIR": target})
+        name = example or binary or manifest.parent.name
+        suffix = ".exe" if os.name == "nt" else ""
+        _BUILT[key] = Path(target) / "debug" / ("examples" if example else "") / (name + suffix)
+    return _BUILT[key]

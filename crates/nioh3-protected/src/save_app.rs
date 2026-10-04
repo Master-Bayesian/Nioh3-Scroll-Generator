@@ -56,6 +56,7 @@ use nioh3_save::codec::prepare_candidate_for_install;
 use nioh3_save::crypto::{SYSTEM_CONTAINER_BYTES, USER_CONTAINER_BYTES};
 use nioh3_save::error::SaveReadError;
 use nioh3_save::inventory::{SaveInventory, ScrollInventoryEntry};
+use nioh3_save::resign::resign_user_save;
 use nioh3_save::save::DecryptedSave;
 use nioh3_save::transaction::{PlanCommand, PlanKind, SavePlan, SaveTransactionHost};
 use nioh3_save::transform::{
@@ -1301,6 +1302,53 @@ impl SaveApplication {
         ))
     }
 
+    /// `save.prepare_resign`: replace the selected character save with another
+    /// save re-signed to this account (存档改签). The source path comes from
+    /// the native file picker; the plan commits through the ordinary
+    /// backup/commit path, so the replaced save is backed up first.
+    fn prepare_resign(
+        &mut self,
+        save_id: &str,
+        snapshot_id: &str,
+        source_path: &str,
+    ) -> Result<Value, HostError> {
+        let (source_hash, _inventory) = self.snapshot_copy(save_id, snapshot_id)?;
+        let save_path = self.save_path(save_id)?;
+        let account = nioh3_save::paths::account_id_from_save_path(&save_path)
+            .map_err(HostError::from_save)?;
+        let source = Path::new(source_path);
+        let container = read_save_bytes(source)?;
+        if container.len() != USER_CONTAINER_BYTES {
+            return Err(HostError::rejected(
+                "The chosen file is not a Nioh 3 character save (SAVEDATA.BIN)",
+            ));
+        }
+        let resigned = resign_user_save(&container, account).map_err(HostError::from_save)?;
+        let plan = self
+            .host()
+            .plan(
+                PlanKind::Edit,
+                &save_path,
+                &source_hash,
+                PlanCommand::WriteMain {
+                    bytes: resigned.container,
+                },
+            )
+            .map_err(HostError::from_save)?;
+        Ok(self.plan_payload(
+            save_id,
+            &source_hash,
+            "resign",
+            plan,
+            json!({
+                "source_path": python_path_string(source),
+                "from_account": resigned.from_account.to_string(),
+                "to_account": account.to_string(),
+                "rebound_scrolls": resigned.rebound_scrolls,
+            }),
+        ))
+    }
+
     fn prepare_restore(
         &mut self,
         save_id: &str,
@@ -1954,6 +2002,11 @@ impl SaveApplication {
                     param_u64(&params, "transfer_count")? as u32,
                 )
             }
+            "prepare_resign" => self.prepare_resign(
+                &param_str(&params, "save_id")?,
+                &param_str(&params, "snapshot_id")?,
+                &param_str(&params, "source_path")?,
+            ),
             "prepare_restore" => {
                 let backup_id = param_str(&params, "backup_id")?;
                 self.prepare_restore(

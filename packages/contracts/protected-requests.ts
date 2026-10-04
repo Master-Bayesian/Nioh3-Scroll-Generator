@@ -614,6 +614,16 @@ export type ProtectedRequest =
   | {
       protocol: 1;
       id: string;
+      method: "save.prepare_resign";
+      params: {
+        save_id: string;
+        snapshot_id: string;
+        source_path: string;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
       method: "save.template";
       params: {
         save_id: string;

@@ -32,7 +32,7 @@ from tests.migration.test_save_read_parity import (  # noqa: E402
     native_transform,
     native_transform_short,
 )
-from tests.migration.cargo_target import resolved_cargo_target_dir  # noqa: E402
+from tests.migration.cargo_target import built_cargo_binary, resolved_cargo_target_dir  # noqa: E402
 from tests.migration.save_restore_fixture import (  # noqa: E402
     assert_generations_distinct,
     generation_bytes,
@@ -58,19 +58,9 @@ RESTORE_FAULT_HARNESS = ROOT / "tests" / "migration" / "restore_fault_harness" /
 
 
 def run_host(target: str, arguments: list[str]) -> subprocess.CompletedProcess:
+    host = built_cargo_binary(ROOT / "crates" / "nioh3-save" / "Cargo.toml", target, example="save_transaction")
     return subprocess.run(
-        [
-            "cargo",
-            "run",
-            "--offline",
-            "--quiet",
-            "--manifest-path",
-            str(ROOT / "crates" / "nioh3-save" / "Cargo.toml"),
-            "--example",
-            "save_transaction",
-            "--",
-            *arguments,
-        ],
+        [str(host), *arguments],
         cwd=str(ROOT),
         env={**os.environ, "CARGO_TARGET_DIR": target},
         capture_output=True,
@@ -82,17 +72,9 @@ def run_host(target: str, arguments: list[str]) -> subprocess.CompletedProcess:
 def run_restore_harness(target: str, arguments: list[str]) -> subprocess.CompletedProcess:
     """Drive a Restore plan through public save-crate APIs only."""
 
+    harness = built_cargo_binary(RESTORE_FAULT_HARNESS, target, binary="nioh3-restore-fault-harness")
     return subprocess.run(
-        [
-            "cargo",
-            "run",
-            "--offline",
-            "--quiet",
-            "--manifest-path",
-            str(RESTORE_FAULT_HARNESS),
-            "--",
-            *arguments,
-        ],
+        [str(harness), *arguments],
         cwd=str(ROOT),
         env={**os.environ, "CARGO_TARGET_DIR": target},
         capture_output=True,

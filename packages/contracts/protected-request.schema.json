@@ -874,6 +874,53 @@
           "maxLength": 64
         },
         "method": {
+          "const": "save.prepare_resign"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "save_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32,64}$"
+            },
+            "snapshot_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32,64}$"
+            },
+            "source_path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "save_id",
+            "snapshot_id",
+            "source_path"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
           "const": "save.template"
         },
         "params": {

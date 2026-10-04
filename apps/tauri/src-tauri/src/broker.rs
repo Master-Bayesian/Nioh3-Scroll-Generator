@@ -594,6 +594,7 @@ fn require_public(job: &Value) -> Result<(), String> {
         "save.prepare_install",
         "save.backups",
         "save.prepare_restore",
+        "save.prepare_resign",
         "save.discard",
         "save.commit",
         "save.operation",

@@ -6,7 +6,7 @@ const publicKinds = new Set<ProtectedJob['kind']>([
   'save.recycle_backups', 'save.discover', 'save.register', 'save.inventory', 'save.prepare_edit', 'save.prepare_delete',
   'save.character', 'save.prepare_character_edit', 'runtime.character_edit',
   'save.prepare_install_many','runtime.live_batch_prepare','runtime.live_batch_execute','runtime.live_batch_status','runtime.live_batch_cancel',
-  'save.prepare_install', 'save.backups', 'save.prepare_restore', 'save.discard', 'save.commit',
+  'save.prepare_install', 'save.backups', 'save.prepare_restore', 'save.prepare_resign', 'save.discard', 'save.commit',
   'save.operation', 'save.operations', 'runtime.generate', 'runtime.search', 'runtime.capture_grace',
   'runtime.start_override', 'runtime.stop_override',
   'runtime.live_add_prepare', 'runtime.live_add_execute', 'runtime.live_add_status',
