@@ -1339,3 +1339,12 @@ html[lang="en-US"] .nav nav button>span:last-child{white-space:normal;line-heigh
 .loadout-copy-one{font-size:12px;padding:2px 8px;margin-left:6px;vertical-align:middle}
 td.favorite-actions{white-space:nowrap;text-align:right}
 td.favorite-actions>.loadout-copy-one{margin:0 4px 0 0}
+
+/* v0.8.4 about & safety (#15, #7) */
+.about-safety{font-size:13px;line-height:1.6;max-height:min(70vh,560px);overflow:auto;padding-right:4px}
+.about-safety h3{font-size:13px;margin:12px 0 4px}
+.about-safety h3:first-child{margin-top:0}
+.about-safety p,.about-safety ul{margin:0 0 6px}
+.about-safety ul{padding-left:18px}
+.about-safety .about-source{color:var(--muted,#667)}
+.side-popup .about-safety .about-link{display:inline;padding:0;border:0;background:none;color:var(--accent,#2f6f9f);text-decoration:underline;cursor:pointer;font:inherit}

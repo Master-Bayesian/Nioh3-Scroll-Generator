@@ -1135,7 +1135,7 @@ function App() {
                 left: r.right + 10,
                 bottom: window.innerHeight - r.bottom,
               });
-              setPopup(popup === "settings" || popup === "game" ? "" : "settings");
+              setPopup(popup === "settings" || popup === "game" || popup === "about" ? "" : "settings");
             }}
           >
             <span className="nav-icon" aria-hidden="true">⚙</span><span>设置</span>
@@ -2395,16 +2395,40 @@ function App() {
             onClick={() => setPopup("")}
           />
           <section
-            className={"side-popup" + (popup === "game" ? " side-popup-wide" : popup === "settings" ? " settings-menu" : "")}
+            className={"side-popup" + (popup === "game" || popup === "about" ? " side-popup-wide" : popup === "settings" ? " settings-menu" : "")}
             style={popupPosition}
-            aria-label={popup === "settings" ? "设置菜单" : popup === "game" ? "游戏版本" : "语言菜单"}
-            onKeyDown={(event) => { if (event.key === "Escape") setPopup(popup === "game" ? "settings" : ""); }}
+            aria-label={popup === "settings" ? "设置菜单" : popup === "game" ? "游戏版本" : popup === "about" ? "关于与安全" : "语言菜单"}
+            onKeyDown={(event) => { if (event.key === "Escape") setPopup(popup === "game" || popup === "about" ? "settings" : ""); }}
           >
             {popup === "game" ? (
               <>
                 <button className="menu-back" onClick={() => setPopup("settings")}>‹ 设置</button>
                 <h2>游戏版本</h2>
                 <GameInstallation />
+              </>
+            ) : popup === "about" ? (
+              <>
+                <button className="menu-back" onClick={() => setPopup("settings")}>‹ 设置</button>
+                <h2>关于与安全</h2>
+                <div className="about-safety">
+                  <h3>完全免费</h3>
+                  <p>本工具免费提供，作者没有授权任何人收费售卖。如果你是付费买到的，请申请退款并举报卖家。</p>
+                  <h3>只从官方渠道下载</h3>
+                  <p>官方渠道只有 GitHub 发布页和作者的 QQ 群。其他地方转发的文件可能被改动过：如果杀毒软件对这类文件报毒，请直接删除，再从官方渠道重新下载。</p>
+                  <p>
+                    <button className="about-link" onClick={() => { if (desktop) void window.review.openLink("updates"); else window.open(data.github + "/releases/latest", "_blank", "noopener"); }}>打开 GitHub 发布页</button>
+                  </p>
+                  <h3>它会读写什么</h3>
+                  <ul>
+                    <li>仁王3 的存档文件夹：修改存档前会自动备份，可以在“存档管理”里恢复。</li>
+                    <li>游戏进程内存：只在你使用“游戏内实时修改”或实时添加时读写。</li>
+                    <li>本工具自己的数据目录：设置、收藏、备份和日志。</li>
+                  </ul>
+                  <p>联网只用于检查和下载更新（连接 GitHub），不会上传存档或个人信息。“反馈问题”生成的文件保存在你自己的电脑上，由你决定是否发送。</p>
+                  <h3>关于报毒</h3>
+                  <p>修改游戏存档和内存的工具，常被杀毒软件按“行为可疑”拦截，被拦截不一定代表文件有害。官方下载的文件可以在 GitHub 发布页核对 SHA-256；如果仍不放心，可以把文件提交到 VirusTotal 等多引擎扫描网站自行检查。</p>
+                  <p className="about-source">源码公开在 GitHub 上，欢迎查看。</p>
+                </div>
               </>
             ) : popup === "settings" ? (
               <>
@@ -2467,6 +2491,10 @@ function App() {
                   }}
                 >
                   <span>检查更新</span>
+                </button>
+                <button className="menu-item" data-action="open-about" onClick={() => setPopup("about")}>
+                  <span>关于与安全</span>
+                  <i aria-hidden="true">›</i>
                 </button>
               </>
             ) : (
