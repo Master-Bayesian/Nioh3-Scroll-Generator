@@ -472,6 +472,9 @@ impl CountProcesses for WindowsCountProcesses {
 
 /// The concrete product adapter the protected host will use.
 #[cfg(windows)]
+/// Makes the record a scroll edit writes from the live record, or says why not.
+pub type RecordBuilder<'a> = dyn Fn(&[u8]) -> Result<Vec<u8>, String> + 'a;
+
 pub type WindowsCountMemoryAdapter = WindowsCountMemory<WindowsCountProcesses>;
 
 /// One reviewed count plan.
@@ -763,7 +766,7 @@ impl CountEditor {
         source_sha256: &str,
         record_hex: &str,
         backup_path: &Path,
-        build: &dyn Fn(&[u8]) -> Result<Vec<u8>, String>,
+        build: &RecordBuilder<'_>,
     ) -> Result<CountStatus, RuntimeError> {
         let saved_record = hex_decode(record_hex)?;
         if saved_record.len() != RECORD_SIZE {
@@ -797,7 +800,8 @@ impl CountEditor {
                 detail: "Current scroll state is not supported for live editing".to_string(),
             });
         }
-        let desired = build(&current).map_err(|detail| RuntimeError::CountSourceChanged { detail })?;
+        let desired =
+            build(&current).map_err(|detail| RuntimeError::CountSourceChanged { detail })?;
         if desired.len() != RECORD_SIZE {
             return Err(RuntimeError::CountSourceChanged {
                 detail: "Expected a full scroll record".to_string(),
@@ -1021,11 +1025,10 @@ impl CountEditor {
                     attempted: true,
                     error,
                 })?;
-            let mut expected =
-                hex_decode(&current.record_hex).map_err(|error| AttemptFailure {
-                    attempted: true,
-                    error,
-                })?;
+            let mut expected = hex_decode(&current.record_hex).map_err(|error| AttemptFailure {
+                attempted: true,
+                error,
+            })?;
             expected[COUNT_OFFSET] = plan.new_count;
             (after, expected)
         };

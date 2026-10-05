@@ -150,7 +150,9 @@ try {
   await p.getByRole('button',{name:'绘卷编辑',exact:true}).click();
   await p.locator('.inventory-list button').first().waitFor();
   assert.equal(await p.locator('.inventory-list button').count(),1,'Restored inventory remains readable through the broker');
-  await p.getByText('基础信息 · 长期保存',{exact:true}).click();
+  // The scroll editor opens in live mode; this flow writes the save file.
+  await p.getByRole('button',{name:'修改存档文件',exact:true}).click();
+  await p.getByText('基础信息',{exact:true}).click();
   await p.getByRole('textbox',{name:'编辑推荐等级（敌人等级）',exact:true}).fill('350');
   await p.getByRole('button',{name:'核对修改',exact:true}).click();
   const editButton=p.getByRole('button',{name:'确认写入存档',exact:true});

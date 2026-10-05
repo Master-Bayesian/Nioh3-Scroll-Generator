@@ -74,8 +74,8 @@ use crate::error::HostError;
 const PLAN_TTL: Duration = Duration::from_secs(600);
 const RECORD_BYTES: usize = 0xE8;
 /// The live scroll serial a count or scroll edit identifies its scroll by.
-const COUNT_SERIAL_RANGE: std::ops::Range<usize> =
-    nioh3_runtime::mutation::count::SERIAL_OFFSET..nioh3_runtime::mutation::count::SERIAL_OFFSET + 8;
+const COUNT_SERIAL_RANGE: std::ops::Range<usize> = nioh3_runtime::mutation::count::SERIAL_OFFSET
+    ..nioh3_runtime::mutation::count::SERIAL_OFFSET + 8;
 /// `cache_application.grace_map_cache_path`'s directory under the state root.
 const GRACE_MAP_CACHE_DIR: &str = "grace-output-maps";
 /// `models.CandidateRecordStage` spellings the transfer carries.

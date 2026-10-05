@@ -612,16 +612,27 @@ fn a_record_edit_writes_the_reviewed_record_built_from_the_live_one() -> Result<
     // The game counted one attempt down since the save was read.
     let mut live = record();
     live[0x33] = 1;
-    let (_sandbox, mut editor) = prepared_record("record", Faults::default(), record(), live.clone())?;
+    let (_sandbox, mut editor) =
+        prepared_record("record", Faults::default(), record(), live.clone())?;
     let (digest, plan) = first_plan(&editor)?;
     let desired = reseed(&live).map_err(|detail| RuntimeError::CountSourceChanged { detail })?;
-    assert_eq!(plan.desired_record_hex.as_deref(), Some(hex(&desired).as_str()));
+    assert_eq!(
+        plan.desired_record_hex.as_deref(),
+        Some(hex(&desired).as_str())
+    );
     assert_eq!(plan.seed, 0x0123_4567);
     assert_eq!(plan.old_count, 1);
     let status = editor.execute(&plan.operation_id, &digest)?;
     assert_eq!(status.state, CountState::Verified);
-    let written = fs::read_to_string(editor.directory(&plan.operation_id)?.join("verified-record.json"))
-        .map_err(|error| RuntimeError::Io { path: "verified-record.json".into(), detail: error.to_string() })?;
+    let written = fs::read_to_string(
+        editor
+            .directory(&plan.operation_id)?
+            .join("verified-record.json"),
+    )
+    .map_err(|error| RuntimeError::Io {
+        path: "verified-record.json".into(),
+        detail: error.to_string(),
+    })?;
     assert!(written.contains(&hex(&desired)));
     Ok(())
 }
@@ -632,7 +643,10 @@ fn a_count_plan_digest_is_unchanged_by_the_record_field() -> Result<(), RuntimeE
     let (digest, plan) = first_plan(&editor)?;
     assert!(plan.desired_record_hex.is_none());
     assert!(plan.to_json().get("desired_record_hex").is_none());
-    assert_eq!(digest, sha256_hex(canonical_json(&plan.to_json()).as_bytes()));
+    assert_eq!(
+        digest,
+        sha256_hex(canonical_json(&plan.to_json()).as_bytes())
+    );
     Ok(())
 }
 
@@ -658,17 +672,24 @@ fn a_record_edit_refuses_no_change_and_a_serial_change() -> Result<(), RuntimeEr
         Err(RuntimeError::CountSourceChanged { .. })
     ));
     assert!(fs::read_dir(editor.operations_directory())
-        .map_err(|error| RuntimeError::Io { path: "count-edits".into(), detail: error.to_string() })?
+        .map_err(|error| RuntimeError::Io {
+            path: "count-edits".into(),
+            detail: error.to_string()
+        })?
         .next()
         .is_none());
     Ok(())
 }
 
 #[test]
-fn a_record_edit_readback_mismatch_is_uncertain_and_recovery_observes_it() -> Result<(), RuntimeError> {
+fn a_record_edit_readback_mismatch_is_uncertain_and_recovery_observes_it(
+) -> Result<(), RuntimeError> {
     let (_sandbox, mut editor) = prepared_record(
         "record-readback",
-        Faults { readback_after_write: Some(record()), ..Faults::default() },
+        Faults {
+            readback_after_write: Some(record()),
+            ..Faults::default()
+        },
         record(),
         record(),
     )?;
@@ -676,10 +697,14 @@ fn a_record_edit_readback_mismatch_is_uncertain_and_recovery_observes_it() -> Re
     let status = editor.execute(&plan.operation_id, &digest)?;
     assert_eq!(status.state, CountState::Uncertain);
     // The record really holds the reviewed bytes, with a count the game changed.
-    let mut landed = reseed(&record()).map_err(|detail| RuntimeError::CountSourceChanged { detail })?;
+    let mut landed =
+        reseed(&record()).map_err(|detail| RuntimeError::CountSourceChanged { detail })?;
     landed[0x33] = 0;
     let mut editor = replace_memory(editor, landed);
-    assert_eq!(editor.recover(&plan.operation_id)?.state, CountState::Verified);
+    assert_eq!(
+        editor.recover(&plan.operation_id)?.state,
+        CountState::Verified
+    );
     Ok(())
 }
 
@@ -687,7 +712,10 @@ fn a_record_edit_readback_mismatch_is_uncertain_and_recovery_observes_it() -> Re
 fn a_scroll_this_editor_rewrote_stays_editable_until_the_game_saves() -> Result<(), RuntimeError> {
     let (sandbox, mut editor) = prepared_record("chain", Faults::default(), record(), record())?;
     let (digest, plan) = first_plan(&editor)?;
-    assert_eq!(editor.execute(&plan.operation_id, &digest)?.state, CountState::Verified);
+    assert_eq!(
+        editor.execute(&plan.operation_id, &digest)?.state,
+        CountState::Verified
+    );
     // The game now holds the rewritten record; the save still holds the old one.
     let live = reseed(&record()).map_err(|detail| RuntimeError::CountSourceChanged { detail })?;
     let mut editor = replace_memory(editor, live.clone());
@@ -700,11 +728,15 @@ fn a_scroll_this_editor_rewrote_stays_editable_until_the_game_saves() -> Result<
         Ok(desired)
     };
     assert_eq!(
-        editor.prepare_record(&save, &digest, &hex(&record()), &backup, &again)?.state,
+        editor
+            .prepare_record(&save, &digest, &hex(&record()), &backup, &again)?
+            .state,
         CountState::Prepared
     );
     assert_eq!(
-        editor.prepare(&save, &digest, &hex(&record()), &backup, 3)?.state,
+        editor
+            .prepare(&save, &digest, &hex(&record()), &backup, 3)?
+            .state,
         CountState::Prepared
     );
     // A record the editor never wrote is still refused.
