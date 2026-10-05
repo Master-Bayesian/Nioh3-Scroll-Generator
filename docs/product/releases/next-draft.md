@@ -52,11 +52,11 @@ release are the owner's decision; this file only gathers what changed.
 - Gates: frontend tests (95/108; the 12 local IPC failures predate this
   work), the four CI UI checks, Python CI subsets, nioh3-runtime (217),
   nioh3-protected, desktop host (50 with NIOH3_PYTHON set), locale audit.
+- Crash check (2026-10-04 evening): one NG1 and one NG3 live addition on a
+  freshly started game, six idle minutes each, no crash; the same crash had
+  also happened that morning seconds after a plain game start (failure ledger).
+- Scroll editing seen in the game menu on a revealed scroll (+6.7% -> +7.0%).
 
-## Not yet verified (needs the game loaded)
+## Not yet verified
 
-- How a live scroll edit looks in the game menu on a revealed scroll (the
-  tested scroll was unrevealed).
-- Whether a live scroll addition caused the 2026-10-04 crash (see the failure
-  ledger); a definitive "character loaded" signal to refuse live additions at
-  the title screen before any native call.
+Nothing that needs the game is outstanding.
