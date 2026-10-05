@@ -5975,6 +5975,10 @@
     "正在核对，需要等游戏响应，最多十几秒…": [
       "Checking; waiting for the game to answer, up to about fifteen seconds…",
       "確認中です。ゲームの応答を待っています（最大十数秒）…"
+    ],
+    "游戏刚刚存过档。请点“重新读取”后再核对修改。": [
+      "The game has just saved. Click \"Reload\", then review the change again.",
+      "ゲームがセーブしたところです。「再読み込み」してから、もう一度変更を確認してください。"
     ]
   },
   "game": {

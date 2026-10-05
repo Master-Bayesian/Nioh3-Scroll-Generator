@@ -1492,3 +1492,4 @@ NPC武器	NPC weapon	NPC武器
 修改存档	Save edit	セーブの変更
 游戏没有及时响应添加请求，这次没有添加任何东西。请确认已经读档进入游戏（不是标题界面或读盘画面），然后重试。	The game did not answer the addition in time, and nothing was added. Make sure you have loaded your save (not the title or a loading screen), then try again.	ゲームが追加要求に時間内に応答しなかったため、何も追加されていません。セーブをロードしてゲーム内にいる（タイトル画面やロード画面ではない）ことを確認してから、もう一度お試しください。
 正在核对，需要等游戏响应，最多十几秒…	Checking; waiting for the game to answer, up to about fifteen seconds…	確認中です。ゲームの応答を待っています（最大十数秒）…
+游戏刚刚存过档。请点“重新读取”后再核对修改。	The game has just saved. Click "Reload", then review the change again.	ゲームがセーブしたところです。「再読み込み」してから、もう一度変更を確認してください。
