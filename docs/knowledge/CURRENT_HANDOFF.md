@@ -1,15 +1,17 @@
-# Current project handoff - 2026-10-04
+# Current project handoff - 2026-10-05
 
-## v0.8.6 prepared, not published
+## v0.8.6 published release
 
-Branch `claude/v085` carries the v0.8.6 preparation (version chosen by the owner on
-2026-10-04), not pushed: live scroll editing, English/Japanese game names (#33),
-the desktop dark theme (colors still to improve, #35) and an audit's worth of fixes.
-See the [engineering record](../product/releases/v0.8.6.md). The recurring game
-stack-overflow crash also happens without the tool; see the failure ledger
-(2026-10-04).
+**v0.8.6 is published and public-byte verified (2026-10-05)**: commit
+`ddfbe27`, tag `v0.8.6`, run `37263303720`; see the
+[publication record](TAURI_V086_PUBLICATION_20261005.md) and the
+[engineering record](../product/releases/v0.8.6.md). It adds live scroll
+editing, the game's English/Japanese names (#33) and a working desktop dark
+theme (colors still to improve, #35), with an audit's worth of fixes. The
+recurring game stack-overflow crash also happens without the tool (failure
+ledger, 2026-10-04).
 
-## v0.8.5 published release
+## v0.8.5 release
 
 **v0.8.5 is published and public-byte verified (2026-10-04)**: commit
 `9e81a29`, tag `v0.8.5`, run `37185958576`; see the
