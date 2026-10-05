@@ -1493,3 +1493,16 @@ NPC武器	NPC weapon	NPC武器
 游戏没有及时响应添加请求，这次没有添加任何东西。请确认已经读档进入游戏（不是标题界面或读盘画面），然后重试。	The game did not answer the addition in time, and nothing was added. Make sure you have loaded your save (not the title or a loading screen), then try again.	ゲームが追加要求に時間内に応答しなかったため、何も追加されていません。セーブをロードしてゲーム内にいる（タイトル画面やロード画面ではない）ことを確認してから、もう一度お試しください。
 正在核对，需要等游戏响应，最多十几秒…	Checking; waiting for the game to answer, up to about fifteen seconds…	確認中です。ゲームの応答を待っています（最大十数秒）…
 游戏刚刚存过档。请点“重新读取”后再核对修改。	The game has just saved. Click "Reload", then review the change again.	ゲームがセーブしたところです。「再読み込み」してから、もう一度変更を確認してください。
+仍无法确认结果。请回到游戏菜单后再点“恢复核对”；如果游戏已重启或一直无法确认，请看背包里有没有这件装备，再点“放下此记录”。	The result still cannot be confirmed. Return to a game menu and click “Recover verification” again; if the game has restarted or it never confirms, check whether the item is in your inventory, then click “Drop this record”.	まだ結果を確認できません。ゲームのメニューに戻ってからもう一度「復旧確認」を押してください。ゲームを再起動した場合や確認できないままの場合は、装備が所持品にあるか確かめてから「この記録を破棄」を押してください。
+游戏已执行添加，但核对前背包已经变化（例如装备被卖掉，或游戏重启过），无法逐项核对。请在游戏背包里查看；不要为同一件装备重复添加。	The game carried out the addition, but the inventory changed before it could be checked (for example, the item was sold or the game restarted). Check your inventory in game; do not add the same item again.	ゲームは追加を実行しましたが、確認の前に所持品が変わったため（装備を売却した、ゲームを再起動したなど）、詳しく照合できません。ゲーム内の所持品を確認し、同じ装備を重ねて追加しないでください。
+放下此记录	Drop this record	この記録を破棄
+放下后不再核对这次添加。请先在游戏背包里确认这件装备是否已经加入（卖掉的也算加入过），不要为同一件装备重复添加。	After dropping it, this addition is no longer checked. First check in your inventory whether the item was added (a sold item counts as added); do not add the same item again.	破棄すると、この追加はもう確認されません。先に所持品で装備が追加されたか確認してください（売却済みでも追加済みです）。同じ装備を重ねて追加しないでください。
+确认放下	Confirm drop	破棄する
+继续保留	Keep it	残しておく
+上一件装备的添加结果还没有确认。请在上一条记录里点“恢复核对”；如果一直无法确认，重启游戏并读档后就可以继续添加。	The previous equipment addition is not confirmed yet. Click “Recover verification” on that record; if it never confirms, restart the game and load your save, then you can add again.	前回の装備追加の結果がまだ確認されていません。その記録で「復旧確認」を押してください。確認できないままの場合は、ゲームを再起動してロードすると追加を続けられます。
+重置工具	Reset the tool	ツールをリセット
+工具卡住、按钮没反应或一直提示先处理上一次操作时使用。请先关闭游戏。重置会把以前留下的操作记录移到数据目录的 reset-archive 文件夹，然后重新打开界面；存档备份、收藏和设置都会保留。	Use this when the tool is stuck, a button does nothing, or it keeps asking you to resolve a previous operation. Close the game first. Resetting moves old operation records to the reset-archive folder in the data directory and reopens the interface; save backups, favorites and settings are kept.	ツールが止まった、ボタンが反応しない、前回の操作を先に処理するよう繰り返し表示される、といったときに使います。先にゲームを終了してください。リセットすると、残っている操作記録をデータフォルダーの reset-archive フォルダーへ移し、画面を開き直します。セーブのバックアップ、お気に入り、設定は残ります。
+确认重置	Confirm reset	リセットする
+游戏正在运行。请先关闭游戏，再点“确认重置”。	The game is running. Close the game first, then click “Confirm reset”.	ゲームが起動しています。先にゲームを終了してから「リセットする」を押してください。
+工具还有操作没有结束。请等它完成，或关闭并重新打开工具后再重置。	An operation is still running. Wait for it to finish, or close and reopen the tool, then reset.	まだ終わっていない操作があります。完了を待つか、ツールを閉じて開き直してからリセットしてください。
+有文件正被占用，无法移走。请关闭并重新打开工具后再重置；仍不行时请导出反馈文件发给开发者。	A file is in use and cannot be moved. Close and reopen the tool, then reset again; if it still fails, export a feedback file and send it to the developer.	使用中のファイルがあるため移動できません。ツールを閉じて開き直してから、もう一度リセットしてください。それでも失敗する場合は、フィードバックファイルを書き出して開発者に送ってください。

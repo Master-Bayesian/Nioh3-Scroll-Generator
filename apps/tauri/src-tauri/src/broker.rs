@@ -3,6 +3,17 @@ use serde_json::{json, Value};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
 
+/// What "reset the tool" moves aside: operation records, save transaction
+/// journals and account locks, the state a stuck operation can leave behind.
+const RESET_DIRECTORIES: [&str; 6] = [
+    "equipment-add",
+    "live-add",
+    "count-edits",
+    "v2-operations",
+    "protected-internal",
+    "locks",
+];
+
 pub struct Broker {
     pub root: PathBuf,
     pub data: PathBuf,
@@ -479,6 +490,51 @@ impl Broker {
             }
         }
         true
+    }
+    /// Reset the tool (settings): stop every worker, then move the operation
+    /// records and locks a stuck or interrupted operation leaves behind into
+    /// `reset-archive/<time>`. Backups, favorites, preferences and logs stay.
+    /// Refused while the game runs, so no archived record can still own a
+    /// live game process.
+    pub async fn reset_state(&self) -> Result<(), String> {
+        match nioh3_runtime::single_process_id("Nioh3.exe") {
+            Err(nioh3_runtime::RuntimeError::ProcessAbsent { .. }) => {}
+            _ => return Err("RESET_GAME_RUNNING".into()),
+        }
+        let mut hosts = self.workers.lock().await;
+        for (_, host) in hosts.iter() {
+            if !host.close().await && !host.can_replace().await {
+                return Err("RESET_WORKER_BUSY".into());
+            }
+        }
+        hosts.clear();
+        let _guard = self.storage.lock().await;
+        let archive = self
+            .data
+            .join("reset-archive")
+            .join(chrono::Utc::now().format("%Y%m%d-%H%M%S").to_string());
+        for name in RESET_DIRECTORIES {
+            let source = self.data.join(name);
+            if !source.exists() {
+                continue;
+            }
+            std::fs::create_dir_all(&archive).map_err(|e| e.to_string())?;
+            // A worker that just exited can hold a handle for a moment.
+            let mut attempt = 0;
+            while let Err(error) = std::fs::rename(&source, archive.join(name)) {
+                attempt += 1;
+                if attempt == 20 {
+                    return Err(format!("RESET_ARCHIVE_FAILED: {name}: {error}"));
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            }
+        }
+        crate::storage::log(
+            &self.data,
+            "support-reset",
+            &format!("archived to {}", archive.display()),
+        );
+        Ok(())
     }
     async fn favorites(&self, params: Value) -> Reply {
         let _guard = self.storage.lock().await;

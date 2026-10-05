@@ -305,6 +305,10 @@ async fn desktop_request(
                 .map_err(|e| e.to_string())?;
             Ok(Value::Null)
         }
+        "support:reset" => {
+            broker.reset_state().await?;
+            Ok(Value::Null)
+        }
         "review:data-directory" => {
             let action = value
                 .as_str()
@@ -410,8 +414,9 @@ async fn desktop_request(
                     .map(|elapsed| elapsed.as_secs())
                     .unwrap_or_default();
                 let path = directory.join(format!("nioh3-feedback-{stamp}.txt"));
-                let live_add = serde_json::to_string_pretty(&storage::live_add_digest(&broker.data, 8))
-                    .map_err(|e| e.to_string())?;
+                let live_add =
+                    serde_json::to_string_pretty(&storage::live_add_digest(&broker.data, 8))
+                        .map_err(|e| e.to_string())?;
                 std::fs::write(
                     &path,
                     format!(

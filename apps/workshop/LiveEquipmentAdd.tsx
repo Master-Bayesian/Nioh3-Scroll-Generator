@@ -39,13 +39,14 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
   const [recoveryMessage,setRecoveryMessage]=useState("");
   const [operation,setOperation]=useState<string|null>(null),[result,setResult]=useState<Addition|null>(null);
   const [busy,setBusy]=useState(false),[confirmed,setConfirmed]=useState(false),[message,setMessage]=useState("");
+  const [dropping,setDropping]=useState(false);
   const mounted=useRef(false),running=useRef(false),current=useRef<string|null>(null);
   const callbacks=useRef({onBusy,onAdded});callbacks.current={onBusy,onAdded};
   const rows=useMemo(()=>catalog.filter(row=>matchesClass(row.id,row,kind,type)&&(!school||row.school===school)&&(!query||(`${row.name} ${row.id} ${row.major} ${row.type}`).toLowerCase().includes(query.toLowerCase()))),[query,kind,type,school]);
   const numbers={level:integer(level,1,65535),plus:integer(plus,0,65535),rarity:integer(rarity,0,5),seed:integer(seed,0,65535)};
   const valid=item!==null&&Object.values(numbers).every(value=>value!==null);
   const locked=busy||operation!==null;
-  const terminal=result&&["verified","cancelled","rejected_before_dispatch","rejected_before_insertion"].includes(result.state);
+  const terminal=result&&["verified","dispatched_unverified","cancelled","rejected_before_dispatch","rejected_before_insertion"].includes(result.state);
 
   async function request(action:"prepare"|"execute"|"status"|"recover"|"cancel",id:string) {
     if(running.current)return;
@@ -61,6 +62,8 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
       if(!mounted.current||current.current!==id)return;
       setResult(reply.equipment_add);setConfirmed(false);
       if(reply.equipment_add.error)setMessage(reply.equipment_add.error);
+      // A repeated read that changes nothing must still answer the click.
+      else if((action==="status"||action==="recover")&&reply.equipment_add.state==="uncertain")setRecoveryMessage("仍无法确认结果。请回到游戏菜单后再点“恢复核对”；如果游戏已重启或一直无法确认，请看背包里有没有这件装备，再点“放下此记录”。");
       if(action==="execute"&&reply.equipment_add.state==="verified")callbacks.current.onAdded?.();
     }catch(error){
       if(mounted.current&&current.current===id){
@@ -99,9 +102,18 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
     catch(error){setMessage(errorText(error));return;}
     current.current=id;setOperation(id);setResult(null);setConfirmed(false);void request("prepare",id);
   }
+  function clear(){
+    localStorage.removeItem(STORAGE);current.current=null;setOperation(null);setResult(null);setConfirmed(false);setMessage("");setRecoveryMessage("");setDropping(false);
+  }
   function newItem(){
     if(!terminal||busy)return;
-    localStorage.removeItem(STORAGE);current.current=null;setOperation(null);setResult(null);setConfirmed(false);setMessage("");setRecoveryMessage("");
+    clear();
+  }
+  /** Leave an unconfirmed record without replaying it. The worker still
+   * refuses a new addition while the record owns the same game process. */
+  function dropRecord(){
+    if(busy||result?.state!=="uncertain")return;
+    clear();
   }
   const preview=result?.preview;
   return <section className="live-equipment-add">
@@ -131,11 +143,13 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
           </>}
           {result.state==="uncertain"&&<p>结果尚未确认。请读取状态或恢复核对，程序不会再次执行添加。</p>}
           {result.state==="verified"&&<Notice tone="success" text="装备已加入背包并回读核对。到神社存档后即可保存。"/>}
+          {result.state==="dispatched_unverified"&&<p>游戏已执行添加，但核对前背包已经变化（例如装备被卖掉，或游戏重启过），无法逐项核对。请在游戏背包里查看；不要为同一件装备重复添加。</p>}
           {result.state==="cancelled"&&<p>本次添加已取消。</p>}
           {result.state==="rejected_before_dispatch"&&<p>本次添加未执行。可重新选择装备或种子。</p>}
           {result.state==="rejected_before_insertion"&&<p>构造结果与预览不一致，装备没有加入背包。已核对背包未变，可重新准备。</p>}
         </div>}
-        {operation&&<div className="live-equipment-actions"><button data-action="status-equipment" disabled={busy} onClick={()=>void request("status",operation)}>读取添加状态</button><button data-action="recover-equipment" disabled={busy} onClick={()=>void request("recover",operation)}>恢复核对</button>{terminal&&<button data-action="new-equipment" disabled={busy} onClick={newItem}>准备另一件装备</button>}</div>}
+        {operation&&<div className="live-equipment-actions"><button data-action="status-equipment" disabled={busy} onClick={()=>void request("status",operation)}>读取添加状态</button><button data-action="recover-equipment" disabled={busy} onClick={()=>void request("recover",operation)}>恢复核对</button>{terminal&&<button data-action="new-equipment" disabled={busy} onClick={newItem}>准备另一件装备</button>}{result?.state==="uncertain"&&!dropping&&<button data-action="drop-equipment" disabled={busy} onClick={()=>setDropping(true)}>放下此记录</button>}</div>}
+        {operation&&dropping&&result?.state==="uncertain"&&<div className="live-equipment-drop"><p>放下后不再核对这次添加。请先在游戏背包里确认这件装备是否已经加入（卖掉的也算加入过），不要为同一件装备重复添加。</p><div className="live-equipment-actions"><button data-action="confirm-drop-equipment" disabled={busy} onClick={dropRecord}>确认放下</button><button data-action="keep-equipment" disabled={busy} onClick={()=>setDropping(false)}>继续保留</button></div></div>}
         {operation&&<details className="equipment-notes"><summary>操作记录</summary><code>{operation}</code><p>切换页面或重启工具后可继续核对此记录，无需重新添加。</p></details>}
       </div>
     </div>

@@ -36,6 +36,9 @@ pub enum OperationState {
     Verified,
     RejectedBeforeDispatch,
     RejectedBeforeInsertion,
+    /// An equipment insertion the game acknowledged, whose inventory changed
+    /// (sold item, restarted game) before the byte-exact readback.
+    DispatchedUnverified,
     /// A preview child that ran its native dispatch, was reviewed as a mismatch
     /// and left the complete, unchanged-inventory terminal proof.
     RejectedAfterPreview,
@@ -52,6 +55,7 @@ impl OperationState {
             Self::Verified => "verified",
             Self::RejectedBeforeDispatch => "rejected_before_dispatch",
             Self::RejectedBeforeInsertion => "rejected_before_insertion",
+            Self::DispatchedUnverified => "dispatched_unverified",
             Self::RejectedAfterPreview => "rejected_after_preview",
         }
     }
@@ -375,7 +379,11 @@ impl LiveAddOperations {
         let state = receipt.get("state").and_then(Value::as_str);
         if receipt.get("operation_id").and_then(Value::as_str) != Some(operation_id)
             || !(matches!(state, Some("verified") | Some("rejected_before_dispatch"))
-                || equipment && state == Some("rejected_before_insertion"))
+                || equipment
+                    && matches!(
+                        state,
+                        Some("rejected_before_insertion") | Some("dispatched_unverified")
+                    ))
         {
             return Err(rejected("Receipt identity or terminal state differs"));
         }
@@ -398,6 +406,14 @@ impl LiveAddOperations {
         {
             return Err(rejected(
                 "Successful receipt lacks independent verification",
+            ));
+        }
+        if state == Some("dispatched_unverified")
+            && !(flagged("native_insertion_acknowledged")
+                && flagged("dispatch_and_cleanup_verified"))
+        {
+            return Err(rejected(
+                "Unverified completion lacks the native acknowledgement",
             ));
         }
         if state == Some("rejected_before_dispatch")
@@ -501,6 +517,9 @@ impl LiveAddOperations {
                 Some("rejected_before_dispatch") => OperationState::RejectedBeforeDispatch,
                 Some("rejected_before_insertion") if plan["kind"] == "equipment_native_add" => {
                     OperationState::RejectedBeforeInsertion
+                }
+                Some("dispatched_unverified") if plan["kind"] == "equipment_native_add" => {
+                    OperationState::DispatchedUnverified
                 }
                 _ => {
                     return Err(rejected("Stored operation receipt changed"));

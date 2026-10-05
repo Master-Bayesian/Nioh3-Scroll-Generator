@@ -13,7 +13,7 @@ window.operations = {
   captureGrace: p => call('operations:capture-grace', p), bindCachedSearch: p => call('operations:bind-cache', p),
 };
 window.preferences = { getLocale: () => call('preferences:locale'), setLocale: v => call('preferences:set-locale', v) };
-window.support = { diagnostics: () => call('support:diagnostics'), exportDiagnostics: () => call('support:export') };
+window.support = { diagnostics: () => call('support:diagnostics'), exportDiagnostics: () => call('support:export'), resetTool: () => call('support:reset') };
 window.review = {
   favorites: p => call('review:favorites', p), update: p => call('review:update', p), auxiliary: p => call('review:auxiliary', p), dataDirectory: p => call('review:data-directory', p),
   gameInstallation: p => call('review:game-installation', p),

@@ -346,11 +346,6 @@ impl EquipmentAddition {
         if request_path.exists() {
             return self.status(id);
         }
-        if !self.operations.unresolved_ids()?.is_empty() {
-            return Err(rejected(
-                "Recover the previous equipment addition before preparing another",
-            ));
-        }
         let mut descriptor = vec![0u8; 0xCC];
         let item =
             u16::try_from(number(input, "item_id")?).map_err(|_| rejected("Invalid item ID"))?;
@@ -367,6 +362,19 @@ impl EquipmentAddition {
         }
         let checkpoint = self.require_checkpoint(id, input.get("save_checkpoint"))?;
         let mut capture = self.capture()?;
+        // An unresolved addition blocks only its own game process: one made in
+        // a process that has since exited cannot own or race this inventory.
+        for unresolved in self.operations.unresolved_ids()? {
+            let same_process = self.operations.plan(&unresolved).map_or(true, |(_, plan)| {
+                plan["pid"] == capture["pid"]
+                    && plan["process_creation_time"] == capture["process_creation_time"]
+            });
+            if same_process {
+                return Err(rejected(
+                    "Recover the previous equipment addition before preparing another",
+                ));
+            }
+        }
         let bytes = hex_decode(text(&capture, "container_hex")?)?;
         let slot = bytes
             .as_chunks::<0xF0>()
@@ -569,19 +577,35 @@ impl EquipmentAddition {
         if verify_dispatch(&receipt).is_err() || receipt["status"] != 3 {
             return self.public(id);
         }
+        let slot = number(&plan, "slot")? as usize;
+        if receipt["slot"] != slot {
+            return self.public(id);
+        }
         let observed = match self.capture() {
             Ok(value) => value,
             Err(_) => return self.public(id),
         };
+        // The game acknowledged the insertion, but the inventory moved on before
+        // this readback (the item was sold, or the game restarted). Settle it as
+        // done without byte proof, so it never blocks the player or replays.
+        let unverified = |operations: &LiveAddOperations, reason: &str| {
+            operations.complete_equipment(
+                id,
+                &json!({"operation_id":id,"state":"dispatched_unverified",
+                "native_insertion_acknowledged":true,"dispatch_and_cleanup_verified":true,
+                "unverified_reason":reason,"native_receipt":receipt}),
+            )
+        };
         if observed["pid"] != plan["pid"]
             || observed["process_creation_time"] != plan["process_creation_time"]
-            || number(&observed, "serial")? != number(&plan, "serial")? + 1
-            || number(&observed, "acquisition_order")? != number(&plan, "acquisition_order")? + 1
         {
+            unverified(&self.operations, "game_process_changed")?;
             return self.public(id);
         }
-        let slot = number(&plan, "slot")? as usize;
-        if receipt["slot"] != slot {
+        if number(&observed, "serial")? != number(&plan, "serial")? + 1
+            || number(&observed, "acquisition_order")? != number(&plan, "acquisition_order")? + 1
+        {
+            unverified(&self.operations, "inventory_changed")?;
             return self.public(id);
         }
         let mut expected = hex_decode(text(&plan, "container_hex")?)?;
@@ -614,6 +638,7 @@ impl EquipmentAddition {
                 == 0;
         expected[slot * 0xF0..(slot + 1) * 0xF0].copy_from_slice(destination);
         if !fields_match || expected != observed_bytes {
+            unverified(&self.operations, "inventory_changed")?;
             return self.public(id);
         }
         self.operations.complete_equipment(

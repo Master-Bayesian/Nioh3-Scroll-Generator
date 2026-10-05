@@ -276,7 +276,13 @@ export interface EquipmentAddition {
     operation_id: string;
     plan_digest: string | null;
     state:
-      "prepared" | "verified" | "rejected_before_dispatch" | "rejected_before_insertion" | "uncertain" | "cancelled";
+      | "prepared"
+      | "verified"
+      | "rejected_before_dispatch"
+      | "rejected_before_insertion"
+      | "dispatched_unverified"
+      | "uncertain"
+      | "cancelled";
     process_id: number | null;
     slot_index: number | null;
     preview: CharacterEquipment | null;

@@ -86,6 +86,10 @@ export function publicError(message: string): string {
   const infeasible = message.match(/no solution in the native generation structure: ([\s\S]*)$/);
   if (infeasible) return infeasibleConditions(infeasible[1]);
   const cases: [RegExp, string][] = [
+    [/RESET_GAME_RUNNING/, "游戏正在运行。请先关闭游戏，再点“确认重置”。"],
+    [/RESET_WORKER_BUSY/, "工具还有操作没有结束。请等它完成，或关闭并重新打开工具后再重置。"],
+    [/RESET_ARCHIVE_FAILED/, "有文件正被占用，无法移走。请关闭并重新打开工具后再重置；仍不行时请导出反馈文件发给开发者。"],
+    [/Recover the previous equipment addition before preparing another/, "上一件装备的添加结果还没有确认。请在上一条记录里点“恢复核对”；如果一直无法确认，重启游戏并读档后就可以继续添加。"],
     [/EQUIPMENT_BACKUP_SOURCE_REQUIRED/, "发现多个存档。读取添加状态并确认本次未执行后，点击“准备另一件装备”，在“目标存档”里选中当前角色的存档，再生成预览。"],
     [/No save was found under .*expected <account>\/SAVEDATAxx\/SAVEDATA\.BIN/i, "未找到可读的角色存档。请查看技术详情中的搜索目录，在游戏中创建存档或恢复目录访问后重试；也可以在“目标存档”旁点“手动定位”选择存档。"],
     [/Source save (?:changed during backup|changed after equipment preparation)|Source save cannot be read at .*Cancel this equipment plan/i, "源存档已变化或无法读取。请查看技术详情中的源文件路径，等待游戏存档完成并恢复文件访问，再核对或取消旧操作并重新准备。结果不明时先恢复核对，不要重复添加。"],

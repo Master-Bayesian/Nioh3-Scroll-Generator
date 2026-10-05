@@ -42,7 +42,7 @@ import { RuntimeCompatibility } from "./RuntimeCompatibility";
 import { GameInstallation, GameVersionHint } from "./GameInstallation";
 import { DesktopCartActions, SavePicker } from "./CartActions";
 import { FeedbackSaved, Notice } from "./Notice";
-import { publicError } from "./public-errors";
+import { errorText, publicError } from "./public-errors";
 import {
   desktop,
   searchController,
@@ -330,6 +330,8 @@ function App() {
   const locale = useUiLocale();
   useEffect(()=>{document.documentElement.lang=locale;document.title=localize('独脚踏鞴工作室');if(desktop)void window.preferences.setLocale(locale).catch(error=>window.review.log(String(error)))},[locale]);
   const [feedbackState, setFeedbackState] = useState<"" | "busy" | "saved">("");
+  const [resetState, setResetState] = useState<"" | "confirm" | "busy">("");
+  const [resetError, setResetError] = useState("");
   const [q, setQ] = useState<Query>(initialQuery),
     [submitted, setSubmitted] = useState<Query>(initialQuery),
     [results, setResults] = useState<Sample[]>(
@@ -2485,6 +2487,36 @@ function App() {
                   </button>
                 )}
                 {feedbackState === "saved" && <FeedbackSaved onDismiss={() => setFeedbackState("")} />}
+                {desktop && window.support?.resetTool && (
+                  <button className="menu-item" data-action="reset-tool" disabled={resetState === "busy"}
+                    onClick={() => { setResetError(""); setResetState(resetState ? "" : "confirm"); }}>
+                    <span>重置工具</span>
+                  </button>
+                )}
+                {resetState !== "" && (
+                  <div className="reset-tool">
+                    <p>工具卡住、按钮没反应或一直提示先处理上一次操作时使用。请先关闭游戏。重置会把以前留下的操作记录移到数据目录的 reset-archive 文件夹，然后重新打开界面；存档备份、收藏和设置都会保留。</p>
+                    <div>
+                      <button className="primary" data-action="confirm-reset-tool" disabled={resetState === "busy"}
+                        onClick={() => {
+                          setResetState("busy");
+                          setResetError("");
+                          void window.support.resetTool!()
+                            .then(() => {
+                              try {
+                                for (const key of Object.keys(localStorage)) if (key !== "nioh3-theme") localStorage.removeItem(key);
+                              } catch {
+                                // The records are archived; the page reload still starts clean.
+                              }
+                              location.reload();
+                            })
+                            .catch((error) => { setResetState("confirm"); setResetError(errorText(error)); });
+                        }}>确认重置</button>
+                      <button disabled={resetState === "busy"} onClick={() => setResetState("")}>取消</button>
+                    </div>
+                    <Notice text={resetError} />
+                  </div>
+                )}
                 <button
                   className="menu-item"
                   onClick={() => {

@@ -144,3 +144,29 @@ fn checkpoint_metadata_is_covered_by_the_reviewed_plan_digest() {
         sha256_hex(super::super::count::canonical_json(&changed).as_bytes())
     );
 }
+
+#[test]
+fn an_acknowledged_insertion_whose_inventory_moved_on_settles_without_replay() {
+    let fixture = Fixture::new();
+    let operations = LiveAddOperations::new(&fixture.root.join("operations")).unwrap();
+    let plan = json!({"operation_id": ID, "kind": "equipment_native_add"});
+    operations.prepare(ID, &plan).unwrap();
+    let (digest, _) = operations.plan(ID).unwrap();
+    operations.claim(ID, &digest).unwrap();
+    assert_eq!(operations.unresolved_ids().unwrap(), vec![ID.to_string()]);
+    // Without the native acknowledgement it stays uncertain.
+    let bare = json!({"operation_id": ID, "state": "dispatched_unverified",
+        "dispatch_and_cleanup_verified": true});
+    assert!(operations.complete_equipment(ID, &bare).is_err());
+    let receipt = json!({"operation_id": ID, "state": "dispatched_unverified",
+        "native_insertion_acknowledged": true, "dispatch_and_cleanup_verified": true,
+        "unverified_reason": "inventory_changed"});
+    let snapshot = operations.complete_equipment(ID, &receipt).unwrap();
+    assert_eq!(snapshot.state.as_str(), "dispatched_unverified");
+    assert!(!snapshot.can_dispatch);
+    assert!(operations.unresolved_ids().unwrap().is_empty());
+    assert!(
+        operations.claim(ID, &digest).is_err(),
+        "a settled addition never replays"
+    );
+}

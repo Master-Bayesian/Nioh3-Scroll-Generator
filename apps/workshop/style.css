@@ -1363,3 +1363,9 @@ td.favorite-actions>.loadout-copy-one{margin:0 4px 0 0}
 /* Cards in the cart and history dialogs read like the result pane's card. */
 .compare-grid .scroll .scroll-hero p{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;font-size:12px;line-height:1.4;margin:2px 0}
 .compare-grid .scroll .scroll-hero strong{font:600 12px/1.4 "Microsoft YaHei UI","Microsoft YaHei","Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
+.side-popup .reset-tool{padding:6px 8px 8px;font-size:12px;line-height:1.6;color:#2f4b66}
+.side-popup .reset-tool>div{display:flex;gap:8px;margin-top:6px}
+.side-popup .reset-tool>div>button{padding:5px 14px;border:1px solid #c5d1e0;border-radius:6px;background:#fff;color:#2f4b66;font-size:12px}
+.side-popup .reset-tool>div>button.primary{background:#3c745f;border-color:#3c745f;color:#fff}
+.side-popup .reset-tool>div>button:disabled{opacity:.6}
+.live-equipment-drop{margin:10px 0;padding:10px 12px;border:1px solid #e3c9a0;border-radius:8px;background:#fdf6ea}

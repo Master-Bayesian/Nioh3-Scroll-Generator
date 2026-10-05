@@ -4756,6 +4756,7 @@
                 "verified",
                 "rejected_before_dispatch",
                 "rejected_before_insertion",
+                "dispatched_unverified",
                 "uncertain",
                 "cancelled"
               ]

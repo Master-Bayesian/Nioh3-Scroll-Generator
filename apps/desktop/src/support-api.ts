@@ -18,5 +18,7 @@ export interface DiagnosticReport {
 export interface SupportApi {
   diagnostics(): Promise<DiagnosticReport>;
   exportDiagnostics(): Promise<{ saved: boolean }>;
+  /** Desktop only: archive leftover operation records; refused while the game runs. */
+  resetTool?(): Promise<null>;
 }
 declare global { interface Window { support: SupportApi } }
