@@ -4876,9 +4876,9 @@
     },
     {
       "names": {
-        "zh-CN": "服部半藏（先代／父（鬼半藏））",
-        "ja-JP": "服部半蔵（先代／父（鬼半蔵））",
-        "en-US": "Hattori Hanzo（Former / father (Demon Hanzo)）"
+        "zh-CN": "服部半藏（前代）",
+        "ja-JP": "服部半蔵（先代）",
+        "en-US": "Hattori Hanzo（Former）"
       },
       "player_family": "B",
       "native_roles": [
@@ -4910,8 +4910,8 @@
     {
       "names": {
         "zh-CN": "服部半藏（现任／子）",
-        "ja-JP": "服部半蔵（現任／息子）",
-        "en-US": "Hattori Hanzo（Current / son）"
+        "ja-JP": "服部半蔵（当代）",
+        "en-US": "Hattori Hanzo（Current）"
       },
       "player_family": "B",
       "native_roles": [

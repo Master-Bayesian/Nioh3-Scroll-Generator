@@ -192,8 +192,8 @@ Rows are grouped only when role and all three native names match. The JSON and C
 | 5 | 惧鬼 | おとろし | Otoroshi | `0x0005AAF9@448` |
 | 5 | 执心鬼 | 執心鬼 | Demon of Obsession | `0x0007C995@456` |
 | 5 | 斋藤福 | 斎藤福 | Saito Fuku | `0x000A3F52@420` |
-| 5 | 服部半藏（先代／父（鬼半藏）） | 服部半蔵（先代／父（鬼半蔵）） | Hattori Hanzo（Former / father (Demon Hanzo)） | `0x000202A7@422` |
-| 5 | 服部半藏（现任／子） | 服部半蔵（現任／息子） | Hattori Hanzo（Current / son） | `0x000D35E1@419` |
+| 5 | 服部半藏（前代） | 服部半蔵（先代） | Hattori Hanzo（Former） | `0x000202A7@422` |
+| 5 | 服部半藏（现任／子） | 服部半蔵（当代） | Hattori Hanzo（Current） | `0x000D35E1@419` |
 | 5 | 本多忠胜 | 本多忠勝 | Honda Tadakatsu | `0x000F0361@421` |
 | 5 | 柳生十兵卫 | 柳生十兵衛 | Yagyu Jubei | `0x00064B4D@396` |
 | 5 | 柳生宗矩 | 柳生宗矩 | Yagyu Munenori | `0x000BD9D5@418` |

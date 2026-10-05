@@ -3846,7 +3846,7 @@
           73,
           74
         ],
-        "服部半藏（先代／父（鬼半藏））": [
+        "服部半藏（前代）": [
           422
         ],
         "服部半藏（现任／子）": [
@@ -4635,10 +4635,10 @@
           73,
           74
         ],
-        "服部半蔵（先代／父（鬼半蔵））": [
+        "服部半蔵（先代）": [
           422
         ],
-        "服部半蔵（現任／息子）": [
+        "服部半蔵（当代）": [
           419
         ],
         "本多忠勝": [
@@ -5230,10 +5230,10 @@
         "Grudge Spirit": [
           301
         ],
-        "Hattori Hanzo（Current / son）": [
+        "Hattori Hanzo（Current）": [
           419
         ],
-        "Hattori Hanzo（Former / father (Demon Hanzo)）": [
+        "Hattori Hanzo（Former）": [
           422
         ],
         "Hijikata Toshizo": [
@@ -30164,8 +30164,8 @@
       },
       "display_names": {
         "zh-CN": "服部半藏（现任／子）",
-        "ja-JP": "服部半蔵（現任／息子）",
-        "en-US": "Hattori Hanzo（Current / son）"
+        "ja-JP": "服部半蔵（当代）",
+        "en-US": "Hattori Hanzo（Current）"
       },
       "localization": {
         "zh-CN": {
@@ -30337,9 +30337,9 @@
         "en-US": "Hattori Hanzo"
       },
       "display_names": {
-        "zh-CN": "服部半藏（先代／父（鬼半藏））",
-        "ja-JP": "服部半蔵（先代／父（鬼半蔵））",
-        "en-US": "Hattori Hanzo（Former / father (Demon Hanzo)）"
+        "zh-CN": "服部半藏（前代）",
+        "ja-JP": "服部半蔵（先代）",
+        "en-US": "Hattori Hanzo（Former）"
       },
       "localization": {
         "zh-CN": {

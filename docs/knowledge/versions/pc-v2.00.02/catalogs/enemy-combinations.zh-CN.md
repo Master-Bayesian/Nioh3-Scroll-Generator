@@ -191,8 +191,8 @@
 | 惧鬼 | おとろし | Otoroshi | 5 | 1/2/3/4/5 | 1 |
 | 执心鬼 | 執心鬼 | Demon of Obsession | 5 | 1/2/3/4/5 | 1 |
 | 斋藤福 | 斎藤福 | Saito Fuku | 5 | 1/2/3/4/5 | 1 |
-| 服部半藏（先代／父（鬼半藏）） | 服部半蔵（先代／父（鬼半蔵）） | Hattori Hanzo（Former / father (Demon Hanzo)） | 5 | 1/2/3/4/5 | 1 |
-| 服部半藏（现任／子） | 服部半蔵（現任／息子） | Hattori Hanzo（Current / son） | 5 | 1/2/3/4/5 | 1 |
+| 服部半藏（前代） | 服部半蔵（先代） | Hattori Hanzo（Former） | 5 | 1/2/3/4/5 | 1 |
+| 服部半藏（现任／子） | 服部半蔵（当代） | Hattori Hanzo（Current） | 5 | 1/2/3/4/5 | 1 |
 | 本多忠胜 | 本多忠勝 | Honda Tadakatsu | 5 | 1/2/3/4/5 | 1 |
 | 柳生十兵卫 | 柳生十兵衛 | Yagyu Jubei | 5 | 1/2/3/4/5 | 1 |
 | 柳生宗矩 | 柳生宗矩 | Yagyu Munenori | 5 | 1/2/3/4/5 | 1 |
