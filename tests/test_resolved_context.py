@@ -40,14 +40,14 @@ V202 = (2, 0, 2, 0)
 V20002 = (2, 0, 0, 2)
 V201 = (2, 0, 1, 0)
 
-# Pinned v0.8.5 product-identity goldens, all captured with no accelerator.
+# Pinned v0.8.6 product-identity goldens, all captured with no accelerator.
 V202_CANONICAL = (
     '{"algorithm_version":"scroll-generation-v0.7-native-completion-1",'
     '"bundle_digest":"d1fb81af3bfc8e577239c2facdb097c320c9ab8b0a88e9fea792b1819c5584b2",'
     '"game_file_version":"2.0.2.0",'
     '"game_profile":"pc-v2.00.02-v2.01",'
     '"policy_version":"operation-policy-v1",'
-    '"product_version":"0.8.5",'
+    '"product_version":"0.8.6",'
     '"resources_digest":"411866d772e8e2450c1f4becd4c5e79761600f7766ab0659438bcbde21997048",'
     '"seed_accelerator_abi":null,'
     '"seed_accelerator_build_id":null,'
@@ -58,18 +58,18 @@ LEGACY_CANONICAL = (
     '{"algorithm_version":"scroll-generation-v0.7-native-completion-1",'
     '"game_profile":"pc-v2.00.02-v2.01",'
     '"policy_version":"operation-policy-v1",'
-    '"product_version":"0.8.5",'
+    '"product_version":"0.8.6",'
     '"resources_digest":"411866d772e8e2450c1f4becd4c5e79761600f7766ab0659438bcbde21997048",'
     '"seed_accelerator_abi":null,'
     '"seed_accelerator_build_id":null}'
 )
-V202_CONTEXT_DIGEST = "17688d896cee63e686bd5ffad95a60d262ecda7447409d431a06ecc11aba6e78"
+V202_CONTEXT_DIGEST = "37fc2cebba0a47992ea441039a6fc9e734627ef4252a1ecf4f77bc34b8403e54"
 V202_BUNDLE_DIGEST = "d1fb81af3bfc8e577239c2facdb097c320c9ab8b0a88e9fea792b1819c5584b2"
 V202_VERSIONED_DIGEST = "09fa65803a0c058880f4d38900290b152eab89febb03615ce2576f4b020b358b"
-V20002_CONTEXT_DIGEST = "6f67649b9c7dbb9a57fa2792a7e43efa1ca62512c03bd687ef6d4c8f3dd557a5"
+V20002_CONTEXT_DIGEST = "edd49a41f34fb78f70d1364bf4ffb591a4ab7fb6cb6284074ecc1fd6e824e550"
 V20002_BUNDLE_DIGEST = "40fa95202f987edc50f62c329dd81871e51f759fcfad36227f7e089b19a4a531"
 V20002_VERSIONED_DIGEST = "46d6765e79ad79227e0acf2d5956290f99834283dc570de559f88b15d6d31ae3"
-SHARED_LEGACY_DIGEST = "8d2873684a233a7285a3c8c8ad93fe282bf767d552f47f1888984ab988655d25"
+SHARED_LEGACY_DIGEST = "6a832320cc19d9579945a89a8f166abb8995219ad09b592728a7c3c0bc40a40d"
 RESOURCES_DIGEST = "411866d772e8e2450c1f4becd4c5e79761600f7766ab0659438bcbde21997048"
 
 # The Rust fixture captured its digest with no accelerator attached; this host
