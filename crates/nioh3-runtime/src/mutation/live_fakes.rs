@@ -415,6 +415,9 @@ pub struct LiveAddFaults {
     pub readback_changed: bool,
     /// The game was restarted between prepare and verification.
     pub pid_reuse: bool,
+    /// Once, after the first preview, the game generates something (a
+    /// pickup) and its serial counter moves on before the next inspection.
+    pub pickup_after_preview: bool,
 }
 
 /// An injected native executor over the fixture memory.
@@ -636,6 +639,12 @@ impl FakeLiveAddExecutor {
 
 impl LiveAddExecutor for FakeLiveAddExecutor {
     fn inspect(&mut self) -> Result<(Value, Inventory, NativeIndex), RuntimeError> {
+        if self.faults.pickup_after_preview && !self.receipts.is_empty() {
+            self.faults.pickup_after_preview = false;
+            let data = self.fixture.data()?;
+            let serial = self.fixture.serial_counter()?;
+            self.fixture.set_u64(data + 8, serial + 1);
+        }
         let context = self.context()?;
         let (inventory, index) = self.fixture.capture()?;
         Ok((context, inventory, index))

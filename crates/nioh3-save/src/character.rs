@@ -506,7 +506,8 @@ pub struct EquipmentFields {
     pub level_before_forge: u16,
     pub plus: u16,
     pub familiarity: u32,
-    pub inventory_key: u16,
+    /// The game's acquisition order; a full u32 in memory and in the save.
+    pub inventory_key: u32,
     pub seed: u16,
     pub rarity: u8,
     /// `(effect id, raw value)` per entry; an unused entry has id `u32::MAX`.
@@ -551,7 +552,7 @@ pub fn equipment_fields(record: &[u8]) -> Result<EquipmentFields, SaveReadError>
         level_before_forge: u16_at(record, 0x08),
         plus: u16_at(record, 0x0A),
         familiarity: u32_at(record, 0x14),
-        inventory_key: u16_at(record, 0x1C),
+        inventory_key: u32_at(record, 0x1C),
         seed: u16_at(record, 0x22),
         rarity: record[0x30],
         hell: record[0x1A] & 0x10 != 0,

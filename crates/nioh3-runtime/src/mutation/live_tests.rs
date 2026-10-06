@@ -944,6 +944,42 @@ fn a_batch_over_a_diverged_disk_checkpoint_verifies_every_item() {
     assert_eq!(receipt["verified_count"], json!(3));
 }
 
+#[test]
+fn a_pickup_between_review_and_confirm_reprepares_the_first_batch_item() {
+    let root = scratch("live-batch-pickup");
+    let save = save_path(&root);
+    let fixture = InventoryFixture::new(&[(0, 0x7000, 0x77)], 0x7001, 3);
+    std::fs::write(&save, decrypted_save(&fixture).expect("save")).expect("save");
+    let mut application = fixture_application(
+        &root,
+        FakeLiveAddExecutor::with_faults(
+            fixture,
+            LiveAddFaults {
+                pickup_after_preview: true,
+                ..LiveAddFaults::default()
+            },
+        ),
+        FakeSaveBackup::new(&root),
+    );
+    let candidates = batch_candidates(2);
+    let prepared = LiveAddBatch::prepare(&mut application, &candidates, &save).expect("prepared");
+    let batch_id = prepared["batch_id"].as_str().expect("batch id").to_string();
+    let digest = prepared["plan_digest"]
+        .as_str()
+        .expect("digest")
+        .to_string();
+    let receipt = LiveAddBatch::execute(
+        &mut application,
+        &batch_id,
+        &digest,
+        &mut || false,
+        &mut |_| {},
+    )
+    .expect("executed");
+    assert_eq!(receipt["state"], json!("complete"), "{receipt}");
+    assert_eq!(receipt["verified_count"], json!(2));
+}
+
 /// Each version's count layout reads the inventory through exactly the
 /// `(layout, version)` pair the inventory gate accepts, so PC v2.02 is not
 /// refused by a hard-coded PC v2.01 name and cannot borrow another build's.

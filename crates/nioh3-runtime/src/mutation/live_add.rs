@@ -11,7 +11,7 @@
 //! reconstructed from the preview payload or from renderer bytes.
 
 use crate::error::RuntimeError;
-use crate::mutation::count::{exclusive_json, new_operation_id, read_bytes, read_json, sha256_hex};
+use crate::mutation::count::{exclusive_json, new_operation_id, read_bytes, sha256_hex};
 use crate::mutation::descriptor::{
     assembly_descriptor, assembly_record_in_context, new_assembly_record,
 };
@@ -593,24 +593,9 @@ impl LiveAddApplication {
                     return Err(rejected("Batch process context changed"));
                 }
             }
-            let previous_directory = self.operations.directory(previous_operation_id)?;
-            let verified_after = read_json(&previous_directory.join("inventory-after.json"))?;
-            let verified_index = read_json(&previous_directory.join("index-after.json"))?;
-            let before_json = inventory_json(&before, self.executor.display_version());
-            for field in [
-                "pid",
-                "entries",
-                "serial_counter",
-                "acquisition_order_counter",
-                "container_sha256",
-            ] {
-                if before_json.get(field) != verified_after.get(field) {
-                    return Err(rejected("Inventory changed between batch items"));
-                }
-            }
-            if mapping != index_entries(&verified_index)? {
-                return Err(rejected("Native index changed between batch items"));
-            }
+            // Pickups or sales between items are ordinary play: this item reads
+            // its own live inventory and index above and is verified against
+            // them, so the previous item's end state need not still hold.
             match parent
                 .get(DISK_PERSISTENCE_BASELINE_FIELD)
                 .filter(|_| !save_moved)

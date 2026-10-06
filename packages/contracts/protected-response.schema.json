@@ -277,7 +277,7 @@
         "inventory_key": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 65535
+          "maximum": 4294967295
         },
         "seed": {
           "type": "integer",
