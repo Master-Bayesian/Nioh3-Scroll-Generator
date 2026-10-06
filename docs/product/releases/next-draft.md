@@ -1,0 +1,60 @@
+# Next release engineering record (draft)
+
+Status: **draft, not released.** Base: `v0.8.6` (`ddfbe27`). Version not yet
+chosen by the owner. The owner asked on 2026-10-05 to hold these fixes for the
+next batch rather than ship a patch.
+
+## Player-facing changes
+
+- **Live equipment addition no longer gets stuck.** Two players were locked
+  out after an addition: one sold the item before the readback, one restarted
+  the game. Recovery now settles an addition the game acknowledged but whose
+  inventory moved on as `dispatched_unverified` ("the game carried it out;
+  check your inventory, do not add it again"). An unresolved addition blocks
+  only its own game process, a repeated check says what to do next, and an
+  unconfirmed record can be dropped after a confirmation.
+- **Settings → 重置工具.** With the game closed, it stops the workers and moves
+  operation records, save journals and locks to `reset-archive/<time>` in the
+  data directory, then reloads the interface. Backups, favorites and settings
+  are kept.
+- **No more refusals over ordinary play.** Pickups, sales, auto-dismantling
+  and autosaves no longer refuse or expire a live edit:
+  - equipment addition drops the 65535 acquisition-counter cap (the game's own
+    setter has none; a player with auto-dismantle passed it);
+  - confirming an equipment preview uses the game's current counters and a
+    free slot instead of demanding an unchanged inventory, and recovery checks
+    the inserted item in its slot only;
+  - scroll live addition and count edits accept a game autosave after review
+    (the verified backup must still match);
+  - a scroll batch continues when the inventory changes between items, and its
+    first item is prepared again if a pickup expired it before confirmation.
+- **The game's 2000-item held limit is enforced.** The container has 2500
+  slots but the game keeps at most 2000 held items; an addition past that was
+  lost. Live and save-file equipment additions now refuse with
+  "背包里的装备已满（2000 件）…".
+- The scroll cart and the count editor offer "不再核对，继续…" when a check
+  still cannot settle, not only when it fails.
+
+## Evidence
+
+- Live, PC v2.02, owner's game (2026-10-05): with the counter set to 65533,
+  four additions got keys 65533..65536; after a shrine save the save file
+  stores `+0x1C` as a full u32 (`00 00 01 00`), and a reload reads all four
+  back. The save reader and response schema now carry the key as u32.
+- Live: after preparing a preview, a simulated pickup filled the planned slot
+  and advanced both counters; confirmation placed the item in the next free
+  slot with the current key and serial, verified, and left the other item
+  untouched.
+- In-game count `1558/2000` matched the occupied-slot count read from memory.
+- Packaged reset: six state directories archived, workers restarted, saves
+  detected afterwards. Refusal while the game runs is untested live.
+- Rust runtime 221, protected and save suites, the equipment helper E2E
+  (single-threaded) and 109 desktop tests pass.
+
+## Not changed
+
+- Scroll live-add recovery still requires `before + one item` exactly; a
+  rarely needed late recovery after more play stays unconfirmed (new additions
+  in a restarted game are not blocked, and the reset clears it).
+- The legacy Python live-add keeps its batch continuity check.
+- The 2000 limit is a PC v2.02 constant, not read from the game.
