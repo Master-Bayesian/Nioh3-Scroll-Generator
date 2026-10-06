@@ -71,6 +71,9 @@ use nioh3_worker::GameFileVersion;
 use crate::app::{JobContext, Role, RoleApplication};
 use crate::error::HostError;
 
+/// The held equipment count the game keeps and shows (`n/2000`).
+const HELD_EQUIPMENT_LIMIT: usize = 2000;
+
 const PLAN_TTL: Duration = Duration::from_secs(600);
 const RECORD_BYTES: usize = 0xE8;
 /// The live scroll serial a count or scroll edit identifies its scroll by.
@@ -586,6 +589,19 @@ impl SaveApplication {
                     _ => None,
                 })
                 .collect();
+            // The game keeps at most 2000 held items (shown as n/2000) although
+            // the container has more slots; an item past that count is lost.
+            let held = (0..EQUIPMENT_SLOT_COUNT)
+                .filter(|&slot| {
+                    equipment_record(plain, slot)
+                        .is_ok_and(|record| !equipment_slot_is_empty(record))
+                })
+                .count();
+            if held - taken.len().min(held) + requested_adds.len() > HELD_EQUIPMENT_LIMIT {
+                return Err(HostError::rejected(format!(
+                    "EQUIPMENT_INVENTORY_FULL: {held}/{HELD_EQUIPMENT_LIMIT}"
+                )));
+            }
             // Seeded adds use the character's own difficulty and progress,
             // read from this save, whatever the request carried.
             let progress = nioh3_save::character::generation_progress(plain);
