@@ -1,4 +1,12 @@
-# Current project handoff - 2026-10-05
+# Current project handoff - 2026-10-06
+
+## PC v2.02 equipment static-data research
+
+The reviewed research export records current armor base weight and five
+minimum-stat fields from `item.bin`, while retaining each requirement's high
+byte as unknown auxiliary data. The data is reproducible against the checked-in
+PC v2.02 resource and is awaiting PR review; it does not change product
+behavior. See the [research report](../research/PC_V202_EQUIPMENT_STATIC_FIELDS_20261006.md).
 
 ## v0.8.6 published release
 
