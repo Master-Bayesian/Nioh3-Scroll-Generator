@@ -1507,3 +1507,6 @@ NPC武器	NPC weapon	NPC武器
 工具还有操作没有结束。请等它完成，或关闭并重新打开工具后再重置。	An operation is still running. Wait for it to finish, or close and reopen the tool, then reset.	まだ終わっていない操作があります。完了を待つか、ツールを閉じて開き直してからリセットしてください。
 有文件正被占用，无法移走。请关闭并重新打开工具后再重置；仍不行时请导出反馈文件发给开发者。	A file is in use and cannot be moved. Close and reopen the tool, then reset again; if it still fails, export a feedback file and send it to the developer.	使用中のファイルがあるため移動できません。ツールを閉じて開き直してから、もう一度リセットしてください。それでも失敗する場合は、フィードバックファイルを書き出して開発者に送ってください。
 背包里的装备已满（2000 件）。请先在游戏里分解、出售或存入仓库，空出位置后再添加。	Your equipment inventory is full (2000 items). Dismantle, sell or store some items in game to make room, then add again.	装備の所持品がいっぱいです（2000個）。ゲーム内で分解・売却するか倉庫に預けて空きを作ってから追加してください。
+仍无法确认上次的结果（例如游戏重启过）。可以先在游戏里看这张绘卷的次数，再决定是否继续修改。	The last result still cannot be confirmed (for example, the game restarted). Check this scroll's count in game, then decide whether to continue.	前回の結果をまだ確認できません（ゲームを再起動した場合など）。ゲーム内でこの絵巻の回数を確認してから、続けるか決めてください。
+不再核对，继续修改	Stop checking and continue editing	確認をやめて変更を続ける
+已不再提醒上次的次数修改。	The reminder for the last count edit has been dropped.	前回の回数変更の通知を解除しました。

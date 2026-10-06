@@ -453,6 +453,8 @@ export function DesktopCartActions({
           `已验证添加 ${batch.verified_count} / ${batch.count} 张；${batch.state === "complete" ? "已完成" : batch.state === "cancelled" ? "已取消" : "请核对剩余操作，避免重复添加"}`,
         );
       setUncertain(batch.state === "uncertain");
+      // A check that still cannot settle offers the same way out as a failed one.
+      setInspectFailed(batch.state === "uncertain");
       if (batch.state !== "uncertain") {
         localStorage.removeItem("nioh3-review-live-batch");
         setPlan(null);

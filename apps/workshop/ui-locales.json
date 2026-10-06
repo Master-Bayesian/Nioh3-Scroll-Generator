@@ -6024,6 +6024,18 @@
       "Your equipment inventory is full (2000 items). Dismantle, sell or store some items in game to make room, then add again.",
       "装備の所持品がいっぱいです（2000個）。ゲーム内で分解・売却するか倉庫に預けて空きを作ってから追加してください。"
     ],
+    "仍无法确认上次的结果（例如游戏重启过）。可以先在游戏里看这张绘卷的次数，再决定是否继续修改。": [
+      "The last result still cannot be confirmed (for example, the game restarted). Check this scroll's count in game, then decide whether to continue.",
+      "前回の結果をまだ確認できません（ゲームを再起動した場合など）。ゲーム内でこの絵巻の回数を確認してから、続けるか決めてください。"
+    ],
+    "不再核对，继续修改": [
+      "Stop checking and continue editing",
+      "確認をやめて変更を続ける"
+    ],
+    "已不再提醒上次的次数修改。": [
+      "The reminder for the last count edit has been dropped.",
+      "前回の回数変更の通知を解除しました。"
+    ],
     "确认放下": [
       "Confirm drop",
       "破棄する"

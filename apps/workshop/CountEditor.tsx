@@ -31,6 +31,7 @@ export function CountEditor({ sample }: { sample: Sample }) {
   );
   const [plan, setPlan] = useState<CountEdit | null>(null),
     [ref, setRef] = useState<Reference | null>(stored);
+  const [checked, setChecked] = useState(false);
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
   const scope = JSON.stringify([
@@ -137,6 +138,7 @@ export function CountEditor({ sample }: { sample: Sample }) {
     } catch (error) {
       setMessage(String(error));
     } finally {
+      setChecked(true);
       setBusy(false);
     }
   }
@@ -181,6 +183,26 @@ export function CountEditor({ sample }: { sample: Sample }) {
           <p className="count-hint">
             上一次次数修改还没有完成。请先点“核对上次次数修改”，确认或放弃后再修改。
           </p>
+        )}
+        {ref && checked && plan?.state !== "prepared" && !busy && (
+          <div className="cart-forget">
+            <p>
+              仍无法确认上次的结果（例如游戏重启过）。可以先在游戏里看这张绘卷的次数，再决定是否继续修改。
+            </p>
+            <button
+              onClick={() => {
+                // The backend record stays for later recovery; only this
+                // view's reminder is dropped, at the player's request.
+                localStorage.removeItem(storageKey);
+                setRef(null);
+                setPlan(null);
+                setChecked(false);
+                setMessage("已不再提醒上次的次数修改。");
+              }}
+            >
+              不再核对，继续修改
+            </button>
+          </div>
         )}
         {plan?.state === "prepared" && (
           <div className="prepared-cart">
