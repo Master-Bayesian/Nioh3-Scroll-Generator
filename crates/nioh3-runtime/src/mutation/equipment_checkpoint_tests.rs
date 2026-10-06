@@ -170,3 +170,18 @@ fn an_acknowledged_insertion_whose_inventory_moved_on_settles_without_replay() {
         "a settled addition never replays"
     );
 }
+
+#[test]
+fn a_full_held_inventory_is_refused_before_any_slot_past_the_game_limit() {
+    let mut container = vec![0u8; 2500 * 0xF0];
+    for slot in 0..HELD_EQUIPMENT_LIMIT - 1 {
+        container[slot * 0xF0] = 1;
+    }
+    assert!(require_held_room(&container).is_ok());
+    container[(HELD_EQUIPMENT_LIMIT - 1) * 0xF0 + 1] = 1;
+    let error = require_held_room(&container).unwrap_err().message();
+    assert!(
+        error.contains("EQUIPMENT_INVENTORY_FULL: 2000/2000"),
+        "{error}"
+    );
+}

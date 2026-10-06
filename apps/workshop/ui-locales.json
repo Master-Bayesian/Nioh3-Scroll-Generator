@@ -6020,6 +6020,10 @@
       "A file is in use and cannot be moved. Close and reopen the tool, then reset again; if it still fails, export a feedback file and send it to the developer.",
       "使用中のファイルがあるため移動できません。ツールを閉じて開き直してから、もう一度リセットしてください。それでも失敗する場合は、フィードバックファイルを書き出して開発者に送ってください。"
     ],
+    "背包里的装备已满（2000 件）。请先在游戏里分解、出售或存入仓库，空出位置后再添加。": [
+      "Your equipment inventory is full (2000 items). Dismantle, sell or store some items in game to make room, then add again.",
+      "装備の所持品がいっぱいです（2000個）。ゲーム内で分解・売却するか倉庫に預けて空きを作ってから追加してください。"
+    ],
     "确认放下": [
       "Confirm drop",
       "破棄する"

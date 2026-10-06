@@ -86,6 +86,7 @@ export function publicError(message: string): string {
   const infeasible = message.match(/no solution in the native generation structure: ([\s\S]*)$/);
   if (infeasible) return infeasibleConditions(infeasible[1]);
   const cases: [RegExp, string][] = [
+    [/EQUIPMENT_INVENTORY_FULL/, "背包里的装备已满（2000 件）。请先在游戏里分解、出售或存入仓库，空出位置后再添加。"],
     [/RESET_GAME_RUNNING/, "游戏正在运行。请先关闭游戏，再点“确认重置”。"],
     [/RESET_WORKER_BUSY/, "工具还有操作没有结束。请等它完成，或关闭并重新打开工具后再重置。"],
     [/RESET_ARCHIVE_FAILED/, "有文件正被占用，无法移走。请关闭并重新打开工具后再重置；仍不行时请导出反馈文件发给开发者。"],

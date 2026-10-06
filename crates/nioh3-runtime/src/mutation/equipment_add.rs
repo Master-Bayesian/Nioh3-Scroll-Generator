@@ -16,6 +16,25 @@ use crate::RuntimeError;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 
+/// The held equipment limit the game enforces and shows (`1558/2000`). The
+/// container has 2500 slots, but an item placed past this count is not kept:
+/// a player at 2000 lost an added item that the tool put in a further slot.
+const HELD_EQUIPMENT_LIMIT: usize = 2000;
+
+/// Refuse when the held inventory is at the game's limit.
+fn require_held_room(container: &[u8]) -> Result<(), RuntimeError> {
+    let held = container
+        .chunks_exact(0xF0)
+        .filter(|record| record[0] != 0 || record[1] != 0)
+        .count();
+    if held >= HELD_EQUIPMENT_LIMIT {
+        return Err(rejected(format!(
+            "EQUIPMENT_INVENTORY_FULL: {held}/{HELD_EQUIPMENT_LIMIT}"
+        )));
+    }
+    Ok(())
+}
+
 fn rejected(text: impl Into<String>) -> RuntimeError {
     RuntimeError::LiveAddRejected {
         detail: text.into(),
@@ -391,6 +410,7 @@ impl EquipmentAddition {
             }
         }
         let bytes = hex_decode(text(&capture, "container_hex")?)?;
+        require_held_room(&bytes)?;
         let slot = bytes
             .as_chunks::<0xF0>()
             .0
@@ -503,6 +523,7 @@ impl EquipmentAddition {
             }
         }
         let bytes = hex_decode(text(&current, "container_hex")?)?;
+        require_held_room(&bytes)?;
         let free = |slot: usize| bytes[slot * 0xF0] == 0 && bytes[slot * 0xF0 + 1] == 0;
         let planned_slot = number(&plan, "slot")? as usize;
         let slot = if free(planned_slot) {
