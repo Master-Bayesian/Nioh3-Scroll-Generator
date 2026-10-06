@@ -1,4 +1,12 @@
-# Current project handoff - 2026-10-05
+# Current project handoff - 2026-10-06
+
+## PC v2.02 load-capacity research
+
+Read-only research recorded equipment-capacity UI values at stamina 5/40/80/99
+in both styles and a bounded native attribute-copy path. The capacity formula,
+style selector, and rounding remain unresolved. See the [research record](../research/PC_V202_LOAD_CAPACITY_RESEARCH_20261006.md).
+The detailed raw captures and Pro handoff remain in local ignored
+`deliverables/`; this does not change product behavior or authorize a release.
 
 ## v0.8.6 published release
 

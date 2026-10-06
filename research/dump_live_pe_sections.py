@@ -4,11 +4,10 @@ import argparse
 import ctypes
 import hashlib
 import json
+import struct
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
-
-import pefile
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -22,6 +21,31 @@ from nioh3_scroll_editor.runtime_catalog_probe import (
     _kernel32,
     _read_process_memory,
 )
+
+
+def _pe_section_headers(executable: Path) -> list[tuple[str, int, int]]:
+    """Read only the PE headers needed to locate loaded section RVAs."""
+    with executable.open("rb") as source:
+        header = source.read(0x10000)
+    if len(header) < 0x40 or header[:2] != b"MZ":
+        raise ValueError("Invalid DOS header")
+    pe_offset = struct.unpack_from("<I", header, 0x3C)[0]
+    if pe_offset + 24 > len(header) or header[pe_offset:pe_offset + 4] != b"PE\0\0":
+        raise ValueError("Invalid PE header")
+    section_count = struct.unpack_from("<H", header, pe_offset + 6)[0]
+    optional_size = struct.unpack_from("<H", header, pe_offset + 20)[0]
+    if not 0 < section_count <= 96:
+        raise ValueError("Unsupported PE section count")
+    section_table = pe_offset + 24 + optional_size
+    if section_table + section_count * 40 > len(header):
+        raise ValueError("PE section table exceeds bounded header read")
+    sections = []
+    for index in range(section_count):
+        offset = section_table + index * 40
+        name = header[offset:offset + 8].rstrip(b"\0").decode("ascii", errors="replace")
+        virtual_size, rva, raw_size = struct.unpack_from("<III", header, offset + 8)
+        sections.append((name, rva, max(virtual_size, raw_size)))
+    return sections
 
 
 def dump_sections(
@@ -44,16 +68,12 @@ def dump_sections(
     if not handle:
         raise ctypes.WinError(ctypes.get_last_error())
 
-    pe = pefile.PE(str(executable), fast_load=True)
     try:
         output_dir.mkdir(parents=True, exist_ok=True)
         dumped: list[dict[str, object]] = []
-        for section in pe.sections:
-            name = section.Name.rstrip(b"\0").decode("ascii", errors="replace")
+        for name, rva, size in _pe_section_headers(executable):
             if name not in section_names:
                 continue
-            rva = int(section.VirtualAddress)
-            size = max(int(section.Misc_VirtualSize), int(section.SizeOfRawData))
             data = _read_process_memory(dll, handle, module_base + rva, size)
             if len(data) != size:
                 raise RuntimeError(
@@ -75,7 +95,6 @@ def dump_sections(
         if missing:
             raise RuntimeError(f"PE sections not found: {', '.join(missing)}")
     finally:
-        pe.close()
         dll.CloseHandle(handle)
 
     report: dict[str, object] = {

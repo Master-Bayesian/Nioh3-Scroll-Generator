@@ -1,0 +1,13 @@
+{
+  "schema": "nioh3-load-capacity-ui-grid/v1",
+  "game_file_version": "2.0.2.0",
+  "executable_sha256": "e22c4a635e4ec1e27a177b76e27d7f6a637f426c0ed3928b60f5693bc52ae130",
+  "source": "operator-read UI values with same-process read-only stamina validation",
+  "modifier_state": "no equipment or additional capacity effects, per operator",
+  "rows": [
+    {"stamina": 5, "samurai_ui": 29.5, "ninja_ui": 14.1},
+    {"stamina": 40, "samurai_ui": 48.4, "ninja_ui": 22.8},
+    {"stamina": 80, "samurai_ui": 53.7, "ninja_ui": 24.7},
+    {"stamina": 99, "samurai_ui": 55.8, "ninja_ui": 25.2}
+  ]
+}
