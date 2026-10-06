@@ -136,6 +136,9 @@ global semantic key.
 
 ### Active research/handoff
 
+- [PC v2.02 armor weight and minimum stat requirements](../research/PC_V202_EQUIPMENT_STATIC_FIELDS_20261006.md)
+  — current-armor static fields extracted from `item.bin`; requirement high
+  bytes remain uninterpreted, with 18 external-reference samples recorded.
 - [v0.8.2 live character and equipment research (2026-09-26)](V082_LIVE_CHARACTER_EQUIPMENT_RESEARCH_20260926.md)
   — PC v2.02 player struct (Amrita, gold, stats, level, glory, skill points),
   the tagged save stream, the equipment container and record layout, forge

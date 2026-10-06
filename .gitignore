@@ -104,6 +104,14 @@ research/*
 !research/possessed_enemy_capture/
 !research/possessed_enemy_capture/**
 research/possessed_enemy_capture/**/__pycache__/
+!research/equipment_static_v202/
+!research/equipment_static_v202/research_extract_equipment_static_v202.py
+!research/equipment_static_v202/equipment_static_data_v202.json
+!research/equipment_static_v202/equipment_static_data_v202.csv
+!research/equipment_static_v202/item_table_static_fields_v202_full.csv
+!research/equipment_static_v202/validation_samples_v202.csv
+!research/equipment_static_v202/SHA256SUMS.txt
+research/equipment_static_v202/__pycache__/
 !research/enemy_states_v201/
 !research/enemy_states_v201/**
 research/enemy_states_v201/**/__pycache__/
