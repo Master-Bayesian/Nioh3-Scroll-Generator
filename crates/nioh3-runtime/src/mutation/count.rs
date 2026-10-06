@@ -975,19 +975,19 @@ impl CountEditor {
     }
 
     fn attempt(&mut self, plan: &CountPlan) -> Result<String, AttemptFailure> {
-        for path in [&plan.save_path, &plan.backup_path] {
-            let bytes = read_bytes(Path::new(path)).map_err(|error| AttemptFailure {
+        // The backup must still be the reviewed save; the live save itself may
+        // have been autosaved by the game since, which is ordinary play.
+        let bytes = read_bytes(Path::new(&plan.backup_path)).map_err(|error| AttemptFailure {
+            attempted: false,
+            error,
+        })?;
+        if sha256_hex(&bytes) != plan.source_sha256 {
+            return Err(AttemptFailure {
                 attempted: false,
-                error,
-            })?;
-            if sha256_hex(&bytes) != plan.source_sha256 {
-                return Err(AttemptFailure {
-                    attempted: false,
-                    error: RuntimeError::CountSourceChanged {
-                        detail: "Save or automatic backup changed; prepare again".to_string(),
-                    },
-                });
-            }
+                error: RuntimeError::CountSourceChanged {
+                    detail: "Save or automatic backup changed; prepare again".to_string(),
+                },
+            });
         }
         let current = self
             .memory

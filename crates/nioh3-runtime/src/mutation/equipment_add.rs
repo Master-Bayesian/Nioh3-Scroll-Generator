@@ -168,6 +168,23 @@ impl EquipmentAddition {
         }
         Ok(self.requests.join(format!("{id}.json")))
     }
+    fn dispatch_path(&self, id: &str) -> Result<PathBuf, RuntimeError> {
+        if !is_canonical_uuid(id) {
+            return Err(rejected("Use a canonical operation UUID"));
+        }
+        Ok(self.requests.join(format!("{id}.dispatch.json")))
+    }
+    /// The reviewed plan with the counters, snapshot and slot it was
+    /// dispatched with (equal to the plan for one dispatched before refresh).
+    fn dispatched_plan(&self, id: &str) -> Result<Value, RuntimeError> {
+        let (_, mut plan) = self.operations.plan(id)?;
+        if let Ok(dispatch) = read_json(&self.dispatch_path(id)?) {
+            for key in ["serial", "acquisition_order", "container_hex", "slot"] {
+                plan[key] = dispatch[key].clone();
+            }
+        }
+        Ok(plan)
+    }
     pub fn operation_pid(state_root: &Path, id: &str) -> Result<u32, RuntimeError> {
         if !is_canonical_uuid(id) {
             return Err(rejected("Use a canonical operation UUID"));
@@ -275,11 +292,9 @@ impl EquipmentAddition {
                 .try_into()
                 .map_err(|_| rejected("Short acquisition counter"))?,
         );
-        if acquisition_order >= 65535 {
-            return Err(rejected(
-                "Equipment acquisition key cannot round-trip into the save",
-            ));
-        }
+        // No cap on the acquisition counter: the game's own setter 0x54C380
+        // assigns `counter` and increments it unchecked for every natural
+        // pickup, and the insertion runs that same setter.
         if serial >= SAVE_GENERATION_SERIAL_MAX {
             return Err(rejected("Equipment serial cannot round-trip into the save"));
         }
@@ -467,16 +482,16 @@ impl EquipmentAddition {
         }
         self.require_checkpoint(id, plan.get("save_checkpoint"))?;
         let current = self.capture()?;
+        // Only the process and the game's code must be the ones reviewed. The
+        // previewed item depends on its seed and descriptor alone, so pickups,
+        // sales or auto-dismantling since the preview just refresh the counters,
+        // the inventory snapshot and, when the planned slot was taken, the slot.
         for key in [
             "pid",
             "process_creation_time",
             "module_base",
             "manager",
             "data",
-            "serial",
-            "acquisition_order",
-            "scheduler_owner",
-            "container_hex",
             "builder_code_hex",
             "insertion_code_hex",
             "native_chain",
@@ -487,7 +502,32 @@ impl EquipmentAddition {
                 ));
             }
         }
+        let bytes = hex_decode(text(&current, "container_hex")?)?;
+        let free = |slot: usize| bytes[slot * 0xF0] == 0 && bytes[slot * 0xF0 + 1] == 0;
+        let planned_slot = number(&plan, "slot")? as usize;
+        let slot = if free(planned_slot) {
+            planned_slot
+        } else {
+            (0..bytes.len() / 0xF0)
+                .find(|&slot| free(slot))
+                .ok_or_else(|| rejected("The equipment inventory is full"))?
+        };
         let mut params = plan.clone();
+        for key in [
+            "serial",
+            "acquisition_order",
+            "scheduler_owner",
+            "container_hex",
+        ] {
+            params[key] = current[key].clone();
+        }
+        params["slot"] = json!(slot);
+        // Recovery verifies against what was dispatched, durable before the claim.
+        let dispatch = json!({"serial":params["serial"],"acquisition_order":params["acquisition_order"],
+            "container_hex":params["container_hex"],"slot":slot});
+        std::fs::write(self.dispatch_path(id)?, dispatch.to_string())
+            .map_err(|e| rejected(e.to_string()))?;
+        let plan = params.clone();
         let mut descriptor = hex_decode(text(&plan, "descriptor_hex")?)?;
         descriptor[0x13] = 0;
         let mut expected = hex_decode(text(&plan, "preview_record_hex")?)?;
@@ -533,7 +573,7 @@ impl EquipmentAddition {
         )
     }
     pub fn recover(&mut self, id: &str) -> Result<Value, RuntimeError> {
-        let Ok((_, plan)) = self.operations.plan(id) else {
+        let Ok(plan) = self.dispatched_plan(id) else {
             let note = read_json(&self.request_path(id)?)?;
             let child = text(&note, "preview_operation_id")?;
             let _ = self.transport.release(child);
@@ -562,9 +602,19 @@ impl EquipmentAddition {
                 Ok(value) => value,
                 Err(_) => return self.public(id),
             };
-            if current["process_creation_time"] == plan["process_creation_time"]
-                && current["container_hex"] == plan["container_hex"]
-            {
+            // The guard refused before insertion; independently, the target slot
+            // does not hold the item (or the process that could hold it is gone).
+            let slot = number(&plan, "slot")? as usize;
+            let bytes = hex_decode(text(&current, "container_hex")?)?;
+            let source = hex_decode(text(&receipt, "source_hex").unwrap_or_default())?;
+            let absent = current["process_creation_time"] != plan["process_creation_time"]
+                || source.len() < 0x30
+                || bytes
+                    .get(slot * 0xF0..slot * 0xF0 + 0x30)
+                    .is_none_or(|record| {
+                        record[..0x18] != source[..0x18] || record[0x28..0x30] != source[0x28..0x30]
+                    });
+            if absent {
                 self.operations.complete_equipment(id,&json!({"operation_id":id,"state":"rejected_before_insertion",
                     "equipment_container_unchanged_verified":true,"dispatch_and_cleanup_verified":true,"native_receipt":receipt}))?;
             }
@@ -602,13 +652,9 @@ impl EquipmentAddition {
             unverified(&self.operations, "game_process_changed")?;
             return self.public(id);
         }
-        if number(&observed, "serial")? != number(&plan, "serial")? + 1
-            || number(&observed, "acquisition_order")? != number(&plan, "acquisition_order")? + 1
-        {
-            unverified(&self.operations, "inventory_changed")?;
-            return self.public(id);
-        }
-        let mut expected = hex_decode(text(&plan, "container_hex")?)?;
+        // Verify this one item in its slot; the rest of the inventory and the
+        // counters may have moved on with ordinary play since the dispatch.
+        let expected = hex_decode(text(&plan, "container_hex")?)?;
         let observed_bytes = hex_decode(text(&observed, "container_hex")?)?;
         let source = hex_decode(text(&receipt, "source_hex")?)?;
         let destination = &observed_bytes[slot * 0xF0..(slot + 1) * 0xF0];
@@ -636,15 +682,14 @@ impl EquipmentAddition {
                     .map_err(|_| rejected("Short record"))?,
             )) & !0x80
                 == 0;
-        expected[slot * 0xF0..(slot + 1) * 0xF0].copy_from_slice(destination);
-        if !fields_match || expected != observed_bytes {
+        if !fields_match {
             unverified(&self.operations, "inventory_changed")?;
             return self.public(id);
         }
         self.operations.complete_equipment(
             id,
             &json!({"operation_id":id,"state":"verified",
-            "equipment_container_and_counters_verified":true,"dispatch_and_cleanup_verified":true,
+            "equipment_container_and_counters_verified":true,"verified_scope":"inserted_slot","dispatch_and_cleanup_verified":true,
             "native_receipt":receipt,"container_sha256":sha256_hex(&observed_bytes)}),
         )?;
         self.public(id)

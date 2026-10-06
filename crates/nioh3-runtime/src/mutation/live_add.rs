@@ -574,11 +574,13 @@ impl LiveAddApplication {
             let (_digest, parent) = self.operations.plan(previous_operation_id)?;
             if parent.get("source_save_path").and_then(Value::as_str)
                 != Some(source.display().to_string().as_str())
-                || parent.get("source_save_sha256").and_then(Value::as_str)
-                    != Some(source_sha256.as_str())
             {
                 return Err(rejected("Batch source save changed"));
             }
+            // The game may autosave between batch items; this item then records
+            // the new checkpoint as its own baseline instead of refusing.
+            let save_moved = parent.get("source_save_sha256").and_then(Value::as_str)
+                != Some(source_sha256.as_str());
             for field in [
                 "pid",
                 "process_creation_time",
@@ -609,7 +611,10 @@ impl LiveAddApplication {
             if mapping != index_entries(&verified_index)? {
                 return Err(rejected("Native index changed between batch items"));
             }
-            match parent.get(DISK_PERSISTENCE_BASELINE_FIELD) {
+            match parent
+                .get(DISK_PERSISTENCE_BASELINE_FIELD)
+                .filter(|_| !save_moved)
+            {
                 // A new-style parent recorded the checkpoint it was prepared
                 // against. The source path and raw hash already match, so the
                 // capture must be identical; a present but different value is
@@ -625,6 +630,7 @@ impl LiveAddApplication {
                 // and a present null or malformed field is refused. The actual
                 // disk capture above is kept: the legacy multiset check never
                 // proved disk slot order or the excluded padding bytes.
+                None if save_moved => {}
                 None => {
                     let legacy = Inventory::from_json(
                         parent
@@ -852,17 +858,12 @@ impl LiveAddApplication {
                 ));
             }
         }
-        let source_path = plan
-            .get("source_save_path")
-            .and_then(Value::as_str)
-            .ok_or_else(|| rejected("Stored plan content changed"))?;
         let source_sha256 = plan
             .get("source_save_sha256")
             .and_then(Value::as_str)
             .ok_or_else(|| rejected("Stored plan content changed"))?;
-        if sha256_hex(&read_bytes(Path::new(source_path))?) != source_sha256 {
-            return Err(rejected("Save changed after preparation; prepare again"));
-        }
+        // A game autosave after preparation is ordinary play, not a reason to
+        // refuse: the verified backup below is what the addition relies on.
         let backup_path = plan
             .get("backup_path")
             .and_then(Value::as_str)

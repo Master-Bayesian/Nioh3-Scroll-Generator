@@ -483,11 +483,24 @@ fn a_failed_write_is_uncertain_because_the_target_may_have_changed() -> Result<(
 }
 
 #[test]
-fn a_changed_source_is_rejected_before_any_write() -> Result<(), RuntimeError> {
-    let (_sandbox, mut editor, save) = prepared("source", Faults::default(), record())?;
+fn an_autosave_after_review_does_not_block_the_edit() -> Result<(), RuntimeError> {
+    let (_sandbox, mut editor, save) = prepared("autosave", Faults::default(), record())?;
     let (digest, plan) = first_plan(&editor)?;
-    fs::write(&save, b"tampered-save").map_err(|error| RuntimeError::Io {
+    fs::write(&save, b"autosaved-save").map_err(|error| RuntimeError::Io {
         path: save.display().to_string(),
+        detail: error.to_string(),
+    })?;
+    let status = editor.execute(&plan.operation_id, &digest)?;
+    assert_eq!(status.state, CountState::Verified, "{:?}", status.error);
+    Ok(())
+}
+
+#[test]
+fn a_changed_backup_is_rejected_before_any_write() -> Result<(), RuntimeError> {
+    let (_sandbox, mut editor, _save) = prepared("source", Faults::default(), record())?;
+    let (digest, plan) = first_plan(&editor)?;
+    fs::write(&plan.backup_path, b"tampered-backup").map_err(|error| RuntimeError::Io {
+        path: plan.backup_path.clone(),
         detail: error.to_string(),
     })?;
     let status = editor.execute(&plan.operation_id, &digest)?;
