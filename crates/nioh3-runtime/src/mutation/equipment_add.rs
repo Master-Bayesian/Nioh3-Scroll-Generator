@@ -24,7 +24,9 @@ const HELD_EQUIPMENT_LIMIT: usize = 2000;
 /// Refuse when the held inventory is at the game's limit.
 fn require_held_room(container: &[u8]) -> Result<(), RuntimeError> {
     let held = container
-        .chunks_exact(0xF0)
+        .as_chunks::<0xF0>()
+        .0
+        .iter()
         .filter(|record| record[0] != 0 || record[1] != 0)
         .count();
     if held >= HELD_EQUIPMENT_LIMIT {
