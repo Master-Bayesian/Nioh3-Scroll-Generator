@@ -1,4 +1,14 @@
-# Current project handoff - 2026-10-05
+# Current project handoff - 2026-10-07
+
+## v0.8.7 release (in progress)
+
+v0.8.7 is prepared on top of v0.8.6 and its release is authorized by the
+owner (2026-10-07); see the [engineering record](../product/releases/v0.8.7.md).
+It unblocks live equipment additions that players left unconfirmed (sold item,
+restarted game), adds Settings → 重置工具, stops refusing live edits over
+ordinary play (pickups, sales, auto-dismantling, autosaves, the false 65535
+acquisition cap), enforces the game's 2000-item held limit, explains an
+abnormal app exit from the launcher, and makes light the default theme.
 
 ## v0.8.6 published release
 

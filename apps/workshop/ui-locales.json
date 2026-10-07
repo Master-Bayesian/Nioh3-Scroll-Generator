@@ -5996,6 +5996,18 @@
       "After dropping it, this addition is no longer checked. First check in your inventory whether the item was added (a sold item counts as added); do not add the same item again.",
       "破棄すると、この追加はもう確認されません。先に所持品で装備が追加されたか確認してください（売却済みでも追加済みです）。同じ装備を重ねて追加しないでください。"
     ],
+    "确认放下": [
+      "Confirm drop",
+      "破棄する"
+    ],
+    "继续保留": [
+      "Keep it",
+      "残しておく"
+    ],
+    "上一件装备的添加结果还没有确认。请在上一条记录里点“恢复核对”；如果一直无法确认，重启游戏并读档后就可以继续添加。": [
+      "The previous equipment addition is not confirmed yet. Click “Recover verification” on that record; if it never confirms, restart the game and load your save, then you can add again.",
+      "前回の装備追加の結果がまだ確認されていません。その記録で「復旧確認」を押してください。確認できないままの場合は、ゲームを再起動してロードすると追加を続けられます。"
+    ],
     "重置工具": [
       "Reset the tool",
       "ツールをリセット"
@@ -6035,18 +6047,6 @@
     "已不再提醒上次的次数修改。": [
       "The reminder for the last count edit has been dropped.",
       "前回の回数変更の通知を解除しました。"
-    ],
-    "确认放下": [
-      "Confirm drop",
-      "破棄する"
-    ],
-    "继续保留": [
-      "Keep it",
-      "残しておく"
-    ],
-    "上一件装备的添加结果还没有确认。请在上一条记录里点“恢复核对”；如果一直无法确认，重启游戏并读档后就可以继续添加。": [
-      "The previous equipment addition is not confirmed yet. Click “Recover verification” on that record; if it never confirms, restart the game and load your save, then you can add again.",
-      "前回の装備追加の結果がまだ確認されていません。その記録で「復旧確認」を押してください。確認できないままの場合は、ゲームを再起動してロードすると追加を続けられます。"
     ]
   },
   "game": {

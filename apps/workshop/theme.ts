@@ -1,15 +1,19 @@
 import { useState } from "react";
 
-/** Appearance (#14): follow Windows, or force light or dark. Per-device, kept in WebView storage. */
+/**
+ * Appearance (#14): light, dark, or follow Windows. Per-device, kept in WebView
+ * storage. Light is the default until the dark palette is refined (#35); a
+ * stored "system" is kept so following Windows stays an explicit choice.
+ */
 export type Theme = "system" | "light" | "dark";
 const STORAGE = "nioh3-theme";
 
 function stored(): Theme {
   try {
     const value = localStorage.getItem(STORAGE);
-    return value === "light" || value === "dark" ? value : "system";
+    return value === "system" || value === "dark" ? value : "light";
   } catch {
-    return "system";
+    return "light";
   }
 }
 
@@ -26,7 +30,7 @@ export function useTheme(): [Theme, (theme: Theme) => void] {
     setTheme(next);
     apply(next);
     try {
-      if (next === "system") localStorage.removeItem(STORAGE);
+      if (next === "light") localStorage.removeItem(STORAGE);
       else localStorage.setItem(STORAGE, next);
     } catch {
       // The choice still holds for this session.

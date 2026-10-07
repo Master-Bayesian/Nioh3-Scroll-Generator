@@ -25,7 +25,7 @@ impl RoleApplication for Fixture {
         Role::Runtime
     }
     fn context_payload(&self) -> Value {
-        json!({"product_version": "0.8.6","game_profile":"pc-v2.00.02-v2.01","resources_digest":"r","algorithm_version":"a","policy_version":"p","context_digest":"c","seed_accelerator_abi":2,"seed_accelerator_build_id":"b"})
+        json!({"product_version": "0.8.7","game_profile":"pc-v2.00.02-v2.01","resources_digest":"r","algorithm_version":"a","policy_version":"p","context_digest":"c","seed_accelerator_abi":2,"seed_accelerator_build_id":"b"})
     }
     fn direct(&mut self, method: &str, params: &Value) -> Result<Value, HostError> {
         if method == "runtime.status" {

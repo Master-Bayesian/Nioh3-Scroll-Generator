@@ -1,37 +1,31 @@
-# Nioh 3 Studio 0.8.6
+# Nioh 3 Studio 0.8.7
 
-Download `Nioh3Studio-0.8.6-win-x64.exe` and run it directly, or use the signed
+Download `Nioh3Studio-0.8.7-win-x64.exe` and run it directly, or use the signed
 in-app updater. No manual extraction, Python, Node.js, Electron or Cheat Engine
 setup is required. Microsoft Edge WebView2 remains a Windows prerequisite.
 
-- Scrolls can be edited in the running game. The scroll editor has the
-  equipment page's two modes, 游戏内实时修改 (default) and 修改存档文件. Basic
-  details and effects are written to the live scroll after a review that backs
-  the save up first, and the game keeps them when it saves. The sections say
-  what is kept: 基础信息, 主副词条, and 副本内容 · 临时，不进存档.
-- English and Japanese show the game's own names for equipment, effects,
-  soul cores and Crucible Arts, read from the game in each language (#33).
-  Item categories are translated, and searches accept English and Japanese.
-  Terms follow the game: Japanese 魂代, English Crucible and Crucible Arts.
-  Same-name enemies keep their form, such as Hattori Hanzo (Former).
-- The dark theme now works in the desktop app; before, it only took effect in
-  the browser build.
-- Familiarity is shown and entered as in game (999, not 99900).
-- 0xCC33 is named 火炎龙计量槽增加量. Seven ninjutsu effects the game itself
-  shows as "{}" are listed as 未命名忍术（0x....）. Six unfinished items the
-  game names DUMMY are no longer offered for addition.
-- Clearer messages: a live edit at the title screen says the character is not
-  loaded; a live addition the game never answered says nothing was added; a
-  count edit that cannot be confirmed says why; the live editor warns when it
-  reads the title screen's placeholder character.
-- A second live edit after the game autosaved no longer fails.
-- Feedback files now include what the tool expected and what the game built
-  for recent live additions.
-- Fixes: clicking the current mode emptied the equipment page; a count review
-  during another read failed with OPERATION_OBSERVER_DISPOSED; a refused
-  review left an empty backup behind; the scroll card was squeezed in the cart
-  and history dialogs; the version details showed developer English; the
-  backup list named most backup kinds 存档备份.
+- Live equipment addition no longer gets stuck. Selling the added item or
+  restarting the game before the check left 读取添加状态 and 恢复核对 doing
+  nothing, and blocked every later addition. The check now concludes when the
+  game carried the addition out ("check your inventory, do not add it again"),
+  an unresolved addition no longer blocks a restarted game, and an unconfirmed
+  record can be dropped.
+- Settings → 重置工具: with the game closed, it moves leftover operation
+  records aside and reopens the interface. Backups, favorites and settings are
+  kept. Use it when a button does nothing or the tool keeps asking about a
+  previous operation.
+- Ordinary play no longer refuses a live edit: picking up, selling or
+  auto-dismantling items and game autosaves between review and confirmation
+  are accepted. Equipment addition no longer stops at 65535 acquired items
+  (players using auto-dismantle reached it).
+- Adding equipment when the held inventory is full (2000 items) now says so,
+  in both modes. Before, the item was placed past the limit and the game
+  discarded it.
+- A scroll batch keeps going when the inventory changes between items, and
+  the cart and the count editor offer a way out when a check cannot settle.
+- If the app closes during startup (for example blocked by antivirus), the
+  EXE now explains why and where the logs are, instead of showing nothing.
+- The light theme is the default again; 深色 and 跟随系统 remain in Settings.
 
 ## Supported scope and known limitations
 
