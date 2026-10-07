@@ -1,9 +1,11 @@
 # Current project handoff - 2026-10-07
 
-## v0.8.7 release (in progress)
+## v0.8.7 published release
 
-v0.8.7 is prepared on top of v0.8.6 and its release is authorized by the
-owner (2026-10-07); see the [engineering record](../product/releases/v0.8.7.md).
+**v0.8.7 is published and public-byte verified (2026-10-07)**: commit
+`49ce3e9`, tag `v0.8.7`, run `37676443904`; see the
+[publication record](TAURI_V087_PUBLICATION_20261007.md) and the
+[engineering record](../product/releases/v0.8.7.md).
 It unblocks live equipment additions that players left unconfirmed (sold item,
 restarted game), adds Settings → 重置工具, stops refusing live edits over
 ordinary play (pickups, sales, auto-dismantling, autosaves, the false 65535
