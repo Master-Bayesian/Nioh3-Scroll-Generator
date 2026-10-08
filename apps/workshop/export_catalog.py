@@ -95,7 +95,9 @@ for rarity in (3,4,5):
             "enemies":list(dict.fromkeys(names.enemy_name(k) for k in enemy_keys)),"terrainKeys":list(aux.terrain.display_effect_keys),
             "rules":[{"key":e.key,"name":names.special_rule_name(e.key),"value":rule_value({"display_value":e.display_value,"display_unit":e.display_unit,"display_grade":e.display_grade})} for e in aux.special_rules.entries]})
 levels={str(level):resolve_recommended_level(level).selected_internal_level for level in range(*_level_display_range())}
-identities={str(key):{"prefix":row.group_key,"category":tables.group_for_effect(key).category_key} for key,row in tables.effects_by_id.items()}
+# `star`: effect row +0x20 bit 0x08. Every scroll effect in two owner saves
+# carries the entry's +0x0E star bit 0x04 exactly when its row has this flag.
+identities={str(key):{"prefix":row.group_key,"category":tables.group_for_effect(key).category_key,"star":bool(row.normalization_flags & 0x08)} for key,row in tables.effects_by_id.items()}
 aux_tables=load_default_auxiliary_generation_tables()
 runtime_terrains={t["option_id"]:aux_tables.terrain.row(min(resolve_terrain_selections([t["option_id"]])))[0x30] for t in catalog["terrain_options"] if not t["aggregate"]}
 output={"runtimeTerrains":runtime_terrains,"editorIdentities":identities,"enemyRoles":roles,"editorEffects":[{"id":str(e.effect_id),"name":e.name} for e in native_effect_definitions()],"contexts":contexts,"enemies":sorted(enemies,key=lambda e:e['name']),"rules":families,"terrains":catalog["terrain_options"],"samples":samples,"levels":levels,

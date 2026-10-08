@@ -463,9 +463,13 @@ export function Editor({ cart }: { cart: Sample[] }) {
     const identity = (
       data.editorIdentities as Record<
         string,
-        { prefix: number; category: number }
+        { prefix: number; category: number; star?: boolean }
       >
     )[effect.id];
+    // The star (+0x0E bit 0x04, metadata bit 18) belongs to the effect, not
+    // the slot: the game shows it on every …之深奥 and on no ordinary effect.
+    const starred = (metadata: number) =>
+      identity?.star === undefined ? metadata : identity.star ? metadata | 0x40000 : metadata & ~0x40000;
     setDraft({
       ...draft,
       slots: draft.slots.map((slot, i) =>
@@ -478,11 +482,12 @@ export function Editor({ cart }: { cart: Sample[] }) {
                 ? {
                     prefix: String(identity.prefix),
                     metadata: String(
-                      ((Number(slot.metadata) & 0xffff00ff) |
-                        ((((Number(slot.metadata) >>> 8) & 0xc0) |
-                          identity.category) <<
-                          8)) >>>
-                        0,
+                      starred(
+                        (Number(slot.metadata) & 0xffff00ff) |
+                          ((((Number(slot.metadata) >>> 8) & 0xc0) |
+                            identity.category) <<
+                            8),
+                      ) >>> 0,
                     ),
                   }
                 : {}),
