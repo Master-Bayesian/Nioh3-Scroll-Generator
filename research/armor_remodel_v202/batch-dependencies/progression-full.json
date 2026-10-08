@@ -1,0 +1,2524 @@
+{
+  "schema": "nioh3-armor-remodel-progression-fields-v202/v1",
+  "read_only": true,
+  "executable_sha256": "E22C4A635E4EC1E27A177B76E27D7F6A637F426C0ED3928B60F5693BC52AE130",
+  "table_count": 502,
+  "stride": 148,
+  "header_size": 8,
+  "stage": 3,
+  "rows": [
+    {
+      "plus_index": 0,
+      "requirement_word": 0,
+      "weight_word": 0
+    },
+    {
+      "plus_index": 1,
+      "requirement_word": 1,
+      "weight_word": 1
+    },
+    {
+      "plus_index": 2,
+      "requirement_word": 2,
+      "weight_word": 1
+    },
+    {
+      "plus_index": 3,
+      "requirement_word": 3,
+      "weight_word": 2
+    },
+    {
+      "plus_index": 4,
+      "requirement_word": 4,
+      "weight_word": 2
+    },
+    {
+      "plus_index": 5,
+      "requirement_word": 5,
+      "weight_word": 3
+    },
+    {
+      "plus_index": 6,
+      "requirement_word": 6,
+      "weight_word": 3
+    },
+    {
+      "plus_index": 7,
+      "requirement_word": 7,
+      "weight_word": 4
+    },
+    {
+      "plus_index": 8,
+      "requirement_word": 8,
+      "weight_word": 4
+    },
+    {
+      "plus_index": 9,
+      "requirement_word": 9,
+      "weight_word": 5
+    },
+    {
+      "plus_index": 10,
+      "requirement_word": 10,
+      "weight_word": 5
+    },
+    {
+      "plus_index": 11,
+      "requirement_word": 10,
+      "weight_word": 6
+    },
+    {
+      "plus_index": 12,
+      "requirement_word": 11,
+      "weight_word": 6
+    },
+    {
+      "plus_index": 13,
+      "requirement_word": 11,
+      "weight_word": 6
+    },
+    {
+      "plus_index": 14,
+      "requirement_word": 12,
+      "weight_word": 7
+    },
+    {
+      "plus_index": 15,
+      "requirement_word": 12,
+      "weight_word": 7
+    },
+    {
+      "plus_index": 16,
+      "requirement_word": 13,
+      "weight_word": 7
+    },
+    {
+      "plus_index": 17,
+      "requirement_word": 13,
+      "weight_word": 8
+    },
+    {
+      "plus_index": 18,
+      "requirement_word": 14,
+      "weight_word": 8
+    },
+    {
+      "plus_index": 19,
+      "requirement_word": 14,
+      "weight_word": 8
+    },
+    {
+      "plus_index": 20,
+      "requirement_word": 15,
+      "weight_word": 9
+    },
+    {
+      "plus_index": 21,
+      "requirement_word": 15,
+      "weight_word": 9
+    },
+    {
+      "plus_index": 22,
+      "requirement_word": 15,
+      "weight_word": 9
+    },
+    {
+      "plus_index": 23,
+      "requirement_word": 16,
+      "weight_word": 10
+    },
+    {
+      "plus_index": 24,
+      "requirement_word": 16,
+      "weight_word": 10
+    },
+    {
+      "plus_index": 25,
+      "requirement_word": 16,
+      "weight_word": 10
+    },
+    {
+      "plus_index": 26,
+      "requirement_word": 17,
+      "weight_word": 11
+    },
+    {
+      "plus_index": 27,
+      "requirement_word": 17,
+      "weight_word": 11
+    },
+    {
+      "plus_index": 28,
+      "requirement_word": 17,
+      "weight_word": 11
+    },
+    {
+      "plus_index": 29,
+      "requirement_word": 18,
+      "weight_word": 12
+    },
+    {
+      "plus_index": 30,
+      "requirement_word": 18,
+      "weight_word": 12
+    },
+    {
+      "plus_index": 31,
+      "requirement_word": 18,
+      "weight_word": 12
+    },
+    {
+      "plus_index": 32,
+      "requirement_word": 19,
+      "weight_word": 13
+    },
+    {
+      "plus_index": 33,
+      "requirement_word": 19,
+      "weight_word": 13
+    },
+    {
+      "plus_index": 34,
+      "requirement_word": 19,
+      "weight_word": 13
+    },
+    {
+      "plus_index": 35,
+      "requirement_word": 20,
+      "weight_word": 14
+    },
+    {
+      "plus_index": 36,
+      "requirement_word": 20,
+      "weight_word": 14
+    },
+    {
+      "plus_index": 37,
+      "requirement_word": 20,
+      "weight_word": 14
+    },
+    {
+      "plus_index": 38,
+      "requirement_word": 21,
+      "weight_word": 15
+    },
+    {
+      "plus_index": 39,
+      "requirement_word": 21,
+      "weight_word": 15
+    },
+    {
+      "plus_index": 40,
+      "requirement_word": 21,
+      "weight_word": 15
+    },
+    {
+      "plus_index": 41,
+      "requirement_word": 22,
+      "weight_word": 16
+    },
+    {
+      "plus_index": 42,
+      "requirement_word": 22,
+      "weight_word": 16
+    },
+    {
+      "plus_index": 43,
+      "requirement_word": 22,
+      "weight_word": 16
+    },
+    {
+      "plus_index": 44,
+      "requirement_word": 23,
+      "weight_word": 17
+    },
+    {
+      "plus_index": 45,
+      "requirement_word": 23,
+      "weight_word": 17
+    },
+    {
+      "plus_index": 46,
+      "requirement_word": 23,
+      "weight_word": 17
+    },
+    {
+      "plus_index": 47,
+      "requirement_word": 24,
+      "weight_word": 18
+    },
+    {
+      "plus_index": 48,
+      "requirement_word": 24,
+      "weight_word": 18
+    },
+    {
+      "plus_index": 49,
+      "requirement_word": 24,
+      "weight_word": 18
+    },
+    {
+      "plus_index": 50,
+      "requirement_word": 25,
+      "weight_word": 19
+    },
+    {
+      "plus_index": 51,
+      "requirement_word": 25,
+      "weight_word": 19
+    },
+    {
+      "plus_index": 52,
+      "requirement_word": 25,
+      "weight_word": 19
+    },
+    {
+      "plus_index": 53,
+      "requirement_word": 26,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 54,
+      "requirement_word": 26,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 55,
+      "requirement_word": 26,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 56,
+      "requirement_word": 27,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 57,
+      "requirement_word": 27,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 58,
+      "requirement_word": 27,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 59,
+      "requirement_word": 28,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 60,
+      "requirement_word": 28,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 61,
+      "requirement_word": 28,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 62,
+      "requirement_word": 29,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 63,
+      "requirement_word": 29,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 64,
+      "requirement_word": 29,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 65,
+      "requirement_word": 30,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 66,
+      "requirement_word": 30,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 67,
+      "requirement_word": 30,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 68,
+      "requirement_word": 31,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 69,
+      "requirement_word": 31,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 70,
+      "requirement_word": 31,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 71,
+      "requirement_word": 32,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 72,
+      "requirement_word": 32,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 73,
+      "requirement_word": 32,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 74,
+      "requirement_word": 33,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 75,
+      "requirement_word": 33,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 76,
+      "requirement_word": 33,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 77,
+      "requirement_word": 34,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 78,
+      "requirement_word": 34,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 79,
+      "requirement_word": 34,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 80,
+      "requirement_word": 35,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 81,
+      "requirement_word": 35,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 82,
+      "requirement_word": 35,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 83,
+      "requirement_word": 36,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 84,
+      "requirement_word": 36,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 85,
+      "requirement_word": 36,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 86,
+      "requirement_word": 37,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 87,
+      "requirement_word": 37,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 88,
+      "requirement_word": 37,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 89,
+      "requirement_word": 38,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 90,
+      "requirement_word": 38,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 91,
+      "requirement_word": 38,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 92,
+      "requirement_word": 39,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 93,
+      "requirement_word": 39,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 94,
+      "requirement_word": 39,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 95,
+      "requirement_word": 40,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 96,
+      "requirement_word": 40,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 97,
+      "requirement_word": 40,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 98,
+      "requirement_word": 41,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 99,
+      "requirement_word": 41,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 100,
+      "requirement_word": 41,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 101,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 102,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 103,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 104,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 105,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 106,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 107,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 108,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 109,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 110,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 111,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 112,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 113,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 114,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 115,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 116,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 117,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 118,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 119,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 120,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 121,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 122,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 123,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 124,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 125,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 126,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 127,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 128,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 129,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 130,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 131,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 132,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 133,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 134,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 135,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 136,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 137,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 138,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 139,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 140,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 141,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 142,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 143,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 144,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 145,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 146,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 147,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 148,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 149,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 150,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 151,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 152,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 153,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 154,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 155,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 156,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 157,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 158,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 159,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 160,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 161,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 162,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 163,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 164,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 165,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 166,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 167,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 168,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 169,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 170,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 171,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 172,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 173,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 174,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 175,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 176,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 177,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 178,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 179,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 180,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 181,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 182,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 183,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 184,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 185,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 186,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 187,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 188,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 189,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 190,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 191,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 192,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 193,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 194,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 195,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 196,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 197,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 198,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 199,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 200,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 201,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 202,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 203,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 204,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 205,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 206,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 207,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 208,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 209,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 210,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 211,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 212,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 213,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 214,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 215,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 216,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 217,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 218,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 219,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 220,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 221,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 222,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 223,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 224,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 225,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 226,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 227,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 228,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 229,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 230,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 231,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 232,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 233,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 234,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 235,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 236,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 237,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 238,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 239,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 240,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 241,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 242,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 243,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 244,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 245,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 246,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 247,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 248,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 249,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 250,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 251,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 252,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 253,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 254,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 255,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 256,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 257,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 258,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 259,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 260,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 261,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 262,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 263,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 264,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 265,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 266,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 267,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 268,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 269,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 270,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 271,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 272,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 273,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 274,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 275,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 276,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 277,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 278,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 279,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 280,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 281,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 282,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 283,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 284,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 285,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 286,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 287,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 288,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 289,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 290,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 291,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 292,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 293,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 294,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 295,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 296,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 297,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 298,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 299,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 300,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 301,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 302,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 303,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 304,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 305,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 306,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 307,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 308,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 309,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 310,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 311,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 312,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 313,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 314,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 315,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 316,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 317,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 318,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 319,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 320,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 321,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 322,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 323,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 324,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 325,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 326,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 327,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 328,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 329,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 330,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 331,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 332,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 333,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 334,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 335,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 336,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 337,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 338,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 339,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 340,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 341,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 342,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 343,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 344,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 345,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 346,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 347,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 348,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 349,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 350,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 351,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 352,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 353,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 354,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 355,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 356,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 357,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 358,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 359,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 360,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 361,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 362,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 363,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 364,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 365,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 366,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 367,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 368,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 369,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 370,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 371,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 372,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 373,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 374,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 375,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 376,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 377,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 378,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 379,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 380,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 381,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 382,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 383,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 384,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 385,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 386,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 387,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 388,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 389,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 390,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 391,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 392,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 393,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 394,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 395,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 396,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 397,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 398,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 399,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 400,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 401,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 402,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 403,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 404,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 405,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 406,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 407,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 408,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 409,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 410,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 411,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 412,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 413,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 414,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 415,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 416,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 417,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 418,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 419,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 420,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 421,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 422,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 423,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 424,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 425,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 426,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 427,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 428,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 429,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 430,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 431,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 432,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 433,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 434,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 435,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 436,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 437,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 438,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 439,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 440,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 441,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 442,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 443,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 444,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 445,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 446,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 447,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 448,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 449,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 450,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 451,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 452,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 453,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 454,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 455,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 456,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 457,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 458,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 459,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 460,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 461,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 462,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 463,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 464,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 465,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 466,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 467,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 468,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 469,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 470,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 471,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 472,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 473,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 474,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 475,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 476,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 477,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 478,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 479,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 480,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 481,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 482,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 483,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 484,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 485,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 486,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 487,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 488,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 489,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 490,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 491,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 492,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 493,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 494,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 495,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 496,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 497,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 498,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 499,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 500,
+      "requirement_word": 42,
+      "weight_word": 20
+    },
+    {
+      "plus_index": 501,
+      "requirement_word": 42,
+      "weight_word": 20
+    }
+  ],
+  "actual_breakpoints": [],
+  "context_type": "nil",
+  "raw_capture_sha256": "913A98E055F03C2C70EA73C845761CC5280808B9FA9FA2F313EBA9219BC3889E"
+}

@@ -1,0 +1,19 @@
+﻿item_id_hex,name,mode,rarity,level,plus,stage,flags,weight_raw,weight,toughness,requirement_0,requirement_1,requirement_2,requirement_3,requirement_4,requirement_5,requirement_6,all_native_returns_matched,evidence
+0xC18E,盗贼轻铠　胸甲,0/0,4,180,20,3,0,12,1.2,36,6,0,0,0,5,0,0,True,native-getter-returns-on-temporary-test-record
+0xC18E,盗贼轻铠　胸甲,1/0,4,180,20,3,0,12,1.2,36,13,0,0,0,12,0,0,True,native-getter-returns-on-temporary-test-record
+0xC18E,盗贼轻铠　胸甲,2/0,4,180,20,3,0,16,1.6,36,6,0,0,0,5,0,0,True,native-getter-returns-on-temporary-test-record
+0xC18E,盗贼轻铠　胸甲,1/1,4,180,20,3,0,12,1.2,36,21,0,0,0,20,0,0,True,native-getter-returns-on-temporary-test-record
+0xC18E,盗贼轻铠　胸甲,2/2,4,180,20,3,0,21,2.1,36,6,0,0,0,5,0,0,True,native-getter-returns-on-temporary-test-record
+0xC18E,盗贼轻铠　胸甲,1/2,4,180,20,3,0,16,1.6,36,13,0,0,0,12,0,0,True,native-getter-returns-on-temporary-test-record
+0x35BC,足轻中铠　胸甲,0/0,4,180,20,3,0,70,7.0,62,7,0,0,6,0,0,0,True,native-getter-returns-on-temporary-test-record
+0x35BC,足轻中铠　胸甲,1/0,4,180,20,3,0,70,7.0,62,14,0,0,13,0,0,0,True,native-getter-returns-on-temporary-test-record
+0x35BC,足轻中铠　胸甲,2/0,4,180,20,3,0,74,7.4,62,7,0,0,6,0,0,0,True,native-getter-returns-on-temporary-test-record
+0x35BC,足轻中铠　胸甲,1/1,4,180,20,3,0,70,7.0,62,22,0,0,21,0,0,0,True,native-getter-returns-on-temporary-test-record
+0x35BC,足轻中铠　胸甲,2/2,4,180,20,3,0,79,7.9,62,7,0,0,6,0,0,0,True,native-getter-returns-on-temporary-test-record
+0x35BC,足轻中铠　胸甲,1/2,4,180,20,3,0,74,7.4,62,14,0,0,13,0,0,0,True,native-getter-returns-on-temporary-test-record
+0xC288,盾无　胸甲,0/0,4,180,20,3,0,104,10.4,100,0,0,12,13,0,0,0,True,native-getter-returns-on-temporary-test-record
+0xC288,盾无　胸甲,1/0,4,180,20,3,0,104,10.4,100,0,0,19,20,0,0,0,True,native-getter-returns-on-temporary-test-record
+0xC288,盾无　胸甲,2/0,4,180,20,3,0,108,10.8,100,0,0,12,13,0,0,0,True,native-getter-returns-on-temporary-test-record
+0xC288,盾无　胸甲,1/1,4,180,20,3,0,104,10.4,100,0,0,27,28,0,0,0,True,native-getter-returns-on-temporary-test-record
+0xC288,盾无　胸甲,2/2,4,180,20,3,0,113,11.3,100,0,0,12,13,0,0,0,True,native-getter-returns-on-temporary-test-record
+0xC288,盾无　胸甲,1/2,4,180,20,3,0,108,10.8,100,0,0,19,20,0,0,0,True,native-getter-returns-on-temporary-test-record

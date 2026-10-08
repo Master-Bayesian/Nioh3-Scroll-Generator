@@ -1,0 +1,24 @@
+{
+  "schema": "nioh3-armor-public-evidence-v202/v1",
+  "executable_sha256": "E22C4A635E4EC1E27A177B76E27D7F6A637F426C0ED3928B60F5693BC52AE130",
+  "item_sha256": "F680966B0A21AB64EADF31A26E80F83E2EEEAAC1446E305BB87B9E64617B53CE",
+  "files": {
+    "batch-dependencies/progression-full.json": "A6F6DEA28A25845DF9564DB6705F2F56B69B697B689CDD1929F9DAB2752062A1",
+    "batch-dependencies/toughness-cold-table.json": "6A528EA82349EC20D394E1D47753EDFA7EB73B822FF9836339E63138EF7201B0",
+    "native-returns.json": "70DD8A92A8040D9B430E0671B556BBDC17075047FFA743A604E00125ECC75BBB"
+  },
+  "scope": {
+    "rarity": 4,
+    "level": 180,
+    "plus": 20,
+    "stage": 3,
+    "special_toughness_flag": false
+  },
+  "native_returns": 1352,
+  "paired_native_returns": 1190,
+  "direct_native_queries": 162,
+  "distinct_configurations": 52,
+  "distinct_verified_fields": 468,
+  "callbacks": 2380,
+  "private_raw_evidence_retained": true
+}

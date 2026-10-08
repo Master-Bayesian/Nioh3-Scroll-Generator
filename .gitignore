@@ -112,6 +112,13 @@ research/enemy_states_v201/**/__pycache__/
 !research/test_live_scroll_finalizer_probe_ce.lua
 !research/test_vectors/
 !research/test_vectors/r4_seed_183696634_records_sanitized.json
+!research/armor_remodel_field_xrefs_v202.py
+!research/armor_remodel_weight_observer_ce.lua
+!research/armor_remodel_stats_observer_ce.lua
+!research/armor_remodel_extended_observer_ce.lua
+!research/armor_cross_series_query_ce.lua
+!research/armor_remodel_v202/
+!research/armor_remodel_v202/**
 
 node_modules/
 apps/desktop/test-results/

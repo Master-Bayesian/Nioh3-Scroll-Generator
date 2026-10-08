@@ -1,5 +1,12 @@
 # Nioh 3 scroll research knowledge base
 
+## Armor remodel numerical research
+
+- [PC v2.02 armor remodel batch result](../research/V202_ARMOR_REMODEL_BATCH_20261008.md):
+  active research/reference for weight, attribute requirements, and toughness;
+  public numerical corpus, offline calculator, bounded CE adapters, and scoped
+  owner acceptance. It does not authorize product integration or all-item legality.
+
 This directory is the durable, versioned entry point for conclusions that must
 survive chat loss, handoffs, and future game updates. Start with [the
 documentation guide](../README.md), then use the classified map below before an
