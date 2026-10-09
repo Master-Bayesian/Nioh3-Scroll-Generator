@@ -232,7 +232,11 @@ impl RecordAudit {
 }
 /// Hell martial-skill rows read live from `[[Nioh3.exe+0x45B9E30]+0x5A8]` (PC v2.02):
 /// `(skill id, weapon-type key, minimum level)`. Every row has weight 10.
-pub const HELL_SKILLS_V202: [(u16, u16, u16); 39] = [
+pub const HELL_SKILLS_V202: [(u16, u16, u16); 43] = [
+    (0xA148, 7191, 1),
+    (0xDD8A, 7191, 1),
+    (0xD3A9, 7191, 1),
+    (0xA475, 21589, 1),
     (0xF9B9, 21589, 1),
     (0x5638, 28275, 1),
     (0xAA7C, 28275, 1),

@@ -365,6 +365,38 @@ mod tests {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data")
     }
 
+    /// Every samurai and ninja weapon type that can become a hell weapon has
+    /// hell martial skills: the axe once had none because the captured table
+    /// started four rows late (43 rows in the game, 39 captured).
+    #[test]
+    fn every_hell_capable_melee_weapon_type_has_hell_skills() {
+        let names: Value = serde_json::from_str(
+            &std::fs::read_to_string(
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/workshop/item-names.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let mut types = std::collections::BTreeMap::<String, bool>::new();
+        for (id, row) in names["items"].as_object().unwrap() {
+            if row[1] != "武器" || !(row[3] == "武士武器" || row[3] == "忍者武器") {
+                continue;
+            }
+            let rules = equipment_rules_json(
+                &data(),
+                &json!({ "item_id": id.parse::<u16>().unwrap(), "rarity": 4, "level": 170, "hell": true }),
+            )
+            .unwrap();
+            if rules["hell_capable"] == true {
+                let has = !rules["hell_skills"].as_array().unwrap().is_empty();
+                *types.entry(row[2].as_str().unwrap().to_string()).or_default() |= has;
+            }
+        }
+        assert_eq!(types.len(), 16, "{types:?}");
+        let missing: Vec<_> = types.iter().filter(|(_, has)| !**has).collect();
+        assert!(missing.is_empty(), "weapon types without hell skills: {missing:?}");
+    }
+
     #[test]
     fn a_katana_lists_its_slots_pools_and_hell_skills() {
         let rules = equipment_rules_json(
