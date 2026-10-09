@@ -1,8 +1,10 @@
 # Current project handoff - 2026-10-09
 
-## v0.8.8 release (in progress)
+## v0.8.8 published release
 
-v0.8.8 adds the axe's hell martial skills (the captured table started four
+**v0.8.8 is published and public-byte verified (2026-10-09)**: commit `4234ec3`,
+tag `v0.8.8`, run `37953196237`; see the [publication record](TAURI_V088_PUBLICATION_20261009.md).
+It adds the axe's hell martial skills (the captured table started four
 rows late), sets a scroll effect's star with the effect, and licenses the
 project under GPL-3.0-only; see the [engineering record](../product/releases/v0.8.8.md).
 
