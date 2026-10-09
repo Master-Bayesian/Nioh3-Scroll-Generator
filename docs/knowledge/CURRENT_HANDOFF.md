@@ -1,4 +1,10 @@
-# Current project handoff - 2026-10-07
+# Current project handoff - 2026-10-09
+
+## v0.8.8 release (in progress)
+
+v0.8.8 adds the axe's hell martial skills (the captured table started four
+rows late), sets a scroll effect's star with the effect, and licenses the
+project under GPL-3.0-only; see the [engineering record](../product/releases/v0.8.8.md).
 
 ## v0.8.7 published release
 

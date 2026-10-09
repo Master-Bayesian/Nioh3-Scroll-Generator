@@ -3,6 +3,7 @@
 [package]
 name = "nioh3-runtime"
 version = "0.1.0"
+license = "GPL-3.0-only"
 edition = "2021"
 description = "Read-only Windows runtime adapter and runtime.status core for the Nioh 3 backend migration"
 publish = false

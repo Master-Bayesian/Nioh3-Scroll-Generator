@@ -3,6 +3,7 @@
 [package]
 name = "nioh3-save"
 version = "0.1.0"
+license = "GPL-3.0-only"
 edition = "2021"
 description = "Bounded Nioh 3 user-save model: container codec, inventory, templates, guarded transactions"
 publish = false

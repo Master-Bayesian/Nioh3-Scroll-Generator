@@ -29,7 +29,7 @@ impl RoleApplication for CatalogFixture {
 
     fn context_payload(&self) -> Value {
         json!({
-            "product_version": "0.8.7",
+            "product_version": "0.8.8",
             "game_profile": "catalog-import-fixture",
             "resources_digest": "fixture",
             "algorithm_version": "fixture",

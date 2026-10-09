@@ -1,6 +1,7 @@
 {
   "name": "nioh3-v2-workspace",
-  "version": "0.8.7",
+  "version": "0.8.8",
+  "license": "GPL-3.0-only",
   "private": true,
   "type": "module",
   "scripts": {
