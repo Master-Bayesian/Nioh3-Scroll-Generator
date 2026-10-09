@@ -389,12 +389,17 @@ mod tests {
             .unwrap();
             if rules["hell_capable"] == true {
                 let has = !rules["hell_skills"].as_array().unwrap().is_empty();
-                *types.entry(row[2].as_str().unwrap().to_string()).or_default() |= has;
+                *types
+                    .entry(row[2].as_str().unwrap().to_string())
+                    .or_default() |= has;
             }
         }
         assert_eq!(types.len(), 16, "{types:?}");
         let missing: Vec<_> = types.iter().filter(|(_, has)| !**has).collect();
-        assert!(missing.is_empty(), "weapon types without hell skills: {missing:?}");
+        assert!(
+            missing.is_empty(),
+            "weapon types without hell skills: {missing:?}"
+        );
     }
 
     #[test]
