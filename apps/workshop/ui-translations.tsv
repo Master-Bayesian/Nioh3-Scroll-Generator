@@ -1517,3 +1517,4 @@ NPC武器	NPC weapon	NPC武器
 每一块都要满足；虚线框内满足其一即可	Every block must match; inside a dashed box, any one is enough	各ブロックをすべて満たします。点線の枠内はいずれか一つで構いません
 主词条 · 前	Primary effect · first	主効果 · 先頭の
 项任一当选	items, any one is chosen	件のいずれかが選ばれる
+先选类型，再从下方列表添加	Choose a type, then add from the list below	種類を選んでから、下の一覧から追加します

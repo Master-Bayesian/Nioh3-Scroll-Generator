@@ -1171,6 +1171,7 @@ function App() {
             <aside className="catalog" aria-label="条件目录">
               <header className="catalog-head">
                 <h2>条件目录</h2>
+                <p className="catalog-hint">先选类型，再从下方列表添加</p>
                 {(
                   [
                     ["装备加成 · 装备在身上", [["主副词条", "主副词条", "sand", q.effects.length], ["恩宠", "恩宠", "purple", q.graces.length]]],
