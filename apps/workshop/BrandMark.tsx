@@ -10,9 +10,9 @@ export function BrandMark({ size = 34 }: { size?: number }) {
       height={size}
       aria-hidden="true"
     >
-      <rect width="64" height="64" rx="15" fill="#18181B" />
+      <rect width="64" height="64" rx="15" fill="#F4E9DA" />
       <path d="M8 17L47 27" stroke="#7A7E86" strokeWidth="3.4" strokeLinecap="round" />
-      <rect x="40" y="18" width="19" height="16" rx="3" fill="#A8382F" stroke="#18181B" strokeWidth="2" transform="rotate(-12 49.5 26)" />
+      <rect x="41" y="18" width="18" height="17" rx="3" fill="#A8382F" stroke="#F4E9DA" strokeWidth="2" />
       <path d="M19.5 33h23l-3.5 13.5h-15.5z" fill="#4A3229" />
       <path d="M23 36l-4.5-14" stroke="#4A3229" strokeWidth="5.5" strokeLinecap="round" />
       <circle cx="18" cy="19.5" r="3.6" fill="#4A3229" />
