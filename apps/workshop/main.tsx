@@ -13,6 +13,7 @@ import React, {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -624,6 +625,22 @@ function App() {
   const qqUrl =
     "https://qm.qq.com/cgi-bin/qm/qr?k=0qS7eJtELBBcN8_ne4B7qG-c63Ze6pIo&jump_from=webapi&authKey=OMNXRYe8Ns3exbv9xiDr6HOQca3C/F+f5dVguJS7d2NFCf5URf308buzPfPXaf2G";
   const [toast, setToast] = useState("");
+  // One shared highlight glides between the navigation buttons: it follows
+  // the pointer and settles back on the current page.
+  const navRef = useRef<HTMLElement>(null);
+  const [glide, setGlide] = useState<{ x: number; w: number } | null>(null);
+  function placeGlide(target?: Element | null) {
+    const button = (target ??
+      navRef.current?.querySelector("button.active")) as HTMLElement | null;
+    setGlide(button ? { x: button.offsetLeft, w: button.offsetWidth } : null);
+  }
+  useLayoutEffect(() => {
+    placeGlide();
+    const settle = () => placeGlide();
+    window.addEventListener("resize", settle);
+    void document.fonts?.ready.then(settle);
+    return () => window.removeEventListener("resize", settle);
+  }, [page, locale, favorites.length]);
   async function joinGroup() {
     try {
       await copyText(data.qq);
@@ -1034,7 +1051,23 @@ function App() {
                 ? "装备与道具"
                 : "绘卷编辑"}
         </h1>
-        <nav className="nav">
+        <nav
+          className="nav"
+          ref={navRef}
+          onMouseOver={(e) =>
+            placeGlide((e.target as Element).closest("button:not(:disabled)"))
+          }
+          onMouseLeave={() => placeGlide()}
+        >
+          <span
+            className="nav-glider"
+            aria-hidden="true"
+            style={
+              glide
+                ? { transform: `translateX(${glide.x}px)`, width: glide.w }
+                : { opacity: 0 }
+            }
+          />
           <button
             className={page === "search" ? "active" : ""}
             onClick={() => setPage("search")}
@@ -2358,7 +2391,12 @@ function App() {
           />
           <section
             className={"side-popup" + (popup === "game" || popup === "about" ? " side-popup-wide" : popup === "settings" ? " settings-menu" : "")}
-            style={popupPosition}
+            style={
+              {
+                "--popup-top": popupPosition.top + "px",
+                "--popup-right": popupPosition.right + "px",
+              } as React.CSSProperties
+            }
             aria-label={popup === "settings" ? "设置菜单" : popup === "game" ? "游戏版本" : popup === "about" ? "关于与安全" : "语言菜单"}
             onKeyDown={(event) => { if (event.key === "Escape") setPopup(popup === "game" || popup === "about" ? "settings" : ""); }}
           >

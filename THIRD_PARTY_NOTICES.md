@@ -31,6 +31,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## Geist font
+
+`apps/workshop/fonts/geist-latin-wght-normal.woff2` is the Latin subset of
+[Geist](https://github.com/vercel/geist-font) by The Geist Project Authors, as
+packaged by Fontsource (`@fontsource-variable/geist` 5.3.0). It is licensed
+under the SIL Open Font License 1.1; the full license is in
+`apps/workshop/fonts/GEIST-OFL.txt`.
+
 ## Game and platform trademarks
 
 Nioh 3 and related game assets are property of their respective rights holders.

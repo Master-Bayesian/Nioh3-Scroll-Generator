@@ -1,3 +1,4 @@
+@font-face{font-family:"Geist";font-style:normal;font-display:swap;font-weight:100 900;src:url("./fonts/geist-latin-wght-normal.woff2") format("woff2-variations");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 /*
  * Arc interface layer. Loaded after style.css: it sets the shape, layout and
  * hand-tuned colors; the build tones every older color to neutral (arcTone).
@@ -13,8 +14,8 @@
   --k-sand:rgb(214 160 64);--k-purple:rgb(131 82 196);--k-blue:rgb(47 100 192);--k-rose:rgb(192 58 98);--k-teal:rgb(36 130 126);
   --r3:rgb(112 64 181);--r4:rgb(28 116 64);--r5:rgb(160 85 12);
   --r3-glow:rgb(185 145 229 / .5);--r4-glow:rgb(110 200 135 / .45);--r5-glow:rgb(239 174 98 / .52);
-  --a-font:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;
-  --a-num:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+  --a-font:"Geist","Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;
+  --a-num:"Geist","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
 }
 :root[data-theme=dark]{
   --a-page:rgb(12 12 11);--a-tray:rgb(19 19 18);--a-card:rgb(27 27 25);--a-fill:rgb(34 34 32);
@@ -402,3 +403,32 @@ html .collection-card-item>.scroll .scroll-terrain{height:auto;padding:8px 0 0;o
 html .collection-card-item>.scroll>footer{padding:6px 6px 6px 12px;overflow:visible}
 html .search-page .capacity{flex-wrap:nowrap}
 html .search-page .capacity button{flex:1 1 0;min-width:0;padding:0 4px}
+
+/* ---------- round 3: popup anchoring, icon buttons, Arc motion ---------- */
+html .side-popup{top:var(--popup-top,64px)!important;right:var(--popup-right,16px)!important;left:auto!important;bottom:auto!important;transform-origin:top right;animation:arc-pop .18s cubic-bezier(.2,.8,.2,1)}
+html .topbar .toplinks .icon-button{width:36px;height:36px;padding:0;border-radius:50%;display:grid;place-items:center}
+html .topbar .toplinks .icon-button svg{display:block}
+html .brand-mark{width:40px;height:40px;object-fit:contain;flex:none;border-radius:0}
+html .shell .nav{position:relative;isolation:isolate}
+html .shell .nav .nav-glider{position:absolute;z-index:-1;left:0;top:4px;height:34px;border-radius:10px;background:var(--a-card);box-shadow:0 1px 2px rgb(0 0 0 / .08),0 0 0 1px var(--a-line);transition:transform .32s cubic-bezier(.3,1.25,.4,1),width .32s cubic-bezier(.3,1.25,.4,1),opacity .2s;pointer-events:none}
+html .shell .nav button,html .shell .nav button.active,html .shell .nav button:hover:not(:disabled){background:transparent;box-shadow:none}
+html .shell .nav button.active{color:var(--a-text);font-weight:600}
+html button{transition:background .15s,border-color .15s,color .15s,transform .12s cubic-bezier(.3,1.4,.5,1),box-shadow .15s}
+html button:active:not(:disabled){transform:scale(.97)}
+html .search-page .catalog-row button:active:not(:disabled),html .shell .nav button:active:not(:disabled){transform:scale(.94)}
+html .catalog-tabs .catalog-tab{transition:background .2s,color .2s,border-color .2s,box-shadow .25s,transform .12s}
+html .search-page .catalog .module.is-open .panel-body{animation:arc-rise .22s cubic-bezier(.2,.8,.2,1)}
+html .search-page .selected-row,html .search-page .enemy-chip,html .search-page .rule-chip,html .search-page .grace-group .chip{animation:arc-rise .2s cubic-bezier(.2,.8,.2,1)}
+html .result-detail .scroll{animation:arc-rise .24s cubic-bezier(.2,.8,.2,1)}
+html .toast:not([hidden]){animation:arc-drop .24s cubic-bezier(.2,.8,.2,1)}
+html dialog[open]{animation:arc-pop .2s cubic-bezier(.2,.8,.2,1)}
+html .search-page .catalog-row button:disabled{animation:arc-pop .18s cubic-bezier(.3,1.4,.5,1)}
+@keyframes arc-pop{from{opacity:0;transform:scale(.96) translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes arc-rise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes arc-drop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+/* Arc's soft brand wash behind the top bar */
+html .shell{background:radial-gradient(900px 140px at 18% -40px,rgb(196 181 253 / .22),transparent 70%),radial-gradient(900px 140px at 82% -40px,rgb(253 210 170 / .24),transparent 70%),var(--a-page)}
+html .shell>.topbar{background:transparent}
+:root[data-theme=dark] .shell{background:radial-gradient(900px 140px at 18% -40px,rgb(140 110 220 / .16),transparent 70%),radial-gradient(900px 140px at 82% -40px,rgb(220 140 80 / .14),transparent 70%),var(--a-page)}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .shell{background:radial-gradient(900px 140px at 18% -40px,rgb(140 110 220 / .16),transparent 70%),radial-gradient(900px 140px at 82% -40px,rgb(220 140 80 / .14),transparent 70%),var(--a-page)}}
+@media (prefers-reduced-motion:reduce){html *,html *::before,html *::after{animation:none!important;transition:none!important}}

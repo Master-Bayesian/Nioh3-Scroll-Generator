@@ -2,7 +2,7 @@ import { build } from 'esbuild';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { withDarkTheme, arcTone } from '../workshop/dark-theme.mjs';
 await mkdir('apps/tauri/dist', { recursive: true });
-await build({entryPoints:['apps/tauri/entry.ts'],outfile:'apps/tauri/dist/app.js',bundle:true,platform:'browser',format:'esm',minify:true,jsx:'transform',jsxFactory:'localizedElement',tsconfigRaw:{compilerOptions:{jsx:'react',jsxFactory:'localizedElement'}},inject:['apps/workshop/presentation-jsx.ts'],define:{'process.env.NODE_ENV':'"production"'}});
+await build({entryPoints:['apps/tauri/entry.ts'],outfile:'apps/tauri/dist/app.js',bundle:true,platform:'browser',format:'esm',minify:true,jsx:'transform',jsxFactory:'localizedElement',tsconfigRaw:{compilerOptions:{jsx:'react',jsxFactory:'localizedElement'}},inject:['apps/workshop/presentation-jsx.ts'],loader:{'.woff2':'dataurl'},define:{'process.env.NODE_ENV':'"production"'}});
 // The dark theme (#14) is derived from the built light stylesheet, as the
 // browser build does; without it the 深色 setting changed nothing here.
 await writeFile('apps/tauri/dist/app.css', withDarkTheme(await readFile('apps/tauri/dist/app.css', 'utf8'), arcTone));
