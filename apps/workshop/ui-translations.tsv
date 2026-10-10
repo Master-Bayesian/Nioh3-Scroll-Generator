@@ -59,7 +59,7 @@
 前	First	先頭の
 项均可为主词条	items can be the primary effect	件のいずれかを主効果にする
 拖动词条到一起分组，拖出取消分组	Drag together to group; drag out to ungroup	重ねてグループ化、外にドラッグして解除
-从下方目录添加词条，也可以只选择恩宠或辅助条件。	Add effects below, or choose only a grace or mission conditions.	下の一覧から効果を追加。恩寵やミッション条件だけでも検索できます。
+从左侧条件目录添加词条，也可以只选择恩宠或辅助条件。	Add effects from the catalog on the left, or choose only a grace or mission conditions.	左のカタログから効果を追加。恩寵やミッション条件だけでも検索できます。
 恩宠 · 任选一个	Grace · Any one	恩寵 · いずれか一つ
 敌人 ·	Enemy ·	敵 ·
 敌人组合	Enemy matching	敵の組み合わせ
@@ -508,7 +508,7 @@ R5 · 橙色	R5 · Orange	R5 · 橙
 同一任选组只需出现其中一个敌人。例如把古笼火和肉瘤怪放入“任选组 1”，出现任意一个就符合。	An any-of group needs only one of its enemies to appear. For example, putting Koroka and Nuppeppo in Any-of group 1 accepts either enemy.	同じ選択グループでは、いずれか1体が出現すれば条件を満たします。たとえば古籠火と肉瘤怪を「選択グループ 1」に入れると、どちらかが出現すれば対象です。
 多个条件怎样计算？	How are multiple conditions evaluated?	複数の条件はどう判定されますか？
 每个必含条件和每个任选组都要分别满足；绘卷中可以同时出现没有选择的其他敌人。	Every Required condition and every any-of group must be satisfied independently. The scroll may also contain enemies you did not select.	各「必須」条件と各選択グループをそれぞれ満たす必要があります。選んでいない敵が同時に出現しても問題ありません。
-装备加成：在左边选择你想要的词条和恩宠。刷副本：在右边选择想打的敌人、特殊规则、地形和挑战次数。	For equipment bonuses, choose effects and graces on the left. For missions, choose enemies, rules, terrain and attempts on the right.	装備用は左側で効果と恩寵を選びます。ミッション用は右側で敵・ルール・地形・挑戦回数を選びます。
+装备加成：在左侧条件目录的“主副词条”“恩宠”里选择你想要的词条和恩宠。刷副本：在“敌人”“特殊规则”“地形 · 次数”里选择想打的敌人、特殊规则、地形和挑战次数。	For equipment bonuses, choose effects and graces under “Primary / secondary effects” and “Grace” in the catalog on the left. For missions, choose enemies, rules, terrain and attempts under “Enemies”, “Special rules” and “Terrain · attempts”.	装備用は左のカタログの「主・副効果」「恩寵」で効果と恩寵を選びます。ミッション用は「敵」「特殊ルール」「地形 · 挑戦回数」で敵・ルール・地形・挑戦回数を選びます。
 怎样组合词条？	How do effect groups work?	効果条件の組み合わせ方
 “必含”：每个选中的词条都要有。例如同时添加体力和幸运，结果必须同时有这两项。	Required means every selected effect must appear. Requiring Life and Luck searches for scrolls containing both.	「必須」は選択したすべての効果が必要です。体力と幸運を追加すると、両方ある絵巻を検索します。
 “任选组”：同组中有一项就可以。例如把体力和幸运放进“任选组 1”，有体力或有幸运都可以。	An any-of group needs only one matching effect. Group Life and Luck together to accept either one.	同じグループではいずれか一つがあれば一致します。体力と幸運をまとめると、どちらかがある絵巻を検索します。
@@ -1510,3 +1510,10 @@ NPC武器	NPC weapon	NPC武器
 仍无法确认上次的结果（例如游戏重启过）。可以先在游戏里看这张绘卷的次数，再决定是否继续修改。	The last result still cannot be confirmed (for example, the game restarted). Check this scroll's count in game, then decide whether to continue.	前回の結果をまだ確認できません（ゲームを再起動した場合など）。ゲーム内でこの絵巻の回数を確認してから、続けるか決めてください。
 不再核对，继续修改	Stop checking and continue editing	確認をやめて変更を続ける
 已不再提醒上次的次数修改。	The reminder for the last count edit has been dropped.	前回の回数変更の通知を解除しました。
+条件目录	Condition catalog	条件カタログ
+装备加成 · 装备在身上	Equipment bonuses · worn gear	装備効果 · 身に着ける装備
+副本刷取 · 刷副本时	Missions · when farming	ミッション · 周回時
+地形 · 次数	Terrain · attempts	地形 · 挑戦回数
+每一块都要满足；虚线框内满足其一即可	Every block must match; inside a dashed box, any one is enough	各ブロックをすべて満たします。点線の枠内はいずれか一つで構いません
+主词条 · 前	Primary effect · first	主効果 · 先頭の
+项任一当选	items, any one is chosen	件のいずれかが選ばれる

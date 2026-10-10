@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 // @ts-expect-error The build helper is plain JavaScript.
-import { darkColor, withDarkTheme } from '../../workshop/dark-theme.mjs';
+import { arcTone, darkColor, withDarkTheme } from '../../workshop/dark-theme.mjs';
 
 const lightness = (hex: string) => {
   const [r, g, b] = [1, 3, 5].map(offset => parseInt(hex.slice(offset, offset + 2), 16));
@@ -34,4 +34,14 @@ test('game-styled panels keep their colors in both themes', () => {
   assert.match(css, /\.result-pane\{background:var\(--k\w+\)\}/);
   assert.match(css, /@media\(min-width:9px\)\{\.effect-line\{color:#a4cfdb\}\.y\{color:var\(--k\w+\)\}\}/);
   assert.match(css, /\.scroll-audit\{color:var\(--k\w+\)\}/);
+});
+
+test('the Arc tone turns tints neutral and keeps status colors', () => {
+  const [r, g, b] = [0, 2, 4].map(offset => parseInt(arcTone('dcebe6ff').slice(offset, offset + 2), 16));
+  assert.ok(Math.max(r, g, b) - Math.min(r, g, b) <= 2, 'a teal tint becomes grey');
+  assert.equal(arcTone('c42b1cff'), 'c42b1cff', 'a saturated red is kept');
+  assert.equal(arcTone('bdcbd099').slice(-2), '99', 'alpha is kept');
+  const css = withDarkTheme('.x{color:#dcebe6}', arcTone);
+  assert.doesNotMatch(css, /--k0:#dcebe6/);
+  assert.match(css, /:root\[data-theme=dark\]\{--k0:#[0-9a-f]{6};/);
 });

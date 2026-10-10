@@ -244,9 +244,9 @@
       "Drag together to group; drag out to ungroup",
       "重ねてグループ化、外にドラッグして解除"
     ],
-    "从下方目录添加词条，也可以只选择恩宠或辅助条件。": [
-      "Add effects below, or choose only a grace or mission conditions.",
-      "下の一覧から効果を追加。恩寵やミッション条件だけでも検索できます。"
+    "从左侧条件目录添加词条，也可以只选择恩宠或辅助条件。": [
+      "Add effects from the catalog on the left, or choose only a grace or mission conditions.",
+      "左のカタログから効果を追加。恩寵やミッション条件だけでも検索できます。"
     ],
     "恩宠 · 任选一个": [
       "Grace · Any one",
@@ -2040,9 +2040,9 @@
       "Every Required condition and every any-of group must be satisfied independently. The scroll may also contain enemies you did not select.",
       "各「必須」条件と各選択グループをそれぞれ満たす必要があります。選んでいない敵が同時に出現しても問題ありません。"
     ],
-    "装备加成：在左边选择你想要的词条和恩宠。刷副本：在右边选择想打的敌人、特殊规则、地形和挑战次数。": [
-      "For equipment bonuses, choose effects and graces on the left. For missions, choose enemies, rules, terrain and attempts on the right.",
-      "装備用は左側で効果と恩寵を選びます。ミッション用は右側で敵・ルール・地形・挑戦回数を選びます。"
+    "装备加成：在左侧条件目录的“主副词条”“恩宠”里选择你想要的词条和恩宠。刷副本：在“敌人”“特殊规则”“地形 · 次数”里选择想打的敌人、特殊规则、地形和挑战次数。": [
+      "For equipment bonuses, choose effects and graces under “Primary / secondary effects” and “Grace” in the catalog on the left. For missions, choose enemies, rules, terrain and attempts under “Enemies”, “Special rules” and “Terrain · attempts”.",
+      "装備用は左のカタログの「主・副効果」「恩寵」で効果と恩寵を選びます。ミッション用は「敵」「特殊ルール」「地形 · 挑戦回数」で敵・ルール・地形・挑戦回数を選びます。"
     ],
     "怎样组合词条？": [
       "How do effect groups work?",
@@ -6047,6 +6047,34 @@
     "已不再提醒上次的次数修改。": [
       "The reminder for the last count edit has been dropped.",
       "前回の回数変更の通知を解除しました。"
+    ],
+    "条件目录": [
+      "Condition catalog",
+      "条件カタログ"
+    ],
+    "装备加成 · 装备在身上": [
+      "Equipment bonuses · worn gear",
+      "装備効果 · 身に着ける装備"
+    ],
+    "副本刷取 · 刷副本时": [
+      "Missions · when farming",
+      "ミッション · 周回時"
+    ],
+    "地形 · 次数": [
+      "Terrain · attempts",
+      "地形 · 挑戦回数"
+    ],
+    "每一块都要满足；虚线框内满足其一即可": [
+      "Every block must match; inside a dashed box, any one is enough",
+      "各ブロックをすべて満たします。点線の枠内はいずれか一つで構いません"
+    ],
+    "主词条 · 前": [
+      "Primary effect · first",
+      "主効果 · 先頭の"
+    ],
+    "项任一当选": [
+      "items, any one is chosen",
+      "件のいずれかが選ばれる"
     ]
   },
   "game": {

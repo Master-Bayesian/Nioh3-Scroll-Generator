@@ -8,7 +8,7 @@ import { collectionKey, useCollections } from "./collections";
 import { Updates, UpdateNotice } from "./Updates";
 import { StarIcon } from "./StarIcon";
 import { SectionHelp } from "./SectionHelp";
-import { appIcon } from "./app-icon";
+import { BrandMark } from "./BrandMark";
 import React, {
   createContext,
   useContext,
@@ -35,6 +35,7 @@ import {
   type SelectedEffect,
 } from "./model";
 import "./style.css";
+import "./arc.css";
 import { BackupManager } from "./BackupManager";
 import { Editor } from "./Editor";
 import { CharacterEditor } from "./CharacterEditor";
@@ -186,23 +187,15 @@ function Panel({
   children: React.ReactNode;
   extra?: React.ReactNode;
 }) {
-  const { opened, toggle } = useContext(PanelContext);
+  const { opened } = useContext(PanelContext);
   const group = ["主副词条", "恩宠"].includes(title) ? "equipment" : "dungeon";
-  const expanded = opened[group] === title;
+  const expanded = opened.catalog === title;
   const [scrolled, setScrolled] = useState(false);
   const body = useRef<HTMLDivElement>(null);
   return (
-    <section className={"module " + tone + (expanded ? " is-open" : "")}>
+    <section className={"module " + tone + (expanded ? " is-open" : "")} hidden={!expanded} data-group={group}>
       <header>
-        <button
-          className="panel-toggle"
-          aria-label={title}
-          aria-expanded={expanded}
-          onClick={() => toggle(group, title)}
-        >
-          <span>{expanded ? "▾" : "▸"}</span>
-          <h2>{title}</h2>
-        </button>
+        <h2 className="panel-title">{title}</h2>
         {extra}
         <SectionHelp key={String(expanded)} title={title + "说明"}>
           {help}
@@ -559,7 +552,7 @@ function App() {
   const cartKey = collectionKey;
 
   const [matchedCount, setMatchedCount] = useState(0);
-  const [popupPosition, setPopupPosition] = useState({ left: 140, bottom: 20 });
+  const [popupPosition, setPopupPosition] = useState({ top: 64, right: 16 });
   const wheelTime = useRef(0);
   useEffect(() => {
     const area = document.querySelector(".search-page .result-scroll");
@@ -630,8 +623,7 @@ function App() {
   const [ruleDrafts, setRuleDrafts] = useState<Record<string, string>>({});
   const qqUrl =
     "https://qm.qq.com/cgi-bin/qm/qr?k=0qS7eJtELBBcN8_ne4B7qG-c63Ze6pIo&jump_from=webapi&authKey=OMNXRYe8Ns3exbv9xiDr6HOQca3C/F+f5dVguJS7d2NFCf5URf308buzPfPXaf2G";
-  const [collapsed, setCollapsed] = useState(false),
-    [toast, setToast] = useState("");
+  const [toast, setToast] = useState("");
   async function joinGroup() {
     try {
       await copyText(data.qq);
@@ -1018,138 +1010,20 @@ function App() {
       )
     : favorites;
   return (
-    <div className={"shell " + (collapsed ? "nav-collapsed" : "")}>
-      <aside className="nav">
-        <button
-          className="nav-toggle"
-          aria-label={collapsed ? "展开侧栏" : "收起侧栏"}
-          aria-expanded={!collapsed}
-          onClick={() => setCollapsed(!collapsed)}
-        >
-          {collapsed ? "☰" : "‹"}
-        </button>
-        {desktop&&<RuntimeCompatibility/>}
-        <div className="brand">
-          仁王<span>3</span>
-          <small>独脚踏鞴工作室</small>
-          {appVersion && <em className="app-version">v{appVersion}</em>}
-          {sourceCommit&&<em className="app-build" title="当前程序构建">{sourceCommit}</em>}
-        </div>
-        <nav>
-          <button
-            className={page === "search" ? "active" : ""}
-            onClick={() => setPage("search")}
-            aria-label="绘卷搜索"
-            title="绘卷搜索"
-          >
-            <span className="nav-icon" aria-hidden="true">▤</span><span>绘卷搜索</span>
-          </button>
-          <button
-            className={page === "editor" ? "active" : ""}
-            onClick={() => setPage("editor")}
-            aria-label="绘卷编辑"
-            title="绘卷编辑"
-          >
-            <span className="nav-icon" aria-hidden="true">✎</span><span>绘卷编辑</span>
-          </button>
-          <button
-            className={page === "backups" ? "active" : ""}
-            onClick={() => setPage("backups")}
-            aria-label="存档管理"
-          >
-            <span className="nav-icon" aria-hidden="true">▣</span><span>存档管理</span>
-          </button>
-          <button
-            className={page === "favorites" ? "active" : ""}
-            onClick={() => setPage("favorites")}
-            aria-label="收藏夹"
-          >
-            <span className="nav-icon" aria-hidden="true"><StarIcon /></span><span>收藏夹（{favorites.length}）</span>
-          </button>
-          <button
-            className={page === "equipment" ? "active" : ""}
-            onClick={() => setPage("equipment")}
-            aria-label="装备与道具"
-            title="装备与道具"
-          >
-            <span className="nav-icon" aria-hidden="true">▦</span><span>装备与道具</span>
-          </button>
-          <button className="coming-soon" disabled>
-            <span className="nav-icon" aria-hidden="true">♜</span>
-            <span>敬请期待</span>
-          </button>
-        </nav>
-        <div className="nav-bottom">
-          <button
-            className="language-button"
-            aria-label="切换语言"
-            title="切换语言"
-            onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              setPopupPosition({
-                left: r.right + 10,
-                bottom: window.innerHeight - r.bottom,
-              });
-              setPopup(popup === "language" ? "" : "language");
-            }}
-          >
-            <svg viewBox="0 0 32 28" width="25" height="25" aria-hidden="true">
-              <circle
-                cx="14"
-                cy="14"
-                r="11"
-                fill="none"
-                stroke="currentColor"
-              />
-              <ellipse
-                cx="14"
-                cy="14"
-                rx="5"
-                ry="11"
-                fill="none"
-                stroke="currentColor"
-              />
-              <path
-                d="M3 14h22M5 8h18M5 20h18"
-                fill="none"
-                stroke="currentColor"
-              />
-              <rect
-                x="18"
-                y="1"
-                width="13"
-                height="12"
-                rx="3"
-                fill="var(--language-fill,#eef1f7)"
-                stroke="currentColor"
-              />
-              <text x="21" y="10" fill="currentColor" fontSize="9">
-                A
-              </text>
-            </svg>
-            <span>语言</span>
-          </button>
-          <button
-            className="settings"
-            aria-label="设置"
-            title="设置"
-            onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              setPopupPosition({
-                left: r.right + 10,
-                bottom: window.innerHeight - r.bottom,
-              });
-              setPopup(popup === "settings" || popup === "game" || popup === "about" ? "" : "settings");
-            }}
-          >
-            <span className="nav-icon" aria-hidden="true">⚙</span><span>设置</span>
-          </button>
-          {desktop && <UpdateNotice onOpen={openUpdatePrompt} />}
-        </div>
-      </aside>
+    <div className="shell">
       <header className="topbar">
-        <img className="app-icon" src={appIcon} alt="" />
-        <h1>
+        <div className="brand">
+          <BrandMark />
+          <div className="brand-text">
+            <b>独脚踏鞴工作室</b>
+            <small>
+              <span className="credits">作者：MasterBayesian · Saber_Li</span>
+              {appVersion && <em className="app-version">v{appVersion}</em>}
+              {sourceCommit&&<em className="app-build" title="当前程序构建">{sourceCommit}</em>}
+            </small>
+          </div>
+        </div>
+        <h1 className="visually-hidden">
           {page === "search"
             ? "绘卷搜索"
             : page === "favorites"
@@ -1160,8 +1034,88 @@ function App() {
                 ? "装备与道具"
                 : "绘卷编辑"}
         </h1>
+        <nav className="nav">
+          <button
+            className={page === "search" ? "active" : ""}
+            onClick={() => setPage("search")}
+            aria-label="绘卷搜索"
+            title="绘卷搜索"
+          >
+            <span>绘卷搜索</span>
+          </button>
+          <button
+            className={page === "editor" ? "active" : ""}
+            onClick={() => setPage("editor")}
+            aria-label="绘卷编辑"
+            title="绘卷编辑"
+          >
+            <span>绘卷编辑</span>
+          </button>
+          <button
+            className={page === "backups" ? "active" : ""}
+            onClick={() => setPage("backups")}
+            aria-label="存档管理"
+          >
+            <span>存档管理</span>
+          </button>
+          <button
+            className={page === "favorites" ? "active" : ""}
+            onClick={() => setPage("favorites")}
+            aria-label="收藏夹"
+          >
+            <span>收藏夹</span>
+            <small className="nav-count">{favorites.length}</small>
+          </button>
+          <button
+            className={page === "equipment" ? "active" : ""}
+            onClick={() => setPage("equipment")}
+            aria-label="装备与道具"
+            title="装备与道具"
+          >
+            <span>装备与道具</span>
+          </button>
+          <button className="coming-soon" disabled>
+            <span>敬请期待</span>
+          </button>
+        </nav>
         <div className="toplinks">
-          <span className="credits">作者：MasterBayesian · Saber_Li</span>
+          {desktop && <UpdateNotice onOpen={openUpdatePrompt} />}
+          <button
+            className="icon-button language-button"
+            aria-label="切换语言"
+            title="切换语言"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setPopupPosition({
+                top: r.bottom + 8,
+                right: window.innerWidth - r.right,
+              });
+              setPopup(popup === "language" ? "" : "language");
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7">
+              <circle cx="12" cy="12" r="8.5" />
+              <path d="M3.5 12h17M12 3.5c2.5 2.6 2.5 14.4 0 17M12 3.5c-2.5 2.6-2.5 14.4 0 17" />
+            </svg>
+          </button>
+          <button
+            className="icon-button settings"
+            aria-label="设置"
+            title="设置"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setPopupPosition({
+                top: r.bottom + 8,
+                right: window.innerWidth - r.right,
+              });
+              setPopup(popup === "settings" || popup === "game" || popup === "about" ? "" : "settings");
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" />
+            </svg>
+          </button>
           <button
             onClick={() => {
               void joinGroup();
@@ -1172,6 +1126,7 @@ function App() {
             加入QQ群
           </button>
           <button
+            className="github-link"
             onClick={() => {
               if (desktop) void window.review.openLink("github");
               else window.open(data.github, "_blank", "noopener");
@@ -1204,313 +1159,49 @@ function App() {
           </div>
         )}
       </header>
+      {desktop&&<RuntimeCompatibility/>}
       <div className="search-page" hidden={page !== "search"}>
-        <main>
-          <section
-            onMouseEnter={() => {
-              if (selectionLeave.current) clearTimeout(selectionLeave.current);
-              if (count) setExpandedCart(true);
-            }}
-            onMouseLeave={() => {
-              selectionLeave.current = setTimeout(
-                () => setExpandedCart(false),
-                220,
-              );
-            }}
-            className={
-              "selection " + (expandedCart ? "selection-expanded" : "")
-            }
-          >
-            <header>
-              <h2>
-                已选条件 <span>{count}</span>
-              </h2>
-              <button onClick={() => open("使用说明")}>使用说明</button>
-              <button onClick={reset} disabled={busy}>
-                清空全部
-              </button>
-              <button
-                aria-label={expandedCart ? "收起已选条件" : "展开已选条件"}
-                aria-expanded={expandedCart}
-                onClick={() => setExpandedCart(!expandedCart)}
-              >
-                {expandedCart ? "⌃" : "⌄"}
-              </button>
-            </header>
-            <div className="primary-controls">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={q.unrestricted}
-                  onChange={(e) => change("unrestricted", e.target.checked)}
-                />
-                主词条不限
-              </label>
-              <span>主词条可选数量</span>
-              <Select
-                label="主词条可选数量"
-                value={q.primaryCount}
-                disabled={q.unrestricted}
-                options={[1, 2, 3]}
-                onChange={(v) => change("primaryCount", Number(v))}
-              />
-              <span className="primary-hint">
-                前 <b>{q.primaryCount}</b> 项均可为主词条
-              </span>
-              <span className="drag-hint">
-                拖动词条到一起分组，拖出取消分组
-              </span>
-            </div>
-            {conditionProblem && (
-              <Notice
-                text={conditionProblem}
-                tone="warning"
-                className="condition-problem"
-              />
-            )}
-            <div className="selected-body">
-              <div className="selected-effects">
-                {q.effects.length ? (
-                  <>
-                    {(q.unrestricted
-                      ? []
-                      : q.effects.slice(0, q.primaryCount)
-                    ).map(renderEffect)}
-                    <ConditionGroups
-                      kind="effects"
-                      items={
-                        q.unrestricted
-                          ? q.effects
-                          : q.effects.slice(q.primaryCount)
-                      }
-                    >
-                      {renderEffect}
-                    </ConditionGroups>
-                  </>
-                ) : count === 0 ? (
-                  <p className="empty-selection">
-                    从下方目录添加词条，也可以只选择恩宠或辅助条件。
-                  </p>
-                ) : null}
-              </div>
-              <div className="other-conditions">
-                {q.graces.length > 0 && (
-                  <div className="grace-group">
-                    <small>恩宠 · 任选一个</small>
-                    {q.graces.map((id) => (
-                      <button
-                        className="chip grace-chip"
-                        key={id}
-                        onClick={() =>
-                          change(
-                            "graces",
-                            q.graces.filter((v) => v !== id),
-                          )
-                        }
-                      >
-                        {context.graces.find((e) => e.id === id)?.name} ×
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <ConditionGroups kind="enemies" items={q.enemies}>
-                  {(e) => (
-                    <div
-                      {...conditionDrag.item("enemies", e.id)}
-                      className="enemy-chip"
-                      key={e.id}
-                    >
-                      <span className="drag-grip">⠿</span>
-                      <span title={e.name}>敌人 · {e.name}</span>
-                      <Select
-                        label={e.name + "敌人组合"}
-                        value={e.mode}
-                        options={modeOptions}
-                        onChange={(v) =>
-                          change(
-                            "enemies",
-                            q.enemies.map((x) =>
-                              x.id === e.id ? { ...x, mode: Number(v) } : x,
-                            ),
-                          )
-                        }
-                      />
-                      {q.ng === 3 && enemyCanBePossessed(e) && (
-                        <ToggleSwitch
-                          compact
-                          label="地狱附身"
-                          checked={e.state === "possessed"}
-                          onChange={(checked) =>
-                          change(
-                            "enemies",
-                            q.enemies.map((item) =>
-                              item.id === e.id
-                                ? {
-                                    ...item,
-                                    state: checked ? "possessed" : "any",
-                                  }
-                                : item,
-                            ),
-                          )
-                          }
-                        />
-                      )}
-                      <button
-                        aria-label={"移除敌人" + e.name}
-                        onClick={() =>
-                          change(
-                            "enemies",
-                            q.enemies.filter((x) => x.id !== e.id),
-                          )
-                        }
-                      >
-                        ×
-                      </button>
-                    </div>
-                  )}
-                </ConditionGroups>
-                {enemyCombinationProblem(q) && (
-                  <p className="enemy-combination-problem" role="alert">
-                    这组必含敌人不可能同时出现：{enemyCombinationProblem(q)}
-                    <button className="subtle" onClick={() => open("敌人组合")}>
-                      组合说明
-                    </button>
-                  </p>
-                )}
-                <ConditionGroups kind="rules" items={q.rules}>
-                  {(r) => (
-                    <div
-                      {...conditionDrag.item("rules", r.id)}
-                      className="chip rule-chip"
-                      key={r.id}
-                    >
-                      <span className="drag-grip">⠿</span>
-                      <span>
-                        规则 · {r.name}
-                        {!r.id.startsWith("category:") && (
-                          <>
-                            {" · "}
-                            {data.rules
-                              .find((f) => f.id === r.id)
-                              ?.variants.find(
-                                (v) => String(v.key) === r.variant,
-                              )?.label ||
-                              (r.variant === ANY_RULE_VALUE ||
-                              r.variant === "任意变体" ||
-                              r.variant === "任意对象／数值"
-                                ? "全部接受"
-                                : r.variant)}
-                          </>
-                        )}
-                      </span>
-                      {r.id.startsWith("category:") && (
-                        <Select
-                          className="rule-value"
-                          label={r.name + "统一数值"}
-                          value={r.variant}
-                          options={[
-                            [ANY_RULE_VALUE, "任意数值"],
-                            ...ruleFamilyValues(r.name).map((value) => [
-                              value,
-                              value,
-                            ]),
-                          ]}
-                          onChange={(variant) =>
-                            change(
-                              "rules",
-                              q.rules.map((item) =>
-                                item.id === r.id
-                                  ? {
-                                      ...item,
-                                      keys: ruleFamilyKeys(r.name, variant),
-                                      variant,
-                                    }
-                                  : item,
-                              ),
-                            )
-                          }
-                        />
-                      )}
-                      <Select
-                        className="rule-match"
-                        label={r.name + "规则组合"}
-                        value={r.mode || 0}
-                        options={modeOptions}
-                        onChange={(v) =>
-                          change(
-                            "rules",
-                            q.rules.map((x) =>
-                              x.id === r.id ? { ...x, mode: Number(v) } : x,
-                            ),
-                          )
-                        }
-                      />
-                      <button
-                        aria-label={"移除规则" + r.name}
-                        onClick={() =>
-                          change(
-                            "rules",
-                            q.rules.filter((x) => x.id !== r.id),
-                          )
-                        }
-                      >
-                        ×
-                      </button>
-                    </div>
-                  )}
-                </ConditionGroups>
-                {q.terrains.map((id) => (
-                  <button
-                    className="chip"
-                    key={id}
-                    onClick={() =>
-                      change(
-                        "terrains",
-                        q.terrains.filter((x) => x !== id),
-                      )
-                    }
-                  >
-                    地形任一 ·{" "}
-                    {data.terrains.find((t) => t.option_id === id)?.name} ×
-                  </button>
-                ))}
-                {q.capacities.map((n) => (
-                  <button
-                    className="chip"
-                    key={n}
-                    onClick={() =>
-                      change(
-                        "capacities",
-                        q.capacities.filter((x) => x !== n),
-                      )
-                    }
-                  >
-                    挑战 {n} 次 ×
-                  </button>
-                ))}
-              </div>
-            </div>
-          </section>
           <PanelContext.Provider
             value={{
-              opened,
-              toggle: (group, title) =>
-                setOpened({
-                  ...opened,
-                  [group]: opened[group] === title ? "" : title,
-                }),
+              opened: { catalog: opened.catalog || "主副词条" },
+              toggle: (_group, title) =>
+                setOpened({ ...opened, catalog: title }),
             }}
           >
-            <div className="catalog-columns">
+            <aside className="catalog" aria-label="条件目录">
+              <header className="catalog-head">
+                <h2>条件目录</h2>
+                {(
+                  [
+                    ["装备加成 · 装备在身上", [["主副词条", "主副词条", "sand", q.effects.length], ["恩宠", "恩宠", "purple", q.graces.length]]],
+                    ["副本刷取 · 刷副本时", [["敌人", "敌人", "blue", q.enemies.length], ["特殊规则", "特殊规则", "rose", q.rules.length], ["地形影响与挑战次数", "地形 · 次数", "teal", q.terrains.length + q.capacities.length]]],
+                  ] as [string, [string, string, string, number][]][]
+                ).map(([group, tabs]) => (
+                  <div className="catalog-tab-group" key={group}>
+                    <small>{group}</small>
+                    <div className="catalog-tabs" role="tablist" aria-label={group}>
+                      {tabs.map(([title, label, tone, picked]) => (
+                        <button
+                          key={title}
+                          role="tab"
+                          aria-selected={(opened.catalog || "主副词条") === title}
+                          className={"catalog-tab " + tone}
+                          onClick={() => setOpened({ ...opened, catalog: title })}
+                        >
+                          <i aria-hidden="true" />
+                          {label}
+                          {picked > 0 && <b>{picked}</b>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </header>
               <div
                 className="catalog-column"
                 aria-label="装备加成筛选"
                 tabIndex={0}
               >
-                <header className="purpose">
-                  <h2>装备加成</h2>
-                  <p>装备在身上：筛选词条与恩宠</p>
-                </header>
                 <Panel
                   title="主副词条"
                   tone="sand"
@@ -1624,10 +1315,6 @@ function App() {
                 aria-label="副本刷取筛选"
                 tabIndex={0}
               >
-                <header className="purpose">
-                  <h2>副本刷取</h2>
-                  <p>刷副本：筛选敌人、规则、地形与挑战次数</p>
-                </header>
                 <Panel
                   title="敌人"
                   tone="blue"
@@ -1960,8 +1647,278 @@ function App() {
                   </div>
                 </Panel>
               </div>
-            </div>
+            </aside>
           </PanelContext.Provider>
+        <main>
+          <section className="selection">
+            <header>
+              <h2>
+                已选条件 <span>{count}</span>
+              </h2>
+              <p className="selection-hint">每一块都要满足；虚线框内满足其一即可</p>
+              <button onClick={() => open("使用说明")}>使用说明</button>
+              <button onClick={reset} disabled={busy}>
+                清空全部
+              </button>
+            </header>
+            <div className="primary-controls">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={q.unrestricted}
+                  onChange={(e) => change("unrestricted", e.target.checked)}
+                />
+                主词条不限
+              </label>
+              <span>主词条可选数量</span>
+              <Select
+                label="主词条可选数量"
+                value={q.primaryCount}
+                disabled={q.unrestricted}
+                options={[1, 2, 3]}
+                onChange={(v) => change("primaryCount", Number(v))}
+              />
+              <span className="primary-hint">
+                前 <b>{q.primaryCount}</b> 项均可为主词条
+              </span>
+              <span className="drag-hint">
+                拖动词条到一起分组，拖出取消分组
+              </span>
+            </div>
+            {conditionProblem && (
+              <Notice
+                text={conditionProblem}
+                tone="warning"
+                className="condition-problem"
+              />
+            )}
+            <div className="selected-body">
+              <div className="selected-effects">
+                {q.effects.length ? (
+                  <>
+                    {!q.unrestricted && (
+                      <div className="primary-group">
+                        <small>
+                          主词条 · 前 {q.primaryCount} 项任一当选
+                        </small>
+                        {q.effects.slice(0, q.primaryCount).map(renderEffect)}
+                      </div>
+                    )}
+                    <ConditionGroups
+                      kind="effects"
+                      items={
+                        q.unrestricted
+                          ? q.effects
+                          : q.effects.slice(q.primaryCount)
+                      }
+                    >
+                      {renderEffect}
+                    </ConditionGroups>
+                  </>
+                ) : count === 0 ? (
+                  <p className="empty-selection">
+                    从左侧条件目录添加词条，也可以只选择恩宠或辅助条件。
+                  </p>
+                ) : null}
+              </div>
+              <div className="other-conditions">
+                {q.graces.length > 0 && (
+                  <div className="grace-group">
+                    <small>恩宠 · 任选一个</small>
+                    {q.graces.map((id) => (
+                      <button
+                        className="chip grace-chip"
+                        key={id}
+                        onClick={() =>
+                          change(
+                            "graces",
+                            q.graces.filter((v) => v !== id),
+                          )
+                        }
+                      >
+                        {context.graces.find((e) => e.id === id)?.name} ×
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <ConditionGroups kind="enemies" items={q.enemies}>
+                  {(e) => (
+                    <div
+                      {...conditionDrag.item("enemies", e.id)}
+                      className="enemy-chip"
+                      key={e.id}
+                    >
+                      <span className="drag-grip">⠿</span>
+                      <span title={e.name}>敌人 · {e.name}</span>
+                      <Select
+                        label={e.name + "敌人组合"}
+                        value={e.mode}
+                        options={modeOptions}
+                        onChange={(v) =>
+                          change(
+                            "enemies",
+                            q.enemies.map((x) =>
+                              x.id === e.id ? { ...x, mode: Number(v) } : x,
+                            ),
+                          )
+                        }
+                      />
+                      {q.ng === 3 && enemyCanBePossessed(e) && (
+                        <ToggleSwitch
+                          compact
+                          label="地狱附身"
+                          checked={e.state === "possessed"}
+                          onChange={(checked) =>
+                          change(
+                            "enemies",
+                            q.enemies.map((item) =>
+                              item.id === e.id
+                                ? {
+                                    ...item,
+                                    state: checked ? "possessed" : "any",
+                                  }
+                                : item,
+                            ),
+                          )
+                          }
+                        />
+                      )}
+                      <button
+                        aria-label={"移除敌人" + e.name}
+                        onClick={() =>
+                          change(
+                            "enemies",
+                            q.enemies.filter((x) => x.id !== e.id),
+                          )
+                        }
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+                </ConditionGroups>
+                {enemyCombinationProblem(q) && (
+                  <p className="enemy-combination-problem" role="alert">
+                    这组必含敌人不可能同时出现：{enemyCombinationProblem(q)}
+                    <button className="subtle" onClick={() => open("敌人组合")}>
+                      组合说明
+                    </button>
+                  </p>
+                )}
+                <ConditionGroups kind="rules" items={q.rules}>
+                  {(r) => (
+                    <div
+                      {...conditionDrag.item("rules", r.id)}
+                      className="chip rule-chip"
+                      key={r.id}
+                    >
+                      <span className="drag-grip">⠿</span>
+                      <span>
+                        规则 · {r.name}
+                        {!r.id.startsWith("category:") && (
+                          <>
+                            {" · "}
+                            {data.rules
+                              .find((f) => f.id === r.id)
+                              ?.variants.find(
+                                (v) => String(v.key) === r.variant,
+                              )?.label ||
+                              (r.variant === ANY_RULE_VALUE ||
+                              r.variant === "任意变体" ||
+                              r.variant === "任意对象／数值"
+                                ? "全部接受"
+                                : r.variant)}
+                          </>
+                        )}
+                      </span>
+                      {r.id.startsWith("category:") && (
+                        <Select
+                          className="rule-value"
+                          label={r.name + "统一数值"}
+                          value={r.variant}
+                          options={[
+                            [ANY_RULE_VALUE, "任意数值"],
+                            ...ruleFamilyValues(r.name).map((value) => [
+                              value,
+                              value,
+                            ]),
+                          ]}
+                          onChange={(variant) =>
+                            change(
+                              "rules",
+                              q.rules.map((item) =>
+                                item.id === r.id
+                                  ? {
+                                      ...item,
+                                      keys: ruleFamilyKeys(r.name, variant),
+                                      variant,
+                                    }
+                                  : item,
+                              ),
+                            )
+                          }
+                        />
+                      )}
+                      <Select
+                        className="rule-match"
+                        label={r.name + "规则组合"}
+                        value={r.mode || 0}
+                        options={modeOptions}
+                        onChange={(v) =>
+                          change(
+                            "rules",
+                            q.rules.map((x) =>
+                              x.id === r.id ? { ...x, mode: Number(v) } : x,
+                            ),
+                          )
+                        }
+                      />
+                      <button
+                        aria-label={"移除规则" + r.name}
+                        onClick={() =>
+                          change(
+                            "rules",
+                            q.rules.filter((x) => x.id !== r.id),
+                          )
+                        }
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+                </ConditionGroups>
+                {q.terrains.map((id) => (
+                  <button
+                    className="chip"
+                    key={id}
+                    onClick={() =>
+                      change(
+                        "terrains",
+                        q.terrains.filter((x) => x !== id),
+                      )
+                    }
+                  >
+                    地形任一 ·{" "}
+                    {data.terrains.find((t) => t.option_id === id)?.name} ×
+                  </button>
+                ))}
+                {q.capacities.map((n) => (
+                  <button
+                    className="chip"
+                    key={n}
+                    onClick={() =>
+                      change(
+                        "capacities",
+                        q.capacities.filter((x) => x !== n),
+                      )
+                    }
+                  >
+                    挑战 {n} 次 ×
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
           {desktop && q.ng >= 4 && (
             <div className="native-search-source">
               <SavePicker />
@@ -2824,7 +2781,7 @@ function App() {
         ) : (
           <div className="modal-body">
             <p>
-              装备加成：在左边选择你想要的词条和恩宠。刷副本：在右边选择想打的敌人、特殊规则、地形和挑战次数。
+              装备加成：在左侧条件目录的“主副词条”“恩宠”里选择你想要的词条和恩宠。刷副本：在“敌人”“特殊规则”“地形 · 次数”里选择想打的敌人、特殊规则、地形和挑战次数。
             </p>
             <h3>怎样组合词条？</h3>
             <p>

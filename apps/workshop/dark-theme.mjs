@@ -68,8 +68,24 @@ export function darkColor(digits) {
   return "#" + out.map(channel => Math.round(Math.min(1, Math.max(0, channel)) * 255).toString(16).padStart(2, "0")).join("") + (alpha === "ff" ? "" : alpha);
 }
 
+/**
+ * The neutral tone of the Arc interface: tints and greys lose their hue so
+ * the old teal-tinted surfaces read as plain greys; saturated status colors
+ * (danger, warning, rarity) keep theirs. Takes and returns 8-digit hex.
+ */
+export function arcTone(digits) {
+  const alpha = digits.slice(6, 8) || "ff";
+  const rgb = [0, 2, 4].map(offset => parseInt(digits.slice(offset, offset + 2), 16) / 255);
+  const [lightness, a, b] = rgbToOklab(rgb);
+  if (Math.hypot(a, b) >= 0.1) return digits.slice(0, 6) + alpha;
+  const out = oklabToRgb([lightness, a * 0.06, b * 0.06]);
+  return out.map(channel => Math.round(Math.min(1, Math.max(0, channel)) * 255).toString(16).padStart(2, "0")).join("") + alpha;
+}
+
+const plain = digits => digits;
+
 /** Rewrite the stylesheet's colors to tokens and append both themes. */
-export function withDarkTheme(css) {
+export function withDarkTheme(css, tone = plain) {
   const tokens = new Map();
   const tokenOf = hex => {
     const digits = expand(hex);
@@ -80,7 +96,8 @@ export function withDarkTheme(css) {
   const themed = css.replace(RULE, (rule, selector, body) =>
     GAME_STYLED.test(selector) ? rule : selector + "{" + body.replace(VALUE, (_, value) => ":" + value.replace(HEX, tokenOf)) + "}",
   );
-  const light = [...tokens].map(([digits, name]) => `${name}:#${digits.endsWith("ff") ? digits.slice(0, 6) : digits}`).join(";");
-  const dark = [...tokens].map(([digits, name]) => `${name}:${darkColor(digits)}`).join(";") + ";color-scheme:dark";
+  const light = [...tokens].map(([source, name]) => { const digits = tone(source); return `${name}:#${digits.endsWith("ff") ? digits.slice(0, 6) : digits}`; }).join(";");
+  const hex = digits => "#" + (digits.endsWith("ff") ? digits.slice(0, 6) : digits);
+  const dark = [...tokens].map(([digits, name]) => `${name}:${hex(tone(expand(darkColor(digits))))}`).join(";") + ";color-scheme:dark";
   return `:root{${light}}${themed}:root[data-theme=dark]{${dark}}@media(prefers-color-scheme:dark){:root:not([data-theme=light]){${dark}}}`;
 }
