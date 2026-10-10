@@ -1,0 +1,33 @@
+{
+  "schema": "nioh3-armor-owner-acceptance/v1",
+  "reported_utc": "2026-10-08T09:36:33Z",
+  "evidence_grade": "observed",
+  "observation_source": "owner-reported",
+  "items": [
+    {
+      "item_id_hex": "0xC18E",
+      "name": "盗贼轻铠　胸甲"
+    },
+    {
+      "item_id_hex": "0x35BC",
+      "name": "足轻中铠　胸甲"
+    },
+    {
+      "item_id_hex": "0xC288",
+      "name": "盾无　胸甲"
+    }
+  ],
+  "fields": [
+    "weight",
+    "attribute_requirements",
+    "toughness"
+  ],
+  "status": "Owner manually remodeled the three named chestplates and reported agreement for weight, requirements, and toughness.",
+  "limits": [
+    "The owner reports agreement with the enumerated comparison, without supplying individual numerical readings or screenshots in this message.",
+    "Rarity, level, plus, stage, flags, and the six-mode list above describe the linked native comparison; they were not independently restated in this owner message.",
+    "This acceptance applies to the three named chestplates and does not assert individual in-game validation of all catalog IDs.",
+    "Rarity-5 requirements and the exceptional toughness branch remain outside this acceptance."
+  ],
+  "source_sha256": "591B4D02D1E600F300AF9EC8F3D12EA9B34C1206E51DFA6C60CEB62BA133297F"
+}

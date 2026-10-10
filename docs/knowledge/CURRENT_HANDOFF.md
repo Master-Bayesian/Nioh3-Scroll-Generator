@@ -8,6 +8,16 @@ It adds the axe's hell martial skills (the captured table started four
 rows late), sets a scroll effect's star with the effect, and licenses the
 project under GPL-3.0-only; see the [engineering record](../product/releases/v0.8.8.md).
 
+## PC v2.02 armor remodel batch research (2026-10-08)
+
+The [armor remodel result](../research/V202_ARMOR_REMODEL_BATCH_20261008.md)
+provides an offline six-mode calculator and a public 636-ID / 3,816-row export.
+It matches 1,190 natural UI getter returns plus 162 temporary-record native
+queries (52 configurations / 468 fields), with scoped owner-reported manual
+agreement for three chestplates. Rarity 5, other + values, and exceptional
+toughness remain outside live acceptance. This is research tooling and data;
+product behavior and release state are unchanged.
+
 ## v0.8.7 published release
 
 **v0.8.7 is published and public-byte verified (2026-10-07)**: commit

@@ -24,6 +24,10 @@ path = "examples/historical_preview_classify.rs"
 name = "inventory_snapshot_fixture"
 path = "examples/inventory_snapshot_fixture.rs"
 
+[[example]]
+name = "armor_remodel_snapshot"
+path = "examples/armor_remodel_snapshot.rs"
+
 [features]
 # Compiles the fault-injecting adapter into the probe so the cross-language
 # gate can drive scripted mutation scenarios. Off by default.

@@ -1,0 +1,66 @@
+{
+  "schema": "nioh3-armor-remodel-batch-v202/v1",
+  "game_version": "2.0.2.0",
+  "offline_only": true,
+  "scope": {
+    "rarity": 4,
+    "level": 180,
+    "plus_values": [
+      20
+    ],
+    "stage": 3,
+    "flags": 0,
+    "includes_internal_rows": false
+  },
+  "armor_parameter_rows": 806,
+  "internal_alternate_rows": 170,
+  "exported_item_ids": 636,
+  "exported_configurations": 3816,
+  "live_matched_configurations": 52,
+  "computed_only_configurations": 3764,
+  "unnamed_item_ids": 67,
+  "cross_slot_configurations": 24,
+  "provenance": {
+    "item_sha256": "F680966B0A21AB64EADF31A26E80F83E2EEEAAC1446E305BB87B9E64617B53CE",
+    "executable_sha256": "E22C4A635E4EC1E27A177B76E27D7F6A637F426C0ED3928B60F5693BC52AE130",
+    "progression_capture_sha256": "A6F6DEA28A25845DF9564DB6705F2F56B69B697B689CDD1929F9DAB2752062A1",
+    "cold_table_capture_sha256": "6A528EA82349EC20D394E1D47753EDFA7EB73B822FF9836339E63138EF7201B0",
+    "name_catalog_sha256": "DF28D181D5DF8ED1573EF4E01B03634FB44FC8A092BC1BCDDEF1D76C02639425",
+    "name_game_version": "2.01",
+    "name_locale": "zh-CN"
+  },
+  "limitations": [
+    "Computed values describe the recovered getters, not obtainable or legal equipment.",
+    "The input flags are a scenario; upstream remodel changes to flags remain unresolved.",
+    "Rarity-5 and exceptional toughness branches have native control-flow/table evidence but no live return validation.",
+    "Names retain their PC v2.01 localization provenance; item parameters are PC v2.02.",
+    "Internal alternate targets are excluded from the default inventory-candidate export."
+  ],
+  "validation": {
+    "native_returns": 1352,
+    "paired_native_returns": 1190,
+    "direct_native_queries": 162,
+    "callbacks": 2380,
+    "distinct_item_mode_configurations": 52,
+    "distinct_verified_fields": 468,
+    "by_kind": {
+      "weight": 298,
+      "requirements": 744,
+      "toughness": 310
+    },
+    "mismatches": 0,
+    "all_cleanup_verified": true,
+    "scope": {
+      "rarity": 4,
+      "level": 180,
+      "plus": 20,
+      "stage": 3,
+      "special_toughness_flag": false
+    },
+    "evidence_methods": {
+      "natural-ui-getter-observation": 1190,
+      "native-query-on-temporary-record": 162
+    },
+    "corpus_sha256": "70DD8A92A8040D9B430E0671B556BBDC17075047FFA743A604E00125ECC75BBB"
+  }
+}
