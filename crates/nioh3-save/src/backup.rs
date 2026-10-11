@@ -164,11 +164,37 @@ pub fn read_backup_manifest(
     Ok(manifest)
 }
 
+/// Whether a manifest records an operation id this product writes.
+///
+/// Offline transactions record 32 lowercase hex characters. Live checkpoints
+/// (`runtime_backup.rs`) record the live operation's id: a canonical lowercase
+/// UUID for live additions and equipment, or `scroll-<millis>` /
+/// `count-<millis>` for whole-scroll and remaining-count edits.
+pub fn is_recorded_operation_id(value: &str) -> bool {
+    if is_operation_id(value) {
+        return true;
+    }
+    let uuid = value.len() == 36
+        && value.bytes().enumerate().all(|(index, byte)| match index {
+            8 | 13 | 18 | 23 => byte == b'-',
+            _ => byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte),
+        });
+    let stamped = ["scroll-", "count-"].iter().any(|prefix| {
+        value.strip_prefix(prefix).is_some_and(|millis| {
+            (1..=20).contains(&millis.len()) && millis.bytes().all(|byte| byte.is_ascii_digit())
+        })
+    });
+    uuid || stamped
+}
+
 /// Authenticate every role in one restore source and freeze its identity.
 ///
-/// Restore is deliberately stricter than listing: all three canonical roles
-/// must be present exactly once, every path must be unique and local to the
+/// Restore is deliberately stricter than listing: the main save must be
+/// present, each role at most once, every path must be unique and local to the
 /// bundle, and the bytes must match the manifest before a plan may be issued.
+/// A live checkpoint holds only the main save; restoring it replaces exactly
+/// that file and leaves the game's own backup and the system save untouched,
+/// which is the inverse of the main-only write it guarded.
 pub fn authenticate_restore_source(
     backup_root: &Path,
     backup_id: &str,
@@ -189,10 +215,10 @@ pub fn authenticate_restore_source(
             message: error.to_string(),
         })?;
     validate_manifest_header(&manifest)?;
-    if !is_operation_id(&manifest.operation_id) {
+    if !is_recorded_operation_id(&manifest.operation_id) {
         return Err(SaveReadError::TamperedRecord {
             kind: "backup manifest",
-            message: "the manifest operation id is not 32 lowercase hex characters".to_string(),
+            message: "the manifest operation id is not one this product records".to_string(),
         });
     }
     let account_id = crate::paths::account_id_from_save_path(save_path)?;
@@ -246,18 +272,10 @@ pub fn authenticate_restore_source(
         seen_names.push(entry.backup_file.as_str());
         declared.push((role, entry));
     }
-    for required in [SaveRole::Main, SaveRole::GameBackup, SaveRole::System] {
-        if !seen_roles.contains(&required) {
-            return Err(SaveReadError::TamperedRecord {
-                kind: "backup manifest",
-                message: format!("the restore bundle is missing role {}", required.label()),
-            });
-        }
-    }
-    if declared.len() != 3 {
+    if !seen_roles.contains(&SaveRole::Main) {
         return Err(SaveReadError::TamperedRecord {
             kind: "backup manifest",
-            message: "the restore bundle must declare exactly three roles".to_string(),
+            message: format!("the restore bundle is missing role {}", SaveRole::Main.label()),
         });
     }
 
@@ -269,16 +287,15 @@ pub fn authenticate_restore_source(
         )?;
     }
 
-    let mut files = Vec::with_capacity(3);
+    let mut files = Vec::with_capacity(declared.len());
     for role in [SaveRole::Main, SaveRole::GameBackup, SaveRole::System] {
-        let entry = declared
+        let Some(entry) = declared
             .iter()
             .find(|(declared_role, _)| *declared_role == role)
             .map(|(_, entry)| *entry)
-            .ok_or_else(|| SaveReadError::TamperedRecord {
-                kind: "backup manifest",
-                message: format!("the restore bundle is missing role {}", role.label()),
-            })?;
+        else {
+            continue;
+        };
         let path = directory.join(&entry.backup_file);
         let metadata = fs::symlink_metadata(&path).map_err(|error| SaveReadError::Io {
             path: path.display().to_string(),

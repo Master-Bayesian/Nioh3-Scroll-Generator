@@ -167,11 +167,11 @@ export function publicError(message: string): string {
       "这个备份的存档结构版本与当前程序不一致，不能恢复。当前存档没有被修改。",
     ],
     [
-      /restore bundle is missing role|restore bundle must declare exactly three roles|is missing or is not a regular file/i,
+      /restore bundle is missing role|is missing or is not a regular file/i,
       "备份文件不完整（缺少文件），不能恢复。当前存档没有被修改。",
     ],
     [
-      /has an invalid SHA-256|manifest operation id is not 32 lowercase|is declared more than once|unknown restore role/i,
+      /has an invalid SHA-256|manifest operation id is not one this product records|is declared more than once|unknown restore role/i,
       "备份清单格式无效，不能恢复。当前存档没有被修改。",
     ],
     [
