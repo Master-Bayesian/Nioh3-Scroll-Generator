@@ -6079,6 +6079,90 @@
     "先选类型，再从下方列表添加": [
       "Choose a type, then add from the list below",
       "種類を選んでから、下の一覧から追加します"
+    ],
+    "无法读取这个绘卷 ID 的副本内容。": [
+      "Could not read the dungeon content for this scroll ID.",
+      "この絵巻 ID のダンジョン内容を読み込めませんでした。"
+    ],
+    "正在读取新绘卷 ID 的副本内容…": [
+      "Reading the dungeon content for the new scroll ID…",
+      "新しい絵巻 ID のダンジョン内容を読み込み中…"
+    ],
+    "正在读取副本内容…": [
+      "Reading the dungeon content…",
+      "ダンジョン内容を読み込み中…"
+    ],
+    "读取后可编辑词条和修改副本内容。": [
+      "After reading, you can edit effects and the dungeon content.",
+      "読み込み後、効果とダンジョン内容を編集できます。"
+    ],
+    "只看收藏": [
+      "Favorites only",
+      "お気に入りのみ"
+    ],
+    "收藏：总是排在最上面": [
+      "Favorite: always listed first",
+      "お気に入り：常に先頭に表示"
+    ],
+    "还没有收藏的绘卷。点绘卷右边的星标即可收藏。": [
+      "No favorite scrolls yet. Click the star on the right of a scroll to add it.",
+      "お気に入りの絵巻はまだありません。絵巻右側の星をクリックすると追加できます。"
+    ],
+    "可选词条": [
+      "Available effects",
+      "選べる効果"
+    ],
+    "可选词条范围": [
+      "Available effect range",
+      "選べる効果の範囲"
+    ],
+    "当前周目和稀有度的绘卷能出现的词条和恩宠": [
+      "Effects and graces possible on a scroll of this playthrough and rarity",
+      "この周回とレア度の絵巻に出る効果と恩寵"
+    ],
+    "任意绘卷能出现的词条": [
+      "Effects possible on any scroll",
+      "どの絵巻にも出うる効果"
+    ],
+    "全部词条（含绘卷上不会出现的）": [
+      "All effects (including ones scrolls never carry)",
+      "すべての効果（絵巻に出ないものを含む）"
+    ],
+    "游戏里所有词条都可选，绘卷上不会自然出现的词条也能写进去。": [
+      "Every effect in the game can be chosen, including ones a scroll never rolls naturally.",
+      "ゲーム内のすべての効果を選べます。絵巻に自然には出ない効果も書き込めます。"
+    ],
+    "范围外的词条请切换到“全部词条”。": [
+      "For effects outside this range, switch to \"All effects\".",
+      "範囲外の効果は「すべての効果」に切り替えてください。"
+    ],
+    "原生范围": [
+      "Native range",
+      "ネイティブ範囲"
+    ],
+    "不在所选范围内": [
+      "Outside the chosen range",
+      "選んだ範囲外"
+    ],
+    "词条数值": [
+      "Effect value",
+      "効果の数値"
+    ],
+    "原生数值": [
+      "Native value",
+      "ネイティブ数値"
+    ],
+    "原生值": [
+      "Native",
+      "ネイティブ値"
+    ],
+    "非原生值": [
+      "Not a native value",
+      "ネイティブ値ではありません"
+    ],
+    "无可核对的范围": [
+      "No range to check",
+      "確認できる範囲なし"
     ]
   },
   "game": {

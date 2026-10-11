@@ -8,11 +8,13 @@ import { data, type Sample, toRecordTransferCount } from "./model";
 import { desktop } from "./desktop-bridge";
 import {
   saveSession,
-  saveObserver,
   runtimeObserver,
   entrySample,
   enrichEntry,
 } from "./save-workspace";
+import { EMPTY_EFFECT, EffectPicker, hex, type PickerCandidate } from "./EffectPicker";
+import { StarIcon } from "./StarIcon";
+import { pinnedFirst, togglePinned, usePinned } from "./pinned";
 import { SavePicker } from "./CartActions";
 import { errorText } from "./public-errors";
 import type { ProtectedParams } from "../desktop/src/protected-client";
@@ -61,6 +63,50 @@ function nativeRange(id: string, rarity: number, level: number): string {
   const min = values[0], max = values[values.length - 1];
   return min === max ? String(min) : `${min}–${max}`;
 }
+
+/**
+ * Which effects the slot picker offers. A scroll's effects depend on its
+ * playthrough and rarity; offering all 3609 native effects by default made it
+ * unclear which ones a scroll can actually carry.
+ */
+type EffectScope = "context" | "scroll" | "all";
+const EFFECT_SCOPE_KEY = "nioh3-scroll-effect-scope";
+function storedEffectScope(): EffectScope {
+  try {
+    const stored = localStorage.getItem(EFFECT_SCOPE_KEY);
+    return stored === "scroll" || stored === "all" ? stored : "context";
+  } catch {
+    return "context";
+  }
+}
+const effectNames = new Map(data.editorEffects.map((e) => [e.id, e.name]));
+/** Growth effects (R3 slot 5) are not part of the search contexts. */
+const growthIds = [
+  ...new Set(
+    data.samples.flatMap((s) =>
+      s.effects.filter((e) => e.role === "成长词条").map((e) => e.id),
+    ),
+  ),
+];
+type Contexts = Record<string, { effects: { id: string }[]; graces: { id: string }[] }>;
+function scopeCandidates(scope: EffectScope, ng: string, rarity: string): PickerCandidate[] {
+  if (scope === "all") return data.editorEffects.map((e) => ({ id: Number(e.id) }));
+  const contexts = data.contexts as Contexts;
+  const chosen =
+    scope === "context"
+      ? [contexts[`${ng}-${rarity}`]].filter(Boolean)
+      : Object.values(contexts);
+  const ids = new Set<string>();
+  for (const context of chosen)
+    for (const effect of [...context.effects, ...context.graces]) ids.add(effect.id);
+  if (scope === "scroll" || rarity === "3") growthIds.forEach((id) => ids.add(id));
+  return [...ids].map((id) => ({ id: Number(id) }));
+}
+const effectLabel = (candidate: PickerCandidate) =>
+  effectNames.get(String(candidate.id)) || "未知词条 " + hex(candidate.id);
+/** A star marks one save scroll; the same seed, rarity and playthrough is the same scroll. */
+const scrollKey = (s: Sample) =>
+  [s.seed, s.rarity, s.saveEntry?.header.playthrough ?? s.playthrough ?? ""].join(":");
 
 type Slot = {
   id: string;
@@ -148,9 +194,17 @@ export function Editor({ cart }: { cart: Sample[] }) {
   const [reviewedPlan, setReviewedPlan] = useState<string | null>(null),
     [saveStateConfirmed, setSaveStateConfirmed] = useState(false),
     [backendBusy, setBackendBusy] = useState(false);
-  const [backups, setBackups] = useState<
-    { backup_id: string; timestamp: string; action: string }[]
-  >([]);
+  const [effectScope, setEffectScopeRaw] = useState<EffectScope>(storedEffectScope);
+  function setEffectScope(next: EffectScope) {
+    setEffectScopeRaw(next);
+    try {
+      localStorage.setItem(EFFECT_SCOPE_KEY, next);
+    } catch {
+      // Remembering the scope is a convenience only.
+    }
+  }
+  const pinned = usePinned("scroll");
+  const [pinnedOnly, setPinnedOnly] = useState(false);
   const activeRead = useRef(0);
   const [deleteSlots, setDeleteSlots] = useState<number[]>([]);
   useEffect(() => setDeleteSlots([]), [saveState?.inventory?.snapshot_id]);
@@ -167,10 +221,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
   const [current, setCurrent] = useState<Sample>(inventory[0]);
   const [saved, setSaved] = useState<Draft>(() => fromSample(inventory[0]));
   const [draft, setDraftRaw] = useState<Draft>(saved),
-    [active, setActive] = useState(0),
-    [find, setFind] = useState(""),
-    [catalogFind, setCatalogFind] = useState(""),
-    [slotOpen, setSlotOpen] = useState(false);
+    [find, setFind] = useState("");
   const draftIdentity = useRef("");
   draftIdentity.current = JSON.stringify([
     draft,
@@ -242,6 +293,49 @@ export function Editor({ cart }: { cart: Sample[] }) {
       );
     else setMessage("当前存档没有绘卷。");
   }, [saveState?.inventory?.snapshot_id]);
+  // The preview shows the dungeon content of the drafted seed and playthrough;
+  // a changed seed is read again shortly after typing stops.
+  const [previewSample, setPreviewSample] = useState<Sample | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
+  useEffect(() => {
+    setPreviewSample(null);
+    setPreviewFailed(false);
+    const seed = Number(draft.seed),
+      ng = Number(draft.ng);
+    if (
+      !desktop ||
+      (draft.seed === current.seed && ng === (current.playthrough || 3)) ||
+      !Number.isInteger(seed) ||
+      seed < 0 ||
+      seed > 0xffffffff ||
+      !Number.isInteger(ng) ||
+      ng < 1 ||
+      ng > 5
+    )
+      return;
+    let live = true;
+    const timer = setTimeout(() => {
+      enrichEntry({ ...current, seed: String(seed), playthrough: ng })
+        .then((sample) => live && setPreviewSample(sample))
+        .catch(() => live && setPreviewFailed(true));
+    }, 400);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [draft.seed, draft.ng, current]);
+  const seedChanged =
+    draft.seed !== current.seed || Number(draft.ng) !== (current.playthrough || 3);
+  // Never show the old seed's content under a new seed.
+  const shown =
+    desktop && seedChanged
+      ? (previewSample ?? { ...current, enemies: [], rules: [], terrainKeys: [] })
+      : current;
+  const contentPending = previewFailed
+    ? "无法读取这个绘卷 ID 的副本内容。"
+    : seedChanged && !previewSample
+      ? "正在读取新绘卷 ID 的副本内容…"
+      : "正在读取副本内容…";
   const changed = JSON.stringify(draft) !== JSON.stringify(saved);
   const fields: [keyof Omit<Draft, "slots">, string][] = [
     ["seed", "绘卷 ID（种子）"],
@@ -251,11 +345,11 @@ export function Editor({ cart }: { cart: Sample[] }) {
     ["recommended", "推荐等级（敌人等级）"],
     ["transfers", "转手次数"],
   ];
-  const patch = (key: keyof Slot, value: string) =>
+  const patch = (index: number, key: keyof Slot, value: string) =>
     setDraft({
       ...draft,
       slots: draft.slots.map((s, i) =>
-        i === active ? { ...s, [key]: value } : s,
+        i === index ? { ...s, [key]: value } : s,
       ),
     });
   function choose(s: Sample) {
@@ -266,7 +360,6 @@ export function Editor({ cart }: { cart: Sample[] }) {
     setUndoStack([]);
     setRedoStack([]);
     setTemporaryRaw(temporaryFromSample(s));
-    setActive(0);
     setPending(null);
     setReview(false);
     if (desktop) {
@@ -453,28 +546,46 @@ export function Editor({ cart }: { cart: Sample[] }) {
       setMessage(errorText(e));
     }
   }
-  const native = nativeValues(
-    draft.slots[active].id,
-    Number(draft.rarity),
-    Number(draft.level),
-  );
+  const slotNative = (slot: Slot) =>
+    slot.id === String(EMPTY_EFFECT)
+      ? undefined
+      : nativeValues(slot.id, Number(draft.rarity), Number(draft.level));
   const slotRange = (slot: Slot) =>
-    slot.id === "4294967295" ? "" : nativeRange(slot.id, Number(draft.rarity), Number(draft.level));
-  function replaceEffect(effect: { id: string; name: string }) {
+    slot.id === String(EMPTY_EFFECT) ? "" : nativeRange(slot.id, Number(draft.rarity), Number(draft.level));
+  const candidates = React.useMemo(
+    () => scopeCandidates(effectScope, draft.ng, draft.rarity),
+    [effectScope, draft.ng, draft.rarity],
+  );
+  const inScope = React.useMemo(
+    () => new Set(candidates.map((c) => String(c.id))),
+    [candidates],
+  );
+  function replaceEffect(index: number, candidate: PickerCandidate) {
+    if (candidate.id === EMPTY_EFFECT) {
+      patchSlot(index, { id: String(EMPTY_EFFECT), name: "空槽", raw: "0" });
+      return;
+    }
+    const effect = { id: String(candidate.id), name: effectLabel(candidate) };
     const identity = (
       data.editorIdentities as Record<
         string,
         { prefix: number; category: number }
       >
     )[effect.id];
+    // A new effect starts at the top of its native values, so the value the
+    // row shows is one the game can roll.
+    const values = nativeValues(effect.id, Number(draft.rarity), Number(draft.level));
     setDraft({
       ...draft,
       slots: draft.slots.map((slot, i) =>
-        i === active
+        i === index
           ? {
               ...slot,
               id: effect.id,
               name: effect.name,
+              ...(values?.length && !values.includes(Number(slot.raw))
+                ? { raw: String(values[values.length - 1]) }
+                : {}),
               ...(identity
                 ? {
                     prefix: String(identity.prefix),
@@ -490,6 +601,12 @@ export function Editor({ cart }: { cart: Sample[] }) {
             }
           : slot,
       ),
+    });
+  }
+  function patchSlot(index: number, change: Partial<Slot>) {
+    setDraft({
+      ...draft,
+      slots: draft.slots.map((slot, i) => (i === index ? { ...slot, ...change } : slot)),
     });
   }
   const changes = [
@@ -689,32 +806,6 @@ export function Editor({ cart }: { cart: Sample[] }) {
       setBackendBusy(false);
     }
   }
-  async function readBackups() {
-    try {
-      const save = saveSession!.getSnapshot().selected;
-      if (!save) throw Error("请先选择存档。");
-      const result = await saveObserver!.run(() =>
-        window.operations.execute({
-          method: "save.backups",
-          params: { save_id: save.save_id },
-        }),
-      );
-      if (result && "backups" in result) setBackups(result.backups);
-    } catch (error) {
-      setMessage(errorText(error));
-    }
-  }
-  async function prepareRestore(backupId: string) {
-    try {
-      const plan = await saveSession!.prepareRestore(backupId);
-      setReviewedPlan(plan.plan_id);
-      setReview(true);
-      setSaveStateConfirmed(false);
-      setMessage("将恢复选中的备份，请核对后确认。");
-    } catch (error) {
-      setMessage(errorText(error));
-    }
-  }
   if (desktop && !saveState?.inventory?.entries.length)
     return (
       <section className="editor-empty">
@@ -723,7 +814,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
         <p>
           {saveState?.inventory
             ? "当前存档没有绘卷，可以先从购物车添加。"
-            : "读取后可编辑词条、查看备份和修改副本内容。"}
+            : "读取后可编辑词条和修改副本内容。"}
         </p>
       </section>
     );
@@ -758,20 +849,35 @@ export function Editor({ cart }: { cart: Sample[] }) {
             </button>
           </>
         )}
-        <input
-          aria-label="查找已有绘卷"
-          placeholder="查找绘卷 ID 或词条"
-          value={find}
-          onChange={(e) => setFind(e.target.value)}
-        />
+        <div className="inventory-find">
+          <input
+            aria-label="查找已有绘卷"
+            placeholder="查找绘卷 ID 或词条"
+            value={find}
+            onChange={(e) => setFind(e.target.value)}
+          />
+          <label className="pinned-filter">
+            <input
+              type="checkbox"
+              checked={pinnedOnly}
+              onChange={(e) => setPinnedOnly(e.target.checked)}
+            />
+            只看收藏{pinned.size ? `（${inventory.filter((s) => pinned.has(scrollKey(s))).length}）` : ""}
+          </label>
+        </div>
         <div className="inventory-list">
-          {inventory
-            .filter((s) =>
-              (s.seed + s.effects.map((e) => e.name).join()).includes(find),
-            )
-            .map((s, i) => (
+          {pinnedFirst(
+            inventory
+              .map((s, index) => ({ s, slot: (s.saveEntry?.slot_index ?? index) + 1 }))
+              .filter(
+                ({ s }) =>
+                  (!pinnedOnly || pinned.has(scrollKey(s))) &&
+                  (s.seed + s.effects.map((e) => e.name).join()).includes(find),
+              ),
+            ({ s }) => pinned.has(scrollKey(s)),
+          ).map(({ s, slot }) => (
               <div
-                className="inventory-item"
+                className={"inventory-item" + (pinned.has(scrollKey(s)) ? " is-pinned" : "")}
                 key={s.saveEntry?.slot_index ?? s.seed}
               >
                 {desktop && s.saveEntry && (
@@ -804,13 +910,27 @@ export function Editor({ cart }: { cart: Sample[] }) {
                   onClick={() => (changed ? setPending(s) : choose(s))}
                 >
                   <small>
-                    栏位 {i + 1} · R{s.rarity}
+                    栏位 {slot} · R{s.rarity}
+                    <i className={"rarity-dot rarity-" + s.rarity} aria-hidden="true" />
                   </small>
                   <b>{s.effects[0]?.name || "空词条绘卷"}</b>
                   <span>绘卷 ID {s.seed}</span>
                 </button>
+                <button
+                  type="button"
+                  className={"pin-toggle" + (pinned.has(scrollKey(s)) ? " active" : "")}
+                  aria-pressed={pinned.has(scrollKey(s))}
+                  aria-label={(pinned.has(scrollKey(s)) ? "取消收藏" : "收藏") + "绘卷 " + s.seed}
+                  title={pinned.has(scrollKey(s)) ? "取消收藏" : "收藏：总是排在最上面"}
+                  onClick={() => togglePinned("scroll", scrollKey(s))}
+                >
+                  <StarIcon filled={pinned.has(scrollKey(s))} />
+                </button>
               </div>
             ))}
+          {pinnedOnly && !inventory.some((s) => pinned.has(scrollKey(s))) && (
+            <p className="inventory-empty">还没有收藏的绘卷。点绘卷右边的星标即可收藏。</p>
+          )}
         </div>
         <button
           disabled={backendBusy || !!saveState?.busy || (desktop && !current.saveEntry)}
@@ -822,25 +942,6 @@ export function Editor({ cart }: { cart: Sample[] }) {
         >
           删除选中绘卷{deleteSlots.length ? `（${deleteSlots.length}）` : ""}
         </button>
-        <details>
-          <summary>备份与恢复</summary>
-          <p>修改前自动备份，可在这里恢复。</p>
-          <button
-            onClick={() =>
-              desktop ? void readBackups() : setMessage("尚未连接备份目录。")
-            }
-          >
-            查看备份
-          </button>
-          {backups.map((backup) => (
-            <button
-              key={backup.backup_id}
-              onClick={() => void prepareRestore(backup.backup_id)}
-            >
-              {backup.timestamp} · 恢复
-            </button>
-          ))}
-        </details>
       </section>
       <section className="editor-work">
         <div className="editor-heading">
@@ -915,160 +1016,136 @@ export function Editor({ cart }: { cart: Sample[] }) {
         >
           <summary>主副词条</summary>
           <div className="editor-section-body">
-            <p>点一行，直接在这一行下面更换词条或修改数值；再点一次收起。</p>
-            <div className="slot-list">
-              {draft.slots.map((s, i) => (
-                <React.Fragment key={i}>
-                  <button
-                    className={active === i ? "selected" : ""}
-                    aria-expanded={active === i && slotOpen}
-                    onClick={() => {
-                      if (active === i) setSlotOpen(!slotOpen);
-                      else {
-                        setActive(i);
-                        setSlotOpen(true);
-                        setCatalogFind("");
-                      }
-                    }}
-                  >
-                    <span>{i + 1}</span>
-                    <b>{s.name}</b>
-                    <small>
-                      {s.raw}
-                      {slotRange(s) && <em className="value-range">（范围 {slotRange(s)}）</em>}
-                    </small>
-                  </button>
-                  {active === i && slotOpen && (
-                    <div className="slot-inline">
-                      <input
-                        aria-label="编辑词条目录搜索"
-                        autoFocus
-                        placeholder="搜索词条名称或 ID"
-                        value={catalogFind}
-                        onChange={(e) => setCatalogFind(e.target.value)}
-                      />
-                      <div className="editor-catalog">
-                        {data.editorEffects
-                          .filter((e) => (e.name + e.id).includes(catalogFind))
-                          .slice(0, 100)
-                          .map((e) => (
-                            <button key={e.id} onClick={() => replaceEffect(e)}>
-                              {e.name}
-                              <span>替换</span>
-                            </button>
-                          ))}
-                      </div>
-                      <div className="slot-edit">
-                        <label>
-                          词条 ID
-                          <input
-                            aria-label="编辑词条ID"
-                            value={draft.slots[active].id}
-                            onChange={(e) => {
-                              setDraft({
-                                ...draft,
-                                slots: draft.slots.map((s, i) =>
-                                  i === active
-                                    ? {
-                                        ...s,
-                                        id: e.target.value,
-                                        name:
-                                          data.editorEffects.find(
-                                            (v) =>
-                                              v.id === String(Number(e.target.value)),
-                                          )?.name || "未知词条",
-                                      }
-                                    : s,
-                                ),
-                              });
-                            }}
-                          />
-                        </label>
-                        <label>
-                          原始数值
-                          <input
-                            aria-label="编辑词条原始数值"
-                            value={draft.slots[active].raw}
-                            onChange={(e) => patch("raw", e.target.value)}
-                          />
-                        </label>
-                        <button
-                          onClick={() =>
-                            setDraft({
-                              ...draft,
-                              slots: draft.slots.map((s, i) =>
-                                i === active
-                                  ? { ...s, id: "4294967295", name: "空槽", raw: "0" }
-                                  : s,
-                              ),
-                            })
-                          }
-                        >
-                          清空此槽
-                        </button>
-                      </div>
-                      <p className="native-value-hint">
-                        {draft.slots[active].id === "4294967295" ? (
-                          "当前为空槽"
-                        ) : native ? (
+            <div className="effect-scope">
+              <label>
+                可选词条
+                <select
+                  aria-label="可选词条范围"
+                  value={effectScope}
+                  onChange={(e) => setEffectScope(e.target.value as EffectScope)}
+                >
+                  <option value="context">
+                    当前周目和稀有度的绘卷能出现的词条和恩宠
+                  </option>
+                  <option value="scroll">任意绘卷能出现的词条</option>
+                  <option value="all">全部词条（含绘卷上不会出现的）</option>
+                </select>
+              </label>
+              <span>
+                {effectScope === "all"
+                  ? "游戏里所有词条都可选，绘卷上不会自然出现的词条也能写进去。"
+                  : "范围外的词条请切换到“全部词条”。"}
+              </span>
+            </div>
+            <table className="equipment-effects scroll-effects">
+              <thead>
+                <tr>
+                  <th>位置</th>
+                  <th>词条</th>
+                  <th>数值</th>
+                  <th>原生范围</th>
+                </tr>
+              </thead>
+              <tbody>
+                {draft.slots.map((s, i) => {
+                  const native = slotNative(s);
+                  const empty = s.id === String(EMPTY_EFFECT);
+                  return (
+                    <tr key={i} className={JSON.stringify(s) === JSON.stringify(saved.slots[i]) ? "" : "is-changed"}>
+                      <td>
+                        {i + 1}
+                        {i === 0 && <small>主词条</small>}
+                      </td>
+                      <td>
+                        <EffectPicker
+                          value={s.id}
+                          candidates={candidates}
+                          label={effectLabel}
+                          onPick={(candidate) => replaceEffect(i, candidate)}
+                          placeholder="空槽"
+                        />
+                        {!empty && !inScope.has(s.id) && (
+                          <small className="character-unnatural">不在所选范围内</small>
+                        )}
+                      </td>
+                      <td>
+                        {empty ? null : (
+                          <span className="scroll-value">
+                            <input
+                              aria-label={"词条数值 " + (i + 1)}
+                              inputMode="numeric"
+                              value={s.raw}
+                              onChange={(e) => patch(i, "raw", e.target.value)}
+                            />
+                            {native && native.length > 1 && (
+                              <select
+                                aria-label={"原生数值 " + (i + 1)}
+                                value={native.includes(Number(s.raw)) ? s.raw : ""}
+                                onChange={(e) => patch(i, "raw", e.target.value)}
+                              >
+                                <option value="" disabled>
+                                  原生值
+                                </option>
+                                {native.map((value) => (
+                                  <option key={value} value={value}>
+                                    {value}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </span>
+                        )}
+                      </td>
+                      <td className="character-range">
+                        {empty ? null : native?.length ? (
                           <>
-                            原生数值：
-                            {native.length === 1
-                              ? native[0]
-                              : `${native[0]}–${native[native.length - 1]}（${native.length} 个可用值）`}{" "}
-                            ·{" "}
-                            {native.includes(Number(draft.slots[active].raw))
-                              ? "当前值在原生集合内"
-                              : "当前值不在原生集合内，仍可自由修改"}
+                            {slotRange(s)}
+                            {!native.includes(Number(s.raw)) && (
+                              <small className="character-unnatural"> · {"非原生值"}</small>
+                            )}
                           </>
                         ) : (
-                          "此词条暂无可验证的原生数值范围"
+                          <small>无可核对的范围</small>
                         )}
-                      </p>
-                      {native && (
-                        <select
-                          aria-label="选择原生数值"
-                          value={
-                            native.includes(Number(draft.slots[active].raw))
-                              ? draft.slots[active].raw
-                              : ""
-                          }
-                          onChange={(e) => patch("raw", e.target.value)}
-                        >
-                          <option value="" disabled>
-                            选择一个原生数值
-                          </option>
-                          {native.map((value) => (
-                            <option key={value} value={value}>
-                              {value}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      <details className="advanced">
-                        <summary>高级原始字段</summary>
-                        <p>
-                          不检查词条冲突或组合合法性。修改这些字段前，请确认它们的含义。
-                        </p>
-                        <div className="editor-fields">
-                          {(["prefix", "metadata", "tail0", "tail1"] as const).map(
-                            (k) => (
-                              <label key={k}>
-                                {k}
-                                <input
-                                  value={draft.slots[active][k]}
-                                  onChange={(e) => patch(k, e.target.value)}
-                                />
-                              </label>
-                            ),
-                          )}
-                        </div>
-                      </details>
-                    </div>
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <details className="advanced">
+              <summary>高级原始字段</summary>
+              <p>
+                不检查词条冲突或组合合法性。修改这些字段前，请确认它们的含义。
+              </p>
+              <table className="equipment-effects scroll-raw-fields">
+                <thead>
+                  <tr>
+                    <th>位置</th>
+                    <th>prefix</th>
+                    <th>metadata</th>
+                    <th>tail0</th>
+                    <th>tail1</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {draft.slots.map((s, i) => (
+                    <tr key={i}>
+                      <td>{i + 1}</td>
+                      {(["prefix", "metadata", "tail0", "tail1"] as const).map((k) => (
+                        <td key={k}>
+                          <input
+                            aria-label={k + " " + (i + 1)}
+                            value={s[k]}
+                            onChange={(e) => patch(i, k, e.target.value)}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
           </div>
         </details>
         {desktop && current.saveEntry && <CountEditor sample={current} />}
@@ -1361,6 +1438,46 @@ export function Editor({ cart }: { cart: Sample[] }) {
               </strong>
             </div>
           ))}
+          <section className="editor-review-content">
+            <h3>出现敌人</h3>
+            {shown.enemies.length ? (
+              <div className="enemy-lines">
+                {shown.enemies.map((name, i) => (
+                  <span key={i}>◇ {name}</span>
+                ))}
+              </div>
+            ) : (
+              <p className="editor-review-pending">{contentPending}</p>
+            )}
+            <h3>特殊规则</h3>
+            {shown.rules.length ? (
+              shown.rules.map((r, i) => (
+                <p className="scroll-rule" key={i}>
+                  <span title={r.name}>{r.name}</span>
+                  <strong>{r.value}</strong>
+                </p>
+              ))
+            ) : (
+              <p className="editor-review-pending">{shown.enemies.length ? "无" : contentPending}</p>
+            )}
+            <p className="scroll-rule">
+              <span>地形影响</span>
+              <strong>
+                {shown.enemies.length
+                  ? data.terrains.find(
+                      (t) =>
+                        !t.aggregate &&
+                        t.effect_keys.length === shown.terrainKeys.length &&
+                        t.effect_keys.every((k) => shown.terrainKeys.includes(k)),
+                    )?.name || "未解析"
+                  : "—"}
+              </strong>
+            </p>
+            <p className="scroll-rule">
+              <span>可挑战次数上限</span>
+              <strong>{shown.enemies.length ? shown.capacity : "—"}</strong>
+            </p>
+          </section>
         </div>
         <h3>本次变化</h3>
         {changes.length ? (

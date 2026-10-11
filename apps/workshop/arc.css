@@ -453,27 +453,53 @@ html .editor-page .editor-work>.editor-section[open]{flex:1 1 0;min-height:240px
 html .editor-page .editor-work>.editor-section[open]::details-content{flex:1;min-height:0}
 html .editor-page .editor-work>.editor-section .editor-section-body{flex:1;min-height:0;max-height:none;overflow:auto;padding:0 2px 14px}
 html .editor-page .editor-effects .editor-section-body>p{margin:0 0 8px;color:var(--a-text2)}
-html .editor-page .editor-work .slot-list{display:flex;flex-direction:column;gap:4px}
-html .editor-page .editor-work .slot-list>button{display:flex;align-items:center;gap:12px;min-height:38px;padding:6px 12px;border-radius:10px;background:var(--a-card);border:1px solid var(--a-line);box-shadow:none}
-html .editor-page .editor-work .slot-list>button>span{width:16px;color:var(--a-mute);font-variant-numeric:tabular-nums}
-html .editor-page .editor-work .slot-list>button>b{font-weight:500}
-html .editor-page .editor-work .slot-list>button>small{color:var(--a-text2);font-variant-numeric:tabular-nums}
-html .editor-page .editor-work .slot-list>button.selected{border-color:var(--a-pri);box-shadow:0 0 0 1px var(--a-pri);background:var(--a-card)}
-html .editor-page .editor-work .slot-list>button[aria-expanded=true]{border-radius:10px 10px 0 0}
-html .editor-page .editor-work .slot-inline{display:flex;flex-direction:column;gap:10px;margin:-4px 0 4px;padding:12px;border:1px solid var(--a-pri);border-top:0;border-radius:0 0 12px 12px;background:var(--a-fill);box-shadow:0 0 0 1px var(--a-pri);clip-path:inset(0 -2px -2px -2px);animation:arc-drop .16s cubic-bezier(.2,.8,.2,1)}
-html .editor-page .editor-work .slot-inline>input{width:100%;margin:0;background:var(--a-card)}
-html .editor-page .editor-work .slot-inline .editor-catalog{height:auto;max-height:240px;min-height:0;overflow:auto;background:var(--a-card);border:1px solid var(--a-line);border-radius:10px}
-html .editor-page .editor-work .slot-inline .editor-catalog button{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:34px;padding:6px 12px;border:0;border-bottom:1px solid var(--a-line);border-radius:0;background:transparent;box-shadow:none;text-align:left;font-weight:400}
-html .editor-page .editor-work .slot-inline .editor-catalog button:last-child{border-bottom:0}
-html .editor-page .editor-work .slot-inline .editor-catalog button span{font-size:11.5px;color:var(--a-mute)}
-html .editor-page .editor-work .slot-inline .editor-catalog button:hover span{color:var(--a-text)}
-html .editor-page .editor-work .slot-inline .slot-edit{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;margin:0}
-html .editor-page .editor-work .slot-inline .slot-edit label{display:grid;gap:4px;font-size:12px;color:var(--a-text2)}
-html .editor-page .editor-work .slot-inline .slot-edit input{width:100%;background:var(--a-card)}
-html .editor-page .editor-work .slot-inline .slot-edit button{grid-column:auto;height:34px;padding:0 14px;font-size:12.5px}
-html .editor-page .editor-work .slot-inline .native-value-hint{margin:0;font-size:12px;color:var(--a-text2)}
-html .editor-page .editor-work .slot-inline>select{max-width:240px;background:var(--a-card)}
-html .editor-page .editor-work .slot-inline .advanced{margin:0}
+/* Effects (UI-010, UI-017): one row per slot like the equipment editor; the picker, value and native range share the row. */
+html .editor-page .effect-scope{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:0 0 10px}
+html .editor-page .effect-scope label{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--a-text2);white-space:nowrap}
+html .editor-page .effect-scope select{min-width:0;max-width:100%;font-size:12.5px}
+html .editor-page .effect-scope>span{font-size:11.5px;color:var(--a-mute);min-width:0}
+html .editor-page .scroll-effects,html .editor-page .scroll-raw-fields{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0;background:var(--a-card);border:1px solid var(--a-line);border-radius:12px;overflow:visible}
+html .editor-page .scroll-effects th,html .editor-page .scroll-raw-fields th{padding:7px 8px;font-size:11.5px;font-weight:500;color:var(--a-mute);text-align:left;border-bottom:1px solid var(--a-line)}
+html .editor-page .scroll-effects td,html .editor-page .scroll-raw-fields td{padding:5px 8px;border-bottom:1px solid var(--a-line);vertical-align:middle;font-variant-numeric:tabular-nums}
+html .editor-page .scroll-effects tr:last-child td,html .editor-page .scroll-raw-fields tr:last-child td{border-bottom:0}
+html .editor-page .scroll-effects th:first-child,html .editor-page .scroll-raw-fields th:first-child{width:46px;white-space:nowrap}
+html .editor-page .scroll-effects th:nth-child(3){width:150px}
+html .editor-page .scroll-effects th:nth-child(4){width:104px}
+html .editor-page .scroll-effects td:first-child,html .editor-page .scroll-raw-fields td:first-child{color:var(--a-mute)}
+html .editor-page .scroll-effects tr.is-changed td:first-child{color:var(--a-text);font-weight:600}
+html .editor-page .scroll-effects .effect-picker>input{height:32px;background:var(--a-fill)}
+html .editor-page .scroll-effects td>small{display:block;margin-top:2px;font-size:11px}
+html .editor-page .scroll-value{display:flex;gap:4px;min-width:0}
+html .editor-page .scroll-value input{flex:1 1 0;min-width:0;width:0;height:32px;padding:0 8px}
+html .editor-page .scroll-value select{flex:0 0 62px;width:62px;height:32px;padding:0 4px;font-size:12px}
+html .editor-page .scroll-effects .character-range{font-size:12px;color:var(--a-text2)}
+html .editor-page .character-unnatural{color:var(--a-warn)}
+html .editor-page .editor-effects .advanced{margin:10px 0 0}
+html .editor-page .editor-effects .advanced>summary{cursor:pointer;color:var(--a-text2);font-size:12.5px;padding:4px 0}
+html .editor-page .editor-effects .advanced>p{margin:4px 0 8px;font-size:12px;color:var(--a-mute)}
+html .editor-page .scroll-raw-fields input{width:100%;min-width:0;height:30px;padding:0 6px;font-size:12px}
+/* Scroll list (UI-012): rarity dot after "R3/R4", a star keeps a scroll on top. */
+html .rarity-dot{display:inline-block;width:8px;height:8px;margin-left:5px;border-radius:50%;vertical-align:1px;background:var(--rarity)}
+html .rarity-dot.rarity-3{--rarity:var(--r3)}
+html .rarity-dot.rarity-4{--rarity:var(--r4)}
+html .rarity-dot.rarity-5{--rarity:var(--r5)}
+html .editor-page .inventory-find{display:flex;align-items:center;gap:8px;margin:10px 0 8px}
+html .editor-page .inventory-find>input{flex:1;min-width:0;margin:0}
+html .pinned-filter{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--a-text2);white-space:nowrap;cursor:pointer}
+html .pin-toggle{flex:none;display:grid;place-items:center;width:34px;height:34px;margin:0 6px 0 0;padding:0;border:0;background:transparent;box-shadow:none;color:var(--a-mute);border-radius:8px}
+html .pin-toggle .star-icon{width:18px;height:18px}
+html .pin-toggle.active{color:var(--k-sand)}
+html .editor-page .inventory-item>button.pin-toggle{flex:none;border-radius:8px;padding:0}
+html .editor-page .inventory-empty{margin:6px 2px;font-size:12px;color:var(--a-mute)}
+/* Preview (UI-013): the dungeon content like the search result card. */
+html .editor-review .scroll{height:auto;overflow:visible}
+html .editor-review .editor-review-content{margin-top:10px;padding-top:6px;border-top:1px solid var(--a-line)}
+html .editor-review .editor-review-content h3{margin:10px 0 6px;font-size:11.5px;font-weight:600;letter-spacing:1px;color:var(--a-mute)}
+html .editor-review .editor-review-content .enemy-lines{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--a-text)}
+html .editor-review .editor-review-content .scroll-rule{display:flex;justify-content:space-between;gap:10px;margin:0;padding:4px 0;font-size:12px;color:var(--a-text)}
+html .editor-review .editor-review-content .scroll-rule>span{min-width:0;overflow-wrap:anywhere}
+html .editor-review .editor-review-content .scroll-rule>strong{flex:none;font-weight:500}
+html .editor-review .editor-review-pending{margin:0;font-size:12px;color:var(--a-mute)}
 
 /* ---------- equipment page (UI-002, UI-003) ---------- */
 /* Both columns stay side by side down to the minimum window width; each scrolls on its own instead of the right one wrapping below. */
