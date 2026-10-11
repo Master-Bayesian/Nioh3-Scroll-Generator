@@ -89,3 +89,37 @@ None of these has evidence yet; per repository rules they stay unsupported until
 ## Deliverable at the end
 
 A full patch note of every change on this branch, for the owner.
+
+## Appendix: owner's words (verbatim, Simplified Chinese)
+
+Tester feedback UI-010 to UI-022 (raw text and screenshots) is the owner's package
+`Nioh3Studio_UI010-UI022_用户原话及截图.zip`. The owner's review of it, in order:
+
+> 主词条那个框，直接拖进去可以增加主词条备选量的设计可以，但是拖到第一个词条上而不是框内，才能触发，有点苛刻，反正就是很难直接拖进去。然后是拖进去应该还能拖出来，目前出不来。
+> 016是合理的，直接把互相冲突的标记出来。018也合理，而且现在已选点了不能取消掉，只能在右边去掉，应该再点一下已选，就取消选择。019的问题也存在。020和021如果有提供截图的话你应该更好理解，确实有挤压不显示完整的问题。022同理。
+>
+> 010存在，而且还有个问题，就是点开这个替换词条的表之后下面离很远，用户很容易错过下面还能输入数值。012的第一条我不认可，名称就用主词条。认为这是一个问题主要是难以定位绘卷，我们可以直接把装备和道具里定位装备的功能拿过来定位游戏菜单选中的绘卷。这里应该也允许直接点击收藏，然后收藏的绘卷总是在最上方显示。也就是说收藏夹除了预备绘卷，也应该允许已有绘卷。如果可以，再加入一键保护功能，用游戏里的保护函数，让绘卷（或者装备）被上保护状态，不能直接丢弃或者卖掉。012的第二条不用那么夸张，R3R4这个标记后面加一个有颜色的圆就可以了。012的第三条被我说的包括了，我们直接编辑保护状态。第四条合理，照做。
+> 013合理，照做。017的本质还是我前面说的那个，这里的UI交互很糟糕，很难用。不用和绘卷搜索一样，因为功能都对不上，只是体验上要相似，要直观易操作。
+> 014合理，账户都是16位数字，对用户几乎无意义，用ID更好，等级也有用。周目也有用。存档1（SAVEDATA00）这些对于用户分辨存档来说几乎看不明白。 015如图一，不仅备份多了挤下去了，而且不小心点到了不是查看备份是什么样，而是直接试图替换。而且替换还报错了，而且报错之后点开技术详情还显示不全，而且还不能往下滚。我们专门有一个section做存档管理，这里为什么还有备份存档的内容？
+> 011 也确实如此，看起来是太阳或者灯的标志，我还以为是专门切换亮度或者深色模式的，结果是设置。改成齿轮好一点。
+> 还有一个额外的，不是UI修改的小需求：绘卷修改那里的词条不只是绘卷内可能出现的词条，而是全词条，应该加一个开关，默认只有绘卷词条可以改进去，解除限制之后才能改进去所有词条，避免用户搞不明白哪些词条是绘卷上的。
+> 做完之后要给出所有的改动patch note。
+
+The owner's answers to follow-up questions:
+
+> （保护字段）这个我开游戏，你读一下。
+> （绘卷菜单对象）按理说都在背包里，其实都是混着的
+> （人物 ID）应该就是steam的ID，联机的时候名字就是对应的这个，但这个也没有辨识度（自己的存档都是一个名字），所以也不显示吧，没啥用。
+> （存档位命名）游戏里的读档里存档顺序是会变的，最后读的在最前面，和存档文件里的编号不一致。最好还是用等级和周目来标记。
+> 角色等级抓一下。
+> （词条范围）那就做两个开关，或者一个多选一的框，默认当前绘卷周目下能出现的词条和恩宠，然后可以切换成剩下两种。
+> （主副词条表格方案）合理，做出来看看效果
+> （收藏已有绘卷）没错，改，还应该支持装备和道具，虽然不确定有什么用但肯定有人会想这么干，比如收藏某个道具，经常去添加数量。
+> （收藏夹页面）这就是收藏夹section的功能了，说实话暂时不明白，暂时提供筛选效果吧，方便定位，因为绘卷动不动几百张，只靠保护很难说定位到常用的个别几个。
+> （备份）删掉绘卷编辑页的存档相关内容合理，但是不可恢复那不就扯蛋了吗？说白了就是备份没做明白呗，替换存档还能失败了？就是literally替换文件。
+> （UI-021）塞不下的问题你自己想办法解决，我不认为应该改成ALL，你这地方前端代码没写明白不应该用硬编码的思路绕过去。
+
+Earlier rounds, still binding: the owner rejected UI-009 (no separate small-size icon) and the About
+intro text; the mark is the owner's flat illustration with the restored toenail band. Talk to the owner
+in Simplified Chinese; do not push, tag or publish a release without the owner's explicit authorization
+(pushing this preview branch for preview EXEs is authorized).
