@@ -566,3 +566,11 @@ html .search-page .selected-row.is-conflict,html .search-page .grace-chip.is-con
 html .search-page .selected-row.is-conflict .selected-name{color:var(--a-danger)}
 /* UI-018: chosen catalog rows are listed first and marked. */
 html .search-page .catalog-row.chosen>button{background:var(--a-pri);color:var(--a-prifg);border-color:var(--a-pri)}
+
+/* ---------- save management (UI-015) ---------- */
+/* The backup list scrolls inside a bounded box, so the confirmation and re-sign panels stay in reach. */
+html .backup-page .backup-list{max-height:min(440px,46vh);overflow:auto;padding:0 12px 8px}
+html .backup-page .backup-list thead th{position:sticky;top:0;z-index:1;background:var(--a-card)}
+/* Technical details stay readable: the column scrolls instead of clipping, and the detail text scrolls on its own. */
+html .editor-page .editor-work{overflow-y:auto}
+html .notice code{max-height:min(320px,40vh);overflow:auto;user-select:text}

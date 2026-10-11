@@ -8,6 +8,7 @@ import React, {
 import { SavePicker } from "./CartActions";
 import { saveSession, saveObserver } from "./save-workspace";
 import { desktop } from "./desktop-bridge";
+import { errorText } from "./public-errors";
 type Backup = {
   backup_id: string;
   timestamp: string;
@@ -68,7 +69,7 @@ function ConnectedBackups() {
         setSelected([]);
       }
     } catch (e) {
-      setMessage(String(e));
+      setMessage(errorText(e));
     } finally {
       setBusy(false);
     }
@@ -93,7 +94,7 @@ function ConnectedBackups() {
       setConfirmed(false);
       setMessage("恢复会替换当前角色存档，执行前会自动备份当前状态。");
     } catch (e) {
-      setMessage(String(e));
+      setMessage(errorText(e));
     } finally {
       setBusy(false);
     }
@@ -115,7 +116,7 @@ function ConnectedBackups() {
         await load();
       }
     } catch (e) {
-      setMessage(String(e));
+      setMessage(errorText(e));
     } finally {
       setBusy(false);
     }
@@ -129,7 +130,7 @@ function ConnectedBackups() {
       setResign({ id: p.plan_id, preview: (p as { preview?: Record<string, unknown> }).preview ?? {} });
       setMessage("");
     } catch (e) {
-      if (!String(e).includes("RESIGN_CANCELLED")) setMessage(String(e));
+      if (!String(e).includes("RESIGN_CANCELLED")) setMessage(errorText(e));
     } finally {
       setBusy(false);
     }
@@ -151,7 +152,7 @@ function ConnectedBackups() {
         await load();
       }
     } catch (e) {
-      setMessage(String(e));
+      setMessage(errorText(e));
     } finally {
       setBusy(false);
     }
@@ -175,7 +176,7 @@ function ConnectedBackups() {
         setMessage("选中的备份已移入回收站。");
       }
     } catch (e) {
-      setMessage(String(e));
+      setMessage(errorText(e));
     } finally {
       setBusy(false);
     }
@@ -213,7 +214,7 @@ function ConnectedBackups() {
                 save_id: state.inventory!.save_id,
                 snapshot_id: state.inventory!.snapshot_id,
               })
-              .catch((e) => setMessage(String(e)))
+              .catch((e) => setMessage(errorText(e)))
           }
         >
           打开存档文件夹
@@ -239,7 +240,7 @@ function ConnectedBackups() {
                           : `当前数据目录：${value.data_directory}`,
                     );
                 })
-                .catch((e) => setMessage(String(e)))
+                .catch((e) => setMessage(errorText(e)))
             }
           >
             {["打开数据文件夹", "更改数据目录", "恢复默认目录"][i]}
@@ -258,7 +259,7 @@ function ConnectedBackups() {
           onClick={() =>
             void window.review
               .openBackupFolder()
-              .catch((e) => setMessage(String(e)))
+              .catch((e) => setMessage(errorText(e)))
           }
         >
           打开备份文件夹
