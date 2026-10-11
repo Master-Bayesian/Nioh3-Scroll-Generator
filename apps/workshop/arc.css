@@ -511,7 +511,3 @@ html .character-page .seed-effect.wanted small{color:inherit;opacity:.75}
 html .character-page .seed-id{margin-left:auto;font-size:11px;color:var(--a-mute)}
 /* The top bar keeps every control on one line at the minimum window width. */
 html .topbar .toplinks button{white-space:nowrap}
-html .side-popup .about-hero{display:flex;align-items:center;gap:14px;margin:4px 0 14px;padding:12px 14px;border-radius:14px;background:var(--a-fill)}
-html .side-popup .about-hero img{flex:none;width:96px;height:96px;object-fit:contain}
-html .side-popup .about-hero p{margin:0;font-size:12.5px;line-height:1.6;color:var(--a-text2)}
-html .side-popup .about-hero b{display:block;margin-bottom:2px;font-size:14px;color:var(--a-text)}

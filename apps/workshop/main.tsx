@@ -9,7 +9,6 @@ import { Updates, UpdateNotice } from "./Updates";
 import { StarIcon } from "./StarIcon";
 import { SectionHelp } from "./SectionHelp";
 import { BrandMark } from "./BrandMark";
-import { brandArt } from "./brand-mark";
 import React, {
   createContext,
   useContext,
@@ -2411,10 +2410,6 @@ function App() {
               <>
                 <button className="menu-back" onClick={() => setPopup("settings")}>‹ 设置</button>
                 <h2>关于与安全</h2>
-                <div className="about-hero">
-                  <img src={brandArt} width={120} height={120} alt="" draggable={false} />
-                  <p><b>独脚踏鞴工作室</b>独脚踏鞴本是打铁的工匠，在这里替你打造各种装备。</p>
-                </div>
                 <div className="about-safety">
                   <h3>完全免费</h3>
                   <p>本工具免费提供，作者没有授权任何人收费售卖。如果你是付费买到的，请申请退款并举报卖家。</p>
