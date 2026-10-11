@@ -198,6 +198,25 @@ export function useConditionDrag(
         const destination = document
           .elementFromPoint(e.clientX, e.clientY)
           ?.closest<HTMLElement>("[data-condition-group]");
+        // A primary alternative dropped outside the primary box leaves it: it
+        // becomes the first secondary effect and the primary set shrinks.
+        const current = latest.current;
+        const at = current.effects.findIndex((v) => conditionKey(v) === id);
+        if (
+          kind === "effects" &&
+          !current.unrestricted &&
+          at >= 0 &&
+          at < current.primaryCount &&
+          destination?.dataset.conditionGroup !== "effects:primary" &&
+          current.effects.length > 1
+        ) {
+          const items = current.effects.map((v) => ({ ...v }));
+          const [item] = items.splice(at, 1);
+          const primaryCount = Math.max(1, current.primaryCount - 1);
+          items.splice(primaryCount, 0, { ...item, mode: 0 });
+          normalize(items);
+          setQ({ ...current, effects: items as Query["effects"], primaryCount });
+        }
         const sameGroup =
           sourceItem?.mode &&
           destination?.dataset.conditionGroup === kind + ":" + sourceItem.mode;

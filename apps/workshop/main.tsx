@@ -797,9 +797,13 @@ function App() {
   // an impossible combination is explained while the player is still picking
   // instead of after a search. The worker stays the only judge.
   const [conditionProblem, setConditionProblem] = useState("");
+  // UI-016: the worker's reason names the clashing effects as 0xNNNN ids; the
+  // selected rows with those ids are marked.
+  const [conflictIds, setConflictIds] = useState<string[]>([]);
   useEffect(() => {
     if (!desktop || q.ng >= 4 || !connected) {
       setConditionProblem("");
+      setConflictIds([]);
       return;
     }
     let query: ReturnType<typeof workerQuery>;
@@ -807,6 +811,7 @@ function App() {
       query = workerQuery(q);
     } catch {
       setConditionProblem("");
+      setConflictIds([]);
       return;
     }
     let stale = false;
@@ -814,16 +819,22 @@ function App() {
       void window.nioh
         .checkFeasibility(query)
         .then((result) => {
-          if (!stale)
-            setConditionProblem(
-              result.checked && !result.feasible && result.reason
-                ? publicError(result.reason)
-                : "",
-            );
+          if (stale) return;
+          const reason =
+            result.checked && !result.feasible && result.reason ? result.reason : "";
+          setConditionProblem(reason ? publicError(reason) : "");
+          setConflictIds(
+            (reason.match(/0x[0-9a-f]{4,8}\b/gi) || []).map((id) =>
+              String(Number.parseInt(id, 16)),
+            ),
+          );
         })
         .catch(() => {
           // A preflight that cannot answer must not block searching.
-          if (!stale) setConditionProblem("");
+          if (!stale) {
+            setConditionProblem("");
+            setConflictIds([]);
+          }
         });
     }, 200);
     return () => {
@@ -934,7 +945,12 @@ function App() {
     const primary = !q.unrestricted && i < q.primaryCount;
     return (
       <div
-        className={"selected-row " + (primary ? "is-primary" : "")}
+        className={
+          "selected-row " +
+          (primary ? "is-primary" : "") +
+          (conflictIds.includes(e.id) ? " is-conflict" : "")
+        }
+        title={conflictIds.includes(e.id) ? "这一项与其他已选词条冲突" : undefined}
         key={conditionKey(e)}
         data-effect-id={e.id}
         {...conditionDrag.item("effects", conditionKey(e))}
@@ -1002,17 +1018,30 @@ function App() {
     q.terrains.length +
     q.capacities.length +
     q.graces.length;
-  const effectRows = context.effects.filter((e) =>
-    `${e.name} ${localize(e.name)} ${hex(e.id)}`
-      .toLowerCase()
-      .includes(effectFind.toLowerCase()),
-  );
-  const enemyRows = data.enemies.filter(
-    (e) =>
-      (tier === "全部" || e.tier.includes(tier.replace("手", ""))) &&
+  // UI-018: what is already chosen lists first, so it can be found and unpicked.
+  const chosenFirst = <T,>(rows: T[], chosen: (row: T) => boolean) => [
+    ...rows.filter(chosen),
+    ...rows.filter((row) => !chosen(row)),
+  ];
+  const effectChosen = (id: string) => q.effects.some((x) => x.id === id);
+  const enemyChosen = (id: string) => q.enemies.some((x) => x.id === id);
+  const effectRows = chosenFirst(
+    context.effects.filter((e) =>
       `${e.name} ${localize(e.name)} ${hex(e.id)}`
         .toLowerCase()
-        .includes(enemyFind.toLowerCase()),
+        .includes(effectFind.toLowerCase()),
+    ),
+    (e) => effectChosen(e.id),
+  );
+  const enemyRows = chosenFirst(
+    data.enemies.filter(
+      (e) =>
+        (tier === "全部" || e.tier.includes(tier.replace("手", ""))) &&
+        `${e.name} ${localize(e.name)} ${hex(e.id)}`
+          .toLowerCase()
+          .includes(enemyFind.toLowerCase()),
+    ),
+    (e) => enemyChosen(e.id),
   );
   const ruleRows = data.rules.filter((r) =>
     `${r.name} ${localize(`${r.name} ${r.variants.map((v) => v.label).join(" ")}`)}`
@@ -1144,9 +1173,9 @@ function App() {
               setPopup(popup === "settings" || popup === "game" || popup === "about" ? "" : "settings");
             }}
           >
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round">
+              <path d="M10.3 2.5h3.4l.5 2.6a7.4 7.4 0 0 1 1.9 1.1l2.5-.9 1.7 2.9-2 1.7a7.6 7.6 0 0 1 0 2.2l2 1.7-1.7 2.9-2.5-.9a7.4 7.4 0 0 1-1.9 1.1l-.5 2.6h-3.4l-.5-2.6a7.4 7.4 0 0 1-1.9-1.1l-2.5.9-1.7-2.9 2-1.7a7.6 7.6 0 0 1 0-2.2l-2-1.7 1.7-2.9 2.5.9a7.4 7.4 0 0 1 1.9-1.1Z" />
               <circle cx="12" cy="12" r="3" />
-              <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" />
             </svg>
           </button>
           <button
@@ -1223,7 +1252,7 @@ function App() {
                           onClick={() => setOpened({ ...opened, catalog: title })}
                         >
                           <i aria-hidden="true" />
-                          {label}
+                          <span>{label}</span>
                           {picked > 0 && <b>{picked}</b>}
                         </button>
                       ))}
@@ -1255,19 +1284,27 @@ function App() {
                   </div>
                   <div className="catalog-list effects-list">
                     {effectRows.map((e) => (
-                      <div className="catalog-row" key={e.id}>
+                      <div
+                        className={"catalog-row " + (effectChosen(e.id) ? "chosen" : "")}
+                        key={e.id}
+                      >
                         <span>
                           {e.name}
                           {showIds && <small>{hex(e.id)}</small>}
                         </span>
                         <button
-                          aria-label={"添加词条" + e.name + " " + e.id}
-                          disabled={
-                            q.effects.length >= 24 ||
-                            q.effects.some((x) => x.id === e.id)
+                          aria-label={
+                            (effectChosen(e.id) ? "取消选择词条" : "添加词条") +
+                            e.name +
+                            " " +
+                            e.id
                           }
+                          title={effectChosen(e.id) ? "再点一次取消选择" : undefined}
+                          disabled={q.effects.length >= 24 && !effectChosen(e.id)}
                           onClick={() =>
-                            change("effects", [
+                            effectChosen(e.id)
+                              ? change("effects", q.effects.filter((x) => x.id !== e.id))
+                              : change("effects", [
                               ...q.effects,
                               {
                                 ...e,
@@ -1303,7 +1340,7 @@ function App() {
                     set={setGraceFind}
                   />
                   <div className="catalog-list grace-list">
-                    {context.graces
+                    {chosenFirst(context.graces, (e) => q.graces.includes(e.id))
                       .filter((e) =>
                         localize(e.name)
                           .toLowerCase()
@@ -1382,7 +1419,10 @@ function App() {
                     </div>
                     <div className="catalog-list enemy-list">
                       {enemyRows.map((e) => (
-                        <div className="catalog-row" key={e.id}>
+                        <div
+                          className={"catalog-row " + (enemyChosen(e.id) ? "chosen" : "")}
+                          key={e.id}
+                        >
                           <span>
                             {e.name}
                             {showIds && (
@@ -1396,10 +1436,12 @@ function App() {
                             {!!e.possessedKeys.length && <b>可附身</b>}
                           </em>
                           <button
-                            aria-label={"添加敌人" + e.name}
-                            disabled={q.enemies.some((x) => x.id === e.id)}
+                            aria-label={(enemyChosen(e.id) ? "取消选择敌人" : "添加敌人") + e.name}
+                            title={enemyChosen(e.id) ? "再点一次取消选择" : undefined}
                             onClick={() =>
-                              change("enemies", [
+                              enemyChosen(e.id)
+                                ? change("enemies", q.enemies.filter((x) => x.id !== e.id))
+                                : change("enemies", [
                                 ...q.enemies,
                                 {
                                   ...e,
@@ -1731,7 +1773,7 @@ function App() {
                 {q.effects.length ? (
                   <>
                     {!q.unrestricted && (
-                      <div className="primary-group">
+                      <div className="primary-group" data-condition-group="effects:primary">
                         <small>
                           主词条 · 前 {q.primaryCount} 项任一当选
                         </small>
@@ -1761,7 +1803,7 @@ function App() {
                     <small>恩宠 · 任选一个</small>
                     {q.graces.map((id) => (
                       <button
-                        className="chip grace-chip"
+                        className={"chip grace-chip" + (conflictIds.includes(id) ? " is-conflict" : "")}
                         key={id}
                         onClick={() =>
                           change(
@@ -1783,7 +1825,20 @@ function App() {
                       key={e.id}
                     >
                       <span className="drag-grip">⠿</span>
-                      <span title={e.name}>敌人 · {e.name}</span>
+                      <span className="chip-name" title={e.name}>敌人 · {e.name}</span>
+                      <button
+                        className="chip-remove"
+                        aria-label={"移除敌人" + e.name}
+                        onClick={() =>
+                          change(
+                            "enemies",
+                            q.enemies.filter((x) => x.id !== e.id),
+                          )
+                        }
+                      >
+                        ×
+                      </button>
+                      <div className="chip-controls">
                       <Select
                         label={e.name + "敌人组合"}
                         value={e.mode}
@@ -1817,17 +1872,7 @@ function App() {
                           }
                         />
                       )}
-                      <button
-                        aria-label={"移除敌人" + e.name}
-                        onClick={() =>
-                          change(
-                            "enemies",
-                            q.enemies.filter((x) => x.id !== e.id),
-                          )
-                        }
-                      >
-                        ×
-                      </button>
+                      </div>
                     </div>
                   )}
                 </ConditionGroups>
@@ -1847,7 +1892,7 @@ function App() {
                       key={r.id}
                     >
                       <span className="drag-grip">⠿</span>
-                      <span>
+                      <span className="chip-name">
                         规则 · {r.name}
                         {!r.id.startsWith("category:") && (
                           <>
@@ -1865,6 +1910,19 @@ function App() {
                           </>
                         )}
                       </span>
+                      <button
+                        className="chip-remove"
+                        aria-label={"移除规则" + r.name}
+                        onClick={() =>
+                          change(
+                            "rules",
+                            q.rules.filter((x) => x.id !== r.id),
+                          )
+                        }
+                      >
+                        ×
+                      </button>
+                      <div className="chip-controls">
                       {r.id.startsWith("category:") && (
                         <Select
                           className="rule-value"
@@ -1907,17 +1965,7 @@ function App() {
                           )
                         }
                       />
-                      <button
-                        aria-label={"移除规则" + r.name}
-                        onClick={() =>
-                          change(
-                            "rules",
-                            q.rules.filter((x) => x.id !== r.id),
-                          )
-                        }
-                      >
-                        ×
-                      </button>
+                      </div>
                     </div>
                   )}
                 </ConditionGroups>

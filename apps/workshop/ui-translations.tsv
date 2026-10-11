@@ -1539,3 +1539,7 @@ NPC武器	NPC weapon	NPC武器
 原生值	Native	ネイティブ値
 非原生值	Not a native value	ネイティブ値ではありません
 无可核对的范围	No range to check	確認できる範囲なし
+这一项与其他已选词条冲突	This effect conflicts with other selected effects	この効果は他の選択した効果と競合します
+取消选择词条	Deselect effect	効果の選択を解除
+再点一次取消选择	Click again to deselect	もう一度クリックで選択解除
+取消选择敌人	Deselect enemy	敵の選択を解除

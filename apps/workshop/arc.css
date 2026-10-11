@@ -537,3 +537,32 @@ html .character-page .seed-effect.wanted small{color:inherit;opacity:.75}
 html .character-page .seed-id{margin-left:auto;font-size:11px;color:var(--a-mute)}
 /* The top bar keeps every control on one line at the minimum window width. */
 html .topbar .toplinks button{white-space:nowrap}
+
+/* ---------- search conditions without squeezing (UI-019 to UI-022) ---------- */
+/* Catalog tabs wrap instead of sharing fixed tracks, so a count badge never pushes the label out. */
+html .catalog-tabs,html .catalog-tab-group:nth-of-type(2) .catalog-tabs{display:flex;flex-wrap:wrap;gap:6px}
+html .catalog-tabs .catalog-tab{flex:1 1 auto;width:auto;min-width:max-content;padding:0 12px}
+html .catalog-tabs .catalog-tab>span{white-space:nowrap}
+html .catalog-tabs .catalog-tab b{flex:none}
+/* The primary controls wrap as a whole row rather than collapsing the count select. */
+html .search-page .primary-controls{flex-wrap:wrap;row-gap:6px}
+html .search-page .primary-controls select{flex:none}
+html .search-page .primary-controls .drag-hint{white-space:normal}
+/* Enemy and rule chips: the full name on the first line, the controls below it. */
+html .search-page .enemy-chip,html .search-page .rule-chip{display:grid;grid-template-columns:16px minmax(0,1fr) 26px;grid-template-areas:"grip name remove" ". controls controls";align-items:center;gap:4px 6px;width:100%;min-width:0;max-width:none;padding:6px 6px 7px 4px}
+html .search-page .enemy-chip>.drag-grip,html .search-page .rule-chip>.drag-grip{grid-area:grip}
+html .search-page .enemy-chip>span.chip-name:nth-of-type(2),html .search-page .rule-chip>span.chip-name:nth-of-type(2){grid-area:name;min-width:0;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.45}
+html .search-page .enemy-chip>.chip-remove,html .search-page .rule-chip>.chip-remove{grid-area:remove}
+html .search-page .chip-controls{grid-area:controls;display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+html .search-page .chip-controls select{flex:1 1 96px;min-width:0;max-width:150px;width:auto}
+html .search-page .chip-controls .toggle-switch{flex:none;width:auto;justify-content:flex-start;gap:6px;white-space:nowrap}
+/* Rule picker rows: the object name keeps its full width; value and add wrap below when the column is narrow. */
+html .search-page .rule-picker{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
+html .search-page .rule-picker>span{flex:1 0 auto;max-width:100%;white-space:normal;overflow-wrap:anywhere;overflow:visible;text-overflow:clip}
+html .search-page .rule-picker select{flex:0 1 auto;width:auto;min-width:96px;max-width:100%;margin-left:auto}
+html .search-page .rule-picker button{flex:none;min-width:46px}
+/* UI-016: the effects the worker names as conflicting. */
+html .search-page .selected-row.is-conflict,html .search-page .grace-chip.is-conflict{border-color:var(--a-danger)!important;box-shadow:0 0 0 1px var(--a-danger)}
+html .search-page .selected-row.is-conflict .selected-name{color:var(--a-danger)}
+/* UI-018: chosen catalog rows are listed first and marked. */
+html .search-page .catalog-row.chosen>button{background:var(--a-pri);color:var(--a-prifg);border-color:var(--a-pri)}
