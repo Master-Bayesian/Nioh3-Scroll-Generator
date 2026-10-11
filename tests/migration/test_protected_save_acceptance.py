@@ -1630,7 +1630,8 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
                 backup_id = f"20260920-role-{shape}-source-a"
                 options: dict[str, object]
                 if shape == "missing":
-                    options = {"omitted_roles": {"game_backup"}}
+                    # Companions may be absent; the main save may not.
+                    options = {"omitted_roles": {"main_save"}}
                 else:
                     options = {"file_overrides": {"game_backup": "SAVEDATA.BIN"}}
                 write_backup_bundle(

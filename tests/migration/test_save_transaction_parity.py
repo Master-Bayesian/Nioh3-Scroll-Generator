@@ -1934,7 +1934,9 @@ class SaveRestoreRedTests(_ProductFixture):
         write_generation(self.save_path, self.restore_b)
         options: dict[str, object]
         if shape == "missing":
-            options = {"omitted_roles": {"game_backup"}}
+            # Companions may be absent (a live checkpoint holds only the main
+            # save); a bundle without the main save is still refused.
+            options = {"omitted_roles": {"main_save"}}
         else:
             options = {"file_overrides": {"game_backup": "SAVEDATA.BIN"}}
         write_backup_bundle(
