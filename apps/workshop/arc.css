@@ -43,12 +43,15 @@
 html body{background:var(--a-page);color:var(--a-text)}
 .visually-hidden{position:absolute!important;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 html button{border:1px solid var(--a-line2);background:var(--a-card);color:var(--a-text);border-radius:10px;padding:6px 14px;font-weight:500;box-shadow:var(--a-shadow);transition:background .12s,border-color .12s}
-html button:hover:not(:disabled){background:var(--a-fill);border-color:var(--a-line2)}
+/* Hover tints whatever background a button already has, so a dark selected state keeps its light text readable. */
+html button:hover:not(:disabled){background-image:linear-gradient(var(--a-hover),var(--a-hover))}
 html button:disabled{opacity:.42}
 html input,html select{border:1px solid var(--a-line);background:var(--a-fill);color:var(--a-text);border-radius:10px;height:34px;padding:0 11px}
 html input[type=checkbox],html input[type=radio]{accent-color:var(--a-pri);height:15px;width:15px;padding:0}
 html input[type=range]{accent-color:var(--a-pri);background:none;border:0;padding:0}
 html button:focus-visible,html input:focus-visible,html select:focus-visible,html summary:focus-visible,html a:focus-visible{outline:2px solid var(--a-pri);outline-offset:2px}
+/* The native list opens flush under a select, so its focus ring stays inside the border instead of an offset outline the list would cut through. */
+html select:focus,html select:focus-visible,html input:not([type=checkbox],[type=radio],[type=range]):focus-visible{outline:none;border-color:var(--a-text2);box-shadow:inset 0 0 0 1px var(--a-text2)}
 html .toggle-switch>i{background:var(--a-line2);border-color:transparent;box-shadow:none}
 html .toggle-switch>input:checked+i{background:var(--a-pri);border-color:var(--a-pri)}
 ::-webkit-scrollbar{width:10px;height:10px}
@@ -87,7 +90,7 @@ html .shell>.runtime-compatibility-banner{grid-row:2;margin:0 16px 8px;border-ra
 html .side-popup{left:auto!important;bottom:auto;right:16px;top:64px;width:300px;background:var(--a-card);border:1px solid var(--a-line);border-radius:18px;box-shadow:var(--a-pop);color:var(--a-text);padding:14px}
 html .side-popup.side-popup-wide{width:440px}
 html .side-popup button,html .side-popup a{border-radius:10px;box-shadow:none;color:var(--a-text);padding:9px 10px}
-html .side-popup button:hover:not(:disabled){background:var(--a-fill)}
+html .side-popup button:hover:not(:disabled){background-image:linear-gradient(var(--a-hover),var(--a-hover))}
 html .side-popup hr{border-top-color:var(--a-line)}
 html .theme-choice button{border:1px solid var(--a-line);border-radius:999px;text-align:center}
 html .theme-choice button.active{background:var(--a-pri);color:var(--a-prifg);border-color:var(--a-pri)}
@@ -146,7 +149,7 @@ html .search-page .enemy-list-caption{font-size:11px;color:var(--a-mute);padding
 html .search-page .enemy-list{height:auto;flex:1}
 html .search-page .rule-tree{flex:1;min-height:0;overflow:auto}
 html .search-page .rule-category{width:100%;display:flex;justify-content:space-between;border:0;border-radius:9px;background:transparent;box-shadow:none;padding:8px 10px;font-weight:600}
-html .search-page .rule-category:hover:not(:disabled){background:var(--a-fill)}
+html .search-page .rule-category:hover:not(:disabled){background-image:linear-gradient(var(--a-hover),var(--a-hover))}
 html .search-page .rule-picker{display:grid;grid-template-columns:minmax(0,1fr) 116px auto;align-items:center;gap:6px;padding:3px 6px 3px 18px;font-size:12.5px;border:0;background:transparent}
 html .search-page .rule-picker select{height:30px;font-size:12px}
 html .search-page .rule-picker button{height:30px;padding:0 10px;font-size:12px}
@@ -342,13 +345,22 @@ html .editor-page .editor-work{background:var(--a-card)}
 html .inventory-item{border-radius:12px;border:1px solid var(--a-line);background:var(--a-card);box-shadow:none;text-align:left}
 html .inventory-item:hover:not(:disabled){background:var(--a-fill)}
 html .inventory-item.active,html .inventory-item[aria-pressed=true],html .inventory-item[aria-current=true]{border-color:var(--a-pri);box-shadow:0 0 0 1px var(--a-pri);background:var(--a-card)}
+/* One card per scroll: the row is the card and holds the delete checkbox; the pick button inside stays flat. */
+html .editor-page .inventory-list{display:flex;flex-direction:column;gap:6px;padding:2px}
+html .editor-page .inventory-item{display:flex;align-items:center;gap:0;padding:0 0 0 12px;margin:0;transition:border-color .12s,background .12s}
+html .editor-page .inventory-item>input[type=checkbox]{flex:none;margin:0}
+html .editor-page .inventory-item>button{flex:1;border:0;background:transparent;box-shadow:none;border-radius:0 12px 12px 0;margin:0;padding:9px 12px;gap:2px}
+html .editor-page .inventory-item>button:only-child{border-radius:12px}
+html .editor-page .inventory-item>button:hover:not(:disabled),html .editor-page .inventory-item>button.selected{background:transparent;background-image:none}
+html .editor-page .inventory-item:has(>button.selected){border-color:var(--a-pri);box-shadow:0 0 0 1px var(--a-pri)}
+html .editor-page .inventory-item:has(>input:checked){background:var(--a-fill)}
 html .editor-page .module{background:var(--a-card);border:1px solid var(--a-line);border-radius:14px;box-shadow:none}
 html .editor-page .module>summary,html .editor-page .module>header{font-weight:600}
 html .editor-review .scroll{padding:14px 16px 12px}
 html .editor-review .scroll .effect-line{height:auto;min-height:34px;border-bottom:1px solid var(--a-line)}
 html .editor-bottom{background:transparent;border:0}
 html .editor-notice,html .temporary-warning{border-radius:12px}
-html .backup-page section,html .backup-page .module,html .character-detail,html .character-list,html .character-side,html .seed-panel{background:var(--a-card);border:1px solid var(--a-line);border-radius:18px;box-shadow:var(--a-shadow)}
+html .backup-page section,html .backup-page .module,html .character-list,html .character-side{background:var(--a-card);border:1px solid var(--a-line);border-radius:18px;box-shadow:var(--a-shadow)}
 html table{border-collapse:separate;border-spacing:0}
 html th{color:var(--a-text2);font-weight:600;background:var(--a-fill)}
 html th,html td{border-color:var(--a-line)}
@@ -380,7 +392,7 @@ html .catalog-tab-group small{color:var(--a-text2);font-size:11.5px}
 html .catalog-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
 html .catalog-tab-group:nth-of-type(2) .catalog-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
 html .catalog-tabs .catalog-tab{justify-content:center;height:38px;padding:0 6px;font-size:13px;font-weight:600;color:var(--a-text);background:var(--a-card);border:1px solid var(--a-line2);box-shadow:var(--a-shadow);border-radius:11px;white-space:nowrap;min-width:0}
-html .catalog-tabs .catalog-tab:hover:not(:disabled){border-color:var(--a-text2);background:var(--a-card)}
+html .catalog-tabs .catalog-tab:hover:not(:disabled):not([aria-selected=true]){border-color:var(--a-text2);background:var(--a-card)}
 html .catalog-tabs .catalog-tab i{width:8px;height:8px;flex:none}
 html .catalog-tabs .catalog-tab[aria-selected=true]{background:var(--a-pri);border-color:var(--a-pri);color:var(--a-prifg);box-shadow:0 4px 12px rgb(0 0 0 / .18)}
 html .search-page .catalog .panel-body>.rule-tree{flex:1;height:auto!important;max-height:none!important;min-height:0!important;padding-top:4px}
@@ -432,3 +444,74 @@ html .shell>.topbar{background:transparent}
 :root[data-theme=dark] .shell{background:radial-gradient(900px 140px at 18% -40px,rgb(140 110 220 / .16),transparent 70%),radial-gradient(900px 140px at 82% -40px,rgb(220 140 80 / .14),transparent 70%),var(--a-page)}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]) .shell{background:radial-gradient(900px 140px at 18% -40px,rgb(140 110 220 / .16),transparent 70%),radial-gradient(900px 140px at 82% -40px,rgb(220 140 80 / .14),transparent 70%),var(--a-page)}}
 @media (prefers-reduced-motion:reduce){html *,html *::before,html *::after{animation:none!important;transition:none!important}}
+
+/* ---------- editor sections (UI-004) ---------- */
+/* Sections share one details name, so only one is open; closed ones collapse to a short row and the open one takes the rest of the column. */
+html .editor-page .editor-work>.editor-section{flex:0 0 auto;min-height:0;max-height:none;margin:0 0 8px;padding:0 16px}
+html .editor-page .editor-work>.editor-section>summary{padding:12px 0;line-height:20px;cursor:pointer}
+html .editor-page .editor-work>.editor-section[open]{flex:1 1 0;min-height:240px;max-height:none}
+html .editor-page .editor-work>.editor-section[open]::details-content{flex:1;min-height:0}
+html .editor-page .editor-work>.editor-section .editor-section-body{flex:1;min-height:0;max-height:none;overflow:auto;padding:0 2px 14px}
+html .editor-page .editor-effects .editor-section-body>p{margin:0 0 8px;color:var(--a-text2)}
+html .editor-page .editor-work .slot-list{display:flex;flex-direction:column;gap:4px}
+html .editor-page .editor-work .slot-list>button{display:flex;align-items:center;gap:12px;min-height:38px;padding:6px 12px;border-radius:10px;background:var(--a-card);border:1px solid var(--a-line);box-shadow:none}
+html .editor-page .editor-work .slot-list>button>span{width:16px;color:var(--a-mute);font-variant-numeric:tabular-nums}
+html .editor-page .editor-work .slot-list>button>b{font-weight:500}
+html .editor-page .editor-work .slot-list>button>small{color:var(--a-text2);font-variant-numeric:tabular-nums}
+html .editor-page .editor-work .slot-list>button.selected{border-color:var(--a-pri);box-shadow:0 0 0 1px var(--a-pri);background:var(--a-card)}
+html .editor-page .editor-work .slot-list>button[aria-expanded=true]{border-radius:10px 10px 0 0}
+html .editor-page .editor-work .slot-inline{display:flex;flex-direction:column;gap:10px;margin:-4px 0 4px;padding:12px;border:1px solid var(--a-pri);border-top:0;border-radius:0 0 12px 12px;background:var(--a-fill);box-shadow:0 0 0 1px var(--a-pri);clip-path:inset(0 -2px -2px -2px);animation:arc-drop .16s cubic-bezier(.2,.8,.2,1)}
+html .editor-page .editor-work .slot-inline>input{width:100%;margin:0;background:var(--a-card)}
+html .editor-page .editor-work .slot-inline .editor-catalog{height:auto;max-height:240px;min-height:0;overflow:auto;background:var(--a-card);border:1px solid var(--a-line);border-radius:10px}
+html .editor-page .editor-work .slot-inline .editor-catalog button{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:34px;padding:6px 12px;border:0;border-bottom:1px solid var(--a-line);border-radius:0;background:transparent;box-shadow:none;text-align:left;font-weight:400}
+html .editor-page .editor-work .slot-inline .editor-catalog button:last-child{border-bottom:0}
+html .editor-page .editor-work .slot-inline .editor-catalog button span{font-size:11.5px;color:var(--a-mute)}
+html .editor-page .editor-work .slot-inline .editor-catalog button:hover span{color:var(--a-text)}
+html .editor-page .editor-work .slot-inline .slot-edit{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;margin:0}
+html .editor-page .editor-work .slot-inline .slot-edit label{display:grid;gap:4px;font-size:12px;color:var(--a-text2)}
+html .editor-page .editor-work .slot-inline .slot-edit input{width:100%;background:var(--a-card)}
+html .editor-page .editor-work .slot-inline .slot-edit button{grid-column:auto;height:34px;padding:0 14px;font-size:12.5px}
+html .editor-page .editor-work .slot-inline .native-value-hint{margin:0;font-size:12px;color:var(--a-text2)}
+html .editor-page .editor-work .slot-inline>select{max-width:240px;background:var(--a-card)}
+html .editor-page .editor-work .slot-inline .advanced{margin:0}
+
+/* ---------- equipment page (UI-002, UI-003) ---------- */
+/* Both columns stay side by side down to the minimum window width; each scrolls on its own instead of the right one wrapping below. */
+html .equipment-page.character-page{display:flex;flex-direction:column;overflow:hidden}
+html .character-page>.character-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,1fr);grid-template-rows:minmax(0,1fr);align-items:stretch;flex:1;min-height:0;gap:14px}
+html .character-page .character-list{display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:16px}
+html .character-page .character-side{display:flex;flex-direction:column;min-height:0;overflow:auto;padding:16px 18px}
+html .character-page .character-side>.character-detail,html .character-page .character-side>.character-empty{flex:none;overflow:visible;margin:0}
+html .character-page .character-detail,html .character-page .seed-panel{background:transparent;border:0;border-radius:0;box-shadow:none;padding:0}
+html .character-page .character-detail{display:flex;flex-direction:column;gap:12px}
+html .character-page .character-detail-head{gap:8px 12px}
+html .character-page .character-detail-head h3{font-size:17px;font-weight:650}
+html .character-page .equipment-notes{margin:0;padding:10px 12px;border-radius:10px;background:var(--a-fill);color:var(--a-text2);font-size:12px;line-height:1.65;text-indent:0}
+html .character-page .character-fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+html .character-page .character-fields label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--a-text2)}
+html .character-page .character-fields :is(input,select){width:100%;height:34px;font-size:13px}
+html .character-page .character-fields label:has(>select){grid-column:span 2}
+html .character-page .character-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+html .character-page .character-actions button{height:34px;padding:0 16px;font-size:13px;border-radius:999px}
+html .character-page .character-actions button.primary{background:var(--a-pri);color:var(--a-prifg);border-color:var(--a-pri)}
+html .character-page .seed-panel{display:flex;flex-direction:column;gap:10px;margin:0}
+html .character-page .seed-want{gap:6px}
+html .character-page .seed-want-label{font-size:12px;font-weight:600;color:var(--a-text2)}
+html .character-page .seed-want-chips .effect-picker{min-width:200px}
+html .character-page .seed-chip{gap:4px;padding:2px 4px 2px 10px;border-radius:999px;background:var(--a-fill);border:1px solid var(--a-line2);font-size:12.5px}
+html .character-page .seed-chip button{color:var(--a-mute)}
+html .character-page .seed-summary{margin:0;padding:0;background:transparent;border:0;color:var(--a-text2);font-size:12px;line-height:1.6}
+html .character-page .seed-outcomes{gap:6px;max-height:none;overflow:visible}
+html .character-page .seed-outcomes button{display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:8px 10px;border-radius:12px;border:1px solid var(--a-line);background:var(--a-card);box-shadow:none;font-weight:400;line-height:1.4}
+html .character-page .seed-outcomes button.chosen{border-color:var(--a-pri);box-shadow:0 0 0 1px var(--a-pri);background:var(--a-card)}
+html .character-page .seed-effect{display:inline-flex;align-items:baseline;gap:4px;padding:2px 8px;border-radius:7px;background:var(--a-fill);font-size:12.5px;white-space:nowrap}
+html .character-page .seed-effect small{color:var(--a-mute);font-size:11.5px;font-variant-numeric:tabular-nums}
+html .character-page .seed-effect.wanted{background:var(--a-pri);color:var(--a-prifg);font-weight:500}
+html .character-page .seed-effect.wanted small{color:inherit;opacity:.75}
+html .character-page .seed-id{margin-left:auto;font-size:11px;color:var(--a-mute)}
+/* The top bar keeps every control on one line at the minimum window width. */
+html .topbar .toplinks button{white-space:nowrap}
+html .side-popup .about-hero{display:flex;align-items:center;gap:14px;margin:4px 0 14px;padding:12px 14px;border-radius:14px;background:var(--a-fill)}
+html .side-popup .about-hero img{flex:none;width:96px;height:96px;object-fit:contain}
+html .side-popup .about-hero p{margin:0;font-size:12.5px;line-height:1.6;color:var(--a-text2)}
+html .side-popup .about-hero b{display:block;margin-bottom:2px;font-size:14px;color:var(--a-text)}

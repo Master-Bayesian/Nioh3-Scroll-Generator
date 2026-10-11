@@ -169,7 +169,8 @@ export function Editor({ cart }: { cart: Sample[] }) {
   const [draft, setDraftRaw] = useState<Draft>(saved),
     [active, setActive] = useState(0),
     [find, setFind] = useState(""),
-    [catalogFind, setCatalogFind] = useState("");
+    [catalogFind, setCatalogFind] = useState(""),
+    [slotOpen, setSlotOpen] = useState(false);
   const draftIdentity = useRef("");
   draftIdentity.current = JSON.stringify([
     draft,
@@ -914,146 +915,160 @@ export function Editor({ cart }: { cart: Sample[] }) {
         >
           <summary>主副词条</summary>
           <div className="editor-section-body">
-            <p>选择一行，在下方更换词条。</p>
+            <p>点一行，直接在这一行下面更换词条或修改数值；再点一次收起。</p>
             <div className="slot-list">
               {draft.slots.map((s, i) => (
-                <button
-                  key={i}
-                  className={active === i ? "selected" : ""}
-                  onClick={() => setActive(i)}
-                >
-                  <span>{i + 1}</span>
-                  <b>{s.name}</b>
-                  <small>
-                    {s.raw}
-                    {slotRange(s) && <em className="value-range">（范围 {slotRange(s)}）</em>}
-                  </small>
-                </button>
+                <React.Fragment key={i}>
+                  <button
+                    className={active === i ? "selected" : ""}
+                    aria-expanded={active === i && slotOpen}
+                    onClick={() => {
+                      if (active === i) setSlotOpen(!slotOpen);
+                      else {
+                        setActive(i);
+                        setSlotOpen(true);
+                        setCatalogFind("");
+                      }
+                    }}
+                  >
+                    <span>{i + 1}</span>
+                    <b>{s.name}</b>
+                    <small>
+                      {s.raw}
+                      {slotRange(s) && <em className="value-range">（范围 {slotRange(s)}）</em>}
+                    </small>
+                  </button>
+                  {active === i && slotOpen && (
+                    <div className="slot-inline">
+                      <input
+                        aria-label="编辑词条目录搜索"
+                        autoFocus
+                        placeholder="搜索词条名称或 ID"
+                        value={catalogFind}
+                        onChange={(e) => setCatalogFind(e.target.value)}
+                      />
+                      <div className="editor-catalog">
+                        {data.editorEffects
+                          .filter((e) => (e.name + e.id).includes(catalogFind))
+                          .slice(0, 100)
+                          .map((e) => (
+                            <button key={e.id} onClick={() => replaceEffect(e)}>
+                              {e.name}
+                              <span>替换</span>
+                            </button>
+                          ))}
+                      </div>
+                      <div className="slot-edit">
+                        <label>
+                          词条 ID
+                          <input
+                            aria-label="编辑词条ID"
+                            value={draft.slots[active].id}
+                            onChange={(e) => {
+                              setDraft({
+                                ...draft,
+                                slots: draft.slots.map((s, i) =>
+                                  i === active
+                                    ? {
+                                        ...s,
+                                        id: e.target.value,
+                                        name:
+                                          data.editorEffects.find(
+                                            (v) =>
+                                              v.id === String(Number(e.target.value)),
+                                          )?.name || "未知词条",
+                                      }
+                                    : s,
+                                ),
+                              });
+                            }}
+                          />
+                        </label>
+                        <label>
+                          原始数值
+                          <input
+                            aria-label="编辑词条原始数值"
+                            value={draft.slots[active].raw}
+                            onChange={(e) => patch("raw", e.target.value)}
+                          />
+                        </label>
+                        <button
+                          onClick={() =>
+                            setDraft({
+                              ...draft,
+                              slots: draft.slots.map((s, i) =>
+                                i === active
+                                  ? { ...s, id: "4294967295", name: "空槽", raw: "0" }
+                                  : s,
+                              ),
+                            })
+                          }
+                        >
+                          清空此槽
+                        </button>
+                      </div>
+                      <p className="native-value-hint">
+                        {draft.slots[active].id === "4294967295" ? (
+                          "当前为空槽"
+                        ) : native ? (
+                          <>
+                            原生数值：
+                            {native.length === 1
+                              ? native[0]
+                              : `${native[0]}–${native[native.length - 1]}（${native.length} 个可用值）`}{" "}
+                            ·{" "}
+                            {native.includes(Number(draft.slots[active].raw))
+                              ? "当前值在原生集合内"
+                              : "当前值不在原生集合内，仍可自由修改"}
+                          </>
+                        ) : (
+                          "此词条暂无可验证的原生数值范围"
+                        )}
+                      </p>
+                      {native && (
+                        <select
+                          aria-label="选择原生数值"
+                          value={
+                            native.includes(Number(draft.slots[active].raw))
+                              ? draft.slots[active].raw
+                              : ""
+                          }
+                          onChange={(e) => patch("raw", e.target.value)}
+                        >
+                          <option value="" disabled>
+                            选择一个原生数值
+                          </option>
+                          {native.map((value) => (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      <details className="advanced">
+                        <summary>高级原始字段</summary>
+                        <p>
+                          不检查词条冲突或组合合法性。修改这些字段前，请确认它们的含义。
+                        </p>
+                        <div className="editor-fields">
+                          {(["prefix", "metadata", "tail0", "tail1"] as const).map(
+                            (k) => (
+                              <label key={k}>
+                                {k}
+                                <input
+                                  value={draft.slots[active][k]}
+                                  onChange={(e) => patch(k, e.target.value)}
+                                />
+                              </label>
+                            ),
+                          )}
+                        </div>
+                      </details>
+                    </div>
+                  )}
+                </React.Fragment>
               ))}
             </div>
-            <div className="slot-edit">
-              <label>
-                词条 ID
-                <input
-                  aria-label="编辑词条ID"
-                  value={draft.slots[active].id}
-                  onChange={(e) => {
-                    setDraft({
-                      ...draft,
-                      slots: draft.slots.map((s, i) =>
-                        i === active
-                          ? {
-                              ...s,
-                              id: e.target.value,
-                              name:
-                                data.editorEffects.find(
-                                  (v) =>
-                                    v.id === String(Number(e.target.value)),
-                                )?.name || "未知词条",
-                            }
-                          : s,
-                      ),
-                    });
-                  }}
-                />
-              </label>
-              <label>
-                原始数值
-                <input
-                  aria-label="编辑词条原始数值"
-                  value={draft.slots[active].raw}
-                  onChange={(e) => patch("raw", e.target.value)}
-                />
-              </label>
-              <button
-                onClick={() =>
-                  setDraft({
-                    ...draft,
-                    slots: draft.slots.map((s, i) =>
-                      i === active
-                        ? { ...s, id: "4294967295", name: "空槽", raw: "0" }
-                        : s,
-                    ),
-                  })
-                }
-              >
-                清空此槽
-              </button>
-            </div>
-            <p className="native-value-hint">
-              {draft.slots[active].id === "4294967295" ? (
-                "当前为空槽"
-              ) : native ? (
-                <>
-                  原生数值：
-                  {native.length === 1
-                    ? native[0]
-                    : `${native[0]}–${native[native.length - 1]}（${native.length} 个可用值）`}{" "}
-                  ·{" "}
-                  {native.includes(Number(draft.slots[active].raw))
-                    ? "当前值在原生集合内"
-                    : "当前值不在原生集合内，仍可自由修改"}
-                </>
-              ) : (
-                "此词条暂无可验证的原生数值范围"
-              )}
-            </p>
-            {native && (
-              <select
-                aria-label="选择原生数值"
-                value={
-                  native.includes(Number(draft.slots[active].raw))
-                    ? draft.slots[active].raw
-                    : ""
-                }
-                onChange={(e) => patch("raw", e.target.value)}
-              >
-                <option value="" disabled>
-                  选择一个原生数值
-                </option>
-                {native.map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
-              </select>
-            )}
-            <input
-              aria-label="编辑词条目录搜索"
-              placeholder="搜索词条名称或 ID"
-              value={catalogFind}
-              onChange={(e) => setCatalogFind(e.target.value)}
-            />
-            <div className="editor-catalog">
-              {data.editorEffects
-                .filter((e) => (e.name + e.id).includes(catalogFind))
-                .slice(0, 100)
-                .map((e) => (
-                  <button key={e.id} onClick={() => replaceEffect(e)}>
-                    {e.name}
-                    <span>替换</span>
-                  </button>
-                ))}
-            </div>
-            <details className="advanced">
-              <summary>高级原始字段</summary>
-              <p>
-                不检查词条冲突或组合合法性。修改这些字段前，请确认它们的含义。
-              </p>
-              <div className="editor-fields">
-                {(["prefix", "metadata", "tail0", "tail1"] as const).map(
-                  (k) => (
-                    <label key={k}>
-                      {k}
-                      <input
-                        value={draft.slots[active][k]}
-                        onChange={(e) => patch(k, e.target.value)}
-                      />
-                    </label>
-                  ),
-                )}
-              </div>
-            </details>
           </div>
         </details>
         {desktop && current.saveEntry && <CountEditor sample={current} />}

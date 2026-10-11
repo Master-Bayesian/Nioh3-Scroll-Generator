@@ -278,7 +278,7 @@ R5 · 橙色	R5 · Orange	R5 · 橙
 基础信息 · 长期保存	Basic details · Persistent	基本情報 · 保存可能
 编辑	Edit	編集
 主副词条 · 长期保存	Effects · Persistent	主・副効果 · 保存可能
-选择一行，在下方更换词条。	Select a row, then replace its effect below.	行を選択して、下の一覧から効果を変更します。
+点一行，直接在这一行下面更换词条或修改数值；再点一次收起。	Click a row to replace its effect or edit its value right below it; click again to close.	行をクリックすると、その真下で効果の変更や数値の編集ができます。もう一度クリックで閉じます。
 词条 ID	Effect ID	効果ID
 编辑词条ID	Edit effect ID	効果IDを編集
 编辑词条原始数值	Edit raw effect value	効果の内部値を編集
@@ -1518,3 +1518,4 @@ NPC武器	NPC weapon	NPC武器
 主词条 · 前	Primary effect · first	主効果 · 先頭の
 项任一当选	items, any one is chosen	件のいずれかが選ばれる
 先选类型，再从下方列表添加	Choose a type, then add from the list below	種類を選んでから、下の一覧から追加します
+独脚踏鞴本是打铁的工匠，在这里替你打造各种装备。	The Ippon-datara was once a smith; here it forges your gear for you.	一本だたらはもとは鍛冶職人。ここではあなたの装備を打ち上げます。
