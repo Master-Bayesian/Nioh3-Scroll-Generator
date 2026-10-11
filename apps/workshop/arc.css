@@ -446,12 +446,12 @@ html .shell>.topbar{background:transparent}
 @media (prefers-reduced-motion:reduce){html *,html *::before,html *::after{animation:none!important;transition:none!important}}
 
 /* ---------- editor sections (UI-004) ---------- */
-/* Sections share one details name, so only one is open; closed ones collapse to a short row and the open one takes the rest of the column. */
+/* Sections share one details name, so only one is open; the open one shows all its content and the column scrolls, so nothing is squeezed into a small inner box. */
 html .editor-page .editor-work>.editor-section{flex:0 0 auto;min-height:0;max-height:none;margin:0 0 8px;padding:0 16px}
 html .editor-page .editor-work>.editor-section>summary{padding:12px 0;line-height:20px;cursor:pointer}
-html .editor-page .editor-work>.editor-section[open]{flex:1 1 0;min-height:240px;max-height:none}
+html .editor-page .editor-work>.editor-section[open]{flex:0 0 auto;min-height:0;max-height:none}
 html .editor-page .editor-work>.editor-section[open]::details-content{flex:1;min-height:0}
-html .editor-page .editor-work>.editor-section .editor-section-body{flex:1;min-height:0;max-height:none;overflow:auto;padding:0 2px 14px}
+html .editor-page .editor-work>.editor-section .editor-section-body{flex:none;min-height:0;max-height:none;overflow:visible;padding:0 2px 14px}
 html .editor-page .editor-effects .editor-section-body>p{margin:0 0 8px;color:var(--a-text2)}
 /* Effects (UI-010, UI-017): one row per slot like the equipment editor; the picker, value and native range share the row. */
 html .editor-page .effect-scope{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:0 0 10px}
@@ -462,13 +462,13 @@ html .editor-page .scroll-effects,html .editor-page .scroll-raw-fields{width:100
 html .editor-page .scroll-effects th,html .editor-page .scroll-raw-fields th{padding:7px 8px;font-size:11.5px;font-weight:500;color:var(--a-mute);text-align:left;border-bottom:1px solid var(--a-line)}
 html .editor-page .scroll-effects td,html .editor-page .scroll-raw-fields td{padding:5px 8px;border-bottom:1px solid var(--a-line);vertical-align:middle;font-variant-numeric:tabular-nums}
 html .editor-page .scroll-effects tr:last-child td,html .editor-page .scroll-raw-fields tr:last-child td{border-bottom:0}
-html .editor-page .scroll-effects th:first-child,html .editor-page .scroll-raw-fields th:first-child{width:46px;white-space:nowrap}
+html .editor-page .scroll-effects th:first-child,html .editor-page .scroll-raw-fields th:first-child{width:52px;white-space:nowrap}
 html .editor-page .scroll-effects th:nth-child(3){width:150px}
 html .editor-page .scroll-effects th:nth-child(4){width:104px}
 html .editor-page .scroll-effects td:first-child,html .editor-page .scroll-raw-fields td:first-child{color:var(--a-mute)}
 html .editor-page .scroll-effects tr.is-changed td:first-child{color:var(--a-text);font-weight:600}
 html .editor-page .scroll-effects .effect-picker>input{height:32px;background:var(--a-fill)}
-html .editor-page .scroll-effects td>small{display:block;margin-top:2px;font-size:11px}
+html .editor-page .scroll-effects td>small{display:block;margin-top:2px;font-size:11px;white-space:nowrap}
 html .editor-page .scroll-value{display:flex;gap:4px;min-width:0}
 html .editor-page .scroll-value input{flex:1 1 0;min-width:0;width:0;height:32px;padding:0 8px}
 html .editor-page .scroll-value select{flex:0 0 62px;width:62px;height:32px;padding:0 4px;font-size:12px}
