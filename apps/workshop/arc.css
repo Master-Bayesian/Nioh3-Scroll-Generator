@@ -637,3 +637,5 @@ html .editor-page .editor-effects>.editor-section-body{container-type:inline-siz
   html .editor-page .scroll-effects td:nth-child(3){grid-area:value;min-width:0}
   html .editor-page .scroll-effects td:nth-child(4){grid-area:range;align-self:center;white-space:nowrap}
 }
+/* Field grids: inputs in a row line up when a translated label wraps. */
+html .editor-fields{align-items:end}
