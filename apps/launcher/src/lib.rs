@@ -694,7 +694,7 @@ impl RuntimeLease {
                 fs::remove_file(stage.join(STAGING_MARKER)).map_err(|error| {
                     io_context("stage_marker_remove", &stage.join(STAGING_MARKER), error)
                 })?;
-                fs::rename(&stage, &directory)
+                commit_stage(&stage, &directory)
                     .map_err(|error| io_context("cache_commit", &directory, error))
             })();
             if let Err(error) = prepared {
@@ -719,6 +719,23 @@ impl RuntimeLease {
             digest: payload.digest.clone(),
             _lease: lease,
         })
+    }
+}
+
+/// Moves a finished staging directory into place. Antivirus scanners often still
+/// hold the freshly written executables for a few seconds, and Windows refuses to
+/// rename a directory while any file inside is open, so access-denied is retried.
+fn commit_stage(stage: &Path, directory: &Path) -> io::Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        match fs::rename(stage, directory) {
+            Err(error)
+                if error.kind() == io::ErrorKind::PermissionDenied && Instant::now() < deadline =>
+            {
+                thread::sleep(Duration::from_millis(250))
+            }
+            result => return result,
+        }
     }
 }
 
