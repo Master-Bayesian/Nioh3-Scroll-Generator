@@ -17,6 +17,7 @@ import { fillTemplateSlots, plainGameText } from "./game-text";
 import { Notice } from "./Notice";
 import { LiveEquipmentAdd } from "./LiveEquipmentAdd";
 import { StarIcon } from "./StarIcon";
+import { pinnedFirst, togglePinned, usePinned } from "./pinned";
 import { EMPTY_EFFECT, EffectPicker, hex, parseEffectId } from "./EffectPicker";
 import { favoriteKey, importEquipmentFavorites, removeEquipmentFavorite, toggleEquipmentFavorite, useEquipmentFavorites, type EquipmentFavorite } from "./equipment-favorites";
 import { decodeLoadout, encodeLoadout, type LoadoutPiece } from "./loadout-code";
@@ -216,6 +217,9 @@ interface Draft {
   familiarity: string;
   hell: boolean;
   hell_skill: number;
+  /** The game's protection (lock) and 喜好项目 (favourite) marks. */
+  locked: boolean;
+  favorite: boolean;
   effects: DraftEffect[];
 }
 function draftOf(row: CharacterEquipment): Draft {
@@ -227,6 +231,8 @@ function draftOf(row: CharacterEquipment): Draft {
     familiarity: familiarityText(row.familiarity),
     hell: row.hell ?? false,
     hell_skill: row.hell_skill ?? 0,
+    locked: !!row.locked,
+    favorite: !!row.favorite,
     effects: row.effects.map(effect => ({
       id: effect.effect_id === EMPTY_EFFECT ? "" : hex(effect.effect_id),
       value: String(effect.value),
@@ -268,6 +274,8 @@ function patchOf(row: CharacterEquipment, draft: Draft, keepsMarker: (index: num
   if (familiarity !== row.familiarity) patch.familiarity = familiarity;
   if (draft.hell !== (row.hell ?? false)) patch.hell = draft.hell;
   if (draft.hell_skill !== (row.hell_skill ?? 0)) patch.hell_skill = draft.hell_skill;
+  if (draft.locked !== !!row.locked) patch.locked = draft.locked;
+  if (draft.favorite !== !!row.favorite) patch.favorite = draft.favorite;
   const effects = [];
   for (const [index, effect] of draft.effects.entries()) {
     const id = parseEffectId(effect.id);
@@ -350,6 +358,14 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const [plan, setPlan] = useState<{ plan_id: string; preview: Record<string, unknown> } | null>(null);
   const [tab, setTab] = useState<Tab>("equipment");
   const [itemQuery, setItemQuery] = useState("");
+  // Starred equipment and items list first; "favorites only" filters to them.
+  const pinnedItems = usePinned("item");
+  const [equipmentPinnedOnly, setEquipmentPinnedOnly] = useState(false);
+  const [itemPinnedOnly, setItemPinnedOnly] = useState(false);
+  const equipmentKey = (entry: CharacterEquipment) => [entry.item_id, entry.inventory_key, entry.seed].join(":");
+  // Equipment stars are the game's own 喜好项目 marks; item stars stay local
+  // because item records have no verified favourite mark.
+  const equipmentFavorite = (entry: CharacterEquipment) => !!entry.favorite;
   const [itemMajor, setItemMajor] = useState("");
   const [selectedItem, setSelectedItem] = useState<number | null>(null);
   const [itemDraft, setItemDraft] = useState<Record<Container, string>>({ held: "", storage: "" });
@@ -455,16 +471,18 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       const facets = facetsOf(entry.item_id, entry.type_class);
       if (!matchesClass(entry.item_id, facets, major, type) || (school && facets.school !== school)) return false;
       if (verdictFilter && verdictOf(entry) !== verdictFilter) return false;
+      if (equipmentPinnedOnly && !equipmentFavorite(entry)) return false;
       if (!needle) return true;
       const text = [itemText(entry.item_id), facets.major, facets.type, ...entry.effects.map(effect => effectText(effect.effect_id))].join(" ");
       return searchable(text).toLowerCase().includes(needle);
     });
-    if (!sort) return matches;
+    const pinned = equipmentFavorite;
+    if (!sort) return pinnedFirst(matches, pinned);
     // Ties keep the game's inventory order (the sort is stable).
     const sign = sort.descending ? -1 : 1;
     const key = (entry: CharacterEquipment) => sort.key === "level" ? entry.level * 100 + (entry.plus ?? 0) : entry.rarity;
-    return [...matches].sort((left, right) => sign * (key(left) - key(right)));
-  }, [character, query, major, type, school, verdictFilter, sort, showIds]);
+    return pinnedFirst([...matches].sort((left, right) => sign * (key(left) - key(right))), pinned);
+  }, [character, query, major, type, school, verdictFilter, sort, showIds, equipmentPinnedOnly]);
   // Descending first, then ascending, then back to the game's order.
   const toggleSort = (key: SortKey) =>
     setSort(current => current?.key !== key ? { key, descending: true } : current.descending ? { key, descending: false } : null);
@@ -506,12 +524,14 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   );
   const filteredItems = useMemo(() => {
     const needle = itemQuery.trim().toLowerCase();
-    return itemRows.filter(entry => {
+    const pinned = (entry: ItemRow) => pinnedItems.has(String(entry.item_id));
+    return pinnedFirst(itemRows.filter(entry => {
       const [a, b] = itemGroups(entry.item_id, null);
       if (itemMajor && a !== itemMajor) return false;
+      if (itemPinnedOnly && !pinned(entry)) return false;
       return !needle || searchable([itemText(entry.item_id), a, b].join(" ")).toLowerCase().includes(needle);
-    });
-  }, [itemRows, itemQuery, itemMajor, showIds]);
+    }), pinned);
+  }, [itemRows, itemQuery, itemMajor, showIds, itemPinnedOnly, pinnedItems]);
   const itemRow = itemRows.find(entry => entry.item_id === selectedItem) ?? null;
   const itemDraftOf = (entry: ItemRow | null): Record<Container, string> => ({
     held: entry?.held?.quantity == null ? "" : String(entry.held.quantity),
@@ -563,6 +583,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         if (!result.menu_open) { setFollowNote("游戏内的持有物品菜单未打开"); return; }
         if (result.item_id == null) { setFollowNote("持有物品菜单已打开，请在游戏中选中一件物品"); return; }
         if (result.slot_index == null) { setFollowNote("游戏内选中的物品无法修改"); return; }
+        if (result.container === "scroll") { setFollowNote("游戏内选中的是绘卷，可以在“绘卷编辑”页定位"); return; }
         if (result.container === "held" || result.container === "storage") {
           const entry = now.itemRows.find(item => item.item_id === result.item_id);
           if (!entry) {
@@ -1435,6 +1456,13 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   };
   const quantityText = (stack?: CharacterItem) => (stack ? (stack.quantity == null ? "1" : String(stack.quantity)) : "—");
 
+  const pinButton = (kind: "item", key: string, name: string, pinned: ReadonlySet<string>) => (
+    <button type="button" className={"pin-toggle" + (pinned.has(key) ? " active" : "")} aria-pressed={pinned.has(key)}
+      aria-label={(pinned.has(key) ? "取消收藏" : "收藏") + name} title={pinned.has(key) ? "取消收藏" : "收藏：总是排在最上面"}
+      onClick={event => { event.stopPropagation(); togglePinned(kind, key); }}>
+      <StarIcon filled={pinned.has(key)} />
+    </button>
+  );
   const equipmentList = (
     <>
       <div className="character-filters">
@@ -1455,6 +1483,10 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
               <option key={value} value={value}>{VERDICT_LABEL[value]}（{verdictCounts[value] ?? 0}）</option>
             ))}
           </select>
+          <label className="pinned-filter">
+            <input type="checkbox" checked={equipmentPinnedOnly} onChange={event => setEquipmentPinnedOnly(event.target.checked)} />
+            只看收藏
+          </label>
           <span className="equipment-range">{filtered.length} / {character?.equipment.length ?? 0}</span>
           <button type="button" className="loadout-copy" data-action="copy-worn-loadout"
             disabled={!character?.equipment.some(entry => entry.worn)}
@@ -1465,7 +1497,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       <div className="character-table-wrap" ref={tableWrap}>
       <table className="equipment-table character-table">
         <thead>
-          <tr><th>物品</th><th>类别</th>{sortHeader("level", "等级")}{sortHeader("rarity", "稀有度")}<th>判定</th></tr>
+          <tr><th>物品</th><th>类别</th>{sortHeader("level", "等级")}{sortHeader("rarity", "稀有度")}<th>判定</th><th className="pin-column"><span className="visually-hidden">收藏</span></th></tr>
         </thead>
         <tbody>
           {filtered.map(entry => {
@@ -1479,6 +1511,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
                     {itemLabel(entry.item_id)}
                     {entry.hell ? <span className="character-hell">地狱</span> : null}
                     {entry.worn ? <span className="character-worn" title="正在装备中，不能移除">装备中</span> : null}
+                    {entry.locked ? <span className="character-locked" title="游戏里已保护：不能卖掉或丢弃">保护</span> : null}
                     {entry.slot_index === selected && dirty ? <span className="character-dirty" title="右侧有未应用的修改">未应用</span> : null}
                     {showIds ? <small> #{entry.slot_index}</small> : null}
                   </span>
@@ -1488,6 +1521,22 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
                 <td className="character-num">{entry.level}{entry.plus ? <small> +{entry.plus}</small> : null}</td>
                 <td className="character-num">{entry.rarity}</td>
                 <td>{verdictCell(entry)}</td>
+                <td className="pin-column">
+                  <button type="button" className={"pin-toggle" + (entry.favorite ? " active" : "")} aria-pressed={!!entry.favorite}
+                    aria-label={(entry.favorite ? "移出喜好项目" : "加入喜好项目") + itemText(entry.item_id)}
+                    title={entry.favorite ? "游戏里的喜好项目。点一下在右侧草稿里移出（保护保留）" : "在右侧草稿里加入游戏的喜好项目，同时加上保护"}
+                    onClick={event => {
+                      event.stopPropagation();
+                      if (dirty && entry.slot_index !== selected) { setMessage("右侧有未应用的修改，请先应用或放弃。"); return; }
+                      const base = entry.slot_index === selected && draft ? draft : draftOf(entry);
+                      setSelected(entry.slot_index);
+                      setModded(false);
+                      setNewItem(null);
+                      setDraft({ ...base, favorite: !base.favorite, locked: base.favorite ? base.locked : true });
+                    }}>
+                    <StarIcon filled={!!entry.favorite} />
+                  </button>
+                </td>
               </tr>
             );
           })}
@@ -1510,13 +1559,17 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         </div>
         <div className="character-search">
           <input value={itemQuery} onChange={event => setItemQuery(event.target.value)} placeholder="搜索道具名称" />
+          <label className="pinned-filter">
+            <input type="checkbox" checked={itemPinnedOnly} onChange={event => setItemPinnedOnly(event.target.checked)} />
+            只看收藏
+          </label>
           <span className="equipment-range">{filteredItems.length} / {itemRows.length}</span>
         </div>
       </div>
       <div className="character-table-wrap" ref={tableWrap}>
       <table className="equipment-table character-table">
         <thead>
-          <tr><th>道具</th><th>类别</th><th>持有</th><th>仓库</th></tr>
+          <tr><th>道具</th><th>类别</th><th>持有</th><th>仓库</th><th className="pin-column"><span className="visually-hidden">收藏</span></th></tr>
         </thead>
         <tbody>
           {filteredItems.map(entry => {
@@ -1528,6 +1581,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
                 <td className="character-kind">{SINGLE_KIND_MAJORS.has(a) ? a : b || a}</td>
                 <td className="character-num">{quantityText(entry.held)}</td>
                 <td className="character-num">{quantityText(entry.storage)}</td>
+                <td className="pin-column">{pinButton("item", String(entry.item_id), itemText(entry.item_id), pinnedItems)}</td>
               </tr>
             );
           })}
@@ -1760,6 +1814,19 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           </label>
         ) : null}
       </div>
+      {!adding && (
+        <div className="character-marks">
+          <label className="character-toggle">
+            <input type="checkbox" checked={draft.locked} onChange={event => setDraft({ ...draft, locked: event.target.checked })} />
+            保护（游戏里不能卖掉或丢弃）
+          </label>
+          <label className="character-toggle">
+            <input type="checkbox" checked={draft.favorite}
+              onChange={event => setDraft({ ...draft, favorite: event.target.checked, locked: event.target.checked ? true : draft.locked })} />
+            喜好项目（加入时同时保护，和游戏一致）
+          </label>
+        </div>
+      )}
       {!seedMode && (itemGroups(row.item_id, row.type_class)[0] === "武器" || rules?.hell_capable || draft.hell) && (
         <div className="character-hell-row">
           <label className="character-toggle">

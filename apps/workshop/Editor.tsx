@@ -152,6 +152,9 @@ type Draft = {
   recommended: string;
   transfers: string;
   slots: Slot[];
+  /** The game's protection (lock) and 喜好项目 (favourite) marks. */
+  locked: boolean;
+  favorite: boolean;
 };
 function fromSample(s: Sample): Draft {
   const entry = s.saveEntry;
@@ -170,6 +173,8 @@ function fromSample(s: Sample): Draft {
             : entry.header.transfer_count,
         )
       : "-1",
+    locked: !!entry?.locked,
+    favorite: !!entry?.favorite,
     slots: Array.from({ length: 7 }, (_, i) => {
       const slot = entry?.effects[i];
       return {
@@ -203,7 +208,15 @@ export function Editor({ cart }: { cart: Sample[] }) {
       // Remembering the scope is a convenience only.
     }
   }
-  const pinned = usePinned("scroll");
+  // The desktop reads the game's own 喜好项目 marks from the save; the browser
+  // preview, which has no save, keeps its stars locally.
+  const localPins = usePinned("scroll");
+  const isFavorite = (s: Sample) => (desktop ? !!s.saveEntry?.favorite : localPins.has(scrollKey(s)));
+  const [deleteLockedPrompt, setDeleteLockedPrompt] = useState(0);
+  const [deleteLockedConfirmed, setDeleteLockedConfirmed] = useState(false);
+  useEffect(() => {
+    if (deleteLockedConfirmed) void prepareDelete();
+  }, [deleteLockedConfirmed]);
   const [pinnedOnly, setPinnedOnly] = useState(false);
   const activeRead = useRef(0);
   const [deleteSlots, setDeleteSlots] = useState<number[]>([]);
@@ -337,7 +350,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
       ? "正在读取新绘卷 ID 的副本内容…"
       : "正在读取副本内容…";
   const changed = JSON.stringify(draft) !== JSON.stringify(saved);
-  const fields: [keyof Omit<Draft, "slots">, string][] = [
+  const fields: [keyof Omit<Draft, "slots" | "locked" | "favorite">, string][] = [
     ["seed", "绘卷 ID（种子）"],
     ["ng", "周目"],
     ["rarity", "稀有度"],
@@ -459,6 +472,9 @@ export function Editor({ cart }: { cart: Sample[] }) {
             tail_0: Number(slot.tail0),
             tail_1: Number(slot.tail1),
           })),
+          ...(draft.locked !== saved.locked || draft.favorite !== saved.favorite
+            ? { marks: { locked: draft.locked, favorite: draft.favorite } }
+            : {}),
         } as ProtectedParams<"save.prepare_edit">["edits"][number];
         if (writeMode === "live") {
           const inventory = saveState?.inventory;
@@ -637,7 +653,56 @@ export function Editor({ cart }: { cart: Sample[] }) {
           ]
         : [],
     ),
+    ...(draft.locked !== saved.locked ? [draft.locked ? "加上保护" : "解除保护"] : []),
+    ...(draft.favorite !== saved.favorite ? [draft.favorite ? "加入喜好项目" : "移出喜好项目"] : []),
   ];
+  /** Favouriting also protects, as the game does; removing it keeps protection. */
+  function toggleMark(s: Sample, mark: "locked" | "favorite") {
+    const isCurrent = current.saveEntry
+      ? current.saveEntry.slot_index === s.saveEntry?.slot_index
+      : current.seed === s.seed;
+    if (!isCurrent && changed) {
+      setPending(s);
+      return;
+    }
+    const base = isCurrent ? draft : records[s.seed] || fromSample(s);
+    const next =
+      mark === "favorite"
+        ? { ...base, favorite: !base.favorite, locked: base.favorite ? base.locked : true }
+        : { ...base, locked: !base.locked };
+    if (isCurrent) setDraft(next);
+    else {
+      choose(s);
+      setDraftRaw(next);
+    }
+    setMessage("已加入草稿。点“核对修改”后写入" + (writeMode === "live" ? "游戏。" : "存档。"));
+  }
+  /** Select the scroll under the in-game inventory cursor. */
+  async function locateSelected() {
+    try {
+      const result = await window.operations.execute({ method: "runtime.menu_selection", params: {} });
+      if (!result || !("menu_open" in result)) throw Error("没有读到游戏里的选中物品，请确认游戏正在运行后再试。");
+      if (!result.menu_open)
+        return setMessage("游戏里的背包没有打开：请在游戏里打开背包，把光标停在一张绘卷上，再点“定位游戏里选中的绘卷”。");
+      if (result.container !== "scroll" || result.slot_index == null)
+        return setMessage("游戏里选中的不是绘卷：请把光标停在一张绘卷上，再点“定位游戏里选中的绘卷”。");
+      const entry = inventory.find((s) => s.saveEntry?.slot_index === result.slot_index);
+      const record = entry?.saveEntry?.record_hex;
+      const recordType = record ? Number.parseInt(record.slice(2, 4) + record.slice(0, 2), 16) : null;
+      if (!entry || recordType !== result.item_id)
+        return setMessage("游戏里选中的这张绘卷还没有存进存档：请在游戏里存档（例如在神社休息）后点“重新读取”，再定位一次。");
+      setFind("");
+      setPinnedOnly(false);
+      if (changed) setPending(entry);
+      else choose(entry);
+      setMessage("已定位到游戏里选中的绘卷（栏位 " + (result.slot_index + 1) + "）。");
+      requestAnimationFrame(() =>
+        document.querySelector(".inventory-item.is-located")?.scrollIntoView({ block: "nearest" }),
+      );
+    } catch (error) {
+      setMessage(errorText(error));
+    }
+  }
   async function applyTemporary() {
     setBackendBusy(true);
     try {
@@ -787,6 +852,16 @@ export function Editor({ cart }: { cart: Sample[] }) {
     }
   }
   async function prepareDelete() {
+    const targets = deleteSlots.length ? deleteSlots : current.saveEntry ? [current.saveEntry.slot_index] : [];
+    const locked = inventory.filter(
+      (s) => s.saveEntry && targets.includes(s.saveEntry.slot_index) && s.saveEntry.locked,
+    ).length;
+    if (locked && !deleteLockedConfirmed) {
+      setDeleteLockedPrompt(locked);
+      return;
+    }
+    setDeleteLockedPrompt(0);
+    setDeleteLockedConfirmed(false);
     setBackendBusy(true);
     try {
       if (!current.saveEntry) return;
@@ -862,7 +937,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
               checked={pinnedOnly}
               onChange={(e) => setPinnedOnly(e.target.checked)}
             />
-            只看收藏{pinned.size ? `（${inventory.filter((s) => pinned.has(scrollKey(s))).length}）` : ""}
+            只看收藏{inventory.some(isFavorite) ? `（${inventory.filter(isFavorite).length}）` : ""}
           </label>
         </div>
         <div className="inventory-list">
@@ -871,13 +946,17 @@ export function Editor({ cart }: { cart: Sample[] }) {
               .map((s, index) => ({ s, slot: (s.saveEntry?.slot_index ?? index) + 1 }))
               .filter(
                 ({ s }) =>
-                  (!pinnedOnly || pinned.has(scrollKey(s))) &&
+                  (!pinnedOnly || isFavorite(s)) &&
                   (s.seed + s.effects.map((e) => e.name).join()).includes(find),
               ),
-            ({ s }) => pinned.has(scrollKey(s)),
+            ({ s }) => isFavorite(s),
           ).map(({ s, slot }) => (
               <div
-                className={"inventory-item" + (pinned.has(scrollKey(s)) ? " is-pinned" : "")}
+                className={
+                  "inventory-item" +
+                  (isFavorite(s) ? " is-pinned" : "") +
+                  (current.saveEntry && current.saveEntry.slot_index === s.saveEntry?.slot_index ? " is-located" : "")
+                }
                 key={s.saveEntry?.slot_index ?? s.seed}
               >
                 {desktop && s.saveEntry && (
@@ -913,25 +992,55 @@ export function Editor({ cart }: { cart: Sample[] }) {
                     栏位 {slot} · R{s.rarity}
                     <i className={"rarity-dot rarity-" + s.rarity} aria-hidden="true" />
                   </small>
-                  <b>{s.effects[0]?.name || "空词条绘卷"}</b>
+                  <b>
+                    {s.effects[0]?.name || "空词条绘卷"}
+                    {s.saveEntry?.locked && (
+                      <span className="lock-mark" title="游戏里已保护：不能卖掉或丢弃" aria-label="已保护">
+                        <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+                          <rect x="5" y="11" width="14" height="10" rx="2" />
+                          <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+                        </svg>
+                      </span>
+                    )}
+                  </b>
                   <span>绘卷 ID {s.seed}</span>
                 </button>
                 <button
                   type="button"
-                  className={"pin-toggle" + (pinned.has(scrollKey(s)) ? " active" : "")}
-                  aria-pressed={pinned.has(scrollKey(s))}
-                  aria-label={(pinned.has(scrollKey(s)) ? "取消收藏" : "收藏") + "绘卷 " + s.seed}
-                  title={pinned.has(scrollKey(s)) ? "取消收藏" : "收藏：总是排在最上面"}
-                  onClick={() => togglePinned("scroll", scrollKey(s))}
+                  className={"pin-toggle" + (isFavorite(s) ? " active" : "")}
+                  aria-pressed={isFavorite(s)}
+                  aria-label={(isFavorite(s) ? "移出喜好项目" : "加入喜好项目") + "绘卷 " + s.seed}
+                  title={
+                    desktop
+                      ? isFavorite(s)
+                        ? "游戏里的喜好项目。点一下移出（保护保留）"
+                        : "加入游戏里的喜好项目，同时加上保护；总是排在最上面"
+                      : isFavorite(s)
+                        ? "取消收藏"
+                        : "收藏：总是排在最上面"
+                  }
+                  onClick={() => (desktop ? toggleMark(s, "favorite") : togglePinned("scroll", scrollKey(s)))}
                 >
-                  <StarIcon filled={pinned.has(scrollKey(s))} />
+                  <StarIcon filled={isFavorite(s)} />
                 </button>
               </div>
             ))}
-          {pinnedOnly && !inventory.some((s) => pinned.has(scrollKey(s))) && (
+          {pinnedOnly && !inventory.some(isFavorite) && (
             <p className="inventory-empty">还没有收藏的绘卷。点绘卷右边的星标即可收藏。</p>
           )}
         </div>
+        {desktop && (
+          <button onClick={() => void locateSelected()} disabled={backendBusy}>
+            定位游戏里选中的绘卷
+          </button>
+        )}
+        {deleteLockedPrompt > 0 && (
+          <div className="editor-prompt" role="alert">
+            要删除的绘卷里有 {deleteLockedPrompt} 张在游戏里加了保护。确定仍要删除吗？
+            <button onClick={() => setDeleteLockedConfirmed(true)}>仍然删除</button>
+            <button onClick={() => setDeleteLockedPrompt(0)}>取消</button>
+          </div>
+        )}
         <button
           disabled={backendBusy || !!saveState?.busy || (desktop && !current.saveEntry)}
           onClick={() =>
@@ -1007,6 +1116,30 @@ export function Editor({ cart }: { cart: Sample[] }) {
                   />
                 </label>
               ))}
+            </div>
+            <div className="editor-marks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={draft.locked}
+                  onChange={(e) => setDraft({ ...draft, locked: e.target.checked })}
+                />
+                保护（游戏里不能卖掉或丢弃）
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={draft.favorite}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      favorite: e.target.checked,
+                      locked: e.target.checked ? true : draft.locked,
+                    })
+                  }
+                />
+                喜好项目（加入时同时保护，和游戏一致）
+              </label>
             </div>
           </div>
         </details>

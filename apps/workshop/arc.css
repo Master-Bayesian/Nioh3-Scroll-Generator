@@ -574,3 +574,14 @@ html .backup-page .backup-list thead th{position:sticky;top:0;z-index:1;backgrou
 /* Technical details stay readable: the column scrolls instead of clipping, and the detail text scrolls on its own. */
 html .editor-page .editor-work{overflow-y:auto}
 html .notice code{max-height:min(320px,40vh);overflow:auto;user-select:text}
+
+/* Equipment and items: a star per row keeps it on top (UI-012). */
+html .character-table .pin-column{width:40px;padding:0 2px;text-align:center}
+html .character-table .pin-toggle{width:30px;height:30px;margin:0}
+html .character-search .pinned-filter{flex:none}
+
+/* Game protection and favourite marks (UI-012). */
+html .inventory-item .lock-mark{display:inline-flex;vertical-align:-1px;margin-left:6px;color:var(--a-mute)}
+html .editor-page .editor-marks,html .character-page .character-marks{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0 0;font-size:12.5px;color:var(--a-text2)}
+html .editor-page .editor-marks label,html .character-page .character-marks label{display:inline-flex;align-items:center;gap:6px}
+html .character-page .character-locked{margin-left:6px;padding:0 6px;border-radius:6px;background:var(--a-fill);color:var(--a-text2);font-size:11px;font-weight:500}

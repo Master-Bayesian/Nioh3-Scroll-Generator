@@ -1543,3 +1543,32 @@ NPC武器	NPC weapon	NPC武器
 取消选择词条	Deselect effect	効果の選択を解除
 再点一次取消选择	Click again to deselect	もう一度クリックで選択解除
 取消选择敌人	Deselect enemy	敵の選択を解除
+· 游玩	· Played	· プレイ時間
+· 保存于	· Saved	· 保存
+游戏内选中的是绘卷，可以在“绘卷编辑”页定位	The item selected in game is a scroll; locate it on the Scroll editor page	ゲーム内で選択中なのは絵巻です。「絵巻編集」ページで位置を特定できます
+游戏里已保护：不能卖掉或丢弃	Protected in game: cannot be sold or discarded	ゲーム内で保護済み：売却・破棄できません
+保护	Protected	保護
+移出喜好项目	Remove from Favorites	お気に入りから外す
+加入喜好项目	Add to Favorites	お気に入りに追加
+游戏里的喜好项目。点一下在右侧草稿里移出（保护保留）	In the game's Favorites. Click to remove it in the draft on the right (protection stays)	ゲームのお気に入りです。クリックすると右側の下書きで外します（保護は残ります）
+在右侧草稿里加入游戏的喜好项目，同时加上保护	Add to the game's Favorites in the draft on the right; this also protects it	右側の下書きでゲームのお気に入りに追加し、同時に保護します
+右侧有未应用的修改，请先应用或放弃。	There are unapplied changes on the right; apply or discard them first.	右側に未適用の変更があります。先に適用するか破棄してください。
+保护（游戏里不能卖掉或丢弃）	Protected (cannot be sold or discarded in game)	保護（ゲーム内で売却・破棄できない）
+喜好项目（加入时同时保护，和游戏一致）	Favorite (adding also protects, as in the game)	お気に入り（追加すると保護も付きます。ゲームと同じ）
+加上保护	Add protection	保護を付ける
+解除保护	Remove protection	保護を外す
+已加入草稿。点“核对修改”后写入	Added to the draft. Click "Review changes" to write it to the	下書きに追加しました。「変更を確認」を押すと書き込みます：
+游戏。	game.	ゲーム。
+存档。	save.	セーブデータ。
+没有读到游戏里的选中物品，请确认游戏正在运行后再试。	Could not read the item selected in game. Make sure the game is running and try again.	ゲーム内の選択中のアイテムを読み取れませんでした。ゲームが起動していることを確認して再試行してください。
+游戏里的背包没有打开：请在游戏里打开背包，把光标停在一张绘卷上，再点“定位游戏里选中的绘卷”。	The in-game inventory is not open: open it, rest the cursor on a scroll, then click "Locate the scroll selected in game".	ゲーム内の所持品が開いていません：所持品を開いて絵巻にカーソルを合わせ、「ゲーム内で選択中の絵巻を特定」を押してください。
+游戏里选中的不是绘卷：请把光标停在一张绘卷上，再点“定位游戏里选中的绘卷”。	The item selected in game is not a scroll: rest the cursor on a scroll, then click "Locate the scroll selected in game".	ゲーム内で選択中なのは絵巻ではありません：絵巻にカーソルを合わせて、「ゲーム内で選択中の絵巻を特定」を押してください。
+游戏里选中的这张绘卷还没有存进存档：请在游戏里存档（例如在神社休息）后点“重新读取”，再定位一次。	This scroll is not in the save file yet: save in game (for example, rest at a shrine), click "Reload", then locate it again.	この絵巻はまだセーブデータにありません：ゲーム内でセーブ（社で休むなど）してから「再読み込み」を押し、もう一度特定してください。
+已定位到游戏里选中的绘卷（栏位	Located the scroll selected in game (slot	ゲーム内で選択中の絵巻を特定しました（スロット
+已保护	Protected	保護済み
+游戏里的喜好项目。点一下移出（保护保留）	In the game's Favorites. Click to remove it (protection stays)	ゲームのお気に入りです。クリックで外します（保護は残ります）
+加入游戏里的喜好项目，同时加上保护；总是排在最上面	Add to the game's Favorites and protect it; favorites always list first	ゲームのお気に入りに追加して保護します。お気に入りは常に先頭に表示されます
+定位游戏里选中的绘卷	Locate the scroll selected in game	ゲーム内で選択中の絵巻を特定
+要删除的绘卷里有	Among the scrolls to delete,	削除する絵巻のうち
+张在游戏里加了保护。确定仍要删除吗？	are protected in game. Delete them anyway?	枚がゲーム内で保護されています。それでも削除しますか？
+仍然删除	Delete anyway	それでも削除

@@ -95,7 +95,25 @@ export function SavePicker({ compact = false, refresh = true }: { compact?: bool
               : []),
           ].map((s) => (
             <option key={s.save_id} value={s.save_id}>
-              存档 {s.save_slot + 1}（SAVEDATA{String(s.save_slot).padStart(2, "0")}）· 账户 {s.account_id}
+              {s.summary ? (
+                // UI-014: what the game's load menu shows; its slot order changes with use.
+                <>
+                  等级 {s.summary.character_level}
+                  {s.summary.playthrough ? <> · {s.summary.playthrough} 周目</> : null} · 游玩{" "}
+                  {Math.floor(s.summary.play_time_seconds / 3600)}:
+                  {String(Math.floor(s.summary.play_time_seconds / 60) % 60).padStart(2, "0")} · 保存于{" "}
+                  {new Date(s.summary.saved_at_unix * 1000).toLocaleString(undefined, {
+                    month: "numeric",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </>
+              ) : (
+                <>
+                  存档 {s.save_slot + 1}（SAVEDATA{String(s.save_slot).padStart(2, "0")}）· 账户 {s.account_id}
+                </>
+              )}
             </option>
           ))}
         </select>
