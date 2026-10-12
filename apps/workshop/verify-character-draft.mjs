@@ -201,6 +201,7 @@ try {
     tsconfigRaw: { compilerOptions: { jsx: 'react', jsxFactory: 'localizedElement' } },
     inject: [join(repoRoot, 'apps/workshop/presentation-jsx.ts')],
     external: ['game-reference.png'],
+    loader: { '.woff2': 'dataurl' },
     define: { 'process.env.NODE_ENV': '"production"' },
   });
   const bundle = built.outputFiles.find((file) => file.path.endsWith('.js'))?.text;
@@ -256,7 +257,7 @@ try {
     const page = nativePage || await context.newPage();
     if (nativePage) {
       await page.evaluate(() => { window.__seed.cursor = { menu_open: true, container: 'equipment', slot_index: 42, item_id: 171 }; });
-      await page.locator('.nav nav > button').nth(0).click();
+      await page.locator('nav.nav > button').nth(0).click();
     }
     page.on('pageerror', (error) => browserErrors.push(`${locale}: ${error.message}`));
     await page.addInitScript(({ locale, liveMode }) => {
@@ -269,7 +270,7 @@ try {
       await page.locator('.side-popup button').filter({ hasText: titles[locale] }).click();
     } else await page.goto(serverUrl);
     await page.waitForSelector('#root .shell', { timeout: 30000 });
-    await page.locator('.nav nav > button').nth(4).click();
+    await page.locator('nav.nav > button').nth(4).click();
     await page.locator('.character-page').waitFor({ timeout: 15000 });
     await page.waitForFunction(() => window.__seed.calls.some((call) => call.method === 'runtime.character_snapshot'));
     return page;
