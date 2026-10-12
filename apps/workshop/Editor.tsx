@@ -1150,20 +1150,26 @@ export function Editor({ cart }: { cart: Sample[] }) {
           <summary>主副词条</summary>
           <div className="editor-section-body">
             <div className="effect-scope">
-              <label>
-                可选词条
-                <select
-                  aria-label="可选词条范围"
-                  value={effectScope}
-                  onChange={(e) => setEffectScope(e.target.value as EffectScope)}
-                >
-                  <option value="context">
-                    当前周目和稀有度的绘卷能出现的词条和恩宠
-                  </option>
-                  <option value="scroll">任意绘卷能出现的词条</option>
-                  <option value="all">全部词条（含绘卷上不会出现的）</option>
-                </select>
-              </label>
+              <fieldset aria-label="可选词条范围">
+                <legend>可选词条</legend>
+                {(
+                  [
+                    ["context", "当前周目和稀有度的绘卷能出现的词条和恩宠"],
+                    ["scroll", "任意绘卷能出现的词条"],
+                    ["all", "全部词条（含绘卷上不会出现的）"],
+                  ] as [EffectScope, string][]
+                ).map(([value, label]) => (
+                  <label key={value}>
+                    <input
+                      type="radio"
+                      name="effect-scope"
+                      checked={effectScope === value}
+                      onChange={() => setEffectScope(value)}
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </fieldset>
               <span>
                 {effectScope === "all"
                   ? "游戏里所有词条都可选，绘卷上不会自然出现的词条也能写进去。"
