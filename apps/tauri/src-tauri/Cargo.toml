@@ -1,6 +1,7 @@
 [package]
 name = "nioh3-studio"
-version = "0.8.7"
+version = "0.8.8"
+license = "GPL-3.0-only"
 edition = "2021"
 
 [build-dependencies]

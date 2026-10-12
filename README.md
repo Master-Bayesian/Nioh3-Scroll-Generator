@@ -93,7 +93,7 @@
 
 ## 许可与第三方声明
 
-本项目目前没有声明覆盖整个项目的开源许可证。源码公开可见本身并不自动授予再分发权。第三方软件的许可条款与署名见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+本项目以 [GNU 通用公共许可证第 3 版（GPL-3.0）](LICENSE) 发布：可以自由使用、修改和再发布，但发布修改版时必须同样以 GPL-3.0 公开源码。第三方软件的许可条款与署名见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 ## 帮助与诊断
 

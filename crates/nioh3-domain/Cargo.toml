@@ -1,6 +1,7 @@
 [package]
 name = "nioh3-domain"
 version = "0.1.0"
+license = "GPL-3.0-only"
 edition = "2021"
 description = "Std-only Nioh 3 domain semantics (enemy-state RNG) with cross-language parity"
 publish = false

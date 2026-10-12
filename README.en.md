@@ -137,8 +137,9 @@ user flow and safety boundaries have been verified.
 
 ## License and attribution
 
-The project does not currently declare a project-wide open-source license.
-Public access to the source does not by itself grant redistribution rights.
+The project is licensed under the [GNU General Public License v3.0](LICENSE)
+(GPL-3.0-only): you may use, modify and redistribute it, and a modified
+version you distribute must be released under the same license with its source.
 Third-party software terms and attributions are listed in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
