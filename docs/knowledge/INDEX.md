@@ -137,6 +137,7 @@ global semantic key.
 ### Active research/handoff
 
 - [v0.8.2 live character and equipment research (2026-09-26)](V082_LIVE_CHARACTER_EQUIPMENT_RESEARCH_20260926.md)
+- [Item protection/favourite marks, selected scroll and save summary (2026-10-11)](ITEM_MARKS_MENU_SCROLL_SAVE_SUMMARY_RESEARCH_20261011.md)
   — PC v2.02 player struct (Amrita, gold, stats, level, glory, skill points),
   the tagged save stream, the equipment container and record layout, forge
   generation through the shared effect generator, and the blacksmith re-roll

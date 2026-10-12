@@ -86,6 +86,31 @@ None of these has evidence yet; per repository rules they stay unsupported until
   `generation.difficulty` (1-5) used by equipment generation; whether it equals the in-game 周目 is
   unverified.
 
+## Local session status (2026-10-11)
+
+Done on this branch (details in the commits and the patch note):
+- Backup restore: live checkpoints (main save only, `scroll-`/`count-`/UUID ids)
+  restore by replacing the files they hold; a bundle without the main save is
+  still refused. Regression tests in `crates/nioh3-save/tests/restore_live_checkpoint.rs`.
+- Scroll editor: table of slots with `EffectPicker`, three-way effect scope, raw
+  fields behind "advanced", rarity dot, preview with enemies/rules/terrain/capacity,
+  backup section removed, open section shows all content.
+- Search page: primary box drop in/out, conflict marks, chosen-first catalog rows
+  with click-to-deselect, chip/tab/rule-picker layout, gear icon.
+- Save management: bounded backup list, readable technical details.
+- Game research (evidence: `docs/knowledge/ITEM_MARKS_MENU_SCROLL_SAVE_SUMMARY_RESEARCH_20261011.md`):
+  protection bit `0x04` and favourite bit `0x20000` at record `+0x18`; the
+  selected scroll via the inventory cursor; the save summary (level, playthrough,
+  play time, save time).
+- Wired: save picker labels by level/playthrough; lock mark and protected-delete
+  confirmation; stars are the game's 喜好项目 for scrolls and equipment (local
+  stars only for items and the browser preview); protect/favourite edits through
+  the existing reviewed save and live write paths; "locate the scroll selected in game".
+
+Still open:
+- Live acceptance of the protect/favourite writes in game (save-file and live).
+- Item (道具) marks were not captured, so item stars stay local.
+
 ## Deliverable at the end
 
 A full patch note of every change on this branch, for the owner.

@@ -271,12 +271,23 @@ impl SaveApplication {
             ));
         }
         self.saves.insert(save_id.clone(), selected.clone());
-        Ok(json!({
+        let mut reference = json!({
             "save_id": save_id,
             "path": python_path_string(&selected),
             "account_id": account.to_string(),
             "save_slot": slot,
-        }))
+        });
+        // What the game's load menu shows, so a player can tell saves apart by
+        // level and playthrough; the save slot order there changes with use.
+        // An unreadable save still registers, without a summary.
+        if let Some(summary) = read_save_bytes(&selected)
+            .ok()
+            .and_then(|bytes| DecryptedSave::from_container(&bytes).ok())
+            .and_then(|save| nioh3_save::character::save_summary(save.as_bytes()))
+        {
+            reference["summary"] = json!(summary);
+        }
+        Ok(reference)
     }
 
     fn register(&mut self, path: &str) -> Result<Value, HostError> {
@@ -743,9 +754,12 @@ impl SaveApplication {
             // it when nothing else changed instead of rewriting an over-cap record.
             "recommended_raw_level": recommended,
         });
+        let marks = nioh3_save::layout::record_marks(&record);
         Ok(json!({
             "slot_index": entry.slot_index,
             "header": header,
+            "locked": marks.map(|marks| marks.locked),
+            "favorite": marks.map(|marks| marks.favorite),
             "record_hex": hex(&record),
             "effects": effects.into_iter().map(effect_json).collect::<Vec<_>>(),
             "derived": derived,
@@ -2189,6 +2203,8 @@ pub(crate) fn equipment_json(
         "hell": fields.hell,
         "hell_skill": fields.hell_skill,
         "worn": fields.worn,
+        "locked": fields.locked,
+        "favorite": fields.favorite,
         "type_class": type_class,
         "effects": effects,
     })
@@ -2552,10 +2568,21 @@ pub(crate) fn scroll_record_edit(
         patch_local_scroll_header(original, &header).map_err(HostError::from_save)?
     };
     let effects = effect_patches(edit)?;
-    if effects.is_empty() {
-        return Ok(patch);
-    }
-    patch_local_scroll_record(&patch, &effects).map_err(HostError::from_save)
+    let mut record = if effects.is_empty() {
+        patch
+    } else {
+        patch_local_scroll_record(&patch, &effects).map_err(HostError::from_save)?
+    };
+    // Optional protection / favourite marks: only those flag bits change.
+    let mark = |name: &str| -> Result<Option<bool>, HostError> {
+        match edit.get("marks").and_then(|marks| marks.get(name)) {
+            None => Ok(None),
+            Some(value) => value.as_bool().map(Some).ok_or_else(HostError::invalid_request),
+        }
+    };
+    nioh3_save::layout::set_record_marks(&mut record, mark("locked")?, mark("favorite")?)
+        .ok_or_else(HostError::invalid_request)?;
+    Ok(record)
 }
 
 pub(crate) fn header_patch(edit: &Value) -> Result<HeaderPatch, HostError> {

@@ -487,6 +487,53 @@ pub fn generation_progress(plain: &[u8]) -> Option<GenerationProgress> {
     })
 }
 
+/// What the game's load menu shows for one character save.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct SaveSummary {
+    /// 等级 in the load menu.
+    pub character_level: u32,
+    /// 游玩时间 in the load menu, in whole seconds.
+    pub play_time_seconds: u64,
+    /// When the game wrote the save (Unix seconds).
+    pub saved_at_unix: u32,
+    /// The generator difficulty, which is the playthrough (1..=5), when readable.
+    pub playthrough: Option<u8>,
+}
+
+/// The decrypted save opens with the load-menu summary block (PC v2.02):
+/// `+0x10` tag, `+0x20` u32 save time, `+0x28` u32 character level and `+0x30`
+/// u64 play time in microseconds. Checked on 2026-10-11 against the load menu
+/// of two saves (level 364 / 194:09 and 450 / 752:25, save times to the second).
+const SUMMARY_TAG_OFFSET: usize = 0x10;
+const SUMMARY_TAG: u32 = 0x1AB5_A87D;
+const SUMMARY_SAVED_AT_OFFSET: usize = 0x20;
+const SUMMARY_LEVEL_OFFSET: usize = 0x28;
+const SUMMARY_PLAY_TIME_OFFSET: usize = 0x30;
+
+/// Read the load-menu summary; `None` when the block is absent or implausible.
+pub fn save_summary(plain: &[u8]) -> Option<SaveSummary> {
+    let word = |offset: usize| -> Option<u32> {
+        let bytes = plain.get(offset..offset + 4)?;
+        Some(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
+    };
+    if word(SUMMARY_TAG_OFFSET)? != SUMMARY_TAG {
+        return None;
+    }
+    let character_level = word(SUMMARY_LEVEL_OFFSET)?;
+    if !(1..=9999).contains(&character_level) {
+        return None;
+    }
+    let play_time = plain.get(SUMMARY_PLAY_TIME_OFFSET..SUMMARY_PLAY_TIME_OFFSET + 8)?;
+    let mut micros = [0u8; 8];
+    micros.copy_from_slice(play_time);
+    Some(SaveSummary {
+        character_level,
+        play_time_seconds: u64::from_le_bytes(micros) / 1_000_000,
+        saved_at_unix: word(SUMMARY_SAVED_AT_OFFSET)?,
+        playthrough: generation_progress(plain).map(|progress| progress.difficulty),
+    })
+}
+
 /// Effect entries in one equipment record.
 pub const EQUIPMENT_EFFECT_COUNT: usize = 7;
 /// Distance between effect entries.
@@ -520,6 +567,10 @@ pub struct EquipmentFields {
     pub hell_skill: u16,
     /// Whether either equipment set wears the item.
     pub worn: bool,
+    /// The game's protection (lock) mark.
+    pub locked: bool,
+    /// The game's 喜好项目 (favourite) mark.
+    pub favorite: bool,
 }
 
 fn u16_at(record: &[u8], offset: usize) -> u16 {
@@ -558,6 +609,11 @@ pub fn equipment_fields(record: &[u8]) -> Result<EquipmentFields, SaveReadError>
         hell: record[0x1A] & 0x10 != 0,
         hell_skill: u16_at(record, 0x10),
         worn: equipment_is_worn(record),
+        locked: u32_at(record, crate::layout::RECORD_FLAG_WORD_OFFSET) & crate::layout::RECORD_LOCK_FLAG
+            != 0,
+        favorite: u32_at(record, crate::layout::RECORD_FLAG_WORD_OFFSET)
+            & crate::layout::RECORD_FAVORITE_FLAG
+            != 0,
         effects: (0..EQUIPMENT_EFFECT_COUNT)
             .map(|index| {
                 let offset = effect_offset(index);
@@ -610,6 +666,12 @@ pub struct EquipmentPatch {
     /// Record `+0x10` (u16): the hell martial skill; 0 on a normal weapon.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hell_skill: Option<u16>,
+    /// The game's protection (lock) mark.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locked: Option<bool>,
+    /// The game's 喜好项目 (favourite) mark.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub favorite: Option<bool>,
 }
 
 /// Apply `patch` to a copy of `record`.
@@ -639,6 +701,12 @@ pub fn patch_equipment(record: &[u8], patch: &EquipmentPatch) -> Result<Vec<u8>,
     if let Some(skill) = patch.hell_skill {
         patched[0x10..0x12].copy_from_slice(&skill.to_le_bytes());
     }
+    crate::layout::set_record_marks(&mut patched, patch.locked, patch.favorite).ok_or(
+        SaveReadError::RecordLength {
+            expected: EQUIPMENT_RECORD_BYTES,
+            actual: record.len(),
+        },
+    )?;
     let mut seen = Vec::new();
     for effect in &patch.effects {
         if effect.index >= EQUIPMENT_EFFECT_COUNT || seen.contains(&effect.index) {
@@ -1730,6 +1798,63 @@ mod generation_state_tests {
         assert!(generation_progress(&twice).is_none());
         assert!(generation_progress(&serialized(0, a, b)).is_none());
         assert!(generation_progress(&[0u8; 64]).is_none());
+    }
+
+    /// The load-menu block of the owner's level-364 save (2026-10-11 capture).
+    fn with_summary(mut plain: Vec<u8>) -> Vec<u8> {
+        plain[0x10..0x14].copy_from_slice(&SUMMARY_TAG.to_le_bytes());
+        plain[0x20..0x24].copy_from_slice(&0x6AC4_4D23u32.to_le_bytes());
+        plain[0x28..0x2C].copy_from_slice(&364u32.to_le_bytes());
+        plain[0x30..0x38].copy_from_slice(&694_875_282_830u64.to_le_bytes());
+        plain
+    }
+
+    #[test]
+    fn the_load_menu_summary_reads_level_play_time_and_playthrough() {
+        let a = [0, 6510, 6510, 6510, 0, 0, 0, 0];
+        let summary = save_summary(&with_summary(serialized(3, a, a))).unwrap();
+        assert_eq!(
+            summary,
+            SaveSummary {
+                character_level: 364,
+                // 193:01 of play.
+                play_time_seconds: 694_875,
+                saved_at_unix: 0x6AC4_4D23,
+                playthrough: Some(3),
+            }
+        );
+        // Without the tag, or with an implausible level, there is no summary.
+        assert!(save_summary(&serialized(3, a, a)).is_none());
+        let mut zero = with_summary(serialized(3, a, a));
+        zero[0x28..0x2C].copy_from_slice(&0u32.to_le_bytes());
+        assert!(save_summary(&zero).is_none());
+        // An unreadable progress object leaves only the playthrough unknown.
+        let mut bare = with_summary(vec![0u8; 0x80]);
+        bare.truncate(0x80);
+        assert_eq!(save_summary(&bare).unwrap().playthrough, None);
+    }
+
+    #[test]
+    fn protection_and_favourite_are_separate_flag_bits() {
+        let mut record = vec![0u8; EQUIPMENT_RECORD_BYTES];
+        let marks = |record: &[u8]| {
+            let fields = equipment_fields(record).unwrap();
+            (fields.locked, fields.favorite)
+        };
+        // The owner's capture: 0x80 -> 0x84 (protect), 0x20084 (favourite,
+        // which also protects), 0x84 (favourite removed, protection kept).
+        for (flags, expected) in [
+            (0x80u32, (false, false)),
+            (0x84, (true, false)),
+            (0x2_0084, (true, true)),
+            (0x2_0080, (false, true)),
+        ] {
+            record[0x18..0x1C].copy_from_slice(&flags.to_le_bytes());
+            assert_eq!(marks(&record), expected, "{flags:#x}");
+            let scroll = crate::layout::record_marks(&record).unwrap();
+            assert_eq!((scroll.locked, scroll.favorite), expected, "{flags:#x}");
+        }
+        assert!(crate::layout::record_marks(&[0u8; 0x1A]).is_none());
     }
 
     #[test]
