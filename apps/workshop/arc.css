@@ -667,3 +667,28 @@ html .shell>.topbar>.title-controls{position:absolute;top:0;right:0;height:64px;
 html .shell>.topbar>.toplinks{margin-left:auto}
 @media (max-width:1180px){html .shell>.topbar{--title-controls-width:120px}}
 html .save-select-face .save-summary-missing{color:var(--k-sand)}
+/* Effects tables (scroll editor and equipment): in a narrow column each slot becomes
+   two lines, the effect picker on the first, value and range on the second. */
+html :has(>table.equipment-effects){container-type:inline-size}
+@container (max-width:600px){
+  html body table.equipment-effects,html body table.equipment-effects>tbody{display:block;width:100%}
+  html body table.equipment-effects>thead{display:none}
+  html body table.equipment-effects>tbody>tr{display:grid;grid-template-columns:52px minmax(0,1fr) auto;grid-template-areas:"slot effect effect" ". value range";gap:6px 8px;padding:8px;border-bottom:1px solid var(--a-line)}
+  html body table.equipment-effects>tbody>tr:last-child{border-bottom:0}
+  html body table.equipment-effects>tbody>tr>td{display:block;padding:0;border:0;min-width:0}
+  html body table.equipment-effects>tbody>tr>td:nth-child(1){grid-area:slot;align-self:center}
+  html body table.equipment-effects>tbody>tr>td:nth-child(1)>small{white-space:normal}
+  html body table.equipment-effects>tbody>tr>td:nth-child(2){grid-area:effect}
+  html body table.equipment-effects>tbody>tr>td:nth-child(3){grid-area:value}
+  html body table.equipment-effects>tbody>tr>td:nth-child(4){grid-area:range;align-self:center;white-space:nowrap}
+}
+/* Item names keep their tags: the name line wraps instead of ending in an ellipsis. */
+html .character-page .character-item-name{white-space:normal;overflow:visible;text-overflow:clip;display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px}
+html .character-page .character-value button{white-space:nowrap}
+/* The item list clips instead of hiding overflow: following the game's cursor
+   scrolls the selected row into view, and a hidden-overflow box scrolls too,
+   which pushed the Equipment/Items tabs out of sight. */
+html .character-page .character-list{overflow:clip}
+/* Narrow list: headers stay whole, the type column wraps. */
+html .character-table th{white-space:nowrap}
+html .character-table .character-kind{white-space:normal;overflow-wrap:normal;word-break:normal}

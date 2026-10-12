@@ -15,6 +15,7 @@ const { values: options } = parseArgs({ options: { exe: { type: 'string' }, onef
 assert.ok(!options.exe || options.onefile, 'Native acceptance requires an outer one-file candidate');
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
+import { detectTextFit } from './text-fit-detect.mjs';
 import { build } from 'esbuild';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -322,6 +323,17 @@ try {
       const shot = join(output, 'character-draft-' + runLabel + '-' + locale + '.png');
       await page.screenshot({ path: shot });
       evidence.screenshots.push(shot);
+      if (!options.exe) {
+        // The equipment page with a selected, edited item must fit the minimum window.
+        await page.setViewportSize({ width: 1100, height: 740 });
+        await pause(300);
+        const minShot = join(output, 'character-draft-min-' + runLabel + '-' + locale + '.png');
+        await page.screenshot({ path: minShot });
+        evidence.screenshots.push(minShot);
+        const misfit = await page.evaluate(detectTextFit);
+        record(locale + ': text fits at the minimum window size', misfit.length === 0, JSON.stringify(misfit.slice(0, 5)));
+        await page.setViewportSize({ width: 1440, height: 960 });
+      }
       await revert.click();
       await move(page, 43);
       record(locale + ': revert clears status and resumes following', await page.locator('[data-row="equipment-43"]').getAttribute('class') === 'selected' && await page.locator('[data-draft-state="unchanged"]').count() === 1);

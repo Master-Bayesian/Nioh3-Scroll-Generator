@@ -356,6 +356,11 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const [rules, setRules] = useState<EquipmentRules | null>(null);
   const [values, setValues] = useState<(EffectValues | null)[]>([]);
   const [plan, setPlan] = useState<{ plan_id: string; preview: Record<string, unknown> } | null>(null);
+  // A new plan is shown where the player is looking, not above a scrolled side panel (UI-026).
+  const planRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (plan) planRef.current?.scrollIntoView({ block: "nearest" });
+  }, [plan]);
   const [tab, setTab] = useState<Tab>("equipment");
   const [itemQuery, setItemQuery] = useState("");
   // Starred equipment and items list first; "favorites only" filters to them.
@@ -1638,7 +1643,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
               <tr key={favorite.key} className={newItem && favoriteKey(newItem) === favorite.key ? "selected" : ""} onClick={() => chooseFavorite(favorite)}>
                 <td className="character-item-cell">
                   <span className="character-item-name">{itemLabel(favorite.item_id)}{favorite.hell ? <span className="character-hell">地狱</span> : null}</span>
-                  <span className="character-item-effects">{favorite.effects.filter(effect => effect.effect_id !== EMPTY_EFFECT).map(effect => effectText(effect.effect_id)).join("、")}</span>
+                  <span className="character-item-effects" title={favorite.effects.filter(effect => effect.effect_id !== EMPTY_EFFECT).map(effect => effectText(effect.effect_id)).join("、")}>{favorite.effects.filter(effect => effect.effect_id !== EMPTY_EFFECT).map(effect => effectText(effect.effect_id)).join("、")}</span>
                 </td>
                 <td className="character-num">{favorite.level}{favorite.plus ? <small> +{favorite.plus}</small> : null}</td>
                 <td className="character-num">{favorite.rarity}</td>
@@ -2004,7 +2009,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   );
 
   const planPanel = plan ? (
-    <section className="character-plan character-save-plan">
+    <section className="character-plan character-save-plan" ref={planRef}>
       <h3>修改计划</h3>
       <div className="character-plan-details">
         <ul className="character-plan-lines">{planLines(plan.preview).map((line, index) => <li key={index}>{line}</li>)}</ul>
