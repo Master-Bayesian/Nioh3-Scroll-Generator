@@ -1511,7 +1511,12 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
                     {itemLabel(entry.item_id)}
                     {entry.hell ? <span className="character-hell">地狱</span> : null}
                     {entry.worn ? <span className="character-worn" title="正在装备中，不能移除">装备中</span> : null}
-                    {entry.locked ? <span className="character-locked" title="游戏里已保护：不能卖掉或丢弃">保护</span> : null}
+                    {entry.locked ? (
+                      <span className="character-locked" title="游戏里已保护：不能卖掉或丢弃">
+                        <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+                        保护
+                      </span>
+                    ) : null}
                     {entry.slot_index === selected && dirty ? <span className="character-dirty" title="右侧有未应用的修改">未应用</span> : null}
                     {showIds ? <small> #{entry.slot_index}</small> : null}
                   </span>

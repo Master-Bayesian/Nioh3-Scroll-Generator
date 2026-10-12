@@ -41,6 +41,8 @@ jobs:
       - run: node apps/workshop/verify-runtime-compatibility.mjs
       - run: node apps/workshop/verify-character-draft.mjs
       - run: node apps/workshop/verify-scroll-completion.mjs
+      # Text must fit its box in every locale at the minimum window size.
+      - run: node apps/workshop/verify-text-fit.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

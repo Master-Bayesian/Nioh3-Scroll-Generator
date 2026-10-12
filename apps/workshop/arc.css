@@ -58,9 +58,9 @@ html .toggle-switch>input:checked+i{background:var(--a-pri);border-color:var(--a
 ::-webkit-scrollbar-thumb{background:var(--a-line2);border-radius:10px;border:3px solid transparent;background-clip:padding-box}
 
 /* ---------- shell and top bar ---------- */
-html .shell{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:64px auto minmax(0,1fr);height:100vh;min-height:0;max-width:none;background:var(--a-page)}
+html .shell{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(64px,auto) auto minmax(0,1fr);height:100vh;min-height:0;max-width:none;background:var(--a-page)}
 html .shell>*{grid-column:1/-1}
-html .shell>.topbar{grid-row:1;grid-column:1/-1;display:flex;align-items:center;gap:12px;height:64px;padding:0 0 0 18px;background:var(--a-page);border:0}
+html .shell>.topbar{grid-row:1;grid-column:1/-1;display:flex;align-items:center;gap:12px;min-height:64px;padding:0 0 0 18px;background:var(--a-page);border:0}
 html .topbar .brand{display:flex;align-items:center;gap:10px;min-width:250px;flex:1 1 0;font-size:inherit;letter-spacing:0;color:var(--a-text);text-align:left}
 html .topbar .brand-mark{flex:none;border-radius:9px}
 html .topbar .brand-text{display:flex;flex-direction:column;line-height:1.25;min-width:0}
@@ -114,7 +114,7 @@ html .catalog-head{display:flex;flex-direction:column;gap:8px;padding:14px 14px 
 html .catalog-head h2{font-size:15px;font-weight:600}
 html .catalog-tab-group small{display:block;font-size:11px;font-weight:600;color:var(--a-mute);margin-bottom:5px}
 html .catalog-tabs{display:flex;flex-wrap:wrap;gap:6px}
-html .catalog-tabs .catalog-tab{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 11px;border:1px solid var(--a-line);background:var(--a-card);color:var(--a-text2);font-size:12.5px;box-shadow:none}
+html .catalog-tabs .catalog-tab{display:inline-flex;align-items:center;gap:7px;min-height:30px;padding:0 11px;border:1px solid var(--a-line);background:var(--a-card);color:var(--a-text2);font-size:12.5px;box-shadow:none}
 html .catalog-tabs .catalog-tab i{width:7px;height:7px;border-radius:50%;background:var(--tone)}
 html .catalog-tabs .catalog-tab b{font-size:10.5px;font-weight:600;min-width:16px;line-height:16px;border-radius:999px;background:var(--a-fill);color:var(--a-text);padding:0 5px}
 html .catalog-tabs .catalog-tab[aria-selected=true]{background:var(--a-pri);border-color:var(--a-pri);color:var(--a-prifg)}
@@ -129,7 +129,7 @@ html .search-page .catalog .panel-title{font-size:13px;font-weight:600;display:f
 html .search-page .catalog .panel-title::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--tone)}
 html .search-page .catalog .panel-body{display:flex;flex-direction:column;flex:1;min-height:0;overflow:auto;padding:0;gap:6px}
 html .search-page .catalog .catalog-list{flex:1;min-height:0;max-height:none;height:auto;overflow:auto}
-html .search-page .finder{height:34px;border-radius:10px;border:1px solid var(--a-line);background:var(--a-fill);margin:0;padding-left:10px;flex:none}
+html .search-page .finder{min-height:34px;border-radius:10px;border:1px solid var(--a-line);background:var(--a-fill);margin:0;padding-left:10px;flex:none}
 html .search-page .finder>span{font-size:16px;color:var(--a-mute)}
 html .search-page .finder input{height:32px;font-size:13px;background:transparent;border:0}
 html .search-page .catalog-row{min-height:34px;border:0;border-radius:9px;padding:0 6px 0 10px;font-size:13px;background:transparent}
@@ -160,7 +160,7 @@ html .search-page .capacity{display:flex;flex-wrap:wrap;align-items:center;gap:6
 html .search-page .module>header .count{font-size:11.5px;color:var(--a-mute)}
 html .search-page .module summary{border-color:var(--a-line2);color:var(--a-mute);width:18px;height:18px;line-height:16px;font-size:11px}
 html .search-page .module details p{background:var(--a-card);border:1px solid var(--a-line);border-radius:14px;box-shadow:var(--a-pop);color:var(--a-text);z-index:30}
-html .search-page .subtle{height:26px;padding:0 9px;font-size:12px;border-color:transparent;box-shadow:none;background:transparent;color:var(--a-text2)}
+html .search-page .subtle{min-height:26px;padding:0 9px;font-size:12px;border-color:transparent;box-shadow:none;background:transparent;color:var(--a-text2)}
 html .search-page .back-top{border-radius:50%;width:30px;height:30px;padding:0}
 
 /* ---------- middle column: conditions + search ---------- */
@@ -198,7 +198,7 @@ html .search-page .grace-group{display:flex;flex-wrap:wrap;gap:6px;align-items:c
 html .search-page .grace-group>small{width:100%;display:flex;align-items:center;gap:7px}
 html .search-page .grace-group>small::before,html .search-page .selected-effects::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--k-purple)}
 html .search-page .selected-effects::before{content:none}
-html .search-page .chip{height:30px;padding:0 12px;border-radius:999px;font-size:12.5px;border:1px solid var(--a-line2);background:var(--a-card);box-shadow:none}
+html .search-page .chip{min-height:30px;padding:0 12px;border-radius:999px;font-size:12.5px;border:1px solid var(--a-line2);background:var(--a-card);box-shadow:none}
 html .search-page .enemy-chip>span:nth-of-type(2)::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--k-blue);margin-right:7px}
 html .search-page .rule-chip>span:nth-of-type(2)::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--k-rose);margin-right:7px}
 html .search-page .enemy-chip>span:nth-of-type(2),html .search-page .rule-chip>span:nth-of-type(2){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -244,7 +244,7 @@ html .search-page .install-mode{background:var(--a-card);border:1px solid var(--
 html .search-page .install-choice{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:12.5px}
 html .search-page .install-choice h3{font-size:12px;font-weight:600;color:var(--a-text2);margin-right:auto}
 html .search-page .install-choice label{display:flex;align-items:center;gap:6px;color:var(--a-text)}
-html .search-page .install-current{height:44px;font-size:14.5px;font-weight:600;background:var(--a-pri);border-color:var(--a-pri);color:var(--a-prifg)}
+html .search-page .install-current{min-height:44px;font-size:14.5px;font-weight:600;background:var(--a-pri);border-color:var(--a-pri);color:var(--a-prifg)}
 html .search-page .install-current:hover:not(:disabled){background:var(--a-pri);opacity:.9}
 html .search-page .no-results{background:var(--a-card);border:1px dashed var(--a-line2);border-radius:18px;padding:24px;color:var(--a-text)}
 
@@ -278,10 +278,10 @@ html .scroll .effect-line small{color:var(--a-mute);font-size:11px}
 html .scroll .effect-line strong{font:500 12.5px var(--a-num);color:var(--a-text2);margin-left:auto;white-space:nowrap}
 html .scroll .effect-line.grace-line,html .scroll .effect-line.grace-line strong{color:var(--k-purple)}
 html .scroll .effect-line.empty-line{color:var(--a-line2)}
-html .scroll .enemy-lines{display:grid;grid-auto-flow:column;grid-template-rows:repeat(5,20px);grid-auto-columns:minmax(0,1fr);gap:0 10px;font-size:12.5px;color:var(--a-text)}
+html .scroll .enemy-lines{display:grid;grid-auto-flow:column;grid-template-rows:repeat(5,minmax(20px,auto));grid-auto-columns:minmax(0,1fr);gap:0 10px;font-size:12.5px;color:var(--a-text)}
 html .scroll .enemy-lines:not(:has(.enemy-occurrence)){display:grid;grid-auto-flow:row;grid-template-rows:none;grid-template-columns:repeat(2,minmax(0,1fr))}
 html .scroll .enemy-occurrence>span{line-height:20px;gap:4px}
-html .scroll .enemy-state-marker{color:var(--a-warn);border:1px solid currentColor;border-radius:4px;height:14px;padding:0 3px;font-size:10px;line-height:12px}
+html .scroll .enemy-state-marker{color:var(--a-warn);border:1px solid currentColor;border-radius:4px;min-height:14px;padding:0 3px;font-size:10px;line-height:12px}
 html .scroll .enemy-state-marker.is-unknown{width:14px;height:14px;border-radius:50%;padding:0;font-size:9px;line-height:12px;text-align:center}
 html .scroll .scroll-rule{display:flex;justify-content:space-between;gap:12px;min-height:24px;align-items:center;font-size:13px;color:var(--a-text2);margin:0;padding:0;border:0}
 html .scroll .scroll-rule strong{font:600 13px var(--a-num);color:var(--a-text)}
@@ -303,8 +303,8 @@ html .primary,html .primary-button{background:var(--a-pri);border-color:var(--a-
 html .search-page .result-scroll .scroll{height:auto;display:block;grid-template-rows:none;padding:0;max-width:none;margin:0}
 html .search-page .result-scroll .scroll>section{padding:0 16px;overflow:visible}
 html .scroll>header h2{line-height:1.3}
-html .scroll .effect-line{height:27px;min-height:27px;padding:0}
-html .scroll .scroll-rule{height:24px;min-height:24px;padding:0}
+html .scroll .effect-line{min-height:27px;min-height:27px;padding:0}
+html .scroll .scroll-rule{min-height:24px;min-height:24px;padding:0}
 html .scroll .empty-line{visibility:visible;color:var(--a-line2)}
 html .scroll .empty-line{font-size:12.5px}
 html .search-page .search-fields label{align-items:stretch;white-space:nowrap;text-align:left;flex-wrap:nowrap}
@@ -391,7 +391,7 @@ html .catalog-head .catalog-hint{font-size:12px;color:var(--a-mute);margin:-8px 
 html .catalog-tab-group small{color:var(--a-text2);font-size:11.5px}
 html .catalog-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
 html .catalog-tab-group:nth-of-type(2) .catalog-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
-html .catalog-tabs .catalog-tab{justify-content:center;height:38px;padding:0 6px;font-size:13px;font-weight:600;color:var(--a-text);background:var(--a-card);border:1px solid var(--a-line2);box-shadow:var(--a-shadow);border-radius:11px;white-space:nowrap;min-width:0}
+html .catalog-tabs .catalog-tab{justify-content:center;min-height:38px;padding:0 6px;font-size:13px;font-weight:600;color:var(--a-text);background:var(--a-card);border:1px solid var(--a-line2);box-shadow:var(--a-shadow);border-radius:11px;white-space:nowrap;min-width:0}
 html .catalog-tabs .catalog-tab:hover:not(:disabled):not([aria-selected=true]){border-color:var(--a-text2);background:var(--a-card)}
 html .catalog-tabs .catalog-tab i{width:8px;height:8px;flex:none}
 html .catalog-tabs .catalog-tab[aria-selected=true]{background:var(--a-pri);border-color:var(--a-pri);color:var(--a-prifg);box-shadow:0 4px 12px rgb(0 0 0 / .18)}
@@ -404,7 +404,7 @@ html .search-page .terrain-options .terrain-all.selected{background:var(--a-pri)
 html .collection-card-item>.scroll{display:block;height:auto;min-height:0;padding:0;grid-template-rows:none;overflow:hidden}
 html .collection-card-item>.scroll>section{padding:0 16px;overflow:visible}
 html .collection-card-item>.scroll>section:first-of-type{display:block}
-html .collection-card-item>.scroll .effect-line,html .collection-card-item>.scroll .scroll-rule{height:26px;min-height:26px}
+html .collection-card-item>.scroll .effect-line,html .collection-card-item>.scroll .scroll-rule{min-height:26px;min-height:26px}
 html .collection-card-item>.scroll .scroll-hero p{display:flex;flex-direction:column;margin:0;font-size:12px;line-height:1.4}
 html dialog .compare-grid{gap:14px}
 html .history-pages h3{font-size:13px;font-weight:600;margin:4px 0 10px}
@@ -422,7 +422,7 @@ html .topbar .toplinks .icon-button{width:36px;height:36px;padding:0;border-radi
 html .topbar .toplinks .icon-button svg{display:block}
 html .brand-mark{width:40px;height:40px;object-fit:contain;flex:none;border-radius:0}
 html .shell .nav{position:relative;isolation:isolate}
-html .shell .nav .nav-glider{position:absolute;z-index:-1;left:0;top:4px;height:34px;border-radius:10px;background:var(--a-card);box-shadow:0 1px 2px rgb(0 0 0 / .08),0 0 0 1px var(--a-line);transition:transform .32s cubic-bezier(.3,1.25,.4,1),width .32s cubic-bezier(.3,1.25,.4,1),opacity .2s;pointer-events:none}
+html .shell .nav .nav-glider{position:absolute;z-index:-1;left:0;top:4px;min-height:34px;border-radius:10px;background:var(--a-card);box-shadow:0 1px 2px rgb(0 0 0 / .08),0 0 0 1px var(--a-line);transition:transform .32s cubic-bezier(.3,1.25,.4,1),width .32s cubic-bezier(.3,1.25,.4,1),opacity .2s;pointer-events:none}
 html .shell .nav button,html .shell .nav button.active,html .shell .nav button:hover:not(:disabled){background:transparent;box-shadow:none}
 html .shell .nav button.active{color:var(--a-text);font-weight:600}
 html button{transition:background .15s,border-color .15s,color .15s,transform .12s cubic-bezier(.3,1.4,.5,1),box-shadow .15s}
@@ -584,10 +584,10 @@ html .character-table .pin-toggle{width:30px;height:30px;margin:0}
 html .character-search .pinned-filter{flex:none}
 
 /* Game protection and favourite marks (UI-012). */
-html .inventory-item .lock-mark{display:inline-flex;vertical-align:-1px;margin-left:6px;color:var(--a-mute)}
+html .inventory-item .lock-mark{display:inline-flex;flex:none;align-items:center;margin:0 6px 0 0;color:var(--k-sand)}
 html .editor-page .editor-marks,html .character-page .character-marks{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0 0;font-size:12.5px;color:var(--a-text2)}
 html .editor-page .editor-marks label,html .character-page .character-marks label{display:inline-flex;align-items:center;gap:6px}
-html .character-page .character-locked{margin-left:6px;padding:0 6px;border-radius:6px;background:var(--a-fill);color:var(--a-text2);font-size:11px;font-weight:500}
+html .character-page .character-locked{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:1px 7px;border:1px solid color-mix(in srgb,var(--k-sand) 55%,transparent);border-radius:999px;background:color-mix(in srgb,var(--k-sand) 18%,transparent);color:color-mix(in srgb,var(--k-sand) 70%,var(--a-text));font-size:11px;font-weight:600}
 /* Save picker: a two-line face over the native select, so the load-menu summary never truncates. */
 html .save-picker .save-select{position:relative;display:block;min-width:0;width:100%}
 html .save-picker .save-select>select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
@@ -641,3 +641,29 @@ html .editor-page .editor-effects>.editor-section-body{container-type:inline-siz
 html .editor-fields{align-items:end}
 /* Mission overrides: one column when two would truncate the rule names. */
 html .editor-page .temporary-fields fieldset{grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}
+/* UI-023: rule conditions are cards like enemy cards; a wrapped name and its selects stay inside. */
+html .search-page .selected-body :is(.enemy-chip,.rule-chip){height:auto;min-height:0;grid-template-rows:auto auto;border-radius:11px;align-items:center}
+html .search-page .selected-body :is(.enemy-chip,.rule-chip)>.chip-name{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.4;padding:4px 0}
+/* Catalog rows: tier and badges move under the name instead of squeezing it (long translations). */
+html .search-page .catalog-row{flex-wrap:wrap;height:auto;row-gap:2px}
+html .search-page .catalog-row>span{flex:1 1 110px;min-width:0;overflow-wrap:anywhere}
+html .search-page .catalog-row>em{display:flex;flex-wrap:wrap;align-items:center;gap:4px;white-space:nowrap;flex:0 1 auto}
+html .search-page .catalog-row>button{flex:none;white-space:nowrap}
+html .search-page .tier-tabs{flex-wrap:wrap}
+html .search-page .tier-tabs button{white-space:nowrap}
+/* Long text: tab labels, header actions, enemy names and theme choices wrap instead of escaping. */
+html .search-page .catalog-tabs .catalog-tab>span{white-space:normal;overflow-wrap:anywhere}
+html .search-page .selection>header{flex-wrap:wrap}
+html .scroll .enemy-lines>span{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+html .settings-menu .theme-choice{flex-wrap:wrap}
+html .settings-menu .theme-choice>button{flex:1 1 auto;min-width:0;white-space:normal}
+/* UI-026: the save plan never shrinks under the item detail; long plans scroll inside it. */
+html .character-side>.character-save-plan{flex:0 0 auto;min-height:min(260px,60%);max-height:min(70%,560px)}
+/* UI-027: the window controls are pinned to the title bar's corner; when the bar's
+   content is wider than the window it wraps to a second row instead of pushing them out. */
+html .shell>.topbar{position:relative;flex-wrap:wrap;row-gap:0}
+html .shell>.topbar:has(>.title-controls){padding-right:var(--title-controls-width,138px)}
+html .shell>.topbar>.title-controls{position:absolute;top:0;right:0;height:64px;margin:0}
+html .shell>.topbar>.toplinks{margin-left:auto}
+@media (max-width:1180px){html .shell>.topbar{--title-controls-width:120px}}
+html .save-select-face .save-summary-missing{color:var(--k-sand)}
