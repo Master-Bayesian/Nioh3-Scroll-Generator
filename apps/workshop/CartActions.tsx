@@ -41,27 +41,20 @@ function resolutionMessage(receipt: OperationReceipt): string {
 }
 
 /** A save in two lines, as the game's load menu shows it (UI-014); its slot order changes with use. */
-function saveLines(s: SaveReference): [React.ReactNode, React.ReactNode] {
+function saveLines(s: SaveReference): [string, string] {
+  // Whole strings, so the JSX localizer translates them.
   if (!s.summary)
-    return [
-      <>存档 {s.save_slot + 1}（SAVEDATA{String(s.save_slot).padStart(2, "0")}）</>,
-      <>账户 {s.account_id}</>,
-    ];
+    return [`存档 ${s.save_slot + 1}（SAVEDATA${String(s.save_slot).padStart(2, "0")}）`, `账户 ${s.account_id}`];
   const t = s.summary.play_time_seconds;
+  const saved = new Date(s.summary.saved_at_unix * 1000).toLocaleString(undefined, {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
   return [
-    <>
-      等级 {s.summary.character_level}
-      {s.summary.playthrough ? <> · {s.summary.playthrough} 周目</> : null}
-    </>,
-    <>
-      游玩 {Math.floor(t / 3600)}:{String(Math.floor(t / 60) % 60).padStart(2, "0")} · 保存于{" "}
-      {new Date(s.summary.saved_at_unix * 1000).toLocaleString(undefined, {
-        month: "numeric",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })}
-    </>,
+    (s.summary.playthrough ? `${s.summary.playthrough} 周目 · ` : "") + `等级 ${s.summary.character_level}`,
+    `游玩 ${Math.floor(t / 3600)}:${String(Math.floor(t / 60) % 60).padStart(2, "0")} · 保存于 ${saved}`,
   ];
 }
 
@@ -131,7 +124,7 @@ export function SavePicker({ compact = false, refresh = true }: { compact?: bool
               : []),
           ].map((s) => (
             <option key={s.save_id} value={s.save_id}>
-              {saveLines(s)[0]} · {saveLines(s)[1]}
+              {saveLines(s).join(" · ")}
             </option>
           ))}
         </select>
