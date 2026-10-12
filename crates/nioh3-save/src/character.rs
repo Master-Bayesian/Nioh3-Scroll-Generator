@@ -510,6 +510,23 @@ const SUMMARY_SAVED_AT_OFFSET: usize = 0x20;
 const SUMMARY_LEVEL_OFFSET: usize = 0x28;
 const SUMMARY_PLAY_TIME_OFFSET: usize = 0x30;
 
+/// Why [`save_summary`] found no summary, for diagnosing saves from other game
+/// versions without guessing at their layout.
+pub fn save_summary_problem(plain: &[u8]) -> String {
+    let word = |offset: usize| {
+        plain
+            .get(offset..offset + 4)
+            .map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+    };
+    match (word(SUMMARY_TAG_OFFSET), word(SUMMARY_LEVEL_OFFSET)) {
+        (Some(tag), _) if tag != SUMMARY_TAG => {
+            format!("header tag {tag:#010x}, expected {SUMMARY_TAG:#010x}")
+        }
+        (Some(_), Some(level)) => format!("character level {level} out of range"),
+        _ => format!("save is only {} bytes", plain.len()),
+    }
+}
+
 /// Read the load-menu summary; `None` when the block is absent or implausible.
 pub fn save_summary(plain: &[u8]) -> Option<SaveSummary> {
     let word = |offset: usize| -> Option<u32> {

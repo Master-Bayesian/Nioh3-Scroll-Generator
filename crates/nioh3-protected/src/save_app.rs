@@ -280,12 +280,20 @@ impl SaveApplication {
         // What the game's load menu shows, so a player can tell saves apart by
         // level and playthrough; the save slot order there changes with use.
         // An unreadable save still registers, without a summary.
-        if let Some(summary) = read_save_bytes(&selected)
-            .ok()
-            .and_then(|bytes| DecryptedSave::from_container(&bytes).ok())
-            .and_then(|save| nioh3_save::character::save_summary(save.as_bytes()))
-        {
-            reference["summary"] = json!(summary);
+        // When it is missing, say which step failed so a report can tell a
+        // different save layout from an unreadable file.
+        let summary = read_save_bytes(&selected)
+            .map_err(|error| format!("read: {error}"))
+            .and_then(|bytes| {
+                DecryptedSave::from_container(&bytes).map_err(|error| format!("decrypt: {error}"))
+            })
+            .and_then(|save| {
+                nioh3_save::character::save_summary(save.as_bytes())
+                    .ok_or_else(|| nioh3_save::character::save_summary_problem(save.as_bytes()))
+            });
+        match summary {
+            Ok(summary) => reference["summary"] = json!(summary),
+            Err(problem) => reference["summary_unavailable"] = json!(problem),
         }
         Ok(reference)
     }

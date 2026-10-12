@@ -92,6 +92,12 @@ export function SavePicker({ compact = false, refresh = true }: { compact?: bool
             <>
               <b>{saveLines(state.selected)[0]}</b>
               <small>{saveLines(state.selected)[1]}</small>
+              {state.selected.summary_unavailable ? (
+                // Which step failed, so a report shows it without guessing (UI-028).
+                <small className="save-summary-missing">
+                  未读出等级和周目
+                </small>
+              ) : null}
             </>
           ) : (
             <b>{loading ? "正在检测存档…" : saves.length ? "请选择角色存档" : "未检测到存档"}</b>
@@ -99,6 +105,7 @@ export function SavePicker({ compact = false, refresh = true }: { compact?: bool
         </span>
         <select
           aria-label="自动检测的存档"
+          title={state.selected?.summary_unavailable}
           disabled={state.busy || loading}
           value={state.selected?.save_id || ""}
           onChange={(e) => {

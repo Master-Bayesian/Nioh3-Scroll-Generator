@@ -2695,6 +2695,10 @@
           "type": "integer",
           "minimum": 0
         },
+        "summary_unavailable": {
+          "type": "string",
+          "description": "Which step failed when the save has no summary (read, decrypt, or an unrecognized header)."
+        },
         "summary": {
           "type": "object",
           "description": "What the game's load menu shows for this save, when readable.",

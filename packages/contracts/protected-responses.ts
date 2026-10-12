@@ -592,6 +592,10 @@ export interface SaveReference {
   account_id: string;
   save_slot: number;
   /**
+   * Which step failed when the save has no summary (read, decrypt, or an unrecognized header).
+   */
+  summary_unavailable?: string;
+  /**
    * What the game's load menu shows for this save, when readable.
    */
   summary?: {

@@ -1025,9 +1025,9 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
             rust_saves = self.drive(rust, "save.discover", {})["saves"]
             python_saves = self.drive(python, "save.discover", {})["saves"]
             self.assertEqual(len(rust_saves), 2, rust_saves)
-            # The load-menu summary (level, playthrough) is a Rust-only addition.
+            # The load-menu summary (level, playthrough) and why it is missing are Rust-only additions.
             self.assertEqual(
-                [{k: v for k, v in entry.items() if k != "summary"} for entry in rust_saves],
+                [{k: v for k, v in entry.items() if k not in ("summary", "summary_unavailable")} for entry in rust_saves],
                 python_saves,
                 "discovery must match the shipped worker exactly",
             )
