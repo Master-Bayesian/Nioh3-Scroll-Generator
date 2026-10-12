@@ -609,7 +609,8 @@ pub fn equipment_fields(record: &[u8]) -> Result<EquipmentFields, SaveReadError>
         hell: record[0x1A] & 0x10 != 0,
         hell_skill: u16_at(record, 0x10),
         worn: equipment_is_worn(record),
-        locked: u32_at(record, crate::layout::RECORD_FLAG_WORD_OFFSET) & crate::layout::RECORD_LOCK_FLAG
+        locked: u32_at(record, crate::layout::RECORD_FLAG_WORD_OFFSET)
+            & crate::layout::RECORD_LOCK_FLAG
             != 0,
         favorite: u32_at(record, crate::layout::RECORD_FLAG_WORD_OFFSET)
             & crate::layout::RECORD_FAVORITE_FLAG

@@ -141,6 +141,8 @@ for locale in ('en-US', 'ja-JP'):
         # Same-name forms (人形/妖怪形态, 前代/现任) keep their qualifier.
         qualifier = enemy_variant_qualifier(row['keys'][0], locale)
         if name and qualifier:
+            # Scroll cards list the bare name, so it needs its own entry too.
+            translated.setdefault(re.sub(r'（[^（）]*）$', '', row['name']), name)
             name = f'{name} ({qualifier})' if locale == 'en-US' else f'{name}（{qualifier}）'
         translated[row['name']] = name
     for row in source['rules']:

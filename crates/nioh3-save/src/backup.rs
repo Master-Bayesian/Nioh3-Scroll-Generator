@@ -275,7 +275,10 @@ pub fn authenticate_restore_source(
     if !seen_roles.contains(&SaveRole::Main) {
         return Err(SaveReadError::TamperedRecord {
             kind: "backup manifest",
-            message: format!("the restore bundle is missing role {}", SaveRole::Main.label()),
+            message: format!(
+                "the restore bundle is missing role {}",
+                SaveRole::Main.label()
+            ),
         });
     }
 

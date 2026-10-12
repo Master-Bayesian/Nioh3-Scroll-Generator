@@ -178,13 +178,17 @@ fn a_live_checkpoint_restore_rolls_back_on_failure() {
     let raw = container(7);
     let backups = root.0.join("state/backups");
     live_checkpoint(&backups, "scroll-1-001", "scroll-1", &main, &raw);
-    let host = SaveTransactionHost::new(&root.0.join("state"))
-        .with_quiescence_interval(Duration::ZERO);
+    let host =
+        SaveTransactionHost::new(&root.0.join("state")).with_quiescence_interval(Duration::ZERO);
     host.faults()
         .arm(nioh3_save::transaction::FaultPoint::AfterReplace);
     let error = restore(&host, &main, "scroll-1-001").unwrap_err();
     assert!(error.contains("after-replace"), "{error}");
-    assert_eq!(fs::read(&main).unwrap(), before, "the checkpoint is restored");
+    assert_eq!(
+        fs::read(&main).unwrap(),
+        before,
+        "the checkpoint is restored"
+    );
 }
 
 #[test]
@@ -242,9 +246,7 @@ fn a_restore_still_refuses_what_is_not_authentic() {
     assert!(error.contains("missing role main"), "{error}");
 
     // Another account's checkpoint.
-    let other = root
-        .0
-        .join("76561198000000001/SAVEDATA00/SAVEDATA.BIN");
+    let other = root.0.join("76561198000000001/SAVEDATA00/SAVEDATA.BIN");
     live_checkpoint(&backups, "other-account", "scroll-3", &other, &raw);
     let manifest_path = backups.join("other-account/backup-manifest.json");
     let mut manifest: BackupManifest =
@@ -253,5 +255,9 @@ fn a_restore_still_refuses_what_is_not_authentic() {
     write_backup_manifest(&backups.join("other-account"), &manifest).unwrap();
     assert!(restore(&host, &main, "other-account").is_err());
 
-    assert_eq!(fs::read(&main).unwrap(), before, "no refusal writes the save");
+    assert_eq!(
+        fs::read(&main).unwrap(),
+        before,
+        "no refusal writes the save"
+    );
 }

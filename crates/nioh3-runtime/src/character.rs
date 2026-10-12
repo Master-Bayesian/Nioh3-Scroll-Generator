@@ -485,7 +485,9 @@ pub fn read_menu_selection(memory: &dyn InventoryMemory) -> Result<MenuSelection
     if (scrolls..scrolls + span).contains(&item) {
         let offset = item - scrolls;
         if !offset.is_multiple_of(SCROLL_RECORD_BYTES as u64) {
-            return Err(layout("the selected item is not aligned to a scroll record"));
+            return Err(layout(
+                "the selected item is not aligned to a scroll record",
+            ));
         }
         return Ok(MenuSelection::Scroll {
             slot_index: (offset / SCROLL_RECORD_BYTES as u64) as usize,

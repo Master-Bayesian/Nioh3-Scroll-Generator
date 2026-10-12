@@ -71,7 +71,7 @@ export function ScrollCard({
             </div>
           ) : (
             <div className="effect-line empty-line" key={i}>
-              　
+              空槽
             </div>
           ),
         )}
@@ -122,7 +122,7 @@ export function ScrollCard({
             </p>
           ) : (
             <p className="scroll-rule empty-line" key={i}>
-              　
+              空槽
             </p>
           ),
         )}

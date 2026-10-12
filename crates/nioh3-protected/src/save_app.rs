@@ -2577,7 +2577,10 @@ pub(crate) fn scroll_record_edit(
     let mark = |name: &str| -> Result<Option<bool>, HostError> {
         match edit.get("marks").and_then(|marks| marks.get(name)) {
             None => Ok(None),
-            Some(value) => value.as_bool().map(Some).ok_or_else(HostError::invalid_request),
+            Some(value) => value
+                .as_bool()
+                .map(Some)
+                .ok_or_else(HostError::invalid_request),
         }
     };
     nioh3_save::layout::set_record_marks(&mut record, mark("locked")?, mark("favorite")?)
