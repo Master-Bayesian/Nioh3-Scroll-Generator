@@ -1319,3 +1319,5 @@ td.favorite-actions>.loadout-copy-one{margin:0 4px 0 0}
 .side-popup .reset-tool>div>button.primary{background:#3c745f;border-color:#3c745f;color:#fff}
 .side-popup .reset-tool>div>button:disabled{opacity:.6}
 .live-equipment-drop{margin:10px 0;padding:10px 12px;border:1px solid #e3c9a0;border-radius:8px;background:#fdf6ea}
+/* Save picker: a two-line face over the native select (themed in arc.css). */
+.save-select{position:relative;display:block;flex:1;min-width:0;width:100%}.save-select>select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}.save-select-face{display:flex;flex-direction:column;justify-content:center;min-height:40px;padding:4px 28px 4px 10px;border:1px solid #c3cbbf;border-radius:6px;white-space:normal}.save-select-face b,.save-select-face small{overflow-wrap:anywhere}
