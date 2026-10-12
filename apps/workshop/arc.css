@@ -639,3 +639,5 @@ html .editor-page .editor-effects>.editor-section-body{container-type:inline-siz
 }
 /* Field grids: inputs in a row line up when a translated label wraps. */
 html .editor-fields{align-items:end}
+/* Mission overrides: one column when two would truncate the rule names. */
+html .editor-page .temporary-fields fieldset{grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}
