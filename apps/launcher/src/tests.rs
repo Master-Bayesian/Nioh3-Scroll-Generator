@@ -370,6 +370,8 @@ fn io_recovery_keeps_the_actual_failure_and_does_not_prescribe_download_or_eleva
     assert!(hint.contains("新的空文件夹"));
     assert!(!hint.contains("下载"));
     assert!(!hint.contains("管理员"));
+    // Access denied points at the antivirus before the portable fallback.
+    assert!(hint.find("杀毒软件").unwrap() < hint.find("完整便携 ZIP").unwrap());
 }
 
 #[cfg(windows)]
