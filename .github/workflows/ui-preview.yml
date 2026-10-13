@@ -1,0 +1,66 @@
+name: UI preview executable
+
+# Builds an unsigned single executable from the Arc UI preview branch for the
+# owner to try. It never signs, publishes, tags or touches the update feed, and
+# it is not release acceptance: release.yml stays the only release path.
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/arc-ui-preview']
+permissions:
+  contents: read
+concurrency:
+  group: ui-preview-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  PYTHONUTF8: '1'
+jobs:
+  preview:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - name: Resolve the external build root and Cargo target
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'nioh3-preview-build'
+          $target = Join-Path $root 'build-cache/tauri-target'
+          $temp = Join-Path $root 'tmp'
+          New-Item -ItemType Directory -Force -Path $target,$temp | Out-Null
+          "NIOH3_BUILD_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CARGO_TARGET_DIR=$target" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "TEMP=$temp" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "TMP=$temp" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - run: python -m pip install -r packaging/requirements-v2.lock.txt
+      - run: python -m pip install -r requirements-dev.txt
+      - run: npm ci --no-fund
+      - name: Build the portable candidate
+        shell: pwsh
+        run: ./tools/build_tauri.ps1 -Python (Get-Command python).Source -Output deliverables/preview/portable -WorkerBackend rust
+      - name: Build the single executable
+        shell: pwsh
+        run: |
+          $version = python -c "from nioh3_scroll_editor.version import APP_VERSION; print(APP_VERSION)"
+          $sha = '${{ github.sha }}'.Substring(0, 7)
+          $zip = "deliverables/preview/Nioh3Studio-$version-ui-preview-$sha-win-x64.zip"
+          $exe = "deliverables/preview/Nioh3Studio-$version-ui-preview-$sha-win-x64.exe"
+          python tools/archive_frontend_v2.py deliverables/preview/portable $zip
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          python tools/build_tauri_onefile.py $zip $exe
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          Get-FileHash -Algorithm SHA256 $exe | Format-List
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: nioh3-ui-preview-exe
+          path: deliverables/preview/*.exe
+          if-no-files-found: error
+          retention-days: 14

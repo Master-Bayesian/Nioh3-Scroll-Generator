@@ -1228,6 +1228,16 @@ mod imp {
                     "slot_index": slot_index,
                     "item_id": item_id,
                 }),
+                MenuSelection::Scroll {
+                    slot_index,
+                    item_id,
+                } => json!({
+                    "process_id": process_id,
+                    "menu_open": true,
+                    "container": "scroll",
+                    "slot_index": slot_index,
+                    "item_id": item_id,
+                }),
                 MenuSelection::Item {
                     container,
                     slot_index,

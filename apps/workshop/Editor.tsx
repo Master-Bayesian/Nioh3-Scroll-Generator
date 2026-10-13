@@ -8,11 +8,13 @@ import { data, type Sample, toRecordTransferCount } from "./model";
 import { desktop } from "./desktop-bridge";
 import {
   saveSession,
-  saveObserver,
   runtimeObserver,
   entrySample,
   enrichEntry,
 } from "./save-workspace";
+import { EMPTY_EFFECT, EffectPicker, hex, type PickerCandidate } from "./EffectPicker";
+import { LockMark, StarIcon } from "./StarIcon";
+import { pinnedFirst, togglePinned, usePinned } from "./pinned";
 import { SavePicker } from "./CartActions";
 import { errorText } from "./public-errors";
 import type { ProtectedParams } from "../desktop/src/protected-client";
@@ -62,6 +64,50 @@ function nativeRange(id: string, rarity: number, level: number): string {
   return min === max ? String(min) : `${min}–${max}`;
 }
 
+/**
+ * Which effects the slot picker offers. A scroll's effects depend on its
+ * playthrough and rarity; offering all 3609 native effects by default made it
+ * unclear which ones a scroll can actually carry.
+ */
+type EffectScope = "context" | "scroll" | "all";
+const EFFECT_SCOPE_KEY = "nioh3-scroll-effect-scope";
+function storedEffectScope(): EffectScope {
+  try {
+    const stored = localStorage.getItem(EFFECT_SCOPE_KEY);
+    return stored === "scroll" || stored === "all" ? stored : "context";
+  } catch {
+    return "context";
+  }
+}
+const effectNames = new Map(data.editorEffects.map((e) => [e.id, e.name]));
+/** Growth effects (R3 slot 5) are not part of the search contexts. */
+const growthIds = [
+  ...new Set(
+    data.samples.flatMap((s) =>
+      s.effects.filter((e) => e.role === "成长词条").map((e) => e.id),
+    ),
+  ),
+];
+type Contexts = Record<string, { effects: { id: string }[]; graces: { id: string }[] }>;
+function scopeCandidates(scope: EffectScope, ng: string, rarity: string): PickerCandidate[] {
+  if (scope === "all") return data.editorEffects.map((e) => ({ id: Number(e.id) }));
+  const contexts = data.contexts as Contexts;
+  const chosen =
+    scope === "context"
+      ? [contexts[`${ng}-${rarity}`]].filter(Boolean)
+      : Object.values(contexts);
+  const ids = new Set<string>();
+  for (const context of chosen)
+    for (const effect of [...context.effects, ...context.graces]) ids.add(effect.id);
+  if (scope === "scroll" || rarity === "3") growthIds.forEach((id) => ids.add(id));
+  return [...ids].map((id) => ({ id: Number(id) }));
+}
+const effectLabel = (candidate: PickerCandidate) =>
+  effectNames.get(String(candidate.id)) || "未知词条 " + hex(candidate.id);
+/** A star marks one save scroll; the same seed, rarity and playthrough is the same scroll. */
+const scrollKey = (s: Sample) =>
+  [s.seed, s.rarity, s.saveEntry?.header.playthrough ?? s.playthrough ?? ""].join(":");
+
 type Slot = {
   id: string;
   name: string;
@@ -106,6 +152,9 @@ type Draft = {
   recommended: string;
   transfers: string;
   slots: Slot[];
+  /** The game's protection (lock) and 喜好项目 (favourite) marks. */
+  locked: boolean;
+  favorite: boolean;
 };
 function fromSample(s: Sample): Draft {
   const entry = s.saveEntry;
@@ -124,6 +173,8 @@ function fromSample(s: Sample): Draft {
             : entry.header.transfer_count,
         )
       : "-1",
+    locked: !!entry?.locked,
+    favorite: !!entry?.favorite,
     slots: Array.from({ length: 7 }, (_, i) => {
       const slot = entry?.effects[i];
       return {
@@ -148,9 +199,25 @@ export function Editor({ cart }: { cart: Sample[] }) {
   const [reviewedPlan, setReviewedPlan] = useState<string | null>(null),
     [saveStateConfirmed, setSaveStateConfirmed] = useState(false),
     [backendBusy, setBackendBusy] = useState(false);
-  const [backups, setBackups] = useState<
-    { backup_id: string; timestamp: string; action: string }[]
-  >([]);
+  const [effectScope, setEffectScopeRaw] = useState<EffectScope>(storedEffectScope);
+  function setEffectScope(next: EffectScope) {
+    setEffectScopeRaw(next);
+    try {
+      localStorage.setItem(EFFECT_SCOPE_KEY, next);
+    } catch {
+      // Remembering the scope is a convenience only.
+    }
+  }
+  // The desktop reads the game's own 喜好项目 marks from the save; the browser
+  // preview, which has no save, keeps its stars locally.
+  const localPins = usePinned("scroll");
+  const isFavorite = (s: Sample) => (desktop ? !!s.saveEntry?.favorite : localPins.has(scrollKey(s)));
+  const [deleteLockedPrompt, setDeleteLockedPrompt] = useState(0);
+  const [deleteLockedConfirmed, setDeleteLockedConfirmed] = useState(false);
+  useEffect(() => {
+    if (deleteLockedConfirmed) void prepareDelete();
+  }, [deleteLockedConfirmed]);
+  const [pinnedOnly, setPinnedOnly] = useState(false);
   const activeRead = useRef(0);
   const [deleteSlots, setDeleteSlots] = useState<number[]>([]);
   useEffect(() => setDeleteSlots([]), [saveState?.inventory?.snapshot_id]);
@@ -167,9 +234,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
   const [current, setCurrent] = useState<Sample>(inventory[0]);
   const [saved, setSaved] = useState<Draft>(() => fromSample(inventory[0]));
   const [draft, setDraftRaw] = useState<Draft>(saved),
-    [active, setActive] = useState(0),
-    [find, setFind] = useState(""),
-    [catalogFind, setCatalogFind] = useState("");
+    [find, setFind] = useState("");
   const draftIdentity = useRef("");
   draftIdentity.current = JSON.stringify([
     draft,
@@ -241,8 +306,51 @@ export function Editor({ cart }: { cart: Sample[] }) {
       );
     else setMessage("当前存档没有绘卷。");
   }, [saveState?.inventory?.snapshot_id]);
+  // The preview shows the dungeon content of the drafted seed and playthrough;
+  // a changed seed is read again shortly after typing stops.
+  const [previewSample, setPreviewSample] = useState<Sample | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
+  useEffect(() => {
+    setPreviewSample(null);
+    setPreviewFailed(false);
+    const seed = Number(draft.seed),
+      ng = Number(draft.ng);
+    if (
+      !desktop ||
+      (draft.seed === current.seed && ng === (current.playthrough || 3)) ||
+      !Number.isInteger(seed) ||
+      seed < 0 ||
+      seed > 0xffffffff ||
+      !Number.isInteger(ng) ||
+      ng < 1 ||
+      ng > 5
+    )
+      return;
+    let live = true;
+    const timer = setTimeout(() => {
+      enrichEntry({ ...current, seed: String(seed), playthrough: ng })
+        .then((sample) => live && setPreviewSample(sample))
+        .catch(() => live && setPreviewFailed(true));
+    }, 400);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [draft.seed, draft.ng, current]);
+  const seedChanged =
+    draft.seed !== current.seed || Number(draft.ng) !== (current.playthrough || 3);
+  // Never show the old seed's content under a new seed.
+  const shown =
+    desktop && seedChanged
+      ? (previewSample ?? { ...current, enemies: [], rules: [], terrainKeys: [] })
+      : current;
+  const contentPending = previewFailed
+    ? "无法读取这个绘卷 ID 的副本内容。"
+    : seedChanged && !previewSample
+      ? "正在读取新绘卷 ID 的副本内容…"
+      : "正在读取副本内容…";
   const changed = JSON.stringify(draft) !== JSON.stringify(saved);
-  const fields: [keyof Omit<Draft, "slots">, string][] = [
+  const fields: [keyof Omit<Draft, "slots" | "locked" | "favorite">, string][] = [
     ["seed", "绘卷 ID（种子）"],
     ["ng", "周目"],
     ["rarity", "稀有度"],
@@ -250,11 +358,11 @@ export function Editor({ cart }: { cart: Sample[] }) {
     ["recommended", "推荐等级（敌人等级）"],
     ["transfers", "转手次数"],
   ];
-  const patch = (key: keyof Slot, value: string) =>
+  const patch = (index: number, key: keyof Slot, value: string) =>
     setDraft({
       ...draft,
       slots: draft.slots.map((s, i) =>
-        i === active ? { ...s, [key]: value } : s,
+        i === index ? { ...s, [key]: value } : s,
       ),
     });
   function choose(s: Sample) {
@@ -265,7 +373,6 @@ export function Editor({ cart }: { cart: Sample[] }) {
     setUndoStack([]);
     setRedoStack([]);
     setTemporaryRaw(temporaryFromSample(s));
-    setActive(0);
     setPending(null);
     setReview(false);
     if (desktop) {
@@ -365,6 +472,9 @@ export function Editor({ cart }: { cart: Sample[] }) {
             tail_0: Number(slot.tail0),
             tail_1: Number(slot.tail1),
           })),
+          ...(draft.locked !== saved.locked || draft.favorite !== saved.favorite
+            ? { marks: { locked: draft.locked, favorite: draft.favorite } }
+            : {}),
         } as ProtectedParams<"save.prepare_edit">["edits"][number];
         if (writeMode === "live") {
           const inventory = saveState?.inventory;
@@ -452,20 +562,35 @@ export function Editor({ cart }: { cart: Sample[] }) {
       setMessage(errorText(e));
     }
   }
-  const native = nativeValues(
-    draft.slots[active].id,
-    Number(draft.rarity),
-    Number(draft.level),
-  );
+  const slotNative = (slot: Slot) =>
+    slot.id === String(EMPTY_EFFECT)
+      ? undefined
+      : nativeValues(slot.id, Number(draft.rarity), Number(draft.level));
   const slotRange = (slot: Slot) =>
-    slot.id === "4294967295" ? "" : nativeRange(slot.id, Number(draft.rarity), Number(draft.level));
-  function replaceEffect(effect: { id: string; name: string }) {
+    slot.id === String(EMPTY_EFFECT) ? "" : nativeRange(slot.id, Number(draft.rarity), Number(draft.level));
+  const candidates = React.useMemo(
+    () => scopeCandidates(effectScope, draft.ng, draft.rarity),
+    [effectScope, draft.ng, draft.rarity],
+  );
+  const inScope = React.useMemo(
+    () => new Set(candidates.map((c) => String(c.id))),
+    [candidates],
+  );
+  function replaceEffect(index: number, candidate: PickerCandidate) {
+    if (candidate.id === EMPTY_EFFECT) {
+      patchSlot(index, { id: String(EMPTY_EFFECT), name: "空槽", raw: "0" });
+      return;
+    }
+    const effect = { id: String(candidate.id), name: effectLabel(candidate) };
     const identity = (
       data.editorIdentities as Record<
         string,
         { prefix: number; category: number; star?: boolean }
       >
     )[effect.id];
+    // A new effect starts at the top of its native values, so the value the
+    // row shows is one the game can roll.
+    const values = nativeValues(effect.id, Number(draft.rarity), Number(draft.level));
     // The star (+0x0E bit 0x04, metadata bit 18) belongs to the effect, not
     // the slot: the game shows it on every …之深奥 and on no ordinary effect.
     const starred = (metadata: number) =>
@@ -473,11 +598,14 @@ export function Editor({ cart }: { cart: Sample[] }) {
     setDraft({
       ...draft,
       slots: draft.slots.map((slot, i) =>
-        i === active
+        i === index
           ? {
               ...slot,
               id: effect.id,
               name: effect.name,
+              ...(values?.length && !values.includes(Number(slot.raw))
+                ? { raw: String(values[values.length - 1]) }
+                : {}),
               ...(identity
                 ? {
                     prefix: String(identity.prefix),
@@ -494,6 +622,12 @@ export function Editor({ cart }: { cart: Sample[] }) {
             }
           : slot,
       ),
+    });
+  }
+  function patchSlot(index: number, change: Partial<Slot>) {
+    setDraft({
+      ...draft,
+      slots: draft.slots.map((slot, i) => (i === index ? { ...slot, ...change } : slot)),
     });
   }
   const changes = [
@@ -524,7 +658,56 @@ export function Editor({ cart }: { cart: Sample[] }) {
           ]
         : [],
     ),
+    ...(draft.locked !== saved.locked ? [draft.locked ? "加上保护" : "解除保护"] : []),
+    ...(draft.favorite !== saved.favorite ? [draft.favorite ? "加入喜好项目" : "移出喜好项目"] : []),
   ];
+  /** Favouriting also protects, as the game does; removing it keeps protection. */
+  function toggleMark(s: Sample, mark: "locked" | "favorite") {
+    const isCurrent = current.saveEntry
+      ? current.saveEntry.slot_index === s.saveEntry?.slot_index
+      : current.seed === s.seed;
+    if (!isCurrent && changed) {
+      setPending(s);
+      return;
+    }
+    const base = isCurrent ? draft : records[s.seed] || fromSample(s);
+    const next =
+      mark === "favorite"
+        ? { ...base, favorite: !base.favorite, locked: base.favorite ? base.locked : true }
+        : { ...base, locked: !base.locked };
+    if (isCurrent) setDraft(next);
+    else {
+      choose(s);
+      setDraftRaw(next);
+    }
+    setMessage("已加入草稿。点“核对修改”后写入" + (writeMode === "live" ? "游戏。" : "存档。"));
+  }
+  /** Select the scroll under the in-game inventory cursor. */
+  async function locateSelected() {
+    try {
+      const result = await window.operations.execute({ method: "runtime.menu_selection", params: {} });
+      if (!result || !("menu_open" in result)) throw Error("没有读到游戏里的选中物品，请确认游戏正在运行后再试。");
+      if (!result.menu_open)
+        return setMessage("游戏里的背包没有打开：请在游戏里打开背包，把光标停在一张绘卷上，再点“定位游戏里选中的绘卷”。");
+      if (result.container !== "scroll" || result.slot_index == null)
+        return setMessage("游戏里选中的不是绘卷：请把光标停在一张绘卷上，再点“定位游戏里选中的绘卷”。");
+      const entry = inventory.find((s) => s.saveEntry?.slot_index === result.slot_index);
+      const record = entry?.saveEntry?.record_hex;
+      const recordType = record ? Number.parseInt(record.slice(2, 4) + record.slice(0, 2), 16) : null;
+      if (!entry || recordType !== result.item_id)
+        return setMessage("游戏里选中的这张绘卷还没有存进存档：请在游戏里存档（例如在神社休息）后点“重新读取”，再定位一次。");
+      setFind("");
+      setPinnedOnly(false);
+      if (changed) setPending(entry);
+      else choose(entry);
+      setMessage("已定位到游戏里选中的绘卷（栏位 " + (result.slot_index + 1) + "）。");
+      requestAnimationFrame(() =>
+        document.querySelector(".inventory-item.is-located")?.scrollIntoView({ block: "nearest" }),
+      );
+    } catch (error) {
+      setMessage(errorText(error));
+    }
+  }
   async function applyTemporary() {
     setBackendBusy(true);
     try {
@@ -674,6 +857,16 @@ export function Editor({ cart }: { cart: Sample[] }) {
     }
   }
   async function prepareDelete() {
+    const targets = deleteSlots.length ? deleteSlots : current.saveEntry ? [current.saveEntry.slot_index] : [];
+    const locked = inventory.filter(
+      (s) => s.saveEntry && targets.includes(s.saveEntry.slot_index) && s.saveEntry.locked,
+    ).length;
+    if (locked && !deleteLockedConfirmed) {
+      setDeleteLockedPrompt(locked);
+      return;
+    }
+    setDeleteLockedPrompt(0);
+    setDeleteLockedConfirmed(false);
     setBackendBusy(true);
     try {
       if (!current.saveEntry) return;
@@ -693,32 +886,6 @@ export function Editor({ cart }: { cart: Sample[] }) {
       setBackendBusy(false);
     }
   }
-  async function readBackups() {
-    try {
-      const save = saveSession!.getSnapshot().selected;
-      if (!save) throw Error("请先选择存档。");
-      const result = await saveObserver!.run(() =>
-        window.operations.execute({
-          method: "save.backups",
-          params: { save_id: save.save_id },
-        }),
-      );
-      if (result && "backups" in result) setBackups(result.backups);
-    } catch (error) {
-      setMessage(errorText(error));
-    }
-  }
-  async function prepareRestore(backupId: string) {
-    try {
-      const plan = await saveSession!.prepareRestore(backupId);
-      setReviewedPlan(plan.plan_id);
-      setReview(true);
-      setSaveStateConfirmed(false);
-      setMessage("将恢复选中的备份，请核对后确认。");
-    } catch (error) {
-      setMessage(errorText(error));
-    }
-  }
   if (desktop && !saveState?.inventory?.entries.length)
     return (
       <section className="editor-empty">
@@ -727,7 +894,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
         <p>
           {saveState?.inventory
             ? "当前存档没有绘卷，可以先从购物车添加。"
-            : "读取后可编辑词条、查看备份和修改副本内容。"}
+            : "读取后可编辑词条和修改副本内容。"}
         </p>
       </section>
     );
@@ -762,20 +929,39 @@ export function Editor({ cart }: { cart: Sample[] }) {
             </button>
           </>
         )}
-        <input
-          aria-label="查找已有绘卷"
-          placeholder="查找绘卷 ID 或词条"
-          value={find}
-          onChange={(e) => setFind(e.target.value)}
-        />
+        <div className="inventory-find">
+          <input
+            aria-label="查找已有绘卷"
+            placeholder="查找绘卷 ID 或词条"
+            value={find}
+            onChange={(e) => setFind(e.target.value)}
+          />
+          <label className="pinned-filter">
+            <input
+              type="checkbox"
+              checked={pinnedOnly}
+              onChange={(e) => setPinnedOnly(e.target.checked)}
+            />
+            只看收藏{inventory.some(isFavorite) ? `（${inventory.filter(isFavorite).length}）` : ""}
+          </label>
+        </div>
         <div className="inventory-list">
-          {inventory
-            .filter((s) =>
-              (s.seed + s.effects.map((e) => e.name).join()).includes(find),
-            )
-            .map((s, i) => (
+          {pinnedFirst(
+            inventory
+              .map((s, index) => ({ s, slot: (s.saveEntry?.slot_index ?? index) + 1 }))
+              .filter(
+                ({ s }) =>
+                  (!pinnedOnly || isFavorite(s)) &&
+                  (s.seed + s.effects.map((e) => e.name).join()).includes(find),
+              ),
+            ({ s }) => isFavorite(s),
+          ).map(({ s, slot }) => (
               <div
-                className="inventory-item"
+                className={
+                  "inventory-item" +
+                  (isFavorite(s) ? " is-pinned" : "") +
+                  (current.saveEntry && current.saveEntry.slot_index === s.saveEntry?.slot_index ? " is-located" : "")
+                }
                 key={s.saveEntry?.slot_index ?? s.seed}
               >
                 {desktop && s.saveEntry && (
@@ -808,14 +994,52 @@ export function Editor({ cart }: { cart: Sample[] }) {
                   onClick={() => (changed ? setPending(s) : choose(s))}
                 >
                   <small>
-                    栏位 {i + 1} · R{s.rarity}
+                    栏位 {slot} · R{s.rarity}
+                    <i className={"rarity-dot rarity-" + s.rarity} aria-hidden="true" />
                   </small>
-                  <b>{s.effects[0]?.name || "空词条绘卷"}</b>
+                  <b>
+                    {s.effects[0]?.name || "空词条绘卷"}
+                  </b>
                   <span>绘卷 ID {s.seed}</span>
+                </button>
+                {/* UI-024: the lock sits left of the star, as in the game's inventory. */}
+                {s.saveEntry?.locked && <LockMark />}
+                <button
+                  type="button"
+                  className={"pin-toggle" + (isFavorite(s) ? " active" : "")}
+                  aria-pressed={isFavorite(s)}
+                  aria-label={(isFavorite(s) ? "移出喜好项目" : "加入喜好项目") + "绘卷 " + s.seed}
+                  title={
+                    desktop
+                      ? isFavorite(s)
+                        ? "游戏里的喜好项目。点一下移出（保护保留）"
+                        : "加入游戏里的喜好项目，同时加上保护；总是排在最上面"
+                      : isFavorite(s)
+                        ? "取消收藏"
+                        : "收藏：总是排在最上面"
+                  }
+                  onClick={() => (desktop ? toggleMark(s, "favorite") : togglePinned("scroll", scrollKey(s)))}
+                >
+                  <StarIcon filled={isFavorite(s)} />
                 </button>
               </div>
             ))}
+          {pinnedOnly && !inventory.some(isFavorite) && (
+            <p className="inventory-empty">还没有收藏的绘卷。点绘卷右边的星标即可收藏。</p>
+          )}
         </div>
+        {desktop && (
+          <button onClick={() => void locateSelected()} disabled={backendBusy}>
+            定位游戏里选中的绘卷
+          </button>
+        )}
+        {deleteLockedPrompt > 0 && (
+          <div className="editor-prompt" role="alert">
+            要删除的绘卷里有 {deleteLockedPrompt} 张在游戏里加了保护。确定仍要删除吗？
+            <button onClick={() => setDeleteLockedConfirmed(true)}>仍然删除</button>
+            <button onClick={() => setDeleteLockedPrompt(0)}>取消</button>
+          </div>
+        )}
         <button
           disabled={backendBusy || !!saveState?.busy || (desktop && !current.saveEntry)}
           onClick={() =>
@@ -826,25 +1050,6 @@ export function Editor({ cart }: { cart: Sample[] }) {
         >
           删除选中绘卷{deleteSlots.length ? `（${deleteSlots.length}）` : ""}
         </button>
-        <details>
-          <summary>备份与恢复</summary>
-          <p>修改前自动备份，可在这里恢复。</p>
-          <button
-            onClick={() =>
-              desktop ? void readBackups() : setMessage("尚未连接备份目录。")
-            }
-          >
-            查看备份
-          </button>
-          {backups.map((backup) => (
-            <button
-              key={backup.backup_id}
-              onClick={() => void prepareRestore(backup.backup_id)}
-            >
-              {backup.timestamp} · 恢复
-            </button>
-          ))}
-        </details>
       </section>
       <section className="editor-work">
         <div className="editor-heading">
@@ -911,6 +1116,30 @@ export function Editor({ cart }: { cart: Sample[] }) {
                 </label>
               ))}
             </div>
+            <div className="editor-marks">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={draft.locked}
+                  onChange={(e) => setDraft({ ...draft, locked: e.target.checked })}
+                />
+                保护（游戏里不能卖掉或丢弃）
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={draft.favorite}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      favorite: e.target.checked,
+                      locked: e.target.checked ? true : draft.locked,
+                    })
+                  }
+                />
+                喜好项目（加入时同时保护，和游戏一致）
+              </label>
+            </div>
           </div>
         </details>
         <details
@@ -919,145 +1148,141 @@ export function Editor({ cart }: { cart: Sample[] }) {
         >
           <summary>主副词条</summary>
           <div className="editor-section-body">
-            <p>选择一行，在下方更换词条。</p>
-            <div className="slot-list">
-              {draft.slots.map((s, i) => (
-                <button
-                  key={i}
-                  className={active === i ? "selected" : ""}
-                  onClick={() => setActive(i)}
-                >
-                  <span>{i + 1}</span>
-                  <b>{s.name}</b>
-                  <small>
-                    {s.raw}
-                    {slotRange(s) && <em className="value-range">（范围 {slotRange(s)}）</em>}
-                  </small>
-                </button>
-              ))}
-            </div>
-            <div className="slot-edit">
-              <label>
-                词条 ID
-                <input
-                  aria-label="编辑词条ID"
-                  value={draft.slots[active].id}
-                  onChange={(e) => {
-                    setDraft({
-                      ...draft,
-                      slots: draft.slots.map((s, i) =>
-                        i === active
-                          ? {
-                              ...s,
-                              id: e.target.value,
-                              name:
-                                data.editorEffects.find(
-                                  (v) =>
-                                    v.id === String(Number(e.target.value)),
-                                )?.name || "未知词条",
-                            }
-                          : s,
-                      ),
-                    });
-                  }}
-                />
-              </label>
-              <label>
-                原始数值
-                <input
-                  aria-label="编辑词条原始数值"
-                  value={draft.slots[active].raw}
-                  onChange={(e) => patch("raw", e.target.value)}
-                />
-              </label>
-              <button
-                onClick={() =>
-                  setDraft({
-                    ...draft,
-                    slots: draft.slots.map((s, i) =>
-                      i === active
-                        ? { ...s, id: "4294967295", name: "空槽", raw: "0" }
-                        : s,
-                    ),
-                  })
-                }
-              >
-                清空此槽
-              </button>
-            </div>
-            <p className="native-value-hint">
-              {draft.slots[active].id === "4294967295" ? (
-                "当前为空槽"
-              ) : native ? (
-                <>
-                  原生数值：
-                  {native.length === 1
-                    ? native[0]
-                    : `${native[0]}–${native[native.length - 1]}（${native.length} 个可用值）`}{" "}
-                  ·{" "}
-                  {native.includes(Number(draft.slots[active].raw))
-                    ? "当前值在原生集合内"
-                    : "当前值不在原生集合内，仍可自由修改"}
-                </>
-              ) : (
-                "此词条暂无可验证的原生数值范围"
-              )}
-            </p>
-            {native && (
-              <select
-                aria-label="选择原生数值"
-                value={
-                  native.includes(Number(draft.slots[active].raw))
-                    ? draft.slots[active].raw
-                    : ""
-                }
-                onChange={(e) => patch("raw", e.target.value)}
-              >
-                <option value="" disabled>
-                  选择一个原生数值
-                </option>
-                {native.map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
+            <div className="effect-scope">
+              <fieldset aria-label="可选词条范围">
+                <legend>可选词条</legend>
+                {(
+                  [
+                    ["context", "当前周目和稀有度的绘卷能出现的词条和恩宠"],
+                    ["scroll", "任意绘卷能出现的词条"],
+                    ["all", "全部词条（含绘卷上不会出现的）"],
+                  ] as [EffectScope, string][]
+                ).map(([value, label]) => (
+                  <label key={value}>
+                    <input
+                      type="radio"
+                      name="effect-scope"
+                      checked={effectScope === value}
+                      onChange={() => setEffectScope(value)}
+                    />
+                    <span>{label}</span>
+                  </label>
                 ))}
-              </select>
-            )}
-            <input
-              aria-label="编辑词条目录搜索"
-              placeholder="搜索词条名称或 ID"
-              value={catalogFind}
-              onChange={(e) => setCatalogFind(e.target.value)}
-            />
-            <div className="editor-catalog">
-              {data.editorEffects
-                .filter((e) => (e.name + e.id).includes(catalogFind))
-                .slice(0, 100)
-                .map((e) => (
-                  <button key={e.id} onClick={() => replaceEffect(e)}>
-                    {e.name}
-                    <span>替换</span>
-                  </button>
-                ))}
+              </fieldset>
+              <span>
+                {effectScope === "all"
+                  ? "游戏里所有词条都可选，绘卷上不会自然出现的词条也能写进去。"
+                  : "范围外的词条请切换到“全部词条”。"}
+              </span>
             </div>
+            <table className="equipment-effects scroll-effects">
+              <thead>
+                <tr>
+                  <th>位置</th>
+                  <th>词条</th>
+                  <th>数值</th>
+                  <th>原生范围</th>
+                </tr>
+              </thead>
+              <tbody>
+                {draft.slots.map((s, i) => {
+                  const native = slotNative(s);
+                  const empty = s.id === String(EMPTY_EFFECT);
+                  return (
+                    <tr key={i} className={JSON.stringify(s) === JSON.stringify(saved.slots[i]) ? "" : "is-changed"}>
+                      <td>
+                        {i + 1}
+                        {i === 0 && <small>主词条</small>}
+                      </td>
+                      <td>
+                        <EffectPicker
+                          value={s.id}
+                          candidates={candidates}
+                          label={effectLabel}
+                          onPick={(candidate) => replaceEffect(i, candidate)}
+                          placeholder="空槽"
+                        />
+                        {!empty && !inScope.has(s.id) && (
+                          <small className="character-unnatural">不在所选范围内</small>
+                        )}
+                      </td>
+                      <td>
+                        {empty ? null : (
+                          <span className="scroll-value">
+                            <input
+                              aria-label={"词条数值 " + (i + 1)}
+                              inputMode="numeric"
+                              value={s.raw}
+                              onChange={(e) => patch(i, "raw", e.target.value)}
+                            />
+                            {native && native.length > 1 && (
+                              <select
+                                aria-label={"原生数值 " + (i + 1)}
+                                value={native.includes(Number(s.raw)) ? s.raw : ""}
+                                onChange={(e) => patch(i, "raw", e.target.value)}
+                              >
+                                <option value="" disabled>
+                                  原生值
+                                </option>
+                                {native.map((value) => (
+                                  <option key={value} value={value}>
+                                    {value}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </span>
+                        )}
+                      </td>
+                      <td className="character-range">
+                        {empty ? null : native?.length ? (
+                          <>
+                            {slotRange(s)}
+                            {!native.includes(Number(s.raw)) && (
+                              <small className="character-unnatural"> · {"非原生值"}</small>
+                            )}
+                          </>
+                        ) : (
+                          <small>无可核对的范围</small>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
             <details className="advanced">
               <summary>高级原始字段</summary>
               <p>
                 不检查词条冲突或组合合法性。修改这些字段前，请确认它们的含义。
               </p>
-              <div className="editor-fields">
-                {(["prefix", "metadata", "tail0", "tail1"] as const).map(
-                  (k) => (
-                    <label key={k}>
-                      {k}
-                      <input
-                        value={draft.slots[active][k]}
-                        onChange={(e) => patch(k, e.target.value)}
-                      />
-                    </label>
-                  ),
-                )}
-              </div>
+              <table className="equipment-effects scroll-raw-fields">
+                <thead>
+                  <tr>
+                    <th>位置</th>
+                    <th>prefix</th>
+                    <th>metadata</th>
+                    <th>tail0</th>
+                    <th>tail1</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {draft.slots.map((s, i) => (
+                    <tr key={i}>
+                      <td>{i + 1}</td>
+                      {(["prefix", "metadata", "tail0", "tail1"] as const).map((k) => (
+                        <td key={k}>
+                          <input
+                            aria-label={k + " " + (i + 1)}
+                            value={s[k]}
+                            onChange={(e) => patch(i, k, e.target.value)}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </details>
           </div>
         </details>
@@ -1351,6 +1576,46 @@ export function Editor({ cart }: { cart: Sample[] }) {
               </strong>
             </div>
           ))}
+          <section className="editor-review-content">
+            <h3>出现敌人</h3>
+            {shown.enemies.length ? (
+              <div className="enemy-lines">
+                {shown.enemies.map((name, i) => (
+                  <span key={i}>◇ {name}</span>
+                ))}
+              </div>
+            ) : (
+              <p className="editor-review-pending">{contentPending}</p>
+            )}
+            <h3>特殊规则</h3>
+            {shown.rules.length ? (
+              shown.rules.map((r, i) => (
+                <p className="scroll-rule" key={i}>
+                  <span title={r.name}>{r.name}</span>
+                  <strong>{r.value}</strong>
+                </p>
+              ))
+            ) : (
+              <p className="editor-review-pending">{shown.enemies.length ? "无" : contentPending}</p>
+            )}
+            <p className="scroll-rule">
+              <span>地形影响</span>
+              <strong>
+                {shown.enemies.length
+                  ? data.terrains.find(
+                      (t) =>
+                        !t.aggregate &&
+                        t.effect_keys.length === shown.terrainKeys.length &&
+                        t.effect_keys.every((k) => shown.terrainKeys.includes(k)),
+                    )?.name || "未解析"
+                  : "—"}
+              </strong>
+            </p>
+            <p className="scroll-rule">
+              <span>可挑战次数上限</span>
+              <strong>{shown.enemies.length ? shown.capacity : "—"}</strong>
+            </p>
+          </section>
         </div>
         <h3>本次变化</h3>
         {changes.length ? (

@@ -342,6 +342,14 @@ export interface CharacterEquipment {
    * Either equipment set wears the item.
    */
   worn?: boolean;
+  /**
+   * The game's protection (lock) mark: the item cannot be sold or discarded.
+   */
+  locked?: boolean;
+  /**
+   * The game's favourite (喜好项目) mark.
+   */
+  favorite?: boolean;
   audit?: {
     verdict?: "natural" | "unverified" | "unnatural";
     natural: boolean;
@@ -583,6 +591,19 @@ export interface SaveReference {
   path: string;
   account_id: string;
   save_slot: number;
+  /**
+   * Which step failed when the save has no summary (read, decrypt, or an unrecognized header).
+   */
+  summary_unavailable?: string;
+  /**
+   * What the game's load menu shows for this save, when readable.
+   */
+  summary?: {
+    character_level: number;
+    play_time_seconds: number;
+    saved_at_unix: number;
+    playthrough: number | null;
+  };
 }
 export interface SaveInventory {
   save_id: string;
@@ -676,6 +697,14 @@ export interface SaveInventory {
       recommended_raw_was_clamped: boolean;
       recommended_raw_level?: number;
     };
+    /**
+     * The game's protection (lock) mark: the item cannot be sold or discarded.
+     */
+    locked?: boolean;
+    /**
+     * The game's favourite (喜好项目) mark.
+     */
+    favorite?: boolean;
     record_hex?: string;
   }[];
 }
@@ -1541,7 +1570,7 @@ export interface MenuSelection {
   process_id: number;
   menu_open: boolean;
   slot_index?: number | null;
-  container?: "equipment" | "held" | "storage";
+  container?: "equipment" | "scroll" | "held" | "storage";
   item_id?: number;
   /**
    * Closed-menu read diagnostics (profile, verified signatures and the observed flags); informational only.

@@ -506,6 +506,19 @@
                     "minItems": 7,
                     "maxItems": 7,
                     "uniqueItems": true
+                  },
+                  "marks": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "The game's protection (lock) and favourite (喜好项目) marks; only those flag bits change.",
+                    "properties": {
+                      "locked": {
+                        "type": "boolean"
+                      },
+                      "favorite": {
+                        "type": "boolean"
+                      }
+                    }
                   }
                 },
                 "required": [
@@ -3272,6 +3285,19 @@
                   "minItems": 7,
                   "maxItems": 7,
                   "uniqueItems": true
+                },
+                "marks": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "The game's protection (lock) and favourite (喜好项目) marks; only those flag bits change.",
+                  "properties": {
+                    "locked": {
+                      "type": "boolean"
+                    },
+                    "favorite": {
+                      "type": "boolean"
+                    }
+                  }
                 }
               },
               "required": [
@@ -3615,6 +3641,14 @@
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 65535
+                      },
+                      "locked": {
+                        "type": "boolean",
+                        "description": "The game's protection (lock) mark."
+                      },
+                      "favorite": {
+                        "type": "boolean",
+                        "description": "The game's favourite (喜好项目) mark."
                       }
                     }
                   }
@@ -4190,6 +4224,14 @@
                         "type": "integer",
                         "minimum": 0,
                         "maximum": 65535
+                      },
+                      "locked": {
+                        "type": "boolean",
+                        "description": "The game's protection (lock) mark."
+                      },
+                      "favorite": {
+                        "type": "boolean",
+                        "description": "The game's favourite (喜好项目) mark."
                       }
                     }
                   }

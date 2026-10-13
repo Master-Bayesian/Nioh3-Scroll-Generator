@@ -40,6 +40,24 @@ function resolutionMessage(receipt: OperationReceipt): string {
   return "仍无法自动判断。请进游戏检查这个存档，没问题就点“我已检查，继续使用”。";
 }
 
+/** A save in two lines, as the game's load menu shows it (UI-014); its slot order changes with use. */
+function saveLines(s: SaveReference): [string, string] {
+  // Whole strings, so the JSX localizer translates them.
+  if (!s.summary)
+    return [`存档 ${s.save_slot + 1}（SAVEDATA${String(s.save_slot).padStart(2, "0")}）`, `账户 ${s.account_id}`];
+  const t = s.summary.play_time_seconds;
+  const saved = new Date(s.summary.saved_at_unix * 1000).toLocaleString(undefined, {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return [
+    (s.summary.playthrough ? `${s.summary.playthrough} 周目 · ` : "") + `等级 ${s.summary.character_level}`,
+    `游玩 ${Math.floor(t / 3600)}:${String(Math.floor(t / 60) % 60).padStart(2, "0")} · 保存于 ${saved}`,
+  ];
+}
+
 /** The save every page works on. `refresh` hides the reload button where the page has its own. */
 export function SavePicker({ compact = false, refresh = true }: { compact?: boolean; refresh?: boolean }) {
   const state = useSyncExternalStore(
@@ -68,8 +86,26 @@ export function SavePicker({ compact = false, refresh = true }: { compact?: bool
     <div className={"save-picker" + (compact ? " save-picker-compact" : "")}>
       <label>
         目标存档
+        <span className="save-select">
+        <span className="save-select-face" aria-hidden="true">
+          {state.selected ? (
+            <>
+              <b>{saveLines(state.selected)[0]}</b>
+              <small>{saveLines(state.selected)[1]}</small>
+              {state.selected.summary_unavailable ? (
+                // Which step failed, so a report shows it without guessing (UI-028).
+                <small className="save-summary-missing">
+                  未读出等级和周目
+                </small>
+              ) : null}
+            </>
+          ) : (
+            <b>{loading ? "正在检测存档…" : saves.length ? "请选择角色存档" : "未检测到存档"}</b>
+          )}
+        </span>
         <select
           aria-label="自动检测的存档"
+          title={state.selected?.summary_unavailable}
           disabled={state.busy || loading}
           value={state.selected?.save_id || ""}
           onChange={(e) => {
@@ -95,10 +131,11 @@ export function SavePicker({ compact = false, refresh = true }: { compact?: bool
               : []),
           ].map((s) => (
             <option key={s.save_id} value={s.save_id}>
-              存档 {s.save_slot + 1}（SAVEDATA{String(s.save_slot).padStart(2, "0")}）· 账户 {s.account_id}
+              {saveLines(s).join(" · ")}
             </option>
           ))}
         </select>
+        </span>
       </label>
       <button disabled={state.busy || loading} onClick={() => void scan(true)}>
         重新检测

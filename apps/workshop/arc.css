@@ -1,0 +1,721 @@
+@font-face{font-family:"Geist";font-style:normal;font-display:swap;font-weight:100 900;src:url("./fonts/geist-latin-wght-normal.woff2") format("woff2-variations");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+/*
+ * Arc interface layer. Loaded after style.css: it sets the shape, layout and
+ * hand-tuned colors; the build tones every older color to neutral (arcTone).
+ * Colors here are rgb() on purpose: the theme build tokenizes hex colors.
+ */
+:root{
+  --a-page:rgb(255 255 255);--a-tray:rgb(245 245 244);--a-card:rgb(255 255 255);--a-fill:rgb(244 244 243);
+  --a-line:rgb(232 232 230);--a-line2:rgb(218 218 216);--a-text:rgb(23 23 23);--a-text2:rgb(84 84 84);--a-mute:rgb(105 105 105);
+  --a-pri:rgb(26 26 26);--a-prifg:rgb(255 255 255);--a-hover:rgb(0 0 0 / .045);--a-sel:rgb(0 0 0 / .06);
+  --a-shadow:0 1px 2px rgb(0 0 0 / .05);--a-raised:0 8px 24px rgb(0 0 0 / .07),0 1px 3px rgb(0 0 0 / .05);
+  --a-pop:0 18px 48px rgb(0 0 0 / .14),0 3px 10px rgb(0 0 0 / .06);
+  --a-ok:rgb(15 123 60);--a-warn:rgb(154 98 0);--a-danger:rgb(196 43 28);
+  --k-sand:rgb(214 160 64);--k-purple:rgb(131 82 196);--k-blue:rgb(47 100 192);--k-rose:rgb(192 58 98);--k-teal:rgb(36 130 126);
+  --r3:rgb(112 64 181);--r4:rgb(28 116 64);--r5:rgb(160 85 12);
+  --r3-glow:rgb(185 145 229 / .5);--r4-glow:rgb(110 200 135 / .45);--r5-glow:rgb(239 174 98 / .52);
+  --a-font:"Geist","Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;
+  --a-num:"Geist","Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+}
+:root[data-theme=dark]{
+  --a-page:rgb(12 12 11);--a-tray:rgb(19 19 18);--a-card:rgb(27 27 25);--a-fill:rgb(34 34 32);
+  --a-line:rgb(44 43 40);--a-line2:rgb(60 59 55);--a-text:rgb(237 235 229);--a-text2:rgb(184 179 170);--a-mute:rgb(152 146 137);
+  --a-pri:rgb(240 238 232);--a-prifg:rgb(20 20 19);--a-hover:rgb(255 255 255 / .05);--a-sel:rgb(255 255 255 / .08);
+  --a-shadow:0 1px 2px rgb(0 0 0 / .4);--a-raised:0 14px 36px rgb(0 0 0 / .5),0 1px 3px rgb(0 0 0 / .4);
+  --a-pop:0 18px 48px rgb(0 0 0 / .6),0 3px 10px rgb(0 0 0 / .4);
+  --a-ok:rgb(120 196 147);--a-warn:rgb(226 184 96);--a-danger:rgb(240 120 104);
+  --r3:rgb(196 160 240);--r4:rgb(132 214 154);--r5:rgb(244 186 114);
+  --r3-glow:rgb(150 100 220 / .3);--r4-glow:rgb(80 180 110 / .26);--r5-glow:rgb(230 150 60 / .3);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --a-page:rgb(12 12 11);--a-tray:rgb(19 19 18);--a-card:rgb(27 27 25);--a-fill:rgb(34 34 32);
+  --a-line:rgb(44 43 40);--a-line2:rgb(60 59 55);--a-text:rgb(237 235 229);--a-text2:rgb(184 179 170);--a-mute:rgb(152 146 137);
+  --a-pri:rgb(240 238 232);--a-prifg:rgb(20 20 19);--a-hover:rgb(255 255 255 / .05);--a-sel:rgb(255 255 255 / .08);
+  --a-shadow:0 1px 2px rgb(0 0 0 / .4);--a-raised:0 14px 36px rgb(0 0 0 / .5),0 1px 3px rgb(0 0 0 / .4);
+  --a-pop:0 18px 48px rgb(0 0 0 / .6),0 3px 10px rgb(0 0 0 / .4);
+  --a-ok:rgb(120 196 147);--a-warn:rgb(226 184 96);--a-danger:rgb(240 120 104);
+  --r3:rgb(196 160 240);--r4:rgb(132 214 154);--r5:rgb(244 186 114);
+  --r3-glow:rgb(150 100 220 / .3);--r4-glow:rgb(80 180 110 / .26);--r5-glow:rgb(230 150 60 / .3);
+}}
+
+/* ---------- base ---------- */
+:root{font:13px/1.5 var(--a-font);color:var(--a-text);background:var(--a-page);-webkit-font-smoothing:antialiased}
+html body{background:var(--a-page);color:var(--a-text)}
+.visually-hidden{position:absolute!important;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+html button{border:1px solid var(--a-line2);background:var(--a-card);color:var(--a-text);border-radius:10px;padding:6px 14px;font-weight:500;box-shadow:var(--a-shadow);transition:background .12s,border-color .12s}
+/* Hover tints whatever background a button already has, so a dark selected state keeps its light text readable. */
+html button:hover:not(:disabled){background-image:linear-gradient(var(--a-hover),var(--a-hover))}
+html button:disabled{opacity:.42}
+html input,html select{border:1px solid var(--a-line);background:var(--a-fill);color:var(--a-text);border-radius:10px;height:34px;padding:0 11px}
+html input[type=checkbox],html input[type=radio]{accent-color:var(--a-pri);height:15px;width:15px;padding:0}
+html input[type=range]{accent-color:var(--a-pri);background:none;border:0;padding:0}
+html button:focus-visible,html input:focus-visible,html select:focus-visible,html summary:focus-visible,html a:focus-visible{outline:2px solid var(--a-pri);outline-offset:2px}
+/* The native list opens flush under a select, so its focus ring stays inside the border instead of an offset outline the list would cut through. */
+html select:focus,html select:focus-visible,html input:not([type=checkbox],[type=radio],[type=range]):focus-visible{outline:none;border-color:var(--a-text2);box-shadow:inset 0 0 0 1px var(--a-text2)}
+html .toggle-switch>i{background:var(--a-line2);border-color:transparent;box-shadow:none}
+html .toggle-switch>input:checked+i{background:var(--a-pri);border-color:var(--a-pri)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--a-line2);border-radius:10px;border:3px solid transparent;background-clip:padding-box}
+
+/* ---------- shell and top bar ---------- */
+html .shell{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(64px,auto) auto minmax(0,1fr);height:100vh;min-height:0;max-width:none;background:var(--a-page)}
+html .shell>*{grid-column:1/-1}
+html .shell>.topbar{grid-row:1;grid-column:1/-1;display:flex;align-items:center;gap:12px;min-height:64px;padding:0 0 0 18px;background:var(--a-page);border:0}
+html .topbar .brand{display:flex;align-items:center;gap:10px;min-width:250px;flex:1 1 0;font-size:inherit;letter-spacing:0;color:var(--a-text);text-align:left}
+html .topbar .brand-mark{flex:none;border-radius:9px}
+html .topbar .brand-text{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+html .topbar .brand-text b{font-size:15px;font-weight:600}
+html .topbar .brand-text small{display:flex;gap:8px;align-items:baseline;font-size:11.5px;line-height:1.4;color:var(--a-mute);white-space:nowrap;margin:0;letter-spacing:0}
+html .topbar .brand-metadata>:is(.credits,.app-version){font:inherit;line-height:inherit;color:inherit;margin:0;padding:0;background:none}
+html .shell .nav{grid-row:auto;display:flex;flex-direction:row;gap:2px;flex:none;padding:4px;margin:0;background:var(--a-fill);border:1px solid var(--a-line);border-radius:14px;color:var(--a-text2)}
+html .shell .nav button{display:flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:0;border-radius:10px;background:transparent;box-shadow:none;color:var(--a-text2);font-size:13.5px;font-weight:500;flex-direction:row}
+html .shell .nav button:hover:not(:disabled){background:var(--a-hover);color:var(--a-text)}
+html .shell .nav button.active{background:var(--a-card);color:var(--a-text);box-shadow:0 1px 2px rgb(0 0 0 / .08),0 0 0 1px var(--a-line)}
+html .shell .nav button span{font-size:13.5px}
+html .shell .nav .nav-count{font-size:10.5px;font-weight:600;line-height:16px;padding:0 6px;border-radius:999px;border:1px solid var(--a-line2);color:var(--a-text2)}
+html .shell .nav .coming-soon{opacity:.4}
+html .topbar .toplinks{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex:1 1 0;margin:0;padding-right:16px}
+html .topbar .toplinks button{height:34px;padding:0 14px;font-size:13px}
+html .topbar .toplinks .github-link{background:var(--a-pri);border-color:var(--a-pri);color:var(--a-prifg)}
+html .topbar .toplinks .github-link:hover:not(:disabled){background:var(--a-pri);opacity:.88}
+html .topbar .icon-button{width:34px;padding:0;display:grid;place-items:center;border-color:transparent;background:transparent;box-shadow:none;color:var(--a-text2)}
+html .topbar .icon-button:hover:not(:disabled){background:var(--a-hover);border-color:transparent}
+html .title-controls{align-self:stretch;margin-left:0}
+html .title-controls button{border-radius:0;box-shadow:none;border:0;background:transparent;width:46px;padding:0}
+html .title-controls .window-close:hover:not(:disabled){background:rgb(196 43 50);color:rgb(255 255 255)}
+html .shell>.runtime-compatibility-banner{grid-row:2;margin:0 16px 8px;border-radius:14px}
+
+/* side popups now open under the top bar */
+html .side-popup{left:auto!important;bottom:auto;right:16px;top:64px;width:300px;background:var(--a-card);border:1px solid var(--a-line);border-radius:18px;box-shadow:var(--a-pop);color:var(--a-text);padding:14px}
+html .side-popup.side-popup-wide{width:440px}
+html .side-popup button,html .side-popup a{border-radius:10px;box-shadow:none;color:var(--a-text);padding:9px 10px}
+html .side-popup button:hover:not(:disabled){background-image:linear-gradient(var(--a-hover),var(--a-hover))}
+html .side-popup hr{border-top-color:var(--a-line)}
+html .theme-choice button{border:1px solid var(--a-line);border-radius:999px;text-align:center}
+html .theme-choice button.active{background:var(--a-pri);color:var(--a-prifg);border-color:var(--a-pri)}
+
+/* ---------- page frame: one tray per page ---------- */
+html .shell>.search-page,html .shell>.editor-host,html .shell>.favorites-page,html .shell>.backup-page,html .shell>main{grid-row:3;margin:0 16px 16px;min-height:0;border-radius:26px;background:var(--a-tray);border:1px solid var(--a-line)}
+html .shell>.editor-host,html .shell>.favorites-page,html .shell>.backup-page,html .shell>main{padding:16px;overflow:auto}
+html .shell>.search-page{display:grid!important;grid-template-columns:316px minmax(0,1fr) 428px;gap:14px;padding:14px;overflow:hidden;position:relative;isolation:isolate}
+html .shell>.search-page[hidden]{display:none!important}
+html .search-page::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;border-radius:inherit;background:radial-gradient(620px 420px at 100% 0%,var(--glow,transparent),transparent 70%)}
+html .search-page:has(.result-pane .scroll.rarity-3){--glow:var(--r3-glow)}
+html .search-page:has(.result-pane .scroll.rarity-4){--glow:var(--r4-glow)}
+html .search-page:has(.result-pane .scroll.rarity-5){--glow:var(--r5-glow)}
+
+/* cards shared by the search page */
+html .search-page .catalog,html .search-page .selection,html .search-page .search-dock,html .search-page .native-search-source{background:var(--a-card);border:1px solid var(--a-line);border-radius:18px;box-shadow:var(--a-shadow)}
+
+/* ---------- catalog column ---------- */
+html .search-page .catalog{display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:0}
+html .catalog-head{display:flex;flex-direction:column;gap:8px;padding:14px 14px 10px;border-bottom:1px solid var(--a-line)}
+html .catalog-head h2{font-size:15px;font-weight:600}
+html .catalog-tab-group small{display:block;font-size:11px;font-weight:600;color:var(--a-mute);margin-bottom:5px}
+html .catalog-tabs{display:flex;flex-wrap:wrap;gap:6px}
+html .catalog-tabs .catalog-tab{display:inline-flex;align-items:center;gap:7px;min-height:30px;padding:0 11px;border:1px solid var(--a-line);background:var(--a-card);color:var(--a-text2);font-size:12.5px;box-shadow:none}
+html .catalog-tabs .catalog-tab i{width:7px;height:7px;border-radius:50%;background:var(--tone)}
+html .catalog-tabs .catalog-tab b{font-size:10.5px;font-weight:600;min-width:16px;line-height:16px;border-radius:999px;background:var(--a-fill);color:var(--a-text);padding:0 5px}
+html .catalog-tabs .catalog-tab[aria-selected=true]{background:var(--a-pri);border-color:var(--a-pri);color:var(--a-prifg)}
+html .catalog-tabs .catalog-tab[aria-selected=true] b{background:rgb(255 255 255 / .2);color:inherit}
+.sand{--tone:var(--k-sand)}.purple{--tone:var(--k-purple)}.blue{--tone:var(--k-blue)}.rose{--tone:var(--k-rose)}.teal{--tone:var(--k-teal)}
+html .search-page .catalog .catalog-column{display:flex;flex-direction:column;flex:none;overflow:visible;padding:0;gap:0;height:auto;min-height:0}
+html .search-page .catalog .catalog-column:has(.module.is-open){flex:1;min-height:0}
+html .search-page .catalog .module{display:flex;flex-direction:column;flex:1;min-height:0;border:0;border-radius:0;background:transparent;padding:10px 10px 8px;margin:0}
+html .search-page .catalog .module[hidden]{display:none}
+html .search-page .catalog .module>header{margin:0 2px 8px;gap:8px}
+html .search-page .catalog .panel-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px}
+html .search-page .catalog .panel-title::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--tone)}
+html .search-page .catalog .panel-body{display:flex;flex-direction:column;flex:1;min-height:0;overflow:auto;padding:0;gap:6px}
+html .search-page .catalog .catalog-list{flex:1;min-height:0;max-height:none;height:auto;overflow:auto}
+html .search-page .finder{min-height:34px;border-radius:10px;border:1px solid var(--a-line);background:var(--a-fill);margin:0;padding-left:10px;flex:none}
+html .search-page .finder>span{font-size:16px;color:var(--a-mute)}
+html .search-page .finder input{height:32px;font-size:13px;background:transparent;border:0}
+html .search-page .catalog-row{min-height:34px;border:0;border-radius:9px;padding:0 6px 0 10px;font-size:13px;background:transparent}
+html .search-page .catalog-row:nth-child(even){background:transparent}
+html .search-page .catalog-row:hover,html .search-page .catalog-row.chosen{background:var(--a-fill)}
+html .search-page .catalog-row button{min-width:26px;height:26px;padding:0 8px;border-radius:8px;background:var(--a-card);border:1px solid var(--a-line2);color:var(--a-text2);font-size:14px;box-shadow:none}
+html .search-page .catalog-row button:disabled{background:var(--a-pri);border-color:var(--a-pri);color:var(--a-prifg);opacity:1;font-size:11px}
+html .search-page .catalog-row em{font-size:11px;color:var(--a-mute)}
+html .search-page .catalog-row em b{color:var(--a-warn);font-weight:600;margin-left:4px}
+html .search-page .catalog-footer{font-size:11px;color:var(--a-mute);padding:6px 4px 0}
+html .search-page .list-label{font-size:11px;color:var(--a-mute);padding:0 10px}
+html .search-page .tier-tabs{display:inline-flex;gap:2px;padding:3px;background:var(--a-fill);border:1px solid var(--a-line);border-radius:10px;align-self:flex-start}
+html .search-page .tier-tabs button{height:26px;padding:0 11px;border:0;border-radius:7px;background:transparent;box-shadow:none;color:var(--a-text2);font-size:12.5px}
+html .search-page .tier-tabs button.selected{background:var(--a-card);color:var(--a-text);box-shadow:0 1px 2px rgb(0 0 0 / .1),0 0 0 1px var(--a-line)}
+html .search-page .enemy-list-frame{border:0;padding:0;background:transparent;display:flex;flex-direction:column;flex:1;min-height:0}
+html .search-page .enemy-list-caption{font-size:11px;color:var(--a-mute);padding:0 8px 4px;border:0;background:transparent}
+html .search-page .enemy-list{height:auto;flex:1}
+html .search-page .rule-tree{flex:1;min-height:0;overflow:auto}
+html .search-page .rule-category{width:100%;display:flex;justify-content:space-between;border:0;border-radius:9px;background:transparent;box-shadow:none;padding:8px 10px;font-weight:600}
+html .search-page .rule-category:hover:not(:disabled){background-image:linear-gradient(var(--a-hover),var(--a-hover))}
+html .search-page .rule-picker{display:grid;grid-template-columns:minmax(0,1fr) 116px auto;align-items:center;gap:6px;padding:3px 6px 3px 18px;font-size:12.5px;border:0;background:transparent}
+html .search-page .rule-picker select{height:30px;font-size:12px}
+html .search-page .rule-picker button{height:30px;padding:0 10px;font-size:12px}
+html .search-page .terrain-options{display:flex;flex-wrap:wrap;gap:6px}
+html .search-page .terrain-options button,html .search-page .capacity button{height:30px;padding:0 12px;font-size:12.5px;box-shadow:none}
+html .search-page .terrain-options button.selected,html .search-page .capacity button[aria-pressed=true]{background:var(--a-pri);border-color:var(--a-pri);color:var(--a-prifg)}
+html .search-page .capacity{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:12px;border:0;background:transparent;padding:0}
+html .search-page .module>header .count{font-size:11.5px;color:var(--a-mute)}
+html .search-page .module summary{border-color:var(--a-line2);color:var(--a-mute);width:18px;height:18px;line-height:16px;font-size:11px}
+html .search-page .module details p{background:var(--a-card);border:1px solid var(--a-line);border-radius:14px;box-shadow:var(--a-pop);color:var(--a-text);z-index:30}
+html .search-page .subtle{min-height:26px;padding:0 9px;font-size:12px;border-color:transparent;box-shadow:none;background:transparent;color:var(--a-text2)}
+html .search-page .back-top{border-radius:50%;width:30px;height:30px;padding:0}
+
+/* ---------- middle column: conditions + search ---------- */
+html .search-page>main{display:flex;flex-direction:column;gap:12px;padding:0;min-height:0;min-width:0;overflow:hidden;background:transparent}
+html .search-page .selection{flex:1;min-height:0;display:flex;flex-direction:column;margin:0;overflow:hidden}
+html .search-page .selection>header{display:flex;align-items:center;gap:10px;padding:14px 16px 10px;border:0}
+html .search-page .selection header h2{font-size:15px;font-weight:600}
+html .search-page .selection header h2 span{background:var(--a-fill);color:var(--a-text);border:1px solid var(--a-line);font-size:11px;padding:0 7px;border-radius:999px;margin-left:6px}
+html .search-page .selection header p.selection-hint{display:block;font-size:12px;color:var(--a-mute);margin-right:auto}
+html .search-page .selection header>button{margin-left:0;height:30px;padding:0 12px;font-size:12.5px}
+html .search-page .selection header>button:first-of-type{border-color:transparent;box-shadow:none;background:transparent;color:var(--a-text2)}
+html .search-page .primary-controls{display:flex;align-items:center;gap:10px;padding:0 16px 10px;margin:0;font-size:12.5px;color:var(--a-text2);border-bottom:1px solid var(--a-line)}
+html .search-page .primary-controls>span{margin-left:12px;min-width:0;color:var(--a-text2)}
+html .search-page .primary-controls select{width:58px;height:30px;border-radius:999px;padding:0 8px;background:var(--a-card);border-color:var(--a-line2)}
+html .search-page .primary-controls .primary-hint{max-width:100%;overflow-wrap:break-word}
+html .search-page .primary-controls .drag-hint{margin-left:auto;font-size:11.5px;color:var(--a-mute);max-width:100%}
+html .search-page .selection .selected-body{display:flex;flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:12px;max-height:none;flex:1;min-height:0;overflow:auto;padding:12px 16px 16px}
+html .search-page .selected-effects,html .search-page .other-conditions{display:flex;flex-direction:column;gap:6px}
+html .search-page .other-conditions{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;align-items:start}
+html .search-page .selected-effects::before{content:"主副词条";font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:7px}
+html .search-page .primary-group{display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:14px;background:var(--a-fill);border:1px solid var(--a-line)}
+html .search-page .primary-group>small,html .search-page .condition-group>small,html .search-page .grace-group>small{font-size:12px;font-weight:600;color:var(--a-text);padding:0 4px}
+html .search-page .condition-group>small span{font-weight:400;color:var(--a-mute);margin-left:4px}
+html .search-page .selected-row,html .search-page .enemy-chip,html .search-page .rule-chip{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;min-height:38px;padding:3px 6px 3px 4px;border:1px solid var(--a-line)!important;border-radius:11px;background:var(--a-card);box-shadow:var(--a-shadow);font-size:13px;max-width:100%;width:100%}
+html .search-page .selected-row .role{font-size:11px;font-weight:600;border-radius:6px;padding:1px 7px;background:var(--a-fill);color:var(--a-text2);border:0;width:auto;flex:none}
+html .search-page .selected-row.is-primary .role{background:var(--a-pri);color:var(--a-prifg)}
+html .search-page .selected-name{flex:1;max-width:none;font-size:13px;font-weight:500}
+html .search-page .selected-row select,html .search-page .enemy-chip select,html .search-page .rule-chip select{width:auto;min-width:92px;height:28px;font-size:12px;border-radius:999px;padding:0 8px;background:var(--a-card);border:1px solid var(--a-line2)}
+html .search-page .selected-row button,html .search-page .enemy-chip button,html .search-page .rule-chip button{border:0;background:transparent;box-shadow:none;width:26px;height:26px;padding:0;border-radius:50%;color:var(--a-mute)}
+html .search-page .selected-row button:hover:not(:disabled),html .search-page .enemy-chip button:hover:not(:disabled),html .search-page .rule-chip button:hover:not(:disabled){background:var(--a-fill)}
+html .search-page .selected-row .cross{font-size:12px;color:var(--a-text2);display:flex;align-items:center;gap:5px}
+html .search-page .drag-grip{color:var(--a-mute);opacity:.6;width:16px;text-align:center;cursor:grab}
+html .search-page .condition-group{display:flex;flex-direction:column;gap:6px;padding:8px;border:1px dashed var(--a-line2)!important;border-radius:14px;background:transparent;width:100%}
+html .search-page .group-items{display:flex;flex-direction:column;flex-wrap:nowrap;gap:6px;max-height:none;overflow:visible;padding:0}
+html .search-page .grace-group{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:10px;border-radius:14px;border:1px solid var(--a-line);background:var(--a-card)}
+html .search-page .grace-group>small{width:100%;display:flex;align-items:center;gap:7px}
+html .search-page .grace-group>small::before,html .search-page .selected-effects::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--k-purple)}
+html .search-page .selected-effects::before{content:none}
+html .search-page .chip{min-height:30px;padding:0 12px;border-radius:999px;font-size:12.5px;border:1px solid var(--a-line2);background:var(--a-card);box-shadow:none}
+html .search-page .enemy-chip>span:nth-of-type(2)::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--k-blue);margin-right:7px}
+html .search-page .rule-chip>span:nth-of-type(2)::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--k-rose);margin-right:7px}
+html .search-page .enemy-chip>span:nth-of-type(2),html .search-page .rule-chip>span:nth-of-type(2){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html .search-page .empty-selection{color:var(--a-mute);font-size:13px;padding:22px;border:1px dashed var(--a-line2);border-radius:14px;text-align:center}
+html .search-page .condition-problem,html .search-page .enemy-combination-problem{border-radius:12px}
+
+html .search-page .search-dock{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px;padding:14px 16px;margin:0}
+html .search-page .search-fields{display:grid;grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px}
+html .search-page .search-fields label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:500;color:var(--a-text2)}
+html .search-page .search-fields input,html .search-page .search-fields select{width:100%;color:var(--a-text);font-weight:400}
+html .search-page .search-actions{grid-column:3;grid-row:2;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+html .search-page .search-actions .primary-button{grid-column:1/-1;height:44px;font-size:15px;font-weight:600;background:var(--a-pri);border-color:var(--a-pri);color:var(--a-prifg);box-shadow:0 1px 2px rgb(0 0 0 / .18),inset 0 1px 0 rgb(255 255 255 / .12)}
+html .search-page .search-actions .primary-button:hover:not(:disabled){background:var(--a-pri);opacity:.9}
+html .search-page .search-actions button{height:32px;padding:0 10px;font-size:12.5px}
+html .search-page .direct-seed{grid-column:1/3;grid-row:2;display:flex;align-items:flex-end;gap:8px}
+html .search-page .direct-seed label{flex:1;display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:500;color:var(--a-text2)}
+html .search-page .direct-seed button{height:34px}
+html .search-page>main>.status{font-size:12px;color:var(--a-text2);padding:0 6px;min-height:20px}
+html .search-page .native-search-source{padding:12px 14px;margin:0}
+
+/* ---------- results column ---------- */
+html .search-page .result-pane{background:transparent;color:var(--a-text);padding:2px 2px 0;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
+html .search-page .result-pane>header{display:flex;align-items:center;gap:8px;justify-content:flex-start}
+html .search-page .result-pane h2{font-size:15px;font-weight:600;margin-right:auto}
+html .search-page .result-pane h2 small{font-size:12px;color:var(--a-mute)}
+html .search-page .result-pane>header button{height:30px;padding:0 12px;font-size:12.5px}
+html .search-page .result-pane>header select{height:30px;border-radius:999px;background:var(--a-card);border:1px solid var(--a-line2);color:var(--a-text);font-size:12.5px}
+html .search-page .result-context{font-size:12px;color:var(--a-mute);min-height:0;margin:-4px 0 0}
+html .search-page .result-paging{display:flex;align-items:center;gap:6px;justify-content:flex-start;font-size:12.5px;color:var(--a-text2)}
+html .search-page .result-paging button{width:30px;height:30px;padding:0;border-radius:50%}
+html .search-page .result-paging input{width:52px;height:30px;text-align:center;border-radius:999px}
+html .search-page .result-scroll{display:flex;gap:10px;align-items:flex-start;min-height:0;flex:1;overflow:auto;padding:2px}
+html .search-page .number-rail{gap:4px}
+html .search-page .number-rail button{width:38px;height:30px;padding:0;border-radius:9px;font:600 12px var(--a-num);background:var(--a-card);color:var(--a-text2);border:1px solid var(--a-line);box-shadow:none}
+html .search-page .number-rail button.active{background:var(--a-pri);color:var(--a-prifg);border-color:var(--a-pri)}
+html .search-page .result-navigation{display:flex;gap:4px;flex:none}
+html .search-page .result-slider{display:none}
+html .search-page .result-tools{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+html .search-page .result-tools button,html .search-page .result-cart-actions button{height:30px;padding:0 11px;font-size:12px;background:var(--a-card);border:1px solid var(--a-line2);color:var(--a-text)}
+html .search-page .result-cart-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+html .search-page .result-cart-actions .cart-toggle[aria-pressed=true]{background:var(--a-pri);color:var(--a-prifg);border-color:var(--a-pri)}
+html .search-page .install-mode{background:var(--a-card);border:1px solid var(--a-line);border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--a-shadow);margin:0;color:var(--a-text)}
+html .search-page .install-choice{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:12.5px}
+html .search-page .install-choice h3{font-size:12px;font-weight:600;color:var(--a-text2);margin-right:auto}
+html .search-page .install-choice label{display:flex;align-items:center;gap:6px;color:var(--a-text)}
+html .search-page .install-current{min-height:44px;font-size:14.5px;font-weight:600;background:var(--a-pri);border-color:var(--a-pri);color:var(--a-prifg)}
+html .search-page .install-current:hover:not(:disabled){background:var(--a-pri);opacity:.9}
+/* Compact save mode is a vertical flex column after display:contents. Size
+   every SavePicker lifecycle state from content and let this install card own
+   scrolling; horizontal SavePicker contexts remain on their existing rules. */
+html .search-page .result-pane>.install-mode.install-save{min-height:0;max-height:calc(100dvh - 150px);overflow:auto;overscroll-behavior:contain}
+html .search-page .result-pane>.install-mode.install-save>.save-picker-compact>:is(label,.uncertain-operation,.notice,.save-picker-hint){flex:0 0 auto;min-width:0;max-width:100%}
+html .search-page .no-results{background:var(--a-card);border:1px dashed var(--a-line2);border-radius:18px;padding:24px;color:var(--a-text)}
+
+/* ---------- the scroll card ---------- */
+html .scroll{--rarity:var(--r4);background:var(--a-card);color:var(--a-text);border:1px solid var(--a-line);border-radius:18px;box-shadow:var(--a-raised);padding:0;overflow:hidden;position:relative}
+html .scroll.rarity-3{--rarity:var(--r3);--glow:var(--r3-glow)}
+html .scroll.rarity-4{--rarity:var(--r4);--glow:var(--r4-glow)}
+html .scroll.rarity-5{--rarity:var(--r5);--glow:var(--r5-glow)}
+html .scroll::before{content:"";position:absolute;inset:0 0 auto 0;height:150px;pointer-events:none;background:radial-gradient(280px 150px at 100% 0%,var(--glow,transparent),transparent 75%);opacity:.6}
+html .scroll>*{position:relative}
+html .scroll>header{display:flex;align-items:flex-start;gap:10px;padding:14px 16px 10px;border:0;margin:0}
+html .scroll>header small{font:12px var(--a-num);color:var(--a-mute)}
+html .scroll>header small span{color:var(--a-mute);margin-left:6px}
+html .scroll .scroll-title{font-size:19px;font-weight:600;letter-spacing:-.01em;color:var(--a-text);margin-top:2px}
+html .scroll .rarity-mark{margin-left:auto;font:600 11.5px var(--a-num);color:var(--rarity);border:1px solid currentColor;background:var(--a-card);border-radius:999px;padding:1px 9px;width:auto;height:auto;line-height:1.5}
+html .scroll .scroll-hero{display:block;border-top:1px solid var(--a-line);border-bottom:1px solid var(--a-line);padding:0;margin:0;background:transparent}
+html .scroll .scroll-hero>div{display:grid;grid-template-columns:1fr 1fr}
+html .scroll .scroll-hero p{display:flex;flex-direction:column;padding:8px 16px;font-size:12px;color:var(--a-mute);margin:0;border:0}
+html .scroll .scroll-hero p+p{border-left:1px solid var(--a-line)}
+html .scroll .scroll-hero strong{font:600 21px/1.25 var(--a-num);color:var(--a-text);letter-spacing:-.02em;margin:0}
+html .scroll section{padding:0 16px;margin:0;border:0}
+html .scroll h3{display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:var(--a-text);margin:10px 0 3px;padding:0;border:0;letter-spacing:0}
+html .scroll h3::before,html .scroll h3::after{content:none}
+html .scroll .effect-line{display:flex;align-items:center;gap:8px;min-height:27px;padding:0;border:0;color:var(--a-text);font-size:13px;background:transparent}
+html .scroll .effect-line .slot-mark{color:var(--a-mute);font-size:10px;width:12px}
+html .scroll .effect-line:first-of-type .slot-mark{color:var(--rarity)}
+html .scroll .effect-line>div{flex:1;min-width:0}
+html .scroll .effect-line>div>span{font-weight:400}
+html .scroll section:first-of-type .effect-line:nth-of-type(1)>div>span{font-weight:600}
+html .scroll .effect-line small{color:var(--a-mute);font-size:11px}
+html .scroll .effect-line strong{font:500 12.5px var(--a-num);color:var(--a-text2);margin-left:auto;white-space:nowrap}
+html .scroll .effect-line.grace-line,html .scroll .effect-line.grace-line strong{color:var(--k-purple)}
+html .scroll .effect-line.empty-line{color:var(--a-line2)}
+html .scroll .enemy-lines{display:grid;grid-auto-flow:column;grid-template-rows:repeat(5,minmax(20px,auto));grid-auto-columns:minmax(0,1fr);gap:0 10px;font-size:12.5px;color:var(--a-text)}
+html .scroll .enemy-lines:not(:has(.enemy-occurrence)){display:grid;grid-auto-flow:row;grid-template-rows:none;grid-template-columns:repeat(2,minmax(0,1fr))}
+html .scroll .enemy-occurrence>span{line-height:20px;gap:4px}
+html .scroll .enemy-state-marker{color:var(--a-warn);border:1px solid currentColor;border-radius:4px;min-height:14px;padding:0 3px;font-size:10px;line-height:12px}
+html .scroll .enemy-state-marker.is-unknown{width:14px;height:14px;border-radius:50%;padding:0;font-size:9px;line-height:12px;text-align:center}
+html .scroll .scroll-rule{display:flex;justify-content:space-between;gap:12px;min-height:24px;align-items:center;font-size:13px;color:var(--a-text2);margin:0;padding:0;border:0}
+html .scroll .scroll-rule strong{font:600 13px var(--a-num);color:var(--a-text)}
+html .scroll .scroll-terrain{display:flex;justify-content:space-between;align-items:center;margin:8px 16px 0;padding:8px 0 0;border-top:1px solid var(--a-line);font-size:13px;color:var(--a-text2)}
+html .scroll .scroll-terrain strong{color:var(--a-text);font-weight:500}
+html .scroll>footer,html .scroll .scroll-id{display:flex;align-items:center;gap:10px;margin:8px 12px 12px;padding:6px 6px 6px 12px;border-radius:12px;background:var(--a-fill);border:0;color:var(--a-mute);font-size:12px}
+html .scroll>footer strong,html .scroll .scroll-id strong{margin-left:auto;font:600 17px var(--a-num);color:var(--a-text);letter-spacing:.01em}
+html .scroll>footer button,html .scroll .scroll-id button{height:28px;padding:0 10px;font-size:12px;background:var(--a-card);color:var(--a-text);border:1px solid var(--a-line2)}
+
+/* ---------- other pages: shared surfaces ---------- */
+html .favorites-page .compare-grid{gap:14px}
+html .collection-actions button{height:30px;padding:0 11px;font-size:12px}
+html .toast{background:var(--a-card);color:var(--a-text);border:1px solid var(--a-line);border-radius:14px;box-shadow:var(--a-pop);top:72px}
+html dialog{background:var(--a-card);color:var(--a-text);border:1px solid var(--a-line);border-radius:20px;box-shadow:var(--a-pop)}
+html dialog::backdrop{background:rgb(0 0 0 / .32)}
+html .primary,html .primary-button{background:var(--a-pri);border-color:var(--a-pri);color:var(--a-prifg)}
+
+/* ---------- overrides of the older fixed layouts ---------- */
+html .search-page .result-scroll .scroll{height:auto;display:block;grid-template-rows:none;padding:0;max-width:none;margin:0}
+html .search-page .result-scroll .scroll>section{padding:0 16px;overflow:visible}
+html .scroll>header h2{line-height:1.3}
+html .scroll .effect-line{min-height:27px;min-height:27px;padding:0}
+html .scroll .scroll-rule{min-height:24px;min-height:24px;padding:0}
+html .scroll .empty-line{visibility:visible;color:var(--a-line2)}
+html .scroll .empty-line{font-size:12.5px}
+html .search-page .search-fields label{align-items:stretch;white-space:nowrap;text-align:left;flex-wrap:nowrap}
+html .search-page .search-fields input{max-width:none;height:34px;font-size:13px}
+html .search-page .search-fields select{height:34px;font-size:13px}
+html .search-page .direct-seed{border:0;padding:0;font-size:12px}
+html .search-page .direct-seed label{align-items:stretch}
+html .search-page .direct-seed input{width:100%;height:34px;font-size:13px}
+html .search-page .direct-seed button{font-size:12.5px;padding:0 14px}
+html .search-page .search-actions button:not(.primary-button){font-size:12.5px;padding:0 10px}
+html .search-page .primary-controls label{display:flex;align-items:center;gap:6px;white-space:nowrap;color:var(--a-text)}
+html .search-page .primary-controls>span,html .search-page .primary-controls .primary-hint{white-space:nowrap}
+html .search-page .result-pane{border:0}
+html .catalog-tabs .catalog-tab{flex:none;width:auto}
+html .search-page .search-fields label:nth-child(n){grid-column:auto}
+html .search-page .search-fields input,html .search-page .search-fields select{flex:none}
+html .search-page .list-label{background:transparent;border:0;padding:0 10px;font-size:11px;color:var(--a-mute)}
+html .search-page .primary-controls select{width:66px;padding:0 10px;font-size:12.5px}
+html .search-page .result-tools .cart-toggle{margin-left:0;min-width:0;font-weight:500;box-shadow:none}
+html .search-page .result-detail{display:block}
+html .search-page .result-tools{margin-top:10px}
+html .search-page .result-pane>.install-mode{display:flex}
+html .search-page .install-mode label{font-size:12.5px;margin:0;line-height:1.4}
+html .search-page .install-mode>button{width:100%;margin:0;padding:0}
+@media (max-width:1360px){html .shell>.search-page{grid-template-columns:276px minmax(0,1fr) 384px}}
+@media (max-width:1180px){html .shell>.search-page{grid-template-columns:250px minmax(0,1fr) 350px;gap:10px;padding:10px}html .shell .nav button{padding:0 10px}html .topbar .brand{min-width:200px}html .topbar .credits{display:none}}
+
+/* pills where Arc uses them */
+html .topbar .toplinks button,html .search-page .selection header>button,html .search-page .search-actions button,html .search-page .direct-seed button,html .search-page .result-pane>header button,html .search-page .result-tools button,html .search-page .result-cart-actions button,html .search-page .install-current,html .search-page .chip,html .scroll>footer button,html .collection-actions button{border-radius:999px}
+html .search-page .selection .selected-row,html .search-page .selection .enemy-chip,html .search-page .selection .rule-chip{background:var(--a-card)}
+html .search-page .grace-group>small{background:transparent;border:0;padding:0 2px}
+html .search-page .other-conditions{border:0;padding:0;margin:0}
+
+/* ---------- editor, favorites, backups, equipment ---------- */
+html .editor-page{gap:14px;padding:0;background:transparent}
+html .editor-page .inventory-pane,html .editor-page .editor-work,html .editor-page .editor-review{background:var(--a-card);border:1px solid var(--a-line);border-radius:18px;box-shadow:var(--a-shadow);padding:16px}
+html .editor-page .editor-work{background:var(--a-card)}
+html .inventory-item{border-radius:12px;border:1px solid var(--a-line);background:var(--a-card);box-shadow:none;text-align:left}
+html .inventory-item:hover:not(:disabled){background:var(--a-fill)}
+html .inventory-item.active,html .inventory-item[aria-pressed=true],html .inventory-item[aria-current=true]{border-color:var(--a-pri);box-shadow:0 0 0 1px var(--a-pri);background:var(--a-card)}
+/* One card per scroll: the row is the card and holds the delete checkbox; the pick button inside stays flat. */
+html .editor-page .inventory-list{display:flex;flex-direction:column;gap:6px;padding:2px}
+html .editor-page .inventory-item{display:flex;align-items:center;gap:0;padding:0 0 0 12px;margin:0;transition:border-color .12s,background .12s}
+html .editor-page .inventory-item>input[type=checkbox]{flex:none;margin:0}
+html .editor-page .inventory-item>button{flex:1;border:0;background:transparent;box-shadow:none;border-radius:0 12px 12px 0;margin:0;padding:9px 12px;gap:2px}
+html .editor-page .inventory-item>button:only-child{border-radius:12px}
+html .editor-page .inventory-item>button:hover:not(:disabled),html .editor-page .inventory-item>button.selected{background:transparent;background-image:none}
+html .editor-page .inventory-item:has(>button.selected){border-color:var(--a-pri);box-shadow:0 0 0 1px var(--a-pri)}
+html .editor-page .inventory-item:has(>input:checked){background:var(--a-fill)}
+html .editor-page .module{background:var(--a-card);border:1px solid var(--a-line);border-radius:14px;box-shadow:none}
+html .editor-page .module>summary,html .editor-page .module>header{font-weight:600}
+html .editor-review .scroll{padding:14px 16px 12px}
+html .editor-review .scroll .effect-line{height:auto;min-height:34px;border-bottom:1px solid var(--a-line)}
+html .editor-bottom{background:transparent;border:0}
+html .editor-notice,html .temporary-warning{border-radius:12px}
+html .backup-page section,html .backup-page .module,html .character-list,html .character-side{background:var(--a-card);border:1px solid var(--a-line);border-radius:18px;box-shadow:var(--a-shadow)}
+html table{border-collapse:separate;border-spacing:0}
+html th{color:var(--a-text2);font-weight:600;background:var(--a-fill)}
+html th,html td{border-color:var(--a-line)}
+html .favorites-page .favorites-toolbar{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+html .favorites-page .collection-card-item{background:transparent;border:0;padding:0}
+html .favorites-page .collection-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+html .editor-page summary{background:transparent}
+html .editor-page .module>details>summary,html .editor-page details.module>summary{padding:6px 2px}
+html .scroll .effect-line>div>span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+html .scroll .effect-line,html .scroll .scroll-rule,html .scroll .enemy-lines{font-size:13px}
+html .scroll>header h2.scroll-title{font-size:19px}
+@media (max-width:1180px){
+  html .search-page .selection header p.selection-hint,html .search-page .primary-controls .drag-hint{display:none}
+  html .search-page .selection header h2{margin-right:auto}
+  html .search-page .primary-controls{flex-wrap:wrap;row-gap:6px}
+  html .search-page .selected-row select,html .search-page .enemy-chip select,html .search-page .rule-chip select{min-width:0;width:82px;padding:0 6px}
+  html .search-page .selected-row .role{display:none}
+  html .search-page .selected-row.is-primary .role{display:inline}
+  html .search-page .search-actions{grid-template-columns:1fr}
+  html .search-page .search-actions button:not(.primary-button){display:none}
+  html .search-page .search-actions button:not(.primary-button):not(:disabled){display:block}
+}
+html .search-page .selection .selected-row,html .search-page .selection .enemy-chip,html .search-page .selection .rule-chip{background:var(--a-card)!important}
+
+/* ---------- round 2: catalog emphasis, rule list height, capacity, card grids ---------- */
+html .catalog-head{background:var(--a-fill);gap:10px;padding:14px 14px 12px}
+html .catalog-head .catalog-hint{font-size:12px;color:var(--a-mute);margin:-8px 0 0}
+html .catalog-tab-group small{color:var(--a-text2);font-size:11.5px}
+html .catalog-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+html .catalog-tab-group:nth-of-type(2) .catalog-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
+html .catalog-tabs .catalog-tab{justify-content:center;min-height:38px;padding:0 6px;font-size:13px;font-weight:600;color:var(--a-text);background:var(--a-card);border:1px solid var(--a-line2);box-shadow:var(--a-shadow);border-radius:11px;white-space:nowrap;min-width:0}
+html .catalog-tabs .catalog-tab:hover:not(:disabled):not([aria-selected=true]){border-color:var(--a-text2);background:var(--a-card)}
+html .catalog-tabs .catalog-tab i{width:8px;height:8px;flex:none}
+html .catalog-tabs .catalog-tab[aria-selected=true]{background:var(--a-pri);border-color:var(--a-pri);color:var(--a-prifg);box-shadow:0 4px 12px rgb(0 0 0 / .18)}
+html .search-page .catalog .panel-body>.rule-tree{flex:1;height:auto!important;max-height:none!important;min-height:0!important;padding-top:4px}
+html .search-page .rule-picker{padding:2px 4px 2px 22px}
+html .search-page .capacity>span{white-space:nowrap;font-size:12.5px;color:var(--a-text2);margin-right:4px}
+html .search-page .capacity button{flex:none;min-width:46px;white-space:nowrap;padding:0 12px}
+html .search-page .terrain-options .terrain-all{flex-basis:100%;text-align:left;font-weight:600;background:var(--a-fill);border-color:var(--a-line2);color:var(--a-text)}
+html .search-page .terrain-options .terrain-all.selected{background:var(--a-pri);color:var(--a-prifg);border-color:var(--a-pri)}
+html .collection-card-item>.scroll{display:block;height:auto;min-height:0;padding:0;grid-template-rows:none;overflow:hidden}
+html .collection-card-item>.scroll>section{padding:0 16px;overflow:visible}
+html .collection-card-item>.scroll>section:first-of-type{display:block}
+html .collection-card-item>.scroll .effect-line,html .collection-card-item>.scroll .scroll-rule{min-height:26px;min-height:26px}
+html .collection-card-item>.scroll .scroll-hero p{display:flex;flex-direction:column;margin:0;font-size:12px;line-height:1.4}
+html dialog .compare-grid{gap:14px}
+html .history-pages h3{font-size:13px;font-weight:600;margin:4px 0 10px}
+html .collection-actions{margin-top:8px}
+html .collection-card-item>.scroll h3{height:auto;margin:10px 0 3px;line-height:1.4}
+html .collection-card-item>.scroll .enemy-lines{display:grid;max-height:none;overflow:visible;gap:0 10px;line-height:20px}
+html .collection-card-item>.scroll .scroll-terrain{height:auto;padding:8px 0 0;overflow:visible}
+html .collection-card-item>.scroll>footer{padding:6px 6px 6px 12px;overflow:visible}
+html .search-page .capacity{flex-wrap:nowrap}
+html .search-page .capacity button{flex:1 1 0;min-width:0;padding:0 4px}
+
+/* ---------- round 3: popup anchoring, icon buttons, Arc motion ---------- */
+html .side-popup{top:var(--popup-top,64px)!important;right:var(--popup-right,16px)!important;left:auto!important;bottom:auto!important;transform-origin:top right;animation:arc-pop .18s cubic-bezier(.2,.8,.2,1)}
+html .topbar .toplinks .icon-button{width:36px;height:36px;padding:0;border-radius:50%;display:grid;place-items:center}
+html .topbar .toplinks .icon-button svg{display:block}
+html .brand-mark{width:40px;height:40px;object-fit:contain;flex:none;border-radius:0}
+html .shell .nav{position:relative;isolation:isolate}
+html .shell .nav .nav-glider{position:absolute;z-index:-1;left:0;top:4px;min-height:34px;border-radius:10px;background:var(--a-card);box-shadow:0 1px 2px rgb(0 0 0 / .08),0 0 0 1px var(--a-line);transition:transform .32s cubic-bezier(.3,1.25,.4,1),width .32s cubic-bezier(.3,1.25,.4,1),opacity .2s;pointer-events:none}
+html .shell .nav button,html .shell .nav button.active,html .shell .nav button:hover:not(:disabled){background:transparent;box-shadow:none}
+html .shell .nav button.active{color:var(--a-text);font-weight:600}
+html button{transition:background .15s,border-color .15s,color .15s,transform .12s cubic-bezier(.3,1.4,.5,1),box-shadow .15s}
+html button:active:not(:disabled){transform:scale(.97)}
+html .search-page .catalog-row button:active:not(:disabled),html .shell .nav button:active:not(:disabled){transform:scale(.94)}
+html .catalog-tabs .catalog-tab{transition:background .2s,color .2s,border-color .2s,box-shadow .25s,transform .12s}
+html .search-page .catalog .module.is-open .panel-body{animation:arc-rise .22s cubic-bezier(.2,.8,.2,1)}
+html .search-page .selected-row,html .search-page .enemy-chip,html .search-page .rule-chip,html .search-page .grace-group .chip{animation:arc-rise .2s cubic-bezier(.2,.8,.2,1)}
+html .result-detail .scroll{animation:arc-rise .24s cubic-bezier(.2,.8,.2,1)}
+html .toast:not([hidden]){animation:arc-drop .24s cubic-bezier(.2,.8,.2,1)}
+html dialog[open]{animation:arc-pop .2s cubic-bezier(.2,.8,.2,1)}
+html .search-page .catalog-row button:disabled{animation:arc-pop .18s cubic-bezier(.3,1.4,.5,1)}
+@keyframes arc-pop{from{opacity:0;transform:scale(.96) translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes arc-rise{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes arc-drop{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+/* Arc's soft brand wash behind the top bar */
+html .shell{background:radial-gradient(900px 140px at 18% -40px,rgb(196 181 253 / .22),transparent 70%),radial-gradient(900px 140px at 82% -40px,rgb(253 210 170 / .24),transparent 70%),var(--a-page)}
+html .shell>.topbar{background:transparent}
+:root[data-theme=dark] .shell{background:radial-gradient(900px 140px at 18% -40px,rgb(140 110 220 / .16),transparent 70%),radial-gradient(900px 140px at 82% -40px,rgb(220 140 80 / .14),transparent 70%),var(--a-page)}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .shell{background:radial-gradient(900px 140px at 18% -40px,rgb(140 110 220 / .16),transparent 70%),radial-gradient(900px 140px at 82% -40px,rgb(220 140 80 / .14),transparent 70%),var(--a-page)}}
+@media (prefers-reduced-motion:reduce){html *,html *::before,html *::after{animation:none!important;transition:none!important}}
+
+/* ---------- editor sections (UI-004) ---------- */
+/* Sections share one details name, so only one is open; the open one shows all its content and the column scrolls, so nothing is squeezed into a small inner box. */
+html .editor-page .editor-work>.editor-section{flex:0 0 auto;min-height:0;max-height:none;margin:0 0 8px;padding:0 16px}
+html .editor-page .editor-work>.editor-section>summary{padding:12px 0;line-height:20px;cursor:pointer}
+html .editor-page .editor-work>.editor-section[open]{flex:0 0 auto;min-height:0;max-height:none}
+html .editor-page .editor-work>.editor-section[open]::details-content{flex:1;min-height:0}
+html .editor-page .editor-work>.editor-section .editor-section-body{flex:none;min-height:0;max-height:none;overflow:visible;padding:0 2px 14px}
+html .editor-page .editor-effects .editor-section-body>p{margin:0 0 8px;color:var(--a-text2)}
+/* Effects (UI-010, UI-017): one row per slot like the equipment editor; the picker, value and native range share the row. */
+html .editor-page .effect-scope{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:0 0 10px}
+html .editor-page .effect-scope fieldset{display:flex;flex-wrap:wrap;align-items:center;gap:6px;flex:1 1 100%;min-width:0;margin:0;padding:0;border:0}
+html .editor-page .effect-scope legend{float:left;margin-right:4px;padding:0;font-size:12px;color:var(--a-text2)}
+html .editor-page .effect-scope fieldset label{display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--a-line);border-radius:10px;font-size:12.5px;color:var(--a-text);white-space:normal;cursor:pointer}
+html .editor-page .effect-scope fieldset label:has(input:checked){border-color:var(--a-text2);background:var(--a-fill)}
+html .editor-page .effect-scope fieldset input{margin:0}
+html .editor-page .effect-scope>span{font-size:11.5px;color:var(--a-mute);min-width:0}
+html .editor-page .scroll-effects,html .editor-page .scroll-raw-fields{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0;background:var(--a-card);border:1px solid var(--a-line);border-radius:12px;overflow:visible}
+html .editor-page .scroll-effects th,html .editor-page .scroll-raw-fields th{padding:7px 8px;font-size:11.5px;font-weight:500;color:var(--a-mute);text-align:left;border-bottom:1px solid var(--a-line)}
+html .editor-page .scroll-effects td,html .editor-page .scroll-raw-fields td{padding:5px 8px;border-bottom:1px solid var(--a-line);vertical-align:middle;font-variant-numeric:tabular-nums}
+html .editor-page .scroll-effects tr:last-child td,html .editor-page .scroll-raw-fields tr:last-child td{border-bottom:0}
+html .editor-page .scroll-effects th:first-child,html .editor-page .scroll-raw-fields th:first-child{width:52px;white-space:nowrap}
+html .editor-page .scroll-effects th:nth-child(3){width:150px}
+html .editor-page .scroll-effects th:nth-child(4){width:104px}
+html .editor-page .scroll-effects td:first-child,html .editor-page .scroll-raw-fields td:first-child{color:var(--a-mute)}
+html .editor-page .scroll-effects tr.is-changed td:first-child{color:var(--a-text);font-weight:600}
+html .editor-page .scroll-effects .effect-picker>input{height:32px;background:var(--a-fill)}
+html .editor-page .scroll-effects td>small{display:block;margin-top:2px;font-size:11px;white-space:nowrap}
+html .editor-page .scroll-value{display:flex;gap:4px;min-width:0}
+html .editor-page .scroll-value input{flex:1 1 0;min-width:0;width:0;height:32px;padding:0 8px}
+html .editor-page .scroll-value select{flex:0 0 62px;width:62px;height:32px;padding:0 4px;font-size:12px}
+html .editor-page .scroll-effects .character-range{font-size:12px;color:var(--a-text2)}
+html .editor-page .character-unnatural{color:var(--a-warn)}
+html .editor-page .editor-effects .advanced{margin:10px 0 0}
+html .editor-page .editor-effects .advanced>summary{cursor:pointer;color:var(--a-text2);font-size:12.5px;padding:4px 0}
+html .editor-page .editor-effects .advanced>p{margin:4px 0 8px;font-size:12px;color:var(--a-mute)}
+html .editor-page .scroll-raw-fields input{width:100%;min-width:0;height:30px;padding:0 6px;font-size:12px}
+/* Scroll list (UI-012): rarity dot after "R3/R4", a star keeps a scroll on top. */
+html .rarity-dot{display:inline-block;width:8px;height:8px;margin-left:5px;border-radius:50%;vertical-align:1px;background:var(--rarity)}
+html .rarity-dot.rarity-3{--rarity:var(--r3)}
+html .rarity-dot.rarity-4{--rarity:var(--r4)}
+html .rarity-dot.rarity-5{--rarity:var(--r5)}
+html .editor-page .inventory-find{display:flex;align-items:center;gap:8px;margin:10px 0 8px}
+html .editor-page .inventory-find>input{flex:1;min-width:0;margin:0}
+html .pinned-filter{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--a-text2);white-space:nowrap;cursor:pointer}
+html .pin-toggle{flex:none;display:grid;place-items:center;width:34px;height:34px;margin:0 6px 0 0;padding:0;border:0;background:transparent;box-shadow:none;color:var(--a-mute);border-radius:8px}
+html .pin-toggle .star-icon{width:18px;height:18px}
+html .pin-toggle.active{color:var(--k-sand)}
+html .editor-page .inventory-item>button.pin-toggle{flex:none;border-radius:8px;padding:0}
+html .editor-page .inventory-empty{margin:6px 2px;font-size:12px;color:var(--a-mute)}
+/* Preview (UI-013): the dungeon content like the search result card. */
+html .editor-review .scroll{height:auto;overflow:visible}
+html .editor-review .editor-review-content{margin-top:10px;padding-top:6px;border-top:1px solid var(--a-line)}
+html .editor-review .editor-review-content h3{margin:10px 0 6px;font-size:11.5px;font-weight:600;letter-spacing:1px;color:var(--a-mute)}
+html .editor-review .editor-review-content .enemy-lines{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--a-text)}
+html .editor-review .editor-review-content .scroll-rule{display:flex;justify-content:space-between;gap:10px;margin:0;padding:4px 0;font-size:12px;color:var(--a-text)}
+html .editor-review .editor-review-content .scroll-rule>span{min-width:0;overflow-wrap:break-word}
+html .editor-review .editor-review-content .scroll-rule>strong{flex:none;font-weight:500}
+html .editor-review .editor-review-pending{margin:0;font-size:12px;color:var(--a-mute)}
+
+/* ---------- equipment page (UI-002, UI-003) ---------- */
+/* Both columns stay side by side down to the minimum window width; each scrolls on its own instead of the right one wrapping below. */
+html .equipment-page.character-page{display:flex;flex-direction:column;overflow:hidden}
+html .character-page>.character-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,1fr);grid-template-rows:minmax(0,1fr);align-items:stretch;flex:1;min-height:0;gap:14px}
+html .character-page .character-list{display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:16px}
+html .character-page .character-side{display:flex;flex-direction:column;min-height:0;overflow:auto;padding:16px 18px}
+html .character-page .character-side>.character-detail,html .character-page .character-side>.character-empty{flex:none;overflow:visible;margin:0}
+html .character-page .character-detail,html .character-page .seed-panel{background:transparent;border:0;border-radius:0;box-shadow:none;padding:0}
+html .character-page .character-detail{display:flex;flex-direction:column;gap:12px}
+html .character-page .character-detail-head{gap:8px 12px}
+html .character-page .character-detail-head h3{font-size:17px;font-weight:650}
+html .character-page .equipment-notes{margin:0;padding:10px 12px;border-radius:10px;background:var(--a-fill);color:var(--a-text2);font-size:12px;line-height:1.65;text-indent:0}
+html .character-page .character-fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
+html .character-page .character-fields label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--a-text2)}
+html .character-page .character-fields :is(input,select){width:100%;height:34px;font-size:13px}
+html .character-page .character-fields label:has(>select){grid-column:span 2}
+html .character-page .character-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+html .character-page .character-actions button{height:34px;padding:0 16px;font-size:13px;border-radius:999px}
+html .character-page .character-actions button.primary{background:var(--a-pri);color:var(--a-prifg);border-color:var(--a-pri)}
+html .character-page .seed-panel{display:flex;flex-direction:column;gap:10px;margin:0}
+html .character-page .seed-want{gap:6px}
+html .character-page .seed-want-label{font-size:12px;font-weight:600;color:var(--a-text2)}
+html .character-page .seed-want-chips .effect-picker{min-width:200px}
+html .character-page .seed-chip{gap:4px;padding:2px 4px 2px 10px;border-radius:999px;background:var(--a-fill);border:1px solid var(--a-line2);font-size:12.5px}
+html .character-page .seed-chip button{color:var(--a-mute)}
+html .character-page .seed-summary{margin:0;padding:0;background:transparent;border:0;color:var(--a-text2);font-size:12px;line-height:1.6}
+html .character-page .seed-outcomes{gap:6px;max-height:none;overflow:visible}
+html .character-page .seed-outcomes button{display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:8px 10px;border-radius:12px;border:1px solid var(--a-line);background:var(--a-card);box-shadow:none;font-weight:400;line-height:1.4}
+html .character-page .seed-outcomes button.chosen{border-color:var(--a-pri);box-shadow:0 0 0 1px var(--a-pri);background:var(--a-card)}
+html .character-page .seed-effect{display:inline-flex;align-items:baseline;gap:4px;padding:2px 8px;border-radius:7px;background:var(--a-fill);font-size:12.5px;white-space:nowrap}
+html .character-page .seed-effect small{color:var(--a-mute);font-size:11.5px;font-variant-numeric:tabular-nums}
+html .character-page .seed-effect.wanted{background:var(--a-pri);color:var(--a-prifg);font-weight:500}
+html .character-page .seed-effect.wanted small{color:inherit;opacity:.75}
+html .character-page .seed-id{margin-left:auto;font-size:11px;color:var(--a-mute)}
+/* The top bar keeps every control on one line at the minimum window width. */
+html .topbar .toplinks button{white-space:nowrap}
+
+/* ---------- search conditions without squeezing (UI-019 to UI-022) ---------- */
+/* Catalog tabs wrap instead of sharing fixed tracks, so a count badge never pushes the label out. */
+html .catalog-tabs,html .catalog-tab-group:nth-of-type(2) .catalog-tabs{display:flex;flex-wrap:wrap;gap:6px}
+html .catalog-tabs .catalog-tab{flex:1 1 auto;width:auto;min-width:0;max-width:100%;padding:0 12px}
+html .catalog-tabs .catalog-tab>span{flex:1 1 auto;min-width:0;white-space:normal;overflow-wrap:break-word}
+html .catalog-tabs .catalog-tab b{flex:none}
+/* The primary controls wrap as a whole row rather than collapsing the count select. */
+html .search-page .primary-controls{flex-wrap:wrap;row-gap:6px}
+html .search-page .primary-controls select{flex:none}
+html .search-page .primary-controls .drag-hint{white-space:normal}
+/* Enemy and rule chips: the full name on the first line, the controls below it. */
+html .search-page .enemy-chip,html .search-page .rule-chip{display:grid;grid-template-columns:16px minmax(0,1fr) 26px;grid-template-areas:"grip name remove" ". controls controls";align-items:center;gap:4px 6px;width:100%;min-width:0;max-width:none;padding:6px 6px 7px 4px}
+html .search-page .enemy-chip>.drag-grip,html .search-page .rule-chip>.drag-grip{grid-area:grip}
+html .search-page .enemy-chip>span.chip-name:nth-of-type(2),html .search-page .rule-chip>span.chip-name:nth-of-type(2){grid-area:name;min-width:0;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;line-height:1.45}
+html .search-page .enemy-chip>.chip-remove,html .search-page .rule-chip>.chip-remove{grid-area:remove}
+html .search-page .chip-controls{grid-area:controls;display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+html .search-page .chip-controls select{flex:1 1 96px;min-width:0;max-width:150px;width:auto}
+html .search-page .chip-controls .toggle-switch{flex:none;width:auto;justify-content:flex-start;gap:6px;white-space:nowrap}
+/* Rule picker rows: the object name keeps its full width; value and add wrap below when the column is narrow. */
+html .search-page .rule-picker{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
+html .search-page .rule-picker>span{flex:1 0 auto;max-width:100%;white-space:normal;overflow-wrap:break-word;overflow:visible;text-overflow:clip}
+html .search-page .rule-picker select{flex:0 1 auto;width:auto;min-width:96px;max-width:100%;margin-left:auto}
+html .search-page .rule-picker button{flex:none;min-width:46px}
+/* UI-016: the effects the worker names as conflicting. */
+html .search-page .selected-row.is-conflict,html .search-page .grace-chip.is-conflict{border-color:var(--a-danger)!important;box-shadow:0 0 0 1px var(--a-danger)}
+html .search-page .selected-row.is-conflict .selected-name{color:var(--a-danger)}
+/* UI-018: chosen catalog rows are listed first and marked. */
+html .search-page .catalog-row.chosen>button{background:var(--a-pri);color:var(--a-prifg);border-color:var(--a-pri)}
+
+/* ---------- save management (UI-015) ---------- */
+/* The backup list scrolls inside a bounded box, so the confirmation and re-sign panels stay in reach. */
+html .backup-page .backup-list{max-height:min(440px,46vh);overflow:auto;padding:0 12px 8px}
+html .backup-page .backup-list thead th{position:sticky;top:0;z-index:1;background:var(--a-card)}
+/* Technical details stay readable: the column scrolls instead of clipping, and the detail text scrolls on its own. */
+html .editor-page .editor-work{overflow-y:auto}
+html .notice code{max-height:min(320px,40vh);overflow:auto;user-select:text}
+
+/* Equipment and items: a star per row keeps it on top (UI-012). */
+html .character-table .pin-column{width:40px;padding:0 2px;text-align:center}
+html .character-table .pin-toggle{width:30px;height:30px;margin:0}
+html .character-search .pinned-filter{flex:none}
+
+/* Game protection and favourite marks (UI-012). */
+html .lock-mark{display:inline-flex;flex:none;align-items:center;margin:0 6px 0 0;color:var(--k-sand)}
+html .character-table .pin-column{white-space:nowrap}
+html .character-table td.pin-column>.pin-toggle{display:inline-flex;vertical-align:middle}
+html .character-table .pin-column>.lock-mark{vertical-align:middle;margin:0 2px 0 0}
+html .editor-page .editor-marks,html .character-page .character-marks{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0 0;font-size:12.5px;color:var(--a-text2)}
+html .editor-page .editor-marks label,html .character-page .character-marks label{display:inline-flex;align-items:center;gap:6px}
+/* Save picker: a two-line face over the native select, so the load-menu summary never truncates. */
+html .save-picker .save-select{position:relative;display:block;min-width:0;width:100%}
+html .save-picker .save-select>select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+html .save-select-face{display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:46px;padding:5px 32px 5px 12px;border:1px solid var(--a-line);border-radius:10px;background:var(--a-fill);color:var(--a-text);position:relative}
+html .save-select-face::after{content:"";position:absolute;right:13px;top:50%;width:7px;height:7px;border:solid var(--a-text2);border-width:0 1.5px 1.5px 0;transform:translateY(-70%) rotate(45deg)}
+html .save-select-face b{font-weight:600;font-size:13px;line-height:1.35;overflow-wrap:break-word}
+html .save-select-face small{font-size:11.5px;line-height:1.35;color:var(--a-mute);overflow-wrap:break-word}
+html .save-select:has(select:focus-visible) .save-select-face{border-color:var(--a-text2);box-shadow:inset 0 0 0 1px var(--a-text2)}
+html .save-select:has(select:disabled) .save-select-face{opacity:.55}
+html .save-select:hover .save-select-face{background:var(--a-hover)}
+/* Favorites: cards size to their content instead of the legacy fixed-pixel grid. */
+html .favorite-card{grid-template-rows:auto auto}
+html .favorite-card>.scroll{height:auto;min-height:0;grid-template-rows:none}
+html .favorite-card>.scroll>section,html .favorite-card>.scroll>section:first-of-type{grid-template-rows:none;overflow:visible}
+html .favorite-card>.scroll .effect-line,html .favorite-card>.scroll .scroll-rule{height:auto;min-height:26px;overflow:visible;font-size:13px;line-height:1.5}
+html .favorite-card>.scroll .enemy-lines{grid-template-rows:repeat(5,auto);font-size:12px;line-height:20px;overflow:visible}
+html .favorite-card>.scroll .scroll-terrain,html .favorite-card>.scroll h3,html .favorite-card>.collection-actions{height:auto}
+html .favorite-card>.scroll>footer{overflow:visible}
+/* Editor preview: long rule names wrap instead of truncating. */
+html .editor-review .editor-review-content .scroll-rule>span{white-space:normal;overflow:visible;text-overflow:clip}
+/* Narrow windows: keep the window controls inside the title bar. */
+@media (max-width:1180px){html .topbar .brand{min-width:0}html .topbar .toplinks{padding-right:4px}html .title-controls button{width:40px}}
+/* Long translations: text wraps inside its own box instead of truncating or overlapping. */
+html body .shell .scroll .effect-line,html body .shell .scroll .scroll-rule{height:auto;overflow:visible}
+html body .shell .scroll .effect-line>div>span,html body .shell .scroll .scroll-rule>span,html body .shell .scroll>header .scroll-title{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word}
+html .search-page .search-fields{align-items:end}
+html .search-page .search-fields label{white-space:normal;justify-content:flex-end}
+html .search-page .search-actions{grid-template-columns:repeat(auto-fit,minmax(min(100%,100px),1fr))}
+html .search-page .search-actions button:not(.primary-button){white-space:nowrap}
+html .search-page .result-pane h2 small{white-space:nowrap}
+html .editor-page .inventory-find{flex-wrap:wrap}
+html .editor-page .inventory-find>input{flex:1 1 150px}
+html body .shell .scroll>section:nth-of-type(n){grid-template-rows:none;grid-auto-rows:auto}
+html .search-page .search-fields{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+@media (max-width:1180px){html .shell .nav button.coming-soon{display:none}}
+/* Scroll effects table: in a narrow editor column each slot becomes two lines (effect, then value and range). */
+html .editor-page .editor-effects>.editor-section-body{container-type:inline-size}
+@container (max-width:600px){
+  html .editor-page .scroll-effects,html .editor-page .scroll-effects tbody{display:block}
+  html .editor-page .scroll-effects thead{display:none}
+  html .editor-page .scroll-effects tr{display:grid;grid-template-columns:52px minmax(0,1fr) auto;grid-template-areas:"slot effect effect" ". value range";gap:6px 8px;padding:8px;border-bottom:1px solid var(--a-line)}
+  html .editor-page .scroll-effects tr:last-child{border-bottom:0}
+  html .editor-page .scroll-effects td{display:block;padding:0;border:0}
+  html .editor-page .scroll-effects td:nth-child(1){grid-area:slot;align-self:center}
+  html .editor-page .scroll-effects td:nth-child(1)>small{white-space:normal}
+  html .editor-page .scroll-effects td:nth-child(2){grid-area:effect;min-width:0}
+  html .editor-page .scroll-effects td:nth-child(3){grid-area:value;min-width:0}
+  html .editor-page .scroll-effects td:nth-child(4){grid-area:range;align-self:center;white-space:nowrap}
+}
+/* Field grids: inputs in a row line up when a translated label wraps. */
+html .editor-fields{align-items:end}
+/* Mission overrides: one column when two would truncate the rule names. */
+html .editor-page .temporary-fields fieldset{grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}
+/* UI-023: rule conditions are cards like enemy cards; a wrapped name and its selects stay inside. */
+html .search-page .selected-body :is(.enemy-chip,.rule-chip){height:auto;min-height:0;grid-template-rows:auto auto;border-radius:11px;align-items:center}
+html .search-page .selected-body :is(.enemy-chip,.rule-chip)>.chip-name{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;line-height:1.4;padding:4px 0}
+/* Catalog rows: tier and badges move under the name instead of squeezing it (long translations). */
+html .search-page .catalog-row{flex-wrap:wrap;height:auto;row-gap:2px}
+html .search-page .catalog-row>span{flex:1 1 110px;min-width:0;overflow-wrap:break-word}
+html .search-page .catalog-row>em{display:flex;flex-wrap:wrap;align-items:center;gap:4px;white-space:nowrap;flex:0 1 auto}
+html .search-page .catalog-row>button{flex:none;white-space:nowrap}
+html .search-page .tier-tabs{flex-wrap:wrap}
+html .search-page .tier-tabs button{white-space:nowrap}
+/* Long text: tab labels, header actions, enemy names and theme choices wrap instead of escaping. */
+html .search-page .catalog-tabs .catalog-tab>span{white-space:normal;overflow-wrap:break-word}
+html .search-page .selection>header{flex-wrap:wrap}
+html .scroll .enemy-lines>span{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word}
+html .settings-menu .theme-choice{flex-wrap:wrap}
+html .settings-menu .theme-choice>button{flex:1 1 auto;min-width:0;white-space:normal}
+/* UI-026: the save plan stays bounded and its details scroll; a short-height
+   rule below lets the details area yield space to the nonshrinking footer. */
+html .character-side>.character-save-plan{flex:0 0 auto;min-height:min(260px,60%);max-height:min(70%,560px)}
+@media (max-height:680px) and (min-width:1031px){
+  html .character-side>.character-save-plan{flex:0 0 auto;min-height:fit-content;max-height:100%;overflow:auto;overscroll-behavior:contain}
+  html .search-page>main{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+  html .search-page .selection{flex:0 0 auto;min-height:0;overflow:visible}
+  html .search-page .selection .selected-body{flex:0 1 auto;min-height:90px;max-height:min(30vh,180px)}
+}
+/* UI-027: the window controls are pinned to the title bar's corner; when the bar's
+   content is wider than the window it wraps to a second row instead of pushing them out. */
+html .shell>.topbar{position:relative;flex-wrap:wrap;row-gap:0}
+html .shell>.topbar:has(>.title-controls){padding-right:var(--title-controls-width,138px)}
+html .shell>.topbar>.title-controls{position:absolute;top:0;right:0;height:64px;margin:0}
+html .shell>.topbar>.toplinks{margin-left:auto}
+@media (max-width:1180px){html .shell>.topbar{--title-controls-width:120px}}
+html .save-select-face .save-summary-missing{color:var(--k-sand)}
+/* Effects tables (scroll editor and equipment): in a narrow column each slot becomes
+   two lines, the effect picker on the first, value and range on the second. */
+html :has(>table.equipment-effects){container-type:inline-size}
+@container (max-width:600px){
+  html body table.equipment-effects,html body table.equipment-effects>tbody{display:block;width:100%}
+  html body table.equipment-effects>thead{display:none}
+  html body table.equipment-effects>tbody>tr{display:grid;grid-template-columns:52px minmax(0,1fr) auto;grid-template-areas:"slot effect effect" ". value range";gap:6px 8px;padding:8px;border-bottom:1px solid var(--a-line)}
+  html body table.equipment-effects>tbody>tr:last-child{border-bottom:0}
+  html body table.equipment-effects>tbody>tr>td{display:block;padding:0;border:0;min-width:0}
+  html body table.equipment-effects>tbody>tr>td:nth-child(1){grid-area:slot;align-self:center}
+  html body table.equipment-effects>tbody>tr>td:nth-child(1)>small{white-space:normal}
+  html body table.equipment-effects>tbody>tr>td:nth-child(2){grid-area:effect}
+  html body table.equipment-effects>tbody>tr>td:nth-child(3){grid-area:value}
+  html body table.equipment-effects>tbody>tr>td:nth-child(4){grid-area:range;align-self:center;white-space:nowrap}
+}
+/* Item names keep their tags: the name line wraps instead of ending in an ellipsis. */
+html .character-page .character-item-name{white-space:normal;overflow:visible;text-overflow:clip;display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px}
+html .character-page .character-value button{white-space:nowrap}
+/* The item list clips instead of hiding overflow: following the game's cursor
+   scrolls the selected row into view, and a hidden-overflow box scrolls too,
+   which pushed the Equipment/Items tabs out of sight. */
+html .character-page .character-list{overflow:clip}
+/* Narrow list: headers stay whole, the type column wraps. */
+html .character-table th{white-space:nowrap}
+html .character-table .character-kind{white-space:normal;overflow-wrap:normal;word-break:normal}
+/* The item list's structure holds at every width: the legacy rules that keep the
+   tabs and filters whole and scroll the table inside lived in a media query that
+   stops at 1100px, the minimum window width, where the tabs collapsed to 2px. */
+html .character-page .character-list>:is(.character-tabs,.character-filters,.character-pager){flex-shrink:0}
+html .character-page .character-list>.character-table-wrap{flex:1 1 0;min-height:0;overflow:auto}
+/* Selected terrain and capacity chips size to their text; enemy and rule cards keep a 250px minimum and share a row. */
+html .search-page .selected-body .other-conditions{display:flex;flex-direction:row;flex-wrap:wrap;align-items:flex-start;gap:8px}
+html .search-page .selected-body .other-conditions>*{flex:1 1 250px;min-width:0}
+html .search-page .selected-body .other-conditions>.chip{flex:0 1 auto;max-width:100%;white-space:normal;text-align:left}
+/* Capacity choices wrap instead of sharing the row in equal slices, which cut "不限" short. */
+html .search-page .capacity{flex-wrap:wrap}
+html .search-page .capacity button{flex:0 0 auto;min-width:34px;padding:0 10px}
+html .search-page .terrain-options button{height:auto;min-height:30px;white-space:normal;text-align:left;padding-block:5px}

@@ -174,6 +174,13 @@ export type ProtectedRequest =
                 tail_1: number;
               }
             ];
+            /**
+             * The game's protection (lock) and favourite (喜好项目) marks; only those flag bits change.
+             */
+            marks?: {
+              locked?: boolean;
+              favorite?: boolean;
+            };
           },
           ...{
             slot_index: number;
@@ -254,6 +261,13 @@ export type ProtectedRequest =
                 tail_1: number;
               }
             ];
+            /**
+             * The game's protection (lock) and favourite (喜好项目) marks; only those flag bits change.
+             */
+            marks?: {
+              locked?: boolean;
+              favorite?: boolean;
+            };
           }[]
         ];
       };
@@ -3421,6 +3435,13 @@ export type ProtectedRequest =
               tail_1: number;
             }
           ];
+          /**
+           * The game's protection (lock) and favourite (喜好项目) marks; only those flag bits change.
+           */
+          marks?: {
+            locked?: boolean;
+            favorite?: boolean;
+          };
         };
       };
     }
@@ -3705,6 +3726,14 @@ export type ProtectedRequest =
                 ];
             hell?: boolean;
             hell_skill?: number;
+            /**
+             * The game's protection (lock) mark.
+             */
+            locked?: boolean;
+            /**
+             * The game's favourite (喜好项目) mark.
+             */
+            favorite?: boolean;
           };
         }[];
         /**
@@ -6474,6 +6503,14 @@ export type ProtectedRequest =
                 ];
             hell?: boolean;
             hell_skill?: number;
+            /**
+             * The game's protection (lock) mark.
+             */
+            locked?: boolean;
+            /**
+             * The game's favourite (喜好项目) mark.
+             */
+            favorite?: boolean;
           };
         }[];
         expected_currencies?: {

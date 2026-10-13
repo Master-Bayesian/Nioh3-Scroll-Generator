@@ -1064,6 +1064,11 @@ impl SaveTransactionHost {
                             .find(|entry| entry.source_role == file.source_role)
                             .map(|entry| entry.sha256.to_ascii_lowercase())
                     });
+                    // A role the readable source bundle does not hold was never a
+                    // restore target; it keeps the checkpoint generation.
+                    if receipt_manifest.is_some() && source_sha256.is_none() {
+                        continue;
+                    }
                     write_paths.push(PathBuf::from(&file.source_path));
                     roles.push(TargetRoleState {
                         role: file.source_role.clone(),
@@ -1976,16 +1981,13 @@ impl SaveTransactionHost {
         source: &crate::backup::AuthenticatedRestoreSource,
     ) -> Result<Vec<StagedRestoreRole>, SaveReadError> {
         let targets = related_save_paths(&plan.save_path);
-        let mut staged = Vec::with_capacity(3);
+        let mut staged = Vec::with_capacity(source.files.len());
         for role in [SaveRole::System, SaveRole::GameBackup, SaveRole::Main] {
-            let source_file = source
-                .files
-                .iter()
-                .find(|file| file.identity.role == role)
-                .ok_or_else(|| SaveReadError::TamperedRecord {
-                    kind: "restore source",
-                    message: format!("the authenticated source has no {} role", role.label()),
-                })?;
+            // A role the bundle does not hold keeps its current bytes.
+            let Some(source_file) = source.files.iter().find(|file| file.identity.role == role)
+            else {
+                continue;
+            };
             let target = targets
                 .iter()
                 .find(|(target_role, _)| *target_role == role)
@@ -2289,17 +2291,17 @@ impl SaveTransactionHost {
                         })
                     }
                 };
-                if plan.backup_id != source.backup_id
-                    || plan.backup_id != *command_backup_id
-                    || source.files.len() != 3
-                {
+                if plan.backup_id != source.backup_id || plan.backup_id != *command_backup_id {
                     return Err(SaveReadError::TamperedRecord {
                         kind: "restore plan",
                         message: "the selected source identities disagree".to_string(),
                     });
                 }
+                // The main save is always restored; a live checkpoint holds only
+                // that role, an offline bundle all three.
                 for role in [SaveRole::Main, SaveRole::GameBackup, SaveRole::System] {
-                    if source.files.iter().filter(|file| file.role == role).count() != 1 {
+                    let count = source.files.iter().filter(|file| file.role == role).count();
+                    if count > 1 || (role == SaveRole::Main && count != 1) {
                         return Err(SaveReadError::TamperedRecord {
                             kind: "restore plan",
                             message: format!(
@@ -2668,7 +2670,7 @@ impl SaveTransactionHost {
         source: &crate::backup::RestoreSourceIdentity,
         installed_sha256: &str,
     ) -> Option<String> {
-        let committed = [SaveRole::Main, SaveRole::GameBackup, SaveRole::System];
+        let committed: Vec<SaveRole> = source.files.iter().map(|file| file.role).collect();
         let journal = self.restore_journal(
             checkpoint,
             plan,
@@ -2741,11 +2743,14 @@ impl SaveTransactionHost {
         source: &crate::backup::RestoreSourceIdentity,
         status: RestoreJournalStatus<'_>,
     ) -> serde_json::Value {
+        // Only the roles this restore replaces are its targets; a role the
+        // source does not hold is never written, so recovery must not expect it
+        // to reach the source generation.
         let role_results: Vec<serde_json::Value> = checkpoint
             .roles
             .iter()
-            .map(|entry| {
-                let source_file = source.files.iter().find(|file| file.role == entry.role);
+            .filter_map(|entry| {
+                let source_file = source.files.iter().find(|file| file.role == entry.role)?;
                 let replaced = status.committed.contains(&entry.role);
                 let replace_pending = status.pending.contains(&entry.role);
                 let final_state = if status.state == "committed" {
@@ -2767,16 +2772,16 @@ impl SaveTransactionHost {
                 } else {
                     "untouched"
                 };
-                serde_json::json!({
+                Some(serde_json::json!({
                     "role": entry.role.label(),
                     "target_path": entry.target,
                     "target_existed_before": entry.existed,
                     "target_before_sha256": entry.sha256,
-                    "source_sha256": source_file.map(|file| file.sha256.clone()),
+                    "source_sha256": source_file.sha256.clone(),
                     "replacement_started": replaced || replace_pending,
                     "replacement_completed": replaced,
                     "final_state": final_state,
-                })
+                }))
             })
             .collect();
         let mut journal = serde_json::json!({

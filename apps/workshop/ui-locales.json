@@ -244,9 +244,9 @@
       "Drag together to group; drag out to ungroup",
       "重ねてグループ化、外にドラッグして解除"
     ],
-    "从下方目录添加词条，也可以只选择恩宠或辅助条件。": [
-      "Add effects below, or choose only a grace or mission conditions.",
-      "下の一覧から効果を追加。恩寵やミッション条件だけでも検索できます。"
+    "从左侧条件目录添加词条，也可以只选择恩宠或辅助条件。": [
+      "Add effects from the catalog on the left, or choose only a grace or mission conditions.",
+      "左のカタログから効果を追加。恩寵やミッション条件だけでも検索できます。"
     ],
     "恩宠 · 任选一个": [
       "Grace · Any one",
@@ -1120,9 +1120,9 @@
       "Effects · Persistent",
       "主・副効果 · 保存可能"
     ],
-    "选择一行，在下方更换词条。": [
-      "Select a row, then replace its effect below.",
-      "行を選択して、下の一覧から効果を変更します。"
+    "点一行，直接在这一行下面更换词条或修改数值；再点一次收起。": [
+      "Click a row to replace its effect or edit its value right below it; click again to close.",
+      "行をクリックすると、その真下で効果の変更や数値の編集ができます。もう一度クリックで閉じます。"
     ],
     "词条 ID": [
       "Effect ID",
@@ -2040,9 +2040,9 @@
       "Every Required condition and every any-of group must be satisfied independently. The scroll may also contain enemies you did not select.",
       "各「必須」条件と各選択グループをそれぞれ満たす必要があります。選んでいない敵が同時に出現しても問題ありません。"
     ],
-    "装备加成：在左边选择你想要的词条和恩宠。刷副本：在右边选择想打的敌人、特殊规则、地形和挑战次数。": [
-      "For equipment bonuses, choose effects and graces on the left. For missions, choose enemies, rules, terrain and attempts on the right.",
-      "装備用は左側で効果と恩寵を選びます。ミッション用は右側で敵・ルール・地形・挑戦回数を選びます。"
+    "装备加成：在左侧条件目录的“主副词条”“恩宠”里选择你想要的词条和恩宠。刷副本：在“敌人”“特殊规则”“地形 · 次数”里选择想打的敌人、特殊规则、地形和挑战次数。": [
+      "For equipment bonuses, choose effects and graces under “Primary / secondary effects” and “Grace” in the catalog on the left. For missions, choose enemies, rules, terrain and attempts under “Enemies”, “Special rules” and “Terrain · attempts”.",
+      "装備用は左のカタログの「主・副効果」「恩寵」で効果と恩寵を選びます。ミッション用は「敵」「特殊ルール」「地形 · 挑戦回数」で敵・ルール・地形・挑戦回数を選びます。"
     ],
     "怎样组合词条？": [
       "How do effect groups work?",
@@ -6047,6 +6047,270 @@
     "已不再提醒上次的次数修改。": [
       "The reminder for the last count edit has been dropped.",
       "前回の回数変更の通知を解除しました。"
+    ],
+    "条件目录": [
+      "Condition catalog",
+      "条件カタログ"
+    ],
+    "装备加成 · 装备在身上": [
+      "Equipment bonuses · worn gear",
+      "装備効果 · 身に着ける装備"
+    ],
+    "副本刷取 · 刷副本时": [
+      "Missions · when farming",
+      "ミッション · 周回時"
+    ],
+    "地形 · 次数": [
+      "Terrain · attempts",
+      "地形 · 挑戦回数"
+    ],
+    "每一块都要满足；虚线框内满足其一即可": [
+      "Every block must match; inside a dashed box, any one is enough",
+      "各ブロックをすべて満たします。点線の枠内はいずれか一つで構いません"
+    ],
+    "主词条 · 前": [
+      "Primary effect · first",
+      "主効果 · 先頭の"
+    ],
+    "项任一当选": [
+      "items, any one is chosen",
+      "件のいずれかが選ばれる"
+    ],
+    "先选类型，再从下方列表添加": [
+      "Choose a type, then add from the list below",
+      "種類を選んでから、下の一覧から追加します"
+    ],
+    "无法读取这个绘卷 ID 的副本内容。": [
+      "Could not read the dungeon content for this scroll ID.",
+      "この絵巻 ID のダンジョン内容を読み込めませんでした。"
+    ],
+    "正在读取新绘卷 ID 的副本内容…": [
+      "Reading the dungeon content for the new scroll ID…",
+      "新しい絵巻 ID のダンジョン内容を読み込み中…"
+    ],
+    "正在读取副本内容…": [
+      "Reading the dungeon content…",
+      "ダンジョン内容を読み込み中…"
+    ],
+    "读取后可编辑词条和修改副本内容。": [
+      "After reading, you can edit effects and the dungeon content.",
+      "読み込み後、効果とダンジョン内容を編集できます。"
+    ],
+    "只看收藏": [
+      "Favorites only",
+      "お気に入りのみ"
+    ],
+    "收藏：总是排在最上面": [
+      "Favorite: always listed first",
+      "お気に入り：常に先頭に表示"
+    ],
+    "还没有收藏的绘卷。点绘卷右边的星标即可收藏。": [
+      "No favorite scrolls yet. Click the star on the right of a scroll to add it.",
+      "お気に入りの絵巻はまだありません。絵巻右側の星をクリックすると追加できます。"
+    ],
+    "可选词条": [
+      "Available effects",
+      "選べる効果"
+    ],
+    "可选词条范围": [
+      "Available effect range",
+      "選べる効果の範囲"
+    ],
+    "当前周目和稀有度的绘卷能出现的词条和恩宠": [
+      "Effects and graces possible on a scroll of this playthrough and rarity",
+      "この周回とレア度の絵巻に出る効果と恩寵"
+    ],
+    "任意绘卷能出现的词条": [
+      "Effects possible on any scroll",
+      "どの絵巻にも出うる効果"
+    ],
+    "全部词条（含绘卷上不会出现的）": [
+      "All effects (including ones scrolls never carry)",
+      "すべての効果（絵巻に出ないものを含む）"
+    ],
+    "游戏里所有词条都可选，绘卷上不会自然出现的词条也能写进去。": [
+      "Every effect in the game can be chosen, including ones a scroll never rolls naturally.",
+      "ゲーム内のすべての効果を選べます。絵巻に自然には出ない効果も書き込めます。"
+    ],
+    "范围外的词条请切换到“全部词条”。": [
+      "For effects outside this range, switch to \"All effects\".",
+      "範囲外の効果は「すべての効果」に切り替えてください。"
+    ],
+    "原生范围": [
+      "Native range",
+      "ネイティブ範囲"
+    ],
+    "不在所选范围内": [
+      "Outside the chosen range",
+      "選んだ範囲外"
+    ],
+    "词条数值": [
+      "Effect value",
+      "効果の数値"
+    ],
+    "原生数值": [
+      "Native value",
+      "ネイティブ数値"
+    ],
+    "原生值": [
+      "Native",
+      "ネイティブ値"
+    ],
+    "非原生值": [
+      "Not a native value",
+      "ネイティブ値ではありません"
+    ],
+    "无可核对的范围": [
+      "No range to check",
+      "確認できる範囲なし"
+    ],
+    "这一项与其他已选词条冲突": [
+      "This effect conflicts with other selected effects",
+      "この効果は他の選択した効果と競合します"
+    ],
+    "取消选择词条": [
+      "Deselect effect",
+      "効果の選択を解除"
+    ],
+    "再点一次取消选择": [
+      "Click again to deselect",
+      "もう一度クリックで選択解除"
+    ],
+    "取消选择敌人": [
+      "Deselect enemy",
+      "敵の選択を解除"
+    ],
+    "· 游玩": [
+      "· Played",
+      "· プレイ時間"
+    ],
+    "· 保存于": [
+      "· Saved",
+      "· 保存"
+    ],
+    "游玩": [
+      "Played",
+      "プレイ時間"
+    ],
+    "未读出等级和周目": [
+      "Level and playthrough not read",
+      "レベルと周回を読み取れません"
+    ],
+    "保护：": [
+      "Protected: ",
+      "保護："
+    ],
+    "喜好项目：": [
+      "Favorite: ",
+      "お気に入り："
+    ],
+    "游戏内选中的是绘卷，可以在“绘卷编辑”页定位": [
+      "The item selected in game is a scroll; locate it on the Scroll editor page",
+      "ゲーム内で選択中なのは絵巻です。「絵巻編集」ページで位置を特定できます"
+    ],
+    "游戏里已保护：不能卖掉或丢弃": [
+      "Protected in game: cannot be sold or discarded",
+      "ゲーム内で保護済み：売却・破棄できません"
+    ],
+    "保护": [
+      "Protected",
+      "保護"
+    ],
+    "移出喜好项目": [
+      "Remove from Favorites",
+      "お気に入りから外す"
+    ],
+    "加入喜好项目": [
+      "Add to Favorites",
+      "お気に入りに追加"
+    ],
+    "游戏里的喜好项目。点一下在右侧草稿里移出（保护保留）": [
+      "In the game's Favorites. Click to remove it in the draft on the right (protection stays)",
+      "ゲームのお気に入りです。クリックすると右側の下書きで外します（保護は残ります）"
+    ],
+    "在右侧草稿里加入游戏的喜好项目，同时加上保护": [
+      "Add to the game's Favorites in the draft on the right; this also protects it",
+      "右側の下書きでゲームのお気に入りに追加し、同時に保護します"
+    ],
+    "右侧有未应用的修改，请先应用或放弃。": [
+      "There are unapplied changes on the right; apply or discard them first.",
+      "右側に未適用の変更があります。先に適用するか破棄してください。"
+    ],
+    "保护（游戏里不能卖掉或丢弃）": [
+      "Protected (cannot be sold or discarded in game)",
+      "保護（ゲーム内で売却・破棄できない）"
+    ],
+    "喜好项目（加入时同时保护，和游戏一致）": [
+      "Favorite (adding also protects, as in the game)",
+      "お気に入り（追加すると保護も付きます。ゲームと同じ）"
+    ],
+    "加上保护": [
+      "Add protection",
+      "保護を付ける"
+    ],
+    "解除保护": [
+      "Remove protection",
+      "保護を外す"
+    ],
+    "已加入草稿。点“核对修改”后写入": [
+      "Added to the draft. Click \"Review changes\" to write it to the",
+      "下書きに追加しました。「変更を確認」を押すと書き込みます："
+    ],
+    "游戏。": [
+      "game.",
+      "ゲーム。"
+    ],
+    "存档。": [
+      "save.",
+      "セーブデータ。"
+    ],
+    "没有读到游戏里的选中物品，请确认游戏正在运行后再试。": [
+      "Could not read the item selected in game. Make sure the game is running and try again.",
+      "ゲーム内の選択中のアイテムを読み取れませんでした。ゲームが起動していることを確認して再試行してください。"
+    ],
+    "游戏里的背包没有打开：请在游戏里打开背包，把光标停在一张绘卷上，再点“定位游戏里选中的绘卷”。": [
+      "The in-game inventory is not open: open it, rest the cursor on a scroll, then click \"Locate the scroll selected in game\".",
+      "ゲーム内の所持品が開いていません：所持品を開いて絵巻にカーソルを合わせ、「ゲーム内で選択中の絵巻を特定」を押してください。"
+    ],
+    "游戏里选中的不是绘卷：请把光标停在一张绘卷上，再点“定位游戏里选中的绘卷”。": [
+      "The item selected in game is not a scroll: rest the cursor on a scroll, then click \"Locate the scroll selected in game\".",
+      "ゲーム内で選択中なのは絵巻ではありません：絵巻にカーソルを合わせて、「ゲーム内で選択中の絵巻を特定」を押してください。"
+    ],
+    "游戏里选中的这张绘卷还没有存进存档：请在游戏里存档（例如在神社休息）后点“重新读取”，再定位一次。": [
+      "This scroll is not in the save file yet: save in game (for example, rest at a shrine), click \"Reload\", then locate it again.",
+      "この絵巻はまだセーブデータにありません：ゲーム内でセーブ（社で休むなど）してから「再読み込み」を押し、もう一度特定してください。"
+    ],
+    "已定位到游戏里选中的绘卷（栏位": [
+      "Located the scroll selected in game (slot",
+      "ゲーム内で選択中の絵巻を特定しました（スロット"
+    ],
+    "已保护": [
+      "Protected",
+      "保護済み"
+    ],
+    "游戏里的喜好项目。点一下移出（保护保留）": [
+      "In the game's Favorites. Click to remove it (protection stays)",
+      "ゲームのお気に入りです。クリックで外します（保護は残ります）"
+    ],
+    "加入游戏里的喜好项目，同时加上保护；总是排在最上面": [
+      "Add to the game's Favorites and protect it; favorites always list first",
+      "ゲームのお気に入りに追加して保護します。お気に入りは常に先頭に表示されます"
+    ],
+    "定位游戏里选中的绘卷": [
+      "Locate the scroll selected in game",
+      "ゲーム内で選択中の絵巻を特定"
+    ],
+    "要删除的绘卷里有": [
+      "Among the scrolls to delete,",
+      "削除する絵巻のうち"
+    ],
+    "张在游戏里加了保护。确定仍要删除吗？": [
+      "are protected in game. Delete them anyway?",
+      "枚がゲーム内で保護されています。それでも削除しますか？"
+    ],
+    "仍然删除": [
+      "Delete anyway",
+      "それでも削除"
     ]
   },
   "game": {
@@ -6613,6 +6877,7 @@
       "姑获鸟": "Ubume",
       "子泣爷爷": "Konaki-Jiji",
       "小海坊主": "Lesser Umi-bozu",
+      "山县昌景": "Yamagata Masakage",
       "山县昌景（人形）": "Yamagata Masakage (Human form)",
       "山县昌景（妖怪形态）": "Yamagata Masakage (Yokai form)",
       "山姥": "Yamanba",
@@ -6639,6 +6904,7 @@
       "新选组·服部武雄": "Shinsengumi Member Hattori Takeo",
       "新选组队士": "Shinsengumi Member",
       "旗本武士": "Vassal",
+      "服部半藏": "Hattori Hanzo",
       "服部半藏（前代）": "Hattori Hanzo (Former)",
       "服部半藏（现任／子）": "Hattori Hanzo (Current)",
       "本多忠胜": "Honda Tadakatsu",
@@ -6648,9 +6914,11 @@
       "柳生宗矩": "Yagyu Munenori",
       "梶原景时": "Kajiwara Kagetoki",
       "棘饿鬼": "Thorned Gaki",
+      "武田信玄": "Takeda Shingen",
       "武田信玄（人形）": "Takeda Shingen (Human form)",
       "武田信玄（妖怪形态）": "Takeda Shingen (Yokai form)",
       "武田士兵": "Takeda Soldier",
+      "比留呼": "Hiruko",
       "比留呼（人形）": "Hiruko (Human form)",
       "比留呼（古代妖怪形态）": "Hiruko (Ancient-yokai form)",
       "比留呼（江户妖怪形态）": "Hiruko (Edo-yokai form)",
@@ -6704,6 +6972,7 @@
       "邪马台国兵": "Yamatai Soldier",
       "野槌": "Nozuchi",
       "野武士": "Rogue",
+      "金井半兵卫": "Kanai Hanbei",
       "金井半兵卫（人形）": "Kanai Hanbei (Human form)",
       "金井半兵卫（妖怪形态）": "Kanai Hanbei (Yokai form)",
       "铁鼠": "Tesso",
@@ -9737,6 +10006,7 @@
       "姑获鸟": "姑獲鳥",
       "子泣爷爷": "子泣き爺",
       "小海坊主": "小海坊主",
+      "山县昌景": "山県昌景",
       "山县昌景（人形）": "山県昌景（人型）",
       "山县昌景（妖怪形态）": "山県昌景（妖怪形態）",
       "山姥": "山姥",
@@ -9763,6 +10033,7 @@
       "新选组·服部武雄": "新選組・服部武雄",
       "新选组队士": "新選組隊士",
       "旗本武士": "旗本",
+      "服部半藏": "服部半蔵",
       "服部半藏（前代）": "服部半蔵（先代）",
       "服部半藏（现任／子）": "服部半蔵（当代）",
       "本多忠胜": "本多忠勝",
@@ -9772,9 +10043,11 @@
       "柳生宗矩": "柳生宗矩",
       "梶原景时": "梶原景時",
       "棘饿鬼": "茨餓鬼",
+      "武田信玄": "武田信玄",
       "武田信玄（人形）": "武田信玄（人型）",
       "武田信玄（妖怪形态）": "武田信玄（妖怪形態）",
       "武田士兵": "武田兵士",
+      "比留呼": "比留呼",
       "比留呼（人形）": "比留呼（人型）",
       "比留呼（古代妖怪形态）": "比留呼（古代妖怪形態）",
       "比留呼（江户妖怪形态）": "比留呼（江戸妖怪形態）",
@@ -9828,6 +10101,7 @@
       "邪马台国兵": "邪馬台国兵士",
       "野槌": "野槌",
       "野武士": "野武士",
+      "金井半兵卫": "金井半兵衛",
       "金井半兵卫（人形）": "金井半兵衛（人型）",
       "金井半兵卫（妖怪形态）": "金井半兵衛（妖怪形態）",
       "铁鼠": "鉄鼠",

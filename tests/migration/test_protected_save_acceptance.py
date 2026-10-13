@@ -1025,8 +1025,9 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
             rust_saves = self.drive(rust, "save.discover", {})["saves"]
             python_saves = self.drive(python, "save.discover", {})["saves"]
             self.assertEqual(len(rust_saves), 2, rust_saves)
+            # The load-menu summary (level, playthrough) and why it is missing are Rust-only additions.
             self.assertEqual(
-                rust_saves,
+                [{k: v for k, v in entry.items() if k not in ("summary", "summary_unavailable")} for entry in rust_saves],
                 python_saves,
                 "discovery must match the shipped worker exactly",
             )
@@ -1630,7 +1631,8 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
                 backup_id = f"20260920-role-{shape}-source-a"
                 options: dict[str, object]
                 if shape == "missing":
-                    options = {"omitted_roles": {"game_backup"}}
+                    # Companions may be absent; the main save may not.
+                    options = {"omitted_roles": {"main_save"}}
                 else:
                     options = {"file_overrides": {"game_backup": "SAVEDATA.BIN"}}
                 write_backup_bundle(

@@ -324,6 +324,14 @@
           "type": "boolean",
           "description": "Either equipment set wears the item."
         },
+        "locked": {
+          "type": "boolean",
+          "description": "The game's protection (lock) mark: the item cannot be sold or discarded."
+        },
+        "favorite": {
+          "type": "boolean",
+          "description": "The game's favourite (喜好项目) mark."
+        },
         "audit": {
           "anyOf": [
             {
@@ -889,6 +897,7 @@
         "container": {
           "enum": [
             "equipment",
+            "scroll",
             "held",
             "storage"
           ]
@@ -2685,6 +2694,44 @@
         "save_slot": {
           "type": "integer",
           "minimum": 0
+        },
+        "summary_unavailable": {
+          "type": "string",
+          "description": "Which step failed when the save has no summary (read, decrypt, or an unrecognized header)."
+        },
+        "summary": {
+          "type": "object",
+          "description": "What the game's load menu shows for this save, when readable.",
+          "additionalProperties": false,
+          "properties": {
+            "character_level": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9999
+            },
+            "play_time_seconds": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "saved_at_unix": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "playthrough": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1,
+              "maximum": 5
+            }
+          },
+          "required": [
+            "character_level",
+            "play_time_seconds",
+            "saved_at_unix",
+            "playthrough"
+          ]
         }
       },
       "required": [
@@ -2859,6 +2906,14 @@
                   "recommended_displayed_level",
                   "recommended_raw_was_clamped"
                 ]
+              },
+              "locked": {
+                "type": "boolean",
+                "description": "The game's protection (lock) mark: the item cannot be sold or discarded."
+              },
+              "favorite": {
+                "type": "boolean",
+                "description": "The game's favourite (喜好项目) mark."
               },
               "record_hex": {
                 "type": "string",

@@ -831,7 +831,8 @@ if __name__ == "__main__":
 
 # Fields the Rust save worker adds to each inventory entry beyond the retired
 # Python worker's shape: the raw record and values derived from it.
-RUST_ONLY_ENTRY_FIELDS = frozenset({"record_hex", "derived"})
+# `locked`/`favorite`: the game's protection and 喜好项目 marks (Rust-only).
+RUST_ONLY_ENTRY_FIELDS = frozenset({"record_hex", "derived", "locked", "favorite"})
 
 
 def assert_entries_extend(test, rust_entries: list, python_entries: list) -> None:

@@ -401,6 +401,8 @@ pub enum MenuSelection {
     NoSelection,
     /// An owned equipment record.
     Equipment { slot_index: usize, item_id: u16 },
+    /// An owned scroll record; `slot_index` is the save's scroll slot.
+    Scroll { slot_index: usize, item_id: u16 },
     /// A held or stored item record.
     Item {
         container: LiveItemContainer,
@@ -410,6 +412,16 @@ pub enum MenuSelection {
     /// Something outside the known arrays.
     Other { item_id: u16 },
 }
+
+/// The owned-scroll array: 400 records of `0xE8` bytes, laid out like the
+/// save's scroll slots (PC v2.02, 2026-10-11 capture: slots 36 and 37 matched
+/// the save byte for byte, and the inventory cursor pointed into this array
+/// on both the all-items and the scroll tab).
+pub const SCROLL_OFFSET: u64 = 0x25_BB30;
+/// Slots in the owned-scroll array.
+pub const SCROLL_SLOTS: usize = 400;
+/// Bytes per owned-scroll record.
+pub const SCROLL_RECORD_BYTES: usize = 0xE8;
 
 /// Read the item under the inventory menu's cursor without touching the game.
 ///
@@ -465,6 +477,20 @@ pub fn read_menu_selection(memory: &dyn InventoryMemory) -> Result<MenuSelection
         }
         return Ok(MenuSelection::Equipment {
             slot_index: (offset / EQUIPMENT_RECORD_BYTES as u64) as usize,
+            item_id,
+        });
+    }
+    let scrolls = player + SCROLL_OFFSET;
+    let span = (SCROLL_SLOTS * SCROLL_RECORD_BYTES) as u64;
+    if (scrolls..scrolls + span).contains(&item) {
+        let offset = item - scrolls;
+        if !offset.is_multiple_of(SCROLL_RECORD_BYTES as u64) {
+            return Err(layout(
+                "the selected item is not aligned to a scroll record",
+            ));
+        }
+        return Ok(MenuSelection::Scroll {
+            slot_index: (offset / SCROLL_RECORD_BYTES as u64) as usize,
             item_id,
         });
     }
@@ -804,6 +830,28 @@ mod tests {
             read_menu_selection(&fake).unwrap(),
             MenuSelection::Other { item_id: 0x24AF }
         );
+    }
+
+    #[test]
+    fn the_menu_cursor_resolves_to_a_scroll_slot() {
+        // The owner's capture: the cursor on the newest scroll pointed at
+        // scroll slot 37, the next one down at slot 36.
+        for slot in [36usize, 37] {
+            let record = PLAYER + SCROLL_OFFSET + (slot * SCROLL_RECORD_BYTES) as u64;
+            let fake = with_open_menu(record);
+            fake.put(record, &0xE604u16.to_le_bytes());
+            assert_eq!(
+                read_menu_selection(&fake).unwrap(),
+                MenuSelection::Scroll {
+                    slot_index: slot,
+                    item_id: 0xE604
+                }
+            );
+        }
+        let misaligned = PLAYER + SCROLL_OFFSET + 0x10;
+        let fake = with_open_menu(misaligned);
+        fake.put(misaligned, &0u16.to_le_bytes());
+        assert!(read_menu_selection(&fake).is_err());
     }
 
     #[test]
