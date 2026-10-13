@@ -501,11 +501,14 @@ pub struct SaveSummary {
 }
 
 /// The decrypted save opens with the load-menu summary block (PC v2.02):
-/// `+0x10` tag, `+0x20` u32 save time, `+0x28` u32 character level and `+0x30`
-/// u64 play time in microseconds. Checked on 2026-10-11 against the load menu
-/// of two saves (level 364 / 194:09 and 450 / 752:25, save times to the second).
-const SUMMARY_TAG_OFFSET: usize = 0x10;
-const SUMMARY_TAG: u32 = 0x1AB5_A87D;
+/// `+0x20` u32 save time, `+0x28` u32 character level and `+0x30` u64 play time
+/// in microseconds. Checked on 2026-10-11 against the load menu of two saves
+/// (level 364 / 194:09 and 450 / 752:25, save times to the second).
+///
+/// The block is recognized by the header words every v2.02 save shares. The
+/// word at `+0x10` is not one of them: it differs between accounts (a tester's
+/// save had 0x415BF311 where the owner's all had 0x1AB5A87D, UI-028).
+const SUMMARY_HEADER: [(usize, u32); 3] = [(0x00, 0x554E_4E52), (0x14, 0x0110_0001), (0x18, 0x158)];
 const SUMMARY_SAVED_AT_OFFSET: usize = 0x20;
 const SUMMARY_LEVEL_OFFSET: usize = 0x28;
 const SUMMARY_PLAY_TIME_OFFSET: usize = 0x30;
@@ -518,12 +521,16 @@ pub fn save_summary_problem(plain: &[u8]) -> String {
             .get(offset..offset + 4)
             .map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
     };
-    match (word(SUMMARY_TAG_OFFSET), word(SUMMARY_LEVEL_OFFSET)) {
-        (Some(tag), _) if tag != SUMMARY_TAG => {
-            format!("header tag {tag:#010x}, expected {SUMMARY_TAG:#010x}")
-        }
-        (Some(_), Some(level)) => format!("character level {level} out of range"),
-        _ => format!("save is only {} bytes", plain.len()),
+    if let Some(&(offset, expected)) = SUMMARY_HEADER
+        .iter()
+        .find(|&&(offset, expected)| word(offset).is_some_and(|w| w != expected))
+    {
+        let found = word(offset).unwrap_or_default();
+        return format!("header word +{offset:#04x} is {found:#010x}, expected {expected:#010x}");
+    }
+    match word(SUMMARY_LEVEL_OFFSET) {
+        Some(level) => format!("character level {level} out of range"),
+        None => format!("save is only {} bytes", plain.len()),
     }
 }
 
@@ -533,8 +540,10 @@ pub fn save_summary(plain: &[u8]) -> Option<SaveSummary> {
         let bytes = plain.get(offset..offset + 4)?;
         Some(u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]))
     };
-    if word(SUMMARY_TAG_OFFSET)? != SUMMARY_TAG {
-        return None;
+    for (offset, expected) in SUMMARY_HEADER {
+        if word(offset)? != expected {
+            return None;
+        }
     }
     let character_level = word(SUMMARY_LEVEL_OFFSET)?;
     if !(1..=9999).contains(&character_level) {
@@ -1820,7 +1829,11 @@ mod generation_state_tests {
 
     /// The load-menu block of the owner's level-364 save (2026-10-11 capture).
     fn with_summary(mut plain: Vec<u8>) -> Vec<u8> {
-        plain[0x10..0x14].copy_from_slice(&SUMMARY_TAG.to_le_bytes());
+        for (offset, value) in SUMMARY_HEADER {
+            plain[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        // Account-specific, not part of the format (UI-028).
+        plain[0x10..0x14].copy_from_slice(&0x415B_F311u32.to_le_bytes());
         plain[0x20..0x24].copy_from_slice(&0x6AC4_4D23u32.to_le_bytes());
         plain[0x28..0x2C].copy_from_slice(&364u32.to_le_bytes());
         plain[0x30..0x38].copy_from_slice(&694_875_282_830u64.to_le_bytes());
@@ -1841,7 +1854,7 @@ mod generation_state_tests {
                 playthrough: Some(3),
             }
         );
-        // Without the tag, or with an implausible level, there is no summary.
+        // Without the v2.02 header, or with an implausible level, there is no summary.
         assert!(save_summary(&serialized(3, a, a)).is_none());
         let mut zero = with_summary(serialized(3, a, a));
         zero[0x28..0x2C].copy_from_slice(&0u32.to_le_bytes());
