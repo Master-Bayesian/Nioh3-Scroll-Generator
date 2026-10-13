@@ -24,7 +24,7 @@ Use the pipeline for mechanical work and evidence reports for decisions. Read AG
 
 Preparation and diagnosis do not imply remote-write permission. Obtain explicit owner authorization before pushes, dispatches or publication. Once the owner authorizes finishing a release, carry the scoped workflow through without repeatedly asking for the same approval; ask again for a materially different target, version, destructive replacement or safety boundary. The publication helper defaults to a read-only plan; `-Publish` is an explicit mutation boundary.
 
-Use the repository orchestration skill for bounded worker execution. Give a worker the exact SHA/run, owned paths, completion artifact and escalation condition. Let it report completion or a concrete failure; keep the root out of repeated log polling and full-code rereads. Failure details belong in the failure ledger, not this skill.
+Prefer direct preparation and verification in the current chat. Delegate only a bounded, independent part with a clear quality or overall turnaround benefit, using a capable model and accounting for review and repair costs. When delegating, use the repository orchestration skill and provide the exact SHA/run, owned paths, completion artifact, and escalation condition. Failure details belong in the failure ledger, not this skill.
 
 ## Completion
 

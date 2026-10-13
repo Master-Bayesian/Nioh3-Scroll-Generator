@@ -557,9 +557,9 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   // the toolbar button re-reads it.
   const saveId = mode === "save" ? save?.selected?.save_id ?? null : null;
   useEffect(() => {
-    if (character || busy || (mode === "save" && !saveId)) return;
+    if (character || busy || (mode === "save" && (!saveId || save?.busy || !save?.inventory))) return;
     void load();
-  }, [mode, saveId]);
+  }, [mode, saveId, save?.busy]);
   const revealRef = useRef<{ tab: Tab; key: number } | null>(null);
   const missingRef = useRef<string | null>(null);
   const dirty =

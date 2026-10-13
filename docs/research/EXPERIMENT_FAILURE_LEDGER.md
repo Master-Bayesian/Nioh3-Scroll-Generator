@@ -1,5 +1,49 @@
 # Experiment failure ledger
 
+## 2026-10-13: packaged plan-footer harness selector drift on frozen Arc candidate
+
+**Objective:** run the existing native `verify-character-plan-footer.mjs` fixture
+against the exact install-free outer EXE built from frozen source
+`d5bfb5334320842bd4bd123b3048b482f05d63e9`.
+
+**Observed:** the outer launched successfully and the synthetic isolated
+profile/worker graph was created, but the harness failed before its first
+assertion at `apps/tauri/verify-character-plan-footer.mjs:100`: selector
+`.nav nav>button` timed out. The current production navigation is exposed as
+`nav.nav > button`. The retained report records `pass=false`, `checks=0`,
+`gameWrites=0`, `realSaveWrites=0`, exact outer SHA-256
+`db4d40ddcec9897cf823c2a65ba98115e330d3ec720ebc48f88da822d3b0f85f`, and
+source commit `d5bfb5334320842bd4bd123b3048b482f05d63e9`.
+
+**Cause:** known deterministic harness selector drift; this is a verifier
+failure, not a product UI assertion or a native save/game failure.
+
+**Evidence:**
+`deliverables/arc-ui-debug-20261012/native/evidence/plan-footer-final/plan-footer-e2e.json`.
+The prior setup attempt with a missing D:-rooted TEMP directory is retained in
+the same task scratch history; the corrected rerun reached the selector timeout
+above. The scoped selector repair has now been applied; the immutable d5
+package was not rebuilt or rerun after it.
+
+**Disposition:** the helper now uses current navigation, the production woff2
+loader, serialized discovery and current fixture responses. Source preflight
+of the helper exposed a separate product race: initial automatic selection
+publishes a selected save while its inventory is still initializing, so
+CharacterEditor.load calls refresh before SaveSession.select completes and
+receives BUSY. The failure was recorded before the product repair in
+`deliverables/arc-ui-debug-20261012/web/initial-save-selection-baseline/`.
+CharacterEditor now waits for the inventory and idle SaveSession. The focused
+browser fixture passed 46/46 assertions after that change. Retained earlier
+font-loader and fixture setup failures are harness evidence, not product gates.
+The next exact candidate must rerun the native fixture and source identity check.
+
+**Reproduction:** confirmed on the frozen candidate; reproduction status is
+`yes`.
+
+**Follow-up:** `pending`; next exact-candidate rerun must retain synthetic
+fixture boundaries and prove zero game/save writes. This ledger entry does not
+authorize a build, publish, or source-wide change.
+
 ## 2026-10-03: protected size fixture also needs its declared root in source CI
 
 **Observed:** local host_save_size_boundary rejects a missing NIOH3_BUILD_ROOT

@@ -2,9 +2,9 @@
 
 This workflow records the focused lessons from the Arc preview review. It is a
 maintenance guide, not a redesign plan and not a claim of WCAG compliance.
-The reviewed source identity remains CSS SHA-256
-e3b19ff4ca35a7fe39774c91ac843621a9f57dea0bc3dc38785f757e447fde95; the final
-browser matrix remains 1,062/1,062 passed.
+Source identities and current acceptance results are recorded in
+[ARC_UI_DEBUG_ACCEPTANCE_20261012.md](ARC_UI_DEBUG_ACCEPTANCE_20261012.md) and
+the linked task evidence. Keep earlier candidate evidence immutable.
 
 ## Define layout roles before changing a rule
 
@@ -19,6 +19,12 @@ Record the rectangle, computed display, overflow, min/max size, flex basis,
 flex grow/shrink, and scrollHeight/clientHeight for each role at the failing
 state. A geometry pass is partial evidence: it does not replace screenshot
 inspection or behavior/ownership checks.
+
+For inline metadata, use a shared font role and baseline alignment. Reset
+inherited margins and line heights within that component. Measure the actual
+text baseline with a temporary zero-height inline marker; mixed-script glyph
+bounds do not reliably represent it. Keep technical build identity in
+diagnostics when the owner excludes it from the normal product header.
 
 Give exactly one element ownership of each scroll region. An inner text/row
 region should use min-height:0 and overflow:auto when its parent is a bounded

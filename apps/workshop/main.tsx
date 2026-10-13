@@ -584,12 +584,11 @@ function App() {
     [popup, setPopup] = useState("");
   useEffect(() => setFeedbackState(""), [popup]);
   const [appVersion, setAppVersion] = useState("");
-  const [sourceCommit,setSourceCommit]=useState("");
   useEffect(() => {
     if (!desktop) return;
     void window.support
       .diagnostics()
-      .then((report) => {setAppVersion(report.version);setSourceCommit(report.packageVerification?.sourceCommit?.slice(0,7)||"")})
+      .then((report) => setAppVersion(report.version))
       .catch(() => {});
   }, []);
   const logs = useRef<string[]>([]);
@@ -1062,10 +1061,9 @@ function App() {
           <BrandMark />
           <div className="brand-text">
             <b>独脚踏鞴工作室</b>
-            <small>
+            <small className="brand-metadata">
               <span className="credits">作者：MasterBayesian · Saber_Li</span>
-              {appVersion && <em className="app-version">v{appVersion}</em>}
-              {sourceCommit&&<em className="app-build" title="当前程序构建">{sourceCommit}</em>}
+              {appVersion && <span className="app-version">v{appVersion}</span>}
             </small>
           </div>
         </div>

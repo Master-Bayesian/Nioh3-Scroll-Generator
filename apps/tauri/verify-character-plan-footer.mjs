@@ -3,7 +3,7 @@
  * Inventory, plans and commits are scripted; no real save/game writes.
  */
 import assert from 'node:assert/strict';
-import {spawn} from 'node:child_process';
+import {spawn,execFileSync} from 'node:child_process';
 import {mkdir,mkdtemp,writeFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {join,resolve} from 'node:path';
@@ -31,6 +31,7 @@ const fixture=()=>{
  api.current=async()=>({job:null,busy:false});
  const respond=async command=>{
   const f=window.__planFooter,p=command.params;f.calls.push(structuredClone(command));
+  if(command.method==='runtime.compatibility')return {compatibility:{present:false,reference_match:true,warning:false,accepted:false,plan:null,backup:null,differences:[],hard_blocks:[],game_version:'2.0.2.0',executable:'D:/synthetic/Nioh3.exe'}};
   if(command.method==='save.discover')return {saves:[reference]};
   if(command.method==='save.inventory')return structuredClone(inventory);
   if(command.method==='save.operations')return {operations:[]};
@@ -51,13 +52,7 @@ const fixture=()=>{
   if(command.method==='runtime.effect_values')return {values:[]};
  throw Error('FIXTURE_METHOD_NOT_ALLOWED: '+command.method);
  };
- api.execute=async command=>{
-  const reply=await respond(command);
-  if(!command.method.startsWith('save.')||'job_id' in reply)return reply;
-  const f=window.__planFooter,id='save-job-'+f.serial++;f.jobs??={};
-  f.jobs[id]={job_id:id,kind:command.method,state:'completed',sequence:2,cancellable:false,progress:null,result:reply,error:null};
-  return {...f.jobs[id],state:'running',sequence:1,result:null};
- };
+ api.execute=respond;
  api.snapshot=async(role,id)=>window.__planFooter.jobs?.[id]??originalSnapshot?.(role,id);
 };
 async function prepare(count=5){
@@ -89,16 +84,23 @@ try{
   for(let i=0;i<150;i++){try{if((await fetch('http://127.0.0.1:'+port+'/json/version')).ok)break}catch{}await pause(300)}
   context=await chromium.connectOverCDP('http://127.0.0.1:'+port);page=context.contexts()[0].pages()[0];session={browser:context,page};
   await page.locator('.shell').waitFor();
+  report.packageDiagnostics=await page.evaluate(()=>window.support.diagnostics());
+  check('native package hashes and source match the frozen candidate',report.packageDiagnostics.packageVerification?.ok&&report.packageDiagnostics.packageVerification.sourceCommit===execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),report.packageDiagnostics.packageVerification);
   await page.waitForFunction(()=>{const button=document.querySelector('.editor-host .save-picker>button');return button&&!button.disabled},{},{timeout:30000});
  }else{
   const rootSource=resolve(import.meta.dirname,'../..');
-  const bundle=await build({entryPoints:[join(rootSource,'apps/workshop/main.tsx')],bundle:true,write:false,outdir:'out',format:'iife',platform:'browser',jsx:'transform',jsxFactory:'localizedElement',tsconfigRaw:{compilerOptions:{jsx:'react',jsxFactory:'localizedElement'}},inject:[join(rootSource,'apps/workshop/presentation-jsx.ts')],define:{'process.env.NODE_ENV':'"production"'}});
-  const html=`<!doctype html><html><head><meta charset="utf-8"><style>${bundle.outputFiles.find(f=>f.path.endsWith('.css')).text}</style></head><body><div id="root"></div><script>const canned=async()=>({});window.operations={execute:canned,current:async()=>({job:null,busy:false})};window.nioh={handshake:canned};window.preferences={getLocale:async()=> 'zh-CN',setLocale:canned};window.support={diagnostics:canned};window.review={update:async()=>({phase:'current',canApply:true}),windowAction:canned,favorites:async()=>[],log:canned};</script><script>${bundle.outputFiles.find(f=>f.path.endsWith('.js')).text.replaceAll('</script','<\\/script')}</script></body></html>`;
+  const bundle=await build({entryPoints:[join(rootSource,'apps/workshop/main.tsx')],bundle:true,write:false,outdir:'out',format:'iife',platform:'browser',jsx:'transform',jsxFactory:'localizedElement',tsconfigRaw:{compilerOptions:{jsx:'react',jsxFactory:'localizedElement'}},inject:[join(rootSource,'apps/workshop/presentation-jsx.ts')],loader:{'.woff2':'dataurl'},define:{'process.env.NODE_ENV':'"production"'}});
+  const html=`<!doctype html><html><head><meta charset="utf-8"><style>${bundle.outputFiles.find(f=>f.path.endsWith('.css')).text}</style></head><body><div id="root"></div><script>const canned=async()=>({});window.operations={execute:canned,current:async()=>({job:null,busy:false})};window.nioh={handshake:canned};window.preferences={getLocale:async()=> 'zh-CN',setLocale:canned};window.support={diagnostics:canned};window.review={update:async()=>({phase:'current',canApply:true}),windowAction:canned,favorites:async()=>[],log:canned};</script><script>(${fixture.toString()})();</script><script>${bundle.outputFiles.find(f=>f.path.endsWith('.js')).text.replaceAll('</script','<\\/script')}</script></body></html>`;
   server=createServer((_,res)=>res.end(html));await new Promise(r=>server.listen(0,'127.0.0.1',r));
   context=await chromium.launchPersistentContext(join(root,'profile'),{headless:true,viewport:{width:1440,height:900}});page=await context.newPage();await page.goto('http://127.0.0.1:'+server.address().port);
  }
- await page.evaluate(fixture);await page.locator('.nav nav>button').nth(4).click();
- await page.locator('.character-modes button').nth(1).click();await page.locator('.character-page .save-picker>button').nth(1).click();
+ await page.evaluate(fixture);await page.locator('nav.nav > button').nth(4).click();
+ await page.locator('.character-modes button').nth(1).click();
+ await page.waitForFunction(()=>{const select=document.querySelector('.character-page .save-picker select');return select&&!select.disabled});
+ if(await page.locator('.character-page .save-picker select').inputValue()!=='plan-footer-fixture')await page.locator('.character-page .save-picker>button').first().click();
+ await page.waitForFunction(()=>{const select=document.querySelector('.character-page .save-picker select');return select?.value==='plan-footer-fixture'&&!select.disabled});
+ await page.waitForTimeout(1000);
+ check('initial automatic save selection loads the character without a busy refusal',await page.locator('.character-page .character-table-wrap').isVisible());
  await page.locator('.character-sections button').nth(1).click();
  await page.locator('[data-row="add-171"]').click();
  await page.locator('.seed-panel button.primary').click();await page.locator('.seed-outcomes button').first().click();
@@ -131,6 +133,6 @@ try{
  check('unknown result still visibly fences the save',await page.locator('.character-page .uncertain-operation').count()===1);
  check('discard never commits',await page.evaluate(()=>window.__planFooter.calls.filter(c=>c.method==='save.commit').length===2));
  report.calls=await page.evaluate(()=>window.__planFooter.calls);report.pass=true;
-}catch(error){report.error=error.stack||String(error);if(page){report.visibleText=await page.locator('body').innerText().catch(()=>null);await page.screenshot({path:join(out,'failure.png')}).catch(()=>{})}}
+}catch(error){report.error=error.stack||String(error);if(page){report.calls=await page.evaluate(()=>window.__planFooter?.calls).catch(()=>null);report.visibleText=await page.locator('body').innerText().catch(()=>null);await page.screenshot({path:join(out,'failure.png')}).catch(()=>{})}}
 finally{if(values.exe)await closeSession(session,child).catch(e=>{report.pass=false;report.closeError=String(e)});else await context?.close();server?.close();await writeFile(join(out,'plan-footer-e2e.json'),JSON.stringify(report,null,2));}
 console.log(JSON.stringify({pass:report.pass,checks:report.checks.length,error:report.error,closeError:report.closeError}));if(!report.pass)process.exitCode=1;

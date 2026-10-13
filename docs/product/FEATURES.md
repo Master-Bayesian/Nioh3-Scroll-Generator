@@ -40,15 +40,13 @@ recovery boundaries for `SCROLL-SEARCH`, `SCROLL-ADD`, `SAVE-BACKUP`,
 `SUPPORT-DIAGNOSTICS`. The focused source fixes let long catalog tabs wrap
 inside their card, bound compact save-install content across unresolved and
 resolved receipt states, wrap the short-DPI primary-controls hint, and keep
-the short-DPI equipment plan footer reachable. Browser fixtures use a
-synthetic bridge with no game, user-save, or commit writes; the final matrix
-passed 1,062/1,062 checks with 18 bridge runs, zero commits, and zero forbidden
-writes. Focused text-fit passed and character-draft passed 58/58. The source
-CSS SHA-256 is `e3b19ff4ca35a7fe39774c91ac843621a9f57dea0bc3dc38785f757e447fde95`.
-The native report/readiness links describe a base unsigned preview package, not
-a matching final candidate. See
+the short-DPI equipment plan footer reachable. The owner-approved header
+change aligns author/version baselines and keeps source identity in diagnostics.
+Initial automatic save selection now waits for inventory initialization before
+loading the character. Browser fixtures use a synthetic bridge without real
+game or save writes. Earlier candidate reports remain immutable history. See
 [`ARC_UI_DEBUG_ACCEPTANCE_20261012.md`](ARC_UI_DEBUG_ACCEPTANCE_20261012.md)
-for the evidence boundary and future matching-candidate requirement.
+for the current exact candidate results and acceptance boundary.
 
 ## In-development capabilities (not shipped)
 

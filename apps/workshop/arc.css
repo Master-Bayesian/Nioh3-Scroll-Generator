@@ -65,9 +65,8 @@ html .topbar .brand{display:flex;align-items:center;gap:10px;min-width:250px;fle
 html .topbar .brand-mark{flex:none;border-radius:9px}
 html .topbar .brand-text{display:flex;flex-direction:column;line-height:1.25;min-width:0}
 html .topbar .brand-text b{font-size:15px;font-weight:600}
-html .topbar .brand-text small{display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--a-mute);white-space:nowrap;margin:0;letter-spacing:0}
-html .topbar .brand-text em{font-style:normal;position:static;color:var(--a-mute);font-size:11px;background:none;padding:0}
-html .topbar .credits{font-size:11.5px;color:var(--a-mute)}
+html .topbar .brand-text small{display:flex;gap:8px;align-items:baseline;font-size:11.5px;line-height:1.4;color:var(--a-mute);white-space:nowrap;margin:0;letter-spacing:0}
+html .topbar .brand-metadata>:is(.credits,.app-version){font:inherit;line-height:inherit;color:inherit;margin:0;padding:0;background:none}
 html .shell .nav{grid-row:auto;display:flex;flex-direction:row;gap:2px;flex:none;padding:4px;margin:0;background:var(--a-fill);border:1px solid var(--a-line);border-radius:14px;color:var(--a-text2)}
 html .shell .nav button{display:flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:0;border-radius:10px;background:transparent;box-shadow:none;color:var(--a-text2);font-size:13.5px;font-weight:500;flex-direction:row}
 html .shell .nav button:hover:not(:disabled){background:var(--a-hover);color:var(--a-text)}

@@ -428,6 +428,47 @@ async function searchPressureGeometry(page) {
   });
 }
 
+async function auditBrandMetadata(page, locale, theme, matrix) {
+  await page.waitForFunction(() => !!document.querySelector(".app-version")?.textContent?.trim(), null, { timeout: 10000 }).catch(() => {});
+  const info = await page.evaluate(() => {
+    const describe = (selector) => {
+      const element = document.querySelector(selector);
+      if (!element) return { selector, exists: false };
+      const rect = element.getBoundingClientRect();
+      const css = getComputedStyle(element);
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      const textRect = range.getBoundingClientRect();
+      const marker = document.createElement("span");
+      marker.style.cssText = "display:inline-block;width:0;height:0;padding:0;margin:0;border:0;vertical-align:baseline";
+      element.append(marker);
+      const baseline = marker.getBoundingClientRect().top;
+      marker.remove();
+      return { selector, exists: true, text: element.textContent?.trim() || "", visible: rect.width > 0 && rect.height > 0 && css.display !== "none" && css.visibility !== "hidden", rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height }, textRect: { left: textRect.left, top: textRect.top, right: textRect.right, bottom: textRect.bottom, width: textRect.width, height: textRect.height }, baseline, fontFamily: css.fontFamily, fontSize: parseFloat(css.fontSize), lineHeight: parseFloat(css.lineHeight), display: css.display, visibility: css.visibility };
+    };
+    const navLabels = [...document.querySelectorAll("nav.nav > button:not(:disabled)")].map(button => ({ label: button.querySelector("span")?.textContent?.trim() || button.textContent?.trim() || "", aria: button.getAttribute("aria-label") || "" }));
+    const brand = document.querySelector(".brand-text");
+    return { brandText: brand?.textContent?.trim() || "", author: describe(".brand-text .credits"), version: describe(".brand-text .app-version"), build: describe(".brand-text .app-build"), small: describe(".brand-text small"), navLabels };
+  });
+  const prefix = `${locale}/${theme}/${matrix.label}`;
+  const versionPresent = info.version.exists && info.version.visible && Boolean(info.version.text);
+  const authorVersionPresent = info.author.exists && info.author.visible && versionPresent && Boolean(info.author.text);
+  const compactBrand = matrix.width <= 1180;
+  check(`${prefix}: brand preserves version and responsive author visibility`, versionPresent && (compactBrand || authorVersionPresent), info, "brand");
+  const fontConsistent = versionPresent && info.author.exists && info.author.fontFamily === info.version.fontFamily && Math.abs(info.author.fontSize - info.version.fontSize) <= 0.25 && Math.abs(info.author.lineHeight - info.version.lineHeight) <= 0.5;
+  check(`${prefix}: brand author/version font roles are consistent`, fontConsistent, { author: info.author, version: info.version }, "brand");
+  const baselineAligned = authorVersionPresent ? Math.abs(info.author.baseline - info.version.baseline) <= 1 : compactBrand && versionPresent;
+  check(`${prefix}: visible brand metadata shares a text baseline`, baselineAligned, { author: info.author.baseline, version: info.version.baseline, compactBrand, small: info.small.rect }, "brand");
+  const buildHidden = !info.build.exists || !info.build.visible || !info.build.text;
+  check(`${prefix}: build SHA is hidden from the brand`, buildHidden, { build: info.build, brandText: info.brandText }, "brand");
+  const diagnostics = await page.evaluate(() => window.support?.diagnostics?.()).catch(error => ({ error: String(error) }));
+  const sourceCommit = diagnostics?.packageVerification?.sourceCommit || diagnostics?.sourceCommit || "";
+  check(`${prefix}: source commit remains available through diagnostics`, typeof sourceCommit === "string" && sourceCommit.length >= 7, { sourceCommit, diagnostics }, "identity");
+  const labels = info.navLabels.map(entry => entry.label).filter(Boolean);
+  check(`${prefix}: normal navigation labels are unique`, new Set(labels).size === labels.length, { labels, navLabels: info.navLabels }, "brand");
+  return { ...info, diagnostics, sourceCommit };
+}
+
 async function capture(page, run, stateName, matrix, locale, theme, extra = {}) {
   await page.waitForTimeout(100);
   const tag = [run, locale, theme, matrix.label, stateName].map(safeName).join("-");
@@ -695,6 +736,7 @@ try {
           await page.goto(serverUrl, { waitUntil: "domcontentloaded" });
           await page.locator("#root .shell").waitFor({ state: "visible", timeout: 15000 });
           await page.waitForTimeout(500);
+          await auditBrandMetadata(page, locale, theme, matrix);
           await runExpanded(page, matrix, locale, theme);
         } catch (error) {
           check(`${locale}/${theme}/${matrix.label}: app mounted`, false, String(error), "harness");

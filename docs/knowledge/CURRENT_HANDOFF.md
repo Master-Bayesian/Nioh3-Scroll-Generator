@@ -1612,14 +1612,11 @@ PC v2.02 protected writes stay disabled and unapproved.
 
 ## Agent orchestration note
 
-Multi-agent work in this repository runs an Astra root that owns the outcome,
-ticket design, prioritization, risk and uncertainty decisions, and acceptance,
-with DeepSeek V4.1 Flash workers executing coding, tests, documentation,
-packaging, and bounded evidence collection. Worker routing is the official
-`router_deepseek_deepseek_v4_1_flash` role (model
-`deepseek/deepseek-v4.1-flash`), the default and only DeepSeek worker route the
-owner set. Read `$nioh3-agent-orchestration`
-(`.agents/skills/nioh3-agent-orchestration/SKILL.md`) for ticket shape,
-parallelism, context, review, and reporting detail; `AGENTS.md` keeps the routing
-summary and links the skill so a fresh thread finds it. This is operational
-routing, not a capability claim.
+Complete cohesive work directly in the current chat. Delegate only when a
+bounded, independent subtask has a clear quality or overall turnaround benefit;
+do not delegate merely to save tokens or use available agents. Use the configured
+model by default and capable models for any delegated work, accounting for
+handoff, review, retries, and repair. This repository prescribes no fixed root /
+worker split, model family, provider, or reasoning effort. Read
+`$nioh3-agent-orchestration` (`.agents/skills/nioh3-agent-orchestration/SKILL.md`)
+when delegation is useful; `AGENTS.md` carries the current execution policy.

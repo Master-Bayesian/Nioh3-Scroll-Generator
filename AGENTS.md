@@ -15,14 +15,12 @@ A short router: state what changes a decision, and leave procedure to the linked
 - Treat a detected mismatch as the start of recovery. Safely refresh or reconcile stale state automatically when the user's intended action is clear; otherwise provide an executable recovery action or concrete steps. Preserve form inputs and task context. Never automatically replay a write whose result is unknown.
 - When continuation truly requires missing information, evidence, or a valid target, explain the actual and expected values, the affected operation, how to obtain or correct the prerequisite, and how to resume. Errors must help the user finish the task without asking the product author to diagnose a screenshot. Keep necessary write boundaries, but do not implement them as refusals with no recovery path; this principle does not grant permission to bypass security or authorization.
 
-## Routing
+## Execution
 
-- The Astra root owns outcome, ticket design, prioritization, risk decisions, and acceptance; native workers on
-  `gpt-5.6-luna` at `reasoning_effort: max` execute implementation, tests, docs, packaging, and bounded evidence collection.
-- Use `$nioh3-agent-orchestration` (`.agents/skills/nioh3-agent-orchestration/SKILL.md`) for role and model IDs,
-  ticket shape, parallelism, context, review, and reporting; use the native `worker`/default role with `fork_turns: none`
-  unless bounded context is needed, and keep tickets self-contained. Do not select DeepSeek or a router/provider fallback
-  without the owner's decision.
+- Prefer completing cohesive work directly in the current chat. Delegate when a bounded, independent subtask has a clear quality or overall turnaround benefit; do not split work merely to use agents or save tokens.
+- Use the configured model; this repository does not prescribe a root/worker split, model family, or reasoning effort. Do not change global model or provider configuration as part of repository work.
+- Use a capable model for delegated work. Judge total cost including handoff, review, retries, and repair; a lower model price alone is not a reason to delegate.
+- When delegation is useful, use `$nioh3-agent-orchestration` (`.agents/skills/nioh3-agent-orchestration/SKILL.md`) for bounded tickets, file ownership, integration, and reporting.
 
 ## Context
 
@@ -45,7 +43,7 @@ A short router: state what changes a decision, and leave procedure to the linked
 - Research produces the self-contained Pro handoff; verify Pro conclusions before integrating them.
 - Do not push, tag, publish assets, replace an update feed, or announce a release without explicit owner authorization; release reporting detail is in `$nioh3-release`.
 - A substantive research, build, packaging, or release failure gets a bounded `docs/research/EXPERIMENT_FAILURE_LEDGER.md`
-  entry, delegated to a native Luna worker; fields are in `$nioh3-agent-orchestration`, and it never blocks the main task.
+  entry from the active agent, recording the objective, symptom, cause or `unknown`, evidence, disposition, reproduction, and follow-up. It never blocks the main task.
 - Work the task through implementation, verification, and repair until done or a real owner decision is needed; define completion up front.
 - Report on completion or a genuine blocker with a proportionate summary (conclusion, files, evidence, checks, remaining decisions; no padding or raw logs).
-- Workers in the shared worktree must not run `git stash`, `git clean`, reset, or checkout/restore another owner's paths, or make any other worktree-wide state change; when isolation is needed, ask root for a managed worktree, or limit edits to explicitly owned paths.
+- In a shared or dirty worktree, do not run `git stash`, `git clean`, reset, or checkout/restore another owner's paths, or make any other worktree-wide state change. Use a managed worktree when isolation is needed, or limit edits to explicitly owned paths.
