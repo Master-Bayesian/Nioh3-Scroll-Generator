@@ -157,5 +157,6 @@ affected save and a fresh log so the new incident can be investigated.
 - QQ group: `1106302479`
 - Authors: MasterBayesian and Saber_Li
 
-For implementation notes, validation evidence, and versioned reverse-engineering
-records, see the [engineering knowledge base](docs/knowledge/INDEX.md).
+Versioned reverse-engineering records live under
+[docs/knowledge/versions](docs/knowledge/versions/pc-v2.00.02/README.md); shipped
+behavior is listed in the [feature catalog](docs/product/FEATURES.md).

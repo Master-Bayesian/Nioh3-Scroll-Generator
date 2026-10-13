@@ -105,4 +105,4 @@
 - QQ 群：`1106302479`
 - 作者：MasterBayesian、Saber_Li
 
-如果你需要查看实现说明、验证证据和按游戏版本整理的逆向记录，请进入[工程知识库](docs/knowledge/INDEX.md)。
+按游戏版本整理的逆向记录见 [docs/knowledge/versions](docs/knowledge/versions/pc-v2.00.02/README.md)，功能说明见[功能目录](docs/product/FEATURES.md)。

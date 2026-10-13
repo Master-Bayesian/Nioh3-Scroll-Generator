@@ -1,6 +1,6 @@
 # PC v2.01 project status — 2026-09-02
 
-Latest live-add status: see `../../LIVE_ADD_ENGINEERING.md` and `../../CURRENT_HANDOFF.md`. One native R3 insertion persisted through normal save/reload; optional V2 integration was implemented after game closure. Pause further gameplay/equipment work pending Figma.
+One native R3 insertion persisted through normal save/reload; optional V2 integration was implemented after game closure. Pause further gameplay/equipment work pending Figma.
 
 ## Status
 
@@ -11,7 +11,7 @@ Frontend V2/architecture redesign. It implements the bounded B1-B6 audit
 closure: save transaction identity and rollback, conservative native-resource
 lifecycle handling, centralized generated-install policy, strict accelerator
 ABI v2, a minimal UI-independent service seam, context-bound caches, and a
-stable test inventory. See `../../BACKEND_FREEZE_BEFORE_V070.md`. It is not a
+stable test inventory. It is not a
 new release and does not add generation mechanics.
 
 ## Passed
@@ -116,7 +116,7 @@ The version profile is JSON and intentionally language-neutral so a later Rust
 core can consume the same RVAs, signatures, table identities, and gates.
 
 Frontend V2 starts with Electron, TypeScript/React, and an isolated Python
-offline search worker plus protected save/runtime hosts; see `../../FRONTEND_V2_FOUNDATION.md`. A Rust rewrite is
+offline search worker plus protected save/runtime hosts. A Rust rewrite is
 not a v0.7 prerequisite and requires a measured benefit plus equivalent
 numerical evidence. Bulk Seed search should use CUDA or D3D11 compute when available and must
 never silently fall back to a whole-space CPU scan. A user may explicitly
@@ -131,8 +131,6 @@ title-screen construction matrices (172,032 records) and read-only CE insertion
 reconnaissance are documented in `../../../../deliverables/frontend-v2/EXPERIMENTS_20260907.md`.
 They do not certify natural acquisition, R3 reveal or live inventory insertion.
 The later bounded gameplay group observed one R3 acquisition/reveal and two
-existing R4 first reveals; the full evidence and provenance are in
-`../../CURRENT_HANDOFF.md`. The final nonvisual portable artifact is
+existing R4 first reveals. The final nonvisual portable artifact is
 `deliverables/frontend-v2/portable-v2-foundation-ready-r2`, with 137 verified
 manifest entries and actual Electron startup/search/recovery/locales checked.
-Read `../../FRONTEND_V2_INTEGRATION_GUIDE.md` for final Figma integration.

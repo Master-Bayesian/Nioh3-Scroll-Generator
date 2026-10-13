@@ -136,3 +136,12 @@ apps/tauri/src-tauri/gen/
 !research/verify_native_live_add_matrix.py
 !research/verify_temporary_override_interactive.py
 !research/verify_native_fault_matrix.py
+
+# AI-agent process files and session handoff notes (kept locally, not published)
+/AGENTS.md
+/CLAUDE.md
+/.agents/
+/.claude/
+/docs/knowledge/*.md
+/docs/knowledge/evidence/
+/docs/research/

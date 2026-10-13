@@ -205,9 +205,9 @@ def audit(repository_root: Path = REPOSITORY_ROOT) -> list[AuditFinding]:
     knowledge_root = documentation_root / "knowledge"
     index_path = knowledge_root / "INDEX.md"
     findings = audit_markdown_links(documentation_root, repository_root)
-    if not index_path.is_file():
-        findings.append(AuditFinding(index_path, "knowledge index is missing"))
-    else:
+    # The top-level knowledge index is a local maintainer file and is not
+    # published, so a public checkout only audits links.
+    if index_path.is_file():
         findings.extend(audit_knowledge_index(knowledge_root, index_path))
     return sorted(findings, key=lambda finding: (finding.path.as_posix(), finding.detail))
 

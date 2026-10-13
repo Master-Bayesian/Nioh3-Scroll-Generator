@@ -2,7 +2,7 @@
 
 Status: **published baseline v0.8.2; v0.8.3 is an unpublished candidate with
 source/runtime/UI follow-up gates passed; final TypeScript/npm reruns passed.** See the
-[publication record](../knowledge/TAURI_V082_PUBLICATION_20260928.md) and
+publication record and
 [current 0.8.3 engineering record](releases/v0.8.3.md).
 
 Status updated: 2026-10-02. The historical catalog is not fully reconciled with
@@ -89,7 +89,6 @@ bindings and the existing 2.0.0.2 offline scope. Older native seeded equipment
 insertion and Ver2.00.01 with missing samples/bindings remain unsupported.
 Unknown structure matches do not authorize writes. Existing support code,
 mappings, runtime data and regressions must survive each new adaptation.
-See the [version policy](../research/V083_DLC1_COMPATIBILITY_POLICY_20261002.md).
 Completed source gates: runtime 207/207, policy 21/21, checkpoint 2/2, bootstrap
 2/2, parser 5/5, offline prediction 1/1, Tauri packaged-resolution unit tests
 11/11 plus offline-session 1/1, and npm 91 pass / 1 skip. Frozen browser tests
@@ -108,7 +107,7 @@ backup confirmation: a canonical host-expired plan invalidates the review
 without leaving an unknown-write fence; explicit backup retries copy current
 sources while retaining previous copies. Lost acknowledgements still require
 receipt recovery, and backup/consent checks remain. This is isolated source-only
-acceptance, absent from test9. See [regressions and limits](../research/V083_OFFLINE_RELIABILITY_20261002.md).
+acceptance, absent from test9.
 
 `EQUIPMENT-EDIT` follow-up (September 30): the save-plan confirmation and
 write/discard actions stay in a fixed card footer while details scroll. Explicit
@@ -161,7 +160,7 @@ and no full rules engine is implemented by this record.
 ### v0.8.1 continuation record (2026-09-21)
 
 The compact disposition and evidence map is maintained in
-[`V081_INTEGRATION_CONTINUATION_20260921.md`](../knowledge/V081_INTEGRATION_CONTINUATION_20260921.md).
+`V081_INTEGRATION_CONTINUATION_20260921.md`.
 It records the completed browser-session repair and 48-check artifact, the
 private 240-byte P3/save candidate correlation, the catalog local-read option,
 the source-family remaining gates, and the scroll-only legality audit status.
