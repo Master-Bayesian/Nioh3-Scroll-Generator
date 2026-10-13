@@ -589,10 +589,12 @@ html .character-table .pin-toggle{width:30px;height:30px;margin:0}
 html .character-search .pinned-filter{flex:none}
 
 /* Game protection and favourite marks (UI-012). */
-html .inventory-item .lock-mark{display:inline-flex;flex:none;align-items:center;margin:0 6px 0 0;color:var(--k-sand)}
+html .lock-mark{display:inline-flex;flex:none;align-items:center;margin:0 6px 0 0;color:var(--k-sand)}
+html .character-table .pin-column{white-space:nowrap}
+html .character-table td.pin-column>.pin-toggle{display:inline-flex;vertical-align:middle}
+html .character-table .pin-column>.lock-mark{vertical-align:middle;margin:0 2px 0 0}
 html .editor-page .editor-marks,html .character-page .character-marks{display:flex;flex-wrap:wrap;gap:6px 18px;margin:10px 0 0;font-size:12.5px;color:var(--a-text2)}
 html .editor-page .editor-marks label,html .character-page .character-marks label{display:inline-flex;align-items:center;gap:6px}
-html .character-page .character-locked{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:1px 7px;border:1px solid color-mix(in srgb,var(--k-sand) 55%,transparent);border-radius:999px;background:color-mix(in srgb,var(--k-sand) 18%,transparent);color:color-mix(in srgb,var(--k-sand) 70%,var(--a-text));font-size:11px;font-weight:600}
 /* Save picker: a two-line face over the native select, so the load-menu summary never truncates. */
 html .save-picker .save-select{position:relative;display:block;min-width:0;width:100%}
 html .save-picker .save-select>select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
@@ -709,3 +711,11 @@ html .character-table .character-kind{white-space:normal;overflow-wrap:normal;wo
    stops at 1100px, the minimum window width, where the tabs collapsed to 2px. */
 html .character-page .character-list>:is(.character-tabs,.character-filters,.character-pager){flex-shrink:0}
 html .character-page .character-list>.character-table-wrap{flex:1 1 0;min-height:0;overflow:auto}
+/* Selected terrain and capacity chips size to their text; enemy and rule cards keep a 250px minimum and share a row. */
+html .search-page .selected-body .other-conditions{display:flex;flex-direction:row;flex-wrap:wrap;align-items:flex-start;gap:8px}
+html .search-page .selected-body .other-conditions>*{flex:1 1 250px;min-width:0}
+html .search-page .selected-body .other-conditions>.chip{flex:0 1 auto;max-width:100%;white-space:normal;text-align:left}
+/* Capacity choices wrap instead of sharing the row in equal slices, which cut "不限" short. */
+html .search-page .capacity{flex-wrap:wrap}
+html .search-page .capacity button{flex:0 0 auto;min-width:34px;padding:0 10px}
+html .search-page .terrain-options button{height:auto;min-height:30px;white-space:normal;text-align:left;padding-block:5px}

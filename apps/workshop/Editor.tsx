@@ -13,7 +13,7 @@ import {
   enrichEntry,
 } from "./save-workspace";
 import { EMPTY_EFFECT, EffectPicker, hex, type PickerCandidate } from "./EffectPicker";
-import { StarIcon } from "./StarIcon";
+import { LockMark, StarIcon } from "./StarIcon";
 import { pinnedFirst, togglePinned, usePinned } from "./pinned";
 import { SavePicker } from "./CartActions";
 import { errorText } from "./public-errors";
@@ -1003,14 +1003,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
                   <span>绘卷 ID {s.seed}</span>
                 </button>
                 {/* UI-024: the lock sits left of the star, as in the game's inventory. */}
-                {s.saveEntry?.locked && (
-                  <span className="lock-mark" title="游戏里已保护：不能卖掉或丢弃" aria-label="已保护">
-                    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round">
-                      <rect x="5" y="11" width="14" height="10" rx="2" />
-                      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-                    </svg>
-                  </span>
-                )}
+                {s.saveEntry?.locked && <LockMark />}
                 <button
                   type="button"
                   className={"pin-toggle" + (isFavorite(s) ? " active" : "")}
