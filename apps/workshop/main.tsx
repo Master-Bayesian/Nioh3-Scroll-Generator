@@ -1063,7 +1063,7 @@ function App() {
             <b>独脚踏鞴工作室</b>
             <small className="brand-metadata">
               <span className="credits">作者：MasterBayesian · Saber_Li</span>
-              {appVersion && <span className="app-version">v{appVersion}</span>}
+              {appVersion && <span className="app-version" title={"v" + appVersion}>v{appVersion}</span>}
             </small>
           </div>
         </div>
@@ -1172,7 +1172,7 @@ function App() {
             }}
           >
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round">
-              <path d="M10.3 2.5h3.4l.5 2.6a7.4 7.4 0 0 1 1.9 1.1l2.5-.9 1.7 2.9-2 1.7a7.6 7.6 0 0 1 0 2.2l2 1.7-1.7 2.9-2.5-.9a7.4 7.4 0 0 1-1.9 1.1l-.5 2.6h-3.4l-.5-2.6a7.4 7.4 0 0 1-1.9-1.1l-2.5.9-1.7-2.9 2-1.7a7.6 7.6 0 0 1 0-2.2l-2-1.7 1.7-2.9 2.5.9a7.4 7.4 0 0 1 1.9-1.1Z" />
+              <path d="M10.3 3.5h3.4l.5 2.6a7.4 7.4 0 0 1 1.9 1.1l2.5-.9 1.7 2.9-2 1.7a7.6 7.6 0 0 1 0 2.2l2 1.7-1.7 2.9-2.5-.9a7.4 7.4 0 0 1-1.9 1.1l-.5 2.6h-3.4l-.5-2.6a7.4 7.4 0 0 1-1.9-1.1l-2.5.9-1.7-2.9 2-1.7a7.6 7.6 0 0 1 0-2.2l-2-1.7 1.7-2.9 2.5.9a7.4 7.4 0 0 1 1.9-1.1Z" />
               <circle cx="12" cy="12" r="3" />
             </svg>
           </button>

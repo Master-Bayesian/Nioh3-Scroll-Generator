@@ -52,6 +52,8 @@ const MATRIX = [
   // A short CSS height approximates a high-DPI tester window while keeping
   // the product's documented minimum width.  This is browser evidence only.
   { label: "short-dpi", width: 1170, height: 620, dpr: 1.25 },
+  // A 1536px laptop screen at 150% scaling: below the 1100px minimum, Windows clamps the window.
+  { label: "narrow-150", width: 1024, height: 600, dpr: 1.5 },
 ];
 const LOCALES = ["zh-CN", "en-US", "ja-JP"];
 const THEMES = ["light", "dark"];

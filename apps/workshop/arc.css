@@ -250,7 +250,7 @@ html .search-page .install-current:hover:not(:disabled){background:var(--a-pri);
    every SavePicker lifecycle state from content and let this install card own
    scrolling; horizontal SavePicker contexts remain on their existing rules. */
 html .search-page .result-pane>.install-mode.install-save{min-height:0;max-height:calc(100dvh - 150px);overflow:auto;overscroll-behavior:contain}
-html .search-page .result-pane>.install-mode.install-save>.save-picker-compact>:is(label,.uncertain-operation,.notice,.save-picker-hint){flex:0 0 auto;min-width:0;max-width:100%}
+html .search-page .result-pane>.install-mode.install-save>.save-picker-compact>:is(label,.uncertain-operation,.notice,.save-picker-hint){flex:1 1 100%;min-width:0;max-width:100%}
 html .search-page .no-results{background:var(--a-card);border:1px dashed var(--a-line2);border-radius:18px;padding:24px;color:var(--a-text)}
 
 /* ---------- the scroll card ---------- */
@@ -667,7 +667,7 @@ html .settings-menu .theme-choice>button{flex:1 1 auto;min-width:0;white-space:n
 /* UI-026: the save plan stays bounded and its details scroll; a short-height
    rule below lets the details area yield space to the nonshrinking footer. */
 html .character-side>.character-save-plan{flex:0 0 auto;min-height:min(260px,60%);max-height:min(70%,560px)}
-@media (max-height:680px) and (min-width:1031px){
+@media (max-height:680px){
   html .character-side>.character-save-plan{flex:0 0 auto;min-height:fit-content;max-height:100%;overflow:auto;overscroll-behavior:contain}
   html .search-page>main{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
   html .search-page .selection{flex:0 0 auto;min-height:0;overflow:visible}
@@ -719,3 +719,15 @@ html .search-page .selected-body .other-conditions>.chip{flex:0 1 auto;max-width
 html .search-page .capacity{flex-wrap:wrap}
 html .search-page .capacity button{flex:0 0 auto;min-width:34px;padding:0 10px}
 html .search-page .terrain-options button{height:auto;min-height:30px;white-space:normal;text-align:left;padding-block:5px}
+/* Compact save install: the save utilities (re-detect, locate, reload) share one row, as before the redesign. */
+html .search-page .result-pane>.install-mode.install-save{flex-direction:row;flex-wrap:wrap;align-content:flex-start}
+html .search-page .result-pane>.install-mode.install-save>*,html .search-page .result-pane>.install-mode.install-save>.save-picker-compact>*{flex:1 1 100%;min-width:0}
+html .search-page .result-pane>.install-mode.install-save>.save-picker-compact>button:nth-of-type(-n+3){flex:1 1 0;width:auto;min-height:32px;padding:4px 6px;white-space:normal;line-height:1.25}
+/* The legacy sidebar layout moves panes below 1031px; the Arc grid keeps its three columns there. */
+@media (max-width:1030px){html .shell>.search-page>.result-pane{grid-column:auto;grid-row:auto;margin-top:0}html .search-page .result-detail{max-width:none}html .shell>:is(.editor-host,.backup-page,.equipment-page,.favorites-page,main){height:auto;overflow:auto}html .shell>.editor-host>.editor-page{overflow:hidden;grid-template-columns:minmax(200px,22%) minmax(0,1fr) minmax(240px,28%)}html .shell .equipment-page.character-page{grid-row:auto;height:auto}}
+/* Below the minimum width (high Windows scaling on a small screen) the logo and version stand in for the title, so the navigation keeps its room. */
+@media (max-width:1099px){html .topbar .brand-text>b{display:none}html .topbar .brand{min-width:0}html .topbar .brand-text,html .topbar .brand-metadata{min-width:0;overflow:hidden}html .topbar .brand-metadata>.app-version{min-width:0;overflow:hidden;text-overflow:ellipsis}}
+/* A short window scrolls the equipment page as a whole, so the item list keeps a usable height under the header. */
+@media (max-height:680px){html .shell>.equipment-page{overflow-y:auto;overscroll-behavior:contain}html .equipment-page .character-body{flex:0 0 auto;min-height:480px}}
+/* Cards sharing a row are as tall as the tallest; terrain and the ID footer sit at the bottom, so footers and actions line up. */
+html .compare-grid,html .favorites-review>.compare-grid{align-items:stretch}html .compare-grid>.collection-card-item{display:flex;flex-direction:column}html .compare-grid>.collection-card-item>.scroll{flex:1 1 auto;display:flex;flex-direction:column}html .compare-grid>.collection-card-item>.scroll>.scroll-terrain{margin-top:auto}

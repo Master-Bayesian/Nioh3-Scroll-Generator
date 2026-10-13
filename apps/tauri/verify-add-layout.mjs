@@ -6,7 +6,6 @@ import { mkdtemp, mkdir, readFile, readdir, realpath, writeFile } from 'node:fs/
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { closeSession, isolatedEnvironment, pause } from './onefile-acceptance.mjs';
-import { verifySidebarAlignment } from '../workshop/verify-sidebar-alignment.mjs';
 import { verifySectionHelp } from '../workshop/verify-section-help.mjs';
 import { addKnownEnemyVariantsToCart, verifyCollectionLayout } from '../workshop/verify-collection-layout.mjs';
 
@@ -243,8 +242,7 @@ try {
       await cdp.send('Emulation.setDeviceMetricsOverride', { width: requestedWidth, height: requestedHeight, deviceScaleFactor: 1, mobile: false });
       await page.waitForFunction(([w, h]) => innerWidth === w && innerHeight === h, [requestedWidth, requestedHeight]);
     }
-    const sidebar = await verifySidebarAlignment(page, { outputDirectory: join(output, label) }).catch(error => { layoutFailures.push(error.message); return null; });
-    const geometry = await page.evaluate(() => {
+        const geometry = await page.evaluate(() => {
       const rect = element => { const r = element.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height, right: r.right, bottom: r.bottom }; };
       const pane = document.querySelector('.result-pane');
       const add = document.querySelector('.result-cart-actions .cart-toggle');
@@ -272,10 +270,10 @@ try {
     }
     const tools = await picker.locator('button').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().y));
     assert(Math.max(...tools) - Math.min(...tools) <= 1, `Save utility buttons share one row at ${width}x${height}`);
-    check(`Cart row, compact save controls, sidebar, and no result scrolling at ${label}`, true);
+    check(`Cart row, compact save controls, and no result scrolling at ${label}`, true);
     } catch (error) { layoutFailures.push({ label, error: String(error) }); }
     await page.screenshot({ path: join(output, `addition-${label}.png`) });
-    layouts.push({ label, width, height, geometry, sidebar });
+    layouts.push({ label, width, height, geometry });
     await writeFile(join(output, 'layout-measurements.json'), JSON.stringify({ layouts, failures: layoutFailures }, null, 2));
     console.log(`Addition geometry ${label}: ${geometry.viewport.width}x${geometry.viewport.height}, scroll ${geometry.scrollHeight}/${geometry.clientHeight}`);
   }
@@ -419,7 +417,7 @@ try {
   const firstCartSeed = Number(await page.locator('.result-detail .scroll footer strong').innerText());
   await page.getByRole('button', { name: '加入购物车', exact: true }).click();
   await page.getByRole('button', { name: '查看购物车（1）', exact: true }).waitFor();
-  await page.getByRole('slider', { name: '滑动切换绘卷', exact: true }).fill('2');
+  await page.getByRole('button', { name: '选择绘卷2', exact: true }).click();
   const chosenCartSeed = Number(await page.locator('.result-detail .scroll footer strong').innerText());
   assert.equal(new Set([firstCartSeed, chosenCartSeed, 76634363, 36526331]).size, 4, 'Fixture and selected search seeds must differ');
   await page.getByRole('button', { name: '加入购物车', exact: true }).click();

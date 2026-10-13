@@ -110,9 +110,7 @@ export async function verifyCollectionLayout(page, {
   const preview = verifyPreview ? await measurePreview(page) : null;
   const results = { container, geometry, preview, scope: 'Rendered frontend geometry; no save writes, game calls, or synthetic enemy injection' };
   if (outputDirectory) await writeFile(join(outputDirectory, `${label}-geometry.json`), JSON.stringify(results, null, 2));
-  const heights = geometry.map(value => value.card.height);
-  assert(Math.max(...heights) - Math.min(...heights) <= 1,
-    `Card heights must match regardless of enemy count: ${JSON.stringify(geometry.map(value => [value.seed, value.enemyCount, value.card.height]))}`);
+  // Cards grow with their content (more enemies, longer names); cards sharing a row are aligned below.
   if (requireVariedEnemyCounts) assert(new Set(geometry.map(value => value.enemyCount)).size >= 2,
     'The acceptance must contain cards with genuinely different enemy counts');
   for (const value of geometry) {
@@ -175,8 +173,9 @@ export async function verifyCollectionLayout(page, {
   await lastAction.scrollIntoViewIfNeeded();
   results.lastActions = await actionTargets.evaluateAll(buttons => buttons.map(button => {
     const r = button.getBoundingClientRect();
-    const points = [[r.left + 2, r.top + 2], [r.right - 2, r.top + 2],
-      [r.left + 2, r.bottom - 2], [r.right - 2, r.bottom - 2], [r.left + r.width / 2, r.top + r.height / 2]];
+    // Pill and round buttons: probe inside the rounded ends, not at the box corners.
+    const x0 = r.left + r.width * 0.3, x1 = r.right - r.width * 0.3, y0 = r.top + r.height * 0.3, y1 = r.bottom - r.height * 0.3;
+    const points = [[x0, y0], [x1, y0], [x0, y1], [x1, y1], [r.left + r.width / 2, r.top + r.height / 2]];
     return { label: button.getAttribute('aria-label') || button.textContent.trim(), top: r.top, bottom: r.bottom,
       left: r.left, right: r.right, viewportHeight: innerHeight, viewportWidth: innerWidth,
       unobscured: points.every(([x, y]) => document.elementsFromPoint(x, y).includes(button)) };

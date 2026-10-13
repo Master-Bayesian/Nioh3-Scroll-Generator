@@ -79,14 +79,14 @@ try {
   await p.locator('.app-version').waitFor();
   assert.equal(await p.locator('.app-version').innerText(),`v${expectedVersion}`);
   assert.equal(await p.locator('.selected-body .selected-row').count(),0,'Fresh startup has no preselected effects');
-  await p.getByRole('button',{name:'特殊规则',exact:true}).click();
+  await p.locator('.catalog-tab',{hasText:'特殊规则'}).click();
   await p.locator('.rule-category').filter({hasText:'一难横行'}).click();
   const familyValue=p.getByRole('combobox',{name:'一难横行统一数值',exact:true});
   await familyValue.selectOption({label:'80%'});
   const familyPicker=familyValue.locator('..');
   await familyPicker.getByRole('button',{name:'添加整类',exact:true}).click();
   assert.equal(await p.locator('.rule-chip .rule-value').inputValue(),'80%');
-  await p.getByRole('button',{name:'特殊规则',exact:true}).click();
+  await p.locator('.catalog-tab',{hasText:'特殊规则'}).click();
   await p.locator('.primary-button').click();
   await p.waitForFunction(async()=>((await window.nioh.currentSearch()).submitted?.query.auxiliary.required_special_rule_key_groups[0]?.length===23),null,{timeout:15000});
   const cancel=p.getByRole('button',{name:'取消',exact:true});
@@ -108,7 +108,7 @@ try {
   assert.doesNotMatch(await p.locator('.result-detail .scroll').innerText(), /RUBY|\^(?:20|21|FE|FF)~/);
   await p.screenshot({path:join(output,'japanese-search.png'),timeout:15000});
   await p.reload();
-  await p.locator('.nav nav button').nth(1).click();await p.locator('.inventory-list button').first().waitFor({timeout:30000});
+  await p.locator('nav.nav > button').nth(1).click();await p.locator('.inventory-list button').first().waitFor({timeout:30000});
   const privateRefused=await p.evaluate(async()=>{try{await window.operations.execute({method:'save.template',params:{}});return false}catch{return true}});
   assert.equal(privateRefused,true);
   await p.screenshot({path:join(output,'editor.png'),timeout:15000});
@@ -149,7 +149,7 @@ try {
   assert.equal(restoreJournal.source_backup_directory,fixture.backup_id);
   await p.getByRole('button',{name:'绘卷编辑',exact:true}).click();
   await p.locator('.inventory-list button').first().waitFor();
-  assert.equal(await p.locator('.inventory-list button').count(),1,'Restored inventory remains readable through the broker');
+  assert.equal(await p.locator('.inventory-list .inventory-item').count(),1,'Restored inventory remains readable through the broker');
   // The scroll editor opens in live mode; this flow writes the save file.
   await p.getByRole('button',{name:'修改存档文件',exact:true}).click();
   await p.getByText('基础信息',{exact:true}).click();
