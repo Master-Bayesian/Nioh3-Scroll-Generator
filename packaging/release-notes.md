@@ -1,17 +1,28 @@
-# Nioh 3 Studio 0.8.8
+# Nioh 3 Studio 0.8.9
 
-Download `Nioh3Studio-0.8.8-win-x64.exe` and run it directly, or use the signed
+Download `Nioh3Studio-0.8.9-win-x64.exe` and run it directly, or use the signed
 in-app updater. No manual extraction, Python, Node.js, Electron or Cheat Engine
 setup is required. Microsoft Edge WebView2 remains a Windows prerequisite.
 
-- Hell axes are natural again. The axe's three hell martial skills (碎地,
-  大旋风, 噬魂) were missing, so every hell axe was marked unnatural; the
-  ninja dual swords also gain their second skill (影斩). The skill list now
-  matches the game's table (43 skills).
-- Replacing a scroll effect sets its star the way the game does: every
-  …之深奥 shows the star, and a plain effect put where a star effect was no
-  longer keeps it.
-- The project is now open source under the GNU General Public License v3.0.
+- A new interface: navigation moves to a bar at the top, with light and dark
+  themes, a three-column scroll search and cards that grow with their text.
+  Long names, rules and translations wrap instead of being cut off, down to the
+  smallest window.
+- The game's own marks: the star on a scroll or a piece of equipment is the
+  game's Favorite mark, and the lock is its Protect mark. Both can be set or
+  cleared in a save file or in the running game; favorites sort to the top.
+  Deleting a protected scroll asks again.
+- Find the scroll under the game's inventory cursor in the scroll list.
+- The scroll editor uses the same effect table as the equipment page, with a
+  choice of which effects to offer, and its preview shows enemies, rules,
+  terrain and the attempt limit.
+- The save picker shows what the game's load menu shows: playthrough, level,
+  play time and when it was saved.
+- Restoring a backup made by an in-game edit works again. These backups hold
+  only the main save; restoring one now puts back just that file.
+- If the program cannot start because antivirus software locked or quarantined
+  its files, the message says so first, can open the log folder, and offers
+  the portable ZIP from GitHub.
 
 ## Supported scope and known limitations
 
@@ -22,10 +33,10 @@ scope. Unknown executable versions or missing resource/layout/ABI evidence are
 refused; this release does not guarantee every DLC1 build or distribution
 variant.
 
-The dark theme's colors are still being refined. Menu recognition in one
-reported environment remains unresolved. Changing terrain with a temporary
-scroll edit can leave a mission without enemies (issue #29); when that happens
-is not yet known.
+Item marks are known only for scrolls and equipment; stars on consumable items
+stay in this program. Menu recognition in one reported environment remains
+unresolved. Changing terrain with a temporary scroll edit can leave a mission
+without enemies (issue #29); when that happens is not yet known.
 
 Return to the title screen before editing a save file, then load it in game.
 Keep an independent full-account backup. Automatic backups, single-writer locks,
