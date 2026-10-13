@@ -47,13 +47,17 @@ outside the bordered card that holds it, ignoring scrolled content), `select`
 (a select's chosen option wider than the select), `pageX` (page scrolls
 sideways).
 
+- `tools/ui-audit/verify-arc-expanded.mjs` (added by the follow-up debug pass):
+  history and cart dialogs, settings popup, save management with restore and
+  re-sign reviews, a 1,500-item equipment list, add-equipment review, and a
+  short 1170x620 window at DPR 1.25. CI runs it in light theme at the minimum
+  window only (`NIOH3_UI_THEMES`, `NIOH3_UI_MATRIX`); run the full matrix by
+  hand before a release.
+
 ## Not covered by the gates
 
-- Save management, "add new equipment", the settings popup, the cart and
-  history dialogs, the backup restore flow, the re-sign flow.
-- Real data volume: the equipment fixture has 4 items; the real list has ~1,500.
-- Dark theme in CI (the live tools below cover it).
-- Window heights below 740 and DPI scaling other than 100%.
+- Dark theme and the short window in CI (covered by the full manual matrix).
+- Real Windows DPI scaling; CSS-pixel emulation only approximates it.
 - Native selects cannot wrap; a translation longer than its select still
   truncates (see the pseudo locale in `web-stress.mjs`).
 

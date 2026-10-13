@@ -174,7 +174,7 @@ html .search-page .selection header>button:first-of-type{border-color:transparen
 html .search-page .primary-controls{display:flex;align-items:center;gap:10px;padding:0 16px 10px;margin:0;font-size:12.5px;color:var(--a-text2);border-bottom:1px solid var(--a-line)}
 html .search-page .primary-controls>span{margin-left:12px;min-width:0;color:var(--a-text2)}
 html .search-page .primary-controls select{width:58px;height:30px;border-radius:999px;padding:0 8px;background:var(--a-card);border-color:var(--a-line2)}
-html .search-page .primary-controls .primary-hint{max-width:100%;overflow-wrap:anywhere}
+html .search-page .primary-controls .primary-hint{max-width:100%;overflow-wrap:break-word}
 html .search-page .primary-controls .drag-hint{margin-left:auto;font-size:11.5px;color:var(--a-mute);max-width:100%}
 html .search-page .selection .selected-body{display:flex;flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:12px;max-height:none;flex:1;min-height:0;overflow:auto;padding:12px 16px 16px}
 html .search-page .selected-effects,html .search-page .other-conditions{display:flex;flex-direction:column;gap:6px}
@@ -505,7 +505,7 @@ html .editor-review .editor-review-content{margin-top:10px;padding-top:6px;borde
 html .editor-review .editor-review-content h3{margin:10px 0 6px;font-size:11.5px;font-weight:600;letter-spacing:1px;color:var(--a-mute)}
 html .editor-review .editor-review-content .enemy-lines{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--a-text)}
 html .editor-review .editor-review-content .scroll-rule{display:flex;justify-content:space-between;gap:10px;margin:0;padding:4px 0;font-size:12px;color:var(--a-text)}
-html .editor-review .editor-review-content .scroll-rule>span{min-width:0;overflow-wrap:anywhere}
+html .editor-review .editor-review-content .scroll-rule>span{min-width:0;overflow-wrap:break-word}
 html .editor-review .editor-review-content .scroll-rule>strong{flex:none;font-weight:500}
 html .editor-review .editor-review-pending{margin:0;font-size:12px;color:var(--a-mute)}
 
@@ -550,7 +550,7 @@ html .topbar .toplinks button{white-space:nowrap}
 /* Catalog tabs wrap instead of sharing fixed tracks, so a count badge never pushes the label out. */
 html .catalog-tabs,html .catalog-tab-group:nth-of-type(2) .catalog-tabs{display:flex;flex-wrap:wrap;gap:6px}
 html .catalog-tabs .catalog-tab{flex:1 1 auto;width:auto;min-width:0;max-width:100%;padding:0 12px}
-html .catalog-tabs .catalog-tab>span{flex:1 1 auto;min-width:0;white-space:normal;overflow-wrap:anywhere}
+html .catalog-tabs .catalog-tab>span{flex:1 1 auto;min-width:0;white-space:normal;overflow-wrap:break-word}
 html .catalog-tabs .catalog-tab b{flex:none}
 /* The primary controls wrap as a whole row rather than collapsing the count select. */
 html .search-page .primary-controls{flex-wrap:wrap;row-gap:6px}
@@ -559,14 +559,14 @@ html .search-page .primary-controls .drag-hint{white-space:normal}
 /* Enemy and rule chips: the full name on the first line, the controls below it. */
 html .search-page .enemy-chip,html .search-page .rule-chip{display:grid;grid-template-columns:16px minmax(0,1fr) 26px;grid-template-areas:"grip name remove" ". controls controls";align-items:center;gap:4px 6px;width:100%;min-width:0;max-width:none;padding:6px 6px 7px 4px}
 html .search-page .enemy-chip>.drag-grip,html .search-page .rule-chip>.drag-grip{grid-area:grip}
-html .search-page .enemy-chip>span.chip-name:nth-of-type(2),html .search-page .rule-chip>span.chip-name:nth-of-type(2){grid-area:name;min-width:0;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.45}
+html .search-page .enemy-chip>span.chip-name:nth-of-type(2),html .search-page .rule-chip>span.chip-name:nth-of-type(2){grid-area:name;min-width:0;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;line-height:1.45}
 html .search-page .enemy-chip>.chip-remove,html .search-page .rule-chip>.chip-remove{grid-area:remove}
 html .search-page .chip-controls{grid-area:controls;display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
 html .search-page .chip-controls select{flex:1 1 96px;min-width:0;max-width:150px;width:auto}
 html .search-page .chip-controls .toggle-switch{flex:none;width:auto;justify-content:flex-start;gap:6px;white-space:nowrap}
 /* Rule picker rows: the object name keeps its full width; value and add wrap below when the column is narrow. */
 html .search-page .rule-picker{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
-html .search-page .rule-picker>span{flex:1 0 auto;max-width:100%;white-space:normal;overflow-wrap:anywhere;overflow:visible;text-overflow:clip}
+html .search-page .rule-picker>span{flex:1 0 auto;max-width:100%;white-space:normal;overflow-wrap:break-word;overflow:visible;text-overflow:clip}
 html .search-page .rule-picker select{flex:0 1 auto;width:auto;min-width:96px;max-width:100%;margin-left:auto}
 html .search-page .rule-picker button{flex:none;min-width:46px}
 /* UI-016: the effects the worker names as conflicting. */
@@ -598,8 +598,8 @@ html .save-picker .save-select{position:relative;display:block;min-width:0;width
 html .save-picker .save-select>select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
 html .save-select-face{display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:46px;padding:5px 32px 5px 12px;border:1px solid var(--a-line);border-radius:10px;background:var(--a-fill);color:var(--a-text);position:relative}
 html .save-select-face::after{content:"";position:absolute;right:13px;top:50%;width:7px;height:7px;border:solid var(--a-text2);border-width:0 1.5px 1.5px 0;transform:translateY(-70%) rotate(45deg)}
-html .save-select-face b{font-weight:600;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
-html .save-select-face small{font-size:11.5px;line-height:1.35;color:var(--a-mute);overflow-wrap:anywhere}
+html .save-select-face b{font-weight:600;font-size:13px;line-height:1.35;overflow-wrap:break-word}
+html .save-select-face small{font-size:11.5px;line-height:1.35;color:var(--a-mute);overflow-wrap:break-word}
 html .save-select:has(select:focus-visible) .save-select-face{border-color:var(--a-text2);box-shadow:inset 0 0 0 1px var(--a-text2)}
 html .save-select:has(select:disabled) .save-select-face{opacity:.55}
 html .save-select:hover .save-select-face{background:var(--a-hover)}
@@ -617,7 +617,7 @@ html .editor-review .editor-review-content .scroll-rule>span{white-space:normal;
 @media (max-width:1180px){html .topbar .brand{min-width:0}html .topbar .toplinks{padding-right:4px}html .title-controls button{width:40px}}
 /* Long translations: text wraps inside its own box instead of truncating or overlapping. */
 html body .shell .scroll .effect-line,html body .shell .scroll .scroll-rule{height:auto;overflow:visible}
-html body .shell .scroll .effect-line>div>span,html body .shell .scroll .scroll-rule>span,html body .shell .scroll>header .scroll-title{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+html body .shell .scroll .effect-line>div>span,html body .shell .scroll .scroll-rule>span,html body .shell .scroll>header .scroll-title{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word}
 html .search-page .search-fields{align-items:end}
 html .search-page .search-fields label{white-space:normal;justify-content:flex-end}
 html .search-page .search-actions{grid-template-columns:repeat(auto-fit,minmax(min(100%,100px),1fr))}
@@ -648,18 +648,18 @@ html .editor-fields{align-items:end}
 html .editor-page .temporary-fields fieldset{grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}
 /* UI-023: rule conditions are cards like enemy cards; a wrapped name and its selects stay inside. */
 html .search-page .selected-body :is(.enemy-chip,.rule-chip){height:auto;min-height:0;grid-template-rows:auto auto;border-radius:11px;align-items:center}
-html .search-page .selected-body :is(.enemy-chip,.rule-chip)>.chip-name{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.4;padding:4px 0}
+html .search-page .selected-body :is(.enemy-chip,.rule-chip)>.chip-name{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word;line-height:1.4;padding:4px 0}
 /* Catalog rows: tier and badges move under the name instead of squeezing it (long translations). */
 html .search-page .catalog-row{flex-wrap:wrap;height:auto;row-gap:2px}
-html .search-page .catalog-row>span{flex:1 1 110px;min-width:0;overflow-wrap:anywhere}
+html .search-page .catalog-row>span{flex:1 1 110px;min-width:0;overflow-wrap:break-word}
 html .search-page .catalog-row>em{display:flex;flex-wrap:wrap;align-items:center;gap:4px;white-space:nowrap;flex:0 1 auto}
 html .search-page .catalog-row>button{flex:none;white-space:nowrap}
 html .search-page .tier-tabs{flex-wrap:wrap}
 html .search-page .tier-tabs button{white-space:nowrap}
 /* Long text: tab labels, header actions, enemy names and theme choices wrap instead of escaping. */
-html .search-page .catalog-tabs .catalog-tab>span{white-space:normal;overflow-wrap:anywhere}
+html .search-page .catalog-tabs .catalog-tab>span{white-space:normal;overflow-wrap:break-word}
 html .search-page .selection>header{flex-wrap:wrap}
-html .scroll .enemy-lines>span{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+html .scroll .enemy-lines>span{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:break-word}
 html .settings-menu .theme-choice{flex-wrap:wrap}
 html .settings-menu .theme-choice>button{flex:1 1 auto;min-width:0;white-space:normal}
 /* UI-026: the save plan stays bounded and its details scroll; a short-height

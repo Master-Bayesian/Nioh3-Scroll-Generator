@@ -43,7 +43,10 @@ jobs:
       - run: node apps/workshop/verify-scroll-completion.mjs
       # Text must fit its box in every locale at the minimum window size.
       - run: node apps/workshop/verify-text-fit.mjs
+      # Flows the text-fit check does not reach (dialogs, save management, a 1,500-item list).
+      # One theme and the minimum window keep it short; run the full matrix by hand before a release.
       - run: node tools/ui-audit/verify-arc-expanded.mjs --out deliverables/frontend-v2/arc-expanded
+        env: { NIOH3_UI_THEMES: light, NIOH3_UI_MATRIX: minimum }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
