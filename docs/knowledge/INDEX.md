@@ -164,6 +164,13 @@ global semantic key.
   option, and remaining source-family gates.
 - [UI follow-up transfer](UI_FOLLOWUP_HANDOFF_20260912.md) — current transfer
   for the remaining fullscreen/DPI, modal, settings, and card issues.
+- [Arc UI preview focused acceptance (2026-10-12)](../product/ARC_UI_DEBUG_ACCEPTANCE_20261012.md)
+  — four narrow layout fixes with final browser verification at 1,062/1,062,
+  focused text-fit green, character-draft 58/58, and matching
+  packaged/native verification still pending.
+- [Arc UI layout workflow (2026-10-13)](../product/ARC_UI_LAYOUT_WORKFLOW.md)
+  — measurable header/content/footer roles, direction-specific flex and
+  display:contents hazards, short-viewport/DPI matrix, and evidence boundaries.
 - [Crucible possessed-enemy research](CRUCIBLE_POSSESSED_ENEMY_RESEARCH_20260910.md)
   — preserved open evidence; read the newer resume and freeze before using it.
 - [Equipment catalog live-verification handoff](EQUIPMENT_CATALOG_LIVE_HANDOFF_20260902.md)

@@ -32,6 +32,24 @@ The initial entries below are grounded in the current player README and current 
 | `LOCALIZATION` | Use the desktop UI in Simplified Chinese, English, or Japanese. | Settings | Language choice applies to shipped product surfaces; native-speaker review remains separate acceptance. The separate interface-font-size setting has been removed; preview label/value typography is fixed and bounded by the current UI acceptance. | `apps/workshop/ui-locales.json`; `apps/workshop/ui-translations.tsv` |
 | `APPEARANCE` | Use a light or dark interface, or follow Windows. | Settings -> Appearance | Dark colors are derived at build time from the light stylesheet (`apps/workshop/dark-theme.mjs`); the choice is per device. Settings -> About & safety states the free/official-source/read-write/network scope without claiming scan results. | `apps/workshop/dark-theme.mjs`; `apps/workshop/theme.ts` |
 
+### Arc UI preview evidence note (2026-10-12)
+
+The Arc preview keeps the entry points, labels, locales, confirmation and
+recovery boundaries for `SCROLL-SEARCH`, `SCROLL-ADD`, `SAVE-BACKUP`,
+`SCROLL-COLLECTIONS`, `EQUIPMENT-EDIT`, `APPEARANCE`, and
+`SUPPORT-DIAGNOSTICS`. The focused source fixes let long catalog tabs wrap
+inside their card, bound compact save-install content across unresolved and
+resolved receipt states, wrap the short-DPI primary-controls hint, and keep
+the short-DPI equipment plan footer reachable. Browser fixtures use a
+synthetic bridge with no game, user-save, or commit writes; the final matrix
+passed 1,062/1,062 checks with 18 bridge runs, zero commits, and zero forbidden
+writes. Focused text-fit passed and character-draft passed 58/58. The source
+CSS SHA-256 is `e3b19ff4ca35a7fe39774c91ac843621a9f57dea0bc3dc38785f757e447fde95`.
+The native report/readiness links describe a base unsigned preview package, not
+a matching final candidate. See
+[`ARC_UI_DEBUG_ACCEPTANCE_20261012.md`](ARC_UI_DEBUG_ACCEPTANCE_20261012.md)
+for the evidence boundary and future matching-candidate requirement.
+
 ## In-development capabilities (not shipped)
 
 The entries below mix historical development evidence with the stated version

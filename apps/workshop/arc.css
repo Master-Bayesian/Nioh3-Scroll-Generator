@@ -173,9 +173,10 @@ html .search-page .selection header p.selection-hint{display:block;font-size:12p
 html .search-page .selection header>button{margin-left:0;height:30px;padding:0 12px;font-size:12.5px}
 html .search-page .selection header>button:first-of-type{border-color:transparent;box-shadow:none;background:transparent;color:var(--a-text2)}
 html .search-page .primary-controls{display:flex;align-items:center;gap:10px;padding:0 16px 10px;margin:0;font-size:12.5px;color:var(--a-text2);border-bottom:1px solid var(--a-line)}
-html .search-page .primary-controls>span{margin-left:12px;color:var(--a-text2)}
+html .search-page .primary-controls>span{margin-left:12px;min-width:0;color:var(--a-text2)}
 html .search-page .primary-controls select{width:58px;height:30px;border-radius:999px;padding:0 8px;background:var(--a-card);border-color:var(--a-line2)}
-html .search-page .primary-controls .drag-hint{margin-left:auto;font-size:11.5px;color:var(--a-mute)}
+html .search-page .primary-controls .primary-hint{max-width:100%;overflow-wrap:anywhere}
+html .search-page .primary-controls .drag-hint{margin-left:auto;font-size:11.5px;color:var(--a-mute);max-width:100%}
 html .search-page .selection .selected-body{display:flex;flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:12px;max-height:none;flex:1;min-height:0;overflow:auto;padding:12px 16px 16px}
 html .search-page .selected-effects,html .search-page .other-conditions{display:flex;flex-direction:column;gap:6px}
 html .search-page .other-conditions{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;align-items:start}
@@ -246,6 +247,11 @@ html .search-page .install-choice h3{font-size:12px;font-weight:600;color:var(--
 html .search-page .install-choice label{display:flex;align-items:center;gap:6px;color:var(--a-text)}
 html .search-page .install-current{min-height:44px;font-size:14.5px;font-weight:600;background:var(--a-pri);border-color:var(--a-pri);color:var(--a-prifg)}
 html .search-page .install-current:hover:not(:disabled){background:var(--a-pri);opacity:.9}
+/* Compact save mode is a vertical flex column after display:contents. Size
+   every SavePicker lifecycle state from content and let this install card own
+   scrolling; horizontal SavePicker contexts remain on their existing rules. */
+html .search-page .result-pane>.install-mode.install-save{min-height:0;max-height:calc(100dvh - 150px);overflow:auto;overscroll-behavior:contain}
+html .search-page .result-pane>.install-mode.install-save>.save-picker-compact>:is(label,.uncertain-operation,.notice,.save-picker-hint){flex:0 0 auto;min-width:0;max-width:100%}
 html .search-page .no-results{background:var(--a-card);border:1px dashed var(--a-line2);border-radius:18px;padding:24px;color:var(--a-text)}
 
 /* ---------- the scroll card ---------- */
@@ -544,8 +550,8 @@ html .topbar .toplinks button{white-space:nowrap}
 /* ---------- search conditions without squeezing (UI-019 to UI-022) ---------- */
 /* Catalog tabs wrap instead of sharing fixed tracks, so a count badge never pushes the label out. */
 html .catalog-tabs,html .catalog-tab-group:nth-of-type(2) .catalog-tabs{display:flex;flex-wrap:wrap;gap:6px}
-html .catalog-tabs .catalog-tab{flex:1 1 auto;width:auto;min-width:max-content;padding:0 12px}
-html .catalog-tabs .catalog-tab>span{white-space:nowrap}
+html .catalog-tabs .catalog-tab{flex:1 1 auto;width:auto;min-width:0;max-width:100%;padding:0 12px}
+html .catalog-tabs .catalog-tab>span{flex:1 1 auto;min-width:0;white-space:normal;overflow-wrap:anywhere}
 html .catalog-tabs .catalog-tab b{flex:none}
 /* The primary controls wrap as a whole row rather than collapsing the count select. */
 html .search-page .primary-controls{flex-wrap:wrap;row-gap:6px}
@@ -657,8 +663,15 @@ html .search-page .selection>header{flex-wrap:wrap}
 html .scroll .enemy-lines>span{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 html .settings-menu .theme-choice{flex-wrap:wrap}
 html .settings-menu .theme-choice>button{flex:1 1 auto;min-width:0;white-space:normal}
-/* UI-026: the save plan never shrinks under the item detail; long plans scroll inside it. */
+/* UI-026: the save plan stays bounded and its details scroll; a short-height
+   rule below lets the details area yield space to the nonshrinking footer. */
 html .character-side>.character-save-plan{flex:0 0 auto;min-height:min(260px,60%);max-height:min(70%,560px)}
+@media (max-height:680px) and (min-width:1031px){
+  html .character-side>.character-save-plan{flex:0 0 auto;min-height:fit-content;max-height:100%;overflow:auto;overscroll-behavior:contain}
+  html .search-page>main{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+  html .search-page .selection{flex:0 0 auto;min-height:0;overflow:visible}
+  html .search-page .selection .selected-body{flex:0 1 auto;min-height:90px;max-height:min(30vh,180px)}
+}
 /* UI-027: the window controls are pinned to the title bar's corner; when the bar's
    content is wider than the window it wraps to a second row instead of pushing them out. */
 html .shell>.topbar{position:relative;flex-wrap:wrap;row-gap:0}

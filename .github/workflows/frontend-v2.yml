@@ -2,9 +2,9 @@ name: Frontend V2 foundation
 on:
   workflow_dispatch:
   push:
-    paths: ['.gitattributes', 'apps/**', 'packages/**', 'nioh3_scroll_editor/**', 'tests/**', 'test_fixtures/**', 'research/analyze_live_item_insertion.py', 'tools/audit_v2_localization.py', 'tools/export_v2_ui_locales.py', 'tools/audit_v2_ui_locales.mjs', 'tools/verify_native_faults.ps1', 'research/verify_native_fault_matrix.py', 'research/native_dispatch_fixture.cpp', 'packaging/**', 'tools/*frontend_v2*', 'tools/write_v2_python_manifest.py', 'launch_*worker.py', 'package*.json', 'tsconfig.json', 'requirements*.txt', '.github/workflows/frontend-v2.yml']
+    paths: ['.gitattributes', 'apps/**', 'packages/**', 'nioh3_scroll_editor/**', 'tests/**', 'test_fixtures/**', 'research/analyze_live_item_insertion.py', 'tools/audit_v2_localization.py', 'tools/export_v2_ui_locales.py', 'tools/audit_v2_ui_locales.mjs', 'tools/verify_native_faults.ps1', 'tools/ui-audit/**', 'research/verify_native_fault_matrix.py', 'research/native_dispatch_fixture.cpp', 'packaging/**', 'tools/*frontend_v2*', 'tools/write_v2_python_manifest.py', 'launch_*worker.py', 'package*.json', 'tsconfig.json', 'requirements*.txt', '.github/workflows/frontend-v2.yml']
   pull_request:
-    paths: ['.gitattributes', 'apps/**', 'packages/**', 'nioh3_scroll_editor/**', 'tests/**', 'test_fixtures/**', 'research/analyze_live_item_insertion.py', 'tools/audit_v2_localization.py', 'tools/export_v2_ui_locales.py', 'tools/audit_v2_ui_locales.mjs', 'tools/verify_native_faults.ps1', 'research/verify_native_fault_matrix.py', 'research/native_dispatch_fixture.cpp', 'packaging/**', 'tools/*frontend_v2*', 'tools/write_v2_python_manifest.py', 'launch_*worker.py', 'package*.json', 'tsconfig.json', 'requirements*.txt', '.github/workflows/frontend-v2.yml']
+    paths: ['.gitattributes', 'apps/**', 'packages/**', 'nioh3_scroll_editor/**', 'tests/**', 'test_fixtures/**', 'research/analyze_live_item_insertion.py', 'tools/audit_v2_localization.py', 'tools/export_v2_ui_locales.py', 'tools/audit_v2_ui_locales.mjs', 'tools/verify_native_faults.ps1', 'tools/ui-audit/**', 'research/verify_native_fault_matrix.py', 'research/native_dispatch_fixture.cpp', 'packaging/**', 'tools/*frontend_v2*', 'tools/write_v2_python_manifest.py', 'launch_*worker.py', 'package*.json', 'tsconfig.json', 'requirements*.txt', '.github/workflows/frontend-v2.yml']
 jobs:
   foundation:
     runs-on: windows-latest
@@ -43,6 +43,7 @@ jobs:
       - run: node apps/workshop/verify-scroll-completion.mjs
       # Text must fit its box in every locale at the minimum window size.
       - run: node apps/workshop/verify-text-fit.mjs
+      - run: node tools/ui-audit/verify-arc-expanded.mjs --out deliverables/frontend-v2/arc-expanded
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
