@@ -1313,6 +1313,11 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         lines.push(prefix + " 地狱武器：" + (change.before.hell ? "是" : "否") + " → " + (change.after.hell ? "是" : "否"));
       if ((change.before.hell_skill ?? 0) !== (change.after.hell_skill ?? 0))
         lines.push(prefix + " 地狱武技：" + skillText(change.before.hell_skill ?? 0) + " → " + skillText(change.after.hell_skill ?? 0));
+      // The game's marks: a plan that only changes them must still show what it does.
+      if ((change.before.locked ?? false) !== (change.after.locked ?? false))
+        lines.push(prefix + " 保护：" + (change.before.locked ? "是" : "否") + " → " + (change.after.locked ? "是" : "否"));
+      if ((change.before.favorite ?? false) !== (change.after.favorite ?? false))
+        lines.push(prefix + " 喜好项目：" + (change.before.favorite ? "是" : "否") + " → " + (change.after.favorite ? "是" : "否"));
       for (const [key, label] of FIELD_LABEL)
         if (change.before[key] !== change.after[key])
           lines.push(prefix + " " + label + "：" + fieldText(key, change.before[key]) + " → " + fieldText(key, change.after[key]));

@@ -692,3 +692,8 @@ html .character-page .character-list{overflow:clip}
 /* Narrow list: headers stay whole, the type column wraps. */
 html .character-table th{white-space:nowrap}
 html .character-table .character-kind{white-space:normal;overflow-wrap:normal;word-break:normal}
+/* The item list's structure holds at every width: the legacy rules that keep the
+   tabs and filters whole and scroll the table inside lived in a media query that
+   stops at 1100px, the minimum window width, where the tabs collapsed to 2px. */
+html .character-page .character-list>:is(.character-tabs,.character-filters,.character-pager){flex-shrink:0}
+html .character-page .character-list>.character-table-wrap{flex:1 1 0;min-height:0;overflow:auto}

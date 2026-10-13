@@ -6196,6 +6196,14 @@
       "Level and playthrough not read",
       "レベルと周回を読み取れません"
     ],
+    "保护：": [
+      "Protected: ",
+      "保護："
+    ],
+    "喜好项目：": [
+      "Favorite: ",
+      "お気に入り："
+    ],
     "游戏内选中的是绘卷，可以在“绘卷编辑”页定位": [
       "The item selected in game is a scroll; locate it on the Scroll editor page",
       "ゲーム内で選択中なのは絵巻です。「絵巻編集」ページで位置を特定できます"
