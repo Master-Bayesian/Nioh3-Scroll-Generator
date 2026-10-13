@@ -47,6 +47,10 @@ loading the character. Browser fixtures use a synthetic bridge without real
 game or save writes. Earlier candidate reports remain immutable history. See
 [`ARC_UI_DEBUG_ACCEPTANCE_20261012.md`](ARC_UI_DEBUG_ACCEPTANCE_20261012.md)
 for the current exact candidate results and acceptance boundary.
+Frozen local source 3ba7759 passed the browser matrix (1,170/1,170), native
+character draft (58/58), native plan footer (72/72), three standalone launches,
+and supported-minimum native header/window checks. These are offline and
+synthetic acceptance; real-save persistence and public release are not claimed.
 
 ## In-development capabilities (not shipped)
 

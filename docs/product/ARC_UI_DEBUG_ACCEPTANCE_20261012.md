@@ -1,7 +1,9 @@
 # Arc UI debug acceptance (2026-10-13)
 
-Status: source implementation and browser checks complete; the next clean
-candidate must pass the matching packaged/native checks before delivery.
+Status: local preview accepted at frozen source
+`3ba77597686913edb1f182c2cb8471c25d02aeaa`. Browser and matching exact-outer
+native checks passed. This is not live-game persistence or public-release
+acceptance.
 
 Base: `claude/arc-ui-preview` at
 `2bde1e3c37815afe3978e226d995b70e6b014f96`. Local work:
@@ -29,9 +31,12 @@ The header SHA removal is an explicit owner-approved visibility change.
 
 ## Repeatable evidence
 
-- Header matrix before the initial-selection fix: 780/780 minimum/wide checks
-  and 390/390 short-height checks passed across three locales and two themes.
-  Normal screenshots are separate from 50% pseudo-text stress screenshots.
+- Final frozen-source browser matrix: 1,170/1,170 checks passed across three
+  locales, two themes and three viewports. Independent text-fit passed. Normal
+  screenshots are separate from 50% pseudo-text stress screenshots. Fourteen
+  native-select truncations and two version-metadata/navigation overlaps under
+  synthetic text pressure remain recorded as explicit pressure exemptions;
+  ordinary native content has zero text-fit findings.
 - Initial-selection failure was recorded before the product fix in
   `deliverables/arc-ui-debug-20261012/web/initial-save-selection-baseline/`.
   The existing plan-footer E2E then passed 46/46 browser assertions, including
@@ -44,6 +49,15 @@ The header SHA removal is an explicit owner-approved visibility change.
 - The current exact source, hashes, final matrix, EXE and native results are
   recorded in [FINAL_REPORT.md](../../deliverables/arc-ui-debug-20261012/FINAL_REPORT.md)
   and [STATUS.json](../../deliverables/arc-ui-debug-20261012/STATUS.json).
+- The exact outer passed three standalone cold-cache/repair launches, the
+  native character-draft fixture (58/58), and native plan-footer fixture
+  (72/72). Package hashes and the clean frozen source were verified.
+- Native window/header evidence contains 25 screenshots, zero text-fit
+  findings and 25/25 baseline checks. Actual CSS viewport/DPR was 1455x910
+  at 1.1, maximized 2328x1266, minimum 1100x743; both restores matched normal.
+- The separate supported-width WebView2 scale check passed 12/12 across all
+  locales/themes at 1100x740, DPR 1.25 and 1.5. This is CDP emulation, not a
+  change to Windows scaling.
 
 The earlier d5bfb533 outer is immutable intermediate evidence and does not
 contain the later header or initial-selection fixes. Its obsolete plan-footer
@@ -58,6 +72,12 @@ controls, text overflow, locales, themes and scale equivalents. Native runs
 must use the matching clean-source outer and record actual CSS viewport/DPR,
 normal/maximize/restore/minimum geometry, package hashes and safe shutdown.
 CDP scale emulation does not establish real system-scale acceptance.
+
+The older plan-footer script also forces a 935px CSS width, below the product's
+1100px minimum. Its footer assertions passed but the Japanese title stacks
+and overlaps navigation there. Those screenshots do not establish whole-page
+acceptance; the unsupported-width issue is retained as a boundary. The extra
+1100px scaling matrix covers the actual supported minimum without hiding it.
 
 No version bump, publication, signing, push, tag, update feed, real-save write,
 or live-game persistence acceptance is part of this task. Native discovery may

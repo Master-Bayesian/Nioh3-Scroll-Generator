@@ -40,9 +40,18 @@ The next exact candidate must rerun the native fixture and source identity check
 **Reproduction:** confirmed on the frozen candidate; reproduction status is
 `yes`.
 
-**Follow-up:** `pending`; next exact-candidate rerun must retain synthetic
-fixture boundaries and prove zero game/save writes. This ledger entry does not
-authorize a build, publish, or source-wide change.
+**Follow-up:** closed for the matching frozen local preview
+`3ba77597686913edb1f182c2cb8471c25d02aeaa`, outer SHA-256
+`d48729c04c7910fbb1b1823e320f879413ea0b4627a2563158a54dd6973cebaf`.
+The native fixture passed 72/72, including source/member identity and initial
+automatic selection, with `gameWrites=0`, `realSaveWrites=0`, and normal exit.
+Evidence: `deliverables/arc-ui-debug-20261012/native/evidence/3ba7759/plan-footer/plan-footer-e2e.json`.
+The owner stopped a separately launched research game before this run. Its
+earlier precondition refusal is preserved in
+`deliverables/arc-ui-debug-20261012/native/standalone-precondition-blocked-3ba7759.log`.
+The helper's below-minimum 935px Japanese header is outside its footer assertions;
+supported-width 1100px header/scale checks separately passed 12/12. This closure
+does not establish real-game or save-persistence acceptance.
 
 ## 2026-10-03: protected size fixture also needs its declared root in source CI
 
