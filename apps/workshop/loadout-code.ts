@@ -11,15 +11,26 @@
  * table; callers check that the items and effects exist.
  */
 
+import type { CharacterEquipment } from "../../packages/contracts/protected-responses";
+
 export interface LoadoutPiece {
   item_id: number;
   level: number;
   level_before_forge: number;
   plus: number;
   rarity: number;
+  /** Read-only save metadata; deliberately absent from the N3E1 wire format. */
+  familiarity?: number;
+  armor_remodel?: [number, number];
+  /** Character difficulty snapshot used by the verified PC v2.02 remodel getter. */
+  remodel_stage?: number;
+  native_flags?: number;
+  origin?: "save" | "favorites" | "code";
   hell?: boolean;
   hell_skill?: number;
   effects: { effect_id: number; value: number; star?: boolean }[];
+  audit?: CharacterEquipment["audit"];
+  source?: { saveId: string; digest: string; slotIndex: number; inventoryKey: number };
 }
 
 /** A decoded piece always says whether it is a hell item. */

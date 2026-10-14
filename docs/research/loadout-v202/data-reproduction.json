@@ -1,0 +1,148 @@
+{
+  "status": "passed",
+  "projections": 10,
+  "commands": [
+    {
+      "script": "deliverables/guardian-spirit-catalog-20261008/native-extraction/build_native_catalog.py",
+      "returncode": 0
+    },
+    {
+      "script": "deliverables/clan-protection-catalog-20261010/native-extraction/build_native_catalog.py",
+      "returncode": 0
+    },
+    {
+      "script": "deliverables/skill-catalog-20261009/native-extraction/build_native_skill_catalog.py",
+      "returncode": 0
+    },
+    {
+      "script": "deliverables/guardian-spirit-catalog-20261008/native-extraction/validate_native_catalog.py",
+      "returncode": 0
+    },
+    {
+      "script": "deliverables/clan-protection-catalog-20261010/native-extraction/validate_native_catalog.py",
+      "returncode": 0
+    },
+    {
+      "script": "tools/export_loadout_guardians.mjs",
+      "returncode": 0
+    },
+    {
+      "script": "tools/export_loadout_soul_cores.mjs",
+      "returncode": 0
+    },
+    {
+      "script": "tools/export_loadout_skill_scope.mjs",
+      "returncode": 0
+    },
+    {
+      "script": "tools/export_loadout_sets.py",
+      "returncode": 0
+    },
+    {
+      "script": "tools/export_loadout_effect_catalog.py",
+      "returncode": 0
+    },
+    {
+      "script": "tools/build_loadout_armor_requirements.py",
+      "returncode": 0
+    },
+    {
+      "script": "tools/build_loadout_stats.py",
+      "returncode": 0
+    },
+    {
+      "script": "tools/build_loadout_resources.py",
+      "returncode": 0
+    }
+  ],
+  "results": [
+    {
+      "asset": "loadout-armor-requirements.json",
+      "byte_equal": false,
+      "canonical_byte_equal": true,
+      "semantic_equal": true,
+      "expected_sha256": "185b0731c9d1ff5a761567f2bf0e1e4c220c28950e1aaffa53c4ebb5e8a58982",
+      "actual_sha256": "ce91264c1310bef3f8261c7d04dbc1a0127ddb6cd8aca858b3e948bb5ad296e8"
+    },
+    {
+      "asset": "loadout-clans.json",
+      "byte_equal": false,
+      "canonical_byte_equal": true,
+      "semantic_equal": true,
+      "expected_sha256": "16fb0d3ffe05c4cae5bc49a886342b61ae4984d3074b3d02718f1696f6463bd2",
+      "actual_sha256": "5c785c4a6f512b9dd8ecd7b01681cce92498bd6a99ad1e23b1109dad3f86b349"
+    },
+    {
+      "asset": "loadout-effect-catalog.json",
+      "byte_equal": true,
+      "canonical_byte_equal": true,
+      "semantic_equal": true,
+      "expected_sha256": "b5dc471f076ddc7456d88d4e101f7d34b175b45695d742588ef4364b6118a515",
+      "actual_sha256": "b5dc471f076ddc7456d88d4e101f7d34b175b45695d742588ef4364b6118a515"
+    },
+    {
+      "asset": "loadout-guardians.json",
+      "byte_equal": true,
+      "canonical_byte_equal": true,
+      "semantic_equal": true,
+      "expected_sha256": "fffd50d5a955cccbef0dfe90910ad0f889a0cdbe752d0c52565966a37aefcc5c",
+      "actual_sha256": "fffd50d5a955cccbef0dfe90910ad0f889a0cdbe752d0c52565966a37aefcc5c"
+    },
+    {
+      "asset": "loadout-native-skill-scope.json",
+      "byte_equal": true,
+      "canonical_byte_equal": true,
+      "semantic_equal": true,
+      "expected_sha256": "a22408125601ff7cc6bbf5ca7f221b564adac97015d3b52a731f12f9c79d8cb0",
+      "actual_sha256": "a22408125601ff7cc6bbf5ca7f221b564adac97015d3b52a731f12f9c79d8cb0"
+    },
+    {
+      "asset": "loadout-resources.json",
+      "byte_equal": true,
+      "canonical_byte_equal": true,
+      "semantic_equal": true,
+      "expected_sha256": "adaf24a89b3cd3295b7f1ad13dbcffa61469f61eb3616c1154cb4736566a9c12",
+      "actual_sha256": "adaf24a89b3cd3295b7f1ad13dbcffa61469f61eb3616c1154cb4736566a9c12"
+    },
+    {
+      "asset": "loadout-sets.json",
+      "byte_equal": true,
+      "canonical_byte_equal": true,
+      "semantic_equal": true,
+      "expected_sha256": "f9e41de5450d9ebd0c2960035d1c1b5adb788c196a5a12d30f89e0519de1a746",
+      "actual_sha256": "f9e41de5450d9ebd0c2960035d1c1b5adb788c196a5a12d30f89e0519de1a746"
+    },
+    {
+      "asset": "loadout-skills.json",
+      "byte_equal": false,
+      "canonical_byte_equal": true,
+      "semantic_equal": true,
+      "expected_sha256": "c9e491f919c1127ad98a83f1334b3b08c685b1a730b5834d053eef48fddbdbf0",
+      "actual_sha256": "745779fe1e47c87e11aaac475415febb68897e609e60f47f2d5ed5aed1c4543a"
+    },
+    {
+      "asset": "loadout-soul-cores.json",
+      "byte_equal": true,
+      "canonical_byte_equal": true,
+      "semantic_equal": true,
+      "expected_sha256": "3a82bdbea44c62eac7a4bb696c5cc58fd233756896f4c416a1f08a230d64d385",
+      "actual_sha256": "3a82bdbea44c62eac7a4bb696c5cc58fd233756896f4c416a1f08a230d64d385"
+    },
+    {
+      "asset": "loadout-stats.json",
+      "byte_equal": false,
+      "canonical_byte_equal": true,
+      "semantic_equal": true,
+      "expected_sha256": "a3e6cfbe897f4b458348fe18f547b6f9bd894681902a7c721d698171b39c38c3",
+      "actual_sha256": "590fee131df1f82c059fa3da97857029a146ce2cf652a5ad9b337f320705d822"
+    }
+  ],
+  "python_file_boundary": "File opens restricted to isolated replay output and installed Python runtimes.",
+  "node_file_boundary": "Node permission mode restricts projection reads/writes to the isolated source copy.",
+  "dependencies": {
+    "capstone": "5.0.6",
+    "pytest": "8.4.2",
+    "lupa": "2.8"
+  },
+  "boundary": "Package-contained source and native inputs only; installed Python/Node toolchains remain prerequisites."
+}

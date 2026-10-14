@@ -1,0 +1,88 @@
+{
+  "schema": "nioh3-loadout-source-map/v1",
+  "path_base": "project-source",
+  "entry_point": "scripts/reproduce.py",
+  "assets": [
+    {
+      "asset": "apps/workshop/loadout-clans.json",
+      "inputs": [
+        "deliverables/clan-protection-catalog-20261010"
+      ],
+      "generator": "deliverables/clan-protection-catalog-20261010/native-extraction/build_native_catalog.py"
+    },
+    {
+      "asset": "apps/workshop/loadout-skills.json",
+      "inputs": [
+        "deliverables/skill-catalog-20261009"
+      ],
+      "generator": "deliverables/skill-catalog-20261009/native-extraction/build_native_skill_catalog.py"
+    },
+    {
+      "asset": "apps/workshop/loadout-guardians.json",
+      "inputs": [
+        "deliverables/guardian-spirit-catalog-20261008"
+      ],
+      "generator": "tools/export_loadout_guardians.mjs"
+    },
+    {
+      "asset": "apps/workshop/loadout-native-skill-scope.json",
+      "inputs": [
+        "deliverables/skill-catalog-20261009/native-extraction/native-skills-03",
+        "deliverables/skill-catalog-20261009/native-extraction/native-skills-04"
+      ],
+      "generator": "tools/export_loadout_skill_scope.mjs"
+    },
+    {
+      "asset": "apps/workshop/loadout-soul-cores.json",
+      "inputs": [
+        "nioh3_scroll_editor/data/r4_finalizer/pc_v2_02/resource_v1"
+      ],
+      "generator": "tools/export_loadout_soul_cores.mjs"
+    },
+    {
+      "asset": "apps/workshop/loadout-sets.json",
+      "inputs": [
+        "deliverables/skill-catalog-20261009/native-extraction/discovery-02",
+        "deliverables/clan-protection-catalog-20261010/native-extraction/native-text-01.json",
+        "deliverables/load-capacity-research/disassembly/live-sections"
+      ],
+      "generator": "tools/export_loadout_sets.py"
+    },
+    {
+      "asset": "apps/workshop/loadout-effect-catalog.json",
+      "inputs": [
+        "deliverables/guardian-spirit-catalog-20261008",
+        "deliverables/clan-protection-catalog-20261010",
+        "deliverables/skill-catalog-20261009/native-extraction/discovery-02",
+        "deliverables/load-capacity-research/disassembly/live-sections"
+      ],
+      "generator": "tools/export_loadout_effect_catalog.py"
+    },
+    {
+      "asset": "apps/workshop/loadout-armor-requirements.json",
+      "inputs": [
+        "research/armor_remodel_v202",
+        "tools/armor_remodel_batch_v202.py"
+      ],
+      "generator": "tools/build_loadout_armor_requirements.py"
+    },
+    {
+      "asset": "apps/workshop/loadout-stats.json",
+      "inputs": [
+        "research/armor_remodel_v202",
+        "deliverables/load-capacity-research/captures"
+      ],
+      "generator": "tools/build_loadout_stats.py"
+    },
+    {
+      "asset": "apps/workshop/loadout-resources.json",
+      "inputs": [
+        "deliverables/player-hp-ki-research-20261014",
+        "deliverables/life-reflection-stamina-research-20261014",
+        "deliverables/player-resource-modifiers-research-20261014",
+        "research/native_bonus_curve.py"
+      ],
+      "generator": "tools/build_loadout_resources.py"
+    }
+  ]
+}

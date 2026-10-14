@@ -9,6 +9,10 @@ import { Updates, UpdateNotice } from "./Updates";
 import { StarIcon } from "./StarIcon";
 import { SectionHelp } from "./SectionHelp";
 import { BrandMark } from "./BrandMark";
+import { LoadoutPlanner, initialLoadoutAttributes, loadoutAttributeBounds, type LoadoutStyle } from "./LoadoutPlanner";
+import { initialLoadoutSelection } from "./loadout-state";
+import { applySavedLoadoutImport } from "./loadout-save-config";
+import { readLoadoutWorkspace, saveLoadoutWorkspace, snapshotLoadoutWorkspace, type LoadoutDraft } from "./loadout-storage";
 import React, {
   createContext,
   useContext,
@@ -583,6 +587,69 @@ function App() {
     [sortMode, setSortMode] = useState("primary"),
     [popup, setPopup] = useState("");
   useEffect(() => setFeedbackState(""), [popup]);
+  const [loadoutBootstrap] = useState(() => {
+    try { return { workspace: readLoadoutWorkspace(localStorage), failed: false }; }
+    catch { return { workspace: null, failed: true }; }
+  });
+  const initialDrafts: LoadoutDraft[] = loadoutBootstrap.workspace?.drafts ?? [{ id: 1, name: "配装1", style: "samurai",
+    attributes: structuredClone(initialLoadoutAttributes), selection: initialLoadoutSelection() }];
+  const initialDraft = initialDrafts.find(draft => draft.id === loadoutBootstrap.workspace?.activeId) ?? initialDrafts[0];
+  const [loadoutStyle, setLoadoutStyle] = useState<LoadoutStyle>(initialDraft.style);
+  const [loadoutAttributes, setLoadoutAttributes] = useState(initialDraft.attributes);
+  const [loadoutSelection, setLoadoutSelection] = useState(initialDraft.selection);
+  const [loadoutDrafts, setLoadoutDrafts] = useState(initialDrafts);
+  const [activeLoadoutDraftId, setActiveLoadoutDraftId] = useState(initialDraft.id);
+  const storageBlocked = useRef(loadoutBootstrap.failed);
+  const [loadoutStorageError, setLoadoutStorageError] = useState(loadoutBootstrap.failed ? "本地配装读取失败，原数据已保留。当前修改尚未保存。" : "");
+  const [loadoutSaveAttempt, setLoadoutSaveAttempt] = useState(0);
+  useLayoutEffect(() => {
+    if (storageBlocked.current) return;
+    try {
+      saveLoadoutWorkspace(localStorage, snapshotLoadoutWorkspace(loadoutDrafts, activeLoadoutDraftId,
+        { style: loadoutStyle, attributes: loadoutAttributes, selection: loadoutSelection }));
+      setLoadoutStorageError("");
+    } catch { setLoadoutStorageError("配装自动保存失败，当前修改尚未保存。请重试。关闭工具前请确认保存成功。"); }
+  }, [loadoutDrafts, activeLoadoutDraftId, loadoutStyle, loadoutAttributes, loadoutSelection, loadoutSaveAttempt]);
+  const retryLoadoutSave = () => {
+    if (storageBlocked.current) {
+      try {
+        saveLoadoutWorkspace(localStorage, snapshotLoadoutWorkspace(loadoutDrafts, activeLoadoutDraftId,
+          { style: loadoutStyle, attributes: loadoutAttributes, selection: loadoutSelection }), true);
+        storageBlocked.current = false;
+        setLoadoutStorageError("");
+      } catch { setLoadoutStorageError("原数据备份或配装保存失败，原数据仍保留。请重试。"); }
+    } else setLoadoutSaveAttempt(value => value + 1);
+  };
+  const currentLoadoutDraft = () => ({ style: loadoutStyle, attributes: structuredClone(loadoutAttributes), selection: structuredClone(loadoutSelection) });
+  const selectLoadoutDraft = (id: number) => {
+    const target = loadoutDrafts.find(draft => draft.id === id);
+    if (!target || id === activeLoadoutDraftId) return;
+    const snapshot = currentLoadoutDraft();
+    setLoadoutDrafts(current => current.map(draft => draft.id === activeLoadoutDraftId ? { ...draft, ...snapshot } : draft));
+    setActiveLoadoutDraftId(id);
+    setLoadoutStyle(target.style);
+    setLoadoutAttributes(structuredClone(target.attributes));
+    setLoadoutSelection(structuredClone(target.selection));
+  };
+  const createLoadoutDraft = (name: string) => {
+    if (!name.trim() || loadoutDrafts.some(draft => draft.name === name.trim())) return;
+    const id = Math.max(...loadoutDrafts.map(draft => draft.id)) + 1;
+    const snapshot = currentLoadoutDraft();
+    const draft = { id, name: name.trim(), style: "samurai" as LoadoutStyle,
+      attributes: initialLoadoutAttributes.map((attribute, index) => ({ ...attribute, value: index === 3 ? 6 : 5 })),
+      selection: initialLoadoutSelection() };
+    setLoadoutDrafts(current => [...current.map(row => row.id === activeLoadoutDraftId ? { ...row, ...snapshot } : row), draft]);
+    setActiveLoadoutDraftId(id);
+    setLoadoutStyle(draft.style);
+    setLoadoutAttributes(structuredClone(draft.attributes));
+    setLoadoutSelection(structuredClone(draft.selection));
+  };
+  const renameLoadoutDraft = (name: string) => {
+    const normalized = name.trim();
+    if (!normalized || normalized.length > 60) return;
+    setLoadoutDrafts(current => current.some(draft => draft.id !== activeLoadoutDraftId && draft.name === normalized)
+      ? current : current.map(draft => draft.id === activeLoadoutDraftId ? { ...draft, name: normalized } : draft));
+  };
   const [appVersion, setAppVersion] = useState("");
   useEffect(() => {
     if (!desktop) return;
@@ -1110,6 +1177,9 @@ function App() {
             title="绘卷编辑"
           >
             <span>绘卷编辑</span>
+          </button>
+          <button data-nav-key="loadout" className={page === "loadout" ? "active" : ""} onClick={() => setPage("loadout")} aria-label="配装器" title="配装器">
+            <span className="nav-icon" aria-hidden="true">♙</span><span>{locale === "zh-CN" ? "配装器" : "配装"}</span>
           </button>
           <button
             className={page === "backups" ? "active" : ""}
@@ -2656,6 +2726,15 @@ function App() {
       )}
       {page === "backups" && <BackupManager />}
       {page === "equipment" && <CharacterEditor showIds={showIds} />}
+      {page === "loadout" && <LoadoutPlanner storageError={loadoutStorageError} storageBlocked={storageBlocked.current} onRetrySave={retryLoadoutSave} key={activeLoadoutDraftId} drafts={loadoutDrafts} activeDraftId={activeLoadoutDraftId} onDraftChange={selectLoadoutDraft} onCreateDraft={createLoadoutDraft} onRenameDraft={renameLoadoutDraft} style={loadoutStyle} onStyleChange={setLoadoutStyle} attributes={loadoutAttributes} selection={loadoutSelection} setSelection={setLoadoutSelection} scrollFavorites={favorites} onImport={value => {
+        setLoadoutAttributes(current => current.map((attribute, index) => ({ ...attribute, value: value.attributes[index] })));
+        setLoadoutSelection(current => applySavedLoadoutImport(current, value));
+      }} onAttributeChange={(index, value) => setLoadoutAttributes(current => {
+        if (!Number.isFinite(value)) return current;
+        const { minimum, maximum } = loadoutAttributeBounds(current, index);
+        const bounded = Math.min(maximum, Math.max(minimum, Math.trunc(value)));
+        return current.map((attribute, position) => position === index ? { ...attribute, value: bounded } : attribute);
+      })} />}
       <div className="toast" role="status" hidden={!toast}>
         {toast}
         <button aria-label="关闭提示" onClick={() => setToast("")}>

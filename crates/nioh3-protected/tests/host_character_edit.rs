@@ -220,6 +220,46 @@ fn job(exchange: &mut impl FnMut(&str, Value) -> Value, method: &str, params: Va
 }
 
 #[test]
+fn loadout_projection_is_read_only_and_schema_valid_when_fields_are_missing() {
+    let root = build_root().join("tmp").join(format!("nioh3-loadout-read-{}", std::process::id()));
+    assert!(!root.exists());
+    let save_path = fixture_save(&root);
+    let original = std::fs::read(&save_path).unwrap();
+    let data = repo_root().join("nioh3_scroll_editor").join("data");
+    let contracts = repo_root().join("packages").join("contracts");
+    let engine = Engine::load(&data, &contracts, None, ContextSelection::Production(GameFileVersion(2, 0, 2, 0))).unwrap();
+    let application: Box<dyn RoleApplication> = Box::new(SaveApplication::new(root.join("state"), &data, engine.context().clone()).unwrap());
+    let contract = Contract::load(&contracts).unwrap();
+    let (sender, receiver) = mpsc::channel();
+    let sink = Arc::new(Mutex::new(Vec::new()));
+    let host_sink = Arc::clone(&sink);
+    let host = thread::spawn(move || serve(application, &contract, &mut ChannelReader { receiver, buffer: Vec::new() }, &mut SharedSink(host_sink)).unwrap());
+    let mut count = 0;
+    let mut exchange = |method: &str, params: Value| -> Value {
+        count += 1;
+        sender.send(frame(&json!({"protocol": 1, "id": count.to_string(), "method": method, "params": params}))).unwrap();
+        wait_response(&sink, count)[count - 1].clone()
+    };
+    assert_eq!(exchange("handshake", json!({}))["ok"], true);
+    let registered = job(&mut exchange, "save.register", json!({"path": save_path}));
+    let save_id = registered["result"]["save_id"].as_str().unwrap();
+    let response = job(&mut exchange, "save.character", json!({"save_id": save_id}));
+    assert_eq!(response["state"], "completed", "{response}");
+    let result = &response["result"];
+    assert_eq!(result["loadout"]["complete"], false);
+    assert_eq!(result["loadout"]["attributes"], Value::Null);
+    assert!(result["loadout"]["unavailable"].as_array().unwrap().contains(&json!("guardian_selection")));
+    assert_eq!(result["equipment"][0]["set_positions"], json!(nioh3_save::loadout::equipment_positions(&forged_record())));
+    assert_eq!(result["equipment"][0]["armor_remodel"], json!([forged_record()[0x31], forged_record()[0x32]]));
+    assert_eq!(result["equipment"][0]["native_flags"], json!(u32::from_le_bytes(forged_record()[0x18..0x1C].try_into().unwrap())));
+    assert_eq!(std::fs::read(&save_path).unwrap(), original);
+    assert_eq!(exchange("shutdown", json!({}))["result"]["safe_to_shutdown"], true);
+    drop(sender);
+    host.join().unwrap();
+    std::fs::remove_dir_all(&root).unwrap();
+}
+
+#[test]
 fn character_edits_commit_through_the_save_transaction() {
     let root = build_root()
         .join("tmp")
