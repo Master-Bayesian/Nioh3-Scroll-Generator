@@ -1,0 +1,132 @@
+{
+  "ok": true,
+  "checks": [
+    "zh-CN internal other-skill record is retained",
+    "zh-CN no internal record entry is rendered",
+    "zh-CN detail slot selector removed",
+    "zh-CN equipment text enlarged",
+    "zh-CN set columns align across filled and empty slots",
+    "zh-CN capacity and essence metrics fit one compact row",
+    "zh-CN inline capacity limit remains editable",
+    "zh-CN selected essence type is purple and distinct",
+    "zh-CN skill picker shares purple essence label",
+    "zh-CN rank selection uses a consistent choice dialog",
+    "zh-CN rank changes preserve effect identity and other row",
+    "zh-CN rank dismissal does not change data",
+    "zh-CN clicking armor inspects it without a picker",
+    "zh-CN constrained page has no horizontal overflow",
+    "zh-CN constrained skills use at most two metric rows",
+    "single pointer click increments exactly once after input focus",
+    "hold repeats one-point increments",
+    "pointer release stops without an extra click increment",
+    "keyboard activation still increments once",
+    "touch tap decrements once",
+    "hold also repeats decrements",
+    "leaving button stops repeat",
+    "window blur cancels repeat",
+    "pointer cancellation stops repeat",
+    "navigation unmount cancels repeat",
+    "hold stops at level 450 even below attribute 150",
+    "level-one lower bound keeps the sixth initial point",
+    "+20 mode 0/0 updates detail and total weight",
+    "+20 mode 0/0 updates requirements",
+    "+20 mode 0/0 preserves native toughness",
+    "+20 mode 1/0 updates detail and total weight",
+    "+20 mode 1/0 updates requirements",
+    "+20 mode 1/0 preserves native toughness",
+    "+20 mode 2/0 updates detail and total weight",
+    "+20 mode 2/0 updates requirements",
+    "+20 mode 2/0 preserves native toughness",
+    "+20 mode 1/1 updates detail and total weight",
+    "+20 mode 1/1 updates requirements",
+    "+20 mode 1/1 preserves native toughness",
+    "+20 mode 2/2 updates detail and total weight",
+    "+20 mode 2/2 updates requirements",
+    "+20 mode 2/2 preserves native toughness",
+    "+20 mode 1/2 updates detail and total weight",
+    "+20 mode 1/2 updates requirements",
+    "+20 mode 1/2 preserves native toughness",
+    "remodel simulation preserves original inventory record",
+    "+0 armor disables remodel choice",
+    "+0 armor explains the game restriction",
+    "+0 ignores obsolete saved simulation",
+    "dark theme preserves distinct essence coloring",
+    "en-US internal other-skill record is retained",
+    "en-US no internal record entry is rendered",
+    "en-US detail slot selector removed",
+    "en-US equipment text enlarged",
+    "en-US set columns align across filled and empty slots",
+    "en-US capacity and essence metrics fit one compact row",
+    "en-US inline capacity limit remains editable",
+    "en-US selected essence type is purple and distinct",
+    "en-US skill picker shares purple essence label",
+    "en-US rank selection uses a consistent choice dialog",
+    "en-US rank changes preserve effect identity and other row",
+    "en-US rank dismissal does not change data",
+    "en-US clicking armor inspects it without a picker",
+    "en-US constrained page has no horizontal overflow",
+    "en-US constrained skills use at most two metric rows",
+    "ja-JP internal other-skill record is retained",
+    "ja-JP no internal record entry is rendered",
+    "ja-JP detail slot selector removed",
+    "ja-JP equipment text enlarged",
+    "ja-JP set columns align across filled and empty slots",
+    "ja-JP capacity and essence metrics fit one compact row",
+    "ja-JP inline capacity limit remains editable",
+    "ja-JP selected essence type is purple and distinct",
+    "ja-JP skill picker shares purple essence label",
+    "ja-JP rank selection uses a consistent choice dialog",
+    "ja-JP rank changes preserve effect identity and other row",
+    "ja-JP rank dismissal does not change data",
+    "ja-JP clicking armor inspects it without a picker",
+    "ja-JP constrained page has no horizontal overflow",
+    "ja-JP constrained skills use at most two metric rows",
+    "no frontend exceptions"
+  ],
+  "errors": [],
+  "geometry": [
+    {
+      "locale": "zh-CN",
+      "sizes": {
+        "name": "13px",
+        "set": "12px"
+      },
+      "colors": [
+        "rgb(134, 84, 179)",
+        "rgb(132, 133, 134)"
+      ],
+      "width": 1100,
+      "height": 800,
+      "dpr": 1
+    },
+    {
+      "locale": "en-US",
+      "sizes": {
+        "name": "13px",
+        "set": "12px"
+      },
+      "colors": [
+        "rgb(134, 84, 179)",
+        "rgb(132, 133, 134)"
+      ],
+      "width": 1100,
+      "height": 800,
+      "dpr": 1
+    },
+    {
+      "locale": "ja-JP",
+      "sizes": {
+        "name": "13px",
+        "set": "12px"
+      },
+      "colors": [
+        "rgb(134, 84, 179)",
+        "rgb(132, 133, 134)"
+      ],
+      "width": 1100,
+      "height": 800,
+      "dpr": 1
+    }
+  ],
+  "scope": "Isolated browser fixtures, no owner profile/game/save writes; no EXE build"
+}

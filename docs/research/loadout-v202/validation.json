@@ -1,0 +1,54 @@
+{
+  "upstream_base": "a9c20ef50bd405ce1d738430ed5834973831e74c",
+  "typecheck": "passed",
+  "contracts": "regenerated; no differences from merged schema output",
+  "locale_audit": {
+    "status": "passed",
+    "messages": 2028
+  },
+  "source_tests": {
+    "passed": 231,
+    "failed": 0,
+    "skipped": 1,
+    "skip_reason": "Optional packaged worker forwarding requires NIOH3_PACKAGED_WORKER_EXE; no EXE build requested."
+  },
+  "rust": {
+    "save_loadout_parser": 5,
+    "synthetic_host_character": 3,
+    "failed": 0
+  },
+  "browser": {
+    "checks": 81,
+    "locales": [
+      "zh-CN",
+      "en-US",
+      "ja-JP"
+    ],
+    "viewports": [
+      [
+        1366,
+        900
+      ],
+      [
+        1100,
+        800
+      ]
+    ],
+    "themes": [
+      "light",
+      "dark"
+    ],
+    "runtime_errors": 0
+  },
+  "data": {
+    "canonical_byte_matches": 10,
+    "raw_byte_matches": 6,
+    "raw_difference": "Only CRLF/LF in four JSON files; values and other bytes match."
+  },
+  "limits": [
+    "No new Studio EXE",
+    "No native WebView2/game-menu acceptance for this integrated source",
+    "Chinese fallback for new English/Japanese UI strings",
+    "Full research archive is an immutable pre-integration source/evidence snapshot; current source is the feature PR"
+  ]
+}

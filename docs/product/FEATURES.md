@@ -1,5 +1,23 @@
 # Product feature catalog
 
+## Loadout planner source contribution (2026-10-14)
+
+Adds a persistent local planner with independent styles, saved-inventory/code
+selection, two soul cores, manual guardians/clan effects/skills, effect and
+set/grace summaries, and reviewed PC v2.02 state/resource calculations. Save
+configuration import is read-only; unsupported/internal records do not become
+active effects. New text intentionally uses Chinese fallback. Attack/defense
+and selected-skill contributions remain outside the planner calculation scope.
+
+Entry point: the Loadout tab. Implementation: apps/workshop/LoadoutPlanner.tsx
+and loadout-*.ts; additive Rust save projection and focused tests preserve
+protected save operations. Current-main checks: typecheck/contracts/locales,
+231 source tests (one optional packaged test skipped), eight focused Rust tests,
+81 three-locale browser checks and ten data projections after CRLF/LF
+normalization. This is source/browser evidence, not a new packaged/native/game
+acceptance or release. See the [portable handoff](../research/LOADOUT_PLANNER_HANDOFF.md)
+for limits, native provenance, readable tables and the pinned complete archive.
+
 Status: **published baseline v0.8.2; v0.8.3 is an unpublished candidate with
 source/runtime/UI follow-up gates passed; final TypeScript/npm reruns passed.** See the
 publication record and
