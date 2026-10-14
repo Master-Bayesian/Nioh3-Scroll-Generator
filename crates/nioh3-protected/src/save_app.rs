@@ -413,7 +413,31 @@ impl SaveApplication {
                 progress.as_ref(),
             );
             row["hell"] = json!(record.get(0x1A).is_some_and(|flags| flags & 0x10 != 0));
+            row["set_positions"] = json!(nioh3_save::loadout::equipment_positions(record));
+            // Raw remodel bytes; the paired generation difficulty is the remodel getter's stage.
+            row["armor_remodel"] = json!([record[0x31], record[0x32]]);
+            row["native_flags"] = json!(u32::from_le_bytes(record[0x18..0x1C].try_into().unwrap()));
             equipment.push(row);
+        }
+        let mut loadout = nioh3_save::loadout::read_loadout(plain);
+        let items = save_items_json(plain);
+        let mut scroll_slots: Vec<u32> = loadout.equipped_indices.as_ref().into_iter()
+            .flatten().flat_map(|set| set.iter().skip(15).take(2).copied()).filter(|slot| *slot != u32::MAX).collect();
+        scroll_slots.sort_unstable();
+        scroll_slots.dedup();
+        let mut loadout_scrolls = Vec::new();
+        let mut loadout_read_error = None;
+        for slot in scroll_slots {
+            let read = ScrollInventoryEntry::read(&decrypted, slot as usize).map_err(HostError::from_save)
+                .and_then(|entry| self.entry_json(&entry));
+            match read {
+                Ok(entry) => loadout_scrolls.push(entry),
+                Err(error) => {
+                    loadout.complete = false;
+                    if !loadout.unavailable.contains(&"loadout_scrolls") { loadout.unavailable.push("loadout_scrolls"); }
+                    loadout_read_error = Some(error.to_string());
+                }
+            }
         }
         Ok(json!({
             "save_id": save_id,
@@ -421,8 +445,11 @@ impl SaveApplication {
             "currencies": currencies,
             "equipment_slots": EQUIPMENT_SLOT_COUNT,
             "equipment": equipment,
-            "items": save_items_json(plain),
+            "items": items,
             "generation": crate::equipment_seeds::generation_json(progress.as_ref()),
+            "loadout": loadout,
+            "loadout_scrolls": loadout_scrolls,
+            "loadout_read_error": loadout_read_error,
         }))
     }
 

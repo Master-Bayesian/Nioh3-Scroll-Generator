@@ -31,6 +31,13 @@ pub struct ScrollInventoryEntry {
 }
 
 impl ScrollInventoryEntry {
+    /// Read one occupied slot without requiring account-path or template discovery.
+    pub fn read(save: &DecryptedSave, slot_index: usize) -> Result<Self, SaveReadError> {
+        let offset = slot_offset(slot_index).ok_or(SaveReadError::SlotIndex { index: slot_index })?;
+        let record = ScrollRecordBytes::from_slice(save.raw_record(slot_index)?)?;
+        if record.record_type() == 0 { return Err(SaveReadError::EmptyRecord { slot_index }); }
+        Ok(Self { slot_index, record_offset: offset, mapped_category: mapped_category(record.record_type()), record })
+    }
     /// The declared record type (`+0x00`).
     pub fn record_type(&self) -> u16 {
         self.record.record_type()
@@ -243,19 +250,7 @@ impl SaveInventory {
 
     /// One occupied entry by slot index.
     pub fn entry(&self, slot_index: usize) -> Result<ScrollInventoryEntry, SaveReadError> {
-        let offset =
-            slot_offset(slot_index).ok_or(SaveReadError::SlotIndex { index: slot_index })?;
-        let raw = self.save.raw_record(slot_index)?;
-        let record = ScrollRecordBytes::from_slice(raw)?;
-        if record.record_type() == 0 {
-            return Err(SaveReadError::EmptyRecord { slot_index });
-        }
-        Ok(ScrollInventoryEntry {
-            slot_index,
-            record_offset: offset,
-            mapped_category: mapped_category(record.record_type()),
-            record,
-        })
+        ScrollInventoryEntry::read(&self.save, slot_index)
     }
 
     /// The template record that serves `playthrough`, mirroring the shipped
