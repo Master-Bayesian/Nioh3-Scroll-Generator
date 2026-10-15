@@ -10,6 +10,12 @@
 //! class", context `+0x20`) and that difficulty's progress vector (context
 //! `+0x24`). A grace-bias effect equipped by the player (key `0xB11A`) and the
 //! two runtime predicates are taken as absent, which is one natural state.
+//!
+//! Hell weapons come from `convert_to_hell` (+0x2287870), which regenerates a
+//! dropped weapon from its own seed at the rarity +0x9F070C(4) gives, with
+//! context `+0x14 = 3` and the drop manager's `+0x23/+0x25` bits in `+0x08`
+//! (zero in the hell scrolls observed). Type 3 changes one thing: the first
+//! innate effect becomes a weighted draw over hell-only effects (+0x558275).
 
 use std::collections::HashMap;
 
@@ -33,6 +39,10 @@ const AREA_OTHER_MULTIPLIER: f32 = 0.5;
 const SECONDARY_VALUE_KIND: u32 = 0x2D32;
 const SOUL_CORE_MODE: u8 = 9;
 const SCROLL_MODE: u8 = 0x12;
+/// Effect-row flag (`+0x1C`) of the effects the hell conversion draws.
+const HELL_EFFECT_FLAG: u32 = 0x10;
+/// The rarity `convert_to_hell` asks +0x9F070C for.
+const HELL_RARITY: u8 = 4;
 
 fn u16_at(row: &[u8], offset: usize) -> u16 {
     u16::from_le_bytes([row[offset], row[offset + 1]])
@@ -95,6 +105,10 @@ pub enum GenerationError {
     NotEquipment(u16),
     UnsupportedRarity(u8),
     UnsupportedDifficulty(u8),
+    /// The hell conversion never picks this item.
+    NotHellCapable(u16),
+    /// The hell conversion gives this player state another rarity.
+    UnsupportedHellRarity(u8),
     Table(EffectError),
 }
 
@@ -199,6 +213,45 @@ impl<'a> EquipmentGenerator<'a> {
             .is_some_and(|row| row[0x182] != SCROLL_MODE)
     }
 
+    /// Whether the hell conversion (+0x2285E58) may pick this item: item
+    /// mode 1 or 2 and item flag `+0xB0` bit 0x02.
+    pub fn hell_capable(&self, item_id: u16) -> bool {
+        self.item_row(item_id)
+            .is_some_and(|row| matches!(row[0x182], 1 | 2) && u32_at(row, 0xB0) & 2 != 0)
+    }
+
+    /// Whether the effect is one only the hell conversion draws.
+    pub fn is_hell_effect(&self, effect_id: u32) -> bool {
+        self.effect_row(effect_id)
+            .is_some_and(|row| u32_at(row, 0x1C) & HELL_EFFECT_FLAG != 0)
+    }
+
+    /// The rarities a hell weapon converted in this player state can have.
+    ///
+    /// +0x9F070C(4) takes the highest rarity up to 4 whose progress gate
+    /// (rarity row `+0x10`) the player has met, and turns 4 into 3 unless a
+    /// player flag (+0x284944(0x7F)) is set; the flag is not modeled, so 3
+    /// stays possible wherever 4 is.
+    pub fn hell_rarities(&self, state: PlayerState) -> Vec<u8> {
+        let gated = (1..=HELL_RARITY)
+            .rev()
+            .find(|rarity| {
+                self.resource
+                    .rarity_roll
+                    .row(usize::from(*rarity))
+                    .is_some_and(|row| {
+                        let gate = u32_at(row, 0x10);
+                        i64::from(gate) <= i64::from(state.progress[progress_bucket(gate)])
+                    })
+            })
+            .unwrap_or(0);
+        if gated == HELL_RARITY {
+            vec![3, HELL_RARITY]
+        } else {
+            vec![gated]
+        }
+    }
+
     /// Everything about one item, rarity and player state that does not
     /// depend on the seed, ready for many seeds.
     pub fn prepare(
@@ -206,6 +259,33 @@ impl<'a> EquipmentGenerator<'a> {
         item_id: u16,
         rarity: u8,
         state: PlayerState,
+    ) -> Result<PreparedItem<'_, 'a>, GenerationError> {
+        self.prepare_with(item_id, rarity, state, false)
+    }
+
+    /// The same for a hell weapon: what `convert_to_hell` regenerates from
+    /// the dropped weapon's seed at a rarity [`Self::hell_rarities`] allows.
+    pub fn prepare_hell(
+        &self,
+        item_id: u16,
+        rarity: u8,
+        state: PlayerState,
+    ) -> Result<PreparedItem<'_, 'a>, GenerationError> {
+        if self.item_row(item_id).is_some() && !self.hell_capable(item_id) {
+            return Err(GenerationError::NotHellCapable(item_id));
+        }
+        if (1..=5).contains(&state.type_class) && !self.hell_rarities(state).contains(&rarity) {
+            return Err(GenerationError::UnsupportedHellRarity(rarity));
+        }
+        self.prepare_with(item_id, rarity, state, true)
+    }
+
+    fn prepare_with(
+        &self,
+        item_id: u16,
+        rarity: u8,
+        state: PlayerState,
+        hell: bool,
     ) -> Result<PreparedItem<'_, 'a>, GenerationError> {
         let item = self
             .item_row(item_id)
@@ -259,6 +339,7 @@ impl<'a> EquipmentGenerator<'a> {
         let weight_column = usize::from(u16_at(item, 0x15C));
         let mut pool = Vec::new();
         let mut graces = Vec::new();
+        let mut hell_pool = Vec::new();
         for row in 1..self.resource.effect.row_count() {
             let raw = self.resource.effect.row(row).unwrap_or_default();
             let flags = u32_at(raw, 0x1C);
@@ -271,6 +352,18 @@ impl<'a> EquipmentGenerator<'a> {
             let Some(group) = self.group_of(raw) else {
                 continue;
             };
+            // +0x5582EB: no category cap or weight column, only the base weight.
+            if hell && flags & HELL_EFFECT_FLAG != 0 && context_allowed(raw, item) {
+                let weight = (base_weight(raw, state, rarity) * 100.0) as u32;
+                if weight != 0 {
+                    hell_pool.push(Candidate {
+                        effect_id: u16_at(raw, 0),
+                        group,
+                        star: false,
+                        weight,
+                    });
+                }
+            }
             if group.category >= 32 || !context_allowed(raw, item) {
                 continue;
             }
@@ -305,7 +398,7 @@ impl<'a> EquipmentGenerator<'a> {
                 let group = self
                     .effect_row(u32::from(id))
                     .map(|row| (row, self.group_of(row)));
-                innates.push((id, group.map(|(_, group)| group)));
+                innates.push((position, id, group.map(|(_, group)| group)));
             }
         }
         let set_effect = u16_at(item, 0x154);
@@ -346,7 +439,18 @@ impl<'a> EquipmentGenerator<'a> {
             innates,
             set_effect,
             special_group,
+            hell_pool: hell.then_some(hell_pool),
         })
+    }
+}
+
+/// +0x5591E8: which progress counter an effect or rarity gate reads.
+fn progress_bucket(gate: u32) -> usize {
+    match gate {
+        0..=0x1B57 => 0,
+        0x1B58..=0x1F3F => 1,
+        0x1F40..=0x2327 => 2,
+        _ => 3,
     }
 }
 
@@ -383,12 +487,7 @@ fn context_allowed(effect: &[u8], item: &[u8]) -> bool {
 /// rarity x (difficulty 5 only) area multiplier, in the game's order.
 fn base_weight(effect: &[u8], state: PlayerState, rarity: u8) -> f32 {
     let gate = u16_at(effect, 0x54);
-    let bucket = match gate {
-        0..=0x1B57 => 0,
-        0x1B58..=0x1F3F => 1,
-        0x1F40..=0x2327 => 2,
-        _ => 3,
-    };
+    let bucket = progress_bucket(u32::from(gate));
     let mut weight = if state.progress[bucket] >= u32::from(gate) {
         1.0f32
     } else {
@@ -470,9 +569,12 @@ pub struct PreparedItem<'g, 'a> {
     caps: [u8; 32],
     pool: Vec<Candidate>,
     graces: Vec<(u32, u32)>,
-    innates: Vec<(u16, Option<Option<Group>>)>,
+    /// `(position, effect id, row's group)` of item `+0x158` (0) and `+0x15A` (1).
+    innates: Vec<(usize, u16, Option<Option<Group>>)>,
     set_effect: u16,
     special_group: Option<Group>,
+    /// Hell-only effects in row order when this is a hell conversion.
+    hell_pool: Option<Vec<Candidate>>,
 }
 
 impl PreparedItem<'_, '_> {
@@ -482,6 +584,11 @@ impl PreparedItem<'_, '_> {
 
     pub fn rarity(&self) -> u8 {
         self.rarity
+    }
+
+    /// Whether this generates a hell weapon.
+    pub fn hell(&self) -> bool {
+        self.hell_pool.is_some()
     }
 
     fn group_of_entry(&self, entry: &GeneratedEntry) -> Option<Group> {
@@ -621,8 +728,35 @@ impl PreparedItem<'_, '_> {
             }
         }
         let mut accepted: Vec<Group> = Vec::with_capacity(8);
-        for (id, row) in &self.innates {
-            if let Some(group) = row {
+        for (position, id, row) in &self.innates {
+            if let (0, Some(hell_pool)) = (position, &self.hell_pool) {
+                // +0x558275: a hell-only effect with a drawn roll, not fixed.
+                let picks: Vec<&Candidate> = hell_pool
+                    .iter()
+                    .filter(|candidate| {
+                        !accepted
+                            .iter()
+                            .any(|other| other.conflicts(&candidate.group))
+                            && !special
+                                .is_some_and(|group: Group| group.masks_overlap(&candidate.group))
+                    })
+                    .collect();
+                if !picks.is_empty() {
+                    if let Some(position) =
+                        lottery(&mut rng, picks.iter().map(|candidate| candidate.weight))
+                    {
+                        let candidate = picks[position];
+                        entries[next] = GeneratedEntry {
+                            effect_id: u32::from(candidate.effect_id),
+                            roll: self.roll(&mut rng),
+                            marker: candidate.group.category as u8 & 0x3F,
+                            flags: 0,
+                        };
+                        next += 1;
+                        accepted.push(candidate.group);
+                    }
+                }
+            } else if let Some(group) = row {
                 entries[next] = GeneratedEntry {
                     effect_id: u32::from(*id),
                     roll: u32_at(self.rarity_row, 0x20) as u8,
@@ -882,6 +1016,23 @@ impl PreparedItem<'_, '_> {
             let at = 0x34 + position * 0x18;
             record[at..at + 0x18].copy_from_slice(raw);
         }
+        Ok(record)
+    }
+
+    /// The record `convert_to_hell` leaves: [`Self::build_record`], then the
+    /// hell flag (+0x2287694 sets record `+0x18` bit 20) and the martial skill
+    /// +0x2286D6C drew at `+0x10`.
+    pub fn build_hell_record(
+        &self,
+        entries: &[GeneratedEntry; 7],
+        seed: u16,
+        level: u16,
+        plus: u16,
+        skill: u16,
+    ) -> Result<[u8; GENERATED_RECORD_BYTES], GenerationError> {
+        let mut record = self.build_record(entries, seed, level, plus)?;
+        record[0x10..0x12].copy_from_slice(&skill.to_le_bytes());
+        record[0x1A] |= 0x10;
         Ok(record)
     }
 

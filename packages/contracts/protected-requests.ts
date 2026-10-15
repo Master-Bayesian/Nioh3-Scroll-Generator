@@ -6244,6 +6244,10 @@ export type ProtectedRequest =
               )
             ];
         limit?: number;
+        /**
+         * Search the hell conversion of the item: the rarity must be one the character's progress gives a hell weapon.
+         */
+        hell?: boolean;
       };
     }
   | {

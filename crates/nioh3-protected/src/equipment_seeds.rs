@@ -53,6 +53,12 @@ fn generation_error(error: GenerationError) -> HostError {
         GenerationError::UnsupportedDifficulty(_) => {
             HostError::rejected("The difficulty must be 1 to 5")
         }
+        GenerationError::NotHellCapable(_) => {
+            HostError::rejected("This item never becomes a hell weapon")
+        }
+        GenerationError::UnsupportedHellRarity(_) => {
+            HostError::rejected("A hell weapon has the rarity the character's progress gives it")
+        }
         GenerationError::Table(error) => HostError::rejected(format!("{error:?}")),
     }
 }
@@ -129,8 +135,10 @@ pub fn state_from_save(
     })
 }
 
-fn role(entry: &GeneratedEntry) -> &'static str {
-    if entry.flags & 1 != 0 {
+fn role(generator: &EquipmentGenerator<'_>, entry: &GeneratedEntry) -> &'static str {
+    if generator.is_hell_effect(entry.effect_id) {
+        "hell"
+    } else if entry.flags & 1 != 0 {
         "set"
     } else if entry.flags & 2 != 0 {
         "grace"
@@ -142,16 +150,21 @@ fn role(entry: &GeneratedEntry) -> &'static str {
 }
 
 /// How good a seed's drawn effects are: their rolls, and a star above any roll.
-fn quality(entries: &[GeneratedEntry; 7]) -> u32 {
+fn quality(generator: &EquipmentGenerator<'_>, entries: &[GeneratedEntry; 7]) -> u32 {
     entries
         .iter()
-        .filter(|entry| entry.effect_id != EMPTY_ENTRY && role(entry) == "random")
+        .filter(|entry| {
+            entry.effect_id != EMPTY_ENTRY && matches!(role(generator, entry), "random" | "hell")
+        })
         .map(|entry| u32::from(entry.roll) + if entry.flags & 4 != 0 { 200 } else { 0 })
         .sum()
 }
 
 /// The effects of a built record, in the order the game stores them.
-fn record_effects(record: &[u8; GENERATED_RECORD_BYTES]) -> Vec<Value> {
+fn record_effects(
+    generator: &EquipmentGenerator<'_>,
+    record: &[u8; GENERATED_RECORD_BYTES],
+) -> Vec<Value> {
     (0..7)
         .filter_map(|index| {
             let at = 0x34 + index * 0x18;
@@ -171,7 +184,7 @@ fn record_effects(record: &[u8; GENERATED_RECORD_BYTES]) -> Vec<Value> {
                 "value": i32::from_le_bytes([entry[8], entry[9], entry[10], entry[11]]),
                 "roll": entry[0x0C],
                 "star": entry[0x0E] & 4 != 0,
-                "role": role(&generated),
+                "role": role(generator, &generated),
             }))
         })
         .collect()
@@ -183,7 +196,12 @@ struct Search {
     best: Vec<(u32, u16)>,
 }
 
-fn search(prepared: &PreparedItem<'_, '_>, wanted: &[Vec<u32>], limit: usize) -> Search {
+fn search(
+    generator: &EquipmentGenerator<'_>,
+    prepared: &PreparedItem<'_, '_>,
+    wanted: &[Vec<u32>],
+    limit: usize,
+) -> Search {
     let threads = std::thread::available_parallelism()
         .map_or(4, usize::from)
         .clamp(1, 16);
@@ -212,7 +230,7 @@ fn search(prepared: &PreparedItem<'_, '_>, wanted: &[Vec<u32>], limit: usize) ->
                             continue;
                         }
                         found.matches += 1;
-                        found.best.push((quality(&entries), seed as u16));
+                        found.best.push((quality(generator, &entries), seed as u16));
                         if found.best.len() > limit * 4 {
                             found
                                 .best
@@ -296,23 +314,24 @@ pub fn equipment_seeds_json(data_root: &Path, params: &Value) -> Result<Value, H
     if wanted.len() > 7 {
         return Err(HostError::rejected("Ask for at most seven effects"));
     }
-    let prepared = generator
-        .prepare(item_id, rarity, state)
-        .map_err(generation_error)?;
-    let found = search(&prepared, &wanted, limit);
+    let hell = params.get("hell").and_then(Value::as_bool) == Some(true);
+    let prepared = prepare(generator, item_id, rarity, state, hell)?;
+    let found = search(generator, &prepared, &wanted, limit);
     let mut outcomes = Vec::new();
     for (_, seed) in &found.best {
         let entries = prepared.generate(*seed);
         let record = prepared
             .build_record(&entries, *seed, level, plus)
             .map_err(generation_error)?;
-        outcomes.push(json!({ "seed": seed, "effects": record_effects(&record) }));
+        outcomes.push(json!({ "seed": seed, "effects": record_effects(generator, &record) }));
     }
     Ok(json!({
         "item_id": item_id,
         "rarity": rarity,
         "level": level,
         "difficulty": state.type_class,
+        "hell": hell,
+        "hell_skills": if hell { natural_hell_skills(data_root, item_id, level) } else { Vec::new() },
         "seeds": SEED_COUNT,
         "empty": found.empty,
         "matches": found.matches,
@@ -336,23 +355,55 @@ pub fn generated_record(
         .unwrap_or(0)
         .min(u64::from(u16::MAX)) as u16;
     let seed = param_u64(requested, "seed", u64::from(u16::MAX))? as u16;
-    if requested.get("hell").and_then(Value::as_bool) == Some(true) {
-        return Err(HostError::rejected(
-            "A hell weapon cannot be generated from a seed",
-        ));
-    }
-    let prepared = generator
-        .prepare(item_id, rarity, state)
-        .map_err(generation_error)?;
+    let hell = requested.get("hell").and_then(Value::as_bool) == Some(true);
+    let prepared = prepare(generator, item_id, rarity, state, hell)?;
     let entries = prepared.generate(seed);
     if entries.iter().all(|entry| entry.effect_id == EMPTY_ENTRY) {
         return Err(HostError::rejected(
             "This seed gives the item no effects; choose another",
         ));
     }
+    if !hell {
+        return prepared
+            .build_record(&entries, seed, level, plus)
+            .map_err(generation_error);
+    }
+    let skill = requested
+        .get("hell_skill")
+        .and_then(Value::as_u64)
+        .and_then(|skill| u16::try_from(skill).ok())
+        .filter(|skill| natural_hell_skills(data_root, item_id, level).contains(skill))
+        .ok_or_else(|| {
+            HostError::rejected("Choose a hell martial skill this weapon can have at this level")
+        })?;
     prepared
-        .build_record(&entries, seed, level, plus)
+        .build_hell_record(&entries, seed, level, plus, skill)
         .map_err(generation_error)
+}
+
+fn prepare<'g, 'a>(
+    generator: &'g EquipmentGenerator<'a>,
+    item_id: u16,
+    rarity: u8,
+    state: PlayerState,
+    hell: bool,
+) -> Result<PreparedItem<'g, 'a>, HostError> {
+    if hell {
+        generator.prepare_hell(item_id, rarity, state)
+    } else {
+        generator.prepare(item_id, rarity, state)
+    }
+    .map_err(generation_error)
+}
+
+/// Hell martial skills +0x2286D6C can draw for this weapon at this level.
+fn natural_hell_skills(data_root: &Path, item_id: u16, level: u16) -> Vec<u16> {
+    crate::equipment_rules::rules(data_root)
+        .and_then(|rules| {
+            let item = rules.item(item_id)?;
+            Some(rules.hell_skills(item, level))
+        })
+        .unwrap_or_default()
 }
 
 /// Whether the record is exactly what the game generates from its own seed
@@ -368,13 +419,22 @@ pub fn replays_from_seed(
     let (Ok(generator), Some(progress)) = (generator(data_root), progress) else {
         return false;
     };
-    if record.len() != GENERATED_RECORD_BYTES || record[0x1A] & 0x10 != 0 {
+    if record.len() != GENERATED_RECORD_BYTES {
         return false;
     }
     let item_id = u16::from_le_bytes([record[0], record[1]]);
     let seed = u16::from_le_bytes([record[0x22], record[0x23]]);
     let rarity = record[0x30];
     let level = u16::from_le_bytes([record[6], record[7]]);
+    // A hell weapon is regenerated by the conversion; its skill is drawn
+    // from the weapon's rows at the converted level.
+    let hell = record[0x1A] & 0x10 != 0;
+    if hell
+        && !natural_hell_skills(data_root, item_id, level)
+            .contains(&u16::from_le_bytes([record[0x10], record[0x11]]))
+    {
+        return false;
+    }
     let same = |built: &[u8; GENERATED_RECORD_BYTES]| {
         (0..7).all(|index| {
             let at = 0x34 + index * 0x18;
@@ -390,7 +450,7 @@ pub fn replays_from_seed(
             type_class: difficulty,
             progress: progress.progress(difficulty),
         };
-        let Ok(prepared) = generator.prepare(item_id, rarity, state) else {
+        let Ok(prepared) = prepare(generator, item_id, rarity, state, hell) else {
             return false;
         };
         let entries = prepared.generate(seed);
@@ -516,5 +576,299 @@ mod tests {
         }
         assert!(checked > 1000, "{checked}");
         assert!(replayed > 0);
+    }
+
+    /// Natural hell weapons from the owner's saves (2026-10-11/13): item, seed,
+    /// level, the difficulty they replay on, skill, and the stored effects and
+    /// rolls. The normal route reproduces none of them.
+    type HellVector = (u16, u16, u16, u8, u16, &'static [(u32, u8)]);
+    const OWNER_HELL_WEAPONS: [HellVector; 12] = [
+        (
+            0x145e,
+            0x3edf,
+            170,
+            3,
+            0xd6f9,
+            &[
+                (0x5b7f, 95),
+                (0xe34e, 88),
+                (0x6826, 92),
+                (0x76d8, 94),
+                (0x7bea, 0),
+            ],
+        ),
+        (
+            0xb881,
+            0x1ecd,
+            170,
+            3,
+            0xdd8a,
+            &[
+                (0x8641, 93),
+                (0x48de, 89),
+                (0x6800, 89),
+                (0x1a1b, 83),
+                (0xce68, 0),
+            ],
+        ),
+        (
+            0x3172,
+            0xaad0,
+            146,
+            1,
+            0x26d6,
+            &[
+                (0xe9b1, 87),
+                (0xd8ea, 88),
+                (0xbb13, 89),
+                (0x776d, 84),
+                (0xb24f, 0),
+            ],
+        ),
+        (
+            0x5b65,
+            0x7bd1,
+            149,
+            1,
+            0x8d12,
+            &[
+                (0x4feb, 95),
+                (0xdc17, 87),
+                (0x5305, 85),
+                (0x6800, 91),
+                (0x4fa3, 0),
+            ],
+        ),
+        (
+            0xa7cd,
+            0x68fa,
+            147,
+            1,
+            0x26d6,
+            &[
+                (0x21d3, 94),
+                (0x1a2c, 93),
+                (0x76d8, 95),
+                (0xebf5, 94),
+                (0x4fa3, 0),
+            ],
+        ),
+        (
+            0xbba1,
+            0xb89c,
+            148,
+            1,
+            0xdd8a,
+            &[
+                (0x3a53, 90),
+                (0x4bd3, 82),
+                (0x794b, 93),
+                (0xc4c3, 90),
+                (0x4fa3, 0),
+            ],
+        ),
+        (
+            0x166a,
+            0x5073,
+            147,
+            1,
+            0x3fb9,
+            &[
+                (0x89c2, 81),
+                (0x36e6, 93),
+                (0xdc17, 93),
+                (0x510b, 88),
+                (0x8ccc, 0),
+            ],
+        ),
+        (
+            0x7543,
+            0xde64,
+            150,
+            1,
+            0x6f70,
+            &[
+                (0xcaad, 88),
+                (0xbb28, 88),
+                (0x5305, 92),
+                (0x510b, 83),
+                (0x2ae6, 0),
+            ],
+        ),
+        (
+            0xd1fe,
+            0xca06,
+            144,
+            1,
+            0xb623,
+            &[
+                (0x4feb, 85),
+                (0x510b, 88),
+                (0x517d, 84),
+                (0x88a9, 88),
+                (0x23e5, 0),
+            ],
+        ),
+        (
+            0x825b,
+            0xb67a,
+            148,
+            1,
+            0x6122,
+            &[
+                (0x8641, 93),
+                (0x3743, 84),
+                (0x54f1, 93),
+                (0xc07e, 87),
+                (0xb24f, 0),
+            ],
+        ),
+        (
+            0xa696,
+            0x42b5,
+            148,
+            1,
+            0x99c0,
+            &[
+                (0x4feb, 91),
+                (0xf437, 96),
+                (0x6800, 90),
+                (0x4ad3, 89),
+                (0x590c, 0),
+            ],
+        ),
+        (
+            0x4877,
+            0x2141,
+            175,
+            1,
+            0xdd8a,
+            &[
+                (0x3c4a, 91),
+                (0x76d8, 93),
+                (0x6800, 83),
+                (0xdc17, 86),
+                (0xe8eb, 0),
+            ],
+        ),
+    ];
+
+    fn stored_effects(record: &[u8; GENERATED_RECORD_BYTES]) -> Vec<(u32, u8)> {
+        (0..7)
+            .map(|index| {
+                let at = 0x34 + index * 0x18;
+                let id = u32::from_le_bytes(record[at + 4..at + 8].try_into().unwrap());
+                (id, record[at + 0x0C])
+            })
+            .filter(|(id, _)| *id != EMPTY_ENTRY)
+            .collect()
+    }
+
+    #[test]
+    fn the_hell_conversion_reproduces_natural_hell_weapons() {
+        let root = data_root();
+        let generator = generator(&root).unwrap();
+        let progress = owner_progress();
+        for (item, seed, level, difficulty, skill, stored) in OWNER_HELL_WEAPONS {
+            let state = PlayerState {
+                type_class: difficulty,
+                progress: progress.progress(difficulty),
+            };
+            let hell = generator.prepare_hell(item, 4, state).unwrap();
+            let entries = hell.generate(seed);
+            let record = hell
+                .build_hell_record(&entries, seed, level, 0, skill)
+                .unwrap();
+            assert_eq!(
+                stored_effects(&record),
+                stored,
+                "item {item:#x} seed {seed:#x}"
+            );
+            assert!(generator.is_hell_effect(stored[0].0));
+            assert_eq!(u16::from_le_bytes([record[0x10], record[0x11]]), skill);
+            assert_eq!(record[0x1A] & 0x10, 0x10);
+            assert!(replays_from_seed(&root, &record, Some(&progress)));
+            let normal = generator.prepare(item, 4, state).unwrap();
+            let built = normal
+                .build_record(&normal.generate(seed), seed, level, 0)
+                .unwrap();
+            assert_ne!(stored_effects(&built), stored);
+        }
+    }
+
+    /// The hell Bizen katana `0x4BF7` the game's own converter built on
+    /// 2026-09-26 (seed `0x698C`, owner on difficulty 1 or 2): lightning
+    /// imbue, strong-attack Ki cost, hell-weapon drop rate, mid-stance
+    /// martial-art Ki damage and Hotei's grace, as the owner saw in game.
+    #[test]
+    fn the_natively_converted_bizen_katana_replays() {
+        let root = data_root();
+        let generator = generator(&root).unwrap();
+        let progress = owner_progress();
+        for difficulty in [1, 2] {
+            let state = PlayerState {
+                type_class: difficulty,
+                progress: progress.progress(difficulty),
+            };
+            let hell = generator.prepare_hell(0x4BF7, 4, state).unwrap();
+            let record = hell
+                .build_hell_record(&hell.generate(0x698C), 0x698C, 170, 22, 0x3435)
+                .unwrap();
+            let effects: Vec<u32> = stored_effects(&record).iter().map(|e| e.0).collect();
+            assert_eq!(effects, [0x8641, 0x511C, 0x9982, 0xD7EF, 0x590C]);
+        }
+    }
+
+    #[test]
+    fn a_hell_search_and_add_follow_the_conversion() {
+        let root = data_root();
+        let request = json!({
+            "item_id": 0x4BF7, "rarity": 4, "level": 170, "difficulty": 3,
+            "progress": [6510, 7710, 0, 7710], "limit": 3, "hell": true,
+            "want": [0x8641],
+        });
+        let found = equipment_seeds_json(&root, &request).unwrap();
+        assert_eq!(found["hell"], true);
+        assert_eq!(found["hell_skills"], json!([0xC0C1, 0x3435, 0xAC06]));
+        assert!(found["matches"].as_u64().unwrap() > 0);
+        let outcome = &found["outcomes"][0];
+        assert!(outcome["effects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|effect| effect["effect_id"] == 0x8641 && effect["role"] == "hell"));
+        let state = PlayerState {
+            type_class: 3,
+            progress: [6510, 7710, 0, 7710],
+        };
+        let mut add = request.clone();
+        add["seed"] = outcome["seed"].clone();
+        add["plus"] = json!(20);
+        add["hell_skill"] = json!(0x3435);
+        let record = generated_record(&root, &add, state).unwrap();
+        assert_eq!(u16::from_le_bytes([record[0x10], record[0x11]]), 0x3435);
+        assert_eq!(record[0x1A] & 0x10, 0x10);
+        assert!(replays_from_seed(&root, &record, Some(&owner_progress())));
+        // A skill of another weapon type, a rarity the conversion never
+        // gives and armor are refused.
+        add["hell_skill"] = json!(0x8D12);
+        assert!(generated_record(&root, &add, state).is_err());
+        add.as_object_mut().unwrap().remove("hell_skill");
+        assert!(generated_record(&root, &add, state).is_err());
+        let mut rare = request.clone();
+        rare["rarity"] = json!(5);
+        assert!(equipment_seeds_json(&root, &rare).is_err());
+        let generator = generator(&root).unwrap();
+        let resource =
+            nioh3_data::load_effect_resource_for_file_version(&root, (2, 0, 2, 0)).unwrap();
+        let armor = resource
+            .item
+            .rows
+            .chunks(resource.item.row_size)
+            .find(|row| row[0x182] == 3)
+            .map(|row| u16::from_le_bytes([row[0x152], row[0x153]]))
+            .unwrap();
+        assert!(!generator.hell_capable(armor));
+        assert!(generator.prepare_hell(armor, 4, state).is_err());
     }
 }

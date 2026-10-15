@@ -685,6 +685,19 @@
           "minimum": 1,
           "maximum": 5
         },
+        "hell": {
+          "type": "boolean"
+        },
+        "hell_skills": {
+          "type": "array",
+          "maxItems": 64,
+          "description": "Hell martial skills the conversion can give this weapon at this level; empty unless hell.",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          }
+        },
         "seeds": {
           "type": "integer",
           "minimum": 0,
@@ -740,6 +753,7 @@
                     "role": {
                       "enum": [
                         "innate",
+                        "hell",
                         "random",
                         "grace",
                         "set"

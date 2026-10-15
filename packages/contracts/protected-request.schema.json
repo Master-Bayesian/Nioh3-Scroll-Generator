@@ -3989,6 +3989,10 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 200
+            },
+            "hell": {
+              "type": "boolean",
+              "description": "Search the hell conversion of the item: the rarity must be one the character's progress gives a hell weapon."
             }
           },
           "required": [

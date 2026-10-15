@@ -1341,6 +1341,13 @@ export interface EquipmentSeeds {
   rarity: number;
   level: number;
   difficulty: number;
+  hell?: boolean;
+  /**
+   * Hell martial skills the conversion can give this weapon at this level; empty unless hell.
+   *
+   * @maxItems 64
+   */
+  hell_skills?: number[];
   seeds: number;
   empty: number;
   matches: number;
@@ -1360,7 +1367,7 @@ export interface EquipmentSeeds {
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           }
         ]
       | [
@@ -1369,14 +1376,14 @@ export interface EquipmentSeeds {
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           }
         ]
       | [
@@ -1385,21 +1392,21 @@ export interface EquipmentSeeds {
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           }
         ]
       | [
@@ -1408,28 +1415,28 @@ export interface EquipmentSeeds {
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           }
         ]
       | [
@@ -1438,35 +1445,35 @@ export interface EquipmentSeeds {
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           }
         ]
       | [
@@ -1475,42 +1482,42 @@ export interface EquipmentSeeds {
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           }
         ]
       | [
@@ -1519,49 +1526,49 @@ export interface EquipmentSeeds {
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           },
           {
             effect_id: number;
             value: number;
             roll: number;
             star: boolean;
-            role: "innate" | "random" | "grace" | "set";
+            role: "innate" | "hell" | "random" | "grace" | "set";
           }
         ];
   }[];
