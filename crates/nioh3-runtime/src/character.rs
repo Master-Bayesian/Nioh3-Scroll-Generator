@@ -283,7 +283,7 @@ impl CharacterRead {
 }
 
 /// Read one item array and check it looks like item records.
-fn read_item_array(
+pub(crate) fn read_item_array(
     memory: &dyn InventoryMemory,
     player: u64,
     container: LiveItemContainer,

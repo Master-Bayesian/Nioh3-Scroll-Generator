@@ -21,6 +21,17 @@ WebView2 Runtime, normally already present on Windows.
 
 ## What you can do
 
+The unpublished development source adds a top-level **Player Editor** for the
+exact supported PC v2.02 build: nine categories of prestige points, Amrita stored
+in Silabar Ingot, spendable Glory, per-clan rank and Soul Fragments. Each edit
+shows current and target values for review, requires confirmation and reads back
+the result. Pending operations survive navigation/restart and can be checked
+without repeating a write. Clan rank edits use an existing contribution record
+and account for tenure; ingot edits require the owned item. One owner-authorized
+PC v2.02 session confirmed all five displayed edits and retention after normal
+save/title-screen reload. Broader resource use, full process restart and account
+refresh remain unverified. These features are not part of the published EXE.
+
 ### Search for game-legal scrolls
 
 Build a search around the result you want instead of scanning seed ranges by

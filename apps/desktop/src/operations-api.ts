@@ -29,6 +29,14 @@ export type PublicOperation =
   | { method: 'runtime.inventory_snapshot'; params: ProtectedParams<'runtime.inventory_snapshot'> }
   | { method: 'runtime.compatibility'; params: ProtectedParams<'runtime.compatibility'> }
   | { method: 'runtime.character_snapshot'; params: ProtectedParams<'runtime.character_snapshot'> }
+  | { method: 'runtime.prestige_snapshot'; params: ProtectedParams<'runtime.prestige_snapshot'> }
+  | { method: 'runtime.prestige_edit'; params: ProtectedParams<'runtime.prestige_edit'> }
+  | { method: 'runtime.prestige_status'; params: ProtectedParams<'runtime.prestige_status'> }
+  | { method: 'runtime.prestige_recover'; params: ProtectedParams<'runtime.prestige_recover'> }
+  | { method: 'runtime.player_resources'; params: ProtectedParams<'runtime.player_resources'> }
+  | { method: 'runtime.player_edit'; params: ProtectedParams<'runtime.player_edit'> }
+  | { method: 'runtime.player_status'; params: ProtectedParams<'runtime.player_status'> }
+  | { method: 'runtime.player_recover'; params: ProtectedParams<'runtime.player_recover'> }
   | { method: 'runtime.menu_selection'; params: ProtectedParams<'runtime.menu_selection'> }
   | { method: 'runtime.reset_live_add_lock'; params: ProtectedParams<'runtime.reset_live_add_lock'> }
   | { method: 'runtime.character_edit'; params: ProtectedParams<'runtime.character_edit'> }

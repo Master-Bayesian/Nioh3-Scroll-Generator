@@ -6604,4 +6604,77 @@ export type ProtectedRequest =
         backup_confirmed?: boolean;
         plan_id?: string;
       };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.prestige_snapshot";
+      params: {};
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.prestige_status";
+      params: {
+        operation_id?: string;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.prestige_recover";
+      params: {
+        operation_id: string;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.prestige_edit";
+      params: {
+        operation_id: string;
+        process_id: number;
+        process_birth: string;
+        snapshot_id: string;
+        category_id: 50152 | 19338 | 41583 | 29207 | 60307 | 1486 | 18917 | 50326 | 41813;
+        available: number;
+        confirmed: true;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.player_resources";
+      params: {};
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.player_status";
+      params: {
+        operation_id?: string;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.player_recover";
+      params: {
+        operation_id: string;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "runtime.player_edit";
+      params: {
+        operation_id: string;
+        process_id: number;
+        process_birth: string;
+        snapshot_id: string;
+        field: "ingot" | "fragments" | "glory" | "clan_rank";
+        clan_id: number;
+        value: string;
+        confirmed: true;
+      };
     };

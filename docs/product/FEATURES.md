@@ -195,3 +195,84 @@ resolved in v0.8.4: the system save is only fingerprinted, backed up and
 restored, so its read bound is 1 MiB; see docs/product/releases/v0.8.4.md. Deferred terrain conversion can
 intermittently prevent enemy spawning; tracked separately in Issue #29.
 Evidence: docs/research/V083_MENU_SYSTEM_FEEDBACK_20261003.md.
+
+## Unpublished title prestige points (2026-10-15)
+
+`CHARACTER-PRESTIGE`: Player Editor -> Prestige points reads nine independent
+category budgets and sets the selected category's available points after a
+before/after review. Earned budget equals allocated points plus the requested
+available points; the edited total is bounded to 2000, the cost of all four
+maximum-level bonuses. This is an editing bound, not a natural earned-point limit.
+Titles, fame, ranks, individual bonus levels and allocations are preserved.
+Save-file editing is not exposed.
+
+The operation requires the exact pinned PC 2.0.2.0 executable, code signatures,
+an independent player/inventory ownership join, bounded map traversal and two
+identical snapshots. A single four-byte write is re-read. Synced receipts,
+operation UUIDs, process birth identity and an exclusive admission lock prevent
+replay; an uncertain receipt blocks further edits and can be rediscovered without
+browser storage. Recovery observes and never rewrites or rolls back game data.
+
+The unpublished `PLAYER-EDITOR` top-level navigation entry is a peer of Scroll
+search and Equipment & items. All four sections are implemented: Prestige points,
+Silabar Ingot, Glory and clans, and Soul Fragments. Equipment & items retains its
+original two sections and currency controls. Active player reads/writes/recovery retain page ownership by
+disabling top-level navigation until settlement; uncertain receipts survive
+navigation/restart and are rediscovered without replaying a write.
+
+Implementation: `apps/workshop/PlayerEditor.tsx`, `apps/workshop/main.tsx`,
+`apps/workshop/PrestigeEditor.tsx`,
+`crates/nioh3-runtime/src/prestige.rs`,
+`crates/nioh3-protected/src/prestige.rs`. Regression anchors: runtime prestige
+tests, `tests/prestige_contract.rs` and `apps/workshop/verify-prestige.mjs`.
+Initial acceptance was source, synthetic and scripted-browser only. A subsequent
+owner-authorized PC v2.02 session verified live binding and five small writes;
+the owner confirmed all five visible outcomes and performed a normal ingot
+transfer. A read-only check after owner-reported normal save/title-screen reload
+retained all five values. Full process restart, account refresh, broader resource
+use, native WebView2 and packaged acceptance remain pending. The UI retains its
+experimental state. No version
+bump, release or unrelated native-write approval is made.
+
+### Unpublished player resources (2026-10-15)
+
+`PLAYER-INGOT`, `PLAYER-GLORY`, `PLAYER-CLAN-RANK` and `PLAYER-FRAGMENTS`
+use independently joined player/account roots, stable snapshots and fourteen
+pinned native instruction signatures on the exact PC v2.02 executable. Stored
+ingot Amrita is an eight-byte value capped at 9,999,999,999,999 and requires an
+owned ingot. Soul Fragments is a four-byte value capped at 999,999,999. Spendable
+Glory is capped at 2,000,000,000; its account balance and serialized player mirror
+are both updated, with their sequence IDs preserved. Live startup can expose
+different account/player sequence markers even when balances agree. Both markers
+remain in snapshot identity; only Glory editing is disabled until a normal game
+gain or purchase reconciles them. The public `glory_editable` flag drives this UI
+state; unrelated resource controls remain available. Full account refresh and
+process-restart persistence remain unverified.
+
+Clan rank is derived from stored contribution plus native tenure credit for the
+current clan. The selector contains fifty clans and ten native rank thresholds;
+only existing contribution records can be edited. One eight-byte contribution
+value represents the requested rank. Targets incompatible with tenure are refused.
+No membership, protection selection or faction-war score is edited. Resource
+quantities cross the UI/IPC boundary as decimal strings.
+
+Implementation: `apps/workshop/PlayerResourcesEditor.tsx`,
+`apps/workshop/player-clans.json`, `crates/nioh3-runtime/src/player_resources.rs`,
+`crates/nioh3-protected/src/player_resources.rs`. Shared receipt I/O and pending
+checks live in `crates/nioh3-protected/src/player_receipts.rs`; both player edit
+scopes use the same admission lock. Use these helpers within the protected host
+before obtaining write access, rather than introducing separate receipt writers.
+Synced receipts bind request UUID, process birth and before/after snapshots.
+Uncertain edits block both scopes. Recovery only observes the recorded process;
+partial Glory writes remain uncertain until their state can be established.
+This mechanism has synthetic PC v2.02 coverage; it does not establish real-game
+save durability, account authority or crash-atomic multi-field writes.
+
+Regression anchors: runtime `player_resources/test_fixture` tests, protected
+resource/receipt tests, `tests/player_resources_contract.rs`, the Tauri public
+broker route test and `apps/workshop/verify-prestige.mjs`. The browser harness
+uses scripted game data and covers all sections in Chinese, English and Japanese
+with light/dark themes. The bounded live results and remaining native WebView2,
+account-refresh and packaged acceptance are recorded in
+[Player Editor validation](PLAYER_EDITOR_VALIDATION.md). Clan English/Japanese
+translations are curated UI text, not independently captured native locale evidence.

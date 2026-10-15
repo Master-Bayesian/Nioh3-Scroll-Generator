@@ -40,6 +40,7 @@ import "./arc.css";
 import { BackupManager } from "./BackupManager";
 import { Editor } from "./Editor";
 import { CharacterEditor } from "./CharacterEditor";
+import { PlayerEditor } from "./PlayerEditor";
 import { RuntimeCompatibility } from "./RuntimeCompatibility";
 import { GameInstallation, GameVersionHint } from "./GameInstallation";
 import { DesktopCartActions, SavePicker } from "./CartActions";
@@ -321,6 +322,7 @@ function ConditionGroups<T extends { id: string; mode?: number }>({
 }
 
 function App() {
+  const [playerBusy, setPlayerBusy] = useState(false);
   const locale = useUiLocale();
   useEffect(()=>{document.documentElement.lang=locale;document.title=localize('独脚踏鞴工作室');if(desktop)void window.preferences.setLocale(locale).catch(error=>window.review.log(String(error)))},[locale]);
   const [feedbackState, setFeedbackState] = useState<"" | "busy" | "saved">("");
@@ -1076,7 +1078,9 @@ function App() {
               ? "存档管理"
               : page === "equipment"
                 ? "装备与道具"
-                : "绘卷编辑"}
+                : page === "player"
+                  ? "人物编辑"
+                  : "绘卷编辑"}
         </h1>
         <nav
           className="nav"
@@ -1098,6 +1102,7 @@ function App() {
           <button
             className={page === "search" ? "active" : ""}
             onClick={() => setPage("search")}
+            disabled={playerBusy}
             aria-label="绘卷搜索"
             title="绘卷搜索"
           >
@@ -1106,6 +1111,7 @@ function App() {
           <button
             className={page === "editor" ? "active" : ""}
             onClick={() => setPage("editor")}
+            disabled={playerBusy}
             aria-label="绘卷编辑"
             title="绘卷编辑"
           >
@@ -1114,6 +1120,7 @@ function App() {
           <button
             className={page === "backups" ? "active" : ""}
             onClick={() => setPage("backups")}
+            disabled={playerBusy}
             aria-label="存档管理"
           >
             <span>存档管理</span>
@@ -1121,6 +1128,7 @@ function App() {
           <button
             className={page === "favorites" ? "active" : ""}
             onClick={() => setPage("favorites")}
+            disabled={playerBusy}
             aria-label="收藏夹"
           >
             <span>收藏夹</span>
@@ -1129,10 +1137,21 @@ function App() {
           <button
             className={page === "equipment" ? "active" : ""}
             onClick={() => setPage("equipment")}
+            disabled={playerBusy}
             aria-label="装备与道具"
             title="装备与道具"
           >
             <span>装备与道具</span>
+          </button>
+          <button
+            className={page === "player" ? "active" : ""}
+            data-page="player"
+            onClick={() => setPage("player")}
+            disabled={playerBusy}
+            aria-label="人物编辑"
+            title="人物编辑"
+          >
+            <span>人物编辑</span>
           </button>
           <button className="coming-soon" disabled>
             <span>敬请期待</span>
@@ -2656,6 +2675,7 @@ function App() {
       )}
       {page === "backups" && <BackupManager />}
       {page === "equipment" && <CharacterEditor showIds={showIds} />}
+      {page === "player" && <PlayerEditor onBusy={setPlayerBusy} />}
       <div className="toast" role="status" hidden={!toast}>
         {toast}
         <button aria-label="关闭提示" onClick={() => setToast("")}>
