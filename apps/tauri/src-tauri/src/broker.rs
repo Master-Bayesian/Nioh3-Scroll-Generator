@@ -307,7 +307,7 @@ impl Broker {
                     "runtime.live_add_recover",
                     "runtime.live_add_cancel",
                 ];
-                if !PUBLIC.contains(&method) {
+                if !PUBLIC.contains(&method) && !is_player_operation(method) {
                     return Err("PRIVATE_OR_UNKNOWN_OPERATION".into());
                 }
                 self.call(
@@ -648,6 +648,10 @@ fn require_public(job: &Value) -> Result<(), String> {
         "save.character",
         "save.prepare_character_edit",
         "runtime.character_edit",
+        "runtime.prestige_edit",
+        "runtime.prestige_recover",
+        "runtime.player_edit",
+        "runtime.player_recover",
         "runtime.equipment_add_prepare",
         "runtime.equipment_add_execute",
         "runtime.equipment_add_status",
@@ -690,4 +694,56 @@ fn public_current(job: &Value) -> Reply {
     }
     let busy = job["state"] == "running" || job["state"] == "cancel_requested";
     Ok(json!({"job":if require_public(job).is_ok() { job.clone() } else {Value::Null},"busy":busy}))
+}
+
+fn is_player_operation(method: &str) -> bool {
+    matches!(
+        method,
+        "runtime.prestige_snapshot"
+            | "runtime.prestige_edit"
+            | "runtime.prestige_status"
+            | "runtime.prestige_recover"
+            | "runtime.player_resources"
+            | "runtime.player_edit"
+            | "runtime.player_status"
+            | "runtime.player_recover"
+    )
+}
+
+#[cfg(test)]
+mod prestige_tests {
+    use super::*;
+    #[test]
+    fn prestige_routes_and_recovery_jobs_cross_the_public_broker_boundary() {
+        for method in [
+            "runtime.prestige_snapshot",
+            "runtime.prestige_edit",
+            "runtime.prestige_status",
+            "runtime.prestige_recover",
+            "runtime.player_resources",
+            "runtime.player_edit",
+            "runtime.player_status",
+            "runtime.player_recover",
+        ] {
+            assert!(is_player_operation(method));
+        }
+        for method in [
+            "runtime.prestige_write_raw",
+            "runtime.prestige_edit_extra",
+            "save.prestige_edit",
+            "runtime.player_write_raw",
+        ] {
+            assert!(!is_player_operation(method));
+        }
+        for method in [
+            "runtime.prestige_edit",
+            "runtime.prestige_recover",
+            "runtime.player_edit",
+            "runtime.player_recover",
+        ] {
+            let job = json!({"kind":method,"state":"running"});
+            assert!(require_public(&job).is_ok());
+            assert_eq!(public_current(&job).unwrap()["job"], job);
+        }
+    }
 }

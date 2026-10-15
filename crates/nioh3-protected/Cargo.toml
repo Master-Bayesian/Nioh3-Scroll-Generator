@@ -47,6 +47,9 @@ unwrap_used = "deny"
 expect_used = "deny"
 panic = "deny"
 
+[dev-dependencies]
+nioh3-runtime = { path = "../nioh3-runtime", features = ["test-fake"] }
+
 [profile.release]
 strip = true
 lto = true

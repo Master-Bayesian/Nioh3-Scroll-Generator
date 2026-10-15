@@ -1,0 +1,15 @@
+.prestige-editor { flex: 1; min-height: 0; min-width: 0; overflow: auto; padding-right: 4px; }
+.prestige-editor .character-toolbar h2 { margin: 0 auto 0 0; font-size: 17px; }
+.prestige-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+.prestige-category { min-width: 0; padding: 16px; background: var(--a-card, #fff); border: 1px solid var(--a-line2, #c5d1e0); border-radius: 10px; }
+.prestige-category h3 { margin: 0 0 12px; font-size: 15px; }
+.prestige-editor dl { display: grid; gap: 8px; margin: 0 0 14px; font-size: 13px; }
+.prestige-editor dl > div { display: flex; justify-content: space-between; gap: 12px; }
+.prestige-editor dt { color: var(--a-text2, #5b7180); }
+.prestige-editor dd { margin: 0; font-variant-numeric: tabular-nums; }
+.prestige-category label { display: grid; gap: 6px; margin-bottom: 10px; font-size: 13px; }
+.prestige-category input { width: 100%; box-sizing: border-box; }
+.prestige-review, .prestige-recovery { margin: 14px 0; }
+.prestige-review h3:focus { outline-offset: 4px; }
+@media (max-width: 1200px) { .prestige-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .prestige-grid { grid-template-columns: minmax(0, 1fr); } }
