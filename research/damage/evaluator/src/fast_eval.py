@@ -166,19 +166,26 @@ class Evaluator:
             regions[i]["value_hex"], regions[i]["known_hex"] = value.hex(), known.hex()
         return request
 
-    def evaluate(self, pieces):
-        """pieces: [(E8 record, physical slot)] -> {"damage": float|None, "status", "memo": bool, facts...}."""
+    def evaluate(self, pieces, overrides=None):
+        """pieces: [(E8 record, physical slot)] -> {"damage": float|None, "status", "memo": bool, facts...}.
+
+        overrides: optional {address: bytes} written after the candidate (counterfactual state such as a trigger).
+        The result's "reads" is the read set of the replay that produced it (shared with memo hits)."""
         global READS
         try:
             writes, facts = self.writes(pieces)
         except (Unknown, ValueError, KeyError) as error:
             self.stats["unknown"] += 1
             return {"damage": None, "status": "UNKNOWN", "reason": str(error)[:300], "memo": False}
+        for address, data in (overrides or {}).items():
+            for i, b in enumerate(data):
+                if self._template_byte(address + i) is not None:
+                    writes[address + i] = b
         for reads, table in self.memo:
             hit = table.get(self._key(writes, reads))
             if hit is not None:
                 self.stats["memo_hits"] += 1
-                return {**hit, **facts, "memo": True}
+                return {**hit, **facts, "memo": True, "reads": reads}
         started = time.time()
         READS = set()
         try:
@@ -201,7 +208,7 @@ class Evaluator:
                 break
         else:
             self.memo.append((frozen, {self._key(writes, frozen): hit}))
-        return {**hit, **facts, "memo": False}
+        return {**hit, **facts, "memo": False, "reads": frozen}
 
     def confirm(self, pieces):
         """Full v1 acceptance path (run_request: replay plus the initial-score ablation control)."""
