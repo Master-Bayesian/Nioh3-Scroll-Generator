@@ -91,14 +91,33 @@ class Evaluator:
         r12_bind.prepare = lambda cache: prepared
         _install_read_recorder()
         self.template = build_template(self.model, request, retained, extra_cells)
+        self._index()
+        self.owner_addr = self.model.R["source.HP_owner"][0]
+        self.stats = {"replays": 0, "memo_hits": 0, "replay_seconds": 0.0, "unknown": 0}
+
+    def _index(self):
         regions = sorted(self.template["scene"]["memory_regions"], key=lambda r: r["address_u64"])
         self._starts = [r["address_u64"] for r in regions]
         self._regions = regions
         self._span = max(len(r["value_hex"]) // 2 for r in regions)
         self._byte = {}  # template (value, known) per byte, for addresses candidates write
-        self.owner_addr = self.model.R["source.HP_owner"][0]
-        self.memo = []  # [(read set, {key: result})]
-        self.stats = {"replays": 0, "memo_hits": 0, "replay_seconds": 0.0, "unknown": 0}
+        self.memo = []  # [(read set, {key: result})]; a template change invalidates every entry
+
+    def add_region(self, name, address, size, provenance):
+        """Map a synthetic zero-filled writable region (e.g. a constructed status-map node) that overlaps nothing.
+
+        Its contents come from candidate overrides; the provenance says what the region stands for."""
+        end = address + size
+        k = bisect.bisect_right(self._starts, end) - 1
+        while k >= 0 and self._starts[k] + self._span > address:
+            r = self._regions[k]
+            if r["address_u64"] < end and address < r["address_u64"] + len(r["value_hex"]) // 2:
+                raise ValueError(f"synthetic region {name} overlaps {r['name']}")
+            k -= 1
+        self.template["scene"]["memory_regions"].append({"name": name, "address_u64": address, "value_hex": "00" * size,
+                                                         "known_hex": "ff" * size, "writable": True,
+                                                         "provenance": {"grade": "synthetic", **provenance}})
+        self._index()
 
     def _template_byte(self, address):
         if address not in self._byte:

@@ -42,6 +42,9 @@ class Shadow:
         self.leaves = {}
         self.flags = None
         self.decisions = []
+        self.executed = set()  # every executed instruction RVA
+        self.call_targets = set()  # every executed CALL destination RVA
+        self.call_sites = {}  # CALL site RVA -> destination RVA (last execution)
 
     def new(self, op, args, value_u, rva, width=32, **meta):
         self.nodes.append({"op": op, "args": args, "value_u": value_u, "width": width, "rva": rva, **meta})
@@ -158,6 +161,7 @@ def install(shadow_ref, replay):
         if sh is None:
             return base_step(vm)
         rva = hex(vm.pc)
+        sh.executed.add(vm.pc)
         row = vm.code[vm.pc]
         m = native_vm.ALIASES.get(row["mnemonic"], row["mnemonic"])
         ops = [s.strip() for s in row["operands"].split(",")] if row["operands"].strip() else []
@@ -346,6 +350,8 @@ def install(shadow_ref, replay):
             put(pre["s"])
         elif m == "call":
             sh.mset(old_sp - 8, 8, None)
+            sh.call_targets.add(vm.pc)
+            sh.call_sites[int(rva, 16)] = vm.pc
         elif m == "xchg":
             put(pre["b"], 0)
             put(pre["a"], 1)

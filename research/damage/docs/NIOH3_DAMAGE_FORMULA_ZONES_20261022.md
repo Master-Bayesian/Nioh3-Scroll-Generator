@@ -93,13 +93,53 @@ excluded by bisection: D+0x104 (暗杀伤害), D+0x530 and D+0x714. With the pro
 equipment pool on this path: D+0x268 对无伤敌人造成的近距离伤害, D+0x360 对攻击中敌人的近距离伤害, D+0x7C4
 近距离攻击伤害（地狱）, D+0x134 and D+0x7C8. All of them are plain additive terms, like the worn ones.
 
-### Not covered yet
+### Static search and verified gates
 
-A single flip of a value MAIN compares on this path does not reach every conditional effect. Some effects need a
-state that this path never compares, or two states at once. Known examples are back attacks, ki-exhausted or downed
-targets, status-ailment targets, low HP and stance-specific finishers. Earlier work showed the ki-exhausted target
-as target entity +0xAD 04 -> 06 (x1.29). These need either a capture in that situation or a static search for the
-MAIN code that reads each field.
+A single flip does not reach every conditional effect: some sit behind states this path never compares.
+`static_gates.py` finds them in the original code. It disassembles MAIN, every function the hit called and their
+direct callees with Capstone: 302 functions. It follows the D pointer from the getter (624518) through register
+copies, stack spills and argument registers, so only real D-field reads count as sites. Each unexecuted site is
+walked back to the executed branch that skipped it, and that branch's traced comparison names the state.
+`verify_gates.py` then sets each found state with the effect probe and confirms the expected field enters the
+formula.
+
+| State (how to set it offline) | Effect field entering the pool | Probed damage |
+| --- | --- | ---: |
+| MAIN +0x282 = 1 (back attack; needs the static default D object, `inputs/default_d_cells.json`) | D+0x1F4 背后攻击伤害 | 1505 |
+| MAIN +0x13C = 2 (strong attack) | D+0x124 强攻击伤害 (replaces D+0x120 速攻击) | 1172 |
+| MAIN +0x148 = 2 (low stance) | D+0x114 下段架式攻击伤害 | 1172 |
+| MAIN +0x13C = 0x8000000 | D+0x19C 近距离攻击伤害（绝境） | 1172 |
+| MAIN +0x13C = 0x10 (pursuit / close thrust) | D+0x1E8 追击和近身刺击伤害 | 1247 |
+| MAIN +0x144 = 0x3C2E (unarmed action) | D+0x22C 空手攻击伤害 | 1172 |
+| HP_owner +0x188 bit 2 (九十九化身) | D+0x540 九十九化身时造成的伤害增加 | 1184 |
+| MAIN +0x296 = 1 (guardian skill) | D+0x684 守护灵技的伤害, D+0x774 | 1319 |
+| target entity +0xAD = 6 (ki exhausted) | D+0x35C 对精力耗尽敌人的近距离伤害 (skill 灭气追击之法) | 1472 |
+| target status 0x3C 毒 | D+0x304, plus D+0x318 (skill 顺势之法) for any ailment | 1264 |
+| target status 0x168 麻痹 (also condition 0xEA 稻草人的诅咒) | D+0x300 | 1264 |
+| target status 0x39 火 | D+0x308 | 1264 |
+| target status 0x22F 水 | D+0x30C | (statically found) |
+| target status 0x226 雷 | D+0x310 | 1264 |
+| target status 0xF9 风 | D+0x314 | 1264 |
+
+Target statuses are checked by 78CDF8: 136AC4 walks the std::map at target HP_owner+0x2DC0+0x348, compares
+u16 node+0x20 and returns node+0x28; the status object must have bit 0 of +0x14 set. The training target's map is
+empty, so `verify_gates.py` maps a synthetic one-node map (`Evaluator.add_region`). The node's links point back to
+the captured head (isnil = 1), so every other key lookup ends exactly as in the captured empty map. Status keys and
+names come from the native buff catalog (BUFF_DEFINITIONS.csv).
+
+### Needs an in-game capture
+
+These paths read runtime memory the 10-16 capture does not hold, so they stay open until a capture provides it:
+
+| Situation | Missing memory |
+| --- | --- |
+| Martial art (武技, MAIN +0x136): D+0x550..0x55C | module .data global base+0x4BA3E20 |
+| Water or thunder element hit (MAIN +0x14 = 1 / 2): D+0x288/0x3C4, D+0x28C/0x3C8 | heap element table (0x1C62A035A48..) |
+| Any ailment on the target, D+0x7CC | the status object's virtual method (vtable +0x78) reads .data base+0x4BA4490 |
+| Airborne attack, D+0x768 空中攻击伤害 | query 2E9934(condition 3) evaluates the actor's state-machine records |
+| Assassination, D+0x104 暗杀伤害; D+0x530; D+0x714 | probe leaves the captured state |
+
+Other action classes (ranged, ninjutsu, onmyo, guardian skills in full) need their own action capture anyway.
 
 ## Consequences for the optimizer
 
