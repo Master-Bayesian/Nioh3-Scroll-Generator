@@ -1,0 +1,62 @@
+{
+ "all_match": true,
+ "cases": [
+  {
+   "case": "baseline_714",
+   "observed": 714,
+   "predicted": 714.0,
+   "how": "10-16 natural and 10-21 natural",
+   "match": true
+  },
+  {
+   "case": "helmet_720",
+   "observed": 720,
+   "predicted": 720.0,
+   "how": "10-16 natural, after the hit (D/7B8 later derived)",
+   "match": true
+  },
+  {
+   "case": "helmet_deflect_793",
+   "observed": 793,
+   "predicted": 793.0,
+   "how": "10-16 natural, after the hit",
+   "match": true
+  },
+  {
+   "case": "outfit_bizen_1018",
+   "observed": 1018,
+   "predicted": 1018.0,
+   "how": "10-21 blind",
+   "match": true
+  },
+  {
+   "case": "outfit_bizen_deflect_1120",
+   "observed": 1120,
+   "predicted": 1120.0,
+   "how": "10-21 blind",
+   "match": true
+  },
+  {
+   "case": "accessories_1018",
+   "observed": 1018,
+   "predicted": 1018.0,
+   "how": "10-21 blind (叶二 + 八咫镜)",
+   "match": true
+  },
+  {
+   "case": "scroll_1097",
+   "observed": 1097,
+   "predicted": 1097.0,
+   "how": "10-21 reproduction (hit before slot 15 was modelled)",
+   "match": true
+  },
+  {
+   "case": "scroll_copy_1114",
+   "observed": 1114,
+   "predicted": 1114.0,
+   "how": "10-21 blind",
+   "match": true
+  }
+ ],
+ "output": "F:\\Nioh3_r16_build\\work\\regress-20261021-215038"
+}

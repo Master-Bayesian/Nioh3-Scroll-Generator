@@ -1,0 +1,192 @@
+{
+ "game": "Nioh 3 PC 2.0.2.0",
+ "exe_sha256": "e22c4a635e4ec1e27a177b76e27d7f6a637f426c0ed3928b60f5693bc52ae130",
+ "files": {
+  ".gitignore": {
+   "sha256": "5dbe33fc4e6904e350ec14154122160faac1bfa8439aece182ed72e6a446ac46",
+   "size": 23
+  },
+  "evidence/h3-outfit-bizen-1018-1120.capture.json": {
+   "sha256": "0cf33e264ae9fb52ed4d496122c17dd1ca032b19fda53fcdb34763717a65622b",
+   "size": 36846634
+  },
+  "evidence/h4-accessory-1018-scroll-1097.capture.json": {
+   "sha256": "28371c5b6d4974a692ecb3cffe6a220f466ad35abcb933468c8161733defdeed",
+   "size": 30939611
+  },
+  "evidence/h5-scroll2-blind-1114.capture.json": {
+   "sha256": "e43b7da93050e343929e66403016a8707f22d487d4c306a0ebea2ea4ad0ff6af",
+   "size": 6881558
+  },
+  "evidence/s1-1016-helmet-720.capture.json": {
+   "sha256": "00a1780885f475ce96141eb85aa20dc8b52b3f9880877a293a5a8b14f1be4017",
+   "size": 3334985
+  },
+  "inputs/bank-inv-h4/INVENTORY.json": {
+   "sha256": "5785fcdaaee78f61816cf34d95195f8aa68e2badf7d77ef6ee970477f56e140d",
+   "size": 17116
+  },
+  "inputs/bank-inv-h4/INVENTORY_F0.bin": {
+   "sha256": "4e7262e274b68e44511bd504a07ffa7e9e941411c56a14710d33e3f62f5759bc",
+   "size": 2400
+  },
+  "inputs/bank-inv-scroll2/INVENTORY.json": {
+   "sha256": "e940b0316a8d10d5eab364b7837de26b1e24c1e38629827a9ea08b38ecdfd190",
+   "size": 19845
+  },
+  "inputs/bank-inv-scroll2/INVENTORY_F0.bin": {
+   "sha256": "69682277131bd32afda0d93fdd3e680b278825696939f852d5bb02d156f6b6ca",
+   "size": 2400
+  },
+  "inputs/baseline-1016/capture.json": {
+   "sha256": "ae8bb0e014cda3e124cc7b833b99efb8cfde8385e5a9d463dc2666d6d2d09d1f",
+   "size": 3332682
+  },
+  "inputs/baseline-1016/ENTRY_REQUEST.json": {
+   "sha256": "5d74dc4c969cb3752811aafd74142d270c4c434e39b408759df0850b0ded8277",
+   "size": 1489386
+  },
+  "inputs/baseline-1016/RETAINED_STATIC_CELLS.json": {
+   "sha256": "eae790193054070db76ede876d68623d87a53e52745f1999bc5b7e3681568dd3",
+   "size": 58911
+  },
+  "inputs/grade_table_cells.json": {
+   "sha256": "d6cfad1293ac8abf1ed2ee58836dcadbdc968fb6e87a847d95b0f43be7db7d0e",
+   "size": 2862490
+  },
+  "inputs/inventory-1020/INVENTORY.json": {
+   "sha256": "5f5360d8f1648e89d08f0d69b4c4250fec0f1e085eb6388b98fa1055724c47bf",
+   "size": 521390
+  },
+  "inputs/inventory-1020/INVENTORY_F0.bin": {
+   "sha256": "46f3011a8d4b2566bfdb89958ffb4e17d96aaa664184fb0593bd6d67a7967378",
+   "size": 600000
+  },
+  "inputs/item_names.json": {
+   "sha256": "21e180dbb7683e6d61e4535117d7cfeb239b3a9c69853980326d2a87348fdb6d",
+   "size": 216471
+  },
+  "inputs/live-inventory-1021/INVENTORY.json": {
+   "sha256": "ee89c55a5a571b355102b649799192817856899098e488bf5afc83d42d15bce8",
+   "size": 177674
+  },
+  "inputs/live-inventory-1021/INVENTORY_F0.bin": {
+   "sha256": "75ff282576043dcff9bf7e19ace86a489f17ec8d21dbef6a8b7a5c45898f8f98",
+   "size": 600000
+  },
+  "make_manifest.py": {
+   "sha256": "8a762f0930aef03b086a43fa6fdc3ca2326de224eaf73e90daff7696882b9413",
+   "size": 2258
+  },
+  "README.md": {
+   "sha256": "560882b3774426dd956638a81e6e9de0b6fc365a5b5a97fd9e06a88e413c664a",
+   "size": 4820
+  },
+  "regress.py": {
+   "sha256": "40b3380a5d2a5b787fe2d106c36de05f084f7794518c08efee7ee708dab00a69",
+   "size": 4066
+  },
+  "REGRESSION_20261021.json": {
+   "sha256": "4ab066794db0cbc826632b7dad619fc9e7612a0d5ea57e4829185823edbcea27",
+   "size": 1308
+  },
+  "src/bank_inventory.py": {
+   "sha256": "e229208952b468f00405cb3e7597a69c31c4cfc309bc28a587eb3d5441ce6c1f",
+   "size": 1174
+  },
+  "src/buff_overlay_request.py": {
+   "sha256": "e382001394121b878343f832f44ca0279a4602a8c06a7dbd7016c6d76256633b",
+   "size": 1589
+  },
+  "src/ce_cleanup_check.py": {
+   "sha256": "9a9db63492d7224e3e2c2f7945b00140ce1c3a8882f84f8f9f106a57bb6becac",
+   "size": 2407
+  },
+  "src/demand_fill_loop.py": {
+   "sha256": "e5044fccccddac3aa0652b82897bd7f71542ddf46b775d2f5c8634a168c84eea",
+   "size": 11220
+  },
+  "src/drive_observer.py": {
+   "sha256": "dc2868f7ed9c749a06b6ea965df1fb2af78403629c95645232f3f1b6e2d0e41b",
+   "size": 5144
+  },
+  "src/frame_damage.py": {
+   "sha256": "5fda330a6e523f89f708b701b629ecb03a33ff3465cf20add8e176de6ebabbe9",
+   "size": 1083
+  },
+  "src/offline_item_request.py": {
+   "sha256": "791b44fc3f9f24cb5face11baee0d4a1cff44fb0a1f3c2b5986b706740ef0fed",
+   "size": 4534
+  },
+  "src/outfit_model.py": {
+   "sha256": "ecbb9f8f14ee593b500b529e433fcd86157cb627f27af6cc674e43a1a96d958a",
+   "size": 14235
+  },
+  "src/predict_swap_d.py": {
+   "sha256": "54fa748bd95dab120fe2d4c8b5aec1b87085b88780630eee22c9571299944b0e",
+   "size": 4957
+  },
+  "src/rank_outfits.py": {
+   "sha256": "121dd4ace8b28a7f9582230cbfacc054a2fe35dda7d73b82e38673e5341e137e",
+   "size": 11568
+  },
+  "src/read_live_bank.py": {
+   "sha256": "61d445f98e3ce9ee0511f2323363a79a768db0f3533b1388a4897950133de523",
+   "size": 3229
+  },
+  "src/read_live_inventory.py": {
+   "sha256": "fd48e4236f78f6f3ad7cdb8f3a710f118b9861a391267ad4e3e4433f111d1a4a",
+   "size": 4347
+  },
+  "src/reconstruct_grade_table.py": {
+   "sha256": "71f6a1d3bf4919b16807298270cf26ef4c01cea98dc76108deaee2eea9a69dd4",
+   "size": 2822
+  },
+  "src/search_outfit.py": {
+   "sha256": "526f52897c5cd08e39ea7597237c3062f2a70bdf215a355ff0eae73c2e343196",
+   "size": 2980
+  },
+  "src/split_frames.py": {
+   "sha256": "7c958921ab95ddeb9efc85feaec4a6281e691f8bb33ca0db084a226a48ea7b15",
+   "size": 1294
+  },
+  "src/studio_add_clones.py": {
+   "sha256": "31829eca3ff98e3e42e982d8465960883c1986d5dd0821be69c62fe0010fd73e",
+   "size": 2622
+  },
+  "src/studio_client.py": {
+   "sha256": "0bd91b7fe3f777c8eed47bf4f5a8cc658c4ff0f51fb4696701a57124e1e25727",
+   "size": 3558
+  }
+ },
+ "external": {
+  "pro_r2_package_runtime": {
+   "path": "F:/Nioh3_r16_build/deliverables/pro-r2-return/nioh3-damage-formula-r2-pro-return-pc202-20261018/project-source/runtime/r12_bind.py",
+   "sha256": "3db26bd7e1bee3dd8da1bd4adcf1418ba28bcef1dd7d07cd6df74c07a174f115"
+  },
+  "r13_main_replay": {
+   "path": "F:/Nioh3_r16_build/deliverables/pro-r2-return/nioh3-damage-formula-r2-pro-return-pc202-20261018/project-source/runtime/project-source/r13-main/replay.py",
+   "sha256": "c2d3dd173c2f13f523974bee49c77b09ad0985b4d769f6bf4e2d30e798c478cc"
+  },
+  "grade_curve_binding": {
+   "path": "F:/Nioh3_r16_build/deliverables/r16-equipment-execution-20261020/candidate-production/static-binding/evidence/grade-curves/BINDING.json",
+   "sha256": "c164383cf11a5e50b80aaf12c74bfd01a88ecac3f3a496be1968f2e473338205"
+  },
+  "grade_curve_resource": {
+   "path": "F:/Nioh3_r16_build/deliverables/r16-equipment-execution-20261020/candidate-production/static-binding/evidence/grade-curves/resource01119.bin",
+   "sha256": "6fe328f0f3de54587d1df964a95c5913d7cf522a63741ba4143544d52223493b"
+  },
+  "default_D_page_dump": {
+   "path": "F:/Nioh3_r16_build/deliverables/pro-r2-return/nioh3-damage-formula-r2-pro-return-pc202-20261018/evidence/r2-hits/PAGE_DUMP_pid29088.json",
+   "sha256": "12c2e334e3fc60897c3db1c52dbaf665abe3088e0f2ba8eaa2e941a6353fcd3a"
+  },
+  "studio_protected_worker": {
+   "path": "C:/Users/oudeb/AppData/Local/Nioh3Studio/onefile/3f90d8b543f01c6ccbbef35f14c43775df7275e698c8ba69d6a8082846d16e31/worker/nioh3-protected-worker.exe",
+   "sha256": "aec3033eaf97b10f3237aed9ef427dc2259d66f153f7da996fe65296bd886940"
+  },
+  "r10_original_cache": {
+   "path": "F:/Nioh3_r16_build/cache/original",
+   "note": "materialized and membership-checked by r12_bind.prepare"
+  }
+ }
+}

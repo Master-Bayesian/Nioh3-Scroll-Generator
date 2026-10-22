@@ -43,6 +43,7 @@ updates/
 
 # Keep only reviewed public research sources from the internal research tree
 research/*
+!research/damage/
 !research/ILLEGAL_AUXILIARY_OVERRIDE_PROOF.md
 !research/probe_illegal_auxiliary_override_ce.lua
 !research/probe_auxiliary_property_origin_ce.lua
