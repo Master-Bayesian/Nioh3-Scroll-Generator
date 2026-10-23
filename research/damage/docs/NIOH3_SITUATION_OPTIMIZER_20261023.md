@@ -72,7 +72,8 @@ cells), after which all 95 samurai armor pieces of today's backpack evaluate.
 The water-ailment miss is a target-side effect: the water ailment sets the target's damage-taken factor (target
 inline STAT +0x854) to 1.2, seen in both the 10-22 orb-applied and the 10-23 水弹-applied ailment. The synthetic
 status did not set it. `situations.py` now writes it for `status_water`; the corrected model gives 1149. That
-correction is post hoc; the next frozen prediction is after deflect + water ailment = 1264.
+correction is post hoc. The next prediction, frozen before the hit, confirms it: after deflect + water ailment,
+predicted 1264, game 1264 (capture `blind-1023/h5`, status aggregate 1.1).
 
 With today's attributes the current outfit is already the optimum for this hit within the backpack (best change:
 helmet 甲斐之虎铠甲, +1 to +2).
