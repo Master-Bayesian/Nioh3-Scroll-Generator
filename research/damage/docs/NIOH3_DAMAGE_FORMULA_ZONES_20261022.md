@@ -144,6 +144,22 @@ resumed fill covers memory only the probed path reads.
 
 The thunder element fields (D+0x28C/0x3C8) follow the same element switch as water but were not captured.
 
+**Onmyo water imbue on the water-element weapon** (`live1022-imbue` frame 1, game = replay 494; the outfit differs
+from the other 10-22 captures, so compare only within this capture). The imbue sets HP_owner +0x3138 (a pointer)
+and the action-flag bit MAIN +0x13C 0x10000000; the element stays MAIN +0x14 = 1 (water), so the weapon's own water
+fields D+0x288/0x3C4 stay in the pool. Counterfactual replays of this hit:
+
+| Variant | Damage (probed) | D+0x6B0 属性附武伤害 in the pool |
+| --- | ---: | --- |
+| as captured | 494 (528) | yes |
+| imbue pointer cleared | 494 (523) | no |
+| imbue action bit cleared | 385 (411) | yes |
+| both cleared | 385 (407) | no |
+
+The pointer switches the D+0x6B0 term into the equipment pool. The action bit is the imbue's own large effect,
++28 % here: without it the formula additionally reads the action modifier +0x12 (10 for this move); with it, it
+does not. Whether an imbue sets the element of a weapon without its own element is not captured yet.
+
 ### Still open
 
 | Situation | Reason |
