@@ -34,23 +34,38 @@ def main():
     p.add_argument("--top", type=int, default=6)
     p.add_argument("--form", choices=("samurai", "ninja"), default="samurai", help="form of the captured hit's loadout")
     p.add_argument("--names", type=Path, default=None)
+    p.add_argument("--capture", type=Path, default=None,
+                   help="another baseline hit (armored allowed); its worn armor is the start; needs --request and --filled")
+    p.add_argument("--request", type=Path, default=None, help="filled ENTRY_REQUEST.json of --capture")
+    p.add_argument("--filled", type=Path, default=None, help="FILLED_CELLS.json of --capture")
     args = p.parse_args()
     from fast_eval import Evaluator
+    from outfit_model import roles
     from regress_fast import BASE, CACHE, IN, load_inventory
     started = time.time()
     scenarios = []
     for s in args.scenario:
         name, _, weight = s.rpartition("=")
         scenarios.append((name, float(weight)))
-    ev = Evaluator(CACHE, BASE / "capture.json", BASE / "ENTRY_REQUEST.json", BASE / "RETAINED_STATIC_CELLS.json",
-                   [IN / "grade_table_cells.json", IN / "default_d_cells.json"])
-    states = {name: overrides(ev, name) for name, _ in scenarios}
-
-    bank_records, bank_f0 = load_inventory(args.bank)
     start = {}
-    for o in args.bank_spec.split(","):
-        off, _, slot = o.partition("@")
-        start[int(slot)] = ("bank", int(off, 16), bank_f0[int(off, 16):int(off, 16) + 0xE8], bank_records[int(off, 16)]["name"])
+    if args.capture:
+        ev = Evaluator(CACHE, args.capture, args.request, args.filled, armored_baseline=True)
+        names = json.loads((IN / "item_names.json").read_bytes())
+        bank = roles(str(args.capture))["source.two_banks"][1]
+        active = ev.model.active
+        for s in ARMOR_SLOTS:
+            rec = bank[active * 0xF70 + s * 0xE8:][:0xE8]
+            item = int.from_bytes(rec[2:4], "little")
+            start[s] = ("worn", s, rec, (names.get(str(item)) or [str(item)])[0])
+    else:
+        ev = Evaluator(CACHE, BASE / "capture.json", BASE / "ENTRY_REQUEST.json", BASE / "RETAINED_STATIC_CELLS.json",
+                       [IN / "grade_table_cells.json", IN / "default_d_cells.json"])
+        bank_records, bank_f0 = load_inventory(args.bank)
+        for o in args.bank_spec.split(","):
+            off, _, slot = o.partition("@")
+            start[int(slot)] = ("bank", int(off, 16), bank_f0[int(off, 16):int(off, 16) + 0xE8],
+                                bank_records[int(off, 16)]["name"])
+    states = {name: overrides(ev, name) for name, _ in scenarios}
     pack_records, pack_f0 = load_inventory(args.backpack)
     # Samurai and ninja forms wear separate armor; only pieces of the captured hit's form are candidates.
     pool = {s: [("backpack", off, pack_f0[off:off + 0xE8], r.get("name")) for off, r in sorted(pack_records.items())

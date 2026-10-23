@@ -33,6 +33,10 @@ FLAGS = {
 # Target statuses (key in the target's status map), see verify_gates.status_override.
 STATUSES = {"status_poison": 0x3C, "status_paralysis": 0x168, "status_burn": 0x39, "status_water": 0x22F,
             "status_shock": 0x226, "status_wind": 0xF9}
+# Side effects of a status on the target's own stats, as observed in game. The water ailment sets the target's
+# damage-taken factor (target inline STAT +0x854, read by the formula) to 1.2: 10-22 orb-applied and 10-23
+# 水弹-applied water ailments both show 1.2, and with it the 10-23 blind hit replays exactly (1149).
+STATUS_TARGET_STAT = {"status_water": {0x854: struct.pack("<f", 1.2)}}
 NAMES = sorted(FLAGS) + sorted(STATUSES) + ["plain"]
 
 
@@ -46,6 +50,8 @@ def overrides(ev, scenario):
     for name in [s for s in scenario.split("+") if s and s != "plain"]:
         if name in STATUSES:
             statuses.append(STATUSES[name])
+            for off, data in STATUS_TARGET_STAT.get(name, {}).items():
+                out[m.R["target.inline_STAT"][0] + off] = data
             continue
         if name not in FLAGS:
             raise KeyError(f"unknown situation {name}; known: {', '.join(NAMES)}")
@@ -59,5 +65,5 @@ def overrides(ev, scenario):
     if len(statuses) > 1:
         raise ValueError("at most one target status per scenario")
     if statuses:
-        out.update(status_override(m, ev, None, statuses[0]))
+        out.update(status_override(m, ev, None, statuses[0], m.R["target.status.tree.head"][0]))
     return out

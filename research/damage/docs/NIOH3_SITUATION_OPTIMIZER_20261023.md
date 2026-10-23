@@ -48,6 +48,35 @@ The triggered objective picks a different outfit than the plain one: it gives up
 deflect on a poisoned enemy. The 10-21 recommendation (823 / 1244 class) included ninja pieces (黑狐面,
 御庭番忍者装束) and is withdrawn.
 
+## 2026-10-23 in-game session: rebaseline and blind tests
+
+**The 10-16 baseline went stale.** The first blind hit of the triggered outfit was 884 against 1188 predicted.
+The outfit, weapon, accessories and scroll (seed 65975176) were exactly as predicted; the character had changed:
+attribute points went from (25, 150, 150, 40, 50, 20, 50) to (37, 150, 27, 26, 80, 15, 150), and guardian
+spirit, soul core and title blessings may also differ. These sources are frozen in a baseline: they enter the
+formula only through the aggregated STAT/D totals, which are captured but not attributed to a source.
+
+**Armored baseline.** A no-armor baseline hit (793) could not be filled: its path read a transient object that
+was freed before the post-hit fill. Instead the armored hit 1 (884) became the baseline (`armored_baseline=True`;
+the delta model removes the worn armor's native stages too). It predicts the no-armor hit as 793, equal to the
+game. `fill_candidate_tables.py` fills the parameter-table rows candidate pieces need from the same PID (38
+cells), after which all 95 samurai armor pieces of today's backpack evaluate.
+
+| Hit (baseline: armored 884) | Predicted | Game |
+| --- | ---: | ---: |
+| no armor | 793 | 793 |
+| no armor, after deflect (armor was not re-equipped) | 872 (computed for the actual state afterwards) | 872 |
+| current outfit, target ki exhausted (frozen before the hit) | 1138 | 1138 |
+| current outfit, target in the water ailment | 958 (frozen) | 1149 |
+
+The water-ailment miss is a target-side effect: the water ailment sets the target's damage-taken factor (target
+inline STAT +0x854) to 1.2, seen in both the 10-22 orb-applied and the 10-23 水弹-applied ailment. The synthetic
+status did not set it. `situations.py` now writes it for `status_water`; the corrected model gives 1149. That
+correction is post hoc; the next frozen prediction is after deflect + water ailment = 1264.
+
+With today's attributes the current outfit is already the optimum for this hit within the backpack (best change:
+helmet 甲斐之虎铠甲, +1 to +2).
+
 ## Limits
 
 - One action and one target. Other moves need Pro r2 action substitution or their own capture.

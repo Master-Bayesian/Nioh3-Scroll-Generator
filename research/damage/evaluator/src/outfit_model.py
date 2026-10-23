@@ -36,7 +36,7 @@ def roles(path):
 
 
 class OutfitModel:
-    def __init__(self, cache, baseline_capture, observe_only=False):
+    def __init__(self, cache, baseline_capture, observe_only=False, armored_baseline=False):
         sys.path.insert(0, str(PKG / "project-source/runtime"))
         from r12_bind import prepare
         prepare(Path(cache))
@@ -74,7 +74,9 @@ class OutfitModel:
         self.base_model = None  # observe-only: the capture is replayed as worn, no candidate prediction
         if observe_only:
             return
-        if any(struct.unpack_from("<H", self.inv, b * 0xF70 + s * 0xE8)[0] for b in (0, 1) for s in range(4, 13)):
+        # An armored baseline relies on the delta model removing the worn armor's native stages as well.
+        if not armored_baseline and any(struct.unpack_from("<H", self.inv, b * 0xF70 + s * 0xE8)[0]
+                                        for b in (0, 1) for s in range(4, 13)):
             raise Unknown("baseline must wear no armor in either bank")
         self.base_model = self._model(self.inv)
 

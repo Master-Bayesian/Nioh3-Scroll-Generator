@@ -79,9 +79,10 @@ def build_template(model, request_path, retained_path, extra_cells):
 
 
 class Evaluator:
-    def __init__(self, cache, capture, request, retained, extra_cells=(), buff=None, observe_only=False):
+    def __init__(self, cache, capture, request, retained, extra_cells=(), buff=None, observe_only=False,
+                 armored_baseline=False):
         self.cache, self.capture, self.buff = Path(cache), Path(capture), buff
-        self.model = OutfitModel(cache, capture, observe_only)
+        self.model = OutfitModel(cache, capture, observe_only, armored_baseline)
         sys.path.insert(0, str(demand_fill_loop.REPLAY_DIR))
         import replay
         import r12_bind

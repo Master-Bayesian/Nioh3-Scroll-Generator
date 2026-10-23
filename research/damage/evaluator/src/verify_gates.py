@@ -44,7 +44,7 @@ SYNTHETIC = 0x0000100000000000  # far from every captured address
 STATUS_MAP_HEAD = 0x1C628757AF0  # target HP_owner+0x2DC0, +0x348: the captured, empty std::map head
 
 
-def status_override(m, ev, writes, key):
+def status_override(m, ev, writes, key, head=STATUS_MAP_HEAD):
     """Target has status `key` active, as a one-node std::map (MSVC _Tree_node) in a synthetic region.
 
     136AC4 starts at head->left, compares u16 node+0x20, returns node+0x28; 78CDF8 tests object+0x14 bit 0.
@@ -52,10 +52,10 @@ def status_override(m, ev, writes, key):
     head exactly as in the captured empty map."""
     if not any(r["name"] == "synthetic_status_node" for r in ev.template["scene"]["memory_regions"]):
         ev.add_region("synthetic_status_node", SYNTHETIC, 0x100,
-                      {"stands_for": "one active target status (map node + status object)", "map_head": hex(STATUS_MAP_HEAD)})
-    node, obj = SYNTHETIC, SYNTHETIC + 0x80
-    head = struct.pack("<Q", STATUS_MAP_HEAD)
-    return {STATUS_MAP_HEAD: struct.pack("<Q", node), node: head, node + 8: head, node + 0x10: head,
+                      {"stands_for": "one active target status (map node + status object)", "map_head": hex(head)})
+    node, obj, head_address = SYNTHETIC, SYNTHETIC + 0x80, head
+    head = struct.pack("<Q", head_address)
+    return {head_address: struct.pack("<Q", node), node: head, node + 8: head, node + 0x10: head,
             node + 0x18: b"\x00\x00", node + 0x20: struct.pack("<H", key), node + 0x28: struct.pack("<Q", obj),
             obj + 0x14: b"\x01"}
 
