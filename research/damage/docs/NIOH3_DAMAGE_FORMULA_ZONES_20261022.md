@@ -127,17 +127,28 @@ empty, so `verify_gates.py` maps a synthetic one-node map (`Evaluator.add_region
 the captured head (isnil = 1), so every other key lookup ends exactly as in the captured empty map. Status keys and
 names come from the native buff catalog (BUFF_DEFINITIONS.csv).
 
-### Needs an in-game capture
+### Verified by in-game captures (2026-10-22)
 
-These paths read runtime memory the 10-16 capture does not hold, so they stay open until a capture provides it:
+Four paths read runtime memory the 10-16 capture does not hold. Each was captured in game in its situation
+(training samurai, observer-v5), split to the hit frame and filled from the same live PID with
+`demand_fill_loop.py` (static-table cells prefetched from the first fill). Every unprobed replay equals the
+game's damage. `live_gate_check.py` then traces the replay with the effect probe; `make_probe_request.py` plus a
+resumed fill covers memory only the probed path reads.
 
-| Situation | Missing memory |
+| Situation (capture) | Game = replay | Fields entering the pool |
+| --- | ---: | --- |
+| Martial art, first hit of a multi-stage art (`live1022-art2`) | 812 | D+0x550, D+0x558 (D+0x554 and D+0x55C stay out on this art) |
+| Weapon with its own water element, light attack (`live1022-elem` frame 1) | 569 | D+0x288 属性攻击伤害/水属性伤害, D+0x3C4 武器造成的水属性伤害 |
+| Target in the water ailment (built with an onmyo water orb), melee hit (`live1022-ail3` frame 12) | 722 | D+0x7CC (any ailment), D+0x30C (water ailment), D+0x318 顺势之法 |
+| Jump attack (`live1022-air` frame 8; probed fill 1119) | 1079 | D+0x768 空中攻击伤害 (skill 飞击之法) |
+
+The thunder element fields (D+0x28C/0x3C8) follow the same element switch as water but were not captured.
+
+### Still open
+
+| Situation | Reason |
 | --- | --- |
-| Martial art (武技, MAIN +0x136): D+0x550..0x55C | module .data global base+0x4BA3E20 |
-| Water or thunder element hit (MAIN +0x14 = 1 / 2): D+0x288/0x3C4, D+0x28C/0x3C8 | heap element table (0x1C62A035A48..) |
-| Any ailment on the target, D+0x7CC | the status object's virtual method (vtable +0x78) reads .data base+0x4BA4490 |
-| Airborne attack, D+0x768 空中攻击伤害 | query 2E9934(condition 3) evaluates the actor's state-machine records |
-| Assassination, D+0x104 暗杀伤害; D+0x530; D+0x714 | probe leaves the captured state |
+| Assassination, D+0x104 暗杀伤害; D+0x530; D+0x714 | probe leaves the captured state; needs an assassination capture in a mission |
 
 Other action classes (ranged, ninjutsu, onmyo, guardian skills in full) need their own action capture anyway.
 
