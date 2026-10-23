@@ -158,7 +158,13 @@ fields D+0x288/0x3C4 stay in the pool. Counterfactual replays of this hit:
 
 The pointer switches the D+0x6B0 term into the equipment pool. The action bit is the imbue's own large effect,
 +28 % here: without it the formula additionally reads the action modifier +0x12 (10 for this move); with it, it
-does not. Whether an imbue sets the element of a weapon without its own element is not captured yet.
+does not.
+
+**Same imbue on a weapon without an element** (`live1022-imbue-plain`, another weapon type, action 0x1909; game =
+replay 1045). The imbue gives the hit the water element (MAIN +0x14 = 1), so D+0x288/0x3C4 enter the pool as for a
+water weapon. Probed counterfactuals: as captured 1128, pointer cleared 1118, action bit cleared 999, both cleared
+990. The action bit again removes the read of action modifier +0x12 (16 for this move); its gain here is +13 %,
+against +28 % on the other move, so the imbue bonus depends on the move's modifier pair, not on a fixed factor.
 
 ### Still open
 
