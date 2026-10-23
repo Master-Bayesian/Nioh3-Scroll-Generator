@@ -2,7 +2,7 @@
 
 Every situation below was confirmed on this baseline by verify_gates.py (the conditional effect field enters the
 formula) or reproduces an in-game observation (after_deflect: 793 / 1120). A scenario is a "+"-joined list of
-situation names, e.g. "back+ki_exhausted+status_poison". At most one target status per scenario.
+situation names, e.g. "back+ki_exhausted+status_poison". Several target statuses may be combined.
 
 A situation switches the conditional effects of this hit only: the motion value, attack and target stay those of
 the captured light attack. "strong" therefore means "this hit with the strong-attack effect gate", not a strong
@@ -40,9 +40,45 @@ STATUS_TARGET_STAT = {"status_water": {0x854: struct.pack("<f", 1.2)}}
 NAMES = sorted(FLAGS) + sorted(STATUSES) + ["plain"]
 
 
+TREE_REGION = 0x0000100000010000  # synthetic, far from every captured address
+
+
+def status_tree(ev, sentinel, keys):
+    """Target statuses `keys` active: MSVC std::map nodes in a synthetic region, linked to the captured sentinel.
+
+    136AC4 loads the sentinel from HP_owner+0x2DC0+0x348 (the captured role "target.status.tree.head" is that
+    sentinel node), starts at sentinel->left and walks the whole tree in order, comparing the u16 key at node+0x20;
+    78CDF8 then requires status object (node+0x28) +0x14 bit 0. The sentinel's left/parent/right become the
+    leftmost node, the root and the rightmost node; its isnil byte (+0x19) stays as captured (1). A node holds
+    left (+0), parent (+8), right (+0x10), isnil 0. The nodes form a balanced binary search tree."""
+    keys = sorted(set(keys))
+    if not any(r["name"] == "synthetic_status_tree" for r in ev.template["scene"]["memory_regions"]):
+        ev.add_region("synthetic_status_tree", TREE_REGION, 0x1000,
+                      {"stands_for": "target status map nodes and status objects", "sentinel": hex(sentinel)})
+    nodes = {k: TREE_REGION + 0x40 * i for i, k in enumerate(keys)}
+    objects = {k: TREE_REGION + 0x800 + 0x40 * i for i, k in enumerate(keys)}
+    q = lambda v: struct.pack("<Q", v)
+    out = {}
+
+    def build(lo, hi, parent):
+        if lo > hi:
+            return sentinel
+        mid = (lo + hi) // 2
+        k = keys[mid]
+        n = nodes[k]
+        out.update({n + 8: q(parent), n + 0x18: b"\x00\x00", n + 0x20: struct.pack("<H", k),
+                    n + 0x28: q(objects[k]), objects[k] + 0x14: b"\x01"})
+        out[n] = q(build(lo, mid - 1, n))
+        out[n + 0x10] = q(build(mid + 1, hi, n))
+        return n
+    root = build(0, len(keys) - 1, sentinel)
+    out.update({sentinel: q(nodes[keys[0]] if keys else sentinel), sentinel + 8: q(root),
+                sentinel + 0x10: q(nodes[keys[-1]] if keys else sentinel)})
+    return out
+
+
 def overrides(ev, scenario):
     """State writes {address: bytes} for a scenario on evaluator ev (10-16 baseline capture)."""
-    from verify_gates import status_override
     m = ev.model
     objects = {"MAIN": m.main_addr, "OWNER": m.R["source.HP_owner"][0],
                "TARGET_ENTITY": m.R["target.query.entity.prefix"][0]}
@@ -62,8 +98,6 @@ def overrides(ev, scenario):
         out[objects[obj] + off] = data
     if flags13c:
         out[m.main_addr + 0x13C] = struct.pack("<I", flags13c)
-    if len(statuses) > 1:
-        raise ValueError("at most one target status per scenario")
     if statuses:
-        out.update(status_override(m, ev, None, statuses[0], m.R["target.status.tree.head"][0]))
+        out.update(status_tree(ev, m.R["target.status.tree.head"][0], statuses))
     return out

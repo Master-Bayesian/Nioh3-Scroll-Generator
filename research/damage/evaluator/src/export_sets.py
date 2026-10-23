@@ -14,6 +14,8 @@ from zone_table import NAMES, effect_names  # noqa: E402
 m = OutfitModel(CACHE, BASE / "capture.json", observe_only=True)
 T = m.T
 from side_sources import table  # noqa: E402
+from set_expansion import curve_value  # noqa: E402
+LEVEL_ROWS = (T.TABLES / "level_curve/rows.bin").read_bytes()
 side = table()
 group_names = effect_names(m, NAMES)
 loc = json.loads(Path("F:/Nioh3_ScrollEditor/nioh3_scroll_editor/data/effect_names_multilingual.json").read_bytes())["effects"]
@@ -48,7 +50,8 @@ for key in sorted(side.indices):
             continue
         rewards.append({"pieces": threshold, "group": hex(group), "flags": flags, "mode": struct.unpack_from("<I", r, 12)[0],
                         "base": struct.unpack_from("<I", r, 16)[0], "scale": struct.unpack_from("<i", r, 20)[0],
-                        "effects": sorted(group_zh.get(group, set()) | set(group_names.get(group, [])))[:4]})
+                        "value_lv170": curve_value(r, 170, LEVEL_ROWS)[0], "value_lv190": curve_value(r, 190, LEVEL_ROWS)[0],
+                        "effects": sorted(group_zh.get(group) or set(group_names.get(group, [])))[:4]})
     sets.append({"side_key": hex(key), "names": sorted(members.get(key, [])), "rewards": rewards})
 out = Path("F:/Nioh3_r16_build/work/sets/SETS.json")
 out.parent.mkdir(exist_ok=True)
@@ -59,6 +62,6 @@ for s in sets:
         continue
     lines.append(f"{s['side_key']} {' / '.join(s['names'][:3])}")
     for r in s["rewards"]:
-        lines.append(f"    {r['pieces']} pieces (flags {r['flags']}): {' / '.join(r['effects']) or r['group']}")
+        lines.append(f"    {r['pieces']} pieces, value Lv170 {r['value_lv170']} / Lv190 {r['value_lv190']}: {' / '.join(r['effects']) or r['group']}")
 out.with_suffix(".txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
 print(len(sets), "sets;", sum(bool(s["rewards"]) for s in sets), "with rewards")
