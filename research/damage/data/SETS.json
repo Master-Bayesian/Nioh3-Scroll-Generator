@@ -1,0 +1,5334 @@
+[
+ {
+  "side_key": "0x24c",
+  "names": [
+   "寿老人的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 150,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xe494",
+    "flags": 0,
+    "mode": 1,
+    "base": 3,
+    "scale": 1,
+    "effects": [
+     "阴阳术伤害吸取体力"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x4d1c",
+    "flags": 0,
+    "mode": 0,
+    "base": 40,
+    "scale": 0,
+    "effects": [
+     "被攻击时承受的伤害降低"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x9bec",
+    "flags": 0,
+    "mode": 0,
+    "base": 50,
+    "scale": 0,
+    "effects": [
+     "阴阳术　术力"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x5c18",
+    "flags": 0,
+    "mode": 1,
+    "base": 70,
+    "scale": 0,
+    "effects": [
+     "使用阴阳术时赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0x83fd",
+    "flags": 0,
+    "mode": 1,
+    "base": 11,
+    "scale": 0,
+    "effects": [
+     "对伤害的反映（咒）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x347",
+  "names": [
+   "稻荷神的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 150,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x766b",
+    "flags": 0,
+    "mode": 0,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "效果持续力"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x4d1c",
+    "flags": 0,
+    "mode": 0,
+    "base": 40,
+    "scale": 0,
+    "effects": [
+     "被攻击时承受的伤害降低"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x4705",
+    "flags": 0,
+    "mode": 0,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "属性附武伤害"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xbe1e",
+    "flags": 0,
+    "mode": 1,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "使用阴阳术时赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0x4705",
+    "flags": 0,
+    "mode": 1,
+    "base": 180,
+    "scale": 0,
+    "effects": [
+     "属性附武伤害"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x4e3",
+  "names": [
+   "伊邪那美的恩宠"
+  ],
+  "rewards": []
+ },
+ {
+  "side_key": "0x79e",
+  "names": [
+   "伊邪那岐的恩宠"
+  ],
+  "rewards": []
+ },
+ {
+  "side_key": "0x7db",
+  "names": [
+   "幻惑吞牛"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xffec",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "skill:溪水之法",
+     "忍术槽增加量"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x68e6",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 4,
+    "group": "0x37c0",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "背后攻击灵力增加量"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x7000",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "skill:四神心得　刚",
+     "属性攻击伤害"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x9a60",
+    "flags": 0,
+    "mode": 1,
+    "base": 8,
+    "scale": 1,
+    "effects": [
+     "忍术伤害吸取体力"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xef0",
+  "names": [
+   "怨恨盖世"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xada8",
+    "flags": 0,
+    "mode": 0,
+    "base": 100,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 3,
+    "group": "0x7888",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "灵力增加量（地狱）"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xcf43",
+    "flags": 0,
+    "mode": 1,
+    "base": 100000,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0xf267",
+    "flags": 0,
+    "mode": 1,
+    "base": 150,
+    "scale": 13,
+    "effects": [
+     "skill:四神心得　柔",
+     "异常状态累积"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x99fb",
+    "flags": 0,
+    "mode": 1,
+    "base": 200,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 7,
+    "group": "0xf019",
+    "flags": 0,
+    "mode": 0,
+    "base": 120,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x1557",
+  "names": [
+   "命运一射"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x79ce",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "自动瞄准要害"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x4af4",
+    "flags": 0,
+    "mode": 1,
+    "base": 120,
+    "scale": 0,
+    "effects": [
+     "箭弹命中弱点时伤害"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x90d7",
+    "flags": 0,
+    "mode": 1,
+    "base": 110,
+    "scale": 0,
+    "effects": [
+     "火枪伤害"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x5609",
+    "flags": 0,
+    "mode": 1,
+    "base": 5,
+    "scale": 1,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x167a",
+  "names": [
+   "大绵津见的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 320,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xd821",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 4,
+    "group": "0x411f",
+    "flags": 0,
+    "mode": 1,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "对处于^09~DEBUFF~{}^09~~状态敌人的精力伤害"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x94cb",
+    "flags": 0,
+    "mode": 0,
+    "base": 200,
+    "scale": 0,
+    "effects": [
+     "敌人的^09~DEBUFF~{}^09~~状态累积"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x4dcb",
+    "flags": 0,
+    "mode": 0,
+    "base": 300,
+    "scale": 0,
+    "effects": [
+     "水属性伤害"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0xae4b",
+    "flags": 0,
+    "mode": 0,
+    "base": 350,
+    "scale": 0,
+    "effects": [
+     "对处于^09~DEBUFF~{}^09~~状态敌人的近距离伤害"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x16e3",
+  "names": [
+   "月读的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 320,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xd528",
+    "flags": 0,
+    "mode": 1,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "阴阳术命中时施加^09~DEBUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x9bec",
+    "flags": 0,
+    "mode": 0,
+    "base": 70,
+    "scale": 0,
+    "effects": [
+     "阴阳术　术力"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x1f23",
+    "flags": 0,
+    "mode": 0,
+    "base": 400,
+    "scale": 0,
+    "effects": [
+     "阴阳术道具的伤害（无伤）"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x5cce",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "skill:阴阳妙法",
+     "不消耗使役符以外的阴阳术"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0x8505",
+    "flags": 0,
+    "mode": 1,
+    "base": 5,
+    "scale": 2,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x1986",
+  "names": [
+   "志那都彦的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 320,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xbec6",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 4,
+    "group": "0x5e5d",
+    "flags": 0,
+    "mode": 1,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "对处于^09~DEBUFF~{}^09~~状态敌人的精力伤害"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0xd7a1",
+    "flags": 0,
+    "mode": 0,
+    "base": 200,
+    "scale": 0,
+    "effects": [
+     "敌人的^09~DEBUFF~{}^09~~状态累积"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xa69e",
+    "flags": 0,
+    "mode": 0,
+    "base": 300,
+    "scale": 0,
+    "effects": [
+     "风属性伤害"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0x8b9e",
+    "flags": 0,
+    "mode": 0,
+    "base": 350,
+    "scale": 0,
+    "effects": [
+     "对处于^09~DEBUFF~{}^09~~状态敌人的近距离伤害"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x1cd6",
+  "names": [
+   "百鬼化身"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xf0be",
+    "flags": 0,
+    "mode": 2,
+    "base": 100,
+    "scale": 20,
+    "effects": [
+     "近距离攻击打倒敌人时恢复体力"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x1ac7",
+    "flags": 0,
+    "mode": 0,
+    "base": 70,
+    "scale": 0,
+    "effects": [
+     "体力恢复量（地狱）"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x84f9",
+    "flags": 0,
+    "mode": 0,
+    "base": 140,
+    "scale": 0,
+    "effects": [
+     "吸收精华后赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0xa955",
+    "flags": 0,
+    "mode": 0,
+    "base": 120,
+    "scale": 0,
+    "effects": [
+     "获得精华（地狱）"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x1a25",
+    "flags": 0,
+    "mode": 1,
+    "base": 160,
+    "scale": 0,
+    "effects": [
+     "地狱武器伤害"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x2046",
+  "names": [
+   "今川执权"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x1b44",
+    "flags": 0,
+    "mode": 1,
+    "base": 2,
+    "scale": 1,
+    "effects": [
+     "精力恢复反映（精华槽）"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x8997",
+    "flags": 0,
+    "mode": 1,
+    "base": 3,
+    "scale": 1,
+    "effects": [
+     "对防御力的反映（咒）"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x8b44",
+    "flags": 0,
+    "mode": 1,
+    "base": 69,
+    "scale": 30,
+    "effects": [
+     "爱用度增加量"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x8a17",
+    "flags": 0,
+    "mode": 1,
+    "base": 4,
+    "scale": 2,
+    "effects": [
+     "伤害反映（爱用度）"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x2d91",
+    "flags": 0,
+    "mode": 1,
+    "base": 3,
+    "scale": 6,
+    "effects": [
+     "吸收精华可恢复体力"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x208d",
+  "names": [
+   "屠妖者"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 150,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xe857",
+    "flags": 0,
+    "mode": 0,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "幸运（地狱）"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x84e1",
+    "flags": 0,
+    "mode": 0,
+    "base": 100,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0x7d73",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "近距离攻击伤害（地狱）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x21ae",
+  "names": [
+   "毘沙门天的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 150,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xc4dd",
+    "flags": 0,
+    "mode": 0,
+    "base": 50,
+    "scale": 0,
+    "effects": [
+     "获得金钱"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x4d1c",
+    "flags": 0,
+    "mode": 0,
+    "base": 40,
+    "scale": 0,
+    "effects": [
+     "被攻击时承受的伤害降低"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0xaf2c",
+    "flags": 0,
+    "mode": 0,
+    "base": 60,
+    "scale": 0,
+    "effects": [
+     "skill:0x1D7F",
+     "skill:刚忍之法",
+     "skill:刚技之型",
+     "skill:暴刃之型"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x9ae9",
+    "flags": 0,
+    "mode": 1,
+    "base": 70,
+    "scale": 0,
+    "effects": [
+     "skill:0xE8BB",
+     "武技精力伤害"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0x99c7",
+    "flags": 0,
+    "mode": 1,
+    "base": 11,
+    "scale": 0,
+    "effects": [
+     "对伤害的反映（武）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x2714",
+  "names": [
+   "伊贺越复仇的主导者"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x5972",
+    "flags": 0,
+    "mode": 0,
+    "base": 5,
+    "scale": 0,
+    "effects": [
+     "武技吸取体力"
+    ]
+   },
+   {
+    "pieces": 2,
+    "group": "0x7ad1",
+    "flags": 0,
+    "mode": 0,
+    "base": 15,
+    "scale": 0,
+    "effects": [
+     "属性攻击伤害降低"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xe09b",
+    "flags": 0,
+    "mode": 0,
+    "base": 200,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 4,
+    "group": "0xd405",
+    "flags": 0,
+    "mode": 1,
+    "base": 70,
+    "scale": 20,
+    "effects": [
+     "skill:0x5603",
+     "精力恢复速度"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x194f",
+    "flags": 0,
+    "mode": 1,
+    "base": 3,
+    "scale": 3,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x28b3",
+  "names": [
+   "薄命之剑"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x53ca",
+    "flags": 0,
+    "mode": 1,
+    "base": 80,
+    "scale": 0,
+    "effects": [
+     "刺击伤害"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x3194",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "精华槽增加量"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xb208",
+    "flags": 0,
+    "mode": 1,
+    "base": 150,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0xdcce",
+    "flags": 0,
+    "mode": 1,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "吸收精华后赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x4720",
+    "flags": 0,
+    "mode": 1,
+    "base": 2,
+    "scale": 4,
+    "effects": [
+     "伤害反映（精华槽）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x2a9d",
+  "names": [
+   "建御名方的恩宠"
+  ],
+  "rewards": []
+ },
+ {
+  "side_key": "0x2f48",
+  "names": [
+   "二心将领"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 50,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xbf9",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "skill:0x6E22",
+     "skill:练技心得",
+     "武技精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x5972",
+    "flags": 0,
+    "mode": 1,
+    "base": 1,
+    "scale": 1,
+    "effects": [
+     "武技吸取体力"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0xd227",
+    "flags": 0,
+    "mode": 1,
+    "base": 80,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 6,
+    "group": "0x78f4",
+    "flags": 0,
+    "mode": 1,
+    "base": 2,
+    "scale": 3,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x3073",
+  "names": [
+   "军神的明鉴"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x6049",
+    "flags": 0,
+    "mode": 0,
+    "base": 80,
+    "scale": 0,
+    "effects": [
+     "skill:护身幔之法",
+     "承受的远距离伤害降低"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x4d1c",
+    "flags": 0,
+    "mode": 0,
+    "base": 30,
+    "scale": 0,
+    "effects": [
+     "被攻击时承受的伤害降低"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x267e",
+    "flags": 0,
+    "mode": 1,
+    "base": 4,
+    "scale": 3,
+    "effects": [
+     "伤害反映（装备重量）"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x4d1c",
+    "flags": 0,
+    "mode": 0,
+    "base": 40,
+    "scale": 0,
+    "effects": [
+     "被攻击时承受的伤害降低"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x7ad1",
+    "flags": 0,
+    "mode": 0,
+    "base": 45,
+    "scale": 0,
+    "effects": [
+     "属性攻击伤害降低"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x419f",
+  "names": [
+   "八幡神的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 150,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x75ed",
+    "flags": 0,
+    "mode": 0,
+    "base": 80,
+    "scale": 0,
+    "effects": [
+     "不消耗箭弹"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x4d1c",
+    "flags": 0,
+    "mode": 0,
+    "base": 40,
+    "scale": 0,
+    "effects": [
+     "被攻击时承受的伤害降低"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x75ed",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "不消耗箭弹"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xd903",
+    "flags": 0,
+    "mode": 0,
+    "base": 11,
+    "scale": 0,
+    "effects": [
+     "伤害反映（弓伤害）"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0xf5d",
+    "flags": 0,
+    "mode": 0,
+    "base": 300,
+    "scale": 0,
+    "effects": [
+     "弓伤害"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x4ae2",
+  "names": [
+   "不动明王的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 320,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x4bb6",
+    "flags": 0,
+    "mode": 0,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "skill:0x1A74",
+     "skill:防守心得　参",
+     "skill:防守心得　壹",
+     "skill:防守心得　贰"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x7242",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0x242a",
+    "flags": 0,
+    "mode": 0,
+    "base": 60,
+    "scale": 0,
+    "effects": [
+     "防御时的属性攻击伤害降低"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x4843",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "skill:0xDF46",
+     "skill:坚忍之法",
+     "防御精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0xdd84",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x5401",
+  "names": [
+   "建御雷的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 320,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x285e",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 4,
+    "group": "0x2d0c",
+    "flags": 0,
+    "mode": 1,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "对处于^09~DEBUFF~{}^09~~状态敌人的精力伤害"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x18bb",
+    "flags": 0,
+    "mode": 0,
+    "base": 200,
+    "scale": 0,
+    "effects": [
+     "敌人的^09~DEBUFF~{}^09~~状态累积"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xfe30",
+    "flags": 0,
+    "mode": 0,
+    "base": 300,
+    "scale": 0,
+    "effects": [
+     "雷属性伤害"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0x3d3d",
+    "flags": 0,
+    "mode": 0,
+    "base": 350,
+    "scale": 0,
+    "effects": [
+     "对处于^09~DEBUFF~{}^09~~状态敌人的近距离伤害"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x56cb",
+  "names": [
+   "柳生的暗行者"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xf38d",
+    "flags": 0,
+    "mode": 0,
+    "base": 60,
+    "scale": 0,
+    "effects": [
+     "精力恢复速度上升（无伤）"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x6c78",
+    "flags": 0,
+    "mode": 1,
+    "base": 180,
+    "scale": 0,
+    "effects": [
+     "忍术命中赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xd734",
+    "flags": 0,
+    "mode": 1,
+    "base": 120,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0x496f",
+    "flags": 0,
+    "mode": 0,
+    "base": 300,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 6,
+    "group": "0x2e35",
+    "flags": 0,
+    "mode": 0,
+    "base": 240,
+    "scale": 0,
+    "effects": [
+     "背后攻击伤害"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x59b7",
+  "names": [
+   "自得院流枪术"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xdcbd",
+    "flags": 0,
+    "mode": 1,
+    "base": 2,
+    "scale": 1,
+    "effects": [
+     "防御反映（体）"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x53ca",
+    "flags": 0,
+    "mode": 1,
+    "base": 88,
+    "scale": 12,
+    "effects": [
+     "刺击伤害"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x86f7",
+    "flags": 0,
+    "mode": 1,
+    "base": 80,
+    "scale": 15,
+    "effects": [
+     "强攻击精力伤害"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xc811",
+    "flags": 0,
+    "mode": 1,
+    "base": 7,
+    "scale": 1,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x6051",
+  "names": [
+   "赖光四天王之首"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 150,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xaf2c",
+    "flags": 0,
+    "mode": 1,
+    "base": 128,
+    "scale": 10,
+    "effects": [
+     "skill:0x1D7F",
+     "skill:刚忍之法",
+     "skill:刚技之型",
+     "skill:暴刃之型"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x5494",
+    "flags": 0,
+    "mode": 1,
+    "base": 4,
+    "scale": 1,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0xd405",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "skill:0x5603",
+     "精力恢复速度"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xbf9",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "skill:0x6E22",
+     "skill:练技心得",
+     "武技精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0x99c7",
+    "flags": 0,
+    "mode": 1,
+    "base": 11,
+    "scale": 0,
+    "effects": [
+     "对伤害的反映（武）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x61d9",
+  "names": [
+   "机智勇士"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x48ad",
+    "flags": 0,
+    "mode": 1,
+    "base": 80,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 3,
+    "group": "0xdcce",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "吸收精华后赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x2c9e",
+    "flags": 0,
+    "mode": 1,
+    "base": 8,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0x84f9",
+    "flags": 0,
+    "mode": 1,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "吸收精华后赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x6f28",
+    "flags": 2,
+    "mode": 1,
+    "base": 1000,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x6377",
+  "names": [
+   "武家政权之基石"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xbf9",
+    "flags": 0,
+    "mode": 1,
+    "base": 55,
+    "scale": 13,
+    "effects": [
+     "skill:0x6E22",
+     "skill:练技心得",
+     "武技精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xd7a1",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "敌人的^09~DEBUFF~{}^09~~状态累积"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xbc79",
+    "flags": 0,
+    "mode": 1,
+    "base": 20,
+    "scale": 0,
+    "effects": [
+     "身处常世时恢复体力"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x8c1",
+    "flags": 0,
+    "mode": 1,
+    "base": 5,
+    "scale": 1,
+    "effects": [
+     "造成风属性伤害时增加灵力"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xca38",
+    "flags": 0,
+    "mode": 1,
+    "base": 250,
+    "scale": 0,
+    "effects": [
+     "skill:0xB7CA"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0xad9c",
+    "flags": 0,
+    "mode": 0,
+    "base": 10,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x649d",
+  "names": [
+   "怪童丸"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xac34",
+    "flags": 0,
+    "mode": 2,
+    "base": 70,
+    "scale": 10,
+    "effects": [
+     "skill:贯彻之法",
+     "承受的伤害降低（攻击动作期间）"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x3c79",
+    "flags": 0,
+    "mode": 1,
+    "base": 2,
+    "scale": 1,
+    "effects": [
+     "近距离攻击吸取体力"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x6c0e",
+    "flags": 0,
+    "mode": 1,
+    "base": 40,
+    "scale": 0,
+    "effects": [
+     "skill:0xE70F"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x9002",
+    "flags": 0,
+    "mode": 1,
+    "base": 7,
+    "scale": 1,
+    "effects": []
+   },
+   {
+    "pieces": 6,
+    "group": "0x99c7",
+    "flags": 0,
+    "mode": 1,
+    "base": 9,
+    "scale": 0,
+    "effects": [
+     "对伤害的反映（武）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x6acb",
+  "names": [
+   "思兼神的恩宠"
+  ],
+  "rewards": []
+ },
+ {
+  "side_key": "0x6c48",
+  "names": [
+   "神之祝子"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xa8db",
+    "flags": 0,
+    "mode": 0,
+    "base": 350,
+    "scale": 0,
+    "effects": [
+     "不消耗{}"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x5cce",
+    "flags": 0,
+    "mode": 0,
+    "base": 100,
+    "scale": 10,
+    "effects": [
+     "skill:阴阳妙法",
+     "不消耗使役符以外的阴阳术"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xc330",
+    "flags": 0,
+    "mode": 1,
+    "base": 188,
+    "scale": 40,
+    "effects": [
+     "祓除常世赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x5127",
+    "flags": 0,
+    "mode": 0,
+    "base": 50,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0x995b",
+    "flags": 0,
+    "mode": 0,
+    "base": 50,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x6d81",
+  "names": [
+   "绝景哉"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x9932",
+    "flags": 0,
+    "mode": 1,
+    "base": 45,
+    "scale": 10,
+    "effects": [
+     "skill:飞击之心得"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xc4dd",
+    "flags": 0,
+    "mode": 1,
+    "base": 50,
+    "scale": 0,
+    "effects": [
+     "获得金钱"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x291b",
+    "flags": 0,
+    "mode": 1,
+    "base": 130,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0xa12",
+    "flags": 0,
+    "mode": 1,
+    "base": 5,
+    "scale": 1,
+    "effects": [
+     "对伤害的反映（刚）"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x3c09",
+    "flags": 0,
+    "mode": 1,
+    "base": 200,
+    "scale": 0,
+    "effects": [
+     "skill:飞击之法",
+     "空中攻击伤害"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x6ecd",
+  "names": [
+   "一射专心"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 150,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x79ce",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "自动瞄准要害"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x7f69",
+    "flags": 0,
+    "mode": 1,
+    "base": 50,
+    "scale": 5,
+    "effects": [
+     "skill:0x87B4",
+     "精力"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x4af4",
+    "flags": 0,
+    "mode": 1,
+    "base": 400,
+    "scale": 0,
+    "effects": [
+     "箭弹命中弱点时伤害"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x5b5d",
+    "flags": 0,
+    "mode": 1,
+    "base": 400,
+    "scale": 0,
+    "effects": [
+     "箭弹命中时施加^09~DEBUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xeb7a",
+    "flags": 0,
+    "mode": 1,
+    "base": 80,
+    "scale": 0,
+    "effects": [
+     "skill:0x028F",
+     "近距离攻击伤害"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x7033",
+  "names": [
+   "迦具土的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 320,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x7242",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 4,
+    "group": "0x1142",
+    "flags": 0,
+    "mode": 1,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "对处于^09~DEBUFF~{}^09~~状态敌人的精力伤害"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0xbe56",
+    "flags": 0,
+    "mode": 0,
+    "base": 200,
+    "scale": 0,
+    "effects": [
+     "敌人的^09~DEBUFF~{}^09~~状态累积"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xbf4a",
+    "flags": 0,
+    "mode": 0,
+    "base": 300,
+    "scale": 0,
+    "effects": [
+     "火属性伤害"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0x35e2",
+    "flags": 0,
+    "mode": 0,
+    "base": 350,
+    "scale": 0,
+    "effects": [
+     "对处于^09~DEBUFF~{}^09~~状态敌人的近距离伤害"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x72d3",
+  "names": [
+   "布袋尊的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x14d6",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 3,
+    "group": "0x72ad",
+    "flags": 0,
+    "mode": 0,
+    "base": 70,
+    "scale": 0,
+    "effects": [
+     "格挡成功时赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x766b",
+    "flags": 0,
+    "mode": 0,
+    "base": 200,
+    "scale": 0,
+    "effects": [
+     "效果持续力"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0xf671",
+    "flags": 0,
+    "mode": 0,
+    "base": 50,
+    "scale": 0,
+    "effects": [
+     "成功识破时^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xf38d",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 37,
+    "effects": [
+     "精力恢复速度上升（无伤）"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0xf51e",
+    "flags": 0,
+    "mode": 1,
+    "base": 7,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x7385",
+  "names": [
+   "剑禅一致"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xc28b",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "格挡成功时赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xb00a",
+    "flags": 0,
+    "mode": 1,
+    "base": 3,
+    "scale": 1,
+    "effects": [
+     "防御反映（心）"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xc8e8",
+    "flags": 0,
+    "mode": 1,
+    "base": 55,
+    "scale": 42,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0x5197",
+    "flags": 0,
+    "mode": 1,
+    "base": 2,
+    "scale": 3,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x7575",
+  "names": [
+   "加贺百万石的荣华"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xc4dd",
+    "flags": 0,
+    "mode": 0,
+    "base": 40,
+    "scale": 0,
+    "effects": [
+     "获得金钱"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x158c",
+    "flags": 0,
+    "mode": 0,
+    "base": 80,
+    "scale": 0,
+    "effects": [
+     "仙药掉落率"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x1e25",
+    "flags": 0,
+    "mode": 1,
+    "base": 4,
+    "scale": 2,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0x802b",
+    "flags": 0,
+    "mode": 1,
+    "base": 4,
+    "scale": 2,
+    "effects": []
+   },
+   {
+    "pieces": 6,
+    "group": "0x4e1b",
+    "flags": 0,
+    "mode": 0,
+    "base": 250,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x7619",
+  "names": [
+   "刚勇流离"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x5e77",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "箭弹贯穿"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xf5d",
+    "flags": 0,
+    "mode": 1,
+    "base": 198,
+    "scale": 10,
+    "effects": [
+     "弓伤害"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xcdd",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "箭弹的精力伤害"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0xeb7a",
+    "flags": 0,
+    "mode": 0,
+    "base": 80,
+    "scale": 0,
+    "effects": [
+     "skill:0x028F",
+     "近距离攻击伤害"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x362a",
+    "flags": 0,
+    "mode": 1,
+    "base": 50,
+    "scale": 10,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x77bd",
+  "names": [
+   "甲斐的副将"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x7ad0",
+    "flags": 0,
+    "mode": 2,
+    "base": 150,
+    "scale": 30,
+    "effects": [
+     "感应宝物"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x3a23",
+    "flags": 0,
+    "mode": 0,
+    "base": 40,
+    "scale": 0,
+    "effects": [
+     "灵力增加量（正面效果时）"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xdcce",
+    "flags": 0,
+    "mode": 0,
+    "base": 55,
+    "scale": 0,
+    "effects": [
+     "吸收精华后赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x48ca",
+    "flags": 0,
+    "mode": 1,
+    "base": 5,
+    "scale": 1,
+    "effects": [
+     "对伤害的反映（智）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x7b06",
+  "names": [
+   "奇策百出"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xeea8",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "绝境时赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xae3d",
+    "flags": 0,
+    "mode": 1,
+    "base": 3,
+    "scale": 1,
+    "effects": [
+     "伤害反映（敏捷）"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x369f",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "skill:轻业法",
+     "跳跃的精力"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xef60",
+    "flags": 0,
+    "mode": 1,
+    "base": 80,
+    "scale": 100,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0xf2ca",
+    "flags": 0,
+    "mode": 1,
+    "base": 2,
+    "scale": 3,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x7c31",
+  "names": [
+   "大国主的恩宠"
+  ],
+  "rewards": []
+ },
+ {
+  "side_key": "0x800f",
+  "names": [
+   "肉户八重垣流"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x93f0",
+    "flags": 0,
+    "mode": 1,
+    "base": 40,
+    "scale": 13,
+    "effects": [
+     "skill:瞬步之法",
+     "skill:闪躲之法",
+     "闪避动作精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xe3bf",
+    "flags": 0,
+    "mode": 1,
+    "base": 1,
+    "scale": 1,
+    "effects": [
+     "skill:背击吸活之法"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x23d7",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0x2e35",
+    "flags": 0,
+    "mode": 1,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "背后攻击伤害"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xbabc",
+    "flags": 0,
+    "mode": 1,
+    "base": 2,
+    "scale": 3,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x80c8",
+  "names": [
+   "经津主的恩宠"
+  ],
+  "rewards": []
+ },
+ {
+  "side_key": "0x8371",
+  "names": [
+   "伊贺后裔"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x2e35",
+    "flags": 0,
+    "mode": 1,
+    "base": 45,
+    "scale": 0,
+    "effects": [
+     "背后攻击伤害"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xc342",
+    "flags": 0,
+    "mode": 1,
+    "base": 30,
+    "scale": 9,
+    "effects": [
+     "暗杀伤害"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x2a1f",
+    "flags": 0,
+    "mode": 1,
+    "base": 50,
+    "scale": 0,
+    "effects": [
+     "skill:忍技锐击之法",
+     "skill:忍术磨练",
+     "忍术伤害"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x52ac",
+    "flags": 0,
+    "mode": 1,
+    "base": 5,
+    "scale": 1,
+    "effects": [
+     "skill:0x5869",
+     "不易被敌人发现"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x33e4",
+    "flags": 0,
+    "mode": 1,
+    "base": 0,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x8b2b",
+  "names": [
+   "神君再临"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x6123",
+    "flags": 0,
+    "mode": 1,
+    "base": 20,
+    "scale": 0,
+    "effects": [
+     "守护灵技命中可吸取体力"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xe3a4",
+    "flags": 0,
+    "mode": 1,
+    "base": 80,
+    "scale": 13,
+    "effects": [
+     "九十九化身时的耐久力"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x2d40",
+    "flags": 0,
+    "mode": 1,
+    "base": 3,
+    "scale": 1,
+    "effects": [
+     "灵力增加量反映（精华槽）"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x687d",
+    "flags": 0,
+    "mode": 1,
+    "base": 70,
+    "scale": 10,
+    "effects": [
+     "九十九化身时的属性伤害"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x4dcb",
+    "flags": 0,
+    "mode": 1,
+    "base": 300,
+    "scale": 0,
+    "effects": [
+     "水属性伤害"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x8bbc",
+  "names": [
+   "坂上党的骄傲"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 150,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x4d1c",
+    "flags": 0,
+    "mode": 0,
+    "base": 40,
+    "scale": 0,
+    "effects": [
+     "被攻击时承受的伤害降低"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x1ee2",
+    "flags": 0,
+    "mode": 0,
+    "base": 3,
+    "scale": 0,
+    "effects": [
+     "箭矢持有数量上限"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0xfdde",
+    "flags": 0,
+    "mode": 0,
+    "base": 200,
+    "scale": 0,
+    "effects": [
+     "skill:残心之心得",
+     "skill:残心之心得　改",
+     "残心精力恢复量"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x75ed",
+    "flags": 0,
+    "mode": 0,
+    "base": 200,
+    "scale": 0,
+    "effects": [
+     "不消耗箭弹"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0xc811",
+    "flags": 0,
+    "mode": 1,
+    "base": 2,
+    "scale": 4,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x9007",
+  "names": [
+   "伊贺忍者首领"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x93f0",
+    "flags": 0,
+    "mode": 1,
+    "base": 40,
+    "scale": 13,
+    "effects": [
+     "skill:瞬步之法",
+     "skill:闪躲之法",
+     "闪避动作精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x2a1f",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 13,
+    "effects": [
+     "skill:忍技锐击之法",
+     "skill:忍术磨练",
+     "忍术伤害"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x6c78",
+    "flags": 0,
+    "mode": 1,
+    "base": 50,
+    "scale": 11,
+    "effects": [
+     "忍术命中赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x83bb",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 6,
+    "group": "0xf0f6",
+    "flags": 0,
+    "mode": 1,
+    "base": 180,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 7,
+    "group": "0x2026",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 23,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x9138",
+  "names": [
+   "弁才天的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 150,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x155d",
+    "flags": 0,
+    "mode": 0,
+    "base": 30,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 4,
+    "group": "0xac34",
+    "flags": 0,
+    "mode": 0,
+    "base": 60,
+    "scale": 0,
+    "effects": [
+     "skill:贯彻之法",
+     "承受的伤害降低（攻击动作期间）"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x84d4",
+    "flags": 0,
+    "mode": 0,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "skill:灵活之法",
+     "获得精华"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x9315",
+    "flags": 0,
+    "mode": 1,
+    "base": 150,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 7,
+    "group": "0x7618",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x97d7",
+  "names": [
+   "摩利支天的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 320,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xe3a4",
+    "flags": 0,
+    "mode": 0,
+    "base": 160,
+    "scale": 0,
+    "effects": [
+     "九十九化身时的耐久力"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x3800",
+    "flags": 0,
+    "mode": 0,
+    "base": 180,
+    "scale": 0,
+    "effects": [
+     "九十九化身持续时间延长"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x687d",
+    "flags": 0,
+    "mode": 0,
+    "base": 140,
+    "scale": 0,
+    "effects": [
+     "九十九化身时的属性伤害"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x3194",
+    "flags": 0,
+    "mode": 0,
+    "base": 250,
+    "scale": 0,
+    "effects": [
+     "精华槽增加量"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0x2a24",
+    "flags": 0,
+    "mode": 0,
+    "base": 20,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x9907",
+  "names": [
+   "天照大神的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 220,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xada8",
+    "flags": 0,
+    "mode": 1,
+    "base": 200,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 4,
+    "group": "0x5972",
+    "flags": 0,
+    "mode": 0,
+    "base": 6,
+    "scale": 0,
+    "effects": [
+     "武技吸取体力"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0xf38d",
+    "flags": 0,
+    "mode": 0,
+    "base": 250,
+    "scale": 0,
+    "effects": [
+     "精力恢复速度上升（无伤）"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x87d8",
+    "flags": 0,
+    "mode": 0,
+    "base": 280,
+    "scale": 0,
+    "effects": [
+     "skill:望月之型",
+     "近距离攻击伤害（无伤）"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0xc765",
+    "flags": 0,
+    "mode": 0,
+    "base": 500,
+    "scale": 0,
+    "effects": [
+     "承受的伤害减半（无伤状态）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x9d95",
+  "names": [
+   "三恶妄为"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x52a8",
+    "flags": 0,
+    "mode": 0,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "追击和近身刺击可恢复体力"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x27ce",
+    "flags": 0,
+    "mode": 0,
+    "base": 500,
+    "scale": 0,
+    "effects": [
+     "对处于^09~DEBUFF~{}^09~~状态敌人的近距离伤害"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xbe5b",
+    "flags": 0,
+    "mode": 0,
+    "base": 40,
+    "scale": 0,
+    "effects": [
+     "skill:0x8E8D",
+     "近距离攻击精力伤害"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0xa7f8",
+    "flags": 0,
+    "mode": 0,
+    "base": 140,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 6,
+    "group": "0x43b5",
+    "flags": 0,
+    "mode": 1,
+    "base": 300,
+    "scale": 0,
+    "effects": [
+     "skill:0xBB44",
+     "skill:穿铠法",
+     "追击和近身刺击伤害"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x9e0e",
+  "names": [
+   "七难八苦"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x66db",
+    "flags": 0,
+    "mode": 2,
+    "base": 40,
+    "scale": 10,
+    "effects": []
+   },
+   {
+    "pieces": 3,
+    "group": "0x2991",
+    "flags": 0,
+    "mode": 1,
+    "base": 200,
+    "scale": 0,
+    "effects": [
+     "负面效果持续时间延长"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x6d10",
+    "flags": 0,
+    "mode": 0,
+    "base": 250,
+    "scale": 0,
+    "effects": [
+     "陷入异常状态时降低承受的伤害"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xa47",
+    "flags": 0,
+    "mode": 2,
+    "base": 8,
+    "scale": 1,
+    "effects": [
+     "伤害反映（负面效果数）"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x3864",
+    "flags": 0,
+    "mode": 1,
+    "base": 180,
+    "scale": 0,
+    "effects": [
+     "近距离攻击伤害（绝境）"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x5c21",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0x9ea3",
+  "names": [
+   "风流才智之士"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x3b0e",
+    "flags": 0,
+    "mode": 0,
+    "base": 15,
+    "scale": 0,
+    "effects": [
+     "幸运"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x4d1c",
+    "flags": 0,
+    "mode": 0,
+    "base": 20,
+    "scale": 0,
+    "effects": [
+     "被攻击时承受的伤害降低"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x5b5d",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 50,
+    "effects": [
+     "箭弹命中时施加^09~DEBUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x4dec",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "火枪动作速度加快"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xa61b",
+    "flags": 0,
+    "mode": 1,
+    "base": 8,
+    "scale": 1,
+    "effects": [
+     "伤害反映（幸运）"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0x3b0e",
+    "flags": 0,
+    "mode": 1,
+    "base": 60,
+    "scale": 0,
+    "effects": [
+     "幸运"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0x9f82",
+  "names": [
+   "大山津见的恩宠"
+  ],
+  "rewards": []
+ },
+ {
+  "side_key": "0x9fb1",
+  "names": [
+   "开耶姬的恩宠"
+  ],
+  "rewards": []
+ },
+ {
+  "side_key": "0xa0a4",
+  "names": [
+   "奇稻田姬的恩宠"
+  ],
+  "rewards": []
+ },
+ {
+  "side_key": "0xa0cc",
+  "names": [
+   "悲剧英雄"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x93f0",
+    "flags": 2,
+    "mode": 1,
+    "base": 40,
+    "scale": 13,
+    "effects": [
+     "skill:瞬步之法",
+     "skill:闪躲之法",
+     "闪避动作精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x2a1f",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 10,
+    "effects": [
+     "skill:忍技锐击之法",
+     "skill:忍术磨练",
+     "忍术伤害"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x6b5b",
+    "flags": 0,
+    "mode": 1,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "成功识破时^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x579f",
+    "flags": 0,
+    "mode": 1,
+    "base": 80,
+    "scale": 0,
+    "effects": [
+     "成功识破时^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x6f80",
+    "flags": 0,
+    "mode": 1,
+    "base": 3,
+    "scale": 3,
+    "effects": [
+     "对伤害的反映（心）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xa253",
+  "names": [
+   "幕府密探总管"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xe58",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "机关旋棍"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xbf9",
+    "flags": 0,
+    "mode": 1,
+    "base": 68,
+    "scale": 0,
+    "effects": [
+     "skill:0x6E22",
+     "skill:练技心得",
+     "武技精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xe5d1",
+    "flags": 0,
+    "mode": 0,
+    "base": 200,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0x2301",
+    "flags": 0,
+    "mode": 0,
+    "base": 5,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 6,
+    "group": "0xe089",
+    "flags": 0,
+    "mode": 0,
+    "base": 200,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 7,
+    "group": "0x6bc",
+    "flags": 0,
+    "mode": 0,
+    "base": 220,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0xa46d",
+  "names": [
+   "梦想一刀"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x237a",
+    "flags": 0,
+    "mode": 1,
+    "base": 1,
+    "scale": 0,
+    "effects": [
+     "skill:琢技吸活之法"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xb08a",
+    "flags": 0,
+    "mode": 1,
+    "base": 39,
+    "scale": 30,
+    "effects": [
+     "skill:一击专心之型",
+     "强攻击伤害"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x9ae9",
+    "flags": 0,
+    "mode": 1,
+    "base": 52,
+    "scale": 31,
+    "effects": [
+     "skill:0xE8BB",
+     "武技精力伤害"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x6f80",
+    "flags": 0,
+    "mode": 1,
+    "base": 5,
+    "scale": 1,
+    "effects": [
+     "对伤害的反映（心）"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x7c57",
+    "flags": 0,
+    "mode": 1,
+    "base": 120,
+    "scale": 100,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0xa6e8",
+  "names": [
+   "大黑天的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 150,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x3086",
+    "flags": 0,
+    "mode": 0,
+    "base": 50,
+    "scale": 0,
+    "effects": [
+     "装备品掉落率"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xd245",
+    "flags": 0,
+    "mode": 0,
+    "base": 6,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0xc00c",
+    "flags": 0,
+    "mode": 1,
+    "base": 5,
+    "scale": 2,
+    "effects": []
+   },
+   {
+    "pieces": 6,
+    "group": "0x7fac",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 7,
+    "group": "0x3af1",
+    "flags": 0,
+    "mode": 1,
+    "base": 50,
+    "scale": 21,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0xa7d7",
+  "names": [
+   "十一面观音的庇佑"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xc082",
+    "flags": 0,
+    "mode": 2,
+    "base": 10,
+    "scale": 4,
+    "effects": [
+     "毒抗性"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x6bec",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "体力恢复量"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x5b53",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "格挡成功时赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x4843",
+    "flags": 0,
+    "mode": 0,
+    "base": 80,
+    "scale": 0,
+    "effects": [
+     "skill:0xDF46",
+     "skill:坚忍之法",
+     "防御精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x87d8",
+    "flags": 0,
+    "mode": 0,
+    "base": 130,
+    "scale": 0,
+    "effects": [
+     "skill:望月之型",
+     "近距离攻击伤害（无伤）"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0xd84b",
+    "flags": 0,
+    "mode": 1,
+    "base": 10,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0xab7b",
+  "names": [
+   "惠比寿的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 150,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x3b0e",
+    "flags": 0,
+    "mode": 0,
+    "base": 20,
+    "scale": 0,
+    "effects": [
+     "幸运"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x4d1c",
+    "flags": 0,
+    "mode": 0,
+    "base": 40,
+    "scale": 0,
+    "effects": [
+     "被攻击时承受的伤害降低"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x61a9",
+    "flags": 0,
+    "mode": 1,
+    "base": 140,
+    "scale": 60,
+    "effects": [
+     "打倒敌人时赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x3b0e",
+    "flags": 0,
+    "mode": 1,
+    "base": 50,
+    "scale": 0,
+    "effects": [
+     "幸运"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0xb358",
+    "flags": 0,
+    "mode": 1,
+    "base": 200,
+    "scale": 0,
+    "effects": [
+     "道具掉落率"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xafe2",
+  "names": [
+   "烈火般的反骨"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x5e92",
+    "flags": 0,
+    "mode": 0,
+    "base": 24,
+    "scale": 0,
+    "effects": [
+     "火抗性"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xd24d",
+    "flags": 0,
+    "mode": 1,
+    "base": 200,
+    "scale": 0,
+    "effects": [
+     "绝境时赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x3172",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0x5871",
+    "flags": 0,
+    "mode": 0,
+    "base": 180,
+    "scale": 0,
+    "effects": [
+     "对攻击中敌人的近距离伤害"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xc2f8",
+    "flags": 0,
+    "mode": 0,
+    "base": 200,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 7,
+    "group": "0xc811",
+    "flags": 0,
+    "mode": 1,
+    "base": 6,
+    "scale": 2,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0xb123",
+  "names": [
+   "高岛流炮术"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 50,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x5d86",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 3,
+    "group": "0xa15d",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 15,
+    "effects": [
+     "大炮伤害"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x37d",
+    "flags": 0,
+    "mode": 1,
+    "base": 8,
+    "scale": 10,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0x1252",
+    "flags": 0,
+    "mode": 1,
+    "base": 120,
+    "scale": 39,
+    "effects": [
+     "不消耗枪弹与炮弹"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xb148",
+  "names": [
+   "祸津日的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 320,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x66db",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 4,
+    "group": "0xac6f",
+    "flags": 0,
+    "mode": 0,
+    "base": 200,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0x6dba",
+    "flags": 0,
+    "mode": 0,
+    "base": 240,
+    "scale": 0,
+    "effects": [
+     "行动精力消耗（负面效果时）"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x2991",
+    "flags": 0,
+    "mode": 0,
+    "base": 1000,
+    "scale": 0,
+    "effects": [
+     "负面效果持续时间延长"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0xa47",
+    "flags": 0,
+    "mode": 0,
+    "base": 16,
+    "scale": 0,
+    "effects": [
+     "伤害反映（负面效果数）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xb2c1",
+  "names": [
+   "一人当千之精锐"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x8c3a",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "箭弹命中时施加^09~DEBUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xf32f",
+    "flags": 0,
+    "mode": 1,
+    "base": 300,
+    "scale": 0,
+    "effects": [
+     "拿起远距离武器时的移动速度"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x5b5d",
+    "flags": 0,
+    "mode": 1,
+    "base": 180,
+    "scale": 10,
+    "effects": [
+     "箭弹命中时施加^09~DEBUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x99fb",
+    "flags": 0,
+    "mode": 1,
+    "base": 800,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 6,
+    "group": "0x82a5",
+    "flags": 0,
+    "mode": 1,
+    "base": 120,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0xb6c9",
+  "names": [
+   "赤备的骄傲"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x39b8",
+    "flags": 0,
+    "mode": 1,
+    "base": 1,
+    "scale": 1,
+    "effects": [
+     "防御反映（刚）"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x4843",
+    "flags": 0,
+    "mode": 0,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "skill:0xDF46",
+     "skill:坚忍之法",
+     "防御精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xf63d",
+    "flags": 0,
+    "mode": 1,
+    "base": 20,
+    "scale": 5,
+    "effects": [
+     "skill:0xD880",
+     "残心初始量"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x9ae9",
+    "flags": 0,
+    "mode": 1,
+    "base": 70,
+    "scale": 7,
+    "effects": [
+     "skill:0xE8BB",
+     "武技精力伤害"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xcc71",
+    "flags": 0,
+    "mode": 1,
+    "base": 7,
+    "scale": 1,
+    "effects": []
+   },
+   {
+    "pieces": 7,
+    "group": "0x87d8",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "skill:望月之型",
+     "近距离攻击伤害（无伤）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xc275",
+  "names": [
+   "琼琼杵的恩宠"
+  ],
+  "rewards": []
+ },
+ {
+  "side_key": "0xc28a",
+  "names": [
+   "福禄寿的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 150,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x3930",
+    "flags": 0,
+    "mode": 1,
+    "base": 380,
+    "scale": 100,
+    "effects": []
+   },
+   {
+    "pieces": 4,
+    "group": "0x4d1c",
+    "flags": 0,
+    "mode": 0,
+    "base": 40,
+    "scale": 0,
+    "effects": [
+     "被攻击时承受的伤害降低"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x3b0e",
+    "flags": 0,
+    "mode": 0,
+    "base": 20,
+    "scale": 0,
+    "effects": [
+     "幸运"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x34a0",
+    "flags": 0,
+    "mode": 1,
+    "base": 8,
+    "scale": 0,
+    "effects": [
+     "对伤害的反映（体）"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0x4d1c",
+    "flags": 0,
+    "mode": 1,
+    "base": 90,
+    "scale": 0,
+    "effects": [
+     "被攻击时承受的伤害降低"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xc2f9",
+  "names": [
+   "柳生表里剑"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x2673",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "skill:反攻格挡"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x2d55",
+    "flags": 0,
+    "mode": 1,
+    "base": 60,
+    "scale": 0,
+    "effects": [
+     "防御时精力恢复速度"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x7fe8",
+    "flags": 0,
+    "mode": 0,
+    "base": 300,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0xcaed",
+    "flags": 0,
+    "mode": 0,
+    "base": 300,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 6,
+    "group": "0x20a1",
+    "flags": 0,
+    "mode": 1,
+    "base": 5,
+    "scale": 2,
+    "effects": [
+     "对伤害的反映（技）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xc4bf",
+  "names": [
+   "风魔的威名"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x2e5b",
+    "flags": 0,
+    "mode": 2,
+    "base": 1,
+    "scale": 1,
+    "effects": []
+   },
+   {
+    "pieces": 3,
+    "group": "0x5e5d",
+    "flags": 0,
+    "mode": 0,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "对处于^09~DEBUFF~{}^09~~状态敌人的精力伤害"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x52ac",
+    "flags": 0,
+    "mode": 0,
+    "base": 8,
+    "scale": 0,
+    "effects": [
+     "skill:0x5869",
+     "不易被敌人发现"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x6cce",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "幻术异常状态累积"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xa69e",
+    "flags": 0,
+    "mode": 0,
+    "base": 300,
+    "scale": 0,
+    "effects": [
+     "风属性伤害"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xc756",
+  "names": [
+   "东国无双的荣耀"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xaf2c",
+    "flags": 0,
+    "mode": 2,
+    "base": 50,
+    "scale": 10,
+    "effects": [
+     "skill:0x1D7F",
+     "skill:刚忍之法",
+     "skill:刚技之型",
+     "skill:暴刃之型"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x4d1c",
+    "flags": 0,
+    "mode": 0,
+    "base": 30,
+    "scale": 0,
+    "effects": [
+     "被攻击时承受的伤害降低"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xfe30",
+    "flags": 0,
+    "mode": 0,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "雷属性伤害"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x34a0",
+    "flags": 0,
+    "mode": 1,
+    "base": 5,
+    "scale": 1,
+    "effects": [
+     "对伤害的反映（体）"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x8896",
+    "flags": 0,
+    "mode": 1,
+    "base": 8,
+    "scale": 1,
+    "effects": [
+     "造成雷属性伤害时吸取体力"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xcc22",
+  "names": [
+   "凋零勇将"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x4843",
+    "flags": 2,
+    "mode": 1,
+    "base": 70,
+    "scale": 13,
+    "effects": [
+     "skill:0xDF46",
+     "skill:坚忍之法",
+     "防御精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x347",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 20,
+    "effects": []
+   },
+   {
+    "pieces": 4,
+    "group": "0x1975",
+    "flags": 0,
+    "mode": 1,
+    "base": 0,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0x7cd9",
+    "flags": 0,
+    "mode": 1,
+    "base": 50,
+    "scale": 13,
+    "effects": []
+   },
+   {
+    "pieces": 6,
+    "group": "0x99c7",
+    "flags": 0,
+    "mode": 1,
+    "base": 3,
+    "scale": 3,
+    "effects": [
+     "对伤害的反映（武）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xcd36",
+  "names": [
+   "太平先驱"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xd201",
+    "flags": 0,
+    "mode": 1,
+    "base": 40,
+    "scale": 10,
+    "effects": [
+     "获得武功"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x8a02",
+    "flags": 0,
+    "mode": 1,
+    "base": 3,
+    "scale": 1,
+    "effects": [
+     "承受伤害增加灵力"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xb00a",
+    "flags": 0,
+    "mode": 1,
+    "base": 4,
+    "scale": 1,
+    "effects": [
+     "防御反映（心）"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x8508",
+    "flags": 0,
+    "mode": 0,
+    "base": 0,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 6,
+    "group": "0xcb4b",
+    "flags": 2,
+    "mode": 1,
+    "base": 120,
+    "scale": 0,
+    "effects": [
+     "skill:SKILL NAME DUMMY",
+     "skill:拟武杀法",
+     "反映变化（忍者）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xce0c",
+  "names": [],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 1,
+    "base": 10,
+    "scale": 40,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x6a7c",
+    "flags": 0,
+    "mode": 1,
+    "base": 20,
+    "scale": 40,
+    "effects": [
+     "skill:0xEA70",
+     "skill:攻击心得　参",
+     "skill:攻击心得　壹",
+     "skill:攻击心得　贰"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x4bb6",
+    "flags": 0,
+    "mode": 1,
+    "base": 20,
+    "scale": 40,
+    "effects": [
+     "skill:0x1A74",
+     "skill:防守心得　参",
+     "skill:防守心得　壹",
+     "skill:防守心得　贰"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xd2c1",
+    "flags": 0,
+    "mode": 1,
+    "base": 50,
+    "scale": 0,
+    "effects": [
+     "冲刺精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x4d1c",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "被攻击时承受的伤害降低"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xcf8e",
+  "names": [
+   "聪慧心鬼"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x7eb0",
+    "flags": 0,
+    "mode": 1,
+    "base": 70,
+    "scale": 21,
+    "effects": [
+     "守护灵技的精力伤害"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x52a8",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 13,
+    "effects": [
+     "追击和近身刺击可恢复体力"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x6c0a",
+    "flags": 0,
+    "mode": 1,
+    "base": 0,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0x2301",
+    "flags": 0,
+    "mode": 1,
+    "base": 3,
+    "scale": 2,
+    "effects": []
+   },
+   {
+    "pieces": 6,
+    "group": "0x87c9",
+    "flags": 0,
+    "mode": 1,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "追击与近身刺击赋予^09~BUFF~{}^09~~"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xdb40",
+  "names": [
+   "九头龙的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 150,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x6221",
+    "flags": 0,
+    "mode": 0,
+    "base": 6,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 4,
+    "group": "0xc082",
+    "flags": 0,
+    "mode": 0,
+    "base": 30,
+    "scale": 0,
+    "effects": [
+     "毒抗性"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x736e",
+    "flags": 0,
+    "mode": 0,
+    "base": 180,
+    "scale": 0,
+    "effects": [
+     "对处于^09~DEBUFF~{}^09~~状态敌人的近距离伤害"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xcd98",
+    "flags": 0,
+    "mode": 0,
+    "base": 11,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 7,
+    "group": "0xec",
+    "flags": 0,
+    "mode": 0,
+    "base": 200,
+    "scale": 0,
+    "effects": [
+     "skill:使役妙法",
+     "不消耗使役符"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xdf98",
+  "names": [
+   "狡狯忠臣"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x873f",
+    "flags": 0,
+    "mode": 1,
+    "base": 35,
+    "scale": 0,
+    "effects": [
+     "速攻击伤害"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x30a6",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "近距离攻击的精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x579f",
+    "flags": 0,
+    "mode": 1,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "成功识破时^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x502b",
+    "flags": 0,
+    "mode": 1,
+    "base": 80,
+    "scale": 0,
+    "effects": [
+     "打倒敌人时赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x20a1",
+    "flags": 0,
+    "mode": 1,
+    "base": 2,
+    "scale": 3,
+    "effects": [
+     "对伤害的反映（技）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xe534",
+  "names": [
+   "天手力男的恩宠"
+  ],
+  "rewards": []
+ },
+ {
+  "side_key": "0xe7d4",
+  "names": [
+   "里体舍流总帅"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xc5d3",
+    "flags": 0,
+    "mode": 0,
+    "base": 4,
+    "scale": 0,
+    "effects": [
+     "崩解"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x3a2a",
+    "flags": 0,
+    "mode": 0,
+    "base": 100,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 4,
+    "group": "0xffec",
+    "flags": 0,
+    "mode": 1,
+    "base": 180,
+    "scale": 0,
+    "effects": [
+     "skill:溪水之法",
+     "忍术槽增加量"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0xab47",
+    "flags": 0,
+    "mode": 0,
+    "base": 150,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 6,
+    "group": "0x43b5",
+    "flags": 0,
+    "mode": 0,
+    "base": 300,
+    "scale": 0,
+    "effects": [
+     "skill:0xBB44",
+     "skill:穿铠法",
+     "追击和近身刺击伤害"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0xeb7a",
+    "flags": 0,
+    "mode": 1,
+    "base": 135,
+    "scale": 18,
+    "effects": [
+     "skill:0x028F",
+     "近距离攻击伤害"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xede3",
+  "names": [
+   "弘法利生"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 0,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xeb7a",
+    "flags": 0,
+    "mode": 0,
+    "base": 30,
+    "scale": 0,
+    "effects": [
+     "skill:0x028F",
+     "近距离攻击伤害"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x93f0",
+    "flags": 0,
+    "mode": 0,
+    "base": 250,
+    "scale": 0,
+    "effects": [
+     "skill:瞬步之法",
+     "skill:闪躲之法",
+     "闪避动作精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x766b",
+    "flags": 0,
+    "mode": 1,
+    "base": 500,
+    "scale": 0,
+    "effects": [
+     "效果持续力"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x36f4",
+    "flags": 0,
+    "mode": 1,
+    "base": 7,
+    "scale": 1,
+    "effects": []
+   },
+   {
+    "pieces": 7,
+    "group": "0x83fd",
+    "flags": 0,
+    "mode": 0,
+    "base": 8,
+    "scale": 0,
+    "effects": [
+     "对伤害的反映（咒）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xef90",
+  "names": [
+   "猿田彦的恩宠"
+  ],
+  "rewards": []
+ },
+ {
+  "side_key": "0xf110",
+  "names": [
+   "显净土真实"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x7506",
+    "flags": 0,
+    "mode": 1,
+    "base": 80,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 3,
+    "group": "0x7d73",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "近距离攻击伤害（地狱）"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x1dd3",
+    "flags": 0,
+    "mode": 1,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "祓除常世赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x766b",
+    "flags": 2,
+    "mode": 1,
+    "base": 260,
+    "scale": 15,
+    "effects": [
+     "效果持续力"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x48ca",
+    "flags": 0,
+    "mode": 1,
+    "base": 2,
+    "scale": 3,
+    "effects": [
+     "对伤害的反映（智）"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xf164",
+  "names": [
+   "横行天下的倾奇者"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xc5d3",
+    "flags": 0,
+    "mode": 2,
+    "base": 4,
+    "scale": 1,
+    "effects": [
+     "崩解"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 1,
+    "base": 150,
+    "scale": 45,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xb08a",
+    "flags": 0,
+    "mode": 0,
+    "base": 60,
+    "scale": 0,
+    "effects": [
+     "skill:一击专心之型",
+     "强攻击伤害"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x3b0e",
+    "flags": 0,
+    "mode": 1,
+    "base": 40,
+    "scale": 0,
+    "effects": [
+     "幸运"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0xb08a",
+    "flags": 0,
+    "mode": 1,
+    "base": 80,
+    "scale": 30,
+    "effects": [
+     "skill:一击专心之型",
+     "强攻击伤害"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xf4cb",
+  "names": [
+   "天钿女的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 320,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xe5e8",
+    "flags": 0,
+    "mode": 1,
+    "base": 0,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 4,
+    "group": "0xe6d",
+    "flags": 0,
+    "mode": 1,
+    "base": 0,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0xccc8",
+    "flags": 0,
+    "mode": 1,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "skill:跃动之法",
+     "闪避行动移动距离延长"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x93f0",
+    "flags": 0,
+    "mode": 1,
+    "base": 250,
+    "scale": 0,
+    "effects": [
+     "skill:瞬步之法",
+     "skill:闪躲之法",
+     "闪避动作精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0x5e16",
+    "flags": 0,
+    "mode": 1,
+    "base": 1,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0xf725",
+  "names": [
+   "实行祓除者"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xa8db",
+    "flags": 0,
+    "mode": 0,
+    "base": 350,
+    "scale": 0,
+    "effects": [
+     "不消耗{}"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xec",
+    "flags": 0,
+    "mode": 0,
+    "base": 100,
+    "scale": 50,
+    "effects": [
+     "skill:使役妙法",
+     "不消耗使役符"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x9db5",
+    "flags": 0,
+    "mode": 1,
+    "base": 188,
+    "scale": 40,
+    "effects": [
+     "祓除常世赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x2d98",
+    "flags": 0,
+    "mode": 1,
+    "base": 50,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0xf9ac",
+  "names": [
+   "风林火山"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xee86",
+    "flags": 0,
+    "mode": 1,
+    "base": 3,
+    "scale": 0,
+    "effects": [
+     "强攻击吸取体力"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x8c1",
+    "flags": 0,
+    "mode": 1,
+    "base": 3,
+    "scale": 1,
+    "effects": [
+     "造成风属性伤害时增加灵力"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0xf670",
+    "flags": 0,
+    "mode": 1,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "恢复体力赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x35e2",
+    "flags": 0,
+    "mode": 1,
+    "base": 120,
+    "scale": 0,
+    "effects": [
+     "对处于^09~DEBUFF~{}^09~~状态敌人的近距离伤害"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x2d55",
+    "flags": 0,
+    "mode": 1,
+    "base": 120,
+    "scale": 0,
+    "effects": [
+     "防御时精力恢复速度"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0x4705",
+    "flags": 0,
+    "mode": 0,
+    "base": 200,
+    "scale": 0,
+    "effects": [
+     "属性附武伤害"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xfa17",
+  "names": [
+   "天下副将军"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xc5d3",
+    "flags": 0,
+    "mode": 1,
+    "base": 4,
+    "scale": 1,
+    "effects": [
+     "崩解"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x9ae9",
+    "flags": 0,
+    "mode": 0,
+    "base": 38,
+    "scale": 0,
+    "effects": [
+     "skill:0xE8BB",
+     "武技精力伤害"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x43b5",
+    "flags": 0,
+    "mode": 1,
+    "base": 145,
+    "scale": 10,
+    "effects": [
+     "skill:0xBB44",
+     "skill:穿铠法",
+     "追击和近身刺击伤害"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x2301",
+    "flags": 0,
+    "mode": 0,
+    "base": 5,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 6,
+    "group": "0x6f80",
+    "flags": 0,
+    "mode": 1,
+    "base": 5,
+    "scale": 2,
+    "effects": [
+     "对伤害的反映（心）"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0x5494",
+    "flags": 0,
+    "mode": 1,
+    "base": 6,
+    "scale": 2,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0xfa1a",
+  "names": [
+   "少彦名的恩宠"
+  ],
+  "rewards": []
+ },
+ {
+  "side_key": "0xfb19",
+  "names": [
+   "素盏呜尊的恩宠"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0xb1b6",
+    "flags": 0,
+    "mode": 2,
+    "base": 220,
+    "scale": 30,
+    "effects": [
+     "skill:0x0BD8",
+     "skill:刚健法　叁",
+     "skill:刚健法　壹",
+     "skill:刚健法　贰"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0xc5d3",
+    "flags": 0,
+    "mode": 0,
+    "base": 10,
+    "scale": 0,
+    "effects": [
+     "崩解"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x9ae9",
+    "flags": 0,
+    "mode": 1,
+    "base": 60,
+    "scale": 0,
+    "effects": [
+     "skill:0xE8BB",
+     "武技精力伤害"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0xd405",
+    "flags": 0,
+    "mode": 1,
+    "base": 150,
+    "scale": 0,
+    "effects": [
+     "skill:0x5603",
+     "精力恢复速度"
+    ]
+   },
+   {
+    "pieces": 6,
+    "group": "0x2301",
+    "flags": 0,
+    "mode": 1,
+    "base": 4,
+    "scale": 2,
+    "effects": []
+   },
+   {
+    "pieces": 7,
+    "group": "0xe2cd",
+    "flags": 0,
+    "mode": 1,
+    "base": 200,
+    "scale": 0,
+    "effects": []
+   }
+  ]
+ },
+ {
+  "side_key": "0xffc5",
+  "names": [
+   "殿军名将"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x93f0",
+    "flags": 0,
+    "mode": 1,
+    "base": 40,
+    "scale": 13,
+    "effects": [
+     "skill:瞬步之法",
+     "skill:闪躲之法",
+     "闪避动作精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x4545",
+    "flags": 0,
+    "mode": 1,
+    "base": 0,
+    "scale": 0,
+    "effects": [
+     "陷入异常状态时赋予^09~BUFF~{}^09~~"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x87d8",
+    "flags": 0,
+    "mode": 1,
+    "base": 100,
+    "scale": 0,
+    "effects": [
+     "skill:望月之型",
+     "近距离攻击伤害（无伤）"
+    ]
+   },
+   {
+    "pieces": 5,
+    "group": "0x5972",
+    "flags": 0,
+    "mode": 1,
+    "base": 2,
+    "scale": 1,
+    "effects": [
+     "武技吸取体力"
+    ]
+   }
+  ]
+ },
+ {
+  "side_key": "0xfff5",
+  "names": [
+   "才智卓越"
+  ],
+  "rewards": [
+   {
+    "pieces": 2,
+    "group": "0x4843",
+    "flags": 0,
+    "mode": 0,
+    "base": 42,
+    "scale": 0,
+    "effects": [
+     "skill:0xDF46",
+     "skill:坚忍之法",
+     "防御精力消耗降低"
+    ]
+   },
+   {
+    "pieces": 3,
+    "group": "0x9b1",
+    "flags": 0,
+    "mode": 1,
+    "base": 3,
+    "scale": 1,
+    "effects": [
+     "防御反映（智）"
+    ]
+   },
+   {
+    "pieces": 4,
+    "group": "0x1975",
+    "flags": 0,
+    "mode": 0,
+    "base": 200,
+    "scale": 0,
+    "effects": []
+   },
+   {
+    "pieces": 5,
+    "group": "0xc2b4",
+    "flags": 0,
+    "mode": 1,
+    "base": 4,
+    "scale": 2,
+    "effects": []
+   },
+   {
+    "pieces": 6,
+    "group": "0xfdde",
+    "flags": 0,
+    "mode": 0,
+    "base": 250,
+    "scale": 0,
+    "effects": [
+     "skill:残心之心得",
+     "skill:残心之心得　改",
+     "残心精力恢复量"
+    ]
+   },
+   {
+    "pieces": 7,
+    "group": "0x48ca",
+    "flags": 0,
+    "mode": 1,
+    "base": 5,
+    "scale": 2,
+    "effects": [
+     "对伤害的反映（智）"
+    ]
+   }
+  ]
+ }
+]
