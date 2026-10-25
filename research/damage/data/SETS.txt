@@ -14,25 +14,25 @@
     7 pieces, value Lv170 180 / Lv190 180: 属性附武伤害
 0x7db 幻惑吞牛
     2 pieces, value Lv170 150 / Lv190 150: 忍术槽增加量
-    3 pieces, value Lv170 100 / Lv190 100: 0x68e6
+    3 pieces, value Lv170 100 / Lv190 100: 幻术伤害
     4 pieces, value Lv170 150 / Lv190 150: 背后攻击灵力增加量
     5 pieces, value Lv170 150 / Lv190 150: 属性攻击伤害
     6 pieces, value Lv170 10 / Lv190 10: 忍术伤害吸取体力
 0xef0 怨恨盖世
-    2 pieces, value Lv170 100 / Lv190 100: 0xada8
+    2 pieces, value Lv170 100 / Lv190 100: 恢复体力侵蚀时一并恢复体力
     3 pieces, value Lv170 100 / Lv190 100: 灵力增加量（地狱）
-    4 pieces, value Lv170 100000 / Lv190 100000: 0xcf43
+    4 pieces, value Lv170 100000 / Lv190 100000: 地狱的负面效果无效
     5 pieces, value Lv170 181 / Lv190 183: 异常状态累积
-    6 pieces, value Lv170 200 / Lv190 200: 0x99fb
-    7 pieces, value Lv170 120 / Lv190 120: 0xf019
+    6 pieces, value Lv170 200 / Lv190 200: 敌人异常状态持续（混沌）
+    7 pieces, value Lv170 120 / Lv190 120: 灵力转炎
 0x1557 命运一射
     2 pieces, value Lv170 0 / Lv190 0: 自动瞄准要害
     3 pieces, value Lv170 120 / Lv190 120: 箭弹命中弱点时伤害
     4 pieces, value Lv170 110 / Lv190 110: 火枪伤害
-    5 pieces, value Lv170 7 / Lv190 7: 0x5609
+    5 pieces, value Lv170 7 / Lv190 7: 对攻击力的反映（火枪伤害）
 0x167a 大绵津见的恩宠
     2 pieces, value Lv170 422 / Lv190 434: 体力
-    3 pieces, value Lv170 0 / Lv190 0: 0xd821
+    3 pieces, value Lv170 0 / Lv190 0: 格挡·识破成功时赋予^09~BUFF~{}^09~~
     4 pieces, value Lv170 150 / Lv190 150: 对处于^09~DEBUFF~{}^09~~状态敌人的精力伤害
     5 pieces, value Lv170 200 / Lv190 200: 敌人的^09~DEBUFF~{}^09~~状态累积
     6 pieces, value Lv170 300 / Lv190 300: 水属性伤害
@@ -43,10 +43,10 @@
     4 pieces, value Lv170 70 / Lv190 70: 阴阳术　术力
     5 pieces, value Lv170 400 / Lv190 400: 阴阳术道具的伤害（无伤）
     6 pieces, value Lv170 150 / Lv190 150: 不消耗使役符以外的阴阳术
-    7 pieces, value Lv170 9 / Lv190 10: 0x8505
+    7 pieces, value Lv170 9 / Lv190 10: 发扬阴阳术
 0x1986 志那都彦的恩宠
     2 pieces, value Lv170 422 / Lv190 434: 体力
-    3 pieces, value Lv170 0 / Lv190 0: 0xbec6
+    3 pieces, value Lv170 0 / Lv190 0: 格挡·识破成功时赋予^09~BUFF~{}^09~~
     4 pieces, value Lv170 150 / Lv190 150: 对处于^09~DEBUFF~{}^09~~状态敌人的精力伤害
     5 pieces, value Lv170 200 / Lv190 200: 敌人的^09~DEBUFF~{}^09~~状态累积
     6 pieces, value Lv170 300 / Lv190 300: 风属性伤害
@@ -66,7 +66,7 @@
 0x208d 屠妖者
     2 pieces, value Lv170 252 / Lv190 264: 体力
     3 pieces, value Lv170 100 / Lv190 100: 幸运（地狱）
-    4 pieces, value Lv170 100 / Lv190 100: 0x84e1
+    4 pieces, value Lv170 100 / Lv190 100: 体力越少时精力恢复增强
     5 pieces, value Lv170 100 / Lv190 100: 近距离攻击伤害（地狱）
 0x21ae 毘沙门天的恩宠
     2 pieces, value Lv170 252 / Lv190 264: 体力
@@ -78,21 +78,21 @@
 0x2714 伊贺越复仇的主导者
     2 pieces, value Lv170 5 / Lv190 5: 武技吸取体力
     2 pieces, value Lv170 15 / Lv190 15: 属性攻击伤害降低
-    3 pieces, value Lv170 200 / Lv190 200: 0xe09b
+    3 pieces, value Lv170 200 / Lv190 200: 复仇之志
     4 pieces, value Lv170 118 / Lv190 122: 精力恢复速度
-    5 pieces, value Lv170 10 / Lv190 10: 0x194f
+    5 pieces, value Lv170 10 / Lv190 10: 攻击反映（精力恢复速度）
 0x28b3 薄命之剑
     2 pieces, value Lv170 80 / Lv190 80: 刺击伤害
     3 pieces, value Lv170 100 / Lv190 100: 精华槽增加量
-    4 pieces, value Lv170 150 / Lv190 150: 0xb208
+    4 pieces, value Lv170 150 / Lv190 150: 收刀状态下施展的武技伤害
     5 pieces, value Lv170 0 / Lv190 0: 吸收精华后赋予^09~BUFF~{}^09~~
     6 pieces, value Lv170 11 / Lv190 12: 伤害反映（精华槽）
 0x2f48 二心将领
     2 pieces, value Lv170 220 / Lv190 230: 体力
     3 pieces, value Lv170 100 / Lv190 100: 武技精力消耗降低
     4 pieces, value Lv170 3 / Lv190 3: 武技吸取体力
-    5 pieces, value Lv170 80 / Lv190 80: 0xd227
-    6 pieces, value Lv170 9 / Lv190 9: 0x78f4
+    5 pieces, value Lv170 80 / Lv190 80: 武技赋予^09~BUFF~{}^09~~
+    6 pieces, value Lv170 9 / Lv190 9: 攻防强化（{}）
 0x3073 军神的明鉴
     2 pieces, value Lv170 80 / Lv190 80: 承受的远距离伤害降低
     3 pieces, value Lv170 30 / Lv190 30: 被攻击时承受的伤害降低
@@ -109,13 +109,13 @@
 0x4ae2 不动明王的恩宠
     2 pieces, value Lv170 422 / Lv190 434: 体力
     3 pieces, value Lv170 100 / Lv190 100: 防御力
-    4 pieces, value Lv170 0 / Lv190 0: 0x7242
+    4 pieces, value Lv170 0 / Lv190 0: 格挡·识破成功时赋予^09~BUFF~{}^09~~
     5 pieces, value Lv170 60 / Lv190 60: 防御时的属性攻击伤害降低
     6 pieces, value Lv170 150 / Lv190 150: 防御精力消耗降低
-    7 pieces, value Lv170 0 / Lv190 0: 0xdd84
+    7 pieces, value Lv170 0 / Lv190 0: 坚若盘石
 0x5401 建御雷的恩宠
     2 pieces, value Lv170 422 / Lv190 434: 体力
-    3 pieces, value Lv170 0 / Lv190 0: 0x285e
+    3 pieces, value Lv170 0 / Lv190 0: 格挡·识破成功时赋予^09~BUFF~{}^09~~
     4 pieces, value Lv170 150 / Lv190 150: 对处于^09~DEBUFF~{}^09~~状态敌人的精力伤害
     5 pieces, value Lv170 200 / Lv190 200: 敌人的^09~DEBUFF~{}^09~~状态累积
     6 pieces, value Lv170 300 / Lv190 300: 雷属性伤害
@@ -123,50 +123,50 @@
 0x56cb 柳生的暗行者
     2 pieces, value Lv170 60 / Lv190 60: 精力恢复速度上升（无伤）
     3 pieces, value Lv170 180 / Lv190 180: 忍术命中赋予^09~BUFF~{}^09~~
-    4 pieces, value Lv170 120 / Lv190 120: 0xd734
-    5 pieces, value Lv170 300 / Lv190 300: 0x496f
+    4 pieces, value Lv170 120 / Lv190 120: 背后攻击精力伤害
+    5 pieces, value Lv170 300 / Lv190 300: 琢技槽积攒量（忍者）
     6 pieces, value Lv170 240 / Lv190 240: 背后攻击伤害
 0x59b7 自得院流枪术
     2 pieces, value Lv170 4 / Lv190 4: 防御反映（体）
     3 pieces, value Lv170 116 / Lv190 119: 刺击伤害
     3 pieces, value Lv170 116 / Lv190 119: 强攻击精力伤害
-    4 pieces, value Lv170 9 / Lv190 9: 0xc811
+    4 pieces, value Lv170 9 / Lv190 9: 攻防强化（{}）
 0x6051 赖光四天王之首
     2 pieces, value Lv170 252 / Lv190 264: 体力
     3 pieces, value Lv170 152 / Lv190 154: 武技伤害
-    4 pieces, value Lv170 6 / Lv190 6: 0x5494
+    4 pieces, value Lv170 6 / Lv190 6: 攻防强化（{}）
     5 pieces, value Lv170 150 / Lv190 150: 精力恢复速度
     6 pieces, value Lv170 150 / Lv190 150: 武技精力消耗降低
     7 pieces, value Lv170 11 / Lv190 11: 对伤害的反映（武）
 0x61d9 机智勇士
-    2 pieces, value Lv170 80 / Lv190 80: 0x48ad
+    2 pieces, value Lv170 80 / Lv190 80: 守护灵技异常状态累积
     3 pieces, value Lv170 100 / Lv190 100: 吸收精华后赋予^09~BUFF~{}^09~~
-    4 pieces, value Lv170 8 / Lv190 8: 0x2c9e
+    4 pieces, value Lv170 8 / Lv190 8: 守护灵技伤害（咒）
     5 pieces, value Lv170 0 / Lv190 0: 吸收精华后赋予^09~BUFF~{}^09~~
-    6 pieces, value Lv170 1000 / Lv190 1000: 0x6f28
+    6 pieces, value Lv170 1000 / Lv190 1000: 体力归零时发动九十九化身
 0x6377 武家政权之基石
     2 pieces, value Lv170 86 / Lv190 88: 武技精力消耗降低
     3 pieces, value Lv170 100 / Lv190 100: 敌人的^09~DEBUFF~{}^09~~状态累积
     4 pieces, value Lv170 20 / Lv190 20: 身处常世时恢复体力
     5 pieces, value Lv170 7 / Lv190 7: 造成风属性伤害时增加灵力
-    6 pieces, value Lv170 250 / Lv190 250: skill:0xB7CA
-    7 pieces, value Lv170 10 / Lv190 10: 0xad9c
+    6 pieces, value Lv170 250 / Lv190 250: 近距离攻击伤害（常世内）
+    7 pieces, value Lv170 10 / Lv190 10: 伤害反映（灵力）
 0x649d 怪童丸
     2 pieces, value Lv170 104 / Lv190 108: 承受的伤害降低（攻击动作期间）
     3 pieces, value Lv170 4 / Lv190 4: 近距离攻击吸取体力
-    4 pieces, value Lv170 40 / Lv190 40: skill:0xE70F
-    5 pieces, value Lv170 9 / Lv190 9: 0x9002
+    4 pieces, value Lv170 40 / Lv190 40: 蓄力攻击期间不会畏惧
+    5 pieces, value Lv170 9 / Lv190 9: 攻防强化（{}）
     6 pieces, value Lv170 9 / Lv190 9: 对伤害的反映（武）
 0x6c48 神之祝子
     2 pieces, value Lv170 350 / Lv190 350: 不消耗{}
     3 pieces, value Lv170 110 / Lv190 110: 不消耗使役符以外的阴阳术
     4 pieces, value Lv170 284 / Lv190 292: 祓除常世赋予^09~BUFF~{}^09~~
-    5 pieces, value Lv170 50 / Lv190 50: 0x5127
-    5 pieces, value Lv170 50 / Lv190 50: 0x995b
+    5 pieces, value Lv170 50 / Lv190 50: 使用御神水时赋予^09~BUFF~{}^09~~
+    5 pieces, value Lv170 50 / Lv190 50: 使用御神水时赋予^09~BUFF~{}^09~~
 0x6d81 绝景哉
-    2 pieces, value Lv170 69 / Lv190 71: skill:飞击之心得
+    2 pieces, value Lv170 69 / Lv190 71: 空中的精力消耗
     3 pieces, value Lv170 50 / Lv190 50: 获得金钱
-    4 pieces, value Lv170 130 / Lv190 130: 0x291b
+    4 pieces, value Lv170 130 / Lv190 130: 遁术的伤害
     5 pieces, value Lv170 7 / Lv190 7: 对伤害的反映（刚）
     6 pieces, value Lv170 200 / Lv190 200: 空中攻击伤害
 0x6ecd 一射专心
@@ -178,35 +178,35 @@
     6 pieces, value Lv170 80 / Lv190 80: 近距离攻击伤害
 0x7033 迦具土的恩宠
     2 pieces, value Lv170 422 / Lv190 434: 体力
-    3 pieces, value Lv170 0 / Lv190 0: 0x7242
+    3 pieces, value Lv170 0 / Lv190 0: 格挡·识破成功时赋予^09~BUFF~{}^09~~
     4 pieces, value Lv170 150 / Lv190 150: 对处于^09~DEBUFF~{}^09~~状态敌人的精力伤害
     5 pieces, value Lv170 200 / Lv190 200: 敌人的^09~DEBUFF~{}^09~~状态累积
     6 pieces, value Lv170 300 / Lv190 300: 火属性伤害
     7 pieces, value Lv170 350 / Lv190 350: 对处于^09~DEBUFF~{}^09~~状态敌人的近距离伤害
 0x72d3 布袋尊的恩宠
-    2 pieces, value Lv170 0 / Lv190 0: 0x14d6
+    2 pieces, value Lv170 0 / Lv190 0: ^09~BUFF~{}^09~~累积次数化
     3 pieces, value Lv170 70 / Lv190 70: 格挡成功时赋予^09~BUFF~{}^09~~
     4 pieces, value Lv170 200 / Lv190 200: 效果持续力
     5 pieces, value Lv170 50 / Lv190 50: 成功识破时^09~BUFF~{}^09~~
     6 pieces, value Lv170 188 / Lv190 196: 精力恢复速度上升（无伤）
-    7 pieces, value Lv170 7 / Lv190 7: 0xf51e
+    7 pieces, value Lv170 7 / Lv190 7: 视^09~BUFF~{}^09~~累积次数使造成伤害增加
 0x7385 剑禅一致
     2 pieces, value Lv170 0 / Lv190 0: 格挡成功时赋予^09~BUFF~{}^09~~
     3 pieces, value Lv170 5 / Lv190 5: 防御反映（心）
-    4 pieces, value Lv170 155 / Lv190 164: 0xc8e8
-    5 pieces, value Lv170 9 / Lv190 9: 0x5197
+    4 pieces, value Lv170 155 / Lv190 164: 空手格挡赋予^09~BUFF~{}^09~~
+    5 pieces, value Lv170 9 / Lv190 9: 攻防强化（{}）
 0x7575 加贺百万石的荣华
     2 pieces, value Lv170 40 / Lv190 40: 获得金钱
     3 pieces, value Lv170 80 / Lv190 80: 仙药掉落率
-    4 pieces, value Lv170 8 / Lv190 9: 0x1e25
-    5 pieces, value Lv170 8 / Lv190 9: 0x802b
-    6 pieces, value Lv170 250 / Lv190 250: 0x4e1b
+    4 pieces, value Lv170 8 / Lv190 9: 获得金钱反映（幸运）
+    5 pieces, value Lv170 8 / Lv190 9: 攻击反映（获得金钱增加率）
+    6 pieces, value Lv170 250 / Lv190 250: 获得金钱（绝境）
 0x7619 刚勇流离
     2 pieces, value Lv170 0 / Lv190 0: 箭弹贯穿
     3 pieces, value Lv170 222 / Lv190 224: 弓伤害
     4 pieces, value Lv170 150 / Lv190 150: 箭弹的精力伤害
     5 pieces, value Lv170 80 / Lv190 80: 近距离攻击伤害
-    6 pieces, value Lv170 74 / Lv190 76: 0x362a
+    6 pieces, value Lv170 74 / Lv190 76: 全力张弓
 0x77bd 甲斐的副将
     2 pieces, value Lv170 252 / Lv190 264: 感应宝物
     3 pieces, value Lv170 40 / Lv190 40: 灵力增加量（正面效果时）
@@ -216,20 +216,20 @@
     2 pieces, value Lv170 0 / Lv190 0: 绝境时赋予^09~BUFF~{}^09~~
     3 pieces, value Lv170 5 / Lv190 5: 伤害反映（敏捷）
     4 pieces, value Lv170 100 / Lv190 100: 跳跃的精力
-    4 pieces, value Lv170 320 / Lv190 340: 0xef60
-    5 pieces, value Lv170 9 / Lv190 9: 0xf2ca
+    4 pieces, value Lv170 320 / Lv190 340: 箭弹命中时赋予^09~BUFF~{}^09~~
+    5 pieces, value Lv170 9 / Lv190 9: 伤害反映（正面效果数）
 0x800f 肉户八重垣流
     2 pieces, value Lv170 71 / Lv190 73: 闪避动作精力消耗降低
-    3 pieces, value Lv170 3 / Lv190 3: skill:背击吸活之法
-    4 pieces, value Lv170 100 / Lv190 100: 0x23d7
+    3 pieces, value Lv170 3 / Lv190 3: 以背后攻击恢复体力
+    4 pieces, value Lv170 100 / Lv190 100: 忍术与琢技槽增加量
     5 pieces, value Lv170 150 / Lv190 150: 背后攻击伤害
-    6 pieces, value Lv170 9 / Lv190 9: 0xbabc
+    6 pieces, value Lv170 9 / Lv190 9: 攻防强化（{}）
 0x8371 伊贺后裔
     2 pieces, value Lv170 45 / Lv190 45: 背后攻击伤害
     3 pieces, value Lv170 51 / Lv190 53: 暗杀伤害
     4 pieces, value Lv170 50 / Lv190 50: 忍术伤害
     5 pieces, value Lv170 7 / Lv190 7: 不易被敌人发现
-    6 pieces, value Lv170 0 / Lv190 0: 0x33e4
+    6 pieces, value Lv170 0 / Lv190 0: 对攻击力的反映（不易被敌人发现）
 0x8b2b 神君再临
     2 pieces, value Lv170 20 / Lv190 20: 守护灵技命中可吸取体力
     3 pieces, value Lv170 111 / Lv190 113: 九十九化身时的耐久力
@@ -242,31 +242,31 @@
     4 pieces, value Lv170 3 / Lv190 3: 箭矢持有数量上限
     5 pieces, value Lv170 200 / Lv190 200: 残心精力恢复量
     6 pieces, value Lv170 200 / Lv190 200: 不消耗箭弹
-    7 pieces, value Lv170 11 / Lv190 12: 0xc811
+    7 pieces, value Lv170 11 / Lv190 12: 攻防强化（{}）
 0x9007 伊贺忍者首领
     2 pieces, value Lv170 71 / Lv190 73: 闪避动作精力消耗降低
     3 pieces, value Lv170 131 / Lv190 133: 忍术伤害
     4 pieces, value Lv170 76 / Lv190 78: 忍术命中赋予^09~BUFF~{}^09~~
-    5 pieces, value Lv170 150 / Lv190 150: 0x83bb
-    6 pieces, value Lv170 180 / Lv190 180: 0xf0f6
-    7 pieces, value Lv170 155 / Lv190 159: 0x2026
+    5 pieces, value Lv170 150 / Lv190 150: 不消耗忍术
+    6 pieces, value Lv170 180 / Lv190 180: 忍具术伤害
+    7 pieces, value Lv170 155 / Lv190 159: 忍术槽增加量（忍具术）
 0x9138 弁才天的恩宠
     2 pieces, value Lv170 252 / Lv190 264: 体力
-    3 pieces, value Lv170 30 / Lv190 30: 0x155d
+    3 pieces, value Lv170 30 / Lv190 30: 防守技艺
     4 pieces, value Lv170 60 / Lv190 60: 承受的伤害降低（攻击动作期间）
     5 pieces, value Lv170 100 / Lv190 100: 获得精华
-    6 pieces, value Lv170 150 / Lv190 150: 0x9315
-    7 pieces, value Lv170 150 / Lv190 150: 0x7618
+    6 pieces, value Lv170 150 / Lv190 150: 累积次数持续
+    7 pieces, value Lv170 150 / Lv190 150: 敏捷才艺
 0x97d7 摩利支天的恩宠
     2 pieces, value Lv170 422 / Lv190 434: 体力
     3 pieces, value Lv170 160 / Lv190 160: 九十九化身时的耐久力
     4 pieces, value Lv170 180 / Lv190 180: 九十九化身持续时间延长
     5 pieces, value Lv170 140 / Lv190 140: 九十九化身时的属性伤害
     6 pieces, value Lv170 250 / Lv190 250: 精华槽增加量
-    7 pieces, value Lv170 20 / Lv190 20: 0x2a24
+    7 pieces, value Lv170 20 / Lv190 20: 化身灵延
 0x9907 天照大神的恩宠
     2 pieces, value Lv170 322 / Lv190 334: 体力
-    3 pieces, value Lv170 200 / Lv190 200: 0xada8
+    3 pieces, value Lv170 200 / Lv190 200: 恢复体力侵蚀时一并恢复体力
     4 pieces, value Lv170 6 / Lv190 6: 武技吸取体力
     5 pieces, value Lv170 250 / Lv190 250: 精力恢复速度上升（无伤）
     6 pieces, value Lv170 280 / Lv190 280: 近距离攻击伤害（无伤）
@@ -275,15 +275,15 @@
     2 pieces, value Lv170 100 / Lv190 100: 追击和近身刺击可恢复体力
     3 pieces, value Lv170 500 / Lv190 500: 对处于^09~DEBUFF~{}^09~~状态敌人的近距离伤害
     4 pieces, value Lv170 40 / Lv190 40: 近距离攻击精力伤害
-    5 pieces, value Lv170 140 / Lv190 140: 0xa7f8
+    5 pieces, value Lv170 140 / Lv190 140: 施加^09~DEBUFF~{}^09~~状态造成精力伤害
     6 pieces, value Lv170 300 / Lv190 300: 追击和近身刺击伤害
 0x9e0e 七难八苦
-    2 pieces, value Lv170 74 / Lv190 78: 0x66db
+    2 pieces, value Lv170 74 / Lv190 78: 负面效果时承受的伤害
     3 pieces, value Lv170 200 / Lv190 200: 负面效果持续时间延长
     3 pieces, value Lv170 250 / Lv190 250: 陷入异常状态时降低承受的伤害
     4 pieces, value Lv170 11 / Lv190 11: 伤害反映（负面效果数）
     5 pieces, value Lv170 180 / Lv190 180: 近距离攻击伤害（绝境）
-    6 pieces, value Lv170 0 / Lv190 0: 0x5c21
+    6 pieces, value Lv170 0 / Lv190 0: 转嫁负面效果（绝境）
 0x9ea3 风流才智之士
     2 pieces, value Lv170 15 / Lv190 15: 幸运
     3 pieces, value Lv170 20 / Lv190 20: 被攻击时承受的伤害降低
@@ -300,30 +300,30 @@
 0xa253 幕府密探总管
     2 pieces, value Lv170 0 / Lv190 0: 机关旋棍
     3 pieces, value Lv170 68 / Lv190 68: 武技精力消耗降低
-    4 pieces, value Lv170 200 / Lv190 200: 0xe5d1
-    5 pieces, value Lv170 5 / Lv190 5: 0x2301
-    6 pieces, value Lv170 200 / Lv190 200: 0xe089
-    7 pieces, value Lv170 220 / Lv190 220: 0x6bc
+    4 pieces, value Lv170 200 / Lv190 200: 使用遁术时赋予^09~BUFF~{}^09~~
+    5 pieces, value Lv170 5 / Lv190 5: 连续攻击精力伤害增加
+    6 pieces, value Lv170 200 / Lv190 200: 忍术槽增加量（遁术）
+    7 pieces, value Lv170 220 / Lv190 220: 使用遁术时赋予^09~BUFF~{}^09~~
 0xa46d 梦想一刀
-    2 pieces, value Lv170 1 / Lv190 1: skill:琢技吸活之法
+    2 pieces, value Lv170 1 / Lv190 1: 以琢技攻击恢复体力
     3 pieces, value Lv170 111 / Lv190 117: 强攻击伤害
     4 pieces, value Lv170 126 / Lv190 132: 武技精力伤害
     5 pieces, value Lv170 7 / Lv190 7: 对伤害的反映（心）
-    6 pieces, value Lv170 360 / Lv190 380: 0x7c57
+    6 pieces, value Lv170 360 / Lv190 380: 犹如满潮
 0xa6e8 大黑天的恩宠
     2 pieces, value Lv170 252 / Lv190 264: 体力
     3 pieces, value Lv170 50 / Lv190 50: 装备品掉落率
-    4 pieces, value Lv170 6 / Lv190 6: 0xd245
-    5 pieces, value Lv170 9 / Lv190 10: 0xc00c
-    6 pieces, value Lv170 100 / Lv190 100: 0x7fac
-    7 pieces, value Lv170 100 / Lv190 104: 0x3af1
+    4 pieces, value Lv170 6 / Lv190 6: 对防御力的反映（忍术威力）
+    5 pieces, value Lv170 9 / Lv190 10: 对攻击力的反映（琢技威力）
+    6 pieces, value Lv170 100 / Lv190 100: 琢技威力
+    7 pieces, value Lv170 100 / Lv190 104: 忍术威力
 0xa7d7 十一面观音的庇佑
     2 pieces, value Lv170 23 / Lv190 25: 毒抗性
     3 pieces, value Lv170 100 / Lv190 100: 体力恢复量
     4 pieces, value Lv170 0 / Lv190 0: 格挡成功时赋予^09~BUFF~{}^09~~
     5 pieces, value Lv170 80 / Lv190 80: 防御精力消耗降低
     6 pieces, value Lv170 130 / Lv190 130: 近距离攻击伤害（无伤）
-    7 pieces, value Lv170 10 / Lv190 10: 0xd84b
+    7 pieces, value Lv170 10 / Lv190 10: 伤害反映（毒抗性）
 0xab7b 惠比寿的恩宠
     2 pieces, value Lv170 252 / Lv190 264: 体力
     3 pieces, value Lv170 20 / Lv190 20: 幸运
@@ -334,20 +334,20 @@
 0xafe2 烈火般的反骨
     2 pieces, value Lv170 24 / Lv190 24: 火抗性
     3 pieces, value Lv170 200 / Lv190 200: 绝境时赋予^09~BUFF~{}^09~~
-    4 pieces, value Lv170 150 / Lv190 150: 0x3172
+    4 pieces, value Lv170 150 / Lv190 150: 蓄力攻击伤害
     5 pieces, value Lv170 180 / Lv190 180: 对攻击中敌人的近距离伤害
-    6 pieces, value Lv170 200 / Lv190 200: 0xc2f8
-    7 pieces, value Lv170 10 / Lv190 11: 0xc811
+    6 pieces, value Lv170 200 / Lv190 200: 命中攻击动作中的敌人时赋予^09~BUFF~{}^09~~
+    7 pieces, value Lv170 10 / Lv190 11: 攻防强化（{}）
 0xb123 高岛流炮术
     2 pieces, value Lv170 220 / Lv190 230: 体力
-    3 pieces, value Lv170 0 / Lv190 0: 0x5d86
+    3 pieces, value Lv170 0 / Lv190 0: 动作加快（火枪与大炮）
     3 pieces, value Lv170 136 / Lv190 139: 大炮伤害
-    4 pieces, value Lv170 32 / Lv190 34: 0x37d
+    4 pieces, value Lv170 32 / Lv190 34: 对攻击力的反映（大炮伤害）
     5 pieces, value Lv170 213 / Lv190 221: 不消耗枪弹与炮弹
 0xb148 祸津日的恩宠
     2 pieces, value Lv170 422 / Lv190 434: 体力
-    3 pieces, value Lv170 150 / Lv190 150: 0x66db
-    4 pieces, value Lv170 200 / Lv190 200: 0xac6f
+    3 pieces, value Lv170 150 / Lv190 150: 负面效果时承受的伤害
+    4 pieces, value Lv170 200 / Lv190 200: 异常状态时的精华槽积攒量
     5 pieces, value Lv170 240 / Lv190 240: 行动精力消耗（负面效果时）
     6 pieces, value Lv170 1000 / Lv190 1000: 负面效果持续时间延长
     7 pieces, value Lv170 16 / Lv190 16: 伤害反映（负面效果数）
@@ -355,30 +355,30 @@
     2 pieces, value Lv170 100 / Lv190 100: 箭弹命中时施加^09~DEBUFF~{}^09~~
     3 pieces, value Lv170 300 / Lv190 300: 拿起远距离武器时的移动速度
     4 pieces, value Lv170 204 / Lv190 206: 箭弹命中时施加^09~DEBUFF~{}^09~~
-    5 pieces, value Lv170 800 / Lv190 800: 0x99fb
-    6 pieces, value Lv170 120 / Lv190 120: 0x82a5
+    5 pieces, value Lv170 800 / Lv190 800: 敌人异常状态持续（混沌）
+    6 pieces, value Lv170 120 / Lv190 120: 近距离攻击延长负面效果
 0xb6c9 赤备的骄傲
     2 pieces, value Lv170 3 / Lv190 3: 防御反映（刚）
     3 pieces, value Lv170 100 / Lv190 100: 防御精力消耗降低
     4 pieces, value Lv170 32 / Lv190 33: 残心初始量
     5 pieces, value Lv170 86 / Lv190 88: 武技精力伤害
-    6 pieces, value Lv170 9 / Lv190 9: 0xcc71
+    6 pieces, value Lv170 9 / Lv190 9: 攻防强化（{}）
     7 pieces, value Lv170 150 / Lv190 150: 近距离攻击伤害（无伤）
 0xc28a 福禄寿的恩宠
     2 pieces, value Lv170 252 / Lv190 264: 体力
-    3 pieces, value Lv170 620 / Lv190 640: 0x3930
+    3 pieces, value Lv170 620 / Lv190 640: 使用药品时解除负面效果
     4 pieces, value Lv170 40 / Lv190 40: 被攻击时承受的伤害降低
     5 pieces, value Lv170 20 / Lv190 20: 幸运
     6 pieces, value Lv170 8 / Lv190 8: 对伤害的反映（体）
     7 pieces, value Lv170 90 / Lv190 90: 被攻击时承受的伤害降低
 0xc2f9 柳生表里剑
-    2 pieces, value Lv170 150 / Lv190 150: skill:反攻格挡
+    2 pieces, value Lv170 150 / Lv190 150: 格挡赋予^09~BUFF~{}^09~~或延长效果
     3 pieces, value Lv170 60 / Lv190 60: 防御时精力恢复速度
-    4 pieces, value Lv170 300 / Lv190 300: 0x7fe8
-    5 pieces, value Lv170 300 / Lv190 300: 0xcaed
+    4 pieces, value Lv170 300 / Lv190 300: 表里剑
+    5 pieces, value Lv170 300 / Lv190 300: 忍术槽积攒量（武士）
     6 pieces, value Lv170 9 / Lv190 10: 对伤害的反映（技）
 0xc4bf 风魔的威名
-    2 pieces, value Lv170 4 / Lv190 4: 0x2e5b
+    2 pieces, value Lv170 4 / Lv190 4: 幻术伤害（技）
     3 pieces, value Lv170 100 / Lv190 100: 对处于^09~DEBUFF~{}^09~~状态敌人的精力伤害
     4 pieces, value Lv170 8 / Lv190 8: 不易被敌人发现
     5 pieces, value Lv170 150 / Lv190 150: 幻术异常状态累积
@@ -391,15 +391,15 @@
     6 pieces, value Lv170 10 / Lv190 10: 造成雷属性伤害时吸取体力
 0xcc22 凋零勇将
     2 pieces, value Lv170 101 / Lv190 103: 防御精力消耗降低
-    3 pieces, value Lv170 148 / Lv190 152: 0x347
-    4 pieces, value Lv170 0 / Lv190 0: 0x1975
-    5 pieces, value Lv170 81 / Lv190 83: 0x7cd9
+    3 pieces, value Lv170 148 / Lv190 152: 冬月伤害
+    4 pieces, value Lv170 0 / Lv190 0: 格挡赋予^09~BUFF~{}^09~~
+    5 pieces, value Lv170 81 / Lv190 83: 格挡造成精力伤害
     6 pieces, value Lv170 10 / Lv190 10: 对伤害的反映（武）
 0xcd36 太平先驱
     2 pieces, value Lv170 64 / Lv190 66: 获得武功
     3 pieces, value Lv170 5 / Lv190 5: 承受伤害增加灵力
     4 pieces, value Lv170 6 / Lv190 6: 防御反映（心）
-    5 pieces, value Lv170 0 / Lv190 0: 0x8508
+    5 pieces, value Lv170 0 / Lv190 0: 双灵庇佑
     6 pieces, value Lv170 120 / Lv190 120: 反映变化（忍者）
 0xce0c 
     2 pieces, value Lv170 106 / Lv190 114: 体力
@@ -410,15 +410,15 @@
 0xcf8e 聪慧心鬼
     2 pieces, value Lv170 120 / Lv190 124: 守护灵技的精力伤害
     3 pieces, value Lv170 131 / Lv190 133: 追击和近身刺击可恢复体力
-    4 pieces, value Lv170 0 / Lv190 0: 0x6c0a
-    5 pieces, value Lv170 7 / Lv190 8: 0x2301
+    4 pieces, value Lv170 0 / Lv190 0: 九十九化身结束时赋予^09~BUFF~{}^09~~
+    5 pieces, value Lv170 7 / Lv190 8: 连续攻击精力伤害增加
     6 pieces, value Lv170 0 / Lv190 0: 追击与近身刺击赋予^09~BUFF~{}^09~~
 0xdb40 九头龙的恩宠
     2 pieces, value Lv170 252 / Lv190 264: 体力
-    3 pieces, value Lv170 6 / Lv190 6: 0x6221
+    3 pieces, value Lv170 6 / Lv190 6: 使役符命中时赋予^09~BUFF~{}^09~~
     4 pieces, value Lv170 30 / Lv190 30: 毒抗性
     5 pieces, value Lv170 180 / Lv190 180: 对处于^09~DEBUFF~{}^09~~状态敌人的近距离伤害
-    6 pieces, value Lv170 11 / Lv190 11: 0xcd98
+    6 pieces, value Lv170 11 / Lv190 11: 毒异常状态累积（灵力）
     7 pieces, value Lv170 200 / Lv190 200: 不消耗使役符
 0xdf98 狡狯忠臣
     2 pieces, value Lv170 35 / Lv190 35: 速攻击伤害
@@ -428,9 +428,9 @@
     6 pieces, value Lv170 9 / Lv190 9: 对伤害的反映（技）
 0xe7d4 里体舍流总帅
     2 pieces, value Lv170 4 / Lv190 4: 崩解
-    3 pieces, value Lv170 100 / Lv190 100: 0x3a2a
+    3 pieces, value Lv170 100 / Lv190 100: 忍术动作期间承受的伤害
     4 pieces, value Lv170 180 / Lv190 180: 忍术槽增加量
-    5 pieces, value Lv170 150 / Lv190 150: 0xab47
+    5 pieces, value Lv170 150 / Lv190 150: 忍术命中极近距离敌人时赋予^09~BUFF~{}^09~~
     6 pieces, value Lv170 300 / Lv190 300: 追击和近身刺击伤害
     7 pieces, value Lv170 178 / Lv190 181: 近距离攻击伤害
 0xede3 弘法利生
@@ -438,10 +438,10 @@
     3 pieces, value Lv170 30 / Lv190 30: 近距离攻击伤害
     4 pieces, value Lv170 250 / Lv190 250: 闪避动作精力消耗降低
     5 pieces, value Lv170 500 / Lv190 500: 效果持续力
-    6 pieces, value Lv170 9 / Lv190 9: 0x36f4
+    6 pieces, value Lv170 9 / Lv190 9: 攻防强化（{}）
     7 pieces, value Lv170 8 / Lv190 8: 对伤害的反映（咒）
 0xf110 显净土真实
-    2 pieces, value Lv170 80 / Lv190 80: 0x7506
+    2 pieces, value Lv170 80 / Lv190 80: 使用药品时赋予^09~BUFF~{}^09~~
     3 pieces, value Lv170 100 / Lv190 100: 近距离攻击伤害（地狱）
     4 pieces, value Lv170 0 / Lv190 0: 祓除常世赋予^09~BUFF~{}^09~~
     5 pieces, value Lv170 296 / Lv190 299: 效果持续力
@@ -454,16 +454,16 @@
     6 pieces, value Lv170 152 / Lv190 158: 强攻击伤害
 0xf4cb 天钿女的恩宠
     2 pieces, value Lv170 422 / Lv190 434: 体力
-    3 pieces, value Lv170 0 / Lv190 0: 0xe5e8
-    4 pieces, value Lv170 0 / Lv190 0: 0xe6d
+    3 pieces, value Lv170 0 / Lv190 0: 闪避攻击赋予^09~BUFF~{}^09~~
+    4 pieces, value Lv170 0 / Lv190 0: 闪避攻击赋予^09~BUFF~{}^09~~
     5 pieces, value Lv170 0 / Lv190 0: 闪避行动移动距离延长
     6 pieces, value Lv170 250 / Lv190 250: 闪避动作精力消耗降低
-    7 pieces, value Lv170 1 / Lv190 1: 0x5e16
+    7 pieces, value Lv170 1 / Lv190 1: 流连若舞
 0xf725 实行祓除者
     2 pieces, value Lv170 350 / Lv190 350: 不消耗{}
     3 pieces, value Lv170 150 / Lv190 150: 不消耗使役符
     4 pieces, value Lv170 284 / Lv190 292: 祓除常世赋予^09~BUFF~{}^09~~
-    5 pieces, value Lv170 50 / Lv190 50: 0x2d98
+    5 pieces, value Lv170 50 / Lv190 50: 使用御神水时赋予^09~BUFF~{}^09~~
 0xf9ac 风林火山
     2 pieces, value Lv170 3 / Lv190 3: 强攻击吸取体力
     3 pieces, value Lv170 5 / Lv190 5: 造成风属性伤害时增加灵力
@@ -475,16 +475,16 @@
     2 pieces, value Lv170 6 / Lv190 6: 崩解
     3 pieces, value Lv170 38 / Lv190 38: 武技精力伤害
     4 pieces, value Lv170 169 / Lv190 171: 追击和近身刺击伤害
-    5 pieces, value Lv170 5 / Lv190 5: 0x2301
+    5 pieces, value Lv170 5 / Lv190 5: 连续攻击精力伤害增加
     6 pieces, value Lv170 9 / Lv190 10: 对伤害的反映（心）
-    7 pieces, value Lv170 10 / Lv190 11: 0x5494
+    7 pieces, value Lv170 10 / Lv190 11: 攻防强化（{}）
 0xfb19 素盏呜尊的恩宠
     2 pieces, value Lv170 322 / Lv190 334: 体力
     3 pieces, value Lv170 10 / Lv190 10: 崩解
     4 pieces, value Lv170 60 / Lv190 60: 武技精力伤害
     5 pieces, value Lv170 150 / Lv190 150: 精力恢复速度
-    6 pieces, value Lv170 8 / Lv190 9: 0x2301
-    7 pieces, value Lv170 200 / Lv190 200: 0xe2cd
+    6 pieces, value Lv170 8 / Lv190 9: 连续攻击精力伤害增加
+    7 pieces, value Lv170 200 / Lv190 200: 多艺真髓
 0xffc5 殿军名将
     2 pieces, value Lv170 71 / Lv190 73: 闪避动作精力消耗降低
     3 pieces, value Lv170 0 / Lv190 0: 陷入异常状态时赋予^09~BUFF~{}^09~~
@@ -493,7 +493,7 @@
 0xfff5 才智卓越
     2 pieces, value Lv170 42 / Lv190 42: 防御精力消耗降低
     3 pieces, value Lv170 5 / Lv190 5: 防御反映（智）
-    4 pieces, value Lv170 200 / Lv190 200: 0x1975
-    5 pieces, value Lv170 8 / Lv190 9: 0xc2b4
+    4 pieces, value Lv170 200 / Lv190 200: 格挡赋予^09~BUFF~{}^09~~
+    5 pieces, value Lv170 8 / Lv190 9: 武技伤害反映（精力残量）
     6 pieces, value Lv170 250 / Lv190 250: 残心精力恢复量
     7 pieces, value Lv170 9 / Lv190 10: 对伤害的反映（智）

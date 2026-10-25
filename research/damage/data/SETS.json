@@ -213,7 +213,9 @@
     "scale": 0,
     "value_lv170": 100,
     "value_lv190": 100,
-    "effects": []
+    "effects": [
+     "幻术伤害"
+    ]
    },
    {
     "pieces": 4,
@@ -271,7 +273,9 @@
     "scale": 0,
     "value_lv170": 100,
     "value_lv190": 100,
-    "effects": []
+    "effects": [
+     "恢复体力侵蚀时一并恢复体力"
+    ]
    },
    {
     "pieces": 3,
@@ -295,7 +299,9 @@
     "scale": 0,
     "value_lv170": 100000,
     "value_lv190": 100000,
-    "effects": []
+    "effects": [
+     "地狱的负面效果无效"
+    ]
    },
    {
     "pieces": 5,
@@ -319,7 +325,9 @@
     "scale": 0,
     "value_lv170": 200,
     "value_lv190": 200,
-    "effects": []
+    "effects": [
+     "敌人异常状态持续（混沌）"
+    ]
    },
    {
     "pieces": 7,
@@ -330,7 +338,9 @@
     "scale": 0,
     "value_lv170": 120,
     "value_lv190": 120,
-    "effects": []
+    "effects": [
+     "灵力转炎"
+    ]
    }
   ]
  },
@@ -388,7 +398,9 @@
     "scale": 1,
     "value_lv170": 7,
     "value_lv190": 7,
-    "effects": []
+    "effects": [
+     "对攻击力的反映（火枪伤害）"
+    ]
    }
   ]
  },
@@ -420,7 +432,9 @@
     "scale": 0,
     "value_lv170": 0,
     "value_lv190": 0,
-    "effects": []
+    "effects": [
+     "格挡·识破成功时赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 4,
@@ -556,7 +570,9 @@
     "scale": 2,
     "value_lv170": 9,
     "value_lv190": 10,
-    "effects": []
+    "effects": [
+     "发扬阴阳术"
+    ]
    }
   ]
  },
@@ -588,7 +604,9 @@
     "scale": 0,
     "value_lv170": 0,
     "value_lv190": 0,
-    "effects": []
+    "effects": [
+     "格挡·识破成功时赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 4,
@@ -831,7 +849,9 @@
     "scale": 0,
     "value_lv170": 100,
     "value_lv190": 100,
-    "effects": []
+    "effects": [
+     "体力越少时精力恢复增强"
+    ]
    },
    {
     "pieces": 5,
@@ -975,7 +995,9 @@
     "scale": 0,
     "value_lv170": 200,
     "value_lv190": 200,
-    "effects": []
+    "effects": [
+     "复仇之志"
+    ]
    },
    {
     "pieces": 4,
@@ -999,7 +1021,9 @@
     "scale": 3,
     "value_lv170": 10,
     "value_lv190": 10,
-    "effects": []
+    "effects": [
+     "攻击反映（精力恢复速度）"
+    ]
    }
   ]
  },
@@ -1044,7 +1068,9 @@
     "scale": 0,
     "value_lv170": 150,
     "value_lv190": 150,
-    "effects": []
+    "effects": [
+     "收刀状态下施展的武技伤害"
+    ]
    },
    {
     "pieces": 5,
@@ -1135,7 +1161,9 @@
     "scale": 0,
     "value_lv170": 80,
     "value_lv190": 80,
-    "effects": []
+    "effects": [
+     "武技赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 6,
@@ -1146,7 +1174,9 @@
     "scale": 3,
     "value_lv170": 9,
     "value_lv190": 9,
-    "effects": []
+    "effects": [
+     "攻防强化（{}）"
+    ]
    }
   ]
  },
@@ -1350,7 +1380,9 @@
     "scale": 0,
     "value_lv170": 0,
     "value_lv190": 0,
-    "effects": []
+    "effects": [
+     "格挡·识破成功时赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 5,
@@ -1387,7 +1419,9 @@
     "scale": 0,
     "value_lv170": 0,
     "value_lv190": 0,
-    "effects": []
+    "effects": [
+     "坚若盘石"
+    ]
    }
   ]
  },
@@ -1419,7 +1453,9 @@
     "scale": 0,
     "value_lv170": 0,
     "value_lv190": 0,
-    "effects": []
+    "effects": [
+     "格挡·识破成功时赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 4,
@@ -1516,7 +1552,9 @@
     "scale": 0,
     "value_lv170": 120,
     "value_lv190": 120,
-    "effects": []
+    "effects": [
+     "背后攻击精力伤害"
+    ]
    },
    {
     "pieces": 5,
@@ -1527,7 +1565,9 @@
     "scale": 0,
     "value_lv170": 300,
     "value_lv190": 300,
-    "effects": []
+    "effects": [
+     "琢技槽积攒量（忍者）"
+    ]
    },
    {
     "pieces": 6,
@@ -1598,7 +1638,9 @@
     "scale": 1,
     "value_lv170": 9,
     "value_lv190": 9,
-    "effects": []
+    "effects": [
+     "攻防强化（{}）"
+    ]
    }
   ]
  },
@@ -1643,7 +1685,9 @@
     "scale": 1,
     "value_lv170": 6,
     "value_lv190": 6,
-    "effects": []
+    "effects": [
+     "攻防强化（{}）"
+    ]
    },
    {
     "pieces": 5,
@@ -1701,7 +1745,9 @@
     "scale": 0,
     "value_lv170": 80,
     "value_lv190": 80,
-    "effects": []
+    "effects": [
+     "守护灵技异常状态累积"
+    ]
    },
    {
     "pieces": 3,
@@ -1725,7 +1771,9 @@
     "scale": 0,
     "value_lv170": 8,
     "value_lv190": 8,
-    "effects": []
+    "effects": [
+     "守护灵技伤害（咒）"
+    ]
    },
    {
     "pieces": 5,
@@ -1749,7 +1797,9 @@
     "scale": 0,
     "value_lv170": 1000,
     "value_lv190": 1000,
-    "effects": []
+    "effects": [
+     "体力归零时发动九十九化身"
+    ]
    }
   ]
  },
@@ -1821,7 +1871,7 @@
     "value_lv170": 250,
     "value_lv190": 250,
     "effects": [
-     "skill:0xB7CA"
+     "近距离攻击伤害（常世内）"
     ]
    },
    {
@@ -1833,7 +1883,9 @@
     "scale": 0,
     "value_lv170": 10,
     "value_lv190": 10,
-    "effects": []
+    "effects": [
+     "伤害反映（灵力）"
+    ]
    }
   ]
  },
@@ -1879,7 +1931,7 @@
     "value_lv170": 40,
     "value_lv190": 40,
     "effects": [
-     "skill:0xE70F"
+     "蓄力攻击期间不会畏惧"
     ]
    },
    {
@@ -1891,7 +1943,9 @@
     "scale": 1,
     "value_lv170": 9,
     "value_lv190": 9,
-    "effects": []
+    "effects": [
+     "攻防强化（{}）"
+    ]
    },
    {
     "pieces": 6,
@@ -1969,7 +2023,9 @@
     "scale": 0,
     "value_lv170": 50,
     "value_lv190": 50,
-    "effects": []
+    "effects": [
+     "使用御神水时赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 5,
@@ -1980,7 +2036,9 @@
     "scale": 0,
     "value_lv170": 50,
     "value_lv190": 50,
-    "effects": []
+    "effects": [
+     "使用御神水时赋予^09~BUFF~{}^09~~"
+    ]
    }
   ]
  },
@@ -2000,7 +2058,7 @@
     "value_lv170": 69,
     "value_lv190": 71,
     "effects": [
-     "skill:飞击之心得"
+     "空中的精力消耗"
     ]
    },
    {
@@ -2025,7 +2083,9 @@
     "scale": 0,
     "value_lv170": 130,
     "value_lv190": 130,
-    "effects": []
+    "effects": [
+     "遁术的伤害"
+    ]
    },
    {
     "pieces": 5,
@@ -2169,7 +2229,9 @@
     "scale": 0,
     "value_lv170": 0,
     "value_lv190": 0,
-    "effects": []
+    "effects": [
+     "格挡·识破成功时赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 4,
@@ -2240,7 +2302,9 @@
     "scale": 0,
     "value_lv170": 0,
     "value_lv190": 0,
-    "effects": []
+    "effects": [
+     "^09~BUFF~{}^09~~累积次数化"
+    ]
    },
    {
     "pieces": 3,
@@ -2303,7 +2367,9 @@
     "scale": 0,
     "value_lv170": 7,
     "value_lv190": 7,
-    "effects": []
+    "effects": [
+     "视^09~BUFF~{}^09~~累积次数使造成伤害增加"
+    ]
    }
   ]
  },
@@ -2348,7 +2414,9 @@
     "scale": 42,
     "value_lv170": 155,
     "value_lv190": 164,
-    "effects": []
+    "effects": [
+     "空手格挡赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 5,
@@ -2359,7 +2427,9 @@
     "scale": 3,
     "value_lv170": 9,
     "value_lv190": 9,
-    "effects": []
+    "effects": [
+     "攻防强化（{}）"
+    ]
    }
   ]
  },
@@ -2404,7 +2474,9 @@
     "scale": 2,
     "value_lv170": 8,
     "value_lv190": 9,
-    "effects": []
+    "effects": [
+     "获得金钱反映（幸运）"
+    ]
    },
    {
     "pieces": 5,
@@ -2415,7 +2487,9 @@
     "scale": 2,
     "value_lv170": 8,
     "value_lv190": 9,
-    "effects": []
+    "effects": [
+     "攻击反映（获得金钱增加率）"
+    ]
    },
    {
     "pieces": 6,
@@ -2426,7 +2500,9 @@
     "scale": 0,
     "value_lv170": 250,
     "value_lv190": 250,
-    "effects": []
+    "effects": [
+     "获得金钱（绝境）"
+    ]
    }
   ]
  },
@@ -2497,7 +2573,9 @@
     "scale": 10,
     "value_lv170": 74,
     "value_lv190": 76,
-    "effects": []
+    "effects": [
+     "全力张弓"
+    ]
    }
   ]
  },
@@ -2615,7 +2693,9 @@
     "scale": 100,
     "value_lv170": 320,
     "value_lv190": 340,
-    "effects": []
+    "effects": [
+     "箭弹命中时赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 5,
@@ -2626,7 +2706,9 @@
     "scale": 3,
     "value_lv170": 9,
     "value_lv190": 9,
-    "effects": []
+    "effects": [
+     "伤害反映（正面效果数）"
+    ]
    }
   ]
  },
@@ -2666,7 +2748,7 @@
     "value_lv170": 3,
     "value_lv190": 3,
     "effects": [
-     "skill:背击吸活之法"
+     "以背后攻击恢复体力"
     ]
    },
    {
@@ -2678,7 +2760,9 @@
     "scale": 0,
     "value_lv170": 100,
     "value_lv190": 100,
-    "effects": []
+    "effects": [
+     "忍术与琢技槽增加量"
+    ]
    },
    {
     "pieces": 5,
@@ -2702,7 +2786,9 @@
     "scale": 3,
     "value_lv170": 9,
     "value_lv190": 9,
-    "effects": []
+    "effects": [
+     "攻防强化（{}）"
+    ]
    }
   ]
  },
@@ -2780,7 +2866,9 @@
     "scale": 0,
     "value_lv170": 0,
     "value_lv190": 0,
-    "effects": []
+    "effects": [
+     "对攻击力的反映（不易被敌人发现）"
+    ]
    }
   ]
  },
@@ -2937,7 +3025,9 @@
     "scale": 4,
     "value_lv170": 11,
     "value_lv190": 12,
-    "effects": []
+    "effects": [
+     "攻防强化（{}）"
+    ]
    }
   ]
  },
@@ -2995,7 +3085,9 @@
     "scale": 0,
     "value_lv170": 150,
     "value_lv190": 150,
-    "effects": []
+    "effects": [
+     "不消耗忍术"
+    ]
    },
    {
     "pieces": 6,
@@ -3006,7 +3098,9 @@
     "scale": 0,
     "value_lv170": 180,
     "value_lv190": 180,
-    "effects": []
+    "effects": [
+     "忍具术伤害"
+    ]
    },
    {
     "pieces": 7,
@@ -3017,7 +3111,9 @@
     "scale": 23,
     "value_lv170": 155,
     "value_lv190": 159,
-    "effects": []
+    "effects": [
+     "忍术槽增加量（忍具术）"
+    ]
    }
   ]
  },
@@ -3049,7 +3145,9 @@
     "scale": 0,
     "value_lv170": 30,
     "value_lv190": 30,
-    "effects": []
+    "effects": [
+     "防守技艺"
+    ]
    },
    {
     "pieces": 4,
@@ -3086,7 +3184,9 @@
     "scale": 0,
     "value_lv170": 150,
     "value_lv190": 150,
-    "effects": []
+    "effects": [
+     "累积次数持续"
+    ]
    },
    {
     "pieces": 7,
@@ -3097,7 +3197,9 @@
     "scale": 0,
     "value_lv170": 150,
     "value_lv190": 150,
-    "effects": []
+    "effects": [
+     "敏捷才艺"
+    ]
    }
   ]
  },
@@ -3181,7 +3283,9 @@
     "scale": 0,
     "value_lv170": 20,
     "value_lv190": 20,
-    "effects": []
+    "effects": [
+     "化身灵延"
+    ]
    }
   ]
  },
@@ -3213,7 +3317,9 @@
     "scale": 0,
     "value_lv170": 200,
     "value_lv190": 200,
-    "effects": []
+    "effects": [
+     "恢复体力侵蚀时一并恢复体力"
+    ]
    },
    {
     "pieces": 4,
@@ -3323,7 +3429,9 @@
     "scale": 0,
     "value_lv170": 140,
     "value_lv190": 140,
-    "effects": []
+    "effects": [
+     "施加^09~DEBUFF~{}^09~~状态造成精力伤害"
+    ]
    },
    {
     "pieces": 6,
@@ -3355,7 +3463,9 @@
     "scale": 10,
     "value_lv170": 74,
     "value_lv190": 78,
-    "effects": []
+    "effects": [
+     "负面效果时承受的伤害"
+    ]
    },
    {
     "pieces": 3,
@@ -3418,7 +3528,9 @@
     "scale": 0,
     "value_lv170": 0,
     "value_lv190": 0,
-    "effects": []
+    "effects": [
+     "转嫁负面效果（绝境）"
+    ]
    }
   ]
  },
@@ -3643,7 +3755,9 @@
     "scale": 0,
     "value_lv170": 200,
     "value_lv190": 200,
-    "effects": []
+    "effects": [
+     "使用遁术时赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 5,
@@ -3654,7 +3768,9 @@
     "scale": 0,
     "value_lv170": 5,
     "value_lv190": 5,
-    "effects": []
+    "effects": [
+     "连续攻击精力伤害增加"
+    ]
    },
    {
     "pieces": 6,
@@ -3665,7 +3781,9 @@
     "scale": 0,
     "value_lv170": 200,
     "value_lv190": 200,
-    "effects": []
+    "effects": [
+     "忍术槽增加量（遁术）"
+    ]
    },
    {
     "pieces": 7,
@@ -3676,7 +3794,9 @@
     "scale": 0,
     "value_lv170": 220,
     "value_lv190": 220,
-    "effects": []
+    "effects": [
+     "使用遁术时赋予^09~BUFF~{}^09~~"
+    ]
    }
   ]
  },
@@ -3696,7 +3816,7 @@
     "value_lv170": 1,
     "value_lv190": 1,
     "effects": [
-     "skill:琢技吸活之法"
+     "以琢技攻击恢复体力"
     ]
    },
    {
@@ -3747,7 +3867,9 @@
     "scale": 100,
     "value_lv170": 360,
     "value_lv190": 380,
-    "effects": []
+    "effects": [
+     "犹如满潮"
+    ]
    }
   ]
  },
@@ -3792,7 +3914,9 @@
     "scale": 0,
     "value_lv170": 6,
     "value_lv190": 6,
-    "effects": []
+    "effects": [
+     "对防御力的反映（忍术威力）"
+    ]
    },
    {
     "pieces": 5,
@@ -3803,7 +3927,9 @@
     "scale": 2,
     "value_lv170": 9,
     "value_lv190": 10,
-    "effects": []
+    "effects": [
+     "对攻击力的反映（琢技威力）"
+    ]
    },
    {
     "pieces": 6,
@@ -3814,7 +3940,9 @@
     "scale": 0,
     "value_lv170": 100,
     "value_lv190": 100,
-    "effects": []
+    "effects": [
+     "琢技威力"
+    ]
    },
    {
     "pieces": 7,
@@ -3825,7 +3953,9 @@
     "scale": 21,
     "value_lv170": 100,
     "value_lv190": 104,
-    "effects": []
+    "effects": [
+     "忍术威力"
+    ]
    }
   ]
  },
@@ -3909,7 +4039,9 @@
     "scale": 0,
     "value_lv170": 10,
     "value_lv190": 10,
-    "effects": []
+    "effects": [
+     "伤害反映（毒抗性）"
+    ]
    }
   ]
  },
@@ -4040,7 +4172,9 @@
     "scale": 0,
     "value_lv170": 150,
     "value_lv190": 150,
-    "effects": []
+    "effects": [
+     "蓄力攻击伤害"
+    ]
    },
    {
     "pieces": 5,
@@ -4064,7 +4198,9 @@
     "scale": 0,
     "value_lv170": 200,
     "value_lv190": 200,
-    "effects": []
+    "effects": [
+     "命中攻击动作中的敌人时赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 7,
@@ -4075,7 +4211,9 @@
     "scale": 2,
     "value_lv170": 10,
     "value_lv190": 11,
-    "effects": []
+    "effects": [
+     "攻防强化（{}）"
+    ]
    }
   ]
  },
@@ -4107,7 +4245,9 @@
     "scale": 0,
     "value_lv170": 0,
     "value_lv190": 0,
-    "effects": []
+    "effects": [
+     "动作加快（火枪与大炮）"
+    ]
    },
    {
     "pieces": 3,
@@ -4131,7 +4271,9 @@
     "scale": 10,
     "value_lv170": 32,
     "value_lv190": 34,
-    "effects": []
+    "effects": [
+     "对攻击力的反映（大炮伤害）"
+    ]
    },
    {
     "pieces": 5,
@@ -4176,7 +4318,9 @@
     "scale": 0,
     "value_lv170": 150,
     "value_lv190": 150,
-    "effects": []
+    "effects": [
+     "负面效果时承受的伤害"
+    ]
    },
    {
     "pieces": 4,
@@ -4187,7 +4331,9 @@
     "scale": 0,
     "value_lv170": 200,
     "value_lv190": 200,
-    "effects": []
+    "effects": [
+     "异常状态时的精华槽积攒量"
+    ]
    },
    {
     "pieces": 5,
@@ -4284,7 +4430,9 @@
     "scale": 0,
     "value_lv170": 800,
     "value_lv190": 800,
-    "effects": []
+    "effects": [
+     "敌人异常状态持续（混沌）"
+    ]
    },
    {
     "pieces": 6,
@@ -4295,7 +4443,9 @@
     "scale": 0,
     "value_lv170": 120,
     "value_lv190": 120,
-    "effects": []
+    "effects": [
+     "近距离攻击延长负面效果"
+    ]
    }
   ]
  },
@@ -4366,7 +4516,9 @@
     "scale": 1,
     "value_lv170": 9,
     "value_lv190": 9,
-    "effects": []
+    "effects": [
+     "攻防强化（{}）"
+    ]
    },
    {
     "pieces": 7,
@@ -4418,7 +4570,9 @@
     "scale": 100,
     "value_lv170": 620,
     "value_lv190": 640,
-    "effects": []
+    "effects": [
+     "使用药品时解除负面效果"
+    ]
    },
    {
     "pieces": 4,
@@ -4490,7 +4644,7 @@
     "value_lv170": 150,
     "value_lv190": 150,
     "effects": [
-     "skill:反攻格挡"
+     "格挡赋予^09~BUFF~{}^09~~或延长效果"
     ]
    },
    {
@@ -4515,7 +4669,9 @@
     "scale": 0,
     "value_lv170": 300,
     "value_lv190": 300,
-    "effects": []
+    "effects": [
+     "表里剑"
+    ]
    },
    {
     "pieces": 5,
@@ -4526,7 +4682,9 @@
     "scale": 0,
     "value_lv170": 300,
     "value_lv190": 300,
-    "effects": []
+    "effects": [
+     "忍术槽积攒量（武士）"
+    ]
    },
    {
     "pieces": 6,
@@ -4558,7 +4716,9 @@
     "scale": 1,
     "value_lv170": 4,
     "value_lv190": 4,
-    "effects": []
+    "effects": [
+     "幻术伤害（技）"
+    ]
    },
    {
     "pieces": 3,
@@ -4715,7 +4875,9 @@
     "scale": 20,
     "value_lv170": 148,
     "value_lv190": 152,
-    "effects": []
+    "effects": [
+     "冬月伤害"
+    ]
    },
    {
     "pieces": 4,
@@ -4726,7 +4888,9 @@
     "scale": 0,
     "value_lv170": 0,
     "value_lv190": 0,
-    "effects": []
+    "effects": [
+     "格挡赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 5,
@@ -4737,7 +4901,9 @@
     "scale": 13,
     "value_lv170": 81,
     "value_lv190": 83,
-    "effects": []
+    "effects": [
+     "格挡造成精力伤害"
+    ]
    },
    {
     "pieces": 6,
@@ -4808,7 +4974,9 @@
     "scale": 0,
     "value_lv170": 0,
     "value_lv190": 0,
-    "effects": []
+    "effects": [
+     "双灵庇佑"
+    ]
    },
    {
     "pieces": 6,
@@ -4937,7 +5105,9 @@
     "scale": 0,
     "value_lv170": 0,
     "value_lv190": 0,
-    "effects": []
+    "effects": [
+     "九十九化身结束时赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 5,
@@ -4948,7 +5118,9 @@
     "scale": 2,
     "value_lv170": 7,
     "value_lv190": 8,
-    "effects": []
+    "effects": [
+     "连续攻击精力伤害增加"
+    ]
    },
    {
     "pieces": 6,
@@ -4993,7 +5165,9 @@
     "scale": 0,
     "value_lv170": 6,
     "value_lv190": 6,
-    "effects": []
+    "effects": [
+     "使役符命中时赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 4,
@@ -5030,7 +5204,9 @@
     "scale": 0,
     "value_lv170": 11,
     "value_lv190": 11,
-    "effects": []
+    "effects": [
+     "毒异常状态累积（灵力）"
+    ]
    },
    {
     "pieces": 7,
@@ -5155,7 +5331,9 @@
     "scale": 0,
     "value_lv170": 100,
     "value_lv190": 100,
-    "effects": []
+    "effects": [
+     "忍术动作期间承受的伤害"
+    ]
    },
    {
     "pieces": 4,
@@ -5179,7 +5357,9 @@
     "scale": 0,
     "value_lv170": 150,
     "value_lv190": 150,
-    "effects": []
+    "effects": [
+     "忍术命中极近距离敌人时赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 6,
@@ -5276,7 +5456,9 @@
     "scale": 1,
     "value_lv170": 9,
     "value_lv190": 9,
-    "effects": []
+    "effects": [
+     "攻防强化（{}）"
+    ]
    },
    {
     "pieces": 7,
@@ -5315,7 +5497,9 @@
     "scale": 0,
     "value_lv170": 80,
     "value_lv190": 80,
-    "effects": []
+    "effects": [
+     "使用药品时赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 3,
@@ -5472,7 +5656,9 @@
     "scale": 0,
     "value_lv170": 0,
     "value_lv190": 0,
-    "effects": []
+    "effects": [
+     "闪避攻击赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 4,
@@ -5483,7 +5669,9 @@
     "scale": 0,
     "value_lv170": 0,
     "value_lv190": 0,
-    "effects": []
+    "effects": [
+     "闪避攻击赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 5,
@@ -5520,7 +5708,9 @@
     "scale": 0,
     "value_lv170": 1,
     "value_lv190": 1,
-    "effects": []
+    "effects": [
+     "流连若舞"
+    ]
    }
   ]
  },
@@ -5578,7 +5768,9 @@
     "scale": 0,
     "value_lv170": 50,
     "value_lv190": 50,
-    "effects": []
+    "effects": [
+     "使用御神水时赋予^09~BUFF~{}^09~~"
+    ]
    }
   ]
  },
@@ -5722,7 +5914,9 @@
     "scale": 0,
     "value_lv170": 5,
     "value_lv190": 5,
-    "effects": []
+    "effects": [
+     "连续攻击精力伤害增加"
+    ]
    },
    {
     "pieces": 6,
@@ -5746,7 +5940,9 @@
     "scale": 2,
     "value_lv170": 10,
     "value_lv190": 11,
-    "effects": []
+    "effects": [
+     "攻防强化（{}）"
+    ]
    }
   ]
  },
@@ -5824,7 +6020,9 @@
     "scale": 2,
     "value_lv170": 8,
     "value_lv190": 9,
-    "effects": []
+    "effects": [
+     "连续攻击精力伤害增加"
+    ]
    },
    {
     "pieces": 7,
@@ -5835,7 +6033,9 @@
     "scale": 0,
     "value_lv170": 200,
     "value_lv190": 200,
-    "effects": []
+    "effects": [
+     "多艺真髓"
+    ]
    }
   ]
  },
@@ -5940,7 +6140,9 @@
     "scale": 0,
     "value_lv170": 200,
     "value_lv190": 200,
-    "effects": []
+    "effects": [
+     "格挡赋予^09~BUFF~{}^09~~"
+    ]
    },
    {
     "pieces": 5,
@@ -5951,7 +6153,9 @@
     "scale": 2,
     "value_lv170": 8,
     "value_lv190": 9,
-    "effects": []
+    "effects": [
+     "武技伤害反映（精力残量）"
+    ]
    },
    {
     "pieces": 6,

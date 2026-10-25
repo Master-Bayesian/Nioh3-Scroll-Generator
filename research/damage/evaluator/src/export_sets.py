@@ -39,6 +39,15 @@ for eid in T.EFFECTS.indices:
         key = struct.unpack_from("<I", T.GROUPS.row(group), 8)[0]
         if key:
             members.setdefault(key, set()).add(zh(eid) or hex(eid))
+TEXTS = json.loads(Path("F:/Nioh3_r16_build/work/sets/TEXTS.json").read_bytes()) if Path("F:/Nioh3_r16_build/work/sets/TEXTS.json").exists() else {}
+
+
+def group_text(g):
+    if g not in T.GROUPS.indices:
+        return None
+    return TEXTS.get(hex(struct.unpack_from("<I", T.GROUPS.row(g), 44)[0]))
+
+
 sets = []
 for key in sorted(side.indices):
     row = side.row(key)
@@ -51,7 +60,7 @@ for key in sorted(side.indices):
         rewards.append({"pieces": threshold, "group": hex(group), "flags": flags, "mode": struct.unpack_from("<I", r, 12)[0],
                         "base": struct.unpack_from("<I", r, 16)[0], "scale": struct.unpack_from("<i", r, 20)[0],
                         "value_lv170": curve_value(r, 170, LEVEL_ROWS)[0], "value_lv190": curve_value(r, 190, LEVEL_ROWS)[0],
-                        "effects": sorted(group_zh.get(group) or set(group_names.get(group, [])))[:4]})
+                        "effects": [group_text(group)] if group_text(group) else sorted(group_zh.get(group) or set(group_names.get(group, [])))[:4]})
     sets.append({"side_key": hex(key), "names": sorted(members.get(key, [])), "rewards": rewards})
 out = Path("F:/Nioh3_r16_build/work/sets/SETS.json")
 out.parent.mkdir(exist_ok=True)
