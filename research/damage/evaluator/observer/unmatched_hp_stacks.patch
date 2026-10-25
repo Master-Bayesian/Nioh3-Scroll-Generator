@@ -1,0 +1,45 @@
+diff --git a/coherent_observer.lua.bak-20261025 b/coherent_observer.lua
+index 8cbdd5a..83cc220 100644
+--- a/coherent_observer.lua.bak-20261025
++++ b/coherent_observer.lua
+@@ -65,7 +65,8 @@ return function(options)
+     callbacks=0,sequence=0,rebuild_entries={},started_at_UTC=os.date('!%Y-%m-%dT%H:%M:%SZ'),started_tick=tick(),
+     instrumentation=C.instrumentation,limits={},bytes_attempted=0,regions_requested=0,nodes_followed=0,
+     capture_atomic_across_other_threads=false,complete_scorer=false,actual_scenario_accepted=false,
+-    rebuild_caller_argument_captured=false,manual_KiPulse_labels_withdrawn=true}
++    rebuild_caller_argument_captured=false,manual_KiPulse_labels_withdrawn=true,
++    unmatched_hp_stacks={},_unmatched_hp_keys={}}
+   rawset(_G,namespace,probe)
+   local cleanup_timers={}
+   local function cleanup_schedule(delay,callback)
+@@ -743,7 +744,29 @@ return function(options)
+         if found then return end;found=f
+       end
+     end
+-    if not found then return end
++    if not found then
++      -- HP stores without a MAIN frame (projectiles, onmyo, ninjutsu, training refills): keep each distinct caller
++      -- chain once, as module RVAs of the code addresses found on the stack, plus the stored HP bytes.
++      if #probe.unmatched_hp_stacks<24 then
++        local st=raw(RSP,0x800)
++        if st then
++          local sig={}
++          for off=0,0x7F8,8 do
++            local v=uint(st,off,8)
++            if v and v>=base+0x1000 and v<base+0x4000000 then sig[#sig+1]=string.format('0x%X',v-base) end
++            if #sig>=16 then break end
++          end
++          local key=table.concat(sig,',',1,math.min(#sig,8))
++          if not probe._unmatched_hp_keys[key] then
++            probe._unmatched_hp_keys[key]=true
++            local hp=a and raw(a,8)
++            probe.unmatched_hp_stacks[#probe.unmatched_hp_stacks+1]={stack_rvas=sig,hp_address=hx(a),
++              hp_after_hex=hp and hexbytes(hp),thread_id=tid,tick=tick()}
++          end
++        end
++      end
++      return
++    end
+     local s=snapshot('HP_after_store');local e=event('HP_after_store',ctx,found,s)
+     region(s,'actual_HP_after_R11_plus20',a,8);region(s,'HP.native_caller_stack',RSP,0x100)
+     e.actual_HP_address=hx(a);e.requested_RBX_is_not_actual_HP=true
