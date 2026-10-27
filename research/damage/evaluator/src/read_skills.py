@@ -53,6 +53,13 @@ def main():
             rows.append({"key": key, "key_hex": hex(key), "rank": rank, "name": names.get(key & 0xFFFF)})
             node = q(node)
         result[label] = {"count": count, "walked": len(rows), "skills": rows}
+    # The parameter rows these maps rank (source_talents.py: source7c0 6 rows x 0x70, source7c8 32 rows x 0x78):
+    # manager = Q(base+0x45B9E30), context = Q(manager+offset), flat = Q(context), count at flat+4, rows at flat+8.
+    manager = q(base + 0x45B9E30)
+    for label, offset, stride in (("source7c0", 0x7C0, 0x70), ("source7c8", 0x7C8, 0x78)):
+        flat = q(q(manager + offset))
+        count = struct.unpack("<I", read(flat + 4, 4))[0]
+        result[label] = {"count": count, "stride": stride, "rows_hex": read(flat, 8 + count * stride).hex()}
     out.write_text(json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps({label: (result[label]["count"], result[label]["walked"]) for label in MAPS} | {"level": result["level"]}))
 
