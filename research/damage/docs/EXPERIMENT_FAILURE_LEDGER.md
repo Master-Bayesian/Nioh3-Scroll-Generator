@@ -6064,3 +6064,13 @@ body/signature inference remains subject to raw-instruction verification.
 - Follow-up: never run Studio live addition while CE's VEH debugger is attached. Add items first (or close
   CE), then attach CE. Also add an observer-side guard that refuses to arm when an external debugger
   attach/detach happened since the last arm.
+
+## 2026-11-05 Attribute "half" difference was a replay frame artifact
+
+- Objective: explain why D fields looked half the model value after changing attribute bytes.
+- Symptom: accumulated STAT fields read exactly twice the captured value.
+- Cause: the materializer ran on a captured STAT frame that already held its own sums.
+- Evidence: `evaluator/src/composed_model.py`; D has no attribute-sensitive word for a fixed aggregate.
+- Disposition: closed. Compare D from the default page; do not materialize onto a captured STAT.
+- Reproduction: `work/opt-bench/attr_full.py` on `blind-1023/h1/capture.json`.
+- Follow-up: attribute modelling continues in `NIOH3_SPELLS_AND_PROGRESS_SOURCES_20261027.md`.

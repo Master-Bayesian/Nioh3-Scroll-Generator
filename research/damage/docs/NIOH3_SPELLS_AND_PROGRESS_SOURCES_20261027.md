@@ -91,3 +91,52 @@ changed at the first read and form 0 lost the same four entries by the second re
 slot empty. Confirmed by restoration: with the core re-equipped, form 1 recovered at once and form 0 only after switching to samurai, ending identical to the original snapshot in all 153 rows. So one core serves both styles, and the table of the inactive style refreshes only when that style becomes active. Read an aggregate only after visiting the style.
 
 Original guardians: 草薙 (samurai), 虎御前 (ninja). Most entries display value / 10 as percent; 火属性伤害降低 displays the raw 46, and 造成水属性伤害时增加灵力 value 9 displays grade A-.
+
+## Composed aggregate: zero residual (11-05, offline)
+
+The aggregate can now be built from its sources instead of carried forward from a capture (`evaluator/src/composed_model.py`,
+`build_source_layers.py`, `data/SOURCE_LAYERS.json`, `check_composed.py`):
+
+aggregate(form) = equipment (native weapon, body, slot 15 and set stages on an emptied source) + title blessings + skills +
+clan blessing + guardian of that style + soul core + elixir upgrades + area completion + unnamed progress.
+
+Checked on the 11-04 captures, with no game running:
+
+| Check | Result |
+| --- | --- |
+| Composed vs captured aggregate | 87 groups form 0, 66 groups form 1, 0 wrong |
+| D rebuilt from the aggregate alone (819400 over the default page) | 60 effect words on the ninjutsu frame, 78 on the onmyo frame; each has one wrong word, 0x3F0 and 0x880, both constant or uninitialised tail words, not effect fields, and neither changes the replay |
+| Replay of the composed baseline | 4824 and 1034, equal to the game |
+| Skill 祸实之法 removed | 4677, equal to the damage the game showed with no debuff on the target |
+
+The last row is the only one with an independent game value. The other source removals below are predictions.
+
+| Removed from the lightning hit (4824) | Predicted |
+| --- | ---: |
+| Title blessings | 4625 |
+| All skills | 4309 |
+| Clan blessing | 4394 |
+| Soul core, guardian, elixir upgrades, unnamed progress | 4824 (none enters this hit; the core still matters through the blind it applies) |
+| 忍术伤害 +10% (test value) | 5192 |
+
+For the onmyo hit (1034), only title blessings changed the result (955) among the sources removed.
+
+Corrections to earlier notes:
+
+- **A zero entry is not a removed source.** Group 0xF1A8 with value 0 still materializes (4787). Removing a source must remove the entry; `add()` does so for negative deltas.
+- **The debuff count is carried by D+0x2B4 alone.** Zeroing any other effect word keeps the 147 gap (`debuff_scan.py`).
+- **The "half" field difference was a test artifact.** Accumulating STAT fields were materialized on a captured frame that already held them, doubling them. Attributes do not change D at all for a fixed aggregate.
+
+Open in the composition: 0x52D 36 and 0xF919 35 are equal in both forms but have no text or located source. Area completion is a stored total
+(攻击力 88, 防御力 88, 幸运 178), not recomputed from the tables. Guardian entries are per guardian at its current level, and only four guardians are known.
+
+## Attributes (11-05, offline, partly fitted)
+
+For a fixed aggregate, attributes reach only STAT +0x24 family (attack records), +0x12C and the record +8 field, the load factor +0x7A0, and the seeds at +0x1A8, +0x1AC, +0x1BC to +0x1C4 and +0x7B4, which `stat_seeds` reproduces. The same weapon 0x93A0 gives 2764 at (25,150,150,40,50,20,50) and 2581 at (37,150,27,26,80,15,150), scroll or not, so −183.
+
+- Weapon scaling (coreX) is lifted and exact in form: −17 here. sum(coefficient × table90 column 0x1A at the masked attributes) / 100, coefficients 45/20/10 on attributes 1/3/5 for this weapon.
+- The other −166 is a base attack present on every record, independent of the weapon: an empty record holds 401 at the old attributes, and the gap is 401 on two different weapons. **Fit, not proven:** base = 154 + column 0x1A(attribute 2) // 2, which gives 401 and 235. Only two attribute sets exist in saved captures, so it needs one more live attribute change.
+- +0x12C goes 113 → 120 and enters the attack packet through the record +8 field (+35 or +36 from elsewhere). Two points fit many curves; not determined.
+- Spell packet attack (2014, 2442) has been seen only at the new attributes, so its attribute dependence is unknown.
+
+The guardian's 玩家的强化值 path is still open.
