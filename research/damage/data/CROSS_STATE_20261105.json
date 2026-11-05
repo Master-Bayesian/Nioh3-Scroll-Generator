@@ -1,0 +1,377 @@
+[
+ {
+  "target": "blind-1023/h1",
+  "observed": 884,
+  "predicted": 884.0,
+  "status": "computed",
+  "wrong_groups": {},
+  "stat_words_wrong": [
+   "0x0",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x164",
+   "0x168",
+   "0x798",
+   "0x79c"
+  ],
+  "d_words_wrong": [
+   "0x880"
+  ],
+  "packet": 2818,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "target": "blind-1023/base",
+  "observed": 793,
+  "predicted": 793.0,
+  "status": "computed",
+  "wrong_groups": {},
+  "stat_words_wrong": [
+   "0x0",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x164",
+   "0x168"
+  ],
+  "d_words_wrong": [
+   "0x880"
+  ],
+  "packet": 2818,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "target": "blind-1023/h2",
+  "observed": 793,
+  "predicted": 793.0,
+  "status": "computed",
+  "wrong_groups": {},
+  "stat_words_wrong": [
+   "0x0",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x164",
+   "0x168"
+  ],
+  "d_words_wrong": [
+   "0x880"
+  ],
+  "packet": 2818,
+  "target_packet": [
+   2818,
+   0,
+   79
+  ]
+ },
+ {
+  "target": "live1022-imbue-plain",
+  "observed": null,
+  "predicted": 698.0,
+  "status": "computed",
+  "wrong_groups": {},
+  "stat_words_wrong": [
+   "0x0",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x164",
+   "0x168"
+  ],
+  "d_words_wrong": [
+   "0x880"
+  ],
+  "packet": 2736,
+  "target_packet": [
+   2736,
+   1,
+   69
+  ]
+ },
+ {
+  "target": "same",
+  "observed": 884,
+  "predicted": 884.0,
+  "status": "computed",
+  "wrong_groups": {},
+  "stat_words_wrong": [
+   "0x0",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x164",
+   "0x168",
+   "0x798",
+   "0x79c"
+  ],
+  "d_words_wrong": [
+   "0x880"
+  ],
+  "packet": 2818,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "target": "a",
+  "observed": null,
+  "predicted": 892.0,
+  "status": "computed",
+  "wrong_groups": {},
+  "stat_words_wrong": [
+   "0x0",
+   "0x24",
+   "0x28",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x164",
+   "0x168",
+   "0x1a8",
+   "0x1c4",
+   "0x798",
+   "0x79c"
+  ],
+  "d_words_wrong": [
+   "0x880"
+  ],
+  "packet": 2829,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "target": "b",
+  "observed": null,
+  "predicted": 884.0,
+  "status": "computed",
+  "wrong_groups": {},
+  "stat_words_wrong": [
+   "0x0",
+   "0x18",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x124",
+   "0x128",
+   "0x164",
+   "0x168",
+   "0x1c4",
+   "0x798",
+   "0x79c",
+   "0x7a0",
+   "0x7b4"
+  ],
+  "d_words_wrong": [
+   "0x880"
+  ],
+  "packet": 2818,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "target": "c",
+  "observed": null,
+  "predicted": 873.0,
+  "status": "computed",
+  "wrong_groups": {
+   "0xecc5": [
+    150,
+    null
+   ]
+  },
+  "stat_words_wrong": [
+   "0x0",
+   "0x24",
+   "0x28",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x124",
+   "0x128",
+   "0x164",
+   "0x168",
+   "0x1c4",
+   "0x798",
+   "0x79c",
+   "0x7a4",
+   "0x7a8"
+  ],
+  "d_words_wrong": [
+   "0x880"
+  ],
+  "packet": 2804,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "target": "phoenix",
+  "observed": null,
+  "predicted": 883.0,
+  "status": "computed",
+  "wrong_groups": {
+   "0x5c18": [
+    null,
+    110
+   ],
+   "0x62c5": [
+    308,
+    200
+   ],
+   "0x5cce": [
+    null,
+    114
+   ],
+   "0xb2d3": [
+    56,
+    10
+   ],
+   "0x9528": [
+    208,
+    null
+   ],
+   "0xaf2c": [
+    197,
+    100
+   ],
+   "0x2750": [
+    null,
+    208
+   ],
+   "0x4baa": [
+    null,
+    105
+   ],
+   "0xfdde": [
+    286,
+    100
+   ],
+   "0x89ea": [
+    null,
+    146
+   ]
+  },
+  "stat_words_wrong": [
+   "0x0",
+   "0x24",
+   "0x28",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x124",
+   "0x128",
+   "0x164",
+   "0x168",
+   "0x77c",
+   "0x798",
+   "0x79c"
+  ],
+  "d_words_wrong": [
+   "0x11c",
+   "0x1cc",
+   "0x1dc",
+   "0x20c",
+   "0x4ac",
+   "0x4bc",
+   "0x550",
+   "0x660",
+   "0x78c",
+   "0x880"
+  ],
+  "packet": 2817,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "target": "core2",
+  "observed": null,
+  "predicted": 989.0,
+  "status": "computed",
+  "wrong_groups": {},
+  "stat_words_wrong": [
+   "0x0",
+   "0x24",
+   "0x28",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x124",
+   "0x128",
+   "0x164",
+   "0x168",
+   "0x798",
+   "0x79c"
+  ],
+  "d_words_wrong": [
+   "0x880"
+  ],
+  "packet": 2982,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "frozen_predictions": {
+   "baseline 884 hit, same outfit": 884.0,
+   "attributes: 10 points from 7th to 4th (37,150,27,36,80,15,140)": 892.0,
+   "attributes: 10 points from 7th to 2nd is capped? 3rd +10 (37,150,37,26,80,15,140)": 884.0,
+   "attributes: 10 points from 2nd to 7th (37,140,27,26,80,15,160)": 873.0,
+   "guardian phoenix on samurai": 883.0,
+   "soul core in the empty second slot, attack +164, defense unchanged": 989.0
+  }
+ }
+]

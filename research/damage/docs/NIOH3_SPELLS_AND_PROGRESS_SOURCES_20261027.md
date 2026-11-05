@@ -127,15 +127,41 @@ Corrections to earlier notes:
 - **The "half" field difference was a test artifact.** Accumulating STAT fields were materialized on a captured frame that already held them, doubling them. Attributes do not change D at all for a fixed aggregate.
 
 Open in the composition: 0x52D 36 and 0xF919 35 are equal in both forms but have no text or located source. Area completion is a stored total
-(攻击力 88, 防御力 88, 幸运 178), not recomputed from the tables. Guardian entries are per guardian at its current level, and only four guardians are known.
+(攻击力 88, 防御力 88, 幸运 178), not recomputed from the tables. Soul core effects are measured for one core only.
 
-## Attributes (11-05, offline, partly fitted)
+## Attack, attributes and the cross-state test (11-05, offline)
 
-For a fixed aggregate, attributes reach only STAT +0x24 family (attack records), +0x12C and the record +8 field, the load factor +0x7A0, and the seeds at +0x1A8, +0x1AC, +0x1BC to +0x1C4 and +0x7B4, which `stat_seeds` reproduces. The same weapon 0x93A0 gives 2764 at (25,150,150,40,50,20,50) and 2581 at (37,150,27,26,80,15,150), scroll or not, so −183.
+**Same layer across outfits.** `layer_stability.py` subtracts the modelled equipment from the aggregate of every saved capture that has an entry snapshot (22 distinct gear and aggregate states, with armor, three weapons, sets and scrolls). The remainder is the same layer on each day: identical to the 11-04 layer on all states from the 10-22 imbue session on, and one other constant layer before it (16 groups differ). Group 0x6A7C 攻击力 is 113 in the old layer and 120 in the new one, and that is STAT +0x12C.
 
-- Weapon scaling (coreX) is lifted and exact in form: −17 here. sum(coefficient × table90 column 0x1A at the masked attributes) / 100, coefficients 45/20/10 on attributes 1/3/5 for this weapon.
-- The other −166 is a base attack present on every record, independent of the weapon: an empty record holds 401 at the old attributes, and the gap is 401 on two different weapons. **Fit, not proven:** base = 154 + column 0x1A(attribute 2) // 2, which gives 401 and 235. Only two attribute sets exist in saved captures, so it needs one more live attribute change.
-- +0x12C goes 113 → 120 and enters the attack packet through the record +8 field (+35 or +36 from elsewhere). Two points fit many curves; not determined.
-- Spell packet attack (2014, 2442) has been seen only at the new attributes, so its attribute dependence is unknown.
+**Attack record.** record = weapon stages (weapon, coreX scaling, scroll) + guardian attack + soul core attack.
 
-The guardian's 玩家的强化值 path is still open.
+- Guardian attack and defense are the menu's 玩家的强化值, from guardian table `numeric(key, level)` (374F58 adds them to all six records and +0x1C8). All four guardians match at level 50: 草薙 71/66, 虎御前 68/73, 凤凰 70/70, 猫又 69/69, and all their five effect entries. `data/GUARDIANS.json` has every definition at level 50.
+- Soul core attack is added by 554268 for passive item slots 0 and 1 (attribute source +0x80, 0xE8 each). Measured record base minus guardian: 330 with core 0x7BD9 in both slots, 164 with 0xBB71 in slot 0 and slot 1 empty, on all 21 samurai captures. 330 = 2 × 165 suggests each filled slot counts once; this is inferred, not separated. The table for the exact value (manager+0x118) is not on disk.
+- The record +8 field is the 攻击力 group + 35 (samurai records 0 and 1, three weapons; 36 on the ninja frame, source not located).
+
+**Correction.** The earlier fit of a base attack from attribute 2 was a coincidence and is withdrawn. The −183 between the two attribute sets is −17 coreX and −166 soul core.
+
+**What attributes reach.** Only lifted, unfitted paths: coreX scaling, seeds (+0x1A8, +0x1AC, +0x1BC to +0x1C4, +0x7A4, +0x7A8, +0x7B4), the load factor +0x7A0 through capacity, HP seed, and equipment requirement gates. All seeds and the load factor match on every capture.
+
+**Cross-state prediction** (`cross_state.py`). From the 10-16 baseline, with no STAT or D from the target capture, only its inventory and attributes plus layers read on 11-04:
+
+| Target | Delta model before | Composed | Game |
+| --- | ---: | ---: | ---: |
+| 10-23 armored hit (h1) | 1188 | 884 | 884 |
+| 10-23 no armor (base, h2) | n/a | 793 | 793 |
+
+Three measured constants still enter: soul core attack 164, the defense change 156 between the two core states, and the +35 field; plus one zero-value entry 0x3E52 of the 10-23 state. So this confirms the composition for this hit, not a fully derived soul core. STAT words that still differ are records 1, 2, 3 and 5 and +0x798/+0x79C, which this hit does not depend on (writing the target's whole STAT and D gave the same damage).
+
+**Weight is read from a second object.** The formula reads +0x7B8 from `current_player.external_STAT`, not the source STAT. Before writing it, the prediction was 859 and 792.
+
+**Frozen predictions** for the current samurai outfit and the same hit (884), in `data/CROSS_STATE_20261105.json`; not yet tested:
+
+| Change | Predicted |
+| --- | ---: |
+| Attributes (37,150,27,36,80,15,140) | 892 |
+| Attributes (37,150,37,26,80,15,140) | 884 |
+| Attributes (37,140,27,26,80,15,160) | 873 (also loses a 150-gated entry, group 0xECC5) |
+| Guardian 凤凰 instead of 草薙 | 883 |
+| A soul core in the empty slot 1, attack +164, defense unchanged | 989 |
+
+Still open: spell packet attack against attributes (seen at one attribute set only), soul core attack and effects from the table, and the ninja +36.

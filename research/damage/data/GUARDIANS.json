@@ -1,0 +1,1414 @@
+{
+"level": 50,
+"rows": [
+{
+"key": "0x1",
+"names": [],
+"attack": 0,
+"defense": 0,
+"effects": []
+},
+{
+"key": "0x3",
+"names": [
+[
+"0x2c",
+"金刚狮子"
+]
+],
+"attack": 67,
+"defense": 72,
+"effects": [
+{
+"group": "0xc28b",
+"name": "格挡成功时赋予^09~BUFF~{}^09~~",
+"value": 110,
+"required": 0
+},
+{
+"group": "0xa69e",
+"name": "风属性伤害",
+"value": 129,
+"required": 0
+},
+{
+"group": "0xb1b6",
+"name": "体力",
+"value": 496,
+"required": 0
+},
+{
+"group": "0xac34",
+"name": "承受的伤害降低（攻击动作期间）",
+"value": 131,
+"required": 15
+},
+{
+"group": "0x70db",
+"name": "防御精力消耗降低（绝境）",
+"value": 248,
+"required": 16
+}
+]
+},
+{
+"key": "0x4",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x9",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0xf",
+"names": [
+[
+"0x2c",
+"狗宾"
+]
+],
+"attack": 69,
+"defense": 69,
+"effects": [
+{
+"group": "0xbf9",
+"name": "武技精力消耗降低",
+"value": 129,
+"required": 0
+},
+{
+"group": "0x4d1c",
+"name": "被攻击时承受的伤害降低",
+"value": 64,
+"required": 0
+},
+{
+"group": "0xe00d",
+"name": "强攻击崩解力",
+"value": 208,
+"required": 0
+},
+{
+"group": "0xdc76",
+"name": "精力耗尽的恢复时间缩短",
+"value": 166,
+"required": 12
+},
+{
+"group": "0xf4c5",
+"name": "对精力耗尽敌人的近距离伤害",
+"value": 129,
+"required": 13
+}
+]
+},
+{
+"key": "0x25",
+"names": [
+[
+"0x2c",
+"凰"
+]
+],
+"attack": 66,
+"defense": 74,
+"effects": [
+{
+"group": "0x2d40",
+"name": "灵力增加量反映（精华槽）",
+"value": 9,
+"required": 0
+},
+{
+"group": "0x4843",
+"name": "防御精力消耗降低",
+"value": 112,
+"required": 0
+},
+{
+"group": "0x2d91",
+"name": "吸收精华可恢复体力",
+"value": 16,
+"required": 0
+},
+{
+"group": "0x8010",
+"name": "格挡成功时赋予^09~BUFF~{}^09~~",
+"value": 108,
+"required": 15
+},
+{
+"group": "0xb358",
+"name": "道具掉落率",
+"value": 258,
+"required": 18
+}
+]
+},
+{
+"key": "0x2f",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x35",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x4b",
+"names": [
+[
+"0x2c",
+"金虎鲸"
+]
+],
+"attack": 67,
+"defense": 74,
+"effects": [
+{
+"group": "0x9db5",
+"name": "祓除常世赋予^09~BUFF~{}^09~~",
+"value": 100,
+"required": 0
+},
+{
+"group": "0x411f",
+"name": "对处于^09~DEBUFF~{}^09~~状态敌人的精力伤害",
+"value": 161,
+"required": 0
+},
+{
+"group": "0xc4dd",
+"name": "获得金钱",
+"value": 258,
+"required": 0
+},
+{
+"group": "0x92a0",
+"name": "九十九化身结束时赋予^09~BUFF~{}^09~~",
+"value": 120,
+"required": 18
+},
+{
+"group": "0xca38",
+"name": null,
+"value": 197,
+"required": 23
+}
+]
+},
+{
+"key": "0x4d",
+"names": [
+[
+"0x2c",
+"丛云"
+]
+],
+"attack": 72,
+"defense": 66,
+"effects": [
+{
+"group": "0x18bb",
+"name": "敌人的^09~DEBUFF~{}^09~~状态累积",
+"value": 102,
+"required": 0
+},
+{
+"group": "0xe429",
+"name": "使敌人陷入^09~DEBUFF~{}^09~~状态时精华槽增加",
+"value": 9,
+"required": 0
+},
+{
+"group": "0xd7ab",
+"name": "守护灵技命中赋予^09~BUFF~{}^09~~",
+"value": 87,
+"required": 0
+},
+{
+"group": "0xe2ec",
+"name": null,
+"value": 116,
+"required": 3
+},
+{
+"group": "0xe3a4",
+"name": "九十九化身时的耐久力",
+"value": 81,
+"required": 9
+}
+]
+},
+{
+"key": "0x59",
+"names": [
+[
+"0x2c",
+"真神"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x5a",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x6e",
+"names": [
+[
+"0x2c",
+"成釜狸"
+]
+],
+"attack": 63,
+"defense": 78,
+"effects": [
+{
+"group": "0x9386",
+"name": "死亡时自动回收一部分精华",
+"value": 150,
+"required": 0
+},
+{
+"group": "0x8649",
+"name": "不消耗仙药",
+"value": 208,
+"required": 0
+},
+{
+"group": "0x4dcb",
+"name": "水属性伤害",
+"value": 129,
+"required": 0
+},
+{
+"group": "0xb08a",
+"name": "强攻击伤害",
+"value": 97,
+"required": 13
+},
+{
+"group": "0xeea8",
+"name": "绝境时赋予^09~BUFF~{}^09~~",
+"value": 110,
+"required": 16
+}
+]
+},
+{
+"key": "0x73",
+"names": [
+[
+"0x2c",
+"天眼孔雀"
+]
+],
+"attack": 70,
+"defense": 69,
+"effects": [
+{
+"group": "0x6135",
+"name": "箭弹或道具命中增加灵力",
+"value": 15,
+"required": 0
+},
+{
+"group": "0x5607",
+"name": null,
+"value": 55,
+"required": 0
+},
+{
+"group": "0xc188",
+"name": "赋予属性的持续时间延长",
+"value": 159,
+"required": 0
+},
+{
+"group": "0x9eac",
+"name": null,
+"value": 9,
+"required": 15
+},
+{
+"group": "0x11cc",
+"name": null,
+"value": 10,
+"required": 18
+}
+]
+},
+{
+"key": "0x76",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x89",
+"names": [
+[
+"0x2c",
+"凤"
+]
+],
+"attack": 66,
+"defense": 74,
+"effects": [
+{
+"group": "0xc6d2",
+"name": "识破可增加灵力",
+"value": 6,
+"required": 0
+},
+{
+"group": "0x93f0",
+"name": "闪避动作精力消耗降低",
+"value": 112,
+"required": 0
+},
+{
+"group": "0xb32e",
+"name": "守护灵技命中赋予^09~BUFF~{}^09~~",
+"value": 110,
+"required": 0
+},
+{
+"group": "0x84d4",
+"name": "获得精华",
+"value": 54,
+"required": 15
+},
+{
+"group": "0x3b0e",
+"name": "幸运",
+"value": 67,
+"required": 18
+}
+]
+},
+{
+"key": "0x8f",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x91",
+"names": [
+[
+"0x2c",
+"三味长老"
+]
+],
+"attack": 70,
+"defense": 69,
+"effects": [
+{
+"group": "0x579f",
+"name": "成功识破时^09~BUFF~{}^09~~",
+"value": 9,
+"required": 0
+},
+{
+"group": "0x936e",
+"name": "阴阳术命中赋予^09~BUFF~{}^09~~",
+"value": 110,
+"required": 0
+},
+{
+"group": "0xfe30",
+"name": "雷属性伤害",
+"value": 129,
+"required": 0
+},
+{
+"group": "0xeea8",
+"name": "绝境时赋予^09~BUFF~{}^09~~",
+"value": 98,
+"required": 16
+},
+{
+"group": "0xebba",
+"name": "正面效果持续时间延长",
+"value": 174,
+"required": 19
+}
+]
+},
+{
+"key": "0xb8",
+"names": [
+[
+"0x2c",
+"丛云"
+]
+],
+"attack": 72,
+"defense": 66,
+"effects": [
+{
+"group": "0xd7a1",
+"name": "敌人的^09~DEBUFF~{}^09~~状态累积",
+"value": 102,
+"required": 0
+},
+{
+"group": "0x886",
+"name": "使敌人陷入^09~DEBUFF~{}^09~~状态时精华槽增加",
+"value": 9,
+"required": 0
+},
+{
+"group": "0x941",
+"name": "守护灵技命中赋予^09~BUFF~{}^09~~",
+"value": 87,
+"required": 0
+},
+{
+"group": "0x52a8",
+"name": "追击和近身刺击可恢复体力",
+"value": 125,
+"required": 3
+},
+{
+"group": "0x3800",
+"name": "九十九化身持续时间延长",
+"value": 75,
+"required": 9
+}
+]
+},
+{
+"key": "0xba",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0xc5",
+"names": [
+[
+"0x2c",
+"猫又"
+]
+],
+"attack": 69,
+"defense": 69,
+"effects": [
+{
+"group": "0x8ae1",
+"name": "忍术造成的精力伤害",
+"value": 107,
+"required": 0
+},
+{
+"group": "0xd405",
+"name": "精力恢复速度",
+"value": 81,
+"required": 0
+},
+{
+"group": "0x44d0",
+"name": "速攻击崩解力",
+"value": 168,
+"required": 0
+},
+{
+"group": "0x30a6",
+"name": "近距离攻击的精力消耗降低",
+"value": 107,
+"required": 12
+},
+{
+"group": "0x43b5",
+"name": "追击和近身刺击伤害",
+"value": 258,
+"required": 13
+}
+]
+},
+{
+"key": "0xdb",
+"names": [
+[
+"0x2c",
+"草薙"
+]
+],
+"attack": 71,
+"defense": 66,
+"effects": [
+{
+"group": "0xaf2c",
+"name": "武技伤害",
+"value": 97,
+"required": 0
+},
+{
+"group": "0xb2d3",
+"name": "火属性伤害降低",
+"value": 46,
+"required": 0
+},
+{
+"group": "0xfdde",
+"name": "残心精力恢复量",
+"value": 186,
+"required": 0
+},
+{
+"group": "0x62c5",
+"name": null,
+"value": 108,
+"required": 1
+},
+{
+"group": "0x9528",
+"name": "武技灵力增加量",
+"value": 208,
+"required": 5
+}
+]
+},
+{
+"key": "0xe3",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0xf0",
+"names": [
+[
+"0x2c",
+"金刚狮子"
+]
+],
+"attack": 67,
+"defense": 72,
+"effects": [
+{
+"group": "0x6b5b",
+"name": "成功识破时^09~BUFF~{}^09~~",
+"value": 110,
+"required": 0
+},
+{
+"group": "0xbf4a",
+"name": "火属性伤害",
+"value": 129,
+"required": 0
+},
+{
+"group": "0xb1b6",
+"name": "体力",
+"value": 284,
+"required": 0
+},
+{
+"group": "0xf38d",
+"name": "精力恢复速度上升（无伤）",
+"value": 114,
+"required": 15
+},
+{
+"group": "0x87d8",
+"name": "近距离攻击伤害（无伤）",
+"value": 107,
+"required": 16
+}
+]
+},
+{
+"key": "0xf7",
+"names": [
+[
+"0x2c",
+"草薙"
+]
+],
+"attack": 72,
+"defense": 67,
+"effects": [
+{
+"group": "0xbe56",
+"name": "敌人的^09~DEBUFF~{}^09~~状态累积",
+"value": 114,
+"required": 0
+},
+{
+"group": "0x9a62",
+"name": "使敌人陷入^09~DEBUFF~{}^09~~状态时精华槽增加",
+"value": 9,
+"required": 0
+},
+{
+"group": "0x267e",
+"name": "伤害反映（装备重量）",
+"value": 8,
+"required": 0
+},
+{
+"group": "0xc317",
+"name": "格挡成功时赋予^09~BUFF~{}^09~~",
+"value": 26,
+"required": 3
+},
+{
+"group": "0x4720",
+"name": "伤害反映（精华槽）",
+"value": 9,
+"required": 9
+}
+]
+},
+{
+"key": "0xfa",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x111",
+"names": [
+[
+"0x2c",
+"鞍马天狗"
+]
+],
+"attack": 72,
+"defense": 65,
+"effects": [
+{
+"group": "0x9ae9",
+"name": "武技精力伤害",
+"value": 97,
+"required": 0
+},
+{
+"group": "0x4e4e",
+"name": "感应敌人",
+"value": 0,
+"required": 0
+},
+{
+"group": "0x2075",
+"name": "风属性伤害降低",
+"value": 36,
+"required": 0
+},
+{
+"group": "0x370f",
+"name": "使用仙药时增加灵力",
+"value": 22,
+"required": 15
+},
+{
+"group": "0x7000",
+"name": "属性攻击伤害",
+"value": 108,
+"required": 16
+}
+]
+},
+{
+"key": "0x124",
+"names": [
+[
+"0x2c",
+"神鹿"
+]
+],
+"attack": 65,
+"defense": 75,
+"effects": [
+{
+"group": "0xb2e6",
+"name": "祓除常世赋予^09~BUFF~{}^09~~",
+"value": 0,
+"required": 0
+},
+{
+"group": "0x64a3",
+"name": null,
+"value": 0,
+"required": 0
+},
+{
+"group": "0xf996",
+"name": "雷属性伤害降低",
+"value": 46,
+"required": 0
+},
+{
+"group": "0xee86",
+"name": "强攻击吸取体力",
+"value": 4,
+"required": 12
+},
+{
+"group": "0x5f10",
+"name": "异常状态抗性",
+"value": 17,
+"required": 13
+}
+]
+},
+{
+"key": "0x125",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x132",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x135",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x142",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 0,
+"defense": 0,
+"effects": []
+},
+{
+"key": "0x14f",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x152",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x15d",
+"names": [
+[
+"0x2c",
+"凤凰"
+]
+],
+"attack": 70,
+"defense": 70,
+"effects": [
+{
+"group": "0x5cce",
+"name": "不消耗使役符以外的阴阳术",
+"value": 114,
+"required": 0
+},
+{
+"group": "0x5c18",
+"name": "使用阴阳术时赋予^09~BUFF~{}^09~~",
+"value": 110,
+"required": 0
+},
+{
+"group": "0x2750",
+"name": "魂核掉落率",
+"value": 208,
+"required": 0
+},
+{
+"group": "0x89ea",
+"name": "阴阳术伤害",
+"value": 146,
+"required": 16
+},
+{
+"group": "0x4baa",
+"name": "阴阳术命中时施加^09~DEBUFF~{}^09~~",
+"value": 105,
+"required": 19
+}
+]
+},
+{
+"key": "0x15e",
+"names": [
+[
+"0x2c",
+"虎御前"
+]
+],
+"attack": 68,
+"defense": 73,
+"effects": [
+{
+"group": "0x9554",
+"name": "造成水属性伤害时增加灵力",
+"value": 9,
+"required": 0
+},
+{
+"group": "0x4d1c",
+"name": "被攻击时承受的伤害降低",
+"value": 62,
+"required": 0
+},
+{
+"group": "0x2e35",
+"name": "背后攻击伤害",
+"value": 134,
+"required": 0
+},
+{
+"group": "0xf8c9",
+"name": "吸收精华后赋予^09~BUFF~{}^09~~",
+"value": 11,
+"required": 22
+},
+{
+"group": "0x1514",
+"name": "守护灵技命中赋予^09~BUFF~{}^09~~",
+"value": 9,
+"required": 25
+}
+]
+},
+{
+"key": "0x165",
+"names": [
+[
+"0x2c",
+"神猿"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x167",
+"names": [
+[
+"0x2c",
+"焰虎"
+]
+],
+"attack": 70,
+"defense": 69,
+"effects": [
+{
+"group": "0x35e2",
+"name": "对处于^09~DEBUFF~{}^09~~状态敌人的近距离伤害",
+"value": 134,
+"required": 0
+},
+{
+"group": "0x77b1",
+"name": "敌人的持续伤害",
+"value": 154,
+"required": 0
+},
+{
+"group": "0x3832",
+"name": "持续伤害降低",
+"value": 312,
+"required": 0
+},
+{
+"group": "0x3194",
+"name": "精华槽增加量",
+"value": 108,
+"required": 14
+},
+{
+"group": "0xbfa0",
+"name": "守护灵技灵力消耗减少",
+"value": 107,
+"required": 15
+}
+]
+},
+{
+"key": "0x169",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x16f",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x170",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x17c",
+"names": [
+[
+"0x2c",
+"凤凰"
+]
+],
+"attack": 70,
+"defense": 70,
+"effects": [
+{
+"group": "0x5cce",
+"name": "不消耗使役符以外的阴阳术",
+"value": 114,
+"required": 0
+},
+{
+"group": "0x936e",
+"name": "阴阳术命中赋予^09~BUFF~{}^09~~",
+"value": 110,
+"required": 0
+},
+{
+"group": "0x74ab",
+"name": "获得魂核时恢复体力",
+"value": 668,
+"required": 0
+},
+{
+"group": "0xb292",
+"name": "阴阳术精力伤害",
+"value": 146,
+"required": 16
+},
+{
+"group": "0x1100",
+"name": "阴阳术命中时施加^09~DEBUFF~{}^09~~",
+"value": 105,
+"required": 19
+}
+]
+},
+{
+"key": "0x187",
+"names": [
+[
+"0x2c",
+"草薙"
+]
+],
+"attack": 71,
+"defense": 66,
+"effects": [
+{
+"group": "0x3c09",
+"name": "空中攻击伤害",
+"value": 129,
+"required": 0
+},
+{
+"group": "0x45fa",
+"name": "水属性伤害降低",
+"value": 46,
+"required": 0
+},
+{
+"group": "0x369f",
+"name": "跳跃的精力",
+"value": 186,
+"required": 0
+},
+{
+"group": "0x873f",
+"name": "速攻击伤害",
+"value": 86,
+"required": 1
+},
+{
+"group": "0x37c0",
+"name": "背后攻击灵力增加量",
+"value": 208,
+"required": 5
+}
+]
+},
+{
+"key": "0x189",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x18e",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x18f",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x1a2",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x1a4",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x1c7",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x1cd",
+"names": [
+[
+"0x2c",
+"草薙"
+]
+],
+"attack": 72,
+"defense": 67,
+"effects": [
+{
+"group": "0x94cb",
+"name": "敌人的^09~DEBUFF~{}^09~~状态累积",
+"value": 114,
+"required": 0
+},
+{
+"group": "0xa7b6",
+"name": "使敌人陷入^09~DEBUFF~{}^09~~状态时精华槽增加",
+"value": 9,
+"required": 0
+},
+{
+"group": "0xae3d",
+"name": "伤害反映（敏捷）",
+"value": 8,
+"required": 0
+},
+{
+"group": "0x2e2e",
+"name": "成功识破时^09~BUFF~{}^09~~",
+"value": 26,
+"required": 3
+},
+{
+"group": "0x4720",
+"name": "伤害反映（精华槽）",
+"value": 9,
+"required": 9
+}
+]
+},
+{
+"key": "0x1e2",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+},
+{
+"key": "0x1f9",
+"names": [
+[
+"0x2c",
+"备用"
+],
+[
+"0x30",
+"备用"
+]
+],
+"attack": 59,
+"defense": 59,
+"effects": []
+}
+]
+}

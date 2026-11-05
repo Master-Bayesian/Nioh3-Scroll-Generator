@@ -1,0 +1,1283 @@
+[
+{
+"path": "work/blind-1023/base/capture.json",
+"form": 0,
+"attrs": [
+37,
+150,
+27,
+26,
+80,
+15,
+150
+],
+"weapon": "0x93a0",
+"records": [
+2663,
+2759,
+2759,
+2759,
+2682,
+2759
+],
+"model": [
+2428,
+82,
+82,
+82,
+2447,
+2841
+],
+"plus8": [
+155,
+155,
+120,
+120,
+120,
+120
+],
+"attack_group": 120,
+"stat12c": 120,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0xbb71",
+"0x0",
+"0x7768",
+"0x0",
+"0xbd34",
+"0x0",
+"0x45ff",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.7512300610542297,
+0.7512300610542297
+],
+"defense": 695,
+"base": 235,
+"base_minus_guardian": 164
+},
+{
+"path": "work/blind-1023/h1/capture.json",
+"form": 0,
+"attrs": [
+37,
+150,
+27,
+26,
+80,
+15,
+150
+],
+"weapon": "0x93a0",
+"records": [
+2663,
+2759,
+2759,
+2759,
+2682,
+2759
+],
+"model": [
+2428,
+82,
+82,
+82,
+2447,
+2841
+],
+"plus8": [
+155,
+155,
+120,
+120,
+120,
+120
+],
+"attack_group": 120,
+"stat12c": 120,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0xbb71",
+"0x0",
+"0x7768",
+"0x0",
+"0xbd34",
+"0x0",
+"0x45ff",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.9394304752349854,
+0.9394304752349854
+],
+"defense": 3429,
+"base": 235,
+"base_minus_guardian": 164
+},
+{
+"path": "work/blind-1023/h2/capture.json",
+"form": 0,
+"attrs": [
+37,
+150,
+27,
+26,
+80,
+15,
+150
+],
+"weapon": "0x93a0",
+"records": [
+2663,
+2759,
+2759,
+2759,
+2682,
+2759
+],
+"model": [
+2428,
+82,
+82,
+82,
+2447,
+2841
+],
+"plus8": [
+155,
+155,
+120,
+120,
+120,
+120
+],
+"attack_group": 120,
+"stat12c": 120,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0xbb71",
+"0x0",
+"0x7768",
+"0x0",
+"0xbd34",
+"0x0",
+"0x45ff",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.7512300610542297,
+0.7512300610542297
+],
+"defense": 695,
+"base": 235,
+"base_minus_guardian": 164
+},
+{
+"path": "work/blind-1023/h3/capture.json",
+"form": 0,
+"attrs": [
+37,
+150,
+27,
+26,
+80,
+15,
+150
+],
+"weapon": "0x93a0",
+"records": [
+2663,
+2759,
+2759,
+2759,
+2682,
+2759
+],
+"model": [
+2428,
+82,
+82,
+82,
+2447,
+2841
+],
+"plus8": [
+155,
+155,
+120,
+120,
+120,
+120
+],
+"attack_group": 120,
+"stat12c": 120,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0xbb71",
+"0x0",
+"0x7768",
+"0x0",
+"0xbd34",
+"0x0",
+"0x45ff",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.9394304752349854,
+0.9394304752349854
+],
+"defense": 3429,
+"base": 235,
+"base_minus_guardian": 164
+},
+{
+"path": "work/blind-1023/h4/capture.json",
+"form": 0,
+"attrs": [
+37,
+150,
+27,
+26,
+80,
+15,
+150
+],
+"weapon": "0x93a0",
+"records": [
+2663,
+2759,
+2759,
+2759,
+2682,
+2759
+],
+"model": [
+2428,
+82,
+82,
+82,
+2447,
+2841
+],
+"plus8": [
+155,
+155,
+120,
+120,
+120,
+120
+],
+"attack_group": 120,
+"stat12c": 120,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0xbb71",
+"0x0",
+"0x7768",
+"0x0",
+"0xbd34",
+"0x0",
+"0x45ff",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.9394304752349854,
+0.9394304752349854
+],
+"defense": 3429,
+"base": 235,
+"base_minus_guardian": 164
+},
+{
+"path": "work/blind-1023/h4c/capture.json",
+"form": 0,
+"attrs": [
+37,
+150,
+27,
+26,
+80,
+15,
+150
+],
+"weapon": "0x93a0",
+"records": [
+2663,
+2759,
+2759,
+2759,
+2682,
+2759
+],
+"model": [
+2428,
+82,
+82,
+82,
+2447,
+2841
+],
+"plus8": [
+155,
+155,
+120,
+120,
+120,
+120
+],
+"attack_group": 120,
+"stat12c": 120,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0xbb71",
+"0x0",
+"0x7768",
+"0x2e00",
+"0xbd34",
+"0x0",
+"0x45ff",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.9394304752349854,
+0.9394304752349854
+],
+"defense": 3429,
+"base": 235,
+"base_minus_guardian": 164
+},
+{
+"path": "work/live-1104/spell2/capture.json",
+"form": 1,
+"attrs": [
+37,
+150,
+27,
+26,
+80,
+15,
+150
+],
+"weapon": "0x0",
+"records": [
+2674,
+2674,
+2674,
+2674,
+2597,
+2674
+],
+"model": [
+0,
+0,
+0,
+0,
+2365,
+2674
+],
+"plus8": [
+156,
+156,
+120,
+120,
+120,
+120
+],
+"attack_group": 120,
+"stat12c": 120,
+"guardian_attack": 68,
+"guardian_defense": 73,
+"core_keys": [
+"0xbb71",
+"0x0",
+"0x7768",
+"0x2e00",
+"0xbd34",
+"0x0",
+"0x45ff",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.7713861465454102,
+0.7713861465454102
+],
+"defense": 1463,
+"base": 2674,
+"base_minus_guardian": 2606
+},
+{
+"path": "work/live-1104/spell4/capture.json",
+"form": 0,
+"attrs": [
+37,
+150,
+27,
+26,
+80,
+15,
+150
+],
+"weapon": "0x93a0",
+"records": [
+2663,
+2759,
+2759,
+2759,
+2682,
+2759
+],
+"model": [
+2428,
+82,
+82,
+82,
+2447,
+2841
+],
+"plus8": [
+155,
+155,
+120,
+120,
+120,
+120
+],
+"attack_group": 120,
+"stat12c": 120,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0xbb71",
+"0x0",
+"0x7768",
+"0x2e00",
+"0xbd34",
+"0x0",
+"0x45ff",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.9394304752349854,
+0.9394304752349854
+],
+"defense": 3429,
+"base": 235,
+"base_minus_guardian": 164
+},
+{
+"path": "work/live1021-h1c/capture.json",
+"form": 0,
+"attrs": [
+25,
+150,
+150,
+40,
+50,
+20,
+50
+],
+"weapon": "0xe61e",
+"records": [
+2484,
+2843,
+2843,
+2843,
+401,
+2843
+],
+"model": [
+2083,
+0,
+0,
+0,
+401,
+2843
+],
+"plus8": [
+148,
+148,
+113,
+113,
+113,
+113
+],
+"attack_group": 113,
+"stat12c": 113,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0x7bd9",
+"0x7bd9",
+"0xd66c",
+"0xbd34",
+"0xc40e",
+"0x45ff",
+"0xa3e8",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.75,
+0.75
+],
+"defense": 466,
+"base": 401,
+"base_minus_guardian": 330
+},
+{
+"path": "work/live1021-h3-try4/capture.json",
+"form": 0,
+"attrs": [
+25,
+150,
+150,
+40,
+50,
+20,
+50
+],
+"weapon": "0x93a0",
+"records": [
+2764,
+2843,
+2843,
+2843,
+401,
+2843
+],
+"model": [
+2363,
+0,
+0,
+0,
+401,
+2843
+],
+"plus8": [
+148,
+148,
+113,
+113,
+113,
+113
+],
+"attack_group": 113,
+"stat12c": 113,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0x7bd9",
+"0x7bd9",
+"0xd66c",
+"0xbd34",
+"0xc40e",
+"0x45ff",
+"0xa3e8",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.910759687423706,
+0.910759687423706
+],
+"defense": 3097,
+"base": 401,
+"base_minus_guardian": 330
+},
+{
+"path": "work/live1021-h4-split/frame01/capture.json",
+"form": 0,
+"attrs": [
+25,
+150,
+150,
+40,
+50,
+20,
+50
+],
+"weapon": "0x93a0",
+"records": [
+2764,
+2843,
+2843,
+2843,
+401,
+2843
+],
+"model": [
+2363,
+0,
+0,
+0,
+401,
+2843
+],
+"plus8": [
+148,
+148,
+113,
+113,
+113,
+113
+],
+"attack_group": 113,
+"stat12c": 113,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0x7bd9",
+"0x7bd9",
+"0xd66c",
+"0xbd34",
+"0xc40e",
+"0x45ff",
+"0xa3e8",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.9112367630004883,
+0.9112367630004883
+],
+"defense": 3267,
+"base": 401,
+"base_minus_guardian": 330
+},
+{
+"path": "work/live1021-h4-split/frame02/capture.json",
+"form": 0,
+"attrs": [
+25,
+150,
+150,
+40,
+50,
+20,
+50
+],
+"weapon": "0x93a0",
+"records": [
+2764,
+2843,
+2843,
+2843,
+401,
+2843
+],
+"model": [
+2363,
+0,
+0,
+0,
+401,
+2843
+],
+"plus8": [
+148,
+148,
+113,
+113,
+113,
+113
+],
+"attack_group": 113,
+"stat12c": 113,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0x7bd9",
+"0x7bd9",
+"0xd66c",
+"0xbd34",
+"0xc40e",
+"0x45ff",
+"0xa3e8",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.9117137789726257,
+0.9117137789726257
+],
+"defense": 3437,
+"base": 401,
+"base_minus_guardian": 330
+},
+{
+"path": "work/live1021-h4-split4/frame04/capture.json",
+"form": 0,
+"attrs": [
+25,
+150,
+150,
+40,
+50,
+20,
+50
+],
+"weapon": "0x93a0",
+"records": [
+2846,
+2925,
+2925,
+2925,
+483,
+2925
+],
+"model": [
+2445,
+82,
+82,
+82,
+565,
+3007
+],
+"plus8": [
+148,
+148,
+113,
+113,
+113,
+113
+],
+"attack_group": 113,
+"stat12c": 113,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0x7bd9",
+"0x7bd9",
+"0xd66c",
+"0xbd34",
+"0xc40e",
+"0x45ff",
+"0xa3e8",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.9117137789726257,
+0.9117137789726257
+],
+"defense": 3482,
+"base": 401,
+"base_minus_guardian": 330
+},
+{
+"path": "work/live1021-h5/capture.json",
+"form": 0,
+"attrs": [
+25,
+150,
+150,
+40,
+50,
+20,
+50
+],
+"weapon": "0x93a0",
+"records": [
+2846,
+2925,
+2925,
+2925,
+483,
+2925
+],
+"model": [
+2445,
+82,
+82,
+82,
+565,
+3007
+],
+"plus8": [
+148,
+148,
+113,
+113,
+113,
+113
+],
+"attack_group": 113,
+"stat12c": 113,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0x7bd9",
+"0x7bd9",
+"0xd66c",
+"0xbd34",
+"0xc40e",
+"0x45ff",
+"0xa3e8",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.9117137789726257,
+0.9117137789726257
+],
+"defense": 3482,
+"base": 401,
+"base_minus_guardian": 330
+},
+{
+"path": "work/live1022-ail2/capture.json",
+"form": 0,
+"attrs": [
+25,
+150,
+150,
+40,
+50,
+20,
+50
+],
+"weapon": "0x4747",
+"records": [
+2374,
+2843,
+2843,
+2843,
+401,
+2843
+],
+"model": [
+1973,
+0,
+0,
+0,
+401,
+2843
+],
+"plus8": [
+148,
+148,
+113,
+113,
+113,
+113
+],
+"attack_group": 113,
+"stat12c": 113,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0x7bd9",
+"0x7bd9",
+"0xd66c",
+"0xbd34",
+"0xc40e",
+"0x45ff",
+"0xa3e8",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.910759687423706,
+0.910759687423706
+],
+"defense": 3097,
+"base": 401,
+"base_minus_guardian": 330
+},
+{
+"path": "work/live1022-ail3/capture.json",
+"form": 0,
+"attrs": [
+25,
+150,
+150,
+40,
+50,
+20,
+50
+],
+"weapon": "0x4747",
+"records": [
+2374,
+2843,
+2843,
+2843,
+401,
+2843
+],
+"model": [
+1973,
+0,
+0,
+0,
+401,
+2843
+],
+"plus8": [
+148,
+148,
+113,
+113,
+113,
+113
+],
+"attack_group": 113,
+"stat12c": 113,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0x7bd9",
+"0x7bd9",
+"0xd66c",
+"0xbd34",
+"0xc40e",
+"0x45ff",
+"0xa3e8",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.910759687423706,
+0.910759687423706
+],
+"defense": 3097,
+"base": 401,
+"base_minus_guardian": 330
+},
+{
+"path": "work/live1022-art2/capture.json",
+"form": 0,
+"attrs": [
+25,
+150,
+150,
+40,
+50,
+20,
+50
+],
+"weapon": "0x93a0",
+"records": [
+2764,
+2843,
+2843,
+2843,
+401,
+2843
+],
+"model": [
+2363,
+0,
+0,
+0,
+401,
+2843
+],
+"plus8": [
+148,
+148,
+113,
+113,
+113,
+113
+],
+"attack_group": 113,
+"stat12c": 113,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0x7bd9",
+"0x7bd9",
+"0xd66c",
+"0xbd34",
+"0xc40e",
+"0x45ff",
+"0xa3e8",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.910759687423706,
+0.910759687423706
+],
+"defense": 3097,
+"base": 401,
+"base_minus_guardian": 330
+},
+{
+"path": "work/live1022-imbue-plain/capture.json",
+"form": 0,
+"attrs": [
+37,
+150,
+27,
+26,
+80,
+15,
+150
+],
+"weapon": "0x93a0",
+"records": [
+2581,
+2677,
+2677,
+2677,
+2600,
+2677
+],
+"model": [
+2346,
+0,
+0,
+0,
+2365,
+2677
+],
+"plus8": [
+155,
+155,
+120,
+120,
+120,
+120
+],
+"attack_group": 120,
+"stat12c": 120,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0xbb71",
+"0x0",
+"0x7768",
+"0x0",
+"0xbd34",
+"0x0",
+"0x45ff",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.7702960968017578,
+0.7702960968017578
+],
+"defense": 959,
+"base": 235,
+"base_minus_guardian": 164
+},
+{
+"path": "work/live1022-imbue/capture.json",
+"form": 0,
+"attrs": [
+37,
+150,
+27,
+26,
+80,
+15,
+150
+],
+"weapon": "0x4747",
+"records": [
+2134,
+2677,
+2677,
+2677,
+2600,
+2677
+],
+"model": [
+1899,
+0,
+0,
+0,
+2365,
+2677
+],
+"plus8": [
+155,
+155,
+120,
+120,
+120,
+120
+],
+"attack_group": 120,
+"stat12c": 120,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0xbb71",
+"0x0",
+"0x7768",
+"0x0",
+"0xbd34",
+"0x0",
+"0x45ff",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.7702960968017578,
+0.7702960968017578
+],
+"defense": 959,
+"base": 235,
+"base_minus_guardian": 164
+},
+{
+"path": "work/swap-s0-01/capture.json",
+"form": 0,
+"attrs": [
+25,
+150,
+150,
+40,
+50,
+20,
+50
+],
+"weapon": "0xe61e",
+"records": [
+2484,
+2843,
+2843,
+2843,
+401,
+2843
+],
+"model": [
+2083,
+0,
+0,
+0,
+401,
+2843
+],
+"plus8": [
+148,
+148,
+113,
+113,
+113,
+113
+],
+"attack_group": 113,
+"stat12c": 113,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0x7bd9",
+"0x7bd9",
+"0xd66c",
+"0xbd34",
+"0xc40e",
+"0x45ff",
+"0xa3e8",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.75,
+0.75
+],
+"defense": 466,
+"base": 401,
+"base_minus_guardian": 330
+},
+{
+"path": "work/swap-s1-03/capture.json",
+"form": 0,
+"attrs": [
+25,
+150,
+150,
+40,
+50,
+20,
+50
+],
+"weapon": "0xe61e",
+"records": [
+2484,
+2843,
+2843,
+2843,
+401,
+2843
+],
+"model": [
+2083,
+0,
+0,
+0,
+401,
+2843
+],
+"plus8": [
+148,
+148,
+113,
+113,
+113,
+113
+],
+"attack_group": 113,
+"stat12c": 113,
+"guardian_attack": 71,
+"guardian_defense": 66,
+"core_keys": [
+"0x7bd9",
+"0x7bd9",
+"0xd66c",
+"0xbd34",
+"0xc40e",
+"0x45ff",
+"0xa3e8",
+"0xc4ae"
+],
+"seed_ok": true,
+"seed1a8_ok": true,
+"loadfactor": [
+0.7724204659461975,
+0.7724204659461975
+],
+"defense": 852,
+"base": 401,
+"base_minus_guardian": 330
+}
+]
