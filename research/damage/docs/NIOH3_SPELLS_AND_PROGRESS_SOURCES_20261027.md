@@ -75,3 +75,17 @@ Damage-relevant blessings at the captured ranks (`data/BLESSINGS.json`): 武技�
 
 Skill 祸实之法 (0x22DA, ninja, cost 3) supplies group 0xF1A8 value 10, which is D+0x2B4 视敌方负面效果数影响术伤害, so the
 debuff-count effect above comes from this skill.
+
+## Soul core and guardian by live differential (11-05)
+
+Reading the aggregate before and after a swap isolates a source without breakpoints (`ledger_diff.py`).
+
+Guardian entries are per style, five each, and enter the form's aggregate as displayed percent × 10. The two swapped-in
+guardians match their menu text exactly (凤凰 in form 0: 146 阴阳术伤害, 114, 208; 猫又 in form 1: 258 追击和近身刺击伤害, 168,
+107, 107, 81). The guardians removed gave form 0: 武技伤害 97, 琢技伤害倍率 108, 武技灵力增加量 208, 火属性伤害降低 46, 残心精力恢复量
+186; form 1: 背后攻击伤害 134, 被攻击时承受的伤害降低 62, 9, 9, 11. The guardian's 玩家的强化值 (70/70) did not appear in this
+aggregate, so that path is still open.
+
+Removing the soul core dropped four entries: 武技精力伤害 78, 格挡成功赋予 11, 残心初始量 50, 阴阳术命中时施加 DEBUFF (0x5DC3). Form 1
+changed at the first read and form 0 lost the same four entries by the second read, with the owner reporting the samurai
+slot empty. This suggests one shared core and a lazily rebuilt table for the inactive form, not yet proven.

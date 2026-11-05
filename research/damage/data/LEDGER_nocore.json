@@ -1,0 +1,2748 @@
+{
+"source": "0x264c23228d0",
+"rows": [
+{
+"form": 0,
+"group": "0x52d",
+"name": null,
+"live": 36,
+"extra": 0,
+"known": 0,
+"rest": 36,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xbf9",
+"name": "武技精力消耗降低",
+"live": 50,
+"extra": 0,
+"known": 50,
+"rest": 0,
+"parts": [
+[
+50,
+"技能0F61"
+]
+]
+},
+{
+"form": 0,
+"group": "0xf01",
+"name": null,
+"live": 50,
+"extra": 0,
+"known": 50,
+"rest": 0,
+"parts": [
+[
+50,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0xfb2",
+"name": null,
+"live": 36,
+"extra": 0,
+"known": 36,
+"rest": 0,
+"parts": [
+[
+36,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0x158c",
+"name": "仙药掉落率",
+"live": 250,
+"extra": 0,
+"known": 0,
+"rest": 250,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x181d",
+"name": "格挡可增加灵力",
+"live": 10,
+"extra": 0,
+"known": 0,
+"rest": 10,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x18bb",
+"name": "敌人的^09~DEBUFF~{}^09~~状态累积",
+"live": 80,
+"extra": 0,
+"known": 0,
+"rest": 80,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x1a25",
+"name": "地狱武器伤害",
+"live": 36,
+"extra": 0,
+"known": 36,
+"rest": 0,
+"parts": [
+[
+36,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0x1dd3",
+"name": "祓除常世赋予^09~BUFF~{}^09~~",
+"live": 24,
+"extra": 0,
+"known": 0,
+"rest": 24,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x203d",
+"name": null,
+"live": 0,
+"extra": 0,
+"known": 0,
+"rest": 0,
+"parts": [
+[
+0,
+"技能2E34"
+]
+]
+},
+{
+"form": 0,
+"group": "0x242a",
+"name": "防御时的属性攻击伤害降低",
+"live": 56,
+"extra": 0,
+"known": 56,
+"rest": 0,
+"parts": [
+[
+56,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0x2673",
+"name": null,
+"live": 300,
+"extra": 0,
+"known": 300,
+"rest": 0,
+"parts": [
+[
+300,
+"技能A7AA"
+]
+]
+},
+{
+"form": 0,
+"group": "0x267e",
+"name": "伤害反映（装备重量）",
+"live": 10,
+"extra": 0,
+"known": 10,
+"rest": 0,
+"parts": [
+[
+10,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0x2a1f",
+"name": "忍术伤害",
+"live": 117,
+"extra": 0,
+"known": 117,
+"rest": 0,
+"parts": [
+[
+117,
+"slot6340"
+]
+]
+},
+{
+"form": 0,
+"group": "0x2e35",
+"name": "背后攻击伤害",
+"live": 98,
+"extra": 0,
+"known": 98,
+"rest": 0,
+"parts": [
+[
+98,
+"slot6340"
+]
+]
+},
+{
+"form": 0,
+"group": "0x3086",
+"name": "装备品掉落率",
+"live": 40,
+"extra": 0,
+"known": 40,
+"rest": 0,
+"parts": [
+[
+40,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0x30a6",
+"name": "近距离攻击的精力消耗降低",
+"live": 125,
+"extra": 0,
+"known": 0,
+"rest": 125,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x369f",
+"name": "跳跃的精力",
+"live": 80,
+"extra": 0,
+"known": 0,
+"rest": 80,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x370f",
+"name": "使用仙药时增加灵力",
+"live": 15,
+"extra": 0,
+"known": 0,
+"rest": 15,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x3a1f",
+"name": "格挡成功时赋予^09~BUFF~{}^09~~",
+"live": 44,
+"extra": 0,
+"known": 0,
+"rest": 44,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x3b0e",
+"name": "幸运",
+"live": 198,
+"extra": 0,
+"known": 5,
+"rest": 193,
+"parts": [
+[
+5,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0x3c09",
+"name": "空中攻击伤害",
+"live": 42,
+"extra": 0,
+"known": 0,
+"rest": 42,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x3e52",
+"name": null,
+"live": 0,
+"extra": 0,
+"known": 0,
+"rest": 0,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x43b5",
+"name": "追击和近身刺击伤害",
+"live": 100,
+"extra": 0,
+"known": 100,
+"rest": 0,
+"parts": [
+[
+100,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0x44b6",
+"name": "精力归零时降低承受的伤害",
+"live": 35,
+"extra": 0,
+"known": 35,
+"rest": 0,
+"parts": [
+[
+35,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0x4545",
+"name": "陷入异常状态时赋予^09~BUFF~{}^09~~",
+"live": 47,
+"extra": 0,
+"known": 0,
+"rest": 47,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x4bb6",
+"name": "防御力",
+"live": 97,
+"extra": 0,
+"known": 0,
+"rest": 97,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x4c6b",
+"name": "强攻击获得精华",
+"live": 5,
+"extra": 0,
+"known": 0,
+"rest": 5,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x4d1c",
+"name": "被攻击时承受的伤害降低",
+"live": 12,
+"extra": 0,
+"known": 0,
+"rest": 12,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x4dec",
+"name": "火枪动作速度加快",
+"live": 0,
+"extra": 0,
+"known": 0,
+"rest": 0,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x5072",
+"name": null,
+"live": 0,
+"extra": 0,
+"known": 0,
+"rest": 0,
+"parts": [
+[
+0,
+"技能3411"
+]
+]
+},
+{
+"form": 0,
+"group": "0x52ac",
+"name": "不易被敌人发现",
+"live": 10,
+"extra": 0,
+"known": 10,
+"rest": 0,
+"parts": [
+[
+10,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0x54fe",
+"name": "灵力",
+"live": 2,
+"extra": 0,
+"known": 2,
+"rest": 0,
+"parts": [
+[
+2,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0x5dc3",
+"name": "阴阳术命中时施加^09~DEBUFF~{}^09~~",
+"live": 0,
+"extra": 0,
+"known": 0,
+"rest": 0,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x62c5",
+"name": null,
+"live": 308,
+"extra": 0,
+"known": 200,
+"rest": 108,
+"parts": [
+[
+200,
+"技能7F32"
+]
+]
+},
+{
+"form": 0,
+"group": "0x6a7c",
+"name": "攻击力",
+"live": 120,
+"extra": 0,
+"known": 32,
+"rest": 88,
+"parts": [
+[
+12,
+"技能E3B2"
+],
+[
+20,
+"技能7528"
+]
+]
+},
+{
+"form": 0,
+"group": "0x6ab1",
+"name": "强攻击精力消耗降低",
+"live": 19,
+"extra": 0,
+"known": 0,
+"rest": 19,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x7000",
+"name": "属性攻击伤害",
+"live": 50,
+"extra": 0,
+"known": 50,
+"rest": 0,
+"parts": [
+[
+50,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0x71e8",
+"name": null,
+"live": 0,
+"extra": 0,
+"known": 0,
+"rest": 0,
+"parts": [
+[
+0,
+"技能E117"
+]
+]
+},
+{
+"form": 0,
+"group": "0x736e",
+"name": "对处于^09~DEBUFF~{}^09~~状态敌人的近距离伤害",
+"live": 20,
+"extra": 0,
+"known": 0,
+"rest": 20,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x7ad1",
+"name": "属性攻击伤害降低",
+"live": 2,
+"extra": 0,
+"known": 0,
+"rest": 2,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x81a5",
+"name": "获得精华增加灵力",
+"live": 4,
+"extra": 0,
+"known": 0,
+"rest": 4,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x83ab",
+"name": null,
+"live": 36,
+"extra": 0,
+"known": 36,
+"rest": 0,
+"parts": [
+[
+36,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0x8556",
+"name": null,
+"live": 60,
+"extra": 0,
+"known": 60,
+"rest": 0,
+"parts": [
+[
+60,
+"技能E8F6"
+]
+]
+},
+{
+"form": 0,
+"group": "0x8606",
+"name": null,
+"live": 54,
+"extra": 0,
+"known": 0,
+"rest": 54,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x87d8",
+"name": "近距离攻击伤害（无伤）",
+"live": 18,
+"extra": 0,
+"known": 18,
+"rest": 0,
+"parts": [
+[
+18,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0x89ed",
+"name": null,
+"live": 100,
+"extra": 0,
+"known": 100,
+"rest": 0,
+"parts": [
+[
+100,
+"技能7373"
+]
+]
+},
+{
+"form": 0,
+"group": "0x8ae1",
+"name": "忍术造成的精力伤害",
+"live": 36,
+"extra": 0,
+"known": 36,
+"rest": 0,
+"parts": [
+[
+36,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0x8f8e",
+"name": "中段架式防御精力消耗降低",
+"live": 80,
+"extra": 0,
+"known": 0,
+"rest": 80,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x90a4",
+"name": "地狱武器掉落率",
+"live": 36,
+"extra": 0,
+"known": 36,
+"rest": 0,
+"parts": [
+[
+36,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0x90d7",
+"name": "火枪伤害",
+"live": 126,
+"extra": 0,
+"known": 0,
+"rest": 126,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x9528",
+"name": "武技灵力增加量",
+"live": 208,
+"extra": 0,
+"known": 0,
+"rest": 208,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x9554",
+"name": "造成水属性伤害时增加灵力",
+"live": 2,
+"extra": 0,
+"known": 0,
+"rest": 2,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x9ae9",
+"name": "武技精力伤害",
+"live": 149,
+"extra": 0,
+"known": 0,
+"rest": 149,
+"parts": []
+},
+{
+"form": 0,
+"group": "0x9bec",
+"name": "阴阳术　术力",
+"live": 11,
+"extra": 0,
+"known": 11,
+"rest": 0,
+"parts": [
+[
+11,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0xa628",
+"name": "格挡的判定时间延长",
+"live": 0,
+"extra": 0,
+"known": 0,
+"rest": 0,
+"parts": [
+[
+0,
+"技能54B5"
+]
+]
+},
+{
+"form": 0,
+"group": "0xa955",
+"name": "获得精华（地狱）",
+"live": 48,
+"extra": 0,
+"known": 48,
+"rest": 0,
+"parts": [
+[
+48,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0xa987",
+"name": "绝境时赋予^09~BUFF~{}^09~~",
+"live": 148,
+"extra": 0,
+"known": 0,
+"rest": 148,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xa992",
+"name": "麻痹抗性",
+"live": 10,
+"extra": 0,
+"known": 0,
+"rest": 10,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xac34",
+"name": "承受的伤害降低（攻击动作期间）",
+"live": 30,
+"extra": 0,
+"known": 0,
+"rest": 30,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xaf15",
+"name": "阴阳术命中赋予^09~BUFF~{}^09~~",
+"live": 14,
+"extra": 0,
+"known": 0,
+"rest": 14,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xaf2c",
+"name": "武技伤害",
+"live": 197,
+"extra": 0,
+"known": 100,
+"rest": 97,
+"parts": [
+[
+50,
+"恩惠"
+],
+[
+50,
+"技能C826"
+]
+]
+},
+{
+"form": 0,
+"group": "0xb1b6",
+"name": "体力",
+"live": 322,
+"extra": 0,
+"known": 0,
+"rest": 322,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xb2d3",
+"name": "火属性伤害降低",
+"live": 56,
+"extra": 0,
+"known": 0,
+"rest": 56,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xb358",
+"name": "道具掉落率",
+"live": 100,
+"extra": 0,
+"known": 0,
+"rest": 100,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xb990",
+"name": "获得精华增加灵力（绝境）",
+"live": 6,
+"extra": 0,
+"known": 0,
+"rest": 6,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xbe5b",
+"name": "近距离攻击精力伤害",
+"live": 40,
+"extra": 0,
+"known": 40,
+"rest": 0,
+"parts": [
+[
+40,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0xc317",
+"name": "格挡成功时赋予^09~BUFF~{}^09~~",
+"live": 3,
+"extra": 0,
+"known": 0,
+"rest": 3,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xc4dd",
+"name": "获得金钱",
+"live": 24,
+"extra": 0,
+"known": 24,
+"rest": 0,
+"parts": [
+[
+24,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0xc5d3",
+"name": "崩解",
+"live": 10,
+"extra": 0,
+"known": 0,
+"rest": 10,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xcb10",
+"name": null,
+"live": 36,
+"extra": 0,
+"known": 36,
+"rest": 0,
+"parts": [
+[
+36,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0xcfec",
+"name": "守护灵技的伤害",
+"live": 200,
+"extra": 0,
+"known": 0,
+"rest": 200,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xd049",
+"name": "药物恢复体力效果",
+"live": 186,
+"extra": 0,
+"known": 36,
+"rest": 150,
+"parts": [
+[
+36,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0xd2c1",
+"name": "冲刺精力消耗降低",
+"live": 12,
+"extra": 0,
+"known": 12,
+"rest": 0,
+"parts": [
+[
+12,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0xd405",
+"name": "精力恢复速度",
+"live": 251,
+"extra": 0,
+"known": 24,
+"rest": 227,
+"parts": [
+[
+24,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0xd5c5",
+"name": "忍术命中增加灵力",
+"live": 5,
+"extra": 0,
+"known": 5,
+"rest": 0,
+"parts": [
+[
+5,
+"恩惠"
+]
+]
+},
+{
+"form": 0,
+"group": "0xd60f",
+"name": null,
+"live": 60,
+"extra": 0,
+"known": 0,
+"rest": 60,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xdff7",
+"name": null,
+"live": 300,
+"extra": 0,
+"known": 300,
+"rest": 0,
+"parts": [
+[
+300,
+"技能7F32"
+]
+]
+},
+{
+"form": 0,
+"group": "0xe96b",
+"name": null,
+"live": 100,
+"extra": 0,
+"known": 100,
+"rest": 0,
+"parts": [
+[
+100,
+"技能FD4A"
+]
+]
+},
+{
+"form": 0,
+"group": "0xeb7a",
+"name": "近距离攻击伤害",
+"live": 144,
+"extra": 0,
+"known": 0,
+"rest": 144,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xecc5",
+"name": "心之深奥",
+"live": 150,
+"extra": 0,
+"known": 0,
+"rest": 150,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xf4c5",
+"name": "对精力耗尽敌人的近距离伤害",
+"live": 220,
+"extra": 0,
+"known": 220,
+"rest": 0,
+"parts": [
+[
+100,
+"恩惠"
+],
+[
+120,
+"技能8E80"
+]
+]
+},
+{
+"form": 0,
+"group": "0xf63d",
+"name": "残心初始量",
+"live": 50,
+"extra": 0,
+"known": 0,
+"rest": 50,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xf79f",
+"name": "精髓并存（共通）",
+"live": 0,
+"extra": 0,
+"known": 0,
+"rest": 0,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xf919",
+"name": null,
+"live": 35,
+"extra": 0,
+"known": 0,
+"rest": 35,
+"parts": []
+},
+{
+"form": 0,
+"group": "0xfdde",
+"name": "残心精力恢复量",
+"live": 286,
+"extra": 0,
+"known": 100,
+"rest": 186,
+"parts": [
+[
+100,
+"技能D65F"
+]
+]
+},
+{
+"form": 0,
+"group": "0xfe30",
+"name": "雷属性伤害",
+"live": 60,
+"extra": 0,
+"known": 0,
+"rest": 60,
+"parts": []
+},
+{
+"form": 1,
+"group": "0x52d",
+"name": null,
+"live": 36,
+"extra": 0,
+"known": 0,
+"rest": 36,
+"parts": []
+},
+{
+"form": 1,
+"group": "0xf01",
+"name": null,
+"live": 50,
+"extra": 0,
+"known": 50,
+"rest": 0,
+"parts": [
+[
+50,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0xfb2",
+"name": null,
+"live": 36,
+"extra": 0,
+"known": 36,
+"rest": 0,
+"parts": [
+[
+36,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0x1514",
+"name": "守护灵技命中赋予^09~BUFF~{}^09~~",
+"live": 9,
+"extra": 0,
+"known": 0,
+"rest": 9,
+"parts": []
+},
+{
+"form": 1,
+"group": "0x158c",
+"name": "仙药掉落率",
+"live": 250,
+"extra": 0,
+"known": 0,
+"rest": 250,
+"parts": []
+},
+{
+"form": 1,
+"group": "0x1a25",
+"name": "地狱武器伤害",
+"live": 36,
+"extra": 0,
+"known": 36,
+"rest": 0,
+"parts": [
+[
+36,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0x242a",
+"name": "防御时的属性攻击伤害降低",
+"live": 56,
+"extra": 0,
+"known": 56,
+"rest": 0,
+"parts": [
+[
+56,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0x267e",
+"name": "伤害反映（装备重量）",
+"live": 10,
+"extra": 0,
+"known": 10,
+"rest": 0,
+"parts": [
+[
+10,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0x2a1f",
+"name": "忍术伤害",
+"live": 117,
+"extra": 0,
+"known": 117,
+"rest": 0,
+"parts": [
+[
+117,
+"slot6340"
+]
+]
+},
+{
+"form": 1,
+"group": "0x2e35",
+"name": "背后攻击伤害",
+"live": 232,
+"extra": 0,
+"known": 98,
+"rest": 134,
+"parts": [
+[
+98,
+"slot6340"
+]
+]
+},
+{
+"form": 1,
+"group": "0x2eb6",
+"name": null,
+"live": 0,
+"extra": 0,
+"known": 0,
+"rest": 0,
+"parts": [
+[
+0,
+"技能C403"
+]
+]
+},
+{
+"form": 1,
+"group": "0x3086",
+"name": "装备品掉落率",
+"live": 40,
+"extra": 0,
+"known": 40,
+"rest": 0,
+"parts": [
+[
+40,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0x30a6",
+"name": "近距离攻击的精力消耗降低",
+"live": 80,
+"extra": 0,
+"known": 0,
+"rest": 80,
+"parts": []
+},
+{
+"form": 1,
+"group": "0x370f",
+"name": "使用仙药时增加灵力",
+"live": 15,
+"extra": 0,
+"known": 0,
+"rest": 15,
+"parts": []
+},
+{
+"form": 1,
+"group": "0x3b0e",
+"name": "幸运",
+"live": 198,
+"extra": 0,
+"known": 5,
+"rest": 193,
+"parts": [
+[
+5,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0x43b5",
+"name": "追击和近身刺击伤害",
+"live": 100,
+"extra": 0,
+"known": 100,
+"rest": 0,
+"parts": [
+[
+100,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0x44b6",
+"name": "精力归零时降低承受的伤害",
+"live": 35,
+"extra": 0,
+"known": 35,
+"rest": 0,
+"parts": [
+[
+35,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0x4bb6",
+"name": "防御力",
+"live": 88,
+"extra": 0,
+"known": 0,
+"rest": 88,
+"parts": []
+},
+{
+"form": 1,
+"group": "0x4c6b",
+"name": "强攻击获得精华",
+"live": 5,
+"extra": 0,
+"known": 0,
+"rest": 5,
+"parts": []
+},
+{
+"form": 1,
+"group": "0x4d1c",
+"name": "被攻击时承受的伤害降低",
+"live": 62,
+"extra": 0,
+"known": 0,
+"rest": 62,
+"parts": []
+},
+{
+"form": 1,
+"group": "0x4dec",
+"name": "火枪动作速度加快",
+"live": 0,
+"extra": 0,
+"known": 0,
+"rest": 0,
+"parts": []
+},
+{
+"form": 1,
+"group": "0x52ac",
+"name": "不易被敌人发现",
+"live": 10,
+"extra": 0,
+"known": 10,
+"rest": 0,
+"parts": [
+[
+10,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0x54fe",
+"name": "灵力",
+"live": 2,
+"extra": 0,
+"known": 2,
+"rest": 0,
+"parts": [
+[
+2,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0x6a7c",
+"name": "攻击力",
+"live": 120,
+"extra": 0,
+"known": 32,
+"rest": 88,
+"parts": [
+[
+12,
+"技能E3B2"
+],
+[
+20,
+"技能7528"
+]
+]
+},
+{
+"form": 1,
+"group": "0x7000",
+"name": "属性攻击伤害",
+"live": 150,
+"extra": 0,
+"known": 150,
+"rest": 0,
+"parts": [
+[
+50,
+"恩惠"
+],
+[
+100,
+"技能1635"
+]
+]
+},
+{
+"form": 1,
+"group": "0x71e8",
+"name": null,
+"live": 0,
+"extra": 0,
+"known": 0,
+"rest": 0,
+"parts": [
+[
+0,
+"技能E117"
+]
+]
+},
+{
+"form": 1,
+"group": "0x7dc8",
+"name": null,
+"live": 300,
+"extra": 0,
+"known": 300,
+"rest": 0,
+"parts": [
+[
+300,
+"技能D18D"
+]
+]
+},
+{
+"form": 1,
+"group": "0x81a5",
+"name": "获得精华增加灵力",
+"live": 4,
+"extra": 0,
+"known": 0,
+"rest": 4,
+"parts": []
+},
+{
+"form": 1,
+"group": "0x83ab",
+"name": null,
+"live": 36,
+"extra": 0,
+"known": 36,
+"rest": 0,
+"parts": [
+[
+36,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0x8556",
+"name": null,
+"live": 60,
+"extra": 0,
+"known": 60,
+"rest": 0,
+"parts": [
+[
+60,
+"技能E8F6"
+]
+]
+},
+{
+"form": 1,
+"group": "0x8606",
+"name": null,
+"live": 54,
+"extra": 0,
+"known": 0,
+"rest": 54,
+"parts": []
+},
+{
+"form": 1,
+"group": "0x87d8",
+"name": "近距离攻击伤害（无伤）",
+"live": 18,
+"extra": 0,
+"known": 18,
+"rest": 0,
+"parts": [
+[
+18,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0x8997",
+"name": "对防御力的反映（咒）",
+"live": 2,
+"extra": 0,
+"known": 0,
+"rest": 2,
+"parts": []
+},
+{
+"form": 1,
+"group": "0x8a02",
+"name": "承受伤害增加灵力",
+"live": 4,
+"extra": 0,
+"known": 0,
+"rest": 4,
+"parts": []
+},
+{
+"form": 1,
+"group": "0x8ae1",
+"name": "忍术造成的精力伤害",
+"live": 36,
+"extra": 0,
+"known": 36,
+"rest": 0,
+"parts": [
+[
+36,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0x90a4",
+"name": "地狱武器掉落率",
+"live": 36,
+"extra": 0,
+"known": 36,
+"rest": 0,
+"parts": [
+[
+36,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0x90d7",
+"name": "火枪伤害",
+"live": 126,
+"extra": 0,
+"known": 0,
+"rest": 126,
+"parts": []
+},
+{
+"form": 1,
+"group": "0x9554",
+"name": "造成水属性伤害时增加灵力",
+"live": 9,
+"extra": 0,
+"known": 0,
+"rest": 9,
+"parts": []
+},
+{
+"form": 1,
+"group": "0x9bec",
+"name": "阴阳术　术力",
+"live": 11,
+"extra": 0,
+"known": 11,
+"rest": 0,
+"parts": [
+[
+11,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0xa833",
+"name": null,
+"live": 0,
+"extra": 0,
+"known": 0,
+"rest": 0,
+"parts": [
+[
+0,
+"技能6674"
+]
+]
+},
+{
+"form": 1,
+"group": "0xa955",
+"name": "获得精华（地狱）",
+"live": 48,
+"extra": 0,
+"known": 48,
+"rest": 0,
+"parts": [
+[
+48,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0xada8",
+"name": null,
+"live": 100,
+"extra": 0,
+"known": 0,
+"rest": 100,
+"parts": []
+},
+{
+"form": 1,
+"group": "0xaf2c",
+"name": "武技伤害",
+"live": 215,
+"extra": 0,
+"known": 120,
+"rest": 95,
+"parts": [
+[
+50,
+"恩惠"
+],
+[
+70,
+"技能480D"
+]
+]
+},
+{
+"form": 1,
+"group": "0xbe5b",
+"name": "近距离攻击精力伤害",
+"live": 40,
+"extra": 0,
+"known": 40,
+"rest": 0,
+"parts": [
+[
+40,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0xc335",
+"name": "吸收精华后赋予^09~BUFF~{}^09~~",
+"live": 11,
+"extra": 0,
+"known": 0,
+"rest": 11,
+"parts": []
+},
+{
+"form": 1,
+"group": "0xc4dd",
+"name": "获得金钱",
+"live": 24,
+"extra": 0,
+"known": 24,
+"rest": 0,
+"parts": [
+[
+24,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0xc6d2",
+"name": "识破可增加灵力",
+"live": 4,
+"extra": 0,
+"known": 0,
+"rest": 4,
+"parts": []
+},
+{
+"form": 1,
+"group": "0xcb10",
+"name": null,
+"live": 36,
+"extra": 0,
+"known": 36,
+"rest": 0,
+"parts": [
+[
+36,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0xd049",
+"name": "药物恢复体力效果",
+"live": 186,
+"extra": 0,
+"known": 36,
+"rest": 150,
+"parts": [
+[
+36,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0xd2c1",
+"name": "冲刺精力消耗降低",
+"live": 12,
+"extra": 0,
+"known": 12,
+"rest": 0,
+"parts": [
+[
+12,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0xd405",
+"name": "精力恢复速度",
+"live": 47,
+"extra": 0,
+"known": 24,
+"rest": 23,
+"parts": [
+[
+24,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0xd5c5",
+"name": "忍术命中增加灵力",
+"live": 5,
+"extra": 0,
+"known": 5,
+"rest": 0,
+"parts": [
+[
+5,
+"恩惠"
+]
+]
+},
+{
+"form": 1,
+"group": "0xd60f",
+"name": null,
+"live": 60,
+"extra": 0,
+"known": 0,
+"rest": 60,
+"parts": []
+},
+{
+"form": 1,
+"group": "0xdaef",
+"name": null,
+"live": 0,
+"extra": 0,
+"known": 0,
+"rest": 0,
+"parts": [
+[
+0,
+"技能696A"
+]
+]
+},
+{
+"form": 1,
+"group": "0xe96b",
+"name": null,
+"live": 100,
+"extra": 0,
+"known": 100,
+"rest": 0,
+"parts": [
+[
+100,
+"技能FD4A"
+]
+]
+},
+{
+"form": 1,
+"group": "0xf1a8",
+"name": null,
+"live": 10,
+"extra": 0,
+"known": 10,
+"rest": 0,
+"parts": [
+[
+10,
+"技能22DA"
+]
+]
+},
+{
+"form": 1,
+"group": "0xf267",
+"name": "异常状态累积",
+"live": 240,
+"extra": 0,
+"known": 240,
+"rest": 0,
+"parts": [
+[
+240,
+"技能7D25"
+]
+]
+},
+{
+"form": 1,
+"group": "0xf4c5",
+"name": "对精力耗尽敌人的近距离伤害",
+"live": 220,
+"extra": 0,
+"known": 220,
+"rest": 0,
+"parts": [
+[
+100,
+"恩惠"
+],
+[
+120,
+"技能8E80"
+]
+]
+},
+{
+"form": 1,
+"group": "0xf671",
+"name": "成功识破时^09~BUFF~{}^09~~",
+"live": 16,
+"extra": 0,
+"known": 0,
+"rest": 16,
+"parts": []
+},
+{
+"form": 1,
+"group": "0xf79f",
+"name": "精髓并存（共通）",
+"live": 0,
+"extra": 0,
+"known": 0,
+"rest": 0,
+"parts": []
+},
+{
+"form": 1,
+"group": "0xf8c9",
+"name": "吸收精华后赋予^09~BUFF~{}^09~~",
+"live": 11,
+"extra": 0,
+"known": 0,
+"rest": 11,
+"parts": []
+},
+{
+"form": 1,
+"group": "0xf919",
+"name": null,
+"live": 35,
+"extra": 0,
+"known": 0,
+"rest": 35,
+"parts": []
+}
+],
+"skills": [
+{
+"key": "0x2e34",
+"cat": 21,
+"cost": 2.0,
+"rank": 1,
+"flags": "0x4",
+"recs": [
+[
+"0x203d",
+null,
+0
+]
+]
+},
+{
+"key": "0x4ac3",
+"cat": 12,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x4",
+"recs": [
+[
+"0x54f7",
+null,
+0
+]
+]
+},
+{
+"key": "0xc723",
+"cat": 0,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x3e52",
+null,
+0
+]
+]
+},
+{
+"key": "0xd609",
+"cat": 0,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0xdb3c",
+null,
+0
+]
+]
+},
+{
+"key": "0xfb08",
+"cat": 2,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0xa1b2",
+null,
+0
+]
+]
+},
+{
+"key": "0x86d7",
+"cat": 2,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0xb8c8",
+null,
+0
+]
+]
+},
+{
+"key": "0x2347",
+"cat": 4,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0xcbdb",
+null,
+0
+]
+]
+},
+{
+"key": "0xff2c",
+"cat": 4,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x134b",
+null,
+0
+]
+]
+},
+{
+"key": "0x7c0",
+"cat": 5,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x5be6",
+null,
+0
+]
+]
+},
+{
+"key": "0x8f7",
+"cat": 5,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x29a5",
+null,
+0
+]
+]
+},
+{
+"key": "0xe58f",
+"cat": 6,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x4bb4",
+null,
+0
+]
+]
+},
+{
+"key": "0x1e71",
+"cat": 6,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x33c9",
+null,
+0
+]
+]
+},
+{
+"key": "0xb746",
+"cat": 7,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x2621",
+null,
+0
+]
+]
+},
+{
+"key": "0x12ec",
+"cat": 7,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": []
+},
+{
+"key": "0xbd43",
+"cat": 8,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x9286",
+null,
+0
+]
+]
+},
+{
+"key": "0xf69a",
+"cat": 8,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": []
+},
+{
+"key": "0x508e",
+"cat": 9,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0xc85f",
+null,
+0
+]
+]
+},
+{
+"key": "0x210b",
+"cat": 9,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0xbce0",
+null,
+0
+]
+]
+},
+{
+"key": "0x457f",
+"cat": 10,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x401",
+"recs": [
+[
+"0x5c9f",
+null,
+0
+]
+]
+},
+{
+"key": "0x8677",
+"cat": 10,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x401",
+"recs": [
+[
+"0x467",
+null,
+0
+]
+]
+},
+{
+"key": "0x6835",
+"cat": 11,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": []
+},
+{
+"key": "0xc4c5",
+"cat": 11,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": []
+},
+{
+"key": "0xd989",
+"cat": 12,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x4bfa",
+null,
+0
+]
+]
+},
+{
+"key": "0x8b6c",
+"cat": 12,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x964b",
+null,
+0
+]
+]
+},
+{
+"key": "0xbd76",
+"cat": 13,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0xa509",
+null,
+0
+]
+]
+},
+{
+"key": "0x4865",
+"cat": 13,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x7a49",
+null,
+0
+]
+]
+},
+{
+"key": "0x9125",
+"cat": 1,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x5589",
+null,
+0
+]
+]
+},
+{
+"key": "0x32a7",
+"cat": 1,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x3572",
+null,
+0
+]
+]
+},
+{
+"key": "0x6d6f",
+"cat": 3,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x1404",
+null,
+0
+]
+]
+},
+{
+"key": "0x7257",
+"cat": 3,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": []
+},
+{
+"key": "0xe3b2",
+"cat": 23,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x6a7c",
+"攻击力",
+12
+]
+]
+},
+{
+"key": "0xe8f6",
+"cat": 23,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x8556",
+null,
+60
+]
+]
+},
+{
+"key": "0xf61",
+"cat": 21,
+"cost": 2.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xbf9",
+"武技精力消耗降低",
+50
+]
+]
+},
+{
+"key": "0x54b5",
+"cat": 21,
+"cost": 6.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xa628",
+"格挡的判定时间延长",
+0
+]
+]
+},
+{
+"key": "0xc826",
+"cat": 21,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xaf2c",
+"武技伤害",
+50
+]
+]
+},
+{
+"key": "0xc403",
+"cat": 22,
+"cost": 5.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x2eb6",
+null,
+0
+]
+]
+},
+{
+"key": "0x1635",
+"cat": 22,
+"cost": 6.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x7000",
+"属性攻击伤害",
+100
+]
+]
+},
+{
+"key": "0x7d25",
+"cat": 22,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xf267",
+"异常状态累积",
+240
+]
+]
+},
+{
+"key": "0xe117",
+"cat": 23,
+"cost": 5.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x71e8",
+null,
+0
+]
+]
+},
+{
+"key": "0x7373",
+"cat": 21,
+"cost": 5.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x89ed",
+null,
+100
+]
+]
+},
+{
+"key": "0x22da",
+"cat": 22,
+"cost": 3.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xf1a8",
+null,
+10
+]
+]
+},
+{
+"key": "0xd65f",
+"cat": 21,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xfdde",
+"残心精力恢复量",
+100
+]
+]
+},
+{
+"key": "0x6674",
+"cat": 22,
+"cost": 3.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xa833",
+null,
+0
+]
+]
+},
+{
+"key": "0x696a",
+"cat": 22,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xdaef",
+null,
+0
+]
+]
+},
+{
+"key": "0x7c3",
+"cat": 22,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": []
+},
+{
+"key": "0x864",
+"cat": 21,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x0",
+"recs": []
+},
+{
+"key": "0x6121",
+"cat": 21,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x0",
+"recs": []
+},
+{
+"key": "0xe644",
+"cat": 21,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x0",
+"recs": []
+},
+{
+"key": "0x6842",
+"cat": 21,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x0",
+"recs": []
+},
+{
+"key": "0x8e80",
+"cat": 23,
+"cost": 5.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xf4c5",
+"对精力耗尽敌人的近距离伤害",
+120
+]
+]
+},
+{
+"key": "0x5963",
+"cat": 23,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": []
+},
+{
+"key": "0xfd4a",
+"cat": 23,
+"cost": 3.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xe96b",
+null,
+100
+]
+]
+},
+{
+"key": "0x7f32",
+"cat": 21,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x62c5",
+null,
+200
+],
+[
+"0xdff7",
+null,
+300
+]
+]
+},
+{
+"key": "0x3411",
+"cat": 21,
+"cost": 6.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x5072",
+null,
+0
+]
+]
+},
+{
+"key": "0xa7aa",
+"cat": 21,
+"cost": 6.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x2673",
+null,
+300
+]
+]
+},
+{
+"key": "0xd18d",
+"cat": 22,
+"cost": 5.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x7dc8",
+null,
+300
+]
+]
+},
+{
+"key": "0x176f",
+"cat": 14,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x4",
+"recs": []
+},
+{
+"key": "0xbeb6",
+"cat": 14,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x3cbb",
+null,
+0
+]
+]
+},
+{
+"key": "0xd1a1",
+"cat": 14,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": []
+},
+{
+"key": "0x84f3",
+"cat": 15,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x4",
+"recs": []
+},
+{
+"key": "0x8282",
+"cat": 15,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0xf823",
+null,
+0
+]
+]
+},
+{
+"key": "0xcdd4",
+"cat": 15,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x4702",
+null,
+0
+]
+]
+},
+{
+"key": "0x7528",
+"cat": 23,
+"cost": 5.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x6a7c",
+"攻击力",
+20
+]
+]
+},
+{
+"key": "0x480d",
+"cat": 22,
+"cost": 5.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xaf2c",
+"武技伤害",
+70
+]
+]
+}
+],
+"nodes": 839
+}
