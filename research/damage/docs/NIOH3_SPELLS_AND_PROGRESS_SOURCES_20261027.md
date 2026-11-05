@@ -43,3 +43,35 @@ path, and whether they add damage was not separated, so they stay unverified for
 node, key 0x117 盲目, applied by the soul core's "onmyo hit applies blind" when 水弹符 hit first. Replaying that hit with
 the status map emptied gives 4677, the exact damage the game showed when lightning landed first (spell3 capture). So
 one debuff is worth ×1.0314 on this hit, although 盲目 itself has no damage text.
+
+## All non-equipment sources of the source compiler (11-04)
+
+`556118` compiles the source object (STAT+0x7D8). Every effect goes through `557BA0(source, form, group, value)`, which
+sums into per-form tables at source+0x35D0 (form 0) and +0x4728 (form 1): 12-byte entries (u16 group, u32 value), count at
++0xC00. Reading those tables gives the final aggregate of each group with no breakpoint.
+
+| Block | Table / state | Meaning |
+| --- | --- | --- |
+| 5561xx | manager+0x7C0 ranked by progress+0x5D98 | elixir upgrades |
+| 5562xx | manager+0x7C8 ranked by progress+0x5DE8, filtered by mode | region upgrades |
+| 556337 | progress+0x6340, two 16-byte slots per form | unidentified; here 背后攻击伤害 98 and 忍术伤害 117 in both forms |
+| 556378 | manager+0x7E0 (stride 0x110) ranked by progress+0x5EA8 | **title blessings** (恩惠点数): key +0x80, group +0x88, values u32 +4 + 4×rank |
+| 5563e9 | manager+0x278 (0xD8), +0x268 (0x38) | per-area and per-region completion: 攻击力/防御力/幸运 |
+| 5565e2 | manager+0x3F8/+0x400 | presence-only unlocks |
+| 5566ad | manager+0x130 with progress+0x6020 (skill node: key +0x10, rank +0x1A, enabled +0x1C), manager+0x598 | passive skills, form-gated by category 0x15/0x16/0x17 |
+| 556792 | progress+0x60A0 + 8×index | one slotted skill per weapon category and form |
+
+Weapons, armor and other items reach `557BA0` from the rebuild `818248` and `2FB4D1` through `55764C`/`5557DC`, each item
+with 7 effect records at +0x3C; the off-form weapon counts only for groups that pass its gate.
+
+Text lookup is now direct: the tree at Q(module+0x45C8450)+0x1CD0 (`dump_all_texts.py`, 30506 strings in the current locale).
+
+**Reconciliation.** `source_ledger.py` subtracts known sources from the live aggregate. Groups fed only by blessings,
+skills or slots match exactly, including F4C5 220 = blessing 100 + 灭气追击之法 120, which closes the 10-16 question about
+the extra 100. The rest of the residuals come from equipment, soul core and guardian, not yet attributed per item.
+
+Damage-relevant blessings at the captured ranks (`data/BLESSINGS.json`): 武技伤害 50, 属性攻击伤害 50, 对精力耗尽敌人的近距离
+伤害 100, 追击和近身刺击伤害 100, 地狱武器伤害 36, 近距离攻击伤害（无伤）18, 伤害反映（装备重量）10.
+
+Skill 祸实之法 (0x22DA, ninja, cost 3) supplies group 0xF1A8 value 10, which is D+0x2B4 视敌方负面效果数影响术伤害, so the
+debuff-count effect above comes from this skill.

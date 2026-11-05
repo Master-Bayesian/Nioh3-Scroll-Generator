@@ -1,0 +1,883 @@
+[
+{
+"key": "0x2e34",
+"cat": 21,
+"cost": 2.0,
+"rank": 1,
+"flags": "0x4",
+"recs": [
+[
+"0x203d",
+null,
+0
+]
+],
+"name": "闪避行动也能让残心成立。"
+},
+{
+"key": "0x4ac3",
+"cat": 12,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x4",
+"recs": [
+[
+"0x54f7",
+null,
+0
+]
+],
+"name": null
+},
+{
+"key": "0xc723",
+"cat": 0,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x3e52",
+null,
+0
+]
+],
+"name": null
+},
+{
+"key": "0xd609",
+"cat": 0,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0xdb3c",
+null,
+0
+]
+],
+"name": "增加以刀从敌人背后发动攻击的伤害。"
+},
+{
+"key": "0xfb08",
+"cat": 2,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0xa1b2",
+null,
+0
+]
+],
+"name": null
+},
+{
+"key": "0x86d7",
+"cat": 2,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0xb8c8",
+null,
+0
+]
+],
+"name": null
+},
+{
+"key": "0x2347",
+"cat": 4,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0xcbdb",
+null,
+0
+]
+],
+"name": null
+},
+{
+"key": "0xff2c",
+"cat": 4,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x134b",
+null,
+0
+]
+],
+"name": "突刺的威力上升，而且攻击范围会变得更广。"
+},
+{
+"key": "0x7c0",
+"cat": 5,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x5be6",
+null,
+0
+]
+],
+"name": null
+},
+{
+"key": "0x8f7",
+"cat": 5,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x29a5",
+null,
+0
+]
+],
+"name": "身处常世时，自己的攻击伤害会大幅增加。"
+},
+{
+"key": "0xe58f",
+"cat": 6,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x4bb4",
+null,
+0
+]
+],
+"name": null
+},
+{
+"key": "0x1e71",
+"cat": 6,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x33c9",
+null,
+0
+]
+],
+"name": null
+},
+{
+"key": "0xb746",
+"cat": 7,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x2621",
+null,
+0
+]
+],
+"name": "从正面进攻攻击中的敌人时，增加精力伤害。"
+},
+{
+"key": "0x12ec",
+"cat": 7,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [],
+"name": "发动朝风、夕风时，赋予减少精力消耗的效果。"
+},
+{
+"key": "0xbd43",
+"cat": 8,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x9286",
+null,
+0
+]
+],
+"name": "增加以旋棍发动不间断的连续攻击时所造成的伤害。"
+},
+{
+"key": "0xf69a",
+"cat": 8,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [],
+"name": "以旋棍进行武技攻击时，可发动鬼舞取消动作。"
+},
+{
+"key": "0x508e",
+"cat": 9,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0xc85f",
+null,
+0
+]
+],
+"name": null
+},
+{
+"key": "0x210b",
+"cat": 9,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0xbce0",
+null,
+0
+]
+],
+"name": "投掷出的手斧所给予的伤害值变得不会随距离衰减。"
+},
+{
+"key": "0x457f",
+"cat": 10,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x401",
+"recs": [
+[
+"0x5c9f",
+null,
+0
+]
+],
+"name": null
+},
+{
+"key": "0x8677",
+"cat": 10,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x401",
+"recs": [
+[
+"0x467",
+null,
+0
+]
+],
+"name": null
+},
+{
+"key": "0x6835",
+"cat": 11,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [],
+"name": null
+},
+{
+"key": "0xc4c5",
+"cat": 11,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [],
+"name": null
+},
+{
+"key": "0xd989",
+"cat": 12,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x4bfa",
+null,
+0
+]
+],
+"name": null
+},
+{
+"key": "0x8b6c",
+"cat": 12,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x964b",
+null,
+0
+]
+],
+"name": null
+},
+{
+"key": "0xbd76",
+"cat": 13,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0xa509",
+null,
+0
+]
+],
+"name": null
+},
+{
+"key": "0x4865",
+"cat": 13,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x7a49",
+null,
+0
+]
+],
+"name": "使出霞时恢复少量精力。"
+},
+{
+"key": "0x9125",
+"cat": 1,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x5589",
+null,
+0
+]
+],
+"name": "增加以忍刀从敌人背后发动攻击的伤害。"
+},
+{
+"key": "0x32a7",
+"cat": 1,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x3572",
+null,
+0
+]
+],
+"name": "发动武技时，创造出能暂时吸引敌人注意力的分身。"
+},
+{
+"key": "0x6d6f",
+"cat": 3,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x1404",
+null,
+0
+]
+],
+"name": null
+},
+{
+"key": "0x7257",
+"cat": 3,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [],
+"name": null
+},
+{
+"key": "0xe3b2",
+"cat": 23,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x6a7c",
+"攻击力",
+12
+]
+],
+"name": "攻击力提升{}。"
+},
+{
+"key": "0xe8f6",
+"cat": 23,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x8556",
+null,
+60
+]
+],
+"name": "强化下一击"
+},
+{
+"key": "0xf61",
+"cat": 21,
+"cost": 2.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xbf9",
+"武技精力消耗降低",
+50
+]
+],
+"name": "使用武技时消耗的精力减少{}。"
+},
+{
+"key": "0x54b5",
+"cat": 21,
+"cost": 6.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xa628",
+"格挡的判定时间延长",
+0
+]
+],
+"name": null
+},
+{
+"key": "0xc826",
+"cat": 21,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xaf2c",
+"武技伤害",
+50
+]
+],
+"name": "{}<dot>{}%"
+},
+{
+"key": "0xc403",
+"cat": 22,
+"cost": 5.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x2eb6",
+null,
+0
+]
+],
+"name": null
+},
+{
+"key": "0x1635",
+"cat": 22,
+"cost": 6.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x7000",
+"属性攻击伤害",
+100
+]
+],
+"name": "{}<dot>{}%"
+},
+{
+"key": "0x7d25",
+"cat": 22,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xf267",
+"异常状态累积",
+240
+]
+],
+"name": "{}<dot>{}%"
+},
+{
+"key": "0xe117",
+"cat": 23,
+"cost": 5.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x71e8",
+null,
+0
+]
+],
+"name": "延长通过转心施展大招反击的判定时间。"
+},
+{
+"key": "0x7373",
+"cat": 21,
+"cost": 5.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x89ed",
+null,
+100
+]
+],
+"name": "对陷入异常状态的敌人造成的伤害增加。"
+},
+{
+"key": "0x22da",
+"cat": 22,
+"cost": 3.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xf1a8",
+null,
+10
+]
+],
+"name": null
+},
+{
+"key": "0xd65f",
+"cat": 21,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xfdde",
+"残心精力恢复量",
+100
+]
+],
+"name": null
+},
+{
+"key": "0x6674",
+"cat": 22,
+"cost": 3.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xa833",
+null,
+0
+]
+],
+"name": "DUMMY"
+},
+{
+"key": "0x696a",
+"cat": 22,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xdaef",
+null,
+0
+]
+],
+"name": "在常世的范围内使出霞，即可消除该常世。"
+},
+{
+"key": "0x7c3",
+"cat": 22,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [],
+"name": null
+},
+{
+"key": "0x864",
+"cat": 21,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [],
+"name": null
+},
+{
+"key": "0x6121",
+"cat": 21,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [],
+"name": null
+},
+{
+"key": "0xe644",
+"cat": 21,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [],
+"name": null
+},
+{
+"key": "0x6842",
+"cat": 21,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [],
+"name": null
+},
+{
+"key": "0x8e80",
+"cat": 23,
+"cost": 5.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xf4c5",
+"对精力耗尽敌人的近距离伤害",
+120
+]
+],
+"name": "DUMMY"
+},
+{
+"key": "0x5963",
+"cat": 23,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [],
+"name": "能够以转心取消攻击的时机变得更早。"
+},
+{
+"key": "0xfd4a",
+"cat": 23,
+"cost": 3.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xe96b",
+null,
+100
+]
+],
+"name": "延长阴阳术道具效果的持续时间。"
+},
+{
+"key": "0x7f32",
+"cat": 21,
+"cost": 4.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x62c5",
+null,
+200
+],
+[
+"0xdff7",
+null,
+300
+]
+],
+"name": "{}<dot>{}%"
+},
+{
+"key": "0x3411",
+"cat": 21,
+"cost": 6.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x5072",
+null,
+0
+]
+],
+"name": "发动琢技期间，施展强攻击和武技时不会畏惧。"
+},
+{
+"key": "0xa7aa",
+"cat": 21,
+"cost": 6.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x2673",
+null,
+300
+]
+],
+"name": "造成伤害增加"
+},
+{
+"key": "0xd18d",
+"cat": 22,
+"cost": 5.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x7dc8",
+null,
+300
+]
+],
+"name": "成功识破时，赋予特定正面效果。"
+},
+{
+"key": "0x176f",
+"cat": 14,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x4",
+"recs": [],
+"name": null
+},
+{
+"key": "0xbeb6",
+"cat": 14,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x3cbb",
+null,
+0
+]
+],
+"name": "延长以残波精准弹回攻击的判定时间。"
+},
+{
+"key": "0xd1a1",
+"cat": 14,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [],
+"name": "使用残波精准弹回攻击时恢复精力。"
+},
+{
+"key": "0x84f3",
+"cat": 15,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x4",
+"recs": [],
+"name": null
+},
+{
+"key": "0x8282",
+"cat": 15,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0xf823",
+null,
+0
+]
+],
+"name": "DUMMY"
+},
+{
+"key": "0xcdd4",
+"cat": 15,
+"cost": 0.0,
+"rank": 1,
+"flags": "0x1",
+"recs": [
+[
+"0x4702",
+null,
+0
+]
+],
+"name": "DUMMY"
+},
+{
+"key": "0x7528",
+"cat": 23,
+"cost": 5.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0x6a7c",
+"攻击力",
+20
+]
+],
+"name": "攻击力提升{}。"
+},
+{
+"key": "0x480d",
+"cat": 22,
+"cost": 5.0,
+"rank": 1,
+"flags": "0x0",
+"recs": [
+[
+"0xaf2c",
+"武技伤害",
+70
+]
+],
+"name": "{}<dot>{}%"
+}
+]
