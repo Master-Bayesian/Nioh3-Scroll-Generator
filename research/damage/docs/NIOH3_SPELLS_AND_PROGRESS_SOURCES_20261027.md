@@ -105,11 +105,10 @@ Checked on the 11-04 captures, with no game running:
 | Check | Result |
 | --- | --- |
 | Composed vs captured aggregate | 87 groups form 0, 66 groups form 1, 0 wrong |
-| D rebuilt from the aggregate alone (819400 over the default page) | 60 effect words on the ninjutsu frame, 78 on the onmyo frame; each has one wrong word, 0x3F0 and 0x880, both constant or uninitialised tail words, not effect fields, and neither changes the replay |
-| Replay of the composed baseline | 4824 and 1034, equal to the game |
+| D rebuilt from the aggregate alone (819400 over the default page) | 60 effect words on the ninjutsu frame, 78 on the onmyo frame; each has one wrong word, 0x3F0 and 0x880, which look like a constant and an uninitialised word; variants keep the captured value of both, so their effect is untested |
 | Skill 祸实之法 removed | 4677, equal to the damage the game showed with no debuff on the target |
 
-The last row is the only one with an independent game value. The other source removals below are predictions.
+The replay itself starts from the captured state: a variant writes only the words that differ from the composed baseline. The 祸实之法 row is the only one with an independent game value. The other source removals below are predictions.
 
 | Removed from the lightning hit (4824) | Predicted |
 | --- | ---: |
