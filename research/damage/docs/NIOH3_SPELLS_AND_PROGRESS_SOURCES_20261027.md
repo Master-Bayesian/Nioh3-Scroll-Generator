@@ -131,12 +131,12 @@ Open in the composition: 0x52D 36 and 0xF919 35 are equal in both forms but have
 
 ## Attack, attributes and the cross-state test (11-05, offline)
 
-**Same layer across outfits.** `layer_stability.py` subtracts the modelled equipment from the aggregate of every saved capture that has an entry snapshot (22 distinct gear and aggregate states, with armor, three weapons, sets and scrolls). The remainder is the same layer on each day: identical to the 11-04 layer on all states from the 10-22 imbue session on, and one other constant layer before it (16 groups differ). Group 0x6A7C 攻击力 is 113 in the old layer and 120 in the new one, and that is STAT +0x12C.
+**Same layer across outfits.** `layer_stability.py` subtracts the modelled equipment from the aggregate of every saved capture that has an entry snapshot (21 distinct gear and aggregate states, with armor, three weapons, sets and scrolls). The remainder is the same layer on each day: identical to the 11-04 layer on all states from the 10-22 imbue session on, and one other constant layer before it (16 groups differ). Group 0x6A7C 攻击力 is 113 in the old layer and 120 in the new one, and that is STAT +0x12C.
 
 **Attack record.** record = weapon stages (weapon, coreX scaling, scroll) + guardian attack + soul core attack.
 
 - Guardian attack and defense are the menu's 玩家的强化值, from guardian table `numeric(key, level)` (374F58 adds them to all six records and +0x1C8). All four guardians match at level 50: 草薙 71/66, 虎御前 68/73, 凤凰 70/70, 猫又 69/69, and all their five effect entries. `data/GUARDIANS.json` has every definition at level 50.
-- Soul core attack is added by 554268 for passive item slots 0 and 1 (attribute source +0x80, 0xE8 each). Measured record base minus guardian: 330 with core 0x7BD9 in both slots, 164 with 0xBB71 in slot 0 and slot 1 empty, on all 21 samurai captures. 330 = 2 × 165 suggests each filled slot counts once; this is inferred, not separated. The table for the exact value (manager+0x118) is not on disk.
+- Soul core attack is added by 554268 for passive item slots 0 and 1 (attribute source +0x80, 0xE8 each). Measured record base minus guardian: 330 with core 0x7BD9 in both slots, 164 with 0xBB71 in slot 0 and slot 1 empty, on all 20 samurai capture states. 330 = 2 × 165 suggests each filled slot counts once; this is inferred, not separated. The table for the exact value (manager+0x118) is not on disk.
 - The record +8 field is the 攻击力 group + 35 (samurai records 0 and 1, three weapons; 36 on the ninja frame, source not located).
 
 **Correction.** The earlier fit of a base attack from attribute 2 was a coincidence and is withdrawn. The −183 between the two attribute sets is −17 coreX and −166 soul core.
