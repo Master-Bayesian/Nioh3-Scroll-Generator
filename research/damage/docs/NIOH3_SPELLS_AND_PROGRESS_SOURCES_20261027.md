@@ -25,3 +25,21 @@ at +0x20/+0x28 + 8 × rank. Decoded on 10-27 (TALENTS.json):
 
 These are a further damage source (region/elixir upgrades), not the learned skill tree or the title blessings.
 Both still have to be located.
+
+## Spell formula inputs (11-04)
+
+Both spell frames replay exactly after a live fill: 水弹符 1034 (146 rounds), lightning 4824 (107 rounds). Effect fields
+that enter the formula, by probing every zero f32 effect field with 0.01 (names from the game's text pool):
+
+| Attack | Fields |
+| --- | --- |
+| 水弹符 (onmyo) | D+0x78C 阴阳术伤害, D+0x288 属性攻击伤害/水属性伤害, D+0x518 阴阳术道具的伤害（无伤）, D+0x77C 属性攻击伤害, D+0x31C/STAT+0x7B8 weight reflection, D+0x100 刺击伤害, D+0x268, D+0x134, D+0x7C4 |
+| Lightning (ninjutsu) | D+0x790 and D+0x76C 忍术伤害, D+0x28C 属性攻击伤害/雷属性伤害, D+0xA28 幻术伤害, D+0x2B4 视敌方负面效果数影响术伤害, D+0x77C, D+0x988 {}造成的伤害, D+0x31C/STAT+0x7B8, D+0x134, D+0x7C4 |
+
+Three fields carry melee names (D+0x134 近距离攻击伤害（背后奖励无效）, D+0x268, D+0x7C4); they are formula leaves on this
+path, and whether they add damage was not separated, so they stay unverified for spells.
+
+**Debuff count is a real input.** D+0x2B4 is 10 on this character. In the 4824 hit the target's status map holds one
+node, key 0x117 盲目, applied by the soul core's "onmyo hit applies blind" when 水弹符 hit first. Replaying that hit with
+the status map emptied gives 4677, the exact damage the game showed when lightning landed first (spell3 capture). So
+one debuff is worth ×1.0314 on this hit, although 盲目 itself has no damage text.

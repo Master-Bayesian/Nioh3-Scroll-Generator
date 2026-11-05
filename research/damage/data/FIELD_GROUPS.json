@@ -1,0 +1,98 @@
+{
+ "0x134": {
+  "groups": [
+   "0x83a4"
+  ],
+  "text_ids": [
+   "0x36f2725"
+  ]
+ },
+ "0x2b4": {
+  "groups": [
+   "0xf1a8"
+  ],
+  "text_ids": [
+   "0x36117cf"
+  ]
+ },
+ "0x76c": {
+  "groups": [
+   "0x8dd5"
+  ],
+  "text_ids": [
+   "0x36cce6f"
+  ]
+ },
+ "0x77c": {
+  "groups": [
+   "0xb556"
+  ],
+  "text_ids": [
+   "0x364f863"
+  ]
+ },
+ "0x988": {
+  "groups": [
+   "0x3"
+  ],
+  "text_ids": [
+   "0x342085b"
+  ]
+ },
+ "0xa28": {
+  "groups": [
+   "0x68e6"
+  ],
+  "text_ids": [
+   "0x3626cea"
+  ]
+ },
+ "0x100": {
+  "groups": [
+   "0x53ca"
+  ],
+  "text_ids": [
+   "0x35a94ad"
+  ]
+ },
+ "0x268": {
+  "groups": [
+   "0x8039"
+  ],
+  "text_ids": [
+   "0x3441db2"
+  ]
+ },
+ "0x518": {
+  "groups": [
+   "0x1f23"
+  ],
+  "text_ids": [
+   "0x374355d"
+  ]
+ },
+ "0x78c": {
+  "groups": [
+   "0x89ea"
+  ],
+  "text_ids": [
+   "0x343d2ab"
+  ]
+ },
+ "0x790": {
+  "groups": [
+   "0x2a1f"
+  ],
+  "text_ids": [
+   "0x36cce6f"
+  ]
+ },
+ "0x7c4": {
+  "groups": [
+   "0x7d73"
+  ],
+  "text_ids": [
+   "0x3615cb1"
+  ]
+ }
+}
