@@ -54,7 +54,7 @@ sums into per-form tables at source+0x35D0 (form 0) and +0x4728 (form 1): 12-byt
 | --- | --- | --- |
 | 5561xx | manager+0x7C0 ranked by progress+0x5D98 | elixir upgrades |
 | 5562xx | manager+0x7C8 ranked by progress+0x5DE8, filtered by mode | region upgrades |
-| 556337 | progress+0x6340, two 16-byte slots per form | very likely 武家的庇佑 (clan blessing, set per style; owner suggestion plus text match, not yet confirmed against the menu); here 背后攻击伤害 98 and 忍术伤害 117 in both forms |
+| 556337 | progress+0x6340, two 16-byte slots per form | 武家的庇佑 (clan blessing, set per style), confirmed by the owner's menu screenshot on 11-05: 服部, rank 宿老, 背后攻击伤害 +9.8%(+2.8%) and 忍术伤害 +11.7%(+4.2%) in both styles. Slot: u16 group, u32 value, u32 clan id (0x2F = 服部), u32 slot index. The live aggregate is 98/117, so the bracketed serving bonus is already inside the total |
 | 556378 | manager+0x7E0 (stride 0x110) ranked by progress+0x5EA8 | **title blessings** (恩惠点数): key +0x80, group +0x88, values u32 +4 + 4×rank |
 | 5563e9 | manager+0x278 (0xD8), +0x268 (0x38) | per-area and per-region completion: 攻击力/防御力/幸运 |
 | 5565e2 | manager+0x3F8/+0x400 | presence-only unlocks |
