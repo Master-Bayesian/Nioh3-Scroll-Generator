@@ -1,5 +1,5 @@
 diff --git a/coherent_observer.lua.bak-20261025 b/coherent_observer.lua
-index 8cbdd5a..b1bc301 100644
+index 8cbdd5a..07e64eb 100644
 --- a/coherent_observer.lua.bak-20261025
 +++ b/coherent_observer.lua
 @@ -65,7 +65,8 @@ return function(options)
@@ -8,28 +8,48 @@ index 8cbdd5a..b1bc301 100644
      capture_atomic_across_other_threads=false,complete_scorer=false,actual_scenario_accepted=false,
 -    rebuild_caller_argument_captured=false,manual_KiPulse_labels_withdrawn=true}
 +    rebuild_caller_argument_captured=false,manual_KiPulse_labels_withdrawn=true,
-+    unmatched_hp_stacks={},_unmatched_hp_keys={}}
++    unmatched_hp_stacks={},_unmatched_hp_keys={},rejected_main={}}
    rawset(_G,namespace,probe)
    local cleanup_timers={}
    local function cleanup_schedule(delay,callback)
-@@ -657,11 +658,14 @@ return function(options)
+@@ -657,11 +658,24 @@ return function(options)
      local b=raw(hit,0x300);if not b then return end
      local src,dst=uint(b,0x198,8),uint(b,0x1C8,8)
      local sb,tb=raw(src,4),raw(dst,1)
 -    if not sb or not tb or (sb[1]&15)~=0 or (tb[1]&15)~=0 or src~=player then return end
-+    -- A non-player source (projectile, onmyo, ninjutsu object) is kept when it does not hit the player: the
-+    -- dispatcher 3275AC reads every hit's damage from MAIN+0x218, spells included (10-27 HP call chains).
-+    if not sb or not tb or (sb[1]&15)~=0 or (tb[1]&15)~=0 or (src~=player and dst==player) then return end
++    -- A tag-4 source is a projectile (onmyo, ninjutsu): resolver 325F4C reads its owning actor at +0x260. Spell hits
++    -- keep that owner as the source actor and capture the projectile itself, which dies with the hit.
++    local owner=src
++    if sb and (sb[1]&15)==4 then local o=raw(src+0x260,8);owner=o and uint(o,0,8) or nil end
++    if not sb or not tb or ((sb[1]&15)~=0 and (sb[1]&15)~=4) or (tb[1]&15)~=0 or owner~=player or dst==player then
++      -- Every dropped MAIN call, to tell a filtered spell hit from a spell that never reaches MAIN.
++      if #probe.rejected_main<64 then
++        probe.rejected_main[#probe.rejected_main+1]={hit=hx(hit),source=hx(src),target=hx(dst),player=hx(player),
++          source_tag=sb and sb[1]&15 or -1,target_tag=tb and tb[1]&15 or -1,head_hex=hexbytes({table.unpack(b,1,0x20)}),
++          hit_190_hex=hexbytes({table.unpack(b,0x191,0x1D0)})}
++      end
++      return
++    end
      if #probe.frames>=probe.limits.max_frames then return end
      local f={id=#probe.frames+1,hit=hx(hit),entry_rsp=hx(entry_rsp),expected_rbp=hx(entry_rsp-0x4C8),
        expected_rsp=hx(entry_rsp-0x5C8),source=hx(src),target=hx(dst),player=hx(player),complete=false,
 -      native_frame_association=false,_hit=hit,_entry_rsp=entry_rsp,_source=src,_target=dst}
 +      native_frame_association=false,_hit=hit,_entry_rsp=entry_rsp,_source=src,_target=dst,
-+      source_is_player=src==player}
++      source_is_player=src==player,source_tag=sb[1]&15}
      f.normal_tag0_binding=true;f.actors_site_observed=false
      f.actor_resolution='Original source325F4C/target484CB8 nonnull tag0 identity, both guard bytes captured'
      f.thread_id,f.thread_source=thread();probe.frames[#probe.frames+1]=f
-@@ -743,7 +747,29 @@ return function(options)
+@@ -678,7 +692,8 @@ return function(options)
+     local manager=edge(s,'current_player.manager',base,0x4745348)
+     local captured_player=edge(s,'current_player.slot',manager,0x1338)
+     if captured_player~=player then unknown(s,'current_player','root_changed_during_entry') end
+-    local source_hp=actor(s,'source',src);local target_hp=actor(s,'target',dst)
++    if src~=owner then region(s,'source.projectile',src,0x4000) end
++    local source_hp=actor(s,'source',owner);local target_hp=actor(s,'target',dst)
+     capture_status_inputs(s,'target',target_hp)
+     -- R16: MAIN 78F3C3..78F3EA looks up source status keys 6F/71 in Q(source+3A0)+2DC0.
+     capture_status_inputs(s,'source',source_hp)
+@@ -743,7 +758,29 @@ return function(options)
          if found then return end;found=f
        end
      end

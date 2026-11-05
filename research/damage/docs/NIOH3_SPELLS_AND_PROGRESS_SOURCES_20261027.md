@@ -9,10 +9,7 @@ stores that had no MAIN frame. On 10-27 the training samurai's HP went 75138 →
 
 `0x329890` is inside the hit dispatcher 3275AC, the only caller of MAIN (78CE8C). The dispatcher loads the applied
 damage from the hit context +0x218 (`0x32843F: movss xmm15, [r13+0x218]`), the field MAIN stores, for every hit.
-So spells also compute damage in MAIN. The observer dropped them because MAIN_entry required hit+0x198 (source) to
-be the player; a spell's source is its projectile object. `observer/observer_1027.patch` keeps non-player sources
-unless the target is the player, and marks `source_is_player`. The next capture should therefore produce spell
-frames that the existing fill and replay tools handle.
+Spells compute damage in MAIN, confirmed on 11-04. A diagnostic of dropped MAIN calls showed the two spell hits with a tag-4 source object; the entry filter required tag 0, and relaxing only the player check on 10-27 was not enough. Resolver 325F4C reads a tag-4 source's owning actor at +0x260. `observer/observer_1027.patch` now keeps tag-4 sources owned by the player, records the owner as the source actor and captures the projectile (`source.projectile`, 0x4000 bytes), because it dies with the hit. Captured spell frames on 11-04 match the game: onmyo 水弹符 1034 (packet attack 2014), lightning 4824 (2442). An earlier lightning hit showed 4677; the cause is still open.
 
 ## Progress object maps (not the skill tree)
 
