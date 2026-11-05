@@ -88,4 +88,6 @@ aggregate, so that path is still open.
 
 Removing the soul core dropped four entries: 武技精力伤害 78, 格挡成功赋予 11, 残心初始量 50, 阴阳术命中时施加 DEBUFF (0x5DC3). Form 1
 changed at the first read and form 0 lost the same four entries by the second read, with the owner reporting the samurai
-slot empty. This suggests one shared core and a lazily rebuilt table for the inactive form, not yet proven.
+slot empty. Confirmed by restoration: with the core re-equipped, form 1 recovered at once and form 0 only after switching to samurai, ending identical to the original snapshot in all 153 rows. So one core serves both styles, and the table of the inactive style refreshes only when that style becomes active. Read an aggregate only after visiting the style.
+
+Original guardians: 草薙 (samurai), 虎御前 (ninja). Most entries display value / 10 as percent; 火属性伤害降低 displays the raw 46, and 造成水属性伤害时增加灵力 value 9 displays grade A-.
