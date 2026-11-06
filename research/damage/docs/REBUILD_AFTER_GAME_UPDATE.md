@@ -434,6 +434,37 @@ eight bytes. `manager+0x970` is absent from the sealed cache, so both models ref
 end, 920 of 920 damages identical to the VM. One thread takes 60 us, and 16 threads reach about 128,000 candidates a second. The
 limits above still apply: one attack and one outfit's paths.
 
+### Move it to the GPU
+
+The shipped scroll search is the pattern: the GPU screens, and the CPU re-derives every hit exactly. Generate the kernel, never hand-port
+the formula.
+
+1. `evaluator/src/path_outfits.py` compiles paths over random real outfits and exports them with each outfit's VM damage. Forced files
+   make the VM check GPU claims and compile paths the GPU lacked.
+2. `evaluator/src/path_cuda.py` turns each compiled program into straight C. A failed guard returns false and the next path runs.
+3. `evaluator/src/path_kernel.inc` is `pipeline.rs` line for line, plus the kernels and the host. A candidate is attributes plus an item
+   index per armor slot, so the host uploads tables once and the GPU walks a mixed-radix index with no per-candidate transfer.
+4. Build with nvcc and `--fmad=false`. A fused multiply-add is not what the game's SSE computes.
+5. Run once with no `touched.txt` in the export directory. That instrumented build records domain words reached by dynamic loads. Then
+   put the file there, empty if nothing was reached, and regenerate.
+6. `evaluator/src/pool_prune.py` drops items beaten on every damage-relevant number within the same set membership. Confirm the pruned
+   search returns the full search's best.
+
+**The trap that cost a factor of ten.** Do not copy whole STAT, D and domain buffers per candidate. Each GPU thread has its own stack, so
+25 KB per candidate across hundreds of thousands of threads misses the cache all the time, and the pipeline crawled at 1 million a
+second. The formula reads only 67 of 1209 domain words. Copy only live words, drop recipes that target dead words, and pack the domain.
+This liveness belongs to the compiled attack, so it must be rebuilt with the paths.
+
+**Current result, 2026-11-06.** RTX 4070 Ti SUPER, one attack, fixed weapons and attributes, 40, 36, 45, 36 and 42 items in armor slots
+4 to 8. 501 of 501 outfits identical to the VM, and the top 40 search results re-checked by the VM with no difference. All 97,977,600
+combinations took 6.85 s, 14.3 million a second, or 21 s, 4.7 million a second, with the game running and rendering. The pipeline alone
+reaches 32 million a second, so the pipeline and the formula cost about the same. Pruning cut the space to 16,576,560 and kept the best
+of 1116, 1.31 s.
+
+**Limits.** 33,745 combinations, 0.03%, have no compiled path and are not evaluated; the count fell from 56,292 as paths were added, so
+this is not closed. Only armor slots vary. Weapons, accessories, attributes during search, other moves and buffs are not covered. D3D11
+or another non-CUDA fallback is not built. Ties are common because damage lands on whole numbers, so the objective needs a tiebreak.
+
 ## Appendix A. Version-bound values (2.0.2.0)
 
 All of these must be revalidated. RVAs are relative to the `Nioh3.exe` base.
