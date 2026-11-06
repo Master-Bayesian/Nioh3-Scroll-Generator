@@ -1,0 +1,56 @@
+{
+ "key": "0x3336",
+ "numeric": {
+  "attack_helper_u32": 116,
+  "attack_increment_u16": 116,
+  "defense_increment_u32": 111,
+  "attack": {
+   "value_u32": 116,
+   "wrapped_product_u32": 110105,
+   "signed_quotient_i32": 110,
+   "level_field_offset": "0x36",
+   "plus_field_offset": "0x38"
+  },
+  "defense": {
+   "value_u32": 111,
+   "wrapped_product_u32": 105925,
+   "signed_quotient_i32": 105,
+   "level_field_offset": "0x3a",
+   "plus_field_offset": "0x3c"
+  },
+  "effective_parameters": {
+   "effective_level_u32": 173,
+   "effective_plus_u32": 5,
+   "base_level_u16": 170,
+   "familiarity_bonus_u32": 0,
+   "rarity_add_u32": 3,
+   "rarity_table_proof": {
+    "table": "rarity_roll",
+    "key": "0x3",
+    "row_index": 3,
+    "file_offset": "0x2f0",
+    "stride": 248,
+    "row_sha256": "f57cf5f2f7571f96695fd4407894002cc20393fd6f73a427de5245ceb35a4cf4",
+    "source": "evidence/original-tables/rarity_roll/rows.bin",
+    "key_source": "evidence/original-tables/rarity_roll/hash_entries.bin"
+   },
+   "native": "0x2FA2F0..0x2FA3AF -> 0x2FA3B0; manager+0x9B0 stride0xF8",
+   "boundary": "native effective item parameter pair, not natural attainment"
+  },
+  "level_index": 173,
+  "plus_index": 5,
+  "passive_key_u16": 64182,
+  "passive_row_index": 78,
+  "passive_lookup_hit": true,
+  "original_parameter_used": true,
+  "attenuation_core_input": 0
+ },
+ "delta": {
+  "0x5e5d": 11,
+  "0x8c1": 19,
+  "0xecc1": 15,
+  "0x83fd": 5
+ },
+ "same": 884.0,
+ "with_core": 994.0
+}

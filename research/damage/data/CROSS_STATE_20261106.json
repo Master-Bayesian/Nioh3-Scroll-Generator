@@ -1,0 +1,607 @@
+[
+ {
+  "target": "blind-1023/h1",
+  "observed": 884,
+  "predicted": 884.0,
+  "status": "computed",
+  "wrong_groups": {},
+  "stat_words_wrong": [
+   "0x0",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x164",
+   "0x168",
+   "0x798",
+   "0x79c"
+  ],
+  "d_words_wrong": [
+   "0x880"
+  ],
+  "packet": 2818,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "target": "blind-1023/base",
+  "observed": 793,
+  "predicted": 793.0,
+  "status": "computed",
+  "wrong_groups": {},
+  "stat_words_wrong": [
+   "0x0",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x164",
+   "0x168"
+  ],
+  "d_words_wrong": [
+   "0x880"
+  ],
+  "packet": 2818,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "target": "blind-1023/h2",
+  "observed": 793,
+  "predicted": 793.0,
+  "status": "computed",
+  "wrong_groups": {},
+  "stat_words_wrong": [
+   "0x0",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x164",
+   "0x168"
+  ],
+  "d_words_wrong": [
+   "0x880"
+  ],
+  "packet": 2818,
+  "target_packet": [
+   2818,
+   0,
+   79
+  ]
+ },
+ {
+  "target": "live1022-imbue-plain",
+  "observed": null,
+  "predicted": 698.0,
+  "status": "computed",
+  "wrong_groups": {},
+  "stat_words_wrong": [
+   "0x0",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x164",
+   "0x168"
+  ],
+  "d_words_wrong": [
+   "0x880"
+  ],
+  "packet": 2736,
+  "target_packet": [
+   2736,
+   1,
+   69
+  ]
+ },
+ {
+  "target": "same",
+  "observed": 884,
+  "predicted": 884.0,
+  "status": "computed",
+  "wrong_groups": {},
+  "stat_words_wrong": [
+   "0x0",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x164",
+   "0x168",
+   "0x798",
+   "0x79c"
+  ],
+  "d_words_wrong": [
+   "0x880"
+  ],
+  "packet": 2818,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "target": "core2",
+  "observed": 1038,
+  "predicted": 1038.0,
+  "status": "computed",
+  "wrong_groups": {
+   "0x5e5d": [
+    null,
+    11
+   ],
+   "0x8c1": [
+    null,
+    19
+   ],
+   "0xecc1": [
+    null,
+    15
+   ],
+   "0x83fd": [
+    null,
+    5
+   ]
+  },
+  "stat_words_wrong": [
+   "0x0",
+   "0x24",
+   "0x28",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x124",
+   "0x128",
+   "0x164",
+   "0x168",
+   "0x1c8",
+   "0x218",
+   "0x798",
+   "0x79c"
+  ],
+  "d_words_wrong": [
+   "0x40",
+   "0x3bc",
+   "0x630",
+   "0x880"
+  ],
+  "packet": 2934,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "target": "a",
+  "observed": null,
+  "predicted": 1043.0,
+  "status": "computed",
+  "wrong_groups": {
+   "0x5e5d": [
+    null,
+    11
+   ],
+   "0x8c1": [
+    null,
+    19
+   ],
+   "0xecc1": [
+    null,
+    15
+   ],
+   "0x83fd": [
+    null,
+    5
+   ]
+  },
+  "stat_words_wrong": [
+   "0x0",
+   "0x24",
+   "0x28",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x124",
+   "0x128",
+   "0x164",
+   "0x168",
+   "0x1a8",
+   "0x1c4",
+   "0x1c8",
+   "0x218",
+   "0x798",
+   "0x79c"
+  ],
+  "d_words_wrong": [
+   "0x40",
+   "0x3bc",
+   "0x630",
+   "0x880"
+  ],
+  "packet": 2945,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "target": "b",
+  "observed": null,
+  "predicted": 1036.0,
+  "status": "computed",
+  "wrong_groups": {
+   "0x5e5d": [
+    null,
+    11
+   ],
+   "0x8c1": [
+    null,
+    19
+   ],
+   "0xecc1": [
+    null,
+    15
+   ],
+   "0x83fd": [
+    null,
+    5
+   ]
+  },
+  "stat_words_wrong": [
+   "0x0",
+   "0x18",
+   "0x24",
+   "0x28",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x124",
+   "0x128",
+   "0x164",
+   "0x168",
+   "0x1c4",
+   "0x1c8",
+   "0x218",
+   "0x798",
+   "0x79c",
+   "0x7a0",
+   "0x7b4"
+  ],
+  "d_words_wrong": [
+   "0x40",
+   "0x3bc",
+   "0x630",
+   "0x880"
+  ],
+  "packet": 2934,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "target": "c",
+  "observed": null,
+  "predicted": 1031.0,
+  "status": "computed",
+  "wrong_groups": {
+   "0x5e5d": [
+    null,
+    11
+   ],
+   "0x8c1": [
+    null,
+    19
+   ],
+   "0xecc1": [
+    null,
+    15
+   ],
+   "0xecc5": [
+    150,
+    null
+   ],
+   "0x83fd": [
+    null,
+    5
+   ]
+  },
+  "stat_words_wrong": [
+   "0x0",
+   "0x24",
+   "0x28",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x124",
+   "0x128",
+   "0x164",
+   "0x168",
+   "0x1c4",
+   "0x1c8",
+   "0x218",
+   "0x798",
+   "0x79c",
+   "0x7a4",
+   "0x7a8"
+  ],
+  "d_words_wrong": [
+   "0x40",
+   "0x3bc",
+   "0x630",
+   "0x880"
+  ],
+  "packet": 2920,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "target": "d",
+  "observed": null,
+  "predicted": 1036.0,
+  "status": "computed",
+  "wrong_groups": {
+   "0x5e5d": [
+    null,
+    11
+   ],
+   "0x8c1": [
+    null,
+    19
+   ],
+   "0xecc1": [
+    null,
+    15
+   ],
+   "0x83fd": [
+    null,
+    5
+   ]
+  },
+  "stat_words_wrong": [
+   "0x0",
+   "0x24",
+   "0x28",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x124",
+   "0x128",
+   "0x164",
+   "0x168",
+   "0x1bc",
+   "0x1c0",
+   "0x1c4",
+   "0x1c8",
+   "0x218",
+   "0x798",
+   "0x79c"
+  ],
+  "d_words_wrong": [
+   "0x40",
+   "0x3bc",
+   "0x630",
+   "0x880"
+  ],
+  "packet": 2934,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "target": "e",
+  "observed": null,
+  "predicted": 1041.0,
+  "status": "computed",
+  "wrong_groups": {
+   "0x5e5d": [
+    null,
+    11
+   ],
+   "0x8c1": [
+    null,
+    19
+   ],
+   "0xecc1": [
+    null,
+    15
+   ],
+   "0x83fd": [
+    null,
+    5
+   ]
+  },
+  "stat_words_wrong": [
+   "0x0",
+   "0x24",
+   "0x28",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x124",
+   "0x128",
+   "0x164",
+   "0x168",
+   "0x1bc",
+   "0x1c0",
+   "0x1c4",
+   "0x1c8",
+   "0x218",
+   "0x798",
+   "0x79c"
+  ],
+  "d_words_wrong": [
+   "0x40",
+   "0x3bc",
+   "0x630",
+   "0x880"
+  ],
+  "packet": 2934,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "target": "phoenix",
+  "observed": null,
+  "predicted": 1038.0,
+  "status": "computed",
+  "wrong_groups": {
+   "0x5c18": [
+    null,
+    110
+   ],
+   "0x5e5d": [
+    null,
+    11
+   ],
+   "0x8c1": [
+    null,
+    19
+   ],
+   "0xecc1": [
+    null,
+    15
+   ],
+   "0x62c5": [
+    308,
+    200
+   ],
+   "0x5cce": [
+    null,
+    114
+   ],
+   "0xb2d3": [
+    56,
+    10
+   ],
+   "0x9528": [
+    208,
+    null
+   ],
+   "0xaf2c": [
+    197,
+    100
+   ],
+   "0x2750": [
+    null,
+    208
+   ],
+   "0x4baa": [
+    null,
+    105
+   ],
+   "0xfdde": [
+    286,
+    100
+   ],
+   "0x89ea": [
+    null,
+    146
+   ],
+   "0x83fd": [
+    null,
+    5
+   ]
+  },
+  "stat_words_wrong": [
+   "0x0",
+   "0x24",
+   "0x28",
+   "0x64",
+   "0x68",
+   "0xa4",
+   "0xa8",
+   "0xe4",
+   "0xe8",
+   "0x124",
+   "0x128",
+   "0x164",
+   "0x168",
+   "0x1c8",
+   "0x218",
+   "0x77c",
+   "0x798",
+   "0x79c"
+  ],
+  "d_words_wrong": [
+   "0x40",
+   "0x11c",
+   "0x1cc",
+   "0x1dc",
+   "0x20c",
+   "0x3bc",
+   "0x4ac",
+   "0x4bc",
+   "0x550",
+   "0x630",
+   "0x660",
+   "0x78c",
+   "0x880"
+  ],
+  "packet": 2933,
+  "target_packet": [
+   2818,
+   1,
+   79
+  ]
+ },
+ {
+  "frozen_predictions": {
+   "before the second core (884)": 884.0,
+   "second core 0x3336 (1038, found after diagnosis, not blind)": 1038.0,
+   "attributes 37,150,27,36,80,15,140": 1043.0,
+   "attributes 37,150,37,26,80,15,140": 1036.0,
+   "attributes 37,140,27,26,80,15,160": 1031.0,
+   "attributes 37,150,27,26,90,15,140": 1036.0,
+   "attributes 37,150,27,26,70,15,160": 1041.0,
+   "guardian phoenix on samurai": 1038.0
+  }
+ }
+]

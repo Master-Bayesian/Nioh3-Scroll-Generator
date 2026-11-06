@@ -136,7 +136,7 @@ Open in the composition: 0x52D 36 and 0xF919 35 are equal in both forms but have
 **Attack record.** record = weapon stages (weapon, coreX scaling, scroll) + guardian attack + soul core attack.
 
 - Guardian attack and defense are the menu's 玩家的强化值, from guardian table `numeric(key, level)` (374F58 adds them to all six records and +0x1C8). All four guardians match at level 50: 草薙 71/66, 虎御前 68/73, 凤凰 70/70, 猫又 69/69, and all their five effect entries. `data/GUARDIANS.json` has every definition at level 50.
-- Soul core attack is added by 554268 for passive item slots 0 and 1 (attribute source +0x80, 0xE8 each). Measured record base minus guardian: 330 with core 0x7BD9 in both slots, 164 with 0xBB71 in slot 0 and slot 1 empty, on all 20 samurai capture states. 330 = 2 × 165 suggests each filled slot counts once; this is inferred, not separated. The table for the exact value (manager+0x118) is not on disk.
+- Soul core attack and defense are added by 554268 for passive item slots 0 and 1 (attribute source +0x80, 0xE8 each). `soul_core_numeric.py` derives them from the passive table (manager+0x118, 84 rows, dumped live, hash equal to the 10-16 receipt): 0x7BD9 165/156 in both slots gives 330/312, 0xBB71 164/156 in slot 0, 0x3336 116/111 in slot 1. All match the game; live records rose 116 and defense 111 when 0x3336 was equipped on 11-06.
 - The record +8 field is the 攻击力 group + 35 (samurai records 0 and 1, three weapons; 36 on the ninja frame, source not located).
 
 **Correction.** The earlier fit of a base attack from attribute 2 was a coincidence and is withdrawn. The −183 between the two attribute sets is −17 coreX and −166 soul core.
@@ -150,18 +150,25 @@ Open in the composition: 0x52D 36 and 0xF919 35 are equal in both forms but have
 | 10-23 armored hit (h1) | 1188 | 884 | 884 |
 | 10-23 no armor (base, h2) | n/a | 793 | 793 |
 
-Three measured constants still enter: soul core attack 164, the defense change 156 between the two core states, and the +35 field; plus one zero-value entry 0x3E52 of the 10-23 state. So this confirms the composition for this hit, not a fully derived soul core. STAT words that still differ are records 1, 2, 3 and 5 and +0x798/+0x79C, which this hit does not depend on (writing the target's whole STAT and D gave the same damage).
+One measured constant still enters: the +35 field; plus one zero-value entry 0x3E52 of the 10-23 state. STAT words that still differ are records 1, 2, 3 and 5 and +0x798/+0x79C, which this hit does not depend on (writing the target's whole STAT and D gave the same damage).
 
 **Weight is read from a second object.** The formula reads +0x7B8 from `current_player.external_STAT`, not the source STAT. Before writing it, the prediction was 859 and 792.
 
-**Frozen predictions** for the current samurai outfit and the same hit (884), in `data/CROSS_STATE_20261105.json`; not yet tested:
+**Withdrawn predictions.** The 11-05 attribute predictions (892, 884, 873) and the core prediction (989) are withdrawn. The attribute ones never wrote the formula's attribute words; the core one assumed attack 164 and no effects. See below.
+
+**Second soul core and attribute reflection (11-06, live).** Soul core 0x3336 in slot 1 raised the attack records by 116 and defense by 111, equal to the table. Its item record lists four effects, 0x8C1 19, 0xECC1 15, 0x5E5D 11, 0x83FD 5, and the live aggregate grew by exactly those; no other group changed. Live D differs from the composed D on no effect word.
+
+The frozen prediction was 994 and the game showed 1038. The cause: the formula reads attributes inline at STAT+0x844 (seven i32) through reflection grades in D, for example D+0x40 from group 0x83FD 对伤害的反映（咒）. `cross_state.py` wrote STAT only below +0x7C0, so the replay kept the 10-16 attributes (attribute 7 at 50 instead of 150). Earlier hits had no grade on an attribute that differed, so 884 and 793 did not show it. With the attributes written, the same inputs give 1038. This is an explanation found after seeing the number, not a blind result. The pieces that give 884 to 1038: attack and defense 884 to 962, grade 0x83FD 962 to 1038.
+
+**Frozen predictions** for the outfit with both soul cores and the same hit (1038), in `data/CROSS_STATE_20261106.json`; not yet tested:
 
 | Change | Predicted |
 | --- | ---: |
-| Attributes (37,150,27,36,80,15,140) | 892 |
-| Attributes (37,150,37,26,80,15,140) | 884 |
-| Attributes (37,140,27,26,80,15,160) | 873 (also loses a 150-gated entry, group 0xECC5) |
-| Guardian 凤凰 instead of 草薙 | 883 |
-| A soul core in the empty slot 1, attack +164, defense unchanged | 989 |
+| Attributes (37,150,27,36,80,15,140) | 1043 |
+| Attributes (37,150,37,26,80,15,140) | 1036 |
+| Attributes (37,140,27,26,80,15,160) | 1031 (also loses a 150-gated entry, group 0xECC5) |
+| Attributes (37,150,27,26,90,15,140) | 1036 |
+| Attributes (37,150,27,26,70,15,160) | 1041 |
+| Guardian 凤凰 instead of 草薙 | 1038 |
 
-Still open: spell packet attack against attributes (seen at one attribute set only), soul core attack and effects from the table, and the ninja +36.
+Still open: spell packet attack against attributes (seen at one attribute set only), soul core effects taken from item records inside the optimizer, and the +35 and ninja +36 fields.

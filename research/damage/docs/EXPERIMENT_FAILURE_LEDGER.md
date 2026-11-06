@@ -6074,3 +6074,13 @@ body/signature inference remains subject to raw-instruction verification.
 - Disposition: closed. Compare D from the default page; do not materialize onto a captured STAT.
 - Reproduction: `work/opt-bench/attr_full.py` on `blind-1023/h1/capture.json`.
 - Follow-up: attribute modelling continues in `NIOH3_SPELLS_AND_PROGRESS_SOURCES_20261027.md`.
+
+## 2026-11-06 Second soul core prediction 994, game 1038
+
+- Objective: blind test a soul core in slot 1 on the 884 hit.
+- Symptom: predicted 994, game 1038, while live STAT and D matched the composed state.
+- Cause: the replay kept the baseline attributes at STAT+0x844, read at hit time through reflection grades.
+- Evidence: `evaluator/src/cross_state.py`; `data/live-20261106/PREDICTION_994_FROZEN.json`; `data/CROSS_STATE_20261106.json`.
+- Disposition: fixed; the same inputs give 1038. Not a blind pass. 11-05 attribute predictions withdrawn.
+- Reproduction: `cross_state.py data/SOURCE_LAYERS.json <out>`.
+- Follow-up: blind test the 11-06 attribute predictions. Also check the same inline words in the optimizer.

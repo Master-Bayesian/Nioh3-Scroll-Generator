@@ -23,8 +23,9 @@ W = "F:/Nioh3_r16_build/work/"
 layers_path, out = sys.argv[1:3]
 layers = load_layers(layers_path)
 NAMES = ["title_blessings", "skills", "clan_blessing", "soul_core:sand_hag", "elixir_upgrades", "area_completion", "unnamed_progress", "guardian:kusanagi"]
-CORE_ATTACK = 164  # measured: record base minus guardian attack on 21 captures; the passive table row is not on disk
-CORE_DEFENSE_CHANGE = 156  # measured on four captures: defense of the 10-16 core state minus the 10-23 one
+CORE_ATTACK = 164  # core 0xBB71 in slot 0, from the passive table (soul_core_numeric.py), equal to the measured value
+CORE_DEFENSE_CHANGE = 156  # the second 0x7BD9 of the 10-16 state, from the passive table
+CORE2 = {"key": 0x3336, "attack": 116, "defense": 111, "groups": {0x8C1: 19, 0xECC1: 15, 0x5E5D: 11, 0x83FD: 5}}  # slot 1 on 11-06, table and item record
 PLUS8_WEAPON = 35  # record +8 minus the attack group, constant on three samurai weapons
 TARGETS = [("blind-1023/h1", 884), ("blind-1023/base", 793), ("blind-1023/h2", 793), ("live1022-imbue-plain", None)]
 ev = Evaluator(CACHE, BASE / "capture.json", BASE / "ENTRY_REQUEST.json", BASE / "RETAINED_STATIC_CELLS.json",
@@ -141,6 +142,9 @@ def predict(path, observed, attrs=None, names=None, gain_delta=0, defense_delta=
     writes[base.main_addr + 0x14] = struct.pack("<I", u(pred, 0x3C))
     # The formula reads weight from the current-player STAT, a separate object from the source STAT.
     writes[base.R["current_player.external_STAT"][0] + 0x7B8] = bytes(pred[0x7B8:0x7BC])
+    # Attribute reflection reads the attributes inline at STAT+0x844 through grades D+0x30.., beyond the materialized range.
+    for i, v in enumerate(t.raw_attrs):
+        writes[base.stat_addr + 0x844 + 4 * i] = struct.pack("<i", v)
     r = ev.evaluate([], writes)
     row = {"target": label or path, "observed": observed, "predicted": r["damage"], "status": r["status"], "wrong_groups": wrong_groups,
            "stat_words_wrong": stat_wrong, "d_words_wrong": d_wrong, "packet": packet, "target_packet": struct.unpack_from("<3I", t.main, 8)}
@@ -153,7 +157,9 @@ for path, observed in TARGETS:
     predict(path, observed)
 H1 = "blind-1023/h1"
 NOW = [37, 150, 27, 26, 80, 15, 150]
-SWAP = [n for n in NAMES if n != "guardian:kusanagi"] + ["guardian:phoenix"]
+layers["core2"] = {0: CORE2["groups"]}
+WORN = NAMES + ["core2"]
+SWAP = [n for n in WORN if n != "guardian:kusanagi"] + ["guardian:phoenix"]
 
 
 def moved(src, dst, n):
@@ -163,12 +169,18 @@ def moved(src, dst, n):
     return a
 
 
-frozen = {"baseline 884 hit, same outfit": predict(H1, 884, label="same"),
-          "attributes: 10 points from 7th to 4th (37,150,27,36,80,15,140)": predict(H1, None, moved(6, 3, 10), label="a"),
-          "attributes: 10 points from 7th to 2nd is capped? 3rd +10 (37,150,37,26,80,15,140)": predict(H1, None, moved(6, 2, 10), label="b"),
-          "attributes: 10 points from 2nd to 7th (37,140,27,26,80,15,160)": predict(H1, None, moved(1, 6, 10), label="c"),
-          "guardian phoenix on samurai": predict(H1, None, None, SWAP, gain_delta=70 - 71, label="phoenix"),
-          "soul core in the empty second slot, attack +164, defense unchanged": predict(H1, None, gain_delta=164, label="core2")}
+def worn(observed=None, attrs=None, names=None, guardian_delta=0, label=None):
+    return predict(H1, observed, attrs, names or WORN, gain_delta=CORE2["attack"] + guardian_delta, defense_delta=CORE2["defense"], label=label)
+
+
+frozen = {"before the second core (884)": predict(H1, 884, label="same"),
+          "second core 0x3336 (1038, found after diagnosis, not blind)": worn(1038, label="core2"),
+          "attributes 37,150,27,36,80,15,140": worn(attrs=moved(6, 3, 10), label="a"),
+          "attributes 37,150,37,26,80,15,140": worn(attrs=moved(6, 2, 10), label="b"),
+          "attributes 37,140,27,26,80,15,160": worn(attrs=moved(1, 6, 10), label="c"),
+          "attributes 37,150,27,26,90,15,140": worn(attrs=moved(6, 4, 10), label="d"),
+          "attributes 37,150,27,26,70,15,160": worn(attrs=moved(4, 6, 10), label="e"),
+          "guardian phoenix on samurai": worn(names=SWAP, guardian_delta=70 - 71, label="phoenix")}
 print(json.dumps(frozen, ensure_ascii=False))
 report.append({"frozen_predictions": frozen})
 Path(out).write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
