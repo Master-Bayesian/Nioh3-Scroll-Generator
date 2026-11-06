@@ -160,13 +160,13 @@ One measured constant still enters: the +35 field; plus one zero-value entry 0x3
 
 The frozen prediction was 994 and the game showed 1038. The cause: the formula reads attributes inline at STAT+0x844 (seven i32) through reflection grades in D, for example D+0x40 from group 0x83FD 对伤害的反映（咒）. `cross_state.py` wrote STAT only below +0x7C0, so the replay kept the 10-16 attributes (attribute 7 at 50 instead of 150). Earlier hits had no grade on an attribute that differed, so 884 and 793 did not show it. With the attributes written, the same inputs give 1038. This is an explanation found after seeing the number, not a blind result. The pieces that give 884 to 1038: attack and defense 884 to 962, grade 0x83FD 962 to 1038.
 
-**Frozen predictions** for the outfit with both soul cores and the same hit (1038), in `data/CROSS_STATE_20261106.json`; not yet tested:
+**Frozen predictions** for the outfit with both soul cores and the same hit (1038), in `data/CROSS_STATE_20261106.json`. Blind results are marked; the rest are untested. Attributes were written to live memory for these tests and the game recomputed after an equipment change; its level word stayed at 167, HP followed it, and this hit did not depend on either:
 
 | Change | Predicted |
 | --- | ---: |
-| Attributes (37,150,27,36,80,15,140) | 1043 |
+| Attributes (37,150,27,36,80,15,140) | 1043, blind pass 11-06 |
 | Attributes (37,150,37,26,80,15,140) | 1036 |
-| Attributes (37,140,27,26,80,15,160) | 1031 (also loses a 150-gated entry, group 0xECC5) |
+| Attributes (37,140,27,26,80,15,160) | 1031, blind pass 11-06 (also loses a 150-gated entry, group 0xECC5) |
 | Attributes (37,150,27,26,90,15,140) | 1036 |
 | Attributes (37,150,27,26,70,15,160) | 1041 |
 | Guardian 凤凰 instead of 草薙 | 1038 |
