@@ -1,6 +1,8 @@
 //! Runs the guarded programs exported by path_export.py. A run either reproduces the VM on that path or reports
 //! that the candidate left it; it never guesses. Floating point is native binary32, as in the game.
 
+pub mod pipeline;
+
 use std::fs;
 use std::path::Path;
 
@@ -62,6 +64,7 @@ pub struct Bundle {
     domain: Vec<(u64, u64, usize)>,
     pub dom_base: Vec<u8>,
     pub dom_known: Vec<u8>,
+    mapped: Vec<u8>,
     tables: Vec<Vec<Program>>,
     mains: Vec<Program>,
 }
@@ -156,7 +159,25 @@ impl Bundle {
         }
         let c: usize = l.words()[1].parse().unwrap();
         let mains = (0..c).map(|_| read_program(&mut l)).collect();
-        Bundle { regions, arena: fs::read(dir.join("arena.bin")).unwrap(), domain, dom_base, dom_known, tables, mains }
+        let mapped = fs::read(dir.join("mapped.bin")).unwrap_or_else(|_| vec![1; dom_base.len()]);
+        Bundle { regions, arena: fs::read(dir.join("arena.bin")).unwrap(), domain, dom_base, dom_known, mapped, tables, mains }
+    }
+
+    /// Start a candidate from the baseline bytes and lay these words over them. Bytes no captured region holds stay out, as in the VM.
+    pub fn apply(&self, w: &mut Worker, writes: &[(u64, u32)]) {
+        w.dom.copy_from_slice(&self.dom_base);
+        w.known.copy_from_slice(&self.dom_known);
+        for &(address, value) in writes {
+            let bytes = value.to_le_bytes();
+            let Some(&(start, _, at)) = self.domain.iter().find(|d| d.0 <= address && address < d.1) else { continue };
+            let o = at + (address - start) as usize;
+            for i in 0..4 {
+                if self.mapped[o + i] != 0 {
+                    w.dom[o + i] = bytes[i];
+                    w.known[o + i] = 255;
+                }
+            }
+        }
     }
 
     pub fn worker(&self) -> Worker {

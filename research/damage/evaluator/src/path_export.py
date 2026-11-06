@@ -215,4 +215,9 @@ def export(compiler, vectors, out):
         bytes_ = compiler.bytewise(overrides)
         rows.append(f"{bits:08x} " + " ".join(f"{domain.offset(a)}:{b}" for a, b in sorted(bytes_.items())))
     (out / "vectors.txt").write_text("\n".join(rows) + "\n", encoding="ascii", newline="\n")
+    mapped = bytearray(domain.size)
+    for s, e in domain.ranges:
+        for a in range(s, e):
+            mapped[domain.offset(a)] = compiler.ev._template_byte(a) is not None
+    (out / "mapped.bin").write_bytes(mapped)
     print("exported", len(compiler.programs), "mains", sum(len(x) for x in compiler.subs), "callee paths", "arena MB", at / 1e6, "domain", domain.size)

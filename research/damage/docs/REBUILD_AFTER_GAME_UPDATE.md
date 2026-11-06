@@ -414,6 +414,26 @@ VM, 0 differences, 3 new paths in the 800. Cost fell from 354 ms to 27.6 ms: 15.
 Python. This covers one attack on one outfit, varying attributes only. Other outfits, moves and buffs need their own paths, and
 that has not been measured.
 
+**Move it to Rust.** Keep Python as the reference and port behind a differential test, in this order:
+
+1. `evaluator/src/path_export.py` writes the compiled programs. `evaluator/rust/path_runner` runs them. `path_runner.exe` must match
+   every exported vector bit for bit.
+2. `evaluator/src/pipeline_export.py` writes the tables, the baseline frame and the characters as named sections.
+   `evaluator/rust/path_runner/src/pipeline.rs` is `_pipeline` and `_evaluate` in Rust. It is a direct port of the staged model. It must
+   stay a direct port: integer wrapping, binary32 steps, the side-entry swap loop and refusals all matter.
+3. `evaluator/src/pipeline_check.py` mutates items, attributes and soul cores, and records Python's STAT, D and writes, or its refusal.
+   `pipeline_check.exe` compares all of them. Random effect IDs reach groups no real outfit reaches.
+4. `evaluator/src/path_check.py` with an export directory also writes `end_to_end.txt`. `end_to_end.exe` then goes from attributes to
+   damage with no Python.
+
+**Traps.** Python adds the float words of the delta in binary64 and then rounds, so Rust must too. Some recipe literals are wider than
+eight bytes. `manager+0x970` is absent from the sealed cache, so both models refuse flag-40000 weapons, and armor with that flag needs
+`manager+0x968`. A larger arena can make a Windows `bash -c` command too long, so write big files with an editor tool.
+
+**Current result, 2026-11-06.** 2711 mutated characters identical and 289 refused by both, at 5.3 us per pipeline against 16 ms. End to
+end, 920 of 920 damages identical to the VM. One thread takes 60 us, and 16 threads reach about 128,000 candidates a second. The
+limits above still apply: one attack and one outfit's paths.
+
 ## Appendix A. Version-bound values (2.0.2.0)
 
 All of these must be revalidated. RVAs are relative to the `Nioh3.exe` base.

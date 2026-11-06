@@ -28,6 +28,21 @@ def capture(pieces, overrides=None):
 
 
 p.ev.evaluate = capture
+real_pipeline, real_evaluate = p._pipeline, p._evaluate
+
+
+def pipeline(m, groups):
+    if groups is not None:
+        held["ops"] = [(g, v) for totals in groups for g, v in totals.items()]
+    return real_pipeline(m, groups)
+
+
+def evaluate(t, s_t, d_t, source, guardian, cores):
+    held.update(gain=guardian["attack"] + sum(x["attack"] for x in cores), defense=guardian["defense"] + sum(x["defense"] for x in cores))
+    return real_evaluate(t, s_t, d_t, source, guardian, cores)
+
+
+p._pipeline, p._evaluate = pipeline, evaluate
 compiler = Compiler(p.ev, domain, [0xFBFE00, 0x2FA678])
 start = [37, 150, 27, 26, 80, 15, 150]
 rng = random.Random(20261106)
@@ -62,7 +77,7 @@ def fresh(n):
 
 
 rows, wrong = [], 0
-vectors = []
+vectors, attributes = [], []
 vm_time = compiled_time = 0.0
 for a in sets:
     t = time.perf_counter()
@@ -75,6 +90,7 @@ for a in sets:
     same = got is not None and r["damage"] is not None and struct.pack("<f", got) == struct.pack("<f", r["damage"])
     wrong += not same
     vectors.append((held["w"], struct.unpack("<I", struct.pack("<f", r["damage"]))[0]))
+    attributes.append(a)
     rows.append({"attributes": a, "vm": r["damage"], "compiled": got, "same": same, "new_path": compiler.stats["traces"] != before["traces"]})
     print(a, r["damage"], got, "ok" if same else "DIFF", "new path" if rows[-1]["new_path"] else "", flush=True)
 fast = int(sys.argv[4]) if len(sys.argv) > 4 else 0
@@ -94,6 +110,7 @@ for k, a in enumerate(fresh(fast)):
     if not grew:
         spent["compiled"] += time.perf_counter() - t
     vectors.append((held["w"], struct.unpack("<I", struct.pack("<f", got))[0]))
+    attributes.append(a)
     if k % 25 == 0:
         p.ev.evaluate = capture
         r = p.predict("blind-1023/h1", a, None, worn)
@@ -108,3 +125,10 @@ print("sites", len(compiler.subs), "sub paths", [len(x) for x in compiler.subs],
 if len(sys.argv) > 5:
     from path_export import export
     export(compiler, vectors, sys.argv[5])
+    from pipeline_export import export_characters, export_frame, export_tables
+    export_tables(p, sys.argv[5])
+    export_frame(p, sys.argv[5])
+    export_characters(p, [p.model("blind-1023/h1")], sys.argv[5])
+    ops = " ".join(f"{g}:{v}" for g, v in held["ops"])
+    lines = [f"0 {' '.join(map(str, a))} {held['gain']} {held['defense']} {bits:08x} {ops}" for a, (_, bits) in zip(attributes, vectors)]
+    Path(sys.argv[5], "end_to_end.txt").write_text("\n".join(lines) + "\n", encoding="ascii", newline="\n")
