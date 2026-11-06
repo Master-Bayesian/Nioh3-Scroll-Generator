@@ -385,6 +385,35 @@ Fail closed. Keep a version unsupported until its anchors are resolved. Product 
 
 Longer accounts are in `EXPERIMENT_FAILURE_LEDGER.md`.
 
+## Speeding up the evaluator
+
+Do this after the model passes its blind tests, never instead of them. The original-byte VM stays the source of truth.
+
+**Where the time goes.** Profile first. On 2026-11-06 one prediction took 354 ms, of which 334 ms was the Python VM replaying MAIN
+and 17 ms the equipment pipeline. A GPU does not help an interpreter, so the first step is removing the interpretation.
+
+**Compile the executed path.** `evaluator/src/path_compile.py` shadows the VM at byte level. A byte is tainted only if it lies in the
+declared input domain, the words a candidate may write. Everything else folds to a constant. Each tainted operation becomes a node,
+and each input-dependent branch, conditional move, jump table or address becomes a guard. A candidate that fails a guard is replayed
+by the VM, and that path is added. A candidate writing outside the domain is refused.
+
+**Keep curves out of the main path.** Attribute curves loop once per segment, so seven attributes multiply into a path per candidate.
+Outline those callees (today `0xFBFE00` and `0x2FA678`) as call nodes with their own table of paths, so paths add instead of multiply.
+Three rules keep this exact:
+
+- A table is shared only by calls with the same context: the same untainted registers and live constant stack bytes.
+- Results returned through caller stack slots are outputs, and every path of a site must use the same slots.
+- A callee that stores elsewhere, or changes a callee-saved register, stops being outlined (`NotPure`).
+
+**Trap.** `nop word ptr [rax + rax]` has a memory operand but reads nothing. Treating it as an access created a false guard on every
+table search.
+
+**Finish line.** `evaluator/src/path_check.py` must report zero bitwise differences against the VM on candidates it did not train on,
+with new paths nearly stopping. Current result: 120 candidates checked bit for bit, then 800 fresh ones with 32 sampled against the
+VM, 0 differences, 3 new paths in the 800. Cost fell from 354 ms to 27.6 ms: 15.4 ms pipeline and writes, 12.2 ms compiled program in
+Python. This covers one attack on one outfit, varying attributes only. Other outfits, moves and buffs need their own paths, and
+that has not been measured.
+
 ## Appendix A. Version-bound values (2.0.2.0)
 
 All of these must be revalidated. RVAs are relative to the `Nioh3.exe` base.
@@ -526,6 +555,7 @@ Current regression, all exact on 2.0.2.0 (`data/REGRESS_INPUTS_20261106.json`):
 | Attributes (37,140,27,26,80,15,160) | 1031 |
 | Attributes (37,150,37,26,80,15,140) | 1036 |
 | Attributes (5,200,15,75,5,35,150), found by search, menu attack 3045 and HP 3198 also predicted | 1105 |
+| Attributes (5,45,15,200,5,60,155), second searched set, menu attack 3044, HP 3198, defense 3540 also predicted | 1105 |
 
 Bounds of this evidence: one action, one target, samurai. 1038 and 849 were reached after seeing the game's number. Spell attack
 against attributes, ninja, other weapons and other enemies are not covered.
