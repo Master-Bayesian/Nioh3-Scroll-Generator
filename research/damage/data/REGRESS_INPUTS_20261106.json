@@ -1,0 +1,82 @@
+[
+ {
+  "label": "no armor",
+  "game": 793,
+  "damage": 793.0,
+  "status": "computed",
+  "packet": 2818,
+  "defense": 695,
+  "hp": 3647,
+  "groups": 73
+ },
+ {
+  "label": "no armor again",
+  "game": 793,
+  "damage": 793.0,
+  "status": "computed",
+  "packet": 2818,
+  "defense": 695,
+  "hp": 3647,
+  "groups": 73
+ },
+ {
+  "label": "armored",
+  "game": 884,
+  "damage": 884.0,
+  "status": "computed",
+  "packet": 2818,
+  "defense": 3429,
+  "hp": 3647,
+  "groups": 86
+ },
+ {
+  "label": "second core",
+  "game": 1038,
+  "damage": 1038.0,
+  "status": "computed",
+  "packet": 2934,
+  "defense": 3540,
+  "hp": 3647,
+  "groups": 90
+ },
+ {
+  "label": "mistaken attributes",
+  "game": 849,
+  "damage": 849.0,
+  "status": "computed",
+  "packet": 2773,
+  "defense": 3531,
+  "hp": 2796,
+  "groups": 72
+ },
+ {
+  "label": "attributes a",
+  "game": 1043,
+  "damage": 1043.0,
+  "status": "computed",
+  "packet": 2945,
+  "defense": 3540,
+  "hp": 3647,
+  "groups": 90
+ },
+ {
+  "label": "attributes c",
+  "game": 1031,
+  "damage": 1031.0,
+  "status": "computed",
+  "packet": 2920,
+  "defense": 3540,
+  "hp": 3647,
+  "groups": 89
+ },
+ {
+  "label": "attributes b",
+  "game": 1036,
+  "damage": 1036.0,
+  "status": "computed",
+  "packet": 2934,
+  "defense": 3540,
+  "hp": 3673,
+  "groups": 90
+ }
+]
