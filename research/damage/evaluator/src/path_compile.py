@@ -430,7 +430,7 @@ def install(state, replay, compiler):
             base_step(vm)
             t.flags = None
             if any(s[0] >= 0 for s in slots):
-                q = t.new(m, slots, w, vm.regget(lo).value)
+                q = t.new("imul:lo" if m == "imul" else m, slots, w, vm.regget(lo).value)
                 r = t.new(m + ":hi", slots, w, vm.regget(hi).value)
                 write(q, w, lo)
                 write(r, w, hi)
@@ -758,9 +758,9 @@ class Program:
                 over = prod != signed(v, w)
                 val[i] = v
                 fl[i] = (over, None, None, over, None)
-            elif op == "mul" or op == "mul:hi" or op == "imul:hi":
+            elif op == "mul" or op == "mul:hi" or op == "imul:hi" or op == "imul:lo":
                 third = val[s[2][0]] if s[2][0] >= 0 else s[2][1]
-                prod = (signed(a, w) * signed(third, w)) if op == "imul:hi" else a * third
+                prod = (signed(a, w) * signed(third, w)) if op.startswith("imul") else a * third
                 val[i] = (prod >> w if op.endswith(":hi") else prod) & ((1 << w) - 1)
             elif op == "div" or op == "div:hi" or op == "idiv" or op == "idiv:hi":
                 third = val[s[2][0]] if s[2][0] >= 0 else s[2][1]

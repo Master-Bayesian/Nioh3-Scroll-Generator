@@ -62,6 +62,7 @@ def fresh(n):
 
 
 rows, wrong = [], 0
+vectors = []
 vm_time = compiled_time = 0.0
 for a in sets:
     t = time.perf_counter()
@@ -73,6 +74,7 @@ for a in sets:
     compiled_time += time.perf_counter() - t
     same = got is not None and r["damage"] is not None and struct.pack("<f", got) == struct.pack("<f", r["damage"])
     wrong += not same
+    vectors.append((held["w"], struct.unpack("<I", struct.pack("<f", r["damage"]))[0]))
     rows.append({"attributes": a, "vm": r["damage"], "compiled": got, "same": same, "new_path": compiler.stats["traces"] != before["traces"]})
     print(a, r["damage"], got, "ok" if same else "DIFF", "new path" if rows[-1]["new_path"] else "", flush=True)
 fast = int(sys.argv[4]) if len(sys.argv) > 4 else 0
@@ -91,6 +93,7 @@ for k, a in enumerate(fresh(fast)):
     misses += grew
     if not grew:
         spent["compiled"] += time.perf_counter() - t
+    vectors.append((held["w"], struct.unpack("<I", struct.pack("<f", got))[0]))
     if k % 25 == 0:
         p.ev.evaluate = capture
         r = p.predict("blind-1023/h1", a, None, worn)
@@ -102,3 +105,6 @@ Path(sys.argv[2]).write_text(json.dumps({"wrong": wrong, "stats": compiler.stats
 print(sorted(compiler.reasons.items(), key=lambda x: -x[1])[:30])
 print("inline", [hex(x) for x in compiler.inline])
 print("sites", len(compiler.subs), "sub paths", [len(x) for x in compiler.subs], "sizes", [q.size for x in compiler.subs for q in x][:40])
+if len(sys.argv) > 5:
+    from path_export import export
+    export(compiler, vectors, sys.argv[5])
