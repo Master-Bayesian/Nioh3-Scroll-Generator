@@ -2,7 +2,13 @@
 
 Appends the survivors to pool.bin and points gpu_setup.txt at them, so the same GPU binary searches the pruned space. argv: in_dir out_dir
 The rule is a heuristic until the pruned search returns the same best as the full one; it is checked that way, never assumed.
+
+With a required set (argv: in_dir out_dir set_key pieces) the space becomes one disjoint subspace per choice of which slots hold set pieces, at
+least `pieces` of them, written to gpu_spaces.txt. A slot chosen for the set lists only that set's items, every other slot only the rest, so no
+outfit is counted twice. With set_key "list" it prints the sets in the pool and stops.
 """
+import itertools
+import os
 import shutil
 import struct
 import sys
@@ -43,6 +49,8 @@ class Keyed:
 
 
 source, target = Path(sys.argv[1]), Path(sys.argv[2])
+required = sys.argv[3] if len(sys.argv) > 3 else None
+pieces = int(sys.argv[4]) if len(sys.argv) > 4 else 0
 target.mkdir(parents=True, exist_ok=True)
 s = sections(source / "tables.bin")
 items, effects, groups = Keyed(s, "item", 0x1A0), Keyed(s, "effect", 0xD8), Keyed(s, "group", 0x70)
@@ -113,24 +121,90 @@ def beats(a, b):
     return all(a[0].get(k, 0) >= v for k, v in b[0].items())
 
 
-appended, new_ranges, total, kept_total = bytearray(pool), [], 1, 1
-for slot, start, count in ranges:
-    rows = [(i, profile(pool[(start + i) * ITEM:(start + i + 1) * ITEM])) for i in range(count)]
-    survivors = []
+def kept(rows):
+    out = []
+    if os.environ.get("NIOH3_NO_PRUNE"):
+        return [i for i, _ in rows]
     for i, p in rows:
         strictly = any(beats(q, p) and (not beats(p, q) or j < i) for j, q in rows if j != i)
         if not strictly:
-            survivors.append(i)
+            out.append(i)
+    return out
+
+
+links = []
+
+
+def finish(appended, spaces):
+    for name in ("path_kernel.exe", "arena.bin", "mapped.bin", "tables.bin", "frame.bin", "characters.bin", "dom_base.bin", "dom_known.bin"):
+        shutil.copyfile(source / name, target / name)
+    shutil.copyfile(source / "gpu_cases.txt", target / "gpu_cases.txt")
+    (target / "pool.bin").write_bytes(appended)
+    lines[2 + op_n:2 + op_n + slot_n] = [f"{a} {b} {c}" for a, b, c in spaces[0]]
+    (target / "gpu_setup.txt").write_text("\n".join(lines) + "\n", encoding="ascii", newline="\n")
+    text = [str(len(spaces))] + [" ".join(f"{a} {b} {c}" for a, b, c in one) for one in spaces]
+    (target / "gpu_spaces.txt").write_text("\n".join(text) + "\n", encoding="ascii", newline="\n")
+    (target / "gpu_full.txt").write_text("\n".join(" ".join(map(str, link)) for link in links) + "\n", encoding="ascii", newline="\n")
+
+
+def split_by_set():
+    tally = {}
+    rows_of = {}
+    for slot, start, count in ranges:
+        rows_of[slot] = [(start + i, profile(pool[(start + i) * ITEM:(start + i + 1) * ITEM])) for i in range(count)]
+        for _, p in rows_of[slot]:
+            for key in p[1]:
+                tally.setdefault(key, {}).setdefault(slot, 0)
+                tally[key][slot] += 1
+    if required == "list":
+        for key, by in sorted(tally.items(), key=lambda kv: -sum(kv[1].values())):
+            print(hex(key), [by.get(slot, 0) for slot, _, _ in ranges])
+        return
+    key = int(required, 16)
+    appended, sections_of = bytearray(pool), {}
+    for slot, start, count in ranges:
+        inside = [(i, p) for i, p in rows_of[slot] if key in p[1]]
+        outside = [(i, p) for i, p in rows_of[slot] if key not in p[1]]
+        sections_of[slot] = []
+        for group in (outside, inside):
+            at = len(appended) // ITEM
+            chosen = kept(group)
+            for i in chosen:
+                appended += pool[i * ITEM:(i + 1) * ITEM]
+            full = len(appended) // ITEM
+            for i, _ in group:
+                appended += pool[i * ITEM:(i + 1) * ITEM]
+            links.append((at, len(chosen), full, len(group)))
+            sections_of[slot].append((at, len(chosen)))
+        print("slot", slot, "outside", len(outside), "->", sections_of[slot][0][1], "inside", len(inside), "->", sections_of[slot][1][1])
+    spaces, total = [], 0
+    slots = [slot for slot, _, _ in ranges]
+    for k in range(pieces, len(slots) + 1):
+        for chosen in itertools.combinations(slots, k):
+            one = [(slot, *sections_of[slot][1 if slot in chosen else 0]) for slot in slots]
+            size = 1
+            for _, _, n in one:
+                size *= n
+            if size:
+                spaces.append(one)
+                total += size
+    print("spaces", len(spaces), "combinations", total)
+    finish(appended, spaces)
+
+
+if required:
+    split_by_set()
+    sys.exit(0)
+appended, new_ranges, total, kept_total = bytearray(pool), [], 1, 1
+for slot, start, count in ranges:
+    rows = [(i, profile(pool[(start + i) * ITEM:(start + i + 1) * ITEM])) for i in range(count)]
+    survivors = kept(rows)
     print("slot", slot, count, "->", len(survivors))
     new_ranges.append((slot, len(appended) // ITEM, len(survivors)))
+    links.append((len(appended) // ITEM, len(survivors), start, count))
     for i in survivors:
         appended += pool[(start + i) * ITEM:(start + i + 1) * ITEM]
     total *= count
     kept_total *= len(survivors)
 print("combinations", total, "->", kept_total)
-for name in ("path_kernel.exe", "arena.bin", "mapped.bin", "tables.bin", "frame.bin", "characters.bin", "dom_base.bin", "dom_known.bin"):
-    shutil.copyfile(source / name, target / name)
-shutil.copyfile(source / "gpu_cases.txt", target / "gpu_cases.txt")
-(target / "pool.bin").write_bytes(appended)
-lines[2 + op_n:2 + op_n + slot_n] = [f"{a} {b} {c}" for a, b, c in new_ranges]
-(target / "gpu_setup.txt").write_text("\n".join(lines) + "\n", encoding="ascii", newline="\n")
+finish(appended, [new_ranges])

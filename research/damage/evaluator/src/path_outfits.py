@@ -114,6 +114,8 @@ for k in range(len(forced) + count):
     misses += new > 0
     same = got is not None and struct.pack("<f", got) == struct.pack("<f", r["damage"])
     wrong += not same
+    if not same:
+        print(k, "disagrees: compiled", got, "VM", r["damage"], flush=True)
     if claimed and claimed != "xxxxxxxx":
         gpu_checked += 1
         gpu_wrong += claimed != struct.pack("<f", r["damage"])[::-1].hex()

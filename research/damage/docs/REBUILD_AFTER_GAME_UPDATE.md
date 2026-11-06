@@ -430,40 +430,79 @@ that has not been measured.
 eight bytes. `manager+0x970` is absent from the sealed cache, so both models refuse flag-40000 weapons, and armor with that flag needs
 `manager+0x968`. A larger arena can make a Windows `bash -c` command too long, so write big files with an editor tool.
 
-**Current result, 2026-11-06.** 2711 mutated characters identical and 289 refused by both, at 5.3 us per pipeline against 16 ms. End to
-end, 920 of 920 damages identical to the VM. One thread takes 60 us, and 16 threads reach about 128,000 candidates a second. The
-limits above still apply: one attack and one outfit's paths.
+### Shape the search before speeding it up
 
-### Move it to the GPU
+Compute constants lose to combinatorics, so cut the space first. In order of effect:
 
-The shipped scroll search is the pattern: the GPU screens, and the CPU re-derives every hit exactly. Generate the kernel, never hand-port
-the formula.
+1. **Ask for the set.** Players nearly always build around a set and piece count. `pool_prune.py in out set_key pieces` splits the space
+   into one disjoint subspace per choice of which slots hold set pieces, at least `pieces` of them. A chosen slot lists only that set's
+   items and the others only the rest, so no outfit is searched twice. With `pieces` 0 the subspaces must add up to the unconstrained
+   space and return its best; check that whenever the split changes.
+2. **Drop dominated items.** `pool_prune.py` removes an item another one beats on every damage-relevant number. This is a screen, not a
+   proof.
+3. **Polish.** The kernel gives every dropped item back to the top 400 outfits, one slot at a time, until nothing improves
+   (`gpu_full.txt`). Dominance has to be wrong sometimes: the formula reads total weight at external STAT +0x7B8, so a heavier item with
+   identical effects was worth one point (1097 against 1096), and weight is not simply "lower is better". Do not add a weight rule to
+   dominance to fix this; a real search also needs a weight limit, and that pulls the other way.
 
-1. `evaluator/src/path_outfits.py` compiles paths over random real outfits and exports them with each outfit's VM damage. Forced files
-   make the VM check GPU claims and compile paths the GPU lacked.
-2. `evaluator/src/path_cuda.py` turns each compiled program into straight C. A failed guard returns false and the next path runs.
-3. `evaluator/src/path_kernel.inc` is `pipeline.rs` line for line, plus the kernels and the host. A candidate is attributes plus an item
-   index per armor slot, so the host uploads tables once and the GPU walks a mixed-radix index with no per-candidate transfer.
-4. Build with nvcc and `--fmad=false`. A fused multiply-add is not what the game's SSE computes.
-5. Run once with no `touched.txt` in the export directory. That instrumented build records domain words reached by dynamic loads. Then
-   put the file there, empty if nothing was reached, and regenerate.
-6. `evaluator/src/pool_prune.py` drops items beaten on every damage-relevant number within the same set membership. Confirm the pruned
-   search returns the full search's best.
+`sample_inventory.py` merges players' saves with the test backpack, and `sample_pool.py` puts one save's backpack into a built kernel.
+Decrypted saves hold item records in the live pool's form: stride 0xF0, E8 payload, alignment read from the data. No re-signing is
+needed, since the game never sees them. These runs keep the test character, so they measure search size and speed, not that player's
+damage.
 
-**The trap that cost a factor of ten.** Do not copy whole STAT, D and domain buffers per candidate. Each GPU thread has its own stack, so
-25 KB per candidate across hundreds of thousands of threads misses the cache all the time, and the pipeline crawled at 1 million a
-second. The formula reads only 67 of 1209 domain words. Copy only live words, drop recipes that target dead words, and pack the domain.
-This liveness belongs to the compiled attack, so it must be rebuilt with the paths.
+### Speeding up the generated formula
 
-**Current result, 2026-11-06.** RTX 4070 Ti SUPER, one attack, fixed weapons and attributes, 40, 36, 45, 36 and 42 items in armor slots
-4 to 8. 501 of 501 outfits identical to the VM, and the top 40 search results re-checked by the VM with no difference. All 97,977,600
-combinations took 6.85 s, 14.3 million a second, or 21 s, 4.7 million a second, with the game running and rendering. The pipeline alone
-reaches 32 million a second, so the pipeline and the formula cost about the same. Pruning cut the space to 16,576,560 and kept the best
-of 1116, 1.31 s.
+`path_cuda.py` does this by itself; `NIOH3_PLAIN=1` gives the old output for comparison.
 
-**Limits.** 33,745 combinations, 0.03%, have no compiled path and are not evaluated; the count fell from 56,292 as paths were added, so
-this is not closed. Only armor slots vary. Weapons, accessories, attributes during search, other moves and buffs are not covered. D3D11
-or another non-CUDA fallback is not built. Ties are common because damage lands on whole numbers, so the objective needs a tiebreak.
+- One evaluation walked about 1800 nodes, and a main path alone held about 176 `mix` nodes, each rebuilding an SSE register byte by byte
+  through an array. Only about a hundred real float operations are left underneath.
+- A backward byte-demand pass finds which bytes of every value can reach anything that matters, across calls, so a `mix` becomes a word
+  selection. Inputs whose bytes are known in the base domain lose their known check: `known` can only grow, so the check cannot fail.
+- `sub` functions inline into their table; tables and mains stay real calls. Inlining everything ran `cicc` past 3.7 GB without finishing.
+
+Tried and not worth keeping: ordering paths by a profile, no gain. Copying the weapon stage's result instead of recomputing it gave about
+5%, kept as `kernel_seed`. `NIOH3_PROFILE=1` builds path hit counts and which domain words vary into `prof.txt`.
+
+The likely remaining cost is divergence, which fits these results but has not been measured directly. A GPU runs threads in groups that
+must share a branch, and every outfit here takes different loops and branches. Making the work cheaper per thread barely helps while that
+holds. The way past it is a uniform kernel: per-item vectors of live totals, added without branches. That has to handle set rewards and
+first-come map order exactly, so it is a redesign; do it only if the spaces above stop being small enough.
+
+### Current result, 2026-11-06
+
+RTX 4070 Ti SUPER, game closed, one attack, fixed weapons and attributes, armor slots only.
+
+| Step | Space | Time |
+| --- | --- | --- |
+| Test backpack, old kernel | 97,977,600 | 7.13 s, 13.7 million a second |
+| Test backpack, generated optimizations | 97,977,600 | 4.33 s, 22.6 million a second |
+| Largest sample backpack, everything | 507,617,280 | 21 to 26 s |
+| Same, dominance and polish | 38,401,560 | about 2 s, same best |
+| Same, one set, at least 2 pieces | 13,981,824 to 23,495,760 full; 336,060 to 454,560 pruned | 1 s full, 0.1 s pruned |
+| Same, one set, at least 3 pieces | 159,504 to 1,161,648 full; 10,380 to 16,135 pruned | under 0.15 s |
+
+With the 19 mains that real backpacks need, the same search runs at 16.5 to 24 million a second depending on the backpack, because more paths mean more failed attempts. Pipeline alone 41 million a second, up from 40 with the seed. Derived from those, the formula went from about 21 to about 50 million a
+second. Earlier measurements with the game rendering lost a factor of 3; not repeated here.
+
+Evidence: 970 outfits from merged backpacks identical to the VM, and the top 40 of each of five backpacks re-checked by the VM, 200 claims with no difference. 24 set searches across 4 backpacks: dominance plus polish equals the
+exhaustive search of that set every time. Four usable saves hold 0.47 million to 508 million armor outfits per class, not orders of magnitude more than
+the test backpack. Worn items are not in the backpack rows, and storage has not been checked.
+
+### Coverage
+
+Paths come from outfits the compiler has seen, so a new backpack brings misses. Compile over merged backpacks, search, feed a sample of
+`gpu_nopath.txt` back as forced lines, and keep all forced files on the next run, because the compiler starts empty. Three rounds took the
+five backpacks to 3,032, 17,249, 34, 0 and 0 outfits without a path, at most 0.0034%.
+
+Some of what is left the VM cannot answer either: 25 forced outfits return no damage from the VM, so they stay uncovered and their cause is
+open. Anything without a path is unevaluated, not bad, so a shipped search must say so if a missed outfit could matter.
+
+### Limits
+
+Only armor slots vary. Weapons, accessories, attributes during search, other moves and buffs are not covered. A shipped build cannot run
+nvcc on a player's machine: a compiled path list must either ship for each attack, or be emitted at run time as PTX, and a non-CUDA fallback
+needs its own emitter. Ties are common because damage lands on whole numbers, so the objective needs a tiebreak. A weight limit and survival
+constraints are not modeled.
 
 ## Appendix A. Version-bound values (2.0.2.0)
 

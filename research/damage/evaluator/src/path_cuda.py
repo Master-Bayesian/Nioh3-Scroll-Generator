@@ -2,6 +2,8 @@
 
 Not linked into any product. The kernel must match the bundle's vectors bit for bit before its speed means anything. argv: export_dir out_dir
 """
+import collections
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -22,7 +24,7 @@ typedef uint64_t u64; typedef int64_t i64; typedef uint32_t u32; typedef uint16_
 struct V { u64 lo, hi; };
 struct Fl { u8 cf, zf, sf, of, pf; };
 struct Span { u64 s, e, o; };
-struct Ctx { const u8* dom; const u8* known; const u8* arena; const Span* domain; int domains; const Span* regions; int region_count; const u16* slim_of; u8* touch; };
+struct Ctx { const u8* dom; const u8* known; const u8* arena; const Span* domain; int domains; const Span* regions; int region_count; const u16* slim_of; u8* touch; u32* prof; };
 #define NOF Fl{2, 2, 2, 2, 2}
 HD V mk(u64 a) { return V{a, 0}; }
 HD u64 mask(u32 w) { return w >= 64 ? ~0ull : (1ull << w) - 1; }
@@ -162,6 +164,7 @@ HD bool divv(int kind, V a, V b, V d, u32 w, V& out) {
 
 NL_C = chr(10)
 SLIM = {}
+INLINE = "__noinline__" if os.environ.get("NIOH3_PLAIN") else "__forceinline__"
 
 
 def lit(v):
@@ -220,10 +223,151 @@ def slim_words(tables, mains, size, source):
     return sorted(words), False
 
 
-def emit(name, program, out):
+def walk(program):
+    """Each node with the slot it writes."""
+    slot = len(program[0])
+    for n in program[3]:
+        step = n[8] if OPS[n[0]] == "fn" else 1
+        yield slot, n
+        slot += step
+
+
+def flag_users(program):
+    used = set()
+    for _, n in walk(program):
+        op = OPS[n[0]]
+        if op in ("guard", "set", "cmov", "keep_cf"):
+            used.add(n[2])
+        elif op in ("adc", "sbb", "inc", "dec") and n[4] >= 0:
+            used.add(n[4])
+    return used
+
+
+def demand_pass(program, need, args, roots, tables_args, table_roots):
+    """One backward sweep: which bytes of each value can reach anything that matters. Returns False when nothing changed."""
+    changed = False
+
+    def want(slot, mask):
+        nonlocal changed
+        if mask & ~need.get(slot, 0):
+            need[slot] = need.get(slot, 0) | mask
+            changed = True
+
+    used = flag_users(program)
+    for k, s in enumerate(program[1]):
+        want(s, roots[k])
+    for slot, n in reversed(list(walk(program))):
+        op, w, a, b, c, x, y, extra = OPS[n[0]], n[1], n[2], n[3], n[4], n[7], n[8], n[9:]
+        here = need.get(slot, 0)
+        if op == "fn":
+            for k in range(y):
+                table_roots[x][k] |= need.get(slot + k, 0)
+            for i, s in enumerate(extra):
+                want(s, tables_args[x][i])
+        elif op == "arg":
+            if here & ~args[x]:
+                args[x] |= here
+                changed = True
+        elif op == "mix":
+            left = here
+            pairs = [extra[q:q + 3] for q in range(1, len(extra), 3)]
+            for dst, src, byte in reversed(pairs):
+                if left >> dst & 1:
+                    want(src, 1 << byte)
+                    left &= ~(1 << dst)
+            want(b, left)
+        elif op in ("mulss", "addss", "subss", "divss"):
+            want(a, 0xF); want(b, 0xF)
+        elif op in ("minss", "maxss"):
+            want(a, 0xF | here); want(b, 0xF | here)
+        elif op in ("comiss", "sqrtss", "cvttss2si", "cvtss2sd"):
+            want(a, 0xF)
+            if op == "comiss":
+                want(b, 0xF)
+        elif op in ("cvtsd2ss", "cvtsi2ss", "load"):
+            want(a, 0xFF)
+        elif op == "addr":
+            want(b, 0xFF)
+            for q in range(1, len(extra), 2):
+                want(extra[q], 0xFF)
+        elif op in ("and", "or", "xor"):
+            mask = here if slot not in used else 0xFFFF
+            want(a, mask); want(b, mask)
+        elif op == "not":
+            want(a, here)
+        elif op == "cmov":
+            want(b, here); want(c, here)
+        elif op == "eq":
+            want(a, 0xFFFF); want(b, 0xFFFF)
+        elif op in ("div", "div:hi", "idiv", "idiv:hi", "bt"):
+            for i in (a, b, c):
+                if i >= 0:
+                    want(i, 0xFFFF)
+        elif op in ("add", "adc", "sub", "sbb", "inc", "dec", "neg", "sext", "sign", "shl", "shr", "sar", "rol", "ror", "imul", "mul", "mul:hi", "imul:lo", "imul:hi"):
+            for i in (a, b, c):
+                if i >= 0 and not (op in ("adc", "sbb", "inc", "dec") and i == c):
+                    want(i, 0xFF)
+    return changed
+
+
+def demands(tables, mains):
+    """Byte demand of every value across all programs, so an SSE register rebuilt byte by byte shrinks to the word a float op reads."""
+    wide = lambda: collections.defaultdict(int)
+    table_args = [wide() for _ in tables]
+    table_roots = [wide() for _ in tables]
+    needs = {}
+    while True:
+        changed = False
+        for t, ps in enumerate(tables):
+            for k, q in enumerate(ps):
+                need = needs.setdefault((t, k), {})
+                changed = demand_pass(q, need, table_args[t], table_roots[t], table_args, table_roots) or changed
+        for k, q in enumerate(mains):
+            need = needs.setdefault((-1, k), {})
+            changed = demand_pass(q, need, wide(), [0xF] + [0] * 63, table_args, table_roots) or changed
+        before = sum(sum(r.values()) for r in table_roots) + sum(sum(a.values()) for a in table_args)
+        if not changed and before == demands.seen:
+            return needs
+        demands.seen = before
+
+
+demands.seen = -1
+
+
+def pick_bytes(pairs, base, need, r):
+    """A value built only from the bytes something reads, without the byte array."""
+    source = {}
+    for dst, src, byte in pairs:
+        source[dst] = (src, byte)
+    terms = {0: [], 1: []}
+    for at in range(16):
+        if not need >> at & 1:
+            continue
+        src, byte = source.get(at, (base, at))
+        word = f"v{src}.{'lo' if byte < 8 else 'hi'}"
+        shift = 8 * (byte % 8)
+        terms[at // 8].append((at % 8, word, shift))
+    parts = []
+    for half in (0, 1):
+        runs = []
+        for at, word, shift in terms[half]:
+            if runs and runs[-1][1] == word and runs[-1][0] + runs[-1][2] == at and runs[-1][3] + 8 * runs[-1][2] == shift:
+                runs[-1][2] += 1
+            else:
+                runs.append([at, word, 1, shift])
+        items = []
+        for at, word, length, shift in runs:
+            value = f"(({word} >> {shift})" + (f" & 0x{(1 << 8 * length) - 1:x}ull)" if length < 8 else ")")
+            items.append(f"({value} << {8 * at})")
+        parts.append(" | ".join(items) if items else "0ull")
+    return f"V {r} = V{{{parts[0]}, {parts[1]}}};"
+
+
+def emit(name, program, out, need=None, known=None):
     consts, root, written, nodes = program
+    need = need or {}
     body = []
-    head = f"__noinline__ __device__ bool {name}(const Ctx& c, const V* args, V* out)"
+    head = f"{INLINE if name.startswith('sub') else '__noinline__'} __device__ bool {name}(const Ctx& c, const V* args, V* out)"
     out.append(head + ";")
     code = [head + " {"]
     if written:
@@ -243,7 +387,15 @@ def emit(name, program, out):
         fw = f"Fl f{slot};"
         step = 1
         if op == "in":
-            body.append(f"V {r}; if (!in_(c, {SLIM[x // 4] * 4 + x % 4}, {w // 8}, {r})) return false;")
+            size, at = w // 8, SLIM[x // 4] * 4 + x % 4
+            sure = known is not None and all(v == 255 for v in known[x:x + size])
+            low = need.get(slot, 0xFFFF) & ~0xF == 0
+            if sure and x % 4 == 0 and (size == 4 or low):
+                body.append(f"V {r} = mk(((const u32*)c.dom)[{at // 4}]);")
+            elif sure:
+                body.append(f"V {r}; bytes(c.dom + {at}, {size}, {r});")
+            else:
+                body.append(f"V {r}; if (!in_(c, {at}, {size}, {r})) return false;")
         elif op in ("mulss", "addss", "subss", "divss"):
             sign = {"mulss": "*", "addss": "+", "subss": "-", "divss": "/"}[op]
             zero = f" || f({B}) == 0.0f" if op == "divss" else ""
@@ -265,6 +417,11 @@ def emit(name, program, out):
         elif op == "eq":
             body.append(f"V {r} = mk(0); if ({A}.lo != {B}.lo || {A}.hi != {B}.hi) return false;")
         elif op == "mix":
+            pairs = [extra[q:q + 3] for q in range(1, len(extra), 3)]
+            if slot in need or known is not None:
+                body.append(pick_bytes(pairs, b, need.get(slot, 0), r))
+                slot += step
+                continue
             body.append(f"u8 m{slot}[16]; for (int i = 0; i < 8; i++) {{ m{slot}[i] = (u8)({B}.lo >> (8 * i)); m{slot}[8 + i] = (u8)({B}.hi >> (8 * i)); }}")
             for q in range(1, len(extra), 3):
                 dst, src, byte = extra[q:q + 3]
@@ -360,18 +517,34 @@ def main():
     global SLIM
     words, debug = slim_words(tables, mains, len(base), source)
     SLIM = {w: i for i, w in enumerate(words)}
+    plain = bool(os.environ.get("NIOH3_PLAIN"))
+    needs = {} if plain else demands(tables, mains)
+    sure = None if plain or debug else known
     for t, programs in enumerate(tables):
         for k, q in enumerate(programs):
-            functions.append("\n".join(emit(f"sub{t}_{k}", q, protos)))
+            functions.append("\n".join(emit(f"sub{t}_{k}", q, protos, needs.get((t, k)), sure)))
     for k, q in enumerate(mains):
-        functions.append("\n".join(emit(f"main{k}", q, protos)))
-    width = [max((len(q[1]) for q in programs), default=1) for programs in tables]
+        functions.append("\n".join(emit(f"main{k}", q, protos, needs.get((-1, k)), sure)))
+    profile = bool(os.environ.get("NIOH3_PROFILE"))
+    starts, at = [], 0
+    for programs in tables:
+        starts.append(at)
+        at += len(programs)
+    main_at = at
+
+    def index(t, k):
+        return starts[t] + k
+
+    def attempt(call, i, then):
+        if not profile:
+            return f"if ({call}) {{ {then} }}"
+        return f"atomicAdd(c.prof + {2 * i}, 1u); if ({call}) {{ atomicAdd(c.prof + {2 * i + 1}, 1u); {then} }}"
     head = []
     for t, programs in enumerate(tables):
-        head.append(f"__noinline__ __device__ bool table{t}(const Ctx& c, const V* a, V* o) {{ " + " ".join(f"if (sub{t}_{k}(c, a, o)) return true;" for k in range(len(programs))) + " return false; }")
+        head.append(f"__noinline__ __device__ bool table{t}(const Ctx& c, const V* a, V* o) {{ " + " ".join(attempt(f"sub{t}_{k}(c, a, o)", index(t, k), "return true;") for k in range(len(programs))) + " return false; }")
     proto_tables = [f"__noinline__ __device__ bool table{t}(const Ctx& c, const V* a, V* o);" for t in range(len(tables))]
-    run = "__device__ bool run_main(const Ctx& c, u32& bits) { V o[2]; V none[1] = {{0, 0}}; " + " ".join(f"if (main{k}(c, none, o)) {{ bits = (u32)o[0].lo; return true; }}" for k in range(len(mains))) + " return false; }"
-    spans = f"#define SLIM_WORDS {len(words)}@#define TOUCH {int(debug)}@static const u16 SLIM_LIST[] = {{{', '.join(map(str, words))}}};@".replace("@", NL_C) + "static const Span DOM_SPANS[] = {" + ", ".join(f"{{0x{s:x}ull, 0x{e:x}ull, {o}ull}}" for s, e, o in domain) + "};\n"
+    run = "__device__ bool run_main(const Ctx& c, u32& bits) { V o[2]; V none[1] = {{0, 0}}; " + " ".join(attempt(f"main{k}(c, none, o)", main_at + k, "bits = (u32)o[0].lo; return true;") for k in range(len(mains))) + " return false; }"
+    spans = f"#define SLIM_WORDS {len(words)}@#define TOUCH {int(debug)}@#define PROFILE {int(profile)}@#define PROF_N {main_at + len(mains)}@static const u16 SLIM_LIST[] = {{{', '.join(map(str, words))}}};@".replace("@", NL_C) + "static const Span DOM_SPANS[] = {" + ", ".join(f"{{0x{s:x}ull, 0x{e:x}ull, {o}ull}}" for s, e, o in domain) + "};\n"
     spans += "static const Span REGIONS[] = {" + ", ".join(f"{{0x{s:x}ull, {n}ull, {o}ull}}" for s, n, o in sorted(regions)) + "};\n"
     inc = Path(__file__).with_name("path_kernel.inc").read_text(encoding="ascii")
     text = "\n".join([PRELUDE, spans] + proto_tables + protos + functions + head + [run, inc])
