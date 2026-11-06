@@ -525,6 +525,7 @@ Current regression, all exact on 2.0.2.0 (`data/REGRESS_INPUTS_20261106.json`):
 | Attributes (37,150,27,36,80,15,140) | 1043 |
 | Attributes (37,140,27,26,80,15,160) | 1031 |
 | Attributes (37,150,37,26,80,15,140) | 1036 |
+| Attributes (5,200,15,75,5,35,150), found by search, menu attack 3045 and HP 3198 also predicted | 1105 |
 
 Bounds of this evidence: one action, one target, samurai. 1038 and 849 were reached after seeing the game's number. Spell attack
 against attributes, ninja, other weapons and other enemies are not covered.
