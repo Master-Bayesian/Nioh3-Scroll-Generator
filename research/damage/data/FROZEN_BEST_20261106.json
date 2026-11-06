@@ -1,0 +1,53 @@
+[
+ {
+  "attributes": [
+   37,
+   150,
+   27,
+   26,
+   80,
+   15,
+   150
+  ],
+  "damage": 1038.0,
+  "status": "computed",
+  "packet": 2934,
+  "defense": 3540,
+  "hp": 3647,
+  "groups": 90
+ },
+ {
+  "attributes": [
+   5,
+   200,
+   15,
+   75,
+   5,
+   35,
+   150
+  ],
+  "damage": 1105.0,
+  "status": "computed",
+  "packet": 3045,
+  "defense": 3540,
+  "hp": 3198,
+  "groups": 88
+ },
+ {
+  "attributes": [
+   5,
+   45,
+   15,
+   200,
+   5,
+   60,
+   155
+  ],
+  "damage": 1105.0,
+  "status": "computed",
+  "packet": 3044,
+  "defense": 3540,
+  "hp": 3198,
+  "groups": 87
+ }
+]
