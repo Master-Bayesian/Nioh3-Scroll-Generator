@@ -165,7 +165,7 @@ The frozen prediction was 994 and the game showed 1038. The cause: the formula r
 | Change | Predicted |
 | --- | ---: |
 | Attributes (37,150,27,36,80,15,140) | 1043, blind pass 11-06 |
-| Attributes (37,150,37,26,80,15,140) | 1036 |
+| Attributes (37,150,37,26,80,15,140) | 1036, blind pass 11-06 |
 | Attributes (37,140,27,26,80,15,160) | 1031, blind pass 11-06 (also loses a 150-gated entry, group 0xECC5) |
 | Attributes (37,150,27,26,90,15,140) | 1036 |
 | Attributes (37,150,27,26,70,15,160) | 1041 |
