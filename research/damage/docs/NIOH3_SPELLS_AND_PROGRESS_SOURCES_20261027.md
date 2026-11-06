@@ -171,4 +171,6 @@ The frozen prediction was 994 and the game showed 1038. The cause: the formula r
 | Attributes (37,150,27,26,70,15,160) | 1041 |
 | Guardian 凤凰 instead of 草薙 | 1038 |
 
+**Low-attribute state (11-06, live).** A respec mistake left (5,5,5,36,6,5,140), far from any captured set, and the game showed 849. The model, with no change, gives 849; all 73 aggregate groups, record 0 (2618) and the load factor equal the live values. The state was read and the damage known before the run, so this is not blind, but nothing was tuned for it. Requirement gates and attribute-dependent effects therefore hold over a wide range.
+
 Still open: spell packet attack against attributes (seen at one attribute set only), soul core effects taken from item records inside the optimizer, and the +35 and ninja +36 fields.
