@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: tests-${{ github.ref }}
+  group: tests-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 permissions:
