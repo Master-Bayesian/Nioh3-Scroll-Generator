@@ -2,7 +2,16 @@ name: Tests
 
 on:
   push:
+    paths-ignore: ['docs/**', 'research/**', '**/*.md']
   pull_request:
+    paths-ignore: ['docs/**', 'research/**', '**/*.md']
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -93,6 +102,16 @@ jobs:
           toolchain: 1.99.0
           components: clippy, rustfmt
 
+      - name: Restore the Rust build cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ${{ runner.temp }}/nioh3-migration-build/cargo-target
+          key: rust-crates-1.99.0-${{ hashFiles('crates/*/Cargo.lock', 'apps/tauri/src-tauri/Cargo.lock') }}
+          restore-keys: rust-crates-1.99.0-
+
       - name: Test, lint and format the Rust crates
         shell: pwsh
         run: |
@@ -181,8 +200,9 @@ jobs:
         run: ./tools/check_models.ps1
 
   rust-python-parity:
-    # Rust workers against the Python reference implementation. Separate from
-    # rust-crates so the crate results arrive without waiting for it.
+    # Rust workers against the Python reference implementation. It takes over
+    # an hour, so it runs nightly and on demand, not on every push.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
     steps:
       - name: Check out source
