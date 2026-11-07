@@ -576,6 +576,11 @@ Read a weapon's moves from this table before capturing any hit. A capture is nee
   capture this changed nothing else: the traced inputs of the two judgments differ only in that value.
 - The motion value also moves the attack-defense bonus term, so damage is not proportional to it.
 
+- Another weapon type needs no capture of its own. Read the player's live action pointer during a swing to find its table,
+  then replay a captured hit with STAT, the STAT copy and D re-read live, and with the motion value overridden. Set MAIN+8
+  to STAT+0x24 + STAT+0x2C. Dual swords and odachi both use this attack; STAT+0x28 is not used by either. Odachi light and
+  heavy matched a blind prediction this way. The other weapon types are untested.
+
 The table lives in the heap. Find it from the capture role `source.query.entity.action`. At least 14 tables are loaded at
 once, but the katana row (motion 26 at 0x61cc) was in none of those 14, so the list is incomplete. The weapon-to-table and
 input-to-action mappings are
