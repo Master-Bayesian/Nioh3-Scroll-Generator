@@ -56,7 +56,11 @@ class Lua54:
                 if out and all(isinstance(key,int) and not isinstance(key,bool) for key in out) and set(out)==set(range(1,len(out)+1)):
                     return [out[key] for key in range(1,len(out)+1)]
                 return out
-            return convert(self.runtime.execute(source))
+            from lupa.lua54 import LuaError
+            try:
+                return convert(self.runtime.execute(source))
+            except LuaError as error:
+                raise RuntimeError(str(error)) from error
         b=source.encode();l,s=self.l,self.s
         if l.luaL_loadbufferx(s,b,len(b),b'test',None) or l.lua_pcallk(s,0,1,0,0,None):
             e=self.value(-1);l.lua_settop(s,0);raise RuntimeError(e)
