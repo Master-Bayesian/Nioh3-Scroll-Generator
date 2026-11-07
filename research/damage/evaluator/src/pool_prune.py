@@ -160,7 +160,7 @@ links = []
 
 
 def finish(appended, spaces):
-    for name in ("path_kernel.exe", "arena.bin", "mapped.bin", "tables.bin", "frame.bin", "characters.bin", "dom_base.bin", "dom_known.bin"):
+    for name in ("path_kernel.exe", "arena.bin", "mapped.bin", "tables.bin", "frame.bin", "characters.bin", "dom_base.bin", "dom_known.bin", "hits.txt"):
         shutil.copyfile(source / name, target / name)
     shutil.copyfile(source / "gpu_cases.txt", target / "gpu_cases.txt")
     (target / "pool.bin").write_bytes(appended)

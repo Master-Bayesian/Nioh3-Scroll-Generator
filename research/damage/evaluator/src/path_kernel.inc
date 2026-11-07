@@ -1,3 +1,4 @@
+#define HIT_WORDS 4
 // The equipment pipeline on the GPU: pipeline.rs line for line, so a difference is always a bug here, then the generated formula paths.
 // path_cuda.py pastes this after the generated functions. Compile with --fmad=false: a fused multiply-add is not what the game's SSE does.
 
@@ -32,6 +33,7 @@ struct G {
     const u8* stat; const u8* d0; const u8* s_base; const u8* d_base;
     u64 stat_addr, d_addr, main_addr, ext_addr, owner, attr, dest;
     u32 main8, hp_base, gain, defense, op_n;
+    u32 hit_n; u64 hit_addr[HIT_WORDS]; const u32* hit_word;
     const Entry* ops_unused; const u16* op_group; const i64* op_value;
     Character c;
     const u8* pool; const u8* dom_base; const u8* dom_known; const u32* word_mask; const u32* stat_live; const u32* d_live; const u32* pred_live; const u32* stat_out; const u32* d_out; u32 stat_live_n, d_live_n, pred_live_n, stat_out_n, d_out_n; u32 body_live[12];
@@ -959,7 +961,19 @@ HD int evaluate(const G& g, const Cand& q, S& s, u32& bits) {
     Ctx c = g.ctx;
     c.dom = (const u8*)s.dom;
     c.known = (const u8*)s.known;
-    return run_main(c, bits) ? 1 : 2;
+    float total = 0.0f;
+    for (u32 h = 0; h < g.hit_n; h++) {
+        for (u32 w = 0; w < HIT_WORDS; w++) write_word(g, s, g.hit_addr[w], g.hit_word[h * HIT_WORDS + w]);
+        u32 one = 0;
+        if (!run_main(c, one)) return 2;
+        union { u32 u; float f; } v;
+        v.u = one;
+        total += v.f;
+    }
+    union { u32 u; float f; } out;
+    out.f = total;
+    bits = out.u;
+    return 1;
 }
 __global__ void kernel_cases(G g, const Cand* cases, u64 n, u32* out, u8* ok) {
     u64 i = blockIdx.x * (u64)blockDim.x + threadIdx.x;
@@ -1125,6 +1139,15 @@ int main(int argc, char** argv) {
     const u64* q = (const u64*)fr["addresses"].data();
     g.stat = up(fr["stat"].data(), 0x900); g.d0 = up(fr["d0"].data(), 0xB00); g.s_base = up(fr["s_base"].data(), fr["s_base"].size()); g.d_base = up(fr["d_base"].data(), 0xB00);
     g.stat_addr = q[0]; g.d_addr = q[1]; g.main_addr = q[2]; g.ext_addr = q[3]; g.owner = q[4]; g.attr = q[5]; g.dest = q[6]; g.main8 = (u32)q[7]; g.hp_base = (u32)q[8];
+    {
+        FILE* hf = fopen((dir + "/hits.txt").c_str(), "r");
+        unsigned hn; fscanf(hf, "%u", &hn); g.hit_n = hn;
+        for (u32 w = 0; w < HIT_WORDS; w++) { unsigned long long a; fscanf(hf, "%llx", &a); g.hit_addr[w] = a; }
+        static std::vector<u32> hit_rows(hn * HIT_WORDS);
+        for (u32 i = 0; i < hn * HIT_WORDS; i++) { unsigned v; fscanf(hf, "%x", &v); hit_rows[i] = v; }
+        fclose(hf);
+        g.hit_word = up(hit_rows.data(), hit_rows.size());
+    }
     Sections ch = sections(dir + "/characters.bin");
     Bytes& cb = ch["char0"];
     const u32* w = (const u32*)cb.data();

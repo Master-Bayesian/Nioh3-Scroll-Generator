@@ -872,7 +872,7 @@ def main():
     (target / "path_kernel.cu").write_text(text, encoding="ascii", newline="\n")
     (target / "dom_base.bin").write_bytes(base)
     (target / "dom_known.bin").write_bytes(known)
-    for name in ("arena.bin", "mapped.bin", "tables.bin", "frame.bin", "characters.bin", "pool.bin", "gpu_cases.txt", "gpu_setup.txt"):
+    for name in ("arena.bin", "mapped.bin", "tables.bin", "frame.bin", "characters.bin", "pool.bin", "gpu_cases.txt", "gpu_setup.txt", "hits.txt"):
         shutil.copyfile(source / name, target / name)
     print("generated", len(functions), "functions", len(text) // 1024, "KB domain", len(base), "slim words", len(words), "instrumented" if debug else "")
 

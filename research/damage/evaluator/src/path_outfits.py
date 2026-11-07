@@ -3,6 +3,7 @@
 With export_dir, also writes the paths and every outfit with the VM's damage, for the Rust and GPU checks.
 Forced files hold outfits the GPU reported, `bits slot:pool ...`: they run first at the starting attributes, so the VM checks the GPU's answer and any path it lacked gets compiled."""
 import json
+import os
 import random
 import struct
 import sys
@@ -10,6 +11,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from moves import MODIFIER_ROLE, MoveTable, hit_writes  # noqa: E402
 from path_compile import Compiler  # noqa: E402
 from state_predict import ITEM, Predictor, W  # noqa: E402
 
@@ -23,6 +25,22 @@ pool = {}
 for r in records:
     if r["kind"] == "armor" and r.get("physical_armor_slot") is not None:
         pool.setdefault(r["physical_armor_slot"], []).append(f0[r["F0_offset"]:r["F0_offset"] + ITEM])
+WEAPON_TYPE_FIELD = 0x58
+weapon_type, move_id, stance = map(int, os.environ.get("NIOH3_MOVE", "6409:25036:1").split(":"))
+hits = MoveTable().hits(weapon_type, move_id, stance)
+worn_weapon = None
+weapons_file = os.environ.get("NIOH3_WEAPON_POOL")
+if weapons_file:  # the player picks the weapon first: it stays worn, slot 0 leaves the search
+    raw = Path(weapons_file).read_bytes()
+    wanted = int(os.environ.get("NIOH3_WEAPON_KEY", "0"), 16)
+    for i in range(0, len(raw) - ITEM + 1, 0xF0):
+        row = raw[i:i + ITEM]
+        key = struct.unpack_from("<H", row)[0]
+        if key and key in p.PS.T.ITEMS.indices and struct.unpack_from("<I", p.PS.T.ITEMS.row(key), WEAPON_TYPE_FIELD)[0] == weapon_type and wanted in (0, key):
+            worn_weapon = row
+            break
+    if worn_weapon is None:
+        raise SystemExit(f"no weapon of type {weapon_type} in {weapons_file}")
 pool = {s: pool[s] for s in sorted(pool)}
 starts, flat = {}, []
 for s, items in pool.items():
@@ -34,7 +52,9 @@ worn = [p.core(live[0x80 + s * ITEM:0x80 + (s + 1) * ITEM]) for s in range(2)]
 base = p.base
 domain = [(base.stat_addr, base.stat_addr + 8), (base.stat_addr + 0x10, base.stat_addr + 0x7C0), (base.d_addr, base.d_addr + 0xB00),
           (base.main_addr + 8, base.main_addr + 0x18), (base.R["current_player.external_STAT"][0] + 0x7B8, base.R["current_player.external_STAT"][0] + 0x7BC),
-          (base.stat_addr + 0x844, base.stat_addr + 0x860)]
+          (base.stat_addr + 0x844, base.stat_addr + 0x860),
+          (base.R[MODIFIER_ROLE][0] + 0x10, base.R[MODIFIER_ROLE][0] + 0x14), (base.main_addr + 0x13C, base.main_addr + 0x140),
+          (base.main_addr + 0x144, base.main_addr + 0x14C)]
 held = {}
 vm_eval = p.ev.evaluate
 
@@ -63,6 +83,11 @@ p._pipeline, p._evaluate = pipeline, evaluate
 compiler = Compiler(p.ev, domain, [0xFBFE00, 0x2FA678])
 rng = random.Random(20261108)
 m = p.model("blind-1023/h1")
+if worn_weapon:
+    inventory = bytearray(m.inv)
+    at = m.active * 0xF70
+    inventory[at:at + ITEM] = worn_weapon
+    m.inv = bytes(inventory)
 original = m.inv
 start = [37, 150, 27, 26, 80, 15, 150]
 rows, misses, wrong, refused = [], 0, 0, 0
@@ -87,7 +112,7 @@ for k in range(len(forced) + count):
             chosen[9 if s == 0 else s - 4] = global_index
     else:
         for s, items in pool.items():
-            if rng.random() < .8:
+            if rng.random() < .8 and not (s == 0 and worn_weapon):
                 at = m.active * 0xF70 + s * ITEM
                 pick = rng.randrange(len(items))
                 inv[at:at + ITEM] = items[pick]
@@ -107,25 +132,38 @@ for k in range(len(forced) + count):
     finally:
         m.inv = original
     before = compiler.stats["traces"]
-    try:
-        got = compiler.evaluate(held["w"])
-    except Exception as error:
+    outfit_writes = held["w"]
+    total, same, stopped = 0.0, True, False
+    hit_vectors = []
+    for hit in hits:
+        writes = {**outfit_writes, **hit_writes(base, hit)}
+        damage = vm_eval([], writes)
+        try:
+            got = compiler.evaluate(writes)
+        except Exception as error:
+            print(k, "compiler stopped", type(error).__name__, str(error)[:120], flush=True)
+            stopped = True
+            break
+        agrees = got is not None and damage["damage"] is not None and struct.pack("<f", got) == struct.pack("<f", damage["damage"])
+        same = same and agrees
+        if not agrees:
+            print(k, "disagrees: compiled", got, "VM", damage["damage"], {key: damage.get(key) for key in ("status", "reason")}, flush=True)
+        else:
+            total = struct.unpack("<f", struct.pack("<f", total + damage["damage"]))[0]
+            hit_vectors.append((writes, struct.unpack("<I", struct.pack("<f", damage["damage"]))[0]))
+    if stopped:
         wrong += 1
-        print(k, "compiler stopped", type(error).__name__, str(error)[:120], flush=True)
         continue
     new = compiler.stats["traces"] - before
     misses += new > 0
-    same = got is not None and struct.pack("<f", got) == struct.pack("<f", r["damage"])
     wrong += not same
-    if not same:
-        print(k, "disagrees: compiled", got, "VM", r["damage"], {key: r.get(key) for key in ("status", "reason")}, flush=True)
     if claimed and claimed != "xxxxxxxx":
         gpu_checked += 1
-        gpu_wrong += claimed != struct.pack("<f", r["damage"])[::-1].hex()
-    rows.append({"damage": r["damage"], "new": new})
+        gpu_wrong += claimed != struct.pack("<f", total)[::-1].hex()
+    rows.append({"damage": total, "new": new})
     if same:
-        bits = struct.unpack("<I", struct.pack("<f", r["damage"]))[0]
-        vectors.append((held["w"], bits))
+        bits = struct.unpack("<I", struct.pack("<f", total))[0]
+        vectors.extend(hit_vectors)
         cases.append(f"{bits:08x} {' '.join(map(str, a))} {' '.join(map(str, chosen))}")
         setups.add((held["gain"], held["defense"], tuple(held["ops"])))
     if k % 20 == 0:
@@ -146,7 +184,11 @@ if len(sys.argv) > 5:
     export_frame(p, out)
     export_characters(p, [m], out)
     (out / "pool.bin").write_bytes(b"".join(flat))
-    (out / "gpu_cases.txt").write_text("\n".join(cases) + "\n", encoding="ascii", newline="\n")
+    words = [sorted(hit_writes(base, h).items()) for h in hits]
+    lines = [f"{len(hits)}", " ".join(f"{a:x}" for a, _ in words[0])]
+    lines += [" ".join(f"{struct.unpack('<I', v)[0]:x}" for _, v in row) for row in words]
+    (out / "hits.txt").write_text(chr(10).join(lines) + chr(10), encoding="ascii", newline=chr(10))
+    (out / "gpu_cases.txt").write_text(chr(10).join(cases) + chr(10), encoding="ascii", newline=chr(10))
     gain, defense, ops = next(iter(setups))
     lines = [f"{gain} {defense} {len(ops)}"] + [f"{g} {v}" for g, v in ops] + [str(len(pool))]
     lines += [f"{s} {starts[s]} {len(items)}" for s, items in pool.items()] + [" ".join(map(str, start))]
