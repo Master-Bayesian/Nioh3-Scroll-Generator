@@ -613,6 +613,11 @@ Each round runs candidates through the VM, compiles the new paths and searches. 
 forced until `no path` reaches 0. Run it with `evaluator/pipeline/optimize.ps1`; `move_pair.ps1` is the loop for one move.
 The objective is still one move. Weighting a sequence of moves needs the input mapping above.
 
+The frame fixed at compile time is the `blind-1023/h1` state, not the character's current one, so scores rank outfits for that state and
+do not equal a hit taken now. `evaluator/pipeline/all_weapons.ps1` runs every weapon type on its lowest light move id, which proves the
+pipeline per type but need not be an attack the player can input: katana move 1063 scores 235 for that reason. Two rounds end with
+59 outfits without a path on most types; hand axe needs a third. Every type checks VM-equal on all cases, and GPU claims show no wrong result.
+
 ## Appendix A. Version-bound values (2.0.2.0)
 
 All of these must be revalidated. RVAs are relative to the `Nioh3.exe` base.
