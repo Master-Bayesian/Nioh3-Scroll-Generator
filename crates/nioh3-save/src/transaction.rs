@@ -647,11 +647,38 @@ static COMMIT_SERIALIZER: Mutex<()> = Mutex::new(());
 pub struct TargetRoleState {
     pub role: String,
     pub target_path: String,
-    pub state: String,
+    pub state: RoleGeneration,
     pub current_sha256: Option<String>,
     pub source_sha256: Option<String>,
     pub checkpoint_sha256: Option<String>,
     pub replacement_started: bool,
+}
+
+/// Which generation one role's file holds, against the operation's own records.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RoleGeneration {
+    #[serde(rename = "A_source")]
+    Source,
+    #[serde(rename = "B_checkpoint")]
+    Checkpoint,
+    #[serde(rename = "external_C")]
+    External,
+    #[serde(rename = "missing")]
+    Missing,
+    #[serde(rename = "unknown")]
+    Unknown,
+}
+
+impl RoleGeneration {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Source => "A_source",
+            Self::Checkpoint => "B_checkpoint",
+            Self::External => "external_C",
+            Self::Missing => "missing",
+            Self::Unknown => "unknown",
+        }
+    }
 }
 
 /// An unresolved operation that fences one save from a new write plan.
@@ -677,7 +704,7 @@ impl TargetFence {
     pub fn role_summary(&self) -> String {
         self.roles
             .iter()
-            .map(|role| format!("{}={}", role.role, role.state))
+            .map(|role| format!("{}={}", role.role, role.state.label()))
             .collect::<Vec<String>>()
             .join(", ")
     }
@@ -714,21 +741,21 @@ fn classify_role_state(
     current: Option<&str>,
     source: Option<&str>,
     checkpoint: Option<&str>,
-) -> &'static str {
+) -> RoleGeneration {
     let Some(current) = current else {
-        return "missing";
+        return RoleGeneration::Missing;
     };
     let equals = |digest: &str| digest.eq_ignore_ascii_case(current);
     if source.is_some_and(equals) {
-        return "A_source";
+        return RoleGeneration::Source;
     }
     if checkpoint.is_some_and(equals) {
-        return "B_checkpoint";
+        return RoleGeneration::Checkpoint;
     }
     if source.is_none() && checkpoint.is_none() {
-        return "unknown";
+        return RoleGeneration::Unknown;
     }
-    "external_C"
+    RoleGeneration::External
 }
 
 /// A guarded save-transaction host rooted at one state directory.
@@ -977,10 +1004,18 @@ impl SaveTransactionHost {
         let current = read_digest_if_present(SaveRole::Main, save_path)?;
         let same = |digest: Option<&str>| matches!((digest, current.as_deref()), (Some(left), Some(right)) if left.eq_ignore_ascii_case(right));
         let proof = if receipt.kind == PlanKind::Restore.label() {
-            if !fence.roles.is_empty() && fence.roles.iter().all(|role| role.state == "A_source") {
+            if !fence.roles.is_empty()
+                && fence
+                    .roles
+                    .iter()
+                    .all(|role| role.state == RoleGeneration::Source)
+            {
                 Some(ReceiptOutcome::Committed)
             } else if !fence.roles.is_empty()
-                && fence.roles.iter().all(|role| role.state == "B_checkpoint")
+                && fence
+                    .roles
+                    .iter()
+                    .all(|role| role.state == RoleGeneration::Checkpoint)
             {
                 Some(ReceiptOutcome::NotCommitted)
             } else {
@@ -1168,7 +1203,7 @@ impl SaveTransactionHost {
                         .unwrap_or("unknown")
                         .to_string(),
                     target_path: target_path.to_string(),
-                    state: String::new(),
+                    state: RoleGeneration::Unknown,
                     current_sha256: None,
                     source_sha256: entry
                         .get("source_sha256")
@@ -1214,7 +1249,7 @@ impl SaveTransactionHost {
                     roles.push(TargetRoleState {
                         role: file.source_role.clone(),
                         target_path: file.source_path.clone(),
-                        state: String::new(),
+                        state: RoleGeneration::Unknown,
                         current_sha256: None,
                         source_sha256,
                         checkpoint_sha256: Some(file.sha256.to_ascii_lowercase()),
@@ -1236,7 +1271,7 @@ impl SaveTransactionHost {
                 roles.push(TargetRoleState {
                     role: file.source_role.clone(),
                     target_path: file.source_path.clone(),
-                    state: String::new(),
+                    state: RoleGeneration::Unknown,
                     current_sha256: None,
                     // A write installs only the main save, so only that role has
                     // a source generation distinct from its checkpoint.
@@ -1265,8 +1300,7 @@ impl SaveTransactionHost {
                 current.as_deref(),
                 role.source_sha256.as_deref(),
                 role.checkpoint_sha256.as_deref(),
-            )
-            .to_string();
+            );
             role.current_sha256 = current;
         }
         Ok(Some(TargetFence {
@@ -3858,31 +3892,37 @@ mod tests {
         let a = "a".repeat(64);
         let b = "b".repeat(64);
         let c = "c".repeat(64);
-        assert_eq!(classify_role_state(None, Some(&a), Some(&b)), "missing");
+        assert_eq!(
+            classify_role_state(None, Some(&a), Some(&b)),
+            RoleGeneration::Missing
+        );
         assert_eq!(
             classify_role_state(Some(&a), Some(&a), Some(&b)),
-            "A_source"
+            RoleGeneration::Source
         );
         assert_eq!(
             classify_role_state(Some(&b), Some(&a), Some(&b)),
-            "B_checkpoint"
+            RoleGeneration::Checkpoint
         );
         assert_eq!(
             classify_role_state(Some(&c), Some(&a), Some(&b)),
-            "external_C"
+            RoleGeneration::External
         );
         // Only the main role of a write records an installed generation, so a
         // role with no source digest resolves to its checkpoint.
         assert_eq!(
             classify_role_state(Some(&b), None, Some(&b)),
-            "B_checkpoint"
+            RoleGeneration::Checkpoint
         );
         // An operation with no recorded identity may not be rounded to a state.
-        assert_eq!(classify_role_state(Some(&c), None, None), "unknown");
+        assert_eq!(
+            classify_role_state(Some(&c), None, None),
+            RoleGeneration::Unknown
+        );
         // Case differences are not a different generation.
         assert_eq!(
             classify_role_state(Some(&a.to_uppercase()), Some(&a), Some(&b)),
-            "A_source"
+            RoleGeneration::Source
         );
     }
 

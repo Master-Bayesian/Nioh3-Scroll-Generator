@@ -106,12 +106,56 @@ const ACKNOWLEDGED_WARNING: &str =
     "The outcome could not be proven from the bytes on disk; the user reviewed the save \
      and accepted its current contents";
 
+/// The outer ledger's word for one operation, as published to the client.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CommitStatus {
+    Executing,
+    Committed,
+    CommittedWithWarning,
+    NotCommitted,
+    Unknown,
+    Acknowledged,
+}
+
+impl CommitStatus {
+    const fn label(self) -> &'static str {
+        match self {
+            Self::Executing => "executing",
+            Self::Committed => "committed",
+            Self::CommittedWithWarning => "committed_with_warning",
+            Self::NotCommitted => "not_committed",
+            Self::Unknown => "unknown",
+            Self::Acknowledged => "acknowledged",
+        }
+    }
+
+    fn of(receipt: &Value) -> Option<Self> {
+        match receipt.get("commit_status").and_then(Value::as_str)? {
+            "executing" => Some(Self::Executing),
+            "committed" => Some(Self::Committed),
+            "committed_with_warning" => Some(Self::CommittedWithWarning),
+            "not_committed" => Some(Self::NotCommitted),
+            "unknown" => Some(Self::Unknown),
+            "acknowledged" => Some(Self::Acknowledged),
+            _ => None,
+        }
+    }
+
+    /// Whether this record still leaves its save's outcome open.
+    const fn is_unresolved(self) -> bool {
+        match self {
+            Self::Executing | Self::Unknown => true,
+            Self::Committed
+            | Self::CommittedWithWarning
+            | Self::NotCommitted
+            | Self::Acknowledged => false,
+        }
+    }
+}
+
 /// Whether an outer receipt still leaves its save's outcome open.
 fn is_unresolved_status(receipt: &Value) -> bool {
-    matches!(
-        receipt.get("commit_status").and_then(Value::as_str),
-        Some("unknown" | "executing")
-    )
+    CommitStatus::of(receipt).is_some_and(CommitStatus::is_unresolved)
 }
 const AUDIT_COVERAGE_SCOPE: &str = "generated_effect_projection";
 const AUDIT_STATUS_INSUFFICIENT: &str = "insufficient_data";
@@ -1535,7 +1579,7 @@ impl SaveApplication {
         let mut value: Value = serde_json::from_str(&text).map_err(|error| {
             HostError::rejected(format!("operation ledger is not JSON: {error}"))
         })?;
-        if value.get("commit_status").and_then(Value::as_str) == Some("executing") {
+        if CommitStatus::of(&value) == Some(CommitStatus::Executing) {
             self.project_core_authority(plan_id, &mut value);
             // The projected word becomes the durable record so the ledger and the
             // public receipt cannot disagree after a restart. It stays a
@@ -1552,7 +1596,7 @@ impl SaveApplication {
         if is_unresolved_status(&value) {
             self.settle(plan_id, &mut value, acknowledge);
         }
-        if value.get("commit_status").and_then(Value::as_str) == Some("committed_with_warning") {
+        if CommitStatus::of(&value) == Some(CommitStatus::CommittedWithWarning) {
             if let Err(error) = self.host().record_outer_commit(plan_id) {
                 eprintln!(
                     "protected save host: could not settle the core record of {plan_id}: {}",
@@ -1592,7 +1636,7 @@ impl SaveApplication {
                     ReceiptOutcome::Committed
                     | ReceiptOutcome::NotCommitted
                     | ReceiptOutcome::Acknowledged => {
-                        Some((receipt.outcome.label().to_string(), receipt.message.clone()))
+                        Some((commit_word(receipt.outcome), receipt.message.clone()))
                     }
                     ReceiptOutcome::Pending
                     | ReceiptOutcome::Uncertain
@@ -1608,7 +1652,7 @@ impl SaveApplication {
                     );
                     if unchanged {
                         Some((
-                            "not_committed".to_string(),
+                            CommitStatus::NotCommitted,
                             Some(
                                 "Settled from the bytes on disk: the save still holds the \
                                  reviewed source generation"
@@ -1617,7 +1661,7 @@ impl SaveApplication {
                         ))
                     } else if acknowledge {
                         Some((
-                            "acknowledged".to_string(),
+                            CommitStatus::Acknowledged,
                             Some(ACKNOWLEDGED_WARNING.to_string()),
                         ))
                     } else {
@@ -1633,7 +1677,7 @@ impl SaveApplication {
                 }
             },
             None if acknowledge => Some((
-                "acknowledged".to_string(),
+                CommitStatus::Acknowledged,
                 Some(ACKNOWLEDGED_WARNING.to_string()),
             )),
             None => None,
@@ -1641,12 +1685,12 @@ impl SaveApplication {
         let Some((outcome, message)) = settled else {
             return;
         };
-        value["commit_status"] = json!(outcome);
+        value["commit_status"] = json!(outcome.label());
         value["warning"] = json!(message);
         if let Some(details) = value.get_mut("details").and_then(Value::as_object_mut) {
             details.insert(
                 "resolution".to_string(),
-                json!(if outcome == "acknowledged" {
+                json!(if outcome == CommitStatus::Acknowledged {
                     "acknowledged"
                 } else {
                     "proven"
@@ -1672,7 +1716,7 @@ impl SaveApplication {
         let receipt = match self.host().receipt(plan_id) {
             Ok(Some(receipt)) => receipt,
             Ok(None) | Err(_) => {
-                value["commit_status"] = json!("unknown");
+                value["commit_status"] = json!(CommitStatus::Unknown.label());
                 value["warning"] = json!(STALE_INTENT_WARNING);
                 return;
             }
@@ -1681,19 +1725,19 @@ impl SaveApplication {
         // them. A core that still reads `pending` stays `unknown` because the
         // operation never reached a terminal state.
         let projected = commit_word(receipt.outcome);
-        value["commit_status"] = json!(projected);
+        value["commit_status"] = json!(projected.label());
         value["warning"] = match receipt.message.as_deref().map(str::trim) {
             Some(message) if !message.is_empty() => json!(message),
             // A non-terminal core cannot explain itself, so the operator keeps
             // the shipped warning rather than a silent null.
-            _ if projected == "unknown" => json!(STALE_INTENT_WARNING),
+            _ if projected == CommitStatus::Unknown => json!(STALE_INTENT_WARNING),
             _ => Value::Null,
         };
         // Only a terminal outcome may publish the core's installed facts: a
         // `pending` or `uncertain` core never confirmed an installation, so
         // naming an `installed_sha256` for it would report something the core
         // did not record. The reviewed target generation stays distinct from it.
-        if projected != "unknown" {
+        if projected != CommitStatus::Unknown {
             if let Some(details) = value.get_mut("details").and_then(Value::as_object_mut) {
                 details.insert(
                     "installed_sha256".to_string(),
@@ -1742,10 +1786,7 @@ impl SaveApplication {
                 // The display window is 128 receipts, but an unresolved
                 // operation is never hidden by it: the client decides whether a
                 // write is still uncertain from this list.
-                let unresolved = matches!(
-                    receipt.get("commit_status").and_then(Value::as_str),
-                    Some("unknown" | "executing")
-                );
+                let unresolved = is_unresolved_status(&receipt);
                 if receipts.len() < 128 || unresolved {
                     receipts.push(receipt);
                 }
@@ -1787,7 +1828,7 @@ impl SaveApplication {
         let intent = json!({
             "operation_id": plan_id,
             "save_id": save_id,
-            "commit_status": "executing",
+            "commit_status": CommitStatus::Executing.label(),
             "warning": Value::Null,
             "details": {
                 "save_path": python_path_string(&save_path),
@@ -1810,7 +1851,7 @@ impl SaveApplication {
         // rather than as a retryable not-committed result.
         let (mut commit_status, mut warning, core_outcome) = match core {
             Ok(receipt) => (
-                commit_word(receipt.outcome).to_string(),
+                commit_word(receipt.outcome),
                 receipt.message.clone(),
                 receipt.outcome.label().to_string(),
             ),
@@ -1818,7 +1859,7 @@ impl SaveApplication {
             // record did not land. The plan is consumed, so the operation id
             // must not be retried.
             Err(SaveReadError::CommitCompletedWithWarning { warning, .. }) => (
-                "committed_with_warning".to_string(),
+                CommitStatus::CommittedWithWarning,
                 Some(warning),
                 "committed_with_warning".to_string(),
             ),
@@ -1826,7 +1867,7 @@ impl SaveApplication {
             // not. `unknown` is the honest published word; fabricating either
             // success or a retryable failure would be worse than the raw error.
             Err(SaveReadError::CommitUncertain { message }) => (
-                "unknown".to_string(),
+                CommitStatus::Unknown,
                 Some(message),
                 "uncertain".to_string(),
             ),
@@ -1851,7 +1892,7 @@ impl SaveApplication {
         let mut result = json!({
             "operation_id": plan_id,
             "save_id": save_id,
-            "commit_status": commit_status,
+            "commit_status": commit_status.label(),
             "warning": warning,
             "details": {
                 "save_path": python_path_string(&save_path),
@@ -1872,15 +1913,15 @@ impl SaveApplication {
             // ledger update never demotes a completed write. `committed` becomes
             // `committed_with_warning` and the failure is appended to the
             // warning; any other status keeps its own word and gains the note.
-            if commit_status == "committed" {
-                commit_status = "committed_with_warning".to_string();
+            if commit_status == CommitStatus::Committed {
+                commit_status = CommitStatus::CommittedWithWarning;
             }
             let note = format!("Operation ledger update failed: {}", error.message);
             warning = Some(match warning.as_deref().map(str::trim) {
                 Some(existing) if !existing.is_empty() => format!("{existing} {note}"),
                 _ => note,
             });
-            result["commit_status"] = json!(commit_status);
+            result["commit_status"] = json!(commit_status.label());
             result["warning"] = json!(warning);
             eprintln!(
                 "protected save host: could not persist the terminal receipt for {plan_id}: {}",
@@ -1915,7 +1956,7 @@ impl SaveApplication {
         else {
             return;
         };
-        value["commit_status"] = json!("not_committed");
+        value["commit_status"] = json!(CommitStatus::NotCommitted.label());
         value["warning"] = json!(error.to_string());
         if let Err(failure) = self.write_ledger(plan_id, &value, true) {
             eprintln!(
@@ -2750,14 +2791,14 @@ fn fault_set_for(
 }
 
 /// The published word for one save-core outcome.
-fn commit_word(outcome: ReceiptOutcome) -> &'static str {
+fn commit_word(outcome: ReceiptOutcome) -> CommitStatus {
     match outcome {
-        ReceiptOutcome::Committed => "committed",
-        ReceiptOutcome::NotCommitted => "not_committed",
-        ReceiptOutcome::Pending
-        | ReceiptOutcome::Uncertain
-        | ReceiptOutcome::Discarded
-        | ReceiptOutcome::Acknowledged => "unknown",
+        ReceiptOutcome::Committed => CommitStatus::Committed,
+        ReceiptOutcome::NotCommitted => CommitStatus::NotCommitted,
+        ReceiptOutcome::Acknowledged => CommitStatus::Acknowledged,
+        ReceiptOutcome::Pending | ReceiptOutcome::Uncertain | ReceiptOutcome::Discarded => {
+            CommitStatus::Unknown
+        }
     }
 }
 
