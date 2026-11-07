@@ -445,7 +445,7 @@ async fn desktop_request(
                     state.updater.action(action, channel).await?;
                 }
                 "apply" => {
-                    if !state.packaged || state.updater.ready.lock().await.is_none() {
+                    if !state.packaged || !state.updater.is_ready().await {
                         return Err("UPDATE_NOT_READY".into());
                     }
                     state.apply_update.store(true, Ordering::SeqCst);

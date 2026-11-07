@@ -502,7 +502,7 @@ impl Broker {
             _ => return Err("RESET_GAME_RUNNING".into()),
         }
         let mut hosts = self.workers.lock().await;
-        for (_, host) in hosts.iter() {
+        for host in hosts.values() {
             if !host.close().await && !host.can_replace().await {
                 return Err("RESET_WORKER_BUSY".into());
             }

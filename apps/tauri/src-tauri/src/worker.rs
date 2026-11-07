@@ -1,11 +1,6 @@
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::{
-    collections::HashMap,
-    path::Path,
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, path::Path, sync::Arc, time::Duration};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     process::{Child, ChildStdin, Command},
@@ -414,7 +409,9 @@ pub fn initialize_game_install(data: &Path) {
         let executable = crate::game_install::selected(data)?;
         Ok(crate::game_version::GameFileVersionSource::new(
             crate::game_version::WindowsFileVersionReader,
-            crate::game_version::GameVersionSource::with_selected_executable(executable),
+            crate::game_version::GameVersionSource {
+                development_executable: executable,
+            },
         ))
     });
     #[cfg(test)]
@@ -1357,7 +1354,10 @@ impl Worker {
             let mut pending = self.pending.lock().await;
             // A timed-out request keeps its id for a late reply, but no caller
             // waits on it any more, so it does not take up a slot.
-            let waiting = pending.values().filter(|sender| !sender.is_closed()).count();
+            let waiting = pending
+                .values()
+                .filter(|sender| !sender.is_closed())
+                .count();
             if waiting >= 8 {
                 return Err("TOO_MANY_REQUESTS".into());
             }

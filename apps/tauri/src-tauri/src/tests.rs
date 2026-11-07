@@ -2127,7 +2127,9 @@ fn packaged_runtime_resolution_still_rejects_changed_binary_and_invalid_manifest
 #[test]
 fn feedback_carries_the_expected_and_built_records_of_recent_live_additions() {
     let data = std::env::temp_dir().join(format!("nioh3-live-add-digest-{}", uuid::Uuid::new_v4()));
-    let operation = data.join("live-add").join("eefeee57-ffd6-4251-b61c-cbdf58973ca7");
+    let operation = data
+        .join("live-add")
+        .join("eefeee57-ffd6-4251-b61c-cbdf58973ca7");
     std::fs::create_dir_all(&operation).unwrap();
     std::fs::create_dir_all(data.join("live-add").join("native-executor")).unwrap();
     std::fs::write(
@@ -2141,7 +2143,9 @@ fn feedback_carries_the_expected_and_built_records_of_recent_live_additions() {
     )
     .unwrap();
     std::fs::write(
-        data.join("live-add").join("native-executor").join("eefeee57-ffd6-4251-b61c-cbdf58973ca7.json"),
+        data.join("live-add")
+            .join("native-executor")
+            .join("eefeee57-ffd6-4251-b61c-cbdf58973ca7.json"),
         r#"{"source_hex":"821d","record_review":"mismatch","after":{"RAX":1}}"#,
     )
     .unwrap();

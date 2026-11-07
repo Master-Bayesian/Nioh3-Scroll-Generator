@@ -205,10 +205,20 @@ impl Utf8LogDecoder {
 /// that show what differed.
 pub fn live_add_digest(root: &Path, newest: usize) -> Value {
     const FIELDS: [&str; 14] = [
-        "expected_record_hex", "source_hex", "record_review", "destination_hex",
-        "descriptor_hex", "container_hex",
-        "business_outcome", "state", "error", "reason", "cleanup_error", "profile_id",
-        "candidate_id", "seed",
+        "expected_record_hex",
+        "source_hex",
+        "record_review",
+        "destination_hex",
+        "descriptor_hex",
+        "container_hex",
+        "business_outcome",
+        "state",
+        "error",
+        "reason",
+        "cleanup_error",
+        "profile_id",
+        "candidate_id",
+        "seed",
     ];
     let Ok(entries) = std::fs::read_dir(root.join("live-add")) else {
         return Value::Null;
@@ -223,14 +233,19 @@ pub fn live_add_digest(root: &Path, newest: usize) -> Value {
                 .is_some_and(|name| name.len() == 36 && name.matches('-').count() == 4)
         })
         .collect();
-    operations.sort_by(|left, right| right.0.cmp(&left.0));
+    operations.sort_by_key(|operation| std::cmp::Reverse(operation.0));
     let mut digest = serde_json::Map::new();
     for (_, path) in operations.into_iter().take(newest) {
         let mut files = serde_json::Map::new();
-        let name = path.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
+        let name = path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default();
         // The native executor keeps its own receipt beside the operation,
         // holding the record the game built (`source_hex`).
-        let executor = path.with_file_name("native-executor").join(format!("{name}.json"));
+        let executor = path
+            .with_file_name("native-executor")
+            .join(format!("{name}.json"));
         for (label, file) in [
             ("receipt.json", path.join("receipt.json")),
             ("execution.json", path.join("execution.json")),
