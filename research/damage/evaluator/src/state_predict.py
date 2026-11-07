@@ -43,7 +43,7 @@ class Predictor:
     def __init__(self, layers_path):
         self.layers = load_layers(layers_path)
         self.ev = Evaluator(CACHE, BASE / "capture.json", BASE / "ENTRY_REQUEST.json", BASE / "RETAINED_STATIC_CELLS.json",
-                            [IN / "grade_table_cells.json", IN / "default_d_cells.json"], observe_only=True)
+                            [IN / "grade_table_cells.json", IN / "default_d_cells.json", HERE.parents[1] / "data/MANAGER130_CELLS.json"], observe_only=True)
         self.base = self.ev.model
         self.frame = bytearray(self.base.stat)
         self.base_replay = self.ev.evaluate([])["damage"]

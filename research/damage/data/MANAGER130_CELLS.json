@@ -1,0 +1,110 @@
+[
+{
+"name": "live_1107_0",
+"address_u64": 140695116987936,
+"value_hex": "e01ed66291010000",
+"known_hex": "ffffffffffffffff",
+"writable": true,
+"provenance": {
+"grade": "live_1107",
+"module_image": true,
+"reader": "0x556f7b"
+}
+},
+{
+"name": "live_1107_1",
+"address_u64": 1723940085504,
+"value_hex": "005fd96291010000",
+"known_hex": "ffffffffffffffff",
+"writable": true,
+"provenance": {
+"grade": "live_1107",
+"module_image": false,
+"reader": "0x556e20"
+}
+},
+{
+"name": "live_1107_2",
+"address_u64": 1723940298504,
+"value_hex": "405fd96291010000",
+"known_hex": "ffffffffffffffff",
+"writable": true,
+"provenance": {
+"grade": "live_1107",
+"module_image": false,
+"reader": "0x556e2c"
+}
+},
+{
+"name": "live_1107_3",
+"address_u64": 1723940298512,
+"value_hex": "18a4d96291010000",
+"known_hex": "ffffffffffffffff",
+"writable": true,
+"provenance": {
+"grade": "live_1107",
+"module_image": false,
+"reader": "0x556e30"
+}
+},
+{
+"name": "live_1107_4",
+"address_u64": 1723940298560,
+"value_hex": "0000",
+"known_hex": "ffff",
+"writable": true,
+"provenance": {
+"grade": "live_1107",
+"module_image": false,
+"reader": "0x556e58"
+}
+},
+{
+"name": "live_1107_5",
+"address_u64": 1723940298564,
+"value_hex": "00000000",
+"known_hex": "ffffffff",
+"writable": true,
+"provenance": {
+"grade": "live_1107",
+"module_image": false,
+"reader": "0x556e65"
+}
+},
+{
+"name": "live_1107_6",
+"address_u64": 1723940085472,
+"value_hex": "1025d66291010000",
+"known_hex": "ffffffffffffffff",
+"writable": true,
+"provenance": {
+"grade": "live_1107",
+"module_image": false,
+"reader": "0x556e6a"
+}
+},
+{
+"name": "live_1107_7",
+"address_u64": 1723940087060,
+"value_hex": "4d040000",
+"known_hex": "ffffffff",
+"writable": true,
+"provenance": {
+"grade": "live_1107",
+"module_image": false,
+"reader": "0x556e6d"
+}
+},
+{
+"name": "live_1107_8",
+"address_u64": 1723940087092,
+"value_hex": "00000000",
+"known_hex": "ffffffff",
+"writable": true,
+"provenance": {
+"grade": "live_1107",
+"module_image": false,
+"reader": "0x8c99e4"
+}
+}
+]

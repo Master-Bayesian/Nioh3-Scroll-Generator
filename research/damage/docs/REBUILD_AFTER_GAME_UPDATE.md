@@ -534,19 +534,23 @@ rechecked 664 top claims across weapons, accessories, attributes and limits, 0 w
 checked for damage, not for being the best: hill climbing has no exhaustive comparison. Load, defense and health come from the pipeline's own numbers
 and have not been compared with the game yet; load counts slots 4 to 12 only, so a weapon's weight is not in it if the game counts one.
 
+With the game open on the same GPU, searches ran about 3 to 5 times slower: 1.2 million in 0.74 s, 5.9 million in 2.05 s, 18 million with limits in 3.76 s.
+
 ### Coverage
 
 Paths come from outfits the compiler has seen, so a new backpack brings misses. Compile over merged backpacks, search, feed a sample of
 `gpu_nopath.txt` back as forced lines, and keep all forced files on the next run, because the compiler starts empty. Three rounds took the
 five backpacks to 3,032, 17,249, 34, 0 and 0 outfits without a path, at most 0.0034%. With weapons and accessories, five rounds took the required-set
-searches from 2% to 25% without a path to 121, 0, 0, 36 and 0 outfits. `pool_prune.py` writes `gpu_origin.txt`, because pruned runs use their own item numbers and forced
+searches from 2% to 25% without a path to 0 on all five backpacks. `pool_prune.py` writes `gpu_origin.txt`, because pruned runs use their own item numbers and forced
 lines need the merged pool's.
 
-Some of what is left the VM cannot answer either. All 201 outfits with no VM answer hold 3 or more pieces of the set with group 0x7BF7 (side key 0x28B3,
-第一队队长队服). Failures traced so far stop at RVA 0x556F7B, a getter at 0x556F74 that loads the manager root at RVA 0x45B9E30 and reads +0x130, an
-address the snapshot never held. Not every such outfit fails: requiring that set at 3 pieces left 23% without a path on one backpack, and the 30 best
-of the rest matched the VM. So an effect of that set reaches a branch reading runtime state, and fixing it needs a live read of manager+0x130 and what it
-points to. Anything without a path is unevaluated, not bad, so a shipped search must say so if a missed outfit could matter.
+Outfits with 3 or more pieces of the set with group 0x7BF7 (side key 0x28B3, 第一队队长队服) used to have no VM answer. They reach a getter at RVA 0x556F74 that
+reads manager+0x130, a table of 0xC0-byte rows keyed by u16 through an open-addressed index, and test a flag bit at row+0x1C (RVA 0x8C99E4). The snapshot
+never held it. `data/MANAGER130_CELLS.json` holds the 9 cells that lookup reads, filled read-only from the running game with image pointers rebased to the
+snapshot; `state_predict.py` loads them. All 201 such outfits now compute with those same 9 cells. The table looks like loaded definitions rather than player
+state, because player skills live in the progress maps, but no second save has confirmed that. Re-read the cells after a game update, since they carry snapshot addresses.
+After one more round, the five required-set searches have no outfit without a path. Anything without a path is unevaluated, not bad, so a shipped search must
+still say so if a missed outfit could matter.
 
 ### Limits
 
