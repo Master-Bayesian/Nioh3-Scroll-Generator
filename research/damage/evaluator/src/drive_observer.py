@@ -20,6 +20,7 @@ def main():
     parser.add_argument("--port", type=int, default=5566)
     parser.add_argument("--session-id")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--runner", type=Path, default=RUNNER, help="ce_stdin_runner.py of a patched copy of frozen observer v5")
     parser.add_argument("--wait-seconds", type=int, default=600)
     # Training grounds refill HP and rebuild the player's stats every frame, so CORE_cut and HP_after_store
     # fire about three times per frame without any attack; the default 384-callback budget ends the window
@@ -35,7 +36,7 @@ def main():
         with state.open("a", encoding="utf-8") as stream:
             stream.write(line + "\n")
 
-    argv = [sys.executable, "-B", str(RUNNER), "--mode", args.mode, "--output", str(args.output)]
+    argv = [sys.executable, "-B", str(args.runner), "--mode", args.mode, "--output", str(args.output)]
     if args.mode == "live":
         argv += ["--port", str(args.port), "--session-id", args.session_id]
     child = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
