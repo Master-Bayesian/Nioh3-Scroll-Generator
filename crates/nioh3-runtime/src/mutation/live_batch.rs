@@ -129,6 +129,9 @@ impl LiveAddBatch {
         {
             return Err(rejected("Batch review digest differs"));
         }
+        if directory.join("claim.json").is_file() {
+            return Self::status(application, batch_id);
+        }
         exclusive_json(
             &directory.join("claim.json"),
             &json!({"digest": plan_digest}),

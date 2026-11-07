@@ -491,6 +491,16 @@ fn a_batch_verifies_every_item_and_keeps_a_child_receipt() {
     assert_eq!(status["state"], json!("complete"));
     assert_eq!(status["requested_count"], json!(2));
     assert_eq!(status["children"].as_array().expect("children").len(), 2);
+    let repeated = LiveAddBatch::execute(
+        &mut application,
+        &batch_id,
+        &digest,
+        &mut || false,
+        &mut |_| {},
+    )
+    .expect("a claimed batch reports its state");
+    assert_eq!(repeated["state"], json!("complete"));
+    assert_eq!(repeated["claimed"], json!(true));
 }
 
 #[test]
