@@ -1101,7 +1101,7 @@ mod tests {
     use nioh3_data::{load_effect_resource, load_preview_resources};
 
     fn data_root() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data")
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data")
     }
 
     #[test]

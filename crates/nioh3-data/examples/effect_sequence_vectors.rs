@@ -113,7 +113,7 @@ type EmitResult<T> = Result<T, String>;
 fn run() -> EmitResult<()> {
     let root = env::args()
         .nth(1)
-        .unwrap_or_else(|| "../../nioh3_scroll_editor/data".to_string());
+        .unwrap_or_else(|| "../../data".to_string());
     let resource = load_effect_resource(Path::new(&root)).map_err(|error| error.to_string())?;
     let index = EffectTableIndex::from_resource(&resource).map_err(|error| format!("{error:?}"))?;
 

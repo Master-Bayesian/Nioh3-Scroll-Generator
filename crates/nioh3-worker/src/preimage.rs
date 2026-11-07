@@ -959,7 +959,7 @@ mod tests {
     }
 
     fn data_root() -> PathBuf {
-        repo_root().join("nioh3_scroll_editor").join("data")
+        repo_root().join("data")
     }
 
     fn shipped_tables() -> nioh3_domain::effect::EffectTableIndex {

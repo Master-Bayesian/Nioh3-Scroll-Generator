@@ -189,7 +189,7 @@ type EmitResult<T> = Result<T, String>;
 fn run() -> EmitResult<()> {
     let root = env::args()
         .nth(1)
-        .unwrap_or_else(|| "../../nioh3_scroll_editor/data".to_string());
+        .unwrap_or_else(|| "../../data".to_string());
     let data_root = Path::new(&root);
     let resources = load_preview_resources(data_root).map_err(|error| error.to_string())?;
     let tables = PreviewTables {

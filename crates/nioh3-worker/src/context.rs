@@ -620,31 +620,14 @@ mod tests {
 
     /// The product version this crate compiles against must be the shipped one.
     #[test]
-    fn product_version_matches_shipped_version_module() {
-        let source = include_str!("../../../nioh3_scroll_editor/version.py");
-        let expected = source
+    fn product_version_matches_the_package_version() {
+        let package = include_str!("../../../package.json");
+        let expected = package
             .lines()
-            .find_map(|line| line.strip_prefix("APP_VERSION = \""))
+            .find_map(|line| line.trim().strip_prefix("\"version\": \""))
             .and_then(|rest| rest.split('"').next())
-            .expect("version.py declares APP_VERSION");
+            .expect("package.json declares a version");
         assert_eq!(PRODUCT_VERSION, expected);
-    }
-
-    /// The ported constants must equal the shipped module's literals.
-    #[test]
-    fn identity_constants_match_shipped_core_services() {
-        let source = include_str!("../../../nioh3_scroll_editor/core_services.py");
-        for (name, value) in [
-            ("GENERATION_ALGORITHM_VERSION", GENERATION_ALGORITHM_VERSION),
-            ("OPERATION_POLICY_VERSION", OPERATION_POLICY_VERSION),
-            ("SUPPORTED_GAME_PROFILE", SUPPORTED_GAME_PROFILE),
-        ] {
-            let needle = format!("{name} = \"{value}\"");
-            assert!(
-                source.contains(&needle),
-                "core_services.py no longer declares {needle}"
-            );
-        }
     }
 
     /// The explicit legacy capture still folds exactly the seven pre-version
@@ -1098,6 +1081,6 @@ mod tests {
     }
 
     fn product_data_root() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data")
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data")
     }
 }

@@ -228,7 +228,7 @@ mod tests {
     use super::*;
 
     fn curve() -> RecommendedLevelCurve {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data");
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data");
         load(&root).expect("load the shipped recommended-level curve")
     }
 

@@ -29,9 +29,7 @@ fn main() -> ExitCode {
     let expectations_path = args
         .next()
         .unwrap_or_else(|| "deliverables/m23b-search/evidence/query_expectations.json".into());
-    let data_root = args
-        .next()
-        .unwrap_or_else(|| "nioh3_scroll_editor/data".into());
+    let data_root = args.next().unwrap_or_else(|| "data".into());
     let mut allow_cpu = false;
     let mut accelerator_path: Option<PathBuf> = None;
     while let Some(flag) = args.next() {

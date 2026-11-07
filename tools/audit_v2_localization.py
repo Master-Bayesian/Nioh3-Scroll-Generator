@@ -12,7 +12,7 @@ from nioh3_scroll_editor.catalog_application import auxiliary_catalog
 
 
 def audit():
-    raw_effects = json.loads((ROOT / 'nioh3_scroll_editor/data/effect_names_multilingual.json').read_text(encoding='utf-8'))['effects']
+    raw_effects = json.loads((ROOT / 'data/effect_names_multilingual.json').read_text(encoding='utf-8'))['effects']
     report = {'schema': 'nioh3-v2-localization-coverage/v1', 'locales': {},
               'scope': 'Exact bundled data coverage and stable numeric option identities; not linguistic review'}
     reference = None

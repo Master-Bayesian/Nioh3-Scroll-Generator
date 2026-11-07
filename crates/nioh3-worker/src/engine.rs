@@ -719,10 +719,7 @@ impl Engine {
         let contract_digest = contract_digest(contract_dir)?;
         let schema = RequestSchema::load(contract_dir)
             .map_err(|error| EngineError::new("RESOURCE_MISMATCH", error))?;
-        let application_root = data_root
-            .parent()
-            .and_then(Path::parent)
-            .unwrap_or_else(|| Path::new("."));
+        let application_root = data_root.parent().unwrap_or_else(|| Path::new("."));
         let accelerator = probe_seed_accelerator(application_root, accelerator_path.as_deref());
         let (context, resource_version) = match selection {
             ContextSelection::Production(file_version) => {
@@ -1113,8 +1110,7 @@ mod tests {
     fn an_auxiliary_rejection_skips_the_rest_of_the_composition() {
         use crate::query::SearchQuery;
 
-        let data_root =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data");
+        let data_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data");
         let materializer = Materializer::new(&data_root, "engine-test-context");
 
         let payload = |rule_keys: Value, rule_groups: Value| {
@@ -1182,8 +1178,7 @@ mod tests {
     /// shipped PC v2.00.02 payload.
     #[test]
     fn completed_preview_uses_the_release_version_and_legacy_stays_explicit() {
-        let data_root =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data");
+        let data_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data");
         let current = Materializer::new(&data_root, "engine-test-context");
         assert_eq!(
             current.resource_version(),
@@ -1219,8 +1214,7 @@ mod tests {
     fn resource_version_selects_the_engine_effect_tables() {
         use std::hash::{Hash, Hasher};
 
-        let data_root =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data");
+        let data_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data");
 
         let observed = |materializer: &Materializer| {
             materializer
@@ -1269,8 +1263,7 @@ mod tests {
     /// per identity rather than weakened.
     #[test]
     fn selected_versions_do_not_share_production_authority() {
-        let data_root =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data");
+        let data_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data");
         let v2_00_02 = capture_resolved_context(
             crate::context::SUPPORTED_GAME_PROFILE,
             &data_root,

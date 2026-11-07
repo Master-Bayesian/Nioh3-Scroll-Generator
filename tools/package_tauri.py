@@ -124,7 +124,7 @@ def stage_rust_runtime(root: Path, output: Path) -> dict:
     """Stage the assets a Rust worker resolves from its application root.
 
     `Engine::load` derives `application_root = data_root.parent().parent()`, so
-    a data root of `<runtime>/worker/runtime/nioh3_scroll_editor/data` makes the
+    a data root of `<runtime>/worker/runtime/data` makes the
     worker look for helpers in `<runtime>/worker/runtime/bin`.
     """
 
@@ -142,15 +142,15 @@ def stage_rust_runtime(root: Path, output: Path) -> dict:
             raise FileNotFoundError('Rust worker runtime asset is missing: ' + str(source))
         shutil.copy2(source, runtime / 'bin' / name)
         staged.append('worker/runtime/bin/' + name)
-    data_source = root / 'nioh3_scroll_editor' / 'data'
-    data_destination = runtime / 'nioh3_scroll_editor' / 'data'
+    data_source = root / 'data'
+    data_destination = runtime / 'data'
     shutil.copytree(data_source, data_destination)
     for path in sorted(data_destination.rglob('*')):
         if path.is_file():
             staged.append(path.relative_to(output).as_posix())
     return {
         'applicationRoot': 'worker/runtime',
-        'dataRoot': 'worker/runtime/nioh3_scroll_editor/data',
+        'dataRoot': 'worker/runtime/data',
         'contractDir': 'packages/contracts',
         'staged': staged,
     }

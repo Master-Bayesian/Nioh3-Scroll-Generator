@@ -6,7 +6,7 @@ a = Analysis(
     [str(root / 'launch_search_worker.py')], pathex=[str(root)],
     binaries=[(str(root / 'bin/nioh3_seed_accelerator.dll'), 'bin'),
               (str(root / 'bin/nioh3_effect_preimage_accelerator.dll'), 'bin')],
-    datas=[(str(root / 'nioh3_scroll_editor/data'), 'nioh3_scroll_editor/data'),
+    datas=[(str(root / 'data'), 'data'),
            (str(root / 'packages/contracts/request.schema.json'), 'packages/contracts'),
            (str(root / 'packages/contracts/response.schema.json'), 'packages/contracts'),
            (str(root / 'bin/nioh3_seed_accelerator.build.json'), 'bin')],

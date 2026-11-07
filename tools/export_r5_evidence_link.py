@@ -67,7 +67,7 @@ IDENTITY_ROOTS = (
     "apps/workshop",
     "crates",
     "packages/contracts",
-    "nioh3_scroll_editor/data",
+    "data",
     "bin",
 )
 EXCLUDED_PARTS = {

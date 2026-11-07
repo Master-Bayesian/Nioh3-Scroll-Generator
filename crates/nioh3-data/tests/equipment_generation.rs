@@ -7,7 +7,7 @@ use nioh3_domain::effect::EffectTableIndex;
 use nioh3_domain::equipment_generation::{EquipmentGenerator, PlayerState, EMPTY_ENTRY};
 
 fn data_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data")
 }
 
 fn unhex(text: &str) -> Vec<u8> {

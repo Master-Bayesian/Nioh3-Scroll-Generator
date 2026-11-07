@@ -69,7 +69,7 @@ fn rejects_unsupported_save_sizes_before_digest_checks_and_keeps_jobs_usable() {
         .join("SAVEDATA.BIN");
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     let repo = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let data = repo.join("nioh3_scroll_editor/data");
+    let data = repo.join("data");
     let contracts = repo.join("packages/contracts");
     let engine = Engine::load(
         &data,

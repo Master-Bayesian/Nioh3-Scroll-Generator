@@ -1,4 +1,4 @@
-use crate::worker::{self, ProtectedBackend, Reply, SearchBackend, Worker};
+use crate::worker::{self, Reply, Worker};
 use serde_json::{json, Value};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
@@ -78,30 +78,9 @@ impl Broker {
         hosts.remove(role);
         // Resolve only this role. Runtime admission is independent of the
         // installed version and the offline/search-save resource context.
-        let backend = if role == "offline_search" {
-            worker::search_backend(&self.root, self.packaged, &worker::rust_search_env())?
-        } else {
-            SearchBackend::Python
-        };
-        let protected = if role == "offline_search" {
-            ProtectedBackend::Python
-        } else {
-            worker::protected_backend_for_role(
-                &self.root,
-                role,
-                self.packaged,
-                &worker::rust_protected_env(),
-            )?
-        };
-        let worker = Worker::spawn(
-            &self.root,
-            role,
-            self.packaged,
-            self.data.clone(),
-            &backend,
-            &protected,
-        )
-        .await?;
+        let launch = worker::role_launch(&self.root, role, self.packaged)?;
+        let worker =
+            Worker::spawn(&self.root, role, self.packaged, self.data.clone(), &launch).await?;
         hosts.insert(role.into(), worker.clone());
         Ok(worker)
     }

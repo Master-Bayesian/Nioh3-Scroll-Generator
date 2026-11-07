@@ -10,7 +10,7 @@ a = Analysis(
     binaries=[(str(root / 'bin/nioh3_seed_accelerator.dll'), 'bin'),
               (str(root / 'bin/nioh3_effect_preimage_accelerator.dll'), 'bin'),
               (str(crypto), 'bin')],
-    datas=[(str(root / 'nioh3_scroll_editor/data'), 'nioh3_scroll_editor/data'),
+    datas=[(str(root / 'data'), 'data'),
            *[(str(path), 'packages/contracts') for path in (root / 'packages/contracts').glob('*.schema.json')],
            (str(root / 'bin/nioh3_seed_accelerator.build.json'), 'bin')],
     hiddenimports=[], excludes=['tkinter'], noarchive=False, optimize=0,

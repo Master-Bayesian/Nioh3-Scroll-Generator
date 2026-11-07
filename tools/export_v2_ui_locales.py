@@ -23,7 +23,7 @@ for line in (base / 'ui-translations.tsv').read_text(encoding='utf-8').splitline
 RUBY = re.compile(r'\^(?:20|21)~default~|\^FE~RUBY~|\^FF~RUBY,[^~]*~', re.I)
 SLOT = re.compile(r'\^09~(BUFF|DEBUFF)~\{([^}]*)\}\^09~~(状态)?')
 BARE = re.compile(r'(?<!~)\{([^{}":]+)\}')
-TABLES = ROOT / 'nioh3_scroll_editor/data/r4_finalizer/pc_v2_02/resource_v1/tables'
+TABLES = ROOT / 'data/r4_finalizer/pc_v2_02/resource_v1/tables'
 UNNAMED = {'en-US': 'Unnamed Ninjutsu (0x{:04X})', 'ja-JP': '名称のない忍術（0x{:04X}）'}
 
 

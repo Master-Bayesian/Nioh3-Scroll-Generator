@@ -719,8 +719,7 @@ mod tests {
     }
 
     fn compiler() -> QueryCompiler {
-        QueryCompiler::load(&repo_root().join("nioh3_scroll_editor").join("data"))
-            .expect("the product tables load")
+        QueryCompiler::load(&repo_root().join("data")).expect("the product tables load")
     }
 
     fn u32_list(value: &Value) -> Vec<u32> {

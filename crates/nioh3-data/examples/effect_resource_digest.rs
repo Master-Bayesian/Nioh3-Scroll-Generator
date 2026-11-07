@@ -22,7 +22,7 @@ fn hex(data: &[u8]) -> String {
 fn main() -> Result<(), Box<dyn Error>> {
     let root = std::env::args()
         .nth(1)
-        .unwrap_or_else(|| "../../nioh3_scroll_editor/data".to_string());
+        .unwrap_or_else(|| "../../data".to_string());
     let root = Path::new(&root);
     let resource = load_effect_resource(root)?;
 

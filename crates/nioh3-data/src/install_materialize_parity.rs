@@ -19,7 +19,7 @@ use nioh3_domain::sequence::{materialize_ng3_rarity4_stage_one_record, NG3_RECOR
 use crate::load_effect_resource;
 
 fn data_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data")
 }
 
 fn ng3_template() -> ScrollRecordBytes {

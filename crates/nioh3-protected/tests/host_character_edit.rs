@@ -232,7 +232,7 @@ fn character_edits_commit_through_the_save_transaction() {
     }
     let save_path = fixture_save(&root);
     let original = std::fs::read(&save_path).unwrap();
-    let data = repo_root().join("nioh3_scroll_editor").join("data");
+    let data = repo_root().join("data");
     let contracts = repo_root().join("packages").join("contracts");
     let engine = Engine::load(
         &data,
@@ -642,7 +642,7 @@ fn character_edits_commit_through_the_save_transaction() {
         progress: [6510, 7710, 0, 7710],
     };
     let generated = nioh3_protected::equipment_seeds::generated_record(
-        &repo_root().join("nioh3_scroll_editor").join("data"),
+        &repo_root().join("data"),
         &seeded,
         state,
     )
@@ -676,7 +676,7 @@ fn seeded_replay_audit_preserves_natural_and_replaced_group_key_verdicts() {
         std::fs::remove_dir_all(&root).unwrap();
     }
     let save_path = fixture_save(&root);
-    let data = repo_root().join("nioh3_scroll_editor").join("data");
+    let data = repo_root().join("data");
     let contracts = repo_root().join("packages").join("contracts");
 
     // Construct the same generated inventory record the production add path stores.

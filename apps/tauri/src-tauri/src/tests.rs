@@ -1,8 +1,5 @@
 use crate::broker::Broker;
-use crate::worker::{
-    protected_backend, search_backend, ProtectedBackend, RustProtectedEnv, RustSearchEnv,
-    SearchBackend,
-};
+use crate::worker::{protected_backend, search_backend, RustProtectedEnv, RustSearchEnv};
 use base64::Engine;
 use serde_json::json;
 
@@ -219,6 +216,7 @@ fn real_update_helper_preserves_rollback_until_acknowledgement() {
 }
 
 #[tokio::test]
+#[ignore = "starts the built Rust workers: set NIOH3_RUST_SEARCH_WORKER and NIOH3_RUST_PROTECTED_WORKER"]
 async fn real_worker_search_validation_and_private_transfers() {
     let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../..")
@@ -226,7 +224,6 @@ async fn real_worker_search_validation_and_private_transfers() {
         .unwrap();
     let data = std::env::temp_dir().join(format!("nioh3-tauri-test-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&data).unwrap();
-    let _identity = bind_development_worker_identity();
     let broker = Broker::new(root, data, false);
     let hello = broker
         .dispatch("core:handshake", json!(null))
@@ -382,6 +379,7 @@ fn worker_stderr_preserves_utf8_across_arbitrary_pipe_splits() {
 }
 
 #[tokio::test]
+#[ignore = "starts the built Rust workers: set NIOH3_RUST_SEARCH_WORKER and NIOH3_RUST_PROTECTED_WORKER"]
 async fn dead_protected_worker_is_replaced_only_after_its_process_exits() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
     let data = std::env::temp_dir().join(format!("nioh3-recover-{}", uuid::Uuid::new_v4()));
@@ -408,6 +406,7 @@ async fn dead_protected_worker_is_replaced_only_after_its_process_exits() {
 /// close its input and let it finish: the process is never force-killed, and a
 /// transport failure is never reported as a proven safe close.
 #[tokio::test]
+#[ignore = "starts the built Rust workers: set NIOH3_RUST_SEARCH_WORKER and NIOH3_RUST_PROTECTED_WORKER"]
 async fn a_broken_pipe_never_force_kills_a_protected_host() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
     let data = std::env::temp_dir().join(format!("nioh3-guard-{}", uuid::Uuid::new_v4()));
@@ -444,10 +443,10 @@ async fn a_broken_pipe_never_force_kills_a_protected_host() {
 /// The read-only search worker owns no game or save state, so it stays the one
 /// role a transport failure may reap.
 #[tokio::test]
+#[ignore = "starts the built Rust workers: set NIOH3_RUST_SEARCH_WORKER and NIOH3_RUST_PROTECTED_WORKER"]
 async fn a_broken_pipe_reclaims_the_readonly_search_worker() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
     let data = std::env::temp_dir().join(format!("nioh3-reap-{}", uuid::Uuid::new_v4()));
-    let _identity = bind_development_worker_identity();
     let broker = Broker::new(root, data.clone(), false);
     let host = broker.host("offline_search").await.unwrap();
     host.handshake().await.unwrap();
@@ -467,39 +466,30 @@ async fn a_broken_pipe_reclaims_the_readonly_search_worker() {
     let _ = std::fs::remove_dir_all(data);
 }
 
-/// The development Rust worker selection never changes the shipped product and
-/// never silently falls back to Python once an operator has asked for it.
+/// Without a Rust search worker there is nothing to run, so every launch shape
+/// that names none fails closed by name.
 #[test]
-fn a_packaged_host_without_a_staged_manifest_keeps_the_shipped_search_worker() {
+fn a_host_without_a_rust_search_worker_fails_closed() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let named = RustSearchEnv {
         executable: Some(root.join("Cargo.toml").display().to_string()),
         data_root: Some("elsewhere".to_string()),
         ..RustSearchEnv::default()
     };
-    assert_eq!(
-        search_backend(root, true, &named).unwrap(),
-        SearchBackend::Python,
-        "a packaged host must ignore the development selection"
-    );
-    assert_eq!(
-        search_backend(root, false, &RustSearchEnv::default()).unwrap(),
-        SearchBackend::Python,
-        "an unset selection keeps the shipped worker"
-    );
-    assert_eq!(
-        search_backend(
+    let packaged = search_backend(root, true, &named).unwrap_err();
+    assert!(packaged.starts_with("WORKER_BACKEND_MISSING"), "{packaged}");
+    for executable in [None, Some("   ".to_string())] {
+        let error = search_backend(
             root,
             false,
             &RustSearchEnv {
-                executable: Some("   ".to_string()),
+                executable,
                 ..RustSearchEnv::default()
-            }
+            },
         )
-        .unwrap(),
-        SearchBackend::Python,
-        "a blank selection keeps the shipped worker"
-    );
+        .unwrap_err();
+        assert!(error.starts_with("RUST_WORKER_MISSING"), "{error}");
+    }
     let missing = search_backend(
         root,
         false,
@@ -513,7 +503,7 @@ fn a_packaged_host_without_a_staged_manifest_keeps_the_shipped_search_worker() {
 }
 
 /// The development launch must run the real Rust binary with its own arguments,
-/// never the Python module, and must use the working-tree paths by default.
+/// and must use the working-tree paths by default.
 #[test]
 fn the_development_rust_launch_names_the_binary_and_its_paths() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -527,11 +517,9 @@ fn the_development_rust_launch_names_the_binary_and_its_paths() {
         },
     )
     .unwrap();
-    let SearchBackend::Rust(launch) = backend else {
-        panic!("an existing binary must select the Rust backend");
-    };
+    let launch = backend;
     assert_eq!(launch.executable, binary);
-    assert_eq!(launch.data_root, root.join("nioh3_scroll_editor/data"));
+    assert_eq!(launch.data_root, root.join("data"));
     assert_eq!(launch.contract_dir, root.join("packages/contracts"));
     assert_eq!(
         launch.accelerator,
@@ -555,7 +543,7 @@ fn the_development_rust_launch_names_the_binary_and_its_paths() {
         !arguments
             .iter()
             .any(|value| value.contains("search_worker")),
-        "the development launch must not run the Python module"
+        "the development launch runs the named binary"
     );
 
     // Explicit overrides win, so an isolated profile or harness can point the
@@ -572,9 +560,6 @@ fn the_development_rust_launch_names_the_binary_and_its_paths() {
         },
     )
     .unwrap();
-    let SearchBackend::Rust(overridden) = overridden else {
-        panic!("overrides keep the Rust backend");
-    };
     assert_eq!(overridden.data_root, std::path::PathBuf::from("/tmp/data"));
     assert_eq!(
         overridden.contract_dir,
@@ -586,39 +571,33 @@ fn the_development_rust_launch_names_the_binary_and_its_paths() {
     );
 }
 
-/// The development protected selection never changes the shipped product and
-/// never silently falls back to Python once an operator has asked for it.
+/// Without a Rust protected worker there is nothing to run, so every launch shape
+/// that names none fails closed by name.
 #[test]
-fn a_packaged_host_without_a_staged_manifest_keeps_the_shipped_protected_worker() {
+fn a_host_without_a_rust_protected_worker_fails_closed() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let named = RustProtectedEnv {
         executable: Some(root.join("Cargo.toml").display().to_string()),
         data_root: Some("elsewhere".to_string()),
         ..RustProtectedEnv::default()
     };
-    assert_eq!(
-        protected_backend(root, true, &named).unwrap(),
-        ProtectedBackend::Python,
-        "a packaged host must ignore the development selection"
-    );
-    assert_eq!(
-        protected_backend(root, false, &RustProtectedEnv::default()).unwrap(),
-        ProtectedBackend::Python,
-        "an unset selection keeps the shipped worker"
-    );
-    assert_eq!(
-        protected_backend(
+    let packaged = protected_backend(root, true, &named).unwrap_err();
+    assert!(packaged.starts_with("WORKER_BACKEND_MISSING"), "{packaged}");
+    for executable in [None, Some("   ".to_string())] {
+        let error = protected_backend(
             root,
             false,
             &RustProtectedEnv {
-                executable: Some("   ".to_string()),
+                executable,
                 ..RustProtectedEnv::default()
-            }
+            },
         )
-        .unwrap(),
-        ProtectedBackend::Python,
-        "a blank selection keeps the shipped worker"
-    );
+        .unwrap_err();
+        assert!(
+            error.starts_with("RUST_PROTECTED_WORKER_MISSING"),
+            "{error}"
+        );
+    }
     let missing = protected_backend(
         root,
         false,
@@ -635,7 +614,7 @@ fn a_packaged_host_without_a_staged_manifest_keeps_the_shipped_protected_worker(
 }
 
 /// The development protected launch must run the real Rust binary with its own
-/// arguments, never the Python module, and must carry the role plus state root.
+/// arguments and must carry the role plus state root.
 #[test]
 fn the_development_protected_launch_names_the_binary_and_its_paths() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
@@ -649,11 +628,9 @@ fn the_development_protected_launch_names_the_binary_and_its_paths() {
         },
     )
     .unwrap();
-    let ProtectedBackend::Rust(launch) = backend else {
-        panic!("an existing binary must select the Rust protected backend");
-    };
+    let launch = backend;
     assert_eq!(launch.executable, binary);
-    assert_eq!(launch.data_root, root.join("nioh3_scroll_editor/data"));
+    assert_eq!(launch.data_root, root.join("data"));
     assert_eq!(launch.contract_dir, root.join("packages/contracts"));
     assert_eq!(
         launch.accelerator,
@@ -681,7 +658,7 @@ fn the_development_protected_launch_names_the_binary_and_its_paths() {
         !arguments
             .iter()
             .any(|value| value.contains("protected_worker")),
-        "the development launch must not run the Python module"
+        "the development launch runs the named binary"
     );
 }
 
@@ -699,22 +676,6 @@ fn the_development_protected_launch_names_the_binary_and_its_paths() {
 fn session_version_guard() -> std::sync::MutexGuard<'static, ()> {
     static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
     LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
-}
-
-/// The game build the real development-graph tests bind their workers to.
-///
-/// The development Python search graph refuses to start without an identity, and
-/// a parallel test must not write process-wide state, so a test that starts that
-/// graph names this build explicitly on its own thread. It is a game build, never
-/// a product version.
-const DEVELOPMENT_GAME_FILE_VERSION: &str = "2.0.2.0";
-
-/// Bind the explicit development identity a real-worker test starts under.
-///
-/// The guard restores whatever was bound before, so the binding never outlives
-/// the test that asked for it.
-fn bind_development_worker_identity() -> crate::worker::DevelopmentGameFileVersionBinding {
-    crate::worker::bind_development_game_file_version_for_test(DEVELOPMENT_GAME_FILE_VERSION)
 }
 
 /// Install a resolved packaged session version for one test.
@@ -758,10 +719,7 @@ fn staged_rust_package(name: &str) -> std::path::PathBuf {
         "worker/nioh3-protected-worker.exe",
         "staged protected worker",
     );
-    write(
-        "worker/runtime/nioh3_scroll_editor/data/tables.bin",
-        "tables",
-    );
+    write("worker/runtime/data/tables.bin", "tables");
     write(
         "worker/runtime/bin/nioh3_seed_accelerator.dll",
         "shipped helper",
@@ -774,10 +732,7 @@ fn staged_rust_package(name: &str) -> std::path::PathBuf {
     // Build the manifest with the real staged paths already inside the JSON
     // strings: substituting a Windows path into serialized JSON afterwards would
     // need its backslashes re-escaped.
-    let data_root = root
-        .join("worker/runtime/nioh3_scroll_editor/data")
-        .display()
-        .to_string();
+    let data_root = root.join("worker/runtime/data").display().to_string();
     let contract_dir = root.join("packages/contracts").display().to_string();
     let manifest = json!({
         "schema": "nioh3-worker-backend/v1",
@@ -827,11 +782,7 @@ fn packaged_manifest_resolves_every_role_to_the_staged_binary_and_roots() {
     let staged = staged_backend_manifest(&root)
         .unwrap()
         .expect("staged manifest");
-    let staged_data = root
-        .join("worker")
-        .join("runtime")
-        .join("nioh3_scroll_editor")
-        .join("data");
+    let staged_data = root.join("worker").join("runtime").join("data");
     let staged_contracts = root.join("packages").join("contracts");
     let staged_helper = root
         .join("worker")
@@ -903,7 +854,7 @@ fn packaged_manifest_resolves_every_role_to_the_staged_binary_and_roots() {
 }
 
 /// A staged package that declares a binary or a root it does not carry is a
-/// named refusal, never a silent fallback to the shipped Python worker.
+/// named refusal.
 #[test]
 fn packaged_manifest_fails_closed_for_missing_or_escaping_declarations() {
     use crate::worker::{search_backend, staged_backend_manifest, RustSearchEnv};
@@ -916,10 +867,7 @@ fn packaged_manifest_fails_closed_for_missing_or_escaping_declarations() {
     std::fs::remove_file(missing.join("worker/nioh3-protected-worker.exe")).unwrap();
     let error = search_backend(&missing, true, &RustSearchEnv::default())
         .expect_err("a declared but absent binary must refuse");
-    assert!(
-        error.starts_with("RUST_WORKER_MISSING"),
-        "{error} (a fallback to Python would hide this)"
-    );
+    assert!(error.starts_with("RUST_WORKER_MISSING"), "{error}");
 
     let escaping = staged_rust_package("packaged-escaping");
     let manifest_path = escaping.join("worker/worker-backend.json");
@@ -947,18 +895,17 @@ fn packaged_manifest_fails_closed_for_missing_or_escaping_declarations() {
     let unsupported = staged_rust_package("packaged-unsupported");
     let manifest_path = unsupported.join("worker/worker-backend.json");
     let text = std::fs::read_to_string(&manifest_path).unwrap();
-    std::fs::write(&manifest_path, text.replace("\"rust\"", "\"python\"")).unwrap();
+    std::fs::write(&manifest_path, text.replace("\"rust\"", "\"other\"")).unwrap();
     let error =
         staged_backend_manifest(&unsupported).expect_err("an unknown declared backend must refuse");
     assert!(error.contains("WORKER_BACKEND_UNSUPPORTED"), "{error}");
 
-    // A package without a manifest keeps the shipped worker exactly as before.
+    // A package without a manifest has no worker to run.
     let plain = std::env::temp_dir().join(format!("nioh3-unstaged-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(plain.join("worker")).unwrap();
-    assert_eq!(
-        search_backend(&plain, true, &RustSearchEnv::default()).unwrap(),
-        SearchBackend::Python
-    );
+    assert!(search_backend(&plain, true, &RustSearchEnv::default())
+        .unwrap_err()
+        .starts_with("WORKER_BACKEND_MISSING"));
     for path in [&missing, &escaping, &unsupported, &plain] {
         let _ = std::fs::remove_dir_all(path);
     }
@@ -1024,10 +971,7 @@ fn packaged_manifest_resolves_placeholder_paths_under_a_canonical_root() {
         "worker/nioh3-protected-worker.exe",
         "staged protected worker",
     );
-    write(
-        "worker/runtime/nioh3_scroll_editor/data/tables.bin",
-        "tables",
-    );
+    write("worker/runtime/data/tables.bin", "tables");
     write("worker/runtime/bin/nioh3_seed_accelerator.dll", "helper");
     write("packages/contracts/request.schema.json", "{}");
     write("packages/contracts/response.schema.json", "{}");
@@ -1046,17 +990,17 @@ fn packaged_manifest_resolves_placeholder_paths_under_a_canonical_root() {
         "invocation": {
             "offline_search": {"mode": "packaged", "binary": "nioh3-search-worker.exe", "argv": [
                 "--packaged-worker",
-                "--data-root", "<runtime>/worker/runtime/nioh3_scroll_editor/data",
+                "--data-root", "<runtime>/worker/runtime/data",
                 "--contract-dir", "<runtime>/packages/contracts"]},
             "save": {"mode": "packaged", "binary": "nioh3-protected-worker.exe", "argv": [
                 "--role", "save",
                 "--state-root", "<state root>",
-                "--data-root", "<runtime>/worker/runtime/nioh3_scroll_editor/data",
+                "--data-root", "<runtime>/worker/runtime/data",
                 "--contract-dir", "<runtime>/packages/contracts"]},
             "runtime": {"mode": "packaged", "binary": "nioh3-protected-worker.exe", "argv": [
                 "--role", "runtime",
                 "--state-root", "<state root>",
-                "--data-root", "<runtime>/worker/runtime/nioh3_scroll_editor/data",
+                "--data-root", "<runtime>/worker/runtime/data",
                 "--contract-dir", "<runtime>/packages/contracts"]},
         },
         "launchContract": {
@@ -1084,7 +1028,7 @@ fn packaged_manifest_resolves_placeholder_paths_under_a_canonical_root() {
         .expect("staged manifest");
     assert_eq!(
         normalize_path(&staged.data_root),
-        normalize_path(&root.join("worker/runtime/nioh3_scroll_editor/data"))
+        normalize_path(&root.join("worker/runtime/data"))
     );
     assert!(
         staged.data_root.is_dir(),
@@ -1310,19 +1254,12 @@ fn packaged_roles_resolve_only_the_identity_their_role_requires() {
             .iter()
             .any(|token| token == "--legacy-test-context"));
     }
-    let ProtectedBackend::Rust(runtime) =
-        protected_backend_for_role(&root, "runtime", true, &RustProtectedEnv::default()).unwrap()
-    else {
-        panic!("staged runtime must select Rust")
-    };
+    let runtime =
+        protected_backend_for_role(&root, "runtime", true, &RustProtectedEnv::default()).unwrap();
     assert!(runtime.game_file_version.is_none());
     assert!(!runtime.legacy_test_context);
     // The compatibility entry point keeps its original save/test semantics.
-    let ProtectedBackend::Rust(save) =
-        protected_backend(&root, true, &RustProtectedEnv::default()).unwrap()
-    else {
-        panic!("staged save must select Rust")
-    };
+    let save = protected_backend(&root, true, &RustProtectedEnv::default()).unwrap();
     assert_eq!(save.game_file_version.as_deref(), Some("0.7.5.0"));
     release_packaged_session_version();
     let _ = std::fs::remove_dir_all(&root);
@@ -1360,8 +1297,7 @@ fn a_packaged_role_without_a_resolved_version_fails_closed() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// Missing installed identity blocks offline search/save even on the legacy
-/// Python graph, while runtime keeps its independent role-only launch.
+/// Missing installed identity blocks offline search/save, while runtime keeps its independent role-only launch.
 #[test]
 fn the_packaged_gate_refuses_when_the_session_version_is_unavailable() {
     use crate::worker::{
@@ -1369,12 +1305,10 @@ fn the_packaged_gate_refuses_when_the_session_version_is_unavailable() {
         set_packaged_game_file_version_for_test,
     };
     let _guard = session_version_guard();
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let staged = staged_rust_package("unavailable-version");
+    let root = staged.as_path();
     let state = std::env::temp_dir().join("nioh3-unavailable-version-state");
     set_packaged_game_file_version_for_test(None).unwrap();
-    // A staged manifest would let the resolver's packaged branch answer first;
-    // the shape under test is a package whose manifest is not there, so the
-    // gate is the only thing that can establish the session version.
     set_packaged_game_file_version_error_for_test(Some(
         "GAME_EXECUTABLE_NOT_FOUND: no installed Nioh3.exe under the known Steam roots".to_string(),
     ))
@@ -1388,18 +1322,21 @@ fn the_packaged_gate_refuses_when_the_session_version_is_unavailable() {
         );
     }
     let (_, runtime_arguments) = resolve_role_launch(root, "runtime", true, &state).unwrap();
-    assert_eq!(runtime_arguments, ["--role", "runtime"]);
+    assert!(!runtime_arguments
+        .iter()
+        .any(|token| token == "--game-file-version"));
     set_packaged_game_file_version_error_for_test(None).unwrap();
+    let _ = std::fs::remove_dir_all(&staged);
 }
 
-/// One session resolves the installed version once for offline search/save,
-/// including the shipped Python search graph. Runtime defers its own context.
+/// One session resolves the installed version once for offline search/save.
+/// Runtime defers its own context.
 #[test]
 fn the_session_resolves_one_version_for_offline_search_and_save() {
     use crate::game_version::{
         FileVersionReader, GameFileVersion, GameFileVersionSource, GameVersionSource,
     };
-    use crate::worker::{launch_command, resolve_role_launch, ProtectedBackend, SearchBackend};
+    use crate::worker::{launch_command, resolve_role_launch, RoleLaunch};
     use std::path::Path;
     use std::sync::atomic::{AtomicUsize, Ordering};
     let _guard = session_version_guard();
@@ -1436,8 +1373,11 @@ fn the_session_resolves_one_version_for_offline_search_and_save() {
 
     // Only offline search/save argv names the installed identity.
     let mut seen: Vec<(String, String)> = Vec::new();
-    for role in ["offline_search", "save"] {
-        let (_, arguments) = launch_command(&root, role, true, &search, &protected, &state);
+    for (role, launch) in [
+        ("offline_search", RoleLaunch::Search(search)),
+        ("save", RoleLaunch::Protected(protected)),
+    ] {
+        let (_, arguments) = launch_command(role, &launch, &state);
         let index = arguments
             .iter()
             .position(|token| token == "--game-file-version")
@@ -1451,24 +1391,6 @@ fn the_session_resolves_one_version_for_offline_search_and_save() {
     assert!(!runtime_arguments
         .iter()
         .any(|token| token == "--legacy-test-context"));
-    // The shipped Python search worker is the fallback graph: it runs the same
-    // role through the same argv builder and must answer identically.
-    let (_, python_arguments) = launch_command(
-        &root,
-        "offline_search",
-        true,
-        &SearchBackend::Python,
-        &ProtectedBackend::Python,
-        &state,
-    );
-    let python_index = python_arguments
-        .iter()
-        .position(|token| token == "--game-file-version")
-        .expect("the Python search argv must name the session version");
-    seen.push((
-        "python-offline_search".to_string(),
-        python_arguments[python_index + 1].clone(),
-    ));
     for (role, version) in &seen {
         assert_eq!(
             version, &resolved,
@@ -1477,11 +1399,11 @@ fn the_session_resolves_one_version_for_offline_search_and_save() {
     }
     assert!(
         resolve_role_launch(&root, "offline_search", true, &state)
-            .expect("the packaged gate resolves the Python graph")
+            .expect("the packaged gate resolves the search launch")
             .1
             .iter()
             .any(|token| token == "--game-file-version"),
-        "the packaged gate's argv names the session version for the Python graph"
+        "the packaged gate's argv names the session version"
     );
     assert_eq!(
         source.reads_for_test(),
@@ -1490,50 +1412,6 @@ fn the_session_resolves_one_version_for_offline_search_and_save() {
     );
     release_packaged_session_version();
     let _ = std::fs::remove_dir_all(&root);
-}
-
-/// If a packaged role ever reached the argv builder without a resolved version,
-/// the argv it produced would carry an explicit non-version token. No worker
-/// parser accepts that token, so the worker refuses to start instead of
-/// accepting jobs under an undefined identity - and the legacy opt-in is still
-/// never selected.
-#[test]
-fn an_unresolved_version_never_becomes_a_version_or_the_legacy_opt_in() {
-    use crate::worker::{
-        push_python_identity_for_test, set_packaged_game_file_version_error_for_test,
-    };
-    let _guard = session_version_guard();
-    set_packaged_game_file_version_error_for_test(Some(
-        "GAME_VERSION_UNREADABLE: no version resource on D:\\Games\\Nioh3\\Nioh3.exe".to_string(),
-    ))
-    .unwrap();
-    let mut arguments: Vec<String> = Vec::new();
-    push_python_identity_for_test(&mut arguments, true, None, false);
-    assert_eq!(
-        arguments.first().map(String::as_str),
-        Some("--game-file-version"),
-        "the flag is named even when the value is unavailable: {arguments:?}"
-    );
-    let token = arguments.get(1).cloned().unwrap_or_default();
-    assert!(
-        token.starts_with("GAME_VERSION_UNAVAILABLE:"),
-        "the unavailable identity must be typed: {token}"
-    );
-    assert!(
-        !token.contains("GAME_EXECUTABLE_UNREADABLE"),
-        "the token must keep the resolver's own code, not the generic one: {token}"
-    );
-    assert!(
-        crate::game_version::GameFileVersion::parse(&token).is_err(),
-        "no worker may read the unavailable token as a version"
-    );
-    assert!(
-        !arguments
-            .iter()
-            .any(|argument| argument == "--legacy-test-context"),
-        "packaged production must never select the legacy identity: {arguments:?}"
-    );
-    set_packaged_game_file_version_error_for_test(None).unwrap();
 }
 
 /// Discovery reads only Steam roots that can be named without walking a
@@ -1898,7 +1776,7 @@ fn the_shipped_reader_refuses_a_windows_version_resource_off_windows() {
     );
 }
 
-/// Acceptance probe for the Python packaged gate.
+/// Acceptance probe for the packaged gate.
 ///
 /// It is `#[ignore]`d so it never runs in a normal build or test pass; the gate
 /// invokes it with `--ignored --exact --nocapture` and reads the single JSON line
@@ -1938,108 +1816,6 @@ fn dump_role_launch_for_acceptance() {
     );
 }
 
-/// The shipped Python search worker takes the same identity flag and value as
-/// the Rust replacement, so one session's version reaches every launch shape.
-#[test]
-fn the_python_search_launch_carries_the_same_resolved_game_file_version() {
-    use crate::worker::{launch_command, ProtectedBackend, RustSearchEnv, SearchBackend};
-    let _guard = session_version_guard();
-    bind_packaged_session_version("0.7.5.0");
-    let root = staged_rust_package("python-identity");
-    let state = std::env::temp_dir().join("nioh3-python-identity-state");
-    // The Python shape is the fallback graph: neither backend selects Rust.
-    let search = SearchBackend::Python;
-    let protected = ProtectedBackend::Python;
-
-    // Packaged: the shipped worker EXE gets the session's exact version.
-    let (executable, arguments) =
-        launch_command(&root, "offline_search", true, &search, &protected, &state);
-    assert_eq!(
-        executable,
-        root.join("worker/nioh3-search-worker.exe"),
-        "packaged Python search runs the shipped EXE"
-    );
-    let index = arguments
-        .iter()
-        .position(|token| token == "--game-file-version")
-        .unwrap_or_else(|| panic!("packaged Python argv lacks the version: {arguments:?}"));
-    assert_eq!(arguments[index + 1], "0.7.5.0");
-    assert!(
-        !arguments
-            .iter()
-            .any(|token| token == "--legacy-test-context"),
-        "packaged production must never select the legacy identity: {arguments:?}"
-    );
-    assert!(
-        !arguments.iter().any(|token| token.contains("UNAVAILABLE")),
-        "a resolved session must not report an unavailable version: {arguments:?}"
-    );
-    // The packaged acceptance entry point resolves the same way, so the argv the
-    // gate observes is the argv the host would spawn for the Python graph too.
-    let (_, gate_arguments) =
-        crate::worker::resolve_role_launch(&root, "offline_search", true, &state)
-            .expect("the packaged Python search role must resolve");
-    let gate_index = gate_arguments
-        .iter()
-        .position(|token| token == "--game-file-version")
-        .unwrap_or_else(|| panic!("gate argv lacks the version: {gate_arguments:?}"));
-    assert_eq!(gate_arguments[gate_index + 1], "0.7.5.0");
-
-    // A packaged protected role keeps its own shipped shape and no version flag.
-    let (protected_executable, protected_arguments) =
-        launch_command(&root, "save", true, &search, &protected, &state);
-    assert_eq!(
-        protected_executable,
-        root.join("worker/nioh3-protected-worker.exe")
-    );
-    assert_eq!(protected_arguments[0], "--role");
-    assert_eq!(protected_arguments[1], "save");
-    assert!(
-        !protected_arguments
-            .iter()
-            .any(|token| token == "--legacy-test-context"),
-        "packaged production must never select the legacy identity"
-    );
-    let _ = std::fs::remove_dir_all(&root);
-
-    // Development follows the explicit environment selection. The launcher reads
-    // process env, so drive it through the same accessor the host uses.
-    let _ = RustSearchEnv::default();
-    release_packaged_session_version();
-}
-
-/// The Python branch's development shape passes the explicit environment
-/// version through and uses the legacy flag only when that opt-in is set.
-#[test]
-fn the_python_search_launch_development_shape_is_explicit() {
-    use crate::worker::push_python_identity_for_test;
-
-    // A development host reads its explicit environment selection, so the test
-    // drives the accessor the resolver uses rather than a copy of its rules.
-    let env = RustSearchEnv::default();
-    let mut versioned: Vec<String> = Vec::new();
-    push_python_identity_for_test(&mut versioned, false, Some("2.0.1.0"), false);
-    assert_eq!(
-        versioned,
-        vec!["--game-file-version".to_string(), "2.0.1.0".to_string()]
-    );
-
-    let mut legacy: Vec<String> = Vec::new();
-    push_python_identity_for_test(&mut legacy, false, None, true);
-    assert_eq!(legacy, vec!["--legacy-test-context".to_string()]);
-
-    // A development launch with neither selection sends no identity flag; the
-    // worker refuses it, which is the intended fail-closed shape.
-    let mut bare: Vec<String> = Vec::new();
-    push_python_identity_for_test(&mut bare, false, None, false);
-    assert!(bare.is_empty(), "{bare:?}");
-
-    // A development host does not read the packaged session value, so an unset
-    // environment is not permission to invent a version or the legacy opt-in.
-    assert_eq!(env.game_file_version, None);
-    assert!(!env.legacy_test_context);
-}
-
 /// Resolver-only fixtures never execute their synthetic worker bytes.
 #[test]
 fn packaged_runtime_resolution_survives_missing_or_unsupported_installed_identity() {
@@ -2064,9 +1840,6 @@ fn packaged_runtime_resolution_survives_missing_or_unsupported_installed_identit
         let runtime =
             protected_backend_for_role(&root, "runtime", true, &RustProtectedEnv::default())
                 .unwrap();
-        let ProtectedBackend::Rust(runtime) = runtime else {
-            panic!("staged runtime")
-        };
         assert!(runtime.game_file_version.is_none());
         assert!(!runtime.legacy_test_context);
         let (executable, arguments) = resolve_role_launch(&root, "runtime", true, &state).unwrap();

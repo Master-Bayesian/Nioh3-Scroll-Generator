@@ -123,7 +123,7 @@ struct Options {
 
 fn parse_options() -> EmitResult<Options> {
     let mut options = Options {
-        data_root: "../../nioh3_scroll_editor/data".to_string(),
+        data_root: "../../data".to_string(),
         corpus_root: "../../test_fixtures/r4_native_corpus".to_string(),
         resource_version: None,
         seeds: Vec::new(),

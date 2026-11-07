@@ -349,9 +349,8 @@ mod tests {
     }
 
     fn tables() -> EffectTableIndex {
-        let bytes =
-            nioh3_data::load_effect_resource(&repo_root().join("nioh3_scroll_editor").join("data"))
-                .expect("effect resource loads");
+        let bytes = nioh3_data::load_effect_resource(&repo_root().join("data"))
+            .expect("effect resource loads");
         EffectTableIndex::from_resource(&bytes).expect("effect tables decode")
     }
 
@@ -449,7 +448,7 @@ mod tests {
 
     fn tables_v202() -> EffectTableIndex {
         let bytes = nioh3_data::load_effect_resource_for_file_version(
-            &repo_root().join("nioh3_scroll_editor").join("data"),
+            &repo_root().join("data"),
             (2, 0, 2, 0),
         )
         .expect("v2.02 effect resource loads");

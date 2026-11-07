@@ -1,7 +1,7 @@
 //! Bounded native-resource adapter for the offline enemy generation slice.
 //!
 //! The adapter reads only the current product resources below a supplied
-//! `nioh3_scroll_editor/data` directory. Every consumed binary blob is verified
+//! `data` directory. Every consumed binary blob is verified
 //! against its manifest size and SHA-256 before typed rows are exposed. The
 //! enemy-state capture is JSON with no sidecar digest, so it is gated by its
 //! capture identity hash plus the observed-lookup and schema checks instead.
@@ -37,9 +37,9 @@ pub use selected_bundle::{
     resolve_selected_generation_bundle, BundleFile, SelectedGenerationBundle,
 };
 
-/// Resource directory, relative to the supplied `nioh3_scroll_editor/data` root.
+/// Resource directory, relative to the supplied `data` root.
 pub const AUXILIARY_RESOURCE_DIR: &str = "auxiliary_generation/pc_v2_00_02/resource_v3";
-/// Resource directory, relative to the supplied `nioh3_scroll_editor/data` root.
+/// Resource directory, relative to the supplied `data` root.
 pub const R4_RESOURCE_DIR: &str = "r4_finalizer/pc_v2_00_02/resource_v1";
 /// Versioned offline resource owned by PC v2.02, whose two changed tables make
 /// the shipped payload non-reusable.
@@ -50,7 +50,7 @@ pub const R4_RESOURCE_DIR_V202: &str = "r4_finalizer/pc_v2_02/resource_v1";
 /// loaders stay explicit, and an unknown live identity is still rejected by its
 /// own fail-closed path.
 pub const CURRENT_RESOURCE_VERSION: (u16, u16, u16, u16) = (2, 0, 2, 0);
-/// Enemy-state capture, relative to the supplied `nioh3_scroll_editor/data` root.
+/// Enemy-state capture, relative to the supplied `data` root.
 pub const ENEMY_STATE_TABLES_PATH: &str = "enemy_states/pc_v2_01/native_tables.json";
 
 const AUXILIARY_SCHEMA: &str = "nioh3-auxiliary-generation-resource/v3";
@@ -258,7 +258,7 @@ type PositionsByTerrain = BTreeMap<u8, Vec<[u8; ENEMY_STATE_ROW_STRIDE]>>;
 
 /// Load every enemy-generation resource below `data_root`.
 ///
-/// `data_root` is the product `nioh3_scroll_editor/data` directory. Missing,
+/// `data_root` is the product `data` directory. Missing,
 /// undeclared, or digest-mismatched files are reported as errors instead of
 /// being silently substituted.
 pub fn load_enemy_resources(data_root: &Path) -> Result<EnemyResources, Box<dyn Error>> {
@@ -285,7 +285,7 @@ pub struct PreviewResources {
 
 /// Load every resource the complete offline preview composition needs.
 ///
-/// `data_root` is the product `nioh3_scroll_editor/data` directory. The
+/// `data_root` is the product `data` directory. The
 /// special-rule and rule-conflict tables are read from the same verified
 /// auxiliary resource the roster uses; a missing, undeclared, or
 /// digest-mismatched blob is an error rather than a silent substitution.
@@ -1076,7 +1076,7 @@ mod tests {
 
     /// Product data root of this checkout, derived from the crate location.
     fn product_data_root() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data")
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data")
     }
 
     struct TempDir {
@@ -1580,7 +1580,7 @@ mod tests {
     #[test]
     fn v202_preview_resources_load_the_changed_tables() {
         let data_root =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data");
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data");
         if !data_root.is_dir() {
             return;
         }

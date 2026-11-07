@@ -115,7 +115,7 @@ fn a_stale_live_add_lock_is_cleared_at_start_and_on_request() {
     std::fs::write(&lock, b"").unwrap();
     std::fs::write(&receipt, b"{}").unwrap();
 
-    let data = repo_root().join("nioh3_scroll_editor").join("data");
+    let data = repo_root().join("data");
     let contracts = repo_root().join("packages").join("contracts");
     let engine = Engine::load(
         &data,

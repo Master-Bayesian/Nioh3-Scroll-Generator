@@ -72,7 +72,7 @@ fn seed_sweep() -> Vec<u32> {
 
 fn run() -> Result<(), String> {
     let root = env::args().nth(1).map_or_else(
-        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data"),
+        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../data"),
         PathBuf::from,
     );
     let resource = root

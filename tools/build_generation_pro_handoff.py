@@ -58,8 +58,8 @@ TREE_PATHS = [
     "audit/r4_finalizer_capture/seed_183696634_20260827/completion_loop",
     "audit/p1_dynamic/auxiliary_generation_tables_20260828_150605",
     "audit/p1_dynamic/enemy_parameter_gate_20260828_231828",
-    "nioh3_scroll_editor/data/r4_finalizer/pc_v2_00_02/resource_v1",
-    "nioh3_scroll_editor/data/auxiliary_generation/pc_v2_00_02/resource_v3",
+    "data/r4_finalizer/pc_v2_00_02/resource_v1",
+    "data/auxiliary_generation/pc_v2_00_02/resource_v3",
 ]
 
 
@@ -83,15 +83,15 @@ MODULE_PATHS = [
     "nioh3_scroll_editor/grace_map.py",
     "nioh3_scroll_editor/primary_map.py",
     "nioh3_scroll_editor/recommended_level.py",
-    "nioh3_scroll_editor/data/recommended_level_curve.json",
-    "nioh3_scroll_editor/data/effect_names_multilingual.json",
-    "nioh3_scroll_editor/data/auxiliary_names/zh-CN.json",
-    "nioh3_scroll_editor/data/auxiliary_names/ja-JP.json",
-    "nioh3_scroll_editor/data/auxiliary_names/en-US.json",
-    "nioh3_scroll_editor/data/grace_output_map_e604_r4_current.json",
-    "nioh3_scroll_editor/data/grace_output_map_e604_r5_current.json",
-    "nioh3_scroll_editor/data/grace_names_zh_cn.json",
-    "nioh3_scroll_editor/data/special_rule_item_names.json",
+    "data/recommended_level_curve.json",
+    "data/effect_names_multilingual.json",
+    "data/auxiliary_names/zh-CN.json",
+    "data/auxiliary_names/ja-JP.json",
+    "data/auxiliary_names/en-US.json",
+    "data/grace_output_map_e604_r4_current.json",
+    "data/grace_output_map_e604_r5_current.json",
+    "data/grace_names_zh_cn.json",
+    "data/special_rule_item_names.json",
 ]
 
 

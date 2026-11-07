@@ -2368,8 +2368,7 @@ mod tests {
         use crate::search_backend::{MatchFilter, NativePivotQuery, PageRequest, SearchBackend};
 
         let root = repo_root();
-        let compiler = QueryCompiler::load(&root.join("nioh3_scroll_editor").join("data"))
-            .expect("the product tables load");
+        let compiler = QueryCompiler::load(&root.join("data")).expect("the product tables load");
         let registered = crate::grace_map::from_cache_payload(
             &synthetic_ng4_cache_payload(&"a".repeat(64)),
             None,
@@ -2487,7 +2486,7 @@ mod tests {
     fn the_native_auxiliary_predicate_agrees_with_the_composed_acceptance() {
         let _accelerator = crate::accelerator_test_lock();
         let root = repo_root();
-        let data_root = root.join("nioh3_scroll_editor").join("data");
+        let data_root = root.join("data");
         let compiler = QueryCompiler::load(&data_root).expect("the shipped tables load");
         let materializer = Materializer::new(&data_root, "query-compile-predicate-test");
         let accelerator = Accelerator::load(&root, None).expect("the shipped accelerator loads");
@@ -2627,8 +2626,7 @@ mod tests {
     #[test]
     fn the_rarity3_primary_pivot_family_matches_the_shipped_pair() {
         let root = repo_root();
-        let compiler = QueryCompiler::load(&root.join("nioh3_scroll_editor").join("data"))
-            .expect("the shipped tables load");
+        let compiler = QueryCompiler::load(&root.join("data")).expect("the shipped tables load");
         let families = crate::effect_path::compile_ng3_rarity3_primary_pivot_families(
             &[PARITY_PRIMARY],
             &compiler.effect_index,
@@ -2665,8 +2663,7 @@ mod tests {
     #[test]
     fn the_rarity3_primary_pivot_families_partition_the_promotion_states() {
         let root = repo_root();
-        let compiler = QueryCompiler::load(&root.join("nioh3_scroll_editor").join("data"))
-            .expect("the shipped tables load");
+        let compiler = QueryCompiler::load(&root.join("data")).expect("the shipped tables load");
         let families = crate::effect_path::compile_ng3_rarity3_primary_pivot_families(
             &[PRIMARY_ROUTE_EFFECT],
             &compiler.effect_index,
@@ -2712,7 +2709,7 @@ mod tests {
     fn the_rarity3_primary_pivot_page_publishes_the_shipped_fixture() {
         let _accelerator = crate::accelerator_test_lock();
         let root = repo_root();
-        let data_root = root.join("nioh3_scroll_editor").join("data");
+        let data_root = root.join("data");
         let compiler = QueryCompiler::load(&data_root).expect("the shipped tables load");
         let accelerator = Accelerator::load(&root, None).expect("the shipped accelerator loads");
         let query = pivot_query(&[PARITY_PRIMARY], &[PARITY_SECONDARY]);
@@ -2768,8 +2765,7 @@ mod tests {
     #[test]
     fn the_rarity3_primary_pivot_cursor_replays_from_the_families() {
         let root = repo_root();
-        let compiler = QueryCompiler::load(&root.join("nioh3_scroll_editor").join("data"))
-            .expect("the shipped tables load");
+        let compiler = QueryCompiler::load(&root.join("data")).expect("the shipped tables load");
         let families = crate::effect_path::compile_ng3_rarity3_primary_pivot_families(
             &[PARITY_PRIMARY],
             &compiler.effect_index,
@@ -2834,7 +2830,7 @@ mod tests {
     fn the_rarity3_primary_pivot_page_resumes_without_replay() {
         let _accelerator = crate::accelerator_test_lock();
         let root = repo_root();
-        let data_root = root.join("nioh3_scroll_editor").join("data");
+        let data_root = root.join("data");
         let compiler = QueryCompiler::load(&data_root).expect("the shipped tables load");
         let accelerator = Accelerator::load(&root, None).expect("the shipped accelerator loads");
         let query = pivot_query(&[PARITY_PRIMARY], &[PARITY_SECONDARY]);
@@ -2914,7 +2910,7 @@ mod tests {
     fn the_rarity3_primary_pivot_cancels_inside_a_window_without_replay() {
         let _accelerator = crate::accelerator_test_lock();
         let root = repo_root();
-        let data_root = root.join("nioh3_scroll_editor").join("data");
+        let data_root = root.join("data");
         let compiler = QueryCompiler::load(&data_root).expect("the shipped tables load");
         let accelerator = Accelerator::load(&root, None).expect("the shipped accelerator loads");
         let query = pivot_query(&[PARITY_PRIMARY], &[PARITY_SECONDARY]);
@@ -3000,7 +2996,7 @@ mod tests {
     /// different thresholds than the candidates it publishes were built from.
     #[test]
     fn the_compiler_reads_the_materializer_resource_version() {
-        let data_root = repo_root().join("nioh3_scroll_editor").join("data");
+        let data_root = repo_root().join("data");
         let legacy = QueryCompiler::load(&data_root).expect("the legacy tables load");
         let current = QueryCompiler::load_for_resource_version(
             &data_root,
@@ -3063,7 +3059,7 @@ mod tests {
     fn terrain_options_compile_to_their_row_union_and_are_enforced() {
         let _accelerator = crate::accelerator_test_lock();
         let root = repo_root();
-        let data_root = root.join("nioh3_scroll_editor").join("data");
+        let data_root = root.join("data");
         let version = Some(nioh3_data::CURRENT_RESOURCE_VERSION);
         let compiler = QueryCompiler::load_for_resource_version(&data_root, version)
             .expect("the current tables load");
@@ -3181,7 +3177,7 @@ mod tests {
     fn several_selected_graces_pivot_on_their_union_and_filter_the_final_grace() {
         let _accelerator = crate::accelerator_test_lock();
         let root = repo_root();
-        let data_root = root.join("nioh3_scroll_editor").join("data");
+        let data_root = root.join("data");
         let version = Some(nioh3_data::CURRENT_RESOURCE_VERSION);
         let compiler = QueryCompiler::load_for_resource_version(&data_root, version)
             .expect("the current tables load");
@@ -3257,7 +3253,7 @@ mod tests {
     fn an_unconstrained_rarity5_search_takes_the_full_family() {
         let _accelerator = crate::accelerator_test_lock();
         let root = repo_root();
-        let data_root = root.join("nioh3_scroll_editor").join("data");
+        let data_root = root.join("data");
         let compiler = QueryCompiler::load_for_resource_version(
             &data_root,
             Some(nioh3_data::CURRENT_RESOURCE_VERSION),
@@ -3301,8 +3297,7 @@ mod tests {
     fn ng1_and_ng2_searches_publish_exactly_the_composed_matches() {
         let _accelerator = crate::accelerator_test_lock();
         let root = repo_root();
-        let compiler = QueryCompiler::load(&root.join("nioh3_scroll_editor").join("data"))
-            .expect("the shipped tables load");
+        let compiler = QueryCompiler::load(&root.join("data")).expect("the shipped tables load");
         let accelerator = Accelerator::load(&root, None).expect("the shipped accelerator loads");
         let backend = pivot_backend(&root);
         // Hosted runners have no GPU; the window is small enough for the CPU.
@@ -3393,8 +3388,7 @@ mod tests {
     #[test]
     fn an_early_rarity5_grace_request_is_refused() {
         let root = repo_root();
-        let compiler = QueryCompiler::load(&root.join("nioh3_scroll_editor").join("data"))
-            .expect("the shipped tables load");
+        let compiler = QueryCompiler::load(&root.join("data")).expect("the shipped tables load");
         let accelerator = Accelerator::load(&root, None).expect("the shipped accelerator loads");
         let mut query = early_query(1, 5, &[], &[]);
         query.grace_effect_id = Some(0x6553);

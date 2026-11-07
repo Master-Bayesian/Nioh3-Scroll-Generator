@@ -89,7 +89,7 @@ test('the packaged shape forwards the argv it is given', async (t) => {
   const client = new WorkerClient(root, resolve(executable), true, undefined, [
     '--packaged-worker',
     '--data-root',
-    resolve(stage, 'worker/runtime/nioh3_scroll_editor/data'),
+    resolve(stage, 'worker/runtime/data'),
     '--contract-dir',
     resolve(stage, 'packages/contracts'),
     '--game-file-version',

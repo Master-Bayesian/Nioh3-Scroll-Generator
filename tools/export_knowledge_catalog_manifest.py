@@ -48,7 +48,7 @@ def _file_entry(path: Path) -> dict[str, object]:
 
 
 def build_manifest() -> dict[str, object]:
-    data_root = REPOSITORY_ROOT / "nioh3_scroll_editor" / "data"
+    data_root = REPOSITORY_ROOT / 'data'
     knowledge_catalog_root = DEFAULT_OUTPUT.parent
 
     effect_path = data_root / "effect_names_multilingual.json"

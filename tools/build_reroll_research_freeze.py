@@ -43,7 +43,7 @@ FILES = (
 )
 
 RESOURCE_ROOT = Path(
-    "nioh3_scroll_editor/data/r4_finalizer/pc_v2_00_02/resource_v1"
+    "data/r4_finalizer/pc_v2_00_02/resource_v1"
 )
 
 

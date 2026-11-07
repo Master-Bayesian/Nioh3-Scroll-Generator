@@ -11,9 +11,7 @@ use nioh3_domain::preview::{compose_ng3_preview, AuxiliaryPreview, PreviewTables
 
 fn main() {
     let mut args = env::args().skip(1);
-    let data_root = args
-        .next()
-        .unwrap_or_else(|| "../../nioh3_scroll_editor/data".to_string());
+    let data_root = args.next().unwrap_or_else(|| "../../data".to_string());
     let seeds: Vec<u32> = args.map(|value| value.parse().expect("seed")).collect();
     let resources = load_preview_resources(Path::new(&data_root)).expect("preview resources");
     let tables = PreviewTables {

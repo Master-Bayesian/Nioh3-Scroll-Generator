@@ -114,7 +114,7 @@ def range_row(
 
 def export(output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    data_root = PROJECT_ROOT / "nioh3_scroll_editor" / "data"
+    data_root = PROJECT_ROOT / 'data'
     names_payload = load_json(data_root / "effect_names_multilingual.json")
     special_item_payload = load_json(data_root / "special_rule_item_names.json")
     tables = load_default_effect_generation_tables()
