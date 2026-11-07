@@ -1185,6 +1185,15 @@ int main(int argc, char** argv) {
             if (relevant) fprintf(o, "%u ", group);
         }
         fclose(o);
+        // Table-driven groups that write health or defense, for pool_prune.py when a survival limit is on. Hand-written groups are all live already.
+        o = fopen((dir + "/survival_groups.txt").c_str(), "w");
+        for (u32 group = 0; group < klass.size(); group++) {
+            const Klass& k = klass[group];
+            bool survival = false;
+            for (u32 i = k.start; k.kind == 2 && i < k.start + k.n; i++) survival = survival || (recipes[i].kind >= 6 && (recipes[i].offset == 0x18 || recipes[i].offset == 0x1C8));
+            if (survival) fprintf(o, "%u ", group);
+        }
+        fclose(o);
     }
     std::vector<Recipe> retained;
     for (Klass& k : klass) {

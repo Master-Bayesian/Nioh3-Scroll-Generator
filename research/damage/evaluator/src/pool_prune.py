@@ -51,8 +51,9 @@ class Keyed:
 source, target = Path(sys.argv[1]), Path(sys.argv[2])
 required = sys.argv[3] if len(sys.argv) > 3 else None
 pieces = int(sys.argv[4]) if len(sys.argv) > 4 else 0
-# With limits on weight or survival, weight, defense and every effect can decide an outfit, so an item may only go if it is no worse on all of them.
-STRICT = bool(os.environ.get("NIOH3_LIMITS"))
+# NIOH3_LIMITS "max_load min_defense min_health". A limit only adds what can decide it: load adds weight if some outfit could break it, minimum defense
+# adds defense, and either survival minimum adds the groups that write those numbers. Anything else about an item stays out of the comparison.
+LIMITS = [float(w) for w in (os.environ.get("NIOH3_LIMITS") or "").split()] or [float("inf"), 0.0, 0.0]
 target.mkdir(parents=True, exist_ok=True)
 s = sections(source / "tables.bin")
 items, effects, groups = Keyed(s, "item", 0x1A0), Keyed(s, "effect", 0xD8), Keyed(s, "group", 0x70)
@@ -61,12 +62,15 @@ half = struct.unpack_from("<f", s["consts"], 12)[0]
 char = sections(source / "characters.bin")["char0"]
 cap = u32(char, 8)
 live = {int(w) for w in (source / "live_groups.txt").read_text(encoding="ascii").split()}
+if LIMITS[1] > 0 or LIMITS[2] > 0:
+    live |= {int(w) for w in (source / "survival_groups.txt").read_text(encoding="ascii").split()}
 lines = (source / "gpu_setup.txt").read_text(encoding="ascii").strip().split("\n")
 op_n = int(lines[0].split()[2])
 slot_n = int(lines[1 + op_n])
 ranges = [tuple(map(int, x.split())) for x in lines[2 + op_n:2 + op_n + slot_n]]
 attrs = list(map(int, lines[2 + op_n + slot_n].split()))
 pool = (source / "pool.bin").read_bytes()
+WATCH_WEIGHT = False
 
 
 def field70(index, off):
@@ -106,18 +110,33 @@ def profile(item):
                 continue
             if u32(g, 8):
                 sides.add(u32(g, 8))
-            elif group in live or STRICT:
+            elif group in live:
                 values[group] = values.get(group, 0) + u32(item, 0x3C + 24 * i)
     level = 0 if u32(item, 0x18) & 0x200000 else min(u16(item, 6), 180)
     defense = u32(selected, 0xF8) * max(level, 1) + u32(selected, 0x50) * 1000 + values.get(0xDA05, 0) * 1000
     return values, frozenset(sides), weight, level, u32(original, 0xB0) & 0x100, defense
 
 
+def heaviest_load():
+    """Load of the heaviest outfit at the smallest capacity of either stance; at or under the limit, weight cannot decide anything."""
+    power = struct.unpack_from("<HH", s["power90"], attrs[2] * 32 + 8)
+    total = 0
+    for slot, start, count in ranges:
+        if slot >= 4:
+            total += max((profile(pool[(start + i) * ITEM:(start + i + 1) * ITEM])[2] for i in range(count)), default=0)
+    return total / min(power)
+
+
+WATCH_WEIGHT = heaviest_load() > LIMITS[0]
+
+
 def beats(a, b):
     """a is at least as good as b everywhere, and can stand in for b's set membership."""
     if a[1] != b[1] and b[1]:
         return False
-    if STRICT and (a[2] > b[2] or a[5] < b[5]):
+    if WATCH_WEIGHT and a[2] > b[2]:
+        return False
+    if LIMITS[1] > 0 and a[5] < b[5]:
         return False
     if a[1] == b[1] and b[1] and a[3] < b[3]:
         return False

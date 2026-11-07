@@ -514,19 +514,22 @@ the test backpack. Worn items are not in the backpack rows, and storage has not 
 
 RTX 4070 Ti SUPER, game closed, same attack. Slots searched: katana, five armor pieces, two accessories. Weapons of other types need their own capture, and the test character
 has only those two accessory slots filled. `NIOH3_ATTRS=1` moves attribute points in polish and searches again until they settle. `NIOH3_LIMITS="load
-defense health"` drops anything outside; with it dominance must also compare weight and defense, so it prunes far less.
+defense health"` drops anything outside. A limit adds to dominance only what can decide it: weight if the heaviest outfit could break the load limit, defense
+if a minimum defense is set, and the groups in `survival_groups.txt` (table-driven groups writing health or defense; the kernel writes this file beside
+`live_groups.txt`) if either survival minimum is set. Comparing every group and always weight and defense kept the whole 1.2 billion space on one backpack.
 
 | Search | Space | Time |
 | --- | --- | --- |
 | One set, at least 3 pieces, pruned | 40,320 to 5.9 million | 0.01 to 0.5 s |
 | Same, exhaustive | 156,600 to 1.25 billion | 0.02 to 97 s |
-| Limits on | 156,600 to 1.2 billion | 0.02 to 44 s |
+| Limits on, pruned | 40,320 to 18 million | 0.01 to 1.4 s |
+| Limits on, exhaustive | 156,600 to 1.25 billion | 0.02 to 96 s |
 | No set required, pruned | 6.9 million to 850 million; largest backpack 10.7 billion | 0.65 to 92 s; largest not run, about 15 minutes by rate |
 
 Rates are about 6 to 13 million a second, lower than armor alone because every outfit now runs the weapon stage. With attributes the same searches take a
 small extra cost, not timed separately, and damage rises by 19 to 66 points on these backpacks with the points of the test character.
 
-Evidence: 10 set searches without limits, on all five backpacks, and 4 with limits, on four: pruned plus polish equals exhaustive every time. The VM
+Evidence: 10 set searches without limits and 20 with four limit settings, on all five backpacks: pruned plus polish equals exhaustive every time. The VM
 rechecked 664 top claims across weapons, accessories, attributes and limits, 0 wrong, and 2,273 outfits match it exactly. Attribute results are
 checked for damage, not for being the best: hill climbing has no exhaustive comparison. Load, defense and health come from the pipeline's own numbers
 and have not been compared with the game yet; load counts slots 4 to 12 only, so a weapon's weight is not in it if the game counts one.
