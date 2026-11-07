@@ -649,9 +649,11 @@ impl SaveApplication {
             let (mut key, mut serial) = equipment_counters(plain).map_err(HostError::from_save)?;
             let mut taken: Vec<usize> = edits
                 .iter()
-                .filter_map(|edit| match edit {
-                    CharacterEdit::RemoveEquipment { slot_index, .. } => Some(*slot_index),
-                    _ => None,
+                .filter_map(|edit| {
+                    let CharacterEdit::RemoveEquipment { slot_index, .. } = edit else {
+                        return None;
+                    };
+                    Some(*slot_index)
                 })
                 .collect();
             // The game keeps at most 2000 held items (shown as n/2000) although
@@ -1073,9 +1075,10 @@ impl SaveApplication {
             .map_err(HostError::rejected)?;
         let stored = payload
             .get("context_fingerprint")
-            .map(|value| match value {
-                Value::String(text) => text.clone(),
-                other => other.to_string(),
+            .map(|value| {
+                value
+                    .as_str()
+                    .map_or_else(|| value.to_string(), str::to_string)
             })
             .unwrap_or_default();
         if stored.trim().to_lowercase() != fingerprint.trim().to_lowercase() {

@@ -206,7 +206,7 @@ pub fn new_equipment(
         };
         let roll = match role {
             NewEntryRole::Grace | NewEntryRole::Set => 0,
-            _ => rules
+            NewEntryRole::Innate | NewEntryRole::Hell | NewEntryRole::Random => rules
                 .legal_values(effect_id, rarity, level)
                 .ok()
                 .and_then(|values| {

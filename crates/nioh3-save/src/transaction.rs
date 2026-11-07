@@ -2452,7 +2452,7 @@ impl SaveTransactionHost {
                     }
                 }
             }
-            _ => {
+            PlanKind::Edit | PlanKind::Delete | PlanKind::Install => {
                 if plan.restore_source.is_some() || !plan.backup_id.is_empty() {
                     return Err(SaveReadError::TamperedRecord {
                         kind: "plan",
@@ -2575,12 +2575,15 @@ impl SaveTransactionHost {
                     .backup_dir(backup_id)
                     .join(crate::backup::role_backup_file(SaveRole::Main));
                 let _ = recorded;
-                read_save_bytes(SaveRole::Main, &source, None).map_err(|error| match error {
-                    SaveReadError::Io { .. } => SaveReadError::UnknownIdentifier {
-                        kind: "backup",
-                        value: backup_id.to_string(),
-                    },
-                    error => error,
+                read_save_bytes(SaveRole::Main, &source, None).map_err(|error| {
+                    if matches!(error, SaveReadError::Io { .. }) {
+                        SaveReadError::UnknownIdentifier {
+                            kind: "backup",
+                            value: backup_id.to_string(),
+                        }
+                    } else {
+                        error
+                    }
                 })
             }
         }

@@ -58,6 +58,7 @@ windows-sys = { version = "0.59", features = [
 ] }
 
 [lints.clippy]
+wildcard_enum_match_arm = "deny"
 unwrap_used = "deny"
 expect_used = "deny"
 panic = "deny"

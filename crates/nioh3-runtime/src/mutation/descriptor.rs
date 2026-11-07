@@ -102,7 +102,7 @@ pub fn assembly_record_in_context(record: &[u8], context: &Value) -> Result<Vec<
                 .as_str()
                 .filter(|text| !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit()))
                 .and_then(|text| text.parse::<u64>().ok())
-                .ok_or_else(|| rejected("Prepared live-add plan expired; prepare a new plan"))?;
+                .ok_or(RuntimeError::LiveAddPlanExpired)?;
             new_assembly_record_for_ambient(record, ambient)
         }
     }

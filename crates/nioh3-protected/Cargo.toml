@@ -43,6 +43,7 @@ sha2 = "0.10"
 jsonschema = { version = "0.33", default-features = false }
 
 [lints.clippy]
+wildcard_enum_match_arm = "deny"
 unwrap_used = "deny"
 expect_used = "deny"
 panic = "deny"
