@@ -569,8 +569,8 @@ Read a weapon's moves from this table before capturing any hit. A capture is nee
 - Hit count of a move is the number of rows with a non-zero motion value.
 - Hit order comes from +0x08, not from the row order. Dual-sword light 4 has frames 27 and 19, so its second row lands
   first. Equal frames land together.
-- Rows at consecutive ids are not one combo. Dual-sword mid-stance light is four rows, 0x61cc to 0x61cf; the rows after
-  it belong to other inputs.
+- Rows at consecutive ids are not one combo. Dual-sword mid-stance light is rows 0x61cc to 0x61cf, heavy is 0x61d0 to 0x61d2;
+  all six heavy numbers matched a blind prediction. Hits sharing a start frame have no predicted order.
 - To predict a hit, replay a captured hit of the same state with only modifier +0x10 overridden. In the dual-sword
   capture this changed nothing else: the traced inputs of the two judgments differ only in that value.
 - The motion value also moves the attack-defense bonus term, so damage is not proportional to it.
