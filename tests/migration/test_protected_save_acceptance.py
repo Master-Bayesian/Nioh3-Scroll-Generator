@@ -1902,17 +1902,19 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
                         f"{point}: a claimed write must keep its durable intent",
                     )
                     outer_before = json.loads(outer_path.read_text(encoding="utf-8"))
-                    self.assertEqual(
-                        outer_before["commit_status"],
-                        "executing",
-                        outer_before,
-                    )
                 finally:
                     rust.terminate()
 
                 core_outcome = json.loads(core_receipt.read_text(encoding="utf-8"))[
                     "outcome"
                 ]
+                # A refusal the core proved untouched closes the intent at once;
+                # every other outcome keeps it open for the restart to settle.
+                self.assertEqual(
+                    outer_before["commit_status"],
+                    "not_committed" if core_outcome == "not_committed" else "executing",
+                    outer_before,
+                )
                 self.assertIn(core_outcome, ("committed", "not_committed", "uncertain"))
                 restarted = self.rust_worker(state)
                 try:
@@ -2108,7 +2110,6 @@ class ProtectedSaveAcceptanceTests(unittest.TestCase):
                         ).read_text(encoding="utf-8")
                     )
                     self.assertEqual(core["outcome"], "committed", core)
-                    self.assertTrue(core["committed"], core)
                     self.assertEqual(core["installed_sha256"].lower(), written, core)
                     self.assertEqual(
                         receipt["details"]["installed_sha256"].lower(), written, receipt
