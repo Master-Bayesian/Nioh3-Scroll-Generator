@@ -558,6 +558,26 @@ Other weapon types, other moves and buffs are not covered. A shipped build canno
 nvcc on a player's machine: a compiled path list must either ship for each attack, or be emitted at run time as PTX, and a non-CUDA fallback
 needs its own emitter. Ties are common because damage lands on whole numbers, so the objective needs a tiebreak.
 
+## Move table: multipliers and hit counts
+
+Read a weapon's moves from this table before capturing any hit. A capture is needed only to check a prediction.
+
+- Action row, stride 0xF0: +0x00 action id, +0x40 pointer array of modifier rows, +0x48 u16 first index, +0x4A u16 count.
+  The array is shared by the whole table. The first index selects a slice.
+- Modifier row, stride 0xC0: +0x08 hit start frame, +0x0C active frames, +0x10 motion value, +0x12 second value read
+  during an imbue. Rows with motion 0 in a slice do not damage.
+- Hit count of a move is the number of rows with a non-zero motion value.
+- Hit order comes from +0x08, not from the row order. Dual-sword light 4 has frames 27 and 19, so its second row lands
+  first. Equal frames land together.
+- Rows at consecutive ids are not one combo. Dual-sword mid-stance light is four rows, 0x61cc to 0x61cf; the rows after
+  it belong to other inputs.
+- To predict a hit, replay a captured hit of the same state with only modifier +0x10 overridden. In the dual-sword
+  capture this changed nothing else: the traced inputs of the two judgments differ only in that value.
+- The motion value also moves the attack-defense bonus term, so damage is not proportional to it.
+
+The table lives in the heap. Find it from the capture role `source.query.entity.action`. The input-to-action mapping is
+still open.
+
 ## Appendix A. Version-bound values (2.0.2.0)
 
 All of these must be revalidated. RVAs are relative to the `Nioh3.exe` base.
