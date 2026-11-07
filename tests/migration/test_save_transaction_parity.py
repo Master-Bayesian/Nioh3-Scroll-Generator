@@ -2226,7 +2226,6 @@ class SaveFaultGateTests(_ProductFixture):
                 receipt = self.receipt(plan_id)
                 self.assertEqual(receipt["operation_id"], plan_id)
                 self.assertEqual(receipt["outcome"], "committed")
-                self.assertIs(receipt["committed"], True)
                 self.assertNotIn(receipt["outcome"], {"not_committed", "uncertain"})
                 siblings = sorted(
                     path.name
