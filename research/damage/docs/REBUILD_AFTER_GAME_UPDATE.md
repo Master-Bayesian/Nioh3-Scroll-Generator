@@ -531,8 +531,8 @@ small extra cost, not timed separately, and damage rises by 19 to 66 points on t
 
 Evidence: 10 set searches without limits and 20 with four limit settings, on all five backpacks: pruned plus polish equals exhaustive every time. The VM
 rechecked 664 top claims across weapons, accessories, attributes and limits, 0 wrong, and 2,273 outfits match it exactly. Attribute results are
-checked for damage, not for being the best: hill climbing has no exhaustive comparison. Load, defense and health come from the pipeline's own numbers
-and have not been compared with the game yet; load counts slots 4 to 12 only, so a weapon's weight is not in it if the game counts one.
+checked for damage, not for being the best: hill climbing has no exhaustive comparison. On one worn outfit, defense 3540, health 3198, weight 308 and capacity 377 equal the live STAT, and the game screen shows 30.8/37.7 (81.6%), so weight is
+stored in tenths, excludes the weapon, and the percentage is cut, not rounded. Agility rank thresholds are not modeled; that outfit shows rank C.
 
 With the game open on the same GPU, searches ran about 3 to 5 times slower: 1.2 million in 0.74 s, 5.9 million in 2.05 s, 18 million with limits in 3.76 s.
 
