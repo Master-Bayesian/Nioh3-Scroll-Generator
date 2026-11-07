@@ -50,8 +50,12 @@ jobs:
       - name: Run test suite
         run: python -m unittest discover -s tests -t . -v
 
-      - name: Run title-save observer research tests
-        run: python -m pytest -q tests\test_title_save_observer.py tests\test_title_save_capture_tools.py
+      - name: Run the pytest-style test files
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem tests\test_*.py | Where-Object { -not (Select-String -Path $_ -Pattern 'unittest' -Quiet) }
+          python -m pytest -q $files
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Record collected test IDs and environment
         if: always()
@@ -85,6 +89,9 @@ jobs:
 
       - name: Set up Rust for domain migration
         uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          toolchain: 1.99.0
+          components: clippy, rustfmt
 
       - name: Test, lint and format the Rust crates
         shell: pwsh
@@ -104,6 +111,18 @@ jobs:
           cargo test --locked --offline --manifest-path crates/nioh3-worker/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --offline --manifest-path crates/nioh3-save/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --locked --offline --all-targets --manifest-path crates/nioh3-domain/Cargo.toml -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fmt --check --manifest-path crates/nioh3-domain/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --locked --offline --all-targets --manifest-path crates/nioh3-data/Cargo.toml -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fmt --check --manifest-path crates/nioh3-data/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --locked --offline --all-targets --manifest-path crates/nioh3-worker/Cargo.toml -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fmt --check --manifest-path crates/nioh3-worker/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo clippy --locked --offline --all-targets --manifest-path crates/nioh3-save/Cargo.toml -- -D warnings
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -125,6 +144,32 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo fmt --check --manifest-path crates/nioh3-protected/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  model-and-lint:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Lint and typecheck the frontend
+        shell: pwsh
+        run: |
+          npm ci --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run lint
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Check the TLA+ models
+        shell: pwsh
+        run: ./tools/check_models.ps1
 
   rust-python-parity:
     # Rust workers against the Python reference implementation. Separate from

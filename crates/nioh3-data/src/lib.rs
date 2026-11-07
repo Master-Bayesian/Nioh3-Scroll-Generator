@@ -812,7 +812,9 @@ fn parse_u16_keys(name: &str, row_count: usize, data: &[u8]) -> Result<Vec<u16>,
         .into());
     }
     Ok(data
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
         .collect())
 }
@@ -833,7 +835,7 @@ fn parse_parameter_gate(
         .into());
     }
     let mut gate = BTreeMap::new();
-    for chunk in data.chunks_exact(ENEMY_PARAMETER_GATE_ENTRY_BYTES) {
+    for chunk in data.as_chunks::<ENEMY_PARAMETER_GATE_ENTRY_BYTES>().0 {
         let key = u32::from_le_bytes(chunk[0..4].try_into().unwrap());
         let parameter_type = u32::from_le_bytes(chunk[4..8].try_into().unwrap());
         if gate.insert(key, parameter_type).is_some() {
@@ -1034,7 +1036,7 @@ fn decode_hex(text: &str, label: &str) -> Result<Vec<u8>, Box<dyn Error>> {
         return Err(format!("{label}: hex payload has an odd number of digits").into());
     }
     let mut out = Vec::with_capacity(digits.len() / 2);
-    for pair in digits.chunks_exact(2) {
+    for pair in digits.as_chunks::<2>().0 {
         let high = match hex_digit(pair[0]) {
             Some(value) => value,
             None => return Err(format!("{label}: invalid hex payload").into()),

@@ -575,7 +575,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       setFollowNote("游戏内选中的物品不在已读取的列表中，正在重新读取");
       if (missingRef.current !== key) {
         missingRef.current = key;
-        load("live");
+        void load("live");
       }
     };
     const timer = window.setInterval(async () => {
@@ -699,7 +699,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     Promise.all(draft.effects.map(effect => {
       const id = parseEffectId(effect.id);
       return id === null || id === EMPTY_EFFECT || id > 0xffff ? Promise.resolve(null) : legalValues(id, rarity, level);
-    })).then(list => { if (live) setValues(list); });
+    })).then(list => { if (live) setValues(list); }).catch(() => { if (live) setValues([]); });
     return () => { live = false; };
   }, [effectKey, rarity, level]);
 

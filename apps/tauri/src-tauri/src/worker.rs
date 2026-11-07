@@ -3,10 +3,7 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
     path::Path,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+    sync::Arc,
     time::Duration,
 };
 use tokio::{
@@ -784,12 +781,20 @@ pub struct Worker {
     child: Mutex<Child>,
     input: Mutex<Option<ChildStdin>>,
     pending: Mutex<HashMap<String, oneshot::Sender<Reply>>>,
-    dead: AtomicBool,
-    safely_closed: AtomicBool,
+    lifecycle: std::sync::Mutex<Lifecycle>,
     request_schema: jsonschema::Validator,
     response_schema: jsonschema::Validator,
     contract_digest: String,
     identity: Mutex<Option<Value>>,
+}
+
+/// Where one worker process stands. `SafelyClosed` is final; a protected host
+/// that is `Lost` may still own a write until its process has exited.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Lifecycle {
+    Serving,
+    Lost,
+    SafelyClosed,
 }
 
 /// The executable plus argv one role launches with.
@@ -1139,11 +1144,20 @@ pub fn resolve_role_launch(
 impl Worker {
     /// A broken pipe alone is not permission to replace a protected owner.
     pub async fn can_replace(&self) -> bool {
-        if self.safely_closed.load(Ordering::SeqCst) {
-            return true;
+        match self.lifecycle() {
+            Lifecycle::Serving => false,
+            Lifecycle::SafelyClosed => true,
+            Lifecycle::Lost => self.child.lock().await.try_wait().ok().flatten().is_some(),
         }
-        self.dead.load(Ordering::SeqCst)
-            && self.child.lock().await.try_wait().ok().flatten().is_some()
+    }
+    fn lifecycle(&self) -> Lifecycle {
+        *self.lifecycle.lock().expect("worker lifecycle lock")
+    }
+    fn lose(&self) {
+        let mut lifecycle = self.lifecycle.lock().expect("worker lifecycle lock");
+        if *lifecycle == Lifecycle::Serving {
+            *lifecycle = Lifecycle::Lost;
+        }
     }
     #[cfg(test)]
     pub async fn disconnect_for_test(&self) {
@@ -1180,8 +1194,8 @@ impl Worker {
             .try_lock()
             .ok()
             .and_then(|guard| guard.as_ref().map(|v| v["capabilities"].clone()));
-        json!({"role":self.role,"connection":if self.safely_closed.load(Ordering::SeqCst){"closed"}
-            else if self.dead.load(Ordering::SeqCst){"unavailable"}else if context.is_some(){"ready"}else{"starting"},
+        json!({"role":self.role,"connection":match self.lifecycle(){Lifecycle::SafelyClosed=>"closed",
+            Lifecycle::Lost=>"unavailable",Lifecycle::Serving if context.is_some()=>"ready",Lifecycle::Serving=>"starting"},
             "backend":self.backend,"binarySha256":self.binary_sha256,
             "contextDigest":context,"contractDigest":self.contract_digest,"pendingRequests":pending,"capabilities":capabilities})
     }
@@ -1260,8 +1274,7 @@ impl Worker {
             child: Mutex::new(child),
             input: Mutex::new(input),
             pending: Mutex::new(HashMap::new()),
-            dead: AtomicBool::new(false),
-            safely_closed: AtomicBool::new(false),
+            lifecycle: std::sync::Mutex::new(Lifecycle::Serving),
             request_schema: parse(&request)?,
             response_schema: parse(&response)?,
             contract_digest: format!("{:x}", digest.finalize()),
@@ -1317,7 +1330,7 @@ impl Worker {
         Ok(worker)
     }
     async fn fail(&self, error: &str) {
-        self.dead.store(true, Ordering::SeqCst);
+        self.lose();
         for (_, sender) in self.pending.lock().await.drain() {
             let _ = sender.send(Err(error.to_string()));
         }
@@ -1327,7 +1340,7 @@ impl Worker {
         }
     }
     async fn request(&self, method: &str, params: Value) -> Reply {
-        if self.dead.load(Ordering::SeqCst) {
+        if self.lifecycle() != Lifecycle::Serving {
             return Err("WORKER_UNAVAILABLE: do not replay writes".into());
         }
         let id = Uuid::new_v4().to_string();
@@ -1342,7 +1355,10 @@ impl Worker {
         let (sender, receiver) = oneshot::channel();
         {
             let mut pending = self.pending.lock().await;
-            if pending.len() >= 8 {
+            // A timed-out request keeps its id for a late reply, but no caller
+            // waits on it any more, so it does not take up a slot.
+            let waiting = pending.values().filter(|sender| !sender.is_closed()).count();
+            if waiting >= 8 {
                 return Err("TOO_MANY_REQUESTS".into());
             }
             pending.insert(id.clone(), sender);
@@ -1414,31 +1430,34 @@ impl Worker {
     }
     pub async fn run(&self, method: &str, params: Value) -> Reply {
         let mut job = self.call(method, params).await?;
-        while job["state"] == "running" || job["state"] == "cancel_requested" {
-            tokio::time::sleep(Duration::from_millis(80)).await;
-            job = self
-                .call("job.snapshot", json!({"job_id":job["job_id"]}))
-                .await?;
+        loop {
+            match job["state"].as_str() {
+                Some("queued" | "running" | "cancel_requested") => {
+                    tokio::time::sleep(Duration::from_millis(80)).await;
+                    job = self
+                        .call("job.snapshot", json!({"job_id":job["job_id"]}))
+                        .await?;
+                }
+                Some("failed") => return Err(job["error"].to_string()),
+                Some("completed" | "cancelled") => return Ok(job["result"].clone()),
+                _ => return Err(format!("UNKNOWN_JOB_STATE: {}", job["state"])),
+            }
         }
-        if job["state"] == "failed" {
-            return Err(job["error"].to_string());
-        }
-        Ok(job["result"].clone())
     }
     pub async fn close(&self) -> bool {
-        if self.safely_closed.load(Ordering::SeqCst) {
+        if self.lifecycle() == Lifecycle::SafelyClosed {
             return true;
         }
         if self.role == "offline_search" {
             self.fail("OFFLINE_WORKER_CLOSED").await;
             return true;
         }
-        if self.dead.load(Ordering::SeqCst) {
+        if self.lifecycle() == Lifecycle::Lost {
             return false;
         }
         match self.call("shutdown", json!({})).await {
             Ok(value) if value["safe_to_shutdown"] == true => {
-                self.safely_closed.store(true, Ordering::SeqCst);
+                *self.lifecycle.lock().expect("worker lifecycle lock") = Lifecycle::SafelyClosed;
                 self.input.lock().await.take();
                 true
             }

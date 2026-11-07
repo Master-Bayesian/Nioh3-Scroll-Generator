@@ -1770,7 +1770,9 @@ mod platform {
 
     fn little_endian_u32(bytes: &[u8]) -> Vec<u32> {
         bytes
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|chunk| u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
             .collect()
     }

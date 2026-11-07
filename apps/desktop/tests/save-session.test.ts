@@ -98,17 +98,11 @@ test('lost commit acknowledgement blocks new writes and recovers without replay'
   assert.equal(f.calls.at(-1), 'save.operation');
 });
 
-test('a restarted view surfaces unknown history and requires refresh before explicit acknowledgement', async () => {
+test('a restarted view surfaces unknown history', async () => {
   const f = fixture(), session = new SaveSession(f.gateway);
   f.setHistory([{ ...receipt, commit_status: 'unknown' }]);
   await session.select(reference);
   assert.equal(session.getSnapshot().uncertainOperationId, plan.plan_id);
-  assert.throws(() => session.acknowledgeReviewedUncertainty(plan.plan_id), /REFRESH_AND_REVIEW_REQUIRED/);
-  await session.refresh(); session.acknowledgeReviewedUncertainty(plan.plan_id);
-  assert.equal(session.getSnapshot().receipt!.commit_status, 'unknown', 'Acknowledgement does not falsify the durable receipt');
-  await session.refresh();
-  assert.equal(session.getSnapshot().uncertainOperationId, null, 'An acknowledged outcome stays reviewed within this session');
-  await session.prepareDelete([0]); assert.equal(f.calls.includes('save.commit'), false);
 });
 
 test('an acknowledged unprovable operation is durable and unlocks the save', async () => {

@@ -48,7 +48,6 @@ export interface SaveSessionState {
   planExpiresAt: number | null;
   receipt: OperationReceipt | null;
   uncertainOperationId: string | null;
-  refreshedAfterUncertainty: boolean;
   busy: boolean;
   error: string | null;
 }
@@ -60,9 +59,8 @@ export function editFromEntry(entry: SaveInventory['entries'][number]): Edit {
 /** Save identity, snapshot and reviewed plan are independent of a view's draft. */
 export class SaveSession {
   private state: SaveSessionState = { selected: null, inventory: null, plan: null, planExpiresAt: null,
-    receipt: null, uncertainOperationId: null, refreshedAfterUncertainty: false, busy: false, error: null };
+    receipt: null, uncertainOperationId: null, busy: false, error: null };
   private listeners = new Set<() => void>();
-  private acknowledgedOutcomes = new Set<string>();
   constructor(private gateway: SaveGateway, private clock = Date.now) {}
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
@@ -97,13 +95,11 @@ export class SaveSession {
     const history = await this.gateway.execute({ method: 'save.operations', params: { save_id: result.save_id } });
     if (!('operations' in history)) throw new Error('OPERATION_HISTORY_EXPECTED');
     const unresolved = history.operations.find(receipt => receipt.save_id === result.save_id &&
-      !this.acknowledgedOutcomes.has(receipt.operation_id) &&
       (receipt.commit_status === 'unknown' || receipt.commit_status === 'executing'));
     const previousUncertainty = this.state.uncertainOperationId;
     this.update({ inventory: structuredClone(result),
       uncertainOperationId: previousUncertainty || unresolved?.operation_id || null,
-      receipt: unresolved || this.state.receipt,
-      refreshedAfterUncertainty: !!previousUncertainty });
+      receipt: unresolved || this.state.receipt});
     return result;
   }
   select(reference: SaveReference) {
@@ -169,7 +165,7 @@ export class SaveSession {
       }
       if (!this.state.planExpiresAt || this.clock() >= this.state.planExpiresAt) throw new Error('SAVE_PLAN_EXPIRED');
       // Once submitted, an interrupted transport must not make this plan reusable.
-      this.update({ plan: null, planExpiresAt: null, inventory: null, uncertainOperationId: plan.plan_id, refreshedAfterUncertainty: false });
+      this.update({ plan: null, planExpiresAt: null, inventory: null, uncertainOperationId: plan.plan_id});
       try {
         const result = await this.gateway.execute({ method: 'save.commit', params: { plan_id: plan.plan_id } }, plan.plan_id);
         return this.acceptReceipt(result, plan.plan_id);
@@ -179,7 +175,7 @@ export class SaveSession {
         // Lost responses and all other errors keep the existing recovery fence.
         const message = error instanceof Error ? error.message : String(error);
         if (/^(?:(?:OPERATION_REJECTED|OPERATION_FAILED):\s*)?(?:Save changed after preparation; no write attempted|Plan expired; prepare a new plan)$/.test(message))
-          this.update({ uncertainOperationId: null, receipt: null, refreshedAfterUncertainty: false });
+          this.update({ uncertainOperationId: null, receipt: null});
         throw error;
       }
     });
@@ -213,19 +209,11 @@ export class SaveSession {
       const result = await this.gateway.execute({ method: 'save.operation', params: { plan_id: id, acknowledge: true } }, id);
       const receipt = this.acceptReceipt(result, id);
       if (!this.state.uncertainOperationId) {
-        this.update({ inventory: null, refreshedAfterUncertainty: false });
+        this.update({ inventory: null});
         await this.loadInventory();
       }
       return receipt;
     });
-  }
-  acknowledgeReviewedUncertainty(operationId: string) {
-    if (this.state.busy || this.state.uncertainOperationId !== operationId || !this.state.refreshedAfterUncertainty) {
-      throw new Error('REFRESH_AND_REVIEW_REQUIRED');
-    }
-    // User acknowledgement only. It does not rewrite the durable unknown receipt.
-    this.acknowledgedOutcomes.add(operationId);
-    this.update({ uncertainOperationId: null, refreshedAfterUncertainty: false });
   }
   discard() { return this.perform(() => this.discardPlan()); }
 }

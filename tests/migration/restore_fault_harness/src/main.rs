@@ -250,7 +250,7 @@ fn run() -> Result<(), String> {
             // The receipt projection is separate from the journal on purpose: a
             // restart must not depend on a successfully persisted terminal receipt.
             match host.reconcile(&plan_id) {
-                Ok(Some(receipt)) => println!("receipt_outcome={}", receipt.outcome),
+                Ok(Some(receipt)) => println!("receipt_outcome={}", receipt.outcome.reconciled_label()),
                 Ok(None) => println!("receipt_outcome=<none>"),
                 Err(error) => println!("receipt_outcome=<error:{error}>"),
             }

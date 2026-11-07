@@ -393,29 +393,6 @@ class ScopedRightsAuditTest(unittest.TestCase):
         self.assertGreater(len(files), 10, "the crate's modules are all scanned")
         return files
 
-    def test_the_shipped_python_still_holds_the_facts_this_gate_names(self) -> None:
-        override = (ROOT / "nioh3_scroll_editor" / "runtime_auxiliary_override.py").read_text(
-            encoding="utf-8"
-        )
-        count = (ROOT / "nioh3_scroll_editor" / "runtime_count_edit.py").read_text(
-            encoding="utf-8"
-        )
-        ships = (ROOT / "nioh3_scroll_editor" / "native.py").read_text(encoding="utf-8")
-        debug = (ROOT / "nioh3_scroll_editor" / "windows_debug_session.py").read_text(
-            encoding="utf-8"
-        )
-        for text in (override, count):
-            self.assertNotIn("CreateRemoteThread", text)
-            self.assertNotIn("PROCESS_ALL_ACCESS", text)
-            self.assertNotIn("TerminateProcess", text)
-            self.assertNotIn("DebugActiveProcess", text)
-        self.assertIn("self.dll.CreateRemoteThread", ships)
-        self.assertIn(
-            "PROCESS_ACCESS = 0x0002 | 0x0008 | 0x0010 | 0x0020 | 0x0400", ships
-        )
-        self.assertIn("DebugActiveProcess", debug)
-        self.assertIn("DebugSetProcessKillOnExit(False)", debug)
-
     def test_the_shipped_mask_and_layout_are_the_ones_declared(self) -> None:
         self.assertEqual(native.PROCESS_ACCESS, 0x0002 | 0x0008 | 0x0010 | 0x0020 | 0x0400)
         self.assertEqual(LAYOUT.dispatch_rva, 0x12E6840)

@@ -785,7 +785,7 @@ impl AuxiliaryNameCatalog {
             .into_iter()
             .map(|(name, keys)| (name, keys.into_iter().collect()))
             .collect();
-        families.sort_by(|left, right| left.0.to_lowercase().cmp(&right.0.to_lowercase()));
+        families.sort_by_key(|left| left.0.to_lowercase());
         Ok(families)
     }
 }

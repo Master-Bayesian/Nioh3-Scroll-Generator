@@ -1007,7 +1007,9 @@ impl EffectTableIndex {
         }
         let playthrough_progress = resource
             .playthrough_progress
-            .chunks_exact(16)
+            .as_chunks::<16>()
+            .0
+            .iter()
             .map(|chunk| {
                 let mut values = [0u32; 4];
                 for (slot, value) in values.iter_mut().enumerate() {

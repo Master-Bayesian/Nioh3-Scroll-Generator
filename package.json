@@ -7,6 +7,7 @@
   "scripts": {
     "contracts": "json2ts -i packages/contracts/request.schema.json -o packages/contracts/generated.ts --no-enableConstEnums && json2ts -i packages/contracts/response.schema.json -o packages/contracts/responses.ts && json2ts -i packages/contracts/protected-request.schema.json -o packages/contracts/protected-requests.ts && json2ts -i packages/contracts/protected-response.schema.json -o packages/contracts/protected-responses.ts",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint apps packages",
     "test": "tsx --test apps/desktop/tests/*.test.ts",
     "test:packaged": "tsx apps/desktop/tests/packaged-parity.ts"
   },
@@ -22,9 +23,11 @@
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
     "esbuild": "0.25.12",
+    "eslint": "9.39.1",
     "json-schema-to-typescript": "15.0.4",
     "playwright": "1.58.2",
     "tsx": "4.23.13",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.47.0"
   }
 }

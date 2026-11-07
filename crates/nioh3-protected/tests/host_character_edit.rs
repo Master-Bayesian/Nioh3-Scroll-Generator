@@ -62,6 +62,9 @@ fn response_frames(bytes: &[u8]) -> Vec<Value> {
     while offset + 4 <= bytes.len() {
         let size = u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
         let end = offset + 4 + size;
+        if end > bytes.len() {
+            break;
+        }
         output.push(serde_json::from_slice(&bytes[offset + 4..end]).expect("valid response"));
         offset = end;
     }
@@ -385,6 +388,44 @@ fn character_edits_commit_through_the_save_transaction() {
     std::fs::write(evidence.join("stale-plan-host.json"),serde_json::to_vec_pretty(&json!({"pass":true,
         "boundary":"real framed host, isolated synthetic encrypted save; no game/real save","refusal":refused,"history":history,"changedSaveUntouched":true})).unwrap()).unwrap();
     std::fs::write(&save_path, &original).unwrap();
+
+    // The core refuses a commit after the outer intent exists: the intent closes
+    // as not committed instead of reading as a claimed write.
+    let refused_plan = job(
+        &mut exchange,
+        "save.prepare_character_edit",
+        json!({
+            "save_id":save_id,"source_sha256":source,"currencies":{"gold":19_072_716,"amrita":0},
+        }),
+    );
+    assert_eq!(refused_plan["state"], "completed", "{refused_plan}");
+    let refused_id = refused_plan["result"]["plan_id"].as_str().unwrap();
+    let foreign = root
+        .join("state")
+        .join("protected-internal")
+        .join("v2-operations");
+    std::fs::create_dir_all(&foreign).unwrap();
+    let foreign = foreign.join(format!("{}.json", "9".repeat(32)));
+    std::fs::write(
+        &foreign,
+        json!({"operation_id":"9".repeat(32),"kind":"edit","outcome":"pending",
+               "installed_sha256":null,"backup_id":null,"message":null})
+        .to_string(),
+    )
+    .unwrap();
+    let refused = job(&mut exchange, "save.commit", json!({"plan_id":refused_id}));
+    assert_eq!(refused["state"], "failed", "{refused}");
+    std::fs::remove_file(&foreign).unwrap();
+    let closed = job(
+        &mut exchange,
+        "save.operation",
+        json!({"plan_id":refused_id}),
+    );
+    assert_eq!(
+        closed["result"]["commit_status"], "not_committed",
+        "{closed}"
+    );
+    assert_eq!(std::fs::read(&save_path).unwrap(), original);
 
     // Restoring bytes does not restore the prepared file fingerprint. A fresh
     // review is required even after the synthetic source has its old hash.

@@ -111,7 +111,7 @@ fn restore(host: &SaveTransactionHost, main: &Path, backup_id: &str) -> Result<S
         )
         .map_err(|error| error.to_string())?;
     host.commit(&plan)
-        .map(|receipt| receipt.outcome)
+        .map(|receipt| receipt.outcome.to_string())
         .map_err(|error| error.to_string())
 }
 
