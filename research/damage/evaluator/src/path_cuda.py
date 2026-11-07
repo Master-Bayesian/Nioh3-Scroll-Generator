@@ -2,6 +2,7 @@
 
 Not linked into any product. The kernel must match the bundle's vectors bit for bit before its speed means anything. argv: export_dir out_dir
 """
+import bisect
 import collections
 import os
 import shutil
@@ -164,7 +165,11 @@ HD bool divv(int kind, V a, V b, V d, u32 w, V& out) {
 
 NL_C = chr(10)
 SLIM = {}
-INLINE = "__noinline__" if os.environ.get("NIOH3_PLAIN") else "__forceinline__"
+NEARBY = 16  # how far ahead a path looks for an operation it can share by choosing values at run time
+
+
+def word(m, w):
+    return m >> (64 * w) & (2**64 - 1)
 
 
 def lit(v):
@@ -363,11 +368,261 @@ def pick_bytes(pairs, base, need, r):
     return f"V {r} = V{{{parts[0]}, {parts[1]}}};"
 
 
-def emit(name, program, out, need=None, known=None):
-    consts, root, written, nodes = program
-    need = need or {}
+USES = {"in": "", "arg": "", "fn": "", "guard": "a", "set": "a", "cmov": "abc", "mix": "b", "addr": "b", "load": "a", "keep_cf": "a", "not": "a", "sext": "a",
+        "sign": "a", "shl": "a", "shr": "a", "sar": "a", "rol": "a", "ror": "a", "neg": "a", "bt": "a", "sqrtss": "a", "cvtsi2ss": "a", "cvttss2si": "a",
+        "cvtss2sd": "a", "cvtsd2ss": "a", "mul": "ac", "mul:hi": "ac", "imul:lo": "ac", "imul:hi": "ac", "div": "abc", "div:hi": "abc", "idiv": "abc",
+        "idiv:hi": "abc", "inc": "ac", "dec": "ac", "adc": "abc", "sbb": "abc"}
+
+
+def arg_fields(n):
+    """Positions in a node that name a value."""
+    op = OPS[n[0]]
+    uses = USES.get(op, "ab")
+    fields = [at for field, at in (("a", 2), ("b", 3), ("c", 4)) if field in uses and n[at] >= 0]
+    if op == "mix":
+        fields += range(11, len(n), 3)
+    elif op == "addr":
+        fields += range(10, len(n), 2)
+    elif op == "fn":
+        fields += range(9, len(n))
+    return fields
+
+
+def shape(n):
+    """What a node does, without which values it reads. A guard's expected outcome is left out: paths that disagree on it share the test."""
+    key = list(n)
+    key[2:5] = [-1, -1, -1]
+    for at in arg_fields(n):
+        key[at] = -2
+    if OPS[n[0]] == "guard":
+        key[6] = 0
+    if OPS[n[0]] == "fn":
+        key[7] = -2
+    return tuple(key)
+
+
+def reads(n, name):
+    """Which values a node takes; a call also names its table, because two paths may reach one function through different tables."""
+    out = {at: name[n[at]] for at in arg_fields(n)}
+    if OPS[n[0]] == "fn":
+        out[7] = n[7]
+    return out
+
+
+class Entry:
+    """One operation of the merged program, and which paths run it."""
+
+    def __init__(self, n, slot, bit, wanted):
+        self.node, self.slot, self.mask = n, slot, bit
+        self.key = shape(n)
+        self.arms = {at: [[bit, s]] for at, s in wanted.items()}
+        self.true = bit if n[6] else 0
+        self.false = 0 if n[6] else bit
+
+
+def facts(q, intern):
+    """Number a path's values so equal computations in any two paths get equal numbers, and record what its guards establish, each with its position."""
+    number = {i: intern(("const", v)) for i, v in enumerate(q[0])}
+    tests, equal, made = {}, collections.defaultdict(dict), {}
+    for at, (slot, n) in enumerate(walk(q)):
+        op = OPS[n[0]]
+        key = (shape(n), tuple(number[n[f]] for f in arg_fields(n)), n[7] if op == "fn" else 0)
+        for k in range(n[8] if op == "fn" else 1):
+            number[slot + k] = intern(key + (k,))
+        made[slot] = n
+        if op == "guard":
+            code, truth = n[5] & ~1, bool(n[6]) ^ bool(n[5] & 1)  # "ne held" and "e failed" are the same fact
+            tests.setdefault((number[n[2]], code, truth), at)
+            source = made.get(n[2])
+            if source and OPS[source[0]] == "sub" and code == 0 and truth and source[3] < len(q[0]):
+                equal[number[source[2]]].setdefault(q[0][source[3]], at)
+        elif op == "eq":
+            equal[number[n[2]]].setdefault(q[0][n[3]], at)
+    return number, tests, equal
+
+
+def exclusive(one, other):
+    """Position pairs at which two paths have established opposite things, so at most one of them can still be running."""
+    pairs = []
+    for (value, code, truth), at in one[1].items():
+        there = other[1].get((value, code, not truth))
+        if there is not None:
+            pairs.append((at, there))
+    for value, known in one[2].items():
+        for k, at in known.items():
+            for j, there in other[2].get(value, {}).items():
+                if j != k:
+                    pairs.append((at, there))
+    return pairs
+
+
+def merged(programs, needs, origin, tie=None):
+    """Paths of one function are mostly the same work, with short differences where a branch went the other way. Line them up into one program: every
+    path keeps a bit in `alive`, an operation only some paths need runs while one of them is alive, and a guard clears the bits of the paths it rules
+    out, so a failed guard costs one test instead of a restart. A shared operation may read different values per path only when those paths can no
+    longer both be alive, because each has passed a test the other failed; otherwise it stays two operations, so every path still computes exactly its
+    own trace. `origin` says which table each path belongs to: a call starts with only its table's paths alive, so paths of different tables never run
+    together. `tie` lets two paths that cannot be told apart share a call whose only difference is its table; see unite()."""
+    consts = list(dict.fromkeys(v for q in programs for v in q[0]))
+    index = {v: i for i, v in enumerate(consts)}
+    names = {}
+    intern = lambda key: names.setdefault(key, len(names))
+    known = [facts(q, intern) for q in programs]
+    pairs = {}
+    value = {i: intern(("const", v)) for i, v in enumerate(consts)}
+    need, entries, fresh, roots = {}, [], len(consts), []
+    for p, (q, demand) in enumerate(zip(programs, needs)):
+        bit = 1 << p
+        name = {i: index[v] for i, v in enumerate(q[0])}
+        where = collections.defaultdict(list)
+        for i, e in enumerate(entries):
+            where[e.key].append(i)
+        out, cursor = [], 0
+
+        def apart(at, r, there):
+            if origin[r] != origin[p]:
+                return True
+            if (p, r) not in pairs:
+                pairs[p, r] = exclusive(known[p], known[r])
+            return any(i < at and j < there for i, j in pairs[p, r])
+
+        def alike(field, slot, s):
+            return slot == s or (field != 7 and value[slot] == value[s])
+
+        def clear(e, m, at):
+            return all(apart(at, r, e.at[r]) for r in range(p) if m >> r & 1)
+
+        def fits(e, wanted, at):
+            same_args = all(any(alike(field, slot, s) for _, slot in e.arms[field]) for field, s in wanted.items() if field != 7)
+            for field, s in wanted.items():
+                for m, slot in e.arms[field]:
+                    if alike(field, slot, s) or clear(e, m, at):
+                        continue
+                    if not (field == 7 and tie and same_args and tie[0](slot, s)):
+                        return False
+            return True
+
+        def same(e, wanted):
+            return all(any(alike(field, slot, s) for _, slot in e.arms[field]) for field, s in wanted.items())
+
+        for at, (old, n) in enumerate(walk(q)):
+            key, wanted = shape(n), reads(n, name)
+            spots = where.get(key, ())
+            spots = spots[bisect.bisect_left(spots, cursor):]
+            found = next((i for i in spots if same(entries[i], wanted) and fits(entries[i], wanted, at)), None)
+            if found is None:
+                found = next((i for i in spots if i < cursor + NEARBY and fits(entries[i], wanted, at)), None)
+            step = n[8] if OPS[n[0]] == "fn" else 1
+            if found is None:
+                e = Entry(n, fresh, bit, wanted)
+                e.at = {}
+                fresh += step
+                out.append(e)
+            else:
+                e = entries[found]
+                out += entries[cursor:found + 1]
+                cursor = found + 1
+                if tie and 7 in wanted:
+                    for m, slot in e.arms[7]:
+                        if slot != wanted[7] and not clear(e, m, at):
+                            tie[1](slot, wanted[7])
+                for field, s in wanted.items():
+                    arm = next((a for a in e.arms[field] if a[1] == s), None)
+                    if arm:
+                        arm[0] |= bit
+                    else:
+                        e.arms[field].append([bit, s])
+                e.mask |= bit
+                if OPS[n[0]] == "guard":
+                    e.true |= bit if n[6] else 0
+                    e.false |= 0 if n[6] else bit
+            e.at[p] = at
+            for k in range(step):
+                name[old + k] = e.slot + k
+                value[e.slot + k] = known[p][0][old + k]
+        entries = out + entries[cursor:]
+        for old, mask in (demand or {}).items():
+            if old in name:
+                need[name[old]] = need.get(name[old], 0) | mask
+        for k, s in enumerate(q[1]):
+            if k == len(roots):
+                roots.append([])
+            arm = next((a for a in roots[k] if a[1] == name[s]), None)
+            if arm:
+                arm[0] |= bit
+            else:
+                roots[k].append([bit, name[s]])
+    return consts, entries, roots, programs[0][2], need, (1 << len(programs)) - 1
+
+
+def unite(tables, mains):
+    """The compiler keys a callee's table on the constants around the call, which include stale stack bytes, so two paths that nobody can tell apart at a
+    call may name different tables although they pass the same values to the same function. Such tables are one table: a caller with those arguments
+    gets whichever path of the function its inputs select. Only an identical call by paths with no test between them unites tables, so a function called
+    elsewhere with a real constant of its own stays separate."""
+    parent = list(range(len(tables)))
+
+    def find(t):
+        while parent[t] != t:
+            parent[t] = parent[parent[t]]
+            t = parent[t]
+        return t
+
+    def key(t):
+        q = tables[t]
+        return max((n[7] for r in q for n in r[3] if OPS[n[0]] == "arg"), default=-1), len(q[0][1]), [tuple(r[2]) for r in q[:1]], [OPS[n[0]] for n in q[0][3][:6]]
+
+    def join(a, b):
+        parent[find(b)] = find(a)
+
+    def tied(a, b):
+        return key(find(a)) == key(find(b))
+
+    def unique(programs):
+        return list({(tuple(q[0]), tuple(q[1]), tuple(q[2]), tuple(map(tuple, q[3]))): q for q in programs}.values())
+
+    while True:
+        before = [find(t) for t in range(len(tables))]
+        merged(mains, [None] * len(mains), [0] * len(mains), (tied, join))
+        roots = [find(t) for t in range(len(tables))]
+        if roots == before:
+            return tables, mains
+        tables = [unique([q for s, ps in enumerate(tables) if roots[s] == t for q in ps]) if roots[t] == t else [] for t in range(len(tables))]
+        parent = list(range(len(tables)))
+        for q in mains:
+            for n in q[3]:
+                if OPS[n[0]] == "fn":
+                    n[7] = roots[n[7]]
+        mains = unique(mains)
+
+
+def families(tables, needs):
+    """Call sites of one function get separate tables whenever the caller's constants differ, so one function can fill fifty tables. Compile the alike
+    ones once; a table is then a set of starting bits. Sharing code this way cannot change a result, so judging 'alike' from the opening needs no proof.
+    Paths with different stores stay apart: the check on a load depends on what the path wrote."""
+    kinds = {}
+    for t, programs in enumerate(tables):
+        args = max((n[7] for q in programs for n in q[3] if OPS[n[0]] == "arg"), default=-1) + 1
+        for k, q in enumerate(programs):
+            key = (tuple(map(tuple, q[2])), args, len(q[1]), tuple(OPS[n[0]] for n in q[3][:6]))
+            kinds.setdefault(key, []).append((t, k, q))
+    groups, calls = [], [[] for _ in tables]
+    for f, rows in enumerate(kinds.values()):
+        groups.append(merged([q for _, _, q in rows], [needs.get((t, k)) for t, k, _ in rows], [t for t, _, _ in rows]))
+        masks = collections.defaultdict(int)
+        for i, (t, _, _) in enumerate(rows):
+            masks[t] |= 1 << i
+        for t, mask in masks.items():
+            calls[t].append((f, mask))
+    return groups, calls
+
+
+def emit(name, group, out, known=None):
+    consts, entries, roots, written, need, everyone = group
     body = []
-    head = f"{INLINE if name.startswith('sub') else '__noinline__'} __device__ bool {name}(const Ctx& c, const V* args, V* out)"
+    words = range((everyone.bit_length() + 63) // 64)
+    start = "".join(f", u64 alive{w}" for w in words) if name.startswith("sub") else ""
+    head = f"__noinline__ __device__ bool {name}(const Ctx& c, const V* args, V* out{start})"
     out.append(head + ";")
     code = [head + " {"]
     if written:
@@ -375,13 +630,21 @@ def emit(name, program, out, need=None, known=None):
         code.insert(0, f"HD bool {name}_w(u64 a, u64 e) {{ return {tests}; }}")
     for i, v in enumerate(consts):
         body.append(f"const V v{i} = {lit(v)};")
-    slot = len(consts)
+    if not start:
+        body += [f"u64 alive{w} = 0x{word(everyone, w):x}ull;" for w in words]
     flags = set()
+    phis = [max((e.slot + (e.node[8] if OPS[e.node[0]] == "fn" else 1) for e in entries), default=len(consts))]
 
     def fl(k):
         return f"f{k}" if k in flags else "NOF"
 
-    for n in nodes:
+    def test(m):
+        return " || ".join(f"(alive{w} & 0x{word(m, w):x}ull)" for w in words if word(m, w))
+
+    def clear(m):
+        return " ".join(f"alive{w} &= ~0x{word(m, w):x}ull;" for w in words if word(m, w))
+
+    def line(n, slot, body):
         op, w, a, b, c, cnd, expect, x, y, extra = OPS[n[0]], n[1], n[2], n[3], n[4], n[5], n[6], n[7], n[8], n[9:]
         r, A, B, C = f"v{slot}", f"v{a}", f"v{b}", f"v{c}"
         fw = f"Fl f{slot};"
@@ -405,7 +668,13 @@ def emit(name, program, out, need=None, known=None):
         elif op == "fn":
             step = y
             items = ", ".join(f"v{s}" for s in extra)
-            body.append(f"V a{slot}[{max(1, len(extra))}] = {{{items}}}; V o{slot}[{y}]; if (!table{x}(c, a{slot}, o{slot})) return false;")
+            body.append(f"V a{slot}[{max(1, len(extra))}] = {{{items}}}; V o{slot}[{y}];")
+            if isinstance(x, list):
+                body.append(f"bool ok{slot} = false;")
+                body.append(" else ".join(f"if ({test(m)}) ok{slot} = table{s}(c, a{slot}, o{slot});" for m, s in x))
+                body.append(f"if (!ok{slot}) return false;")
+            else:
+                body.append(f"if (!table{x}(c, a{slot}, o{slot})) return false;")
             for k in range(y):
                 body.append(f"V v{slot + k} = o{slot}[{k}];")
         elif op == "guard":
@@ -420,8 +689,7 @@ def emit(name, program, out, need=None, known=None):
             pairs = [extra[q:q + 3] for q in range(1, len(extra), 3)]
             if slot in need or known is not None:
                 body.append(pick_bytes(pairs, b, need.get(slot, 0), r))
-                slot += step
-                continue
+                return step
             body.append(f"u8 m{slot}[16]; for (int i = 0; i < 8; i++) {{ m{slot}[i] = (u8)({B}.lo >> (8 * i)); m{slot}[8 + i] = (u8)({B}.hi >> (8 * i)); }}")
             for q in range(1, len(extra), 3):
                 dst, src, byte = extra[q:q + 3]
@@ -503,16 +771,81 @@ def emit(name, program, out, need=None, known=None):
             body.append(f"Fl f{slot} = NOF; f{slot}.cf = (u8)(({word} >> {bit}) & 1); V {r} = {A}; {update}")
         else:
             raise ValueError(op)
-        slot += step
-    for k, s in enumerate(root):
-        body.append(f"out[{k}] = v{s};")
-    return code + body + ["return true;", "}"]
+        return step
+
+    def phi(arms, lines):
+        """The one value among several that belongs to the path still alive."""
+        slot = phis[0]
+        phis[0] += 1
+        arms = sorted(arms, key=lambda arm: arm[0] & -arm[0])
+        pick = f"v{arms[-1][1]}"
+        flag = fl(arms[-1][1])
+        for m, s in reversed(arms[:-1]):
+            pick = f"({test(m)}) ? v{s} : {pick}"
+            flag = f"({test(m)}) ? {fl(s)} : {flag}"
+        lines.append(f"V v{slot} = {pick};")
+        if any(s in flags for _, s in arms):
+            flags.add(slot)
+            lines.append(f"Fl f{slot} = {flag};")
+        return slot
+
+    def one(e, lines):
+        n = list(e.node)
+        for at, arms in e.arms.items():
+            if at == 7:
+                n[7] = arms[0][1] if len(arms) == 1 else arms
+            else:
+                n[at] = arms[0][1] if len(arms) == 1 else phi(arms, lines)
+        if OPS[n[0]] == "guard" and e.true and e.false:
+            narrow = " ".join(f"alive{w} &= t ? ~0x{word(e.false, w):x}ull : ~0x{word(e.true, w):x}ull;" for w in words)
+            lines.append(f"V v{e.slot} = mk(0); {{ bool bad = false; bool t = cond({n[5]}, {fl(n[2])}, bad); if (bad) return false; {narrow} }} if (!({test(e.mask)})) return false;")
+        else:
+            if OPS[n[0]] == "guard":
+                n[6] = 1 if e.true else 0
+            line(n, e.slot, lines)
+
+    labels = [0]
+    text = []
+    at = 0
+    gone = "if (!(" + " | ".join(f"alive{w}" for w in words) + ")) return false;"
+    while at < len(entries):
+        mask = entries[at].mask
+        end = at
+        while end < len(entries) and entries[end].mask == mask:
+            end += 1
+        if mask == everyone:
+            for e in entries[at:end]:
+                one(e, text)
+        else:
+            lines = []
+            for e in entries[at:end]:
+                inner = []
+                one(e, inner)
+                for k in range(e.node[8] if OPS[e.node[0]] == "fn" else 1):
+                    s = e.slot + k
+                    text.append(f"V v{s};")
+                    inner = [item.replace(f"V v{s} =", f"v{s} =").replace(f"V v{s};", "") for item in inner]
+                    if s in flags:
+                        text.append(f"Fl f{s} = NOF;")
+                        inner = [item.replace(f"Fl f{s} =", f"f{s} =").replace(f"Fl f{s};", "") for item in inner]
+                lines += inner
+            labels[0] += 1
+            label = f"skip{labels[0]}"
+            text.append(f"if ({test(mask)}) {{")
+            text += [item.replace("return false;", f"{{ {clear(mask)} goto {label}; }}") for item in lines]
+            text += ["}", f"{label}: ;", gone]
+        at = end
+    for k, arms in enumerate(roots):
+        slot = arms[0][1] if len(arms) == 1 else phi(arms, text)
+        text.append(f"out[{k}] = v{slot};")
+    return code + body + text + ["return true;", "}"]
 
 
 def main():
     source, target = Path(sys.argv[1]), Path(sys.argv[2])
     target.mkdir(parents=True, exist_ok=True)
     regions, domain, base, known, tables, mains = parse(source)
+    tables, mains = unite(tables, mains)
     protos, functions = [], []
     global SLIM
     words, debug = slim_words(tables, mains, len(base), source)
@@ -520,31 +853,19 @@ def main():
     plain = bool(os.environ.get("NIOH3_PLAIN"))
     needs = {} if plain else demands(tables, mains)
     sure = None if plain or debug else known
-    for t, programs in enumerate(tables):
-        for k, q in enumerate(programs):
-            functions.append("\n".join(emit(f"sub{t}_{k}", q, protos, needs.get((t, k)), sure)))
-    for k, q in enumerate(mains):
-        functions.append("\n".join(emit(f"main{k}", q, protos, needs.get((-1, k)), sure)))
-    profile = bool(os.environ.get("NIOH3_PROFILE"))
-    starts, at = [], 0
-    for programs in tables:
-        starts.append(at)
-        at += len(programs)
-    main_at = at
-
-    def index(t, k):
-        return starts[t] + k
-
-    def attempt(call, i, then):
-        if not profile:
-            return f"if ({call}) {{ {then} }}"
-        return f"atomicAdd(c.prof + {2 * i}, 1u); if ({call}) {{ atomicAdd(c.prof + {2 * i + 1}, 1u); {then} }}"
+    groups, calls = families(tables, needs)
+    tops, _ = families([mains], {(0, k): v for (t, k), v in needs.items() if t == -1})
+    for f, group in enumerate(groups):
+        functions.append("\n".join(emit(f"sub{f}", group, protos, sure)))
+    for f, group in enumerate(tops):
+        functions.append("\n".join(emit(f"main{f}", group, protos, sure)))
     head = []
-    for t, programs in enumerate(tables):
-        head.append(f"__noinline__ __device__ bool table{t}(const Ctx& c, const V* a, V* o) {{ " + " ".join(attempt(f"sub{t}_{k}(c, a, o)", index(t, k), "return true;") for k in range(len(programs))) + " return false; }")
+    for t, parts in enumerate(calls):
+        tries = " ".join(f"if (sub{f}(c, a, o, {', '.join(f'0x{word(m, w):x}ull' for w in range((groups[f][5].bit_length() + 63) // 64))})) return true;" for f, m in parts)
+        head.append(f"__noinline__ __device__ bool table{t}(const Ctx& c, const V* a, V* o) {{ {tries} return false; }}")
     proto_tables = [f"__noinline__ __device__ bool table{t}(const Ctx& c, const V* a, V* o);" for t in range(len(tables))]
-    run = "__device__ bool run_main(const Ctx& c, u32& bits) { V o[2]; V none[1] = {{0, 0}}; " + " ".join(attempt(f"main{k}(c, none, o)", main_at + k, "bits = (u32)o[0].lo; return true;") for k in range(len(mains))) + " return false; }"
-    spans = f"#define SLIM_WORDS {len(words)}@#define TOUCH {int(debug)}@#define PROFILE {int(profile)}@#define PROF_N {main_at + len(mains)}@static const u16 SLIM_LIST[] = {{{', '.join(map(str, words))}}};@".replace("@", NL_C) + "static const Span DOM_SPANS[] = {" + ", ".join(f"{{0x{s:x}ull, 0x{e:x}ull, {o}ull}}" for s, e, o in domain) + "};\n"
+    run = "__device__ bool run_main(const Ctx& c, u32& bits) { V o[2]; V none[1] = {{0, 0}}; " + " ".join(f"if (main{k}(c, none, o)) {{ bits = (u32)o[0].lo; return true; }}" for k in range(len(tops))) + " return false; }"
+    spans = f"#define SLIM_WORDS {len(words)}@#define TOUCH {int(debug)}@#define PROFILE 0@#define PROF_N 1@static const u16 SLIM_LIST[] = {{{', '.join(map(str, words))}}};@".replace("@", NL_C) + "static const Span DOM_SPANS[] = {" + ", ".join(f"{{0x{s:x}ull, 0x{e:x}ull, {o}ull}}" for s, e, o in domain) + "};\n"
     spans += "static const Span REGIONS[] = {" + ", ".join(f"{{0x{s:x}ull, {n}ull, {o}ull}}" for s, n, o in sorted(regions)) + "};\n"
     inc = Path(__file__).with_name("path_kernel.inc").read_text(encoding="ascii")
     text = "\n".join([PRELUDE, spans] + proto_tables + protos + functions + head + [run, inc])

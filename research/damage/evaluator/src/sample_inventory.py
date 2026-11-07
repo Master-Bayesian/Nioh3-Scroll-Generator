@@ -13,15 +13,35 @@ from pathlib import Path
 ITEM, ROW = 0xE8, 0xF0
 PART = {"头部": 4, "身体": 5, "手臂": 6, "腿部": 7, "足部": 8}
 base, out, names_path, kind = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]), sys.argv[4]
+WEAPON = "刀"  # the captured attack is a katana hit; other weapon types need their own capture
 out.mkdir(parents=True, exist_ok=True)
 names = json.loads(names_path.read_bytes())
 catalog = json.loads((base / "INVENTORY.json").read_bytes())
 records = next(v for v in catalog.values() if isinstance(v, list) and len(v) > 100)
 f0 = (base / "INVENTORY_F0.bin").read_bytes()
-by_slot = {slot: [] for slot in PART.values()}
+
+
+def slot_of(n):
+    """Equipment slot of a catalog row for this class, or None."""
+    family = kind[:2]
+    if n[1] == "防具" and n[2] == kind and n[3] in PART:
+        return PART[n[3]]
+    if n[1] == "饰品" and n[2] == family + "饰品":
+        return 9
+    if n[1] == "饰品" and n[2] in ("SAMURAI" if family == "武士" else "NINJA", "BOTH"):
+        return 10
+    if n[1] == "武器" and n[2] == family + "武器" and n[3] == WEAPON:
+        return 0
+    return None
+
+
+by_slot = {slot: [] for slot in [0, 4, 5, 6, 7, 8, 9, 10]}
 for r in records:
-    if r["kind"] == "armor" and r.get("physical_armor_slot") is not None:
-        by_slot[r["physical_armor_slot"]].append(f0[r["F0_offset"]:r["F0_offset"] + ITEM])
+    item = f0[r["F0_offset"]:r["F0_offset"] + ITEM]
+    key = struct.unpack_from("<H", item, 0)[0]
+    n = names.get(str(key))
+    if n and item[0x30] <= 5 and slot_of(n) is not None:
+        by_slot[slot_of(n)].append(item)
 own = {slot: len(rows) for slot, rows in by_slot.items()}
 marks = {}
 for pair in sys.argv[5:]:
@@ -34,12 +54,12 @@ for pair in sys.argv[5:]:
 
     phase = collections.Counter(at % ROW for at in range(0x200000, 0x320000) if is_item(at)).most_common(1)[0][0]
     marks[tag] = {}
-    found = {slot: [] for slot in PART.values()}
+    found = {slot: [] for slot in by_slot}
     for at in range(0x200000 + (phase - 0x200000) % ROW, 0x320000, ROW):
         if is_item(at):
             n = names[str(struct.unpack_from("<H", d, at)[0])]
-            if n[1] == "防具" and n[2] == kind and n[3] in PART:
-                found[PART[n[3]]].append(d[at:at + ITEM])
+            if slot_of(n) is not None:
+                found[slot_of(n)].append(d[at:at + ITEM])
     for slot, rows in found.items():
         marks[tag][slot] = (len(by_slot[slot]), len(rows))
         by_slot[slot].extend(rows)

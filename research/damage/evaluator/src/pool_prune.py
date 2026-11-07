@@ -51,6 +51,8 @@ class Keyed:
 source, target = Path(sys.argv[1]), Path(sys.argv[2])
 required = sys.argv[3] if len(sys.argv) > 3 else None
 pieces = int(sys.argv[4]) if len(sys.argv) > 4 else 0
+# With limits on weight or survival, weight, defense and every effect can decide an outfit, so an item may only go if it is no worse on all of them.
+STRICT = bool(os.environ.get("NIOH3_LIMITS"))
 target.mkdir(parents=True, exist_ok=True)
 s = sections(source / "tables.bin")
 items, effects, groups = Keyed(s, "item", 0x1A0), Keyed(s, "effect", 0xD8), Keyed(s, "group", 0x70)
@@ -104,26 +106,29 @@ def profile(item):
                 continue
             if u32(g, 8):
                 sides.add(u32(g, 8))
-            elif group in live:
+            elif group in live or STRICT:
                 values[group] = values.get(group, 0) + u32(item, 0x3C + 24 * i)
     level = 0 if u32(item, 0x18) & 0x200000 else min(u16(item, 6), 180)
-    return values, frozenset(sides), weight, level, u32(original, 0xB0) & 0x100
+    defense = u32(selected, 0xF8) * max(level, 1) + u32(selected, 0x50) * 1000 + values.get(0xDA05, 0) * 1000
+    return values, frozenset(sides), weight, level, u32(original, 0xB0) & 0x100, defense
 
 
 def beats(a, b):
     """a is at least as good as b everywhere, and can stand in for b's set membership."""
     if a[1] != b[1] and b[1]:
         return False
+    if STRICT and (a[2] > b[2] or a[5] < b[5]):
+        return False
     if a[1] == b[1] and b[1] and a[3] < b[3]:
         return False
-    if a[2] > b[2] or a[4] < b[4]:
+    if a[4] < b[4]:
         return False
     return all(a[0].get(k, 0) >= v for k, v in b[0].items())
 
 
-def kept(rows):
+def kept(rows, slot=None):
     out = []
-    if os.environ.get("NIOH3_NO_PRUNE"):
+    if os.environ.get("NIOH3_NO_PRUNE") or slot == 0:  # a weapon's worth is its attack, which no effect list shows
         return [i for i, _ in rows]
     for i, p in rows:
         strictly = any(beats(q, p) and (not beats(p, q) or j < i) for j, q in rows if j != i)
@@ -140,6 +145,11 @@ def finish(appended, spaces):
         shutil.copyfile(source / name, target / name)
     shutil.copyfile(source / "gpu_cases.txt", target / "gpu_cases.txt")
     (target / "pool.bin").write_bytes(appended)
+    first = {}
+    for i in range(len(pool) // ITEM):
+        first.setdefault(bytes(pool[i * ITEM:(i + 1) * ITEM]), i)
+    origin = [first[bytes(appended[i * ITEM:(i + 1) * ITEM])] for i in range(len(appended) // ITEM)]
+    (target / "gpu_origin.txt").write_text(" ".join(map(str, origin)) + "\n", encoding="ascii", newline="\n")  # pool row each appended row copies
     lines[2 + op_n:2 + op_n + slot_n] = [f"{a} {b} {c}" for a, b, c in spaces[0]]
     (target / "gpu_setup.txt").write_text("\n".join(lines) + "\n", encoding="ascii", newline="\n")
     text = [str(len(spaces))] + [" ".join(f"{a} {b} {c}" for a, b, c in one) for one in spaces]
@@ -163,12 +173,12 @@ def split_by_set():
     key = int(required, 16)
     appended, sections_of = bytearray(pool), {}
     for slot, start, count in ranges:
-        inside = [(i, p) for i, p in rows_of[slot] if key in p[1]]
-        outside = [(i, p) for i, p in rows_of[slot] if key not in p[1]]
+        inside = [(i, p) for i, p in rows_of[slot] if key in p[1] and slot != 0]
+        outside = [(i, p) for i, p in rows_of[slot] if key not in p[1] or slot == 0]
         sections_of[slot] = []
         for group in (outside, inside):
             at = len(appended) // ITEM
-            chosen = kept(group)
+            chosen = kept(group, slot)
             for i in chosen:
                 appended += pool[i * ITEM:(i + 1) * ITEM]
             full = len(appended) // ITEM
@@ -179,8 +189,9 @@ def split_by_set():
         print("slot", slot, "outside", len(outside), "->", sections_of[slot][0][1], "inside", len(inside), "->", sections_of[slot][1][1])
     spaces, total = [], 0
     slots = [slot for slot, _, _ in ranges]
-    for k in range(pieces, len(slots) + 1):
-        for chosen in itertools.combinations(slots, k):
+    can_hold = [slot for slot in slots if slot != 0 and sections_of[slot][1][1]]
+    for k in range(pieces, len(can_hold) + 1):
+        for chosen in itertools.combinations(can_hold, k):
             one = [(slot, *sections_of[slot][1 if slot in chosen else 0]) for slot in slots]
             size = 1
             for _, _, n in one:
@@ -198,7 +209,7 @@ if required:
 appended, new_ranges, total, kept_total = bytearray(pool), [], 1, 1
 for slot, start, count in ranges:
     rows = [(i, profile(pool[(start + i) * ITEM:(start + i + 1) * ITEM])) for i in range(count)]
-    survivors = kept(rows)
+    survivors = kept(rows, slot)
     print("slot", slot, count, "->", len(survivors))
     new_ranges.append((slot, len(appended) // ITEM, len(survivors)))
     links.append((len(appended) // ITEM, len(survivors), start, count))

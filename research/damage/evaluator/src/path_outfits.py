@@ -72,23 +72,26 @@ forced = [line.split() for name in sys.argv[6:] for line in Path(name).read_text
 gpu_checked = gpu_wrong = 0
 for k in range(len(forced) + count):
     inv = bytearray(original)
-    chosen = [-1] * 9
+    chosen = [-1] * 10
     claimed = None
     a = list(start)
     if k < len(forced):
         claimed = forced[k][0]
         for token in forced[k][1:]:
+            if token.startswith("a:"):
+                a = [int(x) for x in token[2:].split(",")]
+                continue
             s, global_index = map(int, token.split(":"))
             at = m.active * 0xF70 + s * ITEM
             inv[at:at + ITEM] = flat[global_index]
-            chosen[s - 4] = global_index
+            chosen[9 if s == 0 else s - 4] = global_index
     else:
         for s, items in pool.items():
             if rng.random() < .8:
                 at = m.active * 0xF70 + s * ITEM
                 pick = rng.randrange(len(items))
                 inv[at:at + ITEM] = items[pick]
-                chosen[s - 4] = starts[s] + pick
+                chosen[9 if s == 0 else s - 4] = starts[s] + pick
         for _ in range(rng.randrange(0, 40)):
             i, j = rng.randrange(7), rng.randrange(7)
             if a[j] > 5:
@@ -115,7 +118,7 @@ for k in range(len(forced) + count):
     same = got is not None and struct.pack("<f", got) == struct.pack("<f", r["damage"])
     wrong += not same
     if not same:
-        print(k, "disagrees: compiled", got, "VM", r["damage"], flush=True)
+        print(k, "disagrees: compiled", got, "VM", r["damage"], {key: r.get(key) for key in ("status", "reason")}, flush=True)
     if claimed and claimed != "xxxxxxxx":
         gpu_checked += 1
         gpu_wrong += claimed != struct.pack("<f", r["damage"])[::-1].hex()

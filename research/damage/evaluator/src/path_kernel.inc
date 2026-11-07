@@ -17,7 +17,9 @@ struct Klass { u32 kind, start, n; };
 struct Recipe { u32 kind, offset, width, has_scale; float scale; u32 pad; u64 literal; };
 struct Entry { u16 key, dup; u32 base; };
 struct Character { const u8* inv; const Entry* core[2]; u32 core_n[2]; i32 mode; u32 active, cap, plus_cap; i32 style; u32 unarmed, level; i32 core_mode; };
-struct Cand { i32 attrs[7]; i32 slot[9]; };
+#define CAND_SLOTS 10
+struct Limits { u32 on; float max_load; u32 min_defense, min_health; };
+struct Cand { i32 attrs[7]; i32 slot[CAND_SLOTS]; };
 struct S;
 struct G {
     Keyed items, effects, groups, rarity, sides, special, core300, core340;
@@ -35,9 +37,10 @@ struct G {
     const u8* pool; const u8* dom_base; const u8* dom_known; const u32* word_mask; const u32* stat_live; const u32* d_live; const u32* pred_live; const u32* stat_out; const u32* d_out; u32 stat_live_n, d_live_n, pred_live_n, stat_out_n, d_out_n; u32 body_live[12];
     Ctx ctx; u32 dom_size;
     const S* seed;
+    Limits limits;
 };
 struct Hit { u32 bits; u32 space; u64 index; };
-struct Space { int pipeline_only; int id; int n; int slot[9]; u32 start[9]; u32 radix[9]; i32 attrs[7]; float keep; };
+struct Space { int pipeline_only; int id; int n; int slot[CAND_SLOTS]; u32 start[CAND_SLOTS]; u32 radix[CAND_SLOTS]; i32 attrs[7]; float keep; };
 struct __align__(8) S {
     u8 stat[0x900], d[0xB00], pred[0x900];
     u32 dom[SLIM_WORDS], known[SLIM_WORDS];
@@ -47,6 +50,8 @@ struct __align__(8) S {
     i32 transformed[7], mode;
 };
 
+// Candidate index of an equipment slot: 4..12 are armor and accessories, the held melee weapon is last. -1 for slots a candidate cannot change.
+__device__ __host__ inline int cand_index(u32 slot) { return slot == 0 ? 9 : slot >= 4 && slot < 13 ? (int)slot - 4 : -1; }
 HD u32 u16_at(const u8* b, u32 o) { const u8* p = b + o; if (((uintptr_t)p & 1) == 0) return *(const u16*)p; return (u32)p[0] | (u32)p[1] << 8; }
 HD u32 u32_at(const u8* b, u32 o) { const u8* p = b + o; if (((uintptr_t)p & 3) == 0) return *(const u32*)p; return (u32)p[0] | (u32)p[1] << 8 | (u32)p[2] << 16 | (u32)p[3] << 24; }
 HD i32 i32_at(const u8* b, u32 o) { return (i32)u32_at(b, o); }
@@ -72,7 +77,7 @@ HD u32 k_index(const Keyed& k, u32 key) {
 }
 HD const u8* k_row(const Keyed& k, u32 key) { u32 i = k_index(k, key); return i == ABSENT ? nullptr : k.rows + 8 + (u64)i * k.stride; }
 HD const u8* item_ptr(const G& g, const Cand& q, u32 bank, u32 slot) {
-    if (bank == g.c.active && slot >= 4 && slot < 13 && q.slot[slot - 4] >= 0) return g.pool + (u64)q.slot[slot - 4] * ITEM;
+    if (bank == g.c.active) { int a = cand_index(slot); if (a >= 0 && q.slot[a] >= 0) return g.pool + (u64)q.slot[a] * ITEM; }
     return g.c.inv + bank * BANK + slot * ITEM;
 }
 HD u32 field70(const G& g, u32 index, u32 off) { u32 i = umin(index, g.base70_rows - 1); return u16_at(g.base70, i * 0x94 + off); }
@@ -946,9 +951,11 @@ HD bool frame_writes(const G& g, const Cand& q, S& s) {
     for (u32 i = 0; i < 7; i++) write_word(g, s, g.stat_addr + 0x844 + 4 * i, (u32)attrs[i]);
     return true;
 }
-// 0 refused by the pipeline, 1 answered, 2 no compiled path
+HD float load_of(const G& g, const Cand& q, const S& s) { return (float)u32_at(s.stat, 0x7B8) / (float)field90(g, q.attrs[2], g.c.mode == 0 ? 8 : 10); }
+// 0 refused by the pipeline, 1 answered, 2 no compiled path, 3 outside the player's limits
 HD int evaluate(const G& g, const Cand& q, S& s, u32& bits) {
     if (!pipeline(g, q, s) || !frame_writes(g, q, s)) return 0;
+    if (g.limits.on && (load_of(g, q, s) > g.limits.max_load || u32_at(s.pred, 0x1C8) < g.limits.min_defense || u32_at(s.pred, 0x18) < g.limits.min_health)) return 3;
     Ctx c = g.ctx;
     c.dom = (const u8*)s.dom;
     c.known = (const u8*)s.known;
@@ -967,6 +974,14 @@ __global__ void kernel_seed(G g, Cand q, S* out, u32* ok) {
     if (blockIdx.x != 0 || threadIdx.x != 0) return;
     *ok = start(g, q, *out) ? 1 : 0;
 }
+__global__ void kernel_facts(G g, const Cand* cases, u64 n, float* load, u32* defense, u32* health) {
+    u64 i = blockIdx.x * (u64)blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    S s;
+    Cand q = cases[i];
+    load[i] = 0.0f; defense[i] = health[i] = 0;
+    if (pipeline(g, q, s) && frame_writes(g, q, s)) { load[i] = load_of(g, q, s); defense[i] = u32_at(s.pred, 0x1C8); health[i] = u32_at(s.pred, 0x18); }
+}
 __global__ void kernel_dump(G g, const Cand* cases, u64 n, u32* out) {
     u64 i = blockIdx.x * (u64)blockDim.x + threadIdx.x;
     if (i >= n) return;
@@ -983,9 +998,9 @@ __global__ void kernel_search(G g, Space sp, u64 first, u64 total, u32* best, Hi
     S s;
     Cand q;
     for (int a = 0; a < 7; a++) q.attrs[a] = sp.attrs[a];
-    for (int a = 0; a < 9; a++) q.slot[a] = -1;
+    for (int a = 0; a < CAND_SLOTS; a++) q.slot[a] = -1;
     u64 digits = i;
-    for (int a = 0; a < sp.n; a++) { q.slot[sp.slot[a] - 4] = (i32)(sp.start[a] + (u32)(digits % sp.radix[a])); digits /= sp.radix[a]; }
+    for (int a = 0; a < sp.n; a++) { q.slot[cand_index((u32)sp.slot[a])] = (i32)(sp.start[a] + (u32)(digits % sp.radix[a])); digits /= sp.radix[a]; }
     u32 bits = 0;
 #if PROFILE
     if ((i & 255) == 0 && pipeline(g, q, s) && frame_writes(g, q, s)) {
@@ -1035,17 +1050,22 @@ static Keyed keyed(Sections& s, const char* name, u32 stride) {
 struct Scored { u32 bits; Cand q; };
 // Pruning is allowed to be wrong in small ways (a heavier item beats its "dominator" by a point), so the best outfits get every pruned item back,
 // one slot at a time, until nothing improves. gpu_full.txt: pruned_start pruned_count full_start full_count, for each pruned list.
-static void polish(const G& g, const std::string& dir, std::vector<Scored>& top) {
+static void polish(const G& g, const std::string& dir, std::vector<Scored>& top, bool move_points) {
     struct Link { u32 start, count, full, full_n; };
     std::vector<Link> links;
     FILE* f = fopen((dir + "/gpu_full.txt").c_str(), "r");
-    if (!f) return;
-    for (Link l; fscanf(f, "%u %u %u %u", &l.start, &l.count, &l.full, &l.full_n) == 4;) links.push_back(l);
-    fclose(f);
+    if (f) {
+        for (Link l; fscanf(f, "%u %u %u %u", &l.start, &l.count, &l.full, &l.full_n) == 4;) links.push_back(l);
+        fclose(f);
+    }
     const u64 block = 128;
-    for (int round = 0; round < 6; round++) {
+    for (int round = 0; round < 40; round++) {
         std::vector<Cand> tries;
-        for (const Scored& row : top) for (int a = 0; a < 9; a++) {
+        if (move_points) for (size_t r = 0; r < top.size() && r < 40; r++) for (int from = 0; from < 7; from++) for (int to = 0; to < 7; to++) for (int step : {1, 3, 10}) {
+            if (from == to || top[r].q.attrs[from] - step < 5) continue;
+            Cand c = top[r].q; c.attrs[from] -= step; c.attrs[to] += step; tries.push_back(c);
+        }
+        for (const Scored& row : top) for (int a = 0; a < CAND_SLOTS; a++) {
             i32 held = row.q.slot[a];
             if (held < 0) continue;
             for (const Link& l : links) {
@@ -1207,7 +1227,7 @@ int main(int argc, char** argv) {
     fclose(f);
     std::vector<Cand> cases; std::vector<u32> want;
     f = fopen((dir + "/gpu_cases.txt").c_str(), "r");
-    for (;;) { Cand k; unsigned bits; if (fscanf(f, "%x", &bits) != 1) break; for (int i = 0; i < 7; i++) fscanf(f, "%d", &k.attrs[i]); for (int i = 0; i < 9; i++) fscanf(f, "%d", &k.slot[i]); cases.push_back(k); want.push_back(bits); }
+    for (;;) { Cand k; unsigned bits; if (fscanf(f, "%x", &bits) != 1) break; for (int i = 0; i < 7; i++) fscanf(f, "%d", &k.attrs[i]); for (int i = 0; i < CAND_SLOTS; i++) fscanf(f, "%d", &k.slot[i]); cases.push_back(k); want.push_back(bits); }
     fclose(f);
     CHECK(cudaDeviceSetLimit(cudaLimitStackSize, 96 * 1024));
     printf("S %zu bytes, cases %zu\n", sizeof(S), cases.size()); fflush(stdout);
@@ -1262,11 +1282,23 @@ int main(int argc, char** argv) {
     const u32 capacity = 1 << 22;
     u32* best; Hit* hits; u32* hit_n; u32* counts; u64* missed; const u32 miss_capacity = 1 << 22;
     CHECK(cudaMalloc(&missed, miss_capacity * sizeof(u64)));
-    CHECK(cudaMalloc(&best, 4)); CHECK(cudaMalloc(&hits, capacity * sizeof(Hit))); CHECK(cudaMalloc(&hit_n, 4)); CHECK(cudaMalloc(&counts, 12));
-    CHECK(cudaMemset(best, 0, 4)); CHECK(cudaMemset(hit_n, 0, 4)); CHECK(cudaMemset(counts, 0, 12));
+    CHECK(cudaMalloc(&best, 4)); CHECK(cudaMalloc(&hits, capacity * sizeof(Hit))); CHECK(cudaMalloc(&hit_n, 4)); CHECK(cudaMalloc(&counts, 16));
     const u64 batch = 1 << 22;
-    {
-        Cand q0; for (int a = 0; a < 7; a++) q0.attrs[a] = sp.attrs[a]; for (int a = 0; a < 9; a++) q0.slot[a] = -1;
+    {   // NIOH3_LIMITS "max_load min_defense min_health": anything outside is not an answer, in the search or in polish.
+        const char* text = getenv("NIOH3_LIMITS");
+        if (text && *text) { g.limits.on = 1; sscanf(text, "%f %u %u", &g.limits.max_load, &g.limits.min_defense, &g.limits.min_health); }
+    }
+    bool weapon_moves = false;
+    for (const Space& one : spaces) for (int i = 0; i < one.n; i++) weapon_moves = weapon_moves || one.slot[i] == 0;
+    const char* points = getenv("NIOH3_ATTRS");
+    const bool move_points = points && *points;
+    std::vector<Scored> leaders;
+    u32 top, hit_count, cnt[4];
+    for (int pass = 0; pass < (move_points ? 4 : 1); pass++) {
+    CHECK(cudaMemset(best, 0, 4)); CHECK(cudaMemset(hit_n, 0, 4)); CHECK(cudaMemset(counts, 0, 16));
+    g.seed = nullptr;
+    if (!weapon_moves) {
+        Cand q0; for (int a = 0; a < 7; a++) q0.attrs[a] = spaces[0].attrs[a]; for (int a = 0; a < CAND_SLOTS; a++) q0.slot[a] = -1;
         S* seed; u32* seed_ok; u32 fine = 0;
         CHECK(cudaMalloc(&seed, sizeof(S))); CHECK(cudaMalloc(&seed_ok, 4));
         kernel_seed<<<1, 1>>>(g, q0, seed, seed_ok);
@@ -1285,9 +1317,8 @@ int main(int argc, char** argv) {
         }
     }
     double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - t).count();
-    u32 top, hit_count, cnt[3];
-    CHECK(cudaMemcpy(&top, best, 4, cudaMemcpyDeviceToHost)); CHECK(cudaMemcpy(&hit_count, hit_n, 4, cudaMemcpyDeviceToHost)); CHECK(cudaMemcpy(cnt, counts, 12, cudaMemcpyDeviceToHost));
-    printf("searched %llu in %.2fs: %.0f per second; best %.3f, hits %u, refused %u, no path %u\n", (unsigned long long)total, seconds, total / seconds, bits_f(top), hit_count, cnt[0], cnt[2]);
+    CHECK(cudaMemcpy(&top, best, 4, cudaMemcpyDeviceToHost)); CHECK(cudaMemcpy(&hit_count, hit_n, 4, cudaMemcpyDeviceToHost)); CHECK(cudaMemcpy(cnt, counts, 16, cudaMemcpyDeviceToHost));
+    printf("searched %llu in %.2fs: %.0f per second; best %.3f, hits %u, refused %u, no path %u, outside limits %u\n", (unsigned long long)total, seconds, total / seconds, bits_f(top), hit_count, cnt[0], cnt[2], cnt[3]);
 #if PROFILE
     {
         std::vector<u32> pr(2 * PROF_N + 2 * SLIM_WORDS);
@@ -1306,24 +1337,45 @@ int main(int argc, char** argv) {
     if (kept) CHECK(cudaMemcpy(all.data(), hits, kept * sizeof(Hit), cudaMemcpyDeviceToHost));
     std::sort(all.begin(), all.end(), [](const Hit& a, const Hit& b) { return bits_f(a.bits) > bits_f(b.bits); });
     g.seed = nullptr;
-    std::vector<Scored> leaders;
     for (u32 i = 0; i < kept && i < 400; i++) {
         Scored row{}; row.bits = all[i].bits;
-        for (int a = 0; a < 7; a++) row.q.attrs[a] = sp.attrs[a];
-        for (int a = 0; a < 9; a++) row.q.slot[a] = -1;
-        u64 digits = all[i].index;
         const Space& one = spaces[all[i].space];
-        for (int a = 0; a < one.n; a++) { row.q.slot[one.slot[a] - 4] = (i32)(one.start[a] + (u32)(digits % one.radix[a])); digits /= one.radix[a]; }
+        for (int a = 0; a < 7; a++) row.q.attrs[a] = one.attrs[a];
+        for (int a = 0; a < CAND_SLOTS; a++) row.q.slot[a] = -1;
+        u64 digits = all[i].index;
+        for (int a = 0; a < one.n; a++) { row.q.slot[cand_index((u32)one.slot[a])] = (i32)(one.start[a] + (u32)(digits % one.radix[a])); digits /= one.radix[a]; }
         leaders.push_back(row);
     }
-    polish(g, dir, leaders);
+    polish(g, dir, leaders, move_points);
+    // Better points can make other gear legal or better, so search again around them until the points settle.
+    if (leaders.empty() || memcmp(leaders[0].q.attrs, spaces[0].attrs, sizeof(spaces[0].attrs)) == 0) break;
+    if (move_points) {
+        printf("points moved: %d %d %d %d %d %d %d, best %.3f\n", leaders[0].q.attrs[0], leaders[0].q.attrs[1], leaders[0].q.attrs[2], leaders[0].q.attrs[3], leaders[0].q.attrs[4], leaders[0].q.attrs[5], leaders[0].q.attrs[6], bits_f(leaders[0].bits));
+        for (Space& one : spaces) memcpy(one.attrs, leaders[0].q.attrs, sizeof(one.attrs));
+    }
+    }
     f = fopen((dir + "/gpu_top.txt").c_str(), "w");
     for (size_t i = 0; i < leaders.size() && i < 40; i++) {
-        fprintf(f, "%08x", leaders[i].bits);
-        for (int a = 0; a < 9; a++) if (leaders[i].q.slot[a] >= 0) fprintf(f, " %d:%d", a + 4, leaders[i].q.slot[a]);
+        fprintf(f, "%08x a:%d,%d,%d,%d,%d,%d,%d", leaders[i].bits, leaders[i].q.attrs[0], leaders[i].q.attrs[1], leaders[i].q.attrs[2], leaders[i].q.attrs[3], leaders[i].q.attrs[4], leaders[i].q.attrs[5], leaders[i].q.attrs[6]);
+        for (int a = 0; a < CAND_SLOTS; a++) if (leaders[i].q.slot[a] >= 0) fprintf(f, " %d:%d", a == 9 ? 0 : a + 4, leaders[i].q.slot[a]);
         fprintf(f, "\n");
     }
     fclose(f);
+    if (!leaders.empty()) {   // what the top outfits weigh and protect, so limits can be checked against the game
+        std::vector<Cand> shown;
+        for (size_t i = 0; i < leaders.size() && i < 40; i++) shown.push_back(leaders[i].q);
+        u64 m = shown.size();
+        const Cand* dc2 = up(shown.data(), m);
+        float* load; u32* defense; u32* health;
+        CHECK(cudaMalloc(&load, 4 * m)); CHECK(cudaMalloc(&defense, 4 * m)); CHECK(cudaMalloc(&health, 4 * m));
+        kernel_facts<<<(unsigned)((m + block - 1) / block), block>>>(g, dc2, m, load, defense, health);
+        CHECK(cudaDeviceSynchronize());
+        std::vector<float> l(m); std::vector<u32> de(m), he(m);
+        CHECK(cudaMemcpy(l.data(), load, 4 * m, cudaMemcpyDeviceToHost)); CHECK(cudaMemcpy(de.data(), defense, 4 * m, cudaMemcpyDeviceToHost)); CHECK(cudaMemcpy(he.data(), health, 4 * m, cudaMemcpyDeviceToHost));
+        f = fopen((dir + "/gpu_facts.txt").c_str(), "w");
+        for (u64 i = 0; i < m; i++) fprintf(f, "%.3f load %.4f defense %u health %u\n", bits_f(leaders[i].bits), l[i], de[i], he[i]);
+        fclose(f);
+    }
     u32 miss_n = std::min(cnt[2], miss_capacity);
     std::vector<u64> misses(miss_n);
     if (miss_n) CHECK(cudaMemcpy(misses.data(), missed, miss_n * sizeof(u64), cudaMemcpyDeviceToHost));

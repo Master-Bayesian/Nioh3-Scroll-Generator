@@ -458,15 +458,37 @@ damage.
   through an array. Only about a hundred real float operations are left underneath.
 - A backward byte-demand pass finds which bytes of every value can reach anything that matters, across calls, so a `mix` becomes a word
   selection. Inputs whose bytes are known in the base domain lose their known check: `known` can only grow, so the check cannot fail.
-- `sub` functions inline into their table; tables and mains stay real calls. Inlining everything ran `cicc` past 3.7 GB without finishing.
+- Paths of one function compile to one program; see the next section.
 
 Tried and not worth keeping: ordering paths by a profile, no gain. Copying the weapon stage's result instead of recomputing it gave about
-5%, kept as `kernel_seed`. `NIOH3_PROFILE=1` builds path hit counts and which domain words vary into `prof.txt`.
+5%, kept as `kernel_seed`. Inlining every call ran `cicc` past 3.7 GB without finishing.
 
 The likely remaining cost is divergence, which fits these results but has not been measured directly. A GPU runs threads in groups that
 must share a branch, and every outfit here takes different loops and branches. Making the work cheaper per thread barely helps while that
 holds. The way past it is a uniform kernel: per-item vectors of live totals, added without branches. That has to handle set rewards and
 first-come map order exactly, so it is a redesign; do it only if the spaces above stop being small enough.
+
+### Merging paths
+
+Weapons and accessories took one attack to 56 mains and 206 callee paths, 7 MB of source that `nvcc` barely finished. Each path restarted from the
+top after a failed guard. A prefix tree was the obvious fix and saved only a third, because paths split about 16 operations in and then do the same
+work again. Two facts decide the design:
+
+- **Paths are nearly the same program.** Any two mains share about 97% of their operations. `merged()` lines them up into one list. Each path owns a
+  bit in `alive`. An operation some paths need runs while one of them is alive, and a guard clears the bits of the paths it rules out. Where paths
+  read different values, the operation picks the value of the path still alive.
+- **That choice is only legal if the two paths cannot both be alive.** `facts()` numbers values so equal computations match across paths, and records
+  what each guard established, including `x == constant` from `sub` plus a zero test. Two paths are exclusive past the first point where one
+  established the opposite of the other. If they are not exclusive and their values differ, the operation stays two operations, so each path still
+  computes exactly its own trace. This rule is what makes merging safe; do not relax it to share more.
+- **One function was many tables.** The compiler keys a callee's table on constants around the call, which include stale stack bytes, so one
+  function filled 50 single-path tables. `unite()` joins two tables only when two paths with no test between them make an identical call, then
+  `families()` compiles alike tables once and a table becomes a set of starting bits. Paths of different tables never run together, so they may differ
+  freely in constants. Judging "alike" from the opening operations needs no proof, because it only decides what shares code.
+
+Result on the same paths: 22 mains, 85 callee paths, 972 merged operations for the main instead of 35,263, 0.4 MB of source, about a minute to build,
+and all 500 check cases identical to the VM. After coverage rounds it holds 100 mains in 0.63 MB, still about a minute to build. Merging reads only
+`programs.txt`, so it needs no recompile to test. When sharing drops, list which paths block which operation before changing the rule.
 
 ### Current result, 2026-11-06
 
@@ -488,21 +510,46 @@ Evidence: 970 outfits from merged backpacks identical to the VM, and the top 40 
 exhaustive search of that set every time. Four usable saves hold 0.47 million to 508 million armor outfits per class, not orders of magnitude more than
 the test backpack. Worn items are not in the backpack rows, and storage has not been checked.
 
+### With weapons, accessories, attributes and limits
+
+RTX 4070 Ti SUPER, game closed, same attack. Slots searched: katana, five armor pieces, two accessories. Weapons of other types need their own capture, and the test character
+has only those two accessory slots filled. `NIOH3_ATTRS=1` moves attribute points in polish and searches again until they settle. `NIOH3_LIMITS="load
+defense health"` drops anything outside; with it dominance must also compare weight and defense, so it prunes far less.
+
+| Search | Space | Time |
+| --- | --- | --- |
+| One set, at least 3 pieces, pruned | 40,320 to 5.9 million | 0.01 to 0.5 s |
+| Same, exhaustive | 156,600 to 1.25 billion | 0.02 to 97 s |
+| Limits on | 156,600 to 1.2 billion | 0.02 to 44 s |
+| No set required, pruned | 6.9 million to 850 million; largest backpack 10.7 billion | 0.65 to 92 s; largest not run, about 15 minutes by rate |
+
+Rates are about 6 to 13 million a second, lower than armor alone because every outfit now runs the weapon stage. With attributes the same searches take a
+small extra cost, not timed separately, and damage rises by 19 to 66 points on these backpacks with the points of the test character.
+
+Evidence: 10 set searches without limits, on all five backpacks, and 4 with limits, on four: pruned plus polish equals exhaustive every time. The VM
+rechecked 664 top claims across weapons, accessories, attributes and limits, 0 wrong, and 2,273 outfits match it exactly. Attribute results are
+checked for damage, not for being the best: hill climbing has no exhaustive comparison. Load, defense and health come from the pipeline's own numbers
+and have not been compared with the game yet; load counts slots 4 to 12 only, so a weapon's weight is not in it if the game counts one.
+
 ### Coverage
 
 Paths come from outfits the compiler has seen, so a new backpack brings misses. Compile over merged backpacks, search, feed a sample of
 `gpu_nopath.txt` back as forced lines, and keep all forced files on the next run, because the compiler starts empty. Three rounds took the
-five backpacks to 3,032, 17,249, 34, 0 and 0 outfits without a path, at most 0.0034%.
+five backpacks to 3,032, 17,249, 34, 0 and 0 outfits without a path, at most 0.0034%. With weapons and accessories, five rounds took the required-set
+searches from 2% to 25% without a path to 121, 0, 0, 36 and 0 outfits. `pool_prune.py` writes `gpu_origin.txt`, because pruned runs use their own item numbers and forced
+lines need the merged pool's.
 
-Some of what is left the VM cannot answer either: 25 forced outfits return no damage from the VM, so they stay uncovered and their cause is
-open. Anything without a path is unevaluated, not bad, so a shipped search must say so if a missed outfit could matter.
+Some of what is left the VM cannot answer either. All 201 outfits with no VM answer hold 3 or more pieces of the set with group 0x7BF7 (side key 0x28B3,
+第一队队长队服). Failures traced so far stop at RVA 0x556F7B, a getter at 0x556F74 that loads the manager root at RVA 0x45B9E30 and reads +0x130, an
+address the snapshot never held. Not every such outfit fails: requiring that set at 3 pieces left 23% without a path on one backpack, and the 30 best
+of the rest matched the VM. So an effect of that set reaches a branch reading runtime state, and fixing it needs a live read of manager+0x130 and what it
+points to. Anything without a path is unevaluated, not bad, so a shipped search must say so if a missed outfit could matter.
 
 ### Limits
 
-Only armor slots vary. Weapons, accessories, attributes during search, other moves and buffs are not covered. A shipped build cannot run
+Other weapon types, other moves and buffs are not covered. A shipped build cannot run
 nvcc on a player's machine: a compiled path list must either ship for each attack, or be emitted at run time as PTX, and a non-CUDA fallback
-needs its own emitter. Ties are common because damage lands on whole numbers, so the objective needs a tiebreak. A weight limit and survival
-constraints are not modeled.
+needs its own emitter. Ties are common because damage lands on whole numbers, so the objective needs a tiebreak.
 
 ## Appendix A. Version-bound values (2.0.2.0)
 
