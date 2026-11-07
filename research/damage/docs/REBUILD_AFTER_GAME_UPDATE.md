@@ -566,7 +566,8 @@ Read a weapon's moves from this table before capturing any hit. A capture is nee
   The array is shared by the whole table. The first index selects a slice.
 - Modifier row, stride 0xC0: +0x08 hit start frame, +0x0C active frames, +0x10 motion value, +0x12 second value read
   during an imbue. Rows with motion 0 in a slice do not damage.
-- Hit count of a move is the number of rows with a non-zero motion value.
+- Rows with a non-zero motion value are candidate hits. On dual swords they are exact hit counts. Some other tables hold 12 to
+  36 rows per action in repeated groups, which may be alternatives or hitboxes; do not count those as hits until tested.
 - Hit order comes from +0x08, not from the row order. Dual-sword light 4 has frames 27 and 19, so its second row lands
   first. Equal frames land together.
 - Rows at consecutive ids are not one combo. Dual-sword mid-stance light is rows 0x61cc to 0x61cf, heavy is 0x61d0 to 0x61d2;
@@ -575,7 +576,9 @@ Read a weapon's moves from this table before capturing any hit. A capture is nee
   capture this changed nothing else: the traced inputs of the two judgments differ only in that value.
 - The motion value also moves the attack-defense bonus term, so damage is not proportional to it.
 
-The table lives in the heap. Find it from the capture role `source.query.entity.action`. The input-to-action mapping is
+The table lives in the heap. Find it from the capture role `source.query.entity.action`. At least 14 tables are loaded at
+once, but the katana row (motion 26 at 0x61cc) was in none of those 14, so the list is incomplete. The weapon-to-table and
+input-to-action mappings are
 still open.
 
 ## Appendix A. Version-bound values (2.0.2.0)
