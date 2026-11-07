@@ -560,31 +560,58 @@ needs its own emitter. Ties are common because damage lands on whole numbers, so
 
 ## Move table: multipliers and hit counts
 
-Read a weapon's moves from this table before capturing any hit. A capture is needed only to check a prediction.
+Every weapon's moves are already in the native action catalog. Read them from there; do not capture a weapon to learn its
+multipliers. A capture only checks a prediction.
 
-- Action row, stride 0xF0: +0x00 action id, +0x40 pointer array of modifier rows, +0x48 u16 first index, +0x4A u16 count.
-  The array is shared by the whole table. The first index selects a slice.
-- Modifier row, stride 0xC0: +0x08 hit start frame, +0x0C active frames, +0x10 motion value, +0x12 second value read
-  during an imbue. Rows with motion 0 in a slice do not damage.
-- Rows with a non-zero motion value are candidate hits. On dual swords they are exact hit counts. Some other tables hold 12 to
-  36 rows per action in repeated groups, which may be alternatives or hitboxes; do not count those as hits until tested.
-- Hit order comes from +0x08, not from the row order. Dual-sword light 4 has frames 27 and 19, so its second row lands
-  first. Equal frames land together.
-- Rows at consecutive ids are not one combo. Dual-sword mid-stance light is rows 0x61cc to 0x61cf, heavy is 0x61d0 to 0x61d2;
-  all six heavy numbers matched a blind prediction. Hits sharing a start frame have no predicted order.
-- To predict a hit, replay a captured hit of the same state with only modifier +0x10 overridden. In the dual-sword
-  capture this changed nothing else: the traced inputs of the two judgments differ only in that value.
-- The motion value also moves the attack-defense bonus term, so damage is not proportional to it.
+`data/MOVES.json` is built by `evaluator/src/move_db.py <catalog_dir> <out>` from the catalog in the R2 Pro return,
+`nioh3-damage-formula-r2-pro-return-pc202-20261018/evidence/move-catalog` (`actions.jsonl`, `hits.jsonl`). Rebuild the
+catalog after a game update, then rebuild this file. The 14 tables loaded in a live process all match the catalog. A table
+missing from memory is simply not loaded, so absence from the heap says nothing.
 
-- Another weapon type needs no capture of its own. Read the player's live action pointer during a swing to find its table,
-  then replay a captured hit with STAT, the STAT copy and D re-read live, and with the motion value overridden. Set MAIN+8
-  to STAT+0x24 + STAT+0x2C. Dual swords and odachi both use this attack; STAT+0x28 is not used by either. Odachi light and
-  heavy matched a blind prediction this way. The other weapon types are untested.
+Layouts:
 
-The table lives in the heap. Find it from the capture role `source.query.entity.action`. At least 14 tables are loaded at
-once, but the katana row (motion 26 at 0x61cc) was in none of those 14, so the list is incomplete. The weapon-to-table and
-input-to-action mappings are
-still open.
+- Action row, stride 0xF0: +0x00 action id, +0x20 flags pointer, +0x30 parameter pointer, +0x40 pointer array of modifier
+  rows, +0x48 u16 first index, +0x4A u16 count. The array is shared by the whole table; the first index selects a slice.
+- Parameter block: byte +5 is the attack class, 1 quick and 2 strong, with higher bits for other classes. Byte +6 feeds the
+  second byte of MAIN+0x13C (0x20 on action 0x61d3).
+- Modifier row, stride 0xC0: +0x08 start frame, +0x0C active frames, +0x10 physical motion, +0x12 elemental motion,
+  +0x20 element, +0x93 thrust. A row with both motions 0 does not damage.
+- Item table row +0x58 is the weapon type. MAIN+0x144 carries it and MAIN+0x148 the stance (0 high, 1 mid, 2 low). Ninja
+  weapons have no stance.
+
+Reading a move:
+
+- A move's landings are its damaging rows sorted by start frame, not by row order. Dual-sword light 4 has frames 27 and 19,
+  so its second row lands first. Equal frames land together in an order nothing here predicts.
+- A row can fire more than once. The catalog's `candidate_event_times` lists the events; `moves.py` counts one hit per event.
+- Consecutive ids are not one combo. Dual-sword mid-stance light is 0x61cc to 0x61cf, heavy is 0x61d0 to 0x61d2. Odachi light
+  is 0x61cc to 0x61ce, heavy 0x61d0 and 0x61d1. Which action id each stance and input reaches is not in the catalog yet.
+
+Predicting a hit:
+
+`evaluator/src/moves.py` turns a move into state writes on a captured hit of the same kind. For each landing it sets
+modifier +0x10 (physical and elemental as two i16), the low byte of MAIN+0x13C to the attack class while keeping the 0x80 bit
+from the capture, MAIN+0x144 to the weapon type and MAIN+0x148 to the stance. It re-reads STAT, the STAT copy and D live and
+sets MAIN+8 to STAT+0x24 + STAT+0x2C. Nothing else differs between the traced inputs of two landings of one swing.
+
+The motion value also moves the attack-defense bonus term, so damage is not proportional to it. Odachi light and heavy and
+dual-sword heavy matched blind predictions this way. Dual-sword light matched too, but the order of light 4 was explained only
+after the owner reported it.
+
+Two attack numbers exist. MAIN+8 is STAT+0x24 + STAT+0x2C, and that is what the formula uses. The status screen shows
+STAT+0x28 + STAT+0x2C (odachi 3191 shown, 2829 hit). The formula never reads STAT+0x28; why the screen does is unknown. Use the
+hit attack for prediction and the shown attack only to recognize a state.
+
+Search:
+
+The compiled search takes a move through `NIOH3_MOVE=type:move:stance`. `path_outfits.py` adds the four hit words to the
+domain and evaluates the path once per landing, so a move's score is the f32 sum of its landings. `hits.txt` carries one line
+per landing to the kernel. The player picks the weapon first: with `NIOH3_WEAPON_POOL` it stays worn and slot 0 leaves the
+search. `NIOH3_WEAPON_KEY` picks one weapon; empty takes the first of that type.
+
+Each round runs candidates through the VM, compiles the new paths and searches. Repeat with the misses plus the top results
+forced until `no path` reaches 0. Run it with `evaluator/pipeline/optimize.ps1`; `move_pair.ps1` is the loop for one move.
+The objective is still one move. Weighting a sequence of moves needs the input mapping above.
 
 ## Appendix A. Version-bound values (2.0.2.0)
 

@@ -32,7 +32,7 @@ worn_weapon = None
 weapons_file = os.environ.get("NIOH3_WEAPON_POOL")
 if weapons_file:  # the player picks the weapon first: it stays worn, slot 0 leaves the search
     raw = Path(weapons_file).read_bytes()
-    wanted = int(os.environ.get("NIOH3_WEAPON_KEY", "0"), 16)
+    wanted = int(os.environ.get("NIOH3_WEAPON_KEY") or "0", 16)
     for i in range(0, len(raw) - ITEM + 1, 0xF0):
         row = raw[i:i + ITEM]
         key = struct.unpack_from("<H", row)[0]
