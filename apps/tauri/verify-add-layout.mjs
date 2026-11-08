@@ -8,16 +8,14 @@ import { tmpdir } from 'node:os';
 import { closeSession, isolatedEnvironment, pause } from './onefile-acceptance.mjs';
 import { verifySectionHelp } from '../workshop/verify-section-help.mjs';
 import { addKnownEnemyVariantsToCart, verifyCollectionLayout } from '../workshop/verify-collection-layout.mjs';
+import {syntheticSave} from './synthetic-save.mjs';
 
 const root = await realpath(await mkdtemp(join(tmpdir(), 'nioh3-add-layout-')));
 const output = resolve(process.env.NIOH3_UI_OUTPUT || 'deliverables/frontend-v2/add-layout-acceptance');
 await mkdir(output, { recursive: true });
-const python = process.env.NIOH3_PYTHON || 'python';
-const fixture = JSON.parse(execFileSync(python, [resolve('apps/desktop/tests/fixtures/create-save.py'),
-  join(root, 'local', 'KoeiTecmo', 'NIOH3', 'Savedata')], { windowsHide: true, encoding: 'utf8', timeout: 45000 }));
+const fixture = syntheticSave('save', join(root, 'local', 'KoeiTecmo', 'NIOH3', 'Savedata'));
 const original = await readFile(fixture.path);
 const { env, profile, port } = await isolatedEnvironment(root);
-env.NIOH3_PYTHON = python;
 const executable = resolve(process.env.NIOH3_TAURI_EXE || 'apps/tauri/src-tauri/target/debug/nioh3-studio.exe');
 const child = spawn(executable, ['--user-data-dir', profile], {
   windowsHide: true, env, stdio: ['ignore', 'pipe', 'pipe'],

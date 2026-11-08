@@ -12,8 +12,6 @@ const output = resolve(
   process.env.NIOH3_UI_OUTPUT || "deliverables/enemy-states-ui-20260914",
 );
 await mkdir(output, { recursive: true });
-const python = process.env.NIOH3_PYTHON;
-assert(python, "NIOH3_PYTHON must name the prepared project environment");
 
 const server = createServer();
 await new Promise((done) => server.listen(0, "127.0.0.1", done));
@@ -28,7 +26,6 @@ const child = spawn(executable, ["--user-data-dir", join(root, "profile")], {
   stdio: ["ignore", "pipe", "pipe"],
   env: {
     ...process.env,
-    NIOH3_PYTHON: python,
     NIOH3_TAURI_TEST_ROOT: join(root, "profile"),
     NIOH3_TAURI_TEST_DEBUG_PORT: String(port),
     NIOH3_STATE_ROOT: join(root, "state"),

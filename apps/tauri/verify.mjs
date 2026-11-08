@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { createServer } from 'node:net';
 import { createInterface } from 'node:readline';
 import assert from 'node:assert/strict';
+import {syntheticSave} from './synthetic-save.mjs';
 const clipboardPrelude = 'Add-Type -AssemblyName System.Windows.Forms; $ErrorActionPreference="Stop"; ';
 function readClipboardText() {
   return Buffer.from(execFileSync('powershell.exe',['-NoProfile','-STA','-Command',clipboardPrelude+'[Console]::Write([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes([Windows.Forms.Clipboard]::GetText())))'],{windowsHide:true,encoding:'utf8',timeout:10000}),'base64').toString('utf8');
@@ -47,8 +48,7 @@ async function preserveClipboard() {
 }
 const root = await realpath(await mkdtemp(join(tmpdir(), 'nioh3-tauri-ui-')));
 const output = resolve('deliverables/frontend-v2/tauri-acceptance'); await mkdir(output, {recursive:true});
-const python = process.env.NIOH3_PYTHON || 'python';
-const fixture = JSON.parse(execFileSync(python, ['apps/desktop/tests/fixtures/create-restore-save.py', root], {windowsHide:true,encoding:'utf8',timeout:45000}));
+const fixture = syntheticSave('restore', root);
 const beforeRestore = await readFile(fixture.path), expectedRestore = await readFile(fixture.backup_path);
 assert.notDeepEqual(beforeRestore,expectedRestore,'Restore acceptance requires different source and backup bytes');
 const expectedVersion = JSON.parse(await readFile('package.json','utf8')).version;
@@ -57,7 +57,7 @@ const port=server.address().port; await new Promise(r=>server.close(r));
 // Clipboard content remains only in memory, outside acceptance artifacts.
 const restoreClipboard = await preserveClipboard();
 const child = spawn(resolve(process.env.NIOH3_TAURI_EXE || 'apps/tauri/src-tauri/target/debug/nioh3-studio.exe'), ['--user-data-dir',join(root,'profile')], {
-  windowsHide:true, stdio:['ignore','pipe','pipe'], env:{...process.env,NIOH3_PYTHON:python,NIOH3_TAURI_TEST_ROOT:join(root,'profile'),NIOH3_TAURI_TEST_DEBUG_PORT:String(port),NIOH3_STATE_ROOT:join(root,'state'),LOCALAPPDATA:join(root,'local')}
+  windowsHide:true, stdio:['ignore','pipe','pipe'], env:{...process.env,NIOH3_TAURI_TEST_ROOT:join(root,'profile'),NIOH3_TAURI_TEST_DEBUG_PORT:String(port),NIOH3_STATE_ROOT:join(root,'state'),LOCALAPPDATA:join(root,'local')}
 });
 let stderr=''; child.stderr.on('data',b=>stderr=(stderr+b).slice(-32000));
 let browser;
@@ -208,7 +208,7 @@ try {
   assert.ok(feedbackText.includes('"version": "'+expectedVersion+'"'));
   assert.match(feedbackText,/"workers":/);
   assert.deepEqual(await readFile(fixture.path),deletedSave,'The rejected read request must not change the save');
-  await writeFile(join(output,'verification.json'),JSON.stringify({webview2:true,pythonHandshake:true,realSeed:76634363,favorites:true,isolatedInventory:true,privateMethodRefused:true,backupRestore:{confirmationGate:true,prepareReadOnly:true,exactBytes:true,automaticCheckpoint:true,committedJournal:true,inventoryReadback:true,scope:'Synthetic save only; no running-game restoration acceptance'},permanentEdit:{titleScreenConfirmation:true,prepareReadOnly:true,automaticBackup:true,scope:'Synthetic save only; no running-game editing acceptance'},scrollDelete:{titleScreenConfirmation:true,prepareReadOnly:true,automaticBackup:true,emptyInventoryReadback:true,scope:'Synthetic save only; no running-game deletion acceptance'},failureFeedback:{clipboardPreserved:true,loggedFailure:true,feedbackFile:true,workerFailureContext:true,diagnosticVersion:true,readOnlyFailure:true},gameWrites:0},null,2));
+  await writeFile(join(output,'verification.json'),JSON.stringify({webview2:true,workerHandshake:true,realSeed:76634363,favorites:true,isolatedInventory:true,privateMethodRefused:true,backupRestore:{confirmationGate:true,prepareReadOnly:true,exactBytes:true,automaticCheckpoint:true,committedJournal:true,inventoryReadback:true,scope:'Synthetic save only; no running-game restoration acceptance'},permanentEdit:{titleScreenConfirmation:true,prepareReadOnly:true,automaticBackup:true,scope:'Synthetic save only; no running-game editing acceptance'},scrollDelete:{titleScreenConfirmation:true,prepareReadOnly:true,automaticBackup:true,emptyInventoryReadback:true,scope:'Synthetic save only; no running-game deletion acceptance'},failureFeedback:{clipboardPreserved:true,loggedFailure:true,feedbackFile:true,workerFailureContext:true,diagnosticVersion:true,readOnlyFailure:true},gameWrites:0},null,2));
   await p.evaluate(()=>window.review.windowAction('close'));
   console.log('TAURI_WEBVIEW2_SEARCH_FAVORITES_INVENTORY_RESTORE_OK');
 } catch(error) {

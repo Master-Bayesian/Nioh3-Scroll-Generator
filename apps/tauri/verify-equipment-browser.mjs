@@ -44,7 +44,7 @@ assert.ok(existsSync(executable), `the rebuilt debug host must exist: ${executab
 const protectedWorker = process.env.NIOH3_RUST_PROTECTED_WORKER;
 assert.ok(
   protectedWorker && existsSync(protectedWorker),
-  'NIOH3_RUST_PROTECTED_WORKER must name the rebuilt protected worker; without it the read would fall back to the Python worker',
+  'NIOH3_RUST_PROTECTED_WORKER must name the rebuilt protected worker',
 );
 
 await mkdir(join(workspace, 'profile'), { recursive: true });

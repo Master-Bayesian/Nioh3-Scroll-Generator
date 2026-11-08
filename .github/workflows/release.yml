@@ -83,7 +83,7 @@ jobs:
         shell: pwsh
         run: |
           # One external build root for the whole run, following the project
-          # resolver (tests/migration/cargo_target.py: an explicit
+          # resolver (tools/tests/cargo_target.py: an explicit
           # NIOH3_BUILD_ROOT wins, otherwise a CI host keeps its platform temp
           # root). Neither the checkout volume nor the C: system temp may take
           # the write, so the shared Cargo target, this run's child test temp and
@@ -125,11 +125,8 @@ jobs:
           New-Item -ItemType Directory -Force -Path $evidence | Out-Null
           Copy-Item -LiteralPath (Join-Path $fixtureRoot 'identity.json') -Destination (Join-Path $evidence 'ci-game-identity.json')
 
-      - name: Install the locked Python packaging environment
-        run: python -m pip install -r packaging/requirements-v2.lock.txt
-
-      - name: Install the locked Python development environment
-        run: python -m pip install -r requirements-dev.txt
+      - name: Install the packaging script dependencies
+        run: python -m pip install -r tools/requirements.txt
 
       - name: Install the locked Node packages
         run: npm ci --no-fund
@@ -139,26 +136,21 @@ jobs:
         shell: pwsh
         run: |
           "NIOH3_PYTHON=$((Get-Command python).Source)" >> $env:GITHUB_ENV
-          $version = python -c "from nioh3_scroll_editor.version import APP_VERSION; print(APP_VERSION)"
-          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
-          $nodeVersion=(Get-Content package.json -Raw | ConvertFrom-Json).version
+          $version=(Get-Content package.json -Raw | ConvertFrom-Json).version
           $tauriVersion=(Get-Content apps/tauri/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
-          if($version -ne $nodeVersion -or $version -ne $tauriVersion){throw 'Version mismatch'}
+          if($version -ne $tauriVersion){throw 'Version mismatch'}
           $launcherVersion = python -c "import tomllib; print(tomllib.load(open('apps/launcher/Cargo.toml','rb'))['package']['version'])"
           if($LASTEXITCODE -ne 0 -or $version -ne $launcherVersion){throw 'Launcher version mismatch'}
           "value=$version" >> $env:GITHUB_OUTPUT
 
-      # Source, contract and locale identity. The full unit suites belong to the
-      # independent Tests workflow (`windows-tests`, `rust-crates`,
-      # `rust-packaging`); this release job runs the bounded source checks and
-      # then accepts the packaged product, so it never pays for a duplicated
-      # Python/Cargo/npm unit pass. The retired Python worker graph is not a
-      # shipped graph and is no longer dispatchable here at all.
+      # Source, contract and locale identity. The unit suites belong to the
+      # Tests workflow; this job runs the bounded source checks and then accepts
+      # the packaged product.
       - name: Regenerate contracts
         run: npm run contracts
 
       - name: Regenerate UI locales
-        run: python tools/export_v2_ui_locales.py
+        run: node tools/export_v2_ui_locales.mjs
 
       - name: Require no generated diff
         run: git diff --exit-code -- packages/contracts apps/workshop/ui-locales.json
@@ -169,16 +161,8 @@ jobs:
       - name: Verify the native build manifest
         run: python tools/verify_native_build_manifest.py
 
-      - name: Record the test inventory
-        run: python tools/write_test_inventory.py --output deliverables/release/test-inventory.json
-
       - name: Typecheck the frontend
         run: npm run typecheck
-
-      - name: Verify the native fault matrix
-        # The fixture is compiled into the resolved build root, never the
-        # checkout: the release tree stays clean for the clean-source assertion.
-        run: ./tools/verify_native_faults.ps1 -Python $env:NIOH3_PYTHON -Output (Join-Path $env:NIOH3_BUILD_ROOT 'native-fault-ci')
 
       - name: Build the frontend bundle the host embeds
         run: node apps/tauri/build.mjs
@@ -187,9 +171,9 @@ jobs:
         shell: pwsh
         run: |
           if(git status --porcelain){throw 'Source checkout is dirty'}
-          ./tools/build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output deliverables/release/portable -WorkerBackend rust
+          ./tools/build_tauri.ps1 -Python $env:NIOH3_PYTHON -Output deliverables/release/portable
 
-      - name: Assert the packaged Rust worker graph carries no Python worker
+      - name: Assert the packaged workers match their manifest
         shell: pwsh
         run: |
           $workers='deliverables/release/portable/worker'
@@ -197,17 +181,12 @@ jobs:
           if(-not (Test-Path -LiteralPath $manifestPath)){throw 'OPTIN_MANIFEST_MISSING'}
           $manifest=Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
           if($manifest.backend -ne 'rust'){throw "OPTIN_BACKEND_INVALID: $($manifest.backend)"}
-          if(-not $manifest.excludedProductionResources -or $manifest.excludedProductionResources -notcontains 'packaging/search-worker.spec' -or $manifest.excludedProductionResources -notcontains 'packaging/protected-worker.spec'){
-            throw 'OPTIN_EXCLUSIONS_UNDECLARED'
-          }
           foreach($entry in $manifest.binaries){
             $binary=Join-Path $workers $entry.packagedName
             if(-not (Test-Path -LiteralPath $binary)){throw "OPTIN_WORKER_MISSING: $($entry.packagedName)"}
             $hash=(Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLower()
             if($hash -ne $entry.sha256){throw "OPTIN_WORKER_HASH_MISMATCH: $($entry.packagedName)"}
           }
-          if(Test-Path -LiteralPath (Join-Path $workers 'python-build-environment.json')){throw 'OPTIN_PYTHON_RESOURCE_PRESENT'}
-          if(Get-ChildItem -LiteralPath $workers -Directory -Recurse -Filter '_internal' -ErrorAction SilentlyContinue){throw 'OPTIN_PYINSTALLER_OUTPUT_PRESENT'}
           Write-Host "OPTIN_GRAPH_OK backend=$($manifest.backend) workers=$($manifest.binaries.Count)"
 
       - name: Archive the verified internal update payload
@@ -233,17 +212,8 @@ jobs:
 
       - name: Verify the release binaries
         shell: pwsh
-        env:
-          # The packaged-parity gate selects the staged manifest argv for the
-          # shipped Rust graph; the run also carries the explicitly pinned game
-          # file version that comparison launches both workers with.
-          NIOH3_WORKER_BACKEND: rust
         run: |
-          $env:NIOH3_WORKER_EXE=Join-Path $PWD 'deliverables/release/portable/worker/nioh3-search-worker.exe'
-          $env:NIOH3_PROTECTED_WORKER_EXE=Join-Path $PWD 'deliverables/release/portable/worker/nioh3-protected-worker.exe'
           $env:NIOH3_TAURI_EXE=Join-Path $PWD 'deliverables/release/portable/Nioh3Studio.exe'
-          npm run test:packaged
-          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node apps/tauri/verify.mjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           $env:NIOH3_UI_OUTPUT=Join-Path $PWD 'deliverables/frontend-v2/tauri-acceptance/add-layout'
@@ -272,7 +242,7 @@ jobs:
             node apps/tauri/verify-worker-identity.mjs --runtime $portable --role $role --out (Join-Path $evidence "identity-$role.json")
             if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           }
-          node apps/tauri/verify-packaged-frontend.mjs --host release --package $portable --exe $exe --python $env:NIOH3_PYTHON --profile $env:NIOH3_UI_PROFILE --out $evidence
+          node apps/tauri/verify-packaged-frontend.mjs --host release --package $portable --exe $exe --profile $env:NIOH3_UI_PROFILE --out $evidence
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
 
       - name: Verify direct one-file launch, runtime cache and outer updates
@@ -317,7 +287,6 @@ jobs:
             deliverables/release/*.exe
             deliverables/release/*.sha256
             deliverables/release/tauri-update.json
-            deliverables/release/test-inventory.json
 
       - name: Upload the acceptance evidence
         if: always()

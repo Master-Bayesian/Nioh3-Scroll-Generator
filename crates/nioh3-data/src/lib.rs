@@ -1579,8 +1579,7 @@ mod tests {
 
     #[test]
     fn v202_preview_resources_load_the_changed_tables() {
-        let data_root =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data");
+        let data_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data");
         if !data_root.is_dir() {
             return;
         }

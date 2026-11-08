@@ -14,6 +14,7 @@ import {spawn, execFileSync} from 'node:child_process';
 import {mkdtemp, mkdir, writeFile} from 'node:fs/promises';
 import {join, resolve} from 'node:path';
 import {createServer} from 'node:net';
+import {syntheticSave} from './synthetic-save.mjs';
 
 function parseArgs(argv) {
   const options = {};
@@ -22,7 +23,6 @@ function parseArgs(argv) {
     if (key === '--exe') options.exe = argv[++index];
     else if (key === '--search-worker') options.searchWorker = argv[++index];
     else if (key === '--package') options.package = argv[++index];
-    else if (key === '--python') options.python = argv[++index];
     else if (key === '--out') options.out = argv[++index];
     else if (key === '--timeout') options.timeout = Number(argv[++index]);
     else throw new Error(`unknown argument: ${key}`);
@@ -42,19 +42,12 @@ async function freePort() {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const executable = resolve(options.exe);
-  const python = resolve(
-    options.python || 'F:/Nioh3_ScrollEditor/.codex_tmp/v2-build-env/Scripts/python.exe',
-  );
   const timeoutMs = (options.timeout || 90) * 1000;
   const isolated = await mkdtemp(join(process.env.TEMP || '.', 'nioh3-save-graph-'));
   const profile = join(isolated, 'profile');
   const stateRoot = join(isolated, 'state');
   await mkdir(stateRoot, {recursive: true});
-  execFileSync(
-    python,
-    [resolve('apps/desktop/tests/fixtures/create-restore-save.py'), isolated],
-    {windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], timeout: 90000},
-  );
+  syntheticSave('restore', isolated);
   const port = await freePort();
   const environment = {
     ...process.env,
@@ -62,7 +55,6 @@ async function main() {
     NIOH3_TAURI_TEST_DEBUG_PORT: String(port),
     NIOH3_STATE_ROOT: stateRoot,
     LOCALAPPDATA: join(isolated, 'local'),
-    NIOH3_PYTHON: python,
   };
   if (options.searchWorker) {
     environment.NIOH3_RUST_SEARCH_WORKER = resolve(options.searchWorker);

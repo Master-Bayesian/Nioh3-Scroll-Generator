@@ -5,8 +5,6 @@ on:
     paths-ignore: ['docs/**', 'research/**', '**/*.md']
   pull_request:
     paths-ignore: ['docs/**', 'research/**', '**/*.md']
-  schedule:
-    - cron: '0 18 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -17,84 +15,12 @@ permissions:
   contents: read
 
 jobs:
-  windows-tests:
-    # Legacy/reference backend lane: the pre-Rust Python backend's full suite,
-    # its old-backend regression file and the title-save research tests live
-    # here. The Rust crate suites are the separate `rust-crates` job, so a
-    # failure in this lane can never short-circuit them, and these results are
-    # reference evidence rather than the arbiter of Rust product correctness.
-    runs-on: windows-latest
-    steps:
-      - name: Check out source
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: "3.12"
-          cache: pip
-
-      - name: Install dependencies
-        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
-
-      - name: Set up MSBuild
-        uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2
-
-      - name: Build save-data helper without debug path metadata
-        run: >-
-          msbuild third_party\nioh_savefile_decrypt\Nioh_Savefile_decrypt.vcxproj
-          -nologo -m -verbosity:minimal
-          -property:Configuration=Release
-          -property:Platform=x64
-          -property:GenerateDebugInformation=false
-          -property:DebugSymbols=false
-          -property:DebugType=None
-
-      - name: Compile Python sources
-        run: python -m compileall -q nioh3_scroll_editor launch_editor.py emaki_exchange.py nioh3_seed_math.py scroll_lab.py
-
-      - name: Verify native accelerator source and ABI identity
-        run: python tools\verify_native_build_manifest.py
-
-      - name: Run test suite
-        run: python -m unittest discover -s tests -t . -v
-
-      - name: Run the pytest-style test files
-        shell: pwsh
-        run: |
-          $files = Get-ChildItem tests\test_*.py | Where-Object { -not (Select-String -Path $_ -Pattern 'unittest' -Quiet) }
-          python -m pytest -q $files
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Record collected test IDs and environment
-        if: always()
-        run: python tools\write_test_inventory.py --output test-results\test-inventory.json
-
-      - name: Upload test inventory
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: unittest-inventory-windows-py312
-          path: test-results/test-inventory.json
-
   rust-crates:
-    # Independent Rust gate for the crates the release ships. It holds the same
-    # commands the release job's own crate gate runs, and it is deliberately a
-    # separate job so the legacy Python lane above can neither short-circuit it
-    # nor stand in for its result.
+    # The crates the release ships: tests, clippy and rustfmt.
     runs-on: windows-latest
     steps:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: "3.12"
-          cache: pip
-
-      - name: Install dependencies
-        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
 
       - name: Set up Rust for domain migration
         uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
@@ -199,52 +125,9 @@ jobs:
         shell: pwsh
         run: ./tools/check_models.ps1
 
-  rust-python-parity:
-    # Rust workers against the Python reference implementation. It takes over
-    # an hour, so it runs nightly and on demand, not on every push.
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: windows-latest
-    steps:
-      - name: Check out source
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: "3.12"
-          cache: pip
-
-      - name: Install dependencies
-        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
-
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
-
-      - name: Fetch Rust dependencies
-        # The parity helpers build the crates offline.
-        shell: pwsh
-        run: |
-          foreach ($crate in 'nioh3-domain','nioh3-data','nioh3-worker','nioh3-save','nioh3-runtime','nioh3-protected') {
-            cargo fetch --locked --manifest-path "crates/$crate/Cargo.toml"
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
-
-      - name: Run Rust/Python parity tests
-        shell: pwsh
-        run: |
-          $env:NIOH3_BUILD_ROOT = Join-Path $env:RUNNER_TEMP 'nioh3-migration-build'
-          $env:CARGO_TARGET_DIR = Join-Path $env:NIOH3_BUILD_ROOT 'cargo-target'
-          # The packaged host gate needs the host's own dependencies, the
-          # frontend bundle and a game identity fixture; rust-packaging runs it.
-          ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -TestPath tests/migration -PytestArgument '-q','--durations=25','--ignore=tests/migration/test_packaged_host_resolver.py'
-
   rust-packaging:
-    # Required gate for the shipped packaging graph. The packaged product selects
-    # the Rust worker from the staged manifest, so this job proves the worker
-    # crates build, stage without any PyInstaller artifact, answer a real
-    # handshake per role, and that the host resolves the staged manifest's
-    # binary and roots. The PyInstaller graph stays a development, parity and
-    # oracle backend.
+    # The packaging scripts stage the worker crates and each staged role answers
+    # a real handshake.
     runs-on: windows-latest
     steps:
       - name: Check out source
@@ -256,23 +139,11 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install dependencies
-        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+      - name: Install the packaging script dependencies
+        run: python -m pip install --disable-pip-version-check -r tools/requirements.txt
 
-      # The Tauri host embeds `apps/tauri/dist` at compile time
-      # (`frontendDist: ../dist`), so the bundle has to exist before the host is
-      # built here, exactly as release.yml orders it.
-      - name: Set up Node for the frontend bundle
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: "24"
-          cache: npm
-
-      - name: Install frontend dependencies
-        run: npm ci --no-fund
-
-      - name: Build the frontend bundle the host embeds
-        run: node apps/tauri/build.mjs
+      - name: Verify native accelerator source and ABI identity
+        run: python tools\verify_native_build_manifest.py
 
       - name: Set up Rust for the packaged workers
         uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
@@ -289,30 +160,5 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo build --locked --offline --manifest-path crates/nioh3-protected/Cargo.toml --bin nioh3-protected-worker
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -TestPath tests/migration/test_packaging_optin.py,tests/migration/test_worker_identity_optin.py -PytestArgument -q
+          ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -TestPath tools/tests -PytestArgument -q
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          # The packaged-profile gate needs the host binary, so it is opt-in here.
-          # It proves the host resolves the staged manifest's binary and roots;
-          # the workers it spawns are the same real binaries built above.
-          cargo build --locked --manifest-path apps/tauri/src-tauri/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          # The host resolves the worker graph for the installed game version,
-          # and a hosted runner has no Nioh3.exe. Give it the same synthetic
-          # VERSIONINFO fixture release.yml uses (never executed, no native-write
-          # authority), scoped to this step's environment only.
-          $fixtureRoot = Join-Path $env:RUNNER_TEMP 'nioh3-game-identity'
-          ./tools/prepare_ci_game_identity.ps1 -Root $fixtureRoot -GameFileVersion '2.0.2.0'
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ${env:ProgramFiles(x86)} = Join-Path $fixtureRoot 'ProgramFiles'
-          ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -TestPath tests/migration/test_packaged_host_resolver.py -PytestArgument -q
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-        env:
-          NIOH3_M4_IDENTITY_EVIDENCE: ${{ runner.temp }}/m4-identity-evidence.json
-          NIOH3_PACKAGED_HOST_GATE: "1"
-
-      - name: Upload packaged identity evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: m4-optin-identity-evidence
-          path: ${{ runner.temp }}/m4-identity-evidence.json

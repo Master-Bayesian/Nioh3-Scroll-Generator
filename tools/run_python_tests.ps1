@@ -2,7 +2,7 @@
 param(
     [string]$Python,
     [string]$LuaLibrary,
-    [string[]]$TestPath = @('tests'),
+    [string[]]$TestPath = @('tools/tests'),
     [string[]]$PytestArgument = @('-q'),
     # Run one project Python script in the same prepared environment. This keeps
     # evidence/package tools off ambient Python without duplicating the resolver.
@@ -19,13 +19,13 @@ param(
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 
-# One build/test root per host, mirroring tests/migration/cargo_target.py:
+# One build/test root per host, mirroring tools/tests/cargo_target.py:
 # an explicit NIOH3_BUILD_ROOT wins, a local Windows host uses the D: delivery
 # volume, and CI, other hosts or a Windows host without a D: drive keep the
 # platform temp directory. Explicit CARGO_TARGET_DIR still wins for Cargo. No
 # build or test temp may be written to the C: system temp on this host.
 $localBuildRoot = 'D:\Nioh3_v080_deliverables'
-# Must match PYTHON_TEST_CACHE_NAME in tests/migration/cargo_target.py.
+# Must match PYTHON_TEST_CACHE_NAME in tools/tests/cargo_target.py.
 $cargoCacheName = 'python-tests'
 
 function Get-BuildRoot {
@@ -119,7 +119,7 @@ function Resolve-ProjectPython {
 
     throw @"
 No prepared project Python environment was found.
-Create .codex_tmp/v2-build-env and install requirements-dev.txt, or pass
+Create .codex_tmp/v2-build-env and install tools/requirements.txt, or pass
 -Python / NIOH3_PYTHON with an environment containing the tracked dependencies.
 "@
 }
@@ -166,9 +166,9 @@ try {
         $exitCode = 0
     } else {
         $pythonExecutable = Resolve-ProjectPython -RequestedPython $Python
-        & $pythonExecutable -c 'import pytest, lupa'
+        & $pythonExecutable -c 'import pytest'
         if ($LASTEXITCODE -ne 0) {
-            throw "The selected Python environment is incomplete: $pythonExecutable. Install requirements-dev.txt."
+            throw "The selected Python environment is incomplete: $pythonExecutable. Install tools/requirements.txt."
         }
 
         if ([string]::IsNullOrWhiteSpace($LuaLibrary) -and

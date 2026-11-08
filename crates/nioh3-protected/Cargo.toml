@@ -16,11 +16,6 @@ path = "src/lib.rs"
 name = "nioh3-protected-worker"
 path = "src/main.rs"
 
-[[example]]
-name = "scan_bench"
-path = "examples/scan_bench.rs"
-required-features = ["test-fake"]
-
 [features]
 # Compiles the deterministic scripted batch oracle into the host so the
 # cross-language gate can drive the real scan loops over fixed rows without a

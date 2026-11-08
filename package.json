@@ -8,8 +8,7 @@
     "contracts": "json2ts -i packages/contracts/request.schema.json -o packages/contracts/generated.ts --no-enableConstEnums && json2ts -i packages/contracts/response.schema.json -o packages/contracts/responses.ts && json2ts -i packages/contracts/protected-request.schema.json -o packages/contracts/protected-requests.ts && json2ts -i packages/contracts/protected-response.schema.json -o packages/contracts/protected-responses.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint apps packages",
-    "test": "tsx --test apps/desktop/tests/*.test.ts",
-    "test:packaged": "tsx apps/desktop/tests/packaged-parity.ts"
+    "test": "tsx --test apps/desktop/tests/*.test.ts"
   },
   "dependencies": {
     "ajv": "8.20.0",

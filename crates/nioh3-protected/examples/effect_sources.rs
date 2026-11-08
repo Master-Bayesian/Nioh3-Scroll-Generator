@@ -76,10 +76,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .nth(1)
         .ok_or("usage: effect_sources <repository root>")?;
     let root = Path::new(&root);
-    let resource = nioh3_data::load_effect_resource_for_file_version(
-        &root.join("data"),
-        (2, 0, 2, 0),
-    )?;
+    let resource =
+        nioh3_data::load_effect_resource_for_file_version(&root.join("data"), (2, 0, 2, 0))?;
     let index = EffectTableIndex::from_resource(&resource).map_err(|error| format!("{error:?}"))?;
     let graces: Vec<u32> = resource
         .grace_maps

@@ -1,12 +1,8 @@
 """Assemble a Tauri portable directory without Electron, Node or Chromium.
 
-The default worker backend is the Rust worker (`rust`), which is the shipped
-graph: it requires the staged Rust workers plus their `worker-backend.json`,
-stages the helper DLLs and generation tables the Rust workers resolve from
-`data_root.parent().parent()`, records an explicit worker build environment, and
-refuses a workers directory that still contains PyInstaller output.
-`--worker-backend python` keeps the previous PyInstaller graph for development,
-parity and oracle use, and is no longer the shipped product.
+It needs the staged Rust workers plus their `worker-backend.json`, stages the
+helper DLLs and generation tables the workers resolve from `data_root.parent()`,
+and records the worker build environment.
 """
 import argparse
 import hashlib
@@ -20,8 +16,6 @@ import sys
 # Both the command-line packager and imported tests resolve the same project module.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools.verify_tauri_native_dependencies import verify_runtime_native_dependencies
-
-WORKER_BACKENDS = ('python', 'rust')
 
 
 def cargo_target_dir(root: Path, workspace: str) -> Path:
@@ -38,22 +32,14 @@ def cargo_target_dir(root: Path, workspace: str) -> Path:
         return Path(configured) / 'release'
     return root / workspace / 'target' / 'release'
 
-# The Rust license inventory has to cover every crate the package actually
-# ships, not only the two whose binaries sit at the top level. The worker crates
-# are separate workspaces, so their dependency graphs are enumerated explicitly
-# for the rust backend instead of being covered by accident through the host.
-HOST_CRATES = ('apps/tauri/src-tauri/Cargo.toml', 'apps/launcher/Cargo.toml')
-WORKER_CRATES = ('crates/nioh3-worker/Cargo.toml', 'crates/nioh3-protected/Cargo.toml')
-
-
-def rust_license_manifests(backend: str) -> tuple:
-    """The manifests whose locked graphs the package must attribute.
-
-    The worker crates are standalone workspaces, so only the Rust graph ships
-    them; the Python graph keeps the host-only set it has always used.
-    """
-
-    return HOST_CRATES + (WORKER_CRATES if backend == 'rust' else ())
+# The license inventory covers every crate the package ships. The worker crates
+# are separate workspaces, so their graphs are listed explicitly.
+LICENSED_CRATES = (
+    'apps/tauri/src-tauri/Cargo.toml',
+    'apps/launcher/Cargo.toml',
+    'crates/nioh3-worker/Cargo.toml',
+    'crates/nioh3-protected/Cargo.toml',
+)
 
 
 def rust_dependency_packages(root: Path, manifests) -> dict:
@@ -94,38 +80,12 @@ def collect_rust_licenses(root: Path, output: Path, packages: dict) -> list:
     return dependencies
 
 
-def dependency_manifest(
-    backend: str,
-    javascript: list,
-    rust: list,
-    *,
-    worker_manifest: dict | None = None,
-    worker_layout: dict | None = None,
-    python_environment: dict | None = None,
-) -> dict:
-    """Build dependency-manifest.json for one worker backend.
-
-    The Rust graph ships no Python interpreter, so it records its own build
-    environment and states explicitly that no Python build environment exists;
-    it must never carry the PyInstaller one by omission.
-    """
-
-    manifest = {'javascript': javascript, 'rust': rust}
-    if backend == 'rust':
-        manifest['workerBuildEnvironment'] = worker_manifest
-        manifest['workerRuntimeLayout'] = worker_layout
-        manifest['pythonBuildEnvironment'] = None
-    else:
-        manifest['pythonBuildEnvironment'] = python_environment
-    return manifest
-
-
 def stage_rust_runtime(root: Path, output: Path) -> dict:
     """Stage the assets a Rust worker resolves from its application root.
 
-    `Engine::load` derives `application_root = data_root.parent().parent()`, so
-    a data root of `<runtime>/worker/runtime/data` makes the
-    worker look for helpers in `<runtime>/worker/runtime/bin`.
+    `Engine::load` derives `application_root = data_root.parent()`, so a data
+    root of `<runtime>/worker/runtime/data` makes the worker look for helpers
+    in `<runtime>/worker/runtime/bin`.
     """
 
     runtime = output / 'worker' / 'runtime'
@@ -156,33 +116,23 @@ def stage_rust_runtime(root: Path, output: Path) -> dict:
     }
 
 
-def worker_environment(workers: Path, backend: str) -> tuple[dict, dict]:
-    """The explicit worker build environment for the chosen backend."""
+def worker_environment(workers: Path) -> dict:
+    """The recorded Rust worker build environment."""
 
-    if backend == 'rust':
-        manifest_path = workers / 'worker-backend.json'
-        if not manifest_path.is_file():
-            raise FileNotFoundError(
-                'the Rust graph needs worker-backend.json; run '
-                'tools/stage_rust_workers.py before packaging'
-            )
-        if (workers / 'python-build-environment.json').is_file():
-            raise ValueError(
-                'refusing to package a Rust worker backend beside PyInstaller output'
-            )
-        recorded = json.loads(manifest_path.read_text(encoding='utf-8'))
-        if recorded.get('backend') != 'rust':
-            raise ValueError('worker-backend.json does not describe a rust backend')
-        return recorded, {}
-    return {}, json.loads(
-        (workers / 'python-build-environment.json').read_text(encoding='utf-8')
-    )
+    manifest_path = workers / 'worker-backend.json'
+    if not manifest_path.is_file():
+        raise FileNotFoundError(
+            'the package needs worker-backend.json; run '
+            'tools/stage_rust_workers.py before packaging'
+        )
+    recorded = json.loads(manifest_path.read_text(encoding='utf-8'))
+    if recorded.get('backend') != 'rust':
+        raise ValueError('worker-backend.json does not describe a rust backend')
+    return recorded
 
 
-def assemble_layout(
-    root: Path, output: Path, workers: Path, backend: str
-) -> dict:
-    """Copy the runtime into the portable layout for one worker backend."""
+def assemble_layout(root: Path, output: Path, workers: Path) -> dict:
+    """Copy the runtime into the portable layout."""
 
     output.mkdir(parents=True)
     shutil.copy2(
@@ -205,21 +155,15 @@ def assemble_layout(
         root / 'third_party/nioh_savefile_decrypt/LICENSE',
         output / 'licenses/Nioh-Savedata-Decryption-Tool-LICENSE',
     )
-    if backend == 'rust':
-        # The packaged host selects its worker graph from this file, so it has to
-        # travel inside the package at the path the broker reads. Without it the
-        # broker would keep the shipped worker and the staged Rust binary would be
-        # present but never launched.
-        shutil.copy2(workers / 'worker-backend.json', output / 'worker' / 'worker-backend.json')
-        return stage_rust_runtime(root, output)
-    return {}
+    # The packaged host launches the workers this file declares.
+    shutil.copy2(workers / 'worker-backend.json', output / 'worker' / 'worker-backend.json')
+    return stage_rust_runtime(root, output)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output', type=Path)
     parser.add_argument('workers', type=Path)
-    parser.add_argument('--worker-backend', choices=WORKER_BACKENDS, default='rust')
     parser.add_argument('--root', type=Path, help='override the repository root (tests)')
     args = parser.parse_args()
     root = (args.root or Path(__file__).resolve().parents[1]).resolve()
@@ -227,11 +171,10 @@ def main():
     if output.exists():
         raise FileExistsError('Choose a new output directory')
     version = json.loads((root / 'package.json').read_text(encoding='utf-8'))['version']
-    worker_manifest, python_environment = worker_environment(args.workers, args.worker_backend)
-    layout = assemble_layout(root, output, args.workers, args.worker_backend)
-    if args.worker_backend == 'rust':
-        native = verify_runtime_native_dependencies(output)
-        (output / 'native-dependencies.json').write_text(json.dumps(native, indent=2) + '\n', encoding='utf-8')
+    worker_manifest = worker_environment(args.workers)
+    layout = assemble_layout(root, output, args.workers)
+    native = verify_runtime_native_dependencies(output)
+    (output / 'native-dependencies.json').write_text(json.dumps(native, indent=2) + '\n', encoding='utf-8')
     javascript, pending = [], list(json.loads((root / 'package.json').read_text(encoding='utf-8'))['dependencies']) + ['@tauri-apps/api']
     visited = set()
     while pending:
@@ -255,16 +198,14 @@ def main():
     dependencies = collect_rust_licenses(
         root,
         output,
-        rust_dependency_packages(root, rust_license_manifests(args.worker_backend)),
+        rust_dependency_packages(root, LICENSED_CRATES),
     )
-    manifest = dependency_manifest(
-        args.worker_backend,
-        javascript,
-        dependencies,
-        worker_manifest=worker_manifest,
-        worker_layout=layout,
-        python_environment=python_environment,
-    )
+    manifest = {
+        'javascript': javascript,
+        'rust': dependencies,
+        'workerBuildEnvironment': worker_manifest,
+        'workerRuntimeLayout': layout,
+    }
     (output / 'dependency-manifest.json').write_text(
         json.dumps(manifest, indent=2) + '\n', encoding='utf-8'
     )
