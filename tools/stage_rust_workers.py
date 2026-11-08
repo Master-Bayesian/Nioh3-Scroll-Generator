@@ -165,7 +165,7 @@ DECRYPTOR = {
     "evidence": [
         "crates/nioh3-protected/src/save_app.rs uses nioh3_save modules (native codec)",
         "no std::process::Command in crates/nioh3-save or crates/nioh3-protected",
-        "executing consumers are Python-side: nioh3_scroll_editor/savegame.py, packaging/*.spec, research scripts",
+        "no shipped component executes it; it remains a test oracle",
         "protected owner confirmed the Rust host needs no external decryptor (pure-Rust codec)",
         "the M3-b save acceptance records that the Rust save path makes no external-process call",
     ],

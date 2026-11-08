@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import ast
 import json
 import os
 from pathlib import Path
@@ -36,18 +35,6 @@ def _toml(path: Path) -> dict[str, Any]:
         return tomllib.load(stream)
 
 
-def _python_constants(path: Path) -> dict[str, str]:
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    constants: dict[str, str] = {}
-    for node in tree.body:
-        if not isinstance(node, ast.Assign) or len(node.targets) != 1:
-            continue
-        target = node.targets[0]
-        if isinstance(target, ast.Name) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
-            constants[target.id] = node.value.value
-    return constants
-
-
 def _locked_package_version(path: Path, package_name: str) -> str:
     matches = [entry["version"] for entry in _toml(path).get("package", []) if entry.get("name") == package_name]
     if len(matches) != 1:
@@ -70,13 +57,11 @@ def _git(root: Path, *args: str) -> str:
 def _check_versions(root: Path) -> dict[str, Any]:
     package = _json(root / "package.json")
     package_lock = _json(root / "package-lock.json")
-    python_constants = _python_constants(root / "nioh3_scroll_editor/version.py")
     tauri_config = _json(root / "apps/tauri/src-tauri/tauri.conf.json")
     versions = {
         "package.json": str(package["version"]),
         "package-lock.json": str(package_lock["version"]),
         "package-lock.json#packages[empty]": str(package_lock["packages"][""]["version"]),
-        "nioh3_scroll_editor/version.py": python_constants["APP_VERSION"],
         "apps/tauri/src-tauri/tauri.conf.json": str(tauri_config["version"]),
         "apps/tauri/src-tauri/Cargo.toml": str(_toml(root / "apps/tauri/src-tauri/Cargo.toml")["package"]["version"]),
         "apps/tauri/src-tauri/Cargo.lock": _locked_package_version(
@@ -94,26 +79,21 @@ def _check_versions(root: Path) -> dict[str, Any]:
 
 
 def _check_update_identity(root: Path) -> dict[str, Any]:
-    constants = _python_constants(root / "nioh3_scroll_editor/version.py")
-    project_url = constants["PROJECT_GITHUB_URL"].rstrip("/")
-    public_key = constants["UPDATE_PUBLIC_KEY_BASE64"]
+    project_url = EXPECTED_PROJECT_URL
+    public_key = EXPECTED_PUBLIC_KEY_BASE64
     signer = (root / "tools/build_tauri_update_manifest.mjs").read_text(encoding="utf-8")
     updater = (root / "apps/tauri/src-tauri/src/update.rs").read_text(encoding="utf-8")
     expected_url = f"{project_url}/releases/download/v${{version}}/${{name}}"
     failures = []
-    if project_url != EXPECTED_PROJECT_URL:
-        failures.append("application repository differs from the official release repository")
-    if public_key != EXPECTED_PUBLIC_KEY_BASE64:
-        failures.append("application public key differs from the production release key")
     if f"Buffer.from('{public_key}','base64')" not in signer:
-        failures.append("signer public key differs from application configuration")
+        failures.append("signer public key differs from the production release key")
     if expected_url not in signer:
-        failures.append("signer repository URL differs from application configuration")
+        failures.append("signer repository URL differs from the official release repository")
     if f'.decode("{public_key}")' not in updater:
-        failures.append("Tauri updater public key differs from application configuration")
+        failures.append("Tauri updater public key differs from the production release key")
     repository_path = project_url.removeprefix("https://github.com")
     if f'"https://github.com{repository_path}/releases/download/v{{}}/{{}}"' not in updater:
-        failures.append("Tauri updater repository URL differs from application configuration")
+        failures.append("Tauri updater repository URL differs from the official release repository")
     if failures:
         raise ValueError("; ".join(failures))
     return {"projectUrl": project_url, "publicKeyBase64": public_key}
@@ -205,7 +185,6 @@ def _check_workflow(root: Path) -> dict[str, Any]:
         "outer rollback verification": "node apps/tauri/verify-onefile-rollback.mjs",
         "packaged frontend verification": "node apps/tauri/verify-packaged-frontend.mjs",
         "update manifest upload": "deliverables/release/tauri-update.json",
-        "test inventory upload": "deliverables/release/test-inventory.json",
         # The bounded dispatch contract: one explicit, defaulted acceptance
         # profile rather than a full extended run on every preparation.
         "extended search input": "extended_search:",
@@ -268,7 +247,7 @@ def _check_workflow(root: Path) -> dict[str, Any]:
         ),
     }
     independent = {
-        "windows-tests": "windows-tests:",
+        "model-and-lint": "model-and-lint:",
         "rust-crates": "rust-crates:",
         "rust-packaging": "rust-packaging:",
     }
