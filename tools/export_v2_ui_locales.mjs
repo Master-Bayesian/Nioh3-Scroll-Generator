@@ -1,5 +1,6 @@
-// Rebuild the UI half of apps/workshop/ui-locales.json from ui-translations.tsv.
-// The game-name half is game data: it is kept exactly as committed.
+// Rebuild the UI half of apps/workshop/ui-locales.json from ui-translations.tsv,
+// keeping the game-name half as committed. The Rust export_workshop example
+// (crates/nioh3-worker) rebuilds the whole file, game names included.
 import {readFileSync, writeFileSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';

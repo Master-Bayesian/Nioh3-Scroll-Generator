@@ -174,7 +174,12 @@ const LABELS: [(&str, [(&str, &str); 8]); 3] = [
 
 /// `presentation_strings.label`. `name` and `value` fill the two placeholders
 /// the shipped table uses; at most one of them is ever supplied per label.
-fn render_label(locale: &str, key: &str, name: Option<&str>, value: Option<&str>) -> String {
+pub(crate) fn render_label(
+    locale: &str,
+    key: &str,
+    name: Option<&str>,
+    value: Option<&str>,
+) -> String {
     let table = LABELS
         .iter()
         .find(|(candidate, _)| *candidate == locale)
@@ -349,9 +354,9 @@ fn python_format(name: &str, first: &str) -> Option<String> {
 /// catalog empty exactly like the reference, so an effect stays unnamed instead
 /// of the worker refusing to serve anything.
 #[derive(Debug, Default)]
-struct EffectNameCatalog {
+pub(crate) struct EffectNameCatalog {
     /// Effect id -> normalized locale -> name.
-    names: BTreeMap<u32, BTreeMap<String, String>>,
+    pub(crate) names: BTreeMap<u32, BTreeMap<String, String>>,
 }
 
 impl EffectNameCatalog {
@@ -393,7 +398,7 @@ impl EffectNameCatalog {
 
     /// `catalog.native_effect_name`: exact locale, then same language, then the
     /// reference's Chinese/English/any fallback chain.
-    fn name(&self, effect_id: u32, locale: &str) -> Option<&str> {
+    pub(crate) fn name(&self, effect_id: u32, locale: &str) -> Option<&str> {
         let names = self.names.get(&effect_id)?;
         let preferred = normalize_locale_tag(locale);
         if let Some(exact) = names.get(&preferred) {
@@ -414,8 +419,16 @@ impl EffectNameCatalog {
     }
 }
 
+/// Whether the curated overlay names this effect (`catalog.ORDINARY_EFFECT_BY_ID`).
+#[cfg(feature = "workshop-export")]
+pub(crate) fn is_curated_effect(effect_id: u16) -> bool {
+    CURATED_EFFECT_NAMES
+        .iter()
+        .any(|(key, _)| *key == effect_id)
+}
+
 /// `catalog._player_ready_effect_name`.
-fn player_ready_effect_name(
+pub(crate) fn player_ready_effect_name(
     catalog: &EffectNameCatalog,
     preferred_locale: &str,
     effect_id: u16,
@@ -487,13 +500,13 @@ struct RuleNameEntry {
 
 /// `auxiliary_catalog.AuxiliaryNameCatalog`: the names one locale ships.
 #[derive(Debug)]
-struct AuxiliaryNameCatalog {
+pub(crate) struct AuxiliaryNameCatalog {
     locale: String,
     /// Terrain display name per hash key, keyed by the shipped `0x%04X`
     /// spelling the reference compares against.
     terrain: BTreeMap<String, String>,
     special_rules: BTreeMap<String, RuleNameEntry>,
-    enemies: BTreeMap<String, String>,
+    pub(crate) enemies: BTreeMap<String, String>,
 }
 
 /// A non-empty trimmed string, mirroring `str(value or "").strip()` truthiness.
@@ -621,7 +634,7 @@ fn row_order_key(key: &str) -> (bool, i64, &str) {
 
 impl AuxiliaryNameCatalog {
     /// `AuxiliaryNameCatalog.terrain_effect_name`.
-    fn terrain_effect_name(&self, key: u16) -> String {
+    pub(crate) fn terrain_effect_name(&self, key: u16) -> String {
         let wanted = format!("0x{key:04X}");
         match self.terrain.get(&wanted) {
             Some(name) => name.clone(),
@@ -630,7 +643,7 @@ impl AuxiliaryNameCatalog {
     }
 
     /// `AuxiliaryNameCatalog.enemy_name`.
-    fn enemy_name(&self, lookup_key: u32) -> String {
+    pub(crate) fn enemy_name(&self, lookup_key: u32) -> String {
         match self.enemies.get(&hex_key(lookup_key, 8)) {
             Some(name) => name.clone(),
             None => render_label(
@@ -643,7 +656,7 @@ impl AuxiliaryNameCatalog {
     }
 
     /// `AuxiliaryNameCatalog.special_rule_name`.
-    fn special_rule_name(
+    pub(crate) fn special_rule_name(
         &self,
         key: u16,
         tables: &SpecialRuleTables,
@@ -752,7 +765,7 @@ impl AuxiliaryNameCatalog {
 
     /// `AuxiliaryNameCatalog.special_rule_key_groups`, ordered by case-folded
     /// display name with numeric keys inside each family.
-    fn special_rule_key_groups(
+    pub(crate) fn special_rule_key_groups(
         &self,
         allowed: &BTreeSet<u16>,
         tables: &SpecialRuleTables,
@@ -809,9 +822,9 @@ pub struct CatalogInputs<'a> {
 #[derive(Debug)]
 pub struct Catalog {
     data_root: PathBuf,
-    preferred_locale: String,
-    effect_names: EffectNameCatalog,
-    item_names: BTreeMap<u32, BTreeMap<String, String>>,
+    pub(crate) preferred_locale: String,
+    pub(crate) effect_names: EffectNameCatalog,
+    pub(crate) item_names: BTreeMap<u32, BTreeMap<String, String>>,
     locales: Mutex<BTreeMap<String, Arc<AuxiliaryNameCatalog>>>,
 }
 
@@ -828,7 +841,7 @@ impl Catalog {
     }
 
     /// The auxiliary-name catalog for one locale, cached per locale.
-    fn auxiliary(&self, locale: &str) -> Result<Arc<AuxiliaryNameCatalog>, EngineError> {
+    pub(crate) fn auxiliary(&self, locale: &str) -> Result<Arc<AuxiliaryNameCatalog>, EngineError> {
         let mut cache = self.locales.lock().expect("auxiliary-name catalog cache");
         if let Some(catalog) = cache.get(locale) {
             return Ok(Arc::clone(catalog));
@@ -848,7 +861,12 @@ impl Catalog {
             ));
         }
         let names = self.auxiliary(inputs.locale)?;
-        let ordinary = self.ordinary_effects(inputs.index, inputs.rarity, inputs.locale)?;
+        let ordinary = self.ordinary_effects(
+            inputs.index,
+            CATALOG_PLAYTHROUGH,
+            inputs.rarity,
+            inputs.locale,
+        )?;
         let grace = grace_effects(
             inputs.effect,
             inputs.rarity,
@@ -881,10 +899,11 @@ impl Catalog {
         }))
     }
 
-    /// `catalog.searchable_scroll_effect_definitions` for one rarity.
-    fn ordinary_effects(
+    /// `catalog.searchable_scroll_effect_definitions` for one playthrough and rarity.
+    pub(crate) fn ordinary_effects(
         &self,
         index: &EffectTableIndex,
+        playthrough: u8,
         rarity: u8,
         locale: &str,
     ) -> Result<Vec<Value>, EngineError> {
@@ -894,7 +913,7 @@ impl Catalog {
                 format!("scroll rarity must be 3, 4, or 5, not {rarity}"),
             ));
         }
-        let record_type = SCROLL_RECORD_TYPES[usize::from(CATALOG_PLAYTHROUGH - 1)];
+        let record_type = SCROLL_RECORD_TYPES[usize::from(playthrough - 1)];
         let capacities = index
             .category_capacities(record_type, rarity)
             .map_err(effect_table_error)?;
@@ -928,7 +947,7 @@ impl Catalog {
                     NativeWeightContext {
                         record_type,
                         rarity,
-                        playthrough: CATALOG_PLAYTHROUGH,
+                        playthrough,
                         restricted_destination_slot: false,
                         extra_selector: 0,
                         rarity5_type_floor: 0,
@@ -1035,7 +1054,7 @@ fn grace_effects(
 /// The option ids and their order come from [`crate::terrain::terrain_choices`],
 /// the same resolver the search uses, so a published option always selects the
 /// rows it names.
-fn terrain_options(
+pub(crate) fn terrain_options(
     roster: &RosterTables,
     names: &AuxiliaryNameCatalog,
     locale: &str,
@@ -1067,7 +1086,7 @@ fn terrain_options(
 }
 
 /// `catalog_application.auxiliary_catalog`'s `enemy_options`.
-fn enemy_options(
+pub(crate) fn enemy_options(
     roster: &RosterTables,
     names: &AuxiliaryNameCatalog,
 ) -> Result<Vec<Value>, EngineError> {

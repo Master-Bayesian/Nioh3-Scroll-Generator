@@ -65,7 +65,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo fmt --check --manifest-path crates/nioh3-data/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo clippy --locked --offline --all-targets --manifest-path crates/nioh3-worker/Cargo.toml -- -D warnings
+          cargo clippy --locked --offline --all-targets --all-features --manifest-path crates/nioh3-worker/Cargo.toml -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # The workshop's bundled data files must match what the tables produce.
+          cargo run --locked --offline --features workshop-export --manifest-path crates/nioh3-worker/Cargo.toml --example export_workshop -- --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo fmt --check --manifest-path crates/nioh3-worker/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
