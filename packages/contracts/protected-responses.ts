@@ -380,6 +380,23 @@ export interface CharacterEquipment {
       original?: number | null;
     }[];
   } | null;
+  /**
+   * Raw equipment position words for the two saved sets; slot semantics are not yet verified.
+   *
+   * @maxItems 2
+   */
+  set_positions?: [] | [number] | [number, number];
+  /**
+   * Read-only equipment record flags at 0x18; preserved for native armor getters.
+   */
+  native_flags?: number;
+  /**
+   * Read-only native remodel bytes at equipment record 0x31 and 0x32.
+   *
+   * @minItems 2
+   * @maxItems 2
+   */
+  armor_remodel?: [number, number];
 }
 export interface CharacterEquipmentEffect {
   index: number;
@@ -560,6 +577,901 @@ export interface SaveCharacter {
           }
         ];
   } | null;
+  loadout?: SavedLoadout;
+  /**
+   * @maxItems 4
+   */
+  loadout_scrolls?:
+    | []
+    | [
+        {
+          slot_index: number;
+          header: {
+            playthrough: number;
+            level: number;
+            recommended_level: number;
+            seed: number;
+            rarity: 3 | 4 | 5;
+            transfer_count: number;
+          };
+          /**
+           * @minItems 7
+           * @maxItems 7
+           */
+          effects: [
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            }
+          ];
+          derived: {
+            initial_challenge_capacity: number;
+            remaining_challenge_attempts: number;
+            recommended_displayed_level: number;
+            recommended_raw_was_clamped: boolean;
+            recommended_raw_level?: number;
+          };
+          record_hex?: string;
+        }
+      ]
+    | [
+        {
+          slot_index: number;
+          header: {
+            playthrough: number;
+            level: number;
+            recommended_level: number;
+            seed: number;
+            rarity: 3 | 4 | 5;
+            transfer_count: number;
+          };
+          /**
+           * @minItems 7
+           * @maxItems 7
+           */
+          effects: [
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            }
+          ];
+          derived: {
+            initial_challenge_capacity: number;
+            remaining_challenge_attempts: number;
+            recommended_displayed_level: number;
+            recommended_raw_was_clamped: boolean;
+            recommended_raw_level?: number;
+          };
+          record_hex?: string;
+        },
+        {
+          slot_index: number;
+          header: {
+            playthrough: number;
+            level: number;
+            recommended_level: number;
+            seed: number;
+            rarity: 3 | 4 | 5;
+            transfer_count: number;
+          };
+          /**
+           * @minItems 7
+           * @maxItems 7
+           */
+          effects: [
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            }
+          ];
+          derived: {
+            initial_challenge_capacity: number;
+            remaining_challenge_attempts: number;
+            recommended_displayed_level: number;
+            recommended_raw_was_clamped: boolean;
+            recommended_raw_level?: number;
+          };
+          record_hex?: string;
+        }
+      ]
+    | [
+        {
+          slot_index: number;
+          header: {
+            playthrough: number;
+            level: number;
+            recommended_level: number;
+            seed: number;
+            rarity: 3 | 4 | 5;
+            transfer_count: number;
+          };
+          /**
+           * @minItems 7
+           * @maxItems 7
+           */
+          effects: [
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            }
+          ];
+          derived: {
+            initial_challenge_capacity: number;
+            remaining_challenge_attempts: number;
+            recommended_displayed_level: number;
+            recommended_raw_was_clamped: boolean;
+            recommended_raw_level?: number;
+          };
+          record_hex?: string;
+        },
+        {
+          slot_index: number;
+          header: {
+            playthrough: number;
+            level: number;
+            recommended_level: number;
+            seed: number;
+            rarity: 3 | 4 | 5;
+            transfer_count: number;
+          };
+          /**
+           * @minItems 7
+           * @maxItems 7
+           */
+          effects: [
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            }
+          ];
+          derived: {
+            initial_challenge_capacity: number;
+            remaining_challenge_attempts: number;
+            recommended_displayed_level: number;
+            recommended_raw_was_clamped: boolean;
+            recommended_raw_level?: number;
+          };
+          record_hex?: string;
+        },
+        {
+          slot_index: number;
+          header: {
+            playthrough: number;
+            level: number;
+            recommended_level: number;
+            seed: number;
+            rarity: 3 | 4 | 5;
+            transfer_count: number;
+          };
+          /**
+           * @minItems 7
+           * @maxItems 7
+           */
+          effects: [
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            }
+          ];
+          derived: {
+            initial_challenge_capacity: number;
+            remaining_challenge_attempts: number;
+            recommended_displayed_level: number;
+            recommended_raw_was_clamped: boolean;
+            recommended_raw_level?: number;
+          };
+          record_hex?: string;
+        }
+      ]
+    | [
+        {
+          slot_index: number;
+          header: {
+            playthrough: number;
+            level: number;
+            recommended_level: number;
+            seed: number;
+            rarity: 3 | 4 | 5;
+            transfer_count: number;
+          };
+          /**
+           * @minItems 7
+           * @maxItems 7
+           */
+          effects: [
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            }
+          ];
+          derived: {
+            initial_challenge_capacity: number;
+            remaining_challenge_attempts: number;
+            recommended_displayed_level: number;
+            recommended_raw_was_clamped: boolean;
+            recommended_raw_level?: number;
+          };
+          record_hex?: string;
+        },
+        {
+          slot_index: number;
+          header: {
+            playthrough: number;
+            level: number;
+            recommended_level: number;
+            seed: number;
+            rarity: 3 | 4 | 5;
+            transfer_count: number;
+          };
+          /**
+           * @minItems 7
+           * @maxItems 7
+           */
+          effects: [
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            }
+          ];
+          derived: {
+            initial_challenge_capacity: number;
+            remaining_challenge_attempts: number;
+            recommended_displayed_level: number;
+            recommended_raw_was_clamped: boolean;
+            recommended_raw_level?: number;
+          };
+          record_hex?: string;
+        },
+        {
+          slot_index: number;
+          header: {
+            playthrough: number;
+            level: number;
+            recommended_level: number;
+            seed: number;
+            rarity: 3 | 4 | 5;
+            transfer_count: number;
+          };
+          /**
+           * @minItems 7
+           * @maxItems 7
+           */
+          effects: [
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            }
+          ];
+          derived: {
+            initial_challenge_capacity: number;
+            remaining_challenge_attempts: number;
+            recommended_displayed_level: number;
+            recommended_raw_was_clamped: boolean;
+            recommended_raw_level?: number;
+          };
+          record_hex?: string;
+        },
+        {
+          slot_index: number;
+          header: {
+            playthrough: number;
+            level: number;
+            recommended_level: number;
+            seed: number;
+            rarity: 3 | 4 | 5;
+            transfer_count: number;
+          };
+          /**
+           * @minItems 7
+           * @maxItems 7
+           */
+          effects: [
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            },
+            {
+              slot_index: number;
+              effect_id: number;
+              value: number;
+              prefix: number;
+              metadata: number;
+              tail_0: number;
+              tail_1: number;
+            }
+          ];
+          derived: {
+            initial_challenge_capacity: number;
+            remaining_challenge_attempts: number;
+            recommended_displayed_level: number;
+            recommended_raw_was_clamped: boolean;
+            recommended_raw_level?: number;
+          };
+          record_hex?: string;
+        }
+      ];
+  loadout_read_error?: string | null;
 }
 export interface CharacterCurrencies {
   amrita: number | null;
@@ -572,6 +1484,453 @@ export interface CharacterItem {
   quantity: number | null;
   limit: number;
   record_sha256: string;
+}
+export interface SavedLoadout {
+  profile: "pc_v2_02";
+  complete: boolean;
+  attributes:
+    | []
+    | [number]
+    | [number, number]
+    | [number, number, number]
+    | [number, number, number, number]
+    | [number, number, number, number, number]
+    | [number, number, number, number, number, number]
+    | [number, number, number, number, number, number, number]
+    | null;
+  initial_attributes:
+    | []
+    | [number]
+    | [number, number]
+    | [number, number, number]
+    | [number, number, number, number]
+    | [number, number, number, number, number]
+    | [number, number, number, number, number, number]
+    | [number, number, number, number, number, number, number]
+    | null;
+  level: number | null;
+  capacities: [] | [number] | [number, number] | [number, number, number] | null;
+  skills:
+    | {
+        id: number;
+        stored_rank: number;
+        selected_rank: number;
+      }[]
+    | null;
+  clan_protections:
+    | []
+    | [
+        {
+          group_id: number;
+          raw: number;
+          clan_id: number;
+          effect_index: number;
+        }
+      ]
+    | [
+        {
+          group_id: number;
+          raw: number;
+          clan_id: number;
+          effect_index: number;
+        },
+        {
+          group_id: number;
+          raw: number;
+          clan_id: number;
+          effect_index: number;
+        }
+      ]
+    | [
+        {
+          group_id: number;
+          raw: number;
+          clan_id: number;
+          effect_index: number;
+        },
+        {
+          group_id: number;
+          raw: number;
+          clan_id: number;
+          effect_index: number;
+        },
+        {
+          group_id: number;
+          raw: number;
+          clan_id: number;
+          effect_index: number;
+        }
+      ]
+    | [
+        {
+          group_id: number;
+          raw: number;
+          clan_id: number;
+          effect_index: number;
+        },
+        {
+          group_id: number;
+          raw: number;
+          clan_id: number;
+          effect_index: number;
+        },
+        {
+          group_id: number;
+          raw: number;
+          clan_id: number;
+          effect_index: number;
+        },
+        {
+          group_id: number;
+          raw: number;
+          clan_id: number;
+          effect_index: number;
+        }
+      ]
+    | null;
+  guardian_ownership:
+    | {
+        id: number;
+        level: number;
+        owned: boolean;
+      }[]
+    | null;
+  guardian_selection: [] | [number] | [number, number] | null;
+  clan_membership: {
+    clan_id: number;
+    cached_rank_index: number;
+  } | null;
+  equipped_indices:
+    | []
+    | [
+        | []
+        | [number]
+        | [number, number]
+        | [number, number, number]
+        | [number, number, number, number]
+        | [number, number, number, number, number]
+        | [number, number, number, number, number, number]
+        | [number, number, number, number, number, number, number]
+        | [number, number, number, number, number, number, number, number]
+        | [number, number, number, number, number, number, number, number, number]
+        | [number, number, number, number, number, number, number, number, number, number]
+        | [number, number, number, number, number, number, number, number, number, number, number]
+        | [number, number, number, number, number, number, number, number, number, number, number, number]
+        | [number, number, number, number, number, number, number, number, number, number, number, number, number]
+        | [
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number
+          ]
+        | [
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number
+          ]
+        | [
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number
+          ]
+        | [
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+            number
+          ]
+      ]
+    | [
+        (
+          | []
+          | [number]
+          | [number, number]
+          | [number, number, number]
+          | [number, number, number, number]
+          | [number, number, number, number, number]
+          | [number, number, number, number, number, number]
+          | [number, number, number, number, number, number, number]
+          | [number, number, number, number, number, number, number, number]
+          | [number, number, number, number, number, number, number, number, number]
+          | [number, number, number, number, number, number, number, number, number, number]
+          | [number, number, number, number, number, number, number, number, number, number, number]
+          | [number, number, number, number, number, number, number, number, number, number, number, number]
+          | [number, number, number, number, number, number, number, number, number, number, number, number, number]
+          | [
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number
+            ]
+          | [
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number
+            ]
+          | [
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number
+            ]
+          | [
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number
+            ]
+        ),
+        (
+          | []
+          | [number]
+          | [number, number]
+          | [number, number, number]
+          | [number, number, number, number]
+          | [number, number, number, number, number]
+          | [number, number, number, number, number, number]
+          | [number, number, number, number, number, number, number]
+          | [number, number, number, number, number, number, number, number]
+          | [number, number, number, number, number, number, number, number, number]
+          | [number, number, number, number, number, number, number, number, number, number]
+          | [number, number, number, number, number, number, number, number, number, number, number]
+          | [number, number, number, number, number, number, number, number, number, number, number, number]
+          | [number, number, number, number, number, number, number, number, number, number, number, number, number]
+          | [
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number
+            ]
+          | [
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number
+            ]
+          | [
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number
+            ]
+          | [
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+              number
+            ]
+        )
+      ]
+    | null;
+  soul_core_indices:
+    | []
+    | [number]
+    | [number, number]
+    | [number, number, number]
+    | [number, number, number, number]
+    | [number, number, number, number, number]
+    | [number, number, number, number, number, number]
+    | [number, number, number, number, number, number, number]
+    | [number, number, number, number, number, number, number, number]
+    | [number, number, number, number, number, number, number, number, number]
+    | [number, number, number, number, number, number, number, number, number, number]
+    | null;
+  destroyed_spike_count: number | null;
+  /**
+   * @maxItems 16
+   */
+  unavailable:
+    | []
+    | [string]
+    | [string, string]
+    | [string, string, string]
+    | [string, string, string, string]
+    | [string, string, string, string, string]
+    | [string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ]
+    | [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string
+      ];
 }
 export interface RuntimeStatus {
   override_state: "stopped" | "armed_no_hit" | "applied_hit" | "unknown";

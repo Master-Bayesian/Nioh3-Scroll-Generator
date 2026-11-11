@@ -452,6 +452,33 @@
               "type": "null"
             }
           ]
+        },
+        "set_positions": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "maxItems": 2,
+          "description": "Raw equipment position words for the two saved sets; slot semantics are not yet verified."
+        },
+        "native_flags": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295,
+          "description": "Read-only equipment record flags at 0x18; preserved for native armor getters."
+        },
+        "armor_remodel": {
+          "type": "array",
+          "minItems": 2,
+          "description": "Read-only native remodel bytes at equipment record 0x31 and 0x32.",
+          "items": {
+            "type": "integer",
+            "maximum": 255,
+            "minimum": 0
+          },
+          "maxItems": 2
         }
       },
       "required": [
@@ -1087,6 +1114,179 @@
                 "difficulty",
                 "difficulties"
               ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "loadout": {
+          "$ref": "#/definitions/SavedLoadout"
+        },
+        "loadout_scrolls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "slot_index": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 399
+              },
+              "header": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "playthrough": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "level": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  "recommended_level": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  "seed": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "rarity": {
+                    "enum": [
+                      3,
+                      4,
+                      5
+                    ]
+                  },
+                  "transfer_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  }
+                },
+                "required": [
+                  "playthrough",
+                  "level",
+                  "recommended_level",
+                  "seed",
+                  "rarity",
+                  "transfer_count"
+                ]
+              },
+              "effects": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "slot_index": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 6
+                    },
+                    "effect_id": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4294967295
+                    },
+                    "value": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4294967295
+                    },
+                    "prefix": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4294967295
+                    },
+                    "metadata": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4294967295
+                    },
+                    "tail_0": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4294967295
+                    },
+                    "tail_1": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4294967295
+                    }
+                  },
+                  "required": [
+                    "slot_index",
+                    "effect_id",
+                    "value",
+                    "prefix",
+                    "metadata",
+                    "tail_0",
+                    "tail_1"
+                  ]
+                },
+                "minItems": 7,
+                "maxItems": 7,
+                "uniqueItems": true
+              },
+              "derived": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "initial_challenge_capacity": {
+                    "type": "integer",
+                    "minimum": 4,
+                    "maximum": 7
+                  },
+                  "remaining_challenge_attempts": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 255
+                  },
+                  "recommended_displayed_level": {
+                    "type": "integer"
+                  },
+                  "recommended_raw_was_clamped": {
+                    "type": "boolean"
+                  },
+                  "recommended_raw_level": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  }
+                },
+                "required": [
+                  "initial_challenge_capacity",
+                  "remaining_challenge_attempts",
+                  "recommended_displayed_level",
+                  "recommended_raw_was_clamped"
+                ]
+              },
+              "record_hex": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{464}$"
+              }
+            },
+            "required": [
+              "slot_index",
+              "header",
+              "effects",
+              "derived"
+            ]
+          },
+          "maxItems": 4
+        },
+        "loadout_read_error": {
+          "anyOf": [
+            {
+              "type": "string"
             },
             {
               "type": "null"
@@ -4875,6 +5075,311 @@
       },
       "required": [
         "compatibility"
+      ]
+    },
+    "SavedLoadout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "type": "string",
+          "enum": [
+            "pc_v2_02"
+          ]
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "attributes": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "maxItems": 7
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "initial_attributes": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "maxItems": 7
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "level": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "capacities": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "maxItems": 3
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "skills": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "stored_rank": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "selected_rank": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  }
+                },
+                "required": [
+                  "id",
+                  "stored_rank",
+                  "selected_rank"
+                ]
+              },
+              "maxItems": 2000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clan_protections": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "group_id": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "raw": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "clan_id": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "effect_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  }
+                },
+                "required": [
+                  "group_id",
+                  "raw",
+                  "clan_id",
+                  "effect_index"
+                ]
+              },
+              "maxItems": 4
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "guardian_ownership": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "level": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "owned": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "level",
+                  "owned"
+                ]
+              },
+              "maxItems": 128
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "guardian_selection": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "maxItems": 2
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clan_membership": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "clan_id": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                },
+                "cached_rank_index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "clan_id",
+                "cached_rank_index"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "equipped_indices": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                },
+                "maxItems": 17
+              },
+              "maxItems": 2
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "soul_core_indices": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "maxItems": 10
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "destroyed_spike_count": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unavailable": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16
+        }
+      },
+      "required": [
+        "profile",
+        "complete",
+        "attributes",
+        "initial_attributes",
+        "level",
+        "capacities",
+        "skills",
+        "clan_protections",
+        "guardian_ownership",
+        "guardian_selection",
+        "clan_membership",
+        "equipped_indices",
+        "soul_core_indices",
+        "destroyed_spike_count",
+        "unavailable"
       ]
     }
   },

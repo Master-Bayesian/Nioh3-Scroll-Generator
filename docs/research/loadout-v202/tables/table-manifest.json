@@ -1,0 +1,74 @@
+[
+  {
+    "file": "tables/clan-rank-effects.csv",
+    "rows": 2000,
+    "source": "project-source/apps/workshop/loadout-clans.json",
+    "sha256": "ff81e92e55594c5d65d49b4101310343630b74fca609162e5adea74af1233dd8"
+  },
+  {
+    "file": "tables/skills.csv",
+    "rows": 149,
+    "source": "project-source/apps/workshop/loadout-skills.json",
+    "sha256": "bebccb9cae0ff29c8c7d5b64da75d2c2b1c924eb061aa0f899b6e526c58bc772"
+  },
+  {
+    "file": "tables/guardian-level-effects.csv",
+    "rows": 5500,
+    "source": "project-source/apps/workshop/loadout-guardians.json",
+    "sha256": "482bab711ba7c060049c2815f5ac5708d48a85804048d70f82e9674d2bf1204a"
+  },
+  {
+    "file": "tables/set-grace-tiers.csv",
+    "rows": 421,
+    "source": "project-source/apps/workshop/loadout-sets.json",
+    "sha256": "2243a6b5e4f4c049537af22734ef738f18920591596ff48840948f28d929bdc9"
+  },
+  {
+    "file": "tables/effect-groups.csv",
+    "rows": 1152,
+    "source": "project-source/apps/workshop/loadout-effect-catalog.json",
+    "sha256": "f7f0cd80d9c48e3900f9c4b55bcd38181902b8716d2dbef3822aeb214bd78953"
+  },
+  {
+    "file": "tables/soul-cores.csv",
+    "rows": 139,
+    "source": "project-source/apps/workshop/loadout-soul-cores.json",
+    "sha256": "d1a8275d031582345f5a490d75137e307474812f7fba8f409c888ddb91096aec"
+  },
+  {
+    "file": "tables/armor-and-accessory-base.csv",
+    "rows": 905,
+    "source": "project-source/apps/workshop/loadout-stats.json",
+    "sha256": "8af81f869ed8f59f1dc9e595bae235d46872e8b853411867b00a0babb030d891"
+  },
+  {
+    "file": "tables/armor-requirement-columns.csv",
+    "rows": 5642,
+    "source": "project-source/apps/workshop/loadout-armor-requirements.json",
+    "sha256": "f4a645b941fdf25ce03d0f3380ee616d382a43463100b9d238f44d03de46317f"
+  },
+  {
+    "file": "tables/remodel-coefficients.csv",
+    "rows": 502,
+    "source": "project-source/apps/workshop/loadout-armor-requirements.json",
+    "sha256": "08a52a1e59eb612fff8c055750469f32b352fe4e14fefd0ecb41cb6fa3cde0a4"
+  },
+  {
+    "file": "tables/base-capacity.csv",
+    "rows": 150,
+    "source": "project-source/apps/workshop/loadout-stats.json",
+    "sha256": "f6e61136908df997666ded74b2eb6cdbc84383e675922b6f65145396a3f24fb0"
+  },
+  {
+    "file": "tables/life-ki-attribute-curves.csv",
+    "rows": 450,
+    "source": "project-source/apps/workshop/loadout-resources.json",
+    "sha256": "b8e16bee20a8ab762b38740b4a508b556b2fffda1be393e77888895bdb8b3da1"
+  },
+  {
+    "file": "tables/resource-modifier-curves.csv",
+    "rows": 18,
+    "source": "project-source/apps/workshop/loadout-resources.json",
+    "sha256": "ded7aacaf30cf0ceec1d1952ad73c0546a1f1887241bc49ce8bde752d4e74f31"
+  }
+]

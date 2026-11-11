@@ -20,6 +20,7 @@ pub mod crypto;
 pub mod error;
 pub mod inventory;
 pub mod layout;
+pub mod loadout;
 pub mod nioh_cipher;
 pub mod paths;
 pub mod resign;

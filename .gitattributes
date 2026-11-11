@@ -29,3 +29,6 @@ third_party/rust-notices/**/provenance.json text eol=lf
 # Frozen evidence fixtures retain their captured byte identity.
 tests/fixtures/m23c-application/catalog_reference_zh.json -text whitespace=cr-at-eol
 tests/fixtures/game-version-update-20260919/reports/resource-comparison-v2.02-ng3.json -text whitespace=cr-at-eol
+
+# Keep the readable native projections identical to their checksum manifest.
+docs/research/loadout-v202/tables/*.csv -text whitespace=cr-at-eol
