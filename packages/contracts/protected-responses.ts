@@ -55,7 +55,11 @@ export type ProtectedResponse =
           }
         | ScrollCompletionPrediction
         | EquipmentAddition
-        | RuntimeCompatibility;
+        | RuntimeCompatibility
+        | PrestigeSnapshot
+        | PrestigeEdit
+        | PlayerResources
+        | PlayerEdit;
     }
   | {
       protocol: 1;
@@ -130,7 +134,11 @@ export interface ProtectedJob {
     | "runtime.equipment_add_execute"
     | "runtime.equipment_add_status"
     | "runtime.equipment_add_recover"
-    | "runtime.equipment_add_cancel";
+    | "runtime.equipment_add_cancel"
+    | "runtime.prestige_edit"
+    | "runtime.prestige_recover"
+    | "runtime.player_edit"
+    | "runtime.player_recover";
   state: "running" | "cancel_requested" | "completed" | "failed";
   sequence: number;
   cancellable: boolean;
@@ -265,7 +273,11 @@ export interface ProtectedJob {
           source_sha256: string;
           record_hex: string;
         };
-      };
+      }
+    | PrestigeSnapshot
+    | PrestigeEdit
+    | PlayerResources
+    | PlayerEdit;
   error: {
     code: string;
     message: string;
@@ -1206,6 +1218,151 @@ export interface CountEdit {
   old_count: number;
   new_count: number;
   error: string | null;
+}
+export interface PrestigeSnapshot {
+  prestige: {
+    process_id: number;
+    process_birth: string;
+    snapshot_id: string;
+    max_budget: number;
+    experimental: true;
+    /**
+     * @minItems 9
+     * @maxItems 9
+     */
+    categories: [
+      {
+        category_id: 50152 | 19338 | 41583 | 29207 | 60307 | 1486 | 18917 | 50326 | 41813;
+        rank: number;
+        fame: number;
+        earned: number;
+        spent: number;
+        available: number;
+        editable: boolean;
+      },
+      {
+        category_id: 50152 | 19338 | 41583 | 29207 | 60307 | 1486 | 18917 | 50326 | 41813;
+        rank: number;
+        fame: number;
+        earned: number;
+        spent: number;
+        available: number;
+        editable: boolean;
+      },
+      {
+        category_id: 50152 | 19338 | 41583 | 29207 | 60307 | 1486 | 18917 | 50326 | 41813;
+        rank: number;
+        fame: number;
+        earned: number;
+        spent: number;
+        available: number;
+        editable: boolean;
+      },
+      {
+        category_id: 50152 | 19338 | 41583 | 29207 | 60307 | 1486 | 18917 | 50326 | 41813;
+        rank: number;
+        fame: number;
+        earned: number;
+        spent: number;
+        available: number;
+        editable: boolean;
+      },
+      {
+        category_id: 50152 | 19338 | 41583 | 29207 | 60307 | 1486 | 18917 | 50326 | 41813;
+        rank: number;
+        fame: number;
+        earned: number;
+        spent: number;
+        available: number;
+        editable: boolean;
+      },
+      {
+        category_id: 50152 | 19338 | 41583 | 29207 | 60307 | 1486 | 18917 | 50326 | 41813;
+        rank: number;
+        fame: number;
+        earned: number;
+        spent: number;
+        available: number;
+        editable: boolean;
+      },
+      {
+        category_id: 50152 | 19338 | 41583 | 29207 | 60307 | 1486 | 18917 | 50326 | 41813;
+        rank: number;
+        fame: number;
+        earned: number;
+        spent: number;
+        available: number;
+        editable: boolean;
+      },
+      {
+        category_id: 50152 | 19338 | 41583 | 29207 | 60307 | 1486 | 18917 | 50326 | 41813;
+        rank: number;
+        fame: number;
+        earned: number;
+        spent: number;
+        available: number;
+        editable: boolean;
+      },
+      {
+        category_id: 50152 | 19338 | 41583 | 29207 | 60307 | 1486 | 18917 | 50326 | 41813;
+        rank: number;
+        fame: number;
+        earned: number;
+        spent: number;
+        available: number;
+        editable: boolean;
+      }
+    ];
+  };
+}
+export interface PrestigeEdit {
+  prestige_edit: {
+    operation_id: string | null;
+    state: "verified" | "rejected" | "uncertain" | "not_applied" | "expired";
+    category_id: (50152 | 19338 | 41583 | 29207 | 60307 | 1486 | 18917 | 50326 | 41813) | null;
+    before: number | null;
+    after: number | null;
+    process_id: number | null;
+    process_birth: string | null;
+    error: string | null;
+  };
+}
+export interface PlayerResources {
+  player_resources: {
+    process_id: number;
+    process_birth: string;
+    snapshot_id: string;
+    experimental: true;
+    ingot_owned: boolean;
+    ingot: string;
+    ingot_max: string;
+    fragments: string;
+    fragments_max: string;
+    glory: string;
+    glory_max: string;
+    glory_editable: boolean;
+    current_clan_id: number;
+    /**
+     * @maxItems 50
+     */
+    clans: {
+      clan_id: number;
+      rank: number;
+      stored: string;
+      tenure: string;
+    }[];
+  };
+}
+export interface PlayerEdit {
+  player_edit: {
+    operation_id: string | null;
+    state: "verified" | "rejected" | "uncertain" | "not_applied" | "expired";
+    field: ("ingot" | "fragments" | "glory" | "clan_rank") | null;
+    clan_id: number;
+    before: string | null;
+    after: string | null;
+    error: string | null;
+  };
 }
 export interface LiveCharacter {
   source: "runtime";

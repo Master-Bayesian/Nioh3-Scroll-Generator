@@ -1290,7 +1290,11 @@
             "runtime.equipment_add_execute",
             "runtime.equipment_add_status",
             "runtime.equipment_add_recover",
-            "runtime.equipment_add_cancel"
+            "runtime.equipment_add_cancel",
+            "runtime.prestige_edit",
+            "runtime.prestige_recover",
+            "runtime.player_edit",
+            "runtime.player_recover"
           ]
         },
         "state": {
@@ -1981,6 +1985,18 @@
               "required": [
                 "count_source"
               ]
+            },
+            {
+              "$ref": "#/definitions/PrestigeSnapshot"
+            },
+            {
+              "$ref": "#/definitions/PrestigeEdit"
+            },
+            {
+              "$ref": "#/definitions/PlayerResources"
+            },
+            {
+              "$ref": "#/definitions/PlayerEdit"
             }
           ]
         },
@@ -4876,6 +4892,447 @@
       "required": [
         "compatibility"
       ]
+    },
+    "PrestigeSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prestige": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "process_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "process_birth": {
+              "type": "string",
+              "pattern": "^[0-9]{1,20}$"
+            },
+            "snapshot_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "max_budget": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2000
+            },
+            "experimental": {
+              "const": true
+            },
+            "categories": {
+              "type": "array",
+              "minItems": 9,
+              "maxItems": 9,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "category_id": {
+                    "type": "integer",
+                    "enum": [
+                      50152,
+                      19338,
+                      41583,
+                      29207,
+                      60307,
+                      1486,
+                      18917,
+                      50326,
+                      41813
+                    ]
+                  },
+                  "rank": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 22
+                  },
+                  "fame": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1100
+                  },
+                  "earned": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "spent": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2000
+                  },
+                  "available": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "editable": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "category_id",
+                  "rank",
+                  "fame",
+                  "earned",
+                  "spent",
+                  "available",
+                  "editable"
+                ]
+              }
+            }
+          },
+          "required": [
+            "process_id",
+            "process_birth",
+            "snapshot_id",
+            "max_budget",
+            "experimental",
+            "categories"
+          ]
+        }
+      },
+      "required": [
+        "prestige"
+      ]
+    },
+    "PrestigeEdit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prestige_edit": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "operation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "state": {
+              "enum": [
+                "verified",
+                "rejected",
+                "uncertain",
+                "not_applied",
+                "expired"
+              ]
+            },
+            "category_id": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "enum": [
+                    50152,
+                    19338,
+                    41583,
+                    29207,
+                    60307,
+                    1486,
+                    18917,
+                    50326,
+                    41813
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "before": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "after": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2000
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "process_id": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "process_birth": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9]{1,20}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "error": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "operation_id",
+            "state",
+            "category_id",
+            "before",
+            "after",
+            "process_id",
+            "process_birth",
+            "error"
+          ]
+        }
+      },
+      "required": [
+        "prestige_edit"
+      ]
+    },
+    "PlayerResources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "player_resources": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "process_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "process_birth": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,19})$"
+            },
+            "snapshot_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "experimental": {
+              "const": true
+            },
+            "ingot_owned": {
+              "type": "boolean"
+            },
+            "ingot": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,19})$"
+            },
+            "ingot_max": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,19})$"
+            },
+            "fragments": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,19})$"
+            },
+            "fragments_max": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,19})$"
+            },
+            "glory": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,19})$"
+            },
+            "glory_max": {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,19})$"
+            },
+            "glory_editable": {
+              "type": "boolean"
+            },
+            "current_clan_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 50
+            },
+            "clans": {
+              "type": "array",
+              "maxItems": 50,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "clan_id": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 50
+                  },
+                  "rank": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9
+                  },
+                  "stored": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]{0,19})$"
+                  },
+                  "tenure": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]{0,19})$"
+                  }
+                },
+                "required": [
+                  "clan_id",
+                  "rank",
+                  "stored",
+                  "tenure"
+                ]
+              }
+            }
+          },
+          "required": [
+            "process_id",
+            "process_birth",
+            "snapshot_id",
+            "experimental",
+            "ingot_owned",
+            "ingot",
+            "ingot_max",
+            "fragments",
+            "fragments_max",
+            "glory",
+            "glory_max",
+            "glory_editable",
+            "current_clan_id",
+            "clans"
+          ]
+        }
+      },
+      "required": [
+        "player_resources"
+      ]
+    },
+    "PlayerEdit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "player_edit": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "operation_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "state": {
+              "enum": [
+                "verified",
+                "rejected",
+                "uncertain",
+                "not_applied",
+                "expired"
+              ]
+            },
+            "field": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "ingot",
+                    "fragments",
+                    "glory",
+                    "clan_rank"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "clan_id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 50
+            },
+            "before": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]{0,19})$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "after": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]{0,19})$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "error": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "operation_id",
+            "state",
+            "field",
+            "clan_id",
+            "before",
+            "after",
+            "error"
+          ]
+        }
+      },
+      "required": [
+        "player_edit"
+      ]
     }
   },
   "oneOf": [
@@ -5067,6 +5524,18 @@
             },
             {
               "$ref": "#/definitions/RuntimeCompatibility"
+            },
+            {
+              "$ref": "#/definitions/PrestigeSnapshot"
+            },
+            {
+              "$ref": "#/definitions/PrestigeEdit"
+            },
+            {
+              "$ref": "#/definitions/PlayerResources"
+            },
+            {
+              "$ref": "#/definitions/PlayerEdit"
             }
           ]
         }

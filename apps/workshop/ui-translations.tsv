@@ -1576,3 +1576,146 @@ NPC武器	NPC weapon	NPC武器
 要删除的绘卷里有	Among the scrolls to delete,	削除する絵巻のうち
 张在游戏里加了保护。确定仍要删除吗？	are protected in game. Delete them anyway?	枚がゲーム内で保護されています。それでも削除しますか？
 仍然删除	Delete anyway	それでも削除
+称号恩惠	Title prestige	称号の恩恵
+读取和修改九类可用恩惠点数	Read and edit available points in nine categories	9カテゴリの使用可能な恩恵ポイントを確認・変更
+称号恩惠点数	Title prestige points	称号の恩恵ポイント
+重新读取点数	Reload points	ポイントを再読込
+修改正在运行的游戏中的可用恩惠点数。九个类别独立计算，每类总点数最多设为 2000，已分配点数保持不变。	Edit available prestige points in the running game. Nine categories have separate budgets of up to 2000 points each. Allocated points are preserved.	起動中のゲームの使用可能な恩恵ポイントを変更します。9カテゴリは独立し、各カテゴリの合計は最大2000ポイントです。割当済みポイントは変更しません。
+此功能尚未完成实机验证。写入后请在游戏内核对，保存和重载效果仍待确认。	In-game validation is pending. Check the result in the game; saving and reloading remain unverified.	実機検証は未完了です。書込後にゲーム内で確認してください。保存・再読込の結果は未検証です。
+操作结果尚未确认，请先核对上次操作，不要重复写入。	The result is uncertain. Check the previous operation before another write.	結果を確認できていません。再度書き込む前に前回の操作を確認してください。
+未能读取或修改恩惠点数。请确认已进入游戏，使用支持的 PC v2.02 版本后重新读取。	Could not read or edit prestige points. Load a character in the supported PC v2.02 build, then reload.	恩恵ポイントを読込・変更できません。対応するPC v2.02でキャラクターを読み込んでから再読込してください。
+恩惠点数已写入并核对。请在游戏中确认效果，并正常存档。	Prestige points were written and read back. Check the result in the game and save normally.	恩恵ポイントを書き込み、読戻しを確認しました。ゲーム内で結果を確認して通常どおり保存してください。
+原游戏进程已结束。请重新读取当前角色并核对点数。	The original game process ended. Reload the current character and check the points.	元のゲームプロセスは終了しました。現在のキャラクターを再読込してポイントを確認してください。
+当前仍为修改前的点数，未重新执行写入。	The points currently match their previous values. No write was replayed.	現在のポイントは変更前の値です。書込は再実行していません。
+本次未执行新的写入，请重新读取点数后核对。	No new write was performed. Reload the points and review them.	新たな書込は行っていません。ポイントを再読込して確認してください。
+请输入有效的非负整数。	Enter a valid nonnegative whole number.	0以上の有効な整数を入力してください。
+目标可用点数加已分配点数不得超过 2000。	Target available points plus allocated points must not exceed 2000.	目標使用可能ポイントと割当済みポイントの合計は2000以下にしてください。
+恩惠操作核对	Prestige operation check	恩恵操作の確認
+有待核对的恩惠操作	Prestige operation needs checking	確認が必要な恩恵操作
+重新读取操作记录或核对当前游戏，只会检查结果，不会重复写入。	Reading the receipt or checking the game only observes the result; it never replays the write.	操作記録の読込や現在のゲームとの照合では、結果の確認のみを行い、書込は再実行しません。
+读取操作记录	Read operation receipt	操作記録を読む
+确认恩惠点数修改	Review prestige point change	恩恵ポイントの変更確認
+可用点数	Available points	使用可能ポイント
+已分配点数	Allocated points	割当済みポイント
+仅修改所选类别的点数，不改变称号、名声阶级或已分配的恩惠。	Only the selected category budget changes. Titles, reputation ranks and allocated bonuses are preserved.	選択したカテゴリのポイントのみを変更します。称号、名声ランク、割当済みの恩恵は変更しません。
+确认写入恩惠点数	Confirm point write	ポイントの書込を確定
+名声阶级	Reputation rank	名声ランク
+名声分数	Reputation score	名声スコア
+目标可用点数	Target available points	目標使用可能ポイント
+该类别尚无可修改的点数记录。请先在游戏中获得对应称号。	This category has no editable point record. Earn a corresponding title in the game first.	このカテゴリには変更可能なポイント記録がありません。先にゲーム内で対応する称号を取得してください。
+进入游戏后读取恩惠点数。	Load a character, then read prestige points.	キャラクターを読み込んでから恩恵ポイントを読んでください。
+战法	Combat	戦法
+讨伐	Defeats	討伐
+强敌	Powerful foes	強敵
+设施	Facilities	施設
+收集	Collection	収集
+探索	Exploration	探索
+人物编辑	Player Editor	人物編集
+当前可修改称号恩惠点数。	Title prestige points can currently be edited here.	現在は称号の恩恵ポイントを変更できます。
+人物编辑功能	Player editing features	人物編集の機能
+恩惠点数	Prestige points	恩恵ポイント
+九类称号恩惠点数	Prestige points in nine categories	9カテゴリの称号恩恵ポイント
+灵银地金	Silabar Ingot	霊銀の地金
+武功与武家	Glory and clans	武功と武家
+常世的残思	Soul Fragments	常世の残思
+待开放	Not yet available	準備中
+修改角色的恩惠点数、储存精华、武功、武家阶级与常世的残思。	Edit prestige points, stored Amrita, Glory, clan rank and Soul Fragments.	恩恵ポイント、貯蔵アムリタ、武功、武家の役職、常世の残思を変更します。
+储存的精华	Stored Amrita	貯蔵アムリタ
+武功余额与武家阶级	Glory balance and clan rank	所持武功と武家の役職
+魂核与守护灵觉醒资源	Soul Core and Guardian Spirit enhancement	魂代・守護霊の強化素材
+灵银地金储存的精华	Amrita stored in Silabar Ingot	霊銀の地金の貯蔵アムリタ
+持有武功	Glory balance	所持武功
+武家阶级	Clan rank	武家の役職
+未隶属武家	No clan joined	所属なし
+未能读取或修改人物数据。请确认已进入支持的 PC v2.02 游戏后重新读取。	Could not read or edit player data. Load a character in the supported PC v2.02 build, then reload.	人物データの読込・変更ができません。対応するPC v2.02でキャラクターを読み込んでから再読込してください。
+人物数据已写入并回读核对。请在游戏内确认效果，并正常存档。	Player data was written and read back. Check the result in the game and save normally.	人物データを書き込み、読戻しを確認しました。ゲーム内で結果を確認して通常どおり保存してください。
+当前仍为修改前的数据，未重新执行写入。	The current data matches the previous values. No write was replayed.	現在のデータは変更前の値です。書込は再実行していません。
+本次未执行新的写入，请重新读取数据后核对。	No new write was performed. Reload the data and review it.	新たな書込は行っていません。データを再読込して確認してください。
+请先到恩惠点数分区核对上次操作。	Check the previous operation in Prestige points first.	先に恩恵ポイントで前回の操作を確認してください。
+请先到人物资源分区核对上次操作。	Check the previous operation in the player resource sections first.	先に人物の資源セクションで前回の操作を確認してください。
+目标数值超过游戏支持的上限。	The target exceeds the supported in-game limit.	目標値がゲームの対応上限を超えています。
+该武家尚无可修改的贡献记录。	This clan has no editable contribution record.	この武家には変更可能な貢献記録がありません。
+隶属时间贡献使该目标阶级不可用。	Time-based contribution prevents this target rank.	所属期間の貢献により、この役職は選択できません。
+重新读取人物数据	Reload player data	人物データを再読込
+修改灵银地金内储存的精华，随身精华和道具数量保持不变。	Edit the Amrita stored in Silabar Ingot. Carried Amrita and item quantities are preserved.	霊銀の地金に貯蔵したアムリタを変更します。所持アムリタと道具の個数は変更しません。
+修改供养魂核获得、用于魂核和守护灵觉醒等操作的常世的残思。	Edit Soul Fragments obtained from Resting Rites and used for Soul Core and Guardian Spirit enhancement.	魂代供養で得られ、魂代・守護霊の強化などに使う常世の残思を変更します。
+武功余额和各武家的阶级分别修改。武家阶级会结合该武家的贡献与隶属时间计算。	Edit Glory balance and individual clan ranks separately. Clan rank includes contribution and time in the clan.	所持武功と各武家の役職を個別に変更します。役職は武家への貢献と所属期間から計算されます。
+武功余额属于账号共用数据；联网同步后的保留情况仍待验证。	Glory balance is shared by the account. Persistence after online synchronization remains unverified.	所持武功はアカウント共通のデータです。オンライン同期後に維持されるかは未検証です。
+有待核对的人物操作	Player operation needs checking	確認が必要な人物操作
+确认人物数据修改	Review player data change	人物データの変更確認
+修改项目	Field	変更項目
+武家	Clan	武家
+修改前 → 修改后	Before → After	変更前 → 変更後
+修改后的武家贡献	Resulting clan contribution	変更後の武家貢献
+确认写入人物数据	Confirm player data write	人物データの書込を確定
+当前数量	Current amount	現在の数量
+游戏上限	In-game limit	ゲーム内上限
+目标数量	Target amount	目標数量
+当前角色尚未持有灵银地金，不能修改储存精华。	The current character does not own Silabar Ingot. Stored Amrita cannot be edited.	現在のキャラクターは霊銀の地金を所持していないため、貯蔵アムリタを変更できません。
+请选择武家	Select a clan	武家を選択
+当前阶级	Current rank	現在の役職
+武家贡献	Clan contribution	武家への貢献
+隶属时间贡献	Time-based contribution	所属期間による貢献
+目标阶级	Target rank	目標の役職
+仅修改所选武家的贡献，不改变隶属武家、庇佑选择或势力战得分。	Only the selected clan contribution changes. Clan membership, selected protection and faction-war score are preserved.	選択した武家の貢献のみを変更します。所属、加護の選択、勢力戦の得点は変更しません。
+织田	Oda	織田
+德川	Tokugawa	徳川
+丰臣	Toyotomi	豊臣
+真田	Sanada	真田
+石田	Ishida	石田
+大谷	Otani	大谷
+加藤	Kato	加藤
+浅井	Azai	浅井
+今川	Imagawa	今川
+前田	Maeda	前田
+岛津	Shimazu	島津
+毛利	Mori	毛利
+黑田	Kuroda	黒田
+立花	Tachibana	立花
+井伊	Ii	井伊
+本多	Honda	本多
+松永	Matsunaga	松永
+杂贺	Saika	雑賀
+伊达	Date	伊達
+上杉	Uesugi	上杉
+柴田	Shibata	柴田
+九鬼	Kuki	九鬼
+三好	Miyoshi	三好
+武田	Takeda	武田
+福岛	Fukushima	福島
+藤堂	Todo	藤堂
+明智	Akechi	明智
+足利	Ashikaga	足利
+佐竹	Satake	佐竹
+朝仓	Asakura	朝倉
+蒲生	Gamo	蒲生
+尚	Sho	尚
+斋藤	Saito	斎藤
+南部	Nanbu	南部
+细川	Hosokawa	細川
+长宗我部	Chosokabe	長宗我部
+尼子	Amago	尼子
+蛎崎	Kakizaki	蠣崎
+源	Minamoto	源
+平	Taira	平
+北条	Hojo	北条
+梶原	Kajiwara	梶原
+渡边	Watanabe	渡辺
+松平	Matsudaira	松平
+山内	Yamauchi	山内
+锅岛	Nabeshima	鍋島
+服部	Hattori	服部
+柳生	Yagyu	柳生
+高杉	Takasugi	高杉
+新选组	Shinsengumi	新選組
+足轻	Ashigaru	足軽
+小头	Kogashira	小頭
+组头	Kumigashira	組頭
+物头	Monogashira	物頭
+足轻大将	Ashigaru General	足軽大将
+侍大将	Samurai General	侍大将
+武者大将	Warrior General	武者大将
+中老	Churo	中老
+家老	Karo	家老
+宿老	Shukuro	宿老
+账号与角色的武功同步标记不同；请在游戏内正常获取或消费武功后重新读取。	The account and character Glory sync markers differ. Gain or spend Glory normally in the game, then reload.	アカウントと人物の武功同期マーカーが異なります。ゲーム内で通常どおり武功を獲得または消費してから再読込してください。

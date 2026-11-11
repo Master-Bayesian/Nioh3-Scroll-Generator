@@ -1090,6 +1090,118 @@ mod imp {
             Self::open_identity_reader(identity)
         }
 
+        fn prestige_read(&self) -> Result<nioh3_runtime::prestige::Snapshot, HostError> {
+            let identity = crate::compatibility::running_identity()?;
+            if !identity.reference() {
+                return Err(HostError::coded(
+                    "PRESTIGE_UNSUPPORTED",
+                    "Prestige points require the exact supported PC v2.02 executable",
+                ));
+            }
+            let process = Self::open_identity_reader(&identity)?;
+            let memory = nioh3_runtime::inventory::ProcessInventoryMemory::new(&process);
+            nioh3_runtime::prestige::snapshot(&memory).map_err(HostError::from_runtime)
+        }
+
+        fn prestige_edit(&mut self, params: &Value) -> Result<Value, HostError> {
+            if let Some(receipt) = crate::prestige::replay(&self.state_root, params)? {
+                return Ok(receipt);
+            }
+            self.admit_runtime_feature("live_prestige")?;
+            if !self.safe_to_shutdown()? {
+                return Err(HostError::rejected(
+                    "Finish the active runtime operation before editing prestige",
+                ));
+            }
+            crate::prestige::execute(
+                &self.state_root,
+                params,
+                || self.prestige_read(),
+                |before, category, available| {
+                    use nioh3_runtime::character::LiveEditOutcome;
+                    use nioh3_runtime::mutation::memory::{TargetProcess, WindowsProcess};
+                    let opened = (|| {
+                        let identity = crate::compatibility::running_identity()?;
+                        if !identity.reference()
+                            || identity.pid != before.pid
+                            || identity.creation_filetime != before.birth
+                        {
+                            return Err(HostError::coded(
+                                "PRESTIGE_STALE",
+                                "The reviewed process changed",
+                            ));
+                        }
+                        let process = Self::open_identity_reader(&identity)?;
+                        let writer = WindowsProcess::open_field_write(before.pid)
+                            .map_err(HostError::from_runtime)?;
+                        Ok((process, writer))
+                    })();
+                    let (process, mut writer) = match opened {
+                        Ok(handles) => handles,
+                        Err(error) => return LiveEditOutcome::Rejected(error.message),
+                    };
+                    let memory = nioh3_runtime::inventory::ProcessInventoryMemory::new(&process);
+                    let outcome = nioh3_runtime::prestige::apply(
+                        &memory,
+                        &mut writer,
+                        before,
+                        category,
+                        available,
+                    );
+                    writer.close();
+                    outcome
+                },
+            )
+        }
+
+        fn prestige_recover(&self, params: &Value) -> Result<Value, HostError> {
+            crate::prestige::recover(
+                &self.state_root,
+                params,
+                || self.prestige_read(),
+                |pid, birth| {
+                    nioh3_runtime::process_creation_filetime(pid)
+                        .map(|actual| actual != Some(birth))
+                        .map_err(HostError::from_runtime)
+                },
+            )
+        }
+
+        fn player_resources_read(&self) -> Result<nioh3_runtime::player_resources::Snapshot, HostError> {
+            let identity=crate::compatibility::running_identity()?;
+            if !identity.reference(){return Err(HostError::coded("PLAYER_RESOURCE_UNSUPPORTED","Player resources require the exact supported PC v2.02 executable"));}
+            let process=Self::open_identity_reader(&identity)?;
+            let memory=nioh3_runtime::inventory::ProcessInventoryMemory::new(&process);
+            nioh3_runtime::player_resources::snapshot(&memory).map_err(HostError::from_runtime)
+        }
+        fn player_resources_edit(&mut self,params:&Value)->Result<Value,HostError>{
+            if let Some(r)=crate::player_resources::replay(&self.state_root,params)?{return Ok(r);}
+            self.admit_runtime_feature("live_player_resources")?;
+            if !self.safe_to_shutdown()?{return Err(HostError::rejected("Finish the active runtime operation before editing player resources"));}
+            crate::player_resources::execute(&self.state_root,params,||self.player_resources_read(),
+                |before,field,clan,value|{
+                    use nioh3_runtime::character::LiveEditOutcome;
+                    use nioh3_runtime::mutation::memory::{TargetProcess,WindowsProcess};
+                    let opened=(||{
+                        let identity=crate::compatibility::running_identity()?;
+                        if !identity.reference()||identity.pid!=before.pid||identity.creation_filetime!=before.birth{
+                            return Err(HostError::rejected("The reviewed process changed"));
+                        }
+                        let process=Self::open_identity_reader(&identity)?;
+                        let writer=WindowsProcess::open_field_write(before.pid).map_err(HostError::from_runtime)?;
+                        Ok((process,writer))
+                    })();
+                    let (process,mut writer)=match opened{Ok(p)=>p,Err(e)=>return LiveEditOutcome::Rejected(e.message)};
+                    let memory=nioh3_runtime::inventory::ProcessInventoryMemory::new(&process);
+                    let result=nioh3_runtime::player_resources::apply(&memory,&mut writer,before,field,clan,value);
+                    writer.close();result
+                })
+        }
+        fn player_resources_recover(&self,params:&Value)->Result<Value,HostError>{
+            crate::player_resources::recover(&self.state_root,params,||self.player_resources_read(),
+                |pid,birth|nioh3_runtime::process_creation_filetime(pid).map(|actual|actual!=Some(birth)).map_err(HostError::from_runtime))
+        }
+
         /// `runtime.character_snapshot`: the loaded character's currencies and
         /// every owned equipment record, read twice and published only when
         /// both reads agree.
@@ -2497,6 +2609,14 @@ mod imp {
             if method == "runtime.character_snapshot" {
                 return self.character_snapshot();
             }
+            if method == "runtime.prestige_snapshot" {
+                return self.prestige_read().map(|snapshot| snapshot.json());
+            }
+            if method == "runtime.prestige_status" {
+                return crate::prestige::status(&self.state_root, params);
+            }
+            if method == "runtime.player_resources" {return self.player_resources_read().map(|s|s.json());}
+            if method == "runtime.player_status" {return crate::player_resources::status(&self.state_root,params);}
             if method == "runtime.menu_selection" {
                 return self.menu_selection();
             }
@@ -2536,6 +2656,10 @@ mod imp {
             match operation {
                 "status" => self.status(),
                 "character_edit" => self.character_edit(&params),
+                "prestige_edit" => self.prestige_edit(&params),
+                "prestige_recover" => self.prestige_recover(&params),
+                "player_edit" => self.player_resources_edit(&params),
+                "player_recover" => self.player_resources_recover(&params),
                 "stop_override" => self.stop_override(),
                 "start_override" => {
                     let profile = params
@@ -2891,6 +3015,14 @@ mod imp {
         }
 
         fn direct(&mut self, method: &str, params: &Value) -> Result<Value, HostError> {
+            if method == "runtime.prestige_status" {
+                return crate::prestige::status(&self.state_root, params);
+            }
+            if method == "runtime.prestige_snapshot" {
+                return Self::unsupported();
+            }
+            if method == "runtime.player_resources" {return Self::unsupported();}
+            if method == "runtime.player_status" {return crate::player_resources::status(&self.state_root,params);}
             if method == "runtime.status" {
                 return self.status();
             }
@@ -2965,6 +3097,10 @@ mod imp {
                 | "count_status"
                 | "count_recover"
                 | "inventory_snapshot"
+                | "prestige_edit"
+                | "prestige_recover"
+                | "player_edit"
+                | "player_recover"
                 | "character_edit" => Self::unsupported(),
                 other => Err(HostError::rejected(format!(
                     "OPERATION_REJECTED: runtime.{other} is not a method the protected \

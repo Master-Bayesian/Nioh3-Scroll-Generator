@@ -73,7 +73,7 @@ fn differences(identity: &ExecutableIdentity) -> Vec<Difference> {
     }
     result
 }
-fn feature_flags(identity: &ExecutableIdentity) -> [(&'static str, bool); 9] {
+fn feature_flags(identity: &ExecutableIdentity) -> [(&'static str, bool); 11] {
     [
         ("offline_search", identity.supported()),
         ("save_edit", identity.supported()),
@@ -82,6 +82,8 @@ fn feature_flags(identity: &ExecutableIdentity) -> [(&'static str, bool); 9] {
             matches!(identity.version.as_str(), "2.0.1.0" | "2.0.2.0"),
         ),
         ("live_character", identity.supported()),
+        ("live_prestige", identity.reference()),
+        ("live_player_resources", identity.reference()),
         ("live_equipment_add", identity.version == "2.0.2.0"),
         (
             "live_count_edit",

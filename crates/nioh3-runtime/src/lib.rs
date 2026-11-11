@@ -36,6 +36,8 @@ pub mod error;
 pub mod inventory;
 pub mod mutation;
 pub mod platform;
+pub mod prestige;
+pub mod player_resources;
 pub mod profile;
 pub mod status;
 
