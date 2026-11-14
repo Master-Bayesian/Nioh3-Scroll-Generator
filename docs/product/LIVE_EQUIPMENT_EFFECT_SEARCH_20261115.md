@@ -90,8 +90,8 @@ repaired in the harness and their original JSON reports remain in the evidence
 root. They do not establish game failures.
 
 Not performed: actual live-game search-to-builder agreement, inventory insertion,
-shrine save/reload, multiplayer propagation, or matching one-file packaging.
-A local-only one-file acceptance package is being prepared from the reviewed source. It is not a public release or publication approval; its final artifact identity and packaged checks belong in the delivery report.
+shrine save/reload or multiplayer propagation.
+The local-only one-file acceptance package is ready. It is not a public release or publication approval; its final artifact identity and packaged checks are in `D:/Nioh3_v080_deliverables/deliverables/live-equipment-effect-search/acceptance-package/delivery-report.json`.
 
 ## Reproduction
 
@@ -110,3 +110,40 @@ uses an isolated test profile. `NIOH3_UI_NATIVE_EXE` overrides the shell,
 `NIOH3_UI_EVIDENCE_ROOT` overrides the report directory. The browser verifier
 uses installed Edge by default; `NIOH3_UI_BROWSER_CHANNEL` can select a prepared
 alternative. Set `NIOH3_UI_ONEFILE=1` with `NIOH3_UI_NATIVE_EXE` to accept the final outer EXE; this verifies its package manifest and records its payload hash. Keep other Studio instances closed while testing the native shell.
+
+## Final local one-file acceptance
+
+The owner authorized local commits and one-file preparation. The frozen product
+commit is `f151c7a786b0c76857a974deb9a4bc8868985587`, with a clean package
+manifest. The final outer EXE is
+`Nioh3Studio-0.8.9-live-equipment-test-f151c7a.exe` (11,704,497 bytes), SHA-256
+`e202410431f8fbb89e55ed0eb310d7269ac2f86ba2f09940c2bb552d70887496`.
+No push, tag, signing-feed replacement or public release occurred. The UI version
+remains 0.8.9; the filename identifies this local test.
+
+The existing build pipeline ran from an ASCII D-backed clone of that exact
+commit after Windows RC rejected the original Unicode source path. The complete
+failure and successful build logs remain in the evidence root. All 765 archive
+members passed size/hash/CRC validation, and the outer payload was verified.
+The final packaged Rust graph passed three real framed-IPC handshakes/read-only
+representative requests and two exhaustive 16-bit seed searches under synthetic
+progress, including an exact requested-effect filter. This does not establish
+agreement with the current live character.
+
+`outer-acceptance-r2/native-ui.json` passes 95 checks against these exact outer
+bytes, including package/source identity, explicit profile isolation, all three
+locales, light/dark, native maximize/restore and constrained emulated viewports.
+Game/save replies in this UI test are fixtures. Live insertion and shrine
+save/reload remain owner acceptance.
+
+The first outer verifier run omitted `--user-data-dir`: the release shell ignores
+the debug-only profile environment fallback, and the verifier cleared the real
+profile's localStorage. It performed no game insertion or save write. The seven
+removed keys (theme, locale, remembered save, equipment favorites, loadout drafts,
+scroll edit mode and effect scope) were recovered exactly from the retained
+pre-clear LevelDB state in an isolated profile, restored and read back equal.
+The raw database copy and recovery report remain private in the delivery evidence
+root. Broker favorites were not cleared. Harness-only commit
+`39c317f89a19421c5dc922352197c08f7d8fc2aa` adds explicit profile arguments,
+asserts isolation before clearing, and settles startup reads before fixture
+replacement. The same final product EXE was retested without rebuilding.
