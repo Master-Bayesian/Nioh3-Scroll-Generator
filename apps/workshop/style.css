@@ -1162,6 +1162,11 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .live-equipment-add{padding:16px;min-width:0;min-height:0;flex:1;overflow:auto}
 .live-equipment-layout{display:grid;grid-template-columns:minmax(300px,1fr) minmax(350px,1fr);gap:20px;align-items:start}
 .live-equipment-picker,.live-equipment-form{min-width:0}
+.live-equipment-seed-search{min-width:0;border:0;padding:0;margin:12px 0}
+.live-equipment-seed-search legend{font-weight:600}
+.live-equipment-seed-search .seed-want-chips .effect-picker{min-width:0;flex-basis:220px}
+.live-equipment-seed-search .seed-effect{white-space:normal;overflow-wrap:anywhere}
+.live-equipment-seed-search .seed-id{width:100%}
 .live-equipment-picker>label{display:flex;gap:12px;align-items:center}
 .live-equipment-picker>label input{min-width:0;flex:1}
 .live-equipment-items{list-style:none;padding:0;max-height:480px;overflow:auto}

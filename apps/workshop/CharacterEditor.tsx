@@ -16,6 +16,7 @@ import { copyText, desktop } from "./desktop-bridge";
 import { fillTemplateSlots, plainGameText } from "./game-text";
 import { Notice } from "./Notice";
 import { LiveEquipmentAdd } from "./LiveEquipmentAdd";
+import { excludes, seedOptions, type SeedCandidate as Candidate, type WantedEffect } from "./equipment-seed-options";
 import { LockMark, StarIcon } from "./StarIcon";
 import { pinnedFirst, togglePinned, usePinned } from "./pinned";
 import { EMPTY_EFFECT, EffectPicker, hex, parseEffectId } from "./EffectPicker";
@@ -45,20 +46,6 @@ const HELL_SKILL_NAMES: Record<string, string> = hellSkillNames.skills;
 const CONTAINER_LABEL: Record<Container, string> = { held: "持有", storage: "仓库" };
 type LegalValue = EffectValues["values"][number];
 type Finding = NonNullable<CharacterEquipment["audit"]>["findings"][number];
-interface Candidate {
-  id: number;
-  star?: boolean;
-  min?: number;
-  max?: number;
-  /** Group and conflict masks of a drawn (random or hell) candidate. */
-  group?: number;
-  masks?: number[];
-}
-/** The generator's exclusion: drawn effects sharing a group or any mask bit never appear together. */
-function excludes(a: Candidate, b: Candidate) {
-  if (a.group == null || b.group == null || !a.masks || !b.masks) return false;
-  return a.group === b.group || (a.masks[0] & b.masks[0]) !== 0 || (a.masks[1] & b.masks[1]) !== 0;
-}
 /** One item to add to a save (`save.prepare_character_edit` `add`). */
 interface NewEquipmentRequest {
   item_id: number;
@@ -72,11 +59,7 @@ interface NewEquipmentRequest {
   seed?: number;
   difficulty?: number;
 }
-/** One wanted effect: ids that read the same, any of which counts. */
-interface WantedEffect {
-  key: string;
-  ids: number[];
-}
+
 /** The selection of an item being added to the save; it has no slot yet. */
 const NEW_SLOT = -1;
 /** Search text in Chinese and in the interface language, so either finds a name. */
@@ -747,23 +730,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   }, [seedSearchIdentity]);
 
   /** Effects a legal add can ask for, rows that read the same merged into one choice. */
-  const wantOptions = useMemo(() => {
-    const options = new Map<string, { candidate: Candidate; ids: number[] }>();
-    if (!rules?.known) return options;
-    const pool: Candidate[] = (rules.random_pool ?? []).map(entry => ({
-      id: entry.effect_id, star: entry.star, min: entry.min, max: entry.max, group: entry.group, masks: entry.masks,
-    }));
-    const graces: Candidate[] = rarity !== null && rarity >= 4 && rules.set_effect == null && !rules.soul_core
-      ? (rules.graces ?? []).map(id => ({ id }))
-      : [];
-    for (const candidate of [...pool, ...graces]) {
-      const key = effectNames.get(candidate.id) + "|" + !!candidate.star + "|" + candidate.min + "|" + candidate.max;
-      const option = options.get(key);
-      if (option) option.ids.push(candidate.id);
-      else options.set(key, { candidate, ids: [candidate.id] });
-    }
-    return options;
-  }, [rules, rarity]);
+  const wantOptions = useMemo(() => seedOptions(rules, rarity, id => effectNames.get(id)), [rules, rarity]);
   const wantCandidates = useMemo(() => {
     const chosen = wanted.flatMap(entry => wantOptions.get(entry.key)?.candidate ?? []);
     return [...wantOptions.entries()]

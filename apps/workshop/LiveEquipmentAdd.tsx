@@ -2,26 +2,29 @@ import React, {useEffect, useMemo, useRef, useState, useSyncExternalStore} from 
 import type {EquipmentAddition} from "../../packages/contracts/protected-responses";
 import {ADD_CATALOG,ADD_SETS,ADD_TYPES,FacetFilter,MAJOR_ORDER,SET_MAJOR,matchesClass,nameLabel} from "./equipment-facets";
 import {data} from "./model";
-import {plainGameText} from "./game-text";
+import {fillTemplateSlots,plainGameText} from "./game-text";
 import {Notice} from "./Notice";
 import {errorText} from "./public-errors";
 import {runtimeObserver, saveSession} from "./save-workspace";
 import {SavePicker} from "./CartActions";
+import {LiveEquipmentSeedSearch} from "./LiveEquipmentSeedSearch";
+import {matchesWanted,type WantedEffect} from "./equipment-seed-options";
 import "../desktop/src/operations-api";
 
 type Addition=EquipmentAddition["equipment_add"];
 const STORAGE="nioh3-live-equipment-add";
 const catalog=ADD_CATALOG;
-const effectName=(id:number)=>data.editorEffects.find(row=>row.id===String(id))?.name||`0x${id.toString(16).toUpperCase()}`;
+const effectName=(id:number)=>fillTemplateSlots(plainGameText(data.editorEffects.find(row=>row.id===String(id))?.name||`0x${id.toString(16).toUpperCase()}`),"增益效果","异常状态").replaceAll("{}","（特定对象）");
 // This catalog has Chinese item names only. Keep exact game names instead of
 // translating their substrings as unrelated interface terms.
 const itemName=(id:number)=>{const name=catalog.find(row=>row.id===id)?.name;return name?nameLabel(plainGameText(name)):String(id);};
-function storedOperation():string|null {
+function storedOperation():{operation_id:string;wanted:number[][]}|null {
   const value=localStorage.getItem(STORAGE);
   if(!value)return null;
-  const parsed=JSON.parse(value) as {operation_id?:string};
+  const parsed=JSON.parse(value) as {operation_id?:string;wanted?:number[][]};
   if(!parsed.operation_id || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(parsed.operation_id))throw Error("INVALID_EQUIPMENT_OPERATION");
-  return parsed.operation_id;
+  if(parsed.wanted!==undefined&&(!Array.isArray(parsed.wanted)||parsed.wanted.length>7||!parsed.wanted.every(ids=>Array.isArray(ids)&&ids.length>0&&ids.length<=16&&ids.every(id=>Number.isInteger(id)&&id>=0&&id<=65535))))throw Error("INVALID_EQUIPMENT_OPERATION");
+  return {operation_id:parsed.operation_id,wanted:parsed.wanted??[]};
 }
 function integer(value:string,min:number,max:number):number|null {
   if(!/^\d+$/.test(value))return null;
@@ -40,6 +43,7 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
   const [operation,setOperation]=useState<string|null>(null),[result,setResult]=useState<Addition|null>(null);
   const [busy,setBusy]=useState(false),[confirmed,setConfirmed]=useState(false),[message,setMessage]=useState("");
   const [dropping,setDropping]=useState(false);
+  const [wanted,setWanted]=useState<WantedEffect[]>([]),[requiredEffects,setRequiredEffects]=useState<number[][]>([]);
   const mounted=useRef(false),running=useRef(false),current=useRef<string|null>(null);
   const callbacks=useRef({onBusy,onAdded});callbacks.current={onBusy,onAdded};
   const rows=useMemo(()=>catalog.filter(row=>matchesClass(row.id,row,kind,type)&&(!school||row.school===school)&&(!query||(`${row.name} ${row.id} ${row.major} ${row.type}`).toLowerCase().includes(query.toLowerCase()))),[query,kind,type,school]);
@@ -47,9 +51,11 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
   const valid=item!==null&&Object.values(numbers).every(value=>value!==null);
   const locked=busy||operation!==null;
   const terminal=result&&["verified","dispatched_unverified","cancelled","rejected_before_dispatch","rejected_before_insertion"].includes(result.state);
+  const previewMatches=!!result?.preview&&matchesWanted(result.preview.effects,requiredEffects);
 
   async function request(action:"prepare"|"execute"|"status"|"recover"|"cancel",id:string) {
     if(running.current)return;
+    if(action==="execute"&&(!confirmed||result?.state!=="prepared"||!previewMatches))return;
     running.current=true;setBusy(true);callbacks.current.onBusy?.(true);setMessage("");setRecoveryMessage("");
     try {
       const submit=()=>action==="prepare" ? window.operations.execute({method:"runtime.equipment_add_prepare",params:{operation_id:id,item_id:item!,level:numbers.level!,plus:numbers.plus!,rarity:numbers.rarity!,seed:numbers.seed!,...(backupPath.trim()?{save_path:backupPath.trim()}:{})}})
@@ -91,19 +97,20 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
   }
   useEffect(()=>{
     mounted.current=true;
-    try {const id=storedOperation();if(id){current.current=id;setOperation(id);void request("status",id);}}
+    try {const stored=storedOperation();if(stored){const id=stored.operation_id;current.current=id;setOperation(id);setRequiredEffects(stored.wanted);void request("status",id);}}
     catch(error){setMessage(errorText(error));}
     return ()=>{mounted.current=false;callbacks.current.onBusy?.(false);};
   },[]);
   function prepare(){
     if(!valid||locked)return;
     const id=crypto.randomUUID();
-    try{localStorage.setItem(STORAGE,JSON.stringify({operation_id:id}));}
+    const required=wanted.map(entry=>entry.ids);
+    try{localStorage.setItem(STORAGE,JSON.stringify({operation_id:id,wanted:required}));}
     catch(error){setMessage(errorText(error));return;}
-    current.current=id;setOperation(id);setResult(null);setConfirmed(false);void request("prepare",id);
+    current.current=id;setOperation(id);setRequiredEffects(required);setResult(null);setConfirmed(false);void request("prepare",id);
   }
   function clear(){
-    localStorage.removeItem(STORAGE);current.current=null;setOperation(null);setResult(null);setConfirmed(false);setMessage("");setRecoveryMessage("");setDropping(false);
+    localStorage.removeItem(STORAGE);current.current=null;setOperation(null);setResult(null);setRequiredEffects([]);setConfirmed(false);setMessage("");setRecoveryMessage("");setDropping(false);
   }
   function newItem(){
     if(!terminal||busy)return;
@@ -131,6 +138,10 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
         <div className="live-equipment-fields">{([["level","等级",level,setLevel],["plus","+值",plus,setPlus],["rarity","稀有度",rarity,setRarity],["seed","生成种子",seed,setSeed]] as const).map(([key,label,value,setter])=><label key={key}><span>{label}</span><input data-field={key} inputMode="numeric" value={value} disabled={locked} onChange={event=>setter(event.target.value)}/></label>)}</div>
         {saveSession&&<fieldset className="live-equipment-save" disabled={locked}><SavePicker compact refresh={false}/></fieldset>}
         <p className="equipment-notes">添加前会备份上面选中的存档。</p>
+        <LiveEquipmentSeedSearch item={item} level={numbers.level} plus={numbers.plus} rarity={numbers.rarity} seed={seed}
+          saveId={save?.selected?.save_id??null} source={save?.inventory?.source_sha256??""} locked={locked||!!save?.busy}
+          wanted={wanted} onWanted={setWanted} onSeed={setSeed} effectName={effectName}
+          onBusy={value=>{setBusy(value);callbacks.current.onBusy?.(value);}}/>
         <p className="equipment-notes">种子范围为 0–65535。不同种子会得到不同词条；预览没有想要的结果时，可取消后换种子。</p>
         <button data-action="prepare-equipment" className="primary" disabled={!valid||locked} onClick={prepare}>生成实时预览</button>
         <Notice text={message}/>
@@ -138,8 +149,10 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
         {result&&<div data-state={result.state}>
           {preview&&<div className="live-equipment-preview"><h3>游戏生成的装备</h3><p>{itemName(preview.item_id)} · {preview.level} +{preview.plus} · <span>稀有度</span> {preview.rarity}</p><ul>{preview.effects.filter(effect=>effect.effect_id!==0xffffffff).map((effect,index)=><li key={index}><span>{effect.star?"✦ ":""}{effectName(effect.effect_id)}</span><b>{effect.value}</b></li>)}</ul></div>}
           {result.state==="prepared"&&<>
-            <label className="live-equipment-confirm"><input data-action="confirm-equipment" type="checkbox" checked={confirmed} disabled={busy} onChange={event=>setConfirmed(event.target.checked)}/>我已核对预览，确认添加这一件装备</label>
-            <div className="live-equipment-actions"><button data-action="execute-equipment" className="primary" disabled={busy||!confirmed||!result.plan_digest} onClick={()=>operation&&void request("execute",operation)}>确认加入背包</button><button data-action="cancel-equipment" disabled={busy} onClick={()=>operation&&void request("cancel",operation)}>取消本次添加</button></div>
+            {requiredEffects.length>0&&<p className="equipment-notes"><span>本次要求的词条</span>：{requiredEffects.map(ids=>effectName(ids[0])).join("、")}</p>}
+            {!previewMatches&&<Notice text="游戏预览未包含全部所选词条，不能确认添加。请取消本次添加，核对目标存档与当前角色及进度后重新查找。"/>}
+            <label className="live-equipment-confirm"><input data-action="confirm-equipment" type="checkbox" checked={confirmed} disabled={busy||!previewMatches} onChange={event=>setConfirmed(event.target.checked)}/>我已核对预览，确认添加这一件装备</label>
+            <div className="live-equipment-actions"><button data-action="execute-equipment" className="primary" disabled={busy||!previewMatches||!confirmed||!result.plan_digest} onClick={()=>operation&&void request("execute",operation)}>确认加入背包</button><button data-action="cancel-equipment" disabled={busy} onClick={()=>operation&&void request("cancel",operation)}>取消本次添加</button></div>
           </>}
           {result.state==="uncertain"&&<p>结果尚未确认。请读取状态或恢复核对，程序不会再次执行添加。</p>}
           {result.state==="verified"&&<Notice tone="success" text="装备已加入背包并回读核对。到神社存档后即可保存。"/>}
