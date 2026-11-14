@@ -44,13 +44,14 @@ function fixtures() {
 }
 let child,session;
 try {
-  child=spawn(exe,[],{cwd:process.cwd(),env,windowsHide:true,stdio:'ignore'});
+  child=spawn(exe,['--user-data-dir',profile],{cwd:process.cwd(),env,windowsHide:true,stdio:'ignore'});
   for(let i=0;i<150;i++){assert(child.exitCode===null,'native shell exited');try{if((await fetch('http://127.0.0.1:'+port+'/json/version')).ok)break;}catch{}await pause(300);}
   const browser=await chromium.connectOverCDP('http://127.0.0.1:'+port);
   const page=browser.contexts()[0].pages()[0];session={browser,page};
   await page.locator('.shell').waitFor({timeout:45000});
+  report.diagnostics=await page.evaluate(()=>window.support.diagnostics());
+  check('isolated user-data directory',resolve(report.diagnostics.dataDirectory).toLowerCase()===resolve(profile).toLowerCase());
   if(onefile){
-    report.diagnostics=await page.evaluate(()=>window.support.diagnostics());
     check('outer package manifest verified',report.diagnostics.packageVerification?.ok===true&&report.diagnostics.packageVerification?.sourceDirty===false);
   }
   const cdp=await browser.contexts()[0].newCDPSession(page);
@@ -63,7 +64,10 @@ try {
     await cdp.send('Emulation.clearDeviceMetricsOverride');
     await page.evaluate(locale=>{localStorage.clear();localStorage.setItem('nioh3-ui-locale',locale);},locale);
     await page.reload();await page.locator('.shell').waitFor();
-    await page.waitForFunction(()=>!!window.operations);await page.evaluate(fixtures);
+    await page.waitForFunction(()=>!!window.operations);
+    // Settle startup reads before replacing the transport with presentation fixtures.
+    await page.evaluate(()=>Promise.all(['save','runtime'].map(role=>window.operations.current(role))));
+    await page.evaluate(fixtures);
     await page.locator('nav.nav>button').nth(4).click();
     await page.locator('.character-sections>button').nth(1).click();
     await page.locator('[data-action=pick-equipment]').first().click();
