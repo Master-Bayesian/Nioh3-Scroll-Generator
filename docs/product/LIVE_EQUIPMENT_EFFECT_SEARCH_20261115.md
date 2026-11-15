@@ -173,3 +173,16 @@ maximize/restore, zh/en/ja, light/dark, and emulated 1860x1000, 1100x740,
 The final one-file follow-up package is prepared from a new clean local commit;
 its exact bytes, source identity and packaged UI evidence belong in this task's
 `acceptance-package/delivery-report.json`. No public release is authorized.
+The spacing follow-up's frozen product commit is
+`82d5db060531b2fad711578eaccfbc2a5c317fa7`. Its final outer EXE is
+`Nioh3Studio-0.8.9-live-equipment-ui-test-82d5db0.exe` (11,704,435 bytes), SHA-256
+`95cee19da49de9fba2b43fc457194bbdce9b9a7e21cbccf075dfbac4df9d76a5`.
+All 765 archive members passed verification. Final outer acceptance passed
+200 checks in `live-equipment-ui-spacing/outer-acceptance-r1/native-ui.json`,
+including explicit isolated profile verification, source/package identity,
+measured spacing, zero outer-save border and all locale/theme/window states.
+Final dark top-of-form screenshots were inspected. The launcher and both worker
+binaries are byte-identical to the prior accepted package, so its real worker
+handshake/seed-search evidence is retained at that exact binary identity.
+This package supersedes the earlier local test for UI review only; no public
+release, actual game insertion or shrine-save acceptance is claimed.
