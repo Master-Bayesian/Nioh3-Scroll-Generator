@@ -71,7 +71,7 @@ try{
   const settled=state=>page.waitForFunction(state=>document.querySelector('[data-state="'+state+'"]')&&!document.querySelector('[data-action=status-equipment]')?.disabled,state);
   const resetCalls=()=>page.evaluate(()=>{window.__calls=[];});
   const calls=()=>page.evaluate(()=>window.__calls.filter(c=>c.method.startsWith('runtime.equipment_add_')).map(c=>({method:c.method,id:c.params.operation_id,path:c.params.save_path})));
-  check(locale+' heading localized',(await page.locator('.live-equipment-add>h2').innerText())===({'zh-CN':'实时添加装备','en-US':'Add equipment live','ja-JP':'装備をリアルタイムで追加'})[locale]);
+  check(locale+' heading localized',(await page.locator('.live-equipment-heading>h2').innerText())===({'zh-CN':'实时添加装备','en-US':'Add equipment live','ja-JP':'装備をリアルタイムで追加'})[locale]);
   await page.locator('[data-action=pick-equipment]').first().click();
   await page.locator('[data-field=seed]').fill('65536');check(locale+' numeric validation retained',await prepare.isDisabled());
   await page.locator('[data-field=seed]').fill('123');await prepare.click();await settled('prepared');

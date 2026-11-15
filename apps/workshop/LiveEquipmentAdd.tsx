@@ -124,8 +124,10 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
   }
   const preview=result?.preview;
   return <section className="live-equipment-add">
-    <h2>实时添加装备</h2>
-    <p>先由游戏按种子生成预览，确认后再加入背包。难度、进度和已习得信息由当前游戏角色决定。</p>
+    <header className="live-equipment-heading">
+      <h2>实时添加装备</h2>
+      <p>先由游戏按种子生成预览，确认后再加入背包。难度、进度和已习得信息由当前游戏角色决定。</p>
+    </header>
     <p className="equipment-notes">请先读档进入角色，操作时让游戏停在菜单。添加后到神社存档即可保存，无需关闭游戏。</p>
     <div className="live-equipment-layout">
       <div className="live-equipment-picker">
@@ -136,14 +138,18 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
       <div className="live-equipment-form">
         <h3>{item===null?"请选择装备":itemName(item)}</h3>
         <div className="live-equipment-fields">{([["level","等级",level,setLevel],["plus","+值",plus,setPlus],["rarity","稀有度",rarity,setRarity],["seed","生成种子",seed,setSeed]] as const).map(([key,label,value,setter])=><label key={key}><span>{label}</span><input data-field={key} inputMode="numeric" value={value} disabled={locked} onChange={event=>setter(event.target.value)}/></label>)}</div>
-        {saveSession&&<fieldset className="live-equipment-save" disabled={locked}><SavePicker compact refresh={false}/></fieldset>}
-        <p className="equipment-notes">添加前会备份上面选中的存档。</p>
+        <div className="live-equipment-backup">
+          {saveSession&&<fieldset className="live-equipment-save" disabled={locked}><SavePicker compact refresh={false}/></fieldset>}
+          <p className="equipment-notes">添加前会备份上面选中的存档。</p>
+        </div>
         <LiveEquipmentSeedSearch item={item} level={numbers.level} plus={numbers.plus} rarity={numbers.rarity} seed={seed}
           saveId={save?.selected?.save_id??null} source={save?.inventory?.source_sha256??""} locked={locked||!!save?.busy}
           wanted={wanted} onWanted={setWanted} onSeed={setSeed} effectName={effectName}
           onBusy={value=>{setBusy(value);callbacks.current.onBusy?.(value);}}/>
-        <p className="equipment-notes">种子范围为 0–65535。不同种子会得到不同词条；预览没有想要的结果时，可取消后换种子。</p>
-        <button data-action="prepare-equipment" className="primary" disabled={!valid||locked} onClick={prepare}>生成实时预览</button>
+        <div className="live-equipment-prepare">
+          <p className="equipment-notes">种子范围为 0–65535。不同种子会得到不同词条；预览没有想要的结果时，可取消后换种子。</p>
+          <button data-action="prepare-equipment" className="primary" disabled={!valid||locked} onClick={prepare}>生成实时预览</button>
+        </div>
         <Notice text={message}/>
         <Notice text={recoveryMessage}/>
         {result&&<div data-state={result.state}>

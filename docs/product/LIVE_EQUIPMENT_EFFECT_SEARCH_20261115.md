@@ -147,3 +147,29 @@ root. Broker favorites were not cleared. Harness-only commit
 `39c317f89a19421c5dc922352197c08f7d8fc2aa` adds explicit profile arguments,
 asserts isolation before clearing, and settles startup reads before fixture
 replacement. The same final product EXE was retested without rebuilding.
+## UI spacing follow-up — 2026-11-15
+
+The owner reported compressed section/description/form spacing and requested
+removal of the save picker's outer rectangular border. The live-add header now
+has an explicit heading/description stack. The main content and form groups use
+16 px vertical gaps; save/backup and seed-help/preview actions have their own
+8 px subgroups. The search legend is separated from its flex body so native
+fieldset layout does not collapse the intended heading gap. The save fieldset
+keeps its disabled grouping but resets its UA border, padding and margin; the
+shared save selector's rounded face and native interaction remain intact.
+
+All entry points, labels, defaults, search results, backup/confirmation and
+receipt recovery are preserved. No locale strings, generator or backend changed.
+The narrow changes are in `LiveEquipmentAdd.tsx`, `LiveEquipmentSeedSearch.tsx`
+and the existing live-equipment block of `style.css`; no extra override layer
+was added to Arc.
+
+Evidence root: `D:/Nioh3_v080_deliverables/deliverables/live-equipment-ui-spacing`.
+Typecheck, the 1,589-message locale audit and 123 mocked-bridge interaction
+checks passed. The current-source native verifier passed 199 checks, including
+measured heading/form gaps, zero computed outer-save border width, native
+maximize/restore, zh/en/ja, light/dark, and emulated 1860x1000, 1100x740,
+1280x720/DPR1.25 and 1067x600/DPR1.5. Top/form screenshots were inspected.
+The final one-file follow-up package is prepared from a new clean local commit;
+its exact bytes, source identity and packaged UI evidence belong in this task's
+`acceptance-package/delivery-report.json`. No public release is authorized.

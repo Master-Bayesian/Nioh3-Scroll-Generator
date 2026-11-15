@@ -60,6 +60,26 @@ try {
     const snapshot=await page.evaluate(()=>({width:innerWidth,height:innerHeight,dpr:devicePixelRatio,screen:{width:screen.width,height:screen.height},overflow:document.documentElement.scrollWidth>innerWidth+2}));
     check(name+' no document overflow',!snapshot.overflow);report.geometry.push({name,...snapshot});
   }
+  async function spacing(name) {
+    const measured=await page.evaluate(()=>{
+      const box=selector=>document.querySelector(selector).getBoundingClientRect();
+      const save=document.querySelector('.live-equipment-save'),style=getComputedStyle(save);
+      return {
+        headingText:box('.live-equipment-heading p').top-box('.live-equipment-heading h2').bottom,
+        headingNote:box('.live-equipment-add>.equipment-notes').top-box('.live-equipment-heading').bottom,
+        noteColumns:box('.live-equipment-layout').top-box('.live-equipment-add>.equipment-notes').bottom,
+        fieldsSave:box('.live-equipment-backup').top-box('.live-equipment-fields').bottom,
+        saveSearch:box('.live-equipment-seed-search').top-box('.live-equipment-backup').bottom,
+        searchHeading:box('.live-equipment-seed-body').top-box('.live-equipment-seed-search legend').bottom,
+        searchPrepare:box('.live-equipment-prepare').top-box('.live-equipment-seed-search').bottom,
+        outerSaveBorder:['borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth'].reduce((sum,key)=>sum+parseFloat(style[key]),0),
+      };
+    });
+    check(name+' heading and description separated',measured.headingText>=5);
+    check(name+' form groups have breathing room',Object.entries(measured).filter(([key])=>!['outerSaveBorder','headingText'].includes(key)).every(([,gap])=>gap>=8));
+    check(name+' save outer fieldset is borderless',measured.outerSaveBorder===0);
+    report.geometry.push({name:name+' spacing',...measured});
+  }
   for(const locale of ['zh-CN','en-US','ja-JP']) {
     await cdp.send('Emulation.clearDeviceMetricsOverride');
     await page.evaluate(locale=>{localStorage.clear();localStorage.setItem('nioh3-ui-locale',locale);},locale);
@@ -79,16 +99,20 @@ try {
     check(locale+' keyboard chooses wanted effect',await page.locator('.seed-chip').count()===1);
     await find.click();await page.locator('.seed-outcomes [role=option]').first().waitFor();
     check(locale+' search is read-only',await page.evaluate(()=>!window.__seedCalls.some(c=>c.method==='runtime.equipment_add_prepare'||c.method==='runtime.equipment_add_execute')));
+    await spacing(locale+' native default');
+    await page.locator('.live-equipment-add').evaluate(el=>{el.scrollTop=0;});await shot(locale+'-form-top');
+    await page.locator('.live-equipment-backup').scrollIntoViewIfNeeded();await shot(locale+'-form-save-search');
     for(const state of ['default','maximized','restored']) {
       if(state!=='default'){await page.evaluate(()=>window.review.windowAction('maximize'));await pause(350);}
       await geometry(locale+' native '+state);await shot(locale+'-native-'+state);
     }
-    for(const [width,height,dpr] of [[1100,740,1],[1280,720,1.25],[1067,600,1.5]]) {
+    for(const [width,height,dpr] of [[1860,1000,1],[1100,740,1],[1280,720,1.25],[1067,600,1.5]]) {
       await cdp.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:dpr,mobile:false});await pause(100);
       for(const theme of ['light','dark']) {
         await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
         const name=locale+'-'+theme+'-'+width+'x'+height+'-dpr'+dpr;
         await geometry(name);
+        await spacing(name);
         // Reachability uses real scrolling within the production page and the seed list.
         await picker.scrollIntoViewIfNeeded();await picker.focus();await picker.press('Escape');
         check(name+' picker dismisses with Escape',await page.locator('.effect-picker-list').count()===0);
@@ -99,6 +123,10 @@ try {
         const affected=failures.filter(f=>f.at?.includes('live-equipment')||f.at?.includes('seed-'));
         check(name+' affected text fits',affected.length===0);
         await shot(name);
+        if(width===1860&&theme==='dark'){
+          await page.locator('.live-equipment-add').evaluate(el=>{el.scrollTop=0;});
+          await shot(name+'-top');
+        }
       }
     }
     const prepare=page.locator('[data-action=prepare-equipment]');await prepare.scrollIntoViewIfNeeded();await prepare.click();
