@@ -1,28 +1,12 @@
-# Nioh 3 Studio 0.8.9
+# Nioh 3 Studio 0.8.10-beta.1
 
-Download `Nioh3Studio-0.8.9-win-x64.exe` and run it directly, or use the signed
-in-app updater. No manual extraction, Python, Node.js, Electron or Cheat Engine
-setup is required. Microsoft Edge WebView2 remains a Windows prerequisite.
+Private compatibility candidate. Run Nioh3Studio-0.8.10-beta.1-win-x64.exe directly; no extraction or Python/CUDA toolkit installation is required. Microsoft Edge WebView2 remains a Windows prerequisite.
 
-- A new interface: navigation moves to a bar at the top, with light and dark
-  themes, a three-column scroll search and cards that grow with their text.
-  Long names, rules and translations wrap instead of being cut off, down to the
-  smallest window.
-- The game's own marks: the star on a scroll or a piece of equipment is the
-  game's Favorite mark, and the lock is its Protect mark. Both can be set or
-  cleared in a save file or in the running game; favorites sort to the top.
-  Deleting a protected scroll asks again.
-- Find the scroll under the game's inventory cursor in the scroll list.
-- The scroll editor uses the same effect table as the equipment page, with a
-  choice of which effects to offer, and its preview shows enemies, rules,
-  terrain and the attempt limit.
-- The save picker shows what the game's load menu shows: playthrough, level,
-  play time and when it was saved.
-- Restoring a backup made by an in-game edit works again. These backups hold
-  only the main save; restoring one now puts back just that file.
-- If the program cannot start because antivirus software locked or quarantined
-  its files, the message says so first, can open the log folder, and offers
-  the portable ZIP from GitHub.
+- Scroll searches using enemies, special rules and terrain can use DirectCompute when CUDA is unavailable. Natural seed enumeration, rarity-4 primary searches and the corresponding batch predicates use the same fallback.
+- Bulk CPU search still requires the explicit Settings opt-in. Search criteria, generated records, result order, cancellation and continuation retain their existing meaning.
+- Unavailable acceleration no longer gives every user the same driver-update instruction; the message points to technical details and exported feedback.
+
+The local acceptance includes real NVIDIA and AMD integrated DirectCompute adapters. Discrete Radeon user acceptance is still pending; this candidate is not the stable release.
 
 ## Supported scope and known limitations
 

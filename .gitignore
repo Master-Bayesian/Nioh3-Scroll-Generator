@@ -125,3 +125,7 @@ apps/tauri/src-tauri/gen/
 /docs/knowledge/*.md
 /docs/knowledge/evidence/
 /docs/research/
+
+# Cross-vendor seed search sources
+!research/native_seed_search.hlsl
+!research/native_directcompute_seed.inl

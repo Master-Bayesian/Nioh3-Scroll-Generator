@@ -449,6 +449,12 @@ impl SearchBackend {
             return Err(NativeSearchError::Unavailable);
         };
         let chunk = request.effective_chunk(query)?;
+        // Short windows bound cancellation latency on slower integrated GPUs.
+        let chunk = if accelerator.uses_directcompute() {
+            chunk.min(1_000_000)
+        } else {
+            chunk
+        };
         let family_size = query.family_size();
         let start = request.start_after_trial.min(family_size);
         let budget_stop = start.saturating_add(request.max_trials).min(family_size);

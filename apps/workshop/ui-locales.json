@@ -2656,9 +2656,9 @@
       "Too many special rules are selected (32 at most). Select fewer and search again.",
       "特殊ルールの選択が多すぎます（最大 32 件）。減らしてから検索してください。"
     ],
-    "没有可用的显卡搜索加速，已停止搜索。请更新显卡驱动后重试；也可以在“设置”里打开“允许使用 CPU 搜索”（会慢很多）。": [
-      "No GPU search acceleration is available, so the search stopped. Update your graphics driver and retry, or turn on \"Allow CPU search\" in Settings (much slower).",
-      "GPU による検索高速化が利用できないため、検索を中止しました。グラフィックドライバーを更新して再試行するか、「設定」で「CPU 検索を許可」をオンにしてください（大幅に遅くなります）。"
+    "当前搜索无法使用显卡加速，已停止搜索。可以在“设置”里打开“允许使用 CPU 搜索”（会慢很多）；也可以展开技术详情或导出反馈文件，以确认具体的兼容性问题。": [
+      "GPU acceleration is unavailable for this search, so the search stopped. You can enable \"Allow CPU search\" in Settings (much slower), or expand the technical details or export feedback to identify the compatibility issue.",
+      "この検索では GPU 高速化を利用できないため、検索を中止しました。「設定」で「CPU 検索を許可」をオンにする（大幅に遅くなります）か、技術詳細を開くかフィードバックを出力して互換性の問題を確認してください。"
     ],
     "游戏里的同一处代码已被其他程序（例如 Cheat Engine 脚本）修改，本工具不会覆盖它。请先关闭相关脚本或重启游戏再试。": [
       "Another program (such as a Cheat Engine script) has changed the same game code, and this tool will not overwrite it. Disable that script or restart the game, then try again.",

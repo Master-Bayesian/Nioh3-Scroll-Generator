@@ -19,6 +19,7 @@ pub mod capabilities;
 pub mod catalog;
 pub mod collector;
 pub mod context;
+pub mod direct_seed;
 pub mod effect_batch;
 pub mod effect_path;
 pub mod engine;

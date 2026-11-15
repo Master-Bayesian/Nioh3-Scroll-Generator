@@ -1,0 +1,4 @@
+[
+  {"name":"missing-outer-settlement","overrides":{"RecordOuterCommit":false},"expected":"Invariant ResolutionPossible is violated"},
+  {"name":"rollback-drops-proof","overrides":{"FixedRollback":false},"expected":"Invariant OwnBytesProvable is violated"}
+]

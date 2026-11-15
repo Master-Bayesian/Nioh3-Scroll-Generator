@@ -60,7 +60,8 @@ export function searchStatusText(job: SearchStatusJob): string {
       return `搜索范围已穷尽，本批找到 ${found} 张绘卷，耗时 ${seconds} 秒。`;
     case "budget_reached":
       return `本批在试验预算内找到 ${found} 张绘卷；条件尚未穷尽，可继续搜索下一批，耗时 ${seconds} 秒。`;
-    default:
+    case null:
+    case "error":
       return `本批找到 ${found} 张绘卷，耗时 ${seconds} 秒。`;
   }
 }

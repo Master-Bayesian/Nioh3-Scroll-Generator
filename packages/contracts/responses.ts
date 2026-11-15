@@ -265,6 +265,7 @@ export interface Handshake {
     playthroughs: number[];
     rarities: number[];
     cuda_pivot_and_auxiliary: boolean;
+    directcompute_pivot_and_auxiliary?: boolean;
     directcompute_effect_filter: boolean;
     cpu_exact_replay: boolean;
     bulk_cpu_requires_opt_in: boolean;

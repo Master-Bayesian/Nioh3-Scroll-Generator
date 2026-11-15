@@ -47,6 +47,7 @@ pub fn handshake_result(
             // Real probes: the shipped seed-accelerator and effect-preimage
             // helpers are loaded and asked, exactly like the Python worker.
             "cuda_pivot_and_auxiliary": capabilities.cuda_pivot_and_auxiliary,
+            "directcompute_pivot_and_auxiliary": capabilities.directcompute_pivot_and_auxiliary,
             "directcompute_effect_filter": capabilities.directcompute_effect_filter,
             // The save-bound NG4/NG5 cached route is ported, so the playthroughs
             // it serves are advertised exactly like the shipped worker's. NG3

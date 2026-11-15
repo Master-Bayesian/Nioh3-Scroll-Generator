@@ -11,7 +11,7 @@ export default tseslint.config(
     },
     plugins: { '@typescript-eslint': tseslint.plugin },
     rules: {
-      '@typescript-eslint/switch-exhaustiveness-check': ['error', { requireDefaultForNonUnion: false, considerDefaultExhaustiveForUnions: true }],
+      '@typescript-eslint/switch-exhaustiveness-check': ['error', { requireDefaultForNonUnion: false, considerDefaultExhaustiveForUnions: false }],
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { attributes: false, arguments: false } }],
       '@typescript-eslint/await-thenable': 'error',

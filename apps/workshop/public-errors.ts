@@ -113,7 +113,7 @@ export function publicError(message: string): string {
     ],
     [
       /SEARCH_BACKEND_UNAVAILABLE|accelerator refused to run|accelerator is (?:unavailable|missing)|CPU fallback is disabled/i,
-      "没有可用的显卡搜索加速，已停止搜索。请更新显卡驱动后重试；也可以在“设置”里打开“允许使用 CPU 搜索”（会慢很多）。",
+      "当前搜索无法使用显卡加速，已停止搜索。可以在“设置”里打开“允许使用 CPU 搜索”（会慢很多）；也可以展开技术详情或导出反馈文件，以确认具体的兼容性问题。",
     ],
     [
       /HOOK_MODIFIED|was changed by another program/i,

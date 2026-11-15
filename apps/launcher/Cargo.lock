@@ -286,7 +286,7 @@ dependencies = [
 
 [[package]]
 name = "nioh3-onefile-launcher"
-version = "0.8.9"
+version = "0.8.10-beta.1"
 dependencies = [
  "embed-resource",
  "serde",
