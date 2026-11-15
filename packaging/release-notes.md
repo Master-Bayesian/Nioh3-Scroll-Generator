@@ -1,12 +1,12 @@
-# Nioh 3 Studio 0.8.10-beta.1
+# Nioh 3 Studio 0.8.10
 
-Private compatibility candidate. Run Nioh3Studio-0.8.10-beta.1-win-x64.exe directly; no extraction or Python/CUDA toolkit installation is required. Microsoft Edge WebView2 remains a Windows prerequisite.
+Download Nioh3Studio-0.8.10-win-x64.exe and run it directly, or use the signed in-app updater. No extraction, Python, Node.js or CUDA toolkit installation is required. Microsoft Edge WebView2 remains a Windows prerequisite.
 
-- Scroll searches using enemies, special rules and terrain can use DirectCompute when CUDA is unavailable. Natural seed enumeration, rarity-4 primary searches and the corresponding batch predicates use the same fallback.
-- Bulk CPU search still requires the explicit Settings opt-in. Search criteria, generated records, result order, cancellation and continuation retain their existing meaning.
-- Unavailable acceleration no longer gives every user the same driver-update instruction; the message points to technical details and exported feedback.
-
-The local acceptance includes real NVIDIA and AMD integrated DirectCompute adapters. Discrete Radeon user acceptance is still pending; this candidate is not the stable release.
+- Enemy, special-rule and terrain searches can use DirectCompute when CUDA is unavailable. Natural seed enumeration, rarity-4 primary searches and their batch predicates have the same fallback. Bulk CPU search still requires the explicit Settings choice.
+- GPU failures retain their error code and show a useful explanation with technical details and feedback export, rather than telling every user to update a driver.
+- Known scroll IDs show the generation and display/addition settings used by View. Search-only filters and result count are distinguished. A changed ID or relevant setting marks the preview stale and prevents addition until refreshed.
+- The uncertain-write recovery panel in Add current scroll uses the full available width. Recovery checks and acknowledgement behavior are unchanged.
+- Beta/rc launchers use valid numeric Windows version fields while keeping the complete version text.
 
 ## Supported scope and known limitations
 

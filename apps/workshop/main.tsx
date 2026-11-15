@@ -60,6 +60,8 @@ import { searchNativePage } from "./native-search";
 import { runtimeObserver, saveSession } from "./save-workspace";
 import { terminal } from "../desktop/src/search-controller";
 import { searchStartParams, searchStatusText } from "./search-policy";
+import { isKnownIdPreview, knownIdPreviewState, knownIdUseBlocked, parseKnownScrollId } from "./known-id-preview";
+import { resultSourceLabel, type ResultOrigin } from "./result-source";
 import { useConditionDrag } from "./condition-drag";
 import { useTheme, type Theme } from "./theme";
 const hex = (id: string) =>
@@ -485,7 +487,7 @@ function App() {
       );
       if (viewed >= 0) setIndex(viewed);
       setResumeAvailable(!!job.resume_token);
-      setResultSource("真实搜索结果");
+      setResultOrigin("search");
       setStatus(searchStatusText(job));
     };
     const unsubscribe = controller.subscribe(update);
@@ -648,7 +650,8 @@ function App() {
       setToast("请在 QQ 中搜索群号 " + data.qq + " 加入。");
     }
   }
-  const [resultSource, setResultSource] = useState(desktop ? "" : "未筛选示例");
+  const [resultOrigin, setResultOrigin] = useState<ResultOrigin>(desktop ? "none" : "sample");
+  const resultSource = resultSourceLabel(resultOrigin);
   const dialog = useRef<HTMLDialogElement>(null),
     pendingUpdatePrompt = useRef(false),
     cancel = useRef(false),
@@ -660,6 +663,9 @@ function App() {
     setQ((prev) => ({ ...prev, [key]: value }));
   const dirty = JSON.stringify(q) !== JSON.stringify(submitted);
   const selected = results[index];
+  const knownPreview = knownIdPreviewState({ origin: resultOrigin, input: direct,
+    candidateSeed: selected?.seed, displayed: submitted, current: q, pending: busy });
+  const knownPreviewBlocked = knownIdUseBlocked(knownPreview);
   // Results arrive while a search runs and are re-sorted each time; the scroll
   // being viewed keeps its place instead of being swapped out underneath.
   const viewedSeed = useRef<string | null>(null);
@@ -697,7 +703,7 @@ function App() {
     }
   }
   async function addCurrent() {
-    if (!selected || retainingCurrent) return;
+    if (!selected || retainingCurrent || busy || knownPreviewBlocked) return;
     const sample = selected;
     const mode = installMode;
     const query = { ...q };
@@ -755,7 +761,7 @@ function App() {
     cancel.current = false;
     setBusy(true);
     setResumeAvailable(false);
-    setResultSource(knownSeed ? "种子预览" : "原生搜索结果");
+    setResultOrigin(knownSeed ? "known_id" : "native_search");
     setSubmitted(structuredClone(q));
     const found: Sample[] = [];
     setResults([]);
@@ -913,7 +919,7 @@ function App() {
     }
     matched.sort((a, b) => score(b, sortMode) - score(a, sortMode));
     const start = next ? offset + q.count : 0;
-    setResultSource("已按条件筛选");
+    setResultOrigin("demo_search");
     setMatchedCount(matched.length);
     setResults(matched.slice(start, start + q.count));
     setIndex(0);
@@ -2131,7 +2137,7 @@ function App() {
                   (desktop
                     ? !resumeAvailable
                     : offset + results.length >= matchedCount ||
-                      resultSource !== "已按条件筛选")
+                      resultOrigin !== "demo_search")
                 }
                 onClick={() => void search(true)}
               >
@@ -2148,7 +2154,18 @@ function App() {
                 取消
               </button>
             </div>
-            <div className="direct-seed">
+            <div className="direct-seed" data-preview-state={knownPreview.kind}>
+              <div className="known-id-context" aria-label="已知 ID 使用的设置">
+                <strong>按 ID 查看沿用上方设置</strong>
+                <div className="known-id-values">
+                  <span>生成：</span><span><b>周目</b> {q.ng}</span><span><b>稀有度</b> R{q.rarity}</span><span><b>绘卷等级</b> {q.level}</span>
+                </div>
+                <div className="known-id-values">
+                  <span>显示与添加：</span><span><b>推荐等级</b> {q.recommended}</span>
+                  <span><b>转手次数</b> {q.transfers === -1 ? "保留原值" : q.transfers}</span>
+                </div>
+                <small>候选数量、词条和辅助筛选仅用于搜索。</small>
+              </div>
               <label>
                 已知绘卷 ID
                 <input
@@ -2161,24 +2178,32 @@ function App() {
               <button
                 disabled={busy}
                 onClick={() => {
+                  const seed = parseKnownScrollId(direct);
+                  if (seed === null) {
+                    setStatus("请输入 0–4294967295 范围内的绘卷 ID。");
+                    return;
+                  }
+                  // Bind the result to the values used for this request even
+                  // when the form changes before its response arrives.
+                  const requested = structuredClone(q);
                   if (desktop) {
-                    if (q.ng >= 4) {
+                    if (requested.ng >= 4) {
                       void nativeSearch(false, true);
                       return;
                     }
                     setBusy(true);
                     void previewSeed(
-                      Number(direct),
-                      q.rarity,
-                      q.level,
+                      seed,
+                      requested.rarity,
+                      requested.level,
                       false,
-                      q.enemyVariant,
-                      q.ng,
+                      requested.enemyVariant,
+                      requested.ng,
                     )
                       .then((sample) => {
                         setResults([sample]);
-                        setSubmitted(structuredClone(q));
-                        setResultSource("种子预览");
+                        setSubmitted(requested);
+                        setResultOrigin("known_id");
                         setIndex(0);
                         setResumeAvailable(false);
                       })
@@ -2187,19 +2212,22 @@ function App() {
                     return;
                   }
                   const sample = data.samples.find(
-                    (s) => s.seed === direct && s.rarity === q.rarity,
+                    (s) => Number(s.seed) === seed && s.rarity === requested.rarity,
                   );
                   if (sample) {
-                    setResultSource("已知种子预览");
+                    setResultOrigin("demo_known_id");
                     setResults([sample]);
                     setIndex(0);
-                    setSubmitted(structuredClone(q));
+                    setSubmitted(requested);
                     setStatus("已找到该绘卷。");
                   } else setStatus("此预览暂不支持该绘卷 ID。");
                 }}
               >
                 查看
               </button>
+              {knownPreview.kind === "stale" && (
+                <p className="known-id-stale" role="status">ID 或生成设置已变化，请重新查看；当前预览仍使用先前设置。</p>
+              )}
             </div>
           </section>
           <div className="status">
@@ -2245,8 +2273,12 @@ function App() {
           <div className="result-context">
             {!resultSource
               ? ""
-              : dirty
-                ? "条件已修改，请重新搜索"
+              : knownPreview.kind === "pending"
+                ? "正在生成 ID 预览…"
+                : knownPreview.kind === "stale"
+                  ? "生成设置已修改，请重新查看该 ID"
+                : dirty && !isKnownIdPreview(resultOrigin)
+                  ? "条件已修改，请重新搜索"
                 : `${resultSource} · ${submitted.ng} 周目 · R${submitted.rarity} ${colors[submitted.rarity]}`}
           </div>
           {results.length > 0 && (
@@ -2337,7 +2369,7 @@ function App() {
                     onClick={() => {
                       setResults([]);
                       setIndex(0);
-                      setResultSource("");
+                      setResultOrigin("none");
                     }}
                   >
                     清空预览
@@ -2359,7 +2391,7 @@ function App() {
                     aria-pressed={cart.some(
                       (sample) => cartKey(sample) === cartKey(selected),
                     )}
-                    disabled={cartPending.includes(cartKey(selected))}
+                    disabled={busy || knownPreviewBlocked || cartPending.includes(cartKey(selected))}
                     onClick={() => {
                       if (
                         cart.some(
@@ -2417,7 +2449,7 @@ function App() {
             {desktop && installMode === "save" && <SavePicker compact />}
             <button
               className="install-current"
-              disabled={!selected || retainingCurrent}
+              disabled={!selected || retainingCurrent || busy || knownPreviewBlocked}
               onClick={() => void addCurrent()}
             >
               添加当前绘卷

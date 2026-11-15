@@ -867,7 +867,7 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .notice-links{display:flex;gap:6px}
 .status>.notice{margin:0;flex:1;min-width:0}
 .status:has(.notice-error){align-items:flex-start}
-.save-picker>.notice,.save-picker>.save-picker-hint{grid-column:1/-1;flex-basis:100%;width:100%}
+.save-picker>.notice,.save-picker>.save-picker-hint,.save-picker>.uncertain-operation{grid-column:1/-1;flex-basis:100%;width:100%;min-width:0}
 .save-picker-hint,.cart-hint{margin:4px 0 0;padding:6px 9px;border-radius:6px;background:#eef3f8;color:#34506a;font-size:12px;line-height:1.5}
 .save-picker>p.save-picker-hint{color:#34506a}
 .cart-forget{display:grid;gap:6px;margin-top:6px;padding:8px 10px;border:1px dashed #c9a86b;border-radius:6px;background:#fcf7ec;font-size:12px}

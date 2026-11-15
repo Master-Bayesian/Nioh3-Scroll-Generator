@@ -30,6 +30,20 @@ jobs:
       - run: node apps/workshop/verify-runtime-compatibility.mjs
       - run: node apps/workshop/verify-character-draft.mjs
       - run: node apps/workshop/verify-scroll-completion.mjs
+      - name: Set up Rust for real read-only preview UI acceptance
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with:
+          toolchain: 1.99.0
+      - name: Build the read-only worker for the bugfix UI gate
+        shell: pwsh
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/nioh3-frontend-target
+        run: cargo build --release --locked --manifest-path crates/nioh3-worker/Cargo.toml --bin nioh3-readonly-worker
+      - name: Verify known-ID ownership and recovery layout
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/nioh3-frontend-target
+          NIOH3_BUGFIX_EVIDENCE: deliverables/frontend-v2/small-bugfixes
+        run: node apps/workshop/verify-small-bugfixes.mjs
       # Text must fit its box in every locale at the minimum window size.
       - run: node apps/workshop/verify-text-fit.mjs
       # Flows the text-fit check does not reach (dialogs, save management, a 1,500-item list).

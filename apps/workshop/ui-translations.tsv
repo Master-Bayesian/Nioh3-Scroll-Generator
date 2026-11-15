@@ -1576,3 +1576,14 @@ NPC武器	NPC weapon	NPC武器
 要删除的绘卷里有	Among the scrolls to delete,	削除する絵巻のうち
 张在游戏里加了保护。确定仍要删除吗？	are protected in game. Delete them anyway?	枚がゲーム内で保護されています。それでも削除しますか？
 仍然删除	Delete anyway	それでも削除
+
+已知 ID 使用的设置	Settings used for a known ID	既知 ID に使用する設定
+按 ID 查看沿用上方设置	Viewing an ID uses the settings above	ID の表示には上の設定を使用します
+生成：	Generation:	生成：
+显示与添加：	Display and addition:	表示と追加：
+保留原值	Keep the original value	元の値を維持
+候选数量、词条和辅助筛选仅用于搜索。	Result count, effect filters and mission filters apply only to search.	候補数・効果・ミッションの絞り込みは検索にのみ使用します。
+请输入 0–4294967295 范围内的绘卷 ID。	Enter a scroll ID from 0 to 4294967295.	0～4294967295 の絵巻 ID を入力してください。
+ID 或生成设置已变化，请重新查看；当前预览仍使用先前设置。	The ID or generation settings changed. View the ID again; this preview still uses the previous settings.	ID または生成設定が変更されています。もう一度表示してください。現在のプレビューは以前の設定を使用しています。
+正在生成 ID 预览…	Generating the ID preview…	ID のプレビューを生成中…
+生成设置已修改，请重新查看该 ID	Generation settings changed; view this ID again	生成設定が変更されています。この ID をもう一度表示してください
