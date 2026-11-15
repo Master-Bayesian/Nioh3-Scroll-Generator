@@ -1,12 +1,10 @@
-# Nioh 3 Studio 0.8.10
+# Nioh 3 Studio 0.8.11
 
-Download Nioh3Studio-0.8.10-win-x64.exe and run it directly, or use the signed in-app updater. No extraction, Python, Node.js or CUDA toolkit installation is required. Microsoft Edge WebView2 remains a Windows prerequisite.
+Download Nioh3Studio-0.8.11-win-x64.exe and run it directly, or use the signed in-app updater. No extraction, Python, Node.js or CUDA toolkit installation is required. Microsoft Edge WebView2 remains a Windows prerequisite.
 
-- Enemy, special-rule and terrain searches can use DirectCompute when CUDA is unavailable. Natural seed enumeration, rarity-4 primary searches and their batch predicates have the same fallback. Bulk CPU search still requires the explicit Settings choice.
-- GPU failures retain their error code and show a useful explanation with technical details and feedback export, rather than telling every user to update a driver.
-- Known scroll IDs show the generation and display/addition settings used by View. Search-only filters and result count are distinguished. A changed ID or relevant setting marks the preview stale and prevents addition until refreshed.
-- The uncertain-write recovery panel in Add current scroll uses the full available width. Recovery checks and acknowledgement behavior are unchanged.
-- Beta/rc launchers use valid numeric Windows version fields while keeping the complete version text.
+- Fix an empty enemy section when a scroll has known enemies but its detailed enemy-state preview is unavailable. For example, NG3/R4 scroll 141974638 now displays Enenra, Kappa and Red Kappa.
+- Show unconfirmed Crucible Wraith status separately from the known enemy list. A missing preview is distinguished from a confirmed empty roster.
+- Preserve ordinary per-occurrence previews and the existing generation, filtering and save protections. An old cached preview should be refreshed by viewing its ID again or running a fresh search.
 
 ## Supported scope and known limitations
 

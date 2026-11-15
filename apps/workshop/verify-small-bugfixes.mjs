@@ -81,7 +81,7 @@ function bridge({origin,recovery=false,theme='light'}){
     }
   },current:async()=>({job:null,busy:false}),snapshot:forbidden,cancel:forbidden,selectSave:async()=>save,prepareInstall:forbidden,prepareLiveAdd:forbidden,generate:forbidden,searchNative:forbidden};
   window.preferences={getLocale:async()=>'zh-CN',setLocale:async locale=>locale};
-  window.support={diagnostics:async()=>({version:'0.8.10-ui-e2e'}),exportDiagnostics:async()=>null};
+  window.support={diagnostics:async()=>({version:'0.8.11-ui-e2e'}),exportDiagnostics:async()=>null};
   window.review={favorites:async()=>[],release:async()=>null,retain:forbidden,update:async()=>({phase:'current',canApply:true}),windowAction:async()=>null,log:async()=>null,copyLog:async()=>'',copyText:async()=>null,openLink:async()=>null,dataDirectory:async()=>({path:'D:/owned-ui-fixture'}),gameInstallation:async()=>({source:'selected',executable:'D:/owned-ui-fixture/Nioh3.exe',file_version:'2.0.2.0',restart_required:false,identity_error:null,compatibility:{status:'known',display_version:'PC v2.02',data_version:'PC v2.02',runtime_profile:'pc_v2_02',resource_directory:'r4_finalizer/pc_v2_02/resource_v1',features:{offline_scroll_generation:'supported',native_scroll_add:'supported',character_read_edit:'supported',native_equipment_add:'supported'},reason:'Read-only UI fixture'}}),preview:async params=>{
     state.previews.push(structuredClone(params));const result=await rpc('preview',params);
     if(state.hold){state.hold=false;state.held=true;await new Promise(resolve=>{state.release=resolve;});state.held=false;}
