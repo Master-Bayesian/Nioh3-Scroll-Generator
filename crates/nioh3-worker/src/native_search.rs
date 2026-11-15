@@ -382,6 +382,13 @@ unsafe impl Send for Accelerator {}
 unsafe impl Sync for Accelerator {}
 
 impl Accelerator {
+    /// These legacy policy controls exercise the CUDA DLL's CPU guard itself.
+    /// Automatic DirectCompute fallback is covered by the real GPU E2E gate.
+    #[cfg(test)]
+    pub(crate) fn prefer_cuda_for_policy_test(&mut self) {
+        self.preference = SeedBackendPreference::Cuda;
+    }
+
     /// Load and validate `bin/nioh3_seed_accelerator.dll`.
     ///
     /// `override_path` is `NIOH3_SEED_ACCELERATOR`. A missing file, a wrong ABI
@@ -2184,8 +2191,9 @@ mod policy_consistency_tests {
             return;
         };
         let root = repo_root();
-        let accelerator = Accelerator::load(&root, Some(&library.module))
+        let mut accelerator = Accelerator::load(&root, Some(&library.module))
             .expect("the private copy of the shipped accelerator loads");
+        accelerator.prefer_cuda_for_policy_test();
 
         let stop = Arc::new(AtomicBool::new(false));
         let probes = Arc::new(AtomicUsize::new(0));

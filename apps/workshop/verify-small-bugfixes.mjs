@@ -155,7 +155,17 @@ try{
   await p.getByRole('textbox',{name:'已知绘卷ID',exact:true}).fill('10030609');await p.getByRole('button',{name:'查看',exact:true}).click();await p.waitForFunction(()=>document.querySelector('.direct-seed')?.dataset.previewState==='current');
   await p.getByRole('radio',{name:'回标题界面后添加到存档',exact:true}).check();await p.locator('.install-mode .uncertain-operation').waitFor();await p.locator('.install-current').click();
   const recovery=p.locator('.current-add-review .uncertain-operation');await recovery.waitFor();
-  const measure=()=>recovery.evaluate(element=>{const r=element.getBoundingClientRect(),p=element.parentElement.getBoundingClientRect();return{width:r.width,parentWidth:p.width,ratio:r.width/p.width,left:r.left,parentLeft:p.left,right:r.right,parentRight:p.right,viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio}};});
+  const measure=async()=>{
+    const handle=await p.waitForFunction(()=>{
+      const element=document.querySelector('.current-add-review .uncertain-operation');
+      const parent=element?.parentElement;
+      if(!element?.isConnected||!parent)return null;
+      const r=element.getBoundingClientRect(),box=parent.getBoundingClientRect();
+      if(!r.width||!box.width)return null;
+      return{width:r.width,parentWidth:box.width,ratio:r.width/box.width,left:r.left,parentLeft:box.left,right:r.right,parentRight:box.right,viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio}};
+    },null,{timeout:15000});
+    const value=await handle.jsonValue();await handle.dispose();return value;
+  };
   for(const theme of ['light','dark'])for(const[label,lang]of languages){
    // The modal keeps the language selector behind its backdrop; set the same
    // persisted locale and dispatch the production locale event through a reload
@@ -163,7 +173,7 @@ try{
    if(lang!=='zh-CN'&&geometry.dpr!==1)continue;
    await p.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
    if(lang!==await p.evaluate(()=>document.documentElement.lang)){
-     await p.locator('dialog[open] > header > button').click();await language(p,label,lang);await p.locator('.install-current').click();await recovery.waitFor();
+     await p.locator('dialog[open] > header > button').click();await p.locator('.current-add-review').waitFor({state:'detached'});await language(p,label,lang);await p.locator('.install-current').click();await recovery.waitFor();
    }
    const metrics=await measure();check('recovery full width '+JSON.stringify({theme,lang,...geometry}),metrics.ratio>.98&&metrics.left>=metrics.parentLeft-1&&metrics.right<=metrics.parentRight+1,metrics);
    const file=`recovery-${theme}-${lang}-${geometry.width}-${geometry.dpr}.png`;await p.screenshot({path:join(output,file),animations:'disabled'});report.screenshots.push(file);

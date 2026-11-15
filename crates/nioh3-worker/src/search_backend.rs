@@ -1273,7 +1273,12 @@ mod tests {
     }
 
     fn loaded() -> SearchBackend {
-        SearchBackend::load(&repo_root(), None).expect("shipped accelerator must load")
+        let mut backend =
+            SearchBackend::load(&repo_root(), None).expect("shipped accelerator must load");
+        Arc::get_mut(backend.accelerator.as_mut().expect("loaded seed helper"))
+            .expect("new backend exclusively owns its accelerator")
+            .prefer_cuda_for_policy_test();
+        backend
     }
 
     fn accelerator(backend: &SearchBackend) -> &Accelerator {

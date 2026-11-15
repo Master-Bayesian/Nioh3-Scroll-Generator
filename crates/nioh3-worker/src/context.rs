@@ -37,7 +37,7 @@ pub const SUPPORTED_GAME_PROFILE: &str = "pc-v2.00.02-v2.01";
 /// This value mirrors `nioh3_scroll_editor/version.py`, which the Python worker
 /// imports directly. A unit test re-reads that file so the two cannot drift
 /// silently; the value is never inferred or defaulted at runtime.
-pub const PRODUCT_VERSION: &str = "0.8.9";
+pub const PRODUCT_VERSION: &str = "0.8.10";
 
 /// Fail-closed context errors, mirroring `CoreErrorCode.RESOURCE_MISMATCH`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -806,7 +806,7 @@ mod tests {
             "\"game_file_version\":\"2.0.2.0\",",
             "\"game_profile\":\"pc-v2.00.02-v2.01\",",
             "\"policy_version\":\"operation-policy-v1\",",
-            "\"product_version\":\"0.8.9\",",
+            "\"product_version\":\"0.8.10\",",
             "\"resources_digest\":\"411866d772e8e2450c1f4becd4c5e79761600f7766ab0659438bcbde21997048\",",
             "\"seed_accelerator_abi\":null,",
             "\"seed_accelerator_build_id\":null,",
@@ -819,7 +819,7 @@ mod tests {
             "{\"algorithm_version\":\"scroll-generation-v0.7-native-completion-1\",",
             "\"game_profile\":\"pc-v2.00.02-v2.01\",",
             "\"policy_version\":\"operation-policy-v1\",",
-            "\"product_version\":\"0.8.9\",",
+            "\"product_version\":\"0.8.10\",",
             "\"resources_digest\":\"411866d772e8e2450c1f4becd4c5e79761600f7766ab0659438bcbde21997048\",",
             "\"seed_accelerator_abi\":null,",
             "\"seed_accelerator_build_id\":null}",
