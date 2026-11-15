@@ -15,7 +15,15 @@ fn main() {
         .unwrap();
     let manifest = root.join("launcher.manifest");
     let version = env::var("CARGO_PKG_VERSION").unwrap();
-    let numbers = format!("{},0", version.replace('.', ","));
+    // VERSIONINFO's fixed fields contain four numeric words; the string fields
+    // below retain the full semantic version, including beta/rc identifiers.
+    let parts = ["MAJOR", "MINOR", "PATCH"].map(|part| {
+        env::var(format!("CARGO_PKG_VERSION_{part}"))
+            .expect("Cargo supplies numeric version components")
+            .parse::<u16>()
+            .expect("Windows version components must fit in uint16")
+    });
+    let numbers = format!("{},{},{},0", parts[0], parts[1], parts[2]);
     let resource = out.join("launcher.rc");
     fs::write(
         &resource,
