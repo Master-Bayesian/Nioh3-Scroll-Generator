@@ -243,6 +243,7 @@ async function main() {
     releaseCandidate: hostMode === 'release',
     executable,
     stagedPackage: staged,
+    harness: rawHash(resolve(import.meta.dirname, 'verify-packaged-frontend.mjs')),
     roles: Object.fromEntries(
       ROLES.map((role) => [role, manifest.invocation[role]?.binary ?? null]),
     ),
@@ -520,6 +521,14 @@ async function main() {
       },
     };
     const allowCpu = !identity.capabilities.cuda_pivot_and_auxiliary;
+    evidence.searchExecution = {
+      requestedBackend: process.env.NIOH3_SEED_BACKEND || 'auto',
+      cudaAvailable: identity.capabilities.cuda_pivot_and_auxiliary,
+      directcomputeAvailable: identity.capabilities.directcompute_pivot_and_auxiliary,
+      allowCpu,
+    };
+    // Retain source/binary/profile identity even if the first long search fails.
+    await writeFile(join(output, 'partial-evidence.json'), JSON.stringify(evidence, null, 2) + '\n');
     // One job lifecycle helper for both profiles: the shipped
     // start/snapshot/cancel/resume surface the UI drives, not a second harness.
     const startSearchJob = async (params) => {
@@ -531,14 +540,29 @@ async function main() {
     };
     const waitSearchJob = async (jobId, timeout, label) => {
       const deadline = Date.now() + timeout;
+      const started = Date.now();
+      let recordedAt = 0;
+      const progressFile = join(output, label.replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '-latest.json');
+      const record = async (snapshot) => {
+        const elapsedMs = Date.now() - started;
+        await writeFile(progressFile, JSON.stringify({label, timeoutMs: timeout, elapsedMs,
+          execution: evidence.searchExecution, artifact: evidence.artifact, snapshot}, null, 2) + '\n');
+        console.log('PACKAGED_SEARCH_PROGRESS ' + JSON.stringify({label, elapsedMs,
+          state: snapshot.state, cursor: snapshot.cursor, candidates: snapshot.candidates?.length}));
+        recordedAt = Date.now();
+      };
       let state = await page.evaluate((id) => window.nioh.snapshot(id), jobId);
+      await record(state);
       while (!['completed', 'cancelled', 'failed'].includes(state.state)) {
         if (Date.now() > deadline) {
+          await record(state);
           throw new Error(`${label} stayed ${state.state}: ${JSON.stringify(state).slice(0, 300)}`);
         }
         await new Promise((ready) => setTimeout(ready, 100));
         state = await page.evaluate((id) => window.nioh.snapshot(id), jobId);
+        if (Date.now() - recordedAt >= 30000) await record(state);
       }
+      await record(state);
       return state;
     };
 

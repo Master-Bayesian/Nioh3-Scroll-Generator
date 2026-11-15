@@ -224,6 +224,12 @@ jobs:
 
       - name: Verify the packaged Rust identity, host graph and frontend
         shell: pwsh
+        env:
+          # Fix this acceptance baseline to CUDA when present, otherwise the
+          # existing explicit CPU opt-in. A hosted VM advertising DirectCompute
+          # must not silently change the long-search performance assumption.
+          # Physical AMD/NVIDIA DirectCompute and auto-fallback have separate gates.
+          NIOH3_SEED_BACKEND: cuda
         run: |
           # The shipped Rust graph is accepted on the real product, not on the
           # resource graph alone: the host's own startup record must name the
