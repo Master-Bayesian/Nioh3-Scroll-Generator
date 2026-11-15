@@ -2,6 +2,7 @@ import catalog from "./catalog.json";
 import itemNames from "./item-names.json";
 import effectArguments from "./effect-arguments.json";
 import { hasTemplateSlot, withTemplateArgument } from "./game-text";
+import { enemyDisplayState, type EnemyOccurrence } from "./enemy-preview";
 export const data = catalog;
 
 // The editor lists every native effect by its raw native string, and some of
@@ -68,15 +69,9 @@ export type Sample = (typeof catalog.samples)[number] & {
     installable: boolean;
   };
   enemyVariant?: "solo" | "expedition";
-  enemyOccurrences?: {
-    lookupKey: number;
-    name: string;
-    waveIndex: number;
-    position: number;
-    availability: "base" | "expedition_only";
-    possessed: "yes" | "no" | "unknown";
-    curse: "guaranteed" | "possible" | "never" | "unknown";
-  }[];
+  enemyOccurrences?: EnemyOccurrence[];
+  enemyRosterComplete?: boolean;
+  enemyStatesUnavailable?: boolean;
   possessedComplete?: boolean;
   curseScope?: string;
   saveEntry?: import("../../packages/contracts/protected-responses").SaveInventory["entries"][number];
@@ -313,9 +308,11 @@ export function matches(sample: Sample, q: Query): boolean {
         .some((r) => sample.rules.some((v) => r.keys.includes(v.key)))
     )
       return false;
+  const enemyDisplay = enemyDisplayState(sample);
   const enemyMatches = (condition: EnemyCondition) => {
-    if (sample.enemyOccurrences) {
-      return sample.enemyOccurrences.some(
+    switch (enemyDisplay.kind) {
+    case "detailed":
+      return enemyDisplay.occurrences.some(
         (occurrence) =>
           condition.keys.includes(occurrence.lookupKey) &&
           (condition.availability === "any" ||
@@ -325,12 +322,16 @@ export function matches(sample: Sample, q: Query): boolean {
             (condition.state === "curse" &&
               (occurrence.curse === "guaranteed" || occurrence.curse === "possible"))),
       );
+    case "base_only":
+      return (
+        condition.state === "any" &&
+        condition.availability === "any" &&
+        condition.keys.some((key) => sample.enemyKeys.includes(key))
+      );
+    case "empty":
+    case "unknown":
+      return false;
     }
-    return (
-      condition.state === "any" &&
-      condition.availability === "any" &&
-      condition.keys.some((key) => sample.enemyKeys.includes(key))
-    );
   };
   if (q.enemies.filter((e) => !e.mode).some((e) => !enemyMatches(e)))
     return false;

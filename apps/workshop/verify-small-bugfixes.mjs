@@ -20,7 +20,8 @@ const calls=[];
 class Core {
   constructor(){
     this.serial=0;this.pending=new Map();this.buffer=Buffer.alloc(0);this.stderr='';
-    this.child=spawn(join(target,'release/nioh3-readonly-worker.exe'),['--packaged-worker','--game-file-version','2.0.2.0','--data-root',join(root,'data'),'--contract-dir',join(root,'packages/contracts'),'--accelerator',join(root,'bin/nioh3_seed_accelerator.dll')],{windowsHide:true,stdio:['pipe','pipe','pipe']});
+    this.binary=process.env.NIOH3_BUGFIX_WORKER||join(target,'release/nioh3-readonly-worker.exe');
+    this.child=spawn(this.binary,['--packaged-worker','--game-file-version','2.0.2.0','--data-root',join(root,'data'),'--contract-dir',join(root,'packages/contracts'),'--accelerator',join(root,'bin/nioh3_seed_accelerator.dll')],{windowsHide:true,stdio:['pipe','pipe','pipe']});
     this.child.stderr.on('data',data=>{this.stderr+=data.toString();});
     this.child.stdout.on('data',data=>{
       this.buffer=Buffer.concat([this.buffer,data]);
@@ -57,7 +58,7 @@ const origin='http://127.0.0.1:'+server.address().port;
 /** Install only a read-only desktop boundary before the production bundle. */
 function bridge({origin,recovery=false,theme='light'}){
   localStorage.setItem('nioh3-ui-locale','zh-CN');localStorage.setItem('nioh3-theme',theme);
-  const state=window.__bugfix={previews:[],operations:[],writes:[],serial:0,hold:false,held:false};
+  const state=window.__bugfix={previews:[],operations:[],writes:[],serial:0,hold:false,held:false,enemyControl:'actual'};
   const rpc=async(method,params={})=>{const response=await fetch(origin+'/rpc',{method:'POST',body:JSON.stringify({method,params})});const body=await response.json();if(!response.ok)throw Error(body.error);return body.result;};
   const save={save_id:'a'.repeat(64),account_id:'123',path:'D:/owned-ui-fixture/SAVEDATA00/SAVEDATA.BIN',save_slot:0,summary:{playthrough:3,character_level:450,play_time_seconds:3600,saved_at_unix:1794740000}};
   const inventory={save_id:save.save_id,account_id:save.account_id,snapshot_id:'b'.repeat(32),source_sha256:'c'.repeat(64),empty_slots:400,entries:[]};
@@ -80,14 +81,26 @@ function bridge({origin,recovery=false,theme='light'}){
     }
   },current:async()=>({job:null,busy:false}),snapshot:forbidden,cancel:forbidden,selectSave:async()=>save,prepareInstall:forbidden,prepareLiveAdd:forbidden,generate:forbidden,searchNative:forbidden};
   window.preferences={getLocale:async()=>'zh-CN',setLocale:async locale=>locale};
-  window.support={diagnostics:async()=>({version:'0.8.10-ui-e2e'}),exportDiagnostics:async()=>null};
+  window.support={diagnostics:async()=>({version:'0.8.11-ui-e2e'}),exportDiagnostics:async()=>null};
   window.review={favorites:async()=>[],release:async()=>null,retain:forbidden,update:async()=>({phase:'current',canApply:true}),windowAction:async()=>null,log:async()=>null,copyLog:async()=>'',copyText:async()=>null,openLink:async()=>null,dataDirectory:async()=>({path:'D:/owned-ui-fixture'}),gameInstallation:async()=>({source:'selected',executable:'D:/owned-ui-fixture/Nioh3.exe',file_version:'2.0.2.0',restart_required:false,identity_error:null,compatibility:{status:'known',display_version:'PC v2.02',data_version:'PC v2.02',runtime_profile:'pc_v2_02',resource_directory:'r4_finalizer/pc_v2_02/resource_v1',features:{offline_scroll_generation:'supported',native_scroll_add:'supported',character_read_edit:'supported',native_equipment_add:'supported'},reason:'Read-only UI fixture'}}),preview:async params=>{
     state.previews.push(structuredClone(params));const result=await rpc('preview',params);
     if(state.hold){state.hold=false;state.held=true;await new Promise(resolve=>{state.release=resolve;});state.held=false;}
+    // These two controls test unknown versus confirmed-empty presentation.
+    // They are not claimed as actual rosters generated for this seed.
+    if(state.enemyControl!=='actual'){
+      const controlled=structuredClone(result);
+      controlled.candidate.auxiliary.enemy_groups=[];
+      for(const enemyState of Object.values(controlled.candidate.enemy_states)){
+        enemyState.occurrences=[];
+        enemyState.terrain=state.enemyControl==='empty'?0:null;
+        enemyState.possessed_complete=false;
+      }
+      return controlled;
+    }
     return result;
   },auxiliary:forbidden,prepareCart:forbidden,exportFeedback:async()=>null,openSaveFolder:async()=>null,openBackupFolder:async()=>null};
 }
-const report={schema:'nioh3-small-bugfix-ui-e2e/v1',workerIdentity,workerSha256:createHash('sha256').update(await readFile(join(target,'release/nioh3-readonly-worker.exe'))).digest('hex'),bundleSha256:createHash('sha256').update(js+css).digest('hex'),pass:false,scope:'Production React/CSS; real packaged-mode current-resource read-only worker; scripted save recovery; no native window/game/user-save acceptance',checks:[],screenshots:[],source:{},requests:[],failures:[]};
+const report={schema:'nioh3-small-bugfix-ui-e2e/v1',workerIdentity,workerBinary:core.binary,workerSha256:createHash('sha256').update(await readFile(core.binary)).digest('hex'),bundleSha256:createHash('sha256').update(js+css).digest('hex'),pass:false,scope:'Production React/CSS; real packaged-mode current-resource read-only worker; reported enemy roster from actual generation; scripted empty/unknown metadata controls and save recovery; no native window/game/user-save acceptance',checks:[],screenshots:[],source:{},requests:[],failures:[]};
 const check=(name,pass,details=null)=>{report.checks.push({name,pass:!!pass,details});assert(pass,name+': '+JSON.stringify(details));};
 let browser;
 let activePage;
@@ -128,12 +141,51 @@ try{
  await input.fill('');await view.click();check('empty ID is refused without becoming seed zero',await page.evaluate(value=>window.__bugfix.previews.length===value,callsBefore+1));
  await input.fill('10030610');await current();
  report.knownRequests=await page.evaluate(()=>window.__bugfix.previews);
+ // Real reported scroll, independently checked against the player's screenshot.
+ await page.getByRole('combobox',{name:'周目',exact:true}).selectOption('3');
+ await page.getByRole('combobox',{name:'稀有度',exact:true}).selectOption('4');
+ await page.getByRole('spinbutton',{name:'绘卷等级',exact:true}).fill('180');
+ await page.getByRole('spinbutton',{name:'推荐等级',exact:true}).fill('330');
+ const actual=await core.request('candidate.preview',{seed:141974638,rarity:4,level:180});
+ const actualCatalog=await core.request('search.catalog',{playthrough:3,rarity:4,locale:'zh-CN'});
+ const enemyNames=new Map(actualCatalog.enemy_options.map(enemy=>[enemy.lookup_key,enemy.name]));
+ const actualNames=[...new Set(actual.candidate.auxiliary.enemy_groups.flatMap(group=>group.map(enemy=>enemyNames.get(enemy.lookup_key))))].sort();
+ check('reported seed has the three enemies shown by the game',JSON.stringify(actualNames)===JSON.stringify(['烟烟罗','河童','赤河童'].sort()),actualNames);
+ check('reported seed has known base enemies but unresolved detailed states',actual.candidate.enemy_states.solo.occurrences.length===0&&actual.candidate.enemy_states.solo.terrain===null);
+ report.reportedEnemyPreview=actual;
+ await input.fill('141974638');await view.click();await current();
+ const reportedCard=page.locator('.result-detail .scroll');
+ const enemyRows=reportedCard.locator('.enemy-lines');
+ await reportedCard.locator('[data-enemy-preview="base_only"]').waitFor();
+ check('actual reported roster survives the empty detailed array',(await enemyRows.locator(':scope > span').allTextContents()).every(text=>actualNames.some(name=>text.includes(name)))&&await enemyRows.locator(':scope > span').count()===3);
+ check('base-only roster does not invent possessed badges',await enemyRows.locator('.enemy-state-marker').count()===0);
+ check('unresolved special states remain explicit',await enemyRows.locator('.enemy-preview-note').innerText()==='地狱附身状态暂未确认。');
+ for(const [control,kind,text]of [['unknown','unknown','敌人信息暂未确认。'],['empty','empty','无敌人']]){
+   await page.evaluate(value=>{window.__bugfix.enemyControl=value;},control);await view.click();await current();
+   await reportedCard.locator(`[data-enemy-preview="${kind}"]`).waitFor();
+   check(control+' response metadata is distinguished in the real UI',await enemyRows.innerText()===text);
+ }
+ await page.evaluate(()=>{window.__bugfix.enemyControl='actual';});
+ await input.fill('155277563');await view.click();await current();
+ check('ordinary detailed roster keeps its per-occurrence presentation',await page.locator('.result-detail [data-enemy-preview="detailed"] .enemy-occurrence').count()>0);
+ await input.fill('141974638');await view.click();await current();
  const languages=[['English','en-US'],['日本語','ja-JP'],['简体中文','zh-CN']];
  const language=async(page,label,lang)=>{if(await page.evaluate(()=>document.documentElement.lang)===lang)return;await page.locator('.language-button').click();await page.locator('.side-popup').getByRole('button',{name:label,exact:true}).click();await page.waitForFunction(lang=>document.documentElement.lang===lang,lang);};
  for(const theme of ['light','dark'])for(const[label,lang]of languages){
    await language(page,label,lang);await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
    check('known-ID '+theme+' '+lang+' has no horizontal overflow',await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+   check('reported enemies stay visible in '+theme+' '+lang,await enemyRows.locator(':scope > span').count()===3&&await enemyRows.getAttribute('data-enemy-preview')==='base_only'&&(await reportedCard.locator('footer strong').innerText()).includes('141974638'));
+   check('unresolved state note is localized in '+theme+' '+lang,await enemyRows.locator('.enemy-preview-note').innerText()==={'zh-CN':'地狱附身状态暂未确认。','en-US':'Crucible Wraith status has not been confirmed.','ja-JP':'地獄憑き状態は未確認です。'}[lang]);
    const file='known-id-'+theme+'-'+lang+'.png';await page.screenshot({path:join(output,file),animations:'disabled'});report.screenshots.push(file);
+   await page.setViewportSize({width:1100,height:740});await enemyRows.scrollIntoViewIfNeeded();
+   const rosterGeometry=await enemyRows.evaluate(element=>{
+     const bounds=element.getBoundingClientRect(),note=element.querySelector('.enemy-preview-note').getBoundingClientRect();
+     const names=[...element.querySelectorAll(':scope > span')].map(row=>row.getBoundingClientRect());
+     return {width:bounds.width,noteWidth:note.width,noteTop:note.top,lastNameBottom:Math.max(...names.map(row=>row.bottom)),fits:element.scrollWidth<=element.clientWidth+1&&names.every(row=>row.left>=bounds.left-1&&row.right<=bounds.right+1)};
+   });
+   check('reported roster and full-width note fit the minimum window in '+theme+' '+lang,rosterGeometry.fits&&rosterGeometry.noteWidth>=rosterGeometry.width-2&&rosterGeometry.noteTop>=rosterGeometry.lastNameBottom-1,rosterGeometry);
+   const minimum='enemy-preview-min-'+theme+'-'+lang+'.png';await page.screenshot({path:join(output,minimum),animations:'disabled'});report.screenshots.push(minimum);
+   await page.setViewportSize({width:1440,height:1000});
  }
  report.knownFixture=await page.evaluate(()=>({operations:window.__bugfix.operations,writes:window.__bugfix.writes}));
  check('known-ID flow caused no mutation requests',report.knownFixture.writes.length===0,report.knownFixture.writes);
@@ -188,7 +240,7 @@ try{
 finally{
  await browser?.close();await core.close();await new Promise(resolve=>server.close(resolve));
  report.requests=calls;
- for(const file of ['apps/workshop/main.tsx','apps/workshop/known-id-preview.ts','apps/workshop/style.css','apps/workshop/arc.css','apps/workshop/result-source.ts','apps/workshop/ui-locales.json'])report.source[file]=createHash('sha256').update(await readFile(join(root,file))).digest('hex');
+ for(const file of ['apps/workshop/main.tsx','apps/workshop/known-id-preview.ts','apps/workshop/enemy-preview.ts','apps/workshop/desktop-bridge.ts','apps/workshop/model.ts','apps/workshop/ScrollCard.tsx','apps/workshop/style.css','apps/workshop/arc.css','apps/workshop/result-source.ts','apps/workshop/ui-locales.json'])report.source[file]=createHash('sha256').update(await readFile(join(root,file))).digest('hex');
  await writeFile(join(output,'worker.stderr.log'),core.stderr);await writeFile(join(output,'report.json'),JSON.stringify(report,null,2)+'\n');
  console.log(JSON.stringify({pass:report.pass,checks:report.checks.length,screenshots:report.screenshots.length,output,failures:report.failures}));
 }

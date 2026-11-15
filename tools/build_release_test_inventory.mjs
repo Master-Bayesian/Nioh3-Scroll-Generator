@@ -33,6 +33,7 @@ for (const role of ['offline_search', 'save', 'runtime']) {
 await requireReport('rust-packaged/packaged-frontend.json', r => r.graph === 'rust-packaged' && r.releaseCandidate === true && r.profile === profile && r.userSaveTouched === false && r.gameWrites === 0 && r.fixtureWrites?.isolatedCopy === true && r.fixtureWrites?.realSaveTouched === false);
 await requireReport('onefile-standalone.json', r => r.ok === true && r.sourceSha256 === outerSha256 && r.gameWrites === 0);
 await requireReport('onefile-direct-launch.json', r => r.directLaunch === true && r.workerHandshake === true && r.sourceSha256 === outerSha256 && r.gameWrites === 0);
+await requireReport('enemy-preview/report.json', r => r.pass === true && r.sourceExeSha256 === outerSha256 && r.sourceCommit === sourceCommit && r.gameWrites === 0);
 await requireReport('onefile-real-update-restart.json', r => r.receiptStatus === 'completed' && r.originalSourceUnchanged === true && r.originalSha256 === outerSha256 && r.gameWrites === 0);
 await requireReport('onefile-rollback.json', r => r.targetRestored === true && r.receiptStatus === 'failed' && r.sourceExeSha256 === outerSha256);
 const inventory = {
