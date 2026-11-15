@@ -104,11 +104,13 @@ jobs:
 
   model-and-lint:
     runs-on: windows-latest
-    env:
-      NIOH3_QUALITY_EVIDENCE: ${{ runner.temp }}/nioh3-quality-evidence
     steps:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Resolve quality evidence directory
+        shell: pwsh
+        run: '"NIOH3_QUALITY_EVIDENCE=$env:RUNNER_TEMP/nioh3-quality-evidence" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8'
 
       - name: Set up Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
