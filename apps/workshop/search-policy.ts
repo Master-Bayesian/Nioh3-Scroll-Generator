@@ -48,7 +48,9 @@ type SearchStatusJob = Pick<
 export function searchStatusText(job: SearchStatusJob): string {
   const found = job.candidates.length;
   const seconds = (job.elapsed_ms / 1000).toFixed(1);
-  if (job.error) return job.error.message;
+  // Keep the structured code so the shared Notice can select its localized
+  // explanation and retain the original diagnostic behind technical details.
+  if (job.error) return `${job.error.code}: ${job.error.message}`;
   if (job.state === "failed") return "搜索失败，请重试；反复出现请导出反馈文件发给开发者。";
   if (job.state === "cancelled" || job.stop_reason === "cancelled")
     return "已取消，保留已找到的绘卷。";
@@ -60,7 +62,8 @@ export function searchStatusText(job: SearchStatusJob): string {
       return `搜索范围已穷尽，本批找到 ${found} 张绘卷，耗时 ${seconds} 秒。`;
     case "budget_reached":
       return `本批在试验预算内找到 ${found} 张绘卷；条件尚未穷尽，可继续搜索下一批，耗时 ${seconds} 秒。`;
-    default:
+    case null:
+    case "error":
       return `本批找到 ${found} 张绘卷，耗时 ${seconds} 秒。`;
   }
 }

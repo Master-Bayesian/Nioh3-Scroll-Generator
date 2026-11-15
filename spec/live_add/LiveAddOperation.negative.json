@@ -1,0 +1,4 @@
+[
+  {"name":"nonexclusive-dispatch-claim","overrides":{"ExclusiveClaim":false},"expected":"Invariant AtMostOneDispatch is violated"},
+  {"name":"recovery-without-native-proof","overrides":{"RecoverChecksEvidence":false},"expected":"Invariant SettledDispatched is violated"}
+]

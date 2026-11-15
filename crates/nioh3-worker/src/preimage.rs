@@ -19,9 +19,9 @@ use sha2::{Digest, Sha256};
 
 /// File name the product loads from `<application root>/bin`.
 pub const PREIMAGE_LIBRARY: &str = "nioh3_effect_preimage_accelerator.dll";
-/// SHA-256 of the verified shipped artifact (232,448 bytes).
+/// SHA-256 of the verified shipped effect and seed DirectCompute helper.
 pub const PREIMAGE_SHA256: &str =
-    "28d027b526eaa758025e52d8586a8ecdcaa575a3130e1aab46ba7e65b5a9eeac";
+    "4a6cac5739bacef968935ce80b169c680f8a671cc828df14bd3a9d3ae4b101a7";
 /// `ERROR_RESULT`: the collecting export reports failure with this count.
 pub const ERROR_RESULT: u64 = u64::MAX;
 /// `-2`: the forward matcher reports a missing DirectCompute backend.
@@ -933,6 +933,11 @@ mod platform {
     pub(super) fn configured_vendor_id() -> u32 {
         0
     }
+}
+
+/// The vendor selection shared by effect and seed DirectCompute operations.
+pub(crate) fn configured_vendor_id() -> u32 {
+    platform::configured_vendor_id()
 }
 
 #[cfg(test)]

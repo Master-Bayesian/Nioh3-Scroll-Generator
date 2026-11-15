@@ -31,6 +31,8 @@ pub fn wire_effect_filter(probe: bool) -> bool {
 pub struct Capabilities {
     /// `seed_accelerator.cuda_seed_acceleration_available()`.
     pub cuda_pivot_and_auxiliary: bool,
+    /// All seed operations passed the DirectCompute compute self-test.
+    pub directcompute_pivot_and_auxiliary: bool,
     /// Wire value: the effect-filter probe intersected with
     /// [`EFFECT_FILTER_ROUTE_PORTED`].
     pub directcompute_effect_filter: bool,
@@ -88,6 +90,7 @@ mod platform {
     pub fn probe(_seed: &Path, _preimage: &Path) -> Capabilities {
         Capabilities {
             cuda_pivot_and_auxiliary: false,
+            directcompute_pivot_and_auxiliary: false,
             directcompute_effect_filter: false,
             directcompute_probe: false,
             bulk_cpu_requires_opt_in: true,
@@ -157,6 +160,18 @@ mod platform {
         };
         Capabilities {
             cuda_pivot_and_auxiliary: cuda,
+            directcompute_pivot_and_auxiliary: if crate::preimage::file_sha256(preimage)
+                .ok()
+                .as_deref()
+                == Some(crate::preimage::PREIMAGE_SHA256)
+            {
+                unsafe {
+                    probe_export::<PreimageProbe>(preimage, b"d3d11_seed_search_available\0")
+                        .is_some_and(|probe| probe(crate::preimage::configured_vendor_id()) != 0)
+                }
+            } else {
+                false
+            },
             directcompute_effect_filter: super::wire_effect_filter(directcompute),
             directcompute_probe: directcompute,
             bulk_cpu_requires_opt_in: true,
@@ -191,6 +206,7 @@ mod tests {
         assert!(!wire_effect_filter(false));
         let probed = Capabilities {
             cuda_pivot_and_auxiliary: true,
+            directcompute_pivot_and_auxiliary: true,
             directcompute_effect_filter: wire_effect_filter(true),
             directcompute_probe: true,
             bulk_cpu_requires_opt_in: true,

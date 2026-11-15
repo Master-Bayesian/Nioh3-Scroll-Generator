@@ -2308,7 +2308,7 @@ fn map_collector_error(what: &str, error: &NativeSearchError) -> CollectorError 
         NativeSearchError::InvalidInput(message) => {
             CollectorError::new("SEARCH_FAILED", format!("{what}: {message}"))
         }
-        NativeSearchError::PreimageUnavailable(message) => {
+        NativeSearchError::PreimageUnavailable(message) | NativeSearchError::DirectComputeUnavailable(message) => {
             CollectorError::unavailable(format!("{what}: {message}"))
         }
         NativeSearchError::Rejected { call } => {

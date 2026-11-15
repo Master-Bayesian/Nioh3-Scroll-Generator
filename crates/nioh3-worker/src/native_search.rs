@@ -12,8 +12,10 @@
 //! `unsafe` in this file is contained in the private [`platform`] module and in
 //! the thin wrappers that call it.
 
+use crate::direct_seed::{DirectSeed, SeedBackendChoice, SeedBackendPreference};
 use std::path::Path;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// ABI version the product accepts (`SEED_ACCELERATOR_ABI_VERSION`).
 pub const SEED_ACCELERATOR_ABI_VERSION: i32 = 2;
@@ -56,7 +58,7 @@ pub const RULE_ROW_BYTES: usize = 16;
 /// The execution policy a caller pins for one operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecutionPolicy {
-    /// `EXECUTION_POLICY_STRICT_GPU`: CUDA or nothing.
+    /// `EXECUTION_POLICY_STRICT_GPU`: a GPU backend or a refusal.
     StrictGpu,
     /// `EXECUTION_POLICY_ALLOW_BULK_CPU`: explicit opt-in to the bulk CPU path.
     AllowBulkCpu,
@@ -84,6 +86,8 @@ impl ExecutionPolicy {
 /// Which accelerator path served the last native call.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NativeBackend {
+    /// The DirectCompute seed kernels ran.
+    DirectCompute,
     /// The CUDA kernels ran.
     Cuda,
     /// The native bulk CPU fallback ran under an explicit opt-in.
@@ -170,6 +174,8 @@ pub struct NativeCapabilities {
     pub build_id: String,
     /// A real probe of `cuda_seed_acceleration_available()`.
     pub cuda_seed_acceleration: bool,
+    /// The seed helper passed its ABI and actual compute self-test.
+    pub directcompute_seed_acceleration: bool,
     /// Always true: the default policy is strict GPU, so bulk CPU is opt-in.
     pub bulk_cpu_requires_opt_in: bool,
     /// `None` until the effect-preimage DirectCompute probe is scheduled.
@@ -184,6 +190,7 @@ impl NativeCapabilities {
             abi: 0,
             build_id: String::new(),
             cuda_seed_acceleration: false,
+            directcompute_seed_acceleration: false,
             bulk_cpu_requires_opt_in: true,
             directcompute_effect_filter: None,
         }
@@ -226,6 +233,8 @@ pub enum NativeSearchError {
     },
     /// `seed_accelerator_set_execution_policy` refused the policy.
     PolicyRejected,
+    /// A selected DirectCompute seed operation could not complete.
+    DirectComputeUnavailable(String),
     /// The effect-preimage helper is unusable, carrying the pinned reason (an
     /// absent library, a substituted artifact, a missing export or a machine
     /// with no DirectCompute device). The reason is never collapsed into a
@@ -317,7 +326,7 @@ impl AuxiliaryPivotSpec {
 }
 
 /// Flatten criterion groups into `(keys, offsets)`, first group at offset 0.
-fn flatten_groups<T: Copy + Ord>(
+pub(crate) fn flatten_groups<T: Copy + Ord>(
     groups: &[Vec<T>],
 ) -> Result<(Vec<T>, Vec<u16>), NativeSearchError> {
     let mut keys: Vec<T> = Vec::new();
@@ -357,6 +366,9 @@ fn group_mask(groups: usize) -> u32 {
 pub struct Accelerator {
     identity: AcceleratorIdentity,
     native: platform::Native,
+    direct_seed: Option<DirectSeed>,
+    preference: SeedBackendPreference,
+    last_directcompute: AtomicBool,
 }
 
 // SAFETY: the handle is a process-global module handle that stays loaded for
@@ -370,6 +382,13 @@ unsafe impl Send for Accelerator {}
 unsafe impl Sync for Accelerator {}
 
 impl Accelerator {
+    /// These legacy policy controls exercise the CUDA DLL's CPU guard itself.
+    /// Automatic DirectCompute fallback is covered by the real GPU E2E gate.
+    #[cfg(test)]
+    pub(crate) fn prefer_cuda_for_policy_test(&mut self) {
+        self.preference = SeedBackendPreference::Cuda;
+    }
+
     /// Load and validate `bin/nioh3_seed_accelerator.dll`.
     ///
     /// `override_path` is `NIOH3_SEED_ACCELERATOR`. A missing file, a wrong ABI
@@ -387,7 +406,15 @@ impl Accelerator {
             abi: SEED_ACCELERATOR_ABI_VERSION,
             build_id: native.build_id(),
         };
-        Some(Self { identity, native })
+        let direct_seed = DirectSeed::load(application_root);
+        let preference = SeedBackendPreference::from_environment()?;
+        Some(Self {
+            identity,
+            native,
+            direct_seed,
+            preference,
+            last_directcompute: AtomicBool::new(false),
+        })
     }
 
     /// The loaded ABI version and source build identity.
@@ -402,6 +429,10 @@ impl Accelerator {
             abi: self.identity.abi,
             build_id: self.identity.build_id.clone(),
             cuda_seed_acceleration: self.native.cuda_available(),
+            directcompute_seed_acceleration: self
+                .direct_seed
+                .as_ref()
+                .is_some_and(DirectSeed::available),
             bulk_cpu_requires_opt_in: true,
             directcompute_effect_filter: None,
         }
@@ -409,7 +440,57 @@ impl Accelerator {
 
     /// Which path served the last native call.
     pub fn last_backend(&self) -> NativeBackend {
-        NativeBackend::from_raw(self.native.last_backend())
+        if self.last_directcompute.load(Ordering::Relaxed) {
+            NativeBackend::DirectCompute
+        } else {
+            NativeBackend::from_raw(self.native.last_backend())
+        }
+    }
+
+    /// The explicit dispatch state selected for the currently pinned CPU policy.
+    pub fn selected_backend(&self) -> SeedBackendChoice {
+        let cuda = self.native.cuda_available();
+        let directcompute = self.preference != SeedBackendPreference::Cuda
+            && (self.preference == SeedBackendPreference::DirectCompute || !cuda)
+            && self.direct_seed.as_ref().is_some_and(DirectSeed::available);
+        self.preference
+            .select(cuda, directcompute, self.pinned_policy())
+    }
+
+    /// Short windows keep cancellation responsive on integrated adapters.
+    pub fn uses_directcompute(&self) -> bool {
+        self.selected_backend() == SeedBackendChoice::DirectCompute
+    }
+
+    fn directcompute<T>(
+        &self,
+        run: impl FnOnce(&DirectSeed) -> Result<T, NativeSearchError>,
+    ) -> Result<Option<T>, NativeSearchError> {
+        self.last_directcompute.store(false, Ordering::Relaxed);
+        match self.selected_backend() {
+            SeedBackendChoice::Cuda | SeedBackendChoice::CpuOptIn => Ok(None),
+            SeedBackendChoice::RefusedCuda => {
+                let failure = self.last_cuda_failure();
+                Err(NativeSearchError::CudaUnavailable {
+                    stage: failure.map(|value| value.stage),
+                    code: failure.map_or(0, |value| value.code),
+                })
+            }
+            SeedBackendChoice::RefusedDirectCompute => Err(NativeSearchError::DirectComputeUnavailable(
+                "the selected seed helper is missing, incompatible, or failed its GPU self-test".to_string())),
+            SeedBackendChoice::DirectCompute => {
+                let backend = self.direct_seed.as_ref().ok_or_else(|| NativeSearchError::DirectComputeUnavailable(
+                    "the selected seed helper lost its owner".to_string()))?;
+                match run(backend) {
+                    Ok(value) => { self.last_directcompute.store(true, Ordering::Relaxed); Ok(Some(value)) }
+                    // Re-decide only this uncommitted window. No cursor or
+                    // candidate has been published, and CPU still needs opt-in.
+                    Err(_) if self.preference == SeedBackendPreference::Auto
+                        && self.pinned_policy() == ExecutionPolicy::AllowBulkCpu => Ok(None),
+                    Err(error) => Err(error),
+                }
+            }
+        }
     }
 
     /// The last CUDA failure, or `None` when the last call did not fail.
@@ -491,6 +572,9 @@ impl Accelerator {
                 "native pivot calls must not exceed 1,000,000 trials",
             ));
         }
+        if let Some(matches) = self.directcompute(|backend| backend.natural(values, window))? {
+            return Ok(matches);
+        }
         let mut seeds = vec![0u32; capacity as usize];
         let mut trials = vec![0u64; capacity as usize];
         let count = self.native.collect_natural_pivot_seeds(
@@ -558,6 +642,11 @@ impl Accelerator {
             return Ok(Vec::new());
         }
         let capacity = trial_count.min(MAX_R4_PRIMARY_CAPACITY);
+        if let Some(matches) = self
+            .directcompute(|backend| backend.r4_primary(values, spec, window, capacity as usize))?
+        {
+            return Ok(matches);
+        }
         let mut seeds = vec![0u32; capacity as usize];
         let mut trials = vec![0u64; capacity as usize];
         let count = self.native.collect_r4_primary_pivot_seeds(
@@ -586,6 +675,18 @@ impl Accelerator {
         let item_count = window.stop_index - window.start_index;
         let capacity = output_capacity.min(item_count.max(1));
         let stage_count = spec.stage_count();
+        if item_count == 0 {
+            return Ok(AuxiliaryPivotPage {
+                matches: Vec::new(),
+                stage_counts: vec![0; stage_count],
+                backend: NativeBackend::NotUsed,
+            });
+        }
+        if let Some(page) = self
+            .directcompute(|backend| backend.auxiliary(values, spec, window, capacity as usize))?
+        {
+            return Ok(page);
+        }
         let mut seeds = vec![0u32; capacity as usize];
         let mut trials = vec![0u64; capacity as usize];
         let mut stage_counts = vec![0u64; stage_count];
@@ -638,6 +739,15 @@ impl Accelerator {
             return Err(NativeSearchError::InvalidInput(
                 "native primary predicate inputs do not match the API",
             ));
+        }
+        if let Some(selected) = self.directcompute(|backend| {
+            let mut selected = Vec::with_capacity(seeds.len());
+            for batch in seeds.chunks(MAX_PREDICATE_BATCH) {
+                selected.extend(backend.primary_selected(spec, batch)?);
+            }
+            Ok(selected)
+        })? {
+            return Ok(selected);
         }
         let mut selected = vec![false; seeds.len()];
         for start in (0..seeds.len()).step_by(MAX_PREDICATE_BATCH) {
@@ -725,6 +835,22 @@ impl Accelerator {
             ));
         }
 
+        validate_auxiliary(
+            &[1],
+            spec,
+            PivotWindow {
+                start_index: 0,
+                stop_index: 1,
+                low16_stride: 1,
+                draw_index: spec.draw_index,
+            },
+            1,
+        )?;
+        if let Some(selected) =
+            self.directcompute(|backend| backend.auxiliary_selected(spec, seeds))?
+        {
+            return Ok(selected);
+        }
         let mut selected = vec![true; seeds.len()];
         for start in (0..seeds.len()).step_by(MAX_PREDICATE_BATCH) {
             let stop = (start + MAX_PREDICATE_BATCH).min(seeds.len());
@@ -2065,8 +2191,9 @@ mod policy_consistency_tests {
             return;
         };
         let root = repo_root();
-        let accelerator = Accelerator::load(&root, Some(&library.module))
+        let mut accelerator = Accelerator::load(&root, Some(&library.module))
             .expect("the private copy of the shipped accelerator loads");
+        accelerator.prefer_cuda_for_policy_test();
 
         let stop = Arc::new(AtomicBool::new(false));
         let probes = Arc::new(AtomicUsize::new(0));

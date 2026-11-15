@@ -1287,11 +1287,11 @@ mod tests {
         );
         assert_eq!(
             v2_00_02.context_digest,
-            "f11c75378eaf08122ca63e0309d15a0664a50b0e36d90fa2f639313d680001b2"
+            "52aa3b48195f9239c7e13b5405e68b1facf8374493847df66300de5e051bf893"
         );
         assert_eq!(
             v2_02.context_digest,
-            "ac0d1d6523afe212873601098aae30c4f4d9d154b49e78c5ec10acf9376b4f4c"
+            "71f74edb0bf2f9d21bb5dbf5dd0459076395d0fea24ec0f0b557d7b44cfe673d"
         );
         // The pre-version proof field is shared; only the primary digest differs,
         // which is exactly why the legacy digest cannot authorize reuse.

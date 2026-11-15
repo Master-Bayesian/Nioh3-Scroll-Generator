@@ -149,6 +149,8 @@ function observedCommitFailure(error: NonNullable<ProtectedJob['error']>) {
   const api: Pick<OperationsApi, 'execute' | 'prepareInstall' | 'current' | 'snapshot' | 'cancel'> = {
     execute: async command => {
       calls.push(command.method);
+      // This fixture deliberately rejects every operation outside its recovery scenario.
+      // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
       switch (command.method) {
         case 'save.inventory': return completed(command.method, structuredClone(inventory));
         case 'save.operations': return completed(command.method, { operations: [] });

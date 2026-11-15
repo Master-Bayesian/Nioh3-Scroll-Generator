@@ -668,6 +668,9 @@
             "cuda_pivot_and_auxiliary": {
               "type": "boolean"
             },
+            "directcompute_pivot_and_auxiliary": {
+              "type": "boolean"
+            },
             "directcompute_effect_filter": {
               "type": "boolean"
             },

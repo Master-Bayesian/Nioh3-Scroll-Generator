@@ -94,6 +94,7 @@ def stage_rust_runtime(root: Path, output: Path) -> dict:
         'nioh3_seed_accelerator.dll',
         'nioh3_effect_preimage_accelerator.dll',
         'nioh3_seed_accelerator.build.json',
+        'nioh3_effect_preimage_accelerator.build.json',
     ]
     staged = []
     for name in helpers:

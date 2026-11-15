@@ -37,7 +37,7 @@ pub const SUPPORTED_GAME_PROFILE: &str = "pc-v2.00.02-v2.01";
 /// This value mirrors `nioh3_scroll_editor/version.py`, which the Python worker
 /// imports directly. A unit test re-reads that file so the two cannot drift
 /// silently; the value is never inferred or defaulted at runtime.
-pub const PRODUCT_VERSION: &str = "0.8.9";
+pub const PRODUCT_VERSION: &str = "0.8.10";
 
 /// Fail-closed context errors, mirroring `CoreErrorCode.RESOURCE_MISMATCH`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -806,7 +806,7 @@ mod tests {
             "\"game_file_version\":\"2.0.2.0\",",
             "\"game_profile\":\"pc-v2.00.02-v2.01\",",
             "\"policy_version\":\"operation-policy-v1\",",
-            "\"product_version\":\"0.8.9\",",
+            "\"product_version\":\"0.8.10\",",
             "\"resources_digest\":\"411866d772e8e2450c1f4becd4c5e79761600f7766ab0659438bcbde21997048\",",
             "\"seed_accelerator_abi\":null,",
             "\"seed_accelerator_build_id\":null,",
@@ -814,18 +814,18 @@ mod tests {
             "\"versioned_resource_dir\":\"r4_finalizer/pc_v2_02/resource_v1\"}",
         );
         const V202_CONTEXT_DIGEST: &str =
-            "ac0d1d6523afe212873601098aae30c4f4d9d154b49e78c5ec10acf9376b4f4c";
+            "71f74edb0bf2f9d21bb5dbf5dd0459076395d0fea24ec0f0b557d7b44cfe673d";
         const LEGACY_CANONICAL: &str = concat!(
             "{\"algorithm_version\":\"scroll-generation-v0.7-native-completion-1\",",
             "\"game_profile\":\"pc-v2.00.02-v2.01\",",
             "\"policy_version\":\"operation-policy-v1\",",
-            "\"product_version\":\"0.8.9\",",
+            "\"product_version\":\"0.8.10\",",
             "\"resources_digest\":\"411866d772e8e2450c1f4becd4c5e79761600f7766ab0659438bcbde21997048\",",
             "\"seed_accelerator_abi\":null,",
             "\"seed_accelerator_build_id\":null}",
         );
         const LEGACY_DIGEST: &str =
-            "92f683e4cd06dffa23f477cf5d755f67672f6a749b83a6e01985353b3edd398f";
+            "f1b49572516badb62a21cc66def58e3c7808ac8f3c24fd9425df52070aeea901";
 
         let context = capture_resolved_context(
             SUPPORTED_GAME_PROFILE,

@@ -108,6 +108,10 @@ jobs:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
+      - name: Resolve quality evidence directory
+        shell: pwsh
+        run: '"NIOH3_QUALITY_EVIDENCE=$env:RUNNER_TEMP/nioh3-quality-evidence" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8'
+
       - name: Set up Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -124,9 +128,20 @@ jobs:
           npm run typecheck
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Check the actual lint rules and deliberate faults
+        run: npm run check:quality
+
       - name: Check the TLA+ models
         shell: pwsh
         run: ./tools/check_models.ps1
+
+      - name: Retain exact quality configurations and counterexamples
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: quality-controls
+          path: ${{ env.NIOH3_QUALITY_EVIDENCE }}
+          if-no-files-found: error
 
   rust-packaging:
     # The packaging scripts stage the worker crates and each staged role answers

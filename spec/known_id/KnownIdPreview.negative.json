@@ -1,0 +1,12 @@
+[
+  {
+    "name": "late-response-rebound-to-current-form",
+    "overrides": { "BindRequestedSettings": false },
+    "expected": "Invariant PreviewDescribesRequestedSettings is violated"
+  },
+  {
+    "name": "stale-preview-used-with-new-settings",
+    "overrides": { "RejectStaleUse": false },
+    "expected": "Invariant OnlyCurrentPreviewIsUsed is violated"
+  }
+]

@@ -1,28 +1,12 @@
-# Nioh 3 Studio 0.8.9
+# Nioh 3 Studio 0.8.10
 
-Download `Nioh3Studio-0.8.9-win-x64.exe` and run it directly, or use the signed
-in-app updater. No manual extraction, Python, Node.js, Electron or Cheat Engine
-setup is required. Microsoft Edge WebView2 remains a Windows prerequisite.
+Download Nioh3Studio-0.8.10-win-x64.exe and run it directly, or use the signed in-app updater. No extraction, Python, Node.js or CUDA toolkit installation is required. Microsoft Edge WebView2 remains a Windows prerequisite.
 
-- A new interface: navigation moves to a bar at the top, with light and dark
-  themes, a three-column scroll search and cards that grow with their text.
-  Long names, rules and translations wrap instead of being cut off, down to the
-  smallest window.
-- The game's own marks: the star on a scroll or a piece of equipment is the
-  game's Favorite mark, and the lock is its Protect mark. Both can be set or
-  cleared in a save file or in the running game; favorites sort to the top.
-  Deleting a protected scroll asks again.
-- Find the scroll under the game's inventory cursor in the scroll list.
-- The scroll editor uses the same effect table as the equipment page, with a
-  choice of which effects to offer, and its preview shows enemies, rules,
-  terrain and the attempt limit.
-- The save picker shows what the game's load menu shows: playthrough, level,
-  play time and when it was saved.
-- Restoring a backup made by an in-game edit works again. These backups hold
-  only the main save; restoring one now puts back just that file.
-- If the program cannot start because antivirus software locked or quarantined
-  its files, the message says so first, can open the log folder, and offers
-  the portable ZIP from GitHub.
+- Enemy, special-rule and terrain searches can use DirectCompute when CUDA is unavailable. Natural seed enumeration, rarity-4 primary searches and their batch predicates have the same fallback. Bulk CPU search still requires the explicit Settings choice.
+- GPU failures retain their error code and show a useful explanation with technical details and feedback export, rather than telling every user to update a driver.
+- Known scroll IDs show the generation and display/addition settings used by View. Search-only filters and result count are distinguished. A changed ID or relevant setting marks the preview stale and prevents addition until refreshed.
+- The uncertain-write recovery panel in Add current scroll uses the full available width. Recovery checks and acknowledgement behavior are unchanged.
+- Beta/rc launchers use valid numeric Windows version fields while keeping the complete version text.
 
 ## Supported scope and known limitations
 

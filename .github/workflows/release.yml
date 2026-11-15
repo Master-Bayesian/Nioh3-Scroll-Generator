@@ -262,8 +262,12 @@ jobs:
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node apps/tauri/verify-onefile-update.mjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
-          node apps/tauri/verify-onefile-rollback.mjs
+          node apps/tauri/verify-onefile-rollback.mjs --out deliverables/frontend-v2/tauri-acceptance/onefile-rollback.json
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+
+      - name: Inventory the completed packaged acceptance reports
+        shell: pwsh
+        run: node tools/build_release_test_inventory.mjs deliverables/frontend-v2/tauri-acceptance deliverables/release '${{ github.sha }}' $env:NIOH3_UI_PROFILE
 
       - name: Enforce the download budget and sign the update manifest
         # The signed artifact is produced only after every release E2E leg above
@@ -287,6 +291,7 @@ jobs:
             deliverables/release/*.exe
             deliverables/release/*.sha256
             deliverables/release/tauri-update.json
+            deliverables/release/test-inventory.json
 
       - name: Upload the acceptance evidence
         if: always()

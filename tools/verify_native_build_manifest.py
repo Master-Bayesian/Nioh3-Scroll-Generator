@@ -61,7 +61,9 @@ def verify(project_root: Path) -> dict[str, object]:
         raise RuntimeError(f"Seed accelerator DLL exposes ABI {abi}, expected {EXPECTED_ABI}")
     if build_id != expected_build_id:
         raise RuntimeError("Seed accelerator DLL build identity does not match its source")
+    directcompute = verify_directcompute(project_root)
     return {
+        "directcompute": directcompute,
         "schema": EXPECTED_SCHEMA,
         "component": "nioh3_seed_accelerator",
         "abi_version": abi,
@@ -69,6 +71,41 @@ def verify(project_root: Path) -> dict[str, object]:
         "source_sha256": source_hash,
         "binary_sha256": binary_hash,
     }
+
+
+def verify_directcompute(project_root: Path) -> dict[str, object]:
+    manifest_path = project_root / "bin/nioh3_effect_preimage_accelerator.build.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+    if manifest.get("schema") != "nioh3-directcompute-build/v1" or manifest.get("seed_search_abi") != 1:
+        raise RuntimeError("DirectCompute build identity or ABI is unsupported")
+    expected_sources = {
+        "research/native_effect_preimage_accelerator.cpp",
+        "research/native_directcompute_seed.inl",
+        "research/native_seed_search.hlsl",
+    }
+    if set(manifest.get("sources", {})) != expected_sources:
+        raise RuntimeError("DirectCompute manifest does not cover every native source")
+    for relative, digest in manifest["sources"].items():
+        if sha256_file(project_root / relative) != digest:
+            raise RuntimeError(f"DirectCompute source differs from its manifest: {relative}")
+    binary_path = project_root / "bin/nioh3_effect_preimage_accelerator.dll"
+    digest = sha256_file(binary_path)
+    if digest != manifest.get("binary_sha256"):
+        raise RuntimeError("DirectCompute DLL differs from its build manifest")
+    wrapper = (project_root / "crates/nioh3-worker/src/preimage.rs").read_text(encoding="utf-8")
+    if f'"{digest}"' not in wrapper:
+        raise RuntimeError("Rust DirectCompute artifact pin differs from the DLL")
+    library = ctypes.WinDLL(str(binary_path))
+    abi = library.d3d11_seed_search_abi_version
+    abi.argtypes = ()
+    abi.restype = ctypes.c_int
+    if abi() != 1:
+        raise RuntimeError("DirectCompute DLL exposes an unsupported seed-search ABI")
+    for name in ("d3d11_seed_search_available", "execute_seed_search_d3d11"):
+        getattr(library, name)
+    # ABI checks are valid on hosted machines without a GPU. Actual device and
+    # shader execution are accepted separately by verify_gpu_search_e2e.py.
+    return manifest
 
 
 def main() -> int:

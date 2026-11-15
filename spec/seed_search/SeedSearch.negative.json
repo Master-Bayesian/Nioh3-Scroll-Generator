@@ -1,0 +1,16 @@
+[
+  {
+    "name": "cpu-without-opt-in",
+    "overrides": {
+      "ImplicitCpuFault": true
+    },
+    "expected": "Invariant CpuRequiresOptIn is violated"
+  },
+  {
+    "name": "uncommitted-cursor",
+    "overrides": {
+      "UncommittedCursorFault": true
+    },
+    "expected": "Invariant CursorIsCommitted is violated"
+  }
+]

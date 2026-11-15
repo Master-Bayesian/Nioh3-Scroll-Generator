@@ -1334,3 +1334,5 @@ extern "C" __declspec(dllexport) int match_effect_constraints_d3d11(
     }
     return 1;
 }
+
+#include "native_directcompute_seed.inl"
