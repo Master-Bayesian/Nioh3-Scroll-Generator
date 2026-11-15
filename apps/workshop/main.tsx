@@ -2154,18 +2154,18 @@ function App() {
                 取消
               </button>
             </div>
-            <div className="direct-seed" data-preview-state={knownPreview.kind}>
-              <div className="known-id-context" aria-label="已知 ID 使用的设置">
-                <strong>按 ID 查看沿用上方设置</strong>
-                <div className="known-id-values">
-                  <span>生成：</span><span><b>周目</b> {q.ng}</span><span><b>稀有度</b> R{q.rarity}</span><span><b>绘卷等级</b> {q.level}</span>
-                </div>
-                <div className="known-id-values">
-                  <span>显示与添加：</span><span><b>推荐等级</b> {q.recommended}</span>
-                  <span><b>转手次数</b> {q.transfers === -1 ? "保留原值" : q.transfers}</span>
-                </div>
-                <small>候选数量、词条和辅助筛选仅用于搜索。</small>
+            <div className="known-id-context" aria-label="已知 ID 使用的设置">
+              <strong>按 ID 查看沿用上方设置</strong>
+              <div className="known-id-values">
+                <span>生成：</span><span><b>周目</b> {q.ng}</span><span><b>稀有度</b> R{q.rarity}</span><span><b>绘卷等级</b> {q.level}</span>
               </div>
+              <div className="known-id-values">
+                <span>显示与添加：</span><span><b>推荐等级</b> {q.recommended}</span>
+                <span><b>转手次数</b> {q.transfers === -1 ? "保留原值" : q.transfers}</span>
+              </div>
+              <small>候选数量、词条和辅助筛选仅用于搜索。</small>
+            </div>
+            <div className="direct-seed" data-preview-state={knownPreview.kind}>
               <label>
                 已知绘卷 ID
                 <input

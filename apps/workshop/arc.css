@@ -163,8 +163,9 @@ html .search-page .subtle{min-height:26px;padding:0 9px;font-size:12px;border-co
 html .search-page .back-top{border-radius:50%;width:30px;height:30px;padding:0}
 
 /* ---------- middle column: conditions + search ---------- */
-html .search-page>main{display:flex;flex-direction:column;gap:12px;padding:0;min-height:0;min-width:0;overflow:hidden;background:transparent}
-html .search-page .selection{flex:1;min-height:0;display:flex;flex-direction:column;margin:0;overflow:hidden}
+/* Short windows scroll the settings instead of compressing selected controls. */
+html .search-page>main{display:flex;flex-direction:column;gap:12px;padding:0;min-height:0;min-width:0;overflow:auto;background:transparent}
+html .search-page .selection{flex:1 0 220px;min-height:220px;display:flex;flex-direction:column;margin:0;overflow:hidden}
 html .search-page .selection>header{display:flex;align-items:center;gap:10px;padding:14px 16px 10px;border:0}
 html .search-page .selection header h2{font-size:15px;font-weight:600}
 html .search-page .selection header h2 span{background:var(--a-fill);color:var(--a-text);border:1px solid var(--a-line);font-size:11px;padding:0 7px;border-radius:999px;margin-left:6px}
@@ -214,7 +215,7 @@ html .search-page .search-actions .primary-button{grid-column:1/-1;height:44px;f
 html .search-page .search-actions .primary-button:hover:not(:disabled){background:var(--a-pri);opacity:.9}
 html .search-page .search-actions button{height:32px;padding:0 10px;font-size:12.5px}
 html .search-page .direct-seed{grid-column:1/3;grid-row:2;display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px}
-html .search-page .known-id-context{flex:1 1 100%;display:grid;gap:3px;padding:7px 9px;border:1px solid var(--a-line2);border-radius:10px;background:var(--a-fill);color:var(--a-text2);font-size:11.5px;line-height:1.45}
+html .search-page .known-id-context{grid-column:1/-1;grid-row:3;display:grid;gap:3px;padding:7px 9px;border:1px solid var(--a-line2);border-radius:10px;background:var(--a-fill);color:var(--a-text2);font-size:11.5px;line-height:1.45}
 html .search-page .known-id-context>strong{font-size:12px;font-weight:500;color:var(--a-text)}
 html .search-page .known-id-values{display:flex;flex-wrap:wrap;gap:3px 10px}
 html .search-page .known-id-values b{font-weight:400;color:var(--a-mute)}
