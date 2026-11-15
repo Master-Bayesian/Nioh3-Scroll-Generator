@@ -1,8 +1,52 @@
 import React from "react";
 import { data, type Sample } from "./model";
 import { copyText } from "./desktop-bridge";
+import { enemyDisplayState, type EnemyDisplayState } from "./enemy-preview";
 const hex = (id: string) =>
   "0x" + Number(id).toString(16).toUpperCase().padStart(4, "0");
+
+function EnemyRows({ state, variant }: {
+  state: EnemyDisplayState;
+  variant: Sample["enemyVariant"];
+}) {
+  switch (state.kind) {
+    case "detailed":
+      return state.occurrences.map((enemy, i) => (
+        <span
+          className="enemy-occurrence"
+          key={i}
+          title={`第 ${enemy.waveIndex + 1} 波 · ${enemy.name}`}
+        >
+          <span>
+            {enemy.waveIndex + 1} · {enemy.name}
+            {enemy.possessed !== "no" && (
+              <small
+                className={"enemy-state-marker" + (enemy.possessed === "yes" ? "" : " is-unknown")}
+                title={enemy.possessed === "yes" ? "地狱附身" : "附身未知"}
+                aria-label={enemy.possessed === "yes" ? "地狱附身" : "附身未知"}
+              >
+                {enemy.possessed === "yes" ? "附身" : "?"}
+              </small>
+            )}
+          </span>
+        </span>
+      ));
+    case "base_only":
+      return <>
+        {state.names.map((name, i) => <span key={i}>◇ {name}</span>)}
+        {state.statesUnavailable && <p className="enemy-preview-note">
+          {variant === "expedition"
+            ? "仅显示基础敌人；常世同行追加敌人和附身状态暂未确认。"
+            : "地狱附身状态暂未确认。"}
+        </p>}
+      </>;
+    case "empty":
+      return <span>无敌人</span>;
+    case "unknown":
+      return <span>敌人信息暂未确认。</span>;
+  }
+}
+
 export function ScrollCard({
   sample,
   level,
@@ -16,6 +60,7 @@ export function ScrollCard({
     (sample.playthrough || 3) === 3
       ? "百境百怪绘卷 · 顿悟"
       : `${sample.playthrough} 周目战绘卷`;
+  const enemyDisplay = enemyDisplayState(sample);
   return (
     <article
       className={"scroll rarity-" + sample.rarity}
@@ -80,36 +125,8 @@ export function ScrollCard({
         <h3>
           出现敌人
         </h3>
-        <div className="enemy-lines">
-          {sample.enemyOccurrences
-            ? sample.enemyOccurrences.map((enemy, i) => (
-                <span
-                  className="enemy-occurrence"
-                  key={i}
-                  title={`第 ${enemy.waveIndex + 1} 波 · ${enemy.name}`}
-                >
-                  <span>
-                    {enemy.waveIndex + 1} · {enemy.name}
-                    {enemy.possessed !== "no" && (
-                      <small
-                        className={
-                          "enemy-state-marker" +
-                          (enemy.possessed === "yes" ? "" : " is-unknown")
-                        }
-                        title={
-                          enemy.possessed === "yes" ? "地狱附身" : "附身未知"
-                        }
-                        aria-label={
-                          enemy.possessed === "yes" ? "地狱附身" : "附身未知"
-                        }
-                      >
-                        {enemy.possessed === "yes" ? "附身" : "?"}
-                      </small>
-                    )}
-                  </span>
-                </span>
-              ))
-            : sample.enemies.map((n, i) => <span key={i}>◇ {n}</span>)}
+        <div className="enemy-lines" data-enemy-preview={enemyDisplay.kind}>
+          <EnemyRows state={enemyDisplay} variant={sample.enemyVariant} />
         </div>
       </section>
       <section>

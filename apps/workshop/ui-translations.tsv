@@ -1587,3 +1587,7 @@ NPC武器	NPC weapon	NPC武器
 ID 或生成设置已变化，请重新查看；当前预览仍使用先前设置。	The ID or generation settings changed. View the ID again; this preview still uses the previous settings.	ID または生成設定が変更されています。もう一度表示してください。現在のプレビューは以前の設定を使用しています。
 正在生成 ID 预览…	Generating the ID preview…	ID のプレビューを生成中…
 生成设置已修改，请重新查看该 ID	Generation settings changed; view this ID again	生成設定が変更されています。この ID をもう一度表示してください
+地狱附身状态暂未确认。	Crucible Wraith status has not been confirmed.	地獄憑き状態は未確認です。
+仅显示基础敌人；常世同行追加敌人和附身状态暂未确认。	Base enemies shown; Expedition extras and Crucible Wraith status are unconfirmed.	基本の敵のみ表示。常世同行の追加の敵と地獄憑き状態は未確認です。
+敌人信息暂未确认。	Enemy information has not been confirmed.	敵情報は未確認です。
+无敌人	No enemies	敵なし

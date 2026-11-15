@@ -1,0 +1,17 @@
+[
+  {
+    "name": "empty-state-hides-known-base-roster",
+    "overrides": { "PreserveKnownRoster": false },
+    "expected": "Invariant KnownEnemiesRemainVisible is violated"
+  },
+  {
+    "name": "unresolved-roster-claimed-empty",
+    "overrides": { "RequireResolvedRosterForEmpty": false },
+    "expected": "Invariant OnlyResolvedEmptyRosterIsEmpty is violated"
+  },
+  {
+    "name": "base-roster-invents-confirmed-special-states",
+    "overrides": { "PreserveUnknownStates": false },
+    "expected": "Invariant BaseRosterDoesNotCertifySpecialStates is violated"
+  }
+]

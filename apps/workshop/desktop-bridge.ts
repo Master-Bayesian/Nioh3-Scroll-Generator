@@ -174,7 +174,7 @@ export function candidateSample(
   );
   const auxiliary = candidate.auxiliary;
   const enemyState = candidate.enemy_states?.[enemyVariant];
-  const enemyOccurrences = enemyState?.occurrences.map((occurrence) => ({
+  const enemyOccurrences = enemyState?.occurrences.length ? enemyState.occurrences.map((occurrence) => ({
     lookupKey: occurrence.lookup_key,
     name: enemyNames.get(occurrence.lookup_key) || "未知敌人",
     waveIndex: occurrence.wave_index,
@@ -182,7 +182,7 @@ export function candidateSample(
     availability: occurrence.availability,
     possessed: occurrence.possessed,
     curse: occurrence.curse,
-  }));
+  })) : undefined;
   return {
     seed: String(candidate.seed),
     rarity: candidate.rarity,
@@ -190,6 +190,8 @@ export function candidateSample(
     playthrough: candidate.playthrough || 3,
     enemyVariant,
     enemyOccurrences,
+    enemyRosterComplete: typeof enemyState?.terrain === "number",
+    enemyStatesUnavailable: !!enemyState && enemyState.terrain === null,
     possessedComplete: enemyState?.possessed_complete,
     curseScope: enemyState?.curse_scope,
     backend: {
