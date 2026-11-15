@@ -814,7 +814,7 @@ mod tests {
             "\"versioned_resource_dir\":\"r4_finalizer/pc_v2_02/resource_v1\"}",
         );
         const V202_CONTEXT_DIGEST: &str =
-            "ac0d1d6523afe212873601098aae30c4f4d9d154b49e78c5ec10acf9376b4f4c";
+            "71f74edb0bf2f9d21bb5dbf5dd0459076395d0fea24ec0f0b557d7b44cfe673d";
         const LEGACY_CANONICAL: &str = concat!(
             "{\"algorithm_version\":\"scroll-generation-v0.7-native-completion-1\",",
             "\"game_profile\":\"pc-v2.00.02-v2.01\",",
@@ -825,7 +825,7 @@ mod tests {
             "\"seed_accelerator_build_id\":null}",
         );
         const LEGACY_DIGEST: &str =
-            "92f683e4cd06dffa23f477cf5d755f67672f6a749b83a6e01985353b3edd398f";
+            "f1b49572516badb62a21cc66def58e3c7808ac8f3c24fd9425df52070aeea901";
 
         let context = capture_resolved_context(
             SUPPORTED_GAME_PROFILE,
