@@ -188,7 +188,7 @@ test("status wording distinguishes stop reasons without claiming false exhaustio
   );
   assert.match(running, /正在搜索，已找到 0 张绘卷…/);
   assert.match(cancelled, /已取消，保留已找到的绘卷。/);
-  assert.equal(failed, "worker unavailable");
+  assert.equal(failed, "SEARCH_FAILED: worker unavailable");
   assert.equal(failedWithoutError, "搜索失败，请重试；反复出现请导出反馈文件发给开发者。");
   // A bounded or unknown batch with no candidates must not read as exhausted.
   // The exhausted wording is scoped to the current batch, never a global total.
