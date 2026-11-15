@@ -21,7 +21,7 @@ use sha2::{Digest, Sha256};
 pub const PREIMAGE_LIBRARY: &str = "nioh3_effect_preimage_accelerator.dll";
 /// SHA-256 of the verified shipped effect and seed DirectCompute helper.
 pub const PREIMAGE_SHA256: &str =
-    "66a48c064be084cef7c0242d9d00642eb0a5a2e1b41c48b5b0254e0b71a4e431";
+    "4a6cac5739bacef968935ce80b169c680f8a671cc828df14bd3a9d3ae4b101a7";
 /// `ERROR_RESULT`: the collecting export reports failure with this count.
 pub const ERROR_RESULT: u64 = u64::MAX;
 /// `-2`: the forward matcher reports a missing DirectCompute backend.

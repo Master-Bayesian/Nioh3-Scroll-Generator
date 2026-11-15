@@ -3,8 +3,8 @@
   "seed_search_abi": 1,
   "sources": {
     "research/native_effect_preimage_accelerator.cpp": "7cf8b6640395265becb6ba225418be6c8531b75e05e07a906a5e10e76661a299",
-    "research/native_directcompute_seed.inl": "ec47d7dda8cf060b124c56cb1f9f53515cef2d946282ebfc49aa73270905d68d",
+    "research/native_directcompute_seed.inl": "ffe3a4298ef37eb31ff8a6dc9be7e925c2fd9ca97428d600e66526e900fa7004",
     "research/native_seed_search.hlsl": "b3e7e4ae901ff1e60554a602e8d3ee8aa17763424d7e15c609af405b90b520e7"
   },
-  "binary_sha256": "66a48c064be084cef7c0242d9d00642eb0a5a2e1b41c48b5b0254e0b71a4e431"
+  "binary_sha256": "4a6cac5739bacef968935ce80b169c680f8a671cc828df14bd3a9d3ae4b101a7"
 }
