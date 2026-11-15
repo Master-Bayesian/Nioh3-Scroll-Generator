@@ -58,8 +58,9 @@ Three locales, both themes, minimum-window geometry, previous known-ID ownership
 cart spacing and recovery presentation pass 74 checks with 22 screenshots. The
 existing full text-fit gate also passes. No game/user save is accessed.
 
-Build the separately named private test EXE from a clean source commit, and retain
-native acceptance and delivery hashes in the external task folder. The actual
-outer-EXE gate is `apps/tauri/verify-enemy-preview.mjs`; future signed releases
-require its report in the release inventory. This document does not claim a new
-public release or update-feed change.
+The separately named private test EXE was built and accepted first. The repair
+is now published in [v0.8.11](../releases/v0.8.11.md). The actual outer-EXE gate,
+`apps/tauri/verify-enemy-preview.mjs`, passes for the final signed file and is a
+required source/hash-bound member of the thirteen-report release inventory.
+The adjacent release record identifies the immutable product commit and exact
+public file hash; the external task folders retain native captures and receipts.
