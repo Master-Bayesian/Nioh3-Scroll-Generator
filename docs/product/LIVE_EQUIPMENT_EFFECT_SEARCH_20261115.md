@@ -1,8 +1,11 @@
 # Live equipment effect search — 2026-11-15
 
-Status: local implementation and bounded UI acceptance complete; unpublished.
-Base: `a9c20ef` (published v0.8.9 source), branch
-`codex/live-equipment-effect-search`. The owner authorized a local-only source commit and a one-file acceptance package. The exact source SHA is recorded in the package manifest; no push, tag or public release is authorized.
+Status: implementation and bounded UI acceptance complete; submitted for PR review.
+Original base: `a9c20ef` (published v0.8.9 source), branch
+`codex/live-equipment-effect-search`. The owner authorized local source commits
+and a one-file acceptance package, then authorized pushing both the effect-search
+and UI-spacing changes to a pull request. The exact packaged source SHA is
+recorded in the package manifest. No tag or public release is authorized.
 
 ## Behavior
 
@@ -186,3 +189,16 @@ binaries are byte-identical to the prior accepted package, so its real worker
 handshake/seed-search evidence is retained at that exact binary identity.
 This package supersedes the earlier local test for UI review only; no public
 release, actual game insertion or shrine-save acceptance is claimed.
+
+## PR integration — 2026-11-15
+
+Merged upstream `baa7776` without conflicts before submission. The PR keeps the
+current Rust-only workers and upstream operation-state changes; its diff remains
+limited to the effect-search UI, shared candidate helper, spacing, localization,
+focused verification and product records. Typecheck, the 1,589-message locale
+audit, ESLint with the current repository rules, 98 current frontend unit tests
+and 123 mocked-bridge interaction checks passed again after integration.
+Review: https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/pull/46.
+This source integration does not change the
+frozen package identity or extend its earlier native/package evidence to the
+merged worker graph. Live-game insertion and shrine-save acceptance remain open.
