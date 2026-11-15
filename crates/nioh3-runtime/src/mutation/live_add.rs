@@ -520,7 +520,7 @@ impl LiveAddApplication {
         let serial = context
             .get("serial")
             .and_then(Value::as_u64)
-            .ok_or_else(|| rejected("Prepared live-add plan expired; prepare a new plan"))?
+            .ok_or(RuntimeError::LiveAddPlanExpired)?
             .to_string();
         // Existing records may share a serial (the game loads such saves); the
         // index must resolve each to one of its slots, and the serial this
@@ -545,7 +545,7 @@ impl LiveAddApplication {
         let mut plan: Map<String, Value> = context
             .as_object()
             .cloned()
-            .ok_or_else(|| rejected("Prepared live-add plan expired; prepare a new plan"))?;
+            .ok_or(RuntimeError::LiveAddPlanExpired)?;
         plan.insert(
             "parent_operation_id".to_string(),
             json!(operation_id.clone()),
@@ -838,9 +838,7 @@ impl LiveAddApplication {
             "insertion_code_hex",
         ] {
             if current.get(field) != plan.get(field) {
-                return Err(rejected(
-                    "Prepared live-add plan expired; prepare a new plan",
-                ));
+                return Err(RuntimeError::LiveAddPlanExpired);
             }
         }
         let source_sha256 = plan

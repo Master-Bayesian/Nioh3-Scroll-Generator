@@ -124,7 +124,7 @@ fn predicts_native_replacements_from_deferred_runtime_without_process_or_writes(
         .join(format!("nioh3-completion-{}", std::process::id()));
     let state = root.join("state");
     std::fs::create_dir_all(&state).unwrap();
-    let data = repo_root().join("nioh3_scroll_editor/data");
+    let data = repo_root().join("data");
     let contracts = repo_root().join("packages/contracts");
     let engine = Engine::load(
         &data,

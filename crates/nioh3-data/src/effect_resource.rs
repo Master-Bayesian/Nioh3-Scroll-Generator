@@ -23,7 +23,7 @@ use super::{
     TABLE_HEADER_BYTES,
 };
 
-/// Shipped Grace maps, relative to the product `nioh3_scroll_editor/data` root.
+/// Shipped Grace maps, relative to the product `data` root.
 pub const GRACE_MAP_PATHS: [(u8, &str); 2] = [
     (4, "grace_output_map_e604_r4_current.json"),
     (5, "grace_output_map_e604_r5_current.json"),
@@ -40,7 +40,7 @@ const BONUS_CURVE_ROW_BYTES: usize = 0x58;
 
 /// Load every M2.1 effect resource below `data_root`.
 ///
-/// `data_root` is the product `nioh3_scroll_editor/data` directory. Missing,
+/// `data_root` is the product `data` directory. Missing,
 /// undeclared, duplicated, escaping, schema-mismatched, or digest-mismatched
 /// resources are reported as errors instead of being silently substituted.
 ///
@@ -327,7 +327,7 @@ mod tests {
 
     /// The shipped product data root inside this checkout.
     fn shipped_data_root() -> PathBuf {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data")
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../data")
     }
 
     fn scratch_dir(name: &str) -> PathBuf {

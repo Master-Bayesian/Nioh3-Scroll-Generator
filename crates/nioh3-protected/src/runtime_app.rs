@@ -3066,7 +3066,6 @@ mod profile_dir_tests {
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("..")
             .join("..")
-            .join("nioh3_scroll_editor")
             .join("data")
     }
 

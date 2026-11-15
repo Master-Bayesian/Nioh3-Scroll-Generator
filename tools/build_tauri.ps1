@@ -1,11 +1,7 @@
 param(
+    # Runs the standard-library packaging scripts in tools/.
     [Parameter(Mandatory)][string]$Python,
-    [Parameter(Mandatory)][string]$Output,
-    # The default packaged graph is the Rust worker (owner-authorized local
-    # backend switch). `-WorkerBackend python` remains available for
-    # development, parity and the legacy Tk path, but it is not the shipped
-    # graph. Either selection refuses to mix both backends.
-    [ValidateSet('python','rust')][string]$WorkerBackend = 'rust'
+    [Parameter(Mandatory)][string]$Output
 )
 $ErrorActionPreference='Stop'
 Set-Location -LiteralPath (Split-Path -Parent $PSScriptRoot)
@@ -13,9 +9,8 @@ function Checked([string]$Program,[string[]]$Arguments) {
     & $Program @Arguments
     if($LASTEXITCODE -ne 0){throw "Command failed: $Program ($LASTEXITCODE)"}
 }
-# The build root and the one shared Cargo target come from the same resolver the
-# migration gates and tools/run_python_tests.ps1 use
-# (tests/migration/cargo_target.py): an explicit NIOH3_BUILD_ROOT or
+# The build root and the one shared Cargo target come from the same resolver
+# tools/run_python_tests.ps1 uses (tools/tests/cargo_target.py): an explicit NIOH3_BUILD_ROOT or
 # CARGO_TARGET_DIR wins, otherwise a local Windows host builds on the D:
 # delivery volume and a CI host keeps its platform temp root. Nothing this build
 # writes may land in the checkout or the C: system temp, so every call below,
@@ -28,13 +23,12 @@ import cargo_target
 print(str(cargo_target.temp_root()))
 print(str(cargo_target.cargo_target_dir('tauri-target')))
 '@
-$resolvedPaths=@(& $Python -c $resolvePaths (Join-Path $PWD 'tests/migration'))
+$resolvedPaths=@(& $Python -c $resolvePaths (Join-Path $PWD 'tools/tests'))
 if($LASTEXITCODE -ne 0 -or $resolvedPaths.Count -lt 2){
     throw 'Failed to resolve the project build root and Cargo target'
 }
 $buildTempRoot=$resolvedPaths[0].Trim()
 $env:CARGO_TARGET_DIR=$resolvedPaths[1].Trim()
-$env:NIOH3_PYTHON=$Python
 $env:PYTHONUTF8='1'
 # Only each final Windows EXE selects static CRT; cached dependencies remain reusable.
 # The package PE-import gate verifies actual bytes, including transitive native links.
@@ -50,20 +44,10 @@ $build=Join-Path $buildTempRoot $stagingName
 $workers=Join-Path $build 'workers'
 $succeeded=$false
 try {
-    if($WorkerBackend -eq 'rust') {
-        Write-Host 'Rust worker backend: the shipped packaged graph'
-        Checked 'cargo.exe' @('rustc','--release','--locked','--manifest-path','crates/nioh3-worker/Cargo.toml','--bin','nioh3-readonly-worker','--','-C','target-feature=+crt-static')
-        Checked 'cargo.exe' @('rustc','--release','--locked','--manifest-path','crates/nioh3-protected/Cargo.toml','--bin','nioh3-protected-worker','--','-C','target-feature=+crt-static')
-        Checked $Python @('tools/stage_rust_workers.py','--binaries',$env:CARGO_TARGET_DIR,'--workers',$workers)
-        Checked $Python @('tools/package_tauri.py',$Output,$workers,'--worker-backend','rust')
-    } else {
-        Write-Host 'Legacy python worker backend: development, parity and oracle use only'
-        Checked $Python @('tools/write_v2_python_manifest.py',$workers)
-        foreach($role in @('search','protected')) {
-            Checked $Python @('-m','PyInstaller','--clean','--noconfirm','--distpath',$workers,'--workpath',(Join-Path $build $role),"packaging/$role-worker.spec")
-        }
-        Checked $Python @('tools/package_tauri.py',$Output,$workers)
-    }
+    Checked 'cargo.exe' @('rustc','--release','--locked','--manifest-path','crates/nioh3-worker/Cargo.toml','--bin','nioh3-readonly-worker','--','-C','target-feature=+crt-static')
+    Checked 'cargo.exe' @('rustc','--release','--locked','--manifest-path','crates/nioh3-protected/Cargo.toml','--bin','nioh3-protected-worker','--','-C','target-feature=+crt-static')
+    Checked $Python @('tools/stage_rust_workers.py','--binaries',$env:CARGO_TARGET_DIR,'--workers',$workers)
+    Checked $Python @('tools/package_tauri.py',$Output,$workers)
     $succeeded=$true
 } finally {
     if(-not $succeeded) {

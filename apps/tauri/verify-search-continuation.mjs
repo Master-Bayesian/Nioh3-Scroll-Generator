@@ -13,8 +13,6 @@ const cancelWatchMs = Number(process.env.NIOH3_CANCEL_WATCH_MS || 8000);
 const output = resolve(
   process.env.NIOH3_UI_OUTPUT || "deliverables/search-continuation-v075",
 );
-const python = process.env.NIOH3_PYTHON;
-assert(python, "NIOH3_PYTHON must name the prepared project environment");
 await mkdir(output, { recursive: true });
 const pause = (ms) => new Promise((done) => setTimeout(done, ms));
 
@@ -92,7 +90,6 @@ async function launchTauri() {
     stdio: ["ignore", "pipe", "pipe"],
     env: {
       ...process.env,
-      NIOH3_PYTHON: python,
       NIOH3_TAURI_TEST_ROOT: join(root, "profile"),
       NIOH3_TAURI_TEST_DEBUG_PORT: String(port),
       NIOH3_STATE_ROOT: join(root, "state"),

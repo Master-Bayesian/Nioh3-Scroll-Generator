@@ -188,16 +188,17 @@ impl LiveAddBatch {
                 // The first item was prepared at review; pickups or sales since
                 // then expire it before any claim. Prepare it again against the
                 // current game instead of failing the whole batch.
-                Err(error) if index == 0 && error.message().contains("plan expired") => {
+                Err(RuntimeError::LiveAddPlanExpired) if index == 0 => {
                     application.cancel(&operation_id)?;
                     child = application
                         .prepare(candidate, Path::new(save_path), None)?
                         .to_json();
-                    std::fs::write(&child_path, child.to_string()).map_err(|error| {
-                        RuntimeError::Io {
-                            path: child_path.display().to_string(),
-                            detail: error.to_string(),
-                        }
+                    let staged = child_path.with_extension("json.staged");
+                    let _ = std::fs::remove_file(&staged);
+                    exclusive_json(&staged, &child)?;
+                    std::fs::rename(&staged, &child_path).map_err(|error| RuntimeError::Io {
+                        path: child_path.display().to_string(),
+                        detail: error.to_string(),
                     })?;
                     (operation_id, child_digest) = ids(&child)?;
                     application.execute(&operation_id, &child_digest)?

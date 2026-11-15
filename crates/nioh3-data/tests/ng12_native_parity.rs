@@ -16,7 +16,7 @@ use nioh3_domain::install_materialize::{
 use nioh3_domain::record::ScrollRecordBytes;
 
 fn data_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data")
 }
 
 fn hex_bytes(text: &str) -> Vec<u8> {

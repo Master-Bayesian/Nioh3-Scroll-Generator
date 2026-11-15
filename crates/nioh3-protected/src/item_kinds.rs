@@ -50,7 +50,7 @@ mod tests {
 
     #[test]
     fn shipped_items_name_their_type_class() {
-        let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data");
+        let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data");
         // 甲斐国江 (a katana), a Bloodedge Demon soul core, White Camellia Hairpin.
         assert_eq!(type_class(&data, 0x8D5B), Some(0));
         assert_eq!(type_class(&data, 0x6D36), Some(54));

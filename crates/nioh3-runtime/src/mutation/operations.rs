@@ -480,22 +480,17 @@ impl LiveAddOperations {
         let (digest, plan) = self.plan(operation_id)?;
         let claim_path = directory.join("claim.json");
         let receipt_path = directory.join("receipt.json");
-        let mut state = OperationState::Prepared;
         let mut receipt: Option<Value> = None;
-        if claim_path.is_file() {
+        let claim = if claim_path.is_file() {
             let claim = read_json(&claim_path)?;
-            let action = claim.get("action").and_then(Value::as_str);
-            if claim.get("digest").and_then(Value::as_str) != Some(digest.as_str())
-                || !matches!(action, Some("cancel") | Some("dispatch"))
-            {
+            let action = ClaimAction::parse(claim.get("action").and_then(Value::as_str));
+            if claim.get("digest").and_then(Value::as_str) != Some(digest.as_str()) {
                 return Err(rejected("Invalid operation claim"));
             }
-            state = if action == Some("cancel") {
-                OperationState::Cancelled
-            } else {
-                OperationState::Uncertain
-            };
-        }
+            Some(action.ok_or_else(|| rejected("Invalid operation claim"))?)
+        } else {
+            None
+        };
         if receipt_path.is_file() {
             let envelope = read_json(&receipt_path)?;
             let stored = envelope
@@ -507,26 +502,21 @@ impl LiveAddOperations {
             {
                 return Err(rejected("Stored operation receipt changed"));
             }
-            if state != OperationState::Uncertain
+            if claim != Some(ClaimAction::Dispatch)
                 || stored.get("operation_id").and_then(Value::as_str) != Some(operation_id)
             {
                 return Err(rejected("Receipt has no matching dispatch"));
             }
-            state = match stored.get("state").and_then(Value::as_str) {
-                Some("verified") => OperationState::Verified,
-                Some("rejected_before_dispatch") => OperationState::RejectedBeforeDispatch,
-                Some("rejected_before_insertion") if plan["kind"] == "equipment_native_add" => {
-                    OperationState::RejectedBeforeInsertion
-                }
-                Some("dispatched_unverified") if plan["kind"] == "equipment_native_add" => {
-                    OperationState::DispatchedUnverified
-                }
-                _ => {
-                    return Err(rejected("Stored operation receipt changed"));
-                }
-            };
             receipt = Some(stored);
         }
+        let word = receipt.as_ref().map(|stored| {
+            stored
+                .get("state")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+        });
+        let state = classify(claim, word, plan["kind"] == "equipment_native_add")
+            .ok_or_else(|| rejected("Stored operation receipt changed"))?;
         Ok(OperationSnapshot {
             operation_id: operation_id.to_string(),
             plan_digest: digest,
@@ -535,5 +525,91 @@ impl LiveAddOperations {
             can_cancel: state == OperationState::Prepared,
             receipt,
         })
+    }
+}
+
+/// Who won the exclusive `claim.json`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ClaimAction {
+    Dispatch,
+    Cancel,
+}
+
+impl ClaimAction {
+    fn parse(word: Option<&str>) -> Option<Self> {
+        match word? {
+            "dispatch" => Some(Self::Dispatch),
+            "cancel" => Some(Self::Cancel),
+            _ => None,
+        }
+    }
+}
+
+/// One operation's state from its two durable files; the table is
+/// `Snapshots` in `spec/live_add/LiveAddOperation.tla`.
+fn classify(
+    claim: Option<ClaimAction>,
+    receipt: Option<&str>,
+    equipment: bool,
+) -> Option<OperationState> {
+    match (claim, receipt) {
+        (None, None) => Some(OperationState::Prepared),
+        (Some(ClaimAction::Cancel), None) => Some(OperationState::Cancelled),
+        (Some(ClaimAction::Dispatch), None) => Some(OperationState::Uncertain),
+        (Some(ClaimAction::Dispatch), Some("verified")) => Some(OperationState::Verified),
+        (Some(ClaimAction::Dispatch), Some("rejected_before_dispatch")) => {
+            Some(OperationState::RejectedBeforeDispatch)
+        }
+        (Some(ClaimAction::Dispatch), Some("rejected_before_insertion")) if equipment => {
+            Some(OperationState::RejectedBeforeInsertion)
+        }
+        (Some(ClaimAction::Dispatch), Some("dispatched_unverified")) if equipment => {
+            Some(OperationState::DispatchedUnverified)
+        }
+        (_, Some(_)) => None,
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod model_tests {
+    use super::*;
+
+    #[test]
+    fn the_snapshot_table_is_the_model_checked_one() {
+        let spec = include_str!("../../../../spec/live_add/LiveAddOperation.tla");
+        let table = spec.split("Snapshots ==").nth(1).unwrap();
+        let table = table.split('}').next().unwrap();
+        let words = table.split('"').skip(1).step_by(2).collect::<Vec<_>>();
+        assert_eq!(words.len(), 21);
+        let modelled = words.chunks(3).collect::<Vec<_>>();
+        let claims = [
+            ("none", None),
+            ("dispatch", Some(ClaimAction::Dispatch)),
+            ("cancel", Some(ClaimAction::Cancel)),
+        ];
+        let receipts = [
+            ("none", None),
+            ("verified", Some("verified")),
+            ("rejected_before_dispatch", Some("rejected_before_dispatch")),
+            (
+                "rejected_before_insertion",
+                Some("rejected_before_insertion"),
+            ),
+            ("dispatched_unverified", Some("dispatched_unverified")),
+        ];
+        for (claim_word, claim) in claims {
+            for (receipt_word, receipt) in receipts {
+                let expected = modelled
+                    .iter()
+                    .find(|row| row[0] == claim_word && row[1] == receipt_word)
+                    .map(|row| row[2]);
+                assert_eq!(
+                    classify(claim, receipt, true).map(OperationState::as_str),
+                    expected,
+                    "{claim_word} {receipt_word}"
+                );
+            }
+        }
     }
 }

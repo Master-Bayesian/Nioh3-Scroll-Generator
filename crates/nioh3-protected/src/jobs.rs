@@ -34,10 +34,37 @@ impl JobContext {
     }
 }
 
+/// Where one job stands. `Completed` and `Failed` are terminal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum JobState {
+    Running,
+    CancelRequested,
+    Completed,
+    Failed,
+}
+
+impl JobState {
+    const fn label(self) -> &'static str {
+        match self {
+            Self::Running => "running",
+            Self::CancelRequested => "cancel_requested",
+            Self::Completed => "completed",
+            Self::Failed => "failed",
+        }
+    }
+
+    const fn is_terminal(self) -> bool {
+        match self {
+            Self::Running | Self::CancelRequested => false,
+            Self::Completed | Self::Failed => true,
+        }
+    }
+}
+
 struct JobRecord {
     job_id: String,
     kind: String,
-    state: &'static str,
+    state: JobState,
     sequence: u64,
     cancellable: bool,
     progress: Option<Value>,
@@ -50,7 +77,7 @@ impl JobRecord {
         json!({
             "job_id": self.job_id,
             "kind": self.kind,
-            "state": self.state,
+            "state": self.state.label(),
             "sequence": self.sequence,
             "cancellable": self.cancellable,
             "progress": self.progress,
@@ -95,7 +122,7 @@ impl ProtectedJobs {
             .map(|guard| {
                 guard
                     .as_ref()
-                    .is_some_and(|record| record.state == "completed" || record.state == "failed")
+                    .is_some_and(|record| record.state.is_terminal())
             })
             .unwrap_or(false);
         if !terminal {
@@ -160,7 +187,7 @@ impl ProtectedJobs {
         let record = JobRecord {
             job_id: self.next_job_id(),
             kind: kind.to_string(),
-            state: "running",
+            state: JobState::Running,
             sequence: 0,
             cancellable,
             progress: None,
@@ -192,14 +219,14 @@ impl ProtectedJobs {
             let outcome =
                 std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| action(&context)));
             let (state, result, error) = match outcome {
-                Ok(Ok(value)) => ("completed", Some(value), None),
+                Ok(Ok(value)) => (JobState::Completed, Some(value), None),
                 Ok(Err(failure)) => (
-                    "failed",
+                    JobState::Failed,
                     None,
                     Some(json!({"code": failure.job_code(), "message": failure.message})),
                 ),
                 Err(_) => (
-                    "failed",
+                    JobState::Failed,
                     None,
                     Some(json!({
                         "code": "OPERATION_REJECTED",
@@ -227,7 +254,7 @@ impl ProtectedJobs {
                     Err(poisoned) => poisoned.into_inner(),
                 };
                 if let Some(record) = guard.as_mut() {
-                    record.state = "failed";
+                    record.state = JobState::Failed;
                     record.error = Some(json!({
                         "code": "OPERATION_REJECTED",
                         "message": format!("protected operation thread could not start: {error}"),
@@ -278,8 +305,8 @@ impl ProtectedJobs {
             ));
         }
         self.cancel.store(true, Ordering::SeqCst);
-        if record.state == "running" {
-            record.state = "cancel_requested";
+        if record.state == JobState::Running {
+            record.state = JobState::CancelRequested;
             record.sequence += 1;
         }
         Ok(record.to_json())
@@ -306,8 +333,8 @@ impl ProtectedJobs {
             Err(poisoned) => poisoned.into_inner(),
         };
         if let Some(record) = guard.as_mut() {
-            if record.state == "running" {
-                record.state = "cancel_requested";
+            if record.state == JobState::Running {
+                record.state = JobState::CancelRequested;
                 record.sequence += 1;
             }
         }

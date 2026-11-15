@@ -125,55 +125,114 @@ fn version(value: &str) -> Option<(u32, u32, u32, u8, u32)> {
         n,
     ))
 }
+/// Where the updater stands. The manifest and the staged package live in the
+/// phase that owns them, so neither can outlast it.
+enum Phase {
+    Idle,
+    Checking,
+    Current,
+    Available(Manifest),
+    Downloading {
+        manifest: Manifest,
+        downloaded: u64,
+    },
+    Ready {
+        version: String,
+        stage: PathBuf,
+        manifest_hash: String,
+    },
+    Failed(String),
+}
+
+impl Phase {
+    fn published(&self) -> Value {
+        match self {
+            Self::Idle => json!({"phase":"idle"}),
+            Self::Checking => json!({"phase":"checking"}),
+            Self::Current => json!({"phase":"current"}),
+            Self::Available(manifest) => {
+                json!({"phase":"available","version":manifest.version,"notes":manifest.notes})
+            }
+            Self::Downloading {
+                manifest,
+                downloaded,
+            } => json!({
+                "phase":"downloading",
+                "version":manifest.version,
+                "downloaded":downloaded,
+                "total":manifest.asset.size,
+            }),
+            Self::Ready { version, .. } => json!({"phase":"ready","version":version}),
+            Self::Failed(error) => json!({"phase":"failed","error":error}),
+        }
+    }
+
+    const fn is_busy(&self) -> bool {
+        match self {
+            Self::Checking | Self::Downloading { .. } | Self::Ready { .. } => true,
+            Self::Idle | Self::Current | Self::Available(_) | Self::Failed(_) => false,
+        }
+    }
+}
+
 pub struct Updater {
     pub root: PathBuf,
-    state: Mutex<Value>,
-    manifest: Mutex<Option<Manifest>>,
-    pub ready: Mutex<Option<(PathBuf, String)>>,
+    phase: Mutex<Phase>,
 }
 impl Updater {
     pub fn new(root: PathBuf) -> Arc<Self> {
         Arc::new(Self {
             root,
-            state: Mutex::new(json!({"phase":"idle"})),
-            manifest: Mutex::new(None),
-            ready: Mutex::new(None),
+            phase: Mutex::new(Phase::Idle),
         })
     }
     pub async fn state(&self, can_apply: bool) -> Value {
-        let mut value = self.state.lock().await.clone();
+        let mut value = self.phase.lock().await.published();
         value["canApply"] = json!(can_apply);
         value
+    }
+    pub async fn is_ready(&self) -> bool {
+        matches!(&*self.phase.lock().await, Phase::Ready { .. })
     }
     pub async fn action(self: &Arc<Self>, action: &str, channel: &str) -> Result<(), String> {
         if !["stable", "beta"].contains(&channel) {
             return Err("INVALID_UPDATE_CHANNEL".into());
         }
-        let mut state = self.state.lock().await;
-        if ["checking", "downloading", "ready"].contains(&state["phase"].as_str().unwrap_or("")) {
+        let mut phase = self.phase.lock().await;
+        if phase.is_busy() {
             return Ok(());
         }
-        if action == "check" {
-            *state = json!({"phase":"checking"});
-            let updater = self.clone();
-            let channel = channel.to_string();
-            tokio::spawn(async move {
-                if let Err(e) = updater.check(&channel).await {
-                    *updater.state.lock().await = json!({"phase":"failed","error":e});
-                }
-            });
-            Ok(())
-        } else if action == "download" && state["phase"] == "available" {
-            *state = json!({"phase":"downloading","downloaded":0});
-            let updater = self.clone();
-            tokio::spawn(async move {
-                if let Err(e) = updater.download().await {
-                    *updater.state.lock().await = json!({"phase":"failed","error":e});
-                }
-            });
-            Ok(())
-        } else {
-            Err("INVALID_UPDATE_ACTION".into())
+        match (action, &*phase) {
+            ("check", _) => {
+                *phase = Phase::Checking;
+                let updater = self.clone();
+                let channel = channel.to_string();
+                tokio::spawn(async move {
+                    let settled = match updater.check(&channel).await {
+                        Ok(settled) => settled,
+                        Err(error) => Phase::Failed(error),
+                    };
+                    *updater.phase.lock().await = settled;
+                });
+                Ok(())
+            }
+            ("download", Phase::Available(manifest)) => {
+                let manifest = manifest.clone();
+                *phase = Phase::Downloading {
+                    manifest: manifest.clone(),
+                    downloaded: 0,
+                };
+                let updater = self.clone();
+                tokio::spawn(async move {
+                    let settled = match updater.download(manifest).await {
+                        Ok(settled) => settled,
+                        Err(error) => Phase::Failed(error),
+                    };
+                    *updater.phase.lock().await = settled;
+                });
+                Ok(())
+            }
+            _ => Err("INVALID_UPDATE_ACTION".into()),
         }
     }
     fn client() -> Result<reqwest::Client, String> {
@@ -200,7 +259,7 @@ impl Updater {
         }
         Ok(bytes)
     }
-    async fn check(&self, channel: &str) -> Result<(), String> {
+    async fn check(&self, channel: &str) -> Result<Phase, String> {
         let client = Self::client()?;
         let releases:Vec<Value>=serde_json::from_slice(&Self::bounded(&client,"https://api.github.com/repos/Master-Bayesian/Nioh3-Scroll-Generator/releases?per_page=20",1_048_576).await?).map_err(|e|e.to_string())?;
         let mut best: Option<Manifest> = None;
@@ -234,46 +293,74 @@ impl Updater {
                 best = Some(manifest);
             }
         }
-        if let Some(manifest) =
-            best.filter(|m| version(&m.version) > version(env!("CARGO_PKG_VERSION")))
-        {
-            *self.manifest.lock().await = Some(manifest.clone());
-            *self.state.lock().await =
-                json!({"phase":"available","version":manifest.version,"notes":manifest.notes});
-        } else {
-            *self.state.lock().await = json!({"phase":"current"});
-        }
-        Ok(())
+        Ok(
+            match best.filter(|m| version(&m.version) > version(env!("CARGO_PKG_VERSION"))) {
+                Some(manifest) => Phase::Available(manifest),
+                None => Phase::Current,
+            },
+        )
     }
-    async fn download(&self) -> Result<(), String> {
-        let manifest = self
-            .manifest
-            .lock()
-            .await
-            .clone()
-            .ok_or("UPDATE_NOT_AVAILABLE")?;
+    async fn download(&self, manifest: Manifest) -> Result<Phase, String> {
         validate(&manifest)?;
         let folder = self.root.join(uuid::Uuid::new_v4().to_string());
         std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
-        let result=async{
-            let archive=folder.join("package.zip");let stage=folder.join("package");
-            let mut response=Self::client()?.get(&manifest.asset.url).timeout(Duration::from_secs(600)).send().await.map_err(|e|e.to_string())?.error_for_status().map_err(|e|e.to_string())?;
-            let mut file=std::fs::OpenOptions::new().write(true).create_new(true).open(&archive).map_err(|e|e.to_string())?;
-            let mut size=0u64;let mut hash=Sha256::new();
-            while let Some(chunk)=response.chunk().await.map_err(|e|e.to_string())?{
-                size+=chunk.len()as u64;if size>manifest.asset.size{return Err("UPDATE_TOO_LARGE".into());}hash.update(&chunk);file.write_all(&chunk).map_err(|e|e.to_string())?;
-                *self.state.lock().await=json!({"phase":"downloading","version":manifest.version,"downloaded":size,"total":manifest.asset.size});
+        let result = async {
+            let archive = folder.join("package.zip");
+            let stage = folder.join("package");
+            let mut response = Self::client()?
+                .get(&manifest.asset.url)
+                .timeout(Duration::from_secs(600))
+                .send()
+                .await
+                .map_err(|e| e.to_string())?
+                .error_for_status()
+                .map_err(|e| e.to_string())?;
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&archive)
+                .map_err(|e| e.to_string())?;
+            let mut size = 0u64;
+            let mut hash = Sha256::new();
+            while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
+                size += chunk.len() as u64;
+                if size > manifest.asset.size {
+                    return Err("UPDATE_TOO_LARGE".into());
+                }
+                hash.update(&chunk);
+                file.write_all(&chunk).map_err(|e| e.to_string())?;
+                *self.phase.lock().await = Phase::Downloading {
+                    manifest: manifest.clone(),
+                    downloaded: size,
+                };
             }
-            file.sync_all().map_err(|e|e.to_string())?;drop(file);
-            if size!=manifest.asset.size||format!("{:x}",hash.finalize())!=manifest.asset.sha256{return Err("UPDATE_HASH_MISMATCH".into());}
-            package::extract(&archive,&stage)?;
-            if package::verify(&stage)?.version!=manifest.version{return Err("UPDATE_VERSION_MISMATCH".into());}
-            storage::write_json(&folder.join("verified-update.json"),&serde_json::to_value(&manifest).map_err(|e|e.to_string())?)?;
+            file.sync_all().map_err(|e| e.to_string())?;
+            drop(file);
+            if size != manifest.asset.size
+                || format!("{:x}", hash.finalize()) != manifest.asset.sha256
+            {
+                return Err("UPDATE_HASH_MISMATCH".into());
+            }
+            package::extract(&archive, &stage)?;
+            if package::verify(&stage)?.version != manifest.version {
+                return Err("UPDATE_VERSION_MISMATCH".into());
+            }
+            storage::write_json(
+                &folder.join("verified-update.json"),
+                &serde_json::to_value(&manifest).map_err(|e| e.to_string())?,
+            )?;
             // One-file clients rebuild the original executable from this signed archive.
-            if onefile::context()?.is_none() { std::fs::remove_file(archive).map_err(|e|e.to_string())?; }
-            let hash=package::hash_file(&stage.join("build-manifest.json"))?;
-            *self.ready.lock().await=Some((stage,hash));*self.state.lock().await=json!({"phase":"ready","version":manifest.version});Ok(())
-        }.await;
+            if onefile::context()?.is_none() {
+                std::fs::remove_file(archive).map_err(|e| e.to_string())?;
+            }
+            let manifest_hash = package::hash_file(&stage.join("build-manifest.json"))?;
+            Ok(Phase::Ready {
+                version: manifest.version.clone(),
+                stage,
+                manifest_hash,
+            })
+        }
+        .await;
         if result.is_err() {
             let _ = package::remove_child(&self.root, &folder, false);
         }
@@ -371,7 +458,19 @@ impl Updater {
         Ok(())
     }
     pub async fn launch(&self, target: &Path) -> Result<(), String> {
-        let (stage, hash) = self.ready.lock().await.clone().ok_or("UPDATE_NOT_READY")?;
+        let (stage, hash) = match &*self.phase.lock().await {
+            Phase::Ready {
+                stage,
+                manifest_hash,
+                ..
+            } => (stage.clone(), manifest_hash.clone()),
+            Phase::Idle
+            | Phase::Checking
+            | Phase::Current
+            | Phase::Available(_)
+            | Phase::Downloading { .. }
+            | Phase::Failed(_) => return Err("UPDATE_NOT_READY".into()),
+        };
         package::verify(&stage)?;
         if let Some(context) = onefile::context()? {
             return self.launch_onefile(&stage, &hash, &context);

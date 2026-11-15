@@ -108,9 +108,8 @@ slot role/index, raw ID, and full slot payload.
 
 ## Sources
 
-- current solver boundaries: `research/EFFECT_SEED_SOLVER.md`
+- the solver: the Rust search worker, `crates/nioh3-worker`
 - native table layout: `research/EFFECT_GENERATION_TABLE_INDEX.md`
-- math: `nioh3_seed_math.py`
 - exact generation: `nioh3_scroll_editor/effect_sequence.py`
 - R4 finalizer: `nioh3_scroll_editor/r4_finalizer_engine.py`
 - Grace partitions: `nioh3_scroll_editor/grace_map.py`

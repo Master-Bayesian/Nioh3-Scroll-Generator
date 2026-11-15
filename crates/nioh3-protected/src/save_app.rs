@@ -58,7 +58,9 @@ use nioh3_save::error::SaveReadError;
 use nioh3_save::inventory::{SaveInventory, ScrollInventoryEntry};
 use nioh3_save::resign::resign_user_save;
 use nioh3_save::save::DecryptedSave;
-use nioh3_save::transaction::{PlanCommand, PlanKind, SavePlan, SaveTransactionHost};
+use nioh3_save::transaction::{
+    PlanCommand, PlanKind, ReceiptOutcome, SavePlan, SaveTransactionHost,
+};
 use nioh3_save::transform::{
     patch_local_scroll_header, patch_local_scroll_record, read_local_effect_slots, EffectPatch,
     HeaderPatch, InstallRequest, LocalEffectSlot, SlotEdit,
@@ -104,12 +106,56 @@ const ACKNOWLEDGED_WARNING: &str =
     "The outcome could not be proven from the bytes on disk; the user reviewed the save \
      and accepted its current contents";
 
+/// The outer ledger's word for one operation, as published to the client.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CommitStatus {
+    Executing,
+    Committed,
+    CommittedWithWarning,
+    NotCommitted,
+    Unknown,
+    Acknowledged,
+}
+
+impl CommitStatus {
+    const fn label(self) -> &'static str {
+        match self {
+            Self::Executing => "executing",
+            Self::Committed => "committed",
+            Self::CommittedWithWarning => "committed_with_warning",
+            Self::NotCommitted => "not_committed",
+            Self::Unknown => "unknown",
+            Self::Acknowledged => "acknowledged",
+        }
+    }
+
+    fn of(receipt: &Value) -> Option<Self> {
+        match receipt.get("commit_status").and_then(Value::as_str)? {
+            "executing" => Some(Self::Executing),
+            "committed" => Some(Self::Committed),
+            "committed_with_warning" => Some(Self::CommittedWithWarning),
+            "not_committed" => Some(Self::NotCommitted),
+            "unknown" => Some(Self::Unknown),
+            "acknowledged" => Some(Self::Acknowledged),
+            _ => None,
+        }
+    }
+
+    /// Whether this record still leaves its save's outcome open.
+    const fn is_unresolved(self) -> bool {
+        match self {
+            Self::Executing | Self::Unknown => true,
+            Self::Committed
+            | Self::CommittedWithWarning
+            | Self::NotCommitted
+            | Self::Acknowledged => false,
+        }
+    }
+}
+
 /// Whether an outer receipt still leaves its save's outcome open.
 fn is_unresolved_status(receipt: &Value) -> bool {
-    matches!(
-        receipt.get("commit_status").and_then(Value::as_str),
-        Some("unknown" | "executing")
-    )
+    CommitStatus::of(receipt).is_some_and(CommitStatus::is_unresolved)
 }
 const AUDIT_COVERAGE_SCOPE: &str = "generated_effect_projection";
 const AUDIT_STATUS_INSUFFICIENT: &str = "insufficient_data";
@@ -603,9 +649,11 @@ impl SaveApplication {
             let (mut key, mut serial) = equipment_counters(plain).map_err(HostError::from_save)?;
             let mut taken: Vec<usize> = edits
                 .iter()
-                .filter_map(|edit| match edit {
-                    CharacterEdit::RemoveEquipment { slot_index, .. } => Some(*slot_index),
-                    _ => None,
+                .filter_map(|edit| {
+                    let CharacterEdit::RemoveEquipment { slot_index, .. } = edit else {
+                        return None;
+                    };
+                    Some(*slot_index)
                 })
                 .collect();
             // The game keeps at most 2000 held items (shown as n/2000) although
@@ -1027,9 +1075,10 @@ impl SaveApplication {
             .map_err(HostError::rejected)?;
         let stored = payload
             .get("context_fingerprint")
-            .map(|value| match value {
-                Value::String(text) => text.clone(),
-                other => other.to_string(),
+            .map(|value| {
+                value
+                    .as_str()
+                    .map_or_else(|| value.to_string(), str::to_string)
             })
             .unwrap_or_default();
         if stored.trim().to_lowercase() != fingerprint.trim().to_lowercase() {
@@ -1533,7 +1582,7 @@ impl SaveApplication {
         let mut value: Value = serde_json::from_str(&text).map_err(|error| {
             HostError::rejected(format!("operation ledger is not JSON: {error}"))
         })?;
-        if value.get("commit_status").and_then(Value::as_str) == Some("executing") {
+        if CommitStatus::of(&value) == Some(CommitStatus::Executing) {
             self.project_core_authority(plan_id, &mut value);
             // The projected word becomes the durable record so the ledger and the
             // public receipt cannot disagree after a restart. It stays a
@@ -1549,6 +1598,14 @@ impl SaveApplication {
         }
         if is_unresolved_status(&value) {
             self.settle(plan_id, &mut value, acknowledge);
+        }
+        if CommitStatus::of(&value) == Some(CommitStatus::CommittedWithWarning) {
+            if let Err(error) = self.host().record_outer_commit(plan_id) {
+                eprintln!(
+                    "protected save host: could not settle the core record of {plan_id}: {}",
+                    HostError::from_save(error).message
+                );
+            }
         }
         self.receipts.insert(plan_id.to_string(), value.clone());
         Ok(value)
@@ -1578,11 +1635,15 @@ impl SaveApplication {
                 reviewed.as_deref(),
                 acknowledge,
             ) {
-                Ok(Some(receipt)) => match receipt.outcome.as_str() {
-                    "committed" | "not_committed" | "acknowledged" => {
-                        Some((receipt.outcome.clone(), receipt.message.clone()))
+                Ok(Some(receipt)) => match receipt.outcome {
+                    ReceiptOutcome::Committed
+                    | ReceiptOutcome::NotCommitted
+                    | ReceiptOutcome::Acknowledged => {
+                        Some((commit_word(receipt.outcome), receipt.message.clone()))
                     }
-                    _ => None,
+                    ReceiptOutcome::Pending
+                    | ReceiptOutcome::Uncertain
+                    | ReceiptOutcome::Discarded => None,
                 },
                 Ok(None) => {
                     let current = std::fs::read(save_path)
@@ -1594,7 +1655,7 @@ impl SaveApplication {
                     );
                     if unchanged {
                         Some((
-                            "not_committed".to_string(),
+                            CommitStatus::NotCommitted,
                             Some(
                                 "Settled from the bytes on disk: the save still holds the \
                                  reviewed source generation"
@@ -1603,7 +1664,7 @@ impl SaveApplication {
                         ))
                     } else if acknowledge {
                         Some((
-                            "acknowledged".to_string(),
+                            CommitStatus::Acknowledged,
                             Some(ACKNOWLEDGED_WARNING.to_string()),
                         ))
                     } else {
@@ -1619,7 +1680,7 @@ impl SaveApplication {
                 }
             },
             None if acknowledge => Some((
-                "acknowledged".to_string(),
+                CommitStatus::Acknowledged,
                 Some(ACKNOWLEDGED_WARNING.to_string()),
             )),
             None => None,
@@ -1627,12 +1688,12 @@ impl SaveApplication {
         let Some((outcome, message)) = settled else {
             return;
         };
-        value["commit_status"] = json!(outcome);
+        value["commit_status"] = json!(outcome.label());
         value["warning"] = json!(message);
         if let Some(details) = value.get_mut("details").and_then(Value::as_object_mut) {
             details.insert(
                 "resolution".to_string(),
-                json!(if outcome == "acknowledged" {
+                json!(if outcome == CommitStatus::Acknowledged {
                     "acknowledged"
                 } else {
                     "proven"
@@ -1658,7 +1719,7 @@ impl SaveApplication {
         let receipt = match self.host().receipt(plan_id) {
             Ok(Some(receipt)) => receipt,
             Ok(None) | Err(_) => {
-                value["commit_status"] = json!("unknown");
+                value["commit_status"] = json!(CommitStatus::Unknown.label());
                 value["warning"] = json!(STALE_INTENT_WARNING);
                 return;
             }
@@ -1666,31 +1727,27 @@ impl SaveApplication {
         // The core's own words are the authority; the outer code only carries
         // them. A core that still reads `pending` stays `unknown` because the
         // operation never reached a terminal state.
-        let projected = match receipt.outcome.as_str() {
-            "committed" => "committed",
-            "not_committed" => "not_committed",
-            _ => "unknown",
-        };
-        value["commit_status"] = json!(projected);
+        let projected = commit_word(receipt.outcome);
+        value["commit_status"] = json!(projected.label());
         value["warning"] = match receipt.message.as_deref().map(str::trim) {
             Some(message) if !message.is_empty() => json!(message),
             // A non-terminal core cannot explain itself, so the operator keeps
             // the shipped warning rather than a silent null.
-            _ if projected == "unknown" => json!(STALE_INTENT_WARNING),
+            _ if projected == CommitStatus::Unknown => json!(STALE_INTENT_WARNING),
             _ => Value::Null,
         };
         // Only a terminal outcome may publish the core's installed facts: a
         // `pending` or `uncertain` core never confirmed an installation, so
         // naming an `installed_sha256` for it would report something the core
         // did not record. The reviewed target generation stays distinct from it.
-        if projected != "unknown" {
+        if projected != CommitStatus::Unknown {
             if let Some(details) = value.get_mut("details").and_then(Value::as_object_mut) {
                 details.insert(
                     "installed_sha256".to_string(),
                     json!(receipt.installed_sha256),
                 );
                 details.insert("backup_id".to_string(), json!(receipt.backup_id));
-                details.insert("core_outcome".to_string(), json!(receipt.outcome));
+                details.insert("core_outcome".to_string(), json!(receipt.outcome.label()));
             }
         }
     }
@@ -1732,10 +1789,7 @@ impl SaveApplication {
                 // The display window is 128 receipts, but an unresolved
                 // operation is never hidden by it: the client decides whether a
                 // write is still uncertain from this list.
-                let unresolved = matches!(
-                    receipt.get("commit_status").and_then(Value::as_str),
-                    Some("unknown" | "executing")
-                );
+                let unresolved = is_unresolved_status(&receipt);
                 if receipts.len() < 128 || unresolved {
                     receipts.push(receipt);
                 }
@@ -1777,7 +1831,7 @@ impl SaveApplication {
         let intent = json!({
             "operation_id": plan_id,
             "save_id": save_id,
-            "commit_status": "executing",
+            "commit_status": CommitStatus::Executing.label(),
             "warning": Value::Null,
             "details": {
                 "save_path": python_path_string(&save_path),
@@ -1800,15 +1854,15 @@ impl SaveApplication {
         // rather than as a retryable not-committed result.
         let (mut commit_status, mut warning, core_outcome) = match core {
             Ok(receipt) => (
-                commit_word(&receipt.outcome).to_string(),
+                commit_word(receipt.outcome),
                 receipt.message.clone(),
-                receipt.outcome.clone(),
+                receipt.outcome.label().to_string(),
             ),
             // The core wrote the target and read it back, but its own terminal
             // record did not land. The plan is consumed, so the operation id
             // must not be retried.
             Err(SaveReadError::CommitCompletedWithWarning { warning, .. }) => (
-                "committed_with_warning".to_string(),
+                CommitStatus::CommittedWithWarning,
                 Some(warning),
                 "committed_with_warning".to_string(),
             ),
@@ -1816,14 +1870,17 @@ impl SaveApplication {
             // not. `unknown` is the honest published word; fabricating either
             // success or a retryable failure would be worse than the raw error.
             Err(SaveReadError::CommitUncertain { message }) => (
-                "unknown".to_string(),
+                CommitStatus::Unknown,
                 Some(message),
                 "uncertain".to_string(),
             ),
             // Every other core error happened before the target could move (or
             // could be proven not to have moved), so the shipped refusal stays a
             // refusal and no receipt is invented for it.
-            Err(error) => return Err(HostError::from_save(error)),
+            Err(error) => {
+                self.record_refused_commit(plan_id, &error);
+                return Err(HostError::from_save(error));
+            }
         };
         // The two error arms still have a durable core record whenever the core
         // managed to write one; re-read it so the published facts come from the
@@ -1838,7 +1895,7 @@ impl SaveApplication {
         let mut result = json!({
             "operation_id": plan_id,
             "save_id": save_id,
-            "commit_status": commit_status,
+            "commit_status": commit_status.label(),
             "warning": warning,
             "details": {
                 "save_path": python_path_string(&save_path),
@@ -1859,15 +1916,15 @@ impl SaveApplication {
             // ledger update never demotes a completed write. `committed` becomes
             // `committed_with_warning` and the failure is appended to the
             // warning; any other status keeps its own word and gains the note.
-            if commit_status == "committed" {
-                commit_status = "committed_with_warning".to_string();
+            if commit_status == CommitStatus::Committed {
+                commit_status = CommitStatus::CommittedWithWarning;
             }
             let note = format!("Operation ledger update failed: {}", error.message);
             warning = Some(match warning.as_deref().map(str::trim) {
                 Some(existing) if !existing.is_empty() => format!("{existing} {note}"),
                 _ => note,
             });
-            result["commit_status"] = json!(commit_status);
+            result["commit_status"] = json!(commit_status.label());
             result["warning"] = json!(warning);
             eprintln!(
                 "protected save host: could not persist the terminal receipt for {plan_id}: {}",
@@ -1879,6 +1936,37 @@ impl SaveApplication {
             self.snapshots.remove(&plan.save_id);
         }
         Ok(result)
+    }
+
+    /// Close the outer intent of a commit the core refused.
+    ///
+    /// No core receipt, or a `not_committed` one, means the target never moved,
+    /// so the intent written before the core ran must not read as a claimed
+    /// write. Any other core state keeps the intent for recovery.
+    fn record_refused_commit(&self, plan_id: &str, error: &SaveReadError) {
+        let untouched = match self.host().receipt(plan_id) {
+            Ok(None) => true,
+            Ok(Some(receipt)) => receipt.outcome == ReceiptOutcome::NotCommitted,
+            Err(_) => false,
+        };
+        if !untouched {
+            return;
+        }
+        let path = self.ledger_dir().join(format!("{plan_id}.json"));
+        let Some(mut value) = std::fs::read_to_string(path)
+            .ok()
+            .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+        else {
+            return;
+        };
+        value["commit_status"] = json!(CommitStatus::NotCommitted.label());
+        value["warning"] = json!(error.to_string());
+        if let Err(failure) = self.write_ledger(plan_id, &value, true) {
+            eprintln!(
+                "protected save host: could not close the refused intent for {plan_id}: {}",
+                failure.message
+            );
+        }
     }
 
     /// Persist one outer ledger record.
@@ -2706,15 +2794,14 @@ fn fault_set_for(
 }
 
 /// The published word for one save-core outcome.
-///
-/// `committed` and `not_committed` are the core's own terminal words; anything
-/// else (a `pending` intent, an `uncertain` rollback) has no proven outcome and
-/// is published as `unknown` instead of being rounded to a success.
-fn commit_word(outcome: &str) -> &'static str {
+fn commit_word(outcome: ReceiptOutcome) -> CommitStatus {
     match outcome {
-        "committed" => "committed",
-        "not_committed" => "not_committed",
-        _ => "unknown",
+        ReceiptOutcome::Committed => CommitStatus::Committed,
+        ReceiptOutcome::NotCommitted => CommitStatus::NotCommitted,
+        ReceiptOutcome::Acknowledged => CommitStatus::Acknowledged,
+        ReceiptOutcome::Pending | ReceiptOutcome::Uncertain | ReceiptOutcome::Discarded => {
+            CommitStatus::Unknown
+        }
     }
 }
 

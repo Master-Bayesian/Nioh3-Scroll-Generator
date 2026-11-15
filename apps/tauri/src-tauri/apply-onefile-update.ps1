@@ -55,7 +55,8 @@ if ((Get-FileDigest $prepared) -ne $FileHash) { throw 'Replacement verification 
 foreach ($waitId in @($ProcessId, $LauncherProcessId) | Select-Object -Unique) {
     if ($waitId -le 0 -or $waitId -eq $PID) { throw 'Invalid update process identifier' }
     Wait-Process -Id $waitId -Timeout 90 -ErrorAction SilentlyContinue
-    if (Get-Process -Id $waitId -ErrorAction SilentlyContinue) { throw 'Application did not exit safely' }
+    $running = Get-Process -Id $waitId -ErrorAction SilentlyContinue
+    if ($running -and -not $running.HasExited) { throw 'Application did not exit safely' }
 }
 Assert-RegularFile $targetPath
 if ((Get-FileDigest $targetPath) -ne $PreviousHash) { throw 'Original executable changed while waiting' }

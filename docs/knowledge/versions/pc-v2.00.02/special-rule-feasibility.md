@@ -39,7 +39,7 @@ However, the complete conjunction below has no Seed:
 - special rules `0x2FEA` and `0x7EF1`.
 
 The full `2^32` pivot family was exhausted by
-`research/verify_reported_rare_combination.py`. Exact cumulative survivors were:
+a one-off checker (`research/verify_reported_rare_combination.py`, now only in git history). Exact cumulative survivors were:
 
 | Stage | Survivors |
 |---|---:|

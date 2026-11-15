@@ -361,7 +361,7 @@ pub fn build_equipment_record(
         record[entry + 0x0E] = match effect.role {
             NewEntryRole::Set => 0x01,
             NewEntryRole::Grace => 0x02,
-            _ => 0,
+            NewEntryRole::Innate | NewEntryRole::Hell | NewEntryRole::Random => 0,
         } | if effect.star { 0x04 } else { 0 };
     }
     for offset in EQUIPMENT_SET_OFFSETS {

@@ -230,7 +230,7 @@ fn product_input_state(cli: &Cli) -> Result<Value, Value> {
     }))
 }
 
-fn product_input_failure(role: CatalogRole, path: &PathBuf, detail: &str) -> Value {
+fn product_input_failure(role: CatalogRole, path: &std::path::Path, detail: &str) -> Value {
     json!({
         "schema": EQUIPMENT_CATALOG_FORMAT,
         "status": "input_unreadable",

@@ -2019,7 +2019,9 @@ fn candidate_argument(value: &Value) -> Result<Value, String> {
             serde_json::from_str(&text)
                 .map_err(|error| format!("candidate payload {}: {error}", path.display()))
         }
-        _ => Err("the candidate must be a payload object or a payload file".to_string()),
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::Array(_) => {
+            Err("the candidate must be a payload object or a payload file".to_string())
+        }
     }
 }
 

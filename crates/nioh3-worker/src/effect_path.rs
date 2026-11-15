@@ -1800,7 +1800,7 @@ mod tests {
     }
 
     fn shipped_tables() -> EffectTableIndex {
-        let root = repo_root().join("nioh3_scroll_editor").join("data");
+        let root = repo_root().join("data");
         let bytes = nioh3_data::load_effect_resource(&root).expect("effect resource loads");
         EffectTableIndex::from_resource(&bytes).expect("effect tables decode")
     }
@@ -2248,9 +2248,8 @@ mod tests {
     #[test]
     fn the_rarity5_route_matches_the_shipped_reference() {
         let vector = evidence("complete_r5_plans.json");
-        let resource =
-            nioh3_data::load_effect_resource(&repo_root().join("nioh3_scroll_editor").join("data"))
-                .expect("effect resource loads");
+        let resource = nioh3_data::load_effect_resource(&repo_root().join("data"))
+            .expect("effect resource loads");
         let tables = std::sync::Arc::new(
             EffectTableIndex::from_resource(&resource).expect("effect tables decode"),
         );

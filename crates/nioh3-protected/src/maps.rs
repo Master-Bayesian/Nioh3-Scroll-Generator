@@ -1121,7 +1121,7 @@ impl PreparedMaps {
         match self {
             PreparedMaps::Grace(map) => Some(map),
             PreparedMaps::Joint { grace, .. } => Some(grace),
-            _ => None,
+            PreparedMaps::None | PreparedMaps::PrimaryFirst(_) => None,
         }
     }
 }
@@ -1188,9 +1188,10 @@ pub fn prepare_maps(
                 .map_err(HostError::rejected)?;
                 let stored = payload
                     .get("context_fingerprint")
-                    .map(|value| match value {
-                        Value::String(text) => text.clone(),
-                        other => other.to_string(),
+                    .map(|value| {
+                        value
+                            .as_str()
+                            .map_or_else(|| value.to_string(), str::to_string)
                     })
                     .unwrap_or_default();
                 if stored.trim().to_lowercase() != save_fingerprint.trim().to_lowercase() {

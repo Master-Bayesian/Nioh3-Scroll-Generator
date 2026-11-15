@@ -1400,7 +1400,7 @@ mod tests {
 
     #[test]
     fn product_bundle_identity_is_version_bound() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data");
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data");
         if !root.is_dir() {
             return;
         }

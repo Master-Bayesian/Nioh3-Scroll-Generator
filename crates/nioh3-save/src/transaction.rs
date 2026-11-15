@@ -444,21 +444,138 @@ impl TransactionFaults {
     }
 }
 
-/// The terminal record of one commit attempt.
+/// What one recorded operation did to its target.
+///
+/// `Pending` and `Uncertain` own the target until the bytes or the user settle
+/// them; every other state is terminal. An unknown word in a stored record fails
+/// to parse, so it can never read as a known state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReceiptOutcome {
+    Pending,
+    Committed,
+    Uncertain,
+    NotCommitted,
+    Discarded,
+    Acknowledged,
+}
+
+impl ReceiptOutcome {
+    pub const ALL: [Self; 6] = [
+        Self::Pending,
+        Self::Committed,
+        Self::Uncertain,
+        Self::NotCommitted,
+        Self::Discarded,
+        Self::Acknowledged,
+    ];
+
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Committed => "committed",
+            Self::Uncertain => "uncertain",
+            Self::NotCommitted => "not_committed",
+            Self::Discarded => "discarded",
+            Self::Acknowledged => "acknowledged",
+        }
+    }
+
+    /// The word a reader reports for an interrupted operation.
+    pub const fn reconciled_label(self) -> &'static str {
+        match self {
+            Self::Pending => "unknown",
+            Self::Committed
+            | Self::Uncertain
+            | Self::NotCommitted
+            | Self::Discarded
+            | Self::Acknowledged => self.label(),
+        }
+    }
+
+    pub const fn is_unresolved(self) -> bool {
+        match self {
+            Self::Pending | Self::Uncertain => true,
+            Self::Committed | Self::NotCommitted | Self::Discarded | Self::Acknowledged => false,
+        }
+    }
+
+    /// The one transition table for the core ledger. `None` is no record yet.
+    pub const fn may_follow(self, previous: Option<Self>) -> bool {
+        match (previous, self) {
+            (None | Some(Self::Pending), Self::Pending) => true,
+            (Some(Self::Pending), Self::Uncertain) => true,
+            (
+                Some(Self::Pending | Self::Uncertain),
+                Self::Committed | Self::NotCommitted | Self::Acknowledged,
+            ) => true,
+            (None | Some(_), _) => false,
+        }
+    }
+}
+
+impl std::fmt::Display for ReceiptOutcome {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.label())
+    }
+}
+
+/// The record of one commit attempt.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperationReceipt {
     pub operation_id: String,
     pub kind: String,
-    pub outcome: String,
+    pub outcome: ReceiptOutcome,
     pub installed_sha256: Option<String>,
     pub backup_id: Option<String>,
     pub message: Option<String>,
-    /// `true` once the target bytes for this operation are durably committed,
-    /// even when the terminal record itself could not be persisted. Absent on
-    /// records written before this field existed, so a reader falls back to the
-    /// outcome string.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub committed: Option<bool>,
+}
+
+/// Where the target stands after a commit failed past its durable intent.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum FailedCommitTarget {
+    /// This commit's bytes replaced the target and the checkpoint is back.
+    Restored,
+    /// This commit's bytes replaced the target and could not be taken back.
+    OwnBytesKept { rollback_error: String },
+    /// The target still holds the pre-commit checkpoint.
+    Untouched,
+    /// The target is neither provably this commit's nor the checkpoint.
+    Unproven,
+}
+
+impl FailedCommitTarget {
+    /// The outcome, message and bytes an unresolved reader can test the target
+    /// against: a kept generation names this commit's digest so settling can
+    /// prove it, and a restored or untouched target owns nothing of this commit.
+    fn record(&self, error: &str, owned_sha256: &str) -> (ReceiptOutcome, String, Option<String>) {
+        match self {
+            Self::Restored => (
+                ReceiptOutcome::Uncertain,
+                format!("{error}; checkpoint restored"),
+                None,
+            ),
+            Self::OwnBytesKept { rollback_error } => (
+                ReceiptOutcome::Uncertain,
+                format!("{error}; rollback also failed: {rollback_error}"),
+                Some(owned_sha256.to_string()),
+            ),
+            Self::Untouched => (
+                ReceiptOutcome::NotCommitted,
+                format!(
+                    "{error}; no restore was performed: the target still holds its                      pre-commit checkpoint"
+                ),
+                None,
+            ),
+            Self::Unproven => (
+                ReceiptOutcome::Uncertain,
+                format!(
+                    "{error}; rollback skipped: the file on disk is not provably this                      commit's bytes, so it was left untouched and no restore was performed"
+                ),
+                Some(owned_sha256.to_string()),
+            ),
+        }
+    }
 }
 
 /// A guarded save-transaction host rooted at one state directory.
@@ -530,11 +647,38 @@ static COMMIT_SERIALIZER: Mutex<()> = Mutex::new(());
 pub struct TargetRoleState {
     pub role: String,
     pub target_path: String,
-    pub state: String,
+    pub state: RoleGeneration,
     pub current_sha256: Option<String>,
     pub source_sha256: Option<String>,
     pub checkpoint_sha256: Option<String>,
     pub replacement_started: bool,
+}
+
+/// Which generation one role's file holds, against the operation's own records.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RoleGeneration {
+    #[serde(rename = "A_source")]
+    Source,
+    #[serde(rename = "B_checkpoint")]
+    Checkpoint,
+    #[serde(rename = "external_C")]
+    External,
+    #[serde(rename = "missing")]
+    Missing,
+    #[serde(rename = "unknown")]
+    Unknown,
+}
+
+impl RoleGeneration {
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Source => "A_source",
+            Self::Checkpoint => "B_checkpoint",
+            Self::External => "external_C",
+            Self::Missing => "missing",
+            Self::Unknown => "unknown",
+        }
+    }
 }
 
 /// An unresolved operation that fences one save from a new write plan.
@@ -547,7 +691,7 @@ pub struct TargetRoleState {
 pub struct TargetFence {
     pub operation_id: String,
     pub kind: String,
-    pub outcome: String,
+    pub outcome: ReceiptOutcome,
     pub backup_id: Option<String>,
     pub account_id: Option<u64>,
     pub save_slot_index: Option<u8>,
@@ -560,19 +704,10 @@ impl TargetFence {
     pub fn role_summary(&self) -> String {
         self.roles
             .iter()
-            .map(|role| format!("{}={}", role.role, role.state))
+            .map(|role| format!("{}={}", role.role, role.state.label()))
             .collect::<Vec<String>>()
             .join(", ")
     }
-}
-
-/// Whether a recorded outcome still owns its target.
-///
-/// `pending` never reached a terminal state, and `uncertain` may have replaced
-/// the target without proving a restore. Both fence a new plan; every other
-/// outcome is terminal and names what happened to the bytes.
-fn is_unresolved_outcome(outcome: &str) -> bool {
-    matches!(outcome, "pending" | "uncertain")
 }
 
 /// The lowercase SHA-256 of one file, or `None` when it does not exist.
@@ -606,21 +741,21 @@ fn classify_role_state(
     current: Option<&str>,
     source: Option<&str>,
     checkpoint: Option<&str>,
-) -> &'static str {
+) -> RoleGeneration {
     let Some(current) = current else {
-        return "missing";
+        return RoleGeneration::Missing;
     };
     let equals = |digest: &str| digest.eq_ignore_ascii_case(current);
     if source.is_some_and(equals) {
-        return "A_source";
+        return RoleGeneration::Source;
     }
     if checkpoint.is_some_and(equals) {
-        return "B_checkpoint";
+        return RoleGeneration::Checkpoint;
     }
     if source.is_none() && checkpoint.is_none() {
-        return "unknown";
+        return RoleGeneration::Unknown;
     }
-    "external_C"
+    RoleGeneration::External
 }
 
 /// A guarded save-transaction host rooted at one state directory.
@@ -821,8 +956,7 @@ impl SaveTransactionHost {
             return Ok(None);
         };
         validate_receipt(&receipt)?;
-        if receipt.outcome == "pending" {
-            receipt.outcome = "unknown".to_string();
+        if receipt.outcome == ReceiptOutcome::Pending {
             receipt.message = Some(
                 "Previous process ended before recording the outcome; inspect backups and \
                  the current save before further writes"
@@ -859,7 +993,7 @@ impl SaveTransactionHost {
             return Ok(None);
         };
         validate_receipt(&receipt)?;
-        if !is_unresolved_outcome(&receipt.outcome) {
+        if !receipt.outcome.is_unresolved() {
             return Ok(Some(receipt));
         }
         let requested = [save_path.to_path_buf()];
@@ -870,12 +1004,20 @@ impl SaveTransactionHost {
         let current = read_digest_if_present(SaveRole::Main, save_path)?;
         let same = |digest: Option<&str>| matches!((digest, current.as_deref()), (Some(left), Some(right)) if left.eq_ignore_ascii_case(right));
         let proof = if receipt.kind == PlanKind::Restore.label() {
-            if !fence.roles.is_empty() && fence.roles.iter().all(|role| role.state == "A_source") {
-                Some(("committed", true))
-            } else if !fence.roles.is_empty()
-                && fence.roles.iter().all(|role| role.state == "B_checkpoint")
+            if !fence.roles.is_empty()
+                && fence
+                    .roles
+                    .iter()
+                    .all(|role| role.state == RoleGeneration::Source)
             {
-                Some(("not_committed", false))
+                Some(ReceiptOutcome::Committed)
+            } else if !fence.roles.is_empty()
+                && fence
+                    .roles
+                    .iter()
+                    .all(|role| role.state == RoleGeneration::Checkpoint)
+            {
+                Some(ReceiptOutcome::NotCommitted)
             } else {
                 None
             }
@@ -886,9 +1028,9 @@ impl SaveTransactionHost {
                 .find(|role| role.role == SaveRole::Main.label())
                 .and_then(|role| role.checkpoint_sha256.as_deref());
             if same(receipt.installed_sha256.as_deref()) {
-                Some(("committed", true))
+                Some(ReceiptOutcome::Committed)
             } else if same(reviewed_source_sha256) || same(checkpoint) {
-                Some(("not_committed", false))
+                Some(ReceiptOutcome::NotCommitted)
             } else {
                 None
             }
@@ -899,24 +1041,58 @@ impl SaveTransactionHost {
             fence.role_summary()
         );
         match proof {
-            Some((outcome, committed)) => {
+            Some(outcome) => {
                 receipt.message = Some(format!(
                     "Settled from the bytes on disk after an interrupted process: the save \
                      holds this operation's {} generation ({evidence})",
-                    if committed { "output" } else { "pre-write" }
+                    if outcome == ReceiptOutcome::Committed {
+                        "output"
+                    } else {
+                        "pre-write"
+                    }
                 ));
-                receipt.outcome = outcome.to_string();
-                receipt.committed = Some(committed);
+                receipt.outcome = outcome;
             }
             None if acknowledge => {
                 receipt.message = Some(format!(
                     "The outcome could not be proven from the bytes on disk ({evidence}); the \
                      user reviewed the save and accepted its current contents"
                 ));
-                receipt.outcome = "acknowledged".to_string();
+                receipt.outcome = ReceiptOutcome::Acknowledged;
             }
             None => return Ok(Some(receipt)),
         }
+        self.write_receipt(&receipt)?;
+        Ok(Some(receipt))
+    }
+
+    /// Record that the outer ledger durably holds this operation's commit.
+    ///
+    /// A commit whose two terminal core writes failed leaves its `pending` intent
+    /// behind while the outer ledger says the bytes landed. The game may rewrite
+    /// the save afterwards, so the bytes cannot prove it later; the outer record
+    /// can, and it releases the fence. Anything but `pending` is left alone.
+    pub fn record_outer_commit(
+        &self,
+        operation_id: &str,
+    ) -> Result<Option<OperationReceipt>, SaveReadError> {
+        let _commit_guard = COMMIT_SERIALIZER.lock().map_err(|_| SaveReadError::Io {
+            path: self.state_root.display().to_string(),
+            message: "the save commit serializer is poisoned".to_string(),
+        })?;
+        let Some(mut receipt) = self.receipt(operation_id)? else {
+            return Ok(None);
+        };
+        validate_receipt(&receipt)?;
+        if receipt.outcome != ReceiptOutcome::Pending {
+            return Ok(Some(receipt));
+        }
+        receipt.outcome = ReceiptOutcome::Committed;
+        receipt.message = Some(
+            "The commit landed but its core record could not be written; settled from the \
+             durable outer record"
+                .to_string(),
+        );
         self.write_receipt(&receipt)?;
         Ok(Some(receipt))
     }
@@ -949,7 +1125,7 @@ impl SaveTransactionHost {
         };
         let mut fences = Vec::new();
         for receipt in self.authoritative_receipts()? {
-            if !is_unresolved_outcome(&receipt.outcome) {
+            if !receipt.outcome.is_unresolved() {
                 continue;
             }
             if let Some(fence) = self.classify_unresolved_operation(&receipt, &requested_paths)? {
@@ -1027,7 +1203,7 @@ impl SaveTransactionHost {
                         .unwrap_or("unknown")
                         .to_string(),
                     target_path: target_path.to_string(),
-                    state: String::new(),
+                    state: RoleGeneration::Unknown,
                     current_sha256: None,
                     source_sha256: entry
                         .get("source_sha256")
@@ -1073,7 +1249,7 @@ impl SaveTransactionHost {
                     roles.push(TargetRoleState {
                         role: file.source_role.clone(),
                         target_path: file.source_path.clone(),
-                        state: String::new(),
+                        state: RoleGeneration::Unknown,
                         current_sha256: None,
                         source_sha256,
                         checkpoint_sha256: Some(file.sha256.to_ascii_lowercase()),
@@ -1095,7 +1271,7 @@ impl SaveTransactionHost {
                 roles.push(TargetRoleState {
                     role: file.source_role.clone(),
                     target_path: file.source_path.clone(),
-                    state: String::new(),
+                    state: RoleGeneration::Unknown,
                     current_sha256: None,
                     // A write installs only the main save, so only that role has
                     // a source generation distinct from its checkpoint.
@@ -1124,14 +1300,13 @@ impl SaveTransactionHost {
                 current.as_deref(),
                 role.source_sha256.as_deref(),
                 role.checkpoint_sha256.as_deref(),
-            )
-            .to_string();
+            );
             role.current_sha256 = current;
         }
         Ok(Some(TargetFence {
             operation_id: receipt.operation_id.clone(),
             kind: receipt.kind.clone(),
-            outcome: receipt.outcome.clone(),
+            outcome: receipt.outcome,
             backup_id: receipt.backup_id.clone(),
             account_id: operation_account,
             save_slot_index: operation_slot,
@@ -1259,7 +1434,7 @@ impl SaveTransactionHost {
         };
         Err(SaveReadError::UnresolvedTargetOperation {
             operation_id: fence.operation_id,
-            outcome: fence.outcome,
+            outcome: fence.outcome.label().to_string(),
             detail,
         })
     }
@@ -1500,11 +1675,10 @@ impl SaveTransactionHost {
         OperationReceipt {
             operation_id: plan.plan_id,
             kind: plan.kind.label().to_string(),
-            outcome: "discarded".to_string(),
+            outcome: ReceiptOutcome::Discarded,
             installed_sha256: None,
             backup_id: None,
             message: None,
-            committed: None,
         }
     }
 
@@ -1559,11 +1733,10 @@ impl SaveTransactionHost {
         self.write_receipt(&OperationReceipt {
             operation_id: plan.plan_id.clone(),
             kind: plan.kind.label().to_string(),
-            outcome: "pending".to_string(),
+            outcome: ReceiptOutcome::Pending,
             installed_sha256: Some(sha256_hex(&expected)),
             backup_id: Some(backup_id.clone()),
             message: None,
-            committed: None,
         })?;
         timing("durable-intent", stage);
         if self.faults.should_fire(FaultPoint::AfterReceipt) {
@@ -1588,11 +1761,10 @@ impl SaveTransactionHost {
                 let receipt = OperationReceipt {
                     operation_id: plan.plan_id.clone(),
                     kind: plan.kind.label().to_string(),
-                    outcome: "committed".to_string(),
+                    outcome: ReceiptOutcome::Committed,
                     installed_sha256: Some(installed),
                     backup_id: Some(backup_id),
                     message: None,
-                    committed: Some(true),
                 };
                 match self.write_receipt(&receipt) {
                     Ok(()) => Ok(receipt),
@@ -1607,17 +1779,15 @@ impl SaveTransactionHost {
                 // receipt stays `pending` rather than being resolved to
                 // `not_committed`, so a later reader can tell the operation was
                 // interrupted at a named stage.
-                if matches!(error, SaveReadError::InjectedFault { .. })
-                    && error.to_string().contains("after-stage")
+                if matches!(&error, SaveReadError::InjectedFault { stage } if stage == FaultPoint::AfterStage.label())
                 {
                     let receipt = OperationReceipt {
                         operation_id: plan.plan_id.clone(),
                         kind: plan.kind.label().to_string(),
-                        outcome: "pending".to_string(),
+                        outcome: ReceiptOutcome::Pending,
                         installed_sha256: Some(owned_sha256.clone()),
                         backup_id: Some(backup_id.clone()),
                         message: Some(error.to_string()),
-                        committed: None,
                     };
                     self.write_receipt(&receipt)?;
                     return Err(error);
@@ -1634,47 +1804,21 @@ impl SaveTransactionHost {
                 };
                 // A skipped rollback is terminal only when the target is
                 // positively unchanged, and the checkpoint this commit wrote is
-                // the preimage that proves it. Anything else — a file that no
-                // longer matches the checkpoint, or a checkpoint or target that
-                // could not be read — stays unresolved, because neither the
-                // commit nor its absence can be established. No path here
-                // overwrites bytes that are not provably this commit's own, and
-                // no path claims a restore it did not perform.
-                let unchanged = if replaced {
-                    None
-                } else {
-                    self.target_matches_checkpoint(&plan.save_path, &backup_id)
+                // the preimage that proves it. No path here overwrites bytes that
+                // are not provably this commit's own, and no path claims a restore
+                // it did not perform.
+                let target = match rollback {
+                    Ok(()) if replaced => FailedCommitTarget::Restored,
+                    Err(rollback_error) => FailedCommitTarget::OwnBytesKept {
+                        rollback_error: rollback_error.to_string(),
+                    },
+                    Ok(()) => match self.target_matches_checkpoint(&plan.save_path, &backup_id) {
+                        Some(true) => FailedCommitTarget::Untouched,
+                        Some(false) | None => FailedCommitTarget::Unproven,
+                    },
                 };
-                let (outcome, message, installed_sha256) = if replaced {
-                    (
-                        "uncertain",
-                        match rollback {
-                            Ok(()) => format!("{error}; checkpoint restored"),
-                            Err(rollback_error) => {
-                                format!("{error}; rollback also failed: {rollback_error}")
-                            }
-                        },
-                        None,
-                    )
-                } else if unchanged == Some(true) {
-                    (
-                        "not_committed",
-                        format!(
-                            "{error}; no restore was performed: the target still holds its \
-                             pre-commit checkpoint"
-                        ),
-                        None,
-                    )
-                } else {
-                    (
-                        "uncertain",
-                        format!(
-                            "{error}; rollback skipped: the file on disk is not provably this \
-                             commit's bytes, so it was left untouched and no restore was performed"
-                        ),
-                        Some(owned_sha256.clone()),
-                    )
-                };
+                let (outcome, message, installed_sha256) =
+                    target.record(&error.to_string(), &owned_sha256);
                 // The journal must not claim a success the commit never reached,
                 // and an unresolved receipt keeps the digest of the bytes this
                 // commit prepared so a later reconciler can still prove the file
@@ -1683,14 +1827,13 @@ impl SaveTransactionHost {
                 let receipt = OperationReceipt {
                     operation_id: plan.plan_id.clone(),
                     kind: plan.kind.label().to_string(),
-                    outcome: outcome.to_string(),
+                    outcome,
                     installed_sha256,
                     backup_id: Some(backup_id),
                     message: Some(message),
-                    committed: Some(false),
                 };
                 self.write_receipt(&receipt)?;
-                if outcome == "uncertain" {
+                if outcome == ReceiptOutcome::Uncertain {
                     Err(SaveReadError::CommitUncertain {
                         message: receipt.message.clone().unwrap_or_default(),
                     })
@@ -1730,7 +1873,7 @@ impl SaveTransactionHost {
             .receipt(&plan.plan_id)
             .ok()
             .flatten()
-            .map(|existing| existing.outcome == "pending")
+            .map(|existing| existing.outcome == ReceiptOutcome::Pending)
             .unwrap_or(true);
         let recovered = recoverable && self.write_receipt(receipt).is_ok();
         self.consume_committed_plan(plan);
@@ -1802,11 +1945,10 @@ impl SaveTransactionHost {
         self.write_receipt(&OperationReceipt {
             operation_id: plan.plan_id.clone(),
             kind: plan.kind.label().to_string(),
-            outcome: "pending".to_string(),
+            outcome: ReceiptOutcome::Pending,
             installed_sha256: Some(main_source.identity.sha256.clone()),
             backup_id: Some(source.identity.backup_id.clone()),
             message: None,
-            committed: None,
         })?;
         if self.faults.should_fire(FaultPoint::AfterReceipt) {
             let error = SaveReadError::InjectedFault {
@@ -1963,11 +2105,10 @@ impl SaveTransactionHost {
         let receipt = OperationReceipt {
             operation_id: plan.plan_id.clone(),
             kind: plan.kind.label().to_string(),
-            outcome: "committed".to_string(),
+            outcome: ReceiptOutcome::Committed,
             installed_sha256: Some(main_source.identity.sha256.clone()),
             backup_id: Some(source.identity.backup_id.clone()),
             message,
-            committed: Some(true),
         };
         match self.write_receipt(&receipt) {
             Ok(()) => Ok(receipt),
@@ -2055,10 +2196,10 @@ impl SaveTransactionHost {
             self.rollback_restore_roles(plan, source, checkpoint, committed)
         };
         let (journal_state, outcome, rollback_errors) = match &rollback {
-            Ok(()) => ("rolled_back", "not_committed", Vec::new()),
+            Ok(()) => ("rolled_back", ReceiptOutcome::NotCommitted, Vec::new()),
             Err(rollback_error) => (
                 "recovery_required",
-                "uncertain",
+                ReceiptOutcome::Uncertain,
                 vec![rollback_error.to_string()],
             ),
         };
@@ -2082,14 +2223,13 @@ impl SaveTransactionHost {
         let receipt = OperationReceipt {
             operation_id: plan.plan_id.clone(),
             kind: plan.kind.label().to_string(),
-            outcome: outcome.to_string(),
+            outcome,
             installed_sha256: None,
             backup_id: Some(source.backup_id.clone()),
             message: Some(message.clone()),
-            committed: Some(false),
         };
         self.write_receipt(&receipt)?;
-        if outcome == "uncertain" {
+        if outcome == ReceiptOutcome::Uncertain {
             Err(SaveReadError::CommitUncertain { message })
         } else {
             Err(error)
@@ -2312,7 +2452,7 @@ impl SaveTransactionHost {
                     }
                 }
             }
-            _ => {
+            PlanKind::Edit | PlanKind::Delete | PlanKind::Install => {
                 if plan.restore_source.is_some() || !plan.backup_id.is_empty() {
                     return Err(SaveReadError::TamperedRecord {
                         kind: "plan",
@@ -2435,12 +2575,15 @@ impl SaveTransactionHost {
                     .backup_dir(backup_id)
                     .join(crate::backup::role_backup_file(SaveRole::Main));
                 let _ = recorded;
-                read_save_bytes(SaveRole::Main, &source, None).map_err(|error| match error {
-                    SaveReadError::Io { .. } => SaveReadError::UnknownIdentifier {
-                        kind: "backup",
-                        value: backup_id.to_string(),
-                    },
-                    error => error,
+                read_save_bytes(SaveRole::Main, &source, None).map_err(|error| {
+                    if matches!(error, SaveReadError::Io { .. }) {
+                        SaveReadError::UnknownIdentifier {
+                            kind: "backup",
+                            value: backup_id.to_string(),
+                        }
+                    } else {
+                        error
+                    }
                 })
             }
         }
@@ -2937,6 +3080,18 @@ impl SaveTransactionHost {
     }
 
     fn write_receipt(&self, receipt: &OperationReceipt) -> Result<(), SaveReadError> {
+        let previous = self
+            .receipt(&receipt.operation_id)?
+            .map(|record| record.outcome);
+        if !receipt.outcome.may_follow(previous) {
+            return Err(SaveReadError::TamperedRecord {
+                kind: "receipt",
+                message: format!(
+                    "operation {} cannot move from {:?} to {}",
+                    receipt.operation_id, previous, receipt.outcome
+                ),
+            });
+        }
         let directory = self.receipt_dir();
         fs::create_dir_all(&directory).map_err(|error| SaveReadError::Io {
             path: directory.display().to_string(),
@@ -2960,7 +3115,7 @@ impl SaveTransactionHost {
         // write never consumes one of them, so an armed stage always fails the
         // authoritative record after the target bytes landed and leaves the
         // durable intent in place for a committed-with-warning recovery.
-        let terminal = receipt.outcome != "pending";
+        let terminal = receipt.outcome != ReceiptOutcome::Pending;
         let staged = path.with_extension("json.scroll-generator-receipt");
         let stage_result = (|| -> Result<(), SaveReadError> {
             if terminal && self.faults.should_fire(FaultPoint::ReceiptCreate) {
@@ -3145,19 +3300,6 @@ pub fn is_sha256(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
-/// Every outcome a recorded receipt may carry.
-///
-/// `acknowledged` is terminal: the bytes could not prove what an interrupted
-/// operation did, and the user reviewed the save and accepted it as it is.
-pub const VALID_OUTCOMES: [&str; 6] = [
-    "pending",
-    "committed",
-    "uncertain",
-    "not_committed",
-    "discarded",
-    "acknowledged",
-];
-
 /// Validate one receipt as untrusted ledger input.
 pub fn validate_receipt(receipt: &OperationReceipt) -> Result<(), SaveReadError> {
     if !is_operation_id(&receipt.operation_id) {
@@ -3167,12 +3309,6 @@ pub fn validate_receipt(receipt: &OperationReceipt) -> Result<(), SaveReadError>
                 "operation id {:?} is not 32 lowercase hex characters",
                 receipt.operation_id
             ),
-        });
-    }
-    if !VALID_OUTCOMES.contains(&receipt.outcome.as_str()) {
-        return Err(SaveReadError::TamperedRecord {
-            kind: "receipt",
-            message: format!("outcome {:?} is not a known outcome", receipt.outcome),
         });
     }
     if let Some(digest) = receipt.installed_sha256.as_deref() {
@@ -3557,44 +3693,118 @@ mod tests {
     }
 
     /// One receipt for the atomic-replacement cases, independent of a save.
-    fn receipt_record(
-        operation_id: &str,
-        outcome: &str,
-        committed: Option<bool>,
-    ) -> OperationReceipt {
+    fn receipt_record(operation_id: &str, outcome: ReceiptOutcome) -> OperationReceipt {
         OperationReceipt {
             operation_id: operation_id.to_string(),
             kind: "edit".to_string(),
-            outcome: outcome.to_string(),
+            outcome,
             installed_sha256: Some("a".repeat(64)),
             backup_id: Some("backup-20260920".to_string()),
             message: None,
-            committed,
         }
     }
 
     #[test]
-    fn only_pending_and_uncertain_outcomes_fence_a_target() {
-        // The fence must never block a target whose operation reached a terminal
-        // word, and must never let an unresolved one through.
-        for outcome in ["pending", "uncertain"] {
-            assert!(is_unresolved_outcome(outcome), "{outcome} must fence");
+    fn the_transition_table_is_the_model_checked_one() {
+        let spec = include_str!("../../../spec/save_commit/SaveCommit.tla");
+        let table = spec.split("CoreTransitions ==").nth(1).unwrap();
+        let table = table.split('}').next().unwrap();
+        let words = table.split('"').skip(1).step_by(2).collect::<Vec<_>>();
+        assert_eq!(words.len() % 2, 0);
+        let allowed = words
+            .chunks(2)
+            .map(|pair| (pair[0].to_string(), pair[1].to_string()))
+            .collect::<Vec<_>>();
+        let previous = std::iter::once(None).chain(ReceiptOutcome::ALL.map(Some));
+        for from in previous {
+            for to in ReceiptOutcome::ALL {
+                let edge = (
+                    from.map_or("none", ReceiptOutcome::label).to_string(),
+                    to.label().to_string(),
+                );
+                assert_eq!(
+                    to.may_follow(from),
+                    allowed.contains(&edge),
+                    "{from:?} -> {to}"
+                );
+            }
         }
-        for outcome in [
-            "committed",
-            "not_committed",
-            "discarded",
-            "acknowledged",
-            "unknown",
-        ] {
-            assert!(!is_unresolved_outcome(outcome), "{outcome} is terminal");
+        for outcome in ReceiptOutcome::ALL {
+            let parsed: ReceiptOutcome =
+                serde_json::from_value(serde_json::json!(outcome.label())).unwrap();
+            assert_eq!(parsed, outcome);
+        }
+        assert!(serde_json::from_value::<ReceiptOutcome>(serde_json::json!("unknown")).is_err());
+    }
+
+    #[test]
+    fn a_failed_rollback_keeps_the_digest_that_can_settle_it() {
+        let root = TempRoot::new("rollback-kept");
+        let save = write_generation(&root.0.join("saves"));
+        let owned = sha256_hex(&fs::read(&save).unwrap());
+        let host = SaveTransactionHost::new(&root.0.join("state"));
+        let operation_id = "55555555555555555555555555555555";
+        let (outcome, message, installed_sha256) = FailedCommitTarget::OwnBytesKept {
+            rollback_error: "disk full".to_string(),
+        }
+        .record("readback failed", &owned);
+        assert_eq!(outcome, ReceiptOutcome::Uncertain);
+        assert_eq!(installed_sha256.as_deref(), Some(owned.as_str()));
+        orphan_pending(&host, operation_id, &"c".repeat(64));
+        let mut receipt = receipt_record(operation_id, outcome);
+        receipt.installed_sha256 = installed_sha256;
+        receipt.message = Some(message);
+        host.write_receipt(&receipt).unwrap();
+        let settled = host
+            .settle_unresolved(operation_id, &save, None, false)
+            .unwrap()
+            .unwrap();
+        assert_eq!(settled.outcome, ReceiptOutcome::Committed);
+    }
+
+    #[test]
+    fn the_outer_record_releases_a_commit_whose_core_record_never_landed() {
+        let root = TempRoot::new("outer-commit");
+        let save = write_generation(&root.0.join("saves"));
+        let host = SaveTransactionHost::new(&root.0.join("state"));
+        let operation_id = "66666666666666666666666666666666";
+        // The game saved since, so the bytes no longer prove the commit.
+        orphan_pending(&host, operation_id, &"c".repeat(64));
+        assert!(fenced(&host, &save));
+        let receipt = host.record_outer_commit(operation_id).unwrap().unwrap();
+        assert_eq!(receipt.outcome, ReceiptOutcome::Committed);
+        assert!(!fenced(&host, &save));
+        assert_eq!(
+            host.record_outer_commit("77777777777777777777777777777777")
+                .unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn a_terminal_receipt_is_never_rewritten() {
+        let root = TempRoot::new("receipt-terminal");
+        let host = SaveTransactionHost::new(&root.0);
+        let operation_id = "88888888888888888888888888888888";
+        host.write_receipt(&receipt_record(operation_id, ReceiptOutcome::Pending))
+            .unwrap();
+        host.write_receipt(&receipt_record(operation_id, ReceiptOutcome::Committed))
+            .unwrap();
+        for outcome in ReceiptOutcome::ALL {
+            let error = host
+                .write_receipt(&receipt_record(operation_id, outcome))
+                .unwrap_err();
+            assert!(
+                matches!(error, SaveReadError::TamperedRecord { .. }),
+                "{outcome}"
+            );
         }
     }
 
     /// A pending write left by a killed process, whose checkpoint bundle is
     /// gone (the user recycled it), so the fence cannot identify its target.
     fn orphan_pending(host: &SaveTransactionHost, operation_id: &str, installed: &str) {
-        let mut intent = receipt_record(operation_id, "pending", None);
+        let mut intent = receipt_record(operation_id, ReceiptOutcome::Pending);
         intent.installed_sha256 = Some(installed.to_string());
         host.write_receipt(&intent).unwrap();
     }
@@ -3622,8 +3832,7 @@ mod tests {
             .settle_unresolved(landed, &save, Some(&other), false)
             .unwrap()
             .unwrap();
-        assert_eq!(receipt.outcome, "committed");
-        assert_eq!(receipt.committed, Some(true));
+        assert_eq!(receipt.outcome, ReceiptOutcome::Committed);
         assert!(!fenced(&host, &save));
 
         // The save still holds the reviewed pre-write bytes: it never landed.
@@ -3633,8 +3842,7 @@ mod tests {
             .settle_unresolved(skipped, &save, Some(&current), false)
             .unwrap()
             .unwrap();
-        assert_eq!(receipt.outcome, "not_committed");
-        assert_eq!(receipt.committed, Some(false));
+        assert_eq!(receipt.outcome, ReceiptOutcome::NotCommitted);
         assert!(!fenced(&host, &save));
         // A settled receipt is durable and a later settle leaves it alone.
         assert_eq!(host.receipt(skipped).unwrap().unwrap(), receipt);
@@ -3653,15 +3861,18 @@ mod tests {
             .settle_unresolved(operation_id, &save, Some(&"d".repeat(64)), false)
             .unwrap()
             .unwrap();
-        assert_eq!(receipt.outcome, "pending", "no proof, no acknowledgement");
+        assert_eq!(
+            receipt.outcome,
+            ReceiptOutcome::Pending,
+            "no proof, no acknowledgement"
+        );
         assert!(fenced(&host, &save));
 
         let receipt = host
             .settle_unresolved(operation_id, &save, Some(&"d".repeat(64)), true)
             .unwrap()
             .unwrap();
-        assert_eq!(receipt.outcome, "acknowledged");
-        assert_eq!(receipt.committed, None, "acknowledgement proves nothing");
+        assert_eq!(receipt.outcome, ReceiptOutcome::Acknowledged);
         assert_eq!(
             receipt.installed_sha256,
             Some("c".repeat(64)),
@@ -3684,31 +3895,37 @@ mod tests {
         let a = "a".repeat(64);
         let b = "b".repeat(64);
         let c = "c".repeat(64);
-        assert_eq!(classify_role_state(None, Some(&a), Some(&b)), "missing");
+        assert_eq!(
+            classify_role_state(None, Some(&a), Some(&b)),
+            RoleGeneration::Missing
+        );
         assert_eq!(
             classify_role_state(Some(&a), Some(&a), Some(&b)),
-            "A_source"
+            RoleGeneration::Source
         );
         assert_eq!(
             classify_role_state(Some(&b), Some(&a), Some(&b)),
-            "B_checkpoint"
+            RoleGeneration::Checkpoint
         );
         assert_eq!(
             classify_role_state(Some(&c), Some(&a), Some(&b)),
-            "external_C"
+            RoleGeneration::External
         );
         // Only the main role of a write records an installed generation, so a
         // role with no source digest resolves to its checkpoint.
         assert_eq!(
             classify_role_state(Some(&b), None, Some(&b)),
-            "B_checkpoint"
+            RoleGeneration::Checkpoint
         );
         // An operation with no recorded identity may not be rounded to a state.
-        assert_eq!(classify_role_state(Some(&c), None, None), "unknown");
+        assert_eq!(
+            classify_role_state(Some(&c), None, None),
+            RoleGeneration::Unknown
+        );
         // Case differences are not a different generation.
         assert_eq!(
             classify_role_state(Some(&a.to_uppercase()), Some(&a), Some(&b)),
-            "A_source"
+            RoleGeneration::Source
         );
     }
 
@@ -3744,7 +3961,7 @@ mod tests {
             .join(format!("{operation_id}.json"));
         for point in RECEIPT_STAGES {
             let writer = SaveTransactionHost::new(&root.0);
-            let intent = receipt_record(operation_id, "pending", None);
+            let intent = receipt_record(operation_id, ReceiptOutcome::Pending);
             writer.write_receipt(&intent).unwrap();
             let before = fs::read_to_string(&path).unwrap();
             assert!(serde_json::from_str::<OperationReceipt>(&before).is_ok());
@@ -3752,7 +3969,7 @@ mod tests {
             let faults = TransactionFaults::default();
             faults.arm(point);
             let host = SaveTransactionHost::with_faults(&root.0, faults);
-            let terminal = receipt_record(operation_id, "committed", Some(true));
+            let terminal = receipt_record(operation_id, ReceiptOutcome::Committed);
             let error = host.write_receipt(&terminal).unwrap_err();
             assert!(
                 matches!(&error, SaveReadError::InjectedFault { stage } if stage == point.label()),
@@ -3761,7 +3978,7 @@ mod tests {
             // The old intent is untouched, not truncated and not renamed away.
             assert_eq!(fs::read_to_string(&path).unwrap(), before, "{point:?}");
             let observed = host.receipt(operation_id).unwrap().unwrap();
-            assert_eq!(observed.outcome, "pending", "{point:?}");
+            assert_eq!(observed.outcome, ReceiptOutcome::Pending, "{point:?}");
             assert_eq!(
                 observed.installed_sha256, intent.installed_sha256,
                 "{point:?}"
@@ -3777,7 +3994,7 @@ mod tests {
             host.write_receipt(&terminal).unwrap();
             assert_eq!(
                 host.receipt(operation_id).unwrap().unwrap().outcome,
-                "committed"
+                ReceiptOutcome::Committed
             );
             fs::remove_file(&path).unwrap();
         }
@@ -3793,10 +4010,10 @@ mod tests {
         let faults = TransactionFaults::default();
         faults.arm(FaultPoint::ReceiptReplace);
         let host = SaveTransactionHost::with_faults(&root.0, faults);
-        host.write_receipt(&receipt_record(operation_id, "pending", None))
+        host.write_receipt(&receipt_record(operation_id, ReceiptOutcome::Pending))
             .unwrap();
         let error = host
-            .write_receipt(&receipt_record(operation_id, "committed", Some(true)))
+            .write_receipt(&receipt_record(operation_id, ReceiptOutcome::Committed))
             .unwrap_err();
         assert!(
             matches!(&error, SaveReadError::InjectedFault { stage } if stage == "receipt-replace"),
@@ -3804,7 +4021,7 @@ mod tests {
         );
         assert_eq!(
             host.receipt(operation_id).unwrap().unwrap().outcome,
-            "pending"
+            ReceiptOutcome::Pending
         );
     }
 

@@ -38,6 +38,8 @@ pub mod schema;
 pub mod search_backend;
 pub mod terrain;
 pub mod transport;
+#[cfg(feature = "workshop-export")]
+pub mod workshop;
 
 pub use capabilities::Capabilities;
 pub use catalog::{Catalog, CatalogInputs};

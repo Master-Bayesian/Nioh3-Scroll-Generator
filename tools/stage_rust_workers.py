@@ -45,7 +45,7 @@ INVOCATION = {
         "argv": [
             "--packaged-worker",
             "--data-root",
-            "<runtime>/worker/runtime/nioh3_scroll_editor/data",
+            "<runtime>/worker/runtime/data",
             "--contract-dir",
             "<runtime>/packages/contracts",
         ],
@@ -59,7 +59,7 @@ INVOCATION = {
             "--state-root",
             "<state root>",
             "--data-root",
-            "<runtime>/worker/runtime/nioh3_scroll_editor/data",
+            "<runtime>/worker/runtime/data",
             "--contract-dir",
             "<runtime>/packages/contracts",
         ],
@@ -73,7 +73,7 @@ INVOCATION = {
             "--state-root",
             "<state root>",
             "--data-root",
-            "<runtime>/worker/runtime/nioh3_scroll_editor/data",
+            "<runtime>/worker/runtime/data",
             "--contract-dir",
             "<runtime>/packages/contracts",
         ],
@@ -107,7 +107,7 @@ LAUNCH_CONTRACT = {
     },
     "flagValues": ["--data-root", "--contract-dir", "--state-root", "--role", "--accelerator"],
     "requiredResources": [
-        "worker/runtime/nioh3_scroll_editor/data",
+        "worker/runtime/data",
         "packages/contracts",
         "worker/runtime/bin/nioh3_seed_accelerator.dll",
         "worker/runtime/bin/nioh3_effect_preimage_accelerator.dll",
@@ -165,7 +165,7 @@ DECRYPTOR = {
     "evidence": [
         "crates/nioh3-protected/src/save_app.rs uses nioh3_save modules (native codec)",
         "no std::process::Command in crates/nioh3-save or crates/nioh3-protected",
-        "executing consumers are Python-side: nioh3_scroll_editor/savegame.py, packaging/*.spec, research scripts",
+        "no shipped component executes it; it remains a test oracle",
         "protected owner confirmed the Rust host needs no external decryptor (pure-Rust codec)",
         "the M3-b save acceptance records that the Rust save path makes no external-process call",
     ],
@@ -272,13 +272,6 @@ def stage(
     if not source_dir.is_dir():
         raise SystemExit(f"cargo output directory is missing: {source_dir}")
     workers.mkdir(parents=True, exist_ok=True)
-    if (workers / "python-build-environment.json").is_file() or any(
-        path.is_dir() for path in workers.glob("*/_internal")
-    ):
-        raise SystemExit(
-            "refusing to stage Rust workers into a directory that still holds "
-            "PyInstaller output; a package must not mix both backends"
-        )
     binaries_manifest = []
     for cargo_name, packaged_name, crate in ROLES:
         source = source_dir / cargo_name
@@ -299,26 +292,9 @@ def stage(
         "schema": "nioh3-worker-backend/v1",
         "backend": "rust",
         "profile": profile,
-        "defaultGraph": "rust",
-        "pythonGraph": "development-parity-and-legacy-tk-only",
-        "defaultGraphDecision": (
-            "owner-authorized local default backend switch: the packaged product "
-            "selects the staged Rust graph from this manifest. The legacy Python "
-            "worker remains in the tree as a development, parity and oracle "
-            "backend and is no longer part of the shipped graph. The protected "
-            "G5-G7 gates and every live-game flow stay open and are not claimed "
-            "by this manifest."
-        ),
         "binaries": binaries_manifest,
         "invocation": INVOCATION,
         "launchContract": LAUNCH_CONTRACT,
-        "excludedProductionResources": [
-            "packaging/search-worker.spec",
-            "packaging/protected-worker.spec",
-            "launch_search_worker.py",
-            "launch_protected_worker.py",
-            "python-build-environment.json",
-        ],
         "decryptor": DECRYPTOR,
     }
     if root is not None:
@@ -327,17 +303,14 @@ def stage(
         digests = contract_digests(root)
         manifest["launchContract"] = dict(LAUNCH_CONTRACT)
         manifest["launchContract"]["contractDigests"] = digests
-    # The packager copies `licenses/` verbatim. The Python distribution notices
-    # the shipped graph bundles do not exist in this graph, so the directory
-    # carries an explicit notice instead of being silently absent.
+    # The packager copies `licenses/` verbatim; the crate licences themselves
+    # are recorded in dependency-manifest.json.
     notices = workers / "licenses"
     notices.mkdir(parents=True, exist_ok=True)
-    (notices / "NO-PYTHON-RUNTIME.txt").write_text(
-        "This runtime ships no Python interpreter, no PyInstaller worker "
-        "and no Python distribution notices. The Rust crate licences are "
-        "recorded in dependency-manifest.json; the save codec's MIT provenance "
-        "(third_party/nioh_savefile_decrypt) is recorded as "
-        "licenses/Nioh-Savedata-Decryption-Tool-LICENSE.\n",
+    (notices / "LICENSES.txt").write_text(
+        "The Rust crate licences are recorded in dependency-manifest.json; the "
+        "save codec's MIT provenance (third_party/nioh_savefile_decrypt) is "
+        "recorded as licenses/Nioh-Savedata-Decryption-Tool-LICENSE.\n",
         encoding="utf-8",
     )
     (workers / "worker-backend.json").write_text(

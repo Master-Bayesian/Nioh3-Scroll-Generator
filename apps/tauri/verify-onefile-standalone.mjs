@@ -198,9 +198,9 @@ try {
     await launch(poisoned, 'cold-poisoned');
     // Delete only three named members of this harness's cache after normal close.
     const missing = ['worker/nioh3-search-worker.exe', 'worker/runtime/bin/nioh3_effect_preimage_accelerator.dll',
-      'worker/runtime/nioh3_scroll_editor/data/texts.json'];
+      'worker/runtime/data/texts.json'];
     const manifest = JSON.parse(await readFile(join(poisoned.runtime,'build-manifest.json'),'utf8'));
-    const resource = manifest.files.find(m => m.path.startsWith('worker/runtime/nioh3_scroll_editor/data/') && m.path.endsWith('.json'));
+    const resource = manifest.files.find(m => m.path.startsWith('worker/runtime/data/') && m.path.endsWith('.json'));
     assert(resource); missing[2] = resource.path;
     for (const member of missing) {const path = join(poisoned.runtime, member); assertInside(poisoned.runtime,path); await unlink(path);}
     report.deletedOwnedCacheMembers = missing;

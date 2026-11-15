@@ -3,6 +3,7 @@
 //! Offline enemy generation with exact numerical replay. Resource loading and
 //! transport remain outside this crate; the production backend is not switched.
 
+#![allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub mod auxiliary;
 pub mod context;
 pub mod effect;

@@ -638,7 +638,7 @@ fn run() -> Result<(), String> {
                 .reconcile(&plan_id)
                 .map_err(|error| error.to_string())?
             {
-                Some(receipt) => println!("{}", receipt.outcome),
+                Some(receipt) => println!("{}", receipt.outcome.reconciled_label()),
                 None => println!("none"),
             }
             Ok(())

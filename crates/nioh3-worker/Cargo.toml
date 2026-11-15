@@ -17,6 +17,14 @@ path = "src/lib.rs"
 name = "nioh3-readonly-worker"
 path = "src/main.rs"
 
+[[example]]
+name = "export_workshop"
+required-features = ["workshop-export"]
+
+[features]
+# Rebuilds the workshop data files; their key order needs preserve_order.
+workshop-export = ["serde_json/preserve_order"]
+
 [dependencies]
 nioh3-domain = { path = "../nioh3-domain" }
 nioh3-data = { path = "../nioh3-data" }

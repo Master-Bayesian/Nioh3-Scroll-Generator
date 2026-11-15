@@ -345,7 +345,7 @@ pub fn supported_display_version(version: FileVersion) -> Option<&'static str> {
 /// Port of `native.native_runtime_profile_for_game_version`.
 ///
 /// `profile_dir` is the directory that holds `pc_v2_01.json`
-/// (`nioh3_scroll_editor/data/game_versions` in the product tree).
+/// (`data/game_versions` in the product tree).
 pub fn profile_for_game_version(
     version: FileVersion,
     profile_dir: &Path,
@@ -498,7 +498,6 @@ mod tests {
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("..")
             .join("..")
-            .join("nioh3_scroll_editor")
             .join("data")
             .join("game_versions")
             .join("pc_v2_01.json")
@@ -626,7 +625,6 @@ mod tests {
         let directory = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("..")
             .join("..")
-            .join("nioh3_scroll_editor")
             .join("data")
             .join("game_versions");
         // The v2.02 document is approved for live addition only, so the default
@@ -713,7 +711,6 @@ mod tests {
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("..")
                 .join("..")
-                .join("nioh3_scroll_editor")
                 .join("data")
                 .join("game_versions")
                 .join("pc_v2_02.json"),

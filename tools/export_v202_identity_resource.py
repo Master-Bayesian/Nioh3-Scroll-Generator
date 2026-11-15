@@ -6,7 +6,7 @@ save access.
 
 Inputs (all hash-pinned):
   * the accepted v2.01 code-identity resource
-    `nioh3_scroll_editor/data/live_add_pc_v201_identity.json`
+    `data/live_add_pc_v201_identity.json`
   * the accepted v2.02 mapping artifact under
     `deliverables/game-version-update-20260919/deepseek-v202-identity-inventory/`
   * the captured v2.01 and v2.02 `.text` images (the bytes the product reads)
@@ -17,7 +17,7 @@ operand kind and width, with operand values masked - and a range is accepted
 only when that match is unique.  Ranges that stay ambiguous, fail to decode, or
 match nothing are reported, never guessed.
 
-Output: `nioh3_scroll_editor/data/live_add_pc_v202_identity.json`.  The resource
+Output: `data/live_add_pc_v202_identity.json`.  The resource
 always declares the exact installed executable, and the Python adapter verifies
 that hash before it verifies any range.  Ranges that relocate stay in `ranges`;
 ranges that do not are written to `unverified_ranges` with their reason, so the
@@ -40,7 +40,7 @@ LANE_IMAGES = Path(
     r"D:\Nioh3_v080_deliverables\deliverables\game-version-update-20260919\sections-live"
 )
 
-V201_RESOURCE = REPO / "nioh3_scroll_editor/data/live_add_pc_v201_identity.json"
+V201_RESOURCE = REPO / "data/live_add_pc_v201_identity.json"
 ACCEPTED_MAPPING = (
     REPO
     / "deliverables/game-version-update-20260919"
@@ -55,7 +55,7 @@ GAP_EVIDENCE = (
     / "deliverables/game-version-update-20260919"
     / "go-v202-candidate-profile/identity-mapping.json"
 )
-TARGET_RESOURCE = REPO / "nioh3_scroll_editor/data/live_add_pc_v202_identity.json"
+TARGET_RESOURCE = REPO / "data/live_add_pc_v202_identity.json"
 
 TEXT_BASE = 0x1000
 PINS = {

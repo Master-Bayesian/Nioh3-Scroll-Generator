@@ -60,7 +60,8 @@ if(Test-Path -LiteralPath $installedUninstaller){
     if((Get-Item -LiteralPath $preparedUninstaller).Length -ne $uninstaller.Length -or (Get-PackageHash $preparedUninstaller) -ne (Get-PackageHash $installedUninstaller)){throw 'Installed uninstaller copy failed'}
 }
 Wait-Process -Id $ProcessId -Timeout 90 -ErrorAction SilentlyContinue
-if(Get-Process -Id $ProcessId -ErrorAction SilentlyContinue){throw 'Application did not exit safely'}
+$running=Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+if($running -and -not $running.HasExited){throw 'Application did not exit safely'}
 $moved=$false
 try {
     [IO.Directory]::Move($targetPath,$previous)

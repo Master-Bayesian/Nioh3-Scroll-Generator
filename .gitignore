@@ -46,25 +46,20 @@ research/*
 !research/ILLEGAL_AUXILIARY_OVERRIDE_PROOF.md
 !research/probe_illegal_auxiliary_override_ce.lua
 !research/probe_auxiliary_property_origin_ce.lua
-!research/scan_auxiliary_companion_layouts.py
 !research/probe_save_write_origin_ce.lua
 !research/probe_save_record_serialization_ce.lua
 !research/EFFECT_CATALOG_CAPTURE_METHOD.md
 !research/EFFECT_GENERATION_TABLE_INDEX.md
-!research/EFFECT_SEED_SOLVER.md
 !research/P1_AUXILIARY_DYNAMIC_CAPTURE_METHOD.md
 !research/build_seed_accelerator.ps1
 !research/dump_effect_catalog_current_locale.py
 !research/native_seed_accelerator.cu
 !research/analyze_scroll_reroll_capture.py
-!research/benchmark_effect_preimage.py
 !research/build_effect_preimage_accelerator.ps1
 !research/capture_scroll_reroll_ce.lua
 !research/native_effect_preimage_accelerator.cpp
 !research/predict_scroll_rerolls.py
 !research/probe_scroll_auxiliary_text_catalog.py
-!research/solve_effect_seed.py
-!research/verify_reported_rare_combination.py
 !research/build_r4_finalizer_resource.py
 !research/capture_native_auxiliary_vectors.py
 !research/disassemble_native_functions.py
@@ -75,9 +70,6 @@ research/*
 !research/validate_ng3_rarity3_native_parity_live.py
 !research/validate_ng3_rarity4_native_parity_live.py
 !research/validate_ng3_rarity5_native_parity_live.py
-!research/validate_early_playthrough_live.py
-!research/validate_r3_template_context_live.py
-!research/validate_r5_early_context_live.py
 !research/capture_live_item_insertion_ce.lua
 !research/capture_live_scroll_inventory_ce.lua
 !research/map_live_stack_owners.py
@@ -92,9 +84,7 @@ research/*
 !research/capture_live_scroll_flow_ce.lua
 !research/test_live_scroll_flow_probe_ce.lua
 !research/capture_live_scroll_finalizer_ce.lua
-!research/capture_live_scroll_inventory_readonly.py
 !research/capture_special_rule_item_names.py
-!research/verify_live_add_scheduling_evidence.py
 !research/capture_pickup_dispatch_ce.lua
 !research/capture_serial_writes_ce.lua
 !research/test_serial_write_probe_ce.lua
@@ -122,20 +112,10 @@ apps/tauri/src-tauri/gen/
 
 !research/capture_update_context_ce.lua
 !research/find_bounded_rip_references.py
-!research/capture_scroll_serial_index.py
-!research/prepare_single_native_insertion.py
-!research/verify_single_native_insertion.py
-!research/verify_live_add_persistence.py
 
 !research/live_add_ce_server.lua
 !research/live_add_layout_ce.lua
 !research/native_dispatch_fixture.cpp
-!research/test_native_dispatch_fixture.py
-!research/verify_native_live_dispatch.py
-!research/verify_native_live_add_interactive.py
-!research/verify_native_live_add_matrix.py
-!research/verify_temporary_override_interactive.py
-!research/verify_native_fault_matrix.py
 
 # AI-agent process files and session handoff notes (kept locally, not published)
 /AGENTS.md

@@ -129,3 +129,17 @@ test('recovering while a job is polled leaves its waiter to finish', async () =>
     assert.deepEqual(await waiting, { candidate: null });
   } finally { controller.dispose(); }
 });
+
+test('a job lost with its worker does not lock later operations', async () => {
+  let replaced = false;
+  const controller = new OperationController('runtime', api({ snapshot: async () => {
+    throw new Error(replaced ? 'OPERATION_REJECTED: Unknown operation job' : 'Transport unavailable');
+  } }), 1, 20);
+  try {
+    await controller.start(async () => running); await pause();
+    assert.equal(controller.getSnapshot().phase, 'interrupted');
+    replaced = true;
+    const done = { ...running, job_id: 'b'.repeat(32), state: 'completed' as const, result: { candidate: null } };
+    assert.deepEqual(await controller.run(async () => done), { candidate: null });
+  } finally { controller.dispose(); }
+});

@@ -407,7 +407,7 @@ mod tests {
     use super::*;
 
     fn data_root() -> std::path::PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data")
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data")
     }
 
     #[test]

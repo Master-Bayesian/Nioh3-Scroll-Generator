@@ -9,7 +9,7 @@ use nioh3_domain::equipment::{
 };
 
 fn data_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../nioh3_scroll_editor/data")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data")
 }
 
 fn resource() -> EffectResourceBytes {

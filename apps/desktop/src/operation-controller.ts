@@ -3,6 +3,7 @@ import type { ProtectedJob } from '../../../packages/contracts/protected-respons
 import { operationTerminal } from './public-operation-jobs';
 
 export type OperationRole = 'save' | 'runtime';
+const JOB_GONE = 'Unknown operation job';
 export interface OperationState {
   phase: 'idle' | 'submitting' | 'running' | 'completed' | 'failed' | 'interrupted' | 'busy_elsewhere';
   job: ProtectedJob | null;
@@ -159,19 +160,26 @@ export class OperationController {
         if (epoch !== this.epoch) return;
         if (job.job_id !== id) throw new Error('OPERATION_ID_MISMATCH');
         this.accept(job); this.schedule(epoch);
-      } else {
-        const current = await this.api.current(this.role);
-        if (epoch !== this.epoch) return;
-        if (this.state.operationId) {
-          // A lost acknowledgement cannot be correlated to an arbitrary latest job.
-          await this.inspectReceipt();
-        } else if (current.job) { this.accept(current.job); this.schedule(epoch); }
-        else if (current.busy) {
-          this.update({ phase: 'busy_elsewhere' });
-          this.timer = setTimeout(() => { if (epoch === this.epoch) void this.recover(); }, this.pollMs);
-        } else this.update({ phase: this.state.operationId ? 'interrupted' : 'idle' });
-      }
-    } catch (error) { if (epoch === this.epoch) this.interrupted(error); }
+      } else await this.settleWithoutJob(epoch);
+    } catch (error) {
+      if (epoch !== this.epoch) return;
+      if (!this.state.job || !String(error).includes(JOB_GONE)) { this.interrupted(error); return; }
+      // A replaced worker no longer knows the job. Its identity is dead; the receipt or the current state decides.
+      this.update({ job: null });
+      await this.settleWithoutJob(epoch).catch(next => { if (epoch === this.epoch) this.interrupted(next); });
+    }
+  }
+  private async settleWithoutJob(epoch: number) {
+    const current = await this.api.current(this.role);
+    if (epoch !== this.epoch) return;
+    if (this.state.operationId) {
+      // A lost acknowledgement cannot be correlated to an arbitrary latest job.
+      await this.inspectReceipt();
+    } else if (current.job) { this.accept(current.job); this.schedule(epoch); }
+    else if (current.busy) {
+      this.update({ phase: 'busy_elsewhere' });
+      this.timer = setTimeout(() => { if (epoch === this.epoch) void this.recover(); }, this.pollMs);
+    } else this.update({ phase: 'idle' });
   }
   dispose() {
     this.disposed = true; ++this.epoch; clearTimeout(this.timer);

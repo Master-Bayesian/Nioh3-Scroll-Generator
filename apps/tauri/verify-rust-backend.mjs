@@ -20,11 +20,11 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:net';
 import assert from 'node:assert/strict';
+import {syntheticSave} from './synthetic-save.mjs';
 
 const root = await realpath(await mkdtemp(join(tmpdir(), 'nioh3-rust-ui-')));
 const output = resolve(process.env.NIOH3_RUST_UI_OUTPUT || 'deliverables/v080-frontend-rust-backend');
 await mkdir(output, { recursive: true });
-const python = process.env.NIOH3_PYTHON || 'python';
 const rustWorker = resolve(
   process.env.NIOH3_RUST_SEARCH_WORKER || 'crates/nioh3-worker/target/debug/nioh3-readonly-worker.exe'
 );
@@ -36,13 +36,7 @@ assert.ok(existsSync(executable), `the Tauri host must exist: ${executable}`);
 
 // The shipped UI acceptance fixture: a synthetic encrypted save in the isolated
 // root. Nothing here is the user's save and no game process is involved.
-const fixture = JSON.parse(
-  execFileSync(python, ['apps/desktop/tests/fixtures/create-restore-save.py', root], {
-    windowsHide: true,
-    encoding: 'utf8',
-    timeout: 45000,
-  })
-);
+const fixture = syntheticSave('restore', root);
 const fixtureDigest = () =>
   createHash('sha256').update(readFileSync(fixture.path)).digest('hex');
 const fixtureBefore = fixtureDigest();
@@ -57,7 +51,6 @@ const child = spawn(executable, ['--user-data-dir', join(root, 'profile')], {
   stdio: ['ignore', 'pipe', 'pipe'],
   env: {
     ...process.env,
-    NIOH3_PYTHON: python,
     NIOH3_RUST_SEARCH_WORKER: rustWorker,
     NIOH3_TAURI_TEST_ROOT: join(root, 'profile'),
     NIOH3_TAURI_TEST_DEBUG_PORT: String(port),

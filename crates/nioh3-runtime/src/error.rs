@@ -133,6 +133,8 @@ pub enum RuntimeError {
     ///
     /// Message mirrors `live_add_application.LiveAddApplication` text exactly.
     LiveAddRejected { detail: String },
+    /// The prepared plan no longer matches the game; preparing again is safe.
+    LiveAddPlanExpired,
     /// Independent verification of a native insertion failed.
     ///
     /// Message mirrors `live_add_evidence.verify` /
@@ -225,7 +227,7 @@ impl RuntimeError {
             Self::CountInstanceUnavailable { .. } => "COUNT_INSTANCE_UNAVAILABLE",
             Self::InventoryInvalid { .. } => "INVENTORY_INVALID",
             Self::CandidateRejected { .. } => "CANDIDATE_REJECTED",
-            Self::LiveAddRejected { .. } => "LIVE_ADD_REJECTED",
+            Self::LiveAddRejected { .. } | Self::LiveAddPlanExpired => "LIVE_ADD_REJECTED",
             Self::LiveAddVerification { .. } => "LIVE_ADD_VERIFICATION",
             Self::LiveAddUncertain { .. } => "LIVE_ADD_UNCERTAIN",
             Self::BatchRejected { .. } => "BATCH_REJECTED",
@@ -360,6 +362,9 @@ impl RuntimeError {
             Self::InventoryInvalid { detail } => detail.clone(),
             Self::CandidateRejected { detail } => detail.clone(),
             Self::LiveAddRejected { detail } => detail.clone(),
+            Self::LiveAddPlanExpired => {
+                "Prepared live-add plan expired; prepare a new plan".to_string()
+            }
             Self::LiveAddVerification { detail } => detail.clone(),
             Self::LiveAddUncertain { operation_id } => format!(
                 "Uncertain insertion {operation_id}; recover its receipt before preparing another"

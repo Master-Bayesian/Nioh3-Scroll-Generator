@@ -554,13 +554,6 @@ pub struct GameVersionSource {
 }
 
 impl GameVersionSource {
-    /// A path selected by the native product picker, never a version guess
-    /// or environment override. Keep the legacy field for test/API parity.
-    pub fn with_selected_executable(executable: Option<PathBuf>) -> Self {
-        Self {
-            development_executable: executable,
-        }
-    }
     /// The development/test source named by an explicit override, if any.
     ///
     /// Development may name a file independently. Packaged launches use only

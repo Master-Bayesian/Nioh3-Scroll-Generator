@@ -30,7 +30,7 @@
  *
  * Usage:
  *   node apps/tauri/verify-packaged-frontend.mjs --package <app root> \
- *     --exe <host exe> --python <python.exe> --out <dir> [--host debug|release]
+ *     --exe <host exe> --out <dir> [--host debug|release]
  *     [--profile release|extended] [--screenshots <dir>]
  *     [--artifact-exe <path>] [--artifact-zip <path>]
  *
@@ -55,13 +55,14 @@
  */
 import {chromium} from 'playwright';
 import {spawn, execFileSync} from 'node:child_process';
-import {existsSync, readFileSync, rmSync, statSync} from 'node:fs';
+import {existsSync, mkdirSync, readFileSync, rmSync, statSync} from 'node:fs';
 import {mkdtemp, mkdir, readFile, realpath, writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {join, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createServer} from 'node:net';
 import assert from 'node:assert/strict';
+import {syntheticSave} from './synthetic-save.mjs';
 
 const ROLES = ['offline_search', 'save', 'runtime'];
 const REGRESSION_SEED = 226061463;
@@ -95,7 +96,6 @@ function parseArgs(argv) {
     const key = argv[index];
     if (key === '--package') options.package = argv[++index];
     else if (key === '--exe') options.exe = argv[++index];
-    else if (key === '--python') options.python = argv[++index];
     else if (key === '--out') options.out = argv[++index];
     else if (key === '--host') options.host = argv[++index];
     else if (key === '--profile') options.profile = argv[++index];
@@ -142,8 +142,6 @@ function startHost({executable, profile, staged, port, stateRoot, localAppData, 
       NIOH3_TAURI_TEST_DEBUG_PORT: String(port),
       NIOH3_STATE_ROOT: stateRoot,
       LOCALAPPDATA: localAppData,
-      // No ambient Python: a fallback would fail loudly instead of passing.
-      NIOH3_PYTHON: 'C:/nioh3-no-python-for-this-run/python.exe',
       // A release build resolves its own resource root, so the test-only override
       // is only supplied for a debug host.
       ...(host === 'release' ? {} : {NIOH3_TAURI_PACKAGE_ROOT: staged}),
@@ -185,7 +183,6 @@ async function main() {
   const executable = resolve(
     options.exe || join(staged, 'Nioh3Studio.exe'),
   );
-  const python = resolve(options.python || 'python');
   const output = resolve(options.out || 'deliverables/v080-packaged-frontend');
   const timeoutMs = (options.timeout || 90) * 1000;
   await mkdir(output, {recursive: true});
@@ -209,17 +206,7 @@ async function main() {
   // save. The helper creates `local/` and `profile/` itself and requires them to
   // be absent, so it is invoked before anything else touches the isolated root.
   // The fixture is hashed before and after to prove this run wrote nothing.
-  const fixture = JSON.parse(
-    execFileSync(
-      python,
-      [join(ROOT, 'apps/desktop/tests/fixtures/create-restore-save.py'), isolated],
-      {
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        timeout: 90000,
-      },
-    ).toString('utf8'),
-  );
+  const fixture = syntheticSave('restore', isolated);
   const profile = join(isolated, 'profile');
   const fixtureDigest = () =>
     createHash('sha256').update(readFileSync(fixture.path)).digest('hex');
@@ -232,58 +219,21 @@ async function main() {
    * crypto entry point and hashes the plaintext, which is the invariant that
    * actually has to hold.
    */
-  const plaintextDigest = (path) =>
-    execFileSync(
-      python,
-      [
-        '-c',
-        [
-          'import hashlib,pathlib,shutil,sys,tempfile',
-          'sys.path.insert(0, sys.argv[1])',
-          'from nioh3_scroll_editor.savegame import SaveCrypto, default_crypto_tool',
-          'work = pathlib.Path(tempfile.mkdtemp(prefix="nioh3-plain-"))',
-          'plain = work / "plain.bin"',
-          'SaveCrypto(default_crypto_tool(pathlib.Path(sys.argv[1]))).decrypt(pathlib.Path(sys.argv[2]), plain)',
-          'print(hashlib.sha256(plain.read_bytes()).hexdigest())',
-          'shutil.rmtree(work, ignore_errors=True)',
-        ].join('\n'),
-        ROOT,
-        path,
-      ],
-      {windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], timeout: 120000},
-    )
-      .toString('utf8')
-      .trim();
-  const backupGeneration = plaintextDigest(fixture.backup_path);
-  const startingGeneration = plaintextDigest(fixture.path);
-  /** Decrypted savedata bytes, for exact record-byte comparison. */
   const plaintextBytes = (path) => {
     const work = join(
       process.env.TEMP || '.',
       `nioh3-plain-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
     );
-    execFileSync(
-      python,
-      [
-        '-c',
-        [
-          'import pathlib,sys',
-          'sys.path.insert(0, sys.argv[1])',
-          'from nioh3_scroll_editor.savegame import SaveCrypto, default_crypto_tool',
-          'pathlib.Path(sys.argv[3]).parent.mkdir(parents=True, exist_ok=True)',
-          'SaveCrypto(default_crypto_tool(pathlib.Path(sys.argv[1]))).decrypt(pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3]))',
-        ].join('\n'),
-        ROOT,
-        path,
-        join(work, 'plain.bin'),
-      ],
-      {windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], timeout: 120000},
-    );
+    mkdirSync(work, {recursive: true});
+    syntheticSave('decrypt', path, join(work, 'plain.bin'));
     const bytes = readFileSync(join(work, 'plain.bin'));
     rmSync(work, {recursive: true, force: true});
     return bytes;
   };
-
+  const plaintextDigest = (path) =>
+    createHash('sha256').update(plaintextBytes(path)).digest('hex');
+  const backupGeneration = plaintextDigest(fixture.backup_path);
+  const startingGeneration = plaintextDigest(fixture.path);
   const port = await freePort();
   const evidence = {
     graph: 'rust-packaged',
@@ -389,7 +339,7 @@ async function main() {
     await ready();
 
     // The host must have resolved the staged Rust graph, and the frontend must be
-    // answered by the Rust worker (no Python is reachable in this run).
+    // answered by the Rust worker (the only worker it can start).
     const identity = await page.evaluate(() => window.nioh.handshake());
     assert.equal(identity.role, 'offline_search', JSON.stringify(identity).slice(0, 300));
     assert.match(identity.context.context_digest, /^[0-9a-f]{64}$/);
@@ -1048,7 +998,7 @@ async function main() {
             step: 'save.prepare_install_many',
             error: message,
             reproduction:
-              'preview(seed 10030609, rarity 4) -> prepareCart: the shipped Python save worker ' +
+              'preview(seed 10030609, rarity 4) -> prepareCart: the save worker ' +
               'returns a plan for the same candidate; the Rust host refuses effect_sequence_only ' +
               'in install_record (crates/nioh3-protected/src/save_app.rs, ~line 1202) while its ' +
               'install_blocker (~line 1498) permits it.',
@@ -1440,8 +1390,7 @@ async function main() {
       // while the shipped worker scans `%LOCALAPPDATA%/KoeiTecmo/NIOH3/Savedata`.
       // On this run they are different directories on purpose, so an empty result
       // is recorded as an exact, owner-named deferral instead of being asserted
-      // away. The save surface itself is gated on the shipped graph by
-      // `tests/migration/test_save_*_parity.py` and by /root/m3_save_acceptance.
+      // away.
       evidence.protected.deferred =
         'no save was available from discovery or explicit registration';
       evidence.protected.owner = '/root/m3_save_acceptance';

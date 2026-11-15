@@ -927,7 +927,7 @@ mod tests {
 
     #[test]
     fn empty_entries_sort_last() {
-        assert!(GeneratedEntry::EMPTY.effect_id == EMPTY_ENTRY);
+        assert_eq!(GeneratedEntry::EMPTY.effect_id, EMPTY_ENTRY);
         assert_eq!(GeneratedEntry::EMPTY.category(), 0);
     }
 }

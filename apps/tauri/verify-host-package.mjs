@@ -174,7 +174,7 @@ async function main() {
     if (!samePath(record.executable, expected)) {
       throw new Error(`${role} resolved ${record.executable}, expected ${expected}`);
     }
-    const dataRoot = join(staged, 'worker', 'runtime', 'nioh3_scroll_editor', 'data');
+    const dataRoot = join(staged, 'worker', 'runtime', 'data');
     const contractRoot = join(staged, 'packages', 'contracts');
     const argvPaths = compareForm(record.argv);
     if (!argvPaths.includes(`--data-root ${compareForm(dataRoot)}`)) {
