@@ -52,6 +52,14 @@ save plan binds the completed record and target source before confirmation.
 
 ## Explicit state and validation
 
+The first real-character copy rehearsal exposed a separate old commit guard:
+save-based equipment addition still rejected keys at the u16 boundary, although
+the native 0x54C380 setter/live path had already established u32 equipment keys
+in v0.8.7. The save path now applies that existing contract: keys `1..u32::MAX-1`
+retain their exact four bytes and advance the counter once. Zero and overflow
+remain rejected. No wrapping, renumbering or scroll-key policy is inferred.
+The host E2E uses a synthetic 255761 counter to cover the actual refusal range.
+
 The search reducer has six named states (`idle`, `searching`, `empty`,
 `results`, `selected`, `error`) and an exhaustive action switch without a
 default. Responses must match both request ID and full search identity, including

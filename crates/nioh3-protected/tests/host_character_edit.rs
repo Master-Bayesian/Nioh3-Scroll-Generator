@@ -349,6 +349,15 @@ fn hell_seed_search_review_commit_and_reload_preserve_the_native_candidate() {
     std::fs::create_dir_all(&evidence_base).unwrap();
     std::fs::create_dir(&root).unwrap();
     let save_path = fixture_save(&root);
+    // The owner's long-running save reached this native u32 key range. A
+    // synthetic low-key-only fixture would miss the old save-path u16 guard.
+    let mut high_key_source = decrypt_container(&std::fs::read(&save_path).unwrap()).unwrap();
+    high_key_source[NEXT_INVENTORY_KEY_OFFSET..NEXT_INVENTORY_KEY_OFFSET + 4]
+        .copy_from_slice(&255_761u32.to_le_bytes());
+    high_key_source[NEXT_GENERATION_SERIAL_OFFSET..NEXT_GENERATION_SERIAL_OFFSET + 4]
+        .copy_from_slice(&11_349_840u32.to_le_bytes());
+    nioh3_save::patch_user_checksum(&mut high_key_source).unwrap();
+    std::fs::write(&save_path, encrypt_container(&high_key_source).unwrap()).unwrap();
     let original = std::fs::read(&save_path).unwrap();
     let data = repo_root().join("data");
     let engine = Engine::load(
@@ -492,7 +501,8 @@ fn hell_seed_search_review_commit_and_reload_preserve_the_native_candidate() {
     assert_eq!(effect_semantics(record), effect_semantics(&native));
     assert_eq!(&record[0x10..0x12], &native[0x10..0x12]);
     assert_eq!(record[0x1A] & 0x10, 0x10);
-    assert_eq!(equipment_counters(&clear).unwrap(), (0xC870, 0x26_B008));
+    assert_eq!(equipment_counters(&clear).unwrap(), (255_762, 11_349_841));
+    assert_eq!(equipment_fields(record).unwrap().inventory_key, 255_761);
     save.close();
     let mut reload_host = AcceptanceHost::new(Box::new(
         SaveApplication::new(root.join("save-state"), &data, engine.context().clone()).unwrap(),
@@ -529,6 +539,7 @@ fn hell_seed_search_review_commit_and_reload_preserve_the_native_candidate() {
     std::fs::write(root.join("stored-record.bin"), record).unwrap();
     let sources: Vec<Value> = ["crates/nioh3-domain/src/equipment_generation.rs",
         "crates/nioh3-protected/src/equipment_seeds.rs", "crates/nioh3-protected/tests/host_character_edit.rs",
+        "crates/nioh3-save/src/character.rs",
         "packages/contracts/protected-request.schema.json", "packages/contracts/protected-response.schema.json",
         "crates/nioh3-data/tests/fixtures/equipment_natural_v202.json"].into_iter().map(|relative| {
             json!({"path":relative,"sha256":digest(&std::fs::read(repo_root().join(relative)).unwrap())})
