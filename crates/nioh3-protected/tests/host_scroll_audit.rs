@@ -80,6 +80,9 @@ fn response_frames(bytes: &[u8]) -> Vec<Value> {
             bytes[offset + 3],
         ]) as usize;
         let end = offset + 4 + size;
+        if end > bytes.len() {
+            break;
+        }
         output.push(serde_json::from_slice(&bytes[offset + 4..end]).expect("valid response"));
         offset = end;
     }
