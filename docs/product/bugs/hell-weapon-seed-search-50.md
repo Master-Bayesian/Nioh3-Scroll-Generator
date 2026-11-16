@@ -93,7 +93,34 @@ proof. Existing save/commit ownership models remain authoritative.
 
 Local evidence is under
 `D:/Nioh3_v080_deliverables/deliverables/hell-weapon-seed-search-20261116`.
-Game-process or real-save writes have not been performed for this implementation.
-A fresh installed-product/game display and game save/reload check remains a
-separate acceptance step; owned-copy, browser and historical evidence must not
-be labeled as that new live acceptance.
+
+## Owner-assisted game acceptance (2026-11-16)
+
+The owner authorized one Bizen katana for the level-450 character after returning
+to the title screen: item 19447, seed 6533, level 170, +22, rarity 4, hell enabled,
+and independently selected skill 49345. Four fresh source backups were hashed
+and read back. Private package v2 from clean commit `53cd37d` performed exactly
+one protected save commit. Equipment count increased from 583 to 584; all old
+equipment, currencies, items and generation inputs were unchanged. The complete
+new record matched the rehearsed candidate after allocating its current key and
+serial. The plaintext write frame contained only the new record, the two
+counters and checksum (77 changed bytes). No game-memory access was used.
+
+The owner then confirmed that the weapon, hell skill and effects all matched in
+game. A read-only snapshot after the game saved verified the same identity,
+seed, level, plus, rarity, hell status, skill and complete effect list through a
+fresh packaged reader. Of the 240 record bytes, only `+0x18` changed from `0x82`
+to `0x80`; this observation does not assign a meaning to that flag. The owner did
+not separately confirm a second game entry. Game display, a subsequent game
+save and fresh disk readback are the observed acceptance scope; a second game
+load must not be claimed from these records.
+
+The exact plan, source and backup hashes, one commit receipt, byte comparisons,
+owner observation and post-game-save snapshot are retained under
+`private-live-acceptance/live-20261116T223712Z/` in the local evidence directory.
+The copy-rehearsal failure, obsolete private build and the postcommit comparison
+diagnostic are retained separately. The latter compared read-time classification
+and audit metadata with a preview; independent full-record and write-frame
+verification passed without another commit or restore. This acceptance covers
+the selected weapon and skill, with existing automated tests providing the
+broader input coverage.
