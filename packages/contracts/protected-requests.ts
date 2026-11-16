@@ -3931,6 +3931,23 @@ export type ProtectedRequest =
                   star?: boolean;
                 }
               ];
+          /**
+           * Supported effect generation with zero drop-source flags; martial-skill selection is independent.
+           */
+          generation_context?: "reward_zero_flags" | "hell_conversion_zero_flags";
+          /**
+           * @minItems 4
+           * @maxItems 4
+           */
+          generation_progress?: [number, number, number, number];
+          /**
+           * The original pre-forge level bound by the searched candidate; level is the reviewed stored level.
+           */
+          generation_level?: number;
+          /**
+           * Binds the reviewed generated effects and complete supported input; required with the context for seeded hell additions.
+           */
+          candidate_digest?: string;
         }[];
       };
     }

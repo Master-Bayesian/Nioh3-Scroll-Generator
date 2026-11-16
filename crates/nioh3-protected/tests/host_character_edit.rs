@@ -19,7 +19,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use nioh3_domain::record::ScrollRecordBytes;
-use nioh3_protected::{serve, Contract, RoleApplication, SaveApplication};
+use nioh3_protected::{serve, Contract, RoleApplication, RuntimeApplication, SaveApplication};
 use nioh3_save::character::{
     equipment_counters, equipment_fields, equipment_offset, equipment_record, read_currency,
     Currency, EQUIPMENT_RECORD_BYTES, NEXT_GENERATION_SERIAL_OFFSET, NEXT_INVENTORY_KEY_OFFSET,
@@ -220,6 +220,331 @@ fn job(exchange: &mut impl FnMut(&str, Value) -> Value, method: &str, params: Va
         );
         thread::sleep(Duration::from_millis(100));
     }
+}
+
+enum AcceptanceHostLifecycle {
+    Running {
+        sender: mpsc::Sender<Vec<u8>>,
+        thread: thread::JoinHandle<()>,
+    },
+    Closed,
+}
+
+/// The existing real framed host, with retained request/response evidence.
+struct AcceptanceHost {
+    lifecycle: AcceptanceHostLifecycle,
+    sink: Arc<Mutex<Vec<u8>>>,
+    count: usize,
+    transcript: Vec<Value>,
+}
+
+impl AcceptanceHost {
+    fn new(application: Box<dyn RoleApplication>) -> Self {
+        let contract = Contract::load(&repo_root().join("packages/contracts")).unwrap();
+        let (sender, receiver) = mpsc::channel();
+        let sink = Arc::new(Mutex::new(Vec::new()));
+        let host_sink = Arc::clone(&sink);
+        let host_thread = thread::spawn(move || {
+            let _ = serve(
+                application,
+                &contract,
+                &mut ChannelReader {
+                    receiver,
+                    buffer: Vec::new(),
+                },
+                &mut SharedSink(host_sink),
+            );
+        });
+        Self {
+            lifecycle: AcceptanceHostLifecycle::Running {
+                sender,
+                thread: host_thread,
+            },
+            sink,
+            count: 0,
+            transcript: Vec::new(),
+        }
+    }
+
+    fn exchange(&mut self, method: &str, params: Value) -> Value {
+        self.count += 1;
+        let request =
+            json!({"protocol":1,"id":self.count.to_string(),"method":method,"params":params});
+        match &self.lifecycle {
+            AcceptanceHostLifecycle::Running { sender, .. } => {
+                sender.send(frame(&request)).unwrap()
+            }
+            AcceptanceHostLifecycle::Closed => panic!("acceptance host is closed"),
+        }
+        let response = wait_response(&self.sink, self.count)[self.count - 1].clone();
+        self.transcript
+            .push(json!({"request":request,"response":response}));
+        response
+    }
+
+    fn job(&mut self, method: &str, params: Value) -> Value {
+        job(
+            &mut |method, params| self.exchange(method, params),
+            method,
+            params,
+        )
+    }
+
+    fn close(&mut self) {
+        assert_eq!(
+            self.exchange("shutdown", json!({}))["result"]["safe_to_shutdown"],
+            true
+        );
+        self.release();
+    }
+
+    fn release(&mut self) {
+        match std::mem::replace(&mut self.lifecycle, AcceptanceHostLifecycle::Closed) {
+            AcceptanceHostLifecycle::Running { sender, thread } => {
+                drop(sender);
+                thread.join().unwrap();
+            }
+            AcceptanceHostLifecycle::Closed => {}
+        }
+    }
+}
+
+impl Drop for AcceptanceHost {
+    fn drop(&mut self) {
+        self.release();
+    }
+}
+
+fn effect_semantics(record: &[u8]) -> Vec<(u16, u32, i32, u8, u8, u8)> {
+    (0..7)
+        .filter_map(|index| {
+            let entry = &record[0x34 + index * 0x18..0x4C + index * 0x18];
+            let id = u32::from_le_bytes(entry[4..8].try_into().unwrap());
+            (id != u32::MAX).then(|| {
+                (
+                    u16::from_le_bytes(entry[0..2].try_into().unwrap()),
+                    id,
+                    i32::from_le_bytes(entry[8..12].try_into().unwrap()),
+                    entry[0x0C],
+                    entry[0x0D] & 0x3F,
+                    entry[0x0E] & 7,
+                )
+            })
+        })
+        .collect()
+}
+
+#[test]
+fn hell_seed_search_review_commit_and_reload_preserve_the_native_candidate() {
+    let evidence_base = std::env::var_os("NIOH3_HELL_E2E_EVIDENCE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            build_root().join("deliverables/hell-weapon-seed-search-20261116/host-e2e")
+        });
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let root = evidence_base.join(format!("run-{}-{nonce}", std::process::id()));
+    std::fs::create_dir_all(&evidence_base).unwrap();
+    std::fs::create_dir(&root).unwrap();
+    let save_path = fixture_save(&root);
+    let original = std::fs::read(&save_path).unwrap();
+    let data = repo_root().join("data");
+    let engine = Engine::load(
+        &data,
+        &repo_root().join("packages/contracts"),
+        None,
+        ContextSelection::Production(GameFileVersion(2, 0, 2, 0)),
+    )
+    .unwrap();
+    let mut runtime = AcceptanceHost::new(Box::new(
+        RuntimeApplication::new(root.join("runtime-state"), &data, engine.context().clone())
+            .unwrap(),
+    ));
+    let mut save = AcceptanceHost::new(Box::new(
+        SaveApplication::new(root.join("save-state"), &data, engine.context().clone()).unwrap(),
+    ));
+    assert_eq!(runtime.exchange("handshake", json!({}))["ok"], true);
+    assert_eq!(save.exchange("handshake", json!({}))["ok"], true);
+    let registered = save.job("save.register", json!({"path":save_path}));
+    let save_id = registered["result"]["save_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let character = save.job("save.character", json!({"save_id":save_id}));
+    let source = character["result"]["source_sha256"].clone();
+    let request = json!({"item_id":0x4BF7,"rarity":4,"level":170,"plus":22,"difficulty":1,
+        "progress":[6510,7710,0,7710],"hell":true,"limit":200,
+        "want":[0x8641,0x511C,0x9982,0xD7EF,0x590C]});
+    let found = runtime.exchange("runtime.equipment_seeds", request.clone());
+    assert_eq!(found["ok"], true, "{found}");
+    let results = &found["result"];
+    assert_eq!(results["generation_context"], "hell_conversion_zero_flags");
+    let outcomes = results["outcomes"].as_array().unwrap();
+    assert!(!outcomes.is_empty());
+    for outcome in outcomes {
+        for wanted in request["want"].as_array().unwrap() {
+            assert!(outcome["effects"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|effect| effect["effect_id"] == *wanted));
+        }
+    }
+    let selected = outcomes
+        .iter()
+        .find(|outcome| outcome["seed"] == 0x698C)
+        .expect("known native conversion seed");
+    let addition = json!({"item_id":results["item_id"],"rarity":results["rarity"],"level":results["level"],
+        "plus":results["plus"],"difficulty":results["difficulty"],"hell":true,"hell_skill":0x3435,
+        "seed":selected["seed"],"generation_context":results["generation_context"],
+        "generation_progress":results["progress"],"generation_level":results["generation_level"],
+        "candidate_digest":selected["candidate_digest"]});
+    let mut checks = Vec::new();
+    for (name, field, replacement) in [
+        ("wrong-digest", "candidate_digest", json!("0".repeat(64))),
+        ("wrong-progress", "generation_progress", json!([0, 0, 0, 0])),
+        (
+            "wrong-context",
+            "generation_context",
+            json!("reward_zero_flags"),
+        ),
+        ("changed-seed", "seed", json!(0x698D)),
+        ("changed-level", "level", json!(171)),
+        ("changed-generation-level", "generation_level", json!(171)),
+        ("changed-plus", "plus", json!(23)),
+        ("wrong-skill", "hell_skill", json!(0x8D12)),
+        (
+            "renderer-effects-override",
+            "effects",
+            json!([{"effect_id":0xFFFE,"value":1}]),
+        ),
+    ] {
+        let mut changed = addition.clone();
+        changed[field] = replacement;
+        let rejected = save.job(
+            "save.prepare_character_edit",
+            json!({"save_id":save_id,"source_sha256":source,"add":[changed]}),
+        );
+        assert_eq!(rejected["state"], "failed", "{name}: {rejected}");
+        assert_eq!(std::fs::read(&save_path).unwrap(), original);
+        checks.push(json!({"name":name,"rejected_before_write":true,"response":rejected}));
+    }
+    let mut unbound = addition.clone();
+    for field in [
+        "candidate_digest",
+        "generation_context",
+        "generation_progress",
+        "generation_level",
+    ] {
+        unbound.as_object_mut().unwrap().remove(field);
+    }
+    let rejected = save.job(
+        "save.prepare_character_edit",
+        json!({"save_id":save_id,"source_sha256":source,"add":[unbound]}),
+    );
+    assert_eq!(rejected["state"], "failed", "{rejected}");
+    assert_eq!(std::fs::read(&save_path).unwrap(), original);
+    checks.push(json!({"name":"unbound-hell","rejected_before_write":true,"response":rejected}));
+    let mut impossible = request.clone();
+    impossible["want"] = json!([0xFFFE]);
+    let empty = runtime.exchange("runtime.equipment_seeds", impossible);
+    assert_eq!(empty["ok"], true, "{empty}");
+    assert_eq!(empty["result"]["matches"], 0);
+    assert_eq!(empty["result"]["outcomes"], json!([]));
+    let plan = save.job(
+        "save.prepare_character_edit",
+        json!({"save_id":save_id,"source_sha256":source,"add":[addition]}),
+    );
+    assert_eq!(plan["state"], "completed", "{plan}");
+    let preview = &plan["result"]["preview"]["added"][0];
+    assert_eq!(preview["after"]["hell"], true, "{preview}");
+    assert_eq!(preview["after"]["hell_skill"], 0x3435, "{preview}");
+    let slot = preview["slot_index"].as_u64().unwrap() as usize;
+    let committed = save.job("save.commit", json!({"plan_id":plan["result"]["plan_id"]}));
+    assert_eq!(
+        committed["result"]["commit_status"], "committed",
+        "{committed}"
+    );
+    let encrypted = std::fs::read(&save_path).unwrap();
+    let clear = decrypt_container(&encrypted).unwrap();
+    let record = equipment_record(&clear, slot).unwrap();
+    let native_document: Value = serde_json::from_slice(
+        &std::fs::read(
+            repo_root().join("crates/nioh3-data/tests/fixtures/equipment_natural_v202.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let native_hex = native_document["records"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|record| record["source"] == "inserted-hell")
+        .unwrap()["record"]
+        .as_str()
+        .unwrap();
+    let native: Vec<u8> = (0..native_hex.len())
+        .step_by(2)
+        .map(|at| u8::from_str_radix(&native_hex[at..at + 2], 16).unwrap())
+        .collect();
+    assert_eq!(effect_semantics(record), effect_semantics(&native));
+    assert_eq!(&record[0x10..0x12], &native[0x10..0x12]);
+    assert_eq!(record[0x1A] & 0x10, 0x10);
+    assert_eq!(equipment_counters(&clear).unwrap(), (0xC870, 0x26_B008));
+    save.close();
+    let mut reload_host = AcceptanceHost::new(Box::new(
+        SaveApplication::new(root.join("save-state"), &data, engine.context().clone()).unwrap(),
+    ));
+    assert_eq!(reload_host.exchange("handshake", json!({}))["ok"], true);
+    let registered_again = reload_host.job("save.register", json!({"path":save_path}));
+    let reload_id = registered_again["result"]["save_id"].clone();
+    let reloaded = reload_host.job("save.character", json!({"save_id":reload_id}));
+    let row = reloaded["result"]["equipment"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["slot_index"] == slot)
+        .unwrap();
+    assert_eq!(row["hell"], true);
+    assert_eq!(row["hell_skill"], 0x3435);
+    runtime.close();
+    reload_host.close();
+    std::fs::write(
+        root.join("reload-transcript.json"),
+        serde_json::to_vec_pretty(&reload_host.transcript).unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("runtime-transcript.json"),
+        serde_json::to_vec_pretty(&runtime.transcript).unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("save-transcript.json"),
+        serde_json::to_vec_pretty(&save.transcript).unwrap(),
+    )
+    .unwrap();
+    std::fs::write(root.join("stored-record.bin"), record).unwrap();
+    let sources: Vec<Value> = ["crates/nioh3-domain/src/equipment_generation.rs",
+        "crates/nioh3-protected/src/equipment_seeds.rs", "crates/nioh3-protected/tests/host_character_edit.rs",
+        "packages/contracts/protected-request.schema.json", "packages/contracts/protected-response.schema.json",
+        "crates/nioh3-data/tests/fixtures/equipment_natural_v202.json"].into_iter().map(|relative| {
+            json!({"path":relative,"sha256":digest(&std::fs::read(repo_root().join(relative)).unwrap())})
+        }).collect();
+    std::fs::write(root.join("acceptance.json"),serde_json::to_vec_pretty(&json!({
+        "pass":true,"scope":"real framed runtime search and encrypted owned-copy save transaction; no live game",
+        "request":request,"selected":selected,"addition":addition,"plan":plan,"commit":committed,
+        "reloaded":row,"rejections":checks,"source_sha256":digest(&original),
+        "saved_sha256":digest(&encrypted),"record_sha256":digest(record),
+        "native_fixture_semantics_equal":true,"game_or_real_save_accessed":false,
+        "sources":sources,"generation_context_digest":engine.context().digest(),
+        "repeat_command":["cargo","test","--locked","--offline","--manifest-path",
+            "crates/nioh3-protected/Cargo.toml","--test","host_character_edit",
+            "hell_seed_search_review_commit_and_reload_preserve_the_native_candidate","--","--nocapture"],
+    })).unwrap()).unwrap();
+    println!("Hell equipment E2E artifact: {}", root.display());
 }
 
 #[test]

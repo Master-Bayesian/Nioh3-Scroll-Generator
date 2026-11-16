@@ -1341,13 +1341,13 @@ export interface EquipmentSeeds {
   rarity: number;
   level: number;
   difficulty: number;
-  hell?: boolean;
+  hell: boolean;
   /**
    * Hell martial skills the conversion can give this weapon at this level; empty unless hell.
    *
    * @maxItems 64
    */
-  hell_skills?: number[];
+  hell_skills: number[];
   seeds: number;
   empty: number;
   matches: number;
@@ -1571,7 +1571,19 @@ export interface EquipmentSeeds {
             role: "innate" | "hell" | "random" | "grace" | "set";
           }
         ];
+    candidate_digest: string;
   }[];
+  plus: number;
+  /**
+   * @minItems 4
+   * @maxItems 4
+   */
+  progress: [number, number, number, number];
+  /**
+   * Supported effect generation with zero drop-source flags; martial-skill selection is independent.
+   */
+  generation_context: "reward_zero_flags" | "hell_conversion_zero_flags";
+  generation_level: number;
 }
 export interface MenuSelection {
   process_id: number;

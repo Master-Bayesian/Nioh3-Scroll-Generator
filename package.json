@@ -7,7 +7,7 @@
   "scripts": {
     "contracts": "json2ts -i packages/contracts/request.schema.json -o packages/contracts/generated.ts --no-enableConstEnums && json2ts -i packages/contracts/response.schema.json -o packages/contracts/responses.ts && json2ts -i packages/contracts/protected-request.schema.json -o packages/contracts/protected-requests.ts && json2ts -i packages/contracts/protected-response.schema.json -o packages/contracts/protected-responses.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint apps packages",
+    "lint": "eslint apps packages tools/ui-audit/verify-hell-equipment-seeds.mjs",
     "check:quality": "node tools/check_quality_controls.mjs",
     "test": "tsx --test apps/desktop/tests/*.test.ts"
   },

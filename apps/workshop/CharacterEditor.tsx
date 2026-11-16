@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import React, { useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import type {
   CharacterEquipment,
   CharacterItem,
@@ -26,6 +26,7 @@ import { errorText, publicError, stripErrorPrefix } from "./public-errors";
 import { localize } from "./presentation";
 import { SavePicker } from "./CartActions";
 import { runtimeObserver, saveObserver, saveSession } from "./save-workspace";
+import { equipmentSeedReducer } from "./equipment-seed-state";
 
 type Mode = "live" | "save";
 type Tab = "equipment" | "items";
@@ -70,7 +71,12 @@ interface NewEquipmentRequest {
   effects?: { effect_id: number; value: number; star?: boolean }[];
   /** Generate the item as the game does from this seed (legal adds). */
   seed?: number;
+  seeded?: boolean;
   difficulty?: number;
+  generation_context?: EquipmentSeeds["generation_context"];
+  generation_level?: number;
+  generation_progress?: [number, number, number, number];
+  candidate_digest?: string;
 }
 /** One wanted effect: ids that read the same, any of which counts. */
 interface WantedEffect {
@@ -384,15 +390,14 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   const [addSchool, setAddSchool] = useState("");
   const equipmentFavorites = useEquipmentFavorites();
   /** Items waiting to be added together in one plan. */
-  const [queue, setQueue] = useState<{ key: number; request: NewEquipmentRequest; modded: boolean }[]>([]);
+  const [queue, setQueue] = useState<{ key: number; request: NewEquipmentRequest; modded: boolean; candidate?: EquipmentSeeds["outcomes"][number] }[]>([]);
   const queueKey = useRef(0);
   /** The player confirmed the game is at the title screen. */
   const [titleConfirmed, setTitleConfirmed] = useState(false);
   /** Legal adds: the effects wanted, the difficulty, and the seed search. */
   const [wanted, setWanted] = useState<WantedEffect[]>([]);
   const [difficulty, setDifficulty] = useState<number | null>(null);
-  const [seedResult, setSeedResult] = useState<(EquipmentSeeds & { plus: number }) | null>(null);
-  const [chosenSeed, setChosenSeed] = useState<number | null>(null);
+  const [seedState, dispatchSeed] = useReducer(equipmentSeedReducer, { phase: "idle", identity: "" });
   const seedRequestId = useRef(0);
   /** The slot to select once the character is read again after an add. */
   const pendingSelect = useRef<number | null>(null);
@@ -556,10 +561,18 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   // Opening the page, switching mode or picking a save reads the character once;
   // the toolbar button re-reads it.
   const saveId = mode === "save" ? save?.selected?.save_id ?? null : null;
+  const characterMatchesSave = character?.mode === "save" && "save_id" in character &&
+    !!save?.selected && !!save.inventory && save.inventory.save_id === save.selected.save_id &&
+    character.save_id === save.selected.save_id && character.source_sha256 === save.inventory.source_sha256;
+  const automaticCharacterLoad = useRef("");
   useEffect(() => {
-    if (character || busy || (mode === "save" && (!saveId || save?.busy || !save?.inventory))) return;
+    const currentCharacter = character && (mode !== "save" || characterMatchesSave);
+    if (currentCharacter || busy || (mode === "save" && (!saveId || save?.busy || !save?.inventory))) return;
+    const identity = JSON.stringify([mode, saveId, save?.inventory?.source_sha256 ?? null]);
+    if (automaticCharacterLoad.current === identity) return;
+    automaticCharacterLoad.current = identity;
     void load();
-  }, [mode, saveId, save?.busy]);
+  }, [mode, saveId, save?.busy, save?.inventory?.source_sha256, busy, characterMatchesSave]);
   const revealRef = useRef<{ tab: Tab; key: number } | null>(null);
   const missingRef = useRef<string | null>(null);
   const dirty =
@@ -719,31 +732,44 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   }, [values]);
 
   /** The generator's player state, read from the save. */
-  const generation = character && "generation" in character ? character.generation ?? null : null;
+  const generation = characterMatchesSave && character && "generation" in character ? character.generation ?? null : null;
   /** A legal add is generated from a seed, as the game does. */
-  const seedMode = adding && !modded;
+  const seedMode = adding && !modded && mode === "save" && character?.mode === "save";
   const draftPlus = draft ? parseAmount(draft.plus, 65535) : null;
   const wantedKey = wanted.map(entry => entry.key).join(";");
   const seedDifficulty = generation?.difficulties.find(entry => entry.difficulty === (difficulty ?? generation.difficulty));
   const seedSearchIdentity = JSON.stringify({
+    mode,
+    section,
+    legal: seedMode,
+    save_id: save?.selected?.save_id ?? null,
+    source_sha256: character && "source_sha256" in character ? character.source_sha256 : null,
+    snapshot_id: save?.inventory?.snapshot_id ?? null,
+    snapshot_sha256: save?.inventory?.source_sha256 ?? null,
     item_id: newItem?.item_id ?? null,
     rarity: draft ? parseAmount(draft.rarity, 5) : null,
     level: draft ? parseAmount(draft.level, 180) : null,
     plus: draftPlus,
     difficulty: seedDifficulty?.difficulty ?? null,
     progress: seedDifficulty?.progress ?? null,
+    hell: draftHell,
     want: wanted.map(entry => entry.ids),
     limit: 40,
   });
   const currentSeedSearchIdentity = useRef(seedSearchIdentity);
   currentSeedSearchIdentity.current = seedSearchIdentity;
+  const currentSeedState = seedState.identity === seedSearchIdentity ? seedState : null;
+  const seedResult = currentSeedState && "result" in currentSeedState ? currentSeedState.result : null;
+  const selectedOutcome = currentSeedState?.phase === "selected"
+    ? currentSeedState.result.outcomes.find(outcome => outcome.candidate_digest === currentSeedState.candidateDigest) ?? null
+    : null;
+  const seedSkills = seedResult?.hell ? seedResult.hell_skills : rules?.hell_skills ?? [];
+  const validSeedSkill = !draftHell || !!draft && seedSkills.includes(draft.hell_skill);
   useEffect(() => setDifficulty(generation?.difficulty ?? null), [generation?.difficulty]);
-  useEffect(() => setWanted([]), [newItem?.item_id]);
-  // A search answers one item, rarity, level, + and difficulty; any change needs a new one.
+  // A response cannot survive a change of draft, generation route, source or mode.
   useEffect(() => {
     seedRequestId.current += 1;
-    setSeedResult(null);
-    setChosenSeed(null);
+    dispatchSeed({ type: "invalidate", identity: seedSearchIdentity });
   }, [seedSearchIdentity]);
 
   /** Effects a legal add can ask for, rows that read the same merged into one choice. */
@@ -753,17 +779,37 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
     const pool: Candidate[] = (rules.random_pool ?? []).map(entry => ({
       id: entry.effect_id, star: entry.star, min: entry.min, max: entry.max, group: entry.group, masks: entry.masks,
     }));
+    const hellPool: Candidate[] = draftHell ? (rules.hell_pool ?? []).map(entry => ({
+      id: entry.effect_id, star: entry.star, min: entry.min, max: entry.max, group: entry.group, masks: entry.masks,
+    })) : [];
     const graces: Candidate[] = rarity !== null && rarity >= 4 && rules.set_effect == null && !rules.soul_core
       ? (rules.graces ?? []).map(id => ({ id }))
       : [];
-    for (const candidate of [...pool, ...graces]) {
+    const fixedSet: Candidate[] = rules.set_effect == null || !rules.roles?.some(role => role === "set") ? [] : [{ id: rules.set_effect }];
+    for (const candidate of [...pool, ...hellPool, ...graces, ...fixedSet]) {
       const key = effectNames.get(candidate.id) + "|" + !!candidate.star + "|" + candidate.min + "|" + candidate.max;
       const option = options.get(key);
       if (option) option.ids.push(candidate.id);
       else options.set(key, { candidate, ids: [candidate.id] });
     }
     return options;
-  }, [rules, rarity]);
+  }, [rules, rarity, draftHell]);
+  // Keep wanted effects that are still offered, including when their displayed range changes.
+  // Rules are temporarily null while a different item or generation condition is loading.
+  useEffect(() => {
+    if (!rules?.known || rules.item_id !== newItem?.item_id ||
+      (rules.rarity != null && rules.rarity !== rarity) ||
+      (rules.level != null && rules.level !== level) ||
+      (rules.hell != null && rules.hell !== draftHell)) return;
+    setWanted(previous => {
+      const next: WantedEffect[] = [];
+      for (const entry of previous) {
+        const option = [...wantOptions.entries()].find(([, option]) => option.ids.some(id => entry.ids.includes(id)));
+        if (option && !next.some(kept => kept.key === option[0])) next.push({ key: option[0], ids: option[1].ids });
+      }
+      return JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
+    });
+  }, [wantOptions, rules, newItem?.item_id, rarity, level, draftHell]);
   const wantCandidates = useMemo(() => {
     const chosen = wanted.flatMap(entry => wantOptions.get(entry.key)?.candidate ?? []);
     return [...wantOptions.entries()]
@@ -934,7 +980,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   function setHell(on: boolean) {
     if (!draft) return;
     const skills = rules?.hell_skills ?? [];
-    const skill = on ? (skills.includes(draft.hell_skill) ? draft.hell_skill : skills[0] ?? draft.hell_skill) : 0;
+    const skill = on ? (skills.includes(draft.hell_skill) ? draft.hell_skill : seedMode ? 0 : skills[0] ?? draft.hell_skill) : 0;
     setDraft({ ...draft, hell: on, hell_skill: skill });
   }
 
@@ -1000,10 +1046,14 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         // read it again with the character; otherwise a save the game wrote
         // after the first read stays "changed" however often this reloads.
         await saveSession!.refresh();
+        const snapshot = saveSession!.getSnapshot().inventory;
         const result = await saveObserver!.run(() =>
           window.operations.execute({ method: "save.character", params: { save_id: selectedSave.save_id } }),
         );
         if (!result || !("equipment_slots" in result) || !("save_id" in result)) throw new Error("UNEXPECTED_CHARACTER_SNAPSHOT");
+        const current = saveSession!.getSnapshot();
+        if (current.selected?.save_id !== selectedSave.save_id || current.inventory?.snapshot_id !== snapshot?.snapshot_id ||
+          current.inventory?.source_sha256 !== (result as SaveCharacter).source_sha256) return;
         adopt({ ...(result as SaveCharacter), mode: "save" });
       }
     });
@@ -1136,9 +1186,14 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
   }
 
   /** Run the game's generator over every seed and keep the ones with every wanted effect. */
-  function findSeeds() {
-    return run(async () => {
-      if (!row || !draft) return;
+  async function findSeeds() {
+    if (!row || !draft || !seedMode) return;
+    const requestId = ++seedRequestId.current;
+    const requestIdentity = seedSearchIdentity;
+    const current = () => requestId === seedRequestId.current && requestIdentity === currentSeedSearchIdentity.current;
+    dispatchSeed({ type: "start", identity: requestIdentity, requestId });
+    setMessage("");
+    try {
       if (!generation) throw new Error("没有从存档里读到难度和进度，不能按游戏规则生成。请点“重新读取”后再试；仍然不行的话，可以改用“魔改”添加。");
       const level = parseAmount(draft.level, 180);
       const plus = parseAmount(draft.plus, 65535);
@@ -1150,42 +1205,49 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         item_id: row.item_id, rarity, level, plus,
         difficulty: chosen.difficulty,
         progress: chosen.progress as [number, number, number, number],
+        hell: draft.hell,
         want: wanted.map(entry => entry.ids) as never,
         limit: 40,
       };
-      const requestId = ++seedRequestId.current;
-      const requestIdentity = JSON.stringify(params);
-      setSeedResult(null);
-      setChosenSeed(null);
-      let result: Awaited<ReturnType<typeof window.operations.execute>>;
-      try {
-        result = await window.operations.execute({ method: "runtime.equipment_seeds", params });
-      } catch (error) {
-        if (requestId !== seedRequestId.current || requestIdentity !== currentSeedSearchIdentity.current) return;
-        throw error;
-      }
-      if (requestId !== seedRequestId.current || requestIdentity !== currentSeedSearchIdentity.current) return;
+      const result = await window.operations.execute({ method: "runtime.equipment_seeds", params });
+      if (!current()) return;
       if (!result || !("outcomes" in result) || !("matches" in result)) throw new Error("UNEXPECTED_SEED_SEARCH");
       const found = result as EquipmentSeeds;
-      setSeedResult({ ...found, plus });
-      setChosenSeed(found.outcomes[0]?.seed ?? null);
-    });
+      if (found.item_id !== row.item_id || found.rarity !== rarity || found.generation_level !== level || found.hell !== draft.hell ||
+        found.generation_context !== (draft.hell ? "hell_conversion_zero_flags" : "reward_zero_flags") ||
+        found.difficulty !== chosen.difficulty || JSON.stringify(found.progress) !== JSON.stringify(chosen.progress) ||
+        found.outcomes.some(outcome => !/^[0-9a-f]{64}$/.test(outcome.candidate_digest)))
+        throw new Error("UNEXPECTED_SEED_SEARCH");
+      dispatchSeed({ type: "resolve", identity: requestIdentity, requestId, result: structuredClone(found) });
+    } catch (error) {
+      if (!current()) return;
+      dispatchSeed({ type: "reject", identity: requestIdentity, requestId, message: String(error instanceof Error ? error.message : error) });
+    }
   }
 
   /** Queue the item the chosen seed gives. */
   function addSeeded() {
     return run(async () => {
-      if (!row || !seedResult || chosenSeed === null) return;
+      if (!draft || !seedMode || !seedResult || !selectedOutcome) return;
+      if (seedResult.hell && !seedResult.hell_skills.includes(draft.hell_skill))
+        throw new Error("这个地狱武技不会出现在这类武器上");
       if (queue.length >= ADD_LIMIT) throw new Error("待添加清单最多 " + ADD_LIMIT + " 件。请先写入存档，再继续添加。");
       const request: NewEquipmentRequest = {
-        item_id: row.item_id,
+        item_id: seedResult.item_id,
         level: seedResult.level,
         plus: seedResult.plus,
         rarity: seedResult.rarity,
-        seed: chosenSeed,
+        seed: selectedOutcome.seed,
+        seeded: true,
         difficulty: seedResult.difficulty,
+        generation_context: seedResult.generation_context,
+        generation_level: seedResult.generation_level,
+        generation_progress: [...seedResult.progress] as [number, number, number, number],
+        candidate_digest: selectedOutcome.candidate_digest,
+        hell: seedResult.hell,
+        ...(seedResult.hell ? { hell_skill: draft.hell_skill } : {}),
       };
-      setQueue([...queue, { key: ++queueKey.current, request, modded: false }]);
+      setQueue([...queue, { key: ++queueKey.current, request, modded: false, candidate: structuredClone(selectedOutcome) }]);
       setPlan(null);
       setMessage("已加入待添加清单。可以继续挑选其他装备，全部选好后点“生成修改计划”。");
     });
@@ -1295,6 +1357,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         "，稀有度 " + item.rarity + (item.hell ? "，地狱武器" : "") + "）" +
         (change.seeded ? "，按游戏发放物品的规则生成" : "") +
         (change.audit ? (change.audit.natural ? "，判定为自然" : "，判定为非自然") : ""));
+      if (item.hell) lines.push("地狱武技：" + skillText(item.hell_skill ?? 0));
       item.effects.forEach((effect, index) => {
         if (effect.effect_id !== EMPTY_EFFECT)
           lines.push("　#" + (index + 1) + " " + effectText(effect.effect_id) + " " + effect.value);
@@ -1690,10 +1753,12 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       <h3>待添加清单（{queue.length} / {ADD_LIMIT}）</h3>
       <ul className="character-plan-lines">
         {queue.map(entry => (
-          <li key={entry.key}>
+          <li key={entry.key} data-equipment-request={JSON.stringify(entry.request)}
+            data-seeded-candidate={entry.candidate ? JSON.stringify(entry.candidate) : undefined}>
             {itemLabel(entry.request.item_id)}（Lv.{entry.request.level}，稀有度 {entry.request.rarity}
             {entry.request.hell ? "，地狱武器" : ""}
             {entry.request.seed != null ? "，第 " + entry.request.difficulty + " 难度生成" : ""}）
+            {entry.request.hell ? <span> 地狱武技：{skillText(entry.request.hell_skill ?? 0)}</span> : null}
             {entry.modded ? <span className="character-unnatural">魔改</span> : <span className="character-muted">合法</span>}
             <button type="button" className="character-queue-remove" aria-label="从清单移除"
               onClick={() => { setQueue(queue.filter(other => other.key !== entry.key)); setPlan(null); }} disabled={busy}>×</button>
@@ -1716,7 +1781,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           : "当前生成路线下，这件装备有 " + seedResult.matches + " 种种子结果。") +
           "下面按随机词条的分位和星级评分列出前 " + seedResult.outcomes.length + " 个，点选一个后加入清单。";
   const seedPanel = (
-    <div className="seed-panel">
+    <div className="seed-panel" data-seed-phase={currentSeedState?.phase ?? "idle"} aria-busy={currentSeedState?.phase === "searching"}>
       {!generation ? (
         <p className="character-remove-note">没有从存档里读到难度和进度，不能按游戏规则生成。请点“重新读取”后再试；仍然不行的话，可以改用“魔改”添加。</p>
       ) : null}
@@ -1735,18 +1800,22 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
         </div>
       </div>
       <div className="character-actions">
-        <button className="primary" onClick={findSeeds} disabled={busy || !generation || !rules?.known}>查找</button>
+        <button className="primary" data-action="find-equipment-seeds" onClick={() => void findSeeds()}
+          disabled={busy || currentSeedState?.phase === "searching" || !generation || !rules?.known}>查找</button>
         {seedResult ? (
-          <button onClick={addSeeded} disabled={busy || chosenSeed === null}>加入待添加清单</button>
+          <button data-action="queue-equipment-seed" onClick={addSeeded} disabled={busy || !selectedOutcome || !validSeedSkill}>加入待添加清单</button>
         ) : null}
       </div>
+      {currentSeedState?.phase === "error" ? <p className="character-remove-note" role="alert">{currentSeedState.message}</p> : null}
       {seedResult ? <p className="seed-summary">{seedSummary}</p> : null}
       {seedResult?.outcomes.length ? (
         <ul className="seed-outcomes" role="listbox" aria-label="生成结果">
           {seedResult.outcomes.map(outcome => (
-            <li key={outcome.seed}>
-              <button type="button" role="option" aria-selected={chosenSeed === outcome.seed}
-                className={chosenSeed === outcome.seed ? "chosen" : ""} onClick={() => setChosenSeed(outcome.seed)}>
+            <li key={outcome.candidate_digest}>
+              <button type="button" role="option" aria-selected={selectedOutcome?.candidate_digest === outcome.candidate_digest}
+                data-candidate-digest={outcome.candidate_digest}
+                className={selectedOutcome?.candidate_digest === outcome.candidate_digest ? "chosen" : ""}
+                onClick={() => dispatchSeed({ type: "select", identity: seedSearchIdentity, candidateDigest: outcome.candidate_digest })}>
                 {outcome.effects.map((effect, index) => (
                   <span key={index} className={"seed-effect" + (wanted.some(entry => entry.ids.includes(effect.effect_id)) ? " wanted" : "")}>
                     {effect.star ? "✦ " : ""}{effectText(effect.effect_id)}
@@ -1837,10 +1906,10 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           </label>
         </div>
       )}
-      {!seedMode && (itemGroups(row.item_id, row.type_class)[0] === "武器" || rules?.hell_capable || draft.hell) && (
+      {(seedMode ? rules?.hell_capable || draft.hell : itemGroups(row.item_id, row.type_class)[0] === "武器" || rules?.hell_capable || draft.hell) && (
         <div className="character-hell-row">
           <label className="character-toggle">
-            <input type="checkbox" checked={draft.hell}
+            <input type="checkbox" checked={draft.hell} data-action="toggle-hell-equipment"
               disabled={!draft.hell && !rules?.hell_capable && !modded}
               onChange={event => setHell(event.target.checked)} />
             地狱武器
@@ -1848,10 +1917,11 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
           {draft.hell && (
             <select value={draft.hell_skill} aria-label="地狱武技"
               onChange={event => setDraft({ ...draft, hell_skill: Number(event.target.value) })}>
-              {[...new Set([...(rules?.hell_skills ?? []), ...(draft.hell_skill ? [draft.hell_skill] : [])])].map(skill => (
+              {seedMode ? <option value={0}>{skillText(0)}</option> : null}
+              {[...new Set([...(seedMode ? seedSkills : rules?.hell_skills ?? []), ...(!seedMode && draft.hell_skill ? [draft.hell_skill] : [])])].map(skill => (
                 <option key={skill} value={skill}>
                   {skillText(skill)}
-                  {(rules?.hell_skills ?? []).includes(skill) ? "" : "（不会自然出现）"}
+                  {(seedMode ? seedSkills : rules?.hell_skills ?? []).includes(skill) ? "" : "（不会自然出现）"}
                 </option>
               ))}
             </select>
@@ -1861,7 +1931,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
               ? ""
               : !rules.hell_capable
                 ? "这件装备不会自然成为地狱武器，只能在魔改模式下切换。"
-                : draft.hell && !row.hell
+                : !seedMode && draft.hell && !row.hell
                   ? "切换后第一个位置变为地狱词条，请在下方选择。"
                   : ""}
           </span>

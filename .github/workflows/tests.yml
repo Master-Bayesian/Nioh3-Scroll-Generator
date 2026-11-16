@@ -102,6 +102,45 @@ jobs:
           cargo fmt --check --manifest-path apps/tauri/src-tauri/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Retain equipment seed generation and save E2E evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: equipment-seed-host-e2e
+          path: ${{ runner.temp }}/nioh3-migration-build/deliverables/hell-weapon-seed-search-20261116
+          if-no-files-found: warn
+
+  equipment-seed-browser:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install the existing browser test dependencies
+        shell: pwsh
+        run: |
+          npm ci --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npx playwright install chromium
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify the legal equipment search and reviewed add flow in three locales
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'hell-equipment-browser-e2e'
+          node tools/ui-audit/verify-hell-equipment-seeds.mjs --out $out
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Retain equipment browser E2E evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: equipment-seed-browser-e2e
+          path: ${{ runner.temp }}/hell-equipment-browser-e2e
+          if-no-files-found: error
+
   model-and-lint:
     runs-on: windows-latest
     steps:

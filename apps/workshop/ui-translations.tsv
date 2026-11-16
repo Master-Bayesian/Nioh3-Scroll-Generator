@@ -1591,3 +1591,7 @@ ID 或生成设置已变化，请重新查看；当前预览仍使用先前设�
 仅显示基础敌人；常世同行追加敌人和附身状态暂未确认。	Base enemies shown; Expedition extras and Crucible Wraith status are unconfirmed.	基本の敵のみ表示。常世同行の追加の敵と地獄憑き状態は未確認です。
 敌人信息暂未确认。	Enemy information has not been confirmed.	敵情報は未確認です。
 无敌人	No enemies	敵なし
+这件装备在游戏里不会变成地狱武器。请取消“地狱武器”，或换一把可以成为地狱武器的近战武器。	This equipment cannot become a Crucible weapon. Turn off Crucible weapon or choose an eligible melee weapon.	この装備は地獄武器になりません。「地獄武器」をオフにするか、対応する近接武器を選んでください。
+地狱武器的稀有度由所选难度的进度决定：进度靠后时是 4 或 3，较早时只能是 3（最早是 2）。请改稀有度后重新查找。	Crucible weapon rarity depends on progress at the selected difficulty: 4 or 3 later, 3 earlier, or 2 at the start. Adjust rarity and search again.	地獄武器の希少度は選んだ難易度の進行度で決まります。後半は4または3、序盤は3、最初期は2です。希少度を変更して再検索してください。
+请为这把地狱武器选择一个它在当前等级能出现的地狱武技，然后重新添加。	Choose a Crucible Art available to this weapon at its current level, then add it again.	この地獄武器で現在のレベルに対応する地獄武技を選び、追加し直してください。
+所选装备的搜索结果或生成条件已变化。请重新搜索并选择结果，再加入清单。	The selected equipment search result or generation conditions changed. Search again and choose a result before adding it.	選択した装備の検索結果または生成条件が変わりました。再検索して結果を選んでから、追加してください。

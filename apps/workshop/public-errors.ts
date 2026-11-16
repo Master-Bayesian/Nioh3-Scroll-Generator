@@ -399,6 +399,10 @@ export function publicError(message: string): string {
       "请为这把地狱武器选择一个它在当前等级能出现的地狱武技，然后重新添加。",
     ],
     [
+      /Choose a searched hell weapon before adding it|The searched equipment candidate is incomplete|The equipment generation conditions changed|The searched equipment candidate changed/,
+      "所选装备的搜索结果或生成条件已变化。请重新搜索并选择结果，再加入清单。",
+    ],
+    [
       /This seed gives the item no effects/,
       "这个种子在当前生成路线下未生成有效装备。请重新查找并选择其他结果。",
     ],

@@ -15,6 +15,7 @@ use nioh3_domain::equipment_generation::{
 };
 use nioh3_save::character::GenerationProgress;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 
 use crate::HostError;
 
@@ -23,6 +24,105 @@ static GENERATOR: OnceLock<Option<EquipmentGenerator<'static>>> = OnceLock::new(
 /// Outcomes listed for one search, best first.
 const DEFAULT_LIMIT: usize = 40;
 const MAX_LIMIT: usize = 200;
+
+/// Supported effect-generation contexts. Skill selection is independent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EquipmentGenerationContext {
+    RewardZeroFlags,
+    HellConversionZeroFlags,
+}
+
+impl EquipmentGenerationContext {
+    fn for_hell(hell: bool) -> Self {
+        if hell {
+            Self::HellConversionZeroFlags
+        } else {
+            Self::RewardZeroFlags
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::RewardZeroFlags => "reward_zero_flags",
+            Self::HellConversionZeroFlags => "hell_conversion_zero_flags",
+        }
+    }
+}
+
+/// Legacy ordinary requests remain compatible. New reviewed candidates bind
+/// the complete effect-generation input and the generated record before skill,
+/// serial and inventory-key selection by the existing save transaction.
+#[derive(Debug, Clone, Copy)]
+enum CandidateBinding<'a> {
+    LegacyOrdinary,
+    Reviewed {
+        digest: &'a str,
+        generation_level: u16,
+    },
+}
+
+fn candidate_binding(
+    requested: &Value,
+    context: EquipmentGenerationContext,
+    state: PlayerState,
+) -> Result<CandidateBinding<'_>, HostError> {
+    let bound = [
+        "candidate_digest",
+        "generation_context",
+        "generation_progress",
+        "generation_level",
+    ]
+    .iter()
+    .any(|field| requested.get(field).is_some());
+    if !bound {
+        return match context {
+            EquipmentGenerationContext::RewardZeroFlags => Ok(CandidateBinding::LegacyOrdinary),
+            EquipmentGenerationContext::HellConversionZeroFlags => Err(HostError::rejected(
+                "Choose a searched hell weapon before adding it",
+            )),
+        };
+    }
+    let digest = requested
+        .get("candidate_digest")
+        .and_then(Value::as_str)
+        .filter(|value| {
+            value.len() == 64
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
+        .ok_or_else(|| {
+            HostError::rejected("The searched equipment candidate is incomplete; search again")
+        })?;
+    if requested.get("generation_context").and_then(Value::as_str) != Some(context.name())
+        || requested.get("generation_progress") != Some(&json!(state.progress))
+    {
+        return Err(HostError::rejected(
+            "The equipment generation conditions changed; search again",
+        ));
+    }
+    let generation_level = param_u64(requested, "generation_level", u64::from(u16::MAX))? as u16;
+    Ok(CandidateBinding::Reviewed {
+        digest,
+        generation_level,
+    })
+}
+
+fn candidate_digest(
+    context: EquipmentGenerationContext,
+    state: PlayerState,
+    record: &[u8; GENERATED_RECORD_BYTES],
+) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"nioh3-equipment-effect-candidate-v1\0");
+    digest.update(context.name().as_bytes());
+    digest.update([state.type_class]);
+    for value in state.progress {
+        digest.update(value.to_le_bytes());
+    }
+    digest.update(record);
+    format!("{:x}", digest.finalize())
+}
 
 fn load(data_root: &Path) -> Option<EquipmentGenerator<'static>> {
     let resource: &'static EffectResourceBytes = Box::leak(Box::new(
@@ -315,7 +415,13 @@ pub fn equipment_seeds_json(data_root: &Path, params: &Value) -> Result<Value, H
         return Err(HostError::rejected("Ask for at most seven effects"));
     }
     let hell = params.get("hell").and_then(Value::as_bool) == Some(true);
-    let prepared = prepare(generator, item_id, rarity, state, hell)?;
+    let context = EquipmentGenerationContext::for_hell(hell);
+    let prepared = prepare(generator, item_id, rarity, state, context)?;
+    let header = prepared
+        .build_record(&[GeneratedEntry::EMPTY; 7], 0, level, plus)
+        .map_err(generation_error)?;
+    let stored_level = u16::from_le_bytes([header[6], header[7]]);
+    let stored_plus = u16::from_le_bytes([header[0x0A], header[0x0B]]);
     let found = search(generator, &prepared, &wanted, limit);
     let mut outcomes = Vec::new();
     for (_, seed) in &found.best {
@@ -323,15 +429,23 @@ pub fn equipment_seeds_json(data_root: &Path, params: &Value) -> Result<Value, H
         let record = prepared
             .build_record(&entries, *seed, level, plus)
             .map_err(generation_error)?;
-        outcomes.push(json!({ "seed": seed, "effects": record_effects(generator, &record) }));
+        outcomes.push(json!({
+            "seed": seed,
+            "candidate_digest": candidate_digest(context, state, &record),
+            "effects": record_effects(generator, &record),
+        }));
     }
     Ok(json!({
         "item_id": item_id,
         "rarity": rarity,
-        "level": level,
+        "level": stored_level,
+        "generation_level": level,
+        "plus": stored_plus,
         "difficulty": state.type_class,
+        "progress": state.progress,
         "hell": hell,
-        "hell_skills": if hell { natural_hell_skills(data_root, item_id, level) } else { Vec::new() },
+        "generation_context": context.name(),
+        "hell_skills": if hell { natural_hell_skills(data_root, item_id, stored_level) } else { Vec::new() },
         "seeds": SEED_COUNT,
         "empty": found.empty,
         "matches": found.matches,
@@ -356,28 +470,57 @@ pub fn generated_record(
         .min(u64::from(u16::MAX)) as u16;
     let seed = param_u64(requested, "seed", u64::from(u16::MAX))? as u16;
     let hell = requested.get("hell").and_then(Value::as_bool) == Some(true);
-    let prepared = prepare(generator, item_id, rarity, state, hell)?;
+    let context = EquipmentGenerationContext::for_hell(hell);
+    let binding = candidate_binding(requested, context, state)?;
+    let generation_level = match binding {
+        CandidateBinding::LegacyOrdinary => level,
+        CandidateBinding::Reviewed {
+            generation_level, ..
+        } => generation_level,
+    };
+    let prepared = prepare(generator, item_id, rarity, state, context)?;
     let entries = prepared.generate(seed);
     if entries.iter().all(|entry| entry.effect_id == EMPTY_ENTRY) {
         return Err(HostError::rejected(
             "This seed gives the item no effects; choose another",
         ));
     }
+    let record = prepared
+        .build_record(&entries, seed, generation_level, plus)
+        .map_err(generation_error)?;
+    if let CandidateBinding::Reviewed { digest, .. } = binding {
+        let stored_level = u16::from_le_bytes([record[6], record[7]]);
+        let stored_plus = u16::from_le_bytes([record[0x0A], record[0x0B]]);
+        if stored_level != level
+            || stored_plus != plus
+            || candidate_digest(context, state, &record) != digest
+            || requested.get("effects").is_some()
+        {
+            return Err(HostError::rejected(
+                "The searched equipment candidate changed; search again",
+            ));
+        }
+    }
     if !hell {
-        return prepared
-            .build_record(&entries, seed, level, plus)
-            .map_err(generation_error);
+        return Ok(record);
     }
     let skill = requested
         .get("hell_skill")
         .and_then(Value::as_u64)
         .and_then(|skill| u16::try_from(skill).ok())
-        .filter(|skill| natural_hell_skills(data_root, item_id, level).contains(skill))
+        .filter(|skill| {
+            natural_hell_skills(
+                data_root,
+                item_id,
+                u16::from_le_bytes([record[6], record[7]]),
+            )
+            .contains(skill)
+        })
         .ok_or_else(|| {
             HostError::rejected("Choose a hell martial skill this weapon can have at this level")
         })?;
     prepared
-        .build_hell_record(&entries, seed, level, plus, skill)
+        .build_hell_record(&entries, seed, generation_level, plus, skill)
         .map_err(generation_error)
 }
 
@@ -386,12 +529,13 @@ fn prepare<'g, 'a>(
     item_id: u16,
     rarity: u8,
     state: PlayerState,
-    hell: bool,
+    context: EquipmentGenerationContext,
 ) -> Result<PreparedItem<'g, 'a>, HostError> {
-    if hell {
-        generator.prepare_hell(item_id, rarity, state)
-    } else {
-        generator.prepare(item_id, rarity, state)
+    match context {
+        EquipmentGenerationContext::RewardZeroFlags => generator.prepare(item_id, rarity, state),
+        EquipmentGenerationContext::HellConversionZeroFlags => {
+            generator.prepare_hell(item_id, rarity, state)
+        }
     }
     .map_err(generation_error)
 }
@@ -450,7 +594,13 @@ pub fn replays_from_seed(
             type_class: difficulty,
             progress: progress.progress(difficulty),
         };
-        let Ok(prepared) = prepare(generator, item_id, rarity, state, hell) else {
+        let Ok(prepared) = prepare(
+            generator,
+            item_id,
+            rarity,
+            state,
+            EquipmentGenerationContext::for_hell(hell),
+        ) else {
             return false;
         };
         let entries = prepared.generate(seed);
@@ -824,7 +974,7 @@ mod tests {
         let root = data_root();
         let request = json!({
             "item_id": 0x4BF7, "rarity": 4, "level": 170, "difficulty": 3,
-            "progress": [6510, 7710, 0, 7710], "limit": 3, "hell": true,
+            "progress": [6510, 7710, 0, 7710], "limit": 3, "hell": true, "plus": 20,
             "want": [0x8641],
         });
         let found = equipment_seeds_json(&root, &request).unwrap();
@@ -843,6 +993,10 @@ mod tests {
         };
         let mut add = request.clone();
         add["seed"] = outcome["seed"].clone();
+        add["candidate_digest"] = outcome["candidate_digest"].clone();
+        add["generation_context"] = found["generation_context"].clone();
+        add["generation_progress"] = found["progress"].clone();
+        add["generation_level"] = found["generation_level"].clone();
         add["plus"] = json!(20);
         add["hell_skill"] = json!(0x3435);
         let record = generated_record(&root, &add, state).unwrap();

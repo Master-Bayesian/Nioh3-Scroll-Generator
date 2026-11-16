@@ -768,13 +768,45 @@
                     "role"
                   ]
                 }
+              },
+              "candidate_digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
               }
             },
             "required": [
               "seed",
-              "effects"
+              "effects",
+              "candidate_digest"
             ]
           }
+        },
+        "plus": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "progress": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
+        },
+        "generation_context": {
+          "enum": [
+            "reward_zero_flags",
+            "hell_conversion_zero_flags"
+          ],
+          "description": "Supported effect generation with zero drop-source flags; martial-skill selection is independent."
+        },
+        "generation_level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
         }
       },
       "required": [
@@ -785,7 +817,13 @@
         "seeds",
         "empty",
         "matches",
-        "outcomes"
+        "outcomes",
+        "plus",
+        "progress",
+        "generation_context",
+        "generation_level",
+        "hell",
+        "hell_skills"
       ]
     },
     "EffectValues": {
