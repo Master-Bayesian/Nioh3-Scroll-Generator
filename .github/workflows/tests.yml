@@ -180,3 +180,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -TestPath tools/tests -PytestArgument -q
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -ScriptPath tools/verify_selector_wraith_worker_e2e.py -ScriptArgument @('--worker', (Join-Path $env:CARGO_TARGET_DIR 'debug/nioh3-readonly-worker.exe'), '--output', (Join-Path $env:RUNNER_TEMP 'selector-wraith-worker-e2e'))
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Retain selector-state production E2E evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: selector-wraith-worker-e2e
+          path: ${{ runner.temp }}/selector-wraith-worker-e2e
+          if-no-files-found: warn

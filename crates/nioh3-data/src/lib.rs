@@ -17,7 +17,8 @@ use std::{
 
 use nioh3_domain::auxiliary::{SpecialRuleTables, RULE_CONFLICT_ROW_BYTES, SPECIAL_RULE_ROW_BYTES};
 use nioh3_domain::enemy::{
-    ContextTables, CurseGate, Eligibility, EnemyStateTables, RosterTables, ENEMY_TEXT_SHA256,
+    ContextTables, CurseGate, DescriptorSelectorSupport, Eligibility, EnemyStateTables,
+    RosterTables, ENEMY_TEXT_SHA256,
 };
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
@@ -52,6 +53,11 @@ pub const R4_RESOURCE_DIR_V202: &str = "r4_finalizer/pc_v2_02/resource_v1";
 pub const CURRENT_RESOURCE_VERSION: (u16, u16, u16, u16) = (2, 0, 2, 0);
 /// Enemy-state capture, relative to the supplied `data` root.
 pub const ENEMY_STATE_TABLES_PATH: &str = "enemy_states/pc_v2_01/native_tables.json";
+/// Frozen replay inputs independently compared with all 1022 current native
+/// enemy keys, all 20 declared placement slices and source configuration.
+/// See `data/enemy_states/pc_v2_02/selector_one_certification.json`.
+const PC202_SELECTOR_ONE_TABLE_SHA256: &str =
+    "1634c08164905d5a980d2ffcf9805c5c34055ad0480850669c77c10a385350c2";
 
 const AUXILIARY_SCHEMA: &str = "nioh3-auxiliary-generation-resource/v3";
 const R4_SCHEMA: &str = "nioh3-r4-finalizer-resource/v1";
@@ -336,7 +342,13 @@ pub fn load_preview_resources_for_file_version(
     let resource_dir = r4_resource_dir_for_file_version(file_version)?;
     let context = load_context_resource(&declared_resource_root(&root, resource_dir)?)?;
     let states_path = declared_path(&root, ENEMY_STATE_TABLES_PATH, "enemy-state capture")?;
-    let states = load_enemy_states_file(&states_path)?;
+    let state_bytes = fs::read(&states_path)?;
+    let mut states = parse_enemy_state_tables(&state_bytes)?;
+    if file_version == (2, 0, 2, 0)
+        && format!("{:x}", Sha256::digest(&state_bytes)) == PC202_SELECTOR_ONE_TABLE_SHA256
+    {
+        states.descriptor_selector_support = DescriptorSelectorSupport::Pc202SoloSelectorOne;
+    }
     Ok(PreviewResources {
         roster,
         context,
@@ -381,6 +393,7 @@ pub fn parse_enemy_state_tables(bytes: &[u8]) -> Result<EnemyStateTables, Box<dy
     let config = parse_config_row(&document)?;
 
     Ok(EnemyStateTables {
+        descriptor_selector_support: DescriptorSelectorSupport::DefaultOnly,
         text_sha256,
         positions_by_terrain: positions,
         eligibility,

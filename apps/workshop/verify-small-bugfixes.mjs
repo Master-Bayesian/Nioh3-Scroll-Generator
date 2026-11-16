@@ -85,11 +85,11 @@ function bridge({origin,recovery=false,theme='light'}){
   window.review={favorites:async()=>[],release:async()=>null,retain:forbidden,update:async()=>({phase:'current',canApply:true}),windowAction:async()=>null,log:async()=>null,copyLog:async()=>'',copyText:async()=>null,openLink:async()=>null,dataDirectory:async()=>({path:'D:/owned-ui-fixture'}),gameInstallation:async()=>({source:'selected',executable:'D:/owned-ui-fixture/Nioh3.exe',file_version:'2.0.2.0',restart_required:false,identity_error:null,compatibility:{status:'known',display_version:'PC v2.02',data_version:'PC v2.02',runtime_profile:'pc_v2_02',resource_directory:'r4_finalizer/pc_v2_02/resource_v1',features:{offline_scroll_generation:'supported',native_scroll_add:'supported',character_read_edit:'supported',native_equipment_add:'supported'},reason:'Read-only UI fixture'}}),preview:async params=>{
     state.previews.push(structuredClone(params));const result=await rpc('preview',params);
     if(state.hold){state.hold=false;state.held=true;await new Promise(resolve=>{state.release=resolve;});state.held=false;}
-    // These two controls test unknown versus confirmed-empty presentation.
+    // These controls test retained base-only, unknown and empty presentation.
     // They are not claimed as actual rosters generated for this seed.
     if(state.enemyControl!=='actual'){
       const controlled=structuredClone(result);
-      controlled.candidate.auxiliary.enemy_groups=[];
+      if(state.enemyControl!=='base_only')controlled.candidate.auxiliary.enemy_groups=[];
       for(const enemyState of Object.values(controlled.candidate.enemy_states)){
         enemyState.occurrences=[];
         enemyState.terrain=state.enemyControl==='empty'?0:null;
@@ -100,7 +100,7 @@ function bridge({origin,recovery=false,theme='light'}){
     return result;
   },auxiliary:forbidden,prepareCart:forbidden,exportFeedback:async()=>null,openSaveFolder:async()=>null,openBackupFolder:async()=>null};
 }
-const report={schema:'nioh3-small-bugfix-ui-e2e/v1',workerIdentity,workerBinary:core.binary,workerSha256:createHash('sha256').update(await readFile(core.binary)).digest('hex'),bundleSha256:createHash('sha256').update(js+css).digest('hex'),pass:false,scope:'Production React/CSS; real packaged-mode current-resource read-only worker; reported enemy roster from actual generation; scripted empty/unknown metadata controls and save recovery; no native window/game/user-save acceptance',checks:[],screenshots:[],source:{},requests:[],failures:[]};
+const report={schema:'nioh3-small-bugfix-ui-e2e/v1',workerIdentity,workerBinary:core.binary,workerSha256:createHash('sha256').update(await readFile(core.binary)).digest('hex'),bundleSha256:createHash('sha256').update(js+css).digest('hex'),pass:false,scope:'Production React/CSS; real packaged-mode current-resource read-only worker; reported normal-solo enemy roster from actual generation; explicit synthetic base-only/empty/unknown metadata controls and save recovery; no native window/game/user-save acceptance',checks:[],screenshots:[],source:{},requests:[],failures:[]};
 const check=(name,pass,details=null)=>{report.checks.push({name,pass:!!pass,details});assert(pass,name+': '+JSON.stringify(details));};
 let browser;
 let activePage;
@@ -151,15 +151,20 @@ try{
  const enemyNames=new Map(actualCatalog.enemy_options.map(enemy=>[enemy.lookup_key,enemy.name]));
  const actualNames=[...new Set(actual.candidate.auxiliary.enemy_groups.flatMap(group=>group.map(enemy=>enemyNames.get(enemy.lookup_key))))].sort();
  check('reported seed has the three enemies shown by the game',JSON.stringify(actualNames)===JSON.stringify(['烟烟罗','河童','赤河童'].sort()),actualNames);
- check('reported seed has known base enemies but unresolved detailed states',actual.candidate.enemy_states.solo.occurrences.length===0&&actual.candidate.enemy_states.solo.terrain===null);
+ check('reported seed has complete certified solo states',actual.candidate.enemy_states.solo.occurrences.length===5&&actual.candidate.enemy_states.solo.possessed_complete===true);
  report.reportedEnemyPreview=actual;
  await input.fill('141974638');await view.click();await current();
  const reportedCard=page.locator('.result-detail .scroll');
  const enemyRows=reportedCard.locator('.enemy-lines');
- await reportedCard.locator('[data-enemy-preview="base_only"]').waitFor();
- check('actual reported roster survives the empty detailed array',(await enemyRows.locator(':scope > span').allTextContents()).every(text=>actualNames.some(name=>text.includes(name)))&&await enemyRows.locator(':scope > span').count()===3);
- check('base-only roster does not invent possessed badges',await enemyRows.locator('.enemy-state-marker').count()===0);
- check('unresolved special states remain explicit',await enemyRows.locator('.enemy-preview-note').innerText()==='地狱附身状态暂未确认。');
+ await reportedCard.locator('[data-enemy-preview="detailed"]').waitFor();
+ const nativeOccurrences=actual.candidate.enemy_states.solo.occurrences;
+ const renderedOccurrences=await enemyRows.locator('.enemy-occurrence').allTextContents();
+ check('reported roster displays all five native occurrences in wave order',renderedOccurrences.length===5&&renderedOccurrences.every((text,index)=>text.startsWith(`${nativeOccurrences[index].wave_index+1} · ${enemyNames.get(nativeOccurrences[index].lookup_key)}`)),renderedOccurrences);
+ check('reported roster has exactly one confirmed possessed badge',await enemyRows.locator('.enemy-state-marker:not(.is-unknown)').count()===1&&await enemyRows.locator('.enemy-state-marker.is-unknown').count()===0);
+ const possessedRow=await enemyRows.locator('.enemy-occurrence').filter({has:page.locator('.enemy-state-marker:not(.is-unknown)')}).innerText();
+ check('confirmed possessed badge belongs to wave 2 Red Kappa',possessedRow.startsWith('2 · 赤河童'),possessedRow);
+ check('certified solo state removes the unavailable-state note',await enemyRows.locator('.enemy-preview-note').count()===0);
+ const certified='reported-certified-solo.png';await page.screenshot({path:join(output,certified),animations:'disabled'});report.screenshots.push(certified);
  for(const [control,kind,text]of [['unknown','unknown','敌人信息暂未确认。'],['empty','empty','无敌人']]){
    await page.evaluate(value=>{window.__bugfix.enemyControl=value;},control);await view.click();await current();
    await reportedCard.locator(`[data-enemy-preview="${kind}"]`).waitFor();
@@ -169,12 +174,17 @@ try{
  await input.fill('155277563');await view.click();await current();
  check('ordinary detailed roster keeps its per-occurrence presentation',await page.locator('.result-detail [data-enemy-preview="detailed"] .enemy-occurrence').count()>0);
  await input.fill('141974638');await view.click();await current();
+ // Keep the previous fallback/layout regression independent from the newly
+ // certified generated response; these are explicit owned metadata controls.
+ await page.evaluate(()=>{window.__bugfix.enemyControl='base_only';});await view.click();await current();
+ await reportedCard.locator('[data-enemy-preview="base_only"]').waitFor();
+ check('unavailable detailed states still preserve the three known base enemies',await enemyRows.locator(':scope > span').count()===3&&await enemyRows.locator('.enemy-state-marker').count()===0);
  const languages=[['English','en-US'],['日本語','ja-JP'],['简体中文','zh-CN']];
  const language=async(page,label,lang)=>{if(await page.evaluate(()=>document.documentElement.lang)===lang)return;await page.locator('.language-button').click();await page.locator('.side-popup').getByRole('button',{name:label,exact:true}).click();await page.waitForFunction(lang=>document.documentElement.lang===lang,lang);};
  for(const theme of ['light','dark'])for(const[label,lang]of languages){
    await language(page,label,lang);await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;},theme);
    check('known-ID '+theme+' '+lang+' has no horizontal overflow',await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
-   check('reported enemies stay visible in '+theme+' '+lang,await enemyRows.locator(':scope > span').count()===3&&await enemyRows.getAttribute('data-enemy-preview')==='base_only'&&(await reportedCard.locator('footer strong').innerText()).includes('141974638'));
+   check('known base fallback stays visible in '+theme+' '+lang,await enemyRows.locator(':scope > span').count()===3&&await enemyRows.getAttribute('data-enemy-preview')==='base_only'&&(await reportedCard.locator('footer strong').innerText()).includes('141974638'));
    check('unresolved state note is localized in '+theme+' '+lang,await enemyRows.locator('.enemy-preview-note').innerText()==={'zh-CN':'地狱附身状态暂未确认。','en-US':'Crucible Wraith status has not been confirmed.','ja-JP':'地獄憑き状態は未確認です。'}[lang]);
    const file='known-id-'+theme+'-'+lang+'.png';await page.screenshot({path:join(output,file),animations:'disabled'});report.screenshots.push(file);
    await page.setViewportSize({width:1100,height:740});await enemyRows.scrollIntoViewIfNeeded();
@@ -187,6 +197,7 @@ try{
    const minimum='enemy-preview-min-'+theme+'-'+lang+'.png';await page.screenshot({path:join(output,minimum),animations:'disabled'});report.screenshots.push(minimum);
    await page.setViewportSize({width:1440,height:1000});
  }
+ await page.evaluate(()=>{window.__bugfix.enemyControl='actual';});
  report.knownFixture=await page.evaluate(()=>({operations:window.__bugfix.operations,writes:window.__bugfix.writes}));
  check('known-ID flow caused no mutation requests',report.knownFixture.writes.length===0,report.knownFixture.writes);
  check('known-ID fixture has no unrelated compatibility failure',!(await page.locator('body').innerText()).includes('UNEXPECTED_COMPATIBILITY_RESULT'));

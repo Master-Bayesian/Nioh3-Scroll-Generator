@@ -1,0 +1,7 @@
+[
+  {"name":"wrong-build-or-target-admitted","overrides":{"RequireIdentity":false},"expected":"Invariant IdentityRequired is violated"},
+  {"name":"partial-native-trace-certified","overrides":{"RequireCompleteTrace":false},"expected":"Invariant TraceRequired is violated"},
+  {"name":"captured-state-replay-substitutes-for-seed","overrides":{"RequireSeedReplay":false},"expected":"Invariant SeededParityRequired is violated"},
+  {"name":"unknown-cleanup-certified","overrides":{"RequireCleanup":false},"expected":"Invariant VerifiedCleanupRequired is violated"},
+  {"name":"owned-fixture-claimed-native","overrides":{"RequireNativeEvidence":false},"expected":"Invariant OwnedFixtureNeverCertifiesNative is violated"}
+]

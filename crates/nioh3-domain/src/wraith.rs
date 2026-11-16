@@ -233,6 +233,7 @@ mod tests {
         let mut positions_by_terrain = BTreeMap::new();
         positions_by_terrain.insert(TERRAIN, positions);
         EnemyStateTables {
+            descriptor_selector_support: crate::enemy::DescriptorSelectorSupport::DefaultOnly,
             text_sha256: ENEMY_TEXT_SHA256.to_string(),
             positions_by_terrain,
             eligibility: BTreeMap::new(),

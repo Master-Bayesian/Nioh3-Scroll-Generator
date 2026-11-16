@@ -32,7 +32,7 @@ def new_bridge(port: int):
 def process_birth_filetime(pid: int) -> str:
     """Identity query only; never request target write/debug rights."""
     if sys.platform != "win32":
-        raise RuntimeError("strict v2.01 generator capture requires Windows process-birth validation")
+        raise RuntimeError("strict generator capture requires Windows process-birth validation")
     import ctypes
     from ctypes import wintypes
     k = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -58,6 +58,8 @@ def lua_literal(value: object) -> str:
     """A small explicit encoder, not JSON pasted into Lua table syntax."""
     if isinstance(value, dict):
         return "{" + ",".join("[" + lua_literal(str(k)) + "]=" + lua_literal(v) for k, v in value.items()) + "}"
+    if isinstance(value, (list, tuple)):
+        return "{" + ",".join(lua_literal(item) for item in value) + "}"
     if value is None:
         return "nil"
     if value is True:
@@ -79,6 +81,7 @@ PHASES = {
     "mode-upstream-sequence": "mode_upstream_sequence_ce.lua",
     "materialization-frontier": "materialization_frontier_ce.lua",
     "assignment-origin": "assignment_origin_ce.lua",
+    "selector-source-v202": "selector_source_v202_ce.lua",
     "late-mask": "late_mask_observer_ce.lua",
     "mission": "mission_entry_ce.lua",
     "selector": "selector_summary_ce.lua",
@@ -89,6 +92,7 @@ PHASES = {
     "config-draw": "config_and_draw_count_ce.lua",
 }
 STRICT_V201_PHASES = {"mode-transaction-join", "assignment-origin", "mode-upstream", "mode-upstream-sequence", "materialization-frontier"}
+STRICT_CAPTURE_PHASES = STRICT_V201_PHASES | {"selector-source-v202"}
 WINDOWED_PHASES = {"mode-transaction-join", "mode-upstream-sequence", "materialization-frontier"}
 EXPECTED_EXECUTABLE_SHA256 = "4047ECB623F3AE033F7D6F3637CD1C5408C72A89A038463268A7C9AC5C394159"
 SEQUENCE_OBSERVATION_SECONDS = 120.0
@@ -161,7 +165,10 @@ def call_session(
     return result
 
 
-def verify_target(attached: dict[str, Any], requested_pid: int) -> dict[str, Any]:
+def verify_target(
+    attached: dict[str, Any], requested_pid: int,
+    expected_sha256: str = EXPECTED_EXECUTABLE_SHA256,
+) -> dict[str, Any]:
     if attached.get("attached") is not True:
         raise RuntimeError("Cheat Engine did not report an attached target")
     actual_pid = int(attached.get("process_id", 0) or 0)
@@ -174,10 +181,10 @@ def verify_target(attached: dict[str, Any], requested_pid: int) -> dict[str, Any
     if not image_path.is_file():
         raise RuntimeError(f"Target executable path is unavailable: {image_path}")
     executable_sha256 = sha256_file(image_path)
-    if executable_sha256 != EXPECTED_EXECUTABLE_SHA256:
+    if executable_sha256 != expected_sha256:
         raise RuntimeError(
             "Refusing an unapproved Nioh3.exe build: "
-            f"{executable_sha256} != {EXPECTED_EXECUTABLE_SHA256}"
+            f"{executable_sha256} != {expected_sha256}"
         )
     module_base = attached.get("module_base")
     if isinstance(module_base, int):
@@ -260,6 +267,7 @@ NIOH3_POSSESSED_RUN_ID = nil
 NIOH3_POSSESSED_STOP_ON_FIRST_FINAL = nil
 NIOH3_BREAKPOINT_LIFECYCLE_PATH = nil
 NIOH3_POSSESSED_COMMON_PATH = nil
+NIOH3_SELECTOR_SOURCE_PROFILE = nil
 return {initialized=true, debugger_active=debugging, debugger_broken=broken,
         debugger_broken_source=brokenSource, breakpoints=inventory or {}}
 """
@@ -408,12 +416,12 @@ def reconnect_cleanup(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Arm one read-only PC v2.01 possessed-enemy observer phase.")
+    parser = argparse.ArgumentParser(description="Arm one version-pinned, read-only possessed-enemy observer phase.")
     parser.add_argument("--pid", type=int, required=True, help="PID of an already-running Nioh3.exe process")
     parser.add_argument("--phase", choices=sorted(PHASES), required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--seed", type=lambda x: int(x, 0),
-                        help="Required for strict v2.01 generator phases; exact displayed seed, decimal or 0x")
+                        help="Required for strict generator phases; exact displayed seed, decimal or 0x")
     parser.add_argument(
         "--mode-label",
         choices=("normal-solo", "one-person-expedition"),
@@ -422,6 +430,8 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--session-id", help="Exact connected CE bridge session; required when more than one exists")
     parser.add_argument("--port", type=int, default=5556, help="CE bridge port")
+    parser.add_argument("--bridge-python-root", type=Path,
+                        help="Explicit optional bridge package root containing ce_mcp_server/bridge.py")
     parser.add_argument("--poll-seconds", type=float, default=1.0)
     parser.add_argument("--timeout-seconds", type=float, default=210.0)
     parser.add_argument(
@@ -430,10 +440,23 @@ def main() -> None:
         help="For a late-mask negative control, stop after the first complete final event even when tracked fields are zero",
     )
     args = parser.parse_args()
-    if args.phase in STRICT_V201_PHASES and not 1 <= len(args.run_id) <= 128:
-        parser.error("strict v2.01 phase run ID must contain 1..128 characters")
-    if args.phase in STRICT_V201_PHASES and (args.seed is None or not 0 <= args.seed <= 0xFFFFFFFF):
+    if args.phase in STRICT_CAPTURE_PHASES and not 1 <= len(args.run_id) <= 128:
+        parser.error("strict phase run ID must contain 1..128 characters")
+    if args.phase in STRICT_CAPTURE_PHASES and (args.seed is None or not 0 <= args.seed <= 0xFFFFFFFF):
         parser.error(f"{args.phase} requires --seed in uint32 range")
+    if args.phase == "selector-source-v202" and args.mode_label not in (None, "normal-solo"):
+        parser.error("selector-source-v202 currently requires normal-solo")
+    if args.bridge_python_root is not None:
+        bridge_root = args.bridge_python_root.resolve()
+        if not (bridge_root / "ce_mcp_server" / "bridge.py").is_file():
+            parser.error("--bridge-python-root must contain ce_mcp_server/bridge.py")
+        sys.path.insert(0, str(bridge_root))
+    selector_profile = (
+        json.loads((CAPTURE_DIR / "selector_source_v202_locators.json").read_text(encoding="utf-8"))
+        if args.phase == "selector-source-v202" else None
+    )
+    expected_sha = selector_profile["exe_sha256"] if selector_profile else EXPECTED_EXECUTABLE_SHA256
+    expected_file_bytes = selector_profile["exe_size"] if selector_profile else 77814240
 
     if args.phase in WINDOWED_PHASES and args.stop_on_first_final:
         parser.error(f"{args.phase} must not stop on the first generation")
@@ -457,7 +480,9 @@ def main() -> None:
         "phase_file": phase_path.name,
         "phase_sha256": sha256_file(phase_path),
         "common_sha256": (sha256_file(CAPTURE_DIR / "observer_common_ce.lua")
-                          if args.phase not in STRICT_V201_PHASES else None),
+                          if args.phase not in STRICT_CAPTURE_PHASES else None),
+        "profile_sha256": (sha256_file(CAPTURE_DIR / "selector_source_v202_locators.json")
+                           if selector_profile else None),
         "lifecycle_sha256": sha256_file(ROOT / "research" / "owned_breakpoint_lifecycle_ce.lua"),
     }
     try:
@@ -483,11 +508,21 @@ def main() -> None:
                 bridge, session_id, "attach", "ce.attach_process", {"process_id": args.pid}, 30.0
             )
         attached = call_session(bridge, session_id, "target identity", "ce.get_attached_process", {}, 30.0)
-        target_identity = verify_target(attached, args.pid)
-        if args.phase in STRICT_V201_PHASES:
-            if target_identity["image_size"] != 77814240:
-                raise RuntimeError("v2.01 executable size mismatch")
+        target_identity = verify_target(attached, args.pid, expected_sha)
+        if args.phase in STRICT_CAPTURE_PHASES:
+            if target_identity["image_size"] != expected_file_bytes:
+                raise RuntimeError("Pinned executable file-size mismatch")
             target_identity["creation_filetime"] = process_birth_filetime(args.pid)
+        if selector_profile is not None and target_identity.get("module_base") is None:
+            resolved_base = call_session(
+                bridge, session_id, "resolve target module identity", "ce.lua_exec",
+                {"script": "local b=assert(getAddressSafe('Nioh3.exe')); return {module_base=string.format('0x%X',b)}"},
+                30.0,
+            )
+            value = result_value(resolved_base)
+            if not isinstance(value, dict) or not isinstance(value.get("module_base"), str):
+                raise RuntimeError("Target module identity unavailable")
+            target_identity["module_base"] = value["module_base"]
 
         # A phase is a transaction boundary.  Do this after target identity
         # validation and before publishing any new observer globals.
@@ -497,9 +532,11 @@ def main() -> None:
         )
 
         strict_bootstrap = ""
-        if args.phase in STRICT_V201_PHASES:
+        if args.phase in STRICT_CAPTURE_PHASES:
             strict_bootstrap = ("NIOH3_POSSESSED_TARGET_IDENTITY=" + lua_literal(target_identity) + ";"
                                 + f"NIOH3_ASSIGNMENT_SEED={args.seed};")
+        if selector_profile is not None:
+            strict_bootstrap += "NIOH3_SELECTOR_SOURCE_PROFILE=" + lua_literal(selector_profile) + ";"
         if args.mode_label is not None:
             strict_bootstrap += f"NIOH3_MATERIALIZATION_MODE_LABEL={lua_literal(args.mode_label)};"
         bootstrap = (
@@ -520,16 +557,16 @@ def main() -> None:
                 expected_pid=args.pid,
                 expected_module_base=target_identity.get("module_base") if target_identity else None,
                 expected_creation_filetime=target_identity.get("creation_filetime") if target_identity else None,
-                expected_breakpoint_count=4 if args.phase in STRICT_V201_PHASES else None,
+                expected_breakpoint_count=4 if args.phase in STRICT_CAPTURE_PHASES else None,
             )}, 30.0,
         )
         if not arm_verified(
             arm_verification,
             args.run_id,
-            expected_breakpoint_count=4 if args.phase in STRICT_V201_PHASES else None,
+            expected_breakpoint_count=4 if args.phase in STRICT_CAPTURE_PHASES else None,
         ):
             raise RuntimeError("Observer arm verification failed: identity, ownership, or debugger state mismatch")
-        if args.phase in STRICT_V201_PHASES and process_birth_filetime(args.pid) != target_identity["creation_filetime"]:
+        if args.phase in STRICT_CAPTURE_PHASES and process_birth_filetime(args.pid) != target_identity["creation_filetime"]:
             raise RuntimeError("Target process replaced during observer arm: refusing capture/retargeting")
         print("ARMED", json.dumps(armed, ensure_ascii=False), flush=True)
 
@@ -539,7 +576,7 @@ def main() -> None:
             if args.phase in WINDOWED_PHASES else None
         )
         while time.monotonic() < deadline:
-            if args.phase in STRICT_V201_PHASES:
+            if args.phase in STRICT_CAPTURE_PHASES:
                 if process_birth_filetime(args.pid) != target_identity["creation_filetime"]:
                     raise RuntimeError("Target process replaced: refusing capture/retargeting")
             close_sequence_window = (
@@ -560,6 +597,7 @@ def main() -> None:
             )
             payload = {
                 "capture_metadata": {
+                    "evidence_kind": "native_debugger_observation",
                     "captured_at_utc": datetime.now(timezone.utc).isoformat(),
                     "phase": args.phase,
                     "run_id": args.run_id,
@@ -590,6 +628,7 @@ def main() -> None:
                                        + str(value.get("error") or value.get("stop_reason")))
                 expected_stop = {
                     "assignment-origin": "all_generated_tasks_linked",
+                    "selector-source-v202": "all_generated_tasks_linked",
                     "mode-upstream": "upstream_request_bound",
                 }.get(args.phase)
                 if expected_stop is not None and (
@@ -610,7 +649,7 @@ def main() -> None:
                 },
                 30.0,
             )
-            if args.phase in STRICT_V201_PHASES:
+            if args.phase in STRICT_CAPTURE_PHASES:
                 raise TimeoutError(f"{args.phase} capture did not finish before the runner deadline")
         print(f"SAVED {output}", flush=True)
     except BaseException as exc:
