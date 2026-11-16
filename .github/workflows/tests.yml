@@ -107,7 +107,10 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: equipment-seed-host-e2e
-          path: ${{ runner.temp }}/nioh3-migration-build/deliverables/hell-weapon-seed-search-20261116
+          path: |
+            ${{ runner.temp }}/nioh3-migration-build/deliverables/hell-weapon-seed-search-20261116
+            ${{ runner.temp }}/nioh3-migration-build/deliverables/codex-v083-missing-features-20260930/backend/completion-host-e2e.json
+            ${{ runner.temp }}/nioh3-migration-build/deliverables/codex-v083-missing-features-20260930/backend/completion-host-transcript.bin
           if-no-files-found: warn
 
   equipment-seed-browser:
