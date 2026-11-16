@@ -2529,7 +2529,7 @@ dependencies = [
 
 [[package]]
 name = "nioh3-studio"
-version = "0.8.11"
+version = "0.8.12"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -3449,7 +3449,7 @@ dependencies = [
 
 [[package]]
 name = "regex-syntax"
-version = "0.8.11"
+version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
