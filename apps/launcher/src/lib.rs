@@ -788,7 +788,7 @@ fn prune_locked(root: &Path, current: &str) {
             .unwrap_or(UNIX_EPOCH);
         caches.push((name, path, used, marker.unpacked_bytes));
     }
-    caches.sort_by(|a, b| b.2.cmp(&a.2));
+    caches.sort_by_key(|entry| std::cmp::Reverse(entry.2));
     let mut kept = 0;
     let mut bytes = 0u64;
     for (name, path, _, size) in caches {
