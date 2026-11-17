@@ -1,0 +1,15 @@
+[
+  { "name": "inherit-scroll-u16-cap", "overrides": { "InheritedU16LimitFault": true }, "expected": "Invariant ValidU32KeysAreAccepted is violated" },
+  { "name": "accept-zero-key", "overrides": { "AllowZeroKeyFault": true }, "expected": "Invariant ZeroKeyIsRejected is violated" },
+  { "name": "accept-exhausted-u32-key", "overrides": { "AllowMaxKeyFault": true }, "expected": "Invariant ExhaustedKeyIsRejected is violated" },
+  { "name": "wrap-last-allowed-successor", "overrides": { "WrapCounterFault": true }, "expected": "Invariant NoCounterWrap is violated" },
+  { "name": "skip-counter-advance", "overrides": { "SkipAdvanceFault": true }, "expected": "Invariant NextKeyIsSuccessor is violated" },
+  { "name": "truncate-key-to-u16", "overrides": { "TruncateKeyFault": true }, "expected": "Invariant ExactKeyBytesPreserved is violated" },
+  { "name": "renumber-high-key", "overrides": { "RenumberKeyFault": true }, "expected": "Invariant AllocationUsesSourceKey is violated" },
+  { "name": "ignore-source-ownership", "overrides": { "IgnoreSourceFault": true }, "expected": "Invariant SourceOwnershipPreserved is violated" },
+  { "name": "ignore-counter-ownership", "overrides": { "IgnoreCounterFault": true }, "expected": "Invariant CounterOwnershipPreserved is violated" },
+  { "name": "ignore-slot-ownership", "overrides": { "IgnoreSlotFault": true }, "expected": "Invariant SlotOwnershipPreserved is violated" },
+  { "name": "rewrite-effects", "overrides": { "RewriteEffectsFault": true }, "expected": "Invariant EffectsAreUnchanged is violated" },
+  { "name": "rewrite-other-records", "overrides": { "RewriteOtherRecordsFault": true }, "expected": "Invariant OtherRecordsAreUnchanged is violated" },
+  { "name": "write-after-rejection", "overrides": { "WriteOnRejectionFault": true }, "expected": "Invariant RejectedOperationNeverWrites is violated" }
+]

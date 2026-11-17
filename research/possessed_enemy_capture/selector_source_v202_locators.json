@@ -1,0 +1,106 @@
+{
+  "schema": "nioh3.selector-source-v202.locators.v1",
+  "version": "2.0.2.0",
+  "exe_sha256": "E22C4A635E4EC1E27A177B76E27D7F6A637F426C0ED3928B60F5693BC52AE130",
+  "exe_size": 77830112,
+  "retained_loaded_text_sha256": "4CEC8FB6AD867417A76DF8201C1D4F54172443884910463C1953ACAD91AE6C29",
+  "retained_loaded_text_rva": 4096,
+  "retained_loaded_text_size": 59638784,
+  "scope": "Historical loaded-code identity; all signatures must also match the current process before arming. No native selector parity is implied.",
+  "sites": {
+    "origin_entry": {
+      "rva": "0x102a270",
+      "hex": "48895C240848896C241048897424185741544155415641574883EC50488B01440FB6FA0F297424400F297C2430440F294424204C8B304C8B60084D3BF40F"
+    },
+    "trial_decision": {
+      "rva": "0x102a420",
+      "hex": "3BC77E50488B3D05FA5803"
+    },
+    "task_copy": {
+      "rva": "0x1bf61ac",
+      "hex": "0F1187800000008B43108987900000"
+    },
+    "task_linked": {
+      "rva": "0x1c27aca",
+      "hex": "41C686F400000001498D9EFC00000041C686E50000"
+    }
+  },
+  "admission_anchors": {
+    "generator_prologue": {
+      "rva": "0x102bdb0",
+      "hex": "48895C2408488974241048897C2418554154415541564157488DAC2410EAFFFFB8F0160000"
+    },
+    "descriptor_selector": {
+      "rva": "0x102c076",
+      "hex": "440FB6A550160000"
+    },
+    "descriptor_flag0": {
+      "rva": "0x102c0c7",
+      "hex": "80BD5816000000"
+    },
+    "descriptor_flag1": {
+      "rva": "0x102c06e",
+      "hex": "440FB6AD60160000"
+    },
+    "descriptor_flag2": {
+      "rva": "0x102c3f4",
+      "hex": "440FB6AD68160000"
+    },
+    "source_call0": {
+      "rva": "0x102e7c3",
+      "hex": "E8A8BAFFFF"
+    },
+    "source_call1": {
+      "rva": "0x102e7da",
+      "hex": "E891BAFFFF"
+    },
+    "parent_call0": {
+      "rva": "0x20e509a",
+      "hex": "E8116DF4FE"
+    },
+    "parent_call1": {
+      "rva": "0x20e5119",
+      "hex": "E8A2FEFFFF"
+    },
+    "normal_request_call": {
+      "rva": "0x223b10b",
+      "hex": "E8D89FEAFF"
+    },
+    "constructor_call": {
+      "rva": "0x1c27a98",
+      "hex": "E8B3E6FCFF"
+    }
+  },
+  "parent_returns": [
+    "0x20E509F",
+    "0x20E511E",
+    "0x223B110"
+  ],
+  "source_returns": [
+    "0x102E7C8",
+    "0x102E7DF"
+  ],
+  "constructor_return": "0x1C27A9D",
+  "frame": {
+    "seed": 5640,
+    "context_key": 5696,
+    "allow_class1": 5704,
+    "descriptor_selector": 5712,
+    "descriptor_flags": [
+      5720,
+      5728,
+      5736
+    ],
+    "parent_rng": 192
+  },
+  "globals": {
+    "parameter_manager": 73113136,
+    "rng_manager": 74815760,
+    "rng_primary": 72104840,
+    "rng_secondary": 72104848,
+    "rng_fallback": 72104836,
+    "rng_secondary_owner": 73153104,
+    "task_manager": 73113152,
+    "normal_request": 73122880
+  }
+}

@@ -64,3 +64,25 @@ is now published in [v0.8.11](../releases/v0.8.11.md). The actual outer-EXE gate
 required source/hash-bound member of the thirteen-report release inventory.
 The adjacent release record identifies the immutable product commit and exact
 public file hash; the external task folders retain native captures and receipts.
+
+## Selector-state follow-up on the development branch
+
+The follow-up completes the PC v2.02 NG3 normal-solo selector-1 state path.
+Two independent native positive entries and one negative entry matched the
+seeded roster, source RNG/trials and persistent task flags, with owner visual
+confirmation and verified cleanup. A separate read-only comparison matched all
+1022 enemy keys/eligibility gates, all 20 declared placement slices and source
+configuration against the retained replay inputs.
+
+The reported ID now returns five detailed solo occurrences and marks only its
+wave-2 Red Kappa possessed. `DescriptorSelectorSupport` restricts this extension
+to the verified version/mode/selector and exact table bytes. Cache identity is
+revised so old unavailable-state previews cannot silently remain current.
+Nonzero expedition, other versions, changed tables and Curse remain outside
+this new certification. The original base-roster fallback is retained.
+
+The sanitized native controls are in
+`data/enemy_states/pc_v2_02/selector_one_certification.json`; the collection and
+reproduction procedure is in
+`research/possessed_enemy_capture/SELECTOR_V202.md`. This follow-up is separate
+from the already published v0.8.11 presentation repair.

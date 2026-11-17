@@ -67,17 +67,21 @@ try {
   await page.getByRole('spinbutton', {name: '推荐等级', exact: true}).fill('330');
   await preview(141974638);
   const names = await enemies.locator(':scope > span').allTextContents();
-  check('the reported game enemies are visible', names.length === 3 && ['烟烟罗', '河童', '赤河童'].every(name => names.some(text => text.includes(name))), names);
-  check('unknown state does not produce possessed badges', await enemies.locator('.enemy-state-marker').count() === 0);
+  check('the reported game enemies and all occurrences are visible', names.length === 5 && ['烟烟罗', '河童', '赤河童'].every(name => names.some(text => text.includes(name))), names);
+  const expectedOccurrences = ['1 · 赤河童', '1 · 河童', '2 · 河童', '2 · 赤河童', '3 · 烟烟罗'];
+  check('reported occurrences retain native wave order', names.every((name, index) => name.startsWith(expectedOccurrences[index])), names);
+  check('certified solo state produces exactly one confirmed possessed badge', await enemies.locator('.enemy-state-marker:not(.is-unknown)').count() === 1 && await enemies.locator('.is-unknown').count() === 0);
+  const possessedRow = await enemies.locator('.enemy-occurrence').filter({has: page.locator('.enemy-state-marker:not(.is-unknown)')}).innerText();
+  check('confirmed possessed badge belongs to wave 2 Red Kappa', possessedRow.startsWith('2 · 赤河童'), possessedRow);
   await preview(155277563);
   check('ordinary detailed preview is preserved', await enemies.getAttribute('data-enemy-preview') === 'detailed' && await enemies.locator('.enemy-occurrence').count() > 0);
   await preview(141974638);
   const languages = [
-    ['简体中文', 'zh-CN', '地狱附身状态暂未确认。'],
-    ['English', 'en-US', 'Crucible Wraith status has not been confirmed.'],
-    ['日本語', 'ja-JP', '地獄憑き状態は未確認です。'],
+    ['简体中文', 'zh-CN', '地狱附身'],
+    ['English', 'en-US', 'Crucible Wraith'],
+    ['日本語', 'ja-JP', '地獄憑き'],
   ];
-  for (const theme of ['light', 'dark']) for (const [label, lang, note] of languages) {
+  for (const theme of ['light', 'dark']) for (const [label, lang, marker] of languages) {
     if (await page.evaluate(() => document.documentElement.lang) !== lang) {
       await page.locator('.language-button').click();
       await page.locator('.side-popup').getByRole('button', {name: label, exact: true}).click();
@@ -87,7 +91,7 @@ try {
     for (const geometry of ['normal', 'maximized']) {
       if (geometry === 'maximized') { await page.evaluate(() => window.review.windowAction('maximize')); await pause(300); }
       check('known roster ' + theme + '/' + lang + '/' + geometry,
-        await enemies.getAttribute('data-enemy-preview') === 'base_only' && await enemies.locator(':scope > span').count() === 3 && await enemies.locator('.enemy-preview-note').innerText() === note);
+        await enemies.getAttribute('data-enemy-preview') === 'detailed' && await enemies.locator('.enemy-occurrence').count() === 5 && await enemies.locator('.enemy-state-marker').getAttribute('aria-label') === marker && await enemies.locator('.enemy-preview-note').count() === 0);
       check('document fits ' + theme + '/' + lang + '/' + geometry,
         await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
       const file = `enemies-${theme}-${lang}-${geometry}.png`;

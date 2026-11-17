@@ -195,9 +195,9 @@ pub fn free_equipment_slot_unequipping(record: &[u8]) -> Result<Vec<u8>, SaveRea
     Ok(freed)
 }
 
-/// The save-wide counter of the next inventory key (`+0x1C`), a u32 whose
-/// value stays within u16 (PC v2.02: one blacksmith purchase took `0xC86F`
-/// and left `0xC870`).
+/// The save-wide u32 counter of the next equipment inventory key (`+0x1C`).
+/// Native 0x54C380 and long-running PC v2.02 saves use values above u16;
+/// the separate scroll inventory-key limit must not restrict equipment.
 pub const NEXT_INVENTORY_KEY_OFFSET: usize = 0x36_E226;
 /// The save-wide counter of the next generation serial (`+0x28`); opening a
 /// shop advances it past its whole stock.
@@ -1117,9 +1117,11 @@ pub fn apply_character_edits(
                         ),
                     });
                 }
-                // The key counter holds a u16; never step it past what the game
-                // itself can store.
-                if *key == 0 || *key >= u32::from(u16::MAX) {
+                // Equipment keys and this counter are u32, matching the native
+                // 0x54C380 setter already used by live addition. The separate
+                // scroll allocator's u16 limit does not apply here. Do not
+                // invent behavior for zero or counter overflow.
+                if *key == 0 || *key == u32::MAX {
                     return Err(SaveReadError::AllocationExhausted {
                         kind: "inventory key",
                     });
@@ -1774,10 +1776,27 @@ mod free_slot_tests {
             &[add(first, 0x100, 0x5000), add(first, 0x101, 0x5001)]
         )
         .is_err());
-        assert!(
-            apply_character_edits(&plain_with_counters(0xFFFF, 1), &[add(first, 0xFFFF, 1)])
-                .is_err()
-        );
+        assert!(apply_character_edits(
+            &plain_with_counters(u32::MAX, 1),
+            &[add(first, u32::MAX, 1)]
+        )
+        .is_err());
+        for key in [0xFFFF, 0x1_0000, 255_761, u32::MAX - 1] {
+            let source = plain_with_counters(key, 1);
+            let (added, _) = apply_character_edits(&source, &[add(first, key, 1)]).unwrap();
+            assert_eq!(equipment_counters(&added).unwrap(), (key + 1, 2));
+            assert_eq!(
+                equipment_fields(equipment_record(&added, first).unwrap())
+                    .unwrap()
+                    .inventory_key,
+                key
+            );
+            assert_eq!(
+                equipment_record(&source, 1).unwrap(),
+                equipment_record(&added, 1).unwrap()
+            );
+        }
+        assert!(apply_character_edits(&plain_with_counters(0, 1), &[add(first, 0, 1)]).is_err());
     }
 }
 

@@ -29,6 +29,15 @@ def unwrap(x):
     return x
 
 
+def normalized_identity(value):
+    # The native bridge can omit a module base; Python records None while Lua
+    # drops the nil-valued key. Normalize only that optional transport field.
+    result = dict(value)
+    if result.get('module_base') is None:
+        result.pop('module_base', None)
+    return result
+
+
 def raw_descriptor(d):
     raw = bytes.fromhex(d['raw_hex'])
     require(len(raw) == 20, 'invalid descriptor length')
@@ -74,20 +83,31 @@ def prepared(origin):
     return waves
 
 
-def validate(capture: dict, cleanup: dict) -> dict:
+def validate(capture: dict, cleanup: dict, *, profile: dict | None = None) -> dict:
+    # The default remains the original v2.01 contract. A separate caller must
+    # explicitly select the independently pinned v2.02 research profile.
+    sites = SITES if profile is None else {
+        name: int(site['rva'], 16) for name, site in profile['sites'].items()
+    }
+    schema = 'nioh3.assignment-origin.v1' if profile is None else 'nioh3.selector-source-v202.v1'
+    expected_sha = EXPECTED_SHA if profile is None else profile['exe_sha256']
+    expected_size = 77814240 if profile is None else profile['exe_size']
+    parent_returns = (['0x20E1943','0x20E19C2','0x2237978'] if profile is None
+                      else profile['parent_returns'])
+    constructor_return = '0x1C24635' if profile is None else profile['constructor_return']
     p = unwrap(capture)
-    require(p.get('schema') == 'nioh3.assignment-origin.v1', 'wrong observer schema')
+    require(p.get('schema') == schema, 'wrong observer schema')
     require(p.get('read_only') is True and p.get('writes_game_memory') is False, 'wrong observer mode')
     require(p.get('active') is False and not p.get('error'), 'observer active or failed')
     require(p.get('stop_reason') == 'all_generated_tasks_linked', 'incomplete capture stop')
     ident = p['identity']
-    require(ident.get('executable_sha256') == EXPECTED_SHA and ident.get('image_size') == 77814240,
+    require(ident.get('executable_sha256') == expected_sha and ident.get('image_size') == expected_size,
             'wrong executable identity')
     require(isinstance(ident.get('creation_filetime'), str) and ident['creation_filetime'].isdigit(),
             'process creation identity missing')
     q = cleanup.get('cleanup_metadata', {})
     require(q.get('verified') is True and q.get('run_id') == p['run_id'], 'cleanup unverified/mismatched run')
-    require(q.get('target') == ident, 'cleanup target differs')
+    require(normalized_identity(q.get('target', {})) == normalized_identity(ident), 'cleanup target differs')
     cp = unwrap(cleanup)
     require(cp['probe'].get('active') is False and cp['probe'].get('cleanup_pending') is False,
             'cleanup still active/pending')
@@ -98,13 +118,13 @@ def validate(capture: dict, cleanup: dict) -> dict:
     es = p.get('events', [])
     require(4 <= len(es) <= 256, 'empty/truncated/oversized event vector')
     require([e['sequence'] for e in es] == list(range(1, len(es) + 1)), 'noncontiguous event order')
-    require(all(e['site'] in SITES and int(e['rva'],16) == SITES[e['site']] for e in es), 'wrong event site')
+    require(all(e['site'] in sites and int(e['rva'],16) == sites[e['site']] for e in es), 'wrong event site')
     require(len({e['thread_id'] for e in es}) == 1 and es[0]['thread_id'] > 0, 'mixed/unknown debug-event threads')
     origins = [e for e in es if e['site'] == 'origin_entry']
     require(1 <= len(origins) <= 2 and [e['selector'] for e in origins] in ([0], [0,1]), 'invalid selector pass order')
     a = origins[0]
     require(a is es[0] and a['seed'] == p['target_seed'], 'missing first origin or seed mismatch')
-    require(a['parent_returns'] == ['0x20E1943','0x20E19C2','0x2237978'], 'origin ancestry unproven')
+    require(a['parent_returns'] == parent_returns, 'origin ancestry unproven')
     context_row = bytes.fromhex(a['generator_context_row']['raw_hex'])
     require(len(context_row) == 0x30, 'invalid generator context row')
     require(a['generator_context_row']['path'] == context_row[0x29], 'generator context path mismatch')
@@ -145,7 +165,8 @@ def validate(capture: dict, cleanup: dict) -> dict:
     require(len(initial) == len(a['descriptors']), 'duplicate source pointers')
     require(len({d['spawn'] for d in initial.values()}) == len(initial), 'duplicate spawn identifiers')
     for t, x in zip(trials, expected_trials):
-        d = t['descriptor']; raw_descriptor(d)
+        d = t['descriptor']
+        raw_descriptor(d)
         require(d['address'] in initial and d['raw_hex'] == initial[d['address']]['raw_hex'], 'wrong source during trial')
         require((t['selector'],d['spawn'],d['wave_index'],d['position']) ==
                 (x['selector'],x['spawn'],x['wave_index'],x['position']), 'trial order/eligibility mismatch')
@@ -171,8 +192,9 @@ def validate(capture: dict, cleanup: dict) -> dict:
         co, li = copy_by[d['address']], link_by[d['address']]
         require(co['source']['raw_hex'].lower()==expected and li['source']['raw_hex'].lower()==expected,
                 'upstream flag/descriptor does not match assignment')
-        raw_descriptor(co['source']);raw_descriptor(li['source'])
-        require(co['return_rva']=='0x1C24635', 'constructor caller differs')
+        raw_descriptor(co['source'])
+        raw_descriptor(li['source'])
+        require(co['return_rva']==constructor_return, 'constructor caller differs')
         require(co['sequence']>max(e['sequence'] for e in origins+trials) and li['sequence']>co['sequence'],
                 'copy temporal provenance broken')
         require(li['manager_membership'] is True and li['copy_seen'] is True, 'persistent task not owned/fresh')
@@ -199,13 +221,16 @@ def validate(capture: dict, cleanup: dict) -> dict:
 
 def main():
     pa=argparse.ArgumentParser(description=__doc__)
-    pa.add_argument('capture',type=Path);pa.add_argument('--cleanup',type=Path,required=True)
+    pa.add_argument('capture',type=Path)
+    pa.add_argument('--cleanup',type=Path,required=True)
     args=pa.parse_args()
     try:
         r=validate(json.loads(args.capture.read_text(encoding='utf-8')),
                    json.loads(args.cleanup.read_text(encoding='utf-8')))
     except (ValueError,KeyError,TypeError,IndexError) as exc:
-        print(json.dumps({'validated':False,'error':str(exc)}));raise SystemExit(1)
+        print(json.dumps({'validated':False,'error':str(exc)}))
+        raise SystemExit(1)
     print(json.dumps(r,indent=2))
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    main()

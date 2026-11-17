@@ -60,7 +60,7 @@ pub struct EnemyPreview {
 
 /// Generate supported enemy occurrences and their known or unknown Wraith state.
 /// Explicit low-level roster generation remains available for research, but
-/// this entry point never enables the unverified nonzero-selector branch.
+/// this entry point requires explicit native parity for a nonzero selector.
 pub fn generate_enemy_preview(
     seed: u32,
     playthrough: u8,
@@ -70,7 +70,10 @@ pub fn generate_enemy_preview(
     state_tables: &EnemyStateTables,
 ) -> Result<EnemyPreview, EnemyError> {
     let context = resolve_context(seed, roster_tables, context_tables)?;
-    if context.selector != 0 {
+    if !state_tables
+        .descriptor_selector_support
+        .supports(context.selector, playthrough, variant)
+    {
         return Err(EnemyError::Unsupported(
             "selector-nonzero branch needs independent parity".into(),
         ));
@@ -334,7 +337,11 @@ pub fn compose_enemy_state_preview(
     tables: &PreviewTables<'_>,
 ) -> Result<EnemyStatePreview, EnemyError> {
     let context = resolve_context(seed, tables.roster, tables.context)?;
-    if context.selector != 0 {
+    if !tables
+        .states
+        .descriptor_selector_support
+        .supports(context.selector, playthrough, variant)
+    {
         // The shipped payload keeps the candidate and reports the enemy-state
         // half as unknown rather than dropping it or claiming a proven absence.
         return Ok(enemy_state_fallback(seed, playthrough, variant));
@@ -642,6 +649,7 @@ mod tests {
             conflict_keys: Vec::new(),
         };
         let states = EnemyStateTables {
+            descriptor_selector_support: crate::enemy::DescriptorSelectorSupport::DefaultOnly,
             text_sha256: crate::enemy::ENEMY_TEXT_SHA256.to_string(),
             positions_by_terrain: BTreeMap::new(),
             eligibility: BTreeMap::new(),

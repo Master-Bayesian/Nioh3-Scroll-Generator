@@ -42,10 +42,50 @@ fn response_frames(bytes: &[u8]) -> Vec<Value> {
     while offset + 4 <= bytes.len() {
         let size = u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
         let end = offset + 4 + size;
+        if end > bytes.len() {
+            break;
+        }
         output.push(serde_json::from_slice(&bytes[offset + 4..end]).expect("valid response"));
         offset = end;
     }
     output
+}
+
+fn verify_fragmented_responses(transcript: &[u8]) -> usize {
+    let complete = response_frames(transcript);
+    let mut offset = 0;
+    let mut checks = 0;
+    for (index, response) in complete.iter().enumerate() {
+        let size = u32::from_le_bytes(transcript[offset..offset + 4].try_into().unwrap()) as usize;
+        let encoded = &transcript[offset..offset + 4 + size];
+        assert_eq!(
+            serde_json::from_slice::<Value>(&encoded[4..]).unwrap(),
+            *response
+        );
+        // Exercise every partial header and the first/last partial body using
+        // real host replies. A snapshot must retain earlier complete replies
+        // and wait for this reply, without parsing or discarding its prefix.
+        for cut in [0, 1, 2, 3, 4, encoded.len() - 1] {
+            assert_eq!(
+                response_frames(&transcript[..offset + cut]),
+                complete[..index],
+                "partial response {index} at byte {cut}"
+            );
+            checks += 1;
+        }
+        offset += encoded.len();
+        assert_eq!(response_frames(&transcript[..offset]), complete[..=index]);
+        checks += 1;
+    }
+    assert_eq!(
+        offset,
+        transcript.len(),
+        "host left no trailing partial frame"
+    );
+    let mut pending = transcript.to_vec();
+    pending.extend_from_slice(&u32::MAX.to_le_bytes());
+    assert_eq!(response_frames(&pending), complete);
+    checks + 1
 }
 
 struct ChannelReader {
@@ -305,7 +345,10 @@ fn predicts_native_replacements_from_deferred_runtime_without_process_or_writes(
     );
     drop(sender);
     host.join().unwrap();
+    let transcript = sink.lock().expect("sink lock").clone();
+    let fragment_checks = verify_fragmented_responses(&transcript);
     let output = build_root().join("deliverables/codex-v083-missing-features-20260930/backend");
     std::fs::create_dir_all(&output).unwrap();
-    std::fs::write(output.join("completion-host-e2e.json"),serde_json::to_vec_pretty(&json!({"pass":true,"boundary":"framed Rust host; retained game records; no process/save writes","exchanges":exchanges})).unwrap()).unwrap();
+    std::fs::write(output.join("completion-host-transcript.bin"), transcript).unwrap();
+    std::fs::write(output.join("completion-host-e2e.json"),serde_json::to_vec_pretty(&json!({"pass":true,"boundary":"framed Rust host; retained game records; no process/save writes","fragment_checks":fragment_checks,"exchanges":exchanges})).unwrap()).unwrap();
 }

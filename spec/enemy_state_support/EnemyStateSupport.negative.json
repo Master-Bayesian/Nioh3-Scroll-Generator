@@ -1,0 +1,6 @@
+[
+  {"name":"selector-one-enabled-for-unverified-version","overrides":{"CheckVersion":false},"expected":"Invariant UnverifiedVersionRemainsUnknown is violated"},
+  {"name":"arbitrary-nonzero-selector-enabled","overrides":{"CheckSelector":false},"expected":"Invariant UnverifiedSelectorRemainsUnknown is violated"},
+  {"name":"solo-evidence-promoted-to-expedition","overrides":{"CheckVariant":false},"expected":"Invariant UnverifiedVariantRemainsUnknown is violated"},
+  {"name":"changed-table-bytes-retain-certification","overrides":{"CheckTableHash":false},"expected":"Invariant ChangedTablesRemainUnknown is violated"}
+]

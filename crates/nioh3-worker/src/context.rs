@@ -27,7 +27,9 @@ use crate::native::AcceleratorIdentity;
 use nioh3_data::{resolve_selected_generation_bundle, SelectedGenerationBundle};
 
 /// `GENERATION_ALGORITHM_VERSION` from the shipped core services.
-pub const GENERATION_ALGORITHM_VERSION: &str = "scroll-generation-v0.7-native-completion-1";
+// Revision 2 includes the independently validated PC v2.02 selector-1 solo
+// enemy-state composition. Cached revision-1 unknown states must be refreshed.
+pub const GENERATION_ALGORITHM_VERSION: &str = "scroll-generation-v0.7-native-completion-2";
 /// `OPERATION_POLICY_VERSION` from the shipped core services.
 pub const OPERATION_POLICY_VERSION: &str = "operation-policy-v1";
 /// `SUPPORTED_GAME_PROFILE` from the shipped core services.
@@ -37,7 +39,7 @@ pub const SUPPORTED_GAME_PROFILE: &str = "pc-v2.00.02-v2.01";
 /// This value mirrors `nioh3_scroll_editor/version.py`, which the Python worker
 /// imports directly. A unit test re-reads that file so the two cannot drift
 /// silently; the value is never inferred or defaulted at runtime.
-pub const PRODUCT_VERSION: &str = "0.8.11";
+pub const PRODUCT_VERSION: &str = "0.8.12";
 
 /// Fail-closed context errors, mirroring `CoreErrorCode.RESOURCE_MISMATCH`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -801,31 +803,31 @@ mod tests {
     #[test]
     fn production_canonical_payload_and_digest_are_pinned_goldens() {
         const V202_CANONICAL: &str = concat!(
-            "{\"algorithm_version\":\"scroll-generation-v0.7-native-completion-1\",",
+            "{\"algorithm_version\":\"scroll-generation-v0.7-native-completion-2\",",
             "\"bundle_digest\":\"d1fb81af3bfc8e577239c2facdb097c320c9ab8b0a88e9fea792b1819c5584b2\",",
             "\"game_file_version\":\"2.0.2.0\",",
             "\"game_profile\":\"pc-v2.00.02-v2.01\",",
             "\"policy_version\":\"operation-policy-v1\",",
-            "\"product_version\":\"0.8.11\",",
-            "\"resources_digest\":\"411866d772e8e2450c1f4becd4c5e79761600f7766ab0659438bcbde21997048\",",
+            "\"product_version\":\"0.8.12\",",
+            "\"resources_digest\":\"4d24196b669fd43970550133c251e90b723fe0a4a2c66e8e17dfd2e1c2c91262\",",
             "\"seed_accelerator_abi\":null,",
             "\"seed_accelerator_build_id\":null,",
             "\"versioned_digest\":\"09fa65803a0c058880f4d38900290b152eab89febb03615ce2576f4b020b358b\",",
             "\"versioned_resource_dir\":\"r4_finalizer/pc_v2_02/resource_v1\"}",
         );
         const V202_CONTEXT_DIGEST: &str =
-            "060c73bbef48e9621174f76451bcd7dd4e31b6b9cee013d921836d0c1bd5d5c5";
+            "2a140bccfd0c31ae369d7808d400019e4a81f95d1fab89cb0d8e24c1cbf8c104";
         const LEGACY_CANONICAL: &str = concat!(
-            "{\"algorithm_version\":\"scroll-generation-v0.7-native-completion-1\",",
+            "{\"algorithm_version\":\"scroll-generation-v0.7-native-completion-2\",",
             "\"game_profile\":\"pc-v2.00.02-v2.01\",",
             "\"policy_version\":\"operation-policy-v1\",",
-            "\"product_version\":\"0.8.11\",",
-            "\"resources_digest\":\"411866d772e8e2450c1f4becd4c5e79761600f7766ab0659438bcbde21997048\",",
+            "\"product_version\":\"0.8.12\",",
+            "\"resources_digest\":\"4d24196b669fd43970550133c251e90b723fe0a4a2c66e8e17dfd2e1c2c91262\",",
             "\"seed_accelerator_abi\":null,",
             "\"seed_accelerator_build_id\":null}",
         );
         const LEGACY_DIGEST: &str =
-            "86abb2514b5e379cdee805feb812b63b9d74a8f31718393f8bf99826bbacfbfe";
+            "c5bd33750ae7c5f18e201fc593370ffe6867430e1a4e9351b666c4ca555948cf";
 
         let context = capture_resolved_context(
             SUPPORTED_GAME_PROFILE,

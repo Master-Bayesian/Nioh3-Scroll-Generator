@@ -1,0 +1,338 @@
+{
+  "schema": "nioh3-selector-one-certification/v1",
+  "game_file_version": "2.0.2.0",
+  "verified_executable_sha256": "e22c4a635e4ec1e27a177b76e27d7f6a637f426c0ed3928b60f5693bc52ae130",
+  "verified_loaded_text_sha256": "4cec8fb6ad867417a76df8201c1d4f54172443884910463c1953acad91ae6c29",
+  "support": {
+    "playthrough": 3,
+    "descriptor_selector": 1,
+    "variants": [
+      "solo"
+    ]
+  },
+  "baseline_capture_path": "enemy_states/pc_v2_01/native_tables.json",
+  "baseline_capture_sha256": "1634c08164905d5a980d2ffcf9805c5c34055ad0480850669c77c10a385350c2",
+  "baseline_capture_provenance": "PC v2.01 retained unchanged; current v2.02 semantic reuse verified independently",
+  "current_parameter_parity": {
+    "complete_enemy_keys": 1022,
+    "complete_declared_placement_terrains": 20,
+    "enemy_keys_and_eligibility_equal": true,
+    "all_declared_position_rows_equal": true,
+    "source_config_4543_equal": true,
+    "raw_snapshot_sha256": "533771557684d7487e449547d2197054da5bdc09d10270b73b2aa0251486c66c"
+  },
+  "native_controls": [
+    {
+      "id": "native-a",
+      "seed": 100000439,
+      "playthrough": 3,
+      "variant": "solo",
+      "descriptor_selector": 1,
+      "descriptor_flags": [
+        false,
+        false,
+        true
+      ],
+      "terrain": 116,
+      "auxiliary_mode": 76,
+      "source_entry_state": 3455622115,
+      "source_final_state": 34912607,
+      "source_trials": [
+        {
+          "spawn": 3903,
+          "selector_class": 0,
+          "state": 736254920,
+          "ticket": 1714,
+          "threshold": 500,
+          "accepted": false
+        },
+        {
+          "spawn": 3904,
+          "selector_class": 0,
+          "state": 4273252137,
+          "ticket": 9949,
+          "threshold": 500,
+          "accepted": false
+        },
+        {
+          "spawn": 3901,
+          "selector_class": 0,
+          "state": 3394236630,
+          "ticket": 7902,
+          "threshold": 500,
+          "accepted": false
+        },
+        {
+          "spawn": 3902,
+          "selector_class": 0,
+          "state": 34912607,
+          "ticket": 81,
+          "threshold": 500,
+          "accepted": true
+        }
+      ],
+      "occurrences": [
+        {
+          "wave_index": 0,
+          "position": 0,
+          "spawn_key": 3903,
+          "lookup_key": 193845,
+          "role": 1,
+          "selector_class": 0,
+          "possessed": false
+        },
+        {
+          "wave_index": 0,
+          "position": 1,
+          "spawn_key": 3904,
+          "lookup_key": 163259,
+          "role": 0,
+          "selector_class": 0,
+          "possessed": false
+        },
+        {
+          "wave_index": 1,
+          "position": 0,
+          "spawn_key": 3901,
+          "lookup_key": 163259,
+          "role": 0,
+          "selector_class": 0,
+          "possessed": false
+        },
+        {
+          "wave_index": 1,
+          "position": 1,
+          "spawn_key": 3902,
+          "lookup_key": 163259,
+          "role": 0,
+          "selector_class": 0,
+          "possessed": true
+        },
+        {
+          "wave_index": 2,
+          "position": 0,
+          "spawn_key": 3900,
+          "lookup_key": 264763,
+          "role": 5,
+          "selector_class": 0,
+          "possessed": false
+        }
+      ],
+      "owner_observed_possessed_count": 1,
+      "fresh_source_to_persistent_task_copies_verified": true,
+      "cleanup_verified": true,
+      "raw_capture_sha256": "3ee13bffcd1b48a16982d1af07e4867658056dc32f07628d1a8b7dccad8d4a17",
+      "cleanup_receipt_sha256": "7fe2efa11d21d400a71ab57e7f29e71bfecaa9e4840c9ab9ee84cde80d42aad4"
+    },
+    {
+      "id": "native-b",
+      "seed": 100000439,
+      "playthrough": 3,
+      "variant": "solo",
+      "descriptor_selector": 1,
+      "descriptor_flags": [
+        false,
+        false,
+        true
+      ],
+      "terrain": 116,
+      "auxiliary_mode": 76,
+      "source_entry_state": 3455622115,
+      "source_final_state": 34912607,
+      "source_trials": [
+        {
+          "spawn": 3903,
+          "selector_class": 0,
+          "state": 736254920,
+          "ticket": 1714,
+          "threshold": 500,
+          "accepted": false
+        },
+        {
+          "spawn": 3904,
+          "selector_class": 0,
+          "state": 4273252137,
+          "ticket": 9949,
+          "threshold": 500,
+          "accepted": false
+        },
+        {
+          "spawn": 3901,
+          "selector_class": 0,
+          "state": 3394236630,
+          "ticket": 7902,
+          "threshold": 500,
+          "accepted": false
+        },
+        {
+          "spawn": 3902,
+          "selector_class": 0,
+          "state": 34912607,
+          "ticket": 81,
+          "threshold": 500,
+          "accepted": true
+        }
+      ],
+      "occurrences": [
+        {
+          "wave_index": 0,
+          "position": 0,
+          "spawn_key": 3903,
+          "lookup_key": 193845,
+          "role": 1,
+          "selector_class": 0,
+          "possessed": false
+        },
+        {
+          "wave_index": 0,
+          "position": 1,
+          "spawn_key": 3904,
+          "lookup_key": 163259,
+          "role": 0,
+          "selector_class": 0,
+          "possessed": false
+        },
+        {
+          "wave_index": 1,
+          "position": 0,
+          "spawn_key": 3901,
+          "lookup_key": 163259,
+          "role": 0,
+          "selector_class": 0,
+          "possessed": false
+        },
+        {
+          "wave_index": 1,
+          "position": 1,
+          "spawn_key": 3902,
+          "lookup_key": 163259,
+          "role": 0,
+          "selector_class": 0,
+          "possessed": true
+        },
+        {
+          "wave_index": 2,
+          "position": 0,
+          "spawn_key": 3900,
+          "lookup_key": 264763,
+          "role": 5,
+          "selector_class": 0,
+          "possessed": false
+        }
+      ],
+      "owner_observed_possessed_count": 1,
+      "fresh_source_to_persistent_task_copies_verified": true,
+      "cleanup_verified": true,
+      "raw_capture_sha256": "f079159736f8f4532c4df02947cafc289c8e10e92b74e5f7d89834b0c9456019",
+      "cleanup_receipt_sha256": "5a19a67ac7cf121b1e311bec10c712a215c469cb7882103610796dce7c166766"
+    },
+    {
+      "id": "native-c",
+      "seed": 100000029,
+      "playthrough": 3,
+      "variant": "solo",
+      "descriptor_selector": 1,
+      "descriptor_flags": [
+        false,
+        false,
+        false
+      ],
+      "terrain": 116,
+      "auxiliary_mode": 76,
+      "source_entry_state": 3897782789,
+      "source_final_state": 1170335393,
+      "source_trials": [
+        {
+          "spawn": 3903,
+          "selector_class": 0,
+          "state": 3114372866,
+          "ticket": 7251,
+          "threshold": 500,
+          "accepted": false
+        },
+        {
+          "spawn": 3904,
+          "selector_class": 0,
+          "state": 1772396187,
+          "ticket": 4126,
+          "threshold": 500,
+          "accepted": false
+        },
+        {
+          "spawn": 3901,
+          "selector_class": 0,
+          "state": 2474369312,
+          "ticket": 5760,
+          "threshold": 500,
+          "accepted": false
+        },
+        {
+          "spawn": 3902,
+          "selector_class": 0,
+          "state": 1170335393,
+          "ticket": 2724,
+          "threshold": 500,
+          "accepted": false
+        }
+      ],
+      "occurrences": [
+        {
+          "wave_index": 0,
+          "position": 0,
+          "spawn_key": 3903,
+          "lookup_key": 405836,
+          "role": 1,
+          "selector_class": 0,
+          "possessed": false
+        },
+        {
+          "wave_index": 0,
+          "position": 1,
+          "spawn_key": 3904,
+          "lookup_key": 193845,
+          "role": 1,
+          "selector_class": 0,
+          "possessed": false
+        },
+        {
+          "wave_index": 1,
+          "position": 0,
+          "spawn_key": 3901,
+          "lookup_key": 405836,
+          "role": 1,
+          "selector_class": 0,
+          "possessed": false
+        },
+        {
+          "wave_index": 1,
+          "position": 1,
+          "spawn_key": 3902,
+          "lookup_key": 290685,
+          "role": 0,
+          "selector_class": 0,
+          "possessed": false
+        },
+        {
+          "wave_index": 2,
+          "position": 0,
+          "spawn_key": 3900,
+          "lookup_key": 598115,
+          "role": 5,
+          "selector_class": 0,
+          "possessed": false
+        }
+      ],
+      "owner_observed_possessed_count": 0,
+      "fresh_source_to_persistent_task_copies_verified": true,
+      "cleanup_verified": true,
+      "raw_capture_sha256": "23432e594adc0e7cebf0bd3351b095da0bb0fbb8f8a0576d0f138b80d9b6ffba",
+      "cleanup_receipt_sha256": "1768f3be8f41922c9d42bcf7818229be3333465731e67042be87d9d25088bca3"
+    }
+  ],
+  "production_design": "Version-bound support enum plus exact baseline byte digest; no per-seed lookup in production",
+  "not_certified": [
+    "Nonzero-selector expedition",
+    "Other game versions or changed baseline bytes",
+    "Seed-only One Difficulty/Curse prediction"
+  ]
+}

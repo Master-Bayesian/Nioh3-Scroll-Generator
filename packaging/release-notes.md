@@ -1,10 +1,13 @@
-# Nioh 3 Studio 0.8.11
+# Nioh 3 Studio 0.8.12
 
-Download Nioh3Studio-0.8.11-win-x64.exe and run it directly, or use the signed in-app updater. No extraction, Python, Node.js or CUDA toolkit installation is required. Microsoft Edge WebView2 remains a Windows prerequisite.
+Download Nioh3Studio-0.8.12-win-x64.exe and run it directly, or use the signed in-app updater. No extraction, Python, Node.js or CUDA toolkit installation is required. Microsoft Edge WebView2 remains a Windows prerequisite.
 
-- Fix an empty enemy section when a scroll has known enemies but its detailed enemy-state preview is unavailable. For example, NG3/R4 scroll 141974638 now displays Enenra, Kappa and Red Kappa.
-- Show unconfirmed Crucible Wraith status separately from the known enemy list. A missing preview is distinguished from a confirmed empty roster.
-- Preserve ordinary per-occurrence previews and the existing generation, filtering and save protections. An old cached preview should be refreshed by viewing its ID again or running a fresh search.
+- Support hell-weapon effect seed search in the existing save-file equipment-add flow. Select an eligible weapon, request applicable hell/ordinary/star/grace/set effects, review a result, and add the selected combination.
+- Choose an eligible hell martial skill independently of the effect seed. The reviewed effects, skill and generation context stay bound through the queue, preview and save confirmation. Changed search inputs invalidate old results.
+- Fix equipment addition failing on long-running saves whose equipment inventory key exceeds 65535. Equipment uses its existing native u32 key contract; source checks, backups and overflow refusal remain enabled.
+- Enable native-validated Crucible Wraith prediction for the certified PC v2.02 solo selector-one route. Refresh old cached previews to use the corrected prediction. Other modes and unvalidated selectors retain their existing confirmation limits.
+
+Hell effect results apply to the selected supported generation context and the character's progress. The effect seed does not determine the martial skill or every enemy/region drop modifier. The separate live-add workflow retains its existing scope.
 
 ## Supported scope and known limitations
 

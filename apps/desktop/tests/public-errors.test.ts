@@ -223,6 +223,9 @@ test("character editing refusals are explained in the player's terms", () => {
     ["OPERATION_REJECTED: Save changed since it was read; reload the character", /存档文件刚刚发生了变化/],
     ["OPERATION_REJECTED: Only occupied equipment slots may be edited", /装备格是空的/],
     ["OPERATION_REJECTED: Nothing to change", /没有需要修改的内容/],
+    ["OPERATION_REJECTED: This item never becomes a hell weapon", /不会变成地狱武器/],
+    ["OPERATION_REJECTED: A hell weapon has the rarity the character's progress gives it", /改稀有度/],
+    ["OPERATION_REJECTED: Choose a hell martial skill this weapon can have at this level", /地狱武技/],
   ];
   for (const [raw, expected] of cases) assert.match(publicError(raw), expected, raw);
 });

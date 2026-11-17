@@ -387,8 +387,20 @@ export function publicError(message: string): string {
       "这个角色还没有玩过所选难度，这个难度的掉落不算自然。请换一个难度后重新查找。",
     ],
     [
-      /A hell weapon cannot be generated from a seed/,
-      "地狱武器不能按种子生成。请取消“地狱武器”，或改用“魔改”添加。",
+      /This item never becomes a hell weapon/,
+      "这件装备在游戏里不会变成地狱武器。请取消“地狱武器”，或换一把可以成为地狱武器的近战武器。",
+    ],
+    [
+      /A hell weapon has the rarity the character's progress gives it/,
+      "地狱武器的稀有度由所选难度的进度决定：进度靠后时是 4 或 3，较早时只能是 3（最早是 2）。请改稀有度后重新查找。",
+    ],
+    [
+      /Choose a hell martial skill this weapon can have at this level/,
+      "请为这把地狱武器选择一个它在当前等级能出现的地狱武技，然后重新添加。",
+    ],
+    [
+      /Choose a searched hell weapon before adding it|The searched equipment candidate is incomplete|The equipment generation conditions changed|The searched equipment candidate changed/,
+      "所选装备的搜索结果或生成条件已变化。请重新搜索并选择结果，再加入清单。",
     ],
     [
       /This seed gives the item no effects/,

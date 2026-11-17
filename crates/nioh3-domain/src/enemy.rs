@@ -112,8 +112,29 @@ pub enum CurseGate {
     Unknown,
 }
 
+/// Native parity available to the production seed-level preview entry points.
+/// The low-level research replay does not grant itself this capability.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum DescriptorSelectorSupport {
+    #[default]
+    DefaultOnly,
+    /// PC v2.02 NG3 normal-solo selector 1, with the pinned replay table bytes.
+    Pc202SoloSelectorOne,
+}
+
+impl DescriptorSelectorSupport {
+    pub fn supports(self, selector: u8, playthrough: u8, variant: MissionVariant) -> bool {
+        selector == 0
+            || (self == Self::Pc202SoloSelectorOne
+                && selector == 1
+                && playthrough == 3
+                && variant == MissionVariant::Solo)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct EnemyStateTables {
+    pub descriptor_selector_support: DescriptorSelectorSupport,
     pub text_sha256: String,
     pub positions_by_terrain: BTreeMap<u8, Vec<[u8; 24]>>,
     pub eligibility: BTreeMap<u32, Eligibility>,

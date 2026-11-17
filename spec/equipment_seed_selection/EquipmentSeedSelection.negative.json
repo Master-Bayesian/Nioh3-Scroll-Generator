@@ -1,0 +1,15 @@
+[
+  { "name": "accept-stale-completion", "overrides": { "AcceptStaleCompletionFault": true }, "expected": "Invariant StaleResultRejected is violated" },
+  { "name": "queue-without-selection", "overrides": { "QueueWithoutSelectionFault": true }, "expected": "Invariant QueueRequiresExplicitSelection is violated" },
+  { "name": "queue-ineligible-hell-skill", "overrides": { "QueueIneligibleSkillFault": true }, "expected": "Invariant HellSkillRequiredBeforeQueue is violated" },
+  { "name": "mutate-frozen-queue", "overrides": { "MutableQueueFault": true }, "expected": "Invariant QueueIsFrozen is violated" },
+  { "name": "skip-progress-binding", "overrides": { "SkipProgressCheckFault": true }, "expected": "Invariant ReviewedProgressMatchesSnapshot is violated" },
+  { "name": "skip-context-binding", "overrides": { "SkipContextCheckFault": true }, "expected": "Invariant ReviewedContextMatchesRoute is violated" },
+  { "name": "skip-replay-digest", "overrides": { "SkipDigestCheckFault": true }, "expected": "Invariant ReviewedDigestMatchesReplay is violated" },
+  { "name": "allow-unbound-hell", "overrides": { "AllowUnboundHellFault": true }, "expected": "Invariant HellRequiresReviewedBinding is violated" },
+  { "name": "reject-legacy-ordinary", "overrides": { "RejectLegacyOrdinaryFault": true }, "expected": "Invariant LegacyOrdinaryIsAccepted is violated" },
+  { "name": "accept-partial-binding", "overrides": { "AcceptPartialBindingFault": true }, "expected": "Invariant CompleteReviewedBinding is violated" },
+  { "name": "require-skill-for-effect-search", "overrides": { "RequireSkillForSearchFault": true }, "expected": "Invariant EffectSearchIndependentOfSkill is violated" },
+  { "name": "skip-host-skill-eligibility", "overrides": { "SkipHostSkillCheckFault": true }, "expected": "Invariant HostHellSkillIsEligible is violated" },
+  { "name": "change-skill-in-plan", "overrides": { "PlanChangesSkillFault": true }, "expected": "Invariant ReviewedPlanPreservesCandidate is violated" }
+]
