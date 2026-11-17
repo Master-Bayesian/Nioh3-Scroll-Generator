@@ -43,6 +43,12 @@ export function executeTask(root, task, out, context) {
   mkdirSync(out, {recursive: true});
   const commands = [];
   const environment = {...process.env, NIOH3_CI_TASK_OUTPUT: out, NIOH3_UI_OUTPUT: out, NIOH3_UI_PROFILE_ROOT: resolve(out, 'profile'), NIOH3_UI_RUN_LABEL:'final', NIOH3_UI_LOCALES:task.locale??'zh-CN,en-US,ja-JP', NIOH3_QUALITY_EVIDENCE: resolve(out, 'evidence'), NIOH3_COMPATIBILITY_EVIDENCE: out, NIOH3_BUGFIX_EVIDENCE: out};
+  if(task.kind==='browser'){
+    const fresh=resolve(out,'browser');
+    environment.NIOH3_CI_TASK_OUTPUT=fresh;
+    environment.NIOH3_UI_OUTPUT=fresh;
+    environment.NIOH3_COMPATIBILITY_EVIDENCE=fresh;
+  }
   if (task.locale) environment.NIOH3_UI_LOCALES = task.locale;
   const command = (program, args) => {
     const log = resolve(out, `command-${commands.length + 1}.log`);
@@ -143,6 +149,7 @@ export function executeTask(root, task, out, context) {
 
 export function runGroup(root, plan, group, output, profile = 'reference') {
   verifySource(root, plan);
+  ensure(!existsSync(resolve(output,'receipt.json')),'CI_OUTPUT_EXISTS','Choose a fresh shard output; retained receipts must not be overwritten.');
   const started = performance.now();
   const receipt = {schema: 'nioh3-ci-shard/v1', sourceId: plan.sourceId, testedSha: plan.identity.testedSha, planDigest: plan.digest, group: group.id, profile, expected: group.tasks, status: 'Running', tasks: [], environment: {platform: process.platform, arch: process.arch, node: process.version, image: process.env.ImageVersion ?? 'local'}};
   const path = resolve(output, 'receipt.json');
