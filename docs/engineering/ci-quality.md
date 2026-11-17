@@ -11,10 +11,11 @@ The project adopts [the CI quality policy](../../skills/nioh3-ci-quality/referen
 | Oxlint combined type-aware lint/type checking | Selected migration candidate; coverage and configuration acceptance still required |
 | Bun check | Compatibility/reference checker; its read-only probe is not a completed toolchain migration |
 | Vitest | No migration planned for this optimization |
-| Duration-balanced shards, affected-test planner, final aggregate gate, event deduplication | Implementation and acceptance still required |
-| Merge-queue/main full-run enforcement | Required target; the current workflows have path filters and no `merge_group` trigger |
+| Duration-balanced shards, final aggregate gate, event deduplication | Implemented in the proposed scheduling change; source-bound local/cloud acceptance and timings must accompany its PR |
+| Affected selection | Shadow decisions and actual shadow execution only; the complete reference remains mandatory and pruning is disabled |
+| Merge-queue/main full-run enforcement | Unified `Tests` workflow has explicit `merge_group`/main events without path filters; integration events execute the complete normal inventory |
 
-Policy adoption does not claim that the workflows already implement these targets. Until a replacement is accepted, use the checked-in commands and retain their required coverage.
+The [scheduling implementation](../../tools/ci/README.md) documents task identities, prerequisites, artifacts and repeat commands. Its before/after measurement and acceptance records must distinguish the full reference from temporary shadow overhead. Tool migrations remain pending; no Vitest dependency is introduced.
 
 ## Use and maintenance
 

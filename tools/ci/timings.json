@@ -1,0 +1,222 @@
+{
+  "schema": "nioh3-ci-timings/v1",
+  "provenance": {
+    "sourceCommit": "cb9d9fbb6a47335c0b0844061e15da0a884cd0d9",
+    "frontendRun": 43986817672,
+    "testsRun": 43986818586,
+    "runner": "GitHub windows-latest; Node 24; Rust 1.99.0",
+    "rawRustLogSha256": "822e370760f19f1aff63b5dcebbd6ab3e361223c1fbaa0f42b6a6819ed3d666f",
+    "fallback": "Unrecorded cases use the explicit positive estimate in the inventory; no case is dropped.",
+    "scope": "Recorded baseline plus explicitly labelled proportional bootstrap estimates. New execution receipts record actual per-case durations."
+  },
+  "tasks": {
+    "browser:live-equipment": {
+      "durationMs": 15000,
+      "basis": "recorded complete baseline step"
+    },
+    "browser:runtime-compatibility": {
+      "durationMs": 9000,
+      "basis": "recorded complete baseline step"
+    },
+    "browser:character-draft": {
+      "durationMs": 20000,
+      "basis": "recorded complete baseline step"
+    },
+    "browser:scroll-completion": {
+      "durationMs": 3000,
+      "basis": "recorded complete baseline step"
+    },
+    "node:apps/desktop/tests/candidate-registry.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/controller.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/dark-theme.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/favorites-store.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/game-text.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/initial-query.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/invoke-with-diagnostics.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/item-names.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/loadout-code.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/locale-names.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/localization.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/occurrences.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/operation-controller.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/prepared-live-batch.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/public-errors.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/rolling-log.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/rule-family.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/save-session.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/search-policy.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/startup-update-check.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "node:apps/desktop/tests/update-prompt-deferral.test.ts": {
+      "durationMs": 190,
+      "basis": "initial per-file estimate from recorded full-suite runtime"
+    },
+    "browser:text-fit:zh-CN": {
+      "durationMs": 56333,
+      "basis": "initial locale estimate from recorded three-locale step; real case durations are emitted by the new runner"
+    },
+    "browser:expanded:zh-CN": {
+      "durationMs": 38000,
+      "basis": "initial locale estimate from recorded three-locale step; real case durations are emitted by the new runner"
+    },
+    "browser:hell-seeds:zh-CN": {
+      "durationMs": 16333,
+      "basis": "initial locale estimate from recorded three-locale step; real case durations are emitted by the new runner"
+    },
+    "browser:text-fit:en-US": {
+      "durationMs": 56333,
+      "basis": "initial locale estimate from recorded three-locale step; real case durations are emitted by the new runner"
+    },
+    "browser:expanded:en-US": {
+      "durationMs": 38000,
+      "basis": "initial locale estimate from recorded three-locale step; real case durations are emitted by the new runner"
+    },
+    "browser:hell-seeds:en-US": {
+      "durationMs": 16333,
+      "basis": "initial locale estimate from recorded three-locale step; real case durations are emitted by the new runner"
+    },
+    "browser:text-fit:ja-JP": {
+      "durationMs": 56333,
+      "basis": "initial locale estimate from recorded three-locale step; real case durations are emitted by the new runner"
+    },
+    "browser:expanded:ja-JP": {
+      "durationMs": 38000,
+      "basis": "initial locale estimate from recorded three-locale step; real case durations are emitted by the new runner"
+    },
+    "browser:hell-seeds:ja-JP": {
+      "durationMs": 16333,
+      "basis": "initial locale estimate from recorded three-locale step; real case durations are emitted by the new runner"
+    },
+    "rust-test:domain": {
+      "durationMs": 20,
+      "basis": "sum of reported successful test-binary runtimes in the accepted baseline log; compilation/setup measured separately"
+    },
+    "rust-test:data": {
+      "durationMs": 14210,
+      "basis": "sum of reported successful test-binary runtimes in the accepted baseline log; compilation/setup measured separately"
+    },
+    "rust-test:worker": {
+      "durationMs": 57360,
+      "basis": "sum of reported successful test-binary runtimes in the accepted baseline log; compilation/setup measured separately"
+    },
+    "rust-test:save": {
+      "durationMs": 235230,
+      "basis": "sum of reported successful test-binary runtimes in the accepted baseline log; compilation/setup measured separately"
+    },
+    "rust-test:runtime": {
+      "durationMs": 38790,
+      "basis": "sum of reported successful test-binary runtimes in the accepted baseline log; compilation/setup measured separately"
+    },
+    "rust-test:protected": {
+      "durationMs": 641890,
+      "basis": "sum of reported successful test-binary runtimes in the accepted baseline log; compilation/setup measured separately"
+    },
+    "rust-test:tauri": {
+      "durationMs": 2870,
+      "basis": "sum of reported successful test-binary runtimes in the accepted baseline log; compilation/setup measured separately"
+    },
+    "model:EnemyPreview": {
+      "durationMs": 5164,
+      "basis": "initial estimate from recorded formal step weighted by declared correct/fault configuration count"
+    },
+    "model:EnemyStateSupport": {
+      "durationMs": 6455,
+      "basis": "initial estimate from recorded formal step weighted by declared correct/fault configuration count"
+    },
+    "model:EquipmentKeyAllocation": {
+      "durationMs": 18073,
+      "basis": "initial estimate from recorded formal step weighted by declared correct/fault configuration count"
+    },
+    "model:EquipmentSeedSelection": {
+      "durationMs": 18073,
+      "basis": "initial estimate from recorded formal step weighted by declared correct/fault configuration count"
+    },
+    "model:KnownIdPreview": {
+      "durationMs": 3873,
+      "basis": "initial estimate from recorded formal step weighted by declared correct/fault configuration count"
+    },
+    "model:LiveAddOperation": {
+      "durationMs": 3873,
+      "basis": "initial estimate from recorded formal step weighted by declared correct/fault configuration count"
+    },
+    "model:SaveCommit": {
+      "durationMs": 3873,
+      "basis": "initial estimate from recorded formal step weighted by declared correct/fault configuration count"
+    },
+    "model:SeedSearch": {
+      "durationMs": 3873,
+      "basis": "initial estimate from recorded formal step weighted by declared correct/fault configuration count"
+    },
+    "model:SelectorCapture": {
+      "durationMs": 7745,
+      "basis": "initial estimate from recorded formal step weighted by declared correct/fault configuration count"
+    },
+    "native:frontend-roster": {
+      "durationMs": 55000,
+      "basis": "recorded native frontend build plus actual-worker browser acceptance"
+    },
+    "native:packaging": {
+      "durationMs": 87000,
+      "basis": "recorded packaged worker build/Python/selector E2E step"
+    }
+  }
+}

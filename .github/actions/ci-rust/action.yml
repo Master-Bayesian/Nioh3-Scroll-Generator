@@ -1,0 +1,27 @@
+name: Prepare pinned Rust and restore build artifacts
+description: Each job has its own target; one test shard owns cache publication.
+outputs:
+  cache-hit:
+    description: Whether the immutable dependency cache was already present.
+    value: ${{ steps.cache.outputs.cache-hit }}
+  cache-key:
+    description: Complete pinned toolchain/lockfile cache key.
+    value: ${{ steps.cache.outputs.cache-primary-key }}
+runs:
+  using: composite
+  steps:
+    - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+      with:
+        toolchain: 1.99.0
+        components: clippy, rustfmt
+    - id: cache
+      uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          ${{ runner.temp }}/nioh3-migration-build/cargo-target
+        key: rust-ci-v2-1.99.0-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('crates/*/Cargo.lock', 'apps/tauri/src-tauri/Cargo.lock', 'apps/launcher/Cargo.lock') }}
+        restore-keys: |
+          rust-ci-v2-1.99.0-${{ runner.os }}-${{ runner.arch }}-
+          rust-crates-1.99.0-

@@ -28,6 +28,8 @@ import { parseArgs } from "node:util";
 import { chromium } from "playwright";
 import { detectTextFit } from "../../apps/workshop/text-fit-detect.mjs";
 import { resolve } from "node:path";
+import {selectedLocales, workshopBundle} from '../ci/workshop-bundle.mjs';
+import {ensure} from '../ci/core.mjs';
 
 const { values: options } = parseArgs({ options: { out: { type: "string" } } });
 const repoRoot = resolve(import.meta.dirname, "../..");
@@ -57,9 +59,11 @@ const MATRIX = [
 ];
 const LOCALES = ["zh-CN", "en-US", "ja-JP"];
 const THEMES = ["light", "dark"];
-const RUN_LOCALES = (process.env.NIOH3_UI_LOCALES || LOCALES.join(",")).split(",").filter(Boolean);
+const RUN_LOCALES = selectedLocales(LOCALES);
 const RUN_THEMES = (process.env.NIOH3_UI_THEMES || THEMES.join(",")).split(",").filter(Boolean);
 const RUN_MATRIX = (process.env.NIOH3_UI_MATRIX || MATRIX.map(item => item.label).join(","));
+ensure(RUN_THEMES.length>0&&new Set(RUN_THEMES).size===RUN_THEMES.length&&RUN_THEMES.every(theme=>THEMES.includes(theme)), 'CI_THEME_INVALID', 'Choose a nonempty supported theme set.');
+ensure(RUN_MATRIX.split(',').length>0&&new Set(RUN_MATRIX.split(',')).size===RUN_MATRIX.split(',').length&&RUN_MATRIX.split(',').every(label=>MATRIX.some(item=>item.label===label)), 'CI_MATRIX_INVALID', 'Choose a nonempty supported viewport set.');
 
 const evidence = {
   schema: "nioh3-arc-ui-expanded-e2e/v1",
@@ -715,9 +719,7 @@ let browser;
 try {
   evidence.source.head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8" }).trim();
   evidence.source.scriptSha256 = createHash("sha256").update(await readFile(new URL(import.meta.url))).digest("hex");
-  const buildPath = resolve(repoRoot, "apps/workshop/build.mjs");
-  execFileSync(process.execPath, [buildPath], { cwd: repoRoot, stdio: "inherit", env: process.env });
-  const builtPath = resolve(repoRoot, "deliverables/frontend-v2/search-ui-demo-v2/index.html");
+  const builtPath = workshopBundle(repoRoot);
   const builtHtml = await readFile(builtPath, "utf8");
   evidence.source.bundleSha256 = createHash("sha256").update(builtHtml).digest("hex");
   const html = builtHtml.replace("</head>", `<script>${bridge}</script></head>`);

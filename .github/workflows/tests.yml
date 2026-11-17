@@ -1,234 +1,464 @@
+# All reference cases run; affected selection is an independently executed shadow.
 name: Tests
-
-on:
+'on':
   push:
-    paths-ignore: ['docs/**', 'research/**', '**/*.md']
-  pull_request:
-    paths-ignore: ['docs/**', 'research/**', '**/*.md']
-  workflow_dispatch:
-
-concurrency:
-  group: tests-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
-
+    branches:
+    - main
+  pull_request: null
+  merge_group:
+    types:
+    - checks_requested
+  workflow_dispatch: null
 permissions:
   contents: read
-
+  actions: read
+concurrency:
+  group: tests-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+env:
+  CARGO_INCREMENTAL: '0'
+  PYTHONUTF8: '1'
 jobs:
-  rust-crates:
-    # The crates the release ships: tests, clippy and rustfmt.
+  plan:
     runs-on: windows-latest
+    outputs:
+      frontend: ${{ steps.plan.outputs.frontend }}
+      static: ${{ steps.plan.outputs.static }}
+      build: ${{ steps.plan.outputs.build }}
+      rust_tests: ${{ steps.plan.outputs.rust_tests }}
+      rust_static: ${{ steps.plan.outputs.rust_static }}
+      models: ${{ steps.plan.outputs.models }}
+      comparison: ${{ steps.plan.outputs.comparison }}
     steps:
-      - name: Check out source
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: Set up Rust for domain migration
-        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
-        with:
-          toolchain: 1.99.0
-          components: clippy, rustfmt
-
-      - name: Restore the Rust build cache
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ${{ runner.temp }}/nioh3-migration-build/cargo-target
-          key: rust-crates-1.99.0-${{ hashFiles('crates/*/Cargo.lock', 'apps/tauri/src-tauri/Cargo.lock') }}
-          restore-keys: rust-crates-1.99.0-
-
-      - name: Test, lint and format the Rust crates
-        shell: pwsh
-        run: |
-          $env:NIOH3_BUILD_ROOT = Join-Path $env:RUNNER_TEMP 'nioh3-migration-build'
-          $env:CARGO_TARGET_DIR = Join-Path $env:NIOH3_BUILD_ROOT 'cargo-target'
-          cargo fetch --locked --manifest-path crates/nioh3-data/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo fetch --locked --manifest-path crates/nioh3-worker/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo fetch --locked --manifest-path crates/nioh3-save/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked --offline --manifest-path crates/nioh3-domain/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked --offline --manifest-path crates/nioh3-data/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked --offline --manifest-path crates/nioh3-worker/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked --offline --manifest-path crates/nioh3-save/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo clippy --locked --offline --all-targets --manifest-path crates/nioh3-domain/Cargo.toml -- -D warnings
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo fmt --check --manifest-path crates/nioh3-domain/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo clippy --locked --offline --all-targets --manifest-path crates/nioh3-data/Cargo.toml -- -D warnings
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo fmt --check --manifest-path crates/nioh3-data/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo clippy --locked --offline --all-targets --all-features --manifest-path crates/nioh3-worker/Cargo.toml -- -D warnings
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          # The workshop's bundled data files must match what the tables produce.
-          cargo run --locked --offline --features workshop-export --manifest-path crates/nioh3-worker/Cargo.toml --example export_workshop -- --check
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo fmt --check --manifest-path crates/nioh3-worker/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo clippy --locked --offline --all-targets --manifest-path crates/nioh3-save/Cargo.toml -- -D warnings
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo fmt --check --manifest-path crates/nioh3-save/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo fetch --locked --manifest-path crates/nioh3-runtime/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked --offline --features test-helper --manifest-path crates/nioh3-runtime/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo clippy --locked --offline --all-targets --features test-fake,test-helper --manifest-path crates/nioh3-runtime/Cargo.toml -- -D warnings
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo fmt --check --manifest-path crates/nioh3-runtime/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo fetch --locked --manifest-path crates/nioh3-protected/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked --offline --manifest-path crates/nioh3-protected/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo clippy --locked --offline --all-targets --manifest-path crates/nioh3-protected/Cargo.toml -- -D warnings
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo fmt --check --manifest-path crates/nioh3-protected/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          New-Item -ItemType Directory -Force apps/tauri/dist | Out-Null
-          cargo fetch --locked --manifest-path apps/tauri/src-tauri/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo test --locked --offline --manifest-path apps/tauri/src-tauri/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo clippy --locked --offline --all-targets --manifest-path apps/tauri/src-tauri/Cargo.toml -- -D warnings
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo fmt --check --manifest-path apps/tauri/src-tauri/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Retain equipment seed generation and save E2E evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: equipment-seed-host-e2e
-          path: |
-            ${{ runner.temp }}/nioh3-migration-build/deliverables/hell-weapon-seed-search-20261116
-            ${{ runner.temp }}/nioh3-migration-build/deliverables/codex-v083-missing-features-20260930/backend/completion-host-e2e.json
-            ${{ runner.temp }}/nioh3-migration-build/deliverables/codex-v083-missing-features-20260930/backend/completion-host-transcript.bin
-          if-no-files-found: warn
-
-  equipment-seed-browser:
-    runs-on: windows-latest
-    steps:
-      - name: Check out source
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '24'
-          cache: npm
-      - name: Install the existing browser test dependencies
-        shell: pwsh
-        run: |
-          npm ci --no-fund
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npx playwright install chromium
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Verify the legal equipment search and reviewed add flow in three locales
-        shell: pwsh
-        run: |
-          $out = Join-Path $env:RUNNER_TEMP 'hell-equipment-browser-e2e'
-          node tools/ui-audit/verify-hell-equipment-seeds.mjs --out $out
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Retain equipment browser E2E evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: equipment-seed-browser-e2e
-          path: ${{ runner.temp }}/hell-equipment-browser-e2e
-          if-no-files-found: error
-
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: ./.github/actions/ci-node
+      with:
+        dependencies: 'false'
+        browser: 'false'
+    - name: Discover complete cases and balance historical durations
+      shell: pwsh
+      run: node tools/ci/plan.mjs --out "$env:NIOH3_CI_OUT/plan"
+      id: plan
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/plan
+        if-no-files-found: error
   model-and-lint:
+    name: Frontend static (${{ matrix.id }})
+    needs:
+    - plan
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.static) }}
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+    - uses: ./.github/actions/ci-node
+      with:
+        dependencies: 'true'
+        browser: 'false'
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/plan
+    - name: Execute all assigned required cases
+      shell: pwsh
+      run: node tools/ci/run.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --group $env:CI_GROUP --out "$env:NIOH3_CI_OUT/results/$env:CI_GROUP"
+      env:
+        CI_GROUP: ${{ matrix.id }}
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-result-a${{ github.run_attempt }}-${{ matrix.id }}
+        path: ${{ env.NIOH3_CI_OUT }}/results/${{ matrix.id }}
+        if-no-files-found: error
+  formal-models:
+    name: Formal models (${{ matrix.id }})
+    needs:
+    - plan
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.models) }}
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+    - uses: ./.github/actions/ci-node
+      with:
+        dependencies: 'false'
+        browser: 'false'
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/plan
+    - name: Execute all assigned required cases
+      shell: pwsh
+      run: node tools/ci/run.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --group $env:CI_GROUP --out "$env:NIOH3_CI_OUT/results/$env:CI_GROUP"
+      env:
+        CI_GROUP: ${{ matrix.id }}
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-result-a${{ github.run_attempt }}-${{ matrix.id }}
+        path: ${{ env.NIOH3_CI_OUT }}/results/${{ matrix.id }}
+        if-no-files-found: error
+  rust-crates:
+    name: Rust tests (${{ matrix.id }})
+    needs:
+    - plan
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.rust_tests) }}
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+    - uses: ./.github/actions/ci-node
+      with:
+        dependencies: 'false'
+        browser: 'false'
+    - uses: ./.github/actions/ci-rust
+      id: rust
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/plan
+    - name: Execute all assigned required cases
+      shell: pwsh
+      run: node tools/ci/run.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --group $env:CI_GROUP --out "$env:NIOH3_CI_OUT/results/$env:CI_GROUP"
+      env:
+        CI_GROUP: ${{ matrix.id }}
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-result-a${{ github.run_attempt }}-${{ matrix.id }}
+        path: |-
+          ${{ env.NIOH3_CI_OUT }}/results/${{ matrix.id }}
+          ${{ env.NIOH3_BUILD_ROOT }}/deliverables/hell-weapon-seed-search-20261116
+          ${{ env.NIOH3_BUILD_ROOT }}/deliverables/codex-v083-missing-features-20260930/backend
+        if-no-files-found: error
+    - name: Publish compiler cache from one successful owner
+      if: matrix.id == 'rust-tests-1' && steps.rust.outputs.cache-hit != 'true'
+      uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684
+      with:
+        path: |-
+          ~/.cargo/registry
+          ~/.cargo/git
+          ${{ runner.temp }}/nioh3-migration-build/cargo-target
+        key: ${{ steps.rust.outputs.cache-key }}
+  rust-static:
+    name: Rust Clippy and format (${{ matrix.id }})
+    needs:
+    - plan
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.rust_static) }}
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+    - uses: ./.github/actions/ci-node
+      with:
+        dependencies: 'false'
+        browser: 'false'
+    - uses: ./.github/actions/ci-rust
+      id: rust
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/plan
+    - name: Execute all assigned required cases
+      shell: pwsh
+      run: node tools/ci/run.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --group $env:CI_GROUP --out "$env:NIOH3_CI_OUT/results/$env:CI_GROUP"
+      env:
+        CI_GROUP: ${{ matrix.id }}
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-result-a${{ github.run_attempt }}-${{ matrix.id }}
+        path: ${{ env.NIOH3_CI_OUT }}/results/${{ matrix.id }}
+        if-no-files-found: error
+  frontend-build:
+    needs: plan
     runs-on: windows-latest
     steps:
-      - name: Check out source
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: Resolve quality evidence directory
-        shell: pwsh
-        run: '"NIOH3_QUALITY_EVIDENCE=$env:RUNNER_TEMP/nioh3-quality-evidence" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8'
-
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '24'
-          cache: npm
-
-      - name: Lint and typecheck the frontend
-        shell: pwsh
-        run: |
-          npm ci --no-fund
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm run lint
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm run typecheck
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Check the actual lint rules and deliberate faults
-        run: npm run check:quality
-
-      - name: Check the TLA+ models
-        shell: pwsh
-        run: ./tools/check_models.ps1
-
-      - name: Retain exact quality configurations and counterexamples
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: quality-controls
-          path: ${{ env.NIOH3_QUALITY_EVIDENCE }}
-          if-no-files-found: error
-
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+    - uses: ./.github/actions/ci-node
+      with:
+        dependencies: 'true'
+        browser: 'false'
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/plan
+    - name: Check generated inputs and build immutable frontend bundles
+      shell: pwsh
+      run: node tools/ci/run.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --group build-1 --out "$env:NIOH3_CI_OUT/results/build-1"
+    - name: Locate the verified bundle
+      shell: pwsh
+      run: |-
+        $manifest=@(Get-ChildItem -LiteralPath "$env:NIOH3_CI_OUT/results/build-1" -Recurse -Filter workshop.json)
+        if($manifest.Count -ne 1){throw "Expected one workshop bundle"}
+        "path=$($manifest[0].DirectoryName)" >> $env:GITHUB_OUTPUT
+      id: bundle
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: ci-workshop-bundle-a${{ github.run_attempt }}
+        path: ${{ steps.bundle.outputs.path }}
+        if-no-files-found: error
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-result-a${{ github.run_attempt }}-build-1
+        path: ${{ env.NIOH3_CI_OUT }}/results/build-1
+        if-no-files-found: error
+  frontend-tests:
+    name: Full frontend (${{ matrix.id }})
+    needs:
+    - plan
+    - frontend-build
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.frontend) }}
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+    - uses: ./.github/actions/ci-node
+      with:
+        dependencies: 'true'
+        browser: 'true'
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/plan
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-workshop-bundle-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/bundle
+    - name: Execute the complete frontend reference
+      shell: pwsh
+      run: |-
+        $env:NIOH3_CI_WORKSHOP_BUNDLE="$env:NIOH3_CI_OUT/bundle/workshop.json"
+        node tools/ci/run.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --group $env:CI_GROUP --out "$env:NIOH3_CI_OUT/results/$env:CI_GROUP"
+      env:
+        CI_GROUP: ${{ matrix.id }}
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-result-a${{ github.run_attempt }}-${{ matrix.id }}
+        path: ${{ env.NIOH3_CI_OUT }}/results/${{ matrix.id }}
+        if-no-files-found: error
+  shadow-plan:
+    needs: plan
+    runs-on: windows-latest
+    outputs:
+      shadow: ${{ steps.shadow.outputs.shadow }}
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: ./.github/actions/ci-node
+      with:
+        dependencies: 'true'
+        browser: 'false'
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/plan
+    - name: Exercise actual planner runner and aggregate fault controls
+      shell: pwsh
+      run: node tools/ci/run.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --group ci-1 --out "$env:NIOH3_CI_OUT/results/ci-1"
+    - name: Record independent selection without pruning
+      shell: pwsh
+      run: node tools/ci/shadow.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --out "$env:NIOH3_CI_OUT/shadow"
+      id: shadow
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-shadow-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/shadow
+        if-no-files-found: error
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-result-a${{ github.run_attempt }}-ci-1
+        path: ${{ env.NIOH3_CI_OUT }}/results/ci-1
+        if-no-files-found: error
+  shadow:
+    name: Shadow frontend (${{ matrix.id }})
+    if: needs.plan.outputs.comparison == 'Shadow'
+    needs:
+    - plan
+    - frontend-build
+    - shadow-plan
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs['shadow-plan'].outputs.shadow) }}
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+    - uses: ./.github/actions/ci-node
+      with:
+        dependencies: 'true'
+        browser: 'true'
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/plan
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-shadow-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/shadow
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-workshop-bundle-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/bundle
+    - name: Execute the selected shadow cases
+      shell: pwsh
+      run: |-
+        $env:NIOH3_CI_WORKSHOP_BUNDLE="$env:NIOH3_CI_OUT/bundle/workshop.json"
+        node tools/ci/run.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --shadow "$env:NIOH3_CI_OUT/shadow/shadow.json" --group $env:CI_GROUP --out "$env:NIOH3_CI_OUT/results/$env:CI_GROUP"
+      env:
+        CI_GROUP: ${{ matrix.id }}
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-result-a${{ github.run_attempt }}-${{ matrix.id }}
+        path: ${{ env.NIOH3_CI_OUT }}/results/${{ matrix.id }}
+        if-no-files-found: error
   rust-packaging:
-    # The packaging scripts stage the worker crates and each staged role answers
-    # a real handshake.
+    needs: plan
     runs-on: windows-latest
     steps:
-      - name: Check out source
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: "3.12"
-          cache: pip
-
-      - name: Install the packaging script dependencies
-        run: python -m pip install --disable-pip-version-check -r tools/requirements.txt
-
-      - name: Verify native accelerator source and ABI identity
-        run: python tools\verify_native_build_manifest.py
-
-      - name: Set up Rust for the packaged workers
-        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
-
-      - name: Build and verify the packaged Rust graph
-        shell: pwsh
-        run: |
-          $env:CARGO_TARGET_DIR = Join-Path $env:RUNNER_TEMP 'rust-packaging-cargo-target'
-          cargo fetch --locked --manifest-path crates/nioh3-worker/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo fetch --locked --manifest-path crates/nioh3-protected/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo build --locked --offline --manifest-path crates/nioh3-worker/Cargo.toml --bin nioh3-readonly-worker
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo build --locked --offline --manifest-path crates/nioh3-protected/Cargo.toml --bin nioh3-protected-worker
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -TestPath tools/tests -PytestArgument -q
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./tools/run_python_tests.ps1 -Python (Get-Command python).Source -ScriptPath tools/verify_selector_wraith_worker_e2e.py -ScriptArgument @('--worker', (Join-Path $env:CARGO_TARGET_DIR 'debug/nioh3-readonly-worker.exe'), '--output', (Join-Path $env:RUNNER_TEMP 'selector-wraith-worker-e2e'))
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Retain selector-state production E2E evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: selector-wraith-worker-e2e
-          path: ${{ runner.temp }}/selector-wraith-worker-e2e
-          if-no-files-found: warn
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+    - uses: ./.github/actions/ci-node
+      with:
+        dependencies: 'false'
+        browser: 'false'
+    - uses: ./.github/actions/ci-rust
+    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      with:
+        python-version: '3.12'
+        cache: pip
+    - name: Prepare the selected Python environment
+      shell: pwsh
+      run: |-
+        python -m pip install --disable-pip-version-check -r tools/requirements.txt
+        if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+        "NIOH3_PYTHON=$((Get-Command python).Source)" >> $env:GITHUB_ENV
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/plan
+    - name: Native provenance packaging selector and real broker lifecycles
+      shell: pwsh
+      run: node tools/ci/run.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --group packaging-1 --out "$env:NIOH3_CI_OUT/results/packaging-1"
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-result-a${{ github.run_attempt }}-packaging-1
+        path: ${{ env.NIOH3_CI_OUT }}/results/packaging-1
+        if-no-files-found: error
+  frontend-native:
+    needs: plan
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+    - uses: ./.github/actions/ci-node
+      with:
+        dependencies: 'true'
+        browser: 'true'
+    - uses: ./.github/actions/ci-rust
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/plan
+    - name: Preserve actual-worker roster and recovery UI acceptance
+      shell: pwsh
+      run: node tools/ci/run.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --group frontend-native-1 --out "$env:NIOH3_CI_OUT/results/frontend-native-1"
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-result-a${{ github.run_attempt }}-frontend-native-1
+        path: ${{ env.NIOH3_CI_OUT }}/results/frontend-native-1
+        if-no-files-found: error
+  ci-complete:
+    if: always()
+    needs:
+    - plan
+    - model-and-lint
+    - formal-models
+    - rust-crates
+    - rust-static
+    - frontend-build
+    - frontend-tests
+    - shadow-plan
+    - shadow
+    - rust-packaging
+    - frontend-native
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+    - uses: ./.github/actions/ci-node
+      with:
+        dependencies: 'false'
+        browser: 'false'
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/plan
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        pattern: ci-result-a${{ github.run_attempt }}-*
+        path: ${{ env.NIOH3_CI_OUT }}/reports
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-shadow-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/shadow
+      if: needs.plan.outputs.comparison == 'Shadow'
+    - name: Require full coverage and exact-source shadow agreement
+      shell: pwsh
+      run: node tools/ci/gate.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --reports "$env:NIOH3_CI_OUT/reports" --shadow "$env:NIOH3_CI_OUT/shadow/shadow.json"
+        --out "$env:NIOH3_CI_OUT/final"
+      if: always()
+      env:
+        NIOH3_CI_JOB_RESULTS: ${{ toJSON(needs) }}
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-final-evidence-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/final
+        if-no-files-found: error

@@ -7,7 +7,7 @@ import {build} from 'esbuild';
 import {chromium} from 'playwright';
 
 const root=resolve(import.meta.dirname,'../..');
-const output='D:/Nioh3_v080_deliverables/deliverables/codex-v083-missing-features-20260930/ui';
+const output=resolve(process.env.NIOH3_CI_TASK_OUTPUT||'D:/Nioh3_v080_deliverables/deliverables/codex-v083-missing-features-20260930/ui');
 // Recorded host replies live in the repository so CI can replay them.
 const fixture=JSON.parse(await readFile(join(root,'test_fixtures/scroll-completion-exchanges.json'),'utf8'));
 const responses=fixture.exchanges.filter(x=>x.request.method==='runtime.scroll_completion_predict'&&x.response.ok);

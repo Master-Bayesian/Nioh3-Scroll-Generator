@@ -5,5 +5,5 @@
     "checkJs": false,
     "noEmit": true
   },
-  "include": ["tools/ui-audit/verify-hell-equipment-seeds.mjs"]
+  "include": ["tools/ui-audit/verify-hell-equipment-seeds.mjs", "tools/ui-audit/verify-arc-expanded.mjs", "apps/workshop/verify-text-fit.mjs", "apps/workshop/verify-live-equipment-add.mjs", "apps/workshop/verify-scroll-completion.mjs"]
 }
