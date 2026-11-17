@@ -1,0 +1,4 @@
+interface:
+  display_name: "Nioh3 CI Quality"
+  short_description: "Maintain Nioh3 CI quality and measured test performance"
+  default_prompt: "Use $nioh3-ci-quality to review and improve this Nioh3 CI change while preserving required checks and repeatable evidence."
