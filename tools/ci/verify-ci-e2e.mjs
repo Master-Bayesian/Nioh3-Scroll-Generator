@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
-import {cpSync, existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync} from 'node:fs';
+import {cpSync, existsSync, mkdirSync, readFileSync, symlinkSync, unlinkSync, writeFileSync} from 'node:fs';
 import {dirname, resolve} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {parseArgs} from 'node:util';
@@ -34,6 +34,7 @@ function shadowAt(plan,name){const directory=resolve(output,name);const result=c
 try{
   git(['init','-b','main']);git(['config','core.autocrlf','false']);
   put('.gitignore','node_modules/\n');
+  put('.gitattributes','*.ts text\n*.mjs -text\n');
   put('package.json',JSON.stringify({name:'nioh3-owned-ci-fixture',private:true,type:'module'}));
   put('tsconfig.json',JSON.stringify({compilerOptions:{target:'ES2022',module:'ESNext',moduleResolution:'Bundler',strict:true,noEmit:true},include:['apps/**/*.ts']}));
   put('apps/desktop/src/leaf.ts','export const value = 1;\n');
@@ -60,6 +61,12 @@ try{
     const result=cli('run.mjs',['--plan',plan.path,'--task',id,'--out',resolve(output,'actual-node',digest(id).slice(0,8))]);
     check('actual existing Node runner passes '+id,result.status===0,{exitCode:result.status});
   }
+  const leafPath=resolve(root,'apps/desktop/tests/leaf.test.ts');
+  git(['config','core.autocrlf','true']);
+  unlinkSync(leafPath);
+  git(['checkout-index','--force','--index','--','apps/desktop/tests/leaf.test.ts']);
+  const crlf=planAt('crlf-plan',base);
+  check('normalized input identities survive LF and CRLF checkouts',readFileSync(leafPath,'utf8').includes('\r\n')&&crlf.value.inventory.inputHash===plan.value.inventory.inputHash&&crlf.value.sourceId===plan.value.sourceId);
   // Positive/fault aggregation fixtures are controlled protocol records, not
   // claims that Cargo/browser/model product suites executed in this fixture.
   const reportRoot=resolve(output,'controlled-receipts');
@@ -74,6 +81,12 @@ try{
   function gate(p,s,reports,name,env={}){return cli('gate.mjs',['--plan',p,'--shadow',s,'--reports',reports,'--out',resolve(output,'gate-results',name)],env);}
   const valid=gate(plan.path,shadow.path,reportRoot,'positive');
   check('actual aggregate CLI accepts complete matching controlled receipts',valid.status===0,{exitCode:valid.status});
+  const sensitivePath=resolve(root,'apps/workshop/verify-text-fit.mjs');
+  const sensitiveBytes=readFileSync(sensitivePath);
+  writeFileSync(sensitivePath,Buffer.concat([sensitiveBytes,Buffer.from('\r\n')]));
+  const sensitive=cli('shadow.mjs',['--plan',plan.path,'--out',resolve(output,'byte-sensitive-edit')]);
+  check('byte-sensitive source edits remain rejected',sensitive.status!==0&&sensitive.stderr.includes('CI_DIRTY_SOURCE'));
+  writeFileSync(sensitivePath,sensitiveBytes);
   function fault(name,expected,mutate){
     const folder=resolve(output,'faults',name);mkdirSync(folder,{recursive:true});cpSync(reportRoot,resolve(folder,'reports'),{recursive:true});
     const state={plan:structuredClone(plan.value),shadow:structuredClone(shadow.value),reports:resolve(folder,'reports'),env:{}};

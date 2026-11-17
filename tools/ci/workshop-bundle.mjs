@@ -1,18 +1,14 @@
 import {existsSync, readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {execFileSync} from 'node:child_process';
-import {digest, ensure, git, readJson, writeJson} from './core.mjs';
+import {digest, ensure, git, readJson, trackedEntries, writeJson} from './core.mjs';
 
 function inputs(root) {
   ensure(!git(root,['status','--porcelain']),'CI_BUNDLE_DIRTY','A reusable bundle requires clean committed source.');
   // Generated TypeScript may be rewritten from CRLF to LF without a Git diff.
   // Bind the normalized committed input blobs, then verify actual HTML bytes.
   // Native/binary inputs keep their repository-defined byte identities.
-  const entries=execFileSync('git',['ls-files','--stage','-z'],{cwd:root,windowsHide:true}).toString('utf8').split('\0').filter(Boolean).map(line=>{
-    const match=line.match(/^(\d+) ([a-f0-9]+) (\d)\t([\s\S]+)$/);
-    ensure(match&&match[3]==='0','CI_BUNDLE_INDEX','The source index is unresolved.');
-    return {path:match[4],mode:match[1],blob:match[2]};
-  }).filter(entry=>/^(?:apps|packages|assets)\//.test(entry.path)||['package.json','package-lock.json'].includes(entry.path));
+  const entries=trackedEntries(root).filter(entry=>/^(?:apps|packages|assets)\//.test(entry.path)||['package.json','package-lock.json'].includes(entry.path));
   return digest(entries);
 }
 

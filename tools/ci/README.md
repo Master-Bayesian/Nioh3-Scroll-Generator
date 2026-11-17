@@ -66,6 +66,10 @@ product acceptance. The normal workflow separately executes those real suites.
 Artifacts use a run-attempt namespace and plans bind the invocation. Retry the
 whole workflow or dispatch a new full run; do not combine old successful shards
 with a failed-jobs-only attempt. Failure evidence remains in its original attempt.
+Input identities use clean committed Git blobs under `.gitattributes`, allowing
+LF/CRLF text checkouts to audit the same reports. Dirty source and changes to
+byte-sensitive inputs are still rejected; actual evidence files keep SHA-256
+byte checks. The orchestration E2E exercises both boundaries.
 
 After a completed CI run, record actual wall/setup/shadow costs with:
 

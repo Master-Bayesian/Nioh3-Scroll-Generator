@@ -1,6 +1,6 @@
-import {existsSync, readFileSync} from 'node:fs';
+import {existsSync} from 'node:fs';
 import {resolve} from 'node:path';
-import {ensure, trackedFiles, digest, readJson} from './core.mjs';
+import {ensure, trackedFiles, trackedEntries, digest, readJson} from './core.mjs';
 
 const rust = [
   ['domain', 'crates/nioh3-domain/Cargo.toml', []],
@@ -72,7 +72,14 @@ export function inventory(root, files = trackedFiles(root)) {
   const normalScripts=new Set(tasks.flatMap(task=>task.script?[task.script]:task.kind==='frontend-native'?['apps/workshop/verify-small-bugfixes.mjs']:task.kind==='ci-e2e'?['tools/ci/verify-ci-e2e.mjs']:[]));
   const discoveredScripts=files.filter(file=>/^(?:apps\/(?:workshop|tauri)|tools\/(?:ui-audit|ci))\/verify-[^/]+\.(?:mjs|ts)$/.test(file));
   ensure(discoveredScripts.every(file=>normalScripts.has(file)||nonNormalScripts[file]),'CI_TEST_UNCLASSIFIED',`Classify new standalone acceptance scripts: ${discoveredScripts.filter(file=>!normalScripts.has(file)&&!nonNormalScripts[file]).join(', ')}`);
-  const inputHash = digest(tasks.flatMap(task => task.roots).sort().map(path => [path, digest(readFileSync(resolve(root, path)))]));
+  // Callers first verify clean committed source. Git blobs normalize text under
+  // .gitattributes while preserving binary/native identities across checkouts.
+  const entries = new Map(trackedEntries(root).map(entry => [entry.path, entry]));
+  const inputHash = digest(tasks.flatMap(task => task.roots).sort().map(path => {
+    const entry = entries.get(path);
+    ensure(entry, 'CI_INPUT_IDENTITY_MISSING', path);
+    return [path, entry.mode, entry.blob];
+  }));
   return {schema: 'nioh3-ci-inventory/v1', tasks, inputHash, otherProfiles:discoveredScripts.filter(file=>!normalScripts.has(file)).map(file=>({file,reason:nonNormalScripts[file]}))};
 }
 

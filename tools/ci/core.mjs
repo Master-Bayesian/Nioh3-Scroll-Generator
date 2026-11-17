@@ -37,6 +37,14 @@ export function trackedFiles(root) {
   return execFileSync('git', ['ls-files', '-z'], {cwd: root, windowsHide: true}).toString('utf8').split('\0').filter(Boolean).sort();
 }
 
+export function trackedEntries(root) {
+  return execFileSync('git', ['ls-files', '--stage', '-z'], {cwd: root, windowsHide: true}).toString('utf8').split('\0').filter(Boolean).map(line => {
+    const match = line.match(/^(\d+) ([a-f0-9]+) (\d)\t([\s\S]+)$/);
+    ensure(match && match[3] === '0', 'CI_INPUT_INDEX', 'The source index is unresolved.');
+    return {path: match[4], mode: match[1], blob: match[2]};
+  });
+}
+
 export function sourceIdentity(root, eventName, event = {}, options = {}) {
   const testedSha = git(root, ['rev-parse', 'HEAD']);
   const status = git(root, ['status', '--porcelain']);

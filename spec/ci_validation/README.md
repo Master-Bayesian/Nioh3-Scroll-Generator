@@ -17,6 +17,11 @@ a liveness or eventual-job-success claim; terminal states allow stuttering.
 | `Collect`, `Finalize` | `run.mjs` uses explicit Planned/Running/Passed/Failed transitions and writes source/plan-bound receipts; `gate.mjs` rejects incomplete, failed or stale reports. |
 | Required shadow presence/equality | PR/manual shadow plans are executed independently; the final gate requires their exact selected set and a successful full reference for each case. |
 
+Source/input identities require a clean committed checkout and Git-normalized
+input blobs. Text newline conversion does not change source identity; deliberate
+byte-sensitive edits remain dirty and fail before execution. Report/log hashes
+continue to bind the actual evidence bytes. The CLI E2E exercises this distinction.
+
 The real CLI E2E retains an owned Git fixture, import-affected Node executions,
 positive aggregate controls and deliberately invalid artifacts with exact named
 error codes. Actual product suites still run in the full workflow; controlled
