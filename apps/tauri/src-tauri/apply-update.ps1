@@ -6,6 +6,21 @@ function Get-PackageHash([string]$Path) {
     try { return [BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-','') }
     finally { $stream.Dispose(); $algorithm.Dispose() }
 }
+function Wait-ForApplicationExit([int]$WaitId) {
+    if ($WaitId -le 0 -or $WaitId -eq $PID) { throw 'Invalid update process identifier' }
+    $process = Get-Process -Id $WaitId -ErrorAction SilentlyContinue
+    if ($null -eq $process) { return }
+    try {
+        $exited = $process.WaitForExit(90000)
+    } catch {
+        # Opening the wait handle can race an already completed exit.
+        if (Get-Process -Id $WaitId -ErrorAction SilentlyContinue) { throw }
+        return
+    } finally {
+        $process.Dispose()
+    }
+    if (-not $exited) { throw 'Application did not exit safely' }
+}
 trap {
     $failure=$_.Exception.Message
     foreach($disposable in @($prepared,$failed)) {
@@ -59,9 +74,7 @@ if(Test-Path -LiteralPath $installedUninstaller){
     Copy-Item -LiteralPath $installedUninstaller -Destination $preparedUninstaller
     if((Get-Item -LiteralPath $preparedUninstaller).Length -ne $uninstaller.Length -or (Get-PackageHash $preparedUninstaller) -ne (Get-PackageHash $installedUninstaller)){throw 'Installed uninstaller copy failed'}
 }
-Wait-Process -Id $ProcessId -Timeout 90 -ErrorAction SilentlyContinue
-$running=Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
-if($running -and -not $running.HasExited){throw 'Application did not exit safely'}
+Wait-ForApplicationExit $ProcessId
 $moved=$false
 try {
     [IO.Directory]::Move($targetPath,$previous)

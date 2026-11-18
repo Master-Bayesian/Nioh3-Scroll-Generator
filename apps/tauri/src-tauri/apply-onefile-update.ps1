@@ -26,6 +26,22 @@ function Assert-RegularFile([string]$Path) {
 function Write-Receipt($Value) {
     [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'last-update-result.json'), ($Value | ConvertTo-Json))
 }
+function Wait-ForApplicationExit([int]$WaitId) {
+    if ($WaitId -le 0 -or $WaitId -eq $PID) { throw 'Invalid update process identifier' }
+    $process = Get-Process -Id $WaitId -ErrorAction SilentlyContinue
+    if ($null -eq $process) { return }
+    try {
+        $exited = $process.WaitForExit(90000)
+    } catch {
+        # Opening the wait handle can race an already completed exit.
+        if (Get-Process -Id $WaitId -ErrorAction SilentlyContinue) { throw }
+        return
+    } finally {
+        $process.Dispose()
+    }
+    if (-not $exited) { throw 'Application did not exit safely' }
+}
+$failurePhase = 'validate-and-stage'
 trap {
     $failure = $_.Exception.Message
     if ($prepared -and [IO.File]::Exists($prepared)) {
@@ -35,7 +51,7 @@ trap {
             [IO.File]::Delete($prepared)
         }
     }
-    Write-Receipt @{ status='failed'; mode='onefile'; error=$failure; time=[DateTime]::UtcNow.ToString('o') }
+    Write-Receipt @{ status='failed'; mode='onefile'; failurePhase=$failurePhase; error=$failure; time=[DateTime]::UtcNow.ToString('o') }
     exit 1
 }
 $targetPath = [IO.Path]::GetFullPath($Target)
@@ -52,12 +68,11 @@ $prepared = [IO.Path]::Combine($parent, ([IO.Path]::GetFileName($targetPath) + '
 $previous = [IO.Path]::Combine($parent, ([IO.Path]::GetFileName($targetPath) + '.previous-' + [guid]::NewGuid().ToString('N')))
 [IO.File]::Copy($stagePath, $prepared, $false)
 if ((Get-FileDigest $prepared) -ne $FileHash) { throw 'Replacement verification failed' }
+$failurePhase = 'wait-for-exit'
 foreach ($waitId in @($ProcessId, $LauncherProcessId) | Select-Object -Unique) {
-    if ($waitId -le 0 -or $waitId -eq $PID) { throw 'Invalid update process identifier' }
-    Wait-Process -Id $waitId -Timeout 90 -ErrorAction SilentlyContinue
-    $running = Get-Process -Id $waitId -ErrorAction SilentlyContinue
-    if ($running -and -not $running.HasExited) { throw 'Application did not exit safely' }
+    Wait-ForApplicationExit $waitId
 }
+$failurePhase = 'replace-executable'
 Assert-RegularFile $targetPath
 if ((Get-FileDigest $targetPath) -ne $PreviousHash) { throw 'Original executable changed while waiting' }
 Assert-RegularFile $prepared
@@ -85,6 +100,7 @@ try {
     $start.UseShellExecute = $false
     $start.CreateNoWindow = $true
     $start.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden
+    $failurePhase = 'start-replacement'
     $started = [Diagnostics.Process]::Start($start)
     $started.Dispose()
 } catch {
