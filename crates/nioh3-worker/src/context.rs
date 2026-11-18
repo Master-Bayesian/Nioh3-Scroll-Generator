@@ -39,7 +39,7 @@ pub const SUPPORTED_GAME_PROFILE: &str = "pc-v2.00.02-v2.01";
 /// This value mirrors `nioh3_scroll_editor/version.py`, which the Python worker
 /// imports directly. A unit test re-reads that file so the two cannot drift
 /// silently; the value is never inferred or defaulted at runtime.
-pub const PRODUCT_VERSION: &str = "0.8.13-rc.2";
+pub const PRODUCT_VERSION: &str = "0.8.13";
 
 /// Fail-closed context errors, mirroring `CoreErrorCode.RESOURCE_MISMATCH`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -808,7 +808,7 @@ mod tests {
             "\"game_file_version\":\"2.0.2.0\",",
             "\"game_profile\":\"pc-v2.00.02-v2.01\",",
             "\"policy_version\":\"operation-policy-v1\",",
-            "\"product_version\":\"0.8.13-rc.2\",",
+            "\"product_version\":\"0.8.13\",",
             "\"resources_digest\":\"4d24196b669fd43970550133c251e90b723fe0a4a2c66e8e17dfd2e1c2c91262\",",
             "\"seed_accelerator_abi\":null,",
             "\"seed_accelerator_build_id\":null,",
@@ -816,18 +816,18 @@ mod tests {
             "\"versioned_resource_dir\":\"r4_finalizer/pc_v2_02/resource_v1\"}",
         );
         const V202_CONTEXT_DIGEST: &str =
-            "2a140bccfd0c31ae369d7808d400019e4a81f95d1fab89cb0d8e24c1cbf8c104";
+            "c1d51a732db8d11ac2add074453a6a88be7305e73c33a815748354c3c7f99fa0";
         const LEGACY_CANONICAL: &str = concat!(
             "{\"algorithm_version\":\"scroll-generation-v0.7-native-completion-2\",",
             "\"game_profile\":\"pc-v2.00.02-v2.01\",",
             "\"policy_version\":\"operation-policy-v1\",",
-            "\"product_version\":\"0.8.13-rc.2\",",
+            "\"product_version\":\"0.8.13\",",
             "\"resources_digest\":\"4d24196b669fd43970550133c251e90b723fe0a4a2c66e8e17dfd2e1c2c91262\",",
             "\"seed_accelerator_abi\":null,",
             "\"seed_accelerator_build_id\":null}",
         );
         const LEGACY_DIGEST: &str =
-            "c5bd33750ae7c5f18e201fc593370ffe6867430e1a4e9351b666c4ca555948cf";
+            "4dfa5b6676e1fb74686308f96fab430b4783863088d8c362256b9cbe7f79e191";
 
         let context = capture_resolved_context(
             SUPPORTED_GAME_PROFILE,

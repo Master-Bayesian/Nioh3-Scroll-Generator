@@ -1,28 +1,21 @@
-# Nioh 3 Studio 0.8.12
+# Nioh 3 Studio 0.8.13
 
-Download Nioh3Studio-0.8.12-win-x64.exe and run it directly, or use the signed in-app updater. No extraction, Python, Node.js or CUDA toolkit installation is required. Microsoft Edge WebView2 remains a Windows prerequisite.
+Download Nioh3Studio-0.8.13-win-x64.exe and run it directly, or update from the app. Microsoft Edge WebView2 remains a Windows prerequisite.
 
-- Support hell-weapon effect seed search in the existing save-file equipment-add flow. Select an eligible weapon, request applicable hell/ordinary/star/grace/set effects, review a result, and add the selected combination.
-- Choose an eligible hell martial skill independently of the effect seed. The reviewed effects, skill and generation context stay bound through the queue, preview and save confirmation. Changed search inputs invalidate old results.
-- Fix equipment addition failing on long-running saves whose equipment inventory key exceeds 65535. Equipment uses its existing native u32 key contract; source checks, backups and overflow refusal remain enabled.
-- Enable native-validated Crucible Wraith prediction for the certified PC v2.02 solo selector-one route. Refresh old cached previews to use the corrected prediction. Other modes and unvalidated selectors retain their existing confirmation limits.
+- Fix Chinese and Japanese input-method confirmation accidentally selecting an effect. The effect picker now supports arrow keys, Enter, Escape, and labelled keyboard navigation.
+- Keep scroll drafts and live overlays tied to the exact selected save and record. Retry pending recovery after the outer receipt has been written to disk.
+- Allow the app to close after a protected background worker has already exited. Packaged launches ignore development-only save fault settings.
+- Flush encrypted live-operation backups before marking them ready and keep working decrypted bytes in memory. Clean up Windows debugger handles using their correct ownership.
+- Fix an update helper sometimes failing as the old application exits. Restart correctly with profile paths that contain spaces or end with a backslash.
 
-Hell effect results apply to the selected supported generation context and the character's progress. The effect seed does not determine the martial skill or every enemy/region drop modifier. The separate live-add workflow retains its existing scope.
+## Supported scope
 
-## Supported scope and known limitations
-
-The primary target is PC v2.02 (`2.0.2.0`). PC v2.01 (`2.0.1.0`) retains its
-existing offline and registered scroll/count paths; seeded native equipment
-addition is unsupported. PC v2.00.02 (`2.0.0.2`) retains its existing offline
-scope. Unknown executable versions or missing resource/layout/ABI evidence are
-refused; this release does not guarantee every DLC1 build or distribution
-variant.
-
-Item marks are known only for scrolls and equipment; stars on consumable items
-stay in this program. Menu recognition in one reported environment remains
-unresolved. Changing terrain with a temporary scroll edit can leave a mission
-without enemies (issue #29); when that happens is not yet known.
+The primary target remains PC v2.02 (2.0.2.0). PC v2.01 (2.0.1.0) retains
+existing offline and registered scroll/count paths. Seeded native equipment
+addition is unsupported there. PC v2.00.02 (2.0.0.2) retains its existing
+offline scope. The app refuses unknown versions and unverified runtime
+identities.
 
 Return to the title screen before editing a save file, then load it in game.
-Keep an independent full-account backup. Automatic backups, single-writer locks,
-rollback, native validation and protected-operation recovery remain enabled.
+Keep an independent full-account backup. The updater retains its verified
+replacement and rollback checks.
