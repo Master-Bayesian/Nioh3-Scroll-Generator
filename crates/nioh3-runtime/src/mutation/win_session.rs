@@ -25,8 +25,6 @@ pub struct DebugEvent {
     pub exception_code: Option<i32>,
     /// `CREATE_THREAD_DEBUG_EVENT` / `CREATE_PROCESS_DEBUG_EVENT`.
     pub thread_handle: Option<u64>,
-    /// `CREATE_PROCESS_DEBUG_EVENT` / `LOAD_DLL_DEBUG_EVENT`.
-    pub file_handle: Option<u64>,
     /// `CREATE_PROCESS_DEBUG_EVENT`.
     pub process_handle: Option<u64>,
     /// `EXIT_PROCESS_DEBUG_EVENT` / `EXIT_THREAD_DEBUG_EVENT`.
@@ -428,7 +426,8 @@ mod windows_impl {
     // module claims it, and re-exported for the executor's own use.
     use std::ffi::c_void;
     use windows_sys::Win32::Foundation::{
-        CloseHandle, GetLastError, FILETIME, HANDLE, INVALID_HANDLE_VALUE, NTSTATUS,
+        CloseHandle, DuplicateHandle, GetLastError, DUPLICATE_SAME_ACCESS, FILETIME, HANDLE,
+        INVALID_HANDLE_VALUE, NTSTATUS,
     };
     use windows_sys::Win32::System::Diagnostics::Debug::{
         ContinueDebugEvent, DebugActiveProcess, DebugActiveProcessStop, DebugBreakProcess,
@@ -439,8 +438,8 @@ mod windows_impl {
         VirtualAllocEx, VirtualFreeEx, MEMORY_BASIC_INFORMATION,
     };
     use windows_sys::Win32::System::Threading::{
-        CreateRemoteThread, GetExitCodeThread, GetProcessTimes, GetThreadId, OpenProcess,
-        WaitForSingleObject,
+        CreateRemoteThread, GetCurrentProcess, GetExitCodeThread, GetProcessTimes, GetThreadId,
+        OpenProcess, WaitForSingleObject,
     };
 
     /// `DebugActiveProcess` is not a right, but the mask the shipped debug view
@@ -574,7 +573,7 @@ mod windows_impl {
     struct OwnedThread {
         tid: u32,
         instance: u64,
-        handle_value: u64,
+        event_handle_value: u64,
         handle: HANDLE,
         provenance: HandleProvenance,
         run_state: ThreadRunState,
@@ -589,6 +588,42 @@ mod windows_impl {
         /// restores it.
         handle_trusted: bool,
         error: Option<String>,
+    }
+
+    impl Drop for OwnedThread {
+        fn drop(&mut self) {
+            // This is our duplicate, independent of the debug event's lifetime.
+            unsafe { CloseHandle(self.handle) };
+        }
+    }
+
+    fn close_event_file(handle: HANDLE) {
+        if !handle.is_null() && handle != INVALID_HANDLE_VALUE {
+            unsafe { CloseHandle(handle) };
+        }
+    }
+
+    fn duplicate_event_thread(handle: u64) -> Result<HANDLE, RuntimeError> {
+        let process = unsafe { GetCurrentProcess() };
+        let mut owned = std::ptr::null_mut();
+        if unsafe {
+            DuplicateHandle(
+                process,
+                handle as HANDLE,
+                process,
+                &mut owned,
+                0,
+                0,
+                DUPLICATE_SAME_ACCESS,
+            )
+        } == 0
+        {
+            return Err(failed(
+                "DuplicateHandle for debug event thread",
+                last_error(),
+            ));
+        }
+        Ok(owned)
     }
 
     pub struct WindowsDebugSession {
@@ -689,7 +724,7 @@ mod windows_impl {
             OwnerThreadSnapshot {
                 tid: thread.tid,
                 instance: thread.instance,
-                handle: thread.handle_value,
+                handle: thread.handle as u64,
                 handle_provenance: thread.provenance.label(),
                 run_state: match thread.run_state {
                     ThreadRunState::Running => "running",
@@ -744,9 +779,8 @@ mod windows_impl {
 
         /// Move one record out of the live set and into the retired report.
         ///
-        /// The numeric handle is only preserved as provenance: the system
-        /// already closed it, or handed the value to another thread, so it is
-        /// never closed here and never written through again.
+        /// Record the private handle's last value for diagnostics.
+        /// Dropping the retired record closes that duplicate.
         fn retire_thread_at(&mut self, index: usize, cleanup_state: &'static str) {
             let mut retired = self.threads.remove(index);
             retired.original_debug = None;
@@ -805,7 +839,7 @@ mod windows_impl {
                     "{failed_api} could not establish the identity of tid {} instance {} handle {:#x}; \
                      last_error={last_error}; observation is unresolved, the retained \
                      structural cleanup state was {retained_cleanup}",
-                    thread.tid, thread.instance, thread.handle_value
+                    thread.tid, thread.instance, thread.handle as u64
                 ));
             }
         }
@@ -866,9 +900,7 @@ mod windows_impl {
                     self.debugger_state = "detached_unverified";
                 }
             }
-            for thread in self.threads.drain(..) {
-                unsafe { CloseHandle(thread.handle) };
-            }
+            self.threads.clear();
             if !self.process.is_null() && self.process != INVALID_HANDLE_VALUE {
                 unsafe { CloseHandle(self.process) };
                 self.process = std::ptr::null_mut();
@@ -1080,13 +1112,13 @@ mod windows_impl {
                 let info = unsafe { event.u.CreateProcessInfo };
                 decoded.thread_handle = Some(info.hThread as u64);
                 decoded.process_handle = Some(info.hProcess as u64);
-                decoded.file_handle = Some(info.hFile as u64);
+                close_event_file(info.hFile);
             } else if decoded.is_exit_process() {
                 decoded.exit_code = Some(unsafe { event.u.ExitProcess.dwExitCode });
             } else if decoded.is_exit_thread() {
                 decoded.exit_code = Some(unsafe { event.u.ExitThread.dwExitCode });
             } else if decoded.is_load_dll() {
-                decoded.file_handle = Some(unsafe { event.u.LoadDll.hFile as u64 });
+                close_event_file(unsafe { event.u.LoadDll.hFile });
             }
             for thread in &mut self.threads {
                 thread.run_state = ThreadRunState::Stopped;
@@ -1120,9 +1152,8 @@ mod windows_impl {
                     .iter()
                     .position(|thread| thread.tid == event.tid)
                 {
-                    // Windows closes the event-supplied handle after the
-                    // EXIT_THREAD event is continued. Preserve only its numeric
-                    // provenance in the retired report; never CloseHandle it.
+                    // ContinueDebugEvent releases the event-supplied handle.
+                    // Retirement releases only the session's separate duplicate.
                     self.retire_thread_at(index, "exited");
                 }
             }
@@ -1241,17 +1272,20 @@ mod windows_impl {
                     ),
                 });
             }
-            // A numeric handle is not identity. The conflict rule asks the OS
-            // whether each conflicting record still owns its own instance: an
-            // instance whose handle was closed or handed to another thread is
-            // retired, and only a live instance still refuses the adoption.
+            if event.thread_handle != Some(handle) {
+                return Err(RuntimeError::NativeDispatch {
+                    detail: "Thread adoption requires the pending event's handle".to_string(),
+                });
+            }
+            // Conflict decisions use observations on our duplicates. Event handle
+            // numbers are only compared as provenance, since Windows may reuse them.
             let recorded = self
                 .threads
                 .iter()
                 .map(|thread| RecordedInstance {
                     tid: thread.tid,
                     instance: thread.instance,
-                    handle_value: thread.handle_value,
+                    handle_value: thread.event_handle_value,
                     state: recorded_instance_state(
                         thread.tid,
                         Self::observe_recorded_handle(thread),
@@ -1292,12 +1326,13 @@ mod windows_impl {
                     }
                 }
             }
+            let owned_handle = duplicate_event_thread(handle)?;
             self.next_thread_instance += 1;
             self.threads.push(OwnedThread {
                 tid,
                 instance: self.next_thread_instance,
-                handle_value: handle,
-                handle: handle as HANDLE,
+                event_handle_value: handle,
+                handle: owned_handle,
                 provenance,
                 run_state: ThreadRunState::Stopped,
                 original_debug: None,
@@ -1478,7 +1513,7 @@ mod windows_impl {
                                 "WaitForSingleObject returned WAIT_FAILED for tid {} instance {} handle {:#x}; last_error={}",
                                 thread.tid,
                                 thread.instance,
-                                thread.handle_value,
+                                thread.handle as u64,
                                 last_error()
                             ),
                         });
@@ -1498,7 +1533,7 @@ mod windows_impl {
                             "WaitForSingleObject returned WAIT_FAILED for tid {} instance {} handle {:#x}; last_error={}",
                             thread.tid,
                             thread.instance,
-                            thread.handle_value,
+                            thread.handle as u64,
                             last_error()
                         ),
                     }),

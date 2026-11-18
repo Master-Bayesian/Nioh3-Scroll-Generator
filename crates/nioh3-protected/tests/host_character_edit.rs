@@ -1137,3 +1137,149 @@ fn seeded_replay_audit_preserves_natural_and_replaced_group_key_verdicts() {
     );
     assert_ne!(mutated_audit["replayed"], true, "{mutated_audit}");
 }
+
+/// Exercise the binary's production and explicit development launch shapes
+/// against encrypted synthetic saves. The injected OS lock is owned by this test.
+#[cfg(windows)]
+#[test]
+fn packaged_fault_environment_is_inert_and_cached_warning_releases_the_fence() {
+    use std::io::{BufReader, Write};
+    use std::os::windows::fs::OpenOptionsExt;
+    use std::process::{Command, Stdio};
+
+    let parent = build_root().join("deliverables/product-maintenance-20261118/save-fault-recovery");
+    let root = parent.join(format!("run-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    let mut summaries = Vec::new();
+    for development in [false, true] {
+        let mode = if development {
+            "development"
+        } else {
+            "production"
+        };
+        let state = root.join(mode).join("state");
+        let path = fixture_save(&root.join(mode));
+        let mut command = Command::new(env!("CARGO_BIN_EXE_nioh3-protected-worker"));
+        command.args(["--role", "save", "--game-file-version", "2.0.2.0"]);
+        command.arg("--state-root").arg(&state);
+        command.arg("--data-root").arg(repo_root().join("data"));
+        command
+            .arg("--contract-dir")
+            .arg(repo_root().join("packages/contracts"));
+        command.env_remove("NIOH3_RUST_PROTECTED_WORKER");
+        command.env("NIOH3_SAVE_LEDGER_FAULT", "rename");
+        if development {
+            command.arg("--dev-protected-only");
+            command.env_remove("NIOH3_SAVE_HOST_FAULT");
+        } else {
+            command.env("NIOH3_SAVE_HOST_FAULT", "after-checkpoint");
+        }
+        let mut child = command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut request = child.stdin.take().unwrap();
+        let mut response = BufReader::new(child.stdout.take().unwrap());
+        let mut sequence = 0;
+        let mut exchange = |method: &str, params: Value| {
+            sequence += 1;
+            let value =
+                json!({"protocol":1,"id":sequence.to_string(),"method":method,"params":params});
+            request.write_all(&frame(&value)).unwrap();
+            request.flush().unwrap();
+            let mut size = [0; 4];
+            response.read_exact(&mut size).unwrap();
+            let mut bytes = vec![0; u32::from_le_bytes(size) as usize];
+            response.read_exact(&mut bytes).unwrap();
+            serde_json::from_slice::<Value>(&bytes).unwrap()
+        };
+        assert_eq!(exchange("handshake", json!({}))["ok"], true);
+        let registered = job(&mut exchange, "save.register", json!({"path":path}));
+        let save_id = registered["result"]["save_id"].clone();
+        let character = job(&mut exchange, "save.character", json!({"save_id":save_id}));
+        let plan = job(
+            &mut exchange,
+            "save.prepare_character_edit",
+            json!({
+                "save_id": save_id,
+                "source_sha256": character["result"]["source_sha256"],
+                "currencies": { "gold": 18452 }
+            }),
+        );
+        assert_eq!(plan["state"], "completed", "{plan}");
+        let plan_id = plan["result"]["plan_id"].as_str().unwrap();
+        let commit = job(&mut exchange, "save.commit", json!({"plan_id":plan_id}));
+        assert_eq!(commit["state"], "completed", "{commit}");
+        let installed = std::fs::read(&path).unwrap();
+        assert_eq!(
+            read_currency(&decrypt_container(&installed).unwrap(), Currency::Gold).unwrap(),
+            18452
+        );
+
+        let mut summary = json!({"mode":mode,"commit_status":commit["result"]["commit_status"]});
+        if development {
+            assert_eq!(
+                commit["result"]["commit_status"], "committed_with_warning",
+                "{commit}"
+            );
+            let filename = format!("{plan_id}.json");
+            let outer = state.join("v2-operations").join(&filename);
+            let core = state
+                .join("protected-internal/v2-operations")
+                .join(filename);
+            let read =
+                |p: &Path| serde_json::from_slice::<Value>(&std::fs::read(p).unwrap()).unwrap();
+            assert_eq!(read(&outer)["commit_status"], "executing");
+            // Simulate a second independent terminal-record failure. Preserve
+            // the real operation identity, verified output digest and backup.
+            let mut pending = read(&core);
+            pending["outcome"] = json!("pending");
+            std::fs::write(&core, serde_json::to_vec(&pending).unwrap()).unwrap();
+            let lock = std::fs::OpenOptions::new()
+                .read(true)
+                .share_mode(1)
+                .open(&outer)
+                .unwrap();
+            let get_receipt = |exchange: &mut _| {
+                job(
+                    exchange,
+                    "save.operation",
+                    json!({"plan_id":plan_id,"acknowledge":false}),
+                )
+            };
+            let fenced = get_receipt(&mut exchange);
+            assert_eq!(
+                fenced["result"]["commit_status"], "committed_with_warning",
+                "{fenced}"
+            );
+            assert_eq!(read(&outer)["commit_status"], "executing");
+            assert_eq!(read(&core)["outcome"], "pending");
+            drop(lock);
+            let recovered = get_receipt(&mut exchange);
+            assert_eq!(
+                recovered["result"]["commit_status"], "committed_with_warning",
+                "{recovered}"
+            );
+            assert_eq!(read(&outer)["commit_status"], "committed_with_warning");
+            assert_eq!(read(&core)["outcome"], "committed");
+            assert_eq!(std::fs::read(&path).unwrap(), installed);
+            summary["core_pending_with_locked_outer_ledger"] = json!(true);
+            summary["same_process_retry_settled_without_save_replay"] = json!(true);
+        } else {
+            assert_eq!(commit["result"]["commit_status"], "committed", "{commit}");
+        }
+        assert_eq!(
+            exchange("shutdown", json!({}))["result"]["safe_to_shutdown"],
+            true
+        );
+        assert!(child.wait().unwrap().success());
+        summaries.push(summary);
+    }
+    std::fs::write(
+        root.join("save-fault-recovery.json"),
+        serde_json::to_vec_pretty(&summaries).unwrap(),
+    )
+    .unwrap();
+    println!("Recovery evidence: {}", root.display());
+}

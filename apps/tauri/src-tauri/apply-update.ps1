@@ -69,7 +69,9 @@ try {
     [IO.Directory]::Move($prepared,$targetPath)
     # Persist before launch: the new app may finish startup before this helper exits.
     [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'last-update-result.json'),(@{status='awaiting-startup';target=$targetPath;previous=$previous;manifestHash=$ManifestHash;time=[DateTime]::UtcNow.ToString('o')}|ConvertTo-Json))
-    Start-Process -FilePath (Join-Path $targetPath 'Nioh3Studio.exe') -WorkingDirectory $targetPath -ArgumentList @('--user-data-dir',('"'+[IO.Path]::GetFullPath($Profile)+'"')) -WindowStyle Hidden
+    # Double terminal backslashes before the closing Windows argv quote.
+    $quotedProfile = '"' + ([IO.Path]::GetFullPath($Profile) -replace '(\\+)$', '$1$1') + '"'
+    Start-Process -FilePath (Join-Path $targetPath 'Nioh3Studio.exe') -WorkingDirectory $targetPath -ArgumentList @('--user-data-dir',$quotedProfile) -WindowStyle Hidden
 } catch {
     if($moved){
         if(Test-Path -LiteralPath $targetPath){

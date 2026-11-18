@@ -1,4 +1,5 @@
 [
   {"name":"missing-outer-settlement","overrides":{"RecordOuterCommit":false},"expected":"Invariant ResolutionPossible is violated"},
-  {"name":"rollback-drops-proof","overrides":{"FixedRollback":false},"expected":"Invariant OwnBytesProvable is violated"}
+  {"name":"rollback-drops-proof","overrides":{"FixedRollback":false},"expected":"Invariant OwnBytesProvable is violated"},
+  {"name":"cached-warning-skips-retry","overrides":{"RetryCachedWarning":false},"expected":"Invariant CachedWarningCanSettle is violated"}
 ]

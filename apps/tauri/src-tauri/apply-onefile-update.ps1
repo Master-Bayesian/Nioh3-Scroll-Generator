@@ -79,7 +79,9 @@ try {
     # The launcher establishes its own runtime directory. Do not inherit a
     # potentially long outer-download directory as the Windows process CWD.
     $start.WorkingDirectory = $PSScriptRoot
-    $start.Arguments = '--user-data-dir "' + [IO.Path]::GetFullPath($Profile) + '"'
+    # Double terminal backslashes before the closing Windows argv quote.
+    $quotedProfile = '"' + ([IO.Path]::GetFullPath($Profile) -replace '(\\+)$', '$1$1') + '"'
+    $start.Arguments = '--user-data-dir ' + $quotedProfile
     $start.UseShellExecute = $false
     $start.CreateNoWindow = $true
     $start.WindowStyle = [Diagnostics.ProcessWindowStyle]::Hidden

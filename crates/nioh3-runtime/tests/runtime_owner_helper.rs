@@ -16,6 +16,16 @@ use nioh3_runtime::RuntimeError;
 use std::collections::BTreeSet;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use windows_sys::Win32::System::Threading::{GetCurrentProcess, GetProcessHandleCount};
+
+fn process_handle_count() -> u32 {
+    let mut count = 0;
+    assert_ne!(
+        unsafe { GetProcessHandleCount(GetCurrentProcess(), &mut count) },
+        0
+    );
+    count
+}
 
 struct Helper {
     child: Child,
@@ -125,6 +135,7 @@ fn drain_to_initial_breakpoint(
 #[test]
 fn controlled_helper_accepts_runtime_owner_lifecycle() -> Result<(), RuntimeError> {
     let mut helper = Helper::spawn()?;
+    let handles_before_attach = process_handle_count();
     let image = std::path::Path::new(env!("CARGO_BIN_EXE_runtime_mutation_helper"))
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
@@ -236,6 +247,28 @@ fn controlled_helper_accepts_runtime_owner_lifecycle() -> Result<(), RuntimeErro
     session.resume(&barrier, true)?;
     assert!(session.context(barrier.tid).is_err());
     session.detach()?;
+    drop(remote);
+    drop(session);
+    let warm_handles = process_handle_count();
+    assert!(
+        warm_handles <= handles_before_attach + 1,
+        "first attach left excess handles: before={handles_before_attach}, after={warm_handles}"
+    );
+    // Windows can initialize a debugger handle on the calling thread's first
+    // attach. Subsequent attach/detach cycles must leave no accumulated handles.
+    for _ in 0..3 {
+        let mut session = WindowsDebugSession::open(helper.pid, &image)?;
+        session.attach()?;
+        let (_, barrier) = drain_to_initial_breakpoint(&mut session)?;
+        session.restore_threads()?;
+        session.resume(&barrier, true)?;
+        session.detach()?;
+        drop(session);
+        assert!(
+            process_handle_count() <= warm_handles,
+            "repeated attach leaked handles"
+        );
+    }
 
     assert!(
         helper.command("bytes")?.starts_with("bytes\t"),

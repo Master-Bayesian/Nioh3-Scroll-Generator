@@ -1,34 +1,11 @@
-//! Read-only Nioh 3 runtime adapter and `runtime.status` core.
+//! Windows runtime discovery, validated reads, and protected native operations.
 //!
-//! Scope: the migration's M3 read-only slice. The crate ports the shipped
-//! Python runtime *read* surface and nothing else.
+//! The read path validates process identity, module bounds and versioned
+//! signatures before exposing memory. The mutation path owns a separate
+//! session with versioned admission, explicit debugger and thread ownership,
+//! cleanup, and readback through the protected runtime host.
 //!
-//! - [`RuntimeOwnership`] is the ownership state machine behind
-//!   `RuntimeApplication.status()`. The shipped host answers `runtime.status`
-//!   without touching the game process, and so does this model.
-//! - [`platform`] covers the `running_game_identity` contract: process
-//!   discovery, the executable image, the fixed module version, the approved
-//!   native runtime profile and its signature sites.
-//! - [`ValidatedProcess`] carries the read-before-dereference rules of
-//!   `native.NativeBatchOracle.open`: process creation identity, module-bounded
-//!   ranges and captured-signature verification before any read is exposed.
-//!
-//! Boundaries, stated so a later worker cannot widen them by accident:
-//!
-//! - No writes. There is no `PROCESS_VM_WRITE`, no remote allocation, no
-//!   thread creation, no debugger or Cheat Engine transport, and no launch,
-//!   suspend, kill or close of the game or any user application.
-//! - The only process access rights used are `PROCESS_QUERY_LIMITED_INFORMATION`
-//!   for identity and `PROCESS_QUERY_INFORMATION | PROCESS_VM_READ` for reads.
-//! - Every failure is a typed [`RuntimeError`]. A missing game reports
-//!   [`RuntimeError::ProcessAbsent`]; it is never folded into a generic
-//!   failure, and access denial is never reported as exit.
-//! - Unknown versions, unapproved profiles, unresolved sites and mismatched
-//!   signatures fail closed before an address is dereferenced.
-//!
-//! Platform functions are implemented for Windows. Other targets still build
-//! and return [`RuntimeError::UnsupportedPlatform`], so the state and profile
-//! models stay portable and unit-testable everywhere.
+//! Unsupported platforms and unverifiable profiles return typed errors.
 
 pub mod character;
 pub mod compatibility_probe;

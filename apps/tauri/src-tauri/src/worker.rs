@@ -25,6 +25,15 @@ const PROTECTED_ROLES: [&str; 2] = ["save", "runtime"];
 const HOST_BUSY: &str = "BUSY: protected operation is still running";
 /// Up to three seconds of waiting for a short background job to finish.
 const BUSY_RETRIES: u32 = 40;
+const INTERNAL_JOB_POLL_LIMIT: Duration = Duration::from_secs(180);
+
+fn worker_error(value: &Value) -> String {
+    format!(
+        "{}: {}",
+        value["code"].as_str().unwrap_or("WORKER_ERROR"),
+        value["message"].as_str().unwrap_or("")
+    )
+}
 const BUSY_RETRY_MILLIS: u64 = 75;
 
 /// Strip the Windows extended-length prefix so a canonicalized path can be
@@ -745,6 +754,8 @@ pub(crate) fn isolate_packaged_worker_environment(command: &mut Command, package
             "NIOH3_RUST_PROTECTED_WORKER",
             "NIOH3_SEED_ACCELERATOR",
             "NIOH3_EFFECT_PREIMAGE_ACCELERATOR",
+            "NIOH3_SAVE_HOST_FAULT",
+            "NIOH3_SAVE_LEDGER_FAULT",
         ] {
             command.env_remove(name);
         }
@@ -1055,11 +1066,7 @@ impl Worker {
                             let reply = if value["ok"] == true {
                                 Ok(value["result"].clone())
                             } else {
-                                Err(format!(
-                                    "{}: {}",
-                                    value["error"]["code"].as_str().unwrap_or("WORKER_ERROR"),
-                                    value["error"]["message"].as_str().unwrap_or("")
-                                ))
+                                Err(worker_error(&value["error"]))
                             };
                             let _ = sender.send(reply);
                         } else {
@@ -1180,15 +1187,24 @@ impl Worker {
     }
     pub async fn run(&self, method: &str, params: Value) -> Reply {
         let mut job = self.call(method, params).await?;
+        let deadline = tokio::time::Instant::now() + INTERNAL_JOB_POLL_LIMIT;
         loop {
             match job["state"].as_str() {
                 Some("queued" | "running" | "cancel_requested") => {
+                    if tokio::time::Instant::now() >= deadline {
+                        return Err(format!(
+                            "WORKER_JOB_PENDING: {method} job {} remains active; inspect its status",
+                            job["job_id"]
+                        ));
+                    }
+                    // A poll already in flight keeps its normal transport timeout.
+                    // The job and its owner remain available through job.current.
                     tokio::time::sleep(Duration::from_millis(80)).await;
                     job = self
                         .call("job.snapshot", json!({"job_id":job["job_id"]}))
                         .await?;
                 }
-                Some("failed") => return Err(job["error"].to_string()),
+                Some("failed") => return Err(worker_error(&job["error"])),
                 Some("completed" | "cancelled") => return Ok(job["result"].clone()),
                 _ => return Err(format!("UNKNOWN_JOB_STATE: {}", job["state"])),
             }
@@ -1203,7 +1219,7 @@ impl Worker {
             return true;
         }
         if self.lifecycle() == Lifecycle::Lost {
-            return false;
+            return self.can_replace().await;
         }
         match self.call("shutdown", json!({})).await {
             Ok(value) if value["safe_to_shutdown"] == true => {
@@ -1211,7 +1227,7 @@ impl Worker {
                 self.input.lock().await.take();
                 true
             }
-            _ => false,
+            _ => self.can_replace().await,
         }
     }
 }
