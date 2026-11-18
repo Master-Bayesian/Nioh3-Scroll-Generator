@@ -2528,8 +2528,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "nioh3-studio"
-version = "0.8.12"
+10.8.13-rc.1"
 dependencies = [
  "base64 0.22.1",
  "chrono",
