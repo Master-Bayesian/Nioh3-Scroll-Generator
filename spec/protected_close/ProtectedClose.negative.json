@@ -1,0 +1,4 @@
+[
+  {"name":"lost-transport-alone-allows-close","overrides":{"RequireExitAfterLoss":false},"expected":"Invariant NoCloseWithoutRelease is violated"},
+  {"name":"lost-exited-worker-blocks-close","overrides":{"AcceptExitedAfterLoss":false},"expected":"Invariant ExitedWorkerCanClose is violated"}
+]

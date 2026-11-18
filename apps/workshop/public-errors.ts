@@ -66,7 +66,7 @@ export function isUserCorrectable(message: string): boolean {
  * The save file changed since this view read it (the game saved, or the save
  * worker restarted). Reading the save again is the whole remedy.
  */
-const STALE_SNAPSHOT = /Snapshot expired|Save changed after preview/i;
+const STALE_SNAPSHOT = /SAVE_VIEW_STALE|Snapshot expired|Save changed after preview/i;
 
 export function isStaleSnapshotError(message: string): boolean {
   return STALE_SNAPSHOT.test(message);

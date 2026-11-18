@@ -59,6 +59,7 @@ fn equipment_checkpoint_verifies_current_bytes_and_preserves_prior_retry_backup(
         .unwrap()
         .join("backup-manifest.json")
         .is_file());
+    assert!(!backup.parent().unwrap().join("decrypted.bin").exists());
 
     let second = fixture.write_save(7);
     let retry = prepare_equipment_checkpoint(&fixture.root, &fixture.source, ID).unwrap();

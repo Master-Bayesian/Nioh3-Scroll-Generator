@@ -1,19 +1,9 @@
-//! Development-only read-only preview worker for the Nioh 3 backend migration.
+//! Shipped read-only search and candidate generation worker for Nioh 3 Studio.
 //!
-//! This crate owns the application layer the shipped Python worker keeps in
-//! `nioh3_scroll_editor/core_services.py`, `candidate_transfer.py` and
-//! `worker_transport.py`: the `GenerationContext` identity binding, candidate
-//! identity, the bounded length-prefixed frame transport, request validation
-//! and the handshake/preview responses.
-//!
-//! Pure generation stays in `nioh3-domain` and resource loading in
-//! `nioh3-data`; nothing here is wired into the shipped Tauri host, and the
-//! binary refuses to serve unless it is explicitly started for development.
-//!
-//! M2.3b adds `jobs` (the single-owner search job), `query` (typed, digest-bound
-//! search parameters) and `schema` (the shipped request schema evaluated in
-//! process), plus the candidate materialization `collector` drives. The native
-//! bounded collector itself is `native_search`/`search_backend`.
+//! This crate owns the framed protocol, generation context, search jobs,
+//! preview and candidate materialization used by the Tauri host. Pure game
+//! rules live in nioh3-domain and resource loading lives in nioh3-data.
+//! The worker admits packaged and explicitly acknowledged development launches.
 
 pub mod capabilities;
 pub mod catalog;

@@ -51,6 +51,15 @@ export interface SaveSessionState {
   busy: boolean;
   error: string | null;
 }
+/** The exact save generation that supplied the records reviewed by this view. */
+export type ViewSnapshot = Pick<SaveInventory, 'save_id' | 'source_sha256' | 'snapshot_id'>;
+
+export function sameSnapshot(shown: ViewSnapshot, current: ViewSnapshot) {
+  return shown.save_id === current.save_id &&
+    shown.source_sha256 === current.source_sha256 &&
+    shown.snapshot_id === current.snapshot_id;
+}
+
 type Edit = ProtectedParams<'save.prepare_edit'>['edits'][number];
 export function editFromEntry(entry: SaveInventory['entries'][number]): Edit {
   return structuredClone({ slot_index: entry.slot_index, header: entry.header, effects: entry.effects });
@@ -112,9 +121,12 @@ export class SaveSession {
   refresh() {
     return this.perform(async () => { await this.discardPlan(); this.update({ inventory: null }); return this.loadInventory(); });
   }
-  private async prepare(action: (snapshot: SaveInventory) => Promise<Result>) {
+  private async prepare(action: (snapshot: SaveInventory) => Promise<Result>, view?: ViewSnapshot) {
     return this.perform(async () => {
-      this.requireReviewedOutcome(); const snapshot = this.snapshot(); await this.discardPlan();
+      this.requireReviewedOutcome();
+      const snapshot = this.snapshot();
+      if (view && !sameSnapshot(view, snapshot)) throw new Error('SAVE_VIEW_STALE');
+      await this.discardPlan();
       const result = await action(snapshot);
       if (!('plan_id' in result) || result.save_id !== snapshot.save_id || result.source_sha256 !== snapshot.source_sha256) {
         throw new Error('SAVE_PLAN_IDENTITY_MISMATCH');
@@ -123,15 +135,15 @@ export class SaveSession {
       return result;
     });
   }
-  prepareEdit(edits: ProtectedParams<'save.prepare_edit'>['edits']) {
+  prepareEdit(edits: ProtectedParams<'save.prepare_edit'>['edits'], view?: ViewSnapshot) {
     const draft = structuredClone(edits);
     return this.prepare(snapshot => this.gateway.execute({ method: 'save.prepare_edit', params: {
-      save_id: snapshot.save_id, snapshot_id: snapshot.snapshot_id, edits: draft } }));
+      save_id: snapshot.save_id, snapshot_id: snapshot.snapshot_id, edits: draft } }), view);
   }
-  prepareDelete(slots: ProtectedParams<'save.prepare_delete'>['slots']) {
+  prepareDelete(slots: ProtectedParams<'save.prepare_delete'>['slots'], view?: ViewSnapshot) {
     const selected = structuredClone(slots);
     return this.prepare(snapshot => this.gateway.execute({ method: 'save.prepare_delete', params: {
-      save_id: snapshot.save_id, snapshot_id: snapshot.snapshot_id, slots: selected } }));
+      save_id: snapshot.save_id, snapshot_id: snapshot.snapshot_id, slots: selected } }), view);
   }
   /** Pick another save and plan replacing the selected one with it, re-signed to this account. */
   /** Throws RESIGN_CANCELLED when the player closes the picker. */

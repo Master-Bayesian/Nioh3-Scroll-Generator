@@ -1684,7 +1684,9 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
       {addKind === FAVORITES_MAJOR && (
         <div className="loadout-import">
           <input value={loadoutCode} onChange={event => setLoadoutCode(event.target.value)} data-field="loadout-code"
-            onKeyDown={event => { if (event.key === "Enter") importLoadout(); }}
+            onKeyDown={event => {
+              if (event.key === "Enter" && !event.nativeEvent.isComposing && event.nativeEvent.keyCode !== 229) importLoadout();
+            }}
             placeholder="粘贴配装码（N3E1- 开头）" aria-label="配装码" />
           <button type="button" data-action="import-loadout" disabled={!loadoutCode.trim()} onClick={importLoadout}>导入</button>
           <button type="button" data-action="copy-favorites-loadout" disabled={!equipmentFavorites.length}
@@ -1795,7 +1797,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
             </span>
           ))}
           {wanted.length < 7 ? (
-            <EffectPicker value="" candidates={wantCandidates} label={candidateLabel} onPick={pickWanted} placeholder="点这里添加想要的词条" />
+            <EffectPicker value="" candidates={wantCandidates} label={candidateLabel} onPick={pickWanted} accessibleName="点这里添加想要的词条" placeholder="点这里添加想要的词条" />
           ) : null}
         </div>
       </div>
@@ -1951,7 +1953,7 @@ export function CharacterEditor({ showIds = false }: { showIds?: boolean }) {
             return (
               <tr key={index}>
                 <td>{role ? ROLE_LABEL[role] ?? role : "—"}</td>
-                <td><EffectPicker value={effect.id} star={row && (keepsMarker(index) || row.effects[index]?.effect_id === parseEffectId(effect.id)) ? markerOf(row, draft, index, true) : undefined} candidates={candidatesFor(index)} label={candidateLabel} onPick={candidate => pickEffect(index, candidate)} /></td>
+                <td><EffectPicker value={effect.id} star={row && (keepsMarker(index) || row.effects[index]?.effect_id === parseEffectId(effect.id)) ? markerOf(row, draft, index, true) : undefined} candidates={candidatesFor(index)} label={candidateLabel} accessibleName={localize("词条") + " " + (index + 1)} onPick={candidate => pickEffect(index, candidate)} /></td>
                 <td>
                   {id === EMPTY_EFFECT ? null : fixed ? <span className="character-muted">—</span> : (
                     <span className="character-value">

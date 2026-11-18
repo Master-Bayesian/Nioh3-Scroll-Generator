@@ -11,6 +11,8 @@ fn packaged_worker_environment_keeps_the_manifest_authoritative() {
         "NIOH3_RUST_PROTECTED_WORKER",
         "NIOH3_SEED_ACCELERATOR",
         "NIOH3_EFFECT_PREIMAGE_ACCELERATOR",
+        "NIOH3_SAVE_HOST_FAULT",
+        "NIOH3_SAVE_LEDGER_FAULT",
     ];
     for packaged in [false, true] {
         let mut command = tokio::process::Command::new("fixture.exe");
@@ -403,8 +405,8 @@ async fn dead_protected_worker_is_replaced_only_after_its_process_exits() {
 }
 
 /// A protected host owns live game or save state, so a broken pipe may only
-/// close its input and let it finish: the process is never force-killed, and a
-/// transport failure is never reported as a proven safe close.
+/// close its input and let it finish. Shutdown requires an exit observation
+/// when the transport can no longer deliver a safe-close acknowledgement.
 #[tokio::test]
 #[ignore = "starts the built Rust workers: set NIOH3_RUST_SEARCH_WORKER and NIOH3_RUST_PROTECTED_WORKER"]
 async fn a_broken_pipe_never_force_kills_a_protected_host() {
@@ -414,10 +416,12 @@ async fn a_broken_pipe_never_force_kills_a_protected_host() {
     let host = broker.host("save").await.unwrap();
     host.handshake().await.unwrap();
     host.disconnect_for_test().await; // EOF, exactly the Tauri broken-pipe rule.
-    assert!(
-        !host.close().await,
-        "a dead protected transport must never report a proven safe close"
-    );
+    if host.close().await {
+        assert!(
+            host.exit_status().await.is_some(),
+            "lost transport alone cannot prove exit"
+        );
+    }
     for _ in 0..200 {
         if host.can_replace().await {
             break;
@@ -436,6 +440,10 @@ async fn a_broken_pipe_never_force_kills_a_protected_host() {
         status.code(),
         Some(0),
         "a protected host must finish by itself, never by force"
+    );
+    assert!(
+        broker.shutdown().await,
+        "the retained, exited worker must allow window shutdown"
     );
     let _ = std::fs::remove_dir_all(data);
 }
