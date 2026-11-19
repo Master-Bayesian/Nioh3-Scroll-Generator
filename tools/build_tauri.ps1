@@ -63,9 +63,9 @@ try {
         # the resolved path is that exact child of the resolved build temp root.
         if($resolvedBuild.StartsWith($resolvedPrefix,[System.StringComparison]::OrdinalIgnoreCase) -and
             (Split-Path -Leaf $resolvedBuild) -eq $stagingName) {
-            try { Remove-Item -LiteralPath $resolvedBuild -Recurse -Force -ErrorAction Stop }
-            catch { Write-Warning "Package assembled. Staging cleanup pending at $resolvedBuild ($_)"; return }
-            Write-Host "Removed this run's build staging: $resolvedBuild"
+            try { Remove-Item -LiteralPath $resolvedBuild -Recurse -Force -ErrorAction Stop; Write-Host "Removed staging: $resolvedBuild" }
+            catch { Write-Warning "Package assembled. Staging cleanup pending at $resolvedBuild ($_)" }
+
         } else {
             Write-Host "Kept build staging outside the expected root: $resolvedBuild"
         }
