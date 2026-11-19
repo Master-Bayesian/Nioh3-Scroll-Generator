@@ -1,7 +1,8 @@
 param(
     # Runs the standard-library packaging scripts in tools/.
     [Parameter(Mandatory)][string]$Python,
-    [Parameter(Mandatory)][string]$Output
+    [Parameter(Mandatory)][string]$Output,
+    [string]$LoadoutRuntime
 )
 $ErrorActionPreference='Stop'
 Set-Location -LiteralPath (Split-Path -Parent $PSScriptRoot)
@@ -47,7 +48,9 @@ try {
     Checked 'cargo.exe' @('rustc','--release','--locked','--manifest-path','crates/nioh3-worker/Cargo.toml','--bin','nioh3-readonly-worker','--','-C','target-feature=+crt-static')
     Checked 'cargo.exe' @('rustc','--release','--locked','--manifest-path','crates/nioh3-protected/Cargo.toml','--bin','nioh3-protected-worker','--','-C','target-feature=+crt-static')
     Checked $Python @('tools/stage_rust_workers.py','--binaries',$env:CARGO_TARGET_DIR,'--workers',$workers)
-    Checked $Python @('tools/package_tauri.py',$Output,$workers)
+    $packageArgs = @('tools/package_tauri.py',$Output,$workers)
+    if ($LoadoutRuntime) { $packageArgs += @('--loadout-runtime', $LoadoutRuntime) }
+    Checked $Python $packageArgs
     $succeeded=$true
 } finally {
     if(-not $succeeded) {
@@ -60,7 +63,8 @@ try {
         # the resolved path is that exact child of the resolved build temp root.
         if($resolvedBuild.StartsWith($resolvedPrefix,[System.StringComparison]::OrdinalIgnoreCase) -and
             (Split-Path -Leaf $resolvedBuild) -eq $stagingName) {
-            Remove-Item -LiteralPath $resolvedBuild -Recurse -Force
+            try { Remove-Item -LiteralPath $resolvedBuild -Recurse -Force -ErrorAction Stop }
+            catch { Write-Warning "Package assembled. Staging cleanup pending at $resolvedBuild ($_)"; return }
             Write-Host "Removed this run's build staging: $resolvedBuild"
         } else {
             Write-Host "Kept build staging outside the expected root: $resolvedBuild"

@@ -80,7 +80,7 @@ def collect_rust_licenses(root: Path, output: Path, packages: dict) -> list:
     return dependencies
 
 
-def stage_rust_runtime(root: Path, output: Path) -> dict:
+def stage_rust_runtime(root: Path, output: Path, loadout_runtime: Path | None = None) -> dict:
     """Stage the assets a Rust worker resolves from its application root.
 
     `Engine::load` derives `application_root = data_root.parent()`, so a data
@@ -106,6 +106,16 @@ def stage_rust_runtime(root: Path, output: Path) -> dict:
     data_source = root / 'data'
     data_destination = runtime / 'data'
     shutil.copytree(data_source, data_destination)
+    if loadout_runtime is not None:
+        source = loadout_runtime.resolve(strict=True)
+        descriptor = json.loads((source / "bundle.json").read_bytes())
+        target = data_destination / "loadout" / "kusarigama-strong"
+        if descriptor != json.loads((target / "bundle.json").read_bytes()):
+            raise ValueError("Loadout runtime does not match the packaged scene")
+        for name in ("arena.bin", "event_plan.json", "frame.bin", "gpu_setup.txt",
+                     "hits.txt", "live_groups.txt", "main_cpu.dll", "mapped.bin",
+                     "programs.txt", "source_numeric.bin", "survival_groups.txt", "tables.bin"):
+            shutil.copyfile(source / name, target / name)
     for path in sorted(data_destination.rglob('*')):
         if path.is_file():
             staged.append(path.relative_to(output).as_posix())
@@ -132,7 +142,7 @@ def worker_environment(workers: Path) -> dict:
     return recorded
 
 
-def assemble_layout(root: Path, output: Path, workers: Path) -> dict:
+def assemble_layout(root: Path, output: Path, workers: Path, loadout_runtime: Path | None = None) -> dict:
     """Copy the runtime into the portable layout."""
 
     output.mkdir(parents=True)
@@ -158,13 +168,14 @@ def assemble_layout(root: Path, output: Path, workers: Path) -> dict:
     )
     # The packaged host launches the workers this file declares.
     shutil.copy2(workers / 'worker-backend.json', output / 'worker' / 'worker-backend.json')
-    return stage_rust_runtime(root, output)
+    return stage_rust_runtime(root, output, loadout_runtime)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output', type=Path)
     parser.add_argument('workers', type=Path)
+    parser.add_argument('--loadout-runtime', type=Path, help='installed PC202 kusarigama runtime assets')
     parser.add_argument('--root', type=Path, help='override the repository root (tests)')
     args = parser.parse_args()
     root = (args.root or Path(__file__).resolve().parents[1]).resolve()
@@ -173,7 +184,7 @@ def main():
         raise FileExistsError('Choose a new output directory')
     version = json.loads((root / 'package.json').read_text(encoding='utf-8'))['version']
     worker_manifest = worker_environment(args.workers)
-    layout = assemble_layout(root, output, args.workers)
+    layout = assemble_layout(root, output, args.workers, args.loadout_runtime)
     native = verify_runtime_native_dependencies(output)
     (output / 'native-dependencies.json').write_text(json.dumps(native, indent=2) + '\n', encoding='utf-8')
     javascript, pending = [], list(json.loads((root / 'package.json').read_text(encoding='utf-8'))['dependencies']) + ['@tauri-apps/api']

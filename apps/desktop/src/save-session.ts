@@ -240,7 +240,18 @@ export class SaveSession {
     });
   }
   /** Retiring a reviewed UI plan must not discard a newer plan owned by another view. */
-  discardReviewedPlan(reviewedPlanId: string) {
+  async discardReviewedPlan(reviewedPlanId: string) {
+    while (this.state.busy && this.state.plan?.plan_id === reviewedPlanId) {
+      await new Promise<void>(resolve => {
+        const stop = this.subscribe(() => {
+          if (!this.state.busy || this.state.plan?.plan_id !== reviewedPlanId) {
+            stop();
+            resolve();
+          }
+        });
+      });
+    }
+    if (this.state.plan?.plan_id !== reviewedPlanId) return false;
     return this.perform(async () => {
       if (this.state.plan?.plan_id !== reviewedPlanId) return false;
       await this.discardPlan();

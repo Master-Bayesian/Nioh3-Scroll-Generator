@@ -47,3 +47,26 @@ test('transport failure terminates the displayed job and removes resume eligibil
     assert.equal(controller.getSnapshot().handshake, null);
   } finally { controller.dispose(); }
 });
+
+test('a pending snapshot failure cannot erase an acknowledged cancellation', async () => {
+  let rejectPoll!: (error: Error) => void;
+  let polling!: () => void;
+  const entered = new Promise<void>(resolve => { polling = resolve; });
+  const api = { handshake: async () => hello, currentSearch: async () => ({ job: null, submitted: null }),
+    startSearch: async () => job,
+    snapshot: () => new Promise<JobSnapshot>((_, reject) => { rejectPoll = reject; polling(); }),
+    cancelSearch: async () => ({ ...job, sequence: 6, state: 'cancelled', resume_token: 'resume' })
+  } as unknown as DesktopApi;
+  const controller = new SearchController(api);
+  try {
+    await controller.connect();
+    await controller.start(params);
+    await entered;
+    await controller.cancel();
+    rejectPoll(new Error('late transport failure'));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(controller.getSnapshot().job?.state, 'cancelled');
+    assert.equal(controller.getSnapshot().job?.resume_token, 'resume');
+    assert.equal(controller.getSnapshot().handshake, hello);
+  } finally { controller.dispose(); }
+});

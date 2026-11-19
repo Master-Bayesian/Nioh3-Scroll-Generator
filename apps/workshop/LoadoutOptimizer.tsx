@@ -317,7 +317,19 @@ export function LoadoutOptimizer({ bundles, catalog }: { bundles: VerifiedBundle
   const requestedOwner = useRef<string | null>(null);
   const viewOwner = useRef("");
   viewOwner.current = (save.selected?.save_id ?? "") + ":" + bundle?.id;
-  useEffect(() => () => { readGeneration.current++; searchOwner.current?.controller.abort(); }, []);
+  const mounted = useRef(true);
+  const ownedPlan = useRef<string | null>(null);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      readGeneration.current++;
+      searchOwner.current?.controller.abort();
+      if (ownedPlan.current) {
+        void saveSession!.discardReviewedPlan(ownedPlan.current).catch(error => window.review.log(String(error)));
+      }
+    };
+  }, []);
 
   const items = useMemo(() => (character && bundle ? eligible(bundle, character.equipment) : []), [character, bundle]);
   const counts = useMemo(() => {
@@ -628,6 +640,11 @@ export function LoadoutOptimizer({ bundles, catalog }: { bundles: VerifiedBundle
                 }),
               },
       }, snapshot);
+      ownedPlan.current = plan.plan_id;
+      if (!mounted.current) {
+        await saveSession!.discardReviewedPlan(plan.plan_id);
+        return;
+      }
       if (generation !== readGeneration.current || binding && !canWearLoadout(contextStateRef.current, binding, liveView.current.scope, liveView.current.inputKey)) {
         // Keep ownership through a failed/lost discard acknowledgement too.
         setPending({ kind: "retiring", planId: plan.plan_id, reason: "changed" });

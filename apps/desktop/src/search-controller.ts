@@ -51,7 +51,9 @@ export class SearchController {
   }
   private accept(job: JobSnapshot) {
     if (this.state.job?.job_id !== job.job_id || job.sequence < this.state.job.sequence) return;
+    if (terminal(this.state.job)) return;
     this.update({ job });
+    if (terminal(job)) clearTimeout(this.timer);
   }
   private unavailable(error: unknown) {
     const message = String(error);
@@ -66,14 +68,14 @@ export class SearchController {
         const job = await this.api.snapshot(this.state.job!.job_id);
         if (epoch !== this.epoch) return;
         this.accept(job); this.schedule(epoch);
-      } catch (error) { if (epoch === this.epoch) this.unavailable(error); }
+      } catch (error) { if (epoch === this.epoch && this.state.job && !terminal(this.state.job)) this.unavailable(error); }
     }, 150);
   }
   async cancel() {
     if (!this.state.job || terminal(this.state.job)) return;
     const epoch = this.epoch;
     try { const job = await this.api.cancelSearch(this.state.job.job_id); if (epoch === this.epoch) this.accept(job); }
-    catch (error) { if (epoch === this.epoch) this.unavailable(error); }
+    catch (error) { if (epoch === this.epoch && this.state.job && !terminal(this.state.job)) this.unavailable(error); }
   }
   resume() {
     if (!this.state.submitted || !this.state.job?.resume_token) return;
