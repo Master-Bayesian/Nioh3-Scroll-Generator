@@ -3819,6 +3819,121 @@
                   "rarity"
                 ]
               }
+            },
+            "wear": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "Put each record into that slot of the school's equipment set; whatever the set wore there comes off.",
+              "properties": {
+                "school": {
+                  "enum": [
+                    "samurai",
+                    "ninja"
+                  ]
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "slot_index": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 2499
+                      },
+                      "slot": {
+                        "enum": [
+                          0,
+                          1,
+                          2,
+                          3,
+                          4,
+                          5,
+                          6,
+                          7,
+                          8,
+                          9,
+                          10
+                        ]
+                      }
+                    },
+                    "required": [
+                      "slot_index",
+                      "slot"
+                    ]
+                  }
+                },
+                "clear": {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      0,
+                      1,
+                      2,
+                      3,
+                      4,
+                      5,
+                      6,
+                      7,
+                      8,
+                      9,
+                      10
+                    ]
+                  }
+                },
+                "restore": {
+                  "type": "array",
+                  "description": "Undo a wear: set each record's set word to exactly this slot (null: not worn). Stands alone, with empty items and no clear.",
+                  "maxItems": 2500,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "slot_index": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 2499
+                      },
+                      "slot": {
+                        "enum": [
+                          0,
+                          1,
+                          2,
+                          3,
+                          4,
+                          5,
+                          6,
+                          7,
+                          8,
+                          9,
+                          10,
+                          null
+                        ]
+                      }
+                    },
+                    "required": [
+                      "slot_index",
+                      "slot"
+                    ]
+                  }
+                },
+                "move_previous_weapon_to_slot": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 3
+                }
+              },
+              "required": [
+                "school",
+                "items"
+              ]
+            },
+            "context_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256,
+              "description": "Bind optimizer wear to the exact reviewed player context. Ordinary character edits and undo do not require it."
             }
           },
           "required": [
@@ -4668,6 +4783,345 @@
           },
           "required": [
             "action"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "save.loadout_bundles"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "catalog_query": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "catalog_offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000
+            },
+            "catalog_limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "save.loadout_context"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "save_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "bundle": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "source_sha256": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{64}$"
+            }
+          },
+          "required": [
+            "save_id",
+            "bundle",
+            "source_sha256"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "save.loadout_sets"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "save_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32,64}$"
+            },
+            "source_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{64}$"
+            },
+            "bundle": {
+              "type": "string",
+              "pattern": "^[0-9A-Za-z-]{1,64}$"
+            },
+            "items": {
+              "type": "array",
+              "maxItems": 2500,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "slot_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2499
+                  },
+                  "slot": {
+                    "enum": [
+                      0,
+                      4,
+                      5,
+                      6,
+                      7,
+                      8,
+                      9,
+                      10
+                    ]
+                  }
+                },
+                "required": [
+                  "slot_index",
+                  "slot"
+                ]
+              }
+            },
+            "context_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "save_id",
+            "source_sha256",
+            "bundle",
+            "items",
+            "context_id"
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "id",
+        "method",
+        "params"
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "protocol": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "method": {
+          "const": "save.loadout_search"
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "save_id": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32,64}$"
+            },
+            "source_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]{64}$"
+            },
+            "bundle": {
+              "type": "string",
+              "pattern": "^[0-9A-Za-z-]{1,64}$"
+            },
+            "items": {
+              "type": "array",
+              "maxItems": 2500,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "slot_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2499
+                  },
+                  "slot": {
+                    "enum": [
+                      0,
+                      4,
+                      5,
+                      6,
+                      7,
+                      8,
+                      9,
+                      10
+                    ]
+                  }
+                },
+                "required": [
+                  "slot_index",
+                  "slot"
+                ]
+              }
+            },
+            "limits": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "max_load": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 10
+                },
+                "min_defense": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000
+                },
+                "min_health": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000
+                }
+              }
+            },
+            "enhanced": {
+              "type": "boolean"
+            },
+            "move_points": {
+              "type": "boolean"
+            },
+            "sets": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "options": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "key": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4294967295
+                        },
+                        "pieces": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "pieces"
+                      ]
+                    }
+                  },
+                  "at_least": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 6
+                  }
+                },
+                "required": [
+                  "options",
+                  "at_least"
+                ]
+              },
+              "minItems": 1
+            },
+            "context_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "client_request_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Optional opaque client correlation for this read-only search; legacy callers may omit it."
+            },
+            "keep_current": {
+              "type": "boolean",
+              "description": "Include retaining each currently bound slot when it is absent from the submitted candidate pool."
+            }
+          },
+          "required": [
+            "save_id",
+            "source_sha256",
+            "bundle",
+            "items",
+            "sets",
+            "context_id"
           ]
         }
       },

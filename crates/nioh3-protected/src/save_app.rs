@@ -204,6 +204,7 @@ pub struct SaveApplication {
     snapshots: HashMap<String, Snapshot>,
     plans: HashMap<String, Plan>,
     receipts: HashMap<String, Value>,
+    loadout_contexts: crate::loadout_context::Contexts,
     /// The last validated decrypt per save, keyed by the container digest that
     /// was validated when it was produced. A repeated `save.inventory` for
     /// unchanged bytes reuses it; any digest change falls back to a fresh
@@ -271,6 +272,7 @@ impl SaveApplication {
             snapshots: HashMap::new(),
             plans: HashMap::new(),
             receipts: HashMap::new(),
+            loadout_contexts: crate::loadout_context::Contexts::default(),
             inventory_cache: HashMap::new(),
             preview_resources: None,
             materialization: None,
@@ -495,7 +497,26 @@ impl SaveApplication {
     ///
     /// Each edit is gated on the value read from the named source generation;
     /// the plan commits through the ordinary backup/commit path.
+    /// The decrypted save named by `save_id`, refused unless it is still the
+    /// generation `source_sha256` names.
+    fn plain_at(&mut self, params: &Value) -> Result<Vec<u8>, HostError> {
+        let save_id = param_str(params, "save_id")?;
+        let source_hash = param_str(params, "source_sha256")?;
+        let save_path = self.save_path(&save_id)?;
+        let bytes = read_save_bytes(&save_path)?;
+        if !format!("{:x}", Sha256::digest(&bytes)).eq_ignore_ascii_case(&source_hash) {
+            return Err(HostError::rejected(
+                "Save changed since it was read; reload the character",
+            ));
+        }
+        let decrypted = DecryptedSave::from_container(&bytes).map_err(HostError::from_save)?;
+        Ok(decrypted.as_bytes().to_vec())
+    }
+
     fn prepare_character_edit(&mut self, params: &Value) -> Result<Value, HostError> {
+        if params.get("context_id").is_some() {
+            self.loadout_contexts.engine(params)?;
+        }
         let save_id = param_str(params, "save_id")?;
         let source_hash = param_str(params, "source_sha256")?;
         let save_path = self.save_path(&save_id)?;
@@ -617,6 +638,7 @@ impl SaveApplication {
                 replacement,
             });
         }
+        let worn = wear_edits(&self.data_root, plain, params.get("wear"), &mut edits)?;
         let mut removed = Vec::new();
         for requested in params
             .get("remove")
@@ -772,6 +794,7 @@ impl SaveApplication {
                 "currencies": currency_changes,
                 "equipment": equipment_changes,
                 "items": item_changes,
+                "worn": worn,
                 "removed": removed,
                 "added": added,
                 "modded": modded,
@@ -2113,10 +2136,10 @@ impl RoleApplication for SaveApplication {
         &mut self,
         operation: &str,
         params: Value,
-        _ctx: &JobContext,
+        ctx: &JobContext,
     ) -> Result<Value, HostError> {
         let started = std::time::Instant::now();
-        let result = self.dispatch(operation, params);
+        let result = self.dispatch(operation, params, ctx);
         if host_timing_enabled() {
             // Diagnostic only, off unless the operator asks for it. The gate
             // reads these lines from stderr to separate real per-operation cost
@@ -2136,7 +2159,16 @@ impl RoleApplication for SaveApplication {
 
 impl SaveApplication {
     /// One dispatched save operation, timed by [`RoleApplication::run`].
-    fn dispatch(&mut self, operation: &str, params: Value) -> Result<Value, HostError> {
+    fn dispatch(&mut self, operation: &str, params: Value, ctx: &JobContext) -> Result<Value, HostError> {
+        #[cfg(debug_assertions)]
+        if crate::offline_e2e::enabled()
+            && !matches!(operation,
+                "register" | "discover" | "inventory" | "character" | "backups" |
+                "operations" | "backup_location" | "loadout_bundles" | "loadout_context" |
+                "loadout_sets" | "loadout_search" | "auxiliary_preview" | "prepare_character_edit" | "discard")
+        {
+            return Err(HostError::rejected("OFFLINE_E2E_GAME_ACCESS_FORBIDDEN"));
+        }
         match operation {
             "register" => {
                 let path = param_str(&params, "path")?;
@@ -2145,6 +2177,28 @@ impl SaveApplication {
             "discover" => Ok(self.discover()),
             "inventory" => self.inventory(&param_str(&params, "save_id")?),
             "character" => self.character(&param_str(&params, "save_id")?),
+            "loadout_bundles" => crate::loadout::list_with_query(&self.data_root, &params),
+            "loadout_context" => {
+                let plain = self.plain_at(&params)?;
+                self.loadout_contexts
+                    .read(&self.state_root, &self.data_root, &plain, &params)
+            }
+            "loadout_sets" => {
+                let plain = self.plain_at(&params)?;
+                crate::loadout::sets(
+                    &self.data_root,
+                    &plain,
+                    &params,
+                    self.loadout_contexts.engine(&params)?.as_ref(),
+                )
+            }
+            "loadout_search" => {
+                let plain = self.plain_at(&params)?;
+                let (engine, authority) = self.loadout_contexts.search_binding(&params)?;
+                crate::loadout::search_observed_with_authority(
+                    &self.data_root, &plain, &params, engine.as_ref(), ctx, authority,
+                )
+            }
             "prepare_character_edit" => self.prepare_character_edit(&params),
             "audit_scrolls" => self.audit_scrolls(
                 &param_str(&params, "save_id")?,
@@ -3924,4 +3978,224 @@ mod tests {
             .unwrap_or_else(|| HostError::rejected("an unmapped record must be refused"));
         assert_eq!(failure.message, "record type 0x1234 is not a mapped scroll");
     }
+}
+
+/// Equipment slots an equipment set can wear, by the number the set word stores (PC v2.02 save: 0/1 weapons, 4..8 armour,
+/// 9/10 accessories; 0x11 is "not worn").
+const WEARABLE_SLOTS: [u32; 11] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+/// `wear`: `{school, items: [{slot_index, slot}], clear: [slot]}` puts each record into that slot of the school's
+/// equipment set and takes whatever that set wore there, or in a `clear` slot, off, by rewriting only the set words.
+/// `{school, items: [], restore: [{slot_index, slot | null}]}` instead sets each named record's set word to exactly that
+/// slot (null: not worn), which undoes an earlier wear from its preview lines even when the set wore two records in one
+/// slot. Returns the preview lines.
+fn wear_edits(
+    data_root: &Path,
+    plain: &[u8],
+    request: Option<&Value>,
+    edits: &mut Vec<CharacterEdit>,
+) -> Result<Vec<Value>, HostError> {
+    let Some(request) = request.filter(|v| !v.is_null()) else {
+        return Ok(Vec::new());
+    };
+    let word = match request.get("school").and_then(Value::as_str) {
+        Some("samurai") => nioh3_save::character::EQUIPMENT_SET_OFFSETS[0],
+        Some("ninja") => nioh3_save::character::EQUIPMENT_SET_OFFSETS[1],
+        _ => return Err(HostError::invalid_request()),
+    };
+    let not_worn = nioh3_save::character::EQUIPMENT_NOT_WORN;
+    let read_word = |record: &[u8]| {
+        u32::from_le_bytes([
+            record[word],
+            record[word + 1],
+            record[word + 2],
+            record[word + 3],
+        ])
+    };
+    let changes = match request.get("restore").filter(|v| !v.is_null()) {
+        Some(restore) => restore_changes(restore, request, not_worn)?,
+        None => match wear_changes(plain, request, not_worn, read_word)? {
+            Some(changes) => changes,
+            None => return Ok(Vec::new()),
+        },
+    };
+    let mut lines = Vec::new();
+    for (slot_index, after) in changes {
+        let original = equipment_record(plain, slot_index)
+            .map_err(HostError::from_save)?
+            .to_vec();
+        if equipment_slot_is_empty(&original) {
+            return Err(HostError::rejected("LOADOUT_ITEM_EMPTY"));
+        }
+        if after != not_worn {
+            let item_id = u16::from_le_bytes([original[0], original[1]]);
+            let class = crate::item_kinds::type_class(data_root, item_id);
+            // Use the same table classes as loadout input validation. Armor
+            // and melee-weapon school cannot be inferred from these classes;
+            // accessories explicitly have distinct classes for each school.
+            let compatible = class.is_some_and(|class| match after {
+                0..=3 => class < 20,
+                4..=8 => (24..=38).contains(&class) && (class - 24) / 3 + 4 == after,
+                9 | 10 => class == if request["school"] == "ninja" { 40 } else { 39 },
+                _ => false,
+            });
+            if !compatible {
+                return Err(HostError::rejected(format!(
+                    "LOADOUT_ITEM_SLOT: slot_index {slot_index} item 0x{item_id:04X} \
+                     class {class:?} slot {after}"
+                )));
+            }
+        }
+        let before = read_word(&original);
+        if before == after {
+            continue;
+        }
+        if edits.iter().any(|edit| {
+            matches!(edit, CharacterEdit::Equipment { slot_index: edited, .. } if *edited == slot_index)
+        }) {
+            return Err(HostError::invalid_request());
+        }
+        let mut replacement = original.clone();
+        replacement[word..word + 4].copy_from_slice(&after.to_le_bytes());
+        lines.push(json!({
+            "slot_index": slot_index,
+            "item_id": u16::from_le_bytes([original[0], original[1]]),
+            "before": (before != not_worn).then_some(before),
+            "after": (after != not_worn).then_some(after),
+        }));
+        edits.push(CharacterEdit::Equipment {
+            slot_index,
+            expected_original: original,
+            replacement,
+        });
+    }
+    Ok(lines)
+}
+
+/// The exact set words a `restore` names. It stands alone: no `items` or `clear` beside it, each record once.
+fn restore_changes(
+    restore: &Value,
+    request: &Value,
+    not_worn: u32,
+) -> Result<Vec<(usize, u32)>, HostError> {
+    let alone = request
+        .get("items")
+        .and_then(Value::as_array)
+        .is_none_or(Vec::is_empty)
+        && request
+            .get("clear")
+            .and_then(Value::as_array)
+            .is_none_or(Vec::is_empty);
+    let rows = restore.as_array().ok_or_else(HostError::invalid_request)?;
+    if !alone || rows.is_empty() {
+        return Err(HostError::rejected("LOADOUT_WEAR_INVALID"));
+    }
+    let mut changes: Vec<(usize, u32)> = Vec::with_capacity(rows.len());
+    for row in rows {
+        let slot_index = row
+            .get("slot_index")
+            .and_then(Value::as_u64)
+            .ok_or_else(HostError::invalid_request)? as usize;
+        let after = match row.get("slot") {
+            Some(Value::Null) => not_worn,
+            Some(slot) => slot.as_u64().ok_or_else(HostError::invalid_request)? as u32,
+            None => return Err(HostError::invalid_request()),
+        };
+        if slot_index >= EQUIPMENT_SLOT_COUNT
+            || (after != not_worn && !WEARABLE_SLOTS.contains(&after))
+            || changes.iter().any(|c| c.0 == slot_index)
+        {
+            return Err(HostError::rejected("LOADOUT_WEAR_INVALID"));
+        }
+        changes.push((slot_index, after));
+    }
+    Ok(changes)
+}
+
+/// The set words a wear changes: the requested records, and whatever the set now wears in a requested or cleared slot.
+/// None when the request names nothing.
+fn wear_changes(
+    plain: &[u8],
+    request: &Value,
+    not_worn: u32,
+    read_word: impl Fn(&[u8]) -> u32,
+) -> Result<Option<Vec<(usize, u32)>>, HostError> {
+    let mut wanted: Vec<(usize, u32)> = Vec::new();
+    for item in request
+        .get("items")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let (Some(slot_index), Some(slot)) = (
+            item.get("slot_index").and_then(Value::as_u64),
+            item.get("slot").and_then(Value::as_u64),
+        ) else {
+            return Err(HostError::invalid_request());
+        };
+        let (slot_index, slot) = (slot_index as usize, slot as u32);
+        if !WEARABLE_SLOTS.contains(&slot)
+            || wanted.iter().any(|w| w.0 == slot_index || w.1 == slot)
+        {
+            return Err(HostError::rejected("LOADOUT_WEAR_INVALID"));
+        }
+        wanted.push((slot_index, slot));
+    }
+    if let Some(spare) = request["move_previous_weapon_to_slot"].as_u64() {
+        let spare = u32::try_from(spare).map_err(|_| HostError::invalid_request())?;
+        let held = wanted.iter().find(|(_, slot)| *slot == 0)
+            .ok_or_else(|| HostError::rejected("LOADOUT_WEAR_INVALID"))?.0;
+        let selected = equipment_record(plain, held).map_err(HostError::from_save)?;
+        if !(1..=3).contains(&spare) || read_word(selected) != spare
+            || wanted.iter().any(|(_, slot)| *slot == spare)
+        {
+            return Err(HostError::rejected("LOADOUT_WEAR_INVALID"));
+        }
+        let mut displaced = None;
+        for index in 0..EQUIPMENT_SLOT_COUNT {
+            let record = equipment_record(plain, index).map_err(HostError::from_save)?;
+            if !equipment_slot_is_empty(record)
+                && read_word(record) == 0
+                && displaced.replace(index).is_some()
+            {
+                return Err(HostError::rejected("LOADOUT_WEAR_INVALID"));
+            }
+        }
+        let previous = displaced.ok_or_else(|| HostError::rejected("LOADOUT_WEAR_INVALID"))?;
+        if wanted.iter().any(|(index, _)| *index == previous) {
+            return Err(HostError::rejected("LOADOUT_WEAR_INVALID"));
+        }
+        wanted.push((previous, spare));
+    }
+    let mut cleared: Vec<u32> = Vec::new();
+    for slot in request
+        .get("clear")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let slot = slot.as_u64().ok_or_else(HostError::invalid_request)? as u32;
+        if !WEARABLE_SLOTS.contains(&slot)
+            || wanted.iter().any(|w| w.1 == slot)
+            || cleared.contains(&slot)
+        {
+            return Err(HostError::rejected("LOADOUT_WEAR_INVALID"));
+        }
+        cleared.push(slot);
+    }
+    if wanted.is_empty() && cleared.is_empty() {
+        return Ok(None);
+    }
+    let mut changes: Vec<(usize, u32)> = wanted.clone();
+    for slot_index in 0..EQUIPMENT_SLOT_COUNT {
+        let record = equipment_record(plain, slot_index).map_err(HostError::from_save)?;
+        if equipment_slot_is_empty(record) || wanted.iter().any(|w| w.0 == slot_index) {
+            continue;
+        }
+        let at = read_word(record);
+        if wanted.iter().any(|w| w.1 == at) || cleared.contains(&at) {
+            changes.push((slot_index, not_worn));
+        }
+    }
+    Ok(Some(changes))
 }

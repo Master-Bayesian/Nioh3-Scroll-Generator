@@ -40,6 +40,7 @@ import "./arc.css";
 import { BackupManager } from "./BackupManager";
 import { Editor } from "./Editor";
 import { CharacterEditor } from "./CharacterEditor";
+import { LoadoutPage } from "./LoadoutPage";
 import { RuntimeCompatibility } from "./RuntimeCompatibility";
 import { GameInstallation, GameVersionHint } from "./GameInstallation";
 import { DesktopCartActions, SavePicker } from "./CartActions";
@@ -1082,7 +1083,9 @@ function App() {
               ? "存档管理"
               : page === "equipment"
                 ? "装备与道具"
-                : "绘卷编辑"}
+                : page === "loadout"
+                  ? "配装优化"
+                  : "绘卷编辑"}
         </h1>
         <nav
           className="nav"
@@ -1140,6 +1143,11 @@ function App() {
           >
             <span>装备与道具</span>
           </button>
+          {desktop && (
+            <button className={page === "loadout" ? "active" : ""} onClick={() => setPage("loadout")} aria-label="配装优化">
+              <span>配装优化</span>
+            </button>
+          )}
           <button className="coming-soon" disabled>
             <span>敬请期待</span>
           </button>
@@ -2688,6 +2696,7 @@ function App() {
       )}
       {page === "backups" && <BackupManager />}
       {page === "equipment" && <CharacterEditor showIds={showIds} />}
+      {page === "loadout" && desktop && <LoadoutPage />}
       <div className="toast" role="status" hidden={!toast}>
         {toast}
         <button aria-label="关闭提示" onClick={() => setToast("")}>

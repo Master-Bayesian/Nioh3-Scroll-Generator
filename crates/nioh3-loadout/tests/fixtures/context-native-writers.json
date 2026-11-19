@@ -1,0 +1,101 @@
+{
+  "evidence_sha256": "67fe4cb14084fde349eea724d0c374a10e2cd180bf000d95f51afc8d2fb4a9f8",
+  "observed": {
+    "STAT1C4": {
+      "D608_i32": -1,
+      "D64_f32": 0.0,
+      "attribute_seed_u32": 624,
+      "grade_increment_i64": 0,
+      "known_writer_result_u32": 635,
+      "live_STAT1C4_u32": 635,
+      "materializer_after_u32": 635,
+      "materializer_group": "0x9bec",
+      "materializer_group_value_u32": 11,
+      "materializer_writes": [
+        {
+          "after_hex": "7b020000",
+          "before_hex": "70020000",
+          "object": "STAT",
+          "offset": "0x1c4",
+          "rva": "0x81eb60",
+          "width": 4
+        }
+      ],
+      "scale_increment_i64": 0,
+      "source5888_u32": 0,
+      "status": "native_consumers_checked_against_current_observation",
+      "unassigned_observed_residual_i64": 0,
+      "writer_rvas": [
+        "0x81eb60",
+        "0x817616",
+        "0x819367",
+        "0x8193c3"
+      ]
+    },
+    "record_plus8": {
+      "STAT12C_u32": 120,
+      "attack_group_u32": 120,
+      "first_two_records_match_native_consumer": true,
+      "known_context_writer_rvas": [
+        "0x81763d",
+        "0x817646"
+      ],
+      "owner_group": "0xf919",
+      "owner_group_value_u32": 35,
+      "owner_group_writes": [
+        {
+          "after_hex": "9b000000",
+          "before_hex": "78000000",
+          "object": "STAT",
+          "offset": "0x2c",
+          "rva": "0x8221de",
+          "width": 4
+        },
+        {
+          "after_hex": "9b000000",
+          "before_hex": "78000000",
+          "object": "STAT",
+          "offset": "0x6c",
+          "rva": "0x81e51b",
+          "width": 4
+        }
+      ],
+      "records": [
+        {
+          "minus_current_attack_group_i64": 35,
+          "plus8_u32": 155,
+          "record": 0
+        },
+        {
+          "minus_current_attack_group_i64": 35,
+          "plus8_u32": 155,
+          "record": 1
+        },
+        {
+          "minus_current_attack_group_i64": 0,
+          "plus8_u32": 120,
+          "record": 2
+        },
+        {
+          "minus_current_attack_group_i64": 0,
+          "plus8_u32": 120,
+          "record": 3
+        },
+        {
+          "minus_current_attack_group_i64": 0,
+          "plus8_u32": 120,
+          "record": 4
+        },
+        {
+          "minus_current_attack_group_i64": 0,
+          "plus8_u32": 120,
+          "record": 5
+        }
+      ],
+      "source5890_u32": 0,
+      "source5894_u32": 0,
+      "status": "native_consumer_from_current_aggregate_upstream_origin_unassigned"
+    }
+  },
+  "evidence": "source-extraction/run-02/SOURCE_REPORT.json"
+}

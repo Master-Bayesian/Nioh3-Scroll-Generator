@@ -195,3 +195,9 @@ resolved in v0.8.4: the system save is only fingerprinted, backed up and
 restored, so its read bound is 1 MiB; see docs/product/releases/v0.8.4.md. Deferred terrain conversion can
 intermittently prevent enemy spawning; tracked separately in Issue #29.
 Evidence: docs/research/V083_MENU_SYSTEM_FEEDBACK_20261003.md.
+
+## Local candidates
+
+| ID | Capability and player outcome | Entry point | Essential contract | Primary anchors |
+| --- | --- | --- | --- | --- |
+| `LOADOUT-OPTIMIZER` | Search owned equipment for improved damage under one or more required set tiers. | Desktop **Loadout Optimizer** tab with installed PC202 scoring scenes. | The fixed-attribute exact path uses the bound character and proven set feasibility. Results retain damage channels, coverage and scored equipment assignments. Search cancels cooperatively. Wear requires a separate reviewed save plan. Local integration candidate. | [Required-set loadout search](required-set-loadout.md). |

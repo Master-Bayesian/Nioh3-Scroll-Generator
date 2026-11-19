@@ -159,7 +159,7 @@ impl InventoryRequest {
 }
 
 /// One declared process identity for a snapshot.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct InventoryProcess {
     pub pid: u32,
     pub creation_filetime: u64,

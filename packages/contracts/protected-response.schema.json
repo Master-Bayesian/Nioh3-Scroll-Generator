@@ -1342,7 +1342,11 @@
             "runtime.equipment_add_execute",
             "runtime.equipment_add_status",
             "runtime.equipment_add_recover",
-            "runtime.equipment_add_cancel"
+            "runtime.equipment_add_cancel",
+            "save.loadout_bundles",
+            "save.loadout_context",
+            "save.loadout_sets",
+            "save.loadout_search"
           ]
         },
         "state": {
@@ -2033,6 +2037,18 @@
               "required": [
                 "count_source"
               ]
+            },
+            {
+              "$ref": "#/definitions/LoadoutBundles"
+            },
+            {
+              "$ref": "#/definitions/LoadoutContext"
+            },
+            {
+              "$ref": "#/definitions/LoadoutSets"
+            },
+            {
+              "$ref": "#/definitions/LoadoutSearch"
             }
           ]
         },
@@ -4930,6 +4946,1179 @@
       },
       "required": [
         "compatibility"
+      ]
+    },
+    "LoadoutBundles": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bundles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9A-Za-z-]{1,64}$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "school": {
+                "enum": [
+                  "samurai",
+                  "ninja"
+                ]
+              },
+              "weapon_class": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "weapon": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "damage": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "scene": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "stance": {
+                    "enum": [
+                      "high",
+                      "mid",
+                      "low",
+                      "none"
+                    ]
+                  },
+                  "kind": {
+                    "enum": [
+                      "quick",
+                      "strong",
+                      "martial"
+                    ]
+                  },
+                  "attack_id": {
+                    "type": "string"
+                  },
+                  "buff": {
+                    "enum": [
+                      "current",
+                      "untriggered",
+                      "deflect",
+                      "arts",
+                      "deflect_arts"
+                    ]
+                  }
+                },
+                "required": [
+                  "stance",
+                  "kind",
+                  "attack_id",
+                  "buff"
+                ]
+              },
+              "diagnostic": {
+                "type": "boolean"
+              },
+              "selection_weapon_class": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 23
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "school",
+              "weapon_class",
+              "weapon",
+              "damage"
+            ]
+          }
+        },
+        "catalog": {
+          "$ref": "#/definitions/LoadoutCatalog"
+        }
+      },
+      "required": [
+        "bundles"
+      ]
+    },
+    "LoadoutSets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bundle": {
+          "type": "string",
+          "pattern": "^[0-9A-Za-z-]{1,64}$"
+        },
+        "sets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "pieces": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "slots": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "item_ids": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "effect": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0
+              }
+            },
+            "required": [
+              "key",
+              "pieces",
+              "slots",
+              "item_ids",
+              "effect"
+            ]
+          }
+        },
+        "reduction_items": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "context_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "bundle",
+        "sets",
+        "reduction_items",
+        "context_id"
+      ]
+    },
+    "LoadoutSearch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bundle": {
+          "type": "string",
+          "pattern": "^[0-9A-Za-z-]{1,64}$"
+        },
+        "start_attrs": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {
+            "type": "integer"
+          }
+        },
+        "best": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "damage": {
+                "type": "number"
+              },
+              "attrs": {
+                "type": "array",
+                "minItems": 7,
+                "maxItems": 7,
+                "items": {
+                  "type": "integer"
+                }
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "slot": {
+                      "enum": [
+                        0,
+                        4,
+                        5,
+                        6,
+                        7,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12
+                      ]
+                    },
+                    "slot_index": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "item_id": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "slot",
+                    "slot_index",
+                    "item_id"
+                  ]
+                }
+              },
+              "facts": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "load": {
+                        "type": "number"
+                      },
+                      "defense": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "health": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "load",
+                      "defense",
+                      "health"
+                    ]
+                  }
+                ]
+              },
+              "damage_details": {
+                "$ref": "#/definitions/LoadoutDamageDetails"
+              },
+              "move_previous_weapon_to_slot": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3
+              }
+            },
+            "required": [
+              "damage",
+              "attrs",
+              "items",
+              "facts"
+            ]
+          }
+        },
+        "space": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "complete": {
+          "type": "boolean",
+          "description": "True only when planning retained the complete admitted candidate domain and no evaluations were refused. False can reflect refused evaluations rather than unvisited candidates. Unanswered outcomes and source_model_scope must still be checked independently; this is not proof of upstream source correctness."
+        },
+        "full_size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "searched": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "polish_rounds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "answered": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "no_path": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "refused": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outside_limits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "current": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "status": {
+                  "const": "ambiguous"
+                },
+                "slots": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              },
+              "required": [
+                "status",
+                "slots"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "status": {
+                  "enum": [
+                    "answered",
+                    "no_path",
+                    "refused"
+                  ]
+                },
+                "damage": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ]
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "slot": {
+                        "enum": [
+                          0,
+                          4,
+                          5,
+                          6,
+                          7,
+                          8,
+                          9,
+                          10,
+                          11,
+                          12
+                        ]
+                      },
+                      "slot_index": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "item_id": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "slot",
+                      "slot_index",
+                      "item_id"
+                    ]
+                  }
+                },
+                "kept_slots": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "facts": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "load": {
+                          "type": "number"
+                        },
+                        "defense": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "health": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "load",
+                        "defense",
+                        "health"
+                      ]
+                    }
+                  ]
+                },
+                "damage_details": {
+                  "$ref": "#/definitions/LoadoutDamageDetails"
+                }
+              },
+              "required": [
+                "status",
+                "damage",
+                "items",
+                "kept_slots",
+                "facts"
+              ]
+            }
+          ]
+        },
+        "backend": {
+          "enum": [
+            "card",
+            "cpu"
+          ]
+        },
+        "enhanced": {
+          "type": "boolean"
+        },
+        "context_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "client_request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Echo of the optional read-only search request correlation."
+        },
+        "source_uncomputed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Cartesian outfits with unproved weapon-dependent source inputs, counted before source-dependent set pruning. These outfits have no damage value and are separate from no_path/refused."
+        },
+        "source_model_scope": {
+          "type": "string",
+          "enum": [
+            "legacy_unverified",
+            "conditional_rebuild",
+            "runtime_bound_rebuild"
+          ],
+          "description": "Upstream source-model provenance, independent of complete and source_uncomputed. Omission means legacy_unverified. conditional_rebuild has explicit offline conditions; runtime_bound_rebuild may only be emitted by an actual validated runtime binding/importer, never inferred from matching backends or an owned_type weapon policy."
+        },
+        "weapon_domain": {
+          "$ref": "#/definitions/LoadoutWeaponDomain"
+        },
+        "excluded_by_set_bound": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "bundle",
+        "start_attrs",
+        "best",
+        "space",
+        "full_size",
+        "searched",
+        "seconds",
+        "polish_rounds",
+        "answered",
+        "no_path",
+        "refused",
+        "outside_limits",
+        "missed",
+        "current",
+        "backend",
+        "enhanced",
+        "context_id"
+      ]
+    },
+    "LoadoutContextReady": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "const": "ready"
+        },
+        "context_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "save_id": {
+          "type": "string"
+        },
+        "source_sha256": {
+          "type": "string"
+        },
+        "captured_at": {
+          "type": "string"
+        },
+        "attrs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 7,
+          "maxItems": 7
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "school": {
+          "enum": [
+            "samurai",
+            "ninja"
+          ]
+        },
+        "source": {
+          "enum": [
+            "live",
+            "captured"
+          ]
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  }
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "rank": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "key",
+              "name",
+              "rank"
+            ]
+          }
+        },
+        "buffs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  }
+                ]
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "name"
+            ]
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bundle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "source_check": {
+          "description": "Live reads only: whether the stored non-equipment record still explains the game's values under the outfit now worn.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "state": {
+                  "const": "consistent"
+                }
+              },
+              "required": [
+                "state"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "state": {
+                  "const": "reobserved"
+                },
+                "groups": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "group": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65535
+                      },
+                      "predicted": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "minimum": 0
+                      },
+                      "observed": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "group",
+                      "predicted",
+                      "observed"
+                    ]
+                  }
+                },
+                "attack_gain": {
+                  "$ref": "#/definitions/StoredAndNow"
+                },
+                "defense": {
+                  "$ref": "#/definitions/StoredAndNow"
+                }
+              },
+              "required": [
+                "state",
+                "groups",
+                "attack_gain",
+                "defense"
+              ]
+            }
+          ]
+        },
+        "source_reference": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Immutable captured reference used for this comparison; it is not the previous refresh.",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "context_sha256": {
+              "type": "string"
+            },
+            "profile_sha256": {
+              "type": "string"
+            },
+            "capture_id": {
+              "type": "string"
+            },
+            "captured_at": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "context_sha256",
+            "profile_sha256",
+            "capture_id",
+            "captured_at"
+          ]
+        },
+        "source_recording": {
+          "description": "Private diagnostic journal outcome; failure does not discard a valid refresh.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "state": {
+                  "const": "recorded"
+                },
+                "observation_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "state",
+                "observation_id"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "state": {
+                  "const": "snapshot_only"
+                },
+                "observation_id": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "state",
+                "observation_id",
+                "message"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "state": {
+                  "const": "unavailable"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "state",
+                "message"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "state",
+        "context_id",
+        "save_id",
+        "source_sha256",
+        "captured_at",
+        "attrs",
+        "level",
+        "school",
+        "source",
+        "skills",
+        "buffs",
+        "notes",
+        "bundle"
+      ]
+    },
+    "LoadoutContext": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/LoadoutContextReady"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "const": "unavailable"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "state",
+            "reason"
+          ]
+        }
+      ]
+    },
+    "LoadoutCatalogSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "resource": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "action": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "parameter_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{64}$"
+        },
+        "weapon": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "school": {
+          "enum": [
+            "samurai",
+            "ninja",
+            null
+          ]
+        },
+        "weapon_class": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "stance": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "kind": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "attack_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "static_complete": {
+          "type": "boolean"
+        },
+        "plan_ready": {
+          "type": "boolean"
+        },
+        "scene_ids": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9A-Za-z-]{1,64}$"
+          }
+        },
+        "missing_facts": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      },
+      "required": [
+        "resource",
+        "action",
+        "parameter_sha256",
+        "weapon",
+        "name",
+        "school",
+        "weapon_class",
+        "stance",
+        "kind",
+        "attack_id",
+        "static_complete",
+        "plan_ready",
+        "scene_ids",
+        "missing_facts"
+      ]
+    },
+    "LoadoutCatalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "source_status": {
+          "enum": [
+            "ready",
+            "missing",
+            "invalid"
+          ]
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "matched": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "query": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "selections": {
+          "type": "array",
+          "maxItems": 200,
+          "items": {
+            "$ref": "#/definitions/LoadoutCatalogSelection"
+          }
+        }
+      },
+      "required": [
+        "version",
+        "source_status",
+        "total",
+        "matched",
+        "offset",
+        "limit",
+        "query",
+        "selections"
+      ]
+    },
+    "LoadoutDamageDetails": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "const": "available"
+            },
+            "total": {
+              "type": "number"
+            },
+            "physical": {
+              "type": "number"
+            },
+            "elemental": {
+              "type": "number"
+            },
+            "contacts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "contact": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "template": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "total": {
+                    "type": "number"
+                  },
+                  "physical": {
+                    "type": "number"
+                  },
+                  "elemental": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "contact",
+                  "template",
+                  "total",
+                  "physical",
+                  "elemental"
+                ]
+              }
+            }
+          },
+          "required": [
+            "state",
+            "total",
+            "physical",
+            "elemental",
+            "contacts"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "const": "unavailable"
+            },
+            "reason": {
+              "enum": [
+                "missing_component_capability",
+                "unsupported_recorded_scenario",
+                "evaluation_failed",
+                "non_finite_output",
+                "score_mismatch"
+              ]
+            }
+          },
+          "required": [
+            "state",
+            "reason"
+          ]
+        }
+      ]
+    },
+    "LoadoutWeaponDomain": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Owned native TYPE enumeration and independently supported weapon-source scope. Counts identify submitted weapon records; retained_current is a separate planner choice.",
+      "properties": {
+        "type_class": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 23
+        },
+        "policy": {
+          "enum": [
+            "owned_type",
+            "captured_record_only",
+            "retained"
+          ]
+        },
+        "requested_items": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "admitted_items": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "uncomputed_items": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retained_current": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "type_class",
+        "policy",
+        "requested_items",
+        "admitted_items",
+        "uncomputed_items",
+        "retained_current",
+        "reason"
+      ]
+    },
+    "StoredAndNow": {
+      "description": "A value that changed between the stored record and the game; null when it did not.",
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "stored": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "now": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "stored",
+            "now"
+          ]
+        }
       ]
     }
   },

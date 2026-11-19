@@ -6383,6 +6383,874 @@
     "所选装备的搜索结果或生成条件已变化。请重新搜索并选择结果，再加入清单。": [
       "The selected equipment search result or generation conditions changed. Search again and choose a result before adding it.",
       "選択した装備の検索結果または生成条件が変わりました。再検索して結果を選んでから、追加してください。"
+    ],
+    "参考穿戴": [
+      "Reference outfit",
+      "比較用装備"
+    ],
+    "配装优化": [
+      "Loadout optimizer",
+      "装備最適化"
+    ],
+    "未知装备": [
+      "Unknown equipment",
+      "不明な装備"
+    ],
+    "正在读取存档装备…": [
+      "Reading save equipment…",
+      "セーブの装備を読み込み中…"
+    ],
+    "读取存档装备": [
+      "Read save equipment",
+      "セーブの装備を読み込む"
+    ],
+    "可参与搜索的装备：": [
+      "Equipment in the search: ",
+      "検索対象の装備："
+    ],
+    "负重上限（%）": [
+      "Max load (%)",
+      "重量上限（%）"
+    ],
+    "防御至少": [
+      "Min defense",
+      "防御の下限"
+    ],
+    "体力至少": [
+      "Min health",
+      "体力の下限"
+    ],
+    "允许重新分配属性点": [
+      "Allow moving attribute points",
+      "能力値の振り直しを許可"
+    ],
+    "开始搜索": [
+      "Start search",
+      "検索開始"
+    ],
+    "没有满足条件的搭配。请放宽负重、防御或体力的要求，或减少套装件数后再试。": [
+      "No loadout meets the conditions. Relax the load, defense or health limits, or require fewer set pieces, and try again.",
+      "条件を満たす装備の組み合わせがありません。重量・防御・体力の条件を緩めるか、セットの必要数を減らして再度お試しください。"
+    ],
+    "已计算": [
+      "Computed",
+      "計算済み"
+    ],
+    "用时（秒）": [
+      "Time (s)",
+      "所要時間（秒）"
+    ],
+    "无法计算的搭配": [
+      "Loadouts that could not be computed",
+      "計算できない組み合わせ"
+    ],
+    "伤害": [
+      "Damage",
+      "ダメージ"
+    ],
+    "负重": [
+      "Load",
+      "重量"
+    ],
+    "防御": [
+      "Defense",
+      "防御"
+    ],
+    "体力": [
+      "Health",
+      "体力"
+    ],
+    "不变": [
+      "Unchanged",
+      "変更なし"
+    ],
+    "饰品1": [
+      "Accessory 1",
+      "装飾品1"
+    ],
+    "饰品2": [
+      "Accessory 2",
+      "装飾品2"
+    ],
+    "存档在读取后被游戏改写了。请点“重新读取”后再试。": [
+      "The game rewrote the save after it was read. Click \"Reload\" and try again.",
+      "読み込んだ後にゲームがセーブを書き換えました。「再読み込み」を押してからもう一度お試しください。"
+    ],
+    "所选伤害的计算数据缺失或损坏。请重新安装本工具后再试。": [
+      "The calculation data for this damage is missing or damaged. Reinstall the tool and try again.",
+      "選んだダメージの計算データがないか壊れています。ツールを再インストールしてからお試しください。"
+    ],
+    "套装条件太多了：最多 4 条条件、一共 6 种套装。请删掉一些后再搜索。": [
+      "Too many set conditions: at most 4 conditions and 6 sets in total. Remove some and search again.",
+      "セット条件が多すぎます（条件は4つまで、セットは合計6種類まで）。いくつか削除してから検索してください。"
+    ],
+    "有一条套装条件没有选套装，或“满足其中几套”超过了已选的套装数。请修改后再搜索。": [
+      "A set condition has no set, or asks for more sets than it lists. Fix it and search again.",
+      "セットが選ばれていない条件があるか、満たすセット数が選んだ数を超えています。修正してから検索してください。"
+    ],
+    "这套装备里有两件要穿在同一个部位，没有写入。请重新搜索后再试。": [
+      "Two items of this outfit go to the same slot, so nothing was written. Search again and retry.",
+      "この装備の中に同じ部位の装備が2つあるため、書き込みませんでした。検索し直してからお試しください。"
+    ],
+    "有装备与它被放入的部位不符，操作已取消。请点“重新读取”后再试；仍然出现请反馈并附上这段说明：": [
+      "An item does not fit the slot it was placed in, so the operation was cancelled. Click \"Reload\" and try again; if it happens again, report it with this note:",
+      "部位に合わない装備があったため、操作を取り消しました。「再読み込み」を押してからお試しください。続く場合は次の説明を添えて報告してください："
+    ],
+    "操作失败。请点“重新读取”后再试；仍然出现请反馈并附上这段说明：": [
+      "The operation failed. Click \"Reload\" and try again; if it happens again, report it with this note:",
+      "操作に失敗しました。「再読み込み」を押してからお試しください。続く場合は次の説明を添えて報告してください："
+    ],
+    "你现在同一部位穿着两件可参与计算的装备，无法和当前穿戴对比。": [
+      "You wear two searchable items in one slot right now, so this cannot be compared with your current outfit.",
+      "同じ部位に計算対象の装備が2つ装備されているため、現在の装備と比較できません。"
+    ],
+    "你现在穿的这套暂时算不出伤害，只能看下面的排名。": [
+      "The damage of your current outfit cannot be calculated yet; use the ranking below.",
+      "現在の装備のダメージはまだ計算できません。下の順位をご覧ください。"
+    ],
+    "就是你现在穿的这套。": [
+      "This is the outfit you wear now.",
+      "現在の装備と同じです。"
+    ],
+    "伤害不变": [
+      "Same damage",
+      "ダメージ変化なし"
+    ],
+    "要换的部位：": [
+      "Slots to change:",
+      "変更する部位："
+    ],
+    "同时变好：": [
+      "Also better:",
+      "ほかに良くなる点："
+    ],
+    "代价：": [
+      "Costs:",
+      "代わりに下がる点："
+    ],
+    "注意：生存能力下降的幅度比伤害提升还大，打不过的地方可以先试试这套的下一名。": [
+      "Note: survivability drops more than damage rises. Where you struggle, try the next outfit in the list first.",
+      "注意：生存力の低下がダメージの上昇より大きいです。苦戦する場所では、まず次の順位の装備を試してください。"
+    ],
+    "其他各项都不比现在差。": [
+      "Nothing else gets worse.",
+      "ほかの項目はどれも下がりません。"
+    ],
+    "正在准备换装…": [
+      "Preparing the outfit change…",
+      "着替えを準備しています…"
+    ],
+    "正在准备换回…": [
+      "Preparing to change back…",
+      "元に戻す準備をしています…"
+    ],
+    "你身上已经是这套装备，不需要写入。": [
+      "You already wear this outfit; nothing to write.",
+      "すでにこの装備を着ているため、書き込みは不要です。"
+    ],
+    "穿上的装备：": [
+      "Put on:",
+      "装備するもの："
+    ],
+    "卸下的装备：": [
+      "Take off:",
+      "外すもの："
+    ],
+    "原来的装备已经不在背包原来的位置（可能被卖掉或分解了），无法自动换回。请在游戏里手动换装，或到“存档管理”恢复换装前的自动备份。缺少的装备：": [
+      "An item from your previous outfit is no longer where it was (it may have been sold or dismantled), so it cannot be changed back automatically. Change by hand in game, or restore the automatic backup from before the change in Save management. Missing item:",
+      "元の装備がもとの場所にありません（売却または分解された可能性があります）。自動では戻せません。ゲーム内で手動で着替えるか、「セーブ管理」で着替え前の自動バックアップを復元してください。見つからない装備："
+    ],
+    "正在写入存档…": [
+      "Writing the save…",
+      "セーブに書き込んでいます…"
+    ],
+    "写入结果不确定，请到“存档管理”核对这次操作的结果。": [
+      "The write result is uncertain. Check this operation in Save management.",
+      "書き込み結果を確認できません。「セーブ管理」でこの操作の結果を確認してください。"
+    ],
+    "已换上这套装备，原存档已自动备份。进游戏读取这个存档即可；不满意可以点“换回原来的装备”。": [
+      "Outfit put on, and the original save was backed up. Load this save in game; if you do not like it, click \"Change back to the previous outfit\".",
+      "この装備に着替えました。元のセーブは自動でバックアップ済みです。ゲームでこのセーブを読み込んでください。気に入らなければ「元の装備に戻す」を押してください。"
+    ],
+    "已换回原来的装备。": [
+      "Changed back to the previous outfit.",
+      "元の装備に戻しました。"
+    ],
+    "收起": [
+      "Hide",
+      "閉じる"
+    ],
+    "更换": [
+      "Change",
+      "変更"
+    ],
+    "套装条件": [
+      "Set conditions",
+      "セット条件"
+    ],
+    "你的背包里有带“组合效果的所需装备数 -1”的饰品（如八尺琼勾玉）。这里的件数都指生效的件数：戴着它时，穿 2 件就按 3 件生效。搜索会自动比较戴和不戴它。": [
+      "Your inventory has an accessory that lowers the pieces a set needs by one (such as Yasakani Magatama). Piece counts here are active pieces: with it on, 2 worn pieces count as 3. The search compares wearing it and not.",
+      "セット効果の必要装備数を1減らす装飾品（八尺瓊勾玉など）を持っています。ここでの数はすべて有効な数です。装備すると2つで3つ分の効果になります。検索は着けた場合と着けない場合を自動で比べます。"
+    ],
+    "不限套装时搜索的搭配最多，可能要等比较久。": [
+      "With no set condition the search covers the most outfits and can take a while.",
+      "セット条件がないと検索する組み合わせが最も多く、時間がかかることがあります。"
+    ],
+    "其中要满足的套数": [
+      "How many of these",
+      "満たすセット数"
+    ],
+    "生效件数": [
+      "Active pieces",
+      "有効数"
+    ],
+    "删除这个套装": [
+      "Remove this set",
+      "このセットを削除"
+    ],
+    "加入套装": [
+      "Add a set",
+      "セットを追加"
+    ],
+    "＋ 加入套装": [
+      "＋ Add a set",
+      "＋ セットを追加"
+    ],
+    "添加套装条件": [
+      "Add a set condition",
+      "セット条件を追加"
+    ],
+    "＋ 添加一条套装条件": [
+      "＋ Add a set condition",
+      "＋ セット条件を追加"
+    ],
+    "几条条件需要同时满足。": [
+      "All conditions must hold together.",
+      "すべての条件を同時に満たす必要があります。"
+    ],
+    "上次在这里换过装备。": [
+      "You changed outfits here last time.",
+      "前回ここで着替えました。"
+    ],
+    "换回原来的装备": [
+      "Change back to the previous outfit",
+      "元の装備に戻す"
+    ],
+    "换上这套装备": [
+      "Put this outfit on",
+      "この装備に着替える"
+    ],
+    "只改装备栏，不增减任何物品，所以背包满了也没关系。游戏在读档状态下会自己保存，写入的内容会被覆盖。写入前会自动备份原存档；写入后进游戏重新读取这个存档即可。": [
+      "Only the equipped slots change; no item is added or removed, so a full inventory does not matter. While a save is loaded the game saves on its own and would overwrite this write. The original save is backed up first; afterwards load this save in game again.",
+      "装備欄だけを変更し、アイテムは増減しないため、所持品がいっぱいでも問題ありません。セーブを読み込んだ状態ではゲームが自動保存し、書き込みが上書きされます。書き込み前に元のセーブを自動でバックアップします。書き込み後はゲームでこのセーブを読み込み直してください。"
+    ],
+    "最佳搭配": [
+      "Best outfit",
+      "最適な装備"
+    ],
+    "同伤害的搭配": [
+      "Equal-damage outfits",
+      "同ダメージの装備"
+    ],
+    "穿上这套（写入存档）": [
+      "Put this on (writes the save)",
+      "この装備に着替える（セーブに書き込み）"
+    ],
+    "收起同伤害的搭配": [
+      "Hide equal-damage outfits",
+      "同ダメージの装備を閉じる"
+    ],
+    "看看同伤害的其他搭配": [
+      "Show other equal-damage outfits",
+      "同ダメージのほかの装備を見る"
+    ],
+    "穿上这套": [
+      "Put this on",
+      "この装備に着替える"
+    ],
+    "原来穿的装备": [
+      "Previously worn",
+      "元の装備"
+    ],
+    "属性点不用改。": [
+      "No attribute points change.",
+      "能力値の振り直しは不要です。"
+    ],
+    "属性点：": [
+      "Attribute points:",
+      "能力値："
+    ],
+    "要比较的搭配超过 30 亿套，太多了。请加一条套装条件或提高件数，缩小范围后再搜索。": [
+      "More than 3 billion outfits to compare, which is too many. Add a set condition or raise a piece count to narrow the search, then search again.",
+      "比較する組み合わせが30億を超えており、多すぎます。セット条件を追加するか必要数を上げて範囲を絞ってから検索してください。"
+    ],
+    "正在搜索。用时取决于搭配数量、连段长度和后台负载；持续连段可能需要数分钟或更久。": [
+      "Searching. Time depends on outfit count, sequence length, and background load; sustained attacks may take several minutes or longer.",
+      "検索中です。候補数、連続攻撃の長さ、バックグラウンド負荷によって時間が変わります。持続攻撃には数分以上かかる場合があります。"
+    ],
+    "显卡加速": [
+      "Graphics card",
+      "GPU高速化"
+    ],
+    "CPU 计算": [
+      "CPU",
+      "CPU計算"
+    ],
+    "按强化到上限计算": [
+      "Rank as fully enhanced",
+      "強化上限で計算"
+    ],
+    "按铁匠魂合能达到的上限估算：装备等级升到 180，已有 + 值的装备升到角色的 + 值上限。实际穿上后要去铁匠魂合才有这个伤害。": [
+      "Estimates gear at the most the blacksmith's Soul Match can reach: item level 180, and items that have a + value raised to the character's + cap. Wearing an outfit gives this damage only after soul matching it at the blacksmith.",
+      "鍛冶屋の魂合わせで到達できる上限で見積もります：装備レベルは180、＋値のある装備はキャラクターの＋値上限まで。実際にこのダメージになるのは、装着後に鍛冶屋で魂合わせした後です。"
+    ],
+    "以下伤害和对照数值都按强化到上限估算。穿上后去铁匠魂合提高等级和 + 值，才能达到这些数值。": [
+      "All damage and comparison values assume fully enhanced gear. Raise level and + value with Soul Match at the blacksmith after wearing it to reach these numbers.",
+      "ダメージと比較用の数値はすべて強化上限での見積もりです。装着後に鍛冶屋の魂合わせでレベルと＋値を上げると、この数値になります。"
+    ],
+    "饰品（两栏任选两件）": [
+      "Accessories (any two in either slot)",
+      "小物（2枠に任意の2個）"
+    ],
+    "体": [
+      "Constitution",
+      "体"
+    ],
+    "心": [
+      "Heart",
+      "心"
+    ],
+    "刚": [
+      "Stamina",
+      "剛"
+    ],
+    "武": [
+      "Strength",
+      "武"
+    ],
+    "技": [
+      "Skill",
+      "技"
+    ],
+    "智": [
+      "Intellect",
+      "智"
+    ],
+    "咒": [
+      "Magic",
+      "呪"
+    ],
+    "角色上下文与当前存档不一致，请重新读取。": [
+      "The character context does not match the current save. Read it again.",
+      "キャラクター情報が現在のセーブと一致しません。読み込み直してください。"
+    ],
+    "搜索结果已过期，请重新读取角色后搜索。": [
+      "The search result has expired. Read the character again before searching.",
+      "検索結果が古くなりました。キャラクターを読み込み直して検索してください。"
+    ],
+    "正在读取角色上下文…": [
+      "Reading character context…",
+      "キャラクター情報を読み込み中…"
+    ],
+    "正在处理上一项操作…": [
+      "Finishing the previous operation…",
+      "前の操作を処理中…"
+    ],
+    "角色计算上下文": [
+      "Character calculation context",
+      "計算に使用するキャラクター情報"
+    ],
+    "已读取角色状态": [
+      "Character state loaded",
+      "キャラクター状態を読み込みました"
+    ],
+    "请先读取角色状态": [
+      "Read the character state first",
+      "先にキャラクター状態を読み込んでください"
+    ],
+    "来源：当前游戏": [
+      "Source: current game",
+      "取得元：現在のゲーム"
+    ],
+    "来源：已验证的角色快照": [
+      "Source: verified character snapshot",
+      "取得元：検証済みキャラクタースナップショット"
+    ],
+    "读取时间：": [
+      "Captured at: ",
+      "取得日時："
+    ],
+    "技能：": [
+      "Skills: ",
+      "スキル："
+    ],
+    "增益：": [
+      "Buffs: ",
+      "強化効果："
+    ],
+    "未记录": [
+      "Not recorded",
+      "記録なし"
+    ],
+    "读取成功后才能使用当前角色搜索。": [
+      "Search with this character after its state is loaded.",
+      "状態の読み込み後に、このキャラクターで検索できます。"
+    ],
+    "刷新角色状态": [
+      "Refresh character state",
+      "キャラクター状態を更新"
+    ],
+    "角色上下文尚未就绪，暂不能搜索。不会使用样本角色代替。": [
+      "Character context is not ready, so search is unavailable. A sample character will not be substituted.",
+      "キャラクター情報が未取得のため検索できません。サンプルキャラクターで代用しません。"
+    ],
+    "武器沿用计算上下文中的装备": [
+      "The weapon comes from the calculation context",
+      "武器は取得済みの計算情報を使用"
+    ],
+    "稀有度 6 及以上的装备暂不参与。某个部位没有装备时，沿用计算上下文中的对应装备。": [
+      "Rarity 6 and higher is not included yet. Empty slots use the corresponding equipment in the calculation context.",
+      "レア度6以上はまだ対象外です。空き部位は計算情報の対応する装備を使用します。"
+    ],
+    "武器类型": [
+      "Weapon type",
+      "武器種"
+    ],
+    "段位": [
+      "Stance",
+      "構え"
+    ],
+    "上段": [
+      "High stance",
+      "上段"
+    ],
+    "中段": [
+      "Mid stance",
+      "中段"
+    ],
+    "下段": [
+      "Low stance",
+      "下段"
+    ],
+    "无段位": [
+      "No stance",
+      "構えなし"
+    ],
+    "攻击": [
+      "Attack",
+      "攻撃"
+    ],
+    "增益条件": [
+      "Buff condition",
+      "強化条件"
+    ],
+    "读取角色时的增益": [
+      "Buffs at character read",
+      "キャラクター読込時の強化"
+    ],
+    "无临时增益": [
+      "No temporary buffs",
+      "一時強化なし"
+    ],
+    "精防增伤已触发": [
+      "Perfect-guard damage buff active",
+      "直前ガードの攻撃強化が発動中"
+    ],
+    "琢技已触发": [
+      "Arts Proficiency active",
+      "技練発動中"
+    ],
+    "精防＋琢技": [
+      "Perfect guard + Arts Proficiency",
+      "ジャストガード＋技練"
+    ],
+    "已计算搭配中的最高伤害": [
+      "Highest damage among calculated loadouts",
+      "計算済みの組み合わせで最大のダメージ"
+    ],
+    "准备搜索": [
+      "Preparing search",
+      "検索を準備中"
+    ],
+    "核对计算结果": [
+      "Verifying calculations",
+      "計算結果を検証中"
+    ],
+    "计算搭配": [
+      "Evaluating outfits",
+      "装備の組み合わせを計算中"
+    ],
+    "重算当前批次": [
+      "Retrying the current batch",
+      "現在のバッチを再計算中"
+    ],
+    "调整候选搭配": [
+      "Refining candidates",
+      "候補の組み合わせを調整中"
+    ],
+    "整理结果": [
+      "Preparing results",
+      "結果を整理中"
+    ],
+    "已完成搭配：": [
+      "Settled outfits:",
+      "集計済みの組み合わせ："
+    ],
+    "当前批次：": [
+      "Current batch:",
+      "現在のバッチ："
+    ],
+    "搜索完成进度": [
+      "Settled search progress",
+      "検索の集計進捗"
+    ],
+    "取消搜索": [
+      "Cancel search",
+      "検索をキャンセル"
+    ],
+    "正在停止搜索；等待当前批次清理完成…": [
+      "Stopping search; waiting for the current batch to release its resources…",
+      "検索を停止中です。現在のバッチの後処理を待っています…"
+    ],
+    "搜索已取消，可以重新搜索。": [
+      "Search cancelled. You can start another search.",
+      "検索をキャンセルしました。再検索できます。"
+    ],
+    "重新连接搜索状态": [
+      "Reconnect to search status",
+      "検索状態に再接続"
+    ],
+    "搜索连接中断；尚未确认是否停止。": [
+      "Search connection interrupted; stopping has not been confirmed.",
+      "検索への接続が中断されました。停止はまだ確認できていません。"
+    ],
+    "未能恢复这次搜索结果，请重新搜索。": [
+      "This search result could not be recovered. Please search again.",
+      "今回の検索結果を復元できませんでした。再検索してください。"
+    ],
+    "伤害提高": [
+      "Damage increased",
+      "ダメージ増加"
+    ],
+    "装备不变；数值按本次搜索的属性与强化设置计算。": [
+      "Equipment unchanged; values use this search's attributes and enhancement settings.",
+      "装備は変更されません。数値は今回の検索の能力値と強化設定で計算しています。"
+    ],
+    "负重上限请填大于 0 且不超过 1000 的百分数；防御和体力请填 0 到 1000000 的整数。不设限制时留空。": [
+      "Enter a load percentage greater than 0 and at most 1000; defense and health must be integers from 0 to 1000000. Leave blank for no limit.",
+      "負重量上限は0を超え1000以下の百分率、防御力と体力は0から1000000までの整数を入力してください。制限しない場合は空欄にしてください。"
+    ],
+    "当前批次进度": [
+      "Current batch progress",
+      "現在のバッチ進捗"
+    ],
+    "效果变化：": [
+      "Changed effects:",
+      "変化した効果："
+    ],
+    "攻击加成：": [
+      "Attack bonus:",
+      "攻撃力補正："
+    ],
+    "防御加成：": [
+      "Defense bonus:",
+      "防御力補正："
+    ],
+    "参考快照时间：": [
+      "Reference snapshot time:",
+      "参照スナップショットの取得時刻："
+    ],
+    "原始诊断记录已保留，记录索引未保存；本次角色读取仍然有效。": [
+      "The raw diagnostic record was retained but its index could not be saved. This character read remains valid.",
+      "診断の元記録は保持されていますが、索引を保存できませんでした。今回のキャラクター取得は有効です。"
+    ],
+    "诊断记录未能保存；本次角色读取仍然有效。请保留反馈文件。": [
+      "The diagnostic record could not be saved. This character read remains valid; please keep the feedback file.",
+      "診断記録を保存できませんでした。今回のキャラクター取得は有効です。フィードバックファイルを保持してください。"
+    ],
+    "当前手持武器与所选攻击的武器类型不符，请切换武器后重新读取。": [
+      "The held weapon type does not match the selected attack. Switch weapons and refresh the character state.",
+      "手持ちの武器種が選択した攻撃と一致しません。武器を変更してキャラクター状態を再取得してください。"
+    ],
+    "当前流派与所选攻击不符，请在游戏中切换流派并使用主手武器后重新读取。": [
+      "The current form does not match the selected attack. Switch forms in the game, equip the primary weapon, and refresh the character state.",
+      "現在のスタイルが選択した攻撃と一致しません。ゲーム内でスタイルを変更し、主武器を装備してキャラクター状態を再取得してください。"
+    ],
+    "未检测到临时增益": [
+      "No temporary buffs detected",
+      "一時的な強化は検出されていません"
+    ],
+    "按当前装备重算的加成与游戏读取一致。": [
+      "The recalculated bonuses for the current equipment match the game read.",
+      "現在の装備で再計算した補正はゲームから取得した値と一致しています。"
+    ],
+    "按当前装备重算的加成与游戏读取存在差异，已使用本次读取的状态。换装后的推荐结果需要核对。": [
+      "The recalculated bonuses for the current equipment differ from the game read. The search uses the newly read state; recommendations after changing equipment need verification.",
+      "現在の装備で再計算した補正はゲームから取得した値と異なります。今回の取得状態を使用しています。装備変更後の推奨結果は確認が必要です。"
+    ],
+    "暂时无法判断是否存在满足条件的搭配。": [
+      "It is not yet possible to determine whether an outfit meets the conditions.",
+      "条件を満たす装備構成があるかは、まだ判断できません。"
+    ],
+    "伤害按各搭配列出的属性点计算。“穿上这套”只更换装备；需要调整的属性点请在游戏中重新分配。": [
+      "Damage uses the attributes listed for each outfit. Equipping an outfit changes equipment only; reallocate the required attribute points in the game.",
+      "ダメージは各構成に表示された能力値で計算しています。「この構成を装備」は装備のみ変更します。必要な能力値の振り直しはゲーム内で行ってください。"
+    ],
+    "暂不能确认全局最优。": [
+      "The global optimum has not been established.",
+      "全体の最適解はまだ確認できません。"
+    ],
+    "仍有搭配未算出伤害。": [
+      "Damage could not be calculated for some outfits.",
+      "ダメージを計算できなかった構成があります。"
+    ],
+    "属性点搜索采用候选筛选与局部调整，未穷尽全部搭配和属性分配。": [
+      "Attribute search uses candidate screening and local adjustments; it does not enumerate every outfit and attribute allocation.",
+      "能力値検索は候補の絞り込みと局所的な調整を行い、全ての装備構成と能力値配分を総当たりしていません。"
+    ],
+    "参考穿戴的这些部位沿用角色快照中的状态：": [
+      "These slots in the reference outfit retain the character snapshot state:",
+      "比較用装備の次の部位には、取得済みキャラクター状態を使用しています："
+    ],
+    "所选攻击的计算模板缺失，请重新安装完整的计算数据。": [
+      "The selected attack template is missing. Reinstall the complete calculation data.",
+      "選択した攻撃の計算テンプレートがありません。完全な計算データを再インストールしてください。"
+    ],
+    "请在游戏中载入角色，再刷新角色状态。": [
+      "Load your character in the game, then refresh the character state.",
+      "ゲームでキャラクターをロードしてから状態を再取得してください。"
+    ],
+    "读取过程中角色状态发生变化，请保持角色空闲后重试。": [
+      "The character changed during the read. Keep the character idle and try again.",
+      "読込中にキャラクター状態が変化しました。操作を止めてから再試行してください。"
+    ],
+    "游戏角色的穿戴与所选存档不一致，请在游戏中保存后重新读取，或选择正确的存档。": [
+      "The equipped items do not match the selected save. Save in the game and refresh, or select the matching save.",
+      "装備が選択したセーブと一致しません。ゲームで保存して再取得するか、一致するセーブを選択してください。"
+    ],
+    "当前搜索无法使用显卡加速，搭配数超过 CPU 的 3000 万套限制。请添加套装条件或提高件数，缩小范围后再搜索。": [
+      "GPU acceleration is unavailable for this search, and the outfit count exceeds the CPU limit of 30 million. Add a set condition or require more pieces to reduce the search.",
+      "この検索では GPU アクセラレーションを使用できず、組み合わせ数が CPU の上限 3000 万を超えています。セット条件や必要部位数を増やして範囲を絞ってください。"
+    ],
+    "实际命中次数": [
+      "Actual landed contact count",
+      "実際の命中回数"
+    ],
+    "同时命中的结算次序": [
+      "Resolution order of simultaneous contacts",
+      "同時命中の処理順序"
+    ],
+    "攻击来源对象的身份": [
+      "Identity of the attack source",
+      "攻撃元オブジェクトの識別"
+    ],
+    "来源状态更新的时点": [
+      "When source state is rebuilt",
+      "攻撃元の状態が更新される時点"
+    ],
+    "本次攻击实际包含的追加命中": [
+      "Additional contacts actually included in this attack",
+      "この攻撃に実際に含まれる追加命中"
+    ],
+    "飞行道具与攻击参数的对应关系": [
+      "Projectile-to-attack parameter binding",
+      "飛び道具と攻撃パラメーターの対応"
+    ],
+    "持续攻击的停止或蓄力条件": [
+      "Stop or charge condition for a sustained attack",
+      "持続攻撃の停止または溜め条件"
+    ],
+    "非飞行道具事件的实际效果": [
+      "Actual effects of non-projectile events",
+      "飛び道具以外のイベントの実際の効果"
+    ],
+    "当前角色与攻击来源的对应关系": [
+      "Binding between the current character and attack source",
+      "現在のキャラクターと攻撃元の対応"
+    ],
+    "已安装的计算场景": [
+      "Installed evaluation scene",
+      "インストール済みの計算シーン"
+    ],
+    "完整攻击目录": [
+      "Full attack catalog",
+      "全攻撃カタログ"
+    ],
+    "完整攻击目录暂不可用。上方仍可选择已安装的计算场景。": [
+      "The full attack catalog is unavailable. Installed evaluation scenes remain selectable above.",
+      "全攻撃カタログを利用できません。上の欄からインストール済みの計算シーンを選択できます。"
+    ],
+    "已编目攻击：": [
+      "Cataloged attacks:",
+      "登録済みの攻撃："
+    ],
+    "匹配：": [
+      "Matching:",
+      "一致："
+    ],
+    "只有已具备完整计算条件的攻击可以搜索；其余攻击保留在目录中，并显示缺少的信息。": [
+      "Search is available for attacks with complete evaluation conditions. Other attacks remain in the catalog with their missing information.",
+      "計算条件が揃った攻撃を検索できます。他の攻撃も不足情報とともにカタログに表示されます。"
+    ],
+    "查找攻击": [
+      "Find an attack",
+      "攻撃を探す"
+    ],
+    "武器、攻击名称或编号": [
+      "Weapon, attack name or ID",
+      "武器、攻撃名、番号"
+    ],
+    "武器未确定": [
+      "Weapon unknown",
+      "武器未確定"
+    ],
+    "选择此攻击": [
+      "Choose this attack",
+      "この攻撃を選択"
+    ],
+    "暂不可搜索": [
+      "Search unavailable",
+      "検索不可"
+    ],
+    "缺少的信息": [
+      "Missing information",
+      "不足している情報"
+    ],
+    "完整的攻击参数记录": [
+      "Complete attack parameter records",
+      "完全な攻撃パラメーター記録"
+    ],
+    "没有匹配的攻击。": [
+      "No matching attacks.",
+      "一致する攻撃はありません。"
+    ],
+    "攻击目录分页": [
+      "Attack catalog pages",
+      "攻撃カタログのページ"
+    ],
+    "未命名攻击": [
+      "Unnamed attack",
+      "名称未登録の攻撃"
+    ],
+    "增益条件为本次计算的假设，角色与装备来自同一次读取。": [
+      "Buff conditions are assumptions for this evaluation; the character and equipment come from the same observation.",
+      "強化条件は今回の計算で仮定する状態です。キャラクターと装備は同じ読込に基づきます。"
+    ],
+    "所选增益需要对应技能已解锁并启用，请检查角色技能后重新读取。": [
+      "The selected buff requires its skill to be unlocked and enabled. Check character skills and refresh.",
+      "選択した強化には対応スキルの解放と有効化が必要です。スキルを確認して再取得してください。"
+    ],
+    "所选增益条件需要武士流派，请切换流派后重新读取。": [
+      "This buff condition requires Samurai form. Switch form and refresh.",
+      "この強化条件にはサムライスタイルが必要です。スタイルを切り替えて再取得してください。"
+    ],
+    "尚未建立可执行的攻击计算场景": [
+      "An executable evaluation scene is not yet available.",
+      "実行可能な攻撃計算シーンがまだありません。"
+    ],
+    "暂时无法读取配装资料。": [
+      "Optimizer data could not be loaded.",
+      "装備最適化データを読み込めませんでした。"
+    ],
+    "重新读取配装资料": [
+      "Reload optimizer data",
+      "装備最適化データを再読み込み"
+    ],
+    "正在载入配装资料…": [
+      "Loading optimizer data…",
+      "装備最適化データを読み込み中…"
+    ],
+    "当前安装中没有可用的配装资料。": [
+      "This installation has no optimizer data.",
+      "このインストールには装備最適化データがありません。"
+    ],
+    "尚未读取配装资料。": [
+      "Optimizer data has not been loaded.",
+      "装備最適化データはまだ読み込まれていません。"
+    ],
+    "伤害明细暂不可用": [
+      "Damage breakdown unavailable",
+      "ダメージ内訳を取得できません"
+    ],
+    "物理伤害": [
+      "Physical damage",
+      "物理ダメージ"
+    ],
+    "属性伤害": [
+      "Elemental damage",
+      "属性ダメージ"
+    ],
+    "逐击伤害": [
+      "Damage per hit",
+      "各ヒットのダメージ"
+    ],
+    "总伤害包含物理和属性伤害。": [
+      "Total damage includes physical and elemental damage.",
+      "総ダメージには物理・属性ダメージを含みます。"
+    ],
+    "命中": [
+      "Hit",
+      "ヒット"
+    ],
+    "总伤害": [
+      "Total damage",
+      "総ダメージ"
+    ],
+    "较当前穿戴": [
+      "Change from current outfit",
+      "現在の装備との差"
+    ],
+    "新增命中": [
+      "Additional hit",
+      "追加ヒット"
+    ],
+    "较参考穿戴": [
+      "Change from reference outfit",
+      "参照装備との差"
+    ],
+    "请指定至少一个套装及其生效件数。": [
+      "Choose at least one set and its minimum active tier.",
+      "揃え効果と必要な発動段階を1つ以上指定してください。"
+    ],
+    "力攻击（首个接触；声明命中）": [
+      "Strong attack (first hit)",
+      "強攻撃（初撃）"
+    ],
+    "旧版来源模型尚未通过完整重建验证。伤害与排名均为当前模型的暂定结果。": [
+      "Damage and ranking are provisional while the legacy source model awaits full verification.",
+      "旧版の効果再構築モデルの検証が完了するまで、ダメージと順位は暫定値です。"
+    ],
+    "来源重建仍受已声明条件限制，尚未与当前角色的主机重建过程绑定。伤害与排名均为当前模型的暂定结果。": [
+      "Damage and ranking use the reconstructed inputs for the selected scene. Live character binding is pending.",
+      "ダメージと順位は、選択した条件で再構築した効果に基づきます。現在のキャラクターとの連携は未確認です。"
+    ],
+    "本次搜索的来源重建已与当前角色读取绑定。": [
+      "This search uses effects rebuilt from the current character read.",
+      "この検索では、現在のキャラクターから再構築した効果を使用しています。"
+    ],
+    "当前模型中的最佳搭配": [
+      "Best outfit for these inputs",
+      "この条件の最適装備"
+    ],
+    "当前模型已计算搭配中的最高伤害": [
+      "Highest damage calculated for these inputs",
+      "この条件で計算した最大ダメージ"
+    ],
+    "同类型武器 %owned% 件，已纳入计算 %admitted% 件。": [
+      "For this weapon type, %owned% owned and %admitted% included.",
+      "同じ武器種の所持数は%owned%、計算対象は%admitted%です。"
+    ],
+    "另有 %count% 件武器的效果来源待验证。": [
+      "Effect sources for %count% additional weapons still need verification.",
+      "残り%count%個の武器は効果の出所を検証中です。"
+    ],
+    "同时保留当前武器作为选择。": [
+      "The current weapon is also included.",
+      "現在の武器も候補に含まれます。"
+    ],
+    "当前模型未找到满足条件的搭配。请放宽负重、防御或体力的要求，或减少套装件数后再试。": [
+      "The search found no outfit that meets these constraints.",
+      "条件を満たす装備の組み合わせが見つかりませんでした。"
     ]
   },
   "game": {

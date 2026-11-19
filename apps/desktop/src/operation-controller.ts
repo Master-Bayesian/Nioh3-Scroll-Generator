@@ -18,6 +18,8 @@ export class OperationController {
   private state: OperationState = { phase: 'idle', job: null, result: null, error: null, operationId: null, recovered: false };
   private listeners = new Set<() => void>();
   private epoch = 0;
+  /** Every pending poll owns an epoch/revision lease; cancel refresh retires old reads. */
+  private pollRevision = 0;
   private disposed = false;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private waiters = new Set<(state: OperationState) => void>();
@@ -26,22 +28,52 @@ export class OperationController {
   getSnapshot = () => this.state;
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private update(values: Partial<OperationState>) {
-    this.state = { ...this.state, ...values }; this.listeners.forEach(listener => listener());
-    this.waiters.forEach(listener => listener(this.state));
+    const state = { ...this.state, ...values };
+    this.state = state;
+    // A completed request owns this immutable outcome even when a subscriber
+    // synchronously starts the next operation during notification.
+    this.waiters.forEach(listener => listener(state));
+    this.listeners.forEach(listener => listener());
   }
-  connect() { this.disposed = false; return this.recover(); }
-  async run(operation: () => Promise<ProtectedResult | null>, operationId: string | null = null) {
+  connect() {
+    if (this.disposed && (this.state.phase === 'running' || this.state.phase === 'submitting'))
+      this.update({ phase: 'interrupted', error: 'OPERATION_OBSERVER_RECONNECTED' });
+    this.disposed = false;
+    return this.recover();
+  }
+  async run(operation: () => Promise<ProtectedResult | null>, operationId: string | null = null, options: { signal?: AbortSignal } = {}) {
+    if (options.signal?.aborted) throw new Error('OPERATION_CANCELLED_BEFORE_SUBMISSION');
     // A refused or unanswered submission leaves the observer interrupted. That
     // must not lock every later operation: reading the worker's current state
     // (recovery never replays) settles it, and only real ownership still refuses.
     if (this.state.phase === 'interrupted') await this.recover();
     // A background read (an inventory refresh, a backup list) may still be
     // settling when the user acts. Queue behind it instead of refusing.
-    if (!this.canStart()) await this.whenStartable(this.startWaitMs);
+    if (!this.canStart()) await this.whenStartable(this.startWaitMs, options.signal);
+    if (options.signal?.aborted) throw new Error('OPERATION_CANCELLED_BEFORE_SUBMISSION');
     if (!this.canStart()) throw new Error('BUSY: recover the protected operation before continuing');
-    const epoch = this.epoch + 1;
-    await this.start(operation, operationId);
-    return this.waitForResult(epoch);
+    // Watch this operation's epoch from the moment it starts. An operation that answers without a job completes
+    // inside start(), and an action queued behind it starts right then; watching only after start() returned would
+    // see that newer epoch and reject a call that had succeeded.
+    const started = this.start(operation, operationId);
+    const ownerEpoch = this.epoch;
+    const result = this.waitForResult(ownerEpoch);
+    result.catch(() => {});
+    let abortDispatch: "waiting_for_job" | "sent" = "waiting_for_job";
+    const cancelOwned = async () => {
+      if (ownerEpoch !== this.epoch || abortDispatch === "sent" || !this.state.job) return;
+      abortDispatch = "sent";
+      await this.cancel();
+    };
+    const onAbort = () => { void cancelOwned(); };
+    options.signal?.addEventListener('abort', onAbort);
+    try {
+      await started;
+      if (options.signal?.aborted) await cancelOwned();
+      // An abort request does not prove cleanup. Keep the owner until a real
+      // terminal snapshot (or an explicit interrupted/unknown outcome).
+      return await result;
+    } finally { options.signal?.removeEventListener('abort', onAbort); }
   }
   waitForResult(epoch: number | null = null) {
     return new Promise<OperationState['result']>((resolve, reject) => {
@@ -57,16 +89,18 @@ export class OperationController {
   }
   canStart() { return !this.disposed && ['idle', 'completed', 'failed'].includes(this.state.phase); }
   /** Resolve once a new operation may start, or after `timeoutMs`. It never starts one. */
-  private whenStartable(timeoutMs: number) {
+  private whenStartable(timeoutMs: number, signal?: AbortSignal) {
     return new Promise<void>(resolve => {
-      const done = () => { clearTimeout(timer); this.waiters.delete(check); resolve(); };
-      const check = () => { if (this.disposed || this.canStart()) done(); };
+      const done = () => { clearTimeout(timer); signal?.removeEventListener('abort', done); this.waiters.delete(check); resolve(); };
+      const check = () => { if (this.disposed || this.canStart() || signal?.aborted) done(); };
       const timer = setTimeout(done, timeoutMs);
+      signal?.addEventListener('abort', done, { once: true });
       this.waiters.add(check); check();
     });
   }
   private interrupted(error: unknown) {
     // A missing response does not prove that a protected write failed or stopped.
+    clearTimeout(this.timer); ++this.pollRevision;
     this.update({ phase: 'interrupted', error: String(error) });
   }
   private accept(job: ProtectedJob) {
@@ -81,6 +115,7 @@ export class OperationController {
       (!job.result || !('live_add' in job.result) || job.result.live_add.operation_id !== this.state.operationId)) {
       throw new Error('OPERATION_RECEIPT_MISMATCH');
     }
+    if (operationTerminal(job)) { clearTimeout(this.timer); ++this.pollRevision; }
     this.update({ job, phase: operationTerminal(job) ? job.state as 'completed' | 'failed' : 'running',
       result: job.result, error: job.error ? `${job.error.code}: ${job.error.message}` : null });
   }
@@ -98,15 +133,18 @@ export class OperationController {
     } catch (error) { if (epoch === this.epoch) this.interrupted(error); return false; }
   }
   private schedule(epoch: number) {
-    if (this.disposed || this.state.phase !== 'running') return;
+    if (this.disposed || epoch !== this.epoch || this.state.phase !== 'running') return;
     const jobId = this.state.job!.job_id;
+    clearTimeout(this.timer);
+    const revision = ++this.pollRevision;
     this.timer = setTimeout(async () => {
+      if (this.disposed || epoch !== this.epoch || revision !== this.pollRevision || this.state.phase !== 'running') return;
       try {
         const job = await this.api.snapshot(this.role, jobId);
-        if (epoch !== this.epoch) return;
+        if (epoch !== this.epoch || revision !== this.pollRevision) return;
         if (job.job_id !== jobId) throw new Error('OPERATION_ID_MISMATCH');
         this.accept(job); this.schedule(epoch);
-      } catch (error) { if (epoch === this.epoch && this.state.phase === 'running') this.interrupted(error); }
+      } catch (error) { if (epoch === this.epoch && revision === this.pollRevision && this.state.phase === 'running') this.interrupted(error); }
     }, this.pollMs);
   }
   async cancel() {
@@ -118,6 +156,7 @@ export class OperationController {
       if (epoch === this.epoch) {
         if (job.job_id !== current.job_id) throw new Error('OPERATION_ID_MISMATCH');
         this.accept(job);
+        this.schedule(epoch);
       }
     } catch (error) { if (epoch === this.epoch && this.state.phase === 'running') this.interrupted(error); }
   }

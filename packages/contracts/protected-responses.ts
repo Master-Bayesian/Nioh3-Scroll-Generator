@@ -70,6 +70,42 @@ export type EnemyStatePreviews = {
   solo: EnemyStatePreview;
   expedition: EnemyStatePreview;
 } | null;
+export type LoadoutContext =
+  | LoadoutContextReady
+  | {
+      state: "unavailable";
+      reason: string;
+    };
+/**
+ * A value that changed between the stored record and the game; null when it did not.
+ */
+export type StoredAndNow = null | {
+  stored: number;
+  now: number;
+};
+export type LoadoutDamageDetails =
+  | {
+      state: "available";
+      total: number;
+      physical: number;
+      elemental: number;
+      contacts: {
+        contact: number;
+        template: number;
+        total: number;
+        physical: number;
+        elemental: number;
+      }[];
+    }
+  | {
+      state: "unavailable";
+      reason:
+        | "missing_component_capability"
+        | "unsupported_recorded_scenario"
+        | "evaluation_failed"
+        | "non_finite_output"
+        | "score_mismatch";
+    };
 
 export interface ProtectedJob {
   job_id: string;
@@ -130,7 +166,11 @@ export interface ProtectedJob {
     | "runtime.equipment_add_execute"
     | "runtime.equipment_add_status"
     | "runtime.equipment_add_recover"
-    | "runtime.equipment_add_cancel";
+    | "runtime.equipment_add_cancel"
+    | "save.loadout_bundles"
+    | "save.loadout_context"
+    | "save.loadout_sets"
+    | "save.loadout_search";
   state: "running" | "cancel_requested" | "completed" | "failed";
   sequence: number;
   cancellable: boolean;
@@ -265,7 +305,11 @@ export interface ProtectedJob {
           source_sha256: string;
           record_hex: string;
         };
-      };
+      }
+    | LoadoutBundles
+    | LoadoutContext
+    | LoadoutSets
+    | LoadoutSearch;
   error: {
     code: string;
     message: string;
@@ -1206,6 +1250,234 @@ export interface CountEdit {
   old_count: number;
   new_count: number;
   error: string | null;
+}
+export interface LoadoutBundles {
+  bundles: {
+    id: string;
+    name: string;
+    school: "samurai" | "ninja";
+    weapon_class: number | null;
+    weapon: string;
+    damage: string;
+    scene?: {
+      stance: "high" | "mid" | "low" | "none";
+      kind: "quick" | "strong" | "martial";
+      attack_id: string;
+      buff: "current" | "untriggered" | "deflect" | "arts" | "deflect_arts";
+    };
+    diagnostic?: boolean;
+    selection_weapon_class?: number;
+  }[];
+  catalog?: LoadoutCatalog;
+}
+export interface LoadoutCatalog {
+  version: 1;
+  source_status: "ready" | "missing" | "invalid";
+  total: number;
+  matched: number;
+  offset: number;
+  limit: number;
+  query: string;
+  /**
+   * @maxItems 200
+   */
+  selections: LoadoutCatalogSelection[];
+}
+export interface LoadoutCatalogSelection {
+  resource: string;
+  action: number;
+  parameter_sha256: string;
+  weapon: string | null;
+  name: string | null;
+  school: "samurai" | "ninja" | null;
+  weapon_class: number | null;
+  stance: string | null;
+  kind: string | null;
+  attack_id: string | null;
+  static_complete: boolean;
+  plan_ready: boolean;
+  /**
+   * @maxItems 128
+   */
+  scene_ids: string[];
+  /**
+   * @maxItems 64
+   */
+  missing_facts: string[];
+}
+export interface LoadoutContextReady {
+  state: "ready";
+  context_id: string;
+  save_id: string;
+  source_sha256: string;
+  captured_at: string;
+  /**
+   * @minItems 7
+   * @maxItems 7
+   */
+  attrs: [number, number, number, number, number, number, number];
+  level: number;
+  school: "samurai" | "ninja";
+  source: "live" | "captured";
+  skills: {
+    key: string | number;
+    name: string;
+    rank: number;
+  }[];
+  buffs: {
+    key: string | number;
+    name: string;
+  }[];
+  notes: string[];
+  bundle: string;
+  /**
+   * Live reads only: whether the stored non-equipment record still explains the game's values under the outfit now worn.
+   */
+  source_check?:
+    | {
+        state: "consistent";
+      }
+    | {
+        state: "reobserved";
+        groups: {
+          group: number;
+          predicted: number | null;
+          observed: number | null;
+        }[];
+        attack_gain: StoredAndNow;
+        defense: StoredAndNow;
+      };
+  /**
+   * Immutable captured reference used for this comparison; it is not the previous refresh.
+   */
+  source_reference?: {
+    id: string;
+    context_sha256: string;
+    profile_sha256: string;
+    capture_id: string;
+    captured_at: string;
+  };
+  /**
+   * Private diagnostic journal outcome; failure does not discard a valid refresh.
+   */
+  source_recording?:
+    | {
+        state: "recorded";
+        observation_id: string;
+      }
+    | {
+        state: "snapshot_only";
+        observation_id: string;
+        message: string;
+      }
+    | {
+        state: "unavailable";
+        message: string;
+      };
+}
+export interface LoadoutSets {
+  bundle: string;
+  sets: {
+    key: number;
+    pieces: number;
+    slots: number;
+    item_ids: number[];
+    effect: number | null;
+  }[];
+  reduction_items: number;
+  context_id: string;
+}
+export interface LoadoutSearch {
+  bundle: string;
+  /**
+   * @minItems 7
+   * @maxItems 7
+   */
+  start_attrs: [number, number, number, number, number, number, number];
+  best: {
+    damage: number;
+    /**
+     * @minItems 7
+     * @maxItems 7
+     */
+    attrs: [number, number, number, number, number, number, number];
+    items: {
+      slot: 0 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+      slot_index: number;
+      item_id: number;
+    }[];
+    facts: null | {
+      load: number;
+      defense: number;
+      health: number;
+    };
+    damage_details?: LoadoutDamageDetails;
+    move_previous_weapon_to_slot?: number;
+  }[];
+  space: number;
+  /**
+   * True only when planning retained the complete admitted candidate domain and no evaluations were refused. False can reflect refused evaluations rather than unvisited candidates. Unanswered outcomes and source_model_scope must still be checked independently; this is not proof of upstream source correctness.
+   */
+  complete?: boolean;
+  full_size: number;
+  searched: number;
+  seconds: number;
+  polish_rounds: number;
+  answered: number;
+  no_path: number;
+  refused: number;
+  outside_limits: number;
+  missed: number;
+  current:
+    | {
+        status: "ambiguous";
+        slots: number[];
+      }
+    | {
+        status: "answered" | "no_path" | "refused";
+        damage: null | number;
+        items: {
+          slot: 0 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+          slot_index: number;
+          item_id: number;
+        }[];
+        kept_slots: number[];
+        facts: null | {
+          load: number;
+          defense: number;
+          health: number;
+        };
+        damage_details?: LoadoutDamageDetails;
+      };
+  backend: "card" | "cpu";
+  enhanced: boolean;
+  context_id: string;
+  /**
+   * Echo of the optional read-only search request correlation.
+   */
+  client_request_id?: string;
+  /**
+   * Cartesian outfits with unproved weapon-dependent source inputs, counted before source-dependent set pruning. These outfits have no damage value and are separate from no_path/refused.
+   */
+  source_uncomputed?: number;
+  /**
+   * Upstream source-model provenance, independent of complete and source_uncomputed. Omission means legacy_unverified. conditional_rebuild has explicit offline conditions; runtime_bound_rebuild may only be emitted by an actual validated runtime binding/importer, never inferred from matching backends or an owned_type weapon policy.
+   */
+  source_model_scope?: "legacy_unverified" | "conditional_rebuild" | "runtime_bound_rebuild";
+  weapon_domain?: LoadoutWeaponDomain;
+  excluded_by_set_bound?: number;
+}
+/**
+ * Owned native TYPE enumeration and independently supported weapon-source scope. Counts identify submitted weapon records; retained_current is a separate planner choice.
+ */
+export interface LoadoutWeaponDomain {
+  type_class: number | null;
+  policy: "owned_type" | "captured_record_only" | "retained";
+  requested_items: number;
+  admitted_items: number;
+  uncomputed_items: number;
+  retained_current: boolean;
+  reason: string | null;
 }
 export interface LiveCharacter {
   source: "runtime";

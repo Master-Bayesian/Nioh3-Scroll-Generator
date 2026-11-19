@@ -1,0 +1,26 @@
+[workspace]
+
+[package]
+name = "nioh3-loadout"
+version = "0.1.0"
+license = "GPL-3.0-only"
+edition = "2021"
+description = "Exact loadout search for one Nioh 3 attack over the player's items"
+publish = false
+
+[lib]
+name = "nioh3_loadout"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+
+[profile.release]
+lto = true
+codegen-units = 1
+
+# Captured images are large; keep debug acceptance hashing practical.
+[profile.dev.package.sha2]
+opt-level = 3

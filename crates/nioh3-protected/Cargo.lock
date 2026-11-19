@@ -412,6 +412,15 @@ name = "nioh3-domain"
 version = "0.1.0"
 
 [[package]]
+name = "nioh3-loadout"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "nioh3-protected"
 version = "0.1.0"
 dependencies = [
@@ -419,6 +428,7 @@ dependencies = [
  "jsonschema",
  "nioh3-data",
  "nioh3-domain",
+ "nioh3-loadout",
  "nioh3-runtime",
  "nioh3-save",
  "nioh3-worker",
@@ -431,6 +441,7 @@ dependencies = [
 name = "nioh3-runtime"
 version = "0.1.0"
 dependencies = [
+ "serde",
  "serde_json",
  "sha2",
  "windows-sys",

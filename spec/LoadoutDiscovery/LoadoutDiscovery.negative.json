@@ -1,0 +1,12 @@
+[
+  {
+    "name": "accept-stale-result",
+    "overrides": { "FaultAcceptStale": true },
+    "expected": "Invariant ResultBelongsToCurrentRequest is violated"
+  },
+  {
+    "name": "hide-discovery-failure",
+    "overrides": { "FaultHideFailure": true },
+    "expected": "Invariant DiscoveryFailureRemainsVisible is violated"
+  }
+]

@@ -60,6 +60,15 @@ export function sameSnapshot(shown: ViewSnapshot, current: ViewSnapshot) {
     shown.snapshot_id === current.snapshot_id;
 }
 
+/** Identity of the reviewed save generation and character. */
+export interface ViewSource {
+  save_id: string;
+  source_sha256: string;
+}
+export function sameSource(a: ViewSource, b: ViewSource): boolean {
+  return a.save_id === b.save_id && a.source_sha256 === b.source_sha256;
+}
+
 type Edit = ProtectedParams<'save.prepare_edit'>['edits'][number];
 export function editFromEntry(entry: SaveInventory['entries'][number]): Edit {
   return structuredClone({ slot_index: entry.slot_index, header: entry.header, effects: entry.effects });
@@ -164,10 +173,13 @@ export class SaveSession {
   }
   prepareCart(action:(snapshot:SaveInventory)=>Promise<Result>){return this.prepare(action)}
   /** Currency and modded equipment edits, bound to the inventory snapshot's source digest. */
-  prepareCharacterEdit(edit: Omit<ProtectedParams<'save.prepare_character_edit'>, 'save_id' | 'source_sha256'>) {
+  prepareCharacterEdit(
+    edit: Omit<ProtectedParams<'save.prepare_character_edit'>, 'save_id' | 'source_sha256'>,
+    view?: ViewSnapshot,
+  ) {
     const draft = structuredClone(edit);
     return this.prepare(snapshot => this.gateway.execute({ method: 'save.prepare_character_edit', params: {
-      ...draft, save_id: snapshot.save_id, source_sha256: snapshot.source_sha256 } }));
+      ...draft, save_id: snapshot.save_id, source_sha256: snapshot.source_sha256 } }), view);
   }
   commit(reviewedPlanId: string) {
     return this.perform(async () => {
@@ -225,6 +237,14 @@ export class SaveSession {
         await this.loadInventory();
       }
       return receipt;
+    });
+  }
+  /** Retiring a reviewed UI plan must not discard a newer plan owned by another view. */
+  discardReviewedPlan(reviewedPlanId: string) {
+    return this.perform(async () => {
+      if (this.state.plan?.plan_id !== reviewedPlanId) return false;
+      await this.discardPlan();
+      return true;
     });
   }
   discard() { return this.perform(() => this.discardPlan()); }

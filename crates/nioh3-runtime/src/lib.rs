@@ -8,6 +8,7 @@
 //! Unsupported platforms and unverifiable profiles return typed errors.
 
 pub mod character;
+pub mod combat_context;
 pub mod compatibility_probe;
 pub mod error;
 pub mod inventory;

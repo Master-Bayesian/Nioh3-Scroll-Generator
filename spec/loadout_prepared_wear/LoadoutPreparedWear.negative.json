@@ -1,0 +1,5 @@
+[
+  {"name":"keep-stale-confirmation","overrides":{"KeepStaleConfirmation":true},"expected":"Invariant VisibleConfirmationOwned is violated"},
+  {"name":"discard-foreign-plan","overrides":{"DiscardForeignPlan":true},"expected":"Invariant DiscardOnlyReviewedPlan is violated"},
+  {"name":"commit-retired-plan","overrides":{"CommitRetired":true},"expected":"Invariant CommitOnlyCurrentPlan is violated"}
+]

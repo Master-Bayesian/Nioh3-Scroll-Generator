@@ -12,6 +12,10 @@ export type PublicOperation =
   | { method: 'save.inventory'; params: ProtectedParams<'save.inventory'> }
   | { method: 'save.audit_scrolls'; params: ProtectedParams<'save.audit_scrolls'> }
   | { method: 'save.character'; params: ProtectedParams<'save.character'> }
+  | { method: 'save.loadout_bundles'; params: ProtectedParams<'save.loadout_bundles'> }
+  | { method: 'save.loadout_context'; params: ProtectedParams<'save.loadout_context'> }
+  | { method: 'save.loadout_sets'; params: ProtectedParams<'save.loadout_sets'> }
+  | { method: 'save.loadout_search'; params: ProtectedParams<'save.loadout_search'> }
   | { method: 'save.prepare_character_edit'; params: ProtectedParams<'save.prepare_character_edit'> }
   | { method: 'save.prepare_edit'; params: ProtectedParams<'save.prepare_edit'> }
   | { method: 'save.prepare_delete'; params: ProtectedParams<'save.prepare_delete'> }

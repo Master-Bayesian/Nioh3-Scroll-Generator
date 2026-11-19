@@ -236,9 +236,22 @@ impl ProtectedJobs {
             };
             if let Ok(mut guard) = shared.lock() {
                 if let Some(record) = guard.as_mut() {
-                    record.state = state;
-                    record.result = result;
-                    record.error = error;
+                    if record.kind == "save.loadout_search"
+                        && record.state == JobState::CancelRequested
+                        && state == JobState::Completed
+                    {
+                        // Cancellation and result publication share this lock.
+                        record.state = JobState::Failed;
+                        record.result = None;
+                        record.error = Some(json!({
+                            "code": "OPERATION_FAILED",
+                            "message": "LOADOUT_SEARCH_CANCELLED"
+                        }));
+                    } else {
+                        record.state = state;
+                        record.result = result;
+                        record.error = error;
+                    }
                     record.sequence += 1;
                 }
             }

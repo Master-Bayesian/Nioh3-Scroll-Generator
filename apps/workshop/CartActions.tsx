@@ -41,7 +41,7 @@ function resolutionMessage(receipt: OperationReceipt): string {
 }
 
 /** A save in two lines, as the game's load menu shows it (UI-014); its slot order changes with use. */
-function saveLines(s: SaveReference): [string, string] {
+export function saveLines(s: SaveReference): [string, string] {
   // Whole strings, so the JSX localizer translates them.
   if (!s.summary)
     return [`存档 ${s.save_slot + 1}（SAVEDATA${String(s.save_slot).padStart(2, "0")}）`, `账户 ${s.account_id}`];

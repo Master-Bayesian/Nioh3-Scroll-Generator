@@ -3949,6 +3949,31 @@ export type ProtectedRequest =
            */
           candidate_digest?: string;
         }[];
+        /**
+         * Put each record into that slot of the school's equipment set; whatever the set wore there comes off.
+         */
+        wear?: {
+          school: "samurai" | "ninja";
+          items: {
+            slot_index: number;
+            slot: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+          }[];
+          clear?: (0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10)[];
+          /**
+           * Undo a wear: set each record's set word to exactly this slot (null: not worn). Stands alone, with empty items and no clear.
+           *
+           * @maxItems 2500
+           */
+          restore?: {
+            slot_index: number;
+            slot: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | null;
+          }[];
+          move_previous_weapon_to_slot?: number;
+        };
+        /**
+         * Bind optimizer wear to the exact reviewed player context. Ordinary character edits and undo do not require it.
+         */
+        context_id?: string;
       };
     }
   | {
@@ -6624,5 +6649,95 @@ export type ProtectedRequest =
         confirmed?: boolean;
         backup_confirmed?: boolean;
         plan_id?: string;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "save.loadout_bundles";
+      params: {
+        catalog_query?: string;
+        catalog_offset?: number;
+        catalog_limit?: number;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "save.loadout_context";
+      params: {
+        save_id: string;
+        bundle: string;
+        source_sha256: string;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "save.loadout_sets";
+      params: {
+        save_id: string;
+        source_sha256: string;
+        bundle: string;
+        /**
+         * @maxItems 2500
+         */
+        items: {
+          slot_index: number;
+          slot: 0 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+        }[];
+        context_id: string;
+      };
+    }
+  | {
+      protocol: 1;
+      id: string;
+      method: "save.loadout_search";
+      params: {
+        save_id: string;
+        source_sha256: string;
+        bundle: string;
+        /**
+         * @maxItems 2500
+         */
+        items: {
+          slot_index: number;
+          slot: 0 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+        }[];
+        limits?: {
+          max_load?: number;
+          min_defense?: number;
+          min_health?: number;
+        };
+        enhanced?: boolean;
+        move_points?: boolean;
+        /**
+         * @minItems 1
+         */
+        sets: [
+          {
+            options: {
+              key: number;
+              pieces: number;
+            }[];
+            at_least: number;
+          },
+          ...{
+            options: {
+              key: number;
+              pieces: number;
+            }[];
+            at_least: number;
+          }[]
+        ];
+        context_id: string;
+        /**
+         * Optional opaque client correlation for this read-only search; legacy callers may omit it.
+         */
+        client_request_id?: string;
+        /**
+         * Include retaining each currently bound slot when it is absent from the submitted candidate pool.
+         */
+        keep_current?: boolean;
       };
     };

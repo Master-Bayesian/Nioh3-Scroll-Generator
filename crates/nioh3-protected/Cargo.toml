@@ -31,6 +31,7 @@ nioh3-save = { path = "../nioh3-save" }
 nioh3-runtime = { path = "../nioh3-runtime" }
 nioh3-domain = { path = "../nioh3-domain" }
 nioh3-data = { path = "../nioh3-data" }
+nioh3-loadout = { path = "../nioh3-loadout" }
 serde_json = "1"
 serde = "1"
 base64 = "0.22"
@@ -48,3 +49,16 @@ strip = true
 lto = true
 codegen-units = 1
 opt-level = "s"
+
+[profile.release.package.nioh3-loadout]
+opt-level = 3
+
+[profile.dev.package.nioh3-loadout]
+opt-level = 2
+
+[profile.dev.package.sha2]
+opt-level = 3
+
+# Native debug acceptance reads real authenticated saves.
+[profile.dev.package.nioh3-save]
+opt-level = 2

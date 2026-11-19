@@ -1,0 +1,44 @@
+[
+  {
+    "expected": "Invariant QueuedCancelRetained is violated.",
+    "name": "lost-cancel-before-ack",
+    "overrides": {
+      "DropQueuedCancel": true
+    }
+  },
+  {
+    "expected": "Invariant NoWorkRestartAfterObservedCancel is violated.",
+    "name": "cancel-starts-cpu-fallback",
+    "overrides": {
+      "RestartAfterCancel": true
+    }
+  },
+  {
+    "expected": "Invariant CancelConfirmedAfterCleanup is violated.",
+    "name": "stop-confirmed-before-cleanup",
+    "overrides": {
+      "ConfirmBeforeCleanup": true
+    }
+  },
+  {
+    "expected": "Invariant CancelledReadHasNoRank is violated.",
+    "name": "cancel-keeps-backend-rank",
+    "overrides": {
+      "KeepCancelledRank": true
+    }
+  },
+  {
+    "expected": "Invariant CancelledUIHasNoRank is violated.",
+    "name": "late-result-after-ui-cancel",
+    "overrides": {
+      "ShowCancelledRank": true
+    }
+  },
+  {
+    "expected": "Invariant ProtectedWriteKeepsOutcome is violated.",
+    "name": "cancel-drops-write-receipt",
+    "overrides": {
+      "DropWriteReceipt": true
+    }
+  }
+]

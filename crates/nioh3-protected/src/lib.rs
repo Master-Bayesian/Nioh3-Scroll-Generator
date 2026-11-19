@@ -13,9 +13,9 @@
 //! - EOF never discards in-flight write ownership. The read loop stops, the
 //!   protected job is cancelled and joined, and only then is the runtime role
 //!   allowed to restore; a broken pipe is not permission to abandon a hook.
-//! - The killable read-only search worker stays a separate process. Nothing in
-//!   this crate serves `offline_search` methods, and no search route is exposed
-//!   through the protected contract.
+//! - Scroll search stays in its dedicated killable process. The protected
+//!   save role resolves owned loadout records and scores them in a
+//!   cancellable read-only job.
 //! - No renderer bytes and no reconstructed records cross the wire: the save
 //!   side consumes the typed candidate transfer, and the request that installs
 //!   carries the finalized record pair the search side produced.
@@ -32,6 +32,14 @@ pub mod grace_capture;
 pub mod host;
 pub mod item_kinds;
 pub mod jobs;
+pub mod loadout;
+pub mod loadout_context;
+mod loadout_epoch;
+mod loadout_live;
+mod loadout_numeric;
+pub mod loadout_observation;
+#[cfg(debug_assertions)]
+mod offline_e2e;
 pub mod maps;
 pub mod oracle;
 pub mod runtime_app;

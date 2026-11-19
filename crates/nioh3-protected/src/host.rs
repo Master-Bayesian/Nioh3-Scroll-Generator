@@ -517,6 +517,7 @@ fn dispatch(
                     | "runtime.search"
                     | "runtime.capture_grace"
                     | "runtime.live_batch_execute"
+                    | "save.loadout_search"
             );
             let shared = Arc::clone(application);
             let job_control = control.clone();
