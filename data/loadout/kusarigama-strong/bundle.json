@@ -1,0 +1,22 @@
+{
+  "id": "kusarigama-strong",
+  "name": "锁镰 · 力攻击",
+  "school": "ninja",
+  "weapon": "锁镰",
+  "weapon_class": null,
+  "damage": "力攻击（首个接触；声明命中）",
+  "scene": {
+    "stance": "none",
+    "kind": "strong",
+    "attack_id": "kusarigama-strong",
+    "buff": "current"
+  },
+  "selection_weapon_class": 12,
+  "resource_action": {
+    "resource": "0x6000001ea",
+    "action": 25047,
+    "parameter_sha256": "902be6cbe77a26a6ae35ed6ec42fcdc06dc8041738e19118566e039d1a2dd093",
+    "row": 0,
+    "row_sha256": "3085022ae7b7d17871e893fe8b1b63c9ef7f615b00b1ff8c9151aae4136bf388"
+  }
+}
