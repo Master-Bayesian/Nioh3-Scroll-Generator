@@ -9,6 +9,14 @@ use crate::engine::{Candidate, Limits, ITEM, SLOTS};
 use std::borrow::Cow;
 use std::ffi::{c_char, c_void};
 use std::path::Path;
+use std::time::Instant;
+
+#[path = "gpu_prepared_reuse.rs"]
+mod prepared_reuse;
+#[path = "gpu_prepared_types.rs"]
+mod prepared_types;
+pub use prepared_reuse::PreparedReuseStats;
+pub(crate) use prepared_types::PreparedDamage;
 
 /// The library's interface version; a library that reports another one is not used.
 const ABI: u32 = 1;
@@ -476,17 +484,7 @@ struct NkPreparedContact {
     count: u32,
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, Default)]
-pub(crate) struct PreparedDamage {
-    pub damage: crate::damage::DamageWords,
-    pub bail: u32,
-    bail_rva: u32,
-    bail_address: u64,
-}
-
 const _: () = assert!(std::mem::size_of::<NkPreparedContact>() == 8);
-const _: () = assert!(std::mem::size_of::<PreparedDamage>() == 32);
 
 type PreparedRunFn = unsafe extern "C" fn(
     *mut c_void,
@@ -499,12 +497,198 @@ type PreparedRunFn = unsafe extern "C" fn(
     u32,
 ) -> i32;
 
+/// Optional native timing ABI. Durations describe the last actual submission;
+/// CUDA events are opt-in and are valid only after successful synchronization.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default)]
+struct NkPreparedProfile {
+    abi_version: u32,
+    struct_bytes: u32,
+    success: u32,
+    cuda_events_valid: u32,
+    contacts: u64,
+    input_words: u64,
+    h2d_bytes: u64,
+    d2h_bytes: u64,
+    allocation_calls: u64,
+    allocation_bytes: u64,
+    capacity_bytes: u64,
+    stream_creations: u64,
+    host_pack_ms: f64,
+    host_reserve_ms: f64,
+    host_enqueue_ms: f64,
+    host_wait_ms: f64,
+    h2d_ms: f64,
+    kernel_ms: f64,
+    d2h_ms: f64,
+    total_ms: f64,
+}
+const _: () = assert!(std::mem::size_of::<NkPreparedProfile>() == 144);
+
+type PreparedProfileEnableFn = unsafe extern "C" fn(*mut c_void, u32) -> i32;
+type PreparedProfileLastFn = unsafe extern "C" fn(*mut c_void, *mut NkPreparedProfile, u32) -> i32;
+
+#[derive(Clone, Copy)]
+struct PreparedProfileApi {
+    enable: PreparedProfileEnableFn,
+    last: PreparedProfileLastFn,
+}
+impl PreparedProfileApi {
+    fn load(lib: &os::Library) -> Option<Self> {
+        let abi = lib.symbol(b"nk_main_device_profile_abi\0")?;
+        // SAFETY: the optional query has the argument-less capability signature.
+        if unsafe { std::mem::transmute::<*mut c_void, AbiFn>(abi)() } != 1 {
+            return None;
+        }
+        let enable = lib.symbol(b"nk_main_device_profile_enable\0")?;
+        let last = lib.symbol(b"nk_main_device_profile_last\0")?;
+        // SAFETY: version 1 fixes the synchronous handle and output-buffer ABI.
+        Some(unsafe {
+            Self {
+                enable: std::mem::transmute::<*mut c_void, PreparedProfileEnableFn>(enable),
+                last: std::mem::transmute::<*mut c_void, PreparedProfileLastFn>(last),
+            }
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, serde::Serialize)]
+pub struct PreparedNativeStats {
+    pub profiled_calls: u64,
+    pub successful_calls: u64,
+    pub event_timed_calls: u64,
+    pub profile_read_errors: u64,
+    pub contacts: u64,
+    pub input_words: u64,
+    pub h2d_bytes: u64,
+    pub d2h_bytes: u64,
+    pub allocation_calls: u64,
+    pub allocation_bytes: u64,
+    pub peak_capacity_bytes: u64,
+    pub stream_creations: u64,
+    pub host_pack_ms: f64,
+    pub host_reserve_ms: f64,
+    pub host_enqueue_ms: f64,
+    pub host_wait_ms: f64,
+    pub h2d_ms: f64,
+    pub kernel_ms: f64,
+    pub d2h_ms: f64,
+    pub total_ms: f64,
+}
+impl PreparedNativeStats {
+    fn add(&mut self, profile: NkPreparedProfile) {
+        self.profiled_calls += 1;
+        self.successful_calls += u64::from(profile.success != 0);
+        self.contacts += profile.contacts;
+        self.input_words += profile.input_words;
+        self.h2d_bytes += profile.h2d_bytes;
+        self.d2h_bytes += profile.d2h_bytes;
+        self.allocation_calls += profile.allocation_calls;
+        self.allocation_bytes += profile.allocation_bytes;
+        self.peak_capacity_bytes = self.peak_capacity_bytes.max(profile.capacity_bytes);
+        self.stream_creations += profile.stream_creations;
+        self.host_pack_ms += profile.host_pack_ms;
+        self.host_reserve_ms += profile.host_reserve_ms;
+        self.host_enqueue_ms += profile.host_enqueue_ms;
+        self.host_wait_ms += profile.host_wait_ms;
+        self.total_ms += profile.total_ms;
+        if profile.cuda_events_valid != 0 {
+            self.event_timed_calls += 1;
+            self.h2d_ms += profile.h2d_ms;
+            self.kernel_ms += profile.kernel_ms;
+            self.d2h_ms += profile.d2h_ms;
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, serde::Serialize)]
+pub struct PreparedDeviceStats {
+    pub reuse: PreparedReuseStats,
+    pub rust_pack_ms: f64,
+    /// Wall time inside nk_main_device_run_components, including host work.
+    pub native_call_ms: f64,
+    pub profiling_available: bool,
+    pub profiling_enabled: bool,
+    pub native: PreparedNativeStats,
+}
+
+#[derive(Default)]
+struct PreparedPacking {
+    words: Vec<NkWord>,
+    spans: Vec<NkPreparedContact>,
+    scores: Vec<PreparedDamage>,
+    rust_pack_ms: f64,
+    native_call_ms: f64,
+    native_stats: PreparedNativeStats,
+}
+impl PreparedPacking {
+    fn submit(
+        &mut self,
+        handle: *mut c_void,
+        run: PreparedRunFn,
+        contacts: &[&[(u64, u32)]],
+        profile: Option<PreparedProfileApi>,
+    ) -> Result<Vec<PreparedDamage>, String> {
+        let packing = Instant::now();
+        let count = u32::try_from(contacts.len()).map_err(|_| "too many CUDA MAIN contacts")?;
+        let word_count = contacts.iter().try_fold(0usize, |total, contact| total.checked_add(contact.len()))
+            .and_then(|total| u32::try_from(total).ok())
+            .ok_or("too many CUDA MAIN words")?;
+        self.words.clear();
+        self.spans.clear();
+        self.scores.clear();
+        self.words.try_reserve(word_count as usize).map_err(|_| "CUDA MAIN word buffer allocation failed")?;
+        self.spans.try_reserve(contacts.len()).map_err(|_| "CUDA MAIN contact buffer allocation failed")?;
+        self.scores.try_reserve(contacts.len()).map_err(|_| "CUDA MAIN result buffer allocation failed")?;
+        for contact in contacts {
+            let start = self.words.len() as u32;
+            let count = contact.len() as u32;
+            self.spans.push(NkPreparedContact { start, count });
+            self.words.extend(contact.iter().map(|&(address, value)| NkWord { address, value, reserved: 0 }));
+        }
+        let unwritten = PreparedDamage {
+            damage: crate::damage::DamageWords { reserved: u32::MAX, ..Default::default() },
+            ..Default::default()
+        };
+        self.scores.resize(contacts.len(), unwritten);
+        self.rust_pack_ms += packing.elapsed().as_secs_f64() * 1000.0;
+        let mut err = [0u8; ERROR_LEN];
+        let native = Instant::now();
+        // SAFETY: the owner exclusively borrows its native handle. Every buffer
+        // remains alive until the synchronous component ABI returns.
+        let fine = unsafe {
+            run(handle, self.words.as_ptr(), word_count, self.spans.as_ptr(), count,
+                self.scores.as_mut_ptr(), err.as_mut_ptr().cast(), ERROR_LEN as u32)
+        };
+        self.native_call_ms += native.elapsed().as_secs_f64() * 1000.0;
+        if let Some(api) = profile {
+            let mut last = NkPreparedProfile::default();
+            let bytes = std::mem::size_of::<NkPreparedProfile>() as u32;
+            // SAFETY: capability version 1 fixes this 144-byte output record.
+            let available = unsafe { (api.last)(handle, &mut last, bytes) };
+            if available == 1 && last.abi_version == 1 && last.struct_bytes == bytes {
+                self.native_stats.add(last);
+            } else {
+                self.native_stats.profile_read_errors += 1;
+            }
+        }
+        if fine != 1 {
+            return Err(message(&err));
+        }
+        Ok(self.scores.clone())
+    }
+}
+
 /// Executes one prepared contact per lane. The source and event producers
 /// remain on the host and use the same captured inputs as the CPU oracle.
 pub(crate) struct MainDevice {
     handle: *mut c_void,
     run: PreparedRunFn,
     close: CloseFn,
+    reuse: prepared_reuse::PreparedReuse,
+    packing: PreparedPacking,
+    profile: Option<PreparedProfileApi>,
+    profiling_enabled: bool,
     _lib: os::Library,
 }
 
@@ -547,43 +731,60 @@ impl MainDevice {
         if handle.is_null() {
             return Err(message(&err));
         }
-        Ok(Self { handle, run, close, _lib: lib })
+        let profile = PreparedProfileApi::load(&lib);
+        Ok(Self {
+            handle, run, close,
+            // Reuse remains opt-in for workloads with repeated packet bytes.
+            reuse: prepared_reuse::PreparedReuse::new(false),
+            packing: PreparedPacking::default(),
+            profile,
+            profiling_enabled: false,
+            _lib: lib,
+        })
+    }
+
+    /// Diagnostic control for exact direct-versus-reused acceptance. Changing
+    /// this clears stored answers, and never clears a previous device failure.
+    pub(crate) fn set_reuse_enabled(&mut self, enabled: bool) {
+        self.reuse.set_enabled(enabled);
+    }
+
+    pub(crate) fn reset_statistics(&mut self) {
+        self.reuse.reset_statistics();
+        self.packing.rust_pack_ms = 0.0;
+        self.packing.native_call_ms = 0.0;
+        self.packing.native_stats = PreparedNativeStats::default();
+    }
+
+    /// False means the loaded older DLL has no optional timing capability.
+    pub(crate) fn enable_profiling(&mut self, enabled: bool) -> Result<bool, String> {
+        let Some(api) = self.profile else { return Ok(false); };
+        // SAFETY: optional timing changes only this exclusively owned handle.
+        if unsafe { (api.enable)(self.handle, u32::from(enabled)) } != 1 {
+            return Err("prepared CUDA MAIN could not configure profiling".into());
+        }
+        self.profiling_enabled = enabled;
+        Ok(true)
+    }
+
+    pub(crate) fn stats(&self) -> PreparedDeviceStats {
+        PreparedDeviceStats {
+            reuse: self.reuse.stats(),
+            rust_pack_ms: self.packing.rust_pack_ms,
+            native_call_ms: self.packing.native_call_ms,
+            profiling_available: self.profile.is_some(),
+            profiling_enabled: self.profiling_enabled,
+            native: self.packing.native_stats,
+        }
     }
 
     pub(crate) fn run(
         &mut self,
         contacts: &[Vec<(u64, u32)>],
     ) -> Result<Vec<PreparedDamage>, String> {
-        if contacts.is_empty() {
-            return Ok(Vec::new());
-        }
-        let mut words = Vec::new();
-        let mut spans = Vec::with_capacity(contacts.len());
-        for contact in contacts {
-            let start = u32::try_from(words.len()).map_err(|_| "too many CUDA MAIN words")?;
-            let count = u32::try_from(contact.len()).map_err(|_| "oversized CUDA MAIN contact")?;
-            spans.push(NkPreparedContact { start, count });
-            words.extend(contact.iter().map(|&(address, value)| NkWord { address, value, reserved: 0 }));
-        }
-        let word_count = u32::try_from(words.len()).map_err(|_| "too many CUDA MAIN words")?;
-        let count = u32::try_from(contacts.len()).map_err(|_| "too many CUDA MAIN contacts")?;
-        let mut scores = vec![PreparedDamage::default(); contacts.len()];
-        let mut err = [0u8; ERROR_LEN];
-        // SAFETY: this is an exclusive handle. Each buffer outlives the
-        // synchronous call and its length follows the component ABI.
-        let fine = unsafe {
-            (self.run)(
-                self.handle, words.as_ptr(), word_count, spans.as_ptr(), count,
-                scores.as_mut_ptr(), err.as_mut_ptr().cast(), ERROR_LEN as u32,
-            )
-        };
-        if fine != 1 {
-            return Err(message(&err));
-        }
-        if scores.iter().any(|score| score.damage.reserved != 0) {
-            return Err("prepared CUDA MAIN returned an invalid component layout".into());
-        }
-        Ok(scores)
+        let Self { handle, run, reuse, packing, profile, profiling_enabled, .. } = self;
+        let active_profile = if *profiling_enabled { *profile } else { None };
+        reuse.execute(contacts, |unique| packing.submit(*handle, *run, unique, active_profile))
     }
 }
 

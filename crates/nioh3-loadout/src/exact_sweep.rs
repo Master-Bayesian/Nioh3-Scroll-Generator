@@ -13,6 +13,11 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
+use std::time::Instant;
+
+#[path = "exact_audit.rs"]
+mod audit;
+pub use audit::{ExactAudit, ExactAuditBatch};
 
 const RETAINED_FAILURES: usize = 128;
 const CHECKPOINT_SCHEMA: u32 = 4;
@@ -41,7 +46,31 @@ pub enum SetPruning {
 
 enum Scorer {
     Cpu(Option<Box<ReadBounds>>),
-    Cuda(MainDevice),
+    Cuda(Box<MainDevice>),
+}
+
+/// Counts describe actual work, not additional covered outfits. Timers are
+/// opt-in and exclude final report serialization and the independent audit.
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct ExactPerformance {
+    pub timing_enabled: bool,
+    pub open_seconds: f64,
+    pub batches: u64,
+    pub candidates_scheduled: u64,
+    pub batches_committed: u64,
+    pub cpu_executed_candidates: u64,
+    pub cpu_certified_candidates: u64,
+    pub cpu_overlay_layout_rebuilds: u64,
+    pub cpu_overlay_layout_reuses: u64,
+    pub cpu_preparation_seconds: f64,
+    /// Certificate lookup/recording and MAIN, after preparation.
+    pub cpu_scoring_seconds: f64,
+    /// Shared preparation plus Rust/native CUDA call; native details below.
+    pub cuda_batch_seconds: f64,
+    pub ranking_seconds: f64,
+    pub advance_seconds: f64,
+    pub host_preparation: crate::engine::PreparationStats,
+    pub device: Option<crate::gpu::PreparedDeviceStats>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -94,6 +123,10 @@ pub struct ExactSweep<'a> {
     swaps: Vec<(u32, usize)>,
     identity: ExactCheckpoint,
     scorer: Scorer,
+    // One scratch owner for the entire solve. Never borrow it across a native
+    // asynchronous operation: the prepared device ABI drains before returning.
+    work: Work,
+    performance: ExactPerformance,
 }
 
 fn put(hash: &mut Sha256, bytes: &[u8]) {
@@ -128,6 +161,7 @@ impl<'a> ExactSweep<'a> {
         swaps: &[(u32, usize)],
         set_pruning: SetPruning,
     ) -> Result<Self, String> {
+        let opened = Instant::now();
         if request.move_points {
             return Err("exact sweep requires fixed attributes".into());
         }
@@ -225,7 +259,7 @@ impl<'a> ExactSweep<'a> {
         );
         let domain_sha256 = format!("{:x}", fingerprint.finalize());
         let starts = plan.starts();
-        let scorer = match kind {
+        let mut scorer = match kind {
             ScorerKind::Cpu => Scorer::Cpu(
                 engine
                     .supports_read_bounds()
@@ -251,9 +285,14 @@ impl<'a> ExactSweep<'a> {
                         return Err("prepared CUDA did not match the host score probe".into());
                     }
                 }
-                Scorer::Cuda(device)
+                Scorer::Cuda(Box::new(device))
             }
         };
+        // Startup probes are measured in open_seconds, not sweep counters.
+        work.reset_preparation_stats();
+        if let Scorer::Cuda(device) = &mut scorer {
+            device.reset_statistics();
+        }
         Ok(Self {
             identity: ExactCheckpoint {
                 schema: CHECKPOINT_SCHEMA,
@@ -281,7 +320,48 @@ impl<'a> ExactSweep<'a> {
             plan,
             starts,
             scorer,
+            work,
+            performance: ExactPerformance {
+                open_seconds: opened.elapsed().as_secs_f64(),
+                ..ExactPerformance::default()
+            },
         })
+    }
+
+    pub fn performance(&self) -> ExactPerformance {
+        let mut stats = self.performance.clone();
+        stats.host_preparation = self.work.preparation_stats();
+        if let Scorer::Cpu(Some(bounds)) = &self.scorer {
+            (stats.cpu_overlay_layout_rebuilds, stats.cpu_overlay_layout_reuses) =
+                bounds.overlay_layout_counts();
+        }
+        stats.device = match &self.scorer {
+            Scorer::Cpu(_) => None,
+            Scorer::Cuda(device) => Some(device.stats()),
+        };
+        stats
+    }
+
+    /// Diagnostic timing is optional; old DLLs retain correct scoring without
+    /// the optional native timing ABI. A profile setup error is explicit.
+    pub fn enable_profiling(&mut self, enabled: bool) -> Result<bool, String> {
+        self.performance.timing_enabled = enabled;
+        match &mut self.scorer {
+            Scorer::Cpu(_) => Ok(false),
+            Scorer::Cuda(device) => device.enable_profiling(enabled),
+        }
+    }
+
+    /// Reference controls for host acceptance. Reuse changes execution work,
+    /// never the candidate domain, ordering or exact result.
+    pub fn set_reuse_enabled(&mut self, enabled: bool) {
+        match &mut self.scorer {
+            Scorer::Cpu(bounds) => {
+                *bounds = (enabled && self.search.engine.supports_read_bounds())
+                    .then(|| Box::new(ReadBounds::new()));
+            }
+            Scorer::Cuda(device) => device.set_reuse_enabled(enabled),
+        }
     }
 
     pub fn work(&self) -> Result<Work, &'static str> {
@@ -390,6 +470,26 @@ impl<'a> ExactSweep<'a> {
 
     /// Score one batch and publish its prefix only once all outcomes are available.
     pub fn advance(&mut self, state: &mut ExactCheckpoint, batch: usize) -> Result<(), String> {
+        self.advance_controlled(state, batch, &|| false)
+    }
+
+    /// Cancellation observed before publication discards the entire pending
+    /// batch. The synchronous native call finishes cleanup before this returns.
+    pub fn advance_controlled(
+        &mut self,
+        state: &mut ExactCheckpoint,
+        batch: usize,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<(), String> {
+        let check_cancelled = || {
+            if cancelled() {
+                Err(crate::search_control::SearchInterrupted::Cancelled.to_string())
+            } else {
+                Ok(())
+            }
+        };
+        check_cancelled()?;
+        let started = self.performance.timing_enabled.then(Instant::now);
         self.validate(state)?;
         if !(1..=4096).contains(&batch) {
             return Err("a scoring batch must contain 1..4096 outfits".into());
@@ -400,50 +500,66 @@ impl<'a> ExactSweep<'a> {
             return Ok(());
         }
         let mut counts = Counts::default();
-        let mut work = self.work()?;
+        self.performance.batches += 1;
+        self.performance.candidates_scheduled += candidates.len() as u64;
+        let work = &mut self.work;
         let outcomes = match &mut self.scorer {
-            Scorer::Cuda(device) => self.search.prepared_device_outcomes_with_work(
-                device,
-                &candidates,
-                &self.request,
-                &mut work,
-            )?,
+            Scorer::Cuda(device) => {
+                let timed = self.performance.timing_enabled.then(Instant::now);
+                let result = self.search.prepared_device_outcomes_with_work_controlled(
+                    device, &candidates, &self.request, work, cancelled,
+                );
+                if let Some(timed) = timed {
+                    self.performance.cuda_batch_seconds += timed.elapsed().as_secs_f64();
+                }
+                result?
+            }
             Scorer::Cpu(bounds) => {
-                let engine = self.search.engine;
-                candidates
-                    .iter()
-                    .map(|candidate| {
-                        if let Err(outcome) =
-                            self.search
-                                .set_admission(candidate, &self.request, &mut work)
-                        {
-                            return outcome;
+                let mut outcomes = Vec::with_capacity(candidates.len());
+                for candidate in &candidates {
+                    check_cancelled()?;
+                    let timed = self.performance.timing_enabled.then(Instant::now);
+                    let prepared = self.search.prepare_candidate(candidate, &self.request, work);
+                    if let Some(timed) = timed {
+                        self.performance.cpu_preparation_seconds += timed.elapsed().as_secs_f64();
+                    }
+                    let prepared = match prepared {
+                        Ok(prepared) => prepared,
+                        Err(outcome) => { outcomes.push(outcome); continue; }
+                    };
+                    let timed = self.performance.timing_enabled.then(Instant::now);
+                    let outcome = if let Some(bound) = bounds.as_mut() {
+                        match prepared.evaluate_with_bound(bound) {
+                            SweepOutcome::Executed(outcome) => {
+                                self.performance.cpu_executed_candidates += 1;
+                                outcome
+                            }
+                            SweepOutcome::Certified(bits) => {
+                                counts.certified += 1;
+                                self.performance.cpu_certified_candidates += 1;
+                                Outcome::Damage(bits)
+                            }
                         }
-                        if let Some(bound) = bounds.as_mut() {
-                            return match engine.evaluate_with_bound(
-                                candidate,
-                                self.search.pack,
-                                &self.request.limits,
-                                &mut work,
-                                bound,
-                            ) {
-                                SweepOutcome::Executed(outcome) => outcome,
-                                SweepOutcome::Certified(bits) => {
-                                    counts.certified += 1;
-                                    Outcome::Damage(bits)
-                                }
-                            };
-                        }
-                        engine.evaluate(
-                            candidate,
-                            self.search.pack,
-                            &self.request.limits,
-                            &mut work,
-                        )
-                    })
-                    .collect()
+                    } else {
+                        self.performance.cpu_executed_candidates += 1;
+                        prepared.evaluate()
+                    };
+                    if let Some(timed) = timed {
+                        self.performance.cpu_scoring_seconds += timed.elapsed().as_secs_f64();
+                    }
+                    outcomes.push(outcome);
+                }
+                outcomes
             }
         };
+        check_cancelled()?;
+        if outcomes.len() != candidates.len() {
+            return Err("scorer returned incomplete batch outcomes".into());
+        }
+        let ranked_started = self.performance.timing_enabled.then(Instant::now);
+        // All state mutation below targets a pending copy until the last
+        // cancellation check. Failed/cancelled submissions cannot advance it.
+        let mut next = state.clone();
         let mut ranked: Vec<_> = state
             .rank
             .iter()
@@ -459,9 +575,9 @@ impl<'a> ExactSweep<'a> {
                 _ => None,
             };
             if let Some(reason) = failure {
-                *state.failures.entry(reason.to_owned()).or_default() += 1;
-                if state.unanswered_samples.len() < RETAINED_FAILURES {
-                    state.unanswered_samples.push(state.completed + i as u64);
+                *next.failures.entry(reason.to_owned()).or_default() += 1;
+                if next.unanswered_samples.len() < RETAINED_FAILURES {
+                    next.unanswered_samples.push(state.completed + i as u64);
                 }
             }
             if let Some(bits) = Search::tally_outcome(outcome, &mut counts) {
@@ -475,13 +591,22 @@ impl<'a> ExactSweep<'a> {
             }
         }
         ranked.sort_unstable_by_key(|(_, scored)| rank(scored));
-        state.rank = ranked.into_iter().take(KEEP).map(|(row, _)| row).collect();
-        state.answered += counts.answered;
-        state.refused += counts.refused;
-        state.no_path += counts.no_path;
-        state.outside_limits += counts.outside_limits;
-        state.certified += counts.certified;
-        state.completed = end;
+        next.rank = ranked.into_iter().take(KEEP).map(|(row, _)| row).collect();
+        next.answered += counts.answered;
+        next.refused += counts.refused;
+        next.no_path += counts.no_path;
+        next.outside_limits += counts.outside_limits;
+        next.certified += counts.certified;
+        next.completed = end;
+        check_cancelled()?;
+        *state = next;
+        self.performance.batches_committed += 1;
+        if let Some(timed) = ranked_started {
+            self.performance.ranking_seconds += timed.elapsed().as_secs_f64();
+        }
+        if let Some(timed) = started {
+            self.performance.advance_seconds += timed.elapsed().as_secs_f64();
+        }
         Ok(())
     }
 }

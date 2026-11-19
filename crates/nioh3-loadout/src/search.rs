@@ -6,7 +6,7 @@
 
 use crate::engine::{
     position_of, slot_of, Backpack, Candidate, Engine, ExactSetCapacities, Facts, Kernel, Limits,
-    Outcome, ReadBounds, SweepOutcome, SLOTS,
+    Outcome, PreparedCandidate, ReadBounds, SetState, SweepOutcome, SLOTS,
 };
 use crate::gpu::{CardOutcome, Gpu, GpuSweepError, MainDevice, NkSpace, Sweep};
 use crate::pipeline::{Profile, SetCapacity};
@@ -22,7 +22,10 @@ use std::time::Instant;
 
 #[path = "exact_sweep.rs"]
 mod exact_sweep;
-pub use exact_sweep::{EnumerationOrder, ExactCheckpoint, ExactSweep, ScorerKind, SetPruning};
+pub use exact_sweep::{
+    EnumerationOrder, ExactAudit, ExactAuditBatch, ExactCheckpoint, ExactPerformance, ExactSweep,
+    ScorerKind, SetPruning,
+};
 
 const KEEP: usize = 400;
 const WEIGHT_REFLECTION_GROUP: u16 = 0x267E;
@@ -1747,6 +1750,22 @@ impl<'a> Search<'a> {
         Self::tally_outcome(self.candidate_outcome(c, request, w), counts)
     }
 
+    fn prepare_candidate<'w>(
+        &'w self,
+        c: &Candidate,
+        request: &Request,
+        w: &'w mut crate::engine::Work,
+    ) -> Result<PreparedCandidate<'w>, Outcome> {
+        let admit = |state: &SetState| request.sets.iter().all(|rule| rule.holds(
+            |key| Some(state.pieces.iter().find(|entry| entry.0 == key).map_or(0, |entry| entry.1)),
+            state.reduction,
+        ));
+        self.engine.prepare_for_search(c, self.pack, &request.limits, w,
+            (!request.sets.is_empty()).then_some(admit))
+    }
+
+    /// Deliberately unfused set-only reference for host acceptance. Search
+    /// scoring uses prepare_candidate so it can retain this equipment state.
     fn set_admission(
         &self,
         c: &Candidate,
@@ -1767,8 +1786,8 @@ impl<'a> Search<'a> {
         request: &Request,
         w: &mut crate::engine::Work,
     ) -> Outcome {
-        match self.set_admission(c, request, w) {
-            Ok(()) => self.engine.evaluate(c, self.pack, &request.limits, w),
+        match self.prepare_candidate(c, request, w) {
+            Ok(prepared) => prepared.evaluate(),
             Err(outcome) => outcome,
         }
     }
@@ -1840,22 +1859,11 @@ impl<'a> Search<'a> {
                             let k = starts.partition_point(|&s| s <= i) - 1;
                             let c = plan.spaces[k].candidate(i - starts[k], attrs);
                             let before = counts.no_path;
-                            let evaluated = match self.set_admission(&c, request, &mut w) {
+                            let evaluated = match self.prepare_candidate(&c, request, &mut w) {
                                 Err(outcome) => SweepOutcome::Executed(outcome),
-                                Ok(()) => match bounds.as_mut() {
-                                Some(bounds) => self.engine.evaluate_with_bound(
-                                    &c,
-                                    self.pack,
-                                    &request.limits,
-                                    &mut w,
-                                    bounds,
-                                ),
-                                None => SweepOutcome::Executed(self.engine.evaluate(
-                                    &c,
-                                    self.pack,
-                                    &request.limits,
-                                    &mut w,
-                                )),
+                                Ok(prepared) => match bounds.as_mut() {
+                                Some(bounds) => prepared.evaluate_with_bound(bounds),
+                                None => SweepOutcome::Executed(prepared.evaluate()),
                                 },
                             };
                             let outcome = match evaluated {
@@ -2093,16 +2101,31 @@ impl<'a> Search<'a> {
         &self, device: &mut MainDevice, candidates: &[Candidate], request: &Request,
         work: &mut crate::engine::Work,
     ) -> Result<Vec<Outcome>, String> {
+        self.prepared_device_outcomes_with_work_controlled(
+            device, candidates, request, work, &|| false,
+        )
+    }
+
+    fn prepared_device_outcomes_with_work_controlled(
+        &self, device: &mut MainDevice, candidates: &[Candidate], request: &Request,
+        work: &mut crate::engine::Work, cancelled: &dyn Fn() -> bool,
+    ) -> Result<Vec<Outcome>, String> {
+        let check_stopped = || {
+            if cancelled() {
+                Err(SearchInterrupted::Cancelled.to_string())
+            } else if self.stopped() {
+                Err("search interrupted".to_owned())
+            } else {
+                Ok(())
+            }
+        };
         let mut outcomes = vec![Outcome::Damage(0); candidates.len()];
         let mut contacts = Vec::new();
         let mut lanes = Vec::new();
         for (index, candidate) in candidates.iter().enumerate() {
-            if self.stopped() {
-                return Err("search interrupted".into());
-            }
-            match self.set_admission(candidate, request, work).and_then(|()| {
-                self.engine.prepare_device_contact(candidate, self.pack, &request.limits, work)
-            }) {
+            check_stopped()?;
+            match self.prepare_candidate(candidate, request, work)
+                .and_then(PreparedCandidate::device_contact) {
                 Ok(Some(words)) => {
                     contacts.push(words);
                     lanes.push(index);
@@ -2111,13 +2134,9 @@ impl<'a> Search<'a> {
                 Err(outcome) => outcomes[index] = outcome,
             }
         }
-        if self.stopped() {
-            return Err("search interrupted".into());
-        }
+        check_stopped()?;
         let scores = device.run(&contacts)?;
-        if self.stopped() {
-            return Err("search interrupted".into());
-        }
+        check_stopped()?;
         for (index, score) in lanes.into_iter().zip(scores) {
             let damage = f32::from_bits(score.damage.total);
             outcomes[index] = if score.bail != 0 {

@@ -54,3 +54,13 @@ assignment. The package pipeline and actual live character refresh for
 this new worktree are separate acceptance stages.
 
 [Native verification harness](../../apps/tauri/verify-required-set-loadout.mjs)
+
+
+## Prepared CUDA packet reuse
+
+The desktop uses direct CUDA submission with persistent device buffers.
+The standalone runner's `--cuda-reuse` flag enables experimental full
+packet reuse. Across the retained 86,160-outfit set search, that option
+saved 482 submissions and added about 0.56 seconds of cache handling.
+CPU read-certificate reuse stays enabled. Both GPU modes preserve the
+same eligibility, damage and ranking contract.

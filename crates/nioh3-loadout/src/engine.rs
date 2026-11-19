@@ -12,9 +12,14 @@ use std::sync::{Arc, OnceLock};
 #[path = "event_program.rs"]
 mod event_program;
 use event_program::{EventProgram, ExecutionEvent};
+#[path = "prepared_overlay.rs"]
+mod prepared_overlay;
 #[cfg(test)]
 #[path = "legacy_source_guard_tests.rs"]
 mod legacy_source_guard_tests;
+#[cfg(test)]
+#[path = "shared_preparation_tests.rs"]
+mod shared_preparation_tests;
 
 pub const ITEM: usize = 0xE8;
 const BANK: usize = 0xF70;
@@ -221,6 +226,50 @@ pub struct Work {
     character: Character,
     writes: Vec<(u64, u32)>,
     weapon_swaps: Vec<(u32, usize)>,
+    preparation_stats: PreparationStats,
+}
+
+/// Attempted host preparation stages in this scratch owner. These counters
+/// describe real pipeline work, independently of whether MAIN executes or a
+/// certificate reuses its result. They never change search coverage counts.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
+pub struct PreparationStats {
+    pub pipeline_runs: u64,
+    pub frame_preparations: u64,
+    pub set_checks: u64,
+    pub shared_pipeline_uses: u64,
+}
+
+impl Work {
+    pub fn preparation_stats(&self) -> PreparationStats {
+        self.preparation_stats
+    }
+
+    pub fn reset_preparation_stats(&mut self) {
+        self.preparation_stats = PreparationStats::default();
+    }
+}
+
+/// An admitted, fully prepared candidate. Keeping the exclusive scratch
+/// borrow until scoring prevents another candidate, context or packet from
+/// replacing the state between its set check and evaluation.
+pub(crate) struct PreparedCandidate<'a> {
+    engine: &'a Engine,
+    work: &'a mut Work,
+}
+
+impl PreparedCandidate<'_> {
+    pub(crate) fn evaluate(self) -> Outcome {
+        self.engine.evaluate_prepared(self.work, None)
+    }
+
+    pub(crate) fn evaluate_with_bound(self, bounds: &mut ReadBounds) -> SweepOutcome {
+        self.engine.evaluate_prepared_with_bound(self.work, bounds)
+    }
+
+    pub(crate) fn device_contact(self) -> Result<Option<Vec<(u64, u32)>>, Outcome> {
+        self.engine.prepared_device_contact(self.work)
+    }
 }
 
 pub(crate) enum SweepOutcome {
@@ -244,6 +293,9 @@ struct ReadShape {
 /// certifies a score only after all writes in the candidate were validated.
 pub(crate) struct ReadBounds {
     overlay: Vec<(u64, u8)>,
+    overlay_layout: prepared_overlay::WriteLayout,
+    overlay_layout_rebuilds: u64,
+    overlay_layout_reuses: u64,
     trace: InputTrace,
     shapes: Vec<ReadShape>,
     lookup: ReadKey,
@@ -257,6 +309,9 @@ impl ReadBounds {
     pub(crate) fn new() -> Self {
         Self {
             overlay: Vec::new(),
+            overlay_layout: prepared_overlay::WriteLayout::default(),
+            overlay_layout_rebuilds: 0,
+            overlay_layout_reuses: 0,
             trace: InputTrace {
                 buffer: vec![0; 4096].into_boxed_slice(),
                 addresses: Vec::new(),
@@ -271,14 +326,15 @@ impl ReadBounds {
     }
 
     fn prepare_overlay(&mut self, writes: &[(u64, u32)]) {
-        self.overlay.clear();
-        for &(address, word) in writes.iter().rev() {
-            for (offset, byte) in word.to_le_bytes().into_iter().enumerate() {
-                self.overlay.push((address + offset as u64, byte));
-            }
+        if self.overlay_layout.fill(writes, &mut self.overlay) {
+            self.overlay_layout_rebuilds += 1;
+        } else {
+            self.overlay_layout_reuses += 1;
         }
-        self.overlay.sort_by_key(|&(address, _)| address);
-        self.overlay.dedup_by_key(|(address, _)| *address);
+    }
+
+    pub(crate) fn overlay_layout_counts(&self) -> (u64, u64) {
+        (self.overlay_layout_rebuilds, self.overlay_layout_reuses)
     }
 
     fn input_byte(overlay: &[(u64, u8)], address: u64) -> Option<u8> {
@@ -966,11 +1022,7 @@ impl Engine {
         pack: &Backpack,
         w: &mut Work,
     ) -> Result<[Vec<crate::context::CoreEntry>; 2], &'static str> {
-        self.check_legacy_attributes(&c.attrs)?;
-        self.wear(c, pack, w);
-        self.tables
-            .pipeline(&self.frame, &w.character, &c.attrs, &[], &mut w.scratch)?;
-        self.check_legacy_source(&w.scratch)?;
+        self.prepare_equipment(c, pack, &[], w)?;
         Ok(w.scratch.source.maps.each_ref().map(|entries| {
             entries
                 .iter()
@@ -1001,11 +1053,7 @@ impl Engine {
         pack: &Backpack,
         w: &mut Work,
     ) -> Result<SetState, &'static str> {
-        self.check_legacy_attributes(&c.attrs)?;
-        self.wear(c, pack, w);
-        self.tables
-            .pipeline(&self.frame, &w.character, &c.attrs, &[], &mut w.scratch)?;
-        self.check_legacy_source(&w.scratch)?;
+        self.prepare_equipment(c, pack, &[], w)?;
         Ok(w.scratch.source.set_state())
     }
 
@@ -1128,8 +1176,13 @@ impl Engine {
         crate::gpu::MainDevice::open(&self.dir, context)
     }
 
-    /// Share the exact candidate and packet builder with the CPU route. A
-    /// device lane represents one executable scored contact of this objective.
+    pub(crate) fn open_prepared_cpu(&self) -> Result<crate::gpu::MainCpu, String> {
+        let context = self.context.as_ref().ok_or("prepared CPU MAIN scene missing")?;
+        crate::gpu::MainCpu::open(&self.dir, context)
+    }
+
+    /// Unfused reference entry retained for the explicit host acceptance audit.
+    /// Production search uses PreparedCandidate::device_contact instead.
     pub(crate) fn prepare_device_contact(
         &self,
         candidate: &Candidate,
@@ -1138,6 +1191,15 @@ impl Engine {
         work: &mut Work,
     ) -> Result<Option<Vec<(u64, u32)>>, Outcome> {
         self.prepare_eligible(candidate, pack, limits, work)?;
+        self.prepared_device_contact(work)
+    }
+
+    /// Share the exact candidate and packet builder with the CPU route. A
+    /// device lane represents one executable scored contact of this objective.
+    fn prepared_device_contact(
+        &self,
+        work: &mut Work,
+    ) -> Result<Option<Vec<(u64, u32)>>, Outcome> {
         let events = self.execution_events(work).map_err(Outcome::Refused)?;
         let [event] = events.as_slice() else {
             return Err(Outcome::Refused("prepared CUDA objective is not a single contact"));
@@ -1163,6 +1225,7 @@ impl Engine {
             character: self.character.clone(),
             writes: Vec::with_capacity(0x900),
             weapon_swaps: Vec::new(),
+            preparation_stats: PreparationStats::default(),
         }
     }
 
@@ -1224,17 +1287,33 @@ impl Engine {
         }
     }
 
-    fn prepare(&self, c: &Candidate, pack: &Backpack, w: &mut Work) -> Result<(), &'static str> {
+    fn prepare_equipment(
+        &self,
+        c: &Candidate,
+        pack: &Backpack,
+        ops: &[(u16, i64)],
+        w: &mut Work,
+    ) -> Result<(), &'static str> {
         self.check_legacy_attributes(&c.attrs)?;
         self.wear(c, pack, w);
+        w.preparation_stats.pipeline_runs += 1;
         self.tables.pipeline(
             &self.frame,
             &w.character,
             &c.attrs,
-            &self.ops,
+            ops,
             &mut w.scratch,
         )?;
-        self.check_legacy_source(&w.scratch)?;
+        self.check_legacy_source(&w.scratch)
+    }
+
+    fn prepare(&self, c: &Candidate, pack: &Backpack, w: &mut Work) -> Result<(), &'static str> {
+        self.prepare_equipment(c, pack, &self.ops, w)?;
+        self.prepare_frame(c, w)
+    }
+
+    fn prepare_frame(&self, c: &Candidate, w: &mut Work) -> Result<(), &'static str> {
+        w.preparation_stats.frame_preparations += 1;
         self.tables.frame_writes(
             &self.frame,
             &w.character,
@@ -1482,6 +1561,10 @@ impl Engine {
         w: &mut Work,
     ) -> Result<(), Outcome> {
         self.prepare(c, pack, w).map_err(Outcome::Refused)?;
+        self.check_limits(c, limits, w)
+    }
+
+    fn check_limits(&self, c: &Candidate, limits: &Limits, w: &Work) -> Result<(), Outcome> {
         let facts = self.read_facts(c, w);
         if facts.load > limits.max_load
             || facts.defense < limits.min_defense
@@ -1490,6 +1573,41 @@ impl Engine {
             return Err(Outcome::OutsideLimits);
         }
         Ok(())
+    }
+
+    /// Preserve native admission order while sharing the completed equipment
+    /// stage with scoring. Dynamic SOURCE prohibits profile operations, so the
+    /// actual captured CPU/CUDA route runs the equipment pipeline once.
+    ///
+    /// Older recorded bundles can have profile operations. Their set predicate
+    /// must still see the empty-ops pipeline first, and a failed set predicate
+    /// must precede any ops/frame failure. Keep the old second pipeline in that
+    /// compatibility case instead of silently changing failure classification.
+    pub(crate) fn prepare_for_search<'a>(
+        &'a self,
+        c: &Candidate,
+        pack: &Backpack,
+        limits: &Limits,
+        w: &'a mut Work,
+        set_admission: Option<impl FnOnce(&SetState) -> bool>,
+    ) -> Result<PreparedCandidate<'a>, Outcome> {
+        if let Some(admit) = set_admission {
+            self.prepare_equipment(c, pack, &[], w).map_err(Outcome::Refused)?;
+            w.preparation_stats.set_checks += 1;
+            if !admit(&w.scratch.source.set_state()) {
+                return Err(Outcome::OutsideLimits);
+            }
+            if self.ops.is_empty() {
+                w.preparation_stats.shared_pipeline_uses += 1;
+                self.prepare_frame(c, w).map_err(Outcome::Refused)?;
+            } else {
+                self.prepare(c, pack, w).map_err(Outcome::Refused)?;
+            }
+        } else {
+            self.prepare(c, pack, w).map_err(Outcome::Refused)?;
+        }
+        self.check_limits(c, limits, w)?;
+        Ok(PreparedCandidate { engine: self, work: w })
     }
 
     pub fn evaluate(
@@ -1586,6 +1704,7 @@ impl Engine {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn evaluate_with_bound(
         &self,
         c: &Candidate,
@@ -1597,6 +1716,10 @@ impl Engine {
         if let Err(outcome) = self.prepare_eligible(c, pack, limits, w) {
             return SweepOutcome::Executed(outcome);
         }
+        self.evaluate_prepared_with_bound(w, bounds)
+    }
+
+    fn evaluate_prepared_with_bound(&self, w: &mut Work, bounds: &mut ReadBounds) -> SweepOutcome {
         if self
             .event_program
             .as_ref()

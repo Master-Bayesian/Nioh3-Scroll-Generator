@@ -82,8 +82,11 @@ pub(super) fn run(
     while state.completed < planned {
         check_cancelled()?;
         sweep
-            .advance(&mut state, 2048)
+            .advance_controlled(&mut state, 2048, &|| {
+                observer.is_some_and(SearchObserver::cancelled)
+            })
             .map_err(HostError::rejected)?;
+        check_cancelled()?;
         publish(SearchStage::Evaluation, state.completed);
     }
     check_cancelled()?;
