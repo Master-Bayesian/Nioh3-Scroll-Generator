@@ -51,7 +51,14 @@ try {
   });
   await page.getByRole('button',{name:'配装优化',exact:true}).click();
   await page.waitForFunction(() => !!window.__refreshJob,null,{timeout:60000});
+  const first = await page.evaluate(() => window.__refreshJob);
+  report.firstRead = {id:first.job_id, state:first.state, reason:first.result?.reason, source:first.result?.source};
+  assert.equal(first.state,'completed',JSON.stringify(first.error));
+  await page.getByRole('button',{name:'刷新角色状态',exact:true}).click();
+  await page.waitForFunction(previous => window.__refreshJob?.job_id !== previous, first.job_id, {timeout:60000});
   const job = await page.evaluate(() => window.__refreshJob);
+  assert.notEqual(job.job_id,first.job_id);
+  report.refreshJobId = job.job_id;
   report.job = {state:job.state,error:job.error,source:job.result?.source,reason:job.result?.reason,
     contextState:job.result?.state,bundle:job.result?.bundle,level:job.result?.level};
   assert.equal(job.state,'completed',JSON.stringify(job.error));
