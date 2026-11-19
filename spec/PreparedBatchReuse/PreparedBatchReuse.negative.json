@@ -1,0 +1,44 @@
+[
+  {
+    "name": "ReuseInFlight",
+    "overrides": {
+      "Fault": "ReuseInFlight"
+    },
+    "expected": "Invariant NoReuseBeforeJoin is violated."
+  },
+  {
+    "name": "DestroyInFlight",
+    "overrides": {
+      "Fault": "DestroyInFlight"
+    },
+    "expected": "Invariant BufferLivesUntilJoin is violated."
+  },
+  {
+    "name": "PublishCancelled",
+    "overrides": {
+      "Fault": "PublishCancelled"
+    },
+    "expected": "Invariant NoCancelledCommit is violated."
+  },
+  {
+    "name": "PublishFailed",
+    "overrides": {
+      "Fault": "PublishFailed"
+    },
+    "expected": "Invariant NoFailedCommit is violated."
+  },
+  {
+    "name": "CacheIncomplete",
+    "overrides": {
+      "Fault": "CacheIncomplete"
+    },
+    "expected": "Invariant CachedAnswersExact is violated."
+  },
+  {
+    "name": "HashOnly",
+    "overrides": {
+      "Fault": "HashOnly"
+    },
+    "expected": "Invariant CompletedAnswersExact is violated."
+  }
+]

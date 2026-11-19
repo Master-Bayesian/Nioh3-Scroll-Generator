@@ -50,9 +50,15 @@ foreach ($spec in $specs | Where-Object { $Model.Count -eq 0 -or $_.BaseName -in
     foreach ($control in @(Get-Content -LiteralPath $controls -Raw | ConvertFrom-Json)) {
         $faulty = $configuration
         foreach ($property in $control.overrides.PSObject.Properties) {
-            $pattern = '(?m)(\b' + [regex]::Escape($property.Name) + '\s*=\s*)(TRUE|FALSE)\b'
-            if (-not [regex]::IsMatch($faulty,$pattern)) { throw "Control override missing: $($property.Name) in $($spec.Name)" }
-            $replacement = if ($property.Value) { 'TRUE' } else { 'FALSE' }
+            $key = [regex]::Escape($property.Name)
+            if ($property.Value -is [bool]) {
+                $pattern = '(?m)(\b' + $key + '\s*=\s*)(TRUE|FALSE)\b'
+                $replacement = if ($property.Value) { 'TRUE' } else { 'FALSE' }
+            } elseif ($property.Value -is [string] -and $property.Value -cmatch '^[A-Za-z][A-Za-z0-9]*$') {
+                $pattern = '(?m)(\b' + $key + '\s*=\s*)"None"'
+                $replacement = '"' + $property.Value + '"'
+            } else { throw "Invalid fault value for $($property.Name)" }
+            if ([regex]::Matches($faulty,$pattern).Count -ne 1) { throw "Expected one control override for $($property.Name) in $($spec.Name)" }
             $faulty = [regex]::Replace($faulty,$pattern,('`${1}' + $replacement).Replace('`',''))
         }
         Check-Model $spec $control.name $faulty $control.expected

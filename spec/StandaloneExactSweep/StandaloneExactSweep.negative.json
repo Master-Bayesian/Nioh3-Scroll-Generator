@@ -1,0 +1,30 @@
+[
+  {
+    "name": "DropReduction",
+    "overrides": {
+      "Fault": "DropReduction"
+    },
+    "expected": "Invariant NoEligibleExcluded is violated."
+  },
+  {
+    "name": "CursorOnly",
+    "overrides": {
+      "Fault": "CursorOnly"
+    },
+    "expected": "Invariant CoverageMatchesOutcomes is violated."
+  },
+  {
+    "name": "IgnoreRefusal",
+    "overrides": {
+      "Fault": "IgnoreRefusal"
+    },
+    "expected": "Invariant CompleteRequiresEveryAnswer is violated."
+  },
+  {
+    "name": "WrongDomain",
+    "overrides": {
+      "Fault": "WrongDomain"
+    },
+    "expected": "Invariant ResumeUsesOriginalDomain is violated."
+  }
+]
