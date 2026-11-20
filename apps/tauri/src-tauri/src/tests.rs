@@ -458,7 +458,7 @@ async fn a_broken_pipe_reclaims_the_readonly_search_worker() {
     let broker = Broker::new(root, data.clone(), false);
     let host = broker.host("offline_search").await.unwrap();
     host.handshake().await.unwrap();
-    host.disconnect_for_test().await;
+    host.disconnect_with_held_input_for_test().await;
     for _ in 0..200 {
         if host.can_replace().await {
             break;

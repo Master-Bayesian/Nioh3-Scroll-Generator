@@ -4,14 +4,14 @@ param([string]$Evidence = $env:NIOH3_QUALITY_EVIDENCE, [string]$Java = 'java', [
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 $version = 'v1.8.0'
-# Official v1.8.0 asset digest independently verified through GitHub's release API
-# after its 2026-11-15 asset replacement (4,510,884 bytes).
-$sha256 = '7E53AA636DAC8A3CB0533F343115C0548E03FC0CE5EDC7739BECF58D3D0FB84F'
+# Official v1.8.0 asset 768714348, verified against GitHub's asset metadata
+# and downloaded bytes after the 2026-11-19 replacement (4,510,915 bytes).
+$sha256 = 'FDFFEF247F563EF6EDBFD44958D2A82DB79E7564E07CB673262D896353FA6713'
 $root = if ($env:NIOH3_BUILD_ROOT) { $env:NIOH3_BUILD_ROOT } elseif ($env:RUNNER_TEMP) { Join-Path $env:RUNNER_TEMP 'nioh3-quality' } else { 'D:/Nioh3_v080_deliverables' }
 $cache = Join-Path $root 'tools/tla'
 if (-not $Evidence) { $Evidence = Join-Path $root 'deliverables/quality-controls' }
 New-Item -ItemType Directory -Force $cache,$Evidence | Out-Null
-$jar = Join-Path $cache 'tla2tools.jar'
+$jar = Join-Path $cache "tla2tools-$sha256.jar"
 if (-not (Test-Path -LiteralPath $jar)) { Invoke-WebRequest "https://github.com/tlaplus/tlaplus/releases/download/$version/tla2tools.jar" -OutFile $jar }
 if ((Get-FileHash -LiteralPath $jar -Algorithm SHA256).Hash -ne $sha256) { throw 'tla2tools.jar does not match the pinned digest' }
 $run = Join-Path $cache ('check-' + [guid]::NewGuid().ToString('N'))
