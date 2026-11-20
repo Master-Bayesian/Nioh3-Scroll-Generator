@@ -167,6 +167,39 @@ pub(crate) fn read(
 }
 
 impl SourceRead {
+    #[cfg(test)]
+    pub(crate) fn replay_observed_outfit(
+        &self,
+        current: &CombatSnapshot,
+        other: &[u8],
+    ) -> Result<Value, HostError> {
+        let rules = SourceRules {
+            prefix: &self.prefix,
+            guardians: &self.guardians,
+            active_guardian: self.active_guardian,
+            guardian_requirement: self.guardian_requirement,
+            cores: &self.cores,
+            late_clan: &self.late,
+            reference_inventory: &current.inputs.inventory,
+            post_record_present: self.post,
+        };
+        let maps = rules
+            .rebuild_maps(
+                &self.tables,
+                SourceOutfit {
+                    inventory: other,
+                    active: current.inputs.active_bank as usize,
+                    mode: current.inputs.mode,
+                    cap: self.cap,
+                },
+                &current.inputs.raw_attrs,
+            )
+            .map_err(HostError::rejected)?;
+        Ok(json!(maps[current.inputs.mode as usize]
+            .iter()
+            .map(|e| [u32::from(e.key), e.base, u32::from(e.dup)])
+            .collect::<Vec<_>>()))
+    }
     pub fn matched(&self) -> bool {
         self.core_matches && self.selected_matches
     }

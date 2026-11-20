@@ -58,6 +58,32 @@ fn first_use_sources_from_ordinary_memory() {
         );
     }
     let native = read_json(&path("program"));
+    if let Some(controls) = case["alternate_source_controls"].as_array() {
+        let mut rows = Vec::new();
+        for control in controls {
+            let inventory = fs::read(control["inventory"].as_str().unwrap()).unwrap();
+            assert_ne!(inventory, snapshot.inputs.inventory);
+            let maps = projected
+                .replay_observed_outfit(&snapshot, &inventory)
+                .unwrap();
+            assert_eq!(
+                maps, control["native_core"],
+                "independent core {}",
+                control["capture"]
+            );
+            assert_eq!(
+                maps, control["native_selected"],
+                "independent selected {}",
+                control["capture"]
+            );
+            rows.push(json!({"capture":control["capture"],"native_entries":maps.as_array().unwrap().len(),"both_match":true}));
+        }
+        fs::write(
+            dir.join("alternate-upstream.json"),
+            serde_json::to_vec_pretty(&rows).unwrap(),
+        )
+        .unwrap();
+    }
     fs::write(
         dir.join("produced.json"),
         serde_json::to_vec(&projected.report()).unwrap(),
