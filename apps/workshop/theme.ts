@@ -37,3 +37,35 @@ export function useTheme(): [Theme, (theme: Theme) => void] {
     }
   }];
 }
+
+type Skin = "default" | "naiwa";
+const SKIN_STORAGE = "nioh3-skin";
+
+function storedSkin(): Skin {
+  try {
+    return localStorage.getItem(SKIN_STORAGE) === "naiwa" ? "naiwa" : "default";
+  } catch {
+    return "default";
+  }
+}
+
+function applySkin(skin: Skin) {
+  if (skin === "default") delete document.documentElement.dataset.skin;
+  else document.documentElement.dataset.skin = skin;
+}
+
+applySkin(storedSkin());
+
+export function useSkin(): [Skin, (skin: Skin) => void] {
+  const [skin, setSkin] = useState(storedSkin);
+  return [skin, next => {
+    setSkin(next);
+    applySkin(next);
+    try {
+      if (next === "default") localStorage.removeItem(SKIN_STORAGE);
+      else localStorage.setItem(SKIN_STORAGE, next);
+    } catch {
+      // The choice still holds for this session.
+    }
+  }];
+}

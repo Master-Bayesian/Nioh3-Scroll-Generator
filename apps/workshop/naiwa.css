@@ -1,0 +1,89 @@
+:root[data-skin=naiwa] {
+  --a-page: light-dark(rgb(247 237 207), rgb(36 32 25));
+  --a-tray: light-dark(rgb(244 234 209), rgb(43 37 27));
+  --a-card: light-dark(rgb(255 253 243), rgb(48 43 34));
+  --a-fill: light-dark(rgb(244 230 194), rgb(58 50 37));
+  --a-line: light-dark(rgb(222 206 165), rgb(87 74 52));
+  --a-line2: light-dark(rgb(189 170 125), rgb(129 112 82));
+  --a-text: light-dark(rgb(56 48 34), rgb(255 244 217));
+  --a-text2: light-dark(rgb(95 77 53), rgb(224 207 173));
+  --a-mute: light-dark(rgb(118 100 70), rgb(183 167 130));
+  --a-pri: light-dark(rgb(0 112 56), rgb(0 130 65));
+  --a-prifg: white;
+  --a-hover: light-dark(rgb(50 32 8 / .06), rgb(255 226 172 / .07));
+  --a-sel: light-dark(rgb(0 139 69 / .12), rgb(255 226 172 / .12));
+  --naiwa-dot: light-dark(rgb(187 140 57 / .26), rgb(183 146 82 / .27));
+  --naiwa-light: light-dark(rgb(237 177 66 / .18), rgb(191 139 57 / .16));
+  --naiwa-accent: rgb(0 139 69);
+  --a-ok: light-dark(rgb(15 123 60), rgb(120 196 147));
+  --a-warn: light-dark(rgb(154 98 0), rgb(226 184 96));
+  --a-danger: light-dark(rgb(196 43 28), rgb(240 120 104));
+}
+
+:root[data-skin=naiwa] .settings-menu :is(.theme-choice, .menu-item),
+:root[data-skin=naiwa] .settings-menu .theme-choice button {
+  color: var(--a-text);
+}
+
+:root[data-skin=naiwa] .settings-menu .theme-choice button {
+  background-color: var(--a-fill);
+  border-color: var(--a-line);
+}
+
+:root[data-skin=naiwa] .settings-menu .theme-choice button.active {
+  background-color: var(--a-pri);
+  border-color: var(--a-pri);
+  color: var(--a-prifg);
+}
+
+:root[data-skin=naiwa] .shell {
+  background: radial-gradient(ellipse at 86% 0%, var(--naiwa-light), transparent 55%), var(--a-page);
+}
+
+html[data-skin=naiwa] .shell .nav {
+  background-image: radial-gradient(var(--naiwa-dot) .8px, transparent 1px);
+  background-size: 6px 6px;
+}
+
+html[data-skin=naiwa] .shell .nav button.active {
+  box-shadow: inset 0 -2px var(--naiwa-accent), 0 0 0 1px var(--a-line2);
+}
+
+html .settings-skin-choice {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 8px 8px;
+  color: var(--a-text);
+}
+
+html .settings-skin-choice select {
+  min-width: 116px;
+}
+
+html .topbar .toplinks .naiwa-button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  padding: 0;
+  border-radius: 10px;
+  background-color: var(--a-fill);
+}
+
+.naiwa-button img {
+  width: 29px;
+  height: 29px;
+  object-fit: contain;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .naiwa-button.is-laughing img {
+    animation: naiwa-laugh 220ms ease-in-out infinite alternate;
+  }
+
+  @keyframes naiwa-laugh {
+    from { transform: rotate(-9deg) scale(1.02); }
+    to { transform: rotate(9deg) scale(.95); }
+  }
+}
