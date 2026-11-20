@@ -413,10 +413,11 @@ def main(argv: list[str] | None = None) -> int:
     if body.get("assets"):
         try:
             loadout = artifact_report(args.directory / asset_names(args.version)[0])
-            if loadout["scenes"]:
-                if args.loadout_host_receipt is None:
-                    raise ValueError("Optimizer release requires --loadout-host-receipt bound to the final EXE")
-                verify_host_receipt(loadout, json.loads(args.loadout_host_receipt.read_bytes()))
+            if not loadout["scenes"]:
+                raise ValueError("Optimizer release has no shipped attack scene")
+            if args.loadout_host_receipt is None:
+                raise ValueError("Optimizer release requires --loadout-host-receipt bound to the final EXE")
+            verify_host_receipt(loadout, json.loads(args.loadout_host_receipt.read_bytes()))
             report.record("packaged_loadout_numerical_e2e", True, "whole-scene identity and final EXE host receipt verified")
             body["loadout"] = loadout
         except (OSError, ValueError, KeyError, TypeError) as error:

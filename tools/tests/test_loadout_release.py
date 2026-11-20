@@ -11,6 +11,8 @@ import hashlib
 import io
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 import struct
 import tempfile
@@ -128,6 +130,14 @@ class LoadoutReleaseTests(unittest.TestCase):
         report = gate.verify_scene(bound_scene(), "kusarigama-strong", COMMIT)
         self.assertTrue(report["host_e2e_required"])
         self.assertIn("nk_main_device_open", report["exports"]["main_device.dll"])
+
+    def test_static_cli_rejects_a_package_omitting_the_entire_optimizer(self):
+        package = self.root / "empty-scene.zip"
+        portable(package, {})
+        result = subprocess.run([sys.executable, gate.__file__, "check", str(package)],
+                                capture_output=True, text=True, check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("at least one shipped scene", json.loads(result.stdout)["error"])
 
     def test_old_cpu_only_package_is_rejected_before_wrapping(self):
         files = bound_scene(); del files["main_device.dll"]

@@ -313,12 +313,14 @@ def main() -> int:
             report = seal(args.scene, args.generated_main, args.app_commit, args.native_commit)
         else:
             report = artifact_report(args.artifact)
+            need(bool(report["scenes"]), "optimizer acceptance requires at least one shipped scene")
             if args.require_host_e2e or args.host_receipt:
                 need(args.host_receipt is not None, "final release requires --host-receipt from packaged numerical E2E")
                 verify_host_receipt(report, json.loads(args.host_receipt.read_bytes()))
                 report["host_e2e_passed"] = True
+                report["release_ready"] = True
             else:
-                report["release_ready"] = not report["scenes"]
+                report["release_ready"] = False
                 report["host_e2e_passed"] = False
     except (OSError, ValueError, KeyError, TypeError, struct.error, zipfile.BadZipFile) as error:
         report = {"passed": False, "error": str(error), "exception": type(error).__name__}
