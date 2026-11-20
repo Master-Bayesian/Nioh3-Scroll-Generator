@@ -112,7 +112,10 @@ export function executeTask(root, task, out, context) {
     case 'rust-test':
       if (task.manifest.startsWith('apps/tauri/')) mkdirSync(resolve(root, 'apps/tauri/dist'), {recursive: true});
       cargo(['fetch', '--locked', '--manifest-path', task.manifest]);
-      cargo(['test', '--locked', '--offline', '--manifest-path', task.manifest, ...task.testFeatures]);
+      cargo(['test', '--locked', '--offline', '--manifest-path', task.manifest, ...task.testFeatures,
+        // Protected integration tests spend most of their time in the save codec.
+        ...(task.id === 'rust-test:protected' ? ['--config', 'profile.test.package.nioh3-save.opt-level=2'] : []),
+      ]);
       break;
     case 'rust-static':
       if (task.manifest.startsWith('apps/tauri/')) mkdirSync(resolve(root, 'apps/tauri/dist'), {recursive: true});
