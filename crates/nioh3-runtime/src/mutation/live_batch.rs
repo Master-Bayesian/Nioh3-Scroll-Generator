@@ -292,7 +292,16 @@ impl LiveAddBatch {
                 operations.cancel(&first_id)?;
             }
             OperationState::Cancelled => {}
-            _ => return Err(rejected("Batch child already claimed for execution")),
+            OperationState::PreparingPreview
+            | OperationState::PreviewCompleted
+            | OperationState::Uncertain
+            | OperationState::Verified
+            | OperationState::RejectedBeforeDispatch
+            | OperationState::RejectedBeforeInsertion
+            | OperationState::DispatchedUnverified
+            | OperationState::RejectedAfterPreview => {
+                return Err(rejected("Batch child is not a cancellable preparation"))
+            }
         }
         ensure_cancel_record(
             &directory.join("receipt.json"),
