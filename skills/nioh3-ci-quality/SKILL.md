@@ -17,7 +17,7 @@ Deliver measured CI improvements while preserving the project's static, state-mo
 
 - Inspect the actual workflows and scripts before proposing replacements. Measure step and test durations on an identified source/profile, separating execution, setup/cache and queue time. Prioritize the longest path and duplicate event work.
 - Keep Node/tsx and Playwright. The frontend migration candidate is Oxlint's combined type-aware lint/type-check mode; Bun check is a reference/alternative. Preserve existing checks until the policy's migration acceptance passes. Rust continues to use its compiler, Clippy and rustfmt.
-- Expand applicable lint coverage and verify the current four semantic guards with their real fault controls. Do not equate a fast clean exit with equivalent file/rule coverage.
+- Expand applicable lint coverage and verify the semantic rules enabled by this checkout with their corresponding fault controls. Do not equate a fast clean exit with equivalent file/rule coverage.
 - For stateful changes, use explicit states, events, guards and outcomes; map changed TLA+ invariants/actions to code and exercise named faults. Follow the policy's evidence boundaries when native or game observations are involved.
 
 ## Implement CI changes

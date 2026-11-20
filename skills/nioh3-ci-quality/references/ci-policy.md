@@ -25,7 +25,7 @@ The baseline inspected at product 0.8.12 uses Node 24/npm, TypeScript 5.9.3, ESL
 
 Enable applicable correctness, suspicious, performance, React and type-aware rules broadly. Keep necessary exceptions narrow and explained. Do not blindly enable contradictory rule groups: Clippy explicitly discourages enabling the whole `restriction` group.
 
-The current frontend baseline explicitly enforces these four semantic rules and has positive, negative and disabled-rule controls:
+The recorded frontend baseline enforced these four semantic rules and has positive, negative and disabled-rule controls:
 
 - Exhaustive finite-state switches, including a control where a default branch must not hide an omitted state.
 - Unhandled/floating promises.
@@ -50,6 +50,8 @@ Treat these as separate datasets:
 - **Dependency/input map:** which code, data, generated files, binaries or configuration can affect a test.
 
 Do not confuse a duration map with dependency tracing. Heavy tests that mount the real route tree legitimately remain selected for many changes. Use sharding to reduce that path rather than removing their coverage.
+
+For a Rust test-runtime hotspot, benchmark a package-specific test profile on the supported CI runner with a fresh compiled target and again after compilation. Require identical passing test identities and compare full workflow latency, cumulative runner time, compile time and cache behavior. Scope an accepted override to the measured CI task and record reproducible commands and raw evidence in the change.
 
 ## 4. PR selection and full-run rules
 
@@ -85,7 +87,7 @@ Represent selection with named `Full`, `Affected` and `Blocked` variants and exp
 - Run independent static gates and test shards concurrently. Keep genuine declaration/build/native-worker prerequisites in the DAG. Avoid simultaneous generation into shared paths or Cargo invocations contending for one mutable target.
 - Use isolated mutable state, ports, output directories and owned synthetic saves per job/test as applicable. Cache build artifacts, dependencies, graphs and timing data with complete identities; do not cache or fabricate a current pass verdict.
 - Remove redundant development-branch push/PR full runs while preserving PR, main, merge-queue and explicitly requested validation. Do not cancel required final-source validation merely to improve a timing number.
-- Rust may shard by manifest and heavy E2E boundary with appropriate features and target coverage. The current seven-manifest CI baseline omits a separate launcher static job; the target inventory must account for the six crates plus Tauri and the one-file launcher, preserving its native release acceptance.
+- Rust may shard by manifest and heavy E2E boundary with appropriate features and target coverage. Derive the manifest inventory from the checkout, including runtime dependencies such as the loadout engine, Tauri and the one-file launcher. Check each manifest with its own applicable tests, Clippy targets and format check. Building a dependency through another crate skips its tests. Record any external fixture or hardware requirements with the corresponding profile.
 
 ## 6. Final gate and evidence
 
