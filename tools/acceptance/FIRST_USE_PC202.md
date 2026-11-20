@@ -1,5 +1,20 @@
 # First-use outfit search on PC 2.02
 
+The cross-weapon candidate also registers katana mid quick/strong/Sword Ki,
+odachi mid quick/strong and dual swords mid quick. The ordinary reader uses
+a role-scoped read map and the selected action's own parameter/row list.
+REA/Ghidra and the original instructions at 2E98F0 and 2E9948 confirm the
+row-list address, start and count. Test the same role with multiple choices
+while the player remains idle. The host export accepts `--scene ID`.
+
+Build the three canonical scorer groups, then stage the six Samurai choices
+with `tools/materialize_loadout_scenes.py` beside the sealed kusarigama
+bundle. Pass the resulting scene directory to `tools/build_tauri.ps1
+-LoadoutRuntime`. The final host check selects each requested scene through
+the normal picker. A partial player receipt verifies only its named scene.
+Run `tools/check_models.ps1 -Model FixedContactRanking` to check candidate
+ownership, contact order and cancellation in the batched rank merge.
+
 The first supported fresh profile is a Ninja holding a kusarigama in slot one, using the first direct strong hit against the fixed training warrior. The app reads the current role, verifies its worn records against the selected save and builds an in-memory context. It requires no imported character directory, source epoch file, debugger or live attack. Existing verified epochs remain a separate acquisition route.
 
 The ordinary reader reconstructs elixir and regional ranks, clan/title effects, three area layers, configured passive skills and slotted skills in native order. It reads the two guardian definitions, eight core records, unlock curve and the native post-equipment selectors. The active core and selected SOURCE maps are compared in order, including zero values and duplicate contributions. Scoring uses the declared progress-rank branch. A transient skill descriptor from a different native rebuild is not observed by an ordinary read. The UI reports the conditional model scope.
