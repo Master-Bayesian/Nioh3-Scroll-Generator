@@ -23,6 +23,7 @@ const browser = [
 export const locales = ['zh-CN', 'en-US', 'ja-JP'];
 
 const nonNormalScripts = {
+  'tools/ui-audit/verify-scroll-editor-input.mjs':'Retained v0.8.13 manual maintenance acceptance for scroll entry and save identity; outside the current main CI profile.',
   'apps/workshop/verify-collection-layout.mjs':'Imported by the normal roster/recovery UI acceptance.',
   'apps/workshop/verify-model.ts':'Retained manual model probe; TypeScript source is typechecked.',
   'apps/workshop/verify-groups.mjs':'Retained manual UI audit outside the baseline normal profile.',
